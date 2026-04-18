@@ -53,11 +53,19 @@ Build the plugin with `pnpm run build`, then copy the generated plugin files int
 - `pnpm test`
 - `pnpm run build`
 
-## Credentials and Privacy
+## Credential storage and privacy
 
-- No RetroAchievements credentials are committed to the repository.
-- Provider credentials are stored at runtime through Decky storage.
-- `dist/` is a generated build output and is intentionally ignored from source control.
+Achievement Companion stores RetroAchievements credentials locally on the Steam Deck using the Steam/Decky Chromium frontend storage.
+
+On a tested Steam Deck, the saved provider config was found under Steam’s `htmlcache` Local Storage LevelDB profile, for example:
+
+`/home/deck/.local/share/Steam/config/htmlcache/Default/Local Storage/leveldb/`
+
+The stored provider config contains the RetroAchievements username and API key entered in the plugin setup screen.
+
+Credentials are not stored in this repository, are not included in the release package, and are only used locally by the plugin to call RetroAchievements API endpoints.
+
+RetroAchievements API requests include the API key as required by the RetroAchievements API. Achievement Companion requests those API responses with `no-store` / `no-cache` fetch options to reduce retention of authenticated request data in Steam/CEF HTTP cache.
 
 ## Legal / Third-Party Notices
 
