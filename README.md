@@ -65,7 +65,7 @@ The stored provider config contains the RetroAchievements username and API key e
 
 Credentials are not stored in this repository, are not included in the release package, and are only used locally by the plugin to call RetroAchievements API endpoints.
 
-RetroAchievements API requests include the API key as required by the RetroAchievements API. Achievement Companion requests those API responses with `no-store` / `no-cache` fetch options to reduce retention of authenticated request data in Steam/CEF HTTP cache.
+RetroAchievements API requests include the API key as required by the RetroAchievements API. Achievement Companion requests those API responses with the fetch `no-store` cache mode to reduce retention of authenticated request data in Steam/CEF HTTP cache without adding custom request headers.
 
 ## Legal / Third-Party Notices
 
