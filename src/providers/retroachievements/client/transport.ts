@@ -56,9 +56,12 @@ export function createFetchRetroAchievementsTransport(
 
       const headers = new Headers(init?.headers);
       headers.set("Accept", "application/json");
+      headers.set("Cache-Control", "no-store");
+      headers.set("Pragma", "no-cache");
 
       const response = await fetchImpl(url, {
         ...init,
+        cache: "no-store",
         method: init?.method ?? "GET",
         headers,
       });
