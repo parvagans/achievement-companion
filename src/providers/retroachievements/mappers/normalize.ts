@@ -140,11 +140,57 @@ function coerceEpochMs(value: unknown): number | undefined {
       return Math.trunc(numericValue);
     }
 
-    const parsedDate = Date.parse(value);
-    return Number.isFinite(parsedDate) ? parsedDate : undefined;
+    return parseRetroAchievementsTimestamp(value);
   }
 
   return undefined;
+}
+
+function parseRetroAchievementsTimestamp(value: string): number | undefined {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    return undefined;
+  }
+
+  const explicitTimezoneMatch = /(?:Z|[+-]\d{2}:?\d{2})$/iu.test(trimmed);
+  if (explicitTimezoneMatch) {
+    const parsedDate = Date.parse(trimmed);
+    return Number.isFinite(parsedDate) ? parsedDate : undefined;
+  }
+
+  const match = trimmed.match(
+    /^(\d{4})-(\d{2})-(\d{2})(?:[ T])(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,3}))?$/u,
+  );
+  if (match === null) {
+    return undefined;
+  }
+
+  const [, year, month, day, hour, minute, second, fraction = "0"] = match;
+  const millisecond = Number(fraction.padEnd(3, "0"));
+  const parsedAt = Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second),
+    millisecond,
+  );
+
+  const parsedDate = new Date(parsedAt);
+  if (
+    parsedDate.getUTCFullYear() !== Number(year) ||
+    parsedDate.getUTCMonth() !== Number(month) - 1 ||
+    parsedDate.getUTCDate() !== Number(day) ||
+    parsedDate.getUTCHours() !== Number(hour) ||
+    parsedDate.getUTCMinutes() !== Number(minute) ||
+    parsedDate.getUTCSeconds() !== Number(second) ||
+    parsedDate.getUTCMilliseconds() !== millisecond
+  ) {
+    return undefined;
+  }
+
+  return parsedAt;
 }
 
 function pickEpochMs(...values: unknown[]): number | undefined {

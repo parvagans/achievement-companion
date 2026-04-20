@@ -14,14 +14,14 @@ function getFallbackInitials(title: string): string {
     .filter(Boolean);
 
   if (words.length === 0) {
-    return "RA";
+    return "AC";
   }
 
   return words
     .slice(0, 2)
     .map((word) => word[0]?.toUpperCase() ?? "")
     .join("")
-    .trim() || "RA";
+    .trim() || "AC";
 }
 
 function getArtworkFrameStyle(size: number, compact: boolean): CSSProperties {

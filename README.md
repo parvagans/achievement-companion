@@ -2,49 +2,87 @@
 
 ![Steam Deck](https://img.shields.io/badge/Steam%20Deck-Game%20Mode-blue)
 ![Decky Loader](https://img.shields.io/badge/Decky%20Loader-Plugin-blueviolet)
-![Provider](https://img.shields.io/badge/Provider-RetroAchievements-orange)
-![License: MIT](https://img.shields.io/badge/License-MIT-green)
+![Version 0.2.0](https://img.shields.io/badge/Version-0.2.0-informational)
+![Provider RetroAchievements](https://img.shields.io/badge/Provider-RetroAchievements-orange)
+![Provider Steam](https://img.shields.io/badge/Provider-Steam-171a21)
 
-Achievement Companion is a Decky plugin for Steam Deck Game Mode that brings achievement progress, unlock history, and provider-specific stats into a controller-friendly interface.
+Achievement Companion brings RetroAchievements and Steam achievement progress into Steam Deck Game Mode through a provider-first Decky dashboard. It gives you compact quick views, fuller browsing screens, recent unlocks, recently played games, completion progress, and Steam library achievement totals while keeping provider API keys out of browser storage.
 
-It is structured as a provider shell. The compact Decky panel starts with a provider chooser, then opens the selected provider's dashboard and settings. RetroAchievements is the first supported provider.
+## Highlights
 
-## Features
+- RetroAchievements and Steam support in one provider-first Decky dashboard
+- Compact quick-access views plus fullscreen achievement browsing
+- Recent unlocks, recently played games, profile stats, and completion progress
+- Manual Steam full-library scan for cached account-wide achievement totals
+- Provider-specific settings for recent counts and Steam scan preferences
+- Backend-owned credential handling with secret-safe logs and frontend-safe config
 
-- Provider-first compact Decky flow
-- RetroAchievements sign-in, setup, and sign-out
-- Provider-specific settings for credentials and display preferences
-- Overview, recent achievements, recently played games, and completion progress
-- Achievement history, game detail, and achievement spotlight pages
-- Refresh and settings controls designed for Game Mode
-- Touch- and controller-friendly UI
+## Supported Providers
 
-## Current Provider Support
+### RetroAchievements
 
-- RetroAchievements
+Connect your RetroAchievements account to browse your profile, recent unlocks, recently played games, and completion progress from the Decky quick-access menu. You can also adjust how many recent achievements and recently played games appear for the provider.
 
-## Project Status
+- View your RetroAchievements profile and avatar
+- See recent unlocks with game and achievement details
+- Browse recently played games
+- Check completion and progress information where RetroAchievements provides it
+- Configure how many recent achievements and recently played games appear
 
-Achievement Companion is currently focused on RetroAchievements support and the provider-first Decky shell. The app is structured for additional providers, but RetroAchievements is the only live provider today.
+### Steam
 
-## Roadmap
+Connect your Steam Web API key and SteamID64 to view Steam achievement activity, recent games, profile progression, and full-library achievement totals from the Decky quick-access menu.
 
-Achievement Companion is being built as a provider-first achievement aggregator for Steam Deck Game Mode.
+- View Steam profile details, level, badges, and account progression where available
+- See recently played Steam games
+- Surface recent achievement unlocks from loaded or recent games
+- Run a manual full-library scan for broader achievement totals
+- Show cached full-library totals such as owned games, unlocked achievements, total achievements, perfect games, and completion percentage
+- Configure Steam display options such as recent counts, language, and played free games
 
-Planned direction:
+## Privacy and Credential Handling
 
-- Add support for additional achievement providers
-- Expand the provider chooser into a true multi-provider hub
-- Keep provider account setup and settings isolated per provider
-- Improve cross-provider dashboard summaries
-- Add richer filtering and sorting for achievement history and completion progress
-- Continue polishing controller, touch, and Game Mode navigation behavior
+Achievement Companion is designed so provider API keys do not live in the browser frontend. After you save a provider account, the frontend-facing config only receives non-secret settings such as username, SteamID64, display counts, language, and whether a key exists. Secret-bearing provider requests are handled by the backend.
 
-RetroAchievements is the first supported provider. Future providers should plug into the existing provider shell without requiring a redesign of the Decky UI.
+- Provider config: `/home/deck/homebrew/settings/achievement-companion/provider-config.json`
+- Provider secrets: `/home/deck/homebrew/settings/achievement-companion/provider-secrets.json`
+- Backend logs: `/home/deck/homebrew/logs/achievement-companion/`
+
+Additional notes:
+
+- API keys are not stored in browser localStorage/sessionStorage
+- API keys are stored separately from non-secret provider settings
+- Backend logs are designed to redact secret-like fields and provider URLs containing key or y parameters
+- Provider config is saved separately from provider secrets
+- Secret storage uses local protected/obfuscated records, not a guarantee against a compromised local account
+
+If you need to rotate or revoke an API key, do that from the provider website and then update the plugin settings on the Deck.
+
+## Steam Library Scan
+
+Steam library scanning is manual because larger Steam libraries can take several minutes to check.
+
+- The scan updates the Steam overview with the latest full-library totals
+- Cached totals include owned games, unlocked achievements, total achievements, perfect games, and completion percentage
+- Some games may be skipped or fail if Steam reports no stats, private data, or unavailable achievement data
+- Skipped or failed games are normal for some Steam libraries and do not necessarily mean the scan failed
+
+## License and Notices
+
+- Achievement Companion is not affiliated with, endorsed by, sponsored by, or approved by RetroAchievements or Valve Corporation.
+- This project is released under the MIT License. See [`LICENSE`](LICENSE).
+- Third-party dependency notes are recorded in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 ## Installation
 
-Build the plugin with `pnpm run build`, then copy the generated plugin files into Decky Loader's plugins directory using your normal Decky development workflow.
+Build and package the plugin locally, then install the generated release zip with your normal Decky Loader workflow.
+
+```bash
+pnpm install
+pnpm run build
+pnpm run package:release
+pnpm run check:release
+```
 
 ## Development
 
@@ -52,28 +90,26 @@ Build the plugin with `pnpm run build`, then copy the generated plugin files int
 - `pnpm run typecheck`
 - `pnpm test`
 - `pnpm run build`
+- `pnpm run package:release`
+- `pnpm run check:release`
 
-## Credential storage and privacy
+## Contact / Support
 
-Achievement Companion stores RetroAchievements credentials locally on the Steam Deck using the Steam/Decky Chromium frontend storage.
+Email: [`nullbit5@protonmail.com`](mailto:nullbit5@protonmail.com)
 
-On a tested Steam Deck, the saved provider config was found under Steam’s `htmlcache` Local Storage LevelDB profile, for example:
+If you prefer repository-based support, use the project issue tracker on GitHub.
 
-`/home/deck/.local/share/Steam/config/htmlcache/Default/Local Storage/leveldb/`
+## Release Layout
 
-The stored provider config contains the RetroAchievements username and API key entered in the plugin setup screen.
+The release zip is packaged as:
 
-Credentials are not stored in this repository, are not included in the release package, and are only used locally by the plugin to call RetroAchievements API endpoints.
-
-RetroAchievements API requests include the API key as required by the RetroAchievements API. Achievement Companion requests those API responses with the fetch `no-store` cache mode to reduce retention of authenticated request data in Steam/CEF HTTP cache without adding custom request headers.
-
-## Legal / Third-Party Notices
-
-- RetroAchievements is a third-party service. Achievement Companion is not affiliated with, endorsed by, or sponsored by RetroAchievements unless the maintainers state otherwise.
-- RetroAchievements names and logos belong to their respective owners.
-- Steam Deck, Steam, and Valve are trademarks of Valve Corporation. Achievement Companion is not affiliated with or endorsed by Valve.
-- Third-party dependency notes are recorded in `THIRD_PARTY_NOTICES.md`.
-
-## License
-
-MIT. See `LICENSE`.
+```text
+achievement-companion/
+  dist/index.js
+  main.py
+  package.json
+  plugin.json
+  README.md
+  LICENSE
+  THIRD_PARTY_NOTICES.md
+```

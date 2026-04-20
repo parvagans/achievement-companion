@@ -5,11 +5,7 @@ import { Field, Focusable, PanelSection, PanelSectionRow } from "@decky/ui";
 import type { CSSProperties } from "react";
 import { DeckyCompletionProgressBar, getCompletionPercent } from "./decky-completion-progress-bar";
 import { DeckyGameArtwork } from "./decky-game-artwork";
-import {
-  DECKY_FOCUS_PILL_ACTIVE_CLASS,
-  DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS,
-  DECKY_FOCUS_PILL_CLASS,
-} from "./decky-focus-styles";
+import { DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS, DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import type { CompactAchievementTarget } from "./decky-achievement-detail-view";
 import { DeckyCompactPillActionGroup, DeckyCompactPillActionItem } from "./decky-compact-pill-action-item";
 
@@ -143,90 +139,49 @@ function getAchievementBadgeFrameStyle(isUnlocked: boolean): CSSProperties {
   };
 }
 
-function getAchievementFilterButtonStyle(active: boolean): CSSProperties {
-  return {
-    flex: "1 1 0",
-    minWidth: 0,
-    appearance: "none",
-    WebkitAppearance: "none",
-    border: "none",
-    borderRadius: 999,
-    boxSizing: "border-box",
-    margin: 0,
-    backgroundImage: "none",
-    padding: "7px 10px",
-    backgroundColor: active ? "rgba(255, 255, 255, 0.16)" : "rgba(255, 255, 255, 0.04)",
-    color: active ? "rgba(255, 255, 255, 0.98)" : "rgba(255, 255, 255, 0.82)",
-    boxShadow: active ? "inset 0 0 0 1px rgba(255, 255, 255, 0.24)" : "inset 0 0 0 1px rgba(255, 255, 255, 0.08)",
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: "13px",
-    fontFamily: "inherit",
-    fontWeight: active ? 700 : 600,
-    lineHeight: 1.15,
-    whiteSpace: "nowrap",
-    textAlign: "center",
-    transition: "background-color 120ms ease, color 120ms ease, box-shadow 120ms ease",
-  };
-}
-
-function getAchievementFilterGroupStyle(): CSSProperties {
-  return {
-    display: "flex",
-    gap: 5,
-    width: "100%",
-  };
-}
-
-function getAchievementFilterWrapStyle(): CSSProperties {
-  return {
-    borderRadius: 14,
-    border: "1px solid rgba(255, 255, 255, 0.07)",
-    backgroundColor: "rgba(255, 255, 255, 0.025)",
-    padding: 3,
-    width: "100%",
-  };
-}
-
 function AchievementFilterPills({
   currentFilter,
   onSelect,
+  onCancel,
 }: {
   readonly currentFilter: AchievementFilter;
   readonly onSelect: (filter: AchievementFilter) => void;
+  readonly onCancel: () => void;
 }): JSX.Element {
   return (
-    <div style={getAchievementFilterWrapStyle()}>
-      <div role="radiogroup" aria-label="Achievement filter" style={getAchievementFilterGroupStyle()}>
-        {ACHIEVEMENT_FILTERS.map((filter) => {
-          const active = filter === currentFilter;
+    <div role="radiogroup" aria-label="Achievement filter" className={DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS}>
+      {ACHIEVEMENT_FILTERS.map((filter) => {
+        const active = filter === currentFilter;
+        const optionClassName = [
+          DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS,
+          active ? DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS : undefined,
+        ]
+          .filter((value): value is string => value !== undefined)
+          .join(" ");
 
-          return (
-            <Focusable
-              key={filter}
-              className={DECKY_FOCUS_PILL_CLASS}
-              focusClassName={DECKY_FOCUS_PILL_ACTIVE_CLASS}
-              focusWithinClassName={DECKY_FOCUS_PILL_ACTIVE_CLASS}
-              noFocusRing
-              role="radio"
-              aria-checked={active}
-              aria-label={formatAchievementFilterLabel(filter)}
-              onActivate={() => {
-                onSelect(filter);
-              }}
-              onClick={() => {
-                onSelect(filter);
-              }}
-              onFocus={scrollFocusedElementIntoView}
-              style={getAchievementFilterButtonStyle(active)}
-            >
-              {formatAchievementFilterLabel(filter)}
-            </Focusable>
-          );
-        })}
-      </div>
+        return (
+          <Focusable
+            key={filter}
+            className={optionClassName}
+            focusClassName={DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS}
+            focusWithinClassName={DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS}
+            noFocusRing
+            role="radio"
+            aria-checked={active}
+            aria-label={formatAchievementFilterLabel(filter)}
+            onActivate={() => {
+              onSelect(filter);
+            }}
+            onClick={() => {
+              onSelect(filter);
+            }}
+            onCancelButton={onCancel}
+            onFocus={scrollFocusedElementIntoView}
+          >
+            {formatAchievementFilterLabel(filter)}
+          </Focusable>
+        );
+      })}
     </div>
   );
 }
@@ -258,6 +213,7 @@ interface AchievementSectionBodyProps {
   readonly onOpenAchievementDetail: (target: CompactAchievementTarget) => void;
   readonly onLoadFiveMoreAchievements: () => void;
   readonly onShowAllAchievements: () => void;
+  readonly onBackToDashboard: () => void;
   readonly game: GameDetailSnapshot["game"];
 }
 
@@ -272,16 +228,26 @@ function AchievementSectionBody({
   onOpenAchievementDetail,
   onLoadFiveMoreAchievements,
   onShowAllAchievements,
+  onBackToDashboard,
   game,
 }: AchievementSectionBodyProps): JSX.Element {
   return (
     <>
       <PanelSectionRow>
-        <Field bottomSeparator="none" description={achievementSummary} label="Summary" />
+        <Field
+          bottomSeparator="none"
+          description={achievementSummary}
+          label="Summary"
+          onCancelButton={onBackToDashboard}
+        />
       </PanelSectionRow>
 
       <PanelSectionRow>
-        <AchievementFilterPills currentFilter={achievementFilter} onSelect={onAchievementFilterChange} />
+        <AchievementFilterPills
+          currentFilter={achievementFilter}
+          onSelect={onAchievementFilterChange}
+          onCancel={onBackToDashboard}
+        />
       </PanelSectionRow>
 
       {achievements.length > 0 ? (
@@ -295,6 +261,7 @@ function AchievementSectionBody({
                 achievementFilter,
               )}
               label="Visible"
+              onCancelButton={onBackToDashboard}
             />
           </PanelSectionRow>
 
@@ -313,6 +280,7 @@ function AchievementSectionBody({
                 verticalAlignment="center"
                 description={formatAchievementDescription(achievement)}
                 label={`${index + 1}. ${achievement.title}`}
+                onCancelButton={onBackToDashboard}
                 onActivate={() => {
                   onOpenAchievementDetail({
                     game: {
@@ -344,9 +312,10 @@ function AchievementSectionBody({
           {canLoadMoreAchievements ? (
             <PanelSectionRow>
               <DeckyCompactPillActionGroup>
-                <DeckyCompactPillActionItem
+              <DeckyCompactPillActionItem
                   label="Show 5 more"
                   onClick={onLoadFiveMoreAchievements}
+                  onCancelButton={onBackToDashboard}
                 />
               </DeckyCompactPillActionGroup>
             </PanelSectionRow>
@@ -355,9 +324,10 @@ function AchievementSectionBody({
           {canShowAllAchievements ? (
             <PanelSectionRow>
               <DeckyCompactPillActionGroup>
-                <DeckyCompactPillActionItem
+              <DeckyCompactPillActionItem
                   label="Show all"
                   onClick={onShowAllAchievements}
+                  onCancelButton={onBackToDashboard}
                 />
               </DeckyCompactPillActionGroup>
             </PanelSectionRow>
@@ -369,6 +339,7 @@ function AchievementSectionBody({
             bottomSeparator="none"
             description={formatAchievementFilterEmptyMessage(achievementFilter)}
             label="Achievements"
+            onCancelButton={onBackToDashboard}
           />
         </PanelSectionRow>
       )}
@@ -409,12 +380,14 @@ export function DeckyGameDetailView({
             <DeckyCompactPillActionItem
               label="Back"
               onClick={onBackToDashboard}
+              onCancelButton={onBackToDashboard}
             />
 
             {onOpenFullScreenPage !== undefined ? (
               <DeckyCompactPillActionItem
                 label="Open full-screen page"
                 onClick={onOpenFullScreenPage}
+                onCancelButton={onBackToDashboard}
               />
             ) : null}
           </DeckyCompactPillActionGroup>
@@ -474,6 +447,7 @@ export function DeckyGameDetailView({
             onShowAllAchievements={() => {
               setVisibleAchievementLimit(filteredAchievementCount);
             }}
+            onBackToDashboard={onBackToDashboard}
             game={game}
           />
         ) : (

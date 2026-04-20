@@ -4,8 +4,7 @@ import { DeckyActionButtonItem } from "./decky-action-button-item";
 import { DECKY_FOCUS_ACTION_ROW_CLASS } from "./decky-focus-styles";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
-import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
-import { useDeckyProviderConfig } from "./providers/retroachievements/config";
+import { getDeckyProviderOptions, useDeckyProviderConfigs } from "./providers";
 
 export interface DeckyFullScreenSettingsPageProps {
   readonly onBack: () => void;
@@ -93,28 +92,23 @@ export function DeckyFullScreenSettingsPage({
   onBack,
   onOpenProviderSettings,
 }: DeckyFullScreenSettingsPageProps): JSX.Element {
-  const providerConfig = useDeckyProviderConfig(RETROACHIEVEMENTS_PROVIDER_ID);
+  const providerConfigs = useDeckyProviderConfigs();
+  const providers = getDeckyProviderOptions(providerConfigs).filter((provider) => provider.enabled);
 
   return (
     <ScrollPanel>
       <TopAlignedScrollViewport scrollKey="full-screen-settings">
         <div style={getPageFrameStyle()}>
           <PanelSection title="Navigation">
-            <PanelSectionRow>
-              <DeckyFullscreenActionRow>
-                <DeckyFullscreenActionButton label="Back" onClick={onBack} />
-              </DeckyFullscreenActionRow>
-            </PanelSectionRow>
-          </PanelSection>
-
-          <PanelSection title="Providers">
-            <PreferenceRow
-              label="RetroAchievements"
-              description={providerConfig !== undefined ? "Connected" : "Set up account"}
-              onClick={() => {
-                onOpenProviderSettings(RETROACHIEVEMENTS_PROVIDER_ID);
-              }}
-            />
+            <DeckyFullscreenActionRow>
+              <DeckyFullscreenActionButton
+                label="Back"
+                isFullscreenBackAction
+                onClick={() => {
+                  onBack();
+                }}
+              />
+            </DeckyFullscreenActionRow>
           </PanelSection>
 
           <PanelSection title="Preferences">
@@ -123,11 +117,23 @@ export function DeckyFullScreenSettingsPage({
                 <div style={getHeroKickerStyle()}>Achievement Companion</div>
                 <div style={getHeroTitleStyle()}>Settings</div>
                 <div style={getHeroSupportStyle()}>
-                  Choose a provider to manage its account and provider-specific preferences from
-                  its own settings page.
+                  Manage provider accounts, credentials, scans, and display preferences.
                 </div>
               </div>
             </PanelSectionRow>
+          </PanelSection>
+
+          <PanelSection title="Providers">
+            {providers.map((provider) => (
+              <PreferenceRow
+                key={provider.id}
+                label={provider.label}
+                description={provider.connected ? "Connected" : "Set up account"}
+                onClick={() => {
+                  onOpenProviderSettings(provider.id);
+                }}
+              />
+            ))}
           </PanelSection>
         </div>
       </TopAlignedScrollViewport>

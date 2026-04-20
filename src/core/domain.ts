@@ -40,13 +40,28 @@ export interface NormalizedProfile {
   readonly identity: ProviderIdentity;
   readonly summary: ProgressSummary;
   readonly metrics: readonly NormalizedMetric[];
+  readonly steamLevel?: number;
+  readonly ownedGameCount?: number;
+  readonly badgeCount?: number;
+  readonly playerXp?: number;
+  readonly steamBadges?: readonly SteamBadgeSummary[];
   readonly motto?: string;
   readonly featuredGames?: readonly NormalizedGame[];
   readonly refreshedAt?: UnixEpochMs;
 }
 
+export interface SteamBadgeSummary {
+  readonly badgeId: string;
+  readonly appId?: number;
+  readonly level?: number;
+  readonly xp?: number;
+  readonly scarcity?: number;
+  readonly completedAt?: string;
+}
+
 export interface NormalizedGame {
   readonly providerId: ProviderId;
+  readonly appid?: number;
   readonly gameId: string;
   readonly title: string;
   readonly platformLabel?: string;
@@ -56,16 +71,26 @@ export interface NormalizedGame {
   readonly status: GameProgressStatus;
   readonly summary: ProgressSummary;
   readonly metrics: readonly NormalizedMetric[];
+  readonly playtimeForeverMinutes?: number;
+  readonly playtimeTwoWeeksMinutes?: number;
+  readonly playtimeDeckForeverMinutes?: number;
+  readonly lastPlayedAt?: UnixEpochMs;
   readonly lastUnlockAt?: UnixEpochMs;
+  readonly scanStatus?: "scanned" | "no-achievements" | "failed";
+  readonly hasAchievements?: boolean;
 }
 
 export interface RecentlyPlayedGame {
   readonly providerId: ProviderId;
+  readonly appid?: number;
   readonly gameId: string;
   readonly title: string;
   readonly platformLabel?: string;
   readonly coverImageUrl?: string;
   readonly summary: ProgressSummary;
+  readonly playtimeForeverMinutes?: number;
+  readonly playtimeTwoWeeksMinutes?: number;
+  readonly playtimeDeckForeverMinutes?: number;
   readonly lastPlayedAt?: UnixEpochMs;
 }
 

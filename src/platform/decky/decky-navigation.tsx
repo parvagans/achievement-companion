@@ -12,9 +12,16 @@ import { DeckyFullScreenAchievementHistoryPage } from "./decky-full-screen-achie
 import { DeckyFullScreenCompletionProgressPage } from "./decky-full-screen-completion-progress-page";
 import { DeckyFullScreenGamePage } from "./decky-full-screen-game-page";
 import { DeckyFullScreenSettingsPage } from "./decky-full-screen-settings-page";
+import { DeckyFullScreenProviderSettingsPage } from "./decky-full-screen-provider-settings-page";
 import { dispatchDeckyScrollReset } from "./decky-scroll-viewport";
-import { DeckyFullScreenProviderSettingsPage } from "./providers/retroachievements/provider-settings-page";
-import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
+import {
+  consumeNextFullScreenSettingsBackTarget,
+  markFullScreenGameRouteBackBehavior,
+  markNextFullScreenSettingsBackTarget,
+  resolveFullScreenGameRouteBackBehavior,
+  shouldSuppressGameRouteUnmountWhenOpeningAchievement,
+  resolveFullScreenSettingsBackTarget,
+} from "./decky-full-screen-navigation-state";
 
 const FULL_SCREEN_GAME_ROUTE_BASE = "/achievement-companion/full-screen/game";
 const FULL_SCREEN_GAME_ROUTE_PATTERN = `${FULL_SCREEN_GAME_ROUTE_BASE}/:providerId/:gameId`;
@@ -75,7 +82,6 @@ let isFullScreenProviderSettingsRouteRegistered = false;
 
 type FullScreenGameRouteBackBehavior = "decky-panel" | "completion-progress";
 type FullScreenAchievementRouteBackBehavior = "game" | "achievement-history";
-let nextFullScreenGameRouteBackBehavior: FullScreenGameRouteBackBehavior = "decky-panel";
 let nextFullScreenAchievementRouteBackBehavior: FullScreenAchievementRouteBackBehavior = "game";
 let shouldSuppressNextFullscreenRouteUnmountAction = false;
 
@@ -175,7 +181,7 @@ function navigateToFullScreenGame(
   }
 
   registerFullScreenGameRoute();
-  markNextFullScreenGameRouteBackBehavior(backBehavior);
+  markFullScreenGameRouteBackBehavior(providerId, gameId, backBehavior);
 
   const route = buildFullScreenGameRoute({
     view: "game",
@@ -186,18 +192,6 @@ function navigateToFullScreenGame(
   if (route !== undefined) {
     DeckyNavigation.Navigate(route);
   }
-}
-
-function markNextFullScreenGameRouteBackBehavior(
-  behavior: FullScreenGameRouteBackBehavior,
-): void {
-  nextFullScreenGameRouteBackBehavior = behavior;
-}
-
-function consumeNextFullScreenGameRouteBackBehavior(): FullScreenGameRouteBackBehavior {
-  const behavior = nextFullScreenGameRouteBackBehavior;
-  nextFullScreenGameRouteBackBehavior = "decky-panel";
-  return behavior;
 }
 
 function markNextFullScreenAchievementRouteBackBehavior(
@@ -351,8 +345,8 @@ function navigateToFullScreenProviderSettings(providerId: string): void {
 function DeckyFullScreenGameRoute(): JSX.Element {
   const params = useParams<FullScreenGameRouteParams>();
   const shouldReturnToCompletionProgress = useMemo(
-    () => consumeNextFullScreenGameRouteBackBehavior() === "completion-progress",
-    [],
+    () => resolveFullScreenGameRouteBackBehavior(params.providerId, params.gameId) === "completion-progress",
+    [params.providerId, params.gameId],
   );
   const shouldReturnToDeckyPanel = !shouldReturnToCompletionProgress;
   const detailScrollKey =
@@ -385,16 +379,15 @@ function DeckyFullScreenGameRoute(): JSX.Element {
                   params.gameId!,
                   achievementId,
                   "game",
-                  shouldReturnToDeckyPanel,
+                  shouldSuppressGameRouteUnmountWhenOpeningAchievement(
+                    shouldReturnToCompletionProgress ? "completion-progress" : "decky-panel",
+                  ),
                 );
               }
             : undefined
         }
         onBack={() => {
-          if (shouldReturnToDeckyPanel) {
-            suppressNextFullscreenRouteUnmountAction();
-          }
-
+          suppressNextFullscreenRouteUnmountAction();
           returnToDeckyPanel();
         }}
         {...(shouldReturnToCompletionProgress
@@ -408,12 +401,12 @@ function DeckyFullScreenGameRoute(): JSX.Element {
       />
   );
 
-  if (!shouldReturnToDeckyPanel) {
-    return content;
-  }
-
   return (
-    <DeckyFullscreenRouteLeaveBoundary onUnmount={returnToDeckyPanel}>
+    <DeckyFullscreenRouteLeaveBoundary
+      onUnmount={() => {
+        returnToDeckyPanel();
+      }}
+    >
       {content}
     </DeckyFullscreenRouteLeaveBoundary>
   );
@@ -431,6 +424,11 @@ function DeckyFullScreenAchievementRoute(): JSX.Element {
   };
 
   return (
+    <DeckyFullscreenRouteLeaveBoundary
+      onUnmount={() => {
+        returnToGamePage();
+      }}
+    >
       <DeckyFullScreenAchievementPage
         achievementId={params.achievementId}
         {...(shouldReturnToAchievementHistory
@@ -440,9 +438,13 @@ function DeckyFullScreenAchievementRoute(): JSX.Element {
             }
           : {})}
         gameId={params.gameId}
-        onBack={returnToGamePage}
+        onBack={() => {
+          suppressNextFullscreenRouteUnmountAction();
+          returnToGamePage();
+        }}
         providerId={params.providerId}
       />
+    </DeckyFullscreenRouteLeaveBoundary>
   );
 }
 
@@ -450,12 +452,14 @@ function DeckyFullScreenAchievementHistoryRoute(): JSX.Element {
   const params = useParams<FullScreenAchievementHistoryRouteParams>();
 
   return (
-    <DeckyFullscreenRouteLeaveBoundary onUnmount={returnToDeckyPanel}>
+    <DeckyFullscreenRouteLeaveBoundary onUnmount={() => {
+      DeckyNavigation.NavigateBack();
+    }}>
       <DeckyFullScreenAchievementHistoryPage
         providerId={params.providerId}
         onBack={() => {
           suppressNextFullscreenRouteUnmountAction();
-          returnToDeckyPanel();
+          DeckyNavigation.NavigateBack();
         }}
         onOpenAchievementDetail={(gameId, achievementId) => {
           if (params.providerId !== undefined) {
@@ -471,7 +475,11 @@ function DeckyFullScreenProfileRoute(): JSX.Element {
   const params = useParams<FullScreenProfileRouteParams>();
 
   return (
-    <DeckyFullscreenRouteLeaveBoundary onUnmount={returnToDeckyPanel}>
+    <DeckyFullscreenRouteLeaveBoundary
+      onUnmount={() => {
+        returnToDeckyPanel();
+      }}
+    >
       <DeckyFullScreenProfilePage
         providerId={params.providerId}
         onBack={() => {
@@ -492,6 +500,9 @@ function DeckyFullScreenProfileRoute(): JSX.Element {
         }}
         onOpenSettings={() => {
           registerFullScreenSettingsRoute();
+          markNextFullScreenSettingsBackTarget(
+            resolveFullScreenSettingsBackTarget("fullscreen-profile"),
+          );
           const route = buildFullScreenSettingsRoute({
             view: "settings",
             surface: "full-screen",
@@ -522,12 +533,16 @@ function DeckyFullScreenCompletionProgressRoute(): JSX.Element {
   const params = useParams<FullScreenCompletionProgressRouteParams>();
 
   return (
-    <DeckyFullscreenRouteLeaveBoundary onUnmount={returnToDeckyPanel}>
+    <DeckyFullscreenRouteLeaveBoundary
+      onUnmount={() => {
+        DeckyNavigation.NavigateBack();
+      }}
+    >
       <DeckyFullScreenCompletionProgressPage
         providerId={params.providerId}
         onBack={() => {
           suppressNextFullscreenRouteUnmountAction();
-          returnToDeckyPanel();
+          DeckyNavigation.NavigateBack();
         }}
         onOpenGameDetail={(gameId) => {
           if (params.providerId !== undefined) {
@@ -540,12 +555,29 @@ function DeckyFullScreenCompletionProgressRoute(): JSX.Element {
 }
 
 function DeckyFullScreenSettingsRoute(): JSX.Element {
+  const backTarget = useMemo(() => consumeNextFullScreenSettingsBackTarget(), []);
+  const shouldReturnToDeckyPanel = backTarget === "compact-panel";
+
   return (
-    <DeckyFullscreenRouteLeaveBoundary onUnmount={returnToDeckyPanel}>
+    <DeckyFullscreenRouteLeaveBoundary
+      onUnmount={() => {
+        if (shouldReturnToDeckyPanel) {
+          returnToDeckyPanel();
+          return;
+        }
+
+        DeckyNavigation.NavigateBack();
+      }}
+    >
       <DeckyFullScreenSettingsPage
         onBack={() => {
           suppressNextFullscreenRouteUnmountAction();
-          returnToDeckyPanel();
+          if (shouldReturnToDeckyPanel) {
+            returnToDeckyPanel();
+            return;
+          }
+
+          DeckyNavigation.NavigateBack();
         }}
         onOpenProviderSettings={(providerId) => {
           navigateToFullScreenProviderSettings(providerId);
@@ -557,14 +589,18 @@ function DeckyFullScreenSettingsRoute(): JSX.Element {
 
 function DeckyFullScreenProviderSettingsRoute(): JSX.Element {
   const params = useParams<FullScreenProviderSettingsRouteParams>();
-  const providerId = params.providerId ?? RETROACHIEVEMENTS_PROVIDER_ID;
+  const providerId = params.providerId ?? "retroachievements";
 
   const returnToSettingsPage = (): void => {
     DeckyNavigation.NavigateBack();
   };
 
   return (
-    <DeckyFullscreenRouteLeaveBoundary onUnmount={returnToSettingsPage}>
+    <DeckyFullscreenRouteLeaveBoundary
+      onUnmount={() => {
+        returnToSettingsPage();
+      }}
+    >
       <DeckyFullScreenProviderSettingsPage
         providerId={providerId}
         onBack={() => {

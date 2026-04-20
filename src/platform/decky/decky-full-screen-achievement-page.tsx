@@ -11,12 +11,18 @@ import {
   formatCount,
   formatPlatformBadgeLabel,
   formatTimestamp,
+  dedupeDistinctLabels,
+  hasAchievementCounts,
   getAchievementCounts,
+  getAchievementDescriptionText,
   getMetricValue,
   getUnlockRatePercent,
+  shouldHideSteamAchievementDetailStats,
 } from "./decky-achievement-detail-helpers";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
+import { formatDeckyProviderLabel } from "./providers";
+import { STEAM_PROVIDER_ID } from "./providers/steam";
 
 export interface DeckyFullScreenAchievementPageProps {
   readonly providerId: string | undefined;
@@ -25,14 +31,6 @@ export interface DeckyFullScreenAchievementPageProps {
   readonly onBack: () => void;
   readonly backLabel?: string;
   readonly backDescription?: string;
-}
-
-function formatProviderLabel(providerId: string): string {
-  if (providerId.toLowerCase() === "retroachievements") {
-    return "RetroAchievements";
-  }
-
-  return providerId;
 }
 
 function getPageFrameStyle(): CSSProperties {
@@ -81,6 +79,18 @@ function getHeroLabelStyle(): CSSProperties {
     textTransform: "uppercase",
     lineHeight: 1.2,
   };
+}
+
+function resolveSteamAchievementHeroLabel(game: GameDetailSnapshot["game"]): string {
+  if (game.title.trim().length > 0) {
+    return game.title;
+  }
+
+  if (game.appid !== undefined) {
+    return `Steam App ${game.appid}`;
+  }
+
+  return "Steam Game";
 }
 
 function getHeroTitleStyle(): CSSProperties {
@@ -429,10 +439,14 @@ export function DeckyFullScreenAchievementPage({
   }
 
   const heroArtworkUrl = game.boxArtImageUrl ?? game.coverImageUrl;
-  const providerLabel = formatProviderLabel(providerId ?? game.providerId);
+  const providerLabel = formatDeckyProviderLabel(providerId ?? game.providerId);
+  const isSteamProvider = shouldHideSteamAchievementDetailStats(providerId ?? game.providerId);
+  const heroLabel = isSteamProvider ? resolveSteamAchievementHeroLabel(game) : "Selected achievement";
   const counts = getAchievementCounts(achievement.metrics);
+  const showCounts = hasAchievementCounts(counts);
   const unlockRatePercent = getUnlockRatePercent(achievement);
   const achievementStatus = buildAchievementStatus(achievement);
+  const heroMetaPills = dedupeDistinctLabels([game.platformLabel ?? "Unknown platform", providerLabel]);
 
   return (
     <ScrollPanel>
@@ -441,11 +455,15 @@ export function DeckyFullScreenAchievementPage({
       >
         <div style={getPageFrameStyle()}>
           <PanelSection title="Navigation">
-            <PanelSectionRow>
-              <DeckyFullscreenActionRow>
-                <DeckyFullscreenActionButton label={backLabel} onClick={onBack} />
-              </DeckyFullscreenActionRow>
-            </PanelSectionRow>
+            <DeckyFullscreenActionRow>
+              <DeckyFullscreenActionButton
+                label={backLabel}
+                isFullscreenBackAction
+                onClick={() => {
+                  onBack();
+                }}
+              />
+            </DeckyFullscreenActionRow>
           </PanelSection>
 
           <PanelSection title="Achievement spotlight">
@@ -458,11 +476,14 @@ export function DeckyFullScreenAchievementPage({
                 ) : null}
 
                 <div style={getHeroTextStyle()}>
-                  <div style={getHeroLabelStyle()}>Selected achievement</div>
+                  <div style={getHeroLabelStyle()}>{heroLabel}</div>
                   <div style={getHeroTitleStyle()}>{achievement.title}</div>
                   <div style={getHeroMetaRowStyle()}>
-                    <span style={getHeroMetaPillStyle()}>{game.platformLabel ?? "Unknown platform"}</span>
-                    <span style={getHeroMetaPillStyle()}>{providerLabel}</span>
+                    {heroMetaPills.map((label) => (
+                      <span key={label} style={getHeroMetaPillStyle()}>
+                        {label}
+                      </span>
+                    ))}
                   </div>
                   <div style={getHeroSupportStyle()}>
                     {achievementStatus.secondary ?? achievementStatus.value}
@@ -485,52 +506,62 @@ export function DeckyFullScreenAchievementPage({
 
                 <div style={getAchievementTextStyle()}>
                   <div style={getAchievementTitleStyle()}>{achievement.title}</div>
-                  <div style={getAchievementDescriptionStyle()}>
-                    {achievement.description ?? "No description was returned for this achievement."}
-                  </div>
+                  <div style={getAchievementDescriptionStyle()}>{getAchievementDescriptionText(achievement.description)}</div>
+                  {isSteamProvider ? (
+                    <div style={getHeroSupportStyle()}>{achievementStatus.secondary ?? achievementStatus.value}</div>
+                  ) : null}
                 </div>
               </div>
             </PanelSectionRow>
           </PanelSection>
 
-          <PanelSection title="Unlock details">
-            <PanelSectionRow>
-              <div style={getStatGridStyle()}>
-                <AchievementStat
-                  label="Points"
-                  value={achievement.points !== undefined ? formatCount(achievement.points) : "-"}
-                />
-                <AchievementStat label="Retro points" value={getMetricValue(achievement.metrics, "true-ratio", "True Ratio") ?? "-"} />
-                <AchievementStat
-                  label="Unlocked at"
-                  value={achievement.unlockedAt !== undefined ? formatTimestamp(achievement.unlockedAt) : "-"}
-                />
-              </div>
-            </PanelSectionRow>
-          </PanelSection>
+          {!isSteamProvider ? (
+            <>
+              <PanelSection title="Unlock details">
+                <PanelSectionRow>
+                  <div style={getStatGridStyle()}>
+                    <AchievementStat
+                      label="Points"
+                      value={achievement.points !== undefined ? formatCount(achievement.points) : "-"}
+                    />
+                    <AchievementStat
+                      label="Unlock rate"
+                      value={getMetricValue(achievement.metrics, "true-ratio", "True Ratio") ?? "-"}
+                    />
+                    <AchievementStat
+                      label="Unlocked at"
+                      value={achievement.unlockedAt !== undefined ? formatTimestamp(achievement.unlockedAt) : "-"}
+                    />
+                  </div>
+                </PanelSectionRow>
+              </PanelSection>
 
-          <PanelSection title="Rarity">
-            <PanelSectionRow>
-              <RarityBar percent={unlockRatePercent} />
-            </PanelSectionRow>
+              <PanelSection title="Rarity">
+                <PanelSectionRow>
+                  <RarityBar percent={unlockRatePercent} />
+                </PanelSectionRow>
 
-            <PanelSectionRow>
-              <div style={getCountsGridStyle()}>
-                <AchievementStat
-                  label="Softcore unlocks"
-                  value={counts.softcoreUnlockCount !== undefined ? formatCount(counts.softcoreUnlockCount) : "-"}
-                />
-                <AchievementStat
-                  label="Hardcore unlocks"
-                  value={counts.hardcoreUnlockCount !== undefined ? formatCount(counts.hardcoreUnlockCount) : "-"}
-                />
-                <AchievementStat
-                  label="Total players"
-                  value={counts.totalPlayers !== undefined ? formatCount(counts.totalPlayers) : "-"}
-                />
-              </div>
-            </PanelSectionRow>
-          </PanelSection>
+                {showCounts ? (
+                  <PanelSectionRow>
+                    <div style={getCountsGridStyle()}>
+                      <AchievementStat
+                        label="Softcore unlocks"
+                        value={counts.softcoreUnlockCount !== undefined ? formatCount(counts.softcoreUnlockCount) : "-"}
+                      />
+                      <AchievementStat
+                        label="Hardcore unlocks"
+                        value={counts.hardcoreUnlockCount !== undefined ? formatCount(counts.hardcoreUnlockCount) : "-"}
+                      />
+                      <AchievementStat
+                        label="Total players"
+                        value={counts.totalPlayers !== undefined ? formatCount(counts.totalPlayers) : "-"}
+                      />
+                    </div>
+                  </PanelSectionRow>
+                ) : null}
+              </PanelSection>
+            </>
+          ) : null}
         </div>
       </TopAlignedScrollViewport>
     </ScrollPanel>

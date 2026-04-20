@@ -9,12 +9,14 @@ import { DeckyCompactPillActionGroup, DeckyCompactPillActionItem } from "./decky
 import {
   buildAchievementStatus,
   formatCount,
+  getAchievementDescriptionText,
   formatPlatformBadgeLabel,
   formatTimestamp,
+  hasAchievementCounts,
   getAchievementCounts,
   getMetricValue,
   getUnlockRatePercent,
-  parseMetricNumber,
+  shouldHideSteamAchievementDetailStats,
 } from "./decky-achievement-detail-helpers";
 import { useAsyncResourceState } from "./useAsyncResourceState";
 
@@ -337,7 +339,9 @@ function AchievementCard({
   >;
   readonly game: CompactAchievementGameTarget;
 }): JSX.Element {
+  const isSteamProvider = shouldHideSteamAchievementDetailStats(game.providerId);
   const counts = getAchievementCounts(achievement.metrics);
+  const showCounts = hasAchievementCounts(counts);
   const unlockRatePercent = getUnlockRatePercent(achievement);
   const retroPoints = getMetricValue(achievement.metrics, "true-ratio", "True Ratio");
   const achievementStatus = buildAchievementStatus(achievement);
@@ -368,49 +372,63 @@ function AchievementCard({
 
         <div style={getTextBlockStyle()}>
           <div style={getAchievementTitleStyle()}>{achievement.title}</div>
-          {achievement.description !== undefined ? (
+          {isSteamProvider ? (
+            <div style={getDescriptionStyle()}>{getAchievementDescriptionText(achievement.description)}</div>
+          ) : achievement.description !== undefined ? (
             <div style={getDescriptionStyle()}>{achievement.description}</div>
           ) : null}
+          {isSteamProvider ? <div style={getSubtleStyle()}>{achievementStatus.secondary ?? achievementStatus.value}</div> : null}
         </div>
       </div>
 
-      <div style={getSectionBlockStyle()}>
-        <div style={getSectionLabelStyle()}>Unlock details</div>
-        <div style={getStatsGridStyle()}>
-          <AchievementStat
-            label="Points"
-            value={achievement.points !== undefined ? formatCount(achievement.points) : "-"}
-          />
-          <AchievementStat label="Retro points" value={retroPoints ?? "-"} />
-          <AchievementStat
-            label="Unlock status"
-            value={achievementStatus.value}
-            {...(achievementStatusSecondary !== undefined ? { secondary: achievementStatusSecondary } : {})}
-            style={{ gridColumn: "1 / -1" }}
-          />
-        </div>
-      </div>
+      {!isSteamProvider ? (
+        <>
+          <div style={getSectionBlockStyle()}>
+            <div style={getSectionLabelStyle()}>Unlock details</div>
+            <div style={getStatsGridStyle()}>
+              <AchievementStat
+                label="Points"
+                value={achievement.points !== undefined ? formatCount(achievement.points) : "-"}
+              />
+              <AchievementStat label="Unlock rate" value={retroPoints ?? "-"} />
+              <AchievementStat
+                label="Unlock status"
+                value={achievementStatus.value}
+                {...(achievementStatusSecondary !== undefined ? { secondary: achievementStatusSecondary } : {})}
+                style={{ gridColumn: "1 / -1" }}
+              />
+            </div>
+          </div>
 
-      <div style={getSectionBlockStyle()}>
-        <div style={getSectionLabelStyle()}>Rarity</div>
-        <RarityBar percent={unlockRatePercent} />
+          <div style={getSectionBlockStyle()}>
+            <div style={getSectionLabelStyle()}>Rarity</div>
+            <RarityBar percent={unlockRatePercent} />
 
-        <div style={getCountsGridStyle()}>
-          <AchievementStat
-            label="Softcore unlocks"
-            value={counts.softcoreUnlockCount !== undefined ? formatCount(counts.softcoreUnlockCount) : "-"}
-          />
-          <AchievementStat
-            label="Hardcore unlocks"
-            value={counts.hardcoreUnlockCount !== undefined ? formatCount(counts.hardcoreUnlockCount) : "-"}
-          />
-          <AchievementStat
-            label="Total players"
-            value={counts.totalPlayers !== undefined ? formatCount(counts.totalPlayers) : "-"}
-            style={{ gridColumn: "1 / -1" }}
-          />
+            {showCounts ? (
+              <div style={getCountsGridStyle()}>
+                <AchievementStat
+                  label="Softcore unlocks"
+                  value={counts.softcoreUnlockCount !== undefined ? formatCount(counts.softcoreUnlockCount) : "-"}
+                />
+                <AchievementStat
+                  label="Hardcore unlocks"
+                  value={counts.hardcoreUnlockCount !== undefined ? formatCount(counts.hardcoreUnlockCount) : "-"}
+                />
+                <AchievementStat
+                  label="Total players"
+                  value={counts.totalPlayers !== undefined ? formatCount(counts.totalPlayers) : "-"}
+                  style={{ gridColumn: "1 / -1" }}
+                />
+              </div>
+            ) : null}
+          </div>
+        </>
+      ) : (
+        <div style={getSectionBlockStyle()}>
+          <div style={getSectionLabelStyle()}>Unlock status</div>
+          <div style={getSubtleStyle()}>{achievementStatus.secondary ?? achievementStatus.value}</div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -436,7 +454,7 @@ export function DeckyAchievementDetailView({
     return (
       <PlaceholderState
         title={target.achievement.title}
-        description="Loading achievement details from RetroAchievements."
+        description="Loading achievement details from the selected provider."
         state={loader}
         footer={<span>Use Back to return to the previous compact view.</span>}
       />
@@ -459,15 +477,17 @@ export function DeckyAchievementDetailView({
       <PanelSection title="Navigation">
         <PanelSectionRow>
           <DeckyCompactPillActionGroup>
-            <DeckyCompactPillActionItem
-              label="Back"
-              onClick={onBack}
-            />
+          <DeckyCompactPillActionItem
+            label="Back"
+            onClick={onBack}
+            onCancelButton={onBack}
+          />
 
             {onOpenFullScreenGame !== undefined ? (
               <DeckyCompactPillActionItem
                 label="Open full-screen game"
                 onClick={onOpenFullScreenGame}
+                onCancelButton={onBack}
               />
             ) : null}
           </DeckyCompactPillActionGroup>

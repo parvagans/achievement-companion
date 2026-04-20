@@ -3,11 +3,21 @@ import type { ResourceState } from "@core/cache";
 import type { DashboardSnapshot, NormalizedMetric, RecentlyPlayedGame } from "@core/domain";
 import { PanelSection, PanelSectionRow, ScrollPanel } from "@decky/ui";
 import { PlaceholderState } from "@ui/PlaceholderState";
+import { DeckyCompletionProgressBar } from "./decky-completion-progress-bar";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
 import { initialDeckyBootstrapState, loadDeckyDashboardState } from "./decky-app-services";
 import { DeckyGameArtwork } from "./decky-game-artwork";
+import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
+import { formatDeckyProviderLabel } from "./providers";
+import { STEAM_PROVIDER_ID, useDeckySteamLibraryAchievementScanOverview } from "./providers/steam";
+import {
+  formatProfileMemberSince,
+  getSteamAccountProgressCards,
+  getSteamAccountProgressSummary,
+} from "./decky-stat-helpers";
+import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
 
 export interface DeckyFullScreenProfilePageProps {
   readonly providerId: string | undefined;
@@ -27,23 +37,6 @@ function formatTimestamp(epochMs: number | undefined): string {
   }
 
   return new Date(epochMs).toLocaleString();
-}
-
-function formatShortDate(value: string | undefined): string | undefined {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  const parsed = Date.parse(value);
-  if (!Number.isFinite(parsed)) {
-    return value;
-  }
-
-  return new Date(parsed).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 }
 
 function formatRelativeTime(epochMs: number | undefined): string | undefined {
@@ -74,6 +67,25 @@ function formatRelativeTime(epochMs: number | undefined): string | undefined {
 
   const value = Math.max(1, Math.round(absoluteMs / 86_400_000));
   return formatter.format(elapsedMs >= 0 ? -value : value, "day");
+}
+
+export function formatSteamPlaytimeMinutes(minutes: number | undefined): string | undefined {
+  if (minutes === undefined) {
+    return undefined;
+  }
+
+  const normalizedMinutes = Math.max(0, Math.trunc(minutes));
+  if (normalizedMinutes < 60) {
+    return `${normalizedMinutes}m`;
+  }
+
+  const hours = Math.floor(normalizedMinutes / 60);
+  const remainderMinutes = normalizedMinutes % 60;
+  if (remainderMinutes === 0) {
+    return `${hours}h`;
+  }
+
+  return `${hours}h ${remainderMinutes}m`;
 }
 
 function getMetricValue(metrics: readonly NormalizedMetric[], ...keys: string[]): string | undefined {
@@ -113,7 +125,7 @@ function getFallbackInitials(title: string): string {
     .filter(Boolean);
 
   if (words.length === 0) {
-    return "RA";
+    return "AC";
   }
 
   return (
@@ -121,7 +133,7 @@ function getFallbackInitials(title: string): string {
       .slice(0, 2)
       .map((word) => word[0]?.toUpperCase() ?? "")
       .join("")
-      .trim() || "RA"
+      .trim() || "AC"
   );
 }
 
@@ -173,6 +185,18 @@ function getHeroNameStyle(): CSSProperties {
     fontSize: "1.35em",
     fontWeight: 800,
     lineHeight: 1.1,
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  };
+}
+
+function getHeroSubtitleStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.72)",
+    fontSize: "0.95em",
+    lineHeight: 1.25,
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -252,6 +276,38 @@ function getSectionLabelStyle(): CSSProperties {
   };
 }
 
+function getProgressCardStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    padding: 14,
+    borderRadius: 18,
+    border: "1px solid rgba(255, 255, 255, 0.06)",
+    background:
+      "linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.025))",
+  };
+}
+
+function getProgressTitleStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.58)",
+    fontSize: "0.7em",
+    fontWeight: 800,
+    letterSpacing: "0.1em",
+    textTransform: "uppercase",
+    lineHeight: 1.2,
+  };
+}
+
+function getProgressSubtitleStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.92)",
+    fontSize: "0.96em",
+    lineHeight: 1.3,
+  };
+}
+
 function getStatsGridStyle(): CSSProperties {
   return {
     display: "grid",
@@ -310,6 +366,16 @@ function getStatSecondaryStyle(): CSSProperties {
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
     textAlign: "center",
+  };
+}
+
+function getStatActionLabelStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.68)",
+    fontSize: "0.74em",
+    fontWeight: 700,
+    letterSpacing: "0.05em",
+    lineHeight: 1.2,
   };
 }
 
@@ -463,18 +529,168 @@ function ProfileStat({
   label,
   value,
   secondary,
+  actionLabel,
+  onClick,
 }: {
   readonly label: string;
   readonly value: string;
   readonly secondary?: string;
+  readonly actionLabel?: string;
+  readonly onClick?: () => void;
 }): JSX.Element {
-  return (
-    <div style={getStatCardStyle()}>
+  const content = (
+    <>
       <div style={getStatLabelStyle()}>{label}</div>
       <div style={getStatValueStyle()}>{value}</div>
       {secondary !== undefined ? <div style={getStatSecondaryStyle()}>{secondary}</div> : null}
-    </div>
+      {actionLabel !== undefined ? <div style={getStatActionLabelStyle()}>{actionLabel}</div> : null}
+    </>
   );
+
+  if (onClick !== undefined) {
+    return (
+      <button
+        type="button"
+        className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
+        style={{
+          ...getStatCardStyle(),
+          appearance: "none",
+          width: "100%",
+          cursor: "pointer",
+          textAlign: "center",
+        }}
+        onClick={onClick}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return <div style={getStatCardStyle()}>{content}</div>;
+}
+
+interface ProfileStatDescriptor {
+  readonly label: string;
+  readonly value: string;
+  readonly secondary?: string;
+}
+
+export function getSteamProfileStats(args: {
+  readonly profile: DashboardSnapshot["profile"];
+  readonly steamLibraryAchievementScanSummary?: SteamLibraryAchievementScanOverview;
+}): readonly ProfileStatDescriptor[] {
+  const { profile, steamLibraryAchievementScanSummary } = args;
+  const steamLevel =
+    getProfileMetric({
+      metrics: profile.metrics,
+      keys: ["steam-level", "Steam Level"],
+    }) ?? profile.steamLevel?.toString();
+  const ownedGames =
+    steamLibraryAchievementScanSummary?.ownedGameCount ??
+    profile.ownedGameCount ??
+    getProfileMetric({
+      metrics: profile.metrics,
+      keys: ["owned-games", "Owned Games"],
+    });
+  const badges = profile.badgeCount;
+  const badgeXp = profile.playerXp;
+  const achievementsUnlocked =
+    steamLibraryAchievementScanSummary?.unlockedAchievements ??
+    profile.summary.unlockedCount;
+  const perfectGames =
+    steamLibraryAchievementScanSummary?.perfectGames ??
+    Number(
+      getProfileMetric({
+        metrics: profile.metrics,
+        keys: ["games-beaten", "Perfect Games", "Games Beaten"],
+      }) ?? "0",
+    );
+  const completionPercent =
+    steamLibraryAchievementScanSummary?.completionPercent ??
+    profile.summary.completionPercent;
+  const parsedLastLibraryScan =
+    steamLibraryAchievementScanSummary !== undefined
+      ? Date.parse(steamLibraryAchievementScanSummary.scannedAt)
+      : undefined;
+  const lastLibraryScan =
+    parsedLastLibraryScan !== undefined && Number.isFinite(parsedLastLibraryScan)
+      ? formatRelativeTime(parsedLastLibraryScan)
+      : undefined;
+
+  return [
+    {
+      label: "Steam Level",
+      value: steamLevel ?? "-",
+    },
+    {
+      label: "Owned Games",
+      value: ownedGames !== undefined ? ownedGames.toString() : "-",
+    },
+    {
+      label: "Achievements Unlocked",
+      value: formatCount(achievementsUnlocked),
+    },
+    {
+      label: "Perfect Games",
+      value: formatCount(perfectGames),
+    },
+    {
+      label: "Completion",
+      value: completionPercent !== undefined ? `${formatCount(completionPercent)}%` : "-",
+    },
+    {
+      label: "Badges",
+      value: badges !== undefined ? formatCount(badges) : "-",
+      ...(badgeXp !== undefined ? { secondary: `${formatCount(badgeXp)} XP` } : {}),
+    },
+    ...(lastLibraryScan !== undefined
+      ? [
+          {
+            label: "Last Library Scan",
+            value: lastLibraryScan,
+          },
+        ]
+      : []),
+  ];
+}
+
+export function getDeckyProfileStats(args: {
+  readonly profile: DashboardSnapshot["profile"];
+  readonly steamLibraryAchievementScanSummary?: SteamLibraryAchievementScanOverview;
+}): readonly ProfileStatDescriptor[] {
+  if (args.profile.providerId === STEAM_PROVIDER_ID) {
+    return getSteamProfileStats(args);
+  }
+
+  const memberSince = formatProfileMemberSince(args.profile.metrics);
+
+  return [
+    {
+      label: "Total points",
+      value: getProfileMetric({
+        metrics: args.profile.metrics,
+        keys: ["total-points", "Points"],
+      }) ?? "-",
+    },
+    {
+      label: "Softcore points",
+      value: getProfileMetric({
+        metrics: args.profile.metrics,
+        keys: ["softcore-points", "Softcore"],
+      }) ?? "-",
+    },
+    {
+      label: "True points",
+      value: getProfileMetric({
+        metrics: args.profile.metrics,
+        keys: ["true-points", "True"],
+      }) ?? "-",
+    },
+    {
+      label: "Member since",
+      value: memberSince ?? "-",
+    },
+  ] as const;
 }
 
 function RecentGameCard({
@@ -499,6 +715,17 @@ function RecentGameCard({
   }
 
   const playedLabel = formatRelativeTime(game.lastPlayedAt);
+  const playtimeLines = [
+    game.playtimeTwoWeeksMinutes !== undefined
+      ? `Past 2 weeks: ${formatSteamPlaytimeMinutes(game.playtimeTwoWeeksMinutes) ?? "-"}`
+      : undefined,
+    game.playtimeDeckForeverMinutes !== undefined
+      ? `Steam Deck: ${formatSteamPlaytimeMinutes(game.playtimeDeckForeverMinutes) ?? "-"}`
+      : undefined,
+    game.playtimeForeverMinutes !== undefined
+      ? `Total playtime: ${formatSteamPlaytimeMinutes(game.playtimeForeverMinutes) ?? "-"}`
+      : undefined,
+  ].filter((line): line is string => line !== undefined);
 
   return (
     <div style={getInfoCardStyle()}>
@@ -514,9 +741,14 @@ function RecentGameCard({
           <div style={getRecentGameTitleStyle()}>{game.title}</div>
           <div style={getRecentGameMetaStyle()}>{game.platformLabel ?? "Unknown platform"}</div>
           <div style={getRecentGameMetaStyle()}>{formatMiniProgressSummary(game.summary)}</div>
-          <div style={getRecentGameMetaStyle()}>
-            {playedLabel !== undefined ? `Played ${playedLabel}` : "Play time unavailable"}
-          </div>
+          {playedLabel !== undefined ? (
+            <div style={getRecentGameMetaStyle()}>{`Played ${playedLabel}`}</div>
+          ) : null}
+          {playtimeLines.length > 0 ? (
+            <div style={getRecentGameMetaStyle()}>{playtimeLines.join(" | ")}</div>
+          ) : playedLabel === undefined ? (
+            <div style={getRecentGameMetaStyle()}>Play time unavailable</div>
+          ) : null}
         </div>
       </div>
 
@@ -553,6 +785,7 @@ export function DeckyFullScreenProfilePage({
   }, [providerId]);
   const state = useAsyncResourceState(loadSelectedProfile, initialDeckyBootstrapState);
   const hasRouteParameters = providerId !== undefined;
+  const steamLibraryAchievementScanSummary = useDeckySteamLibraryAchievementScanOverview(providerId);
 
   if (!isRenderableDashboardState(state)) {
     return (
@@ -578,56 +811,57 @@ export function DeckyFullScreenProfilePage({
   const snapshot = state.data;
   const profile = snapshot.profile;
   const recentGame = snapshot.recentlyPlayedGames[0];
-  const totalPoints = getProfileMetric({
-    metrics: profile.metrics,
-    keys: ["total-points", "Points"],
-  });
-  const softcorePoints = getProfileMetric({
-    metrics: profile.metrics,
-    keys: ["softcore-points", "Softcore"],
-  });
-  const truePoints = getProfileMetric({
-    metrics: profile.metrics,
-    keys: ["true-points", "True"],
-  });
-  const memberSince = formatShortDate(
-    getProfileMetric({
-      metrics: profile.metrics,
-      keys: ["member-since", "Member Since"],
-    }),
-  );
+  const memberSince = formatProfileMemberSince(profile.metrics);
   const richPresence = getProfileMetric({
     metrics: profile.metrics,
     keys: ["rich-presence", "Rich Presence"],
+  });
+  const steamAccountProgress =
+    profile.providerId === STEAM_PROVIDER_ID ? getSteamAccountProgressSummary({ profile }) : undefined;
+  const steamAccountCards =
+    profile.providerId === STEAM_PROVIDER_ID ? getSteamAccountProgressCards({ profile }) : undefined;
+  const steamLibraryCompletionPercent =
+    profile.providerId === STEAM_PROVIDER_ID
+      ? steamLibraryAchievementScanSummary?.completionPercent ?? profile.summary.completionPercent
+      : profile.summary.completionPercent;
+  const profileStats = getDeckyProfileStats({
+    profile,
+    ...(steamLibraryAchievementScanSummary !== undefined
+      ? { steamLibraryAchievementScanSummary }
+      : {}),
   });
   return (
     <ScrollPanel>
       <TopAlignedScrollViewport scrollKey={`full-screen-profile:${providerId ?? "missing"}`}>
         <div style={getPageFrameStyle()}>
           <PanelSection title="Navigation">
-            <PanelSectionRow>
-              <DeckyFullscreenActionRow>
-                <DeckyFullscreenActionButton label="Back" onClick={onBack} />
-                <DeckyFullscreenActionButton
-                  label="Completion Progress"
-                  onClick={() => {
-                    onOpenCompletionProgress(profile.providerId);
-                  }}
-                />
-                <DeckyFullscreenActionButton
-                  label="Achievement History"
-                  onClick={() => {
-                    onOpenAchievementHistory(profile.providerId);
-                  }}
-                />
-                <DeckyFullscreenActionButton
-                  label="Settings"
-                  onClick={() => {
-                    onOpenSettings();
-                  }}
-                />
-              </DeckyFullscreenActionRow>
-            </PanelSectionRow>
+            <DeckyFullscreenActionRow centered>
+              <DeckyFullscreenActionButton
+                label="Back"
+                isFullscreenBackAction
+                onClick={() => {
+                  onBack();
+                }}
+              />
+              <DeckyFullscreenActionButton
+                label="Completion Progress"
+                onClick={() => {
+                  onOpenCompletionProgress(profile.providerId);
+                }}
+              />
+              <DeckyFullscreenActionButton
+                label="Achievement History"
+                onClick={() => {
+                  onOpenAchievementHistory(profile.providerId);
+                }}
+              />
+              <DeckyFullscreenActionButton
+                label="Settings"
+                onClick={() => {
+                  onOpenSettings();
+                }}
+              />
+            </DeckyFullscreenActionRow>
           </PanelSection>
 
           <PanelSection title="Profile">
@@ -640,8 +874,11 @@ export function DeckyFullScreenProfilePage({
                 />
 
                 <div style={getHeroTextStyle()}>
-                  <div style={getHeroLabelStyle()}>RetroAchievements profile</div>
+                  <div style={getHeroLabelStyle()}>{`${formatDeckyProviderLabel(profile.providerId)} profile`}</div>
                   <div style={getHeroNameStyle()}>{profile.identity.displayName}</div>
+                  {profile.providerId === STEAM_PROVIDER_ID && memberSince !== undefined ? (
+                    <div style={getHeroSubtitleStyle()}>{`Member since ${memberSince}`}</div>
+                  ) : null}
                   {profile.motto !== undefined ? (
                     <div style={getHeroMottoStyle()}>
                       <div style={getHeroMottoLabelStyle()}>Motto</div>
@@ -653,13 +890,72 @@ export function DeckyFullScreenProfilePage({
             </PanelSectionRow>
           </PanelSection>
 
-          <PanelSection title="Account stats">
+          {steamAccountProgress !== undefined ? (
+            <PanelSection title="Steam Account">
+              <PanelSectionRow>
+                <div style={getProgressCardStyle()}>
+                  <div style={getProgressTitleStyle()}>Steam Account</div>
+                  <div style={getProgressSubtitleStyle()}>{steamAccountProgress.accountSubtitle}</div>
+                  {steamAccountProgress.xpProgressPercent !== undefined ? (
+                    <DeckyCompletionProgressBar
+                      compact
+                      percent={steamAccountProgress.xpProgressPercent}
+                      caption={steamAccountProgress.xpProgressCaption}
+                      captionPlacement="above"
+                    />
+                  ) : (
+                    <div style={getProgressSubtitleStyle()}>{steamAccountProgress.xpProgressCaption}</div>
+                  )}
+                  <div style={getStatsGridStyle()}>
+                    {steamAccountCards?.map((card) => (
+                      <ProfileStat
+                        key={card.label}
+                        label={card.label}
+                        value={card.value}
+                        {...(card.secondary !== undefined ? { secondary: card.secondary } : {})}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </PanelSectionRow>
+            </PanelSection>
+          ) : null}
+
+          <PanelSection title={profile.providerId === STEAM_PROVIDER_ID ? "Library Progress" : "Account stats"}>
             <PanelSectionRow>
-              <div style={getStatsGridStyle()}>
-                <ProfileStat label="Total points" value={totalPoints ?? "-"} />
-                <ProfileStat label="Softcore points" value={softcorePoints ?? "-"} />
-                <ProfileStat label="True points" value={truePoints ?? "-"} />
-                <ProfileStat label="Member since" value={memberSince ?? "-"} />
+              <div style={getSectionBlockStyle()}>
+                {profile.providerId === STEAM_PROVIDER_ID ? (
+                  <>
+                    {steamLibraryCompletionPercent !== undefined ? (
+                      <DeckyCompletionProgressBar
+                        compact
+                        percent={steamLibraryCompletionPercent}
+                        caption={`${formatCount(steamLibraryCompletionPercent)}% complete`}
+                      />
+                    ) : null}
+                    <div style={getStatsGridStyle()}>
+                      {profileStats.map((stat) => (
+                        <ProfileStat
+                          key={stat.label}
+                          label={stat.label}
+                          value={stat.value}
+                          {...(stat.secondary !== undefined ? { secondary: stat.secondary } : {})}
+                        />
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <div style={getStatsGridStyle()}>
+                    {profileStats.map((stat) => (
+                      <ProfileStat
+                        key={stat.label}
+                        label={stat.label}
+                        value={stat.value}
+                        {...(stat.secondary !== undefined ? { secondary: stat.secondary } : {})}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
             </PanelSectionRow>
           </PanelSection>

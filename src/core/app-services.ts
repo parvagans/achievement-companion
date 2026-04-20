@@ -27,6 +27,7 @@ import {
   DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS,
   loadAchievementCompanionSettings,
 } from "./settings";
+import { resolveProviderDashboardPreferences } from "./provider-dashboard-preferences";
 
 type ResourceCapability = "profileSummary" | "completionProgress" | "gameProgress" | "achievementHistory";
 type ResourceLabel = "dashboard" | "achievement history" | "completion progress" | "game detail";
@@ -160,6 +161,41 @@ function createCacheReadError(
   };
 }
 
+function sanitizeProviderRefreshFailureMessage(message: string): string {
+  return message
+    .replace(/([?&](?:apiKey|key|token|password|secret)=[^&\s]+)/gi, "$1=[redacted]")
+    .replace(/\b(?:apiKey|key|token|password|secret)\b\s*[:=]\s*[^,\s]+/gi, (match) => {
+      const separatorIndex = Math.max(match.indexOf(":"), match.indexOf("="));
+      if (separatorIndex < 0) {
+        return "[redacted]";
+      }
+
+      return `${match.slice(0, separatorIndex + 1)} [redacted]`;
+    });
+}
+
+function logProviderRefreshFailure(
+  providerId: ProviderId,
+  resourceLabel: ResourceLabel,
+  cause: unknown,
+): void {
+  const rawMessage =
+    cause instanceof Error
+      ? cause.message
+      : typeof cause === "string"
+        ? cause
+        : undefined;
+  const sanitizedMessage =
+    rawMessage !== undefined ? sanitizeProviderRefreshFailureMessage(rawMessage) : undefined;
+
+  // Decky/CEF inspection path: keep this concise and credential-safe.
+  console.warn("[Achievement Companion] provider refresh failed", {
+    providerId,
+    operation: resourceLabel,
+    ...(sanitizedMessage !== undefined ? { message: sanitizedMessage } : {}),
+  });
+}
+
 function createMissingConfigError(providerId: ProviderId): AppError {
   return {
     kind: "auth",
@@ -197,6 +233,8 @@ function createRefreshError(
   providerId: ProviderId,
   cause: unknown,
 ): AppError {
+  logProviderRefreshFailure(providerId, resourceLabel, cause);
+
   if (isAppError(cause)) {
     return cause;
   }
@@ -316,12 +354,13 @@ async function loadDashboardSnapshot(
     settingsStore !== undefined
       ? await loadAchievementCompanionSettings(settingsStore)
       : DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS;
+  const dashboardPreferences = resolveProviderDashboardPreferences(providerConfig, settings);
   const recentAchievementLimit = Math.min(
-    settings.recentAchievementsCount,
+    dashboardPreferences.recentAchievementsCount,
     DASHBOARD_RECENT_ACHIEVEMENT_LIMIT,
   );
   const recentlyPlayedLimit = Math.min(
-    settings.recentlyPlayedCount,
+    dashboardPreferences.recentlyPlayedCount,
     DASHBOARD_RECENTLY_PLAYED_LIMIT,
   );
 
@@ -337,14 +376,67 @@ async function loadDashboardSnapshot(
     recentlyPlayedGamesPromise,
   ]);
 
+  const normalizedRecentlyPlayedGames =
+    recentlyPlayedGames.length > 0
+      ? recentlyPlayedGames
+      : deriveRecentlyPlayedGamesFromRecentUnlocks(recentAchievements);
+
   return {
     profile,
     recentAchievements,
     recentUnlocks: recentAchievements,
-    recentlyPlayedGames,
+    recentlyPlayedGames: normalizedRecentlyPlayedGames,
     featuredGames: profile.featuredGames ?? [],
     refreshedAt: Date.now(),
   };
+}
+
+function deriveRecentlyPlayedGamesFromRecentUnlocks(
+  recentUnlocks: readonly RecentUnlock[],
+): readonly RecentlyPlayedGame[] {
+  const gamesById = new Map<
+    string,
+    {
+      readonly game: RecentlyPlayedGame;
+      unlockedCount: number;
+    }
+  >();
+
+  for (const recentUnlock of recentUnlocks) {
+    const gameKey = `${recentUnlock.game.providerId}:${recentUnlock.game.gameId}`;
+    const existing = gamesById.get(gameKey);
+
+    if (existing !== undefined) {
+      existing.unlockedCount += 1;
+      continue;
+    }
+
+    gamesById.set(gameKey, {
+      unlockedCount: 1,
+      game: {
+        providerId: recentUnlock.game.providerId,
+        gameId: recentUnlock.game.gameId,
+        title: recentUnlock.game.title,
+        summary: {
+          unlockedCount: 1,
+        },
+        ...(recentUnlock.game.platformLabel !== undefined
+          ? { platformLabel: recentUnlock.game.platformLabel }
+          : {}),
+        ...(recentUnlock.game.coverImageUrl !== undefined
+          ? { coverImageUrl: recentUnlock.game.coverImageUrl }
+          : {}),
+      },
+    });
+  }
+
+  return Array.from(gamesById.values(), ({ game, unlockedCount }) => ({
+    ...game,
+    summary: {
+      ...game.summary,
+      unlockedCount,
+    },
+  }));
 }
 
 function summarizeCompletionProgressGames(

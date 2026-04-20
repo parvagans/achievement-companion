@@ -10,3 +10,8 @@ export {
 } from "./config";
 export { createRetroAchievementsDeckyProviderOption } from "./provider";
 export { RETROACHIEVEMENTS_PROVIDER_ICON_SRC } from "./icon";
+export { DeckyRetroAchievementsSetupScreen, DeckyFirstRunSetupScreen } from "./setup-screen";
+export {
+  DeckyRetroAchievementsProviderSettingsPage,
+  DeckyFullScreenProviderSettingsPage,
+} from "./provider-settings-page";

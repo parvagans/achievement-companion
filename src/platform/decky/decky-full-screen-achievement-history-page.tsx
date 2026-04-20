@@ -12,6 +12,8 @@ import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
+import { formatDeckyProviderLabel } from "./providers";
+import { STEAM_PROVIDER_ID } from "./providers/steam";
 
 export interface DeckyFullScreenAchievementHistoryPageProps {
   readonly providerId: string | undefined;
@@ -84,7 +86,7 @@ function getProfileAvatarInitials(displayName: string): string {
   const words = displayName.trim().split(/\s+/).filter(Boolean);
 
   if (words.length === 0) {
-    return "RA";
+    return "AC";
   }
 
   return (
@@ -92,7 +94,7 @@ function getProfileAvatarInitials(displayName: string): string {
       .slice(0, 2)
       .map((word) => word[0]?.toUpperCase() ?? "")
       .join("")
-      .trim() || "RA"
+    .trim() || "AC"
   );
 }
 
@@ -361,7 +363,7 @@ function getFallbackInitials(title: string): string {
     .filter(Boolean);
 
   if (words.length === 0) {
-    return "RA";
+    return "AC";
   }
 
   return (
@@ -369,7 +371,7 @@ function getFallbackInitials(title: string): string {
       .slice(0, 2)
       .map((word) => word[0]?.toUpperCase() ?? "")
       .join("")
-      .trim() || "RA"
+    .trim() || "AC"
   );
 }
 
@@ -405,23 +407,25 @@ function getAchievementHistoryPointsValue(achievement: RecentUnlock["achievement
   return achievement.points !== undefined ? formatCount(achievement.points) : "-";
 }
 
-function getAchievementHistoryRetroRatioValue(achievement: RecentUnlock["achievement"]): string {
+function getAchievementHistoryUnlockRateValue(achievement: RecentUnlock["achievement"]): string {
   return getMetricValue(achievement.metrics, "true-ratio", "True Ratio") ?? "-";
 }
 
 function getAchievementHistoryRowDescription(recentUnlock: RecentUnlock): JSX.Element {
   const unlockedAt = recentUnlock.unlockedAt ?? recentUnlock.achievement.unlockedAt;
   const points = getAchievementHistoryPointsValue(recentUnlock.achievement);
-  const retroRatio = getAchievementHistoryRetroRatioValue(recentUnlock.achievement);
+  const unlockRate = getAchievementHistoryUnlockRateValue(recentUnlock.achievement);
+  const isSteamProvider = recentUnlock.achievement.providerId === STEAM_PROVIDER_ID;
+  const summaryParts = [
+    recentUnlock.game.title,
+    ...(isSteamProvider ? [] : [`Points ${points}`]),
+    `Unlock rate ${unlockRate}`,
+  ];
 
   return (
     <div style={getAchievementRowTextStyle()}>
       <div style={getAchievementRowSummaryStyle()}>
-        {recentUnlock.game.title}
-        {" | "}
-        {`Points ${points}`}
-        {" | "}
-        {`RetroRatio ${retroRatio}`}
+        {summaryParts.join(" | ")}
       </div>
       <div style={getAchievementRowSupportStyle()}>
         {`Unlocked ${formatTimestamp(unlockedAt)}`}
@@ -430,12 +434,36 @@ function getAchievementHistoryRowDescription(recentUnlock: RecentUnlock): JSX.El
   );
 }
 
+function formatAchievementHistoryHeroCountLabel(providerId: string, sourceLabel: string): string {
+  if (providerId === STEAM_PROVIDER_ID) {
+    return sourceLabel.toLowerCase().includes("library unlock") ? "Library unlocks" : "Loaded unlocks";
+  }
+
+  return "Unlocked";
+}
+
+function formatAchievementHistoryBrowserSummary(
+  providerId: string,
+  sourceLabel: string,
+  entryCount: number,
+): string {
+  if (providerId === STEAM_PROVIDER_ID) {
+    return sourceLabel.toLowerCase().includes("library unlock")
+      ? `Showing ${formatCount(entryCount)} library unlocks newest first.`
+      : `Showing ${formatCount(entryCount)} loaded unlocks newest first.`;
+  }
+
+  return `Showing ${formatCount(entryCount)} unlocked achievements newest first.`;
+}
+
 function AchievementHistoryRow({
   recentUnlock,
   onOpenAchievementDetail,
+  onBack,
 }: {
   readonly recentUnlock: RecentUnlock;
   readonly onOpenAchievementDetail: (gameId: string, achievementId: string) => void;
+  readonly onBack: () => void;
 }): JSX.Element {
   const openAchievementDetail = (): void => {
     onOpenAchievementDetail(recentUnlock.game.gameId, recentUnlock.achievement.achievementId);
@@ -474,9 +502,15 @@ function AchievementHistoryRow({
 function AchievementHistoryBrowser({
   entries,
   onOpenAchievementDetail,
+  providerId,
+  sourceLabel,
+  onBack,
 }: {
   readonly entries: readonly RecentUnlock[];
   readonly onOpenAchievementDetail: (gameId: string, achievementId: string) => void;
+  readonly providerId: string;
+  readonly sourceLabel: string;
+  readonly onBack: () => void;
 }): JSX.Element {
   const newestUnlockedAt = entries[0]?.unlockedAt ?? entries[0]?.achievement.unlockedAt;
   const oldestUnlockedAt = entries[entries.length - 1]?.unlockedAt ?? entries[entries.length - 1]?.achievement.unlockedAt;
@@ -484,7 +518,9 @@ function AchievementHistoryBrowser({
   return (
     <div style={getBrowserCardStyle()}>
       <div style={getBrowserTitleStyle()}>Browse</div>
-      <div style={getBrowserSummaryStyle()}>{`Showing ${formatCount(entries.length)} unlocked achievements newest first.`}</div>
+      <div style={getBrowserSummaryStyle()}>
+        {formatAchievementHistoryBrowserSummary(providerId, sourceLabel, entries.length)}
+      </div>
       <div style={getBrowserMetaStyle()}>
         {[
           newestUnlockedAt !== undefined ? `Newest ${formatTimestamp(newestUnlockedAt)}` : "Newest unavailable",
@@ -501,6 +537,7 @@ function AchievementHistoryBrowser({
               <AchievementHistoryRow
                 recentUnlock={recentUnlock}
                 onOpenAchievementDetail={onOpenAchievementDetail}
+                onBack={onBack}
               />
             </PanelSectionRow>
           ))}
@@ -561,6 +598,9 @@ export function DeckyFullScreenAchievementHistoryPage({
   const oldestUnlockedAt = snapshot.summary.oldestUnlockedAt;
   const refreshTimestamp = state.lastUpdatedAt ?? snapshot.refreshedAt;
   const snapshotSourceLabel = snapshot.sourceLabel;
+  const isSteamProvider = snapshot.providerId === STEAM_PROVIDER_ID;
+  const heroCountLabel = formatAchievementHistoryHeroCountLabel(snapshot.providerId, snapshotSourceLabel);
+  const isLibraryUnlockHistory = isSteamProvider && snapshotSourceLabel.toLowerCase().includes("library unlock");
 
   return (
     <ScrollPanel>
@@ -569,11 +609,15 @@ export function DeckyFullScreenAchievementHistoryPage({
       >
         <div style={getPageFrameStyle()}>
           <PanelSection title="Navigation">
-            <PanelSectionRow>
-              <DeckyFullscreenActionRow>
-                <DeckyFullscreenActionButton label="Back" onClick={onBack} />
-              </DeckyFullscreenActionRow>
-            </PanelSectionRow>
+            <DeckyFullscreenActionRow>
+              <DeckyFullscreenActionButton
+                label="Back"
+                isFullscreenBackAction
+                onClick={() => {
+                  onBack();
+                }}
+              />
+            </DeckyFullscreenActionRow>
           </PanelSection>
 
           <PanelSection title="Achievement history">
@@ -585,17 +629,23 @@ export function DeckyFullScreenAchievementHistoryPage({
                 />
 
                 <div style={getHeroTextStyle()}>
-                  <div style={getHeroLabelStyle()}>RetroAchievements profile</div>
-                  <div style={getHeroTitleStyle()}>{profile.identity.displayName}</div>
-                  <div style={getHeroSupportStyle()}>
-                    <div>Browsing unlocked achievements newest first.</div>
+                    <div style={getHeroLabelStyle()}>{`${formatDeckyProviderLabel(snapshot.providerId)} profile`}</div>
+                    <div style={getHeroTitleStyle()}>{profile.identity.displayName}</div>
+                    <div style={getHeroSupportStyle()}>
+                      <div>
+                      {isSteamProvider
+                        ? isLibraryUnlockHistory
+                          ? "Browsing library unlocks newest first."
+                          : "Browsing loaded unlocked achievements newest first."
+                        : "Browsing unlocked achievements newest first."}
+                    </div>
                     {memberSince !== undefined ? <div>{`Member since ${memberSince}.`}</div> : null}
                   </div>
                 </div>
 
                 <div style={getStatsGridStyle()}>
                   <div style={getStatCardStyle()}>
-                    <div style={getStatLabelStyle()}>Unlocked</div>
+                    <div style={getStatLabelStyle()}>{heroCountLabel}</div>
                     <div style={getStatValueStyle()}>{formatCount(snapshot.summary.unlockedCount)}</div>
                   </div>
                   <div style={getStatCardStyle()}>
@@ -615,6 +665,9 @@ export function DeckyFullScreenAchievementHistoryPage({
             <AchievementHistoryBrowser
               entries={snapshot.entries}
               onOpenAchievementDetail={onOpenAchievementDetail}
+              providerId={snapshot.providerId}
+              sourceLabel={snapshotSourceLabel}
+              onBack={onBack}
             />
           </PanelSection>
 

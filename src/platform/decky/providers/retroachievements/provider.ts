@@ -13,6 +13,6 @@ export function createRetroAchievementsDeckyProviderOption(
     label: "RetroAchievements",
     iconSrc: RETROACHIEVEMENTS_PROVIDER_ICON_SRC,
     enabled: true,
-    connected: config !== undefined,
+    connected: config?.hasApiKey === true,
   };
 }

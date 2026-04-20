@@ -101,6 +101,13 @@ function getCurrentValueLabel(value: string): string {
   return `Current: ${value}`;
 }
 
+function getProviderCountValue(
+  providerCount: AchievementCompanionCount | undefined,
+  fallbackCount: AchievementCompanionCount,
+): AchievementCompanionCount {
+  return providerCount ?? fallbackCount;
+}
+
 function getNextCountOption(current: AchievementCompanionCount): AchievementCompanionCount {
   const currentIndex = ACHIEVEMENT_COMPANION_COUNT_OPTIONS.indexOf(current);
   return ACHIEVEMENT_COMPANION_COUNT_OPTIONS[
@@ -138,7 +145,7 @@ function PreferenceRow({
   );
 }
 
-export function DeckyFullScreenProviderSettingsPage({
+export function DeckyRetroAchievementsProviderSettingsPage({
   providerId,
   onBack,
 }: DeckyFullScreenProviderSettingsPageProps): JSX.Element {
@@ -153,16 +160,44 @@ export function DeckyFullScreenProviderSettingsPage({
     void saveDeckySettings(updater(readDeckySettings()));
   };
 
+  const persistProviderCounts = (nextSettings: AchievementCompanionSettings): void => {
+    if (providerConfig?.hasApiKey !== true) {
+      return;
+    }
+
+    void writeDeckyProviderConfig(
+      {
+        username: providerConfig.username,
+        recentAchievementsCount: nextSettings.recentAchievementsCount,
+        recentlyPlayedCount: nextSettings.recentlyPlayedCount,
+      },
+      "",
+    );
+  };
+
+  const providerRecentAchievementsCount = getProviderCountValue(
+    providerConfig?.recentAchievementsCount,
+    settings.recentAchievementsCount,
+  );
+  const providerRecentlyPlayedCount = getProviderCountValue(
+    providerConfig?.recentlyPlayedCount,
+    settings.recentlyPlayedCount,
+  );
+
   return (
     <ScrollPanel>
       <TopAlignedScrollViewport scrollKey={`full-screen-provider-settings:${providerId}`}>
         <div style={getPageFrameStyle()}>
           <PanelSection title="Navigation">
-            <PanelSectionRow>
-              <DeckyFullscreenActionRow>
-                <DeckyFullscreenActionButton label="Back" onClick={onBack} />
-              </DeckyFullscreenActionRow>
-            </PanelSectionRow>
+            <DeckyFullscreenActionRow>
+              <DeckyFullscreenActionButton
+                label="Back"
+                isFullscreenBackAction
+                onClick={() => {
+                  onBack();
+                }}
+              />
+            </DeckyFullscreenActionRow>
           </PanelSection>
 
           <PanelSection title="Provider">
@@ -171,8 +206,7 @@ export function DeckyFullScreenProviderSettingsPage({
                 <div style={getHeroKickerStyle()}>Achievement Companion</div>
                 <div style={getHeroTitleStyle()}>{providerLabel}</div>
                 <div style={getHeroSupportStyle()}>
-                  Manage account credentials and provider-specific preferences for this provider on
-                  this device.
+                  Manage account settings and provider-specific preferences for this provider on this device.
                 </div>
               </div>
             </PanelSectionRow>
@@ -182,39 +216,55 @@ export function DeckyFullScreenProviderSettingsPage({
             <DeckyRetroAchievementsCredentialsForm
               config={providerConfig}
               statusLabel="Account status"
-              helperCopy="Use the username from your RetroAchievements profile."
-              saveLabel={providerConfig === undefined ? "Save credentials" : "Update credentials"}
+              saveLabel="Save provider settings"
               clearLabel="Sign out"
-              onSave={(nextConfig) => writeDeckyProviderConfig(nextConfig)}
+              onSave={(nextConfig, apiKeyDraft) =>
+                writeDeckyProviderConfig(
+                  {
+                    ...nextConfig,
+                    recentAchievementsCount:
+                      providerConfig?.recentAchievementsCount ?? settings.recentAchievementsCount,
+                    recentlyPlayedCount:
+                      providerConfig?.recentlyPlayedCount ?? settings.recentlyPlayedCount,
+                  },
+                  apiKeyDraft,
+                )
+              }
               onClear={() => clearDeckyRetroAchievementsAccountState()}
             />
           </PanelSection>
 
-          <PanelSection title="Decky panel">
+          <PanelSection title="Provider dashboard preferences">
             <PreferenceRow
               label="Recent Achievements count"
-              description={getCurrentValueLabel(String(settings.recentAchievementsCount))}
+              description={getCurrentValueLabel(String(providerRecentAchievementsCount))}
               onClick={() => {
-                updateSettings((current) => ({
-                  ...current,
-                  recentAchievementsCount: getNextCountOption(current.recentAchievementsCount),
-                }));
+                const currentSettings = readDeckySettings();
+                const nextSettings = {
+                  ...currentSettings,
+                  recentAchievementsCount: getNextCountOption(currentSettings.recentAchievementsCount),
+                };
+                void saveDeckySettings(nextSettings);
+                persistProviderCounts(nextSettings);
               }}
             />
 
             <PreferenceRow
               label="Recently Played count"
-              description={getCurrentValueLabel(String(settings.recentlyPlayedCount))}
+              description={getCurrentValueLabel(String(providerRecentlyPlayedCount))}
               onClick={() => {
-                updateSettings((current) => ({
-                  ...current,
-                  recentlyPlayedCount: getNextCountOption(current.recentlyPlayedCount),
-                }));
+                const currentSettings = readDeckySettings();
+                const nextSettings = {
+                  ...currentSettings,
+                  recentlyPlayedCount: getNextCountOption(currentSettings.recentlyPlayedCount),
+                };
+                void saveDeckySettings(nextSettings);
+                persistProviderCounts(nextSettings);
               }}
             />
           </PanelSection>
 
-          <PanelSection title="Completion progress">
+          <PanelSection title="Global app/completion settings">
             <PreferenceRow
               label="Show subsets"
               description={settings.showCompletionProgressSubsets ? "Current: On" : "Current: Off"}
@@ -255,3 +305,5 @@ export function DeckyFullScreenProviderSettingsPage({
     </ScrollPanel>
   );
 }
+
+export { DeckyRetroAchievementsProviderSettingsPage as DeckyFullScreenProviderSettingsPage };

@@ -1,17 +1,29 @@
 node_modules/
 dist/
+release/staged/
+release/*.zip
 
 .DS_Store
 Thumbs.db
 desktop.ini
+*.pyc
+*.pyo
+__pycache__/
+.pytest_cache/
+.ruff_cache/
 
 *.log
 *.tmp
 *.bak
 *.tsbuildinfo
+*.local
 
 .env
 .env.*
+provider-config.json
+provider-secrets.json
+**/provider-config.json
+**/provider-secrets.json
 
 .vscode/
 .idea/

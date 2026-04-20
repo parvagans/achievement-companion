@@ -20,6 +20,7 @@ export type NavigationView =
   | "setup"
   | "overview"
   | "profile"
+  | "badges"
   | "achievement-history"
   | "completion-progress"
   | "game"

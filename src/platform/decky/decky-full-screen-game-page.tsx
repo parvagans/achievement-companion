@@ -15,8 +15,10 @@ import {
   DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS,
   DECKY_FOCUS_ACTION_ROW_CLASS,
 } from "./decky-focus-styles";
+import { dedupeDistinctLabels } from "./decky-achievement-detail-helpers";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
+import { formatDeckyProviderLabel } from "./providers";
 
 const FULL_SCREEN_INITIAL_ACHIEVEMENT_LIMIT = 12;
 const FULL_SCREEN_ACHIEVEMENT_LOAD_STEP = 12;
@@ -44,14 +46,6 @@ function formatTimestamp(epochMs: number | undefined): string {
 
 function formatCount(value: number): string {
   return value.toLocaleString();
-}
-
-function formatProviderLabel(providerId: string): string {
-  if (providerId.toLowerCase() === "retroachievements") {
-    return "RetroAchievements";
-  }
-
-  return providerId;
 }
 
 function formatAchievementDescription(achievement: NormalizedAchievement): string {
@@ -418,9 +412,11 @@ function getAchievementFilterWrapStyle(): CSSProperties {
 function AchievementFilterPills({
   currentFilter,
   onSelect,
+  onBack,
 }: {
   readonly currentFilter: AchievementFilter;
   readonly onSelect: (filter: AchievementFilter) => void;
+  readonly onBack: () => void;
 }): JSX.Element {
   return (
     <DeckyFullscreenActionRow>
@@ -446,10 +442,12 @@ function AchievementBrowseRow({
   achievement,
   index,
   onOpenAchievementDetail,
+  onBack,
 }: {
   readonly achievement: NormalizedAchievement;
   readonly index: number;
   readonly onOpenAchievementDetail: ((achievementId: string) => void) | undefined;
+  readonly onBack: () => void;
 }): JSX.Element {
   const openAchievementDetail = (): void => {
     if (onOpenAchievementDetail !== undefined) {
@@ -505,6 +503,7 @@ interface AchievementBrowserProps {
   readonly onOpenAchievementDetail: ((achievementId: string) => void) | undefined;
   readonly onLoadMoreAchievements: () => void;
   readonly onShowAllAchievements: () => void;
+  readonly onBack: () => void;
 }
 
 function AchievementBrowser({
@@ -518,6 +517,7 @@ function AchievementBrowser({
   onOpenAchievementDetail,
   onLoadMoreAchievements,
   onShowAllAchievements,
+  onBack,
 }: AchievementBrowserProps): JSX.Element {
   return (
     <div style={getAchievementBrowserStackStyle()}>
@@ -534,7 +534,11 @@ function AchievementBrowser({
           )}
         </div>
 
-        <AchievementFilterPills currentFilter={achievementFilter} onSelect={onAchievementFilterChange} />
+        <AchievementFilterPills
+          currentFilter={achievementFilter}
+          onSelect={onAchievementFilterChange}
+          onBack={onBack}
+        />
       </div>
 
       {achievements.length > 0 ? (
@@ -545,6 +549,7 @@ function AchievementBrowser({
                 achievement={achievement}
                 index={index}
                 onOpenAchievementDetail={onOpenAchievementDetail}
+                onBack={onBack}
               />
             </PanelSectionRow>
           ))}
@@ -662,11 +667,12 @@ export function DeckyFullScreenGamePage({
   const canShowAllAchievements =
     !isShowingAllAchievements && canLoadMoreAchievements && filteredAchievementCount > nextAchievementLimit;
   const achievements = filteredAchievements.slice(0, effectiveAchievementLimit);
-  const providerLabel = formatProviderLabel(providerId ?? game.providerId);
+  const providerLabel = formatDeckyProviderLabel(providerId ?? game.providerId);
   const isCachedView = state.status === "stale";
   const snapshotSourceLabel = isCachedView ? "Cached snapshot" : "Live snapshot";
   const refreshTimestamp = state.lastUpdatedAt ?? snapshot.refreshedAt;
   const totalAchievementCount = summary.totalCount ?? snapshot.achievements.length;
+  const heroMetaPills = dedupeDistinctLabels([game.platformLabel ?? "Unknown platform", providerLabel]);
 
   return (
     <ScrollPanel>
@@ -675,11 +681,15 @@ export function DeckyFullScreenGamePage({
       >
         <div style={getFullScreenPageFrameStyle()}>
           <PanelSection title="Navigation">
-            <PanelSectionRow>
-              <DeckyFullscreenActionRow>
-                <DeckyFullscreenActionButton label={backLabel} onClick={onBack} />
-              </DeckyFullscreenActionRow>
-            </PanelSectionRow>
+            <DeckyFullscreenActionRow>
+              <DeckyFullscreenActionButton
+                label={backLabel}
+                isFullscreenBackAction
+                onClick={() => {
+                  onBack();
+                }}
+              />
+            </DeckyFullscreenActionRow>
           </PanelSection>
 
           <PanelSection title="Game spotlight">
@@ -696,10 +706,11 @@ export function DeckyFullScreenGamePage({
                     <div style={getGameSpotlightKickerStyle()}>Selected game</div>
                     <div style={getGameSpotlightTitleStyle()}>{game.title}</div>
                     <div style={getGameSpotlightMetaRowStyle()}>
-                      <span style={getGameSpotlightMetaPillStyle()}>
-                        {game.platformLabel ?? "Unknown platform"}
-                      </span>
-                      <span style={getGameSpotlightMetaPillStyle()}>{providerLabel}</span>
+                      {heroMetaPills.map((label) => (
+                        <span key={label} style={getGameSpotlightMetaPillStyle()}>
+                          {label}
+                        </span>
+                      ))}
                     </div>
                     {game.lastUnlockAt !== undefined ? (
                       <div style={getGameSpotlightSupportStyle()}>
@@ -729,29 +740,30 @@ export function DeckyFullScreenGamePage({
           </PanelSection>
 
           <PanelSection title="Achievements">
-            <AchievementBrowser
-              achievementFilter={achievementFilter}
-              achievementSummary={achievementSummary}
-              achievements={achievements}
-              canLoadMoreAchievements={canLoadMoreAchievements}
-              canShowAllAchievements={canShowAllAchievements}
-              filteredAchievementCount={filteredAchievementCount}
-              onAchievementFilterChange={(filter) => {
-                setAchievementFilter(filter);
-              }}
-              onLoadMoreAchievements={() => {
-                setIsShowingAllAchievements(false);
-                setVisibleAchievementLimit((current) =>
-                  Math.min(filteredAchievementCount, current + FULL_SCREEN_ACHIEVEMENT_LOAD_STEP),
-                );
-              }}
-              onOpenAchievementDetail={onOpenAchievementDetail}
-              onShowAllAchievements={() => {
-                setIsShowingAllAchievements(true);
-                setVisibleAchievementLimit(filteredAchievementCount);
-              }}
-            />
-          </PanelSection>
+              <AchievementBrowser
+                achievementFilter={achievementFilter}
+                achievementSummary={achievementSummary}
+                achievements={achievements}
+                canLoadMoreAchievements={canLoadMoreAchievements}
+                canShowAllAchievements={canShowAllAchievements}
+                filteredAchievementCount={filteredAchievementCount}
+                onAchievementFilterChange={(filter) => {
+                  setAchievementFilter(filter);
+                }}
+                onLoadMoreAchievements={() => {
+                  setIsShowingAllAchievements(false);
+                  setVisibleAchievementLimit((current) =>
+                    Math.min(filteredAchievementCount, current + FULL_SCREEN_ACHIEVEMENT_LOAD_STEP),
+                  );
+                }}
+                onOpenAchievementDetail={onOpenAchievementDetail}
+                onShowAllAchievements={() => {
+                  setIsShowingAllAchievements(true);
+                  setVisibleAchievementLimit(filteredAchievementCount);
+                }}
+                onBack={onBack}
+              />
+            </PanelSection>
 
           <PanelSection title="Snapshot">
             {state.error ? (

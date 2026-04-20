@@ -1,0 +1,424 @@
+from __future__ import annotations
+
+import asyncio
+import base64
+import importlib.util
+import json
+import os
+import io
+import urllib.error
+import urllib.request
+import ssl
+import sys
+import tempfile
+import types
+import unittest
+import uuid
+import zipfile
+from pathlib import Path
+
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+SCRIPT_DIR = ROOT_DIR / "scripts"
+if str(SCRIPT_DIR) not in sys.path:
+  sys.path.insert(0, str(SCRIPT_DIR))
+
+import package_release  # type: ignore  # noqa: E402
+
+
+class FakeDeckyLogger:
+  def info(self, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
+    return
+
+  def warning(self, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
+    return
+
+  def error(self, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
+    return
+
+
+class CapturingDeckyLogger:
+  def __init__(self) -> None:
+    self.records: list[tuple[str, str]] = []
+
+  def _capture(self, level: str, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
+    message = args[0] if args else ""
+    if len(args) > 1:
+      try:
+        message = message % args[1:]
+      except Exception:
+        message = " ".join(str(arg) for arg in args)
+    self.records.append((level, str(message)))
+
+  def info(self, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
+    self._capture("info", *args, **kwargs)
+
+  def warning(self, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
+    self._capture("warning", *args, **kwargs)
+
+  def error(self, *args, **kwargs) -> None:  # noqa: ANN002, ANN003
+    self._capture("error", *args, **kwargs)
+
+
+FAKE_DECKY = types.SimpleNamespace(
+  DECKY_PLUGIN_SETTINGS_DIR="",
+  logger=FakeDeckyLogger(),
+)
+sys.modules["decky"] = FAKE_DECKY
+
+
+def load_main_module(settings_dir: Path) -> types.ModuleType:
+  FAKE_DECKY.DECKY_PLUGIN_SETTINGS_DIR = str(settings_dir)
+  module_name = f"achievement_companion_main_{uuid.uuid4().hex}"
+  spec = importlib.util.spec_from_file_location(module_name, ROOT_DIR / "main.py")
+  if spec is None or spec.loader is None:
+    raise RuntimeError("Unable to load main.py.")
+
+  module = importlib.util.module_from_spec(spec)
+  sys.modules[module_name] = module
+  spec.loader.exec_module(module)
+  return module
+
+
+def write_legacy_secret_record(module: types.ModuleType, provider_key: str, api_key: str) -> None:
+  payload = base64.urlsafe_b64encode(json.dumps({"apiKey": api_key}).encode("utf-8")).decode("ascii")
+  module._write_json_file(  # type: ignore[attr-defined]
+    module.SECRETS_PATH,
+    {
+      "version": 1,
+      provider_key: {
+        "version": 1,
+        "payload": payload,
+      },
+    },
+  )
+
+
+class BackendRuntimeTests(unittest.TestCase):
+  def test_legacy_secret_migrates_to_protected_record(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      module = load_main_module(Path(temp_dir))
+      module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
+      write_legacy_secret_record(module, "retroAchievements", "ra-secret")
+
+      self.assertEqual(module._load_secret_api_key("retroAchievements"), "ra-secret")  # type: ignore[attr-defined]
+
+      secrets_text = module.SECRETS_PATH.read_text(encoding="utf-8")  # type: ignore[attr-defined]
+      self.assertNotIn('"payload"', secrets_text)
+      self.assertNotIn('"apiKey"', secrets_text)
+
+      secrets_json = json.loads(secrets_text)
+      self.assertEqual(secrets_json["version"], 2)
+      self.assertEqual(secrets_json["retroAchievements"]["version"], 2)
+      self.assertEqual(secrets_json["retroAchievements"]["scheme"], "local-obfuscation-v1")
+      self.assertEqual(module._load_secret_api_key("retroAchievements"), "ra-secret")  # type: ignore[attr-defined]
+
+  def test_new_secret_record_is_not_base64_json(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      module = load_main_module(Path(temp_dir))
+      module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
+
+      module._save_secret_api_key("steam", "steam-secret")  # type: ignore[attr-defined]
+
+      secrets_text = module.SECRETS_PATH.read_text(encoding="utf-8")  # type: ignore[attr-defined]
+      self.assertNotIn('"payload"', secrets_text)
+      self.assertNotIn('"apiKey"', secrets_text)
+      self.assertIn('"ciphertext"', secrets_text)
+
+      self.assertEqual(module._load_secret_api_key("steam"), "steam-secret")  # type: ignore[attr-defined]
+
+  def test_retroachievements_credentials_save_persists_counts(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      module = load_main_module(Path(temp_dir))
+      module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
+
+      plugin = module.Plugin()
+      saved_config = asyncio.run(
+        plugin.save_retroachievements_credentials(
+          {
+            "username": "alice",
+            "apiKeyDraft": "ra-secret",
+            "recentAchievementsCount": 10,
+            "recentlyPlayedCount": 7,
+          },
+        ),
+      )
+
+      self.assertEqual(saved_config["username"], "alice")
+      self.assertEqual(saved_config["hasApiKey"], True)
+      self.assertEqual(saved_config["recentAchievementsCount"], 10)
+      self.assertEqual(saved_config["recentlyPlayedCount"], 7)
+
+      provider_configs = asyncio.run(plugin.get_provider_configs())
+      self.assertEqual(
+        provider_configs["retroAchievements"],
+        {
+          "username": "alice",
+          "hasApiKey": True,
+          "recentAchievementsCount": 10,
+          "recentlyPlayedCount": 7,
+        },
+      )
+
+      config_text = module.CONFIG_PATH.read_text(encoding="utf-8")  # type: ignore[attr-defined]
+      self.assertIn('"recentAchievementsCount": 10', config_text)
+      self.assertIn('"recentlyPlayedCount": 7', config_text)
+      self.assertNotIn('"apiKey"', config_text)
+
+      fallback_view = module._build_retroachievements_config_view(  # type: ignore[attr-defined]
+        {"username": "alice", "hasApiKey": True},
+        True,
+      )
+      self.assertEqual(
+        fallback_view,
+        {
+          "username": "alice",
+          "hasApiKey": True,
+        },
+      )
+
+  def test_backend_log_redaction_masks_secret_like_fields_and_urls(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      original_logger = FAKE_DECKY.logger
+      capture_logger = CapturingDeckyLogger()
+      FAKE_DECKY.logger = capture_logger
+      try:
+        module = load_main_module(Path(temp_dir))
+        module._log(  # type: ignore[attr-defined]
+          "info",
+          "Credentials and URLs apiKey=yikes",
+          apiKey="alpha",
+          apiKeyDraft="beta",
+          key="gamma",
+          y="delta",
+          token="epsilon",
+          password="zeta",
+          secret="eta",
+          Authorization="Bearer theta",
+          url="https://example.invalid/path?key=abc123&y=def456",
+        )
+      finally:
+        FAKE_DECKY.logger = original_logger
+
+      rendered = "\n".join(message for _, message in capture_logger.records)
+      self.assertNotIn("alpha", rendered)
+      self.assertNotIn("beta", rendered)
+      self.assertNotIn("gamma", rendered)
+      self.assertNotIn("delta", rendered)
+      self.assertNotIn("epsilon", rendered)
+      self.assertNotIn("zeta", rendered)
+      self.assertNotIn("eta", rendered)
+      self.assertNotIn("theta", rendered)
+      self.assertNotIn("key=abc123", rendered)
+      self.assertNotIn("y=def456", rendered)
+      self.assertIn("[redacted]", rendered)
+
+  def test_backend_diagnostic_event_redacts_secret_like_fields_and_urls(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      original_logger = FAKE_DECKY.logger
+      capture_logger = CapturingDeckyLogger()
+      FAKE_DECKY.logger = capture_logger
+      try:
+        module = load_main_module(Path(temp_dir))
+        module._record_diagnostic_event(  # type: ignore[attr-defined]
+          {
+            "event": "steam_library_scan_started",
+            "providerId": "steam",
+            "ownedGameCount": 5,
+            "apiKey": "alpha",
+            "apiKeyDraft": "beta",
+            "key": "gamma",
+            "y": "delta",
+            "token": "epsilon",
+            "password": "zeta",
+            "secret": "eta",
+            "Authorization": "Bearer theta",
+            "url": "https://example.invalid/path?key=abc123&y=def456",
+            "ignored": "still ignored",
+          },
+        )
+      finally:
+        FAKE_DECKY.logger = original_logger
+
+      rendered = "\n".join(message for _, message in capture_logger.records)
+      self.assertIn("Steam library scan started", rendered)
+      self.assertIn('"ownedGameCount":5', rendered)
+      self.assertNotIn("alpha", rendered)
+      self.assertNotIn("beta", rendered)
+      self.assertNotIn("gamma", rendered)
+      self.assertNotIn("delta", rendered)
+      self.assertNotIn("epsilon", rendered)
+      self.assertNotIn("zeta", rendered)
+      self.assertNotIn("eta", rendered)
+      self.assertNotIn("theta", rendered)
+      self.assertNotIn("ignored", rendered)
+      self.assertNotIn("key=abc123", rendered)
+      self.assertNotIn("y=def456", rendered)
+
+  def test_backend_request_json_handles_expected_http_statuses_without_warning(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      original_logger = FAKE_DECKY.logger
+      capture_logger = CapturingDeckyLogger()
+      FAKE_DECKY.logger = capture_logger
+      original_urlopen = urllib.request.urlopen
+
+      def fake_urlopen(*args, **kwargs):  # noqa: ANN001, ANN002, ANN003
+        raise urllib.error.HTTPError(
+          url="https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=secret",
+          code=403,
+          msg="Forbidden",
+          hdrs=None,
+          fp=io.BytesIO(b"Access is denied."),
+        )
+
+      urllib.request.urlopen = fake_urlopen  # type: ignore[assignment]
+      try:
+        module = load_main_module(Path(temp_dir))
+        module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
+
+        async def invoke_request() -> dict[str, object]:
+          return module._request_json(  # type: ignore[attr-defined]
+            provider_id="steam",
+            provider_label="Steam",
+            base_url="https://api.steampowered.com/",
+            path="IPlayerService/GetOwnedGames/v1/",
+            query={"language": "english", "key": "secret"},
+            auth_query={"steamid": "123", "key": "secret"},
+            handled_http_statuses={403},
+          )
+
+        handled_response = asyncio.run(invoke_request())
+      finally:
+        urllib.request.urlopen = original_urlopen  # type: ignore[assignment]
+        FAKE_DECKY.logger = original_logger
+
+      rendered = "\n".join(message for _, message in capture_logger.records)
+      self.assertEqual(handled_response["handledHttpError"], True)
+      self.assertEqual(handled_response["status"], 403)
+      self.assertEqual(handled_response["statusText"], "Forbidden")
+      self.assertIn("Access is denied", handled_response["message"])
+      self.assertIsInstance(handled_response["durationMs"], int)
+      self.assertNotIn("request failed", rendered)
+      self.assertNotIn("key=secret", rendered)
+      self.assertNotIn("steamid", rendered)
+      self.assertNotIn("Access is denied", rendered)
+
+  def test_backend_request_json_logs_failure_duration_without_query_params(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      original_logger = FAKE_DECKY.logger
+      capture_logger = CapturingDeckyLogger()
+      FAKE_DECKY.logger = capture_logger
+      original_urlopen = urllib.request.urlopen
+
+      def fake_urlopen(*args, **kwargs):  # noqa: ANN001, ANN002, ANN003
+        raise urllib.error.HTTPError(
+          url="https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=secret",
+          code=403,
+          msg="Forbidden",
+          hdrs=None,
+          fp=io.BytesIO(b"Access is denied."),
+        )
+
+      urllib.request.urlopen = fake_urlopen  # type: ignore[assignment]
+      try:
+        module = load_main_module(Path(temp_dir))
+        module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
+
+        async def invoke_request() -> None:
+          with self.assertRaises(RuntimeError):
+            module._request_json(  # type: ignore[attr-defined]
+              provider_id="steam",
+              provider_label="Steam",
+              base_url="https://api.steampowered.com/",
+              path="IPlayerService/GetOwnedGames/v1/",
+              query={"language": "english", "key": "secret"},
+              auth_query={"steamid": "123", "key": "secret"},
+            )
+
+        asyncio.run(invoke_request())
+      finally:
+        urllib.request.urlopen = original_urlopen  # type: ignore[assignment]
+        FAKE_DECKY.logger = original_logger
+
+      rendered = "\n".join(message for _, message in capture_logger.records)
+      self.assertIn('"durationMs":', rendered)
+      self.assertIn('"path":"IPlayerService/GetOwnedGames/v1/"', rendered)
+      self.assertNotIn("key=secret", rendered)
+      self.assertNotIn("steamid", rendered)
+      self.assertNotIn("Access is denied", rendered)
+
+  def test_backend_main_logs_storage_and_tls_readiness(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      original_logger = FAKE_DECKY.logger
+      capture_logger = CapturingDeckyLogger()
+      FAKE_DECKY.logger = capture_logger
+      try:
+        module = load_main_module(Path(temp_dir))
+        module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
+        plugin = module.Plugin()
+        asyncio.run(plugin._main())
+      finally:
+        FAKE_DECKY.logger = original_logger
+
+      rendered = "\n".join(message for _, message in capture_logger.records)
+      self.assertIn("Achievement Companion storage ready", rendered)
+      self.assertIn("Achievement Companion backend TLS context ready", rendered)
+      self.assertIn("settingsPath", rendered)
+      self.assertIn("logPath", rendered)
+
+  def test_backend_tls_helper_sanitizes_ld_library_path_and_uses_cafile(self) -> None:
+    original_ld_library_path = os.environ.get("LD_LIBRARY_PATH")
+    os.environ["LD_LIBRARY_PATH"] = "/tmp/_MEIabcdef:/usr/lib"
+    try:
+      with tempfile.TemporaryDirectory() as temp_dir:
+        module = load_main_module(Path(temp_dir))
+        self.assertNotIn("LD_LIBRARY_PATH", os.environ)
+
+        cafile = Path(temp_dir) / "custom-ca.pem"
+        cafile.write_text("dummy ca file", encoding="utf-8")
+        module.BACKEND_HTTP_CA_CANDIDATES = (("custom-ca", cafile),)  # type: ignore[attr-defined]
+        module._backend_http_ssl_context = None  # type: ignore[attr-defined]
+        module._backend_http_ssl_context_source = None  # type: ignore[attr-defined]
+
+        captured: dict[str, str | None] = {}
+        original_create_default_context = ssl.create_default_context
+
+        def fake_create_default_context(*, cafile: str | None = None, **kwargs):  # noqa: ANN001
+          captured["cafile"] = cafile
+          captured["kwargs"] = repr(kwargs)
+          return types.SimpleNamespace(verify_mode=ssl.CERT_REQUIRED, check_hostname=True)
+
+        ssl.create_default_context = fake_create_default_context  # type: ignore[assignment]
+        try:
+          context = module._get_backend_http_ssl_context()  # type: ignore[attr-defined]
+        finally:
+          ssl.create_default_context = original_create_default_context  # type: ignore[assignment]
+
+        self.assertEqual(captured["cafile"], str(cafile))
+        self.assertEqual(module._get_backend_http_ssl_context_source(), "custom-ca")  # type: ignore[attr-defined]
+        self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
+        self.assertTrue(context.check_hostname)
+    finally:
+      if original_ld_library_path is None:
+        os.environ.pop("LD_LIBRARY_PATH", None)
+      else:
+        os.environ["LD_LIBRARY_PATH"] = original_ld_library_path
+
+  def test_release_package_includes_main_py(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      release_dir = Path(temp_dir) / "release"
+      stage_dir = Path(temp_dir) / "stage" / "achievement-companion"
+      staged_dir = package_release.stage_release_package(root_dir=ROOT_DIR, stage_dir=stage_dir)
+      self.assertTrue((staged_dir / "main.py").exists())
+
+      zip_path = package_release.create_release_zip(
+        root_dir=ROOT_DIR,
+        release_dir=release_dir,
+        stage_dir=staged_dir,
+      )
+      with zipfile.ZipFile(zip_path) as archive:
+        self.assertIn("achievement-companion/main.py", set(archive.namelist()))
+
+
+if __name__ == "__main__":
+  unittest.main()

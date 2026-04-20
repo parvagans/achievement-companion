@@ -2,6 +2,13 @@
 
 This repository depends on third-party packages whose licenses were checked with `pnpm licenses list`.
 
+## Branding / Trademark Notices
+
+- RetroAchievements is used for identification of the supported provider only. Achievement Companion is not affiliated with, endorsed by, sponsored by, or approved by RetroAchievements.
+- © 2026 Valve Corporation. Steam and the Steam logo are trademarks and/or registered trademarks of Valve Corporation in the U.S. and/or other countries.
+- Achievement Companion is not affiliated with, endorsed by, sponsored by, or approved by Valve Corporation.
+- Achievement Companion does not provide ROMs, BIOS files, game files, or copyrighted game content.
+
 ## Runtime Dependencies
 
 | Package | Version | License | Notes |

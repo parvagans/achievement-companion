@@ -77,6 +77,14 @@ export interface AchievementCounts {
   readonly totalPlayers?: number;
 }
 
+export function hasAchievementCounts(counts: AchievementCounts): boolean {
+  return (
+    counts.softcoreUnlockCount !== undefined ||
+    counts.hardcoreUnlockCount !== undefined ||
+    counts.totalPlayers !== undefined
+  );
+}
+
 export function getAchievementCounts(metrics: readonly NormalizedMetric[]): AchievementCounts {
   const totalPlayers = parseMetricNumber(metrics, "unlocked-count", "Total Players");
   const hardcoreUnlockCount = parseMetricNumber(metrics, "hardcore-unlocked-count", "Hardcore Unlocks");
@@ -88,6 +96,30 @@ export function getAchievementCounts(metrics: readonly NormalizedMetric[]): Achi
       ? { softcoreUnlockCount: Math.max(0, totalPlayers - hardcoreUnlockCount) }
       : {}),
   };
+}
+
+export function dedupeDistinctLabels(
+  labels: readonly (string | undefined)[],
+): readonly string[] {
+  const dedupedLabels: string[] = [];
+  const seen = new Set<string>();
+
+  for (const label of labels) {
+    const normalizedLabel = label?.trim();
+    if (normalizedLabel === undefined || normalizedLabel.length === 0) {
+      continue;
+    }
+
+    const normalizedKey = normalizedLabel.toLocaleLowerCase();
+    if (seen.has(normalizedKey)) {
+      continue;
+    }
+
+    seen.add(normalizedKey);
+    dedupedLabels.push(normalizedLabel);
+  }
+
+  return dedupedLabels;
 }
 
 export function buildAchievementStatus(
@@ -106,4 +138,12 @@ export function buildAchievementStatus(
   }
 
   return { value: "Unlocked", secondary: `Unlocked ${formatTimestamp(unlockedAt)}` };
+}
+
+export function shouldHideSteamAchievementDetailStats(providerId: string | undefined): boolean {
+  return providerId === "steam";
+}
+
+export function getAchievementDescriptionText(description: string | undefined): string {
+  return description ?? "No description was returned for this achievement.";
 }

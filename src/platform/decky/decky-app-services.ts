@@ -11,17 +11,36 @@ import type {
 } from "@core/domain";
 import type { NavigationPort, PlatformServices } from "@core/platform";
 import { createAppServices } from "@core/app-services";
+import { resolveProviderDashboardPreferences } from "@core/provider-dashboard-preferences";
 import { createProviderRegistry } from "@core/provider-registry";
 import { createRetroAchievementsProvider } from "../../providers/retroachievements";
+import { createSteamProvider } from "../../providers/steam";
 import { createMemoryCacheStore } from "./memory-cache";
 import { createDeckySettingsStore } from "./decky-settings";
 import { loadDeckyRuntimeMode, type DeckyRuntimeMode } from "./runtime-mode";
 import { readDeckyStorageText, removeDeckyStorageText, writeDeckyStorageText } from "./storage";
 import {
+  readDeckyDashboardSnapshotState,
+  writeDeckyDashboardSnapshot,
+} from "./decky-dashboard-snapshot-cache";
+import {
   createDeckySmokeTestDashboardCacheEntries,
   type DeckySmokeTestCacheMode,
 } from "./smoke-test-cache";
-import { loadDeckyProviderConfig } from "./providers/retroachievements/config";
+import { loadDeckyProviderConfig } from "./providers";
+import { STEAM_PROVIDER_ID } from "../../providers/steam";
+import { createDeckyRetroAchievementsTransport } from "./providers/retroachievements/backend-transport";
+import { createDeckySteamTransport } from "./providers/steam/backend-transport";
+import {
+  buildDeckySteamAchievementHistorySnapshotFromSummary,
+  buildDeckySteamCompletionProgressSnapshotFromSummary,
+} from "./providers/steam/library-scan";
+import { recordDeckyDiagnosticEvent } from "./decky-diagnostic-logger";
+import { readDeckySteamLibraryAchievementScanSummary } from "./providers/steam/config";
+import {
+  applySteamLibraryScanGameDetailMetadata,
+  findSteamLibraryScanGameSummaryByAppId,
+} from "./providers/steam/game-detail";
 
 const deckyPlatformInfo = {
   platformId: "decky",
@@ -32,7 +51,14 @@ const DECKY_RECENT_ACHIEVEMENTS_STORAGE_KEY_PREFIX =
 const DECKY_RECENT_ACHIEVEMENTS_LIMIT = 10;
 const DECKY_RECENT_ACHIEVEMENTS_BACKFILL_RECENTLY_PLAYED_LIMIT = 50;
 
-const providerRegistry = createProviderRegistry([createRetroAchievementsProvider()]);
+const providerRegistry = createProviderRegistry([
+  createRetroAchievementsProvider({
+    transport: createDeckyRetroAchievementsTransport(),
+  }),
+  createSteamProvider({
+    transport: createDeckySteamTransport(),
+  }),
+]);
 let liveDeckyAppServices: ReturnType<typeof createAppServices> | undefined;
 
 interface DeckyRecentAchievementBackfillProvider {
@@ -952,8 +978,38 @@ export async function loadDeckyDashboardState(
     return initialDeckyBootstrapState;
   }
 
+  if (runtimeMode === "live" && !options?.forceRefresh) {
+    const cachedDashboardState = readDeckyDashboardSnapshotState(providerId);
+    if (cachedDashboardState !== undefined) {
+      return cachedDashboardState;
+    }
+  }
+
+  const dashboardRefreshStartedAt = Date.now();
+  console.info("[Achievement Companion][Decky] Dashboard refresh started", {
+    providerId,
+    mode: options?.forceRefresh ? "manual" : "initial",
+  });
+  void recordDeckyDiagnosticEvent({
+    event: "dashboard_refresh_started",
+    providerId,
+    mode: options?.forceRefresh ? "manual" : "initial",
+  });
   const state = await createDeckyAppServices(runtimeMode).dashboard.loadDashboard(providerId, options);
   if (state.data === undefined) {
+    console.warn("[Achievement Companion][Decky] Dashboard refresh failed", {
+      providerId,
+      mode: options?.forceRefresh ? "manual" : "initial",
+      durationMs: Date.now() - dashboardRefreshStartedAt,
+      errorKind: state.error?.kind ?? "unknown",
+    });
+    void recordDeckyDiagnosticEvent({
+      event: "dashboard_refresh_failed",
+      providerId,
+      mode: options?.forceRefresh ? "manual" : "initial",
+      durationMs: Date.now() - dashboardRefreshStartedAt,
+      errorKind: state.error?.kind ?? "unknown",
+    });
     return state;
   }
 
@@ -961,14 +1017,46 @@ export async function loadDeckyDashboardState(
     ? (providerRegistry.get(providerId) as DeckyRecentAchievementBackfillProvider | undefined)
     : undefined;
   const providerConfig = runtimeMode === "live" ? await loadDeckyProviderConfig(providerId) : undefined;
+  const dashboardSnapshot = await buildDeckyRecentAchievementHistory({
+    provider,
+    providerConfig,
+    snapshot: state.data,
+  });
+  writeDeckyDashboardSnapshot(dashboardSnapshot);
+
+  if (state.error !== undefined) {
+    console.warn("[Achievement Companion][Decky] Dashboard refresh failed", {
+      providerId,
+      mode: options?.forceRefresh ? "manual" : "initial",
+      durationMs: Date.now() - dashboardRefreshStartedAt,
+      errorKind: state.error.kind,
+    });
+    void recordDeckyDiagnosticEvent({
+      event: "dashboard_refresh_failed",
+      providerId,
+      mode: options?.forceRefresh ? "manual" : "initial",
+      durationMs: Date.now() - dashboardRefreshStartedAt,
+      errorKind: state.error.kind,
+    });
+  } else {
+    console.info("[Achievement Companion][Decky] Dashboard refresh completed", {
+      providerId,
+      mode: options?.forceRefresh ? "manual" : "initial",
+      durationMs: Date.now() - dashboardRefreshStartedAt,
+      source: "live",
+    });
+    void recordDeckyDiagnosticEvent({
+      event: "dashboard_refresh_completed",
+      providerId,
+      mode: options?.forceRefresh ? "manual" : "initial",
+      durationMs: Date.now() - dashboardRefreshStartedAt,
+      source: "live",
+    });
+  }
 
   return {
     ...state,
-    data: await buildDeckyRecentAchievementHistory({
-      provider,
-      providerConfig,
-      snapshot: state.data,
-    }),
+    data: dashboardSnapshot,
   };
 }
 
@@ -981,6 +1069,20 @@ export async function loadDeckyCompletionProgressState(
     return initialDeckyCompletionProgressState;
   }
 
+  if (providerId === STEAM_PROVIDER_ID) {
+    const cachedSteamLibraryScanSummary = readDeckySteamLibraryAchievementScanSummary(providerId);
+    if (cachedSteamLibraryScanSummary !== undefined && cachedSteamLibraryScanSummary.games.length > 0) {
+      const parsedLastUpdatedAt = Date.parse(cachedSteamLibraryScanSummary.scannedAt);
+      return {
+        status: "success",
+        data: buildDeckySteamCompletionProgressSnapshotFromSummary(cachedSteamLibraryScanSummary),
+        lastUpdatedAt: Number.isFinite(parsedLastUpdatedAt) ? parsedLastUpdatedAt : Date.now(),
+        isStale: false,
+        isRefreshing: false,
+      };
+    }
+  }
+
   return createDeckyAppServices(runtimeMode).completionProgress.loadCompletionProgress(providerId);
 }
 
@@ -991,6 +1093,29 @@ export async function loadDeckyAchievementHistoryState(
 
   if (runtimeMode === "empty") {
     return initialDeckyAchievementHistoryState;
+  }
+
+  if (providerId === STEAM_PROVIDER_ID) {
+    const cachedSteamLibraryScanSummary = readDeckySteamLibraryAchievementScanSummary(providerId);
+    if (
+      cachedSteamLibraryScanSummary !== undefined &&
+      (cachedSteamLibraryScanSummary.unlockedAchievementsList?.length ?? 0) > 0
+    ) {
+      const dashboardState = await loadDeckyDashboardState(providerId);
+      if (dashboardState.data !== undefined) {
+        const parsedLastUpdatedAt = Date.parse(cachedSteamLibraryScanSummary.scannedAt);
+        return {
+          status: "success",
+          data: buildDeckySteamAchievementHistorySnapshotFromSummary({
+            profile: dashboardState.data.profile,
+            summary: cachedSteamLibraryScanSummary,
+          }),
+          lastUpdatedAt: Number.isFinite(parsedLastUpdatedAt) ? parsedLastUpdatedAt : Date.now(),
+          isStale: false,
+          isRefreshing: false,
+        };
+      }
+    }
   }
 
   return createDeckyAppServices(runtimeMode).achievementHistory.loadAchievementHistory(providerId);
@@ -1018,7 +1143,45 @@ export async function loadDeckyGameDetailState(
     return initialDeckyGameDetailState;
   }
 
-  return createDeckyAppServices(runtimeMode).gameDetail.loadGameDetail(providerId, gameId, {
+  const state = await createDeckyAppServices(runtimeMode).gameDetail.loadGameDetail(providerId, gameId, {
     forceRefresh: true,
   });
+
+  if (providerId !== STEAM_PROVIDER_ID || state.data === undefined) {
+    return state;
+  }
+
+  const cachedSteamLibraryScanSummary = readDeckySteamLibraryAchievementScanSummary(providerId);
+  if (cachedSteamLibraryScanSummary === undefined) {
+    return state;
+  }
+
+  const cachedGameSummary = findSteamLibraryScanGameSummaryByAppId(
+    cachedSteamLibraryScanSummary,
+    state.data.game.appid ?? Number.parseInt(state.data.game.gameId, 10),
+  );
+  const patchedGameDetail = applySteamLibraryScanGameDetailMetadata(
+    state.data,
+    cachedSteamLibraryScanSummary,
+  );
+
+  if (patchedGameDetail === state.data) {
+    return state;
+  }
+
+  console.debug("[Achievement Companion][Steam]", {
+    operation: "loadGameDetail",
+    appid: patchedGameDetail.game.appid,
+    cachedTitle: cachedGameSummary?.title,
+    originalTitle: state.data.game.title,
+    resolvedTitle: patchedGameDetail.game.title,
+    hasCachedIcon: cachedGameSummary?.iconUrl !== undefined,
+    hasResolvedIcon:
+      patchedGameDetail.game.coverImageUrl !== undefined || patchedGameDetail.game.boxArtImageUrl !== undefined,
+  });
+
+  return {
+    ...state,
+    data: patchedGameDetail,
+  };
 }

@@ -6,11 +6,21 @@ export const DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS = "achievement-companion-focus-ac
 export const DECKY_FOCUS_PILL_CLASS = "achievement-companion-focus-pill";
 export const DECKY_FOCUS_PILL_ACTIVE_CLASS = "achievement-companion-focus-pill--focused";
 export const DECKY_FOCUS_PILL_ACTIVE_WITHIN_CLASS = "achievement-companion-focus-pill--focus-within";
+export const DECKY_FULLSCREEN_ACTION_ROW_CLASS = "achievement-companion-fullscreen-action-controls";
+export const DECKY_FULLSCREEN_ACTION_ROW_CENTERED_CLASS =
+  "achievement-companion-fullscreen-action-controls--centered";
 export const DECKY_FULLSCREEN_CHIP_CLASS = "achievement-companion-fullscreen-chip";
 export const DECKY_FULLSCREEN_CHIP_SELECTED_CLASS = "achievement-companion-fullscreen-chip--selected";
 export const DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS = "achievement-companion-fullscreen-chip--focused";
+export const DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS = "achievement-companion-achievement-filter-group";
+export const DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS = "achievement-companion-achievement-filter-option";
+export const DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS =
+  "achievement-companion-achievement-filter-option--selected";
+export const DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS =
+  "achievement-companion-achievement-filter-option--focused";
 
-const deckyFocusStyles = `
+export function getDeckyFocusStylesCss(): string {
+  return `
 .${DECKY_FOCUS_NAV_ROW_CLASS}:focus-visible,
 .${DECKY_FOCUS_NAV_ROW_CLASS}:focus-within {
   box-shadow:
@@ -57,76 +67,121 @@ const deckyFocusStyles = `
   background-color: rgba(255, 255, 255, 0.05);
 }
 
-.${DECKY_FOCUS_PILL_ACTIVE_CLASS},
-.${DECKY_FOCUS_PILL_ACTIVE_WITHIN_CLASS},
-.${DECKY_FOCUS_PILL_CLASS}.${DECKY_FOCUS_PILL_ACTIVE_CLASS},
-.${DECKY_FOCUS_PILL_CLASS}.${DECKY_FOCUS_PILL_ACTIVE_WITHIN_CLASS},
-.${DECKY_FOCUS_PILL_CLASS}:focus-visible,
-.${DECKY_FOCUS_PILL_CLASS}:focus-within {
-  outline: none;
-  outline: 1px solid rgba(255, 255, 255, 0.38);
-  outline-offset: 1px;
-  background-color: rgba(255, 255, 255, 0.24) !important;
+.achievement-companion-focus-pill.Panel.Focusable[role="button"] {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.035)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 999px !important;
   box-shadow:
-    inset 0 0 0 2px rgba(255, 255, 255, 0.28),
-    0 0 0 1px rgba(0, 0, 0, 0.18),
-    0 6px 18px rgba(0, 0, 0, 0.14);
-  transform: translateY(-1px);
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 10px rgba(0, 0, 0, 0.22) !important;
+  color: rgba(255, 255, 255, 0.94) !important;
+  transform: none !important;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease !important;
 }
 
-.${DECKY_FULLSCREEN_CHIP_CLASS} {
-  display: inline-flex;
+.achievement-companion-focus-pill.Panel.Focusable[role="button"].achievement-companion-focus-pill--focused,
+.achievement-companion-focus-pill.Panel.Focusable[role="button"].gpfocus,
+.achievement-companion-focus-pill.Panel.Focusable[role="button"].gpfocuswithin,
+.achievement-companion-focus-pill.Panel.Focusable[role="button"]:focus,
+.achievement-companion-focus-pill.Panel.Focusable[role="button"]:focus-within {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.065)) !important;
+  border-color: rgba(125, 190, 255, 0.7) !important;
+  box-shadow:
+    0 0 0 1px rgba(96, 165, 250, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 2px 12px rgba(0, 0, 0, 0.28) !important;
+}
+
+.achievement-companion-focus-pill.Panel.Focusable[role="button"]::before,
+.achievement-companion-focus-pill.Panel.Focusable[role="button"]::after {
+  box-shadow: none !important;
+  background: transparent !important;
+  opacity: 0 !important;
+}
+
+.${DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS} {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+  padding: 4px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.024);
+  box-sizing: border-box;
+}
+
+.${DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS} {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 30px;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.028), rgba(255, 255, 255, 0.02));
+  color: rgba(255, 255, 255, 0.78);
+  box-shadow: none;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
   align-items: center;
   justify-content: center;
-  flex: 0 0 auto;
-  width: auto;
-  min-width: 0;
-  max-width: 100%;
-  min-height: 36px;
-  padding: 0 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.04));
-  color: rgba(255, 255, 255, 0.9);
-  cursor: pointer;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.15;
-  letter-spacing: 0.01em;
-  user-select: none;
+  text-align: center;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  box-sizing: border-box;
   transition:
-    background-color 120ms ease,
+    background 120ms ease,
     border-color 120ms ease,
     box-shadow 120ms ease,
-    color 120ms ease,
-    transform 120ms ease;
+    color 120ms ease;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
-.${DECKY_FULLSCREEN_CHIP_SELECTED_CLASS} {
-  border-color: rgba(255, 255, 255, 0.22);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.12));
+.${DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS}.${DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS} {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.07));
+  border-color: rgba(255, 255, 255, 0.18);
   color: rgba(255, 255, 255, 0.98);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  font-weight: 700;
 }
 
-.${DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS},
-.${DECKY_FULLSCREEN_CHIP_CLASS}:focus-visible,
-.${DECKY_FULLSCREEN_CHIP_CLASS}:focus-within {
-  outline: 2px solid rgba(255, 255, 255, 0.56);
-  outline-offset: 2px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), rgba(255, 255, 255, 0.2));
+.${DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS}.${DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS},
+.${DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS}.gpfocus,
+.${DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS}.gpfocuswithin,
+.${DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS}:focus,
+.${DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS}:focus-within {
+  border-color: rgba(125, 190, 255, 0.62);
   box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.28),
-    0 0 0 1px rgba(0, 0, 0, 0.18),
-    0 8px 24px rgba(0, 0, 0, 0.18);
-  transform: translateY(-1px);
+    0 0 0 1px rgba(96, 165, 250, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 2px 10px rgba(0, 0, 0, 0.24);
+  color: rgba(255, 255, 255, 0.96);
+  outline: none;
 }
-`;
+
+.${DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS}.${DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS}.${DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS},
+.${DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS}.${DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS}.gpfocus,
+.${DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS}.${DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS}.gpfocuswithin,
+.${DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS}.${DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS}:focus,
+.${DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS}.${DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS}:focus-within {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.075));
+  border-color: rgba(125, 190, 255, 0.7);
+  box-shadow:
+    0 0 0 1px rgba(96, 165, 250, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 2px 12px rgba(0, 0, 0, 0.28),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.98);
+}
+
+`; 
+}
 
 export function DeckyFocusStyles(): JSX.Element {
-  return <style>{deckyFocusStyles}</style>;
+  return <style>{getDeckyFocusStylesCss()}</style>;
 }

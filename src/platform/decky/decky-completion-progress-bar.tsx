@@ -64,27 +64,38 @@ export function getCompletionPercent(summary: GameSummary): number | undefined {
 export function DeckyCompletionProgressBar({
   compact = false,
   percent,
+  caption,
+  captionPlacement = "below",
 }: {
   readonly compact?: boolean;
   readonly percent: number;
+  readonly caption?: string;
+  readonly captionPlacement?: "above" | "below";
 }): JSX.Element {
   const normalizedPercent = clampPercent(percent);
+  const resolvedCaption = caption ?? `${normalizedPercent}% complete`;
 
   return (
     <div style={getCompletionBarFrameStyle(compact)}>
+      {captionPlacement === "above" ? (
+        <div style={getCompletionBarCaptionStyle(compact)}>{resolvedCaption}</div>
+      ) : null}
+
       <div
         aria-label="Completion progress"
         aria-valuemax={100}
         aria-valuemin={0}
         aria-valuenow={normalizedPercent}
-        aria-valuetext={`${normalizedPercent}% complete`}
+        aria-valuetext={resolvedCaption}
         role="progressbar"
         style={getCompletionBarTrackStyle(compact)}
       >
         <div style={getCompletionBarFillStyle(normalizedPercent)} />
       </div>
 
-      <div style={getCompletionBarCaptionStyle(compact)}>{`${normalizedPercent}% complete`}</div>
+      {captionPlacement === "below" ? (
+        <div style={getCompletionBarCaptionStyle(compact)}>{resolvedCaption}</div>
+      ) : null}
     </div>
   );
 }

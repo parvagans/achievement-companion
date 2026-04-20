@@ -6,6 +6,7 @@ import { DeckyActionButtonItem } from "../../decky-action-button-item";
 import { DECKY_FOCUS_ACTION_ROW_CLASS } from "../../decky-focus-styles";
 import { DeckyRetroAchievementsCredentialsForm } from "./credentials-form";
 import { useDeckyProviderConfig, writeDeckyProviderConfig } from "./config";
+import { useDeckySettings } from "../../decky-settings";
 
 export interface DeckyFirstRunSetupScreenProps {
   readonly providerId: ProviderId;
@@ -73,11 +74,12 @@ function getProviderLabel(providerId: ProviderId): string {
   return providerId;
 }
 
-export function DeckyFirstRunSetupScreen({
+export function DeckyRetroAchievementsSetupScreen({
   providerId,
   onBackToProviders,
 }: DeckyFirstRunSetupScreenProps): JSX.Element {
   const config = useDeckyProviderConfig(providerId);
+  const settings = useDeckySettings();
   const providerLabel = getProviderLabel(providerId);
 
   return (
@@ -102,23 +104,32 @@ export function DeckyFirstRunSetupScreen({
             <div style={getHeroKickerStyle()}>Achievement Companion</div>
             <div style={getHeroTitleStyle()}>Connect {providerLabel}</div>
             <div style={getHeroSupportStyle()}>
-              Enter your account credentials to load this provider on this device.
+              Enter your account details to load this provider on this device.
             </div>
           </div>
         </PanelSectionRow>
       </PanelSection>
 
-      <PanelSection title="Credentials">
+      <PanelSection title="Account">
         <DeckyRetroAchievementsCredentialsForm
           config={config}
           statusLabel="Account status"
-          helperCopy="Use the username from your RetroAchievements profile."
-          saveLabel={config === undefined ? "Save credentials" : "Update credentials"}
-          onSave={(nextConfig) => {
-            return writeDeckyProviderConfig(nextConfig);
-          }}
+          saveLabel="Save provider settings"
+          onSave={(nextConfig, apiKeyDraft) =>
+            writeDeckyProviderConfig(
+              {
+                ...nextConfig,
+                recentAchievementsCount:
+                  config?.recentAchievementsCount ?? settings.recentAchievementsCount,
+                recentlyPlayedCount: config?.recentlyPlayedCount ?? settings.recentlyPlayedCount,
+              },
+              apiKeyDraft,
+            )
+          }
         />
       </PanelSection>
     </div>
   );
 }
+
+export { DeckyRetroAchievementsSetupScreen as DeckyFirstRunSetupScreen };

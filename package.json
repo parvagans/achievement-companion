@@ -1,13 +1,16 @@
 {
   "name": "steam-deck-achievement-companion",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
+  "author": "Adam <nullbit5@protonmail.com>",
   "license": "MIT",
   "type": "module",
   "scripts": {
     "build": "rollup -c",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test tests/createAppServices.test.ts"
+    "package:release": "python scripts/package_release.py",
+    "check:release": "python scripts/check_release_artifact.py",
+    "test": "node --import tsx --test tests/createAppServices.test.ts && python -m unittest discover -s tests/python -p \"test_*.py\""
   },
   "dependencies": {
     "@decky/api": "^1.1.3",

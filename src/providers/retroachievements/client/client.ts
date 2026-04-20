@@ -56,7 +56,6 @@ const DEFAULT_RECENTLY_PLAYED_COUNT = 10;
 function toAuthQuery(config: RetroAchievementsProviderConfig): Record<string, string> {
   return {
     u: config.username,
-    y: config.apiKey,
   };
 }
 

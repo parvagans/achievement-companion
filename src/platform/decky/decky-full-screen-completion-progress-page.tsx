@@ -16,6 +16,9 @@ import { formatCompletionProgressFilterLabel, type CompletionProgressFilter } fr
 import { useDeckySettings } from "./decky-settings";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
+import { formatDeckyProviderLabel } from "./providers";
+import { STEAM_PROVIDER_ID } from "./providers/steam";
+import { getSteamCompletionProgressGameDetailId } from "./decky-stat-helpers";
 
 const COMPLETION_PROGRESS_INITIAL_GAME_LIMIT = 12;
 const COMPLETION_PROGRESS_GAME_LOAD_STEP = 12;
@@ -312,16 +315,44 @@ const scrollFocusedGamepadElementIntoView: FullScreenGamepadFocusHandler = (even
   });
 };
 
-function formatCompletionProgressSummary(summary: CompletionProgressSnapshot["summary"]): string {
+export function formatCompletionProgressFilterLabelForProvider(
+  filter: CompletionProgressFilter,
+  providerId: string,
+): string {
+  if (providerId === STEAM_PROVIDER_ID) {
+    if (filter === "beaten") {
+      return "Skipped";
+    }
+
+    if (filter === "mastered") {
+      return "Perfect";
+    }
+  }
+
+  return formatCompletionProgressFilterLabel(filter);
+}
+
+export function formatCompletionProgressSummary(
+  summary: CompletionProgressSnapshot["summary"],
+  providerId: string,
+): string {
+  const labels =
+    providerId === STEAM_PROVIDER_ID
+      ? ["Played", "Unfinished", "Skipped", "Perfect"]
+      : ["Played", "Unfinished", "Beaten", "Mastered"];
+
   return [
-    `${formatCount(summary.playedCount)} played`,
-    `${formatCount(summary.unfinishedCount)} unfinished`,
-    `${formatCount(summary.beatenCount)} beaten`,
-    `${formatCount(summary.masteredCount)} mastered`,
+    `${formatCount(summary.playedCount)} ${labels[0]}`,
+    `${formatCount(summary.unfinishedCount)} ${labels[1]}`,
+    `${formatCount(summary.beatenCount)} ${labels[2]}`,
+    `${formatCount(summary.masteredCount)} ${labels[3]}`,
   ].join(" | ");
 }
 
-function formatCompletionProgressStatusLabel(status: NormalizedGame["status"]): string {
+export function formatCompletionProgressStatusLabel(
+  status: NormalizedGame["status"],
+  providerId: string,
+): string {
   if (status === "in_progress") {
     return "Unfinished";
   }
@@ -335,7 +366,7 @@ function formatCompletionProgressStatusLabel(status: NormalizedGame["status"]): 
   }
 
   if (status === "mastered") {
-    return "Mastered";
+    return providerId === STEAM_PROVIDER_ID ? "Perfect" : "Mastered";
   }
 
   return "Locked";
@@ -360,12 +391,15 @@ function matchesCompletionProgressFilter(
   return game.status === "mastered";
 }
 
-function formatCompletionProgressFilterEmptyMessage(filter: CompletionProgressFilter): string {
+function formatCompletionProgressFilterEmptyMessage(
+  filter: CompletionProgressFilter,
+  providerId: string,
+): string {
   if (filter === "all") {
     return "No completion progress entries were returned yet.";
   }
 
-  return `No ${formatCompletionProgressFilterLabel(filter).toLowerCase()} games match this filter.`;
+  return `No ${formatCompletionProgressFilterLabelForProvider(filter, providerId).toLowerCase()} games match this filter.`;
 }
 
 function formatProgressSummary(game: NormalizedGame): string {
@@ -374,6 +408,25 @@ function formatProgressSummary(game: NormalizedGame): string {
   }
 
   return `${formatCount(game.summary.unlockedCount)} unlocked achievements`;
+}
+
+function formatSteamPlaytimeMinutes(minutes: number | undefined): string | undefined {
+  if (minutes === undefined) {
+    return undefined;
+  }
+
+  const normalizedMinutes = Math.max(0, Math.trunc(minutes));
+  if (normalizedMinutes < 60) {
+    return `${normalizedMinutes}m`;
+  }
+
+  const hours = Math.floor(normalizedMinutes / 60);
+  const remainderMinutes = normalizedMinutes % 60;
+  if (remainderMinutes === 0) {
+    return `${hours}h`;
+  }
+
+  return `${hours}h ${remainderMinutes}m`;
 }
 
 const COMPLETION_PROGRESS_SUBSET_TITLE_PATTERNS = [
@@ -714,9 +767,13 @@ function CompletionProgressSummaryStat({
 function CompletionProgressFilterPills({
   currentFilter,
   onSelect,
+  providerId,
+  onBack,
 }: {
   readonly currentFilter: CompletionProgressFilter;
   readonly onSelect: (filter: CompletionProgressFilter) => void;
+  readonly providerId: string;
+  readonly onBack: () => void;
 }): JSX.Element {
   return (
     <DeckyFullscreenActionRow>
@@ -724,14 +781,14 @@ function CompletionProgressFilterPills({
         const active = filter === currentFilter;
 
         return (
-          <DeckyFullscreenActionButton
-            key={filter}
-            label={formatCompletionProgressFilterLabel(filter)}
-            onClick={() => {
-              onSelect(filter);
-            }}
-            selected={active}
-          />
+            <DeckyFullscreenActionButton
+              key={filter}
+              label={formatCompletionProgressFilterLabelForProvider(filter, providerId)}
+              onClick={() => {
+                onSelect(filter);
+              }}
+              selected={active}
+            />
         );
       })}
     </DeckyFullscreenActionRow>
@@ -742,16 +799,38 @@ function CompletionProgressGameRow({
   gameGroup,
   onOpenGameDetail,
   showSubsets,
+  providerId,
+  onBack,
 }: {
   readonly gameGroup: CompletionProgressGameGroup;
   readonly onOpenGameDetail: (gameId: string) => void;
   readonly showSubsets: boolean;
+  readonly providerId: string;
+  readonly onBack: () => void;
 }): JSX.Element {
   const { representativeGame: game } = gameGroup;
   const completionPercent = getCompletionPercent(game.summary);
   const unlockedCount = formatCount(game.summary.unlockedCount);
   const totalCount = game.summary.totalCount !== undefined ? formatCount(game.summary.totalCount) : undefined;
   const subsetSummary = formatCompletionProgressSubsetSummary(gameGroup, showSubsets);
+  const scanStatusLine =
+    providerId === STEAM_PROVIDER_ID && game.scanStatus !== undefined && game.scanStatus !== "scanned"
+      ? game.scanStatus === "no-achievements"
+        ? "No achievements available"
+        : "Scan failed for this game"
+      : undefined;
+  const playtimeLines = [
+    game.playtimeTwoWeeksMinutes !== undefined
+      ? `Past 2 weeks: ${formatSteamPlaytimeMinutes(game.playtimeTwoWeeksMinutes) ?? "-"}`
+      : undefined,
+    game.playtimeDeckForeverMinutes !== undefined
+      ? `Steam Deck: ${formatSteamPlaytimeMinutes(game.playtimeDeckForeverMinutes) ?? "-"}`
+      : undefined,
+    game.playtimeForeverMinutes !== undefined
+      ? `Total playtime: ${formatSteamPlaytimeMinutes(game.playtimeForeverMinutes) ?? "-"}`
+      : undefined,
+    game.lastPlayedAt !== undefined ? `Last played ${formatTimestamp(game.lastPlayedAt)}` : undefined,
+  ].filter((line): line is string => line !== undefined);
 
   return (
     <Field
@@ -770,13 +849,17 @@ function CompletionProgressGameRow({
       description={
         <div style={getGameRowDescriptionStyle()}>
           <div style={getGameRowMetaRowStyle()}>
-            <span style={getStatusPillStyle()}>{game.platformLabel ?? "Unknown platform"}</span>
-            <span style={getStatusPillStyle()}>{formatCompletionProgressStatusLabel(game.status)}</span>
+            <span style={getStatusPillStyle()}>{game.platformLabel ?? formatDeckyProviderLabel(providerId)}</span>
+            <span style={getStatusPillStyle()}>{formatCompletionProgressStatusLabel(game.status, providerId)}</span>
           </div>
 
           <div style={getGameRowSummaryStyle()}>
             {totalCount !== undefined ? `${unlockedCount}/${totalCount} achievements` : `${unlockedCount} unlocked achievements`}
           </div>
+
+          {scanStatusLine !== undefined ? <div style={getGameRowSupportStyle()}>{scanStatusLine}</div> : null}
+
+          {playtimeLines.length > 0 ? <div style={getGameRowSupportStyle()}>{playtimeLines.join(" | ")}</div> : null}
 
           {subsetSummary !== undefined ? (
             <div style={getGameRowSupportStyle()}>{subsetSummary}</div>
@@ -792,10 +875,18 @@ function CompletionProgressGameRow({
         </div>
       }
       onActivate={() => {
-        onOpenGameDetail(game.gameId);
+        const gameDetailId = getSteamCompletionProgressGameDetailId(game);
+        if (providerId === STEAM_PROVIDER_ID && game.appid !== undefined) {
+          console.debug("[Achievement Companion][Steam]", {
+            operation: "openCachedCompletionGame",
+            appid: game.appid,
+            title: game.title,
+          });
+        }
+        onOpenGameDetail(gameDetailId);
       }}
       onClick={() => {
-        onOpenGameDetail(game.gameId);
+        onOpenGameDetail(getSteamCompletionProgressGameDetailId(game));
       }}
       onGamepadFocus={scrollFocusedGamepadElementIntoView}
     />
@@ -814,6 +905,8 @@ function CompletionProgressBrowser({
   canLoadMoreGames,
   canShowAllGames,
   onOpenGameDetail,
+  providerId,
+  onBack,
 }: {
   readonly currentFilter: CompletionProgressFilter;
   readonly showSubsets: boolean;
@@ -826,16 +919,23 @@ function CompletionProgressBrowser({
   readonly canLoadMoreGames: boolean;
   readonly canShowAllGames: boolean;
   readonly onOpenGameDetail: (gameId: string) => void;
+  readonly providerId: string;
+  readonly onBack: () => void;
 }): JSX.Element {
   return (
     <div style={getBrowserCardStyle()}>
       <div style={getBrowserTitleStyle()}>Browse</div>
-      <div style={getBrowserSummaryStyle()}>{formatCompletionProgressSummary(summary)}</div>
+      <div style={getBrowserSummaryStyle()}>{formatCompletionProgressSummary(summary, providerId)}</div>
       <div style={getBrowserMetaStyle()}>
         {`Showing ${formatCount(visibleGroups.length)} of ${formatCount(filteredGroupCount)} grouped games in this filter.`}
       </div>
 
-      <CompletionProgressFilterPills currentFilter={currentFilter} onSelect={onFilterChange} />
+      <CompletionProgressFilterPills
+        currentFilter={currentFilter}
+        onSelect={onFilterChange}
+        providerId={providerId}
+        onBack={onBack}
+      />
 
       {visibleGroups.length > 0 ? (
         <>
@@ -845,6 +945,8 @@ function CompletionProgressBrowser({
                 gameGroup={gameGroup}
                 onOpenGameDetail={onOpenGameDetail}
                 showSubsets={showSubsets}
+                providerId={providerId}
+                onBack={onBack}
               />
             </PanelSectionRow>
           ))}
@@ -853,7 +955,7 @@ function CompletionProgressBrowser({
         <PanelSectionRow>
           <Field
             bottomSeparator="none"
-            description={formatCompletionProgressFilterEmptyMessage(currentFilter)}
+            description={formatCompletionProgressFilterEmptyMessage(currentFilter, providerId)}
             label="Games"
           />
         </PanelSectionRow>
@@ -956,38 +1058,61 @@ export function DeckyFullScreenCompletionProgressPage({
   const refreshTimestamp = state.lastUpdatedAt ?? snapshot.refreshedAt;
   const isCachedView = state.status === "stale";
   const snapshotSourceLabel = isCachedView ? "Cached snapshot" : "Live snapshot";
+  const isSteamProvider = snapshot.providerId === STEAM_PROVIDER_ID;
+  const hasSteamLibraryScan = isSteamProvider && snapshot.games.some((game) => game.scanStatus !== undefined);
+  const [playedSummaryLabel, unfinishedSummaryLabel, skippedSummaryLabel, masteredSummaryLabel] = isSteamProvider
+    ? (["Played", "Unfinished", "Skipped", "Perfect"] as const)
+    : (["Played", "Unfinished", "Beaten", "Mastered"] as const);
 
   return (
     <ScrollPanel>
       <TopAlignedScrollViewport scrollKey={`full-screen-completion-progress:${providerId ?? snapshot.providerId}`}>
         <div style={getPageFrameStyle()}>
           <PanelSection title="Navigation">
-            <PanelSectionRow>
-              <DeckyFullscreenActionRow>
-                <DeckyFullscreenActionButton label="Back" onClick={onBack} />
-              </DeckyFullscreenActionRow>
-            </PanelSectionRow>
+            <DeckyFullscreenActionRow>
+              <DeckyFullscreenActionButton
+                label="Back"
+                isFullscreenBackAction
+                onClick={() => {
+                  onBack();
+                }}
+              />
+            </DeckyFullscreenActionRow>
           </PanelSection>
 
           <PanelSection title="Completion progress">
             <PanelSectionRow>
               <div style={getHeroCardStyle()}>
                 <div style={getHeroTextStyle()}>
-                  <div style={getHeroKickerStyle()}>RetroAchievements collection</div>
+                  <div style={getHeroKickerStyle()}>{`${formatDeckyProviderLabel(snapshot.providerId)} collection`}</div>
                   <div style={getHeroTitleStyle()}>Completion progress</div>
                   <div style={getHeroSupportStyle()}>
-                    Browse started games grouped by progress tier.
+                    {isSteamProvider
+                      ? "Browse Steam games grouped by progress tier."
+                      : "Browse started games grouped by progress tier."}
+                    {isSteamProvider
+                      ? " Steam completion uses cached library scan data when available."
+                      : ""}
                   </div>
                 </div>
 
                 <div style={getSummaryGridStyle()}>
-                  <CompletionProgressSummaryStat label="Played" value={formatCount(snapshot.summary.playedCount)} />
                   <CompletionProgressSummaryStat
-                    label="Unfinished"
+                    label={playedSummaryLabel}
+                    value={formatCount(snapshot.summary.playedCount)}
+                  />
+                  <CompletionProgressSummaryStat
+                    label={unfinishedSummaryLabel}
                     value={formatCount(snapshot.summary.unfinishedCount)}
                   />
-                  <CompletionProgressSummaryStat label="Beaten" value={formatCount(snapshot.summary.beatenCount)} />
-                  <CompletionProgressSummaryStat label="Mastered" value={formatCount(snapshot.summary.masteredCount)} />
+                  <CompletionProgressSummaryStat
+                    label={skippedSummaryLabel}
+                    value={formatCount(snapshot.summary.beatenCount)}
+                  />
+                  <CompletionProgressSummaryStat
+                    label={masteredSummaryLabel}
+                    value={formatCount(snapshot.summary.masteredCount)}
+                  />
                 </div>
               </div>
             </PanelSectionRow>
@@ -1010,12 +1135,14 @@ export function DeckyFullScreenCompletionProgressPage({
                 );
               }}
               onOpenGameDetail={onOpenGameDetail}
+              providerId={snapshot.providerId}
               onShowAllGames={() => {
                 setIsShowingAllGames(true);
                 setVisibleGameLimit(filteredGroupCount);
               }}
               canLoadMoreGames={canLoadMoreGames}
               canShowAllGames={canShowAllGames}
+              onBack={onBack}
             />
           </PanelSection>
 
