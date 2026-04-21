@@ -17,6 +17,26 @@ Achievement Companion brings RetroAchievements and Steam achievement progress in
 - Provider-specific settings for recent counts and Steam scan preferences
 - Backend-owned credential handling with secret-safe logs and frontend-safe config
 
+## Screenshots
+
+### Provider Chooser
+
+<p align="center">
+  <img src="assets/ac-store-preview.png" alt="Achievement Companion provider chooser showing RetroAchievements and Steam" width="720">
+</p>
+
+### Steam Overview
+
+<p align="center">
+  <img src="assets/ac-steam.png" alt="Achievement Companion Steam overview in the Decky quick-access menu" width="720">
+</p>
+
+### Fullscreen Steam Profile
+
+<p align="center">
+  <img src="assets/ac-steam-profile-fullscreen.png" alt="Achievement Companion fullscreen Steam profile view" width="720">
+</p>
+
 ## Supported Providers
 
 ### RetroAchievements
