@@ -4,7 +4,8 @@
   "author": "Adam <nullbit5@protonmail.com>",
   "publish": {
     "tags": ["achievements", "retroachievements", "steam"],
-    "description": "Decky plugin for Steam Deck Game Mode with provider-first achievement dashboards for RetroAchievements and Steam, backend-owned credentials, and controller-friendly browsing."
+    "description": "Decky plugin for Steam Deck Game Mode with provider-first achievement dashboards for RetroAchievements and Steam, backend-owned credentials, and controller-friendly browsing.",
+    "image": "https://raw.githubusercontent.com/CodeNode-Automation/achievement-companion/main/assets/ac-store-preview.png"
   },
   "flags": []
 }
