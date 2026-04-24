@@ -15,7 +15,7 @@ import type {
   PlatformCapabilities,
   PlatformServices,
 } from "@core/platform";
-import { createAppServices } from "@core/app-services";
+import { createAppRuntime } from "@core/app-runtime";
 import { resolveProviderDashboardPreferences } from "@core/provider-dashboard-preferences";
 import { createProviderRegistry } from "@core/provider-registry";
 import { createRetroAchievementsProvider } from "../../providers/retroachievements";
@@ -26,6 +26,7 @@ import { loadDeckyRuntimeMode, type DeckyRuntimeMode } from "./runtime-mode";
 import { readDeckyStorageText, removeDeckyStorageText, writeDeckyStorageText } from "./storage";
 import {
   readDeckyDashboardSnapshotState,
+  deckyDashboardSnapshotStore,
   writeDeckyDashboardSnapshot,
 } from "./decky-dashboard-snapshot-cache";
 import {
@@ -37,12 +38,16 @@ import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements
 import { STEAM_PROVIDER_ID } from "../../providers/steam";
 import { createDeckyRetroAchievementsTransport } from "./providers/retroachievements/backend-transport";
 import { createDeckySteamTransport } from "./providers/steam/backend-transport";
+import { deckyProviderConfigStore } from "./providers/provider-config-store";
 import {
   buildDeckySteamAchievementHistorySnapshotFromSummary,
   buildDeckySteamCompletionProgressSnapshotFromSummary,
 } from "./providers/steam/library-scan";
 import { deckyDiagnosticLogger } from "./decky-diagnostic-logger";
-import { readDeckySteamLibraryAchievementScanSummary } from "./providers/steam/config";
+import {
+  deckySteamLibraryScanStore,
+  readDeckySteamLibraryAchievementScanSummary,
+} from "./providers/steam/config";
 import {
   applySteamLibraryScanGameDetailMetadata,
   findSteamLibraryScanGameSummaryByAppId,
@@ -99,7 +104,29 @@ const providerRegistry = createProviderRegistry([
     transport: deckyAuthenticatedProviderTransportFactory.create(STEAM_PROVIDER_ID),
   }),
 ]);
-let liveDeckyAppServices: ReturnType<typeof createAppServices> | undefined;
+export function createDeckyAppRuntime(runtimeMode: DeckySmokeTestCacheMode | "live") {
+  const cacheStore =
+    runtimeMode === "live"
+      ? createMemoryCacheStore()
+      : createMemoryCacheStore(createDeckySmokeTestDashboardCacheEntries(runtimeMode));
+
+  return createAppRuntime({
+    providerRegistry,
+    platform: createDeckyPlatform(),
+    cacheStore,
+    loadProviderConfig: loadDeckyProviderConfig,
+    adapters: {
+      diagnosticLogger: deckyDiagnosticLogger,
+      providerConfigStore: deckyProviderConfigStore,
+      authenticatedProviderTransportFactory: deckyAuthenticatedProviderTransportFactory,
+      dashboardSnapshotStore: deckyDashboardSnapshotStore,
+      steamLibraryScanStore: deckySteamLibraryScanStore,
+      platformCapabilities: deckyPlatformCapabilities,
+    },
+  });
+}
+
+let liveDeckyAppRuntime: ReturnType<typeof createDeckyAppRuntime> | undefined;
 const deckyDashboardRefreshInFlightByProviderId = new Map<
   ProviderId,
   Promise<ResourceState<DashboardSnapshot>>
@@ -292,28 +319,18 @@ export function createDeckyPlatform(navigation?: NavigationPort): PlatformServic
 
 function createDeckyAppServices(runtimeMode: DeckySmokeTestCacheMode | "live") {
   if (runtimeMode === "live") {
-    if (liveDeckyAppServices === undefined) {
-      liveDeckyAppServices = createAppServices({
-        providerRegistry,
-        platform: createDeckyPlatform(),
-        cacheStore: createMemoryCacheStore(),
-        loadProviderConfig: loadDeckyProviderConfig,
-      });
+    if (liveDeckyAppRuntime === undefined) {
+      liveDeckyAppRuntime = createDeckyAppRuntime("live");
     }
 
-    return liveDeckyAppServices;
+    return liveDeckyAppRuntime.services;
   }
 
-  return createAppServices({
-    providerRegistry,
-    platform: createDeckyPlatform(),
-    cacheStore: createMemoryCacheStore(createDeckySmokeTestDashboardCacheEntries(runtimeMode)),
-    loadProviderConfig: loadDeckyProviderConfig,
-  });
+  return createDeckyAppRuntime(runtimeMode).services;
 }
 
 export function resetDeckyAppServicesForTests(): void {
-  liveDeckyAppServices = undefined;
+  liveDeckyAppRuntime = undefined;
   deckyDashboardRefreshInFlightByProviderId.clear();
 }
 
