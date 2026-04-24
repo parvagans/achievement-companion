@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+from datetime import datetime, timezone
 import hashlib
 import hmac
 import json
@@ -123,6 +124,38 @@ def _write_json_file(path: Path, value: object) -> None:
         pass
 
 
+def _build_corrupt_backup_path(path: Path) -> Path:
+  timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+  backup_path = path.with_name(f"{path.name}.corrupt-{timestamp}")
+  suffix = 1
+  while backup_path.exists():
+    backup_path = path.with_name(f"{path.name}.corrupt-{timestamp}-{suffix}")
+    suffix += 1
+  return backup_path
+
+
+def _quarantine_corrupt_json_file(path: Path) -> bool:
+  if not path.exists():
+    return False
+
+  backup_path = _build_corrupt_backup_path(path)
+  try:
+    path.replace(backup_path)
+  except OSError as cause:
+    decky.logger.warning(
+      "Unable to quarantine malformed plugin state file",
+      extra={
+        "path": str(path),
+        "errorType": type(cause).__name__,
+        "error": str(cause),
+      },
+    )
+    return False
+
+  _log("warning", "Recovered malformed plugin state file", path=str(path), backupPath=str(backup_path))
+  return True
+
+
 def _read_json_file(path: Path) -> dict[str, Any]:
   try:
     raw_text = path.read_text(encoding="utf-8")
@@ -137,11 +170,8 @@ def _read_json_file(path: Path) -> dict[str, Any]:
 
   try:
     parsed = json.loads(raw_text)
-  except json.JSONDecodeError as cause:
-    decky.logger.warning(
-      "Unable to parse plugin state file",
-      extra={"path": str(path), "error": str(cause)},
-    )
+  except json.JSONDecodeError:
+    _quarantine_corrupt_json_file(path)
     return {}
 
   return parsed if isinstance(parsed, dict) else {}
@@ -459,9 +489,7 @@ def _coerce_string(value: Any) -> str | None:
   return None
 
 
-def _normalize_has_api_key(value: Any, secret_present: bool) -> bool:
-  if isinstance(value, bool):
-    return value or secret_present
+def _normalize_has_api_key(_value: Any, secret_present: bool) -> bool:
   return secret_present
 
 

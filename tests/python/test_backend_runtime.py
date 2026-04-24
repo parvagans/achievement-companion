@@ -94,6 +94,11 @@ def write_legacy_secret_record(module: types.ModuleType, provider_key: str, api_
   )
 
 
+def write_malformed_text(path: Path, text: str) -> None:
+  path.parent.mkdir(parents=True, exist_ok=True)
+  path.write_text(text, encoding="utf-8")
+
+
 class BackendRuntimeTests(unittest.TestCase):
   def test_legacy_secret_migrates_to_protected_record(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -164,6 +169,7 @@ class BackendRuntimeTests(unittest.TestCase):
       self.assertIn('"recentAchievementsCount": 10', config_text)
       self.assertIn('"recentlyPlayedCount": 7', config_text)
       self.assertNotIn('"apiKey"', config_text)
+      self.assertEqual(list(Path(temp_dir).glob("provider-config.json.corrupt-*")), [])
 
       fallback_view = module._build_retroachievements_config_view(  # type: ignore[attr-defined]
         {"username": "alice", "hasApiKey": True},
@@ -254,6 +260,160 @@ class BackendRuntimeTests(unittest.TestCase):
       self.assertNotIn("ignored", rendered)
       self.assertNotIn("key=abc123", rendered)
       self.assertNotIn("y=def456", rendered)
+
+  def test_malformed_provider_config_is_quarantined_and_recovers_safely(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      original_logger = FAKE_DECKY.logger
+      capture_logger = CapturingDeckyLogger()
+      FAKE_DECKY.logger = capture_logger
+      try:
+        module = load_main_module(Path(temp_dir))
+        write_malformed_text(
+          module.CONFIG_PATH,  # type: ignore[attr-defined]
+          '{"version":1,"retroAchievements":{"username":"alice","hasApiKey":true',
+        )
+
+        provider_configs = asyncio.run(module.Plugin().get_provider_configs())
+      finally:
+        FAKE_DECKY.logger = original_logger
+
+      backup_files = list(Path(temp_dir).glob("provider-config.json.corrupt-*"))
+      rendered = "\n".join(message for _, message in capture_logger.records)
+      self.assertEqual(provider_configs, {"version": 1})
+      self.assertEqual(len(backup_files), 1)
+      self.assertFalse(module.CONFIG_PATH.exists())  # type: ignore[attr-defined]
+      self.assertIn("Recovered malformed plugin state file", rendered)
+      self.assertNotIn("alice", rendered)
+      self.assertNotIn("hasApiKey", rendered)
+
+  def test_malformed_provider_secrets_is_quarantined_and_reports_no_secrets(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      original_logger = FAKE_DECKY.logger
+      capture_logger = CapturingDeckyLogger()
+      FAKE_DECKY.logger = capture_logger
+      try:
+        module = load_main_module(Path(temp_dir))
+        write_malformed_text(
+          module.SECRETS_PATH,  # type: ignore[attr-defined]
+          '{"version":2,"retroAchievements":{"version":2,"scheme":"local-obfuscation-v1","salt":"oops"',
+        )
+        module._write_json_file(  # type: ignore[attr-defined]
+          module.CONFIG_PATH,
+          {
+            "version": 1,
+            "retroAchievements": {
+              "username": "alice",
+              "hasApiKey": True,
+              "recentAchievementsCount": 10,
+              "recentlyPlayedCount": 7,
+            },
+          },
+        )
+
+        provider_configs = asyncio.run(module.Plugin().get_provider_configs())
+      finally:
+        FAKE_DECKY.logger = original_logger
+
+      backup_files = list(Path(temp_dir).glob("provider-secrets.json.corrupt-*"))
+      rendered = "\n".join(message for _, message in capture_logger.records)
+      self.assertEqual(len(backup_files), 1)
+      self.assertIn("Recovered malformed plugin state file", rendered)
+      self.assertNotIn("oops", rendered)
+      self.assertEqual(provider_configs["retroAchievements"]["username"], "alice")
+      self.assertEqual(provider_configs["retroAchievements"]["recentAchievementsCount"], 10)
+      self.assertEqual(provider_configs["retroAchievements"]["recentlyPlayedCount"], 7)
+      self.assertEqual(provider_configs["retroAchievements"]["hasApiKey"], False)
+
+  def test_malformed_provider_config_quarantine_failure_falls_back_safely(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      original_logger = FAKE_DECKY.logger
+      original_replace = Path.replace
+      capture_logger = CapturingDeckyLogger()
+      FAKE_DECKY.logger = capture_logger
+
+      def failing_replace(self: Path, target: Path) -> Path:  # noqa: ANN001
+        raise OSError("quarantine failed")
+
+      Path.replace = failing_replace  # type: ignore[assignment]
+      try:
+        module = load_main_module(Path(temp_dir))
+        write_malformed_text(
+          module.CONFIG_PATH,  # type: ignore[attr-defined]
+          '{"version":1,"steam":{"steamId64":"123","hasApiKey":true',
+        )
+
+        provider_configs = asyncio.run(module.Plugin().get_provider_configs())
+      finally:
+        Path.replace = original_replace  # type: ignore[assignment]
+        FAKE_DECKY.logger = original_logger
+
+      rendered = "\n".join(message for _, message in capture_logger.records)
+      self.assertEqual(provider_configs, {"version": 1})
+      self.assertIn("Unable to quarantine malformed plugin state file", rendered)
+      self.assertNotIn("quarantine failed", rendered)
+      self.assertNotIn("steamId64", rendered)
+
+  def test_save_after_corrupted_secret_recovery_writes_fresh_valid_secret_file(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      module = load_main_module(Path(temp_dir))
+      module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
+      write_malformed_text(
+        module.SECRETS_PATH,  # type: ignore[attr-defined]
+        '{"version":2,"steam":{"version":2,"scheme":"local-obfuscation-v1","salt":"oops"',
+      )
+
+      plugin = module.Plugin()
+      saved_config = asyncio.run(
+        plugin.save_steam_credentials(
+          {
+            "steamId64": "1234567890",
+            "apiKeyDraft": "steam-secret",
+            "language": "english",
+            "recentAchievementsCount": 3,
+            "recentlyPlayedCount": 4,
+            "includePlayedFreeGames": True,
+          },
+        ),
+      )
+
+      secrets_text = module.SECRETS_PATH.read_text(encoding="utf-8")  # type: ignore[attr-defined]
+      config_text = module.CONFIG_PATH.read_text(encoding="utf-8")  # type: ignore[attr-defined]
+      self.assertEqual(saved_config["hasApiKey"], True)
+      self.assertIn('"version": 2', secrets_text)
+      self.assertIn('"scheme": "local-obfuscation-v1"', secrets_text)
+      self.assertNotIn('"apiKey"', secrets_text)
+      self.assertNotIn("steam-secret", secrets_text)
+      self.assertNotIn('"apiKey"', config_text)
+      self.assertIn('"steamId64": "1234567890"', config_text)
+
+  def test_save_after_corrupted_config_recovery_writes_fresh_valid_config_file(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      module = load_main_module(Path(temp_dir))
+      module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
+      write_malformed_text(
+        module.CONFIG_PATH,  # type: ignore[attr-defined]
+        '{"version":1,"steam":{"steamId64":"123","hasApiKey":true',
+      )
+
+      plugin = module.Plugin()
+      saved_config = asyncio.run(
+        plugin.save_retroachievements_credentials(
+          {
+            "username": "alice",
+            "apiKeyDraft": "ra-secret",
+            "recentAchievementsCount": 10,
+            "recentlyPlayedCount": 7,
+          },
+        ),
+      )
+
+      config_text = module.CONFIG_PATH.read_text(encoding="utf-8")  # type: ignore[attr-defined]
+      self.assertEqual(saved_config["hasApiKey"], True)
+      self.assertIn('"version": 1', config_text)
+      self.assertIn('"recentAchievementsCount": 10', config_text)
+      self.assertIn('"recentlyPlayedCount": 7', config_text)
+      self.assertNotIn('"apiKey"', config_text)
+      self.assertEqual(len(list(Path(temp_dir).glob("provider-config.json.corrupt-*"))), 1)
 
   def test_backend_request_json_handles_expected_http_statuses_without_warning(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
