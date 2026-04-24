@@ -1,5 +1,6 @@
 import type { ResourceState } from "@core/cache";
 import type { DashboardSnapshot, ProviderId } from "@core/domain";
+import type { DashboardSnapshotStore } from "@core/platform";
 import {
   readDeckyStorageText,
   removeDeckyStorageText,
@@ -19,6 +20,18 @@ interface DeckyDashboardSnapshotCacheEntry {
 function getDashboardSnapshotStorageKey(providerId: ProviderId): string {
   return `${DASHBOARD_SNAPSHOT_STORAGE_KEY_PREFIX}${providerId}`;
 }
+
+export const deckyDashboardSnapshotStore: DashboardSnapshotStore<DashboardSnapshot> = {
+  async read(providerId) {
+    return readDeckyDashboardSnapshotCacheEntry(providerId)?.snapshot;
+  },
+  async write(_providerId, snapshot) {
+    writeDeckyDashboardSnapshot(snapshot);
+  },
+  async clear(providerId) {
+    return clearDeckyDashboardSnapshot(providerId);
+  },
+};
 
 function isDashboardSnapshotCacheEntry(value: unknown): value is DeckyDashboardSnapshotCacheEntry {
   if (typeof value !== "object" || value === null) {

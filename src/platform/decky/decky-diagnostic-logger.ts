@@ -1,3 +1,4 @@
+import type { DiagnosticLogger } from "@core/platform";
 import { callDeckyBackendMethod } from "./decky-backend-bridge";
 
 export type DeckyDiagnosticEvent =
@@ -36,3 +37,9 @@ export async function recordDeckyDiagnosticEvent(
     // Diagnostics must never break dashboard refresh or scans.
   }
 }
+
+export const deckyDiagnosticLogger: DiagnosticLogger<DeckyDiagnosticEventPayload> = {
+  record(payload) {
+    return recordDeckyDiagnosticEvent(payload);
+  },
+};

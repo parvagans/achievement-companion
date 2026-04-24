@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ProviderId } from "@core/domain";
+import type { ProviderConfigStore } from "@core/platform";
 import {
   RETROACHIEVEMENTS_PROVIDER_ID,
   type RetroAchievementsProviderConfig,
@@ -21,6 +22,68 @@ export type DeckyProviderConfigs = Readonly<{
   readonly retroAchievements?: RetroAchievementsProviderConfig;
   readonly steam?: SteamProviderConfig;
 }>;
+
+export type DeckyProviderConfigValue = RetroAchievementsProviderConfig | SteamProviderConfig;
+
+export const deckyProviderConfigStore: ProviderConfigStore<DeckyProviderConfigValue> = {
+  load(providerId) {
+    return loadDeckyProviderConfig(providerId) as Promise<DeckyProviderConfigValue | undefined>;
+  },
+  async save(providerId, config) {
+    if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+      const retroConfig = config as RetroAchievementsProviderConfig;
+      const savedConfig = await callDeckyBackendMethod<RetroAchievementsProviderConfig | undefined>(
+        "save_retroachievements_credentials",
+        {
+          username: retroConfig.username,
+          ...(retroConfig.recentAchievementsCount !== undefined
+            ? { recentAchievementsCount: retroConfig.recentAchievementsCount }
+            : {}),
+          ...(retroConfig.recentlyPlayedCount !== undefined
+            ? { recentlyPlayedCount: retroConfig.recentlyPlayedCount }
+            : {}),
+        },
+      );
+      if (savedConfig !== undefined) {
+        updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, savedConfig);
+        clearDeckyDashboardSnapshot(RETROACHIEVEMENTS_PROVIDER_ID);
+      }
+      return savedConfig;
+    }
+
+    if (providerId === STEAM_PROVIDER_ID) {
+      const steamConfig = config as SteamProviderConfig;
+      const savedConfig = await callDeckyBackendMethod<SteamProviderConfig | undefined>(
+        "save_steam_credentials",
+        {
+          steamId64: steamConfig.steamId64,
+          language: steamConfig.language,
+          recentAchievementsCount: steamConfig.recentAchievementsCount,
+          recentlyPlayedCount: steamConfig.recentlyPlayedCount,
+          includePlayedFreeGames: steamConfig.includePlayedFreeGames,
+        },
+      );
+      if (savedConfig !== undefined) {
+        updateDeckyProviderConfigCache(STEAM_PROVIDER_ID, savedConfig);
+        clearDeckyDashboardSnapshot(STEAM_PROVIDER_ID);
+      }
+      return savedConfig;
+    }
+
+    return undefined;
+  },
+  clear(providerId) {
+    if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+      return clearDeckyRetroAchievementsAccountState();
+    }
+
+    if (providerId === STEAM_PROVIDER_ID) {
+      return clearDeckySteamAccountState();
+    }
+
+    return Promise.resolve(false);
+  },
+};
 
 interface LegacyRetroAchievementsConfigRecord {
   readonly username?: unknown;

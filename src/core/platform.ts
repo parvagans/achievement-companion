@@ -16,10 +16,8 @@ export interface KeyValueStore {
 
 export interface SecretStore extends KeyValueStore {}
 
-export interface DiagnosticLogger {
-  info(message: string, details?: Record<string, unknown>): void;
-  warn(message: string, details?: Record<string, unknown>): void;
-  error(message: string, details?: Record<string, unknown>): void;
+export interface DiagnosticLogger<Payload extends object = Record<string, unknown>> {
+  record(payload: Payload): Promise<void> | void;
 }
 
 export interface ProviderConfigStore<Config = unknown> {

@@ -21,6 +21,14 @@ import type {
 import { createProviderRegistry } from "../src/core/provider-registry";
 import type { AchievementProvider } from "../src/core/ports";
 import type { KeyValueStore, PlatformServices } from "../src/core/platform";
+import type {
+  AuthenticatedProviderTransportFactory,
+  DashboardSnapshotStore,
+  DiagnosticLogger,
+  PlatformCapabilities,
+  ProviderConfigStore,
+  SteamLibraryScanStore,
+} from "../src/core/platform";
 import {
   ACHIEVEMENT_COMPANION_SETTINGS_STORAGE_KEY,
   DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS,
@@ -34,6 +42,8 @@ import {
   buildDeckyRecentAchievementHistory,
   loadDeckyDashboardState,
   loadDeckyCompletionProgressState,
+  deckyAuthenticatedProviderTransportFactory,
+  deckyPlatformCapabilities,
   resetDeckyAppServicesForTests,
 } from "../src/platform/decky/decky-app-services";
 import { setDeckyBackendCallImplementationForTests } from "../src/platform/decky/decky-backend-bridge";
@@ -71,8 +81,13 @@ import {
   clearDeckyDashboardSnapshot,
   readDeckyDashboardSnapshotCacheEntry,
   readDeckyDashboardSnapshotState,
+  deckyDashboardSnapshotStore,
   writeDeckyDashboardSnapshot,
 } from "../src/platform/decky/decky-dashboard-snapshot-cache";
+import {
+  deckyDiagnosticLogger,
+  type DeckyDiagnosticEventPayload,
+} from "../src/platform/decky/decky-diagnostic-logger";
 import {
   DECKY_FULLSCREEN_RETURN_CONTEXT_STORAGE_KEY,
   consumeDeckyFullscreenReturnContext,
@@ -93,6 +108,7 @@ import {
   readDeckyProviderConfig,
   writeDeckyProviderConfig,
 } from "../src/platform/decky/providers/retroachievements/config";
+import type { DeckyProviderConfigValue } from "../src/platform/decky/providers/provider-config-store";
 import {
   RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY,
   buildRetroAchievementsCredentialsFormModel,
@@ -103,15 +119,21 @@ import {
 import {
   clearDeckySteamLibraryAchievementScanSummary,
   clearDeckySteamProviderConfig,
+  deckySteamLibraryScanStore,
   loadDeckyProviderConfig as loadDeckySteamProviderConfig,
   readDeckySteamLibraryAchievementScanOverview,
   readDeckySteamLibraryAchievementScanSummary,
   readDeckySteamProviderConfig,
   writeDeckySteamLibraryAchievementScanSummary,
   writeDeckySteamProviderConfig,
+  type SteamLibraryAchievementScanOverview,
+  type SteamLibraryAchievementScanSummary,
 } from "../src/platform/decky/providers/steam/config";
 import { STEAM_PROVIDER_ID } from "../src/providers/steam";
-import { clearDeckyProviderConfigCache } from "../src/platform/decky/providers/provider-config-store";
+import {
+  clearDeckyProviderConfigCache,
+  deckyProviderConfigStore,
+} from "../src/platform/decky/providers/provider-config-store";
 import {
   STEAM_CREDENTIAL_HELPER_COPY,
   buildSteamCredentialsFormModel,
@@ -2419,7 +2441,7 @@ test("decky dashboard refresh logging breadcrumbs are present in source", () => 
   assert.match(source, /Dashboard refresh started/);
   assert.match(source, /Dashboard refresh completed/);
   assert.match(source, /Dashboard refresh failed/);
-  assert.match(source, /recordDeckyDiagnosticEvent/);
+  assert.match(source, /deckyDiagnosticLogger\.record/);
 });
 
 test("decky dashboard refresh reuses an in-flight refresh for the same provider", async () => {
@@ -6368,4 +6390,31 @@ test("frontend-facing provider configs stay apiKey-free in their exported shapes
   assert.doesNotMatch(retroAchievementsInterfaceBlock, /readonly apiKey:/u);
   assert.match(steamInterfaceBlock, /readonly hasApiKey: boolean;/u);
   assert.doesNotMatch(steamInterfaceBlock, /readonly apiKey:/u);
+});
+
+test("decky seam adapters satisfy the new core contracts", () => {
+  const providerConfigStore: ProviderConfigStore<DeckyProviderConfigValue> = deckyProviderConfigStore;
+  const dashboardSnapshotStore: DashboardSnapshotStore<DashboardSnapshot> = deckyDashboardSnapshotStore;
+  const diagnosticLogger: DiagnosticLogger<DeckyDiagnosticEventPayload> = deckyDiagnosticLogger;
+  const transportFactory: AuthenticatedProviderTransportFactory =
+    deckyAuthenticatedProviderTransportFactory;
+  const capabilities: PlatformCapabilities = deckyPlatformCapabilities;
+  const steamLibraryScanStore: SteamLibraryScanStore<
+    SteamLibraryAchievementScanOverview,
+    SteamLibraryAchievementScanSummary
+  > = deckySteamLibraryScanStore;
+
+  assert.equal(typeof providerConfigStore.load, "function");
+  assert.equal(typeof providerConfigStore.save, "function");
+  assert.equal(typeof providerConfigStore.clear, "function");
+  assert.equal(typeof dashboardSnapshotStore.read, "function");
+  assert.equal(typeof dashboardSnapshotStore.write, "function");
+  assert.equal(typeof dashboardSnapshotStore.clear, "function");
+  assert.equal(typeof diagnosticLogger.record, "function");
+  assert.equal(typeof transportFactory.create, "function");
+  assert.equal(capabilities.supportsAuthenticatedProviderTransport, true);
+  assert.equal(capabilities.supportsSteamLibraryScan, true);
+  assert.equal(typeof steamLibraryScanStore.readOverview, "function");
+  assert.equal(typeof steamLibraryScanStore.writeSummary, "function");
+  assert.equal(typeof steamLibraryScanStore.clear, "function");
 });

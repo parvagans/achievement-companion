@@ -1,4 +1,5 @@
 import { useMemo, useSyncExternalStore } from "react";
+import type { SteamLibraryScanStore } from "@core/platform";
 import {
   readDeckyStorageText,
   removeDeckyStorageText,
@@ -277,6 +278,27 @@ function writeSteamLibraryAchievementScanOverview(
     removeDeckyStorageText(STEAM_LIBRARY_ACHIEVEMENT_SCAN_OVERVIEW_STORAGE_KEY);
   }
 }
+
+export const deckySteamLibraryScanStore: SteamLibraryScanStore<
+  SteamLibraryAchievementScanOverview,
+  SteamLibraryAchievementScanSummary
+> = {
+  async readOverview(providerId) {
+    return readDeckySteamLibraryAchievementScanOverview(providerId);
+  },
+  async writeOverview(_providerId, overview) {
+    writeSteamLibraryAchievementScanOverview(overview);
+  },
+  async readSummary(providerId) {
+    return readDeckySteamLibraryAchievementScanSummary(providerId);
+  },
+  async writeSummary(_providerId, summary) {
+    writeDeckySteamLibraryAchievementScanSummary(summary);
+  },
+  async clear(providerId) {
+    return providerId !== STEAM_PROVIDER_ID ? false : clearDeckySteamLibraryAchievementScanSummary();
+  },
+};
 
 export function readDeckyProviderConfig(providerId: ProviderId): SteamProviderConfig | undefined {
   return providerId === STEAM_PROVIDER_ID

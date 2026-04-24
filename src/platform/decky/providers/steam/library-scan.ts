@@ -10,7 +10,11 @@ import {
 import {
   buildSteamLibraryAchievementHistorySnapshot,
 } from "../../../../providers/steam/library-scan";
-import { recordDeckyDiagnosticEvent } from "../../decky-diagnostic-logger";
+import {
+  deckyDiagnosticLogger,
+  type DeckyDiagnosticEvent,
+  type DeckyDiagnosticEventPayload,
+} from "../../decky-diagnostic-logger";
 import {
   writeDeckySteamLibraryAchievementScanSummary,
 } from "./config";
@@ -31,10 +35,10 @@ function logDeckySteamLibraryScan(
 }
 
 function emitDeckySteamLibraryScanDiagnosticEvent(
-  event: Parameters<typeof recordDeckyDiagnosticEvent>[0]["event"],
-  fields: Omit<Parameters<typeof recordDeckyDiagnosticEvent>[0], "event">,
+  event: DeckyDiagnosticEvent,
+  fields: Omit<DeckyDiagnosticEventPayload, "event">,
 ): void {
-  void recordDeckyDiagnosticEvent({
+  void deckyDiagnosticLogger.record({
     event,
     ...fields,
   });

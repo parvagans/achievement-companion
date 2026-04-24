@@ -9,7 +9,12 @@ import type {
   RecentlyPlayedGame,
   RecentUnlock,
 } from "@core/domain";
-import type { NavigationPort, PlatformServices } from "@core/platform";
+import type {
+  AuthenticatedProviderTransportFactory,
+  NavigationPort,
+  PlatformCapabilities,
+  PlatformServices,
+} from "@core/platform";
 import { createAppServices } from "@core/app-services";
 import { resolveProviderDashboardPreferences } from "@core/provider-dashboard-preferences";
 import { createProviderRegistry } from "@core/provider-registry";
@@ -28,6 +33,7 @@ import {
   type DeckySmokeTestCacheMode,
 } from "./smoke-test-cache";
 import { loadDeckyProviderConfig } from "./providers";
+import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 import { STEAM_PROVIDER_ID } from "../../providers/steam";
 import { createDeckyRetroAchievementsTransport } from "./providers/retroachievements/backend-transport";
 import { createDeckySteamTransport } from "./providers/steam/backend-transport";
@@ -35,7 +41,7 @@ import {
   buildDeckySteamAchievementHistorySnapshotFromSummary,
   buildDeckySteamCompletionProgressSnapshotFromSummary,
 } from "./providers/steam/library-scan";
-import { recordDeckyDiagnosticEvent } from "./decky-diagnostic-logger";
+import { deckyDiagnosticLogger } from "./decky-diagnostic-logger";
 import { readDeckySteamLibraryAchievementScanSummary } from "./providers/steam/config";
 import {
   applySteamLibraryScanGameDetailMetadata,
@@ -51,12 +57,46 @@ const DECKY_RECENT_ACHIEVEMENTS_STORAGE_KEY_PREFIX =
 const DECKY_RECENT_ACHIEVEMENTS_LIMIT = 10;
 const DECKY_RECENT_ACHIEVEMENTS_BACKFILL_RECENTLY_PLAYED_LIMIT = 50;
 
+export const deckyPlatformCapabilities: PlatformCapabilities = {
+  supportsCompactNavigation: true,
+  supportsFullscreenNavigation: true,
+  supportsPersistentSettings: true,
+  supportsSecretStorage: true,
+  supportsAuthenticatedProviderTransport: true,
+  supportsDiagnosticLogging: true,
+  supportsSteamLibraryScan: true,
+};
+
+function createDeckyAuthenticatedProviderTransport(
+  providerId: typeof RETROACHIEVEMENTS_PROVIDER_ID,
+): ReturnType<typeof createDeckyRetroAchievementsTransport>;
+function createDeckyAuthenticatedProviderTransport(
+  providerId: typeof STEAM_PROVIDER_ID,
+): ReturnType<typeof createDeckySteamTransport>;
+function createDeckyAuthenticatedProviderTransport(providerId: ProviderId) {
+  if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+    return createDeckyRetroAchievementsTransport();
+  }
+
+  if (providerId === STEAM_PROVIDER_ID) {
+    return createDeckySteamTransport();
+  }
+
+  throw new Error(`Unsupported provider for Decky transport factory: ${providerId}`);
+}
+
+export const deckyAuthenticatedProviderTransportFactory: AuthenticatedProviderTransportFactory<
+  ReturnType<typeof createDeckyRetroAchievementsTransport> | ReturnType<typeof createDeckySteamTransport>
+> = {
+  create: createDeckyAuthenticatedProviderTransport,
+};
+
 const providerRegistry = createProviderRegistry([
   createRetroAchievementsProvider({
-    transport: createDeckyRetroAchievementsTransport(),
+    transport: deckyAuthenticatedProviderTransportFactory.create(RETROACHIEVEMENTS_PROVIDER_ID),
   }),
   createSteamProvider({
-    transport: createDeckySteamTransport(),
+    transport: deckyAuthenticatedProviderTransportFactory.create(STEAM_PROVIDER_ID),
   }),
 ]);
 let liveDeckyAppServices: ReturnType<typeof createAppServices> | undefined;
@@ -1004,7 +1044,7 @@ export async function loadDeckyDashboardState(
     providerId,
     mode: options?.forceRefresh ? "manual" : "initial",
   });
-  void recordDeckyDiagnosticEvent({
+  void deckyDiagnosticLogger.record({
     event: "dashboard_refresh_started",
     providerId,
     mode: options?.forceRefresh ? "manual" : "initial",
@@ -1018,7 +1058,7 @@ export async function loadDeckyDashboardState(
         durationMs: Date.now() - dashboardRefreshStartedAt,
         errorKind: state.error?.kind ?? "unknown",
       });
-      void recordDeckyDiagnosticEvent({
+      void deckyDiagnosticLogger.record({
         event: "dashboard_refresh_failed",
         providerId,
         mode: options?.forceRefresh ? "manual" : "initial",
@@ -1046,7 +1086,7 @@ export async function loadDeckyDashboardState(
         durationMs: Date.now() - dashboardRefreshStartedAt,
         errorKind: state.error.kind,
       });
-      void recordDeckyDiagnosticEvent({
+      void deckyDiagnosticLogger.record({
         event: "dashboard_refresh_failed",
         providerId,
         mode: options?.forceRefresh ? "manual" : "initial",
@@ -1060,7 +1100,7 @@ export async function loadDeckyDashboardState(
         durationMs: Date.now() - dashboardRefreshStartedAt,
         source: "live",
       });
-      void recordDeckyDiagnosticEvent({
+      void deckyDiagnosticLogger.record({
         event: "dashboard_refresh_completed",
         providerId,
         mode: options?.forceRefresh ? "manual" : "initial",
