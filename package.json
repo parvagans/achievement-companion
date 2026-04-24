@@ -10,7 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "package:release": "python scripts/package_release.py",
     "check:release": "python scripts/check_release_artifact.py",
-    "test": "node --import tsx --test tests/createAppServices.test.ts && python -m unittest discover -s tests/python -p \"test_*.py\""
+    "test": "node --import tsx --test tests/createAppServices.test.ts tests/app-runtime.test.ts tests/app-runtime-nondecky.test.ts && python -m unittest discover -s tests/python -p \"test_*.py\""
   },
   "dependencies": {
     "@decky/api": "^1.1.3",
