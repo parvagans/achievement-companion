@@ -14,6 +14,15 @@ import decky
 from backend.redaction import is_secret_key as _is_secret_key
 from backend.redaction import redact_text as _redact_text
 from backend.redaction import redact_value as _redact_value
+from backend.provider_config import build_retroachievements_config_view as _build_retroachievements_config_view
+from backend.provider_config import build_steam_config_view as _build_steam_config_view
+from backend.provider_config import clear_provider_config as _provider_clear_provider_config
+from backend.provider_config import load_provider_config as _provider_load_provider_config
+from backend.provider_config import load_provider_config_store as _provider_load_provider_config_store
+from backend.provider_config import _normalize_boolean as _normalize_boolean
+from backend.provider_config import _normalize_optional_positive_count as _normalize_optional_positive_count
+from backend.provider_config import _normalize_positive_count as _normalize_positive_count
+from backend.provider_config import save_provider_config as _provider_save_provider_config
 from backend.storage import build_corrupt_backup_path as _build_corrupt_backup_path
 from backend.storage import quarantine_corrupt_json_file as _quarantine_corrupt_json_file
 from backend.storage import read_json_file as _read_json_file
@@ -95,6 +104,22 @@ def _storage_warning(message: str, fields: Mapping[str, Any]) -> None:
   _log("warning", message, **dict(fields))
 
 
+def _load_provider_config_store() -> dict[str, Any]:
+  return _provider_load_provider_config_store(CONFIG_PATH, warn=_storage_warning)
+
+
+def _load_provider_config(provider_key: str) -> dict[str, Any] | None:
+  return _provider_load_provider_config(CONFIG_PATH, provider_key, warn=_storage_warning)
+
+
+def _save_provider_config(provider_key: str, config: dict[str, Any]) -> None:
+  _provider_save_provider_config(CONFIG_PATH, provider_key, config, warn=_storage_warning)
+
+
+def _clear_provider_config(provider_key: str) -> None:
+  _provider_clear_provider_config(CONFIG_PATH, provider_key, warn=_storage_warning)
+
+
 def _coerce_positive_int(value: Any) -> int | None:
   if isinstance(value, bool):
     return None
@@ -102,6 +127,13 @@ def _coerce_positive_int(value: Any) -> int | None:
   if isinstance(value, (int, float)) and value >= 0:
     return int(value)
 
+  return None
+
+
+def _coerce_string(value: Any) -> str | None:
+  if isinstance(value, str):
+    trimmed = value.strip()
+    return trimmed if trimmed != "" else None
   return None
 
 
@@ -253,13 +285,6 @@ def _decode_protected_secret_record(provider_key: str, provider_secret: Mapping[
   return plaintext if plaintext.strip() != "" else None
 
 
-def _load_provider_config_store() -> dict[str, Any]:
-  store = _read_json_file(CONFIG_PATH, warn=_storage_warning)
-  if store.get("version") != PLUGIN_CONFIG_VERSION:
-    return {"version": PLUGIN_CONFIG_VERSION}
-  return store
-
-
 def _load_secret_store() -> dict[str, Any]:
   store = _read_json_file(SECRETS_PATH, warn=_storage_warning)
   if store.get("version") not in (1, SECRET_RECORD_VERSION):
@@ -308,124 +333,6 @@ def _clear_secret_api_key(provider_key: str) -> None:
       return
 
     _write_json_file(SECRETS_PATH, secrets)
-
-
-def _load_provider_config(provider_key: str) -> dict[str, Any] | None:
-  store = _load_provider_config_store()
-  provider_config = store.get(provider_key)
-  if isinstance(provider_config, dict):
-    return provider_config
-  return None
-
-
-def _save_provider_config(provider_key: str, config: dict[str, Any]) -> None:
-  store = _load_provider_config_store()
-  store["version"] = PLUGIN_CONFIG_VERSION
-  store[provider_key] = config
-  _write_json_file(CONFIG_PATH, store)
-
-
-def _clear_provider_config(provider_key: str) -> None:
-  store = _load_provider_config_store()
-  if provider_key in store:
-    store.pop(provider_key, None)
-    if len(store) <= 1:
-      try:
-        CONFIG_PATH.unlink()
-      except FileNotFoundError:
-        pass
-      except OSError as cause:
-        decky.logger.warning(
-          "Unable to remove provider config file",
-          extra={"path": str(CONFIG_PATH), "error": str(cause)},
-        )
-      return
-
-    _write_json_file(CONFIG_PATH, store)
-
-
-def _normalize_positive_count(value: Any, fallback: int) -> int:
-  if isinstance(value, bool):
-    return fallback
-
-  if isinstance(value, (int, float)) and value > 0:
-    return int(value)
-
-  return fallback
-
-
-def _normalize_optional_positive_count(value: Any) -> int | None:
-  if isinstance(value, bool):
-    return None
-
-  if isinstance(value, (int, float)) and value > 0:
-    return int(value)
-
-  return None
-
-
-def _normalize_boolean(value: Any, fallback: bool) -> bool:
-  if isinstance(value, bool):
-    return value
-  return fallback
-
-
-def _coerce_string(value: Any) -> str | None:
-  if isinstance(value, str):
-    trimmed = value.strip()
-    return trimmed if trimmed != "" else None
-  return None
-
-
-def _normalize_has_api_key(_value: Any, secret_present: bool) -> bool:
-  return secret_present
-
-
-def _build_retroachievements_config_view(store_value: dict[str, Any] | None, secret_present: bool) -> dict[str, Any] | None:
-  if store_value is None:
-    return None
-
-  username = _coerce_string(store_value.get("username"))
-  if username is None:
-    return None
-
-  config: dict[str, Any] = {
-    "username": username,
-    "hasApiKey": _normalize_has_api_key(store_value.get("hasApiKey"), secret_present),
-  }
-
-  recent_achievements_count = _normalize_optional_positive_count(store_value.get("recentAchievementsCount"))
-  if recent_achievements_count is not None:
-    config["recentAchievementsCount"] = recent_achievements_count
-
-  recently_played_count = _normalize_optional_positive_count(store_value.get("recentlyPlayedCount"))
-  if recently_played_count is not None:
-    config["recentlyPlayedCount"] = recently_played_count
-
-  return config
-
-
-def _build_steam_config_view(store_value: dict[str, Any] | None, secret_present: bool) -> dict[str, Any] | None:
-  if store_value is None:
-    return None
-
-  steam_id64 = _coerce_string(store_value.get("steamId64"))
-  if steam_id64 is None:
-    return None
-
-  language = _coerce_string(store_value.get("language")) or "english"
-  recent_achievements_count = _normalize_positive_count(store_value.get("recentAchievementsCount"), 5)
-  recently_played_count = _normalize_positive_count(store_value.get("recentlyPlayedCount"), 5)
-  include_played_free_games = _normalize_boolean(store_value.get("includePlayedFreeGames"), False)
-
-  return {
-    "steamId64": steam_id64,
-    "hasApiKey": _normalize_has_api_key(store_value.get("hasApiKey"), secret_present),
-    "language": language,
-    "recentAchievementsCount": recent_achievements_count,
-    "recentlyPlayedCount": recently_played_count,
-    "includePlayedFreeGames": include_played_free_games,
-  }
 
 
 def _resolve_api_key(payload: Mapping[str, Any], provider_key: str) -> str | None:
