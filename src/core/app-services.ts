@@ -28,6 +28,7 @@ import {
   loadAchievementCompanionSettings,
 } from "./settings";
 import { resolveProviderDashboardPreferences } from "./provider-dashboard-preferences";
+import { redactFrontendLogText } from "./redaction";
 
 type ResourceCapability = "profileSummary" | "completionProgress" | "gameProgress" | "achievementHistory";
 type ResourceLabel = "dashboard" | "achievement history" | "completion progress" | "game detail";
@@ -161,19 +162,6 @@ function createCacheReadError(
   };
 }
 
-function sanitizeProviderRefreshFailureMessage(message: string): string {
-  return message
-    .replace(/([?&](?:apiKey|key|token|password|secret)=[^&\s]+)/gi, "$1=[redacted]")
-    .replace(/\b(?:apiKey|key|token|password|secret)\b\s*[:=]\s*[^,\s]+/gi, (match) => {
-      const separatorIndex = Math.max(match.indexOf(":"), match.indexOf("="));
-      if (separatorIndex < 0) {
-        return "[redacted]";
-      }
-
-      return `${match.slice(0, separatorIndex + 1)} [redacted]`;
-    });
-}
-
 function logProviderRefreshFailure(
   providerId: ProviderId,
   resourceLabel: ResourceLabel,
@@ -186,7 +174,7 @@ function logProviderRefreshFailure(
         ? cause
         : undefined;
   const sanitizedMessage =
-    rawMessage !== undefined ? sanitizeProviderRefreshFailureMessage(rawMessage) : undefined;
+    rawMessage !== undefined ? redactFrontendLogText(rawMessage) : undefined;
 
   // Decky/CEF inspection path: keep this concise and credential-safe.
   console.warn("[Achievement Companion] provider refresh failed", {

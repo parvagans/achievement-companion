@@ -7,6 +7,7 @@ import type {
   RecentUnlock,
 } from "@core/domain";
 import type { AchievementProvider } from "@core/ports";
+import { redactFrontendLogText } from "@core/redaction";
 import { STEAM_PROVIDER_ID, type SteamProviderConfig } from "./config";
 import { createSteamClient, type SteamClient } from "./client/client";
 import {
@@ -195,11 +196,11 @@ function getSteamLevel(
 
 function sanitizeSteamLoadFailureMessage(cause: unknown): string {
   if (cause instanceof Error && cause.message.trim().length > 0) {
-    return cause.message;
+    return redactFrontendLogText(cause.message);
   }
 
   if (typeof cause === "string" && cause.trim().length > 0) {
-    return cause.trim();
+    return redactFrontendLogText(cause.trim());
   }
 
   return "Unknown Steam provider error.";

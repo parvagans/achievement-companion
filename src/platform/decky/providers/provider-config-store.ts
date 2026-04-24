@@ -382,15 +382,3 @@ export async function clearDeckySteamAccountState(): Promise<boolean> {
 
   return cleared;
 }
-
-export async function clearDeckyProviderAccountState(providerId: ProviderId): Promise<boolean> {
-  if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
-    return clearDeckyRetroAchievementsAccountState();
-  }
-
-  if (providerId === STEAM_PROVIDER_ID) {
-    return clearDeckySteamAccountState();
-  }
-
-  return false;
-}

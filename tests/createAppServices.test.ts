@@ -27,6 +27,7 @@ import {
   serializeAchievementCompanionSettings,
 } from "../src/core/settings";
 import { resolveProviderDashboardPreferences } from "../src/core/provider-dashboard-preferences";
+import { redactFrontendLogText, redactFrontendLogValue } from "../src/core/redaction";
 import {
   applyDeckyRecentAchievementHistory,
   buildDeckyRecentAchievementHistory,
@@ -1308,6 +1309,99 @@ test("decky legacy credential migration keeps the old localStorage key when the 
       setDeckyBackendCallImplementationForTests(deckyBackendTestCallImplementation);
     }
   });
+});
+
+test("frontend log redaction masks secret-like fields and preserves safe diagnostics", () => {
+  const sentinel = "AC_REDACTION_SENTINEL";
+  const rawMessage = [
+    `apiKey=${sentinel}`,
+    `apiKeyDraft: ${sentinel}`,
+    `key=${sentinel}`,
+    `y=${sentinel}`,
+    `token=${sentinel}`,
+    `password=${sentinel}`,
+    `secret=${sentinel}`,
+    `Authorization: Bearer ${sentinel}`,
+    `Bearer ${sentinel}`,
+    `https://retroachievements.org/API/API_GetUserProfile.php?u=alice&y=${sentinel}`,
+    `https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=${sentinel}&steamid=1234`,
+  ].join(" ");
+
+  const redactedMessage = redactFrontendLogText(rawMessage);
+
+  assert.doesNotMatch(redactedMessage, new RegExp(sentinel));
+  assert.match(redactedMessage, /apiKey: \[redacted\]/);
+  assert.match(redactedMessage, /apiKeyDraft: \[redacted\]/);
+  assert.match(redactedMessage, /key: \[redacted\]/);
+  assert.match(redactedMessage, /y: \[redacted\]/);
+  assert.match(redactedMessage, /token: \[redacted\]/);
+  assert.match(redactedMessage, /password: \[redacted\]/);
+  assert.match(redactedMessage, /secret: \[redacted\]/);
+  assert.match(redactedMessage, /Authorization: \[redacted\]/);
+  assert.match(redactedMessage, /Bearer \[redacted\]/);
+  assert.match(redactedMessage, /[?&]y=\[redacted\]/);
+  assert.match(redactedMessage, /[?&]key=\[redacted\]/);
+
+  const redactedPayload = redactFrontendLogValue({
+    providerId: "steam",
+    path: "IPlayerService/GetOwnedGames/v1/",
+    status: 401,
+    durationMs: 1234,
+    apiKey: sentinel,
+    apiKeyDraft: sentinel,
+    key: sentinel,
+    y: sentinel,
+    token: sentinel,
+    password: sentinel,
+    secret: sentinel,
+    Authorization: `Bearer ${sentinel}`,
+    nested: [
+      {
+        url: `https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key=${sentinel}`,
+        message: `Authorization=Bearer ${sentinel}`,
+      },
+    ],
+  }) as Record<string, unknown>;
+
+  assert.equal(redactedPayload.providerId, "steam");
+  assert.equal(redactedPayload.path, "IPlayerService/GetOwnedGames/v1/");
+  assert.equal(redactedPayload.status, 401);
+  assert.equal(redactedPayload.durationMs, 1234);
+  assert.equal(redactedPayload.apiKey, "[redacted]");
+  assert.equal(redactedPayload.apiKeyDraft, "[redacted]");
+  assert.equal(redactedPayload.Authorization, "[redacted]");
+
+  const renderedPayload = JSON.stringify(redactedPayload);
+  assert.doesNotMatch(renderedPayload, new RegExp(sentinel));
+  assert.match(renderedPayload, /\[redacted\]/);
+});
+
+test("decky provider barrel does not expose stale generic save or clear facades", () => {
+  const deckyProviderIndexSource = readFileSync(
+    new URL("../src/platform/decky/providers/index.ts", import.meta.url),
+    "utf-8",
+  );
+  const providerConfigStoreSource = readFileSync(
+    new URL("../src/platform/decky/providers/provider-config-store.ts", import.meta.url),
+    "utf-8",
+  );
+
+  assert.doesNotMatch(
+    deckyProviderIndexSource,
+    /export async function writeDeckyProviderConfig/,
+  );
+  assert.doesNotMatch(
+    deckyProviderIndexSource,
+    /export async function clearDeckyProviderAccountState/,
+  );
+  assert.doesNotMatch(
+    deckyProviderIndexSource,
+    /saveDeckyRetroAchievementsCredentials|saveDeckySteamCredentials/,
+  );
+  assert.doesNotMatch(
+    providerConfigStoreSource,
+    /export async function clearDeckyProviderAccountState/,
+  );
 });
 
 test("provider credential helper copy and secret field defaults stay explicit", () => {
