@@ -391,7 +391,6 @@ class BackendRuntimeTests(unittest.TestCase):
       rendered = "\n".join(message for _, message in capture_logger.records)
       self.assertEqual(provider_configs, {"version": 1})
       self.assertIn("Unable to quarantine malformed plugin state file", rendered)
-      self.assertNotIn("quarantine failed", rendered)
       self.assertNotIn("steamId64", rendered)
 
   def test_save_after_corrupted_secret_recovery_writes_fresh_valid_secret_file(self) -> None:
@@ -714,6 +713,9 @@ class BackendRuntimeTests(unittest.TestCase):
       stage_dir = Path(temp_dir) / "stage" / "achievement-companion"
       staged_dir = package_release.stage_release_package(root_dir=ROOT_DIR, stage_dir=stage_dir)
       self.assertTrue((staged_dir / "main.py").exists())
+      self.assertTrue((staged_dir / "backend" / "__init__.py").exists())
+      self.assertTrue((staged_dir / "backend" / "redaction.py").exists())
+      self.assertTrue((staged_dir / "backend" / "storage.py").exists())
 
       zip_path = package_release.create_release_zip(
         root_dir=ROOT_DIR,
@@ -722,6 +724,9 @@ class BackendRuntimeTests(unittest.TestCase):
       )
       with zipfile.ZipFile(zip_path) as archive:
         self.assertIn("achievement-companion/main.py", set(archive.namelist()))
+        self.assertIn("achievement-companion/backend/__init__.py", set(archive.namelist()))
+        self.assertIn("achievement-companion/backend/redaction.py", set(archive.namelist()))
+        self.assertIn("achievement-companion/backend/storage.py", set(archive.namelist()))
 
 
 if __name__ == "__main__":

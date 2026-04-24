@@ -2,13 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import base64
-from datetime import datetime, timezone
 import hashlib
 import hmac
 import json
 import os
 import secrets
-import tempfile
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -16,6 +14,10 @@ import decky
 from backend.redaction import is_secret_key as _is_secret_key
 from backend.redaction import redact_text as _redact_text
 from backend.redaction import redact_value as _redact_value
+from backend.storage import build_corrupt_backup_path as _build_corrupt_backup_path
+from backend.storage import quarantine_corrupt_json_file as _quarantine_corrupt_json_file
+from backend.storage import read_json_file as _read_json_file
+from backend.storage import write_json_file as _write_json_file
 
 PLUGIN_CONFIG_VERSION = 1
 SECRET_RECORD_VERSION = 2
@@ -89,88 +91,8 @@ def _sanitize_backend_runtime_environment() -> None:
 _sanitize_backend_runtime_environment()
 
 
-def _ensure_parent_directory(path: Path) -> None:
-  path.parent.mkdir(parents=True, exist_ok=True)
-
-
-def _ensure_file_permissions(path: Path) -> None:
-  try:
-    os.chmod(path, 0o600)
-  except OSError:
-    pass
-
-
-def _write_json_file(path: Path, value: object) -> None:
-  _ensure_parent_directory(path)
-
-  serialized = json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True)
-  with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False, dir=str(path.parent)) as handle:
-    temp_path = Path(handle.name)
-    handle.write(serialized)
-
-  try:
-    _ensure_file_permissions(temp_path)
-    temp_path.replace(path)
-    _ensure_file_permissions(path)
-  finally:
-    if temp_path.exists():
-      try:
-        temp_path.unlink()
-      except OSError:
-        pass
-
-
-def _build_corrupt_backup_path(path: Path) -> Path:
-  timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-  backup_path = path.with_name(f"{path.name}.corrupt-{timestamp}")
-  suffix = 1
-  while backup_path.exists():
-    backup_path = path.with_name(f"{path.name}.corrupt-{timestamp}-{suffix}")
-    suffix += 1
-  return backup_path
-
-
-def _quarantine_corrupt_json_file(path: Path) -> bool:
-  if not path.exists():
-    return False
-
-  backup_path = _build_corrupt_backup_path(path)
-  try:
-    path.replace(backup_path)
-  except OSError as cause:
-    decky.logger.warning(
-      "Unable to quarantine malformed plugin state file",
-      extra={
-        "path": str(path),
-        "errorType": type(cause).__name__,
-        "error": str(cause),
-      },
-    )
-    return False
-
-  _log("warning", "Recovered malformed plugin state file", path=str(path), backupPath=str(backup_path))
-  return True
-
-
-def _read_json_file(path: Path) -> dict[str, Any]:
-  try:
-    raw_text = path.read_text(encoding="utf-8")
-  except FileNotFoundError:
-    return {}
-  except OSError as cause:
-    decky.logger.warning("Unable to read plugin state file", extra={"path": str(path), "error": str(cause)})
-    return {}
-
-  if raw_text.strip() == "":
-    return {}
-
-  try:
-    parsed = json.loads(raw_text)
-  except json.JSONDecodeError:
-    _quarantine_corrupt_json_file(path)
-    return {}
-
-  return parsed if isinstance(parsed, dict) else {}
+def _storage_warning(message: str, fields: Mapping[str, Any]) -> None:
+  _log("warning", message, **dict(fields))
 
 
 def _coerce_positive_int(value: Any) -> int | None:
@@ -332,14 +254,14 @@ def _decode_protected_secret_record(provider_key: str, provider_secret: Mapping[
 
 
 def _load_provider_config_store() -> dict[str, Any]:
-  store = _read_json_file(CONFIG_PATH)
+  store = _read_json_file(CONFIG_PATH, warn=_storage_warning)
   if store.get("version") != PLUGIN_CONFIG_VERSION:
     return {"version": PLUGIN_CONFIG_VERSION}
   return store
 
 
 def _load_secret_store() -> dict[str, Any]:
-  store = _read_json_file(SECRETS_PATH)
+  store = _read_json_file(SECRETS_PATH, warn=_storage_warning)
   if store.get("version") not in (1, SECRET_RECORD_VERSION):
     return {"version": SECRET_RECORD_VERSION}
   return store
@@ -683,8 +605,8 @@ class Plugin:
     self.loop = asyncio.get_event_loop()
     SETTINGS_PATH.mkdir(parents=True, exist_ok=True)
     LOGS_PATH.mkdir(parents=True, exist_ok=True)
-    _ensure_parent_directory(CONFIG_PATH)
-    _ensure_parent_directory(SECRETS_PATH)
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    SECRETS_PATH.parent.mkdir(parents=True, exist_ok=True)
     _log(
       "info",
       "Achievement Companion storage ready",

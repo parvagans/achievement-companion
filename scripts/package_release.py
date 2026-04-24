@@ -13,6 +13,9 @@ RELEASE_DIR = ROOT_DIR / "release"
 STAGE_DIR = RELEASE_DIR / "staged" / "achievement-companion"
 REQUIRED_RELATIVE_PATHS: tuple[Path, ...] = (
   Path("main.py"),
+  Path("backend/__init__.py"),
+  Path("backend/redaction.py"),
+  Path("backend/storage.py"),
   Path("package.json"),
   Path("plugin.json"),
   Path("README.md"),
@@ -66,6 +69,8 @@ def stage_release_package(root_dir: Path = ROOT_DIR, stage_dir: Path = STAGE_DIR
 
   if not (stage_dir / "main.py").exists():
     raise RuntimeError("Staged release output is missing main.py.")
+  if not (stage_dir / "backend" / "__init__.py").exists():
+    raise RuntimeError("Staged release output is missing backend/__init__.py.")
 
   return stage_dir
 
@@ -73,6 +78,8 @@ def stage_release_package(root_dir: Path = ROOT_DIR, stage_dir: Path = STAGE_DIR
 def verify_staged_release_package(stage_dir: Path = STAGE_DIR) -> None:
   if not (stage_dir / "main.py").exists():
     raise RuntimeError("Staged release output is missing main.py.")
+  if not (stage_dir / "backend" / "__init__.py").exists():
+    raise RuntimeError("Staged release output is missing backend/__init__.py.")
 
 
 def create_release_zip(
