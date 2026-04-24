@@ -33,6 +33,7 @@ import {
   buildDeckyRecentAchievementHistory,
   loadDeckyDashboardState,
   loadDeckyCompletionProgressState,
+  resetDeckyAppServicesForTests,
 } from "../src/platform/decky/decky-app-services";
 import { setDeckyBackendCallImplementationForTests } from "../src/platform/decky/decky-backend-bridge";
 import {
@@ -108,6 +109,7 @@ import {
   writeDeckySteamLibraryAchievementScanSummary,
   writeDeckySteamProviderConfig,
 } from "../src/platform/decky/providers/steam/config";
+import { STEAM_PROVIDER_ID } from "../src/providers/steam";
 import { clearDeckyProviderConfigCache } from "../src/platform/decky/providers/provider-config-store";
 import {
   STEAM_CREDENTIAL_HELPER_COPY,
@@ -2394,6 +2396,138 @@ test("decky dashboard refresh logging breadcrumbs are present in source", () => 
   assert.match(source, /recordDeckyDiagnosticEvent/);
 });
 
+test("decky dashboard refresh reuses an in-flight refresh for the same provider", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    resetDeckyBackendTestState();
+    deckyBackendTestState.steam.config = {
+      steamId64: "12345678901234567",
+      hasApiKey: true,
+      language: "english",
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+      includePlayedFreeGames: false,
+    };
+    deckyBackendTestState.steam.secret = "dummy-secret";
+
+    const diagnosticEvents: Array<Record<string, unknown>> = [];
+    setDeckyBackendCallImplementationForTests(async (route: string, payload: unknown) => {
+      if (route === "record_diagnostic_event") {
+        diagnosticEvents.push(payload as Record<string, unknown>);
+        return true;
+      }
+
+      return deckyBackendTestCallImplementation(route, payload);
+    });
+
+    try {
+      const firstRefresh = loadDeckyDashboardState("steam", {
+        forceRefresh: true,
+      });
+      const secondRefresh = loadDeckyDashboardState("steam", {
+        forceRefresh: true,
+      });
+
+      const [firstState, secondState] = await Promise.all([firstRefresh, secondRefresh]);
+
+      assert.equal(firstState.status, "success");
+      assert.equal(secondState.status, "success");
+      assert.equal(
+        diagnosticEvents.filter((event) => event.event === "dashboard_refresh_started").length,
+        1,
+      );
+      assert.equal(
+        diagnosticEvents.filter((event) => event.event === "dashboard_refresh_completed").length,
+        1,
+      );
+      assert.equal(
+        diagnosticEvents.filter((event) => event.event === "dashboard_refresh_failed").length,
+        0,
+      );
+    } finally {
+      setDeckyBackendCallImplementationForTests(deckyBackendTestCallImplementation);
+      resetDeckyAppServicesForTests();
+      resetDeckyBackendTestState();
+    }
+  });
+});
+
+test("decky dashboard refresh keeps steam and retroachievements refreshes independent", async () => {
+  const steamHarness = createHarness({
+    providerFactory: (counts) => ({
+      id: STEAM_PROVIDER_ID,
+      capabilities: PROVIDER_CAPABILITIES,
+      async loadProfile() {
+        counts.profile += 1;
+        return DASHBOARD_REFRESH_PROFILE;
+      },
+      async loadRecentUnlocks() {
+        counts.recentUnlocks += 1;
+        return DASHBOARD_REFRESH_RECENT_UNLOCKS;
+      },
+      async loadRecentlyPlayedGames() {
+        counts.recentlyPlayedGames += 1;
+        return DASHBOARD_REFRESH_RECENTLY_PLAYED_GAMES;
+      },
+      async loadGameProgress() {
+        counts.gameProgress += 1;
+        return createGameDetailSnapshot();
+      },
+    }),
+    providerConfig: {
+      steamId64: "12345678901234567",
+      hasApiKey: true,
+      language: "english",
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+      includePlayedFreeGames: false,
+    },
+  });
+
+  const retroHarness = createHarness({
+    providerFactory: (counts) => ({
+      id: PROVIDER_ID,
+      capabilities: PROVIDER_CAPABILITIES,
+      async loadProfile() {
+        counts.profile += 1;
+        return DASHBOARD_REFRESH_PROFILE;
+      },
+      async loadRecentUnlocks() {
+        counts.recentUnlocks += 1;
+        return DASHBOARD_REFRESH_RECENT_UNLOCKS;
+      },
+      async loadRecentlyPlayedGames() {
+        counts.recentlyPlayedGames += 1;
+        return DASHBOARD_REFRESH_RECENTLY_PLAYED_GAMES;
+      },
+      async loadGameProgress() {
+        counts.gameProgress += 1;
+        return createGameDetailSnapshot();
+      },
+    }),
+    providerConfig: {
+      username: "retro-user",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    },
+  });
+
+  const [steamState, retroState] = await Promise.all([
+    steamHarness.appServices.dashboard.loadDashboard(STEAM_PROVIDER_ID, { forceRefresh: true }),
+    retroHarness.appServices.dashboard.loadDashboard(PROVIDER_ID, { forceRefresh: true }),
+  ]);
+
+  assert.equal(steamState.status, "success");
+  assert.equal(retroState.status, "success");
+  assert.equal(steamHarness.counts.profile, 1);
+  assert.equal(steamHarness.counts.recentUnlocks, 1);
+  assert.equal(steamHarness.counts.recentlyPlayedGames, 1);
+  assert.equal(retroHarness.counts.profile, 1);
+  assert.equal(retroHarness.counts.recentUnlocks, 1);
+  assert.equal(retroHarness.counts.recentlyPlayedGames, 1);
+});
+
 test("dashboard missing config returns auth error state", async () => {
   const { appServices, counts } = createHarness({
     providerConfig: undefined,
@@ -4198,6 +4332,116 @@ test("steam library achievement scan emits throttled progress logs when logger i
     assert.ok(progressEvents.length <= 3);
     assert.equal(completedEvents.length, 1);
     assert.equal(failedEvents.length, 0);
+  });
+});
+
+test("steam library achievement scan de-duplicates final progress diagnostics", async () => {
+  await withMockDeckyStorage(async () => {
+    const achievementsDeferred = createDeferredPromise<{
+      readonly playerstats: {
+        readonly success: true;
+        readonly achievements: readonly RawSteamPlayerAchievement[];
+      };
+    }>();
+    let playerAchievementsCalls = 0;
+    const progressEvents: Array<Record<string, unknown>> = [];
+    const client: SteamClient = {
+      async loadOwnedGames() {
+        return {
+          response: {
+            game_count: 2,
+            games: [
+              {
+                appid: 1,
+                name: "Game 1",
+              },
+              {
+                appid: 2,
+                name: "Game 2",
+              },
+            ],
+          },
+        };
+      },
+      async loadPlayerAchievements() {
+        playerAchievementsCalls += 1;
+        return achievementsDeferred.promise;
+      },
+      async loadSchemaForGame() {
+        throw new Error("schema should not be needed when no achievements are unlocked");
+      },
+      async loadGlobalAchievementPercentagesForApp() {
+        return {
+          achievementpercentages: {
+            achievements: [],
+          },
+        };
+      },
+      async loadPlayerSummaries() {
+        return {
+          response: {
+            players: [],
+          },
+        };
+      },
+      async loadSteamLevel() {
+        return {
+          response: {
+            player_level: 29,
+          },
+        };
+      },
+      async loadBadges() {
+        return {
+          playerstats: {
+            badges: [],
+          },
+        };
+      },
+    };
+
+    const scanPromise = scanSteamLibraryAchievements(
+      normalizeSteamProviderConfig({
+        steamId64: "12345678901234567",
+        hasApiKey: true,
+        language: "english",
+        recentAchievementsCount: 5,
+        recentlyPlayedCount: 5,
+        includePlayedFreeGames: false,
+      }),
+      {
+        client,
+        concurrencyLimit: 2,
+        logger: {
+          started() {},
+          progress(fields) {
+            progressEvents.push(fields);
+          },
+          completed() {},
+          failed() {},
+        },
+      },
+    );
+
+    for (let attempt = 0; attempt < 20 && playerAchievementsCalls < 2; attempt += 1) {
+      await Promise.resolve();
+    }
+
+    assert.equal(playerAchievementsCalls, 2);
+
+    achievementsDeferred.resolve({
+      playerstats: {
+        success: true,
+        achievements: [],
+      },
+    });
+
+    const summary = await scanPromise;
+    assert.equal(summary.scannedGameCount, 2);
+    assert.equal(progressEvents.length, 1);
+    assert.equal(progressEvents[0]?.ownedGameCount, 2);
+    assert.equal(progressEvents[0]?.scannedGameCount, 2);
+    assert.equal(progressEvents[0]?.failedGameCount, 0);
   });
 });
 

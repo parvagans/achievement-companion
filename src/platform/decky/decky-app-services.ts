@@ -60,6 +60,10 @@ const providerRegistry = createProviderRegistry([
   }),
 ]);
 let liveDeckyAppServices: ReturnType<typeof createAppServices> | undefined;
+const deckyDashboardRefreshInFlightByProviderId = new Map<
+  ProviderId,
+  Promise<ResourceState<DashboardSnapshot>>
+>();
 
 interface DeckyRecentAchievementBackfillProvider {
   readonly loadCompletionProgress: (
@@ -266,6 +270,11 @@ function createDeckyAppServices(runtimeMode: DeckySmokeTestCacheMode | "live") {
     cacheStore: createMemoryCacheStore(createDeckySmokeTestDashboardCacheEntries(runtimeMode)),
     loadProviderConfig: loadDeckyProviderConfig,
   });
+}
+
+export function resetDeckyAppServicesForTests(): void {
+  liveDeckyAppServices = undefined;
+  deckyDashboardRefreshInFlightByProviderId.clear();
 }
 
 function getDeckyRecentAchievementStorageKey(providerId: ProviderId, accountId: string): string {
@@ -985,6 +994,11 @@ export async function loadDeckyDashboardState(
     }
   }
 
+  const activeRefresh = deckyDashboardRefreshInFlightByProviderId.get(providerId);
+  if (activeRefresh !== undefined) {
+    return activeRefresh;
+  }
+
   const dashboardRefreshStartedAt = Date.now();
   console.info("[Achievement Companion][Decky] Dashboard refresh started", {
     providerId,
@@ -995,69 +1009,80 @@ export async function loadDeckyDashboardState(
     providerId,
     mode: options?.forceRefresh ? "manual" : "initial",
   });
-  const state = await createDeckyAppServices(runtimeMode).dashboard.loadDashboard(providerId, options);
-  if (state.data === undefined) {
-    console.warn("[Achievement Companion][Decky] Dashboard refresh failed", {
-      providerId,
-      mode: options?.forceRefresh ? "manual" : "initial",
-      durationMs: Date.now() - dashboardRefreshStartedAt,
-      errorKind: state.error?.kind ?? "unknown",
+  const refreshPromise = (async () => {
+    const state = await createDeckyAppServices(runtimeMode).dashboard.loadDashboard(providerId, options);
+    if (state.data === undefined) {
+      console.warn("[Achievement Companion][Decky] Dashboard refresh failed", {
+        providerId,
+        mode: options?.forceRefresh ? "manual" : "initial",
+        durationMs: Date.now() - dashboardRefreshStartedAt,
+        errorKind: state.error?.kind ?? "unknown",
+      });
+      void recordDeckyDiagnosticEvent({
+        event: "dashboard_refresh_failed",
+        providerId,
+        mode: options?.forceRefresh ? "manual" : "initial",
+        durationMs: Date.now() - dashboardRefreshStartedAt,
+        errorKind: state.error?.kind ?? "unknown",
+      });
+      return state;
+    }
+
+    const provider = runtimeMode === "live"
+      ? (providerRegistry.get(providerId) as DeckyRecentAchievementBackfillProvider | undefined)
+      : undefined;
+    const providerConfig = runtimeMode === "live" ? await loadDeckyProviderConfig(providerId) : undefined;
+    const dashboardSnapshot = await buildDeckyRecentAchievementHistory({
+      provider,
+      providerConfig,
+      snapshot: state.data,
     });
-    void recordDeckyDiagnosticEvent({
-      event: "dashboard_refresh_failed",
-      providerId,
-      mode: options?.forceRefresh ? "manual" : "initial",
-      durationMs: Date.now() - dashboardRefreshStartedAt,
-      errorKind: state.error?.kind ?? "unknown",
-    });
-    return state;
+    writeDeckyDashboardSnapshot(dashboardSnapshot);
+
+    if (state.error !== undefined) {
+      console.warn("[Achievement Companion][Decky] Dashboard refresh failed", {
+        providerId,
+        mode: options?.forceRefresh ? "manual" : "initial",
+        durationMs: Date.now() - dashboardRefreshStartedAt,
+        errorKind: state.error.kind,
+      });
+      void recordDeckyDiagnosticEvent({
+        event: "dashboard_refresh_failed",
+        providerId,
+        mode: options?.forceRefresh ? "manual" : "initial",
+        durationMs: Date.now() - dashboardRefreshStartedAt,
+        errorKind: state.error.kind,
+      });
+    } else {
+      console.info("[Achievement Companion][Decky] Dashboard refresh completed", {
+        providerId,
+        mode: options?.forceRefresh ? "manual" : "initial",
+        durationMs: Date.now() - dashboardRefreshStartedAt,
+        source: "live",
+      });
+      void recordDeckyDiagnosticEvent({
+        event: "dashboard_refresh_completed",
+        providerId,
+        mode: options?.forceRefresh ? "manual" : "initial",
+        durationMs: Date.now() - dashboardRefreshStartedAt,
+        source: "live",
+      });
+    }
+
+    return {
+      ...state,
+      data: dashboardSnapshot,
+    };
+  })();
+
+  deckyDashboardRefreshInFlightByProviderId.set(providerId, refreshPromise);
+  try {
+    return await refreshPromise;
+  } finally {
+    if (deckyDashboardRefreshInFlightByProviderId.get(providerId) === refreshPromise) {
+      deckyDashboardRefreshInFlightByProviderId.delete(providerId);
+    }
   }
-
-  const provider = runtimeMode === "live"
-    ? (providerRegistry.get(providerId) as DeckyRecentAchievementBackfillProvider | undefined)
-    : undefined;
-  const providerConfig = runtimeMode === "live" ? await loadDeckyProviderConfig(providerId) : undefined;
-  const dashboardSnapshot = await buildDeckyRecentAchievementHistory({
-    provider,
-    providerConfig,
-    snapshot: state.data,
-  });
-  writeDeckyDashboardSnapshot(dashboardSnapshot);
-
-  if (state.error !== undefined) {
-    console.warn("[Achievement Companion][Decky] Dashboard refresh failed", {
-      providerId,
-      mode: options?.forceRefresh ? "manual" : "initial",
-      durationMs: Date.now() - dashboardRefreshStartedAt,
-      errorKind: state.error.kind,
-    });
-    void recordDeckyDiagnosticEvent({
-      event: "dashboard_refresh_failed",
-      providerId,
-      mode: options?.forceRefresh ? "manual" : "initial",
-      durationMs: Date.now() - dashboardRefreshStartedAt,
-      errorKind: state.error.kind,
-    });
-  } else {
-    console.info("[Achievement Companion][Decky] Dashboard refresh completed", {
-      providerId,
-      mode: options?.forceRefresh ? "manual" : "initial",
-      durationMs: Date.now() - dashboardRefreshStartedAt,
-      source: "live",
-    });
-    void recordDeckyDiagnosticEvent({
-      event: "dashboard_refresh_completed",
-      providerId,
-      mode: options?.forceRefresh ? "manual" : "initial",
-      durationMs: Date.now() - dashboardRefreshStartedAt,
-      source: "live",
-    });
-  }
-
-  return {
-    ...state,
-    data: dashboardSnapshot,
-  };
 }
 
 export async function loadDeckyCompletionProgressState(

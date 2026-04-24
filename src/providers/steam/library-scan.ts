@@ -375,6 +375,8 @@ export async function scanSteamLibraryAchievements(
   const logger = dependencies.logger;
   const startedAtMs = Date.now();
   let lastProgressLoggedAtMs = startedAtMs;
+  let lastProgressSignature: string | undefined;
+  let finalProgressLogged = false;
   let ownedGameCount = 0;
   const stats: SteamLibraryScanStats = {
     scannedGameCount: 0,
@@ -578,13 +580,20 @@ export async function scanSteamLibraryAchievements(
     }
 
     const now = Date.now();
+    const progressSignature = `${ownedGameCount}:${stats.scannedGameCount}:${stats.skippedGameCount}:${stats.failedGameCount}`;
+    const isFinalProgress = stats.scannedGameCount === ownedGameCount;
     if (
       logger !== undefined &&
-      (stats.scannedGameCount === ownedGameCount ||
+      progressSignature !== lastProgressSignature &&
+      ((isFinalProgress && !finalProgressLogged) ||
         stats.scannedGameCount % 25 === 0 ||
         now - lastProgressLoggedAtMs >= 15_000)
     ) {
       lastProgressLoggedAtMs = now;
+      lastProgressSignature = progressSignature;
+      if (isFinalProgress) {
+        finalProgressLogged = true;
+      }
       logger.progress?.({
         ownedGameCount,
         scannedGameCount: stats.scannedGameCount,
