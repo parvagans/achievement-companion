@@ -100,6 +100,47 @@ def write_malformed_text(path: Path, text: str) -> None:
 
 
 class BackendRuntimeTests(unittest.TestCase):
+  def test_storage_paths_follow_temporary_root_and_valid_files_stay_quiet(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      module = load_main_module(Path(temp_dir))
+      module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
+
+      self.assertEqual(module.SETTINGS_PATH, Path(temp_dir))  # type: ignore[attr-defined]
+      self.assertEqual(module.CONFIG_PATH.parent, Path(temp_dir))  # type: ignore[attr-defined]
+      self.assertEqual(module.SECRETS_PATH.parent, Path(temp_dir))  # type: ignore[attr-defined]
+
+      module._write_json_file(  # type: ignore[attr-defined]
+        module.CONFIG_PATH,
+        {
+          "version": 1,
+          "retroAchievements": {
+            "username": "alice",
+            "hasApiKey": True,
+            "recentAchievementsCount": 10,
+            "recentlyPlayedCount": 7,
+          },
+        },
+      )
+      module._save_secret_api_key("retroAchievements", "ra-secret")  # type: ignore[attr-defined]
+
+      provider_configs = asyncio.run(module.Plugin().get_provider_configs())
+
+      self.assertEqual(provider_configs["retroAchievements"]["username"], "alice")
+      self.assertEqual(provider_configs["retroAchievements"]["hasApiKey"], True)
+      self.assertEqual(provider_configs["retroAchievements"]["recentAchievementsCount"], 10)
+      self.assertEqual(provider_configs["retroAchievements"]["recentlyPlayedCount"], 7)
+      self.assertEqual(list(Path(temp_dir).glob("provider-config.json.corrupt-*")), [])
+      self.assertEqual(list(Path(temp_dir).glob("provider-secrets.json.corrupt-*")), [])
+
+  def test_corrupt_backup_path_stays_in_same_directory(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      module = load_main_module(Path(temp_dir))
+      backup_path = module._build_corrupt_backup_path(module.CONFIG_PATH)  # type: ignore[attr-defined]
+
+      self.assertEqual(backup_path.parent, module.CONFIG_PATH.parent)  # type: ignore[attr-defined]
+      self.assertTrue(backup_path.name.startswith("provider-config.json.corrupt-"))
+      self.assertIn(".corrupt-", backup_path.name)
+
   def test_legacy_secret_migrates_to_protected_record(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
       module = load_main_module(Path(temp_dir))
@@ -463,6 +504,60 @@ class BackendRuntimeTests(unittest.TestCase):
       self.assertNotIn("steamid", rendered)
       self.assertNotIn("Access is denied", rendered)
 
+  def test_backend_request_json_uses_injected_urlopen_for_successful_json(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      original_logger = FAKE_DECKY.logger
+      capture_logger = CapturingDeckyLogger()
+      FAKE_DECKY.logger = capture_logger
+      original_urlopen = urllib.request.urlopen
+      calls: list[tuple[str, int | None]] = []
+
+      class FakeResponse:
+        def __init__(self, body: bytes) -> None:
+          self._body = body
+
+        def __enter__(self) -> "FakeResponse":
+          return self
+
+        def __exit__(self, exc_type, exc, tb) -> bool:  # noqa: ANN001, ANN002, ANN003
+          return False
+
+        def read(self) -> bytes:
+          return self._body
+
+      def fake_urlopen(request, timeout=None, context=None):  # noqa: ANN001, ANN002, ANN003
+        calls.append((request.full_url, timeout))
+        self.assertIsNotNone(context)
+        return FakeResponse(b'{"ok": true, "count": 3}')
+
+      urllib.request.urlopen = fake_urlopen  # type: ignore[assignment]
+      try:
+        module = load_main_module(Path(temp_dir))
+        module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
+
+        async def invoke_request() -> dict[str, object]:
+          return module._request_json(  # type: ignore[attr-defined]
+            provider_id="steam",
+            provider_label="Steam",
+            base_url="https://api.steampowered.com/",
+            path="IPlayerService/GetOwnedGames/v1/",
+            query={"language": "english"},
+            auth_query={"steamid": "123", "key": "secret"},
+          )
+
+        result = asyncio.run(invoke_request())
+      finally:
+        urllib.request.urlopen = original_urlopen  # type: ignore[assignment]
+        FAKE_DECKY.logger = original_logger
+
+      rendered = "\n".join(message for _, message in capture_logger.records)
+      self.assertEqual(result, {"ok": True, "count": 3})
+      self.assertEqual(len(calls), 1)
+      self.assertIn("IPlayerService/GetOwnedGames/v1/", calls[0][0])
+      self.assertNotIn("secret", rendered)
+      self.assertNotIn("steamid", rendered)
+      self.assertNotIn("key=secret", rendered)
+
   def test_backend_request_json_logs_failure_duration_without_query_params(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
       original_logger = FAKE_DECKY.logger
@@ -506,6 +601,55 @@ class BackendRuntimeTests(unittest.TestCase):
       self.assertNotIn("key=secret", rendered)
       self.assertNotIn("steamid", rendered)
       self.assertNotIn("Access is denied", rendered)
+
+  def test_backend_request_json_invalid_json_raises_safe_error_without_leaking_body(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      original_logger = FAKE_DECKY.logger
+      capture_logger = CapturingDeckyLogger()
+      FAKE_DECKY.logger = capture_logger
+      original_urlopen = urllib.request.urlopen
+
+      class FakeResponse:
+        def __enter__(self) -> "FakeResponse":
+          return self
+
+        def __exit__(self, exc_type, exc, tb) -> bool:  # noqa: ANN001, ANN002, ANN003
+          return False
+
+        def read(self) -> bytes:
+          return b'{"apiKey":"secret","steamid":"123"'
+
+      def fake_urlopen(request, timeout=None, context=None):  # noqa: ANN001, ANN002, ANN003
+        return FakeResponse()
+
+      urllib.request.urlopen = fake_urlopen  # type: ignore[assignment]
+      try:
+        module = load_main_module(Path(temp_dir))
+        module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
+
+        async def invoke_request() -> None:
+          with self.assertRaises(RuntimeError):
+            module._request_json(  # type: ignore[attr-defined]
+              provider_id="steam",
+              provider_label="Steam",
+              base_url="https://api.steampowered.com/",
+              path="IPlayerService/GetOwnedGames/v1/",
+              query={"language": "english", "key": "secret"},
+              auth_query={"steamid": "123", "key": "secret"},
+            )
+
+        asyncio.run(invoke_request())
+      finally:
+        urllib.request.urlopen = original_urlopen  # type: ignore[assignment]
+        FAKE_DECKY.logger = original_logger
+
+      rendered = "\n".join(message for _, message in capture_logger.records)
+      self.assertIn("Steam response decode failed", rendered)
+      self.assertIn('"durationMs":', rendered)
+      self.assertNotIn("apiKey", rendered)
+      self.assertNotIn("secret", rendered)
+      self.assertNotIn("steamid", rendered)
+      self.assertNotIn("key=secret", rendered)
 
   def test_backend_main_logs_storage_and_tls_readiness(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
