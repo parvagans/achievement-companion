@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { beforeEach, test } from "node:test";
 import type { CacheEntry, CacheStore, ResourceState } from "../src/core/cache";
 import {
@@ -215,6 +216,31 @@ const PROVIDER_CAPABILITIES: ProviderCapabilities = {
   rarityStats: true,
   search: false,
 };
+
+function collectSourceFiles(rootDir: string): readonly string[] {
+  const entries = readdirSync(rootDir, { withFileTypes: true });
+  const files: string[] = [];
+
+  for (const entry of entries) {
+    const entryPath = join(rootDir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...collectSourceFiles(entryPath));
+      continue;
+    }
+
+    if (entry.isFile() && /\.(ts|tsx|py)$/u.test(entry.name)) {
+      files.push(entryPath);
+    }
+  }
+
+  return files;
+}
+
+function readSourceTree(rootDir: string): string {
+  return collectSourceFiles(rootDir)
+    .map((filePath) => readFileSync(filePath, "utf-8"))
+    .join("\n");
+}
 
 interface CallCounts {
   config: number;
@@ -6280,4 +6306,66 @@ test("dashboard derives recently played games from recent unlocks when provider 
   assert.equal(counts.profile, 1);
   assert.equal(counts.recentUnlocks, 1);
   assert.equal(counts.recentlyPlayedGames, 1);
+});
+
+test("core platform seam contracts are exported for future platform adapters", () => {
+  const platformSource = readFileSync(new URL("../src/core/platform.ts", import.meta.url), "utf-8");
+
+  assert.match(platformSource, /export interface DiagnosticLogger/u);
+  assert.match(platformSource, /export interface ProviderConfigStore/u);
+  assert.match(platformSource, /export interface AuthenticatedProviderTransportFactory/u);
+  assert.match(platformSource, /export interface DashboardSnapshotStore/u);
+  assert.match(platformSource, /export interface SteamLibraryScanStore/u);
+  assert.match(platformSource, /export interface PlatformCapabilities/u);
+});
+
+test("core and providers stay free of Decky implementation imports", () => {
+  const coreSource = readSourceTree("src/core");
+  const providersSource = readSourceTree("src/providers");
+
+  for (const source of [coreSource, providersSource]) {
+    assert.doesNotMatch(source, /\bfrom\s+["'][^"']*platform\/decky[^"']*["']/u);
+    assert.doesNotMatch(source, /\bfrom\s+["']@decky\/[^"']+["']/u);
+    assert.doesNotMatch(source, /decky-backend-bridge/u);
+    assert.doesNotMatch(source, /callDeckyBackendMethod/u);
+  }
+});
+
+test("decky authenticated transport helpers still route through backend methods", () => {
+  const retroAchievementsTransportSource = readFileSync(
+    new URL("../src/platform/decky/providers/retroachievements/backend-transport.ts", import.meta.url),
+    "utf-8",
+  );
+  const steamTransportSource = readFileSync(
+    new URL("../src/platform/decky/providers/steam/backend-transport.ts", import.meta.url),
+    "utf-8",
+  );
+
+  assert.match(retroAchievementsTransportSource, /callDeckyBackendMethod<T>\("request_retroachievements_json"/u);
+  assert.match(steamTransportSource, /callDeckyBackendMethod<T>\("request_steam_json"/u);
+});
+
+test("frontend-facing provider configs stay apiKey-free in their exported shapes", () => {
+  const retroAchievementsConfigSource = readFileSync(
+    new URL("../src/providers/retroachievements/config.ts", import.meta.url),
+    "utf-8",
+  );
+  const steamConfigSource = readFileSync(
+    new URL("../src/providers/steam/config.ts", import.meta.url),
+    "utf-8",
+  );
+
+  const retroAchievementsInterfaceBlock = retroAchievementsConfigSource.slice(
+    retroAchievementsConfigSource.indexOf("export interface RetroAchievementsProviderConfig {"),
+    retroAchievementsConfigSource.indexOf("export const DEFAULT_RETROACHIEVEMENTS_PROVIDER_CONFIG:"),
+  );
+  const steamInterfaceBlock = steamConfigSource.slice(
+    steamConfigSource.indexOf("export interface SteamProviderConfig {"),
+    steamConfigSource.indexOf("export const DEFAULT_STEAM_PROVIDER_CONFIG:"),
+  );
+
+  assert.match(retroAchievementsInterfaceBlock, /readonly hasApiKey: boolean;/u);
+  assert.doesNotMatch(retroAchievementsInterfaceBlock, /readonly apiKey:/u);
+  assert.match(steamInterfaceBlock, /readonly hasApiKey: boolean;/u);
+  assert.doesNotMatch(steamInterfaceBlock, /readonly apiKey:/u);
 });
