@@ -478,6 +478,26 @@ function createBackfillCompletionProgressWithoutDates(): readonly NormalizedGame
   ];
 }
 
+function createDeferredPromise<T>(): {
+  readonly promise: Promise<T>;
+  readonly resolve: (value: T | PromiseLike<T>) => void;
+  readonly reject: (reason?: unknown) => void;
+} {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve;
+    reject = promiseReject;
+  });
+
+  return {
+    promise,
+    resolve,
+    reject,
+  };
+}
+
 function createBackfillRecentlyPlayedGame(
   gameId: string,
   title: string,
@@ -4178,6 +4198,182 @@ test("steam library achievement scan emits throttled progress logs when logger i
     assert.ok(progressEvents.length <= 3);
     assert.equal(completedEvents.length, 1);
     assert.equal(failedEvents.length, 0);
+  });
+});
+
+test("decky steam library scan reuses an in-flight runtime scan", async () => {
+  await withMockDeckyStorage(async () => {
+    const config = normalizeSteamProviderConfig({
+      steamId64: "12345678901234567",
+      hasApiKey: true,
+      language: "english",
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+      includePlayedFreeGames: false,
+    });
+
+    const ownedGamesDeferred = createDeferredPromise<RawSteamGetOwnedGamesResponse>();
+    let ownedGamesCalls = 0;
+    const client: SteamClient = {
+      async loadOwnedGames() {
+        ownedGamesCalls += 1;
+        return ownedGamesDeferred.promise;
+      },
+      async loadPlayerAchievements() {
+        return {
+          playerstats: {
+            success: true,
+            achievements: [],
+          },
+        };
+      },
+      async loadSchemaForGame() {
+        return {
+          game: {
+            availableGameStats: {
+              achievements: [],
+            },
+          },
+        };
+      },
+      async loadGlobalAchievementPercentagesForApp() {
+        return {
+          achievementpercentages: {
+            achievements: [],
+          },
+        };
+      },
+      async loadPlayerSummaries() {
+        return {
+          response: {
+            players: [],
+          },
+        };
+      },
+      async loadSteamLevel() {
+        return {
+          response: {
+            player_level: 29,
+          },
+        };
+      },
+      async loadBadges() {
+        return {
+          playerstats: {
+            badges: [],
+          },
+        };
+      },
+    };
+
+    const firstScan = runAndCacheDeckySteamLibraryAchievementScan(config, {
+      client,
+      concurrencyLimit: 1,
+    });
+    const secondScan = runAndCacheDeckySteamLibraryAchievementScan(config, {
+      client,
+      concurrencyLimit: 1,
+    });
+
+    assert.equal(ownedGamesCalls, 1);
+
+    ownedGamesDeferred.resolve({
+      response: {
+        game_count: 1,
+        games: [
+          {
+            appid: 220,
+            name: "Half-Life 2",
+          } satisfies RawSteamOwnedGame,
+        ],
+      },
+    });
+
+    const [firstSummary, secondSummary] = await Promise.all([firstScan, secondScan]);
+    assert.equal(firstSummary.scannedGameCount, 1);
+    assert.equal(secondSummary.scannedGameCount, 1);
+    assert.equal(ownedGamesCalls, 1);
+    assert.equal(readDeckySteamLibraryAchievementScanSummary("steam")?.scannedGameCount, 1);
+  });
+});
+
+test("decky steam library scan preserves the last successful cache when a later scan fails", async () => {
+  await withMockDeckyStorage(async () => {
+    const config = normalizeSteamProviderConfig({
+      steamId64: "12345678901234567",
+      hasApiKey: true,
+      language: "english",
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+      includePlayedFreeGames: false,
+    });
+
+    const cachedSummary: SteamLibraryAchievementScanSummary = {
+      scannedAt: "2026-04-18T18:45:00Z",
+      ownedGameCount: 1,
+      scannedGameCount: 1,
+      gamesWithAchievements: 1,
+      skippedGameCount: 0,
+      failedGameCount: 0,
+      totalAchievements: 1,
+      unlockedAchievements: 1,
+      perfectGames: 1,
+      completionPercent: 100,
+      games: [
+        {
+          appid: 220,
+          id: "220",
+          gameId: "220",
+          title: "Half-Life 2",
+          providerId: "steam",
+          platformLabel: "Steam",
+          totalAchievements: 1,
+          unlockedAchievements: 1,
+          completionPercent: 100,
+          hasAchievements: true,
+          scanStatus: "scanned",
+        },
+      ],
+    };
+
+    writeDeckySteamLibraryAchievementScanSummary(cachedSummary);
+
+    const initialOverview = readDeckySteamLibraryAchievementScanOverview("steam");
+    assert.equal(initialOverview?.scannedGameCount, 1);
+
+    await assert.rejects(
+      runAndCacheDeckySteamLibraryAchievementScan(config, {
+        client: {
+          async loadOwnedGames() {
+            throw new Error("steam owned games refresh failed");
+          },
+          async loadPlayerAchievements() {
+            throw new Error("unexpected player achievements request");
+          },
+          async loadSchemaForGame() {
+            throw new Error("unexpected schema request");
+          },
+          async loadGlobalAchievementPercentagesForApp() {
+            throw new Error("unexpected global achievement percentages request");
+          },
+          async loadPlayerSummaries() {
+            throw new Error("unexpected player summaries request");
+          },
+          async loadSteamLevel() {
+            throw new Error("unexpected steam level request");
+          },
+          async loadBadges() {
+            throw new Error("unexpected badges request");
+          },
+        },
+      }),
+    );
+
+    const preservedSummary = readDeckySteamLibraryAchievementScanSummary("steam");
+    const preservedOverview = readDeckySteamLibraryAchievementScanOverview("steam");
+    assert.equal(preservedSummary?.scannedGameCount, 1);
+    assert.equal(preservedOverview?.scannedGameCount, 1);
+    assert.equal(preservedSummary?.games[0]?.title, "Half-Life 2");
   });
 });
 

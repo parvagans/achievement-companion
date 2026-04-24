@@ -16,6 +16,11 @@ import {
 } from "./config";
 import { createDeckySteamTransport } from "./backend-transport";
 
+// Keep only one manual Steam library scan active in a Decky runtime at a time.
+let activeDeckySteamLibraryAchievementScan:
+  | Promise<SteamLibraryAchievementScanSummary>
+  | undefined;
+
 function logDeckySteamLibraryScan(
   level: "info" | "warn",
   message: string,
@@ -98,12 +103,27 @@ export async function runAndCacheDeckySteamLibraryAchievementScan(
   config: SteamProviderConfig,
   dependencies?: Parameters<typeof scanSteamLibraryAchievements>[1],
 ): Promise<SteamLibraryAchievementScanSummary> {
-  const summary = await scanSteamLibraryAchievements(
-    config,
-    dependencies ?? createDeckySteamLibraryScanDependencies(),
-  );
-  writeDeckySteamLibraryAchievementScanSummary(summary);
-  return summary;
+  if (activeDeckySteamLibraryAchievementScan !== undefined) {
+    return activeDeckySteamLibraryAchievementScan;
+  }
+
+  const scanPromise = (async () => {
+    const summary = await scanSteamLibraryAchievements(
+      config,
+      dependencies ?? createDeckySteamLibraryScanDependencies(),
+    );
+    writeDeckySteamLibraryAchievementScanSummary(summary);
+    return summary;
+  })();
+
+  activeDeckySteamLibraryAchievementScan = scanPromise;
+  try {
+    return await scanPromise;
+  } finally {
+    if (activeDeckySteamLibraryAchievementScan === scanPromise) {
+      activeDeckySteamLibraryAchievementScan = undefined;
+    }
+  }
 }
 
 export {
