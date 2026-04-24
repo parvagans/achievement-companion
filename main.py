@@ -7,13 +7,15 @@ import hashlib
 import hmac
 import json
 import os
-import re
 import secrets
 import tempfile
 from pathlib import Path
 from typing import Any, Mapping
 
 import decky
+from backend.redaction import is_secret_key as _is_secret_key
+from backend.redaction import redact_text as _redact_text
+from backend.redaction import redact_value as _redact_value
 
 PLUGIN_CONFIG_VERSION = 1
 SECRET_RECORD_VERSION = 2
@@ -31,12 +33,6 @@ SETTINGS_PATH = Path(decky.DECKY_PLUGIN_SETTINGS_DIR)
 LOGS_PATH = SETTINGS_PATH.parent.parent / "logs" / "achievement-companion"
 CONFIG_PATH = SETTINGS_PATH / "provider-config.json"
 SECRETS_PATH = SETTINGS_PATH / "provider-secrets.json"
-
-SECRET_URL_RE = re.compile(r"(?i)https?://[^\s]*[?&](?:apiKey|key|token|password|secret|y)=[^\s]+")
-SECRET_QUERY_PARAM_RE = re.compile(r"(?i)([?&](?:apiKey|key|token|password|secret|y)=)[^&\s]+")
-SECRET_INLINE_RE = re.compile(
-  r"(?i)\b(?:authorization|apiKey|apiKeyDraft|key|token|password|secret)\b\s*[:=]\s*[^,\s]+",
-)
 
 DIAGNOSTIC_EVENT_MESSAGES = {
   "dashboard_refresh_started": "Dashboard refresh started",
@@ -175,36 +171,6 @@ def _read_json_file(path: Path) -> dict[str, Any]:
     return {}
 
   return parsed if isinstance(parsed, dict) else {}
-
-
-def _is_secret_key(name: str) -> bool:
-  lowered = name.lower()
-  return lowered == "y" or any(token in lowered for token in ("authorization", "apikey", "key", "token", "password", "secret"))
-
-
-def _redact_text(text: str) -> str:
-  text = SECRET_URL_RE.sub("[redacted url]", text)
-  text = SECRET_QUERY_PARAM_RE.sub(r"\1[redacted]", text)
-  return SECRET_INLINE_RE.sub(lambda match: f"{match.group(0).split('=')[0].split(':')[0]}: [redacted]", text)
-
-
-def _redact_value(value: Any) -> Any:
-  if isinstance(value, str):
-    return _redact_text(value)
-
-  if isinstance(value, Mapping):
-    return {
-      key: "[redacted]" if _is_secret_key(str(key)) else _redact_value(item)
-      for key, item in value.items()
-    }
-
-  if isinstance(value, list):
-    return [_redact_value(item) for item in value]
-
-  if isinstance(value, tuple):
-    return tuple(_redact_value(item) for item in value)
-
-  return value
 
 
 def _coerce_positive_int(value: Any) -> int | None:
