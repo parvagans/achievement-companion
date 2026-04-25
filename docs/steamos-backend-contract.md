@@ -67,7 +67,7 @@ Config is backup-worthy non-secret state. Secrets are backend-owned app data. Lo
 
 ## Cache and Storage Strategy
 
-The SteamOS runtime should keep persistent and file-backed state in the Python backend, not in browser storage and not in a future shell process. The TypeScript SteamOS adapters should continue using in-memory snapshot/scan stores only in tests until backend cache endpoints exist.
+The SteamOS runtime should keep persistent and file-backed state in the Python backend, not in browser storage and not in a future shell process. Backend cache endpoints and cache-backed TypeScript SteamOS stores now exist for dashboard snapshots and Steam scan overview/summary. In-memory snapshot/scan stores are still acceptable in tests, but they are no longer the production SteamOS adapter path.
 
 | Data | Owner | Recommended path | Sensitivity | Persistence | Delete/rebuild behavior | Future endpoint need | Corruption handling |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -96,8 +96,8 @@ Why this differs from Decky:
 
 Recommended cache API timing:
 
-- Add backend cache endpoints before the first SteamOS UI/dev shell.
-- Keep the current SteamOS TypeScript in-memory stores as test-only placeholders until those endpoints exist.
+- Backend cache endpoints now exist before the first SteamOS UI/dev shell.
+- Cache-backed SteamOS TypeScript stores now use those endpoints; in-memory stores remain test-only where they are still useful.
 
 Recommended minimum cache endpoints:
 
@@ -307,20 +307,20 @@ Behavior: use `backend/diagnostics.py` to keep only known events and safe fields
 
 ## TypeScript Adapter Mapping
 
-Future SteamOS adapters should implement existing platform contracts:
+Current SteamOS adapters implement the existing platform contracts through the local backend:
 
 - `AuthenticatedProviderTransportFactory`: calls `/request_retroachievements_json` and `/request_steam_json` with the in-memory bearer token.
 - `ProviderConfigStore`: calls provider config endpoints; never stores raw keys in frontend storage.
 - `DiagnosticLogger`: sends safe diagnostic payloads to `/record_diagnostic_event`; frontend redaction remains defense in depth.
-- `DashboardSnapshotStore`: should call backend cache endpoints in the first real SteamOS UI pass. The current in-memory store is a test/runtime placeholder only.
-- `SteamLibraryScanStore`: should call backend cache endpoints and keep overview and full summary separate. The current in-memory store is a test/runtime placeholder only.
+- `DashboardSnapshotStore`: calls `/cache/dashboard/read`, `/cache/dashboard/write`, and `/cache/dashboard/clear`. In-memory variants may still exist in tests, but the SteamOS adapter path is now backend-cache-backed.
+- `SteamLibraryScanStore`: calls `/cache/steam-scan/read-overview`, `/cache/steam-scan/write-overview`, `/cache/steam-scan/read-summary`, `/cache/steam-scan/write-summary`, and `/cache/steam-scan/clear`, keeping overview and full summary separate.
 - `PlatformCapabilities`: describes only the SteamOS runtime features that actually exist.
 
 ## Packaging Separation
 
 Decky packaging remains unchanged in purpose: the Decky release ZIP contains Decky assets, `main.py`, and the reusable `backend/*.py` helper modules needed by `main.py`.
 
-SteamOS packaging should be a separate future artifact. It may reuse `backend/*.py`, but SteamOS server/runtime files must not silently appear in the Decky ZIP. Today, `backend/local_launcher.py`, `backend/local_server.py`, and `backend/paths.py` remain excluded from the Decky ZIP. Release checks should remain strict and explicit for each package.
+SteamOS packaging should be a separate future artifact. It may reuse `backend/*.py`, but SteamOS server/runtime files must not silently appear in the Decky ZIP. Today, `backend/local_launcher.py`, `backend/local_server.py`, `backend/paths.py`, and `backend/cache.py` remain excluded from the Decky ZIP. Release checks should remain strict and explicit for each package.
 
 ## Implementation Sequence
 
@@ -359,19 +359,28 @@ Completed:
 11. `SteamOS Integration Pass 1 - TypeScript client to live local backend smoke test`
    - Added a test-only path from Python launcher metadata to the live localhost backend through the TypeScript client.
 
+12. `SteamOS Backend Pass 8 - Backend cache endpoints`
+   - Added authenticated cache read/write/clear routes for dashboard snapshots and Steam scan overview/summary under XDG cache.
+
+13. `SteamOS Adapter Pass 4 - Cache-backed SteamOS stores`
+   - Replaced the SteamOS adapter cache placeholders with backend cache endpoint-backed stores and added runtime/test coverage for that flow.
+
 Remaining:
 
-1. `SteamOS Backend Pass 8 - Backend cache endpoints`
-   - Add authenticated cache read/write/clear routes for dashboard snapshots and Steam scan overview/summary under XDG cache.
+1. `SteamOS Dev Shell Design Pass`
+   - Define the smallest safe shell/bootstrap shape for launching the backend, reading runtime metadata, and composing the frontend runtime in memory.
 
-2. `SteamOS Adapter Pass 4 - Cache-backed SteamOS stores`
-   - Replace the SteamOS test-only in-memory snapshot and scan stores with backend cache endpoint adapters.
-
-3. `SteamOS UI Pass 1 - Minimal dev shell`
+2. `SteamOS UI Pass 1 - Minimal dev shell`
    - Add the smallest SteamOS shell that can launch the backend and host the frontend.
+
+3. `SteamOS Runtime Shell/Bootstrap Handoff Pass`
+   - Wire the shell-side backend launch and runtime metadata handoff into frontend bootstrap without touching Decky runtime behavior.
 
 4. `SteamOS Packaging Pass 1 - Separate SteamOS artifact`
    - Define a SteamOS packaging story that remains isolated from Decky release artifacts.
+
+5. `SteamOS Backend/Storage Refinement Pass`
+   - Revisit cache/log refinements only if UI or shell work exposes a concrete need.
 
 ## Risks and Mitigations
 
