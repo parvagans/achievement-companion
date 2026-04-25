@@ -182,6 +182,8 @@ class BackendLocalServerTests(unittest.TestCase):
         "/save_retroachievements_credentials",
         "/save_steam_credentials",
         "/clear_provider_credentials",
+        "/request_retroachievements_json",
+        "/request_steam_json",
       ):
         for authorization in scenarios:
           status, payload, _ = running.request_json(
@@ -253,6 +255,10 @@ class BackendLocalServerTests(unittest.TestCase):
         "GET",
         "/get_provider_configs",
       )
+      provider_request_get_status, provider_request_get_payload, _ = running.request_json(
+        "GET",
+        "/request_steam_json",
+      )
       delete_status, delete_payload, _ = running.request_json(
         "DELETE",
         "/record_diagnostic_event",
@@ -271,6 +277,8 @@ class BackendLocalServerTests(unittest.TestCase):
     self.assertEqual(record_get_payload, {"error": "method_not_allowed", "ok": False})
     self.assertEqual(provider_configs_get_status, 405)
     self.assertEqual(provider_configs_get_payload, {"error": "method_not_allowed", "ok": False})
+    self.assertEqual(provider_request_get_status, 405)
+    self.assertEqual(provider_request_get_payload, {"error": "method_not_allowed", "ok": False})
     self.assertEqual(delete_status, 405)
     self.assertEqual(delete_payload, {"error": "method_not_allowed", "ok": False})
     self.assertEqual(unknown_status, 404)
@@ -659,6 +667,274 @@ class BackendLocalServerTests(unittest.TestCase):
       warnings_serialized = json.dumps(context.warning_events)
       self.assertNotIn("secret-fragment", warnings_serialized)
       self.assertNotIn(malformed_config, warnings_serialized)
+
+  def test_provider_request_endpoints_return_safe_missing_secret_errors(self) -> None:
+    token = "request-token"
+    with tempfile.TemporaryDirectory() as temp_dir:
+      context = _create_test_context(Path(temp_dir))
+      context.paths.config_path.parent.mkdir(parents=True, exist_ok=True)
+      context.paths.config_path.write_text(
+        json.dumps(
+          {
+            "version": 1,
+            "retroAchievements": {"username": "sol88", "hasApiKey": True},
+            "steam": {"steamId64": "76561198136628813", "hasApiKey": True},
+          },
+        ),
+        encoding="utf-8",
+      )
+      with _RunningServer(local_server.create_local_backend_server(token=token, context=context)) as running:
+        ra_status, ra_payload, _ = running.request_json(
+          "POST",
+          "/request_retroachievements_json",
+          token=token,
+          body={"path": "API/API_GetUserProfile.php", "query": {"u": "sol88"}},
+        )
+        steam_status, steam_payload, _ = running.request_json(
+          "POST",
+          "/request_steam_json",
+          token=token,
+          body={"path": "IPlayerService/GetOwnedGames/v1/", "query": {"steamid": "76561198136628813"}},
+        )
+
+    self.assertEqual(ra_status, 403)
+    self.assertEqual(ra_payload, {"error": "credentials_missing", "ok": False})
+    self.assertEqual(steam_status, 403)
+    self.assertEqual(steam_payload, {"error": "credentials_missing", "ok": False})
+    serialized = json.dumps([ra_payload, steam_payload])
+    for value in ("apiKey", "apiKeyDraft", "secret", "token", "Authorization", "request-token"):
+      self.assertNotIn(value, serialized)
+
+  def test_retroachievements_provider_request_uses_backend_secret_and_strips_frontend_secret_fields(self) -> None:
+    token = "request-token"
+    calls: list[dict[str, Any]] = []
+
+    def fake_requester(**kwargs: Any) -> dict[str, Any]:
+      calls.append(kwargs)
+      return {"ok": True, "provider": "ra"}
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+      context = _create_test_context(Path(temp_dir))
+      context.provider_requester = fake_requester
+      secret_helpers.save_secret_api_key(
+        context.paths.secrets_path,
+        "retroAchievements",
+        "backend-ra-secret",
+        settings_dir_text=context.settings_dir_text,
+      )
+      context.paths.config_path.parent.mkdir(parents=True, exist_ok=True)
+      context.paths.config_path.write_text(
+        json.dumps({"version": 1, "retroAchievements": {"username": "sol88", "hasApiKey": True}}),
+        encoding="utf-8",
+      )
+
+      with _RunningServer(local_server.create_local_backend_server(token=token, context=context)) as running:
+        status, payload, _ = running.request_json(
+          "POST",
+          "/request_retroachievements_json",
+          token=token,
+          body={
+            "path": "API/API_GetUserProfile.php",
+            "query": {
+              "u": "frontend-user",
+              "y": "frontend-y",
+              "key": "frontend-key",
+              "apiKey": "frontend-api-key",
+              "Authorization": "Bearer frontend",
+            },
+          },
+        )
+
+    self.assertEqual(status, 200)
+    self.assertEqual(payload, {"ok": True, "provider": "ra"})
+    self.assertEqual(len(calls), 1)
+    self.assertEqual(calls[0]["provider_id"], "retroachievements")
+    self.assertEqual(calls[0]["base_url"], "https://retroachievements.org/API/")
+    self.assertEqual(calls[0]["path"], "API/API_GetUserProfile.php")
+    self.assertEqual(calls[0]["query"], {"u": "frontend-user"})
+    self.assertEqual(calls[0]["auth_query"], {"u": "sol88", "y": "backend-ra-secret"})
+    serialized_response = json.dumps(payload)
+    self.assertNotIn("backend-ra-secret", serialized_response)
+    self.assertNotIn("frontend-api-key", serialized_response)
+
+  def test_steam_provider_request_uses_backend_secret_and_strips_frontend_secret_fields(self) -> None:
+    token = "request-token"
+    calls: list[dict[str, Any]] = []
+
+    def fake_requester(**kwargs: Any) -> dict[str, Any]:
+      calls.append(kwargs)
+      return {"response": {"game_count": 1}}
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+      context = _create_test_context(Path(temp_dir))
+      context.provider_requester = fake_requester
+      secret_helpers.save_secret_api_key(
+        context.paths.secrets_path,
+        "steam",
+        "backend-steam-secret",
+        settings_dir_text=context.settings_dir_text,
+      )
+      context.paths.config_path.parent.mkdir(parents=True, exist_ok=True)
+      context.paths.config_path.write_text(
+        json.dumps(
+          {
+            "version": 1,
+            "steam": {
+              "steamId64": "76561198136628813",
+              "hasApiKey": True,
+              "language": "english",
+            },
+          },
+        ),
+        encoding="utf-8",
+      )
+
+      with _RunningServer(local_server.create_local_backend_server(token=token, context=context)) as running:
+        status, payload, _ = running.request_json(
+          "POST",
+          "/request_steam_json",
+          token=token,
+          body={
+            "path": "IPlayerService/GetOwnedGames/v1/",
+            "query": {
+              "steamid": "frontend-steamid",
+              "key": "frontend-key",
+              "apiKey": "frontend-api-key",
+              "token": "frontend-token",
+              "password": "frontend-password",
+              "Authorization": "Bearer frontend",
+            },
+          },
+        )
+
+    self.assertEqual(status, 200)
+    self.assertEqual(payload, {"response": {"game_count": 1}})
+    self.assertEqual(len(calls), 1)
+    self.assertEqual(calls[0]["provider_id"], "steam")
+    self.assertEqual(calls[0]["base_url"], "https://api.steampowered.com/")
+    self.assertEqual(calls[0]["path"], "IPlayerService/GetOwnedGames/v1/")
+    self.assertEqual(calls[0]["query"], {"steamid": "frontend-steamid"})
+    self.assertEqual(calls[0]["auth_query"], {"steamid": "76561198136628813", "key": "backend-steam-secret"})
+    serialized_response = json.dumps(payload)
+    self.assertNotIn("backend-steam-secret", serialized_response)
+    self.assertNotIn("frontend-api-key", serialized_response)
+
+  def test_steam_provider_request_passes_handled_statuses_to_requester(self) -> None:
+    token = "request-token"
+    calls: list[dict[str, Any]] = []
+
+    def fake_requester(**kwargs: Any) -> dict[str, Any]:
+      calls.append(kwargs)
+      if kwargs["handled_http_statuses"] == {400, 403}:
+        return {
+          "handledHttpError": True,
+          "status": 403,
+          "statusText": "Forbidden",
+          "message": "HTTP 403",
+          "durationMs": 3,
+        }
+      return {"unexpected": True}
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+      context = _create_test_context(Path(temp_dir))
+      context.provider_requester = fake_requester
+      secret_helpers.save_secret_api_key(
+        context.paths.secrets_path,
+        "steam",
+        "backend-steam-secret",
+        settings_dir_text=context.settings_dir_text,
+      )
+      context.paths.config_path.parent.mkdir(parents=True, exist_ok=True)
+      context.paths.config_path.write_text(
+        json.dumps(
+          {
+            "version": 1,
+            "steam": {
+              "steamId64": "76561198136628813",
+              "hasApiKey": True,
+            },
+          },
+        ),
+        encoding="utf-8",
+      )
+
+      with _RunningServer(local_server.create_local_backend_server(token=token, context=context)) as running:
+        status, payload, _ = running.request_json(
+          "POST",
+          "/request_steam_json",
+          token=token,
+          body={
+            "path": "ISteamUserStats/GetPlayerAchievements/v0001/",
+            "query": {"appid": 10},
+            "handledHttpStatuses": [400, 403, True, "bad"],
+          },
+        )
+
+    self.assertEqual(status, 200)
+    self.assertEqual(
+      payload,
+      {
+        "handledHttpError": True,
+        "status": 403,
+        "statusText": "Forbidden",
+        "message": "HTTP 403",
+        "durationMs": 3,
+      },
+    )
+    self.assertEqual(calls[0]["handled_http_statuses"], {400, 403})
+    self.assertNotIn("backend-steam-secret", json.dumps(payload))
+
+  def test_provider_request_invalid_input_returns_safe_errors(self) -> None:
+    token = "request-token"
+    with tempfile.TemporaryDirectory() as temp_dir:
+      context = _create_test_context(Path(temp_dir))
+      secret_helpers.save_secret_api_key(
+        context.paths.secrets_path,
+        "steam",
+        "backend-steam-secret",
+        settings_dir_text=context.settings_dir_text,
+      )
+      context.paths.config_path.parent.mkdir(parents=True, exist_ok=True)
+      context.paths.config_path.write_text(
+        json.dumps({"version": 1, "steam": {"steamId64": "76561198136628813", "hasApiKey": True}}),
+        encoding="utf-8",
+      )
+      with _RunningServer(local_server.create_local_backend_server(token=token, context=context)) as running:
+        bad_path_status, bad_path_payload, _ = running.request_json(
+          "POST",
+          "/request_steam_json",
+          token=token,
+          body={"path": 123, "query": {}},
+        )
+        bad_query_status, bad_query_payload, _ = running.request_json(
+          "POST",
+          "/request_steam_json",
+          token=token,
+          body={"path": "IPlayerService/GetOwnedGames/v1/", "query": "bad"},
+        )
+        absolute_status, absolute_payload, _ = running.request_json(
+          "POST",
+          "/request_steam_json",
+          token=token,
+          body={"path": "https://example.invalid/steal", "query": {}},
+        )
+        traversal_status, traversal_payload, _ = running.request_json(
+          "POST",
+          "/request_steam_json",
+          token=token,
+          body={"path": "../IPlayerService/GetOwnedGames/v1/", "query": {}},
+        )
+
+    self.assertEqual(bad_path_status, 400)
+    self.assertEqual(bad_path_payload, {"error": "invalid_payload", "ok": False})
+    self.assertEqual(bad_query_status, 400)
+    self.assertEqual(bad_query_payload, {"error": "invalid_payload", "ok": False})
+    self.assertEqual(absolute_status, 400)
+    self.assertEqual(absolute_payload, {"error": "invalid_payload", "ok": False})
+    self.assertEqual(traversal_status, 400)
+    self.assertEqual(traversal_payload, {"error": "invalid_payload", "ok": False})
+    serialized = json.dumps([bad_path_payload, bad_query_payload, absolute_payload, traversal_payload])
+    self.assertNotIn("backend-steam-secret", serialized)
 
 
   def test_default_origin_policy_does_not_emit_wildcard_cors(self) -> None:

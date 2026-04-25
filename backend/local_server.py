@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import secrets
@@ -8,9 +9,11 @@ from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from tempfile import NamedTemporaryFile
-from typing import Any, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping
+from urllib.parse import urlsplit
 
 from backend.diagnostics import sanitize_diagnostic_event
+from backend.http import request_json as backend_request_json
 from backend.paths import BackendPaths, resolve_steamos_backend_paths
 from backend.provider_config import (
   PLUGIN_CONFIG_VERSION,
@@ -29,6 +32,11 @@ LOCAL_BACKEND_CAPABILITIES = ("health", "diagnostics", "provider-config")
 MAX_JSON_BODY_BYTES = 1024 * 1024
 _RETROACHIEVEMENTS_PROVIDER_KEY = "retroAchievements"
 _STEAM_PROVIDER_KEY = "steam"
+_RETROACHIEVEMENTS_BASE_URL = "https://retroachievements.org/API/"
+_STEAM_BASE_URL = "https://api.steampowered.com/"
+_SECRET_QUERY_KEYS = {"apikey", "apikeydraft", "authorization", "key", "password", "secret", "token", "y"}
+
+ProviderRequestCallback = Callable[..., Any]
 
 
 def create_session_token() -> str:
@@ -85,6 +93,7 @@ def write_runtime_metadata(
 class LocalBackendContext:
   paths: BackendPaths
   settings_dir_text: str
+  provider_requester: ProviderRequestCallback | None = None
   warning_events: list[dict[str, Any]] = field(default_factory=list)
 
   def warn(self, message: str, fields: Mapping[str, Any]) -> None:
@@ -100,12 +109,14 @@ def create_local_backend_context(
   *,
   paths: BackendPaths | None = None,
   settings_dir_text: str | None = None,
+  provider_requester: ProviderRequestCallback | None = None,
 ) -> LocalBackendContext:
   resolved_paths = paths or resolve_steamos_backend_paths(env=os.environ)
   resolved_settings_dir_text = settings_dir_text or str(resolved_paths.config_path.parent)
   return LocalBackendContext(
     paths=resolved_paths,
     settings_dir_text=resolved_settings_dir_text,
+    provider_requester=provider_requester,
   )
 
 
@@ -288,6 +299,173 @@ def _clear_provider_credentials(
   return removed_any
 
 
+def _validate_provider_path(value: Any) -> str | None:
+  path = _coerce_string(value)
+  if path is None:
+    return None
+  parsed = urlsplit(path)
+  if parsed.scheme != "" or parsed.netloc != "" or path.startswith(("/", "\\")):
+    return None
+  normalized_parts = path.replace("\\", "/").split("/")
+  if any(part == ".." for part in normalized_parts):
+    return None
+  return path
+
+
+def _sanitize_request_query(value: Any) -> dict[str, Any] | None:
+  if value is None:
+    return {}
+  if not isinstance(value, Mapping):
+    return None
+
+  query: dict[str, Any] = {}
+  for key, raw_value in value.items():
+    if not isinstance(key, str):
+      continue
+    if key.strip().lower() in _SECRET_QUERY_KEYS:
+      continue
+    query[key] = raw_value
+  return query
+
+
+def _parse_handled_http_statuses(value: Any) -> set[int] | None:
+  if not isinstance(value, list):
+    return None
+
+  handled_statuses: set[int] = set()
+  for status_value in value:
+    if isinstance(status_value, bool):
+      continue
+    if isinstance(status_value, (int, float)) and status_value >= 0:
+      handled_statuses.add(int(status_value))
+  return handled_statuses or None
+
+
+async def _request_provider_json_async(
+  *,
+  provider_id: str,
+  provider_label: str,
+  base_url: str,
+  path: str,
+  query: Mapping[str, Any] | None,
+  auth_query: Mapping[str, Any],
+  handled_http_statuses: set[int] | None = None,
+) -> Any:
+  return backend_request_json(
+    provider_id=provider_id,
+    provider_label=provider_label,
+    base_url=base_url,
+    path=path,
+    query=query,
+    auth_query=auth_query,
+    handled_http_statuses=handled_http_statuses,
+  )
+
+
+def _request_provider_json(
+  context: LocalBackendContext,
+  *,
+  provider_id: str,
+  provider_label: str,
+  base_url: str,
+  path: str,
+  query: Mapping[str, Any] | None,
+  auth_query: Mapping[str, Any],
+  handled_http_statuses: set[int] | None = None,
+) -> Any:
+  if context.provider_requester is not None:
+    return context.provider_requester(
+      provider_id=provider_id,
+      provider_label=provider_label,
+      base_url=base_url,
+      path=path,
+      query=query,
+      auth_query=auth_query,
+      handled_http_statuses=handled_http_statuses,
+    )
+
+  return asyncio.run(
+    _request_provider_json_async(
+      provider_id=provider_id,
+      provider_label=provider_label,
+      base_url=base_url,
+      path=path,
+      query=query,
+      auth_query=auth_query,
+      handled_http_statuses=handled_http_statuses,
+    ),
+  )
+
+
+def _request_retroachievements_json(
+  context: LocalBackendContext,
+  payload: Mapping[str, Any],
+) -> tuple[int, Any]:
+  path = _validate_provider_path(payload.get("path"))
+  query = _sanitize_request_query(payload.get("query"))
+  if path is None or query is None:
+    return 400, {"ok": False, "error": "invalid_payload"}
+
+  config = build_retroachievements_config_view(
+    load_provider_config(context.paths.config_path, _RETROACHIEVEMENTS_PROVIDER_KEY, warn=context.warn),
+    _load_secret_for_provider(context, _RETROACHIEVEMENTS_PROVIDER_KEY) is not None,
+  )
+  secret = _load_secret_for_provider(context, _RETROACHIEVEMENTS_PROVIDER_KEY)
+  if config is None or config.get("hasApiKey") is not True or secret is None:
+    return 403, {"ok": False, "error": "credentials_missing"}
+
+  try:
+    return 200, _request_provider_json(
+      context,
+      provider_id="retroachievements",
+      provider_label="RetroAchievements",
+      base_url=_RETROACHIEVEMENTS_BASE_URL,
+      path=path,
+      query=query,
+      auth_query={
+        "u": config["username"],
+        "y": secret,
+      },
+    )
+  except RuntimeError:
+    return 502, {"ok": False, "error": "provider_request_failed"}
+
+
+def _request_steam_json(
+  context: LocalBackendContext,
+  payload: Mapping[str, Any],
+) -> tuple[int, Any]:
+  path = _validate_provider_path(payload.get("path"))
+  query = _sanitize_request_query(payload.get("query"))
+  if path is None or query is None:
+    return 400, {"ok": False, "error": "invalid_payload"}
+
+  config = build_steam_config_view(
+    load_provider_config(context.paths.config_path, _STEAM_PROVIDER_KEY, warn=context.warn),
+    _load_secret_for_provider(context, _STEAM_PROVIDER_KEY) is not None,
+  )
+  secret = _load_secret_for_provider(context, _STEAM_PROVIDER_KEY)
+  if config is None or config.get("hasApiKey") is not True or secret is None:
+    return 403, {"ok": False, "error": "credentials_missing"}
+
+  try:
+    return 200, _request_provider_json(
+      context,
+      provider_id="steam",
+      provider_label="Steam",
+      base_url=_STEAM_BASE_URL,
+      path=path,
+      query=query,
+      auth_query={
+        "steamid": config["steamId64"],
+        "key": secret,
+      },
+      handled_http_statuses=_parse_handled_http_statuses(payload.get("handledHttpStatuses")),
+    )
+  except RuntimeError:
+    return 502, {"ok": False, "error": "provider_request_failed"}
+
+
 class LocalBackendHTTPServer(HTTPServer):
   def __init__(
     self,
@@ -329,6 +507,8 @@ class LocalBackendRequestHandler(BaseHTTPRequestHandler):
       "/save_retroachievements_credentials",
       "/save_steam_credentials",
       "/clear_provider_credentials",
+      "/request_retroachievements_json",
+      "/request_steam_json",
     }:
       self._send_method_not_allowed(("POST", "OPTIONS"))
       return
@@ -362,6 +542,12 @@ class LocalBackendRequestHandler(BaseHTTPRequestHandler):
     if path == "/clear_provider_credentials":
       self._handle_clear_provider_credentials()
       return
+    if path == "/request_retroachievements_json":
+      self._handle_request_retroachievements_json()
+      return
+    if path == "/request_steam_json":
+      self._handle_request_steam_json()
+      return
 
     self._send_json(404, {"ok": False, "error": "not_found"})
 
@@ -374,6 +560,8 @@ class LocalBackendRequestHandler(BaseHTTPRequestHandler):
       "/save_retroachievements_credentials",
       "/save_steam_credentials",
       "/clear_provider_credentials",
+      "/request_retroachievements_json",
+      "/request_steam_json",
     }:
       self._send_json(404, {"ok": False, "error": "not_found"})
       return
@@ -458,6 +646,24 @@ class LocalBackendRequestHandler(BaseHTTPRequestHandler):
       return
 
     self._send_json(200, {"ok": True, "cleared": cleared})
+
+  def _handle_request_retroachievements_json(self) -> None:
+    status, payload = self._read_json_body()
+    if payload is None:
+      self._send_json(status, {"ok": False, "error": self._json_error_code(status)})
+      return
+
+    response_status, response_payload = _request_retroachievements_json(self.server.context, payload)
+    self._send_json(response_status, response_payload)
+
+  def _handle_request_steam_json(self) -> None:
+    status, payload = self._read_json_body()
+    if payload is None:
+      self._send_json(status, {"ok": False, "error": self._json_error_code(status)})
+      return
+
+    response_status, response_payload = _request_steam_json(self.server.context, payload)
+    self._send_json(response_status, response_payload)
 
   def _authorize_request(self) -> bool:
     origin = self.headers.get("Origin")
@@ -547,6 +753,8 @@ class LocalBackendRequestHandler(BaseHTTPRequestHandler):
       "/save_retroachievements_credentials",
       "/save_steam_credentials",
       "/clear_provider_credentials",
+      "/request_retroachievements_json",
+      "/request_steam_json",
     }:
       self._send_method_not_allowed(("POST", "OPTIONS"))
       return
