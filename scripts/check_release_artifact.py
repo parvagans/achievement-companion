@@ -12,6 +12,7 @@ EXPECTED_RELEASE_ARCHIVE_NAMES = {
   "achievement-companion/THIRD_PARTY_NOTICES.md",
   "achievement-companion/backend/__init__.py",
   "achievement-companion/backend/redaction.py",
+  "achievement-companion/backend/secrets.py",
   "achievement-companion/backend/provider_config.py",
   "achievement-companion/backend/storage.py",
   "achievement-companion/dist/index.js",

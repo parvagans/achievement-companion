@@ -1,12 +1,8 @@
 from __future__ import annotations
 
 import asyncio
-import base64
-import hashlib
-import hmac
 import json
 import os
-import secrets
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -17,20 +13,22 @@ from backend.redaction import redact_value as _redact_value
 from backend.provider_config import build_retroachievements_config_view as _build_retroachievements_config_view
 from backend.provider_config import build_steam_config_view as _build_steam_config_view
 from backend.provider_config import clear_provider_config as _provider_clear_provider_config
+from backend.provider_config import PLUGIN_CONFIG_VERSION
 from backend.provider_config import load_provider_config as _provider_load_provider_config
 from backend.provider_config import load_provider_config_store as _provider_load_provider_config_store
+from backend.provider_config import save_provider_config as _provider_save_provider_config
 from backend.provider_config import _normalize_boolean as _normalize_boolean
 from backend.provider_config import _normalize_optional_positive_count as _normalize_optional_positive_count
 from backend.provider_config import _normalize_positive_count as _normalize_positive_count
-from backend.provider_config import save_provider_config as _provider_save_provider_config
+from backend.secrets import _load_secret_store as _provider_load_secret_store
+from backend.secrets import clear_secret_api_key as _provider_clear_secret_api_key
+from backend.secrets import load_secret_api_key as _provider_load_secret_api_key
+from backend.secrets import save_secret_api_key as _provider_save_secret_api_key
 from backend.storage import build_corrupt_backup_path as _build_corrupt_backup_path
 from backend.storage import quarantine_corrupt_json_file as _quarantine_corrupt_json_file
 from backend.storage import read_json_file as _read_json_file
 from backend.storage import write_json_file as _write_json_file
 
-PLUGIN_CONFIG_VERSION = 1
-SECRET_RECORD_VERSION = 2
-SECRET_RECORD_SCHEME = "local-obfuscation-v1"
 REQUEST_TIMEOUT_SECONDS = 20
 SLOW_PROVIDER_REQUEST_LOG_THRESHOLD_MS = 2000
 BACKEND_HTTP_USER_AGENT = "Achievement Companion Decky Plugin"
@@ -120,6 +118,33 @@ def _clear_provider_config(provider_key: str) -> None:
   _provider_clear_provider_config(CONFIG_PATH, provider_key, warn=_storage_warning)
 
 
+def _load_secret_store() -> dict[str, Any]:
+  return _provider_load_secret_store(SECRETS_PATH, warn=_storage_warning)
+
+
+def _load_secret_api_key(provider_key: str) -> str | None:
+  return _provider_load_secret_api_key(
+    SECRETS_PATH,
+    provider_key,
+    warn=_storage_warning,
+    settings_dir_text=decky.DECKY_PLUGIN_SETTINGS_DIR,
+  )
+
+
+def _save_secret_api_key(provider_key: str, api_key: str) -> None:
+  _provider_save_secret_api_key(
+    SECRETS_PATH,
+    provider_key,
+    api_key,
+    warn=_storage_warning,
+    settings_dir_text=decky.DECKY_PLUGIN_SETTINGS_DIR,
+  )
+
+
+def _clear_secret_api_key(provider_key: str) -> None:
+  _provider_clear_secret_api_key(SECRETS_PATH, provider_key, warn=_storage_warning)
+
+
 def _coerce_positive_int(value: Any) -> int | None:
   if isinstance(value, bool):
     return None
@@ -169,170 +194,6 @@ def _log(level: str, message: str, **fields: Any) -> None:
     getattr(decky.logger, level)("%s %s", message, payload)
   else:
     getattr(decky.logger, level)(message)
-
-
-def _base64_urlsafe_encode(value: bytes) -> str:
-  return base64.urlsafe_b64encode(value).decode("ascii")
-
-
-def _base64_urlsafe_decode(value: str | None) -> bytes | None:
-  if value is None or value.strip() == "":
-    return None
-
-  try:
-    return base64.urlsafe_b64decode(value.encode("ascii"))
-  except (ValueError, UnicodeDecodeError):
-    return None
-
-
-def _read_machine_id_text() -> str | None:
-  for candidate in (
-    Path("/etc/machine-id"),
-    Path("/var/lib/dbus/machine-id"),
-  ):
-    try:
-      value = candidate.read_text(encoding="utf-8").strip()
-    except OSError:
-      continue
-
-    if value != "":
-      return value
-
-  return None
-
-
-def _derive_secret_record_key(provider_key: str, salt: bytes) -> bytes:
-  machine_id = _read_machine_id_text() or decky.DECKY_PLUGIN_SETTINGS_DIR
-  seed = f"{SECRET_RECORD_SCHEME}:{provider_key}:{machine_id}".encode("utf-8")
-  return hashlib.pbkdf2_hmac("sha256", seed, salt, 150_000, dklen=32)
-
-
-def _xor_with_keystream(secret_key: bytes, nonce: bytes, payload: bytes) -> bytes:
-  stream = bytearray()
-  counter = 0
-
-  while len(stream) < len(payload):
-    stream.extend(
-      hmac.new(secret_key, nonce + counter.to_bytes(4, "big"), hashlib.sha256).digest(),
-    )
-    counter += 1
-
-  return bytes(left ^ right for left, right in zip(payload, stream))
-
-
-def _encode_protected_secret_record(provider_key: str, api_key: str) -> dict[str, Any]:
-  salt = secrets.token_bytes(16)
-  nonce = secrets.token_bytes(16)
-  secret_key = _derive_secret_record_key(provider_key, salt)
-  plaintext = api_key.encode("utf-8")
-  ciphertext = _xor_with_keystream(secret_key, nonce, plaintext)
-  tag = hmac.new(secret_key, nonce + ciphertext, hashlib.sha256).digest()[:16]
-
-  return {
-    "version": SECRET_RECORD_VERSION,
-    "scheme": SECRET_RECORD_SCHEME,
-    "salt": _base64_urlsafe_encode(salt),
-    "nonce": _base64_urlsafe_encode(nonce),
-    "ciphertext": _base64_urlsafe_encode(ciphertext),
-    "tag": _base64_urlsafe_encode(tag),
-  }
-
-
-def _decode_legacy_secret_api_key(payload: str | None) -> str | None:
-  if payload is None or payload.strip() == "":
-    return None
-
-  try:
-    decoded = base64.urlsafe_b64decode(payload.encode("ascii"))
-    parsed = json.loads(decoded.decode("utf-8"))
-  except (ValueError, UnicodeDecodeError, json.JSONDecodeError):
-    return None
-
-  if isinstance(parsed, dict):
-    api_key = parsed.get("apiKey")
-    if isinstance(api_key, str) and api_key.strip() != "":
-      return api_key.strip()
-
-  return None
-
-
-def _decode_protected_secret_record(provider_key: str, provider_secret: Mapping[str, Any]) -> str | None:
-  if provider_secret.get("version") != SECRET_RECORD_VERSION:
-    return None
-
-  if provider_secret.get("scheme") != SECRET_RECORD_SCHEME:
-    return None
-
-  salt = _base64_urlsafe_decode(provider_secret.get("salt") if isinstance(provider_secret.get("salt"), str) else None)
-  nonce = _base64_urlsafe_decode(provider_secret.get("nonce") if isinstance(provider_secret.get("nonce"), str) else None)
-  ciphertext = _base64_urlsafe_decode(
-    provider_secret.get("ciphertext") if isinstance(provider_secret.get("ciphertext"), str) else None,
-  )
-  tag = _base64_urlsafe_decode(provider_secret.get("tag") if isinstance(provider_secret.get("tag"), str) else None)
-  if salt is None or nonce is None or ciphertext is None or tag is None:
-    return None
-
-  secret_key = _derive_secret_record_key(provider_key, salt)
-  expected_tag = hmac.new(secret_key, nonce + ciphertext, hashlib.sha256).digest()[:16]
-  if not hmac.compare_digest(expected_tag, tag):
-    return None
-
-  try:
-    plaintext = _xor_with_keystream(secret_key, nonce, ciphertext).decode("utf-8")
-  except UnicodeDecodeError:
-    return None
-
-  return plaintext if plaintext.strip() != "" else None
-
-
-def _load_secret_store() -> dict[str, Any]:
-  store = _read_json_file(SECRETS_PATH, warn=_storage_warning)
-  if store.get("version") not in (1, SECRET_RECORD_VERSION):
-    return {"version": SECRET_RECORD_VERSION}
-  return store
-
-
-def _load_secret_api_key(provider_key: str) -> str | None:
-  secrets = _load_secret_store()
-  provider_secret = secrets.get(provider_key)
-  if not isinstance(provider_secret, dict):
-    return None
-
-  if provider_secret.get("version") == 1:
-    legacy_secret = _decode_legacy_secret_api_key(
-      provider_secret.get("payload") if isinstance(provider_secret.get("payload"), str) else None,
-    )
-    if legacy_secret is not None:
-      _save_secret_api_key(provider_key, legacy_secret)
-    return legacy_secret
-
-  return _decode_protected_secret_record(provider_key, provider_secret)
-
-
-def _save_secret_api_key(provider_key: str, api_key: str) -> None:
-  secrets = _load_secret_store()
-  secrets["version"] = SECRET_RECORD_VERSION
-  secrets[provider_key] = _encode_protected_secret_record(provider_key, api_key)
-  _write_json_file(SECRETS_PATH, secrets)
-
-
-def _clear_secret_api_key(provider_key: str) -> None:
-  secrets = _load_secret_store()
-  if provider_key in secrets:
-    secrets.pop(provider_key, None)
-    if len(secrets) <= 1:
-      try:
-        SECRETS_PATH.unlink()
-      except FileNotFoundError:
-        pass
-      except OSError as cause:
-        decky.logger.warning(
-          "Unable to remove provider secret file",
-          extra={"path": str(SECRETS_PATH), "error": str(cause)},
-        )
-      return
-
-    _write_json_file(SECRETS_PATH, secrets)
 
 
 def _resolve_api_key(payload: Mapping[str, Any], provider_key: str) -> str | None:

@@ -715,6 +715,7 @@ class BackendRuntimeTests(unittest.TestCase):
       self.assertTrue((staged_dir / "main.py").exists())
       self.assertTrue((staged_dir / "backend" / "__init__.py").exists())
       self.assertTrue((staged_dir / "backend" / "redaction.py").exists())
+      self.assertTrue((staged_dir / "backend" / "secrets.py").exists())
       self.assertTrue((staged_dir / "backend" / "storage.py").exists())
       self.assertTrue((staged_dir / "backend" / "provider_config.py").exists())
 
@@ -727,6 +728,7 @@ class BackendRuntimeTests(unittest.TestCase):
         self.assertIn("achievement-companion/main.py", set(archive.namelist()))
         self.assertIn("achievement-companion/backend/__init__.py", set(archive.namelist()))
         self.assertIn("achievement-companion/backend/redaction.py", set(archive.namelist()))
+        self.assertIn("achievement-companion/backend/secrets.py", set(archive.namelist()))
         self.assertIn("achievement-companion/backend/provider_config.py", set(archive.namelist()))
         self.assertIn("achievement-companion/backend/storage.py", set(archive.namelist()))
 
