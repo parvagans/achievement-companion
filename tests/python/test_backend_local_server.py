@@ -12,9 +12,30 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from backend import local_server
+from backend import secrets as secret_helpers
+from backend.paths import BackendPaths
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
+
+
+def _build_test_backend_paths(root: Path) -> BackendPaths:
+  return BackendPaths(
+    config_path=root / "config" / "achievement-companion" / "provider-config.json",
+    secrets_path=root / "data" / "achievement-companion" / "provider-secrets.json",
+    logs_dir=root / "state" / "achievement-companion" / "logs",
+    dashboard_cache_dir=root / "cache" / "achievement-companion" / "dashboard",
+    steam_scan_overview_path=root / "cache" / "achievement-companion" / "steam" / "library-achievement-scan-overview.json",
+    steam_scan_summary_path=root / "cache" / "achievement-companion" / "steam" / "library-achievement-scan-summary.json",
+    runtime_metadata_path=root / "runtime" / "achievement-companion" / "backend.json",
+  )
+
+
+def _create_test_context(root: Path) -> local_server.LocalBackendContext:
+  return local_server.create_local_backend_context(
+    paths=_build_test_backend_paths(root),
+    settings_dir_text="test-settings",
+  )
 
 
 class _RunningServer:
@@ -155,18 +176,25 @@ class BackendLocalServerTests(unittest.TestCase):
         "Bearer wrong-token ",
         "Bearer wrong-token",
       )
-      for authorization in scenarios:
-        status, payload, _ = running.request_json(
-          "POST",
-          "/record_diagnostic_event",
-          authorization=authorization,
-          body={"event": "dashboard_refresh_started"},
-        )
-        self.assertEqual(status, 401)
-        self.assertEqual(payload, {"error": "unauthorized", "ok": False})
-        self.assertNotIn(token, json.dumps(payload))
-        if authorization is not None:
-          self.assertNotIn(authorization, json.dumps(payload))
+      for route in (
+        "/record_diagnostic_event",
+        "/get_provider_configs",
+        "/save_retroachievements_credentials",
+        "/save_steam_credentials",
+        "/clear_provider_credentials",
+      ):
+        for authorization in scenarios:
+          status, payload, _ = running.request_json(
+            "POST",
+            route,
+            authorization=authorization,
+            body={},
+          )
+          self.assertEqual(status, 401)
+          self.assertEqual(payload, {"error": "unauthorized", "ok": False})
+          self.assertNotIn(token, json.dumps(payload))
+          if authorization is not None:
+            self.assertNotIn(authorization, json.dumps(payload))
 
   def test_authorized_diagnostic_route_records_sanitized_events(self) -> None:
     token = "diagnostic-token"
@@ -221,6 +249,10 @@ class BackendLocalServerTests(unittest.TestCase):
         "GET",
         "/record_diagnostic_event",
       )
+      provider_configs_get_status, provider_configs_get_payload, _ = running.request_json(
+        "GET",
+        "/get_provider_configs",
+      )
       delete_status, delete_payload, _ = running.request_json(
         "DELETE",
         "/record_diagnostic_event",
@@ -237,6 +269,8 @@ class BackendLocalServerTests(unittest.TestCase):
     self.assertEqual(health_headers.get("Allow"), "GET")
     self.assertEqual(record_get_status, 405)
     self.assertEqual(record_get_payload, {"error": "method_not_allowed", "ok": False})
+    self.assertEqual(provider_configs_get_status, 405)
+    self.assertEqual(provider_configs_get_payload, {"error": "method_not_allowed", "ok": False})
     self.assertEqual(delete_status, 405)
     self.assertEqual(delete_payload, {"error": "method_not_allowed", "ok": False})
     self.assertEqual(unknown_status, 404)
@@ -295,6 +329,337 @@ class BackendLocalServerTests(unittest.TestCase):
     self.assertNotIn(token, json.dumps(wrong_type_payload))
     self.assertNotIn(token, json.dumps(large_payload))
     self.assertNotIn(token, json.dumps(unknown_payload))
+
+  def test_get_provider_configs_returns_default_shape_when_files_are_missing(self) -> None:
+    token = "config-token"
+    with tempfile.TemporaryDirectory() as temp_dir:
+      context = _create_test_context(Path(temp_dir))
+      with _RunningServer(local_server.create_local_backend_server(token=token, context=context)) as running:
+        status, payload, _ = running.request_json(
+          "POST",
+          "/get_provider_configs",
+          token=token,
+          body={},
+        )
+
+    self.assertEqual(status, 200)
+    self.assertEqual(payload, {"version": 1})
+
+  def test_get_provider_configs_uses_actual_secret_presence_for_has_api_key(self) -> None:
+    token = "config-token"
+    with tempfile.TemporaryDirectory() as temp_dir:
+      root = Path(temp_dir)
+      context = _create_test_context(root)
+      context.paths.config_path.parent.mkdir(parents=True, exist_ok=True)
+      context.paths.config_path.write_text(
+        json.dumps(
+          {
+            "version": 1,
+            "retroAchievements": {
+              "username": "sol88",
+              "hasApiKey": True,
+              "recentAchievementsCount": 10,
+              "recentlyPlayedCount": 8,
+            },
+            "steam": {
+              "steamId64": "76561198136628813",
+              "hasApiKey": True,
+              "language": "english",
+              "recentAchievementsCount": 3,
+              "recentlyPlayedCount": 3,
+              "includePlayedFreeGames": True,
+            },
+          },
+        ),
+        encoding="utf-8",
+      )
+      secret_helpers.save_secret_api_key(
+        context.paths.secrets_path,
+        "steam",
+        "steam-secret",
+        settings_dir_text=context.settings_dir_text,
+      )
+
+      with _RunningServer(local_server.create_local_backend_server(token=token, context=context)) as running:
+        status, payload, _ = running.request_json(
+          "POST",
+          "/get_provider_configs",
+          token=token,
+          body={},
+        )
+
+    self.assertEqual(status, 200)
+    self.assertEqual(payload["version"], 1)
+    self.assertEqual(
+      payload["retroAchievements"],
+      {
+        "username": "sol88",
+        "hasApiKey": False,
+        "recentAchievementsCount": 10,
+        "recentlyPlayedCount": 8,
+      },
+    )
+    self.assertEqual(
+      payload["steam"],
+      {
+        "steamId64": "76561198136628813",
+        "hasApiKey": True,
+        "language": "english",
+        "recentAchievementsCount": 3,
+        "recentlyPlayedCount": 3,
+        "includePlayedFreeGames": True,
+      },
+    )
+    serialized = json.dumps(payload)
+    for secret_like_key in ("apiKey", "apiKeyDraft", "key", "token", "password", "secret", "Authorization"):
+      self.assertNotIn(secret_like_key, serialized)
+
+  def test_save_retroachievements_credentials_writes_safe_config_and_protected_secret(self) -> None:
+    token = "ra-token"
+    with tempfile.TemporaryDirectory() as temp_dir:
+      context = _create_test_context(Path(temp_dir))
+      with _RunningServer(local_server.create_local_backend_server(token=token, context=context)) as running:
+        status, payload, _ = running.request_json(
+          "POST",
+          "/save_retroachievements_credentials",
+          token=token,
+          body={
+            "username": "sol88",
+            "apiKeyDraft": "ra-secret",
+            "recentAchievementsCount": 10,
+            "recentlyPlayedCount": 9,
+          },
+        )
+
+      self.assertEqual(status, 200)
+      self.assertEqual(
+        payload,
+        {
+          "username": "sol88",
+          "hasApiKey": True,
+          "recentAchievementsCount": 10,
+          "recentlyPlayedCount": 9,
+        },
+      )
+      config_text = context.paths.config_path.read_text(encoding="utf-8")
+      secrets_text = context.paths.secrets_path.read_text(encoding="utf-8")
+      self.assertIn('"username": "sol88"', config_text)
+      self.assertNotIn("ra-secret", config_text)
+      self.assertNotIn("apiKey", config_text)
+      self.assertNotIn("apiKeyDraft", config_text)
+      self.assertNotIn("ra-secret", secrets_text)
+      self.assertEqual(
+        secret_helpers.load_secret_api_key(
+          context.paths.secrets_path,
+          "retroAchievements",
+          settings_dir_text=context.settings_dir_text,
+        ),
+        "ra-secret",
+      )
+
+  def test_save_retroachievements_credentials_preserves_existing_secret_without_new_key(self) -> None:
+    token = "ra-token"
+    with tempfile.TemporaryDirectory() as temp_dir:
+      context = _create_test_context(Path(temp_dir))
+      secret_helpers.save_secret_api_key(
+        context.paths.secrets_path,
+        "retroAchievements",
+        "existing-secret",
+        settings_dir_text=context.settings_dir_text,
+      )
+      with _RunningServer(local_server.create_local_backend_server(token=token, context=context)) as running:
+        status, payload, _ = running.request_json(
+          "POST",
+          "/save_retroachievements_credentials",
+          token=token,
+          body={
+            "username": "sol99",
+            "recentAchievementsCount": 11,
+          },
+        )
+
+      self.assertEqual(status, 200)
+      self.assertEqual(payload["hasApiKey"], True)
+      self.assertEqual(
+        secret_helpers.load_secret_api_key(
+          context.paths.secrets_path,
+          "retroAchievements",
+          settings_dir_text=context.settings_dir_text,
+        ),
+        "existing-secret",
+      )
+
+  def test_save_steam_credentials_writes_safe_config_and_protected_secret(self) -> None:
+    token = "steam-token"
+    with tempfile.TemporaryDirectory() as temp_dir:
+      context = _create_test_context(Path(temp_dir))
+      with _RunningServer(local_server.create_local_backend_server(token=token, context=context)) as running:
+        status, payload, _ = running.request_json(
+          "POST",
+          "/save_steam_credentials",
+          token=token,
+          body={
+            "steamId64": "76561198136628813",
+            "apiKeyDraft": "steam-secret",
+            "language": "english",
+            "recentAchievementsCount": 3,
+            "recentlyPlayedCount": 4,
+            "includePlayedFreeGames": True,
+          },
+        )
+
+      self.assertEqual(status, 200)
+      self.assertEqual(
+        payload,
+        {
+          "steamId64": "76561198136628813",
+          "hasApiKey": True,
+          "language": "english",
+          "recentAchievementsCount": 3,
+          "recentlyPlayedCount": 4,
+          "includePlayedFreeGames": True,
+        },
+      )
+      config_text = context.paths.config_path.read_text(encoding="utf-8")
+      secrets_text = context.paths.secrets_path.read_text(encoding="utf-8")
+      self.assertNotIn("steam-secret", config_text)
+      self.assertNotIn("apiKey", config_text)
+      self.assertNotIn("steam-secret", secrets_text)
+      self.assertEqual(
+        secret_helpers.load_secret_api_key(
+          context.paths.secrets_path,
+          "steam",
+          settings_dir_text=context.settings_dir_text,
+        ),
+        "steam-secret",
+      )
+
+  def test_save_steam_credentials_preserves_existing_secret_without_new_key(self) -> None:
+    token = "steam-token"
+    with tempfile.TemporaryDirectory() as temp_dir:
+      context = _create_test_context(Path(temp_dir))
+      secret_helpers.save_secret_api_key(
+        context.paths.secrets_path,
+        "steam",
+        "existing-steam-secret",
+        settings_dir_text=context.settings_dir_text,
+      )
+      with _RunningServer(local_server.create_local_backend_server(token=token, context=context)) as running:
+        status, payload, _ = running.request_json(
+          "POST",
+          "/save_steam_credentials",
+          token=token,
+          body={
+            "steamId64": "76561198136628813",
+            "language": "german",
+            "recentAchievementsCount": 6,
+            "recentlyPlayedCount": 7,
+            "includePlayedFreeGames": False,
+          },
+        )
+
+      self.assertEqual(status, 200)
+      self.assertEqual(payload["hasApiKey"], True)
+      self.assertEqual(
+        secret_helpers.load_secret_api_key(
+          context.paths.secrets_path,
+          "steam",
+          settings_dir_text=context.settings_dir_text,
+        ),
+        "existing-steam-secret",
+      )
+
+  def test_clear_provider_credentials_only_clears_selected_provider(self) -> None:
+    token = "clear-token"
+    with tempfile.TemporaryDirectory() as temp_dir:
+      context = _create_test_context(Path(temp_dir))
+      secret_helpers.save_secret_api_key(
+        context.paths.secrets_path,
+        "retroAchievements",
+        "ra-secret",
+        settings_dir_text=context.settings_dir_text,
+      )
+      secret_helpers.save_secret_api_key(
+        context.paths.secrets_path,
+        "steam",
+        "steam-secret",
+        settings_dir_text=context.settings_dir_text,
+      )
+      context.paths.config_path.parent.mkdir(parents=True, exist_ok=True)
+      context.paths.config_path.write_text(
+        json.dumps(
+          {
+            "version": 1,
+            "retroAchievements": {"username": "sol88", "hasApiKey": True},
+            "steam": {"steamId64": "76561198136628813", "hasApiKey": True},
+          },
+        ),
+        encoding="utf-8",
+      )
+
+      with _RunningServer(local_server.create_local_backend_server(token=token, context=context)) as running:
+        status, payload, _ = running.request_json(
+          "POST",
+          "/clear_provider_credentials",
+          token=token,
+          body={"providerId": "steam"},
+        )
+        unknown_status, unknown_payload, _ = running.request_json(
+          "POST",
+          "/clear_provider_credentials",
+          token=token,
+          body={"providerId": "unknown"},
+        )
+
+      self.assertEqual(status, 200)
+      self.assertEqual(payload, {"ok": True, "cleared": True})
+      self.assertEqual(unknown_status, 400)
+      self.assertEqual(unknown_payload, {"error": "invalid_provider_id", "ok": False})
+      self.assertIsNotNone(
+        secret_helpers.load_secret_api_key(
+          context.paths.secrets_path,
+          "retroAchievements",
+          settings_dir_text=context.settings_dir_text,
+        ),
+      )
+      self.assertIsNone(
+        secret_helpers.load_secret_api_key(
+          context.paths.secrets_path,
+          "steam",
+          settings_dir_text=context.settings_dir_text,
+        ),
+      )
+      saved_config = json.loads(context.paths.config_path.read_text(encoding="utf-8"))
+      self.assertIn("retroAchievements", saved_config)
+      self.assertNotIn("steam", saved_config)
+
+  def test_corrupt_provider_files_are_quarantined_and_responses_stay_safe(self) -> None:
+    token = "corrupt-token"
+    malformed_secret = '{"version": 2, "steam": {"payload": "secret-fragment"'
+    malformed_config = '{"version": 1, "steam": {"steamId64": "7656119"'
+    with tempfile.TemporaryDirectory() as temp_dir:
+      context = _create_test_context(Path(temp_dir))
+      context.paths.config_path.parent.mkdir(parents=True, exist_ok=True)
+      context.paths.secrets_path.parent.mkdir(parents=True, exist_ok=True)
+      context.paths.config_path.write_text(malformed_config, encoding="utf-8")
+      context.paths.secrets_path.write_text(malformed_secret, encoding="utf-8")
+
+      with _RunningServer(local_server.create_local_backend_server(token=token, context=context)) as running:
+        status, payload, _ = running.request_json(
+          "POST",
+          "/get_provider_configs",
+          token=token,
+          body={},
+        )
+
+      self.assertEqual(status, 200)
+      self.assertEqual(payload, {"version": 1})
+      self.assertEqual(len(list(context.paths.config_path.parent.glob("provider-config.json.corrupt-*"))), 1)
+      self.assertEqual(len(list(context.paths.secrets_path.parent.glob("provider-secrets.json.corrupt-*"))), 1)
+      warnings_serialized = json.dumps(context.warning_events)
+      self.assertNotIn("secret-fragment", warnings_serialized)
+      self.assertNotIn(malformed_config, warnings_serialized)
+
 
   def test_default_origin_policy_does_not_emit_wildcard_cors(self) -> None:
     token = "origin-token"
@@ -373,6 +738,8 @@ class BackendLocalServerTests(unittest.TestCase):
     self.assertNotIn("OneDrive", source)
     self.assertNotIn("backend/local_server.py", package_release)
     self.assertNotIn("backend/local_server.py", check_release)
+    self.assertNotIn("backend/paths.py", package_release)
+    self.assertNotIn("backend/paths.py", check_release)
 
 
 if __name__ == "__main__":

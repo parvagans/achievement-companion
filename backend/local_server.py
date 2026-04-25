@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import secrets
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -10,13 +11,24 @@ from tempfile import NamedTemporaryFile
 from typing import Any, Iterable, Mapping
 
 from backend.diagnostics import sanitize_diagnostic_event
-from backend.paths import resolve_steamos_backend_paths
+from backend.paths import BackendPaths, resolve_steamos_backend_paths
+from backend.provider_config import (
+  PLUGIN_CONFIG_VERSION,
+  build_retroachievements_config_view,
+  build_steam_config_view,
+  clear_provider_config,
+  load_provider_config,
+  save_provider_config,
+)
+from backend.secrets import clear_secret_api_key, load_secret_api_key, save_secret_api_key
 
 
 LOCAL_BACKEND_HOST = "127.0.0.1"
 SERVICE_NAME = "achievement-companion"
-LOCAL_BACKEND_CAPABILITIES = ("health", "diagnostics")
+LOCAL_BACKEND_CAPABILITIES = ("health", "diagnostics", "provider-config")
 MAX_JSON_BODY_BYTES = 1024 * 1024
+_RETROACHIEVEMENTS_PROVIDER_KEY = "retroAchievements"
+_STEAM_PROVIDER_KEY = "steam"
 
 
 def create_session_token() -> str:
@@ -69,17 +81,227 @@ def write_runtime_metadata(
     pass
 
 
+@dataclass
+class LocalBackendContext:
+  paths: BackendPaths
+  settings_dir_text: str
+  warning_events: list[dict[str, Any]] = field(default_factory=list)
+
+  def warn(self, message: str, fields: Mapping[str, Any]) -> None:
+    self.warning_events.append(
+      {
+        "message": message,
+        "fields": dict(fields),
+      },
+    )
+
+
+def create_local_backend_context(
+  *,
+  paths: BackendPaths | None = None,
+  settings_dir_text: str | None = None,
+) -> LocalBackendContext:
+  resolved_paths = paths or resolve_steamos_backend_paths(env=os.environ)
+  resolved_settings_dir_text = settings_dir_text or str(resolved_paths.config_path.parent)
+  return LocalBackendContext(
+    paths=resolved_paths,
+    settings_dir_text=resolved_settings_dir_text,
+  )
+
+
+def _coerce_string(value: Any) -> str | None:
+  if isinstance(value, str):
+    trimmed = value.strip()
+    return trimmed if trimmed != "" else None
+  return None
+
+
+def _normalize_positive_count(value: Any, fallback: int) -> int:
+  if isinstance(value, bool):
+    return fallback
+  if isinstance(value, (int, float)) and value > 0:
+    return int(value)
+  return fallback
+
+
+def _normalize_optional_positive_count(value: Any) -> int | None:
+  if isinstance(value, bool):
+    return None
+  if isinstance(value, (int, float)) and value > 0:
+    return int(value)
+  return None
+
+
+def _normalize_boolean(value: Any, fallback: bool) -> bool:
+  if isinstance(value, bool):
+    return value
+  return fallback
+
+
+def _load_secret_for_provider(context: LocalBackendContext, provider_key: str) -> str | None:
+  return load_secret_api_key(
+    context.paths.secrets_path,
+    provider_key,
+    warn=context.warn,
+    settings_dir_text=context.settings_dir_text,
+  )
+
+
+def _resolve_api_key(payload: Mapping[str, Any], provider_key: str, context: LocalBackendContext) -> str | None:
+  api_key = _coerce_string(payload.get("apiKey"))
+  if api_key is not None:
+    return api_key
+
+  draft_api_key = _coerce_string(payload.get("apiKeyDraft"))
+  if draft_api_key is not None:
+    return draft_api_key
+
+  return _load_secret_for_provider(context, provider_key)
+
+
+def _build_provider_configs_response(context: LocalBackendContext) -> dict[str, Any]:
+  retroachievements_config = build_retroachievements_config_view(
+    load_provider_config(context.paths.config_path, _RETROACHIEVEMENTS_PROVIDER_KEY, warn=context.warn),
+    _load_secret_for_provider(context, _RETROACHIEVEMENTS_PROVIDER_KEY) is not None,
+  )
+  steam_config = build_steam_config_view(
+    load_provider_config(context.paths.config_path, _STEAM_PROVIDER_KEY, warn=context.warn),
+    _load_secret_for_provider(context, _STEAM_PROVIDER_KEY) is not None,
+  )
+
+  result: dict[str, Any] = {"version": PLUGIN_CONFIG_VERSION}
+  if retroachievements_config is not None:
+    result["retroAchievements"] = retroachievements_config
+  if steam_config is not None:
+    result["steam"] = steam_config
+  return result
+
+
+def _save_retroachievements_credentials(
+  context: LocalBackendContext,
+  payload: Mapping[str, Any],
+) -> dict[str, Any] | None:
+  username = _coerce_string(payload.get("username"))
+  if username is None:
+    return None
+
+  api_key = _resolve_api_key(payload, _RETROACHIEVEMENTS_PROVIDER_KEY, context)
+  if api_key is None:
+    return None
+
+  existing_config = load_provider_config(context.paths.config_path, _RETROACHIEVEMENTS_PROVIDER_KEY, warn=context.warn) or {}
+  recent_achievements_count = _normalize_optional_positive_count(payload.get("recentAchievementsCount"))
+  if recent_achievements_count is None:
+    recent_achievements_count = _normalize_optional_positive_count(existing_config.get("recentAchievementsCount"))
+
+  recently_played_count = _normalize_optional_positive_count(payload.get("recentlyPlayedCount"))
+  if recently_played_count is None:
+    recently_played_count = _normalize_optional_positive_count(existing_config.get("recentlyPlayedCount"))
+
+  save_secret_api_key(
+    context.paths.secrets_path,
+    _RETROACHIEVEMENTS_PROVIDER_KEY,
+    api_key,
+    warn=context.warn,
+    settings_dir_text=context.settings_dir_text,
+  )
+
+  config: dict[str, Any] = {
+    "username": username,
+    "hasApiKey": True,
+  }
+  if recent_achievements_count is not None:
+    config["recentAchievementsCount"] = recent_achievements_count
+  if recently_played_count is not None:
+    config["recentlyPlayedCount"] = recently_played_count
+
+  save_provider_config(
+    context.paths.config_path,
+    _RETROACHIEVEMENTS_PROVIDER_KEY,
+    config,
+    warn=context.warn,
+  )
+  return build_retroachievements_config_view(config, True)
+
+
+def _save_steam_credentials(
+  context: LocalBackendContext,
+  payload: Mapping[str, Any],
+) -> dict[str, Any] | None:
+  steam_id64 = _coerce_string(payload.get("steamId64"))
+  if steam_id64 is None:
+    return None
+
+  api_key = _resolve_api_key(payload, _STEAM_PROVIDER_KEY, context)
+  if api_key is None:
+    return None
+
+  config = {
+    "steamId64": steam_id64,
+    "hasApiKey": True,
+    "language": _coerce_string(payload.get("language")) or "english",
+    "recentAchievementsCount": _normalize_positive_count(payload.get("recentAchievementsCount"), 5),
+    "recentlyPlayedCount": _normalize_positive_count(payload.get("recentlyPlayedCount"), 5),
+    "includePlayedFreeGames": _normalize_boolean(payload.get("includePlayedFreeGames"), False),
+  }
+
+  save_secret_api_key(
+    context.paths.secrets_path,
+    _STEAM_PROVIDER_KEY,
+    api_key,
+    warn=context.warn,
+    settings_dir_text=context.settings_dir_text,
+  )
+  save_provider_config(
+    context.paths.config_path,
+    _STEAM_PROVIDER_KEY,
+    config,
+    warn=context.warn,
+  )
+  return build_steam_config_view(config, True)
+
+
+def _clear_provider_credentials(
+  context: LocalBackendContext,
+  payload: Mapping[str, Any],
+) -> bool | None:
+  provider_id = _coerce_string(payload.get("providerId"))
+  if provider_id is None:
+    return None
+
+  provider_key = None
+  if provider_id == "retroachievements":
+    provider_key = _RETROACHIEVEMENTS_PROVIDER_KEY
+  elif provider_id == "steam":
+    provider_key = _STEAM_PROVIDER_KEY
+
+  if provider_key is None:
+    return None
+
+  removed_any = False
+  if load_provider_config(context.paths.config_path, provider_key, warn=context.warn) is not None:
+    clear_provider_config(context.paths.config_path, provider_key, warn=context.warn)
+    removed_any = True
+  if _load_secret_for_provider(context, provider_key) is not None:
+    clear_secret_api_key(context.paths.secrets_path, provider_key, warn=context.warn)
+    removed_any = True
+  return removed_any
+
+
 class LocalBackendHTTPServer(HTTPServer):
   def __init__(
     self,
     server_address: tuple[str, int],
     token: str,
     allowed_origins: Iterable[str] = (),
+    context: LocalBackendContext | None = None,
   ) -> None:
     super().__init__(server_address, LocalBackendRequestHandler)
     self.session_token = token
     self.allowed_origins = frozenset(allowed_origins)
+    self.context = context or create_local_backend_context()
     self.diagnostic_events: list[dict[str, Any]] = []
+    self.warning_events = self.context.warning_events
 
 
 class LocalBackendRequestHandler(BaseHTTPRequestHandler):
@@ -101,7 +323,13 @@ class LocalBackendRequestHandler(BaseHTTPRequestHandler):
       )
       return
 
-    if path == "/record_diagnostic_event":
+    if path in {
+      "/record_diagnostic_event",
+      "/get_provider_configs",
+      "/save_retroachievements_credentials",
+      "/save_steam_credentials",
+      "/clear_provider_credentials",
+    }:
       self._send_method_not_allowed(("POST", "OPTIONS"))
       return
 
@@ -122,12 +350,31 @@ class LocalBackendRequestHandler(BaseHTTPRequestHandler):
     if path == "/record_diagnostic_event":
       self._handle_record_diagnostic_event()
       return
+    if path == "/get_provider_configs":
+      self._handle_get_provider_configs()
+      return
+    if path == "/save_retroachievements_credentials":
+      self._handle_save_retroachievements_credentials()
+      return
+    if path == "/save_steam_credentials":
+      self._handle_save_steam_credentials()
+      return
+    if path == "/clear_provider_credentials":
+      self._handle_clear_provider_credentials()
+      return
 
     self._send_json(404, {"ok": False, "error": "not_found"})
 
   def do_OPTIONS(self) -> None:
     path = self._path_without_query()
-    if path not in {"/health", "/record_diagnostic_event"}:
+    if path not in {
+      "/health",
+      "/record_diagnostic_event",
+      "/get_provider_configs",
+      "/save_retroachievements_credentials",
+      "/save_steam_credentials",
+      "/clear_provider_credentials",
+    }:
       self._send_json(404, {"ok": False, "error": "not_found"})
       return
 
@@ -164,6 +411,53 @@ class LocalBackendRequestHandler(BaseHTTPRequestHandler):
       self.server.diagnostic_events.append(sanitized_event)
 
     self._send_json(200, {"ok": True, "recorded": recorded})
+
+  def _handle_get_provider_configs(self) -> None:
+    status, payload = self._read_json_body()
+    if payload is None:
+      self._send_json(status, {"ok": False, "error": self._json_error_code(status)})
+      return
+
+    self._send_json(200, _build_provider_configs_response(self.server.context))
+
+  def _handle_save_retroachievements_credentials(self) -> None:
+    status, payload = self._read_json_body()
+    if payload is None:
+      self._send_json(status, {"ok": False, "error": self._json_error_code(status)})
+      return
+
+    config = _save_retroachievements_credentials(self.server.context, payload)
+    if config is None:
+      self._send_json(400, {"ok": False, "error": "invalid_payload"})
+      return
+
+    self._send_json(200, config)
+
+  def _handle_save_steam_credentials(self) -> None:
+    status, payload = self._read_json_body()
+    if payload is None:
+      self._send_json(status, {"ok": False, "error": self._json_error_code(status)})
+      return
+
+    config = _save_steam_credentials(self.server.context, payload)
+    if config is None:
+      self._send_json(400, {"ok": False, "error": "invalid_payload"})
+      return
+
+    self._send_json(200, config)
+
+  def _handle_clear_provider_credentials(self) -> None:
+    status, payload = self._read_json_body()
+    if payload is None:
+      self._send_json(status, {"ok": False, "error": self._json_error_code(status)})
+      return
+
+    cleared = _clear_provider_credentials(self.server.context, payload)
+    if cleared is None:
+      self._send_json(400, {"ok": False, "error": "invalid_provider_id"})
+      return
+
+    self._send_json(200, {"ok": True, "cleared": cleared})
 
   def _authorize_request(self) -> bool:
     origin = self.headers.get("Origin")
@@ -247,7 +541,13 @@ class LocalBackendRequestHandler(BaseHTTPRequestHandler):
     if path == "/health":
       self._send_method_not_allowed(("GET", "OPTIONS"))
       return
-    if path == "/record_diagnostic_event":
+    if path in {
+      "/record_diagnostic_event",
+      "/get_provider_configs",
+      "/save_retroachievements_credentials",
+      "/save_steam_credentials",
+      "/clear_provider_credentials",
+    }:
       self._send_method_not_allowed(("POST", "OPTIONS"))
       return
     self._send_json(404, {"ok": False, "error": "not_found"})
@@ -286,8 +586,9 @@ def create_local_backend_server(
   port: int = 0,
   token: str | None = None,
   allowed_origins: Iterable[str] = (),
+  context: LocalBackendContext | None = None,
 ) -> LocalBackendHTTPServer:
   if host != LOCAL_BACKEND_HOST:
     raise ValueError("Local backend server must bind to 127.0.0.1.")
 
-  return LocalBackendHTTPServer((host, port), token or create_session_token(), allowed_origins)
+  return LocalBackendHTTPServer((host, port), token or create_session_token(), allowed_origins, context=context)
