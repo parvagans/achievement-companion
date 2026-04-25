@@ -7,8 +7,9 @@ import threading
 import time
 from contextlib import suppress
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Mapping, Sequence, TextIO
+from typing import Iterable, Mapping, Sequence, TextIO
 
 from backend.local_server import (
   LOCAL_BACKEND_HOST,
@@ -31,6 +32,7 @@ class LocalBackendRuntime:
   thread: threading.Thread
   token: str
   metadata_path: Path
+  started_at: str
   cleanup_metadata: bool = True
 
   @property
@@ -80,6 +82,7 @@ def start_local_backend(
   metadata_path: Path | None = None,
   host: str = LOCAL_BACKEND_HOST,
   port: int = 0,
+  allowed_origins: Iterable[str] = (),
   context: LocalBackendContext | None = None,
   cleanup_metadata: bool = True,
 ) -> LocalBackendRuntime:
@@ -92,6 +95,7 @@ def start_local_backend(
     host=host,
     port=port,
     token=token,
+    allowed_origins=allowed_origins,
     context=resolved_context,
   )
   thread = threading.Thread(
@@ -104,6 +108,7 @@ def start_local_backend(
     thread=thread,
     token=token,
     metadata_path=resolved_metadata_path,
+    started_at=datetime.now(timezone.utc).isoformat(),
     cleanup_metadata=cleanup_metadata,
   )
 
@@ -115,6 +120,7 @@ def start_local_backend(
       port=runtime.port,
       pid=os.getpid(),
       token=token,
+      started_at=runtime.started_at,
     )
   except Exception:
     runtime.shutdown()
