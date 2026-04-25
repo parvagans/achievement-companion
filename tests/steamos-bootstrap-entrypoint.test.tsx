@@ -1,0 +1,137 @@
+import assert from "node:assert/strict";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { test } from "node:test";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import {
+  SteamOSBootstrapStatus,
+  bootstrapSteamOSShell,
+} from "../src/platform/steamos/bootstrap";
+
+interface FetchCall {
+  readonly url: string;
+  readonly init?: RequestInit;
+}
+
+const VALID_TOKEN = "abcdefghijklmnopqrstuvwxyz1234567890TOKEN";
+
+function createJsonResponse(status: number, payload: unknown, contentType = "application/json"): Response {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: {
+      "Content-Type": contentType,
+    },
+  });
+}
+
+function collectSourceFiles(rootDir: string): readonly string[] {
+  const entries = readdirSync(rootDir, { withFileTypes: true });
+  const files: string[] = [];
+
+  for (const entry of entries) {
+    const entryPath = join(rootDir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...collectSourceFiles(entryPath));
+      continue;
+    }
+
+    if (entry.isFile() && /\.(ts|tsx)$/u.test(entry.name)) {
+      files.push(entryPath);
+    }
+  }
+
+  return files;
+}
+
+function readSourceTree(rootDir: string): string {
+  return collectSourceFiles(rootDir)
+    .map((filePath) => readFileSync(filePath, "utf-8"))
+    .join("\n");
+}
+
+test("SteamOS bootstrap entrypoint renders loading and connected states without exposing tokens", async () => {
+  const states: string[] = [];
+  const calls: FetchCall[] = [];
+  const createdRuntimes: Array<{ readonly baseUrl: string; readonly token: string }> = [];
+
+  const result = await bootstrapSteamOSShell({
+    fetchImpl: async (input, init) => {
+      calls.push({ url: String(input), init });
+      return createJsonResponse(200, {
+        host: "127.0.0.1",
+        port: 4123,
+        pid: 123,
+        token: VALID_TOKEN,
+        startedAt: "2026-04-25T10:00:00.000Z",
+      });
+    },
+    createRuntime: (config) => {
+      createdRuntimes.push(config);
+      return {
+        platform: {
+          info: {
+            platformId: "desktop",
+            appName: "Achievement Companion",
+          },
+        },
+      } as ReturnType<typeof import("../src/platform/steamos/create-steamos-app-runtime").createSteamOSAppRuntime>;
+    },
+    renderState: (state) => {
+      states.push(renderToStaticMarkup(<SteamOSBootstrapStatus state={state} />));
+    },
+  });
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]?.url, "/__achievement_companion__/runtime");
+  assert.equal(createdRuntimes.length, 1);
+  assert.deepStrictEqual(createdRuntimes[0], {
+    baseUrl: "http://127.0.0.1:4123",
+    token: VALID_TOKEN,
+  });
+  assert.equal(result.state.phase, "connected");
+  assert.equal(states.length, 2);
+  assert.match(states[0] ?? "", /Loading SteamOS backend\.\.\./u);
+  assert.match(states[1] ?? "", /Connected to SteamOS backend/u);
+  assert.doesNotMatch(states.join("\n"), new RegExp(VALID_TOKEN, "u"));
+  assert.doesNotMatch(calls[0]?.url ?? "", new RegExp(VALID_TOKEN, "u"));
+});
+
+test("SteamOS bootstrap entrypoint renders a safe error state for metadata failures", async () => {
+  const states: string[] = [];
+
+  const result = await bootstrapSteamOSShell({
+    loadBootstrapConfig: async () => {
+      throw new Error(`bad metadata ${VALID_TOKEN}`);
+    },
+    renderState: (state) => {
+      states.push(renderToStaticMarkup(<SteamOSBootstrapStatus state={state} />));
+    },
+  });
+
+  assert.equal(result.state.phase, "error");
+  assert.equal(result.runtime, undefined);
+  assert.equal(states.length, 2);
+  assert.match(states[0] ?? "", /Loading SteamOS backend\.\.\./u);
+  assert.match(states[1] ?? "", /SteamOS backend unavailable/u);
+  assert.doesNotMatch(states.join("\n"), new RegExp(VALID_TOKEN, "u"));
+  assert.doesNotMatch(states.join("\n"), /bad metadata/u);
+});
+
+test("SteamOS bootstrap entrypoint stays isolated from Decky, browser storage, and release payload changes", () => {
+  const steamosSource = readSourceTree(join(process.cwd(), "src", "platform", "steamos"));
+  const coreSource = readSourceTree(join(process.cwd(), "src", "core"));
+  const providerSource = readSourceTree(join(process.cwd(), "src", "providers"));
+  const deckyEntrypoint = readFileSync(join(process.cwd(), "src", "index.tsx"), "utf-8");
+  const packageRelease = readFileSync(join(process.cwd(), "scripts", "package_release.py"), "utf-8");
+  const checkRelease = readFileSync(join(process.cwd(), "scripts", "check_release_artifact.py"), "utf-8");
+
+  assert.doesNotMatch(steamosSource, /@decky|platform\/decky|platform\\decky/u);
+  assert.doesNotMatch(steamosSource, /localStorage|sessionStorage/u);
+  assert.doesNotMatch(steamosSource, /C:\\Users\\Arenn\\OneDrive/u);
+  assert.doesNotMatch(deckyEntrypoint, /platform\/steamos\/bootstrap|platform\\steamos\\bootstrap/u);
+  assert.doesNotMatch(coreSource, /platform\/steamos\/bootstrap|platform\\steamos\\bootstrap/u);
+  assert.doesNotMatch(providerSource, /platform\/steamos\/bootstrap|platform\\steamos\\bootstrap/u);
+  assert.doesNotMatch(packageRelease, /src\/platform\/steamos\/bootstrap\.tsx|src\\platform\\steamos\\bootstrap\.tsx/u);
+  assert.doesNotMatch(checkRelease, /src\/platform\/steamos\/bootstrap\.tsx|src\\platform\\steamos\\bootstrap\.tsx/u);
+});
