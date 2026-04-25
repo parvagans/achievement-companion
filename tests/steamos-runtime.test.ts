@@ -418,6 +418,33 @@ test("SteamOS runtime composes with local-backend adapters and mocked backend ca
         return createJsonResponse(200, { ok: true, recorded: true });
       }
 
+      if (url.endsWith("/cache/dashboard/write") || url.endsWith("/cache/steam-scan/write-overview") || url.endsWith("/cache/steam-scan/write-summary")) {
+        return createJsonResponse(200, { ok: true });
+      }
+
+      if (url.endsWith("/cache/dashboard/read")) {
+        return createJsonResponse(200, {
+          hit: true,
+          value: body["providerId"] === RETROACHIEVEMENTS_PROVIDER_ID
+            ? { refreshedAt: 1 }
+            : { refreshedAt: 2 },
+        });
+      }
+
+      if (url.endsWith("/cache/steam-scan/read-overview")) {
+        return createJsonResponse(200, {
+          hit: true,
+          value: { count: 1 },
+        });
+      }
+
+      if (url.endsWith("/cache/steam-scan/read-summary")) {
+        return createJsonResponse(200, {
+          hit: true,
+          value: { count: 2 },
+        });
+      }
+
       throw new Error(`Unexpected route in SteamOS runtime harness: ${url}`);
     },
   });
@@ -524,6 +551,12 @@ test("SteamOS runtime composes with local-backend adapters and mocked backend ca
       "get_provider_configs",
       "get_provider_configs",
       "record_diagnostic_event",
+      "cache/dashboard/write",
+      "cache/steam-scan/write-overview",
+      "cache/steam-scan/write-summary",
+      "cache/dashboard/read",
+      "cache/steam-scan/read-overview",
+      "cache/steam-scan/read-summary",
     ],
   );
 
@@ -547,6 +580,31 @@ test("SteamOS runtime composes with local-backend adapters and mocked backend ca
     Authorization: "[redacted]",
   });
   assert.equal(diagnosticRequest?.headers.Authorization, "Bearer session-token");
+
+  const dashboardCacheWriteRequest = fetchCalls.find((call) => call.url.endsWith("/cache/dashboard/write"));
+  const dashboardCacheReadRequest = fetchCalls.find((call) => call.url.endsWith("/cache/dashboard/read"));
+  const steamOverviewWriteRequest = fetchCalls.find((call) => call.url.endsWith("/cache/steam-scan/write-overview"));
+  const steamSummaryWriteRequest = fetchCalls.find((call) => call.url.endsWith("/cache/steam-scan/write-summary"));
+
+  assert.deepStrictEqual(dashboardCacheWriteRequest?.body, {
+    providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+    value: {
+      refreshedAt: 1,
+    },
+  });
+  assert.deepStrictEqual(dashboardCacheReadRequest?.body, {
+    providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+  });
+  assert.deepStrictEqual(steamOverviewWriteRequest?.body, {
+    value: {
+      count: 1,
+    },
+  });
+  assert.deepStrictEqual(steamSummaryWriteRequest?.body, {
+    value: {
+      count: 2,
+    },
+  });
 
   for (const call of fetchCalls) {
     assert.doesNotMatch(call.url, /session-token/u);

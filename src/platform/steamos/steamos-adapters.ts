@@ -64,6 +64,20 @@ export interface SteamOSAdapterOptions {
   readonly client: SteamOSLocalBackendClient;
 }
 
+interface CacheHitResponse<TValue> {
+  readonly hit: true;
+  readonly value: TValue;
+}
+
+interface CacheMissResponse {
+  readonly hit: false;
+}
+
+interface CacheClearResponse {
+  readonly ok?: boolean;
+  readonly cleared?: boolean;
+}
+
 const SECRET_QUERY_KEYS = new Set([
   "apikey",
   "apikeydraft",
@@ -87,6 +101,10 @@ export const steamosPlatformCapabilities: PlatformCapabilities = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isSupportedDashboardProviderId(providerId: ProviderId): providerId is typeof RETROACHIEVEMENTS_PROVIDER_ID | typeof STEAM_PROVIDER_ID {
+  return providerId === RETROACHIEVEMENTS_PROVIDER_ID || providerId === STEAM_PROVIDER_ID;
 }
 
 function sanitizeQuery(
@@ -250,43 +268,99 @@ export function createSteamOSDiagnosticLogger(
   };
 }
 
-export function createInMemoryDashboardSnapshotStore<Snapshot>(): DashboardSnapshotStore<Snapshot> {
-  const entries = new Map<ProviderId, Snapshot>();
-
+export function createSteamOSDashboardSnapshotStore<Snapshot extends object>(
+  client: SteamOSLocalBackendClient,
+): DashboardSnapshotStore<Snapshot> & { clear(providerId?: ProviderId): Promise<boolean> };
+export function createSteamOSDashboardSnapshotStore<Snapshot extends object>(
+  client: SteamOSLocalBackendClient,
+): DashboardSnapshotStore<Snapshot> & { clear(providerId?: ProviderId): Promise<boolean> } {
   return {
     async read(providerId) {
-      return entries.get(providerId);
+      if (!isSupportedDashboardProviderId(providerId)) {
+        return undefined;
+      }
+
+      const response = await client.postJson<CacheHitResponse<Snapshot> | CacheMissResponse>(
+        "cache/dashboard/read",
+        { providerId },
+      );
+      return response.hit === true ? response.value : undefined;
     },
     async write(providerId, snapshot) {
-      entries.set(providerId, snapshot);
+      if (!isSupportedDashboardProviderId(providerId)) {
+        return;
+      }
+
+      await client.postJson("cache/dashboard/write", {
+        providerId,
+        value: snapshot,
+      });
     },
     async clear(providerId) {
-      return entries.delete(providerId);
+      if (providerId !== undefined && !isSupportedDashboardProviderId(providerId)) {
+        return false;
+      }
+
+      const response = await client.postJson<CacheClearResponse>(
+        "cache/dashboard/clear",
+        providerId === undefined ? {} : { providerId },
+      );
+      return response.cleared === true;
     },
   };
 }
 
-export function createInMemorySteamLibraryScanStore<Overview, Summary>(): SteamLibraryScanStore<Overview, Summary> {
-  const overviewEntries = new Map<ProviderId, Overview>();
-  const summaryEntries = new Map<ProviderId, Summary>();
-
+export function createSteamOSSteamLibraryScanStore<Overview extends object, Summary extends object>(
+  client: SteamOSLocalBackendClient,
+): SteamLibraryScanStore<Overview, Summary> & { clear(providerId?: ProviderId): Promise<boolean> } {
   return {
     async readOverview(providerId) {
-      return overviewEntries.get(providerId);
+      if (providerId !== STEAM_PROVIDER_ID) {
+        return undefined;
+      }
+
+      const response = await client.postJson<CacheHitResponse<Overview> | CacheMissResponse>(
+        "cache/steam-scan/read-overview",
+        {},
+      );
+      return response.hit === true ? response.value : undefined;
     },
     async writeOverview(providerId, overview) {
-      overviewEntries.set(providerId, overview);
+      if (providerId !== STEAM_PROVIDER_ID) {
+        return;
+      }
+
+      await client.postJson("cache/steam-scan/write-overview", {
+        value: overview,
+      });
     },
     async readSummary(providerId) {
-      return summaryEntries.get(providerId);
+      if (providerId !== STEAM_PROVIDER_ID) {
+        return undefined;
+      }
+
+      const response = await client.postJson<CacheHitResponse<Summary> | CacheMissResponse>(
+        "cache/steam-scan/read-summary",
+        {},
+      );
+      return response.hit === true ? response.value : undefined;
     },
     async writeSummary(providerId, summary) {
-      summaryEntries.set(providerId, summary);
+      if (providerId !== STEAM_PROVIDER_ID) {
+        return;
+      }
+
+      await client.postJson("cache/steam-scan/write-summary", {
+        value: summary,
+      });
     },
     async clear(providerId) {
-      const removedOverview = overviewEntries.delete(providerId);
-      const removedSummary = summaryEntries.delete(providerId);
-      return removedOverview || removedSummary;
+      if (providerId !== undefined && providerId !== STEAM_PROVIDER_ID) {
+        return false;
+      }
+
+      const response = await client.postJson<CacheClearResponse>("cache/steam-scan/clear", {});
+      return response.cleared === true;
     },
   };
 }
@@ -315,8 +389,8 @@ export function createSteamOSAdapters(options: SteamOSAdapterOptions) {
     diagnosticLogger: createSteamOSDiagnosticLogger(options.client),
     providerConfigStore: createSteamOSProviderConfigStore(options.client),
     authenticatedProviderTransportFactory: createSteamOSAuthenticatedProviderTransportFactory(options.client),
-    dashboardSnapshotStore: createInMemoryDashboardSnapshotStore(),
-    steamLibraryScanStore: createInMemorySteamLibraryScanStore(),
+    dashboardSnapshotStore: createSteamOSDashboardSnapshotStore(options.client),
+    steamLibraryScanStore: createSteamOSSteamLibraryScanStore(options.client),
     platformCapabilities: steamosPlatformCapabilities,
   };
 }

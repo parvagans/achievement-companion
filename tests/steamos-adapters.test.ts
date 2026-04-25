@@ -5,12 +5,12 @@ import { test } from "node:test";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../src/providers/retroachievements/config";
 import { STEAM_PROVIDER_ID } from "../src/providers/steam/config";
 import {
-  createInMemoryDashboardSnapshotStore,
-  createInMemorySteamLibraryScanStore,
   createSteamOSAdapters,
   createSteamOSAuthenticatedProviderTransportFactory,
+  createSteamOSDashboardSnapshotStore,
   createSteamOSDiagnosticLogger,
   createSteamOSProviderConfigStore,
+  createSteamOSSteamLibraryScanStore,
   steamosPlatformCapabilities,
   type SteamOSDiagnosticEventPayload,
   type SteamOSProviderConfigValue,
@@ -329,11 +329,152 @@ test("SteamOS diagnostic logger redacts payloads and swallows backend failures",
   });
 });
 
-test("SteamOS adapter bundle exposes in-memory stores and honest platform capabilities", async () => {
+test("SteamOS dashboard cache store uses backend cache endpoints and maps misses safely", async () => {
+  const calls: Array<{ readonly url: string; readonly body: Record<string, unknown> }> = [];
   const client = createSteamOSLocalBackendClient({
     baseUrl: "http://127.0.0.1:4123",
     token: "session-token",
-    fetchImpl: async () => createJsonResponse(200, {}),
+    fetchImpl: async (input, init) => {
+      const url = String(input);
+      const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+      calls.push({ url, body });
+
+      if (url.endsWith("/cache/dashboard/read")) {
+        return createJsonResponse(200, body["providerId"] === STEAM_PROVIDER_ID
+          ? { hit: true, value: { refreshedAt: 12 } }
+          : { hit: false });
+      }
+
+      if (url.endsWith("/cache/dashboard/write")) {
+        return createJsonResponse(200, { ok: true });
+      }
+
+      if (url.endsWith("/cache/dashboard/clear")) {
+        return createJsonResponse(200, {
+          ok: true,
+          cleared: body["providerId"] !== RETROACHIEVEMENTS_PROVIDER_ID,
+        });
+      }
+
+      throw new Error(`Unexpected route: ${url}`);
+    },
+  });
+  const store = createSteamOSDashboardSnapshotStore<{ readonly refreshedAt: number }>(client);
+
+  assert.deepStrictEqual(await store.read(STEAM_PROVIDER_ID), { refreshedAt: 12 });
+  assert.equal(await store.read(RETROACHIEVEMENTS_PROVIDER_ID), undefined);
+  await store.write(STEAM_PROVIDER_ID, { refreshedAt: 12 });
+  assert.equal(await store.clear(STEAM_PROVIDER_ID), true);
+  assert.equal(await store.clear(), true);
+  assert.equal(await store.clear("mock-provider"), false);
+
+  assert.deepStrictEqual(calls.map((call) => call.url), [
+    "http://127.0.0.1:4123/cache/dashboard/read",
+    "http://127.0.0.1:4123/cache/dashboard/read",
+    "http://127.0.0.1:4123/cache/dashboard/write",
+    "http://127.0.0.1:4123/cache/dashboard/clear",
+    "http://127.0.0.1:4123/cache/dashboard/clear",
+  ]);
+  assert.deepStrictEqual(calls[0]?.body, { providerId: STEAM_PROVIDER_ID });
+  assert.deepStrictEqual(calls[1]?.body, { providerId: RETROACHIEVEMENTS_PROVIDER_ID });
+  assert.deepStrictEqual(calls[2]?.body, {
+    providerId: STEAM_PROVIDER_ID,
+    value: { refreshedAt: 12 },
+  });
+  assert.deepStrictEqual(calls[3]?.body, { providerId: STEAM_PROVIDER_ID });
+  assert.deepStrictEqual(calls[4]?.body, {});
+
+  for (const call of calls) {
+    assert.doesNotMatch(JSON.stringify(call.body), /apiKey/u);
+    assert.doesNotMatch(JSON.stringify(call.body), /token/u);
+  }
+});
+
+test("SteamOS steam scan cache store uses backend cache endpoints and keeps cache payloads out of URLs", async () => {
+  const calls: Array<{ readonly url: string; readonly body: Record<string, unknown> }> = [];
+  const client = createSteamOSLocalBackendClient({
+    baseUrl: "http://127.0.0.1:4123",
+    token: "session-token",
+    fetchImpl: async (input, init) => {
+      const url = String(input);
+      const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+      calls.push({ url, body });
+
+      if (url.endsWith("/cache/steam-scan/read-overview")) {
+        return createJsonResponse(200, { hit: true, value: { count: 1 } });
+      }
+      if (url.endsWith("/cache/steam-scan/read-summary")) {
+        return createJsonResponse(200, { hit: false });
+      }
+      if (url.endsWith("/cache/steam-scan/write-overview") || url.endsWith("/cache/steam-scan/write-summary")) {
+        return createJsonResponse(200, { ok: true });
+      }
+      if (url.endsWith("/cache/steam-scan/clear")) {
+        return createJsonResponse(200, { ok: true, cleared: true });
+      }
+
+      throw new Error(`Unexpected route: ${url}`);
+    },
+  });
+  const store = createSteamOSSteamLibraryScanStore<{ readonly count: number }, { readonly count: number }>(client);
+
+  assert.deepStrictEqual(await store.readOverview(STEAM_PROVIDER_ID), { count: 1 });
+  assert.equal(await store.readOverview(RETROACHIEVEMENTS_PROVIDER_ID), undefined);
+  assert.equal(await store.readSummary(STEAM_PROVIDER_ID), undefined);
+  await store.writeOverview(STEAM_PROVIDER_ID, { count: 1 });
+  await store.writeSummary(STEAM_PROVIDER_ID, { count: 2 });
+  assert.equal(await store.clear(STEAM_PROVIDER_ID), true);
+  assert.equal(await store.clear(), true);
+  assert.equal(await store.clear(RETROACHIEVEMENTS_PROVIDER_ID), false);
+
+  assert.deepStrictEqual(calls.map((call) => call.url), [
+    "http://127.0.0.1:4123/cache/steam-scan/read-overview",
+    "http://127.0.0.1:4123/cache/steam-scan/read-summary",
+    "http://127.0.0.1:4123/cache/steam-scan/write-overview",
+    "http://127.0.0.1:4123/cache/steam-scan/write-summary",
+    "http://127.0.0.1:4123/cache/steam-scan/clear",
+    "http://127.0.0.1:4123/cache/steam-scan/clear",
+  ]);
+  assert.deepStrictEqual(calls[0]?.body, {});
+  assert.deepStrictEqual(calls[1]?.body, {});
+  assert.deepStrictEqual(calls[2]?.body, { value: { count: 1 } });
+  assert.deepStrictEqual(calls[3]?.body, { value: { count: 2 } });
+  assert.deepStrictEqual(calls[4]?.body, {});
+  assert.deepStrictEqual(calls[5]?.body, {});
+
+  for (const call of calls) {
+    assert.doesNotMatch(call.url, /session-token/u);
+    assert.doesNotMatch(call.url, /apiKey/u);
+    assert.doesNotMatch(JSON.stringify(call.body), /apiKey/u);
+    assert.doesNotMatch(JSON.stringify(call.body), /token/u);
+  }
+});
+
+test("SteamOS adapter bundle exposes cache-backed stores and honest platform capabilities", async () => {
+  const calls: Array<{ readonly url: string; readonly body: Record<string, unknown> }> = [];
+  const client = createSteamOSLocalBackendClient({
+    baseUrl: "http://127.0.0.1:4123",
+    token: "session-token",
+    fetchImpl: async (input, init) => {
+      const url = String(input);
+      const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+      calls.push({ url, body });
+
+      if (url.endsWith("/cache/dashboard/write") || url.endsWith("/cache/steam-scan/write-overview") || url.endsWith("/cache/steam-scan/write-summary")) {
+        return createJsonResponse(200, { ok: true });
+      }
+      if (url.endsWith("/cache/dashboard/read")) {
+        return createJsonResponse(200, { hit: true, value: { refreshedAt: 1 } });
+      }
+      if (url.endsWith("/cache/steam-scan/read-overview")) {
+        return createJsonResponse(200, { hit: true, value: { count: 1 } });
+      }
+      if (url.endsWith("/cache/steam-scan/read-summary")) {
+        return createJsonResponse(200, { hit: true, value: { count: 2 } });
+      }
+
+      return createJsonResponse(200, {});
+    },
   });
   const adapters = createSteamOSAdapters({ client });
 
@@ -344,6 +485,18 @@ test("SteamOS adapter bundle exposes in-memory stores and honest platform capabi
   assert.deepStrictEqual(await adapters.dashboardSnapshotStore.read("steam"), { refreshedAt: 1 });
   assert.deepStrictEqual(await adapters.steamLibraryScanStore.readOverview("steam"), { count: 1 });
   assert.deepStrictEqual(await adapters.steamLibraryScanStore.readSummary("steam"), { count: 2 });
+  assert.deepStrictEqual(calls.map((call) => call.url), [
+    "http://127.0.0.1:4123/cache/dashboard/write",
+    "http://127.0.0.1:4123/cache/steam-scan/write-overview",
+    "http://127.0.0.1:4123/cache/steam-scan/write-summary",
+    "http://127.0.0.1:4123/cache/dashboard/read",
+    "http://127.0.0.1:4123/cache/steam-scan/read-overview",
+    "http://127.0.0.1:4123/cache/steam-scan/read-summary",
+  ]);
+  for (const call of calls) {
+    assert.doesNotMatch(JSON.stringify(call.body), /apiKey/u);
+    assert.doesNotMatch(JSON.stringify(call.body), /token/u);
+  }
   assert.deepStrictEqual(steamosPlatformCapabilities, {
     supportsCompactNavigation: false,
     supportsFullscreenNavigation: false,
