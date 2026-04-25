@@ -1,6 +1,6 @@
 # SteamOS Local Backend Contract
 
-This document sketches the intended backend boundary for a future non-Decky SteamOS runtime. It is design only. No SteamOS backend, loopback server, or UI exists yet.
+This document describes the current backend boundary for a future non-Decky SteamOS runtime. A test-backed local Python backend skeleton now exists, along with backend helper modules and TypeScript SteamOS adapters. No SteamOS UI, dev shell, launcher, or SteamOS-specific package exists yet.
 
 ## Scope and Non-Goals
 
@@ -13,9 +13,11 @@ Scope:
 Non-goals:
 
 - Changing Decky plugin behavior or release packaging.
+- Adding a SteamOS UI or dev shell in this phase.
 - Claiming Steam Deck Game Mode parity.
 - Claiming strong encryption for the current local secret record scheme.
-- Implementing server code, SteamOS UI, package scripts, or provider behavior in this pass.
+- Adding a production launcher or process manager in this phase.
+- Adding SteamOS packaging in this phase.
 
 ## Runtime Shape
 
@@ -91,7 +93,7 @@ Output:
 {
   "ok": true,
   "service": "achievement-companion",
-  "capabilities": ["provider-config", "provider-secrets", "provider-requests", "diagnostics"]
+  "capabilities": ["health", "diagnostics", "provider-config"]
 }
 ```
 
@@ -142,9 +144,10 @@ Input:
 }
 ```
 
-Output: saved non-secret provider config or `null` if required values are missing.
+Output: saved non-secret provider config on success.
 
 Secret safety: store the key through `backend/secrets.py`; write only non-secret config fields to provider-config.json.
+Invalid input behavior: return a safe `400` response with `{"ok": false, "error": "invalid_payload"}`.
 
 ### `POST /save_steam_credentials`
 
@@ -161,9 +164,10 @@ Input:
 }
 ```
 
-Output: saved non-secret provider config or `null` if required values are missing.
+Output: saved non-secret provider config on success.
 
 Secret safety: store the Steam Web API key through `backend/secrets.py`; provider-config.json remains non-secret.
+Invalid input behavior: return a safe `400` response with `{"ok": false, "error": "invalid_payload"}`.
 
 ### `POST /clear_provider_credentials`
 
@@ -178,10 +182,14 @@ Input:
 Output:
 
 ```json
-true
+{
+  "ok": true,
+  "cleared": true
+}
 ```
 
 Behavior: clear the selected provider config and secret. Clear related backend-owned caches when a future cache module owns them.
+Invalid provider behavior: return a safe `400` response with `{"ok": false, "error": "invalid_provider_id"}`.
 
 ### `POST /request_retroachievements_json`
 
@@ -235,7 +243,10 @@ Input: existing diagnostic event payloads.
 Output:
 
 ```json
-true
+{
+  "ok": true,
+  "recorded": true
+}
 ```
 
 Behavior: use `backend/diagnostics.py` to keep only known events and safe fields, then write through redacted backend logging.
@@ -255,33 +266,55 @@ Future SteamOS adapters should implement existing platform contracts:
 
 Decky packaging remains unchanged in purpose: the Decky release ZIP contains Decky assets, `main.py`, and the reusable `backend/*.py` helper modules needed by `main.py`.
 
-SteamOS packaging should be a separate future artifact. It may reuse `backend/*.py`, but SteamOS server/runtime files must not silently appear in the Decky ZIP. Release checks should remain strict and explicit for each package.
+SteamOS packaging should be a separate future artifact. It may reuse `backend/*.py`, but SteamOS server/runtime files must not silently appear in the Decky ZIP. Today, `backend/local_server.py` and `backend/paths.py` remain excluded from the Decky ZIP. Release checks should remain strict and explicit for each package.
 
 ## Implementation Sequence
 
+Completed:
+
 1. `SteamOS Prep Pass 9 - SteamOS path resolver module`
-   - Likely files: `backend/paths.py`, Python tests.
-   - Non-goals: changing Decky paths or storage behavior.
+   - Added `backend/paths.py` and path tests.
 
 2. `SteamOS Backend Pass 1 - Local backend skeleton`
-   - Likely files: new backend runtime module and tests.
-   - Non-goals: provider API calls, token auth, UI.
+   - Added localhost backend skeleton and health route.
 
 3. `SteamOS Backend Pass 2 - Token auth and localhost policy`
-   - Likely files: backend runtime/auth tests.
-   - Non-goals: provider behavior or packaging polish.
+   - Added bearer auth hardening, method policy, body validation, and CORS policy coverage.
 
-4. `SteamOS Adapter Pass 1 - Mock TypeScript local backend adapters`
-   - Likely files: TS adapter tests and mock transport.
-   - Non-goals: real SteamOS UI or real secrets.
+4. `SteamOS Backend Pass 3 - Provider config and credential endpoints`
+   - Added authenticated provider config load/save/clear endpoints.
 
-5. `SteamOS Backend Pass 3 - Real provider request bridge`
-   - Likely files: backend API handlers and request tests.
-   - Non-goals: Game Mode claims or UI parity.
+5. `SteamOS Backend Pass 4 - Provider request endpoints`
+   - Added authenticated RetroAchievements and Steam request endpoints backed by backend-owned secrets.
 
-6. `SteamOS UI Pass 1 - Minimal dev shell`
-   - Likely files: future platform shell files.
-   - Non-goals: Decky UI changes or release packaging merge.
+6. `SteamOS Adapter Pass 1 - Mock local backend TypeScript adapters`
+   - Added in-memory SteamOS backend client/adapters and adapter tests.
+
+7. `SteamOS Adapter Pass 2 - Runtime harness with local backend adapters`
+   - Added `createAppRuntime` composition coverage using mocked backend responses.
+
+8. `SteamOS Backend Pass 5 - Local backend HTTP smoke tests`
+   - Added real localhost HTTP smoke coverage using fake provider requesters only.
+
+Remaining:
+
+1. `SteamOS Backend Pass 6 - Python launcher/CLI wrapper`
+   - Start and own the local backend process, write runtime metadata, and support clean shutdown.
+
+2. `SteamOS Backend Pass 7 - Runtime metadata handoff`
+   - Define how the future shell passes `baseUrl` and bearer token to the frontend in memory.
+
+3. `SteamOS Adapter Pass 3 - Real client to live local backend integration`
+   - Exercise the TypeScript client against the real Python backend.
+
+4. `SteamOS Backend Pass 8 - Cache endpoint or file-backed cache strategy`
+   - Decide whether caches stay frontend-local, move to backend endpoints, or use a shell-owned bridge.
+
+5. `SteamOS UI Pass 1 - Minimal dev shell`
+   - Add the smallest SteamOS shell that can launch the backend and host the frontend.
+
+6. `SteamOS Packaging Pass 1 - Separate SteamOS artifact`
+   - Define a SteamOS packaging story that remains isolated from Decky release artifacts.
 
 ## Risks and Mitigations
 
