@@ -1,6 +1,6 @@
 # SteamOS Local Backend Contract
 
-This document describes the current backend boundary for a future non-Decky SteamOS runtime. A test-backed local Python backend skeleton now exists, along with backend helper modules and TypeScript SteamOS adapters. No SteamOS UI, dev shell, launcher, or SteamOS-specific package exists yet.
+This document describes the current backend boundary for a future non-Decky SteamOS runtime. A test-backed local Python backend skeleton, backend-only launcher scaffold, backend helper modules, and TypeScript SteamOS adapters now exist. No SteamOS UI, dev shell, or SteamOS-specific package exists yet.
 
 ## Scope and Non-Goals
 
@@ -16,7 +16,7 @@ Non-goals:
 - Adding a SteamOS UI or dev shell in this phase.
 - Claiming Steam Deck Game Mode parity.
 - Claiming strong encryption for the current local secret record scheme.
-- Adding a production launcher or process manager in this phase.
+- Adding a production SteamOS app-shell process manager in this phase.
 - Adding SteamOS packaging in this phase.
 
 ## Runtime Shape
@@ -266,7 +266,7 @@ Future SteamOS adapters should implement existing platform contracts:
 
 Decky packaging remains unchanged in purpose: the Decky release ZIP contains Decky assets, `main.py`, and the reusable `backend/*.py` helper modules needed by `main.py`.
 
-SteamOS packaging should be a separate future artifact. It may reuse `backend/*.py`, but SteamOS server/runtime files must not silently appear in the Decky ZIP. Today, `backend/local_server.py` and `backend/paths.py` remain excluded from the Decky ZIP. Release checks should remain strict and explicit for each package.
+SteamOS packaging should be a separate future artifact. It may reuse `backend/*.py`, but SteamOS server/runtime files must not silently appear in the Decky ZIP. Today, `backend/local_launcher.py`, `backend/local_server.py`, and `backend/paths.py` remain excluded from the Decky ZIP. Release checks should remain strict and explicit for each package.
 
 ## Implementation Sequence
 
@@ -296,24 +296,24 @@ Completed:
 8. `SteamOS Backend Pass 5 - Local backend HTTP smoke tests`
    - Added real localhost HTTP smoke coverage using fake provider requesters only.
 
+9. `SteamOS Backend Pass 6 - Python launcher/CLI wrapper`
+   - Added a backend-only launcher scaffold that starts the local backend, writes runtime metadata, and supports clean shutdown.
+
 Remaining:
 
-1. `SteamOS Backend Pass 6 - Python launcher/CLI wrapper`
-   - Start and own the local backend process, write runtime metadata, and support clean shutdown.
-
-2. `SteamOS Backend Pass 7 - Runtime metadata handoff`
+1. `SteamOS Backend Pass 7 - Runtime metadata handoff`
    - Define how the future shell passes `baseUrl` and bearer token to the frontend in memory.
 
-3. `SteamOS Adapter Pass 3 - Real client to live local backend integration`
+2. `SteamOS Adapter Pass 3 - Real client to live local backend integration`
    - Exercise the TypeScript client against the real Python backend.
 
-4. `SteamOS Backend Pass 8 - Cache endpoint or file-backed cache strategy`
+3. `SteamOS Backend Pass 8 - Cache endpoint or file-backed cache strategy`
    - Decide whether caches stay frontend-local, move to backend endpoints, or use a shell-owned bridge.
 
-5. `SteamOS UI Pass 1 - Minimal dev shell`
+4. `SteamOS UI Pass 1 - Minimal dev shell`
    - Add the smallest SteamOS shell that can launch the backend and host the frontend.
 
-6. `SteamOS Packaging Pass 1 - Separate SteamOS artifact`
+5. `SteamOS Packaging Pass 1 - Separate SteamOS artifact`
    - Define a SteamOS packaging story that remains isolated from Decky release artifacts.
 
 ## Risks and Mitigations
