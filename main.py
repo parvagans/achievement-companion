@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import json
-import os
 from pathlib import Path
 from typing import Any, Mapping
 
 import decky
+from backend.http import request_json as _backend_request_json
+from backend.tls import get_backend_http_ssl_context as _backend_get_backend_http_ssl_context
+from backend.tls import get_backend_http_ssl_context_source as _backend_get_backend_http_ssl_context_source
+from backend.tls import sanitize_backend_runtime_environment as _sanitize_backend_runtime_environment
 from backend.redaction import is_secret_key as _is_secret_key
 from backend.redaction import redact_text as _redact_text
 from backend.redaction import redact_value as _redact_value
@@ -30,30 +33,10 @@ from backend.storage import quarantine_corrupt_json_file as _quarantine_corrupt_
 from backend.storage import read_json_file as _read_json_file
 from backend.storage import write_json_file as _write_json_file
 
-REQUEST_TIMEOUT_SECONDS = 20
-SLOW_PROVIDER_REQUEST_LOG_THRESHOLD_MS = 2000
-BACKEND_HTTP_USER_AGENT = "Achievement Companion Decky Plugin"
-BACKEND_HTTP_CA_CANDIDATES = (
-  ("system-cert.pem", Path("/etc/ssl/cert.pem")),
-  ("system-ca-certificates.crt", Path("/etc/ssl/certs/ca-certificates.crt")),
-  ("system-tls-ca-bundle.pem", Path("/etc/ca-certificates/extracted/tls-ca-bundle.pem")),
-)
-
 SETTINGS_PATH = Path(decky.DECKY_PLUGIN_SETTINGS_DIR)
 LOGS_PATH = SETTINGS_PATH.parent.parent / "logs" / "achievement-companion"
 CONFIG_PATH = SETTINGS_PATH / "provider-config.json"
 SECRETS_PATH = SETTINGS_PATH / "provider-secrets.json"
-
-
-def _sanitize_backend_runtime_environment() -> None:
-  ld_library_path = os.environ.get("LD_LIBRARY_PATH")
-  if ld_library_path is None:
-    return
-
-  if "/tmp/_MEI" not in ld_library_path:
-    return
-
-  os.environ.pop("LD_LIBRARY_PATH", None)
 
 
 _sanitize_backend_runtime_environment()
@@ -144,60 +127,12 @@ def _resolve_api_key(payload: Mapping[str, Any], provider_key: str) -> str | Non
   return existing_api_key
 
 
-_backend_http_ssl_context = None
-_backend_http_ssl_context_source: str | None = None
-
-
-def _select_backend_ca_source() -> tuple[str | None, str | None]:
-  for label, candidate in BACKEND_HTTP_CA_CANDIDATES:
-    if candidate.exists():
-      return str(candidate), label
-
-  try:
-    import certifi
-  except Exception:
-    certifi = None
-
-  if certifi is not None:
-    candidate = Path(certifi.where())
-    if candidate.exists():
-      return str(candidate), "certifi"
-
-  return None, None
-
-
 def _get_backend_http_ssl_context():
-  global _backend_http_ssl_context
-  global _backend_http_ssl_context_source
-
-  if _backend_http_ssl_context is not None:
-    return _backend_http_ssl_context
-
-  import ssl
-
-  ca_file, source = _select_backend_ca_source()
-  if ca_file is not None:
-    try:
-      _backend_http_ssl_context = ssl.create_default_context(cafile=ca_file)
-      _backend_http_ssl_context_source = source or ca_file
-    except OSError as cause:
-      decky.logger.warning(
-        "Unable to load backend TLS CA file",
-        extra={"path": ca_file, "error": str(cause)},
-      )
-
-  if _backend_http_ssl_context is None:
-    _backend_http_ssl_context = ssl.create_default_context()
-    _backend_http_ssl_context_source = "default"
-
-  return _backend_http_ssl_context
+  return _backend_get_backend_http_ssl_context(log=_log)
 
 
 def _get_backend_http_ssl_context_source() -> str:
-  if _backend_http_ssl_context_source is None:
-    _get_backend_http_ssl_context()
-
-  return _backend_http_ssl_context_source or "default"
+  return _backend_get_backend_http_ssl_context_source()
 
 
 def _request_json(
@@ -210,97 +145,17 @@ def _request_json(
   auth_query: Mapping[str, Any],
   handled_http_statuses: set[int] | None = None,
 ) -> Any:
-  from urllib.error import HTTPError, URLError
-  from urllib.parse import urlencode, urljoin
-  from urllib.request import Request, urlopen
-
-  loop = asyncio.get_running_loop()
-  started_at = loop.time()
-  request_url = urljoin(base_url, path)
-  request_query: dict[str, Any] = {}
-  if query is not None:
-    for key, value in query.items():
-      if value is not None:
-        request_query[key] = value
-  for key, value in auth_query.items():
-    if value is not None:
-      request_query[key] = value
-
-  full_url = f"{request_url}?{urlencode(request_query, doseq=True)}" if request_query else request_url
-  request = Request(
-    full_url,
-    headers={
-      "Accept": "application/json",
-      "User-Agent": BACKEND_HTTP_USER_AGENT,
-    },
-    method="GET",
+  return _backend_request_json(
+    provider_id=provider_id,
+    provider_label=provider_label,
+    base_url=base_url,
+    path=path,
+    query=query,
+    auth_query=auth_query,
+    handled_http_statuses=handled_http_statuses,
+    log=_log,
+    get_ssl_context=_get_backend_http_ssl_context,
   )
-
-  try:
-    with urlopen(request, timeout=REQUEST_TIMEOUT_SECONDS, context=_get_backend_http_ssl_context()) as response:
-      body = response.read().decode("utf-8")
-      duration_ms = int((loop.time() - started_at) * 1000)
-      if duration_ms >= SLOW_PROVIDER_REQUEST_LOG_THRESHOLD_MS:
-        _log(
-          "info",
-          "Slow provider request",
-          providerId=provider_id,
-          path=path,
-          durationMs=duration_ms,
-        )
-      if body.strip() == "":
-        return None
-      return json.loads(body)
-  except HTTPError as cause:
-    duration_ms = int((loop.time() - started_at) * 1000)
-
-    if handled_http_statuses is not None and cause.code in handled_http_statuses:
-      response_body = ""
-      try:
-        response_body = cause.read().decode("utf-8").strip()
-      except Exception:
-        response_body = ""
-
-      return {
-        "handledHttpError": True,
-        "status": cause.code,
-        "statusText": _redact_text(str(getattr(cause, "reason", ""))) if getattr(cause, "reason", None) else "",
-        "message": _redact_text(response_body) if response_body != "" else f"HTTP {cause.code}",
-        "durationMs": duration_ms,
-      }
-
-    _log(
-      "warning",
-      f"{provider_label} request failed",
-      providerId=provider_id,
-      path=path,
-      status=getattr(cause, "code", None),
-      reason=getattr(cause, "reason", None),
-      durationMs=duration_ms,
-    )
-    raise RuntimeError(f"{provider_label} request failed with HTTP {getattr(cause, 'code', 'unknown')}.") from cause
-  except URLError as cause:
-    duration_ms = int((loop.time() - started_at) * 1000)
-    _log(
-      "warning",
-      f"{provider_label} request failed",
-      providerId=provider_id,
-      path=path,
-      error=str(cause),
-      durationMs=duration_ms,
-    )
-    raise RuntimeError(f"{provider_label} request failed due to a network error.") from cause
-  except json.JSONDecodeError as cause:
-    duration_ms = int((loop.time() - started_at) * 1000)
-    _log(
-      "warning",
-      f"{provider_label} response decode failed",
-      providerId=provider_id,
-      path=path,
-      error=str(cause),
-      durationMs=duration_ms,
-    )
-    raise RuntimeError(f"{provider_label} returned invalid JSON.") from cause
 
 
 class Plugin:

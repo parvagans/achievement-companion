@@ -6,6 +6,8 @@ import importlib.util
 import json
 import os
 import io
+import backend.http as backend_http
+import backend.tls as backend_tls
 import urllib.error
 import urllib.request
 import ssl
@@ -460,7 +462,7 @@ class BackendRuntimeTests(unittest.TestCase):
       original_logger = FAKE_DECKY.logger
       capture_logger = CapturingDeckyLogger()
       FAKE_DECKY.logger = capture_logger
-      original_urlopen = urllib.request.urlopen
+      original_urlopen = backend_http.urlopen
 
       def fake_urlopen(*args, **kwargs):  # noqa: ANN001, ANN002, ANN003
         raise urllib.error.HTTPError(
@@ -471,7 +473,7 @@ class BackendRuntimeTests(unittest.TestCase):
           fp=io.BytesIO(b"Access is denied."),
         )
 
-      urllib.request.urlopen = fake_urlopen  # type: ignore[assignment]
+      backend_http.urlopen = fake_urlopen  # type: ignore[assignment]
       try:
         module = load_main_module(Path(temp_dir))
         module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
@@ -489,7 +491,7 @@ class BackendRuntimeTests(unittest.TestCase):
 
         handled_response = asyncio.run(invoke_request())
       finally:
-        urllib.request.urlopen = original_urlopen  # type: ignore[assignment]
+        backend_http.urlopen = original_urlopen  # type: ignore[assignment]
         FAKE_DECKY.logger = original_logger
 
       rendered = "\n".join(message for _, message in capture_logger.records)
@@ -508,7 +510,7 @@ class BackendRuntimeTests(unittest.TestCase):
       original_logger = FAKE_DECKY.logger
       capture_logger = CapturingDeckyLogger()
       FAKE_DECKY.logger = capture_logger
-      original_urlopen = urllib.request.urlopen
+      original_urlopen = backend_http.urlopen
       calls: list[tuple[str, int | None]] = []
 
       class FakeResponse:
@@ -529,7 +531,7 @@ class BackendRuntimeTests(unittest.TestCase):
         self.assertIsNotNone(context)
         return FakeResponse(b'{"ok": true, "count": 3}')
 
-      urllib.request.urlopen = fake_urlopen  # type: ignore[assignment]
+      backend_http.urlopen = fake_urlopen  # type: ignore[assignment]
       try:
         module = load_main_module(Path(temp_dir))
         module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
@@ -546,7 +548,7 @@ class BackendRuntimeTests(unittest.TestCase):
 
         result = asyncio.run(invoke_request())
       finally:
-        urllib.request.urlopen = original_urlopen  # type: ignore[assignment]
+        backend_http.urlopen = original_urlopen  # type: ignore[assignment]
         FAKE_DECKY.logger = original_logger
 
       rendered = "\n".join(message for _, message in capture_logger.records)
@@ -562,7 +564,7 @@ class BackendRuntimeTests(unittest.TestCase):
       original_logger = FAKE_DECKY.logger
       capture_logger = CapturingDeckyLogger()
       FAKE_DECKY.logger = capture_logger
-      original_urlopen = urllib.request.urlopen
+      original_urlopen = backend_http.urlopen
 
       def fake_urlopen(*args, **kwargs):  # noqa: ANN001, ANN002, ANN003
         raise urllib.error.HTTPError(
@@ -573,7 +575,7 @@ class BackendRuntimeTests(unittest.TestCase):
           fp=io.BytesIO(b"Access is denied."),
         )
 
-      urllib.request.urlopen = fake_urlopen  # type: ignore[assignment]
+      backend_http.urlopen = fake_urlopen  # type: ignore[assignment]
       try:
         module = load_main_module(Path(temp_dir))
         module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
@@ -591,7 +593,7 @@ class BackendRuntimeTests(unittest.TestCase):
 
         asyncio.run(invoke_request())
       finally:
-        urllib.request.urlopen = original_urlopen  # type: ignore[assignment]
+        backend_http.urlopen = original_urlopen  # type: ignore[assignment]
         FAKE_DECKY.logger = original_logger
 
       rendered = "\n".join(message for _, message in capture_logger.records)
@@ -606,7 +608,7 @@ class BackendRuntimeTests(unittest.TestCase):
       original_logger = FAKE_DECKY.logger
       capture_logger = CapturingDeckyLogger()
       FAKE_DECKY.logger = capture_logger
-      original_urlopen = urllib.request.urlopen
+      original_urlopen = backend_http.urlopen
 
       class FakeResponse:
         def __enter__(self) -> "FakeResponse":
@@ -621,7 +623,7 @@ class BackendRuntimeTests(unittest.TestCase):
       def fake_urlopen(request, timeout=None, context=None):  # noqa: ANN001, ANN002, ANN003
         return FakeResponse()
 
-      urllib.request.urlopen = fake_urlopen  # type: ignore[assignment]
+      backend_http.urlopen = fake_urlopen  # type: ignore[assignment]
       try:
         module = load_main_module(Path(temp_dir))
         module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
@@ -639,7 +641,7 @@ class BackendRuntimeTests(unittest.TestCase):
 
         asyncio.run(invoke_request())
       finally:
-        urllib.request.urlopen = original_urlopen  # type: ignore[assignment]
+        backend_http.urlopen = original_urlopen  # type: ignore[assignment]
         FAKE_DECKY.logger = original_logger
 
       rendered = "\n".join(message for _, message in capture_logger.records)
@@ -679,9 +681,10 @@ class BackendRuntimeTests(unittest.TestCase):
 
         cafile = Path(temp_dir) / "custom-ca.pem"
         cafile.write_text("dummy ca file", encoding="utf-8")
-        module.BACKEND_HTTP_CA_CANDIDATES = (("custom-ca", cafile),)  # type: ignore[attr-defined]
-        module._backend_http_ssl_context = None  # type: ignore[attr-defined]
-        module._backend_http_ssl_context_source = None  # type: ignore[attr-defined]
+        original_select_backend_ca_source = backend_tls.select_backend_ca_source
+        backend_tls.select_backend_ca_source = lambda candidates=None: (str(cafile), "custom-ca")  # type: ignore[assignment]
+        backend_tls._backend_http_ssl_context = None  # type: ignore[attr-defined]
+        backend_tls._backend_http_ssl_context_source = None  # type: ignore[attr-defined]
 
         captured: dict[str, str | None] = {}
         original_create_default_context = ssl.create_default_context
@@ -693,12 +696,13 @@ class BackendRuntimeTests(unittest.TestCase):
 
         ssl.create_default_context = fake_create_default_context  # type: ignore[assignment]
         try:
-          context = module._get_backend_http_ssl_context()  # type: ignore[attr-defined]
+          context = backend_tls.get_backend_http_ssl_context()
         finally:
           ssl.create_default_context = original_create_default_context  # type: ignore[assignment]
+          backend_tls.select_backend_ca_source = original_select_backend_ca_source  # type: ignore[assignment]
 
         self.assertEqual(captured["cafile"], str(cafile))
-        self.assertEqual(module._get_backend_http_ssl_context_source(), "custom-ca")  # type: ignore[attr-defined]
+        self.assertEqual(backend_tls.get_backend_http_ssl_context_source(), "custom-ca")
         self.assertEqual(context.verify_mode, ssl.CERT_REQUIRED)
         self.assertTrue(context.check_hostname)
     finally:
@@ -719,6 +723,8 @@ class BackendRuntimeTests(unittest.TestCase):
       self.assertTrue((staged_dir / "backend" / "secrets.py").exists())
       self.assertTrue((staged_dir / "backend" / "storage.py").exists())
       self.assertTrue((staged_dir / "backend" / "provider_config.py").exists())
+      self.assertTrue((staged_dir / "backend" / "http.py").exists())
+      self.assertTrue((staged_dir / "backend" / "tls.py").exists())
 
       zip_path = package_release.create_release_zip(
         root_dir=ROOT_DIR,
@@ -733,6 +739,8 @@ class BackendRuntimeTests(unittest.TestCase):
         self.assertIn("achievement-companion/backend/secrets.py", set(archive.namelist()))
         self.assertIn("achievement-companion/backend/provider_config.py", set(archive.namelist()))
         self.assertIn("achievement-companion/backend/storage.py", set(archive.namelist()))
+        self.assertIn("achievement-companion/backend/http.py", set(archive.namelist()))
+        self.assertIn("achievement-companion/backend/tls.py", set(archive.namelist()))
 
 
 if __name__ == "__main__":

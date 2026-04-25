@@ -14,6 +14,8 @@ STAGE_DIR = RELEASE_DIR / "staged" / "achievement-companion"
 REQUIRED_RELATIVE_PATHS: tuple[Path, ...] = (
   Path("main.py"),
   Path("backend/__init__.py"),
+  Path("backend/http.py"),
+  Path("backend/tls.py"),
   Path("backend/redaction.py"),
   Path("backend/secrets.py"),
   Path("backend/storage.py"),
@@ -74,6 +76,10 @@ def stage_release_package(root_dir: Path = ROOT_DIR, stage_dir: Path = STAGE_DIR
     raise RuntimeError("Staged release output is missing main.py.")
   if not (stage_dir / "backend" / "__init__.py").exists():
     raise RuntimeError("Staged release output is missing backend/__init__.py.")
+  if not (stage_dir / "backend" / "http.py").exists():
+    raise RuntimeError("Staged release output is missing backend/http.py.")
+  if not (stage_dir / "backend" / "tls.py").exists():
+    raise RuntimeError("Staged release output is missing backend/tls.py.")
 
   return stage_dir
 
@@ -89,6 +95,10 @@ def verify_staged_release_package(stage_dir: Path = STAGE_DIR) -> None:
     raise RuntimeError("Staged release output is missing backend/provider_config.py.")
   if not (stage_dir / "backend" / "diagnostics.py").exists():
     raise RuntimeError("Staged release output is missing backend/diagnostics.py.")
+  if not (stage_dir / "backend" / "http.py").exists():
+    raise RuntimeError("Staged release output is missing backend/http.py.")
+  if not (stage_dir / "backend" / "tls.py").exists():
+    raise RuntimeError("Staged release output is missing backend/tls.py.")
 
 def create_release_zip(
   *,
