@@ -19,7 +19,13 @@ from backend.paths import BackendPaths, resolve_steamos_backend_paths
 
 _THREAD_JOIN_TIMEOUT_SECONDS = 5.0
 _RUNTIME_METADATA_PATH = "/__achievement_companion__/runtime"
+_BOOTSTRAP_ASSET_PATH = "/assets/steamos-bootstrap.js"
 _SHELL_MARKER = "Achievement Companion SteamOS dev shell"
+_BOOTSTRAP_ASSET_BODY = (
+  "\"use strict\";\n"
+  "// Placeholder dev-shell bootstrap asset until a dedicated SteamOS bundle exists.\n"
+  "window.__ACHIEVEMENT_COMPANION_STEAMOS_DEV_SHELL__ = true;\n"
+)
 
 
 class SteamOSDevShellHTTPServer(HTTPServer):
@@ -81,6 +87,10 @@ class SteamOSDevShellRequestHandler(BaseHTTPRequestHandler):
       self._send_html(200, _build_shell_html())
       return
 
+    if path == _BOOTSTRAP_ASSET_PATH:
+      self._send_javascript(200, _BOOTSTRAP_ASSET_BODY)
+      return
+
     if path == _RUNTIME_METADATA_PATH:
       self._send_runtime_metadata()
       return
@@ -128,6 +138,15 @@ class SteamOSDevShellRequestHandler(BaseHTTPRequestHandler):
     self.end_headers()
     self.wfile.write(response)
 
+  def _send_javascript(self, status: int, body: str) -> None:
+    response = body.encode("utf-8")
+    self.send_response(status)
+    self.send_header("Content-Type", "application/javascript; charset=utf-8")
+    self.send_header("Content-Length", str(len(response)))
+    self.send_header("Cache-Control", "no-store")
+    self.end_headers()
+    self.wfile.write(response)
+
   def _send_json(self, status: int, payload: Mapping[str, Any]) -> None:
     response = json.dumps(dict(payload), sort_keys=True).encode("utf-8")
     self.send_response(status)
@@ -158,6 +177,7 @@ def _build_shell_html() -> str:
     "  </head>\n"
     "  <body>\n"
     f"    <div id=\"root\">{marker}</div>\n"
+    f"    <script src=\"{_BOOTSTRAP_ASSET_PATH}\" defer></script>\n"
     "  </body>\n"
     "</html>\n"
   )

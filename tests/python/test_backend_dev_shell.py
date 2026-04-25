@@ -85,12 +85,34 @@ class SteamOSDevShellTests(unittest.TestCase):
         self.assertIn("text/html", headers.get("Content-Type", ""))
         self.assertIn("Achievement Companion SteamOS dev shell", html)
         self.assertIn('id="root"', html)
+        self.assertIn('src="/assets/steamos-bootstrap.js"', html)
         self.assertNotIn(runtime.backend_runtime.token, html)
         self.assertNotIn("provider-secrets", html)
         self.assertNotIn("apiKey", html)
         self.assertNotIn("Authorization", html)
         self.assertNotIn('"token"', html)
         self.assertNotIn('"startedAt"', html)
+      finally:
+        runtime.shutdown()
+
+  def test_bootstrap_asset_is_token_free_javascript_placeholder(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      paths = _build_test_backend_paths(Path(temp_dir))
+      runtime = dev_shell.start_steamos_dev_shell(paths=paths)
+      try:
+        status, body, headers = _request(f"{runtime.shell_url}/assets/steamos-bootstrap.js")
+        asset_text = body.decode("utf-8")
+
+        self.assertEqual(status, 200)
+        self.assertIn("application/javascript", headers.get("Content-Type", ""))
+        self.assertEqual(headers.get("Cache-Control"), "no-store")
+        self.assertIn("__ACHIEVEMENT_COMPANION_STEAMOS_DEV_SHELL__", asset_text)
+        self.assertIn("Placeholder dev-shell bootstrap asset", asset_text)
+        self.assertNotIn(runtime.backend_runtime.token, asset_text)
+        self.assertNotIn("apiKey", asset_text)
+        self.assertNotIn("provider-secrets", asset_text)
+        self.assertNotIn("Authorization", asset_text)
+        self.assertNotIn('"token"', asset_text)
       finally:
         runtime.shutdown()
 
@@ -175,7 +197,17 @@ class SteamOSDevShellTests(unittest.TestCase):
         self.assertEqual(status, 404)
         self.assertEqual(payload["error"], "not_found")
 
-        for unsafe_path in ("/../backend/dev_shell.py", "/%2e%2e/backend/dev_shell.py", "/foo\\bar"):
+        status, payload, _ = _request_json(f"{runtime.shell_url}/assets/unknown.js")
+        self.assertEqual(status, 404)
+        self.assertEqual(payload["error"], "not_found")
+
+        for unsafe_path in (
+          "/../backend/dev_shell.py",
+          "/%2e%2e/backend/dev_shell.py",
+          "/assets/../backend/dev_shell.py",
+          "/assets/%2e%2e/backend/dev_shell.py",
+          "/foo\\bar",
+        ):
           status, payload, _ = _request_json(f"{runtime.shell_url}{unsafe_path}")
           self.assertIn(status, {400, 404})
           self.assertIn(payload["error"], {"invalid_path", "not_found"})
