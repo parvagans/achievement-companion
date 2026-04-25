@@ -21,6 +21,7 @@ _THREAD_JOIN_TIMEOUT_SECONDS = 5.0
 _RUNTIME_METADATA_PATH = "/__achievement_companion__/runtime"
 _BOOTSTRAP_ASSET_PATH = "/assets/steamos-bootstrap.js"
 _SHELL_MARKER = "Achievement Companion SteamOS dev shell"
+_REPO_ROOT = Path(__file__).resolve().parents[1]
 _BOOTSTRAP_ASSET_BODY = (
   "\"use strict\";\n"
   "// Placeholder dev-shell bootstrap asset until a dedicated SteamOS bundle exists.\n"
@@ -34,9 +35,11 @@ class SteamOSDevShellHTTPServer(HTTPServer):
     server_address: tuple[str, int],
     *,
     backend_runtime: LocalBackendRuntime | None = None,
+    asset_root: Path | None = None,
   ) -> None:
     super().__init__(server_address, SteamOSDevShellRequestHandler)
     self.backend_runtime = backend_runtime
+    self.asset_root = asset_root or _REPO_ROOT
 
 
 @dataclass
@@ -88,7 +91,7 @@ class SteamOSDevShellRequestHandler(BaseHTTPRequestHandler):
       return
 
     if path == _BOOTSTRAP_ASSET_PATH:
-      self._send_javascript(200, _BOOTSTRAP_ASSET_BODY)
+      self._send_javascript(200, _load_steamos_bootstrap_asset(self.server.asset_root))
       return
 
     if path == _RUNTIME_METADATA_PATH:
@@ -183,10 +186,27 @@ def _build_shell_html() -> str:
   )
 
 
-def _create_shell_server(*, host: str = LOCAL_BACKEND_HOST, port: int = 0) -> SteamOSDevShellHTTPServer:
+def _get_steamos_bootstrap_asset_path(asset_root: Path | None = None) -> Path:
+  return (asset_root or _REPO_ROOT) / "dist-steamos" / "steamos-bootstrap.js"
+
+
+def _load_steamos_bootstrap_asset(asset_root: Path | None = None) -> str:
+  asset_path = _get_steamos_bootstrap_asset_path(asset_root)
+  try:
+    return asset_path.read_text(encoding="utf-8")
+  except OSError:
+    return _BOOTSTRAP_ASSET_BODY
+
+
+def _create_shell_server(
+  *,
+  host: str = LOCAL_BACKEND_HOST,
+  port: int = 0,
+  asset_root: Path | None = None,
+) -> SteamOSDevShellHTTPServer:
   if host != LOCAL_BACKEND_HOST:
     raise ValueError("SteamOS dev shell must bind to 127.0.0.1.")
-  return SteamOSDevShellHTTPServer((host, port))
+  return SteamOSDevShellHTTPServer((host, port), asset_root=asset_root)
 
 
 def start_steamos_dev_shell(
@@ -198,11 +218,12 @@ def start_steamos_dev_shell(
   shell_host: str = LOCAL_BACKEND_HOST,
   shell_port: int = 0,
   backend_port: int = 0,
+  asset_root: Path | None = None,
   context: LocalBackendContext | None = None,
   cleanup_metadata: bool = True,
 ) -> SteamOSDevShellRuntime:
   resolved_paths = paths or (context.paths if context is not None else resolve_steamos_backend_paths(env=env, home=home))
-  shell_server = _create_shell_server(host=shell_host, port=shell_port)
+  shell_server = _create_shell_server(host=shell_host, port=shell_port, asset_root=asset_root)
   shell_origin = f"http://{shell_server.server_address[0]}:{shell_server.server_address[1]}"
 
   try:

@@ -98,7 +98,7 @@ class SteamOSDevShellTests(unittest.TestCase):
   def test_bootstrap_asset_is_token_free_javascript_placeholder(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
       paths = _build_test_backend_paths(Path(temp_dir))
-      runtime = dev_shell.start_steamos_dev_shell(paths=paths)
+      runtime = dev_shell.start_steamos_dev_shell(paths=paths, asset_root=Path(temp_dir))
       try:
         status, body, headers = _request(f"{runtime.shell_url}/assets/steamos-bootstrap.js")
         asset_text = body.decode("utf-8")
@@ -113,6 +113,36 @@ class SteamOSDevShellTests(unittest.TestCase):
         self.assertNotIn("provider-secrets", asset_text)
         self.assertNotIn("Authorization", asset_text)
         self.assertNotIn('"token"', asset_text)
+      finally:
+        runtime.shutdown()
+
+  def test_bootstrap_asset_serves_built_dist_steamos_file_when_present(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      root = Path(temp_dir)
+      asset_root = root / "repo-root"
+      asset_path = asset_root / "dist-steamos" / "steamos-bootstrap.js"
+      asset_path.parent.mkdir(parents=True, exist_ok=True)
+      asset_path.write_text(
+        "\"use strict\";\nwindow.__STEAMOS_BUNDLE_READY__ = true;\n",
+        encoding="utf-8",
+      )
+
+      runtime = dev_shell.start_steamos_dev_shell(
+        paths=_build_test_backend_paths(root),
+        asset_root=asset_root,
+      )
+      try:
+        status, body, headers = _request(f"{runtime.shell_url}/assets/steamos-bootstrap.js")
+        asset_text = body.decode("utf-8")
+
+        self.assertEqual(status, 200)
+        self.assertIn("application/javascript", headers.get("Content-Type", ""))
+        self.assertEqual(headers.get("Cache-Control"), "no-store")
+        self.assertIn("__STEAMOS_BUNDLE_READY__", asset_text)
+        self.assertNotIn("__ACHIEVEMENT_COMPANION_STEAMOS_DEV_SHELL__", asset_text)
+        self.assertNotIn(runtime.backend_runtime.token, asset_text)
+        self.assertNotIn("apiKey", asset_text)
+        self.assertNotIn("Authorization", asset_text)
       finally:
         runtime.shutdown()
 
@@ -242,6 +272,8 @@ class SteamOSDevShellTests(unittest.TestCase):
 
   def test_dev_shell_stays_out_of_decky_boundaries_and_release_payload(self) -> None:
     source = (ROOT_DIR / "backend" / "dev_shell.py").read_text(encoding="utf-8")
+    steamos_rollup = (ROOT_DIR / "rollup.steamos.config.js").read_text(encoding="utf-8")
+    decky_rollup = (ROOT_DIR / "rollup.config.js").read_text(encoding="utf-8")
     package_release = (ROOT_DIR / "scripts" / "package_release.py").read_text(encoding="utf-8")
     check_release = (ROOT_DIR / "scripts" / "check_release_artifact.py").read_text(encoding="utf-8")
 
@@ -250,7 +282,12 @@ class SteamOSDevShellTests(unittest.TestCase):
     self.assertNotIn("import main", source)
     self.assertNotIn("from main import", source)
     self.assertNotIn("OneDrive", source)
+    self.assertIn("./src/platform/steamos/bootstrap.tsx", steamos_rollup)
+    self.assertIn("dist-steamos/steamos-bootstrap.js", steamos_rollup)
+    self.assertNotIn("./src/platform/steamos/bootstrap.tsx", decky_rollup)
+    self.assertNotIn("dist-steamos", decky_rollup)
     for steam_os_only_path in (
+      "dist-steamos",
       "backend/dev_shell.py",
       "backend/local_launcher.py",
       "backend/local_server.py",
