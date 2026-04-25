@@ -33,3 +33,5 @@ coverage/
 release/
 releases/
 *.zip
+
+dist-steamos/
