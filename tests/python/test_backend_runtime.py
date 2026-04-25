@@ -714,6 +714,7 @@ class BackendRuntimeTests(unittest.TestCase):
       staged_dir = package_release.stage_release_package(root_dir=ROOT_DIR, stage_dir=stage_dir)
       self.assertTrue((staged_dir / "main.py").exists())
       self.assertTrue((staged_dir / "backend" / "__init__.py").exists())
+      self.assertTrue((staged_dir / "backend" / "diagnostics.py").exists())
       self.assertTrue((staged_dir / "backend" / "redaction.py").exists())
       self.assertTrue((staged_dir / "backend" / "secrets.py").exists())
       self.assertTrue((staged_dir / "backend" / "storage.py").exists())
@@ -727,6 +728,7 @@ class BackendRuntimeTests(unittest.TestCase):
       with zipfile.ZipFile(zip_path) as archive:
         self.assertIn("achievement-companion/main.py", set(archive.namelist()))
         self.assertIn("achievement-companion/backend/__init__.py", set(archive.namelist()))
+        self.assertIn("achievement-companion/backend/diagnostics.py", set(archive.namelist()))
         self.assertIn("achievement-companion/backend/redaction.py", set(archive.namelist()))
         self.assertIn("achievement-companion/backend/secrets.py", set(archive.namelist()))
         self.assertIn("achievement-companion/backend/provider_config.py", set(archive.namelist()))

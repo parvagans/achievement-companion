@@ -18,6 +18,7 @@ REQUIRED_RELATIVE_PATHS: tuple[Path, ...] = (
   Path("backend/secrets.py"),
   Path("backend/storage.py"),
   Path("backend/provider_config.py"),
+  Path("backend/diagnostics.py"),
   Path("package.json"),
   Path("plugin.json"),
   Path("README.md"),
@@ -86,7 +87,8 @@ def verify_staged_release_package(stage_dir: Path = STAGE_DIR) -> None:
     raise RuntimeError("Staged release output is missing backend/secrets.py.")
   if not (stage_dir / "backend" / "provider_config.py").exists():
     raise RuntimeError("Staged release output is missing backend/provider_config.py.")
-
+  if not (stage_dir / "backend" / "diagnostics.py").exists():
+    raise RuntimeError("Staged release output is missing backend/diagnostics.py.")
 
 def create_release_zip(
   *,

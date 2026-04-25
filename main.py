@@ -10,6 +10,7 @@ import decky
 from backend.redaction import is_secret_key as _is_secret_key
 from backend.redaction import redact_text as _redact_text
 from backend.redaction import redact_value as _redact_value
+from backend.diagnostics import sanitize_diagnostic_event as _sanitize_diagnostic_event
 from backend.provider_config import build_retroachievements_config_view as _build_retroachievements_config_view
 from backend.provider_config import build_steam_config_view as _build_steam_config_view
 from backend.provider_config import clear_provider_config as _provider_clear_provider_config
@@ -42,46 +43,6 @@ SETTINGS_PATH = Path(decky.DECKY_PLUGIN_SETTINGS_DIR)
 LOGS_PATH = SETTINGS_PATH.parent.parent / "logs" / "achievement-companion"
 CONFIG_PATH = SETTINGS_PATH / "provider-config.json"
 SECRETS_PATH = SETTINGS_PATH / "provider-secrets.json"
-
-DIAGNOSTIC_EVENT_MESSAGES = {
-  "dashboard_refresh_started": "Dashboard refresh started",
-  "dashboard_refresh_completed": "Dashboard refresh completed",
-  "dashboard_refresh_failed": "Dashboard refresh failed",
-  "steam_library_scan_started": "Steam library scan started",
-  "steam_library_scan_progress": "Steam library scan progress",
-  "steam_library_scan_completed": "Steam library scan completed",
-  "steam_library_scan_failed": "Steam library scan failed",
-}
-
-DIAGNOSTIC_EVENT_ALLOWED_FIELDS = {
-  "dashboard_refresh_started": ("providerId", "mode"),
-  "dashboard_refresh_completed": ("providerId", "mode", "durationMs", "source"),
-  "dashboard_refresh_failed": ("providerId", "mode", "durationMs", "errorKind"),
-  "steam_library_scan_started": ("providerId", "ownedGameCount"),
-  "steam_library_scan_progress": ("providerId", "ownedGameCount", "scannedGameCount", "skippedGameCount", "failedGameCount"),
-  "steam_library_scan_completed": (
-    "providerId",
-    "durationMs",
-    "ownedGameCount",
-    "scannedGameCount",
-    "gamesWithAchievements",
-    "skippedGameCount",
-    "failedGameCount",
-    "totalAchievements",
-    "unlockedAchievements",
-    "perfectGames",
-    "completionPercent",
-  ),
-  "steam_library_scan_failed": (
-    "providerId",
-    "durationMs",
-    "ownedGameCount",
-    "scannedGameCount",
-    "skippedGameCount",
-    "failedGameCount",
-    "errorKind",
-  ),
-}
 
 
 def _sanitize_backend_runtime_environment() -> None:
@@ -145,16 +106,6 @@ def _clear_secret_api_key(provider_key: str) -> None:
   _provider_clear_secret_api_key(SECRETS_PATH, provider_key, warn=_storage_warning)
 
 
-def _coerce_positive_int(value: Any) -> int | None:
-  if isinstance(value, bool):
-    return None
-
-  if isinstance(value, (int, float)) and value >= 0:
-    return int(value)
-
-  return None
-
-
 def _coerce_string(value: Any) -> str | None:
   if isinstance(value, str):
     trimmed = value.strip()
@@ -163,27 +114,11 @@ def _coerce_string(value: Any) -> str | None:
 
 
 def _record_diagnostic_event(payload: Mapping[str, Any]) -> bool:
-  event = _coerce_string(payload.get("event"))
-  if event is None or event not in DIAGNOSTIC_EVENT_MESSAGES:
+  diagnostic_event = _sanitize_diagnostic_event(payload)
+  if diagnostic_event is None:
     return False
 
-  allowed_fields = DIAGNOSTIC_EVENT_ALLOWED_FIELDS[event]
-  fields: dict[str, Any] = {}
-
-  for field_name in allowed_fields:
-    raw_value = payload.get(field_name)
-    if field_name in {"durationMs", "ownedGameCount", "scannedGameCount", "skippedGameCount", "failedGameCount", "gamesWithAchievements", "totalAchievements", "unlockedAchievements", "perfectGames", "completionPercent"}:
-      numeric_value = _coerce_positive_int(raw_value)
-      if numeric_value is not None:
-        fields[field_name] = numeric_value
-      continue
-
-    if field_name in {"providerId", "mode", "source", "errorKind"}:
-      coerced_value = _coerce_string(raw_value)
-      if coerced_value is not None:
-        fields[field_name] = coerced_value
-
-  _log("info", DIAGNOSTIC_EVENT_MESSAGES[event], **fields)
+  _log("info", diagnostic_event["message"], **diagnostic_event["fields"])
   return True
 
 
