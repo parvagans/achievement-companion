@@ -9,7 +9,7 @@ import unittest
 import urllib.error
 import urllib.request
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from backend import local_server
 
@@ -43,21 +43,30 @@ class _RunningServer:
     path: str,
     *,
     token: str | None = None,
+    authorization: str | None = None,
     body: dict[str, Any] | bytes | None = None,
     origin: str | None = None,
+    content_type: str | None = None,
+    extra_headers: Mapping[str, str] | None = None,
   ) -> tuple[int, dict[str, Any], dict[str, str]]:
     headers: dict[str, str] = {}
-    data = None
+    data: bytes | None = None
     if token is not None:
       headers["Authorization"] = f"Bearer {token}"
+    if authorization is not None:
+      headers["Authorization"] = authorization
     if origin is not None:
       headers["Origin"] = origin
     if isinstance(body, dict):
       data = json.dumps(body).encode("utf-8")
-      headers["Content-Type"] = "application/json"
+      headers["Content-Type"] = content_type or "application/json"
     elif isinstance(body, bytes):
       data = body
-      headers["Content-Type"] = "application/json"
+      headers["Content-Type"] = content_type or "application/json"
+    elif content_type is not None:
+      headers["Content-Type"] = content_type
+    if extra_headers is not None:
+      headers.update(extra_headers)
 
     request = urllib.request.Request(
       f"{self.base_url}{path}",
@@ -67,15 +76,17 @@ class _RunningServer:
     )
     try:
       with urllib.request.urlopen(request, timeout=5) as response:
+        raw_body = response.read().decode("utf-8")
         return (
           response.status,
-          json.loads(response.read().decode("utf-8")),
+          json.loads(raw_body) if raw_body else {},
           dict(response.headers.items()),
         )
     except urllib.error.HTTPError as error:
+      raw_body = error.read().decode("utf-8")
       return (
         error.code,
-        json.loads(error.read().decode("utf-8")),
+        json.loads(raw_body) if raw_body else {},
         dict(error.headers.items()),
       )
 
@@ -115,6 +126,10 @@ class BackendLocalServerTests(unittest.TestCase):
       )
       if os.name != "nt":
         self.assertEqual(stat.S_IMODE(metadata_path.stat().st_mode), 0o600)
+        self.assertEqual(stat.S_IMODE(metadata_path.parent.stat().st_mode), 0o700)
+
+  def test_runtime_metadata_path_is_absent_without_xdg_runtime_dir(self) -> None:
+    self.assertIsNone(local_server.resolve_runtime_metadata_path(env={}))
 
   def test_health_endpoint_is_public_and_secret_free(self) -> None:
     token = "server-token"
@@ -128,27 +143,30 @@ class BackendLocalServerTests(unittest.TestCase):
     self.assertNotIn(token, json.dumps(payload))
     self.assertNotEqual(headers.get("Access-Control-Allow-Origin"), "*")
 
-  def test_non_health_routes_reject_missing_and_wrong_tokens_without_echoing_tokens(self) -> None:
+  def test_authorization_parsing_rejects_missing_malformed_and_wrong_tokens(self) -> None:
     token = "correct-token"
     with _RunningServer(local_server.create_local_backend_server(token=token)) as running:
-      missing_status, missing_payload, _ = running.request_json(
-        "POST",
-        "/record_diagnostic_event",
-        body={"event": "dashboard_refresh_started"},
+      scenarios = (
+        None,
+        "Basic abc",
+        "Bearer",
+        "Bearer ",
+        "Bearer  wrong-token",
+        "Bearer wrong-token ",
+        "Bearer wrong-token",
       )
-      wrong_status, wrong_payload, _ = running.request_json(
-        "POST",
-        "/record_diagnostic_event",
-        token="wrong-token",
-        body={"event": "dashboard_refresh_started"},
-      )
-
-    self.assertEqual(missing_status, 401)
-    self.assertEqual(missing_payload, {"error": "unauthorized", "ok": False})
-    self.assertEqual(wrong_status, 401)
-    self.assertEqual(wrong_payload, {"error": "unauthorized", "ok": False})
-    self.assertNotIn(token, json.dumps(missing_payload))
-    self.assertNotIn("wrong-token", json.dumps(wrong_payload))
+      for authorization in scenarios:
+        status, payload, _ = running.request_json(
+          "POST",
+          "/record_diagnostic_event",
+          authorization=authorization,
+          body={"event": "dashboard_refresh_started"},
+        )
+        self.assertEqual(status, 401)
+        self.assertEqual(payload, {"error": "unauthorized", "ok": False})
+        self.assertNotIn(token, json.dumps(payload))
+        if authorization is not None:
+          self.assertNotIn(authorization, json.dumps(payload))
 
   def test_authorized_diagnostic_route_records_sanitized_events(self) -> None:
     token = "diagnostic-token"
@@ -192,7 +210,41 @@ class BackendLocalServerTests(unittest.TestCase):
     self.assertNotIn("raw-api-key", serialized_events)
     self.assertNotIn("Bearer secret", serialized_events)
 
-  def test_invalid_json_and_unknown_routes_return_safe_json(self) -> None:
+  def test_method_policy_returns_safe_errors(self) -> None:
+    token = "route-token"
+    with _RunningServer(local_server.create_local_backend_server(token=token)) as running:
+      health_status, health_payload, health_headers = running.request_json(
+        "POST",
+        "/health",
+      )
+      record_get_status, record_get_payload, _ = running.request_json(
+        "GET",
+        "/record_diagnostic_event",
+      )
+      delete_status, delete_payload, _ = running.request_json(
+        "DELETE",
+        "/record_diagnostic_event",
+        token=token,
+      )
+      unknown_status, unknown_payload, _ = running.request_json(
+        "PUT",
+        "/unknown",
+        token=token,
+      )
+
+    self.assertEqual(health_status, 405)
+    self.assertEqual(health_payload, {"error": "method_not_allowed", "ok": False})
+    self.assertEqual(health_headers.get("Allow"), "GET")
+    self.assertEqual(record_get_status, 405)
+    self.assertEqual(record_get_payload, {"error": "method_not_allowed", "ok": False})
+    self.assertEqual(delete_status, 405)
+    self.assertEqual(delete_payload, {"error": "method_not_allowed", "ok": False})
+    self.assertEqual(unknown_status, 404)
+    self.assertEqual(unknown_payload, {"error": "not_found", "ok": False})
+    self.assertNotIn(token, json.dumps(record_get_payload))
+    self.assertNotIn(token, json.dumps(delete_payload))
+
+  def test_json_request_validation_returns_safe_errors(self) -> None:
     token = "route-token"
     with _RunningServer(local_server.create_local_backend_server(token=token)) as running:
       invalid_status, invalid_payload, _ = running.request_json(
@@ -200,6 +252,26 @@ class BackendLocalServerTests(unittest.TestCase):
         "/record_diagnostic_event",
         token=token,
         body=b"{not-json",
+      )
+      empty_status, empty_payload, _ = running.request_json(
+        "POST",
+        "/record_diagnostic_event",
+        token=token,
+        body=None,
+        content_type="application/json",
+      )
+      wrong_type_status, wrong_type_payload, _ = running.request_json(
+        "POST",
+        "/record_diagnostic_event",
+        token=token,
+        body={"event": "dashboard_refresh_started"},
+        content_type="text/plain",
+      )
+      large_status, large_payload, _ = running.request_json(
+        "POST",
+        "/record_diagnostic_event",
+        token=token,
+        body=b"x" * (local_server.MAX_JSON_BODY_BYTES + 1),
       )
       unknown_status, unknown_payload, _ = running.request_json(
         "POST",
@@ -210,9 +282,18 @@ class BackendLocalServerTests(unittest.TestCase):
 
     self.assertEqual(invalid_status, 400)
     self.assertEqual(invalid_payload, {"error": "invalid_json", "ok": False})
+    self.assertEqual(empty_status, 400)
+    self.assertEqual(empty_payload, {"error": "invalid_json", "ok": False})
+    self.assertEqual(wrong_type_status, 415)
+    self.assertEqual(wrong_type_payload, {"error": "unsupported_media_type", "ok": False})
+    self.assertEqual(large_status, 413)
+    self.assertEqual(large_payload, {"error": "payload_too_large", "ok": False})
     self.assertEqual(unknown_status, 404)
     self.assertEqual(unknown_payload, {"error": "not_found", "ok": False})
     self.assertNotIn(token, json.dumps(invalid_payload))
+    self.assertNotIn(token, json.dumps(empty_payload))
+    self.assertNotIn(token, json.dumps(wrong_type_payload))
+    self.assertNotIn(token, json.dumps(large_payload))
     self.assertNotIn(token, json.dumps(unknown_payload))
 
   def test_default_origin_policy_does_not_emit_wildcard_cors(self) -> None:
@@ -250,6 +331,32 @@ class BackendLocalServerTests(unittest.TestCase):
     self.assertEqual(headers.get("Access-Control-Allow-Origin"), origin)
     self.assertNotEqual(headers.get("Access-Control-Allow-Origin"), "*")
 
+  def test_options_preflight_only_allows_explicit_origins(self) -> None:
+    token = "origin-token"
+    origin = "http://127.0.0.1:3000"
+    with _RunningServer(
+      local_server.create_local_backend_server(token=token, allowed_origins=(origin,)),
+    ) as running:
+      allowed_status, allowed_payload, allowed_headers = running.request_json(
+        "OPTIONS",
+        "/record_diagnostic_event",
+        origin=origin,
+      )
+      denied_status, denied_payload, denied_headers = running.request_json(
+        "OPTIONS",
+        "/record_diagnostic_event",
+        origin="https://example.invalid",
+      )
+
+    self.assertEqual(allowed_status, 204)
+    self.assertEqual(allowed_payload, {})
+    self.assertEqual(allowed_headers.get("Access-Control-Allow-Origin"), origin)
+    self.assertEqual(allowed_headers.get("Access-Control-Allow-Methods"), "POST, OPTIONS")
+    self.assertEqual(allowed_headers.get("Access-Control-Allow-Headers"), "Authorization, Content-Type")
+    self.assertEqual(denied_status, 403)
+    self.assertEqual(denied_payload, {"error": "origin_forbidden", "ok": False})
+    self.assertNotIn("Access-Control-Allow-Origin", denied_headers)
+
   def test_server_creation_rejects_non_localhost_bindings(self) -> None:
     with self.assertRaises(ValueError):
       local_server.create_local_backend_server(host="0.0.0.0")
@@ -263,6 +370,7 @@ class BackendLocalServerTests(unittest.TestCase):
     self.assertNotIn("from decky", source)
     self.assertNotIn("import main", source)
     self.assertNotIn("from main import", source)
+    self.assertNotIn("OneDrive", source)
     self.assertNotIn("backend/local_server.py", package_release)
     self.assertNotIn("backend/local_server.py", check_release)
 
