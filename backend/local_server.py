@@ -12,6 +12,16 @@ from tempfile import NamedTemporaryFile
 from typing import Any, Callable, Iterable, Mapping
 from urllib.parse import urlsplit
 
+from backend.cache import (
+  clear_dashboard_cache,
+  clear_steam_scan_cache,
+  read_dashboard_cache,
+  read_steam_scan_overview,
+  read_steam_scan_summary,
+  write_dashboard_cache,
+  write_steam_scan_overview,
+  write_steam_scan_summary,
+)
 from backend.diagnostics import sanitize_diagnostic_event
 from backend.http import request_json as backend_request_json
 from backend.paths import BackendPaths, resolve_steamos_backend_paths
@@ -299,6 +309,11 @@ def _clear_provider_credentials(
   return removed_any
 
 
+def _extract_object_payload_value(payload: Mapping[str, Any], field_name: str) -> Mapping[str, Any] | None:
+  value = payload.get(field_name)
+  return value if isinstance(value, Mapping) else None
+
+
 def _validate_provider_path(value: Any) -> str | None:
   path = _coerce_string(value)
   if path is None:
@@ -507,6 +522,14 @@ class LocalBackendRequestHandler(BaseHTTPRequestHandler):
       "/save_retroachievements_credentials",
       "/save_steam_credentials",
       "/clear_provider_credentials",
+      "/cache/dashboard/read",
+      "/cache/dashboard/write",
+      "/cache/dashboard/clear",
+      "/cache/steam-scan/read-overview",
+      "/cache/steam-scan/write-overview",
+      "/cache/steam-scan/read-summary",
+      "/cache/steam-scan/write-summary",
+      "/cache/steam-scan/clear",
       "/request_retroachievements_json",
       "/request_steam_json",
     }:
@@ -542,6 +565,30 @@ class LocalBackendRequestHandler(BaseHTTPRequestHandler):
     if path == "/clear_provider_credentials":
       self._handle_clear_provider_credentials()
       return
+    if path == "/cache/dashboard/read":
+      self._handle_cache_dashboard_read()
+      return
+    if path == "/cache/dashboard/write":
+      self._handle_cache_dashboard_write()
+      return
+    if path == "/cache/dashboard/clear":
+      self._handle_cache_dashboard_clear()
+      return
+    if path == "/cache/steam-scan/read-overview":
+      self._handle_cache_steam_scan_read_overview()
+      return
+    if path == "/cache/steam-scan/write-overview":
+      self._handle_cache_steam_scan_write_overview()
+      return
+    if path == "/cache/steam-scan/read-summary":
+      self._handle_cache_steam_scan_read_summary()
+      return
+    if path == "/cache/steam-scan/write-summary":
+      self._handle_cache_steam_scan_write_summary()
+      return
+    if path == "/cache/steam-scan/clear":
+      self._handle_cache_steam_scan_clear()
+      return
     if path == "/request_retroachievements_json":
       self._handle_request_retroachievements_json()
       return
@@ -560,6 +607,14 @@ class LocalBackendRequestHandler(BaseHTTPRequestHandler):
       "/save_retroachievements_credentials",
       "/save_steam_credentials",
       "/clear_provider_credentials",
+      "/cache/dashboard/read",
+      "/cache/dashboard/write",
+      "/cache/dashboard/clear",
+      "/cache/steam-scan/read-overview",
+      "/cache/steam-scan/write-overview",
+      "/cache/steam-scan/read-summary",
+      "/cache/steam-scan/write-summary",
+      "/cache/steam-scan/clear",
       "/request_retroachievements_json",
       "/request_steam_json",
     }:
@@ -646,6 +701,126 @@ class LocalBackendRequestHandler(BaseHTTPRequestHandler):
       return
 
     self._send_json(200, {"ok": True, "cleared": cleared})
+
+  def _handle_cache_dashboard_read(self) -> None:
+    status, payload = self._read_json_body()
+    if payload is None:
+      self._send_json(status, {"ok": False, "error": self._json_error_code(status)})
+      return
+
+    try:
+      response = read_dashboard_cache(
+        self.server.context.paths,
+        payload.get("providerId"),
+        warn=self.server.context.warn,
+      )
+    except ValueError:
+      self._send_json(400, {"ok": False, "error": "invalid_provider_id"})
+      return
+
+    self._send_json(200, response)
+
+  def _handle_cache_dashboard_write(self) -> None:
+    status, payload = self._read_json_body()
+    if payload is None:
+      self._send_json(status, {"ok": False, "error": self._json_error_code(status)})
+      return
+
+    cache_value = _extract_object_payload_value(payload, "value")
+    if cache_value is None:
+      self._send_json(400, {"ok": False, "error": "invalid_payload"})
+      return
+
+    try:
+      write_dashboard_cache(self.server.context.paths, payload.get("providerId"), cache_value)
+    except ValueError as error:
+      if str(error) == "invalid provider id":
+        self._send_json(400, {"ok": False, "error": "invalid_provider_id"})
+        return
+      self._send_json(400, {"ok": False, "error": "invalid_payload"})
+      return
+    except TypeError:
+      self._send_json(400, {"ok": False, "error": "invalid_payload"})
+      return
+
+    self._send_json(200, {"ok": True})
+
+  def _handle_cache_dashboard_clear(self) -> None:
+    status, payload = self._read_json_body()
+    if payload is None:
+      self._send_json(status, {"ok": False, "error": self._json_error_code(status)})
+      return
+
+    provider_id = payload.get("providerId")
+    try:
+      cleared = clear_dashboard_cache(self.server.context.paths, provider_id)
+    except ValueError:
+      self._send_json(400, {"ok": False, "error": "invalid_provider_id"})
+      return
+
+    self._send_json(200, {"ok": True, "cleared": cleared})
+
+  def _handle_cache_steam_scan_read_overview(self) -> None:
+    status, payload = self._read_json_body()
+    if payload is None:
+      self._send_json(status, {"ok": False, "error": self._json_error_code(status)})
+      return
+
+    self._send_json(200, read_steam_scan_overview(self.server.context.paths, warn=self.server.context.warn))
+
+  def _handle_cache_steam_scan_write_overview(self) -> None:
+    status, payload = self._read_json_body()
+    if payload is None:
+      self._send_json(status, {"ok": False, "error": self._json_error_code(status)})
+      return
+
+    cache_value = _extract_object_payload_value(payload, "value")
+    if cache_value is None:
+      self._send_json(400, {"ok": False, "error": "invalid_payload"})
+      return
+
+    try:
+      write_steam_scan_overview(self.server.context.paths, cache_value)
+    except (TypeError, ValueError):
+      self._send_json(400, {"ok": False, "error": "invalid_payload"})
+      return
+
+    self._send_json(200, {"ok": True})
+
+  def _handle_cache_steam_scan_read_summary(self) -> None:
+    status, payload = self._read_json_body()
+    if payload is None:
+      self._send_json(status, {"ok": False, "error": self._json_error_code(status)})
+      return
+
+    self._send_json(200, read_steam_scan_summary(self.server.context.paths, warn=self.server.context.warn))
+
+  def _handle_cache_steam_scan_write_summary(self) -> None:
+    status, payload = self._read_json_body()
+    if payload is None:
+      self._send_json(status, {"ok": False, "error": self._json_error_code(status)})
+      return
+
+    cache_value = _extract_object_payload_value(payload, "value")
+    if cache_value is None:
+      self._send_json(400, {"ok": False, "error": "invalid_payload"})
+      return
+
+    try:
+      write_steam_scan_summary(self.server.context.paths, cache_value)
+    except (TypeError, ValueError):
+      self._send_json(400, {"ok": False, "error": "invalid_payload"})
+      return
+
+    self._send_json(200, {"ok": True})
+
+  def _handle_cache_steam_scan_clear(self) -> None:
+    status, payload = self._read_json_body()
+    if payload is None:
+      self._send_json(status, {"ok": False, "error": self._json_error_code(status)})
+      return
+
+    self._send_json(200, {"ok": True, "cleared": clear_steam_scan_cache(self.server.context.paths)})
 
   def _handle_request_retroachievements_json(self) -> None:
     status, payload = self._read_json_body()
@@ -753,6 +928,14 @@ class LocalBackendRequestHandler(BaseHTTPRequestHandler):
       "/save_retroachievements_credentials",
       "/save_steam_credentials",
       "/clear_provider_credentials",
+      "/cache/dashboard/read",
+      "/cache/dashboard/write",
+      "/cache/dashboard/clear",
+      "/cache/steam-scan/read-overview",
+      "/cache/steam-scan/write-overview",
+      "/cache/steam-scan/read-summary",
+      "/cache/steam-scan/write-summary",
+      "/cache/steam-scan/clear",
       "/request_retroachievements_json",
       "/request_steam_json",
     }:
