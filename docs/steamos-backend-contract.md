@@ -65,6 +65,60 @@ Use platform-specific XDG paths instead of Decky homebrew paths.
 
 Config is backup-worthy non-secret state. Secrets are backend-owned app data. Logs are state. Large and rebuildable scan/dashboard data belongs in cache.
 
+## Cache and Storage Strategy
+
+The SteamOS runtime should keep persistent and file-backed state in the Python backend, not in browser storage and not in a future shell process. The TypeScript SteamOS adapters should continue using in-memory snapshot/scan stores only in tests until backend cache endpoints exist.
+
+| Data | Owner | Recommended path | Sensitivity | Persistence | Delete/rebuild behavior | Future endpoint need | Corruption handling |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Provider config | Backend | `$XDG_CONFIG_HOME/achievement-companion/provider-config.json` | Non-secret | Persistent | User data, not a cache; deleting it resets non-secret setup | Already covered by provider config endpoints | Quarantine malformed JSON and fall back to an empty/default config store |
+| Provider secrets | Backend | `$XDG_DATA_HOME/achievement-companion/provider-secrets.json` | Secret | Persistent | User data, not a cache; deleting it clears saved credentials | Already covered by provider credential endpoints | Quarantine malformed JSON and treat secrets as missing |
+| Logs | Backend | `$XDG_STATE_HOME/achievement-companion/logs/` | Redacted operational state | Rolling state | Safe to delete for cleanup or debugging; runtime recreates as needed | No endpoint needed | Missing/corrupt log files must not block startup |
+| Runtime metadata | Launcher/runtime | `$XDG_RUNTIME_DIR/achievement-companion/backend.json` | Session token plus process metadata | Short-lived | Remove on shutdown; stale files should be treated as invalid launch state, not as cache | No endpoint needed | Missing file means no live backend handoff; never fall back to cache/config paths |
+| Dashboard snapshots | Backend cache | `$XDG_CACHE_HOME/achievement-companion/dashboard/<providerId>.json` | Non-secret normalized data | Persistent between launches, rebuildable | Safe to delete; next dashboard load refetches and rewrites it | Yes, before UI/dev shell | Quarantine malformed JSON and treat it as a cache miss |
+| Steam scan overview | Backend cache | `$XDG_CACHE_HOME/achievement-companion/steam/library-achievement-scan-overview.json` | Non-secret aggregate data | Persistent between launches, rebuildable | Safe to delete; lightweight overview disappears until the next successful scan | Yes, before UI/dev shell | Quarantine malformed JSON and treat it as missing overview data |
+| Steam scan summary | Backend cache | `$XDG_CACHE_HOME/achievement-companion/steam/library-achievement-scan-summary.json` | Non-secret but potentially large | Persistent between launches, rebuildable | Safe to delete; detailed library progress falls back to live fetches or empty state until the next scan | Yes, before UI/dev shell | Quarantine malformed JSON and treat it as missing summary data |
+| Recent achievements/history cache | Not first-pass persisted | None initially; derive from dashboard snapshot, Steam summary, and live provider responses | Non-secret derived data | In-memory or derived for the first UI pass | No separate persisted file in the first SteamOS UI pass | Not in the first cache pass | If introduced later, use the same quarantine-and-miss behavior as other caches |
+
+Recommended decisions:
+
+- Provider config, provider secrets, logs, and runtime metadata stay backend-owned.
+- Dashboard snapshots, Steam scan overview, and Steam scan summary should be backend-file-backed under XDG cache before the first real SteamOS UI/dev shell.
+- The Steam scan overview and full summary should remain separate files so lightweight views do not parse the large summary blob.
+- A separate persisted recent-achievements/history cache is not needed in the first SteamOS UI pass; it adds API surface without a clear win yet.
+- Cache files should always be safe to delete and safe to rebuild.
+
+Why this differs from Decky:
+
+- Decky already mixes backend-owned settings/secrets with browser/local storage and module-memory caches because it lives inside the Decky environment.
+- SteamOS should move persistent caches into the backend so the frontend never becomes the owner of large files, provider-adjacent normalized payloads, or corruption recovery.
+- Browser `localStorage` and `sessionStorage` should remain off-limits for tokens, API keys, large scan blobs, and persistent dashboard caches.
+
+Recommended cache API timing:
+
+- Add backend cache endpoints before the first SteamOS UI/dev shell.
+- Keep the current SteamOS TypeScript in-memory stores as test-only placeholders until those endpoints exist.
+
+Recommended minimum cache endpoints:
+
+- `POST /cache/dashboard/read`
+- `POST /cache/dashboard/write`
+- `POST /cache/dashboard/clear`
+- `POST /cache/steam-scan/read-overview`
+- `POST /cache/steam-scan/write-overview`
+- `POST /cache/steam-scan/read-summary`
+- `POST /cache/steam-scan/write-summary`
+- `POST /cache/steam-scan/clear`
+
+These routes can use a `/cache/...` prefix even though the current backend uses mostly flat route names, because the cache API is an internal storage concern with multiple closely related operations. They should remain authenticated, JSON-only, and backend-owned. No cache route is needed for runtime metadata, config, secrets, or logs.
+
+Performance and size considerations:
+
+- Dashboard snapshots are small enough to read often, but they should still live in backend cache so restart behavior does not depend on browser persistence.
+- Steam scan overview should stay intentionally small and cheap to parse.
+- Steam scan summary is the largest likely cache payload and should never move into browser storage or URL-sized handoff data.
+- Corrupt cache files should not be fatal. A cache miss and rewrite is the right recovery path.
+
 ## Secret Handling
 
 The first SteamOS prototype should reuse `backend/secrets.py`.
@@ -258,8 +312,8 @@ Future SteamOS adapters should implement existing platform contracts:
 - `AuthenticatedProviderTransportFactory`: calls `/request_retroachievements_json` and `/request_steam_json` with the in-memory bearer token.
 - `ProviderConfigStore`: calls provider config endpoints; never stores raw keys in frontend storage.
 - `DiagnosticLogger`: sends safe diagnostic payloads to `/record_diagnostic_event`; frontend redaction remains defense in depth.
-- `DashboardSnapshotStore`: stores dashboard snapshots through backend file/cache APIs or a trusted app-shell storage API.
-- `SteamLibraryScanStore`: stores overview and full summary separately, with the full summary file-backed.
+- `DashboardSnapshotStore`: should call backend cache endpoints in the first real SteamOS UI pass. The current in-memory store is a test/runtime placeholder only.
+- `SteamLibraryScanStore`: should call backend cache endpoints and keep overview and full summary separate. The current in-memory store is a test/runtime placeholder only.
 - `PlatformCapabilities`: describes only the SteamOS runtime features that actually exist.
 
 ## Packaging Separation
@@ -299,21 +353,24 @@ Completed:
 9. `SteamOS Backend Pass 6 - Python launcher/CLI wrapper`
    - Added a backend-only launcher scaffold that starts the local backend, writes runtime metadata, and supports clean shutdown.
 
+10. `SteamOS Adapter Pass 3 - Runtime metadata handoff`
+   - Added TypeScript parsing and validation helpers for localhost runtime metadata and client config creation.
+
+11. `SteamOS Integration Pass 1 - TypeScript client to live local backend smoke test`
+   - Added a test-only path from Python launcher metadata to the live localhost backend through the TypeScript client.
+
 Remaining:
 
-1. `SteamOS Backend Pass 7 - Runtime metadata handoff`
-   - Define how the future shell passes `baseUrl` and bearer token to the frontend in memory.
+1. `SteamOS Backend Pass 8 - Backend cache endpoints`
+   - Add authenticated cache read/write/clear routes for dashboard snapshots and Steam scan overview/summary under XDG cache.
 
-2. `SteamOS Adapter Pass 3 - Real client to live local backend integration`
-   - Exercise the TypeScript client against the real Python backend.
+2. `SteamOS Adapter Pass 4 - Cache-backed SteamOS stores`
+   - Replace the SteamOS test-only in-memory snapshot and scan stores with backend cache endpoint adapters.
 
-3. `SteamOS Backend Pass 8 - Cache endpoint or file-backed cache strategy`
-   - Decide whether caches stay frontend-local, move to backend endpoints, or use a shell-owned bridge.
-
-4. `SteamOS UI Pass 1 - Minimal dev shell`
+3. `SteamOS UI Pass 1 - Minimal dev shell`
    - Add the smallest SteamOS shell that can launch the backend and host the frontend.
 
-5. `SteamOS Packaging Pass 1 - Separate SteamOS artifact`
+4. `SteamOS Packaging Pass 1 - Separate SteamOS artifact`
    - Define a SteamOS packaging story that remains isolated from Decky release artifacts.
 
 ## Risks and Mitigations
