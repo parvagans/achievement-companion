@@ -8,6 +8,8 @@ import {
   SteamOSBootstrapStatus,
   bootstrapSteamOSShell,
 } from "../src/platform/steamos/bootstrap";
+import { RETROACHIEVEMENTS_PROVIDER_ID } from "../src/providers/retroachievements/config";
+import { STEAM_PROVIDER_ID } from "../src/providers/steam/config";
 
 interface FetchCall {
   readonly url: string;
@@ -15,6 +17,8 @@ interface FetchCall {
 }
 
 const VALID_TOKEN = "abcdefghijklmnopqrstuvwxyz1234567890TOKEN";
+
+type SteamOSRuntime = ReturnType<typeof import("../src/platform/steamos/create-steamos-app-runtime").createSteamOSAppRuntime>;
 
 function createJsonResponse(status: number, payload: unknown, contentType = "application/json"): Response {
   return new Response(JSON.stringify(payload), {
@@ -50,6 +54,26 @@ function readSourceTree(rootDir: string): string {
     .join("\n");
 }
 
+function createMockRuntime(
+  configs: Record<string, unknown>,
+): SteamOSRuntime {
+  return {
+    platform: {
+      info: {
+        platformId: "desktop",
+        appName: "Achievement Companion",
+      },
+    },
+    adapters: {
+      providerConfigStore: {
+        async load(providerId: string) {
+          return configs[providerId];
+        },
+      },
+    },
+  } as SteamOSRuntime;
+}
+
 test("SteamOS bootstrap entrypoint renders loading and connected states without exposing tokens", async () => {
   const states: string[] = [];
   const calls: FetchCall[] = [];
@@ -68,14 +92,10 @@ test("SteamOS bootstrap entrypoint renders loading and connected states without 
     },
     createRuntime: (config) => {
       createdRuntimes.push(config);
-      return {
-        platform: {
-          info: {
-            platformId: "desktop",
-            appName: "Achievement Companion",
-          },
-        },
-      } as ReturnType<typeof import("../src/platform/steamos/create-steamos-app-runtime").createSteamOSAppRuntime>;
+      return createMockRuntime({
+        [RETROACHIEVEMENTS_PROVIDER_ID]: { hasApiKey: true },
+        [STEAM_PROVIDER_ID]: { hasApiKey: false },
+      });
     },
     renderState: (state) => {
       states.push(renderToStaticMarkup(<SteamOSBootstrapStatus state={state} />));
@@ -93,8 +113,83 @@ test("SteamOS bootstrap entrypoint renders loading and connected states without 
   assert.equal(states.length, 2);
   assert.match(states[0] ?? "", /Loading SteamOS backend\.\.\./u);
   assert.match(states[1] ?? "", /Connected to SteamOS backend/u);
+  assert.match(states[1] ?? "", /SteamOS dev shell/u);
+  assert.match(states[1] ?? "", /RetroAchievements/u);
+  assert.match(states[1] ?? "", /configured/u);
+  assert.match(states[1] ?? "", /Steam/u);
+  assert.match(states[1] ?? "", /not configured/u);
   assert.doesNotMatch(states.join("\n"), new RegExp(VALID_TOKEN, "u"));
   assert.doesNotMatch(calls[0]?.url ?? "", new RegExp(VALID_TOKEN, "u"));
+});
+
+test("SteamOS bootstrap entrypoint renders provider status from frontend-safe config", async () => {
+  const states: string[] = [];
+
+  const result = await bootstrapSteamOSShell({
+    loadBootstrapConfig: async () => ({
+      baseUrl: "http://127.0.0.1:4123",
+      token: VALID_TOKEN,
+    }),
+    createRuntime: () =>
+      createMockRuntime({
+        [RETROACHIEVEMENTS_PROVIDER_ID]: undefined,
+        [STEAM_PROVIDER_ID]: { hasApiKey: true },
+      }),
+    renderState: (state) => {
+      states.push(renderToStaticMarkup(<SteamOSBootstrapStatus state={state} />));
+    },
+  });
+
+  assert.equal(result.state.phase, "connected");
+  assert.equal(result.state.providerConfigStatus, "loaded");
+  assert.equal(result.state.providers?.retroAchievements.status, "not_configured");
+  assert.equal(result.state.providers?.steam.status, "configured");
+  assert.match(states[1] ?? "", /RetroAchievements/u);
+  assert.match(states[1] ?? "", /not configured/u);
+  assert.match(states[1] ?? "", /Steam/u);
+  assert.match(states[1] ?? "", /configured/u);
+  assert.doesNotMatch(states.join("\n"), /apiKey|apiKeyDraft|Authorization|password|secret|\by\b/u);
+  assert.doesNotMatch(states.join("\n"), new RegExp(VALID_TOKEN, "u"));
+});
+
+test("SteamOS bootstrap entrypoint keeps backend connected when provider config is unavailable", async () => {
+  const states: string[] = [];
+
+  const result = await bootstrapSteamOSShell({
+    loadBootstrapConfig: async () => ({
+      baseUrl: "http://127.0.0.1:4123",
+      token: VALID_TOKEN,
+    }),
+    createRuntime: () =>
+      ({
+        platform: {
+          info: {
+            platformId: "desktop",
+            appName: "Achievement Companion",
+          },
+        },
+        adapters: {
+          providerConfigStore: {
+            async load() {
+              throw new Error(`config failure ${VALID_TOKEN}`);
+            },
+          },
+        },
+      }) as SteamOSRuntime,
+    renderState: (state) => {
+      states.push(renderToStaticMarkup(<SteamOSBootstrapStatus state={state} />));
+    },
+  });
+
+  assert.equal(result.state.phase, "connected");
+  assert.equal(result.state.providerConfigStatus, "unavailable");
+  assert.match(states[1] ?? "", /Connected to SteamOS backend/u);
+  assert.match(states[1] ?? "", /Provider config unavailable/u);
+  assert.match(states[1] ?? "", /RetroAchievements/u);
+  assert.match(states[1] ?? "", /unavailable/u);
+  assert.match(states[1] ?? "", /Steam/u);
+  assert.doesNotMatch(states.join("\n"), /config failure/u);
+  assert.doesNotMatch(states.join("\n"), new RegExp(VALID_TOKEN, "u"));
 });
 
 test("SteamOS bootstrap entrypoint renders a safe error state for metadata failures", async () => {
