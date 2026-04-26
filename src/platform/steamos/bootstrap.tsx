@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { createSteamOSAppRuntime, type SteamOSAppRuntimeOptions } from "./create-steamos-app-runtime";
 import {
@@ -72,6 +72,50 @@ export interface MountSteamOSBootstrapOptions extends SteamOSBootstrapDependenci
 export interface AutoMountSteamOSBootstrapOptions extends MountSteamOSBootstrapOptions {
   readonly mount?: (options?: MountSteamOSBootstrapOptions) => Promise<SteamOSBootstrapResult>;
 }
+
+const PAGE_STYLE: CSSProperties = {
+  maxWidth: "760px",
+  margin: "0 auto",
+  padding: "2rem 1rem 3rem",
+  display: "grid",
+  gap: "1rem",
+  color: "#0f172a",
+  fontFamily: "\"Segoe UI\", system-ui, sans-serif",
+};
+
+const PAGE_TITLE_STYLE: CSSProperties = {
+  margin: 0,
+  fontSize: "1.9rem",
+  lineHeight: 1.1,
+};
+
+const PAGE_SUBTITLE_STYLE: CSSProperties = {
+  margin: 0,
+  fontSize: "1rem",
+  color: "#475569",
+};
+
+const STATUS_PANEL_STYLE: CSSProperties = {
+  border: "1px solid #d7dde5",
+  borderRadius: "16px",
+  background: "linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)",
+  padding: "1rem 1.1rem",
+  boxShadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+  display: "grid",
+  gap: "0.6rem",
+};
+
+const STATUS_MESSAGE_STYLE: CSSProperties = {
+  margin: 0,
+  fontSize: "1rem",
+  fontWeight: 600,
+};
+
+const STATUS_HINT_STYLE: CSSProperties = {
+  margin: 0,
+  color: "#5f6b7a",
+  lineHeight: 1.5,
+};
 
 function createBootstrapState(
   phase: SteamOSBootstrapPhase,
@@ -214,10 +258,18 @@ export function SteamOSBootstrapStatus(
   { state }: { readonly state: SteamOSBootstrapState },
 ): JSX.Element {
   return (
-    <main data-steamos-bootstrap-state={state.phase}>
-      <h1>Achievement Companion</h1>
-      <p>SteamOS dev shell</p>
-      <p>{state.message}</p>
+    <main data-steamos-bootstrap-state={state.phase} style={PAGE_STYLE}>
+      <header>
+        <h1 style={PAGE_TITLE_STYLE}>Achievement Companion</h1>
+        <p style={PAGE_SUBTITLE_STYLE}>SteamOS dev shell</p>
+      </header>
+      <section style={STATUS_PANEL_STYLE}>
+        <p style={STATUS_MESSAGE_STYLE}>{state.message}</p>
+        <p style={STATUS_HINT_STYLE}>
+          This shell only bootstraps local backend access and provider setup. It does not validate live provider
+          connectivity yet.
+        </p>
+      </section>
       {state.providerConfigStatus === "unavailable" ? <p>Provider config unavailable</p> : null}
       {state.providers !== undefined ? (
         <dl>
@@ -437,10 +489,18 @@ export function SteamOSBootstrapShell(
 
   const connectedState = createInitialConnectedState(result.state);
   return (
-    <main data-steamos-bootstrap-state={connectedState.phase}>
-      <h1>Achievement Companion</h1>
-      <p>SteamOS dev shell</p>
-      <p>{connectedState.message}</p>
+    <main data-steamos-bootstrap-state={connectedState.phase} style={PAGE_STYLE}>
+      <header>
+        <h1 style={PAGE_TITLE_STYLE}>Achievement Companion</h1>
+        <p style={PAGE_SUBTITLE_STYLE}>SteamOS dev shell</p>
+      </header>
+      <section style={STATUS_PANEL_STYLE}>
+        <p style={STATUS_MESSAGE_STYLE}>{connectedState.message}</p>
+        <p style={STATUS_HINT_STYLE}>
+          Save provider credentials locally before dashboard work. Saving here does not call provider APIs or start
+          a Steam scan.
+        </p>
+      </section>
       <SteamOSSetupSurface
         {...(connectedState.providerConfigStatus !== undefined
           ? { providerConfigStatus: connectedState.providerConfigStatus }

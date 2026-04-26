@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import type { ProviderConfigStore } from "@core/platform";
 import type { RetroAchievementsProviderConfig } from "../../providers/retroachievements/config";
 import {
@@ -82,6 +83,127 @@ const RETROACHIEVEMENTS_SAVE_ERROR = "Could not save RetroAchievements settings"
 const STEAM_SAVE_ERROR = "Could not save Steam settings";
 const RETROACHIEVEMENTS_CLEAR_ERROR = "Could not clear RetroAchievements settings";
 const STEAM_CLEAR_ERROR = "Could not clear Steam settings";
+const RETROACHIEVEMENTS_USERNAME_ID = "steamos-retroachievements-username";
+const RETROACHIEVEMENTS_API_KEY_ID = "steamos-retroachievements-api-key";
+const STEAM_ID64_ID = "steamos-steam-id64";
+const STEAM_API_KEY_ID = "steamos-steam-api-key";
+
+const SURFACE_STYLE: CSSProperties = {
+  display: "grid",
+  gap: "1rem",
+};
+
+const HELP_TEXT_STYLE: CSSProperties = {
+  margin: 0,
+  fontSize: "0.95rem",
+  lineHeight: 1.5,
+  color: "#5f6b7a",
+};
+
+const PROVIDER_GRID_STYLE: CSSProperties = {
+  display: "grid",
+  gap: "1rem",
+};
+
+const PROVIDER_CARD_STYLE: CSSProperties = {
+  border: "1px solid #d7dde5",
+  borderRadius: "14px",
+  backgroundColor: "#ffffff",
+  padding: "1rem",
+  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.06)",
+  display: "grid",
+  gap: "0.9rem",
+};
+
+const PROVIDER_HEADER_STYLE: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.75rem",
+  flexWrap: "wrap",
+};
+
+const PROVIDER_TITLE_STYLE: CSSProperties = {
+  margin: 0,
+  fontSize: "1.05rem",
+};
+
+const FIELD_GRID_STYLE: CSSProperties = {
+  display: "grid",
+  gap: "0.85rem",
+};
+
+const FIELD_STYLE: CSSProperties = {
+  display: "grid",
+  gap: "0.35rem",
+};
+
+const LABEL_STYLE: CSSProperties = {
+  fontWeight: 600,
+  color: "#1f2937",
+};
+
+const INPUT_STYLE: CSSProperties = {
+  width: "100%",
+  boxSizing: "border-box",
+  borderRadius: "10px",
+  border: "1px solid #c7d0db",
+  padding: "0.7rem 0.85rem",
+  fontSize: "0.98rem",
+  lineHeight: 1.4,
+  backgroundColor: "#fbfdff",
+};
+
+const PROVIDER_HELP_STYLE: CSSProperties = {
+  margin: 0,
+  fontSize: "0.9rem",
+  lineHeight: 1.45,
+  color: "#5f6b7a",
+};
+
+const BUTTON_ROW_STYLE: CSSProperties = {
+  display: "flex",
+  gap: "0.75rem",
+  flexWrap: "wrap",
+};
+
+const PRIMARY_BUTTON_STYLE: CSSProperties = {
+  appearance: "none",
+  border: "none",
+  borderRadius: "999px",
+  backgroundColor: "#0f172a",
+  color: "#ffffff",
+  padding: "0.7rem 1rem",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const SECONDARY_BUTTON_STYLE: CSSProperties = {
+  appearance: "none",
+  border: "1px solid #c7d0db",
+  borderRadius: "999px",
+  backgroundColor: "#ffffff",
+  color: "#1f2937",
+  padding: "0.7rem 1rem",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const ERROR_TEXT_STYLE: CSSProperties = {
+  margin: 0,
+  color: "#b42318",
+  fontWeight: 600,
+};
+
+const STATUS_BADGE_BASE_STYLE: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  borderRadius: "999px",
+  padding: "0.3rem 0.7rem",
+  fontSize: "0.85rem",
+  fontWeight: 700,
+  letterSpacing: "0.01em",
+};
 
 function formatProviderStatus(status: SteamOSProviderConfigStatus | undefined): string {
   if (status === "configured") {
@@ -93,6 +215,30 @@ function formatProviderStatus(status: SteamOSProviderConfigStatus | undefined): 
   }
 
   return "not configured";
+}
+
+function getStatusBadgeStyle(status: SteamOSProviderConfigStatus | undefined): CSSProperties {
+  if (status === "configured") {
+    return {
+      ...STATUS_BADGE_BASE_STYLE,
+      backgroundColor: "#dcfce7",
+      color: "#166534",
+    };
+  }
+
+  if (status === "unavailable") {
+    return {
+      ...STATUS_BADGE_BASE_STYLE,
+      backgroundColor: "#fef3c7",
+      color: "#92400e",
+    };
+  }
+
+  return {
+    ...STATUS_BADGE_BASE_STYLE,
+    backgroundColor: "#e5e7eb",
+    color: "#374151",
+  };
 }
 
 function isNumericLookingSteamId64(value: string): boolean {
@@ -402,73 +548,146 @@ export function SteamOSSetupSurface(props: SteamOSSetupSurfaceProps): JSX.Elemen
   const isSavingSteam = props.busyProviderId === STEAM_PROVIDER_ID;
 
   return (
-    <section aria-label="SteamOS provider setup">
+    <section aria-label="SteamOS provider setup" style={SURFACE_STYLE}>
+      <p style={HELP_TEXT_STYLE}>
+        Saving stores credentials in the local backend only. This setup surface does not validate provider
+        connectivity yet.
+      </p>
       {props.providerConfigStatus === "unavailable" ? (
-        <p>Provider config unavailable</p>
+        <p role="alert" style={ERROR_TEXT_STYLE}>Provider config unavailable</p>
       ) : null}
+      <div style={PROVIDER_GRID_STYLE}>
+        <section
+          aria-label="RetroAchievements setup"
+          aria-busy={isSavingRetroAchievements}
+          style={PROVIDER_CARD_STYLE}
+        >
+          <div style={PROVIDER_HEADER_STYLE}>
+            <h2 style={PROVIDER_TITLE_STYLE}>RetroAchievements</h2>
+            <span style={getStatusBadgeStyle(props.providerStatuses?.retroAchievements.status)}>
+              {formatProviderStatus(props.providerStatuses?.retroAchievements.status)}
+            </span>
+          </div>
+          <p style={PROVIDER_HELP_STYLE}>
+            Save your username and API key locally so the SteamOS runtime can use them later.
+          </p>
+          <div style={FIELD_GRID_STYLE}>
+            <div style={FIELD_STYLE}>
+              <label htmlFor={RETROACHIEVEMENTS_USERNAME_ID} style={LABEL_STYLE}>Username</label>
+              <input
+                id={RETROACHIEVEMENTS_USERNAME_ID}
+                name="retroachievements-username"
+                type="text"
+                autoComplete="username"
+                placeholder="RetroAchievements username"
+                value={props.values.retroAchievements.username}
+                style={INPUT_STYLE}
+                onChange={(event) => props.onRetroAchievementsUsernameChange?.(event.currentTarget.value)}
+              />
+            </div>
+            <div style={FIELD_STYLE}>
+              <label htmlFor={RETROACHIEVEMENTS_API_KEY_ID} style={LABEL_STYLE}>API key</label>
+              <input
+                id={RETROACHIEVEMENTS_API_KEY_ID}
+                name="retroachievements-api-key"
+                type="password"
+                autoComplete="off"
+                placeholder="Saved in backend only"
+                value={props.values.retroAchievements.apiKeyDraft}
+                style={INPUT_STYLE}
+                onChange={(event) => props.onRetroAchievementsApiKeyDraftChange?.(event.currentTarget.value)}
+              />
+            </div>
+          </div>
+          {props.messages?.retroAchievements !== undefined ? (
+            <p role="alert" style={ERROR_TEXT_STYLE}>{props.messages.retroAchievements}</p>
+          ) : null}
+          <div style={BUTTON_ROW_STYLE}>
+            <button
+              type="button"
+              onClick={props.onSaveRetroAchievements}
+              disabled={isSavingRetroAchievements}
+              style={PRIMARY_BUTTON_STYLE}
+            >
+              {isSavingRetroAchievements ? "Saving..." : "Save"}
+            </button>
+            <button
+              type="button"
+              onClick={props.onClearRetroAchievements}
+              disabled={isSavingRetroAchievements}
+              style={SECONDARY_BUTTON_STYLE}
+            >
+              Clear
+            </button>
+          </div>
+        </section>
 
-      <section aria-label="RetroAchievements setup">
-        <h2>RetroAchievements</h2>
-        <p>{formatProviderStatus(props.providerStatuses?.retroAchievements.status)}</p>
-        <label>
-          Username
-          <input
-            name="retroachievements-username"
-            type="text"
-            value={props.values.retroAchievements.username}
-            onChange={(event) => props.onRetroAchievementsUsernameChange?.(event.currentTarget.value)}
-          />
-        </label>
-        <label>
-          API key
-          <input
-            name="retroachievements-api-key"
-            type="password"
-            autoComplete="off"
-            value={props.values.retroAchievements.apiKeyDraft}
-            onChange={(event) => props.onRetroAchievementsApiKeyDraftChange?.(event.currentTarget.value)}
-          />
-        </label>
-        {props.messages?.retroAchievements !== undefined ? <p>{props.messages.retroAchievements}</p> : null}
-        <button type="button" onClick={props.onSaveRetroAchievements} disabled={isSavingRetroAchievements}>
-          Save
-        </button>
-        <button type="button" onClick={props.onClearRetroAchievements} disabled={isSavingRetroAchievements}>
-          Clear
-        </button>
-      </section>
-
-      <section aria-label="Steam setup">
-        <h2>Steam</h2>
-        <p>{formatProviderStatus(props.providerStatuses?.steam.status)}</p>
-        <label>
-          SteamID64
-          <input
-            name="steam-id64"
-            type="text"
-            inputMode="numeric"
-            value={props.values.steam.steamId64}
-            onChange={(event) => props.onSteamId64Change?.(event.currentTarget.value)}
-          />
-        </label>
-        <label>
-          Steam Web API key
-          <input
-            name="steam-api-key"
-            type="password"
-            autoComplete="off"
-            value={props.values.steam.apiKeyDraft}
-            onChange={(event) => props.onSteamApiKeyDraftChange?.(event.currentTarget.value)}
-          />
-        </label>
-        {props.messages?.steam !== undefined ? <p>{props.messages.steam}</p> : null}
-        <button type="button" onClick={props.onSaveSteam} disabled={isSavingSteam}>
-          Save
-        </button>
-        <button type="button" onClick={props.onClearSteam} disabled={isSavingSteam}>
-          Clear
-        </button>
-      </section>
+        <section
+          aria-label="Steam setup"
+          aria-busy={isSavingSteam}
+          style={PROVIDER_CARD_STYLE}
+        >
+          <div style={PROVIDER_HEADER_STYLE}>
+            <h2 style={PROVIDER_TITLE_STYLE}>Steam</h2>
+            <span style={getStatusBadgeStyle(props.providerStatuses?.steam.status)}>
+              {formatProviderStatus(props.providerStatuses?.steam.status)}
+            </span>
+          </div>
+          <p style={PROVIDER_HELP_STYLE}>
+            Save your SteamID64 and Web API key locally. This does not call Steam or validate connectivity yet.
+          </p>
+          <div style={FIELD_GRID_STYLE}>
+            <div style={FIELD_STYLE}>
+              <label htmlFor={STEAM_ID64_ID} style={LABEL_STYLE}>SteamID64</label>
+              <input
+                id={STEAM_ID64_ID}
+                name="steam-id64"
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                placeholder="Numeric SteamID64"
+                value={props.values.steam.steamId64}
+                style={INPUT_STYLE}
+                onChange={(event) => props.onSteamId64Change?.(event.currentTarget.value)}
+              />
+            </div>
+            <div style={FIELD_STYLE}>
+              <label htmlFor={STEAM_API_KEY_ID} style={LABEL_STYLE}>Steam Web API key</label>
+              <input
+                id={STEAM_API_KEY_ID}
+                name="steam-api-key"
+                type="password"
+                autoComplete="off"
+                placeholder="Saved in backend only"
+                value={props.values.steam.apiKeyDraft}
+                style={INPUT_STYLE}
+                onChange={(event) => props.onSteamApiKeyDraftChange?.(event.currentTarget.value)}
+              />
+            </div>
+          </div>
+          {props.messages?.steam !== undefined ? (
+            <p role="alert" style={ERROR_TEXT_STYLE}>{props.messages.steam}</p>
+          ) : null}
+          <div style={BUTTON_ROW_STYLE}>
+            <button
+              type="button"
+              onClick={props.onSaveSteam}
+              disabled={isSavingSteam}
+              style={PRIMARY_BUTTON_STYLE}
+            >
+              {isSavingSteam ? "Saving..." : "Save"}
+            </button>
+            <button
+              type="button"
+              onClick={props.onClearSteam}
+              disabled={isSavingSteam}
+              style={SECONDARY_BUTTON_STYLE}
+            >
+              Clear
+            </button>
+          </div>
+        </section>
+      </div>
     </section>
   );
 }

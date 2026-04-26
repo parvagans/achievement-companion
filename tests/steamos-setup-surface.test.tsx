@@ -46,14 +46,52 @@ test("SteamOS setup surface renders both provider forms with password inputs and
 
   assert.match(markup, /RetroAchievements/u);
   assert.match(markup, /Steam/u);
+  assert.match(markup, /Saving stores credentials in the local backend only/u);
   assert.match(markup, /type="password"/u);
   assert.match(markup, /name="retroachievements-api-key"/u);
   assert.match(markup, /name="steam-api-key"/u);
   assert.match(markup, /name="retroachievements-username"/u);
   assert.match(markup, /name="steam-id64"/u);
+  assert.match(markup, /id="steamos-retroachievements-username"/u);
+  assert.match(markup, /for="steamos-retroachievements-username"/u);
+  assert.match(markup, /id="steamos-retroachievements-api-key"/u);
+  assert.match(markup, /for="steamos-retroachievements-api-key"/u);
+  assert.match(markup, /id="steamos-steam-id64"/u);
+  assert.match(markup, /for="steamos-steam-id64"/u);
+  assert.match(markup, /id="steamos-steam-api-key"/u);
+  assert.match(markup, /for="steamos-steam-api-key"/u);
+  assert.match(markup, /placeholder="RetroAchievements username"/u);
+  assert.match(markup, /placeholder="Numeric SteamID64"/u);
   assert.match(markup, /value="sol88"/u);
   assert.match(markup, /value="76561198136628813"/u);
   assert.doesNotMatch(markup, /retro-secret|steam-secret|provider-secrets|Authorization: Bearer/u);
+});
+
+test("SteamOS setup surface renders status badges, busy state, and generic errors accessibly", () => {
+  const markup = renderToStaticMarkup(
+    <SteamOSSetupSurface
+      providerConfigStatus="unavailable"
+      providerStatuses={{
+        retroAchievements: { label: "RetroAchievements", status: "configured" },
+        steam: { label: "Steam", status: "unavailable" },
+      }}
+      values={createSteamOSSetupFormValues()}
+      busyProviderId={RETROACHIEVEMENTS_PROVIDER_ID}
+      messages={{
+        retroAchievements: "Could not save RetroAchievements settings",
+        providerConfig: "Provider config unavailable",
+      }}
+    />,
+  );
+
+  assert.match(markup, /configured/u);
+  assert.match(markup, /unavailable/u);
+  assert.match(markup, /Provider config unavailable/u);
+  assert.match(markup, /Could not save RetroAchievements settings/u);
+  assert.match(markup, /aria-busy="true"/u);
+  assert.match(markup, /Saving\.\.\./u);
+  assert.match(markup, /disabled=""/u);
+  assert.match(markup, /role="alert"/u);
 });
 
 test("SteamOS saveRetroAchievementsSetup saves username and draft key then clears the draft", async () => {
