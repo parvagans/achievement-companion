@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { createSteamOSAppRuntime, type SteamOSAppRuntimeOptions } from "./create-steamos-app-runtime";
 import {
@@ -5,8 +6,27 @@ import {
   type SteamOSRuntimeBootstrapOptions,
 } from "./runtime-bootstrap";
 import type { SteamOSLocalBackendClientConfig } from "./runtime-metadata";
-import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements/config";
-import { STEAM_PROVIDER_ID } from "../../providers/steam/config";
+import type { RetroAchievementsProviderConfig } from "../../providers/retroachievements/config";
+import {
+  DEFAULT_RETROACHIEVEMENTS_PROVIDER_CONFIG,
+  RETROACHIEVEMENTS_PROVIDER_ID,
+} from "../../providers/retroachievements/config";
+import type { SteamProviderConfig } from "../../providers/steam/config";
+import {
+  DEFAULT_STEAM_PROVIDER_CONFIG,
+  STEAM_PROVIDER_ID,
+} from "../../providers/steam/config";
+import {
+  SteamOSSetupSurface,
+  type SteamOSProviderConfigs,
+  type SteamOSSetupFormValues,
+  type SteamOSSetupSurfaceMessages,
+  clearRetroAchievementsSetup,
+  clearSteamSetup,
+  createSteamOSSetupFormValues,
+  saveRetroAchievementsSetup,
+  saveSteamSetup,
+} from "./setup-surface";
 
 export type SteamOSBootstrapPhase = "loading" | "connected" | "error";
 export type SteamOSProviderConfigStatus = "configured" | "not_configured" | "unavailable";
@@ -24,6 +44,7 @@ export interface SteamOSBootstrapState {
     readonly retroAchievements: SteamOSProviderStatus;
     readonly steam: SteamOSProviderStatus;
   };
+  readonly providerConfigs?: SteamOSProviderConfigs;
 }
 
 export interface SteamOSBootstrapResult {
@@ -50,7 +71,7 @@ export interface MountSteamOSBootstrapOptions extends SteamOSBootstrapDependenci
 
 function createBootstrapState(
   phase: SteamOSBootstrapPhase,
-  providerState?: Pick<SteamOSBootstrapState, "providerConfigStatus" | "providers">,
+  providerState?: Pick<SteamOSBootstrapState, "providerConfigStatus" | "providerConfigs" | "providers">,
 ): SteamOSBootstrapState {
   if (phase === "connected") {
     return {
@@ -89,11 +110,15 @@ function createProviderStatus(
 
 async function loadProviderStatuses(
   runtime: ReturnType<typeof createSteamOSAppRuntime>,
-): Promise<Pick<SteamOSBootstrapState, "providerConfigStatus" | "providers">> {
+): Promise<Pick<SteamOSBootstrapState, "providerConfigStatus" | "providerConfigs" | "providers">> {
   const providerConfigStore = runtime.adapters.providerConfigStore;
   if (providerConfigStore === undefined) {
     return {
       providerConfigStatus: "unavailable",
+      providerConfigs: {
+        retroAchievements: DEFAULT_RETROACHIEVEMENTS_PROVIDER_CONFIG,
+        steam: DEFAULT_STEAM_PROVIDER_CONFIG,
+      },
       providers: {
         retroAchievements: createProviderStatus("RetroAchievements", "unavailable"),
         steam: createProviderStatus("Steam", "unavailable"),
@@ -106,9 +131,17 @@ async function loadProviderStatuses(
       providerConfigStore.load(RETROACHIEVEMENTS_PROVIDER_ID),
       providerConfigStore.load(STEAM_PROVIDER_ID),
     ]);
+    const normalizedRetroAchievementsConfig = (retroAchievementsConfig as RetroAchievementsProviderConfig | undefined)
+      ?? DEFAULT_RETROACHIEVEMENTS_PROVIDER_CONFIG;
+    const normalizedSteamConfig = (steamConfig as SteamProviderConfig | undefined)
+      ?? DEFAULT_STEAM_PROVIDER_CONFIG;
 
     return {
       providerConfigStatus: "loaded",
+      providerConfigs: {
+        retroAchievements: normalizedRetroAchievementsConfig,
+        steam: normalizedSteamConfig,
+      },
       providers: {
         retroAchievements: createProviderStatus(
           "RetroAchievements",
@@ -123,6 +156,10 @@ async function loadProviderStatuses(
   } catch {
     return {
       providerConfigStatus: "unavailable",
+      providerConfigs: {
+        retroAchievements: DEFAULT_RETROACHIEVEMENTS_PROVIDER_CONFIG,
+        steam: DEFAULT_STEAM_PROVIDER_CONFIG,
+      },
       providers: {
         retroAchievements: createProviderStatus("RetroAchievements", "unavailable"),
         steam: createProviderStatus("Steam", "unavailable"),
@@ -143,8 +180,18 @@ function formatProviderStatus(status: SteamOSProviderConfigStatus): string {
   return "not configured";
 }
 
-function renderBootstrapState(root: Root, state: SteamOSBootstrapState): void {
-  root.render(<SteamOSBootstrapStatus state={state} />);
+function createSurfaceMessages(
+  updates: {
+    readonly retroAchievements?: string | undefined;
+    readonly steam?: string | undefined;
+    readonly providerConfig?: string | undefined;
+  },
+): SteamOSSetupSurfaceMessages {
+  return {
+    ...(updates.retroAchievements !== undefined ? { retroAchievements: updates.retroAchievements } : {}),
+    ...(updates.steam !== undefined ? { steam: updates.steam } : {}),
+    ...(updates.providerConfig !== undefined ? { providerConfig: updates.providerConfig } : {}),
+  };
 }
 
 function resolveRootElement(options: MountSteamOSBootstrapOptions): Element {
@@ -167,9 +214,7 @@ export function SteamOSBootstrapStatus(
       <h1>Achievement Companion</h1>
       <p>SteamOS dev shell</p>
       <p>{state.message}</p>
-      {state.providerConfigStatus === "unavailable" ? (
-        <p>Provider config unavailable</p>
-      ) : null}
+      {state.providerConfigStatus === "unavailable" ? <p>Provider config unavailable</p> : null}
       {state.providers !== undefined ? (
         <dl>
           <div>
@@ -182,6 +227,263 @@ export function SteamOSBootstrapStatus(
           </div>
         </dl>
       ) : null}
+    </main>
+  );
+}
+
+function createInitialConnectedState(
+  state: SteamOSBootstrapState,
+): SteamOSBootstrapState {
+  return state.phase === "connected"
+    ? state
+    : createBootstrapState("connected", {
+      providerConfigStatus: "loaded",
+      providerConfigs: {
+        retroAchievements: DEFAULT_RETROACHIEVEMENTS_PROVIDER_CONFIG,
+        steam: DEFAULT_STEAM_PROVIDER_CONFIG,
+      },
+      providers: {
+        retroAchievements: createProviderStatus("RetroAchievements", "not_configured"),
+        steam: createProviderStatus("Steam", "not_configured"),
+      },
+    });
+}
+
+export function SteamOSBootstrapShell(
+  options: SteamOSBootstrapDependencies & { readonly onResolved?: (result: SteamOSBootstrapResult) => void } = {},
+): JSX.Element {
+  const [result, setResult] = useState<SteamOSBootstrapResult>({
+    state: createBootstrapState("loading"),
+  });
+  const [values, setValues] = useState<SteamOSSetupFormValues>(createSteamOSSetupFormValues());
+  const [messages, setMessages] = useState<SteamOSSetupSurfaceMessages>({});
+  const [busyProviderId, setBusyProviderId] = useState<typeof RETROACHIEVEMENTS_PROVIDER_ID | typeof STEAM_PROVIDER_ID>();
+
+  useEffect(() => {
+    let disposed = false;
+
+    void bootstrapSteamOSShell(options).then((nextResult) => {
+      if (disposed) {
+        return;
+      }
+
+      setResult(nextResult);
+      options.onResolved?.(nextResult);
+      if (nextResult.state.phase === "connected") {
+        setValues(createSteamOSSetupFormValues(nextResult.state.providerConfigs));
+      }
+    });
+
+    return () => {
+      disposed = true;
+    };
+  }, [options]);
+
+  async function reloadProviderStatuses(
+    runtime: ReturnType<typeof createSteamOSAppRuntime>,
+    nextValues: SteamOSSetupFormValues,
+    nextMessages: SteamOSSetupSurfaceMessages,
+  ): Promise<void> {
+    const providerState = await loadProviderStatuses(runtime);
+    setResult({
+      state: createBootstrapState("connected", providerState),
+      runtime,
+    });
+    setValues(nextValues);
+    setMessages(nextMessages);
+  }
+
+  async function handleSaveRetroAchievements(): Promise<void> {
+    const runtime = result.runtime;
+    const providerConfigs = result.state.providerConfigs;
+    const providerConfigStore = runtime?.adapters.providerConfigStore;
+    if (runtime === undefined || providerConfigStore === undefined || providerConfigs === undefined) {
+      setMessages((currentMessages) => ({
+        ...currentMessages,
+        providerConfig: "Provider config unavailable",
+        retroAchievements: "Could not save RetroAchievements settings",
+      }));
+      return;
+    }
+
+    setBusyProviderId(RETROACHIEVEMENTS_PROVIDER_ID);
+    const saveResult = await saveRetroAchievementsSetup(
+      providerConfigStore,
+      values,
+      providerConfigs.retroAchievements,
+      providerConfigs,
+    );
+    setBusyProviderId(undefined);
+
+    if (!saveResult.ok) {
+      setValues(saveResult.values);
+      setMessages((currentMessages) => ({
+        ...currentMessages,
+        retroAchievements: saveResult.message,
+      }));
+      return;
+    }
+
+    await reloadProviderStatuses(runtime, saveResult.values, createSurfaceMessages({
+      steam: messages.steam,
+    }));
+  }
+
+  async function handleSaveSteam(): Promise<void> {
+    const runtime = result.runtime;
+    const providerConfigs = result.state.providerConfigs;
+    const providerConfigStore = runtime?.adapters.providerConfigStore;
+    if (runtime === undefined || providerConfigStore === undefined || providerConfigs === undefined) {
+      setMessages((currentMessages) => ({
+        ...currentMessages,
+        providerConfig: "Provider config unavailable",
+        steam: "Could not save Steam settings",
+      }));
+      return;
+    }
+
+    setBusyProviderId(STEAM_PROVIDER_ID);
+    const saveResult = await saveSteamSetup(
+      providerConfigStore,
+      values,
+      providerConfigs.steam,
+      providerConfigs,
+    );
+    setBusyProviderId(undefined);
+
+    if (!saveResult.ok) {
+      setValues(saveResult.values);
+      setMessages((currentMessages) => ({
+        ...currentMessages,
+        steam: saveResult.message,
+      }));
+      return;
+    }
+
+    await reloadProviderStatuses(runtime, saveResult.values, createSurfaceMessages({
+      retroAchievements: messages.retroAchievements,
+    }));
+  }
+
+  async function handleClearRetroAchievements(): Promise<void> {
+    const runtime = result.runtime;
+    const providerConfigs = result.state.providerConfigs;
+    const providerConfigStore = runtime?.adapters.providerConfigStore;
+    if (runtime === undefined || providerConfigStore === undefined || providerConfigs === undefined) {
+      setMessages((currentMessages) => ({
+        ...currentMessages,
+        providerConfig: "Provider config unavailable",
+        retroAchievements: "Could not clear RetroAchievements settings",
+      }));
+      return;
+    }
+
+    setBusyProviderId(RETROACHIEVEMENTS_PROVIDER_ID);
+    const clearResult = await clearRetroAchievementsSetup(providerConfigStore, values, providerConfigs);
+    setBusyProviderId(undefined);
+
+    if (!clearResult.ok) {
+      setValues(clearResult.values);
+      setMessages((currentMessages) => ({
+        ...currentMessages,
+        retroAchievements: clearResult.message,
+      }));
+      return;
+    }
+
+    await reloadProviderStatuses(runtime, clearResult.values, createSurfaceMessages({
+      steam: messages.steam,
+    }));
+  }
+
+  async function handleClearSteam(): Promise<void> {
+    const runtime = result.runtime;
+    const providerConfigs = result.state.providerConfigs;
+    const providerConfigStore = runtime?.adapters.providerConfigStore;
+    if (runtime === undefined || providerConfigStore === undefined || providerConfigs === undefined) {
+      setMessages((currentMessages) => ({
+        ...currentMessages,
+        providerConfig: "Provider config unavailable",
+        steam: "Could not clear Steam settings",
+      }));
+      return;
+    }
+
+    setBusyProviderId(STEAM_PROVIDER_ID);
+    const clearResult = await clearSteamSetup(providerConfigStore, values, providerConfigs);
+    setBusyProviderId(undefined);
+
+    if (!clearResult.ok) {
+      setValues(clearResult.values);
+      setMessages((currentMessages) => ({
+        ...currentMessages,
+        steam: clearResult.message,
+      }));
+      return;
+    }
+
+    await reloadProviderStatuses(runtime, clearResult.values, createSurfaceMessages({
+      retroAchievements: messages.retroAchievements,
+    }));
+  }
+
+  if (result.state.phase !== "connected") {
+    return <SteamOSBootstrapStatus state={result.state} />;
+  }
+
+  const connectedState = createInitialConnectedState(result.state);
+  return (
+    <main data-steamos-bootstrap-state={connectedState.phase}>
+      <h1>Achievement Companion</h1>
+      <p>SteamOS dev shell</p>
+      <p>{connectedState.message}</p>
+      <SteamOSSetupSurface
+        {...(connectedState.providerConfigStatus !== undefined
+          ? { providerConfigStatus: connectedState.providerConfigStatus }
+          : {})}
+        {...(connectedState.providers !== undefined
+          ? { providerStatuses: connectedState.providers }
+          : {})}
+        values={values}
+        messages={messages}
+        {...(busyProviderId !== undefined ? { busyProviderId } : {})}
+        onRetroAchievementsUsernameChange={(value) =>
+          setValues((currentValues) => ({
+            ...currentValues,
+            retroAchievements: {
+              ...currentValues.retroAchievements,
+              username: value,
+            },
+          }))}
+        onRetroAchievementsApiKeyDraftChange={(value) =>
+          setValues((currentValues) => ({
+            ...currentValues,
+            retroAchievements: {
+              ...currentValues.retroAchievements,
+              apiKeyDraft: value,
+            },
+          }))}
+        onSteamId64Change={(value) =>
+          setValues((currentValues) => ({
+            ...currentValues,
+            steam: {
+              ...currentValues.steam,
+              steamId64: value,
+            },
+          }))}
+        onSteamApiKeyDraftChange={(value) =>
+          setValues((currentValues) => ({
+            ...currentValues,
+            steam: {
+              ...currentValues.steam,
+              apiKeyDraft: value,
+            },
+          }))}
+        onSaveRetroAchievements={() => void handleSaveRetroAchievements()}
+        onSaveSteam={() => void handleSaveSteam()}
+        onClearRetroAchievements={() => void handleClearRetroAchievements()}
+        onClearSteam={() => void handleClearSteam()}
+      />
     </main>
   );
 }
@@ -223,8 +525,7 @@ export function mountSteamOSBootstrap(
   options: MountSteamOSBootstrapOptions = {},
 ): Promise<SteamOSBootstrapResult> {
   const root = createRoot(resolveRootElement(options));
-  return bootstrapSteamOSShell({
-    ...options,
-    renderState: (state) => renderBootstrapState(root, state),
+  return new Promise((resolve) => {
+    root.render(<SteamOSBootstrapShell {...options} onResolved={resolve} />);
   });
 }
