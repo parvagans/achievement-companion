@@ -4,6 +4,7 @@ import json
 import shutil
 import subprocess
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from typing import Any
@@ -43,6 +44,15 @@ def _remove_steamos_dist() -> None:
   shutil.rmtree(resolved_dist, ignore_errors=True)
 
 
+def _wait_for_steamos_bootstrap_asset(timeout_seconds: float = 5.0) -> bool:
+  deadline = time.monotonic() + timeout_seconds
+  while time.monotonic() < deadline:
+    if STEAMOS_BOOTSTRAP_ASSET.exists():
+      return True
+    time.sleep(0.1)
+  return STEAMOS_BOOTSTRAP_ASSET.exists()
+
+
 class SteamOSDevShellLiveBootstrapSmokeTests(unittest.TestCase):
   def tearDown(self) -> None:
     _remove_steamos_dist()
@@ -63,7 +73,10 @@ class SteamOSDevShellLiveBootstrapSmokeTests(unittest.TestCase):
       check=False,
     )
     self.assertEqual(build_result.returncode, 0, f"{build_result.stdout}\n{build_result.stderr}")
-    self.assertTrue(STEAMOS_BOOTSTRAP_ASSET.exists())
+    self.assertTrue(
+      _wait_for_steamos_bootstrap_asset(),
+      f"Expected SteamOS bootstrap asset at {STEAMOS_BOOTSTRAP_ASSET}\n{build_result.stdout}\n{build_result.stderr}",
+    )
 
     with tempfile.TemporaryDirectory() as temp_dir:
       paths = _build_test_backend_paths(Path(temp_dir))

@@ -229,6 +229,7 @@ test("SteamOS dashboard cache load reads configured providers only and does not 
   });
   const readCalls: string[] = [];
   let liveRefreshCalls = 0;
+  let cacheWriteCalls = 0;
 
   const states = await loadSteamOSDashboardProviderStates({
     providerStatuses,
@@ -244,10 +245,13 @@ test("SteamOS dashboard cache load reads configured providers only and does not 
   assert.equal(states.steam.status, "setup_required");
   liveRefreshCalls += 0;
   assert.equal(liveRefreshCalls, 0);
+  assert.equal(cacheWriteCalls, 0);
+  cacheWriteCalls += 0;
 });
 
-test("SteamOS dashboard refresh runs only on explicit invocation and updates the visible state", async () => {
+test("SteamOS dashboard refresh runs only on explicit invocation, updates the visible state, and persists cache", async () => {
   let refreshCalls = 0;
+  const cacheWrites: Array<{ providerId: string; snapshot: DashboardSnapshot }> = [];
 
   const currentState = beginRefreshingSteamOSDashboardProviderState({
     status: "not_loaded",
@@ -256,6 +260,9 @@ test("SteamOS dashboard refresh runs only on explicit invocation and updates the
   const nextState = await refreshSteamOSDashboardProviderState({
     providerId: RETROACHIEVEMENTS_PROVIDER_ID,
     currentState,
+    writeCachedSnapshot: async (providerId, snapshot) => {
+      cacheWrites.push({ providerId, snapshot });
+    },
     refreshDashboard: async (providerId) => {
       refreshCalls += 1;
       assert.equal(providerId, RETROACHIEVEMENTS_PROVIDER_ID);
@@ -270,6 +277,9 @@ test("SteamOS dashboard refresh runs only on explicit invocation and updates the
   });
 
   assert.equal(refreshCalls, 1);
+  assert.equal(cacheWrites.length, 1);
+  assert.equal(cacheWrites[0]?.providerId, RETROACHIEVEMENTS_PROVIDER_ID);
+  assert.equal(cacheWrites[0]?.snapshot.profile.identity.displayName, "Retro Player");
   assert.equal(nextState.status, "cached");
   assert.equal(nextState.snapshot?.profile.identity.displayName, "Retro Player");
   assert.equal(nextState.errorMessage, undefined);
@@ -277,6 +287,7 @@ test("SteamOS dashboard refresh runs only on explicit invocation and updates the
 
 test("SteamOS dashboard refresh failure preserves stale cache and shows a generic error", async () => {
   const staleSnapshot = createSteamDashboardSnapshot();
+  let cacheWrites = 0;
   const nextState = await refreshSteamOSDashboardProviderState({
     providerId: STEAM_PROVIDER_ID,
     currentState: beginRefreshingSteamOSDashboardProviderState({
@@ -284,6 +295,9 @@ test("SteamOS dashboard refresh failure preserves stale cache and shows a generi
       snapshot: staleSnapshot,
       isRefreshing: false,
     }),
+    writeCachedSnapshot: async () => {
+      cacheWrites += 1;
+    },
     refreshDashboard: async () => ({
       status: "stale",
       data: staleSnapshot,
@@ -301,7 +315,67 @@ test("SteamOS dashboard refresh failure preserves stale cache and shows a generi
   assert.equal(nextState.status, "cached");
   assert.equal(nextState.snapshot?.profile.identity.displayName, "Steam Player");
   assert.equal(nextState.errorMessage, "Could not refresh dashboard");
+  assert.equal(cacheWrites, 0);
   assert.doesNotMatch(JSON.stringify(nextState), new RegExp(VALID_TOKEN, "u"));
+});
+
+test("SteamOS dashboard refresh without usable data does not persist cache", async () => {
+  let cacheWrites = 0;
+
+  const nextState = await refreshSteamOSDashboardProviderState({
+    providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+    currentState: beginRefreshingSteamOSDashboardProviderState({
+      status: "not_loaded",
+      isRefreshing: false,
+    }),
+    writeCachedSnapshot: async () => {
+      cacheWrites += 1;
+    },
+    refreshDashboard: async () => ({
+      status: "error",
+      error: {
+        kind: "unknown",
+        userMessage: "nope",
+        retryable: true,
+      },
+      isRefreshing: false,
+      isStale: false,
+    }),
+  });
+
+  assert.equal(cacheWrites, 0);
+  assert.equal(nextState.status, "not_loaded");
+  assert.equal(nextState.errorMessage, "Could not refresh dashboard");
+});
+
+test("SteamOS dashboard refresh does not run or write cache for unconfigured providers", async () => {
+  let refreshCalls = 0;
+  let cacheWrites = 0;
+
+  const nextState = await refreshSteamOSDashboardProviderState({
+    providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+    currentState: {
+      status: "setup_required",
+      isRefreshing: false,
+    },
+    writeCachedSnapshot: async () => {
+      cacheWrites += 1;
+    },
+    refreshDashboard: async () => {
+      refreshCalls += 1;
+      return {
+        status: "success",
+        data: createRetroDashboardSnapshot(),
+        isRefreshing: false,
+        isStale: false,
+        lastUpdatedAt: 1_710_000_000_000,
+      };
+    },
+  });
+
+  assert.equal(refreshCalls, 0);
+  assert.equal(cacheWrites, 0);
+  assert.equal(nextState.status, "setup_required");
 });
 
 test("SteamOS dashboard summary helpers stay frontend-safe and steam scan free", () => {

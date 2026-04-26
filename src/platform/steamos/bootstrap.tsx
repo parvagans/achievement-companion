@@ -556,6 +556,9 @@ export function SteamOSBootstrapShell(
           : {})}
         readCachedSnapshot={async (providerId): Promise<DashboardSnapshot | undefined> =>
           await result.runtime?.adapters.dashboardSnapshotStore?.read(providerId) as DashboardSnapshot | undefined}
+        writeCachedSnapshot={async (providerId, snapshot): Promise<void> => {
+          await result.runtime?.adapters.dashboardSnapshotStore?.write(providerId, snapshot);
+        }}
         refreshDashboard={async (providerId) =>
           await result.runtime?.services.dashboard.loadDashboard(providerId, { forceRefresh: true })
           ?? {

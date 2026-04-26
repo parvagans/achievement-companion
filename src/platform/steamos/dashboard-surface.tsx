@@ -44,6 +44,10 @@ export interface SteamOSDashboardSummaryCard {
 export interface SteamOSDashboardSurfaceProps {
   readonly providerStatuses?: SteamOSDashboardProviderStatuses;
   readonly readCachedSnapshot?: (providerId: SteamOSDashboardProviderId) => Promise<DashboardSnapshot | undefined>;
+  readonly writeCachedSnapshot?: (
+    providerId: SteamOSDashboardProviderId,
+    snapshot: DashboardSnapshot,
+  ) => Promise<void>;
   readonly refreshDashboard?: (
     providerId: SteamOSDashboardProviderId,
   ) => Promise<ResourceState<DashboardSnapshot>>;
@@ -376,6 +380,10 @@ export function beginRefreshingSteamOSDashboardProviderState(
 export async function refreshSteamOSDashboardProviderState(args: {
   readonly providerId: SteamOSDashboardProviderId;
   readonly currentState: SteamOSDashboardProviderState;
+  readonly writeCachedSnapshot?: (
+    providerId: SteamOSDashboardProviderId,
+    snapshot: DashboardSnapshot,
+  ) => Promise<void>;
   readonly refreshDashboard?: (
     providerId: SteamOSDashboardProviderId,
   ) => Promise<ResourceState<DashboardSnapshot>>;
@@ -394,6 +402,10 @@ export async function refreshSteamOSDashboardProviderState(args: {
   try {
     const result = await args.refreshDashboard(args.providerId);
     if (result.data !== undefined) {
+      if (args.writeCachedSnapshot !== undefined && result.error === undefined) {
+        await args.writeCachedSnapshot(args.providerId, result.data);
+      }
+
       return {
         status: "cached",
         snapshot: result.data,
@@ -626,6 +638,7 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
     const nextState = await refreshSteamOSDashboardProviderState({
       providerId: selectedProviderId,
       currentState,
+      ...(props.writeCachedSnapshot !== undefined ? { writeCachedSnapshot: props.writeCachedSnapshot } : {}),
       ...(props.refreshDashboard !== undefined ? { refreshDashboard: props.refreshDashboard } : {}),
     });
 
