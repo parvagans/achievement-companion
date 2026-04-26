@@ -6,6 +6,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   SteamOSBootstrapStatus,
+  autoMountSteamOSShell,
   bootstrapSteamOSShell,
 } from "../src/platform/steamos/bootstrap";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../src/providers/retroachievements/config";
@@ -120,6 +121,57 @@ test("SteamOS bootstrap entrypoint renders loading and connected states without 
   assert.match(states[1] ?? "", /not configured/u);
   assert.doesNotMatch(states.join("\n"), new RegExp(VALID_TOKEN, "u"));
   assert.doesNotMatch(calls[0]?.url ?? "", new RegExp(VALID_TOKEN, "u"));
+});
+
+test("SteamOS bootstrap entrypoint auto-mounts when a root element exists", async () => {
+  const rootElement = { id: "root" } as Element;
+  const mountCalls: Array<{ readonly rootElement?: Element; readonly document?: Document }> = [];
+
+  const result = await autoMountSteamOSShell({
+    document: {
+      getElementById(id: string) {
+        return id === "root" ? rootElement : null;
+      },
+    } as Document,
+    mount: async (options) => {
+      mountCalls.push({
+        rootElement: options?.rootElement,
+        document: options?.document,
+      });
+      return {
+        state: {
+          phase: "connected",
+          message: "Connected to SteamOS backend",
+        },
+      };
+    },
+  });
+
+  assert.equal(mountCalls.length, 1);
+  assert.equal(mountCalls[0]?.rootElement, rootElement);
+  assert.equal(result?.state.phase, "connected");
+});
+
+test("SteamOS bootstrap entrypoint auto-mount is safe when document or root is absent", async () => {
+  const noDocumentResult = autoMountSteamOSShell({
+    document: undefined,
+    mount: async () => {
+      throw new Error("mount should not run without document");
+    },
+  });
+  assert.equal(noDocumentResult, undefined);
+
+  const noRootResult = autoMountSteamOSShell({
+    document: {
+      getElementById() {
+        return null;
+      },
+    } as Document,
+    mount: async () => {
+      throw new Error("mount should not run without root");
+    },
+  });
+  assert.equal(noRootResult, undefined);
 });
 
 test("SteamOS bootstrap entrypoint renders provider status from frontend-safe config", async () => {

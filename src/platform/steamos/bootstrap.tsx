@@ -69,6 +69,10 @@ export interface MountSteamOSBootstrapOptions extends SteamOSBootstrapDependenci
   readonly rootElement?: Element;
 }
 
+export interface AutoMountSteamOSBootstrapOptions extends MountSteamOSBootstrapOptions {
+  readonly mount?: (options?: MountSteamOSBootstrapOptions) => Promise<SteamOSBootstrapResult>;
+}
+
 function createBootstrapState(
   phase: SteamOSBootstrapPhase,
   providerState?: Pick<SteamOSBootstrapState, "providerConfigStatus" | "providerConfigs" | "providers">,
@@ -529,3 +533,28 @@ export function mountSteamOSBootstrap(
     root.render(<SteamOSBootstrapShell {...options} onResolved={resolve} />);
   });
 }
+
+export function autoMountSteamOSShell(
+  options: AutoMountSteamOSBootstrapOptions = {},
+): Promise<SteamOSBootstrapResult> | undefined {
+  const resolvedDocument = options.document ?? globalThis.document;
+  if (resolvedDocument === undefined) {
+    return undefined;
+  }
+
+  const resolvedRootElement = options.rootElement ?? resolvedDocument.getElementById("root");
+  if (resolvedRootElement === null) {
+    return undefined;
+  }
+
+  const mount = options.mount ?? mountSteamOSBootstrap;
+  const mountPromise = mount({
+    ...options,
+    document: resolvedDocument,
+    rootElement: resolvedRootElement,
+  });
+  void mountPromise.catch(() => {});
+  return mountPromise;
+}
+
+void autoMountSteamOSShell();
