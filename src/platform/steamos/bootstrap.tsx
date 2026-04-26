@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import type { DashboardSnapshot } from "@core/domain";
 import { createSteamOSAppRuntime, type SteamOSAppRuntimeOptions } from "./create-steamos-app-runtime";
 import {
   loadSteamOSBootstrapConfig,
@@ -27,6 +28,7 @@ import {
   saveRetroAchievementsSetup,
   saveSteamSetup,
 } from "./setup-surface";
+import { SteamOSDashboardSurface } from "./dashboard-surface";
 
 export type SteamOSBootstrapPhase = "loading" | "connected" | "error";
 export type SteamOSProviderConfigStatus = "configured" | "not_configured" | "unavailable";
@@ -497,8 +499,8 @@ export function SteamOSBootstrapShell(
       <section style={STATUS_PANEL_STYLE}>
         <p style={STATUS_MESSAGE_STYLE}>{connectedState.message}</p>
         <p style={STATUS_HINT_STYLE}>
-          Save provider credentials locally before dashboard work. Saving here does not call provider APIs or start
-          a Steam scan.
+          Save provider credentials locally before dashboard work. Dashboard snapshots stay cached-first and
+          only refresh when you ask for them. This shell does not start a Steam scan.
         </p>
       </section>
       <SteamOSSetupSurface
@@ -547,6 +549,20 @@ export function SteamOSBootstrapShell(
         onSaveSteam={() => void handleSaveSteam()}
         onClearRetroAchievements={() => void handleClearRetroAchievements()}
         onClearSteam={() => void handleClearSteam()}
+      />
+      <SteamOSDashboardSurface
+        {...(connectedState.providers !== undefined
+          ? { providerStatuses: connectedState.providers }
+          : {})}
+        readCachedSnapshot={async (providerId): Promise<DashboardSnapshot | undefined> =>
+          await result.runtime?.adapters.dashboardSnapshotStore?.read(providerId) as DashboardSnapshot | undefined}
+        refreshDashboard={async (providerId) =>
+          await result.runtime?.services.dashboard.loadDashboard(providerId, { forceRefresh: true })
+          ?? {
+            status: "error",
+            isRefreshing: false,
+            isStale: false,
+          }}
       />
     </main>
   );
