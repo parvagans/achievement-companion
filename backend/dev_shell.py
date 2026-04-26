@@ -222,13 +222,16 @@ def start_steamos_dev_shell(
   context: LocalBackendContext | None = None,
   cleanup_metadata: bool = True,
 ) -> SteamOSDevShellRuntime:
-  resolved_paths = paths or (context.paths if context is not None else resolve_steamos_backend_paths(env=env, home=home))
+  resolved_env = os.environ if env is None else env
+  resolved_paths = paths or (
+    context.paths if context is not None else resolve_steamos_backend_paths(env=resolved_env, home=home)
+  )
   shell_server = _create_shell_server(host=shell_host, port=shell_port, asset_root=asset_root)
   shell_origin = f"http://{shell_server.server_address[0]}:{shell_server.server_address[1]}"
 
   try:
     backend_runtime = start_local_backend(
-      env=env,
+      env=resolved_env,
       home=home,
       paths=resolved_paths,
       metadata_path=metadata_path,

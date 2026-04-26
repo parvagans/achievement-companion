@@ -109,6 +109,30 @@ class LocalBackendLauncherTests(unittest.TestCase):
       finally:
         runtime.shutdown()
 
+  def test_run_local_backend_once_honors_injected_xdg_runtime_dir(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      root = Path(temp_dir)
+      env = {
+        "XDG_CONFIG_HOME": str(root / "config"),
+        "XDG_DATA_HOME": str(root / "data"),
+        "XDG_STATE_HOME": str(root / "state"),
+        "XDG_CACHE_HOME": str(root / "cache"),
+        "XDG_RUNTIME_DIR": str(root / "runtime"),
+      }
+      expected_metadata_path = root / "runtime" / "achievement-companion" / "backend.json"
+      once_stdout = io.StringIO()
+      once_stderr = io.StringIO()
+
+      with contextlib.redirect_stdout(once_stdout), contextlib.redirect_stderr(once_stderr):
+        exit_code = local_launcher.run_local_backend(env=env, home=root, once=True)
+
+      self.assertEqual(exit_code, 0)
+      self.assertIn("127.0.0.1", once_stdout.getvalue())
+      self.assertIn(str(expected_metadata_path), once_stdout.getvalue())
+      self.assertNotIn("token", once_stdout.getvalue().lower())
+      self.assertEqual(once_stderr.getvalue(), "")
+      self.assertFalse(expected_metadata_path.exists())
+
   def test_cli_help_and_once_output_do_not_print_token(self) -> None:
     help_stdout = io.StringIO()
     help_stderr = io.StringIO()

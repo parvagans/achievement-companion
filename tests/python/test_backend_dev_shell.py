@@ -270,6 +270,30 @@ class SteamOSDevShellTests(unittest.TestCase):
       self.assertEqual(once_stderr.getvalue(), "")
       self.assertFalse(metadata_path.exists())
 
+  def test_run_dev_shell_once_honors_injected_xdg_runtime_dir(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      root = Path(temp_dir)
+      env = {
+        "XDG_CONFIG_HOME": str(root / "config"),
+        "XDG_DATA_HOME": str(root / "data"),
+        "XDG_STATE_HOME": str(root / "state"),
+        "XDG_CACHE_HOME": str(root / "cache"),
+        "XDG_RUNTIME_DIR": str(root / "runtime"),
+      }
+      expected_metadata_path = root / "runtime" / "achievement-companion" / "backend.json"
+      once_stdout = io.StringIO()
+      once_stderr = io.StringIO()
+
+      with contextlib.redirect_stdout(once_stdout), contextlib.redirect_stderr(once_stderr):
+        exit_code = dev_shell.run_steamos_dev_shell(env=env, home=root, once=True)
+
+      self.assertEqual(exit_code, 0)
+      self.assertIn("SteamOS dev shell listening on http://127.0.0.1:", once_stdout.getvalue())
+      self.assertIn("Local backend listening on http://127.0.0.1:", once_stdout.getvalue())
+      self.assertNotIn("token", once_stdout.getvalue().lower())
+      self.assertEqual(once_stderr.getvalue(), "")
+      self.assertFalse(expected_metadata_path.exists())
+
   def test_dev_shell_stays_out_of_decky_boundaries_and_release_payload(self) -> None:
     source = (ROOT_DIR / "backend" / "dev_shell.py").read_text(encoding="utf-8")
     steamos_rollup = (ROOT_DIR / "rollup.steamos.config.js").read_text(encoding="utf-8")
