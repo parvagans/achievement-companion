@@ -180,7 +180,7 @@ def _build_shell_html() -> str:
     "  </head>\n"
     "  <body>\n"
     f"    <div id=\"root\">{marker}</div>\n"
-    f"    <script src=\"{_BOOTSTRAP_ASSET_PATH}\" defer></script>\n"
+    f"    <script type=\"module\" src=\"{_BOOTSTRAP_ASSET_PATH}\"></script>\n"
     "  </body>\n"
     "</html>\n"
   )

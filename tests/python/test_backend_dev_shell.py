@@ -85,7 +85,7 @@ class SteamOSDevShellTests(unittest.TestCase):
         self.assertIn("text/html", headers.get("Content-Type", ""))
         self.assertIn("Achievement Companion SteamOS dev shell", html)
         self.assertIn('id="root"', html)
-        self.assertIn('src="/assets/steamos-bootstrap.js"', html)
+        self.assertIn('<script type="module" src="/assets/steamos-bootstrap.js"></script>', html)
         self.assertNotIn(runtime.backend_runtime.token, html)
         self.assertNotIn("provider-secrets", html)
         self.assertNotIn("apiKey", html)
