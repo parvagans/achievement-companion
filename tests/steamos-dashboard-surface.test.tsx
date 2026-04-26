@@ -113,9 +113,14 @@ test("SteamOS dashboard surface shows setup-required and not-loaded states safel
   );
 
   assert.match(markup, /Read-only dashboard/u);
+  assert.match(markup, /Dashboard/u);
+  assert.match(markup, /Dashboard snapshots load from cache first/u);
+  assert.match(markup, /Choose a provider dashboard/u);
   assert.match(markup, /Setup required/u);
   assert.match(markup, /Set up this provider before loading a dashboard snapshot/u);
+  assert.match(markup, /Finish provider setup first, then use Refresh when you want to load dashboard data/u);
   assert.match(markup, /Refresh/u);
+  assert.match(markup, /aria-pressed="true"/u);
   assert.doesNotMatch(markup, new RegExp(VALID_TOKEN, "u"));
   assert.doesNotMatch(markup, /apiKey|Authorization|provider-secrets/u);
 });
@@ -142,6 +147,8 @@ test("SteamOS dashboard surface renders cached RetroAchievements summary metrics
   );
 
   assert.match(markup, /Cached/u);
+  assert.match(markup, /Showing the most recent cached snapshot until you request a manual refresh/u);
+  assert.match(markup, /Last updated/u);
   assert.match(markup, /Points/u);
   assert.match(markup, /12,345/u);
   assert.match(markup, /Achievements Unlocked/u);
@@ -183,6 +190,36 @@ test("SteamOS dashboard surface renders cached Steam summary metrics", () => {
   assert.match(markup, />21</u);
   assert.match(markup, /Completion/u);
   assert.match(markup, /54%/u);
+});
+
+test("SteamOS dashboard surface shows pending and failure status cues generically", () => {
+  const providerStatuses = createProviderStatuses({
+    retroAchievements: { status: "configured" },
+    steam: { status: "not_configured" },
+  });
+  const markup = renderToStaticMarkup(
+    <SteamOSDashboardSurface
+      providerStatuses={providerStatuses}
+      initialSelectedProviderId={RETROACHIEVEMENTS_PROVIDER_ID}
+      initialProviderStates={{
+        ...createSteamOSDashboardProviderStates(providerStatuses),
+        retroAchievements: {
+          status: "cached",
+          snapshot: createRetroDashboardSnapshot(),
+          errorMessage: "Could not refresh dashboard",
+          isRefreshing: true,
+        },
+      }}
+    />,
+  );
+
+  assert.match(markup, /Refreshing/u);
+  assert.match(markup, /Refreshing\.\.\./u);
+  assert.match(markup, /Refresh RetroAchievements dashboard/u);
+  assert.match(markup, /Refreshing the cached dashboard view/u);
+  assert.match(markup, /Could not refresh dashboard/u);
+  assert.match(markup, /role="status"/u);
+  assert.match(markup, /aria-live="polite"/u);
 });
 
 test("SteamOS dashboard cache load reads configured providers only and does not call live refresh", async () => {
@@ -291,5 +328,6 @@ test("SteamOS dashboard summary helpers stay frontend-safe and steam scan free",
   assert.doesNotMatch(dashboardSource, /@decky|platform\/decky|platform\\decky/u);
   assert.doesNotMatch(dashboardSource, /localStorage|sessionStorage/u);
   assert.doesNotMatch(dashboardSource, /scanSteamLibraryAchievements|steamLibraryScanStore/u);
+  assert.doesNotMatch(dashboardSource, /Authorization: Bearer|provider-secrets/u);
   assert.doesNotMatch(deckyEntrypoint, /platform\/steamos\/dashboard-surface|platform\\steamos\\dashboard-surface/u);
 });

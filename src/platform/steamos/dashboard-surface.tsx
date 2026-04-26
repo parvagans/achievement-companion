@@ -55,17 +55,22 @@ const DASHBOARD_REFRESH_ERROR = "Could not refresh dashboard";
 
 const SURFACE_STYLE: CSSProperties = {
   display: "grid",
-  gap: "1rem",
+  gap: "1.1rem",
 };
 
 const PANEL_STYLE: CSSProperties = {
   border: "1px solid #d7dde5",
   borderRadius: "16px",
   background: "linear-gradient(180deg, #ffffff 0%, #f7fbff 100%)",
-  padding: "1.1rem",
-  boxShadow: "0 12px 32px rgba(15, 23, 42, 0.06)",
+  padding: "1.15rem",
+  boxShadow: "0 14px 34px rgba(15, 23, 42, 0.07)",
   display: "grid",
-  gap: "0.9rem",
+  gap: "1rem",
+};
+
+const SECTION_HEADER_STYLE: CSSProperties = {
+  display: "grid",
+  gap: "0.45rem",
 };
 
 const HEADER_ROW_STYLE: CSSProperties = {
@@ -78,13 +83,38 @@ const HEADER_ROW_STYLE: CSSProperties = {
 
 const TITLE_STYLE: CSSProperties = {
   margin: 0,
-  fontSize: "1.1rem",
+  fontSize: "1.15rem",
+};
+
+const EYEBROW_STYLE: CSSProperties = {
+  margin: 0,
+  fontSize: "0.76rem",
+  fontWeight: 700,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  color: "#4f46e5",
 };
 
 const HELP_TEXT_STYLE: CSSProperties = {
   margin: 0,
   color: "#5f6b7a",
   lineHeight: 1.5,
+};
+
+const CHOOSER_PANEL_STYLE: CSSProperties = {
+  border: "1px solid #dbe3ec",
+  borderRadius: "14px",
+  backgroundColor: "#ffffff",
+  padding: "0.95rem 1rem",
+  display: "grid",
+  gap: "0.8rem",
+};
+
+const CHOOSER_LABEL_STYLE: CSSProperties = {
+  margin: 0,
+  fontSize: "0.9rem",
+  fontWeight: 600,
+  color: "#334155",
 };
 
 const CHOOSER_STYLE: CSSProperties = {
@@ -115,15 +145,14 @@ const UNSELECTED_PROVIDER_BUTTON_STYLE: CSSProperties = {
   color: "#1f2937",
 };
 
-const STATUS_BADGE_STYLE: CSSProperties = {
+const STATUS_BADGE_BASE_STYLE: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   borderRadius: "999px",
-  padding: "0.3rem 0.7rem",
+  padding: "0.35rem 0.72rem",
   fontSize: "0.84rem",
   fontWeight: 700,
-  backgroundColor: "#e2e8f0",
-  color: "#334155",
+  letterSpacing: "0.01em",
 };
 
 const CONTENT_CARD_STYLE: CSSProperties = {
@@ -140,10 +169,22 @@ const CONTENT_HEADING_STYLE: CSSProperties = {
   fontSize: "1rem",
 };
 
+const CONTENT_SUBTITLE_STYLE: CSSProperties = {
+  margin: 0,
+  color: "#334155",
+  fontSize: "0.92rem",
+  lineHeight: 1.45,
+};
+
 const META_TEXT_STYLE: CSSProperties = {
   margin: 0,
   color: "#5f6b7a",
   lineHeight: 1.5,
+};
+
+const META_GROUP_STYLE: CSSProperties = {
+  display: "grid",
+  gap: "0.55rem",
 };
 
 const SUMMARY_GRID_STYLE: CSSProperties = {
@@ -178,6 +219,13 @@ const ERROR_TEXT_STYLE: CSSProperties = {
   margin: 0,
   color: "#b42318",
   fontWeight: 600,
+};
+
+const REFRESH_STATUS_STYLE: CSSProperties = {
+  margin: 0,
+  color: "#475569",
+  fontSize: "0.9rem",
+  lineHeight: 1.45,
 };
 
 function formatCount(value: number): string {
@@ -439,6 +487,74 @@ function formatDashboardStateLabel(status: SteamOSDashboardCacheStatus): string 
   return "Setup required";
 }
 
+function getDashboardStateBadgeStyle(
+  status: SteamOSDashboardCacheStatus,
+  hasRefreshError: boolean,
+  isRefreshing: boolean,
+): CSSProperties {
+  if (isRefreshing) {
+    return {
+      ...STATUS_BADGE_BASE_STYLE,
+      backgroundColor: "#dbeafe",
+      color: "#1d4ed8",
+    };
+  }
+
+  if (hasRefreshError) {
+    return {
+      ...STATUS_BADGE_BASE_STYLE,
+      backgroundColor: "#fee2e2",
+      color: "#b42318",
+    };
+  }
+
+  if (status === "cached") {
+    return {
+      ...STATUS_BADGE_BASE_STYLE,
+      backgroundColor: "#dcfce7",
+      color: "#166534",
+    };
+  }
+
+  if (status === "not_loaded") {
+    return {
+      ...STATUS_BADGE_BASE_STYLE,
+      backgroundColor: "#fef3c7",
+      color: "#92400e",
+    };
+  }
+
+  if (status === "unavailable") {
+    return {
+      ...STATUS_BADGE_BASE_STYLE,
+      backgroundColor: "#e5e7eb",
+      color: "#475569",
+    };
+  }
+
+  return {
+    ...STATUS_BADGE_BASE_STYLE,
+    backgroundColor: "#ede9fe",
+    color: "#6d28d9",
+  };
+}
+
+function getDashboardStateDescription(status: SteamOSDashboardCacheStatus): string {
+  if (status === "cached") {
+    return "Showing the most recent cached snapshot until you request a manual refresh.";
+  }
+
+  if (status === "not_loaded") {
+    return "This provider is configured, but no cached dashboard snapshot has been loaded yet.";
+  }
+
+  if (status === "unavailable") {
+    return "Provider config is temporarily unavailable, so dashboard data cannot be read right now.";
+  }
+
+  return "Finish provider setup first, then use Refresh when you want to load dashboard data.";
+}
+
 function formatRefreshedAt(snapshot: DashboardSnapshot | undefined): string | undefined {
   const refreshedAt = snapshot?.refreshedAt ?? snapshot?.profile.refreshedAt;
   if (typeof refreshedAt !== "number" || !Number.isFinite(refreshedAt)) {
@@ -522,51 +638,83 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
   return (
     <section aria-label="SteamOS cached dashboard" style={SURFACE_STYLE}>
       <section style={PANEL_STYLE}>
-        <div style={HEADER_ROW_STYLE}>
-          <h2 style={TITLE_STYLE}>Read-only dashboard</h2>
-          <span style={STATUS_BADGE_STYLE}>{formatDashboardStateLabel(selectedProviderState.status)}</span>
+        <div style={SECTION_HEADER_STYLE}>
+          <p style={EYEBROW_STYLE}>Dashboard</p>
+          <div style={HEADER_ROW_STYLE}>
+            <h2 style={TITLE_STYLE}>Read-only dashboard</h2>
+            <span
+              aria-live="polite"
+              style={getDashboardStateBadgeStyle(
+                selectedProviderState.status,
+                selectedProviderState.errorMessage !== undefined,
+                selectedProviderState.isRefreshing,
+              )}
+            >
+              {selectedProviderState.isRefreshing
+                ? "Refreshing"
+                : selectedProviderState.errorMessage !== undefined
+                  ? "Refresh failed"
+                  : formatDashboardStateLabel(selectedProviderState.status)}
+            </span>
+          </div>
         </div>
         <p style={HELP_TEXT_STYLE}>
-          Cached dashboard snapshots are shown first. Live provider refresh only happens when you click Refresh,
-          and Steam scans stay out of scope here.
+          Dashboard snapshots load from cache first. Live provider refresh only happens when you click Refresh,
+          and Steam library scans are not triggered from this surface.
         </p>
-        <div aria-label="Dashboard provider chooser" style={CHOOSER_STYLE}>
-          <button
-            type="button"
-            style={selectedProviderId === RETROACHIEVEMENTS_PROVIDER_ID ? SELECTED_PROVIDER_BUTTON_STYLE : UNSELECTED_PROVIDER_BUTTON_STYLE}
-            onClick={() => setSelectedProviderId(RETROACHIEVEMENTS_PROVIDER_ID)}
-          >
-            RetroAchievements
-          </button>
-          <button
-            type="button"
-            style={selectedProviderId === STEAM_PROVIDER_ID ? SELECTED_PROVIDER_BUTTON_STYLE : UNSELECTED_PROVIDER_BUTTON_STYLE}
-            onClick={() => setSelectedProviderId(STEAM_PROVIDER_ID)}
-          >
-            Steam
-          </button>
-        </div>
+        <section aria-label="Dashboard provider chooser" style={CHOOSER_PANEL_STYLE}>
+          <p style={CHOOSER_LABEL_STYLE}>Choose a provider dashboard</p>
+          <div style={CHOOSER_STYLE}>
+            <button
+              type="button"
+              aria-pressed={selectedProviderId === RETROACHIEVEMENTS_PROVIDER_ID}
+              style={selectedProviderId === RETROACHIEVEMENTS_PROVIDER_ID ? SELECTED_PROVIDER_BUTTON_STYLE : UNSELECTED_PROVIDER_BUTTON_STYLE}
+              onClick={() => setSelectedProviderId(RETROACHIEVEMENTS_PROVIDER_ID)}
+            >
+              RetroAchievements
+            </button>
+            <button
+              type="button"
+              aria-pressed={selectedProviderId === STEAM_PROVIDER_ID}
+              style={selectedProviderId === STEAM_PROVIDER_ID ? SELECTED_PROVIDER_BUTTON_STYLE : UNSELECTED_PROVIDER_BUTTON_STYLE}
+              onClick={() => setSelectedProviderId(STEAM_PROVIDER_ID)}
+            >
+              Steam
+            </button>
+          </div>
+        </section>
         <section aria-label={`${selectedProviderLabel} dashboard`} style={CONTENT_CARD_STYLE}>
           <div style={HEADER_ROW_STYLE}>
-            <h3 style={CONTENT_HEADING_STYLE}>{selectedProviderLabel}</h3>
+            <div style={SECTION_HEADER_STYLE}>
+              <h3 style={CONTENT_HEADING_STYLE}>{selectedProviderLabel}</h3>
+              <p style={CONTENT_SUBTITLE_STYLE}>{getDashboardStateDescription(selectedProviderState.status)}</p>
+            </div>
             <button
               type="button"
               style={UNSELECTED_PROVIDER_BUTTON_STYLE}
               disabled={!canRefreshDashboardState(selectedProviderState) || selectedProviderState.isRefreshing}
               onClick={() => void handleRefresh()}
+              aria-label={`Refresh ${selectedProviderLabel} dashboard`}
             >
               {selectedProviderState.isRefreshing ? "Refreshing..." : "Refresh"}
             </button>
           </div>
-          {selectedProviderState.status === "setup_required" ? (
-            <p style={META_TEXT_STYLE}>Set up this provider before loading a dashboard snapshot.</p>
-          ) : null}
-          {selectedProviderState.status === "unavailable" ? (
-            <p style={META_TEXT_STYLE}>Provider config unavailable.</p>
-          ) : null}
-          {selectedProviderState.status === "not_loaded" ? (
-            <p style={META_TEXT_STYLE}>No cached dashboard snapshot yet. Refresh when you are ready.</p>
-          ) : null}
+          <div style={META_GROUP_STYLE}>
+            {selectedProviderState.status === "setup_required" ? (
+              <p style={META_TEXT_STYLE}>Set up this provider before loading a dashboard snapshot.</p>
+            ) : null}
+            {selectedProviderState.status === "unavailable" ? (
+              <p style={META_TEXT_STYLE}>Provider config unavailable.</p>
+            ) : null}
+            {selectedProviderState.status === "not_loaded" ? (
+              <p style={META_TEXT_STYLE}>No cached dashboard snapshot yet. Refresh when you are ready.</p>
+            ) : null}
+            {selectedProviderState.isRefreshing ? (
+              <p aria-live="polite" role="status" style={REFRESH_STATUS_STYLE}>
+                Refreshing the cached dashboard view. This shell still avoids automatic refreshes and Steam scans.
+              </p>
+            ) : null}
+          </div>
           {selectedProviderState.status === "cached" ? (
             <>
               {formatRefreshedAt(selectedProviderState.snapshot) !== undefined ? (
