@@ -102,6 +102,7 @@ const HELP_TEXT_STYLE: CSSProperties = {
 
 const PROVIDER_GRID_STYLE: CSSProperties = {
   display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
   gap: "1rem",
 };
 
@@ -109,10 +110,10 @@ const PROVIDER_CARD_STYLE: CSSProperties = {
   border: "1px solid rgba(148, 163, 184, 0.18)",
   borderRadius: "18px",
   background: "linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0.74) 100%)",
-  padding: "1rem",
+  padding: "1.1rem",
   boxShadow: "0 16px 36px rgba(2, 6, 23, 0.24)",
   display: "grid",
-  gap: "0.95rem",
+  gap: "1rem",
 };
 
 const PROVIDER_HEADER_STYLE: CSSProperties = {
@@ -149,9 +150,9 @@ const INPUT_STYLE: CSSProperties = {
   boxSizing: "border-box",
   borderRadius: "12px",
   border: "1px solid rgba(148, 163, 184, 0.26)",
-  padding: "0.8rem 0.9rem",
-  minHeight: "44px",
-  fontSize: "0.98rem",
+  padding: "0.9rem 1rem",
+  minHeight: "52px",
+  fontSize: "1rem",
   lineHeight: 1.4,
   color: "#e2e8f0",
   backgroundColor: "rgba(15, 23, 42, 0.86)",
@@ -176,8 +177,9 @@ const PRIMARY_BUTTON_STYLE: CSSProperties = {
   borderRadius: "999px",
   background: "linear-gradient(180deg, rgba(37, 99, 235, 0.96) 0%, rgba(29, 78, 216, 0.96) 100%)",
   color: "#ffffff",
-  padding: "0.8rem 1rem",
-  minHeight: "44px",
+  padding: "0.9rem 1rem",
+  minHeight: "50px",
+  minWidth: "148px",
   fontWeight: 700,
   cursor: "pointer",
 };
@@ -188,8 +190,9 @@ const SECONDARY_BUTTON_STYLE: CSSProperties = {
   borderRadius: "999px",
   backgroundColor: "rgba(15, 23, 42, 0.72)",
   color: "#e2e8f0",
-  padding: "0.8rem 1rem",
-  minHeight: "44px",
+  padding: "0.9rem 1rem",
+  minHeight: "50px",
+  minWidth: "148px",
   fontWeight: 700,
   cursor: "pointer",
 };
@@ -567,6 +570,7 @@ export function SteamOSSetupSurface(props: SteamOSSetupSurfaceProps): JSX.Elemen
         <section
           aria-label="RetroAchievements setup"
           aria-busy={isSavingRetroAchievements}
+          data-steamos-focus-group="true"
           style={PROVIDER_CARD_STYLE}
         >
           <div style={PROVIDER_HEADER_STYLE}>
@@ -583,6 +587,7 @@ export function SteamOSSetupSurface(props: SteamOSSetupSurfaceProps): JSX.Elemen
               <label htmlFor={RETROACHIEVEMENTS_USERNAME_ID} style={LABEL_STYLE}>Username</label>
               <input
                 id={RETROACHIEVEMENTS_USERNAME_ID}
+                className="steamos-focus-target steamos-input-target"
                 name="retroachievements-username"
                 type="text"
                 autoComplete="username"
@@ -596,6 +601,7 @@ export function SteamOSSetupSurface(props: SteamOSSetupSurfaceProps): JSX.Elemen
               <label htmlFor={RETROACHIEVEMENTS_API_KEY_ID} style={LABEL_STYLE}>API key</label>
               <input
                 id={RETROACHIEVEMENTS_API_KEY_ID}
+                className="steamos-focus-target steamos-input-target"
                 name="retroachievements-api-key"
                 type="password"
                 autoComplete="off"
@@ -609,8 +615,9 @@ export function SteamOSSetupSurface(props: SteamOSSetupSurfaceProps): JSX.Elemen
           {props.messages?.retroAchievements !== undefined ? (
             <p role="alert" style={ERROR_TEXT_STYLE}>{props.messages.retroAchievements}</p>
           ) : null}
-          <div style={BUTTON_ROW_STYLE}>
+          <div className="steamos-action-row" style={BUTTON_ROW_STYLE}>
             <button
+              className="steamos-focus-target steamos-button-target"
               type="button"
               onClick={props.onSaveRetroAchievements}
               disabled={isSavingRetroAchievements}
@@ -619,6 +626,7 @@ export function SteamOSSetupSurface(props: SteamOSSetupSurfaceProps): JSX.Elemen
               {isSavingRetroAchievements ? "Saving..." : "Save"}
             </button>
             <button
+              className="steamos-focus-target steamos-button-target"
               type="button"
               onClick={props.onClearRetroAchievements}
               disabled={isSavingRetroAchievements}
@@ -632,6 +640,7 @@ export function SteamOSSetupSurface(props: SteamOSSetupSurfaceProps): JSX.Elemen
         <section
           aria-label="Steam setup"
           aria-busy={isSavingSteam}
+          data-steamos-focus-group="true"
           style={PROVIDER_CARD_STYLE}
         >
           <div style={PROVIDER_HEADER_STYLE}>
@@ -648,6 +657,7 @@ export function SteamOSSetupSurface(props: SteamOSSetupSurfaceProps): JSX.Elemen
               <label htmlFor={STEAM_ID64_ID} style={LABEL_STYLE}>SteamID64</label>
               <input
                 id={STEAM_ID64_ID}
+                className="steamos-focus-target steamos-input-target"
                 name="steam-id64"
                 type="text"
                 inputMode="numeric"
@@ -662,6 +672,7 @@ export function SteamOSSetupSurface(props: SteamOSSetupSurfaceProps): JSX.Elemen
               <label htmlFor={STEAM_API_KEY_ID} style={LABEL_STYLE}>Steam Web API key</label>
               <input
                 id={STEAM_API_KEY_ID}
+                className="steamos-focus-target steamos-input-target"
                 name="steam-api-key"
                 type="password"
                 autoComplete="off"
@@ -675,8 +686,9 @@ export function SteamOSSetupSurface(props: SteamOSSetupSurfaceProps): JSX.Elemen
           {props.messages?.steam !== undefined ? (
             <p role="alert" style={ERROR_TEXT_STYLE}>{props.messages.steam}</p>
           ) : null}
-          <div style={BUTTON_ROW_STYLE}>
+          <div className="steamos-action-row" style={BUTTON_ROW_STYLE}>
             <button
+              className="steamos-focus-target steamos-button-target"
               type="button"
               onClick={props.onSaveSteam}
               disabled={isSavingSteam}
@@ -685,6 +697,7 @@ export function SteamOSSetupSurface(props: SteamOSSetupSurfaceProps): JSX.Elemen
               {isSavingSteam ? "Saving..." : "Save"}
             </button>
             <button
+              className="steamos-focus-target steamos-button-target"
               type="button"
               onClick={props.onClearSteam}
               disabled={isSavingSteam}

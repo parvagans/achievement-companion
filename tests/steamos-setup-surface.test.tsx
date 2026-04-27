@@ -62,6 +62,10 @@ test("SteamOS setup surface renders both provider forms with password inputs and
   assert.match(markup, /for="steamos-steam-api-key"/u);
   assert.match(markup, /placeholder="RetroAchievements username"/u);
   assert.match(markup, /placeholder="Numeric SteamID64"/u);
+  assert.match(markup, /class="steamos-focus-target steamos-input-target"/u);
+  assert.match(markup, /class="steamos-action-row"/u);
+  assert.match(markup, /class="steamos-focus-target steamos-button-target"/u);
+  assert.match(markup, /data-steamos-focus-group="true"/u);
   assert.match(markup, /value="sol88"/u);
   assert.match(markup, /value="76561198136628813"/u);
   assert.doesNotMatch(markup, /retro-secret|steam-secret|provider-secrets|Authorization: Bearer/u);
@@ -92,6 +96,7 @@ test("SteamOS setup surface renders status badges, busy state, and generic error
   assert.match(markup, /Saving\.\.\./u);
   assert.match(markup, /disabled=""/u);
   assert.match(markup, /role="alert"/u);
+  assert.match(markup, /class="steamos-focus-target steamos-button-target"/u);
 });
 
 test("SteamOS saveRetroAchievementsSetup saves username and draft key then clears the draft", async () => {

@@ -90,16 +90,80 @@ export interface AutoMountSteamOSBootstrapOptions extends MountSteamOSBootstrapO
 const PAGE_STYLE: CSSProperties = {
   minHeight: "100vh",
   width: "100%",
-  maxWidth: "1120px",
+  maxWidth: "1080px",
   margin: "0 auto",
-  padding: "1.75rem 1rem 2.5rem",
+  padding: "1.5rem 1rem 2rem",
   display: "grid",
-  gap: "1rem",
+  gap: "1.1rem",
   color: "#e2e8f0",
   fontFamily: "\"Segoe UI\", system-ui, sans-serif",
   background:
     "radial-gradient(circle at top, rgba(59, 130, 246, 0.18), transparent 34%), linear-gradient(180deg, #0a0f19 0%, #0f172a 48%, #111827 100%)",
 };
+
+const STEAMOS_INPUT_READINESS_CSS = `
+  .steamos-shell,
+  .steamos-shell * {
+    box-sizing: border-box;
+  }
+
+  .steamos-shell button,
+  .steamos-shell input {
+    font: inherit;
+  }
+
+  .steamos-shell .steamos-focus-target,
+  .steamos-shell [data-steamos-focus-group="true"] {
+    transition:
+      border-color 140ms ease,
+      box-shadow 140ms ease,
+      background-color 140ms ease,
+      transform 140ms ease;
+  }
+
+  .steamos-shell .steamos-focus-target:focus-visible {
+    outline: 3px solid rgba(125, 211, 252, 0.95);
+    outline-offset: 3px;
+    box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.18);
+  }
+
+  .steamos-shell button.steamos-focus-target:disabled,
+  .steamos-shell input.steamos-focus-target:disabled {
+    cursor: not-allowed;
+    opacity: 0.64;
+  }
+
+  .steamos-shell [data-steamos-focus-group="true"]:focus-within {
+    border-color: rgba(125, 211, 252, 0.72) !important;
+    box-shadow:
+      0 0 0 1px rgba(125, 211, 252, 0.3),
+      0 0 0 4px rgba(14, 165, 233, 0.12),
+      0 18px 38px rgba(2, 6, 23, 0.28);
+  }
+
+  .steamos-shell .steamos-action-row > * {
+    flex: 1 1 168px;
+    text-align: center;
+  }
+
+  .steamos-shell .steamos-input-target {
+    caret-color: #7dd3fc;
+  }
+
+  .steamos-shell .steamos-secondary-panel {
+    opacity: 0.94;
+  }
+
+  @media (max-width: 900px) {
+    .steamos-shell {
+      padding: 1rem 0.85rem 1.5rem;
+    }
+
+    .steamos-shell .steamos-action-row > * {
+      flex-basis: 100%;
+    }
+  }
+`;
 
 const PAGE_TITLE_STYLE: CSSProperties = {
   margin: 0,
@@ -216,8 +280,9 @@ const DEV_SHELL_STATUS_BUTTON_STYLE: CSSProperties = {
   borderRadius: "999px",
   background: "linear-gradient(180deg, rgba(37, 99, 235, 0.95) 0%, rgba(29, 78, 216, 0.95) 100%)",
   color: "#ffffff",
-  padding: "0.75rem 1rem",
-  minHeight: "44px",
+  padding: "0.9rem 1rem",
+  minHeight: "50px",
+  minWidth: "172px",
   fontWeight: 700,
   cursor: "pointer",
 };
@@ -262,7 +327,7 @@ const STEAMOS_APP_OVERVIEW_HELP_STYLE: CSSProperties = {
 
 const STEAMOS_PROVIDER_GRID_STYLE: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
   gap: "0.9rem",
 };
 
@@ -270,9 +335,9 @@ const STEAMOS_PROVIDER_CARD_STYLE: CSSProperties = {
   border: "1px solid rgba(148, 163, 184, 0.16)",
   borderRadius: "16px",
   background: "linear-gradient(180deg, rgba(15, 23, 42, 0.92) 0%, rgba(17, 24, 39, 0.84) 100%)",
-  padding: "1rem",
+  padding: "1.05rem",
   display: "grid",
-  gap: "0.85rem",
+  gap: "0.95rem",
   boxShadow: "0 10px 24px rgba(2, 6, 23, 0.22)",
 };
 
@@ -331,8 +396,9 @@ const STEAMOS_PROVIDER_CARD_PRIMARY_ACTION_STYLE: CSSProperties = {
   borderRadius: "999px",
   background: "linear-gradient(180deg, rgba(37, 99, 235, 0.96) 0%, rgba(29, 78, 216, 0.96) 100%)",
   color: "#ffffff",
-  padding: "0.75rem 1rem",
-  minHeight: "44px",
+  padding: "0.9rem 1rem",
+  minHeight: "50px",
+  minWidth: "150px",
   fontWeight: 700,
   cursor: "pointer",
 };
@@ -343,8 +409,9 @@ const STEAMOS_PROVIDER_CARD_SECONDARY_ACTION_STYLE: CSSProperties = {
   borderRadius: "999px",
   backgroundColor: "rgba(15, 23, 42, 0.72)",
   color: "#e2e8f0",
-  padding: "0.75rem 1rem",
-  minHeight: "44px",
+  padding: "0.9rem 1rem",
+  minHeight: "50px",
+  minWidth: "150px",
   fontWeight: 700,
   cursor: "pointer",
 };
@@ -354,8 +421,9 @@ const STEAMOS_PROVIDER_CARD_TERTIARY_ACTION_STYLE: CSSProperties = {
   border: "1px solid transparent",
   backgroundColor: "transparent",
   color: "#93c5fd",
-  padding: "0.75rem 0.25rem",
-  minHeight: "44px",
+  padding: "0.9rem 0.4rem",
+  minHeight: "50px",
+  minWidth: "150px",
   fontWeight: 700,
   cursor: "pointer",
 };
@@ -742,6 +810,8 @@ export function SteamOSAppShellOverview(
             <article
               key={card.providerId}
               aria-label={`${card.title} app card`}
+              data-steamos-provider-card="true"
+              data-steamos-focus-group="true"
               style={{
                 ...STEAMOS_PROVIDER_CARD_STYLE,
                 ...(isSelected ? STEAMOS_PROVIDER_CARD_ACTIVE_STYLE : {}),
@@ -770,8 +840,9 @@ export function SteamOSAppShellOverview(
               {dashboardMessages?.[card.providerId] !== undefined ? (
                 <p role="alert" style={ERROR_TEXT_STYLE}>{dashboardMessages[card.providerId]}</p>
               ) : null}
-              <div style={STEAMOS_PROVIDER_CARD_ACTIONS_STYLE}>
+              <div className="steamos-action-row" style={STEAMOS_PROVIDER_CARD_ACTIONS_STYLE}>
                 <button
+                  className="steamos-focus-target steamos-button-target"
                   type="button"
                   style={STEAMOS_PROVIDER_CARD_PRIMARY_ACTION_STYLE}
                   onClick={() => {
@@ -789,6 +860,7 @@ export function SteamOSAppShellOverview(
                   {primaryActionLabel}
                 </button>
                 <button
+                  className="steamos-focus-target steamos-button-target"
                   type="button"
                   style={STEAMOS_PROVIDER_CARD_SECONDARY_ACTION_STYLE}
                   disabled={!isConfigured && secondaryActionLabel === "Open dashboard"}
@@ -803,6 +875,7 @@ export function SteamOSAppShellOverview(
                   {secondaryActionLabel}
                 </button>
                 <button
+                  className="steamos-focus-target steamos-button-target"
                   type="button"
                   style={STEAMOS_PROVIDER_CARD_TERTIARY_ACTION_STYLE}
                   onClick={() => onOpenSetup?.(card.providerId)}
@@ -837,7 +910,8 @@ export function SteamOSBootstrapStatus(
   { state }: { readonly state: SteamOSBootstrapState },
 ): JSX.Element {
   return (
-    <main data-steamos-bootstrap-state={state.phase} style={PAGE_STYLE}>
+    <main className="steamos-shell" data-steamos-bootstrap-state={state.phase} style={PAGE_STYLE}>
+      <style>{STEAMOS_INPUT_READINESS_CSS}</style>
       <header>
         <h1 style={PAGE_TITLE_STYLE}>Achievement Companion</h1>
         <p style={PAGE_SUBTITLE_STYLE}>SteamOS dev shell</p>
@@ -874,7 +948,7 @@ export function SteamOSDevShellStatusPanel(
   const diagnostics = state.snapshot;
 
   return (
-    <section style={DEV_SHELL_STATUS_STYLE}>
+    <section className="steamos-secondary-panel" data-steamos-secondary-panel="true" data-steamos-focus-group="true" style={DEV_SHELL_STATUS_STYLE}>
       <div style={DEV_SHELL_STATUS_HEADER_STYLE}>
         <div style={DEV_SHELL_STATUS_HEADING_GROUP_STYLE}>
           <p style={DEV_SHELL_STATUS_EYEBROW_STYLE}>Development</p>
@@ -882,6 +956,7 @@ export function SteamOSDevShellStatusPanel(
         </div>
         {onRefresh !== undefined ? (
           <button
+            className="steamos-focus-target steamos-button-target"
             type="button"
             style={DEV_SHELL_STATUS_BUTTON_STYLE}
             disabled={isRefreshing}
@@ -1275,7 +1350,8 @@ export function SteamOSBootstrapShell(
 
   const connectedState = createInitialConnectedState(result.state);
   return (
-    <main data-steamos-bootstrap-state={connectedState.phase} style={PAGE_STYLE}>
+    <main className="steamos-shell" data-steamos-bootstrap-state={connectedState.phase} style={PAGE_STYLE}>
+      <style>{STEAMOS_INPUT_READINESS_CSS}</style>
       <header>
         <h1 style={PAGE_TITLE_STYLE}>Achievement Companion</h1>
         <p style={PAGE_SUBTITLE_STYLE}>SteamOS app shell</p>

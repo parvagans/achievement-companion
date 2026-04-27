@@ -121,6 +121,9 @@ test("SteamOS dashboard surface shows setup-required and not-loaded states safel
   assert.match(markup, /Finish provider setup first, then use Refresh when you want to load dashboard data/u);
   assert.match(markup, /Refresh/u);
   assert.match(markup, /aria-pressed="true"/u);
+  assert.match(markup, /class="steamos-dashboard-chooser steamos-action-row"/u);
+  assert.match(markup, /class="steamos-focus-target steamos-button-target"/u);
+  assert.match(markup, /data-steamos-focus-group="true"/u);
   assert.doesNotMatch(markup, new RegExp(VALID_TOKEN, "u"));
   assert.doesNotMatch(markup, /apiKey|Authorization|provider-secrets/u);
 });
@@ -248,6 +251,7 @@ test("SteamOS dashboard surface shows pending and failure status cues genericall
   assert.match(markup, /Could not refresh dashboard/u);
   assert.match(markup, /role="status"/u);
   assert.match(markup, /aria-live="polite"/u);
+  assert.match(markup, /class="steamos-focus-target steamos-button-target"/u);
 });
 
 test("SteamOS dashboard cache load reads configured providers only and does not call live refresh", async () => {

@@ -368,6 +368,9 @@ test("SteamOS app shell overview renders setup, refresh, and cached dashboard st
   assert.match(markup, /Set up/u);
   assert.match(markup, /Could not refresh dashboard/u);
   assert.match(markup, /Cache present/u);
+  assert.match(markup, /data-steamos-provider-card="true"/u);
+  assert.match(markup, /class="steamos-action-row"/u);
+  assert.match(markup, /class="steamos-focus-target steamos-button-target"/u);
   assert.doesNotMatch(markup, /Retro Player|76561198136628813|steam-secret|apiKeyDraft|Authorization/u);
 });
 
@@ -456,6 +459,8 @@ test("SteamOS app shell overview renders configured providers without a cache an
   assert.match(markup, /Refresh dashboard/u);
   assert.match(markup, /Open dashboard/u);
   assert.match(markup, /Edit setup/u);
+  assert.match(markup, /data-steamos-provider-card="true"/u);
+  assert.match(markup, /class="steamos-focus-target steamos-button-target"/u);
   assert.match(markup, /Setup required/u);
   assert.doesNotMatch(markup, /76561198136628813|apiKeyDraft|Authorization/u);
 });
@@ -562,6 +567,8 @@ test("SteamOS app shell foundation keeps provider actions readable and diagnosti
   assert.match(markup, /Refresh status/u);
   assert.match(markup, /Open dashboard/u);
   assert.match(markup, /Refresh dashboard/u);
+  assert.match(markup, /data-steamos-secondary-panel="true"/u);
+  assert.match(markup, /class="steamos-focus-target steamos-button-target"/u);
   assert.doesNotMatch(markup, /Retro Player|76561198136628813|apiKey|Authorization/u);
 });
 

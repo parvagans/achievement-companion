@@ -68,7 +68,7 @@ const PANEL_STYLE: CSSProperties = {
   border: "1px solid rgba(148, 163, 184, 0.18)",
   borderRadius: "20px",
   background: "linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0.74) 100%)",
-  padding: "1.2rem",
+  padding: "1.15rem",
   boxShadow: "0 16px 36px rgba(2, 6, 23, 0.24)",
   display: "grid",
   gap: "1rem",
@@ -133,10 +133,12 @@ const CHOOSER_STYLE: CSSProperties = {
 const BUTTON_BASE_STYLE: CSSProperties = {
   appearance: "none",
   borderRadius: "999px",
-  padding: "0.75rem 1rem",
-  minHeight: "44px",
+  padding: "0.9rem 1rem",
+  minHeight: "50px",
+  minWidth: "164px",
   fontWeight: 700,
   cursor: "pointer",
+  justifyContent: "center",
 };
 
 const SELECTED_PROVIDER_BUTTON_STYLE: CSSProperties = {
@@ -169,7 +171,7 @@ const CONTENT_CARD_STYLE: CSSProperties = {
   border: "1px solid rgba(148, 163, 184, 0.18)",
   borderRadius: "18px",
   background: "linear-gradient(180deg, rgba(15, 23, 42, 0.88) 0%, rgba(15, 23, 42, 0.74) 100%)",
-  padding: "1rem",
+  padding: "1.05rem",
   display: "grid",
   gap: "0.95rem",
   boxShadow: "0 14px 30px rgba(2, 6, 23, 0.2)",
@@ -201,7 +203,7 @@ const META_GROUP_STYLE: CSSProperties = {
 
 const SUMMARY_GRID_STYLE: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
   gap: "0.8rem",
 };
 
@@ -209,7 +211,7 @@ const SUMMARY_CARD_STYLE: CSSProperties = {
   border: "1px solid rgba(148, 163, 184, 0.14)",
   borderRadius: "14px",
   backgroundColor: "rgba(15, 23, 42, 0.72)",
-  padding: "0.9rem",
+  padding: "0.95rem",
   display: "grid",
   gap: "0.35rem",
 };
@@ -689,10 +691,11 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
           Dashboard snapshots load from cache first. Live provider refresh only happens when you click Refresh,
           and Steam library scans are not triggered from this surface.
         </p>
-        <section aria-label="Dashboard provider chooser" style={CHOOSER_PANEL_STYLE}>
+        <section aria-label="Dashboard provider chooser" data-steamos-focus-group="true" style={CHOOSER_PANEL_STYLE}>
           <p style={CHOOSER_LABEL_STYLE}>Choose a provider dashboard</p>
-          <div style={CHOOSER_STYLE}>
+          <div className="steamos-dashboard-chooser steamos-action-row" style={CHOOSER_STYLE}>
             <button
+              className="steamos-focus-target steamos-button-target"
               type="button"
               aria-pressed={selectedProviderId === RETROACHIEVEMENTS_PROVIDER_ID}
               style={selectedProviderId === RETROACHIEVEMENTS_PROVIDER_ID ? SELECTED_PROVIDER_BUTTON_STYLE : UNSELECTED_PROVIDER_BUTTON_STYLE}
@@ -704,6 +707,7 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
               RetroAchievements
             </button>
             <button
+              className="steamos-focus-target steamos-button-target"
               type="button"
               aria-pressed={selectedProviderId === STEAM_PROVIDER_ID}
               style={selectedProviderId === STEAM_PROVIDER_ID ? SELECTED_PROVIDER_BUTTON_STYLE : UNSELECTED_PROVIDER_BUTTON_STYLE}
@@ -716,13 +720,14 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
             </button>
           </div>
         </section>
-        <section aria-label={`${selectedProviderLabel} dashboard`} style={CONTENT_CARD_STYLE}>
+        <section aria-label={`${selectedProviderLabel} dashboard`} data-steamos-focus-group="true" style={CONTENT_CARD_STYLE}>
           <div style={HEADER_ROW_STYLE}>
             <div style={SECTION_HEADER_STYLE}>
               <h3 style={CONTENT_HEADING_STYLE}>{selectedProviderLabel}</h3>
               <p style={CONTENT_SUBTITLE_STYLE}>{getDashboardStateDescription(selectedProviderState.status)}</p>
             </div>
             <button
+              className="steamos-focus-target steamos-button-target"
               type="button"
               style={UNSELECTED_PROVIDER_BUTTON_STYLE}
               disabled={!canRefreshDashboardState(selectedProviderState) || selectedProviderState.isRefreshing}
