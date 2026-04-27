@@ -51,6 +51,8 @@ export interface SteamOSDashboardSurfaceProps {
   readonly refreshDashboard?: (
     providerId: SteamOSDashboardProviderId,
   ) => Promise<ResourceState<DashboardSnapshot>>;
+  readonly selectedProviderId?: SteamOSDashboardProviderId;
+  readonly onSelectedProviderIdChange?: (providerId: SteamOSDashboardProviderId) => void;
   readonly initialSelectedProviderId?: SteamOSDashboardProviderId;
   readonly initialProviderStates?: SteamOSDashboardProviderStates;
 }
@@ -582,11 +584,17 @@ function canRefreshDashboardState(state: SteamOSDashboardProviderState): boolean
 
 export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JSX.Element {
   const [selectedProviderId, setSelectedProviderId] = useState<SteamOSDashboardProviderId>(
-    props.initialSelectedProviderId ?? resolveInitialDashboardProviderId(props.providerStatuses),
+    props.selectedProviderId ?? props.initialSelectedProviderId ?? resolveInitialDashboardProviderId(props.providerStatuses),
   );
   const [providerStates, setProviderStates] = useState<SteamOSDashboardProviderStates>(
     props.initialProviderStates ?? createSteamOSDashboardProviderStates(props.providerStatuses),
   );
+
+  useEffect(() => {
+    if (props.selectedProviderId !== undefined) {
+      setSelectedProviderId(props.selectedProviderId);
+    }
+  }, [props.selectedProviderId]);
 
   useEffect(() => {
     let disposed = false;
@@ -649,7 +657,7 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
   }
 
   return (
-    <section aria-label="SteamOS cached dashboard" style={SURFACE_STYLE}>
+    <section id="steamos-dashboard-surface" aria-label="SteamOS cached dashboard" style={SURFACE_STYLE}>
       <section style={PANEL_STYLE}>
         <div style={SECTION_HEADER_STYLE}>
           <p style={EYEBROW_STYLE}>Dashboard</p>
@@ -682,7 +690,10 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
               type="button"
               aria-pressed={selectedProviderId === RETROACHIEVEMENTS_PROVIDER_ID}
               style={selectedProviderId === RETROACHIEVEMENTS_PROVIDER_ID ? SELECTED_PROVIDER_BUTTON_STYLE : UNSELECTED_PROVIDER_BUTTON_STYLE}
-              onClick={() => setSelectedProviderId(RETROACHIEVEMENTS_PROVIDER_ID)}
+              onClick={() => {
+              setSelectedProviderId(RETROACHIEVEMENTS_PROVIDER_ID);
+              props.onSelectedProviderIdChange?.(RETROACHIEVEMENTS_PROVIDER_ID);
+            }}
             >
               RetroAchievements
             </button>
@@ -690,7 +701,10 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
               type="button"
               aria-pressed={selectedProviderId === STEAM_PROVIDER_ID}
               style={selectedProviderId === STEAM_PROVIDER_ID ? SELECTED_PROVIDER_BUTTON_STYLE : UNSELECTED_PROVIDER_BUTTON_STYLE}
-              onClick={() => setSelectedProviderId(STEAM_PROVIDER_ID)}
+              onClick={() => {
+              setSelectedProviderId(STEAM_PROVIDER_ID);
+              props.onSelectedProviderIdChange?.(STEAM_PROVIDER_ID);
+            }}
             >
               Steam
             </button>

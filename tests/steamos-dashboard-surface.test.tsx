@@ -192,6 +192,34 @@ test("SteamOS dashboard surface renders cached Steam summary metrics", () => {
   assert.match(markup, /54%/u);
 });
 
+test("SteamOS dashboard surface follows the selected provider prop and keeps chooser state safe", () => {
+  const providerStatuses = createProviderStatuses({
+    retroAchievements: { status: "configured" },
+    steam: { status: "configured" },
+  });
+  const providerStates = createSteamOSDashboardProviderStates(providerStatuses);
+  const markup = renderToStaticMarkup(
+    <SteamOSDashboardSurface
+      providerStatuses={providerStatuses}
+      selectedProviderId={STEAM_PROVIDER_ID}
+      initialProviderStates={{
+        ...providerStates,
+        steam: {
+          status: "cached",
+          snapshot: createSteamDashboardSnapshot(),
+          isRefreshing: false,
+        },
+      }}
+    />,
+  );
+
+  assert.match(markup, /aria-pressed="true"/u);
+  assert.match(markup, /Steam/u);
+  assert.match(markup, /Cached/u);
+  assert.doesNotMatch(markup, new RegExp(VALID_TOKEN, "u"));
+  assert.doesNotMatch(markup, /localStorage|sessionStorage|apiKey|Authorization/u);
+});
+
 test("SteamOS dashboard surface shows pending and failure status cues generically", () => {
   const providerStatuses = createProviderStatuses({
     retroAchievements: { status: "configured" },

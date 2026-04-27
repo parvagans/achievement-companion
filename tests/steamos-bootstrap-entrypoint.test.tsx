@@ -5,6 +5,7 @@ import { test } from "node:test";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  SteamOSAppShellOverview,
   SteamOSBootstrapStatus,
   SteamOSDevShellStatusPanel,
   autoMountSteamOSShell,
@@ -269,6 +270,194 @@ test("SteamOS dev shell diagnostics panel renders safe local status without expo
   assert.match(markup, /missing/u);
   assert.match(markup, /Refresh status/u);
   assert.doesNotMatch(markup, /sol88|steam-secret|apiKeyDraft|Authorization|provider-secrets|76561198136628813/u);
+});
+
+test("SteamOS app shell overview renders setup, refresh, and cached dashboard states safely", () => {
+  const diagnostics = {
+    phase: "loaded",
+    message: "SteamOS dev shell status ready",
+    snapshot: {
+      ok: true,
+      backendReachable: true,
+      runtimeMetadata: {
+        present: true,
+        valid: true,
+        sizeBytes: 128,
+        mtimeMs: 1_710_000_000_000,
+      },
+      providerConfigFilePresent: true,
+      providerSecretsFilePresent: true,
+      retroAchievements: {
+        configured: true,
+        usernamePresent: true,
+        hasApiKey: true,
+      },
+      steam: {
+        configured: false,
+        steamId64Present: false,
+        hasApiKey: false,
+      },
+      dashboardCache: {
+        retroAchievements: {
+          present: true,
+          valid: true,
+          sizeBytes: 256,
+          mtimeMs: 1_710_000_100_000,
+          refreshedAtMs: 1_710_000_050_000,
+        },
+        steam: {
+          present: false,
+          valid: false,
+        },
+      },
+    },
+  } as const;
+
+  const markup = renderToStaticMarkup(
+    <SteamOSAppShellOverview
+      state={{
+        phase: "connected",
+        message: "Connected to SteamOS backend",
+        providerConfigStatus: "loaded",
+        providerConfigs: {
+          retroAchievements: {
+            username: "Retro Player",
+            hasApiKey: true,
+            recentAchievementsCount: 10,
+            recentlyPlayedCount: 10,
+          },
+          steam: {
+            steamId64: "76561198136628813",
+            hasApiKey: false,
+            language: "english",
+            recentAchievementsCount: 10,
+            recentlyPlayedCount: 10,
+            includePlayedFreeGames: false,
+          },
+        },
+        providers: {
+          retroAchievements: {
+            label: "RetroAchievements",
+            status: "configured",
+          },
+          steam: {
+            label: "Steam",
+            status: "not_configured",
+          },
+        },
+      }}
+      diagnostics={diagnostics}
+      selectedProviderId={RETROACHIEVEMENTS_PROVIDER_ID}
+      dashboardMessages={{
+        [RETROACHIEVEMENTS_PROVIDER_ID]: "Could not refresh dashboard",
+      }}
+      onOpenSetup={() => {}}
+      onOpenDashboard={() => {}}
+      onRefreshDashboard={() => {}}
+    />,
+  );
+
+  assert.match(markup, /SteamOS app shell/u);
+  assert.match(markup, /RetroAchievements/u);
+  assert.match(markup, /Cached dashboard available/u);
+  assert.match(markup, /Open dashboard/u);
+  assert.match(markup, /Refresh dashboard/u);
+  assert.match(markup, /Edit setup/u);
+  assert.match(markup, /Steam/u);
+  assert.match(markup, /Setup required/u);
+  assert.match(markup, /Set up/u);
+  assert.match(markup, /Could not refresh dashboard/u);
+  assert.match(markup, /Cache present/u);
+  assert.doesNotMatch(markup, /Retro Player|76561198136628813|steam-secret|apiKeyDraft|Authorization/u);
+});
+
+test("SteamOS app shell overview renders configured providers without a cache and exposes refresh-first actions", () => {
+  const diagnostics = {
+    phase: "loaded",
+    message: "SteamOS dev shell status ready",
+    snapshot: {
+      ok: true,
+      backendReachable: true,
+      runtimeMetadata: {
+        present: true,
+        valid: true,
+        sizeBytes: 128,
+        mtimeMs: 1_710_000_000_000,
+      },
+      providerConfigFilePresent: true,
+      providerSecretsFilePresent: true,
+      retroAchievements: {
+        configured: false,
+        usernamePresent: false,
+        hasApiKey: false,
+      },
+      steam: {
+        configured: true,
+        steamId64Present: true,
+        hasApiKey: true,
+      },
+      dashboardCache: {
+        retroAchievements: {
+          present: false,
+          valid: false,
+        },
+        steam: {
+          present: false,
+          valid: false,
+        },
+      },
+    },
+  } as const;
+
+  const markup = renderToStaticMarkup(
+    <SteamOSAppShellOverview
+      state={{
+        phase: "connected",
+        message: "Connected to SteamOS backend",
+        providerConfigStatus: "loaded",
+        providerConfigs: {
+          retroAchievements: {
+            username: "",
+            hasApiKey: false,
+            recentAchievementsCount: 10,
+            recentlyPlayedCount: 10,
+          },
+          steam: {
+            steamId64: "76561198136628813",
+            hasApiKey: true,
+            language: "english",
+            recentAchievementsCount: 10,
+            recentlyPlayedCount: 10,
+            includePlayedFreeGames: false,
+          },
+        },
+        providers: {
+          retroAchievements: {
+            label: "RetroAchievements",
+            status: "not_configured",
+          },
+          steam: {
+            label: "Steam",
+            status: "configured",
+          },
+        },
+      }}
+      diagnostics={diagnostics}
+      selectedProviderId={STEAM_PROVIDER_ID}
+      onOpenSetup={() => {}}
+      onOpenDashboard={() => {}}
+      onRefreshDashboard={() => {}}
+    />,
+  );
+
+  assert.match(markup, /SteamOS app shell/u);
+  assert.match(markup, /Steam/u);
+  assert.match(markup, /Configured, no cached dashboard yet/u);
+  assert.match(markup, /Refresh dashboard/u);
+  assert.match(markup, /Open dashboard/u);
+  assert.match(markup, /Edit setup/u);
+  assert.match(markup, /Setup required/u);
+  assert.doesNotMatch(markup, /76561198136628813|apiKeyDraft|Authorization/u);
 });
 
 test("SteamOS dev shell diagnostics load helper returns safe loading success and failure states", async () => {

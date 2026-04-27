@@ -548,7 +548,7 @@ export function SteamOSSetupSurface(props: SteamOSSetupSurfaceProps): JSX.Elemen
   const isSavingSteam = props.busyProviderId === STEAM_PROVIDER_ID;
 
   return (
-    <section aria-label="SteamOS provider setup" style={SURFACE_STYLE}>
+    <section id="steamos-setup-surface" aria-label="SteamOS provider setup" style={SURFACE_STYLE}>
       <p style={HELP_TEXT_STYLE}>
         Saving stores credentials in the local backend only. This setup surface does not validate provider
         connectivity yet.

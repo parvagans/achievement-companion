@@ -28,7 +28,7 @@ import {
   saveRetroAchievementsSetup,
   saveSteamSetup,
 } from "./setup-surface";
-import { SteamOSDashboardSurface } from "./dashboard-surface";
+import { SteamOSDashboardSurface, type SteamOSDashboardProviderId, type SteamOSDashboardProviderStatuses, resolveInitialDashboardProviderId } from "./dashboard-surface";
 import type {
   SteamOSDevShellDiagnosticsStatus,
   SteamOSDiagnosticsStatusStore,
@@ -212,6 +212,162 @@ const DEV_SHELL_STATUS_BUTTON_STYLE: CSSProperties = {
   padding: "0.6rem 0.9rem",
   fontWeight: 600,
   cursor: "pointer",
+};
+
+const STEAMOS_SETUP_SECTION_ID = "steamos-setup-surface";
+const STEAMOS_DASHBOARD_SECTION_ID = "steamos-dashboard-surface";
+const STEAMOS_APP_OVERVIEW_STYLE: CSSProperties = {
+  border: "1px solid #d7dde5",
+  borderRadius: "16px",
+  background: "linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)",
+  padding: "1rem 1.1rem",
+  boxShadow: "0 12px 32px rgba(15, 23, 42, 0.07)",
+  display: "grid",
+  gap: "0.85rem",
+};
+
+const STEAMOS_APP_OVERVIEW_HEADER_STYLE: CSSProperties = {
+  display: "grid",
+  gap: "0.4rem",
+};
+
+const STEAMOS_APP_OVERVIEW_EYEBROW_STYLE: CSSProperties = {
+  margin: 0,
+  fontSize: "0.76rem",
+  fontWeight: 700,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  color: "#4f46e5",
+};
+
+const STEAMOS_APP_OVERVIEW_TITLE_STYLE: CSSProperties = {
+  margin: 0,
+  fontSize: "1.1rem",
+};
+
+const STEAMOS_APP_OVERVIEW_HELP_STYLE: CSSProperties = {
+  margin: 0,
+  color: "#5f6b7a",
+  lineHeight: 1.5,
+};
+
+const STEAMOS_PROVIDER_GRID_STYLE: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: "0.85rem",
+};
+
+const STEAMOS_PROVIDER_CARD_STYLE: CSSProperties = {
+  border: "1px solid #dbe3ec",
+  borderRadius: "14px",
+  backgroundColor: "#ffffff",
+  padding: "0.95rem",
+  display: "grid",
+  gap: "0.8rem",
+  boxShadow: "0 8px 20px rgba(15, 23, 42, 0.04)",
+};
+
+const STEAMOS_PROVIDER_CARD_ACTIVE_STYLE: CSSProperties = {
+  border: "1px solid #60a5fa",
+  boxShadow: "0 12px 28px rgba(37, 99, 235, 0.14)",
+};
+
+const STEAMOS_PROVIDER_CARD_HEADER_STYLE: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.75rem",
+  flexWrap: "wrap",
+};
+
+const STEAMOS_PROVIDER_CARD_TITLE_STYLE: CSSProperties = {
+  margin: 0,
+  fontSize: "1rem",
+};
+
+const STEAMOS_PROVIDER_CARD_STATUS_BADGE_STYLE: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  borderRadius: "999px",
+  padding: "0.35rem 0.7rem",
+  fontSize: "0.83rem",
+  fontWeight: 700,
+  letterSpacing: "0.01em",
+};
+
+const STEAMOS_PROVIDER_CARD_STATUS_TEXT_STYLE: CSSProperties = {
+  margin: 0,
+  color: "#334155",
+  lineHeight: 1.45,
+};
+
+const STEAMOS_PROVIDER_CARD_META_STYLE: CSSProperties = {
+  margin: 0,
+  color: "#5f6b7a",
+  lineHeight: 1.45,
+};
+
+const STEAMOS_PROVIDER_CARD_ACTIONS_STYLE: CSSProperties = {
+  display: "flex",
+  gap: "0.6rem",
+  flexWrap: "wrap",
+};
+
+const STEAMOS_PROVIDER_CARD_PRIMARY_ACTION_STYLE: CSSProperties = {
+  appearance: "none",
+  border: "none",
+  borderRadius: "999px",
+  backgroundColor: "#0f172a",
+  color: "#ffffff",
+  padding: "0.7rem 1rem",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const STEAMOS_PROVIDER_CARD_SECONDARY_ACTION_STYLE: CSSProperties = {
+  appearance: "none",
+  border: "1px solid #c7d0db",
+  borderRadius: "999px",
+  backgroundColor: "#ffffff",
+  color: "#1f2937",
+  padding: "0.7rem 1rem",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const STEAMOS_PROVIDER_CARD_TERTIARY_ACTION_STYLE: CSSProperties = {
+  appearance: "none",
+  border: "1px solid transparent",
+  backgroundColor: "transparent",
+  color: "#1d4ed8",
+  padding: "0.7rem 0.2rem",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+const SECTION_HEADER_STYLE: CSSProperties = {
+  display: "grid",
+  gap: "0.45rem",
+};
+
+const EYEBROW_STYLE: CSSProperties = {
+  margin: 0,
+  fontSize: "0.76rem",
+  fontWeight: 700,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  color: "#4f46e5",
+};
+
+const TITLE_STYLE: CSSProperties = {
+  margin: 0,
+  fontSize: "1.1rem",
+};
+
+const ERROR_TEXT_STYLE: CSSProperties = {
+  margin: 0,
+  color: "#b42318",
+  fontWeight: 600,
 };
 
 function createInitialDevShellDiagnosticsState(): SteamOSDevShellDiagnosticsState {
@@ -413,6 +569,242 @@ function createSurfaceMessages(
   };
 }
 
+function formatProviderCardStatusLabel(
+  providerStatus: SteamOSProviderConfigStatus,
+  cacheStatus: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"] | undefined,
+): string {
+  if (providerStatus !== "configured") {
+    return providerStatus === "unavailable" ? "Backend unavailable" : "Setup required";
+  }
+
+  if (cacheStatus?.present === true && cacheStatus.valid === true) {
+    return "Cached dashboard available";
+  }
+
+  return "Configured, no cached dashboard yet";
+}
+
+function formatProviderCardDescription(
+  providerStatus: SteamOSProviderConfigStatus,
+  cacheStatus: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"] | undefined,
+): string {
+  if (providerStatus !== "configured") {
+    return "Save provider credentials before opening the dashboard.";
+  }
+
+  if (cacheStatus?.present === true && cacheStatus.valid === true) {
+    return formatCacheDetails(cacheStatus);
+  }
+
+  return "Refresh dashboard when you want to write the first cached snapshot.";
+}
+
+function getProviderCardPrimaryActionLabel(
+  providerStatus: SteamOSProviderConfigStatus,
+  cacheStatus: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"] | undefined,
+): string {
+  if (providerStatus !== "configured") {
+    return "Set up";
+  }
+
+  if (cacheStatus?.present === true && cacheStatus.valid === true) {
+    return "Open dashboard";
+  }
+
+  return "Refresh dashboard";
+}
+
+function getProviderCardSecondaryActionLabel(
+  providerStatus: SteamOSProviderConfigStatus,
+  cacheStatus: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"] | undefined,
+): string {
+  if (providerStatus !== "configured") {
+    return "Open dashboard";
+  }
+
+  if (cacheStatus?.present === true && cacheStatus.valid === true) {
+    return "Refresh dashboard";
+  }
+
+  return "Open dashboard";
+}
+
+function getProviderCardTertiaryActionLabel(_providerStatus: SteamOSProviderConfigStatus): string {
+  return "Edit setup";
+}
+
+function getProviderCardBadgeStyle(
+  providerStatus: SteamOSProviderConfigStatus,
+  isSelected: boolean,
+): CSSProperties {
+  const base = {
+    ...STEAMOS_PROVIDER_CARD_STATUS_BADGE_STYLE,
+    ...(isSelected ? { outline: "2px solid rgba(59, 130, 246, 0.35)", outlineOffset: "2px" } : {}),
+  };
+
+  if (providerStatus === "configured") {
+    return {
+      ...base,
+      backgroundColor: "#dcfce7",
+      color: "#166534",
+    };
+  }
+
+  if (providerStatus === "unavailable") {
+    return {
+      ...base,
+      backgroundColor: "#fef3c7",
+      color: "#92400e",
+    };
+  }
+
+  return {
+    ...base,
+    backgroundColor: "#e5e7eb",
+    color: "#374151",
+  };
+}
+
+function scrollToSection(id: string): void {
+  globalThis.document?.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+export function SteamOSAppShellOverview(
+  { state, diagnostics, selectedProviderId, dashboardMessages, onOpenSetup, onOpenDashboard, onRefreshDashboard }: {
+    readonly state: SteamOSBootstrapState;
+    readonly diagnostics: SteamOSDevShellDiagnosticsState;
+    readonly selectedProviderId: SteamOSDashboardProviderId;
+    readonly dashboardMessages?: Partial<Record<SteamOSDashboardProviderId, string>>;
+    readonly onOpenSetup?: (providerId: SteamOSDashboardProviderId) => void;
+    readonly onOpenDashboard?: (providerId: SteamOSDashboardProviderId) => void;
+    readonly onRefreshDashboard?: (providerId: SteamOSDashboardProviderId) => void;
+  },
+): JSX.Element {
+  const diagnosticsSnapshot = diagnostics.snapshot;
+  const retroCache = diagnosticsSnapshot?.dashboardCache.retroAchievements;
+  const steamCache = diagnosticsSnapshot?.dashboardCache.steam;
+
+  const cards: Array<{
+    readonly providerId: SteamOSDashboardProviderId;
+    readonly title: string;
+    readonly providerStatus: SteamOSProviderConfigStatus;
+    readonly cacheStatus: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"] | undefined;
+  }> = [
+    {
+      providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+      title: "RetroAchievements",
+      providerStatus: state.providers?.retroAchievements.status ?? "unavailable",
+      cacheStatus: retroCache,
+    },
+    {
+      providerId: STEAM_PROVIDER_ID,
+      title: "Steam",
+      providerStatus: state.providers?.steam.status ?? "unavailable",
+      cacheStatus: steamCache,
+    },
+  ];
+
+  return (
+    <section aria-label="SteamOS app overview" style={STEAMOS_APP_OVERVIEW_STYLE}>
+      <div style={STEAMOS_APP_OVERVIEW_HEADER_STYLE}>
+        <p style={STEAMOS_APP_OVERVIEW_EYEBROW_STYLE}>Home</p>
+        <h2 style={STEAMOS_APP_OVERVIEW_TITLE_STYLE}>SteamOS app shell</h2>
+        <p style={STEAMOS_APP_OVERVIEW_HELP_STYLE}>
+          Use these provider cards to jump between setup, the cached dashboard, and refresh actions without exposing
+          secrets.
+        </p>
+      </div>
+      <div style={STEAMOS_PROVIDER_GRID_STYLE}>
+        {cards.map((card) => {
+          const isSelected = selectedProviderId === card.providerId;
+          const primaryActionLabel = getProviderCardPrimaryActionLabel(card.providerStatus, card.cacheStatus);
+          const secondaryActionLabel = getProviderCardSecondaryActionLabel(card.providerStatus, card.cacheStatus);
+          const tertiaryActionLabel = getProviderCardTertiaryActionLabel(card.providerStatus);
+          const canRefresh = card.providerStatus === "configured";
+          const isConfigured = card.providerStatus === "configured";
+          return (
+            <article
+              key={card.providerId}
+              aria-label={`${card.title} app card`}
+              style={{
+                ...STEAMOS_PROVIDER_CARD_STYLE,
+                ...(isSelected ? STEAMOS_PROVIDER_CARD_ACTIVE_STYLE : {}),
+              }}
+            >
+              <div style={STEAMOS_PROVIDER_CARD_HEADER_STYLE}>
+                <h3 style={STEAMOS_PROVIDER_CARD_TITLE_STYLE}>{card.title}</h3>
+                <span style={getProviderCardBadgeStyle(card.providerStatus, isSelected)}>
+                  {formatProviderCardStatusLabel(card.providerStatus, card.cacheStatus)}
+                </span>
+              </div>
+              <p style={STEAMOS_PROVIDER_CARD_STATUS_TEXT_STYLE}>
+                {formatProviderCardDescription(card.providerStatus, card.cacheStatus)}
+              </p>
+              {diagnosticsSnapshot !== undefined ? (
+                <p style={STEAMOS_PROVIDER_CARD_META_STYLE}>
+                  {card.cacheStatus?.present === true
+                    ? `Cache present${card.cacheStatus.mtimeMs !== undefined ? ` ? updated ${new Date(card.cacheStatus.mtimeMs).toLocaleString()}` : ""}`
+                    : "Cache missing"}
+                </p>
+              ) : (
+                <p style={STEAMOS_PROVIDER_CARD_META_STYLE}>
+                  Dev status is still loading or unavailable.
+                </p>
+              )}
+              {dashboardMessages?.[card.providerId] !== undefined ? (
+                <p role="alert" style={ERROR_TEXT_STYLE}>{dashboardMessages[card.providerId]}</p>
+              ) : null}
+              <div style={STEAMOS_PROVIDER_CARD_ACTIONS_STYLE}>
+                <button
+                  type="button"
+                  style={STEAMOS_PROVIDER_CARD_PRIMARY_ACTION_STYLE}
+                  onClick={() => {
+                    if (primaryActionLabel === "Open dashboard") {
+                      onOpenDashboard?.(card.providerId);
+                      return;
+                    }
+                    if (primaryActionLabel === "Refresh dashboard") {
+                      onRefreshDashboard?.(card.providerId);
+                      return;
+                    }
+                    onOpenSetup?.(card.providerId);
+                  }}
+                >
+                  {primaryActionLabel}
+                </button>
+                <button
+                  type="button"
+                  style={STEAMOS_PROVIDER_CARD_SECONDARY_ACTION_STYLE}
+                  disabled={!isConfigured && secondaryActionLabel === "Open dashboard"}
+                  onClick={() => {
+                    if (secondaryActionLabel === "Open dashboard") {
+                      onOpenDashboard?.(card.providerId);
+                      return;
+                    }
+                    onRefreshDashboard?.(card.providerId);
+                  }}
+                >
+                  {secondaryActionLabel}
+                </button>
+                <button
+                  type="button"
+                  style={STEAMOS_PROVIDER_CARD_TERTIARY_ACTION_STYLE}
+                  onClick={() => onOpenSetup?.(card.providerId)}
+                >
+                  {tertiaryActionLabel}
+                </button>
+              </div>
+              {canRefresh ? null : (
+                <p style={STEAMOS_PROVIDER_CARD_META_STYLE}>Refresh becomes available after setup is saved.</p>
+              )}
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 function resolveRootElement(options: MountSteamOSBootstrapOptions): Element {
   const rootElement = options.rootElement
     ?? options.document?.getElementById("root")
@@ -590,12 +982,33 @@ export function SteamOSBootstrapShell(
   const [values, setValues] = useState<SteamOSSetupFormValues>(createSteamOSSetupFormValues());
   const [messages, setMessages] = useState<SteamOSSetupSurfaceMessages>({});
   const [busyProviderId, setBusyProviderId] = useState<typeof RETROACHIEVEMENTS_PROVIDER_ID | typeof STEAM_PROVIDER_ID>();
+  const [selectedDashboardProviderId, setSelectedDashboardProviderId] = useState<SteamOSDashboardProviderId>(
+    resolveInitialDashboardProviderId(result.state.providers),
+  );
+  const [dashboardReloadNonce, setDashboardReloadNonce] = useState(0);
+  const [dashboardActionMessages, setDashboardActionMessages] = useState<Partial<Record<SteamOSDashboardProviderId, string>>>({});
 
-  async function refreshDevShellDiagnosticsStatus(): Promise<void> {
+  async function refreshDevShellDiagnosticsStatus(runtime = result.runtime): Promise<void> {
     setDevShellDiagnosticsState(createInitialDevShellDiagnosticsState());
     setDevShellDiagnosticsState(
-      await loadSteamOSDevShellDiagnosticsStatus(result.runtime?.adapters.diagnosticsStatusStore),
+      await loadSteamOSDevShellDiagnosticsStatus(runtime?.adapters.diagnosticsStatusStore),
     );
+  }
+
+  function scrollToSection(sectionId: string): void {
+    globalThis.document?.getElementById(sectionId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function setDashboardActionMessage(providerId: SteamOSDashboardProviderId, message?: string): void {
+    setDashboardActionMessages((currentMessages) => {
+      const nextMessages = { ...currentMessages };
+      if (message === undefined) {
+        delete nextMessages[providerId];
+      } else {
+        nextMessages[providerId] = message;
+      }
+      return nextMessages;
+    });
   }
 
   useEffect(() => {
@@ -617,6 +1030,23 @@ export function SteamOSBootstrapShell(
       disposed = true;
     };
   }, [options]);
+
+  useEffect(() => {
+    if (result.state.phase !== "connected" || result.state.providers === undefined) {
+      return;
+    }
+
+    setSelectedDashboardProviderId((currentProviderId) => {
+      const currentProviderStatus = currentProviderId === STEAM_PROVIDER_ID
+        ? result.state.providers?.steam.status
+        : result.state.providers?.retroAchievements.status;
+      if (currentProviderStatus === "configured") {
+        return currentProviderId;
+      }
+
+      return resolveInitialDashboardProviderId(result.state.providers);
+    });
+  }, [result.state.phase, result.state.providers]);
 
   useEffect(() => {
     if (result.state.phase !== "connected") {
@@ -648,6 +1078,7 @@ export function SteamOSBootstrapShell(
     });
     setValues(nextValues);
     setMessages(nextMessages);
+    await refreshDevShellDiagnosticsStatus(runtime);
   }
 
   async function handleSaveRetroAchievements(): Promise<void> {
@@ -784,6 +1215,44 @@ export function SteamOSBootstrapShell(
     }));
   }
 
+  async function handleRefreshDashboard(providerId: SteamOSDashboardProviderId): Promise<void> {
+    const runtime = result.runtime;
+    const providerStatuses = result.state.providers;
+    const providerStatus = providerId === STEAM_PROVIDER_ID ? providerStatuses?.steam.status : providerStatuses?.retroAchievements.status;
+    const dashboardSnapshotStore = runtime?.adapters.dashboardSnapshotStore;
+    const refreshDashboard = runtime?.services.dashboard.loadDashboard.bind(runtime.services.dashboard);
+
+    setSelectedDashboardProviderId(providerId);
+    scrollToSection(STEAMOS_DASHBOARD_SECTION_ID);
+
+    if (
+      runtime === undefined
+      || providerStatuses === undefined
+      || providerStatus !== "configured"
+      || dashboardSnapshotStore === undefined
+      || refreshDashboard === undefined
+    ) {
+      setDashboardActionMessage(providerId, "Could not refresh dashboard");
+      return;
+    }
+
+    setDashboardActionMessage(providerId, "Refreshing dashboard...");
+    try {
+      const refreshResult = await refreshDashboard(providerId, { forceRefresh: true });
+      if (refreshResult.data !== undefined && refreshResult.error === undefined) {
+        await dashboardSnapshotStore.write(providerId, refreshResult.data);
+        setDashboardActionMessage(providerId, undefined);
+      } else {
+        setDashboardActionMessage(providerId, "Could not refresh dashboard");
+      }
+    } catch {
+      setDashboardActionMessage(providerId, "Could not refresh dashboard");
+    }
+
+    setDashboardReloadNonce((currentNonce) => currentNonce + 1);
+    await refreshDevShellDiagnosticsStatus(runtime);
+  }
+
   if (result.state.phase !== "connected") {
     return <SteamOSBootstrapStatus state={result.state} />;
   }
@@ -793,7 +1262,7 @@ export function SteamOSBootstrapShell(
     <main data-steamos-bootstrap-state={connectedState.phase} style={PAGE_STYLE}>
       <header>
         <h1 style={PAGE_TITLE_STYLE}>Achievement Companion</h1>
-        <p style={PAGE_SUBTITLE_STYLE}>SteamOS dev shell</p>
+        <p style={PAGE_SUBTITLE_STYLE}>SteamOS app shell</p>
       </header>
       <section style={STATUS_PANEL_STYLE}>
         <p style={STATUS_MESSAGE_STYLE}>{connectedState.message}</p>
@@ -802,73 +1271,103 @@ export function SteamOSBootstrapShell(
           only refresh when you ask for them. This shell does not start a Steam scan.
         </p>
       </section>
+      <SteamOSAppShellOverview
+        state={connectedState}
+        diagnostics={devShellDiagnosticsState}
+        selectedProviderId={selectedDashboardProviderId}
+        dashboardMessages={dashboardActionMessages}
+        onOpenSetup={(providerId) => {
+          setSelectedDashboardProviderId(providerId);
+          scrollToSection(STEAMOS_SETUP_SECTION_ID);
+        }}
+        onOpenDashboard={(providerId) => {
+          setSelectedDashboardProviderId(providerId);
+          scrollToSection(STEAMOS_DASHBOARD_SECTION_ID);
+        }}
+        onRefreshDashboard={(providerId) => void handleRefreshDashboard(providerId)}
+      />
+      <section id={STEAMOS_SETUP_SECTION_ID} style={{ display: "grid", gap: "0.8rem" }}>
+        <div style={SECTION_HEADER_STYLE}>
+          <p style={EYEBROW_STYLE}>Setup</p>
+          <h2 style={TITLE_STYLE}>Provider setup</h2>
+        </div>
+        <SteamOSSetupSurface
+          {...(connectedState.providerConfigStatus !== undefined
+            ? { providerConfigStatus: connectedState.providerConfigStatus }
+            : {})}
+          {...(connectedState.providers !== undefined
+            ? { providerStatuses: connectedState.providers }
+            : {})}
+          values={values}
+          messages={messages}
+          {...(busyProviderId !== undefined ? { busyProviderId } : {})}
+          onRetroAchievementsUsernameChange={(value) =>
+            setValues((currentValues) => ({
+              ...currentValues,
+              retroAchievements: {
+                ...currentValues.retroAchievements,
+                username: value,
+              },
+            }))}
+          onRetroAchievementsApiKeyDraftChange={(value) =>
+            setValues((currentValues) => ({
+              ...currentValues,
+              retroAchievements: {
+                ...currentValues.retroAchievements,
+                apiKeyDraft: value,
+              },
+            }))}
+          onSteamId64Change={(value) =>
+            setValues((currentValues) => ({
+              ...currentValues,
+              steam: {
+                ...currentValues.steam,
+                steamId64: value,
+              },
+            }))}
+          onSteamApiKeyDraftChange={(value) =>
+            setValues((currentValues) => ({
+              ...currentValues,
+              steam: {
+                ...currentValues.steam,
+                apiKeyDraft: value,
+              },
+            }))}
+          onSaveRetroAchievements={() => void handleSaveRetroAchievements()}
+          onSaveSteam={() => void handleSaveSteam()}
+          onClearRetroAchievements={() => void handleClearRetroAchievements()}
+          onClearSteam={() => void handleClearSteam()}
+        />
+      </section>
+      <section id={STEAMOS_DASHBOARD_SECTION_ID} style={{ display: "grid", gap: "0.8rem" }}>
+        <div style={SECTION_HEADER_STYLE}>
+          <p style={EYEBROW_STYLE}>Dashboard</p>
+          <h2 style={TITLE_STYLE}>Cached provider dashboards</h2>
+        </div>
+        <SteamOSDashboardSurface
+          key={`${selectedDashboardProviderId}:${dashboardReloadNonce}`}
+          {...(connectedState.providers !== undefined
+            ? { providerStatuses: connectedState.providers }
+            : {})}
+          selectedProviderId={selectedDashboardProviderId}
+          onSelectedProviderIdChange={setSelectedDashboardProviderId}
+          readCachedSnapshot={async (providerId): Promise<DashboardSnapshot | undefined> =>
+            await result.runtime?.adapters.dashboardSnapshotStore?.read(providerId) as DashboardSnapshot | undefined}
+          writeCachedSnapshot={async (providerId, snapshot): Promise<void> => {
+            await result.runtime?.adapters.dashboardSnapshotStore?.write(providerId, snapshot);
+          }}
+          refreshDashboard={async (providerId) =>
+            await result.runtime?.services.dashboard.loadDashboard(providerId, { forceRefresh: true })
+            ?? {
+              status: "error",
+              isRefreshing: false,
+              isStale: false,
+            }}
+        />
+      </section>
       <SteamOSDevShellStatusPanel
         state={devShellDiagnosticsState}
         onRefresh={() => void refreshDevShellDiagnosticsStatus()}
-      />
-      <SteamOSSetupSurface
-        {...(connectedState.providerConfigStatus !== undefined
-          ? { providerConfigStatus: connectedState.providerConfigStatus }
-          : {})}
-        {...(connectedState.providers !== undefined
-          ? { providerStatuses: connectedState.providers }
-          : {})}
-        values={values}
-        messages={messages}
-        {...(busyProviderId !== undefined ? { busyProviderId } : {})}
-        onRetroAchievementsUsernameChange={(value) =>
-          setValues((currentValues) => ({
-            ...currentValues,
-            retroAchievements: {
-              ...currentValues.retroAchievements,
-              username: value,
-            },
-          }))}
-        onRetroAchievementsApiKeyDraftChange={(value) =>
-          setValues((currentValues) => ({
-            ...currentValues,
-            retroAchievements: {
-              ...currentValues.retroAchievements,
-              apiKeyDraft: value,
-            },
-          }))}
-        onSteamId64Change={(value) =>
-          setValues((currentValues) => ({
-            ...currentValues,
-            steam: {
-              ...currentValues.steam,
-              steamId64: value,
-            },
-          }))}
-        onSteamApiKeyDraftChange={(value) =>
-          setValues((currentValues) => ({
-            ...currentValues,
-            steam: {
-              ...currentValues.steam,
-              apiKeyDraft: value,
-            },
-          }))}
-        onSaveRetroAchievements={() => void handleSaveRetroAchievements()}
-        onSaveSteam={() => void handleSaveSteam()}
-        onClearRetroAchievements={() => void handleClearRetroAchievements()}
-        onClearSteam={() => void handleClearSteam()}
-      />
-      <SteamOSDashboardSurface
-        {...(connectedState.providers !== undefined
-          ? { providerStatuses: connectedState.providers }
-          : {})}
-        readCachedSnapshot={async (providerId): Promise<DashboardSnapshot | undefined> =>
-          await result.runtime?.adapters.dashboardSnapshotStore?.read(providerId) as DashboardSnapshot | undefined}
-        writeCachedSnapshot={async (providerId, snapshot): Promise<void> => {
-          await result.runtime?.adapters.dashboardSnapshotStore?.write(providerId, snapshot);
-        }}
-        refreshDashboard={async (providerId) =>
-          await result.runtime?.services.dashboard.loadDashboard(providerId, { forceRefresh: true })
-          ?? {
-            status: "error",
-            isRefreshing: false,
-            isStale: false,
-          }}
       />
     </main>
   );
