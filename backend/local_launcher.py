@@ -20,7 +20,7 @@ from backend.local_server import (
   create_session_token,
   write_runtime_metadata,
 )
-from backend.paths import BackendPaths, resolve_steamos_backend_paths
+from backend.paths import BackendPaths, ensure_backend_dirs, resolve_steamos_backend_paths
 
 
 _THREAD_JOIN_TIMEOUT_SECONDS = 5.0
@@ -69,7 +69,7 @@ def _resolve_metadata_path(
   if resolved_metadata_path is None:
     raise RuntimeError(
       "XDG_RUNTIME_DIR is required for local backend runtime metadata. "
-      "Pass metadata_path explicitly for tests.",
+      "Set XDG_RUNTIME_DIR or pass metadata_path explicitly for tests.",
     )
   return resolved_metadata_path
 
@@ -88,6 +88,7 @@ def start_local_backend(
 ) -> LocalBackendRuntime:
   resolved_env = os.environ if env is None else env
   resolved_paths = paths or (context.paths if context is not None else resolve_steamos_backend_paths(env=resolved_env, home=home))
+  ensure_backend_dirs(resolved_paths)
   resolved_metadata_path = _resolve_metadata_path(metadata_path=metadata_path, paths=resolved_paths)
   resolved_context = context or create_local_backend_context(paths=resolved_paths)
   token = create_session_token()
@@ -150,6 +151,7 @@ def run_local_backend(
   try:
     print(f"Achievement Companion local backend listening on {runtime.base_url}", file=output)
     print(f"Runtime metadata written to {runtime.metadata_path}", file=output)
+    print(f"Local backend health available at {runtime.base_url}/health", file=output)
     if once:
       return 0
     runtime.wait_forever()

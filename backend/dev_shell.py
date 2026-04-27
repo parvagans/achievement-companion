@@ -22,6 +22,7 @@ _RUNTIME_METADATA_PATH = "/__achievement_companion__/runtime"
 _BOOTSTRAP_ASSET_PATH = "/assets/steamos-bootstrap.js"
 _SHELL_MARKER = "Achievement Companion SteamOS dev shell"
 _REPO_ROOT = Path(__file__).resolve().parents[1]
+_BUILD_STEAMOS_COMMAND = "pnpm run build:steamos"
 _BOOTSTRAP_ASSET_BODY = (
   "\"use strict\";\n"
   "// Placeholder dev-shell bootstrap asset until a dedicated SteamOS bundle exists.\n"
@@ -198,6 +199,17 @@ def _load_steamos_bootstrap_asset(asset_root: Path | None = None) -> str:
     return _BOOTSTRAP_ASSET_BODY
 
 
+def _ensure_built_steamos_bootstrap_asset(asset_root: Path | None = None) -> Path:
+  asset_path = _get_steamos_bootstrap_asset_path(asset_root)
+  if asset_path.is_file():
+    return asset_path
+
+  raise RuntimeError(
+    "SteamOS bootstrap asset is missing. "
+    f"Run '{_BUILD_STEAMOS_COMMAND}' before starting the dev shell."
+  )
+
+
 def _create_shell_server(
   *,
   host: str = LOCAL_BACKEND_HOST,
@@ -221,7 +233,11 @@ def start_steamos_dev_shell(
   asset_root: Path | None = None,
   context: LocalBackendContext | None = None,
   cleanup_metadata: bool = True,
+  require_built_asset: bool = False,
 ) -> SteamOSDevShellRuntime:
+  if require_built_asset:
+    _ensure_built_steamos_bootstrap_asset(asset_root)
+
   resolved_env = os.environ if env is None else env
   resolved_paths = paths or (
     context.paths if context is not None else resolve_steamos_backend_paths(env=resolved_env, home=home)
@@ -274,6 +290,7 @@ def run_steamos_dev_shell(
   backend_port: int = 0,
   once: bool = False,
   stdout: TextIO | None = None,
+  asset_root: Path | None = None,
 ) -> int:
   output = stdout or sys.stdout
   runtime = start_steamos_dev_shell(
@@ -282,10 +299,13 @@ def run_steamos_dev_shell(
     metadata_path=metadata_path,
     shell_port=shell_port,
     backend_port=backend_port,
+    asset_root=asset_root,
+    require_built_asset=True,
   )
   try:
     print(f"Achievement Companion SteamOS dev shell listening on {runtime.shell_url}", file=output)
     print(f"Local backend listening on {runtime.backend_url}", file=output)
+    print(f"Local backend health available at {runtime.backend_url}/health", file=output)
     if once:
       return 0
     runtime.wait_forever()

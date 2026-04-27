@@ -58,6 +58,13 @@ class LocalBackendLauncherTests(unittest.TestCase):
         self.assertEqual(metadata["pid"], os.getpid())
         self.assertEqual(metadata["token"], runtime.token)
         self.assertIsInstance(metadata["startedAt"], str)
+        self.assertTrue(paths.config_path.parent.is_dir())
+        self.assertTrue(paths.secrets_path.parent.is_dir())
+        self.assertTrue(paths.logs_dir.is_dir())
+        self.assertTrue(paths.dashboard_cache_dir.is_dir())
+        self.assertTrue(paths.steam_scan_overview_path.parent.is_dir())
+        self.assertTrue(paths.steam_scan_summary_path.parent.is_dir())
+        self.assertTrue(paths.runtime_metadata_path is not None and paths.runtime_metadata_path.parent.is_dir())
         self.assertNotIn(runtime.token, stdout.getvalue())
         self.assertNotIn(runtime.token, stderr.getvalue())
         if os.name != "nt":
@@ -90,6 +97,7 @@ class LocalBackendLauncherTests(unittest.TestCase):
         local_launcher.start_local_backend(env={}, home=root)
 
       self.assertIn("XDG_RUNTIME_DIR is required", str(raised.exception))
+      self.assertIn("Set XDG_RUNTIME_DIR", str(raised.exception))
       self.assertFalse((root / ".cache" / "achievement-companion" / "backend.json").exists())
       self.assertFalse((root / ".config" / "achievement-companion" / "backend.json").exists())
 
@@ -129,6 +137,7 @@ class LocalBackendLauncherTests(unittest.TestCase):
       self.assertEqual(exit_code, 0)
       self.assertIn("127.0.0.1", once_stdout.getvalue())
       self.assertIn(str(expected_metadata_path), once_stdout.getvalue())
+      self.assertIn("Local backend health available at http://127.0.0.1:", once_stdout.getvalue())
       self.assertNotIn("token", once_stdout.getvalue().lower())
       self.assertEqual(once_stderr.getvalue(), "")
       self.assertFalse(expected_metadata_path.exists())
@@ -155,6 +164,7 @@ class LocalBackendLauncherTests(unittest.TestCase):
       self.assertEqual(exit_code, 0)
       self.assertIn("127.0.0.1", once_stdout.getvalue())
       self.assertIn(str(metadata_path), once_stdout.getvalue())
+      self.assertIn("Local backend health available at http://127.0.0.1:", once_stdout.getvalue())
       self.assertFalse(metadata_path.exists())
       self.assertNotIn("token", once_stdout.getvalue().lower())
       self.assertEqual(once_stderr.getvalue(), "")

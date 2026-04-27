@@ -1,37 +1,90 @@
 # SteamOS Dev Shell Runbook
 
-This runbook documents the current manual validation flow for the SteamOS dev shell before any dashboard UI work begins.
+This runbook documents the current standalone SteamOS dev-shell flow for local browser validation and future on-device Steam Deck validation.
+
+The SteamOS shell is a separate development/runtime path from the Decky plugin:
+
+- SteamOS shell: local browser shell + local backend + `dist-steamos/steamos-bootstrap.js`
+- Decky plugin: Decky runtime + Decky release ZIP
+
+The Decky release ZIP remains Decky-only and must not include the SteamOS-only dev-shell files or `dist-steamos`.
+
+## What The SteamOS Shell Supports Today
+
+Current confirmed behavior:
+
+- same-origin runtime metadata from `/__achievement_companion__/runtime`
+- bearer-authenticated local backend requests
+- RetroAchievements setup save and clear
+- Steam setup save and clear
+- explicit RetroAchievements dashboard refresh
+- explicit Steam dashboard refresh
+- dashboard cache writes for both providers
+- cached dashboard reload after restart
+- sanitized diagnostics/status panel
+- no Steam scan or library artifact creation during dashboard refresh
+
+Current non-goals:
+
+- no final SteamOS installer or package
+- no Flatpak, AppImage, or systemd integration
+- no Game Mode support claim
+- no game detail pages
+- no achievement detail pages
+- no Steam scan controls
 
 ## Prerequisites
 
-- Repo path: `D:\projects\steamProject`
-- `pnpm` and Node.js available in PowerShell
-- Python available in PowerShell
-- Basic shell validation does not require any real RetroAchievements or Steam API calls
-- Real RetroAchievements and Steam credentials are optional and only needed if you want to test local save and clear behavior yourself
+- repo path: `D:\projects\steamProject` on Windows, or a local checkout path on SteamOS/Linux
+- Node.js and `pnpm`
+- Python 3
+- browser available on the local machine or Steam Deck desktop mode
+- optional real RetroAchievements and Steam credentials if you want to validate live dashboard refresh
 
-## Build And Test
+## Build The SteamOS Bootstrap
 
-Run the basic validation steps first:
+Build the SteamOS frontend asset before launching the shell:
 
 ```powershell
 cd D:\projects\steamProject
-pnpm run typecheck
-pnpm test
 pnpm run build:steamos
 ```
 
 Expected result:
 
-- TypeScript checks pass
-- automated tests pass
-- `dist-steamos\steamos-bootstrap.js` is created
+- `dist-steamos\steamos-bootstrap.js` exists
 
-## Start The Dev Shell
+If the file is missing, the interactive SteamOS dev shell will now fail with a clear error telling you to run `pnpm run build:steamos`.
 
-The current interactive command is:
+## Optional Automated Validation Before Manual Testing
+
+Run the main project validation first if you want a clean baseline:
 
 ```powershell
+cd D:\projects\steamProject
+pnpm run typecheck
+pnpm test
+python -m unittest discover -s tests/python -p "test_*.py"
+python -c "from pathlib import Path; source = Path('main.py').read_text(); compile(source, 'main.py', 'exec'); print('main.py syntax OK')"
+pnpm run build
+pnpm run build:steamos
+```
+
+## Launch Commands
+
+### Windows Dev Shell
+
+The simplest interactive launch command is:
+
+```powershell
+cd D:\projects\steamProject
+pnpm run start:steamos
+```
+
+Equivalent direct Python command:
+
+```powershell
+cd D:\projects\steamProject
 python -m backend.dev_shell
 ```
 
@@ -40,184 +93,248 @@ Expected safe console output:
 ```text
 Achievement Companion SteamOS dev shell listening on http://127.0.0.1:<shell-port>
 Local backend listening on http://127.0.0.1:<backend-port>
+Local backend health available at http://127.0.0.1:<backend-port>/health
+```
+
+The output must not include:
+
+- bearer tokens
+- API keys
+- usernames
+- Steam IDs
+- provider-config contents
+- provider-secrets contents
+
+### SteamOS Or Linux Launch
+
+From a Linux or SteamOS desktop shell, the flow is the same:
+
+```bash
+cd /path/to/steamProject
+pnpm run build:steamos
+pnpm run start:steamos
+```
+
+If you prefer invoking Python directly:
+
+```bash
+cd /path/to/steamProject
+python -m backend.dev_shell
 ```
 
 Notes:
 
-- The shell binds to `127.0.0.1` only.
-- The shell port and backend port are OS-assigned ephemeral ports by default.
-- `python -m backend.dev_shell --once` is only a smoke mode. It prints safe status and shuts down immediately, so it is not suitable for interactive browser testing.
+- shell and backend bind to `127.0.0.1` only
+- ports default to `0`, so the OS chooses free ephemeral ports
+- runtime metadata stays backend-owned and is written under `XDG_RUNTIME_DIR`
 
-## Open The Shell In A Browser
+## Safe XDG Validation Root
 
-Open the shell URL printed by `python -m backend.dev_shell`, for example:
+For repeatable validation, especially on Windows or Steam Deck desktop mode, use explicit XDG directories.
 
-- `http://127.0.0.1:54321`
-
-Expected page content:
-
-- `SteamOS dev shell`
-- `Connected to SteamOS backend`
-- `RetroAchievements: configured` or `RetroAchievements: not configured`
-- `Steam: configured` or `Steam: not configured`
-- RetroAchievements credential form
-- Steam credential form
-
-Expected not to appear in the page:
-
-- raw API keys
-- bearer token
-- `provider-secrets`
-- runtime metadata JSON
-
-## Validate Credential Save And Clear
-
-Important:
-
-- This pass only validates backend-owned credential save and clear behavior.
-- It does not validate real RetroAchievements or Steam connectivity.
-- It does not trigger dashboard refreshes or Steam scans.
-
-### RetroAchievements
-
-1. Enter a username.
-2. Enter an API key.
-3. Select `Save`.
-4. Verify the status becomes `configured`.
-5. Verify the API key field clears after save.
-6. Select `Clear`.
-7. Verify the status becomes `not configured`.
-
-### Steam
-
-1. Enter a numeric-looking `SteamID64`.
-2. Enter a Steam Web API key.
-3. Select `Save`.
-4. Verify the status becomes `configured`.
-5. Verify the API key field clears after save.
-6. Select `Clear`.
-7. Verify the status becomes `not configured`.
-
-## Verify Storage Safety
-
-### XDG-backed paths
-
-The backend uses these XDG locations:
-
-- config: `$XDG_CONFIG_HOME/achievement-companion/provider-config.json`
-- secrets: `$XDG_DATA_HOME/achievement-companion/provider-secrets.json`
-- logs: `$XDG_STATE_HOME/achievement-companion/logs/`
-- runtime metadata: `$XDG_RUNTIME_DIR/achievement-companion/backend.json`
-- cache root: `$XDG_CACHE_HOME/achievement-companion/`
-
-If the XDG variables are not set, config, data, state, and cache fall back to standard user-home locations. Runtime metadata does not fall back; `XDG_RUNTIME_DIR` is required unless a test passes an explicit metadata path.
-
-### Optional isolated XDG test directories
-
-If you want to validate with temporary local paths, start PowerShell with explicit XDG variables:
+### Windows PowerShell Example
 
 ```powershell
 cd D:\projects\steamProject
-$root = Join-Path $PWD ".tmp-steamos-runbook"
+
+$root = Join-Path $PWD ".tmp-steamos-real-dashboard"
 $env:XDG_CONFIG_HOME = Join-Path $root "config"
 $env:XDG_DATA_HOME = Join-Path $root "data"
 $env:XDG_STATE_HOME = Join-Path $root "state"
 $env:XDG_CACHE_HOME = Join-Path $root "cache"
 $env:XDG_RUNTIME_DIR = Join-Path $root "runtime"
-python -m backend.dev_shell
+
+New-Item -ItemType Directory -Force $env:XDG_RUNTIME_DIR | Out-Null
+
+pnpm run build:steamos
+pnpm run start:steamos
 ```
 
-### Inspect provider config
+### SteamOS Or Linux Example
 
-`provider-config.json` is the frontend-safe config file. It should not contain raw API keys.
+```bash
+cd /path/to/steamProject
 
-Example path:
+root="$PWD/.tmp-steamos-real-dashboard"
+export XDG_CONFIG_HOME="$root/config"
+export XDG_DATA_HOME="$root/data"
+export XDG_STATE_HOME="$root/state"
+export XDG_CACHE_HOME="$root/cache"
+export XDG_RUNTIME_DIR="$root/runtime"
 
-```text
-$XDG_CONFIG_HOME\achievement-companion\provider-config.json
+mkdir -p "$XDG_RUNTIME_DIR"
+
+pnpm run build:steamos
+pnpm run start:steamos
 ```
 
-Things to confirm:
+These XDG directories are safe for local validation because they isolate:
 
-- `hasApiKey` may be reflected indirectly through UI behavior, but raw API keys are not stored here
-- usernames, `steamId64`, and safe settings may be present
+- provider config
+- provider secrets
+- logs
+- dashboard cache
+- runtime metadata
 
-### Inspect provider secrets
+## Manual Validation Checklist
 
-`provider-secrets.json` is backend-owned. It should not contain the raw API key in plain text. The current scheme stores a local protected record using fields such as:
+### 1. Missing-State Shell
 
-- `version`
-- `scheme`
-- `salt`
-- `nonce`
-- `ciphertext`
-- `tag`
+Start from a fresh XDG temp root and open the printed shell URL.
 
-Example path:
+Confirm:
 
-```text
-$XDG_DATA_HOME\achievement-companion\provider-secrets.json
-```
+- app shell loads
+- diagnostics/status panel loads
+- both providers show setup-required or not-configured state
+- dashboard cache is missing for both providers
+- no secrets or tokens appear in the UI
 
-Important:
+### 2. Save RetroAchievements And Steam Setup
 
-- this is local protection/obfuscation, not a strong encryption claim
-- the frontend still never receives the raw saved API key back
+Enter real or test credentials manually in the browser UI.
 
-### Optional browser storage check
+Confirm:
+
+- RetroAchievements save succeeds
+- Steam save succeeds
+- app shell updates to configured state
+- no raw saved API key is shown
+- diagnostics/status remains sanitized
+
+### 3. Refresh RetroAchievements And Steam Dashboards
+
+Use the explicit `Refresh dashboard` actions.
+
+Confirm:
+
+- RetroAchievements refresh succeeds
+- Steam refresh succeeds
+- no refresh happens automatically on page load
+- dashboard cache files are created
+- no Steam scan or library artifacts are created by dashboard refresh
+
+Expected cache paths:
+
+- `$XDG_CACHE_HOME/achievement-companion/dashboard/retroachievements.json`
+- `$XDG_CACHE_HOME/achievement-companion/dashboard/steam.json`
+
+### 4. Restart With The Same XDG Root
+
+Stop the shell and launch it again with the same XDG environment.
+
+Confirm:
+
+- provider setup still reads as configured
+- cached dashboard data appears before clicking `Refresh`
+- diagnostics/status still shows cache present
+- no secrets or tokens are visible
+
+### 5. Optional File Inspection
+
+Confirm backend-owned storage safety:
+
+- config: `$XDG_CONFIG_HOME/achievement-companion/provider-config.json`
+- secrets: `$XDG_DATA_HOME/achievement-companion/provider-secrets.json`
+- runtime metadata: `$XDG_RUNTIME_DIR/achievement-companion/backend.json`
+
+What to confirm:
+
+- provider config contains only safe frontend-visible fields
+- provider secrets do not contain plaintext API keys
+- runtime metadata file is removed on clean shutdown
+
+### 6. Optional Browser Storage Check
 
 If you want an extra manual check, open browser devtools and confirm there is no credential or token state in:
 
 - `localStorage`
 - `sessionStorage`
 
-## Runtime Metadata Check
+## Runtime And Health Endpoints
 
-While the dev shell is running, the same-origin runtime metadata endpoint is:
+While the shell is running:
 
-- `http://127.0.0.1:<shell-port>/__achievement_companion__/runtime`
+- runtime metadata endpoint: `http://127.0.0.1:<shell-port>/__achievement_companion__/runtime`
+- backend health endpoint: `http://127.0.0.1:<backend-port>/health`
 
-This endpoint is for bootstrap/runtime handoff. The token should only appear in that JSON response and should not appear in the page HTML or the built bootstrap asset.
+Important:
 
-The runtime metadata file on disk should be:
+- the runtime token should only appear in the runtime metadata JSON body
+- the token should not appear in page HTML, bootstrap asset output, or console output
 
-- `$XDG_RUNTIME_DIR/achievement-companion/backend.json`
+## Troubleshooting
 
-On clean shutdown it should be removed automatically.
+### Missing `dist-steamos/steamos-bootstrap.js`
+
+Run:
+
+```powershell
+pnpm run build:steamos
+```
+
+If you start the SteamOS shell without the asset, the shell now fails with a safe error that tells you to build first.
+
+### Missing Or Invalid `XDG_RUNTIME_DIR`
+
+The local backend requires a runtime metadata location. Set `XDG_RUNTIME_DIR` explicitly for manual validation if the environment does not already provide one.
+
+Windows example:
+
+```powershell
+$env:XDG_RUNTIME_DIR = Join-Path $PWD ".tmp-steamos-real-dashboard\\runtime"
+New-Item -ItemType Directory -Force $env:XDG_RUNTIME_DIR | Out-Null
+pnpm run start:steamos
+```
+
+### Port Binding Failure
+
+Both shell and backend default to port `0`, which asks the OS for free ports. If you see a bind error, retry without forcing ports or stop the conflicting local process.
+
+### Backend Startup Failure
+
+Check:
+
+- `pnpm run build:steamos` completed
+- `XDG_RUNTIME_DIR` exists and is writable
+- no local antivirus or policy is blocking loopback localhost sockets
+
+The launch output should remain sanitized even on failure.
+
+### Browser Open Failure
+
+This runbook assumes you open the printed URL manually. The shell does not auto-open a browser in this pass.
+
+### Stale Temp State
+
+If an interrupted run leaves stale files behind, remove the XDG temp root and restart from the build step:
+
+```powershell
+Remove-Item -Recurse -Force .\.tmp-steamos-real-dashboard
+```
 
 ## Shutdown And Cleanup
 
-Stop the dev shell with:
-
-- `Ctrl+C`
+Stop the shell with `Ctrl+C`.
 
 After shutdown, verify:
 
 - the browser page is no longer reachable
 - `$XDG_RUNTIME_DIR/achievement-companion/backend.json` has been removed
 
-Remove the built SteamOS asset if you do not want to keep local generated output:
+Optional cleanup:
 
 ```powershell
 Remove-Item -Recurse -Force .\dist-steamos
-```
-
-Confirm the working tree state:
-
-```powershell
+Remove-Item -Recurse -Force .\.tmp-steamos-real-dashboard
 git status --short
 ```
 
-## Release Boundary Check
+## Decky Release Boundary
 
-If you want to re-confirm the Decky packaging boundary after local SteamOS shell testing:
+The Decky plugin release remains separate from the SteamOS shell flow.
 
-```powershell
-pnpm run package:release
-pnpm run check:release
-```
-
-Confirm the Decky ZIP excludes:
+The Decky release ZIP must stay Decky-only and exclude:
 
 - `dist-steamos`
 - `backend/dev_shell.py`
@@ -226,61 +343,6 @@ Confirm the Decky ZIP excludes:
 - `backend/paths.py`
 - `backend/cache.py`
 - SteamOS TypeScript source files
-
-## Known Limitations
-
-- dev shell only
-- no Game Mode support claim
-- no production SteamOS packaging
-- no dashboard UI
-- no game detail UI
-- no achievement detail UI
-- no provider API validation or ping from the shell
-- no Steam scan from the shell UI
-- no advanced settings UI yet
-
-## Troubleshooting
-
-### `dist-steamos/steamos-bootstrap.js` is missing
-
-Run:
-
-```powershell
-pnpm run build:steamos
-```
-
-If the file is still missing, stop and fix the SteamOS build before validating the shell UI.
-
-### The shell page says the backend is unavailable
-
-Check:
-
-- `python -m backend.dev_shell` is still running
-- the terminal did not exit early
-- the shell URL matches the printed shell port exactly
-
-You can also confirm the shell printed both:
-
-- `Achievement Companion SteamOS dev shell listening on ...`
-- `Local backend listening on ...`
-
-### `XDG_RUNTIME_DIR` is missing
-
-The local backend launcher requires a runtime metadata location. For manual validation, set `XDG_RUNTIME_DIR` explicitly if your environment does not provide one:
-
-```powershell
-$env:XDG_RUNTIME_DIR = Join-Path $PWD ".tmp-steamos-runbook\\runtime"
-python -m backend.dev_shell
-```
-
-### Port already in use
-
-The current shell and backend default to port `0`, so the OS should choose free ports automatically. If you passed explicit ports, remove them and retry with the default command.
-
-### `pnpm` or `tsx` is not on PATH
-
-If `pnpm test` or related validation commands fail because `tsx` is not found, reopen the shell after installing project prerequisites and confirm `pnpm` works from the same PowerShell session.
-
-### Stale local files after an interrupted run
-
-If the shell or backend was interrupted uncleanly, remove the temporary or XDG test directories you created and restart the flow from the build step. A stale runtime metadata file should not be treated as a valid live session.
+- tests and fixtures
+- provider config or provider secrets files
+- temporary XDG validation directories

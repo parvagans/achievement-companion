@@ -30,6 +30,16 @@ def _build_test_backend_paths(root: Path) -> BackendPaths:
   )
 
 
+def _write_test_bootstrap_asset(root: Path) -> Path:
+  asset_path = root / "dist-steamos" / "steamos-bootstrap.js"
+  asset_path.parent.mkdir(parents=True, exist_ok=True)
+  asset_path.write_text(
+    "\"use strict\";\nwindow.__STEAMOS_BUNDLE_READY__ = true;\n",
+    encoding="utf-8",
+  )
+  return asset_path
+
+
 def _request(
   url: str,
   *,
@@ -244,7 +254,7 @@ class SteamOSDevShellTests(unittest.TestCase):
       finally:
         runtime.shutdown()
 
-  def test_cli_help_and_once_output_are_token_free(self) -> None:
+  def test_cli_help_output_is_token_free(self) -> None:
     help_stdout = io.StringIO()
     help_stderr = io.StringIO()
     with contextlib.redirect_stdout(help_stdout), contextlib.redirect_stderr(help_stderr):
@@ -256,16 +266,44 @@ class SteamOSDevShellTests(unittest.TestCase):
     self.assertNotIn("token", help_stdout.getvalue().lower())
     self.assertEqual(help_stderr.getvalue(), "")
 
+  def test_run_dev_shell_once_fails_safely_when_built_asset_is_missing(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
-      metadata_path = Path(temp_dir) / "runtime" / "backend.json"
+      root = Path(temp_dir)
+      metadata_path = root / "runtime" / "backend.json"
+
+      with self.assertRaises(RuntimeError) as raised:
+        dev_shell.run_steamos_dev_shell(
+          home=root,
+          metadata_path=metadata_path,
+          once=True,
+          asset_root=root,
+        )
+
+      message = str(raised.exception)
+      self.assertIn("SteamOS bootstrap asset is missing", message)
+      self.assertIn("pnpm run build:steamos", message)
+      self.assertNotIn("token", message.lower())
+      self.assertFalse(metadata_path.exists())
+
+  def test_run_dev_shell_once_with_metadata_path_prints_safe_urls(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      root = Path(temp_dir)
+      _write_test_bootstrap_asset(root)
+      metadata_path = root / "runtime" / "backend.json"
       once_stdout = io.StringIO()
       once_stderr = io.StringIO()
       with contextlib.redirect_stdout(once_stdout), contextlib.redirect_stderr(once_stderr):
-        exit_code = dev_shell.main(["--once", "--metadata-path", str(metadata_path)])
+        exit_code = dev_shell.run_steamos_dev_shell(
+          metadata_path=metadata_path,
+          once=True,
+          stdout=once_stdout,
+          asset_root=root,
+        )
 
       self.assertEqual(exit_code, 0)
       self.assertIn("SteamOS dev shell listening on http://127.0.0.1:", once_stdout.getvalue())
       self.assertIn("Local backend listening on http://127.0.0.1:", once_stdout.getvalue())
+      self.assertIn("Local backend health available at http://127.0.0.1:", once_stdout.getvalue())
       self.assertNotIn("token", once_stdout.getvalue().lower())
       self.assertEqual(once_stderr.getvalue(), "")
       self.assertFalse(metadata_path.exists())
@@ -273,6 +311,7 @@ class SteamOSDevShellTests(unittest.TestCase):
   def test_run_dev_shell_once_honors_injected_xdg_runtime_dir(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
       root = Path(temp_dir)
+      _write_test_bootstrap_asset(root)
       env = {
         "XDG_CONFIG_HOME": str(root / "config"),
         "XDG_DATA_HOME": str(root / "data"),
@@ -285,11 +324,12 @@ class SteamOSDevShellTests(unittest.TestCase):
       once_stderr = io.StringIO()
 
       with contextlib.redirect_stdout(once_stdout), contextlib.redirect_stderr(once_stderr):
-        exit_code = dev_shell.run_steamos_dev_shell(env=env, home=root, once=True)
+        exit_code = dev_shell.run_steamos_dev_shell(env=env, home=root, once=True, asset_root=root)
 
       self.assertEqual(exit_code, 0)
       self.assertIn("SteamOS dev shell listening on http://127.0.0.1:", once_stdout.getvalue())
       self.assertIn("Local backend listening on http://127.0.0.1:", once_stdout.getvalue())
+      self.assertIn("Local backend health available at http://127.0.0.1:", once_stdout.getvalue())
       self.assertNotIn("token", once_stdout.getvalue().lower())
       self.assertEqual(once_stderr.getvalue(), "")
       self.assertFalse(expected_metadata_path.exists())
