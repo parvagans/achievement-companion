@@ -180,6 +180,7 @@ test("SteamOS dashboard surface renders cached RetroAchievements summary metrics
   assert.match(markup, /Cached/u);
   assert.match(markup, /Showing the most recent cached snapshot until you request a manual refresh/u);
   assert.match(markup, /Last updated/u);
+  assert.doesNotMatch(markup, /undefined|null|NaN|mtimeMs|refreshedAtMs|sizeBytes/u);
   assert.match(markup, /Points/u);
   assert.match(markup, /12,345/u);
   assert.match(markup, /Achievements Unlocked/u);
@@ -221,6 +222,34 @@ test("SteamOS dashboard surface renders cached Steam summary metrics", () => {
   assert.match(markup, />21</u);
   assert.match(markup, /Completion/u);
   assert.match(markup, /54%/u);
+});
+
+test("SteamOS dashboard surface falls back cleanly when cached timestamps are unavailable", () => {
+  const providerStatuses = createProviderStatuses({
+    retroAchievements: { status: "configured" },
+    steam: { status: "not_configured" },
+  });
+  const snapshot = createRetroDashboardSnapshot();
+  snapshot.refreshedAt = Number.NaN;
+  snapshot.profile.refreshedAt = Number.NaN;
+
+  const markup = renderToStaticMarkup(
+    <SteamOSDashboardSurface
+      providerStatuses={providerStatuses}
+      initialSelectedProviderId={RETROACHIEVEMENTS_PROVIDER_ID}
+      initialProviderStates={{
+        ...createSteamOSDashboardProviderStates(providerStatuses),
+        retroAchievements: {
+          status: "cached",
+          snapshot,
+          isRefreshing: false,
+        },
+      }}
+    />,
+  );
+
+  assert.match(markup, /Last updated unavailable/u);
+  assert.doesNotMatch(markup, /undefined|null|NaN|mtimeMs|refreshedAtMs|sizeBytes/u);
 });
 
 test("SteamOS dashboard surface follows the selected provider prop and keeps chooser state safe", () => {

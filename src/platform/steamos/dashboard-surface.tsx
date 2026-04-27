@@ -612,7 +612,22 @@ function formatRefreshedAt(snapshot: DashboardSnapshot | undefined): string | un
     return undefined;
   }
 
-  return new Date(refreshedAt).toLocaleString();
+  const date = new Date(refreshedAt);
+  if (Number.isNaN(date.getTime())) {
+    return undefined;
+  }
+
+  const now = new Date();
+  const timeText = date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  if (date.toDateString() === now.toDateString()) {
+    return `today at ${timeText}`;
+  }
+
+  return `${date.toLocaleDateString()} at ${timeText}`;
 }
 
 function canRefreshDashboardState(state: SteamOSDashboardProviderState): boolean {
@@ -789,11 +804,11 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
           </div>
           {selectedProviderState.status === "cached" ? (
             <>
-              {formatRefreshedAt(selectedProviderState.snapshot) !== undefined ? (
-                <p style={META_TEXT_STYLE}>
-                  Last updated {formatRefreshedAt(selectedProviderState.snapshot)}
-                </p>
-              ) : null}
+              <p style={META_TEXT_STYLE}>
+                {formatRefreshedAt(selectedProviderState.snapshot) !== undefined
+                  ? `Last updated ${formatRefreshedAt(selectedProviderState.snapshot)}`
+                  : "Last updated unavailable"}
+              </p>
               <div style={SUMMARY_GRID_STYLE}>
                 {summaryCards.map((card) => (
                   <article key={card.label} style={SUMMARY_CARD_STYLE}>

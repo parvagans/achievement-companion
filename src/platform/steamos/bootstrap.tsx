@@ -759,18 +759,108 @@ function formatCacheStatus(status: SteamOSDevShellDiagnosticsStatus["dashboardCa
   return status.valid ? "cached" : "unreadable";
 }
 
-function formatCacheDetails(status: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"]): string {
+function formatCacheSize(bytes: number | undefined): string | undefined {
+  if (typeof bytes !== "number" || !Number.isFinite(bytes) || bytes < 0) {
+    return undefined;
+  }
+
+  if (bytes < 1024) {
+    return `${bytes.toLocaleString()} B`;
+  }
+
+  const units = ["KB", "MB", "GB"];
+  let value = bytes / 1024;
+  let unitIndex = 0;
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  return `${value.toLocaleString(undefined, {
+    minimumFractionDigits: value >= 10 ? 0 : 1,
+    maximumFractionDigits: value >= 10 ? 0 : 1,
+  })} ${units[unitIndex]}`;
+}
+
+function formatTimestamp(ms: number | undefined): string | undefined {
+  if (typeof ms !== "number" || !Number.isFinite(ms)) {
+    return undefined;
+  }
+
+  const date = new Date(ms);
+  if (Number.isNaN(date.getTime())) {
+    return undefined;
+  }
+
+  const now = new Date();
+  const timeText = date.toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+  if (date.toDateString() === now.toDateString()) {
+    return `today at ${timeText}`;
+  }
+
+  return `${date.toLocaleDateString()} at ${timeText}`;
+}
+
+function summarizeCacheMetadata(
+  status: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"],
+): string {
   const details: string[] = [];
-  if (status.sizeBytes !== undefined) {
-    details.push(`size ${status.sizeBytes.toLocaleString()} B`);
+  const cacheSize = formatCacheSize(status.sizeBytes);
+  const modifiedAt = formatTimestamp(status.mtimeMs);
+  const refreshedAt = formatTimestamp(status.refreshedAtMs);
+
+  if (cacheSize !== undefined) {
+    details.push(`Cache file size ${cacheSize}`);
   }
-  if (status.mtimeMs !== undefined) {
-    details.push(`mtimeMs ${status.mtimeMs.toLocaleString()}`);
+
+  if (modifiedAt !== undefined) {
+    details.push(`Last modified ${modifiedAt}`);
   }
-  if (status.refreshedAtMs !== undefined) {
-    details.push(`refreshedAtMs ${status.refreshedAtMs.toLocaleString()}`);
+
+  if (refreshedAt !== undefined) {
+    details.push(`Snapshot refreshed ${refreshedAt}`);
   }
+
   return details.length > 0 ? details.join(" · ") : "No cache metadata available";
+}
+
+function formatCacheDetails(status: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"]): string {
+  return summarizeCacheMetadata(status);
+}
+
+function formatProviderCardCacheDescription(
+  cacheStatus: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"],
+): string {
+  const updatedAt = formatTimestamp(cacheStatus.refreshedAtMs ?? cacheStatus.mtimeMs);
+  if (updatedAt !== undefined) {
+    return `Updated ${updatedAt}`;
+  }
+
+  return "Cached dashboard available. Last updated unavailable.";
+}
+
+function formatProviderCardCacheMeta(
+  cacheStatus: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"] | undefined,
+): string {
+  if (cacheStatus?.present !== true) {
+    return "No cached dashboard snapshot yet.";
+  }
+
+  const cacheSize = formatCacheSize(cacheStatus.sizeBytes);
+  if (cacheSize !== undefined) {
+    return `Cached snapshot: ${cacheSize}`;
+  }
+
+  const modifiedAt = formatTimestamp(cacheStatus.mtimeMs);
+  if (modifiedAt !== undefined) {
+    return `Cache file saved ${modifiedAt}`;
+  }
+
+  return "Cached dashboard metadata unavailable.";
 }
 
 async function loadProviderStatuses(
@@ -903,7 +993,7 @@ function formatProviderCardDescription(
   }
 
   if (cacheStatus?.present === true && cacheStatus.valid === true) {
-    return formatCacheDetails(cacheStatus);
+    return formatProviderCardCacheDescription(cacheStatus);
   }
 
   return "Refresh dashboard when you want to write the first cached snapshot.";
@@ -1071,9 +1161,7 @@ export function SteamOSAppShellOverview(
               </p>
               {diagnosticsSnapshot !== undefined ? (
                 <p style={STEAMOS_PROVIDER_CARD_META_STYLE}>
-                  {card.cacheStatus?.present === true
-                    ? `Cache present${card.cacheStatus.mtimeMs !== undefined ? ` ? updated ${new Date(card.cacheStatus.mtimeMs).toLocaleString()}` : ""}`
-                    : "Cache missing"}
+                  {formatProviderCardCacheMeta(card.cacheStatus)}
                 </p>
               ) : (
                 <p style={STEAMOS_PROVIDER_CARD_META_STYLE}>

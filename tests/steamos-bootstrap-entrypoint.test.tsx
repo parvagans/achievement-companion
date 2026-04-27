@@ -267,9 +267,14 @@ test("SteamOS dev shell diagnostics panel renders safe local status without expo
   assert.match(markup, /not configured/u);
   assert.match(markup, /RetroAchievements cache/u);
   assert.match(markup, /cached/u);
+  assert.match(markup, /Cache file size/u);
+  assert.match(markup, /Last modified/u);
+  assert.match(markup, /Snapshot refreshed/u);
   assert.match(markup, /Steam cache/u);
   assert.match(markup, /missing/u);
   assert.match(markup, /Refresh status/u);
+  assert.doesNotMatch(markup, /mtimeMs|refreshedAtMs|sizeBytes/u);
+  assert.doesNotMatch(markup, /undefined|null|NaN/u);
   assert.doesNotMatch(markup, /sol88|steam-secret|apiKeyDraft|Authorization|provider-secrets|76561198136628813/u);
 });
 
@@ -388,10 +393,13 @@ test("SteamOS app shell overview renders setup, refresh, and cached dashboard st
   assert.match(markup, /Setup required/u);
   assert.match(markup, /Set up/u);
   assert.match(markup, /Showing cached dashboard data\. Refresh failed\. Try again when the backend is available\./u);
-  assert.match(markup, /Cache present/u);
+  assert.match(markup, /Updated/u);
+  assert.match(markup, /Cached snapshot:/u);
   assert.match(markup, /data-steamos-provider-card="true"/u);
   assert.match(markup, /class="steamos-action-row"/u);
   assert.match(markup, /class="steamos-focus-target steamos-button-target"/u);
+  assert.doesNotMatch(markup, /mtimeMs|refreshedAtMs|sizeBytes/u);
+  assert.doesNotMatch(markup, /undefined|null|NaN/u);
   assert.doesNotMatch(markup, /Retro Player|76561198136628813|steam-secret|apiKeyDraft|Authorization/u);
 });
 
@@ -480,9 +488,11 @@ test("SteamOS app shell overview renders configured providers without a cache an
   assert.match(markup, /Refresh dashboard/u);
   assert.match(markup, /Open dashboard/u);
   assert.match(markup, /Edit setup/u);
+  assert.match(markup, /No cached dashboard snapshot yet/u);
   assert.match(markup, /data-steamos-provider-card="true"/u);
   assert.match(markup, /class="steamos-focus-target steamos-button-target"/u);
   assert.match(markup, /Setup required/u);
+  assert.doesNotMatch(markup, /mtimeMs|refreshedAtMs|sizeBytes|undefined|null|NaN/u);
   assert.doesNotMatch(markup, /76561198136628813|apiKeyDraft|Authorization/u);
 });
 
@@ -678,6 +688,7 @@ test("SteamOS app shell foundation keeps provider actions readable and diagnosti
   assert.match(markup, /Showing cached dashboard data\. Refresh failed\. Try again when the backend is available\./u);
   assert.match(markup, /data-steamos-secondary-panel="true"/u);
   assert.match(markup, /class="steamos-focus-target steamos-button-target"/u);
+  assert.doesNotMatch(markup, /mtimeMs|refreshedAtMs|sizeBytes|undefined|null|NaN/u);
   assert.doesNotMatch(markup, /Retro Player|76561198136628813|apiKey|Authorization/u);
 });
 
