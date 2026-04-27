@@ -96,8 +96,8 @@ const SURFACE_STYLE: CSSProperties = {
 const HELP_TEXT_STYLE: CSSProperties = {
   margin: 0,
   fontSize: "0.95rem",
-  lineHeight: 1.5,
-  color: "#5f6b7a",
+  lineHeight: 1.55,
+  color: "#cbd5e1",
 };
 
 const PROVIDER_GRID_STYLE: CSSProperties = {
@@ -106,13 +106,13 @@ const PROVIDER_GRID_STYLE: CSSProperties = {
 };
 
 const PROVIDER_CARD_STYLE: CSSProperties = {
-  border: "1px solid #d7dde5",
-  borderRadius: "14px",
-  backgroundColor: "#ffffff",
+  border: "1px solid rgba(148, 163, 184, 0.18)",
+  borderRadius: "18px",
+  background: "linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0.74) 100%)",
   padding: "1rem",
-  boxShadow: "0 8px 24px rgba(15, 23, 42, 0.06)",
+  boxShadow: "0 16px 36px rgba(2, 6, 23, 0.24)",
   display: "grid",
-  gap: "0.9rem",
+  gap: "0.95rem",
 };
 
 const PROVIDER_HEADER_STYLE: CSSProperties = {
@@ -126,39 +126,42 @@ const PROVIDER_HEADER_STYLE: CSSProperties = {
 const PROVIDER_TITLE_STYLE: CSSProperties = {
   margin: 0,
   fontSize: "1.05rem",
+  color: "#f8fafc",
 };
 
 const FIELD_GRID_STYLE: CSSProperties = {
   display: "grid",
-  gap: "0.85rem",
+  gap: "0.9rem",
 };
 
 const FIELD_STYLE: CSSProperties = {
   display: "grid",
-  gap: "0.35rem",
+  gap: "0.4rem",
 };
 
 const LABEL_STYLE: CSSProperties = {
-  fontWeight: 600,
-  color: "#1f2937",
+  fontWeight: 700,
+  color: "#e2e8f0",
 };
 
 const INPUT_STYLE: CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
-  borderRadius: "10px",
-  border: "1px solid #c7d0db",
-  padding: "0.7rem 0.85rem",
+  borderRadius: "12px",
+  border: "1px solid rgba(148, 163, 184, 0.26)",
+  padding: "0.8rem 0.9rem",
+  minHeight: "44px",
   fontSize: "0.98rem",
   lineHeight: 1.4,
-  backgroundColor: "#fbfdff",
+  color: "#e2e8f0",
+  backgroundColor: "rgba(15, 23, 42, 0.86)",
 };
 
 const PROVIDER_HELP_STYLE: CSSProperties = {
   margin: 0,
   fontSize: "0.9rem",
-  lineHeight: 1.45,
-  color: "#5f6b7a",
+  lineHeight: 1.5,
+  color: "#94a3b8",
 };
 
 const BUTTON_ROW_STYLE: CSSProperties = {
@@ -169,40 +172,44 @@ const BUTTON_ROW_STYLE: CSSProperties = {
 
 const PRIMARY_BUTTON_STYLE: CSSProperties = {
   appearance: "none",
-  border: "none",
+  border: "1px solid rgba(59, 130, 246, 0.35)",
   borderRadius: "999px",
-  backgroundColor: "#0f172a",
+  background: "linear-gradient(180deg, rgba(37, 99, 235, 0.96) 0%, rgba(29, 78, 216, 0.96) 100%)",
   color: "#ffffff",
-  padding: "0.7rem 1rem",
-  fontWeight: 600,
+  padding: "0.8rem 1rem",
+  minHeight: "44px",
+  fontWeight: 700,
   cursor: "pointer",
 };
 
 const SECONDARY_BUTTON_STYLE: CSSProperties = {
   appearance: "none",
-  border: "1px solid #c7d0db",
+  border: "1px solid rgba(148, 163, 184, 0.28)",
   borderRadius: "999px",
-  backgroundColor: "#ffffff",
-  color: "#1f2937",
-  padding: "0.7rem 1rem",
-  fontWeight: 600,
+  backgroundColor: "rgba(15, 23, 42, 0.72)",
+  color: "#e2e8f0",
+  padding: "0.8rem 1rem",
+  minHeight: "44px",
+  fontWeight: 700,
   cursor: "pointer",
 };
 
 const ERROR_TEXT_STYLE: CSSProperties = {
   margin: 0,
-  color: "#b42318",
-  fontWeight: 600,
+  color: "#fda4af",
+  fontWeight: 700,
 };
 
 const STATUS_BADGE_BASE_STYLE: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   borderRadius: "999px",
-  padding: "0.3rem 0.7rem",
+  padding: "0.4rem 0.75rem",
+  minHeight: "2rem",
   fontSize: "0.85rem",
   fontWeight: 700,
   letterSpacing: "0.01em",
+  border: "1px solid transparent",
 };
 
 function formatProviderStatus(status: SteamOSProviderConfigStatus | undefined): string {

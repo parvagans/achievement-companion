@@ -88,33 +88,38 @@ export interface AutoMountSteamOSBootstrapOptions extends MountSteamOSBootstrapO
 }
 
 const PAGE_STYLE: CSSProperties = {
-  maxWidth: "760px",
+  minHeight: "100vh",
+  width: "100%",
+  maxWidth: "1120px",
   margin: "0 auto",
-  padding: "2rem 1rem 3rem",
+  padding: "1.75rem 1rem 2.5rem",
   display: "grid",
   gap: "1rem",
-  color: "#0f172a",
+  color: "#e2e8f0",
   fontFamily: "\"Segoe UI\", system-ui, sans-serif",
+  background:
+    "radial-gradient(circle at top, rgba(59, 130, 246, 0.18), transparent 34%), linear-gradient(180deg, #0a0f19 0%, #0f172a 48%, #111827 100%)",
 };
 
 const PAGE_TITLE_STYLE: CSSProperties = {
   margin: 0,
-  fontSize: "1.9rem",
-  lineHeight: 1.1,
+  fontSize: "2rem",
+  lineHeight: 1.06,
+  letterSpacing: "-0.02em",
 };
 
 const PAGE_SUBTITLE_STYLE: CSSProperties = {
   margin: 0,
   fontSize: "1rem",
-  color: "#475569",
+  color: "#94a3b8",
 };
 
 const STATUS_PANEL_STYLE: CSSProperties = {
-  border: "1px solid #d7dde5",
-  borderRadius: "16px",
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)",
+  border: "1px solid rgba(148, 163, 184, 0.18)",
+  borderRadius: "18px",
+  background: "linear-gradient(180deg, rgba(15, 23, 42, 0.88) 0%, rgba(15, 23, 42, 0.74) 100%)",
   padding: "1rem 1.1rem",
-  boxShadow: "0 12px 32px rgba(15, 23, 42, 0.08)",
+  boxShadow: "0 16px 40px rgba(2, 6, 23, 0.32)",
   display: "grid",
   gap: "0.6rem",
 };
@@ -122,21 +127,22 @@ const STATUS_PANEL_STYLE: CSSProperties = {
 const STATUS_MESSAGE_STYLE: CSSProperties = {
   margin: 0,
   fontSize: "1rem",
-  fontWeight: 600,
+  fontWeight: 700,
+  color: "#f8fafc",
 };
 
 const STATUS_HINT_STYLE: CSSProperties = {
   margin: 0,
-  color: "#5f6b7a",
-  lineHeight: 1.5,
+  color: "#cbd5e1",
+  lineHeight: 1.55,
 };
 
 const DEV_SHELL_STATUS_STYLE: CSSProperties = {
-  border: "1px solid #d7dde5",
-  borderRadius: "16px",
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)",
+  border: "1px solid rgba(148, 163, 184, 0.18)",
+  borderRadius: "18px",
+  background: "linear-gradient(180deg, rgba(15, 23, 42, 0.78) 0%, rgba(15, 23, 42, 0.6) 100%)",
   padding: "1rem 1.1rem",
-  boxShadow: "0 12px 32px rgba(15, 23, 42, 0.07)",
+  boxShadow: "0 16px 40px rgba(2, 6, 23, 0.28)",
   display: "grid",
   gap: "0.8rem",
 };
@@ -160,25 +166,26 @@ const DEV_SHELL_STATUS_EYEBROW_STYLE: CSSProperties = {
   fontWeight: 700,
   letterSpacing: "0.08em",
   textTransform: "uppercase",
-  color: "#4f46e5",
+  color: "#60a5fa",
 };
 
 const DEV_SHELL_STATUS_TITLE_STYLE: CSSProperties = {
   margin: 0,
   fontSize: "1.1rem",
+  color: "#f8fafc",
 };
 
 const DEV_SHELL_STATUS_DETAIL_GRID_STYLE: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
   gap: "0.75rem",
 };
 
 const DEV_SHELL_STATUS_ITEM_STYLE: CSSProperties = {
-  border: "1px solid #e2e8f0",
-  borderRadius: "12px",
-  backgroundColor: "#ffffff",
-  padding: "0.85rem",
+  border: "1px solid rgba(148, 163, 184, 0.15)",
+  borderRadius: "14px",
+  backgroundColor: "rgba(15, 23, 42, 0.72)",
+  padding: "0.9rem",
   display: "grid",
   gap: "0.35rem",
 };
@@ -186,44 +193,45 @@ const DEV_SHELL_STATUS_ITEM_STYLE: CSSProperties = {
 const DEV_SHELL_STATUS_ITEM_LABEL_STYLE: CSSProperties = {
   margin: 0,
   fontSize: "0.88rem",
-  color: "#5f6b7a",
+  color: "#94a3b8",
 };
 
 const DEV_SHELL_STATUS_ITEM_VALUE_STYLE: CSSProperties = {
   margin: 0,
-  fontSize: "0.96rem",
-  fontWeight: 600,
-  color: "#0f172a",
+  fontSize: "0.98rem",
+  fontWeight: 700,
+  color: "#f8fafc",
   lineHeight: 1.4,
 };
 
 const DEV_SHELL_STATUS_HELP_STYLE: CSSProperties = {
   margin: 0,
-  color: "#5f6b7a",
+  color: "#cbd5e1",
   lineHeight: 1.5,
 };
 
 const DEV_SHELL_STATUS_BUTTON_STYLE: CSSProperties = {
   appearance: "none",
-  border: "1px solid #c7d0db",
+  border: "1px solid rgba(96, 165, 250, 0.35)",
   borderRadius: "999px",
-  backgroundColor: "#ffffff",
-  color: "#1f2937",
-  padding: "0.6rem 0.9rem",
-  fontWeight: 600,
+  background: "linear-gradient(180deg, rgba(37, 99, 235, 0.95) 0%, rgba(29, 78, 216, 0.95) 100%)",
+  color: "#ffffff",
+  padding: "0.75rem 1rem",
+  minHeight: "44px",
+  fontWeight: 700,
   cursor: "pointer",
 };
 
 const STEAMOS_SETUP_SECTION_ID = "steamos-setup-surface";
 const STEAMOS_DASHBOARD_SECTION_ID = "steamos-dashboard-surface";
 const STEAMOS_APP_OVERVIEW_STYLE: CSSProperties = {
-  border: "1px solid #d7dde5",
-  borderRadius: "16px",
-  background: "linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)",
-  padding: "1rem 1.1rem",
-  boxShadow: "0 12px 32px rgba(15, 23, 42, 0.07)",
+  border: "1px solid rgba(148, 163, 184, 0.18)",
+  borderRadius: "20px",
+  background: "linear-gradient(180deg, rgba(15, 23, 42, 0.88) 0%, rgba(15, 23, 42, 0.72) 100%)",
+  padding: "1.1rem",
+  boxShadow: "0 16px 42px rgba(2, 6, 23, 0.3)",
   display: "grid",
-  gap: "0.85rem",
+  gap: "0.95rem",
 };
 
 const STEAMOS_APP_OVERVIEW_HEADER_STYLE: CSSProperties = {
@@ -237,39 +245,40 @@ const STEAMOS_APP_OVERVIEW_EYEBROW_STYLE: CSSProperties = {
   fontWeight: 700,
   letterSpacing: "0.08em",
   textTransform: "uppercase",
-  color: "#4f46e5",
+  color: "#60a5fa",
 };
 
 const STEAMOS_APP_OVERVIEW_TITLE_STYLE: CSSProperties = {
   margin: 0,
-  fontSize: "1.1rem",
+  fontSize: "1.15rem",
+  color: "#f8fafc",
 };
 
 const STEAMOS_APP_OVERVIEW_HELP_STYLE: CSSProperties = {
   margin: 0,
-  color: "#5f6b7a",
-  lineHeight: 1.5,
+  color: "#cbd5e1",
+  lineHeight: 1.55,
 };
 
 const STEAMOS_PROVIDER_GRID_STYLE: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-  gap: "0.85rem",
+  gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
+  gap: "0.9rem",
 };
 
 const STEAMOS_PROVIDER_CARD_STYLE: CSSProperties = {
-  border: "1px solid #dbe3ec",
-  borderRadius: "14px",
-  backgroundColor: "#ffffff",
-  padding: "0.95rem",
+  border: "1px solid rgba(148, 163, 184, 0.16)",
+  borderRadius: "16px",
+  background: "linear-gradient(180deg, rgba(15, 23, 42, 0.92) 0%, rgba(17, 24, 39, 0.84) 100%)",
+  padding: "1rem",
   display: "grid",
-  gap: "0.8rem",
-  boxShadow: "0 8px 20px rgba(15, 23, 42, 0.04)",
+  gap: "0.85rem",
+  boxShadow: "0 10px 24px rgba(2, 6, 23, 0.22)",
 };
 
 const STEAMOS_PROVIDER_CARD_ACTIVE_STYLE: CSSProperties = {
-  border: "1px solid #60a5fa",
-  boxShadow: "0 12px 28px rgba(37, 99, 235, 0.14)",
+  border: "1px solid rgba(96, 165, 250, 0.7)",
+  boxShadow: "0 0 0 1px rgba(96, 165, 250, 0.14), 0 16px 34px rgba(37, 99, 235, 0.18)",
 };
 
 const STEAMOS_PROVIDER_CARD_HEADER_STYLE: CSSProperties = {
@@ -282,56 +291,61 @@ const STEAMOS_PROVIDER_CARD_HEADER_STYLE: CSSProperties = {
 
 const STEAMOS_PROVIDER_CARD_TITLE_STYLE: CSSProperties = {
   margin: 0,
-  fontSize: "1rem",
+  fontSize: "1.02rem",
+  color: "#f8fafc",
 };
 
 const STEAMOS_PROVIDER_CARD_STATUS_BADGE_STYLE: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   borderRadius: "999px",
-  padding: "0.35rem 0.7rem",
-  fontSize: "0.83rem",
+  padding: "0.4rem 0.75rem",
+  minHeight: "2rem",
+  fontSize: "0.84rem",
   fontWeight: 700,
   letterSpacing: "0.01em",
+  border: "1px solid transparent",
 };
 
 const STEAMOS_PROVIDER_CARD_STATUS_TEXT_STYLE: CSSProperties = {
   margin: 0,
-  color: "#334155",
-  lineHeight: 1.45,
+  color: "#cbd5e1",
+  lineHeight: 1.5,
 };
 
 const STEAMOS_PROVIDER_CARD_META_STYLE: CSSProperties = {
   margin: 0,
-  color: "#5f6b7a",
+  color: "#94a3b8",
   lineHeight: 1.45,
 };
 
 const STEAMOS_PROVIDER_CARD_ACTIONS_STYLE: CSSProperties = {
   display: "flex",
-  gap: "0.6rem",
+  gap: "0.65rem",
   flexWrap: "wrap",
 };
 
 const STEAMOS_PROVIDER_CARD_PRIMARY_ACTION_STYLE: CSSProperties = {
   appearance: "none",
-  border: "none",
+  border: "1px solid rgba(59, 130, 246, 0.4)",
   borderRadius: "999px",
-  backgroundColor: "#0f172a",
+  background: "linear-gradient(180deg, rgba(37, 99, 235, 0.96) 0%, rgba(29, 78, 216, 0.96) 100%)",
   color: "#ffffff",
-  padding: "0.7rem 1rem",
-  fontWeight: 600,
+  padding: "0.75rem 1rem",
+  minHeight: "44px",
+  fontWeight: 700,
   cursor: "pointer",
 };
 
 const STEAMOS_PROVIDER_CARD_SECONDARY_ACTION_STYLE: CSSProperties = {
   appearance: "none",
-  border: "1px solid #c7d0db",
+  border: "1px solid rgba(148, 163, 184, 0.28)",
   borderRadius: "999px",
-  backgroundColor: "#ffffff",
-  color: "#1f2937",
-  padding: "0.7rem 1rem",
-  fontWeight: 600,
+  backgroundColor: "rgba(15, 23, 42, 0.72)",
+  color: "#e2e8f0",
+  padding: "0.75rem 1rem",
+  minHeight: "44px",
+  fontWeight: 700,
   cursor: "pointer",
 };
 
@@ -339,15 +353,16 @@ const STEAMOS_PROVIDER_CARD_TERTIARY_ACTION_STYLE: CSSProperties = {
   appearance: "none",
   border: "1px solid transparent",
   backgroundColor: "transparent",
-  color: "#1d4ed8",
-  padding: "0.7rem 0.2rem",
-  fontWeight: 600,
+  color: "#93c5fd",
+  padding: "0.75rem 0.25rem",
+  minHeight: "44px",
+  fontWeight: 700,
   cursor: "pointer",
 };
 
 const SECTION_HEADER_STYLE: CSSProperties = {
   display: "grid",
-  gap: "0.45rem",
+  gap: "0.4rem",
 };
 
 const EYEBROW_STYLE: CSSProperties = {
@@ -356,18 +371,19 @@ const EYEBROW_STYLE: CSSProperties = {
   fontWeight: 700,
   letterSpacing: "0.08em",
   textTransform: "uppercase",
-  color: "#4f46e5",
+  color: "#60a5fa",
 };
 
 const TITLE_STYLE: CSSProperties = {
   margin: 0,
   fontSize: "1.1rem",
+  color: "#f8fafc",
 };
 
 const ERROR_TEXT_STYLE: CSSProperties = {
   margin: 0,
-  color: "#b42318",
-  fontWeight: 600,
+  color: "#fda4af",
+  fontWeight: 700,
 };
 
 function createInitialDevShellDiagnosticsState(): SteamOSDevShellDiagnosticsState {
@@ -1286,7 +1302,7 @@ export function SteamOSBootstrapShell(
         }}
         onRefreshDashboard={(providerId) => void handleRefreshDashboard(providerId)}
       />
-      <section id={STEAMOS_SETUP_SECTION_ID} style={{ display: "grid", gap: "0.8rem" }}>
+      <section id={STEAMOS_SETUP_SECTION_ID} style={{ display: "grid", gap: "1rem" }}>
         <div style={SECTION_HEADER_STYLE}>
           <p style={EYEBROW_STYLE}>Setup</p>
           <h2 style={TITLE_STYLE}>Provider setup</h2>
@@ -1339,7 +1355,7 @@ export function SteamOSBootstrapShell(
           onClearSteam={() => void handleClearSteam()}
         />
       </section>
-      <section id={STEAMOS_DASHBOARD_SECTION_ID} style={{ display: "grid", gap: "0.8rem" }}>
+      <section id={STEAMOS_DASHBOARD_SECTION_ID} style={{ display: "grid", gap: "1rem" }}>
         <div style={SECTION_HEADER_STYLE}>
           <p style={EYEBROW_STYLE}>Dashboard</p>
           <h2 style={TITLE_STYLE}>Cached provider dashboards</h2>
@@ -1439,3 +1455,5 @@ export function autoMountSteamOSShell(
 }
 
 void autoMountSteamOSShell();
+
+

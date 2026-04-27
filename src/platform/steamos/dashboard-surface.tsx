@@ -65,18 +65,18 @@ const SURFACE_STYLE: CSSProperties = {
 };
 
 const PANEL_STYLE: CSSProperties = {
-  border: "1px solid #d7dde5",
-  borderRadius: "16px",
-  background: "linear-gradient(180deg, #ffffff 0%, #f7fbff 100%)",
-  padding: "1.15rem",
-  boxShadow: "0 14px 34px rgba(15, 23, 42, 0.07)",
+  border: "1px solid rgba(148, 163, 184, 0.18)",
+  borderRadius: "20px",
+  background: "linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0.74) 100%)",
+  padding: "1.2rem",
+  boxShadow: "0 16px 36px rgba(2, 6, 23, 0.24)",
   display: "grid",
   gap: "1rem",
 };
 
 const SECTION_HEADER_STYLE: CSSProperties = {
   display: "grid",
-  gap: "0.45rem",
+  gap: "0.4rem",
 };
 
 const HEADER_ROW_STYLE: CSSProperties = {
@@ -90,6 +90,7 @@ const HEADER_ROW_STYLE: CSSProperties = {
 const TITLE_STYLE: CSSProperties = {
   margin: 0,
   fontSize: "1.15rem",
+  color: "#f8fafc",
 };
 
 const EYEBROW_STYLE: CSSProperties = {
@@ -98,29 +99,29 @@ const EYEBROW_STYLE: CSSProperties = {
   fontWeight: 700,
   letterSpacing: "0.08em",
   textTransform: "uppercase",
-  color: "#4f46e5",
+  color: "#60a5fa",
 };
 
 const HELP_TEXT_STYLE: CSSProperties = {
   margin: 0,
-  color: "#5f6b7a",
-  lineHeight: 1.5,
+  color: "#cbd5e1",
+  lineHeight: 1.55,
 };
 
 const CHOOSER_PANEL_STYLE: CSSProperties = {
-  border: "1px solid #dbe3ec",
-  borderRadius: "14px",
-  backgroundColor: "#ffffff",
-  padding: "0.95rem 1rem",
+  border: "1px solid rgba(148, 163, 184, 0.18)",
+  borderRadius: "16px",
+  background: "rgba(15, 23, 42, 0.72)",
+  padding: "1rem",
   display: "grid",
-  gap: "0.8rem",
+  gap: "0.85rem",
 };
 
 const CHOOSER_LABEL_STYLE: CSSProperties = {
   margin: 0,
   fontSize: "0.9rem",
-  fontWeight: 600,
-  color: "#334155",
+  fontWeight: 700,
+  color: "#e2e8f0",
 };
 
 const CHOOSER_STYLE: CSSProperties = {
@@ -132,106 +133,111 @@ const CHOOSER_STYLE: CSSProperties = {
 const BUTTON_BASE_STYLE: CSSProperties = {
   appearance: "none",
   borderRadius: "999px",
-  padding: "0.65rem 1rem",
-  fontWeight: 600,
+  padding: "0.75rem 1rem",
+  minHeight: "44px",
+  fontWeight: 700,
   cursor: "pointer",
 };
 
 const SELECTED_PROVIDER_BUTTON_STYLE: CSSProperties = {
   ...BUTTON_BASE_STYLE,
-  border: "none",
-  backgroundColor: "#0f172a",
+  border: "1px solid rgba(59, 130, 246, 0.35)",
+  background: "linear-gradient(180deg, rgba(37, 99, 235, 0.96) 0%, rgba(29, 78, 216, 0.96) 100%)",
   color: "#ffffff",
 };
 
 const UNSELECTED_PROVIDER_BUTTON_STYLE: CSSProperties = {
   ...BUTTON_BASE_STYLE,
-  border: "1px solid #c7d0db",
-  backgroundColor: "#ffffff",
-  color: "#1f2937",
+  border: "1px solid rgba(148, 163, 184, 0.28)",
+  backgroundColor: "rgba(15, 23, 42, 0.74)",
+  color: "#e2e8f0",
 };
 
 const STATUS_BADGE_BASE_STYLE: CSSProperties = {
   display: "inline-flex",
   alignItems: "center",
   borderRadius: "999px",
-  padding: "0.35rem 0.72rem",
-  fontSize: "0.84rem",
+  padding: "0.4rem 0.75rem",
+  minHeight: "2rem",
+  fontSize: "0.85rem",
   fontWeight: 700,
   letterSpacing: "0.01em",
+  border: "1px solid transparent",
 };
 
 const CONTENT_CARD_STYLE: CSSProperties = {
-  border: "1px solid #dbe3ec",
-  borderRadius: "14px",
-  backgroundColor: "#ffffff",
+  border: "1px solid rgba(148, 163, 184, 0.18)",
+  borderRadius: "18px",
+  background: "linear-gradient(180deg, rgba(15, 23, 42, 0.88) 0%, rgba(15, 23, 42, 0.74) 100%)",
   padding: "1rem",
   display: "grid",
-  gap: "0.9rem",
+  gap: "0.95rem",
+  boxShadow: "0 14px 30px rgba(2, 6, 23, 0.2)",
 };
 
 const CONTENT_HEADING_STYLE: CSSProperties = {
   margin: 0,
-  fontSize: "1rem",
+  fontSize: "1.05rem",
+  color: "#f8fafc",
 };
 
 const CONTENT_SUBTITLE_STYLE: CSSProperties = {
   margin: 0,
-  color: "#334155",
+  color: "#cbd5e1",
   fontSize: "0.92rem",
   lineHeight: 1.45,
 };
 
 const META_TEXT_STYLE: CSSProperties = {
   margin: 0,
-  color: "#5f6b7a",
-  lineHeight: 1.5,
+  color: "#cbd5e1",
+  lineHeight: 1.55,
 };
 
 const META_GROUP_STYLE: CSSProperties = {
   display: "grid",
-  gap: "0.55rem",
+  gap: "0.6rem",
 };
 
 const SUMMARY_GRID_STYLE: CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-  gap: "0.75rem",
+  gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+  gap: "0.8rem",
 };
 
 const SUMMARY_CARD_STYLE: CSSProperties = {
-  border: "1px solid #e2e8f0",
-  borderRadius: "12px",
-  backgroundColor: "#f8fafc",
-  padding: "0.85rem",
+  border: "1px solid rgba(148, 163, 184, 0.14)",
+  borderRadius: "14px",
+  backgroundColor: "rgba(15, 23, 42, 0.72)",
+  padding: "0.9rem",
   display: "grid",
   gap: "0.35rem",
 };
 
 const SUMMARY_LABEL_STYLE: CSSProperties = {
   margin: 0,
-  fontSize: "0.9rem",
-  color: "#5f6b7a",
+  fontSize: "0.88rem",
+  color: "#94a3b8",
 };
 
 const SUMMARY_VALUE_STYLE: CSSProperties = {
   margin: 0,
   fontSize: "1.2rem",
-  fontWeight: 700,
-  color: "#0f172a",
+  fontWeight: 800,
+  color: "#f8fafc",
 };
 
 const ERROR_TEXT_STYLE: CSSProperties = {
   margin: 0,
-  color: "#b42318",
-  fontWeight: 600,
+  color: "#fda4af",
+  fontWeight: 700,
 };
 
 const REFRESH_STATUS_STYLE: CSSProperties = {
   margin: 0,
-  color: "#475569",
-  fontSize: "0.9rem",
-  lineHeight: 1.45,
+  color: "#cbd5e1",
+  fontSize: "0.92rem",
+  lineHeight: 1.5,
 };
 
 function formatCount(value: number): string {

@@ -460,6 +460,111 @@ test("SteamOS app shell overview renders configured providers without a cache an
   assert.doesNotMatch(markup, /76561198136628813|apiKeyDraft|Authorization/u);
 });
 
+test("SteamOS app shell foundation keeps provider actions readable and diagnostics secondary", () => {
+  const diagnostics = {
+    phase: "loaded",
+    message: "SteamOS dev shell status ready",
+    snapshot: {
+      ok: true,
+      backendReachable: true,
+      runtimeMetadata: {
+        present: true,
+        valid: true,
+        sizeBytes: 128,
+        mtimeMs: 1_710_000_000_000,
+      },
+      providerConfigFilePresent: true,
+      providerSecretsFilePresent: true,
+      retroAchievements: {
+        configured: true,
+        usernamePresent: true,
+        hasApiKey: true,
+      },
+      steam: {
+        configured: false,
+        steamId64Present: false,
+        hasApiKey: false,
+      },
+      dashboardCache: {
+        retroAchievements: {
+          present: true,
+          valid: true,
+          sizeBytes: 256,
+          mtimeMs: 1_710_000_100_000,
+          refreshedAtMs: 1_710_000_050_000,
+        },
+        steam: {
+          present: false,
+          valid: false,
+        },
+      },
+    },
+  } as const;
+
+  const markup = renderToStaticMarkup(
+    <div>
+      <SteamOSAppShellOverview
+        state={{
+          phase: "connected",
+          message: "Connected to SteamOS backend",
+          providerConfigStatus: "loaded",
+          providerConfigs: {
+            retroAchievements: {
+              username: "Retro Player",
+              hasApiKey: true,
+              recentAchievementsCount: 10,
+              recentlyPlayedCount: 10,
+            },
+            steam: {
+              steamId64: "76561198136628813",
+              hasApiKey: false,
+              language: "english",
+              recentAchievementsCount: 10,
+              recentlyPlayedCount: 10,
+              includePlayedFreeGames: false,
+            },
+          },
+          providers: {
+            retroAchievements: {
+              label: "RetroAchievements",
+              status: "configured",
+            },
+            steam: {
+              label: "Steam",
+              status: "not_configured",
+            },
+          },
+        }}
+        diagnostics={diagnostics}
+        selectedProviderId={RETROACHIEVEMENTS_PROVIDER_ID}
+        dashboardMessages={{
+          [RETROACHIEVEMENTS_PROVIDER_ID]: "Could not refresh dashboard",
+        }}
+        onOpenSetup={() => {}}
+        onOpenDashboard={() => {}}
+        onRefreshDashboard={() => {}}
+      />
+      <SteamOSDevShellStatusPanel
+        state={{
+          phase: "loaded",
+          message: "SteamOS dev shell status ready",
+          snapshot: diagnostics.snapshot,
+        }}
+        onRefresh={() => {}}
+      />
+    </div>,
+  );
+
+  assert.match(markup, /SteamOS app shell/u);
+  assert.match(markup, /Home/u);
+  assert.match(markup, /Development/u);
+  assert.match(markup, /SteamOS dev shell status/u);
+  assert.match(markup, /Refresh status/u);
+  assert.match(markup, /Open dashboard/u);
+  assert.match(markup, /Refresh dashboard/u);
+  assert.doesNotMatch(markup, /Retro Player|76561198136628813|apiKey|Authorization/u);
+});
+
 test("SteamOS dev shell diagnostics load helper returns safe loading success and failure states", async () => {
   const loadedState = await loadSteamOSDevShellDiagnosticsStatus({
     async load() {
@@ -596,3 +701,4 @@ test("SteamOS bootstrap entrypoint stays isolated from Decky, browser storage, a
   assert.doesNotMatch(packageRelease, /src\/platform\/steamos\/bootstrap\.tsx|src\\platform\\steamos\\bootstrap\.tsx/u);
   assert.doesNotMatch(checkRelease, /src\/platform\/steamos\/bootstrap\.tsx|src\\platform\\steamos\\bootstrap\.tsx/u);
 });
+
