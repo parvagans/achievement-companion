@@ -327,6 +327,21 @@ def _validate_provider_path(value: Any) -> str | None:
   return path
 
 
+def _validate_retroachievements_provider_path(value: Any) -> str | None:
+  path = _validate_provider_path(value)
+  if path is None:
+    return None
+
+  normalized_path = path.replace("\\", "/")
+  if normalized_path.startswith("API/"):
+    normalized_path = normalized_path[len("API/") :]
+
+  if "/" in normalized_path or normalized_path == "":
+    return None
+
+  return normalized_path
+
+
 def _sanitize_request_query(value: Any) -> dict[str, Any] | None:
   if value is None:
     return {}
@@ -430,7 +445,7 @@ def _request_retroachievements_json(
   context: LocalBackendContext,
   payload: Mapping[str, Any],
 ) -> tuple[int, Any]:
-  path = _validate_provider_path(payload.get("path"))
+  path = _validate_retroachievements_provider_path(payload.get("path"))
   query = _sanitize_request_query(payload.get("query"))
   if path is None or query is None:
     return 400, {"ok": False, "error": "invalid_payload"}

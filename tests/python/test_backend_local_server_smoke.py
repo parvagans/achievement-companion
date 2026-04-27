@@ -312,7 +312,7 @@ class LocalBackendSmokeTests(unittest.TestCase):
 
     retro_call = calls[0]
     steam_call = calls[1]
-    self.assertEqual(retro_call["path"], "API/API_GetUserProfile.php")
+    self.assertEqual(retro_call["path"], "API_GetUserProfile.php")
     self.assertEqual(retro_call["query"], {"u": "frontend-user"})
     self.assertEqual(retro_call["auth_query"], {"u": "sol88", "y": "backend-ra-secret"})
     self.assertEqual(steam_call["path"], "IPlayerService/GetOwnedGames/v1/")
@@ -432,7 +432,7 @@ class LocalBackendSmokeTests(unittest.TestCase):
     self.assertEqual(payload["error"], "provider_request_failed")
     self.assertEqual(payload["errorCategory"], "http_error")
     self.assertEqual(payload["providerId"], "retroachievements")
-    self.assertEqual(payload["path"], "API/API_GetUserProfile.php")
+    self.assertEqual(payload["path"], "API_GetUserProfile.php")
     self.assertEqual(payload["status"], 403)
     self.assertIsInstance(payload["durationMs"], int)
     self.assertNotIn("backend-ra-secret", json.dumps(payload))

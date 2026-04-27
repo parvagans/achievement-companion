@@ -8,7 +8,9 @@ from backend.storage import WarningCallback, read_json_file, write_json_file
 
 
 _ALLOWED_DASHBOARD_PROVIDER_IDS = frozenset({"retroachievements", "steam"})
-_SECRET_FIELD_NAMES = frozenset({"apikey", "apikeydraft", "authorization", "key", "password", "secret", "token", "y"})
+# Dashboard snapshots legitimately include metric objects with a safe "key" field,
+# so cache validation only blocks explicitly secret-bearing names.
+_SECRET_FIELD_NAMES = frozenset({"apikey", "apikeydraft", "authorization", "password", "secret", "token", "y"})
 
 
 def _coerce_provider_id(value: Any) -> str | None:

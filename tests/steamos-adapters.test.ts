@@ -100,7 +100,7 @@ test("SteamOS local backend client surfaces non-2xx JSON errors safely", async (
   });
 
   await assert.rejects(
-    () => client.postJson("request_retroachievements_json", { path: "API/API_GetUserProfile.php" }),
+    () => client.postJson("request_retroachievements_json", { path: "API_GetUserProfile.php" }),
     (error: unknown) =>
       error instanceof SteamOSLocalBackendClientError &&
       error.status === 403 &&
@@ -131,7 +131,7 @@ test("SteamOS provider transports post to local backend endpoints and strip secr
   const steamTransport = transportFactory.create(STEAM_PROVIDER_ID);
 
   const retroResponse = await retroAchievementsTransport.requestJson<{ readonly user: string }>({
-    path: "API/API_GetUserProfile.php",
+    path: "API_GetUserProfile.php",
     query: {
       u: "sol88",
       y: "frontend-secret",
@@ -155,7 +155,7 @@ test("SteamOS provider transports post to local backend endpoints and strip secr
   assert.deepStrictEqual(steamResponse, { response: { game_count: 2 } });
   assert.equal(calls[0]?.url, "http://127.0.0.1:4123/request_retroachievements_json");
   assert.deepStrictEqual(calls[0]?.body, {
-    path: "API/API_GetUserProfile.php",
+    path: "API_GetUserProfile.php",
     query: { u: "sol88" },
   });
   assert.equal(calls[1]?.url, "http://127.0.0.1:4123/request_steam_json");
@@ -369,7 +369,18 @@ test("SteamOS dashboard cache store uses backend cache endpoints and maps misses
 
   assert.deepStrictEqual(await store.read(STEAM_PROVIDER_ID), { refreshedAt: 12 });
   assert.equal(await store.read(RETROACHIEVEMENTS_PROVIDER_ID), undefined);
-  await store.write(STEAM_PROVIDER_ID, { refreshedAt: 12 });
+  await store.write(STEAM_PROVIDER_ID, {
+    refreshedAt: 12,
+    profile: {
+      metrics: [
+        {
+          key: "games-beaten",
+          label: "Perfect Games",
+          value: "3",
+        },
+      ],
+    },
+  });
   assert.equal(await store.clear(STEAM_PROVIDER_ID), true);
   assert.equal(await store.clear(), true);
   assert.equal(await store.clear("mock-provider"), false);
@@ -385,7 +396,18 @@ test("SteamOS dashboard cache store uses backend cache endpoints and maps misses
   assert.deepStrictEqual(calls[1]?.body, { providerId: RETROACHIEVEMENTS_PROVIDER_ID });
   assert.deepStrictEqual(calls[2]?.body, {
     providerId: STEAM_PROVIDER_ID,
-    value: { refreshedAt: 12 },
+    value: {
+      refreshedAt: 12,
+      profile: {
+        metrics: [
+          {
+            key: "games-beaten",
+            label: "Perfect Games",
+            value: "3",
+          },
+        ],
+      },
+    },
   });
   assert.deepStrictEqual(calls[3]?.body, { providerId: STEAM_PROVIDER_ID });
   assert.deepStrictEqual(calls[4]?.body, {});

@@ -29,7 +29,19 @@ class BackendCacheTests(unittest.TestCase):
   def test_dashboard_cache_write_read_and_clear_support_provider_and_global_invalidation(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
       paths = _build_test_backend_paths(Path(temp_dir))
-      steam_value = {"status": "success", "profile": {"providerId": "steam"}}
+      steam_value = {
+        "status": "success",
+        "profile": {
+          "providerId": "steam",
+          "metrics": [
+            {
+              "key": "games-beaten",
+              "label": "Perfect Games",
+              "value": "3",
+            },
+          ],
+        },
+      }
       retro_value = {"status": "success", "profile": {"providerId": "retroachievements"}}
 
       cache.write_dashboard_cache(paths, "steam", steam_value)
@@ -95,7 +107,7 @@ class BackendCacheTests(unittest.TestCase):
       self.assertEqual(json.loads(paths.steam_scan_summary_path.read_text(encoding="utf-8")), summary)
 
       with self.assertRaises(ValueError):
-        cache.write_steam_scan_overview(paths, {"key": "should-not-write"})
+        cache.write_steam_scan_overview(paths, {"apiKey": "should-not-write"})
       with self.assertRaises(ValueError):
         cache.write_steam_scan_summary(paths, {"Authorization": "Bearer nope"})
 

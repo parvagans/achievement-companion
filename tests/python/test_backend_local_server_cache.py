@@ -120,12 +120,40 @@ class BackendLocalServerCacheTests(unittest.TestCase):
     with tempfile.TemporaryDirectory() as temp_dir:
       root = Path(temp_dir)
       context = _create_test_context(root)
+      steam_snapshot = {
+        "profile": {
+          "providerId": "steam",
+          "identity": {
+            "providerId": "steam",
+            "accountId": "steam-user",
+            "displayName": "Steam Player",
+          },
+          "summary": {
+            "unlockedCount": 10,
+            "totalCount": 20,
+            "completionPercent": 50,
+          },
+          "metrics": [
+            {
+              "key": "games-beaten",
+              "label": "Perfect Games",
+              "value": "3",
+            },
+          ],
+          "refreshedAt": 123,
+        },
+        "recentAchievements": [],
+        "recentlyPlayedGames": [],
+        "recentUnlocks": [],
+        "featuredGames": [],
+        "refreshedAt": 123,
+      }
       with _RunningServer(local_server.create_local_backend_server(token=token, context=context)) as running:
         write_steam_status, write_steam_payload, _ = running.request_json(
           "POST",
           "/cache/dashboard/write",
           token=token,
-          body={"providerId": "steam", "value": {"status": "success", "profile": {"providerId": "steam"}}},
+          body={"providerId": "steam", "value": steam_snapshot},
         )
         write_ra_status, write_ra_payload, _ = running.request_json(
           "POST",
@@ -175,7 +203,7 @@ class BackendLocalServerCacheTests(unittest.TestCase):
       self.assertEqual(write_ra_status, 200)
       self.assertEqual(write_ra_payload, {"ok": True})
       self.assertEqual(read_steam_status, 200)
-      self.assertEqual(read_steam_payload, {"hit": True, "value": {"status": "success", "profile": {"providerId": "steam"}}})
+      self.assertEqual(read_steam_payload, {"hit": True, "value": steam_snapshot})
       self.assertEqual(clear_steam_status, 200)
       self.assertEqual(clear_steam_payload, {"ok": True, "cleared": True})
       self.assertEqual(read_cleared_status, 200)

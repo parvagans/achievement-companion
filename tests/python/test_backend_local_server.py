@@ -688,7 +688,7 @@ class BackendLocalServerTests(unittest.TestCase):
           "POST",
           "/request_retroachievements_json",
           token=token,
-          body={"path": "API/API_GetUserProfile.php", "query": {"u": "sol88"}},
+          body={"path": "API_GetUserProfile.php", "query": {"u": "sol88"}},
         )
         steam_status, steam_payload, _ = running.request_json(
           "POST",
@@ -750,12 +750,79 @@ class BackendLocalServerTests(unittest.TestCase):
     self.assertEqual(len(calls), 1)
     self.assertEqual(calls[0]["provider_id"], "retroachievements")
     self.assertEqual(calls[0]["base_url"], "https://retroachievements.org/API/")
-    self.assertEqual(calls[0]["path"], "API/API_GetUserProfile.php")
+    self.assertEqual(calls[0]["path"], "API_GetUserProfile.php")
     self.assertEqual(calls[0]["query"], {"u": "frontend-user"})
     self.assertEqual(calls[0]["auth_query"], {"u": "sol88", "y": "backend-ra-secret"})
     serialized_response = json.dumps(payload)
     self.assertNotIn("backend-ra-secret", serialized_response)
     self.assertNotIn("frontend-api-key", serialized_response)
+
+  def test_retroachievements_provider_request_accepts_api_relative_filenames_and_normalizes_api_prefix(self) -> None:
+    token = "request-token"
+    calls: list[dict[str, Any]] = []
+
+    def fake_requester(**kwargs: Any) -> dict[str, Any]:
+      calls.append(kwargs)
+      return {"ok": True}
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+      context = _create_test_context(Path(temp_dir))
+      context.provider_requester = fake_requester
+      secret_helpers.save_secret_api_key(
+        context.paths.secrets_path,
+        "retroAchievements",
+        "backend-ra-secret",
+        settings_dir_text=context.settings_dir_text,
+      )
+      context.paths.config_path.parent.mkdir(parents=True, exist_ok=True)
+      context.paths.config_path.write_text(
+        json.dumps({"version": 1, "retroAchievements": {"username": "sol88", "hasApiKey": True}}),
+        encoding="utf-8",
+      )
+
+      with _RunningServer(local_server.create_local_backend_server(token=token, context=context)) as running:
+        direct_status, direct_payload, _ = running.request_json(
+          "POST",
+          "/request_retroachievements_json",
+          token=token,
+          body={"path": "API_GetUserProfile.php", "query": {"u": "sol88"}},
+        )
+        prefixed_status, prefixed_payload, _ = running.request_json(
+          "POST",
+          "/request_retroachievements_json",
+          token=token,
+          body={"path": "API/API_GetUserProfile.php", "query": {"u": "sol88"}},
+        )
+        leading_slash_status, leading_slash_payload, _ = running.request_json(
+          "POST",
+          "/request_retroachievements_json",
+          token=token,
+          body={"path": "/API/API_GetUserProfile.php", "query": {"u": "sol88"}},
+        )
+        absolute_status, absolute_payload, _ = running.request_json(
+          "POST",
+          "/request_retroachievements_json",
+          token=token,
+          body={"path": "https://retroachievements.org/API/API_GetUserProfile.php", "query": {"u": "sol88"}},
+        )
+        traversal_status, traversal_payload, _ = running.request_json(
+          "POST",
+          "/request_retroachievements_json",
+          token=token,
+          body={"path": "../API_GetUserProfile.php", "query": {"u": "sol88"}},
+        )
+
+    self.assertEqual(direct_status, 200)
+    self.assertEqual(direct_payload, {"ok": True})
+    self.assertEqual(prefixed_status, 200)
+    self.assertEqual(prefixed_payload, {"ok": True})
+    self.assertEqual(leading_slash_status, 400)
+    self.assertEqual(leading_slash_payload, {"error": "invalid_payload", "ok": False})
+    self.assertEqual(absolute_status, 400)
+    self.assertEqual(absolute_payload, {"error": "invalid_payload", "ok": False})
+    self.assertEqual(traversal_status, 400)
+    self.assertEqual(traversal_payload, {"error": "invalid_payload", "ok": False})
+    self.assertEqual([call["path"] for call in calls], ["API_GetUserProfile.php", "API_GetUserProfile.php"])
 
   def test_steam_provider_request_uses_backend_secret_and_strips_frontend_secret_fields(self) -> None:
     token = "request-token"
