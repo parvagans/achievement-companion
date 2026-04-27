@@ -99,6 +99,23 @@ test("SteamOS setup surface renders status badges, busy state, and generic error
   assert.match(markup, /class="steamos-focus-target steamos-button-target"/u);
 });
 
+test("SteamOS setup surface renders setup-incomplete guidance without exposing saved identifiers", () => {
+  const markup = renderToStaticMarkup(
+    <SteamOSSetupSurface
+      providerConfigStatus="loaded"
+      providerStatuses={{
+        retroAchievements: { label: "RetroAchievements", status: "setup_incomplete" },
+        steam: { label: "Steam", status: "not_configured" },
+      }}
+      values={createSteamOSSetupFormValues()}
+    />,
+  );
+
+  assert.match(markup, /setup incomplete/u);
+  assert.match(markup, /Setup is incomplete locally\. Save RetroAchievements again to restore the missing credential\./u);
+  assert.doesNotMatch(markup, /76561198136628813|sol88|apiKeyDraft|Authorization/u);
+});
+
 test("SteamOS saveRetroAchievementsSetup saves username and draft key then clears the draft", async () => {
   const calls: Array<{ readonly providerId: string; readonly config: unknown }> = [];
   const values: SteamOSSetupFormValues = {

@@ -220,6 +220,10 @@ function formatProviderStatus(status: SteamOSProviderConfigStatus | undefined): 
     return "configured";
   }
 
+  if (status === "setup_incomplete") {
+    return "setup incomplete";
+  }
+
   if (status === "unavailable") {
     return "unavailable";
   }
@@ -233,6 +237,14 @@ function getStatusBadgeStyle(status: SteamOSProviderConfigStatus | undefined): C
       ...STATUS_BADGE_BASE_STYLE,
       backgroundColor: "#dcfce7",
       color: "#166534",
+    };
+  }
+
+  if (status === "setup_incomplete") {
+    return {
+      ...STATUS_BADGE_BASE_STYLE,
+      backgroundColor: "#fef3c7",
+      color: "#92400e",
     };
   }
 
@@ -582,6 +594,11 @@ export function SteamOSSetupSurface(props: SteamOSSetupSurfaceProps): JSX.Elemen
           <p style={PROVIDER_HELP_STYLE}>
             Save your username and API key locally so the SteamOS runtime can use them later.
           </p>
+          {props.providerStatuses?.retroAchievements.status === "setup_incomplete" ? (
+            <p role="alert" style={ERROR_TEXT_STYLE}>
+              Setup is incomplete locally. Save RetroAchievements again to restore the missing credential.
+            </p>
+          ) : null}
           <div style={FIELD_GRID_STYLE}>
             <div style={FIELD_STYLE}>
               <label htmlFor={RETROACHIEVEMENTS_USERNAME_ID} style={LABEL_STYLE}>Username</label>
@@ -652,6 +669,11 @@ export function SteamOSSetupSurface(props: SteamOSSetupSurfaceProps): JSX.Elemen
           <p style={PROVIDER_HELP_STYLE}>
             Save your SteamID64 and Web API key locally. This does not call Steam or validate connectivity yet.
           </p>
+          {props.providerStatuses?.steam.status === "setup_incomplete" ? (
+            <p role="alert" style={ERROR_TEXT_STYLE}>
+              Setup is incomplete locally. Save Steam again to restore the missing credential.
+            </p>
+          ) : null}
           <div style={FIELD_GRID_STYLE}>
             <div style={FIELD_STYLE}>
               <label htmlFor={STEAM_ID64_ID} style={LABEL_STYLE}>SteamID64</label>

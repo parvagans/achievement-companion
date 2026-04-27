@@ -4,8 +4,10 @@ import type { DashboardSnapshot } from "@core/domain";
 import { createSteamOSAppRuntime, type SteamOSAppRuntimeOptions } from "./create-steamos-app-runtime";
 import {
   loadSteamOSBootstrapConfig,
+  SteamOSRuntimeBootstrapError,
   type SteamOSRuntimeBootstrapOptions,
 } from "./runtime-bootstrap";
+import { SteamOSLocalBackendClientError } from "./local-backend-client";
 import type { SteamOSLocalBackendClientConfig } from "./runtime-metadata";
 import type { RetroAchievementsProviderConfig } from "../../providers/retroachievements/config";
 import {
@@ -32,10 +34,20 @@ import { SteamOSDashboardSurface, type SteamOSDashboardProviderId, type SteamOSD
 import type {
   SteamOSDevShellDiagnosticsStatus,
   SteamOSDiagnosticsStatusStore,
+  SteamOSRetroAchievementsDevShellStatus,
+  SteamOSSteamDevShellStatus,
 } from "./steamos-adapters";
 
 export type SteamOSBootstrapPhase = "loading" | "connected" | "error";
-export type SteamOSProviderConfigStatus = "configured" | "not_configured" | "unavailable";
+export type SteamOSProviderConfigStatus = "configured" | "not_configured" | "setup_incomplete" | "unavailable";
+export type SteamOSRecoveryCode =
+  | "backend_unavailable"
+  | "runtime_unavailable"
+  | "invalid_runtime_metadata"
+  | "setup_incomplete"
+  | "provider_refresh_failed"
+  | "cache_read_failed"
+  | "cache_write_failed";
 
 export interface SteamOSProviderStatus {
   readonly label: string;
@@ -47,12 +59,16 @@ export type SteamOSDevShellDiagnosticsPhase = "loading" | "loaded" | "error";
 export interface SteamOSDevShellDiagnosticsState {
   readonly phase: SteamOSDevShellDiagnosticsPhase;
   readonly message: string;
+  readonly recoveryHint?: string;
+  readonly errorCode?: SteamOSRecoveryCode;
   readonly snapshot?: SteamOSDevShellDiagnosticsStatus;
 }
 
 export interface SteamOSBootstrapState {
   readonly phase: SteamOSBootstrapPhase;
   readonly message: string;
+  readonly recoveryHint?: string;
+  readonly errorCode?: SteamOSRecoveryCode;
   readonly providerConfigStatus?: "loaded" | "unavailable";
   readonly providers?: {
     readonly retroAchievements: SteamOSProviderStatus;
@@ -454,6 +470,172 @@ const ERROR_TEXT_STYLE: CSSProperties = {
   fontWeight: 700,
 };
 
+const BACKEND_RECOVERY_HINT =
+  "Check that start:steamos is still running, reload this shell, or restart it if needed.";
+const RUNTIME_RECOVERY_HINT =
+  "Reload this shell. If runtime metadata still fails, restart start:steamos and try again.";
+const SETUP_INCOMPLETE_HINT =
+  "Open setup, save the provider credentials again, then retry the dashboard.";
+const NO_DASHBOARD_HINT =
+  "No dashboard is available yet. Check setup, then retry Refresh when the backend is running.";
+const CACHE_READ_FAILURE_HINT =
+  "Cached dashboard data could not be read safely. Try Refresh again to rebuild it.";
+
+function createRecoveryState(
+  phase: SteamOSBootstrapPhase,
+  message: string,
+  errorCode?: SteamOSRecoveryCode,
+  recoveryHint?: string,
+): Pick<SteamOSBootstrapState, "message" | "errorCode" | "recoveryHint" | "phase"> {
+  return {
+    phase,
+    message,
+    ...(errorCode !== undefined ? { errorCode } : {}),
+    ...(recoveryHint !== undefined ? { recoveryHint } : {}),
+  };
+}
+
+function describeBootstrapFailure(error: unknown): Pick<SteamOSBootstrapState, "message" | "errorCode" | "recoveryHint"> {
+  if (error instanceof SteamOSRuntimeBootstrapError) {
+    if (error.code === "request_failed") {
+      return {
+        message: "SteamOS backend unavailable",
+        errorCode: "backend_unavailable",
+        recoveryHint: BACKEND_RECOVERY_HINT,
+      };
+    }
+
+    if (error.code === "invalid_content_type" || error.code === "invalid_json" || error.code === "invalid_metadata") {
+      return {
+        message: "SteamOS runtime metadata is invalid",
+        errorCode: "invalid_runtime_metadata",
+        recoveryHint: RUNTIME_RECOVERY_HINT,
+      };
+    }
+
+    return {
+      message: "SteamOS runtime unavailable",
+      errorCode: "runtime_unavailable",
+      recoveryHint: RUNTIME_RECOVERY_HINT,
+    };
+  }
+
+  return {
+    message: "SteamOS backend unavailable",
+    errorCode: "backend_unavailable",
+    recoveryHint: BACKEND_RECOVERY_HINT,
+  };
+}
+
+function describeDiagnosticsFailure(error: unknown): Pick<SteamOSDevShellDiagnosticsState, "message" | "errorCode" | "recoveryHint"> {
+  if (error instanceof SteamOSLocalBackendClientError) {
+    if (error.code === "backend_unavailable" || error.category === "network_error" || error.status === 0) {
+      return {
+        message: "Backend unavailable",
+        errorCode: "backend_unavailable",
+        recoveryHint: BACKEND_RECOVERY_HINT,
+      };
+    }
+  }
+
+  return {
+    message: "Backend unavailable",
+    errorCode: "backend_unavailable",
+    recoveryHint: BACKEND_RECOVERY_HINT,
+  };
+}
+
+function formatDiagnosticsProviderStatus(
+  configured: boolean,
+  identifierPresent: boolean,
+  hasApiKey: boolean,
+): string {
+  if (configured) {
+    return "configured";
+  }
+
+  if (identifierPresent || hasApiKey) {
+    return "setup incomplete";
+  }
+
+  return "not configured";
+}
+
+function deriveVisibleProviderStatus(
+  baseStatus: SteamOSProviderConfigStatus,
+  diagnostics:
+    | SteamOSRetroAchievementsDevShellStatus
+    | SteamOSSteamDevShellStatus
+    | undefined,
+): SteamOSProviderConfigStatus {
+  if (baseStatus === "unavailable") {
+    return "unavailable";
+  }
+
+  if (diagnostics === undefined) {
+    return baseStatus;
+  }
+
+  const identifierPresent = "usernamePresent" in diagnostics
+    ? diagnostics.usernamePresent
+    : diagnostics.steamId64Present;
+
+  if (diagnostics.configured) {
+    return "configured";
+  }
+
+  if (identifierPresent || diagnostics.hasApiKey) {
+    return "setup_incomplete";
+  }
+
+  return "not_configured";
+}
+
+function resolveVisibleProviderStatuses(
+  providers: SteamOSBootstrapState["providers"] | undefined,
+  diagnostics: SteamOSDevShellDiagnosticsStatus | undefined,
+): SteamOSBootstrapState["providers"] | undefined {
+  if (providers === undefined) {
+    return undefined;
+  }
+
+  return {
+    retroAchievements: {
+      ...providers.retroAchievements,
+      status: deriveVisibleProviderStatus(providers.retroAchievements.status, diagnostics?.retroAchievements),
+    },
+    steam: {
+      ...providers.steam,
+      status: deriveVisibleProviderStatus(providers.steam.status, diagnostics?.steam),
+    },
+  };
+}
+
+function getDashboardActionFailureMessage(args: {
+  readonly providerStatus: SteamOSProviderConfigStatus | undefined;
+  readonly cacheStatus: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"] | undefined;
+  readonly diagnosticsState: SteamOSDevShellDiagnosticsState;
+  readonly reason: "refresh_failed" | "cache_write_failed";
+}): string {
+  if (args.providerStatus === "setup_incomplete") {
+    return "Setup incomplete. Save provider setup again, then retry.";
+  }
+
+  if (args.providerStatus === "unavailable" || args.diagnosticsState.phase === "error") {
+    return "Backend unavailable. Check that start:steamos is still running, then retry.";
+  }
+
+  if (args.reason === "cache_write_failed") {
+    return "Dashboard refreshed, but the cache could not be updated. Retry Refresh when the backend is available.";
+  }
+
+  if (args.cacheStatus?.present === true && args.cacheStatus.valid === true) {
+    return "Showing cached dashboard data. Refresh failed. Try again when the backend is available.";
+  }
+
+  return "No dashboard available yet. Refresh failed. Check setup or retry.";
+}
+
 function createInitialDevShellDiagnosticsState(): SteamOSDevShellDiagnosticsState {
   return {
     phase: "loading",
@@ -468,6 +650,8 @@ export async function loadSteamOSDevShellDiagnosticsStatus(
     return {
       phase: "error",
       message: "Diagnostics unavailable",
+      errorCode: "runtime_unavailable",
+      recoveryHint: RUNTIME_RECOVERY_HINT,
     };
   }
 
@@ -476,33 +660,63 @@ export async function loadSteamOSDevShellDiagnosticsStatus(
     return {
       phase: "loaded",
       message: snapshot.runtimeMetadata.valid ? "SteamOS dev shell status ready" : "Runtime unavailable",
+      ...(snapshot.runtimeMetadata.valid
+        ? {}
+        : {
+          errorCode: "runtime_unavailable" as const,
+          recoveryHint: RUNTIME_RECOVERY_HINT,
+        }),
       snapshot,
     };
-  } catch {
+  } catch (error) {
+    const failure = describeDiagnosticsFailure(error);
     return {
       phase: "error",
-      message: "Backend unavailable",
+      ...failure,
     };
   }
 }
 
 function createBootstrapState(
   phase: SteamOSBootstrapPhase,
-  providerState?: Pick<SteamOSBootstrapState, "providerConfigStatus" | "providerConfigs" | "providers">,
+  providerState?: {
+    readonly providerConfigStatus?: SteamOSBootstrapState["providerConfigStatus"];
+    readonly providerConfigs?: SteamOSBootstrapState["providerConfigs"];
+    readonly providers?: SteamOSBootstrapState["providers"];
+    readonly errorCode?: SteamOSBootstrapState["errorCode"];
+    readonly recoveryHint?: SteamOSBootstrapState["recoveryHint"];
+    readonly message?: SteamOSBootstrapState["message"];
+  },
 ): SteamOSBootstrapState {
   if (phase === "connected") {
     return {
       phase,
-      message: "Connected to SteamOS backend",
-      ...providerState,
+      message: providerState?.message ?? "Connected to SteamOS backend",
+      ...(providerState?.providerConfigStatus !== undefined
+        ? { providerConfigStatus: providerState.providerConfigStatus }
+        : {}),
+      ...(providerState?.providerConfigs !== undefined
+        ? { providerConfigs: providerState.providerConfigs }
+        : {}),
+      ...(providerState?.providers !== undefined
+        ? { providers: providerState.providers }
+        : {}),
+      ...(providerState?.errorCode !== undefined
+        ? { errorCode: providerState.errorCode }
+        : {}),
+      ...(providerState?.recoveryHint !== undefined
+        ? { recoveryHint: providerState.recoveryHint }
+        : {}),
     };
   }
 
   if (phase === "error") {
-    return {
+    return createRecoveryState(
       phase,
-      message: "SteamOS backend unavailable",
-    };
+      providerState?.message ?? "SteamOS backend unavailable",
+      providerState?.errorCode,
+      providerState?.recoveryHint,
+    );
   }
 
   return {
@@ -537,20 +751,12 @@ function formatValidityStatus(present: boolean, valid: boolean): string {
   return valid ? "valid" : "invalid";
 }
 
-function formatConfiguredStatus(configured: boolean): string {
-  return configured ? "configured" : "not configured";
-}
-
 function formatCacheStatus(status: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"]): string {
   if (!status.present) {
     return "missing";
   }
 
   return status.valid ? "cached" : "unreadable";
-}
-
-function formatOptionalNumber(value: number | undefined): string {
-  return value !== undefined ? value.toLocaleString() : "—";
 }
 
 function formatCacheDetails(status: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"]): string {
@@ -632,6 +838,10 @@ function formatProviderStatus(status: SteamOSProviderConfigStatus): string {
     return "configured";
   }
 
+  if (status === "setup_incomplete") {
+    return "setup incomplete";
+  }
+
   if (status === "unavailable") {
     return "unavailable";
   }
@@ -658,7 +868,15 @@ function formatProviderCardStatusLabel(
   cacheStatus: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"] | undefined,
 ): string {
   if (providerStatus !== "configured") {
-    return providerStatus === "unavailable" ? "Backend unavailable" : "Setup required";
+    if (providerStatus === "unavailable") {
+      return "Backend unavailable";
+    }
+
+    if (providerStatus === "setup_incomplete") {
+      return "Setup incomplete";
+    }
+
+    return "Setup required";
   }
 
   if (cacheStatus?.present === true && cacheStatus.valid === true) {
@@ -673,6 +891,14 @@ function formatProviderCardDescription(
   cacheStatus: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"] | undefined,
 ): string {
   if (providerStatus !== "configured") {
+    if (providerStatus === "unavailable") {
+      return BACKEND_RECOVERY_HINT;
+    }
+
+    if (providerStatus === "setup_incomplete") {
+      return SETUP_INCOMPLETE_HINT;
+    }
+
     return "Save provider credentials before opening the dashboard.";
   }
 
@@ -687,6 +913,10 @@ function getProviderCardPrimaryActionLabel(
   providerStatus: SteamOSProviderConfigStatus,
   cacheStatus: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"] | undefined,
 ): string {
+  if (providerStatus === "setup_incomplete") {
+    return "Edit setup";
+  }
+
   if (providerStatus !== "configured") {
     return "Set up";
   }
@@ -702,6 +932,10 @@ function getProviderCardSecondaryActionLabel(
   providerStatus: SteamOSProviderConfigStatus,
   cacheStatus: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"] | undefined,
 ): string {
+  if (providerStatus === "setup_incomplete") {
+    return "Open dashboard";
+  }
+
   if (providerStatus !== "configured") {
     return "Open dashboard";
   }
@@ -731,6 +965,14 @@ function getProviderCardBadgeStyle(
       ...base,
       backgroundColor: "#dcfce7",
       color: "#166534",
+    };
+  }
+
+  if (providerStatus === "setup_incomplete") {
+    return {
+      ...base,
+      backgroundColor: "#fef3c7",
+      color: "#92400e",
     };
   }
 
@@ -804,6 +1046,7 @@ export function SteamOSAppShellOverview(
           const primaryActionLabel = getProviderCardPrimaryActionLabel(card.providerStatus, card.cacheStatus);
           const secondaryActionLabel = getProviderCardSecondaryActionLabel(card.providerStatus, card.cacheStatus);
           const tertiaryActionLabel = getProviderCardTertiaryActionLabel(card.providerStatus);
+          const showTertiaryAction = tertiaryActionLabel !== primaryActionLabel;
           const canRefresh = card.providerStatus === "configured";
           const isConfigured = card.providerStatus === "configured";
           return (
@@ -874,17 +1117,23 @@ export function SteamOSAppShellOverview(
                 >
                   {secondaryActionLabel}
                 </button>
-                <button
-                  className="steamos-focus-target steamos-button-target"
-                  type="button"
-                  style={STEAMOS_PROVIDER_CARD_TERTIARY_ACTION_STYLE}
-                  onClick={() => onOpenSetup?.(card.providerId)}
-                >
-                  {tertiaryActionLabel}
-                </button>
+                {showTertiaryAction ? (
+                  <button
+                    className="steamos-focus-target steamos-button-target"
+                    type="button"
+                    style={STEAMOS_PROVIDER_CARD_TERTIARY_ACTION_STYLE}
+                    onClick={() => onOpenSetup?.(card.providerId)}
+                  >
+                    {tertiaryActionLabel}
+                  </button>
+                ) : null}
               </div>
               {canRefresh ? null : (
-                <p style={STEAMOS_PROVIDER_CARD_META_STYLE}>Refresh becomes available after setup is saved.</p>
+                <p style={STEAMOS_PROVIDER_CARD_META_STYLE}>
+                  {card.providerStatus === "setup_incomplete"
+                    ? "Dashboard refresh stays unavailable until setup is saved again."
+                    : "Refresh becomes available after setup is saved."}
+                </p>
               )}
             </article>
           );
@@ -919,8 +1168,8 @@ export function SteamOSBootstrapStatus(
       <section style={STATUS_PANEL_STYLE}>
         <p style={STATUS_MESSAGE_STYLE}>{state.message}</p>
         <p style={STATUS_HINT_STYLE}>
-          This shell only bootstraps local backend access and provider setup. It does not validate live provider
-          connectivity yet.
+          {state.recoveryHint
+            ?? "This shell only bootstraps local backend access and provider setup. It does not validate live provider connectivity yet."}
         </p>
       </section>
       {state.providerConfigStatus === "unavailable" ? <p>Provider config unavailable</p> : null}
@@ -973,6 +1222,9 @@ export function SteamOSDevShellStatusPanel(
       <p role="status" aria-live="polite" style={STATUS_MESSAGE_STYLE}>
         {state.message}
       </p>
+      {state.recoveryHint !== undefined ? (
+        <p style={DEV_SHELL_STATUS_HELP_STYLE}>{state.recoveryHint}</p>
+      ) : null}
       {diagnostics !== undefined ? (
         <div style={DEV_SHELL_STATUS_DETAIL_GRID_STYLE}>
           <div style={DEV_SHELL_STATUS_ITEM_STYLE}>
@@ -1002,7 +1254,11 @@ export function SteamOSDevShellStatusPanel(
           <div style={DEV_SHELL_STATUS_ITEM_STYLE}>
             <p style={DEV_SHELL_STATUS_ITEM_LABEL_STYLE}>RetroAchievements</p>
             <p style={DEV_SHELL_STATUS_ITEM_VALUE_STYLE}>
-              {formatConfiguredStatus(diagnostics.retroAchievements.configured)}
+              {formatDiagnosticsProviderStatus(
+                diagnostics.retroAchievements.configured,
+                diagnostics.retroAchievements.usernamePresent,
+                diagnostics.retroAchievements.hasApiKey,
+              )}
             </p>
             <p style={DEV_SHELL_STATUS_HELP_STYLE}>
               username {formatPresenceStatus(diagnostics.retroAchievements.usernamePresent)} · API key{" "}
@@ -1012,7 +1268,11 @@ export function SteamOSDevShellStatusPanel(
           <div style={DEV_SHELL_STATUS_ITEM_STYLE}>
             <p style={DEV_SHELL_STATUS_ITEM_LABEL_STYLE}>Steam</p>
             <p style={DEV_SHELL_STATUS_ITEM_VALUE_STYLE}>
-              {formatConfiguredStatus(diagnostics.steam.configured)}
+              {formatDiagnosticsProviderStatus(
+                diagnostics.steam.configured,
+                diagnostics.steam.steamId64Present,
+                diagnostics.steam.hasApiKey,
+              )}
             </p>
             <p style={DEV_SHELL_STATUS_HELP_STYLE}>
               SteamID64 {formatPresenceStatus(diagnostics.steam.steamId64Present)} · API key{" "}
@@ -1123,21 +1383,22 @@ export function SteamOSBootstrapShell(
   }, [options]);
 
   useEffect(() => {
-    if (result.state.phase !== "connected" || result.state.providers === undefined) {
+    const visibleProviders = resolveVisibleProviderStatuses(result.state.providers, devShellDiagnosticsState.snapshot);
+    if (result.state.phase !== "connected" || visibleProviders === undefined) {
       return;
     }
 
     setSelectedDashboardProviderId((currentProviderId) => {
       const currentProviderStatus = currentProviderId === STEAM_PROVIDER_ID
-        ? result.state.providers?.steam.status
-        : result.state.providers?.retroAchievements.status;
+        ? visibleProviders.steam.status
+        : visibleProviders.retroAchievements.status;
       if (currentProviderStatus === "configured") {
         return currentProviderId;
       }
 
-      return resolveInitialDashboardProviderId(result.state.providers);
+      return resolveInitialDashboardProviderId(visibleProviders);
     });
-  }, [result.state.phase, result.state.providers]);
+  }, [devShellDiagnosticsState.snapshot, result.state.phase, result.state.providers]);
 
   useEffect(() => {
     if (result.state.phase !== "connected") {
@@ -1308,8 +1569,11 @@ export function SteamOSBootstrapShell(
 
   async function handleRefreshDashboard(providerId: SteamOSDashboardProviderId): Promise<void> {
     const runtime = result.runtime;
-    const providerStatuses = result.state.providers;
+    const providerStatuses = resolveVisibleProviderStatuses(result.state.providers, devShellDiagnosticsState.snapshot);
     const providerStatus = providerId === STEAM_PROVIDER_ID ? providerStatuses?.steam.status : providerStatuses?.retroAchievements.status;
+    const cacheStatus = providerId === STEAM_PROVIDER_ID
+      ? devShellDiagnosticsState.snapshot?.dashboardCache.steam
+      : devShellDiagnosticsState.snapshot?.dashboardCache.retroAchievements;
     const dashboardSnapshotStore = runtime?.adapters.dashboardSnapshotStore;
     const refreshDashboard = runtime?.services.dashboard.loadDashboard.bind(runtime.services.dashboard);
 
@@ -1323,7 +1587,12 @@ export function SteamOSBootstrapShell(
       || dashboardSnapshotStore === undefined
       || refreshDashboard === undefined
     ) {
-      setDashboardActionMessage(providerId, "Could not refresh dashboard");
+      setDashboardActionMessage(providerId, getDashboardActionFailureMessage({
+        providerStatus,
+        cacheStatus,
+        diagnosticsState: devShellDiagnosticsState,
+        reason: "refresh_failed",
+      }));
       return;
     }
 
@@ -1331,13 +1600,32 @@ export function SteamOSBootstrapShell(
     try {
       const refreshResult = await refreshDashboard(providerId, { forceRefresh: true });
       if (refreshResult.data !== undefined && refreshResult.error === undefined) {
-        await dashboardSnapshotStore.write(providerId, refreshResult.data);
-        setDashboardActionMessage(providerId, undefined);
+        try {
+          await dashboardSnapshotStore.write(providerId, refreshResult.data);
+          setDashboardActionMessage(providerId, undefined);
+        } catch {
+          setDashboardActionMessage(providerId, getDashboardActionFailureMessage({
+            providerStatus,
+            cacheStatus,
+            diagnosticsState: devShellDiagnosticsState,
+            reason: "cache_write_failed",
+          }));
+        }
       } else {
-        setDashboardActionMessage(providerId, "Could not refresh dashboard");
+        setDashboardActionMessage(providerId, getDashboardActionFailureMessage({
+          providerStatus,
+          cacheStatus,
+          diagnosticsState: devShellDiagnosticsState,
+          reason: "refresh_failed",
+        }));
       }
     } catch {
-      setDashboardActionMessage(providerId, "Could not refresh dashboard");
+      setDashboardActionMessage(providerId, getDashboardActionFailureMessage({
+        providerStatus,
+        cacheStatus,
+        diagnosticsState: devShellDiagnosticsState,
+        reason: "refresh_failed",
+      }));
     }
 
     setDashboardReloadNonce((currentNonce) => currentNonce + 1);
@@ -1349,6 +1637,10 @@ export function SteamOSBootstrapShell(
   }
 
   const connectedState = createInitialConnectedState(result.state);
+  const visibleProviderStatuses = resolveVisibleProviderStatuses(
+    connectedState.providers,
+    devShellDiagnosticsState.snapshot,
+  );
   return (
     <main className="steamos-shell" data-steamos-bootstrap-state={connectedState.phase} style={PAGE_STYLE}>
       <style>{STEAMOS_INPUT_READINESS_CSS}</style>
@@ -1364,7 +1656,10 @@ export function SteamOSBootstrapShell(
         </p>
       </section>
       <SteamOSAppShellOverview
-        state={connectedState}
+        state={{
+          ...connectedState,
+          ...(visibleProviderStatuses !== undefined ? { providers: visibleProviderStatuses } : {}),
+        }}
         diagnostics={devShellDiagnosticsState}
         selectedProviderId={selectedDashboardProviderId}
         dashboardMessages={dashboardActionMessages}
@@ -1387,8 +1682,8 @@ export function SteamOSBootstrapShell(
           {...(connectedState.providerConfigStatus !== undefined
             ? { providerConfigStatus: connectedState.providerConfigStatus }
             : {})}
-          {...(connectedState.providers !== undefined
-            ? { providerStatuses: connectedState.providers }
+          {...(visibleProviderStatuses !== undefined
+            ? { providerStatuses: visibleProviderStatuses }
             : {})}
           values={values}
           messages={messages}
@@ -1438,8 +1733,8 @@ export function SteamOSBootstrapShell(
         </div>
         <SteamOSDashboardSurface
           key={`${selectedDashboardProviderId}:${dashboardReloadNonce}`}
-          {...(connectedState.providers !== undefined
-            ? { providerStatuses: connectedState.providers }
+          {...(visibleProviderStatuses !== undefined
+            ? { providerStatuses: visibleProviderStatuses }
             : {})}
           selectedProviderId={selectedDashboardProviderId}
           onSelectedProviderIdChange={setSelectedDashboardProviderId}
@@ -1489,8 +1784,8 @@ export async function bootstrapSteamOSShell(
       state: connectedState,
       runtime,
     };
-  } catch {
-    const errorState = createBootstrapState("error");
+  } catch (error) {
+    const errorState = createBootstrapState("error", describeBootstrapFailure(error));
     renderState(errorState);
     return {
       state: errorState,

@@ -76,18 +76,28 @@ export function createSteamOSLocalBackendClient(
       }
 
       const url = new URL(normalizeEndpointPath(path), normalizeBaseUrl(options.baseUrl));
-      const response = await fetchImpl(url, {
-        method: "POST",
-        cache: "no-store",
-        headers: {
-          Accept: "application/json",
-          Authorization: `Bearer ${options.token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+      let response: Response;
+      try {
+        response = await fetchImpl(url, {
+          method: "POST",
+          cache: "no-store",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${options.token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+      } catch {
+        throw new SteamOSLocalBackendClientError(0, "backend_unavailable", "network_error");
+      }
 
-      const responsePayload = await readJsonResponse(response);
+      let responsePayload: unknown;
+      try {
+        responsePayload = await readJsonResponse(response);
+      } catch {
+        throw new SteamOSLocalBackendClientError(response.status, "invalid_json", "invalid_json");
+      }
       if (!response.ok) {
         throw new SteamOSLocalBackendClientError(
           response.status,

@@ -10,7 +10,7 @@ export type SteamOSDashboardProviderId =
   | typeof RETROACHIEVEMENTS_PROVIDER_ID
   | typeof STEAM_PROVIDER_ID;
 
-export type SteamOSDashboardProviderStatus = "configured" | "not_configured" | "unavailable";
+export type SteamOSDashboardProviderStatus = "configured" | "not_configured" | "setup_incomplete" | "unavailable";
 
 export interface SteamOSDashboardProviderStatusEntry {
   readonly label: string;
@@ -22,7 +22,7 @@ export interface SteamOSDashboardProviderStatuses {
   readonly steam: SteamOSDashboardProviderStatusEntry;
 }
 
-export type SteamOSDashboardCacheStatus = "setup_required" | "unavailable" | "not_loaded" | "cached";
+export type SteamOSDashboardCacheStatus = "setup_required" | "setup_incomplete" | "unavailable" | "not_loaded" | "cached";
 
 export interface SteamOSDashboardProviderState {
   readonly status: SteamOSDashboardCacheStatus;
@@ -57,7 +57,12 @@ export interface SteamOSDashboardSurfaceProps {
   readonly initialProviderStates?: SteamOSDashboardProviderStates;
 }
 
-const DASHBOARD_REFRESH_ERROR = "Could not refresh dashboard";
+const DASHBOARD_REFRESH_CACHED_ERROR =
+  "Showing cached dashboard data. Refresh failed. Try again when the backend is available.";
+const DASHBOARD_REFRESH_EMPTY_ERROR =
+  "No dashboard available yet. Refresh failed. Check setup or retry.";
+const DASHBOARD_CACHE_READ_ERROR =
+  "Cached dashboard unavailable. Try Refresh again.";
 
 const SURFACE_STYLE: CSSProperties = {
   display: "grid",
@@ -278,6 +283,13 @@ function createProviderStateFromStatus(
     };
   }
 
+  if (status === "setup_incomplete") {
+    return {
+      status: "setup_incomplete",
+      isRefreshing: false,
+    };
+  }
+
   return {
     status: "setup_required",
     isRefreshing: false,
@@ -358,7 +370,7 @@ export async function loadSteamOSDashboardProviderStates(args: {
     } catch {
       const nextState: SteamOSDashboardProviderState = {
         ...(providerId === RETROACHIEVEMENTS_PROVIDER_ID ? retroAchievementsState : steamState),
-        errorMessage: "Cached dashboard unavailable",
+        errorMessage: DASHBOARD_CACHE_READ_ERROR,
       };
       if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
         retroAchievementsState = nextState;
@@ -377,7 +389,7 @@ export async function loadSteamOSDashboardProviderStates(args: {
 export function beginRefreshingSteamOSDashboardProviderState(
   state: SteamOSDashboardProviderState,
 ): SteamOSDashboardProviderState {
-  if (state.status === "setup_required" || state.status === "unavailable") {
+  if (state.status === "setup_required" || state.status === "setup_incomplete" || state.status === "unavailable") {
     return state;
   }
 
@@ -401,6 +413,7 @@ export async function refreshSteamOSDashboardProviderState(args: {
   if (
     args.refreshDashboard === undefined
     || args.currentState.status === "setup_required"
+    || args.currentState.status === "setup_incomplete"
     || args.currentState.status === "unavailable"
   ) {
     return {
@@ -420,20 +433,20 @@ export async function refreshSteamOSDashboardProviderState(args: {
         status: "cached",
         snapshot: result.data,
         isRefreshing: false,
-        ...(result.error !== undefined ? { errorMessage: DASHBOARD_REFRESH_ERROR } : {}),
+        ...(result.error !== undefined ? { errorMessage: DASHBOARD_REFRESH_CACHED_ERROR } : {}),
       };
     }
 
     return {
       ...args.currentState,
       isRefreshing: false,
-      ...(result.error !== undefined ? { errorMessage: DASHBOARD_REFRESH_ERROR } : {}),
+      ...(result.error !== undefined ? { errorMessage: DASHBOARD_REFRESH_EMPTY_ERROR } : {}),
     };
   } catch {
     return {
       ...args.currentState,
       isRefreshing: false,
-      errorMessage: DASHBOARD_REFRESH_ERROR,
+      errorMessage: args.currentState.snapshot !== undefined ? DASHBOARD_REFRESH_CACHED_ERROR : DASHBOARD_REFRESH_EMPTY_ERROR,
     };
   }
 }
@@ -502,6 +515,10 @@ function formatDashboardStateLabel(status: SteamOSDashboardCacheStatus): string 
     return "Not loaded yet";
   }
 
+  if (status === "setup_incomplete") {
+    return "Setup incomplete";
+  }
+
   if (status === "unavailable") {
     return "Unavailable";
   }
@@ -554,6 +571,14 @@ function getDashboardStateBadgeStyle(
     };
   }
 
+  if (status === "setup_incomplete") {
+    return {
+      ...STATUS_BADGE_BASE_STYLE,
+      backgroundColor: "#fef3c7",
+      color: "#92400e",
+    };
+  }
+
   return {
     ...STATUS_BADGE_BASE_STYLE,
     backgroundColor: "#ede9fe",
@@ -568,6 +593,10 @@ function getDashboardStateDescription(status: SteamOSDashboardCacheStatus): stri
 
   if (status === "not_loaded") {
     return "This provider is configured, but no cached dashboard snapshot has been loaded yet.";
+  }
+
+  if (status === "setup_incomplete") {
+    return "Saved setup is incomplete locally. Open setup, save the provider credentials again, then retry.";
   }
 
   if (status === "unavailable") {
@@ -741,6 +770,11 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
             {selectedProviderState.status === "setup_required" ? (
               <p style={META_TEXT_STYLE}>Set up this provider before loading a dashboard snapshot.</p>
             ) : null}
+            {selectedProviderState.status === "setup_incomplete" ? (
+              <p style={META_TEXT_STYLE}>
+                Saved setup is incomplete locally. Open setup and save this provider again before refreshing.
+              </p>
+            ) : null}
             {selectedProviderState.status === "unavailable" ? (
               <p style={META_TEXT_STYLE}>Provider config unavailable.</p>
             ) : null}
@@ -771,7 +805,14 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
             </>
           ) : null}
           {selectedProviderState.errorMessage !== undefined ? (
-            <p role="alert" style={ERROR_TEXT_STYLE}>{selectedProviderState.errorMessage}</p>
+            <div role="alert" style={{ display: "grid", gap: "0.35rem" }}>
+              <p style={ERROR_TEXT_STYLE}>{selectedProviderState.errorMessage}</p>
+              <p style={META_TEXT_STYLE}>
+                {selectedProviderState.snapshot !== undefined
+                  ? "Try Refresh again. If it keeps failing, check setup or restart start:steamos."
+                  : "Retry Refresh after checking setup or restarting start:steamos."}
+              </p>
+            </div>
           ) : null}
         </section>
       </section>

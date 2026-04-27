@@ -111,6 +111,26 @@ test("SteamOS local backend client surfaces non-2xx JSON errors safely", async (
   );
 });
 
+test("SteamOS local backend client normalizes transport failures into safe backend-unavailable errors", async () => {
+  const client = createSteamOSLocalBackendClient({
+    baseUrl: "http://127.0.0.1:4123",
+    token: "session-token",
+    fetchImpl: async () => {
+      throw new Error("Bearer session-token should not leak");
+    },
+  });
+
+  await assert.rejects(
+    () => client.postJson("diagnostics/steamos/status", {}),
+    (error: unknown) =>
+      error instanceof SteamOSLocalBackendClientError &&
+      error.status === 0 &&
+      error.code === "backend_unavailable" &&
+      error.category === "network_error" &&
+      !error.message.includes("session-token"),
+  );
+});
+
 test("SteamOS provider transports post to local backend endpoints and strip secret-like query fields", async () => {
   const calls: Array<{ readonly url: string; readonly body: Record<string, unknown> }> = [];
   const client = createSteamOSLocalBackendClient({

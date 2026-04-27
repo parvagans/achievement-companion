@@ -12,6 +12,7 @@ import {
   bootstrapSteamOSShell,
   loadSteamOSDevShellDiagnosticsStatus,
 } from "../src/platform/steamos/bootstrap";
+import { SteamOSRuntimeBootstrapError } from "../src/platform/steamos/runtime-bootstrap";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../src/providers/retroachievements/config";
 import { STEAM_PROVIDER_ID } from "../src/providers/steam/config";
 
@@ -272,6 +273,25 @@ test("SteamOS dev shell diagnostics panel renders safe local status without expo
   assert.doesNotMatch(markup, /sol88|steam-secret|apiKeyDraft|Authorization|provider-secrets|76561198136628813/u);
 });
 
+test("SteamOS dev shell diagnostics panel renders backend recovery guidance safely", () => {
+  const markup = renderToStaticMarkup(
+    <SteamOSDevShellStatusPanel
+      state={{
+        phase: "error",
+        message: "Backend unavailable",
+        errorCode: "backend_unavailable",
+        recoveryHint: "Check that start:steamos is still running, reload this shell, or restart it if needed.",
+      }}
+      onRefresh={() => {}}
+    />,
+  );
+
+  assert.match(markup, /Backend unavailable/u);
+  assert.match(markup, /start:steamos is still running/u);
+  assert.match(markup, /Refresh status/u);
+  assert.doesNotMatch(markup, /Bearer|Authorization|token/u);
+});
+
 test("SteamOS app shell overview renders setup, refresh, and cached dashboard states safely", () => {
   const diagnostics = {
     phase: "loaded",
@@ -349,7 +369,8 @@ test("SteamOS app shell overview renders setup, refresh, and cached dashboard st
       diagnostics={diagnostics}
       selectedProviderId={RETROACHIEVEMENTS_PROVIDER_ID}
       dashboardMessages={{
-        [RETROACHIEVEMENTS_PROVIDER_ID]: "Could not refresh dashboard",
+        [RETROACHIEVEMENTS_PROVIDER_ID]:
+          "Showing cached dashboard data. Refresh failed. Try again when the backend is available.",
       }}
       onOpenSetup={() => {}}
       onOpenDashboard={() => {}}
@@ -366,7 +387,7 @@ test("SteamOS app shell overview renders setup, refresh, and cached dashboard st
   assert.match(markup, /Steam/u);
   assert.match(markup, /Setup required/u);
   assert.match(markup, /Set up/u);
-  assert.match(markup, /Could not refresh dashboard/u);
+  assert.match(markup, /Showing cached dashboard data\. Refresh failed\. Try again when the backend is available\./u);
   assert.match(markup, /Cache present/u);
   assert.match(markup, /data-steamos-provider-card="true"/u);
   assert.match(markup, /class="steamos-action-row"/u);
@@ -465,6 +486,92 @@ test("SteamOS app shell overview renders configured providers without a cache an
   assert.doesNotMatch(markup, /76561198136628813|apiKeyDraft|Authorization/u);
 });
 
+test("SteamOS app shell overview renders setup-incomplete recovery guidance safely", () => {
+  const diagnostics = {
+    phase: "loaded",
+    message: "SteamOS dev shell status ready",
+    snapshot: {
+      ok: true,
+      backendReachable: true,
+      runtimeMetadata: {
+        present: true,
+        valid: true,
+        sizeBytes: 128,
+        mtimeMs: 1_710_000_000_000,
+      },
+      providerConfigFilePresent: true,
+      providerSecretsFilePresent: false,
+      retroAchievements: {
+        configured: false,
+        usernamePresent: true,
+        hasApiKey: false,
+      },
+      steam: {
+        configured: false,
+        steamId64Present: false,
+        hasApiKey: false,
+      },
+      dashboardCache: {
+        retroAchievements: {
+          present: false,
+          valid: false,
+        },
+        steam: {
+          present: false,
+          valid: false,
+        },
+      },
+    },
+  } as const;
+
+  const markup = renderToStaticMarkup(
+    <SteamOSAppShellOverview
+      state={{
+        phase: "connected",
+        message: "Connected to SteamOS backend",
+        providerConfigStatus: "loaded",
+        providerConfigs: {
+          retroAchievements: {
+            username: "Retro Player",
+            hasApiKey: true,
+            recentAchievementsCount: 10,
+            recentlyPlayedCount: 10,
+          },
+          steam: {
+            steamId64: "",
+            hasApiKey: false,
+            language: "english",
+            recentAchievementsCount: 10,
+            recentlyPlayedCount: 10,
+            includePlayedFreeGames: false,
+          },
+        },
+        providers: {
+          retroAchievements: {
+            label: "RetroAchievements",
+            status: "setup_incomplete",
+          },
+          steam: {
+            label: "Steam",
+            status: "not_configured",
+          },
+        },
+      }}
+      diagnostics={diagnostics}
+      selectedProviderId={RETROACHIEVEMENTS_PROVIDER_ID}
+      onOpenSetup={() => {}}
+      onOpenDashboard={() => {}}
+      onRefreshDashboard={() => {}}
+    />,
+  );
+
+  assert.match(markup, /Setup incomplete/u);
+  assert.match(markup, /Open setup, save the provider credentials again, then retry/u);
+  assert.match(markup, /Edit setup/u);
+  assert.match(markup, /Dashboard refresh stays unavailable until setup is saved again/u);
+  assert.doesNotMatch(markup, /Retro Player|Authorization|apiKeyDraft/u);
+});
+
 test("SteamOS app shell foundation keeps provider actions readable and diagnostics secondary", () => {
   const diagnostics = {
     phase: "loaded",
@@ -543,7 +650,8 @@ test("SteamOS app shell foundation keeps provider actions readable and diagnosti
         diagnostics={diagnostics}
         selectedProviderId={RETROACHIEVEMENTS_PROVIDER_ID}
         dashboardMessages={{
-          [RETROACHIEVEMENTS_PROVIDER_ID]: "Could not refresh dashboard",
+          [RETROACHIEVEMENTS_PROVIDER_ID]:
+            "Showing cached dashboard data. Refresh failed. Try again when the backend is available.",
         }}
         onOpenSetup={() => {}}
         onOpenDashboard={() => {}}
@@ -567,6 +675,7 @@ test("SteamOS app shell foundation keeps provider actions readable and diagnosti
   assert.match(markup, /Refresh status/u);
   assert.match(markup, /Open dashboard/u);
   assert.match(markup, /Refresh dashboard/u);
+  assert.match(markup, /Showing cached dashboard data\. Refresh failed\. Try again when the backend is available\./u);
   assert.match(markup, /data-steamos-secondary-panel="true"/u);
   assert.match(markup, /class="steamos-focus-target steamos-button-target"/u);
   assert.doesNotMatch(markup, /Retro Player|76561198136628813|apiKey|Authorization/u);
@@ -626,6 +735,8 @@ test("SteamOS dev shell diagnostics load helper returns safe loading success and
   assert.equal(loadedState.snapshot?.backendReachable, true);
   assert.equal(failedState.phase, "error");
   assert.equal(failedState.message, "Backend unavailable");
+  assert.match(failedState.recoveryHint ?? "", /start:steamos/u);
+  assert.equal(failedState.errorCode, "backend_unavailable");
   assert.doesNotMatch(JSON.stringify(loadedState), /backend secret leak should not appear/u);
   assert.doesNotMatch(JSON.stringify(failedState), /backend secret leak should not appear/u);
 });
@@ -675,7 +786,7 @@ test("SteamOS bootstrap entrypoint renders a safe error state for metadata failu
 
   const result = await bootstrapSteamOSShell({
     loadBootstrapConfig: async () => {
-      throw new Error(`bad metadata ${VALID_TOKEN}`);
+      throw new SteamOSRuntimeBootstrapError("invalid_metadata");
     },
     renderState: (state) => {
       states.push(renderToStaticMarkup(<SteamOSBootstrapStatus state={state} />));
@@ -686,7 +797,9 @@ test("SteamOS bootstrap entrypoint renders a safe error state for metadata failu
   assert.equal(result.runtime, undefined);
   assert.equal(states.length, 2);
   assert.match(states[0] ?? "", /Loading SteamOS backend\.\.\./u);
-  assert.match(states[1] ?? "", /SteamOS backend unavailable/u);
+  assert.match(states[1] ?? "", /SteamOS runtime metadata is invalid/u);
+  assert.match(states[1] ?? "", /restart start:steamos/u);
+  assert.equal(result.state.errorCode, "invalid_runtime_metadata");
   assert.doesNotMatch(states.join("\n"), new RegExp(VALID_TOKEN, "u"));
   assert.doesNotMatch(states.join("\n"), /bad metadata/u);
 });

@@ -128,6 +128,34 @@ test("SteamOS dashboard surface shows setup-required and not-loaded states safel
   assert.doesNotMatch(markup, /apiKey|Authorization|provider-secrets/u);
 });
 
+test("SteamOS dashboard surface shows setup-incomplete guidance safely", () => {
+  const markup = renderToStaticMarkup(
+    <SteamOSDashboardSurface
+      providerStatuses={createProviderStatuses({
+        retroAchievements: { status: "setup_incomplete" },
+        steam: { status: "not_configured" },
+      })}
+      initialSelectedProviderId={RETROACHIEVEMENTS_PROVIDER_ID}
+      initialProviderStates={{
+        retroAchievements: {
+          status: "setup_incomplete",
+          isRefreshing: false,
+        },
+        steam: {
+          status: "setup_required",
+          isRefreshing: false,
+        },
+      }}
+    />,
+  );
+
+  assert.match(markup, /Setup incomplete/u);
+  assert.match(markup, /Saved setup is incomplete locally/u);
+  assert.match(markup, /Open setup and save this provider again before refreshing/u);
+  assert.match(markup, /disabled=""/u);
+  assert.doesNotMatch(markup, /apiKey|Authorization|provider-secrets/u);
+});
+
 test("SteamOS dashboard surface renders cached RetroAchievements summary metrics", () => {
   const providerStatuses = createProviderStatuses({
     retroAchievements: { status: "configured" },
@@ -237,7 +265,8 @@ test("SteamOS dashboard surface shows pending and failure status cues genericall
         retroAchievements: {
           status: "cached",
           snapshot: createRetroDashboardSnapshot(),
-          errorMessage: "Could not refresh dashboard",
+          errorMessage:
+            "Showing cached dashboard data. Refresh failed. Try again when the backend is available.",
           isRefreshing: true,
         },
       }}
@@ -248,7 +277,7 @@ test("SteamOS dashboard surface shows pending and failure status cues genericall
   assert.match(markup, /Refreshing\.\.\./u);
   assert.match(markup, /Refresh RetroAchievements dashboard/u);
   assert.match(markup, /Refreshing the cached dashboard view/u);
-  assert.match(markup, /Could not refresh dashboard/u);
+  assert.match(markup, /Showing cached dashboard data\. Refresh failed\. Try again when the backend is available\./u);
   assert.match(markup, /role="status"/u);
   assert.match(markup, /aria-live="polite"/u);
   assert.match(markup, /class="steamos-focus-target steamos-button-target"/u);
@@ -346,7 +375,7 @@ test("SteamOS dashboard refresh failure preserves stale cache and shows a generi
 
   assert.equal(nextState.status, "cached");
   assert.equal(nextState.snapshot?.profile.identity.displayName, "Steam Player");
-  assert.equal(nextState.errorMessage, "Could not refresh dashboard");
+  assert.equal(nextState.errorMessage, "Showing cached dashboard data. Refresh failed. Try again when the backend is available.");
   assert.equal(cacheWrites, 0);
   assert.doesNotMatch(JSON.stringify(nextState), new RegExp(VALID_TOKEN, "u"));
 });
@@ -377,7 +406,25 @@ test("SteamOS dashboard refresh without usable data does not persist cache", asy
 
   assert.equal(cacheWrites, 0);
   assert.equal(nextState.status, "not_loaded");
-  assert.equal(nextState.errorMessage, "Could not refresh dashboard");
+  assert.equal(nextState.errorMessage, "No dashboard available yet. Refresh failed. Check setup or retry.");
+});
+
+test("SteamOS dashboard cache load failures stay generic and keep refresh available", async () => {
+  const providerStatuses = createProviderStatuses({
+    retroAchievements: { status: "configured" },
+    steam: { status: "not_configured" },
+  });
+
+  const states = await loadSteamOSDashboardProviderStates({
+    providerStatuses,
+    readCachedSnapshot: async () => {
+      throw new Error("Bearer secret should not leak");
+    },
+  });
+
+  assert.equal(states.retroAchievements.status, "not_loaded");
+  assert.equal(states.retroAchievements.errorMessage, "Cached dashboard unavailable. Try Refresh again.");
+  assert.doesNotMatch(JSON.stringify(states), /Bearer secret should not leak/u);
 });
 
 test("SteamOS dashboard refresh does not run or write cache for unconfigured providers", async () => {
