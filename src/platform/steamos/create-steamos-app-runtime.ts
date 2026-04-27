@@ -1,4 +1,5 @@
 import type { CacheEntry, CacheStore } from "@core/cache";
+import type { AppRuntime } from "@core/app-runtime";
 import type { PlatformServices } from "@core/platform";
 import { createAppRuntime } from "@core/app-runtime";
 import { createProviderRegistry } from "@core/provider-registry";
@@ -24,6 +25,13 @@ export interface SteamOSAppRuntimeOptions {
   readonly cacheStore?: CacheStore;
   readonly fetchImpl?: SteamOSLocalBackendFetch;
 }
+
+export type SteamOSAppRuntime = Omit<
+  AppRuntime<Record<string, unknown>, unknown, unknown, unknown, unknown, unknown>,
+  "adapters"
+> & {
+  readonly adapters: ReturnType<typeof createSteamOSAdapters>;
+};
 
 function createSteamOSPlatform(options: SteamOSAppRuntimeOptions): PlatformServices {
   return {
@@ -75,8 +83,18 @@ export function createSteamOSMemoryCacheStore(
 export function createSteamOSAppRuntimeFromClient(
   client: SteamOSLocalBackendClient,
   options: SteamOSAppRuntimeOptions = {},
-) {
+): SteamOSAppRuntime {
   const adapters = createSteamOSAdapters({ client });
+  const runtimeAdapters: SteamOSAppRuntime["adapters"] = {
+    client: adapters.client,
+    diagnosticLogger: adapters.diagnosticLogger,
+    diagnosticsStatusStore: adapters.diagnosticsStatusStore,
+    providerConfigStore: adapters.providerConfigStore,
+    authenticatedProviderTransportFactory: adapters.authenticatedProviderTransportFactory,
+    dashboardSnapshotStore: adapters.dashboardSnapshotStore,
+    steamLibraryScanStore: adapters.steamLibraryScanStore,
+    platformCapabilities: adapters.platformCapabilities,
+  };
   const providerRegistry = createProviderRegistry([
     createRetroAchievementsProvider({
       transport: createSteamOSRetroAchievementsTransport(client),
@@ -91,21 +109,14 @@ export function createSteamOSAppRuntimeFromClient(
     platform: createSteamOSPlatform(options),
     cacheStore: options.cacheStore ?? createSteamOSMemoryCacheStore(),
     loadProviderConfig: async (providerId) => adapters.providerConfigStore.load(providerId),
-    adapters: {
-      diagnosticLogger: adapters.diagnosticLogger,
-      providerConfigStore: adapters.providerConfigStore,
-      authenticatedProviderTransportFactory: adapters.authenticatedProviderTransportFactory,
-      dashboardSnapshotStore: adapters.dashboardSnapshotStore,
-      steamLibraryScanStore: adapters.steamLibraryScanStore,
-      platformCapabilities: adapters.platformCapabilities,
-    },
-  });
+    adapters: runtimeAdapters,
+  }) as SteamOSAppRuntime;
 }
 
 export function createSteamOSAppRuntime(
   config: SteamOSLocalBackendClientConfig,
   options: SteamOSAppRuntimeOptions = {},
-) {
+): SteamOSAppRuntime {
   return createSteamOSAppRuntimeFromClient(
     createSteamOSLocalBackendClient({
       baseUrl: config.baseUrl,

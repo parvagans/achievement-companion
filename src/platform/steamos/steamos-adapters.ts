@@ -34,6 +34,52 @@ export interface SteamOSSteamConfigSave extends SteamProviderConfig {
 
 export type SteamOSProviderConfigValue = SteamOSRetroAchievementsConfigSave | SteamOSSteamConfigSave;
 
+export interface SteamOSDevShellRuntimeMetadataStatus {
+  readonly present: boolean;
+  readonly valid: boolean;
+  readonly sizeBytes?: number;
+  readonly mtimeMs?: number;
+}
+
+export interface SteamOSDevShellCacheStatus {
+  readonly present: boolean;
+  readonly valid: boolean;
+  readonly sizeBytes?: number;
+  readonly mtimeMs?: number;
+  readonly refreshedAtMs?: number;
+}
+
+export interface SteamOSDevShellProviderStatus {
+  readonly configured: boolean;
+  readonly hasApiKey: boolean;
+}
+
+export interface SteamOSRetroAchievementsDevShellStatus extends SteamOSDevShellProviderStatus {
+  readonly usernamePresent: boolean;
+}
+
+export interface SteamOSSteamDevShellStatus extends SteamOSDevShellProviderStatus {
+  readonly steamId64Present: boolean;
+}
+
+export interface SteamOSDevShellDiagnosticsStatus {
+  readonly ok: true;
+  readonly backendReachable: true;
+  readonly runtimeMetadata: SteamOSDevShellRuntimeMetadataStatus;
+  readonly providerConfigFilePresent: boolean;
+  readonly providerSecretsFilePresent: boolean;
+  readonly retroAchievements: SteamOSRetroAchievementsDevShellStatus;
+  readonly steam: SteamOSSteamDevShellStatus;
+  readonly dashboardCache: {
+    readonly retroAchievements: SteamOSDevShellCacheStatus;
+    readonly steam: SteamOSDevShellCacheStatus;
+  };
+}
+
+export interface SteamOSDiagnosticsStatusStore {
+  load(): Promise<SteamOSDevShellDiagnosticsStatus>;
+}
+
 export interface SteamOSDiagnosticEventPayload {
   readonly event: string;
   readonly providerId?: string;
@@ -268,6 +314,16 @@ export function createSteamOSDiagnosticLogger(
   };
 }
 
+export function createSteamOSDiagnosticsStatusStore(
+  client: SteamOSLocalBackendClient,
+): SteamOSDiagnosticsStatusStore {
+  return {
+    async load() {
+      return await client.postJson<SteamOSDevShellDiagnosticsStatus>("diagnostics/steamos/status", {});
+    },
+  };
+}
+
 export function createSteamOSDashboardSnapshotStore<Snapshot extends object>(
   client: SteamOSLocalBackendClient,
 ): DashboardSnapshotStore<Snapshot> & { clear(providerId?: ProviderId): Promise<boolean> };
@@ -387,6 +443,7 @@ export function createSteamOSAdapters(options: SteamOSAdapterOptions) {
   return {
     client: options.client,
     diagnosticLogger: createSteamOSDiagnosticLogger(options.client),
+    diagnosticsStatusStore: createSteamOSDiagnosticsStatusStore(options.client),
     providerConfigStore: createSteamOSProviderConfigStore(options.client),
     authenticatedProviderTransportFactory: createSteamOSAuthenticatedProviderTransportFactory(options.client),
     dashboardSnapshotStore: createSteamOSDashboardSnapshotStore(options.client),

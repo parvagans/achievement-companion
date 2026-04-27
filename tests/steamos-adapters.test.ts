@@ -9,6 +9,7 @@ import {
   createSteamOSAuthenticatedProviderTransportFactory,
   createSteamOSDashboardSnapshotStore,
   createSteamOSDiagnosticLogger,
+  createSteamOSDiagnosticsStatusStore,
   createSteamOSProviderConfigStore,
   createSteamOSSteamLibraryScanStore,
   steamosPlatformCapabilities,
@@ -164,6 +165,73 @@ test("SteamOS provider transports post to local backend endpoints and strip secr
     query: { steamid: "76561198136628813" },
     handledHttpStatuses: [400, 403],
   });
+});
+
+test("SteamOS dev shell diagnostics store uses the protected backend client and parses safe status responses", async () => {
+  const calls: Array<{ readonly url: string; readonly body: Record<string, unknown> }> = [];
+  const client = createSteamOSLocalBackendClient({
+    baseUrl: "http://127.0.0.1:4123",
+    token: "session-token",
+    fetchImpl: async (input, init) => {
+      calls.push({
+        url: String(input),
+        body: JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>,
+      });
+      return createJsonResponse(200, {
+        ok: true,
+        backendReachable: true,
+        runtimeMetadata: {
+          present: true,
+          valid: true,
+          sizeBytes: 128,
+          mtimeMs: 1_710_000_000_000,
+        },
+        providerConfigFilePresent: true,
+        providerSecretsFilePresent: true,
+        retroAchievements: {
+          configured: true,
+          usernamePresent: true,
+          hasApiKey: true,
+        },
+        steam: {
+          configured: true,
+          steamId64Present: true,
+          hasApiKey: true,
+        },
+        dashboardCache: {
+          retroAchievements: {
+            present: true,
+            valid: true,
+            sizeBytes: 256,
+            mtimeMs: 1_710_000_100_000,
+            refreshedAtMs: 1_710_000_050_000,
+          },
+          steam: {
+            present: true,
+            valid: true,
+            sizeBytes: 512,
+            mtimeMs: 1_710_000_200_000,
+            refreshedAtMs: 1_710_000_150_000,
+          },
+        },
+      });
+    },
+  });
+  const store = createSteamOSDiagnosticsStatusStore(client);
+
+  const status = await store.load();
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0]?.url, "http://127.0.0.1:4123/diagnostics/steamos/status");
+  assert.deepStrictEqual(calls[0]?.body, {});
+  assert.equal(status.ok, true);
+  assert.equal(status.backendReachable, true);
+  assert.equal(status.runtimeMetadata.valid, true);
+  assert.equal(status.retroAchievements.configured, true);
+  assert.equal(status.steam.configured, true);
+  assert.equal(status.dashboardCache.retroAchievements.present, true);
+  assert.equal(status.dashboardCache.steam.present, true);
+  assert.doesNotMatch(JSON.stringify(status), /apiKey|Authorization|provider-secrets|token|sol88|steam-secret/u);
 });
 
 test("SteamOS provider config store talks to the credential endpoints and keeps returned config apiKey-free", async () => {

@@ -11,6 +11,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Mapping
 
+from backend import cache as cache_helpers
 from backend import local_server
 from backend import secrets as secret_helpers
 from backend.paths import BackendPaths
@@ -36,6 +37,18 @@ def _create_test_context(root: Path) -> local_server.LocalBackendContext:
     paths=_build_test_backend_paths(root),
     settings_dir_text="test-settings",
   )
+
+
+def _assert_no_obvious_secret_keys(test_case: unittest.TestCase, value: Any) -> None:
+  if isinstance(value, dict):
+    for key, nested_value in value.items():
+      test_case.assertNotIn(key, {"apiKey", "apiKeyDraft", "Authorization", "password", "secret", "token", "y"})
+      _assert_no_obvious_secret_keys(test_case, nested_value)
+    return
+
+  if isinstance(value, list):
+    for item in value:
+      _assert_no_obvious_secret_keys(test_case, item)
 
 
 class _RunningServer:
@@ -198,6 +211,231 @@ class BackendLocalServerTests(unittest.TestCase):
           if authorization is not None:
             self.assertNotIn(authorization, json.dumps(payload))
 
+  def test_steamos_diagnostics_status_reports_safe_missing_state_and_requires_bearer_auth(self) -> None:
+    token = "diagnostics-token"
+    with tempfile.TemporaryDirectory() as temp_dir:
+      context = _create_test_context(Path(temp_dir))
+      with _RunningServer(local_server.create_local_backend_server(token=token, context=context)) as running:
+        missing_status, missing_payload, _ = running.request_json("POST", "/diagnostics/steamos/status", body={})
+        wrong_status, wrong_payload, _ = running.request_json(
+          "POST",
+          "/diagnostics/steamos/status",
+          token="wrong-token",
+          body={},
+        )
+        status, payload, _ = running.request_json(
+          "POST",
+          "/diagnostics/steamos/status",
+          token=token,
+          body={},
+        )
+
+    self.assertEqual(missing_status, 401)
+    self.assertEqual(missing_payload, {"error": "unauthorized", "ok": False})
+    self.assertEqual(wrong_status, 401)
+    self.assertEqual(wrong_payload, {"error": "unauthorized", "ok": False})
+    self.assertEqual(status, 200)
+    self.assertEqual(payload["ok"], True)
+    self.assertEqual(payload["backendReachable"], True)
+    self.assertEqual(payload["runtimeMetadata"], {"present": False, "valid": False})
+    self.assertFalse(payload["providerConfigFilePresent"])
+    self.assertFalse(payload["providerSecretsFilePresent"])
+    self.assertEqual(
+      payload["retroAchievements"],
+      {
+        "configured": False,
+        "usernamePresent": False,
+        "hasApiKey": False,
+      },
+    )
+    self.assertEqual(
+      payload["steam"],
+      {
+        "configured": False,
+        "steamId64Present": False,
+        "hasApiKey": False,
+      },
+    )
+    self.assertEqual(
+      payload["dashboardCache"],
+      {
+        "retroAchievements": {
+          "present": False,
+          "valid": False,
+        },
+        "steam": {
+          "present": False,
+          "valid": False,
+        },
+      },
+    )
+    _assert_no_obvious_secret_keys(self, payload)
+    serialized = json.dumps(payload)
+    for forbidden in ("sol88", "steam-secret", "apiKeyDraft", "Authorization", "provider-secrets", "76561198136628813"):
+      self.assertNotIn(forbidden, serialized)
+
+  def test_steamos_diagnostics_status_reports_safe_present_state_and_cache_metadata(self) -> None:
+    token = "diagnostics-token"
+    with tempfile.TemporaryDirectory() as temp_dir:
+      root = Path(temp_dir)
+      context = _create_test_context(root)
+      context.paths.config_path.parent.mkdir(parents=True, exist_ok=True)
+      context.paths.config_path.write_text(
+        json.dumps(
+          {
+            "version": 1,
+            "retroAchievements": {
+              "username": "sol88",
+              "hasApiKey": False,
+              "recentAchievementsCount": 10,
+            },
+            "steam": {
+              "steamId64": "76561198136628813",
+              "hasApiKey": False,
+              "language": "english",
+              "recentAchievementsCount": 3,
+              "recentlyPlayedCount": 3,
+              "includePlayedFreeGames": True,
+            },
+          },
+        ),
+        encoding="utf-8",
+      )
+      secret_helpers.save_secret_api_key(
+        context.paths.secrets_path,
+        "retroAchievements",
+        "retro-secret",
+        settings_dir_text=context.settings_dir_text,
+      )
+      secret_helpers.save_secret_api_key(
+        context.paths.secrets_path,
+        "steam",
+        "steam-secret",
+        settings_dir_text=context.settings_dir_text,
+      )
+      cache_helpers.write_dashboard_cache(
+        context.paths,
+        "retroachievements",
+        {
+          "profile": {
+            "providerId": "retroachievements",
+            "identity": {
+              "providerId": "retroachievements",
+              "accountId": "retro-account",
+              "displayName": "Retro Player",
+            },
+            "summary": {
+              "unlockedCount": 84,
+              "totalCount": 120,
+              "completionPercent": 70,
+            },
+            "metrics": [
+              {
+                "key": "total-points",
+                "label": "Total points",
+                "value": "12,345",
+              },
+            ],
+            "refreshedAt": 1_710_000_000_000,
+          },
+          "recentAchievements": [],
+          "recentlyPlayedGames": [],
+          "recentUnlocks": [],
+          "featuredGames": [],
+          "refreshedAt": 1_710_000_000_000,
+        },
+      )
+      cache_helpers.write_dashboard_cache(
+        context.paths,
+        "steam",
+        {
+          "profile": {
+            "providerId": "steam",
+            "identity": {
+              "providerId": "steam",
+              "accountId": "steam-account",
+              "displayName": "Steam Player",
+            },
+            "summary": {
+              "unlockedCount": 430,
+              "totalCount": 800,
+              "completionPercent": 54,
+            },
+            "metrics": [
+              {
+                "key": "games-beaten",
+                "label": "Perfect Games",
+                "value": "21",
+              },
+            ],
+            "steamLevel": 29,
+            "ownedGameCount": 142,
+            "refreshedAt": 1_710_000_100_000,
+          },
+          "recentAchievements": [],
+          "recentlyPlayedGames": [],
+          "recentUnlocks": [],
+          "featuredGames": [],
+          "refreshedAt": 1_710_000_100_000,
+        },
+      )
+      local_server.write_runtime_metadata(
+        context.paths.runtime_metadata_path,
+        host="127.0.0.1",
+        port=4123,
+        pid=123,
+        token="abcdefghijklmnopqrstuvwxyz1234567890TOKEN",
+        started_at="2026-04-25T10:00:00+00:00",
+      )
+
+      with _RunningServer(local_server.create_local_backend_server(token=token, context=context)) as running:
+        status, payload, _ = running.request_json(
+          "POST",
+          "/diagnostics/steamos/status",
+          token=token,
+          body={},
+        )
+
+    self.assertEqual(status, 200)
+    self.assertEqual(payload["ok"], True)
+    self.assertEqual(payload["backendReachable"], True)
+    self.assertEqual(payload["runtimeMetadata"]["present"], True)
+    self.assertEqual(payload["runtimeMetadata"]["valid"], True)
+    self.assertGreater(payload["runtimeMetadata"]["sizeBytes"], 0)
+    self.assertGreater(payload["runtimeMetadata"]["mtimeMs"], 0)
+    self.assertTrue(payload["providerConfigFilePresent"])
+    self.assertTrue(payload["providerSecretsFilePresent"])
+    self.assertEqual(
+      payload["retroAchievements"],
+      {
+        "configured": True,
+        "usernamePresent": True,
+        "hasApiKey": True,
+      },
+    )
+    self.assertEqual(
+      payload["steam"],
+      {
+        "configured": True,
+        "steamId64Present": True,
+        "hasApiKey": True,
+      },
+    )
+    self.assertTrue(payload["dashboardCache"]["retroAchievements"]["present"])
+    self.assertTrue(payload["dashboardCache"]["retroAchievements"]["valid"])
+    self.assertGreater(payload["dashboardCache"]["retroAchievements"]["sizeBytes"], 0)
+    self.assertGreater(payload["dashboardCache"]["retroAchievements"]["mtimeMs"], 0)
+    self.assertEqual(payload["dashboardCache"]["retroAchievements"]["refreshedAtMs"], 1_710_000_000_000)
+    self.assertTrue(payload["dashboardCache"]["steam"]["present"])
+    self.assertTrue(payload["dashboardCache"]["steam"]["valid"])
+    self.assertGreater(payload["dashboardCache"]["steam"]["sizeBytes"], 0)
+    self.assertGreater(payload["dashboardCache"]["steam"]["mtimeMs"], 0)
+    self.assertEqual(payload["dashboardCache"]["steam"]["refreshedAtMs"], 1_710_000_100_000)
+    _assert_no_obvious_secret_keys(self, payload)
+    serialized = json.dumps(payload)
+    for forbidden in ("sol88", "steam-secret", "retro-secret", "provider-secrets", "76561198136628813"):
+      self.assertNotIn(forbidden, serialized)
+
   def test_authorized_diagnostic_route_records_sanitized_events(self) -> None:
     token = "diagnostic-token"
     server = local_server.create_local_backend_server(token=token)
@@ -255,6 +493,10 @@ class BackendLocalServerTests(unittest.TestCase):
         "GET",
         "/get_provider_configs",
       )
+      diagnostics_get_status, diagnostics_get_payload, _ = running.request_json(
+        "GET",
+        "/diagnostics/steamos/status",
+      )
       provider_request_get_status, provider_request_get_payload, _ = running.request_json(
         "GET",
         "/request_steam_json",
@@ -277,6 +519,8 @@ class BackendLocalServerTests(unittest.TestCase):
     self.assertEqual(record_get_payload, {"error": "method_not_allowed", "ok": False})
     self.assertEqual(provider_configs_get_status, 405)
     self.assertEqual(provider_configs_get_payload, {"error": "method_not_allowed", "ok": False})
+    self.assertEqual(diagnostics_get_status, 405)
+    self.assertEqual(diagnostics_get_payload, {"error": "method_not_allowed", "ok": False})
     self.assertEqual(provider_request_get_status, 405)
     self.assertEqual(provider_request_get_payload, {"error": "method_not_allowed", "ok": False})
     self.assertEqual(delete_status, 405)

@@ -6,8 +6,10 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
   SteamOSBootstrapStatus,
+  SteamOSDevShellStatusPanel,
   autoMountSteamOSShell,
   bootstrapSteamOSShell,
+  loadSteamOSDevShellDiagnosticsStatus,
 } from "../src/platform/steamos/bootstrap";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../src/providers/retroachievements/config";
 import { STEAM_PROVIDER_ID } from "../src/providers/steam/config";
@@ -202,6 +204,129 @@ test("SteamOS bootstrap entrypoint renders provider status from frontend-safe co
   assert.match(states[1] ?? "", /configured/u);
   assert.doesNotMatch(states.join("\n"), /apiKey|apiKeyDraft|Authorization|password|secret|\by\b/u);
   assert.doesNotMatch(states.join("\n"), new RegExp(VALID_TOKEN, "u"));
+});
+
+test("SteamOS dev shell diagnostics panel renders safe local status without exposing raw secrets", () => {
+  const markup = renderToStaticMarkup(
+    <SteamOSDevShellStatusPanel
+      state={{
+        phase: "loaded",
+        message: "SteamOS dev shell status ready",
+        snapshot: {
+          ok: true,
+          backendReachable: true,
+          runtimeMetadata: {
+            present: true,
+            valid: true,
+            sizeBytes: 128,
+            mtimeMs: 1_710_000_000_000,
+          },
+          providerConfigFilePresent: true,
+          providerSecretsFilePresent: true,
+          retroAchievements: {
+            configured: true,
+            usernamePresent: true,
+            hasApiKey: true,
+          },
+          steam: {
+            configured: false,
+            steamId64Present: false,
+            hasApiKey: false,
+          },
+          dashboardCache: {
+            retroAchievements: {
+              present: true,
+              valid: true,
+              sizeBytes: 256,
+              mtimeMs: 1_710_000_100_000,
+              refreshedAtMs: 1_710_000_050_000,
+            },
+            steam: {
+              present: false,
+              valid: false,
+            },
+          },
+        },
+      }}
+      onRefresh={() => {}}
+    />,
+  );
+
+  assert.match(markup, /SteamOS dev shell status/u);
+  assert.match(markup, /Backend/u);
+  assert.match(markup, /reachable/u);
+  assert.match(markup, /Runtime metadata/u);
+  assert.match(markup, /valid/u);
+  assert.match(markup, /Provider config file/u);
+  assert.match(markup, /Provider secrets file/u);
+  assert.match(markup, /RetroAchievements/u);
+  assert.match(markup, /configured/u);
+  assert.match(markup, /Steam/u);
+  assert.match(markup, /not configured/u);
+  assert.match(markup, /RetroAchievements cache/u);
+  assert.match(markup, /cached/u);
+  assert.match(markup, /Steam cache/u);
+  assert.match(markup, /missing/u);
+  assert.match(markup, /Refresh status/u);
+  assert.doesNotMatch(markup, /sol88|steam-secret|apiKeyDraft|Authorization|provider-secrets|76561198136628813/u);
+});
+
+test("SteamOS dev shell diagnostics load helper returns safe loading success and failure states", async () => {
+  const loadedState = await loadSteamOSDevShellDiagnosticsStatus({
+    async load() {
+      return {
+        ok: true,
+        backendReachable: true,
+        runtimeMetadata: {
+          present: true,
+          valid: true,
+          sizeBytes: 128,
+          mtimeMs: 1_710_000_000_000,
+        },
+        providerConfigFilePresent: true,
+        providerSecretsFilePresent: true,
+        retroAchievements: {
+          configured: true,
+          usernamePresent: true,
+          hasApiKey: true,
+        },
+        steam: {
+          configured: true,
+          steamId64Present: true,
+          hasApiKey: true,
+        },
+        dashboardCache: {
+          retroAchievements: {
+            present: true,
+            valid: true,
+            sizeBytes: 256,
+            mtimeMs: 1_710_000_100_000,
+            refreshedAtMs: 1_710_000_050_000,
+          },
+          steam: {
+            present: true,
+            valid: true,
+            sizeBytes: 512,
+            mtimeMs: 1_710_000_200_000,
+            refreshedAtMs: 1_710_000_150_000,
+          },
+        },
+      };
+    },
+  });
+  const failedState = await loadSteamOSDevShellDiagnosticsStatus({
+    async load() {
+      throw new Error("backend secret leak should not appear");
+    },
+  });
+
+  assert.equal(loadedState.phase, "loaded");
+  assert.equal(loadedState.message, "SteamOS dev shell status ready");
+  assert.equal(loadedState.snapshot?.backendReachable, true);
+  assert.equal(failedState.phase, "error");
+  assert.equal(failedState.message, "Backend unavailable");
+  assert.doesNotMatch(JSON.stringify(loadedState), /backend secret leak should not appear/u);
+  assert.doesNotMatch(JSON.stringify(failedState), /backend secret leak should not appear/u);
 });
 
 test("SteamOS bootstrap entrypoint keeps backend connected when provider config is unavailable", async () => {

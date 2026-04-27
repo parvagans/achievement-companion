@@ -29,6 +29,10 @@ import {
   saveSteamSetup,
 } from "./setup-surface";
 import { SteamOSDashboardSurface } from "./dashboard-surface";
+import type {
+  SteamOSDevShellDiagnosticsStatus,
+  SteamOSDiagnosticsStatusStore,
+} from "./steamos-adapters";
 
 export type SteamOSBootstrapPhase = "loading" | "connected" | "error";
 export type SteamOSProviderConfigStatus = "configured" | "not_configured" | "unavailable";
@@ -36,6 +40,14 @@ export type SteamOSProviderConfigStatus = "configured" | "not_configured" | "una
 export interface SteamOSProviderStatus {
   readonly label: string;
   readonly status: SteamOSProviderConfigStatus;
+}
+
+export type SteamOSDevShellDiagnosticsPhase = "loading" | "loaded" | "error";
+
+export interface SteamOSDevShellDiagnosticsState {
+  readonly phase: SteamOSDevShellDiagnosticsPhase;
+  readonly message: string;
+  readonly snapshot?: SteamOSDevShellDiagnosticsStatus;
 }
 
 export interface SteamOSBootstrapState {
@@ -119,6 +131,121 @@ const STATUS_HINT_STYLE: CSSProperties = {
   lineHeight: 1.5,
 };
 
+const DEV_SHELL_STATUS_STYLE: CSSProperties = {
+  border: "1px solid #d7dde5",
+  borderRadius: "16px",
+  background: "linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)",
+  padding: "1rem 1.1rem",
+  boxShadow: "0 12px 32px rgba(15, 23, 42, 0.07)",
+  display: "grid",
+  gap: "0.8rem",
+};
+
+const DEV_SHELL_STATUS_HEADER_STYLE: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.75rem",
+  flexWrap: "wrap",
+};
+
+const DEV_SHELL_STATUS_HEADING_GROUP_STYLE: CSSProperties = {
+  display: "grid",
+  gap: "0.45rem",
+};
+
+const DEV_SHELL_STATUS_EYEBROW_STYLE: CSSProperties = {
+  margin: 0,
+  fontSize: "0.76rem",
+  fontWeight: 700,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  color: "#4f46e5",
+};
+
+const DEV_SHELL_STATUS_TITLE_STYLE: CSSProperties = {
+  margin: 0,
+  fontSize: "1.1rem",
+};
+
+const DEV_SHELL_STATUS_DETAIL_GRID_STYLE: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+  gap: "0.75rem",
+};
+
+const DEV_SHELL_STATUS_ITEM_STYLE: CSSProperties = {
+  border: "1px solid #e2e8f0",
+  borderRadius: "12px",
+  backgroundColor: "#ffffff",
+  padding: "0.85rem",
+  display: "grid",
+  gap: "0.35rem",
+};
+
+const DEV_SHELL_STATUS_ITEM_LABEL_STYLE: CSSProperties = {
+  margin: 0,
+  fontSize: "0.88rem",
+  color: "#5f6b7a",
+};
+
+const DEV_SHELL_STATUS_ITEM_VALUE_STYLE: CSSProperties = {
+  margin: 0,
+  fontSize: "0.96rem",
+  fontWeight: 600,
+  color: "#0f172a",
+  lineHeight: 1.4,
+};
+
+const DEV_SHELL_STATUS_HELP_STYLE: CSSProperties = {
+  margin: 0,
+  color: "#5f6b7a",
+  lineHeight: 1.5,
+};
+
+const DEV_SHELL_STATUS_BUTTON_STYLE: CSSProperties = {
+  appearance: "none",
+  border: "1px solid #c7d0db",
+  borderRadius: "999px",
+  backgroundColor: "#ffffff",
+  color: "#1f2937",
+  padding: "0.6rem 0.9rem",
+  fontWeight: 600,
+  cursor: "pointer",
+};
+
+function createInitialDevShellDiagnosticsState(): SteamOSDevShellDiagnosticsState {
+  return {
+    phase: "loading",
+    message: "Loading SteamOS dev shell status...",
+  };
+}
+
+export async function loadSteamOSDevShellDiagnosticsStatus(
+  diagnosticsStatusStore: SteamOSDiagnosticsStatusStore | undefined,
+): Promise<SteamOSDevShellDiagnosticsState> {
+  if (diagnosticsStatusStore === undefined) {
+    return {
+      phase: "error",
+      message: "Diagnostics unavailable",
+    };
+  }
+
+  try {
+    const snapshot = await diagnosticsStatusStore.load();
+    return {
+      phase: "loaded",
+      message: snapshot.runtimeMetadata.valid ? "SteamOS dev shell status ready" : "Runtime unavailable",
+      snapshot,
+    };
+  } catch {
+    return {
+      phase: "error",
+      message: "Backend unavailable",
+    };
+  }
+}
+
 function createBootstrapState(
   phase: SteamOSBootstrapPhase,
   providerState?: Pick<SteamOSBootstrapState, "providerConfigStatus" | "providerConfigs" | "providers">,
@@ -156,6 +283,48 @@ function createProviderStatus(
     label,
     status,
   };
+}
+
+function formatPresenceStatus(present: boolean): string {
+  return present ? "present" : "missing";
+}
+
+function formatValidityStatus(present: boolean, valid: boolean): string {
+  if (!present) {
+    return "missing";
+  }
+
+  return valid ? "valid" : "invalid";
+}
+
+function formatConfiguredStatus(configured: boolean): string {
+  return configured ? "configured" : "not configured";
+}
+
+function formatCacheStatus(status: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"]): string {
+  if (!status.present) {
+    return "missing";
+  }
+
+  return status.valid ? "cached" : "unreadable";
+}
+
+function formatOptionalNumber(value: number | undefined): string {
+  return value !== undefined ? value.toLocaleString() : "—";
+}
+
+function formatCacheDetails(status: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"]): string {
+  const details: string[] = [];
+  if (status.sizeBytes !== undefined) {
+    details.push(`size ${status.sizeBytes.toLocaleString()} B`);
+  }
+  if (status.mtimeMs !== undefined) {
+    details.push(`mtimeMs ${status.mtimeMs.toLocaleString()}`);
+  }
+  if (status.refreshedAtMs !== undefined) {
+    details.push(`refreshedAtMs ${status.refreshedAtMs.toLocaleString()}`);
+  }
+  return details.length > 0 ? details.join(" · ") : "No cache metadata available";
 }
 
 async function loadProviderStatuses(
@@ -289,6 +458,108 @@ export function SteamOSBootstrapStatus(
   );
 }
 
+export function SteamOSDevShellStatusPanel(
+  { state, onRefresh }: { readonly state: SteamOSDevShellDiagnosticsState; readonly onRefresh?: () => void },
+): JSX.Element {
+  const refreshButtonLabel = state.phase === "loading" ? "Refreshing status..." : "Refresh status";
+  const isRefreshing = state.phase === "loading";
+  const diagnostics = state.snapshot;
+
+  return (
+    <section style={DEV_SHELL_STATUS_STYLE}>
+      <div style={DEV_SHELL_STATUS_HEADER_STYLE}>
+        <div style={DEV_SHELL_STATUS_HEADING_GROUP_STYLE}>
+          <p style={DEV_SHELL_STATUS_EYEBROW_STYLE}>Development</p>
+          <h2 style={DEV_SHELL_STATUS_TITLE_STYLE}>SteamOS dev shell status</h2>
+        </div>
+        {onRefresh !== undefined ? (
+          <button
+            type="button"
+            style={DEV_SHELL_STATUS_BUTTON_STYLE}
+            disabled={isRefreshing}
+            onClick={onRefresh}
+          >
+            {refreshButtonLabel}
+          </button>
+        ) : null}
+      </div>
+      <p style={DEV_SHELL_STATUS_HELP_STYLE}>
+        This checks local backend reachability, runtime metadata, provider setup, and cached dashboard snapshots.
+        It does not refresh providers or start a Steam scan.
+      </p>
+      <p role="status" aria-live="polite" style={STATUS_MESSAGE_STYLE}>
+        {state.message}
+      </p>
+      {diagnostics !== undefined ? (
+        <div style={DEV_SHELL_STATUS_DETAIL_GRID_STYLE}>
+          <div style={DEV_SHELL_STATUS_ITEM_STYLE}>
+            <p style={DEV_SHELL_STATUS_ITEM_LABEL_STYLE}>Backend</p>
+            <p style={DEV_SHELL_STATUS_ITEM_VALUE_STYLE}>
+              {diagnostics.backendReachable ? "reachable" : "unavailable"}
+            </p>
+          </div>
+          <div style={DEV_SHELL_STATUS_ITEM_STYLE}>
+            <p style={DEV_SHELL_STATUS_ITEM_LABEL_STYLE}>Runtime metadata</p>
+            <p style={DEV_SHELL_STATUS_ITEM_VALUE_STYLE}>
+              {formatValidityStatus(diagnostics.runtimeMetadata.present, diagnostics.runtimeMetadata.valid)}
+            </p>
+          </div>
+          <div style={DEV_SHELL_STATUS_ITEM_STYLE}>
+            <p style={DEV_SHELL_STATUS_ITEM_LABEL_STYLE}>Provider config file</p>
+            <p style={DEV_SHELL_STATUS_ITEM_VALUE_STYLE}>
+              {formatPresenceStatus(diagnostics.providerConfigFilePresent)}
+            </p>
+          </div>
+          <div style={DEV_SHELL_STATUS_ITEM_STYLE}>
+            <p style={DEV_SHELL_STATUS_ITEM_LABEL_STYLE}>Provider secrets file</p>
+            <p style={DEV_SHELL_STATUS_ITEM_VALUE_STYLE}>
+              {formatPresenceStatus(diagnostics.providerSecretsFilePresent)}
+            </p>
+          </div>
+          <div style={DEV_SHELL_STATUS_ITEM_STYLE}>
+            <p style={DEV_SHELL_STATUS_ITEM_LABEL_STYLE}>RetroAchievements</p>
+            <p style={DEV_SHELL_STATUS_ITEM_VALUE_STYLE}>
+              {formatConfiguredStatus(diagnostics.retroAchievements.configured)}
+            </p>
+            <p style={DEV_SHELL_STATUS_HELP_STYLE}>
+              username {formatPresenceStatus(diagnostics.retroAchievements.usernamePresent)} · API key{" "}
+              {formatPresenceStatus(diagnostics.retroAchievements.hasApiKey)}
+            </p>
+          </div>
+          <div style={DEV_SHELL_STATUS_ITEM_STYLE}>
+            <p style={DEV_SHELL_STATUS_ITEM_LABEL_STYLE}>Steam</p>
+            <p style={DEV_SHELL_STATUS_ITEM_VALUE_STYLE}>
+              {formatConfiguredStatus(diagnostics.steam.configured)}
+            </p>
+            <p style={DEV_SHELL_STATUS_HELP_STYLE}>
+              SteamID64 {formatPresenceStatus(diagnostics.steam.steamId64Present)} · API key{" "}
+              {formatPresenceStatus(diagnostics.steam.hasApiKey)}
+            </p>
+          </div>
+          <div style={DEV_SHELL_STATUS_ITEM_STYLE}>
+            <p style={DEV_SHELL_STATUS_ITEM_LABEL_STYLE}>RetroAchievements cache</p>
+            <p style={DEV_SHELL_STATUS_ITEM_VALUE_STYLE}>
+              {formatCacheStatus(diagnostics.dashboardCache.retroAchievements)}
+            </p>
+            <p style={DEV_SHELL_STATUS_HELP_STYLE}>
+              {formatCacheDetails(diagnostics.dashboardCache.retroAchievements)}
+            </p>
+          </div>
+          <div style={DEV_SHELL_STATUS_ITEM_STYLE}>
+            <p style={DEV_SHELL_STATUS_ITEM_LABEL_STYLE}>Steam cache</p>
+            <p style={DEV_SHELL_STATUS_ITEM_VALUE_STYLE}>
+              {formatCacheStatus(diagnostics.dashboardCache.steam)}
+            </p>
+            <p style={DEV_SHELL_STATUS_HELP_STYLE}>
+              {formatCacheDetails(diagnostics.dashboardCache.steam)}
+            </p>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 function createInitialConnectedState(
   state: SteamOSBootstrapState,
 ): SteamOSBootstrapState {
@@ -313,9 +584,19 @@ export function SteamOSBootstrapShell(
   const [result, setResult] = useState<SteamOSBootstrapResult>({
     state: createBootstrapState("loading"),
   });
+  const [devShellDiagnosticsState, setDevShellDiagnosticsState] = useState<SteamOSDevShellDiagnosticsState>(
+    createInitialDevShellDiagnosticsState(),
+  );
   const [values, setValues] = useState<SteamOSSetupFormValues>(createSteamOSSetupFormValues());
   const [messages, setMessages] = useState<SteamOSSetupSurfaceMessages>({});
   const [busyProviderId, setBusyProviderId] = useState<typeof RETROACHIEVEMENTS_PROVIDER_ID | typeof STEAM_PROVIDER_ID>();
+
+  async function refreshDevShellDiagnosticsStatus(): Promise<void> {
+    setDevShellDiagnosticsState(createInitialDevShellDiagnosticsState());
+    setDevShellDiagnosticsState(
+      await loadSteamOSDevShellDiagnosticsStatus(result.runtime?.adapters.diagnosticsStatusStore),
+    );
+  }
 
   useEffect(() => {
     let disposed = false;
@@ -336,6 +617,24 @@ export function SteamOSBootstrapShell(
       disposed = true;
     };
   }, [options]);
+
+  useEffect(() => {
+    if (result.state.phase !== "connected") {
+      return;
+    }
+
+    let disposed = false;
+    void (async () => {
+      const nextState = await loadSteamOSDevShellDiagnosticsStatus(result.runtime?.adapters.diagnosticsStatusStore);
+      if (!disposed) {
+        setDevShellDiagnosticsState(nextState);
+      }
+    })();
+
+    return () => {
+      disposed = true;
+    };
+  }, [result.runtime, result.state.phase]);
 
   async function reloadProviderStatuses(
     runtime: ReturnType<typeof createSteamOSAppRuntime>,
@@ -503,6 +802,10 @@ export function SteamOSBootstrapShell(
           only refresh when you ask for them. This shell does not start a Steam scan.
         </p>
       </section>
+      <SteamOSDevShellStatusPanel
+        state={devShellDiagnosticsState}
+        onRefresh={() => void refreshDevShellDiagnosticsStatus()}
+      />
       <SteamOSSetupSurface
         {...(connectedState.providerConfigStatus !== undefined
           ? { providerConfigStatus: connectedState.providerConfigStatus }

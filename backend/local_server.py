@@ -441,6 +441,169 @@ def _build_provider_request_failure_payload(error: ProviderRequestError) -> dict
   return payload
 
 
+def _read_json_object(path: Path | None) -> dict[str, Any] | None:
+  if path is None or not path.exists():
+    return None
+
+  try:
+    raw_text = path.read_text(encoding="utf-8")
+  except OSError:
+    return None
+
+  if raw_text.strip() == "":
+    return None
+
+  try:
+    payload = json.loads(raw_text)
+  except json.JSONDecodeError:
+    return None
+
+  return payload if isinstance(payload, dict) else None
+
+
+def _safe_file_metadata(path: Path | None) -> dict[str, Any]:
+  if path is None:
+    return {"present": False}
+
+  try:
+    stat_result = path.stat()
+  except OSError:
+    return {"present": False}
+
+  return {
+    "present": True,
+    "sizeBytes": stat_result.st_size,
+    "mtimeMs": int(stat_result.st_mtime * 1000),
+  }
+
+
+def _is_valid_runtime_metadata(payload: Mapping[str, Any]) -> bool:
+  host = payload.get("host")
+  port = payload.get("port")
+  pid = payload.get("pid")
+  token = payload.get("token")
+  started_at = payload.get("startedAt")
+  if host != LOCAL_BACKEND_HOST:
+    return False
+  if not isinstance(port, (int, float)) or isinstance(port, bool) or int(port) <= 0 or int(port) > 65_535:
+    return False
+  if not isinstance(pid, (int, float)) or isinstance(pid, bool) or int(pid) <= 0:
+    return False
+  if not isinstance(token, str) or token.strip() != token or len(token) < 32:
+    return False
+  if not isinstance(started_at, str):
+    return False
+  try:
+    datetime.fromisoformat(started_at)
+  except ValueError:
+    return False
+  return True
+
+
+def _build_runtime_metadata_status(path: Path | None) -> dict[str, Any]:
+  metadata_status = _safe_file_metadata(path)
+  if path is None or metadata_status["present"] is not True:
+    return {
+      "present": False,
+      "valid": False,
+    }
+
+  payload = _read_json_object(path)
+  if payload is None:
+    return {
+      **metadata_status,
+      "valid": False,
+    }
+
+  return {
+    **metadata_status,
+    "valid": _is_valid_runtime_metadata(payload),
+  }
+
+
+def _build_dashboard_cache_status(path: Path | None) -> dict[str, Any]:
+  cache_status = _safe_file_metadata(path)
+  if path is None or cache_status["present"] is not True:
+    return {
+      "present": False,
+      "valid": False,
+    }
+
+  payload = _read_json_object(path)
+  if payload is None:
+    return {
+      **cache_status,
+      "valid": False,
+    }
+
+  result: dict[str, Any] = {
+    **cache_status,
+    "valid": True,
+  }
+  refreshed_at = payload.get("refreshedAt")
+  if isinstance(refreshed_at, (int, float)) and not isinstance(refreshed_at, bool):
+    result["refreshedAtMs"] = int(refreshed_at)
+  return result
+
+
+def _build_steamos_diagnostics_status(context: LocalBackendContext) -> dict[str, Any]:
+  provider_config_store = _read_json_object(context.paths.config_path)
+  provider_secrets_store = _read_json_object(context.paths.secrets_path)
+
+  retroachievements_config = (
+    provider_config_store.get(_RETROACHIEVEMENTS_PROVIDER_KEY)
+    if isinstance(provider_config_store, Mapping)
+    else None
+  )
+  steam_config = provider_config_store.get(_STEAM_PROVIDER_KEY) if isinstance(provider_config_store, Mapping) else None
+  retroachievements_secret = (
+    provider_secrets_store.get(_RETROACHIEVEMENTS_PROVIDER_KEY)
+    if isinstance(provider_secrets_store, Mapping)
+    else None
+  )
+  steam_secret = provider_secrets_store.get(_STEAM_PROVIDER_KEY) if isinstance(provider_secrets_store, Mapping) else None
+
+  retroachievements_username_present = (
+    _coerce_string(retroachievements_config.get("username")) is not None
+    if isinstance(retroachievements_config, Mapping)
+    else False
+  )
+  steam_id64_present = (
+    _coerce_string(steam_config.get("steamId64")) is not None
+    if isinstance(steam_config, Mapping)
+    else False
+  )
+
+  retroachievements_has_api_key = isinstance(retroachievements_secret, Mapping)
+  steam_has_api_key = isinstance(steam_secret, Mapping)
+
+  return {
+    "ok": True,
+    "backendReachable": True,
+    "runtimeMetadata": _build_runtime_metadata_status(context.paths.runtime_metadata_path),
+    "providerConfigFilePresent": context.paths.config_path.exists(),
+    "providerSecretsFilePresent": context.paths.secrets_path.exists(),
+    "retroAchievements": {
+      "configured": retroachievements_username_present and retroachievements_has_api_key,
+      "usernamePresent": retroachievements_username_present,
+      "hasApiKey": retroachievements_has_api_key,
+    },
+    "steam": {
+      "configured": steam_id64_present and steam_has_api_key,
+      "steamId64Present": steam_id64_present,
+      "hasApiKey": steam_has_api_key,
+    },
+    "dashboardCache": {
+      "retroAchievements": _build_dashboard_cache_status(
+        context.paths.dashboard_cache_dir / f"{_RETROACHIEVEMENTS_PROVIDER_KEY}.json",
+      ),
+      "steam": _build_dashboard_cache_status(
+        context.paths.dashboard_cache_dir / f"{_STEAM_PROVIDER_KEY}.json",
+      ),
+    },
+  }
+
+
 def _request_retroachievements_json(
   context: LocalBackendContext,
   payload: Mapping[str, Any],
@@ -514,6 +677,16 @@ def _request_steam_json(
     return 502, {"ok": False, "error": "provider_request_failed"}
 
 
+def _request_steamos_diagnostics_status(
+  context: LocalBackendContext,
+  payload: Mapping[str, Any],
+) -> tuple[int, Any]:
+  if not isinstance(payload, Mapping):
+    return 400, {"ok": False, "error": "invalid_payload"}
+
+  return 200, _build_steamos_diagnostics_status(context)
+
+
 class LocalBackendHTTPServer(HTTPServer):
   def __init__(
     self,
@@ -555,6 +728,7 @@ class LocalBackendRequestHandler(BaseHTTPRequestHandler):
       "/save_retroachievements_credentials",
       "/save_steam_credentials",
       "/clear_provider_credentials",
+      "/diagnostics/steamos/status",
       "/cache/dashboard/read",
       "/cache/dashboard/write",
       "/cache/dashboard/clear",
@@ -598,6 +772,9 @@ class LocalBackendRequestHandler(BaseHTTPRequestHandler):
     if path == "/clear_provider_credentials":
       self._handle_clear_provider_credentials()
       return
+    if path == "/diagnostics/steamos/status":
+      self._handle_steamos_diagnostics_status()
+      return
     if path == "/cache/dashboard/read":
       self._handle_cache_dashboard_read()
       return
@@ -640,6 +817,7 @@ class LocalBackendRequestHandler(BaseHTTPRequestHandler):
       "/save_retroachievements_credentials",
       "/save_steam_credentials",
       "/clear_provider_credentials",
+      "/diagnostics/steamos/status",
       "/cache/dashboard/read",
       "/cache/dashboard/write",
       "/cache/dashboard/clear",
@@ -734,6 +912,15 @@ class LocalBackendRequestHandler(BaseHTTPRequestHandler):
       return
 
     self._send_json(200, {"ok": True, "cleared": cleared})
+
+  def _handle_steamos_diagnostics_status(self) -> None:
+    status, payload = self._read_json_body()
+    if payload is None:
+      self._send_json(status, {"ok": False, "error": self._json_error_code(status)})
+      return
+
+    response_status, response_payload = _request_steamos_diagnostics_status(self.server.context, payload)
+    self._send_json(response_status, response_payload)
 
   def _handle_cache_dashboard_read(self) -> None:
     status, payload = self._read_json_body()
@@ -961,6 +1148,7 @@ class LocalBackendRequestHandler(BaseHTTPRequestHandler):
       "/save_retroachievements_credentials",
       "/save_steam_credentials",
       "/clear_provider_credentials",
+      "/diagnostics/steamos/status",
       "/cache/dashboard/read",
       "/cache/dashboard/write",
       "/cache/dashboard/clear",
