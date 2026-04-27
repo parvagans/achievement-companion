@@ -181,10 +181,10 @@ function parseAppId(value: number | undefined): number | undefined {
 }
 
 function getRawPlayerSummary(
-  response: Awaited<ReturnType<SteamClient["loadPlayerSummaries"]>>,
+  response: Awaited<ReturnType<SteamClient["loadPlayerSummaries"]>> | undefined,
   steamId64: string,
 ): RawSteamPlayerSummary | undefined {
-  return response.response?.players?.find((player) => player.steamid === steamId64);
+  return response?.response?.players?.find((player) => player.steamid === steamId64);
 }
 
 function getSteamLevel(
@@ -372,6 +372,12 @@ export function createSteamProvider(
     capabilities: steamCapabilities,
 
     async loadProfile(config) {
+      const playerSummariesPromise = client
+        .loadPlayerSummaries(config)
+        .catch((cause: unknown) => {
+          logSteamLoadFailure("profile.loadPlayerSummaries", cause);
+          return undefined;
+        });
       const steamLevelPromise = client
         .loadSteamLevel(config)
         .then((response) => getSteamLevel(response))
@@ -388,7 +394,7 @@ export function createSteamProvider(
         });
 
       const [playerSummaries, recentGameSnapshots, steamLevel, steamBadges] = await Promise.all([
-        client.loadPlayerSummaries(config),
+        playerSummariesPromise,
         loadSteamRecentGameSnapshots(client, config, {
           count: getSteamRecentGameSnapshotCount(config),
         }),

@@ -23,7 +23,7 @@ from backend.cache import (
   write_steam_scan_summary,
 )
 from backend.diagnostics import sanitize_diagnostic_event
-from backend.http import request_json as backend_request_json
+from backend.http import ProviderRequestError, request_json as backend_request_json
 from backend.paths import BackendPaths, resolve_steamos_backend_paths
 from backend.provider_config import (
   PLUGIN_CONFIG_VERSION,
@@ -412,6 +412,20 @@ def _request_provider_json(
   )
 
 
+def _build_provider_request_failure_payload(error: ProviderRequestError) -> dict[str, Any]:
+  payload: dict[str, Any] = {
+    "ok": False,
+    "error": "provider_request_failed",
+    "errorCategory": error.category,
+    "providerId": error.provider_id,
+    "path": error.path,
+    "durationMs": error.duration_ms,
+  }
+  if error.status_code is not None:
+    payload["status"] = error.status_code
+  return payload
+
+
 def _request_retroachievements_json(
   context: LocalBackendContext,
   payload: Mapping[str, Any],
@@ -442,6 +456,8 @@ def _request_retroachievements_json(
         "y": secret,
       },
     )
+  except ProviderRequestError as error:
+    return 502, _build_provider_request_failure_payload(error)
   except RuntimeError:
     return 502, {"ok": False, "error": "provider_request_failed"}
 
@@ -477,6 +493,8 @@ def _request_steam_json(
       },
       handled_http_statuses=_parse_handled_http_statuses(payload.get("handledHttpStatuses")),
     )
+  except ProviderRequestError as error:
+    return 502, _build_provider_request_failure_payload(error)
   except RuntimeError:
     return 502, {"ok": False, "error": "provider_request_failed"}
 

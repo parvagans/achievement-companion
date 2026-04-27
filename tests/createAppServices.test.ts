@@ -5640,6 +5640,111 @@ test("steam provider persists normalized badge summaries on profile load", async
   assert.equal(profile.steamBadges?.[0]?.completedAt, "2023-11-14T22:13:20.000Z");
 });
 
+test("steam provider tolerates player summary failures without failing the dashboard", async () => {
+  const config = normalizeSteamProviderConfig({
+    steamId64: "12345678901234567",
+    apiKey: "api-key",
+    language: "english",
+    recentAchievementsCount: 5,
+    recentlyPlayedCount: 5,
+    includePlayedFreeGames: false,
+  });
+  const provider = createSteamProvider({
+    client: {
+      async loadPlayerSummaries() {
+        throw new Error("player summaries forbidden");
+      },
+      async loadSteamLevel() {
+        return { response: { player_level: 29 } satisfies RawSteamGetSteamLevelResponse };
+      },
+      async loadBadges() {
+        return {
+          response: {
+            badges: [
+              {
+                badgeid: 1,
+                appid: 12345,
+                level: 4,
+                xp: 250,
+                completion_time: 1_700_000_000,
+              } satisfies RawSteamBadge,
+            ],
+            player_xp: 5_740,
+          },
+        };
+      },
+      async loadRecentlyPlayedGames() {
+        return {
+          response: {
+            games: [
+              {
+                appid: 220,
+                name: "Test Game",
+                playtime_forever: 42,
+                has_community_visible_stats: true,
+              } satisfies RawSteamRecentlyPlayedGame,
+            ],
+          },
+        };
+      },
+      async loadPlayerAchievements() {
+        return {
+          playerstats: {
+            success: true,
+            achievements: [
+              {
+                apiname: "ACH_WIN",
+                achieved: 1,
+                unlocktime: 1_700_000_000,
+              } satisfies RawSteamPlayerAchievement,
+            ],
+          },
+        };
+      },
+      async loadSchemaForGame() {
+        return {
+          game: {
+            availableGameStats: {
+              achievements: [
+                {
+                  name: "ACH_WIN",
+                  displayName: "Win One",
+                  description: "Unlock the first win",
+                  icon: "https://cdn.steam.com/icon.png",
+                  icongray: "https://cdn.steam.com/icongray.png",
+                  hidden: 0,
+                } satisfies RawSteamSchemaAchievement,
+              ],
+            },
+          },
+        };
+      },
+      async loadGlobalAchievementPercentagesForApp() {
+        return {
+          achievementpercentages: {
+            achievements: [
+              {
+                name: "ACH_WIN",
+                percent: 12.5,
+              },
+            ],
+          },
+        };
+      },
+    },
+  });
+
+  const profile = await provider.loadProfile(config);
+
+  assert.equal(profile.identity.displayName, config.steamId64);
+  assert.equal(profile.steamLevel, 29);
+  assert.equal(profile.badgeCount, 1);
+  assert.equal(profile.playerXp, 5_740);
+  assert.equal(profile.steamBadges?.length, 1);
+  assert.equal(profile.summary.unlockedCount, 1);
+  assert.equal(profile.summary.totalCount, 1);
+});
+
 test("steam provider reuses recent game snapshots across one dashboard refresh", async () => {
   const callCounts = {
     recentlyPlayedGames: 0,

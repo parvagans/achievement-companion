@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import io
 import json
 import tempfile
 import threading
@@ -9,8 +10,10 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Mapping
 
+from backend import http as backend_http
 from backend import local_server
 from backend.paths import BackendPaths
+from backend import secrets as secret_helpers
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -380,6 +383,60 @@ class LocalBackendSmokeTests(unittest.TestCase):
     )
     self.assertEqual(calls[0]["handled_http_statuses"], {403})
     self.assertNotIn("backend-steam-secret", json.dumps(payload))
+
+  def test_provider_request_failure_smoke_flow_returns_safe_diagnostic_envelope(self) -> None:
+    token = "request-token"
+    original_urlopen = backend_http.urlopen
+
+    def fake_urlopen(request, timeout=None, context=None):  # noqa: ANN001, ANN002, ANN003
+      raise urllib.error.HTTPError(
+        url=request.full_url,
+        code=403,
+        msg="Forbidden",
+        hdrs=None,
+        fp=io.BytesIO(b"private profile apiKey=secret"),
+      )
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+      context = _create_test_context(Path(temp_dir))
+      backend_http.urlopen = fake_urlopen  # type: ignore[assignment]
+      try:
+        context.paths.config_path.parent.mkdir(parents=True, exist_ok=True)
+        context.paths.config_path.write_text(
+          json.dumps(
+            {
+              "version": 1,
+              "retroAchievements": {"username": "sol88", "hasApiKey": True},
+            },
+          ),
+          encoding="utf-8",
+        )
+        secret_helpers.save_secret_api_key(
+          context.paths.secrets_path,
+          "retroAchievements",
+          "backend-ra-secret",
+          settings_dir_text=context.settings_dir_text,
+        )
+        with _RunningServer(local_server.create_local_backend_server(token=token, context=context)) as running:
+          status, payload, _ = running.request_json(
+            "POST",
+            "/request_retroachievements_json",
+            token=token,
+            body={"path": "API/API_GetUserProfile.php", "query": {"u": "sol88"}},
+          )
+      finally:
+        backend_http.urlopen = original_urlopen  # type: ignore[assignment]
+
+    self.assertEqual(status, 502)
+    self.assertEqual(payload["ok"], False)
+    self.assertEqual(payload["error"], "provider_request_failed")
+    self.assertEqual(payload["errorCategory"], "http_error")
+    self.assertEqual(payload["providerId"], "retroachievements")
+    self.assertEqual(payload["path"], "API/API_GetUserProfile.php")
+    self.assertEqual(payload["status"], 403)
+    self.assertIsInstance(payload["durationMs"], int)
+    self.assertNotIn("backend-ra-secret", json.dumps(payload))
+    self.assertNotIn("private profile", json.dumps(payload))
 
   def test_clear_smoke_flow_only_clears_selected_provider(self) -> None:
     token = "clear-token"

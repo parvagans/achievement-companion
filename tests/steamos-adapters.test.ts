@@ -91,7 +91,12 @@ test("SteamOS local backend client surfaces non-2xx JSON errors safely", async (
   const client = createSteamOSLocalBackendClient({
     baseUrl: "http://127.0.0.1:4123",
     token: "session-token",
-    fetchImpl: async () => createJsonResponse(403, { ok: false, error: "credentials_missing" }, "Forbidden"),
+    fetchImpl: async () =>
+      createJsonResponse(
+        403,
+        { ok: false, error: "provider_request_failed", errorCategory: "missing_secret" },
+        "Forbidden",
+      ),
   });
 
   await assert.rejects(
@@ -99,7 +104,8 @@ test("SteamOS local backend client surfaces non-2xx JSON errors safely", async (
     (error: unknown) =>
       error instanceof SteamOSLocalBackendClientError &&
       error.status === 403 &&
-      error.code === "credentials_missing" &&
+      error.code === "provider_request_failed" &&
+      error.category === "missing_secret" &&
       !error.message.includes("session-token"),
   );
 });

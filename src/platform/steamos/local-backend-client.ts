@@ -11,8 +11,9 @@ export interface SteamOSLocalBackendClientOptions {
 export class SteamOSLocalBackendClientError extends Error {
   readonly status: number;
   readonly code: string | undefined;
+  readonly category: string | undefined;
 
-  constructor(status: number, code?: string) {
+  constructor(status: number, code?: string, category?: string) {
     super(
       code !== undefined
         ? `Local backend request failed with ${status} ${code}.`
@@ -21,6 +22,7 @@ export class SteamOSLocalBackendClientError extends Error {
     this.name = "SteamOSLocalBackendClientError";
     this.status = status;
     this.code = code;
+    this.category = category;
   }
 }
 
@@ -54,6 +56,15 @@ function getErrorCode(payload: unknown): string | undefined {
   return typeof errorValue === "string" && errorValue.trim() !== "" ? errorValue : undefined;
 }
 
+function getErrorCategory(payload: unknown): string | undefined {
+  if (typeof payload !== "object" || payload === null) {
+    return undefined;
+  }
+
+  const errorValue = (payload as Record<string, unknown>)["errorCategory"];
+  return typeof errorValue === "string" && errorValue.trim() !== "" ? errorValue : undefined;
+}
+
 export function createSteamOSLocalBackendClient(
   options: SteamOSLocalBackendClientOptions,
 ): SteamOSLocalBackendClient {
@@ -78,7 +89,11 @@ export function createSteamOSLocalBackendClient(
 
       const responsePayload = await readJsonResponse(response);
       if (!response.ok) {
-        throw new SteamOSLocalBackendClientError(response.status, getErrorCode(responsePayload));
+        throw new SteamOSLocalBackendClientError(
+          response.status,
+          getErrorCode(responsePayload),
+          getErrorCategory(responsePayload),
+        );
       }
 
       return responsePayload as TResponse;

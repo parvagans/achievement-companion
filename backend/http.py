@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urljoin
@@ -17,6 +18,51 @@ BACKEND_HTTP_USER_AGENT = "Achievement Companion Decky Plugin"
 LogCallback = Callable[..., None]
 Opener = Callable[..., Any]
 SslContextProvider = Callable[[], Any]
+
+
+@dataclass(frozen=True)
+class ProviderRequestError(RuntimeError):
+  provider_id: str
+  provider_label: str
+  path: str
+  category: str
+  duration_ms: int
+  status_code: int | None = None
+
+  def __init__(
+    self,
+    *,
+    provider_id: str,
+    provider_label: str,
+    path: str,
+    category: str,
+    duration_ms: int,
+    status_code: int | None = None,
+    message: str | None = None,
+  ) -> None:
+    resolved_message = (
+      message
+      if message is not None
+      else f"{provider_label} request failed with {category.replace('_', ' ')}."
+    )
+    super().__init__(resolved_message)
+    object.__setattr__(self, "provider_id", provider_id)
+    object.__setattr__(self, "provider_label", provider_label)
+    object.__setattr__(self, "path", path)
+    object.__setattr__(self, "category", category)
+    object.__setattr__(self, "duration_ms", duration_ms)
+    object.__setattr__(self, "status_code", status_code)
+
+  def to_diagnostic_fields(self) -> dict[str, Any]:
+    fields: dict[str, Any] = {
+      "providerId": self.provider_id,
+      "path": self.path,
+      "errorCategory": self.category,
+      "durationMs": self.duration_ms,
+    }
+    if self.status_code is not None:
+      fields["status"] = self.status_code
+    return fields
 
 
 def _request_query_items(query: Mapping[str, Any] | None, auth_query: Mapping[str, Any]) -> dict[str, Any]:
@@ -100,11 +146,19 @@ def request_json(
         f"{provider_label} request failed",
         providerId=provider_id,
         path=path,
+        errorCategory="http_error",
         status=getattr(cause, "code", None),
-        reason=getattr(cause, "reason", None),
         durationMs=duration_ms,
       )
-    raise RuntimeError(f"{provider_label} request failed with HTTP {getattr(cause, 'code', 'unknown')}.") from cause
+    raise ProviderRequestError(
+      provider_id=provider_id,
+      provider_label=provider_label,
+      path=path,
+      category="http_error",
+      duration_ms=duration_ms,
+      status_code=getattr(cause, "code", None),
+      message=f"{provider_label} request failed with HTTP {getattr(cause, 'code', 'unknown')}.",
+    ) from cause
   except URLError as cause:
     duration_ms = int((loop.time() - started_at) * 1000)
     if log is not None:
@@ -113,10 +167,17 @@ def request_json(
         f"{provider_label} request failed",
         providerId=provider_id,
         path=path,
-        error=str(cause),
+        errorCategory="network_error",
         durationMs=duration_ms,
       )
-    raise RuntimeError(f"{provider_label} request failed due to a network error.") from cause
+    raise ProviderRequestError(
+      provider_id=provider_id,
+      provider_label=provider_label,
+      path=path,
+      category="network_error",
+      duration_ms=duration_ms,
+      message=f"{provider_label} request failed due to a network error.",
+    ) from cause
   except json.JSONDecodeError as cause:
     duration_ms = int((loop.time() - started_at) * 1000)
     if log is not None:
@@ -125,7 +186,14 @@ def request_json(
         f"{provider_label} response decode failed",
         providerId=provider_id,
         path=path,
-        error=str(cause),
+        errorCategory="invalid_json",
         durationMs=duration_ms,
       )
-    raise RuntimeError(f"{provider_label} returned invalid JSON.") from cause
+    raise ProviderRequestError(
+      provider_id=provider_id,
+      provider_label=provider_label,
+      path=path,
+      category="invalid_json",
+      duration_ms=duration_ms,
+      message=f"{provider_label} returned invalid JSON.",
+    ) from cause
