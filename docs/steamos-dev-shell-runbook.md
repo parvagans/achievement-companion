@@ -128,6 +128,67 @@ Notes:
 - ports default to `0`, so the OS chooses free ephemeral ports
 - runtime metadata stays backend-owned and is written under `XDG_RUNTIME_DIR`
 
+## Steam Deck Desktop Mode Checklist
+
+Use this checklist when validating on a real Steam Deck in Desktop Mode.
+
+### Before You Launch
+
+- work from a clean local checkout
+- keep the standalone SteamOS shell flow separate from the Decky plugin flow
+- use placeholders only in notes, screenshots, or issue reports
+- do not paste:
+  - real API keys
+  - runtime metadata tokens
+  - provider-config contents
+  - provider-secrets contents
+  - full provider request URLs with query values
+
+### Steam Deck Launch Steps
+
+```bash
+cd /path/to/steamProject
+pnpm install
+pnpm run build:steamos
+```
+
+Set an isolated XDG validation root:
+
+```bash
+root="$PWD/.tmp-steamos-deck-validation"
+export XDG_CONFIG_HOME="$root/config"
+export XDG_DATA_HOME="$root/data"
+export XDG_STATE_HOME="$root/state"
+export XDG_CACHE_HOME="$root/cache"
+export XDG_RUNTIME_DIR="$root/runtime"
+
+mkdir -p "$XDG_RUNTIME_DIR"
+pnpm run start:steamos
+```
+
+Expected safe console output:
+
+- printed shell URL
+- printed backend URL
+- printed backend health URL
+
+The launch output must not include:
+
+- bearer tokens
+- API keys
+- usernames
+- Steam IDs
+- provider-config contents
+- provider-secrets contents
+
+Open the printed shell URL in a Desktop Mode browser.
+
+Important:
+
+- do not open protected backend routes directly
+- the only backend route that is safe to open directly is `/health`
+- do not paste runtime metadata JSON into notes, issues, or chat
+
 ## Safe XDG Validation Root
 
 For repeatable validation, especially on Windows or Steam Deck desktop mode, use explicit XDG directories.
@@ -177,6 +238,54 @@ These XDG directories are safe for local validation because they isolate:
 - runtime metadata
 
 ## Manual Validation Checklist
+
+### Steam Deck Quick Pass
+
+Run this checklist in order on the Deck:
+
+1. Fresh setup-required state
+   - start with a fresh XDG temp root
+   - confirm both providers show setup-required or not-configured state
+   - confirm diagnostics is visible and sanitized
+
+2. Setup save and clear
+   - save RetroAchievements setup
+   - save Steam setup
+   - clear one provider once to confirm the UI returns to setup-required
+   - confirm no saved raw API key is rendered back into the UI
+
+3. Dashboard refresh
+   - refresh RetroAchievements dashboard
+   - refresh Steam dashboard
+   - confirm each provider reaches a cached-dashboard state
+   - confirm refresh does not happen automatically on page load
+
+4. Cache validation
+   - confirm dashboard cache files are created
+   - restart with the same XDG root
+   - confirm cached dashboard data loads before clicking `Refresh`
+
+5. Recovery validation
+   - while the browser remains open, stop the shell
+   - try `Refresh status` or `Refresh dashboard`
+   - confirm backend-unavailable guidance is clear and secret-free
+
+6. Input and readability validation
+   - use a `1280x800`-sized browser window if possible
+   - use Tab and Shift+Tab through:
+     - provider card actions
+     - setup fields
+     - save and clear buttons
+     - dashboard chooser buttons
+     - dashboard refresh and open actions
+     - diagnostics refresh
+   - confirm focus stays visible on the dark background
+   - confirm controls feel comfortable for touch/click use
+
+7. Boundary validation
+   - confirm no Steam scan or library artifacts are created by dashboard refresh
+   - confirm no secrets, tokens, usernames, or Steam IDs are visible in the UI
+   - confirm diagnostics remains sanitized and secondary
 
 ### 1. Missing-State Shell
 
@@ -250,6 +359,46 @@ If you want an extra manual check, open browser devtools and confirm there is no
 
 - `localStorage`
 - `sessionStorage`
+
+## Issue Capture Template
+
+When recording a Steam Deck validation issue, capture only sanitized information:
+
+- environment:
+  - Steam Deck model if relevant
+  - SteamOS version if known
+  - Desktop Mode browser used
+- command used:
+  - `pnpm run build:steamos`
+  - `pnpm run start:steamos`
+  - or the exact sanitized command variant you used
+- browser/window mode:
+  - Desktop Mode browser windowed or fullscreen
+  - whether the test was done around `1280x800`
+- provider affected:
+  - RetroAchievements
+  - Steam
+  - both
+  - shell/runtime only
+- expected result
+- actual result
+- sanitized browser console output
+- sanitized backend console output
+- dashboard cache file present:
+  - yes / no
+- Steam scan or library artifacts appeared:
+  - yes / no
+- screenshot:
+  - allowed only if no secrets, tokens, usernames, or Steam IDs are visible
+
+Do not include:
+
+- API keys
+- runtime metadata tokens
+- provider-config contents
+- provider-secrets contents
+- full request URLs with provider query values
+- raw backend Authorization headers
 
 ## Runtime And Health Endpoints
 
@@ -346,3 +495,10 @@ The Decky release ZIP must stay Decky-only and exclude:
 - tests and fixtures
 - provider config or provider secrets files
 - temporary XDG validation directories
+
+Do not attach or paste any of these into GitHub issues or chat:
+
+- `provider-config.json`
+- `provider-secrets.json`
+- runtime metadata JSON
+- screenshots that show usernames, Steam IDs, tokens, or secrets
