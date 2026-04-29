@@ -156,9 +156,26 @@ python3 -m backend.steamos_doctor --xdg-root .tmp-steamos-deck
 python3 -m backend.dev_shell --xdg-root .tmp-steamos-deck
 ```
 
+Optional Windows transfer helper:
+
+```powershell
+cd D:\projects\steamProject
+.\tools\push-steamos-to-deck.ps1 -Deck deck@<deck-ip> -RemoteDir /home/deck/projects/achievement-companion
+```
+
+Then on the Deck run:
+
+```bash
+cd /home/deck/projects/achievement-companion
+python3 -m backend.steamos_doctor --xdg-root .tmp-steamos-deck
+python3 -m backend.dev_shell --xdg-root .tmp-steamos-deck
+```
+
 Notes:
 
 - both paths are for standalone SteamOS validation only
+- the helper uses `git archive HEAD`, so it copies committed tracked files plus the built SteamOS asset only
+- the helper intentionally does not copy local provider config or provider secrets, `.tmp-steamos*`, cache/state/runtime directories, `node_modules`, release ZIPs, or local untracked files
 - provider config and provider secrets created under the temp root stay local and must not be committed or pasted
 - the Decky release ZIP remains separate and Decky-only
 
@@ -258,6 +275,12 @@ python3 -m backend.dev_shell --xdg-root .tmp-steamos-deck-validation
 ```
 
 Use the Windows-build / Deck-run path if the Deck does not have `node` or `npm`. Build `dist-steamos/steamos-bootstrap.js` on Windows first, then copy it into the Deck checkout before running the commands above.
+
+If you want a safer repeatable transfer from Windows, use the PowerShell helper first:
+
+```powershell
+.\tools\push-steamos-to-deck.ps1 -Deck deck@<deck-ip> -RemoteDir /home/deck/projects/achievement-companion
+```
 
 Expected safe console output:
 
@@ -511,6 +534,8 @@ Review the generated summary before sharing it. Do not add screenshots, logs, or
 - provider-config contents
 - provider-secrets contents
 - full provider request URLs with query values
+
+Review helper output before sharing it too. Do not paste API keys, provider-config contents, provider-secrets contents, or runtime tokens from any manual notes or terminal captures.
 
 When recording a Steam Deck validation issue, capture only sanitized information:
 
