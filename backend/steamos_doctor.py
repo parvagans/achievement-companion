@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Sequence, TextIO
 
-from backend.paths import resolve_steamos_backend_paths
+from backend.paths import derive_steamos_xdg_env, resolve_steamos_backend_paths, resolve_steamos_xdg_root
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -80,9 +80,11 @@ def collect_steamos_doctor_checks(
   home: Path | None = None,
   cwd: Path | None = None,
   repo_root: Path = _REPO_ROOT,
+  xdg_root: str | Path | None = None,
 ) -> list[SteamOSDoctorCheck]:
-  resolved_env = os.environ if env is None else env
+  base_env = os.environ if env is None else env
   resolved_cwd = cwd if cwd is not None else Path.cwd()
+  resolved_env = derive_steamos_xdg_env(env=base_env, xdg_root=xdg_root, cwd=resolved_cwd)
   resolved_paths = resolve_steamos_backend_paths(env=resolved_env, home=home)
   checks: list[SteamOSDoctorCheck] = []
 
@@ -122,6 +124,21 @@ def collect_steamos_doctor_checks(
     f"runtime={_get_env_state(resolved_env, 'XDG_RUNTIME_DIR')}"
   )
   checks.append(SteamOSDoctorCheck("INFO", "XDG environment", xdg_state_summary))
+
+  if xdg_root is not None:
+    resolved_xdg_root = resolve_steamos_xdg_root(xdg_root, cwd=resolved_cwd)
+    try:
+      relative_root = resolved_xdg_root.relative_to(repo_root)
+      root_label = str(relative_root).replace("\\", "/")
+    except ValueError:
+      root_label = "custom"
+    checks.append(
+      SteamOSDoctorCheck(
+        "INFO",
+        "XDG temp root override",
+        f"active ({root_label}) and takes precedence over existing XDG environment variables.",
+      ),
+    )
 
   runtime_dir_status, runtime_dir_detail = _ensure_runtime_dir_ready(resolved_env)
   checks.append(SteamOSDoctorCheck(runtime_dir_status, "Runtime metadata directory", runtime_dir_detail))
@@ -199,25 +216,32 @@ def run_steamos_doctor(
   home: Path | None = None,
   cwd: Path | None = None,
   repo_root: Path = _REPO_ROOT,
+  xdg_root: str | Path | None = None,
   stdout: TextIO | None = None,
 ) -> int:
-  checks = collect_steamos_doctor_checks(env=env, home=home, cwd=cwd, repo_root=repo_root)
+  checks = collect_steamos_doctor_checks(env=env, home=home, cwd=cwd, repo_root=repo_root, xdg_root=xdg_root)
   render_steamos_doctor_report(checks, stdout=stdout)
   return 1 if any(check.status == "FAIL" for check in checks) else 0
 
 
 def _build_parser() -> argparse.ArgumentParser:
-  return argparse.ArgumentParser(
+  parser = argparse.ArgumentParser(
     prog="python -m backend.steamos_doctor",
     description="Run a safe SteamOS standalone preflight check.",
   )
+  parser.add_argument(
+    "--xdg-root",
+    default=None,
+    help="Optional validation-only root used to derive XDG config/data/state/cache/runtime directories.",
+  )
+  return parser
 
 
 def main(argv: Sequence[str] | None = None) -> int:
   parser = _build_parser()
-  parser.parse_args(argv)
+  args = parser.parse_args(argv)
   try:
-    return run_steamos_doctor()
+    return run_steamos_doctor(xdg_root=args.xdg_root, cwd=Path.cwd())
   except Exception as error:
     print(f"Unable to run SteamOS doctor: {error}", file=sys.stderr)
     return 1

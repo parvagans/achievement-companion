@@ -106,7 +106,7 @@ The simplest interactive launch command is:
 
 ```powershell
 cd D:\projects\steamProject
-pnpm run start:steamos
+npm run start:steamos
 ```
 
 Equivalent direct Python command:
@@ -114,6 +114,13 @@ Equivalent direct Python command:
 ```powershell
 cd D:\projects\steamProject
 python -m backend.dev_shell
+```
+
+Optional validation-only XDG temp-root shortcut:
+
+```powershell
+cd D:\projects\steamProject
+npm run start:steamos -- --xdg-root .tmp-steamos-deck
 ```
 
 Expected safe console output:
@@ -139,8 +146,8 @@ From a Linux or SteamOS desktop shell, the flow is the same:
 
 ```bash
 cd /path/to/steamProject
-pnpm run build:steamos
-pnpm run start:steamos
+npm run build:steamos
+npm run start:steamos
 ```
 
 If you prefer invoking Python directly:
@@ -150,11 +157,19 @@ cd /path/to/steamProject
 python -m backend.dev_shell
 ```
 
+Optional validation-only XDG temp-root shortcut:
+
+```bash
+cd /path/to/steamProject
+npm run start:steamos -- --xdg-root .tmp-steamos-deck
+```
+
 Notes:
 
 - shell and backend bind to `127.0.0.1` only
 - ports default to `0`, so the OS chooses free ephemeral ports
 - runtime metadata stays backend-owned and is written under `XDG_RUNTIME_DIR`
+- when `--xdg-root` is provided, it derives all five XDG directories and takes precedence over existing `XDG_*` environment variables for that launch only
 
 ## Steam Deck Desktop Mode Checklist
 
@@ -176,22 +191,14 @@ Use this checklist when validating on a real Steam Deck in Desktop Mode.
 
 ```bash
 cd /path/to/steamProject
-pnpm install
-pnpm run build:steamos
+npm install
+npm run build:steamos
 ```
 
-Set an isolated XDG validation root:
+Set an isolated XDG validation root with the shortcut:
 
 ```bash
-root="$PWD/.tmp-steamos-deck-validation"
-export XDG_CONFIG_HOME="$root/config"
-export XDG_DATA_HOME="$root/data"
-export XDG_STATE_HOME="$root/state"
-export XDG_CACHE_HOME="$root/cache"
-export XDG_RUNTIME_DIR="$root/runtime"
-
-mkdir -p "$XDG_RUNTIME_DIR"
-pnpm run start:steamos
+npm run start:steamos -- --xdg-root .tmp-steamos-deck-validation
 ```
 
 Expected safe console output:
@@ -219,7 +226,39 @@ Important:
 
 ## Safe XDG Validation Root
 
-For repeatable validation, especially on Windows or Steam Deck desktop mode, use explicit XDG directories.
+For repeatable validation, especially on Windows or Steam Deck desktop mode, use an isolated XDG temp root.
+
+Preferred shortcut:
+
+### Windows PowerShell Shortcut
+
+```powershell
+cd D:\projects\steamProject
+npm run build:steamos
+npm run doctor:steamos -- --xdg-root .tmp-steamos-real-dashboard
+npm run start:steamos -- --xdg-root .tmp-steamos-real-dashboard
+```
+
+### SteamOS Or Linux Shortcut
+
+```bash
+cd /path/to/steamProject
+npm run build:steamos
+npm run doctor:steamos -- --xdg-root .tmp-steamos-real-dashboard
+npm run start:steamos -- --xdg-root .tmp-steamos-real-dashboard
+```
+
+When `--xdg-root` is provided, the launcher derives:
+
+- `XDG_CONFIG_HOME=<root>/config`
+- `XDG_DATA_HOME=<root>/data`
+- `XDG_STATE_HOME=<root>/state`
+- `XDG_CACHE_HOME=<root>/cache`
+- `XDG_RUNTIME_DIR=<root>/runtime`
+
+This is for local validation only. Provider config and provider secrets under that temp root stay local and must not be committed or pasted.
+
+Fallback manual method:
 
 ### Windows PowerShell Example
 
@@ -235,8 +274,8 @@ $env:XDG_RUNTIME_DIR = Join-Path $root "runtime"
 
 New-Item -ItemType Directory -Force $env:XDG_RUNTIME_DIR | Out-Null
 
-pnpm run build:steamos
-pnpm run start:steamos
+npm run build:steamos
+npm run start:steamos
 ```
 
 ### SteamOS Or Linux Example
@@ -253,8 +292,8 @@ export XDG_RUNTIME_DIR="$root/runtime"
 
 mkdir -p "$XDG_RUNTIME_DIR"
 
-pnpm run build:steamos
-pnpm run start:steamos
+npm run build:steamos
+npm run start:steamos
 ```
 
 These XDG directories are safe for local validation because they isolate:

@@ -40,6 +40,45 @@ def _get_env_path(env: Mapping[str, str], key: str) -> Path | None:
   return Path(trimmed)
 
 
+def resolve_steamos_xdg_root(
+  xdg_root: str | Path,
+  *,
+  cwd: Path | None = None,
+) -> Path:
+  raw_value = str(xdg_root).strip()
+  if raw_value == "":
+    raise ValueError("XDG root must not be empty.")
+
+  raw_path = Path(raw_value)
+  if ".." in raw_path.parts:
+    raise ValueError("XDG root must not contain '..' path traversal segments.")
+
+  base_dir = cwd if cwd is not None else Path.cwd()
+  resolved_path = raw_path if raw_path.is_absolute() else (base_dir / raw_path)
+  return resolved_path.resolve(strict=False)
+
+
+def derive_steamos_xdg_env(
+  *,
+  env: Mapping[str, str] | None = None,
+  xdg_root: str | Path | None = None,
+  cwd: Path | None = None,
+) -> dict[str, str]:
+  resolved_env = dict(env or {})
+  if xdg_root is None:
+    return resolved_env
+
+  root = resolve_steamos_xdg_root(xdg_root, cwd=cwd)
+  resolved_env.update({
+    "XDG_CONFIG_HOME": str(root / "config"),
+    "XDG_DATA_HOME": str(root / "data"),
+    "XDG_STATE_HOME": str(root / "state"),
+    "XDG_CACHE_HOME": str(root / "cache"),
+    "XDG_RUNTIME_DIR": str(root / "runtime"),
+  })
+  return resolved_env
+
+
 def resolve_steamos_backend_paths(
   *,
   env: Mapping[str, str] | None = None,

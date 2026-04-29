@@ -14,7 +14,7 @@ from urllib.parse import unquote, urlsplit
 
 from backend.local_launcher import LocalBackendRuntime, start_local_backend
 from backend.local_server import LOCAL_BACKEND_HOST, LocalBackendContext
-from backend.paths import BackendPaths, resolve_steamos_backend_paths
+from backend.paths import BackendPaths, derive_steamos_xdg_env, resolve_steamos_backend_paths
 
 
 _THREAD_JOIN_TIMEOUT_SECONDS = 5.0
@@ -22,7 +22,7 @@ _RUNTIME_METADATA_PATH = "/__achievement_companion__/runtime"
 _BOOTSTRAP_ASSET_PATH = "/assets/steamos-bootstrap.js"
 _SHELL_MARKER = "Achievement Companion SteamOS dev shell"
 _REPO_ROOT = Path(__file__).resolve().parents[1]
-_BUILD_STEAMOS_COMMAND = "pnpm run build:steamos"
+_BUILD_STEAMOS_COMMAND = "npm run build:steamos"
 _BOOTSTRAP_ASSET_BODY = (
   "\"use strict\";\n"
   "// Placeholder dev-shell bootstrap asset until a dedicated SteamOS bundle exists.\n"
@@ -225,6 +225,8 @@ def start_steamos_dev_shell(
   *,
   env: Mapping[str, str] | None = None,
   home: Path | None = None,
+  xdg_root: str | Path | None = None,
+  cwd: Path | None = None,
   paths: BackendPaths | None = None,
   metadata_path: Path | None = None,
   shell_host: str = LOCAL_BACKEND_HOST,
@@ -235,10 +237,10 @@ def start_steamos_dev_shell(
   cleanup_metadata: bool = True,
   require_built_asset: bool = False,
 ) -> SteamOSDevShellRuntime:
+  base_env = os.environ if env is None else env
+  resolved_env = derive_steamos_xdg_env(env=base_env, xdg_root=xdg_root, cwd=cwd)
   if require_built_asset:
     _ensure_built_steamos_bootstrap_asset(asset_root)
-
-  resolved_env = os.environ if env is None else env
   resolved_paths = paths or (
     context.paths if context is not None else resolve_steamos_backend_paths(env=resolved_env, home=home)
   )
@@ -249,6 +251,8 @@ def start_steamos_dev_shell(
     backend_runtime = start_local_backend(
       env=resolved_env,
       home=home,
+      xdg_root=xdg_root,
+      cwd=cwd,
       paths=resolved_paths,
       metadata_path=metadata_path,
       port=backend_port,
@@ -285,6 +289,8 @@ def run_steamos_dev_shell(
   *,
   env: Mapping[str, str] | None = None,
   home: Path | None = None,
+  xdg_root: str | Path | None = None,
+  cwd: Path | None = None,
   metadata_path: Path | None = None,
   shell_port: int = 0,
   backend_port: int = 0,
@@ -296,6 +302,8 @@ def run_steamos_dev_shell(
   runtime = start_steamos_dev_shell(
     env=env,
     home=home,
+    xdg_root=xdg_root,
+    cwd=cwd,
     metadata_path=metadata_path,
     shell_port=shell_port,
     backend_port=backend_port,
@@ -334,6 +342,11 @@ def _build_parser() -> argparse.ArgumentParser:
     help="Local backend port. Defaults to 0 for an OS-assigned ephemeral port.",
   )
   parser.add_argument(
+    "--xdg-root",
+    default=None,
+    help="Optional validation-only root used to derive XDG config/data/state/cache/runtime directories.",
+  )
+  parser.add_argument(
     "--metadata-path",
     type=Path,
     default=None,
@@ -352,9 +365,11 @@ def main(argv: Sequence[str] | None = None) -> int:
   args = parser.parse_args(argv)
   try:
     return run_steamos_dev_shell(
-      metadata_path=args.metadata_path,
-      shell_port=args.shell_port,
-      backend_port=args.backend_port,
+        metadata_path=args.metadata_path,
+        xdg_root=args.xdg_root,
+        cwd=Path.cwd(),
+        shell_port=args.shell_port,
+        backend_port=args.backend_port,
       once=args.once,
     )
   except Exception as error:

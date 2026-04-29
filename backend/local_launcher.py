@@ -20,7 +20,7 @@ from backend.local_server import (
   create_session_token,
   write_runtime_metadata,
 )
-from backend.paths import BackendPaths, ensure_backend_dirs, resolve_steamos_backend_paths
+from backend.paths import BackendPaths, derive_steamos_xdg_env, ensure_backend_dirs, resolve_steamos_backend_paths
 
 
 _THREAD_JOIN_TIMEOUT_SECONDS = 5.0
@@ -78,6 +78,8 @@ def start_local_backend(
   *,
   env: Mapping[str, str] | None = None,
   home: Path | None = None,
+  xdg_root: str | Path | None = None,
+  cwd: Path | None = None,
   paths: BackendPaths | None = None,
   metadata_path: Path | None = None,
   host: str = LOCAL_BACKEND_HOST,
@@ -86,7 +88,8 @@ def start_local_backend(
   context: LocalBackendContext | None = None,
   cleanup_metadata: bool = True,
 ) -> LocalBackendRuntime:
-  resolved_env = os.environ if env is None else env
+  base_env = os.environ if env is None else env
+  resolved_env = derive_steamos_xdg_env(env=base_env, xdg_root=xdg_root, cwd=cwd)
   resolved_paths = paths or (context.paths if context is not None else resolve_steamos_backend_paths(env=resolved_env, home=home))
   ensure_backend_dirs(resolved_paths)
   resolved_metadata_path = _resolve_metadata_path(metadata_path=metadata_path, paths=resolved_paths)
@@ -134,6 +137,8 @@ def run_local_backend(
   *,
   env: Mapping[str, str] | None = None,
   home: Path | None = None,
+  xdg_root: str | Path | None = None,
+  cwd: Path | None = None,
   metadata_path: Path | None = None,
   host: str = LOCAL_BACKEND_HOST,
   port: int = 0,
@@ -144,6 +149,8 @@ def run_local_backend(
   runtime = start_local_backend(
     env=env,
     home=home,
+    xdg_root=xdg_root,
+    cwd=cwd,
     metadata_path=metadata_path,
     host=host,
     port=port,
@@ -179,6 +186,11 @@ def _build_parser() -> argparse.ArgumentParser:
     help="Bind port. Defaults to 0 for an OS-assigned ephemeral port.",
   )
   parser.add_argument(
+    "--xdg-root",
+    default=None,
+    help="Optional validation-only root used to derive XDG config/data/state/cache/runtime directories.",
+  )
+  parser.add_argument(
     "--metadata-path",
     type=Path,
     default=None,
@@ -197,9 +209,11 @@ def main(argv: Sequence[str] | None = None) -> int:
   args = parser.parse_args(argv)
   try:
     return run_local_backend(
-      metadata_path=args.metadata_path,
-      host=args.host,
-      port=args.port,
+        metadata_path=args.metadata_path,
+        xdg_root=args.xdg_root,
+        cwd=Path.cwd(),
+        host=args.host,
+        port=args.port,
       once=args.once,
     )
   except Exception as error:

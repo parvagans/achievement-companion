@@ -281,7 +281,7 @@ class SteamOSDevShellTests(unittest.TestCase):
 
       message = str(raised.exception)
       self.assertIn("SteamOS bootstrap asset is missing", message)
-      self.assertIn("pnpm run build:steamos", message)
+      self.assertIn("npm run build:steamos", message)
       self.assertNotIn("token", message.lower())
       self.assertFalse(metadata_path.exists())
 
@@ -333,6 +333,54 @@ class SteamOSDevShellTests(unittest.TestCase):
       self.assertNotIn("token", once_stdout.getvalue().lower())
       self.assertEqual(once_stderr.getvalue(), "")
       self.assertFalse(expected_metadata_path.exists())
+
+  def test_run_dev_shell_once_supports_xdg_root_override_and_precedence(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      root = Path(temp_dir)
+      _write_test_bootstrap_asset(root)
+      env = {
+        "XDG_CONFIG_HOME": str(root / "ignored-config"),
+        "XDG_DATA_HOME": str(root / "ignored-data"),
+        "XDG_STATE_HOME": str(root / "ignored-state"),
+        "XDG_CACHE_HOME": str(root / "ignored-cache"),
+        "XDG_RUNTIME_DIR": str(root / "ignored-runtime"),
+      }
+      derived_root = root / ".tmp-steamos-launch-check"
+      expected_metadata_path = derived_root / "runtime" / "achievement-companion" / "backend.json"
+      once_stdout = io.StringIO()
+      once_stderr = io.StringIO()
+
+      with contextlib.redirect_stdout(once_stdout), contextlib.redirect_stderr(once_stderr):
+        exit_code = dev_shell.run_steamos_dev_shell(
+          env=env,
+          home=root,
+          xdg_root=".tmp-steamos-launch-check",
+          cwd=root,
+          once=True,
+          stdout=once_stdout,
+          asset_root=root,
+        )
+
+      self.assertEqual(exit_code, 0)
+      self.assertIn("SteamOS dev shell listening on http://127.0.0.1:", once_stdout.getvalue())
+      self.assertIn("Local backend listening on http://127.0.0.1:", once_stdout.getvalue())
+      self.assertIn("Local backend health available at http://127.0.0.1:", once_stdout.getvalue())
+      self.assertNotIn("token", once_stdout.getvalue().lower())
+      self.assertEqual(once_stderr.getvalue(), "")
+      self.assertTrue((derived_root / "config" / "achievement-companion").is_dir())
+      self.assertTrue((derived_root / "data" / "achievement-companion").is_dir())
+      self.assertTrue((derived_root / "state" / "achievement-companion" / "logs").is_dir())
+      self.assertTrue((derived_root / "cache" / "achievement-companion" / "dashboard").is_dir())
+      self.assertFalse(expected_metadata_path.exists())
+
+  def test_dev_shell_main_rejects_invalid_xdg_root_values_safely(self) -> None:
+    stderr = io.StringIO()
+    with contextlib.redirect_stderr(stderr):
+      exit_code = dev_shell.main(["--once", "--xdg-root", "..\\unsafe-root"])
+
+    self.assertEqual(exit_code, 1)
+    self.assertIn("must not contain '..'", stderr.getvalue())
+    self.assertNotIn("token", stderr.getvalue().lower())
 
   def test_dev_shell_stays_out_of_decky_boundaries_and_release_payload(self) -> None:
     source = (ROOT_DIR / "backend" / "dev_shell.py").read_text(encoding="utf-8")

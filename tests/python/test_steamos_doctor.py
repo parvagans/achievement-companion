@@ -109,6 +109,46 @@ class SteamOSDoctorTests(unittest.TestCase):
       self.assertNotIn("provider-config.json", output)
       self.assertNotIn("provider-secrets.json", output)
 
+  def test_xdg_root_override_reports_derived_state_and_precedence_safely(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      root = Path(temp_dir)
+      _write_repo_root_markers(root)
+      (root / "dist-steamos").mkdir(parents=True, exist_ok=True)
+      (root / "dist-steamos" / "steamos-bootstrap.js").write_text("\"use strict\";\n", encoding="utf-8")
+      derived_root = root / ".tmp-steamos-doctor-check"
+      config_path = derived_root / "config" / "achievement-companion" / "provider-config.json"
+      secrets_path = derived_root / "data" / "achievement-companion" / "provider-secrets.json"
+      cache_dir = derived_root / "cache" / "achievement-companion" / "dashboard"
+      config_path.parent.mkdir(parents=True, exist_ok=True)
+      secrets_path.parent.mkdir(parents=True, exist_ok=True)
+      cache_dir.mkdir(parents=True, exist_ok=True)
+      config_path.write_text('{"steam":{"steamId64":"76561198136628813","hasApiKey":true}}\n', encoding="utf-8")
+      secrets_path.write_text('{"secret":"super-secret-key"}\n', encoding="utf-8")
+      (cache_dir / "retroachievements.json").write_text('{"refreshedAt":1}\n', encoding="utf-8")
+      stdout = io.StringIO()
+
+      exit_code = steamos_doctor.run_steamos_doctor(
+        env={"XDG_CONFIG_HOME": str(root / "ignored-config")},
+        home=root,
+        cwd=root,
+        repo_root=root,
+        xdg_root=".tmp-steamos-doctor-check",
+        stdout=stdout,
+      )
+
+      output = stdout.getvalue()
+      self.assertEqual(exit_code, 0)
+      self.assertIn("XDG temp root override", output)
+      self.assertIn("active (.tmp-steamos-doctor-check)", output)
+      self.assertIn("takes precedence over existing XDG environment variables", output)
+      self.assertIn("provider config file present: yes", output)
+      self.assertIn("provider secrets file present: yes", output)
+      self.assertIn("retroachievements cache present: yes", output)
+      self.assertIn("steam cache present: no", output)
+      self.assertNotIn("76561198136628813", output)
+      self.assertNotIn("super-secret-key", output)
+      self.assertNotIn("ignored-config", output)
+
   def test_doctor_does_not_start_shell_backend_or_provider_work(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
       root = Path(temp_dir)
@@ -140,6 +180,15 @@ class SteamOSDoctorTests(unittest.TestCase):
     self.assertIn("usage:", help_stdout.getvalue())
     self.assertNotIn("token", help_stdout.getvalue().lower())
     self.assertEqual(help_stderr.getvalue(), "")
+
+  def test_main_rejects_invalid_xdg_root_safely(self) -> None:
+    stderr = io.StringIO()
+    with contextlib.redirect_stderr(stderr):
+      exit_code = steamos_doctor.main(["--xdg-root", "..\\unsafe-root"])
+
+    self.assertEqual(exit_code, 1)
+    self.assertIn("must not contain '..'", stderr.getvalue())
+    self.assertNotIn("token", stderr.getvalue().lower())
 
 
 if __name__ == "__main__":
