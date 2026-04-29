@@ -9,6 +9,31 @@ The SteamOS shell is a separate development/runtime path from the Decky plugin:
 
 The Decky release ZIP remains Decky-only and must not include the SteamOS-only dev-shell files or `dist-steamos`.
 
+## Real Steam Deck Validation Status
+
+The standalone SteamOS shell has now been validated on actual Steam Deck hardware in Desktop Mode.
+
+Confirmed passing checks:
+
+- shell opened successfully
+- RetroAchievements setup save passed
+- Steam setup save passed
+- RetroAchievements refresh passed
+- Steam refresh passed
+- dashboard cache creation passed
+- cached reload behavior passed in the same validation flow
+- no Steam scan or library artifacts were observed
+- issue summary remained secret-free
+
+Practical device note:
+
+- the validated Deck environment had `python3` available
+- `node` and `npm` were not available on the Deck
+- the recommended no-Node-on-Deck flow is:
+  - build `dist-steamos/steamos-bootstrap.js` on Windows
+  - copy the built asset into the Deck checkout
+  - run the standalone shell on the Deck with `python3`
+
 ## What The SteamOS Shell Supports Today
 
 Current confirmed behavior:
@@ -99,6 +124,43 @@ What it does not do:
 - print tokens, API keys, usernames, Steam IDs, provider config values, or secret file contents
 
 ## Launch Commands
+
+## Supported Validation Paths
+
+### Path A: Build And Run On A Machine With Node Or npm
+
+Use this when the same machine can build the SteamOS bootstrap and run the standalone shell:
+
+```powershell
+cd D:\projects\steamProject
+npm run build:steamos
+npm run start:steamos -- --xdg-root .tmp-steamos-deck
+```
+
+### Path B: Windows-Build / Deck-Run Without Node Or npm On Deck
+
+Use this when the Steam Deck can run Python but does not have `node` or `npm`.
+
+Windows build step:
+
+```powershell
+cd D:\projects\steamProject
+npm run build:steamos
+```
+
+Copy `dist-steamos/steamos-bootstrap.js` into the Deck checkout, then on the Deck run:
+
+```bash
+cd /path/to/steamProject
+python3 -m backend.steamos_doctor --xdg-root .tmp-steamos-deck
+python3 -m backend.dev_shell --xdg-root .tmp-steamos-deck
+```
+
+Notes:
+
+- both paths are for standalone SteamOS validation only
+- provider config and provider secrets created under the temp root stay local and must not be committed or pasted
+- the Decky release ZIP remains separate and Decky-only
 
 ### Windows Dev Shell
 
@@ -191,15 +253,11 @@ Use this checklist when validating on a real Steam Deck in Desktop Mode.
 
 ```bash
 cd /path/to/steamProject
-npm install
-npm run build:steamos
+python3 -m backend.steamos_doctor --xdg-root .tmp-steamos-deck-validation
+python3 -m backend.dev_shell --xdg-root .tmp-steamos-deck-validation
 ```
 
-Set an isolated XDG validation root with the shortcut:
-
-```bash
-npm run start:steamos -- --xdg-root .tmp-steamos-deck-validation
-```
+Use the Windows-build / Deck-run path if the Deck does not have `node` or `npm`. Build `dist-steamos/steamos-bootstrap.js` on Windows first, then copy it into the Deck checkout before running the commands above.
 
 Expected safe console output:
 
@@ -353,6 +411,19 @@ Run this checklist in order on the Deck:
    - confirm no Steam scan or library artifacts are created by dashboard refresh
    - confirm no secrets, tokens, usernames, or Steam IDs are visible in the UI
    - confirm diagnostics remains sanitized and secondary
+
+## Next Aesthetic Validation Checklist
+
+Use this as the next on-device visual/usability pass after functional validation is green:
+
+- confirm `1280x800` readability feels comfortable on Deck
+- confirm touch targets feel comfortable without precision tapping
+- confirm on-screen keyboard use feels reasonable in setup fields
+- confirm focus visibility remains obvious on the dark theme
+- confirm provider card hierarchy feels clear at a glance
+- confirm dashboard density feels readable without looking sparse or cramped
+- confirm diagnostics remains secondary
+- confirm issue summary is easy to find but not visually prominent
 
 ### 1. Missing-State Shell
 
