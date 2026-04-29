@@ -2,8 +2,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import sys
 from pathlib import Path
 from typing import Any, Mapping
+
+_PLUGIN_DIR = Path(__file__).resolve().parent
+_PLUGIN_DIR_TEXT = str(_PLUGIN_DIR)
+if _PLUGIN_DIR_TEXT not in sys.path:
+  sys.path.insert(0, _PLUGIN_DIR_TEXT)
 
 import decky
 from backend.http import request_json as _backend_request_json
