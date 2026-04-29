@@ -28,6 +28,14 @@ REQUIRED_RELATIVE_PATHS: tuple[Path, ...] = (
   Path("THIRD_PARTY_NOTICES.md"),
   Path("dist/index.js"),
 )
+RELEASE_PACKAGE_JSON_ALLOWED_FIELDS: tuple[str, ...] = (
+  "name",
+  "version",
+  "author",
+  "license",
+  "type",
+  "dependencies",
+)
 
 
 def read_package_version(root_dir: Path = ROOT_DIR) -> str:
@@ -47,6 +55,23 @@ def _copy_required_file(root_dir: Path, stage_dir: Path, relative_path: Path) ->
   destination_path = stage_dir / relative_path
   destination_path.parent.mkdir(parents=True, exist_ok=True)
   shutil.copy2(source_path, destination_path)
+
+
+def _write_release_package_json(root_dir: Path, stage_dir: Path) -> None:
+  source_path = root_dir / "package.json"
+  package_data = json.loads(source_path.read_text(encoding="utf-8"))
+  release_package_data = {
+    field_name: package_data[field_name]
+    for field_name in RELEASE_PACKAGE_JSON_ALLOWED_FIELDS
+    if field_name in package_data
+  }
+
+  destination_path = stage_dir / "package.json"
+  destination_path.parent.mkdir(parents=True, exist_ok=True)
+  destination_path.write_text(
+    json.dumps(release_package_data, indent=2) + "\n",
+    encoding="utf-8",
+  )
 
 
 def _remove_tree(path: Path) -> None:
@@ -70,6 +95,9 @@ def stage_release_package(root_dir: Path = ROOT_DIR, stage_dir: Path = STAGE_DIR
 
   stage_dir.mkdir(parents=True, exist_ok=True)
   for relative_path in REQUIRED_RELATIVE_PATHS:
+    if relative_path == Path("package.json"):
+      _write_release_package_json(root_dir, stage_dir)
+      continue
     _copy_required_file(root_dir, stage_dir, relative_path)
 
   if not (stage_dir / "main.py").exists():
@@ -80,6 +108,8 @@ def stage_release_package(root_dir: Path = ROOT_DIR, stage_dir: Path = STAGE_DIR
     raise RuntimeError("Staged release output is missing backend/http.py.")
   if not (stage_dir / "backend" / "tls.py").exists():
     raise RuntimeError("Staged release output is missing backend/tls.py.")
+  if not (stage_dir / "package.json").exists():
+    raise RuntimeError("Staged release output is missing package.json.")
 
   return stage_dir
 
@@ -99,6 +129,8 @@ def verify_staged_release_package(stage_dir: Path = STAGE_DIR) -> None:
     raise RuntimeError("Staged release output is missing backend/http.py.")
   if not (stage_dir / "backend" / "tls.py").exists():
     raise RuntimeError("Staged release output is missing backend/tls.py.")
+  if not (stage_dir / "package.json").exists():
+    raise RuntimeError("Staged release output is missing package.json.")
 
 def create_release_zip(
   *,
