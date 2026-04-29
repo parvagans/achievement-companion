@@ -70,6 +70,34 @@ pnpm run build
 pnpm run build:steamos
 ```
 
+## SteamOS Doctor Command
+
+Run the SteamOS doctor command before first launch, before Steam Deck validation, or after cleaning temp roots:
+
+```powershell
+cd D:\projects\steamProject
+npm run doctor:steamos
+```
+
+What it checks safely:
+
+- backend modules import cleanly
+- current working directory looks like the repo root
+- `dist-steamos/steamos-bootstrap.js` exists or needs `npm run build:steamos`
+- XDG environment state and whether `XDG_RUNTIME_DIR` is ready
+- provider config and provider secrets presence as booleans only
+- dashboard cache presence as booleans only
+- repo-local `.tmp-steamos*` scratch roots
+- reminder that the standalone SteamOS shell is not the Decky release ZIP
+
+What it does not do:
+
+- validate provider credentials
+- contact RetroAchievements or Steam
+- start the backend or dev shell
+- start a Steam scan
+- print tokens, API keys, usernames, Steam IDs, provider config values, or secret file contents
+
 ## Launch Commands
 
 ### Windows Dev Shell

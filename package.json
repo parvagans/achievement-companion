@@ -9,6 +9,7 @@
     "build": "rollup -c",
     "build:steamos": "rollup -c rollup.steamos.config.js",
     "start:steamos": "python -m backend.dev_shell",
+    "doctor:steamos": "python -m backend.steamos_doctor",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "package:release": "python scripts/package_release.py",
     "check:release": "python scripts/check_release_artifact.py",
