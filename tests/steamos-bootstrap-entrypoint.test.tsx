@@ -368,19 +368,97 @@ test("SteamOS issue summary builder produces sanitized report text from diagnost
   assert.match(summary, /RetroAchievements configured: yes/u);
   assert.match(summary, /RetroAchievements username present: yes/u);
   assert.match(summary, /RetroAchievements API key present: yes/u);
-  assert.match(summary, /RetroAchievements cache: present: yes/u);
+  assert.match(summary, /RetroAchievements cache present: yes/u);
   assert.match(summary, /cache size: /u);
   assert.match(summary, /last modified: /u);
   assert.match(summary, /snapshot refreshed: /u);
   assert.match(summary, /Steam configured: no/u);
   assert.match(summary, /SteamID64 present: yes/u);
   assert.match(summary, /Steam API key present: no/u);
-  assert.match(summary, /Steam cache: present: no/u);
+  assert.match(summary, /Steam cache present: no/u);
   assert.match(summary, /Last visible recovery: setup_incomplete|provider_refresh_failed/u);
   assert.match(summary, /no Steam scan expected; Decky ZIP is separate/u);
+  assert.doesNotMatch(summary, /cache: present: yes|cache: present: no/u);
   assert.doesNotMatch(summary, /Retro Player|76561198136628813|Authorization|Bearer|apiKeyDraft|provider-secrets/u);
   assert.doesNotMatch(summary, new RegExp(VALID_TOKEN, "u"));
   assert.doesNotMatch(summary, /mtimeMs|refreshedAtMs|sizeBytes|undefined|null|NaN/u);
+});
+
+test("SteamOS issue summary builder stays graceful when cache metadata is missing", () => {
+  const summary = buildSteamOSIssueSummary({
+    state: {
+      phase: "connected",
+      message: "Connected to SteamOS backend",
+      providerConfigStatus: "loaded",
+      providerConfigs: {
+        retroAchievements: {
+          username: "",
+          hasApiKey: false,
+          recentAchievementsCount: 10,
+          recentlyPlayedCount: 10,
+        },
+        steam: {
+          steamId64: "",
+          hasApiKey: false,
+          language: "english",
+          recentAchievementsCount: 10,
+          recentlyPlayedCount: 10,
+          includePlayedFreeGames: false,
+        },
+      },
+      providers: {
+        retroAchievements: {
+          label: "RetroAchievements",
+          status: "not_configured",
+        },
+        steam: {
+          label: "Steam",
+          status: "not_configured",
+        },
+      },
+    },
+    diagnostics: {
+      phase: "loaded",
+      message: "SteamOS dev shell status ready",
+      snapshot: {
+        ok: true,
+        backendReachable: true,
+        runtimeMetadata: {
+          present: true,
+          valid: true,
+        },
+        providerConfigFilePresent: false,
+        providerSecretsFilePresent: false,
+        retroAchievements: {
+          configured: false,
+          usernamePresent: false,
+          hasApiKey: false,
+        },
+        steam: {
+          configured: false,
+          steamId64Present: false,
+          hasApiKey: false,
+        },
+        dashboardCache: {
+          retroAchievements: {
+            present: true,
+            valid: true,
+          },
+          steam: {
+            present: false,
+            valid: false,
+          },
+        },
+      },
+    },
+    generatedAt: new Date("2026-04-29T10:30:00.000Z"),
+  });
+
+  assert.match(summary, /RetroAchievements cache present: yes/u);
+  assert.match(summary, /Steam cache present: no/u);
+  assert.doesNotMatch(summary, /cache size: |last modified: |snapshot refreshed: /u);
+  assert.doesNotMatch(summary, /cache: present: yes|cache: present: no/u);
+  assert.doesNotMatch(summary, /undefined|null|NaN/u);
 });
 
 test("SteamOS issue summary clipboard helper falls back safely when clipboard is unavailable", async () => {

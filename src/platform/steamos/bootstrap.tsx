@@ -887,7 +887,7 @@ function formatIssueSummaryCacheLine(
   label: string,
   status: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"] | undefined,
 ): string {
-  const segments = [`present: ${formatIssueSummaryBoolean(status?.present === true)}`];
+  const segments = [`${label} cache present: ${formatIssueSummaryBoolean(status?.present === true)}`];
 
   if (status?.present === true && status.valid === true) {
     const cacheSize = formatCacheSize(status.sizeBytes);
@@ -909,7 +909,7 @@ function formatIssueSummaryCacheLine(
     segments.push("cache state: unreadable");
   }
 
-  return `${label} cache: ${segments.join(" · ")}`;
+  return segments.join(" · ");
 }
 
 function resolveIssueSummaryRuntimeStatus(
