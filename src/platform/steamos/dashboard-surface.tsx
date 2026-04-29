@@ -70,13 +70,14 @@ const SURFACE_STYLE: CSSProperties = {
 };
 
 const PANEL_STYLE: CSSProperties = {
-  border: "1px solid rgba(148, 163, 184, 0.18)",
-  borderRadius: "20px",
-  background: "linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0.74) 100%)",
-  padding: "1.15rem",
-  boxShadow: "0 16px 36px rgba(2, 6, 23, 0.24)",
+  border: "1px solid rgba(148, 163, 184, 0.16)",
+  borderRadius: "22px",
+  background:
+    "linear-gradient(180deg, rgba(15, 23, 42, 0.93) 0%, rgba(15, 23, 42, 0.8) 58%, rgba(11, 18, 32, 0.88) 100%)",
+  padding: "1.2rem",
+  boxShadow: "0 20px 42px rgba(2, 6, 23, 0.26)",
   display: "grid",
-  gap: "1rem",
+  gap: "1.05rem",
 };
 
 const SECTION_HEADER_STYLE: CSSProperties = {
@@ -114,10 +115,10 @@ const HELP_TEXT_STYLE: CSSProperties = {
 };
 
 const CHOOSER_PANEL_STYLE: CSSProperties = {
-  border: "1px solid rgba(148, 163, 184, 0.18)",
-  borderRadius: "16px",
-  background: "rgba(15, 23, 42, 0.72)",
-  padding: "1rem",
+  border: "1px solid rgba(148, 163, 184, 0.14)",
+  borderRadius: "18px",
+  background: "rgba(15, 23, 42, 0.76)",
+  padding: "1rem 1rem 1.05rem",
   display: "grid",
   gap: "0.85rem",
 };
@@ -149,14 +150,15 @@ const BUTTON_BASE_STYLE: CSSProperties = {
 const SELECTED_PROVIDER_BUTTON_STYLE: CSSProperties = {
   ...BUTTON_BASE_STYLE,
   border: "1px solid rgba(59, 130, 246, 0.35)",
-  background: "linear-gradient(180deg, rgba(37, 99, 235, 0.96) 0%, rgba(29, 78, 216, 0.96) 100%)",
+  background: "linear-gradient(180deg, rgba(37, 99, 235, 0.98) 0%, rgba(29, 78, 216, 0.94) 100%)",
   color: "#ffffff",
+  boxShadow: "0 10px 24px rgba(37, 99, 235, 0.22)",
 };
 
 const UNSELECTED_PROVIDER_BUTTON_STYLE: CSSProperties = {
   ...BUTTON_BASE_STYLE,
   border: "1px solid rgba(148, 163, 184, 0.28)",
-  backgroundColor: "rgba(15, 23, 42, 0.74)",
+  backgroundColor: "rgba(15, 23, 42, 0.82)",
   color: "#e2e8f0",
 };
 
@@ -173,13 +175,14 @@ const STATUS_BADGE_BASE_STYLE: CSSProperties = {
 };
 
 const CONTENT_CARD_STYLE: CSSProperties = {
-  border: "1px solid rgba(148, 163, 184, 0.18)",
-  borderRadius: "18px",
-  background: "linear-gradient(180deg, rgba(15, 23, 42, 0.88) 0%, rgba(15, 23, 42, 0.74) 100%)",
-  padding: "1.05rem",
+  border: "1px solid rgba(148, 163, 184, 0.14)",
+  borderRadius: "20px",
+  background:
+    "linear-gradient(180deg, rgba(17, 24, 39, 0.94) 0%, rgba(15, 23, 42, 0.88) 58%, rgba(11, 18, 32, 0.92) 100%)",
+  padding: "1.15rem",
   display: "grid",
-  gap: "0.95rem",
-  boxShadow: "0 14px 30px rgba(2, 6, 23, 0.2)",
+  gap: "1rem",
+  boxShadow: "0 18px 34px rgba(2, 6, 23, 0.22)",
 };
 
 const CONTENT_HEADING_STYLE: CSSProperties = {
@@ -209,29 +212,31 @@ const META_GROUP_STYLE: CSSProperties = {
 const SUMMARY_GRID_STYLE: CSSProperties = {
   display: "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-  gap: "0.8rem",
+  gap: "0.9rem",
 };
 
 const SUMMARY_CARD_STYLE: CSSProperties = {
-  border: "1px solid rgba(148, 163, 184, 0.14)",
-  borderRadius: "14px",
-  backgroundColor: "rgba(15, 23, 42, 0.72)",
-  padding: "0.95rem",
+  border: "1px solid rgba(148, 163, 184, 0.12)",
+  borderRadius: "16px",
+  background:
+    "linear-gradient(180deg, rgba(15, 23, 42, 0.78) 0%, rgba(15, 23, 42, 0.66) 100%)",
+  padding: "1rem",
   display: "grid",
-  gap: "0.35rem",
+  gap: "0.4rem",
+  boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.02)",
 };
 
 const SUMMARY_LABEL_STYLE: CSSProperties = {
   margin: 0,
   fontSize: "0.88rem",
-  color: "#94a3b8",
+  color: "#9fb4ca",
 };
 
 const SUMMARY_VALUE_STYLE: CSSProperties = {
   margin: 0,
-  fontSize: "1.2rem",
+  fontSize: "1.28rem",
   fontWeight: 800,
-  color: "#f8fafc",
+  color: "#f8fbff",
 };
 
 const ERROR_TEXT_STYLE: CSSProperties = {

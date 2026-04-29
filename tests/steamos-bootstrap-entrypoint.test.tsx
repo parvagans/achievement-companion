@@ -121,6 +121,7 @@ test("SteamOS bootstrap entrypoint renders loading and connected states without 
   assert.match(states[0] ?? "", /Loading SteamOS backend\.\.\./u);
   assert.match(states[1] ?? "", /Connected to SteamOS backend/u);
   assert.match(states[1] ?? "", /SteamOS dev shell/u);
+  assert.match(states[1] ?? "", /html,\s*body,\s*#root/u);
   assert.match(states[1] ?? "", /RetroAchievements/u);
   assert.match(states[1] ?? "", /configured/u);
   assert.match(states[1] ?? "", /Steam/u);

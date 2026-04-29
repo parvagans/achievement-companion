@@ -120,18 +120,33 @@ export interface AutoMountSteamOSBootstrapOptions extends MountSteamOSBootstrapO
 const PAGE_STYLE: CSSProperties = {
   minHeight: "100vh",
   width: "100%",
-  maxWidth: "1080px",
+  maxWidth: "1120px",
   margin: "0 auto",
-  padding: "1.5rem 1rem 2rem",
+  padding: "1.75rem 1.1rem 2.4rem",
   display: "grid",
-  gap: "1.1rem",
-  color: "#e2e8f0",
-  fontFamily: "\"Segoe UI\", system-ui, sans-serif",
+  gap: "1.2rem",
+  color: "#e5edf8",
+  fontFamily: "\"Aptos\", \"Segoe UI\", system-ui, sans-serif",
   background:
-    "radial-gradient(circle at top, rgba(59, 130, 246, 0.18), transparent 34%), linear-gradient(180deg, #0a0f19 0%, #0f172a 48%, #111827 100%)",
+    "radial-gradient(circle at top left, rgba(96, 165, 250, 0.16), transparent 32%), radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 28%), linear-gradient(180deg, #08101a 0%, #0c1625 44%, #111827 100%)",
 };
 
 const STEAMOS_INPUT_READINESS_CSS = `
+  html,
+  body,
+  #root {
+    min-height: 100%;
+    margin: 0;
+    background:
+      radial-gradient(circle at top left, rgba(96, 165, 250, 0.16), transparent 32%),
+      radial-gradient(circle at top right, rgba(15, 118, 110, 0.12), transparent 28%),
+      linear-gradient(180deg, #08101a 0%, #0c1625 44%, #111827 100%);
+  }
+
+  body {
+    color: #e5edf8;
+  }
+
   .steamos-shell,
   .steamos-shell * {
     box-sizing: border-box;
@@ -197,25 +212,81 @@ const STEAMOS_INPUT_READINESS_CSS = `
 
 const PAGE_TITLE_STYLE: CSSProperties = {
   margin: 0,
-  fontSize: "2rem",
-  lineHeight: 1.06,
-  letterSpacing: "-0.02em",
+  fontSize: "2.25rem",
+  lineHeight: 1.02,
+  letterSpacing: "-0.03em",
+  color: "#f8fbff",
 };
 
 const PAGE_SUBTITLE_STYLE: CSSProperties = {
   margin: 0,
   fontSize: "1rem",
-  color: "#94a3b8",
+  color: "#a7b7cf",
+  lineHeight: 1.6,
+  maxWidth: "44rem",
+};
+
+const PAGE_HEADER_STYLE: CSSProperties = {
+  border: "1px solid rgba(148, 163, 184, 0.16)",
+  borderRadius: "26px",
+  padding: "1.35rem 1.35rem 1.2rem",
+  background:
+    "linear-gradient(160deg, rgba(15, 23, 42, 0.96) 0%, rgba(17, 24, 39, 0.9) 58%, rgba(10, 15, 25, 0.92) 100%)",
+  boxShadow: "0 24px 60px rgba(2, 6, 23, 0.34)",
+  display: "grid",
+  gap: "1rem",
+};
+
+const PAGE_HEADER_TOPLINE_STYLE: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.85rem",
+  flexWrap: "wrap",
+};
+
+const PAGE_HEADER_EYEBROW_STYLE: CSSProperties = {
+  margin: 0,
+  fontSize: "0.78rem",
+  fontWeight: 800,
+  letterSpacing: "0.12em",
+  textTransform: "uppercase",
+  color: "#7dd3fc",
+};
+
+const PAGE_HEADER_STATUS_ROW_STYLE: CSSProperties = {
+  display: "flex",
+  gap: "0.6rem",
+  flexWrap: "wrap",
+};
+
+const PAGE_HEADER_STATUS_PILL_STYLE: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.45rem",
+  minHeight: "2.1rem",
+  padding: "0.45rem 0.8rem",
+  borderRadius: "999px",
+  border: "1px solid rgba(125, 211, 252, 0.18)",
+  backgroundColor: "rgba(15, 23, 42, 0.72)",
+  color: "#dbeafe",
+  fontSize: "0.86rem",
+  fontWeight: 700,
+};
+
+const PAGE_HEADER_COPY_STYLE: CSSProperties = {
+  display: "grid",
+  gap: "0.55rem",
 };
 
 const STATUS_PANEL_STYLE: CSSProperties = {
-  border: "1px solid rgba(148, 163, 184, 0.18)",
-  borderRadius: "18px",
-  background: "linear-gradient(180deg, rgba(15, 23, 42, 0.88) 0%, rgba(15, 23, 42, 0.74) 100%)",
-  padding: "1rem 1.1rem",
-  boxShadow: "0 16px 40px rgba(2, 6, 23, 0.32)",
+  border: "1px solid rgba(148, 163, 184, 0.14)",
+  borderRadius: "22px",
+  background: "linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0.76) 100%)",
+  padding: "1.15rem 1.2rem",
+  boxShadow: "0 18px 42px rgba(2, 6, 23, 0.3)",
   display: "grid",
-  gap: "0.6rem",
+  gap: "0.7rem",
 };
 
 const STATUS_MESSAGE_STYLE: CSSProperties = {
@@ -232,11 +303,11 @@ const STATUS_HINT_STYLE: CSSProperties = {
 };
 
 const DEV_SHELL_STATUS_STYLE: CSSProperties = {
-  border: "1px solid rgba(148, 163, 184, 0.18)",
-  borderRadius: "18px",
-  background: "linear-gradient(180deg, rgba(15, 23, 42, 0.78) 0%, rgba(15, 23, 42, 0.6) 100%)",
-  padding: "1rem 1.1rem",
-  boxShadow: "0 16px 40px rgba(2, 6, 23, 0.28)",
+  border: "1px solid rgba(148, 163, 184, 0.14)",
+  borderRadius: "20px",
+  background: "linear-gradient(180deg, rgba(11, 18, 32, 0.78) 0%, rgba(15, 23, 42, 0.56) 100%)",
+  padding: "1rem 1.1rem 1.1rem",
+  boxShadow: "0 14px 32px rgba(2, 6, 23, 0.22)",
   display: "grid",
   gap: "0.8rem",
 };
@@ -353,13 +424,14 @@ const DEV_SHELL_STATUS_SUMMARY_PREVIEW_STYLE: CSSProperties = {
 const STEAMOS_SETUP_SECTION_ID = "steamos-setup-surface";
 const STEAMOS_DASHBOARD_SECTION_ID = "steamos-dashboard-surface";
 const STEAMOS_APP_OVERVIEW_STYLE: CSSProperties = {
-  border: "1px solid rgba(148, 163, 184, 0.18)",
-  borderRadius: "20px",
-  background: "linear-gradient(180deg, rgba(15, 23, 42, 0.88) 0%, rgba(15, 23, 42, 0.72) 100%)",
-  padding: "1.1rem",
-  boxShadow: "0 16px 42px rgba(2, 6, 23, 0.3)",
+  border: "1px solid rgba(148, 163, 184, 0.16)",
+  borderRadius: "24px",
+  background:
+    "linear-gradient(180deg, rgba(15, 23, 42, 0.93) 0%, rgba(15, 23, 42, 0.76) 100%)",
+  padding: "1.2rem",
+  boxShadow: "0 20px 48px rgba(2, 6, 23, 0.3)",
   display: "grid",
-  gap: "0.95rem",
+  gap: "1rem",
 };
 
 const STEAMOS_APP_OVERVIEW_HEADER_STYLE: CSSProperties = {
@@ -395,18 +467,19 @@ const STEAMOS_PROVIDER_GRID_STYLE: CSSProperties = {
 };
 
 const STEAMOS_PROVIDER_CARD_STYLE: CSSProperties = {
-  border: "1px solid rgba(148, 163, 184, 0.16)",
-  borderRadius: "16px",
-  background: "linear-gradient(180deg, rgba(15, 23, 42, 0.92) 0%, rgba(17, 24, 39, 0.84) 100%)",
-  padding: "1.05rem",
+  border: "1px solid rgba(148, 163, 184, 0.14)",
+  borderRadius: "20px",
+  background:
+    "linear-gradient(180deg, rgba(17, 24, 39, 0.94) 0%, rgba(15, 23, 42, 0.88) 58%, rgba(11, 18, 32, 0.92) 100%)",
+  padding: "1.15rem",
   display: "grid",
-  gap: "0.95rem",
-  boxShadow: "0 10px 24px rgba(2, 6, 23, 0.22)",
+  gap: "1rem",
+  boxShadow: "0 18px 34px rgba(2, 6, 23, 0.24)",
 };
 
 const STEAMOS_PROVIDER_CARD_ACTIVE_STYLE: CSSProperties = {
   border: "1px solid rgba(96, 165, 250, 0.7)",
-  boxShadow: "0 0 0 1px rgba(96, 165, 250, 0.14), 0 16px 34px rgba(37, 99, 235, 0.18)",
+  boxShadow: "0 0 0 1px rgba(96, 165, 250, 0.14), 0 22px 42px rgba(37, 99, 235, 0.18)",
 };
 
 const STEAMOS_PROVIDER_CARD_HEADER_STYLE: CSSProperties = {
@@ -437,20 +510,52 @@ const STEAMOS_PROVIDER_CARD_STATUS_BADGE_STYLE: CSSProperties = {
 
 const STEAMOS_PROVIDER_CARD_STATUS_TEXT_STYLE: CSSProperties = {
   margin: 0,
-  color: "#cbd5e1",
-  lineHeight: 1.5,
+  color: "#d8e4f3",
+  lineHeight: 1.58,
 };
 
 const STEAMOS_PROVIDER_CARD_META_STYLE: CSSProperties = {
   margin: 0,
-  color: "#94a3b8",
+  color: "#9bb0c8",
   lineHeight: 1.45,
+};
+
+const STEAMOS_PROVIDER_CARD_DETAIL_GRID_STYLE: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gap: "0.7rem",
+};
+
+const STEAMOS_PROVIDER_CARD_DETAIL_ITEM_STYLE: CSSProperties = {
+  border: "1px solid rgba(148, 163, 184, 0.12)",
+  borderRadius: "14px",
+  backgroundColor: "rgba(15, 23, 42, 0.66)",
+  padding: "0.8rem 0.85rem",
+  display: "grid",
+  gap: "0.32rem",
+};
+
+const STEAMOS_PROVIDER_CARD_DETAIL_LABEL_STYLE: CSSProperties = {
+  margin: 0,
+  fontSize: "0.78rem",
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+  color: "#7dd3fc",
+};
+
+const STEAMOS_PROVIDER_CARD_DETAIL_VALUE_STYLE: CSSProperties = {
+  margin: 0,
+  color: "#d8e4f3",
+  lineHeight: 1.5,
 };
 
 const STEAMOS_PROVIDER_CARD_ACTIONS_STYLE: CSSProperties = {
   display: "flex",
   gap: "0.65rem",
   flexWrap: "wrap",
+  paddingTop: "0.2rem",
+  borderTop: "1px solid rgba(148, 163, 184, 0.12)",
 };
 
 const STEAMOS_PROVIDER_CARD_PRIMARY_ACTION_STYLE: CSSProperties = {
@@ -1347,15 +1452,28 @@ export function SteamOSAppShellOverview(
               <p style={STEAMOS_PROVIDER_CARD_STATUS_TEXT_STYLE}>
                 {formatProviderCardDescription(card.providerStatus, card.cacheStatus)}
               </p>
-              {diagnosticsSnapshot !== undefined ? (
-                <p style={STEAMOS_PROVIDER_CARD_META_STYLE}>
-                  {formatProviderCardCacheMeta(card.cacheStatus)}
-                </p>
-              ) : (
-                <p style={STEAMOS_PROVIDER_CARD_META_STYLE}>
-                  Dev status is still loading or unavailable.
-                </p>
-              )}
+              <div style={STEAMOS_PROVIDER_CARD_DETAIL_GRID_STYLE}>
+                <div style={STEAMOS_PROVIDER_CARD_DETAIL_ITEM_STYLE}>
+                  <p style={STEAMOS_PROVIDER_CARD_DETAIL_LABEL_STYLE}>Setup</p>
+                  <p style={STEAMOS_PROVIDER_CARD_DETAIL_VALUE_STYLE}>
+                    {card.providerStatus === "setup_incomplete"
+                      ? "Credentials need to be saved again before dashboard refresh can resume."
+                      : card.providerStatus === "configured"
+                        ? "Saved locally in the backend and ready for explicit dashboard work."
+                        : card.providerStatus === "unavailable"
+                          ? "Local provider state is temporarily unavailable."
+                          : "Save provider setup first, then return here to refresh or open the dashboard."}
+                  </p>
+                </div>
+                <div style={STEAMOS_PROVIDER_CARD_DETAIL_ITEM_STYLE}>
+                  <p style={STEAMOS_PROVIDER_CARD_DETAIL_LABEL_STYLE}>Cache</p>
+                  <p style={STEAMOS_PROVIDER_CARD_DETAIL_VALUE_STYLE}>
+                    {diagnosticsSnapshot !== undefined
+                      ? formatProviderCardCacheMeta(card.cacheStatus)
+                      : "Dev status is still loading or unavailable."}
+                  </p>
+                </div>
+              </div>
               {dashboardMessages?.[card.providerId] !== undefined ? (
                 <p role="alert" style={ERROR_TEXT_STYLE}>{dashboardMessages[card.providerId]}</p>
               ) : null}
@@ -1437,9 +1555,20 @@ export function SteamOSBootstrapStatus(
   return (
     <main className="steamos-shell" data-steamos-bootstrap-state={state.phase} style={PAGE_STYLE}>
       <style>{STEAMOS_INPUT_READINESS_CSS}</style>
-      <header>
-        <h1 style={PAGE_TITLE_STYLE}>Achievement Companion</h1>
-        <p style={PAGE_SUBTITLE_STYLE}>SteamOS dev shell</p>
+      <header style={PAGE_HEADER_STYLE}>
+        <div style={PAGE_HEADER_TOPLINE_STYLE}>
+          <p style={PAGE_HEADER_EYEBROW_STYLE}>Standalone SteamOS Runtime</p>
+          <div style={PAGE_HEADER_STATUS_ROW_STYLE}>
+            <span style={PAGE_HEADER_STATUS_PILL_STYLE}>Local backend only</span>
+            <span style={PAGE_HEADER_STATUS_PILL_STYLE}>Steam Deck validated</span>
+          </div>
+        </div>
+        <div style={PAGE_HEADER_COPY_STYLE}>
+          <h1 style={PAGE_TITLE_STYLE}>Achievement Companion</h1>
+          <p style={PAGE_SUBTITLE_STYLE}>
+            SteamOS dev shell
+          </p>
+        </div>
       </header>
       <section style={STATUS_PANEL_STYLE}>
         <p style={STATUS_MESSAGE_STYLE}>{state.message}</p>
@@ -1952,9 +2081,20 @@ export function SteamOSBootstrapShell(
   return (
     <main className="steamos-shell" data-steamos-bootstrap-state={connectedState.phase} style={PAGE_STYLE}>
       <style>{STEAMOS_INPUT_READINESS_CSS}</style>
-      <header>
-        <h1 style={PAGE_TITLE_STYLE}>Achievement Companion</h1>
-        <p style={PAGE_SUBTITLE_STYLE}>SteamOS app shell</p>
+      <header style={PAGE_HEADER_STYLE}>
+        <div style={PAGE_HEADER_TOPLINE_STYLE}>
+          <p style={PAGE_HEADER_EYEBROW_STYLE}>Standalone SteamOS Runtime</p>
+          <div style={PAGE_HEADER_STATUS_ROW_STYLE}>
+            <span style={PAGE_HEADER_STATUS_PILL_STYLE}>Steam Deck validated</span>
+            <span style={PAGE_HEADER_STATUS_PILL_STYLE}>Cache-first dashboard shell</span>
+          </div>
+        </div>
+        <div style={PAGE_HEADER_COPY_STYLE}>
+          <h1 style={PAGE_TITLE_STYLE}>Achievement Companion</h1>
+          <p style={PAGE_SUBTITLE_STYLE}>
+            SteamOS app shell
+          </p>
+        </div>
       </header>
       <section style={STATUS_PANEL_STYLE}>
         <p style={STATUS_MESSAGE_STYLE}>{connectedState.message}</p>

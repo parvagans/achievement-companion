@@ -97,7 +97,7 @@ const HELP_TEXT_STYLE: CSSProperties = {
   margin: 0,
   fontSize: "0.95rem",
   lineHeight: 1.55,
-  color: "#cbd5e1",
+  color: "#cfd9e7",
 };
 
 const PROVIDER_GRID_STYLE: CSSProperties = {
@@ -107,11 +107,12 @@ const PROVIDER_GRID_STYLE: CSSProperties = {
 };
 
 const PROVIDER_CARD_STYLE: CSSProperties = {
-  border: "1px solid rgba(148, 163, 184, 0.18)",
-  borderRadius: "18px",
-  background: "linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0.74) 100%)",
-  padding: "1.1rem",
-  boxShadow: "0 16px 36px rgba(2, 6, 23, 0.24)",
+  border: "1px solid rgba(148, 163, 184, 0.16)",
+  borderRadius: "20px",
+  background:
+    "linear-gradient(180deg, rgba(17, 24, 39, 0.94) 0%, rgba(15, 23, 42, 0.86) 58%, rgba(11, 18, 32, 0.92) 100%)",
+  padding: "1.18rem",
+  boxShadow: "0 20px 38px rgba(2, 6, 23, 0.24)",
   display: "grid",
   gap: "1rem",
 };
@@ -126,8 +127,8 @@ const PROVIDER_HEADER_STYLE: CSSProperties = {
 
 const PROVIDER_TITLE_STYLE: CSSProperties = {
   margin: 0,
-  fontSize: "1.05rem",
-  color: "#f8fafc",
+  fontSize: "1.08rem",
+  color: "#f8fbff",
 };
 
 const FIELD_GRID_STYLE: CSSProperties = {
@@ -148,21 +149,22 @@ const LABEL_STYLE: CSSProperties = {
 const INPUT_STYLE: CSSProperties = {
   width: "100%",
   boxSizing: "border-box",
-  borderRadius: "12px",
-  border: "1px solid rgba(148, 163, 184, 0.26)",
+  borderRadius: "14px",
+  border: "1px solid rgba(148, 163, 184, 0.24)",
   padding: "0.9rem 1rem",
   minHeight: "52px",
   fontSize: "1rem",
   lineHeight: 1.4,
-  color: "#e2e8f0",
-  backgroundColor: "rgba(15, 23, 42, 0.86)",
+  color: "#e8eef7",
+  backgroundColor: "rgba(15, 23, 42, 0.9)",
+  boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.02)",
 };
 
 const PROVIDER_HELP_STYLE: CSSProperties = {
   margin: 0,
   fontSize: "0.9rem",
   lineHeight: 1.5,
-  color: "#94a3b8",
+  color: "#9bb0c8",
 };
 
 const BUTTON_ROW_STYLE: CSSProperties = {
