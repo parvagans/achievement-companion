@@ -10,6 +10,8 @@ import {
   SteamOSDevShellStatusPanel,
   autoMountSteamOSShell,
   bootstrapSteamOSShell,
+  buildSteamOSIssueSummary,
+  copySteamOSIssueSummaryToClipboard,
   loadSteamOSDevShellDiagnosticsStatus,
 } from "../src/platform/steamos/bootstrap";
 import { SteamOSRuntimeBootstrapError } from "../src/platform/steamos/runtime-bootstrap";
@@ -251,6 +253,7 @@ test("SteamOS dev shell diagnostics panel renders safe local status without expo
         },
       }}
       onRefresh={() => {}}
+      onIssueSummaryAction={() => {}}
     />,
   );
 
@@ -272,10 +275,193 @@ test("SteamOS dev shell diagnostics panel renders safe local status without expo
   assert.match(markup, /Snapshot refreshed/u);
   assert.match(markup, /Steam cache/u);
   assert.match(markup, /missing/u);
+  assert.match(markup, /Copy issue summary/u);
   assert.match(markup, /Refresh status/u);
   assert.doesNotMatch(markup, /mtimeMs|refreshedAtMs|sizeBytes/u);
   assert.doesNotMatch(markup, /undefined|null|NaN/u);
   assert.doesNotMatch(markup, /sol88|steam-secret|apiKeyDraft|Authorization|provider-secrets|76561198136628813/u);
+});
+
+test("SteamOS issue summary builder produces sanitized report text from diagnostics state", () => {
+  const summary = buildSteamOSIssueSummary({
+    state: {
+      phase: "connected",
+      message: `Connected with token ${VALID_TOKEN}`,
+      errorCode: undefined,
+      providerConfigStatus: "loaded",
+      providerConfigs: {
+        retroAchievements: {
+          username: "Retro Player",
+          hasApiKey: true,
+          recentAchievementsCount: 10,
+          recentlyPlayedCount: 10,
+        },
+        steam: {
+          steamId64: "76561198136628813",
+          hasApiKey: true,
+          language: "english",
+          recentAchievementsCount: 10,
+          recentlyPlayedCount: 10,
+          includePlayedFreeGames: false,
+        },
+      },
+      providers: {
+        retroAchievements: {
+          label: "RetroAchievements",
+          status: "configured",
+        },
+        steam: {
+          label: "Steam",
+          status: "setup_incomplete",
+        },
+      },
+    },
+    diagnostics: {
+      phase: "loaded",
+      message: "SteamOS dev shell status ready",
+      snapshot: {
+        ok: true,
+        backendReachable: true,
+        runtimeMetadata: {
+          present: true,
+          valid: true,
+          sizeBytes: 128,
+          mtimeMs: 1_710_000_000_000,
+        },
+        providerConfigFilePresent: true,
+        providerSecretsFilePresent: true,
+        retroAchievements: {
+          configured: true,
+          usernamePresent: true,
+          hasApiKey: true,
+        },
+        steam: {
+          configured: false,
+          steamId64Present: true,
+          hasApiKey: false,
+        },
+        dashboardCache: {
+          retroAchievements: {
+            present: true,
+            valid: true,
+            sizeBytes: 8_558,
+            mtimeMs: 1_777_314_905_653,
+            refreshedAtMs: 1_777_314_905_649,
+          },
+          steam: {
+            present: false,
+            valid: false,
+          },
+        },
+      },
+    },
+    dashboardMessages: {
+      [RETROACHIEVEMENTS_PROVIDER_ID]: "Showing cached dashboard data. Refresh failed. Try again when the backend is available.",
+    },
+    generatedAt: new Date("2026-04-29T10:15:00.000Z"),
+  });
+
+  assert.match(summary, /Achievement Companion SteamOS issue summary/u);
+  assert.match(summary, /Generated: 2026-04-29T10:15:00\.000Z/u);
+  assert.match(summary, /Runtime: runtime_available/u);
+  assert.match(summary, /Backend: backend_reachable/u);
+  assert.match(summary, /RetroAchievements configured: yes/u);
+  assert.match(summary, /RetroAchievements username present: yes/u);
+  assert.match(summary, /RetroAchievements API key present: yes/u);
+  assert.match(summary, /RetroAchievements cache: present: yes/u);
+  assert.match(summary, /cache size: /u);
+  assert.match(summary, /last modified: /u);
+  assert.match(summary, /snapshot refreshed: /u);
+  assert.match(summary, /Steam configured: no/u);
+  assert.match(summary, /SteamID64 present: yes/u);
+  assert.match(summary, /Steam API key present: no/u);
+  assert.match(summary, /Steam cache: present: no/u);
+  assert.match(summary, /Last visible recovery: setup_incomplete|provider_refresh_failed/u);
+  assert.match(summary, /no Steam scan expected; Decky ZIP is separate/u);
+  assert.doesNotMatch(summary, /Retro Player|76561198136628813|Authorization|Bearer|apiKeyDraft|provider-secrets/u);
+  assert.doesNotMatch(summary, new RegExp(VALID_TOKEN, "u"));
+  assert.doesNotMatch(summary, /mtimeMs|refreshedAtMs|sizeBytes|undefined|null|NaN/u);
+});
+
+test("SteamOS issue summary clipboard helper falls back safely when clipboard is unavailable", async () => {
+  const fallback = await copySteamOSIssueSummaryToClipboard(
+    "Achievement Companion SteamOS issue summary\nBackend: backend_unavailable",
+    undefined,
+  );
+
+  assert.equal(fallback.copied, false);
+  assert.match(fallback.feedbackMessage, /Clipboard unavailable/u);
+  assert.match(fallback.previewText ?? "", /Achievement Companion SteamOS issue summary/u);
+  assert.doesNotMatch(fallback.previewText ?? "", /Authorization|Bearer|token=/u);
+});
+
+test("SteamOS dev shell diagnostics panel can render a visible issue summary fallback safely", () => {
+  const markup = renderToStaticMarkup(
+    <SteamOSDevShellStatusPanel
+      state={{
+        phase: "loaded",
+        message: "SteamOS dev shell status ready",
+        snapshot: {
+          ok: true,
+          backendReachable: true,
+          runtimeMetadata: {
+            present: true,
+            valid: true,
+          },
+          providerConfigFilePresent: false,
+          providerSecretsFilePresent: false,
+          retroAchievements: {
+            configured: false,
+            usernamePresent: false,
+            hasApiKey: false,
+          },
+          steam: {
+            configured: false,
+            steamId64Present: false,
+            hasApiKey: false,
+          },
+          dashboardCache: {
+            retroAchievements: {
+              present: false,
+              valid: false,
+            },
+            steam: {
+              present: false,
+              valid: false,
+            },
+          },
+        },
+      }}
+      issueSummaryMessage="Clipboard unavailable. Review this issue summary before sharing."
+      issueSummaryPreview={"Achievement Companion SteamOS issue summary\nBackend: backend_reachable"}
+      onRefresh={() => {}}
+      onIssueSummaryAction={() => {}}
+    />,
+  );
+
+  assert.match(markup, /Clipboard unavailable\. Review this issue summary before sharing\./u);
+  assert.match(markup, /aria-label="SteamOS issue summary"/u);
+  assert.match(markup, /Backend: backend_reachable/u);
+  assert.doesNotMatch(markup, /Authorization|Bearer|token=|apiKey|76561198136628813/u);
+});
+
+test("SteamOS issue summary clipboard helper copies safely when clipboard is available", async () => {
+  const copiedValues: string[] = [];
+  const result = await copySteamOSIssueSummaryToClipboard(
+    "Achievement Companion SteamOS issue summary\nBackend: backend_reachable",
+    {
+      async writeText(value: string) {
+        copiedValues.push(value);
+      },
+    },
+  );
+
+  assert.equal(result.copied, true);
+  assert.equal(result.previewText, undefined);
+  assert.match(result.feedbackMessage, /Issue summary copied/u);
+  assert.equal(copiedValues.length, 1);
+  assert.match(copiedValues[0] ?? "", /Backend: backend_reachable/u);
+  assert.doesNotMatch(copiedValues[0] ?? "", /Authorization|Bearer|token=/u);
 });
 
 test("SteamOS dev shell diagnostics panel renders backend recovery guidance safely", () => {

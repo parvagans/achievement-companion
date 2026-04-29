@@ -48,6 +48,7 @@ export type SteamOSRecoveryCode =
   | "provider_refresh_failed"
   | "cache_read_failed"
   | "cache_write_failed";
+export type SteamOSIssueSummaryRecoveryCode = SteamOSRecoveryCode | "none";
 
 export interface SteamOSProviderStatus {
   readonly label: string;
@@ -80,6 +81,19 @@ export interface SteamOSBootstrapState {
 export interface SteamOSBootstrapResult {
   readonly state: SteamOSBootstrapState;
   readonly runtime?: ReturnType<typeof createSteamOSAppRuntime>;
+}
+
+export interface SteamOSIssueSummaryOptions {
+  readonly state: SteamOSBootstrapState;
+  readonly diagnostics: SteamOSDevShellDiagnosticsState;
+  readonly dashboardMessages?: Partial<Record<SteamOSDashboardProviderId, string>>;
+  readonly generatedAt?: Date;
+}
+
+export interface SteamOSIssueSummaryActionResult {
+  readonly copied: boolean;
+  readonly feedbackMessage: string;
+  readonly previewText?: string;
 }
 
 export interface SteamOSBootstrapDependencies {
@@ -301,6 +315,39 @@ const DEV_SHELL_STATUS_BUTTON_STYLE: CSSProperties = {
   minWidth: "172px",
   fontWeight: 700,
   cursor: "pointer",
+};
+
+const DEV_SHELL_STATUS_ACTION_ROW_STYLE: CSSProperties = {
+  display: "flex",
+  gap: "0.65rem",
+  flexWrap: "wrap",
+  justifyContent: "flex-end",
+};
+
+const DEV_SHELL_STATUS_SECONDARY_BUTTON_STYLE: CSSProperties = {
+  appearance: "none",
+  border: "1px solid rgba(148, 163, 184, 0.28)",
+  borderRadius: "999px",
+  backgroundColor: "rgba(15, 23, 42, 0.72)",
+  color: "#e2e8f0",
+  padding: "0.9rem 1rem",
+  minHeight: "50px",
+  minWidth: "172px",
+  fontWeight: 700,
+  cursor: "pointer",
+};
+
+const DEV_SHELL_STATUS_SUMMARY_PREVIEW_STYLE: CSSProperties = {
+  margin: 0,
+  border: "1px solid rgba(148, 163, 184, 0.18)",
+  borderRadius: "14px",
+  backgroundColor: "rgba(2, 6, 23, 0.62)",
+  padding: "0.9rem",
+  color: "#dbeafe",
+  fontSize: "0.92rem",
+  lineHeight: 1.55,
+  whiteSpace: "pre-wrap",
+  overflowX: "auto",
 };
 
 const STEAMOS_SETUP_SECTION_ID = "steamos-setup-surface";
@@ -832,6 +879,147 @@ function formatCacheDetails(status: SteamOSDevShellDiagnosticsStatus["dashboardC
   return summarizeCacheMetadata(status);
 }
 
+function formatIssueSummaryBoolean(value: boolean): string {
+  return value ? "yes" : "no";
+}
+
+function formatIssueSummaryCacheLine(
+  label: string,
+  status: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"] | undefined,
+): string {
+  const segments = [`present: ${formatIssueSummaryBoolean(status?.present === true)}`];
+
+  if (status?.present === true && status.valid === true) {
+    const cacheSize = formatCacheSize(status.sizeBytes);
+    const modifiedAt = formatTimestamp(status.mtimeMs);
+    const refreshedAt = formatTimestamp(status.refreshedAtMs);
+
+    if (cacheSize !== undefined) {
+      segments.push(`cache size: ${cacheSize}`);
+    }
+
+    if (modifiedAt !== undefined) {
+      segments.push(`last modified: ${modifiedAt}`);
+    }
+
+    if (refreshedAt !== undefined) {
+      segments.push(`snapshot refreshed: ${refreshedAt}`);
+    }
+  } else if (status?.present === true && status.valid === false) {
+    segments.push("cache state: unreadable");
+  }
+
+  return `${label} cache: ${segments.join(" · ")}`;
+}
+
+function resolveIssueSummaryRuntimeStatus(
+  state: SteamOSBootstrapState,
+  diagnostics: SteamOSDevShellDiagnosticsState,
+): "runtime_available" | "runtime_unavailable" | "invalid_runtime_metadata" {
+  if (state.errorCode === "invalid_runtime_metadata" || diagnostics.errorCode === "invalid_runtime_metadata") {
+    return "invalid_runtime_metadata";
+  }
+
+  if (diagnostics.snapshot?.runtimeMetadata.valid === true) {
+    return "runtime_available";
+  }
+
+  return "runtime_unavailable";
+}
+
+function resolveIssueSummaryBackendStatus(
+  diagnostics: SteamOSDevShellDiagnosticsState,
+): "backend_reachable" | "backend_unavailable" {
+  if (diagnostics.errorCode === "backend_unavailable" || diagnostics.phase === "error") {
+    return "backend_unavailable";
+  }
+
+  return diagnostics.snapshot?.backendReachable === true ? "backend_reachable" : "backend_unavailable";
+}
+
+function resolveIssueSummaryRecoveryCode(
+  state: SteamOSBootstrapState,
+  diagnostics: SteamOSDevShellDiagnosticsState,
+  dashboardMessages: Partial<Record<SteamOSDashboardProviderId, string>> | undefined,
+): SteamOSIssueSummaryRecoveryCode {
+  if (diagnostics.errorCode !== undefined) {
+    return diagnostics.errorCode;
+  }
+
+  if (state.errorCode !== undefined) {
+    return state.errorCode;
+  }
+
+  if (
+    state.providers?.retroAchievements.status === "setup_incomplete"
+    || state.providers?.steam.status === "setup_incomplete"
+  ) {
+    return "setup_incomplete";
+  }
+
+  const visibleDashboardMessages = Object.values(dashboardMessages ?? {}).filter(
+    (message): message is string => typeof message === "string" && message.trim() !== "",
+  );
+  if (visibleDashboardMessages.some((message) => message.includes("cache could not be updated"))) {
+    return "cache_write_failed";
+  }
+
+  if (visibleDashboardMessages.length > 0) {
+    return "provider_refresh_failed";
+  }
+
+  return "none";
+}
+
+export function buildSteamOSIssueSummary(
+  { state, diagnostics, dashboardMessages, generatedAt = new Date() }: SteamOSIssueSummaryOptions,
+): string {
+  const snapshot = diagnostics.snapshot;
+  const retroState = snapshot?.retroAchievements;
+  const steamState = snapshot?.steam;
+
+  return [
+    "Achievement Companion SteamOS issue summary",
+    `Generated: ${generatedAt.toISOString()}`,
+    `Runtime: ${resolveIssueSummaryRuntimeStatus(state, diagnostics)}`,
+    `Backend: ${resolveIssueSummaryBackendStatus(diagnostics)}`,
+    `RetroAchievements configured: ${formatIssueSummaryBoolean(retroState?.configured === true)}`,
+    `RetroAchievements username present: ${formatIssueSummaryBoolean(retroState?.usernamePresent === true)}`,
+    `RetroAchievements API key present: ${formatIssueSummaryBoolean(retroState?.hasApiKey === true)}`,
+    formatIssueSummaryCacheLine("RetroAchievements", snapshot?.dashboardCache.retroAchievements),
+    `Steam configured: ${formatIssueSummaryBoolean(steamState?.configured === true)}`,
+    `SteamID64 present: ${formatIssueSummaryBoolean(steamState?.steamId64Present === true)}`,
+    `Steam API key present: ${formatIssueSummaryBoolean(steamState?.hasApiKey === true)}`,
+    formatIssueSummaryCacheLine("Steam", snapshot?.dashboardCache.steam),
+    `Last visible recovery: ${resolveIssueSummaryRecoveryCode(state, diagnostics, dashboardMessages)}`,
+    "Validation reminders: no Steam scan expected; Decky ZIP is separate from this standalone SteamOS shell.",
+    "Review before sharing. Do not add API keys, usernames, Steam IDs, tokens, provider config or provider secrets contents, or full request URLs.",
+  ].join("\n");
+}
+
+export async function copySteamOSIssueSummaryToClipboard(
+  summary: string,
+  clipboard: Pick<Clipboard, "writeText"> | undefined,
+): Promise<SteamOSIssueSummaryActionResult> {
+  if (clipboard?.writeText !== undefined) {
+    try {
+      await clipboard.writeText(summary);
+      return {
+        copied: true,
+        feedbackMessage: "Issue summary copied. Review it before sharing.",
+      };
+    } catch {
+      // Fall back to a visible preview below.
+    }
+  }
+
+  return {
+    copied: false,
+    feedbackMessage: "Clipboard unavailable. Review this issue summary before sharing.",
+    previewText: summary,
+  };
+}
+
 function formatProviderCardCacheDescription(
   cacheStatus: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"],
 ): string {
@@ -1278,7 +1466,19 @@ export function SteamOSBootstrapStatus(
 }
 
 export function SteamOSDevShellStatusPanel(
-  { state, onRefresh }: { readonly state: SteamOSDevShellDiagnosticsState; readonly onRefresh?: () => void },
+  {
+    state,
+    onRefresh,
+    onIssueSummaryAction,
+    issueSummaryMessage,
+    issueSummaryPreview,
+  }: {
+    readonly state: SteamOSDevShellDiagnosticsState;
+    readonly onRefresh?: () => void;
+    readonly onIssueSummaryAction?: () => void;
+    readonly issueSummaryMessage?: string;
+    readonly issueSummaryPreview?: string;
+  },
 ): JSX.Element {
   const refreshButtonLabel = state.phase === "loading" ? "Refreshing status..." : "Refresh status";
   const isRefreshing = state.phase === "loading";
@@ -1291,17 +1491,29 @@ export function SteamOSDevShellStatusPanel(
           <p style={DEV_SHELL_STATUS_EYEBROW_STYLE}>Development</p>
           <h2 style={DEV_SHELL_STATUS_TITLE_STYLE}>SteamOS dev shell status</h2>
         </div>
-        {onRefresh !== undefined ? (
-          <button
-            className="steamos-focus-target steamos-button-target"
-            type="button"
-            style={DEV_SHELL_STATUS_BUTTON_STYLE}
-            disabled={isRefreshing}
-            onClick={onRefresh}
-          >
-            {refreshButtonLabel}
-          </button>
-        ) : null}
+        <div className="steamos-action-row" style={DEV_SHELL_STATUS_ACTION_ROW_STYLE}>
+          {onIssueSummaryAction !== undefined ? (
+            <button
+              className="steamos-focus-target steamos-button-target"
+              type="button"
+              style={DEV_SHELL_STATUS_SECONDARY_BUTTON_STYLE}
+              onClick={onIssueSummaryAction}
+            >
+              Copy issue summary
+            </button>
+          ) : null}
+          {onRefresh !== undefined ? (
+            <button
+              className="steamos-focus-target steamos-button-target"
+              type="button"
+              style={DEV_SHELL_STATUS_BUTTON_STYLE}
+              disabled={isRefreshing}
+              onClick={onRefresh}
+            >
+              {refreshButtonLabel}
+            </button>
+          ) : null}
+        </div>
       </div>
       <p style={DEV_SHELL_STATUS_HELP_STYLE}>
         This checks local backend reachability, runtime metadata, provider setup, and cached dashboard snapshots.
@@ -1312,6 +1524,12 @@ export function SteamOSDevShellStatusPanel(
       </p>
       {state.recoveryHint !== undefined ? (
         <p style={DEV_SHELL_STATUS_HELP_STYLE}>{state.recoveryHint}</p>
+      ) : null}
+      {issueSummaryMessage !== undefined ? (
+        <p role="status" aria-live="polite" style={DEV_SHELL_STATUS_HELP_STYLE}>{issueSummaryMessage}</p>
+      ) : null}
+      {issueSummaryPreview !== undefined ? (
+        <pre aria-label="SteamOS issue summary" style={DEV_SHELL_STATUS_SUMMARY_PREVIEW_STYLE}>{issueSummaryPreview}</pre>
       ) : null}
       {diagnostics !== undefined ? (
         <div style={DEV_SHELL_STATUS_DETAIL_GRID_STYLE}>
@@ -1426,6 +1644,8 @@ export function SteamOSBootstrapShell(
   );
   const [dashboardReloadNonce, setDashboardReloadNonce] = useState(0);
   const [dashboardActionMessages, setDashboardActionMessages] = useState<Partial<Record<SteamOSDashboardProviderId, string>>>({});
+  const [issueSummaryMessage, setIssueSummaryMessage] = useState<string>();
+  const [issueSummaryPreview, setIssueSummaryPreview] = useState<string>();
 
   async function refreshDevShellDiagnosticsStatus(runtime = result.runtime): Promise<void> {
     setDevShellDiagnosticsState(createInitialDevShellDiagnosticsState());
@@ -1843,6 +2063,23 @@ export function SteamOSBootstrapShell(
       <SteamOSDevShellStatusPanel
         state={devShellDiagnosticsState}
         onRefresh={() => void refreshDevShellDiagnosticsStatus()}
+        onIssueSummaryAction={() => {
+          const summary = buildSteamOSIssueSummary({
+            state: {
+              ...connectedState,
+              ...(visibleProviderStatuses !== undefined ? { providers: visibleProviderStatuses } : {}),
+            },
+            diagnostics: devShellDiagnosticsState,
+            dashboardMessages: dashboardActionMessages,
+          });
+
+          void copySteamOSIssueSummaryToClipboard(summary, globalThis.navigator?.clipboard).then((actionResult) => {
+            setIssueSummaryMessage(actionResult.feedbackMessage);
+            setIssueSummaryPreview(actionResult.previewText);
+          });
+        }}
+        {...(issueSummaryMessage !== undefined ? { issueSummaryMessage } : {})}
+        {...(issueSummaryPreview !== undefined ? { issueSummaryPreview } : {})}
       />
     </main>
   );

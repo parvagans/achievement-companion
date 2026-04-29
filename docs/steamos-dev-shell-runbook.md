@@ -390,6 +390,18 @@ If you want an extra manual check, open browser devtools and confirm there is no
 
 ## Issue Capture Template
 
+Use the `Copy issue summary` action in the SteamOS dev-shell status panel before writing up a real-device issue.
+
+Review the generated summary before sharing it. Do not add screenshots, logs, or manual notes that expose:
+
+- API keys
+- runtime metadata tokens
+- usernames
+- Steam IDs
+- provider-config contents
+- provider-secrets contents
+- full provider request URLs with query values
+
 When recording a Steam Deck validation issue, capture only sanitized information:
 
 - environment:
