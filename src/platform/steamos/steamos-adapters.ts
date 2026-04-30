@@ -70,6 +70,7 @@ export interface SteamOSDevShellDiagnosticsStatus {
   readonly providerSecretsFilePresent: boolean;
   readonly retroAchievements: SteamOSRetroAchievementsDevShellStatus;
   readonly steam: SteamOSSteamDevShellStatus;
+  readonly steamLibraryScanCache: SteamOSDevShellCacheStatus;
   readonly dashboardCache: {
     readonly retroAchievements: SteamOSDevShellCacheStatus;
     readonly steam: SteamOSDevShellCacheStatus;
@@ -142,7 +143,7 @@ export const steamosPlatformCapabilities: PlatformCapabilities = {
   supportsSecretStorage: true,
   supportsAuthenticatedProviderTransport: true,
   supportsDiagnosticLogging: true,
-  supportsSteamLibraryScan: false,
+  supportsSteamLibraryScan: true,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {

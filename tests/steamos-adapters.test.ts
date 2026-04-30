@@ -17,6 +17,11 @@ import {
   type SteamOSProviderConfigValue,
 } from "../src/platform/steamos/steamos-adapters";
 import {
+  createSteamOSSteamLibraryScanOverview,
+  loadSteamOSSteamLibraryScanOverview,
+  runSteamOSSteamLibraryScan,
+} from "../src/platform/steamos/steam-library-scan";
+import {
   SteamOSLocalBackendClientError,
   createSteamOSLocalBackendClient,
 } from "../src/platform/steamos/local-backend-client";
@@ -218,6 +223,10 @@ test("SteamOS dev shell diagnostics store uses the protected backend client and 
           steamId64Present: true,
           hasApiKey: true,
         },
+        steamLibraryScanCache: {
+          present: false,
+          valid: false,
+        },
         dashboardCache: {
           retroAchievements: {
             present: true,
@@ -249,6 +258,7 @@ test("SteamOS dev shell diagnostics store uses the protected backend client and 
   assert.equal(status.runtimeMetadata.valid, true);
   assert.equal(status.retroAchievements.configured, true);
   assert.equal(status.steam.configured, true);
+  assert.equal(status.steamLibraryScanCache.present, false);
   assert.equal(status.dashboardCache.retroAchievements.present, true);
   assert.equal(status.dashboardCache.steam.present, true);
   assert.doesNotMatch(JSON.stringify(status), /apiKey|Authorization|provider-secrets|token|sol88|steam-secret/u);
@@ -566,6 +576,167 @@ test("SteamOS steam scan cache store uses backend cache endpoints and keeps cach
   }
 });
 
+test("SteamOS steam scan overview loader falls back to cached summary and backfills the overview", async () => {
+  const writes: Array<{ readonly providerId: string; readonly overview: ReturnType<typeof createSteamOSSteamLibraryScanOverview> }> = [];
+  const summary = {
+    scannedAt: "2026-04-30T08:30:00.000Z",
+    ownedGameCount: 4,
+    scannedGameCount: 4,
+    gamesWithAchievements: 3,
+    skippedGameCount: 1,
+    failedGameCount: 0,
+    totalAchievements: 20,
+    unlockedAchievements: 10,
+    perfectGames: 1,
+    completionPercent: 50,
+    games: [],
+  } as const;
+
+  const overview = await loadSteamOSSteamLibraryScanOverview({
+    async readOverview() {
+      return undefined;
+    },
+    async writeOverview(providerId, value) {
+      writes.push({ providerId, overview: value });
+    },
+    async readSummary() {
+      return summary;
+    },
+    async writeSummary() {},
+    async clear() {
+      return true;
+    },
+  });
+
+  assert.deepStrictEqual(overview, createSteamOSSteamLibraryScanOverview(summary));
+  assert.deepStrictEqual(writes, [
+    {
+      providerId: STEAM_PROVIDER_ID,
+      overview: createSteamOSSteamLibraryScanOverview(summary),
+    },
+  ]);
+});
+
+test("SteamOS steam library scan only runs on explicit invocation and writes safe aggregate cache", async () => {
+  const requestBodies: Array<Record<string, unknown>> = [];
+  const writtenOverviews: unknown[] = [];
+  const writtenSummaries: unknown[] = [];
+  const runtime = {
+    adapters: {
+      client: createSteamOSLocalBackendClient({
+        baseUrl: "http://127.0.0.1:4123",
+        token: "session-token",
+        fetchImpl: async (input, init) => {
+          const route = String(input);
+          const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+          requestBodies.push(body);
+
+          if (!route.endsWith("/request_steam_json")) {
+            throw new Error(`Unexpected route: ${route}`);
+          }
+
+          const path = body["path"];
+          if (path === "IPlayerService/GetOwnedGames/v1/") {
+            return createJsonResponse(200, {
+              response: {
+                game_count: 1,
+                games: [
+                  {
+                    appid: 10,
+                    name: "Half-Life",
+                    playtime_forever: 120,
+                  },
+                ],
+              },
+            });
+          }
+
+          if (path === "ISteamUserStats/GetPlayerAchievements/v1/") {
+            return createJsonResponse(200, {
+              playerstats: {
+                success: true,
+                achievements: [
+                  {
+                    apiname: "ACH_WIN_ONE",
+                    achieved: 1,
+                    unlocktime: 1_710_000_000,
+                  },
+                ],
+              },
+            });
+          }
+
+          if (path === "ISteamUserStats/GetSchemaForGame/v2/") {
+            return createJsonResponse(200, {
+              game: {
+                availableGameStats: {
+                  achievements: [
+                    {
+                      name: "ACH_WIN_ONE",
+                      displayName: "Win One",
+                      description: "Finish the opener.",
+                      icon: "icon.png",
+                    },
+                  ],
+                },
+              },
+            });
+          }
+
+          throw new Error(`Unexpected Steam path: ${String(path)}`);
+        },
+      }),
+      steamLibraryScanStore: {
+        async readOverview() {
+          return undefined;
+        },
+        async writeOverview(_providerId, value) {
+          writtenOverviews.push(value);
+        },
+        async readSummary() {
+          return undefined;
+        },
+        async writeSummary(_providerId, value) {
+          writtenSummaries.push(value);
+        },
+        async clear() {
+          return true;
+        },
+      },
+    },
+  } as const;
+
+  assert.equal(requestBodies.length, 0);
+
+  const overview = await runSteamOSSteamLibraryScan({
+    runtime: runtime as never,
+    config: {
+      steamId64: "76561198136628813",
+      hasApiKey: true,
+      language: "english",
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+      includePlayedFreeGames: false,
+    },
+  });
+
+  assert.equal(requestBodies.length, 3);
+  assert.deepStrictEqual(overview, {
+    ownedGameCount: 1,
+    scannedGameCount: 1,
+    gamesWithAchievements: 1,
+    unlockedAchievements: 1,
+    totalAchievements: 1,
+    perfectGames: 1,
+    completionPercent: 100,
+    scannedAt: overview.scannedAt,
+  });
+  assert.equal(writtenOverviews.length, 1);
+  assert.equal(writtenSummaries.length, 1);
+  assert.doesNotMatch(JSON.stringify(writtenOverviews[0]), /steamId64|apiKey|Authorization|token/u);
+  assert.doesNotMatch(JSON.stringify(writtenSummaries[0]), /steamId64|apiKey|Authorization|token/u);
+});
+
 test("SteamOS adapter bundle exposes cache-backed stores and honest platform capabilities", async () => {
   const calls: Array<{ readonly url: string; readonly body: Record<string, unknown> }> = [];
   const client = createSteamOSLocalBackendClient({
@@ -620,7 +791,7 @@ test("SteamOS adapter bundle exposes cache-backed stores and honest platform cap
     supportsSecretStorage: true,
     supportsAuthenticatedProviderTransport: true,
     supportsDiagnosticLogging: true,
-    supportsSteamLibraryScan: false,
+    supportsSteamLibraryScan: true,
   });
 });
 

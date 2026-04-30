@@ -41,6 +41,17 @@ export interface SteamOSDashboardSummaryCard {
   readonly value: string;
 }
 
+export interface SteamOSSteamLibraryScanOverview {
+  readonly ownedGameCount: number;
+  readonly scannedGameCount: number;
+  readonly gamesWithAchievements: number;
+  readonly unlockedAchievements: number;
+  readonly totalAchievements: number;
+  readonly perfectGames: number;
+  readonly completionPercent: number;
+  readonly scannedAt: string;
+}
+
 export interface SteamOSDashboardSurfaceProps {
   readonly providerStatuses?: SteamOSDashboardProviderStatuses;
   readonly readCachedSnapshot?: (providerId: SteamOSDashboardProviderId) => Promise<DashboardSnapshot | undefined>;
@@ -55,6 +66,11 @@ export interface SteamOSDashboardSurfaceProps {
   readonly onSelectedProviderIdChange?: (providerId: SteamOSDashboardProviderId) => void;
   readonly initialSelectedProviderId?: SteamOSDashboardProviderId;
   readonly initialProviderStates?: SteamOSDashboardProviderStates;
+  readonly steamLibraryScanOverview?: SteamOSSteamLibraryScanOverview;
+  readonly onScanSteamLibrary?: () => Promise<void> | void;
+  readonly isSteamLibraryScanning?: boolean;
+  readonly steamLibraryScanMessage?: string;
+  readonly steamLibraryScanErrorMessage?: string;
 }
 
 const DASHBOARD_REFRESH_CACHED_ERROR =
@@ -91,6 +107,13 @@ const HEADER_ROW_STYLE: CSSProperties = {
   justifyContent: "space-between",
   gap: "0.75rem",
   flexWrap: "wrap",
+};
+
+const HEADER_ACTIONS_STYLE: CSSProperties = {
+  display: "flex",
+  gap: "0.65rem",
+  flexWrap: "wrap",
+  justifyContent: "flex-end",
 };
 
 const TITLE_STYLE: CSSProperties = {
@@ -249,6 +272,18 @@ const REFRESH_STATUS_STYLE: CSSProperties = {
   margin: 0,
   color: "#cbd5e1",
   fontSize: "0.92rem",
+  lineHeight: 1.5,
+};
+
+const SCAN_NOTE_STYLE: CSSProperties = {
+  margin: 0,
+  color: "#d8e4f3",
+  lineHeight: 1.55,
+};
+
+const SCAN_META_STYLE: CSSProperties = {
+  margin: 0,
+  color: "#9fb4ca",
   lineHeight: 1.5,
 };
 
@@ -458,12 +493,9 @@ export async function refreshSteamOSDashboardProviderState(args: {
 
 export function buildSteamOSDashboardSummaryCards(
   snapshot: DashboardSnapshot,
+  steamLibraryScanOverview?: SteamOSSteamLibraryScanOverview,
 ): readonly SteamOSDashboardSummaryCard[] {
   if (snapshot.profile.providerId === STEAM_PROVIDER_ID) {
-    const perfectGames = Number(
-      getMetricValue(snapshot, "games-beaten", "Perfect Games", "Games Beaten") ?? "0",
-    );
-
     return [
       {
         label: "Steam Level",
@@ -471,21 +503,28 @@ export function buildSteamOSDashboardSummaryCards(
       },
       {
         label: "Owned Games",
-        value: formatOptionalCount(snapshot.profile.ownedGameCount),
+        value: steamLibraryScanOverview !== undefined
+          ? formatCount(steamLibraryScanOverview.ownedGameCount ?? steamLibraryScanOverview.scannedGameCount)
+          : "\u2014",
       },
       {
         label: "Achievements Unlocked",
-        value: formatCount(snapshot.profile.summary.unlockedCount),
+        value: formatCount(
+          steamLibraryScanOverview?.unlockedAchievements ?? snapshot.profile.summary.unlockedCount,
+        ),
       },
       {
         label: "Perfect Games",
-        value: formatCount(Number.isFinite(perfectGames) ? perfectGames : 0),
+        value: steamLibraryScanOverview !== undefined
+          ? formatCount(steamLibraryScanOverview.perfectGames)
+          : "\u2014",
       },
       {
         label: "Completion",
-        value:
-          snapshot.profile.summary.completionPercent !== undefined
-            ? `${formatCount(snapshot.profile.summary.completionPercent)}%`
+        value: steamLibraryScanOverview !== undefined
+          ? `${formatCount(steamLibraryScanOverview.completionPercent)}%`
+          : snapshot.profile.summary.completionPercent !== undefined
+            ? `${formatCount(snapshot.profile.summary.completionPercent)}% (partial)`
             : "\u2014",
       },
     ];
@@ -611,13 +650,12 @@ function getDashboardStateDescription(status: SteamOSDashboardCacheStatus): stri
   return "Finish provider setup first, then use Refresh when you want to load dashboard data.";
 }
 
-function formatRefreshedAt(snapshot: DashboardSnapshot | undefined): string | undefined {
-  const refreshedAt = snapshot?.refreshedAt ?? snapshot?.profile.refreshedAt;
-  if (typeof refreshedAt !== "number" || !Number.isFinite(refreshedAt)) {
+function formatTimestampLabel(timestampMs: number | undefined): string | undefined {
+  if (typeof timestampMs !== "number" || !Number.isFinite(timestampMs)) {
     return undefined;
   }
 
-  const date = new Date(refreshedAt);
+  const date = new Date(timestampMs);
   if (Number.isNaN(date.getTime())) {
     return undefined;
   }
@@ -633,6 +671,39 @@ function formatRefreshedAt(snapshot: DashboardSnapshot | undefined): string | un
   }
 
   return `${date.toLocaleDateString()} at ${timeText}`;
+}
+
+function formatRefreshedAt(snapshot: DashboardSnapshot | undefined): string | undefined {
+  return formatTimestampLabel(snapshot?.refreshedAt ?? snapshot?.profile.refreshedAt);
+}
+
+function formatScannedAt(scannedAt: string | undefined): string | undefined {
+  if (typeof scannedAt !== "string" || scannedAt.trim() === "") {
+    return undefined;
+  }
+
+  const parsedAt = Date.parse(scannedAt);
+  return Number.isFinite(parsedAt) ? formatTimestampLabel(parsedAt) : undefined;
+}
+
+function getSteamLibraryScanGuidance(
+  steamLibraryScanOverview: SteamOSSteamLibraryScanOverview | undefined,
+  snapshot: DashboardSnapshot | undefined,
+): string {
+  if (steamLibraryScanOverview === undefined) {
+    if (snapshot?.profile.summary.completionPercent !== undefined) {
+      return "Library scan not run yet. Run a Steam library scan to unlock Owned Games and Perfect Games. Completion is based on loaded-game data until the scan completes.";
+    }
+
+    return "Library scan not run yet. Run a Steam library scan to unlock Owned Games and Perfect Games.";
+  }
+
+  const scannedAt = formatScannedAt(steamLibraryScanOverview.scannedAt);
+  if (scannedAt !== undefined) {
+    return `Steam library scan totals cached ${scannedAt}. Dashboard refresh still stays separate from library scans.`;
+  }
+
+  return "Steam library scan totals are cached locally. Dashboard refresh still stays separate from library scans.";
 }
 
 function canRefreshDashboardState(state: SteamOSDashboardProviderState): boolean {
@@ -679,14 +750,19 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
   const selectedProviderLabel = props.providerStatuses?.[selectedStatusKey].label
     ?? (selectedProviderId === STEAM_PROVIDER_ID ? "Steam" : "RetroAchievements");
   const selectedProviderState = providerStates[selectedStateKey];
+  const isSteamProviderSelected = selectedProviderId === STEAM_PROVIDER_ID;
+  const canScanSteamLibrary = isSteamProviderSelected && selectedProviderState.status !== "setup_required" && selectedProviderState.status !== "setup_incomplete" && selectedProviderState.status !== "unavailable";
 
   const summaryCards = useMemo(
     () => (
       selectedProviderState.snapshot !== undefined
-        ? buildSteamOSDashboardSummaryCards(selectedProviderState.snapshot)
+        ? buildSteamOSDashboardSummaryCards(
+          selectedProviderState.snapshot,
+          isSteamProviderSelected ? props.steamLibraryScanOverview : undefined,
+        )
         : []
     ),
-    [selectedProviderState.snapshot],
+    [isSteamProviderSelected, props.steamLibraryScanOverview, selectedProviderState.snapshot],
   );
 
   async function handleRefresh(): Promise<void> {
@@ -738,7 +814,7 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
         </div>
         <p style={HELP_TEXT_STYLE}>
           Dashboard snapshots load from cache first. Live provider refresh only happens when you click Refresh,
-          and Steam library scans are not triggered from this surface.
+          and Steam library scans are not triggered from this surface unless you ask for one explicitly.
         </p>
         <section aria-label="Dashboard provider chooser" data-steamos-focus-group="true" style={CHOOSER_PANEL_STYLE}>
           <p style={CHOOSER_LABEL_STYLE}>Choose a provider dashboard</p>
@@ -775,16 +851,30 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
               <h3 style={CONTENT_HEADING_STYLE}>{selectedProviderLabel}</h3>
               <p style={CONTENT_SUBTITLE_STYLE}>{getDashboardStateDescription(selectedProviderState.status)}</p>
             </div>
-            <button
-              className="steamos-focus-target steamos-button-target"
-              type="button"
-              style={UNSELECTED_PROVIDER_BUTTON_STYLE}
-              disabled={!canRefreshDashboardState(selectedProviderState) || selectedProviderState.isRefreshing}
-              onClick={() => void handleRefresh()}
-              aria-label={`Refresh ${selectedProviderLabel} dashboard`}
-            >
-              {selectedProviderState.isRefreshing ? "Refreshing..." : "Refresh"}
-            </button>
+            <div className="steamos-action-row" style={HEADER_ACTIONS_STYLE}>
+              {canScanSteamLibrary && props.onScanSteamLibrary !== undefined ? (
+                <button
+                  className="steamos-focus-target steamos-button-target"
+                  type="button"
+                  style={UNSELECTED_PROVIDER_BUTTON_STYLE}
+                  disabled={props.isSteamLibraryScanning === true}
+                  onClick={() => void props.onScanSteamLibrary?.()}
+                  aria-label="Scan Steam library"
+                >
+                  {props.isSteamLibraryScanning === true ? "Scanning library..." : "Scan Steam library"}
+                </button>
+              ) : null}
+              <button
+                className="steamos-focus-target steamos-button-target"
+                type="button"
+                style={UNSELECTED_PROVIDER_BUTTON_STYLE}
+                disabled={!canRefreshDashboardState(selectedProviderState) || selectedProviderState.isRefreshing}
+                onClick={() => void handleRefresh()}
+                aria-label={`Refresh ${selectedProviderLabel} dashboard`}
+              >
+                {selectedProviderState.isRefreshing ? "Refreshing..." : "Refresh"}
+              </button>
+            </div>
           </div>
           <div style={META_GROUP_STYLE}>
             {selectedProviderState.status === "setup_required" ? (
@@ -805,6 +895,22 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
               <p aria-live="polite" role="status" style={REFRESH_STATUS_STYLE}>
                 Refreshing the cached dashboard view. This shell still avoids automatic refreshes and Steam scans.
               </p>
+            ) : null}
+            {isSteamProviderSelected && canScanSteamLibrary ? (
+              <>
+                <p style={SCAN_NOTE_STYLE}>
+                  Run a manual Steam library scan to unlock Owned Games and Perfect Games. It may take longer than a dashboard refresh.
+                </p>
+                <p style={SCAN_META_STYLE}>
+                  {getSteamLibraryScanGuidance(props.steamLibraryScanOverview, selectedProviderState.snapshot)}
+                </p>
+                {props.steamLibraryScanMessage !== undefined ? (
+                  <p role="status" aria-live="polite" style={SCAN_META_STYLE}>{props.steamLibraryScanMessage}</p>
+                ) : null}
+                {props.steamLibraryScanErrorMessage !== undefined ? (
+                  <p role="alert" style={ERROR_TEXT_STYLE}>{props.steamLibraryScanErrorMessage}</p>
+                ) : null}
+              </>
             ) : null}
           </div>
           {selectedProviderState.status === "cached" ? (

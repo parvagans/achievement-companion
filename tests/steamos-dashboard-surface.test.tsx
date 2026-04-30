@@ -95,6 +95,19 @@ function createSteamDashboardSnapshot(): DashboardSnapshot {
   };
 }
 
+function createSteamLibraryScanOverview() {
+  return {
+    ownedGameCount: 142,
+    scannedGameCount: 142,
+    gamesWithAchievements: 91,
+    unlockedAchievements: 430,
+    totalAchievements: 800,
+    perfectGames: 21,
+    completionPercent: 54,
+    scannedAt: "2026-04-29T10:30:00.000Z",
+  };
+}
+
 test("SteamOS dashboard surface shows setup-required and not-loaded states safely", () => {
   const markup = renderToStaticMarkup(
     <SteamOSDashboardSurface
@@ -191,7 +204,7 @@ test("SteamOS dashboard surface renders cached RetroAchievements summary metrics
   assert.match(markup, /2\.8/u);
 });
 
-test("SteamOS dashboard surface renders cached Steam summary metrics", () => {
+test("SteamOS dashboard surface renders cached Steam summary metrics from explicit scan totals", () => {
   const providerStatuses = createProviderStatuses({
     retroAchievements: { status: "not_configured" },
     steam: { status: "configured" },
@@ -209,6 +222,9 @@ test("SteamOS dashboard surface renders cached Steam summary metrics", () => {
           isRefreshing: false,
         },
       }}
+      steamLibraryScanOverview={createSteamLibraryScanOverview()}
+      onScanSteamLibrary={() => {}}
+      isSteamLibraryScanning={false}
     />,
   );
 
@@ -222,6 +238,63 @@ test("SteamOS dashboard surface renders cached Steam summary metrics", () => {
   assert.match(markup, />21</u);
   assert.match(markup, /Completion/u);
   assert.match(markup, /54%/u);
+  assert.match(markup, /Steam library scan totals cached/u);
+  assert.match(markup, /Scan Steam library/u);
+});
+
+test("SteamOS dashboard surface keeps Steam scan-dependent metrics honest before a library scan exists", () => {
+  const providerStatuses = createProviderStatuses({
+    retroAchievements: { status: "not_configured" },
+    steam: { status: "configured" },
+  });
+  const providerStates = createSteamOSDashboardProviderStates(providerStatuses);
+  const markup = renderToStaticMarkup(
+    <SteamOSDashboardSurface
+      providerStatuses={providerStatuses}
+      initialSelectedProviderId={STEAM_PROVIDER_ID}
+      initialProviderStates={{
+        ...providerStates,
+        steam: {
+          status: "cached",
+          snapshot: createSteamDashboardSnapshot(),
+          isRefreshing: false,
+        },
+      }}
+      onScanSteamLibrary={() => {}}
+      isSteamLibraryScanning={false}
+    />,
+  );
+
+  assert.match(markup, /Owned Games/u);
+  assert.match(markup, /Perfect Games/u);
+  assert.match(markup, /54% \(partial\)/u);
+  assert.match(markup, /Library scan not run yet/u);
+  assert.match(markup, /Run a Steam library scan to unlock Owned Games and Perfect Games/u);
+  assert.match(markup, /Scan Steam library/u);
+  assert.doesNotMatch(markup, />21</u);
+  assert.doesNotMatch(markup, /Perfect Games<\/p><p[^>]*>0</u);
+});
+
+test("SteamOS dashboard surface hides the Steam scan action until Steam is configured", () => {
+  const markup = renderToStaticMarkup(
+    <SteamOSDashboardSurface
+      providerStatuses={createProviderStatuses({
+        retroAchievements: { status: "configured" },
+        steam: { status: "not_configured" },
+      })}
+      initialSelectedProviderId={RETROACHIEVEMENTS_PROVIDER_ID}
+      initialProviderStates={createSteamOSDashboardProviderStates(
+        createProviderStatuses({
+          retroAchievements: { status: "configured" },
+          steam: { status: "not_configured" },
+        }),
+      )}
+      onScanSteamLibrary={() => {}}
+      isSteamLibraryScanning={false}
+    />,
+  );
+
+  assert.doesNotMatch(markup, /Scan Steam library/u);
 });
 
 test("SteamOS dashboard surface falls back cleanly when cached timestamps are unavailable", () => {
@@ -488,7 +561,11 @@ test("SteamOS dashboard refresh does not run or write cache for unconfigured pro
 
 test("SteamOS dashboard summary helpers stay frontend-safe and steam scan free", () => {
   const retroCards = buildSteamOSDashboardSummaryCards(createRetroDashboardSnapshot());
-  const steamCards = buildSteamOSDashboardSummaryCards(createSteamDashboardSnapshot());
+  const steamCards = buildSteamOSDashboardSummaryCards(
+    createSteamDashboardSnapshot(),
+    createSteamLibraryScanOverview(),
+  );
+  const preScanSteamCards = buildSteamOSDashboardSummaryCards(createSteamDashboardSnapshot());
   const dashboardSource = readFileSync(
     join(process.cwd(), "src", "platform", "steamos", "dashboard-surface.tsx"),
     "utf-8",
@@ -503,13 +580,16 @@ test("SteamOS dashboard summary helpers stay frontend-safe and steam scan free",
     steamCards.map((card) => card.label),
     ["Steam Level", "Owned Games", "Achievements Unlocked", "Perfect Games", "Completion"],
   );
+  assert.equal(preScanSteamCards.find((card) => card.label === "Owned Games")?.value, "\u2014");
+  assert.equal(preScanSteamCards.find((card) => card.label === "Perfect Games")?.value, "\u2014");
+  assert.equal(preScanSteamCards.find((card) => card.label === "Completion")?.value, "54% (partial)");
   assert.equal(resolveInitialDashboardProviderId(createProviderStatuses({
     retroAchievements: { status: "not_configured" },
     steam: { status: "configured" },
   })), STEAM_PROVIDER_ID);
   assert.doesNotMatch(dashboardSource, /@decky|platform\/decky|platform\\decky/u);
   assert.doesNotMatch(dashboardSource, /localStorage|sessionStorage/u);
-  assert.doesNotMatch(dashboardSource, /scanSteamLibraryAchievements|steamLibraryScanStore/u);
+  assert.doesNotMatch(dashboardSource, /scanSteamLibraryAchievements|platform\/decky\/providers\/steam|platform\\decky\\providers\\steam/u);
   assert.doesNotMatch(dashboardSource, /Authorization: Bearer|provider-secrets/u);
   assert.doesNotMatch(deckyEntrypoint, /platform\/steamos\/dashboard-surface|platform\\steamos\\dashboard-surface/u);
 });

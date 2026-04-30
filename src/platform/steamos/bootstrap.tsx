@@ -31,6 +31,12 @@ import {
   saveSteamSetup,
 } from "./setup-surface";
 import { SteamOSDashboardSurface, type SteamOSDashboardProviderId, type SteamOSDashboardProviderStatuses, resolveInitialDashboardProviderId } from "./dashboard-surface";
+import {
+  canRunSteamOSSteamLibraryScan,
+  loadSteamOSSteamLibraryScanOverview,
+  runSteamOSSteamLibraryScan,
+  type SteamOSSteamLibraryScanOverview,
+} from "./steam-library-scan";
 import type {
   SteamOSDevShellDiagnosticsStatus,
   SteamOSDiagnosticsStatusStore,
@@ -1096,8 +1102,9 @@ export function buildSteamOSIssueSummary(
     `SteamID64 present: ${formatIssueSummaryBoolean(steamState?.steamId64Present === true)}`,
     `Steam API key present: ${formatIssueSummaryBoolean(steamState?.hasApiKey === true)}`,
     formatIssueSummaryCacheLine("Steam", snapshot?.dashboardCache.steam),
+    formatIssueSummaryCacheLine("Steam library scan", snapshot?.steamLibraryScanCache),
     `Last visible recovery: ${resolveIssueSummaryRecoveryCode(state, diagnostics, dashboardMessages)}`,
-    "Validation reminders: no Steam scan expected; Decky ZIP is separate from this standalone SteamOS shell.",
+    "Validation reminders: no automatic Steam scan expected; Decky ZIP is separate from this standalone SteamOS shell.",
     "Review before sharing. Do not add API keys, usernames, Steam IDs, tokens, provider config or provider secrets contents, or full request URLs.",
   ].join("\n");
 }
@@ -1645,8 +1652,8 @@ export function SteamOSDevShellStatusPanel(
         </div>
       </div>
       <p style={DEV_SHELL_STATUS_HELP_STYLE}>
-        This checks local backend reachability, runtime metadata, provider setup, and cached dashboard snapshots.
-        It does not refresh providers or start a Steam scan.
+        This checks local backend reachability, runtime metadata, provider setup, cached dashboard snapshots, and Steam library scan cache state.
+        It does not refresh providers or start a Steam scan unless you ask for one explicitly.
       </p>
       <p role="status" aria-live="polite" style={STATUS_MESSAGE_STYLE}>
         {state.message}
@@ -1732,6 +1739,15 @@ export function SteamOSDevShellStatusPanel(
               {formatCacheDetails(diagnostics.dashboardCache.steam)}
             </p>
           </div>
+          <div style={DEV_SHELL_STATUS_ITEM_STYLE}>
+            <p style={DEV_SHELL_STATUS_ITEM_LABEL_STYLE}>Steam library scan cache</p>
+            <p style={DEV_SHELL_STATUS_ITEM_VALUE_STYLE}>
+              {formatCacheStatus(diagnostics.steamLibraryScanCache)}
+            </p>
+            <p style={DEV_SHELL_STATUS_HELP_STYLE}>
+              {formatCacheDetails(diagnostics.steamLibraryScanCache)}
+            </p>
+          </div>
         </div>
       ) : null}
     </section>
@@ -1773,6 +1789,10 @@ export function SteamOSBootstrapShell(
   );
   const [dashboardReloadNonce, setDashboardReloadNonce] = useState(0);
   const [dashboardActionMessages, setDashboardActionMessages] = useState<Partial<Record<SteamOSDashboardProviderId, string>>>({});
+  const [steamLibraryScanOverview, setSteamLibraryScanOverview] = useState<SteamOSSteamLibraryScanOverview>();
+  const [steamLibraryScanPending, setSteamLibraryScanPending] = useState(false);
+  const [steamLibraryScanMessage, setSteamLibraryScanMessage] = useState<string>();
+  const [steamLibraryScanErrorMessage, setSteamLibraryScanErrorMessage] = useState<string>();
   const [issueSummaryMessage, setIssueSummaryMessage] = useState<string>();
   const [issueSummaryPreview, setIssueSummaryPreview] = useState<string>();
 
@@ -1781,6 +1801,16 @@ export function SteamOSBootstrapShell(
     setDevShellDiagnosticsState(
       await loadSteamOSDevShellDiagnosticsStatus(runtime?.adapters.diagnosticsStatusStore),
     );
+  }
+
+  async function refreshSteamLibraryScanOverviewState(runtime = result.runtime): Promise<void> {
+    try {
+      setSteamLibraryScanOverview(
+        await loadSteamOSSteamLibraryScanOverview(runtime?.adapters.steamLibraryScanStore),
+      );
+    } catch {
+      setSteamLibraryScanOverview(undefined);
+    }
   }
 
   function scrollToSection(sectionId: string): void {
@@ -1811,6 +1841,7 @@ export function SteamOSBootstrapShell(
       options.onResolved?.(nextResult);
       if (nextResult.state.phase === "connected") {
         setValues(createSteamOSSetupFormValues(nextResult.state.providerConfigs));
+        void refreshSteamLibraryScanOverviewState(nextResult.runtime);
       }
     });
 
@@ -1848,6 +1879,12 @@ export function SteamOSBootstrapShell(
       if (!disposed) {
         setDevShellDiagnosticsState(nextState);
       }
+      const nextSteamLibraryScanOverview = await loadSteamOSSteamLibraryScanOverview(
+        result.runtime?.adapters.steamLibraryScanStore,
+      );
+      if (!disposed) {
+        setSteamLibraryScanOverview(nextSteamLibraryScanOverview);
+      }
     })();
 
     return () => {
@@ -1868,6 +1905,7 @@ export function SteamOSBootstrapShell(
     setValues(nextValues);
     setMessages(nextMessages);
     await refreshDevShellDiagnosticsStatus(runtime);
+    await refreshSteamLibraryScanOverviewState(runtime);
   }
 
   async function handleSaveRetroAchievements(): Promise<void> {
@@ -2069,6 +2107,53 @@ export function SteamOSBootstrapShell(
     await refreshDevShellDiagnosticsStatus(runtime);
   }
 
+  async function handleScanSteamLibrary(): Promise<void> {
+    const runtime = result.runtime;
+    const providerStatuses = resolveVisibleProviderStatuses(result.state.providers, devShellDiagnosticsState.snapshot);
+    const providerStatus = providerStatuses?.steam.status;
+    const steamConfig = result.state.providerConfigs?.steam;
+    const currentOverview = steamLibraryScanOverview;
+
+    setSelectedDashboardProviderId(STEAM_PROVIDER_ID);
+    scrollToSection(STEAMOS_DASHBOARD_SECTION_ID);
+
+    if (
+      runtime === undefined
+      || providerStatus !== "configured"
+      || !canRunSteamOSSteamLibraryScan(steamConfig)
+    ) {
+      setSteamLibraryScanMessage(undefined);
+      setSteamLibraryScanErrorMessage("Finish Steam setup before scanning the library.");
+      return;
+    }
+
+    setSteamLibraryScanPending(true);
+    setSteamLibraryScanMessage(undefined);
+    setSteamLibraryScanErrorMessage(undefined);
+
+    try {
+      const nextOverview = await runSteamOSSteamLibraryScan({
+        runtime,
+        config: steamConfig,
+      });
+      setSteamLibraryScanOverview(nextOverview);
+      setSteamLibraryScanMessage(
+        `Steam library scan complete. ${nextOverview.scannedGameCount.toLocaleString()} games checked.`,
+      );
+    } catch {
+      setSteamLibraryScanOverview(currentOverview);
+      setSteamLibraryScanErrorMessage(
+        currentOverview !== undefined
+          ? "Steam library scan failed. Showing the last saved scan totals. Retry when the backend is available."
+          : "Steam library scan failed. No saved library totals are available yet. Retry when the backend is available.",
+      );
+    } finally {
+      setSteamLibraryScanPending(false);
+      await refreshDevShellDiagnosticsStatus(runtime);
+      await refreshSteamLibraryScanOverviewState(runtime);
+    }
+  }
+
   if (result.state.phase !== "connected") {
     return <SteamOSBootstrapStatus state={result.state} />;
   }
@@ -2100,7 +2185,7 @@ export function SteamOSBootstrapShell(
         <p style={STATUS_MESSAGE_STYLE}>{connectedState.message}</p>
         <p style={STATUS_HINT_STYLE}>
           Save provider credentials locally before dashboard work. Dashboard snapshots stay cached-first and
-          only refresh when you ask for them. This shell does not start a Steam scan.
+          only refresh when you ask for them. This shell does not start a Steam scan automatically.
         </p>
       </section>
       <SteamOSAppShellOverview
@@ -2191,6 +2276,11 @@ export function SteamOSBootstrapShell(
           writeCachedSnapshot={async (providerId, snapshot): Promise<void> => {
             await result.runtime?.adapters.dashboardSnapshotStore?.write(providerId, snapshot);
           }}
+          {...(steamLibraryScanOverview !== undefined ? { steamLibraryScanOverview } : {})}
+          onScanSteamLibrary={() => void handleScanSteamLibrary()}
+          isSteamLibraryScanning={steamLibraryScanPending}
+          {...(steamLibraryScanMessage !== undefined ? { steamLibraryScanMessage } : {})}
+          {...(steamLibraryScanErrorMessage !== undefined ? { steamLibraryScanErrorMessage } : {})}
           refreshDashboard={async (providerId) =>
             await result.runtime?.services.dashboard.loadDashboard(providerId, { forceRefresh: true })
             ?? {

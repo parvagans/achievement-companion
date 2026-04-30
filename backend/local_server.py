@@ -546,6 +546,52 @@ def _build_dashboard_cache_status(path: Path | None) -> dict[str, Any]:
   return result
 
 
+def _extract_scan_refreshed_at_ms(payload: Mapping[str, Any]) -> int | None:
+  refreshed_at = payload.get("refreshedAt")
+  if isinstance(refreshed_at, (int, float)) and not isinstance(refreshed_at, bool):
+    return int(refreshed_at)
+
+  scanned_at = payload.get("scannedAt")
+  if not isinstance(scanned_at, str):
+    return None
+
+  try:
+    return int(datetime.fromisoformat(scanned_at).timestamp() * 1000)
+  except ValueError:
+    return None
+
+
+def _build_steam_scan_cache_status(primary_path: Path | None, fallback_path: Path | None) -> dict[str, Any]:
+  for path in (primary_path, fallback_path):
+    if path is None:
+      continue
+
+    cache_status = _safe_file_metadata(path)
+    if cache_status["present"] is not True:
+      continue
+
+    payload = _read_json_object(path)
+    if payload is None:
+      return {
+        **cache_status,
+        "valid": False,
+      }
+
+    result: dict[str, Any] = {
+      **cache_status,
+      "valid": True,
+    }
+    refreshed_at_ms = _extract_scan_refreshed_at_ms(payload)
+    if refreshed_at_ms is not None:
+      result["refreshedAtMs"] = refreshed_at_ms
+    return result
+
+  return {
+    "present": False,
+    "valid": False,
+  }
+
+
 def _build_steamos_diagnostics_status(context: LocalBackendContext) -> dict[str, Any]:
   provider_config_store = _read_json_object(context.paths.config_path)
   provider_secrets_store = _read_json_object(context.paths.secrets_path)
@@ -593,6 +639,10 @@ def _build_steamos_diagnostics_status(context: LocalBackendContext) -> dict[str,
       "steamId64Present": steam_id64_present,
       "hasApiKey": steam_has_api_key,
     },
+    "steamLibraryScanCache": _build_steam_scan_cache_status(
+      context.paths.steam_scan_overview_path,
+      context.paths.steam_scan_summary_path,
+    ),
     "dashboardCache": {
       "retroAchievements": _build_dashboard_cache_status(
         context.paths.dashboard_cache_dir / f"{_RETROACHIEVEMENTS_PROVIDER_KEY}.json",

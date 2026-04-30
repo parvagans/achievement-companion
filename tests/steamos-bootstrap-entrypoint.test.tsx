@@ -238,6 +238,10 @@ test("SteamOS dev shell diagnostics panel renders safe local status without expo
             steamId64Present: false,
             hasApiKey: false,
           },
+          steamLibraryScanCache: {
+            present: false,
+            valid: false,
+          },
           dashboardCache: {
             retroAchievements: {
               present: true,
@@ -276,6 +280,7 @@ test("SteamOS dev shell diagnostics panel renders safe local status without expo
   assert.match(markup, /Snapshot refreshed/u);
   assert.match(markup, /Steam cache/u);
   assert.match(markup, /missing/u);
+  assert.match(markup, /Steam library scan cache/u);
   assert.match(markup, /Copy issue summary/u);
   assert.match(markup, /Refresh status/u);
   assert.doesNotMatch(markup, /mtimeMs|refreshedAtMs|sizeBytes/u);
@@ -341,6 +346,10 @@ test("SteamOS issue summary builder produces sanitized report text from diagnost
           steamId64Present: true,
           hasApiKey: false,
         },
+        steamLibraryScanCache: {
+          present: false,
+          valid: false,
+        },
         dashboardCache: {
           retroAchievements: {
             present: true,
@@ -377,8 +386,9 @@ test("SteamOS issue summary builder produces sanitized report text from diagnost
   assert.match(summary, /SteamID64 present: yes/u);
   assert.match(summary, /Steam API key present: no/u);
   assert.match(summary, /Steam cache present: no/u);
+  assert.match(summary, /Steam library scan cache present: no/u);
   assert.match(summary, /Last visible recovery: setup_incomplete|provider_refresh_failed/u);
-  assert.match(summary, /no Steam scan expected; Decky ZIP is separate/u);
+  assert.match(summary, /no automatic Steam scan expected; Decky ZIP is separate/u);
   assert.doesNotMatch(summary, /cache: present: yes|cache: present: no/u);
   assert.doesNotMatch(summary, /Retro Player|76561198136628813|Authorization|Bearer|apiKeyDraft|provider-secrets/u);
   assert.doesNotMatch(summary, new RegExp(VALID_TOKEN, "u"));
@@ -440,6 +450,10 @@ test("SteamOS issue summary builder stays graceful when cache metadata is missin
           steamId64Present: false,
           hasApiKey: false,
         },
+        steamLibraryScanCache: {
+          present: false,
+          valid: false,
+        },
         dashboardCache: {
           retroAchievements: {
             present: true,
@@ -457,6 +471,7 @@ test("SteamOS issue summary builder stays graceful when cache metadata is missin
 
   assert.match(summary, /RetroAchievements cache present: yes/u);
   assert.match(summary, /Steam cache present: no/u);
+  assert.match(summary, /Steam library scan cache present: no/u);
   assert.doesNotMatch(summary, /cache size: |last modified: |snapshot refreshed: /u);
   assert.doesNotMatch(summary, /cache: present: yes|cache: present: no/u);
   assert.doesNotMatch(summary, /undefined|null|NaN/u);
@@ -498,6 +513,10 @@ test("SteamOS dev shell diagnostics panel can render a visible issue summary fal
             configured: false,
             steamId64Present: false,
             hasApiKey: false,
+          },
+          steamLibraryScanCache: {
+            present: false,
+            valid: false,
           },
           dashboardCache: {
             retroAchievements: {
@@ -586,6 +605,10 @@ test("SteamOS app shell overview renders setup, refresh, and cached dashboard st
         configured: false,
         steamId64Present: false,
         hasApiKey: false,
+      },
+      steamLibraryScanCache: {
+        present: false,
+        valid: false,
       },
       dashboardCache: {
         retroAchievements: {
@@ -693,6 +716,10 @@ test("SteamOS app shell overview renders configured providers without a cache an
         steamId64Present: true,
         hasApiKey: true,
       },
+      steamLibraryScanCache: {
+        present: false,
+        valid: false,
+      },
       dashboardCache: {
         retroAchievements: {
           present: false,
@@ -786,6 +813,10 @@ test("SteamOS app shell overview renders setup-incomplete recovery guidance safe
         steamId64Present: false,
         hasApiKey: false,
       },
+      steamLibraryScanCache: {
+        present: false,
+        valid: false,
+      },
       dashboardCache: {
         retroAchievements: {
           present: false,
@@ -871,6 +902,10 @@ test("SteamOS app shell foundation keeps provider actions readable and diagnosti
         configured: false,
         steamId64Present: false,
         hasApiKey: false,
+      },
+      steamLibraryScanCache: {
+        present: false,
+        valid: false,
       },
       dashboardCache: {
         retroAchievements: {
@@ -976,14 +1011,18 @@ test("SteamOS dev shell diagnostics load helper returns safe loading success and
           usernamePresent: true,
           hasApiKey: true,
         },
-        steam: {
-          configured: true,
-          steamId64Present: true,
-          hasApiKey: true,
-        },
-        dashboardCache: {
-          retroAchievements: {
-            present: true,
+          steam: {
+            configured: true,
+            steamId64Present: true,
+            hasApiKey: true,
+          },
+          steamLibraryScanCache: {
+            present: false,
+            valid: false,
+          },
+          dashboardCache: {
+            retroAchievements: {
+              present: true,
             valid: true,
             sizeBytes: 256,
             mtimeMs: 1_710_000_100_000,

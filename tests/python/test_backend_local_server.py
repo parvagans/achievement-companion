@@ -8,6 +8,7 @@ import threading
 import unittest
 import urllib.error
 import urllib.request
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -257,6 +258,13 @@ class BackendLocalServerTests(unittest.TestCase):
       },
     )
     self.assertEqual(
+      payload["steamLibraryScanCache"],
+      {
+        "present": False,
+        "valid": False,
+      },
+    )
+    self.assertEqual(
       payload["dashboardCache"],
       {
         "retroAchievements": {
@@ -379,6 +387,19 @@ class BackendLocalServerTests(unittest.TestCase):
           "refreshedAt": 1_710_000_100_000,
         },
       )
+      cache_helpers.write_steam_scan_overview(
+        context.paths,
+        {
+          "ownedGameCount": 142,
+          "scannedGameCount": 142,
+          "gamesWithAchievements": 91,
+          "unlockedAchievements": 430,
+          "totalAchievements": 800,
+          "perfectGames": 1,
+          "completionPercent": 54,
+          "scannedAt": "2026-04-25T10:00:00+00:00",
+        },
+      )
       local_server.write_runtime_metadata(
         context.paths.runtime_metadata_path,
         host="127.0.0.1",
@@ -431,6 +452,14 @@ class BackendLocalServerTests(unittest.TestCase):
     self.assertGreater(payload["dashboardCache"]["steam"]["sizeBytes"], 0)
     self.assertGreater(payload["dashboardCache"]["steam"]["mtimeMs"], 0)
     self.assertEqual(payload["dashboardCache"]["steam"]["refreshedAtMs"], 1_710_000_100_000)
+    self.assertTrue(payload["steamLibraryScanCache"]["present"])
+    self.assertTrue(payload["steamLibraryScanCache"]["valid"])
+    self.assertGreater(payload["steamLibraryScanCache"]["sizeBytes"], 0)
+    self.assertGreater(payload["steamLibraryScanCache"]["mtimeMs"], 0)
+    self.assertEqual(
+      payload["steamLibraryScanCache"]["refreshedAtMs"],
+      int(datetime.fromisoformat("2026-04-25T10:00:00+00:00").timestamp() * 1000),
+    )
     _assert_no_obvious_secret_keys(self, payload)
     serialized = json.dumps(payload)
     for forbidden in ("sol88", "steam-secret", "retro-secret", "provider-secrets", "76561198136628813"):
