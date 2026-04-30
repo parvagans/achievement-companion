@@ -179,6 +179,41 @@ Notes:
 - provider config and provider secrets created under the temp root stay local and must not be committed or pasted
 - the Decky release ZIP remains separate and Decky-only
 
+## SteamOS Preview Tarball
+
+For tester-friendly validation without `node` or `npm` on the Steam Deck, you can build a standalone preview tarball:
+
+```powershell
+cd D:\projects\steamProject
+npm run build:steamos
+npm run package:steamos-preview
+npm run check:steamos-preview
+```
+
+Generated artifact:
+
+```text
+release/achievement-companion-steamos-preview-v0.3.0.tar.gz
+```
+
+The preview tarball includes only the standalone SteamOS runtime files, the built `dist-steamos/steamos-bootstrap.js` asset, and small launch wrappers:
+
+- `./scripts/doctor-steamos.sh`
+- `./scripts/start-steamos.sh`
+
+Those wrappers default to `.tmp-steamos-preview` and do not require `node` or `npm` on the Deck.
+
+On the Steam Deck:
+
+```bash
+tar -xzf achievement-companion-steamos-preview-v0.3.0.tar.gz
+cd achievement-companion-steamos
+./scripts/doctor-steamos.sh
+./scripts/start-steamos.sh
+```
+
+The preview tarball intentionally does not include local provider config, local provider secrets, `.tmp-steamos*`, cache/state/runtime directories, `node_modules`, release ZIPs, or local untracked files.
+
 ### Windows Dev Shell
 
 The simplest interactive launch command is:

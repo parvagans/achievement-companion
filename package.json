@@ -13,6 +13,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "package:release": "python scripts/package_release.py",
     "check:release": "python scripts/check_release_artifact.py",
+    "package:steamos-preview": "python scripts/package_steamos_preview.py",
+    "check:steamos-preview": "python scripts/check_steamos_preview_artifact.py",
     "test": "node --import tsx --test tests/createAppServices.test.ts tests/app-runtime.test.ts tests/app-runtime-nondecky.test.ts tests/steamos-adapters.test.ts tests/steamos-runtime.test.ts tests/steamos-runtime-metadata.test.ts tests/steamos-bootstrap.test.ts tests/steamos-bootstrap-entrypoint.test.tsx tests/steamos-dashboard-surface.test.tsx tests/steamos-setup-surface.test.tsx && python -m unittest discover -s tests/python -p \"test_*.py\""
   },
   "dependencies": {
