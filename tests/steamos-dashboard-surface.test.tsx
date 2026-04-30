@@ -192,7 +192,7 @@ test("SteamOS dashboard surface renders cached RetroAchievements summary metrics
 
   assert.match(markup, /Cached/u);
   assert.match(markup, /Showing the most recent cached snapshot until you request a manual refresh/u);
-  assert.match(markup, /Last updated/u);
+  assert.match(markup, /Last dashboard refresh/u);
   assert.doesNotMatch(markup, /undefined|null|NaN|mtimeMs|refreshedAtMs|sizeBytes/u);
   assert.match(markup, /Points/u);
   assert.match(markup, /12,345/u);
@@ -238,8 +238,36 @@ test("SteamOS dashboard surface renders cached Steam summary metrics from explic
   assert.match(markup, />21</u);
   assert.match(markup, /Completion/u);
   assert.match(markup, /54%/u);
-  assert.match(markup, /Steam library scan totals cached/u);
+  assert.match(markup, /Library scan totals cached/u);
   assert.match(markup, /Scan Steam library/u);
+});
+
+test("SteamOS dashboard surface shows a disabled scanning state while the Steam library scan is running", () => {
+  const providerStatuses = createProviderStatuses({
+    retroAchievements: { status: "not_configured" },
+    steam: { status: "configured" },
+  });
+  const providerStates = createSteamOSDashboardProviderStates(providerStatuses);
+  const markup = renderToStaticMarkup(
+    <SteamOSDashboardSurface
+      providerStatuses={providerStatuses}
+      initialSelectedProviderId={STEAM_PROVIDER_ID}
+      initialProviderStates={{
+        ...providerStates,
+        steam: {
+          status: "cached",
+          snapshot: createSteamDashboardSnapshot(),
+          isRefreshing: false,
+        },
+      }}
+      onScanSteamLibrary={() => {}}
+      isSteamLibraryScanning={true}
+    />,
+  );
+
+  assert.match(markup, /Scanning Steam library\.\.\./u);
+  assert.match(markup, /disabled=""/u);
+  assert.match(markup, /Run a Steam library scan to unlock Owned Games and Perfect Games/u);
 });
 
 test("SteamOS dashboard surface keeps Steam scan-dependent metrics honest before a library scan exists", () => {
@@ -273,6 +301,72 @@ test("SteamOS dashboard surface keeps Steam scan-dependent metrics honest before
   assert.match(markup, /Scan Steam library/u);
   assert.doesNotMatch(markup, />21</u);
   assert.doesNotMatch(markup, /Perfect Games<\/p><p[^>]*>0</u);
+});
+
+test("SteamOS dashboard surface keeps cached scan totals visible when a library scan fails", () => {
+  const providerStatuses = createProviderStatuses({
+    retroAchievements: { status: "not_configured" },
+    steam: { status: "configured" },
+  });
+  const providerStates = createSteamOSDashboardProviderStates(providerStatuses);
+  const markup = renderToStaticMarkup(
+    <SteamOSDashboardSurface
+      providerStatuses={providerStatuses}
+      initialSelectedProviderId={STEAM_PROVIDER_ID}
+      initialProviderStates={{
+        ...providerStates,
+        steam: {
+          status: "cached",
+          snapshot: createSteamDashboardSnapshot(),
+          isRefreshing: false,
+        },
+      }}
+      steamLibraryScanOverview={createSteamLibraryScanOverview()}
+      steamLibraryScanErrorMessage="Steam library scan failed. Showing the last saved scan totals. Retry when the backend is available."
+      onScanSteamLibrary={() => {}}
+      isSteamLibraryScanning={false}
+    />,
+  );
+
+  assert.match(markup, /Owned Games/u);
+  assert.match(markup, />142</u);
+  assert.match(markup, /Perfect Games/u);
+  assert.match(markup, />21</u);
+  assert.match(markup, /Library scan totals cached/u);
+  assert.match(markup, /Steam library scan failed\. Showing the last saved scan totals/u);
+  assert.doesNotMatch(markup, /Authorization|apiKey|SteamID64|provider payload|query value/u);
+});
+
+test("SteamOS dashboard surface keeps scan-dependent fields unavailable when no scan cache exists after a failure", () => {
+  const providerStatuses = createProviderStatuses({
+    retroAchievements: { status: "not_configured" },
+    steam: { status: "configured" },
+  });
+  const providerStates = createSteamOSDashboardProviderStates(providerStatuses);
+  const markup = renderToStaticMarkup(
+    <SteamOSDashboardSurface
+      providerStatuses={providerStatuses}
+      initialSelectedProviderId={STEAM_PROVIDER_ID}
+      initialProviderStates={{
+        ...providerStates,
+        steam: {
+          status: "cached",
+          snapshot: createSteamDashboardSnapshot(),
+          isRefreshing: false,
+        },
+      }}
+      steamLibraryScanErrorMessage="Steam library scan failed. No saved library totals are available yet. Retry when the backend is available."
+      onScanSteamLibrary={() => {}}
+      isSteamLibraryScanning={false}
+    />,
+  );
+
+  assert.match(markup, /Owned Games/u);
+  assert.match(markup, /Perfect Games/u);
+  assert.match(markup, /Library scan not run yet/u);
+  assert.match(markup, /No saved library totals are available yet/u);
+  assert.doesNotMatch(markup, />21</u);
+  assert.doesNotMatch(markup, /Perfect Games<\/p><p[^>]*>0/u);
 });
 
 test("SteamOS dashboard surface hides the Steam scan action until Steam is configured", () => {
@@ -321,7 +415,7 @@ test("SteamOS dashboard surface falls back cleanly when cached timestamps are un
     />,
   );
 
-  assert.match(markup, /Last updated unavailable/u);
+  assert.match(markup, /Last dashboard refresh unavailable/u);
   assert.doesNotMatch(markup, /undefined|null|NaN|mtimeMs|refreshedAtMs|sizeBytes/u);
 });
 

@@ -239,8 +239,11 @@ test("SteamOS dev shell diagnostics panel renders safe local status without expo
             hasApiKey: false,
           },
           steamLibraryScanCache: {
-            present: false,
-            valid: false,
+            present: true,
+            valid: true,
+            sizeBytes: 611_123,
+            mtimeMs: 1_777_315_405_000,
+            refreshedAtMs: 1_777_315_404_000,
           },
           dashboardCache: {
             retroAchievements: {
@@ -281,6 +284,7 @@ test("SteamOS dev shell diagnostics panel renders safe local status without expo
   assert.match(markup, /Steam cache/u);
   assert.match(markup, /missing/u);
   assert.match(markup, /Steam library scan cache/u);
+  assert.match(markup, /Scan completed/u);
   assert.match(markup, /Copy issue summary/u);
   assert.match(markup, /Refresh status/u);
   assert.doesNotMatch(markup, /mtimeMs|refreshedAtMs|sizeBytes/u);
@@ -347,8 +351,11 @@ test("SteamOS issue summary builder produces sanitized report text from diagnost
           hasApiKey: false,
         },
         steamLibraryScanCache: {
-          present: false,
-          valid: false,
+          present: true,
+          valid: true,
+          sizeBytes: 611_123,
+          mtimeMs: 1_777_315_405_000,
+          refreshedAtMs: 1_777_315_404_000,
         },
         dashboardCache: {
           retroAchievements: {
@@ -386,7 +393,8 @@ test("SteamOS issue summary builder produces sanitized report text from diagnost
   assert.match(summary, /SteamID64 present: yes/u);
   assert.match(summary, /Steam API key present: no/u);
   assert.match(summary, /Steam cache present: no/u);
-  assert.match(summary, /Steam library scan cache present: no/u);
+  assert.match(summary, /Steam library scan cache present: yes/u);
+  assert.match(summary, /Scan completed: /u);
   assert.match(summary, /Last visible recovery: setup_incomplete|provider_refresh_failed/u);
   assert.match(summary, /no automatic Steam scan expected; Decky ZIP is separate/u);
   assert.doesNotMatch(summary, /cache: present: yes|cache: present: no/u);
@@ -681,7 +689,7 @@ test("SteamOS app shell overview renders setup, refresh, and cached dashboard st
   assert.match(markup, /Setup required/u);
   assert.match(markup, /Set up/u);
   assert.match(markup, /Showing cached dashboard data\. Refresh failed\. Try again when the backend is available\./u);
-  assert.match(markup, /Updated/u);
+  assert.match(markup, /Last dashboard refresh/u);
   assert.match(markup, /Cached snapshot:/u);
   assert.match(markup, /data-steamos-provider-card="true"/u);
   assert.match(markup, /class="steamos-action-row"/u);

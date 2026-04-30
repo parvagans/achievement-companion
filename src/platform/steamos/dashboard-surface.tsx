@@ -692,7 +692,7 @@ function getSteamLibraryScanGuidance(
 ): string {
   if (steamLibraryScanOverview === undefined) {
     if (snapshot?.profile.summary.completionPercent !== undefined) {
-      return "Library scan not run yet. Run a Steam library scan to unlock Owned Games and Perfect Games. Completion is based on loaded-game data until the scan completes.";
+      return "Library scan not run yet. Run a Steam library scan to unlock Owned Games and Perfect Games. Completion can still come from dashboard refresh data until the scan completes.";
     }
 
     return "Library scan not run yet. Run a Steam library scan to unlock Owned Games and Perfect Games.";
@@ -700,10 +700,10 @@ function getSteamLibraryScanGuidance(
 
   const scannedAt = formatScannedAt(steamLibraryScanOverview.scannedAt);
   if (scannedAt !== undefined) {
-    return `Steam library scan totals cached ${scannedAt}. Dashboard refresh still stays separate from library scans.`;
+    return `Library scan totals cached ${scannedAt}. Last dashboard refresh stays separate from library scans.`;
   }
 
-  return "Steam library scan totals are cached locally. Dashboard refresh still stays separate from library scans.";
+  return "Library scan totals are cached locally. Last dashboard refresh stays separate from library scans.";
 }
 
 function canRefreshDashboardState(state: SteamOSDashboardProviderState): boolean {
@@ -861,7 +861,7 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
                   onClick={() => void props.onScanSteamLibrary?.()}
                   aria-label="Scan Steam library"
                 >
-                  {props.isSteamLibraryScanning === true ? "Scanning library..." : "Scan Steam library"}
+                  {props.isSteamLibraryScanning === true ? "Scanning Steam library..." : "Scan Steam library"}
                 </button>
               ) : null}
               <button
@@ -899,7 +899,7 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
             {isSteamProviderSelected && canScanSteamLibrary ? (
               <>
                 <p style={SCAN_NOTE_STYLE}>
-                  Run a manual Steam library scan to unlock Owned Games and Perfect Games. It may take longer than a dashboard refresh.
+                  Run a Steam library scan to unlock Owned Games and Perfect Games. It may take longer than a dashboard refresh, and dashboard refresh stays scan-free.
                 </p>
                 <p style={SCAN_META_STYLE}>
                   {getSteamLibraryScanGuidance(props.steamLibraryScanOverview, selectedProviderState.snapshot)}
@@ -917,8 +917,8 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
             <>
               <p style={META_TEXT_STYLE}>
                 {formatRefreshedAt(selectedProviderState.snapshot) !== undefined
-                  ? `Last updated ${formatRefreshedAt(selectedProviderState.snapshot)}`
-                  : "Last updated unavailable"}
+                  ? `Last dashboard refresh ${formatRefreshedAt(selectedProviderState.snapshot)}`
+                  : "Last dashboard refresh unavailable"}
               </p>
               <div style={SUMMARY_GRID_STYLE}>
                 {summaryCards.map((card) => (

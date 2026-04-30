@@ -965,6 +965,7 @@ function formatTimestamp(ms: number | undefined): string | undefined {
 
 function summarizeCacheMetadata(
   status: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"],
+  refreshedLabel = "Snapshot refreshed",
 ): string {
   const details: string[] = [];
   const cacheSize = formatCacheSize(status.sizeBytes);
@@ -980,7 +981,7 @@ function summarizeCacheMetadata(
   }
 
   if (refreshedAt !== undefined) {
-    details.push(`Snapshot refreshed ${refreshedAt}`);
+    details.push(`${refreshedLabel} ${refreshedAt}`);
   }
 
   return details.length > 0 ? details.join(" · ") : "No cache metadata available";
@@ -990,6 +991,10 @@ function formatCacheDetails(status: SteamOSDevShellDiagnosticsStatus["dashboardC
   return summarizeCacheMetadata(status);
 }
 
+function formatScanCacheDetails(status: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"]): string {
+  return summarizeCacheMetadata(status, "Scan completed");
+}
+
 function formatIssueSummaryBoolean(value: boolean): string {
   return value ? "yes" : "no";
 }
@@ -997,6 +1002,7 @@ function formatIssueSummaryBoolean(value: boolean): string {
 function formatIssueSummaryCacheLine(
   label: string,
   status: SteamOSDevShellDiagnosticsStatus["dashboardCache"]["retroAchievements"] | undefined,
+  refreshedLabel = "snapshot refreshed",
 ): string {
   const segments = [`${label} cache present: ${formatIssueSummaryBoolean(status?.present === true)}`];
 
@@ -1014,7 +1020,7 @@ function formatIssueSummaryCacheLine(
     }
 
     if (refreshedAt !== undefined) {
-      segments.push(`snapshot refreshed: ${refreshedAt}`);
+      segments.push(`${refreshedLabel}: ${refreshedAt}`);
     }
   } else if (status?.present === true && status.valid === false) {
     segments.push("cache state: unreadable");
@@ -1102,7 +1108,7 @@ export function buildSteamOSIssueSummary(
     `SteamID64 present: ${formatIssueSummaryBoolean(steamState?.steamId64Present === true)}`,
     `Steam API key present: ${formatIssueSummaryBoolean(steamState?.hasApiKey === true)}`,
     formatIssueSummaryCacheLine("Steam", snapshot?.dashboardCache.steam),
-    formatIssueSummaryCacheLine("Steam library scan", snapshot?.steamLibraryScanCache),
+    formatIssueSummaryCacheLine("Steam library scan", snapshot?.steamLibraryScanCache, "Scan completed"),
     `Last visible recovery: ${resolveIssueSummaryRecoveryCode(state, diagnostics, dashboardMessages)}`,
     "Validation reminders: no automatic Steam scan expected; Decky ZIP is separate from this standalone SteamOS shell.",
     "Review before sharing. Do not add API keys, usernames, Steam IDs, tokens, provider config or provider secrets contents, or full request URLs.",
@@ -1137,10 +1143,10 @@ function formatProviderCardCacheDescription(
 ): string {
   const updatedAt = formatTimestamp(cacheStatus.refreshedAtMs ?? cacheStatus.mtimeMs);
   if (updatedAt !== undefined) {
-    return `Updated ${updatedAt}`;
+    return `Last dashboard refresh ${updatedAt}`;
   }
 
-  return "Cached dashboard available. Last updated unavailable.";
+  return "Cached dashboard available. Last dashboard refresh unavailable.";
 }
 
 function formatProviderCardCacheMeta(
@@ -1745,7 +1751,7 @@ export function SteamOSDevShellStatusPanel(
               {formatCacheStatus(diagnostics.steamLibraryScanCache)}
             </p>
             <p style={DEV_SHELL_STATUS_HELP_STYLE}>
-              {formatCacheDetails(diagnostics.steamLibraryScanCache)}
+              {formatScanCacheDetails(diagnostics.steamLibraryScanCache)}
             </p>
           </div>
         </div>
