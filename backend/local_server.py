@@ -561,35 +561,35 @@ def _extract_scan_refreshed_at_ms(payload: Mapping[str, Any]) -> int | None:
     return None
 
 
-def _build_steam_scan_cache_status(primary_path: Path | None, fallback_path: Path | None) -> dict[str, Any]:
-  for path in (primary_path, fallback_path):
-    if path is None:
-      continue
-
-    cache_status = _safe_file_metadata(path)
-    if cache_status["present"] is not True:
-      continue
-
-    payload = _read_json_object(path)
-    if payload is None:
-      return {
-        **cache_status,
-        "valid": False,
-      }
-
-    result: dict[str, Any] = {
-      **cache_status,
-      "valid": True,
+def _build_steam_scan_cache_status(path: Path | None) -> dict[str, Any]:
+  if path is None:
+    return {
+      "present": False,
+      "valid": False,
     }
-    refreshed_at_ms = _extract_scan_refreshed_at_ms(payload)
-    if refreshed_at_ms is not None:
-      result["refreshedAtMs"] = refreshed_at_ms
-    return result
 
-  return {
-    "present": False,
-    "valid": False,
+  cache_status = _safe_file_metadata(path)
+  if cache_status["present"] is not True:
+    return {
+      "present": False,
+      "valid": False,
+    }
+
+  payload = _read_json_object(path)
+  if payload is None:
+    return {
+      **cache_status,
+      "valid": False,
+    }
+
+  result: dict[str, Any] = {
+    **cache_status,
+    "valid": True,
   }
+  refreshed_at_ms = _extract_scan_refreshed_at_ms(payload)
+  if refreshed_at_ms is not None:
+    result["refreshedAtMs"] = refreshed_at_ms
+  return result
 
 
 def _build_steamos_diagnostics_status(context: LocalBackendContext) -> dict[str, Any]:
@@ -641,7 +641,6 @@ def _build_steamos_diagnostics_status(context: LocalBackendContext) -> dict[str,
     },
     "steamLibraryScanCache": _build_steam_scan_cache_status(
       context.paths.steam_scan_overview_path,
-      context.paths.steam_scan_summary_path,
     ),
     "dashboardCache": {
       "retroAchievements": _build_dashboard_cache_status(

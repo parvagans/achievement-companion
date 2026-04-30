@@ -576,7 +576,7 @@ test("SteamOS steam scan cache store uses backend cache endpoints and keeps cach
   }
 });
 
-test("SteamOS steam scan overview loader falls back to cached summary and backfills the overview", async () => {
+test("SteamOS steam scan overview loader ignores legacy summaries when no overview exists", async () => {
   const writes: Array<{ readonly providerId: string; readonly overview: ReturnType<typeof createSteamOSSteamLibraryScanOverview> }> = [];
   const summary = {
     scannedAt: "2026-04-30T08:30:00.000Z",
@@ -608,19 +608,13 @@ test("SteamOS steam scan overview loader falls back to cached summary and backfi
     },
   });
 
-  assert.deepStrictEqual(overview, createSteamOSSteamLibraryScanOverview(summary));
-  assert.deepStrictEqual(writes, [
-    {
-      providerId: STEAM_PROVIDER_ID,
-      overview: createSteamOSSteamLibraryScanOverview(summary),
-    },
-  ]);
+  assert.equal(overview, undefined);
+  assert.deepStrictEqual(writes, []);
 });
 
-test("SteamOS steam library scan only runs on explicit invocation and writes safe aggregate cache", async () => {
+test("SteamOS steam library scan only runs on explicit invocation and writes safe aggregate overview", async () => {
   const requestBodies: Array<Record<string, unknown>> = [];
   const writtenOverviews: unknown[] = [];
-  const writtenSummaries: unknown[] = [];
   const runtime = {
     adapters: {
       client: createSteamOSLocalBackendClient({
@@ -696,8 +690,8 @@ test("SteamOS steam library scan only runs on explicit invocation and writes saf
         async readSummary() {
           return undefined;
         },
-        async writeSummary(_providerId, value) {
-          writtenSummaries.push(value);
+        async writeSummary() {
+          throw new Error("summary write should not be called");
         },
         async clear() {
           return true;
@@ -732,9 +726,7 @@ test("SteamOS steam library scan only runs on explicit invocation and writes saf
     scannedAt: overview.scannedAt,
   });
   assert.equal(writtenOverviews.length, 1);
-  assert.equal(writtenSummaries.length, 1);
   assert.doesNotMatch(JSON.stringify(writtenOverviews[0]), /steamId64|apiKey|Authorization|token/u);
-  assert.doesNotMatch(JSON.stringify(writtenSummaries[0]), /steamId64|apiKey|Authorization|token/u);
 });
 
 test("SteamOS adapter bundle exposes cache-backed stores and honest platform capabilities", async () => {

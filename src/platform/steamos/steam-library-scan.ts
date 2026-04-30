@@ -56,22 +56,7 @@ export async function loadSteamOSSteamLibraryScanOverview(
   }
 
   const cachedOverview = await store.readOverview(STEAM_PROVIDER_ID);
-  if (cachedOverview !== undefined) {
-    return cachedOverview;
-  }
-
-  const cachedSummary = await store.readSummary(STEAM_PROVIDER_ID);
-  if (cachedSummary === undefined) {
-    return undefined;
-  }
-
-  const derivedOverview = createSteamOSSteamLibraryScanOverview(cachedSummary);
-  try {
-    await store.writeOverview(STEAM_PROVIDER_ID, derivedOverview);
-  } catch {
-    // The derived overview is still safe to use locally even if the lightweight cache backfill fails.
-  }
-  return derivedOverview;
+  return cachedOverview;
 }
 
 export async function runSteamOSSteamLibraryScan(args: {
@@ -98,10 +83,7 @@ export async function runSteamOSSteamLibraryScan(args: {
   );
   const overview = createSteamOSSteamLibraryScanOverview(summary);
 
-  await Promise.all([
-    scanStore.writeSummary(STEAM_PROVIDER_ID, summary),
-    scanStore.writeOverview(STEAM_PROVIDER_ID, overview),
-  ]);
+  await scanStore.writeOverview(STEAM_PROVIDER_ID, overview);
 
   return overview;
 }
