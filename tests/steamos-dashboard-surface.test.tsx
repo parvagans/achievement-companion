@@ -11,10 +11,12 @@ import {
   SteamOSDashboardSurface,
   beginRefreshingSteamOSDashboardProviderState,
   buildSteamOSDashboardSummaryCards,
+  buildSteamOSDashboardGameDetail,
   createSteamOSDashboardProviderStates,
   loadSteamOSDashboardProviderStates,
   refreshSteamOSDashboardProviderState,
   resolveInitialDashboardProviderId,
+  type SteamOSDashboardGameDetailSelection,
   type SteamOSDashboardProviderStatuses,
 } from "../src/platform/steamos/dashboard-surface";
 
@@ -530,6 +532,9 @@ test("SteamOS dashboard surface renders recent achievements, recently played, an
   assert.match(markup, /Recent achievements \/ recent unlocks/u);
   assert.match(markup, /Recently played/u);
   assert.match(markup, /Featured \/ play next/u);
+  assert.match(markup, /aria-label="Open First Blood cached game detail"/u);
+  assert.match(markup, /aria-label="Open Cyber Shadow cached game detail"/u);
+  assert.match(markup, /aria-label="Open Boss Rush cached game detail"/u);
   assert.match(markup, /First Blood/u);
   assert.match(markup, /Cyber Shadow/u);
   assert.match(markup, /Unlocked /u);
@@ -565,12 +570,83 @@ test("SteamOS dashboard surface renders recent achievements, recently played, an
   assert.match(markup, /Recent achievements \/ recent unlocks/u);
   assert.match(markup, /Recently played/u);
   assert.match(markup, /Featured \/ play next/u);
+  assert.match(markup, /aria-label="Open Silent Exit cached game detail"/u);
+  assert.match(markup, /aria-label="Open Hades cached game detail"/u);
+  assert.match(markup, /aria-label="Open Celeste cached game detail"/u);
   assert.match(markup, /Silent Exit/u);
   assert.match(markup, /Hades/u);
   assert.match(markup, /Celeste/u);
   assert.match(markup, /Status Mastered/u);
   assert.match(markup, /Playtime 6 h 5 min/u);
   assert.doesNotMatch(markup, /steam-rich-account|steam-game-1|steam-ach-1|accountId|gameId|achievementId/u);
+});
+
+test("SteamOS dashboard game detail builder resolves safe cached fields and empty states", () => {
+  const detail = buildSteamOSDashboardGameDetail(createRichRetroDashboardSnapshot(), {
+    providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+    gameId: "retro-game-4",
+    gameTitle: "Boss Rush",
+  });
+
+  assert.equal(detail.providerLabel, "RetroAchievements");
+  assert.equal(detail.title, "Boss Rush");
+  assert.deepStrictEqual(
+    detail.summaryCards.map((card) => card.label),
+    ["Provider", "Completion", "Playtime", "Last played", "Status"],
+  );
+  assert.equal(detail.summaryCards.find((card) => card.label === "Provider")?.value, "RetroAchievements");
+  assert.equal(detail.summaryCards.find((card) => card.label === "Completion")?.value, "100%");
+  assert.equal(detail.summaryCards.find((card) => card.label === "Playtime")?.value, "No cached playtime for this game.");
+  assert.equal(detail.summaryCards.find((card) => card.label === "Status")?.value, "Beaten");
+  assert.match(detail.summaryCards.find((card) => card.label === "Last played")?.value ?? "", /at /u);
+  assert.equal(detail.recentAchievements.length, 0);
+  assert.equal(detail.achievementEmptyState, "No cached achievements for this game.");
+});
+
+test("SteamOS dashboard surface renders a cached game detail and back navigation without raw identifiers", () => {
+  const providerStatuses = createProviderStatuses({
+    retroAchievements: { status: "not_configured" },
+    steam: { status: "configured" },
+  });
+  const providerStates = createSteamOSDashboardProviderStates(providerStatuses);
+  const markup = renderToStaticMarkup(
+    <SteamOSDashboardSurface
+      providerStatuses={providerStatuses}
+      initialSelectedProviderId={STEAM_PROVIDER_ID}
+      initialSelectedGameDetail={{
+        providerId: STEAM_PROVIDER_ID,
+        gameId: "steam-game-1",
+        gameTitle: "Hades",
+      }}
+      initialProviderStates={{
+        ...providerStates,
+        steam: {
+          status: "cached",
+          snapshot: createRichSteamDashboardSnapshot(),
+          isRefreshing: false,
+        },
+      }}
+      steamLibraryScanOverview={createSteamLibraryScanOverview()}
+      onScanSteamLibrary={() => {}}
+      isSteamLibraryScanning={false}
+    />,
+  );
+
+  assert.match(markup, /Cached game detail/u);
+  assert.match(markup, /Back to dashboard/u);
+  assert.match(markup, /Hades/u);
+  assert.match(markup, /Provider/u);
+  assert.match(markup, /Steam/u);
+  assert.match(markup, /Completion/u);
+  assert.match(markup, /75%/u);
+  assert.match(markup, /6 h 5 min/u);
+  assert.match(markup, /Status/u);
+  assert.match(markup, /Silent Exit/u);
+  assert.match(markup, /Cached achievements \/ unlocks/u);
+  assert.doesNotMatch(markup, /aria-label="Refresh [^"]+ dashboard"/u);
+  assert.doesNotMatch(markup, /Scan Steam library/u);
+  assert.doesNotMatch(markup, /steam-game-1|steam-ach-1|steam-rich-account|accountId|gameId|achievementId/u);
+  assert.doesNotMatch(markup, /Authorization|Bearer|apiKey|provider payload|localStorage|sessionStorage/u);
 });
 
 test("SteamOS dashboard surface shows a disabled scanning state while the Steam library scan is running", () => {

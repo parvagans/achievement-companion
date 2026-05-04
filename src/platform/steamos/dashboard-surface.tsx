@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { ResourceState } from "@core/cache";
 import type { DashboardSnapshot } from "@core/domain";
 import {
@@ -44,12 +44,33 @@ export interface SteamOSDashboardSummaryCard {
 interface SteamOSDashboardDetailSectionItem {
   readonly title: string;
   readonly metaLines: readonly string[];
+  readonly gameSelection?: SteamOSDashboardGameDetailSelection;
 }
 
 interface SteamOSDashboardDetailSection {
   readonly title: string;
   readonly emptyState: string;
   readonly items: readonly SteamOSDashboardDetailSectionItem[];
+}
+
+export interface SteamOSDashboardGameDetailSelection {
+  readonly providerId: SteamOSDashboardProviderId;
+  readonly gameId: string;
+  readonly gameTitle: string;
+}
+
+interface SteamOSDashboardGameDetailCard {
+  readonly label: string;
+  readonly value: string;
+}
+
+interface SteamOSDashboardGameDetail {
+  readonly providerLabel: string;
+  readonly title: string;
+  readonly summaryCards: readonly SteamOSDashboardGameDetailCard[];
+  readonly achievementTitle: string;
+  readonly achievementEmptyState: string;
+  readonly recentAchievements: readonly SteamOSDashboardDetailSectionItem[];
 }
 
 export interface SteamOSSteamLibraryScanOverview {
@@ -76,6 +97,7 @@ export interface SteamOSDashboardSurfaceProps {
   readonly selectedProviderId?: SteamOSDashboardProviderId;
   readonly onSelectedProviderIdChange?: (providerId: SteamOSDashboardProviderId) => void;
   readonly initialSelectedProviderId?: SteamOSDashboardProviderId;
+  readonly initialSelectedGameDetail?: SteamOSDashboardGameDetailSelection;
   readonly initialProviderStates?: SteamOSDashboardProviderStates;
   readonly steamLibraryScanOverview?: SteamOSSteamLibraryScanOverview;
   readonly onScanSteamLibrary?: () => Promise<void> | void;
@@ -354,6 +376,97 @@ const DETAIL_CARD_META_STYLE: CSSProperties = {
   color: "#cbd5e1",
   lineHeight: 1.45,
   fontSize: "0.9rem",
+};
+
+const DETAIL_CARD_BUTTON_STYLE: CSSProperties = {
+  ...DETAIL_CARD_STYLE,
+  appearance: "none",
+  width: "100%",
+  border: "1px solid rgba(148, 163, 184, 0.16)",
+  cursor: "pointer",
+  textAlign: "left",
+};
+
+const GAME_DETAIL_PANEL_STYLE: CSSProperties = {
+  border: "1px solid rgba(96, 165, 250, 0.2)",
+  borderRadius: "22px",
+  background:
+    "linear-gradient(180deg, rgba(11, 18, 32, 0.82) 0%, rgba(15, 23, 42, 0.9) 62%, rgba(11, 18, 32, 0.94) 100%)",
+  padding: "1.1rem",
+  display: "grid",
+  gap: "1rem",
+  boxShadow: "0 20px 40px rgba(2, 6, 23, 0.24)",
+};
+
+const GAME_DETAIL_HEADER_STYLE: CSSProperties = {
+  display: "grid",
+  gap: "0.35rem",
+};
+
+const GAME_DETAIL_TITLE_ROW_STYLE: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.75rem",
+  flexWrap: "wrap",
+};
+
+const GAME_DETAIL_TITLE_STYLE: CSSProperties = {
+  margin: 0,
+  color: "#f8fbff",
+  fontSize: "1.2rem",
+  fontWeight: 900,
+};
+
+const GAME_DETAIL_HELP_STYLE: CSSProperties = {
+  margin: 0,
+  color: "#cbd5e1",
+  lineHeight: 1.5,
+};
+
+const GAME_DETAIL_BADGE_STYLE: CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: "0.4rem",
+  minHeight: "2rem",
+  padding: "0.4rem 0.75rem",
+  borderRadius: "999px",
+  border: "1px solid rgba(125, 211, 252, 0.18)",
+  backgroundColor: "rgba(15, 23, 42, 0.72)",
+  color: "#dbeafe",
+  fontSize: "0.86rem",
+  fontWeight: 700,
+};
+
+const GAME_DETAIL_SUMMARY_GRID_STYLE: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+  gap: "0.8rem",
+};
+
+const GAME_DETAIL_SUMMARY_CARD_STYLE: CSSProperties = {
+  border: "1px solid rgba(148, 163, 184, 0.12)",
+  borderRadius: "16px",
+  background:
+    "linear-gradient(180deg, rgba(15, 23, 42, 0.76) 0%, rgba(15, 23, 42, 0.62) 100%)",
+  padding: "0.9rem",
+  display: "grid",
+  gap: "0.35rem",
+};
+
+const GAME_DETAIL_SUMMARY_LABEL_STYLE: CSSProperties = {
+  margin: 0,
+  fontSize: "0.8rem",
+  textTransform: "uppercase",
+  letterSpacing: "0.06em",
+  color: "#7dd3fc",
+  fontWeight: 700,
+};
+
+const GAME_DETAIL_SUMMARY_VALUE_STYLE: CSSProperties = {
+  margin: 0,
+  color: "#f8fbff",
+  lineHeight: 1.45,
 };
 
 function formatCount(value: number): string {
@@ -810,6 +923,11 @@ function buildRecentAchievementsSection(snapshot: DashboardSnapshot): SteamOSDas
     title: "Recent achievements / recent unlocks",
     emptyState: "No recent achievements in the cached snapshot.",
     items: recentUnlocks.slice(0, 3).map((recentUnlock) => {
+      const gameSelection: SteamOSDashboardGameDetailSelection = {
+        providerId: recentUnlock.game.providerId as SteamOSDashboardProviderId,
+        gameId: recentUnlock.game.gameId,
+        gameTitle: normalizeDisplayTitle(recentUnlock.game.title, "Unknown game"),
+      };
       const metaLines = [
         `Game: ${normalizeDisplayTitle(recentUnlock.game.title, "Unknown game")}`,
         recentUnlock.achievement.points !== undefined ? `${formatCount(recentUnlock.achievement.points)} points` : undefined,
@@ -818,6 +936,7 @@ function buildRecentAchievementsSection(snapshot: DashboardSnapshot): SteamOSDas
       return {
         title: normalizeDisplayTitle(recentUnlock.achievement.title, "Recent achievement"),
         metaLines,
+        gameSelection,
       };
     }),
   };
@@ -828,16 +947,20 @@ function buildRecentlyPlayedSection(snapshot: DashboardSnapshot): SteamOSDashboa
     title: "Recently played",
     emptyState: "No recently played games in the cached snapshot.",
     items: snapshot.recentlyPlayedGames.slice(0, 3).map((game) => {
+      const gameSelection: SteamOSDashboardGameDetailSelection = {
+        providerId: game.providerId as SteamOSDashboardProviderId,
+        gameId: game.gameId,
+        gameTitle: normalizeDisplayTitle(game.title, "Recently played game"),
+      };
       const metaLines = [
         game.summary.completionPercent !== undefined ? `Completion ${formatCount(game.summary.completionPercent)}%` : undefined,
-        formatMinutes(game.playtimeForeverMinutes) !== undefined
-          ? `Playtime ${formatMinutes(game.playtimeForeverMinutes)}`
-          : undefined,
+        formatMinutes(game.playtimeForeverMinutes) !== undefined ? `Playtime ${formatMinutes(game.playtimeForeverMinutes)}` : undefined,
         game.lastPlayedAt !== undefined ? `Last played ${formatTimestampLabel(game.lastPlayedAt)}` : undefined,
       ].filter(isDefined);
       return {
         title: normalizeDisplayTitle(game.title, "Recently played game"),
         metaLines,
+        gameSelection,
       };
     }),
   };
@@ -848,6 +971,11 @@ function buildFeaturedGamesSection(snapshot: DashboardSnapshot): SteamOSDashboar
     title: "Featured / play next",
     emptyState: "No featured games in the cached snapshot.",
     items: snapshot.featuredGames.slice(0, 3).map((game) => {
+      const gameSelection: SteamOSDashboardGameDetailSelection = {
+        providerId: game.providerId as SteamOSDashboardProviderId,
+        gameId: game.gameId,
+        gameTitle: normalizeDisplayTitle(game.title, "Featured game"),
+      };
       const metaLines = [
         `Status ${formatGameStatus(game.status)}`,
         game.summary.completionPercent !== undefined ? `Completion ${formatCount(game.summary.completionPercent)}%` : undefined,
@@ -856,6 +984,7 @@ function buildFeaturedGamesSection(snapshot: DashboardSnapshot): SteamOSDashboar
       return {
         title: normalizeDisplayTitle(game.title, "Featured game"),
         metaLines,
+        gameSelection,
       };
     }),
   };
@@ -867,6 +996,138 @@ function buildSteamOSDashboardDetailSections(snapshot: DashboardSnapshot): reado
     buildRecentlyPlayedSection(snapshot),
     buildFeaturedGamesSection(snapshot),
   ];
+}
+
+function resolveSteamOSDashboardGameProviderLabel(providerId: SteamOSDashboardProviderId): string {
+  return providerId === STEAM_PROVIDER_ID ? "Steam" : "RetroAchievements";
+}
+
+export function buildSteamOSDashboardGameDetail(
+  snapshot: DashboardSnapshot,
+  selection: SteamOSDashboardGameDetailSelection,
+): SteamOSDashboardGameDetail {
+  const matchingRecentUnlocks = snapshot.recentUnlocks.filter(
+    (recentUnlock) =>
+      recentUnlock.game.providerId === selection.providerId && recentUnlock.game.gameId === selection.gameId,
+  );
+  const matchingRecentAchievements = matchingRecentUnlocks.length > 0
+    ? matchingRecentUnlocks
+    : snapshot.recentAchievements.filter(
+      (recentUnlock) =>
+        recentUnlock.game.providerId === selection.providerId && recentUnlock.game.gameId === selection.gameId,
+    );
+  const matchingRecentlyPlayed = snapshot.recentlyPlayedGames.find(
+    (game) => game.providerId === selection.providerId && game.gameId === selection.gameId,
+  );
+  const matchingFeaturedGame = snapshot.featuredGames.find(
+    (game) => game.providerId === selection.providerId && game.gameId === selection.gameId,
+  );
+  const title = normalizeDisplayTitle(
+    matchingRecentlyPlayed?.title ?? matchingFeaturedGame?.title ?? selection.gameTitle,
+    "Unknown game",
+  );
+  const completionPercent = matchingRecentlyPlayed?.summary.completionPercent ?? matchingFeaturedGame?.summary.completionPercent;
+  const playtimeMinutes = matchingRecentlyPlayed?.playtimeForeverMinutes ?? matchingFeaturedGame?.playtimeForeverMinutes;
+  const lastPlayedAt = matchingRecentlyPlayed?.lastPlayedAt ?? matchingFeaturedGame?.lastPlayedAt;
+  const summaryCards: SteamOSDashboardGameDetailCard[] = [
+    {
+      label: "Provider",
+      value: resolveSteamOSDashboardGameProviderLabel(selection.providerId),
+    },
+    {
+      label: "Completion",
+      value: completionPercent !== undefined ? `${formatCount(completionPercent)}%` : "\u2014",
+    },
+    {
+      label: "Playtime",
+      value: formatMinutes(playtimeMinutes) ?? "No cached playtime for this game.",
+    },
+    {
+      label: "Last played",
+      value: formatTimestampLabel(lastPlayedAt) ?? "\u2014",
+    },
+    {
+      label: "Status",
+      value: matchingFeaturedGame !== undefined ? formatGameStatus(matchingFeaturedGame.status) : "\u2014",
+    },
+  ];
+
+  return {
+    providerLabel: resolveSteamOSDashboardGameProviderLabel(selection.providerId),
+    title,
+    summaryCards,
+    achievementTitle: "Cached achievements / unlocks",
+    achievementEmptyState: "No cached achievements for this game.",
+    recentAchievements: matchingRecentAchievements.slice(0, 5).map((recentUnlock) => ({
+      title: normalizeDisplayTitle(recentUnlock.achievement.title, "Recent achievement"),
+      metaLines: [
+        `Game: ${normalizeDisplayTitle(recentUnlock.game.title, "Unknown game")}`,
+        recentUnlock.achievement.points !== undefined ? `${formatCount(recentUnlock.achievement.points)} points` : undefined,
+        recentUnlock.unlockedAt !== undefined ? `Unlocked ${formatTimestampLabel(recentUnlock.unlockedAt)}` : undefined,
+      ].filter(isDefined),
+    })),
+  };
+}
+
+function selectSteamOSDashboardGameDetail(
+  snapshot: DashboardSnapshot | undefined,
+  selection: SteamOSDashboardGameDetailSelection | undefined,
+): SteamOSDashboardGameDetail | undefined {
+  if (selection === undefined || snapshot === undefined) {
+    return undefined;
+  }
+
+  return buildSteamOSDashboardGameDetail(snapshot, selection);
+}
+
+function SteamOSDashboardGameDetailSurface({
+  detail,
+}: {
+  readonly detail: SteamOSDashboardGameDetail;
+}): JSX.Element {
+  return (
+    <section aria-label={`${detail.title} cached game detail`} style={GAME_DETAIL_PANEL_STYLE}>
+      <div style={GAME_DETAIL_HEADER_STYLE}>
+        <div style={GAME_DETAIL_TITLE_ROW_STYLE}>
+          <div style={SECTION_HEADER_STYLE}>
+            <p style={EYEBROW_STYLE}>Cached game detail</p>
+            <h4 style={GAME_DETAIL_TITLE_STYLE}>{detail.title}</h4>
+          </div>
+          <span style={GAME_DETAIL_BADGE_STYLE}>{detail.providerLabel}</span>
+        </div>
+        <p style={GAME_DETAIL_HELP_STYLE}>
+          Read-only detail built from the cached dashboard snapshot. Dashboard refresh and Steam scans stay explicit.
+        </p>
+      </div>
+      <div style={GAME_DETAIL_SUMMARY_GRID_STYLE}>
+        {detail.summaryCards.map((card) => (
+          <article key={card.label} style={GAME_DETAIL_SUMMARY_CARD_STYLE}>
+            <p style={GAME_DETAIL_SUMMARY_LABEL_STYLE}>{card.label}</p>
+            <p style={GAME_DETAIL_SUMMARY_VALUE_STYLE}>{card.value}</p>
+          </article>
+        ))}
+      </div>
+      <article aria-label={detail.achievementTitle} style={DETAIL_SECTION_STYLE}>
+        <h5 style={DETAIL_TITLE_STYLE}>{detail.achievementTitle}</h5>
+        {detail.recentAchievements.length > 0 ? (
+          <div style={DETAIL_LIST_STYLE}>
+            {detail.recentAchievements.map((item) => (
+              <article key={`${item.title}:${item.metaLines.join("|")}`} style={DETAIL_CARD_STYLE}>
+                <p style={DETAIL_CARD_TITLE_STYLE}>{item.title}</p>
+                {item.metaLines.map((line) => (
+                  <p key={`${item.title}:${line}`} style={DETAIL_CARD_META_STYLE}>
+                    {line}
+                  </p>
+                ))}
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p style={DETAIL_EMPTY_STYLE}>{detail.achievementEmptyState}</p>
+        )}
+      </article>
+    </section>
+  );
 }
 
 function getSteamLibraryScanGuidance(
@@ -900,12 +1161,22 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
   const [providerStates, setProviderStates] = useState<SteamOSDashboardProviderStates>(
     props.initialProviderStates ?? createSteamOSDashboardProviderStates(props.providerStatuses),
   );
+  const [selectedGameDetail, setSelectedGameDetail] = useState<SteamOSDashboardGameDetailSelection | undefined>(
+    props.initialSelectedGameDetail,
+  );
+  const selectedProviderIdRef = useRef<SteamOSDashboardProviderId>(selectedProviderId);
 
   useEffect(() => {
     if (props.selectedProviderId !== undefined) {
       setSelectedProviderId(props.selectedProviderId);
     }
   }, [props.selectedProviderId]);
+
+  useEffect(() => {
+    if (props.initialSelectedGameDetail !== undefined) {
+      setSelectedGameDetail(props.initialSelectedGameDetail);
+    }
+  }, [props.initialSelectedGameDetail]);
 
   useEffect(() => {
     let disposed = false;
@@ -927,6 +1198,13 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
       disposed = true;
     };
   }, [props.providerStatuses, props.readCachedSnapshot]);
+
+  useEffect(() => {
+    if (selectedProviderIdRef.current !== selectedProviderId) {
+      selectedProviderIdRef.current = selectedProviderId;
+      setSelectedGameDetail(undefined);
+    }
+  }, [selectedProviderId]);
 
   const selectedStatusKey = mapProviderIdToStatusKey(selectedProviderId);
   const selectedStateKey = mapProviderIdToStateKey(selectedProviderId);
@@ -951,6 +1229,10 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
     () => (selectedProviderState.snapshot !== undefined ? buildSteamOSDashboardDetailSections(selectedProviderState.snapshot) : []),
     [selectedProviderState.snapshot],
   );
+  const selectedGameDetailSnapshot = useMemo(
+    () => selectSteamOSDashboardGameDetail(selectedProviderState.snapshot, selectedGameDetail),
+    [selectedGameDetail, selectedProviderState.snapshot],
+  );
 
   async function handleRefresh(): Promise<void> {
     const currentState = providerStates[selectedStateKey];
@@ -974,6 +1256,16 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
       ...currentStates,
       [selectedStateKey]: nextState,
     }));
+  }
+
+  function handleOpenGameDetail(selection: SteamOSDashboardGameDetailSelection): void {
+    setSelectedProviderId(selection.providerId);
+    setSelectedGameDetail(selection);
+    props.onSelectedProviderIdChange?.(selection.providerId);
+  }
+
+  function handleBackToDashboard(): void {
+    setSelectedGameDetail(undefined);
   }
 
   return (
@@ -1039,7 +1331,7 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
               <p style={CONTENT_SUBTITLE_STYLE}>{getDashboardStateDescription(selectedProviderState.status)}</p>
             </div>
             <div className="steamos-action-row" style={HEADER_ACTIONS_STYLE}>
-              {canScanSteamLibrary && props.onScanSteamLibrary !== undefined ? (
+              {selectedGameDetailSnapshot === undefined && canScanSteamLibrary && props.onScanSteamLibrary !== undefined ? (
                 <button
                   className="steamos-focus-target steamos-button-target"
                   type="button"
@@ -1051,16 +1343,28 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
                   {props.isSteamLibraryScanning === true ? "Scanning Steam library..." : "Scan Steam library"}
                 </button>
               ) : null}
-              <button
-                className="steamos-focus-target steamos-button-target"
-                type="button"
-                style={UNSELECTED_PROVIDER_BUTTON_STYLE}
-                disabled={!canRefreshDashboardState(selectedProviderState) || selectedProviderState.isRefreshing}
-                onClick={() => void handleRefresh()}
-                aria-label={`Refresh ${selectedProviderLabel} dashboard`}
-              >
-                {selectedProviderState.isRefreshing ? "Refreshing..." : "Refresh"}
-              </button>
+              {selectedGameDetailSnapshot === undefined ? (
+                <button
+                  className="steamos-focus-target steamos-button-target"
+                  type="button"
+                  style={UNSELECTED_PROVIDER_BUTTON_STYLE}
+                  disabled={!canRefreshDashboardState(selectedProviderState) || selectedProviderState.isRefreshing}
+                  onClick={() => void handleRefresh()}
+                  aria-label={`Refresh ${selectedProviderLabel} dashboard`}
+                >
+                  {selectedProviderState.isRefreshing ? "Refreshing..." : "Refresh"}
+                </button>
+              ) : (
+                <button
+                  className="steamos-focus-target steamos-button-target"
+                  type="button"
+                  style={UNSELECTED_PROVIDER_BUTTON_STYLE}
+                  onClick={handleBackToDashboard}
+                  aria-label="Back to dashboard"
+                >
+                  Back to dashboard
+                </button>
+              )}
             </div>
           </div>
           <div style={META_GROUP_STYLE}>
@@ -1101,6 +1405,9 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
             ) : null}
           </div>
           {selectedProviderState.status === "cached" ? (
+            selectedGameDetailSnapshot !== undefined ? (
+              <SteamOSDashboardGameDetailSurface detail={selectedGameDetailSnapshot} />
+            ) : (
             <>
               <p style={META_TEXT_STYLE}>
                 {formatRefreshedAt(selectedProviderState.snapshot) !== undefined
@@ -1122,14 +1429,32 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
                     {section.items.length > 0 ? (
                       <div style={DETAIL_LIST_STYLE}>
                         {section.items.map((item) => (
-                          <article key={`${section.title}:${item.title}:${item.metaLines.join("|")}`} style={DETAIL_CARD_STYLE}>
-                            <p style={DETAIL_CARD_TITLE_STYLE}>{item.title}</p>
-                            {item.metaLines.map((line) => (
-                              <p key={`${section.title}:${item.title}:${line}`} style={DETAIL_CARD_META_STYLE}>
-                                {line}
-                              </p>
-                            ))}
-                          </article>
+                          item.gameSelection !== undefined ? (
+                            <button
+                              key={`${section.title}:${item.title}:${item.metaLines.join("|")}`}
+                              className="steamos-focus-target steamos-button-target"
+                              type="button"
+                              style={DETAIL_CARD_BUTTON_STYLE}
+                              onClick={() => handleOpenGameDetail(item.gameSelection as SteamOSDashboardGameDetailSelection)}
+                              aria-label={`Open ${item.title} cached game detail`}
+                            >
+                              <p style={DETAIL_CARD_TITLE_STYLE}>{item.title}</p>
+                              {item.metaLines.map((line) => (
+                                <p key={`${section.title}:${item.title}:${line}`} style={DETAIL_CARD_META_STYLE}>
+                                  {line}
+                                </p>
+                              ))}
+                            </button>
+                          ) : (
+                            <article key={`${section.title}:${item.title}:${item.metaLines.join("|")}`} style={DETAIL_CARD_STYLE}>
+                              <p style={DETAIL_CARD_TITLE_STYLE}>{item.title}</p>
+                              {item.metaLines.map((line) => (
+                                <p key={`${section.title}:${item.title}:${line}`} style={DETAIL_CARD_META_STYLE}>
+                                  {line}
+                                </p>
+                              ))}
+                            </article>
+                          )
                         ))}
                       </div>
                     ) : (
@@ -1139,6 +1464,7 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
                 ))}
               </div>
             </>
+            )
           ) : null}
           {selectedProviderState.errorMessage !== undefined ? (
             <div role="alert" style={{ display: "grid", gap: "0.35rem" }}>
