@@ -1165,6 +1165,7 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
     props.initialSelectedGameDetail,
   );
   const selectedProviderIdRef = useRef<SteamOSDashboardProviderId>(selectedProviderId);
+  const backToDashboardButtonRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (props.selectedProviderId !== undefined) {
@@ -1233,6 +1234,14 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
     () => selectSteamOSDashboardGameDetail(selectedProviderState.snapshot, selectedGameDetail),
     [selectedGameDetail, selectedProviderState.snapshot],
   );
+
+  useEffect(() => {
+    if (selectedGameDetailSnapshot === undefined) {
+      return;
+    }
+
+    backToDashboardButtonRef.current?.focus();
+  }, [selectedGameDetailSnapshot]);
 
   async function handleRefresh(): Promise<void> {
     const currentState = providerStates[selectedStateKey];
@@ -1358,6 +1367,8 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
                 <button
                   className="steamos-focus-target steamos-button-target"
                   type="button"
+                  ref={backToDashboardButtonRef}
+                  autoFocus
                   style={UNSELECTED_PROVIDER_BUTTON_STYLE}
                   onClick={handleBackToDashboard}
                   aria-label="Back to dashboard"

@@ -634,6 +634,7 @@ test("SteamOS dashboard surface renders a cached game detail and back navigation
 
   assert.match(markup, /Cached game detail/u);
   assert.match(markup, /Back to dashboard/u);
+  assert.match(markup, /autofocus=""/u);
   assert.match(markup, /Hades/u);
   assert.match(markup, /Provider/u);
   assert.match(markup, /Steam/u);
