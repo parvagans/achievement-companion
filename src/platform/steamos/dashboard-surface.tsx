@@ -41,6 +41,17 @@ export interface SteamOSDashboardSummaryCard {
   readonly value: string;
 }
 
+interface SteamOSDashboardDetailSectionItem {
+  readonly title: string;
+  readonly metaLines: readonly string[];
+}
+
+interface SteamOSDashboardDetailSection {
+  readonly title: string;
+  readonly emptyState: string;
+  readonly items: readonly SteamOSDashboardDetailSectionItem[];
+}
+
 export interface SteamOSSteamLibraryScanOverview {
   readonly ownedGameCount: number;
   readonly scannedGameCount: number;
@@ -287,12 +298,119 @@ const SCAN_META_STYLE: CSSProperties = {
   lineHeight: 1.5,
 };
 
+const DETAIL_GRID_STYLE: CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+  gap: "0.95rem",
+};
+
+const DETAIL_SECTION_STYLE: CSSProperties = {
+  border: "1px solid rgba(148, 163, 184, 0.12)",
+  borderRadius: "18px",
+  background:
+    "linear-gradient(180deg, rgba(15, 23, 42, 0.72) 0%, rgba(15, 23, 42, 0.62) 100%)",
+  padding: "1rem",
+  display: "grid",
+  gap: "0.8rem",
+  boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.02)",
+};
+
+const DETAIL_TITLE_STYLE: CSSProperties = {
+  margin: 0,
+  color: "#f8fbff",
+  fontSize: "1rem",
+  fontWeight: 800,
+};
+
+const DETAIL_EMPTY_STYLE: CSSProperties = {
+  margin: 0,
+  color: "#9fb4ca",
+  lineHeight: 1.5,
+};
+
+const DETAIL_LIST_STYLE: CSSProperties = {
+  display: "grid",
+  gap: "0.75rem",
+};
+
+const DETAIL_CARD_STYLE: CSSProperties = {
+  border: "1px solid rgba(148, 163, 184, 0.11)",
+  borderRadius: "14px",
+  background: "rgba(15, 23, 42, 0.68)",
+  padding: "0.86rem",
+  display: "grid",
+  gap: "0.35rem",
+};
+
+const DETAIL_CARD_TITLE_STYLE: CSSProperties = {
+  margin: 0,
+  color: "#f8fbff",
+  fontWeight: 800,
+  fontSize: "0.95rem",
+};
+
+const DETAIL_CARD_META_STYLE: CSSProperties = {
+  margin: 0,
+  color: "#cbd5e1",
+  lineHeight: 1.45,
+  fontSize: "0.9rem",
+};
+
 function formatCount(value: number): string {
   return value.toLocaleString();
 }
 
 function formatOptionalCount(value: number | undefined): string {
   return value !== undefined ? formatCount(value) : "\u2014";
+}
+
+function formatMinutes(value: number | undefined): string | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return undefined;
+  }
+
+  const roundedMinutes = Math.round(value);
+  const hours = Math.floor(roundedMinutes / 60);
+  const minutes = roundedMinutes % 60;
+
+  if (hours === 0) {
+    return `${roundedMinutes} min`;
+  }
+
+  if (minutes === 0) {
+    return `${hours} h`;
+  }
+
+  return `${hours} h ${minutes} min`;
+}
+
+function formatGameStatus(status: string): string {
+  if (status === "mastered") {
+    return "Mastered";
+  }
+
+  if (status === "completed") {
+    return "Completed";
+  }
+
+  if (status === "beaten") {
+    return "Beaten";
+  }
+
+  if (status === "in_progress") {
+    return "In progress";
+  }
+
+  return "Locked";
+}
+
+function normalizeDisplayTitle(value: string | undefined, fallback: string): string {
+  const normalized = value?.trim() ?? "";
+  return normalized === "" ? fallback : normalized;
+}
+
+function isDefined(value: string | undefined): value is string {
+  return value !== undefined;
 }
 
 function getMetricValue(snapshot: DashboardSnapshot, ...keys: string[]): string | undefined {
@@ -686,6 +804,71 @@ function formatScannedAt(scannedAt: string | undefined): string | undefined {
   return Number.isFinite(parsedAt) ? formatTimestampLabel(parsedAt) : undefined;
 }
 
+function buildRecentAchievementsSection(snapshot: DashboardSnapshot): SteamOSDashboardDetailSection {
+  const recentUnlocks = snapshot.recentUnlocks.length > 0 ? snapshot.recentUnlocks : snapshot.recentAchievements;
+  return {
+    title: "Recent achievements / recent unlocks",
+    emptyState: "No recent achievements in the cached snapshot.",
+    items: recentUnlocks.slice(0, 3).map((recentUnlock) => {
+      const metaLines = [
+        `Game: ${normalizeDisplayTitle(recentUnlock.game.title, "Unknown game")}`,
+        recentUnlock.achievement.points !== undefined ? `${formatCount(recentUnlock.achievement.points)} points` : undefined,
+        recentUnlock.unlockedAt !== undefined ? `Unlocked ${formatTimestampLabel(recentUnlock.unlockedAt)}` : undefined,
+      ].filter(isDefined);
+      return {
+        title: normalizeDisplayTitle(recentUnlock.achievement.title, "Recent achievement"),
+        metaLines,
+      };
+    }),
+  };
+}
+
+function buildRecentlyPlayedSection(snapshot: DashboardSnapshot): SteamOSDashboardDetailSection {
+  return {
+    title: "Recently played",
+    emptyState: "No recently played games in the cached snapshot.",
+    items: snapshot.recentlyPlayedGames.slice(0, 3).map((game) => {
+      const metaLines = [
+        game.summary.completionPercent !== undefined ? `Completion ${formatCount(game.summary.completionPercent)}%` : undefined,
+        formatMinutes(game.playtimeForeverMinutes) !== undefined
+          ? `Playtime ${formatMinutes(game.playtimeForeverMinutes)}`
+          : undefined,
+        game.lastPlayedAt !== undefined ? `Last played ${formatTimestampLabel(game.lastPlayedAt)}` : undefined,
+      ].filter(isDefined);
+      return {
+        title: normalizeDisplayTitle(game.title, "Recently played game"),
+        metaLines,
+      };
+    }),
+  };
+}
+
+function buildFeaturedGamesSection(snapshot: DashboardSnapshot): SteamOSDashboardDetailSection {
+  return {
+    title: "Featured / play next",
+    emptyState: "No featured games in the cached snapshot.",
+    items: snapshot.featuredGames.slice(0, 3).map((game) => {
+      const metaLines = [
+        `Status ${formatGameStatus(game.status)}`,
+        game.summary.completionPercent !== undefined ? `Completion ${formatCount(game.summary.completionPercent)}%` : undefined,
+        game.lastPlayedAt !== undefined ? `Last played ${formatTimestampLabel(game.lastPlayedAt)}` : undefined,
+      ].filter(isDefined);
+      return {
+        title: normalizeDisplayTitle(game.title, "Featured game"),
+        metaLines,
+      };
+    }),
+  };
+}
+
+function buildSteamOSDashboardDetailSections(snapshot: DashboardSnapshot): readonly SteamOSDashboardDetailSection[] {
+  return [
+    buildRecentAchievementsSection(snapshot),
+    buildRecentlyPlayedSection(snapshot),
+    buildFeaturedGamesSection(snapshot),
+  ];
+}
+
 function getSteamLibraryScanGuidance(
   steamLibraryScanOverview: SteamOSSteamLibraryScanOverview | undefined,
   snapshot: DashboardSnapshot | undefined,
@@ -763,6 +946,10 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
         : []
     ),
     [isSteamProviderSelected, props.steamLibraryScanOverview, selectedProviderState.snapshot],
+  );
+  const detailSections = useMemo(
+    () => (selectedProviderState.snapshot !== undefined ? buildSteamOSDashboardDetailSections(selectedProviderState.snapshot) : []),
+    [selectedProviderState.snapshot],
   );
 
   async function handleRefresh(): Promise<void> {
@@ -925,6 +1112,29 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
                   <article key={card.label} style={SUMMARY_CARD_STYLE}>
                     <p style={SUMMARY_LABEL_STYLE}>{card.label}</p>
                     <p style={SUMMARY_VALUE_STYLE}>{card.value}</p>
+                  </article>
+                ))}
+              </div>
+              <div style={DETAIL_GRID_STYLE}>
+                {detailSections.map((section) => (
+                  <article key={section.title} aria-label={section.title} style={DETAIL_SECTION_STYLE}>
+                    <h4 style={DETAIL_TITLE_STYLE}>{section.title}</h4>
+                    {section.items.length > 0 ? (
+                      <div style={DETAIL_LIST_STYLE}>
+                        {section.items.map((item) => (
+                          <article key={`${section.title}:${item.title}:${item.metaLines.join("|")}`} style={DETAIL_CARD_STYLE}>
+                            <p style={DETAIL_CARD_TITLE_STYLE}>{item.title}</p>
+                            {item.metaLines.map((line) => (
+                              <p key={`${section.title}:${item.title}:${line}`} style={DETAIL_CARD_META_STYLE}>
+                                {line}
+                              </p>
+                            ))}
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <p style={DETAIL_EMPTY_STYLE}>{section.emptyState}</p>
+                    )}
                   </article>
                 ))}
               </div>

@@ -108,6 +108,264 @@ function createSteamLibraryScanOverview() {
   };
 }
 
+function createRichRetroDashboardSnapshot(): DashboardSnapshot {
+  return {
+    profile: {
+      providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+      identity: {
+        providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+        accountId: "retro-rich-account",
+        displayName: "Retro Player",
+      },
+      summary: {
+        unlockedCount: 84,
+        totalCount: 120,
+        completionPercent: 70,
+      },
+      metrics: [
+        { key: "total-points", label: "Total points", value: "12,345" },
+        { key: "games-beaten", label: "Games Beaten", value: "18" },
+        { key: "retro-ratio", label: "Unlock Rate", value: "2.8" },
+      ],
+      refreshedAt: 1_710_000_000_000,
+    },
+    recentAchievements: [
+      {
+        achievement: {
+          providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+          achievementId: "retro-ach-1",
+          gameId: "retro-game-1",
+          title: "First Blood",
+          points: 10,
+          isUnlocked: true,
+          unlockedAt: 1_710_000_000_000,
+          metrics: [],
+        },
+        game: {
+          providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+          gameId: "retro-game-1",
+          title: "Cyber Shadow",
+          platformLabel: "RetroAchievements",
+        },
+        unlockedAt: 1_710_000_000_000,
+      },
+      {
+        achievement: {
+          providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+          achievementId: "retro-ach-2",
+          gameId: "retro-game-2",
+          title: "All Clear",
+          points: 5,
+          isUnlocked: true,
+          unlockedAt: 1_710_000_360_000,
+          metrics: [],
+        },
+        game: {
+          providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+          gameId: "retro-game-2",
+          title: "Night Shift",
+          platformLabel: "RetroAchievements",
+        },
+        unlockedAt: 1_710_000_360_000,
+      },
+    ],
+    recentlyPlayedGames: [
+      {
+        providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+        gameId: "retro-game-1",
+        title: "Cyber Shadow",
+        platformLabel: "RetroAchievements",
+        summary: {
+          unlockedCount: 5,
+          totalCount: 10,
+          completionPercent: 50,
+        },
+        playtimeForeverMinutes: 245,
+        lastPlayedAt: 1_710_000_720_000,
+      },
+      {
+        providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+        gameId: "retro-game-3",
+        title: "Night Shift",
+        platformLabel: "RetroAchievements",
+        summary: {
+          unlockedCount: 2,
+          totalCount: 4,
+          completionPercent: 50,
+        },
+        playtimeForeverMinutes: 95,
+        lastPlayedAt: 1_710_001_080_000,
+      },
+    ],
+    recentUnlocks: [
+      {
+        achievement: {
+          providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+          achievementId: "retro-ach-1",
+          gameId: "retro-game-1",
+          title: "First Blood",
+          points: 10,
+          isUnlocked: true,
+          unlockedAt: 1_710_000_000_000,
+          metrics: [],
+        },
+        game: {
+          providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+          gameId: "retro-game-1",
+          title: "Cyber Shadow",
+          platformLabel: "RetroAchievements",
+        },
+        unlockedAt: 1_710_000_000_000,
+      },
+      {
+        achievement: {
+          providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+          achievementId: "retro-ach-2",
+          gameId: "retro-game-2",
+          title: "All Clear",
+          points: 5,
+          isUnlocked: true,
+          unlockedAt: 1_710_000_360_000,
+          metrics: [],
+        },
+        game: {
+          providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+          gameId: "retro-game-2",
+          title: "Night Shift",
+          platformLabel: "RetroAchievements",
+        },
+        unlockedAt: 1_710_000_360_000,
+      },
+    ],
+    featuredGames: [
+      {
+        providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+        gameId: "retro-game-4",
+        title: "Boss Rush",
+        platformLabel: "RetroAchievements",
+        status: "beaten",
+        summary: {
+          unlockedCount: 8,
+          totalCount: 8,
+          completionPercent: 100,
+        },
+        lastPlayedAt: 1_710_001_440_000,
+      },
+    ],
+    refreshedAt: 1_710_000_000_000,
+  };
+}
+
+function createRichSteamDashboardSnapshot(): DashboardSnapshot {
+  return {
+    profile: {
+      providerId: STEAM_PROVIDER_ID,
+      identity: {
+        providerId: STEAM_PROVIDER_ID,
+        accountId: "steam-rich-account",
+        displayName: "Steam Player",
+      },
+      summary: {
+        unlockedCount: 430,
+        totalCount: 800,
+        completionPercent: 54,
+      },
+      metrics: [
+        { key: "games-beaten", label: "Perfect Games", value: "21" },
+      ],
+      steamLevel: 29,
+      ownedGameCount: 142,
+      refreshedAt: 1_710_000_100_000,
+    },
+    recentAchievements: [
+      {
+        achievement: {
+          providerId: STEAM_PROVIDER_ID,
+          achievementId: "steam-ach-1",
+          gameId: "steam-game-1",
+          title: "Silent Exit",
+          points: 10,
+          isUnlocked: true,
+          unlockedAt: 1_710_001_000_000,
+          metrics: [],
+        },
+        game: {
+          providerId: STEAM_PROVIDER_ID,
+          gameId: "steam-game-1",
+          title: "Hades",
+          platformLabel: "Steam",
+        },
+        unlockedAt: 1_710_001_000_000,
+      },
+    ],
+    recentlyPlayedGames: [
+      {
+        providerId: STEAM_PROVIDER_ID,
+        gameId: "steam-game-1",
+        title: "Hades",
+        platformLabel: "Steam",
+        summary: {
+          unlockedCount: 75,
+          totalCount: 100,
+          completionPercent: 75,
+        },
+        playtimeForeverMinutes: 365,
+        lastPlayedAt: 1_710_001_080_000,
+      },
+      {
+        providerId: STEAM_PROVIDER_ID,
+        gameId: "steam-game-2",
+        title: "Celeste",
+        platformLabel: "Steam",
+        summary: {
+          unlockedCount: 100,
+          totalCount: 100,
+          completionPercent: 100,
+        },
+        playtimeForeverMinutes: 125,
+        lastPlayedAt: 1_710_001_440_000,
+      },
+    ],
+    recentUnlocks: [
+      {
+        achievement: {
+          providerId: STEAM_PROVIDER_ID,
+          achievementId: "steam-ach-1",
+          gameId: "steam-game-1",
+          title: "Silent Exit",
+          points: 10,
+          isUnlocked: true,
+          unlockedAt: 1_710_001_000_000,
+          metrics: [],
+        },
+        game: {
+          providerId: STEAM_PROVIDER_ID,
+          gameId: "steam-game-1",
+          title: "Hades",
+          platformLabel: "Steam",
+        },
+        unlockedAt: 1_710_001_000_000,
+      },
+    ],
+    featuredGames: [
+      {
+        providerId: STEAM_PROVIDER_ID,
+        gameId: "steam-game-3",
+        title: "Celeste",
+        platformLabel: "Steam",
+        status: "mastered",
+        summary: {
+          unlockedCount: 100,
+          totalCount: 100,
+          completionPercent: 100,
+        },
+        lastPlayedAt: 1_710_001_440_000,
+      },
+    ],
+    refreshedAt: 1_710_000_100_000,
+  };
+}
+
 test("SteamOS dashboard surface shows setup-required and not-loaded states safely", () => {
   const markup = renderToStaticMarkup(
     <SteamOSDashboardSurface
@@ -202,6 +460,9 @@ test("SteamOS dashboard surface renders cached RetroAchievements summary metrics
   assert.match(markup, /18/u);
   assert.match(markup, /Unlock rate/u);
   assert.match(markup, /2\.8/u);
+  assert.match(markup, /No recent achievements in the cached snapshot/u);
+  assert.match(markup, /No recently played games in the cached snapshot/u);
+  assert.match(markup, /No featured games in the cached snapshot/u);
 });
 
 test("SteamOS dashboard surface renders cached Steam summary metrics from explicit scan totals", () => {
@@ -240,6 +501,76 @@ test("SteamOS dashboard surface renders cached Steam summary metrics from explic
   assert.match(markup, /54%/u);
   assert.match(markup, /Library scan totals cached/u);
   assert.match(markup, /Scan Steam library/u);
+  assert.match(markup, /No recent achievements in the cached snapshot/u);
+  assert.match(markup, /No recently played games in the cached snapshot/u);
+  assert.match(markup, /No featured games in the cached snapshot/u);
+});
+
+test("SteamOS dashboard surface renders recent achievements, recently played, and featured cached sections from RetroAchievements", () => {
+  const providerStatuses = createProviderStatuses({
+    retroAchievements: { status: "configured" },
+    steam: { status: "not_configured" },
+  });
+  const providerStates = createSteamOSDashboardProviderStates(providerStatuses);
+  const markup = renderToStaticMarkup(
+    <SteamOSDashboardSurface
+      providerStatuses={providerStatuses}
+      initialSelectedProviderId={RETROACHIEVEMENTS_PROVIDER_ID}
+      initialProviderStates={{
+        ...providerStates,
+        retroAchievements: {
+          status: "cached",
+          snapshot: createRichRetroDashboardSnapshot(),
+          isRefreshing: false,
+        },
+      }}
+    />,
+  );
+
+  assert.match(markup, /Recent achievements \/ recent unlocks/u);
+  assert.match(markup, /Recently played/u);
+  assert.match(markup, /Featured \/ play next/u);
+  assert.match(markup, /First Blood/u);
+  assert.match(markup, /Cyber Shadow/u);
+  assert.match(markup, /Unlocked /u);
+  assert.match(markup, /Playtime 4 h 5 min/u);
+  assert.match(markup, /Status Beaten/u);
+  assert.doesNotMatch(markup, /retro-rich-account|retro-game-1|retro-ach-1|accountId|gameId|achievementId/u);
+});
+
+test("SteamOS dashboard surface renders recent achievements, recently played, and featured cached sections from Steam", () => {
+  const providerStatuses = createProviderStatuses({
+    retroAchievements: { status: "not_configured" },
+    steam: { status: "configured" },
+  });
+  const providerStates = createSteamOSDashboardProviderStates(providerStatuses);
+  const markup = renderToStaticMarkup(
+    <SteamOSDashboardSurface
+      providerStatuses={providerStatuses}
+      initialSelectedProviderId={STEAM_PROVIDER_ID}
+      initialProviderStates={{
+        ...providerStates,
+        steam: {
+          status: "cached",
+          snapshot: createRichSteamDashboardSnapshot(),
+          isRefreshing: false,
+        },
+      }}
+      steamLibraryScanOverview={createSteamLibraryScanOverview()}
+      onScanSteamLibrary={() => {}}
+      isSteamLibraryScanning={false}
+    />,
+  );
+
+  assert.match(markup, /Recent achievements \/ recent unlocks/u);
+  assert.match(markup, /Recently played/u);
+  assert.match(markup, /Featured \/ play next/u);
+  assert.match(markup, /Silent Exit/u);
+  assert.match(markup, /Hades/u);
+  assert.match(markup, /Celeste/u);
+  assert.match(markup, /Status Mastered/u);
+  assert.match(markup, /Playtime 6 h 5 min/u);
+  assert.doesNotMatch(markup, /steam-rich-account|steam-game-1|steam-ach-1|accountId|gameId|achievementId/u);
 });
 
 test("SteamOS dashboard surface shows a disabled scanning state while the Steam library scan is running", () => {
