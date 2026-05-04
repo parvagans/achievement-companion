@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import type { ProviderConfigStore } from "@core/platform";
 import type { RetroAchievementsProviderConfig } from "../../providers/retroachievements/config";
 import {
@@ -141,6 +141,14 @@ const FIELD_STYLE: CSSProperties = {
   gap: "0.4rem",
 };
 
+const FIELD_HEADER_STYLE: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.75rem",
+  flexWrap: "wrap",
+};
+
 const LABEL_STYLE: CSSProperties = {
   fontWeight: 700,
   color: "#e2e8f0",
@@ -165,6 +173,13 @@ const PROVIDER_HELP_STYLE: CSSProperties = {
   fontSize: "0.9rem",
   lineHeight: 1.5,
   color: "#9bb0c8",
+};
+
+const FIELD_HELP_STYLE: CSSProperties = {
+  margin: 0,
+  fontSize: "0.84rem",
+  lineHeight: 1.45,
+  color: "#93a9c4",
 };
 
 const BUTTON_ROW_STYLE: CSSProperties = {
@@ -570,6 +585,38 @@ export async function clearSteamSetup(
 export function SteamOSSetupSurface(props: SteamOSSetupSurfaceProps): JSX.Element {
   const isSavingRetroAchievements = props.busyProviderId === RETROACHIEVEMENTS_PROVIDER_ID;
   const isSavingSteam = props.busyProviderId === STEAM_PROVIDER_ID;
+  const [isRetroAchievementsUsernameEditing, setIsRetroAchievementsUsernameEditing] = useState(false);
+  const [retroAchievementsUsernameDraft, setRetroAchievementsUsernameDraft] = useState("");
+  const [isSteamId64Editing, setIsSteamId64Editing] = useState(false);
+  const [steamId64Draft, setSteamId64Draft] = useState("");
+
+  const hasSavedRetroAchievementsUsername = props.values.retroAchievements.username.trim() !== "";
+  const hasSavedSteamId64 = props.values.steam.steamId64.trim() !== "";
+
+  const retroAchievementsUsernameValue = hasSavedRetroAchievementsUsername
+    ? (isRetroAchievementsUsernameEditing ? retroAchievementsUsernameDraft : "")
+    : props.values.retroAchievements.username;
+  const steamId64Value = hasSavedSteamId64 ? (isSteamId64Editing ? steamId64Draft : "") : props.values.steam.steamId64;
+
+  function beginEditRetroAchievementsUsername(): void {
+    setRetroAchievementsUsernameDraft("");
+    setIsRetroAchievementsUsernameEditing(true);
+  }
+
+  function beginEditSteamId64(): void {
+    setSteamId64Draft("");
+    setIsSteamId64Editing(true);
+  }
+
+  function finishRetroAchievementsUsernameEdit(): void {
+    setIsRetroAchievementsUsernameEditing(false);
+    setRetroAchievementsUsernameDraft("");
+  }
+
+  function finishSteamId64Edit(): void {
+    setIsSteamId64Editing(false);
+    setSteamId64Draft("");
+  }
 
   return (
     <section id="steamos-setup-surface" aria-label="SteamOS provider setup" style={SURFACE_STYLE}>
@@ -603,18 +650,45 @@ export function SteamOSSetupSurface(props: SteamOSSetupSurfaceProps): JSX.Elemen
           ) : null}
           <div style={FIELD_GRID_STYLE}>
             <div style={FIELD_STYLE}>
-              <label htmlFor={RETROACHIEVEMENTS_USERNAME_ID} style={LABEL_STYLE}>Username</label>
+              <div style={FIELD_HEADER_STYLE}>
+                <label htmlFor={RETROACHIEVEMENTS_USERNAME_ID} style={LABEL_STYLE}>Username</label>
+                {hasSavedRetroAchievementsUsername ? (
+                  <button
+                    className="steamos-focus-target steamos-button-target"
+                    type="button"
+                    onClick={beginEditRetroAchievementsUsername}
+                    style={SECONDARY_BUTTON_STYLE}
+                  >
+                    Edit
+                  </button>
+                ) : null}
+              </div>
               <input
                 id={RETROACHIEVEMENTS_USERNAME_ID}
                 className="steamos-focus-target steamos-input-target"
                 name="retroachievements-username"
                 type="text"
                 autoComplete="username"
-                placeholder="RetroAchievements username"
-                value={props.values.retroAchievements.username}
+                readOnly={hasSavedRetroAchievementsUsername && !isRetroAchievementsUsernameEditing}
+                placeholder={
+                  hasSavedRetroAchievementsUsername
+                    ? "Saved username in backend only"
+                    : "RetroAchievements username"
+                }
+                value={retroAchievementsUsernameValue}
                 style={INPUT_STYLE}
-                onChange={(event) => props.onRetroAchievementsUsernameChange?.(event.currentTarget.value)}
+                onChange={(event) => {
+                  const nextValue = event.currentTarget.value;
+                  if (hasSavedRetroAchievementsUsername) {
+                    setIsRetroAchievementsUsernameEditing(true);
+                    setRetroAchievementsUsernameDraft(nextValue);
+                  }
+                  props.onRetroAchievementsUsernameChange?.(nextValue);
+                }}
               />
+              {hasSavedRetroAchievementsUsername ? (
+                <p style={FIELD_HELP_STYLE}>Saved locally in backend only. Edit to update.</p>
+              ) : null}
             </div>
             <div style={FIELD_STYLE}>
               <label htmlFor={RETROACHIEVEMENTS_API_KEY_ID} style={LABEL_STYLE}>API key</label>
@@ -638,7 +712,10 @@ export function SteamOSSetupSurface(props: SteamOSSetupSurfaceProps): JSX.Elemen
             <button
               className="steamos-focus-target steamos-button-target"
               type="button"
-              onClick={props.onSaveRetroAchievements}
+              onClick={() => {
+                finishRetroAchievementsUsernameEdit();
+                props.onSaveRetroAchievements?.();
+              }}
               disabled={isSavingRetroAchievements}
               style={PRIMARY_BUTTON_STYLE}
             >
@@ -647,7 +724,10 @@ export function SteamOSSetupSurface(props: SteamOSSetupSurfaceProps): JSX.Elemen
             <button
               className="steamos-focus-target steamos-button-target"
               type="button"
-              onClick={props.onClearRetroAchievements}
+              onClick={() => {
+                finishRetroAchievementsUsernameEdit();
+                props.onClearRetroAchievements?.();
+              }}
               disabled={isSavingRetroAchievements}
               style={SECONDARY_BUTTON_STYLE}
             >
@@ -678,7 +758,19 @@ export function SteamOSSetupSurface(props: SteamOSSetupSurfaceProps): JSX.Elemen
           ) : null}
           <div style={FIELD_GRID_STYLE}>
             <div style={FIELD_STYLE}>
-              <label htmlFor={STEAM_ID64_ID} style={LABEL_STYLE}>SteamID64</label>
+              <div style={FIELD_HEADER_STYLE}>
+                <label htmlFor={STEAM_ID64_ID} style={LABEL_STYLE}>SteamID64</label>
+                {hasSavedSteamId64 ? (
+                  <button
+                    className="steamos-focus-target steamos-button-target"
+                    type="button"
+                    onClick={beginEditSteamId64}
+                    style={SECONDARY_BUTTON_STYLE}
+                  >
+                    Edit
+                  </button>
+                ) : null}
+              </div>
               <input
                 id={STEAM_ID64_ID}
                 className="steamos-focus-target steamos-input-target"
@@ -686,11 +778,22 @@ export function SteamOSSetupSurface(props: SteamOSSetupSurfaceProps): JSX.Elemen
                 type="text"
                 inputMode="numeric"
                 autoComplete="off"
-                placeholder="Numeric SteamID64"
-                value={props.values.steam.steamId64}
+                readOnly={hasSavedSteamId64 && !isSteamId64Editing}
+                placeholder={hasSavedSteamId64 ? "Saved SteamID64 in backend only" : "Numeric SteamID64"}
+                value={steamId64Value}
                 style={INPUT_STYLE}
-                onChange={(event) => props.onSteamId64Change?.(event.currentTarget.value)}
+                onChange={(event) => {
+                  const nextValue = event.currentTarget.value;
+                  if (hasSavedSteamId64) {
+                    setIsSteamId64Editing(true);
+                    setSteamId64Draft(nextValue);
+                  }
+                  props.onSteamId64Change?.(nextValue);
+                }}
               />
+              {hasSavedSteamId64 ? (
+                <p style={FIELD_HELP_STYLE}>Saved locally in backend only. Edit to update.</p>
+              ) : null}
             </div>
             <div style={FIELD_STYLE}>
               <label htmlFor={STEAM_API_KEY_ID} style={LABEL_STYLE}>Steam Web API key</label>
@@ -714,7 +817,10 @@ export function SteamOSSetupSurface(props: SteamOSSetupSurfaceProps): JSX.Elemen
             <button
               className="steamos-focus-target steamos-button-target"
               type="button"
-              onClick={props.onSaveSteam}
+              onClick={() => {
+                finishSteamId64Edit();
+                props.onSaveSteam?.();
+              }}
               disabled={isSavingSteam}
               style={PRIMARY_BUTTON_STYLE}
             >
@@ -723,7 +829,10 @@ export function SteamOSSetupSurface(props: SteamOSSetupSurfaceProps): JSX.Elemen
             <button
               className="steamos-focus-target steamos-button-target"
               type="button"
-              onClick={props.onClearSteam}
+              onClick={() => {
+                finishSteamId64Edit();
+                props.onClearSteam?.();
+              }}
               disabled={isSavingSteam}
               style={SECONDARY_BUTTON_STYLE}
             >

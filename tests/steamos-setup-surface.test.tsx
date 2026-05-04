@@ -29,16 +29,16 @@ function createProviderConfigs(): SteamOSProviderConfigs {
   };
 }
 
-test("SteamOS setup surface renders both provider forms with password inputs and no prefilled secrets", () => {
+test("SteamOS setup surface masks saved identifiers while keeping API keys hidden", () => {
   const markup = renderToStaticMarkup(
     <SteamOSSetupSurface
       providerConfigStatus="loaded"
       providerStatuses={{
-        retroAchievements: { label: "RetroAchievements", status: "not_configured" },
+        retroAchievements: { label: "RetroAchievements", status: "configured" },
         steam: { label: "Steam", status: "configured" },
       }}
       values={createSteamOSSetupFormValues({
-        retroAchievements: { username: "sol88", hasApiKey: false },
+        retroAchievements: { username: "sol88", hasApiKey: true },
         steam: { ...DEFAULT_STEAM_PROVIDER_CONFIG, steamId64: "76561198136628813", hasApiKey: true },
       })}
     />,
@@ -60,14 +60,15 @@ test("SteamOS setup surface renders both provider forms with password inputs and
   assert.match(markup, /for="steamos-steam-id64"/u);
   assert.match(markup, /id="steamos-steam-api-key"/u);
   assert.match(markup, /for="steamos-steam-api-key"/u);
-  assert.match(markup, /placeholder="RetroAchievements username"/u);
-  assert.match(markup, /placeholder="Numeric SteamID64"/u);
+  assert.match(markup, /placeholder="Saved username in backend only"/u);
+  assert.match(markup, /placeholder="Saved SteamID64 in backend only"/u);
+  assert.match(markup, /Saved locally in backend only\. Edit to update\./u);
+  assert.match(markup, /Edit/u);
   assert.match(markup, /class="steamos-focus-target steamos-input-target"/u);
   assert.match(markup, /class="steamos-action-row"/u);
   assert.match(markup, /class="steamos-focus-target steamos-button-target"/u);
   assert.match(markup, /data-steamos-focus-group="true"/u);
-  assert.match(markup, /value="sol88"/u);
-  assert.match(markup, /value="76561198136628813"/u);
+  assert.doesNotMatch(markup, /value="sol88"|value="76561198136628813"/u);
   assert.doesNotMatch(markup, /retro-secret|steam-secret|provider-secrets|Authorization: Bearer/u);
 });
 
@@ -97,6 +98,25 @@ test("SteamOS setup surface renders status badges, busy state, and generic error
   assert.match(markup, /disabled=""/u);
   assert.match(markup, /role="alert"/u);
   assert.match(markup, /class="steamos-focus-target steamos-button-target"/u);
+});
+
+test("SteamOS setup surface keeps unsaved identifier fields editable without masking placeholders", () => {
+  const markup = renderToStaticMarkup(
+    <SteamOSSetupSurface
+      providerConfigStatus="loaded"
+      providerStatuses={{
+        retroAchievements: { label: "RetroAchievements", status: "not_configured" },
+        steam: { label: "Steam", status: "not_configured" },
+      }}
+      values={createSteamOSSetupFormValues()}
+    />,
+  );
+
+  assert.match(markup, /placeholder="RetroAchievements username"/u);
+  assert.match(markup, /placeholder="Numeric SteamID64"/u);
+  assert.doesNotMatch(markup, /Saved username in backend only|Saved SteamID64 in backend only/u);
+  assert.doesNotMatch(markup, /Edit/u);
+  assert.doesNotMatch(markup, /76561198136628813|sol88/u);
 });
 
 test("SteamOS setup surface renders setup-incomplete guidance without exposing saved identifiers", () => {
