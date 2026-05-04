@@ -797,7 +797,7 @@ function getDashboardActionFailureMessage(args: {
 function createInitialDevShellDiagnosticsState(): SteamOSDevShellDiagnosticsState {
   return {
     phase: "loading",
-    message: "Loading SteamOS dev shell status...",
+    message: "Loading SteamOS preview status...",
   };
 }
 
@@ -817,7 +817,7 @@ export async function loadSteamOSDevShellDiagnosticsStatus(
     const snapshot = await diagnosticsStatusStore.load();
     return {
       phase: "loaded",
-      message: snapshot.runtimeMetadata.valid ? "SteamOS dev shell status ready" : "Runtime unavailable",
+      message: snapshot.runtimeMetadata.valid ? "SteamOS preview ready" : "Runtime unavailable",
       ...(snapshot.runtimeMetadata.valid
         ? {}
         : {
@@ -1110,7 +1110,7 @@ export function buildSteamOSIssueSummary(
     formatIssueSummaryCacheLine("Steam", snapshot?.dashboardCache.steam),
     formatIssueSummaryCacheLine("Steam library scan", snapshot?.steamLibraryScanCache, "Scan completed"),
     `Last visible recovery: ${resolveIssueSummaryRecoveryCode(state, diagnostics, dashboardMessages)}`,
-    "Validation reminders: no automatic Steam scan expected; Decky ZIP is separate from this standalone SteamOS shell.",
+    "Validation reminders: no automatic Steam scan expected; Decky ZIP is separate from this internal SteamOS preview.",
     "Review before sharing. Do not add API keys, usernames, Steam IDs, tokens, provider config or provider secrets contents, or full request URLs.",
   ].join("\n");
 }
@@ -1430,7 +1430,7 @@ export function SteamOSAppShellOverview(
     <section aria-label="SteamOS app overview" style={STEAMOS_APP_OVERVIEW_STYLE}>
       <div style={STEAMOS_APP_OVERVIEW_HEADER_STYLE}>
         <p style={STEAMOS_APP_OVERVIEW_EYEBROW_STYLE}>Home</p>
-        <h2 style={STEAMOS_APP_OVERVIEW_TITLE_STYLE}>SteamOS app shell</h2>
+        <h2 style={STEAMOS_APP_OVERVIEW_TITLE_STYLE}>SteamOS app preview</h2>
         <p style={STEAMOS_APP_OVERVIEW_HELP_STYLE}>
           Use these provider cards to jump between setup, the cached dashboard, and refresh actions without exposing
           secrets.
@@ -1570,7 +1570,7 @@ export function SteamOSBootstrapStatus(
       <style>{STEAMOS_INPUT_READINESS_CSS}</style>
       <header style={PAGE_HEADER_STYLE}>
         <div style={PAGE_HEADER_TOPLINE_STYLE}>
-          <p style={PAGE_HEADER_EYEBROW_STYLE}>Standalone SteamOS Runtime</p>
+          <p style={PAGE_HEADER_EYEBROW_STYLE}>Internal SteamOS preview</p>
           <div style={PAGE_HEADER_STATUS_ROW_STYLE}>
             <span style={PAGE_HEADER_STATUS_PILL_STYLE}>Local backend only</span>
             <span style={PAGE_HEADER_STATUS_PILL_STYLE}>Steam Deck validated</span>
@@ -1579,7 +1579,7 @@ export function SteamOSBootstrapStatus(
         <div style={PAGE_HEADER_COPY_STYLE}>
           <h1 style={PAGE_TITLE_STYLE}>Achievement Companion</h1>
           <p style={PAGE_SUBTITLE_STYLE}>
-            SteamOS dev shell
+            SteamOS app preview
           </p>
         </div>
       </header>
@@ -1630,8 +1630,8 @@ export function SteamOSDevShellStatusPanel(
     <section className="steamos-secondary-panel" data-steamos-secondary-panel="true" data-steamos-focus-group="true" style={DEV_SHELL_STATUS_STYLE}>
       <div style={DEV_SHELL_STATUS_HEADER_STYLE}>
         <div style={DEV_SHELL_STATUS_HEADING_GROUP_STYLE}>
-          <p style={DEV_SHELL_STATUS_EYEBROW_STYLE}>Development</p>
-          <h2 style={DEV_SHELL_STATUS_TITLE_STYLE}>SteamOS dev shell status</h2>
+          <p style={DEV_SHELL_STATUS_EYEBROW_STYLE}>Local status</p>
+          <h2 style={DEV_SHELL_STATUS_TITLE_STYLE}>App status</h2>
         </div>
         <div className="steamos-action-row" style={DEV_SHELL_STATUS_ACTION_ROW_STYLE}>
           {onIssueSummaryAction !== undefined ? (
@@ -2174,7 +2174,7 @@ export function SteamOSBootstrapShell(
       <style>{STEAMOS_INPUT_READINESS_CSS}</style>
       <header style={PAGE_HEADER_STYLE}>
         <div style={PAGE_HEADER_TOPLINE_STYLE}>
-          <p style={PAGE_HEADER_EYEBROW_STYLE}>Standalone SteamOS Runtime</p>
+          <p style={PAGE_HEADER_EYEBROW_STYLE}>Internal SteamOS preview</p>
           <div style={PAGE_HEADER_STATUS_ROW_STYLE}>
             <span style={PAGE_HEADER_STATUS_PILL_STYLE}>Steam Deck validated</span>
             <span style={PAGE_HEADER_STATUS_PILL_STYLE}>Cache-first dashboard shell</span>
@@ -2183,7 +2183,7 @@ export function SteamOSBootstrapShell(
         <div style={PAGE_HEADER_COPY_STYLE}>
           <h1 style={PAGE_TITLE_STYLE}>Achievement Companion</h1>
           <p style={PAGE_SUBTITLE_STYLE}>
-            SteamOS app shell
+            SteamOS app preview
           </p>
         </div>
       </header>

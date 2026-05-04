@@ -120,7 +120,7 @@ test("SteamOS bootstrap entrypoint renders loading and connected states without 
   assert.equal(states.length, 2);
   assert.match(states[0] ?? "", /Loading SteamOS backend\.\.\./u);
   assert.match(states[1] ?? "", /Connected to SteamOS backend/u);
-  assert.match(states[1] ?? "", /SteamOS dev shell/u);
+  assert.match(states[1] ?? "", /SteamOS preview/u);
   assert.match(states[1] ?? "", /html,\s*body,\s*#root/u);
   assert.match(states[1] ?? "", /RetroAchievements/u);
   assert.match(states[1] ?? "", /configured/u);
@@ -216,7 +216,7 @@ test("SteamOS dev shell diagnostics panel renders safe local status without expo
     <SteamOSDevShellStatusPanel
       state={{
         phase: "loaded",
-        message: "SteamOS dev shell status ready",
+      message: "SteamOS preview ready",
         snapshot: {
           ok: true,
           backendReachable: true,
@@ -265,7 +265,7 @@ test("SteamOS dev shell diagnostics panel renders safe local status without expo
     />,
   );
 
-  assert.match(markup, /SteamOS dev shell status/u);
+  assert.match(markup, /App status/u);
   assert.match(markup, /Backend/u);
   assert.match(markup, /reachable/u);
   assert.match(markup, /Runtime metadata/u);
@@ -328,7 +328,7 @@ test("SteamOS issue summary builder produces sanitized report text from diagnost
     },
     diagnostics: {
       phase: "loaded",
-      message: "SteamOS dev shell status ready",
+      message: "SteamOS preview ready",
       snapshot: {
         ok: true,
         backendReachable: true,
@@ -438,7 +438,7 @@ test("SteamOS issue summary builder stays graceful when cache metadata is missin
     },
     diagnostics: {
       phase: "loaded",
-      message: "SteamOS dev shell status ready",
+      message: "SteamOS preview ready",
       snapshot: {
         ok: true,
         backendReachable: true,
@@ -502,7 +502,7 @@ test("SteamOS dev shell diagnostics panel can render a visible issue summary fal
     <SteamOSDevShellStatusPanel
       state={{
         phase: "loaded",
-        message: "SteamOS dev shell status ready",
+        message: "SteamOS preview ready",
         snapshot: {
           ok: true,
           backendReachable: true,
@@ -592,7 +592,7 @@ test("SteamOS dev shell diagnostics panel renders backend recovery guidance safe
 test("SteamOS app shell overview renders setup, refresh, and cached dashboard states safely", () => {
   const diagnostics = {
     phase: "loaded",
-    message: "SteamOS dev shell status ready",
+      message: "SteamOS preview ready",
     snapshot: {
       ok: true,
       backendReachable: true,
@@ -679,7 +679,7 @@ test("SteamOS app shell overview renders setup, refresh, and cached dashboard st
     />,
   );
 
-  assert.match(markup, /SteamOS app shell/u);
+  assert.match(markup, /SteamOS app preview/u);
   assert.match(markup, /RetroAchievements/u);
   assert.match(markup, /Cached dashboard available/u);
   assert.match(markup, /Open dashboard/u);
@@ -702,7 +702,7 @@ test("SteamOS app shell overview renders setup, refresh, and cached dashboard st
 test("SteamOS app shell overview renders configured providers without a cache and exposes refresh-first actions", () => {
   const diagnostics = {
     phase: "loaded",
-    message: "SteamOS dev shell status ready",
+    message: "SteamOS preview ready",
     snapshot: {
       ok: true,
       backendReachable: true,
@@ -782,7 +782,7 @@ test("SteamOS app shell overview renders configured providers without a cache an
     />,
   );
 
-  assert.match(markup, /SteamOS app shell/u);
+  assert.match(markup, /SteamOS app preview/u);
   assert.match(markup, /Steam/u);
   assert.match(markup, /Configured, no cached dashboard yet/u);
   assert.match(markup, /Refresh dashboard/u);
@@ -799,7 +799,7 @@ test("SteamOS app shell overview renders configured providers without a cache an
 test("SteamOS app shell overview renders setup-incomplete recovery guidance safely", () => {
   const diagnostics = {
     phase: "loaded",
-    message: "SteamOS dev shell status ready",
+    message: "SteamOS preview ready",
     snapshot: {
       ok: true,
       backendReachable: true,
@@ -889,7 +889,7 @@ test("SteamOS app shell overview renders setup-incomplete recovery guidance safe
 test("SteamOS app shell foundation keeps provider actions readable and diagnostics secondary", () => {
   const diagnostics = {
     phase: "loaded",
-    message: "SteamOS dev shell status ready",
+    message: "SteamOS preview ready",
     snapshot: {
       ok: true,
       backendReachable: true,
@@ -978,7 +978,7 @@ test("SteamOS app shell foundation keeps provider actions readable and diagnosti
       <SteamOSDevShellStatusPanel
         state={{
           phase: "loaded",
-          message: "SteamOS dev shell status ready",
+          message: "SteamOS preview ready",
           snapshot: diagnostics.snapshot,
         }}
         onRefresh={() => {}}
@@ -986,10 +986,10 @@ test("SteamOS app shell foundation keeps provider actions readable and diagnosti
     </div>,
   );
 
-  assert.match(markup, /SteamOS app shell/u);
+  assert.match(markup, /SteamOS app preview/u);
   assert.match(markup, /Home/u);
-  assert.match(markup, /Development/u);
-  assert.match(markup, /SteamOS dev shell status/u);
+  assert.match(markup, /Local status/u);
+  assert.match(markup, /App status/u);
   assert.match(markup, /Refresh status/u);
   assert.match(markup, /Open dashboard/u);
   assert.match(markup, /Refresh dashboard/u);
@@ -1054,7 +1054,7 @@ test("SteamOS dev shell diagnostics load helper returns safe loading success and
   });
 
   assert.equal(loadedState.phase, "loaded");
-  assert.equal(loadedState.message, "SteamOS dev shell status ready");
+  assert.equal(loadedState.message, "SteamOS preview ready");
   assert.equal(loadedState.snapshot?.backendReachable, true);
   assert.equal(failedState.phase, "error");
   assert.equal(failedState.message, "Backend unavailable");

@@ -1,6 +1,6 @@
 # Achievement Companion SteamOS Preview
 
-This is a standalone SteamOS preview package for developer and tester validation.
+This is an internal-only standalone SteamOS preview package for developer and tester validation.
 
 It is **not** the Decky release ZIP, and it is **not** a final installer, AppImage, Flatpak, or app-store package.
 
