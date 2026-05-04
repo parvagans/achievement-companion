@@ -9,6 +9,7 @@ import { RETROACHIEVEMENTS_PROVIDER_ID } from "../src/providers/retroachievement
 import { STEAM_PROVIDER_ID } from "../src/providers/steam/config";
 import {
   SteamOSDashboardSurface,
+  buildSteamOSDashboardAchievementDetail,
   beginRefreshingSteamOSDashboardProviderState,
   buildSteamOSDashboardSummaryCards,
   buildSteamOSDashboardGameDetail,
@@ -16,6 +17,7 @@ import {
   loadSteamOSDashboardProviderStates,
   refreshSteamOSDashboardProviderState,
   resolveInitialDashboardProviderId,
+  type SteamOSDashboardAchievementDetailSelection,
   type SteamOSDashboardGameDetailSelection,
   type SteamOSDashboardProviderStatuses,
 } from "../src/platform/steamos/dashboard-surface";
@@ -138,6 +140,7 @@ function createRichRetroDashboardSnapshot(): DashboardSnapshot {
           achievementId: "retro-ach-1",
           gameId: "retro-game-1",
           title: "First Blood",
+          description: "Land the first hit and keep the run alive.",
           points: 10,
           isUnlocked: true,
           unlockedAt: 1_710_000_000_000,
@@ -206,6 +209,7 @@ function createRichRetroDashboardSnapshot(): DashboardSnapshot {
           achievementId: "retro-ach-1",
           gameId: "retro-game-1",
           title: "First Blood",
+          description: "Land the first hit and keep the run alive.",
           points: 10,
           isUnlocked: true,
           unlockedAt: 1_710_000_000_000,
@@ -286,6 +290,7 @@ function createRichSteamDashboardSnapshot(): DashboardSnapshot {
           achievementId: "steam-ach-1",
           gameId: "steam-game-1",
           title: "Silent Exit",
+          description: "Slip through the encounter without drawing attention.",
           points: 10,
           isUnlocked: true,
           unlockedAt: 1_710_001_000_000,
@@ -335,6 +340,7 @@ function createRichSteamDashboardSnapshot(): DashboardSnapshot {
           achievementId: "steam-ach-1",
           gameId: "steam-game-1",
           title: "Silent Exit",
+          description: "Slip through the encounter without drawing attention.",
           points: 10,
           isUnlocked: true,
           unlockedAt: 1_710_001_000_000,
@@ -532,7 +538,7 @@ test("SteamOS dashboard surface renders recent achievements, recently played, an
   assert.match(markup, /Recent achievements \/ recent unlocks/u);
   assert.match(markup, /Recently played/u);
   assert.match(markup, /Featured \/ play next/u);
-  assert.match(markup, /aria-label="Open First Blood cached game detail"/u);
+  assert.match(markup, /aria-label="Open First Blood achievement detail"/u);
   assert.match(markup, /aria-label="Open Cyber Shadow cached game detail"/u);
   assert.match(markup, /aria-label="Open Boss Rush cached game detail"/u);
   assert.match(markup, /First Blood/u);
@@ -570,7 +576,7 @@ test("SteamOS dashboard surface renders recent achievements, recently played, an
   assert.match(markup, /Recent achievements \/ recent unlocks/u);
   assert.match(markup, /Recently played/u);
   assert.match(markup, /Featured \/ play next/u);
-  assert.match(markup, /aria-label="Open Silent Exit cached game detail"/u);
+  assert.match(markup, /aria-label="Open Silent Exit achievement detail"/u);
   assert.match(markup, /aria-label="Open Hades cached game detail"/u);
   assert.match(markup, /aria-label="Open Celeste cached game detail"/u);
   assert.match(markup, /Silent Exit/u);
@@ -579,6 +585,73 @@ test("SteamOS dashboard surface renders recent achievements, recently played, an
   assert.match(markup, /Status Mastered/u);
   assert.match(markup, /Playtime 6 h 5 min/u);
   assert.doesNotMatch(markup, /steam-rich-account|steam-game-1|steam-ach-1|accountId|gameId|achievementId/u);
+});
+
+test("SteamOS dashboard surface keeps achievement rows non-clickable when cached titles are missing", () => {
+  const providerStatuses = createProviderStatuses({
+    retroAchievements: { status: "configured" },
+    steam: { status: "not_configured" },
+  });
+  const providerStates = createSteamOSDashboardProviderStates(providerStatuses);
+  const markup = renderToStaticMarkup(
+    <SteamOSDashboardSurface
+      providerStatuses={providerStatuses}
+      initialSelectedProviderId={RETROACHIEVEMENTS_PROVIDER_ID}
+      initialProviderStates={{
+        ...providerStates,
+        retroAchievements: {
+          status: "cached",
+          snapshot: {
+            profile: {
+              providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+              identity: {
+                providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+                accountId: "retro-empty-account",
+                displayName: "Retro Player",
+              },
+              summary: {
+                unlockedCount: 1,
+                totalCount: 1,
+                completionPercent: 100,
+              },
+              metrics: [],
+              refreshedAt: 1_710_000_000_000,
+            },
+            recentAchievements: [
+              {
+                achievement: {
+                  providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+                  achievementId: "retro-empty-ach",
+                  gameId: "retro-empty-game",
+                  title: "",
+                  points: 1,
+                  isUnlocked: true,
+                  unlockedAt: 1_710_000_000_000,
+                  metrics: [],
+                },
+                game: {
+                  providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+                  gameId: "retro-empty-game",
+                  title: "",
+                  platformLabel: "RetroAchievements",
+                },
+                unlockedAt: 1_710_000_000_000,
+              },
+            ],
+            recentlyPlayedGames: [],
+            recentUnlocks: [],
+            featuredGames: [],
+            refreshedAt: 1_710_000_000_000,
+          },
+          isRefreshing: false,
+        },
+      }}
+    />,
+  );
+
+  assert.match(markup, /Recent achievements \/ recent unlocks/u);
+  assert.match(markup, /Recent achievement/u);
+  assert.doesNotMatch(markup, /aria-label="Open .* achievement detail"/u);
 });
 
 test("SteamOS dashboard game detail builder resolves safe cached fields and empty states", () => {
@@ -601,6 +674,85 @@ test("SteamOS dashboard game detail builder resolves safe cached fields and empt
   assert.match(detail.summaryCards.find((card) => card.label === "Last played")?.value ?? "", /at /u);
   assert.equal(detail.recentAchievements.length, 0);
   assert.equal(detail.achievementEmptyState, "No cached achievements for this game.");
+});
+
+test("SteamOS dashboard achievement detail builder resolves safe cached fields and empty states", () => {
+  const detail = buildSteamOSDashboardAchievementDetail(createRichSteamDashboardSnapshot(), {
+    providerId: STEAM_PROVIDER_ID,
+    gameId: "steam-game-1",
+    gameTitle: "Hades",
+    achievementId: "steam-ach-1",
+    achievementTitle: "Silent Exit",
+  });
+
+  assert.equal(detail.providerLabel, "Steam");
+  assert.equal(detail.gameTitle, "Hades");
+  assert.equal(detail.title, "Silent Exit");
+  assert.deepStrictEqual(
+    detail.summaryCards.map((card) => card.label),
+    ["Provider", "Game", "Points", "Unlock time", "Status"],
+  );
+  assert.equal(detail.summaryCards.find((card) => card.label === "Provider")?.value, "Steam");
+  assert.equal(detail.summaryCards.find((card) => card.label === "Game")?.value, "Hades");
+  assert.equal(detail.summaryCards.find((card) => card.label === "Points")?.value, "10 points");
+  assert.match(detail.summaryCards.find((card) => card.label === "Unlock time")?.value ?? "", /at /u);
+  assert.equal(detail.summaryCards.find((card) => card.label === "Status")?.value, "Unlocked");
+  assert.equal(detail.description, "Slip through the encounter without drawing attention.");
+  assert.equal(detail.achievementHistoryTitle, "Cached achievements / unlocks");
+  assert.equal(detail.recentAchievements.length, 1);
+  assert.equal(detail.recentAchievements[0]?.title, "Silent Exit");
+});
+
+test("SteamOS dashboard achievement detail builder falls back safely when cached fields are missing", () => {
+  const detail = buildSteamOSDashboardAchievementDetail(
+    {
+      profile: {
+        providerId: STEAM_PROVIDER_ID,
+        identity: {
+          providerId: STEAM_PROVIDER_ID,
+          accountId: "steam-fallback-account",
+          displayName: "Steam Player",
+        },
+        summary: {
+          unlockedCount: 0,
+          totalCount: 0,
+          completionPercent: 0,
+        },
+        metrics: [],
+        refreshedAt: 1_710_000_100_000,
+      },
+      recentAchievements: [],
+      recentlyPlayedGames: [
+        {
+          providerId: STEAM_PROVIDER_ID,
+          gameId: "steam-game-9",
+          title: "Mystery Game",
+          platformLabel: "Steam",
+          summary: {
+            unlockedCount: 0,
+            totalCount: 0,
+            completionPercent: 0,
+          },
+        },
+      ],
+      recentUnlocks: [],
+      featuredGames: [],
+      refreshedAt: 1_710_000_100_000,
+    },
+    {
+      providerId: STEAM_PROVIDER_ID,
+      gameId: "steam-game-9",
+      gameTitle: "Mystery Game",
+      achievementId: "steam-ach-99",
+      achievementTitle: "Unknown Achievement",
+    },
+  );
+
+  assert.equal(detail.description, "No cached description.");
+  assert.equal(detail.summaryCards.find((card) => card.label === "Points")?.value, "—");
+  assert.equal(detail.summaryCards.find((card) => card.label === "Unlock time")?.value, "Unlock time unavailable.");
+  assert.equal(detail.summaryCards.find((card) => card.label === "Status")?.value, "Status unavailable.");
+  assert.equal(detail.recentAchievements.length, 0);
 });
 
 test("SteamOS dashboard surface renders a cached game detail and back navigation without raw identifiers", () => {
@@ -636,6 +788,7 @@ test("SteamOS dashboard surface renders a cached game detail and back navigation
   assert.match(markup, /Back to dashboard/u);
   assert.match(markup, /autofocus=""/u);
   assert.match(markup, /Hades/u);
+  assert.match(markup, /aria-label="Open Silent Exit achievement detail"/u);
   assert.match(markup, /Provider/u);
   assert.match(markup, /Steam/u);
   assert.match(markup, /Completion/u);
@@ -645,6 +798,62 @@ test("SteamOS dashboard surface renders a cached game detail and back navigation
   assert.match(markup, /Silent Exit/u);
   assert.match(markup, /Cached achievements \/ unlocks/u);
   assert.doesNotMatch(markup, /aria-label="Refresh [^"]+ dashboard"/u);
+  assert.doesNotMatch(markup, /Scan Steam library/u);
+  assert.doesNotMatch(markup, /steam-game-1|steam-ach-1|steam-rich-account|accountId|gameId|achievementId/u);
+  assert.doesNotMatch(markup, /Authorization|Bearer|apiKey|provider payload|localStorage|sessionStorage/u);
+});
+
+test("SteamOS dashboard surface renders a cached achievement detail and back navigation without raw identifiers", () => {
+  const providerStatuses = createProviderStatuses({
+    retroAchievements: { status: "not_configured" },
+    steam: { status: "configured" },
+  });
+  const providerStates = createSteamOSDashboardProviderStates(providerStatuses);
+  const markup = renderToStaticMarkup(
+    <SteamOSDashboardSurface
+      providerStatuses={providerStatuses}
+      initialSelectedProviderId={STEAM_PROVIDER_ID}
+      initialSelectedGameDetail={{
+        providerId: STEAM_PROVIDER_ID,
+        gameId: "steam-game-1",
+        gameTitle: "Hades",
+      }}
+      initialSelectedAchievementDetail={{
+        providerId: STEAM_PROVIDER_ID,
+        gameId: "steam-game-1",
+        gameTitle: "Hades",
+        achievementId: "steam-ach-1",
+        achievementTitle: "Silent Exit",
+      }}
+      initialProviderStates={{
+        ...providerStates,
+        steam: {
+          status: "cached",
+          snapshot: createRichSteamDashboardSnapshot(),
+          isRefreshing: false,
+        },
+      }}
+      steamLibraryScanOverview={createSteamLibraryScanOverview()}
+      onScanSteamLibrary={() => {}}
+      isSteamLibraryScanning={false}
+    />,
+  );
+
+  assert.match(markup, /Cached achievement detail/u);
+  assert.match(markup, /Back to game/u);
+  assert.match(markup, /autofocus=""/u);
+  assert.match(markup, /Silent Exit/u);
+  assert.match(markup, /Hades/u);
+  assert.match(markup, /Provider/u);
+  assert.match(markup, /Steam/u);
+  assert.match(markup, /Points/u);
+  assert.match(markup, /10 points/u);
+  assert.match(markup, /Unlock time/u);
+  assert.match(markup, /Status/u);
+  assert.match(markup, /Unlocked/u);
+  assert.match(markup, /Cached description/u);
+  assert.match(markup, /Slip through the encounter without drawing attention\./u);
+  assert.doesNotMatch(markup, /Refresh [^"]+ dashboard/u);
   assert.doesNotMatch(markup, /Scan Steam library/u);
   assert.doesNotMatch(markup, /steam-game-1|steam-ach-1|steam-rich-account|accountId|gameId|achievementId/u);
   assert.doesNotMatch(markup, /Authorization|Bearer|apiKey|provider payload|localStorage|sessionStorage/u);

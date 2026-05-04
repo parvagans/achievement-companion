@@ -44,6 +44,7 @@ export interface SteamOSDashboardSummaryCard {
 interface SteamOSDashboardDetailSectionItem {
   readonly title: string;
   readonly metaLines: readonly string[];
+  readonly achievementSelection?: SteamOSDashboardAchievementDetailSelection;
   readonly gameSelection?: SteamOSDashboardGameDetailSelection;
 }
 
@@ -59,6 +60,14 @@ export interface SteamOSDashboardGameDetailSelection {
   readonly gameTitle: string;
 }
 
+export interface SteamOSDashboardAchievementDetailSelection {
+  readonly providerId: SteamOSDashboardProviderId;
+  readonly gameId: string;
+  readonly gameTitle: string;
+  readonly achievementId: string;
+  readonly achievementTitle: string;
+}
+
 interface SteamOSDashboardGameDetailCard {
   readonly label: string;
   readonly value: string;
@@ -70,6 +79,22 @@ interface SteamOSDashboardGameDetail {
   readonly summaryCards: readonly SteamOSDashboardGameDetailCard[];
   readonly achievementTitle: string;
   readonly achievementEmptyState: string;
+  readonly recentAchievements: readonly SteamOSDashboardDetailSectionItem[];
+}
+
+interface SteamOSDashboardAchievementDetailCard {
+  readonly label: string;
+  readonly value: string;
+}
+
+interface SteamOSDashboardAchievementDetail {
+  readonly providerLabel: string;
+  readonly gameTitle: string;
+  readonly title: string;
+  readonly summaryCards: readonly SteamOSDashboardAchievementDetailCard[];
+  readonly descriptionTitle: string;
+  readonly description: string;
+  readonly achievementHistoryTitle: string;
   readonly recentAchievements: readonly SteamOSDashboardDetailSectionItem[];
 }
 
@@ -98,6 +123,7 @@ export interface SteamOSDashboardSurfaceProps {
   readonly onSelectedProviderIdChange?: (providerId: SteamOSDashboardProviderId) => void;
   readonly initialSelectedProviderId?: SteamOSDashboardProviderId;
   readonly initialSelectedGameDetail?: SteamOSDashboardGameDetailSelection;
+  readonly initialSelectedAchievementDetail?: SteamOSDashboardAchievementDetailSelection;
   readonly initialProviderStates?: SteamOSDashboardProviderStates;
   readonly steamLibraryScanOverview?: SteamOSSteamLibraryScanOverview;
   readonly onScanSteamLibrary?: () => Promise<void> | void;
@@ -526,6 +552,10 @@ function isDefined(value: string | undefined): value is string {
   return value !== undefined;
 }
 
+function hasUsableCachedTitle(value: string | undefined): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 function getMetricValue(snapshot: DashboardSnapshot, ...keys: string[]): string | undefined {
   for (const key of keys) {
     const match = snapshot.profile.metrics.find((metric) => metric.key === key || metric.label === key);
@@ -923,21 +953,26 @@ function buildRecentAchievementsSection(snapshot: DashboardSnapshot): SteamOSDas
     title: "Recent achievements / recent unlocks",
     emptyState: "No recent achievements in the cached snapshot.",
     items: recentUnlocks.slice(0, 3).map((recentUnlock) => {
-      const gameSelection: SteamOSDashboardGameDetailSelection = {
-        providerId: recentUnlock.game.providerId as SteamOSDashboardProviderId,
-        gameId: recentUnlock.game.gameId,
-        gameTitle: normalizeDisplayTitle(recentUnlock.game.title, "Unknown game"),
-      };
+      const achievementSelection = hasUsableCachedTitle(recentUnlock.game.title)
+        && hasUsableCachedTitle(recentUnlock.achievement.title)
+        ? {
+          providerId: recentUnlock.achievement.providerId as SteamOSDashboardProviderId,
+          gameId: recentUnlock.game.gameId,
+          gameTitle: normalizeDisplayTitle(recentUnlock.game.title, "Unknown game"),
+          achievementId: recentUnlock.achievement.achievementId,
+          achievementTitle: normalizeDisplayTitle(recentUnlock.achievement.title, "Recent achievement"),
+        }
+        : undefined;
       const metaLines = [
         `Game: ${normalizeDisplayTitle(recentUnlock.game.title, "Unknown game")}`,
         recentUnlock.achievement.points !== undefined ? `${formatCount(recentUnlock.achievement.points)} points` : undefined,
         recentUnlock.unlockedAt !== undefined ? `Unlocked ${formatTimestampLabel(recentUnlock.unlockedAt)}` : undefined,
       ].filter(isDefined);
-      return {
+      const item: SteamOSDashboardDetailSectionItem = {
         title: normalizeDisplayTitle(recentUnlock.achievement.title, "Recent achievement"),
         metaLines,
-        gameSelection,
       };
+      return achievementSelection !== undefined ? { ...item, achievementSelection } : item;
     }),
   };
 }
@@ -947,22 +982,98 @@ function buildRecentlyPlayedSection(snapshot: DashboardSnapshot): SteamOSDashboa
     title: "Recently played",
     emptyState: "No recently played games in the cached snapshot.",
     items: snapshot.recentlyPlayedGames.slice(0, 3).map((game) => {
-      const gameSelection: SteamOSDashboardGameDetailSelection = {
-        providerId: game.providerId as SteamOSDashboardProviderId,
-        gameId: game.gameId,
-        gameTitle: normalizeDisplayTitle(game.title, "Recently played game"),
-      };
+      const gameSelection = hasUsableCachedTitle(game.title)
+        ? {
+          providerId: game.providerId as SteamOSDashboardProviderId,
+          gameId: game.gameId,
+          gameTitle: normalizeDisplayTitle(game.title, "Recently played game"),
+        }
+        : undefined;
       const metaLines = [
         game.summary.completionPercent !== undefined ? `Completion ${formatCount(game.summary.completionPercent)}%` : undefined,
         formatMinutes(game.playtimeForeverMinutes) !== undefined ? `Playtime ${formatMinutes(game.playtimeForeverMinutes)}` : undefined,
         game.lastPlayedAt !== undefined ? `Last played ${formatTimestampLabel(game.lastPlayedAt)}` : undefined,
       ].filter(isDefined);
-      return {
+      const item: SteamOSDashboardDetailSectionItem = {
         title: normalizeDisplayTitle(game.title, "Recently played game"),
         metaLines,
-        gameSelection,
       };
+      return gameSelection !== undefined ? { ...item, gameSelection } : item;
     }),
+  };
+}
+
+export function buildSteamOSDashboardAchievementDetail(
+  snapshot: DashboardSnapshot,
+  selection: SteamOSDashboardAchievementDetailSelection,
+): SteamOSDashboardAchievementDetail {
+  const matchingRecentUnlocks = snapshot.recentUnlocks.filter(
+    (recentUnlock) =>
+      recentUnlock.game.providerId === selection.providerId
+      && recentUnlock.game.gameId === selection.gameId
+      && recentUnlock.achievement.achievementId === selection.achievementId,
+  );
+  const matchingRecentAchievements = matchingRecentUnlocks.length > 0
+    ? matchingRecentUnlocks
+    : snapshot.recentAchievements.filter(
+      (recentUnlock) =>
+        recentUnlock.game.providerId === selection.providerId
+        && recentUnlock.game.gameId === selection.gameId
+        && recentUnlock.achievement.achievementId === selection.achievementId,
+    );
+  const matchingRecentlyPlayed = snapshot.recentlyPlayedGames.find(
+    (game) => game.providerId === selection.providerId && game.gameId === selection.gameId,
+  );
+  const matchingFeaturedGame = snapshot.featuredGames.find(
+    (game) => game.providerId === selection.providerId && game.gameId === selection.gameId,
+  );
+  const matchingAchievement = matchingRecentAchievements[0]?.achievement;
+  const title = normalizeDisplayTitle(
+    matchingAchievement?.title ?? selection.achievementTitle,
+    "Unknown achievement",
+  );
+  const description = matchingAchievement?.description?.trim() && matchingAchievement.description.trim().length > 0
+    ? matchingAchievement.description.trim()
+    : "No cached description.";
+  const summaryCards: SteamOSDashboardAchievementDetailCard[] = [
+    {
+      label: "Provider",
+      value: resolveSteamOSDashboardGameProviderLabel(selection.providerId),
+    },
+    {
+      label: "Game",
+      value: normalizeDisplayTitle(matchingRecentlyPlayed?.title ?? matchingFeaturedGame?.title ?? selection.gameTitle, "Unknown game"),
+    },
+    {
+      label: "Points",
+      value: matchingAchievement?.points !== undefined ? `${formatCount(matchingAchievement.points)} points` : "—",
+    },
+    {
+      label: "Unlock time",
+      value: formatTimestampLabel(matchingAchievement?.unlockedAt ?? matchingRecentAchievements[0]?.unlockedAt) ?? "Unlock time unavailable.",
+    },
+    {
+      label: "Status",
+      value: matchingAchievement !== undefined ? (matchingAchievement.isUnlocked ? "Unlocked" : "Locked") : "Status unavailable.",
+    },
+  ];
+
+  return {
+    providerLabel: resolveSteamOSDashboardGameProviderLabel(selection.providerId),
+    gameTitle: normalizeDisplayTitle(matchingRecentlyPlayed?.title ?? matchingFeaturedGame?.title ?? selection.gameTitle, "Unknown game"),
+    title,
+    summaryCards,
+    descriptionTitle: "Cached description",
+    description,
+    achievementHistoryTitle: "Cached achievements / unlocks",
+    recentAchievements: matchingRecentAchievements.slice(0, 5).map((recentUnlock) => ({
+      title: normalizeDisplayTitle(recentUnlock.achievement.title, "Recent achievement"),
+      metaLines: [
+        `Game: ${normalizeDisplayTitle(recentUnlock.game.title, "Unknown game")}`,
+        recentUnlock.achievement.points !== undefined ? `${formatCount(recentUnlock.achievement.points)} points` : undefined,
+        recentUnlock.unlockedAt !== undefined ? `Unlocked ${formatTimestampLabel(recentUnlock.unlockedAt)}` : undefined,
+      ].filter(isDefined),
+    })),
   };
 }
 
@@ -971,21 +1082,23 @@ function buildFeaturedGamesSection(snapshot: DashboardSnapshot): SteamOSDashboar
     title: "Featured / play next",
     emptyState: "No featured games in the cached snapshot.",
     items: snapshot.featuredGames.slice(0, 3).map((game) => {
-      const gameSelection: SteamOSDashboardGameDetailSelection = {
-        providerId: game.providerId as SteamOSDashboardProviderId,
-        gameId: game.gameId,
-        gameTitle: normalizeDisplayTitle(game.title, "Featured game"),
-      };
+      const gameSelection = hasUsableCachedTitle(game.title)
+        ? {
+          providerId: game.providerId as SteamOSDashboardProviderId,
+          gameId: game.gameId,
+          gameTitle: normalizeDisplayTitle(game.title, "Featured game"),
+        }
+        : undefined;
       const metaLines = [
         `Status ${formatGameStatus(game.status)}`,
         game.summary.completionPercent !== undefined ? `Completion ${formatCount(game.summary.completionPercent)}%` : undefined,
         game.lastPlayedAt !== undefined ? `Last played ${formatTimestampLabel(game.lastPlayedAt)}` : undefined,
       ].filter(isDefined);
-      return {
+      const item: SteamOSDashboardDetailSectionItem = {
         title: normalizeDisplayTitle(game.title, "Featured game"),
         metaLines,
-        gameSelection,
       };
+      return gameSelection !== undefined ? { ...item, gameSelection } : item;
     }),
   };
 }
@@ -1060,6 +1173,13 @@ export function buildSteamOSDashboardGameDetail(
     achievementEmptyState: "No cached achievements for this game.",
     recentAchievements: matchingRecentAchievements.slice(0, 5).map((recentUnlock) => ({
       title: normalizeDisplayTitle(recentUnlock.achievement.title, "Recent achievement"),
+      achievementSelection: {
+        providerId: recentUnlock.achievement.providerId as SteamOSDashboardProviderId,
+        gameId: recentUnlock.game.gameId,
+        gameTitle: normalizeDisplayTitle(recentUnlock.game.title, "Unknown game"),
+        achievementId: recentUnlock.achievement.achievementId,
+        achievementTitle: normalizeDisplayTitle(recentUnlock.achievement.title, "Recent achievement"),
+      },
       metaLines: [
         `Game: ${normalizeDisplayTitle(recentUnlock.game.title, "Unknown game")}`,
         recentUnlock.achievement.points !== undefined ? `${formatCount(recentUnlock.achievement.points)} points` : undefined,
@@ -1080,10 +1200,23 @@ function selectSteamOSDashboardGameDetail(
   return buildSteamOSDashboardGameDetail(snapshot, selection);
 }
 
+function selectSteamOSDashboardAchievementDetail(
+  snapshot: DashboardSnapshot | undefined,
+  selection: SteamOSDashboardAchievementDetailSelection | undefined,
+): SteamOSDashboardAchievementDetail | undefined {
+  if (selection === undefined || snapshot === undefined) {
+    return undefined;
+  }
+
+  return buildSteamOSDashboardAchievementDetail(snapshot, selection);
+}
+
 function SteamOSDashboardGameDetailSurface({
   detail,
+  onOpenAchievementDetail,
 }: {
   readonly detail: SteamOSDashboardGameDetail;
+  readonly onOpenAchievementDetail: (selection: SteamOSDashboardAchievementDetailSelection) => void;
 }): JSX.Element {
   return (
     <section aria-label={`${detail.title} cached game detail`} style={GAME_DETAIL_PANEL_STYLE}>
@@ -1112,6 +1245,78 @@ function SteamOSDashboardGameDetailSurface({
         {detail.recentAchievements.length > 0 ? (
           <div style={DETAIL_LIST_STYLE}>
             {detail.recentAchievements.map((item) => (
+              item.achievementSelection !== undefined ? (
+                <button
+                  key={`${item.title}:${item.metaLines.join("|")}`}
+                  className="steamos-focus-target steamos-button-target"
+                  type="button"
+                  style={DETAIL_CARD_BUTTON_STYLE}
+                  onClick={() => onOpenAchievementDetail(item.achievementSelection as SteamOSDashboardAchievementDetailSelection)}
+                  aria-label={`Open ${item.title} achievement detail`}
+                >
+                  <p style={DETAIL_CARD_TITLE_STYLE}>{item.title}</p>
+                  {item.metaLines.map((line) => (
+                    <p key={`${item.title}:${line}`} style={DETAIL_CARD_META_STYLE}>
+                      {line}
+                    </p>
+                  ))}
+                </button>
+              ) : (
+                <article key={`${item.title}:${item.metaLines.join("|")}`} style={DETAIL_CARD_STYLE}>
+                  <p style={DETAIL_CARD_TITLE_STYLE}>{item.title}</p>
+                  {item.metaLines.map((line) => (
+                    <p key={`${item.title}:${line}`} style={DETAIL_CARD_META_STYLE}>
+                      {line}
+                    </p>
+                  ))}
+                </article>
+              )
+            ))}
+          </div>
+        ) : (
+          <p style={DETAIL_EMPTY_STYLE}>{detail.achievementEmptyState}</p>
+        )}
+      </article>
+    </section>
+  );
+}
+
+function SteamOSDashboardAchievementDetailSurface({
+  detail,
+}: {
+  readonly detail: SteamOSDashboardAchievementDetail;
+}): JSX.Element {
+  return (
+    <section aria-label={`${detail.title} cached achievement detail`} style={GAME_DETAIL_PANEL_STYLE}>
+      <div style={GAME_DETAIL_HEADER_STYLE}>
+        <div style={GAME_DETAIL_TITLE_ROW_STYLE}>
+          <div style={SECTION_HEADER_STYLE}>
+            <p style={EYEBROW_STYLE}>Cached achievement detail</p>
+            <h4 style={GAME_DETAIL_TITLE_STYLE}>{detail.title}</h4>
+          </div>
+          <span style={GAME_DETAIL_BADGE_STYLE}>{detail.providerLabel}</span>
+        </div>
+        <p style={GAME_DETAIL_HELP_STYLE}>
+          Read-only achievement detail built from the cached dashboard snapshot. Dashboard refresh and Steam scans stay explicit.
+        </p>
+      </div>
+      <div style={GAME_DETAIL_SUMMARY_GRID_STYLE}>
+        {detail.summaryCards.map((card) => (
+          <article key={card.label} style={GAME_DETAIL_SUMMARY_CARD_STYLE}>
+            <p style={GAME_DETAIL_SUMMARY_LABEL_STYLE}>{card.label}</p>
+            <p style={GAME_DETAIL_SUMMARY_VALUE_STYLE}>{card.value}</p>
+          </article>
+        ))}
+      </div>
+      <article aria-label={detail.descriptionTitle} style={DETAIL_SECTION_STYLE}>
+        <h5 style={DETAIL_TITLE_STYLE}>{detail.descriptionTitle}</h5>
+        <p style={DETAIL_EMPTY_STYLE}>{detail.description}</p>
+      </article>
+      <article aria-label={detail.achievementHistoryTitle} style={DETAIL_SECTION_STYLE}>
+        <h5 style={DETAIL_TITLE_STYLE}>{detail.achievementHistoryTitle}</h5>
+        {detail.recentAchievements.length > 0 ? (
+          <div style={DETAIL_LIST_STYLE}>
+            {detail.recentAchievements.map((item) => (
               <article key={`${item.title}:${item.metaLines.join("|")}`} style={DETAIL_CARD_STYLE}>
                 <p style={DETAIL_CARD_TITLE_STYLE}>{item.title}</p>
                 {item.metaLines.map((line) => (
@@ -1123,7 +1328,7 @@ function SteamOSDashboardGameDetailSurface({
             ))}
           </div>
         ) : (
-          <p style={DETAIL_EMPTY_STYLE}>{detail.achievementEmptyState}</p>
+          <p style={DETAIL_EMPTY_STYLE}>No cached achievements for this game.</p>
         )}
       </article>
     </section>
@@ -1164,6 +1369,12 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
   const [selectedGameDetail, setSelectedGameDetail] = useState<SteamOSDashboardGameDetailSelection | undefined>(
     props.initialSelectedGameDetail,
   );
+  const [selectedAchievementDetail, setSelectedAchievementDetail] = useState<SteamOSDashboardAchievementDetailSelection | undefined>(
+    props.initialSelectedAchievementDetail,
+  );
+  const [selectedAchievementReturnToGame, setSelectedAchievementReturnToGame] = useState<
+    SteamOSDashboardGameDetailSelection | undefined
+  >(props.initialSelectedGameDetail);
   const selectedProviderIdRef = useRef<SteamOSDashboardProviderId>(selectedProviderId);
   const backToDashboardButtonRef = useRef<HTMLButtonElement | null>(null);
 
@@ -1178,6 +1389,12 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
       setSelectedGameDetail(props.initialSelectedGameDetail);
     }
   }, [props.initialSelectedGameDetail]);
+
+  useEffect(() => {
+    if (props.initialSelectedAchievementDetail !== undefined) {
+      setSelectedAchievementDetail(props.initialSelectedAchievementDetail);
+    }
+  }, [props.initialSelectedAchievementDetail]);
 
   useEffect(() => {
     let disposed = false;
@@ -1204,6 +1421,8 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
     if (selectedProviderIdRef.current !== selectedProviderId) {
       selectedProviderIdRef.current = selectedProviderId;
       setSelectedGameDetail(undefined);
+      setSelectedAchievementDetail(undefined);
+      setSelectedAchievementReturnToGame(undefined);
     }
   }, [selectedProviderId]);
 
@@ -1234,14 +1453,18 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
     () => selectSteamOSDashboardGameDetail(selectedProviderState.snapshot, selectedGameDetail),
     [selectedGameDetail, selectedProviderState.snapshot],
   );
+  const selectedAchievementDetailSnapshot = useMemo(
+    () => selectSteamOSDashboardAchievementDetail(selectedProviderState.snapshot, selectedAchievementDetail),
+    [selectedAchievementDetail, selectedProviderState.snapshot],
+  );
 
   useEffect(() => {
-    if (selectedGameDetailSnapshot === undefined) {
+    if (selectedGameDetailSnapshot === undefined && selectedAchievementDetailSnapshot === undefined) {
       return;
     }
 
     backToDashboardButtonRef.current?.focus();
-  }, [selectedGameDetailSnapshot]);
+  }, [selectedAchievementDetailSnapshot, selectedGameDetailSnapshot]);
 
   async function handleRefresh(): Promise<void> {
     const currentState = providerStates[selectedStateKey];
@@ -1270,11 +1493,27 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
   function handleOpenGameDetail(selection: SteamOSDashboardGameDetailSelection): void {
     setSelectedProviderId(selection.providerId);
     setSelectedGameDetail(selection);
+    setSelectedAchievementDetail(undefined);
+    setSelectedAchievementReturnToGame(undefined);
+    props.onSelectedProviderIdChange?.(selection.providerId);
+  }
+
+  function handleOpenAchievementDetail(selection: SteamOSDashboardAchievementDetailSelection): void {
+    setSelectedProviderId(selection.providerId);
+    setSelectedAchievementDetail(selection);
+    setSelectedAchievementReturnToGame(selectedGameDetail);
     props.onSelectedProviderIdChange?.(selection.providerId);
   }
 
   function handleBackToDashboard(): void {
-    setSelectedGameDetail(undefined);
+    if (selectedAchievementReturnToGame !== undefined) {
+      setSelectedGameDetail(selectedAchievementReturnToGame);
+    } else {
+      setSelectedGameDetail(undefined);
+    }
+
+    setSelectedAchievementDetail(undefined);
+    setSelectedAchievementReturnToGame(undefined);
   }
 
   return (
@@ -1340,7 +1579,7 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
               <p style={CONTENT_SUBTITLE_STYLE}>{getDashboardStateDescription(selectedProviderState.status)}</p>
             </div>
             <div className="steamos-action-row" style={HEADER_ACTIONS_STYLE}>
-              {selectedGameDetailSnapshot === undefined && canScanSteamLibrary && props.onScanSteamLibrary !== undefined ? (
+              {selectedGameDetailSnapshot === undefined && selectedAchievementDetailSnapshot === undefined && canScanSteamLibrary && props.onScanSteamLibrary !== undefined ? (
                 <button
                   className="steamos-focus-target steamos-button-target"
                   type="button"
@@ -1352,7 +1591,7 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
                   {props.isSteamLibraryScanning === true ? "Scanning Steam library..." : "Scan Steam library"}
                 </button>
               ) : null}
-              {selectedGameDetailSnapshot === undefined ? (
+              {selectedGameDetailSnapshot === undefined && selectedAchievementDetailSnapshot === undefined ? (
                 <button
                   className="steamos-focus-target steamos-button-target"
                   type="button"
@@ -1371,9 +1610,9 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
                   autoFocus
                   style={UNSELECTED_PROVIDER_BUTTON_STYLE}
                   onClick={handleBackToDashboard}
-                  aria-label="Back to dashboard"
+                  aria-label={selectedAchievementDetailSnapshot !== undefined && selectedAchievementReturnToGame !== undefined ? "Back to game" : "Back to dashboard"}
                 >
-                  Back to dashboard
+                  {selectedAchievementDetailSnapshot !== undefined && selectedAchievementReturnToGame !== undefined ? "Back to game" : "Back to dashboard"}
                 </button>
               )}
             </div>
@@ -1416,8 +1655,13 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
             ) : null}
           </div>
           {selectedProviderState.status === "cached" ? (
-            selectedGameDetailSnapshot !== undefined ? (
-              <SteamOSDashboardGameDetailSurface detail={selectedGameDetailSnapshot} />
+            selectedAchievementDetailSnapshot !== undefined ? (
+              <SteamOSDashboardAchievementDetailSurface detail={selectedAchievementDetailSnapshot} />
+            ) : selectedGameDetailSnapshot !== undefined ? (
+              <SteamOSDashboardGameDetailSurface
+                detail={selectedGameDetailSnapshot}
+                onOpenAchievementDetail={handleOpenAchievementDetail}
+              />
             ) : (
             <>
               <p style={META_TEXT_STYLE}>
@@ -1440,7 +1684,23 @@ export function SteamOSDashboardSurface(props: SteamOSDashboardSurfaceProps): JS
                     {section.items.length > 0 ? (
                       <div style={DETAIL_LIST_STYLE}>
                         {section.items.map((item) => (
-                          item.gameSelection !== undefined ? (
+                          item.achievementSelection !== undefined ? (
+                            <button
+                              key={`${section.title}:${item.title}:${item.metaLines.join("|")}`}
+                              className="steamos-focus-target steamos-button-target"
+                              type="button"
+                              style={DETAIL_CARD_BUTTON_STYLE}
+                              onClick={() => handleOpenAchievementDetail(item.achievementSelection as SteamOSDashboardAchievementDetailSelection)}
+                              aria-label={`Open ${item.title} achievement detail`}
+                            >
+                              <p style={DETAIL_CARD_TITLE_STYLE}>{item.title}</p>
+                              {item.metaLines.map((line) => (
+                                <p key={`${section.title}:${item.title}:${line}`} style={DETAIL_CARD_META_STYLE}>
+                                  {line}
+                                </p>
+                              ))}
+                            </button>
+                          ) : item.gameSelection !== undefined ? (
                             <button
                               key={`${section.title}:${item.title}:${item.metaLines.join("|")}`}
                               className="steamos-focus-target steamos-button-target"
