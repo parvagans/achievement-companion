@@ -90,7 +90,7 @@ Steam library scanning is manual because larger Steam libraries can take several
 ## License and Notices
 
 - Achievement Companion is not affiliated with, endorsed by, sponsored by, or approved by RetroAchievements or Valve Corporation.
-- This project is released under the MIT License. See [`LICENSE`](LICENSE).
+- This project is released under the BSD-3-Clause License. See [`LICENSE`](LICENSE).
 - Third-party dependency notes are recorded in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 ## Installation

@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.2.2",
   "author": "Adam <nullbit5@protonmail.com>",
-  "license": "MIT",
+  "license": "BSD-3-Clause",
   "type": "module",
   "scripts": {
     "build": "rollup -c",
