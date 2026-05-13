@@ -404,6 +404,42 @@ export function summarizeRetroAchievementsCompletionProgress(
   };
 }
 
+export interface RetroAchievementsProfileAchievementCounts {
+  readonly hardcoreUnlockedCount?: number;
+  readonly softcoreUnlockedCount?: number;
+}
+
+export function summarizeRetroAchievementsProfileAchievementCounts(
+  rawEntries: readonly RawRetroAchievementsCompletionProgressEntry[],
+): RetroAchievementsProfileAchievementCounts {
+  let totalUnlockedCount = 0;
+  let hardcoreUnlockedCount = 0;
+  let sawTotalUnlockedCount = false;
+  let sawHardcoreUnlockedCount = false;
+
+  for (const entry of rawEntries) {
+    const unlockedCount = pickNumber(entry.NumAwarded, entry.numAwarded);
+    const hardcoreCount = pickNumber(entry.NumAwardedHardcore, entry.numAwardedHardcore);
+
+    if (unlockedCount !== undefined) {
+      totalUnlockedCount += unlockedCount;
+      sawTotalUnlockedCount = true;
+    }
+
+    if (hardcoreCount !== undefined) {
+      hardcoreUnlockedCount += hardcoreCount;
+      sawHardcoreUnlockedCount = true;
+    }
+  }
+
+  return {
+    ...(sawHardcoreUnlockedCount ? { hardcoreUnlockedCount } : {}),
+    ...(sawTotalUnlockedCount && sawHardcoreUnlockedCount
+      ? { softcoreUnlockedCount: Math.max(0, totalUnlockedCount - hardcoreUnlockedCount) }
+      : {}),
+  };
+}
+
 export function countRetroAchievementsGamesBeaten(
   rawEntries: readonly RawRetroAchievementsCompletionProgressEntry[],
 ): number {
@@ -423,6 +459,23 @@ export function countRetroAchievementsGamesBeaten(
   }
 
   return gamesBeatenCount;
+}
+
+export function countRetroAchievementsGamesMastered(
+  rawEntries: readonly RawRetroAchievementsCompletionProgressEntry[],
+): number {
+  let gamesMasteredCount = 0;
+
+  for (const entry of rawEntries) {
+    const highestAwardKind = pickString(entry.HighestAwardKind, entry.highestAwardKind);
+    const normalizedHighestAwardKind = highestAwardKind?.toLowerCase();
+
+    if (normalizedHighestAwardKind !== undefined && normalizedHighestAwardKind.includes("mastered")) {
+      gamesMasteredCount += 1;
+    }
+  }
+
+  return gamesMasteredCount;
 }
 
 interface RetroAchievementsSelectableGameInput {
@@ -673,7 +726,11 @@ function buildGameProgressAchievement(
   const displayOrder = pickNumber(raw.DisplayOrder, raw.displayOrder);
   const memAddr = pickString(raw.MemAddr, raw.memAddr);
   const type = pickString(raw.Type, raw.type);
-  const unlockedAt = pickEpochMs(raw.DateEarnedHardcore, raw.dateEarnedHardcore, raw.DateEarned, raw.dateEarned);
+  const hardcoreUnlockedAt = pickEpochMs(raw.DateEarnedHardcore, raw.dateEarnedHardcore);
+  const softcoreUnlockedAt = pickEpochMs(raw.DateEarned, raw.dateEarned);
+  const unlockedAt = hardcoreUnlockedAt ?? softcoreUnlockedAt;
+  const unlockMode =
+    hardcoreUnlockedAt !== undefined ? "hardcore" : softcoreUnlockedAt !== undefined ? "softcore" : undefined;
   const isUnlocked =
     unlockedAt !== undefined ||
     raw.DateEarnedHardcore !== undefined ||
@@ -801,6 +858,9 @@ function buildGameProgressAchievement(
     ...(badgeImageUrl !== undefined ? { badgeImageUrl } : {}),
     isUnlocked,
     ...(unlockedAt !== undefined ? { unlockedAt } : {}),
+    ...(hardcoreUnlockedAt !== undefined ? { hardcoreUnlockedAt } : {}),
+    ...(softcoreUnlockedAt !== undefined ? { softcoreUnlockedAt } : {}),
+    ...(unlockMode !== undefined ? { unlockMode } : {}),
     ...(points !== undefined ? { points } : {}),
     metrics,
   };
@@ -833,6 +893,7 @@ function buildRecentUnlockAchievement(
   const badgeUrl = pickString(raw.BadgeURL, raw.badgeUrl);
   const title = pickString(raw.title) ?? "Unknown Achievement";
   const badgeImageUrl = badgeUrl !== undefined ? normalizeRetroAchievementsBadgeUrl(badgeUrl) : undefined;
+  const unlockMode = hardcoreMode === undefined ? undefined : hardcoreMode ? "hardcore" : "softcore";
 
   const metrics = [
     ...(points !== undefined
@@ -875,6 +936,9 @@ function buildRecentUnlockAchievement(
     ...(description !== undefined ? { description } : {}),
     ...(badgeImageUrl !== undefined ? { badgeImageUrl } : {}),
     ...(unlockedAt !== undefined ? { unlockedAt } : {}),
+    ...(unlockMode !== undefined ? { unlockMode } : {}),
+    ...(hardcoreMode === true && unlockedAt !== undefined ? { hardcoreUnlockedAt: unlockedAt } : {}),
+    ...(hardcoreMode === false && unlockedAt !== undefined ? { softcoreUnlockedAt: unlockedAt } : {}),
     ...(points !== undefined ? { points } : {}),
   };
 }
@@ -885,6 +949,8 @@ export function normalizeRetroAchievementsProfile(
   config: RetroAchievementsProviderConfig,
   featuredGames: readonly NormalizedGame[] = [],
   gamesBeatenCount?: number,
+  gamesMasteredCount?: number,
+  achievementCounts?: RetroAchievementsProfileAchievementCounts,
 ): NormalizedProfile {
   const avatarPath = pickString(raw.UserPic, raw.userPic);
   const avatarUrl = avatarPath !== undefined ? normalizeRetroAchievementsImageUrl(avatarPath) : undefined;
@@ -902,6 +968,13 @@ export function normalizeRetroAchievementsProfile(
     providerId: RETROACHIEVEMENTS_PROVIDER_ID,
     identity,
     summary: completionSummary,
+    ...(achievementCounts?.hardcoreUnlockedCount !== undefined
+      ? { hardcoreUnlockedCount: achievementCounts.hardcoreUnlockedCount }
+      : {}),
+    ...(achievementCounts?.softcoreUnlockedCount !== undefined
+      ? { softcoreUnlockedCount: achievementCounts.softcoreUnlockedCount }
+      : {}),
+    ...(gamesMasteredCount !== undefined ? { masteredCount: gamesMasteredCount } : {}),
     metrics: [
       ...normalizeProfileMetrics(raw),
       ...(gamesBeatenCount !== undefined
@@ -1067,6 +1140,14 @@ export function normalizeRetroAchievementsGameDetail(
   const completionPercent =
     coercePercent(userCompletion) ?? (totalCount > 0 ? Math.round((unlockedCount / totalCount) * 100) : undefined);
   const hardcoreCompletionPercent = coercePercent(hardcoreUserCompletion);
+  const softcoreUnlockedCount =
+    unlockedCount !== undefined && hardcoreUnlockedCount !== undefined
+      ? Math.max(0, unlockedCount - hardcoreUnlockedCount)
+      : undefined;
+  const softcoreCompletionPercent =
+    softcoreUnlockedCount !== undefined && totalCount > 0
+      ? Math.round((softcoreUnlockedCount / totalCount) * 100)
+      : undefined;
   const consoleLabel = pickString(raw.ConsoleName, raw.consoleName);
   const coverImageUrl = pickString(raw.ImageIcon, raw.imageIcon, raw.ImageTitle, raw.imageTitle, raw.ImageIngame, raw.imageIngame);
   const boxArtImageUrl = pickString(raw.ImageBoxArt, raw.imageBoxArt);
@@ -1095,6 +1176,28 @@ export function normalizeRetroAchievementsGameDetail(
     }),
     status: inferGameStatus(highestAwardKind, summary),
     summary,
+    ...(hardcoreUnlockedCount !== undefined
+      ? {
+          hardcoreSummary: {
+            unlockedCount: hardcoreUnlockedCount,
+            ...(totalCount !== undefined ? { totalCount } : {}),
+            ...(hardcoreCompletionPercent !== undefined
+              ? { completionPercent: hardcoreCompletionPercent }
+              : totalCount > 0 && hardcoreUnlockedCount !== undefined
+                ? { completionPercent: Math.round((hardcoreUnlockedCount / totalCount) * 100) }
+                : {}),
+          },
+        }
+      : {}),
+    ...(softcoreUnlockedCount !== undefined
+      ? {
+          softcoreSummary: {
+            unlockedCount: softcoreUnlockedCount,
+            ...(totalCount !== undefined ? { totalCount } : {}),
+            ...(softcoreCompletionPercent !== undefined ? { completionPercent: softcoreCompletionPercent } : {}),
+          },
+        }
+      : {}),
     metrics: [
       ...(publisher !== undefined
         ? [

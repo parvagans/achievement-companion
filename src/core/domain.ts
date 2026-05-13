@@ -1,6 +1,7 @@
 export type ProviderId = string;
 export type ProviderAccountId = string;
 export type UnixEpochMs = number;
+export type AchievementUnlockMode = "hardcore" | "softcore";
 
 export type GameProgressStatus = "locked" | "in_progress" | "completed" | "beaten" | "mastered";
 
@@ -40,6 +41,9 @@ export interface NormalizedProfile {
   readonly identity: ProviderIdentity;
   readonly summary: ProgressSummary;
   readonly metrics: readonly NormalizedMetric[];
+  readonly hardcoreUnlockedCount?: number;
+  readonly softcoreUnlockedCount?: number;
+  readonly masteredCount?: number;
   readonly steamLevel?: number;
   readonly ownedGameCount?: number;
   readonly badgeCount?: number;
@@ -76,6 +80,8 @@ export interface NormalizedGame {
   readonly playtimeDeckForeverMinutes?: number;
   readonly lastPlayedAt?: UnixEpochMs;
   readonly lastUnlockAt?: UnixEpochMs;
+  readonly hardcoreSummary?: ProgressSummary;
+  readonly softcoreSummary?: ProgressSummary;
   readonly scanStatus?: "scanned" | "no-achievements" | "failed";
   readonly hasAchievements?: boolean;
 }
@@ -132,6 +138,9 @@ export interface NormalizedAchievement {
   readonly badgeImageUrl?: string;
   readonly isUnlocked: boolean;
   readonly unlockedAt?: UnixEpochMs;
+  readonly hardcoreUnlockedAt?: UnixEpochMs;
+  readonly softcoreUnlockedAt?: UnixEpochMs;
+  readonly unlockMode?: AchievementUnlockMode;
   readonly points?: number;
   readonly metrics: readonly NormalizedMetric[];
 }

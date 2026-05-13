@@ -14,8 +14,18 @@ import {
   DECKY_FOCUS_NAV_ROW_CLASS,
 } from "./decky-focus-styles";
 import type { CompactAchievementTarget } from "./decky-achievement-detail-view";
-import { buildProviderOverviewStats } from "./decky-overview-stats";
-import { formatProfileMemberSince, getSteamAccountProgressSummary } from "./decky-stat-helpers";
+import { buildAchievementStatus, formatAchievementUnlockModeLabel } from "./decky-achievement-detail-helpers";
+import {
+  buildProviderOverviewStats,
+  buildRetroAchievementsProfileOverviewStatSections,
+  type OverviewStatSection,
+} from "./decky-overview-stats";
+import {
+  formatProfileMemberSince,
+  getRetroAchievementsProfileSectionStyle,
+  getRetroAchievementsProfileSectionTitleStyle,
+  getSteamAccountProgressSummary,
+} from "./decky-stat-helpers";
 import { formatDeckyProviderLabel } from "./providers";
 import { getDeckyProviderIconSrc } from "./providers/provider-branding";
 import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
@@ -439,6 +449,24 @@ function OverviewStat({
   );
 }
 
+function OverviewStatSectionBlock({ section }: { readonly section: OverviewStatSection }): JSX.Element {
+  return (
+    <div data-profile-section-variant={section.variant} style={getRetroAchievementsProfileSectionStyle(section.variant)}>
+      <div style={getRetroAchievementsProfileSectionTitleStyle(section.variant)}>{section.title}</div>
+      <div style={getOverviewStatsGridStyle()}>
+        {section.stats.map((stat) => (
+          <OverviewStat
+            key={`${section.title}:${stat.label}`}
+            label={stat.label}
+            value={stat.value}
+            {...(stat.detail !== undefined ? { detail: stat.detail } : {})}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function ProfileAvatar({
   avatarUrl,
   displayName,
@@ -469,7 +497,7 @@ function CompactItemDescription({
 }
 
 function formatRecentAchievementSummary(recentUnlock: RecentUnlock): string | undefined {
-  const parts: string[] = [];
+  const parts: string[] = [formatAchievementUnlockModeLabel(recentUnlock.achievement)];
 
   if (recentUnlock.achievement.points !== undefined) {
     parts.push(`${formatCount(recentUnlock.achievement.points)} pts`);
@@ -650,7 +678,10 @@ function RecentAchievementRow({
       description={
         <CompactItemDescription
           primary={recentUnlock.game.title}
-          secondary={formatRecentAchievementSummary(recentUnlock)}
+          secondary={
+            formatRecentAchievementSummary(recentUnlock) ??
+            buildAchievementStatus(recentUnlock.achievement).value
+          }
         />
       }
       onCancelButton={onCancel}
@@ -758,7 +789,12 @@ export function DeckyDashboardView({
   const recentAchievements = snapshot.recentAchievements;
   const recentlyPlayedGames = snapshot.recentlyPlayedGames;
   const memberSince = formatProfileMemberSince(profile.metrics);
-  const overviewStats = buildProviderOverviewStats(profile, steamLibraryAchievementScanSummary);
+  const overviewStats =
+    profile.providerId === STEAM_PROVIDER_ID
+      ? buildProviderOverviewStats(profile, steamLibraryAchievementScanSummary)
+      : [];
+  const retroAchievementsOverviewStatSections =
+    profile.providerId === STEAM_PROVIDER_ID ? [] : buildRetroAchievementsProfileOverviewStatSections(profile);
   const steamAccountProgress =
     profile.providerId === STEAM_PROVIDER_ID ? getSteamAccountProgressSummary({ profile }) : undefined;
   const refreshedAt = state.lastUpdatedAt ?? snapshot.refreshedAt;
@@ -825,16 +861,24 @@ export function DeckyDashboardView({
               </div>
             ) : null}
 
-            <div style={getOverviewStatsGridStyle()}>
-              {overviewStats.map((stat) => (
-                <OverviewStat
-                  key={stat.label}
-                  label={stat.label}
-                  value={stat.value}
-                  {...(stat.detail !== undefined ? { detail: stat.detail } : {})}
-                />
-              ))}
-            </div>
+            {profile.providerId === STEAM_PROVIDER_ID ? (
+              <div style={getOverviewStatsGridStyle()}>
+                {overviewStats.map((stat) => (
+                  <OverviewStat
+                    key={stat.label}
+                    label={stat.label}
+                    value={stat.value}
+                    {...(stat.detail !== undefined ? { detail: stat.detail } : {})}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {retroAchievementsOverviewStatSections.map((section) => (
+                  <OverviewStatSectionBlock key={section.title} section={section} />
+                ))}
+              </div>
+            )}
 
             <div style={getOverviewPrimaryActionRowStyle()}>
               <DeckyCompactPillActionItem

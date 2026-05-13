@@ -1,12 +1,22 @@
 import type { NormalizedProfile } from "@core/domain";
 import { STEAM_PROVIDER_ID } from "../../providers/steam/config";
 import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
-import { getSteamAccountProgressSummary } from "./decky-stat-helpers";
+import {
+  getRetroAchievementsProfileStatSections,
+  getSteamAccountProgressSummary,
+  type ProfileStatSectionVariant,
+} from "./decky-stat-helpers";
 
 export interface OverviewStat {
   readonly label: string;
   readonly value: string;
   readonly detail?: string;
+}
+
+export interface OverviewStatSection {
+  readonly title: string;
+  readonly variant: ProfileStatSectionVariant;
+  readonly stats: readonly OverviewStat[];
 }
 
 function formatCount(value: number): string {
@@ -66,23 +76,33 @@ export function buildProviderOverviewStats(
   }
 
   return [
-    {
-      label: "Points",
-      value: getMetricValue(profile.metrics, "total-points", "Points") ?? "-",
-    },
-    {
-      label: "Achievements Unlocked",
-      value: formatCount(profile.summary.unlockedCount),
-    },
-    {
-      label: "Games Beaten",
-      value: getMetricValue(profile.metrics, "games-beaten", "Games Beaten") ?? "-",
-    },
-    {
-      label: "Unlock rate",
-      value: getMetricValue(profile.metrics, "retro-ratio", "unlock-rate", "Unlock Rate") ?? "-",
-    },
+    ...getRetroAchievementsProfileStatSections({ profile }).flatMap((section) =>
+      section.stats.map((stat) => ({
+        label:
+          section.title === "RetroAchievements"
+            ? `RA ${stat.label}`
+            : section.title === "Softcore" || section.title === "Hardcore"
+              ? `${section.title} ${stat.label}`
+              : stat.label,
+        value: stat.value,
+        ...(stat.secondary !== undefined ? { detail: stat.secondary } : {}),
+      })),
+    ),
   ];
+}
+
+export function buildRetroAchievementsProfileOverviewStatSections(
+  profile: NormalizedProfile,
+): readonly OverviewStatSection[] {
+  return getRetroAchievementsProfileStatSections({ profile }).map((section) => ({
+    title: section.title,
+    variant: section.variant,
+    stats: section.stats.map((stat) => ({
+      label: stat.label,
+      value: stat.value,
+      ...(stat.secondary !== undefined ? { detail: stat.secondary } : {}),
+    })),
+  }));
 }
 
 export function getSteamOverviewProgress(profile: NormalizedProfile): {

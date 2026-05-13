@@ -48,10 +48,13 @@ import {
 } from "../src/platform/decky/decky-app-services";
 import { setDeckyBackendCallImplementationForTests } from "../src/platform/decky/decky-backend-bridge";
 import {
+  buildAchievementStatus,
   dedupeDistinctLabels,
   getAchievementCounts,
   getAchievementDescriptionText,
   hasAchievementCounts,
+  formatAchievementUnlockModeLabel,
+  formatModeProgressSummary,
   shouldHideSteamAchievementDetailStats,
 } from "../src/platform/decky/decky-achievement-detail-helpers";
 import {
@@ -59,13 +62,19 @@ import {
   formatCompletionProgressStatusLabel,
   formatCompletionProgressSummary,
   formatProfileMemberSince,
+  getRetroAchievementsProfileSectionAccentStyle,
+  getRetroAchievementsProfileSectionStyle,
+  getRetroAchievementsProfileSectionTitleStyle,
   formatSteamPlaytimeMinutes,
   getSteamCompletionProgressGameDetailId,
   getSteamAccountProgressCards,
   getSteamAccountProgressSummary,
-  getDeckyProfileStats,
+  getRetroAchievementsProfileStatSections,
   getSteamProfileStats,
 } from "../src/platform/decky/decky-stat-helpers";
+import {
+  buildRetroAchievementsProfileOverviewStatSections,
+} from "../src/platform/decky/decky-overview-stats";
 import {
   DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS,
   DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS,
@@ -993,8 +1002,11 @@ test("retroachievements game progress normalizes achievement badge art", () => {
     ConsoleName: "Atari 2600",
     ImageIcon: "/Images/026368.png",
     ImageBoxArt: "/Images/066952.png",
-    NumAchievements: 1,
-    NumAwardedToUser: 1,
+    NumAchievements: 2,
+    NumAwardedToUser: 2,
+    NumAwardedToUserHardcore: 1,
+    UserCompletion: "100.00%",
+    UserCompletionHardcore: "50.00%",
     HighestAwardKind: "mastered",
     HighestAwardDate: "2024-04-23T21:28:49+00:00",
     Achievements: {
@@ -1010,15 +1022,37 @@ test("retroachievements game progress normalizes achievement badge art", () => {
         DateEarned: "2022-08-23 22:56:38",
         DateEarnedHardcore: "2022-08-23 22:56:38",
       },
+      "79435": {
+        ID: 79435,
+        Title: "Novice Dragster Driver 2",
+        Description: "Complete your second race in game 1.",
+        Points: 2,
+        NumAwarded: 120,
+        NumAwardedHardcore: 60,
+        BadgeName: "85542",
+        DisplayOrder: 1,
+        DateEarned: "2022-09-01 22:56:38",
+      },
     },
   };
 
   const snapshot = normalizeRetroAchievementsGameDetail(rawGameProgress);
 
+  assert.equal(snapshot.game.hardcoreSummary?.unlockedCount, 1);
+  assert.equal(snapshot.game.hardcoreSummary?.totalCount, 2);
+  assert.equal(snapshot.game.hardcoreSummary?.completionPercent, 50);
+  assert.equal(snapshot.game.softcoreSummary?.unlockedCount, 1);
+  assert.equal(snapshot.game.softcoreSummary?.totalCount, 2);
+  assert.equal(snapshot.game.softcoreSummary?.completionPercent, 50);
   assert.equal(
     snapshot.achievements[0]?.badgeImageUrl,
     "https://i.retroachievements.org/Badge/85541.png",
   );
+  assert.equal(snapshot.achievements[0]?.unlockMode, "hardcore");
+  assert.equal(snapshot.achievements[0]?.hardcoreUnlockedAt, Date.parse("2022-08-23T22:56:38Z"));
+  assert.equal(snapshot.achievements[0]?.softcoreUnlockedAt, Date.parse("2022-08-23T22:56:38Z"));
+  assert.equal(snapshot.achievements[1]?.unlockMode, "softcore");
+  assert.equal(snapshot.achievements[1]?.softcoreUnlockedAt, Date.parse("2022-09-01T22:56:38Z"));
   assert.equal(
     snapshot.achievements[0]?.metrics.find((metric) => metric.key === "unlocked-count")?.value,
     "200",
@@ -1053,6 +1087,19 @@ test("retroachievements recent unlocks normalize badge art urls", () => {
       GameIcon: "/Images/000001.png",
       ConsoleName: "NES",
       Date: "2024-01-01 00:00:00",
+      HardcoreMode: true,
+    },
+    {
+      AchievementID: 108303,
+      Title: "Second Steps",
+      Description: "Unlock another starter achievement.",
+      BadgeURL: "/Badge/108303.png",
+      GameID: 1234,
+      GameTitle: "Test Game",
+      GameIcon: "/Images/000001.png",
+      ConsoleName: "NES",
+      Date: "2024-01-01 01:00:00",
+      HardcoreMode: false,
     },
   ];
 
@@ -1062,6 +1109,8 @@ test("retroachievements recent unlocks normalize badge art urls", () => {
     recentUnlocks[0]?.achievement.badgeImageUrl,
     "https://i.retroachievements.org/Badge/108302.png",
   );
+  assert.equal(recentUnlocks[0]?.achievement.unlockMode, "hardcore");
+  assert.equal(recentUnlocks[1]?.achievement.unlockMode, "softcore");
 });
 
 test("retroachievements recent unlock timestamps parse timezone-less UTC strings correctly", () => {
@@ -1109,6 +1158,73 @@ test("retroachievements recent unlock timestamps parse timezone-less UTC strings
   assert.equal(recentUnlocks[1]?.unlockedAt, Date.parse("2026-04-18T18:30:00Z"));
   assert.equal(nowAt - (recentUnlocks[0]?.unlockedAt ?? 0), 15 * 60 * 1000);
   assert.equal(recentUnlocks[2]?.unlockedAt, undefined);
+});
+
+test("retroachievements achievement row mode label helper distinguishes hardcore and softcore unlocks", () => {
+  assert.equal(
+    formatAchievementUnlockModeLabel({
+      isUnlocked: true,
+      unlockMode: "hardcore",
+    }),
+    "Hardcore unlocked",
+  );
+
+  assert.equal(
+    formatAchievementUnlockModeLabel({
+      isUnlocked: true,
+      unlockMode: "softcore",
+    }),
+    "Softcore unlocked",
+  );
+
+  assert.equal(
+    formatAchievementUnlockModeLabel({
+      isUnlocked: true,
+    }),
+    "Unlocked",
+  );
+
+  assert.equal(
+    formatAchievementUnlockModeLabel({
+      isUnlocked: false,
+    }),
+    "Locked",
+  );
+});
+
+test("retroachievements achievement status helper distinguishes hardcore and softcore unlocks", () => {
+  assert.deepStrictEqual(
+    buildAchievementStatus({
+      isUnlocked: true,
+      unlockMode: "hardcore",
+      unlockedAt: Date.parse("2024-01-01T00:00:00Z"),
+    }),
+    {
+      value: "Hardcore unlocked",
+      secondary: `Hardcore unlocked ${new Date(Date.parse("2024-01-01T00:00:00Z")).toLocaleString()}`,
+    },
+  );
+
+  assert.deepStrictEqual(
+    buildAchievementStatus({
+      isUnlocked: true,
+      unlockMode: "softcore",
+      unlockedAt: Date.parse("2024-01-01T01:00:00Z"),
+    }),
+    {
+      value: "Softcore unlocked",
+      secondary: `Softcore unlocked ${new Date(Date.parse("2024-01-01T01:00:00Z")).toLocaleString()}`,
+    },
+  );
+
+  assert.deepStrictEqual(buildAchievementStatus({ isUnlocked: false }), {
+    value: "Locked",
+  });
+});
+
+test("retroachievements mode progress helper falls back safely when data is missing", () => {
+  assert.equal(formatModeProgressSummary(undefined, "Hardcore"), "No hardcore progress available.");
+  assert.equal(formatModeProgressSummary(undefined, "Softcore"), "No softcore progress available.");
 });
 
 test("retroachievements profile normalizes avatar image urls", () => {
@@ -1962,6 +2078,7 @@ test("retroachievements profile exposes points, games beaten, and retroratio met
         return {
           User: "Alice",
           ULID: "abc123",
+          MemberSince: "2020-01-02 00:00:00",
           TotalPoints: 100,
           TotalSoftcorePoints: 25,
           TotalTruePoints: 250,
@@ -1974,13 +2091,15 @@ test("retroachievements profile exposes points, games beaten, and retroratio met
             GameID: 1,
             Title: "Beaten One",
             NumAwarded: 5,
+            NumAwardedHardcore: 3,
             MaxPossible: 5,
             HighestAwardKind: "beaten",
           },
           {
             GameID: 2,
             Title: "Beaten Two",
-            NumAwarded: 0,
+            NumAwarded: 3,
+            NumAwardedHardcore: 1,
             MaxPossible: 0,
             HighestAwardKind: "beaten-hardcore",
           },
@@ -2029,8 +2148,240 @@ test("retroachievements profile exposes points, games beaten, and retroratio met
     "2.50",
   );
   assert.deepStrictEqual(
-    buildProviderOverviewStats(profile).map((stat) => stat.label),
-    ["Points", "Achievements Unlocked", "Games Beaten", "Unlock rate"],
+    buildRetroAchievementsProfileOverviewStatSections(profile).map((section) => section.title),
+    ["Softcore", "Hardcore", "RetroAchievements", "Game Completion"],
+  );
+  assert.deepStrictEqual(
+    buildRetroAchievementsProfileOverviewStatSections(profile).map((section) =>
+      section.stats.map((stat) => `${stat.label}:${stat.value}`),
+    ),
+    [
+      ["Points:25", "Unlocked:6"],
+      ["Points:100", "Unlocked:4"],
+      ["Points:250", "Ratio:2.50"],
+      ["Beaten:2", "Mastered:0"],
+    ],
+  );
+});
+
+test("retroachievements profile surfaces separate hardcore and softcore achievement counts", async () => {
+  const provider = createRetroAchievementsProvider({
+    client: {
+      async loadProfile() {
+        return {
+          User: "Alice",
+          ULID: "abc123",
+          MemberSince: "2020-01-02 00:00:00",
+          TotalPoints: 100,
+          TotalSoftcorePoints: 25,
+          TotalTruePoints: 250,
+        };
+      },
+
+      async loadCompletionProgress() {
+        return [
+          {
+            GameID: 1,
+            Title: "Hardcore Game",
+            NumAwarded: 5,
+            NumAwardedHardcore: 3,
+            MaxPossible: 5,
+            HighestAwardKind: "beaten-hardcore",
+          },
+          {
+            GameID: 2,
+            Title: "Softcore Game",
+            NumAwarded: 3,
+            NumAwardedHardcore: 1,
+            MaxPossible: 5,
+            HighestAwardKind: "beaten",
+          },
+          {
+            GameID: 3,
+            Title: "Mastered Game",
+            NumAwarded: 0,
+            NumAwardedHardcore: 0,
+            MaxPossible: 0,
+            HighestAwardKind: "mastered",
+          },
+        ] satisfies readonly RawRetroAchievementsCompletionProgressEntry[];
+      },
+
+      async loadAchievementsEarnedBetween() {
+        return [];
+      },
+
+      async loadRecentUnlocks() {
+        return [];
+      },
+
+      async loadRecentlyPlayedGames() {
+        return [];
+      },
+
+      async loadGameProgress() {
+        throw new Error("not used");
+      },
+    },
+  });
+
+  const profile = await provider.loadProfile({
+    username: "alice",
+    apiKey: "secret",
+  });
+  const stats = buildRetroAchievementsProfileOverviewStatSections(profile);
+
+  assert.equal(profile.hardcoreUnlockedCount, 4);
+  assert.equal(profile.softcoreUnlockedCount, 4);
+  assert.equal(profile.masteredCount, 1);
+  assert.deepStrictEqual(
+    stats.map((section) => section.title),
+    [
+      "Softcore",
+      "Hardcore",
+      "RetroAchievements",
+      "Game Completion",
+    ],
+  );
+  assert.deepStrictEqual(
+    stats.map((section) => section.stats.map((stat) => `${stat.label}:${stat.value}`)),
+    [
+      ["Points:25", "Unlocked:4"],
+      ["Points:100", "Unlocked:4"],
+      ["Points:250", "Ratio:2.50"],
+      ["Beaten:3", "Mastered:1"],
+    ],
+  );
+});
+
+test("retroachievements full-screen profile groups stats by category", () => {
+  const profile = normalizeRetroAchievementsProfile(
+    {
+      User: "Retro User",
+      ULID: "abc123",
+      MemberSince: "2020-01-02 00:00:00",
+      TotalPoints: 1234,
+      TotalSoftcorePoints: 4321,
+      TotalTruePoints: 987,
+    },
+    {
+      unlockedCount: 12,
+      totalCount: 20,
+      completionPercent: 60,
+    },
+    {
+      username: "retro-user",
+      apiKey: "secret",
+    },
+  );
+
+  const sections = getRetroAchievementsProfileStatSections({
+    profile,
+  });
+
+  assert.deepStrictEqual(
+    sections.map((section) => section.title),
+    ["Softcore", "Hardcore", "RetroAchievements", "Game Completion"],
+  );
+  assert.deepStrictEqual(
+    sections.map((section) => section.stats.map((stat) => stat.label)),
+    [
+      ["Points", "Unlocked"],
+      ["Points", "Unlocked"],
+      ["Points", "Ratio"],
+      ["Beaten", "Mastered"],
+    ],
+  );
+  assert.deepStrictEqual(
+    sections.map((section) => section.variant),
+    ["softcore", "hardcore", "default", "default"],
+  );
+  assert.equal(
+    sections.flatMap((section) => section.stats).some((stat) => stat.label === "Member since"),
+    false,
+  );
+});
+
+test("retroachievements profile section helpers apply distinct softcore and hardcore tints", () => {
+  const softcoreStyle = getRetroAchievementsProfileSectionStyle("softcore");
+  const hardcoreStyle = getRetroAchievementsProfileSectionStyle("hardcore");
+  const defaultStyle = getRetroAchievementsProfileSectionStyle("default");
+
+  assert.equal(softcoreStyle.border, "1px solid rgba(255, 255, 255, 0.06)");
+  assert.equal(softcoreStyle.backgroundColor, "rgba(214, 221, 232, 0.03)");
+  assert.equal(softcoreStyle.boxShadow, "inset 4px 0 0 rgba(214, 221, 232, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.015)");
+  assert.equal(hardcoreStyle.border, "1px solid rgba(255, 255, 255, 0.06)");
+  assert.equal(hardcoreStyle.backgroundColor, "rgba(214, 178, 74, 0.035)");
+  assert.equal(hardcoreStyle.boxShadow, "inset 4px 0 0 rgba(214, 178, 74, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.015)");
+  assert.equal(defaultStyle.border, "1px solid rgba(255, 255, 255, 0.06)");
+  assert.equal(defaultStyle.backgroundColor, "rgba(255, 255, 255, 0.02)");
+  assert.equal(defaultStyle.boxShadow, undefined);
+
+  const softcoreTitleStyle = getRetroAchievementsProfileSectionTitleStyle("softcore");
+  const hardcoreTitleStyle = getRetroAchievementsProfileSectionTitleStyle("hardcore");
+  const defaultTitleStyle = getRetroAchievementsProfileSectionTitleStyle("default");
+
+  assert.equal(softcoreTitleStyle.color, "rgba(220, 225, 233, 0.86)");
+  assert.equal(hardcoreTitleStyle.color, "rgba(232, 201, 102, 0.9)");
+  assert.equal(defaultTitleStyle.color, "rgba(255, 255, 255, 0.58)");
+});
+
+test("retroachievements full-screen profile section accents mirror the grouped mode language", () => {
+  const softcoreAccent = getRetroAchievementsProfileSectionAccentStyle("softcore");
+  const hardcoreAccent = getRetroAchievementsProfileSectionAccentStyle("hardcore");
+  const defaultAccent = getRetroAchievementsProfileSectionAccentStyle("default");
+
+  assert.equal(softcoreAccent.position, "absolute");
+  assert.equal(softcoreAccent.width, 4);
+  assert.equal(softcoreAccent.background, "linear-gradient(180deg, rgba(214, 221, 232, 0.84), rgba(214, 221, 232, 0.42))");
+  assert.equal(hardcoreAccent.position, "absolute");
+  assert.equal(hardcoreAccent.width, 4);
+  assert.equal(hardcoreAccent.background, "linear-gradient(180deg, rgba(232, 201, 102, 0.92), rgba(214, 178, 74, 0.56))");
+  assert.equal(defaultAccent.position, "absolute");
+  assert.equal(defaultAccent.width, 4);
+  assert.equal(defaultAccent.background, "rgba(255, 255, 255, 0.08)");
+});
+
+test("retroachievements profile stats fall back safely when counts are unavailable", () => {
+  const profile = normalizeRetroAchievementsProfile(
+    {
+      User: "Retro User",
+      ULID: "abc123",
+      MemberSince: "2020-01-02 00:00:00",
+      TotalPoints: 1234,
+      TotalSoftcorePoints: 4321,
+      TotalTruePoints: 987,
+    },
+    {
+      unlockedCount: 12,
+      totalCount: 20,
+      completionPercent: 60,
+    },
+    {
+      username: "retro-user",
+      apiKey: "secret",
+    },
+  );
+
+  const stats = buildRetroAchievementsProfileOverviewStatSections(profile);
+
+  assert.deepStrictEqual(
+    stats.map((section) => section.title),
+    [
+      "Softcore",
+      "Hardcore",
+      "RetroAchievements",
+      "Game Completion",
+    ],
+  );
+  assert.deepStrictEqual(
+    stats.map((section) => section.stats.map((stat) => `${stat.label}:${stat.value}`)),
+    [
+      ["Points:4321", "Unlocked:-"],
+      ["Points:1234", "Unlocked:-"],
+      ["Points:987", "Ratio:0.80"],
+      ["Beaten:-", "Mastered:-"],
+    ],
   );
 });
 
@@ -3958,19 +4309,29 @@ test("steam provider config and normalization stay round-trippable", () => {
       apiKey: "secret",
     },
   );
-  const retroAchievementsProfileStats = getDeckyProfileStats({
-    profile: retroAchievementsProfile,
-    steamLibraryAchievementScanSummary: undefined,
-  });
+  const retroAchievementsProfileStats = buildRetroAchievementsProfileOverviewStatSections(retroAchievementsProfile);
   assert.deepStrictEqual(
-    retroAchievementsProfileStats.map((stat) => stat.label),
-    ["Total points", "Softcore points", "True points", "Member since"],
+    retroAchievementsProfileStats.map((section) => section.title),
+    [
+      "Softcore",
+      "Hardcore",
+      "RetroAchievements",
+      "Game Completion",
+    ],
   );
   assert.deepStrictEqual(
-    retroAchievementsProfileStats.map((stat) => stat.value),
-    ["1234", "4321", "987", retroAchievementsProfileStats[3]?.value ?? "-"],
+    retroAchievementsProfileStats.map((section) => section.stats.map((stat) => `${stat.label}:${stat.value}`)),
+    [
+      ["Points:4321", "Unlocked:-"],
+      ["Points:1234", "Unlocked:-"],
+      ["Points:987", "Ratio:0.80"],
+      ["Beaten:-", "Mastered:-"],
+    ],
   );
-  assert.notEqual(retroAchievementsProfileStats[3]?.value, "-");
+  assert.equal(
+    retroAchievementsProfileStats.flatMap((section) => section.stats).some((stat) => stat.label === "Member since"),
+    false,
+  );
 
   const recentUnlocks = normalizeSteamRecentUnlocks(recentGames, [detail]);
   assert.equal(recentUnlocks.length, 1);

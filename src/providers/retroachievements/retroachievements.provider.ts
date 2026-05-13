@@ -9,12 +9,14 @@ import {
 } from "./client/transport";
 import {
   countRetroAchievementsGamesBeaten,
+  countRetroAchievementsGamesMastered,
   normalizeRetroAchievementsGameDetail,
   normalizeRetroAchievementsCompletionProgressGames,
   normalizeRetroAchievementsProfile,
   normalizeRetroAchievementsSelectableGames,
   normalizeRetroAchievementsRecentUnlocks,
   normalizeRetroAchievementsRecentlyPlayedGames,
+  summarizeRetroAchievementsProfileAchievementCounts,
   summarizeRetroAchievementsCompletionProgress,
 } from "./mappers/normalize";
 
@@ -94,6 +96,8 @@ export function createRetroAchievementsProvider(
       const completionSummary = summarizeRetroAchievementsCompletionProgress(rawCompletionProgress);
       const featuredGames = normalizeRetroAchievementsSelectableGames(rawCompletionProgress);
       const gamesBeatenCount = countRetroAchievementsGamesBeaten(rawCompletionProgress);
+      const gamesMasteredCount = countRetroAchievementsGamesMastered(rawCompletionProgress);
+      const achievementCounts = summarizeRetroAchievementsProfileAchievementCounts(rawCompletionProgress);
 
       return normalizeRetroAchievementsProfile(
         rawProfile,
@@ -101,6 +105,8 @@ export function createRetroAchievementsProvider(
         config,
         featuredGames,
         gamesBeatenCount,
+        gamesMasteredCount,
+        achievementCounts,
       );
     },
 

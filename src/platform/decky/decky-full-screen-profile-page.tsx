@@ -14,6 +14,10 @@ import { formatDeckyProviderLabel } from "./providers";
 import { STEAM_PROVIDER_ID, useDeckySteamLibraryAchievementScanOverview } from "./providers/steam";
 import {
   formatProfileMemberSince,
+  getRetroAchievementsProfileStatSections,
+  getRetroAchievementsProfileSectionAccentStyle,
+  getRetroAchievementsProfileSectionStyle,
+  getRetroAchievementsProfileSectionTitleStyle,
   getSteamAccountProgressCards,
   getSteamAccountProgressSummary,
 } from "./decky-stat-helpers";
@@ -257,23 +261,8 @@ function getAvatarFallbackStyle(size: number): CSSProperties {
   };
 }
 
-function getSectionBlockStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 10,
-  };
-}
-
-function getSectionLabelStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.58)",
-    fontSize: "0.7em",
-    fontWeight: 800,
-    letterSpacing: "0.1em",
-    textTransform: "uppercase",
-    lineHeight: 1.2,
-  };
+function getSectionBlockStyle(variant: "default" | "softcore" | "hardcore"): CSSProperties {
+  return getRetroAchievementsProfileSectionStyle(variant);
 }
 
 function getProgressCardStyle(): CSSProperties {
@@ -662,35 +651,20 @@ export function getDeckyProfileStats(args: {
     return getSteamProfileStats(args);
   }
 
-  const memberSince = formatProfileMemberSince(args.profile.metrics);
-
-  return [
-    {
-      label: "Total points",
-      value: getProfileMetric({
-        metrics: args.profile.metrics,
-        keys: ["total-points", "Points"],
-      }) ?? "-",
-    },
-    {
-      label: "Softcore points",
-      value: getProfileMetric({
-        metrics: args.profile.metrics,
-        keys: ["softcore-points", "Softcore"],
-      }) ?? "-",
-    },
-    {
-      label: "True points",
-      value: getProfileMetric({
-        metrics: args.profile.metrics,
-        keys: ["true-points", "True"],
-      }) ?? "-",
-    },
-    {
-      label: "Member since",
-      value: memberSince ?? "-",
-    },
-  ] as const;
+  return getRetroAchievementsProfileStatSections({
+    profile: args.profile,
+  }).flatMap((section) =>
+    section.stats.map((stat) => ({
+      label:
+        section.title === "RetroAchievements"
+          ? `RA ${stat.label}`
+          : section.title === "Softcore" || section.title === "Hardcore"
+            ? `${section.title} ${stat.label}`
+            : stat.label,
+      value: stat.value,
+      ...(stat.secondary !== undefined ? { secondary: stat.secondary } : {}),
+    })),
+  );
 }
 
 function RecentGameCard({
@@ -830,6 +804,12 @@ export function DeckyFullScreenProfilePage({
       ? { steamLibraryAchievementScanSummary }
       : {}),
   });
+  const retroAchievementsProfileStatSections =
+    profile.providerId === STEAM_PROVIDER_ID
+      ? undefined
+      : getRetroAchievementsProfileStatSections({
+          profile,
+        });
   return (
     <ScrollPanel>
       <TopAlignedScrollViewport scrollKey={`full-screen-profile:${providerId ?? "missing"}`}>
@@ -885,6 +865,9 @@ export function DeckyFullScreenProfilePage({
                       <div style={getHeroMottoTextStyle()}>{profile.motto}</div>
                     </div>
                   ) : null}
+                  {profile.providerId !== STEAM_PROVIDER_ID && memberSince !== undefined ? (
+                    <div style={getHeroSubtitleStyle()}>{`Member since ${memberSince}`}</div>
+                  ) : null}
                 </div>
               </div>
             </PanelSectionRow>
@@ -921,9 +904,9 @@ export function DeckyFullScreenProfilePage({
             </PanelSection>
           ) : null}
 
-          <PanelSection title={profile.providerId === STEAM_PROVIDER_ID ? "Library Progress" : "Account stats"}>
-            <PanelSectionRow>
-              <div style={getSectionBlockStyle()}>
+            <PanelSection title={profile.providerId === STEAM_PROVIDER_ID ? "Library Progress" : "Account stats"}>
+              <PanelSectionRow>
+              <div style={getSectionBlockStyle("default")}>
                 {profile.providerId === STEAM_PROVIDER_ID ? (
                   <>
                     {steamLibraryCompletionPercent !== undefined ? (
@@ -945,16 +928,32 @@ export function DeckyFullScreenProfilePage({
                     </div>
                   </>
                 ) : (
-                  <div style={getStatsGridStyle()}>
-                    {profileStats.map((stat) => (
-                      <ProfileStat
-                        key={stat.label}
-                        label={stat.label}
-                        value={stat.value}
-                        {...(stat.secondary !== undefined ? { secondary: stat.secondary } : {})}
-                      />
+                  <>
+                    {retroAchievementsProfileStatSections?.map((section) => (
+                      <div
+                        key={section.title}
+                        data-profile-section-variant={section.variant}
+                        style={{
+                          ...getSectionBlockStyle(section.variant),
+                          position: "relative",
+                          overflow: "hidden",
+                        }}
+                      >
+                        <div aria-hidden="true" style={getRetroAchievementsProfileSectionAccentStyle(section.variant)} />
+                        <div style={getRetroAchievementsProfileSectionTitleStyle(section.variant)}>{section.title}</div>
+                        <div style={getStatsGridStyle()}>
+                          {section.stats.map((stat) => (
+                            <ProfileStat
+                              key={`${section.title}:${stat.label}`}
+                              label={stat.label}
+                              value={stat.value}
+                              {...(stat.secondary !== undefined ? { secondary: stat.secondary } : {})}
+                            />
+                          ))}
+                        </div>
+                      </div>
                     ))}
-                  </div>
+                  </>
                 )}
               </div>
             </PanelSectionRow>

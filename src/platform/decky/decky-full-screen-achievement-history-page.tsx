@@ -12,6 +12,7 @@ import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
+import { buildAchievementStatus } from "./decky-achievement-detail-helpers";
 import { formatDeckyProviderLabel } from "./providers";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
 
@@ -415,9 +416,11 @@ function getAchievementHistoryRowDescription(recentUnlock: RecentUnlock): JSX.El
   const unlockedAt = recentUnlock.unlockedAt ?? recentUnlock.achievement.unlockedAt;
   const points = getAchievementHistoryPointsValue(recentUnlock.achievement);
   const unlockRate = getAchievementHistoryUnlockRateValue(recentUnlock.achievement);
+  const unlockStatus = buildAchievementStatus(recentUnlock.achievement).value;
   const isSteamProvider = recentUnlock.achievement.providerId === STEAM_PROVIDER_ID;
   const summaryParts = [
     recentUnlock.game.title,
+    unlockStatus,
     ...(isSteamProvider ? [] : [`Points ${points}`]),
     `Unlock rate ${unlockRate}`,
   ];

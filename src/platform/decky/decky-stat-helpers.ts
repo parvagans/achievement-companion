@@ -5,6 +5,7 @@ import type {
   NormalizedGame,
   RecentlyPlayedGame,
 } from "@core/domain";
+import type { CSSProperties } from "react";
 import { formatCompletionProgressFilterLabel, type CompletionProgressFilter } from "@core/settings";
 import { STEAM_PROVIDER_ID } from "../../providers/steam";
 import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
@@ -129,6 +130,244 @@ export interface SteamAccountProgressCardDescriptor {
   readonly secondary?: string;
 }
 
+export interface ProfileStatSection {
+  readonly title: string;
+  readonly variant: ProfileStatSectionVariant;
+  readonly stats: readonly ProfileStatDescriptor[];
+}
+
+export type ProfileStatSectionVariant = "default" | "softcore" | "hardcore";
+
+export interface RetroAchievementsProfileStatValues {
+  readonly softcorePoints: string | undefined;
+  readonly softcoreUnlocked: string | undefined;
+  readonly hardcorePoints: string | undefined;
+  readonly hardcoreUnlocked: string | undefined;
+  readonly raPoints: string | undefined;
+  readonly raRatio: string | undefined;
+  readonly beaten: string | undefined;
+  readonly mastered: string | undefined;
+}
+
+function formatOptionalMetricValue(
+  metrics: DashboardSnapshot["profile"]["metrics"],
+  ...keys: string[]
+): string | undefined {
+  return getMetricValue(metrics, ...keys);
+}
+
+export function getRetroAchievementsProfileStatValues(args: {
+  readonly profile: DashboardSnapshot["profile"];
+}): RetroAchievementsProfileStatValues {
+  const { profile } = args;
+
+  return {
+    softcorePoints: formatOptionalMetricValue(profile.metrics, "softcore-points", "Softcore"),
+    softcoreUnlocked:
+      profile.softcoreUnlockedCount !== undefined ? formatCount(profile.softcoreUnlockedCount) : undefined,
+    hardcorePoints: formatOptionalMetricValue(profile.metrics, "total-points", "Points"),
+    hardcoreUnlocked:
+      profile.hardcoreUnlockedCount !== undefined ? formatCount(profile.hardcoreUnlockedCount) : undefined,
+    raPoints: formatOptionalMetricValue(profile.metrics, "true-points", "True"),
+    raRatio: formatOptionalMetricValue(profile.metrics, "retro-ratio", "RetroRatio"),
+    beaten: formatOptionalMetricValue(profile.metrics, "games-beaten", "Games Beaten"),
+    mastered: profile.masteredCount !== undefined ? formatCount(profile.masteredCount) : undefined,
+  };
+}
+
+export function getRetroAchievementsProfileStatSections(args: {
+  readonly profile: DashboardSnapshot["profile"];
+}): readonly ProfileStatSection[] {
+  const values = getRetroAchievementsProfileStatValues(args);
+
+  return [
+    {
+      title: "Softcore",
+      variant: "softcore",
+      stats: [
+        {
+          label: "Points",
+          value: values.softcorePoints ?? "-",
+        },
+        {
+          label: "Unlocked",
+          value: values.softcoreUnlocked ?? "-",
+        },
+      ],
+    },
+    {
+      title: "Hardcore",
+      variant: "hardcore",
+      stats: [
+        {
+          label: "Points",
+          value: values.hardcorePoints ?? "-",
+        },
+        {
+          label: "Unlocked",
+          value: values.hardcoreUnlocked ?? "-",
+        },
+      ],
+    },
+    {
+      title: "RetroAchievements",
+      variant: "default",
+      stats: [
+        {
+          label: "Points",
+          value: values.raPoints ?? "-",
+        },
+        {
+          label: "Ratio",
+          value: values.raRatio ?? "-",
+        },
+      ],
+    },
+    {
+      title: "Game Completion",
+      variant: "default",
+      stats: [
+        {
+          label: "Beaten",
+          value: values.beaten ?? "-",
+        },
+        {
+          label: "Mastered",
+          value: values.mastered ?? "-",
+        },
+      ],
+    },
+  ];
+}
+
+export function getRetroAchievementsProfileSectionStyle(variant: ProfileStatSectionVariant): CSSProperties {
+  if (variant === "softcore") {
+    return {
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+      padding: 12,
+      borderRadius: 16,
+      border: "1px solid rgba(255, 255, 255, 0.06)",
+      backgroundColor: "rgba(214, 221, 232, 0.03)",
+      boxShadow: "inset 4px 0 0 rgba(214, 221, 232, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.015)",
+      boxSizing: "border-box",
+    };
+  }
+
+  if (variant === "hardcore") {
+    return {
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+      padding: 12,
+      borderRadius: 16,
+      border: "1px solid rgba(255, 255, 255, 0.06)",
+      backgroundColor: "rgba(214, 178, 74, 0.035)",
+      boxShadow: "inset 4px 0 0 rgba(214, 178, 74, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.015)",
+      boxSizing: "border-box",
+    };
+  }
+
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    padding: 12,
+    borderRadius: 16,
+    border: "1px solid rgba(255, 255, 255, 0.06)",
+    backgroundColor: "rgba(255, 255, 255, 0.02)",
+    boxSizing: "border-box",
+  };
+}
+
+export function getRetroAchievementsProfileSectionTitleStyle(
+  variant: ProfileStatSectionVariant,
+): CSSProperties {
+  if (variant === "softcore") {
+    return {
+      color: "rgba(220, 225, 233, 0.86)",
+      fontSize: "0.72em",
+      fontWeight: 800,
+      letterSpacing: "0.1em",
+      textTransform: "uppercase",
+      lineHeight: 1.2,
+    };
+  }
+
+  if (variant === "hardcore") {
+    return {
+      color: "rgba(232, 201, 102, 0.9)",
+      fontSize: "0.72em",
+      fontWeight: 800,
+      letterSpacing: "0.1em",
+      textTransform: "uppercase",
+      lineHeight: 1.2,
+    };
+  }
+
+  return {
+    color: "rgba(255, 255, 255, 0.58)",
+    fontSize: "0.72em",
+    fontWeight: 800,
+    letterSpacing: "0.1em",
+    textTransform: "uppercase",
+    lineHeight: 1.2,
+  };
+}
+
+export function getRetroAchievementsProfileSectionAccentStyle(
+  variant: ProfileStatSectionVariant,
+): CSSProperties {
+  if (variant === "softcore") {
+    return {
+      position: "absolute",
+      inset: "10px auto 10px 0",
+      width: 4,
+      borderTopLeftRadius: 999,
+      borderBottomLeftRadius: 999,
+      background: "linear-gradient(180deg, rgba(214, 221, 232, 0.84), rgba(214, 221, 232, 0.42))",
+    };
+  }
+
+  if (variant === "hardcore") {
+    return {
+      position: "absolute",
+      inset: "10px auto 10px 0",
+      width: 4,
+      borderTopLeftRadius: 999,
+      borderBottomLeftRadius: 999,
+      background: "linear-gradient(180deg, rgba(232, 201, 102, 0.92), rgba(214, 178, 74, 0.56))",
+    };
+  }
+
+  return {
+    position: "absolute",
+    inset: "10px auto 10px 0",
+    width: 4,
+    borderTopLeftRadius: 999,
+    borderBottomLeftRadius: 999,
+    background: "rgba(255, 255, 255, 0.08)",
+  };
+}
+
+function flattenProfileStatSections(
+  sections: readonly ProfileStatSection[],
+): readonly ProfileStatDescriptor[] {
+  return sections.flatMap((section) =>
+    section.stats.map((stat) => ({
+      label:
+        section.title === "RetroAchievements"
+          ? `RA ${stat.label}`
+          : section.title === "Softcore" || section.title === "Hardcore"
+            ? `${section.title} ${stat.label}`
+            : stat.label,
+      value: stat.value,
+      ...(stat.secondary !== undefined ? { secondary: stat.secondary } : {}),
+    })),
+  );
+}
+
 export function getSteamAccountProgressSummary(args: {
   readonly profile: DashboardSnapshot["profile"];
 }): SteamAccountProgressSummary {
@@ -232,26 +471,11 @@ export function getDeckyProfileStats(args: {
     return getSteamProfileStats(args);
   }
 
-  const memberSince = formatProfileMemberSince(args.profile.metrics);
-
-  return [
-    {
-      label: "Total points",
-      value: getMetricValue(args.profile.metrics, "total-points", "Points") ?? "-",
-    },
-    {
-      label: "Softcore points",
-      value: getMetricValue(args.profile.metrics, "softcore-points", "Softcore") ?? "-",
-    },
-    {
-      label: "True points",
-      value: getMetricValue(args.profile.metrics, "true-points", "True") ?? "-",
-    },
-    {
-      label: "Member since",
-      value: memberSince ?? "-",
-    },
-  ] as const;
+  return flattenProfileStatSections(
+    getRetroAchievementsProfileStatSections({
+      profile: args.profile,
+    }),
+  );
 }
 
 export function formatCompletionProgressFilterLabelForProvider(

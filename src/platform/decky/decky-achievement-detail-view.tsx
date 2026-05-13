@@ -32,7 +32,17 @@ export interface CompactAchievementTarget {
   readonly game: CompactAchievementGameTarget;
   readonly achievement: Pick<
     NormalizedAchievement,
-    "achievementId" | "title" | "description" | "badgeImageUrl" | "isUnlocked" | "unlockedAt" | "points" | "metrics"
+    | "achievementId"
+    | "title"
+    | "description"
+    | "badgeImageUrl"
+    | "isUnlocked"
+    | "unlockedAt"
+    | "hardcoreUnlockedAt"
+    | "softcoreUnlockedAt"
+    | "unlockMode"
+    | "points"
+    | "metrics"
   >;
 }
 

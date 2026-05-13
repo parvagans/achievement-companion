@@ -123,7 +123,7 @@ export function dedupeDistinctLabels(
 }
 
 export function buildAchievementStatus(
-  achievement: Pick<NormalizedAchievement, "isUnlocked" | "unlockedAt">,
+  achievement: Pick<NormalizedAchievement, "isUnlocked" | "unlockedAt" | "unlockMode">,
 ): {
   readonly value: string;
   readonly secondary?: string;
@@ -132,12 +132,61 @@ export function buildAchievementStatus(
     return { value: "Locked" };
   }
 
+  const unlockMode =
+    achievement.unlockMode === "hardcore"
+      ? "Hardcore unlocked"
+      : achievement.unlockMode === "softcore"
+        ? "Softcore unlocked"
+        : "Unlocked";
+
   const unlockedAt = achievement.unlockedAt;
   if (unlockedAt === undefined) {
-    return { value: "Unlocked" };
+    return { value: unlockMode };
   }
 
-  return { value: "Unlocked", secondary: `Unlocked ${formatTimestamp(unlockedAt)}` };
+  return {
+    value: unlockMode,
+    secondary: `${unlockMode} ${formatTimestamp(unlockedAt)}`,
+  };
+}
+
+export function formatAchievementUnlockModeLabel(
+  achievement: Pick<NormalizedAchievement, "isUnlocked" | "unlockMode">,
+): string {
+  if (!achievement.isUnlocked) {
+    return "Locked";
+  }
+
+  if (achievement.unlockMode === "hardcore") {
+    return "Hardcore unlocked";
+  }
+
+  if (achievement.unlockMode === "softcore") {
+    return "Softcore unlocked";
+  }
+
+  return "Unlocked";
+}
+
+export function formatModeProgressSummary(
+  summary: { readonly unlockedCount: number; readonly totalCount?: number; readonly completionPercent?: number } | undefined,
+  modeLabel: string,
+): string {
+  if (summary === undefined) {
+    return `No ${modeLabel.toLowerCase()} progress available.`;
+  }
+
+  const parts = [`${summary.unlockedCount.toLocaleString()} unlocked`];
+
+  if (summary.totalCount !== undefined) {
+    parts.push(`${summary.totalCount.toLocaleString()} total`);
+  }
+
+  if (summary.completionPercent !== undefined) {
+    parts.push(`${summary.completionPercent.toLocaleString()}% complete`);
+  }
+
+  return parts.join(" · ");
 }
 
 export function shouldHideSteamAchievementDetailStats(providerId: string | undefined): boolean {

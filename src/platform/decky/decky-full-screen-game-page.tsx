@@ -15,7 +15,7 @@ import {
   DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS,
   DECKY_FOCUS_ACTION_ROW_CLASS,
 } from "./decky-focus-styles";
-import { dedupeDistinctLabels } from "./decky-achievement-detail-helpers";
+import { buildAchievementStatus, dedupeDistinctLabels, formatModeProgressSummary } from "./decky-achievement-detail-helpers";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
 import { formatDeckyProviderLabel } from "./providers";
@@ -49,7 +49,7 @@ function formatCount(value: number): string {
 }
 
 function formatAchievementDescription(achievement: NormalizedAchievement): string {
-  const parts = [achievement.isUnlocked ? "Unlocked" : "Locked"];
+  const parts = [buildAchievementStatus(achievement).value];
 
   if (achievement.points !== undefined) {
     parts.push(`${formatCount(achievement.points)} points`);
@@ -733,6 +733,22 @@ export function DeckyFullScreenGamePage({
                       />
                     </div>
                   </div>
+
+                  {game.hardcoreSummary !== undefined || game.softcoreSummary !== undefined ? (
+                    <div style={getProgressCardStyle()}>
+                      <div style={getProgressCardTitleStyle()}>Mode progress</div>
+                      <div style={getProgressStatGridStyle()}>
+                        <ProgressStat
+                          label="Hardcore progress"
+                          value={formatModeProgressSummary(game.hardcoreSummary, "Hardcore")}
+                        />
+                        <ProgressStat
+                          label="Softcore progress"
+                          value={formatModeProgressSummary(game.softcoreSummary, "Softcore")}
+                        />
+                      </div>
+                    </div>
+                  ) : null}
 
                 </div>
               </div>

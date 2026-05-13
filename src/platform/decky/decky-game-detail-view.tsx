@@ -8,6 +8,7 @@ import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS, DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import type { CompactAchievementTarget } from "./decky-achievement-detail-view";
 import { DeckyCompactPillActionGroup, DeckyCompactPillActionItem } from "./decky-compact-pill-action-item";
+import { buildAchievementStatus, formatModeProgressSummary } from "./decky-achievement-detail-helpers";
 
 const INITIAL_ACHIEVEMENT_LIMIT = 3;
 const ACHIEVEMENT_FILTERS = ["all", "unlocked", "locked"] as const;
@@ -51,7 +52,7 @@ function formatProgressSummary(snapshot: GameDetailSnapshot): string {
 }
 
 function formatAchievementDescription(achievement: NormalizedAchievement): string {
-  const parts = [achievement.isUnlocked ? "Unlocked" : "Locked"];
+  const parts = [buildAchievementStatus(achievement).value];
 
   if (achievement.points !== undefined) {
     parts.push(`${formatCount(achievement.points)} points`);
@@ -231,6 +232,9 @@ function AchievementSectionBody({
   onBackToDashboard,
   game,
 }: AchievementSectionBodyProps): JSX.Element {
+  const hardcoreProgress = game.hardcoreSummary;
+  const softcoreProgress = game.softcoreSummary;
+
   return (
     <>
       <PanelSectionRow>
@@ -241,6 +245,22 @@ function AchievementSectionBody({
           onCancelButton={onBackToDashboard}
         />
       </PanelSectionRow>
+
+      {hardcoreProgress !== undefined || softcoreProgress !== undefined ? (
+        <PanelSectionRow>
+          <Field
+            bottomSeparator="none"
+            description={
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <div>{formatModeProgressSummary(hardcoreProgress, "Hardcore")}</div>
+                <div>{formatModeProgressSummary(softcoreProgress, "Softcore")}</div>
+              </div>
+            }
+            label="Mode progress"
+            onCancelButton={onBackToDashboard}
+          />
+        </PanelSectionRow>
+      ) : null}
 
       <PanelSectionRow>
         <AchievementFilterPills
