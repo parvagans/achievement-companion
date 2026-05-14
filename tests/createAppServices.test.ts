@@ -2233,6 +2233,47 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(providerIdentitySectionStyleMatch?.[0] ?? "", /marginBottom: 12/);
   assert.match(providerIdentitySectionStyleMatch?.[0] ?? "", /width: "100%"/);
   assert.match(compactDashboardSource, /<ProviderIdentityRow providerId=\{profile\.providerId\} \/>/u);
+  assert.match(compactDashboardSource, /data-dashboard-row-type="recent-achievement"/u);
+  assert.match(compactDashboardSource, /data-dashboard-row-type="recently-played"/u);
+  assert.match(compactDashboardSource, /data-dashboard-achievement-tone=\{tone\}/u);
+  assert.match(compactDashboardSource, /getDashboardCompactCardStyle\(bottomSpacing = 0\)/u);
+  assert.match(compactDashboardSource, /padding: "16px 16px 16px 20px"/u);
+  assert.match(compactDashboardSource, /gap: 14/u);
+  assert.match(compactDashboardSource, /marginBottom: bottomSpacing/u);
+  assert.match(compactDashboardSource, /boxSizing: "border-box"/u);
+  assert.match(compactDashboardSource, /profile\.providerId === STEAM_PROVIDER_ID/u);
+  assert.match(compactDashboardSource, /<PanelSection title="Overview">[\s\S]*?<PanelSectionRow>\s*<div style=\{getOverviewCardStyle\(\)\}>/u);
+  assert.match(compactDashboardSource, /recentAchievements\.map\(\(recentUnlock, index\) => \(\s*<PanelSectionRow[\s\S]*?<RecentAchievementRow/u);
+  assert.match(compactDashboardSource, /recentlyPlayedGames\.map\(\(game, index\) => \(\s*<PanelSectionRow[\s\S]*?<RecentlyPlayedRow/u);
+  assert.match(
+    compactDashboardSource,
+    /bottomSpacing=\{index === recentAchievements\.length - 1 \? 0 : 12\}/u,
+  );
+  assert.match(
+    compactDashboardSource,
+    /bottomSpacing=\{index === recentlyPlayedGames\.length - 1 \? 0 : 12\}/u,
+  );
+  assert.match(compactDashboardSource, /getDashboardCompactCardAccentStyle\(tone\)/u);
+  assert.match(compactDashboardSource, /top: 14/u);
+  assert.match(compactDashboardSource, /bottom: 14/u);
+  assert.match(compactDashboardSource, /width: 42/u);
+  assert.match(compactDashboardSource, /height: 42/u);
+  assert.match(compactDashboardSource, /padding: 3/u);
+  assert.match(compactDashboardSource, /gap: 7/u);
+  assert.match(compactDashboardSource, /gap: 4/u);
+  assert.match(compactDashboardSource, /getDashboardAchievementStatusStyle\(tone\)/u);
+  assert.match(compactDashboardSource, /formatRecentlyPlayedProgressLine\(game\)/u);
+  assert.match(compactDashboardSource, /formatRecentlyPlayedLastPlayedText\(game\)/u);
+  assert.match(compactDashboardSource, /gap: 8/u);
+  assert.match(compactDashboardSource, /CompactDashboardProgressBar percent=\{progressPercent\}/u);
+  assert.match(compactDashboardSource, /role="progressbar"/u);
+  assert.match(compactDashboardSource, /formatAchievementUnlockModeLabel\(recentUnlock\.achievement\)/u);
+  assert.match(compactDashboardSource, /if \(recentUnlock\.game\.providerId === STEAM_PROVIDER_ID\)/u);
+  assert.match(compactDashboardSource, /if \(game\.providerId === STEAM_PROVIDER_ID\)/u);
+  assert.doesNotMatch(compactDashboardSource, /getDashboardCompactRowWrapperStyle/u);
+  assert.doesNotMatch(compactDashboardSource, /getDashboardCompactListStyle/u);
+  assert.match(compactDashboardSource, /onOpenAchievementDetail\(\{\s*game: recentUnlock\.game,\s*achievement: recentUnlock\.achievement,\s*\}\)/u);
+  assert.match(compactDashboardSource, /onOpenGameDetail\(game\.providerId, game\.gameId, game\.title\)/u);
   const compactAchievementDetailSource = readFileSync("src/platform/decky/decky-achievement-detail-view.tsx", "utf8");
   assert.match(compactAchievementDetailSource, /PanelSection title="Achievement details"/);
   assert.doesNotMatch(compactAchievementDetailSource, /PanelSection title="Navigation"/);
