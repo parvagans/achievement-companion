@@ -13,6 +13,7 @@ import {
   DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS,
   DECKY_FOCUS_NAV_ROW_CLASS,
 } from "./decky-focus-styles";
+import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
 import type { CompactAchievementTarget } from "./decky-achievement-detail-view";
 import { buildAchievementStatus, formatAchievementUnlockModeLabel } from "./decky-achievement-detail-helpers";
 import {
@@ -479,12 +480,16 @@ function OverviewStatSectionBlock({ section }: { readonly section: OverviewStatS
 function ProfileAvatar({
   avatarUrl,
   displayName,
+  refreshedAt,
 }: {
   readonly avatarUrl: string | undefined;
   readonly displayName: string;
+  readonly refreshedAt: number | undefined;
 }): JSX.Element {
-  if (avatarUrl !== undefined) {
-    return <DeckyGameArtwork compact src={avatarUrl} size={40} title={displayName} />;
+  const renderedAvatarUrl = addProfileAvatarCacheBustParam(avatarUrl, refreshedAt);
+
+  if (renderedAvatarUrl !== undefined) {
+    return <DeckyGameArtwork compact src={renderedAvatarUrl} size={40} title={displayName} />;
   }
 
   return <span style={getProfileAvatarFrameStyle()}>{getProfileAvatarInitials(displayName)}</span>;
@@ -585,6 +590,7 @@ function OverviewProfileEntry({
   displayName,
   memberSince,
   providerId,
+  refreshedAt,
   onOpenProfile,
   onCancel,
 }: {
@@ -592,6 +598,7 @@ function OverviewProfileEntry({
   readonly displayName: string;
   readonly memberSince: string | undefined;
   readonly providerId: string;
+  readonly refreshedAt: number | undefined;
   readonly onOpenProfile: (providerId: string) => void;
   readonly onCancel: () => void;
 }): JSX.Element {
@@ -613,7 +620,7 @@ function OverviewProfileEntry({
       }}
       style={getOverviewHeaderStyle()}
     >
-      <ProfileAvatar avatarUrl={avatarUrl} displayName={displayName} />
+      <ProfileAvatar avatarUrl={avatarUrl} displayName={displayName} refreshedAt={refreshedAt} />
 
       <div style={getProfileIdentityStyle()}>
         <div style={getProfileNameStyle()}>{displayName}</div>
@@ -826,6 +833,7 @@ export function DeckyDashboardView({
               displayName={profile.identity.displayName}
               memberSince={memberSince}
               providerId={profile.providerId}
+              refreshedAt={refreshedAt}
               onOpenProfile={onOpenProfile}
               onCancel={onBackToProviders}
             />

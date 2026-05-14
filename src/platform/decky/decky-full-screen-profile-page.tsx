@@ -8,6 +8,7 @@ import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-f
 import { initialDeckyBootstrapState, loadDeckyDashboardState } from "./decky-app-services";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
+import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
 import { formatDeckyProviderLabel } from "./providers";
@@ -503,13 +504,17 @@ function ProfileAvatar({
   avatarUrl,
   displayName,
   size,
+  refreshedAt,
 }: {
   readonly avatarUrl: string | undefined;
   readonly displayName: string;
   readonly size: number;
+  readonly refreshedAt: number | undefined;
 }): JSX.Element {
-  if (avatarUrl !== undefined) {
-    return <DeckyGameArtwork src={avatarUrl} size={size} title={displayName} />;
+  const renderedAvatarUrl = addProfileAvatarCacheBustParam(avatarUrl, refreshedAt);
+
+  if (renderedAvatarUrl !== undefined) {
+    return <DeckyGameArtwork src={renderedAvatarUrl} size={size} title={displayName} />;
   }
 
   return <span style={getAvatarFallbackStyle(size)}>{getFallbackInitials(displayName)}</span>;
@@ -805,6 +810,7 @@ export function DeckyFullScreenProfilePage({
       ? { steamLibraryAchievementScanSummary }
       : {}),
   });
+  const refreshedAt = state.lastUpdatedAt ?? snapshot.refreshedAt;
   const retroAchievementsProfileStatSections =
     profile.providerId === STEAM_PROVIDER_ID
       ? undefined
@@ -852,6 +858,7 @@ export function DeckyFullScreenProfilePage({
                   avatarUrl={profile.identity.avatarUrl}
                   displayName={profile.identity.displayName}
                   size={112}
+                  refreshedAt={refreshedAt}
                 />
 
                 <div style={getHeroTextStyle()}>

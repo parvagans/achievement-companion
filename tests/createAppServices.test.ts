@@ -79,6 +79,9 @@ import {
   buildCompletionProgressSummaryCards,
 } from "../src/platform/decky/decky-completion-progress-summary-card-data";
 import {
+  addProfileAvatarCacheBustParam,
+} from "../src/platform/decky/decky-avatar-cache-busting";
+import {
   DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS,
   DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS,
   DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS,
@@ -1265,6 +1268,37 @@ test("retroachievements profile normalizes avatar image urls", () => {
   assert.equal(profile.motto, "Keep on playing");
 });
 
+test("profile avatar cache bust helper preserves query params and updates a safe refresh token", () => {
+  const refreshedAt = 1_717_000_000_000;
+  const cachedAvatar = addProfileAvatarCacheBustParam(
+    "https://example.com/avatar.png?existing=1",
+    refreshedAt,
+  );
+
+  assert.equal(cachedAvatar !== undefined, true);
+  const url = new URL(cachedAvatar ?? "");
+  assert.equal(url.searchParams.get("existing"), "1");
+  assert.equal(url.searchParams.get("ac_avatar_refresh"), String(refreshedAt));
+  assert.equal(url.searchParams.getAll("ac_avatar_refresh").length, 1);
+
+  const updatedAvatar = addProfileAvatarCacheBustParam(
+    "https://example.com/avatar.png?existing=1&ac_avatar_refresh=42",
+    refreshedAt,
+  );
+  assert.equal(updatedAvatar !== undefined, true);
+  const updatedUrl = new URL(updatedAvatar ?? "");
+  assert.equal(updatedUrl.searchParams.get("existing"), "1");
+  assert.equal(updatedUrl.searchParams.get("ac_avatar_refresh"), String(refreshedAt));
+  assert.equal(updatedUrl.searchParams.getAll("ac_avatar_refresh").length, 1);
+
+  assert.equal(
+    addProfileAvatarCacheBustParam("https://example.com/avatar.png", undefined),
+    "https://example.com/avatar.png",
+  );
+  assert.equal(addProfileAvatarCacheBustParam("not a url", refreshedAt), "not a url");
+  assert.equal(addProfileAvatarCacheBustParam(undefined, refreshedAt), undefined);
+});
+
 test("achievement companion settings normalize invalid stored values", () => {
   const settings = parseAchievementCompanionSettings(
     JSON.stringify({
@@ -1871,6 +1905,11 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     /const isPrimary = emphasis === "primary"/,
   );
   const dashboardViewSource = readFileSync("src/platform/decky/decky-dashboard-view.tsx", "utf8");
+  const fullScreenProfileSource = readFileSync("src/platform/decky/decky-full-screen-profile-page.tsx", "utf8");
+  const achievementHistorySource = readFileSync(
+    "src/platform/decky/decky-full-screen-achievement-history-page.tsx",
+    "utf8",
+  );
   assert.match(dashboardViewSource, /label="Open full-screen"/);
   assert.match(dashboardViewSource, /emphasis="primary"/);
   assert.match(
@@ -1878,6 +1917,12 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     /label="Open full-screen"[\s\S]*label="Back"[\s\S]*label="Refresh"[\s\S]*label="Settings"/,
   );
   assert.match(dashboardViewSource, /onOpenProfile\(profile\.providerId\)/);
+  assert.match(dashboardViewSource, /addProfileAvatarCacheBustParam\(avatarUrl, refreshedAt\)/u);
+  assert.match(fullScreenProfileSource, /addProfileAvatarCacheBustParam\(avatarUrl, refreshedAt\)/u);
+  assert.match(achievementHistorySource, /addProfileAvatarCacheBustParam\(avatarUrl, refreshedAt\)/u);
+  assert.doesNotMatch(dashboardViewSource, /addProfileAvatarCacheBustParam\(game\.coverImageUrl/u);
+  assert.doesNotMatch(fullScreenProfileSource, /addProfileAvatarCacheBustParam\(game\.coverImageUrl/u);
+  assert.doesNotMatch(achievementHistorySource, /addProfileAvatarCacheBustParam\(game\.coverImageUrl/u);
   assert.match(
     readFileSync("src/platform/decky/decky-full-screen-action-controls.tsx", "utf8"),
     /<DeckyFullscreenActionStyles\s*\/>/,

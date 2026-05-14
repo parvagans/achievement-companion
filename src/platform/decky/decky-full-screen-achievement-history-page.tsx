@@ -10,6 +10,7 @@ import {
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
+import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
 import { buildAchievementStatus } from "./decky-achievement-detail-helpers";
@@ -122,12 +123,16 @@ function getProfileAvatarFrameStyle(): CSSProperties {
 function AchievementHistoryProfileAvatar({
   avatarUrl,
   displayName,
+  refreshedAt,
 }: {
   readonly avatarUrl: string | undefined;
   readonly displayName: string;
+  readonly refreshedAt: number | undefined;
 }): JSX.Element {
-  if (avatarUrl !== undefined) {
-    return <DeckyGameArtwork compact src={avatarUrl} size={56} title={displayName} />;
+  const renderedAvatarUrl = addProfileAvatarCacheBustParam(avatarUrl, refreshedAt);
+
+  if (renderedAvatarUrl !== undefined) {
+    return <DeckyGameArtwork compact src={renderedAvatarUrl} size={56} title={displayName} />;
   }
 
   return <span style={getProfileAvatarFrameStyle()}>{getProfileAvatarInitials(displayName)}</span>;
@@ -629,6 +634,7 @@ export function DeckyFullScreenAchievementHistoryPage({
                 <AchievementHistoryProfileAvatar
                   avatarUrl={profile.identity.avatarUrl}
                   displayName={profile.identity.displayName}
+                  refreshedAt={refreshTimestamp}
                 />
 
                 <div style={getHeroTextStyle()}>
