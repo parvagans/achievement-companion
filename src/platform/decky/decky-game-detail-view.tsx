@@ -245,6 +245,12 @@ function getGameDetailOverviewTitleStyle(): CSSProperties {
   };
 }
 
+function getGameDetailOverviewActionRowStyle(): CSSProperties {
+  return {
+    justifyContent: "center",
+  };
+}
+
 function getGameDetailSummaryLineStyle(): CSSProperties {
   return {
     color: "rgba(255, 255, 255, 0.82)",
@@ -499,26 +505,40 @@ function AchievementModeButtons({
   readonly onCancel: () => void;
 }): JSX.Element {
   return (
-    <DeckyCompactPillActionGroup aria-label="Achievement mode" role="radiogroup">
+    <div role="radiogroup" aria-label="Achievement mode" className={DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS}>
       {ACHIEVEMENT_MODE_FILTERS.map((filter) => {
-        const selected = filter === currentModeFilter;
+        const active = filter === currentModeFilter;
+        const optionClassName = [
+          DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS,
+          active ? DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS : undefined,
+        ]
+          .filter((value): value is string => value !== undefined)
+          .join(" ");
 
         return (
-          <DeckyCompactPillActionItem
+          <Focusable
             key={filter}
-            label={formatAchievementModeLabel(filter)}
+            className={optionClassName}
+            focusClassName={DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS}
+            focusWithinClassName={DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS}
+            noFocusRing
             role="radio"
-            ariaChecked={selected}
-            selected={selected}
-            stretch
+            aria-checked={active}
+            aria-label={formatAchievementModeLabel(filter)}
             onClick={() => {
               onSelect(filter);
             }}
+            onActivate={() => {
+              onSelect(filter);
+            }}
             onCancelButton={onCancel}
-          />
+            onFocus={scrollFocusedElementIntoView}
+          >
+            {formatAchievementModeLabel(filter)}
+          </Focusable>
         );
       })}
-    </DeckyCompactPillActionGroup>
+    </div>
   );
 }
 
@@ -745,26 +765,6 @@ export function DeckyGameDetailView({
 
   return (
     <>
-      <PanelSection title="Navigation">
-        <PanelSectionRow>
-          <DeckyCompactPillActionGroup>
-            <DeckyCompactPillActionItem
-              label="Back"
-              onClick={onBackToDashboard}
-              onCancelButton={onBackToDashboard}
-            />
-
-            {onOpenFullScreenPage !== undefined ? (
-              <DeckyCompactPillActionItem
-                label="Open full-screen page"
-                onClick={onOpenFullScreenPage}
-                onCancelButton={onBackToDashboard}
-              />
-            ) : null}
-          </DeckyCompactPillActionGroup>
-        </PanelSectionRow>
-      </PanelSection>
-
       <PanelSection title="GAME OVERVIEW">
         <PanelSectionRow>
           <div style={getGameDetailSectionCardStyle()}>
@@ -776,6 +776,21 @@ export function DeckyGameDetailView({
                 ) : null}
               </div>
               <div style={getGameDetailOverviewTitleStyle()}>{game.title}</div>
+              <DeckyCompactPillActionGroup style={getGameDetailOverviewActionRowStyle()}>
+                <DeckyCompactPillActionItem
+                  label="Back"
+                  onClick={onBackToDashboard}
+                  onCancelButton={onBackToDashboard}
+                />
+
+                {onOpenFullScreenPage !== undefined ? (
+                  <DeckyCompactPillActionItem
+                    label="Open Game"
+                    onClick={onOpenFullScreenPage}
+                    onCancelButton={onBackToDashboard}
+                  />
+                ) : null}
+              </DeckyCompactPillActionGroup>
             </div>
           </div>
         </PanelSectionRow>

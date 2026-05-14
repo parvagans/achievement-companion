@@ -1942,7 +1942,24 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(achievementDetailViewSource, /useState<AchievementModeFilter>\("all"\)/);
   assert.match(achievementDetailViewSource, /if \(modeFilter === "all"\) \{\s*return true;\s*\}/u);
   assert.match(achievementDetailViewSource, /ACHIEVEMENT_MODE_FILTERS\.map\(\(filter\)/);
-  assert.match(achievementDetailViewSource, /label=\{formatAchievementModeLabel\(filter\)\}/);
+  const modeButtonsStart = achievementDetailViewSource.indexOf("function AchievementModeButtons(");
+  const modeButtonsEnd = achievementDetailViewSource.indexOf("function AchievementRowCard(", modeButtonsStart);
+  assert.ok(modeButtonsStart >= 0);
+  assert.ok(modeButtonsEnd > modeButtonsStart);
+  const modeButtonsSource = achievementDetailViewSource.slice(modeButtonsStart, modeButtonsEnd);
+  assert.match(modeButtonsSource, /role="radiogroup" aria-label="Achievement mode" className={DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS}/);
+  assert.match(modeButtonsSource, /Focusable/);
+  assert.match(modeButtonsSource, /DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS/);
+  assert.match(modeButtonsSource, /DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS/);
+  assert.match(modeButtonsSource, /DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS/);
+  assert.match(modeButtonsSource, /aria-checked={active}/);
+  assert.match(modeButtonsSource, /aria-label=\{formatAchievementModeLabel\(filter\)\}/);
+  assert.match(modeButtonsSource, /onActivate=\{\(\) => \{\s*onSelect\(filter\);\s*\}\}/u);
+  assert.match(modeButtonsSource, /onClick=\{\(\) => \{\s*onSelect\(filter\);\s*\}\}/u);
+  assert.match(modeButtonsSource, /onFocus=\{scrollFocusedElementIntoView\}/);
+  assert.doesNotMatch(modeButtonsSource, /DeckyCompactPillActionItem/);
+  assert.match(achievementDetailViewSource, /label="Open Game"/);
+  assert.doesNotMatch(achievementDetailViewSource, /label="Open full-screen page"/);
   assert.match(achievementDetailViewSource, /if \(modeFilter === "all"\) \{\s*return "All";\s*\}/u);
   assert.match(achievementDetailViewSource, /formatAchievementFilterLabel\(filter\)/);
   assert.match(achievementDetailViewSource, /label="Show 5 more"/);
@@ -2108,10 +2125,17 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(dashboardViewSource, /onOpenProfile\(profile\.providerId\)/);
   assert.match(dashboardViewSource, /addProfileAvatarCacheBustParam\(avatarUrl, refreshedAt\)/u);
   assert.match(
-    fullScreenProfileSource,
-    /PanelSection title="Profile"[\s\S]*DeckyFullscreenActionRow centered[\s\S]*label="Back"[\s\S]*label="Completion Progress"[\s\S]*label="Achievement History"[\s\S]*label="Settings"/u,
+    achievementDetailViewSource,
+    /PanelSection title="GAME OVERVIEW"[\s\S]*DeckyCompactPillActionGroup[\s\S]*label="Back"[\s\S]*label="Open Game"/u,
   );
-  assert.doesNotMatch(fullScreenProfileSource, /PanelSection title="Navigation"/);
+  assert.doesNotMatch(achievementDetailViewSource, /PanelSection title="Navigation"/);
+  assert.doesNotMatch(achievementDetailViewSource, /label="Open full-screen page"/);
+  assert.match(
+    achievementDetailViewSource,
+    /PanelSection title="GAME OVERVIEW"[\s\S]*DeckyCompactPillActionGroup[\s\S]*label="Back"[\s\S]*label="Open Game"/u,
+  );
+  assert.match(achievementDetailViewSource, /DeckyCompactPillActionGroup/);
+  assert.match(achievementDetailViewSource, /DeckyCompactPillActionItem/);
   assert.match(fullScreenProfileSource, /addProfileAvatarCacheBustParam\(avatarUrl, refreshedAt\)/u);
   assert.match(
     achievementHistorySource,
