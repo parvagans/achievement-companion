@@ -2107,6 +2107,11 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   );
   assert.match(dashboardViewSource, /onOpenProfile\(profile\.providerId\)/);
   assert.match(dashboardViewSource, /addProfileAvatarCacheBustParam\(avatarUrl, refreshedAt\)/u);
+  assert.match(
+    fullScreenProfileSource,
+    /PanelSection title="Profile"[\s\S]*DeckyFullscreenActionRow centered[\s\S]*label="Back"[\s\S]*label="Completion Progress"[\s\S]*label="Achievement History"[\s\S]*label="Settings"/u,
+  );
+  assert.doesNotMatch(fullScreenProfileSource, /PanelSection title="Navigation"/);
   assert.match(fullScreenProfileSource, /addProfileAvatarCacheBustParam\(avatarUrl, refreshedAt\)/u);
   assert.match(achievementHistorySource, /addProfileAvatarCacheBustParam\(avatarUrl, refreshedAt\)/u);
   assert.doesNotMatch(dashboardViewSource, /addProfileAvatarCacheBustParam\(game\.coverImageUrl/u);

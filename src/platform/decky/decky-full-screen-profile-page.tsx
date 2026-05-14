@@ -150,17 +150,26 @@ function getPageFrameStyle(): CSSProperties {
   };
 }
 
-function getHeroCardStyle(): CSSProperties {
+function getProfileCardStyle(): CSSProperties {
   return {
     display: "flex",
-    gap: 18,
-    alignItems: "flex-start",
-    flexWrap: "wrap",
+    flexDirection: "column",
+    gap: 14,
     padding: 18,
     borderRadius: 20,
     border: "1px solid rgba(255, 255, 255, 0.08)",
     background:
       "linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.03))",
+  };
+}
+
+function getProfileHeaderRowStyle(): CSSProperties {
+  return {
+    display: "flex",
+    gap: 18,
+    alignItems: "flex-start",
+    flexWrap: "wrap",
+    minWidth: 0,
   };
 }
 
@@ -819,64 +828,64 @@ export function DeckyFullScreenProfilePage({
         });
   return (
     <ScrollPanel>
-      <TopAlignedScrollViewport scrollKey={`full-screen-profile:${providerId ?? "missing"}`}>
+          <TopAlignedScrollViewport scrollKey={`full-screen-profile:${providerId ?? "missing"}`}>
         <div style={getPageFrameStyle()}>
-          <PanelSection title="Navigation">
-            <DeckyFullscreenActionRow centered>
-              <DeckyFullscreenActionButton
-                label="Back"
-                isFullscreenBackAction
-                onClick={() => {
-                  onBack();
-                }}
-              />
-              <DeckyFullscreenActionButton
-                label="Completion Progress"
-                onClick={() => {
-                  onOpenCompletionProgress(profile.providerId);
-                }}
-              />
-              <DeckyFullscreenActionButton
-                label="Achievement History"
-                onClick={() => {
-                  onOpenAchievementHistory(profile.providerId);
-                }}
-              />
-              <DeckyFullscreenActionButton
-                label="Settings"
-                onClick={() => {
-                  onOpenSettings();
-                }}
-              />
-            </DeckyFullscreenActionRow>
-          </PanelSection>
-
           <PanelSection title="Profile">
             <PanelSectionRow>
-              <div style={getHeroCardStyle()}>
-                <ProfileAvatar
-                  avatarUrl={profile.identity.avatarUrl}
-                  displayName={profile.identity.displayName}
-                  size={112}
-                  refreshedAt={refreshedAt}
-                />
+              <div style={getProfileCardStyle()}>
+                <div style={getProfileHeaderRowStyle()}>
+                  <ProfileAvatar
+                    avatarUrl={profile.identity.avatarUrl}
+                    displayName={profile.identity.displayName}
+                    size={112}
+                    refreshedAt={refreshedAt}
+                  />
 
-                <div style={getHeroTextStyle()}>
-                  <div style={getHeroLabelStyle()}>{`${formatDeckyProviderLabel(profile.providerId)} profile`}</div>
-                  <div style={getHeroNameStyle()}>{profile.identity.displayName}</div>
-                  {profile.providerId === STEAM_PROVIDER_ID && memberSince !== undefined ? (
-                    <div style={getHeroSubtitleStyle()}>{`Member since ${memberSince}`}</div>
-                  ) : null}
-                  {profile.motto !== undefined ? (
-                    <div style={getHeroMottoStyle()}>
-                      <div style={getHeroMottoLabelStyle()}>Motto</div>
-                      <div style={getHeroMottoTextStyle()}>{profile.motto}</div>
-                    </div>
-                  ) : null}
-                  {profile.providerId !== STEAM_PROVIDER_ID && memberSince !== undefined ? (
-                    <div style={getHeroSubtitleStyle()}>{`Member since ${memberSince}`}</div>
-                  ) : null}
+                  <div style={getHeroTextStyle()}>
+                    <div style={getHeroLabelStyle()}>{`${formatDeckyProviderLabel(profile.providerId)} profile`}</div>
+                    <div style={getHeroNameStyle()}>{profile.identity.displayName}</div>
+                    {profile.providerId === STEAM_PROVIDER_ID && memberSince !== undefined ? (
+                      <div style={getHeroSubtitleStyle()}>{`Member since ${memberSince}`}</div>
+                    ) : null}
+                    {profile.motto !== undefined ? (
+                      <div style={getHeroMottoStyle()}>
+                        <div style={getHeroMottoLabelStyle()}>Motto</div>
+                        <div style={getHeroMottoTextStyle()}>{profile.motto}</div>
+                      </div>
+                    ) : null}
+                    {profile.providerId !== STEAM_PROVIDER_ID && memberSince !== undefined ? (
+                      <div style={getHeroSubtitleStyle()}>{`Member since ${memberSince}`}</div>
+                    ) : null}
+                  </div>
                 </div>
+
+                <DeckyFullscreenActionRow centered>
+                  <DeckyFullscreenActionButton
+                    label="Back"
+                    isFullscreenBackAction
+                    onClick={() => {
+                      onBack();
+                    }}
+                  />
+                  <DeckyFullscreenActionButton
+                    label="Completion Progress"
+                    onClick={() => {
+                      onOpenCompletionProgress(profile.providerId);
+                    }}
+                  />
+                  <DeckyFullscreenActionButton
+                    label="Achievement History"
+                    onClick={() => {
+                      onOpenAchievementHistory(profile.providerId);
+                    }}
+                  />
+                  <DeckyFullscreenActionButton
+                    label="Settings"
+                    onClick={() => {
+                      onOpenSettings();
+                    }}
+                  />
+                </DeckyFullscreenActionRow>
               </div>
             </PanelSectionRow>
           </PanelSection>
