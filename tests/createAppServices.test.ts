@@ -175,7 +175,12 @@ import {
   resetFullscreenCancelBridgeForTests,
 } from "../src/platform/decky/decky-full-screen-cancel-bridge";
 import type { SteamLibraryAchievementScanSummary } from "../src/platform/decky/providers/steam";
-import { groupCompletionProgressGames } from "../src/platform/decky/decky-completion-progress-grouping";
+import {
+  countCompletionProgressSubsetGames,
+  filterCompletionProgressGamesBySubsetVisibility,
+  groupCompletionProgressGames,
+  summarizeCompletionProgressSummaryBySubsetVisibility,
+} from "../src/platform/decky/decky-completion-progress-grouping";
 import {
   normalizeRetroAchievementsCompletionProgressGames,
   normalizeRetroAchievementsGameDetail,
@@ -2514,6 +2519,312 @@ test("completion progress groups explicit subsets under the parent game", () => 
     groupedMegaManX?.subsetGames.map((game) => game.title),
     ["Mega Man X (Subset)", "Mega Man X (Challenge Set)"],
   );
+});
+
+test("completion progress groups named subset titles under the parent game and leaves ordinary bracketed titles separate", () => {
+  const groupedGames = groupCompletionProgressGames([
+    {
+      providerId: PROVIDER_ID,
+      gameId: "base-game",
+      title: "Final Fantasy X: International",
+      platformLabel: "PlayStation 2",
+      status: "in_progress",
+      summary: {
+        unlockedCount: 20,
+        totalCount: 40,
+        completionPercent: 50,
+      },
+      metrics: [],
+      lastUnlockAt: 1_900_000_001_000,
+    },
+    {
+      providerId: PROVIDER_ID,
+      gameId: "subset-a",
+      title: "Final Fantasy X: International [Subset - No Sphere Grid]",
+      platformLabel: "PlayStation 2",
+      status: "in_progress",
+      summary: {
+        unlockedCount: 12,
+        totalCount: 24,
+        completionPercent: 50,
+      },
+      metrics: [],
+      lastUnlockAt: 1_900_000_000_900,
+    },
+    {
+      providerId: PROVIDER_ID,
+      gameId: "subset-b",
+      title: "Final Fantasy X: International (Challenge Set - No Sphere Grid)",
+      platformLabel: "PlayStation 2",
+      status: "in_progress",
+      summary: {
+        unlockedCount: 8,
+        totalCount: 16,
+        completionPercent: 50,
+      },
+      metrics: [],
+      lastUnlockAt: 1_900_000_000_800,
+    },
+    {
+      providerId: PROVIDER_ID,
+      gameId: "non-subset",
+      title: "Final Fantasy X: International [HD Remaster]",
+      platformLabel: "PlayStation 2",
+      status: "beaten",
+      summary: {
+        unlockedCount: 40,
+        totalCount: 40,
+        completionPercent: 100,
+      },
+      metrics: [],
+      lastUnlockAt: 1_900_000_000_700,
+    },
+  ] satisfies readonly NormalizedGame[]);
+
+  const groupedFinalFantasyX = groupedGames.find(
+    (group) => group.representativeGame.title === "Final Fantasy X: International",
+  );
+  const bracketedNonSubset = groupedGames.find(
+    (group) => group.representativeGame.title === "Final Fantasy X: International [HD Remaster]",
+  );
+
+  assert.equal(groupedGames.length, 2);
+  assert.equal(groupedFinalFantasyX?.games.length, 3);
+  assert.equal(groupedFinalFantasyX?.subsetGames.length, 2);
+  assert.deepStrictEqual(
+    groupedFinalFantasyX?.subsetGames.map((game) => game.title),
+    [
+      "Final Fantasy X: International [Subset - No Sphere Grid]",
+      "Final Fantasy X: International (Challenge Set - No Sphere Grid)",
+    ],
+  );
+  assert.equal(bracketedNonSubset?.subsetGames.length, 0);
+});
+
+test("completion progress subset visibility excludes unfinished subset games when hidden", () => {
+  const games = [
+    {
+      providerId: PROVIDER_ID,
+      gameId: "base-game",
+      title: "Final Fantasy X: International",
+      platformLabel: "PlayStation 2",
+      status: "in_progress",
+      summary: {
+        unlockedCount: 5,
+        totalCount: 10,
+        completionPercent: 50,
+      },
+      metrics: [],
+      lastUnlockAt: 1_900_000_000_900,
+    },
+    {
+      providerId: PROVIDER_ID,
+      gameId: "subset-a",
+      title: "Final Fantasy X: International [Subset - No Sphere Grid]",
+      platformLabel: "PlayStation 2",
+      status: "in_progress",
+      summary: {
+        unlockedCount: 3,
+        totalCount: 6,
+        completionPercent: 50,
+      },
+      metrics: [],
+      lastUnlockAt: 1_900_000_000_800,
+    },
+    {
+      providerId: PROVIDER_ID,
+      gameId: "subset-b",
+      title: "Final Fantasy X: International (Challenge Set - No Sphere Grid)",
+      platformLabel: "PlayStation 2",
+      status: "in_progress",
+      summary: {
+        unlockedCount: 2,
+        totalCount: 4,
+        completionPercent: 50,
+      },
+      metrics: [],
+      lastUnlockAt: 1_900_000_000_700,
+    },
+    {
+      providerId: PROVIDER_ID,
+      gameId: "non-subset",
+      title: "Final Fantasy X: International [HD Remaster]",
+      platformLabel: "PlayStation 2",
+      status: "in_progress",
+      summary: {
+        unlockedCount: 4,
+        totalCount: 8,
+        completionPercent: 50,
+      },
+      metrics: [],
+      lastUnlockAt: 1_900_000_000_650,
+    },
+    {
+      providerId: PROVIDER_ID,
+      gameId: "beaten-game",
+      title: "Donkey Kong Country",
+      platformLabel: "SNES",
+      status: "beaten",
+      summary: {
+        unlockedCount: 8,
+        totalCount: 8,
+        completionPercent: 100,
+      },
+      metrics: [],
+      lastUnlockAt: 1_900_000_000_600,
+    },
+  ] satisfies readonly NormalizedGame[];
+  const summary = {
+    playedCount: 33,
+    unfinishedCount: 32,
+    beatenCount: 1,
+    masteredCount: 0,
+  };
+
+  const hiddenGames = filterCompletionProgressGamesBySubsetVisibility(games, false);
+  const visibleGames = filterCompletionProgressGamesBySubsetVisibility(games, true);
+  const hiddenSummary = summarizeCompletionProgressSummaryBySubsetVisibility(summary, games, false);
+  const visibleSummary = summarizeCompletionProgressSummaryBySubsetVisibility(summary, games, true);
+
+  assert.equal(hiddenGames.length, 3);
+  assert.deepStrictEqual(
+    hiddenGames.map((game) => game.title),
+    [
+      "Final Fantasy X: International",
+      "Final Fantasy X: International [HD Remaster]",
+      "Donkey Kong Country",
+    ],
+  );
+  assert.equal(visibleGames.length, 5);
+  assert.equal(hiddenSummary.playedCount, 33);
+  assert.equal(hiddenSummary.unfinishedCount, 30);
+  assert.equal(hiddenSummary.beatenCount, 1);
+  assert.equal(hiddenSummary.masteredCount, 0);
+  assert.equal(visibleSummary.playedCount, 33);
+  assert.equal(visibleSummary.unfinishedCount, 32);
+  assert.equal(visibleSummary.beatenCount, 1);
+  assert.equal(visibleSummary.masteredCount, 0);
+});
+
+test("completion progress subset visibility keeps subset rows selectable when shown and hidden when off", () => {
+  const games = [
+    {
+      providerId: PROVIDER_ID,
+      gameId: "base-game",
+      title: "Final Fantasy X: International",
+      platformLabel: "PlayStation 2",
+      status: "in_progress",
+      summary: {
+        unlockedCount: 5,
+        totalCount: 10,
+        completionPercent: 50,
+      },
+      metrics: [],
+      lastUnlockAt: 1_900_000_001_000,
+    },
+    {
+      providerId: PROVIDER_ID,
+      gameId: "subset-a",
+      title: "Final Fantasy X: International [Subset - No Sphere Grid]",
+      platformLabel: "PlayStation 2",
+      status: "in_progress",
+      summary: {
+        unlockedCount: 3,
+        totalCount: 6,
+        completionPercent: 50,
+      },
+      metrics: [],
+      lastUnlockAt: 1_900_000_000_900,
+    },
+    {
+      providerId: PROVIDER_ID,
+      gameId: "subset-b",
+      title: "Final Fantasy X: International (Challenge Set - No Sphere Grid)",
+      platformLabel: "PlayStation 2",
+      status: "in_progress",
+      summary: {
+        unlockedCount: 2,
+        totalCount: 4,
+        completionPercent: 50,
+      },
+      metrics: [],
+      lastUnlockAt: 1_900_000_000_800,
+    },
+    {
+      providerId: PROVIDER_ID,
+      gameId: "non-subset",
+      title: "Final Fantasy X: International [HD Remaster]",
+      platformLabel: "PlayStation 2",
+      status: "beaten",
+      summary: {
+        unlockedCount: 4,
+        totalCount: 8,
+        completionPercent: 50,
+      },
+      metrics: [],
+      lastUnlockAt: 1_900_000_000_700,
+    },
+    ...Array.from({ length: 29 }, (_, index) => ({
+      providerId: PROVIDER_ID,
+      gameId: `extra-game-${index + 1}`,
+      title: `Extra Game ${index + 1}`,
+      platformLabel: "SNES",
+      status: "in_progress" as const,
+      summary: {
+        unlockedCount: 1,
+        totalCount: 2,
+        completionPercent: 50,
+      },
+      metrics: [],
+      lastUnlockAt: 1_900_000_000_600 - index,
+    })),
+  ] satisfies readonly NormalizedGame[];
+  const summary = {
+    playedCount: 33,
+    unfinishedCount: 32,
+    beatenCount: 1,
+    masteredCount: 0,
+  };
+
+  const hiddenGames = filterCompletionProgressGamesBySubsetVisibility(games, false);
+  const visibleGames = filterCompletionProgressGamesBySubsetVisibility(games, true);
+  const hiddenGroups = groupCompletionProgressGames(hiddenGames, false);
+  const visibleGroups = groupCompletionProgressGames(visibleGames, true);
+  const hiddenSummary = summarizeCompletionProgressSummaryBySubsetVisibility(summary, games, false);
+  const visibleSummary = summarizeCompletionProgressSummaryBySubsetVisibility(summary, games, true);
+
+  assert.equal(countCompletionProgressSubsetGames(games), 2);
+  assert.equal(hiddenGames.length, 31);
+  assert.equal(visibleGames.length, 33);
+  assert.equal(hiddenGroups.length, 31);
+  assert.equal(visibleGroups.length, 33);
+  assert.equal(
+    hiddenGames.some((game) =>
+      game.title === "Final Fantasy X: International [Subset - No Sphere Grid]" ||
+      game.title === "Final Fantasy X: International (Challenge Set - No Sphere Grid)",
+    ),
+    false,
+  );
+  assert.equal(
+    visibleGroups.some(
+      (group) => group.representativeGame.title === "Final Fantasy X: International [Subset - No Sphere Grid]",
+    ),
+    true,
+  );
+  assert.equal(
+    visibleGroups.some(
+      (group) => group.representativeGame.title === "Final Fantasy X: International (Challenge Set - No Sphere Grid)",
+    ),
+    true,
+  );
+  assert.equal(hiddenSummary.playedCount, 33);
+  assert.equal(hiddenSummary.unfinishedCount, 30);
+  assert.equal(hiddenSummary.beatenCount, 1);
+  assert.equal(hiddenSummary.masteredCount, 0);
+  assert.equal(visibleSummary.playedCount, 33);
+  assert.equal(visibleSummary.unfinishedCount, 32);
+  assert.equal(visibleSummary.beatenCount, 1);
+  assert.equal(visibleSummary.masteredCount, 0);
 });
 
 const DOCUMENTED_GAME_PROGRESS_RESPONSE = {

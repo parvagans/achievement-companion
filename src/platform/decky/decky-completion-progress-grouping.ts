@@ -1,48 +1,54 @@
-import type { NormalizedGame } from "@core/domain";
+import type { CompletionProgressSummary, NormalizedGame } from "@core/domain";
 
-const COMPLETION_PROGRESS_SUBSET_TITLE_PATTERNS = [
-  /\s*\((?:subset|challenge set)(?:\s+\d+)?\)\s*$/i,
-  /\s*\[(?:subset|challenge set)(?:\s+\d+)?\]\s*$/i,
-  /\s*-\s*(?:subset|challenge set)(?:\s+\d+)?\s*$/i,
-] as const;
+const COMPLETION_PROGRESS_SUBSET_PAREN_TITLE_PATTERN =
+  /^(.+?)\s*\((subset|challenge set)\b[^\)]*\)\s*$/i;
+const COMPLETION_PROGRESS_SUBSET_BRACKET_TITLE_PATTERN =
+  /^(.+?)\s*\[(subset|challenge set)\b[^\]]*\]\s*$/i;
+const COMPLETION_PROGRESS_SUBSET_DASH_TITLE_PATTERN = /^(.+?)\s*-\s*(subset|challenge set)\b.*$/i;
 
 function normalizeCompletionProgressGroupTitle(title: string): string {
   return title.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
-function stripCompletionProgressSubsetSuffix(title: string): string | undefined {
-  for (const pattern of COMPLETION_PROGRESS_SUBSET_TITLE_PATTERNS) {
-    const stripped = title.replace(pattern, "").trim();
-    if (stripped.length > 0 && stripped !== title.trim()) {
-      return stripped;
+function parseCompletionProgressSubsetTitle(
+  title: string,
+): { readonly kind: "subset" | "challenge set"; readonly strippedTitle: string } | undefined {
+  const normalizedTitle = title.trim();
+  const patterns = [
+    COMPLETION_PROGRESS_SUBSET_PAREN_TITLE_PATTERN,
+    COMPLETION_PROGRESS_SUBSET_BRACKET_TITLE_PATTERN,
+    COMPLETION_PROGRESS_SUBSET_DASH_TITLE_PATTERN,
+  ] as const;
+
+  for (const pattern of patterns) {
+    const match = normalizedTitle.match(pattern);
+    const strippedTitle = match?.[1]?.trim();
+    const kind = match?.[2]?.trim().toLowerCase();
+
+    if (
+      strippedTitle !== undefined &&
+      strippedTitle.length > 0 &&
+      kind !== undefined &&
+      (kind === "subset" || kind === "challenge set")
+    ) {
+      return {
+        kind,
+        strippedTitle,
+      };
     }
   }
 
   return undefined;
 }
 
+function stripCompletionProgressSubsetSuffix(title: string): string | undefined {
+  return parseCompletionProgressSubsetTitle(title)?.strippedTitle;
+}
+
 function getCompletionProgressSubsetKindLabel(
   title: string,
 ): "subset" | "challenge set" | undefined {
-  const normalizedTitle = title.trim();
-
-  if (
-    /\((?:subset)(?:\s+\d+)?\)\s*$/i.test(normalizedTitle) ||
-    /\[(?:subset)(?:\s+\d+)?\]\s*$/i.test(normalizedTitle) ||
-    /-\s*(?:subset)(?:\s+\d+)?\s*$/i.test(normalizedTitle)
-  ) {
-    return "subset";
-  }
-
-  if (
-    /\((?:challenge set)(?:\s+\d+)?\)\s*$/i.test(normalizedTitle) ||
-    /\[(?:challenge set)(?:\s+\d+)?\]\s*$/i.test(normalizedTitle) ||
-    /-\s*(?:challenge set)(?:\s+\d+)?\s*$/i.test(normalizedTitle)
-  ) {
-    return "challenge set";
-  }
-
-  return undefined;
+  return parseCompletionProgressSubsetTitle(title)?.kind;
 }
 
 function buildCompletionProgressTitleGroupKey(
@@ -69,6 +75,51 @@ function isCompletionProgressSubsetGame(
   }
 
   return stripCompletionProgressSubsetSuffix(game.title) !== undefined;
+}
+
+export function filterCompletionProgressGamesBySubsetVisibility(
+  games: readonly NormalizedGame[],
+  showSubsets: boolean,
+): readonly NormalizedGame[] {
+  if (showSubsets) {
+    return games;
+  }
+
+  const referencedParentGameIds = new Set(
+    games.flatMap((game) => (game.parentGameId !== undefined ? [game.parentGameId] : [])),
+  );
+
+  return games.filter((game) => !isCompletionProgressSubsetGame(game, referencedParentGameIds));
+}
+
+export function summarizeCompletionProgressSummaryBySubsetVisibility(
+  summary: CompletionProgressSummary,
+  games: readonly NormalizedGame[],
+  showSubsets: boolean,
+): CompletionProgressSummary {
+  if (showSubsets) {
+    return summary;
+  }
+
+  const referencedParentGameIds = new Set(
+    games.flatMap((game) => (game.parentGameId !== undefined ? [game.parentGameId] : [])),
+  );
+  const hiddenSubsetUnfinishedCount = games.filter(
+    (game) => game.status === "in_progress" && isCompletionProgressSubsetGame(game, referencedParentGameIds),
+  ).length;
+
+  return {
+    ...summary,
+    unfinishedCount: Math.max(0, summary.unfinishedCount - hiddenSubsetUnfinishedCount),
+  };
+}
+
+export function countCompletionProgressSubsetGames(games: readonly NormalizedGame[]): number {
+  const referencedParentGameIds = new Set(
+    games.flatMap((game) => (game.parentGameId !== undefined ? [game.parentGameId] : [])),
+  );
+
+  return games.filter((game) => isCompletionProgressSubsetGame(game, referencedParentGameIds)).length;
 }
 
 function compareCompletionProgressGroupedGames(
@@ -182,10 +233,28 @@ export interface CompletionProgressGameGroup {
 
 export function groupCompletionProgressGames(
   games: readonly NormalizedGame[],
+  showSubsets = false,
 ): readonly CompletionProgressGameGroup[] {
   const referencedParentGameIds = new Set(
     games.flatMap((game) => (game.parentGameId !== undefined ? [game.parentGameId] : [])),
   );
+  if (showSubsets) {
+    return [...games]
+      .sort((left, right) => compareCompletionProgressGroupedGames(left, right, referencedParentGameIds))
+      .map((game) => {
+        const sortEpoch = game.lastUnlockAt;
+
+        return {
+          groupKey: `game:${game.gameId}`,
+          games: [game],
+          representativeGame: game,
+          subsetGames: [],
+          ...(sortEpoch !== undefined ? { sortEpoch } : {}),
+        };
+      })
+      .sort(compareCompletionProgressGroups);
+  }
+
   const subsetTitleGroupKeys = new Set(
     games.flatMap((game) => {
       const subsetBaseTitle = stripCompletionProgressSubsetSuffix(game.title);

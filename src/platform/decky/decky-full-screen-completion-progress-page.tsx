@@ -18,6 +18,12 @@ import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
 import { formatDeckyProviderLabel } from "./providers";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
+import {
+  countCompletionProgressSubsetGames,
+  filterCompletionProgressGamesBySubsetVisibility,
+  groupCompletionProgressGames as groupCompletionProgressGamesWithSubsets,
+  summarizeCompletionProgressSummaryBySubsetVisibility,
+} from "./decky-completion-progress-grouping";
 import { getSteamCompletionProgressGameDetailId } from "./decky-stat-helpers";
 
 const COMPLETION_PROGRESS_INITIAL_GAME_LIMIT = 12;
@@ -429,21 +435,31 @@ function formatSteamPlaytimeMinutes(minutes: number | undefined): string | undef
   return `${hours}h ${remainderMinutes}m`;
 }
 
-const COMPLETION_PROGRESS_SUBSET_TITLE_PATTERNS = [
-  /\s*\((?:subset|challenge set)(?:\s+\d+)?\)\s*$/i,
-  /\s*\[(?:subset|challenge set)(?:\s+\d+)?\]\s*$/i,
-  /\s*-\s*(?:subset|challenge set)(?:\s+\d+)?\s*$/i,
-] as const;
+function parseCompletionProgressSubsetTitle(
+  title: string,
+): { readonly kind: "subset" | "challenge set"; readonly strippedTitle: string } | undefined {
+  const normalizedTitle = title.trim();
+  const patterns = [
+    /^(.+?)\s*\((subset|challenge set)\b[^\)]*\)\s*$/i,
+    /^(.+?)\s*\[(subset|challenge set)\b[^\]]*\]\s*$/i,
+    /^(.+?)\s*-\s*(subset|challenge set)\b.*$/i,
+  ] as const;
 
-function normalizeCompletionProgressGroupTitle(title: string): string {
-  return title.trim().replace(/\s+/g, " ").toLowerCase();
-}
+  for (const pattern of patterns) {
+    const match = normalizedTitle.match(pattern);
+    const strippedTitle = match?.[1]?.trim();
+    const kind = match?.[2]?.trim().toLowerCase();
 
-function stripCompletionProgressSubsetSuffix(title: string): string | undefined {
-  for (const pattern of COMPLETION_PROGRESS_SUBSET_TITLE_PATTERNS) {
-    const stripped = title.replace(pattern, "").trim();
-    if (stripped.length > 0 && stripped !== title.trim()) {
-      return stripped;
+    if (
+      strippedTitle !== undefined &&
+      strippedTitle.length > 0 &&
+      kind !== undefined &&
+      (kind === "subset" || kind === "challenge set")
+    ) {
+      return {
+        kind,
+        strippedTitle,
+      };
     }
   }
 
@@ -453,153 +469,7 @@ function stripCompletionProgressSubsetSuffix(title: string): string | undefined 
 function getCompletionProgressSubsetKindLabel(
   title: string,
 ): "subset" | "challenge set" | undefined {
-  const normalizedTitle = title.trim();
-
-  if (/\((?:subset)(?:\s+\d+)?\)\s*$/i.test(normalizedTitle) || /\[(?:subset)(?:\s+\d+)?\]\s*$/i.test(normalizedTitle) || /-\s*(?:subset)(?:\s+\d+)?\s*$/i.test(normalizedTitle)) {
-    return "subset";
-  }
-
-  if (
-    /\((?:challenge set)(?:\s+\d+)?\)\s*$/i.test(normalizedTitle) ||
-    /\[(?:challenge set)(?:\s+\d+)?\]\s*$/i.test(normalizedTitle) ||
-    /-\s*(?:challenge set)(?:\s+\d+)?\s*$/i.test(normalizedTitle)
-  ) {
-    return "challenge set";
-  }
-
-  return undefined;
-}
-
-function buildCompletionProgressTitleGroupKey(
-  title: string,
-  platformLabel: string | undefined,
-): string {
-  return [
-    "title",
-    normalizeCompletionProgressGroupTitle(platformLabel ?? "unknown"),
-    normalizeCompletionProgressGroupTitle(title),
-  ].join(":");
-}
-
-function isCompletionProgressSubsetGame(
-  game: NormalizedGame,
-  referencedParentGameIds: ReadonlySet<string>,
-): boolean {
-  if (game.parentGameId !== undefined) {
-    return true;
-  }
-
-  if (referencedParentGameIds.has(game.gameId)) {
-    return false;
-  }
-
-  const subsetBaseTitle = stripCompletionProgressSubsetSuffix(game.title);
-  if (subsetBaseTitle !== undefined) {
-    return true;
-  }
-
-  return false;
-}
-
-function compareCompletionProgressGroupedGames(
-  left: NormalizedGame,
-  right: NormalizedGame,
-  referencedParentGameIds: ReadonlySet<string>,
-): number {
-  const leftIsSubset = isCompletionProgressSubsetGame(left, referencedParentGameIds);
-  const rightIsSubset = isCompletionProgressSubsetGame(right, referencedParentGameIds);
-
-  if (leftIsSubset !== rightIsSubset) {
-    return leftIsSubset ? 1 : -1;
-  }
-
-  const leftSortEpoch = left.lastUnlockAt ?? Number.NEGATIVE_INFINITY;
-  const rightSortEpoch = right.lastUnlockAt ?? Number.NEGATIVE_INFINITY;
-  if (leftSortEpoch !== rightSortEpoch) {
-    return rightSortEpoch - leftSortEpoch;
-  }
-
-  if (left.summary.unlockedCount !== right.summary.unlockedCount) {
-    return right.summary.unlockedCount - left.summary.unlockedCount;
-  }
-
-  const titleDelta = left.title.localeCompare(right.title);
-  if (titleDelta !== 0) {
-    return titleDelta;
-  }
-
-  return left.gameId.localeCompare(right.gameId);
-}
-
-function compareCompletionProgressGroups(
-  left: CompletionProgressGameGroup,
-  right: CompletionProgressGameGroup,
-): number {
-  const leftSortEpoch = left.sortEpoch ?? Number.NEGATIVE_INFINITY;
-  const rightSortEpoch = right.sortEpoch ?? Number.NEGATIVE_INFINITY;
-  if (leftSortEpoch !== rightSortEpoch) {
-    return rightSortEpoch - leftSortEpoch;
-  }
-
-  if (
-    left.representativeGame.summary.unlockedCount !==
-    right.representativeGame.summary.unlockedCount
-  ) {
-    return (
-      right.representativeGame.summary.unlockedCount -
-      left.representativeGame.summary.unlockedCount
-    );
-  }
-
-  const titleDelta = left.representativeGame.title.localeCompare(right.representativeGame.title);
-  if (titleDelta !== 0) {
-    return titleDelta;
-  }
-
-  return left.groupKey.localeCompare(right.groupKey);
-}
-
-function buildCompletionProgressGroupKey(
-  game: NormalizedGame,
-  referencedParentGameIds: ReadonlySet<string>,
-  subsetTitleGroupKeys: ReadonlySet<string>,
-  baseTitleToGameIds: ReadonlyMap<string, string>,
-): string {
-  if (game.parentGameId !== undefined) {
-    return `parent:${game.parentGameId}`;
-  }
-
-  if (referencedParentGameIds.has(game.gameId)) {
-    return `parent:${game.gameId}`;
-  }
-
-  const subsetBaseTitle = stripCompletionProgressSubsetSuffix(game.title);
-  if (subsetBaseTitle !== undefined) {
-    const titleGroupKey = buildCompletionProgressTitleGroupKey(subsetBaseTitle, game.platformLabel);
-    return baseTitleToGameIds.get(titleGroupKey) !== undefined
-      ? `parent:${baseTitleToGameIds.get(titleGroupKey)}`
-      : titleGroupKey;
-  }
-
-  const titleGroupKey = buildCompletionProgressTitleGroupKey(game.title, game.platformLabel);
-  if (subsetTitleGroupKeys.has(titleGroupKey)) {
-    return baseTitleToGameIds.get(titleGroupKey) !== undefined
-      ? `parent:${baseTitleToGameIds.get(titleGroupKey)}`
-      : titleGroupKey;
-  }
-
-  return `game:${game.gameId}`;
-}
-
-function selectCompletionProgressGroupRepresentative(
-  games: readonly NormalizedGame[],
-  referencedParentGameIds: ReadonlySet<string>,
-): NormalizedGame {
-  const rankedGames = [...games].sort((left, right) =>
-    compareCompletionProgressGroupedGames(left, right, referencedParentGameIds),
-  );
-
-  return rankedGames[0] ?? games[0]!;
+  return parseCompletionProgressSubsetTitle(title)?.kind;
 }
 
 export interface CompletionProgressGameGroup {
@@ -612,74 +482,9 @@ export interface CompletionProgressGameGroup {
 
 export function groupCompletionProgressGames(
   games: readonly NormalizedGame[],
+  showSubsets = false,
 ): readonly CompletionProgressGameGroup[] {
-  const referencedParentGameIds = new Set(
-    games.flatMap((game) => (game.parentGameId !== undefined ? [game.parentGameId] : [])),
-  );
-  const subsetTitleGroupKeys = new Set(
-    games.flatMap((game) => {
-      const subsetBaseTitle = stripCompletionProgressSubsetSuffix(game.title);
-      return subsetBaseTitle !== undefined
-        ? [buildCompletionProgressTitleGroupKey(subsetBaseTitle, game.platformLabel)]
-        : [];
-    }),
-  );
-  const baseTitleToGameIds = new Map<string, string>();
-
-  for (const game of games) {
-    const titleGroupKey = buildCompletionProgressTitleGroupKey(game.title, game.platformLabel);
-    if (baseTitleToGameIds.has(titleGroupKey)) {
-      continue;
-    }
-
-    baseTitleToGameIds.set(titleGroupKey, game.gameId);
-  }
-
-  const groupedGames = new Map<string, NormalizedGame[]>();
-
-  for (const game of games) {
-    const groupKey = buildCompletionProgressGroupKey(
-      game,
-      referencedParentGameIds,
-      subsetTitleGroupKeys,
-      baseTitleToGameIds,
-    );
-    const groupGames = groupedGames.get(groupKey);
-    if (groupGames === undefined) {
-      groupedGames.set(groupKey, [game]);
-      continue;
-    }
-
-    groupGames.push(game);
-  }
-
-  return [...groupedGames.entries()]
-    .map(([groupKey, groupGames]) => {
-      const representativeGame = selectCompletionProgressGroupRepresentative(
-        groupGames,
-        referencedParentGameIds,
-      );
-      const rankedGames = [...groupGames].sort((left, right) =>
-        compareCompletionProgressGroupedGames(left, right, referencedParentGameIds),
-      );
-      const sortEpoch = rankedGames.reduce<number | undefined>((current, game) => {
-        const gameSortEpoch = game.lastUnlockAt;
-        if (gameSortEpoch === undefined) {
-          return current;
-        }
-
-        return current === undefined ? gameSortEpoch : Math.max(current, gameSortEpoch);
-      }, undefined);
-
-      return {
-        groupKey,
-        games: rankedGames,
-        representativeGame,
-        subsetGames: rankedGames.filter((game) => game.gameId !== representativeGame.gameId),
-        ...(sortEpoch !== undefined ? { sortEpoch } : {}),
-      };
-    })
-    .sort(compareCompletionProgressGroups);
+  return groupCompletionProgressGamesWithSubsets(games, showSubsets);
 }
 
 function formatCompletionProgressSubsetSummary(
@@ -1041,7 +846,14 @@ export function DeckyFullScreenCompletionProgressPage({
   }
 
   const snapshot = state.data;
-  const groupedGames = groupCompletionProgressGames(snapshot.games);
+  const visibleGames = filterCompletionProgressGamesBySubsetVisibility(
+    snapshot.games,
+    deckySettings.showCompletionProgressSubsets,
+  );
+  const groupedGames = groupCompletionProgressGames(
+    visibleGames,
+    deckySettings.showCompletionProgressSubsets,
+  );
   const filteredGroups = groupedGames.filter((gameGroup) =>
     matchesCompletionProgressFilter(gameGroup.representativeGame, currentFilter),
   );
@@ -1060,9 +872,56 @@ export function DeckyFullScreenCompletionProgressPage({
   const snapshotSourceLabel = isCachedView ? "Cached snapshot" : "Live snapshot";
   const isSteamProvider = snapshot.providerId === STEAM_PROVIDER_ID;
   const hasSteamLibraryScan = isSteamProvider && snapshot.games.some((game) => game.scanStatus !== undefined);
+  const displaySummary = summarizeCompletionProgressSummaryBySubsetVisibility(
+    snapshot.summary,
+    snapshot.games,
+    deckySettings.showCompletionProgressSubsets,
+  );
+  const subsetCount = countCompletionProgressSubsetGames(snapshot.games);
   const [playedSummaryLabel, unfinishedSummaryLabel, skippedSummaryLabel, masteredSummaryLabel] = isSteamProvider
     ? (["Played", "Unfinished", "Skipped", "Perfect"] as const)
     : (["Played", "Unfinished", "Beaten", "Mastered"] as const);
+  const summaryStats = isSteamProvider
+    ? [
+        {
+          label: playedSummaryLabel,
+          value: formatCount(displaySummary.playedCount),
+        },
+        {
+          label: unfinishedSummaryLabel,
+          value: formatCount(displaySummary.unfinishedCount),
+        },
+        {
+          label: skippedSummaryLabel,
+          value: formatCount(displaySummary.beatenCount),
+        },
+        {
+          label: masteredSummaryLabel,
+          value: formatCount(displaySummary.masteredCount),
+        },
+      ]
+    : [
+        {
+          label: playedSummaryLabel,
+          value: formatCount(displaySummary.playedCount),
+        },
+        {
+          label: unfinishedSummaryLabel,
+          value: formatCount(displaySummary.unfinishedCount),
+        },
+        {
+          label: "Subsets",
+          value: formatCount(subsetCount),
+        },
+        {
+          label: skippedSummaryLabel,
+          value: formatCount(displaySummary.beatenCount),
+        },
+        {
+          label: masteredSummaryLabel,
+          value: formatCount(displaySummary.masteredCount),
+        },
+      ];
 
   return (
     <ScrollPanel>
@@ -1097,22 +956,9 @@ export function DeckyFullScreenCompletionProgressPage({
                 </div>
 
                 <div style={getSummaryGridStyle()}>
-                  <CompletionProgressSummaryStat
-                    label={playedSummaryLabel}
-                    value={formatCount(snapshot.summary.playedCount)}
-                  />
-                  <CompletionProgressSummaryStat
-                    label={unfinishedSummaryLabel}
-                    value={formatCount(snapshot.summary.unfinishedCount)}
-                  />
-                  <CompletionProgressSummaryStat
-                    label={skippedSummaryLabel}
-                    value={formatCount(snapshot.summary.beatenCount)}
-                  />
-                  <CompletionProgressSummaryStat
-                    label={masteredSummaryLabel}
-                    value={formatCount(snapshot.summary.masteredCount)}
-                  />
+                  {summaryStats.map((stat) => (
+                    <CompletionProgressSummaryStat key={stat.label} label={stat.label} value={stat.value} />
+                  ))}
                 </div>
               </div>
             </PanelSectionRow>
@@ -1122,7 +968,7 @@ export function DeckyFullScreenCompletionProgressPage({
             <CompletionProgressBrowser
               currentFilter={currentFilter}
               showSubsets={deckySettings.showCompletionProgressSubsets}
-              summary={snapshot.summary}
+              summary={displaySummary}
               visibleGroups={visibleGroups}
               filteredGroupCount={filteredGroupCount}
               onFilterChange={(filter) => {
