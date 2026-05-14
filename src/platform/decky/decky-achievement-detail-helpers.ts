@@ -71,6 +71,43 @@ export function getUnlockRatePercent(
   return Math.max(1, Math.min(100, Math.round(100 / trueRatio)));
 }
 
+export interface AchievementDetailCounts {
+  readonly softcoreUnlockCount?: number;
+  readonly hardcoreUnlockCount?: number;
+  readonly totalPlayers?: number;
+  readonly totalUnlockCount?: number;
+  readonly unlockRatePercent?: number;
+}
+
+export function getAchievementDetailCounts(
+  achievementMetrics: readonly NormalizedMetric[],
+  gameMetrics: readonly NormalizedMetric[],
+): AchievementDetailCounts {
+  const totalUnlockCount = parseMetricNumber(achievementMetrics, "unlocked-count", "Total Players");
+  const hardcoreUnlockCount = parseMetricNumber(achievementMetrics, "hardcore-unlocked-count", "Hardcore Unlocks");
+  const totalPlayers = parseMetricNumber(gameMetrics, "total-players", "Total Players");
+  const softcoreUnlockCount =
+    totalUnlockCount !== undefined && hardcoreUnlockCount !== undefined
+      ? Math.max(0, totalUnlockCount - hardcoreUnlockCount)
+      : undefined;
+  const unlockRatePercent =
+    totalUnlockCount !== undefined && totalPlayers !== undefined && totalPlayers > 0
+      ? (totalUnlockCount / totalPlayers) * 100
+      : undefined;
+
+  return {
+    ...(softcoreUnlockCount !== undefined ? { softcoreUnlockCount } : {}),
+    ...(hardcoreUnlockCount !== undefined ? { hardcoreUnlockCount } : {}),
+    ...(totalPlayers !== undefined ? { totalPlayers } : {}),
+    ...(totalUnlockCount !== undefined ? { totalUnlockCount } : {}),
+    ...(unlockRatePercent !== undefined ? { unlockRatePercent } : {}),
+  };
+}
+
+export function formatAchievementDetailUnlockRatePercent(percent: number | undefined): string {
+  return percent !== undefined ? `${percent.toFixed(2)}% unlock rate` : "Unlock rate unavailable";
+}
+
 export interface AchievementCounts {
   readonly softcoreUnlockCount?: number;
   readonly hardcoreUnlockCount?: number;

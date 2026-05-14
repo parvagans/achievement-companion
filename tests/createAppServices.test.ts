@@ -52,6 +52,8 @@ import {
   dedupeDistinctLabels,
   getAchievementCounts,
   getAchievementDescriptionText,
+  getAchievementDetailCounts,
+  formatAchievementDetailUnlockRatePercent,
   hasAchievementCounts,
   getAchievementSpotlightCounts,
   formatAchievementUnlockRatePercent,
@@ -1277,6 +1279,23 @@ test("retroachievements achievement spotlight counts fall back safely when sourc
   );
 });
 
+test("retroachievements achievement detail counts use game players and award totals", () => {
+  const detailCounts = getAchievementDetailCounts(
+    [
+      { key: "unlocked-count", label: "Total Players", value: "1082" },
+      { key: "hardcore-unlocked-count", label: "Hardcore Unlocks", value: "688" },
+    ],
+    [{ key: "total-players", label: "Total Players", value: "5253" }],
+  );
+
+  assert.equal(detailCounts.totalUnlockCount, 1082);
+  assert.equal(detailCounts.hardcoreUnlockCount, 688);
+  assert.equal(detailCounts.softcoreUnlockCount, 394);
+  assert.equal(detailCounts.totalPlayers, 5253);
+  assert.equal(detailCounts.unlockRatePercent?.toFixed(2), "20.60");
+  assert.equal(formatAchievementDetailUnlockRatePercent(detailCounts.unlockRatePercent), "20.60% unlock rate");
+});
+
 test("retroachievements profile normalizes avatar image urls", () => {
   const rawProfile: RawRetroAchievementsProfileResponse = {
     User: "Alice",
@@ -2205,6 +2224,48 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(compactDashboardSource, /profile\.providerId === STEAM_PROVIDER_ID && steamLibraryScanAction !== undefined/u);
   assert.doesNotMatch(compactDashboardSource, /Library scan updated \$\{steamLibraryScanUpdatedLabel\}/u);
   assert.doesNotMatch(compactDashboardSource, /useDeckySteamLibraryAchievementScanSummary\(providerId\)/u);
+  const providerIdentitySectionStyleMatch = compactDashboardSource.match(
+    /function getProviderIdentitySectionStyle\(\): CSSProperties \{[\s\S]*?return \{[\s\S]*?\n  \};\n\}/u,
+  );
+  assert.ok(providerIdentitySectionStyleMatch);
+  assert.match(providerIdentitySectionStyleMatch?.[0] ?? "", /alignItems: "center"/);
+  assert.match(providerIdentitySectionStyleMatch?.[0] ?? "", /padding: "2px 0 4px"/);
+  assert.match(providerIdentitySectionStyleMatch?.[0] ?? "", /marginBottom: 12/);
+  assert.match(providerIdentitySectionStyleMatch?.[0] ?? "", /width: "100%"/);
+  assert.match(compactDashboardSource, /<ProviderIdentityRow providerId=\{profile\.providerId\} \/>/u);
+  const compactAchievementDetailSource = readFileSync("src/platform/decky/decky-achievement-detail-view.tsx", "utf8");
+  assert.match(compactAchievementDetailSource, /PanelSection title="Achievement details"/);
+  assert.doesNotMatch(compactAchievementDetailSource, /PanelSection title="Navigation"/);
+  assert.match(compactAchievementDetailSource, /getAchievementDetailCounts\(achievement\.metrics, game\.metrics \?\? \[\]\)/u);
+  assert.match(compactAchievementDetailSource, /formatAchievementDetailUnlockRatePercent\(counts\.unlockRatePercent\)/u);
+  assert.match(compactAchievementDetailSource, /label="Points"/);
+  assert.match(compactAchievementDetailSource, /label="RetroPoints"/);
+  assert.doesNotMatch(compactAchievementDetailSource, /label="Unlock rate"/u);
+  assert.match(compactAchievementDetailSource, /label="Softcore unlocks"/);
+  assert.match(compactAchievementDetailSource, /label="Hardcore unlocks"/);
+  assert.match(compactAchievementDetailSource, /label="Total players"/);
+  assert.match(
+    compactAchievementDetailSource,
+    /RarityBar[\s\S]*caption=\{formatAchievementDetailUnlockRatePercent\(counts\.unlockRatePercent\)\}/u,
+  );
+  assert.match(
+    compactAchievementDetailSource,
+    /RarityBar[\s\S]*percent=\{counts\.unlockRatePercent\}/u,
+  );
+  assert.match(compactAchievementDetailSource, /label="Open Game"/);
+  assert.doesNotMatch(compactAchievementDetailSource, /label="Open full-screen game"/);
+  assert.match(compactAchievementDetailSource, /PanelSection title="Achievement details"/);
+  assert.match(compactAchievementDetailSource, /DeckyCompactPillActionGroup/);
+  assert.match(compactAchievementDetailSource, /DeckyCompactPillActionItem/);
+  assert.match(compactAchievementDetailSource, /label="Back"/);
+  assert.match(compactAchievementDetailSource, /label="Open Game"/);
+  assert.match(compactAchievementDetailSource, /metrics: loader\.data\.game\.metrics/);
+  assert.match(compactAchievementDetailSource, /getAchievementStatusTone\(achievement\)/);
+  assert.match(compactAchievementDetailSource, /getAchievementStatusCardStyle\(achievementStatusTone\)/);
+  assert.match(compactAchievementDetailSource, /getAchievementStatusValueStyle\(achievementStatusTone\)/);
+  assert.match(compactAchievementDetailSource, /getAchievementStatusSecondaryStyle\(achievementStatusTone\)/);
+  assert.match(compactAchievementDetailSource, /Unlocked \$\{formatTimestamp\(achievement\.unlockedAt\)\}/u);
+  assert.doesNotMatch(compactAchievementDetailSource, /replace\(\^Unlocked\\s\+\/u,/u);
   assert.match(
     readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
     /fullscreenReturnContext/,

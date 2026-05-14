@@ -8,14 +8,13 @@ import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DeckyCompactPillActionGroup, DeckyCompactPillActionItem } from "./decky-compact-pill-action-item";
 import {
   buildAchievementStatus,
+  formatAchievementDetailUnlockRatePercent,
   formatCount,
   getAchievementDescriptionText,
   formatPlatformBadgeLabel,
   formatTimestamp,
-  hasAchievementCounts,
-  getAchievementCounts,
+  getAchievementDetailCounts,
   getMetricValue,
-  getUnlockRatePercent,
   shouldHideSteamAchievementDetailStats,
 } from "./decky-achievement-detail-helpers";
 import { useAsyncResourceState } from "./useAsyncResourceState";
@@ -26,6 +25,7 @@ export interface CompactAchievementGameTarget {
   readonly title: string;
   readonly platformLabel?: string | undefined;
   readonly coverImageUrl?: string | undefined;
+  readonly metrics?: readonly import("@core/domain").NormalizedMetric[] | undefined;
 }
 
 export interface CompactAchievementTarget {
@@ -123,6 +123,97 @@ function getDescriptionStyle(): CSSProperties {
     fontSize: "0.84em",
     lineHeight: 1.28,
     whiteSpace: "pre-wrap",
+  };
+}
+
+type AchievementStatusTone = "softcore" | "hardcore" | "locked" | "default";
+
+function getAchievementStatusTone(achievement: Pick<NormalizedAchievement, "isUnlocked" | "unlockMode">): AchievementStatusTone {
+  if (!achievement.isUnlocked) {
+    return "locked";
+  }
+
+  if (achievement.unlockMode === "hardcore") {
+    return "hardcore";
+  }
+
+  if (achievement.unlockMode === "softcore") {
+    return "softcore";
+  }
+
+  return "default";
+}
+
+function getAchievementStatusCardStyle(tone: AchievementStatusTone): CSSProperties {
+  const isHardcore = tone === "hardcore";
+  const isSoftcore = tone === "softcore";
+  const isLocked = tone === "locked";
+
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    padding: "10px 12px",
+    borderRadius: 14,
+    border: `1px solid ${
+      isHardcore
+        ? "rgba(251, 191, 36, 0.24)"
+        : isSoftcore
+          ? "rgba(148, 163, 184, 0.22)"
+          : isLocked
+            ? "rgba(148, 163, 184, 0.14)"
+            : "rgba(255, 255, 255, 0.12)"
+    }`,
+    backgroundColor: isHardcore
+      ? "rgba(251, 191, 36, 0.09)"
+      : isSoftcore
+        ? "rgba(148, 163, 184, 0.08)"
+        : isLocked
+          ? "rgba(255, 255, 255, 0.025)"
+          : "rgba(255, 255, 255, 0.04)",
+  };
+}
+
+function getAchievementStatusValueStyle(tone: AchievementStatusTone): CSSProperties {
+  const isHardcore = tone === "hardcore";
+  const isSoftcore = tone === "softcore";
+  const isLocked = tone === "locked";
+
+  return {
+    color: isHardcore
+      ? "rgba(252, 211, 77, 0.98)"
+      : isSoftcore
+        ? "rgba(203, 213, 225, 0.96)"
+        : isLocked
+          ? "rgba(255, 255, 255, 0.68)"
+          : "rgba(255, 255, 255, 0.95)",
+    fontSize: "0.92em",
+    fontWeight: 800,
+    lineHeight: 1.2,
+  };
+}
+
+function getAchievementStatusSecondaryStyle(tone: AchievementStatusTone): CSSProperties {
+  const isHardcore = tone === "hardcore";
+  const isSoftcore = tone === "softcore";
+  const isLocked = tone === "locked";
+
+  return {
+    color: isHardcore
+      ? "rgba(252, 211, 77, 0.82)"
+      : isSoftcore
+        ? "rgba(203, 213, 225, 0.8)"
+        : isLocked
+          ? "rgba(255, 255, 255, 0.54)"
+          : "rgba(255, 255, 255, 0.72)",
+    fontSize: "0.76em",
+    lineHeight: 1.2,
+  };
+}
+
+function getAchievementCardActionRowStyle(): CSSProperties {
+  return {
+    justifyContent: "center",
   };
 }
 
@@ -292,22 +383,23 @@ function AchievementStat({
 
 function RarityBar({
   percent,
+  caption,
 }: {
   readonly percent: number | undefined;
+  readonly caption?: string;
 }): JSX.Element {
   const resolvedPercent = percent ?? 0;
+  const resolvedCaption = caption ?? (percent !== undefined ? `${resolvedPercent}% unlock rate` : "Unlock rate unavailable");
 
   return (
     <div style={getRarityBarFrameStyle()}>
-      <div style={getRarityBarCaptionStyle()}>
-        {percent !== undefined ? `${resolvedPercent}% unlock rate` : "Unlock rate unavailable"}
-      </div>
+      <div style={getRarityBarCaptionStyle()}>{resolvedCaption}</div>
       <div
         aria-label="Achievement unlock rate"
         aria-valuemax={100}
         aria-valuemin={0}
         aria-valuenow={resolvedPercent}
-        aria-valuetext={percent !== undefined ? `${resolvedPercent}% unlock rate` : "Unlock rate unavailable"}
+        aria-valuetext={resolvedCaption}
         role="progressbar"
         style={getRarityBarTrackStyle()}
       >
@@ -342,21 +434,30 @@ function getAchievementBadgeStyle(isUnlocked: boolean): CSSProperties {
 function AchievementCard({
   achievement,
   game,
+  onBack,
+  onOpenFullScreenGame,
 }: {
   readonly achievement: Pick<
     NormalizedAchievement,
     "achievementId" | "title" | "description" | "badgeImageUrl" | "isUnlocked" | "unlockedAt" | "points" | "metrics"
   >;
   readonly game: CompactAchievementGameTarget;
+  readonly onBack: () => void;
+  readonly onOpenFullScreenGame: (() => void) | undefined;
 }): JSX.Element {
   const isSteamProvider = shouldHideSteamAchievementDetailStats(game.providerId);
-  const counts = getAchievementCounts(achievement.metrics);
-  const showCounts = hasAchievementCounts(counts);
-  const unlockRatePercent = getUnlockRatePercent(achievement);
+  const counts = getAchievementDetailCounts(achievement.metrics, game.metrics ?? []);
+  const showCounts =
+    counts.softcoreUnlockCount !== undefined ||
+    counts.hardcoreUnlockCount !== undefined ||
+    counts.totalPlayers !== undefined;
   const retroPoints = getMetricValue(achievement.metrics, "true-ratio", "True Ratio");
   const achievementStatus = buildAchievementStatus(achievement);
+  const achievementStatusTone = getAchievementStatusTone(achievement);
   const achievementStatusSecondary =
-    achievementStatus.secondary !== undefined ? achievementStatus.secondary.replace(/^Unlocked\s+/u, "") : undefined;
+    achievement.isUnlocked && achievement.unlockedAt !== undefined
+      ? `Unlocked ${formatTimestamp(achievement.unlockedAt)}`
+      : undefined;
 
   return (
     <div style={getAchievementCardStyle()}>
@@ -394,25 +495,32 @@ function AchievementCard({
       {!isSteamProvider ? (
         <>
           <div style={getSectionBlockStyle()}>
+            <div style={getSectionLabelStyle()}>Status</div>
+            <div style={getAchievementStatusCardStyle(achievementStatusTone)}>
+              <div style={getAchievementStatusValueStyle(achievementStatusTone)}>{achievementStatus.value}</div>
+              {achievementStatusSecondary !== undefined ? (
+                <div style={getAchievementStatusSecondaryStyle(achievementStatusTone)}>{achievementStatusSecondary}</div>
+              ) : null}
+            </div>
+          </div>
+
+          <div style={getSectionBlockStyle()}>
             <div style={getSectionLabelStyle()}>Unlock details</div>
             <div style={getStatsGridStyle()}>
               <AchievementStat
                 label="Points"
                 value={achievement.points !== undefined ? formatCount(achievement.points) : "-"}
               />
-              <AchievementStat label="Unlock rate" value={retroPoints ?? "-"} />
-              <AchievementStat
-                label="Unlock status"
-                value={achievementStatus.value}
-                {...(achievementStatusSecondary !== undefined ? { secondary: achievementStatusSecondary } : {})}
-                style={{ gridColumn: "1 / -1" }}
-              />
+              <AchievementStat label="RetroPoints" value={retroPoints ?? "-"} />
             </div>
           </div>
 
           <div style={getSectionBlockStyle()}>
             <div style={getSectionLabelStyle()}>Rarity</div>
-            <RarityBar percent={unlockRatePercent} />
+            <RarityBar
+              caption={formatAchievementDetailUnlockRatePercent(counts.unlockRatePercent)}
+              percent={counts.unlockRatePercent}
+            />
 
             {showCounts ? (
               <div style={getCountsGridStyle()}>
@@ -439,6 +547,18 @@ function AchievementCard({
           <div style={getSubtleStyle()}>{achievementStatus.secondary ?? achievementStatus.value}</div>
         </div>
       )}
+
+      <DeckyCompactPillActionGroup style={getAchievementCardActionRowStyle()}>
+        <DeckyCompactPillActionItem label="Back" onClick={onBack} onCancelButton={onBack} />
+
+        {onOpenFullScreenGame !== undefined ? (
+          <DeckyCompactPillActionItem
+            label="Open Game"
+            onClick={onOpenFullScreenGame}
+            onCancelButton={onBack}
+          />
+        ) : null}
+      </DeckyCompactPillActionGroup>
     </div>
   );
 }
@@ -480,33 +600,19 @@ export function DeckyAchievementDetailView({
     title: loader.data.game.title,
     ...(loader.data.game.platformLabel !== undefined ? { platformLabel: loader.data.game.platformLabel } : {}),
     ...(loader.data.game.coverImageUrl !== undefined ? { coverImageUrl: loader.data.game.coverImageUrl } : {}),
+    metrics: loader.data.game.metrics,
   };
 
   return (
     <>
-      <PanelSection title="Navigation">
-        <PanelSectionRow>
-          <DeckyCompactPillActionGroup>
-          <DeckyCompactPillActionItem
-            label="Back"
-            onClick={onBack}
-            onCancelButton={onBack}
-          />
-
-            {onOpenFullScreenGame !== undefined ? (
-              <DeckyCompactPillActionItem
-                label="Open full-screen game"
-                onClick={onOpenFullScreenGame}
-                onCancelButton={onBack}
-              />
-            ) : null}
-          </DeckyCompactPillActionGroup>
-        </PanelSectionRow>
-      </PanelSection>
-
       <PanelSection title="Achievement details">
         <PanelSectionRow>
-          <AchievementCard achievement={achievement} game={game} />
+          <AchievementCard
+            achievement={achievement}
+            game={game}
+            onBack={onBack}
+            onOpenFullScreenGame={onOpenFullScreenGame}
+          />
         </PanelSectionRow>
       </PanelSection>
     </>

@@ -210,8 +210,11 @@ function getProviderIdentitySectionStyle(): CSSProperties {
   return {
     display: "flex",
     flexDirection: "column",
+    alignItems: "center",
     gap: 10,
-    marginBottom: 8,
+    marginBottom: 12,
+    padding: "2px 0 4px",
+    width: "100%",
   };
 }
 
