@@ -2299,7 +2299,7 @@ test("retroachievements full-screen profile groups stats by category", () => {
   );
   assert.deepStrictEqual(
     sections.map((section) => section.variant),
-    ["softcore", "hardcore", "default", "default"],
+    ["softcore", "hardcore", "retroachievements", "completion"],
   );
   assert.equal(
     sections.flatMap((section) => section.stats).some((stat) => stat.label === "Member since"),
@@ -2311,6 +2311,8 @@ test("retroachievements profile section helpers apply distinct softcore and hard
   const softcoreStyle = getRetroAchievementsProfileSectionStyle("softcore");
   const hardcoreStyle = getRetroAchievementsProfileSectionStyle("hardcore");
   const defaultStyle = getRetroAchievementsProfileSectionStyle("default");
+  const retroAchievementsStyle = getRetroAchievementsProfileSectionStyle("retroachievements");
+  const completionStyle = getRetroAchievementsProfileSectionStyle("completion");
 
   assert.equal(softcoreStyle.border, "1px solid rgba(255, 255, 255, 0.06)");
   assert.equal(softcoreStyle.backgroundColor, "rgba(214, 221, 232, 0.03)");
@@ -2318,22 +2320,40 @@ test("retroachievements profile section helpers apply distinct softcore and hard
   assert.equal(hardcoreStyle.border, "1px solid rgba(255, 255, 255, 0.06)");
   assert.equal(hardcoreStyle.backgroundColor, "rgba(214, 178, 74, 0.035)");
   assert.equal(hardcoreStyle.boxShadow, "inset 4px 0 0 rgba(214, 178, 74, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.015)");
+  assert.equal(retroAchievementsStyle.border, "1px solid rgba(255, 255, 255, 0.06)");
+  assert.equal(retroAchievementsStyle.backgroundColor, "rgba(82, 120, 220, 0.04)");
+  assert.equal(
+    retroAchievementsStyle.boxShadow,
+    "inset 4px 0 0 rgba(91, 153, 255, 0.56), inset 0 0 0 1px rgba(255, 255, 255, 0.015)",
+  );
+  assert.equal(completionStyle.border, "1px solid rgba(255, 255, 255, 0.06)");
+  assert.equal(completionStyle.backgroundColor, "rgba(60, 168, 192, 0.04)");
+  assert.equal(
+    completionStyle.boxShadow,
+    "inset 4px 0 0 rgba(91, 208, 220, 0.56), inset 0 0 0 1px rgba(255, 255, 255, 0.015)",
+  );
   assert.equal(defaultStyle.border, "1px solid rgba(255, 255, 255, 0.06)");
   assert.equal(defaultStyle.backgroundColor, "rgba(255, 255, 255, 0.02)");
   assert.equal(defaultStyle.boxShadow, undefined);
 
   const softcoreTitleStyle = getRetroAchievementsProfileSectionTitleStyle("softcore");
   const hardcoreTitleStyle = getRetroAchievementsProfileSectionTitleStyle("hardcore");
+  const retroAchievementsTitleStyle = getRetroAchievementsProfileSectionTitleStyle("retroachievements");
+  const completionTitleStyle = getRetroAchievementsProfileSectionTitleStyle("completion");
   const defaultTitleStyle = getRetroAchievementsProfileSectionTitleStyle("default");
 
   assert.equal(softcoreTitleStyle.color, "rgba(220, 225, 233, 0.86)");
   assert.equal(hardcoreTitleStyle.color, "rgba(232, 201, 102, 0.9)");
+  assert.equal(retroAchievementsTitleStyle.color, "rgba(122, 178, 255, 0.92)");
+  assert.equal(completionTitleStyle.color, "rgba(125, 225, 236, 0.92)");
   assert.equal(defaultTitleStyle.color, "rgba(255, 255, 255, 0.58)");
 });
 
 test("retroachievements full-screen profile section accents mirror the grouped mode language", () => {
   const softcoreAccent = getRetroAchievementsProfileSectionAccentStyle("softcore");
   const hardcoreAccent = getRetroAchievementsProfileSectionAccentStyle("hardcore");
+  const retroAchievementsAccent = getRetroAchievementsProfileSectionAccentStyle("retroachievements");
+  const completionAccent = getRetroAchievementsProfileSectionAccentStyle("completion");
   const defaultAccent = getRetroAchievementsProfileSectionAccentStyle("default");
 
   assert.equal(softcoreAccent.position, "absolute");
@@ -2342,6 +2362,18 @@ test("retroachievements full-screen profile section accents mirror the grouped m
   assert.equal(hardcoreAccent.position, "absolute");
   assert.equal(hardcoreAccent.width, 4);
   assert.equal(hardcoreAccent.background, "linear-gradient(180deg, rgba(232, 201, 102, 0.92), rgba(214, 178, 74, 0.56))");
+  assert.equal(retroAchievementsAccent.position, "absolute");
+  assert.equal(retroAchievementsAccent.width, 4);
+  assert.equal(
+    retroAchievementsAccent.background,
+    "linear-gradient(180deg, rgba(122, 178, 255, 0.92), rgba(91, 153, 255, 0.56))",
+  );
+  assert.equal(completionAccent.position, "absolute");
+  assert.equal(completionAccent.width, 4);
+  assert.equal(
+    completionAccent.background,
+    "linear-gradient(180deg, rgba(125, 225, 236, 0.9), rgba(91, 208, 220, 0.56))",
+  );
   assert.equal(defaultAccent.position, "absolute");
   assert.equal(defaultAccent.width, 4);
   assert.equal(defaultAccent.background, "rgba(255, 255, 255, 0.08)");

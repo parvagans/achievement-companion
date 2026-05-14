@@ -14,6 +14,7 @@ import { formatDeckyProviderLabel } from "./providers";
 import { STEAM_PROVIDER_ID, useDeckySteamLibraryAchievementScanOverview } from "./providers/steam";
 import {
   formatProfileMemberSince,
+  type ProfileStatSectionVariant,
   getRetroAchievementsProfileStatSections,
   getRetroAchievementsProfileSectionAccentStyle,
   getRetroAchievementsProfileSectionStyle,
@@ -261,7 +262,7 @@ function getAvatarFallbackStyle(size: number): CSSProperties {
   };
 }
 
-function getSectionBlockStyle(variant: "default" | "softcore" | "hardcore"): CSSProperties {
+function getSectionBlockStyle(variant: ProfileStatSectionVariant): CSSProperties {
   return getRetroAchievementsProfileSectionStyle(variant);
 }
 

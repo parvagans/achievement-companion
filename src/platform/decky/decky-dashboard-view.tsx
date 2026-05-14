@@ -22,6 +22,7 @@ import {
 } from "./decky-overview-stats";
 import {
   formatProfileMemberSince,
+  getRetroAchievementsProfileSectionAccentStyle,
   getRetroAchievementsProfileSectionStyle,
   getRetroAchievementsProfileSectionTitleStyle,
   getSteamAccountProgressSummary,
@@ -451,7 +452,15 @@ function OverviewStat({
 
 function OverviewStatSectionBlock({ section }: { readonly section: OverviewStatSection }): JSX.Element {
   return (
-    <div data-profile-section-variant={section.variant} style={getRetroAchievementsProfileSectionStyle(section.variant)}>
+    <div
+      data-profile-section-variant={section.variant}
+      style={{
+        ...getRetroAchievementsProfileSectionStyle(section.variant),
+        position: "relative",
+        overflow: "hidden",
+      }}
+    >
+      <div aria-hidden="true" style={getRetroAchievementsProfileSectionAccentStyle(section.variant)} />
       <div style={getRetroAchievementsProfileSectionTitleStyle(section.variant)}>{section.title}</div>
       <div style={getOverviewStatsGridStyle()}>
         {section.stats.map((stat) => (

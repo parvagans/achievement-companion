@@ -136,7 +136,12 @@ export interface ProfileStatSection {
   readonly stats: readonly ProfileStatDescriptor[];
 }
 
-export type ProfileStatSectionVariant = "default" | "softcore" | "hardcore";
+export type ProfileStatSectionVariant =
+  | "default"
+  | "softcore"
+  | "hardcore"
+  | "retroachievements"
+  | "completion";
 
 export interface RetroAchievementsProfileStatValues {
   readonly softcorePoints: string | undefined;
@@ -211,7 +216,7 @@ export function getRetroAchievementsProfileStatSections(args: {
     },
     {
       title: "RetroAchievements",
-      variant: "default",
+      variant: "retroachievements",
       stats: [
         {
           label: "Points",
@@ -225,7 +230,7 @@ export function getRetroAchievementsProfileStatSections(args: {
     },
     {
       title: "Game Completion",
-      variant: "default",
+      variant: "completion",
       stats: [
         {
           label: "Beaten",
@@ -269,6 +274,34 @@ export function getRetroAchievementsProfileSectionStyle(variant: ProfileStatSect
     };
   }
 
+  if (variant === "retroachievements") {
+    return {
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+      padding: 12,
+      borderRadius: 16,
+      border: "1px solid rgba(255, 255, 255, 0.06)",
+      backgroundColor: "rgba(82, 120, 220, 0.04)",
+      boxShadow: "inset 4px 0 0 rgba(91, 153, 255, 0.56), inset 0 0 0 1px rgba(255, 255, 255, 0.015)",
+      boxSizing: "border-box",
+    };
+  }
+
+  if (variant === "completion") {
+    return {
+      display: "flex",
+      flexDirection: "column",
+      gap: 10,
+      padding: 12,
+      borderRadius: 16,
+      border: "1px solid rgba(255, 255, 255, 0.06)",
+      backgroundColor: "rgba(60, 168, 192, 0.04)",
+      boxShadow: "inset 4px 0 0 rgba(91, 208, 220, 0.56), inset 0 0 0 1px rgba(255, 255, 255, 0.015)",
+      boxSizing: "border-box",
+    };
+  }
+
   return {
     display: "flex",
     flexDirection: "column",
@@ -298,6 +331,28 @@ export function getRetroAchievementsProfileSectionTitleStyle(
   if (variant === "hardcore") {
     return {
       color: "rgba(232, 201, 102, 0.9)",
+      fontSize: "0.72em",
+      fontWeight: 800,
+      letterSpacing: "0.1em",
+      textTransform: "uppercase",
+      lineHeight: 1.2,
+    };
+  }
+
+  if (variant === "retroachievements") {
+    return {
+      color: "rgba(122, 178, 255, 0.92)",
+      fontSize: "0.72em",
+      fontWeight: 800,
+      letterSpacing: "0.1em",
+      textTransform: "uppercase",
+      lineHeight: 1.2,
+    };
+  }
+
+  if (variant === "completion") {
+    return {
+      color: "rgba(125, 225, 236, 0.92)",
       fontSize: "0.72em",
       fontWeight: 800,
       letterSpacing: "0.1em",
@@ -341,6 +396,28 @@ export function getRetroAchievementsProfileSectionAccentStyle(
     };
   }
 
+  if (variant === "retroachievements") {
+    return {
+      position: "absolute",
+      inset: "10px auto 10px 0",
+      width: 4,
+      borderTopLeftRadius: 999,
+      borderBottomLeftRadius: 999,
+      background: "linear-gradient(180deg, rgba(122, 178, 255, 0.92), rgba(91, 153, 255, 0.56))",
+    };
+  }
+
+  if (variant === "completion") {
+    return {
+      position: "absolute",
+      inset: "10px auto 10px 0",
+      width: 4,
+      borderTopLeftRadius: 999,
+      borderBottomLeftRadius: 999,
+      background: "linear-gradient(180deg, rgba(125, 225, 236, 0.9), rgba(91, 208, 220, 0.56))",
+    };
+  }
+
   return {
     position: "absolute",
     inset: "10px auto 10px 0",
@@ -357,7 +434,7 @@ function flattenProfileStatSections(
   return sections.flatMap((section) =>
     section.stats.map((stat) => ({
       label:
-        section.title === "RetroAchievements"
+        section.variant === "retroachievements"
           ? `RA ${stat.label}`
           : section.title === "Softcore" || section.title === "Hardcore"
             ? `${section.title} ${stat.label}`
