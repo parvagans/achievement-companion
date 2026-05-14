@@ -76,6 +76,9 @@ import {
   buildRetroAchievementsProfileOverviewStatSections,
 } from "../src/platform/decky/decky-overview-stats";
 import {
+  buildCompletionProgressSummaryCards,
+} from "../src/platform/decky/decky-completion-progress-summary-card-data";
+import {
   DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS,
   DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS,
   DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS,
@@ -2857,6 +2860,102 @@ test("completion progress subset visibility keeps subset rows selectable when sh
   assert.equal(visibleSummary.unfinishedCount, 32);
   assert.equal(visibleSummary.beatenCount, 1);
   assert.equal(visibleSummary.masteredCount, 0);
+});
+
+test("completion progress summary cards replace the old filter pill row and act as filter controls", () => {
+  const summaryHiddenSubsets = {
+    playedCount: 33,
+    unfinishedCount: 30,
+    beatenCount: 1,
+    masteredCount: 0,
+  };
+  const summaryVisibleSubsets = {
+    playedCount: 33,
+    unfinishedCount: 32,
+    beatenCount: 1,
+    masteredCount: 0,
+  };
+  const cardsHiddenSubsets = buildCompletionProgressSummaryCards({
+    summary: summaryHiddenSubsets,
+    subsetCount: 2,
+    providerId: PROVIDER_ID,
+    currentFilter: "unfinished",
+    showSubsets: false,
+  });
+  const cardsVisibleSubsets = buildCompletionProgressSummaryCards({
+    summary: summaryVisibleSubsets,
+    subsetCount: 2,
+    providerId: PROVIDER_ID,
+    currentFilter: "subsets",
+    showSubsets: true,
+  });
+  const renderSource = readFileSync(
+    join("src", "platform", "decky", "decky-completion-progress-summary-cards.tsx"),
+    "utf8",
+  );
+  const pageSource = readFileSync(
+    join("src", "platform", "decky", "decky-full-screen-completion-progress-page.tsx"),
+    "utf8",
+  );
+
+  assert.deepStrictEqual(cardsHiddenSubsets.map((card) => card.label), [
+    "Played",
+    "Unfinished",
+    "Subsets",
+    "Beaten",
+    "Mastered",
+  ]);
+  assert.deepStrictEqual(cardsHiddenSubsets.map((card) => card.filter), [
+    "all",
+    "unfinished",
+    "subsets",
+    "beaten",
+    "mastered",
+  ]);
+  assert.deepStrictEqual(
+    cardsHiddenSubsets.map((card) => `${card.label}:${card.selected ? "selected" : "idle"}:${card.disabled ? "disabled" : "enabled"}`),
+    [
+      "Played:idle:enabled",
+      "Unfinished:selected:enabled",
+      "Subsets:idle:disabled",
+      "Beaten:idle:enabled",
+      "Mastered:idle:enabled",
+    ],
+  );
+  assert.deepStrictEqual(
+    cardsVisibleSubsets.map((card) => `${card.label}:${card.selected ? "selected" : "idle"}:${card.disabled ? "disabled" : "enabled"}`),
+    [
+      "Played:idle:enabled",
+      "Unfinished:idle:enabled",
+      "Subsets:selected:enabled",
+      "Beaten:idle:enabled",
+      "Mastered:idle:enabled",
+    ],
+  );
+  assert.equal(renderSource.includes("Focusable"), true);
+  assert.equal(renderSource.includes("role=\"button\""), true);
+  assert.equal(renderSource.includes("tabIndex={disabled ? -1 : undefined}"), true);
+  assert.equal(renderSource.includes("noFocusRing"), true);
+  assert.equal(renderSource.includes("onActivate"), true);
+  assert.equal(renderSource.includes("onGamepadFocus"), true);
+  assert.equal(renderSource.includes("onBlur"), true);
+  assert.equal(renderSource.includes("aria-pressed={selected}"), true);
+  assert.equal(renderSource.includes("aria-disabled={disabled}"), true);
+  assert.equal(renderSource.includes("data-completion-progress-filter-selected"), true);
+  assert.equal(renderSource.includes("data-completion-progress-filter-disabled"), true);
+  assert.equal(renderSource.includes("repeat(5, minmax(0, 1fr))"), true);
+  assert.equal(renderSource.includes("gap: 12"), true);
+  assert.equal(renderSource.includes('padding: "12px 12px 11px"'), true);
+  assert.equal(renderSource.includes('borderRadius: 16'), true);
+  assert.equal(renderSource.includes('rgba(255, 255, 255, 0.075)'), true);
+  assert.equal(renderSource.includes('rgba(255, 255, 255, 0.032)'), true);
+  assert.equal(renderSource.includes('rgba(96, 165, 250, 0.16)'), true);
+  assert.equal(renderSource.includes('rgba(96, 165, 250, 0.24)'), true);
+  assert.equal(renderSource.includes("<button"), false);
+  assert.equal(renderSource.includes("Field"), false);
+  assert.equal(getDeckyFocusStylesCss().includes("achievement-companion-completion-progress-summary-card"), false);
+  assert.equal(pageSource.includes("CompletionProgressFilterPills"), false);
+  assert.equal(pageSource.includes("COMPLETION_PROGRESS_FILTERS"), false);
 });
 
 const DOCUMENTED_GAME_PROGRESS_RESPONSE = {

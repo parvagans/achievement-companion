@@ -1,4 +1,4 @@
-import { useMemo, useState, type CSSProperties, type ComponentProps } from "react";
+import { useEffect, useMemo, useState, type CSSProperties, type ComponentProps } from "react";
 import type { ResourceState } from "@core/cache";
 import type { CompletionProgressSnapshot, NormalizedGame } from "@core/domain";
 import { Field, PanelSection, PanelSectionRow, ScrollPanel } from "@decky/ui";
@@ -25,15 +25,14 @@ import {
   summarizeCompletionProgressSummaryBySubsetVisibility,
 } from "./decky-completion-progress-grouping";
 import { getSteamCompletionProgressGameDetailId } from "./decky-stat-helpers";
+import {
+  buildCompletionProgressSummaryCards,
+  CompletionProgressSummaryCardGrid,
+  type CompletionProgressSelectionFilter,
+} from "./decky-completion-progress-summary-cards";
 
 const COMPLETION_PROGRESS_INITIAL_GAME_LIMIT = 12;
 const COMPLETION_PROGRESS_GAME_LOAD_STEP = 12;
-const COMPLETION_PROGRESS_FILTERS: readonly CompletionProgressFilter[] = [
-  "all",
-  "unfinished",
-  "beaten",
-  "mastered",
-];
 
 export interface DeckyFullScreenCompletionProgressPageProps {
   readonly providerId: string | undefined;
@@ -111,63 +110,6 @@ function getHeroSupportStyle(): CSSProperties {
     color: "rgba(255, 255, 255, 0.72)",
     fontSize: "0.92em",
     lineHeight: 1.35,
-  };
-}
-
-function getSummaryGridStyle(): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(136px, 1fr))",
-    gap: 10,
-  };
-}
-
-function getSummaryStatStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 3,
-    padding: "11px 12px",
-    borderRadius: 14,
-    border: "1px solid rgba(255, 255, 255, 0.06)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    minWidth: 0,
-  };
-}
-
-function getSummaryStatLabelStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.62)",
-    fontSize: "0.72em",
-    fontWeight: 700,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-    lineHeight: 1.2,
-  };
-}
-
-function getSummaryStatValueStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.98)",
-    fontSize: "1em",
-    fontWeight: 700,
-    lineHeight: 1.2,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  };
-}
-
-function getSummaryStatSecondaryStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.72)",
-    fontSize: "0.82em",
-    lineHeight: 1.2,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
   };
 }
 
@@ -379,30 +321,39 @@ export function formatCompletionProgressStatusLabel(
 }
 
 function matchesCompletionProgressFilter(
-  game: NormalizedGame,
-  filter: CompletionProgressFilter,
+  gameGroup: CompletionProgressGameGroup,
+  filter: CompletionProgressSelectionFilter,
+  showSubsets: boolean,
 ): boolean {
+  if (filter === "subsets") {
+    return showSubsets && gameGroup.isSubsetGame;
+  }
+
   if (filter === "all") {
     return true;
   }
 
   if (filter === "unfinished") {
-    return game.status === "in_progress";
+    return gameGroup.representativeGame.status === "in_progress";
   }
 
   if (filter === "beaten") {
-    return game.status === "beaten";
+    return gameGroup.representativeGame.status === "beaten";
   }
 
-  return game.status === "mastered";
+  return gameGroup.representativeGame.status === "mastered";
 }
 
 function formatCompletionProgressFilterEmptyMessage(
-  filter: CompletionProgressFilter,
+  filter: CompletionProgressSelectionFilter,
   providerId: string,
 ): string {
   if (filter === "all") {
     return "No completion progress entries were returned yet.";
+  }
+
+  if (filter === "subsets") {
+    return "Enable Show subsets to browse subset games.";
   }
 
   return `No ${formatCompletionProgressFilterLabelForProvider(filter, providerId).toLowerCase()} games match this filter.`;
@@ -477,6 +428,7 @@ export interface CompletionProgressGameGroup {
   readonly games: readonly NormalizedGame[];
   readonly representativeGame: NormalizedGame;
   readonly subsetGames: readonly NormalizedGame[];
+  readonly isSubsetGame: boolean;
   readonly sortEpoch?: number;
 }
 
@@ -514,104 +466,16 @@ function formatCompletionProgressSubsetSummary(
   return `Includes ${subsetCount} ${subsetLabel}`;
 }
 
-function getCompletionProgressSummaryStatStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 3,
-    padding: "11px 12px",
-    borderRadius: 14,
-    border: "1px solid rgba(255, 255, 255, 0.06)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    minWidth: 0,
-    textAlign: "center",
-  };
-}
-
-function getCompletionProgressSummaryLabelStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.62)",
-    fontSize: "0.72em",
-    fontWeight: 700,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-    lineHeight: 1.2,
-  };
-}
-
-function getCompletionProgressSummaryValueStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.98)",
-    fontSize: "1em",
-    fontWeight: 700,
-    lineHeight: 1.2,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    textAlign: "center",
-  };
-}
-
-function CompletionProgressSummaryStat({
-  label,
-  value,
-}: {
-  readonly label: string;
-  readonly value: string;
-}): JSX.Element {
-  return (
-    <div style={getCompletionProgressSummaryStatStyle()}>
-      <div style={getCompletionProgressSummaryLabelStyle()}>{label}</div>
-      <div style={getCompletionProgressSummaryValueStyle()}>{value}</div>
-    </div>
-  );
-}
-
-function CompletionProgressFilterPills({
-  currentFilter,
-  onSelect,
-  providerId,
-  onBack,
-}: {
-  readonly currentFilter: CompletionProgressFilter;
-  readonly onSelect: (filter: CompletionProgressFilter) => void;
-  readonly providerId: string;
-  readonly onBack: () => void;
-}): JSX.Element {
-  return (
-    <DeckyFullscreenActionRow>
-      {COMPLETION_PROGRESS_FILTERS.map((filter) => {
-        const active = filter === currentFilter;
-
-        return (
-            <DeckyFullscreenActionButton
-              key={filter}
-              label={formatCompletionProgressFilterLabelForProvider(filter, providerId)}
-              onClick={() => {
-                onSelect(filter);
-              }}
-              selected={active}
-            />
-        );
-      })}
-    </DeckyFullscreenActionRow>
-  );
-}
-
 function CompletionProgressGameRow({
   gameGroup,
   onOpenGameDetail,
   showSubsets,
   providerId,
-  onBack,
 }: {
   readonly gameGroup: CompletionProgressGameGroup;
   readonly onOpenGameDetail: (gameId: string) => void;
   readonly showSubsets: boolean;
   readonly providerId: string;
-  readonly onBack: () => void;
 }): JSX.Element {
   const { representativeGame: game } = gameGroup;
   const completionPercent = getCompletionPercent(game.summary);
@@ -704,28 +568,24 @@ function CompletionProgressBrowser({
   summary,
   visibleGroups,
   filteredGroupCount,
-  onFilterChange,
   onLoadMoreGames,
   onShowAllGames,
   canLoadMoreGames,
   canShowAllGames,
   onOpenGameDetail,
   providerId,
-  onBack,
 }: {
-  readonly currentFilter: CompletionProgressFilter;
+  readonly currentFilter: CompletionProgressSelectionFilter;
   readonly showSubsets: boolean;
   readonly summary: CompletionProgressSnapshot["summary"];
   readonly visibleGroups: readonly CompletionProgressGameGroup[];
   readonly filteredGroupCount: number;
-  readonly onFilterChange: (filter: CompletionProgressFilter) => void;
   readonly onLoadMoreGames: () => void;
   readonly onShowAllGames: () => void;
   readonly canLoadMoreGames: boolean;
   readonly canShowAllGames: boolean;
   readonly onOpenGameDetail: (gameId: string) => void;
   readonly providerId: string;
-  readonly onBack: () => void;
 }): JSX.Element {
   return (
     <div style={getBrowserCardStyle()}>
@@ -734,13 +594,6 @@ function CompletionProgressBrowser({
       <div style={getBrowserMetaStyle()}>
         {`Showing ${formatCount(visibleGroups.length)} of ${formatCount(filteredGroupCount)} grouped games in this filter.`}
       </div>
-
-      <CompletionProgressFilterPills
-        currentFilter={currentFilter}
-        onSelect={onFilterChange}
-        providerId={providerId}
-        onBack={onBack}
-      />
 
       {visibleGroups.length > 0 ? (
         <>
@@ -751,7 +604,6 @@ function CompletionProgressBrowser({
                 onOpenGameDetail={onOpenGameDetail}
                 showSubsets={showSubsets}
                 providerId={providerId}
-                onBack={onBack}
               />
             </PanelSectionRow>
           ))}
@@ -809,7 +661,7 @@ export function DeckyFullScreenCompletionProgressPage({
   onOpenGameDetail,
 }: DeckyFullScreenCompletionProgressPageProps): JSX.Element {
   const deckySettings = useDeckySettings();
-  const [currentFilter, setCurrentFilter] = useState<CompletionProgressFilter>(
+  const [currentFilter, setCurrentFilter] = useState<CompletionProgressSelectionFilter>(
     deckySettings.defaultCompletionProgressFilter,
   );
   const [visibleGameLimit, setVisibleGameLimit] = useState(COMPLETION_PROGRESS_INITIAL_GAME_LIMIT);
@@ -823,6 +675,12 @@ export function DeckyFullScreenCompletionProgressPage({
   }, [providerId]);
   const state = useAsyncResourceState(loadSelectedCompletionProgress, initialDeckyCompletionProgressState);
   const hasRouteParameters = providerId !== undefined;
+
+  useEffect(() => {
+    if (!deckySettings.showCompletionProgressSubsets && currentFilter === "subsets") {
+      setCurrentFilter("all");
+    }
+  }, [currentFilter, deckySettings.showCompletionProgressSubsets]);
 
   if (!isRenderableCompletionProgressState(state)) {
     return (
@@ -855,7 +713,7 @@ export function DeckyFullScreenCompletionProgressPage({
     deckySettings.showCompletionProgressSubsets,
   );
   const filteredGroups = groupedGames.filter((gameGroup) =>
-    matchesCompletionProgressFilter(gameGroup.representativeGame, currentFilter),
+    matchesCompletionProgressFilter(gameGroup, currentFilter, deckySettings.showCompletionProgressSubsets),
   );
   const filteredGroupCount = filteredGroups.length;
   const effectiveGameLimit = isShowingAllGames ? filteredGroupCount : visibleGameLimit;
@@ -878,50 +736,13 @@ export function DeckyFullScreenCompletionProgressPage({
     deckySettings.showCompletionProgressSubsets,
   );
   const subsetCount = countCompletionProgressSubsetGames(snapshot.games);
-  const [playedSummaryLabel, unfinishedSummaryLabel, skippedSummaryLabel, masteredSummaryLabel] = isSteamProvider
-    ? (["Played", "Unfinished", "Skipped", "Perfect"] as const)
-    : (["Played", "Unfinished", "Beaten", "Mastered"] as const);
-  const summaryStats = isSteamProvider
-    ? [
-        {
-          label: playedSummaryLabel,
-          value: formatCount(displaySummary.playedCount),
-        },
-        {
-          label: unfinishedSummaryLabel,
-          value: formatCount(displaySummary.unfinishedCount),
-        },
-        {
-          label: skippedSummaryLabel,
-          value: formatCount(displaySummary.beatenCount),
-        },
-        {
-          label: masteredSummaryLabel,
-          value: formatCount(displaySummary.masteredCount),
-        },
-      ]
-    : [
-        {
-          label: playedSummaryLabel,
-          value: formatCount(displaySummary.playedCount),
-        },
-        {
-          label: unfinishedSummaryLabel,
-          value: formatCount(displaySummary.unfinishedCount),
-        },
-        {
-          label: "Subsets",
-          value: formatCount(subsetCount),
-        },
-        {
-          label: skippedSummaryLabel,
-          value: formatCount(displaySummary.beatenCount),
-        },
-        {
-          label: masteredSummaryLabel,
-          value: formatCount(displaySummary.masteredCount),
-        },
-      ];
+  const summaryCards = buildCompletionProgressSummaryCards({
+    summary: displaySummary,
+    subsetCount,
+    providerId: snapshot.providerId,
+    currentFilter,
+    showSubsets: deckySettings.showCompletionProgressSubsets,
+  });
 
   return (
     <ScrollPanel>
@@ -955,11 +776,13 @@ export function DeckyFullScreenCompletionProgressPage({
                   </div>
                 </div>
 
-                <div style={getSummaryGridStyle()}>
-                  {summaryStats.map((stat) => (
-                    <CompletionProgressSummaryStat key={stat.label} label={stat.label} value={stat.value} />
-                  ))}
-                </div>
+                <CompletionProgressSummaryCardGrid
+                  cards={summaryCards}
+                  providerId={snapshot.providerId}
+                  onSelectFilter={(filter) => {
+                    setCurrentFilter(filter);
+                  }}
+                />
               </div>
             </PanelSectionRow>
           </PanelSection>
@@ -971,9 +794,6 @@ export function DeckyFullScreenCompletionProgressPage({
               summary={displaySummary}
               visibleGroups={visibleGroups}
               filteredGroupCount={filteredGroupCount}
-              onFilterChange={(filter) => {
-                setCurrentFilter(filter);
-              }}
               onLoadMoreGames={() => {
                 setIsShowingAllGames(false);
                 setVisibleGameLimit((current) =>
@@ -988,7 +808,6 @@ export function DeckyFullScreenCompletionProgressPage({
               }}
               canLoadMoreGames={canLoadMoreGames}
               canShowAllGames={canShowAllGames}
-              onBack={onBack}
             />
           </PanelSection>
 

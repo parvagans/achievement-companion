@@ -228,6 +228,7 @@ export interface CompletionProgressGameGroup {
   readonly games: readonly NormalizedGame[];
   readonly representativeGame: NormalizedGame;
   readonly subsetGames: readonly NormalizedGame[];
+  readonly isSubsetGame: boolean;
   readonly sortEpoch?: number;
 }
 
@@ -249,6 +250,7 @@ export function groupCompletionProgressGames(
           games: [game],
           representativeGame: game,
           subsetGames: [],
+          isSubsetGame: isCompletionProgressSubsetGame(game, referencedParentGameIds),
           ...(sortEpoch !== undefined ? { sortEpoch } : {}),
         };
       })
@@ -315,6 +317,7 @@ export function groupCompletionProgressGames(
         games: rankedGames,
         representativeGame,
         subsetGames: rankedGames.filter((game) => game.gameId !== representativeGame.gameId),
+        isSubsetGame: isCompletionProgressSubsetGame(representativeGame, referencedParentGameIds),
         ...(sortEpoch !== undefined ? { sortEpoch } : {}),
       };
     })
