@@ -77,6 +77,11 @@ export interface AchievementCounts {
   readonly totalPlayers?: number;
 }
 
+export interface AchievementSpotlightCounts extends AchievementCounts {
+  readonly totalUnlockCount?: number;
+  readonly unlockRatePercent?: number;
+}
+
 export function hasAchievementCounts(counts: AchievementCounts): boolean {
   return (
     counts.softcoreUnlockCount !== undefined ||
@@ -96,6 +101,39 @@ export function getAchievementCounts(metrics: readonly NormalizedMetric[]): Achi
       ? { softcoreUnlockCount: Math.max(0, totalPlayers - hardcoreUnlockCount) }
       : {}),
   };
+}
+
+export function getAchievementSpotlightCounts(
+  achievementMetrics: readonly NormalizedMetric[],
+  gameMetrics: readonly NormalizedMetric[],
+): AchievementSpotlightCounts {
+  const totalUnlockCount = parseMetricNumber(achievementMetrics, "unlocked-count", "Total Players");
+  const hardcoreUnlockCount = parseMetricNumber(achievementMetrics, "hardcore-unlocked-count", "Hardcore Unlocks");
+  const totalPlayers = parseMetricNumber(gameMetrics, "total-players", "Total Players");
+  const softcoreUnlockCount =
+    totalUnlockCount !== undefined && hardcoreUnlockCount !== undefined
+      ? Math.max(0, totalUnlockCount - hardcoreUnlockCount)
+      : undefined;
+  const unlockRatePercent =
+    totalUnlockCount !== undefined && totalPlayers !== undefined && totalPlayers > 0
+      ? (totalUnlockCount / totalPlayers) * 100
+      : undefined;
+
+  return {
+    ...(softcoreUnlockCount !== undefined ? { softcoreUnlockCount } : {}),
+    ...(hardcoreUnlockCount !== undefined ? { hardcoreUnlockCount } : {}),
+    ...(totalPlayers !== undefined ? { totalPlayers } : {}),
+    ...(totalUnlockCount !== undefined ? { totalUnlockCount } : {}),
+    ...(unlockRatePercent !== undefined ? { unlockRatePercent } : {}),
+  };
+}
+
+export function formatAchievementUnlockRatePercent(percent: number | undefined): string {
+  return percent !== undefined ? `${percent.toFixed(2)}% unlock rate` : "Unlock rate unavailable";
+}
+
+export function formatAchievementUnlockRateValue(percent: number | undefined): string {
+  return percent !== undefined ? `${percent.toFixed(2)}%` : "-";
 }
 
 export function dedupeDistinctLabels(

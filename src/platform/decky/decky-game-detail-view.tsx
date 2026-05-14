@@ -48,10 +48,6 @@ function formatProgressSummary(snapshot: GameDetailSnapshot): string {
     parts.push(`${formatCount(summary.totalCount)} total`);
   }
 
-  if (summary.completionPercent !== undefined) {
-    parts.push(`${formatCount(summary.completionPercent)}% complete`);
-  }
-
   return parts.join(" / ");
 }
 

@@ -429,34 +429,6 @@ function getGameOverviewInfoPillStyle(): CSSProperties {
   };
 }
 
-function getGameOverviewRefreshPillStyle(focused: boolean): CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 28,
-    padding: "0 10px",
-    borderRadius: 999,
-    boxSizing: "border-box",
-    border: focused ? "1px solid rgba(96, 165, 250, 0.9)" : "1px solid rgba(255, 255, 255, 0.08)",
-    background: focused
-      ? "linear-gradient(180deg, rgba(96, 165, 250, 0.22), rgba(96, 165, 250, 0.12))"
-      : "rgba(255, 255, 255, 0.035)",
-    color: focused ? "rgba(255, 255, 255, 0.98)" : "rgba(255, 255, 255, 0.82)",
-    fontSize: "0.82em",
-    lineHeight: 1.2,
-    whiteSpace: "nowrap",
-    cursor: "pointer",
-    outline: focused ? "2px solid rgba(96, 165, 250, 0.95)" : "none",
-    outlineOffset: 1,
-    boxShadow: focused
-      ? "0 0 0 1px rgba(96, 165, 250, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 2px 12px rgba(0, 0, 0, 0.28)"
-      : "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 10px rgba(0, 0, 0, 0.16)",
-    transition:
-      "background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease, color 120ms ease",
-  };
-}
-
 function getAchievementBrowserStackStyle(): CSSProperties {
   return {
     display: "flex",
@@ -604,16 +576,6 @@ function getProgressStatValueStyle(): CSSProperties {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    textAlign: "center",
-  };
-}
-
-function getProgressSummaryPercentStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.8)",
-    fontSize: "0.84em",
-    fontWeight: 700,
-    lineHeight: 1.2,
     textAlign: "center",
   };
 }
@@ -803,45 +765,6 @@ function getAchievementFilterButtonLabelStyle(): CSSProperties {
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   };
-}
-
-function GameOverviewRefreshPill({
-  onRefresh,
-  onBack,
-}: {
-  readonly onRefresh: () => void;
-  readonly onBack: () => void;
-}): JSX.Element {
-  const [isFocused, setIsFocused] = useState(false);
-
-  return (
-    <Focusable
-      className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
-      noFocusRing
-      role="button"
-      aria-label="Refresh the current game detail snapshot"
-      onActivate={onRefresh}
-      onClick={onRefresh}
-      onCancel={onBack}
-      onFocus={(event) => {
-        setIsFocused(true);
-        scrollFocusedElementIntoView(event);
-      }}
-      onGamepadFocus={(event) => {
-        setIsFocused(true);
-        scrollFocusedGamepadElementIntoView(event);
-      }}
-      onBlur={() => {
-        setIsFocused(false);
-      }}
-      data-game-overview-pill="refresh"
-      data-game-overview-pill-focusable="true"
-      data-game-overview-pill-focused={isFocused ? "true" : "false"}
-      style={getGameOverviewRefreshPillStyle(isFocused)}
-    >
-      <span>Refresh</span>
-    </Focusable>
-  );
 }
 
 interface AchievementFilterButtonProps {
@@ -1331,18 +1254,6 @@ export function DeckyFullScreenGamePage({
         scrollKey={`full-screen-game:${providerId ?? game.providerId}:${game.gameId}`}
       >
         <div style={getFullScreenPageFrameStyle()}>
-          <PanelSection title="Navigation">
-            <DeckyFullscreenActionRow>
-              <DeckyFullscreenActionButton
-                label={backLabel}
-                isFullscreenBackAction
-                onClick={() => {
-                  onBack();
-                }}
-              />
-            </DeckyFullscreenActionRow>
-          </PanelSection>
-
           <PanelSection title="Game Spotlight">
             <PanelSectionRow>
               <div style={getGameSpotlightLayoutStyle()}>
@@ -1357,12 +1268,6 @@ export function DeckyFullScreenGamePage({
                             {label}
                           </span>
                         ))}
-                        <GameOverviewRefreshPill
-                          onRefresh={() => {
-                            setRefreshNonce((current) => current + 1);
-                          }}
-                          onBack={onBack}
-                        />
                       </div>
                     </div>
 
@@ -1371,6 +1276,22 @@ export function DeckyFullScreenGamePage({
                         <DeckyGameArtwork src={heroArtworkUrl} size={256} title={game.title} />
                       </div>
                     ) : null}
+
+                    <DeckyFullscreenActionRow centered>
+                      <DeckyFullscreenActionButton
+                        label={backLabel}
+                        isFullscreenBackAction
+                        onClick={() => {
+                          onBack();
+                        }}
+                      />
+                      <DeckyFullscreenActionButton
+                        label="Refresh"
+                        onClick={() => {
+                          setRefreshNonce((current) => current + 1);
+                        }}
+                      />
+                    </DeckyFullscreenActionRow>
                   </div>
                 </div>
 
@@ -1378,9 +1299,6 @@ export function DeckyFullScreenGamePage({
                   <div style={getGameDetailSectionHeaderStyle()}>Progress Summary</div>
                   {completionPercent !== undefined ? (
                     <DeckyCompletionProgressBar percent={completionPercent} />
-                  ) : null}
-                  {completionPercent !== undefined ? (
-                    <div style={getProgressSummaryPercentStyle()}>{`${formatCount(completionPercent)}% complete`}</div>
                   ) : null}
                   <div style={getProgressStatGridStyle()}>
                     <ProgressStat label="Unlocked" value={formatCount(summary.unlockedCount)} />

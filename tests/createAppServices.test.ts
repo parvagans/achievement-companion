@@ -53,6 +53,9 @@ import {
   getAchievementCounts,
   getAchievementDescriptionText,
   hasAchievementCounts,
+  getAchievementSpotlightCounts,
+  formatAchievementUnlockRatePercent,
+  formatAchievementUnlockRateValue,
   formatAchievementUnlockModeLabel,
   formatModeProgressSummary,
   shouldHideSteamAchievementDetailStats,
@@ -1239,6 +1242,41 @@ test("retroachievements mode progress helper falls back safely when data is miss
   assert.equal(formatModeProgressSummary(undefined, "Softcore"), "No softcore progress available.");
 });
 
+test("retroachievements achievement spotlight counts use game players and award totals", () => {
+  const spotlightCounts = getAchievementSpotlightCounts(
+    [
+      { key: "unlocked-count", label: "Total Players", value: "1082" },
+      { key: "hardcore-unlocked-count", label: "Hardcore Unlocks", value: "688" },
+    ],
+    [{ key: "total-players", label: "Total Players", value: "5253" }],
+  );
+
+  assert.equal(spotlightCounts.totalUnlockCount, 1082);
+  assert.equal(spotlightCounts.hardcoreUnlockCount, 688);
+  assert.equal(spotlightCounts.softcoreUnlockCount, 394);
+  assert.equal(spotlightCounts.totalPlayers, 5253);
+  assert.equal(spotlightCounts.unlockRatePercent?.toFixed(2), "20.60");
+  assert.equal(formatAchievementUnlockRateValue(spotlightCounts.unlockRatePercent), "20.60%");
+  assert.equal(
+    formatAchievementUnlockRatePercent(spotlightCounts.unlockRatePercent),
+    "20.60% unlock rate",
+  );
+});
+
+test("retroachievements achievement spotlight counts fall back safely when source data is missing", () => {
+  const spotlightCounts = getAchievementSpotlightCounts([], []);
+
+  assert.equal(spotlightCounts.softcoreUnlockCount, undefined);
+  assert.equal(spotlightCounts.hardcoreUnlockCount, undefined);
+  assert.equal(spotlightCounts.totalPlayers, undefined);
+  assert.equal(spotlightCounts.unlockRatePercent, undefined);
+  assert.equal(formatAchievementUnlockRateValue(spotlightCounts.unlockRatePercent), "-");
+  assert.equal(
+    formatAchievementUnlockRatePercent(spotlightCounts.unlockRatePercent),
+    "Unlock rate unavailable",
+  );
+});
+
 test("retroachievements profile normalizes avatar image urls", () => {
   const rawProfile: RawRetroAchievementsProfileResponse = {
     User: "Alice",
@@ -1897,7 +1935,9 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(achievementDetailViewSource, /PanelSection title="PROGRESS SUMMARY"/);
   assert.match(achievementDetailViewSource, /PanelSection title="ACHIEVEMENTS"/);
   assert.match(achievementDetailViewSource, /getGameDetailOverviewIconFrameStyle\(\)/);
+  assert.match(achievementDetailViewSource, /DeckyCompletionProgressBar compact percent=\{completionPercent\}/);
   assert.match(achievementDetailViewSource, /AchievementModeButtons/);
+  assert.doesNotMatch(achievementDetailViewSource, /summary\.completionPercent/u);
   assert.match(achievementDetailViewSource, /const ACHIEVEMENT_MODE_FILTERS = \["all", "hardcore", "softcore"\] as const;/);
   assert.match(achievementDetailViewSource, /useState<AchievementModeFilter>\("all"\)/);
   assert.match(achievementDetailViewSource, /if \(modeFilter === "all"\) \{\s*return true;\s*\}/u);
@@ -1921,26 +1961,30 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   const fullScreenGamePageSource = readFileSync("src/platform/decky/decky-full-screen-game-page.tsx", "utf8");
   assert.match(fullScreenGamePageSource, /PanelSection title="Game Spotlight"/);
   assert.match(fullScreenGamePageSource, /PanelSection title="Achievements"/);
+  assert.doesNotMatch(fullScreenGamePageSource, /PanelSection title="Navigation"/);
   assert.match(fullScreenGamePageSource, /ACHIEVEMENT_MODE_FILTERS = \["all", "hardcore", "softcore"\] as const;/);
   assert.match(fullScreenGamePageSource, /useState<AchievementModeFilter>\("all"\)/);
   assert.match(fullScreenGamePageSource, /useState<AchievementFilter>\("all"\)/);
   assert.match(fullScreenGamePageSource, /sortAchievementsForDisplay\(snapshot\.achievements\)/);
+  assert.match(fullScreenGamePageSource, /DeckyCompletionProgressBar percent=\{completionPercent\}/);
   assert.match(
     fullScreenGamePageSource,
     /matchesAchievementFilter\(achievement, achievementFilter\)[\s\S]*matchesAchievementModeFilter\(achievement, achievementModeFilter\)/,
   );
   assert.match(
     fullScreenGamePageSource,
-    /Game Overview[\s\S]*getGameDetailOverviewTitleStyle\(\)[\s\S]*getGameOverviewPillRowStyle\(\)[\s\S]*GameOverviewRefreshPill[\s\S]*DeckyGameArtwork[\s\S]*size=\{256\}/u,
+    /Game Overview[\s\S]*getGameDetailOverviewTitleStyle\(\)[\s\S]*getGameOverviewPillRowStyle\(\)[\s\S]*DeckyGameArtwork[\s\S]*size=\{256\}[\s\S]*DeckyFullscreenActionRow centered[\s\S]*DeckyFullscreenActionButton[\s\S]*label=\{backLabel\}[\s\S]*DeckyFullscreenActionButton[\s\S]*label="Refresh"/u,
   );
   assert.match(fullScreenGamePageSource, /getGameDetailOverviewLayoutStyle\(\)/);
+  assert.match(fullScreenGamePageSource, /DeckyFullscreenActionRow centered/);
   const heroStyleMatch = fullScreenGamePageSource.match(
     /function getGameSpotlightHeroStyle\(\): CSSProperties \{[\s\S]*?return \{[\s\S]*?\n  \};\n\}/u,
   );
   assert.ok(heroStyleMatch);
   assert.doesNotMatch(heroStyleMatch?.[0] ?? "", /borderLeft/);
   assert.match(fullScreenGamePageSource, /getGameOverviewPillRowStyle\(\)/);
-  assert.match(fullScreenGamePageSource, /getGameOverviewRefreshPillStyle\(/);
+  assert.doesNotMatch(fullScreenGamePageSource, /GameOverviewRefreshPill/);
+  assert.doesNotMatch(fullScreenGamePageSource, /getProgressSummaryPercentStyle/);
   assert.match(fullScreenGamePageSource, /buildGameMetadataPills\(game\.metrics\)/);
   assert.match(fullScreenGamePageSource, /getGameDetailMetaRowStyle\(\)/);
   assert.match(fullScreenGamePageSource, /getGameDetailMetaPillStyle\(\)/);
@@ -1952,7 +1996,6 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.equal((fullScreenGamePageSource.match(/gameMetadataPills\.map/g) ?? []).length, 1);
   assert.doesNotMatch(fullScreenGamePageSource, /hardcore-\$\{pill\.key\}/);
   assert.doesNotMatch(fullScreenGamePageSource, /softcore-\$\{pill\.key\}/);
-  assert.match(fullScreenGamePageSource, /% complete/);
   assert.doesNotMatch(fullScreenGamePageSource, /label="Completion"/);
   assert.doesNotMatch(fullScreenGamePageSource, /gameSystemLabel/);
   assert.match(fullScreenGamePageSource, /AchievementModeButtons/);
@@ -1966,9 +2009,9 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenGamePageSource, /onActivate=\{disabled \? \(\) => undefined : onActivate\}/);
   assert.match(fullScreenGamePageSource, /onGamepadFocus=\{\(event\) => \{/);
   assert.doesNotMatch(fullScreenGamePageSource, /role="radiogroup"/);
-  assert.match(fullScreenGamePageSource, /data-game-overview-pill="refresh"/);
-  assert.match(fullScreenGamePageSource, /data-game-overview-pill-focusable="true"/);
-  assert.match(fullScreenGamePageSource, /aria-label="Refresh the current game detail snapshot"/);
+  assert.match(fullScreenGamePageSource, /DeckyFullscreenActionButton[\s\S]*label="Refresh"/u);
+  assert.doesNotMatch(fullScreenGamePageSource, /data-game-overview-pill="refresh"/);
+  assert.doesNotMatch(fullScreenGamePageSource, /aria-label="Refresh the current game detail snapshot"/);
   assert.doesNotMatch(fullScreenGamePageSource, /DeckyCompactPillActionItem/);
   assert.match(fullScreenGamePageSource, /getAchievementCardStyle\(achievement\)/);
   assert.match(fullScreenGamePageSource, /getAchievementRowMetadataStackStyle\(\)/);
@@ -1983,6 +2026,61 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.doesNotMatch(fullScreenGamePageSource, /canShowAllAchievements/);
   assert.doesNotMatch(fullScreenGamePageSource, /label=\{`Show \$\{formatCount\(FULL_SCREEN_ACHIEVEMENT_LOAD_STEP\)\} more`\}/u);
   assert.doesNotMatch(fullScreenGamePageSource, /label="Show all"/);
+  const fullScreenAchievementPageSource = readFileSync(
+    "src/platform/decky/decky-full-screen-achievement-page.tsx",
+    "utf8",
+  );
+  assert.match(fullScreenAchievementPageSource, /PanelSection title="ACHIEVEMENT SPOTLIGHT"/);
+  assert.match(fullScreenAchievementPageSource, /AchievementSpotlightCard/);
+  assert.match(fullScreenAchievementPageSource, /if \(!isSteamProvider\) \{/);
+  assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightCardStyle\(tone\)/);
+  assert.match(fullScreenAchievementPageSource, /calc\(env\(safe-area-inset-bottom, 0px\) \+ 12px\)/);
+  assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightBackRowStyle\(\)/);
+  assert.match(fullScreenAchievementPageSource, /backLabel=\{backLabel\}/);
+  assert.match(fullScreenAchievementPageSource, /onBack=\{onBack\}/);
+  assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightBadgeFrameStyle\(tone\)/);
+  assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightTitleStyle\(\)/);
+  assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightDescriptionStyle\(\)/);
+  assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightMetaRowStyle\(\)/);
+  assert.match(fullScreenAchievementPageSource, /dedupeDistinctLabels\(\[providerLabel\]\)/);
+  assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightStatusStyle\(tone\)/);
+  assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightCounts\(achievement\.metrics, game\.metrics\)/);
+  assert.match(fullScreenAchievementPageSource, /formatAchievementUnlockRatePercent\(unlockRatePercent\)/);
+  assert.match(fullScreenAchievementPageSource, /achievementStatus\.value/);
+  assert.match(fullScreenAchievementPageSource, /achievementStatus\.secondary/);
+  assert.match(
+    fullScreenAchievementPageSource,
+    /achievement\.hardcoreUnlockedAt \?\? achievement\.softcoreUnlockedAt \?\? achievement\.unlockedAt/u,
+  );
+  assert.match(fullScreenAchievementPageSource, /Unlocked on \$\{formatTimestamp\(unlockTimestamp\)\}/u);
+  assert.match(fullScreenAchievementPageSource, /label="Points"/);
+  assert.match(fullScreenAchievementPageSource, /label="RetroPoints"/);
+  const spotlightStatGridStart = fullScreenAchievementPageSource.indexOf(
+    "<div style={getAchievementSpotlightStatGridStyle()}>",
+  );
+  const spotlightRarityStackStart = fullScreenAchievementPageSource.indexOf(
+    "<div style={getAchievementSpotlightRarityStackStyle()}>",
+  );
+  assert.ok(spotlightStatGridStart >= 0);
+  assert.ok(spotlightRarityStackStart > spotlightStatGridStart);
+  const spotlightStatGridSource = fullScreenAchievementPageSource.slice(
+    spotlightStatGridStart,
+    spotlightRarityStackStart,
+  );
+  assert.match(spotlightStatGridSource, /label="Points"/);
+  assert.match(spotlightStatGridSource, /label="RetroPoints"/);
+  assert.doesNotMatch(spotlightStatGridSource, /label="Unlock rate"/u);
+  assert.match(fullScreenAchievementPageSource, /label="Softcore unlocks"/);
+  assert.match(fullScreenAchievementPageSource, /label="Hardcore unlocks"/);
+  assert.match(fullScreenAchievementPageSource, /label="Total players"/);
+  assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightStatGridStyle\(\)/);
+  assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightCountsGridStyle\(\)/);
+  assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightRarityStackStyle\(\)/);
+  assert.match(fullScreenAchievementPageSource, /RarityBar percent=\{unlockRatePercent\} tone=\{tone\} caption=\{unlockRateCaption\}/);
+  assert.match(fullScreenAchievementPageSource, /size=\{88\}/);
+  assert.doesNotMatch(fullScreenAchievementPageSource, /P2/u);
+  assert.match(fullScreenAchievementPageSource, /<span style=\{getAchievementSpotlightMetaPillStyle\(\)\}>\s*RA\s*<\/span>/u);
+  assert.match(fullScreenAchievementPageSource, /getAchievementDescriptionText\(achievement\.description\)/);
   assert.match(
     readFileSync("src/platform/decky/decky-compact-pill-action-item.tsx", "utf8"),
     /readonly emphasis\?: "default" \| "primary"/,
