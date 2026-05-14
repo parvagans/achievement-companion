@@ -2113,6 +2113,21 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   );
   assert.doesNotMatch(fullScreenProfileSource, /PanelSection title="Navigation"/);
   assert.match(fullScreenProfileSource, /addProfileAvatarCacheBustParam\(avatarUrl, refreshedAt\)/u);
+  assert.match(
+    achievementHistorySource,
+    /PanelSection title="Achievement history"[\s\S]*DeckyFullscreenActionRow centered[\s\S]*label="Back"/u,
+  );
+  assert.doesNotMatch(achievementHistorySource, /PanelSection title="Navigation"/);
+  assert.match(achievementHistorySource, /Unlocked achievements, newest first\./u);
+  assert.match(achievementHistorySource, /Showing .*unlocked achievements, newest first\./u);
+  assert.match(achievementHistorySource, /Newest[\s\S]*Oldest/u);
+  assert.match(achievementHistorySource, /AchievementHistoryRow/u);
+  assert.match(achievementHistorySource, /Focusable/u);
+  assert.match(achievementHistorySource, /data-achievement-history-row-tone/u);
+  assert.match(achievementHistorySource, /getAchievementHistoryStatusStyle/u);
+  assert.match(achievementHistorySource, /getAchievementHistoryRowFocusStyle/u);
+  assert.match(achievementHistorySource, /getAchievementRowMetadataStackStyle/u);
+  assert.doesNotMatch(achievementHistorySource, /summaryParts\.join\(" \| "\)/u);
   assert.match(achievementHistorySource, /addProfileAvatarCacheBustParam\(avatarUrl, refreshedAt\)/u);
   assert.doesNotMatch(dashboardViewSource, /addProfileAvatarCacheBustParam\(game\.coverImageUrl/u);
   assert.doesNotMatch(fullScreenProfileSource, /addProfileAvatarCacheBustParam\(game\.coverImageUrl/u);

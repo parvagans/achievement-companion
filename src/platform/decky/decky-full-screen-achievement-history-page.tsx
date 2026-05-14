@@ -1,7 +1,7 @@
-import { useMemo, type CSSProperties, type ComponentProps, type FocusEventHandler } from "react";
+import { useMemo, useState, type CSSProperties, type ComponentProps, type FocusEventHandler } from "react";
 import type { ResourceState } from "@core/cache";
 import type { AchievementHistorySnapshot, NormalizedMetric, RecentUnlock } from "@core/domain";
-import { Field, PanelSection, PanelSectionRow, ScrollPanel } from "@decky/ui";
+import { Field, Focusable, PanelSection, PanelSectionRow, ScrollPanel } from "@decky/ui";
 import { PlaceholderState } from "@ui/PlaceholderState";
 import {
   initialDeckyAchievementHistoryState,
@@ -73,14 +73,23 @@ function getPageFrameStyle(): CSSProperties {
 function getHeroCardStyle(): CSSProperties {
   return {
     display: "flex",
-    gap: 18,
-    alignItems: "flex-start",
-    flexWrap: "wrap",
+    flexDirection: "column",
+    gap: 14,
     padding: 18,
     borderRadius: 20,
     border: "1px solid rgba(255, 255, 255, 0.08)",
     background:
       "linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.03))",
+  };
+}
+
+function getHeroHeaderRowStyle(): CSSProperties {
+  return {
+    display: "flex",
+    gap: 18,
+    alignItems: "flex-start",
+    flexWrap: "wrap",
+    minWidth: 0,
   };
 }
 
@@ -286,11 +295,18 @@ function getBrowserMetaStyle(): CSSProperties {
 
 function getAchievementRowStyle(): CSSProperties {
   return {
-    display: "flex",
-    gap: 14,
+    display: "grid",
+    gridTemplateColumns: "auto minmax(0, 1fr)",
+    gap: 12,
     alignItems: "flex-start",
-    flexWrap: "wrap",
     minWidth: 0,
+    boxSizing: "border-box",
+    padding: "11px 12px",
+    borderRadius: 16,
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+    background:
+      "linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.026))",
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 8px rgba(0, 0, 0, 0.15)",
   };
 }
 
@@ -298,7 +314,7 @@ function getAchievementRowTextStyle(): CSSProperties {
   return {
     display: "flex",
     flexDirection: "column",
-    gap: 6,
+    gap: 4,
     minWidth: 0,
     flex: "1 1 260px",
   };
@@ -317,20 +333,57 @@ function getAchievementRowTitleStyle(): CSSProperties {
   };
 }
 
-function getAchievementRowSummaryStyle(): CSSProperties {
+function getAchievementRowGameStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.92)",
-    fontSize: "0.94em",
-    lineHeight: 1.35,
-    whiteSpace: "pre-wrap",
+    color: "rgba(255, 255, 255, 0.76)",
+    fontSize: "0.84em",
+    lineHeight: 1.25,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   };
 }
 
-function getAchievementRowSupportStyle(): CSSProperties {
+function getAchievementRowMetadataStackStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.68)",
-    fontSize: "0.84em",
-    lineHeight: 1.25,
+    display: "flex",
+    flexDirection: "column",
+    gap: 3,
+    minWidth: 0,
+  };
+}
+
+function getAchievementHistoryStatusStyle(achievement: Pick<RecentUnlock["achievement"], "isUnlocked" | "unlockMode">): CSSProperties {
+  const isHardcore = achievement.isUnlocked && achievement.unlockMode === "hardcore";
+  const isSoftcore = achievement.isUnlocked && achievement.unlockMode === "softcore";
+
+  return {
+    color: isHardcore
+      ? "rgba(232, 201, 102, 0.95)"
+      : isSoftcore
+        ? "rgba(220, 225, 233, 0.95)"
+        : "rgba(255, 255, 255, 0.72)",
+    fontSize: "0.8em",
+    fontWeight: 800,
+    lineHeight: 1.2,
+  };
+}
+
+function getAchievementHistoryDetailStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.72)",
+    fontSize: "0.8em",
+    lineHeight: 1.2,
+  };
+}
+
+function getAchievementHistoryRowFocusStyle(focused: boolean): CSSProperties {
+  return {
+    outline: focused ? "2px solid rgba(69, 148, 255, 0.8)" : "none",
+    outlineOffset: 1,
+    boxShadow: focused
+      ? "0 0 0 1px rgba(69, 148, 255, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 4px 14px rgba(0, 0, 0, 0.22)"
+      : undefined,
   };
 }
 
@@ -381,6 +434,18 @@ function getFallbackInitials(title: string): string {
   );
 }
 
+function getAchievementHistoryRowTone(achievement: Pick<RecentUnlock["achievement"], "isUnlocked" | "unlockMode">): "hardcore" | "softcore" | "locked" {
+  if (!achievement.isUnlocked) {
+    return "locked";
+  }
+
+  if (achievement.unlockMode === "hardcore") {
+    return "hardcore";
+  }
+
+  return "softcore";
+}
+
 const scrollFocusedElementIntoView: FocusEventHandler<HTMLElement> = (event) => {
   event.currentTarget.scrollIntoView({
     block: "nearest",
@@ -417,31 +482,6 @@ function getAchievementHistoryUnlockRateValue(achievement: RecentUnlock["achieve
   return getMetricValue(achievement.metrics, "true-ratio", "True Ratio") ?? "-";
 }
 
-function getAchievementHistoryRowDescription(recentUnlock: RecentUnlock): JSX.Element {
-  const unlockedAt = recentUnlock.unlockedAt ?? recentUnlock.achievement.unlockedAt;
-  const points = getAchievementHistoryPointsValue(recentUnlock.achievement);
-  const unlockRate = getAchievementHistoryUnlockRateValue(recentUnlock.achievement);
-  const unlockStatus = buildAchievementStatus(recentUnlock.achievement).value;
-  const isSteamProvider = recentUnlock.achievement.providerId === STEAM_PROVIDER_ID;
-  const summaryParts = [
-    recentUnlock.game.title,
-    unlockStatus,
-    ...(isSteamProvider ? [] : [`Points ${points}`]),
-    `Unlock rate ${unlockRate}`,
-  ];
-
-  return (
-    <div style={getAchievementRowTextStyle()}>
-      <div style={getAchievementRowSummaryStyle()}>
-        {summaryParts.join(" | ")}
-      </div>
-      <div style={getAchievementRowSupportStyle()}>
-        {`Unlocked ${formatTimestamp(unlockedAt)}`}
-      </div>
-    </div>
-  );
-}
-
 function formatAchievementHistoryHeroCountLabel(providerId: string, sourceLabel: string): string {
   if (providerId === STEAM_PROVIDER_ID) {
     return sourceLabel.toLowerCase().includes("library unlock") ? "Library unlocks" : "Loaded unlocks";
@@ -461,7 +501,7 @@ function formatAchievementHistoryBrowserSummary(
       : `Showing ${formatCount(entryCount)} loaded unlocks newest first.`;
   }
 
-  return `Showing ${formatCount(entryCount)} unlocked achievements newest first.`;
+  return `Showing ${formatCount(entryCount)} unlocked achievements, newest first.`;
 }
 
 function AchievementHistoryRow({
@@ -473,37 +513,94 @@ function AchievementHistoryRow({
   readonly onOpenAchievementDetail: (gameId: string, achievementId: string) => void;
   readonly onBack: () => void;
 }): JSX.Element {
+  const [isFocused, setIsFocused] = useState(false);
   const openAchievementDetail = (): void => {
     onOpenAchievementDetail(recentUnlock.game.gameId, recentUnlock.achievement.achievementId);
   };
+  const status = buildAchievementStatus(recentUnlock.achievement);
+  const unlockedAt = recentUnlock.unlockedAt ?? recentUnlock.achievement.unlockedAt;
+  const unlockRate = getMetricValue(recentUnlock.achievement.metrics, "true-ratio", "True Ratio");
+  const rowTone = getAchievementHistoryRowTone(recentUnlock.achievement);
+  const isHardcore = rowTone === "hardcore";
+  const isSoftcore = rowTone === "softcore";
+
+  const rowStyle: CSSProperties = {
+    ...getAchievementRowStyle(),
+    borderColor: isHardcore
+      ? "rgba(214, 178, 74, 0.28)"
+      : isSoftcore
+        ? "rgba(214, 221, 232, 0.2)"
+        : "rgba(255, 255, 255, 0.12)",
+    borderLeftWidth: 4,
+    borderLeftStyle: "solid",
+    borderLeftColor: isHardcore
+      ? "rgba(214, 178, 74, 0.8)"
+      : isSoftcore
+        ? "rgba(214, 221, 232, 0.72)"
+        : "rgba(255, 255, 255, 0.12)",
+    background: isHardcore
+      ? "linear-gradient(180deg, rgba(214, 178, 74, 0.08), rgba(214, 178, 74, 0.03))"
+      : isSoftcore
+        ? "linear-gradient(180deg, rgba(214, 221, 232, 0.07), rgba(214, 221, 232, 0.03))"
+        : "rgba(255, 255, 255, 0.03)",
+    ...getAchievementHistoryRowFocusStyle(isFocused),
+  };
 
   return (
-    <Field
+    <Focusable
       className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
-      focusable
-      highlightOnFocus
-      icon={
-        recentUnlock.achievement.badgeImageUrl !== undefined ? (
-          <span style={getAchievementBadgeFrameStyle(recentUnlock.achievement.isUnlocked)}>
-            <DeckyGameArtwork
-              compact
-              src={recentUnlock.achievement.badgeImageUrl}
-              size={32}
-              title={recentUnlock.achievement.title}
-            />
-          </span>
-        ) : (
-          <span style={getFallbackBadgeStyle(32)}>{getFallbackInitials(recentUnlock.achievement.title)}</span>
-        )
-      }
-      bottomSeparator="none"
-      verticalAlignment="center"
-      label={recentUnlock.achievement.title}
-      description={getAchievementHistoryRowDescription(recentUnlock)}
+      noFocusRing
+      role="button"
+      aria-label={`${recentUnlock.achievement.title} history detail`}
       onActivate={openAchievementDetail}
       onClick={openAchievementDetail}
-      onGamepadFocus={scrollFocusedGamepadElementIntoView}
-    />
+      onGamepadFocus={(event) => {
+        scrollFocusedGamepadElementIntoView(event);
+        setIsFocused(true);
+      }}
+      onFocus={(event) => {
+        setIsFocused(true);
+        scrollFocusedElementIntoView(event);
+      }}
+      onBlur={() => {
+        setIsFocused(false);
+      }}
+      onCancel={onBack}
+      data-achievement-history-row-tone={rowTone}
+      style={rowStyle}
+    >
+      <span style={getAchievementBadgeFrameStyle(recentUnlock.achievement.isUnlocked)}>
+        {recentUnlock.achievement.badgeImageUrl !== undefined ? (
+          <DeckyGameArtwork
+            compact
+            src={recentUnlock.achievement.badgeImageUrl}
+            size={32}
+            title={recentUnlock.achievement.title}
+          />
+        ) : (
+          <span style={getFallbackBadgeStyle(32)}>{getFallbackInitials(recentUnlock.achievement.title)}</span>
+        )}
+      </span>
+
+      <span style={getAchievementRowTextStyle()}>
+        <span style={getAchievementRowTitleStyle()}>{recentUnlock.achievement.title}</span>
+        <span style={getAchievementRowGameStyle()}>{recentUnlock.game.title}</span>
+        <span style={getAchievementRowMetadataStackStyle()}>
+          <span style={getAchievementHistoryStatusStyle(recentUnlock.achievement)}>{status.value}</span>
+          <span style={getAchievementHistoryDetailStyle()}>
+            {recentUnlock.achievement.points !== undefined
+              ? `Points ${formatCount(recentUnlock.achievement.points)}`
+              : "Points unavailable"}
+          </span>
+          <span style={getAchievementHistoryDetailStyle()}>
+            {unlockRate !== undefined ? `Unlock rate ${unlockRate}` : "Unlock rate unavailable"}
+          </span>
+          {unlockedAt !== undefined ? (
+            <span style={getAchievementHistoryDetailStyle()}>{`Unlocked ${formatTimestamp(unlockedAt)}`}</span>
+          ) : null}
+        </span>
+      </span>
+    </Focusable>
   );
 }
 
@@ -533,7 +630,7 @@ function AchievementHistoryBrowser({
         {[
           newestUnlockedAt !== undefined ? `Newest ${formatTimestamp(newestUnlockedAt)}` : "Newest unavailable",
           oldestUnlockedAt !== undefined ? `Oldest ${formatTimestamp(oldestUnlockedAt)}` : "Oldest unavailable",
-        ].join(" | ")}
+        ].join(" · ")}
       </div>
 
       {entries.length > 0 ? (
@@ -616,39 +713,29 @@ export function DeckyFullScreenAchievementHistoryPage({
         scrollKey={`full-screen-achievement-history:${providerId ?? snapshot.providerId}`}
       >
         <div style={getPageFrameStyle()}>
-          <PanelSection title="Navigation">
-            <DeckyFullscreenActionRow>
-              <DeckyFullscreenActionButton
-                label="Back"
-                isFullscreenBackAction
-                onClick={() => {
-                  onBack();
-                }}
-              />
-            </DeckyFullscreenActionRow>
-          </PanelSection>
-
           <PanelSection title="Achievement history">
             <PanelSectionRow>
               <div style={getHeroCardStyle()}>
-                <AchievementHistoryProfileAvatar
-                  avatarUrl={profile.identity.avatarUrl}
-                  displayName={profile.identity.displayName}
-                  refreshedAt={refreshTimestamp}
-                />
+                <div style={getHeroHeaderRowStyle()}>
+                  <AchievementHistoryProfileAvatar
+                    avatarUrl={profile.identity.avatarUrl}
+                    displayName={profile.identity.displayName}
+                    refreshedAt={refreshTimestamp}
+                  />
 
-                <div style={getHeroTextStyle()}>
+                  <div style={getHeroTextStyle()}>
                     <div style={getHeroLabelStyle()}>{`${formatDeckyProviderLabel(snapshot.providerId)} profile`}</div>
                     <div style={getHeroTitleStyle()}>{profile.identity.displayName}</div>
                     <div style={getHeroSupportStyle()}>
                       <div>
-                      {isSteamProvider
-                        ? isLibraryUnlockHistory
-                          ? "Browsing library unlocks newest first."
-                          : "Browsing loaded unlocked achievements newest first."
-                        : "Browsing unlocked achievements newest first."}
+                        {isSteamProvider
+                          ? isLibraryUnlockHistory
+                            ? "Browsing library unlocks newest first."
+                            : "Browsing loaded unlocked achievements newest first."
+                          : "Unlocked achievements, newest first."}
+                      </div>
+                      {memberSince !== undefined ? <div>{`Member since ${memberSince}.`}</div> : null}
                     </div>
-                    {memberSince !== undefined ? <div>{`Member since ${memberSince}.`}</div> : null}
                   </div>
                 </div>
 
@@ -666,6 +753,16 @@ export function DeckyFullScreenAchievementHistoryPage({
                     <div style={getStatValueStyle()}>{oldestUnlockedAt !== undefined ? formatTimestamp(oldestUnlockedAt) : "-"}</div>
                   </div>
                 </div>
+
+                <DeckyFullscreenActionRow centered>
+                  <DeckyFullscreenActionButton
+                    label="Back"
+                    isFullscreenBackAction
+                    onClick={() => {
+                      onBack();
+                    }}
+                  />
+                </DeckyFullscreenActionRow>
               </div>
             </PanelSectionRow>
           </PanelSection>
