@@ -57,6 +57,7 @@ import {
   formatModeProgressSummary,
   shouldHideSteamAchievementDetailStats,
 } from "../src/platform/decky/decky-achievement-detail-helpers";
+import { sortAchievementsForDisplay } from "../src/platform/decky/decky-game-detail-ordering";
 import {
   formatCompletionProgressFilterLabelForProvider,
   formatCompletionProgressStatusLabel,
@@ -1892,6 +1893,27 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     achievementDetailViewSource,
     /role="radiogroup" aria-label="Achievement filter" className={DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS}/,
   );
+  assert.match(achievementDetailViewSource, /PanelSection title="GAME OVERVIEW"/);
+  assert.match(achievementDetailViewSource, /PanelSection title="PROGRESS SUMMARY"/);
+  assert.match(achievementDetailViewSource, /PanelSection title="ACHIEVEMENTS"/);
+  assert.match(achievementDetailViewSource, /getGameDetailOverviewIconFrameStyle\(\)/);
+  assert.match(achievementDetailViewSource, /AchievementModeButtons/);
+  assert.match(achievementDetailViewSource, /const ACHIEVEMENT_MODE_FILTERS = \["all", "hardcore", "softcore"\] as const;/);
+  assert.match(achievementDetailViewSource, /useState<AchievementModeFilter>\("all"\)/);
+  assert.match(achievementDetailViewSource, /if \(modeFilter === "all"\) \{\s*return true;\s*\}/u);
+  assert.match(achievementDetailViewSource, /ACHIEVEMENT_MODE_FILTERS\.map\(\(filter\)/);
+  assert.match(achievementDetailViewSource, /label=\{formatAchievementModeLabel\(filter\)\}/);
+  assert.match(achievementDetailViewSource, /if \(modeFilter === "all"\) \{\s*return "All";\s*\}/u);
+  assert.match(achievementDetailViewSource, /formatAchievementFilterLabel\(filter\)/);
+  assert.match(achievementDetailViewSource, /label="Show 5 more"/);
+  assert.match(achievementDetailViewSource, /label="Show all"/);
+  assert.match(achievementDetailViewSource, /\{achievement\.title\}/);
+  assert.match(achievementDetailViewSource, /getAchievementRowMetadataStackStyle\(\)/);
+  assert.match(achievementDetailViewSource, /status\.value/);
+  assert.match(achievementDetailViewSource, /Points unavailable/);
+  assert.match(achievementDetailViewSource, /Unlocked \$\{formatTimestamp\(unlockedAt\)\}/);
+  assert.match(achievementDetailViewSource, /parts\.join\(" \/ "\)/);
+  assert.doesNotMatch(achievementDetailViewSource, /\$\{index \+ 1\}\.\s*\$\{achievement\.title\}/);
   assert.match(achievementDetailViewSource, /role="radio"/);
   assert.match(achievementDetailViewSource, /aria-checked={active}/);
   assert.match(achievementDetailViewSource, /DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS/);
@@ -4371,6 +4393,140 @@ test("game detail parses the documented RetroAchievements game-progress shape", 
   assert.equal(state.data?.achievements[1]?.isUnlocked, false);
   assert.equal(counts.config, 1);
   assert.equal(counts.gameProgress, 1);
+});
+
+test("game detail achievement ordering keeps unlocked items first and newest unlocks first", () => {
+  const achievements = sortAchievementsForDisplay([
+    {
+      providerId: PROVIDER_ID,
+      achievementId: "locked-old",
+      gameId: "game-1",
+      title: "Locked Old",
+      isUnlocked: false,
+      metrics: [],
+    },
+    {
+      providerId: PROVIDER_ID,
+      achievementId: "hardcore-new",
+      gameId: "game-1",
+      title: "Hardcore New",
+      isUnlocked: true,
+      unlockMode: "hardcore",
+      unlockedAt: Date.parse("2024-01-04T00:00:00Z"),
+      hardcoreUnlockedAt: Date.parse("2024-01-04T00:00:00Z"),
+      softcoreUnlockedAt: Date.parse("2024-01-04T00:00:00Z"),
+      points: 3,
+      metrics: [],
+    },
+    {
+      providerId: PROVIDER_ID,
+      achievementId: "softcore-newer",
+      gameId: "game-1",
+      title: "Softcore Newer",
+      isUnlocked: true,
+      unlockMode: "softcore",
+      unlockedAt: Date.parse("2024-01-05T00:00:00Z"),
+      hardcoreUnlockedAt: Date.parse("2024-01-05T00:00:00Z"),
+      softcoreUnlockedAt: Date.parse("2024-01-05T00:00:00Z"),
+      points: 5,
+      metrics: [],
+    },
+    {
+      providerId: PROVIDER_ID,
+      achievementId: "hardcore-older",
+      gameId: "game-1",
+      title: "Hardcore Older",
+      isUnlocked: true,
+      unlockMode: "hardcore",
+      unlockedAt: Date.parse("2024-01-02T00:00:00Z"),
+      hardcoreUnlockedAt: Date.parse("2024-01-02T00:00:00Z"),
+      softcoreUnlockedAt: Date.parse("2024-01-02T00:00:00Z"),
+      points: 2,
+      metrics: [],
+    },
+    {
+      providerId: PROVIDER_ID,
+      achievementId: "softcore-missing",
+      gameId: "game-1",
+      title: "Softcore Missing",
+      isUnlocked: true,
+      unlockMode: "softcore",
+      metrics: [],
+    },
+    {
+      providerId: PROVIDER_ID,
+      achievementId: "locked-new",
+      gameId: "game-1",
+      title: "Locked New",
+      isUnlocked: false,
+      metrics: [],
+    },
+  ]);
+
+  assert.deepStrictEqual(
+    achievements.map((achievement) => achievement.achievementId),
+    ["softcore-newer", "hardcore-new", "hardcore-older", "softcore-missing", "locked-old", "locked-new"],
+  );
+
+  const filterVisibleAchievements = (
+    input: readonly (typeof achievements)[number][],
+    modeFilter: "all" | "hardcore" | "softcore",
+    stateFilter: "all" | "unlocked" | "locked",
+  ): string[] =>
+    sortAchievementsForDisplay(input)
+      .filter((achievement) => {
+        if (stateFilter === "unlocked" && !achievement.isUnlocked) {
+          return false;
+        }
+
+        if (stateFilter === "locked" && achievement.isUnlocked) {
+          return false;
+        }
+
+        if (!achievement.isUnlocked) {
+          return true;
+        }
+
+        if (modeFilter === "all") {
+          return true;
+        }
+
+        if (modeFilter === "hardcore") {
+          return achievement.unlockMode !== "softcore";
+        }
+
+        return achievement.unlockMode !== "hardcore";
+      })
+      .map((achievement) => achievement.achievementId);
+
+  assert.deepStrictEqual(
+    filterVisibleAchievements(achievements, "all", "all"),
+    ["softcore-newer", "hardcore-new", "hardcore-older", "softcore-missing", "locked-old", "locked-new"],
+  );
+  assert.deepStrictEqual(
+    filterVisibleAchievements(achievements, "all", "unlocked"),
+    ["softcore-newer", "hardcore-new", "hardcore-older", "softcore-missing"],
+  );
+  assert.deepStrictEqual(
+    filterVisibleAchievements(achievements, "hardcore", "all"),
+    ["hardcore-new", "hardcore-older", "locked-old", "locked-new"],
+  );
+  assert.deepStrictEqual(
+    filterVisibleAchievements(achievements, "softcore", "all"),
+    ["softcore-newer", "softcore-missing", "locked-old", "locked-new"],
+  );
+  assert.deepStrictEqual(
+    filterVisibleAchievements(achievements, "hardcore", "unlocked"),
+    ["hardcore-new", "hardcore-older"],
+  );
+  assert.deepStrictEqual(
+    filterVisibleAchievements(achievements, "softcore", "unlocked"),
+    ["softcore-newer", "softcore-missing"],
+  );
+  assert.deepStrictEqual(
+    filterVisibleAchievements(achievements, "all", "locked"),
+    ["locked-old", "locked-new"],
+  );
 });
 
 test("game detail surfaces an error when the documented shape is unusable", async () => {

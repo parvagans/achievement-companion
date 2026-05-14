@@ -1,6 +1,6 @@
 import type { ResourceState } from "@core/cache";
 import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
-import { useState, type FocusEventHandler } from "react";
+import { useState, type ComponentProps, type FocusEventHandler } from "react";
 import { Field, Focusable, PanelSection, PanelSectionRow } from "@decky/ui";
 import type { CSSProperties } from "react";
 import { DeckyCompletionProgressBar, getCompletionPercent } from "./decky-completion-progress-bar";
@@ -9,11 +9,15 @@ import { DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_C
 import type { CompactAchievementTarget } from "./decky-achievement-detail-view";
 import { DeckyCompactPillActionGroup, DeckyCompactPillActionItem } from "./decky-compact-pill-action-item";
 import { buildAchievementStatus, formatModeProgressSummary } from "./decky-achievement-detail-helpers";
+import { sortAchievementsForDisplay } from "./decky-game-detail-ordering";
 
 const INITIAL_ACHIEVEMENT_LIMIT = 3;
 const ACHIEVEMENT_FILTERS = ["all", "unlocked", "locked"] as const;
+const ACHIEVEMENT_MODE_FILTERS = ["all", "hardcore", "softcore"] as const;
 
 type AchievementFilter = (typeof ACHIEVEMENT_FILTERS)[number];
+type AchievementModeFilter = (typeof ACHIEVEMENT_MODE_FILTERS)[number];
+type DeckyGamepadFocusHandler = NonNullable<ComponentProps<typeof Focusable>["onGamepadFocus"]>;
 
 export interface DeckyGameDetailViewProps {
   readonly state: ResourceState<GameDetailSnapshot> & {
@@ -48,22 +52,7 @@ function formatProgressSummary(snapshot: GameDetailSnapshot): string {
     parts.push(`${formatCount(summary.completionPercent)}% complete`);
   }
 
-  return parts.join(" · ");
-}
-
-function formatAchievementDescription(achievement: NormalizedAchievement): string {
-  const parts = [buildAchievementStatus(achievement).value];
-
-  if (achievement.points !== undefined) {
-    parts.push(`${formatCount(achievement.points)} points`);
-  }
-
-  const unlockedAt = achievement.unlockedAt;
-  if (unlockedAt !== undefined) {
-    parts.push(formatTimestamp(unlockedAt));
-  }
-
-  return parts.join(" · ");
+  return parts.join(" / ");
 }
 
 function formatDataSourceLabel(isCachedView: boolean): string {
@@ -104,15 +93,6 @@ const scrollFocusedElementIntoView: FocusEventHandler<HTMLElement> = (event) => 
   });
 };
 
-function formatAchievementVisibilitySummary(
-  visibleCount: number,
-  totalCount: number,
-  filter: AchievementFilter,
-): string {
-  const suffix = filter === "all" ? "achievements" : formatAchievementFilterLabel(filter).toLowerCase();
-  return `Showing ${formatCount(visibleCount)} of ${formatCount(totalCount)} ${suffix}`;
-}
-
 function formatAchievementFilterEmptyMessage(filter: AchievementFilter): string {
   if (filter === "all") {
     return "No achievements were returned for this game.";
@@ -121,13 +101,60 @@ function formatAchievementFilterEmptyMessage(filter: AchievementFilter): string 
   return `No ${formatAchievementFilterLabel(filter).toLowerCase()} achievements match this filter.`;
 }
 
-function formatAchievementStatusSummary(
-  achievements: readonly NormalizedAchievement[],
-): string {
-  const unlockedCount = achievements.filter((achievement) => achievement.isUnlocked).length;
-  const lockedCount = achievements.length - unlockedCount;
+function formatAchievementModeLabel(modeFilter: AchievementModeFilter): string {
+  if (modeFilter === "all") {
+    return "All";
+  }
 
-  return `Total ${formatCount(achievements.length)} · Unlocked ${formatCount(unlockedCount)} · Locked ${formatCount(lockedCount)}`;
+  return modeFilter === "hardcore" ? "Hardcore" : "Softcore";
+}
+
+function matchesAchievementModeFilter(
+  achievement: NormalizedAchievement,
+  modeFilter: AchievementModeFilter,
+): boolean {
+  if (modeFilter === "all") {
+    return true;
+  }
+
+  if (!achievement.isUnlocked) {
+    return true;
+  }
+
+  if (modeFilter === "hardcore") {
+    return achievement.unlockMode !== "softcore";
+  }
+
+  return achievement.unlockMode !== "hardcore";
+}
+
+function getAchievementModeProgressSummary(
+  achievements: readonly NormalizedAchievement[],
+  modeFilter: AchievementModeFilter,
+): {
+  readonly unlockedCount: number;
+  readonly points: number | undefined;
+} {
+  let unlockedCount = 0;
+  let points = 0;
+  let hasPoints = false;
+
+  for (const achievement of achievements) {
+    if (!achievement.isUnlocked || achievement.unlockMode !== modeFilter) {
+      continue;
+    }
+
+    unlockedCount += 1;
+    if (achievement.points !== undefined) {
+      points += achievement.points;
+      hasPoints = true;
+    }
+  }
+
+  return {
+    unlockedCount,
+    points: hasPoints ? points : undefined,
+  };
 }
 
 function getAchievementBadgeFrameStyle(isUnlocked: boolean): CSSProperties {
@@ -137,6 +164,269 @@ function getAchievementBadgeFrameStyle(isUnlocked: boolean): CSSProperties {
     lineHeight: 0,
     opacity: isUnlocked ? 1 : 0.94,
     filter: isUnlocked ? "none" : "grayscale(1) contrast(1.12) brightness(0.92)",
+  };
+}
+
+function getGameDetailSectionCardStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+    width: "100%",
+    minWidth: 0,
+    boxSizing: "border-box",
+    padding: 14,
+    borderRadius: 18,
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.02))",
+    boxShadow:
+      "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 10px rgba(0, 0, 0, 0.18)",
+  };
+}
+
+function getGameDetailSectionHeaderStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.6)",
+    fontSize: "0.8em",
+    fontWeight: 800,
+    letterSpacing: "0.12em",
+    lineHeight: 1.1,
+    textAlign: "center",
+    textTransform: "uppercase",
+  };
+}
+
+function getGameDetailSystemPillStyle(): CSSProperties {
+  return {
+    alignSelf: "center",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "4px 10px",
+    borderRadius: 999,
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+    background: "rgba(255, 255, 255, 0.05)",
+    color: "rgba(255, 255, 255, 0.74)",
+    fontSize: "0.72em",
+    fontWeight: 800,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+  };
+}
+
+function getGameDetailOverviewIconFrameStyle(): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 72,
+    height: 72,
+    minWidth: 72,
+    borderRadius: 18,
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+    background: "rgba(255, 255, 255, 0.04)",
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+  };
+}
+
+function getGameDetailOverviewLayoutStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 10,
+    textAlign: "center",
+  };
+}
+
+function getGameDetailOverviewTitleStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.95)",
+    fontSize: "1.18em",
+    fontWeight: 800,
+    lineHeight: 1.15,
+    textAlign: "center",
+  };
+}
+
+function getGameDetailSummaryLineStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.82)",
+    fontSize: "0.88em",
+    fontWeight: 700,
+    lineHeight: 1.25,
+    textAlign: "center",
+  };
+}
+
+function getModeProgressGridStyle(): CSSProperties {
+  return {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: 10,
+    alignItems: "stretch",
+    minWidth: 0,
+    width: "100%",
+  };
+}
+
+function getModeProgressCardStyle(mode: AchievementModeFilter): CSSProperties {
+  const isHardcore = mode === "hardcore";
+
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+    minWidth: 0,
+    boxSizing: "border-box",
+    padding: "11px 12px",
+    borderRadius: 16,
+    border: `1px solid ${isHardcore ? "rgba(214, 178, 74, 0.28)" : "rgba(214, 221, 232, 0.2)"}`,
+    borderLeftWidth: 4,
+    borderLeftStyle: "solid",
+    borderLeftColor: isHardcore ? "rgba(214, 178, 74, 0.8)" : "rgba(214, 221, 232, 0.72)",
+    background: isHardcore
+      ? "linear-gradient(180deg, rgba(214, 178, 74, 0.08), rgba(214, 178, 74, 0.03))"
+      : "linear-gradient(180deg, rgba(214, 221, 232, 0.07), rgba(214, 221, 232, 0.03))",
+    boxShadow:
+      "inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 8px rgba(0, 0, 0, 0.14)",
+  };
+}
+
+function getModeProgressCardTitleStyle(mode: AchievementModeFilter): CSSProperties {
+  const isHardcore = mode === "hardcore";
+
+  return {
+    color: isHardcore ? "rgba(232, 201, 102, 0.95)" : "rgba(220, 225, 233, 0.95)",
+    fontSize: "0.78em",
+    fontWeight: 800,
+    letterSpacing: "0.05em",
+    lineHeight: 1.15,
+    textTransform: "uppercase",
+  };
+}
+
+function getModeProgressCardLineStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.86)",
+    fontSize: "0.84em",
+    lineHeight: 1.2,
+  };
+}
+
+function getModeProgressCardPointsStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.72)",
+    fontSize: "0.8em",
+    lineHeight: 1.2,
+  };
+}
+
+function getAchievementControlsRowStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+  };
+}
+
+function getAchievementCardStyle(achievement: NormalizedAchievement): CSSProperties {
+  const isHardcore = achievement.isUnlocked && achievement.unlockMode === "hardcore";
+  const isSoftcore = achievement.isUnlocked && achievement.unlockMode === "softcore";
+  const accentColor = isHardcore
+    ? "rgba(214, 178, 74, 0.78)"
+    : isSoftcore
+      ? "rgba(214, 221, 232, 0.72)"
+      : "rgba(255, 255, 255, 0.12)";
+  const accentBackground = isHardcore
+    ? "linear-gradient(180deg, rgba(214, 178, 74, 0.08), rgba(214, 178, 74, 0.03))"
+    : isSoftcore
+      ? "linear-gradient(180deg, rgba(214, 221, 232, 0.07), rgba(214, 221, 232, 0.03))"
+      : "rgba(255, 255, 255, 0.03)";
+
+  return {
+    display: "grid",
+    gridTemplateColumns: "auto minmax(0, 1fr)",
+    gap: 12,
+    minWidth: 0,
+    boxSizing: "border-box",
+    padding: "11px 12px",
+    borderRadius: 16,
+    border: `1px solid ${accentColor}`,
+    borderLeftWidth: 4,
+    borderLeftStyle: "solid",
+    borderLeftColor: accentColor,
+    background: accentBackground,
+    boxShadow:
+      "inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 8px rgba(0, 0, 0, 0.15)",
+  };
+}
+
+function getAchievementRowTextStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+    minWidth: 0,
+  };
+}
+
+function getAchievementRowTitleStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.96)",
+    fontSize: "0.95em",
+    fontWeight: 800,
+    lineHeight: 1.2,
+  };
+}
+
+function getAchievementRowMetadataStackStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 3,
+    minWidth: 0,
+  };
+}
+
+function getAchievementRowStatusStyle(achievement: NormalizedAchievement): CSSProperties {
+  const isHardcore = achievement.isUnlocked && achievement.unlockMode === "hardcore";
+  const isSoftcore = achievement.isUnlocked && achievement.unlockMode === "softcore";
+
+  return {
+    color: isHardcore
+      ? "rgba(232, 201, 102, 0.95)"
+      : isSoftcore
+        ? "rgba(220, 225, 233, 0.95)"
+        : "rgba(255, 255, 255, 0.7)",
+    fontSize: "0.8em",
+    fontWeight: 800,
+    lineHeight: 1.2,
+  };
+}
+
+function getAchievementRowDetailStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.72)",
+    fontSize: "0.8em",
+    lineHeight: 1.2,
+  };
+}
+
+function getAchievementRowIconStyle(): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "center",
+    paddingTop: 2,
+  };
+}
+
+function getAchievementRowsLayoutStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
   };
 }
 
@@ -203,13 +493,141 @@ function AchievementBadgeIcon({
   );
 }
 
+function AchievementModeButtons({
+  currentModeFilter,
+  onSelect,
+  onCancel,
+}: {
+  readonly currentModeFilter: AchievementModeFilter;
+  readonly onSelect: (filter: AchievementModeFilter) => void;
+  readonly onCancel: () => void;
+}): JSX.Element {
+  return (
+    <DeckyCompactPillActionGroup aria-label="Achievement mode" role="radiogroup">
+      {ACHIEVEMENT_MODE_FILTERS.map((filter) => {
+        const selected = filter === currentModeFilter;
+
+        return (
+          <DeckyCompactPillActionItem
+            key={filter}
+            label={formatAchievementModeLabel(filter)}
+            role="radio"
+            ariaChecked={selected}
+            selected={selected}
+            stretch
+            onClick={() => {
+              onSelect(filter);
+            }}
+            onCancelButton={onCancel}
+          />
+        );
+      })}
+    </DeckyCompactPillActionGroup>
+  );
+}
+
+function AchievementRowCard({
+  achievement,
+  index,
+  game,
+  onBackToDashboard,
+  onOpenAchievementDetail,
+}: {
+  readonly achievement: NormalizedAchievement;
+  readonly index: number;
+  readonly game: GameDetailSnapshot["game"];
+  readonly onBackToDashboard: () => void;
+  readonly onOpenAchievementDetail: (target: CompactAchievementTarget) => void;
+}): JSX.Element {
+  const [isFocused, setIsFocused] = useState(false);
+  const status = buildAchievementStatus(achievement);
+  const unlockedAt = achievement.unlockedAt;
+
+  return (
+    <Focusable
+      className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
+      noFocusRing
+      role="button"
+      aria-label={`${achievement.title} achievement detail`}
+      onActivate={() => {
+        onOpenAchievementDetail({
+          game: {
+            providerId: game.providerId,
+            gameId: game.gameId,
+            title: game.title,
+            platformLabel: game.platformLabel,
+            coverImageUrl: game.coverImageUrl,
+          },
+          achievement,
+        });
+      }}
+      onClick={() => {
+        onOpenAchievementDetail({
+          game: {
+            providerId: game.providerId,
+            gameId: game.gameId,
+            title: game.title,
+            platformLabel: game.platformLabel,
+            coverImageUrl: game.coverImageUrl,
+          },
+          achievement,
+        });
+      }}
+      onCancel={onBackToDashboard}
+      onFocus={(event) => {
+        setIsFocused(true);
+        scrollFocusedElementIntoView(event);
+      }}
+      onGamepadFocus={((event) => {
+        setIsFocused(true);
+        if (event.currentTarget instanceof HTMLElement) {
+          event.currentTarget.scrollIntoView({
+            block: "nearest",
+            inline: "nearest",
+          });
+        }
+      }) satisfies DeckyGamepadFocusHandler}
+      onBlur={() => {
+        setIsFocused(false);
+      }}
+      style={{
+        ...getAchievementCardStyle(achievement),
+        ...(isFocused
+          ? {
+              boxShadow:
+                "0 0 0 1px rgba(96, 165, 250, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 4px 16px rgba(0, 0, 0, 0.24)",
+            }
+          : {}),
+      }}
+    >
+      <div style={getAchievementRowIconStyle()}>
+        {achievement.badgeImageUrl !== undefined ? <AchievementBadgeIcon achievement={achievement} /> : null}
+      </div>
+
+      <div style={getAchievementRowTextStyle()}>
+        <div style={getAchievementRowTitleStyle()}>{achievement.title}</div>
+        <div style={getAchievementRowMetadataStackStyle()}>
+          <div style={getAchievementRowStatusStyle(achievement)}>{status.value}</div>
+          <div style={getAchievementRowDetailStyle()}>
+            {achievement.points !== undefined ? `${formatCount(achievement.points)} points` : "Points unavailable"}
+          </div>
+          {unlockedAt !== undefined ? (
+            <div style={getAchievementRowDetailStyle()}>{`Unlocked ${formatTimestamp(unlockedAt)}`}</div>
+          ) : null}
+        </div>
+      </div>
+    </Focusable>
+  );
+}
+
 interface AchievementSectionBodyProps {
+  readonly achievementModeFilter: AchievementModeFilter;
   readonly achievementFilter: AchievementFilter;
-  readonly achievementSummary: string;
   readonly achievements: readonly NormalizedAchievement[];
   readonly canLoadMoreAchievements: boolean;
   readonly canShowAllAchievements: boolean;
   readonly filteredAchievementCount: number;
+  readonly onAchievementModeFilterChange: (filter: AchievementModeFilter) => void;
   readonly onAchievementFilterChange: (filter: AchievementFilter) => void;
   readonly onOpenAchievementDetail: (target: CompactAchievementTarget) => void;
   readonly onLoadFiveMoreAchievements: () => void;
@@ -219,12 +637,13 @@ interface AchievementSectionBodyProps {
 }
 
 function AchievementSectionBody({
+  achievementModeFilter,
   achievementFilter,
-  achievementSummary,
   achievements,
   canLoadMoreAchievements,
   canShowAllAchievements,
   filteredAchievementCount,
+  onAchievementModeFilterChange,
   onAchievementFilterChange,
   onOpenAchievementDetail,
   onLoadFiveMoreAchievements,
@@ -238,131 +657,63 @@ function AchievementSectionBody({
   return (
     <>
       <PanelSectionRow>
-        <Field
-          bottomSeparator="none"
-          description={achievementSummary}
-          label="Summary"
-          onCancelButton={onBackToDashboard}
-        />
-      </PanelSectionRow>
-
-      {hardcoreProgress !== undefined || softcoreProgress !== undefined ? (
-        <PanelSectionRow>
-          <Field
-            bottomSeparator="none"
-            description={
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <div>{formatModeProgressSummary(hardcoreProgress, "Hardcore")}</div>
-                <div>{formatModeProgressSummary(softcoreProgress, "Softcore")}</div>
-              </div>
-            }
-            label="Mode progress"
-            onCancelButton={onBackToDashboard}
+        <div style={getGameDetailSectionCardStyle()}>
+          <AchievementModeButtons
+            currentModeFilter={achievementModeFilter}
+            onSelect={onAchievementModeFilterChange}
+            onCancel={onBackToDashboard}
           />
-        </PanelSectionRow>
-      ) : null}
+          <AchievementFilterPills
+            currentFilter={achievementFilter}
+            onSelect={onAchievementFilterChange}
+            onCancel={onBackToDashboard}
+          />
 
-      <PanelSectionRow>
-        <AchievementFilterPills
-          currentFilter={achievementFilter}
-          onSelect={onAchievementFilterChange}
-          onCancel={onBackToDashboard}
-        />
-      </PanelSectionRow>
+          {achievements.length > 0 ? (
+            <div style={getAchievementControlsRowStyle()}>
+              <div style={getAchievementRowsLayoutStyle()}>
+                {achievements.map((achievement, index) => (
+                  <AchievementRowCard
+                    key={achievement.achievementId}
+                    achievement={achievement}
+                    index={index}
+                    game={game}
+                    onBackToDashboard={onBackToDashboard}
+                    onOpenAchievementDetail={onOpenAchievementDetail}
+                  />
+                ))}
+              </div>
 
-      {achievements.length > 0 ? (
-        <>
-          <PanelSectionRow>
+              {canLoadMoreAchievements || canShowAllAchievements ? (
+                <DeckyCompactPillActionGroup>
+                  {canLoadMoreAchievements ? (
+                    <DeckyCompactPillActionItem
+                      label="Show 5 more"
+                      onClick={onLoadFiveMoreAchievements}
+                      onCancelButton={onBackToDashboard}
+                    />
+                  ) : null}
+
+                  {canShowAllAchievements ? (
+                    <DeckyCompactPillActionItem
+                      label="Show all"
+                      onClick={onShowAllAchievements}
+                      onCancelButton={onBackToDashboard}
+                    />
+                  ) : null}
+                </DeckyCompactPillActionGroup>
+              ) : null}
+            </div>
+          ) : (
             <Field
               bottomSeparator="none"
-              description={formatAchievementVisibilitySummary(
-                achievements.length,
-                filteredAchievementCount,
-                achievementFilter,
-              )}
-              label="Visible"
+              description={formatAchievementFilterEmptyMessage(achievementFilter)}
+              label="Achievements"
               onCancelButton={onBackToDashboard}
             />
-          </PanelSectionRow>
-
-          {achievements.map((achievement, index) => (
-            <PanelSectionRow key={achievement.achievementId}>
-              <Field
-                className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
-                focusable
-                highlightOnFocus
-                icon={
-                  achievement.badgeImageUrl !== undefined ? (
-                    <AchievementBadgeIcon achievement={achievement} />
-                  ) : undefined
-                }
-                bottomSeparator="none"
-                verticalAlignment="center"
-                description={formatAchievementDescription(achievement)}
-                label={`${index + 1}. ${achievement.title}`}
-                onCancelButton={onBackToDashboard}
-                onActivate={() => {
-                  onOpenAchievementDetail({
-                    game: {
-                      providerId: game.providerId,
-                      gameId: game.gameId,
-                      title: game.title,
-                      platformLabel: game.platformLabel,
-                      coverImageUrl: game.coverImageUrl,
-                    },
-                    achievement,
-                  });
-                }}
-                onClick={() => {
-                  onOpenAchievementDetail({
-                    game: {
-                      providerId: game.providerId,
-                      gameId: game.gameId,
-                      title: game.title,
-                      platformLabel: game.platformLabel,
-                      coverImageUrl: game.coverImageUrl,
-                    },
-                    achievement,
-                  });
-                }}
-              />
-            </PanelSectionRow>
-          ))}
-
-          {canLoadMoreAchievements ? (
-            <PanelSectionRow>
-              <DeckyCompactPillActionGroup>
-              <DeckyCompactPillActionItem
-                  label="Show 5 more"
-                  onClick={onLoadFiveMoreAchievements}
-                  onCancelButton={onBackToDashboard}
-                />
-              </DeckyCompactPillActionGroup>
-            </PanelSectionRow>
-          ) : null}
-
-          {canShowAllAchievements ? (
-            <PanelSectionRow>
-              <DeckyCompactPillActionGroup>
-              <DeckyCompactPillActionItem
-                  label="Show all"
-                  onClick={onShowAllAchievements}
-                  onCancelButton={onBackToDashboard}
-                />
-              </DeckyCompactPillActionGroup>
-            </PanelSectionRow>
-          ) : null}
-        </>
-      ) : (
-        <PanelSectionRow>
-          <Field
-            bottomSeparator="none"
-            description={formatAchievementFilterEmptyMessage(achievementFilter)}
-            label="Achievements"
-            onCancelButton={onBackToDashboard}
-          />
-        </PanelSectionRow>
-      )}
+          )}
+        </div>
+      </PanelSectionRow>
     </>
   );
 }
@@ -377,14 +728,18 @@ export function DeckyGameDetailView({
   const game = snapshot.game;
   const headerArtworkUrl = game.coverImageUrl;
   const [achievementFilter, setAchievementFilter] = useState<AchievementFilter>("all");
+  const [achievementModeFilter, setAchievementModeFilter] = useState<AchievementModeFilter>("all");
   const [visibleAchievementLimit, setVisibleAchievementLimit] = useState(INITIAL_ACHIEVEMENT_LIMIT);
   const totalAchievements = snapshot.achievements.length;
-  const filteredAchievements = snapshot.achievements.filter((achievement) =>
-    matchesAchievementFilter(achievement, achievementFilter),
+  const orderedAchievements = sortAchievementsForDisplay(snapshot.achievements);
+  const filteredAchievements = orderedAchievements.filter((achievement) =>
+    matchesAchievementFilter(achievement, achievementFilter) &&
+    matchesAchievementModeFilter(achievement, achievementModeFilter),
   );
   const filteredAchievementCount = filteredAchievements.length;
   const completionPercent = getCompletionPercent(snapshot.game.summary);
-  const achievementSummary = formatAchievementStatusSummary(snapshot.achievements);
+  const softcoreModeProgress = getAchievementModeProgressSummary(snapshot.achievements, "softcore");
+  const hardcoreModeProgress = getAchievementModeProgressSummary(snapshot.achievements, "hardcore");
   const hasAchievements = totalAchievements > 0;
   const canLoadMoreAchievements = visibleAchievementLimit < filteredAchievementCount;
   const canShowAllAchievements = filteredAchievementCount > visibleAchievementLimit + 5;
@@ -414,48 +769,74 @@ export function DeckyGameDetailView({
         </PanelSectionRow>
       </PanelSection>
 
-      <PanelSection title="Game overview">
+      <PanelSection title="GAME OVERVIEW">
         <PanelSectionRow>
-          <Field
-            icon={
-              headerArtworkUrl !== undefined ? (
-                <DeckyGameArtwork compact src={headerArtworkUrl} size={48} title={game.title} />
-              ) : undefined
-            }
-            bottomSeparator="none"
-            description={game.platformLabel ?? "Unknown platform"}
-            label={game.title}
-          />
+          <div style={getGameDetailSectionCardStyle()}>
+            <div style={getGameDetailOverviewLayoutStyle()}>
+              <div style={getGameDetailSystemPillStyle()}>{game.platformLabel ?? "Unknown system"}</div>
+              <div style={getGameDetailOverviewIconFrameStyle()}>
+                {headerArtworkUrl !== undefined ? (
+                  <DeckyGameArtwork compact src={headerArtworkUrl} size={48} title={game.title} />
+                ) : null}
+              </div>
+              <div style={getGameDetailOverviewTitleStyle()}>{game.title}</div>
+            </div>
+          </div>
         </PanelSectionRow>
-
-        <PanelSectionRow>
-          <Field
-            bottomSeparator="none"
-            description={formatProgressSummary(snapshot)}
-            label="Progress summary"
-          />
-        </PanelSectionRow>
-
-        {completionPercent !== undefined ? (
-          <PanelSectionRow>
-            <Field
-              bottomSeparator="none"
-              description={<DeckyCompletionProgressBar compact percent={completionPercent} />}
-              label="Completion"
-            />
-          </PanelSectionRow>
-        ) : null}
       </PanelSection>
 
-      <PanelSection title="Achievements">
+      <PanelSection title="PROGRESS SUMMARY">
+        <PanelSectionRow>
+          <div style={getGameDetailSectionCardStyle()}>
+            <div style={getGameDetailSummaryLineStyle()}>{formatProgressSummary(snapshot)}</div>
+            {completionPercent !== undefined ? (
+              <DeckyCompletionProgressBar compact percent={completionPercent} />
+            ) : null}
+            <div style={getModeProgressGridStyle()}>
+              {game.softcoreSummary !== undefined ? (
+                <div style={getModeProgressCardStyle("softcore")}>
+                  <div style={getModeProgressCardTitleStyle("softcore")}>Softcore</div>
+                  <div style={getModeProgressCardLineStyle()}>
+                    {`${formatCount(softcoreModeProgress.unlockedCount)} unlocked`}
+                  </div>
+                  <div style={getModeProgressCardPointsStyle()}>
+                    {softcoreModeProgress.points !== undefined
+                      ? `${formatCount(softcoreModeProgress.points)} points`
+                      : "Points unavailable"}
+                  </div>
+                </div>
+              ) : null}
+              {game.hardcoreSummary !== undefined ? (
+                <div style={getModeProgressCardStyle("hardcore")}>
+                  <div style={getModeProgressCardTitleStyle("hardcore")}>Hardcore</div>
+                  <div style={getModeProgressCardLineStyle()}>
+                    {`${formatCount(hardcoreModeProgress.unlockedCount)} unlocked`}
+                  </div>
+                  <div style={getModeProgressCardPointsStyle()}>
+                    {hardcoreModeProgress.points !== undefined
+                      ? `${formatCount(hardcoreModeProgress.points)} points`
+                      : "Points unavailable"}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </PanelSectionRow>
+      </PanelSection>
+
+      <PanelSection title="ACHIEVEMENTS">
         {hasAchievements ? (
           <AchievementSectionBody
+            achievementModeFilter={achievementModeFilter}
             achievementFilter={achievementFilter}
-            achievementSummary={achievementSummary}
             achievements={achievements}
             canLoadMoreAchievements={canLoadMoreAchievements}
             canShowAllAchievements={canShowAllAchievements}
             filteredAchievementCount={filteredAchievementCount}
+            onAchievementModeFilterChange={(filter) => {
+              setAchievementModeFilter(filter);
+              setVisibleAchievementLimit(INITIAL_ACHIEVEMENT_LIMIT);
+            }}
             onAchievementFilterChange={(filter) => {
               setAchievementFilter(filter);
               setVisibleAchievementLimit(INITIAL_ACHIEVEMENT_LIMIT);
