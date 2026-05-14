@@ -769,7 +769,7 @@ export function DeckyFullScreenCompletionProgressPage({
                   <div style={getHeroSupportStyle()}>
                     {isSteamProvider
                       ? "Browse Steam games grouped by progress tier."
-                      : "Browse started games grouped by progress tier."}
+                      : "Browse your started games by completion status."}
                     {isSteamProvider
                       ? " Steam completion uses cached library scan data when available."
                       : ""}
