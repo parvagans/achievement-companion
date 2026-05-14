@@ -1918,6 +1918,71 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(achievementDetailViewSource, /aria-checked={active}/);
   assert.match(achievementDetailViewSource, /DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS/);
   assert.match(achievementDetailViewSource, /DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS/);
+  const fullScreenGamePageSource = readFileSync("src/platform/decky/decky-full-screen-game-page.tsx", "utf8");
+  assert.match(fullScreenGamePageSource, /PanelSection title="Game Spotlight"/);
+  assert.match(fullScreenGamePageSource, /PanelSection title="Achievements"/);
+  assert.match(fullScreenGamePageSource, /ACHIEVEMENT_MODE_FILTERS = \["all", "hardcore", "softcore"\] as const;/);
+  assert.match(fullScreenGamePageSource, /useState<AchievementModeFilter>\("all"\)/);
+  assert.match(fullScreenGamePageSource, /useState<AchievementFilter>\("all"\)/);
+  assert.match(fullScreenGamePageSource, /sortAchievementsForDisplay\(snapshot\.achievements\)/);
+  assert.match(
+    fullScreenGamePageSource,
+    /matchesAchievementFilter\(achievement, achievementFilter\)[\s\S]*matchesAchievementModeFilter\(achievement, achievementModeFilter\)/,
+  );
+  assert.match(
+    fullScreenGamePageSource,
+    /Game Overview[\s\S]*getGameDetailOverviewTitleStyle\(\)[\s\S]*getGameOverviewPillRowStyle\(\)[\s\S]*GameOverviewRefreshPill[\s\S]*DeckyGameArtwork[\s\S]*size=\{256\}/u,
+  );
+  assert.match(fullScreenGamePageSource, /getGameDetailOverviewLayoutStyle\(\)/);
+  const heroStyleMatch = fullScreenGamePageSource.match(
+    /function getGameSpotlightHeroStyle\(\): CSSProperties \{[\s\S]*?return \{[\s\S]*?\n  \};\n\}/u,
+  );
+  assert.ok(heroStyleMatch);
+  assert.doesNotMatch(heroStyleMatch?.[0] ?? "", /borderLeft/);
+  assert.match(fullScreenGamePageSource, /getGameOverviewPillRowStyle\(\)/);
+  assert.match(fullScreenGamePageSource, /getGameOverviewRefreshPillStyle\(/);
+  assert.match(fullScreenGamePageSource, /buildGameMetadataPills\(game\.metrics\)/);
+  assert.match(fullScreenGamePageSource, /getGameDetailMetaRowStyle\(\)/);
+  assert.match(fullScreenGamePageSource, /getGameDetailMetaPillStyle\(\)/);
+  assert.match(fullScreenGamePageSource, /gridTemplateColumns: "repeat\(2, minmax\(0, 1fr\)\)"/);
+  assert.match(fullScreenGamePageSource, /Total players/);
+  assert.match(fullScreenGamePageSource, /Release date/);
+  assert.match(fullScreenGamePageSource, /Points/);
+  assert.match(fullScreenGamePageSource, /RetroPoints/);
+  assert.equal((fullScreenGamePageSource.match(/gameMetadataPills\.map/g) ?? []).length, 1);
+  assert.doesNotMatch(fullScreenGamePageSource, /hardcore-\$\{pill\.key\}/);
+  assert.doesNotMatch(fullScreenGamePageSource, /softcore-\$\{pill\.key\}/);
+  assert.match(fullScreenGamePageSource, /% complete/);
+  assert.doesNotMatch(fullScreenGamePageSource, /label="Completion"/);
+  assert.doesNotMatch(fullScreenGamePageSource, /gameSystemLabel/);
+  assert.match(fullScreenGamePageSource, /AchievementModeButtons/);
+  assert.match(fullScreenGamePageSource, /AchievementStateButtons/);
+  assert.match(fullScreenGamePageSource, /getAchievementFilterGridStyle\(\)/);
+  assert.match(fullScreenGamePageSource, /AchievementFilterButton/);
+  assert.match(fullScreenGamePageSource, /Focusable/);
+  assert.match(fullScreenGamePageSource, /role="group"/);
+  assert.match(fullScreenGamePageSource, /role="button"/);
+  assert.match(fullScreenGamePageSource, /aria-pressed=\{selected\}/);
+  assert.match(fullScreenGamePageSource, /onActivate=\{disabled \? \(\) => undefined : onActivate\}/);
+  assert.match(fullScreenGamePageSource, /onGamepadFocus=\{\(event\) => \{/);
+  assert.doesNotMatch(fullScreenGamePageSource, /role="radiogroup"/);
+  assert.match(fullScreenGamePageSource, /data-game-overview-pill="refresh"/);
+  assert.match(fullScreenGamePageSource, /data-game-overview-pill-focusable="true"/);
+  assert.match(fullScreenGamePageSource, /aria-label="Refresh the current game detail snapshot"/);
+  assert.doesNotMatch(fullScreenGamePageSource, /DeckyCompactPillActionItem/);
+  assert.match(fullScreenGamePageSource, /getAchievementCardStyle\(achievement\)/);
+  assert.match(fullScreenGamePageSource, /getAchievementRowMetadataStackStyle\(\)/);
+  assert.match(fullScreenGamePageSource, /gridTemplateColumns: "repeat\(auto-fit, minmax\(320px, 1fr\)\)"/);
+  assert.match(fullScreenGamePageSource, /gridTemplateColumns: "repeat\(auto-fit, minmax\(240px, 1fr\)\)"/);
+  assert.match(fullScreenGamePageSource, /gridTemplateColumns: "repeat\(3, minmax\(0, 1fr\)\)"/);
+  assert.doesNotMatch(fullScreenGamePageSource, /FULL_SCREEN_INITIAL_ACHIEVEMENT_LIMIT/);
+  assert.doesNotMatch(fullScreenGamePageSource, /FULL_SCREEN_ACHIEVEMENT_LOAD_STEP/);
+  assert.doesNotMatch(fullScreenGamePageSource, /visibleAchievementLimit/);
+  assert.doesNotMatch(fullScreenGamePageSource, /isShowingAllAchievements/);
+  assert.doesNotMatch(fullScreenGamePageSource, /canLoadMoreAchievements/);
+  assert.doesNotMatch(fullScreenGamePageSource, /canShowAllAchievements/);
+  assert.doesNotMatch(fullScreenGamePageSource, /label=\{`Show \$\{formatCount\(FULL_SCREEN_ACHIEVEMENT_LOAD_STEP\)\} more`\}/u);
+  assert.doesNotMatch(fullScreenGamePageSource, /label="Show all"/);
   assert.match(
     readFileSync("src/platform/decky/decky-compact-pill-action-item.tsx", "utf8"),
     /readonly emphasis\?: "default" \| "primary"/,
@@ -1925,6 +1990,10 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(
     readFileSync("src/platform/decky/decky-compact-pill-action-item.tsx", "utf8"),
     /const isPrimary = emphasis === "primary"/,
+  );
+  assert.doesNotMatch(
+    readFileSync("src/platform/decky/decky-compact-pill-action-item.tsx", "utf8"),
+    /readonly ariaPressed\?: boolean/,
   );
   const dashboardViewSource = readFileSync("src/platform/decky/decky-dashboard-view.tsx", "utf8");
   const fullScreenProfileSource = readFileSync("src/platform/decky/decky-full-screen-profile-page.tsx", "utf8");
@@ -3034,6 +3103,7 @@ const DOCUMENTED_GAME_PROGRESS_RESPONSE = {
   Developer: "David Crane",
   Genre: "Racing",
   Released: "1992-06-02 00:00:00",
+  NumDistinctPlayers: 456,
   NumAchievements: 2,
   NumAwardedToUser: 1,
   NumAwardedToUserHardcore: 1,
@@ -4382,6 +4452,13 @@ test("game detail parses the documented RetroAchievements game-progress shape", 
   assert.equal(state.error, undefined);
   assert.equal(state.data?.game.gameId, "14402");
   assert.equal(state.data?.game.title, "Dragster");
+  assert.equal(state.data?.game.metrics.find((metric) => metric.key === "total-players")?.value, "456");
+  assert.equal(
+    state.data?.game.metrics.find((metric) => metric.key === "released")?.value,
+    "1992-06-02 00:00:00",
+  );
+  assert.equal(state.data?.game.metrics.find((metric) => metric.key === "points")?.value, "3");
+  assert.equal(state.data?.game.metrics.find((metric) => metric.key === "retro-points")?.value, "3");
   assert.equal(state.data?.game.summary.unlockedCount, 1);
   assert.equal(state.data?.game.summary.totalCount, 2);
   assert.equal(state.data?.game.summary.completionPercent, 50);

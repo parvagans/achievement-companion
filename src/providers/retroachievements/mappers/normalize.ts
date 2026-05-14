@@ -1132,7 +1132,7 @@ export function normalizeRetroAchievementsGameDetail(
 
   const totalCount = pickNumber(raw.NumAchievements, raw.numAchievements) ?? achievements.length;
   const unlockedCount =
-    pickNumber(raw.NumAwardedToUser, raw.numAwardedToUser) ??
+    pickNumber(raw.NumAwardedToUser, raw.numAwardedToUser) ?? 
     achievements.filter((achievement) => achievement.isUnlocked).length;
   const hardcoreUnlockedCount = pickNumber(raw.NumAwardedToUserHardcore, raw.numAwardedToUserHardcore);
   const userCompletion = pickString(raw.UserCompletion, raw.userCompletion);
@@ -1158,6 +1158,19 @@ export function normalizeRetroAchievementsGameDetail(
   const guideUrl = pickString(raw.GuideURL, raw.guideUrl);
   const highestAwardKind = pickString(raw.HighestAwardKind, raw.highestAwardKind);
   const userTotalPlaytime = pickNumber(raw.UserTotalPlaytime, raw.userTotalPlaytime);
+  const totalPlayers = pickNumber(raw.NumDistinctPlayers, raw.numDistinctPlayers);
+  const achievementPointsTotal = sortedAchievements.reduce((sum, achievement) => {
+    const points = pickNumber(achievement.Points, achievement.points);
+    return points !== undefined ? sum + points : sum;
+  }, 0);
+  const hasAchievementPoints = sortedAchievements.some((achievement) => pickNumber(achievement.Points, achievement.points) !== undefined);
+  const achievementRetroPointsTotal = sortedAchievements.reduce((sum, achievement) => {
+    const trueRatio = pickNumber(achievement.TrueRatio, achievement.trueRatio);
+    return trueRatio !== undefined ? sum + trueRatio : sum;
+  }, 0);
+  const hasAchievementRetroPoints = sortedAchievements.some(
+    (achievement) => pickNumber(achievement.TrueRatio, achievement.trueRatio) !== undefined,
+  );
   const lastUnlockAt = pickEpochMs(raw.HighestAwardDate, raw.highestAwardDate);
 
   const summary: ProgressSummary = {
@@ -1232,6 +1245,33 @@ export function normalizeRetroAchievementsGameDetail(
               key: "released",
               label: "Released",
               value: released,
+            },
+          ]
+        : []),
+      ...(totalPlayers !== undefined
+        ? [
+            {
+              key: "total-players",
+              label: "Total Players",
+              value: String(totalPlayers),
+            },
+          ]
+        : []),
+      ...(hasAchievementPoints
+        ? [
+            {
+              key: "points",
+              label: "Points",
+              value: String(achievementPointsTotal),
+            },
+          ]
+        : []),
+      ...(hasAchievementRetroPoints
+        ? [
+            {
+              key: "retro-points",
+              label: "RetroPoints",
+              value: String(achievementRetroPointsTotal),
             },
           ]
         : []),
