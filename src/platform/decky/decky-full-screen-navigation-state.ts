@@ -1,8 +1,8 @@
 export type FullScreenSettingsBackTarget = "compact-panel" | "previous-fullscreen";
 export type FullScreenGameRouteBackBehavior = "decky-panel" | "completion-progress";
 
-let nextFullScreenSettingsBackTarget: FullScreenSettingsBackTarget = "compact-panel";
 const fullScreenGameRouteBackBehaviors = new Map<string, FullScreenGameRouteBackBehavior>();
+let nextFullScreenSettingsBackTarget: FullScreenSettingsBackTarget = "compact-panel";
 
 function getFullScreenGameRouteKey(providerId: string, gameId: string): string {
   return `${providerId}:${gameId}`;
@@ -20,10 +20,14 @@ export function markNextFullScreenSettingsBackTarget(
   nextFullScreenSettingsBackTarget = target;
 }
 
-export function consumeNextFullScreenSettingsBackTarget(): FullScreenSettingsBackTarget {
-  const target = nextFullScreenSettingsBackTarget;
+export function peekNextFullScreenSettingsBackTarget(): FullScreenSettingsBackTarget {
+  return nextFullScreenSettingsBackTarget;
+}
+
+export function clearNextFullScreenSettingsBackTarget(): boolean {
+  const hadNonDefaultTarget = nextFullScreenSettingsBackTarget !== "compact-panel";
   nextFullScreenSettingsBackTarget = "compact-panel";
-  return target;
+  return hadNonDefaultTarget;
 }
 
 export function markFullScreenGameRouteBackBehavior(

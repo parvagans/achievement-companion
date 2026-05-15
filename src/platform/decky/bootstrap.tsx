@@ -27,6 +27,10 @@ import {
   restoreDeckyFullscreenSelectionFromContext,
   type DeckyFullscreenReturnContext,
 } from "./decky-full-screen-return-context";
+import {
+  markNextFullScreenSettingsBackTarget,
+  resolveFullScreenSettingsBackTarget,
+} from "./decky-full-screen-navigation-state";
 import { shouldRefreshDashboardOnEntry } from "./dashboard-refresh";
 import { useDeckySettings } from "./decky-settings";
 import {
@@ -690,15 +694,18 @@ function DeckyBootstrapStateBridge(): JSX.Element {
 
                     <div style={getChooserActionRowStyle()}>
                       <DeckyCompactPillActionGroup style={getChooserPillGroupStyle()}>
-                        <DeckyCompactPillActionItem
-                          label="Settings"
-                          ariaLabel="Open Settings"
-                          onClick={() => {
-                            void platform.navigation?.go({
-                              view: "settings",
-                              surface: "full-screen",
-                            });
-                          }}
+                <DeckyCompactPillActionItem
+                  label="Settings"
+                  ariaLabel="Open Settings"
+                  onClick={() => {
+                    markNextFullScreenSettingsBackTarget(
+                      resolveFullScreenSettingsBackTarget("compact-panel"),
+                    );
+                    void platform.navigation?.go({
+                      view: "settings",
+                      surface: "full-screen",
+                    });
+                  }}
                         />
                       </DeckyCompactPillActionGroup>
                     </div>
@@ -725,6 +732,9 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                   dispatchDeckyScrollReset("providers");
                 }}
                 onOpenSettings={() => {
+                  markNextFullScreenSettingsBackTarget(
+                    resolveFullScreenSettingsBackTarget("compact-panel"),
+                  );
                   void platform.navigation?.go({
                     view: "settings",
                     surface: "full-screen",

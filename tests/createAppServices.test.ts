@@ -175,9 +175,10 @@ import {
   findSteamLibraryScanGameSummaryByAppId,
 } from "../src/platform/decky/providers/steam/game-detail";
 import {
-  consumeNextFullScreenSettingsBackTarget,
+  clearNextFullScreenSettingsBackTarget,
   markFullScreenGameRouteBackBehavior,
   markNextFullScreenSettingsBackTarget,
+  peekNextFullScreenSettingsBackTarget,
   resolveFullScreenGameRouteBackBehavior,
   resolveFullScreenSettingsBackTarget,
   shouldSuppressGameRouteUnmountWhenOpeningAchievement,
@@ -2233,9 +2234,9 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(providerIdentitySectionStyleMatch?.[0] ?? "", /marginBottom: 12/);
   assert.match(providerIdentitySectionStyleMatch?.[0] ?? "", /width: "100%"/);
   assert.match(compactDashboardSource, /<ProviderIdentityRow providerId=\{profile\.providerId\} \/>/u);
-  assert.match(compactDashboardSource, /data-dashboard-row-type="recent-achievement"/u);
-  assert.match(compactDashboardSource, /data-dashboard-row-type="recently-played"/u);
-  assert.match(compactDashboardSource, /data-dashboard-achievement-tone=\{tone\}/u);
+  assert.match(compactDashboardSource, /function RecentAchievementRow\(/u);
+  assert.match(compactDashboardSource, /function RecentlyPlayedRow\(/u);
+  assert.match(compactDashboardSource, /getDashboardAchievementTone\(recentUnlock\)/u);
   assert.match(compactDashboardSource, /getDashboardCompactCardStyle\(bottomSpacing = 0\)/u);
   assert.match(compactDashboardSource, /padding: "16px 16px 16px 20px"/u);
   assert.match(compactDashboardSource, /gap: 14/u);
@@ -2270,6 +2271,8 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(compactDashboardSource, /formatAchievementUnlockModeLabel\(recentUnlock\.achievement\)/u);
   assert.match(compactDashboardSource, /if \(recentUnlock\.game\.providerId === STEAM_PROVIDER_ID\)/u);
   assert.match(compactDashboardSource, /if \(game\.providerId === STEAM_PROVIDER_ID\)/u);
+  assert.doesNotMatch(compactDashboardSource, /data-dashboard-row-type=/u);
+  assert.doesNotMatch(compactDashboardSource, /data-dashboard-achievement-tone=/u);
   assert.doesNotMatch(compactDashboardSource, /getDashboardCompactRowWrapperStyle/u);
   assert.doesNotMatch(compactDashboardSource, /getDashboardCompactListStyle/u);
   assert.match(compactDashboardSource, /onOpenAchievementDetail\(\{\s*game: recentUnlock\.game,\s*achievement: recentUnlock\.achievement,\s*\}\)/u);
@@ -3273,6 +3276,14 @@ test("completion progress summary cards replace the old filter pill row and act 
     join("src", "platform", "decky", "decky-completion-progress-summary-cards.tsx"),
     "utf8",
   );
+  const summaryCardDataSource = readFileSync(
+    join("src", "platform", "decky", "decky-completion-progress-summary-card-data.ts"),
+    "utf8",
+  );
+  const groupingSource = readFileSync(
+    join("src", "platform", "decky", "decky-completion-progress-grouping.ts"),
+    "utf8",
+  );
   const pageSource = readFileSync(
     join("src", "platform", "decky", "decky-full-screen-completion-progress-page.tsx"),
     "utf8",
@@ -3333,9 +3344,18 @@ test("completion progress summary cards replace the old filter pill row and act 
   assert.equal(renderSource.includes('rgba(96, 165, 250, 0.24)'), true);
   assert.equal(renderSource.includes("<button"), false);
   assert.equal(renderSource.includes("Field"), false);
+  assert.equal(renderSource.includes('from "./decky-completion-progress-summary-card-data"'), true);
+  assert.equal(renderSource.includes("function formatCompletionProgressSelectionLabelForProvider"), false);
+  assert.equal(renderSource.includes("export function buildCompletionProgressSummaryCards({"), false);
+  assert.equal(summaryCardDataSource.includes("export function buildCompletionProgressSummaryCards"), true);
   assert.equal(getDeckyFocusStylesCss().includes("achievement-companion-completion-progress-summary-card"), false);
+  assert.equal(groupingSource.includes("subset sets"), false);
   assert.equal(pageSource.includes("CompletionProgressFilterPills"), false);
   assert.equal(pageSource.includes("COMPLETION_PROGRESS_FILTERS"), false);
+  assert.equal(pageSource.includes("export interface CompletionProgressGameGroup"), false);
+  assert.equal(pageSource.includes("export function groupCompletionProgressGames"), false);
+  assert.equal(pageSource.includes("function formatSteamPlaytimeMinutes"), false);
+  assert.equal(pageSource.includes("function parseCompletionProgressSubsetTitle"), false);
 });
 
 const DOCUMENTED_GAME_PROGRESS_RESPONSE = {
@@ -7253,13 +7273,39 @@ test("steam badge summary cards reduce redundant account stats", () => {
   );
 });
 
-test("fullscreen settings back target preserves compact and fullscreen-profile origins", () => {
-  assert.equal(resolveFullScreenSettingsBackTarget("compact-panel"), "compact-panel");
-  assert.equal(resolveFullScreenSettingsBackTarget("fullscreen-profile"), "previous-fullscreen");
+test("fullscreen settings back target persists across settings round trips", async () => {
+  await withMockDeckyStorage(async () => {
+    const bootstrapSource = readFileSync(join("src", "platform", "decky", "bootstrap.tsx"), "utf8");
+    const navigationSource = readFileSync(
+      join("src", "platform", "decky", "decky-navigation.tsx"),
+      "utf8",
+    );
 
-  markNextFullScreenSettingsBackTarget("previous-fullscreen");
-  assert.equal(consumeNextFullScreenSettingsBackTarget(), "previous-fullscreen");
-  assert.equal(consumeNextFullScreenSettingsBackTarget(), "compact-panel");
+    assert.equal(resolveFullScreenSettingsBackTarget("compact-panel"), "compact-panel");
+    assert.equal(resolveFullScreenSettingsBackTarget("fullscreen-profile"), "previous-fullscreen");
+
+    assert.equal(peekNextFullScreenSettingsBackTarget(), "compact-panel");
+    assert.equal(navigationSource.includes("peekNextFullScreenSettingsBackTarget()"), true);
+    assert.equal(navigationSource.includes("clearNextFullScreenSettingsBackTarget()"), true);
+    assert.equal(
+      navigationSource.includes('resolveFullScreenSettingsBackTarget("fullscreen-profile")'),
+      true,
+    );
+    assert.equal(bootstrapSource.includes('resolveFullScreenSettingsBackTarget("compact-panel")'), true);
+    assert.equal(bootstrapSource.includes("markNextFullScreenSettingsBackTarget("), true);
+    assert.equal(navigationSource.includes("markNextFullScreenSettingsBackTarget("), true);
+
+    markNextFullScreenSettingsBackTarget("previous-fullscreen");
+    assert.equal(peekNextFullScreenSettingsBackTarget(), "previous-fullscreen");
+    assert.equal(peekNextFullScreenSettingsBackTarget(), "previous-fullscreen");
+    assert.equal(clearNextFullScreenSettingsBackTarget(), true);
+    assert.equal(peekNextFullScreenSettingsBackTarget(), "compact-panel");
+
+    markNextFullScreenSettingsBackTarget("compact-panel");
+    assert.equal(peekNextFullScreenSettingsBackTarget(), "compact-panel");
+    assert.equal(clearNextFullScreenSettingsBackTarget(), false);
+    assert.equal(peekNextFullScreenSettingsBackTarget(), "compact-panel");
+  });
 });
 
 test("fullscreen game route suppresses unmount when opening an achievement from the game page", () => {

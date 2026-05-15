@@ -333,7 +333,7 @@ export function formatCompletionProgressSubsetSummary(
   }
 
   const subsetCount = group.subsetGames.length;
-  const subsetLabel = subsetCount === 1 ? "subset" : "subset sets";
+  const subsetLabel = subsetCount === 1 ? "subset" : "subsets";
   const subsetPreview = group.subsetGames
     .slice(0, 2)
     .map((game) => game.title)

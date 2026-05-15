@@ -15,6 +15,7 @@ import { formatDeckyProviderLabel } from "./providers";
 import { STEAM_PROVIDER_ID, useDeckySteamLibraryAchievementScanOverview } from "./providers/steam";
 import {
   formatProfileMemberSince,
+  formatSteamPlaytimeMinutes,
   type ProfileStatSectionVariant,
   getRetroAchievementsProfileStatSections,
   getRetroAchievementsProfileSectionAccentStyle,
@@ -73,25 +74,6 @@ function formatRelativeTime(epochMs: number | undefined): string | undefined {
 
   const value = Math.max(1, Math.round(absoluteMs / 86_400_000));
   return formatter.format(elapsedMs >= 0 ? -value : value, "day");
-}
-
-export function formatSteamPlaytimeMinutes(minutes: number | undefined): string | undefined {
-  if (minutes === undefined) {
-    return undefined;
-  }
-
-  const normalizedMinutes = Math.max(0, Math.trunc(minutes));
-  if (normalizedMinutes < 60) {
-    return `${normalizedMinutes}m`;
-  }
-
-  const hours = Math.floor(normalizedMinutes / 60);
-  const remainderMinutes = normalizedMinutes % 60;
-  if (remainderMinutes === 0) {
-    return `${hours}h`;
-  }
-
-  return `${hours}h ${remainderMinutes}m`;
 }
 
 function getMetricValue(metrics: readonly NormalizedMetric[], ...keys: string[]): string | undefined {

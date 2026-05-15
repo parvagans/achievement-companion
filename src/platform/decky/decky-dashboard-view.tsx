@@ -23,6 +23,7 @@ import {
 } from "./decky-overview-stats";
 import {
   formatProfileMemberSince,
+  formatSteamPlaytimeMinutes,
   getRetroAchievementsProfileSectionAccentStyle,
   getRetroAchievementsProfileSectionStyle,
   getRetroAchievementsProfileSectionTitleStyle,
@@ -840,25 +841,6 @@ function formatRecentlyPlayedSecondary(game: RecentlyPlayedGame): string | undef
   return playtimeLines.length > 0 ? playtimeLines.join(" | ") : undefined;
 }
 
-function formatSteamPlaytimeMinutes(minutes: number | undefined): string | undefined {
-  if (minutes === undefined) {
-    return undefined;
-  }
-
-  const normalizedMinutes = Math.max(0, Math.trunc(minutes));
-  if (normalizedMinutes < 60) {
-    return `${normalizedMinutes}m`;
-  }
-
-  const hours = Math.floor(normalizedMinutes / 60);
-  const remainderMinutes = normalizedMinutes % 60;
-  if (remainderMinutes === 0) {
-    return `${hours}h`;
-  }
-
-  return `${hours}h ${remainderMinutes}m`;
-}
-
 function isRenderableDashboardState(
   state: ResourceState<DashboardSnapshot>,
 ): state is ResourceState<DashboardSnapshot> & {
@@ -1018,8 +1000,6 @@ function RecentAchievementRow({
       focusWithinClassName={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
       noFocusRing
       role="button"
-      data-dashboard-achievement-tone={tone}
-      data-dashboard-row-type="recent-achievement"
       style={getDashboardCompactCardStyle(bottomSpacing)}
       onCancel={onCancel}
       onActivate={() => {
@@ -1114,7 +1094,6 @@ function RecentlyPlayedRow({
       focusWithinClassName={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
       noFocusRing
       role="button"
-      data-dashboard-row-type="recently-played"
       style={getDashboardCompactCardStyle(bottomSpacing)}
       onCancel={onCancel}
       onActivate={() => {

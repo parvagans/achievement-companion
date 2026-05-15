@@ -12,7 +12,6 @@ import {
   DECKY_FOCUS_ACTION_ROW_CLASS,
 } from "./decky-focus-styles";
 import { initialDeckyCompletionProgressState, loadDeckyCompletionProgressState } from "./decky-app-services";
-import { formatCompletionProgressFilterLabel, type CompletionProgressFilter } from "@core/settings";
 import { useDeckySettings } from "./decky-settings";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
@@ -21,15 +20,23 @@ import { STEAM_PROVIDER_ID } from "./providers/steam";
 import {
   countCompletionProgressSubsetGames,
   filterCompletionProgressGamesBySubsetVisibility,
-  groupCompletionProgressGames as groupCompletionProgressGamesWithSubsets,
+  formatCompletionProgressSubsetSummary as formatCompletionProgressSubsetSummaryFromGrouping,
+  groupCompletionProgressGames,
   summarizeCompletionProgressSummaryBySubsetVisibility,
+  type CompletionProgressGameGroup,
 } from "./decky-completion-progress-grouping";
-import { getSteamCompletionProgressGameDetailId } from "./decky-stat-helpers";
 import {
   buildCompletionProgressSummaryCards,
   CompletionProgressSummaryCardGrid,
   type CompletionProgressSelectionFilter,
 } from "./decky-completion-progress-summary-cards";
+import {
+  formatCompletionProgressFilterLabelForProvider,
+  formatCompletionProgressStatusLabel,
+  formatCompletionProgressSummary,
+  formatSteamPlaytimeMinutes,
+  getSteamCompletionProgressGameDetailId,
+} from "./decky-stat-helpers";
 
 const COMPLETION_PROGRESS_INITIAL_GAME_LIMIT = 12;
 const COMPLETION_PROGRESS_GAME_LOAD_STEP = 12;
@@ -263,63 +270,6 @@ const scrollFocusedGamepadElementIntoView: FullScreenGamepadFocusHandler = (even
   });
 };
 
-export function formatCompletionProgressFilterLabelForProvider(
-  filter: CompletionProgressFilter,
-  providerId: string,
-): string {
-  if (providerId === STEAM_PROVIDER_ID) {
-    if (filter === "beaten") {
-      return "Skipped";
-    }
-
-    if (filter === "mastered") {
-      return "Perfect";
-    }
-  }
-
-  return formatCompletionProgressFilterLabel(filter);
-}
-
-export function formatCompletionProgressSummary(
-  summary: CompletionProgressSnapshot["summary"],
-  providerId: string,
-): string {
-  const labels =
-    providerId === STEAM_PROVIDER_ID
-      ? ["Played", "Unfinished", "Skipped", "Perfect"]
-      : ["Played", "Unfinished", "Beaten", "Mastered"];
-
-  return [
-    `${formatCount(summary.playedCount)} ${labels[0]}`,
-    `${formatCount(summary.unfinishedCount)} ${labels[1]}`,
-    `${formatCount(summary.beatenCount)} ${labels[2]}`,
-    `${formatCount(summary.masteredCount)} ${labels[3]}`,
-  ].join(" | ");
-}
-
-export function formatCompletionProgressStatusLabel(
-  status: NormalizedGame["status"],
-  providerId: string,
-): string {
-  if (status === "in_progress") {
-    return "Unfinished";
-  }
-
-  if (status === "completed") {
-    return "Completed";
-  }
-
-  if (status === "beaten") {
-    return "Beaten";
-  }
-
-  if (status === "mastered") {
-    return providerId === STEAM_PROVIDER_ID ? "Perfect" : "Mastered";
-  }
-
-  return "Locked";
-}
-
 function matchesCompletionProgressFilter(
   gameGroup: CompletionProgressGameGroup,
   filter: CompletionProgressSelectionFilter,
@@ -367,103 +317,12 @@ function formatProgressSummary(game: NormalizedGame): string {
   return `${formatCount(game.summary.unlockedCount)} unlocked achievements`;
 }
 
-function formatSteamPlaytimeMinutes(minutes: number | undefined): string | undefined {
-  if (minutes === undefined) {
-    return undefined;
-  }
-
-  const normalizedMinutes = Math.max(0, Math.trunc(minutes));
-  if (normalizedMinutes < 60) {
-    return `${normalizedMinutes}m`;
-  }
-
-  const hours = Math.floor(normalizedMinutes / 60);
-  const remainderMinutes = normalizedMinutes % 60;
-  if (remainderMinutes === 0) {
-    return `${hours}h`;
-  }
-
-  return `${hours}h ${remainderMinutes}m`;
-}
-
-function parseCompletionProgressSubsetTitle(
-  title: string,
-): { readonly kind: "subset" | "challenge set"; readonly strippedTitle: string } | undefined {
-  const normalizedTitle = title.trim();
-  const patterns = [
-    /^(.+?)\s*\((subset|challenge set)\b[^\)]*\)\s*$/i,
-    /^(.+?)\s*\[(subset|challenge set)\b[^\]]*\]\s*$/i,
-    /^(.+?)\s*-\s*(subset|challenge set)\b.*$/i,
-  ] as const;
-
-  for (const pattern of patterns) {
-    const match = normalizedTitle.match(pattern);
-    const strippedTitle = match?.[1]?.trim();
-    const kind = match?.[2]?.trim().toLowerCase();
-
-    if (
-      strippedTitle !== undefined &&
-      strippedTitle.length > 0 &&
-      kind !== undefined &&
-      (kind === "subset" || kind === "challenge set")
-    ) {
-      return {
-        kind,
-        strippedTitle,
-      };
-    }
-  }
-
-  return undefined;
-}
-
-function getCompletionProgressSubsetKindLabel(
-  title: string,
-): "subset" | "challenge set" | undefined {
-  return parseCompletionProgressSubsetTitle(title)?.kind;
-}
-
-export interface CompletionProgressGameGroup {
-  readonly groupKey: string;
-  readonly games: readonly NormalizedGame[];
-  readonly representativeGame: NormalizedGame;
-  readonly subsetGames: readonly NormalizedGame[];
-  readonly isSubsetGame: boolean;
-  readonly sortEpoch?: number;
-}
-
-export function groupCompletionProgressGames(
-  games: readonly NormalizedGame[],
-  showSubsets = false,
-): readonly CompletionProgressGameGroup[] {
-  return groupCompletionProgressGamesWithSubsets(games, showSubsets);
-}
 
 function formatCompletionProgressSubsetSummary(
   group: CompletionProgressGameGroup,
   showSubsets: boolean,
 ): string | undefined {
-  if (!showSubsets) {
-    return undefined;
-  }
-
-  if (group.subsetGames.length === 0) {
-    const subsetKind = getCompletionProgressSubsetKindLabel(group.representativeGame.title);
-    return subsetKind !== undefined ? `This is a ${subsetKind}` : undefined;
-  }
-
-  const subsetCount = group.subsetGames.length;
-  const subsetLabel = subsetCount === 1 ? "subset" : "subsets";
-  const subsetPreview = group.subsetGames
-    .slice(0, 2)
-    .map((game) => game.title)
-    .join(" • ");
-
-  if (subsetPreview.length > 0) {
-    return `Includes ${subsetCount} ${subsetLabel}: ${subsetPreview}`;
-  }
-
-  return `Includes ${subsetCount} ${subsetLabel}`;
+  return showSubsets ? formatCompletionProgressSubsetSummaryFromGrouping(group) : undefined;
 }
 
 function CompletionProgressGameRow({

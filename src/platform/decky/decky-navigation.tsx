@@ -15,9 +15,10 @@ import { DeckyFullScreenSettingsPage } from "./decky-full-screen-settings-page";
 import { DeckyFullScreenProviderSettingsPage } from "./decky-full-screen-provider-settings-page";
 import { dispatchDeckyScrollReset } from "./decky-scroll-viewport";
 import {
-  consumeNextFullScreenSettingsBackTarget,
+  clearNextFullScreenSettingsBackTarget,
   markFullScreenGameRouteBackBehavior,
   markNextFullScreenSettingsBackTarget,
+  peekNextFullScreenSettingsBackTarget,
   resolveFullScreenGameRouteBackBehavior,
   shouldSuppressGameRouteUnmountWhenOpeningAchievement,
   resolveFullScreenSettingsBackTarget,
@@ -555,7 +556,7 @@ function DeckyFullScreenCompletionProgressRoute(): JSX.Element {
 }
 
 function DeckyFullScreenSettingsRoute(): JSX.Element {
-  const backTarget = useMemo(() => consumeNextFullScreenSettingsBackTarget(), []);
+  const backTarget = useMemo(() => peekNextFullScreenSettingsBackTarget(), []);
   const shouldReturnToDeckyPanel = backTarget === "compact-panel";
 
   return (
@@ -572,6 +573,7 @@ function DeckyFullScreenSettingsRoute(): JSX.Element {
       <DeckyFullScreenSettingsPage
         onBack={() => {
           suppressNextFullscreenRouteUnmountAction();
+          clearNextFullScreenSettingsBackTarget();
           if (shouldReturnToDeckyPanel) {
             returnToDeckyPanel();
             return;
