@@ -5,6 +5,7 @@ import {
   DeckyCredentialTextField,
   getDeckyCredentialTextFieldMaskStyle,
 } from "../../decky-credential-text-field";
+import { DeckyCompactPillActionItem } from "../../decky-compact-pill-action-item";
 import { DeckyActionButtonItem } from "../../decky-action-button-item";
 import { DECKY_FOCUS_ACTION_ROW_CLASS } from "../../decky-focus-styles";
 import {
@@ -19,6 +20,7 @@ export interface DeckyRetroAchievementsCredentialsFormProps {
   readonly helperCopy?: string;
   readonly saveLabel: string;
   readonly clearLabel?: string;
+  readonly compactSurface?: boolean;
   readonly onSave: (
     config: Omit<RetroAchievementsProviderConfig, "hasApiKey">,
     apiKeyDraft: string,
@@ -34,6 +36,105 @@ function getFormStyle(): CSSProperties {
   };
 }
 
+function getCompactFormStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 12,
+  };
+}
+
+function getCompactCardStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    padding: 16,
+    borderRadius: 18,
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.03))",
+    boxSizing: "border-box",
+  };
+}
+
+function getCompactCardHeaderStyle(): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    minWidth: 0,
+  };
+}
+
+function getCompactCardLabelStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.72)",
+    fontSize: "0.72em",
+    fontWeight: 800,
+    letterSpacing: "0.1em",
+    lineHeight: 1.2,
+    textTransform: "uppercase",
+  };
+}
+
+function getCompactCardStatusStyle(isConnected: boolean): CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: "2px 8px",
+    borderRadius: 999,
+    border: isConnected ? "1px solid rgba(96, 165, 250, 0.38)" : "1px solid rgba(214, 158, 46, 0.48)",
+    background: isConnected ? "rgba(96, 165, 250, 0.12)" : "rgba(214, 158, 46, 0.12)",
+    color: isConnected ? "rgba(226, 236, 255, 0.98)" : "rgba(255, 244, 201, 0.98)",
+    fontSize: "11px",
+    fontWeight: 750,
+    letterSpacing: "0.04em",
+    lineHeight: 1.15,
+    textTransform: "uppercase",
+    whiteSpace: "nowrap",
+  };
+}
+
+function getCompactCardTextStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.72)",
+    fontSize: "0.9em",
+    lineHeight: 1.45,
+    whiteSpace: "pre-wrap",
+  };
+}
+
+function getCompactFieldCardStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    padding: 14,
+    borderRadius: 18,
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    boxSizing: "border-box",
+  };
+}
+
+function getCompactActionStackStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+  };
+}
+
+function getCompactActionNoteStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.64)",
+    fontSize: "0.82em",
+    lineHeight: 1.35,
+  };
+}
+
 function getStatusCopy(config: RetroAchievementsProviderConfig | undefined): string {
   return config !== undefined ? `Signed in as ${config.username}.` : "Set up your account.";
 }
@@ -44,6 +145,7 @@ export function DeckyRetroAchievementsCredentialsForm({
   helperCopy,
   saveLabel,
   clearLabel,
+  compactSurface = false,
   onSave,
   onClear,
 }: DeckyRetroAchievementsCredentialsFormProps): JSX.Element {
@@ -111,6 +213,85 @@ export function DeckyRetroAchievementsCredentialsForm({
   const hasSavedApiKey = config?.hasApiKey === true;
   const apiKeyInputDescriptor = getRetroAchievementsApiKeyInputDescriptor(hasSavedApiKey);
   const usernameDescription = helperCopy ?? fieldSpecs.username.description;
+
+  if (compactSurface) {
+    return (
+      <div style={getCompactFormStyle()}>
+        <div style={getCompactCardStyle()}>
+          <div style={getCompactCardHeaderStyle()}>
+            <div style={getCompactCardLabelStyle()}>Setup help</div>
+          </div>
+          <div style={getCompactCardTextStyle()}>{helperCopy ?? RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY}</div>
+        </div>
+
+        <div style={getCompactCardStyle()}>
+          <div style={getCompactCardHeaderStyle()}>
+            <div style={getCompactCardLabelStyle()}>{statusLabel}</div>
+            <div style={getCompactCardStatusStyle(hasSavedApiKey)}>
+              {hasSavedApiKey ? "CONNECTED" : "SET UP"}
+            </div>
+          </div>
+          <div style={getCompactCardTextStyle()}>{statusCopy}</div>
+        </div>
+
+        <div style={getCompactFieldCardStyle()}>
+          <DeckyCredentialTextField
+            focusOnMount={config === undefined}
+            label={fieldSpecs.username.label}
+            description={usernameDescription}
+            value={username}
+            onChange={(event) => {
+              setUsername(event.currentTarget.value);
+            }}
+          />
+        </div>
+
+        <div style={getCompactFieldCardStyle()}>
+          <DeckyCredentialTextField
+            label={fieldSpecs.apiKey.label}
+            description={apiKeyInputDescriptor.description}
+            value={apiKeyDraft}
+            aria-label={apiKeyInputDescriptor.ariaLabel}
+            autoCapitalize={apiKeyInputDescriptor.autoCapitalize}
+            autoComplete={apiKeyInputDescriptor.autoComplete}
+            autoCorrect={apiKeyInputDescriptor.autoCorrect}
+            inputMode={apiKeyInputDescriptor.inputMode}
+            spellCheck={apiKeyInputDescriptor.spellCheck}
+            bIsPassword={apiKeyInputDescriptor.bIsPassword}
+            style={getDeckyCredentialTextFieldMaskStyle()}
+            onChange={(event) => {
+              setApiKeyDraft(event.currentTarget.value);
+            }}
+          />
+        </div>
+
+        <div style={getCompactActionStackStyle()}>
+          <DeckyCompactPillActionItem
+            stretch
+            emphasis="primary"
+            label={saveLabel}
+            onClick={() => {
+              void handleSave();
+            }}
+          />
+
+          {onClear !== undefined && config !== undefined ? (
+            <DeckyCompactPillActionItem
+              stretch
+              label={clearLabel ?? "Clear credentials"}
+              onClick={() => {
+                void handleClear();
+              }}
+            />
+          ) : null}
+
+          <div style={getCompactActionNoteStyle()}>
+            Leave the API key blank to keep your saved key.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={getFormStyle()}>

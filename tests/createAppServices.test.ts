@@ -1710,14 +1710,14 @@ test("provider credential helper copy and secret field defaults stay explicit", 
       new URL("../src/platform/decky/providers/retroachievements/credentials-form.tsx", import.meta.url),
       "utf-8",
     ),
-    /Saves your account details and the provider options on this page\. If the API key field is empty, your saved key is kept\./,
+    /if \(compactSurface\)[\s\S]*Leave the API key blank to keep your saved key\./u,
   );
   assert.match(
     readFileSync(
       new URL("../src/platform/decky/providers/steam/credentials-form.tsx", import.meta.url),
       "utf-8",
     ),
-    /Saves your account details and the provider options on this page\. If the API key field is empty, your saved key is kept\./,
+    /if \(compactSurface\)[\s\S]*Leave the API key blank to keep your saved key\./u,
   );
   assert.match(
     readFileSync(
@@ -1836,6 +1836,83 @@ test("provider credential helper copy and secret field defaults stay explicit", 
       new URL("../src/platform/decky/providers/retroachievements/setup-screen.tsx", import.meta.url),
       "utf-8",
     ),
+    /Set up \{providerLabel\}/u,
+  );
+  assert.doesNotMatch(
+    readFileSync(
+      new URL("../src/platform/decky/providers/retroachievements/setup-screen.tsx", import.meta.url),
+      "utf-8",
+    ),
+    /Connect \{providerLabel\}/u,
+  );
+  assert.match(
+    readFileSync(
+      new URL("../src/platform/decky/providers/retroachievements/setup-screen.tsx", import.meta.url),
+      "utf-8",
+    ),
+    /overflowWrap: "anywhere"/u,
+  );
+  assert.match(
+    readFileSync(
+      new URL("../src/platform/decky/providers/retroachievements/setup-screen.tsx", import.meta.url),
+      "utf-8",
+    ),
+    /textOverflow: "clip"/u,
+  );
+  assert.match(
+    readFileSync(
+      new URL("../src/platform/decky/providers/retroachievements/setup-screen.tsx", import.meta.url),
+      "utf-8",
+    ),
+    /RETROACHIEVEMENTS_SETUP_HELP_COPY/u,
+  );
+  assert.match(
+    readFileSync(
+      new URL("../src/platform/decky/providers/retroachievements/setup-screen.tsx", import.meta.url),
+      "utf-8",
+    ),
+    /In RetroAchievements, open Settings, then Authentication\. Copy your Web API Key and use your RetroAchievements username here\./u,
+  );
+  assert.match(
+    readFileSync(
+      new URL("../src/platform/decky/providers/retroachievements/setup-screen.tsx", import.meta.url),
+      "utf-8",
+    ),
+    /DeckyCompactPillActionItem/u,
+  );
+  assert.match(
+    readFileSync(
+      new URL("../src/platform/decky/providers/retroachievements/setup-screen.tsx", import.meta.url),
+      "utf-8",
+    ),
+    /onCancelButton=\{onBackToProviders\}/u,
+  );
+  assert.match(
+    readFileSync(
+      new URL("../src/platform/decky/providers/retroachievements/setup-screen.tsx", import.meta.url),
+      "utf-8",
+    ),
+    /compactSurface/u,
+  );
+  assert.match(
+    readFileSync(
+      new URL("../src/platform/decky/providers/retroachievements/setup-screen.tsx", import.meta.url),
+      "utf-8",
+    ),
+    /helperCopy=\{RETROACHIEVEMENTS_SETUP_HELP_COPY\}/u,
+  );
+  assert.doesNotMatch(
+    readFileSync(
+      new URL("../src/platform/decky/providers/retroachievements/setup-screen.tsx", import.meta.url),
+      "utf-8",
+    ),
+    /PanelSection title="Navigation"/u,
+  );
+  assert.match(
+    readFileSync(
+      new URL("../src/platform/decky/providers/retroachievements/setup-screen.tsx", import.meta.url),
+      "utf-8",
+    ),
     /PanelSection title="Account"/,
   );
   assert.match(
@@ -1844,6 +1921,83 @@ test("provider credential helper copy and secret field defaults stay explicit", 
       "utf-8",
     ),
     /saveLabel="Save provider settings"/,
+  );
+  assert.match(
+    readFileSync(
+      new URL("../src/platform/decky/providers/steam/setup-screen.tsx", import.meta.url),
+      "utf-8",
+    ),
+    /Set up \{providerLabel\}/u,
+  );
+  assert.doesNotMatch(
+    readFileSync(
+      new URL("../src/platform/decky/providers/steam/setup-screen.tsx", import.meta.url),
+      "utf-8",
+    ),
+    /Connect \{providerLabel\}/u,
+  );
+  assert.match(
+    readFileSync(
+      new URL("../src/platform/decky/providers/steam/setup-screen.tsx", import.meta.url),
+      "utf-8",
+    ),
+    /overflowWrap: "anywhere"/u,
+  );
+  assert.match(
+    readFileSync(
+      new URL("../src/platform/decky/providers/steam/setup-screen.tsx", import.meta.url),
+      "utf-8",
+    ),
+    /textOverflow: "clip"/u,
+  );
+  assert.match(
+    readFileSync(
+      new URL("../src/platform/decky/providers/steam/setup-screen.tsx", import.meta.url),
+      "utf-8",
+    ),
+    /STEAM_SETUP_HELP_COPY/u,
+  );
+  assert.match(
+    readFileSync(
+      new URL("../src/platform/decky/providers/steam/setup-screen.tsx", import.meta.url),
+      "utf-8",
+    ),
+    /In Steam, use your SteamID64 and Web API Key\. Keep your API key private and save it only on your own device\./u,
+  );
+  assert.match(
+    readFileSync(
+      new URL("../src/platform/decky/providers/steam/setup-screen.tsx", import.meta.url),
+      "utf-8",
+    ),
+    /DeckyCompactPillActionItem/u,
+  );
+  assert.match(
+    readFileSync(
+      new URL("../src/platform/decky/providers/steam/setup-screen.tsx", import.meta.url),
+      "utf-8",
+    ),
+    /onCancelButton=\{onBackToProviders\}/u,
+  );
+  assert.match(
+    readFileSync(
+      new URL("../src/platform/decky/providers/steam/setup-screen.tsx", import.meta.url),
+      "utf-8",
+    ),
+    /compactSurface/u,
+  );
+  assert.match(
+    readFileSync(
+      new URL("../src/platform/decky/providers/steam/setup-screen.tsx", import.meta.url),
+      "utf-8",
+    ),
+    /helperCopy=\{STEAM_SETUP_HELP_COPY\}/u,
+  );
+  assert.doesNotMatch(
+    readFileSync(
+      new URL("../src/platform/decky/providers/steam/setup-screen.tsx", import.meta.url),
+      "utf-8",
+    ),
+    /PanelSection title="Navigation"/u,
   );
   assert.match(
     readFileSync(
