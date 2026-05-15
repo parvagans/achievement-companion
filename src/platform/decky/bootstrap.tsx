@@ -75,6 +75,8 @@ interface SteamLibraryScanActionState {
 
 type ProviderLauncherTone = "connected" | "setup" | "neutral";
 
+const ACHIEVEMENT_COMPANION_VERSION = "0.2.3";
+
 function getChooserCardStyle(): CSSProperties {
   return {
     display: "flex",
@@ -122,6 +124,28 @@ function getChooserStatusStyle(): CSSProperties {
     fontSize: "0.82em",
     lineHeight: 1.2,
     textAlign: "center",
+  };
+}
+
+function getChooserVersionStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.44)",
+    fontSize: "0.72em",
+    fontWeight: 600,
+    letterSpacing: "0.03em",
+    lineHeight: 1.2,
+    textAlign: "center",
+  };
+}
+
+function getChooserFooterStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    alignItems: "center",
+    width: "100%",
+    minWidth: 0,
   };
 }
 
@@ -285,13 +309,16 @@ function getChooserProviderCardIconStyle(): CSSProperties {
 
 function getChooserProviderCardTitleStyle(): CSSProperties {
   return {
+    flex: "1 1 auto",
     minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    fontSize: "1.02em",
+    overflow: "visible",
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+    textOverflow: "clip",
+    whiteSpace: "normal",
+    fontSize: "0.98em",
     fontWeight: 750,
-    lineHeight: 1.15,
+    lineHeight: 1.2,
   };
 }
 
@@ -969,19 +996,40 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                       />
                     </div>
 
-                    <div style={getChooserStatusStyle()}>
+                    <div style={getChooserFooterStyle()}>
                       {(() => {
                         const connectedCount = visibleProviders.filter((provider) => provider.connected).length;
 
                         if (connectedCount === 0) {
-                          return "No providers connected";
+                          return (
+                            <>
+                              <div style={getChooserStatusStyle()}>No providers connected</div>
+                              <div style={getChooserVersionStyle()}>
+                                Achievement Companion v{ACHIEVEMENT_COMPANION_VERSION}
+                              </div>
+                            </>
+                          );
                         }
 
                         if (connectedCount === 1) {
-                          return "1 provider connected";
+                          return (
+                            <>
+                              <div style={getChooserStatusStyle()}>1 provider connected</div>
+                              <div style={getChooserVersionStyle()}>
+                                Achievement Companion v{ACHIEVEMENT_COMPANION_VERSION}
+                              </div>
+                            </>
+                          );
                         }
 
-                        return `${connectedCount} providers connected`;
+                        return (
+                          <>
+                            <div style={getChooserStatusStyle()}>{`${connectedCount} providers connected`}</div>
+                            <div style={getChooserVersionStyle()}>
+                              Achievement Companion v{ACHIEVEMENT_COMPANION_VERSION}
+                            </div>
+                          </>
+                        );
                       })()}
                     </div>
                   </div>

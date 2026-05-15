@@ -2518,6 +2518,14 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   );
   assert.match(
     readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
+    /function getChooserVersionStyle\(/u,
+  );
+  assert.match(
+    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
+    /function getChooserFooterStyle\(/u,
+  );
+  assert.match(
+    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
     /onActivate=\{onClick\}/u,
   );
   assert.match(
@@ -2531,6 +2539,26 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(
     readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
     /getChooserProviderLauncherTone\(providerId, connected === true\)/u,
+  );
+  assert.match(
+    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
+    /getChooserProviderCardTitleStyle\(\)/u,
+  );
+  assert.match(
+    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
+    /overflowWrap: "anywhere"/u,
+  );
+  assert.match(
+    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
+    /wordBreak: "break-word"/u,
+  );
+  assert.match(
+    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
+    /whiteSpace: "normal"/u,
+  );
+  assert.doesNotMatch(
+    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
+    /textOverflow: "ellipsis"/u,
   );
   assert.match(
     readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
@@ -2574,6 +2602,10 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   );
   assert.match(
     readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
+    /Achievement Companion v\{ACHIEVEMENT_COMPANION_VERSION\}/u,
+  );
+  assert.match(
+    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
     /visibleProviders\.filter\(\(provider\) => provider\.connected\)\.length/u,
   );
   assert.match(
@@ -2587,6 +2619,10 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(
     readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
     /providers connected/u,
+  );
+  assert.match(
+    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
+    /getChooserFooterStyle\(\)/u,
   );
   assert.match(
     readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
