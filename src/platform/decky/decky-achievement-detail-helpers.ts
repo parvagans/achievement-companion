@@ -268,6 +268,10 @@ export function shouldHideSteamAchievementDetailStats(providerId: string | undef
   return providerId === "steam";
 }
 
+export function shouldRenderAchievementModeFilter(providerId: string | undefined): boolean {
+  return providerId === "retroachievements";
+}
+
 export function getAchievementDescriptionText(description: string | undefined): string {
   return description ?? "No description was returned for this achievement.";
 }

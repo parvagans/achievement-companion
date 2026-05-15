@@ -13,7 +13,12 @@ import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-f
 import {
   DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS,
 } from "./decky-focus-styles";
-import { buildAchievementStatus, dedupeDistinctLabels, formatModeProgressSummary } from "./decky-achievement-detail-helpers";
+import {
+  buildAchievementStatus,
+  dedupeDistinctLabels,
+  formatModeProgressSummary,
+  shouldRenderAchievementModeFilter,
+} from "./decky-achievement-detail-helpers";
 import { sortAchievementsForDisplay } from "./decky-game-detail-ordering";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
@@ -1098,6 +1103,7 @@ interface AchievementBrowserProps {
   readonly achievementModeFilter: AchievementModeFilter;
   readonly achievementSummary: string;
   readonly achievements: readonly NormalizedAchievement[];
+  readonly providerId: string | undefined;
   readonly filteredAchievementCount: number;
   readonly onAchievementFilterChange: (filter: AchievementFilter) => void;
   readonly onAchievementModeFilterChange: (filter: AchievementModeFilter) => void;
@@ -1110,12 +1116,15 @@ function AchievementBrowser({
   achievementModeFilter,
   achievementSummary,
   achievements,
+  providerId,
   filteredAchievementCount,
   onAchievementFilterChange,
   onAchievementModeFilterChange,
   onOpenAchievementDetail,
   onBack,
 }: AchievementBrowserProps): JSX.Element {
+  const showAchievementModeFilter = shouldRenderAchievementModeFilter(providerId);
+
   return (
     <div style={getAchievementBrowserStackStyle()}>
       <div style={getAchievementBrowserCardStyle()}>
@@ -1132,12 +1141,16 @@ function AchievementBrowser({
         </div>
 
         <div style={getAchievementBrowserMetaStackStyle()}>
-          <div style={getAchievementBrowserSectionLabelStyle()}>Mode</div>
-          <AchievementModeButtons
-            currentModeFilter={achievementModeFilter}
-            onSelect={onAchievementModeFilterChange}
-            onCancel={onBack}
-          />
+          {showAchievementModeFilter ? (
+            <>
+              <div style={getAchievementBrowserSectionLabelStyle()}>Mode</div>
+              <AchievementModeButtons
+                currentModeFilter={achievementModeFilter}
+                onSelect={onAchievementModeFilterChange}
+                onCancel={onBack}
+              />
+            </>
+          ) : null}
 
           <div style={getAchievementBrowserSectionLabelStyle()}>State</div>
           <AchievementStateButtons
@@ -1231,9 +1244,10 @@ export function DeckyFullScreenGamePage({
   const orderedAchievements = sortAchievementsForDisplay(snapshot.achievements);
   const achievementSummary = formatAchievementStatusSummary(orderedAchievements);
   const summary = snapshot.game.summary;
+  const providerIdValue = providerId ?? game.providerId;
   const filteredAchievements = orderedAchievements.filter((achievement) =>
     matchesAchievementFilter(achievement, achievementFilter) &&
-    matchesAchievementModeFilter(achievement, achievementModeFilter),
+    (shouldRenderAchievementModeFilter(providerIdValue) ? matchesAchievementModeFilter(achievement, achievementModeFilter) : true),
   );
   const filteredAchievementCount = filteredAchievements.length;
   const completionPercent = getCompletionPercent(snapshot.game.summary);
@@ -1358,6 +1372,7 @@ export function DeckyFullScreenGamePage({
                 achievementModeFilter={achievementModeFilter}
                 achievementSummary={achievementSummary}
                 achievements={achievements}
+                providerId={providerIdValue}
                 filteredAchievementCount={filteredAchievementCount}
                 onAchievementFilterChange={(filter) => {
                   setAchievementFilter(filter);

@@ -61,6 +61,7 @@ import {
   formatAchievementUnlockModeLabel,
   formatModeProgressSummary,
   shouldHideSteamAchievementDetailStats,
+  shouldRenderAchievementModeFilter,
 } from "../src/platform/decky/decky-achievement-detail-helpers";
 import { sortAchievementsForDisplay } from "../src/platform/decky/decky-game-detail-ordering";
 import {
@@ -1210,6 +1211,12 @@ test("retroachievements achievement row mode label helper distinguishes hardcore
   );
 });
 
+test("decky game detail mode filter is retroachievements only", () => {
+  assert.equal(shouldRenderAchievementModeFilter("retroachievements"), true);
+  assert.equal(shouldRenderAchievementModeFilter("steam"), false);
+  assert.equal(shouldRenderAchievementModeFilter(undefined), false);
+});
+
 test("retroachievements achievement status helper distinguishes hardcore and softcore unlocks", () => {
   assert.deepStrictEqual(
     buildAchievementStatus({
@@ -1962,6 +1969,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(achievementDetailViewSource, /useState<AchievementModeFilter>\("all"\)/);
   assert.match(achievementDetailViewSource, /if \(modeFilter === "all"\) \{\s*return true;\s*\}/u);
   assert.match(achievementDetailViewSource, /ACHIEVEMENT_MODE_FILTERS\.map\(\(filter\)/);
+  assert.match(achievementDetailViewSource, /shouldRenderAchievementModeFilter\(game\.providerId\)/);
   const modeButtonsStart = achievementDetailViewSource.indexOf("function AchievementModeButtons(");
   const modeButtonsEnd = achievementDetailViewSource.indexOf("function AchievementRowCard(", modeButtonsStart);
   assert.ok(modeButtonsStart >= 0);
@@ -1978,6 +1986,8 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(modeButtonsSource, /onClick=\{\(\) => \{\s*onSelect\(filter\);\s*\}\}/u);
   assert.match(modeButtonsSource, /onFocus=\{scrollFocusedElementIntoView\}/);
   assert.doesNotMatch(modeButtonsSource, /DeckyCompactPillActionItem/);
+  assert.match(achievementDetailViewSource, /showAchievementModeFilter \?\s*\(/u);
+  assert.match(achievementDetailViewSource, /matchesAchievementModeFilter\(achievement, achievementModeFilter\)/);
   assert.match(achievementDetailViewSource, /label="Open Game"/);
   assert.doesNotMatch(achievementDetailViewSource, /label="Open full-screen page"/);
   assert.match(achievementDetailViewSource, /if \(modeFilter === "all"\) \{\s*return "All";\s*\}/u);
@@ -2008,6 +2018,8 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     fullScreenGamePageSource,
     /matchesAchievementFilter\(achievement, achievementFilter\)[\s\S]*matchesAchievementModeFilter\(achievement, achievementModeFilter\)/,
   );
+  assert.match(fullScreenGamePageSource, /shouldRenderAchievementModeFilter\(providerIdValue\)/);
+  assert.match(fullScreenGamePageSource, /showAchievementModeFilter \?\s*\(/u);
   assert.match(
     fullScreenGamePageSource,
     /Game Overview[\s\S]*getGameDetailOverviewTitleStyle\(\)[\s\S]*getGameOverviewPillRowStyle\(\)[\s\S]*DeckyGameArtwork[\s\S]*size=\{256\}[\s\S]*DeckyFullscreenActionRow centered[\s\S]*DeckyFullscreenActionButton[\s\S]*label=\{backLabel\}[\s\S]*DeckyFullscreenActionButton[\s\S]*label="Refresh"/u,

@@ -8,7 +8,11 @@ import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS, DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import type { CompactAchievementTarget } from "./decky-achievement-detail-view";
 import { DeckyCompactPillActionGroup, DeckyCompactPillActionItem } from "./decky-compact-pill-action-item";
-import { buildAchievementStatus, formatModeProgressSummary } from "./decky-achievement-detail-helpers";
+import {
+  buildAchievementStatus,
+  formatModeProgressSummary,
+  shouldRenderAchievementModeFilter,
+} from "./decky-achievement-detail-helpers";
 import { sortAchievementsForDisplay } from "./decky-game-detail-ordering";
 
 const INITIAL_ACHIEVEMENT_LIMIT = 3;
@@ -640,6 +644,7 @@ interface AchievementSectionBodyProps {
   readonly achievementModeFilter: AchievementModeFilter;
   readonly achievementFilter: AchievementFilter;
   readonly achievements: readonly NormalizedAchievement[];
+  readonly showAchievementModeFilter: boolean;
   readonly canLoadMoreAchievements: boolean;
   readonly canShowAllAchievements: boolean;
   readonly filteredAchievementCount: number;
@@ -656,6 +661,7 @@ function AchievementSectionBody({
   achievementModeFilter,
   achievementFilter,
   achievements,
+  showAchievementModeFilter,
   canLoadMoreAchievements,
   canShowAllAchievements,
   filteredAchievementCount,
@@ -674,11 +680,13 @@ function AchievementSectionBody({
     <>
       <PanelSectionRow>
         <div style={getGameDetailSectionCardStyle()}>
-          <AchievementModeButtons
-            currentModeFilter={achievementModeFilter}
-            onSelect={onAchievementModeFilterChange}
-            onCancel={onBackToDashboard}
-          />
+          {showAchievementModeFilter ? (
+            <AchievementModeButtons
+              currentModeFilter={achievementModeFilter}
+              onSelect={onAchievementModeFilterChange}
+              onCancel={onBackToDashboard}
+            />
+          ) : null}
           <AchievementFilterPills
             currentFilter={achievementFilter}
             onSelect={onAchievementFilterChange}
@@ -742,6 +750,7 @@ export function DeckyGameDetailView({
 }: DeckyGameDetailViewProps): JSX.Element {
   const snapshot = state.data;
   const game = snapshot.game;
+  const showAchievementModeFilter = shouldRenderAchievementModeFilter(game.providerId);
   const headerArtworkUrl = game.coverImageUrl;
   const [achievementFilter, setAchievementFilter] = useState<AchievementFilter>("all");
   const [achievementModeFilter, setAchievementModeFilter] = useState<AchievementModeFilter>("all");
@@ -750,7 +759,7 @@ export function DeckyGameDetailView({
   const orderedAchievements = sortAchievementsForDisplay(snapshot.achievements);
   const filteredAchievements = orderedAchievements.filter((achievement) =>
     matchesAchievementFilter(achievement, achievementFilter) &&
-    matchesAchievementModeFilter(achievement, achievementModeFilter),
+    (showAchievementModeFilter ? matchesAchievementModeFilter(achievement, achievementModeFilter) : true),
   );
   const filteredAchievementCount = filteredAchievements.length;
   const completionPercent = getCompletionPercent(snapshot.game.summary);
@@ -841,6 +850,7 @@ export function DeckyGameDetailView({
             achievementModeFilter={achievementModeFilter}
             achievementFilter={achievementFilter}
             achievements={achievements}
+            showAchievementModeFilter={showAchievementModeFilter}
             canLoadMoreAchievements={canLoadMoreAchievements}
             canShowAllAchievements={canShowAllAchievements}
             filteredAchievementCount={filteredAchievementCount}
