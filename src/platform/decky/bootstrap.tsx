@@ -1,5 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { PanelSection, PanelSectionRow, useQuickAccessVisible } from "@decky/ui";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ComponentProps,
+  type FocusEventHandler,
+} from "react";
+import { Focusable, PanelSection, PanelSectionRow, useQuickAccessVisible } from "@decky/ui";
 import type { ResourceState } from "@core/cache";
 import type { DashboardSnapshot, GameDetailSnapshot, ProviderId } from "@core/domain";
 import { PlaceholderState } from "@ui/PlaceholderState";
@@ -64,6 +73,8 @@ interface SteamLibraryScanActionState {
   readonly message?: string;
 }
 
+type ProviderLauncherTone = "connected" | "setup" | "neutral";
+
 function getChooserCardStyle(): CSSProperties {
   return {
     display: "flex",
@@ -116,20 +127,33 @@ function getChooserStatusStyle(): CSSProperties {
 
 function getChooserActionRowStyle(): CSSProperties {
   return {
-    display: "grid",
-    placeItems: "center",
+    display: "flex",
+    justifyContent: "center",
     width: "100%",
     minWidth: 0,
   };
 }
 
-function getChooserPillRowStyle(): CSSProperties {
+function getChooserProviderListStyle(): CSSProperties {
   return {
-    display: "grid",
-    placeItems: "center",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 10,
     width: "100%",
     minWidth: 0,
   };
+}
+
+function getChooserProviderLauncherTone(
+  providerId: ProviderId | "settings",
+  connected: boolean,
+): ProviderLauncherTone {
+  if (providerId === "settings") {
+    return "neutral";
+  }
+
+  return connected ? "connected" : "setup";
 }
 
 function getChooserPillGroupStyle(): CSSProperties {
@@ -145,16 +169,256 @@ function getChooserPillGroupStyle(): CSSProperties {
   };
 }
 
-function getChooserProviderPillGroupStyle(): CSSProperties {
+function getChooserProviderCardStyle(
+  tone: ProviderLauncherTone,
+  isFocused: boolean,
+): CSSProperties {
+  const accentColor =
+    tone === "connected"
+      ? "rgba(116, 176, 255, 0.82)"
+      : tone === "setup"
+        ? "rgba(214, 158, 46, 0.82)"
+        : "rgba(255, 255, 255, 0.32)";
+
   return {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+    display: "flex",
     alignItems: "stretch",
-    justifyItems: "stretch",
+    gap: 12,
     width: "100%",
     minWidth: 0,
-    gap: "8px 10px",
+    padding: "12px 14px 12px 14px",
+    borderRadius: 16,
+    border: `1px solid ${
+      isFocused
+        ? tone === "setup"
+          ? "rgba(245, 189, 82, 0.72)"
+          : "rgba(125, 190, 255, 0.7)"
+        : "rgba(255, 255, 255, 0.09)"
+    }`,
+    background: isFocused
+      ? "linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.06))"
+      : "linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.035))",
+    boxShadow: isFocused
+      ? tone === "setup"
+        ? "0 0 0 1px rgba(245, 189, 82, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 2px 12px rgba(0, 0, 0, 0.24)"
+        : "0 0 0 1px rgba(96, 165, 250, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 2px 12px rgba(0, 0, 0, 0.24)"
+      : "inset 0 1px 0 rgba(255, 255, 255, 0.04)",
+    boxSizing: "border-box",
+    overflow: "hidden",
+    cursor: "pointer",
+    color: "rgba(255, 255, 255, 0.96)",
+    transition:
+      "background 120ms ease, border-color 120ms ease, box-shadow 120ms ease, color 120ms ease, transform 120ms ease",
   };
+}
+
+function getChooserProviderCardAccentStyle(tone: ProviderLauncherTone): CSSProperties {
+  const accentColor =
+    tone === "connected"
+      ? "rgba(116, 176, 255, 0.82)"
+      : tone === "setup"
+        ? "rgba(214, 158, 46, 0.82)"
+        : "rgba(255, 255, 255, 0.32)";
+
+  return {
+    width: 4,
+    flexShrink: 0,
+    marginBlock: 8,
+    marginInlineStart: 3,
+    borderRadius: 999,
+    background: accentColor,
+    boxShadow: `0 0 0 1px ${accentColor}`,
+  };
+}
+
+function getChooserProviderCardBodyStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    gap: 6,
+    minWidth: 0,
+    flex: 1,
+    padding: "0 0 0 2px",
+  };
+}
+
+function getChooserProviderCardHeaderStyle(): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    minWidth: 0,
+  };
+}
+
+function getChooserProviderCardIconFrameStyle(tone: ProviderLauncherTone): CSSProperties {
+  const accentColor =
+    tone === "connected"
+      ? "rgba(116, 176, 255, 0.24)"
+      : tone === "setup"
+        ? "rgba(214, 158, 46, 0.24)"
+        : "rgba(255, 255, 255, 0.18)";
+
+  return {
+    width: 28,
+    height: 28,
+    flexShrink: 0,
+    overflow: "hidden",
+    borderRadius: 8,
+    border: `1px solid ${accentColor}`,
+    background: "rgba(255, 255, 255, 0.06)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  };
+}
+
+function getChooserProviderCardIconStyle(): CSSProperties {
+  return {
+    display: "block",
+    width: "100%",
+    height: "100%",
+    objectFit: "cover",
+  };
+}
+
+function getChooserProviderCardTitleStyle(): CSSProperties {
+  return {
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    fontSize: "1.02em",
+    fontWeight: 750,
+    lineHeight: 1.15,
+  };
+}
+
+function getChooserProviderCardStatusStyle(): CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "fit-content",
+    maxWidth: "100%",
+    padding: "2px 8px",
+    borderRadius: 999,
+    border: "1px solid rgba(255, 255, 255, 0.10)",
+    background: "rgba(255, 255, 255, 0.07)",
+    color: "rgba(255, 255, 255, 0.78)",
+    fontSize: "11px",
+    fontWeight: 750,
+    letterSpacing: "0.04em",
+    lineHeight: 1.15,
+    textTransform: "uppercase",
+    whiteSpace: "nowrap",
+  };
+}
+
+function getChooserProviderCardStatusStyleForTone(tone: ProviderLauncherTone): CSSProperties {
+  const accent =
+    tone === "connected"
+      ? {
+          border: "1px solid rgba(125, 190, 255, 0.46)",
+          background: "rgba(96, 165, 250, 0.12)",
+          color: "rgba(226, 236, 255, 0.98)",
+        }
+      : tone === "setup"
+        ? {
+            border: "1px solid rgba(214, 158, 46, 0.52)",
+            background: "rgba(214, 158, 46, 0.14)",
+            color: "rgba(255, 244, 201, 0.98)",
+          }
+        : {
+            border: "1px solid rgba(255, 255, 255, 0.10)",
+            background: "rgba(255, 255, 255, 0.07)",
+            color: "rgba(255, 255, 255, 0.78)",
+          };
+
+  return {
+    ...getChooserProviderCardStatusStyle(),
+    ...accent,
+  };
+}
+
+const scrollFocusedLauncherElementIntoView: FocusEventHandler<HTMLElement> = (event) => {
+  event.currentTarget.scrollIntoView({
+    block: "nearest",
+    inline: "nearest",
+  });
+};
+
+type DeckyGamepadFocusHandler = NonNullable<ComponentProps<typeof Focusable>["onGamepadFocus"]>;
+
+const scrollFocusedLauncherGamepadElementIntoView: DeckyGamepadFocusHandler = (event) => {
+  const target = event.currentTarget;
+
+  if (target instanceof HTMLElement) {
+    target.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+    });
+  }
+};
+
+function ProviderLauncherCard({
+  providerId,
+  iconSrc,
+  label,
+  statusLabel,
+  connected,
+  ariaLabel,
+  onClick,
+}: {
+  readonly providerId: ProviderId | "settings";
+  readonly iconSrc: string | undefined;
+  readonly label: string;
+  readonly connected?: boolean;
+  readonly statusLabel?: string;
+  readonly ariaLabel: string;
+  readonly onClick: () => void;
+}): JSX.Element {
+  const [isFocused, setIsFocused] = useState(false);
+  const tone = getChooserProviderLauncherTone(providerId, connected === true);
+
+  return (
+    <Focusable
+      noFocusRing
+      role="button"
+      aria-label={ariaLabel}
+      tabIndex={0}
+      onActivate={onClick}
+      onClick={onClick}
+      onFocus={(event) => {
+        setIsFocused(true);
+        scrollFocusedLauncherElementIntoView(event);
+      }}
+      onGamepadFocus={(event) => {
+        setIsFocused(true);
+        scrollFocusedLauncherGamepadElementIntoView(event);
+      }}
+      onBlur={() => {
+        setIsFocused(false);
+      }}
+      style={getChooserProviderCardStyle(tone, isFocused)}
+    >
+      <span aria-hidden="true" style={getChooserProviderCardAccentStyle(tone)} />
+      <span style={getChooserProviderCardBodyStyle()}>
+        <span style={getChooserProviderCardHeaderStyle()}>
+          {iconSrc !== undefined ? (
+            <span aria-hidden="true" style={getChooserProviderCardIconFrameStyle(tone)}>
+              <img alt={label} loading="lazy" src={iconSrc} style={getChooserProviderCardIconStyle()} />
+            </span>
+          ) : null}
+          <span style={getChooserProviderCardTitleStyle()}>{label}</span>
+        </span>
+        {statusLabel !== undefined ? (
+          <span style={getChooserProviderCardStatusStyleForTone(tone)}>{statusLabel}</span>
+        ) : null}
+      </span>
+    </Focusable>
+  );
 }
 
 function formatSteamLibraryScanUpdatedLabel(scannedAt: string | undefined): string | undefined {
@@ -642,30 +906,29 @@ function DeckyBootstrapStateBridge(): JSX.Element {
         <>
           {selectedProviderId === undefined ? (
             <TopAlignedScrollViewport scrollKey="providers">
-          <PanelSection title="Providers">
-            <PanelSectionRow>
-              <div style={getChooserCardStyle()}>
-                <div style={getChooserHeaderStyle()}>Achievement Companion</div>
-                <div style={getChooserTitleStyle()}>Choose a provider</div>
+              <PanelSection title="Providers">
+                <PanelSectionRow>
+                  <div style={getChooserCardStyle()}>
+                    <div style={getChooserHeaderStyle()}>Achievement Companion</div>
+                    <div style={getChooserTitleStyle()}>Choose a provider</div>
                     <div style={getChooserSupportStyle()}>
-                      Select a provider to connect it or open its dashboard.
+                      Open a connected dashboard or update provider settings.
                     </div>
 
-                    <div style={getChooserPillRowStyle()}>
-                      <DeckyCompactPillActionGroup style={getChooserProviderPillGroupStyle()}>
-                        {visibleProviders.map((provider) => (
-                          <DeckyCompactPillActionItem
-                            key={provider.id}
-                            iconSrc={provider.iconSrc}
-                            iconAlt={provider.label}
-                            label={provider.label}
-                            stretch
-                            ariaLabel={
-                              provider.connected
-                                ? `${provider.label} provider, connected`
-                                : `${provider.label} provider, not connected`
-                            }
-                            statusLabel={provider.connected ? "Connected" : undefined}
+                    <div style={getChooserProviderListStyle()}>
+                      {visibleProviders.map((provider) => (
+                        <ProviderLauncherCard
+                          key={provider.id}
+                          providerId={provider.id}
+                          iconSrc={provider.iconSrc}
+                          label={provider.label}
+                          connected={provider.connected}
+                          ariaLabel={
+                            provider.connected
+                              ? `${provider.label} provider, connected`
+                              : `${provider.label} provider, not connected`
+                          }
+                          statusLabel={provider.connected ? "CONNECTED" : "SET UP"}
                           onClick={() => {
                             if (!provider.enabled) {
                               return;
@@ -675,43 +938,51 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                             setSelectedGame(undefined);
                             setFullscreenReturnContext(undefined);
                             clearDeckyFullscreenReturnContext();
-                          if (
-                            (provider.id === "retroachievements" && providerConfigs.retroAchievements === undefined) ||
-                            (provider.id === "steam" && providerConfigs.steam === undefined)
-                          ) {
-                            setSetupProviderId(provider.id);
-                                return;
-                              }
+                            if (
+                              (provider.id === "retroachievements" && providerConfigs.retroAchievements === undefined) ||
+                              (provider.id === "steam" && providerConfigs.steam === undefined)
+                            ) {
+                              setSetupProviderId(provider.id);
+                              return;
+                            }
 
-                              setSetupProviderId(undefined);
-                              setSelectedProviderId(provider.id);
-                              setDashboardEntryNonce((value) => value + 1);
-                            }}
-                          />
-                        ))}
-                      </DeckyCompactPillActionGroup>
-                    </div>
-
-                    <div style={getChooserActionRowStyle()}>
-                      <DeckyCompactPillActionGroup style={getChooserPillGroupStyle()}>
-                <DeckyCompactPillActionItem
-                  label="Settings"
-                  ariaLabel="Open Settings"
-                  onClick={() => {
-                    markNextFullScreenSettingsBackTarget(
-                      resolveFullScreenSettingsBackTarget("compact-panel"),
-                    );
-                    void platform.navigation?.go({
-                      view: "settings",
-                      surface: "full-screen",
-                    });
-                  }}
+                            setSetupProviderId(undefined);
+                            setSelectedProviderId(provider.id);
+                            setDashboardEntryNonce((value) => value + 1);
+                          }}
                         />
-                      </DeckyCompactPillActionGroup>
+                      ))}
+                      <ProviderLauncherCard
+                        providerId="settings"
+                        iconSrc={undefined}
+                        label="Provider Settings"
+                        ariaLabel="Open provider settings"
+                        onClick={() => {
+                          markNextFullScreenSettingsBackTarget(
+                            resolveFullScreenSettingsBackTarget("compact-panel"),
+                          );
+                          void platform.navigation?.go({
+                            view: "settings",
+                            surface: "full-screen",
+                          });
+                        }}
+                      />
                     </div>
 
                     <div style={getChooserStatusStyle()}>
-                      {visibleProviders.some((provider) => provider.connected) ? "Connected" : "Not connected"}
+                      {(() => {
+                        const connectedCount = visibleProviders.filter((provider) => provider.connected).length;
+
+                        if (connectedCount === 0) {
+                          return "No providers connected";
+                        }
+
+                        if (connectedCount === 1) {
+                          return "1 provider connected";
+                        }
+
+                        return `${connectedCount} providers connected`;
+                      })()}
                     </div>
                   </div>
                 </PanelSectionRow>
