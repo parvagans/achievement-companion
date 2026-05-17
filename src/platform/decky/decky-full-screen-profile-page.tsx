@@ -25,6 +25,7 @@ import {
   getSteamAccountProgressSummary,
 } from "./decky-stat-helpers";
 import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
+import { StatsGrid } from "./decky-layout-components";
 
 export interface DeckyFullScreenProfilePageProps {
   readonly providerId: string | undefined;
@@ -290,14 +291,6 @@ function getProgressSubtitleStyle(): CSSProperties {
   };
 }
 
-function getStatsGridStyle(): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: 10,
-  };
-}
-
 function getStatCardStyle(): CSSProperties {
   return {
     display: "flex",
@@ -549,14 +542,6 @@ function ProfileStat({
   }
 
   return <div style={getStatCardStyle()}>{content}</div>;
-}
-
-function StatsGrid({ children }: { readonly children: React.ReactNode }): JSX.Element {
-  return (
-    <Focusable flow-children="left-right" style={getStatsGridStyle()}>
-      {children}
-    </Focusable>
-  );
 }
 
 interface ProfileStatDescriptor {
