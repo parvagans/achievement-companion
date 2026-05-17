@@ -1,7 +1,7 @@
 import { useMemo, type CSSProperties } from "react";
 import type { ResourceState } from "@core/cache";
 import type { DashboardSnapshot, NormalizedMetric, RecentlyPlayedGame } from "@core/domain";
-import { PanelSection, PanelSectionRow, ScrollPanel } from "@decky/ui";
+import { Focusable, PanelSection, PanelSectionRow, ScrollPanel } from "@decky/ui";
 import { PlaceholderState } from "@ui/PlaceholderState";
 import { DeckyCompletionProgressBar } from "./decky-completion-progress-bar";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
@@ -25,7 +25,6 @@ import {
   getSteamAccountProgressSummary,
 } from "./decky-stat-helpers";
 import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
-import { Focusable } from "@decky/ui";
 
 export interface DeckyFullScreenProfilePageProps {
   readonly providerId: string | undefined;
@@ -552,6 +551,14 @@ function ProfileStat({
   return <div style={getStatCardStyle()}>{content}</div>;
 }
 
+function StatsGrid({ children }: { readonly children: React.ReactNode }): JSX.Element {
+  return (
+    <Focusable flow-children="left-right" style={getStatsGridStyle()}>
+      {children}
+    </Focusable>
+  );
+}
+
 interface ProfileStatDescriptor {
   readonly label: string;
   readonly value: string;
@@ -807,7 +814,7 @@ export function DeckyFullScreenProfilePage({
         });
   return (
     <ScrollPanel>
-          <TopAlignedScrollViewport scrollKey={`full-screen-profile:${providerId ?? "missing"}`}>
+      <TopAlignedScrollViewport scrollKey={`full-screen-profile:${providerId ?? "missing"}`}>
         <div style={getPageFrameStyle()}>
           <PanelSection title="Profile">
             <PanelSectionRow>
@@ -885,7 +892,7 @@ export function DeckyFullScreenProfilePage({
                   ) : (
                     <div style={getProgressSubtitleStyle()}>{steamAccountProgress.xpProgressCaption}</div>
                   )}
-                  <div style={getStatsGridStyle()}>
+                  <StatsGrid>
                     {steamAccountCards?.map((card) => (
                       <ProfileStat
                         key={card.label}
@@ -894,14 +901,14 @@ export function DeckyFullScreenProfilePage({
                         {...(card.secondary !== undefined ? { secondary: card.secondary } : {})}
                       />
                     ))}
-                  </div>
+                  </StatsGrid>
                 </div>
               </PanelSectionRow>
             </PanelSection>
           ) : null}
 
-            <PanelSection title={profile.providerId === STEAM_PROVIDER_ID ? "Library Progress" : "Account stats"}>
-              <PanelSectionRow>
+          <PanelSection title={profile.providerId === STEAM_PROVIDER_ID ? "Library Progress" : "Account stats"}>
+            <PanelSectionRow>
               <div style={getSectionBlockStyle("default")}>
                 {profile.providerId === STEAM_PROVIDER_ID ? (
                   <>
@@ -912,7 +919,7 @@ export function DeckyFullScreenProfilePage({
                         caption={`${formatCount(steamLibraryCompletionPercent)}% complete`}
                       />
                     ) : null}
-                    <div style={getStatsGridStyle()}>
+                    <StatsGrid>
                       {profileStats.map((stat) => (
                         <ProfileStat
                           key={stat.label}
@@ -921,7 +928,7 @@ export function DeckyFullScreenProfilePage({
                           {...(stat.secondary !== undefined ? { secondary: stat.secondary } : {})}
                         />
                       ))}
-                    </div>
+                    </StatsGrid>
                   </>
                 ) : (
                   <>
@@ -937,7 +944,7 @@ export function DeckyFullScreenProfilePage({
                       >
                         <div aria-hidden="true" style={getRetroAchievementsProfileSectionAccentStyle(section.variant)} />
                         <div style={getRetroAchievementsProfileSectionTitleStyle(section.variant)}>{section.title}</div>
-                        <div style={getStatsGridStyle()}>
+                        <StatsGrid>
                           {section.stats.map((stat) => (
                             <ProfileStat
                               key={`${section.title}:${stat.label}`}
@@ -946,7 +953,7 @@ export function DeckyFullScreenProfilePage({
                               {...(stat.secondary !== undefined ? { secondary: stat.secondary } : {})}
                             />
                           ))}
-                        </div>
+                        </StatsGrid>
                       </div>
                     ))}
                   </>
