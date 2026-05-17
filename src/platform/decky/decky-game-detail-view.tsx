@@ -446,7 +446,7 @@ function AchievementFilterPills({
   readonly onCancel: () => void;
 }): JSX.Element {
   return (
-    <div role="radiogroup" aria-label="Achievement filter" className={DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS}>
+    <Focusable flow-children="left-right" role="radiogroup" aria-label="Achievement filter" className={DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS}>
       {ACHIEVEMENT_FILTERS.map((filter) => {
         const active = filter === currentFilter;
         const optionClassName = [
@@ -479,7 +479,7 @@ function AchievementFilterPills({
           </Focusable>
         );
       })}
-    </div>
+    </Focusable>
   );
 }
 
@@ -509,7 +509,7 @@ function AchievementModeButtons({
   readonly onCancel: () => void;
 }): JSX.Element {
   return (
-    <div role="radiogroup" aria-label="Achievement mode" className={DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS}>
+    <Focusable flow-children="left-right" role="radiogroup" aria-label="Achievement mode" className={DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS}>
       {ACHIEVEMENT_MODE_FILTERS.map((filter) => {
         const active = filter === currentModeFilter;
         const optionClassName = [
@@ -542,7 +542,7 @@ function AchievementModeButtons({
           </Focusable>
         );
       })}
-    </div>
+    </Focusable>
   );
 }
 
