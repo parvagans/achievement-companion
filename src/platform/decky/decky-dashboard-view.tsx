@@ -1277,8 +1277,8 @@ export function DeckyDashboardView({
                 stretch
               />
             </div>
-
-            <div style={getOverviewPillRowStyle()}>
+ 
+            <Focusable flow-children="left-right" style={getOverviewPillRowStyle()}>
               <DeckyCompactPillActionGroup style={getOverviewPillGroupStyle()}>
                 <DeckyCompactPillActionItem
                   label="Back"
@@ -1296,7 +1296,7 @@ export function DeckyDashboardView({
                   onCancelButton={onBackToProviders}
                 />
               </DeckyCompactPillActionGroup>
-            </div>
+            </Focusable>
 
             {profile.providerId === STEAM_PROVIDER_ID && steamLibraryScanAction !== undefined ? (
               <div style={getOverviewProgressBlockStyle()}>
