@@ -955,66 +955,6 @@ function getAchievementRowsLayoutStyle(): CSSProperties {
   };
 }
 
-function AchievementModeButtons({
-  currentModeFilter,
-  onSelect,
-  onCancel,
-}: {
-  readonly currentModeFilter: AchievementModeFilter;
-  readonly onSelect: (filter: AchievementModeFilter) => void;
-  readonly onCancel: () => void;
-}): JSX.Element {
-  return (
-    <Focusable flow-children="left-right" aria-label="Achievement mode" role="group" style={getAchievementFilterGridStyle()}>
-      {ACHIEVEMENT_MODE_FILTERS.map((filter) => {
-        const selected = filter === currentModeFilter;
-
-        return (
-          <AchievementFilterButton
-            key={filter}
-            label={formatAchievementModeLabel(filter)}
-            selected={selected}
-            onActivate={() => {
-              onSelect(filter);
-            }}
-            onCancel={onCancel}
-          />
-        );
-      })}
-    </Focusable>
-  );
-}
-
-function AchievementStateButtons({
-  currentFilter,
-  onSelect,
-  onCancel,
-}: {
-  readonly currentFilter: AchievementFilter;
-  readonly onSelect: (filter: AchievementFilter) => void;
-  readonly onCancel: () => void;
-}): JSX.Element {
-  return (
-    <Focusable flow-children="left-right" aria-label="Achievement state" role="group" style={getAchievementFilterGridStyle()}>
-      {ACHIEVEMENT_FILTERS.map((filter) => {
-        const selected = filter === currentFilter;
-
-        return (
-          <AchievementFilterButton
-            key={filter}
-            label={formatAchievementFilterLabel(filter)}
-            selected={selected}
-            onActivate={() => {
-              onSelect(filter);
-            }}
-            onCancel={onCancel}
-          />
-        );
-      })}
-    </Focusable>
-  );
-}
-
 function AchievementRowCard({
   achievement,
   onOpenAchievementDetail,
