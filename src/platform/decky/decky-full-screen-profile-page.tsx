@@ -25,6 +25,7 @@ import {
   getSteamAccountProgressSummary,
 } from "./decky-stat-helpers";
 import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
+import { Focusable } from "@decky/ui";
 
 export interface DeckyFullScreenProfilePageProps {
   readonly providerId: string | undefined;
@@ -535,20 +536,16 @@ function ProfileStat({
 
   if (onClick !== undefined) {
     return (
-      <button
-        type="button"
+      <Focusable
         className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
-        style={{
-          ...getStatCardStyle(),
-          appearance: "none",
-          width: "100%",
-          cursor: "pointer",
-          textAlign: "center",
-        }}
+        noFocusRing
+        role="button"
+        style={{ ...getStatCardStyle(), width: "100%", textAlign: "center" }}
+        onActivate={onClick}
         onClick={onClick}
       >
         {content}
-      </button>
+      </Focusable>
     );
   }
 
