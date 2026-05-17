@@ -75,7 +75,7 @@ interface SteamLibraryScanActionState {
 
 type ProviderLauncherTone = "connected" | "setup" | "neutral";
 
-const ACHIEVEMENT_COMPANION_VERSION = "0.2.3";
+const ACHIEVEMENT_COMPANION_VERSION = "0.2.4";
 
 function getChooserCardStyle(): CSSProperties {
   return {
