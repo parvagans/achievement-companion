@@ -3,7 +3,7 @@ import type { KeyValueStore } from "./platform";
 export const ACHIEVEMENT_COMPANION_SETTINGS_STORAGE_KEY =
   "achievement-companion:settings";
 
-export const ACHIEVEMENT_COMPANION_COUNT_OPTIONS = [3, 5, 7, 10] as const;
+export const ACHIEVEMENT_COMPANION_COUNT_OPTIONS = [1, 3, 5, 7, 10, 15] as const;
 
 export type AchievementCompanionCount =
   (typeof ACHIEVEMENT_COMPANION_COUNT_OPTIONS)[number];
