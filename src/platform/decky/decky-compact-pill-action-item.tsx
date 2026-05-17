@@ -248,14 +248,13 @@ export interface DeckyCompactPillActionGroupProps
 export function DeckyCompactPillActionGroup({
   children,
   className,
-  flowChildren = "row",
   style,
   ...props
 }: DeckyCompactPillActionGroupProps): JSX.Element {
   return (
-    <div
+    <Focusable
       {...props}
-      {...({ "flow-children": flowChildren } as Record<string, string>)}
+      flow-children="left-right"
       className={className}
       style={{
         ...getPillGroupStyle(),
@@ -263,6 +262,6 @@ export function DeckyCompactPillActionGroup({
       }}
     >
       {children}
-    </div>
+    </Focusable>
   );
 }
