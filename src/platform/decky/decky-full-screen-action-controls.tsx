@@ -1,4 +1,4 @@
-import { ButtonItem, type ButtonItemProps } from "@decky/ui";
+import { ButtonItem, Focusable, type ButtonItemProps } from "@decky/ui";
 import { useCallback, type CSSProperties, type JSX, type ReactNode } from "react";
 import {
   DECKY_FULLSCREEN_ACTION_ROW_CLASS,
@@ -89,12 +89,13 @@ export function DeckyFullscreenActionRow({
   return (
     <>
       <DeckyFullscreenActionStyles />
-      <div
+      <Focusable
+        flow-children="left-right"
         className={`${DECKY_FULLSCREEN_ACTION_ROW_CLASS} ${centered ? DECKY_FULLSCREEN_ACTION_ROW_CENTERED_CLASS : ""}`.trim()}
         style={getFullscreenActionRowStyle(centered)}
       >
         {children}
-      </div>
+      </Focusable>
     </>
   );
 }
