@@ -965,7 +965,7 @@ function AchievementModeButtons({
   readonly onCancel: () => void;
 }): JSX.Element {
   return (
-    <div aria-label="Achievement mode" role="group" style={getAchievementFilterGridStyle()}>
+    <Focusable flow-children="left-right" aria-label="Achievement mode" role="group" style={getAchievementFilterGridStyle()}>
       {ACHIEVEMENT_MODE_FILTERS.map((filter) => {
         const selected = filter === currentModeFilter;
 
@@ -981,7 +981,7 @@ function AchievementModeButtons({
           />
         );
       })}
-    </div>
+    </Focusable>
   );
 }
 
@@ -995,7 +995,7 @@ function AchievementStateButtons({
   readonly onCancel: () => void;
 }): JSX.Element {
   return (
-    <div aria-label="Achievement state" role="group" style={getAchievementFilterGridStyle()}>
+    <Focusable flow-children="left-right" aria-label="Achievement state" role="group" style={getAchievementFilterGridStyle()}>
       {ACHIEVEMENT_FILTERS.map((filter) => {
         const selected = filter === currentFilter;
 
@@ -1011,7 +1011,7 @@ function AchievementStateButtons({
           />
         );
       })}
-    </div>
+    </Focusable>
   );
 }
 
