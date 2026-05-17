@@ -211,7 +211,7 @@ export function CompletionProgressSummaryCardGrid({
   readonly onSelectFilter: (filter: CompletionProgressSelectionFilter) => void;
 }): JSX.Element {
   return (
-    <div style={getSummaryGridStyle()}>
+    <Focusable flow-children="left-right" style={getSummaryGridStyle()}>
       {cards.map((card) => (
         <CompletionProgressSummaryCard
           key={card.label}
@@ -231,6 +231,6 @@ export function CompletionProgressSummaryCardGrid({
           }}
         />
       ))}
-    </div>
+    </Focusable>
   );
 }
