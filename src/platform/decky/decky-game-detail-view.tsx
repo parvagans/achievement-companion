@@ -436,53 +436,6 @@ function getAchievementRowsLayoutStyle(): CSSProperties {
   };
 }
 
-function AchievementFilterPills({
-  currentFilter,
-  onSelect,
-  onCancel,
-}: {
-  readonly currentFilter: AchievementFilter;
-  readonly onSelect: (filter: AchievementFilter) => void;
-  readonly onCancel: () => void;
-}): JSX.Element {
-  return (
-    <Focusable flow-children="left-right" role="radiogroup" aria-label="Achievement filter" className={DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS}>
-      {ACHIEVEMENT_FILTERS.map((filter) => {
-        const active = filter === currentFilter;
-        const optionClassName = [
-          DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS,
-          active ? DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS : undefined,
-        ]
-          .filter((value): value is string => value !== undefined)
-          .join(" ");
-
-        return (
-          <Focusable
-            key={filter}
-            className={optionClassName}
-            focusClassName={DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS}
-            focusWithinClassName={DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS}
-            noFocusRing
-            role="radio"
-            aria-checked={active}
-            aria-label={formatAchievementFilterLabel(filter)}
-            onActivate={() => {
-              onSelect(filter);
-            }}
-            onClick={() => {
-              onSelect(filter);
-            }}
-            onCancelButton={onCancel}
-            onFocus={scrollFocusedElementIntoView}
-          >
-            {formatAchievementFilterLabel(filter)}
-          </Focusable>
-        );
-      })}
-    </Focusable>
-  );
-}
-
 function AchievementBadgeIcon({
   achievement,
 }: {
@@ -496,53 +449,6 @@ function AchievementBadgeIcon({
     <span style={getAchievementBadgeFrameStyle(achievement.isUnlocked)}>
       <DeckyGameArtwork compact src={achievement.badgeImageUrl} size={32} title={achievement.title} />
     </span>
-  );
-}
-
-function AchievementModeButtons({
-  currentModeFilter,
-  onSelect,
-  onCancel,
-}: {
-  readonly currentModeFilter: AchievementModeFilter;
-  readonly onSelect: (filter: AchievementModeFilter) => void;
-  readonly onCancel: () => void;
-}): JSX.Element {
-  return (
-    <Focusable flow-children="left-right" role="radiogroup" aria-label="Achievement mode" className={DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS}>
-      {ACHIEVEMENT_MODE_FILTERS.map((filter) => {
-        const active = filter === currentModeFilter;
-        const optionClassName = [
-          DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS,
-          active ? DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS : undefined,
-        ]
-          .filter((value): value is string => value !== undefined)
-          .join(" ");
-
-        return (
-          <Focusable
-            key={filter}
-            className={optionClassName}
-            focusClassName={DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS}
-            focusWithinClassName={DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS}
-            noFocusRing
-            role="radio"
-            aria-checked={active}
-            aria-label={formatAchievementModeLabel(filter)}
-            onClick={() => {
-              onSelect(filter);
-            }}
-            onActivate={() => {
-              onSelect(filter);
-            }}
-            onCancelButton={onCancel}
-            onFocus={scrollFocusedElementIntoView}
-          >
-            {formatAchievementModeLabel(filter)}
-          </Focusable>
-        );
-      })}
-    </Focusable>
   );
 }
 
@@ -680,18 +586,78 @@ function AchievementSectionBody({
     <>
       <PanelSectionRow>
         <div style={getGameDetailSectionCardStyle()}>
-          {showAchievementModeFilter ? (
-            <AchievementModeButtons
-              currentModeFilter={achievementModeFilter}
-              onSelect={onAchievementModeFilterChange}
-              onCancel={onBackToDashboard}
-            />
-          ) : null}
-          <AchievementFilterPills
-            currentFilter={achievementFilter}
-            onSelect={onAchievementFilterChange}
-            onCancel={onBackToDashboard}
-          />
+          <Focusable
+            flow-children="left-right"
+            role="radiogroup"
+            aria-label="Achievement filters"
+            className={DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+              gap: 8,
+              width: "100%",
+            }}
+          >
+            {showAchievementModeFilter
+              ? ACHIEVEMENT_MODE_FILTERS.map((filter) => {
+                  const active = filter === achievementModeFilter;
+                  const optionClassName = [
+                    DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS,
+                    active ? DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS : undefined,
+                  ]
+                    .filter((v): v is string => v !== undefined)
+                    .join(" ");
+
+                  return (
+                    <Focusable
+                      key={`mode-${filter}`}
+                      className={optionClassName}
+                      focusClassName={DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS}
+                      focusWithinClassName={DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS}
+                      noFocusRing
+                      role="radio"
+                      aria-checked={active}
+                      aria-label={formatAchievementModeLabel(filter)}
+                      onActivate={() => onAchievementModeFilterChange(filter)}
+                      onClick={() => onAchievementModeFilterChange(filter)}
+                      onCancelButton={onBackToDashboard}
+                      onFocus={scrollFocusedElementIntoView}
+                    >
+                      {formatAchievementModeLabel(filter)}
+                    </Focusable>
+                  );
+                })
+              : null}
+
+            {ACHIEVEMENT_FILTERS.map((filter) => {
+              const active = filter === achievementFilter;
+              const optionClassName = [
+                DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS,
+                active ? DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS : undefined,
+              ]
+                .filter((v): v is string => v !== undefined)
+                .join(" ");
+
+              return (
+                <Focusable
+                  key={`state-${filter}`}
+                  className={optionClassName}
+                  focusClassName={DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS}
+                  focusWithinClassName={DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS}
+                  noFocusRing
+                  role="radio"
+                  aria-checked={active}
+                  aria-label={formatAchievementFilterLabel(filter)}
+                  onActivate={() => onAchievementFilterChange(filter)}
+                  onClick={() => onAchievementFilterChange(filter)}
+                  onCancelButton={onBackToDashboard}
+                  onFocus={scrollFocusedElementIntoView}
+                >
+                  {formatAchievementFilterLabel(filter)}
+                </Focusable>
+              );
+            })}
+          </Focusable>
 
           {achievements.length > 0 ? (
             <div style={getAchievementControlsRowStyle()}>

@@ -1143,21 +1143,55 @@ function AchievementBrowser({
         <div style={getAchievementBrowserMetaStackStyle()}>
           {showAchievementModeFilter ? (
             <>
-              <div style={getAchievementBrowserSectionLabelStyle()}>Mode</div>
-              <AchievementModeButtons
-                currentModeFilter={achievementModeFilter}
-                onSelect={onAchievementModeFilterChange}
-                onCancel={onBack}
-              />
+              <div style={getAchievementBrowserSectionLabelStyle()}>Mode / State</div>
+              <Focusable
+                flow-children="left-right"
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                  gap: 8,
+                  width: "100%",
+                }}
+              >
+                {ACHIEVEMENT_MODE_FILTERS.map((filter) => (
+                  <AchievementFilterButton
+                    key={`mode-${filter}`}
+                    label={formatAchievementModeLabel(filter)}
+                    selected={filter === achievementModeFilter}
+                    onActivate={() => onAchievementModeFilterChange(filter)}
+                    onCancel={onBack}
+                  />
+                ))}
+                {ACHIEVEMENT_FILTERS.map((filter) => (
+                  <AchievementFilterButton
+                    key={`state-${filter}`}
+                    label={formatAchievementFilterLabel(filter)}
+                    selected={filter === achievementFilter}
+                    onActivate={() => onAchievementFilterChange(filter)}
+                    onCancel={onBack}
+                  />
+                ))}
+              </Focusable>
             </>
-          ) : null}
-
-          <div style={getAchievementBrowserSectionLabelStyle()}>State</div>
-          <AchievementStateButtons
-            currentFilter={achievementFilter}
-            onSelect={onAchievementFilterChange}
-            onCancel={onBack}
-          />
+          ) : (
+            <>
+              <div style={getAchievementBrowserSectionLabelStyle()}>State</div>
+              <Focusable
+                flow-children="left-right"
+                style={getAchievementFilterGridStyle()}
+              >
+                {ACHIEVEMENT_FILTERS.map((filter) => (
+                  <AchievementFilterButton
+                    key={filter}
+                    label={formatAchievementFilterLabel(filter)}
+                    selected={filter === achievementFilter}
+                    onActivate={() => onAchievementFilterChange(filter)}
+                    onCancel={onBack}
+                  />
+                ))}
+              </Focusable>
+            </>
+          )}
         </div>
       </div>
 
