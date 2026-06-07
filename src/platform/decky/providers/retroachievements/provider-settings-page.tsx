@@ -8,14 +8,13 @@ import {
   type CompletionProgressFilter,
 } from "@core/settings";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../../../providers/retroachievements";
-import { DeckyActionButtonItem } from "../../decky-action-button-item";
 import {
   DeckyFullscreenActionButton,
   DeckyFullscreenActionRow,
 } from "../../decky-full-screen-action-controls";
+import { DeckyProviderSettingsActionRow } from "../../decky-provider-settings-action-row";
 import { DeckyRetroAchievementsCredentialsForm } from "./credentials-form";
 import { readDeckySettings, saveDeckySettings, useDeckySettings } from "../../decky-settings";
-import { DECKY_FOCUS_ACTION_ROW_CLASS } from "../../decky-focus-styles";
 import { TopAlignedScrollViewport } from "../../decky-scroll-viewport";
 import {
   clearDeckyRetroAchievementsAccountState,
@@ -121,30 +120,6 @@ function getNextCompletionProgressFilter(current: CompletionProgressFilter): Com
   return filters[(currentIndex + 1) % filters.length]!;
 }
 
-function PreferenceRow({
-  label,
-  description,
-  onClick,
-}: {
-  readonly label: string;
-  readonly description: string;
-  readonly onClick: () => void;
-}): JSX.Element {
-  return (
-    <PanelSectionRow>
-      <DeckyActionButtonItem
-        className={DECKY_FOCUS_ACTION_ROW_CLASS}
-        focusClassName={DECKY_FOCUS_ACTION_ROW_CLASS}
-        focusWithinClassName={DECKY_FOCUS_ACTION_ROW_CLASS}
-        highlightOnFocus
-        label={label}
-        description={description}
-        onClick={onClick}
-      />
-    </PanelSectionRow>
-  );
-}
-
 export function DeckyRetroAchievementsProviderSettingsPage({
   providerId,
   onBack,
@@ -235,7 +210,7 @@ export function DeckyRetroAchievementsProviderSettingsPage({
           </PanelSection>
 
           <PanelSection title="Provider dashboard preferences">
-            <PreferenceRow
+            <DeckyProviderSettingsActionRow
               label="Recent Achievements count"
               description={getCurrentValueLabel(String(providerRecentAchievementsCount))}
               onClick={() => {
@@ -249,7 +224,7 @@ export function DeckyRetroAchievementsProviderSettingsPage({
               }}
             />
 
-            <PreferenceRow
+            <DeckyProviderSettingsActionRow
               label="Recently Played count"
               description={getCurrentValueLabel(String(providerRecentlyPlayedCount))}
               onClick={() => {
@@ -280,7 +255,7 @@ export function DeckyRetroAchievementsProviderSettingsPage({
               />
             </PanelSectionRow>
 
-            <PreferenceRow
+            <DeckyProviderSettingsActionRow
               label="Default Completion Progress filter"
               description={getCurrentValueLabel(
                 formatCompletionProgressFilterLabel(settings.defaultCompletionProgressFilter),

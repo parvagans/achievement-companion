@@ -6,8 +6,7 @@ import {
   getDeckyCredentialTextFieldMaskStyle,
 } from "../../decky-credential-text-field";
 import { DeckyCompactPillActionItem } from "../../decky-compact-pill-action-item";
-import { DeckyActionButtonItem } from "../../decky-action-button-item";
-import { DECKY_FOCUS_ACTION_ROW_CLASS } from "../../decky-focus-styles";
+import { DeckyProviderSettingsActionGroup } from "../../decky-provider-settings-action-row";
 import {
   RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY,
   getRetroAchievementsApiKeyInputDescriptor,
@@ -330,31 +329,37 @@ export function DeckyRetroAchievementsCredentialsForm({
         />
       </PanelSectionRow>
 
-      <DeckyActionButtonItem
-        className={DECKY_FOCUS_ACTION_ROW_CLASS}
-        focusClassName={DECKY_FOCUS_ACTION_ROW_CLASS}
-        focusWithinClassName={DECKY_FOCUS_ACTION_ROW_CLASS}
-        highlightOnFocus
-        label={saveLabel}
-        description="Saves your account details and the provider options on this page. If the API key field is empty, your saved key is kept."
-        onClick={() => {
-          void handleSave();
-        }}
-      />
+      <PanelSectionRow>
+        <div style={getCompactActionStackStyle()}>
+          <DeckyProviderSettingsActionGroup>
+            <DeckyCompactPillActionItem
+              emphasis="primary"
+              label={saveLabel}
+              onClick={() => {
+                void handleSave();
+              }}
+            />
 
-      {onClear !== undefined && config !== undefined ? (
-        <DeckyActionButtonItem
-          className={DECKY_FOCUS_ACTION_ROW_CLASS}
-          focusClassName={DECKY_FOCUS_ACTION_ROW_CLASS}
-          focusWithinClassName={DECKY_FOCUS_ACTION_ROW_CLASS}
-          highlightOnFocus
-          label={clearLabel ?? "Clear credentials"}
-          description="Remove the saved RetroAchievements account from this device."
-          onClick={() => {
-            void handleClear();
-          }}
-        />
-      ) : null}
+            {onClear !== undefined && config !== undefined ? (
+              <DeckyCompactPillActionItem
+                label={clearLabel ?? "Clear credentials"}
+                onClick={() => {
+                  void handleClear();
+                }}
+              />
+            ) : null}
+          </DeckyProviderSettingsActionGroup>
+
+          <div style={getCompactActionNoteStyle()}>
+            Saves your account details and provider options. Leave the API key blank to keep your saved key.
+          </div>
+          {onClear !== undefined && config !== undefined ? (
+            <div style={getCompactActionNoteStyle()}>
+              Remove the saved RetroAchievements account from this device.
+            </div>
+          ) : null}
+        </div>
+      </PanelSectionRow>
     </div>
   );
 }

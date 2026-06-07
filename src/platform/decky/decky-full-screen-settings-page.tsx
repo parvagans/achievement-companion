@@ -1,8 +1,7 @@
 import { type CSSProperties } from "react";
 import { PanelSection, PanelSectionRow, ScrollPanel } from "@decky/ui";
-import { DeckyActionButtonItem } from "./decky-action-button-item";
-import { DECKY_FOCUS_ACTION_ROW_CLASS } from "./decky-focus-styles";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
+import { DeckyProviderSettingsActionRow } from "./decky-provider-settings-action-row";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { getDeckyProviderOptions, useDeckyProviderConfigs } from "./providers";
 
@@ -64,30 +63,6 @@ function getHeroSupportStyle(): CSSProperties {
   };
 }
 
-function PreferenceRow({
-  label,
-  description,
-  onClick,
-}: {
-  readonly label: string;
-  readonly description: string;
-  readonly onClick: () => void;
-}): JSX.Element {
-  return (
-    <PanelSectionRow>
-      <DeckyActionButtonItem
-        className={DECKY_FOCUS_ACTION_ROW_CLASS}
-        focusClassName={DECKY_FOCUS_ACTION_ROW_CLASS}
-        focusWithinClassName={DECKY_FOCUS_ACTION_ROW_CLASS}
-        highlightOnFocus
-        label={label}
-        description={description}
-        onClick={onClick}
-      />
-    </PanelSectionRow>
-  );
-}
-
 export function DeckyFullScreenSettingsPage({
   onBack,
   onOpenProviderSettings,
@@ -125,10 +100,11 @@ export function DeckyFullScreenSettingsPage({
 
           <PanelSection title="Providers">
             {providers.map((provider) => (
-              <PreferenceRow
+              <DeckyProviderSettingsActionRow
                 key={provider.id}
                 label={provider.label}
                 description={provider.connected ? "Connected" : "Set up account"}
+                actionLabel="Open"
                 onClick={() => {
                   onOpenProviderSettings(provider.id);
                 }}

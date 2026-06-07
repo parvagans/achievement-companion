@@ -77,7 +77,13 @@ function getPillStyle(
 }
 
 function getFocusedPillStyle(): CSSProperties {
-  return {};
+  return {
+    borderColor: "rgba(105, 176, 255, 0.8)",
+    background: "linear-gradient(180deg, rgba(74, 138, 204, 0.34), rgba(34, 79, 124, 0.3))",
+    color: "#fff",
+    boxShadow:
+      "0 0 0 2px rgba(73, 155, 255, 0.72), 0 0 18px rgba(39, 124, 226, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.14)",
+  };
 }
 
 function getPillGroupStyle(): CSSProperties {
@@ -199,6 +205,8 @@ export function DeckyCompactPillActionItem({
   return (
     <Focusable
       className={`${DECKY_FOCUS_PILL_CLASS} ${isActive ? DECKY_FOCUS_PILL_ACTIVE_CLASS : ""}`.trim()}
+      focusClassName={DECKY_FOCUS_PILL_ACTIVE_CLASS}
+      focusWithinClassName={DECKY_FOCUS_PILL_ACTIVE_CLASS}
       noFocusRing
       role={role}
       aria-label={ariaLabel ?? label}
