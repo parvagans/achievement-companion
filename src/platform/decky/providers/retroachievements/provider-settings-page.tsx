@@ -1,5 +1,12 @@
 import { type CSSProperties } from "react";
-import { PanelSection, PanelSectionRow, ScrollPanel } from "@decky/ui";
+import {
+  DropdownItem,
+  PanelSection,
+  PanelSectionRow,
+  ScrollPanel,
+  ToggleField,
+  type SingleDropdownOption,
+} from "@decky/ui";
 import {
   ACHIEVEMENT_COMPANION_COUNT_OPTIONS,
   formatCompletionProgressFilterLabel,
@@ -8,20 +15,37 @@ import {
   type CompletionProgressFilter,
 } from "@core/settings";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../../../providers/retroachievements";
-import { DeckyActionButtonItem } from "../../decky-action-button-item";
 import {
   DeckyFullscreenActionButton,
   DeckyFullscreenActionRow,
 } from "../../decky-full-screen-action-controls";
 import { DeckyRetroAchievementsCredentialsForm } from "./credentials-form";
 import { readDeckySettings, saveDeckySettings, useDeckySettings } from "../../decky-settings";
-import { DECKY_FOCUS_ACTION_ROW_CLASS } from "../../decky-focus-styles";
 import { TopAlignedScrollViewport } from "../../decky-scroll-viewport";
 import {
   clearDeckyRetroAchievementsAccountState,
   useDeckyProviderConfig,
   writeDeckyProviderConfig,
 } from "./config";
+
+const COMPLETION_PROGRESS_FILTER_OPTIONS: readonly CompletionProgressFilter[] = [
+  "all",
+  "unfinished",
+  "beaten",
+  "mastered",
+];
+
+const COUNT_DROPDOWN_OPTIONS: SingleDropdownOption[] =
+  ACHIEVEMENT_COMPANION_COUNT_OPTIONS.map((value) => ({
+    data: value,
+    label: String(value),
+  }));
+
+const COMPLETION_PROGRESS_FILTER_DROPDOWN_OPTIONS: SingleDropdownOption[] =
+  COMPLETION_PROGRESS_FILTER_OPTIONS.map((value) => ({
+    data: value,
+    label: formatCompletionProgressFilterLabel(value),
+  }));
 
 export interface DeckyFullScreenProviderSettingsPageProps {
   readonly providerId: string;
@@ -97,10 +121,6 @@ function getSettingsSectionSupportStyle(): CSSProperties {
   };
 }
 
-function getCurrentValueLabel(value: string): string {
-  return `Current: ${value}`;
-}
-
 function getProviderCountValue(
   providerCount: AchievementCompanionCount | undefined,
   fallbackCount: AchievementCompanionCount,
@@ -108,41 +128,12 @@ function getProviderCountValue(
   return providerCount ?? fallbackCount;
 }
 
-function getNextCountOption(current: AchievementCompanionCount): AchievementCompanionCount {
-  const currentIndex = ACHIEVEMENT_COMPANION_COUNT_OPTIONS.indexOf(current);
-  return ACHIEVEMENT_COMPANION_COUNT_OPTIONS[
-    (currentIndex + 1) % ACHIEVEMENT_COMPANION_COUNT_OPTIONS.length
-  ]!;
+function isAchievementCompanionCount(value: unknown): value is AchievementCompanionCount {
+  return ACHIEVEMENT_COMPANION_COUNT_OPTIONS.includes(value as AchievementCompanionCount);
 }
 
-function getNextCompletionProgressFilter(current: CompletionProgressFilter): CompletionProgressFilter {
-  const filters: readonly CompletionProgressFilter[] = ["all", "unfinished", "beaten", "mastered"];
-  const currentIndex = filters.indexOf(current);
-  return filters[(currentIndex + 1) % filters.length]!;
-}
-
-function PreferenceRow({
-  label,
-  description,
-  onClick,
-}: {
-  readonly label: string;
-  readonly description: string;
-  readonly onClick: () => void;
-}): JSX.Element {
-  return (
-    <PanelSectionRow>
-      <DeckyActionButtonItem
-        className={DECKY_FOCUS_ACTION_ROW_CLASS}
-        focusClassName={DECKY_FOCUS_ACTION_ROW_CLASS}
-        focusWithinClassName={DECKY_FOCUS_ACTION_ROW_CLASS}
-        highlightOnFocus
-        label={label}
-        description={description}
-        onClick={onClick}
-      />
-    </PanelSectionRow>
-  );
+function isCompletionProgressFilter(value: unknown): value is CompletionProgressFilter {
+  return COMPLETION_PROGRESS_FILTER_OPTIONS.includes(value as CompletionProgressFilter);
 }
 
 export function DeckyRetroAchievementsProviderSettingsPage({
@@ -235,61 +226,88 @@ export function DeckyRetroAchievementsProviderSettingsPage({
           </PanelSection>
 
           <PanelSection title="Provider dashboard preferences">
-            <PreferenceRow
-              label="Recent Achievements count"
-              description={getCurrentValueLabel(String(providerRecentAchievementsCount))}
-              onClick={() => {
-                const currentSettings = readDeckySettings();
-                const nextSettings = {
-                  ...currentSettings,
-                  recentAchievementsCount: getNextCountOption(currentSettings.recentAchievementsCount),
-                };
-                void saveDeckySettings(nextSettings);
-                persistProviderCounts(nextSettings);
-              }}
-            />
+            <PanelSectionRow>
+              <DropdownItem
+                label="Recent Achievements count"
+                description="Number of recent achievements shown on the provider dashboard."
+                rgOptions={COUNT_DROPDOWN_OPTIONS}
+                selectedOption={providerRecentAchievementsCount}
+                onChange={(option) => {
+                  if (!isAchievementCompanionCount(option.data)) {
+                    return;
+                  }
 
-            <PreferenceRow
-              label="Recently Played count"
-              description={getCurrentValueLabel(String(providerRecentlyPlayedCount))}
-              onClick={() => {
-                const currentSettings = readDeckySettings();
-                const nextSettings = {
-                  ...currentSettings,
-                  recentlyPlayedCount: getNextCountOption(currentSettings.recentlyPlayedCount),
-                };
-                void saveDeckySettings(nextSettings);
-                persistProviderCounts(nextSettings);
-              }}
-            />
+                  const recentAchievementsCount = option.data;
+                  const currentSettings = readDeckySettings();
+                  const nextSettings = {
+                    ...currentSettings,
+                    recentAchievementsCount,
+                  };
+                  void saveDeckySettings(nextSettings);
+                  persistProviderCounts(nextSettings);
+                }}
+              />
+            </PanelSectionRow>
+
+            <PanelSectionRow>
+              <DropdownItem
+                label="Recently Played count"
+                description="Number of recently played games shown on the provider dashboard."
+                rgOptions={COUNT_DROPDOWN_OPTIONS}
+                selectedOption={providerRecentlyPlayedCount}
+                onChange={(option) => {
+                  if (!isAchievementCompanionCount(option.data)) {
+                    return;
+                  }
+
+                  const recentlyPlayedCount = option.data;
+                  const currentSettings = readDeckySettings();
+                  const nextSettings = {
+                    ...currentSettings,
+                    recentlyPlayedCount,
+                  };
+                  void saveDeckySettings(nextSettings);
+                  persistProviderCounts(nextSettings);
+                }}
+              />
+            </PanelSectionRow>
           </PanelSection>
 
           <PanelSection title="Global app/completion settings">
-            <PreferenceRow
-              label="Show subsets"
-              description={settings.showCompletionProgressSubsets ? "Current: On" : "Current: Off"}
-              onClick={() => {
-                updateSettings((current) => ({
-                  ...current,
-                  showCompletionProgressSubsets: !current.showCompletionProgressSubsets,
-                }));
-              }}
-            />
+            <PanelSectionRow>
+              <ToggleField
+                label="Show subsets"
+                description="Include subset games in Completion Progress."
+                checked={settings.showCompletionProgressSubsets}
+                highlightOnFocus
+                onChange={(showCompletionProgressSubsets) => {
+                  updateSettings((current) => ({
+                    ...current,
+                    showCompletionProgressSubsets,
+                  }));
+                }}
+              />
+            </PanelSectionRow>
 
-            <PreferenceRow
-              label="Default Completion Progress filter"
-              description={getCurrentValueLabel(
-                formatCompletionProgressFilterLabel(settings.defaultCompletionProgressFilter),
-              )}
-              onClick={() => {
-                updateSettings((current) => ({
-                  ...current,
-                  defaultCompletionProgressFilter: getNextCompletionProgressFilter(
-                    current.defaultCompletionProgressFilter,
-                  ),
-                }));
-              }}
-            />
+            <PanelSectionRow>
+              <DropdownItem
+                label="Default Completion Progress filter"
+                description="Filter selected when Completion Progress opens."
+                rgOptions={COMPLETION_PROGRESS_FILTER_DROPDOWN_OPTIONS}
+                selectedOption={settings.defaultCompletionProgressFilter}
+                onChange={(option) => {
+                  if (!isCompletionProgressFilter(option.data)) {
+                    return;
+                  }
+
+                  const defaultCompletionProgressFilter = option.data;
+                  updateSettings((current) => ({
+                    ...current,
+                    defaultCompletionProgressFilter,
+                  }));
+                }}
+              />
+            </PanelSectionRow>
 
             <PanelSectionRow>
               <div style={getSettingsSummaryStyle()}>

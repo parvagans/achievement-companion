@@ -2871,6 +2871,67 @@ test("fullscreen action controls use Decky Focusable pills with unclipped labels
   assert.match(actionButtonItemSource, /import \{ ButtonItem, type ButtonItemProps \} from "@decky\/ui"/);
 });
 
+test("retroachievements provider settings use native immediate-persistence controls", () => {
+  const retroAchievementsProviderSettingsSource = readFileSync(
+    "src/platform/decky/providers/retroachievements/provider-settings-page.tsx",
+    "utf8",
+  );
+  const steamCredentialsFormSource = readFileSync(
+    "src/platform/decky/providers/steam/credentials-form.tsx",
+    "utf8",
+  );
+  const fullscreenActionControlsSource = readFileSync(
+    "src/platform/decky/decky-full-screen-action-controls.tsx",
+    "utf8",
+  );
+
+  assert.match(
+    retroAchievementsProviderSettingsSource,
+    /import \{[\s\S]*DropdownItem[\s\S]*ToggleField[\s\S]*\} from "@decky\/ui"/u,
+  );
+  assert.match(
+    retroAchievementsProviderSettingsSource,
+    /<ToggleField[\s\S]*label="Show subsets"[\s\S]*checked=\{settings\.showCompletionProgressSubsets\}[\s\S]*onChange=\{\(showCompletionProgressSubsets\) =>/u,
+  );
+  assert.match(
+    retroAchievementsProviderSettingsSource,
+    /const COUNT_DROPDOWN_OPTIONS[\s\S]*ACHIEVEMENT_COMPANION_COUNT_OPTIONS\.map/u,
+  );
+  assert.match(
+    retroAchievementsProviderSettingsSource,
+    /<DropdownItem[\s\S]*label="Recent Achievements count"[\s\S]*rgOptions=\{COUNT_DROPDOWN_OPTIONS\}[\s\S]*recentAchievementsCount,[\s\S]*saveDeckySettings\(nextSettings\)[\s\S]*persistProviderCounts\(nextSettings\)/u,
+  );
+  assert.match(
+    retroAchievementsProviderSettingsSource,
+    /<DropdownItem[\s\S]*label="Recently Played count"[\s\S]*rgOptions=\{COUNT_DROPDOWN_OPTIONS\}[\s\S]*recentlyPlayedCount,[\s\S]*saveDeckySettings\(nextSettings\)[\s\S]*persistProviderCounts\(nextSettings\)/u,
+  );
+  assert.match(
+    retroAchievementsProviderSettingsSource,
+    /const COMPLETION_PROGRESS_FILTER_OPTIONS[\s\S]*"all"[\s\S]*"unfinished"[\s\S]*"beaten"[\s\S]*"mastered"/u,
+  );
+  assert.match(
+    retroAchievementsProviderSettingsSource,
+    /<DropdownItem[\s\S]*label="Default Completion Progress filter"[\s\S]*rgOptions=\{COMPLETION_PROGRESS_FILTER_DROPDOWN_OPTIONS\}[\s\S]*const defaultCompletionProgressFilter = option\.data;[\s\S]*updateSettings\(\(current\) => \(\{[\s\S]*defaultCompletionProgressFilter,/u,
+  );
+  assert.doesNotMatch(
+    retroAchievementsProviderSettingsSource,
+    /getNextCountOption|getNextCompletionProgressFilter/,
+  );
+  assert.match(
+    steamCredentialsFormSource,
+    /function PreferenceRow[\s\S]*<DeckyActionButtonItem/u,
+  );
+  assert.match(
+    steamCredentialsFormSource,
+    /label="Recent Achievements count"[\s\S]*label="Recently Played count"[\s\S]*label="Include played free games"/u,
+  );
+  assert.match(fullscreenActionControlsSource, /import \{ Focusable \} from "@decky\/ui"/);
+  assert.doesNotMatch(
+    `${retroAchievementsProviderSettingsSource}\n${steamCredentialsFormSource}`,
+    /localStorage|sessionStorage/,
+  );
+});
+
 test("retroachievements profile exposes points, games beaten, and retroratio metrics", async () => {
   const provider = createRetroAchievementsProvider({
     client: {
