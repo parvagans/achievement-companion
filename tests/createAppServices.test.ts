@@ -2871,9 +2871,13 @@ test("fullscreen action controls use Decky Focusable pills with unclipped labels
   assert.match(actionButtonItemSource, /import \{ ButtonItem, type ButtonItemProps \} from "@decky\/ui"/);
 });
 
-test("retroachievements provider settings use native immediate-persistence controls", () => {
+test("retroachievements provider settings avoid dropdown overlays for immediate-persistence controls", () => {
   const retroAchievementsProviderSettingsSource = readFileSync(
     "src/platform/decky/providers/retroachievements/provider-settings-page.tsx",
+    "utf8",
+  );
+  const steamProviderSettingsSource = readFileSync(
+    "src/platform/decky/providers/steam/provider-settings-page.tsx",
     "utf8",
   );
   const steamCredentialsFormSource = readFileSync(
@@ -2887,7 +2891,7 @@ test("retroachievements provider settings use native immediate-persistence contr
 
   assert.match(
     retroAchievementsProviderSettingsSource,
-    /import \{[\s\S]*DropdownItem[\s\S]*ToggleField[\s\S]*\} from "@decky\/ui"/u,
+    /import \{ PanelSection, PanelSectionRow, ScrollPanel, ToggleField \} from "@decky\/ui"/u,
   );
   assert.match(
     retroAchievementsProviderSettingsSource,
@@ -2895,28 +2899,29 @@ test("retroachievements provider settings use native immediate-persistence contr
   );
   assert.match(
     retroAchievementsProviderSettingsSource,
-    /const COUNT_DROPDOWN_OPTIONS[\s\S]*ACHIEVEMENT_COMPANION_COUNT_OPTIONS\.map/u,
+    /function PreferenceRow[\s\S]*<DeckyActionButtonItem/u,
   );
   assert.match(
     retroAchievementsProviderSettingsSource,
-    /<DropdownItem[\s\S]*label="Recent Achievements count"[\s\S]*rgOptions=\{COUNT_DROPDOWN_OPTIONS\}[\s\S]*recentAchievementsCount,[\s\S]*saveDeckySettings\(nextSettings\)[\s\S]*persistProviderCounts\(nextSettings\)/u,
+    /<PreferenceRow[\s\S]*label="Recent Achievements count"[\s\S]*getNextCountOption\(currentSettings\.recentAchievementsCount\)[\s\S]*saveDeckySettings\(nextSettings\)[\s\S]*persistProviderCounts\(nextSettings\)/u,
   );
   assert.match(
     retroAchievementsProviderSettingsSource,
-    /<DropdownItem[\s\S]*label="Recently Played count"[\s\S]*rgOptions=\{COUNT_DROPDOWN_OPTIONS\}[\s\S]*recentlyPlayedCount,[\s\S]*saveDeckySettings\(nextSettings\)[\s\S]*persistProviderCounts\(nextSettings\)/u,
+    /<PreferenceRow[\s\S]*label="Recently Played count"[\s\S]*getNextCountOption\(currentSettings\.recentlyPlayedCount\)[\s\S]*saveDeckySettings\(nextSettings\)[\s\S]*persistProviderCounts\(nextSettings\)/u,
   );
   assert.match(
     retroAchievementsProviderSettingsSource,
-    /const COMPLETION_PROGRESS_FILTER_OPTIONS[\s\S]*"all"[\s\S]*"unfinished"[\s\S]*"beaten"[\s\S]*"mastered"/u,
+    /const filters: readonly CompletionProgressFilter\[\] = \["all", "unfinished", "beaten", "mastered"\]/u,
   );
   assert.match(
     retroAchievementsProviderSettingsSource,
-    /<DropdownItem[\s\S]*label="Default Completion Progress filter"[\s\S]*rgOptions=\{COMPLETION_PROGRESS_FILTER_DROPDOWN_OPTIONS\}[\s\S]*const defaultCompletionProgressFilter = option\.data;[\s\S]*updateSettings\(\(current\) => \(\{[\s\S]*defaultCompletionProgressFilter,/u,
+    /<PreferenceRow[\s\S]*label="Default Completion Progress filter"[\s\S]*getNextCompletionProgressFilter\([\s\S]*current\.defaultCompletionProgressFilter/u,
   );
   assert.doesNotMatch(
     retroAchievementsProviderSettingsSource,
-    /getNextCountOption|getNextCompletionProgressFilter/,
+    /DropdownItem|COUNT_DROPDOWN_OPTIONS|COMPLETION_PROGRESS_FILTER_DROPDOWN_OPTIONS/,
   );
+  assert.doesNotMatch(steamProviderSettingsSource, /DropdownItem|\bDropdown\b/);
   assert.match(
     steamCredentialsFormSource,
     /function PreferenceRow[\s\S]*<DeckyActionButtonItem/u,
