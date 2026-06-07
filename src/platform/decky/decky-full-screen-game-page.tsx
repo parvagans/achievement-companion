@@ -14,9 +14,11 @@ import {
   DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS,
 } from "./decky-focus-styles";
 import {
-  buildAchievementStatus,
+  formatProviderAchievementPointsText,
+  formatProviderAchievementStatusText,
   dedupeDistinctLabels,
   formatModeProgressSummary,
+  isSteamAchievementPresentationProvider,
   shouldRenderAchievementModeFilter,
 } from "./decky-achievement-detail-helpers";
 import { sortAchievementsForDisplay } from "./decky-game-detail-ordering";
@@ -57,21 +59,6 @@ function getMetricValue(
   key: string,
 ): string | undefined {
   return metrics.find((metric) => metric.key === key)?.value;
-}
-
-function formatAchievementDescription(achievement: NormalizedAchievement): string {
-  const parts = [buildAchievementStatus(achievement).value];
-
-  if (achievement.points !== undefined) {
-    parts.push(`${formatCount(achievement.points)} points`);
-  }
-
-  const unlockedAt = achievement.unlockedAt;
-  if (unlockedAt !== undefined) {
-    parts.push(`Date ${formatTimestamp(unlockedAt)}`);
-  }
-
-  return parts.join(", ");
 }
 
 function formatAchievementFilterLabel(filter: AchievementFilter): string {
@@ -967,7 +954,9 @@ function AchievementRowCard({
   readonly onBack: () => void;
 }): JSX.Element {
   const [isFocused, setIsFocused] = useState(false);
-  const status = buildAchievementStatus(achievement);
+  const isSteamProvider = isSteamAchievementPresentationProvider(achievement.providerId);
+  const statusText = formatProviderAchievementStatusText(achievement.providerId, achievement);
+  const pointsText = formatProviderAchievementPointsText(achievement.providerId, achievement.points);
   const unlockedAt = achievement.unlockedAt;
   const openAchievementDetail = (): void => {
     if (onOpenAchievementDetail !== undefined) {
@@ -1010,12 +999,15 @@ function AchievementRowCard({
 
       <span style={getAchievementRowTextStyle()}>
         <span style={getAchievementRowTitleStyle()}>{achievement.title}</span>
+        {isSteamProvider && achievement.description !== undefined ? (
+          <span style={getAchievementRowDetailStyle()}>{achievement.description}</span>
+        ) : null}
         <span style={getAchievementRowMetadataStackStyle()}>
-          <span style={getAchievementRowStatusStyle(achievement)}>{status.value}</span>
-          <span style={getAchievementRowDetailStyle()}>
-            {achievement.points !== undefined ? `${formatCount(achievement.points)} points` : "Points unavailable"}
-          </span>
-          {unlockedAt !== undefined ? (
+          <span style={getAchievementRowStatusStyle(achievement)}>{statusText}</span>
+          {pointsText !== undefined ? (
+            <span style={getAchievementRowDetailStyle()}>{pointsText}</span>
+          ) : null}
+          {!isSteamProvider && unlockedAt !== undefined ? (
             <span style={getAchievementRowDetailStyle()}>Unlocked {formatTimestamp(unlockedAt)}</span>
           ) : null}
         </span>

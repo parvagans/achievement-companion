@@ -10,6 +10,7 @@ import {
   buildAchievementStatus,
   formatAchievementDetailUnlockRatePercent,
   formatCount,
+  formatProviderAchievementStatusText,
   getAchievementDescriptionText,
   formatPlatformBadgeLabel,
   formatTimestamp,
@@ -439,7 +440,7 @@ function AchievementCard({
 }: {
   readonly achievement: Pick<
     NormalizedAchievement,
-    "achievementId" | "title" | "description" | "badgeImageUrl" | "isUnlocked" | "unlockedAt" | "points" | "metrics"
+    "achievementId" | "title" | "description" | "badgeImageUrl" | "isUnlocked" | "unlockedAt" | "unlockMode" | "points" | "metrics"
   >;
   readonly game: CompactAchievementGameTarget;
   readonly onBack: () => void;
@@ -488,7 +489,6 @@ function AchievementCard({
           ) : achievement.description !== undefined ? (
             <div style={getDescriptionStyle()}>{achievement.description}</div>
           ) : null}
-          {isSteamProvider ? <div style={getSubtleStyle()}>{achievementStatus.secondary ?? achievementStatus.value}</div> : null}
         </div>
       </div>
 
@@ -544,7 +544,7 @@ function AchievementCard({
       ) : (
         <div style={getSectionBlockStyle()}>
           <div style={getSectionLabelStyle()}>Unlock status</div>
-          <div style={getSubtleStyle()}>{achievementStatus.secondary ?? achievementStatus.value}</div>
+          <div style={getSubtleStyle()}>{formatProviderAchievementStatusText(game.providerId, achievement)}</div>
         </div>
       )}
 

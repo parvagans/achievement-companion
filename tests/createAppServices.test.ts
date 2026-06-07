@@ -50,6 +50,9 @@ import { setDeckyBackendCallImplementationForTests } from "../src/platform/decky
 import {
   buildAchievementStatus,
   dedupeDistinctLabels,
+  formatProviderAchievementPointsText,
+  formatProviderAchievementStatusText,
+  formatProviderAchievementUnlockRateText,
   getAchievementCounts,
   getAchievementDescriptionText,
   getAchievementDetailCounts,
@@ -60,6 +63,7 @@ import {
   formatAchievementUnlockRateValue,
   formatAchievementUnlockModeLabel,
   formatModeProgressSummary,
+  isSteamAchievementPresentationProvider,
   shouldHideSteamAchievementDetailStats,
   shouldRenderAchievementModeFilter,
 } from "../src/platform/decky/decky-achievement-detail-helpers";
@@ -1253,6 +1257,37 @@ test("retroachievements mode progress helper falls back safely when data is miss
   assert.equal(formatModeProgressSummary(undefined, "Softcore"), "No softcore progress available.");
 });
 
+test("provider-aware achievement presentation helpers suppress retro placeholders for steam", () => {
+  const unlockedAt = Date.parse("2024-01-01T01:00:00Z");
+
+  assert.equal(isSteamAchievementPresentationProvider("steam"), true);
+  assert.equal(isSteamAchievementPresentationProvider("retroachievements"), false);
+  assert.equal(
+    formatProviderAchievementStatusText("steam", {
+      isUnlocked: true,
+      unlockedAt,
+    }),
+    `Unlocked ${new Date(unlockedAt).toLocaleString()}`,
+  );
+  assert.equal(
+    formatProviderAchievementStatusText("retroachievements", {
+      isUnlocked: true,
+      unlockMode: "hardcore",
+      unlockedAt,
+    }),
+    "Hardcore unlocked",
+  );
+  assert.equal(formatProviderAchievementPointsText("steam", undefined), undefined);
+  assert.equal(formatProviderAchievementPointsText("retroachievements", undefined), "Points unavailable");
+  assert.equal(formatProviderAchievementPointsText("steam", 5), "5 points");
+  assert.equal(formatProviderAchievementPointsText("steam", 5, "prefixed"), "Points 5");
+  assert.equal(formatProviderAchievementUnlockRateText("steam", undefined), undefined);
+  assert.equal(
+    formatProviderAchievementUnlockRateText("retroachievements", undefined),
+    "Unlock rate unavailable",
+  );
+});
+
 test("retroachievements achievement spotlight counts use game players and award totals", () => {
   const spotlightCounts = getAchievementSpotlightCounts(
     [
@@ -2184,9 +2219,12 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(achievementDetailViewSource, /label="Show all"/);
   assert.match(achievementDetailViewSource, /\{achievement\.title\}/);
   assert.match(achievementDetailViewSource, /getAchievementRowMetadataStackStyle\(\)/);
-  assert.match(achievementDetailViewSource, /status\.value/);
-  assert.match(achievementDetailViewSource, /Points unavailable/);
-  assert.match(achievementDetailViewSource, /Unlocked \$\{formatTimestamp\(unlockedAt\)\}/);
+  assert.match(achievementDetailViewSource, /formatProviderAchievementStatusText\(game\.providerId, achievement\)/);
+  assert.match(achievementDetailViewSource, /isSteamProvider && achievement\.description !== undefined/);
+  assert.equal(
+    (achievementDetailViewSource.match(/achievementStatus\.secondary \?\? achievementStatus\.value/g) ?? []).length,
+    0,
+  );
   assert.match(achievementDetailViewSource, /parts\.join\(" \/ "\)/);
   assert.doesNotMatch(achievementDetailViewSource, /\$\{index \+ 1\}\.\s*\$\{achievement\.title\}/);
   assert.match(achievementDetailViewSource, /role="radio"/);
@@ -2260,6 +2298,12 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.doesNotMatch(fullScreenGamePageSource, /DeckyCompactPillActionItem/);
   assert.match(fullScreenGamePageSource, /getAchievementCardStyle\(achievement\)/);
   assert.match(fullScreenGamePageSource, /getAchievementRowMetadataStackStyle\(\)/);
+  assert.match(fullScreenGamePageSource, /const isSteamProvider = isSteamAchievementPresentationProvider\(achievement\.providerId\)/);
+  assert.match(fullScreenGamePageSource, /const statusText = formatProviderAchievementStatusText\(achievement\.providerId, achievement\)/);
+  assert.match(fullScreenGamePageSource, /const pointsText = formatProviderAchievementPointsText\(achievement\.providerId, achievement\.points\)/);
+  assert.match(fullScreenGamePageSource, /isSteamProvider && achievement\.description !== undefined/);
+  assert.match(fullScreenGamePageSource, /pointsText !== undefined/);
+  assert.match(fullScreenGamePageSource, /!isSteamProvider && unlockedAt !== undefined/);
   assert.match(fullScreenGamePageSource, /gridTemplateColumns: "repeat\(auto-fit, minmax\(320px, 1fr\)\)"/);
   assert.match(fullScreenGamePageSource, /gridTemplateColumns: "repeat\(auto-fit, minmax\(240px, 1fr\)\)"/);
   assert.match(fullScreenGamePageSource, /gridTemplateColumns: "repeat\(3, minmax\(0, 1fr\)\)"/);
@@ -2299,7 +2343,6 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightCounts\(achievement\.metrics, game\.metrics\)/);
   assert.match(fullScreenAchievementPageSource, /formatAchievementUnlockRatePercent\(unlockRatePercent\)/);
   assert.match(fullScreenAchievementPageSource, /achievementStatus\.value/);
-  assert.match(fullScreenAchievementPageSource, /achievementStatus\.secondary/);
   assert.match(
     fullScreenAchievementPageSource,
     /achievement\.hardcoreUnlockedAt \?\? achievement\.softcoreUnlockedAt \?\? achievement\.unlockedAt/u,
@@ -2333,6 +2376,11 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.doesNotMatch(fullScreenAchievementPageSource, /P2/u);
   assert.match(fullScreenAchievementPageSource, /<span style=\{getAchievementSpotlightMetaPillStyle\(\)\}>\s*RA\s*<\/span>/u);
   assert.match(fullScreenAchievementPageSource, /getAchievementDescriptionText\(achievement\.description\)/);
+  assert.match(fullScreenAchievementPageSource, /const steamStatusText = formatProviderAchievementStatusText\(providerId \?\? game\.providerId, achievement\)/);
+  assert.equal(
+    (fullScreenAchievementPageSource.match(/achievementStatus\.secondary \?\? achievementStatus\.value/g) ?? []).length,
+    0,
+  );
   assert.match(
     readFileSync("src/platform/decky/decky-compact-pill-action-item.tsx", "utf8"),
     /readonly emphasis\?: "default" \| "primary"/,
@@ -2386,6 +2434,18 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(achievementHistorySource, /getAchievementHistoryStatusStyle/u);
   assert.match(achievementHistorySource, /getAchievementHistoryRowFocusStyle/u);
   assert.match(achievementHistorySource, /getAchievementRowMetadataStackStyle/u);
+  assert.match(
+    achievementHistorySource,
+    /formatProviderAchievementPointsText\(\s*recentUnlock\.achievement\.providerId,\s*recentUnlock\.achievement\.points,\s*"prefixed"/u,
+  );
+  assert.match(
+    achievementHistorySource,
+    /formatProviderAchievementUnlockRateText\(\s*recentUnlock\.achievement\.providerId,\s*unlockRate/u,
+  );
+  assert.match(achievementHistorySource, /isSteamProvider && recentUnlock\.achievement\.description !== undefined/);
+  assert.match(achievementHistorySource, /!isSteamProvider && unlockedAt !== undefined/);
+  assert.doesNotMatch(achievementHistorySource, /Points unavailable/u);
+  assert.doesNotMatch(achievementHistorySource, /Unlock rate unavailable/u);
   assert.doesNotMatch(achievementHistorySource, /summaryParts\.join\(" \| "\)/u);
   assert.match(achievementHistorySource, /addProfileAvatarCacheBustParam\(avatarUrl, refreshedAt\)/u);
   assert.doesNotMatch(dashboardViewSource, /addProfileAvatarCacheBustParam\(game\.coverImageUrl/u);
@@ -2532,6 +2592,8 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(compactAchievementDetailSource, /getAchievementStatusCardStyle\(achievementStatusTone\)/);
   assert.match(compactAchievementDetailSource, /getAchievementStatusValueStyle\(achievementStatusTone\)/);
   assert.match(compactAchievementDetailSource, /getAchievementStatusSecondaryStyle\(achievementStatusTone\)/);
+  assert.match(compactAchievementDetailSource, /formatProviderAchievementStatusText\(game\.providerId, achievement\)/);
+  assert.match(compactAchievementDetailSource, />Unlock status</);
   assert.match(compactAchievementDetailSource, /Unlocked \$\{formatTimestamp\(achievement\.unlockedAt\)\}/u);
   assert.doesNotMatch(compactAchievementDetailSource, /replace\(\^Unlocked\\s\+\/u,/u);
   assert.match(

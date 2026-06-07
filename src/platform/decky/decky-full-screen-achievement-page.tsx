@@ -11,6 +11,7 @@ import {
   formatCount,
   formatPlatformBadgeLabel,
   formatAchievementUnlockRatePercent,
+  formatProviderAchievementStatusText,
   formatTimestamp,
   dedupeDistinctLabels,
   hasAchievementCounts,
@@ -896,6 +897,7 @@ export function DeckyFullScreenAchievementPage({
   const showCounts = hasAchievementCounts(counts);
   const unlockRatePercent = getUnlockRatePercent(achievement);
   const achievementStatus = buildAchievementStatus(achievement);
+  const steamStatusText = formatProviderAchievementStatusText(providerId ?? game.providerId, achievement);
   const heroMetaPills = dedupeDistinctLabels([game.platformLabel ?? "Unknown platform", providerLabel]);
 
   if (!isSteamProvider) {
@@ -955,9 +957,7 @@ export function DeckyFullScreenAchievementPage({
                       </span>
                     ))}
                   </div>
-                  <div style={getHeroSupportStyle()}>
-                    {achievementStatus.secondary ?? achievementStatus.value}
-                  </div>
+                  <div style={getHeroSupportStyle()}>{steamStatusText}</div>
                 </div>
               </div>
             </PanelSectionRow>
@@ -977,9 +977,6 @@ export function DeckyFullScreenAchievementPage({
                 <div style={getAchievementTextStyle()}>
                   <div style={getAchievementTitleStyle()}>{achievement.title}</div>
                   <div style={getAchievementDescriptionStyle()}>{getAchievementDescriptionText(achievement.description)}</div>
-                  {isSteamProvider ? (
-                    <div style={getHeroSupportStyle()}>{achievementStatus.secondary ?? achievementStatus.value}</div>
-                  ) : null}
                 </div>
               </div>
             </PanelSectionRow>

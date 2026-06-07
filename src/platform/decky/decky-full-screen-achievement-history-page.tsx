@@ -13,7 +13,12 @@ import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
-import { buildAchievementStatus } from "./decky-achievement-detail-helpers";
+import {
+  formatProviderAchievementPointsText,
+  formatProviderAchievementStatusText,
+  formatProviderAchievementUnlockRateText,
+  isSteamAchievementPresentationProvider,
+} from "./decky-achievement-detail-helpers";
 import { formatDeckyProviderLabel } from "./providers";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
 
@@ -436,7 +441,9 @@ function getFallbackInitials(title: string): string {
   );
 }
 
-function getAchievementHistoryRowTone(achievement: Pick<RecentUnlock["achievement"], "isUnlocked" | "unlockMode">): "hardcore" | "softcore" | "locked" {
+function getAchievementHistoryRowTone(
+  achievement: Pick<RecentUnlock["achievement"], "isUnlocked" | "unlockMode">,
+): "hardcore" | "softcore" | "locked" | "default" {
   if (!achievement.isUnlocked) {
     return "locked";
   }
@@ -445,7 +452,11 @@ function getAchievementHistoryRowTone(achievement: Pick<RecentUnlock["achievemen
     return "hardcore";
   }
 
-  return "softcore";
+  if (achievement.unlockMode === "softcore") {
+    return "softcore";
+  }
+
+  return "default";
 }
 
 const scrollFocusedElementIntoView: FocusEventHandler<HTMLElement> = (event) => {
@@ -519,9 +530,22 @@ function AchievementHistoryRow({
   const openAchievementDetail = (): void => {
     onOpenAchievementDetail(recentUnlock.game.gameId, recentUnlock.achievement.achievementId);
   };
-  const status = buildAchievementStatus(recentUnlock.achievement);
+  const isSteamProvider = isSteamAchievementPresentationProvider(recentUnlock.achievement.providerId);
+  const statusText = formatProviderAchievementStatusText(
+    recentUnlock.achievement.providerId,
+    recentUnlock.achievement,
+  );
   const unlockedAt = recentUnlock.unlockedAt ?? recentUnlock.achievement.unlockedAt;
   const unlockRate = getMetricValue(recentUnlock.achievement.metrics, "true-ratio", "True Ratio");
+  const pointsText = formatProviderAchievementPointsText(
+    recentUnlock.achievement.providerId,
+    recentUnlock.achievement.points,
+    "prefixed",
+  );
+  const unlockRateText = formatProviderAchievementUnlockRateText(
+    recentUnlock.achievement.providerId,
+    unlockRate,
+  );
   const rowTone = getAchievementHistoryRowTone(recentUnlock.achievement);
   const isHardcore = rowTone === "hardcore";
   const isSoftcore = rowTone === "softcore";
@@ -587,17 +611,18 @@ function AchievementHistoryRow({
       <span style={getAchievementRowTextStyle()}>
         <span style={getAchievementRowTitleStyle()}>{recentUnlock.achievement.title}</span>
         <span style={getAchievementRowGameStyle()}>{recentUnlock.game.title}</span>
+        {isSteamProvider && recentUnlock.achievement.description !== undefined ? (
+          <span style={getAchievementHistoryDetailStyle()}>{recentUnlock.achievement.description}</span>
+        ) : null}
         <span style={getAchievementRowMetadataStackStyle()}>
-          <span style={getAchievementHistoryStatusStyle(recentUnlock.achievement)}>{status.value}</span>
-          <span style={getAchievementHistoryDetailStyle()}>
-            {recentUnlock.achievement.points !== undefined
-              ? `Points ${formatCount(recentUnlock.achievement.points)}`
-              : "Points unavailable"}
-          </span>
-          <span style={getAchievementHistoryDetailStyle()}>
-            {unlockRate !== undefined ? `Unlock rate ${unlockRate}` : "Unlock rate unavailable"}
-          </span>
-          {unlockedAt !== undefined ? (
+          <span style={getAchievementHistoryStatusStyle(recentUnlock.achievement)}>{statusText}</span>
+          {pointsText !== undefined ? (
+            <span style={getAchievementHistoryDetailStyle()}>{pointsText}</span>
+          ) : null}
+          {unlockRateText !== undefined ? (
+            <span style={getAchievementHistoryDetailStyle()}>{unlockRateText}</span>
+          ) : null}
+          {!isSteamProvider && unlockedAt !== undefined ? (
             <span style={getAchievementHistoryDetailStyle()}>{`Unlocked ${formatTimestamp(unlockedAt)}`}</span>
           ) : null}
         </span>

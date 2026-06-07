@@ -9,8 +9,10 @@ import { DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_C
 import type { CompactAchievementTarget } from "./decky-achievement-detail-view";
 import { DeckyCompactPillActionGroup, DeckyCompactPillActionItem } from "./decky-compact-pill-action-item";
 import {
-  buildAchievementStatus,
+  formatProviderAchievementPointsText,
+  formatProviderAchievementStatusText,
   formatModeProgressSummary,
+  isSteamAchievementPresentationProvider,
   shouldRenderAchievementModeFilter,
 } from "./decky-achievement-detail-helpers";
 import { sortAchievementsForDisplay } from "./decky-game-detail-ordering";
@@ -466,7 +468,9 @@ function AchievementRowCard({
   readonly onOpenAchievementDetail: (target: CompactAchievementTarget) => void;
 }): JSX.Element {
   const [isFocused, setIsFocused] = useState(false);
-  const status = buildAchievementStatus(achievement);
+  const isSteamProvider = isSteamAchievementPresentationProvider(game.providerId);
+  const statusText = formatProviderAchievementStatusText(game.providerId, achievement);
+  const pointsText = formatProviderAchievementPointsText(game.providerId, achievement.points);
   const unlockedAt = achievement.unlockedAt;
 
   return (
@@ -532,12 +536,15 @@ function AchievementRowCard({
 
       <div style={getAchievementRowTextStyle()}>
         <div style={getAchievementRowTitleStyle()}>{achievement.title}</div>
+        {isSteamProvider && achievement.description !== undefined ? (
+          <div style={getAchievementRowDetailStyle()}>{achievement.description}</div>
+        ) : null}
         <div style={getAchievementRowMetadataStackStyle()}>
-          <div style={getAchievementRowStatusStyle(achievement)}>{status.value}</div>
-          <div style={getAchievementRowDetailStyle()}>
-            {achievement.points !== undefined ? `${formatCount(achievement.points)} points` : "Points unavailable"}
-          </div>
-          {unlockedAt !== undefined ? (
+          <div style={getAchievementRowStatusStyle(achievement)}>{statusText}</div>
+          {pointsText !== undefined ? (
+            <div style={getAchievementRowDetailStyle()}>{pointsText}</div>
+          ) : null}
+          {!isSteamProvider && unlockedAt !== undefined ? (
             <div style={getAchievementRowDetailStyle()}>{`Unlocked ${formatTimestamp(unlockedAt)}`}</div>
           ) : null}
         </div>
