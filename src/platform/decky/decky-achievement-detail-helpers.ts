@@ -1,5 +1,7 @@
 import type { NormalizedAchievement, NormalizedMetric } from "@core/domain";
 
+const STEAM_PROVIDER_ID = "steam";
+
 export function formatTimestamp(epochMs: number | undefined): string {
   if (epochMs === undefined) {
     return "Unknown";
@@ -173,6 +175,10 @@ export function formatAchievementUnlockRateValue(percent: number | undefined): s
   return percent !== undefined ? `${percent.toFixed(2)}%` : "-";
 }
 
+export function isSteamAchievementPresentationProvider(providerId: string | undefined): boolean {
+  return providerId === STEAM_PROVIDER_ID;
+}
+
 export function dedupeDistinctLabels(
   labels: readonly (string | undefined)[],
 ): readonly string[] {
@@ -225,6 +231,43 @@ export function buildAchievementStatus(
   };
 }
 
+export function formatProviderAchievementStatusText(
+  providerId: string | undefined,
+  achievement: Pick<NormalizedAchievement, "isUnlocked" | "unlockedAt" | "unlockMode">,
+): string {
+  const status = buildAchievementStatus(achievement);
+
+  if (isSteamAchievementPresentationProvider(providerId)) {
+    return status.secondary ?? status.value;
+  }
+
+  return status.value;
+}
+
+export function formatProviderAchievementPointsText(
+  providerId: string | undefined,
+  points: number | undefined,
+  style: "suffix" | "prefixed" = "suffix",
+): string | undefined {
+  if (points !== undefined) {
+    const formattedPoints = formatCount(points);
+    return style === "prefixed" ? `Points ${formattedPoints}` : `${formattedPoints} points`;
+  }
+
+  return isSteamAchievementPresentationProvider(providerId) ? undefined : "Points unavailable";
+}
+
+export function formatProviderAchievementUnlockRateText(
+  providerId: string | undefined,
+  unlockRate: string | undefined,
+): string | undefined {
+  if (unlockRate !== undefined) {
+    return `Unlock rate ${unlockRate}`;
+  }
+
+  return isSteamAchievementPresentationProvider(providerId) ? undefined : "Unlock rate unavailable";
+}
+
 export function formatAchievementUnlockModeLabel(
   achievement: Pick<NormalizedAchievement, "isUnlocked" | "unlockMode">,
 ): string {
@@ -265,7 +308,7 @@ export function formatModeProgressSummary(
 }
 
 export function shouldHideSteamAchievementDetailStats(providerId: string | undefined): boolean {
-  return providerId === "steam";
+  return isSteamAchievementPresentationProvider(providerId);
 }
 
 export function shouldRenderAchievementModeFilter(providerId: string | undefined): boolean {
