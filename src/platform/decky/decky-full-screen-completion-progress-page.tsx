@@ -59,9 +59,11 @@ function formatTimestamp(epochMs: number | undefined): string {
   return new Date(epochMs).toLocaleString();
 }
 
+const FULLSCREEN_COMPLETION_PROGRESS_BOTTOM_SCROLL_PADDING = 88;
+
 function getPageFrameStyle(): CSSProperties {
   return {
-    padding: "calc(env(safe-area-inset-top, 0px) + 12px) 12px calc(env(safe-area-inset-bottom, 0px) + 12px)",
+    padding: `calc(env(safe-area-inset-top, 0px) + 12px) 12px calc(env(safe-area-inset-bottom, 0px) + ${FULLSCREEN_COMPLETION_PROGRESS_BOTTOM_SCROLL_PADDING}px)`,
     boxSizing: "border-box",
   };
 }
