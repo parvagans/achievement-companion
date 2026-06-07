@@ -2111,39 +2111,70 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     "src/platform/decky/decky-game-detail-view.tsx",
     "utf8",
   );
+  const achievementSectionBodyStart = achievementDetailViewSource.indexOf(
+    "function AchievementSectionBody(",
+  );
+  const achievementSectionBodyEnd = achievementDetailViewSource.indexOf(
+    "export function DeckyGameDetailView(",
+    achievementSectionBodyStart,
+  );
+  assert.ok(achievementSectionBodyStart >= 0);
+  assert.ok(achievementSectionBodyEnd > achievementSectionBodyStart);
+  const achievementSectionBodySource = achievementDetailViewSource.slice(
+    achievementSectionBodyStart,
+    achievementSectionBodyEnd,
+  );
+  assert.match(achievementSectionBodySource, /flow-children="left-right"/);
+  assert.match(achievementSectionBodySource, /role="radiogroup"/);
+  assert.match(achievementSectionBodySource, /aria-label="Achievement filters"/);
   assert.match(
-    achievementDetailViewSource,
-    /role="radiogroup" aria-label="Achievement filter" className={DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS}/,
+    achievementSectionBodySource,
+    /className=\{DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS\}/,
   );
   assert.match(achievementDetailViewSource, /PanelSection title="GAME OVERVIEW"/);
   assert.match(achievementDetailViewSource, /PanelSection title="PROGRESS SUMMARY"/);
   assert.match(achievementDetailViewSource, /PanelSection title="ACHIEVEMENTS"/);
   assert.match(achievementDetailViewSource, /getGameDetailOverviewIconFrameStyle\(\)/);
   assert.match(achievementDetailViewSource, /DeckyCompletionProgressBar compact percent=\{completionPercent\}/);
-  assert.match(achievementDetailViewSource, /AchievementModeButtons/);
+  assert.doesNotMatch(achievementDetailViewSource, /AchievementModeButtons/);
   assert.doesNotMatch(achievementDetailViewSource, /summary\.completionPercent/u);
   assert.match(achievementDetailViewSource, /const ACHIEVEMENT_MODE_FILTERS = \["all", "hardcore", "softcore"\] as const;/);
   assert.match(achievementDetailViewSource, /useState<AchievementModeFilter>\("all"\)/);
   assert.match(achievementDetailViewSource, /if \(modeFilter === "all"\) \{\s*return true;\s*\}/u);
-  assert.match(achievementDetailViewSource, /ACHIEVEMENT_MODE_FILTERS\.map\(\(filter\)/);
+  assert.match(achievementSectionBodySource, /ACHIEVEMENT_MODE_FILTERS\.map\(\(filter\)/);
+  assert.match(achievementSectionBodySource, /ACHIEVEMENT_FILTERS\.map\(\(filter\)/);
   assert.match(achievementDetailViewSource, /shouldRenderAchievementModeFilter\(game\.providerId\)/);
-  const modeButtonsStart = achievementDetailViewSource.indexOf("function AchievementModeButtons(");
-  const modeButtonsEnd = achievementDetailViewSource.indexOf("function AchievementRowCard(", modeButtonsStart);
-  assert.ok(modeButtonsStart >= 0);
-  assert.ok(modeButtonsEnd > modeButtonsStart);
-  const modeButtonsSource = achievementDetailViewSource.slice(modeButtonsStart, modeButtonsEnd);
-  assert.match(modeButtonsSource, /role="radiogroup" aria-label="Achievement mode" className={DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS}/);
-  assert.match(modeButtonsSource, /Focusable/);
-  assert.match(modeButtonsSource, /DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS/);
-  assert.match(modeButtonsSource, /DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS/);
-  assert.match(modeButtonsSource, /DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS/);
-  assert.match(modeButtonsSource, /aria-checked={active}/);
-  assert.match(modeButtonsSource, /aria-label=\{formatAchievementModeLabel\(filter\)\}/);
-  assert.match(modeButtonsSource, /onActivate=\{\(\) => \{\s*onSelect\(filter\);\s*\}\}/u);
-  assert.match(modeButtonsSource, /onClick=\{\(\) => \{\s*onSelect\(filter\);\s*\}\}/u);
-  assert.match(modeButtonsSource, /onFocus=\{scrollFocusedElementIntoView\}/);
-  assert.doesNotMatch(modeButtonsSource, /DeckyCompactPillActionItem/);
-  assert.match(achievementDetailViewSource, /showAchievementModeFilter \?\s*\(/u);
+  assert.match(achievementSectionBodySource, /DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS/);
+  assert.match(achievementSectionBodySource, /DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS/);
+  assert.match(achievementSectionBodySource, /DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS/);
+  assert.match(achievementSectionBodySource, /role="radio"/);
+  assert.match(achievementSectionBodySource, /aria-checked=\{active\}/);
+  assert.match(
+    achievementSectionBodySource,
+    /aria-label=\{formatAchievementModeLabel\(filter\)\}/,
+  );
+  assert.match(
+    achievementSectionBodySource,
+    /onActivate=\{\(\) => onAchievementModeFilterChange\(filter\)\}/,
+  );
+  assert.match(
+    achievementSectionBodySource,
+    /onClick=\{\(\) => onAchievementModeFilterChange\(filter\)\}/,
+  );
+  assert.match(
+    achievementSectionBodySource,
+    /onActivate=\{\(\) => onAchievementFilterChange\(filter\)\}/,
+  );
+  assert.match(
+    achievementSectionBodySource,
+    /onClick=\{\(\) => onAchievementFilterChange\(filter\)\}/,
+  );
+  assert.match(achievementSectionBodySource, /onCancelButton=\{onBackToDashboard\}/);
+  assert.match(achievementSectionBodySource, /onFocus=\{scrollFocusedElementIntoView\}/);
+  assert.match(
+    achievementSectionBodySource,
+    /\{showAchievementModeFilter\s*\?\s*ACHIEVEMENT_MODE_FILTERS\.map/u,
+  );
   assert.match(achievementDetailViewSource, /matchesAchievementModeFilter\(achievement, achievementModeFilter\)/);
   assert.match(achievementDetailViewSource, /label="Open Game"/);
   assert.doesNotMatch(achievementDetailViewSource, /label="Open full-screen page"/);
@@ -2183,11 +2214,17 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   );
   assert.match(fullScreenGamePageSource, /getGameDetailOverviewLayoutStyle\(\)/);
   assert.match(fullScreenGamePageSource, /DeckyFullscreenActionRow centered/);
-  const heroStyleMatch = fullScreenGamePageSource.match(
-    /function getGameSpotlightHeroStyle\(\): CSSProperties \{[\s\S]*?return \{[\s\S]*?\n  \};\n\}/u,
+  const heroStyleStart = fullScreenGamePageSource.indexOf(
+    "function getGameSpotlightHeroStyle()",
   );
-  assert.ok(heroStyleMatch);
-  assert.doesNotMatch(heroStyleMatch?.[0] ?? "", /borderLeft/);
+  const heroStyleEnd = fullScreenGamePageSource.indexOf(
+    "function getGameSpotlightStatsStyle()",
+    heroStyleStart,
+  );
+  assert.ok(heroStyleStart >= 0);
+  assert.ok(heroStyleEnd > heroStyleStart);
+  const heroStyleSource = fullScreenGamePageSource.slice(heroStyleStart, heroStyleEnd);
+  assert.doesNotMatch(heroStyleSource, /borderLeft/);
   assert.match(fullScreenGamePageSource, /getGameOverviewPillRowStyle\(\)/);
   assert.doesNotMatch(fullScreenGamePageSource, /GameOverviewRefreshPill/);
   assert.doesNotMatch(fullScreenGamePageSource, /getProgressSummaryPercentStyle/);
@@ -2204,12 +2241,14 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.doesNotMatch(fullScreenGamePageSource, /softcore-\$\{pill\.key\}/);
   assert.doesNotMatch(fullScreenGamePageSource, /label="Completion"/);
   assert.doesNotMatch(fullScreenGamePageSource, /gameSystemLabel/);
-  assert.match(fullScreenGamePageSource, /AchievementModeButtons/);
-  assert.match(fullScreenGamePageSource, /AchievementStateButtons/);
+  assert.doesNotMatch(fullScreenGamePageSource, /AchievementModeButtons/);
+  assert.doesNotMatch(fullScreenGamePageSource, /AchievementStateButtons/);
   assert.match(fullScreenGamePageSource, /getAchievementFilterGridStyle\(\)/);
   assert.match(fullScreenGamePageSource, /AchievementFilterButton/);
   assert.match(fullScreenGamePageSource, /Focusable/);
-  assert.match(fullScreenGamePageSource, /role="group"/);
+  assert.match(fullScreenGamePageSource, /flow-children="left-right"/);
+  assert.match(fullScreenGamePageSource, /ACHIEVEMENT_MODE_FILTERS\.map\(\(filter\)/);
+  assert.match(fullScreenGamePageSource, /ACHIEVEMENT_FILTERS\.map\(\(filter\)/);
   assert.match(fullScreenGamePageSource, /role="button"/);
   assert.match(fullScreenGamePageSource, /aria-pressed=\{selected\}/);
   assert.match(fullScreenGamePageSource, /onActivate=\{disabled \? \(\) => undefined : onActivate\}/);
@@ -2394,14 +2433,23 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(compactDashboardSource, /profile\.providerId === STEAM_PROVIDER_ID && steamLibraryScanAction !== undefined/u);
   assert.doesNotMatch(compactDashboardSource, /Library scan updated \$\{steamLibraryScanUpdatedLabel\}/u);
   assert.doesNotMatch(compactDashboardSource, /useDeckySteamLibraryAchievementScanSummary\(providerId\)/u);
-  const providerIdentitySectionStyleMatch = compactDashboardSource.match(
-    /function getProviderIdentitySectionStyle\(\): CSSProperties \{[\s\S]*?return \{[\s\S]*?\n  \};\n\}/u,
+  const providerIdentitySectionStyleStart = compactDashboardSource.indexOf(
+    "function getProviderIdentitySectionStyle()",
   );
-  assert.ok(providerIdentitySectionStyleMatch);
-  assert.match(providerIdentitySectionStyleMatch?.[0] ?? "", /alignItems: "center"/);
-  assert.match(providerIdentitySectionStyleMatch?.[0] ?? "", /padding: "2px 0 4px"/);
-  assert.match(providerIdentitySectionStyleMatch?.[0] ?? "", /marginBottom: 12/);
-  assert.match(providerIdentitySectionStyleMatch?.[0] ?? "", /width: "100%"/);
+  const providerIdentitySectionStyleEnd = compactDashboardSource.indexOf(
+    "function getProviderIdentityIconFrameStyle()",
+    providerIdentitySectionStyleStart,
+  );
+  assert.ok(providerIdentitySectionStyleStart >= 0);
+  assert.ok(providerIdentitySectionStyleEnd > providerIdentitySectionStyleStart);
+  const providerIdentitySectionStyleSource = compactDashboardSource.slice(
+    providerIdentitySectionStyleStart,
+    providerIdentitySectionStyleEnd,
+  );
+  assert.match(providerIdentitySectionStyleSource, /alignItems: "center"/);
+  assert.match(providerIdentitySectionStyleSource, /padding: "2px 0 4px"/);
+  assert.match(providerIdentitySectionStyleSource, /marginBottom: 12/);
+  assert.match(providerIdentitySectionStyleSource, /width: "100%"/);
   assert.match(compactDashboardSource, /<ProviderIdentityRow providerId=\{profile\.providerId\} \/>/u);
   assert.match(compactDashboardSource, /function RecentAchievementRow\(/u);
   assert.match(compactDashboardSource, /function RecentlyPlayedRow\(/u);
