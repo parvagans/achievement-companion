@@ -261,9 +261,11 @@ function getGameSpotlightLayoutStyle(): CSSProperties {
   };
 }
 
+const FULLSCREEN_GAME_BOTTOM_SCROLL_PADDING = 88;
+
 function getFullScreenPageFrameStyle(): CSSProperties {
   return {
-    padding: "calc(env(safe-area-inset-top, 0px) + 12px) 12px calc(env(safe-area-inset-bottom, 0px) + 12px)",
+    padding: `calc(env(safe-area-inset-top, 0px) + 12px) 12px calc(env(safe-area-inset-bottom, 0px) + ${FULLSCREEN_GAME_BOTTOM_SCROLL_PADDING}px)`,
     boxSizing: "border-box",
   };
 }

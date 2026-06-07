@@ -2279,7 +2279,14 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenAchievementPageSource, /AchievementSpotlightCard/);
   assert.match(fullScreenAchievementPageSource, /if \(!isSteamProvider\) \{/);
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightCardStyle\(tone\)/);
-  assert.match(fullScreenAchievementPageSource, /calc\(env\(safe-area-inset-bottom, 0px\) \+ 12px\)/);
+  assert.match(
+    fullScreenAchievementPageSource,
+    /FULLSCREEN_ACHIEVEMENT_PAGE_BOTTOM_SCROLL_PADDING = 88/,
+  );
+  assert.match(
+    fullScreenAchievementPageSource,
+    /calc\(env\(safe-area-inset-bottom, 0px\) \+ \$\{FULLSCREEN_ACHIEVEMENT_PAGE_BOTTOM_SCROLL_PADDING\}px\)/,
+  );
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightBackRowStyle\(\)/);
   assert.match(fullScreenAchievementPageSource, /backLabel=\{backLabel\}/);
   assert.match(fullScreenAchievementPageSource, /onBack=\{onBack\}/);
