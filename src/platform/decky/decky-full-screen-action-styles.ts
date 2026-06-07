@@ -2,6 +2,8 @@ import {
   DECKY_FULLSCREEN_ACTION_ROW_CLASS,
   DECKY_FULLSCREEN_ACTION_ROW_CENTERED_CLASS,
   DECKY_FULLSCREEN_CHIP_CLASS,
+  DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS,
+  DECKY_FULLSCREEN_CHIP_SELECTED_CLASS,
 } from "./decky-focus-styles";
 
 export function getDeckyFullscreenActionStylesCss(): string {
@@ -14,145 +16,82 @@ export function getDeckyFullscreenActionStylesCss(): string {
   gap: 8px 8px;
   min-width: 0;
   width: 100%;
-  background: transparent;
-  border: 0;
-  box-shadow: none;
 }
 
 .${DECKY_FULLSCREEN_ACTION_ROW_CENTERED_CLASS} {
   justify-content: center;
 }
 
-.${DECKY_FULLSCREEN_CHIP_CLASS},
-.${DECKY_FULLSCREEN_CHIP_CLASS}.DialogButton,
-button.${DECKY_FULLSCREEN_CHIP_CLASS},
-button.${DECKY_FULLSCREEN_CHIP_CLASS}.DialogButton {
+.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > .${DECKY_FULLSCREEN_CHIP_CLASS} {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   flex: 0 0 auto !important;
-  width: auto !important;
-  min-width: 0 !important;
-  max-width: 100% !important;
+  width: max-content !important;
+  min-width: max-content !important;
+  max-width: none !important;
   min-height: 40px !important;
   padding: 0 14px !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
   border-radius: 999px !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.055)) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.045)) !important;
   color: rgba(255, 255, 255, 0.94) !important;
-  cursor: pointer !important;
+  box-sizing: border-box !important;
   font-size: 13px !important;
   font-weight: 700 !important;
   line-height: 1.15 !important;
   letter-spacing: 0.01em !important;
   user-select: none !important;
   white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  box-sizing: border-box !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 2px 12px rgba(0, 0, 0, 0.24) !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
   outline: none !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 10px rgba(0, 0, 0, 0.22) !important;
   transition:
-    background-color 120ms ease,
     background 120ms ease,
     border-color 120ms ease,
     box-shadow 120ms ease,
-    color 120ms ease,
-    transform 120ms ease;
+    color 120ms ease;
 }
 
-.Panel.Focusable.gpfocus:has(.${DECKY_FULLSCREEN_CHIP_CLASS}),
-.Panel.Focusable.gpfocuswithin:has(.${DECKY_FULLSCREEN_CHIP_CLASS}),
-.Focusable.gpfocus:has(.${DECKY_FULLSCREEN_CHIP_CLASS}),
-.Focusable.gpfocuswithin:has(.${DECKY_FULLSCREEN_CHIP_CLASS}) {
-  background: transparent !important;
-  background-color: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-  filter: none !important;
-  backdrop-filter: none !important;
-  outline: none !important;
+.${DECKY_FULLSCREEN_CHIP_CLASS}.${DECKY_FULLSCREEN_CHIP_SELECTED_CLASS} {
+  border-color: rgba(255, 255, 255, 0.24) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.09)) !important;
+  color: rgba(255, 255, 255, 0.99) !important;
 }
 
-.Panel.Focusable.gpfocus:has(.${DECKY_FULLSCREEN_CHIP_CLASS})::before,
-.Panel.Focusable.gpfocuswithin:has(.${DECKY_FULLSCREEN_CHIP_CLASS})::before,
-.Focusable.gpfocus:has(.${DECKY_FULLSCREEN_CHIP_CLASS})::before,
-.Focusable.gpfocuswithin:has(.${DECKY_FULLSCREEN_CHIP_CLASS})::before,
-.Panel.Focusable.gpfocus:has(.${DECKY_FULLSCREEN_CHIP_CLASS})::after,
-.Panel.Focusable.gpfocuswithin:has(.${DECKY_FULLSCREEN_CHIP_CLASS})::after,
-.Focusable.gpfocus:has(.${DECKY_FULLSCREEN_CHIP_CLASS})::after,
-.Focusable.gpfocuswithin:has(.${DECKY_FULLSCREEN_CHIP_CLASS})::after {
-  content: none !important;
-  background: none !important;
-  background-image: none !important;
-  box-shadow: none !important;
-}
-
-.${DECKY_FULLSCREEN_CHIP_CLASS} {
-  transition:
-    background-color 120ms ease,
-    border-color 120ms ease,
-    box-shadow 120ms ease,
-    color 120ms ease,
-    transform 120ms ease;
-}
-
-.${DECKY_FULLSCREEN_CHIP_CLASS}--selected {
-  border-color: rgba(255, 255, 255, 0.22) !important;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.12)) !important;
-  color: rgba(255, 255, 255, 0.98) !important;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
-}
-
-.${DECKY_FULLSCREEN_CHIP_CLASS}--focused,
+.${DECKY_FULLSCREEN_CHIP_CLASS}.${DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS},
+.${DECKY_FULLSCREEN_CHIP_CLASS}.gpfocus,
+.${DECKY_FULLSCREEN_CHIP_CLASS}.gpfocuswithin,
+.${DECKY_FULLSCREEN_CHIP_CLASS}:focus,
 .${DECKY_FULLSCREEN_CHIP_CLASS}:focus-visible,
 .${DECKY_FULLSCREEN_CHIP_CLASS}:focus-within {
+  border-color: rgba(105, 176, 255, 0.8) !important;
+  background: linear-gradient(180deg, rgba(74, 138, 204, 0.34), rgba(34, 79, 124, 0.3)) !important;
+  color: #fff !important;
   outline: none !important;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.075)) !important;
-  border-color: rgba(125, 190, 255, 0.62) !important;
   box-shadow:
-    0 0 0 1px rgba(96, 165, 250, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-  0 2px 10px rgba(0, 0, 0, 0.24) !important;
-  transform: none !important;
+    0 0 0 2px rgba(73, 155, 255, 0.72),
+    0 0 18px rgba(39, 124, 226, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
 }
 
-.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > div::after,
-.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > .Panel::after,
-.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > div.Panel::after,
-.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > div[class*="Panel"]::after,
-.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > div[class]::after {
-  content: "" !important;
-  display: block !important;
-  visibility: hidden !important;
-  opacity: 0 !important;
-  height: 0 !important;
-  min-height: 0 !important;
-  max-height: 0 !important;
+.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > .${DECKY_FULLSCREEN_CHIP_CLASS} > span {
+  display: inline-flex !important;
+  width: max-content !important;
+  min-width: max-content !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+
+.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > .${DECKY_FULLSCREEN_CHIP_CLASS}::before,
+.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > .${DECKY_FULLSCREEN_CHIP_CLASS}::after {
+  content: none !important;
   background: transparent !important;
-  background-color: transparent !important;
-  background-image: none !important;
-  border: 0 !important;
-  border-bottom: 0 !important;
   box-shadow: none !important;
-  transform: scaleY(0) !important;
-}
-
-.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > div:focus-within .${DECKY_FULLSCREEN_CHIP_CLASS},
-.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > .Panel:focus-within .${DECKY_FULLSCREEN_CHIP_CLASS},
-.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > div.Panel:focus-within .${DECKY_FULLSCREEN_CHIP_CLASS},
-.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > div[class]:focus-within .${DECKY_FULLSCREEN_CHIP_CLASS},
-.${DECKY_FULLSCREEN_CHIP_CLASS}:focus,
-.${DECKY_FULLSCREEN_CHIP_CLASS}:focus-within {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.075)) !important;
-  border-color: rgba(125, 190, 255, 0.62) !important;
-  box-shadow:
-    0 0 0 1px rgba(96, 165, 250, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 2px 10px rgba(0, 0, 0, 0.24) !important;
-  transform: none !important;
 }
 `;
 }

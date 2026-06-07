@@ -1,5 +1,12 @@
-import { ButtonItem, Focusable, type ButtonItemProps } from "@decky/ui";
-import { useCallback, type CSSProperties, type JSX, type ReactNode } from "react";
+import { Focusable } from "@decky/ui";
+import {
+  useCallback,
+  type ComponentProps,
+  type CSSProperties,
+  type FocusEventHandler,
+  type JSX,
+  type ReactNode,
+} from "react";
 import {
   DECKY_FULLSCREEN_ACTION_ROW_CLASS,
   DECKY_FULLSCREEN_ACTION_ROW_CENTERED_CLASS,
@@ -49,10 +56,26 @@ function getFullscreenChipContentStyle(): CSSProperties {
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
+    width: "max-content",
+    minWidth: "max-content",
+    overflow: "visible",
     whiteSpace: "nowrap",
+  };
+}
+
+function getFullscreenChipStyle(disabled: boolean): CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flex: "0 0 auto",
+    width: "max-content",
+    minWidth: "max-content",
+    maxWidth: "none",
+    overflow: "visible",
+    whiteSpace: "nowrap",
+    opacity: disabled ? 0.62 : 1,
+    cursor: disabled ? "default" : "pointer",
   };
 }
 
@@ -64,20 +87,24 @@ function getFullscreenChipIconStyle(): CSSProperties {
   };
 }
 
-type ButtonItemWithChildrenContainerWidthType = (
-  props: ButtonItemProps & {
-    readonly childrenContainerWidth?: "min" | "max" | "fixed";
-    readonly className?: string;
-    readonly focusClassName?: string;
-    readonly focusWithinClassName?: string;
-    readonly highlightOnFocus?: boolean;
-    readonly "data-achievement-companion-fullscreen-back"?: "true";
-    readonly ref?: ((instance: HTMLElement | null) => void) | null;
-  },
-) => JSX.Element;
+type DeckyGamepadFocusHandler = NonNullable<ComponentProps<typeof Focusable>["onGamepadFocus"]>;
 
-const ButtonItemWithChildrenContainerWidth =
-  ButtonItem as unknown as ButtonItemWithChildrenContainerWidthType;
+const scrollFocusedElementIntoView: FocusEventHandler<HTMLElement> = (event) => {
+  event.currentTarget.scrollIntoView({
+    block: "nearest",
+    inline: "nearest",
+  });
+};
+
+const scrollFocusedGamepadElementIntoView: DeckyGamepadFocusHandler = (event) => {
+  const target = event.currentTarget;
+  if (target instanceof HTMLElement) {
+    target.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+    });
+  }
+};
 
 export function DeckyFullscreenActionRow({
   children,
@@ -91,6 +118,7 @@ export function DeckyFullscreenActionRow({
       <DeckyFullscreenActionStyles />
       <Focusable
         flow-children="left-right"
+        noFocusRing
         className={`${DECKY_FULLSCREEN_ACTION_ROW_CLASS} ${centered ? DECKY_FULLSCREEN_ACTION_ROW_CENTERED_CLASS : ""}`.trim()}
         style={getFullscreenActionRowStyle(centered)}
       >
@@ -108,36 +136,47 @@ export function DeckyFullscreenActionButton({
   icon,
   isFullscreenBackAction = false,
 }: DeckyFullscreenActionButtonProps): JSX.Element {
-  const fullscreenBackButtonRef = useCallback((node: HTMLElement | null) => {
+  const fullscreenBackButtonRef = useCallback((node: HTMLDivElement | null) => {
     if (isFullscreenBackAction) {
       ensureFullscreenCancelBridgeRegisteredForBackButtonElement(node);
     }
   }, [isFullscreenBackAction]);
   const handleClick = useCallback(() => {
+    if (disabled) {
+      return;
+    }
+
     if (isFullscreenBackAction) {
       markDeckyFullscreenReturnRequested();
     }
 
     onClick();
-  }, [isFullscreenBackAction, onClick]);
+  }, [disabled, isFullscreenBackAction, onClick]);
 
   return (
-    <ButtonItemWithChildrenContainerWidth
+    <Focusable
       className={`${DECKY_FULLSCREEN_CHIP_CLASS} ${selected ? DECKY_FULLSCREEN_CHIP_SELECTED_CLASS : ""}`.trim()}
-      childrenContainerWidth="min"
       focusClassName={DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS}
       focusWithinClassName={DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS}
-      highlightOnFocus
-      disabled={disabled}
-      label={undefined}
+      noFocusRing
+      role="button"
+      aria-label={label}
+      aria-pressed={selected}
+      aria-disabled={disabled}
+      tabIndex={disabled ? -1 : 0}
+      onActivate={handleClick}
       onClick={handleClick}
+      onFocus={scrollFocusedElementIntoView}
+      onGamepadFocus={scrollFocusedGamepadElementIntoView}
+      {...(isFullscreenBackAction ? { onCancel: handleClick } : {})}
       {...(isFullscreenBackAction ? { ref: fullscreenBackButtonRef } : {})}
       {...(isFullscreenBackAction ? { "data-achievement-companion-fullscreen-back": "true" as const } : {})}
+      style={getFullscreenChipStyle(disabled)}
     >
       <span style={getFullscreenChipContentStyle()}>
         {icon !== undefined ? <span style={getFullscreenChipIconStyle()}>{icon}</span> : null}
-        <span>{label}</span>
+        <span style={{ whiteSpace: "nowrap" }}>{label}</span>
       </span>
-    </ButtonItemWithChildrenContainerWidth>
+    </Focusable>
   );
 }
