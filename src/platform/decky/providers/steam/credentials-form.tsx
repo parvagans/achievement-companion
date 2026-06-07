@@ -7,8 +7,10 @@ import {
   getDeckyCredentialTextFieldMaskStyle,
 } from "../../decky-credential-text-field";
 import { DeckyCompactPillActionItem } from "../../decky-compact-pill-action-item";
-import { DeckyActionButtonItem } from "../../decky-action-button-item";
-import { DECKY_FOCUS_ACTION_ROW_CLASS } from "../../decky-focus-styles";
+import {
+  DeckyProviderSettingsActionGroup,
+  DeckyProviderSettingsActionRow,
+} from "../../decky-provider-settings-action-row";
 import {
   STEAM_CREDENTIAL_HELPER_COPY,
   getSteamApiKeyInputDescriptor,
@@ -149,28 +151,6 @@ function getNextCountOption(current: AchievementCompanionCount): AchievementComp
 
 function getToggleCopy(value: boolean): string {
   return value ? "Current: On" : "Current: Off";
-}
-
-function PreferenceRow({
-  label,
-  description,
-  onClick,
-}: {
-  readonly label: string;
-  readonly description: string;
-  readonly onClick: () => void;
-}): JSX.Element {
-  return (
-    <DeckyActionButtonItem
-      className={DECKY_FOCUS_ACTION_ROW_CLASS}
-      focusClassName={DECKY_FOCUS_ACTION_ROW_CLASS}
-      focusWithinClassName={DECKY_FOCUS_ACTION_ROW_CLASS}
-      highlightOnFocus
-      label={label}
-      description={description}
-      onClick={onClick}
-    />
-  );
 }
 
 export function DeckySteamProviderCredentialsForm({
@@ -410,31 +390,37 @@ export function DeckySteamProviderCredentialsForm({
         />
       </PanelSectionRow>
 
-      <DeckyActionButtonItem
-        className={DECKY_FOCUS_ACTION_ROW_CLASS}
-        focusClassName={DECKY_FOCUS_ACTION_ROW_CLASS}
-        focusWithinClassName={DECKY_FOCUS_ACTION_ROW_CLASS}
-        highlightOnFocus
-        label={saveLabel}
-        description="Saves your account details and the provider options on this page. If the API key field is empty, your saved key is kept."
-        onClick={() => {
-          void handleSave();
-        }}
-      />
+      <PanelSectionRow>
+        <div style={getCompactActionStackStyle()}>
+          <DeckyProviderSettingsActionGroup>
+            <DeckyCompactPillActionItem
+              emphasis="primary"
+              label={saveLabel}
+              onClick={() => {
+                void handleSave();
+              }}
+            />
 
-      {onClear !== undefined && config !== undefined ? (
-        <DeckyActionButtonItem
-          className={DECKY_FOCUS_ACTION_ROW_CLASS}
-          focusClassName={DECKY_FOCUS_ACTION_ROW_CLASS}
-          focusWithinClassName={DECKY_FOCUS_ACTION_ROW_CLASS}
-          highlightOnFocus
-          label={clearLabel ?? "Clear credentials"}
-          description="Remove the saved Steam account from this device."
-          onClick={() => {
-            void handleClear();
-          }}
-        />
-      ) : null}
+            {onClear !== undefined && config !== undefined ? (
+              <DeckyCompactPillActionItem
+                label={clearLabel ?? "Clear credentials"}
+                onClick={() => {
+                  void handleClear();
+                }}
+              />
+            ) : null}
+          </DeckyProviderSettingsActionGroup>
+
+          <div style={getCompactActionNoteStyle()}>
+            Saves your account details and provider options. Leave the API key blank to keep your saved key.
+          </div>
+          {onClear !== undefined && config !== undefined ? (
+            <div style={getCompactActionNoteStyle()}>
+              Remove the saved Steam account from this device.
+            </div>
+          ) : null}
+        </div>
+      </PanelSectionRow>
 
       <Field
         bottomSeparator="none"
@@ -442,7 +428,7 @@ export function DeckySteamProviderCredentialsForm({
         description="These settings affect the compact dashboard and library scan."
       />
 
-      <PreferenceRow
+      <DeckyProviderSettingsActionRow
         label="Recent Achievements count"
         description={`Current: ${String(recentAchievementsCount)}`}
         onClick={() => {
@@ -450,7 +436,7 @@ export function DeckySteamProviderCredentialsForm({
         }}
       />
 
-      <PreferenceRow
+      <DeckyProviderSettingsActionRow
         label="Recently Played count"
         description={`Current: ${String(recentlyPlayedCount)}`}
         onClick={() => {
@@ -458,7 +444,7 @@ export function DeckySteamProviderCredentialsForm({
         }}
       />
 
-      <PreferenceRow
+      <DeckyProviderSettingsActionRow
         label="Include played free games"
         description={getToggleCopy(includePlayedFreeGames)}
         onClick={() => {

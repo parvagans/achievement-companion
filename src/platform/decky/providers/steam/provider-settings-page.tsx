@@ -1,8 +1,7 @@
 import type { CSSProperties } from "react";
 import { useCallback, useMemo, useState } from "react";
 import { PanelSection, PanelSectionRow, ScrollPanel } from "@decky/ui";
-import { DeckyActionButtonItem } from "../../decky-action-button-item";
-import { DECKY_FOCUS_ACTION_ROW_CLASS } from "../../decky-focus-styles";
+import { DeckyCompactPillActionItem } from "../../decky-compact-pill-action-item";
 import {
   DeckyFullscreenActionButton,
   DeckyFullscreenActionRow,
@@ -269,14 +268,10 @@ export function DeckySteamProviderSettingsPage({
                   Run a manual Steam library scan to cache full-library achievement totals and owned game count for the overview cards.
                   The dashboard will keep using loaded-game data until a scan is saved here.
                 </div>
-                <DeckyActionButtonItem
-                  className={DECKY_FOCUS_ACTION_ROW_CLASS}
-                  focusClassName={DECKY_FOCUS_ACTION_ROW_CLASS}
-                  focusWithinClassName={DECKY_FOCUS_ACTION_ROW_CLASS}
-                  highlightOnFocus
+                <DeckyCompactPillActionItem
+                  emphasis="primary"
                   disabled={scanButtonDisabled}
                   label={scanButtonLabel}
-                  description="Run a manual Steam library scan."
                   onClick={() => {
                     void handleScanLibraryAchievements();
                   }}

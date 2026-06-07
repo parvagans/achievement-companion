@@ -12,6 +12,12 @@ export const DECKY_FULLSCREEN_ACTION_ROW_CENTERED_CLASS =
 export const DECKY_FULLSCREEN_CHIP_CLASS = "achievement-companion-fullscreen-chip";
 export const DECKY_FULLSCREEN_CHIP_SELECTED_CLASS = "achievement-companion-fullscreen-chip--selected";
 export const DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS = "achievement-companion-fullscreen-chip--focused";
+export const DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS =
+  "achievement-companion-provider-settings-action-row";
+export const DECKY_PROVIDER_SETTINGS_ACTION_ROW_ACTIVE_CLASS =
+  "achievement-companion-provider-settings-action-row--focused";
+export const DECKY_PROVIDER_SETTINGS_ACTION_PILL_CLASS =
+  "achievement-companion-provider-settings-action-pill";
 export const DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS = "achievement-companion-achievement-filter-group";
 export const DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS = "achievement-companion-achievement-filter-option";
 export const DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS =
@@ -67,6 +73,7 @@ export function getDeckyFocusStylesCss(): string {
   background-color: rgba(255, 255, 255, 0.05);
 }
 
+.achievement-companion-focus-pill[role="button"],
 .achievement-companion-focus-pill.Panel.Focusable[role="button"] {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.035)) !important;
   border: 1px solid rgba(255, 255, 255, 0.16) !important;
@@ -82,6 +89,11 @@ export function getDeckyFocusStylesCss(): string {
     box-shadow 120ms ease !important;
 }
 
+.achievement-companion-focus-pill[role="button"].achievement-companion-focus-pill--focused,
+.achievement-companion-focus-pill[role="button"].gpfocus,
+.achievement-companion-focus-pill[role="button"].gpfocuswithin,
+.achievement-companion-focus-pill[role="button"]:focus,
+.achievement-companion-focus-pill[role="button"]:focus-within,
 .achievement-companion-focus-pill.Panel.Focusable[role="button"].achievement-companion-focus-pill--focused,
 .achievement-companion-focus-pill.Panel.Focusable[role="button"].gpfocus,
 .achievement-companion-focus-pill.Panel.Focusable[role="button"].gpfocuswithin,
@@ -89,14 +101,59 @@ export function getDeckyFocusStylesCss(): string {
 .achievement-companion-focus-pill.Panel.Focusable[role="button"]:focus-within {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.065)) !important;
   border-color: rgba(125, 190, 255, 0.7) !important;
+  background: linear-gradient(180deg, rgba(74, 138, 204, 0.34), rgba(34, 79, 124, 0.3)) !important;
   box-shadow:
-    0 0 0 1px rgba(96, 165, 250, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 2px 12px rgba(0, 0, 0, 0.28) !important;
+    0 0 0 2px rgba(73, 155, 255, 0.72),
+    0 0 18px rgba(39, 124, 226, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
 }
 
+.achievement-companion-focus-pill[role="button"]::before,
+.achievement-companion-focus-pill[role="button"]::after,
 .achievement-companion-focus-pill.Panel.Focusable[role="button"]::before,
 .achievement-companion-focus-pill.Panel.Focusable[role="button"]::after {
+  box-shadow: none !important;
+  background: transparent !important;
+  opacity: 0 !important;
+}
+
+.${DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS} {
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    box-shadow 120ms ease !important;
+}
+
+.${DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS}.${DECKY_PROVIDER_SETTINGS_ACTION_ROW_ACTIVE_CLASS},
+.${DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS}.gpfocus,
+.${DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS}.gpfocuswithin,
+.${DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS}:focus,
+.${DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS}:focus-within {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.048)) !important;
+  border-color: rgba(105, 176, 255, 0.8) !important;
+  box-shadow:
+    0 0 0 2px rgba(73, 155, 255, 0.72),
+    0 0 18px rgba(39, 124, 226, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+  outline: none !important;
+}
+
+.${DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS}.${DECKY_PROVIDER_SETTINGS_ACTION_ROW_ACTIVE_CLASS} .${DECKY_PROVIDER_SETTINGS_ACTION_PILL_CLASS},
+.${DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS}.gpfocus .${DECKY_PROVIDER_SETTINGS_ACTION_PILL_CLASS},
+.${DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS}.gpfocuswithin .${DECKY_PROVIDER_SETTINGS_ACTION_PILL_CLASS},
+.${DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS}:focus .${DECKY_PROVIDER_SETTINGS_ACTION_PILL_CLASS},
+.${DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS}:focus-within .${DECKY_PROVIDER_SETTINGS_ACTION_PILL_CLASS} {
+  border-color: rgba(105, 176, 255, 0.82) !important;
+  background: linear-gradient(180deg, rgba(74, 138, 204, 0.44), rgba(34, 79, 124, 0.36)) !important;
+  color: #fff !important;
+  box-shadow:
+    0 0 0 1px rgba(73, 155, 255, 0.72),
+    0 0 12px rgba(39, 124, 226, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+}
+
+.${DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS}::before,
+.${DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS}::after {
   box-shadow: none !important;
   background: transparent !important;
   opacity: 0 !important;

@@ -2899,15 +2899,15 @@ test("retroachievements provider settings avoid dropdown overlays for immediate-
   );
   assert.match(
     retroAchievementsProviderSettingsSource,
-    /function PreferenceRow[\s\S]*<DeckyActionButtonItem/u,
+    /import \{ DeckyProviderSettingsActionRow \} from "\.\.\/\.\.\/decky-provider-settings-action-row"/u,
   );
   assert.match(
     retroAchievementsProviderSettingsSource,
-    /<PreferenceRow[\s\S]*label="Recent Achievements count"[\s\S]*getNextCountOption\(currentSettings\.recentAchievementsCount\)[\s\S]*saveDeckySettings\(nextSettings\)[\s\S]*persistProviderCounts\(nextSettings\)/u,
+    /<DeckyProviderSettingsActionRow[\s\S]*label="Recent Achievements count"[\s\S]*getNextCountOption\(currentSettings\.recentAchievementsCount\)[\s\S]*saveDeckySettings\(nextSettings\)[\s\S]*persistProviderCounts\(nextSettings\)/u,
   );
   assert.match(
     retroAchievementsProviderSettingsSource,
-    /<PreferenceRow[\s\S]*label="Recently Played count"[\s\S]*getNextCountOption\(currentSettings\.recentlyPlayedCount\)[\s\S]*saveDeckySettings\(nextSettings\)[\s\S]*persistProviderCounts\(nextSettings\)/u,
+    /<DeckyProviderSettingsActionRow[\s\S]*label="Recently Played count"[\s\S]*getNextCountOption\(currentSettings\.recentlyPlayedCount\)[\s\S]*saveDeckySettings\(nextSettings\)[\s\S]*persistProviderCounts\(nextSettings\)/u,
   );
   assert.match(
     retroAchievementsProviderSettingsSource,
@@ -2915,24 +2915,174 @@ test("retroachievements provider settings avoid dropdown overlays for immediate-
   );
   assert.match(
     retroAchievementsProviderSettingsSource,
-    /<PreferenceRow[\s\S]*label="Default Completion Progress filter"[\s\S]*getNextCompletionProgressFilter\([\s\S]*current\.defaultCompletionProgressFilter/u,
+    /<DeckyProviderSettingsActionRow[\s\S]*label="Default Completion Progress filter"[\s\S]*getNextCompletionProgressFilter\([\s\S]*current\.defaultCompletionProgressFilter/u,
   );
   assert.doesNotMatch(
     retroAchievementsProviderSettingsSource,
-    /DropdownItem|COUNT_DROPDOWN_OPTIONS|COMPLETION_PROGRESS_FILTER_DROPDOWN_OPTIONS/,
+    /DeckyActionButtonItem|DropdownItem|COUNT_DROPDOWN_OPTIONS|COMPLETION_PROGRESS_FILTER_DROPDOWN_OPTIONS/,
   );
   assert.doesNotMatch(steamProviderSettingsSource, /DropdownItem|\bDropdown\b/);
   assert.match(
     steamCredentialsFormSource,
-    /function PreferenceRow[\s\S]*<DeckyActionButtonItem/u,
+    /import \{[\s\S]*DeckyProviderSettingsActionGroup,[\s\S]*DeckyProviderSettingsActionRow,[\s\S]*\} from "\.\.\/\.\.\/decky-provider-settings-action-row"/u,
   );
   assert.match(
     steamCredentialsFormSource,
-    /label="Recent Achievements count"[\s\S]*label="Recently Played count"[\s\S]*label="Include played free games"/u,
+    /<DeckyProviderSettingsActionRow[\s\S]*label="Recent Achievements count"[\s\S]*<DeckyProviderSettingsActionRow[\s\S]*label="Recently Played count"[\s\S]*<DeckyProviderSettingsActionRow[\s\S]*label="Include played free games"/u,
   );
+  assert.doesNotMatch(steamCredentialsFormSource, /DropdownItem|\bDropdown\b/);
   assert.match(fullscreenActionControlsSource, /import \{ Focusable \} from "@decky\/ui"/);
   assert.doesNotMatch(
     `${retroAchievementsProviderSettingsSource}\n${steamCredentialsFormSource}`,
+    /localStorage|sessionStorage/,
+  );
+});
+
+test("provider setup and settings true actions use compact focusable pills", () => {
+  const fullscreenSettingsSource = readFileSync(
+    "src/platform/decky/decky-full-screen-settings-page.tsx",
+    "utf8",
+  );
+  const providerSettingsActionRowSource = readFileSync(
+    "src/platform/decky/decky-provider-settings-action-row.tsx",
+    "utf8",
+  );
+  const focusStylesSource = readFileSync(
+    "src/platform/decky/decky-focus-styles.tsx",
+    "utf8",
+  );
+  const retroAchievementsSetupSource = readFileSync(
+    "src/platform/decky/providers/retroachievements/setup-screen.tsx",
+    "utf8",
+  );
+  const retroAchievementsCredentialsSource = readFileSync(
+    "src/platform/decky/providers/retroachievements/credentials-form.tsx",
+    "utf8",
+  );
+  const retroAchievementsProviderSettingsSource = readFileSync(
+    "src/platform/decky/providers/retroachievements/provider-settings-page.tsx",
+    "utf8",
+  );
+  const steamSetupSource = readFileSync(
+    "src/platform/decky/providers/steam/setup-screen.tsx",
+    "utf8",
+  );
+  const steamCredentialsSource = readFileSync(
+    "src/platform/decky/providers/steam/credentials-form.tsx",
+    "utf8",
+  );
+  const steamProviderSettingsSource = readFileSync(
+    "src/platform/decky/providers/steam/provider-settings-page.tsx",
+    "utf8",
+  );
+  const fullscreenActionControlsSource = readFileSync(
+    "src/platform/decky/decky-full-screen-action-controls.tsx",
+    "utf8",
+  );
+
+  for (const setupSource of [retroAchievementsSetupSource, steamSetupSource]) {
+    assert.match(
+      setupSource,
+      /<DeckyCompactPillActionItem[\s\S]*label="Back"[\s\S]*onCancelButton=\{onBackToProviders\}[\s\S]*onClick=\{onBackToProviders\}/u,
+    );
+    assert.match(setupSource, /saveLabel="Save provider settings"[\s\S]*compactSurface/u);
+  }
+
+  assert.match(
+    retroAchievementsCredentialsSource,
+    /<DeckyProviderSettingsActionGroup>[\s\S]*<DeckyCompactPillActionItem[\s\S]*emphasis="primary"[\s\S]*label=\{saveLabel\}[\s\S]*void handleSave\(\)[\s\S]*label=\{clearLabel \?\? "Clear credentials"\}[\s\S]*void handleClear\(\)[\s\S]*<\/DeckyProviderSettingsActionGroup>/u,
+  );
+  assert.doesNotMatch(retroAchievementsCredentialsSource, /DeckyCompactPillActionGroup/);
+  assert.doesNotMatch(retroAchievementsCredentialsSource, /DeckyActionButtonItem/);
+  assert.match(
+    steamCredentialsSource,
+    /<DeckyProviderSettingsActionGroup>[\s\S]*<DeckyCompactPillActionItem[\s\S]*emphasis="primary"[\s\S]*label=\{saveLabel\}[\s\S]*void handleSave\(\)[\s\S]*label=\{clearLabel \?\? "Clear credentials"\}[\s\S]*void handleClear\(\)[\s\S]*<\/DeckyProviderSettingsActionGroup>/u,
+  );
+  assert.doesNotMatch(steamCredentialsSource, /DeckyCompactPillActionGroup/);
+  assert.doesNotMatch(steamCredentialsSource, /DeckyActionButtonItem/);
+  assert.match(
+    steamProviderSettingsSource,
+    /<DeckyCompactPillActionItem[\s\S]*emphasis="primary"[\s\S]*disabled=\{scanButtonDisabled\}[\s\S]*label=\{scanButtonLabel\}[\s\S]*void handleScanLibraryAchievements\(\)/u,
+  );
+  assert.doesNotMatch(steamProviderSettingsSource, /DeckyActionButtonItem/);
+
+  assert.match(
+    retroAchievementsProviderSettingsSource,
+    /<DeckyFullscreenActionButton[\s\S]*label="Back"[\s\S]*isFullscreenBackAction/u,
+  );
+  assert.match(
+    steamProviderSettingsSource,
+    /<DeckyFullscreenActionButton[\s\S]*label="Back"[\s\S]*isFullscreenBackAction/u,
+  );
+  assert.match(fullscreenActionControlsSource, /import \{ Focusable \} from "@decky\/ui"/);
+  assert.match(
+    fullscreenSettingsSource,
+    /<DeckyProviderSettingsActionRow[\s\S]*label=\{provider\.label\}[\s\S]*actionLabel="Open"[\s\S]*onOpenProviderSettings\(provider\.id\)/u,
+  );
+  assert.doesNotMatch(fullscreenSettingsSource, /DeckyActionButtonItem|ButtonItem/);
+  assert.match(providerSettingsActionRowSource, /import \{ Focusable, PanelSectionRow \} from "@decky\/ui"/u);
+  assert.match(
+    providerSettingsActionRowSource,
+    /export function DeckyProviderSettingsActionGroup[\s\S]*<Focusable[\s\S]*flow-children="left-right"[\s\S]*noFocusRing[\s\S]*style=\{getActionGroupStyle\(\)\}/u,
+  );
+  assert.match(
+    providerSettingsActionRowSource,
+    /function getActionGroupStyle\(\)[\s\S]*alignItems: "center"[\s\S]*justifyContent: "center"[\s\S]*gap: "8px 10px"[\s\S]*width: "100%"/u,
+  );
+  assert.match(
+    providerSettingsActionRowSource,
+    /<Focusable[\s\S]*focusClassName=\{DECKY_PROVIDER_SETTINGS_ACTION_ROW_ACTIVE_CLASS\}[\s\S]*focusWithinClassName=\{DECKY_PROVIDER_SETTINGS_ACTION_ROW_ACTIVE_CLASS\}[\s\S]*role="button"[\s\S]*onActivate=\{disabled \? \(\) => undefined : onClick\}[\s\S]*onClick=\{disabled \? \(\) => undefined : onClick\}/u,
+  );
+  assert.doesNotMatch(providerSettingsActionRowSource, /ButtonItem|DropdownItem/);
+  assert.match(providerSettingsActionRowSource, /actionLabel = "Change"/u);
+  assert.match(
+    providerSettingsActionRowSource,
+    /className=\{DECKY_PROVIDER_SETTINGS_ACTION_PILL_CLASS\}[\s\S]*style=\{getActionPillStyle\(isFocused\)\}/u,
+  );
+  assert.match(providerSettingsActionRowSource, /margin: "5px 0"/u);
+  assert.match(providerSettingsActionRowSource, /scrollMarginBlock: 10/u);
+  assert.match(
+    focusStylesSource,
+    /\.achievement-companion-focus-pill\[role="button"\]\.achievement-companion-focus-pill--focused/u,
+  );
+  assert.match(
+    focusStylesSource,
+    /DECKY_PROVIDER_SETTINGS_ACTION_ROW_ACTIVE_CLASS[\s\S]*rgba\(73, 155, 255, 0\.72\)[\s\S]*DECKY_PROVIDER_SETTINGS_ACTION_PILL_CLASS/u,
+  );
+  assert.match(
+    readFileSync("src/platform/decky/decky-compact-pill-action-item.tsx", "utf8"),
+    /focusClassName=\{DECKY_FOCUS_PILL_ACTIVE_CLASS\}[\s\S]*focusWithinClassName=\{DECKY_FOCUS_PILL_ACTIVE_CLASS\}/u,
+  );
+  assert.match(
+    readFileSync("src/platform/decky/decky-compact-pill-action-item.tsx", "utf8"),
+    /function getFocusedPillStyle\(\)[\s\S]*0 0 0 2px rgba\(73, 155, 255, 0\.72\)[\s\S]*0 0 18px rgba\(39, 124, 226, 0\.35\)/u,
+  );
+
+  assert.match(
+    retroAchievementsCredentialsSource,
+    /<DeckyCredentialTextField[\s\S]*style=\{getDeckyCredentialTextFieldMaskStyle\(\)\}/u,
+  );
+  assert.match(
+    steamCredentialsSource,
+    /<DeckyCredentialTextField[\s\S]*style=\{getDeckyCredentialTextFieldMaskStyle\(\)\}/u,
+  );
+  assert.doesNotMatch(retroAchievementsProviderSettingsSource, /DropdownItem|\bDropdown\b/);
+  assert.match(
+    retroAchievementsProviderSettingsSource,
+    /<DeckyProviderSettingsActionRow[\s\S]*label="Recent Achievements count"[\s\S]*label="Recently Played count"[\s\S]*label="Default Completion Progress filter"/u,
+  );
+  assert.doesNotMatch(retroAchievementsProviderSettingsSource, /DeckyActionButtonItem|ButtonItem/);
+  assert.match(retroAchievementsProviderSettingsSource, /<ToggleField[\s\S]*label="Show subsets"/u);
+
+  assert.doesNotMatch(
+    [
+      retroAchievementsSetupSource,
+      retroAchievementsCredentialsSource,
+      retroAchievementsProviderSettingsSource,
+      steamSetupSource,
+      steamCredentialsSource,
+      steamProviderSettingsSource,
+    ].join("\n"),
     /localStorage|sessionStorage/,
   );
 });
