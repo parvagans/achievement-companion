@@ -1,6 +1,6 @@
 const FULLSCREEN_CANCEL_EVENT_TYPE = "vgp_oncancel";
 const FULLSCREEN_BACK_BUTTON_SELECTOR =
-  'button[data-achievement-companion-fullscreen-back="true"]';
+  '[data-achievement-companion-fullscreen-back="true"][role="button"]';
 
 type BridgeCancelableEvent = Event & {
   readonly preventDefault?: (() => void) | undefined;

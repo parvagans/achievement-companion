@@ -96,6 +96,7 @@ import {
   DECKY_FULLSCREEN_ACTION_ROW_CENTERED_CLASS,
   DECKY_FULLSCREEN_ACTION_ROW_CLASS,
   DECKY_FULLSCREEN_CHIP_CLASS,
+  DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS,
   getDeckyFocusStylesCss,
 } from "../src/platform/decky/decky-focus-styles";
 import { getDeckyFullscreenActionStylesCss } from "../src/platform/decky/decky-full-screen-action-styles";
@@ -2048,20 +2049,22 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   );
   assert.match(
     getDeckyFullscreenActionStylesCss(),
-    new RegExp(`\\.Panel\\.Focusable\\.gpfocuswithin:has\\(\\.${DECKY_FULLSCREEN_CHIP_CLASS}\\)`),
-  );
-  assert.match(
-    getDeckyFullscreenActionStylesCss(),
-    /achievement-companion-fullscreen-chip\.DialogButton|button\.achievement-companion-fullscreen-chip\.DialogButton/,
+    new RegExp(`\\.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > \\.${DECKY_FULLSCREEN_CHIP_CLASS}`),
   );
   assert.match(getDeckyFullscreenActionStylesCss(), /border-radius:\s*999px\s*!important/);
+  assert.match(getDeckyFullscreenActionStylesCss(), /rgba\(255,\s*255,\s*255,\s*0\.1\)/);
   assert.match(
     getDeckyFullscreenActionStylesCss(),
-    new RegExp(`\\.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > div::after`),
+    /min-width:\s*max-content\s*!important/,
   );
   assert.match(
     getDeckyFullscreenActionStylesCss(),
-    new RegExp(`\\.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > div:focus-within \\.${DECKY_FULLSCREEN_CHIP_CLASS}`),
+    /white-space:\s*nowrap\s*!important/,
+  );
+  assert.doesNotMatch(getDeckyFullscreenActionStylesCss(), /text-overflow:\s*ellipsis/);
+  assert.match(
+    getDeckyFullscreenActionStylesCss(),
+    new RegExp(`\\.${DECKY_FULLSCREEN_CHIP_CLASS}\\.${DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS}`),
   );
   assert.match(
     getDeckyFocusStylesCss(),
@@ -2738,6 +2741,86 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.equal(resolveSteamApiKeyForSave("secret"), "secret");
   assert.equal(resolveSteamApiKeyForSave(" new-secret "), "new-secret");
   assert.equal(resolveSteamApiKeyForSave(""), undefined);
+});
+
+test("fullscreen action controls use Decky Focusable pills with unclipped labels", () => {
+  const fullscreenActionControlsSource = readFileSync(
+    "src/platform/decky/decky-full-screen-action-controls.tsx",
+    "utf8",
+  );
+  const fullscreenProfileSource = readFileSync(
+    "src/platform/decky/decky-full-screen-profile-page.tsx",
+    "utf8",
+  );
+  const fullscreenGameSource = readFileSync(
+    "src/platform/decky/decky-full-screen-game-page.tsx",
+    "utf8",
+  );
+  const fullscreenSettingsSource = readFileSync(
+    "src/platform/decky/decky-full-screen-settings-page.tsx",
+    "utf8",
+  );
+  const retroAchievementsProviderSettingsSource = readFileSync(
+    "src/platform/decky/providers/retroachievements/provider-settings-page.tsx",
+    "utf8",
+  );
+  const steamProviderSettingsSource = readFileSync(
+    "src/platform/decky/providers/steam/provider-settings-page.tsx",
+    "utf8",
+  );
+  const fullscreenCancelBridgeSource = readFileSync(
+    "src/platform/decky/decky-full-screen-cancel-bridge.ts",
+    "utf8",
+  );
+  const compactPillSource = readFileSync(
+    "src/platform/decky/decky-compact-pill-action-item.tsx",
+    "utf8",
+  );
+  const actionButtonItemSource = readFileSync(
+    "src/platform/decky/decky-action-button-item.tsx",
+    "utf8",
+  );
+
+  assert.match(
+    fullscreenActionControlsSource,
+    /import \{ Focusable \} from "@decky\/ui"/,
+  );
+  assert.doesNotMatch(fullscreenActionControlsSource, /\bButton\b|\bButtonItem\b|\bDialogButton\b/);
+  assert.match(fullscreenActionControlsSource, /flow-children="left-right"/);
+  assert.match(
+    fullscreenActionControlsSource,
+    /<Focusable[\s\S]*focusClassName=\{DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS\}[\s\S]*focusWithinClassName=\{DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS\}[\s\S]*role="button"[\s\S]*onActivate=\{handleClick\}[\s\S]*onClick=\{handleClick\}/u,
+  );
+  assert.match(fullscreenActionControlsSource, /onCancel: handleClick/);
+  assert.match(fullscreenActionControlsSource, /<span style=\{\{ whiteSpace: "nowrap" \}\}>\{label\}<\/span>/);
+  assert.doesNotMatch(getDeckyFullscreenActionStylesCss(), /DialogButton|ButtonItem/);
+  assert.match(getDeckyFullscreenActionStylesCss(), /border-radius:\s*999px\s*!important/);
+  assert.match(getDeckyFullscreenActionStylesCss(), /background:\s*linear-gradient/);
+  assert.match(getDeckyFullscreenActionStylesCss(), /0 0 18px rgba\(39, 124, 226, 0\.35\)/);
+  assert.match(getDeckyFullscreenActionStylesCss(), /min-width:\s*max-content\s*!important/);
+  assert.match(getDeckyFullscreenActionStylesCss(), /white-space:\s*nowrap\s*!important/);
+  assert.doesNotMatch(getDeckyFullscreenActionStylesCss(), /text-overflow:\s*ellipsis/);
+  assert.match(
+    fullscreenCancelBridgeSource,
+    /\[data-achievement-companion-fullscreen-back="true"\]\[role="button"\]/,
+  );
+  assert.doesNotMatch(
+    `${fullscreenActionControlsSource}\n${fullscreenCancelBridgeSource}`,
+    /localStorage|sessionStorage/,
+  );
+  assert.match(
+    fullscreenProfileSource,
+    /DeckyFullscreenActionRow centered[\s\S]*label="Back"[\s\S]*label="Completion Progress"[\s\S]*label="Achievement History"[\s\S]*label="Settings"/u,
+  );
+  assert.match(
+    fullscreenGameSource,
+    /DeckyFullscreenActionRow centered[\s\S]*label=\{backLabel\}[\s\S]*label="Refresh"/u,
+  );
+  assert.match(fullscreenSettingsSource, /DeckyFullscreenActionButton[\s\S]*label="Back"/u);
+  assert.match(retroAchievementsProviderSettingsSource, /DeckyFullscreenActionButton[\s\S]*label="Back"/u);
+  assert.match(steamProviderSettingsSource, /DeckyFullscreenActionButton[\s\S]*label="Back"/u);
+  assert.match(compactPillSource, /import \{ Focusable \} from "@decky\/ui"/);
+  assert.match(actionButtonItemSource, /import \{ ButtonItem, type ButtonItemProps \} from "@decky\/ui"/);
 });
 
 test("retroachievements profile exposes points, games beaten, and retroratio metrics", async () => {
