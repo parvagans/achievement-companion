@@ -731,6 +731,21 @@ function CompactItemDescription({
   );
 }
 
+function SteamRecentlyPlayedDescription({ game }: { readonly game: RecentlyPlayedGame }): JSX.Element {
+  const secondaryLines = formatRecentlyPlayedSecondary(game);
+
+  return (
+    <div style={getCompactItemDescriptionStyle()}>
+      <div style={getCompactItemPrimaryStyle()}>{formatRecentlyPlayedSummary(game)}</div>
+      {secondaryLines.map((line) => (
+        <div key={line} style={getCompactItemSecondaryStyle()}>
+          {line}
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function CompactDashboardProgressBar({ percent }: { readonly percent: number }): JSX.Element {
   return (
     <div
@@ -820,7 +835,7 @@ function formatRecentlyPlayedLastPlayedText(game: RecentlyPlayedGame): string | 
   return undefined;
 }
 
-function formatRecentlyPlayedSecondary(game: RecentlyPlayedGame): string | undefined {
+function formatRecentlyPlayedSecondary(game: RecentlyPlayedGame): readonly string[] {
   const playtimeLines = [
     game.playtimeTwoWeeksMinutes !== undefined
       ? `Past 2 weeks: ${formatSteamPlaytimeMinutes(game.playtimeTwoWeeksMinutes) ?? "-"}`
@@ -835,10 +850,10 @@ function formatRecentlyPlayedSecondary(game: RecentlyPlayedGame): string | undef
 
   const when = formatRelativeTime(game.lastPlayedAt);
   if (when !== undefined) {
-    return playtimeLines.length > 0 ? `Last played ${when} | ${playtimeLines.join(" | ")}` : `Last played ${when}`;
+    return [`Last played ${when}`, ...playtimeLines];
   }
 
-  return playtimeLines.length > 0 ? playtimeLines.join(" | ") : undefined;
+  return playtimeLines;
 }
 
 function isRenderableDashboardState(
@@ -1066,12 +1081,7 @@ function RecentlyPlayedRow({
         padding="compact"
         verticalAlignment="center"
         label={game.title}
-        description={
-          <CompactItemDescription
-            primary={formatRecentlyPlayedSummary(game)}
-            secondary={formatRecentlyPlayedSecondary(game)}
-          />
-        }
+        description={<SteamRecentlyPlayedDescription game={game} />}
         onCancelButton={onCancel}
         onActivate={() => {
           onOpenGameDetail(game.providerId, game.gameId, game.title);
