@@ -43,6 +43,7 @@ import {
   loadDeckyDashboardState,
   loadDeckyCompletionProgressState,
   deckyAuthenticatedProviderTransportFactory,
+  mergeDeckySteamLibraryScanRecentAchievements,
   deckyPlatformCapabilities,
   resetDeckyAppServicesForTests,
 } from "../src/platform/decky/decky-app-services";
@@ -239,6 +240,7 @@ import {
   normalizeSteamProfile,
   normalizeSteamRecentUnlocks,
   normalizeSteamRecentlyPlayedGames,
+  mergeSteamRecentlyPlayedCandidates,
   mergeSteamRecentlyPlayedLastPlayedTimes,
   sortSteamRecentlyPlayedGamesNewestFirst,
 } from "../src/providers/steam/mappers/normalize";
@@ -5862,6 +5864,45 @@ test("steam recently played merges owned-game timestamps before sorting", async 
     [1_700_000_300_000, 1_700_000_200_000, 1_700_000_100_000, undefined],
   );
 
+  const mergedCandidates = mergeSteamRecentlyPlayedCandidates(
+    [
+      {
+        appid: 100,
+        name: "Richer Recent Name",
+        playtime_2weeks: 25,
+        playtime_forever: 120,
+      },
+      {
+        appid: 100,
+        name: "Duplicate Recent Name",
+        playtime_forever: 5,
+      },
+    ],
+    [
+      {
+        appid: 100,
+        name: "Owned Name",
+        playtime_forever: 90,
+        rtime_last_played: 1_700_000_100,
+      },
+      {
+        appid: 300,
+        name: "Cuphead-like Owned-only Game",
+        playtime_forever: 10,
+        rtime_last_played: 1_700_000_300,
+      },
+    ],
+  );
+  assert.equal(mergedCandidates.length, 2);
+  assert.deepStrictEqual(mergedCandidates[0], {
+    appid: 100,
+    name: "Richer Recent Name",
+    playtime_2weeks: 25,
+    playtime_forever: 120,
+    rtime_last_played: 1_700_000_100,
+  });
+  assert.equal(mergedCandidates[1]?.name, "Cuphead-like Owned-only Game");
+
   let ownedGamesCalls = 0;
   const provider = createSteamProvider({
     client: {
@@ -5878,6 +5919,11 @@ test("steam recently played merges owned-game timestamps before sorting", async 
                 appid: 200,
                 name: "Minecraft-like Newer Game",
                 playtime_forever: 60,
+              },
+              {
+                appid: 400,
+                name: "Oldest Direct Game",
+                playtime_forever: 180,
               },
             ],
           },
@@ -5897,6 +5943,17 @@ test("steam recently played merges owned-game timestamps before sorting", async 
                 appid: 200,
                 name: "Minecraft-like Newer Game",
                 rtime_last_played: 1_700_000_200,
+              },
+              {
+                appid: 300,
+                name: "Cuphead-like Owned-only Game",
+                playtime_forever: 10,
+                rtime_last_played: 1_700_000_300,
+              },
+              {
+                appid: 400,
+                name: "Oldest Direct Game",
+                rtime_last_played: 1_700_000_050,
               },
             ],
           },
@@ -5933,21 +5990,173 @@ test("steam recently played merges owned-game timestamps before sorting", async 
       steamId64: "12345678901234567",
       apiKey: "api-key",
       language: "english",
-      recentAchievementsCount: 5,
-      recentlyPlayedCount: 5,
+      recentAchievementsCount: 3,
+      recentlyPlayedCount: 3,
       includePlayedFreeGames: false,
     }),
-    { count: 5 },
+    { count: 3 },
   );
 
   assert.equal(ownedGamesCalls, 1);
   assert.deepStrictEqual(
     providerGames.map((game) => game.title),
-    ["Minecraft-like Newer Game", "GTA-like Older Game"],
+    [
+      "Cuphead-like Owned-only Game",
+      "Minecraft-like Newer Game",
+      "GTA-like Older Game",
+    ],
   );
   assert.deepStrictEqual(
     providerGames.map((game) => game.lastPlayedAt),
-    [1_700_000_200_000, 1_700_000_100_000],
+    [1_700_000_300_000, 1_700_000_200_000, 1_700_000_100_000],
+  );
+});
+
+test("steam recently played falls back safely when owned-game candidates fail to load", async () => {
+  const provider = createSteamProvider({
+    client: {
+      async loadRecentlyPlayedGames() {
+        return {
+          response: {
+            games: [
+              {
+                appid: 100,
+                name: "First Direct Game",
+                playtime_forever: 120,
+              },
+              {
+                appid: 200,
+                name: "Second Direct Game",
+                playtime_forever: 60,
+              },
+            ],
+          },
+        };
+      },
+      async loadOwnedGames() {
+        throw new Error("Owned games unavailable.");
+      },
+      async loadPlayerAchievements() {
+        return {
+          playerstats: {
+            success: true,
+            achievements: [],
+          },
+        };
+      },
+      async loadSchemaForGame() {
+        return {
+          game: {
+            availableGameStats: {
+              achievements: [],
+            },
+          },
+        };
+      },
+      async loadGlobalAchievementPercentagesForApp() {
+        return {
+          achievementpercentages: {
+            achievements: [],
+          },
+        };
+      },
+    } as SteamClient,
+  });
+  const games = await provider.loadRecentlyPlayedGames(
+    normalizeSteamProviderConfig({
+      steamId64: "12345678901234567",
+      apiKey: "api-key",
+      language: "english",
+      recentAchievementsCount: 3,
+      recentlyPlayedCount: 3,
+      includePlayedFreeGames: false,
+    }),
+    { count: 3 },
+  );
+
+  assert.deepStrictEqual(
+    games.map((game) => game.title),
+    ["First Direct Game", "Second Direct Game"],
+  );
+});
+
+test("decky steam dashboard merges cached library unlocks into recent achievements", () => {
+  const snapshot: DashboardSnapshot = {
+    profile: {
+      providerId: STEAM_PROVIDER_ID,
+      identity: {
+        providerId: STEAM_PROVIDER_ID,
+        accountId: "steam-account",
+        displayName: "Steam User",
+      },
+      summary: {
+        unlockedCount: 1,
+      },
+      metrics: [],
+    },
+    recentAchievements: [
+      {
+        achievement: {
+          providerId: STEAM_PROVIDER_ID,
+          achievementId: "older-achievement",
+          gameId: "100",
+          title: "Older Achievement",
+          isUnlocked: true,
+          unlockedAt: 1_700_000_100_000,
+          metrics: [],
+        },
+        game: {
+          providerId: STEAM_PROVIDER_ID,
+          gameId: "100",
+          title: "Older Game",
+        },
+        unlockedAt: 1_700_000_100_000,
+      },
+    ],
+    recentUnlocks: [],
+    recentlyPlayedGames: [],
+    featuredGames: [],
+  };
+  const summary: SteamLibraryAchievementScanSummary = {
+    scannedAt: "2026-06-11T12:00:00.000Z",
+    ownedGameCount: 1,
+    scannedGameCount: 1,
+    gamesWithAchievements: 1,
+    skippedGameCount: 0,
+    failedGameCount: 0,
+    totalAchievements: 10,
+    unlockedAchievements: 1,
+    perfectGames: 0,
+    completionPercent: 10,
+    games: [],
+    unlockedAchievementsList: [
+      {
+        id: "300:new-achievement:2026-06-11T11:55:00.000Z",
+        achievementId: "new-achievement",
+        apiName: "new-achievement",
+        title: "Cuphead-like New Achievement",
+        description: "Beat a level",
+        unlockedAt: "2026-06-11T11:55:00.000Z",
+        gameId: "300",
+        gameTitle: "Cuphead-like Game",
+        providerId: STEAM_PROVIDER_ID,
+      },
+    ],
+  };
+
+  const merged = mergeDeckySteamLibraryScanRecentAchievements(snapshot, summary);
+
+  assert.equal(merged.recentAchievements[0]?.achievement.title, "Cuphead-like New Achievement");
+  assert.equal(merged.recentAchievements[0]?.game.title, "Cuphead-like Game");
+  assert.deepStrictEqual(merged.recentUnlocks, merged.recentAchievements);
+  const deckyAppServicesSource = readFileSync("src/platform/decky/decky-app-services.ts", "utf8");
+  assert.match(
+    deckyAppServicesSource,
+    /if \(providerId === STEAM_PROVIDER_ID && options\?\.forceRefresh\) \{\s*clearSteamRecentGameSnapshotLoadCache\(\);/u,
+  );
+  assert.match(
+    deckyAppServicesSource,
+    /mergeDeckySteamLibraryScanRecentAchievements\(\s*state\.data,/u,
   );
 });
 

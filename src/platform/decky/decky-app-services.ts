@@ -19,7 +19,10 @@ import { createAppRuntime } from "@core/app-runtime";
 import { resolveProviderDashboardPreferences } from "@core/provider-dashboard-preferences";
 import { createProviderRegistry } from "@core/provider-registry";
 import { createRetroAchievementsProvider } from "../../providers/retroachievements";
-import { createSteamProvider } from "../../providers/steam";
+import {
+  clearSteamRecentGameSnapshotLoadCache,
+  createSteamProvider,
+} from "../../providers/steam";
 import { createMemoryCacheStore } from "./memory-cache";
 import { createDeckySettingsStore } from "./decky-settings";
 import { loadDeckyRuntimeMode, type DeckyRuntimeMode } from "./runtime-mode";
@@ -47,6 +50,7 @@ import { deckyDiagnosticLogger } from "./decky-diagnostic-logger";
 import {
   deckySteamLibraryScanStore,
   readDeckySteamLibraryAchievementScanSummary,
+  type SteamLibraryAchievementScanSummary,
 } from "./providers/steam/config";
 import {
   applySteamLibraryScanGameDetailMetadata,
@@ -620,6 +624,38 @@ export function applyDeckyRecentAchievementHistory(
   };
 }
 
+export function mergeDeckySteamLibraryScanRecentAchievements(
+  snapshot: DashboardSnapshot,
+  summary: SteamLibraryAchievementScanSummary | undefined,
+): DashboardSnapshot {
+  if (
+    snapshot.profile.providerId !== STEAM_PROVIDER_ID ||
+    summary === undefined ||
+    (summary.unlockedAchievementsList?.length ?? 0) === 0
+  ) {
+    return snapshot;
+  }
+
+  const scanRecentAchievements = buildDeckySteamAchievementHistorySnapshotFromSummary({
+    profile: snapshot.profile,
+    summary,
+  }).entries;
+  const recentAchievements = rankDeckyRecentAchievements([
+    ...snapshot.recentAchievements.map((recentUnlock) =>
+      createDeckyRecentAchievementCandidate(recentUnlock, "live-recent"),
+    ),
+    ...scanRecentAchievements.map((recentUnlock) =>
+      createDeckyRecentAchievementCandidate(recentUnlock, "live-recent"),
+    ),
+  ]);
+
+  return {
+    ...snapshot,
+    recentAchievements,
+    recentUnlocks: recentAchievements,
+  };
+}
+
 function toRecentUnlock(
   game: GameDetailSnapshot["game"],
   achievement: GameDetailSnapshot["achievements"][number],
@@ -1044,6 +1080,10 @@ export async function loadDeckyDashboardState(
     return initialDeckyBootstrapState;
   }
 
+  if (providerId === STEAM_PROVIDER_ID && options?.forceRefresh) {
+    clearSteamRecentGameSnapshotLoadCache();
+  }
+
   if (runtimeMode === "live" && !options?.forceRefresh) {
     const cachedDashboardState = readDeckyDashboardSnapshotState(providerId);
     if (cachedDashboardState !== undefined) {
@@ -1089,10 +1129,16 @@ export async function loadDeckyDashboardState(
       ? (providerRegistry.get(providerId) as DeckyRecentAchievementBackfillProvider | undefined)
       : undefined;
     const providerConfig = runtimeMode === "live" ? await loadDeckyProviderConfig(providerId) : undefined;
+    const snapshotWithSteamScanAchievements = mergeDeckySteamLibraryScanRecentAchievements(
+      state.data,
+      providerId === STEAM_PROVIDER_ID
+        ? readDeckySteamLibraryAchievementScanSummary(providerId)
+        : undefined,
+    );
     const dashboardSnapshot = await buildDeckyRecentAchievementHistory({
       provider,
       providerConfig,
-      snapshot: state.data,
+      snapshot: snapshotWithSteamScanAchievements,
     });
     writeDeckyDashboardSnapshot(dashboardSnapshot);
 
