@@ -21,7 +21,7 @@ import {
   normalizeSteamProfile,
   normalizeSteamRecentUnlocks,
   normalizeSteamRecentlyPlayedGames,
-  mergeSteamRecentlyPlayedLastPlayedTimes,
+  mergeSteamRecentlyPlayedCandidates,
   sortSteamRecentlyPlayedGamesNewestFirst,
 } from "./mappers/normalize";
 import { normalizeSteamBadges } from "./badges";
@@ -69,6 +69,10 @@ const steamRecentGameSnapshotLoadCache = new Map<
 const STEAM_RECENT_GAME_SNAPSHOT_CACHE_TTL_MS = 2 * 60 * 1000;
 
 export function clearSteamRecentGameSnapshotLoadCacheForTests(): void {
+  clearSteamRecentGameSnapshotLoadCache();
+}
+
+export function clearSteamRecentGameSnapshotLoadCache(): void {
   steamRecentGameSnapshotLoadCache.clear();
 }
 
@@ -223,7 +227,7 @@ function sortRawSteamRecentlyPlayedGamesNewestFirst(
     .map(({ game }) => game);
 }
 
-async function loadOwnedGamesForRecentTimestampFallback(
+async function loadOwnedGamesForRecentCandidates(
   client: SteamClient,
   config: SteamProviderConfig,
 ): Promise<readonly RawSteamOwnedGame[]> {
@@ -235,7 +239,7 @@ async function loadOwnedGamesForRecentTimestampFallback(
     const response = await client.loadOwnedGames(config);
     return response.response?.games ?? [];
   } catch (cause) {
-    logSteamLoadFailure("recentlyPlayed.loadOwnedGames", cause);
+    logSteamLoadFailure("recentlyPlayed.loadOwnedGameCandidates", cause);
     return [];
   }
 }
@@ -348,14 +352,10 @@ async function loadSteamRecentGameSnapshots(
   const promise = (async () => {
     const rawResponse = await client.loadRecentlyPlayedGames(config);
     const directRecentGames = rawResponse.response?.games ?? [];
-    const ownedGames = directRecentGames.some(
-      (game) => !hasReliableSteamLastPlayedTimestamp(game),
-    )
-      ? await loadOwnedGamesForRecentTimestampFallback(client, config)
-      : [];
+    const ownedGames = await loadOwnedGamesForRecentCandidates(client, config);
     const rawGames = applyRecentLimit(
       sortRawSteamRecentlyPlayedGamesNewestFirst(
-        mergeSteamRecentlyPlayedLastPlayedTimes(directRecentGames, ownedGames),
+        mergeSteamRecentlyPlayedCandidates(directRecentGames, ownedGames),
       ),
       count,
     );

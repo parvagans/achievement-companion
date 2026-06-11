@@ -404,6 +404,86 @@ export function mergeSteamRecentlyPlayedLastPlayedTimes(
   });
 }
 
+export function mergeSteamRecentlyPlayedCandidates(
+  recentGames: readonly RawSteamRecentlyPlayedGame[],
+  ownedGames: readonly RawSteamOwnedGame[],
+): readonly RawSteamRecentlyPlayedGame[] {
+  const ownedGamesByAppId = new Map<number, RawSteamOwnedGame>();
+  for (const ownedGame of ownedGames) {
+    const appId = coerceNumber(ownedGame.appid);
+    if (appId !== undefined) {
+      ownedGamesByAppId.set(appId, ownedGame);
+    }
+  }
+
+  const recentAppIds = new Set<number>();
+  const deduplicatedRecentGames = recentGames.filter((recentGame) => {
+    const appId = coerceNumber(recentGame.appid);
+    if (appId === undefined) {
+      return true;
+    }
+    if (recentAppIds.has(appId)) {
+      return false;
+    }
+
+    recentAppIds.add(appId);
+    return true;
+  });
+  const mergedRecentGames = deduplicatedRecentGames.map((recentGame) => {
+    const appId = coerceNumber(recentGame.appid);
+    const ownedGame = appId !== undefined ? ownedGamesByAppId.get(appId) : undefined;
+    if (ownedGame === undefined) {
+      return recentGame;
+    }
+
+    const directLastPlayedAtSeconds = coerceNumber(recentGame.rtime_last_played);
+    const ownedLastPlayedAtSeconds = coerceNumber(ownedGame.rtime_last_played);
+
+    return {
+      ...ownedGame,
+      ...recentGame,
+      ...(directLastPlayedAtSeconds !== undefined && directLastPlayedAtSeconds > 0
+        ? { rtime_last_played: directLastPlayedAtSeconds }
+        : ownedLastPlayedAtSeconds !== undefined && ownedLastPlayedAtSeconds > 0
+          ? { rtime_last_played: ownedLastPlayedAtSeconds }
+      : {}),
+    };
+  });
+  const ownedOnlyCandidates = ownedGames
+    .filter((ownedGame) => {
+      const appId = coerceNumber(ownedGame.appid);
+      const lastPlayedAtSeconds = coerceNumber(ownedGame.rtime_last_played);
+      return (
+        appId !== undefined &&
+        !recentAppIds.has(appId) &&
+        lastPlayedAtSeconds !== undefined &&
+        lastPlayedAtSeconds > 0
+      );
+    })
+    .map((ownedGame): RawSteamRecentlyPlayedGame => ({
+      ...(ownedGame.appid !== undefined ? { appid: ownedGame.appid } : {}),
+      ...(ownedGame.name !== undefined ? { name: ownedGame.name } : {}),
+      ...(ownedGame.playtime_2weeks !== undefined
+        ? { playtime_2weeks: ownedGame.playtime_2weeks }
+        : {}),
+      ...(ownedGame.playtime_forever !== undefined
+        ? { playtime_forever: ownedGame.playtime_forever }
+        : {}),
+      ...(ownedGame.playtime_deck_forever !== undefined
+        ? { playtime_deck_forever: ownedGame.playtime_deck_forever }
+        : {}),
+      ...(ownedGame.rtime_last_played !== undefined
+        ? { rtime_last_played: ownedGame.rtime_last_played }
+        : {}),
+      ...(ownedGame.img_icon_url !== undefined ? { img_icon_url: ownedGame.img_icon_url } : {}),
+      ...(ownedGame.has_community_visible_stats !== undefined
+        ? { has_community_visible_stats: ownedGame.has_community_visible_stats }
+        : {}),
+    }));
+
+  return [...mergedRecentGames, ...ownedOnlyCandidates];
+}
+
 export function sortSteamRecentlyPlayedGamesNewestFirst(
   games: readonly RecentlyPlayedGame[],
 ): readonly RecentlyPlayedGame[] {

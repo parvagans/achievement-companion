@@ -14,6 +14,7 @@ export {
 } from "./library-scan";
 export { normalizeSteamBadges } from "./badges";
 export {
+  clearSteamRecentGameSnapshotLoadCache,
   clearSteamRecentGameSnapshotLoadCacheForTests,
   createSteamProvider,
 } from "./steam.provider";
