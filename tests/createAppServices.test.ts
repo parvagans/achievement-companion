@@ -2526,8 +2526,45 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(compactDashboardSource, /const secondaryLines = formatRecentlyPlayedSecondary\(game\);/u);
   assert.match(
     compactDashboardSource,
-    /secondaryLines\.map\(\(line\) => \(\s*<div key=\{line\} style=\{getCompactItemSecondaryStyle\(\)\}>/u,
+    /<div style=\{getSteamRecentlyPlayedPrimaryStyle\(\)\}>\{formatRecentlyPlayedSummary\(game\)\}<\/div>/u,
   );
+  assert.match(
+    compactDashboardSource,
+    /secondaryLines\.map\(\(line\) => \(\s*<div key=\{line\} style=\{getSteamRecentlyPlayedSecondaryStyle\(\)\}>/u,
+  );
+  const steamRecentlyPlayedPrimaryStyleStart = compactDashboardSource.indexOf(
+    "function getSteamRecentlyPlayedPrimaryStyle()",
+  );
+  const steamRecentlyPlayedSecondaryStyleStart = compactDashboardSource.indexOf(
+    "function getSteamRecentlyPlayedSecondaryStyle()",
+  );
+  const dashboardAchievementToneStart = compactDashboardSource.indexOf(
+    'type DashboardAchievementTone =',
+  );
+  assert.ok(steamRecentlyPlayedPrimaryStyleStart >= 0);
+  assert.ok(steamRecentlyPlayedSecondaryStyleStart > steamRecentlyPlayedPrimaryStyleStart);
+  assert.ok(dashboardAchievementToneStart > steamRecentlyPlayedSecondaryStyleStart);
+  const steamRecentlyPlayedPrimaryStyleSource = compactDashboardSource.slice(
+    steamRecentlyPlayedPrimaryStyleStart,
+    steamRecentlyPlayedSecondaryStyleStart,
+  );
+  const steamRecentlyPlayedSecondaryStyleSource = compactDashboardSource.slice(
+    steamRecentlyPlayedSecondaryStyleStart,
+    dashboardAchievementToneStart,
+  );
+  assert.match(steamRecentlyPlayedPrimaryStyleSource, /fontSize: "0\.84rem"/u);
+  assert.match(steamRecentlyPlayedPrimaryStyleSource, /lineHeight: 1\.18/u);
+  assert.match(steamRecentlyPlayedSecondaryStyleSource, /fontSize: "0\.78rem"/u);
+  assert.match(steamRecentlyPlayedSecondaryStyleSource, /lineHeight: 1\.16/u);
+  for (const styleSource of [
+    steamRecentlyPlayedPrimaryStyleSource,
+    steamRecentlyPlayedSecondaryStyleSource,
+  ]) {
+    assert.match(styleSource, /minWidth: 0/u);
+    assert.match(styleSource, /overflow: "hidden"/u);
+    assert.match(styleSource, /textOverflow: "ellipsis"/u);
+    assert.match(styleSource, /whiteSpace: "nowrap"/u);
+  }
   assert.match(compactDashboardSource, /Past 2 weeks: \$\{formatSteamPlaytimeMinutes/u);
   assert.match(compactDashboardSource, /Steam Deck: \$\{formatSteamPlaytimeMinutes/u);
   assert.match(compactDashboardSource, /Total playtime: \$\{formatSteamPlaytimeMinutes/u);
