@@ -437,6 +437,31 @@ function getCompactItemSecondaryStyle(): CSSProperties {
   };
 }
 
+function getSteamRecentlyPlayedPrimaryStyle(): CSSProperties {
+  return {
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    color: "rgba(255, 255, 255, 0.95)",
+    fontSize: "0.84rem",
+    fontWeight: 600,
+    lineHeight: 1.18,
+  };
+}
+
+function getSteamRecentlyPlayedSecondaryStyle(): CSSProperties {
+  return {
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    color: "rgba(255, 255, 255, 0.72)",
+    fontSize: "0.78rem",
+    lineHeight: 1.16,
+  };
+}
+
 type DashboardAchievementTone = "softcore" | "hardcore" | "locked" | "default";
 
 function getDashboardAchievementTone(recentUnlock: RecentUnlock): DashboardAchievementTone {
@@ -736,9 +761,9 @@ function SteamRecentlyPlayedDescription({ game }: { readonly game: RecentlyPlaye
 
   return (
     <div style={getCompactItemDescriptionStyle()}>
-      <div style={getCompactItemPrimaryStyle()}>{formatRecentlyPlayedSummary(game)}</div>
+      <div style={getSteamRecentlyPlayedPrimaryStyle()}>{formatRecentlyPlayedSummary(game)}</div>
       {secondaryLines.map((line) => (
-        <div key={line} style={getCompactItemSecondaryStyle()}>
+        <div key={line} style={getSteamRecentlyPlayedSecondaryStyle()}>
           {line}
         </div>
       ))}
