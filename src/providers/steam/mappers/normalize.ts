@@ -14,6 +14,7 @@ import { normalizeSteamArtworkUrl } from "../artwork";
 import { STEAM_PROVIDER_ID, type SteamProviderConfig } from "../config";
 import type {
   RawSteamGlobalAchievementPercentage,
+  RawSteamOwnedGame,
   RawSteamPlayerAchievement,
   RawSteamPlayerSummary,
   RawSteamRecentlyPlayedGame,
@@ -367,7 +368,68 @@ export function normalizeSteamRecentlyPlayedGames(
     });
   }
 
-  return normalizedGames;
+  return sortSteamRecentlyPlayedGamesNewestFirst(normalizedGames);
+}
+
+export function mergeSteamRecentlyPlayedLastPlayedTimes(
+  recentGames: readonly RawSteamRecentlyPlayedGame[],
+  ownedGames: readonly RawSteamOwnedGame[],
+): readonly RawSteamRecentlyPlayedGame[] {
+  const ownedLastPlayedByAppId = new Map<number, number>();
+
+  for (const ownedGame of ownedGames) {
+    const appId = coerceNumber(ownedGame.appid);
+    const lastPlayedAtSeconds = coerceNumber(ownedGame.rtime_last_played);
+    if (appId !== undefined && lastPlayedAtSeconds !== undefined && lastPlayedAtSeconds > 0) {
+      ownedLastPlayedByAppId.set(appId, lastPlayedAtSeconds);
+    }
+  }
+
+  return recentGames.map((recentGame) => {
+    const directLastPlayedAtSeconds = coerceNumber(recentGame.rtime_last_played);
+    if (directLastPlayedAtSeconds !== undefined && directLastPlayedAtSeconds > 0) {
+      return recentGame;
+    }
+
+    const appId = coerceNumber(recentGame.appid);
+    const ownedLastPlayedAtSeconds =
+      appId !== undefined ? ownedLastPlayedByAppId.get(appId) : undefined;
+
+    return ownedLastPlayedAtSeconds !== undefined
+      ? {
+          ...recentGame,
+          rtime_last_played: ownedLastPlayedAtSeconds,
+        }
+      : recentGame;
+  });
+}
+
+export function sortSteamRecentlyPlayedGamesNewestFirst(
+  games: readonly RecentlyPlayedGame[],
+): readonly RecentlyPlayedGame[] {
+  return games
+    .map((game, sourceIndex) => ({ game, sourceIndex }))
+    .sort((left, right) => {
+      const leftTimestamp = left.game.lastPlayedAt;
+      const rightTimestamp = right.game.lastPlayedAt;
+
+      if (leftTimestamp !== undefined && rightTimestamp !== undefined) {
+        return leftTimestamp !== rightTimestamp
+          ? rightTimestamp - leftTimestamp
+          : left.sourceIndex - right.sourceIndex;
+      }
+
+      if (leftTimestamp !== undefined) {
+        return -1;
+      }
+
+      if (rightTimestamp !== undefined) {
+        return 1;
+      }
+
+      return left.sourceIndex - right.sourceIndex;
+    })
+    .map(({ game }) => game);
 }
 
 export function normalizeSteamGameDetail(args: {

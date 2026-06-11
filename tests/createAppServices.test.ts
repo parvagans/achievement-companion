@@ -239,6 +239,8 @@ import {
   normalizeSteamProfile,
   normalizeSteamRecentUnlocks,
   normalizeSteamRecentlyPlayedGames,
+  mergeSteamRecentlyPlayedLastPlayedTimes,
+  sortSteamRecentlyPlayedGamesNewestFirst,
 } from "../src/providers/steam/mappers/normalize";
 import type {
   SteamLibraryAchievementScanSummary,
@@ -2520,6 +2522,20 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(compactDashboardSource, /<ProviderIdentityRow providerId=\{profile\.providerId\} \/>/u);
   assert.match(compactDashboardSource, /function RecentAchievementRow\(/u);
   assert.match(compactDashboardSource, /function RecentlyPlayedRow\(/u);
+  assert.match(compactDashboardSource, /function SteamRecentlyPlayedDescription\(/u);
+  assert.match(compactDashboardSource, /const secondaryLines = formatRecentlyPlayedSecondary\(game\);/u);
+  assert.match(
+    compactDashboardSource,
+    /secondaryLines\.map\(\(line\) => \(\s*<div key=\{line\} style=\{getCompactItemSecondaryStyle\(\)\}>/u,
+  );
+  assert.match(compactDashboardSource, /Past 2 weeks: \$\{formatSteamPlaytimeMinutes/u);
+  assert.match(compactDashboardSource, /Steam Deck: \$\{formatSteamPlaytimeMinutes/u);
+  assert.match(compactDashboardSource, /Total playtime: \$\{formatSteamPlaytimeMinutes/u);
+  assert.match(
+    compactDashboardSource,
+    /if \(when !== undefined\) \{\s*return \[`Last played \$\{when\}`, \.\.\.playtimeLines\];\s*\}/u,
+  );
+  assert.doesNotMatch(compactDashboardSource, /playtimeLines\.join\(" \| "\)/u);
   assert.match(compactDashboardSource, /getDashboardAchievementTone\(recentUnlock\)/u);
   assert.match(compactDashboardSource, /getDashboardCompactCardStyle\(bottomSpacing = 0\)/u);
   assert.match(compactDashboardSource, /padding: "16px 16px 16px 20px"/u);
@@ -2555,6 +2571,12 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(compactDashboardSource, /formatAchievementUnlockModeLabel\(recentUnlock\.achievement\)/u);
   assert.match(compactDashboardSource, /if \(recentUnlock\.game\.providerId === STEAM_PROVIDER_ID\)/u);
   assert.match(compactDashboardSource, /if \(game\.providerId === STEAM_PROVIDER_ID\)/u);
+  assert.match(compactDashboardSource, /description=\{<SteamRecentlyPlayedDescription game=\{game\} \/>\}/u);
+  assert.match(compactDashboardSource, /onCancelButton=\{onCancel\}/u);
+  assert.match(
+    compactDashboardSource,
+    /onActivate=\{\(\) => \{\s*onOpenGameDetail\(game\.providerId, game\.gameId, game\.title\);/u,
+  );
   assert.doesNotMatch(compactDashboardSource, /data-dashboard-row-type=/u);
   assert.doesNotMatch(compactDashboardSource, /data-dashboard-achievement-tone=/u);
   assert.doesNotMatch(compactDashboardSource, /getDashboardCompactRowWrapperStyle/u);
@@ -5677,6 +5699,219 @@ test("game detail successful refresh writes normalized snapshot to cache", async
   assert.equal(writes[0]?.version, CACHE_VERSION);
   assert.equal(writes[0]?.storedAt, state.lastUpdatedAt);
   assert.deepStrictEqual(writes[0]?.value, state.data);
+});
+
+test("steam recently played normalization sorts newest first with stable missing timestamps", () => {
+  const recentGames = normalizeSteamRecentlyPlayedGames([
+    {
+      appid: 10,
+      name: "Missing Timestamp First",
+      playtime_forever: 10,
+    },
+    {
+      appid: 20,
+      name: "Older Known",
+      playtime_forever: 20,
+      rtime_last_played: 1_700_000_000,
+    },
+    {
+      appid: 30,
+      name: "Newest Known",
+      playtime_forever: 30,
+      rtime_last_played: 1_700_000_200,
+    },
+    {
+      appid: 40,
+      name: "Equal Newest Known",
+      playtime_forever: 40,
+      rtime_last_played: 1_700_000_200,
+    },
+    {
+      appid: 50,
+      name: "Missing Timestamp Second",
+      playtime_forever: 50,
+    },
+  ]);
+
+  assert.deepStrictEqual(
+    recentGames.map((game) => game.title),
+    [
+      "Newest Known",
+      "Equal Newest Known",
+      "Older Known",
+      "Missing Timestamp First",
+      "Missing Timestamp Second",
+    ],
+  );
+  assert.deepStrictEqual(
+    recentGames.map((game) => game.lastPlayedAt),
+    [1_700_000_200_000, 1_700_000_200_000, 1_700_000_000_000, undefined, undefined],
+  );
+
+  assert.deepStrictEqual(
+    sortSteamRecentlyPlayedGamesNewestFirst([
+      recentGames[2]!,
+      recentGames[3]!,
+      recentGames[1]!,
+      recentGames[4]!,
+      recentGames[0]!,
+    ]).map((game) => game.title),
+    [
+      "Equal Newest Known",
+      "Newest Known",
+      "Older Known",
+      "Missing Timestamp First",
+      "Missing Timestamp Second",
+    ],
+  );
+  assert.match(
+    readFileSync("src/providers/steam/steam.provider.ts", "utf8"),
+    /return sortSteamRecentlyPlayedGamesNewestFirst\(\s*recentGameSnapshots\.map\(\(snapshot\) => snapshot\.recentGame\),\s*\);/u,
+  );
+});
+
+test("steam recently played merges owned-game timestamps before sorting", async () => {
+  const mergedGames = mergeSteamRecentlyPlayedLastPlayedTimes(
+    [
+      {
+        appid: 100,
+        name: "GTA-like Older Game",
+      },
+      {
+        appid: 200,
+        name: "Minecraft-like Newer Game",
+      },
+      {
+        appid: 300,
+        name: "Direct Timestamp Wins",
+        rtime_last_played: 1_700_000_300,
+      },
+      {
+        appid: 400,
+        name: "Missing Everywhere",
+      },
+    ],
+    [
+      {
+        appid: 100,
+        name: "GTA-like Older Game",
+        rtime_last_played: 1_700_000_100,
+      },
+      {
+        appid: 200,
+        name: "Minecraft-like Newer Game",
+        rtime_last_played: 1_700_000_200,
+      },
+      {
+        appid: 300,
+        name: "Direct Timestamp Wins",
+        rtime_last_played: 1_700_000_400,
+      },
+    ],
+  );
+  const normalizedGames = normalizeSteamRecentlyPlayedGames(mergedGames);
+
+  assert.deepStrictEqual(
+    normalizedGames.map((game) => game.title),
+    [
+      "Direct Timestamp Wins",
+      "Minecraft-like Newer Game",
+      "GTA-like Older Game",
+      "Missing Everywhere",
+    ],
+  );
+  assert.deepStrictEqual(
+    normalizedGames.map((game) => game.lastPlayedAt),
+    [1_700_000_300_000, 1_700_000_200_000, 1_700_000_100_000, undefined],
+  );
+
+  let ownedGamesCalls = 0;
+  const provider = createSteamProvider({
+    client: {
+      async loadRecentlyPlayedGames() {
+        return {
+          response: {
+            games: [
+              {
+                appid: 100,
+                name: "GTA-like Older Game",
+                playtime_forever: 120,
+              },
+              {
+                appid: 200,
+                name: "Minecraft-like Newer Game",
+                playtime_forever: 60,
+              },
+            ],
+          },
+        };
+      },
+      async loadOwnedGames() {
+        ownedGamesCalls += 1;
+        return {
+          response: {
+            games: [
+              {
+                appid: 100,
+                name: "GTA-like Older Game",
+                rtime_last_played: 1_700_000_100,
+              },
+              {
+                appid: 200,
+                name: "Minecraft-like Newer Game",
+                rtime_last_played: 1_700_000_200,
+              },
+            ],
+          },
+        };
+      },
+      async loadPlayerAchievements() {
+        return {
+          playerstats: {
+            success: true,
+            achievements: [],
+          },
+        };
+      },
+      async loadSchemaForGame() {
+        return {
+          game: {
+            availableGameStats: {
+              achievements: [],
+            },
+          },
+        };
+      },
+      async loadGlobalAchievementPercentagesForApp() {
+        return {
+          achievementpercentages: {
+            achievements: [],
+          },
+        };
+      },
+    } as SteamClient,
+  });
+  const providerGames = await provider.loadRecentlyPlayedGames(
+    normalizeSteamProviderConfig({
+      steamId64: "12345678901234567",
+      apiKey: "api-key",
+      language: "english",
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+      includePlayedFreeGames: false,
+    }),
+    { count: 5 },
+  );
+
+  assert.equal(ownedGamesCalls, 1);
+  assert.deepStrictEqual(
+    providerGames.map((game) => game.title),
+    ["Minecraft-like Newer Game", "GTA-like Older Game"],
+  );
+  assert.deepStrictEqual(
+    providerGames.map((game) => game.lastPlayedAt),
+    [1_700_000_200_000, 1_700_000_100_000],
+  );
 });
 
 test("steam provider config and normalization stay round-trippable", () => {

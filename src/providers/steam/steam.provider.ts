@@ -21,10 +21,13 @@ import {
   normalizeSteamProfile,
   normalizeSteamRecentUnlocks,
   normalizeSteamRecentlyPlayedGames,
+  mergeSteamRecentlyPlayedLastPlayedTimes,
+  sortSteamRecentlyPlayedGamesNewestFirst,
 } from "./mappers/normalize";
 import { normalizeSteamBadges } from "./badges";
 import type {
   RawSteamPlayerSummary,
+  RawSteamOwnedGame,
   RawSteamRecentlyPlayedGame,
 } from "./raw-types";
 
@@ -180,6 +183,63 @@ function parseAppId(value: number | undefined): number | undefined {
   return Math.trunc(value);
 }
 
+function hasReliableSteamLastPlayedTimestamp(game: RawSteamRecentlyPlayedGame): boolean {
+  return (
+    typeof game.rtime_last_played === "number" &&
+    Number.isFinite(game.rtime_last_played) &&
+    game.rtime_last_played > 0
+  );
+}
+
+function sortRawSteamRecentlyPlayedGamesNewestFirst(
+  games: readonly RawSteamRecentlyPlayedGame[],
+): readonly RawSteamRecentlyPlayedGame[] {
+  return games
+    .map((game, sourceIndex) => ({ game, sourceIndex }))
+    .sort((left, right) => {
+      const leftTimestamp = hasReliableSteamLastPlayedTimestamp(left.game)
+        ? left.game.rtime_last_played
+        : undefined;
+      const rightTimestamp = hasReliableSteamLastPlayedTimestamp(right.game)
+        ? right.game.rtime_last_played
+        : undefined;
+
+      if (leftTimestamp !== undefined && rightTimestamp !== undefined) {
+        return leftTimestamp !== rightTimestamp
+          ? rightTimestamp - leftTimestamp
+          : left.sourceIndex - right.sourceIndex;
+      }
+
+      if (leftTimestamp !== undefined) {
+        return -1;
+      }
+
+      if (rightTimestamp !== undefined) {
+        return 1;
+      }
+
+      return left.sourceIndex - right.sourceIndex;
+    })
+    .map(({ game }) => game);
+}
+
+async function loadOwnedGamesForRecentTimestampFallback(
+  client: SteamClient,
+  config: SteamProviderConfig,
+): Promise<readonly RawSteamOwnedGame[]> {
+  if (typeof client.loadOwnedGames !== "function") {
+    return [];
+  }
+
+  try {
+    const response = await client.loadOwnedGames(config);
+    return response.response?.games ?? [];
+  } catch (cause) {
+    logSteamLoadFailure("recentlyPlayed.loadOwnedGames", cause);
+    return [];
+  }
+}
+
 function getRawPlayerSummary(
   response: Awaited<ReturnType<SteamClient["loadPlayerSummaries"]>> | undefined,
   steamId64: string,
@@ -287,7 +347,18 @@ async function loadSteamRecentGameSnapshots(
 
   const promise = (async () => {
     const rawResponse = await client.loadRecentlyPlayedGames(config);
-    const rawGames = applyRecentLimit(rawResponse.response?.games ?? [], count);
+    const directRecentGames = rawResponse.response?.games ?? [];
+    const ownedGames = directRecentGames.some(
+      (game) => !hasReliableSteamLastPlayedTimestamp(game),
+    )
+      ? await loadOwnedGamesForRecentTimestampFallback(client, config)
+      : [];
+    const rawGames = applyRecentLimit(
+      sortRawSteamRecentlyPlayedGamesNewestFirst(
+        mergeSteamRecentlyPlayedLastPlayedTimes(directRecentGames, ownedGames),
+      ),
+      count,
+    );
 
     const snapshots = await Promise.all(
       rawGames.map(async (rawGame) => {
@@ -440,7 +511,9 @@ export function createSteamProvider(
         count: getSteamRecentGameSnapshotCount(config, options?.count),
       });
 
-      return recentGameSnapshots.map((snapshot) => snapshot.recentGame);
+      return sortSteamRecentlyPlayedGamesNewestFirst(
+        recentGameSnapshots.map((snapshot) => snapshot.recentGame),
+      );
     },
 
     async loadGameProgress(config, gameId) {
