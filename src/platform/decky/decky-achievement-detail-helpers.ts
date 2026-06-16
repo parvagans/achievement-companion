@@ -1,4 +1,5 @@
-import type { NormalizedAchievement, NormalizedMetric } from "@core/domain";
+import type { NormalizedAchievement, NormalizedGame, NormalizedMetric } from "@core/domain";
+import { isRetroAchievementsMasteredHardcoreGame } from "./decky-retroachievements-completion-indicator";
 
 const STEAM_PROVIDER_ID = "steam";
 
@@ -242,6 +243,16 @@ export function formatProviderAchievementStatusText(
   }
 
   return status.value;
+}
+
+export function formatRetroAchievementsMasteredAtText(
+  game: Pick<NormalizedGame, "providerId" | "lastUnlockAt" | "metrics">,
+): string | undefined {
+  if (!isRetroAchievementsMasteredHardcoreGame(game) || game.lastUnlockAt === undefined) {
+    return undefined;
+  }
+
+  return `Mastered on ${formatTimestamp(game.lastUnlockAt)}`;
 }
 
 export function formatProviderAchievementPointsText(

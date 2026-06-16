@@ -1123,6 +1123,8 @@ interface RetroAchievementsRecentlyPlayedGameInput {
   readonly numAchieved?: number | string;
   readonly LastPlayed?: string;
   readonly lastPlayed?: string;
+  readonly HighestAwardKind?: string;
+  readonly highestAwardKind?: string;
 }
 
 function normalizeRetroAchievementsRecentlyPlayedGame(
@@ -1137,6 +1139,7 @@ function normalizeRetroAchievementsRecentlyPlayedGame(
   const unlockedCount = pickNumber(raw.NumAchieved, raw.numAchieved) ?? 0;
   const totalCount = pickNumber(raw.AchievementsTotal, raw.achievementsTotal, raw.NumPossibleAchievements, raw.numPossibleAchievements);
   const lastPlayedAt = pickEpochMs(raw.LastPlayed, raw.lastPlayed);
+  const highestAwardKind = pickString(raw.HighestAwardKind, raw.highestAwardKind);
 
   if (unlockedCount <= 0 && totalCount === undefined && lastPlayedAt === undefined) {
     return undefined;
@@ -1159,6 +1162,17 @@ function normalizeRetroAchievementsRecentlyPlayedGame(
     ...(platformLabel !== undefined ? { platformLabel } : {}),
     ...(coverImageUrl !== undefined ? { coverImageUrl } : {}),
     summary,
+    ...(highestAwardKind !== undefined
+      ? {
+          metrics: [
+            {
+              key: "highest-award-kind",
+              label: "Highest Award",
+              value: highestAwardKind,
+            },
+          ],
+        }
+      : {}),
     ...(lastPlayedAt !== undefined ? { lastPlayedAt } : {}),
   };
 }

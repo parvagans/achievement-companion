@@ -154,6 +154,8 @@ export interface RawRetroAchievementsRecentlyPlayedGameResponse {
   readonly numAchievedHardcore?: number | string;
   readonly ScoreAchievedHardcore?: number | string;
   readonly scoreAchievedHardcore?: number | string;
+  readonly HighestAwardKind?: string;
+  readonly highestAwardKind?: string;
 }
 
 export interface RawRetroAchievementsGameProgressAchievement {

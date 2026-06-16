@@ -98,6 +98,7 @@ export interface RecentlyPlayedGame {
   readonly platformLabel?: string;
   readonly coverImageUrl?: string;
   readonly summary: ProgressSummary;
+  readonly metrics?: readonly NormalizedMetric[];
   readonly playtimeForeverMinutes?: number;
   readonly playtimeTwoWeeksMinutes?: number;
   readonly playtimeDeckForeverMinutes?: number;
