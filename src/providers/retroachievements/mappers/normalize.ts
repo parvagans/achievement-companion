@@ -449,11 +449,7 @@ export function countRetroAchievementsGamesBeaten(
     const highestAwardKind = pickString(entry.HighestAwardKind, entry.highestAwardKind);
     const normalizedHighestAwardKind = highestAwardKind?.toLowerCase();
 
-    if (
-      normalizedHighestAwardKind !== undefined &&
-      (normalizedHighestAwardKind.includes("beaten") ||
-        normalizedHighestAwardKind.includes("mastered"))
-    ) {
+    if (normalizedHighestAwardKind !== undefined && normalizedHighestAwardKind.includes("beaten")) {
       gamesBeatenCount += 1;
     }
   }
@@ -470,12 +466,77 @@ export function countRetroAchievementsGamesMastered(
     const highestAwardKind = pickString(entry.HighestAwardKind, entry.highestAwardKind);
     const normalizedHighestAwardKind = highestAwardKind?.toLowerCase();
 
-    if (normalizedHighestAwardKind !== undefined && normalizedHighestAwardKind.includes("mastered")) {
+    if (
+      normalizedHighestAwardKind !== undefined &&
+      (normalizedHighestAwardKind.includes("mastered") ||
+        normalizedHighestAwardKind.includes("completed"))
+    ) {
       gamesMasteredCount += 1;
     }
   }
 
   return gamesMasteredCount;
+}
+
+export interface RetroAchievementsGameCompletionAwardCounts {
+  readonly beatenHardcoreCount: number;
+  readonly beatenSoftcoreCount: number;
+  readonly masteredHardcoreCount: number;
+  readonly completedSoftcoreCount: number;
+}
+
+export function summarizeRetroAchievementsGameCompletionAwardCounts(
+  rawEntries: readonly RawRetroAchievementsCompletionProgressEntry[],
+): RetroAchievementsGameCompletionAwardCounts {
+  let beatenHardcoreCount = 0;
+  let beatenSoftcoreCount = 0;
+  let masteredHardcoreCount = 0;
+  let completedSoftcoreCount = 0;
+
+  for (const entry of rawEntries) {
+    const highestAwardKind = pickString(entry.HighestAwardKind, entry.highestAwardKind)
+      ?.trim()
+      .toLowerCase();
+    if (highestAwardKind === undefined || highestAwardKind.length === 0) {
+      continue;
+    }
+
+    const isHardcore = highestAwardKind.includes("hardcore");
+    const isSoftcore = highestAwardKind.includes("softcore");
+
+    if (highestAwardKind.includes("beaten")) {
+      if (isHardcore && !isSoftcore) {
+        beatenHardcoreCount += 1;
+      } else {
+        beatenSoftcoreCount += 1;
+      }
+      continue;
+    }
+
+    if (highestAwardKind.includes("mastered")) {
+      if (isSoftcore) {
+        completedSoftcoreCount += 1;
+      } else {
+        masteredHardcoreCount += 1;
+      }
+      continue;
+    }
+
+    if (highestAwardKind.includes("completed")) {
+      if (isHardcore && !isSoftcore) {
+        masteredHardcoreCount += 1;
+      } else {
+        completedSoftcoreCount += 1;
+      }
+    }
+  }
+
+  return {
+    beatenHardcoreCount,
+    beatenSoftcoreCount,
+    masteredHardcoreCount,
+    completedSoftcoreCount,
+  };
 }
 
 interface RetroAchievementsSelectableGameInput {
@@ -960,6 +1021,7 @@ export function normalizeRetroAchievementsProfile(
   gamesBeatenCount?: number,
   gamesMasteredCount?: number,
   achievementCounts?: RetroAchievementsProfileAchievementCounts,
+  completionAwardCounts?: RetroAchievementsGameCompletionAwardCounts,
 ): NormalizedProfile {
   const avatarPath = pickString(raw.UserPic, raw.userPic);
   const avatarUrl = avatarPath !== undefined ? normalizeRetroAchievementsImageUrl(avatarPath) : undefined;
@@ -984,6 +1046,14 @@ export function normalizeRetroAchievementsProfile(
       ? { softcoreUnlockedCount: achievementCounts.softcoreUnlockedCount }
       : {}),
     ...(gamesMasteredCount !== undefined ? { masteredCount: gamesMasteredCount } : {}),
+    ...(completionAwardCounts !== undefined
+      ? {
+          beatenHardcoreCount: completionAwardCounts.beatenHardcoreCount,
+          beatenSoftcoreCount: completionAwardCounts.beatenSoftcoreCount,
+          masteredHardcoreCount: completionAwardCounts.masteredHardcoreCount,
+          completedSoftcoreCount: completionAwardCounts.completedSoftcoreCount,
+        }
+      : {}),
     metrics: [
       ...normalizeProfileMetrics(raw),
       ...(gamesBeatenCount !== undefined

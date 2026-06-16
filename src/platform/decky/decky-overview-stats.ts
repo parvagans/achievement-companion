@@ -4,6 +4,7 @@ import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
 import {
   getRetroAchievementsProfileStatSections,
   getSteamAccountProgressSummary,
+  type ProfileStatCompletionBreakdown,
   type ProfileStatSectionVariant,
 } from "./decky-stat-helpers";
 
@@ -11,6 +12,7 @@ export interface OverviewStat {
   readonly label: string;
   readonly value: string;
   readonly detail?: string;
+  readonly completionBreakdown?: ProfileStatCompletionBreakdown;
 }
 
 export interface OverviewStatSection {
@@ -101,6 +103,9 @@ export function buildRetroAchievementsProfileOverviewStatSections(
       label: stat.label,
       value: stat.value,
       ...(stat.secondary !== undefined ? { detail: stat.secondary } : {}),
+      ...(stat.completionBreakdown !== undefined
+        ? { completionBreakdown: stat.completionBreakdown }
+        : {}),
     })),
   }));
 }

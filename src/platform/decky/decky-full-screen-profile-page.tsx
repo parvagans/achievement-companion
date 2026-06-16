@@ -16,6 +16,7 @@ import { STEAM_PROVIDER_ID, useDeckySteamLibraryAchievementScanOverview } from "
 import {
   formatProfileMemberSince,
   formatSteamPlaytimeMinutes,
+  type ProfileStatCompletionBreakdown,
   type ProfileStatSectionVariant,
   getRetroAchievementsProfileStatSections,
   getRetroAchievementsProfileSectionAccentStyle,
@@ -26,6 +27,7 @@ import {
 } from "./decky-stat-helpers";
 import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
 import { StatsGrid } from "./decky-layout-components";
+import { RetroAchievementsCompletionBreakdown } from "./decky-retroachievements-completion-indicator";
 
 export interface DeckyFullScreenProfilePageProps {
   readonly providerId: string | undefined;
@@ -510,12 +512,14 @@ function ProfileStat({
   label,
   value,
   secondary,
+  completionBreakdown,
   actionLabel,
   onClick,
 }: {
   readonly label: string;
   readonly value: string;
   readonly secondary?: string;
+  readonly completionBreakdown?: ProfileStatDescriptor["completionBreakdown"];
   readonly actionLabel?: string;
   readonly onClick?: () => void;
 }): JSX.Element {
@@ -523,6 +527,13 @@ function ProfileStat({
     <>
       <div style={getStatLabelStyle()}>{label}</div>
       <div style={getStatValueStyle()}>{value}</div>
+      {completionBreakdown !== undefined ? (
+        <RetroAchievementsCompletionBreakdown
+          kind={completionBreakdown.kind}
+          items={completionBreakdown.items}
+          variant="full"
+        />
+      ) : null}
       {secondary !== undefined ? <div style={getStatSecondaryStyle()}>{secondary}</div> : null}
       {actionLabel !== undefined ? <div style={getStatActionLabelStyle()}>{actionLabel}</div> : null}
     </>
@@ -550,6 +561,7 @@ interface ProfileStatDescriptor {
   readonly label: string;
   readonly value: string;
   readonly secondary?: string;
+  readonly completionBreakdown?: ProfileStatCompletionBreakdown;
 }
 
 export function getSteamProfileStats(args: {
@@ -651,6 +663,9 @@ export function getDeckyProfileStats(args: {
             : stat.label,
       value: stat.value,
       ...(stat.secondary !== undefined ? { secondary: stat.secondary } : {}),
+      ...(stat.completionBreakdown !== undefined
+        ? { completionBreakdown: stat.completionBreakdown }
+        : {}),
     })),
   );
 }
@@ -938,6 +953,9 @@ export function DeckyFullScreenProfilePage({
                               label={stat.label}
                               value={stat.value}
                               {...(stat.secondary !== undefined ? { secondary: stat.secondary } : {})}
+                              {...(stat.completionBreakdown !== undefined
+                                ? { completionBreakdown: stat.completionBreakdown }
+                                : {})}
                             />
                           ))}
                         </StatsGrid>

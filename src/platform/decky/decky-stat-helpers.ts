@@ -8,6 +8,7 @@ import type {
 import type { CSSProperties } from "react";
 import { formatCompletionProgressFilterLabel, type CompletionProgressFilter } from "@core/settings";
 import { STEAM_PROVIDER_ID } from "../../providers/steam";
+import type { RetroAchievementsCompletionBreakdownItem } from "./decky-retroachievements-completion-indicator";
 import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
 import { formatSteamXp, getSteamXpProgress } from "./steam-xp";
 
@@ -113,6 +114,12 @@ export interface ProfileStatDescriptor {
   readonly label: string;
   readonly value: string;
   readonly secondary?: string;
+  readonly completionBreakdown?: ProfileStatCompletionBreakdown;
+}
+
+export interface ProfileStatCompletionBreakdown {
+  readonly kind: "beaten" | "mastered";
+  readonly items: readonly RetroAchievementsCompletionBreakdownItem[];
 }
 
 export interface SteamAccountProgressSummary {
@@ -152,6 +159,10 @@ export interface RetroAchievementsProfileStatValues {
   readonly raRatio: string | undefined;
   readonly beaten: string | undefined;
   readonly mastered: string | undefined;
+  readonly beatenHardcoreCount: number | undefined;
+  readonly beatenSoftcoreCount: number | undefined;
+  readonly masteredHardcoreCount: number | undefined;
+  readonly completedSoftcoreCount: number | undefined;
 }
 
 function formatOptionalMetricValue(
@@ -177,6 +188,10 @@ export function getRetroAchievementsProfileStatValues(args: {
     raRatio: formatOptionalMetricValue(profile.metrics, "retro-ratio", "RetroRatio"),
     beaten: formatOptionalMetricValue(profile.metrics, "games-beaten", "Games Beaten"),
     mastered: profile.masteredCount !== undefined ? formatCount(profile.masteredCount) : undefined,
+    beatenHardcoreCount: profile.beatenHardcoreCount,
+    beatenSoftcoreCount: profile.beatenSoftcoreCount,
+    masteredHardcoreCount: profile.masteredHardcoreCount,
+    completedSoftcoreCount: profile.completedSoftcoreCount,
   };
 }
 
@@ -235,10 +250,48 @@ export function getRetroAchievementsProfileStatSections(args: {
         {
           label: "Beaten",
           value: values.beaten ?? "-",
+          completionBreakdown: {
+            kind: "beaten",
+            items: [
+              {
+                state: "beaten-softcore",
+                count: values.beatenSoftcoreCount,
+                action: "beaten",
+                mode: "softcore",
+                fullLabel: "softcore",
+              },
+              {
+                state: "beaten-hardcore",
+                count: values.beatenHardcoreCount,
+                action: "beaten",
+                mode: "hardcore",
+                fullLabel: "hardcore",
+              },
+            ],
+          },
         },
         {
           label: "Mastered",
           value: values.mastered ?? "-",
+          completionBreakdown: {
+            kind: "mastered",
+            items: [
+              {
+                state: "mastered-hardcore",
+                count: values.masteredHardcoreCount,
+                action: "mastered",
+                mode: "hardcore",
+                fullLabel: "hardcore",
+              },
+              {
+                state: "mastered-softcore",
+                count: values.completedSoftcoreCount,
+                action: "completed",
+                mode: "softcore",
+                fullLabel: "softcore",
+              },
+            ],
+          },
         },
       ],
     },
