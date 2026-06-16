@@ -562,6 +562,15 @@ function normalizeSelectableGame(
             },
           ]
         : []),
+      ...(highestAwardKind !== undefined
+        ? [
+            {
+              key: "highest-award-kind",
+              label: "Highest Award",
+              value: highestAwardKind,
+            },
+          ]
+        : []),
     ],
     ...(lastUnlockAt !== undefined ? { lastUnlockAt } : {}),
   };

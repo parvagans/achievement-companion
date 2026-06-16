@@ -8,6 +8,7 @@ import {
   loadDeckyGameDetailState,
 } from "./decky-app-services";
 import { DeckyCompletionProgressBar, getCompletionPercent } from "./decky-completion-progress-bar";
+import { RetroAchievementsCompletionIndicator } from "./decky-retroachievements-completion-indicator";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
 import {
@@ -1279,6 +1280,7 @@ export function DeckyFullScreenGamePage({
 
                 <div style={getGameDetailSectionCardStyle()}>
                   <div style={getGameDetailSectionHeaderStyle()}>Progress Summary</div>
+                  <RetroAchievementsCompletionIndicator game={game} />
                   {completionPercent !== undefined ? (
                     <DeckyCompletionProgressBar percent={completionPercent} />
                   ) : null}

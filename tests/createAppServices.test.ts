@@ -91,6 +91,11 @@ import {
   buildCompletionProgressSummaryCards,
 } from "../src/platform/decky/decky-completion-progress-summary-card-data";
 import {
+  formatRetroAchievementsCompletionIndicatorLabel,
+  getRetroAchievementsCompletionIndicatorState,
+  getRetroAchievementsCompletionIndicatorStyle,
+} from "../src/platform/decky/decky-retroachievements-completion-indicator";
+import {
   addProfileAvatarCacheBustParam,
 } from "../src/platform/decky/decky-avatar-cache-busting";
 import {
@@ -3594,6 +3599,58 @@ test("retroachievements completion progress normalizes beaten and mastered statu
   assert.equal(games.find((game) => game.title === "Beaten Game")?.status, "beaten");
   assert.equal(games.find((game) => game.title === "Mastered Game")?.status, "mastered");
   assert.equal(games.find((game) => game.title === "Completed Game")?.status, "completed");
+  assert.equal(
+    games
+      .find((game) => game.title === "Beaten Game")
+      ?.metrics.find((metric) => metric.key === "highest-award-kind")?.value,
+    "beaten-hardcore",
+  );
+});
+
+test("retroachievements completion indicator maps award kind to compact circle states", () => {
+  const createGame = (
+    highestAwardKind: string,
+    providerId = PROVIDER_ID,
+  ): Pick<NormalizedGame, "providerId" | "metrics"> => ({
+    providerId,
+    metrics: [
+      {
+        key: "highest-award-kind",
+        label: "Highest Award",
+        value: highestAwardKind,
+      },
+    ],
+  });
+
+  assert.equal(getRetroAchievementsCompletionIndicatorState(createGame("beaten-hardcore")), "beaten-hardcore");
+  assert.equal(getRetroAchievementsCompletionIndicatorState(createGame("mastered")), "mastered-hardcore");
+  assert.equal(getRetroAchievementsCompletionIndicatorState(createGame("beaten")), "beaten-softcore");
+  assert.equal(getRetroAchievementsCompletionIndicatorState(createGame("completed")), "mastered-softcore");
+  assert.equal(getRetroAchievementsCompletionIndicatorState(createGame("mastered", "steam")), undefined);
+  assert.equal(getRetroAchievementsCompletionIndicatorState({ providerId: PROVIDER_ID, metrics: [] }), undefined);
+
+  assert.equal(formatRetroAchievementsCompletionIndicatorLabel("beaten-hardcore"), "Beaten in hardcore");
+  assert.equal(formatRetroAchievementsCompletionIndicatorLabel("mastered-hardcore"), "Mastered in hardcore");
+  assert.equal(formatRetroAchievementsCompletionIndicatorLabel("beaten-softcore"), "Beaten in softcore");
+  assert.equal(formatRetroAchievementsCompletionIndicatorLabel("mastered-softcore"), "Mastered in softcore");
+
+  assert.equal(getRetroAchievementsCompletionIndicatorStyle("beaten-hardcore").backgroundColor, "rgba(214, 221, 232, 0.96)");
+  assert.equal(getRetroAchievementsCompletionIndicatorStyle("mastered-hardcore").backgroundColor, "rgba(232, 201, 102, 0.98)");
+  assert.equal(getRetroAchievementsCompletionIndicatorStyle("beaten-softcore").backgroundColor, "transparent");
+  assert.equal(getRetroAchievementsCompletionIndicatorStyle("mastered-softcore").backgroundColor, "transparent");
+
+  const fullScreenCompletionProgressSource = readFileSync(
+    "src/platform/decky/decky-full-screen-completion-progress-page.tsx",
+    "utf8",
+  );
+  const compactDashboardSource = readFileSync("src/platform/decky/decky-dashboard-view.tsx", "utf8");
+  const gameDetailSource = readFileSync("src/platform/decky/decky-game-detail-view.tsx", "utf8");
+  const fullScreenGameSource = readFileSync("src/platform/decky/decky-full-screen-game-page.tsx", "utf8");
+
+  assert.match(fullScreenCompletionProgressSource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
+  assert.match(gameDetailSource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
+  assert.match(fullScreenGameSource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
+  assert.doesNotMatch(compactDashboardSource, /RetroAchievementsCompletionIndicator/u);
 });
 
 test("retroachievements completion progress preserves parent game ids", () => {

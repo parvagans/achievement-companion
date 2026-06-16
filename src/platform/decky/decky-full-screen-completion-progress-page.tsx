@@ -37,6 +37,7 @@ import {
   formatSteamPlaytimeMinutes,
   getSteamCompletionProgressGameDetailId,
 } from "./decky-stat-helpers";
+import { RetroAchievementsCompletionIndicator } from "./decky-retroachievements-completion-indicator";
 
 const COMPLETION_PROGRESS_INITIAL_GAME_LIMIT = 12;
 const COMPLETION_PROGRESS_GAME_LOAD_STEP = 12;
@@ -197,6 +198,7 @@ function getStatusPillStyle(): CSSProperties {
   return {
     display: "inline-flex",
     alignItems: "center",
+    gap: 6,
     minHeight: 24,
     padding: "0 9px",
     borderRadius: 999,
@@ -380,7 +382,10 @@ function CompletionProgressGameRow({
         <div style={getGameRowDescriptionStyle()}>
           <div style={getGameRowMetaRowStyle()}>
             <span style={getStatusPillStyle()}>{game.platformLabel ?? formatDeckyProviderLabel(providerId)}</span>
-            <span style={getStatusPillStyle()}>{formatCompletionProgressStatusLabel(game.status, providerId)}</span>
+            <span style={getStatusPillStyle()}>
+              <RetroAchievementsCompletionIndicator game={game} />
+              {formatCompletionProgressStatusLabel(game.status, providerId)}
+            </span>
           </div>
 
           <div style={getGameRowSummaryStyle()}>
