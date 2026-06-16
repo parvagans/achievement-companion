@@ -18,6 +18,7 @@ import {
   normalizeRetroAchievementsRecentlyPlayedGames,
   summarizeRetroAchievementsProfileAchievementCounts,
   summarizeRetroAchievementsCompletionProgress,
+  summarizeRetroAchievementsGameCompletionAwardCounts,
 } from "./mappers/normalize";
 
 const retroAchievementsCapabilities: ProviderCapabilities = {
@@ -98,6 +99,8 @@ export function createRetroAchievementsProvider(
       const gamesBeatenCount = countRetroAchievementsGamesBeaten(rawCompletionProgress);
       const gamesMasteredCount = countRetroAchievementsGamesMastered(rawCompletionProgress);
       const achievementCounts = summarizeRetroAchievementsProfileAchievementCounts(rawCompletionProgress);
+      const completionAwardCounts =
+        summarizeRetroAchievementsGameCompletionAwardCounts(rawCompletionProgress);
 
       return normalizeRetroAchievementsProfile(
         rawProfile,
@@ -107,6 +110,7 @@ export function createRetroAchievementsProvider(
         gamesBeatenCount,
         gamesMasteredCount,
         achievementCounts,
+        completionAwardCounts,
       );
     },
 

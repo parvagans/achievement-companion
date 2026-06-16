@@ -33,6 +33,9 @@ import { formatDeckyProviderLabel } from "./providers";
 import { getDeckyProviderIconSrc } from "./providers/provider-branding";
 import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
 import { STEAM_PROVIDER_ID } from "../../providers/steam/config";
+import { RetroAchievementsCompletionBreakdown } from "./decky-retroachievements-completion-indicator";
+
+type OverviewCompletionBreakdown = OverviewStatSection["stats"][number]["completionBreakdown"];
 
 export interface DeckyDashboardViewProps {
   readonly state: ResourceState<DashboardSnapshot>;
@@ -683,15 +686,24 @@ function OverviewStat({
   label,
   value,
   detail,
+  completionBreakdown,
 }: {
   readonly label: string;
   readonly value: string;
   readonly detail?: string;
+  readonly completionBreakdown?: OverviewCompletionBreakdown;
 }): JSX.Element {
   return (
     <div style={getOverviewStatStyle()}>
       <div style={getOverviewStatLabelStyle()}>{label}</div>
       <div style={getOverviewStatValueStyle()}>{value}</div>
+      {completionBreakdown !== undefined ? (
+        <RetroAchievementsCompletionBreakdown
+          kind={completionBreakdown.kind}
+          items={completionBreakdown.items}
+          variant="compact"
+        />
+      ) : null}
       {detail !== undefined ? <div style={getOverviewStatDetailStyle()}>{detail}</div> : null}
     </div>
   );
@@ -716,6 +728,9 @@ function OverviewStatSectionBlock({ section }: { readonly section: OverviewStatS
             label={stat.label}
             value={stat.value}
             {...(stat.detail !== undefined ? { detail: stat.detail } : {})}
+            {...(stat.completionBreakdown !== undefined
+              ? { completionBreakdown: stat.completionBreakdown }
+              : {})}
           />
         ))}
       </div>

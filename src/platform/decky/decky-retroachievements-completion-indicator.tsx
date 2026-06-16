@@ -8,6 +8,14 @@ export type RetroAchievementsCompletionIndicatorState =
   | "beaten-softcore"
   | "mastered-softcore";
 
+export interface RetroAchievementsCompletionBreakdownItem {
+  readonly state: RetroAchievementsCompletionIndicatorState;
+  readonly count: number | undefined;
+  readonly action: "beaten" | "mastered" | "completed";
+  readonly mode: "hardcore" | "softcore";
+  readonly fullLabel: string;
+}
+
 const RETROACHIEVEMENTS_COMPLETION_SILVER = "rgba(214, 221, 232, 0.96)";
 const RETROACHIEVEMENTS_COMPLETION_GOLD = "rgba(232, 201, 102, 0.98)";
 
@@ -110,5 +118,94 @@ export function RetroAchievementsCompletionIndicator({
       style={getRetroAchievementsCompletionIndicatorStyle(state)}
       title={label}
     />
+  );
+}
+
+function formatBreakdownLabel({
+  count,
+  action,
+  mode,
+}: {
+  readonly count: number;
+  readonly action: RetroAchievementsCompletionBreakdownItem["action"];
+  readonly mode: "hardcore" | "softcore";
+}): string {
+  return `${count.toLocaleString()} ${action} in ${mode}`;
+}
+
+function getBreakdownContainerStyle(variant: "compact" | "full"): CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flexWrap: "wrap",
+    gap: variant === "compact" ? "3px 8px" : "4px 12px",
+    minWidth: 0,
+    maxWidth: "100%",
+    color: "rgba(255, 255, 255, 0.72)",
+    fontSize: variant === "compact" ? "0.72em" : "0.78em",
+    fontWeight: 700,
+    lineHeight: 1.15,
+  };
+}
+
+function getBreakdownItemStyle(): CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    minWidth: 0,
+    whiteSpace: "nowrap",
+  };
+}
+
+function getBreakdownIndicatorStyle(state: RetroAchievementsCompletionIndicatorState): CSSProperties {
+  return {
+    ...getRetroAchievementsCompletionIndicatorStyle(state),
+    width: 10,
+    height: 10,
+  };
+}
+
+export function RetroAchievementsCompletionBreakdown({
+  kind,
+  items,
+  variant,
+}: {
+  readonly kind: "beaten" | "mastered";
+  readonly items: readonly RetroAchievementsCompletionBreakdownItem[];
+  readonly variant: "compact" | "full";
+}): JSX.Element | null {
+  const visibleItems = items.flatMap((item) =>
+    item.count !== undefined && item.count > 0 ? [{ ...item, count: item.count }] : [],
+  );
+
+  if (visibleItems.length === 0) {
+    return null;
+  }
+
+  return (
+    <span
+      aria-label={visibleItems
+        .map((item) => formatBreakdownLabel({ count: item.count, action: item.action, mode: item.mode }))
+        .join(", ")}
+      data-retroachievements-completion-breakdown={kind}
+      style={getBreakdownContainerStyle(variant)}
+    >
+      {visibleItems.map((item) => {
+        const label = formatBreakdownLabel({ count: item.count, action: item.action, mode: item.mode });
+
+        return (
+          <span key={item.state} title={label} style={getBreakdownItemStyle()}>
+            <span aria-hidden="true" style={getBreakdownIndicatorStyle(item.state)} />
+            <span>
+              {variant === "compact"
+                ? item.count.toLocaleString()
+                : `${item.count.toLocaleString()} ${item.fullLabel}`}
+            </span>
+          </span>
+        );
+      })}
+    </span>
   );
 }

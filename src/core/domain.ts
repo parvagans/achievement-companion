@@ -44,6 +44,10 @@ export interface NormalizedProfile {
   readonly hardcoreUnlockedCount?: number;
   readonly softcoreUnlockedCount?: number;
   readonly masteredCount?: number;
+  readonly beatenHardcoreCount?: number;
+  readonly beatenSoftcoreCount?: number;
+  readonly masteredHardcoreCount?: number;
+  readonly completedSoftcoreCount?: number;
   readonly steamLevel?: number;
   readonly ownedGameCount?: number;
   readonly badgeCount?: number;

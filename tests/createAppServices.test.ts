@@ -3355,6 +3355,14 @@ test("retroachievements profile surfaces separate hardcore and softcore achievem
             MaxPossible: 0,
             HighestAwardKind: "mastered",
           },
+          {
+            GameID: 4,
+            Title: "Completed Game",
+            NumAwarded: 8,
+            NumAwardedHardcore: 0,
+            MaxPossible: 8,
+            HighestAwardKind: "completed",
+          },
         ] satisfies readonly RawRetroAchievementsCompletionProgressEntry[];
       },
 
@@ -3383,8 +3391,12 @@ test("retroachievements profile surfaces separate hardcore and softcore achievem
   const stats = buildRetroAchievementsProfileOverviewStatSections(profile);
 
   assert.equal(profile.hardcoreUnlockedCount, 4);
-  assert.equal(profile.softcoreUnlockedCount, 4);
-  assert.equal(profile.masteredCount, 1);
+  assert.equal(profile.softcoreUnlockedCount, 12);
+  assert.equal(profile.masteredCount, 2);
+  assert.equal(profile.beatenHardcoreCount, 1);
+  assert.equal(profile.beatenSoftcoreCount, 1);
+  assert.equal(profile.masteredHardcoreCount, 1);
+  assert.equal(profile.completedSoftcoreCount, 1);
   assert.deepStrictEqual(
     stats.map((section) => section.title),
     [
@@ -3397,11 +3409,70 @@ test("retroachievements profile surfaces separate hardcore and softcore achievem
   assert.deepStrictEqual(
     stats.map((section) => section.stats.map((stat) => `${stat.label}:${stat.value}`)),
     [
-      ["Points:25", "Unlocked:4"],
+      ["Points:25", "Unlocked:12"],
       ["Points:100", "Unlocked:4"],
       ["Points:250", "Ratio:2.50"],
-      ["Beaten:3", "Mastered:1"],
+      ["Beaten:2", "Mastered:2"],
     ],
+  );
+  const gameCompletionSection = stats.find((section) => section.title === "Game Completion");
+  assert.equal(gameCompletionSection?.stats.length, 2);
+  const beatenStat = gameCompletionSection?.stats[0];
+  const masteredStat = gameCompletionSection?.stats[1];
+
+  assert.deepStrictEqual(beatenStat, {
+    label: "Beaten",
+    value: "2",
+    completionBreakdown: {
+      kind: "beaten",
+      items: [
+        {
+          state: "beaten-softcore",
+          count: 1,
+          action: "beaten",
+          mode: "softcore",
+          fullLabel: "softcore",
+        },
+        {
+          state: "beaten-hardcore",
+          count: 1,
+          action: "beaten",
+          mode: "hardcore",
+          fullLabel: "hardcore",
+        },
+      ],
+    },
+  });
+  assert.equal(
+    beatenStat?.completionBreakdown?.items.reduce((total, item) => total + (item.count ?? 0), 0),
+    Number(beatenStat?.value),
+  );
+  assert.deepStrictEqual(masteredStat, {
+    label: "Mastered",
+    value: "2",
+    completionBreakdown: {
+      kind: "mastered",
+      items: [
+        {
+          state: "mastered-hardcore",
+          count: 1,
+          action: "mastered",
+          mode: "hardcore",
+          fullLabel: "hardcore",
+        },
+        {
+          state: "mastered-softcore",
+          count: 1,
+          action: "completed",
+          mode: "softcore",
+          fullLabel: "softcore",
+        },
+      ],
+    },
+  });
+  assert.equal(
+    masteredStat?.completionBreakdown?.items.reduce((total, item) => total + (item.count ?? 0), 0),
+    Number(masteredStat?.value),
   );
 });
 
@@ -3651,6 +3722,107 @@ test("retroachievements completion indicator maps award kind to compact circle s
   assert.match(gameDetailSource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
   assert.match(fullScreenGameSource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
   assert.doesNotMatch(compactDashboardSource, /RetroAchievementsCompletionIndicator/u);
+});
+
+test("retroachievements profile completion tiles render compact and fullscreen breakdowns without adding tiles", () => {
+  const profile = normalizeRetroAchievementsProfile(
+    {
+      User: "Retro User",
+      ULID: "abc123",
+      TotalPoints: 1234,
+      TotalSoftcorePoints: 4321,
+      TotalTruePoints: 987,
+    },
+    {
+      unlockedCount: 12,
+      totalCount: 20,
+      completionPercent: 60,
+    },
+    {
+      username: "retro-user",
+      apiKey: "secret",
+    },
+    [],
+    2,
+    1,
+    undefined,
+    {
+      beatenHardcoreCount: 1,
+      beatenSoftcoreCount: 1,
+      masteredHardcoreCount: 1,
+      completedSoftcoreCount: undefined,
+    },
+  );
+  const completionSection = getRetroAchievementsProfileStatSections({ profile }).find(
+    (section) => section.title === "Game Completion",
+  );
+  const steamStats = buildProviderOverviewStats({
+    providerId: STEAM_PROVIDER_ID,
+    identity: {
+      providerId: STEAM_PROVIDER_ID,
+      accountId: "steam-account",
+      displayName: "Steam User",
+    },
+    summary: {
+      unlockedCount: 10,
+      completionPercent: 50,
+    },
+    metrics: [],
+  });
+  const compactDashboardSource = readFileSync("src/platform/decky/decky-dashboard-view.tsx", "utf8");
+  const fullScreenProfileSource = readFileSync("src/platform/decky/decky-full-screen-profile-page.tsx", "utf8");
+  const indicatorSource = readFileSync(
+    "src/platform/decky/decky-retroachievements-completion-indicator.tsx",
+    "utf8",
+  );
+
+  assert.deepStrictEqual(
+    completionSection?.stats.map((stat) => stat.label),
+    ["Beaten", "Mastered"],
+  );
+  assert.deepStrictEqual(completionSection?.stats[0]?.completionBreakdown, {
+    kind: "beaten",
+    items: [
+      {
+        state: "beaten-softcore",
+        count: 1,
+        action: "beaten",
+        mode: "softcore",
+        fullLabel: "softcore",
+      },
+      {
+        state: "beaten-hardcore",
+        count: 1,
+        action: "beaten",
+        mode: "hardcore",
+        fullLabel: "hardcore",
+      },
+    ],
+  });
+  assert.deepStrictEqual(completionSection?.stats[1]?.completionBreakdown, {
+    kind: "mastered",
+    items: [
+      {
+        state: "mastered-hardcore",
+        count: 1,
+        action: "mastered",
+        mode: "hardcore",
+        fullLabel: "hardcore",
+      },
+      {
+        state: "mastered-softcore",
+        count: undefined,
+        action: "completed",
+        mode: "softcore",
+        fullLabel: "softcore",
+      },
+    ],
+  });
+  assert.equal(steamStats.some((stat) => stat.completionBreakdown !== undefined), false);
+  assert.match(compactDashboardSource, /RetroAchievementsCompletionBreakdown[\s\S]*variant="compact"/u);
+  assert.match(fullScreenProfileSource, /RetroAchievementsCompletionBreakdown[\s\S]*variant="full"/u);
+  assert.match(indicatorSource, /data-retroachievements-completion-breakdown=\{kind\}/u);
+  assert.match(indicatorSource, /item\.count !== undefined && item\.count > 0/u);
 });
 
 test("retroachievements completion progress preserves parent game ids", () => {
