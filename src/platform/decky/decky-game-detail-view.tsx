@@ -4,6 +4,7 @@ import { useState, type ComponentProps, type FocusEventHandler } from "react";
 import { Field, Focusable, PanelSection, PanelSectionRow } from "@decky/ui";
 import type { CSSProperties } from "react";
 import { DeckyCompletionProgressBar, getCompletionPercent } from "./decky-completion-progress-bar";
+import { RetroAchievementsCompletionIndicator } from "./decky-retroachievements-completion-indicator";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS, DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import type { CompactAchievementTarget } from "./decky-achievement-detail-view";
@@ -782,6 +783,7 @@ export function DeckyGameDetailView({
         <PanelSectionRow>
           <div style={getGameDetailSectionCardStyle()}>
             <div style={getGameDetailSummaryLineStyle()}>{formatProgressSummary(snapshot)}</div>
+            <RetroAchievementsCompletionIndicator game={game} />
             {completionPercent !== undefined ? (
               <DeckyCompletionProgressBar compact percent={completionPercent} />
             ) : null}
