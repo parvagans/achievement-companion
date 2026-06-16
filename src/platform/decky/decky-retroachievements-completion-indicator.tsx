@@ -1,5 +1,5 @@
 import type { CSSProperties, JSX } from "react";
-import type { NormalizedGame } from "@core/domain";
+import type { NormalizedMetric } from "@core/domain";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 
 export type RetroAchievementsCompletionIndicatorState =
@@ -20,14 +20,18 @@ const RETROACHIEVEMENTS_COMPLETION_SILVER = "rgba(214, 221, 232, 0.96)";
 const RETROACHIEVEMENTS_COMPLETION_GOLD = "rgba(232, 201, 102, 0.98)";
 
 function getMetricValue(
-  metrics: readonly { readonly key: string; readonly label: string; readonly value: string }[],
+  metrics: readonly NormalizedMetric[] | undefined,
   key: string,
 ): string | undefined {
+  if (metrics === undefined) {
+    return undefined;
+  }
+
   return metrics.find((metric) => metric.key === key)?.value;
 }
 
 export function getRetroAchievementsCompletionIndicatorState(
-  game: Pick<NormalizedGame, "providerId" | "metrics">,
+  game: { readonly providerId: string; readonly metrics?: readonly NormalizedMetric[] },
 ): RetroAchievementsCompletionIndicatorState | undefined {
   if (game.providerId !== RETROACHIEVEMENTS_PROVIDER_ID) {
     return undefined;
@@ -54,6 +58,12 @@ export function getRetroAchievementsCompletionIndicatorState(
   }
 
   return undefined;
+}
+
+export function isRetroAchievementsMasteredHardcoreGame(
+  game: { readonly providerId: string; readonly metrics?: readonly NormalizedMetric[] },
+): boolean {
+  return getRetroAchievementsCompletionIndicatorState(game) === "mastered-hardcore";
 }
 
 export function formatRetroAchievementsCompletionIndicatorLabel(
@@ -101,7 +111,7 @@ export function getRetroAchievementsCompletionIndicatorStyle(
 export function RetroAchievementsCompletionIndicator({
   game,
 }: {
-  readonly game: Pick<NormalizedGame, "providerId" | "metrics">;
+  readonly game: { readonly providerId: string; readonly metrics?: readonly NormalizedMetric[] };
 }): JSX.Element | null {
   const state = getRetroAchievementsCompletionIndicatorState(game);
   if (state === undefined) {

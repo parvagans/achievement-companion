@@ -7,7 +7,11 @@ import {
   DeckyCompactPillActionGroup,
   DeckyCompactPillActionItem,
 } from "./decky-compact-pill-action-item";
-import { DeckyCompletionProgressBar, getCompletionPercent } from "./decky-completion-progress-bar";
+import {
+  DeckyCompletionProgressBar,
+  getCompletionPercent,
+  type DeckyCompletionProgressBarTone,
+} from "./decky-completion-progress-bar";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import {
   DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS,
@@ -33,7 +37,11 @@ import { formatDeckyProviderLabel } from "./providers";
 import { getDeckyProviderIconSrc } from "./providers/provider-branding";
 import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
 import { STEAM_PROVIDER_ID } from "../../providers/steam/config";
-import { RetroAchievementsCompletionBreakdown } from "./decky-retroachievements-completion-indicator";
+import {
+  isRetroAchievementsMasteredHardcoreGame,
+  RetroAchievementsCompletionBreakdown,
+  RetroAchievementsCompletionIndicator,
+} from "./decky-retroachievements-completion-indicator";
 
 type OverviewCompletionBreakdown = OverviewStatSection["stats"][number]["completionBreakdown"];
 
@@ -673,12 +681,33 @@ function getDashboardMiniProgressTrackStyle(): CSSProperties {
   };
 }
 
-function getDashboardMiniProgressFillStyle(percent: number): CSSProperties {
+function getDashboardMiniProgressFillStyle(percent: number, tone: DeckyCompletionProgressBarTone): CSSProperties {
   return {
     width: `${Math.max(0, Math.min(100, percent))}%`,
     height: "100%",
     borderRadius: 999,
-    background: "linear-gradient(90deg, rgba(99, 179, 237, 0.92), rgba(125, 211, 252, 0.98))",
+    background:
+      tone === "retroachievements-mastered"
+        ? "linear-gradient(90deg, rgba(214, 178, 74, 0.94), rgba(232, 201, 102, 0.98))"
+        : "linear-gradient(90deg, rgba(99, 179, 237, 0.92), rgba(125, 211, 252, 0.98))",
+  };
+}
+
+function getDashboardMasteredStatusLineStyle(): CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 5,
+    width: "fit-content",
+    maxWidth: "100%",
+    minWidth: 0,
+    color: "rgba(255, 239, 184, 0.94)",
+    fontSize: "0.74em",
+    fontWeight: 800,
+    lineHeight: 1.12,
+    letterSpacing: "0.04em",
+    textTransform: "uppercase",
+    whiteSpace: "nowrap",
   };
 }
 
@@ -786,7 +815,13 @@ function SteamRecentlyPlayedDescription({ game }: { readonly game: RecentlyPlaye
   );
 }
 
-function CompactDashboardProgressBar({ percent }: { readonly percent: number }): JSX.Element {
+function CompactDashboardProgressBar({
+  percent,
+  tone = "default",
+}: {
+  readonly percent: number;
+  readonly tone?: DeckyCompletionProgressBarTone;
+}): JSX.Element {
   return (
     <div
       aria-label="Completion progress"
@@ -797,7 +832,7 @@ function CompactDashboardProgressBar({ percent }: { readonly percent: number }):
       role="progressbar"
       style={getDashboardMiniProgressTrackStyle()}
     >
-      <div style={getDashboardMiniProgressFillStyle(percent)} />
+      <div data-completion-progress-tone={tone} style={getDashboardMiniProgressFillStyle(percent, tone)} />
     </div>
   );
 }
@@ -1136,6 +1171,7 @@ function RecentlyPlayedRow({
   const progressPercent = getCompletionPercent(game.summary);
   const progressLine = formatRecentlyPlayedProgressLine(game);
   const lastPlayedText = formatRecentlyPlayedLastPlayedText(game);
+  const isMasteredHardcore = isRetroAchievementsMasteredHardcoreGame(game);
 
   return (
     <Focusable
@@ -1165,11 +1201,26 @@ function RecentlyPlayedRow({
         <div style={getDashboardCompactTitleStyle()}>{game.title}</div>
         <span style={getDashboardSystemPillStyle()}>{game.platformLabel ?? "Unknown platform"}</span>
         <div style={getDashboardCompactProgressStackStyle()}>
+          {isMasteredHardcore ? (
+            <div
+              aria-label="Mastered in hardcore"
+              style={getDashboardMasteredStatusLineStyle()}
+              title="Mastered in hardcore"
+            >
+              <RetroAchievementsCompletionIndicator game={game} />
+              <span>Mastered</span>
+            </div>
+          ) : null}
           <div style={getDashboardCompactMetaLineStyle()}>{progressLine}</div>
           {lastPlayedText !== undefined ? (
             <div style={getDashboardCompactMetaLineStyle()}>{lastPlayedText}</div>
           ) : null}
-          {progressPercent !== undefined ? <CompactDashboardProgressBar percent={progressPercent} /> : null}
+          {progressPercent !== undefined ? (
+            <CompactDashboardProgressBar
+              percent={progressPercent}
+              tone={isMasteredHardcore ? "retroachievements-mastered" : "default"}
+            />
+          ) : null}
         </div>
       </div>
     </Focusable>

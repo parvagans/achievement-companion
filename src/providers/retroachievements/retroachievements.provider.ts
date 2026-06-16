@@ -1,4 +1,10 @@
-import type { NormalizedGame, ProviderCapabilities, RecentUnlock } from "@core/domain";
+import type {
+  NormalizedGame,
+  NormalizedMetric,
+  ProviderCapabilities,
+  RecentUnlock,
+  RecentlyPlayedGame,
+} from "@core/domain";
 import type { AchievementProvider } from "@core/ports";
 import { RETROACHIEVEMENTS_PROVIDER_ID, type RetroAchievementsProviderConfig } from "./config";
 import { createRetroAchievementsClient, type RetroAchievementsClient } from "./client/client";
@@ -79,6 +85,85 @@ function applyRecentUnlockLimit<T>(
   return items.slice(0, normalizedLimit);
 }
 
+function getMetricValue(
+  metrics: readonly NormalizedMetric[] | undefined,
+  key: string,
+): string | undefined {
+  return metrics?.find((metric) => metric.key === key)?.value;
+}
+
+function mergeMetrics(
+  existingMetrics: readonly NormalizedMetric[] | undefined,
+  additionalMetrics: readonly NormalizedMetric[],
+): readonly NormalizedMetric[] | undefined {
+  if (additionalMetrics.length === 0) {
+    return existingMetrics;
+  }
+
+  const mergedMetrics = [...(existingMetrics ?? [])];
+
+  for (const additionalMetric of additionalMetrics) {
+    const existingIndex = mergedMetrics.findIndex((metric) => metric.key === additionalMetric.key);
+    if (existingIndex >= 0) {
+      mergedMetrics[existingIndex] = additionalMetric;
+    } else {
+      mergedMetrics.push(additionalMetric);
+    }
+  }
+
+  return mergedMetrics;
+}
+
+async function enrichRecentlyPlayedGamesWithExplicitAwards(
+  client: RetroAchievementsClient,
+  config: RetroAchievementsProviderConfig,
+  games: readonly RecentlyPlayedGame[],
+): Promise<readonly RecentlyPlayedGame[]> {
+  return Promise.all(
+    games.map(async (game) => {
+      if (getMetricValue(game.metrics, "highest-award-kind") !== undefined) {
+        return game;
+      }
+
+      try {
+        const rawGameProgress = await client.loadGameProgress(config, game.gameId);
+        const normalizedGameDetail = normalizeRetroAchievementsGameDetail(rawGameProgress);
+        const highestAwardKind = getMetricValue(normalizedGameDetail.game.metrics, "highest-award-kind");
+        const additionalMetrics: NormalizedMetric[] = [
+          ...(highestAwardKind !== undefined
+            ? [
+                {
+                  key: "highest-award-kind",
+                  label: "Highest Award",
+                  value: highestAwardKind,
+                },
+              ]
+            : []),
+          ...(normalizedGameDetail.game.lastUnlockAt !== undefined
+            ? [
+                {
+                  key: "highest-award-date",
+                  label: "Highest Award Date",
+                  value: String(normalizedGameDetail.game.lastUnlockAt),
+                },
+              ]
+            : []),
+        ];
+
+        const mergedMetrics = mergeMetrics(game.metrics, additionalMetrics);
+        return mergedMetrics !== undefined
+          ? {
+              ...game,
+              metrics: mergedMetrics,
+            }
+          : game;
+      } catch {
+        return game;
+      }
+    }),
+  );
+}
+
 export function createRetroAchievementsProvider(
   dependencies: RetroAchievementsProviderDependencies = {},
 ): AchievementProvider<RetroAchievementsProviderConfig> {
@@ -137,7 +222,17 @@ export function createRetroAchievementsProvider(
 
     async loadRecentlyPlayedGames(config, options) {
       const rawRecentlyPlayedGames = await client.loadRecentlyPlayedGames(config, options);
-      return normalizeRetroAchievementsRecentlyPlayedGames(rawRecentlyPlayedGames);
+      const normalizedRecentlyPlayedGames = normalizeRetroAchievementsRecentlyPlayedGames(rawRecentlyPlayedGames);
+      const limitedRecentlyPlayedGames = applyRecentUnlockLimit(
+        normalizedRecentlyPlayedGames,
+        options?.count,
+      );
+
+      return enrichRecentlyPlayedGamesWithExplicitAwards(
+        client,
+        config,
+        limitedRecentlyPlayedGames,
+      );
     },
 
     async loadGameProgress(config, gameId) {

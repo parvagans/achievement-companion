@@ -4,12 +4,16 @@ import { useState, type ComponentProps, type FocusEventHandler } from "react";
 import { Field, Focusable, PanelSection, PanelSectionRow } from "@decky/ui";
 import type { CSSProperties } from "react";
 import { DeckyCompletionProgressBar, getCompletionPercent } from "./decky-completion-progress-bar";
-import { RetroAchievementsCompletionIndicator } from "./decky-retroachievements-completion-indicator";
+import {
+  isRetroAchievementsMasteredHardcoreGame,
+  RetroAchievementsCompletionIndicator,
+} from "./decky-retroachievements-completion-indicator";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS, DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import type { CompactAchievementTarget } from "./decky-achievement-detail-view";
 import { DeckyCompactPillActionGroup, DeckyCompactPillActionItem } from "./decky-compact-pill-action-item";
 import {
+  formatRetroAchievementsMasteredAtText,
   formatProviderAchievementPointsText,
   formatProviderAchievementStatusText,
   formatModeProgressSummary,
@@ -264,6 +268,40 @@ function getGameDetailSummaryLineStyle(): CSSProperties {
     fontSize: "0.88em",
     fontWeight: 700,
     lineHeight: 1.25,
+    textAlign: "center",
+  };
+}
+
+function getGameDetailMasteredStatusStyle(): CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    alignSelf: "center",
+    gap: 7,
+    width: "fit-content",
+    maxWidth: "100%",
+    minHeight: 24,
+    padding: "3px 9px",
+    borderRadius: 999,
+    border: "1px solid rgba(232, 201, 102, 0.42)",
+    background: "linear-gradient(180deg, rgba(232, 201, 102, 0.13), rgba(214, 178, 74, 0.055))",
+    color: "rgba(255, 239, 184, 0.96)",
+    fontSize: "0.78em",
+    fontWeight: 800,
+    letterSpacing: "0.04em",
+    lineHeight: 1,
+    textTransform: "uppercase",
+    boxSizing: "border-box",
+  };
+}
+
+function getGameDetailMasteredTimingStyle(): CSSProperties {
+  return {
+    alignSelf: "center",
+    color: "rgba(255, 239, 184, 0.84)",
+    fontSize: "0.78em",
+    fontWeight: 700,
+    lineHeight: 1.2,
     textAlign: "center",
   };
 }
@@ -737,6 +775,8 @@ export function DeckyGameDetailView({
   );
   const filteredAchievementCount = filteredAchievements.length;
   const completionPercent = getCompletionPercent(snapshot.game.summary);
+  const isMasteredHardcore = isRetroAchievementsMasteredHardcoreGame(game);
+  const masteredAtText = formatRetroAchievementsMasteredAtText(game);
   const softcoreModeProgress = getAchievementModeProgressSummary(snapshot.achievements, "softcore");
   const hardcoreModeProgress = getAchievementModeProgressSummary(snapshot.achievements, "hardcore");
   const hasAchievements = totalAchievements > 0;
@@ -783,9 +823,27 @@ export function DeckyGameDetailView({
         <PanelSectionRow>
           <div style={getGameDetailSectionCardStyle()}>
             <div style={getGameDetailSummaryLineStyle()}>{formatProgressSummary(snapshot)}</div>
-            <RetroAchievementsCompletionIndicator game={game} />
+            {isMasteredHardcore ? (
+              <div
+                aria-label="Mastered in hardcore"
+                style={getGameDetailMasteredStatusStyle()}
+                title="Mastered in hardcore"
+              >
+                <RetroAchievementsCompletionIndicator game={game} />
+                <span>Mastered</span>
+              </div>
+            ) : (
+              <RetroAchievementsCompletionIndicator game={game} />
+            )}
+            {masteredAtText !== undefined ? (
+              <div style={getGameDetailMasteredTimingStyle()}>{masteredAtText}</div>
+            ) : null}
             {completionPercent !== undefined ? (
-              <DeckyCompletionProgressBar compact percent={completionPercent} />
+              <DeckyCompletionProgressBar
+                compact
+                percent={completionPercent}
+                tone={isMasteredHardcore ? "retroachievements-mastered" : "default"}
+              />
             ) : null}
             <div style={getModeProgressGridStyle()}>
               {game.softcoreSummary !== undefined ? (

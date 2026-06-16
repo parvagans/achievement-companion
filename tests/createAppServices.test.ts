@@ -51,6 +51,7 @@ import { setDeckyBackendCallImplementationForTests } from "../src/platform/decky
 import {
   buildAchievementStatus,
   dedupeDistinctLabels,
+  formatRetroAchievementsMasteredAtText,
   formatProviderAchievementPointsText,
   formatProviderAchievementStatusText,
   formatProviderAchievementUnlockRateText,
@@ -94,6 +95,7 @@ import {
   formatRetroAchievementsCompletionIndicatorLabel,
   getRetroAchievementsCompletionIndicatorState,
   getRetroAchievementsCompletionIndicatorStyle,
+  isRetroAchievementsMasteredHardcoreGame,
 } from "../src/platform/decky/decky-retroachievements-completion-indicator";
 import {
   addProfileAvatarCacheBustParam,
@@ -1028,6 +1030,41 @@ function createGameDetailSnapshot(): GameDetailSnapshot {
   };
 }
 
+function createRetroAchievementsGameProgressResponse(args: {
+  readonly gameId: string;
+  readonly title: string;
+  readonly highestAwardKind?: string;
+  readonly highestAwardDate?: string;
+  readonly unlockedCount?: number;
+  readonly totalCount?: number;
+}): RawRetroAchievementsGameProgressResponse {
+  const unlockedCount = args.unlockedCount ?? 1;
+  const totalCount = args.totalCount ?? Math.max(unlockedCount, 1);
+
+  return {
+    ID: args.gameId,
+    Title: args.title,
+    ConsoleName: "NES",
+    NumAchievements: totalCount,
+    NumAwardedToUser: unlockedCount,
+    UserCompletion: totalCount > 0 ? `${((unlockedCount / totalCount) * 100).toFixed(2)}%` : undefined,
+    ...(args.highestAwardKind !== undefined ? { HighestAwardKind: args.highestAwardKind } : {}),
+    ...(args.highestAwardDate !== undefined ? { HighestAwardDate: args.highestAwardDate } : {}),
+    Achievements: {
+      "1": {
+        ID: 1,
+        Title: "Achievement One",
+        Description: "Test achievement",
+        Points: 1,
+        NumAwarded: 100,
+        NumAwardedHardcore: 50,
+        BadgeName: "badge-1",
+        DisplayOrder: 0,
+      },
+    },
+  };
+}
+
 test("retroachievements game progress normalizes achievement badge art", () => {
   const rawGameProgress: RawRetroAchievementsGameProgressResponse = {
     ID: 14402,
@@ -1098,6 +1135,7 @@ test("retroachievements game progress normalizes achievement badge art", () => {
     snapshot.achievements[0]?.metrics.find((metric) => metric.key === "softcore-unlocked-count")?.value,
     "150",
   );
+  assert.equal(snapshot.game.lastUnlockAt, Date.parse("2024-04-23T21:28:49+00:00"));
   assert.equal(
     snapshot.game.coverImageUrl,
     "https://i.retroachievements.org/Images/026368.png",
@@ -2179,7 +2217,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(achievementDetailViewSource, /PanelSection title="PROGRESS SUMMARY"/);
   assert.match(achievementDetailViewSource, /PanelSection title="ACHIEVEMENTS"/);
   assert.match(achievementDetailViewSource, /getGameDetailOverviewIconFrameStyle\(\)/);
-  assert.match(achievementDetailViewSource, /DeckyCompletionProgressBar compact percent=\{completionPercent\}/);
+  assert.match(achievementDetailViewSource, /DeckyCompletionProgressBar[\s\S]*compact[\s\S]*percent=\{completionPercent\}/);
   assert.doesNotMatch(achievementDetailViewSource, /AchievementModeButtons/);
   assert.doesNotMatch(achievementDetailViewSource, /summary\.completionPercent/u);
   assert.match(achievementDetailViewSource, /const ACHIEVEMENT_MODE_FILTERS = \["all", "hardcore", "softcore"\] as const;/);
@@ -2248,7 +2286,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenGamePageSource, /useState<AchievementModeFilter>\("all"\)/);
   assert.match(fullScreenGamePageSource, /useState<AchievementFilter>\("all"\)/);
   assert.match(fullScreenGamePageSource, /sortAchievementsForDisplay\(snapshot\.achievements\)/);
-  assert.match(fullScreenGamePageSource, /DeckyCompletionProgressBar percent=\{completionPercent\}/);
+  assert.match(fullScreenGamePageSource, /DeckyCompletionProgressBar[\s\S]*percent=\{completionPercent\}/);
   assert.match(
     fullScreenGamePageSource,
     /matchesAchievementFilter\(achievement, achievementFilter\)[\s\S]*matchesAchievementModeFilter\(achievement, achievementModeFilter\)/,
@@ -2610,7 +2648,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(compactDashboardSource, /formatRecentlyPlayedProgressLine\(game\)/u);
   assert.match(compactDashboardSource, /formatRecentlyPlayedLastPlayedText\(game\)/u);
   assert.match(compactDashboardSource, /gap: 8/u);
-  assert.match(compactDashboardSource, /CompactDashboardProgressBar percent=\{progressPercent\}/u);
+  assert.match(compactDashboardSource, /CompactDashboardProgressBar[\s\S]*percent=\{progressPercent\}/u);
   assert.match(compactDashboardSource, /role="progressbar"/u);
   assert.match(compactDashboardSource, /formatAchievementUnlockModeLabel\(recentUnlock\.achievement\)/u);
   assert.match(compactDashboardSource, /if \(recentUnlock\.game\.providerId === STEAM_PROVIDER_ID\)/u);
@@ -3699,6 +3737,21 @@ test("retroachievements completion indicator maps award kind to compact circle s
   assert.equal(getRetroAchievementsCompletionIndicatorState(createGame("completed")), "mastered-softcore");
   assert.equal(getRetroAchievementsCompletionIndicatorState(createGame("mastered", "steam")), undefined);
   assert.equal(getRetroAchievementsCompletionIndicatorState({ providerId: PROVIDER_ID, metrics: [] }), undefined);
+  assert.equal(isRetroAchievementsMasteredHardcoreGame(createGame("mastered")), true);
+  assert.equal(isRetroAchievementsMasteredHardcoreGame(createGame("completed")), false);
+  assert.equal(isRetroAchievementsMasteredHardcoreGame(createGame("mastered", "steam")), false);
+  assert.equal(
+    isRetroAchievementsMasteredHardcoreGame({
+      providerId: PROVIDER_ID,
+      metrics: [],
+      summary: {
+        unlockedCount: 57,
+        totalCount: 57,
+        completionPercent: 100,
+      },
+    } as Pick<RecentlyPlayedGame, "providerId" | "metrics" | "summary">),
+    false,
+  );
 
   assert.equal(formatRetroAchievementsCompletionIndicatorLabel("beaten-hardcore"), "Beaten in hardcore");
   assert.equal(formatRetroAchievementsCompletionIndicatorLabel("mastered-hardcore"), "Mastered in hardcore");
@@ -3721,7 +3774,81 @@ test("retroachievements completion indicator maps award kind to compact circle s
   assert.match(fullScreenCompletionProgressSource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
   assert.match(gameDetailSource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
   assert.match(fullScreenGameSource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
-  assert.doesNotMatch(compactDashboardSource, /RetroAchievementsCompletionIndicator/u);
+  assert.match(compactDashboardSource, /function RecentlyPlayedRow\([\s\S]*<RetroAchievementsCompletionIndicator game=\{game\} \/>/u);
+});
+
+test("retroachievements mastered date text requires explicit hardcore mastered state", () => {
+  const masteredAtText = formatRetroAchievementsMasteredAtText({
+    providerId: PROVIDER_ID,
+    lastUnlockAt: Date.parse("2024-04-23T21:28:49Z"),
+    metrics: [
+      {
+        key: "highest-award-kind",
+        label: "Highest Award",
+        value: "mastered",
+      },
+    ],
+  });
+
+  assert.match(masteredAtText ?? "", /^Mastered on /u);
+  assert.equal(
+    formatRetroAchievementsMasteredAtText({
+      providerId: PROVIDER_ID,
+      lastUnlockAt: Date.parse("2024-04-23T21:28:49Z"),
+      metrics: [],
+    }),
+    undefined,
+  );
+  assert.equal(
+    formatRetroAchievementsMasteredAtText({
+      providerId: STEAM_PROVIDER_ID,
+      lastUnlockAt: Date.parse("2024-04-23T21:28:49Z"),
+      metrics: [
+        {
+          key: "highest-award-kind",
+          label: "Highest Award",
+          value: "mastered",
+        },
+      ],
+    }),
+    undefined,
+  );
+});
+
+test("retroachievements mastered games use explicit mastered presentation on game progress surfaces", () => {
+  const achievementDetailHelperSource = readFileSync(
+    "src/platform/decky/decky-achievement-detail-helpers.ts",
+    "utf8",
+  );
+  const progressBarSource = readFileSync("src/platform/decky/decky-completion-progress-bar.tsx", "utf8");
+  const compactDashboardSource = readFileSync("src/platform/decky/decky-dashboard-view.tsx", "utf8");
+  const gameDetailSource = readFileSync("src/platform/decky/decky-game-detail-view.tsx", "utf8");
+  const fullScreenGameSource = readFileSync("src/platform/decky/decky-full-screen-game-page.tsx", "utf8");
+  const steamProviderSource = readFileSync("src/providers/steam/mappers/normalize.ts", "utf8");
+
+  assert.match(progressBarSource, /type DeckyCompletionProgressBarTone = "default" \| "retroachievements-mastered"/u);
+  assert.match(progressBarSource, /data-completion-progress-tone=\{tone\}/u);
+  assert.match(progressBarSource, /rgba\(214, 178, 74, 0\.94\)[\s\S]*rgba\(232, 201, 102, 0\.98\)/u);
+  assert.match(achievementDetailHelperSource, /export function formatRetroAchievementsMasteredAtText/u);
+  assert.match(achievementDetailHelperSource, /Mastered on/u);
+
+  assert.match(gameDetailSource, /const isMasteredHardcore = isRetroAchievementsMasteredHardcoreGame\(game\);/u);
+  assert.match(gameDetailSource, /<span>Mastered<\/span>/u);
+  assert.match(gameDetailSource, /const masteredAtText = formatRetroAchievementsMasteredAtText\(game\);/u);
+  assert.match(gameDetailSource, /masteredAtText !== undefined/u);
+  assert.match(gameDetailSource, /tone=\{isMasteredHardcore \? "retroachievements-mastered" : "default"\}/u);
+
+  assert.match(fullScreenGameSource, /const isMasteredHardcore = isRetroAchievementsMasteredHardcoreGame\(game\);/u);
+  assert.match(fullScreenGameSource, /<span>Mastered<\/span>/u);
+  assert.match(fullScreenGameSource, /const masteredAtText = formatRetroAchievementsMasteredAtText\(game\);/u);
+  assert.match(fullScreenGameSource, /masteredAtText !== undefined/u);
+  assert.match(fullScreenGameSource, /tone=\{isMasteredHardcore \? "retroachievements-mastered" : "default"\}/u);
+
+  assert.match(compactDashboardSource, /const isMasteredHardcore = isRetroAchievementsMasteredHardcoreGame\(game\);/u);
+  assert.match(compactDashboardSource, /<RetroAchievementsCompletionIndicator game=\{game\} \/>/u);
+  assert.match(compactDashboardSource, /<span>Mastered<\/span>/u);
+  assert.match(compactDashboardSource, /tone=\{isMasteredHardcore \? "retroachievements-mastered" : "default"\}/u);
+  assert.doesNotMatch(steamProviderSource, /highest-award-kind|retroachievements-mastered|RetroAchievementsCompletionIndicator/u);
 });
 
 test("retroachievements profile completion tiles render compact and fullscreen breakdowns without adding tiles", () => {
@@ -5667,6 +5794,7 @@ test("retroachievements recently played games normalize badge art urls and progr
       LastPlayed: "2024-01-01 00:00:00",
       AchievementsTotal: 20,
       NumAchieved: 5,
+      HighestAwardKind: "mastered",
     },
   ];
 
@@ -5676,7 +5804,158 @@ test("retroachievements recently played games normalize badge art urls and progr
   assert.equal(recentlyPlayedGames[0]?.summary.unlockedCount, 5);
   assert.equal(recentlyPlayedGames[0]?.summary.totalCount, 20);
   assert.equal(recentlyPlayedGames[0]?.summary.completionPercent, 25);
+  assert.equal(recentlyPlayedGames[0]?.metrics?.find((metric) => metric.key === "highest-award-kind")?.value, "mastered");
+  assert.equal(isRetroAchievementsMasteredHardcoreGame(recentlyPlayedGames[0]!), true);
   assert.equal(recentlyPlayedGames[0]?.lastPlayedAt, Date.parse("2024-01-01T00:00:00Z"));
+});
+
+test("retroachievements recently played games enrich explicit award state from bounded game detail", async () => {
+  const gameProgressCalls: string[] = [];
+  const provider = createRetroAchievementsProvider({
+    client: {
+      async loadProfile() {
+        throw new Error("not used");
+      },
+      async loadCompletionProgress() {
+        throw new Error("not used");
+      },
+      async loadAchievementsEarnedBetween() {
+        throw new Error("not used");
+      },
+      async loadRecentUnlocks() {
+        throw new Error("not used");
+      },
+      async loadRecentlyPlayedGames(_config, options) {
+        assert.equal(options?.count, 2);
+        return [
+          {
+            GameID: 100,
+            Title: "Mastered Missing Award",
+            ConsoleName: "NES",
+            LastPlayed: "2024-01-03 00:00:00",
+            AchievementsTotal: 57,
+            NumAchieved: 57,
+          },
+          {
+            GameID: 200,
+            Title: "Already Explicit",
+            ConsoleName: "SNES",
+            LastPlayed: "2024-01-02 00:00:00",
+            AchievementsTotal: 20,
+            NumAchieved: 10,
+            HighestAwardKind: "beaten-hardcore",
+          },
+          {
+            GameID: 300,
+            Title: "Should Not Be Enriched",
+            ConsoleName: "Genesis",
+            LastPlayed: "2024-01-01 00:00:00",
+            AchievementsTotal: 8,
+            NumAchieved: 8,
+          },
+        ] satisfies readonly RawRetroAchievementsRecentlyPlayedGameResponse[];
+      },
+      async loadGameProgress(_config, gameId) {
+        gameProgressCalls.push(gameId);
+        if (gameId === "100") {
+          return createRetroAchievementsGameProgressResponse({
+            gameId,
+            title: "Mastered Missing Award",
+            highestAwardKind: "mastered",
+            highestAwardDate: "2024-04-23T21:28:49+00:00",
+            unlockedCount: 57,
+            totalCount: 57,
+          });
+        }
+
+        throw new Error(`unexpected game progress call for ${gameId}`);
+      },
+    },
+  });
+
+  const games = await provider.loadRecentlyPlayedGames(
+    {
+      username: "alice",
+      apiKey: "secret",
+    },
+    { count: 2 },
+  );
+
+  assert.deepStrictEqual(games.map((game) => game.title), ["Mastered Missing Award", "Already Explicit"]);
+  assert.deepStrictEqual(gameProgressCalls, ["100"]);
+  assert.equal(games[0]?.metrics?.find((metric) => metric.key === "highest-award-kind")?.value, "mastered");
+  assert.equal(games[0]?.metrics?.find((metric) => metric.key === "highest-award-date")?.value, String(Date.parse("2024-04-23T21:28:49+00:00")));
+  assert.equal(isRetroAchievementsMasteredHardcoreGame(games[0]!), true);
+  assert.equal(games[1]?.metrics?.find((metric) => metric.key === "highest-award-kind")?.value, "beaten-hardcore");
+});
+
+test("retroachievements recently played enrichment does not infer mastered from 100 percent and falls back safely", async () => {
+  const gameProgressCalls: string[] = [];
+  const provider = createRetroAchievementsProvider({
+    client: {
+      async loadProfile() {
+        throw new Error("not used");
+      },
+      async loadCompletionProgress() {
+        throw new Error("not used");
+      },
+      async loadAchievementsEarnedBetween() {
+        throw new Error("not used");
+      },
+      async loadRecentUnlocks() {
+        throw new Error("not used");
+      },
+      async loadRecentlyPlayedGames() {
+        return [
+          {
+            GameID: 400,
+            Title: "Hundred Percent Without Award",
+            ConsoleName: "Game Boy",
+            LastPlayed: "2024-01-04 00:00:00",
+            AchievementsTotal: 10,
+            NumAchieved: 10,
+          },
+          {
+            GameID: 500,
+            Title: "Progress Fetch Fails",
+            ConsoleName: "Game Boy Color",
+            LastPlayed: "2024-01-03 00:00:00",
+            AchievementsTotal: 12,
+            NumAchieved: 6,
+          },
+        ] satisfies readonly RawRetroAchievementsRecentlyPlayedGameResponse[];
+      },
+      async loadGameProgress(_config, gameId) {
+        gameProgressCalls.push(gameId);
+        if (gameId === "400") {
+          return createRetroAchievementsGameProgressResponse({
+            gameId,
+            title: "Hundred Percent Without Award",
+            unlockedCount: 10,
+            totalCount: 10,
+          });
+        }
+
+        throw new Error("detail unavailable");
+      },
+    },
+  });
+
+  const games = await provider.loadRecentlyPlayedGames(
+    {
+      username: "alice",
+      apiKey: "secret",
+    },
+    { count: 2 },
+  );
+
+  assert.deepStrictEqual(gameProgressCalls, ["400", "500"]);
+  assert.equal(games.length, 2);
+  assert.equal(games[0]?.summary.completionPercent, 100);
+  assert.equal(games[0]?.metrics?.find((metric) => metric.key === "highest-award-kind"), undefined);
+  assert.equal(isRetroAchievementsMasteredHardcoreGame(games[0]!), false);
+  assert.equal(games[1]?.metrics?.find((metric) => metric.key === "highest-award-kind"), undefined);
+  assert.equal(isRetroAchievementsMasteredHardcoreGame(games[1]!), false);
 });
 
 test("game detail parses the documented RetroAchievements game-progress shape", async () => {

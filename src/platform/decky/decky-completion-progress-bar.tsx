@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import type { GameDetailSnapshot } from "@core/domain";
 
 type GameSummary = GameDetailSnapshot["game"]["summary"];
+export type DeckyCompletionProgressBarTone = "default" | "retroachievements-mastered";
 
 function clampPercent(value: number): number {
   return Math.max(0, Math.min(100, value));
@@ -26,12 +27,15 @@ function getCompletionBarTrackStyle(compact: boolean): CSSProperties {
   };
 }
 
-function getCompletionBarFillStyle(percent: number): CSSProperties {
+function getCompletionBarFillStyle(percent: number, tone: DeckyCompletionProgressBarTone): CSSProperties {
   return {
     width: `${clampPercent(percent)}%`,
     height: "100%",
     borderRadius: 999,
-    background: "linear-gradient(90deg, rgba(99, 179, 237, 0.92), rgba(125, 211, 252, 0.98))",
+    background:
+      tone === "retroachievements-mastered"
+        ? "linear-gradient(90deg, rgba(214, 178, 74, 0.94), rgba(232, 201, 102, 0.98))"
+        : "linear-gradient(90deg, rgba(99, 179, 237, 0.92), rgba(125, 211, 252, 0.98))",
     transition: "width 120ms ease",
   };
 }
@@ -66,11 +70,13 @@ export function DeckyCompletionProgressBar({
   percent,
   caption,
   captionPlacement = "below",
+  tone = "default",
 }: {
   readonly compact?: boolean;
   readonly percent: number;
   readonly caption?: string;
   readonly captionPlacement?: "above" | "below";
+  readonly tone?: DeckyCompletionProgressBarTone;
 }): JSX.Element {
   const normalizedPercent = clampPercent(percent);
   const resolvedCaption = caption ?? `${normalizedPercent}% complete`;
@@ -90,7 +96,7 @@ export function DeckyCompletionProgressBar({
         role="progressbar"
         style={getCompletionBarTrackStyle(compact)}
       >
-        <div style={getCompletionBarFillStyle(normalizedPercent)} />
+        <div data-completion-progress-tone={tone} style={getCompletionBarFillStyle(normalizedPercent, tone)} />
       </div>
 
       {captionPlacement === "below" ? (
