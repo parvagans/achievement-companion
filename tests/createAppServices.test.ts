@@ -67,6 +67,7 @@ import {
   formatAchievementUnlockModeLabel,
   formatModeProgressSummary,
   isSteamAchievementPresentationProvider,
+  shouldRenderRetroAchievementsModeSummaryCard,
   shouldHideSteamAchievementDetailStats,
   shouldRenderAchievementModeFilter,
 } from "../src/platform/decky/decky-achievement-detail-helpers";
@@ -1304,6 +1305,112 @@ test("retroachievements achievement status helper distinguishes hardcore and sof
 test("retroachievements mode progress helper falls back safely when data is missing", () => {
   assert.equal(formatModeProgressSummary(undefined, "Hardcore"), "No hardcore progress available.");
   assert.equal(formatModeProgressSummary(undefined, "Softcore"), "No softcore progress available.");
+});
+
+test("retroachievements mode summary cards hide empty mode containers and keep meaningful ones", () => {
+  const hardcoreAwardGame = {
+    providerId: PROVIDER_ID,
+    metrics: [
+      {
+        key: "highest-award-kind",
+        label: "Highest Award",
+        value: "beaten-hardcore",
+      },
+    ],
+  };
+  const softcoreAwardGame = {
+    providerId: PROVIDER_ID,
+    metrics: [
+      {
+        key: "highest-award-kind",
+        label: "Highest Award",
+        value: "beaten",
+      },
+    ],
+  };
+  const emptySummary = {
+    unlockedCount: 0,
+    completionPercent: 0,
+  };
+
+  assert.equal(
+    shouldRenderRetroAchievementsModeSummaryCard({
+      game: { providerId: STEAM_PROVIDER_ID, metrics: [] },
+      mode: "softcore",
+      summary: emptySummary,
+      points: 0,
+    }),
+    false,
+  );
+  assert.equal(
+    shouldRenderRetroAchievementsModeSummaryCard({
+      game: { providerId: PROVIDER_ID, metrics: [] },
+      mode: "softcore",
+      summary: undefined,
+      points: 0,
+    }),
+    false,
+  );
+  assert.equal(
+    shouldRenderRetroAchievementsModeSummaryCard({
+      game: { providerId: PROVIDER_ID, metrics: [] },
+      mode: "softcore",
+      summary: emptySummary,
+      points: 0,
+    }),
+    false,
+  );
+  assert.equal(
+    shouldRenderRetroAchievementsModeSummaryCard({
+      game: { providerId: PROVIDER_ID, metrics: [] },
+      mode: "hardcore",
+      summary: {
+        unlockedCount: 4,
+        completionPercent: 50,
+      },
+      points: 17,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldRenderRetroAchievementsModeSummaryCard({
+      game: { providerId: PROVIDER_ID, metrics: [] },
+      mode: "softcore",
+      summary: {
+        unlockedCount: 0,
+        completionPercent: 0,
+      },
+      points: 8,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldRenderRetroAchievementsModeSummaryCard({
+      game: hardcoreAwardGame,
+      mode: "hardcore",
+      summary: emptySummary,
+      points: 0,
+    }),
+    true,
+  );
+  assert.equal(
+    shouldRenderRetroAchievementsModeSummaryCard({
+      game: hardcoreAwardGame,
+      mode: "softcore",
+      summary: emptySummary,
+      points: 0,
+    }),
+    false,
+  );
+  assert.equal(
+    shouldRenderRetroAchievementsModeSummaryCard({
+      game: softcoreAwardGame,
+      mode: "softcore",
+      summary: emptySummary,
+      points: 0,
+    }),
+    true,
+  );
 });
 
 test("provider-aware achievement presentation helpers suppress retro placeholders for steam", () => {
@@ -3935,6 +4042,53 @@ test("retroachievements mastered games use explicit mastered presentation on gam
     steamProviderSource,
     /highest-award-kind|retroachievements-mastered|retroachievements-beaten|RetroAchievementsCompletionIndicator/u,
   );
+});
+
+test("retroachievements game detail surfaces hide empty mode cards and keep meaningful mode cards", () => {
+  const achievementDetailHelperSource = readFileSync(
+    "src/platform/decky/decky-achievement-detail-helpers.ts",
+    "utf8",
+  );
+  const gameDetailSource = readFileSync("src/platform/decky/decky-game-detail-view.tsx", "utf8");
+  const fullScreenGameSource = readFileSync("src/platform/decky/decky-full-screen-game-page.tsx", "utf8");
+  const steamProviderSource = readFileSync("src/providers/steam/mappers/normalize.ts", "utf8");
+
+  assert.match(achievementDetailHelperSource, /export function shouldRenderRetroAchievementsModeSummaryCard/u);
+  assert.match(achievementDetailHelperSource, /summary\.unlockedCount > 0/u);
+  assert.match(achievementDetailHelperSource, /\(summary\.completionPercent \?\? 0\) > 0/u);
+  assert.match(achievementDetailHelperSource, /\(points \?\? 0\) > 0/u);
+  assert.match(
+    achievementDetailHelperSource,
+    /completionState === "beaten-hardcore" \|\| completionState === "mastered-hardcore"/u,
+  );
+  assert.match(
+    achievementDetailHelperSource,
+    /completionState === "beaten-softcore" \|\| completionState === "mastered-softcore"/u,
+  );
+
+  assert.match(gameDetailSource, /const showSoftcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard\(\{/u);
+  assert.match(gameDetailSource, /const showHardcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard\(\{/u);
+  assert.match(gameDetailSource, /const visibleModeCardCount = Number\(showSoftcoreModeCard\) \+ Number\(showHardcoreModeCard\);/u);
+  assert.match(gameDetailSource, /function getModeProgressGridStyle\(singleColumn: boolean\): CSSProperties/u);
+  assert.match(gameDetailSource, /gridTemplateColumns: singleColumn \? "minmax\(0, 1fr\)" : "repeat\(2, minmax\(0, 1fr\)\)"/u);
+  assert.match(gameDetailSource, /style=\{getModeProgressGridStyle\(visibleModeCardCount === 1\)\}/u);
+  assert.match(gameDetailSource, /\{showSoftcoreModeCard \|\| showHardcoreModeCard \? \(/u);
+  assert.match(gameDetailSource, /\{showSoftcoreModeCard \? \(/u);
+  assert.match(gameDetailSource, /\{showHardcoreModeCard \? \(/u);
+  assert.doesNotMatch(gameDetailSource, /\{game\.softcoreSummary !== undefined \? \(/u);
+  assert.doesNotMatch(gameDetailSource, /\{game\.hardcoreSummary !== undefined \? \(/u);
+
+  assert.match(fullScreenGameSource, /const showHardcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard\(\{/u);
+  assert.match(fullScreenGameSource, /const showSoftcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard\(\{/u);
+  assert.match(fullScreenGameSource, /function getModeProgressGridStyle\(\): CSSProperties/u);
+  assert.doesNotMatch(fullScreenGameSource, /visibleModeCardCount/u);
+  assert.doesNotMatch(fullScreenGameSource, /singleColumn/u);
+  assert.match(fullScreenGameSource, /\{showHardcoreModeCard \|\| showSoftcoreModeCard \? \(/u);
+  assert.match(fullScreenGameSource, /\{showHardcoreModeCard \? \(/u);
+  assert.match(fullScreenGameSource, /\{showSoftcoreModeCard \? \(/u);
+  assert.doesNotMatch(fullScreenGameSource, /\{game\.hardcoreSummary !== undefined \? \(/u);
+  assert.doesNotMatch(fullScreenGameSource, /\{game\.softcoreSummary !== undefined \? \(/u);
+  assert.doesNotMatch(steamProviderSource, /shouldRenderRetroAchievementsModeSummaryCard/u);
 });
 
 test("retroachievements profile completion tiles render compact and fullscreen breakdowns without adding tiles", () => {

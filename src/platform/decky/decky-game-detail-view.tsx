@@ -24,6 +24,7 @@ import {
   formatProviderAchievementStatusText,
   formatModeProgressSummary,
   isSteamAchievementPresentationProvider,
+  shouldRenderRetroAchievementsModeSummaryCard,
   shouldRenderAchievementModeFilter,
 } from "./decky-achievement-detail-helpers";
 import { sortAchievementsForDisplay } from "./decky-game-detail-ordering";
@@ -328,10 +329,10 @@ function getGameDetailCompletionTimingStyle(
   };
 }
 
-function getModeProgressGridStyle(): CSSProperties {
+function getModeProgressGridStyle(singleColumn: boolean): CSSProperties {
   return {
     display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gridTemplateColumns: singleColumn ? "minmax(0, 1fr)" : "repeat(2, minmax(0, 1fr))",
     gap: 10,
     alignItems: "stretch",
     minWidth: 0,
@@ -816,6 +817,19 @@ export function DeckyGameDetailView({
   const completionAtText = isMasteredHardcore ? masteredAtText : beatenAtText;
   const softcoreModeProgress = getAchievementModeProgressSummary(snapshot.achievements, "softcore");
   const hardcoreModeProgress = getAchievementModeProgressSummary(snapshot.achievements, "hardcore");
+  const showSoftcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard({
+    game,
+    mode: "softcore",
+    summary: game.softcoreSummary,
+    points: softcoreModeProgress.points,
+  });
+  const showHardcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard({
+    game,
+    mode: "hardcore",
+    summary: game.hardcoreSummary,
+    points: hardcoreModeProgress.points,
+  });
+  const visibleModeCardCount = Number(showSoftcoreModeCard) + Number(showHardcoreModeCard);
   const hasAchievements = totalAchievements > 0;
   const canLoadMoreAchievements = visibleAchievementLimit < filteredAchievementCount;
   const canShowAllAchievements = filteredAchievementCount > visibleAchievementLimit + 5;
@@ -882,8 +896,9 @@ export function DeckyGameDetailView({
                 tone={completionTone}
               />
             ) : null}
-            <div style={getModeProgressGridStyle()}>
-              {game.softcoreSummary !== undefined ? (
+            {showSoftcoreModeCard || showHardcoreModeCard ? (
+            <div style={getModeProgressGridStyle(visibleModeCardCount === 1)}>
+              {showSoftcoreModeCard ? (
                 <div style={getModeProgressCardStyle("softcore")}>
                   <div style={getModeProgressCardTitleStyle("softcore")}>Softcore</div>
                   <div style={getModeProgressCardLineStyle()}>
@@ -896,7 +911,7 @@ export function DeckyGameDetailView({
                   </div>
                 </div>
               ) : null}
-              {game.hardcoreSummary !== undefined ? (
+              {showHardcoreModeCard ? (
                 <div style={getModeProgressCardStyle("hardcore")}>
                   <div style={getModeProgressCardTitleStyle("hardcore")}>Hardcore</div>
                   <div style={getModeProgressCardLineStyle()}>
@@ -910,6 +925,7 @@ export function DeckyGameDetailView({
                 </div>
               ) : null}
             </div>
+            ) : null}
           </div>
         </PanelSectionRow>
       </PanelSection>

@@ -335,6 +335,47 @@ export function formatModeProgressSummary(
   return parts.join(" · ");
 }
 
+export function shouldRenderRetroAchievementsModeSummaryCard({
+  game,
+  mode,
+  summary,
+  points,
+}: {
+  readonly game: Pick<NormalizedGame, "providerId" | "metrics">;
+  readonly mode: "hardcore" | "softcore";
+  readonly summary:
+    | {
+        readonly unlockedCount: number;
+        readonly totalCount?: number;
+        readonly completionPercent?: number;
+      }
+    | undefined;
+  readonly points: number | undefined;
+}): boolean {
+  if (game.providerId !== "retroachievements" || summary === undefined) {
+    return false;
+  }
+
+  if (summary.unlockedCount > 0) {
+    return true;
+  }
+
+  if ((summary.completionPercent ?? 0) > 0) {
+    return true;
+  }
+
+  if ((points ?? 0) > 0) {
+    return true;
+  }
+
+  const completionState = getRetroAchievementsCompletionIndicatorState(game);
+  if (mode === "hardcore") {
+    return completionState === "beaten-hardcore" || completionState === "mastered-hardcore";
+  }
+
+  return completionState === "beaten-softcore" || completionState === "mastered-softcore";
+}
+
 export function shouldHideSteamAchievementDetailStats(providerId: string | undefined): boolean {
   return isSteamAchievementPresentationProvider(providerId);
 }
