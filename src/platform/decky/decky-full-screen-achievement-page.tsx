@@ -38,6 +38,8 @@ export interface DeckyFullScreenAchievementPageProps {
 }
 
 const FULLSCREEN_ACHIEVEMENT_PAGE_BOTTOM_SCROLL_PADDING = 88;
+const FULLSCREEN_ACHIEVEMENT_SPOTLIGHT_TOP_PADDING = 80;
+const FULLSCREEN_ACHIEVEMENT_SPOTLIGHT_BOTTOM_PADDING = 20;
 
 function getPageFrameStyle(): CSSProperties {
   return {
@@ -46,13 +48,15 @@ function getPageFrameStyle(): CSSProperties {
   };
 }
 
+function getAchievementSpotlightPageFrameStyle(): CSSProperties {
+  return {
+    padding: `calc(env(safe-area-inset-top, 0px) + ${FULLSCREEN_ACHIEVEMENT_SPOTLIGHT_TOP_PADDING}px) 12px calc(env(safe-area-inset-bottom, 0px) + ${FULLSCREEN_ACHIEVEMENT_SPOTLIGHT_BOTTOM_PADDING}px)`,
+    boxSizing: "border-box",
+  };
+}
+
 function getAchievementSpotlightPageRailStyle(): CSSProperties {
   return {
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    minHeight:
-      `calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - ${FULLSCREEN_ACHIEVEMENT_PAGE_BOTTOM_SCROLL_PADDING + 24}px)`,
     width: "100%",
     boxSizing: "border-box",
   };
@@ -787,129 +791,125 @@ function AchievementSpotlightCard({
   const metaPills = dedupeDistinctLabels([providerLabel]);
 
   return (
-    <PanelSection title="ACHIEVEMENT SPOTLIGHT">
-      <PanelSectionRow>
-        <div style={getAchievementSpotlightCardStyle(tone)}>
-          <div style={getAchievementSpotlightBackRowStyle()}>
-            <DeckyFullscreenActionRow>
-              <DeckyFullscreenActionButton
-                label={backLabel}
-                isFullscreenBackAction
-                onClick={() => {
-                  onBack();
-                }}
-              />
-            </DeckyFullscreenActionRow>
+    <div style={getAchievementSpotlightCardStyle(tone)}>
+      <div style={getAchievementSpotlightBackRowStyle()}>
+        <DeckyFullscreenActionRow>
+          <DeckyFullscreenActionButton
+            label={backLabel}
+            isFullscreenBackAction
+            onClick={() => {
+              onBack();
+            }}
+          />
+        </DeckyFullscreenActionRow>
+      </div>
+
+      <div style={getAchievementSpotlightHeaderStyle()}>
+        <div style={getAchievementSpotlightBadgeFrameStyle(tone)}>
+          {achievement.badgeImageUrl !== undefined ? (
+            <DeckyGameArtwork compact src={achievement.badgeImageUrl} size={88} title={achievement.title} />
+          ) : (
+            <span style={getAchievementSpotlightMetaPillStyle()}>
+              RA
+            </span>
+          )}
+        </div>
+
+        <div style={getAchievementSpotlightTextStyle()}>
+          <div style={getAchievementSpotlightTitleStyle()}>{achievement.title}</div>
+          <div style={getAchievementSpotlightDescriptionStyle()}>
+            {getAchievementDescriptionText(achievement.description)}
           </div>
-
-          <div style={getAchievementSpotlightHeaderStyle()}>
-            <div style={getAchievementSpotlightBadgeFrameStyle(tone)}>
-              {achievement.badgeImageUrl !== undefined ? (
-                <DeckyGameArtwork compact src={achievement.badgeImageUrl} size={88} title={achievement.title} />
-              ) : (
-                <span style={getAchievementSpotlightMetaPillStyle()}>
-                  RA
-                </span>
-              )}
-            </div>
-
-            <div style={getAchievementSpotlightTextStyle()}>
-              <div style={getAchievementSpotlightTitleStyle()}>{achievement.title}</div>
-              <div style={getAchievementSpotlightDescriptionStyle()}>
-                {getAchievementDescriptionText(achievement.description)}
-              </div>
-              <div style={getAchievementSpotlightMetaRowStyle()}>
-                {metaPills.map((label) => (
-                  <span key={label} style={getAchievementSpotlightMetaPillStyle()}>
-                    {label}
-                  </span>
-                ))}
-                <span style={getAchievementSpotlightStatusStyle(tone)}>{achievementStatus.value}</span>
-              </div>
-              {unlockTimestamp !== undefined ? (
-                <div style={getAchievementSpotlightSecondaryStyle(tone)}>{`Unlocked on ${formatTimestamp(unlockTimestamp)}`}</div>
-              ) : null}
-            </div>
-
-            {gameArtworkUrl !== undefined && onOpenFullScreenGame !== undefined ? (
-              <Focusable
-                noFocusRing
-                role="button"
-                aria-label={`Open game details for ${game.title}`}
-                onActivate={onOpenFullScreenGame}
-                onClick={onOpenFullScreenGame}
-                onFocus={() => {
-                  setIsGameCoverFocused(true);
-                }}
-                onBlur={() => {
-                  setIsGameCoverFocused(false);
-                }}
-                onGamepadFocus={() => {
-                  setIsGameCoverFocused(true);
-                }}
-                style={getAchievementSpotlightGameCoverFrameStyle(true, isGameCoverFocused)}
-              >
-                <img
-                  alt=""
-                  loading="lazy"
-                  referrerPolicy="no-referrer"
-                  src={gameArtworkUrl}
-                  style={getAchievementSpotlightGameCoverImageStyle()}
-                />
-              </Focusable>
-            ) : gameArtworkUrl !== undefined ? (
-              <div style={getAchievementSpotlightGameCoverFrameStyle(false, false)}>
-                <img
-                  alt=""
-                  loading="lazy"
-                  referrerPolicy="no-referrer"
-                  src={gameArtworkUrl}
-                  style={getAchievementSpotlightGameCoverImageStyle()}
-                />
-              </div>
-            ) : null}
+          <div style={getAchievementSpotlightMetaRowStyle()}>
+            {metaPills.map((label) => (
+              <span key={label} style={getAchievementSpotlightMetaPillStyle()}>
+                {label}
+              </span>
+            ))}
+            <span style={getAchievementSpotlightStatusStyle(tone)}>{achievementStatus.value}</span>
           </div>
-
-          <div style={getAchievementSpotlightStatGridStyle()}>
-            <AchievementStat
-              label="Points"
-              tone={tone}
-              value={achievement.points !== undefined ? formatCount(achievement.points) : "-"}
-            />
-            <AchievementStat
-              label="RetroPoints"
-              tone={tone}
-              value={getMetricValue(achievement.metrics, "true-ratio", "True Ratio") ?? "-"}
-            />
-          </div>
-
-          <div style={getAchievementSpotlightRarityStackStyle()}>
-            <div style={getAchievementSpotlightRarityLabelStyle()}>Unlock rate</div>
-            <RarityBar percent={unlockRatePercent} tone={tone} caption={unlockRateCaption} />
-          </div>
-
-          {showCounts ? (
-            <div style={getAchievementSpotlightCountsGridStyle()}>
-              <AchievementStat
-                label="Softcore unlocks"
-                tone={tone}
-                value={counts.softcoreUnlockCount !== undefined ? formatCount(counts.softcoreUnlockCount) : "-"}
-              />
-              <AchievementStat
-                label="Hardcore unlocks"
-                tone={tone}
-                value={counts.hardcoreUnlockCount !== undefined ? formatCount(counts.hardcoreUnlockCount) : "-"}
-              />
-              <AchievementStat
-                label="Total players"
-                tone={tone}
-                value={counts.totalPlayers !== undefined ? formatCount(counts.totalPlayers) : "-"}
-              />
-            </div>
+          {unlockTimestamp !== undefined ? (
+            <div style={getAchievementSpotlightSecondaryStyle(tone)}>{`Unlocked on ${formatTimestamp(unlockTimestamp)}`}</div>
           ) : null}
         </div>
-      </PanelSectionRow>
-    </PanelSection>
+
+        {gameArtworkUrl !== undefined && onOpenFullScreenGame !== undefined ? (
+          <Focusable
+            noFocusRing
+            role="button"
+            aria-label={`Open game details for ${game.title}`}
+            onActivate={onOpenFullScreenGame}
+            onClick={onOpenFullScreenGame}
+            onFocus={() => {
+              setIsGameCoverFocused(true);
+            }}
+            onBlur={() => {
+              setIsGameCoverFocused(false);
+            }}
+            onGamepadFocus={() => {
+              setIsGameCoverFocused(true);
+            }}
+            style={getAchievementSpotlightGameCoverFrameStyle(true, isGameCoverFocused)}
+          >
+            <img
+              alt=""
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              src={gameArtworkUrl}
+              style={getAchievementSpotlightGameCoverImageStyle()}
+            />
+          </Focusable>
+        ) : gameArtworkUrl !== undefined ? (
+          <div style={getAchievementSpotlightGameCoverFrameStyle(false, false)}>
+            <img
+              alt=""
+              loading="lazy"
+              referrerPolicy="no-referrer"
+              src={gameArtworkUrl}
+              style={getAchievementSpotlightGameCoverImageStyle()}
+            />
+          </div>
+        ) : null}
+      </div>
+
+      <div style={getAchievementSpotlightStatGridStyle()}>
+        <AchievementStat
+          label="Points"
+          tone={tone}
+          value={achievement.points !== undefined ? formatCount(achievement.points) : "-"}
+        />
+        <AchievementStat
+          label="RetroPoints"
+          tone={tone}
+          value={getMetricValue(achievement.metrics, "true-ratio", "True Ratio") ?? "-"}
+        />
+      </div>
+
+      <div style={getAchievementSpotlightRarityStackStyle()}>
+        <div style={getAchievementSpotlightRarityLabelStyle()}>Unlock rate</div>
+        <RarityBar percent={unlockRatePercent} tone={tone} caption={unlockRateCaption} />
+      </div>
+
+      {showCounts ? (
+        <div style={getAchievementSpotlightCountsGridStyle()}>
+          <AchievementStat
+            label="Softcore unlocks"
+            tone={tone}
+            value={counts.softcoreUnlockCount !== undefined ? formatCount(counts.softcoreUnlockCount) : "-"}
+          />
+          <AchievementStat
+            label="Hardcore unlocks"
+            tone={tone}
+            value={counts.hardcoreUnlockCount !== undefined ? formatCount(counts.hardcoreUnlockCount) : "-"}
+          />
+          <AchievementStat
+            label="Total players"
+            tone={tone}
+            value={counts.totalPlayers !== undefined ? formatCount(counts.totalPlayers) : "-"}
+          />
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -1004,7 +1004,7 @@ export function DeckyFullScreenAchievementPage({
         <TopAlignedScrollViewport
           scrollKey={`full-screen-achievement:${providerId ?? game.providerId}:${game.gameId}:${achievement.achievementId}`}
         >
-          <div style={getPageFrameStyle()}>
+          <div style={getAchievementSpotlightPageFrameStyle()}>
             <div style={getAchievementSpotlightPageRailStyle()}>
               <AchievementSpotlightCard
                 achievement={achievement}
