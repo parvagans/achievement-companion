@@ -8,6 +8,19 @@ export interface RawRetroAchievementsMetric {
   readonly detail?: string;
 }
 
+export interface RawRetroAchievementsSystemResponse {
+  readonly ID?: number | string;
+  readonly id?: number | string;
+  readonly Name?: string;
+  readonly name?: string;
+  readonly IconURL?: string;
+  readonly iconUrl?: string;
+  readonly Active?: number | boolean | string;
+  readonly active?: number | boolean | string;
+  readonly IsGameSystem?: number | boolean | string;
+  readonly isGameSystem?: number | boolean | string;
+}
+
 // Assumption: the Profile endpoint only supplies identity/basic account metadata.
 export interface RawRetroAchievementsProfileResponse {
   readonly User?: string;

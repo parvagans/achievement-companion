@@ -13,6 +13,7 @@ import {
   type DeckyCompletionProgressBarTone,
 } from "./decky-completion-progress-bar";
 import { DeckyGameArtwork } from "./decky-game-artwork";
+import { DeckySystemPill } from "./decky-system-pill";
 import {
   DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS,
   DECKY_FOCUS_NAV_ROW_CLASS,
@@ -36,6 +37,7 @@ import {
 import { formatDeckyProviderLabel } from "./providers";
 import { getDeckyProviderIconSrc } from "./providers/provider-branding";
 import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
+import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 import { STEAM_PROVIDER_ID } from "../../providers/steam/config";
 import {
   formatRetroAchievementsCompletionIndicatorLabel,
@@ -645,9 +647,11 @@ function getDashboardSystemPillStyle(): CSSProperties {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
+    gap: 6,
     width: "fit-content",
     maxWidth: "100%",
     minHeight: 20,
+    minWidth: 0,
     padding: "0 8px",
     borderRadius: 999,
     border: "1px solid rgba(255, 255, 255, 0.1)",
@@ -1220,7 +1224,12 @@ function RecentlyPlayedRow({
       </div>
       <div style={getDashboardCompactTextColumnStyle()}>
         <div style={getDashboardCompactTitleStyle()}>{game.title}</div>
-        <span style={getDashboardSystemPillStyle()}>{game.platformLabel ?? "Unknown platform"}</span>
+        <DeckySystemPill
+          label={game.platformLabel ?? "Unknown platform"}
+          iconSize={14}
+          iconUrl={game.providerId === RETROACHIEVEMENTS_PROVIDER_ID ? game.systemIconUrl : undefined}
+          style={getDashboardSystemPillStyle()}
+        />
         <div style={getDashboardCompactProgressStackStyle()}>
           {completionStatusLabel !== undefined && completionStatusAriaLabel !== undefined ? (
             <div

@@ -227,12 +227,14 @@ import type {
   RawRetroAchievementsProfileResponse,
   RawRetroAchievementsRecentUnlockResponse,
   RawRetroAchievementsRecentlyPlayedGameResponse,
+  RawRetroAchievementsSystemResponse,
 } from "../src/providers/retroachievements/raw-types";
 import {
   readDeckyStorageText,
   writeDeckyStorageText,
 } from "../src/platform/decky/storage";
 import {
+  createRetroAchievementsClient,
   createRetroAchievementsProvider,
   type RetroAchievementsClient,
 } from "../src/providers/retroachievements";
@@ -2678,6 +2680,15 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     readFileSync("src/platform/decky/decky-compact-pill-action-item.tsx", "utf8"),
     /readonly ariaPressed\?: boolean/,
   );
+  const coreDomainSource = readFileSync("src/core/domain.ts", "utf8");
+  const retroRawTypesSource = readFileSync("src/providers/retroachievements/raw-types.ts", "utf8");
+  const retroClientSource = readFileSync("src/providers/retroachievements/client/client.ts", "utf8");
+  const retroProviderSource = readFileSync("src/providers/retroachievements/retroachievements.provider.ts", "utf8");
+  const retroNormalizeSource = readFileSync(
+    "src/providers/retroachievements/mappers/normalize.ts",
+    "utf8",
+  );
+  const deckySystemPillSource = readFileSync("src/platform/decky/decky-system-pill.tsx", "utf8");
   const dashboardViewSource = readFileSync("src/platform/decky/decky-dashboard-view.tsx", "utf8");
   const fullScreenProfileSource = readFileSync("src/platform/decky/decky-full-screen-profile-page.tsx", "utf8");
   const achievementHistorySource = readFileSync(
@@ -2720,6 +2731,44 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     achievementDetailViewSource,
     /PanelSection title="GAME OVERVIEW"[\s\S]*DeckyCompactPillActionGroup[\s\S]*label="Back"[\s\S]*label="Open Game"/u,
   );
+  assert.match(coreDomainSource, /readonly systemIconUrl\?: string;/u);
+  assert.match(retroNormalizeSource, /readonly systemIconUrl\?: string \| undefined;/u);
+  assert.match(retroRawTypesSource, /export interface RawRetroAchievementsSystemResponse/u);
+  assert.match(retroRawTypesSource, /readonly IconURL\?: string;/u);
+  assert.match(retroClientSource, /loadSystems\?\(/u);
+  assert.match(retroClientSource, /const SYSTEMS_PATH = "API_GetConsoleIDs\.php";/u);
+  assert.match(retroClientSource, /path: SYSTEMS_PATH/u);
+  assert.match(retroProviderSource, /cachedSystemIconUrlByConsoleId/u);
+  assert.match(retroProviderSource, /systemIconUrlByConsoleIdPromise/u);
+  assert.match(retroProviderSource, /buildRetroAchievementsSystemIconUrlMap/u);
+  assert.match(retroProviderSource, /enrichRecentlyPlayedGamesWithSystemIcons/u);
+  assert.match(retroProviderSource, /enrichGameDetailSnapshotWithSystemIcon/u);
+  assert.match(retroProviderSource, /normalizeRetroAchievementsImageUrl/u);
+  assert.match(retroNormalizeSource, /const systemIconUrl = pickString\(raw\.systemIconUrl\);/u);
+  assert.match(
+    retroNormalizeSource,
+    /systemIconUrl: normalizeRetroAchievementsImageUrl\(systemIconUrl\)/u,
+  );
+  assert.match(
+    retroNormalizeSource,
+    /const \{ providerId, gameId, title, platformLabel, systemIconUrl, coverImageUrl \} = game;/u,
+  );
+  assert.match(
+    retroNormalizeSource,
+    /\.\.\.\(systemIconUrl !== undefined \? \{ systemIconUrl \} : \{\}\),/u,
+  );
+  assert.match(deckySystemPillSource, /export interface DeckySystemPillProps/u);
+  assert.match(deckySystemPillSource, /readonly iconUrl\?: string \| undefined;/u);
+  assert.match(deckySystemPillSource, /useEffect/u);
+  assert.match(deckySystemPillSource, /useState/u);
+  assert.match(deckySystemPillSource, /loading="lazy"/u);
+  assert.match(deckySystemPillSource, /onError=\{\(\) => \{/u);
+  assert.match(deckySystemPillSource, /setIsIconHidden\(true\)/u);
+  assert.match(deckySystemPillSource, /referrerPolicy="no-referrer"/u);
+  assert.match(deckySystemPillSource, /objectFit: "contain"/u);
+  assert.match(deckySystemPillSource, /iconUrl !== undefined && !isIconHidden \? \(/u);
+  assert.match(deckySystemPillSource, /<span style=\{style\}>/u);
+  assert.match(deckySystemPillSource, /textOverflow: "ellipsis"/u);
   assert.doesNotMatch(achievementDetailViewSource, /PanelSection title="Navigation"/);
   assert.doesNotMatch(achievementDetailViewSource, /label="Open full-screen page"/);
   assert.match(
@@ -2728,6 +2777,11 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   );
   assert.match(achievementDetailViewSource, /DeckyCompactPillActionGroup/);
   assert.match(achievementDetailViewSource, /DeckyCompactPillActionItem/);
+  assert.match(achievementDetailViewSource, /DeckySystemPill/u);
+  assert.match(
+    achievementDetailViewSource,
+    /iconUrl=\{game\.providerId === RETROACHIEVEMENTS_PROVIDER_ID \? game\.systemIconUrl : undefined\}/u,
+  );
   assert.match(fullScreenProfileSource, /addProfileAvatarCacheBustParam\(avatarUrl, refreshedAt\)/u);
   assert.match(
     achievementHistorySource,
@@ -2767,6 +2821,28 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.doesNotMatch(dashboardViewSource, /addProfileAvatarCacheBustParam\(game\.coverImageUrl/u);
   assert.doesNotMatch(fullScreenProfileSource, /addProfileAvatarCacheBustParam\(game\.coverImageUrl/u);
   assert.doesNotMatch(achievementHistorySource, /addProfileAvatarCacheBustParam\(game\.coverImageUrl/u);
+  assert.match(fullScreenGamePageSource, /DeckySystemPill/u);
+  assert.match(
+    fullScreenGamePageSource,
+    /iconUrl=\{game\.providerId === RETROACHIEVEMENTS_PROVIDER_ID \? game\.systemIconUrl : undefined\}/u,
+  );
+  assert.match(dashboardViewSource, /DeckySystemPill/u);
+  assert.match(
+    dashboardViewSource,
+    /iconUrl=\{game\.providerId === RETROACHIEVEMENTS_PROVIDER_ID \? game\.systemIconUrl : undefined\}/u,
+  );
+  assert.doesNotMatch(
+    fullScreenGamePageSource,
+    /providerId === STEAM_PROVIDER_ID \? game\.systemIconUrl/u,
+  );
+  assert.doesNotMatch(
+    achievementDetailViewSource,
+    /providerId === STEAM_PROVIDER_ID \? game\.systemIconUrl/u,
+  );
+  assert.doesNotMatch(
+    dashboardViewSource,
+    /providerId === STEAM_PROVIDER_ID \? game\.systemIconUrl/u,
+  );
   assert.match(fullScreenProfileSource, /FULLSCREEN_PROFILE_TOP_PADDING = 42/u);
   assert.match(
     fullScreenProfileSource,
@@ -6284,6 +6360,7 @@ test("retroachievements recently played games normalize badge art urls and progr
   const rawRecentlyPlayedGames: readonly RawRetroAchievementsRecentlyPlayedGameResponse[] = [
     {
       GameID: 1234,
+      ConsoleID: 7,
       Title: "Test Game",
       ConsoleName: "NES",
       ImageIcon: "/Images/000001.png",
@@ -6305,10 +6382,160 @@ test("retroachievements recently played games normalize badge art urls and progr
   assert.equal(recentlyPlayedGames[0]?.lastPlayedAt, Date.parse("2024-01-01T00:00:00Z"));
 });
 
+test("retroachievements client loads official systems from API_GetConsoleIDs.php", async () => {
+  const requests: Array<{ readonly path: string; readonly query?: Record<string, unknown> }> = [];
+  const client = createRetroAchievementsClient({
+    async requestJson<T>(request) {
+      requests.push({
+        path: request.path,
+        ...(request.query !== undefined ? { query: request.query as Record<string, unknown> } : {}),
+      });
+
+      return [
+        {
+          ID: 7,
+          Name: "NES",
+          IconURL: "/Images/Consoles/007.png",
+          Active: true,
+          IsGameSystem: true,
+        },
+      ] as T;
+    },
+  });
+
+  const systems = await client.loadSystems?.({
+    username: "alice",
+    hasApiKey: true,
+  });
+
+  assert.deepStrictEqual(requests, [
+    {
+      path: "API_GetConsoleIDs.php",
+      query: {
+        u: "alice",
+      },
+    },
+  ]);
+  assert.equal(systems?.[0]?.ID, 7);
+  assert.equal(systems?.[0]?.IconURL, "/Images/Consoles/007.png");
+});
+
+test("retroachievements provider caches systems and maps ConsoleID to systemIconUrl", async () => {
+  let systemsCalls = 0;
+  const provider = createRetroAchievementsProvider({
+    client: {
+      async loadSystems() {
+        systemsCalls += 1;
+        return [
+          {
+            ID: 7,
+            Name: "NES",
+            IconURL: "/Images/Consoles/007.png",
+            Active: true,
+            IsGameSystem: true,
+          },
+          {
+            ID: 8,
+            Name: "SNES",
+            IconURL: "https://static.retroachievements.org/Images/Consoles/008.png",
+            Active: true,
+            IsGameSystem: true,
+          },
+        ] satisfies readonly RawRetroAchievementsSystemResponse[];
+      },
+      async loadProfile() {
+        throw new Error("not used");
+      },
+      async loadCompletionProgress() {
+        throw new Error("not used");
+      },
+      async loadAchievementsEarnedBetween() {
+        throw new Error("not used");
+      },
+      async loadRecentUnlocks() {
+        throw new Error("not used");
+      },
+      async loadRecentlyPlayedGames() {
+        return [
+          {
+            GameID: 100,
+            ConsoleID: 7,
+            Title: "Console Mapped Game",
+            ConsoleName: "NES",
+            LastPlayed: "2024-01-03 00:00:00",
+            AchievementsTotal: 12,
+            NumAchieved: 3,
+          },
+          {
+            GameID: 200,
+            ConsoleID: 8,
+            Title: "Absolute Icon Game",
+            ConsoleName: "SNES",
+            LastPlayed: "2024-01-02 00:00:00",
+            AchievementsTotal: 20,
+            NumAchieved: 10,
+          },
+        ] satisfies readonly RawRetroAchievementsRecentlyPlayedGameResponse[];
+      },
+      async loadGameProgress() {
+        return {
+          ...createRetroAchievementsGameProgressResponse({
+            gameId: "100",
+            title: "Console Mapped Game",
+            unlockedCount: 3,
+            totalCount: 12,
+          }),
+          ConsoleID: 7,
+        };
+      },
+    },
+  });
+
+  const firstLoad = await provider.loadRecentlyPlayedGames(
+    {
+      username: "alice",
+      apiKey: "secret",
+    },
+    { count: 2 },
+  );
+  const gameDetail = await provider.loadGameProgress(
+    {
+      username: "alice",
+      apiKey: "secret",
+    },
+    "100",
+  );
+  const secondLoad = await provider.loadRecentlyPlayedGames(
+    {
+      username: "alice",
+      apiKey: "secret",
+    },
+    { count: 2 },
+  );
+
+  assert.equal(systemsCalls, 1);
+  assert.equal(
+    firstLoad[0]?.systemIconUrl,
+    "https://i.retroachievements.org/Images/Consoles/007.png",
+  );
+  assert.equal(
+    firstLoad[1]?.systemIconUrl,
+    "https://static.retroachievements.org/Images/Consoles/008.png",
+  );
+  assert.equal(
+    gameDetail.game.systemIconUrl,
+    "https://i.retroachievements.org/Images/Consoles/007.png",
+  );
+  assert.equal(secondLoad[0]?.systemIconUrl, firstLoad[0]?.systemIconUrl);
+});
+
 test("retroachievements recently played games enrich explicit award state from bounded game detail", async () => {
   const gameProgressCalls: string[] = [];
   const provider = createRetroAchievementsProvider({
     client: {
+      async loadSystems() {
+        return [];
+      },
       async loadProfile() {
         throw new Error("not used");
       },
@@ -6389,6 +6616,9 @@ test("retroachievements recently played enrichment does not infer mastered from 
   const gameProgressCalls: string[] = [];
   const provider = createRetroAchievementsProvider({
     client: {
+      async loadSystems() {
+        return [];
+      },
       async loadProfile() {
         throw new Error("not used");
       },
@@ -6452,6 +6682,70 @@ test("retroachievements recently played enrichment does not infer mastered from 
   assert.equal(isRetroAchievementsMasteredHardcoreGame(games[0]!), false);
   assert.equal(games[1]?.metrics?.find((metric) => metric.key === "highest-award-kind"), undefined);
   assert.equal(isRetroAchievementsMasteredHardcoreGame(games[1]!), false);
+});
+
+test("retroachievements systems fetch failure falls back to text-only game surfaces", async () => {
+  const provider = createRetroAchievementsProvider({
+    client: {
+      async loadSystems() {
+        throw new Error("systems unavailable");
+      },
+      async loadProfile() {
+        throw new Error("not used");
+      },
+      async loadCompletionProgress() {
+        throw new Error("not used");
+      },
+      async loadAchievementsEarnedBetween() {
+        throw new Error("not used");
+      },
+      async loadRecentUnlocks() {
+        throw new Error("not used");
+      },
+      async loadRecentlyPlayedGames() {
+        return [
+          {
+            GameID: 100,
+            ConsoleID: 7,
+            Title: "Fallback Game",
+            ConsoleName: "NES",
+            LastPlayed: "2024-01-03 00:00:00",
+            AchievementsTotal: 12,
+            NumAchieved: 3,
+          },
+        ] satisfies readonly RawRetroAchievementsRecentlyPlayedGameResponse[];
+      },
+      async loadGameProgress() {
+        return {
+          ...createRetroAchievementsGameProgressResponse({
+            gameId: "100",
+            title: "Fallback Game",
+            unlockedCount: 3,
+            totalCount: 12,
+          }),
+          ConsoleID: 7,
+        };
+      },
+    },
+  });
+
+  const recentlyPlayedGames = await provider.loadRecentlyPlayedGames(
+    {
+      username: "alice",
+      apiKey: "secret",
+    },
+    { count: 1 },
+  );
+  const gameDetail = await provider.loadGameProgress(
+    {
+      username: "alice",
+      apiKey: "secret",
+    },
+    "100",
+  );
+
+  assert.equal(recentlyPlayedGames[0]?.systemIconUrl, undefined);
+  assert.equal(gameDetail.game.systemIconUrl, undefined);
 });
 
 test("game detail parses the documented RetroAchievements game-progress shape", async () => {
