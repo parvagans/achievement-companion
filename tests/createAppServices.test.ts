@@ -2491,7 +2491,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     "utf8",
   );
   const deckyNavigationSource = readFileSync("src/platform/decky/decky-navigation.tsx", "utf8");
-  assert.match(fullScreenAchievementPageSource, /PanelSection title="ACHIEVEMENT SPOTLIGHT"/);
+  assert.doesNotMatch(fullScreenAchievementPageSource, /PanelSection title="ACHIEVEMENT SPOTLIGHT"/);
   assert.match(fullScreenAchievementPageSource, /AchievementSpotlightCard/);
   assert.match(fullScreenAchievementPageSource, /if \(!isSteamProvider\) \{/);
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightCardStyle\(tone\)/);
@@ -2503,12 +2503,28 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   );
   assert.match(
     fullScreenAchievementPageSource,
+    /FULLSCREEN_ACHIEVEMENT_SPOTLIGHT_TOP_PADDING = 80/,
+  );
+  assert.match(
+    fullScreenAchievementPageSource,
+    /FULLSCREEN_ACHIEVEMENT_SPOTLIGHT_BOTTOM_PADDING = 20/,
+  );
+  assert.doesNotMatch(fullScreenAchievementPageSource, /FULLSCREEN_ACHIEVEMENT_SPOTLIGHT_TOP_CHROME_PADDING/u);
+  assert.match(
+    fullScreenAchievementPageSource,
     /calc\(env\(safe-area-inset-bottom, 0px\) \+ \$\{FULLSCREEN_ACHIEVEMENT_PAGE_BOTTOM_SCROLL_PADDING\}px\)/,
   );
+  assert.match(fullScreenAchievementPageSource, /function getAchievementSpotlightPageFrameStyle\(\): CSSProperties/u);
+  assert.doesNotMatch(fullScreenAchievementPageSource, /height: "100vh"/u);
+  assert.match(
+    fullScreenAchievementPageSource,
+    /calc\(env\(safe-area-inset-top, 0px\) \+ \$\{FULLSCREEN_ACHIEVEMENT_SPOTLIGHT_TOP_PADDING\}px\) 12px calc\(env\(safe-area-inset-bottom, 0px\) \+ \$\{FULLSCREEN_ACHIEVEMENT_SPOTLIGHT_BOTTOM_PADDING\}px\)/u,
+  );
   assert.match(fullScreenAchievementPageSource, /function getAchievementSpotlightPageRailStyle\(\): CSSProperties/u);
-  assert.match(fullScreenAchievementPageSource, /display: "flex"/u);
-  assert.match(fullScreenAchievementPageSource, /justifyContent: "center"/u);
-  assert.match(fullScreenAchievementPageSource, /minHeight:\s*`calc\(100vh - env\(safe-area-inset-top, 0px\) - env\(safe-area-inset-bottom, 0px\) - \$\{FULLSCREEN_ACHIEVEMENT_PAGE_BOTTOM_SCROLL_PADDING \+ 24\}px\)`/u);
+  assert.doesNotMatch(fullScreenAchievementPageSource, /FULLSCREEN_ACHIEVEMENT_SPOTLIGHT_VISUAL_Y_OFFSET/u);
+  assert.doesNotMatch(fullScreenAchievementPageSource, /translateY\(/u);
+  assert.doesNotMatch(fullScreenAchievementPageSource, /FULLSCREEN_ACHIEVEMENT_PAGE_BOTTOM_SCROLL_PADDING \+ 24/u);
+  assert.doesNotMatch(fullScreenAchievementPageSource, /minHeight:\s*`calc\(100vh/u);
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightBackRowStyle\(\)/);
   assert.match(fullScreenAchievementPageSource, /backLabel=\{backLabel\}/);
   assert.match(fullScreenAchievementPageSource, /onBack=\{onBack\}/);
@@ -2568,7 +2584,19 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenAchievementPageSource, /cursor: interactive \? "pointer" : "default"/u);
   assert.match(fullScreenAchievementPageSource, /borderColor: focused \? "rgba\(105, 176, 255, 0\.8\)" : "rgba\(255, 255, 255, 0\.1\)"/u);
   assert.doesNotMatch(fullScreenAchievementPageSource, /getAchievementSpotlightGameCoverImageStyle\(\)[\s\S]*objectFit: "cover"/u);
+  assert.match(fullScreenAchievementPageSource, /<div style=\{getAchievementSpotlightPageFrameStyle\(\)\}>/u);
+  assert.match(fullScreenAchievementPageSource, /<div style=\{getPageFrameStyle\(\)\}>/u);
   assert.match(fullScreenAchievementPageSource, /<div style=\{getAchievementSpotlightPageRailStyle\(\)\}>/u);
+  const spotlightCardSourceStart = fullScreenAchievementPageSource.indexOf("function AchievementSpotlightCard");
+  const spotlightCardSourceEnd = fullScreenAchievementPageSource.indexOf("function isRenderableGameDetailState");
+  assert.ok(spotlightCardSourceStart >= 0);
+  assert.ok(spotlightCardSourceEnd > spotlightCardSourceStart);
+  const spotlightCardSource = fullScreenAchievementPageSource.slice(
+    spotlightCardSourceStart,
+    spotlightCardSourceEnd,
+  );
+  assert.doesNotMatch(spotlightCardSource, /PanelSection/u);
+  assert.doesNotMatch(spotlightCardSource, /PanelSectionRow/u);
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightStatGridStyle\(\)/);
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightCountsGridStyle\(\)/);
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightRarityStackStyle\(\)/);
