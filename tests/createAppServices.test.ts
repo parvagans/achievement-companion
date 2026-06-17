@@ -4056,6 +4056,37 @@ test("retroachievements mastered games use explicit mastered presentation on gam
   );
 });
 
+test("retroachievements fullscreen completion progress rows use explicit beaten and mastered progress tones", () => {
+  const fullScreenCompletionProgressSource = readFileSync(
+    "src/platform/decky/decky-full-screen-completion-progress-page.tsx",
+    "utf8",
+  );
+  const steamProviderSource = readFileSync("src/providers/steam/mappers/normalize.ts", "utf8");
+
+  assert.match(
+    fullScreenCompletionProgressSource,
+    /function getCompletionProgressRowTone[\s\S]*getRetroAchievementsCompletionIndicatorState\(game\)/u,
+  );
+  assert.match(
+    fullScreenCompletionProgressSource,
+    /completionIndicatorState === "mastered-hardcore"[\s\S]*completionIndicatorState === "mastered-softcore"[\s\S]*return "retroachievements-mastered";/u,
+  );
+  assert.match(
+    fullScreenCompletionProgressSource,
+    /completionIndicatorState === "beaten-hardcore"[\s\S]*completionIndicatorState === "beaten-softcore"[\s\S]*return "retroachievements-beaten";/u,
+  );
+  assert.match(fullScreenCompletionProgressSource, /return "default";/u);
+  assert.match(fullScreenCompletionProgressSource, /const progressTone = getCompletionProgressRowTone\(game\);/u);
+  assert.match(
+    fullScreenCompletionProgressSource,
+    /<DeckyCompletionProgressBar compact percent=\{completionPercent\} tone=\{progressTone\} \/>/u,
+  );
+  assert.doesNotMatch(
+    steamProviderSource,
+    /retroachievements-mastered|retroachievements-beaten|getRetroAchievementsCompletionIndicatorState/u,
+  );
+});
+
 test("retroachievements game detail surfaces hide empty mode cards and keep meaningful mode cards", () => {
   const achievementDetailHelperSource = readFileSync(
     "src/platform/decky/decky-achievement-detail-helpers.ts",
