@@ -13,9 +13,11 @@ export interface DeckyFirstRunSetupScreenProps {
   readonly onBackToProviders: () => void;
 }
 
+const RETROACHIEVEMENTS_SETUP_TOP_PADDING = 42;
+
 function getPageFrameStyle(): CSSProperties {
   return {
-    padding: "calc(env(safe-area-inset-top, 0px) + 12px) 12px calc(env(safe-area-inset-bottom, 0px) + 12px)",
+    padding: `calc(env(safe-area-inset-top, 0px) + ${RETROACHIEVEMENTS_SETUP_TOP_PADDING}px) 12px calc(env(safe-area-inset-bottom, 0px) + 12px)`,
     boxSizing: "border-box",
   };
 }
