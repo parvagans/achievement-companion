@@ -38,6 +38,10 @@ PACKAGE_JSON_REQUIRED_FIELDS = (
   "name",
   "version",
 )
+PLUGIN_JSON_REQUIRED_FIELDS = (
+  "name",
+  "version",
+)
 
 
 def get_release_zip_path(root_dir: Path = ROOT_DIR) -> Path:
@@ -93,6 +97,27 @@ def verify_release_package_json(zip_path: Path) -> None:
     )
 
 
+def verify_release_plugin_json(zip_path: Path) -> None:
+  with zipfile.ZipFile(zip_path) as archive:
+    plugin_json_bytes = archive.read("achievement-companion/plugin.json")
+
+  plugin_json_text = plugin_json_bytes.decode("utf-8")
+  plugin_data = json.loads(plugin_json_text)
+
+  missing_fields = [
+    field_name
+    for field_name in PLUGIN_JSON_REQUIRED_FIELDS
+    if not isinstance(plugin_data.get(field_name), str) or plugin_data[field_name].strip() == ""
+  ]
+  if missing_fields:
+    raise RuntimeError(
+      f"Release plugin.json is missing required string fields: {', '.join(missing_fields)}."
+    )
+
+  if plugin_data["version"].strip() != read_package_version():
+    raise RuntimeError("Release plugin.json version does not match the source package version.")
+
+
 def main(argv: list[str] | None = None) -> int:
   del argv
   zip_path = get_release_zip_path()
@@ -101,6 +126,7 @@ def main(argv: list[str] | None = None) -> int:
 
   verify_release_zip_payload(zip_path)
   verify_release_package_json(zip_path)
+  verify_release_plugin_json(zip_path)
   print(zip_path)
   return 0
 

@@ -1,6 +1,7 @@
 {
   "api_version": 1,
   "name": "Achievement Companion",
+  "version": "0.2.7",
   "author": "Adam <nullbit5@protonmail.com>",
   "publish": {
     "tags": ["achievements", "retroachievements", "steam"],
