@@ -1,7 +1,7 @@
-import { useMemo, type CSSProperties } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import type { ResourceState } from "@core/cache";
 import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
-import { PanelSection, PanelSectionRow, ScrollPanel } from "@decky/ui";
+import { Focusable, PanelSection, PanelSectionRow, ScrollPanel } from "@decky/ui";
 import { PlaceholderState } from "@ui/PlaceholderState";
 import { initialDeckyGameDetailState, loadDeckyGameDetailState } from "./decky-app-services";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
@@ -32,6 +32,7 @@ export interface DeckyFullScreenAchievementPageProps {
   readonly gameId: string | undefined;
   readonly achievementId: string | undefined;
   readonly onBack: () => void;
+  readonly onOpenFullScreenGame?: (() => void) | undefined;
   readonly backLabel?: string;
   readonly backDescription?: string;
 }
@@ -41,6 +42,18 @@ const FULLSCREEN_ACHIEVEMENT_PAGE_BOTTOM_SCROLL_PADDING = 88;
 function getPageFrameStyle(): CSSProperties {
   return {
     padding: `calc(env(safe-area-inset-top, 0px) + 12px) 12px calc(env(safe-area-inset-bottom, 0px) + ${FULLSCREEN_ACHIEVEMENT_PAGE_BOTTOM_SCROLL_PADDING}px)`,
+    boxSizing: "border-box",
+  };
+}
+
+function getAchievementSpotlightPageRailStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    minHeight:
+      `calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - ${FULLSCREEN_ACHIEVEMENT_PAGE_BOTTOM_SCROLL_PADDING + 24}px)`,
+    width: "100%",
     boxSizing: "border-box",
   };
 }
@@ -293,8 +306,8 @@ function getAchievementSpotlightCardStyle(tone: AchievementSpotlightTone): CSSPr
   return {
     display: "flex",
     flexDirection: "column",
-    gap: 14,
-    padding: 16,
+    gap: 12,
+    padding: 14,
     borderRadius: 20,
     boxSizing: "border-box",
     border: `1px solid ${colors.border}`,
@@ -313,14 +326,15 @@ function getAchievementSpotlightBackRowStyle(): CSSProperties {
     justifyContent: "flex-end",
     alignItems: "center",
     minWidth: 0,
+    marginBottom: -2,
   };
 }
 
 function getAchievementSpotlightHeaderStyle(): CSSProperties {
   return {
     display: "grid",
-    gridTemplateColumns: "auto minmax(0, 1fr)",
-    gap: 14,
+    gridTemplateColumns: "auto minmax(0, 1fr) auto",
+    gap: 12,
     alignItems: "start",
     minWidth: 0,
   };
@@ -349,7 +363,7 @@ function getAchievementSpotlightTextStyle(): CSSProperties {
   return {
     display: "flex",
     flexDirection: "column",
-    gap: 8,
+    gap: 7,
     minWidth: 0,
   };
 }
@@ -357,7 +371,7 @@ function getAchievementSpotlightTextStyle(): CSSProperties {
 function getAchievementSpotlightTitleStyle(): CSSProperties {
   return {
     color: "rgba(255, 255, 255, 0.98)",
-    fontSize: "1.24em",
+    fontSize: "1.18em",
     fontWeight: 800,
     lineHeight: 1.12,
     minWidth: 0,
@@ -369,8 +383,8 @@ function getAchievementSpotlightTitleStyle(): CSSProperties {
 function getAchievementSpotlightDescriptionStyle(): CSSProperties {
   return {
     color: "rgba(255, 255, 255, 0.84)",
-    fontSize: "0.9em",
-    lineHeight: 1.35,
+    fontSize: "0.86em",
+    lineHeight: 1.3,
     whiteSpace: "pre-wrap",
   };
 }
@@ -379,7 +393,7 @@ function getAchievementSpotlightMetaRowStyle(): CSSProperties {
   return {
     display: "grid",
     gridTemplateColumns: "repeat(2, minmax(0, max-content))",
-    gap: 8,
+    gap: 7,
     alignItems: "center",
     justifyContent: "start",
   };
@@ -435,11 +449,51 @@ function getAchievementSpotlightSecondaryStyle(tone: AchievementSpotlightTone): 
   };
 }
 
+function getAchievementSpotlightGameCoverFrameStyle(
+  interactive: boolean,
+  focused: boolean,
+): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "start",
+    width: "clamp(170px, 19vw, 196px)",
+    height: "clamp(96px, 12vw, 116px)",
+    maxWidth: 196,
+    maxHeight: 116,
+    minWidth: 170,
+    minHeight: 96,
+    overflow: "hidden",
+    borderRadius: 16,
+    border: "1px solid rgba(255, 255, 255, 0.1)",
+    background: "linear-gradient(180deg, rgba(12, 16, 24, 0.9), rgba(22, 28, 38, 0.82))",
+    boxShadow: focused
+      ? "0 0 0 2px rgba(73, 155, 255, 0.72), 0 0 18px rgba(39, 124, 226, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.14)"
+      : "inset 0 1px 0 rgba(255, 255, 255, 0.04)",
+    padding: 8,
+    boxSizing: "border-box",
+    cursor: interactive ? "pointer" : "default",
+    transition: "border-color 120ms ease, box-shadow 120ms ease, background 120ms ease",
+    outline: "none",
+    borderColor: focused ? "rgba(105, 176, 255, 0.8)" : "rgba(255, 255, 255, 0.1)",
+  };
+}
+
+function getAchievementSpotlightGameCoverImageStyle(): CSSProperties {
+  return {
+    display: "block",
+    width: "100%",
+    height: "100%",
+    objectFit: "contain",
+  };
+}
+
 function getAchievementSpotlightStatGridStyle(): CSSProperties {
   return {
     display: "grid",
     gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: 8,
+    gap: 6,
     width: "100%",
     alignItems: "stretch",
   };
@@ -449,7 +503,7 @@ function getAchievementSpotlightCountsGridStyle(): CSSProperties {
   return {
     display: "grid",
     gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-    gap: 8,
+    gap: 6,
     width: "100%",
     alignItems: "stretch",
   };
@@ -459,7 +513,7 @@ function getAchievementSpotlightRarityStackStyle(): CSSProperties {
   return {
     display: "flex",
     flexDirection: "column",
-    gap: 6,
+    gap: 5,
     width: "100%",
   };
 }
@@ -533,8 +587,8 @@ function getStatStyle(): CSSProperties {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: 3,
-    padding: "11px 12px",
+    gap: 2,
+    padding: "9px 10px",
     borderRadius: 14,
     border: "1px solid rgba(255, 255, 255, 0.06)",
     backgroundColor: "rgba(255, 255, 255, 0.03)",
@@ -557,7 +611,7 @@ function getStatLabelStyle(): CSSProperties {
 function getStatValueStyle(): CSSProperties {
   return {
     color: "rgba(255, 255, 255, 0.98)",
-    fontSize: "0.98em",
+    fontSize: "0.94em",
     fontWeight: 700,
     lineHeight: 1.2,
     minWidth: 0,
@@ -571,7 +625,7 @@ function getStatValueStyle(): CSSProperties {
 function getStatSecondaryStyle(): CSSProperties {
   return {
     color: "rgba(255, 255, 255, 0.72)",
-    fontSize: "0.82em",
+    fontSize: "0.78em",
     lineHeight: 1.2,
     minWidth: 0,
     overflow: "visible",
@@ -708,16 +762,21 @@ function RarityBar({
 function AchievementSpotlightCard({
   game,
   achievement,
+  gameArtworkUrl,
   providerLabel,
   backLabel,
   onBack,
+  onOpenFullScreenGame,
 }: {
   readonly game: GameDetailSnapshot["game"];
   readonly achievement: NormalizedAchievement;
+  readonly gameArtworkUrl: string | undefined;
   readonly providerLabel: string;
   readonly backLabel: string;
   readonly onBack: () => void;
+  readonly onOpenFullScreenGame: (() => void) | undefined;
 }): JSX.Element {
+  const [isGameCoverFocused, setIsGameCoverFocused] = useState(false);
   const tone = getAchievementSpotlightTone(achievement);
   const counts = getAchievementSpotlightCounts(achievement.metrics, game.metrics);
   const showCounts = hasAchievementCounts(counts);
@@ -771,6 +830,44 @@ function AchievementSpotlightCard({
                 <div style={getAchievementSpotlightSecondaryStyle(tone)}>{`Unlocked on ${formatTimestamp(unlockTimestamp)}`}</div>
               ) : null}
             </div>
+
+            {gameArtworkUrl !== undefined && onOpenFullScreenGame !== undefined ? (
+              <Focusable
+                noFocusRing
+                role="button"
+                aria-label={`Open game details for ${game.title}`}
+                onActivate={onOpenFullScreenGame}
+                onClick={onOpenFullScreenGame}
+                onFocus={() => {
+                  setIsGameCoverFocused(true);
+                }}
+                onBlur={() => {
+                  setIsGameCoverFocused(false);
+                }}
+                onGamepadFocus={() => {
+                  setIsGameCoverFocused(true);
+                }}
+                style={getAchievementSpotlightGameCoverFrameStyle(true, isGameCoverFocused)}
+              >
+                <img
+                  alt=""
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  src={gameArtworkUrl}
+                  style={getAchievementSpotlightGameCoverImageStyle()}
+                />
+              </Focusable>
+            ) : gameArtworkUrl !== undefined ? (
+              <div style={getAchievementSpotlightGameCoverFrameStyle(false, false)}>
+                <img
+                  alt=""
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  src={gameArtworkUrl}
+                  style={getAchievementSpotlightGameCoverImageStyle()}
+                />
+              </div>
+            ) : null}
           </div>
 
           <div style={getAchievementSpotlightStatGridStyle()}>
@@ -827,6 +924,7 @@ export function DeckyFullScreenAchievementPage({
   gameId,
   achievementId,
   onBack,
+  onOpenFullScreenGame,
   backLabel = "Back",
   backDescription = "Return to the full-screen game page.",
 }: DeckyFullScreenAchievementPageProps): JSX.Element {
@@ -907,13 +1005,17 @@ export function DeckyFullScreenAchievementPage({
           scrollKey={`full-screen-achievement:${providerId ?? game.providerId}:${game.gameId}:${achievement.achievementId}`}
         >
           <div style={getPageFrameStyle()}>
-            <AchievementSpotlightCard
-              achievement={achievement}
-              game={game}
-              providerLabel={providerLabel}
-              backLabel={backLabel}
-              onBack={onBack}
-            />
+            <div style={getAchievementSpotlightPageRailStyle()}>
+              <AchievementSpotlightCard
+                achievement={achievement}
+                game={game}
+                gameArtworkUrl={heroArtworkUrl}
+                providerLabel={providerLabel}
+                backLabel={backLabel}
+                onBack={onBack}
+                onOpenFullScreenGame={onOpenFullScreenGame}
+              />
+            </div>
           </div>
         </TopAlignedScrollViewport>
       </ScrollPanel>

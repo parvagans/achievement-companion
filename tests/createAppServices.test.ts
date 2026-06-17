@@ -195,7 +195,10 @@ import {
   clearNextFullScreenSettingsBackTarget,
   markFullScreenGameRouteBackBehavior,
   markNextFullScreenSettingsBackTarget,
+  popFullScreenGameRouteBackBehavior,
   peekNextFullScreenSettingsBackTarget,
+  pushFullScreenGameRouteAchievementReturnTarget,
+  resolveFullScreenGameRouteAchievementReturnTarget,
   resolveFullScreenGameRouteBackBehavior,
   resolveFullScreenSettingsBackTarget,
   shouldSuppressGameRouteUnmountWhenOpeningAchievement,
@@ -2487,10 +2490,13 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     "src/platform/decky/decky-full-screen-achievement-page.tsx",
     "utf8",
   );
+  const deckyNavigationSource = readFileSync("src/platform/decky/decky-navigation.tsx", "utf8");
   assert.match(fullScreenAchievementPageSource, /PanelSection title="ACHIEVEMENT SPOTLIGHT"/);
   assert.match(fullScreenAchievementPageSource, /AchievementSpotlightCard/);
   assert.match(fullScreenAchievementPageSource, /if \(!isSteamProvider\) \{/);
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightCardStyle\(tone\)/);
+  assert.match(fullScreenAchievementPageSource, /readonly onOpenFullScreenGame\?: \(\(\) => void\) \| undefined;/u);
+  assert.match(fullScreenAchievementPageSource, /const heroArtworkUrl = game\.boxArtImageUrl \?\? game\.coverImageUrl;/u);
   assert.match(
     fullScreenAchievementPageSource,
     /FULLSCREEN_ACHIEVEMENT_PAGE_BOTTOM_SCROLL_PADDING = 88/,
@@ -2499,10 +2505,17 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     fullScreenAchievementPageSource,
     /calc\(env\(safe-area-inset-bottom, 0px\) \+ \$\{FULLSCREEN_ACHIEVEMENT_PAGE_BOTTOM_SCROLL_PADDING\}px\)/,
   );
+  assert.match(fullScreenAchievementPageSource, /function getAchievementSpotlightPageRailStyle\(\): CSSProperties/u);
+  assert.match(fullScreenAchievementPageSource, /display: "flex"/u);
+  assert.match(fullScreenAchievementPageSource, /justifyContent: "center"/u);
+  assert.match(fullScreenAchievementPageSource, /minHeight:\s*`calc\(100vh - env\(safe-area-inset-top, 0px\) - env\(safe-area-inset-bottom, 0px\) - \$\{FULLSCREEN_ACHIEVEMENT_PAGE_BOTTOM_SCROLL_PADDING \+ 24\}px\)`/u);
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightBackRowStyle\(\)/);
   assert.match(fullScreenAchievementPageSource, /backLabel=\{backLabel\}/);
   assert.match(fullScreenAchievementPageSource, /onBack=\{onBack\}/);
+  assert.match(fullScreenAchievementPageSource, /onOpenFullScreenGame=\{onOpenFullScreenGame\}/u);
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightBadgeFrameStyle\(tone\)/);
+  assert.match(fullScreenAchievementPageSource, /readonly gameArtworkUrl: string \| undefined;/u);
+  assert.match(fullScreenAchievementPageSource, /gameArtworkUrl=\{heroArtworkUrl\}/u);
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightTitleStyle\(\)/);
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightDescriptionStyle\(\)/);
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightMetaRowStyle\(\)/);
@@ -2536,11 +2549,33 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenAchievementPageSource, /label="Softcore unlocks"/);
   assert.match(fullScreenAchievementPageSource, /label="Hardcore unlocks"/);
   assert.match(fullScreenAchievementPageSource, /label="Total players"/);
+  assert.match(
+    fullScreenAchievementPageSource,
+    /function getAchievementSpotlightGameCoverFrameStyle\(\s*interactive: boolean,\s*focused: boolean,\s*\): CSSProperties/u,
+  );
+  assert.match(fullScreenAchievementPageSource, /function getAchievementSpotlightGameCoverImageStyle\(\): CSSProperties/u);
+  assert.match(fullScreenAchievementPageSource, /objectFit: "contain"/u);
+  assert.match(fullScreenAchievementPageSource, /maxWidth: 196/u);
+  assert.match(fullScreenAchievementPageSource, /maxHeight: 116/u);
+  assert.match(fullScreenAchievementPageSource, /gameArtworkUrl !== undefined && onOpenFullScreenGame !== undefined \? \(/u);
+  assert.match(fullScreenAchievementPageSource, /<Focusable[\s\S]*role="button"/u);
+  assert.match(fullScreenAchievementPageSource, /aria-label=\{`Open game details for \$\{game\.title\}`\}/u);
+  assert.match(fullScreenAchievementPageSource, /onActivate=\{onOpenFullScreenGame\}/u);
+  assert.match(fullScreenAchievementPageSource, /onClick=\{onOpenFullScreenGame\}/u);
+  assert.match(fullScreenAchievementPageSource, /onGamepadFocus=\{\(\) => \{/u);
+  assert.match(fullScreenAchievementPageSource, /setIsGameCoverFocused\(true\)/u);
+  assert.match(fullScreenAchievementPageSource, /setIsGameCoverFocused\(false\)/u);
+  assert.match(fullScreenAchievementPageSource, /cursor: interactive \? "pointer" : "default"/u);
+  assert.match(fullScreenAchievementPageSource, /borderColor: focused \? "rgba\(105, 176, 255, 0\.8\)" : "rgba\(255, 255, 255, 0\.1\)"/u);
+  assert.doesNotMatch(fullScreenAchievementPageSource, /getAchievementSpotlightGameCoverImageStyle\(\)[\s\S]*objectFit: "cover"/u);
+  assert.match(fullScreenAchievementPageSource, /<div style=\{getAchievementSpotlightPageRailStyle\(\)\}>/u);
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightStatGridStyle\(\)/);
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightCountsGridStyle\(\)/);
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightRarityStackStyle\(\)/);
   assert.match(fullScreenAchievementPageSource, /RarityBar percent=\{unlockRatePercent\} tone=\{tone\} caption=\{unlockRateCaption\}/);
   assert.match(fullScreenAchievementPageSource, /size=\{88\}/);
+  assert.match(fullScreenAchievementPageSource, /gap: 12/u);
+  assert.match(fullScreenAchievementPageSource, /padding: 14/u);
   assert.doesNotMatch(fullScreenAchievementPageSource, /P2/u);
   assert.match(fullScreenAchievementPageSource, /<span style=\{getAchievementSpotlightMetaPillStyle\(\)\}>\s*RA\s*<\/span>/u);
   assert.match(fullScreenAchievementPageSource, /getAchievementDescriptionText\(achievement\.description\)/);
@@ -2548,6 +2583,60 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.equal(
     (fullScreenAchievementPageSource.match(/achievementStatus\.secondary \?\? achievementStatus\.value/g) ?? []).length,
     0,
+  );
+  assert.match(deckyNavigationSource, /function DeckyFullScreenAchievementRoute\(\): JSX\.Element/u);
+  assert.match(deckyNavigationSource, /onOpenFullScreenGame=/u);
+  assert.match(
+    deckyNavigationSource,
+    /function navigateToFullScreenGameFromAchievement\(/u,
+  );
+  assert.match(
+    deckyNavigationSource,
+    /pushFullScreenGameRouteAchievementReturnTarget\(providerId, gameId, \{/u,
+  );
+  assert.match(
+    deckyNavigationSource,
+    /navigateToFullScreenGameFromAchievement\(\s*params\.providerId!,\s*params\.gameId!,\s*params\.achievementId!,\s*\)/u,
+  );
+  assert.match(
+    deckyNavigationSource,
+    /const achievementReturnTarget = useMemo\(/u,
+  );
+  assert.match(
+    deckyNavigationSource,
+    /resolveFullScreenGameRouteAchievementReturnTarget\(params\.providerId, params\.gameId\)/u,
+  );
+  assert.match(
+    deckyNavigationSource,
+    /const shouldReturnToAchievementDetail =\s*fullScreenGameRouteBackBehavior === "achievement" && achievementReturnTarget !== undefined/u,
+  );
+  assert.match(
+    deckyNavigationSource,
+    /popFullScreenGameRouteBackBehavior\(params\.providerId, params\.gameId\)/u,
+  );
+  assert.match(
+    deckyNavigationSource,
+    /popFullScreenGameRouteBackBehavior\(params\.providerId, params\.gameId\);\s*DeckyNavigation\.NavigateBack\(\);/u,
+  );
+  assert.doesNotMatch(
+    deckyNavigationSource,
+    /navigateToFullScreenAchievement\(\s*achievementReturnTarget\.providerId/u,
+  );
+  assert.match(
+    deckyNavigationSource,
+    /const fullScreenAchievementRouteBackBehaviors = new Map<string, FullScreenAchievementRouteBackBehavior>\(\)/u,
+  );
+  assert.match(
+    deckyNavigationSource,
+    /function resolveFullScreenAchievementRouteBackBehavior\(/u,
+  );
+  assert.match(
+    deckyNavigationSource,
+    /resolveFullScreenAchievementRouteBackBehavior\(\s*params\.providerId,\s*params\.gameId,\s*params\.achievementId,\s*\) === "achievement-history"/u,
+  );
+  assert.doesNotMatch(
+    deckyNavigationSource,
+    /consumeNextFullScreenAchievementRouteBackBehavior/u,
   );
   assert.match(
     readFileSync("src/platform/decky/decky-compact-pill-action-item.tsx", "utf8"),
@@ -9284,6 +9373,7 @@ test("fullscreen settings back target persists across settings round trips", asy
 test("fullscreen game route suppresses unmount when opening an achievement from the game page", () => {
   assert.equal(shouldSuppressGameRouteUnmountWhenOpeningAchievement("decky-panel"), true);
   assert.equal(shouldSuppressGameRouteUnmountWhenOpeningAchievement("completion-progress"), true);
+  assert.equal(shouldSuppressGameRouteUnmountWhenOpeningAchievement("achievement"), true);
 });
 
 test("fullscreen game route preserves its original back behavior across achievement round trips", () => {
@@ -9298,6 +9388,30 @@ test("fullscreen game route preserves its original back behavior across achievem
 
   markFullScreenGameRouteBackBehavior(providerId, gameId, "decky-panel");
   assert.equal(resolveFullScreenGameRouteBackBehavior(providerId, gameId), "decky-panel");
+});
+
+test("fullscreen game route can temporarily return to an achievement detail without losing its original back behavior", () => {
+  const providerId = "retroachievements";
+  const gameId = "1234";
+  const achievementId = "5678";
+
+  markFullScreenGameRouteBackBehavior(providerId, gameId, "decky-panel");
+  pushFullScreenGameRouteAchievementReturnTarget(providerId, gameId, {
+    providerId,
+    gameId,
+    achievementId,
+  });
+
+  assert.equal(resolveFullScreenGameRouteBackBehavior(providerId, gameId), "achievement");
+  assert.deepStrictEqual(resolveFullScreenGameRouteAchievementReturnTarget(providerId, gameId), {
+    providerId,
+    gameId,
+    achievementId,
+  });
+
+  popFullScreenGameRouteBackBehavior(providerId, gameId);
+  assert.equal(resolveFullScreenGameRouteBackBehavior(providerId, gameId), "decky-panel");
+  assert.equal(resolveFullScreenGameRouteAchievementReturnTarget(providerId, gameId), undefined);
 });
 
 test("fullscreen return context writes provider dashboard payload and game payload", async () => {
