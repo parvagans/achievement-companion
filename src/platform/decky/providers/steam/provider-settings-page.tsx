@@ -30,9 +30,11 @@ type ScanState =
   | { readonly status: "success"; readonly message: string }
   | { readonly status: "error"; readonly message: string };
 
+const STEAM_PROVIDER_SETTINGS_TOP_PADDING = 42;
+
 function getPageFrameStyle(): CSSProperties {
   return {
-    padding: "calc(env(safe-area-inset-top, 0px) + 12px) 12px calc(env(safe-area-inset-bottom, 0px) + 12px)",
+    padding: `calc(env(safe-area-inset-top, 0px) + ${STEAM_PROVIDER_SETTINGS_TOP_PADDING}px) 12px calc(env(safe-area-inset-bottom, 0px) + 12px)`,
     boxSizing: "border-box",
   };
 }

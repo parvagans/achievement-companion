@@ -2684,6 +2684,30 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     "src/platform/decky/decky-full-screen-achievement-history-page.tsx",
     "utf8",
   );
+  const completionProgressSource = readFileSync(
+    "src/platform/decky/decky-full-screen-completion-progress-page.tsx",
+    "utf8",
+  );
+  const fullScreenSettingsSource = readFileSync(
+    "src/platform/decky/decky-full-screen-settings-page.tsx",
+    "utf8",
+  );
+  const retroProviderSettingsPageSource = readFileSync(
+    "src/platform/decky/providers/retroachievements/provider-settings-page.tsx",
+    "utf8",
+  );
+  const steamProviderSettingsPageSource = readFileSync(
+    "src/platform/decky/providers/steam/provider-settings-page.tsx",
+    "utf8",
+  );
+  const retroSetupScreenSource = readFileSync(
+    "src/platform/decky/providers/retroachievements/setup-screen.tsx",
+    "utf8",
+  );
+  const steamSetupScreenSource = readFileSync(
+    "src/platform/decky/providers/steam/setup-screen.tsx",
+    "utf8",
+  );
   assert.match(dashboardViewSource, /label="Open full-screen"/);
   assert.match(dashboardViewSource, /emphasis="primary"/);
   assert.match(
@@ -2743,6 +2767,71 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.doesNotMatch(dashboardViewSource, /addProfileAvatarCacheBustParam\(game\.coverImageUrl/u);
   assert.doesNotMatch(fullScreenProfileSource, /addProfileAvatarCacheBustParam\(game\.coverImageUrl/u);
   assert.doesNotMatch(achievementHistorySource, /addProfileAvatarCacheBustParam\(game\.coverImageUrl/u);
+  assert.match(fullScreenProfileSource, /FULLSCREEN_PROFILE_TOP_PADDING = 42/u);
+  assert.match(
+    fullScreenProfileSource,
+    /calc\(env\(safe-area-inset-top, 0px\) \+ \$\{FULLSCREEN_PROFILE_TOP_PADDING\}px\) 12px calc\(env\(safe-area-inset-bottom, 0px\) \+ \$\{FULLSCREEN_PROFILE_BOTTOM_SCROLL_PADDING\}px\)/u,
+  );
+  assert.match(fullScreenProfileSource, /FULLSCREEN_PROFILE_BOTTOM_SCROLL_PADDING = 88/u);
+  assert.match(achievementHistorySource, /FULLSCREEN_ACHIEVEMENT_HISTORY_TOP_PADDING = 42/u);
+  assert.match(
+    achievementHistorySource,
+    /calc\(env\(safe-area-inset-top, 0px\) \+ \$\{FULLSCREEN_ACHIEVEMENT_HISTORY_TOP_PADDING\}px\) 12px calc\(env\(safe-area-inset-bottom, 0px\) \+ \$\{FULLSCREEN_ACHIEVEMENT_HISTORY_PROGRESS_BOTTOM_SCROLL_PADDING\}px\)/u,
+  );
+  assert.match(achievementHistorySource, /FULLSCREEN_ACHIEVEMENT_HISTORY_PROGRESS_BOTTOM_SCROLL_PADDING = 88/u);
+  assert.match(fullScreenGamePageSource, /FULLSCREEN_GAME_TOP_PADDING = 42/u);
+  assert.match(
+    fullScreenGamePageSource,
+    /calc\(env\(safe-area-inset-top, 0px\) \+ \$\{FULLSCREEN_GAME_TOP_PADDING\}px\) 12px calc\(env\(safe-area-inset-bottom, 0px\) \+ \$\{FULLSCREEN_GAME_BOTTOM_SCROLL_PADDING\}px\)/u,
+  );
+  assert.match(fullScreenGamePageSource, /FULLSCREEN_GAME_BOTTOM_SCROLL_PADDING = 88/u);
+  assert.match(completionProgressSource, /FULLSCREEN_COMPLETION_PROGRESS_TOP_PADDING = 42/u);
+  assert.match(
+    completionProgressSource,
+    /calc\(env\(safe-area-inset-top, 0px\) \+ \$\{FULLSCREEN_COMPLETION_PROGRESS_TOP_PADDING\}px\) 12px calc\(env\(safe-area-inset-bottom, 0px\) \+ \$\{FULLSCREEN_COMPLETION_PROGRESS_BOTTOM_SCROLL_PADDING\}px\)/u,
+  );
+  assert.match(completionProgressSource, /FULLSCREEN_COMPLETION_PROGRESS_BOTTOM_SCROLL_PADDING = 88/u);
+  assert.match(fullScreenSettingsSource, /FULLSCREEN_SETTINGS_PAGE_TOP_PADDING = 42/u);
+  assert.match(
+    fullScreenSettingsSource,
+    /calc\(env\(safe-area-inset-top, 0px\) \+ \$\{FULLSCREEN_SETTINGS_PAGE_TOP_PADDING\}px\) 12px calc\(env\(safe-area-inset-bottom, 0px\) \+ \$\{FULLSCREEN_SETTINGS_PAGE_BOTTOM_SCROLL_PADDING\}px\)/u,
+  );
+  assert.match(fullScreenSettingsSource, /FULLSCREEN_SETTINGS_PAGE_BOTTOM_SCROLL_PADDING = 88/u);
+  assert.match(retroProviderSettingsPageSource, /RETROACHIEVEMENTS_PROVIDER_SETTINGS_TOP_PADDING = 42/u);
+  assert.match(
+    retroProviderSettingsPageSource,
+    /calc\(env\(safe-area-inset-top, 0px\) \+ \$\{RETROACHIEVEMENTS_PROVIDER_SETTINGS_TOP_PADDING\}px\) 12px calc\(env\(safe-area-inset-bottom, 0px\) \+ 12px\)/u,
+  );
+  assert.match(steamProviderSettingsPageSource, /STEAM_PROVIDER_SETTINGS_TOP_PADDING = 42/u);
+  assert.match(
+    steamProviderSettingsPageSource,
+    /calc\(env\(safe-area-inset-top, 0px\) \+ \$\{STEAM_PROVIDER_SETTINGS_TOP_PADDING\}px\) 12px calc\(env\(safe-area-inset-bottom, 0px\) \+ 12px\)/u,
+  );
+  assert.match(retroSetupScreenSource, /RETROACHIEVEMENTS_SETUP_TOP_PADDING = 42/u);
+  assert.match(
+    retroSetupScreenSource,
+    /calc\(env\(safe-area-inset-top, 0px\) \+ \$\{RETROACHIEVEMENTS_SETUP_TOP_PADDING\}px\) 12px calc\(env\(safe-area-inset-bottom, 0px\) \+ 12px\)/u,
+  );
+  assert.match(steamSetupScreenSource, /STEAM_SETUP_TOP_PADDING = 42/u);
+  assert.match(
+    steamSetupScreenSource,
+    /calc\(env\(safe-area-inset-top, 0px\) \+ \$\{STEAM_SETUP_TOP_PADDING\}px\) 12px calc\(env\(safe-area-inset-bottom, 0px\) \+ 12px\)/u,
+  );
+  for (const source of [
+    fullScreenProfileSource,
+    achievementHistorySource,
+    completionProgressSource,
+    fullScreenGamePageSource,
+    fullScreenSettingsSource,
+    retroProviderSettingsPageSource,
+    steamProviderSettingsPageSource,
+    retroSetupScreenSource,
+    steamSetupScreenSource,
+  ]) {
+    assert.doesNotMatch(source, /translateY\(/u);
+    assert.doesNotMatch(source, /height: "100vh"/u);
+    assert.doesNotMatch(source, /minHeight:\s*`calc\(100vh/u);
+  }
   assert.match(
     readFileSync("src/platform/decky/decky-full-screen-action-controls.tsx", "utf8"),
     /<DeckyFullscreenActionStyles\s*\/>/,

@@ -11,10 +11,11 @@ export interface DeckyFullScreenSettingsPageProps {
 }
 
 const FULLSCREEN_SETTINGS_PAGE_BOTTOM_SCROLL_PADDING = 88;
+const FULLSCREEN_SETTINGS_PAGE_TOP_PADDING = 42;
 
 function getPageFrameStyle(): CSSProperties {
   return {
-    padding: `calc(env(safe-area-inset-top, 0px) + 12px) 12px calc(env(safe-area-inset-bottom, 0px) + ${FULLSCREEN_SETTINGS_PAGE_BOTTOM_SCROLL_PADDING}px)`,
+    padding: `calc(env(safe-area-inset-top, 0px) + ${FULLSCREEN_SETTINGS_PAGE_TOP_PADDING}px) 12px calc(env(safe-area-inset-bottom, 0px) + ${FULLSCREEN_SETTINGS_PAGE_BOTTOM_SCROLL_PADDING}px)`,
     boxSizing: "border-box",
   };
 }
