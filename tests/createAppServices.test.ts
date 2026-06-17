@@ -2404,8 +2404,17 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenGamePageSource, /showAchievementModeFilter \?\s*\(/u);
   assert.match(
     fullScreenGamePageSource,
-    /Game Overview[\s\S]*getGameDetailOverviewTitleStyle\(\)[\s\S]*getGameOverviewPillRowStyle\(\)[\s\S]*DeckyGameArtwork[\s\S]*size=\{256\}[\s\S]*DeckyFullscreenActionRow centered[\s\S]*DeckyFullscreenActionButton[\s\S]*label=\{backLabel\}[\s\S]*DeckyFullscreenActionButton[\s\S]*label="Refresh"/u,
+    /Game Overview[\s\S]*getGameDetailOverviewTitleStyle\(\)[\s\S]*getGameOverviewPillRowStyle\(\)[\s\S]*game\.providerId === RETROACHIEVEMENTS_PROVIDER_ID[\s\S]*RetroAchievementsFullscreenGameArtwork[\s\S]*DeckyGameArtwork[\s\S]*size=\{256\}[\s\S]*DeckyFullscreenActionRow centered[\s\S]*DeckyFullscreenActionButton[\s\S]*label=\{backLabel\}[\s\S]*DeckyFullscreenActionButton[\s\S]*label="Refresh"/u,
   );
+  assert.match(fullScreenGamePageSource, /import \{ RETROACHIEVEMENTS_PROVIDER_ID \} from "\.\.\/\.\.\/providers\/retroachievements";/u);
+  assert.match(fullScreenGamePageSource, /function getRetroAchievementsGameSpotlightArtworkFrameStyle\(\): CSSProperties/u);
+  assert.match(fullScreenGamePageSource, /function getRetroAchievementsGameSpotlightArtworkImageStyle\(\): CSSProperties/u);
+  assert.match(fullScreenGamePageSource, /maxWidth: 268/u);
+  assert.match(fullScreenGamePageSource, /height: 256/u);
+  assert.match(fullScreenGamePageSource, /maxHeight: 256/u);
+  assert.match(fullScreenGamePageSource, /objectFit: "contain"/u);
+  assert.match(fullScreenGamePageSource, /objectPosition: "center center"/u);
+  assert.doesNotMatch(fullScreenGamePageSource, /getRetroAchievementsGameSpotlightArtworkImageStyle\(\)[\s\S]*objectFit: "cover"/u);
   assert.match(fullScreenGamePageSource, /getGameDetailOverviewLayoutStyle\(\)/);
   assert.match(fullScreenGamePageSource, /DeckyFullscreenActionRow centered/);
   const heroStyleStart = fullScreenGamePageSource.indexOf(
@@ -2471,6 +2480,9 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.doesNotMatch(fullScreenGamePageSource, /canShowAllAchievements/);
   assert.doesNotMatch(fullScreenGamePageSource, /label=\{`Show \$\{formatCount\(FULL_SCREEN_ACHIEVEMENT_LOAD_STEP\)\} more`\}/u);
   assert.doesNotMatch(fullScreenGamePageSource, /label="Show all"/);
+  const deckyGameArtworkSource = readFileSync("src/platform/decky/decky-game-artwork.tsx", "utf8");
+  assert.match(deckyGameArtworkSource, /objectFit: "cover"/u);
+  assert.match(achievementDetailViewSource, /DeckyGameArtwork compact src=\{headerArtworkUrl\} size=\{48\} title=\{game\.title\}/u);
   const fullScreenAchievementPageSource = readFileSync(
     "src/platform/decky/decky-full-screen-achievement-page.tsx",
     "utf8",
