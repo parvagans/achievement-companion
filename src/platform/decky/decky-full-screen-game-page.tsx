@@ -7,9 +7,14 @@ import {
   initialDeckyGameDetailState,
   loadDeckyGameDetailState,
 } from "./decky-app-services";
-import { DeckyCompletionProgressBar, getCompletionPercent } from "./decky-completion-progress-bar";
 import {
-  isRetroAchievementsMasteredHardcoreGame,
+  DeckyCompletionProgressBar,
+  getCompletionPercent,
+  type DeckyCompletionProgressBarTone,
+} from "./decky-completion-progress-bar";
+import {
+  formatRetroAchievementsCompletionIndicatorLabel,
+  getRetroAchievementsCompletionIndicatorState,
   RetroAchievementsCompletionIndicator,
 } from "./decky-retroachievements-completion-indicator";
 import { DeckyGameArtwork } from "./decky-game-artwork";
@@ -18,6 +23,7 @@ import {
   DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS,
 } from "./decky-focus-styles";
 import {
+  formatRetroAchievementsBeatenAtText,
   formatProviderAchievementPointsText,
   formatProviderAchievementStatusText,
   formatRetroAchievementsMasteredAtText,
@@ -531,7 +537,9 @@ function getProgressCardTitleStyle(): CSSProperties {
   };
 }
 
-function getMasteredStatusPillStyle(): CSSProperties {
+function getCompletionStatusPillStyle(
+  tone: DeckyCompletionProgressBarTone,
+): CSSProperties {
   return {
     display: "inline-flex",
     alignItems: "center",
@@ -542,9 +550,18 @@ function getMasteredStatusPillStyle(): CSSProperties {
     minHeight: 28,
     padding: "5px 11px",
     borderRadius: 999,
-    border: "1px solid rgba(232, 201, 102, 0.44)",
-    background: "linear-gradient(180deg, rgba(232, 201, 102, 0.14), rgba(214, 178, 74, 0.06))",
-    color: "rgba(255, 239, 184, 0.97)",
+    border:
+      tone === "retroachievements-mastered"
+        ? "1px solid rgba(232, 201, 102, 0.44)"
+        : "1px solid rgba(214, 221, 232, 0.34)",
+    background:
+      tone === "retroachievements-mastered"
+        ? "linear-gradient(180deg, rgba(232, 201, 102, 0.14), rgba(214, 178, 74, 0.06))"
+        : "linear-gradient(180deg, rgba(214, 221, 232, 0.14), rgba(188, 198, 211, 0.06))",
+    color:
+      tone === "retroachievements-mastered"
+        ? "rgba(255, 239, 184, 0.97)"
+        : "rgba(231, 237, 245, 0.97)",
     fontSize: "0.82em",
     fontWeight: 800,
     letterSpacing: "0.05em",
@@ -554,9 +571,14 @@ function getMasteredStatusPillStyle(): CSSProperties {
   };
 }
 
-function getMasteredTimingTextStyle(): CSSProperties {
+function getCompletionTimingTextStyle(
+  tone: DeckyCompletionProgressBarTone,
+): CSSProperties {
   return {
-    color: "rgba(255, 239, 184, 0.84)",
+    color:
+      tone === "retroachievements-mastered"
+        ? "rgba(255, 239, 184, 0.84)"
+        : "rgba(221, 228, 236, 0.84)",
     fontSize: "0.86em",
     fontWeight: 700,
     lineHeight: 1.25,
@@ -1256,8 +1278,23 @@ export function DeckyFullScreenGamePage({
   );
   const filteredAchievementCount = filteredAchievements.length;
   const completionPercent = getCompletionPercent(snapshot.game.summary);
-  const isMasteredHardcore = isRetroAchievementsMasteredHardcoreGame(game);
+  const completionIndicatorState = getRetroAchievementsCompletionIndicatorState(game);
+  const isBeaten =
+    completionIndicatorState === "beaten-hardcore" || completionIndicatorState === "beaten-softcore";
+  const isMasteredHardcore = completionIndicatorState === "mastered-hardcore";
+  const completionStatusLabel = isMasteredHardcore ? "Mastered" : isBeaten ? "Beaten" : undefined;
+  const completionStatusAriaLabel =
+    completionIndicatorState !== undefined
+      ? formatRetroAchievementsCompletionIndicatorLabel(completionIndicatorState)
+      : undefined;
+  const completionTone = isMasteredHardcore
+    ? "retroachievements-mastered"
+    : isBeaten
+      ? "retroachievements-beaten"
+      : "default";
   const masteredAtText = formatRetroAchievementsMasteredAtText(game);
+  const beatenAtText = formatRetroAchievementsBeatenAtText(game);
+  const completionAtText = isMasteredHardcore ? masteredAtText : beatenAtText;
   const achievements = filteredAchievements;
   const providerLabel = formatDeckyProviderLabel(providerId ?? game.providerId);
   const isCachedView = state.status === "stale";
@@ -1318,25 +1355,25 @@ export function DeckyFullScreenGamePage({
 
                 <div style={getGameDetailSectionCardStyle()}>
                   <div style={getGameDetailSectionHeaderStyle()}>Progress Summary</div>
-                  {isMasteredHardcore ? (
+                  {completionStatusLabel !== undefined && completionStatusAriaLabel !== undefined ? (
                     <div
-                      aria-label="Mastered in hardcore"
-                      style={getMasteredStatusPillStyle()}
-                      title="Mastered in hardcore"
+                      aria-label={completionStatusAriaLabel}
+                      style={getCompletionStatusPillStyle(completionTone)}
+                      title={completionStatusAriaLabel}
                     >
                       <RetroAchievementsCompletionIndicator game={game} />
-                      <span>Mastered</span>
+                      <span>{completionStatusLabel}</span>
                     </div>
                   ) : (
                     <RetroAchievementsCompletionIndicator game={game} />
                   )}
-                  {masteredAtText !== undefined ? (
-                    <div style={getMasteredTimingTextStyle()}>{masteredAtText}</div>
+                  {completionAtText !== undefined && completionTone !== "default" ? (
+                    <div style={getCompletionTimingTextStyle(completionTone)}>{completionAtText}</div>
                   ) : null}
                   {completionPercent !== undefined ? (
                     <DeckyCompletionProgressBar
                       percent={completionPercent}
-                      tone={isMasteredHardcore ? "retroachievements-mastered" : "default"}
+                      tone={completionTone}
                     />
                   ) : null}
                   <div style={getProgressStatGridStyle()}>

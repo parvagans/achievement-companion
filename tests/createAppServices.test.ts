@@ -49,6 +49,7 @@ import {
 } from "../src/platform/decky/decky-app-services";
 import { setDeckyBackendCallImplementationForTests } from "../src/platform/decky/decky-backend-bridge";
 import {
+  formatRetroAchievementsBeatenAtText,
   buildAchievementStatus,
   dedupeDistinctLabels,
   formatRetroAchievementsMasteredAtText,
@@ -95,6 +96,7 @@ import {
   formatRetroAchievementsCompletionIndicatorLabel,
   getRetroAchievementsCompletionIndicatorState,
   getRetroAchievementsCompletionIndicatorStyle,
+  isRetroAchievementsBeatenGame,
   isRetroAchievementsMasteredHardcoreGame,
 } from "../src/platform/decky/decky-retroachievements-completion-indicator";
 import {
@@ -3737,9 +3739,24 @@ test("retroachievements completion indicator maps award kind to compact circle s
   assert.equal(getRetroAchievementsCompletionIndicatorState(createGame("completed")), "mastered-softcore");
   assert.equal(getRetroAchievementsCompletionIndicatorState(createGame("mastered", "steam")), undefined);
   assert.equal(getRetroAchievementsCompletionIndicatorState({ providerId: PROVIDER_ID, metrics: [] }), undefined);
+  assert.equal(isRetroAchievementsBeatenGame(createGame("beaten-hardcore")), true);
+  assert.equal(isRetroAchievementsBeatenGame(createGame("beaten")), true);
+  assert.equal(isRetroAchievementsBeatenGame(createGame("mastered")), false);
   assert.equal(isRetroAchievementsMasteredHardcoreGame(createGame("mastered")), true);
   assert.equal(isRetroAchievementsMasteredHardcoreGame(createGame("completed")), false);
   assert.equal(isRetroAchievementsMasteredHardcoreGame(createGame("mastered", "steam")), false);
+  assert.equal(
+    isRetroAchievementsBeatenGame({
+      providerId: PROVIDER_ID,
+      metrics: [],
+      summary: {
+        unlockedCount: 20,
+        totalCount: 40,
+        completionPercent: 50,
+      },
+    } as Pick<RecentlyPlayedGame, "providerId" | "metrics" | "summary">),
+    false,
+  );
   assert.equal(
     isRetroAchievementsMasteredHardcoreGame({
       providerId: PROVIDER_ID,
@@ -3815,6 +3832,58 @@ test("retroachievements mastered date text requires explicit hardcore mastered s
   );
 });
 
+test("retroachievements beaten date text requires explicit beaten state", () => {
+  const beatenAtText = formatRetroAchievementsBeatenAtText({
+    providerId: PROVIDER_ID,
+    lastUnlockAt: Date.parse("2024-04-23T21:28:49Z"),
+    metrics: [
+      {
+        key: "highest-award-kind",
+        label: "Highest Award",
+        value: "beaten-hardcore",
+      },
+    ],
+  });
+
+  assert.match(beatenAtText ?? "", /^Beaten on /u);
+  assert.equal(
+    formatRetroAchievementsBeatenAtText({
+      providerId: PROVIDER_ID,
+      lastUnlockAt: Date.parse("2024-04-23T21:28:49Z"),
+      metrics: [],
+    }),
+    undefined,
+  );
+  assert.equal(
+    formatRetroAchievementsBeatenAtText({
+      providerId: PROVIDER_ID,
+      lastUnlockAt: Date.parse("2024-04-23T21:28:49Z"),
+      metrics: [
+        {
+          key: "highest-award-kind",
+          label: "Highest Award",
+          value: "mastered",
+        },
+      ],
+    }),
+    undefined,
+  );
+  assert.equal(
+    formatRetroAchievementsBeatenAtText({
+      providerId: STEAM_PROVIDER_ID,
+      lastUnlockAt: Date.parse("2024-04-23T21:28:49Z"),
+      metrics: [
+        {
+          key: "highest-award-kind",
+          label: "Highest Award",
+          value: "beaten-hardcore",
+        },
+      ],
+    }),
+    undefined,
+  );
+});
+
 test("retroachievements mastered games use explicit mastered presentation on game progress surfaces", () => {
   const achievementDetailHelperSource = readFileSync(
     "src/platform/decky/decky-achievement-detail-helpers.ts",
@@ -3826,29 +3895,46 @@ test("retroachievements mastered games use explicit mastered presentation on gam
   const fullScreenGameSource = readFileSync("src/platform/decky/decky-full-screen-game-page.tsx", "utf8");
   const steamProviderSource = readFileSync("src/providers/steam/mappers/normalize.ts", "utf8");
 
-  assert.match(progressBarSource, /type DeckyCompletionProgressBarTone = "default" \| "retroachievements-mastered"/u);
+  assert.match(
+    progressBarSource,
+    /type DeckyCompletionProgressBarTone =[\s\S]*"default"[\s\S]*"retroachievements-mastered"[\s\S]*"retroachievements-beaten"/u,
+  );
   assert.match(progressBarSource, /data-completion-progress-tone=\{tone\}/u);
   assert.match(progressBarSource, /rgba\(214, 178, 74, 0\.94\)[\s\S]*rgba\(232, 201, 102, 0\.98\)/u);
+  assert.match(progressBarSource, /rgba\(188, 198, 211, 0\.94\)[\s\S]*rgba\(223, 230, 239, 0\.98\)/u);
+  assert.match(achievementDetailHelperSource, /export function formatRetroAchievementsBeatenAtText/u);
+  assert.match(achievementDetailHelperSource, /Beaten on/u);
   assert.match(achievementDetailHelperSource, /export function formatRetroAchievementsMasteredAtText/u);
   assert.match(achievementDetailHelperSource, /Mastered on/u);
 
-  assert.match(gameDetailSource, /const isMasteredHardcore = isRetroAchievementsMasteredHardcoreGame\(game\);/u);
-  assert.match(gameDetailSource, /<span>Mastered<\/span>/u);
+  assert.match(gameDetailSource, /const completionIndicatorState = getRetroAchievementsCompletionIndicatorState\(game\);/u);
+  assert.match(gameDetailSource, /const isBeaten =[\s\S]*completionIndicatorState === "beaten-hardcore"[\s\S]*completionIndicatorState === "beaten-softcore"/u);
+  assert.match(gameDetailSource, /const completionStatusLabel = isMasteredHardcore \? "Mastered" : isBeaten \? "Beaten" : undefined;/u);
+  assert.match(gameDetailSource, /<span>\{completionStatusLabel\}<\/span>/u);
+  assert.match(gameDetailSource, /const beatenAtText = formatRetroAchievementsBeatenAtText\(game\);/u);
   assert.match(gameDetailSource, /const masteredAtText = formatRetroAchievementsMasteredAtText\(game\);/u);
-  assert.match(gameDetailSource, /masteredAtText !== undefined/u);
-  assert.match(gameDetailSource, /tone=\{isMasteredHardcore \? "retroachievements-mastered" : "default"\}/u);
+  assert.match(gameDetailSource, /const completionAtText = isMasteredHardcore \? masteredAtText : beatenAtText;/u);
+  assert.match(gameDetailSource, /tone=\{completionTone\}/u);
 
-  assert.match(fullScreenGameSource, /const isMasteredHardcore = isRetroAchievementsMasteredHardcoreGame\(game\);/u);
-  assert.match(fullScreenGameSource, /<span>Mastered<\/span>/u);
+  assert.match(fullScreenGameSource, /const completionIndicatorState = getRetroAchievementsCompletionIndicatorState\(game\);/u);
+  assert.match(fullScreenGameSource, /const isBeaten =[\s\S]*completionIndicatorState === "beaten-hardcore"[\s\S]*completionIndicatorState === "beaten-softcore"/u);
+  assert.match(fullScreenGameSource, /const completionStatusLabel = isMasteredHardcore \? "Mastered" : isBeaten \? "Beaten" : undefined;/u);
+  assert.match(fullScreenGameSource, /<span>\{completionStatusLabel\}<\/span>/u);
+  assert.match(fullScreenGameSource, /const beatenAtText = formatRetroAchievementsBeatenAtText\(game\);/u);
   assert.match(fullScreenGameSource, /const masteredAtText = formatRetroAchievementsMasteredAtText\(game\);/u);
-  assert.match(fullScreenGameSource, /masteredAtText !== undefined/u);
-  assert.match(fullScreenGameSource, /tone=\{isMasteredHardcore \? "retroachievements-mastered" : "default"\}/u);
+  assert.match(fullScreenGameSource, /const completionAtText = isMasteredHardcore \? masteredAtText : beatenAtText;/u);
+  assert.match(fullScreenGameSource, /tone=\{completionTone\}/u);
 
-  assert.match(compactDashboardSource, /const isMasteredHardcore = isRetroAchievementsMasteredHardcoreGame\(game\);/u);
+  assert.match(compactDashboardSource, /const completionIndicatorState = getRetroAchievementsCompletionIndicatorState\(game\);/u);
+  assert.match(compactDashboardSource, /const isBeaten =[\s\S]*completionIndicatorState === "beaten-hardcore"[\s\S]*completionIndicatorState === "beaten-softcore"/u);
+  assert.match(compactDashboardSource, /const completionStatusLabel = isMasteredHardcore \? "Mastered" : isBeaten \? "Beaten" : undefined;/u);
   assert.match(compactDashboardSource, /<RetroAchievementsCompletionIndicator game=\{game\} \/>/u);
-  assert.match(compactDashboardSource, /<span>Mastered<\/span>/u);
-  assert.match(compactDashboardSource, /tone=\{isMasteredHardcore \? "retroachievements-mastered" : "default"\}/u);
-  assert.doesNotMatch(steamProviderSource, /highest-award-kind|retroachievements-mastered|RetroAchievementsCompletionIndicator/u);
+  assert.match(compactDashboardSource, /<span>\{completionStatusLabel\}<\/span>/u);
+  assert.match(compactDashboardSource, /tone=\{progressTone\}/u);
+  assert.doesNotMatch(
+    steamProviderSource,
+    /highest-award-kind|retroachievements-mastered|retroachievements-beaten|RetroAchievementsCompletionIndicator/u,
+  );
 });
 
 test("retroachievements profile completion tiles render compact and fullscreen breakdowns without adding tiles", () => {
