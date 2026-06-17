@@ -4,7 +4,11 @@ import type { CompletionProgressSnapshot, NormalizedGame } from "@core/domain";
 import { Field, PanelSection, PanelSectionRow, ScrollPanel } from "@decky/ui";
 import { PlaceholderState } from "@ui/PlaceholderState";
 import { DeckyActionButtonItem } from "./decky-action-button-item";
-import { DeckyCompletionProgressBar, getCompletionPercent } from "./decky-completion-progress-bar";
+import {
+  DeckyCompletionProgressBar,
+  getCompletionPercent,
+  type DeckyCompletionProgressBarTone,
+} from "./decky-completion-progress-bar";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
 import {
@@ -37,7 +41,10 @@ import {
   formatSteamPlaytimeMinutes,
   getSteamCompletionProgressGameDetailId,
 } from "./decky-stat-helpers";
-import { RetroAchievementsCompletionIndicator } from "./decky-retroachievements-completion-indicator";
+import {
+  getRetroAchievementsCompletionIndicatorState,
+  RetroAchievementsCompletionIndicator,
+} from "./decky-retroachievements-completion-indicator";
 
 const COMPLETION_PROGRESS_INITIAL_GAME_LIMIT = 12;
 const COMPLETION_PROGRESS_GAME_LOAD_STEP = 12;
@@ -329,6 +336,28 @@ function formatCompletionProgressSubsetSummary(
   return showSubsets ? formatCompletionProgressSubsetSummaryFromGrouping(group) : undefined;
 }
 
+function getCompletionProgressRowTone(
+  game: Pick<NormalizedGame, "providerId" | "metrics">,
+): DeckyCompletionProgressBarTone {
+  const completionIndicatorState = getRetroAchievementsCompletionIndicatorState(game);
+
+  if (
+    completionIndicatorState === "mastered-hardcore" ||
+    completionIndicatorState === "mastered-softcore"
+  ) {
+    return "retroachievements-mastered";
+  }
+
+  if (
+    completionIndicatorState === "beaten-hardcore" ||
+    completionIndicatorState === "beaten-softcore"
+  ) {
+    return "retroachievements-beaten";
+  }
+
+  return "default";
+}
+
 function CompletionProgressGameRow({
   gameGroup,
   onOpenGameDetail,
@@ -342,6 +371,7 @@ function CompletionProgressGameRow({
 }): JSX.Element {
   const { representativeGame: game } = gameGroup;
   const completionPercent = getCompletionPercent(game.summary);
+  const progressTone = getCompletionProgressRowTone(game);
   const unlockedCount = formatCount(game.summary.unlockedCount);
   const totalCount = game.summary.totalCount !== undefined ? formatCount(game.summary.totalCount) : undefined;
   const subsetSummary = formatCompletionProgressSubsetSummary(gameGroup, showSubsets);
@@ -401,7 +431,7 @@ function CompletionProgressGameRow({
           ) : null}
 
           {completionPercent !== undefined ? (
-            <DeckyCompletionProgressBar compact percent={completionPercent} />
+            <DeckyCompletionProgressBar compact percent={completionPercent} tone={progressTone} />
           ) : null}
 
           {game.lastUnlockAt !== undefined ? (
