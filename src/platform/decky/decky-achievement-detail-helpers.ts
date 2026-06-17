@@ -1,5 +1,8 @@
 import type { NormalizedAchievement, NormalizedGame, NormalizedMetric } from "@core/domain";
-import { isRetroAchievementsMasteredHardcoreGame } from "./decky-retroachievements-completion-indicator";
+import {
+  getRetroAchievementsCompletionIndicatorState,
+  isRetroAchievementsMasteredHardcoreGame,
+} from "./decky-retroachievements-completion-indicator";
 
 const STEAM_PROVIDER_ID = "steam";
 
@@ -253,6 +256,20 @@ export function formatRetroAchievementsMasteredAtText(
   }
 
   return `Mastered on ${formatTimestamp(game.lastUnlockAt)}`;
+}
+
+export function formatRetroAchievementsBeatenAtText(
+  game: Pick<NormalizedGame, "providerId" | "lastUnlockAt" | "metrics">,
+): string | undefined {
+  const completionState = getRetroAchievementsCompletionIndicatorState(game);
+  if (
+    (completionState !== "beaten-hardcore" && completionState !== "beaten-softcore") ||
+    game.lastUnlockAt === undefined
+  ) {
+    return undefined;
+  }
+
+  return `Beaten on ${formatTimestamp(game.lastUnlockAt)}`;
 }
 
 export function formatProviderAchievementPointsText(

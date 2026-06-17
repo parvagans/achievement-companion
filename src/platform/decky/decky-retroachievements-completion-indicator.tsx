@@ -66,6 +66,13 @@ export function isRetroAchievementsMasteredHardcoreGame(
   return getRetroAchievementsCompletionIndicatorState(game) === "mastered-hardcore";
 }
 
+export function isRetroAchievementsBeatenGame(
+  game: { readonly providerId: string; readonly metrics?: readonly NormalizedMetric[] },
+): boolean {
+  const state = getRetroAchievementsCompletionIndicatorState(game);
+  return state === "beaten-hardcore" || state === "beaten-softcore";
+}
+
 export function formatRetroAchievementsCompletionIndicatorLabel(
   state: RetroAchievementsCompletionIndicatorState,
 ): string {

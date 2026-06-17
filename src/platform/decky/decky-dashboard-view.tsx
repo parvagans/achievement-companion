@@ -38,7 +38,8 @@ import { getDeckyProviderIconSrc } from "./providers/provider-branding";
 import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
 import { STEAM_PROVIDER_ID } from "../../providers/steam/config";
 import {
-  isRetroAchievementsMasteredHardcoreGame,
+  formatRetroAchievementsCompletionIndicatorLabel,
+  getRetroAchievementsCompletionIndicatorState,
   RetroAchievementsCompletionBreakdown,
   RetroAchievementsCompletionIndicator,
 } from "./decky-retroachievements-completion-indicator";
@@ -689,11 +690,15 @@ function getDashboardMiniProgressFillStyle(percent: number, tone: DeckyCompletio
     background:
       tone === "retroachievements-mastered"
         ? "linear-gradient(90deg, rgba(214, 178, 74, 0.94), rgba(232, 201, 102, 0.98))"
+        : tone === "retroachievements-beaten"
+          ? "linear-gradient(90deg, rgba(188, 198, 211, 0.94), rgba(223, 230, 239, 0.98))"
         : "linear-gradient(90deg, rgba(99, 179, 237, 0.92), rgba(125, 211, 252, 0.98))",
   };
 }
 
-function getDashboardMasteredStatusLineStyle(): CSSProperties {
+function getDashboardCompletionStatusLineStyle(
+  tone: DeckyCompletionProgressBarTone,
+): CSSProperties {
   return {
     display: "inline-flex",
     alignItems: "center",
@@ -701,7 +706,10 @@ function getDashboardMasteredStatusLineStyle(): CSSProperties {
     width: "fit-content",
     maxWidth: "100%",
     minWidth: 0,
-    color: "rgba(255, 239, 184, 0.94)",
+    color:
+      tone === "retroachievements-mastered"
+        ? "rgba(255, 239, 184, 0.94)"
+        : "rgba(231, 237, 245, 0.94)",
     fontSize: "0.74em",
     fontWeight: 800,
     lineHeight: 1.12,
@@ -1171,7 +1179,20 @@ function RecentlyPlayedRow({
   const progressPercent = getCompletionPercent(game.summary);
   const progressLine = formatRecentlyPlayedProgressLine(game);
   const lastPlayedText = formatRecentlyPlayedLastPlayedText(game);
-  const isMasteredHardcore = isRetroAchievementsMasteredHardcoreGame(game);
+  const completionIndicatorState = getRetroAchievementsCompletionIndicatorState(game);
+  const isBeaten =
+    completionIndicatorState === "beaten-hardcore" || completionIndicatorState === "beaten-softcore";
+  const isMasteredHardcore = completionIndicatorState === "mastered-hardcore";
+  const completionStatusLabel = isMasteredHardcore ? "Mastered" : isBeaten ? "Beaten" : undefined;
+  const completionStatusAriaLabel =
+    completionIndicatorState !== undefined
+      ? formatRetroAchievementsCompletionIndicatorLabel(completionIndicatorState)
+      : undefined;
+  const progressTone: DeckyCompletionProgressBarTone = isMasteredHardcore
+    ? "retroachievements-mastered"
+    : isBeaten
+      ? "retroachievements-beaten"
+      : "default";
 
   return (
     <Focusable
@@ -1201,14 +1222,14 @@ function RecentlyPlayedRow({
         <div style={getDashboardCompactTitleStyle()}>{game.title}</div>
         <span style={getDashboardSystemPillStyle()}>{game.platformLabel ?? "Unknown platform"}</span>
         <div style={getDashboardCompactProgressStackStyle()}>
-          {isMasteredHardcore ? (
+          {completionStatusLabel !== undefined && completionStatusAriaLabel !== undefined ? (
             <div
-              aria-label="Mastered in hardcore"
-              style={getDashboardMasteredStatusLineStyle()}
-              title="Mastered in hardcore"
+              aria-label={completionStatusAriaLabel}
+              style={getDashboardCompletionStatusLineStyle(progressTone)}
+              title={completionStatusAriaLabel}
             >
               <RetroAchievementsCompletionIndicator game={game} />
-              <span>Mastered</span>
+              <span>{completionStatusLabel}</span>
             </div>
           ) : null}
           <div style={getDashboardCompactMetaLineStyle()}>{progressLine}</div>
@@ -1218,7 +1239,7 @@ function RecentlyPlayedRow({
           {progressPercent !== undefined ? (
             <CompactDashboardProgressBar
               percent={progressPercent}
-              tone={isMasteredHardcore ? "retroachievements-mastered" : "default"}
+              tone={progressTone}
             />
           ) : null}
         </div>

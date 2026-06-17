@@ -2,7 +2,10 @@ import type { CSSProperties } from "react";
 import type { GameDetailSnapshot } from "@core/domain";
 
 type GameSummary = GameDetailSnapshot["game"]["summary"];
-export type DeckyCompletionProgressBarTone = "default" | "retroachievements-mastered";
+export type DeckyCompletionProgressBarTone =
+  | "default"
+  | "retroachievements-mastered"
+  | "retroachievements-beaten";
 
 function clampPercent(value: number): number {
   return Math.max(0, Math.min(100, value));
@@ -35,6 +38,8 @@ function getCompletionBarFillStyle(percent: number, tone: DeckyCompletionProgres
     background:
       tone === "retroachievements-mastered"
         ? "linear-gradient(90deg, rgba(214, 178, 74, 0.94), rgba(232, 201, 102, 0.98))"
+        : tone === "retroachievements-beaten"
+          ? "linear-gradient(90deg, rgba(188, 198, 211, 0.94), rgba(223, 230, 239, 0.98))"
         : "linear-gradient(90deg, rgba(99, 179, 237, 0.92), rgba(125, 211, 252, 0.98))",
     transition: "width 120ms ease",
   };
