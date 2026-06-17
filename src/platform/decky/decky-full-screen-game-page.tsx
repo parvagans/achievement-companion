@@ -18,6 +18,7 @@ import {
   RetroAchievementsCompletionIndicator,
 } from "./decky-retroachievements-completion-indicator";
 import { DeckyGameArtwork } from "./decky-game-artwork";
+import { DeckySystemPill } from "./decky-system-pill";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
 import {
   DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS,
@@ -524,6 +525,8 @@ function getGameOverviewInfoPillStyle(): CSSProperties {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
+    gap: 6,
+    minWidth: 0,
     minHeight: 28,
     padding: "0 10px",
     borderRadius: 999,
@@ -1433,6 +1436,12 @@ export function DeckyFullScreenGamePage({
                   <div style={getGameDetailSectionHeaderStyle()}>Game Overview</div>
                   <div style={getGameDetailOverviewLayoutStyle()}>
                     <div style={getGameDetailOverviewTextStyle()}>
+                      <DeckySystemPill
+                        label={game.platformLabel ?? "Unknown system"}
+                        iconSize={16}
+                        iconUrl={game.providerId === RETROACHIEVEMENTS_PROVIDER_ID ? game.systemIconUrl : undefined}
+                        style={getGameOverviewInfoPillStyle()}
+                      />
                       <div style={getGameDetailOverviewTitleStyle()}>{game.title}</div>
                       <div style={getGameOverviewPillRowStyle()}>
                         {heroMetaPills.map((label) => (

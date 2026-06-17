@@ -73,6 +73,7 @@ export interface NormalizedGame {
   readonly gameId: string;
   readonly title: string;
   readonly platformLabel?: string;
+  readonly systemIconUrl?: string;
   readonly coverImageUrl?: string;
   readonly boxArtImageUrl?: string;
   readonly parentGameId?: string;
@@ -96,6 +97,7 @@ export interface RecentlyPlayedGame {
   readonly gameId: string;
   readonly title: string;
   readonly platformLabel?: string;
+  readonly systemIconUrl?: string;
   readonly coverImageUrl?: string;
   readonly summary: ProgressSummary;
   readonly metrics?: readonly NormalizedMetric[];

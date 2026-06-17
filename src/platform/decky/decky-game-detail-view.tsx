@@ -14,6 +14,7 @@ import {
   RetroAchievementsCompletionIndicator,
 } from "./decky-retroachievements-completion-indicator";
 import { DeckyGameArtwork } from "./decky-game-artwork";
+import { DeckySystemPill } from "./decky-system-pill";
 import { DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS, DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import type { CompactAchievementTarget } from "./decky-achievement-detail-view";
 import { DeckyCompactPillActionGroup, DeckyCompactPillActionItem } from "./decky-compact-pill-action-item";
@@ -28,6 +29,7 @@ import {
   shouldRenderAchievementModeFilter,
 } from "./decky-achievement-detail-helpers";
 import { sortAchievementsForDisplay } from "./decky-game-detail-ordering";
+import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 
 const INITIAL_ACHIEVEMENT_LIMIT = 3;
 const ACHIEVEMENT_FILTERS = ["all", "unlocked", "locked"] as const;
@@ -216,6 +218,8 @@ function getGameDetailSystemPillStyle(): CSSProperties {
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
+    gap: 6,
+    minWidth: 0,
     padding: "4px 10px",
     borderRadius: 999,
     border: "1px solid rgba(255, 255, 255, 0.08)",
@@ -843,7 +847,12 @@ export function DeckyGameDetailView({
         <PanelSectionRow>
           <div style={getGameDetailSectionCardStyle()}>
             <div style={getGameDetailOverviewLayoutStyle()}>
-              <div style={getGameDetailSystemPillStyle()}>{game.platformLabel ?? "Unknown system"}</div>
+              <DeckySystemPill
+                label={game.platformLabel ?? "Unknown system"}
+                iconSize={16}
+                iconUrl={game.providerId === RETROACHIEVEMENTS_PROVIDER_ID ? game.systemIconUrl : undefined}
+                style={getGameDetailSystemPillStyle()}
+              />
               <div style={getGameDetailOverviewIconFrameStyle()}>
                 {headerArtworkUrl !== undefined ? (
                   <DeckyGameArtwork compact src={headerArtworkUrl} size={48} title={game.title} />

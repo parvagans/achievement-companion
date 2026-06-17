@@ -206,7 +206,7 @@ function pickEpochMs(...values: unknown[]): number | undefined {
 
 const RETROACHIEVEMENTS_IMAGE_ORIGIN = "https://i.retroachievements.org";
 
-function normalizeRetroAchievementsImageUrl(imagePath: string): string {
+export function normalizeRetroAchievementsImageUrl(imagePath: string): string {
   return new URL(imagePath, RETROACHIEVEMENTS_IMAGE_ORIGIN).toString();
 }
 
@@ -705,6 +705,7 @@ interface RetroAchievementsGameIdentityInput {
   readonly gameTitle?: string | undefined;
   readonly title?: string | undefined;
   readonly platformLabel?: string | undefined;
+  readonly systemIconUrl?: string | undefined;
   readonly coverImageUrl?: string | undefined;
   readonly boxArtImageUrl?: string | undefined;
 }
@@ -713,11 +714,12 @@ function buildGameIdentity(
   raw: RetroAchievementsGameIdentityInput,
 ): Pick<
   NormalizedGame,
-  "providerId" | "gameId" | "title" | "platformLabel" | "coverImageUrl" | "boxArtImageUrl"
+  "providerId" | "gameId" | "title" | "platformLabel" | "systemIconUrl" | "coverImageUrl" | "boxArtImageUrl"
 > {
   const gameId = pickIdentifier(raw.gameId) ?? "unknown-game";
   const title = pickString(raw.gameTitle, raw.title) ?? "Unknown Game";
   const platformLabel = pickString(raw.platformLabel);
+  const systemIconUrl = pickString(raw.systemIconUrl);
   const coverImageUrl = pickString(raw.coverImageUrl);
   const boxArtImageUrl = pickString(raw.boxArtImageUrl);
 
@@ -726,6 +728,7 @@ function buildGameIdentity(
     gameId,
     title,
     ...(platformLabel !== undefined ? { platformLabel } : {}),
+    ...(systemIconUrl !== undefined ? { systemIconUrl: normalizeRetroAchievementsImageUrl(systemIconUrl) } : {}),
     ...(coverImageUrl !== undefined ? { coverImageUrl: normalizeRetroAchievementsImageUrl(coverImageUrl) } : {}),
     ...(boxArtImageUrl !== undefined ? { boxArtImageUrl: normalizeRetroAchievementsImageUrl(boxArtImageUrl) } : {}),
   };
@@ -1153,13 +1156,14 @@ function normalizeRetroAchievementsRecentlyPlayedGame(
       : {}),
   };
 
-  const { providerId, gameId, title, platformLabel, coverImageUrl } = game;
+  const { providerId, gameId, title, platformLabel, systemIconUrl, coverImageUrl } = game;
 
   return {
     providerId,
     gameId,
     title,
     ...(platformLabel !== undefined ? { platformLabel } : {}),
+    ...(systemIconUrl !== undefined ? { systemIconUrl } : {}),
     ...(coverImageUrl !== undefined ? { coverImageUrl } : {}),
     summary,
     ...(highestAwardKind !== undefined
