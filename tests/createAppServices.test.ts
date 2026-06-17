@@ -2608,12 +2608,19 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   );
   assert.match(
     achievementHistorySource,
-    /formatProviderAchievementUnlockRateText\(\s*recentUnlock\.achievement\.providerId,\s*unlockRate/u,
+    /function formatAchievementHistoryRetroPointsText[\s\S]*getMetricValue\(achievement\.metrics, "true-ratio", "True Ratio"\)/u,
   );
+  assert.match(achievementHistorySource, /const retroPointsText = formatAchievementHistoryRetroPointsText\(recentUnlock\.achievement\);/u);
+  assert.match(achievementHistorySource, /RetroPoints \$\{retroPoints\}/u);
   assert.match(achievementHistorySource, /isSteamProvider && recentUnlock\.achievement\.description !== undefined/);
   assert.match(achievementHistorySource, /!isSteamProvider && unlockedAt !== undefined/);
   assert.doesNotMatch(achievementHistorySource, /Points unavailable/u);
   assert.doesNotMatch(achievementHistorySource, /Unlock rate unavailable/u);
+  assert.doesNotMatch(
+    achievementHistorySource,
+    /formatProviderAchievementUnlockRateText\(\s*recentUnlock\.achievement\.providerId,\s*unlockRate/u,
+  );
+  assert.doesNotMatch(achievementHistorySource, /Unlock rate \$\{unlockRate\}/u);
   assert.doesNotMatch(achievementHistorySource, /summaryParts\.join\(" \| "\)/u);
   assert.match(achievementHistorySource, /addProfileAvatarCacheBustParam\(avatarUrl, refreshedAt\)/u);
   assert.doesNotMatch(dashboardViewSource, /addProfileAvatarCacheBustParam\(game\.coverImageUrl/u);

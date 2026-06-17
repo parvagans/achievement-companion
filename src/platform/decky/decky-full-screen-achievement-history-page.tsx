@@ -16,7 +16,6 @@ import { useAsyncResourceState } from "./useAsyncResourceState";
 import {
   formatProviderAchievementPointsText,
   formatProviderAchievementStatusText,
-  formatProviderAchievementUnlockRateText,
   isSteamAchievementPresentationProvider,
 } from "./decky-achievement-detail-helpers";
 import { formatDeckyProviderLabel } from "./providers";
@@ -487,12 +486,11 @@ function isRenderableAchievementHistoryState(
   return (state.status === "success" || state.status === "stale") && state.data !== undefined;
 }
 
-function getAchievementHistoryPointsValue(achievement: RecentUnlock["achievement"]): string {
-  return achievement.points !== undefined ? formatCount(achievement.points) : "-";
-}
-
-function getAchievementHistoryUnlockRateValue(achievement: RecentUnlock["achievement"]): string {
-  return getMetricValue(achievement.metrics, "true-ratio", "True Ratio") ?? "-";
+function formatAchievementHistoryRetroPointsText(
+  achievement: Pick<RecentUnlock["achievement"], "metrics">,
+): string | undefined {
+  const retroPoints = getMetricValue(achievement.metrics, "true-ratio", "True Ratio");
+  return retroPoints !== undefined ? `RetroPoints ${retroPoints}` : undefined;
 }
 
 function formatAchievementHistoryHeroCountLabel(providerId: string, sourceLabel: string): string {
@@ -536,16 +534,12 @@ function AchievementHistoryRow({
     recentUnlock.achievement,
   );
   const unlockedAt = recentUnlock.unlockedAt ?? recentUnlock.achievement.unlockedAt;
-  const unlockRate = getMetricValue(recentUnlock.achievement.metrics, "true-ratio", "True Ratio");
   const pointsText = formatProviderAchievementPointsText(
     recentUnlock.achievement.providerId,
     recentUnlock.achievement.points,
     "prefixed",
   );
-  const unlockRateText = formatProviderAchievementUnlockRateText(
-    recentUnlock.achievement.providerId,
-    unlockRate,
-  );
+  const retroPointsText = formatAchievementHistoryRetroPointsText(recentUnlock.achievement);
   const rowTone = getAchievementHistoryRowTone(recentUnlock.achievement);
   const isHardcore = rowTone === "hardcore";
   const isSoftcore = rowTone === "softcore";
@@ -619,8 +613,8 @@ function AchievementHistoryRow({
           {pointsText !== undefined ? (
             <span style={getAchievementHistoryDetailStyle()}>{pointsText}</span>
           ) : null}
-          {unlockRateText !== undefined ? (
-            <span style={getAchievementHistoryDetailStyle()}>{unlockRateText}</span>
+          {retroPointsText !== undefined ? (
+            <span style={getAchievementHistoryDetailStyle()}>{retroPointsText}</span>
           ) : null}
           {!isSteamProvider && unlockedAt !== undefined ? (
             <span style={getAchievementHistoryDetailStyle()}>{`Unlocked ${formatTimestamp(unlockedAt)}`}</span>
