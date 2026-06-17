@@ -30,6 +30,7 @@ import {
   dedupeDistinctLabels,
   formatModeProgressSummary,
   isSteamAchievementPresentationProvider,
+  shouldRenderRetroAchievementsModeSummaryCard,
   shouldRenderAchievementModeFilter,
 } from "./decky-achievement-detail-helpers";
 import { sortAchievementsForDisplay } from "./decky-game-detail-ordering";
@@ -1305,6 +1306,18 @@ export function DeckyFullScreenGamePage({
   const gameMetadataPills = buildGameMetadataPills(game.metrics);
   const hardcoreModePoints = getAchievementModePoints(snapshot.achievements, "hardcore");
   const softcoreModePoints = getAchievementModePoints(snapshot.achievements, "softcore");
+  const showHardcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard({
+    game,
+    mode: "hardcore",
+    summary: game.hardcoreSummary,
+    points: hardcoreModePoints,
+  });
+  const showSoftcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard({
+    game,
+    mode: "softcore",
+    summary: game.softcoreSummary,
+    points: softcoreModePoints,
+  });
 
   return (
     <ScrollPanel>
@@ -1391,9 +1404,9 @@ export function DeckyFullScreenGamePage({
                     </div>
                   ) : null}
 
-                  {game.hardcoreSummary !== undefined || game.softcoreSummary !== undefined ? (
+                  {showHardcoreModeCard || showSoftcoreModeCard ? (
                     <div style={getModeProgressGridStyle()}>
-                      {game.hardcoreSummary !== undefined ? (
+                      {showHardcoreModeCard ? (
                         <div style={getModeProgressCardStyle("hardcore")}>
                           <div style={getModeProgressCardTitleStyle("hardcore")}>Hardcore</div>
                           <div style={getModeProgressCardLineStyle()}>
@@ -1407,7 +1420,7 @@ export function DeckyFullScreenGamePage({
                         </div>
                       ) : null}
 
-                      {game.softcoreSummary !== undefined ? (
+                      {showSoftcoreModeCard ? (
                         <div style={getModeProgressCardStyle("softcore")}>
                           <div style={getModeProgressCardTitleStyle("softcore")}>Softcore</div>
                           <div style={getModeProgressCardLineStyle()}>
