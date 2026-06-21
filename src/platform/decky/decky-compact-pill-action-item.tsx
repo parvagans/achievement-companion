@@ -7,6 +7,7 @@ import type {
   FocusEventHandler,
   JSX,
   ReactNode,
+  RefCallback,
 } from "react";
 import {
   DECKY_FOCUS_PILL_ACTIVE_CLASS,
@@ -28,6 +29,8 @@ export interface DeckyCompactPillActionItemProps {
   readonly role?: "button" | "radio";
   readonly ariaLabel?: string;
   readonly ariaChecked?: boolean;
+  readonly dataAttributes?: Readonly<Record<`data-${string}`, string>> | undefined;
+  readonly elementRef?: RefCallback<HTMLDivElement> | undefined;
   readonly stretch?: boolean;
 }
 
@@ -192,6 +195,8 @@ export function DeckyCompactPillActionItem({
   role = "button",
   ariaLabel,
   ariaChecked,
+  dataAttributes,
+  elementRef,
   stretch = false,
   statusLabel,
   disabled = false,
@@ -212,6 +217,7 @@ export function DeckyCompactPillActionItem({
       aria-label={ariaLabel ?? label}
       aria-checked={ariaChecked}
       aria-disabled={disabled}
+      ref={elementRef}
       tabIndex={disabled ? -1 : undefined}
       onActivate={disabled ? () => undefined : onClick}
       onClick={disabled ? () => undefined : onClick}
@@ -231,6 +237,7 @@ export function DeckyCompactPillActionItem({
         ...getPillStyle(selected, stretch, emphasis, disabled),
         ...(isFocused ? getFocusedPillStyle() : {}),
       }}
+      {...(dataAttributes ?? {})}
     >
       <span style={getPillStackStyle(stretch)}>
         <span style={getPillContentStyle()}>
