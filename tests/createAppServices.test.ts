@@ -129,6 +129,7 @@ import {
 import {
   DECKY_FULLSCREEN_RETURN_CONTEXT_STORAGE_KEY,
   consumeDeckyFullscreenReturnContext,
+  createDeckyFullscreenReturnContextForAchievement,
   createDeckyFullscreenReturnContextForGame,
   createDeckyFullscreenReturnContextForProviderDashboard,
   clearDeckyFullscreenReturnContext,
@@ -3135,11 +3136,27 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   );
   assert.match(
     compactBootstrapSource,
+    /createDeckyFullscreenReturnContextForAchievement/,
+  );
+  assert.match(
+    compactBootstrapSource,
     /createDeckyFullscreenReturnContextForGame/,
   );
   assert.match(
     compactBootstrapSource,
     /restoreDeckyFullscreenSelectionFromContext/,
+  );
+  assert.match(
+    compactBootstrapSource,
+    /setSelectedAchievement\(restoredSelection\.selectedAchievement\)/,
+  );
+  assert.match(
+    compactBootstrapSource,
+    /const fullscreenContext = createDeckyFullscreenReturnContextForAchievement\(\s*selectedAchievement,\s*selectedGame,\s*\)/u,
+  );
+  assert.match(
+    compactBootstrapSource,
+    /writeDeckyFullscreenReturnContext\(fullscreenContext\);[\s\S]*view: "game"[\s\S]*providerId: selectedAchievement\.game\.providerId[\s\S]*gameId: selectedAchievement\.game\.gameId/u,
   );
   assert.doesNotMatch(compactBootstrapSource, /vgp_oncancel/u);
   assert.doesNotMatch(compactBootstrapSource, /addEventListener\(/u);
@@ -3159,6 +3176,10 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(
     compactBootstrapSource,
     /createDeckyFullscreenReturnContextForGame/,
+  );
+  assert.match(
+    compactBootstrapSource,
+    /setFullscreenReturnContext\(fullscreenContext\);[\s\S]*writeDeckyFullscreenReturnContext\(fullscreenContext\);[\s\S]*view: "game"[\s\S]*providerId: game\.providerId[\s\S]*gameId: game\.gameId/u,
   );
   assert.match(
     compactBootstrapSource,
@@ -9858,7 +9879,7 @@ test("fullscreen game route can temporarily return to an achievement detail with
   assert.equal(resolveFullScreenGameRouteAchievementReturnTarget(providerId, gameId), undefined);
 });
 
-test("fullscreen return context writes provider dashboard payload and game payload", async () => {
+test("fullscreen return context writes provider dashboard, game, and achievement payloads", async () => {
   await withMockDeckyStorage(async () => {
     const dashboardContext = createDeckyFullscreenReturnContextForProviderDashboard("retroachievements");
     const dashboardPersisted = writeDeckyFullscreenReturnContext(dashboardContext);
@@ -9891,6 +9912,75 @@ test("fullscreen return context writes provider dashboard payload and game paylo
       gameTitle: "Test Game",
       focusTarget: "open-full-screen",
       createdAt: gamePersisted?.createdAt,
+      returnRequested: false,
+    });
+
+    const achievementContext = createDeckyFullscreenReturnContextForAchievement(
+      {
+        game: {
+          providerId: "retroachievements",
+          gameId: "42",
+          title: "Achievement Game",
+          platformLabel: "SNES/Super Famicom",
+          coverImageUrl: "https://example.com/game-cover.png",
+          metrics: [{ key: "players", label: "Players", value: "123" }],
+        },
+        achievement: {
+          achievementId: "777",
+          title: "Bug Catcher",
+          description: "Catch the bug.",
+          badgeImageUrl: "https://example.com/badge.png",
+          isUnlocked: true,
+          unlockedAt: 1_700_000_123_000,
+          hardcoreUnlockedAt: 1_700_000_123_000,
+          unlockMode: "hardcore",
+          points: 5,
+          metrics: [{ key: "true-ratio", label: "True Ratio", value: "2" }],
+        },
+      },
+      {
+        providerId: "retroachievements",
+        gameId: "42",
+        gameTitle: "Achievement Game",
+      },
+    );
+    const achievementPersisted = writeDeckyFullscreenReturnContext(achievementContext);
+    assert.ok(achievementPersisted !== undefined);
+
+    const achievementStored = readDeckyStorageText(DECKY_FULLSCREEN_RETURN_CONTEXT_STORAGE_KEY);
+    assert.ok(achievementStored !== undefined);
+    assert.deepStrictEqual(JSON.parse(achievementStored), {
+      providerId: "retroachievements",
+      deckyReturnView: "achievement",
+      achievementTarget: {
+        game: {
+          providerId: "retroachievements",
+          gameId: "42",
+          title: "Achievement Game",
+          platformLabel: "SNES/Super Famicom",
+          coverImageUrl: "https://example.com/game-cover.png",
+          metrics: [{ key: "players", label: "Players", value: "123" }],
+        },
+        achievement: {
+          achievementId: "777",
+          title: "Bug Catcher",
+          description: "Catch the bug.",
+          badgeImageUrl: "https://example.com/badge.png",
+          isUnlocked: true,
+          unlockedAt: 1_700_000_123_000,
+          hardcoreUnlockedAt: 1_700_000_123_000,
+          unlockMode: "hardcore",
+          points: 5,
+          metrics: [{ key: "true-ratio", label: "True Ratio", value: "2" }],
+        },
+      },
+      parentGameOrigin: {
+        providerId: "retroachievements",
+        gameId: "42",
+        gameTitle: "Achievement Game",
+      },
+      focusTarget: "open-full-screen",
+      createdAt: achievementPersisted?.createdAt,
       returnRequested: false,
     });
   });
@@ -10003,7 +10093,78 @@ test("fullscreen return context restores game selection only when requested", as
   });
 });
 
-test("fullscreen return context helper captures provider dashboard and game origins", () => {
+test("fullscreen return context restores achievement detail selection only when requested", async () => {
+  await withMockDeckyStorage(async () => {
+    const context = writeDeckyFullscreenReturnContext(
+      createDeckyFullscreenReturnContextForAchievement(
+        {
+          game: {
+            providerId: "retroachievements",
+            gameId: "42",
+            title: "Achievement Game",
+            platformLabel: "SNES/Super Famicom",
+            coverImageUrl: "https://example.com/game-cover.png",
+            metrics: [{ key: "players", label: "Players", value: "123" }],
+          },
+          achievement: {
+            achievementId: "777",
+            title: "Bug Catcher",
+            description: "Catch the bug.",
+            badgeImageUrl: "https://example.com/badge.png",
+            isUnlocked: true,
+            unlockedAt: 1_700_000_123_000,
+            hardcoreUnlockedAt: 1_700_000_123_000,
+            unlockMode: "hardcore",
+            points: 5,
+            metrics: [{ key: "true-ratio", label: "True Ratio", value: "2" }],
+          },
+        },
+        {
+          providerId: "retroachievements",
+          gameId: "42",
+          gameTitle: "Achievement Game",
+        },
+      ),
+    );
+    assert.ok(context !== undefined);
+    assert.ok(markDeckyFullscreenReturnRequested() !== undefined);
+
+    const restored = consumeDeckyFullscreenReturnContext();
+    assert.deepStrictEqual(restored?.selection, {
+      selectedProviderId: "retroachievements",
+      selectedGame: {
+        providerId: "retroachievements",
+        gameId: "42",
+        gameTitle: "Achievement Game",
+      },
+      selectedAchievement: {
+        game: {
+          providerId: "retroachievements",
+          gameId: "42",
+          title: "Achievement Game",
+          platformLabel: "SNES/Super Famicom",
+          coverImageUrl: "https://example.com/game-cover.png",
+          metrics: [{ key: "players", label: "Players", value: "123" }],
+        },
+        achievement: {
+          achievementId: "777",
+          title: "Bug Catcher",
+          description: "Catch the bug.",
+          badgeImageUrl: "https://example.com/badge.png",
+          isUnlocked: true,
+          unlockedAt: 1_700_000_123_000,
+          hardcoreUnlockedAt: 1_700_000_123_000,
+          unlockMode: "hardcore",
+          points: 5,
+          metrics: [{ key: "true-ratio", label: "True Ratio", value: "2" }],
+        },
+      },
+    });
+    assert.equal(readDeckyStorageText(DECKY_FULLSCREEN_RETURN_CONTEXT_STORAGE_KEY), undefined);
+  });
+});
+
+test("fullscreen return context helper captures provider dashboard, game, and achievement origins", () => {
   const dashboardContext = createDeckyFullscreenReturnContextForProviderDashboard("retroachievements");
   assert.deepStrictEqual(dashboardContext, {
     providerId: "retroachievements",
@@ -10033,6 +10194,98 @@ test("fullscreen return context helper captures provider dashboard and game orig
   });
   assert.deepStrictEqual(restoreDeckyFullscreenSelectionFromContext(dashboardContext), {
     selectedProviderId: "retroachievements",
+  });
+
+  const achievementContext = createDeckyFullscreenReturnContextForAchievement(
+    {
+      game: {
+        providerId: "steam",
+        gameId: "1482380",
+        title: "Test Game",
+        platformLabel: "Steam",
+        coverImageUrl: "https://example.com/game.png",
+        metrics: [{ key: "players", label: "Players", value: "123" }],
+      },
+      achievement: {
+        achievementId: "ach-1",
+        title: "First Win",
+        description: "Win once.",
+        badgeImageUrl: "https://example.com/badge.png",
+        isUnlocked: true,
+        unlockedAt: 1_700_000_000_000,
+        softcoreUnlockedAt: 1_700_000_000_000,
+        unlockMode: "softcore",
+        points: 10,
+        metrics: [{ key: "true-ratio", label: "True Ratio", value: "2" }],
+      },
+    },
+    {
+      providerId: "steam",
+      gameId: "1482380",
+      gameTitle: "Test Game",
+    },
+  );
+  assert.deepStrictEqual(achievementContext, {
+    providerId: "steam",
+    deckyReturnView: "achievement",
+    achievementTarget: {
+      game: {
+        providerId: "steam",
+        gameId: "1482380",
+        title: "Test Game",
+        platformLabel: "Steam",
+        coverImageUrl: "https://example.com/game.png",
+        metrics: [{ key: "players", label: "Players", value: "123" }],
+      },
+      achievement: {
+        achievementId: "ach-1",
+        title: "First Win",
+        description: "Win once.",
+        badgeImageUrl: "https://example.com/badge.png",
+        isUnlocked: true,
+        unlockedAt: 1_700_000_000_000,
+        softcoreUnlockedAt: 1_700_000_000_000,
+        unlockMode: "softcore",
+        points: 10,
+        metrics: [{ key: "true-ratio", label: "True Ratio", value: "2" }],
+      },
+    },
+    parentGameOrigin: {
+      providerId: "steam",
+      gameId: "1482380",
+      gameTitle: "Test Game",
+    },
+    focusTarget: "open-full-screen",
+  });
+  assert.deepStrictEqual(restoreDeckyFullscreenSelectionFromContext(achievementContext), {
+    selectedProviderId: "steam",
+    selectedGame: {
+      providerId: "steam",
+      gameId: "1482380",
+      gameTitle: "Test Game",
+    },
+    selectedAchievement: {
+      game: {
+        providerId: "steam",
+        gameId: "1482380",
+        title: "Test Game",
+        platformLabel: "Steam",
+        coverImageUrl: "https://example.com/game.png",
+        metrics: [{ key: "players", label: "Players", value: "123" }],
+      },
+      achievement: {
+        achievementId: "ach-1",
+        title: "First Win",
+        description: "Win once.",
+        badgeImageUrl: "https://example.com/badge.png",
+        isUnlocked: true,
+        unlockedAt: 1_700_000_000_000,
+        softcoreUnlockedAt: 1_700_000_000_000,
+        unlockMode: "softcore",
+        points: 10,
+        metrics: [{ key: "true-ratio", label: "True Ratio", value: "2" }],
+      },
+    },
   });
 });
 
