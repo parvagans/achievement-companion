@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties } from "react";
+import { useCallback, useMemo, type CSSProperties } from "react";
 import type { ResourceState } from "@core/cache";
 import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
 import { PanelSection, PanelSectionRow } from "@decky/ui";
@@ -6,6 +6,7 @@ import { PlaceholderState } from "@ui/PlaceholderState";
 import { loadDeckyGameDetailState, initialDeckyGameDetailState } from "./decky-app-services";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DeckyCompactPillActionGroup, DeckyCompactPillActionItem } from "./decky-compact-pill-action-item";
+import { ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement } from "./decky-full-screen-cancel-bridge";
 import {
   buildAchievementStatus,
   formatAchievementDetailUnlockRatePercent,
@@ -446,6 +447,9 @@ function AchievementCard({
   readonly onBack: () => void;
   readonly onOpenFullScreenGame: (() => void) | undefined;
 }): JSX.Element {
+  const compactAchievementBackButtonRef = useCallback((node: HTMLDivElement | null) => {
+    ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement(node);
+  }, []);
   const isSteamProvider = shouldHideSteamAchievementDetailStats(game.providerId);
   const counts = getAchievementDetailCounts(achievement.metrics, game.metrics ?? []);
   const showCounts =
@@ -549,7 +553,15 @@ function AchievementCard({
       )}
 
       <DeckyCompactPillActionGroup style={getAchievementCardActionRowStyle()}>
-        <DeckyCompactPillActionItem label="Back" onClick={onBack} onCancelButton={onBack} />
+        <DeckyCompactPillActionItem
+          label="Back"
+          onClick={onBack}
+          onCancelButton={onBack}
+          elementRef={compactAchievementBackButtonRef}
+          dataAttributes={{
+            "data-achievement-companion-compact-achievement-back": "true",
+          }}
+        />
 
         {onOpenFullScreenGame !== undefined ? (
           <DeckyCompactPillActionItem

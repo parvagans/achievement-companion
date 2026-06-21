@@ -204,7 +204,9 @@ import {
   shouldSuppressGameRouteUnmountWhenOpeningAchievement,
 } from "../src/platform/decky/decky-full-screen-navigation-state";
 import {
+  ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement,
   ensureFullscreenCancelBridgeRegisteredForBackButtonElement,
+  resetCompactAchievementCancelBridgeForTests,
   resetFullscreenCancelBridgeForTests,
 } from "../src/platform/decky/decky-full-screen-cancel-bridge";
 import type { SteamLibraryAchievementScanSummary } from "../src/platform/decky/providers/steam";
@@ -3101,6 +3103,18 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(compactAchievementDetailSource, /DeckyCompactPillActionItem/);
   assert.match(compactAchievementDetailSource, /label="Back"/);
   assert.match(compactAchievementDetailSource, /label="Open Game"/);
+  assert.match(
+    compactAchievementDetailSource,
+    /ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement/u,
+  );
+  assert.match(
+    compactAchievementDetailSource,
+    /data-achievement-companion-compact-achievement-back/u,
+  );
+  assert.match(
+    compactAchievementDetailSource,
+    /<DeckyCompactPillActionItem[\s\S]*label="Back"[\s\S]*onClick=\{onBack\}[\s\S]*onCancelButton=\{onBack\}[\s\S]*elementRef=\{compactAchievementBackButtonRef\}[\s\S]*dataAttributes=\{\s*\{\s*"data-achievement-companion-compact-achievement-back": "true"/u,
+  );
   assert.match(compactAchievementDetailSource, /metrics: loader\.data\.game\.metrics/);
   assert.match(compactAchievementDetailSource, /getAchievementStatusTone\(achievement\)/);
   assert.match(compactAchievementDetailSource, /getAchievementStatusCardStyle\(achievementStatusTone\)/);
@@ -3110,56 +3124,60 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(compactAchievementDetailSource, />Unlock status</);
   assert.match(compactAchievementDetailSource, /Unlocked \$\{formatTimestamp\(achievement\.unlockedAt\)\}/u);
   assert.doesNotMatch(compactAchievementDetailSource, /replace\(\^Unlocked\\s\+\/u,/u);
+  assert.doesNotMatch(compactAchievementDetailSource, /preferredFocus/u);
   assert.match(
-    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
+    compactBootstrapSource,
     /fullscreenReturnContext/,
   );
   assert.match(
-    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
+    compactBootstrapSource,
     /createDeckyFullscreenReturnContextForProviderDashboard/,
   );
   assert.match(
-    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
+    compactBootstrapSource,
     /createDeckyFullscreenReturnContextForGame/,
   );
   assert.match(
-    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
+    compactBootstrapSource,
     /restoreDeckyFullscreenSelectionFromContext/,
   );
+  assert.doesNotMatch(compactBootstrapSource, /vgp_oncancel/u);
+  assert.doesNotMatch(compactBootstrapSource, /addEventListener\(/u);
+  assert.doesNotMatch(compactBootstrapSource, /preferredFocus/u);
   assert.match(
     readFileSync("src/platform/decky/decky-full-screen-action-controls.tsx", "utf8"),
     /markDeckyFullscreenReturnRequested/,
   );
   assert.match(
-    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
+    compactBootstrapSource,
     /fullscreenReturnContext/,
   );
   assert.match(
-    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
+    compactBootstrapSource,
     /createDeckyFullscreenReturnContextForProviderDashboard/,
   );
   assert.match(
-    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
+    compactBootstrapSource,
     /createDeckyFullscreenReturnContextForGame/,
   );
   assert.match(
-    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
+    compactBootstrapSource,
     /Open a connected dashboard or update provider settings\./u,
   );
   assert.match(
-    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
+    compactBootstrapSource,
     /function ProviderLauncherCard\(/u,
   );
   assert.match(
-    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
+    compactBootstrapSource,
     /function getChooserVersionStyle\(/u,
   );
   assert.match(
-    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
+    compactBootstrapSource,
     /function getChooserFooterStyle\(/u,
   );
   assert.match(
-    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
+    compactBootstrapSource,
     /onActivate=\{onClick\}/u,
   );
   assert.match(
@@ -3435,6 +3453,16 @@ test("fullscreen action controls use Decky Focusable pills with unclipped labels
     fullscreenCancelBridgeSource,
     /\[data-achievement-companion-fullscreen-back="true"\]\[role="button"\]/,
   );
+  assert.match(
+    fullscreenCancelBridgeSource,
+    /\[data-achievement-companion-compact-achievement-back="true"\]\[role="button"\]/,
+  );
+  assert.match(fullscreenCancelBridgeSource, /handleCompactAchievementCancelBridge/u);
+  assert.match(
+    fullscreenCancelBridgeSource,
+    /ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement/u,
+  );
+  assert.doesNotMatch(fullscreenCancelBridgeSource, /Achievement Details|innerText ===|textContent/u);
   assert.doesNotMatch(
     `${fullscreenActionControlsSource}\n${fullscreenCancelBridgeSource}`,
     /localStorage|sessionStorage/,
@@ -3451,6 +3479,11 @@ test("fullscreen action controls use Decky Focusable pills with unclipped labels
   assert.match(retroAchievementsProviderSettingsSource, /DeckyFullscreenActionButton[\s\S]*label="Back"/u);
   assert.match(steamProviderSettingsSource, /DeckyFullscreenActionButton[\s\S]*label="Back"/u);
   assert.match(compactPillSource, /import \{ Focusable \} from "@decky\/ui"/);
+  assert.match(compactPillSource, /readonly dataAttributes\?: Readonly<Record<`data-\$\{string\}`, string>> \| undefined;/u);
+  assert.match(compactPillSource, /readonly elementRef\?: RefCallback<HTMLDivElement> \| undefined;/u);
+  assert.match(compactPillSource, /ref=\{elementRef\}/u);
+  assert.match(compactPillSource, /\{\.\.\.\(dataAttributes \?\? \{\}\)\}/u);
+  assert.doesNotMatch(compactPillSource, /preferredFocus/u);
   assert.match(actionButtonItemSource, /import \{ ButtonItem, type ButtonItemProps \} from "@decky\/ui"/);
 });
 
@@ -10247,6 +10280,251 @@ test("fullscreen cancel bridge leaves cancel alone when no marked back button ex
   } finally {
     restoreWindow();
     resetFullscreenCancelBridgeForTests();
+  }
+});
+
+test("compact achievement back button ownerWindow registers the cancel bridge", () => {
+  resetCompactAchievementCancelBridgeForTests();
+  const addCalls: Array<{ readonly type: string; readonly capture: boolean }> = [];
+
+  const ownerWindow = {
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject, capture?: boolean) {
+      addCalls.push({ type, capture: capture === true });
+      void listener;
+    },
+    removeEventListener() {},
+  } as Window;
+  const ownerDocument = {
+    defaultView: ownerWindow,
+    querySelectorAll() {
+      return [];
+    },
+  } as Document;
+  const buttonElement = {
+    ownerDocument,
+  } as Element;
+
+  try {
+    ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement(buttonElement);
+    ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement(buttonElement);
+
+    assert.deepStrictEqual(addCalls, [
+      {
+        type: "vgp_oncancel",
+        capture: true,
+      },
+    ]);
+  } finally {
+    resetCompactAchievementCancelBridgeForTests();
+  }
+});
+
+test("compact achievement cancel bridge helper tolerates a missing element", () => {
+  resetCompactAchievementCancelBridgeForTests();
+  const addCalls: Array<{ readonly type: string; readonly capture: boolean }> = [];
+
+  const restoreWindow = setGlobalTestValue("window", {
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject, capture?: boolean) {
+      addCalls.push({ type, capture: capture === true });
+      void listener;
+    },
+    removeEventListener() {},
+  } as Window);
+
+  try {
+    ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement(null);
+    assert.deepStrictEqual(addCalls, []);
+  } finally {
+    restoreWindow();
+    resetCompactAchievementCancelBridgeForTests();
+  }
+});
+
+test("compact achievement cancel bridge helper tolerates a missing owner window", () => {
+  resetCompactAchievementCancelBridgeForTests();
+  const addCalls: Array<{ readonly type: string; readonly capture: boolean }> = [];
+  const restoreWindow = setGlobalTestValue("window", {
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject, capture?: boolean) {
+      addCalls.push({ type, capture: capture === true });
+      void listener;
+    },
+    removeEventListener() {},
+  } as Window);
+
+  try {
+    ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement({
+      ownerDocument: undefined,
+    } as Element);
+    assert.deepStrictEqual(addCalls, []);
+  } finally {
+    restoreWindow();
+    resetCompactAchievementCancelBridgeForTests();
+  }
+});
+
+test("compact achievement cancel bridge stops a synthetic cancel event and clicks the marked visible back button", () => {
+  resetCompactAchievementCancelBridgeForTests();
+  const clickCounts = new Map<string, number>();
+  const eventCalls: string[] = [];
+  let registeredListener: ((event: Event) => void) | undefined;
+
+  const ownerWindow = {
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
+      if (type === "vgp_oncancel") {
+        registeredListener = listener as (event: Event) => void;
+      }
+    },
+    removeEventListener() {},
+  } as Window;
+  const ownerDocument = {
+    defaultView: ownerWindow,
+    querySelectorAll() {
+      return [
+        {
+          disabled: false,
+          isConnected: true,
+          getClientRects() {
+            return [{}, {}];
+          },
+          click() {
+            clickCounts.set("back", (clickCounts.get("back") ?? 0) + 1);
+          },
+        },
+      ];
+    },
+  } as Document;
+
+  try {
+    ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement({
+      ownerDocument,
+    } as Element);
+
+    const cancelEvent = {
+      type: "vgp_oncancel",
+      preventDefault() {
+        eventCalls.push("preventDefault");
+      },
+      stopPropagation() {
+        eventCalls.push("stopPropagation");
+      },
+      stopImmediatePropagation() {
+        eventCalls.push("stopImmediatePropagation");
+      },
+    } as Event;
+
+    registeredListener?.(cancelEvent);
+
+    assert.deepStrictEqual(eventCalls, [
+      "preventDefault",
+      "stopPropagation",
+      "stopImmediatePropagation",
+    ]);
+    assert.equal(clickCounts.get("back"), 1);
+  } finally {
+    resetCompactAchievementCancelBridgeForTests();
+  }
+});
+
+test("compact achievement cancel bridge ignores hidden marked buttons and leaves cancel unhandled", () => {
+  resetCompactAchievementCancelBridgeForTests();
+  const eventCalls: string[] = [];
+  let registeredListener: ((event: Event) => void) | undefined;
+
+  const restoreWindow = setGlobalTestValue("window", {
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
+      if (type === "vgp_oncancel") {
+        registeredListener = listener as (event: Event) => void;
+      }
+    },
+    removeEventListener() {},
+  } as Window);
+  const ownerDocument = {
+    querySelectorAll() {
+      return [
+        {
+          disabled: false,
+          isConnected: true,
+          getClientRects() {
+            return [];
+          },
+          click() {
+            eventCalls.push("click");
+          },
+        },
+      ];
+    },
+  } as Document;
+
+  try {
+    ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement({
+      ownerDocument,
+    } as Element);
+
+    const cancelEvent = {
+      type: "vgp_oncancel",
+      preventDefault() {
+        eventCalls.push("preventDefault");
+      },
+      stopPropagation() {
+        eventCalls.push("stopPropagation");
+      },
+      stopImmediatePropagation() {
+        eventCalls.push("stopImmediatePropagation");
+      },
+    } as Event;
+
+    registeredListener?.(cancelEvent);
+
+    assert.deepStrictEqual(eventCalls, []);
+  } finally {
+    restoreWindow();
+    resetCompactAchievementCancelBridgeForTests();
+  }
+});
+
+test("compact achievement cancel bridge leaves cancel alone when no marked back button exists", () => {
+  resetCompactAchievementCancelBridgeForTests();
+  const eventCalls: string[] = [];
+  let registeredListener: ((event: Event) => void) | undefined;
+
+  const restoreWindow = setGlobalTestValue("window", {
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
+      if (type === "vgp_oncancel") {
+        registeredListener = listener as (event: Event) => void;
+      }
+    },
+    removeEventListener() {},
+  } as Window);
+  const ownerDocument = {
+    querySelectorAll() {
+      return [];
+    },
+  } as Document;
+
+  try {
+    ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement({
+      ownerDocument,
+    } as Element);
+
+    const cancelEvent = {
+      type: "vgp_oncancel",
+      preventDefault() {
+        eventCalls.push("preventDefault");
+      },
+      stopPropagation() {
+        eventCalls.push("stopPropagation");
+      },
+      stopImmediatePropagation() {
+        eventCalls.push("stopImmediatePropagation");
+      },
+    } as Event;
+
+    registeredListener?.(cancelEvent);
+
+    assert.deepStrictEqual(eventCalls, []);
+  } finally {
+    restoreWindow();
+    resetCompactAchievementCancelBridgeForTests();
   }
 });
 

@@ -1,6 +1,8 @@
-const FULLSCREEN_CANCEL_EVENT_TYPE = "vgp_oncancel";
+const CANCEL_EVENT_TYPE = "vgp_oncancel";
 const FULLSCREEN_BACK_BUTTON_SELECTOR =
   '[data-achievement-companion-fullscreen-back="true"][role="button"]';
+const COMPACT_ACHIEVEMENT_BACK_BUTTON_SELECTOR =
+  '[data-achievement-companion-compact-achievement-back="true"][role="button"]';
 
 type BridgeCancelableEvent = Event & {
   readonly preventDefault?: (() => void) | undefined;
@@ -10,7 +12,7 @@ type BridgeCancelableEvent = Event & {
 
 type BridgeWindow = Window;
 
-type BridgeFullscreenBackButton = {
+type BridgeMarkedBackButton = {
   readonly click: () => void;
   readonly disabled?: boolean | undefined;
   readonly innerText?: string | undefined;
@@ -19,17 +21,19 @@ type BridgeFullscreenBackButton = {
 };
 
 const fullscreenCancelBridgeListeners = new Map<Window, EventListener>();
+const compactAchievementCancelBridgeListeners = new Map<Window, EventListener>();
 
-function getVisibleMarkedFullscreenBackButton(
+function getVisibleMarkedBackButton(
+  selector: string,
   doc: Document | undefined = typeof document === "undefined" ? undefined : document,
-): BridgeFullscreenBackButton | undefined {
+): BridgeMarkedBackButton | undefined {
   if (doc === undefined) {
     return undefined;
   }
 
-  const buttons = Array.from(doc.querySelectorAll(FULLSCREEN_BACK_BUTTON_SELECTOR));
+  const buttons = Array.from(doc.querySelectorAll(selector));
   for (const button of buttons) {
-    const candidate = button as unknown as BridgeFullscreenBackButton;
+    const candidate = button as unknown as BridgeMarkedBackButton;
     if (
       candidate.disabled !== true &&
       candidate.isConnected !== false &&
@@ -42,21 +46,23 @@ function getVisibleMarkedFullscreenBackButton(
   return undefined;
 }
 
-function registerFullscreenCancelBridgeForWindow(
+function registerCancelBridgeForWindow(
   ownerWindow: Window,
   ownerDocument: Document,
+  listeners: Map<Window, EventListener>,
+  bridgeHandler: (event: Event, doc: Document | undefined) => void,
 ): void {
-  const existingListener = fullscreenCancelBridgeListeners.get(ownerWindow);
+  const existingListener = listeners.get(ownerWindow);
   if (existingListener !== undefined) {
     return;
   }
 
   const listener: EventListener = (event) => {
-    handleFullscreenCancelBridge(event, ownerDocument);
+    bridgeHandler(event, ownerDocument);
   };
 
-  ownerWindow.addEventListener(FULLSCREEN_CANCEL_EVENT_TYPE, listener, true);
-  fullscreenCancelBridgeListeners.set(ownerWindow, listener);
+  ownerWindow.addEventListener(CANCEL_EVENT_TYPE, listener, true);
+  listeners.set(ownerWindow, listener);
 }
 
 export function handleFullscreenCancelBridge(
@@ -64,7 +70,23 @@ export function handleFullscreenCancelBridge(
   doc: Document | undefined = typeof document === "undefined" ? undefined : document,
 ): void {
   const cancelEvent = event as BridgeCancelableEvent;
-  const backButton = getVisibleMarkedFullscreenBackButton(doc);
+  const backButton = getVisibleMarkedBackButton(FULLSCREEN_BACK_BUTTON_SELECTOR, doc);
+  if (backButton === undefined) {
+    return;
+  }
+
+  cancelEvent.preventDefault?.();
+  cancelEvent.stopPropagation?.();
+  cancelEvent.stopImmediatePropagation?.();
+  backButton.click();
+}
+
+export function handleCompactAchievementCancelBridge(
+  event: Event,
+  doc: Document | undefined = typeof document === "undefined" ? undefined : document,
+): void {
+  const cancelEvent = event as BridgeCancelableEvent;
+  const backButton = getVisibleMarkedBackButton(COMPACT_ACHIEVEMENT_BACK_BUTTON_SELECTOR, doc);
   if (backButton === undefined) {
     return;
   }
@@ -88,13 +110,47 @@ export function ensureFullscreenCancelBridgeRegisteredForBackButtonElement(
     return;
   }
 
-  registerFullscreenCancelBridgeForWindow(ownerWindow, ownerDocument);
+  registerCancelBridgeForWindow(
+    ownerWindow,
+    ownerDocument,
+    fullscreenCancelBridgeListeners,
+    handleFullscreenCancelBridge,
+  );
+}
+
+export function ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement(
+  element: Element | null | undefined,
+): void {
+  if (element === null || element === undefined) {
+    return;
+  }
+
+  const ownerDocument = element.ownerDocument;
+  const ownerWindow = ownerDocument?.defaultView;
+  if (ownerDocument === undefined || ownerWindow === undefined || ownerWindow === null) {
+    return;
+  }
+
+  registerCancelBridgeForWindow(
+    ownerWindow,
+    ownerDocument,
+    compactAchievementCancelBridgeListeners,
+    handleCompactAchievementCancelBridge,
+  );
 }
 
 export function resetFullscreenCancelBridgeForTests(): void {
   for (const [bridgeWindow, listener] of fullscreenCancelBridgeListeners.entries()) {
-    bridgeWindow.removeEventListener(FULLSCREEN_CANCEL_EVENT_TYPE, listener, true);
+    bridgeWindow.removeEventListener(CANCEL_EVENT_TYPE, listener, true);
   }
 
   fullscreenCancelBridgeListeners.clear();
+}
+
+export function resetCompactAchievementCancelBridgeForTests(): void {
+  for (const [bridgeWindow, listener] of compactAchievementCancelBridgeListeners.entries()) {
+    bridgeWindow.removeEventListener(CANCEL_EVENT_TYPE, listener, true);
+  }
+
+  compactAchievementCancelBridgeListeners.clear();
 }
