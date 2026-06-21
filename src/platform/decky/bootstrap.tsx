@@ -28,6 +28,7 @@ import { DeckyDashboardView } from "./decky-dashboard-view";
 import { DeckyGameDetailView } from "./decky-game-detail-view";
 import { DeckyFocusStyles } from "./decky-focus-styles";
 import {
+  createDeckyFullscreenReturnContextForAchievement,
   createDeckyFullscreenReturnContextForGame,
   createDeckyFullscreenReturnContextForProviderDashboard,
   clearDeckyFullscreenReturnContext,
@@ -798,6 +799,19 @@ function DeckyBootstrapStateBridge(): JSX.Element {
         : undefined;
   const lastProviderConfigsSignature = useRef<string | undefined>(undefined);
 
+  const restoreCompactSelectionFromFullscreenContext = useCallback(
+    (context: DeckyFullscreenReturnContext) => {
+      const restoredSelection = restoreDeckyFullscreenSelectionFromContext(context);
+      setSelectedProviderId(restoredSelection.selectedProviderId);
+      setSelectedGame(restoredSelection.selectedGame);
+      setSelectedAchievement(restoredSelection.selectedAchievement);
+      setSetupProviderId(undefined);
+      setFullscreenReturnContext(undefined);
+      clearDeckyFullscreenReturnContext();
+    },
+    [],
+  );
+
   useEffect(() => {
     const previousSignature = lastProviderConfigsSignature.current;
     lastProviderConfigsSignature.current = providerConfigsSignature;
@@ -835,13 +849,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
 
     if (quickAccessVisible) {
       if (persistedFullscreenReturnContext?.returnRequested === true) {
-        const restoredSelection = restoreDeckyFullscreenSelectionFromContext(persistedFullscreenReturnContext);
-        setSelectedProviderId(restoredSelection.selectedProviderId);
-        setSelectedGame(restoredSelection.selectedGame);
-        setSelectedAchievement(undefined);
-        setSetupProviderId(undefined);
-        setFullscreenReturnContext(undefined);
-        clearDeckyFullscreenReturnContext();
+        restoreCompactSelectionFromFullscreenContext(persistedFullscreenReturnContext);
       }
 
       return;
@@ -855,7 +863,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
     setSetupProviderId(undefined);
     setSelectedGame(undefined);
     setSelectedAchievement(undefined);
-  }, [fullscreenReturnContext, quickAccessVisible]);
+  }, [fullscreenReturnContext, quickAccessVisible, restoreCompactSelectionFromFullscreenContext]);
 
   if (setupProviderId !== undefined) {
     return (
@@ -885,6 +893,12 @@ function DeckyBootstrapStateBridge(): JSX.Element {
             onOpenFullScreenGame={
               platform.navigation !== undefined
                 ? () => {
+                    const fullscreenContext = createDeckyFullscreenReturnContextForAchievement(
+                      selectedAchievement,
+                      selectedGame,
+                    );
+                    setFullscreenReturnContext(fullscreenContext);
+                    writeDeckyFullscreenReturnContext(fullscreenContext);
                     void platform.navigation?.go({
                       view: "game",
                       providerId: selectedAchievement.game.providerId,
