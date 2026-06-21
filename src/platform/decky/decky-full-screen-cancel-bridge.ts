@@ -10,8 +10,6 @@ type BridgeCancelableEvent = Event & {
   readonly stopImmediatePropagation?: (() => void) | undefined;
 };
 
-type BridgeWindow = Window;
-
 type BridgeMarkedBackButton = {
   readonly click: () => void;
   readonly disabled?: boolean | undefined;

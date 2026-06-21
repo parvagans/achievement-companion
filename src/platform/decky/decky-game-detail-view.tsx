@@ -1,7 +1,7 @@
 import type { ResourceState } from "@core/cache";
 import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
-import { useState, type ComponentProps, type FocusEventHandler } from "react";
-import { Field, Focusable, PanelSection, PanelSectionRow } from "@decky/ui";
+import { useState, type FocusEventHandler } from "react";
+import { Field, Focusable, type FocusableProps, PanelSection, PanelSectionRow } from "@decky/ui";
 import type { CSSProperties } from "react";
 import {
   DeckyCompletionProgressBar,
@@ -37,7 +37,7 @@ const ACHIEVEMENT_MODE_FILTERS = ["all", "hardcore", "softcore"] as const;
 
 type AchievementFilter = (typeof ACHIEVEMENT_FILTERS)[number];
 type AchievementModeFilter = (typeof ACHIEVEMENT_MODE_FILTERS)[number];
-type DeckyGamepadFocusHandler = NonNullable<ComponentProps<typeof Focusable>["onGamepadFocus"]>;
+type DeckyGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
 
 export interface DeckyGameDetailViewProps {
   readonly state: ResourceState<GameDetailSnapshot> & {
@@ -197,18 +197,6 @@ function getGameDetailSectionCardStyle(): CSSProperties {
     background: "linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.02))",
     boxShadow:
       "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 10px rgba(0, 0, 0, 0.18)",
-  };
-}
-
-function getGameDetailSectionHeaderStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.6)",
-    fontSize: "0.8em",
-    fontWeight: 800,
-    letterSpacing: "0.12em",
-    lineHeight: 1.1,
-    textAlign: "center",
-    textTransform: "uppercase",
   };
 }
 
@@ -522,13 +510,11 @@ function AchievementBadgeIcon({
 
 function AchievementRowCard({
   achievement,
-  index,
   game,
   onBackToDashboard,
   onOpenAchievementDetail,
 }: {
   readonly achievement: NormalizedAchievement;
-  readonly index: number;
   readonly game: GameDetailSnapshot["game"];
   readonly onBackToDashboard: () => void;
   readonly onOpenAchievementDetail: (target: CompactAchievementTarget) => void;
@@ -735,11 +721,10 @@ function AchievementSectionBody({
           {achievements.length > 0 ? (
             <div style={getAchievementControlsRowStyle()}>
               <div style={getAchievementRowsLayoutStyle()}>
-                {achievements.map((achievement, index) => (
+                {achievements.map((achievement) => (
                   <AchievementRowCard
                     key={achievement.achievementId}
                     achievement={achievement}
-                    index={index}
                     game={game}
                     onBackToDashboard={onBackToDashboard}
                     onOpenAchievementDetail={onOpenAchievementDetail}

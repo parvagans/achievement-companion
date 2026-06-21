@@ -1,8 +1,7 @@
-import { Focusable } from "@decky/ui";
+import { Focusable, type FocusableProps } from "@decky/ui";
 import { useState } from "react";
 import type {
   CSSProperties,
-  ComponentProps,
   ComponentPropsWithoutRef,
   FocusEventHandler,
   JSX,
@@ -164,8 +163,8 @@ function getPillIconStyle(): CSSProperties {
   };
 }
 
-type DeckyGamepadFocusHandler = NonNullable<ComponentProps<typeof Focusable>["onGamepadFocus"]>;
-type DeckyGamepadCancelHandler = NonNullable<ComponentProps<typeof Focusable>["onCancel"]>;
+type DeckyGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
+type DeckyGamepadCancelHandler = NonNullable<FocusableProps["onCancel"]>;
 
 const scrollFocusedElementIntoView: FocusEventHandler<HTMLElement> = (event) => {
   event.currentTarget.scrollIntoView({
@@ -257,7 +256,6 @@ export function DeckyCompactPillActionItem({
 export interface DeckyCompactPillActionGroupProps
   extends Omit<ComponentPropsWithoutRef<"div">, "children"> {
   readonly children: ReactNode;
-  readonly flowChildren?: "row" | "column";
 }
 
 export function DeckyCompactPillActionGroup({

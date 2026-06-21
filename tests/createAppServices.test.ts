@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, test } from "node:test";
 import type { CacheEntry, CacheStore, ResourceState } from "../src/core/cache";
@@ -3453,7 +3453,7 @@ test("fullscreen action controls use Decky Focusable pills with unclipped labels
 
   assert.match(
     fullscreenActionControlsSource,
-    /import \{ Focusable \} from "@decky\/ui"/,
+    /import \{ Focusable, type FocusableProps \} from "@decky\/ui"/,
   );
   assert.doesNotMatch(fullscreenActionControlsSource, /\bButton\b|\bButtonItem\b|\bDialogButton\b/);
   assert.match(fullscreenActionControlsSource, /flow-children="left-right"/);
@@ -3499,7 +3499,7 @@ test("fullscreen action controls use Decky Focusable pills with unclipped labels
   assert.match(fullscreenSettingsSource, /DeckyFullscreenActionButton[\s\S]*label="Back"/u);
   assert.match(retroAchievementsProviderSettingsSource, /DeckyFullscreenActionButton[\s\S]*label="Back"/u);
   assert.match(steamProviderSettingsSource, /DeckyFullscreenActionButton[\s\S]*label="Back"/u);
-  assert.match(compactPillSource, /import \{ Focusable \} from "@decky\/ui"/);
+  assert.match(compactPillSource, /import \{ Focusable, type FocusableProps \} from "@decky\/ui"/);
   assert.match(compactPillSource, /readonly dataAttributes\?: Readonly<Record<`data-\$\{string\}`, string>> \| undefined;/u);
   assert.match(compactPillSource, /readonly elementRef\?: RefCallback<HTMLDivElement> \| undefined;/u);
   assert.match(compactPillSource, /ref=\{elementRef\}/u);
@@ -3568,7 +3568,7 @@ test("retroachievements provider settings avoid dropdown overlays for immediate-
     /<DeckyProviderSettingsActionRow[\s\S]*label="Recent Achievements count"[\s\S]*<DeckyProviderSettingsActionRow[\s\S]*label="Recently Played count"[\s\S]*<DeckyProviderSettingsActionRow[\s\S]*label="Include played free games"/u,
   );
   assert.doesNotMatch(steamCredentialsFormSource, /DropdownItem|\bDropdown\b/);
-  assert.match(fullscreenActionControlsSource, /import \{ Focusable \} from "@decky\/ui"/);
+  assert.match(fullscreenActionControlsSource, /import \{ Focusable, type FocusableProps \} from "@decky\/ui"/);
   assert.doesNotMatch(
     `${retroAchievementsProviderSettingsSource}\n${steamCredentialsFormSource}`,
     /localStorage|sessionStorage/,
@@ -3651,13 +3651,16 @@ test("provider setup and settings true actions use compact focusable pills", () 
     steamProviderSettingsSource,
     /<DeckyFullscreenActionButton[\s\S]*label="Back"[\s\S]*isFullscreenBackAction/u,
   );
-  assert.match(fullscreenActionControlsSource, /import \{ Focusable \} from "@decky\/ui"/);
+  assert.match(fullscreenActionControlsSource, /import \{ Focusable, type FocusableProps \} from "@decky\/ui"/);
   assert.match(
     fullscreenSettingsSource,
     /<DeckyProviderSettingsActionRow[\s\S]*label=\{provider\.label\}[\s\S]*actionLabel="Open"[\s\S]*onOpenProviderSettings\(provider\.id\)/u,
   );
   assert.doesNotMatch(fullscreenSettingsSource, /DeckyActionButtonItem|ButtonItem/);
-  assert.match(providerSettingsActionRowSource, /import \{ Focusable, PanelSectionRow \} from "@decky\/ui"/u);
+  assert.match(
+    providerSettingsActionRowSource,
+    /import \{ Focusable, type FocusableProps, PanelSectionRow \} from "@decky\/ui"/u,
+  );
   assert.match(
     providerSettingsActionRowSource,
     /export function DeckyProviderSettingsActionGroup[\s\S]*<Focusable[\s\S]*flow-children="left-right"[\s\S]*noFocusRing[\s\S]*style=\{getActionGroupStyle\(\)\}/u,
@@ -3722,6 +3725,68 @@ test("provider setup and settings true actions use compact focusable pills", () 
     ].join("\n"),
     /localStorage|sessionStorage/,
   );
+});
+
+test("v0.2.8 release metadata and Decky cleanup stay aligned", () => {
+  const packageJson = JSON.parse(readFileSync("package.json", "utf8")) as { version?: string };
+  const pluginJson = JSON.parse(readFileSync("plugin.json", "utf8")) as { version?: string };
+  const readmeSource = readFileSync("README.md", "utf8");
+  const bootstrapSource = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
+  const compactPillSource = readFileSync(
+    "src/platform/decky/decky-compact-pill-action-item.tsx",
+    "utf8",
+  );
+  const fullScreenActionControlsSource = readFileSync(
+    "src/platform/decky/decky-full-screen-action-controls.tsx",
+    "utf8",
+  );
+  const completionSummaryCardsSource = readFileSync(
+    "src/platform/decky/decky-completion-progress-summary-cards.tsx",
+    "utf8",
+  );
+  const providerSettingsActionRowSource = readFileSync(
+    "src/platform/decky/decky-provider-settings-action-row.tsx",
+    "utf8",
+  );
+  const compactGameDetailSource = readFileSync(
+    "src/platform/decky/decky-game-detail-view.tsx",
+    "utf8",
+  );
+  const cancelBridgeSource = readFileSync(
+    "src/platform/decky/decky-full-screen-cancel-bridge.ts",
+    "utf8",
+  );
+  const releasePackageScriptSource = readFileSync("scripts/package_release.py", "utf8");
+  const releaseCheckScriptSource = readFileSync("scripts/check_release_artifact.py", "utf8");
+
+  assert.equal(packageJson.version, "0.2.8");
+  assert.equal(pluginJson.version, "0.2.8");
+  assert.match(readmeSource, /Version 0\.2\.8/u);
+  assert.match(bootstrapSource, /const ACHIEVEMENT_COMPANION_VERSION = "0\.2\.8"/u);
+  assert.doesNotMatch(
+    `${readmeSource}\n${bootstrapSource}\n${JSON.stringify(packageJson)}\n${JSON.stringify(pluginJson)}`,
+    /0\.2\.7|v0\.2\.7/u,
+  );
+  assert.match(releasePackageScriptSource, /achievement-companion-v\{version\}\.zip/u);
+  assert.match(releaseCheckScriptSource, /achievement-companion-v\{version\}\.zip/u);
+
+  for (const deckySource of [
+    bootstrapSource,
+    compactPillSource,
+    fullScreenActionControlsSource,
+    completionSummaryCardsSource,
+    providerSettingsActionRowSource,
+    compactGameDetailSource,
+  ]) {
+    assert.match(deckySource, /FocusableProps/u);
+  }
+
+  assert.equal(existsSync("src/platform/decky/provider-dashboard-preferences.ts"), false);
+  assert.doesNotMatch(compactPillSource, /readonly flowChildren\?: "row" \| "column";/u);
+  assert.doesNotMatch(cancelBridgeSource, /type BridgeWindow = Window;/u);
+  assert.doesNotMatch(compactGameDetailSource, /function getGameDetailSectionHeaderStyle\(/u);
+  assert.doesNotMatch(compactGameDetailSource, /readonly index: number;/u);
+  assert.doesNotMatch(compactGameDetailSource, /achievements\.map\(\(achievement, index\) =>/u);
 });
 
 test("retroachievements profile exposes points, games beaten, and retroratio metrics", async () => {

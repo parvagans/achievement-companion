@@ -5,10 +5,9 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type ComponentProps,
   type FocusEventHandler,
 } from "react";
-import { Focusable, PanelSection, PanelSectionRow, useQuickAccessVisible } from "@decky/ui";
+import { Focusable, type FocusableProps, PanelSection, PanelSectionRow, useQuickAccessVisible } from "@decky/ui";
 import type { ResourceState } from "@core/cache";
 import type { DashboardSnapshot, GameDetailSnapshot, ProviderId } from "@core/domain";
 import { PlaceholderState } from "@ui/PlaceholderState";
@@ -76,7 +75,7 @@ interface SteamLibraryScanActionState {
 
 type ProviderLauncherTone = "connected" | "setup" | "neutral";
 
-const ACHIEVEMENT_COMPANION_VERSION = "0.2.7";
+const ACHIEVEMENT_COMPANION_VERSION = "0.2.8";
 
 function getChooserCardStyle(): CSSProperties {
   return {
@@ -377,7 +376,7 @@ const scrollFocusedLauncherElementIntoView: FocusEventHandler<HTMLElement> = (ev
   });
 };
 
-type DeckyGamepadFocusHandler = NonNullable<ComponentProps<typeof Focusable>["onGamepadFocus"]>;
+type DeckyGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
 
 const scrollFocusedLauncherGamepadElementIntoView: DeckyGamepadFocusHandler = (event) => {
   const target = event.currentTarget;

@@ -1,5 +1,5 @@
-import { useState, type CSSProperties, type ComponentProps, type JSX, type FocusEventHandler } from "react";
-import { Focusable } from "@decky/ui";
+import { useState, type CSSProperties, type JSX, type FocusEventHandler } from "react";
+import { Focusable, type FocusableProps } from "@decky/ui";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import {
   formatCompletionProgressSelectionLabelForProvider,
@@ -159,7 +159,7 @@ function CompletionProgressSummaryCard({
     });
   };
 
-  const onGamepadFocus: NonNullable<ComponentProps<typeof Focusable>["onGamepadFocus"]> = (event) => {
+  const onGamepadFocus: NonNullable<FocusableProps["onGamepadFocus"]> = (event) => {
     setIsFocused(true);
     const target = event.currentTarget;
 
