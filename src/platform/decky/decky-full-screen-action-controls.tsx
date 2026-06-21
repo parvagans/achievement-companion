@@ -1,7 +1,6 @@
-import { Focusable } from "@decky/ui";
+import { Focusable, type FocusableProps } from "@decky/ui";
 import {
   useCallback,
-  type ComponentProps,
   type CSSProperties,
   type FocusEventHandler,
   type JSX,
@@ -87,7 +86,7 @@ function getFullscreenChipIconStyle(): CSSProperties {
   };
 }
 
-type DeckyGamepadFocusHandler = NonNullable<ComponentProps<typeof Focusable>["onGamepadFocus"]>;
+type DeckyGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
 
 const scrollFocusedElementIntoView: FocusEventHandler<HTMLElement> = (event) => {
   event.currentTarget.scrollIntoView({

@@ -1,8 +1,7 @@
-import { Focusable, PanelSectionRow } from "@decky/ui";
+import { Focusable, type FocusableProps, PanelSectionRow } from "@decky/ui";
 import { useState } from "react";
 import type {
   CSSProperties,
-  ComponentProps,
   FocusEventHandler,
   JSX,
   ReactNode,
@@ -25,7 +24,7 @@ export interface DeckyProviderSettingsActionGroupProps {
   readonly children: ReactNode;
 }
 
-type DeckyGamepadFocusHandler = NonNullable<ComponentProps<typeof Focusable>["onGamepadFocus"]>;
+type DeckyGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
 
 function getActionGroupStyle(): CSSProperties {
   return {
