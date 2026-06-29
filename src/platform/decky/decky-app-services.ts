@@ -1264,6 +1264,9 @@ function describeDeckyRecentAchievementTimestampSources(
 export async function loadDeckyGameDetailState(
   providerId: ProviderId,
   gameId: string,
+  options?: {
+    readonly forceRefresh?: boolean;
+  },
 ): Promise<ResourceState<GameDetailSnapshot>> {
   const runtimeMode: DeckyRuntimeMode = loadDeckyRuntimeMode();
 
@@ -1271,9 +1274,13 @@ export async function loadDeckyGameDetailState(
     return initialDeckyGameDetailState;
   }
 
-  const state = await createDeckyAppServices(runtimeMode).gameDetail.loadGameDetail(providerId, gameId, {
-    forceRefresh: true,
-  });
+  const state = await createDeckyAppServices(runtimeMode).gameDetail.loadGameDetail(
+    providerId,
+    gameId,
+    {
+      forceRefresh: options?.forceRefresh ?? true,
+    },
+  );
 
   if (providerId !== STEAM_PROVIDER_ID || state.data === undefined) {
     return state;

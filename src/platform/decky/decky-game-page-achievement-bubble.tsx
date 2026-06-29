@@ -6,6 +6,10 @@ import {
   type DeckyGamePageAchievementRouteDetectionState,
 } from "./decky-game-page-achievement-route";
 import {
+  formatDeckyGamePageAchievementBadgeLabel,
+  useGamePageAchievementSummary,
+} from "./decky-game-page-achievement-summary";
+import {
   markAchievementCompanionGamePageAchievementBadgeClicked,
   markAchievementCompanionGamePageAchievementBadgeRendered,
   markAchievementCompanionGamePageGlobalComponentRegistered,
@@ -23,6 +27,7 @@ let deckyGamePageAchievementGlobalComponentCleanup: (() => void) | undefined;
 
 interface DeckyGamePageAchievementBadgeProps {
   readonly appId?: string | undefined;
+  readonly label: string;
 }
 
 interface DeckyGamePageAchievementRouteState {
@@ -99,6 +104,7 @@ function getRouteListenerWindows(): Window[] {
 
 export function DeckyGamePageAchievementBadge({
   appId,
+  label,
 }: DeckyGamePageAchievementBadgeProps): JSX.Element {
   useEffect(() => {
     const routeState = readDeckyGamePageAchievementRouteState();
@@ -128,7 +134,7 @@ export function DeckyGamePageAchievementBadge({
         }
       }}
     >
-      {"🏆 37 / 67"}
+      {label}
     </div>
   );
 }
@@ -182,6 +188,8 @@ export function DeckyGamePageAchievementGlobalBadge(): JSX.Element | null {
 
   const appId = routeState.detection.appId;
   const visible = routeState.detection.isGamePage;
+  const summary = useGamePageAchievementSummary(visible ? appId : undefined);
+  const badgeLabel = formatDeckyGamePageAchievementBadgeLabel(summary);
 
   useEffect(() => {
     markAchievementCompanionGamePageGlobalComponentRendered(
@@ -190,11 +198,11 @@ export function DeckyGamePageAchievementGlobalBadge(): JSX.Element | null {
     );
   }, [routeState]);
 
-  if (!visible) {
+  if (!visible || badgeLabel === undefined) {
     return null;
   }
 
-  return <DeckyGamePageAchievementBadge appId={appId} />;
+  return <DeckyGamePageAchievementBadge appId={appId} label={badgeLabel} />;
 }
 
 function AchievementCompanionGamePageBadgeGlobalComponent(): JSX.Element | null {

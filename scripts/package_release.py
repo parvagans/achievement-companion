@@ -23,11 +23,13 @@ REQUIRED_FRONTEND_MARKERS: tuple[str, ...] = (
   "addGlobalComponent",
   "/routes/library/app",
   "global component render",
-  "37 / 67",
+  "formatDeckyGamePageAchievementBadgeLabel",
+  "no-retroachievements-shortcut-mapping",
 )
 FORBIDDEN_FRONTEND_MARKERS: tuple[str, ...] = (
   "createRoot",
   "react-dom/client",
+  ".protondb-decky-indicator-container",
 )
 STAGE_DIR = RELEASE_DIR / "staged" / PLUGIN_ARCHIVE_ROOT
 REQUIRED_RELATIVE_PATHS: tuple[Path, ...] = (
