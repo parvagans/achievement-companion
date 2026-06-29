@@ -113,6 +113,7 @@ import {
   resolveDeckyGamePageAchievementAppIdFromRouteProps,
 } from "../src/platform/decky/decky-game-page-achievement-route";
 import {
+  clearDeckyGamePageAchievementSummaryCacheForTests,
   formatDeckyGamePageAchievementBadgeLabel,
   loadDeckyGamePageAchievementSummary,
 } from "../src/platform/decky/decky-game-page-achievement-summary";
@@ -160,6 +161,7 @@ import {
   readDeckyProviderConfig,
   writeDeckyProviderConfig,
 } from "../src/platform/decky/providers/retroachievements/config";
+import { RETROACHIEVEMENTS_PROVIDER_ID } from "../src/providers/retroachievements/config";
 import type { DeckyProviderConfigValue } from "../src/platform/decky/providers/provider-config-store";
 import {
   RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY,
@@ -185,6 +187,7 @@ import { STEAM_PROVIDER_ID } from "../src/providers/steam";
 import {
   clearDeckyProviderConfigCache,
   deckyProviderConfigStore,
+  updateDeckyProviderConfigCache,
 } from "../src/platform/decky/providers/provider-config-store";
 import {
   STEAM_CREDENTIAL_HELPER_COPY,
@@ -727,6 +730,7 @@ interface DeckyBackendTestSteamState {
     readonly includePlayedFreeGames: boolean;
   };
   readonly secret?: string;
+  readonly shortcutMetadataByAppId?: Readonly<Record<string, { readonly title: string }>>;
 }
 
 const deckyBackendTestState = {
@@ -951,6 +955,22 @@ const deckyBackendTestCallImplementation = async (route: string, payload: unknow
     throw new Error(`Unexpected steam backend request path in test: ${path}`);
   }
 
+  if (route === "get_steam_shortcut_metadata") {
+    const appId =
+      typeof record?.appId === "string"
+        ? record.appId
+        : typeof record?.appId === "number"
+          ? String(record.appId)
+          : "";
+    const metadata = deckyBackendTestState.steam.shortcutMetadataByAppId?.[appId];
+    return metadata === undefined
+      ? undefined
+      : {
+          appId,
+          title: metadata.title,
+        };
+  }
+
   throw new Error(`Unexpected decky backend route in test: ${route}`);
 };
 
@@ -961,6 +981,7 @@ beforeEach(() => {
   clearDeckyProviderConfigCache("retroachievements");
   clearDeckyProviderConfigCache("steam");
   clearDeckySteamLibraryAchievementScanSummary();
+  clearDeckyGamePageAchievementSummaryCacheForTests();
   clearSteamRecentGameSnapshotLoadCacheForTests();
 });
 
@@ -3793,11 +3814,14 @@ test("v0.2.10 diagnostic release metadata and Decky cleanup stay aligned", () =>
   assert.match(releasePackageScriptSource, /global component render/u);
   assert.match(releasePackageScriptSource, /formatDeckyGamePageAchievementBadgeLabel/u);
   assert.match(releasePackageScriptSource, /no-retroachievements-shortcut-mapping/u);
+  assert.match(releasePackageScriptSource, /retroachievements/u);
   assert.match(releasePackageScriptSource, /createRoot/u);
   assert.match(releasePackageScriptSource, /react-dom\/client/u);
   assert.match(releasePackageScriptSource, /\.protondb-decky-indicator-container/u);
+  assert.match(releasePackageScriptSource, /backend\/steam_shortcuts\.py/u);
   assert.match(releaseCheckScriptSource, /INSTALL_DIAGNOSTIC\.txt/u);
   assert.match(releaseCheckScriptSource, /AchievementCompanionGamePageBadge/u);
+  assert.match(releaseCheckScriptSource, /backend\/steam_shortcuts\.py/u);
   assert.match(releaseCheckScriptSource, /FORBIDDEN_FRONTEND_MARKERS/u);
   assert.match(releaseCheckScriptSource, /verify_release_dist_bundles/u);
   assert.match(packageJson.scripts?.build ?? "", /clean_decky_dist\.py/u);
@@ -10023,6 +10047,16 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(runtimeDebugSource, /lastSummaryUnavailableReason/u);
   assert.match(runtimeDebugSource, /lastSummaryFetchStartedAt/u);
   assert.match(runtimeDebugSource, /lastSummaryFetchCompletedAt/u);
+  assert.match(runtimeDebugSource, /lastRetroAchievementsShortcutAppId/u);
+  assert.match(runtimeDebugSource, /lastRetroAchievementsMappingStatus/u);
+  assert.match(runtimeDebugSource, /lastRetroAchievementsMappingReason/u);
+  assert.match(runtimeDebugSource, /lastRetroAchievementsGameId/u);
+  assert.match(runtimeDebugSource, /lastRetroAchievementsTitle/u);
+  assert.match(runtimeDebugSource, /lastRetroAchievementsEarned/u);
+  assert.match(runtimeDebugSource, /lastRetroAchievementsTotal/u);
+  assert.match(runtimeDebugSource, /lastRetroAchievementsSource/u);
+  assert.match(runtimeDebugSource, /lastRetroAchievementsConfidence/u);
+  assert.match(runtimeDebugSource, /lastRetroAchievementsError/u);
   assert.match(runtimeDebugSource, /Game-page achievement badge global component registered/u);
   assert.match(runtimeDebugSource, /Game-page achievement badge global component removed/u);
   assert.match(runtimeDebugSource, /Game-page achievement badge rendered/u);
@@ -10030,6 +10064,7 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(runtimeDebugSource, /reportAchievementCompanionRuntimeDebugError/u);
   assert.match(runtimeDebugSource, /reportAchievementCompanionGamePageGlobalComponentError/u);
   assert.match(runtimeDebugSource, /reportAchievementCompanionGamePageAchievementSummaryError/u);
+  assert.match(runtimeDebugSource, /markAchievementCompanionRetroAchievementsShortcutResolution/u);
   assert.match(runtimeDebugSource, /markAchievementCompanionGamePageAchievementSummaryFetchStarted/u);
   assert.match(runtimeDebugSource, /markAchievementCompanionGamePageAchievementSummaryFetchCompleted/u);
   assert.match(routeDetectionSource, /target-url-route/u);
@@ -10042,7 +10077,11 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(summarySource, /requestSequenceRef\.current !== requestSequence/u);
   assert.match(summarySource, /readDeckySteamLibraryAchievementScanSummary/u);
   assert.match(summarySource, /readDeckyDashboardSnapshotCacheEntry/u);
-  assert.match(summarySource, /loadDeckyGameDetailState\(STEAM_PROVIDER_ID, appId, \{\s*forceRefresh: false/u);
+  assert.match(summarySource, /loadDeckySteamShortcutMetadata/u);
+  assert.match(summarySource, /readDeckyRetroAchievementsProviderConfig/u);
+  assert.match(summarySource, /shortcut-title-match/u);
+  assert.match(summarySource, /ambiguous-retroachievements-shortcut-mapping/u);
+  assert.match(summarySource, /loadDeckyGameDetailStateLazy\(STEAM_PROVIDER_ID, appId, \{\s*forceRefresh: false/u);
   assert.match(summarySource, /no-retroachievements-shortcut-mapping/u);
   assert.match(bootstrapSource, /Decky bootstrap mounted/u);
   assert.doesNotMatch(bootstrapSource, /DeckyGamePageAchievementBubbleOverlayLifecycle/u);
@@ -10237,6 +10276,297 @@ test("game page achievement summary resolves Steam counts from the cached librar
       total: 45,
       source: "cache",
       updatedAt: "2026-06-29T12:00:00.000Z",
+    });
+  });
+});
+
+test("game page achievement summary keeps Steam results when both Steam and RetroAchievements data exist", async () => {
+  await withMockDeckyStorage(async () => {
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "1672970": {
+        title: "Minecraft Dungeons",
+      },
+    };
+    assert.ok(
+      writeDeckyDashboardSnapshot({
+        ...createDashboardSnapshot(),
+        profile: {
+          ...createDashboardSnapshot().profile,
+          providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+          identity: {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            accountId: "alice",
+            displayName: "Alice",
+          },
+        },
+        recentlyPlayedGames: [
+          {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            gameId: "42",
+            title: "Minecraft Dungeons",
+            platformLabel: "Xbox",
+            summary: {
+              unlockedCount: 4,
+              totalCount: 10,
+            },
+          },
+        ],
+        recentUnlocks: [],
+        recentAchievements: [],
+        featuredGames: [],
+      }),
+    );
+    writeDeckySteamLibraryAchievementScanSummary({
+      scannedAt: "2026-06-29T12:00:00.000Z",
+      ownedGameCount: 1,
+      scannedGameCount: 1,
+      gamesWithAchievements: 1,
+      unlockedAchievements: 12,
+      totalAchievements: 45,
+      perfectGames: 0,
+      completionPercent: 27,
+      games: [
+        {
+          providerId: STEAM_PROVIDER_ID,
+          appid: 1672970,
+          gameId: "1672970",
+          id: "1672970",
+          title: "Minecraft Dungeons",
+          unlockedAchievements: 12,
+          totalAchievements: 45,
+          completionPercent: 27,
+          scanStatus: "scanned",
+          hasAchievements: true,
+        },
+      ],
+    } as SteamLibraryAchievementScanSummary);
+
+    const summary = await loadDeckyGamePageAchievementSummary("1672970");
+    assert.deepStrictEqual(summary, {
+      status: "ready",
+      provider: "steam",
+      appId: "1672970",
+      gameId: "1672970",
+      title: "Minecraft Dungeons",
+      earned: 12,
+      total: 45,
+      source: "cache",
+      updatedAt: "2026-06-29T12:00:00.000Z",
+    });
+  });
+});
+
+test("game page achievement summary resolves RetroAchievements counts from an exact shortcut title match", async () => {
+  await withMockDeckyStorage(async () => {
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2217040867": {
+        title: "StarCraft 64",
+      },
+    };
+    assert.ok(
+      writeDeckyDashboardSnapshot({
+        ...createDashboardSnapshot(),
+        profile: {
+          ...createDashboardSnapshot().profile,
+          providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+          identity: {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            accountId: "alice",
+            displayName: "Alice",
+          },
+        },
+        recentlyPlayedGames: [
+          {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            gameId: "64",
+            title: "StarCraft 64",
+            platformLabel: "Nintendo 64",
+            summary: {
+              unlockedCount: 9,
+              totalCount: 18,
+            },
+          },
+        ],
+        recentUnlocks: [],
+        recentAchievements: [],
+        featuredGames: [],
+      }),
+    );
+
+    const summary = await loadDeckyGamePageAchievementSummary("2217040867");
+    assert.deepStrictEqual(summary, {
+      status: "ready",
+      provider: "retroachievements",
+      appId: "2217040867",
+      gameId: "64",
+      title: "StarCraft 64",
+      earned: 9,
+      total: 18,
+      source: "snapshot",
+      updatedAt: readDeckyDashboardSnapshotCacheEntry(RETROACHIEVEMENTS_PROVIDER_ID) !== undefined
+        ? new Date(readDeckyDashboardSnapshotCacheEntry(RETROACHIEVEMENTS_PROVIDER_ID)!.storedAt).toISOString()
+        : undefined,
+    });
+  });
+});
+
+test("game page achievement summary hides ambiguous RetroAchievements shortcut title matches", async () => {
+  await withMockDeckyStorage(async () => {
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2217040868": {
+        title: "Duplicate Game",
+      },
+    };
+    assert.ok(
+      writeDeckyDashboardSnapshot({
+        ...createDashboardSnapshot(),
+        profile: {
+          ...createDashboardSnapshot().profile,
+          providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+          identity: {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            accountId: "alice",
+            displayName: "Alice",
+          },
+        },
+        recentlyPlayedGames: [
+          {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            gameId: "11",
+            title: "Duplicate Game",
+            platformLabel: "SNES",
+            summary: {
+              unlockedCount: 4,
+              totalCount: 10,
+            },
+          },
+        ],
+        recentUnlocks: [],
+        recentAchievements: [],
+        featuredGames: [
+          {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            gameId: "12",
+            title: "Duplicate Game",
+            platformLabel: "Genesis",
+            status: "in_progress",
+            summary: {
+              unlockedCount: 7,
+              totalCount: 14,
+            },
+            metrics: [],
+          },
+        ],
+      }),
+    );
+
+    const summary = await loadDeckyGamePageAchievementSummary("2217040868");
+    assert.deepStrictEqual(summary, {
+      status: "unavailable",
+      appId: "2217040868",
+      reason: "ambiguous-retroachievements-shortcut-mapping",
+    });
+  });
+});
+
+test("game page achievement summary reports no RetroAchievements shortcut mapping when no exact title match exists", async () => {
+  await withMockDeckyStorage(async () => {
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2217040869": {
+        title: "Unmatched ROM",
+      },
+    };
+    assert.ok(
+      writeDeckyDashboardSnapshot({
+        ...createDashboardSnapshot(),
+        profile: {
+          ...createDashboardSnapshot().profile,
+          providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+          identity: {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            accountId: "alice",
+            displayName: "Alice",
+          },
+        },
+        recentlyPlayedGames: [
+          {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            gameId: "99",
+            title: "Different Game",
+            platformLabel: "Nintendo 64",
+            summary: {
+              unlockedCount: 3,
+              totalCount: 9,
+            },
+          },
+        ],
+        recentUnlocks: [],
+        recentAchievements: [],
+        featuredGames: [],
+      }),
+    );
+
+    const summary = await loadDeckyGamePageAchievementSummary("2217040869");
+    assert.deepStrictEqual(summary, {
+      status: "unavailable",
+      appId: "2217040869",
+      reason: "no-retroachievements-shortcut-mapping",
+    });
+  });
+});
+
+test("game page achievement summary handles missing RetroAchievements config or cache without crashing", async () => {
+  await withMockDeckyStorage(async () => {
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2217040870": {
+        title: "Star Fox 64",
+      },
+    };
+
+    const missingConfigSummary = await loadDeckyGamePageAchievementSummary("2217040870");
+    assert.deepStrictEqual(missingConfigSummary, {
+      status: "unavailable",
+      appId: "2217040870",
+      reason: "ra-provider-not-configured",
+    });
+
+    clearDeckyGamePageAchievementSummaryCacheForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+
+    const missingCacheSummary = await loadDeckyGamePageAchievementSummary("2217040870");
+    assert.deepStrictEqual(missingCacheSummary, {
+      status: "unavailable",
+      appId: "2217040870",
+      reason: "ra-cache-unavailable",
     });
   });
 });

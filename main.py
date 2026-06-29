@@ -34,6 +34,7 @@ from backend.secrets import _load_secret_store as _provider_load_secret_store
 from backend.secrets import clear_secret_api_key as _provider_clear_secret_api_key
 from backend.secrets import load_secret_api_key as _provider_load_secret_api_key
 from backend.secrets import save_secret_api_key as _provider_save_secret_api_key
+from backend.steam_shortcuts import load_steam_shortcut_metadata as _load_steam_shortcut_metadata
 from backend.storage import build_corrupt_backup_path as _build_corrupt_backup_path
 from backend.storage import quarantine_corrupt_json_file as _quarantine_corrupt_json_file
 from backend.storage import read_json_file as _read_json_file
@@ -380,3 +381,18 @@ class Plugin:
       },
       handled_http_statuses=handled_http_statuses,
     )
+
+  async def get_steam_shortcut_metadata(self, payload: dict[str, Any]) -> dict[str, Any] | None:
+    raw_app_id = payload.get("appId")
+    app_id = _coerce_string(raw_app_id)
+    if app_id is None and isinstance(raw_app_id, (int, float)) and not isinstance(raw_app_id, bool):
+      app_id = str(int(raw_app_id))
+
+    if app_id is None:
+      return None
+
+    metadata = _load_steam_shortcut_metadata(app_id)
+    if metadata is None:
+      return None
+
+    return dict(metadata)

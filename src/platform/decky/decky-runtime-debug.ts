@@ -44,6 +44,16 @@ export interface AchievementCompanionRuntimeDebugState {
   readonly lastSummaryUnavailableReason: string | undefined;
   readonly lastSummaryFetchStartedAt: string | undefined;
   readonly lastSummaryFetchCompletedAt: string | undefined;
+  readonly lastRetroAchievementsShortcutAppId: string | undefined;
+  readonly lastRetroAchievementsMappingStatus: "mapped" | "unavailable" | "error" | undefined;
+  readonly lastRetroAchievementsMappingReason: string | undefined;
+  readonly lastRetroAchievementsGameId: string | undefined;
+  readonly lastRetroAchievementsTitle: string | undefined;
+  readonly lastRetroAchievementsEarned: number | undefined;
+  readonly lastRetroAchievementsTotal: number | undefined;
+  readonly lastRetroAchievementsSource: string | undefined;
+  readonly lastRetroAchievementsConfidence: string | undefined;
+  readonly lastRetroAchievementsError: string | undefined;
   readonly lastError: string | undefined;
 }
 
@@ -104,6 +114,16 @@ let runtimeDebugLastSummaryTotal: number | undefined;
 let runtimeDebugLastSummaryUnavailableReason: string | undefined;
 let runtimeDebugLastSummaryFetchStartedAt: string | undefined;
 let runtimeDebugLastSummaryFetchCompletedAt: string | undefined;
+let runtimeDebugLastRetroAchievementsShortcutAppId: string | undefined;
+let runtimeDebugLastRetroAchievementsMappingStatus: "mapped" | "unavailable" | "error" | undefined;
+let runtimeDebugLastRetroAchievementsMappingReason: string | undefined;
+let runtimeDebugLastRetroAchievementsGameId: string | undefined;
+let runtimeDebugLastRetroAchievementsTitle: string | undefined;
+let runtimeDebugLastRetroAchievementsEarned: number | undefined;
+let runtimeDebugLastRetroAchievementsTotal: number | undefined;
+let runtimeDebugLastRetroAchievementsSource: string | undefined;
+let runtimeDebugLastRetroAchievementsConfidence: string | undefined;
+let runtimeDebugLastRetroAchievementsError: string | undefined;
 let runtimeDebugLastObservedRouteUrl: string | undefined;
 let runtimeDebugLastObservedDetection: DeckyGamePageAchievementRouteDetectionState | undefined;
 let runtimeDebugLastError: string | undefined;
@@ -260,6 +280,16 @@ function computeRuntimeDebugState(): AchievementCompanionRuntimeDebugState {
     lastSummaryUnavailableReason: runtimeDebugLastSummaryUnavailableReason,
     lastSummaryFetchStartedAt: runtimeDebugLastSummaryFetchStartedAt,
     lastSummaryFetchCompletedAt: runtimeDebugLastSummaryFetchCompletedAt,
+    lastRetroAchievementsShortcutAppId: runtimeDebugLastRetroAchievementsShortcutAppId,
+    lastRetroAchievementsMappingStatus: runtimeDebugLastRetroAchievementsMappingStatus,
+    lastRetroAchievementsMappingReason: runtimeDebugLastRetroAchievementsMappingReason,
+    lastRetroAchievementsGameId: runtimeDebugLastRetroAchievementsGameId,
+    lastRetroAchievementsTitle: runtimeDebugLastRetroAchievementsTitle,
+    lastRetroAchievementsEarned: runtimeDebugLastRetroAchievementsEarned,
+    lastRetroAchievementsTotal: runtimeDebugLastRetroAchievementsTotal,
+    lastRetroAchievementsSource: runtimeDebugLastRetroAchievementsSource,
+    lastRetroAchievementsConfidence: runtimeDebugLastRetroAchievementsConfidence,
+    lastRetroAchievementsError: runtimeDebugLastRetroAchievementsError,
     lastError: runtimeDebugLastError,
   };
 }
@@ -439,4 +469,28 @@ export function reportAchievementCompanionGamePageAchievementSummaryError(
   runtimeDebugLastSummaryFetchCompletedAt = new Date().toISOString();
   runtimeDebugLastBadgeRenderAppId = appId;
   return message;
+}
+
+export function markAchievementCompanionRetroAchievementsShortcutResolution(args: {
+  readonly appId: string;
+  readonly status: "mapped" | "unavailable" | "error";
+  readonly reason?: string;
+  readonly gameId?: string;
+  readonly title?: string;
+  readonly earned?: number;
+  readonly total?: number;
+  readonly source?: string;
+  readonly confidence?: string;
+  readonly error?: string;
+}): void {
+  runtimeDebugLastRetroAchievementsShortcutAppId = args.appId;
+  runtimeDebugLastRetroAchievementsMappingStatus = args.status;
+  runtimeDebugLastRetroAchievementsMappingReason = args.reason;
+  runtimeDebugLastRetroAchievementsGameId = args.gameId;
+  runtimeDebugLastRetroAchievementsTitle = args.title;
+  runtimeDebugLastRetroAchievementsEarned = args.earned;
+  runtimeDebugLastRetroAchievementsTotal = args.total;
+  runtimeDebugLastRetroAchievementsSource = args.source;
+  runtimeDebugLastRetroAchievementsConfidence = args.confidence;
+  runtimeDebugLastRetroAchievementsError = args.error;
 }

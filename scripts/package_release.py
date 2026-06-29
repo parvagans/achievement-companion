@@ -24,6 +24,7 @@ REQUIRED_FRONTEND_MARKERS: tuple[str, ...] = (
   "/routes/library/app",
   "global component render",
   "formatDeckyGamePageAchievementBadgeLabel",
+  "retroachievements",
   "no-retroachievements-shortcut-mapping",
 )
 FORBIDDEN_FRONTEND_MARKERS: tuple[str, ...] = (
@@ -42,6 +43,7 @@ REQUIRED_RELATIVE_PATHS: tuple[Path, ...] = (
   Path("backend/storage.py"),
   Path("backend/provider_config.py"),
   Path("backend/diagnostics.py"),
+  Path("backend/steam_shortcuts.py"),
   Path("package.json"),
   Path("plugin.json"),
   Path("README.md"),
