@@ -1,10 +1,11 @@
 import { routerHook } from "@decky/api";
-import { useCallback, useEffect, useState, type CSSProperties, type JSX } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type JSX } from "react";
 import {
   DECKY_GAME_PAGE_ACHIEVEMENT_URL_ROUTE_PREFIX,
   detectDeckyGamePageAchievementRouteFromUrl,
   type DeckyGamePageAchievementRouteDetectionState,
 } from "./decky-game-page-achievement-route";
+import { hasVisibleDeckyGamePageModal } from "./decky-game-page-achievement-modal-visibility";
 import {
   formatDeckyGamePageAchievementBadgeLabel,
   useGamePageAchievementSummary,
@@ -22,17 +23,24 @@ import {
 const ACHIEVEMENT_COMPANION_GAME_PAGE_BADGE_GLOBAL_COMPONENT_NAME =
   "AchievementCompanionGamePageBadge";
 const GAME_PAGE_BADGE_ROUTE_POLL_INTERVAL_MS = 750;
+const GAME_PAGE_BADGE_MODAL_POLL_INTERVAL_MS = 500;
 
 let deckyGamePageAchievementGlobalComponentCleanup: (() => void) | undefined;
 
 interface DeckyGamePageAchievementBadgeProps {
   readonly appId?: string | undefined;
   readonly label: string;
+  readonly elementRef?: ((element: HTMLDivElement | null) => void) | undefined;
 }
 
 interface DeckyGamePageAchievementRouteState {
   readonly currentRouteUrl: string | undefined;
   readonly detection: DeckyGamePageAchievementRouteDetectionState;
+}
+
+interface DeckyGamePageAchievementTargetContext {
+  readonly targetDocument: Document;
+  readonly targetWindow: Window;
 }
 
 function getDeckyGamePageAchievementBadgeStyle(): CSSProperties {
@@ -61,14 +69,35 @@ function getDeckyGamePageAchievementBadgeStyle(): CSSProperties {
 }
 
 function getDeckyGamePageAchievementRouteUrls(): readonly (string | undefined)[] {
-  const hostContext = resolveAchievementCompanionRuntimeDebugHostContext();
-  const hostUrl = hostContext?.hostDocument.location?.href;
+  const targetContext = resolveDeckyGamePageAchievementTargetContext();
+  const hostUrl = targetContext?.targetDocument.location?.href;
   const currentHref = typeof window === "undefined" ? undefined : window.location?.href;
   const currentPathname =
     typeof window === "undefined" || typeof window.location?.pathname !== "string"
       ? undefined
       : `https://steamloopback.host${window.location.pathname}`;
   return [currentPathname, currentHref, hostUrl];
+}
+
+function resolveDeckyGamePageAchievementTargetContext():
+  | DeckyGamePageAchievementTargetContext
+  | undefined {
+  const hostContext = resolveAchievementCompanionRuntimeDebugHostContext();
+  if (hostContext !== undefined) {
+    return {
+      targetDocument: hostContext.hostDocument,
+      targetWindow: hostContext.hostWindow,
+    };
+  }
+
+  if (typeof document === "undefined" || typeof window === "undefined") {
+    return undefined;
+  }
+
+  return {
+    targetDocument: document,
+    targetWindow: window,
+  };
 }
 
 function readDeckyGamePageAchievementRouteState(): DeckyGamePageAchievementRouteState {
@@ -102,9 +131,19 @@ function getRouteListenerWindows(): Window[] {
   return Array.from(windows);
 }
 
+function readDeckyGamePageModalOpenState(badgeDocument?: Document): boolean {
+  const hostDocument = resolveDeckyGamePageAchievementTargetContext()?.targetDocument;
+  return (
+    hasVisibleDeckyGamePageModal(badgeDocument) ||
+    hasVisibleDeckyGamePageModal(hostDocument) ||
+    hasVisibleDeckyGamePageModal()
+  );
+}
+
 export function DeckyGamePageAchievementBadge({
   appId,
   label,
+  elementRef,
 }: DeckyGamePageAchievementBadgeProps): JSX.Element {
   useEffect(() => {
     const routeState = readDeckyGamePageAchievementRouteState();
@@ -115,6 +154,8 @@ export function DeckyGamePageAchievementBadge({
     <div
       aria-label={appId !== undefined ? `Achievement bubble for app ${appId}` : "Achievement bubble"}
       className="ac-game-page-achievement-badge"
+      data-achievement-companion-game-page-badge="true"
+      ref={elementRef}
       role="button"
       style={getDeckyGamePageAchievementBadgeStyle()}
       tabIndex={0}
@@ -143,6 +184,17 @@ export function DeckyGamePageAchievementGlobalBadge(): JSX.Element | null {
   const [routeState, setRouteState] = useState<DeckyGamePageAchievementRouteState>(() =>
     readDeckyGamePageAchievementRouteState(),
   );
+  const badgeElementRef = useRef<HTMLDivElement | null>(null);
+  const badgeOwnerDocumentRef = useRef<Document | undefined>(undefined);
+  const [modalOpen, setModalOpen] = useState<boolean>(() => readDeckyGamePageModalOpenState());
+
+  const setBadgeElement = useCallback((element: HTMLDivElement | null) => {
+    badgeElementRef.current = element;
+
+    if (element?.ownerDocument !== undefined) {
+      badgeOwnerDocumentRef.current = element.ownerDocument;
+    }
+  }, []);
 
   const refreshRouteState = useCallback(() => {
     try {
@@ -161,6 +213,18 @@ export function DeckyGamePageAchievementGlobalBadge(): JSX.Element | null {
       });
     } catch (error) {
       reportAchievementCompanionGamePageGlobalComponentError(error, "game-page-global-component:refresh");
+    }
+  }, []);
+
+  const refreshModalState = useCallback(() => {
+    try {
+      setModalOpen((previousState) => {
+        const badgeDocument = badgeElementRef.current?.ownerDocument ?? badgeOwnerDocumentRef.current;
+        const nextState = readDeckyGamePageModalOpenState(badgeDocument);
+        return previousState === nextState ? previousState : nextState;
+      });
+    } catch (error) {
+      reportAchievementCompanionGamePageGlobalComponentError(error, "game-page-global-component:modal");
     }
   }, []);
 
@@ -186,6 +250,14 @@ export function DeckyGamePageAchievementGlobalBadge(): JSX.Element | null {
     };
   }, [refreshRouteState]);
 
+  useEffect(() => {
+    refreshModalState();
+    const timer = window.setInterval(refreshModalState, GAME_PAGE_BADGE_MODAL_POLL_INTERVAL_MS);
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [refreshModalState]);
+
   const appId = routeState.detection.appId;
   const visible = routeState.detection.isGamePage;
   const summary = useGamePageAchievementSummary(visible ? appId : undefined);
@@ -198,11 +270,11 @@ export function DeckyGamePageAchievementGlobalBadge(): JSX.Element | null {
     );
   }, [routeState]);
 
-  if (!visible || badgeLabel === undefined) {
+  if (!visible || badgeLabel === undefined || modalOpen) {
     return null;
   }
 
-  return <DeckyGamePageAchievementBadge appId={appId} label={badgeLabel} />;
+  return <DeckyGamePageAchievementBadge appId={appId} elementRef={setBadgeElement} label={badgeLabel} />;
 }
 
 function AchievementCompanionGamePageBadgeGlobalComponent(): JSX.Element | null {

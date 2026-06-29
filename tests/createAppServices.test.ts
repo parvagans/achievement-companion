@@ -113,6 +113,10 @@ import {
   resolveDeckyGamePageAchievementAppIdFromRouteProps,
 } from "../src/platform/decky/decky-game-page-achievement-route";
 import {
+  hasVisibleDeckyGamePageModal,
+  isVisibleDeckyGamePageModalElement,
+} from "../src/platform/decky/decky-game-page-achievement-modal-visibility";
+import {
   clearDeckyGamePageAchievementSummaryCacheForTests,
   formatDeckyGamePageAchievementBadgeLabel,
   loadDeckyGamePageAchievementSummary,
@@ -10004,6 +10008,10 @@ test("steam game page achievement badge uses the Decky global component path wit
   const indexSource = readFileSync("src/index.tsx", "utf8");
   const bootstrapSource = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
   const runtimeDebugSource = readFileSync("src/platform/decky/decky-runtime-debug.ts", "utf8");
+  const modalVisibilitySource = readFileSync(
+    "src/platform/decky/decky-game-page-achievement-modal-visibility.ts",
+    "utf8",
+  );
   const routeDetectionSource = readFileSync(
     "src/platform/decky/decky-game-page-achievement-route.ts",
     "utf8",
@@ -10078,11 +10086,14 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(summarySource, /readDeckySteamLibraryAchievementScanSummary/u);
   assert.match(summarySource, /readDeckyDashboardSnapshotCacheEntry/u);
   assert.match(summarySource, /loadDeckySteamShortcutMetadata/u);
-  assert.match(summarySource, /readDeckyRetroAchievementsProviderConfig/u);
   assert.match(summarySource, /shortcut-title-match/u);
   assert.match(summarySource, /ambiguous-retroachievements-shortcut-mapping/u);
   assert.match(summarySource, /loadDeckyGameDetailStateLazy\(STEAM_PROVIDER_ID, appId, \{\s*forceRefresh: false/u);
   assert.match(summarySource, /no-retroachievements-shortcut-mapping/u);
+  assert.match(summarySource, /ra-cache-unavailable/u);
+  assert.match(summarySource, /collectRetroAchievementsDashboardCandidates/u);
+  assert.match(summarySource, /unlockedCount/u);
+  assert.match(summarySource, /totalCount/u);
   assert.match(bootstrapSource, /Decky bootstrap mounted/u);
   assert.doesNotMatch(bootstrapSource, /DeckyGamePageAchievementBubbleOverlayLifecycle/u);
   assert.doesNotMatch(bootstrapSource, /startGamePageAchievementBubbleOverlay\(/u);
@@ -10098,21 +10109,52 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(bubbleSource, /top:\s*90/u);
   assert.match(bubbleSource, /left:\s*32/u);
   assert.match(bubbleSource, /zIndex:\s*7002/u);
+  assert.match(bubbleSource, /GAME_PAGE_BADGE_MODAL_POLL_INTERVAL_MS = 500/u);
+  assert.match(bubbleSource, /resolveDeckyGamePageAchievementTargetContext/u);
+  assert.match(bubbleSource, /readDeckyGamePageModalOpenState/u);
+  assert.match(bubbleSource, /hasVisibleDeckyGamePageModal/u);
+  assert.match(bubbleSource, /badgeElementRef/u);
+  assert.match(bubbleSource, /badgeOwnerDocumentRef/u);
+  assert.match(bubbleSource, /ownerDocument/u);
+  assert.match(bubbleSource, /const badgeDocument = badgeElementRef\.current\?\.ownerDocument \?\? badgeOwnerDocumentRef\.current/u);
+  assert.match(bubbleSource, /function readDeckyGamePageModalOpenState\(badgeDocument\?: Document\): boolean/u);
+  assert.match(bubbleSource, /const hostDocument = resolveDeckyGamePageAchievementTargetContext\(\)\?\.targetDocument/u);
+  assert.match(bubbleSource, /hasVisibleDeckyGamePageModal\(badgeDocument\)/u);
+  assert.match(bubbleSource, /hasVisibleDeckyGamePageModal\(hostDocument\)/u);
+  assert.match(bubbleSource, /hasVisibleDeckyGamePageModal\(\)/u);
+  assert.match(
+    bubbleSource,
+    /hasVisibleDeckyGamePageModal\(badgeDocument\)\s*\|\|\s*hasVisibleDeckyGamePageModal\(hostDocument\)\s*\|\|\s*hasVisibleDeckyGamePageModal\(\)/u,
+  );
+  assert.match(bubbleSource, /ref=\{elementRef\}/u);
+  assert.match(bubbleSource, /data-achievement-companion-game-page-badge="true"/u);
   assert.match(bubbleSource, /reportAchievementCompanionGamePageGlobalComponentError/u);
   assert.match(bubbleSource, /resolveAchievementCompanionRuntimeDebugHostContext\(/u);
   assert.match(bubbleSource, /ensureDeckyGamePageAchievementGlobalComponentRegistered/u);
   assert.match(bubbleSource, /markAchievementCompanionGamePageGlobalComponentRendered/u);
   assert.match(bubbleSource, /markAchievementCompanionGamePageAchievementBadgeRendered/u);
   assert.match(bubbleSource, /addGlobalComponent/u);
+  assert.match(modalVisibilitySource, /hasVisibleDeckyGamePageModal\(targetDocument\?: Document\)/u);
+  assert.match(modalVisibilitySource, /\[role="dialog"\], \[aria-modal="true"\]/u);
+  assert.match(modalVisibilitySource, /window\.top\?\.document/u);
+  assert.match(modalVisibilitySource, /element\.ownerDocument\?\.defaultView/u);
+  assert.match(modalVisibilitySource, /rect\.width <= 100/u);
+  assert.match(modalVisibilitySource, /rect\.height <= 100/u);
+  assert.match(modalVisibilitySource, /computedStyle\.display === "none"/u);
+  assert.match(modalVisibilitySource, /computedStyle\.visibility === "hidden"/u);
+  assert.match(modalVisibilitySource, /computedStyle\.opacity !== "0"/u);
   assert.doesNotMatch(bubbleSource, /createRoot/u);
   assert.doesNotMatch(bubbleSource, /react-dom\/client/u);
   assert.doesNotMatch(runtimeDebugSource, /createRoot/u);
   assert.doesNotMatch(runtimeDebugSource, /react-dom\/client/u);
   assert.doesNotMatch(summarySource, /createRoot/u);
   assert.doesNotMatch(summarySource, /react-dom\/client/u);
+  assert.doesNotMatch(modalVisibilitySource, /createRoot/u);
+  assert.doesNotMatch(modalVisibilitySource, /react-dom\/client/u);
   assert.doesNotMatch(bubbleSource, /protondb/i);
   assert.doesNotMatch(runtimeDebugSource, /protondb/i);
   assert.doesNotMatch(summarySource, /protondb/i);
+  assert.doesNotMatch(modalVisibilitySource, /protondb/i);
   assert.doesNotMatch(indexSource, /ensureDeckyGamePageAchievementBubblePatchRegistered/u);
   assert.doesNotMatch(bubbleSource, /routerHook\.addPatch/u);
   assert.doesNotMatch(bubbleSource, /routerHook\.removePatch/u);
@@ -10235,6 +10277,66 @@ test("game page achievement badge formatter shows loading and ready states but h
     }),
     undefined,
   );
+});
+
+test("game page achievement badge modal helper uses an explicitly provided dialog document", () => {
+  const visibleDialog = {
+    ownerDocument: {
+      defaultView: {
+        getComputedStyle() {
+          return {
+            display: "block",
+            visibility: "visible",
+            opacity: "1",
+          } as CSSStyleDeclaration;
+        },
+      } as Window,
+    } as Document,
+    getBoundingClientRect() {
+      return {
+        width: 608,
+        height: 356,
+      };
+    },
+  } as Element;
+  const targetDocument = {
+    querySelectorAll() {
+      return [visibleDialog];
+    },
+  } as unknown as Document;
+
+  assert.equal(isVisibleDeckyGamePageModalElement(visibleDialog), true);
+  assert.equal(hasVisibleDeckyGamePageModal(targetDocument), true);
+});
+
+test("game page achievement badge modal helper ignores hidden dialogs", () => {
+  const hiddenDialog = {
+    ownerDocument: {
+      defaultView: {
+        getComputedStyle() {
+          return {
+            display: "none",
+            visibility: "hidden",
+            opacity: "0",
+          } as CSSStyleDeclaration;
+        },
+      } as Window,
+    } as Document,
+    getBoundingClientRect() {
+      return {
+        width: 608,
+        height: 356,
+      };
+    },
+  } as Element;
+  const targetDocument = {
+    querySelectorAll() {
+      return [hiddenDialog];
+    },
+  } as unknown as Document;
+
+  assert.equal(isVisibleDeckyGamePageModalElement(hiddenDialog), false);
+  assert.equal(hasVisibleDeckyGamePageModal(targetDocument), false);
 });
 
 test("game page achievement summary resolves Steam counts from the cached library scan summary first", async () => {
@@ -10539,7 +10641,7 @@ test("game page achievement summary reports no RetroAchievements shortcut mappin
   });
 });
 
-test("game page achievement summary handles missing RetroAchievements config or cache without crashing", async () => {
+test("game page achievement summary handles missing RetroAchievements cache without crashing", async () => {
   await withMockDeckyStorage(async () => {
     deckyBackendTestState.steam.shortcutMetadataByAppId = {
       "2217040870": {
@@ -10547,11 +10649,11 @@ test("game page achievement summary handles missing RetroAchievements config or 
       },
     };
 
-    const missingConfigSummary = await loadDeckyGamePageAchievementSummary("2217040870");
-    assert.deepStrictEqual(missingConfigSummary, {
+    const missingCacheWithoutConfigSummary = await loadDeckyGamePageAchievementSummary("2217040870");
+    assert.deepStrictEqual(missingCacheWithoutConfigSummary, {
       status: "unavailable",
       appId: "2217040870",
-      reason: "ra-provider-not-configured",
+      reason: "ra-cache-unavailable",
     });
 
     clearDeckyGamePageAchievementSummaryCacheForTests();
