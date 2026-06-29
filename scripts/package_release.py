@@ -5,12 +5,31 @@ import os
 import shutil
 import sys
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 RELEASE_DIR = ROOT_DIR / "release"
-STAGE_DIR = RELEASE_DIR / "staged" / "achievement-companion"
+PLUGIN_ARCHIVE_ROOT = "achievement-companion"
+PLUGIN_DISPLAY_NAME = "Achievement Companion"
+PLUGIN_FRONTEND_ENTRY_RELATIVE_PATH = Path("dist/index.js")
+PLUGIN_BACKEND_ENTRY_RELATIVE_PATH = Path("main.py")
+INSTALL_DIAGNOSTIC_RELATIVE_PATH = Path("INSTALL_DIAGNOSTIC.txt")
+PACKAGE_RELEASE_COMMAND = "npm run package:release"
+EXPECTED_DECK_INSTALL_FOLDER = f"/home/deck/homebrew/plugins/{PLUGIN_ARCHIVE_ROOT}"
+REQUIRED_FRONTEND_MARKERS: tuple[str, ...] = (
+  "AchievementCompanionGamePageBadge",
+  "addGlobalComponent",
+  "/routes/library/app",
+  "global component render",
+  "37 / 67",
+)
+FORBIDDEN_FRONTEND_MARKERS: tuple[str, ...] = (
+  "createRoot",
+  "react-dom/client",
+)
+STAGE_DIR = RELEASE_DIR / "staged" / PLUGIN_ARCHIVE_ROOT
 REQUIRED_RELATIVE_PATHS: tuple[Path, ...] = (
   Path("main.py"),
   Path("backend/__init__.py"),
@@ -26,7 +45,6 @@ REQUIRED_RELATIVE_PATHS: tuple[Path, ...] = (
   Path("README.md"),
   Path("LICENSE"),
   Path("THIRD_PARTY_NOTICES.md"),
-  Path("dist/index.js"),
 )
 RELEASE_PACKAGE_JSON_ALLOWED_FIELDS: tuple[str, ...] = (
   "name",
@@ -47,6 +65,15 @@ def read_package_version(root_dir: Path = ROOT_DIR) -> str:
   return version.strip()
 
 
+def read_plugin_name(root_dir: Path = ROOT_DIR) -> str:
+  plugin_json_path = root_dir / "plugin.json"
+  plugin_data = json.loads(plugin_json_path.read_text(encoding="utf-8"))
+  plugin_name = plugin_data.get("name")
+  if not isinstance(plugin_name, str) or plugin_name.strip() == "":
+    raise RuntimeError("plugin.json name is missing.")
+  return plugin_name.strip()
+
+
 def _copy_required_file(root_dir: Path, stage_dir: Path, relative_path: Path) -> None:
   source_path = root_dir / relative_path
   if not source_path.exists():
@@ -55,6 +82,112 @@ def _copy_required_file(root_dir: Path, stage_dir: Path, relative_path: Path) ->
   destination_path = stage_dir / relative_path
   destination_path.parent.mkdir(parents=True, exist_ok=True)
   shutil.copy2(source_path, destination_path)
+
+
+def _copy_dist_bundle_files(root_dir: Path, stage_dir: Path) -> None:
+  source_dist_dir = root_dir / "dist"
+  if not source_dist_dir.is_dir():
+    raise FileNotFoundError("Required release dist directory is missing: dist")
+
+  dist_bundle_paths = sorted(
+    path for path in source_dist_dir.iterdir() if path.is_file() and path.suffix == ".js"
+  )
+  if not dist_bundle_paths:
+    raise RuntimeError("Required release dist JavaScript bundle files are missing.")
+
+  for source_path in dist_bundle_paths:
+    destination_path = stage_dir / "dist" / source_path.name
+    destination_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source_path, destination_path)
+
+
+def _get_staged_dist_bundle_paths(stage_dir: Path) -> list[Path]:
+  dist_dir = stage_dir / "dist"
+  return sorted(
+    path for path in dist_dir.iterdir() if path.is_file() and path.suffix == ".js"
+  )
+
+
+def _find_dist_marker_hits(stage_dir: Path) -> dict[str, list[str]]:
+  marker_hits: dict[str, list[str]] = {marker: [] for marker in REQUIRED_FRONTEND_MARKERS}
+
+  for bundle_path in _get_staged_dist_bundle_paths(stage_dir):
+    bundle_text = bundle_path.read_text(encoding="utf-8", errors="ignore")
+    for marker in REQUIRED_FRONTEND_MARKERS:
+      if marker in bundle_text:
+        marker_hits[marker].append(bundle_path.relative_to(stage_dir).as_posix())
+
+  return marker_hits
+
+
+def _find_dist_forbidden_marker_hits(stage_dir: Path) -> dict[str, list[str]]:
+  marker_hits: dict[str, list[str]] = {marker: [] for marker in FORBIDDEN_FRONTEND_MARKERS}
+
+  for bundle_path in _get_staged_dist_bundle_paths(stage_dir):
+    bundle_text = bundle_path.read_text(encoding="utf-8", errors="ignore")
+    for marker in FORBIDDEN_FRONTEND_MARKERS:
+      if marker in bundle_text:
+        marker_hits[marker].append(bundle_path.relative_to(stage_dir).as_posix())
+
+  return marker_hits
+
+
+def _write_install_diagnostic_file(root_dir: Path, stage_dir: Path) -> None:
+  version = read_package_version(root_dir)
+  plugin_name = read_plugin_name(root_dir)
+  staged_bundle_paths = _get_staged_dist_bundle_paths(stage_dir)
+  staged_bundle_names = [path.relative_to(stage_dir).as_posix() for path in staged_bundle_paths]
+  marker_hits = _find_dist_marker_hits(stage_dir)
+  forbidden_marker_hits = _find_dist_forbidden_marker_hits(stage_dir)
+  active_frontend_marker_hits = [
+    bundle_name
+    for bundle_name in marker_hits["AchievementCompanionGamePageBadge"]
+    if Path(bundle_name).name.startswith("index")
+  ]
+  if not active_frontend_marker_hits:
+    raise RuntimeError(
+      "Release dist JavaScript bundle files are missing the required diagnostic marker in the active frontend entry chain."
+    )
+  forbidden_hit_lines = [
+    f"{marker}: {', '.join(hit_names)}"
+    for marker, hit_names in forbidden_marker_hits.items()
+    if hit_names
+  ]
+  if forbidden_hit_lines:
+    raise RuntimeError(
+      "Release dist JavaScript bundle files still contain forbidden Decky runtime markers: "
+      + "; ".join(forbidden_hit_lines)
+      + "."
+    )
+
+  build_timestamp = datetime.now(timezone.utc).isoformat()
+  diagnostic_lines = [
+    f"build_timestamp_utc: {build_timestamp}",
+    f"version: {version}",
+    f"plugin_id_or_folder: {PLUGIN_ARCHIVE_ROOT}",
+    f"plugin_display_name: {plugin_name}",
+    f"expected_deck_install_folder: {EXPECTED_DECK_INSTALL_FOLDER}",
+    f"frontend_entry_file: {PLUGIN_FRONTEND_ENTRY_RELATIVE_PATH.as_posix()}",
+    f"backend_entry_file: {PLUGIN_BACKEND_ENTRY_RELATIVE_PATH.as_posix()}",
+    "active_js_bundle_chunks:",
+    *[f"  - {bundle_name}" for bundle_name in staged_bundle_names],
+    "required_marker_strings_found:",
+    *[
+      f"  - {marker}: {', '.join(hit_names) if hit_names else 'missing'}"
+      for marker, hit_names in marker_hits.items()
+    ],
+    "forbidden_marker_strings_found:",
+    *[
+      f"  - {marker}: {', '.join(hit_names) if hit_names else 'clean'}"
+      for marker, hit_names in forbidden_marker_hits.items()
+    ],
+    f"active_frontend_bundle_marker_found: {', '.join(active_frontend_marker_hits)}",
+    f"package_command_used: {PACKAGE_RELEASE_COMMAND}",
+  ]
+
+  destination_path = stage_dir / INSTALL_DIAGNOSTIC_RELATIVE_PATH
+  destination_path.parent.mkdir(parents=True, exist_ok=True)
+  destination_path.write_text("\n".join(diagnostic_lines) + "\n", encoding="utf-8")
 
 
 def _write_release_package_json(root_dir: Path, stage_dir: Path) -> None:
@@ -100,6 +233,9 @@ def stage_release_package(root_dir: Path = ROOT_DIR, stage_dir: Path = STAGE_DIR
       continue
     _copy_required_file(root_dir, stage_dir, relative_path)
 
+  _copy_dist_bundle_files(root_dir, stage_dir)
+  _write_install_diagnostic_file(root_dir, stage_dir)
+
   if not (stage_dir / "main.py").exists():
     raise RuntimeError("Staged release output is missing main.py.")
   if not (stage_dir / "backend" / "__init__.py").exists():
@@ -110,6 +246,10 @@ def stage_release_package(root_dir: Path = ROOT_DIR, stage_dir: Path = STAGE_DIR
     raise RuntimeError("Staged release output is missing backend/tls.py.")
   if not (stage_dir / "package.json").exists():
     raise RuntimeError("Staged release output is missing package.json.")
+  if not any((stage_dir / "dist").glob("*.js")):
+    raise RuntimeError("Staged release output is missing dist JavaScript bundle files.")
+  if not (stage_dir / INSTALL_DIAGNOSTIC_RELATIVE_PATH).exists():
+    raise RuntimeError("Staged release output is missing INSTALL_DIAGNOSTIC.txt.")
 
   return stage_dir
 
@@ -131,6 +271,8 @@ def verify_staged_release_package(stage_dir: Path = STAGE_DIR) -> None:
     raise RuntimeError("Staged release output is missing backend/tls.py.")
   if not (stage_dir / "package.json").exists():
     raise RuntimeError("Staged release output is missing package.json.")
+  if not (stage_dir / INSTALL_DIAGNOSTIC_RELATIVE_PATH).exists():
+    raise RuntimeError("Staged release output is missing INSTALL_DIAGNOSTIC.txt.")
 
 def create_release_zip(
   *,
@@ -146,7 +288,7 @@ def create_release_zip(
 
   with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
     for file_path in sorted(path for path in stage_dir.rglob("*") if path.is_file()):
-      archive.write(file_path, arcname=f"achievement-companion/{file_path.relative_to(stage_dir).as_posix()}")
+      archive.write(file_path, arcname=f"{PLUGIN_ARCHIVE_ROOT}/{file_path.relative_to(stage_dir).as_posix()}")
 
   return zip_path
 
