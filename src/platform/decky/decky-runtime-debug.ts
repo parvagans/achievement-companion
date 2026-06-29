@@ -2,6 +2,7 @@ import {
   detectDeckyGamePageAchievementRouteFromUrl,
   type DeckyGamePageAchievementRouteDetectionState,
 } from "./decky-game-page-achievement-route";
+import type { GamePageAchievementSummary } from "./decky-game-page-achievement-summary";
 
 export type AchievementCompanionRuntimeDebugAccessMode =
   | "host-top-window"
@@ -36,6 +37,13 @@ export interface AchievementCompanionRuntimeDebugState {
   readonly lastBadgeRenderAt: string | undefined;
   readonly lastBadgeRenderAppId: string | undefined;
   readonly lastBadgeClickAt: string | undefined;
+  readonly lastSummaryStatus: GamePageAchievementSummary["status"] | undefined;
+  readonly lastSummaryProvider: "steam" | "retroachievements" | undefined;
+  readonly lastSummaryEarned: number | undefined;
+  readonly lastSummaryTotal: number | undefined;
+  readonly lastSummaryUnavailableReason: string | undefined;
+  readonly lastSummaryFetchStartedAt: string | undefined;
+  readonly lastSummaryFetchCompletedAt: string | undefined;
   readonly lastError: string | undefined;
 }
 
@@ -89,6 +97,13 @@ let runtimeDebugBadgeRenderCount = 0;
 let runtimeDebugLastBadgeRenderAt: string | undefined;
 let runtimeDebugLastBadgeRenderAppId: string | undefined;
 let runtimeDebugLastBadgeClickAt: string | undefined;
+let runtimeDebugLastSummaryStatus: GamePageAchievementSummary["status"] | undefined;
+let runtimeDebugLastSummaryProvider: "steam" | "retroachievements" | undefined;
+let runtimeDebugLastSummaryEarned: number | undefined;
+let runtimeDebugLastSummaryTotal: number | undefined;
+let runtimeDebugLastSummaryUnavailableReason: string | undefined;
+let runtimeDebugLastSummaryFetchStartedAt: string | undefined;
+let runtimeDebugLastSummaryFetchCompletedAt: string | undefined;
 let runtimeDebugLastObservedRouteUrl: string | undefined;
 let runtimeDebugLastObservedDetection: DeckyGamePageAchievementRouteDetectionState | undefined;
 let runtimeDebugLastError: string | undefined;
@@ -238,6 +253,13 @@ function computeRuntimeDebugState(): AchievementCompanionRuntimeDebugState {
     lastBadgeRenderAt: runtimeDebugLastBadgeRenderAt,
     lastBadgeRenderAppId: runtimeDebugLastBadgeRenderAppId,
     lastBadgeClickAt: runtimeDebugLastBadgeClickAt,
+    lastSummaryStatus: runtimeDebugLastSummaryStatus,
+    lastSummaryProvider: runtimeDebugLastSummaryProvider,
+    lastSummaryEarned: runtimeDebugLastSummaryEarned,
+    lastSummaryTotal: runtimeDebugLastSummaryTotal,
+    lastSummaryUnavailableReason: runtimeDebugLastSummaryUnavailableReason,
+    lastSummaryFetchStartedAt: runtimeDebugLastSummaryFetchStartedAt,
+    lastSummaryFetchCompletedAt: runtimeDebugLastSummaryFetchCompletedAt,
     lastError: runtimeDebugLastError,
   };
 }
@@ -372,4 +394,49 @@ export function markAchievementCompanionGamePageAchievementBadgeClicked(appId?: 
   if (appId !== undefined) {
     runtimeDebugLastBadgeRenderAppId = appId;
   }
+}
+
+export function markAchievementCompanionGamePageAchievementSummaryFetchStarted(appId: string): void {
+  runtimeDebugLastSummaryFetchStartedAt = new Date().toISOString();
+  runtimeDebugLastObservedRouteUrl = runtimeDebugLastObservedRouteUrl;
+  runtimeDebugLastObservedDetection = {
+    ...(runtimeDebugLastObservedDetection ?? {
+      isGamePage: true,
+      appId,
+      reason: "target-url-route" as const,
+    }),
+    appId,
+  };
+}
+
+export function markAchievementCompanionGamePageAchievementSummaryFetchCompleted(
+  summary: GamePageAchievementSummary,
+): void {
+  runtimeDebugLastSummaryFetchCompletedAt = new Date().toISOString();
+  runtimeDebugLastSummaryStatus = summary.status;
+  runtimeDebugLastSummaryProvider = summary.status === "ready" ? summary.provider : undefined;
+  runtimeDebugLastSummaryEarned = summary.status === "ready" ? summary.earned : undefined;
+  runtimeDebugLastSummaryTotal = summary.status === "ready" ? summary.total : undefined;
+  runtimeDebugLastSummaryUnavailableReason =
+    summary.status === "unavailable"
+      ? summary.reason
+      : summary.status === "error"
+        ? summary.message
+        : undefined;
+}
+
+export function reportAchievementCompanionGamePageAchievementSummaryError(
+  appId: string,
+  error: unknown,
+  context: string,
+): string {
+  const message = reportAchievementCompanionRuntimeDebugError(error, context);
+  runtimeDebugLastSummaryStatus = "error";
+  runtimeDebugLastSummaryProvider = undefined;
+  runtimeDebugLastSummaryEarned = undefined;
+  runtimeDebugLastSummaryTotal = undefined;
+  runtimeDebugLastSummaryUnavailableReason = message;
+  runtimeDebugLastSummaryFetchCompletedAt = new Date().toISOString();
+  runtimeDebugLastBadgeRenderAppId = appId;
+  return message;
 }

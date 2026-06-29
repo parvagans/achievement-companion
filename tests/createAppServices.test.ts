@@ -113,6 +113,10 @@ import {
   resolveDeckyGamePageAchievementAppIdFromRouteProps,
 } from "../src/platform/decky/decky-game-page-achievement-route";
 import {
+  formatDeckyGamePageAchievementBadgeLabel,
+  loadDeckyGamePageAchievementSummary,
+} from "../src/platform/decky/decky-game-page-achievement-summary";
+import {
   DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS,
   DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS,
   DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS,
@@ -3787,8 +3791,11 @@ test("v0.2.10 diagnostic release metadata and Decky cleanup stay aligned", () =>
   assert.match(releasePackageScriptSource, /addGlobalComponent/u);
   assert.match(releasePackageScriptSource, /\/routes\/library\/app/u);
   assert.match(releasePackageScriptSource, /global component render/u);
+  assert.match(releasePackageScriptSource, /formatDeckyGamePageAchievementBadgeLabel/u);
+  assert.match(releasePackageScriptSource, /no-retroachievements-shortcut-mapping/u);
   assert.match(releasePackageScriptSource, /createRoot/u);
   assert.match(releasePackageScriptSource, /react-dom\/client/u);
+  assert.match(releasePackageScriptSource, /\.protondb-decky-indicator-container/u);
   assert.match(releaseCheckScriptSource, /INSTALL_DIAGNOSTIC\.txt/u);
   assert.match(releaseCheckScriptSource, /AchievementCompanionGamePageBadge/u);
   assert.match(releaseCheckScriptSource, /FORBIDDEN_FRONTEND_MARKERS/u);
@@ -9977,6 +9984,10 @@ test("steam game page achievement badge uses the Decky global component path wit
     "src/platform/decky/decky-game-page-achievement-route.ts",
     "utf8",
   );
+  const summarySource = readFileSync(
+    "src/platform/decky/decky-game-page-achievement-summary.ts",
+    "utf8",
+  );
   const bubbleSource = readFileSync(
     "src/platform/decky/decky-game-page-achievement-bubble.tsx",
     "utf8",
@@ -10005,16 +10016,34 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(runtimeDebugSource, /globalComponentLastError/u);
   assert.match(runtimeDebugSource, /badgeRenderCount/u);
   assert.match(runtimeDebugSource, /lastBadgeRenderAppId/u);
+  assert.match(runtimeDebugSource, /lastSummaryStatus/u);
+  assert.match(runtimeDebugSource, /lastSummaryProvider/u);
+  assert.match(runtimeDebugSource, /lastSummaryEarned/u);
+  assert.match(runtimeDebugSource, /lastSummaryTotal/u);
+  assert.match(runtimeDebugSource, /lastSummaryUnavailableReason/u);
+  assert.match(runtimeDebugSource, /lastSummaryFetchStartedAt/u);
+  assert.match(runtimeDebugSource, /lastSummaryFetchCompletedAt/u);
   assert.match(runtimeDebugSource, /Game-page achievement badge global component registered/u);
   assert.match(runtimeDebugSource, /Game-page achievement badge global component removed/u);
   assert.match(runtimeDebugSource, /Game-page achievement badge rendered/u);
   assert.match(runtimeDebugSource, /global component render/u);
   assert.match(runtimeDebugSource, /reportAchievementCompanionRuntimeDebugError/u);
   assert.match(runtimeDebugSource, /reportAchievementCompanionGamePageGlobalComponentError/u);
+  assert.match(runtimeDebugSource, /reportAchievementCompanionGamePageAchievementSummaryError/u);
+  assert.match(runtimeDebugSource, /markAchievementCompanionGamePageAchievementSummaryFetchStarted/u);
+  assert.match(runtimeDebugSource, /markAchievementCompanionGamePageAchievementSummaryFetchCompleted/u);
   assert.match(routeDetectionSource, /target-url-route/u);
   assert.match(routeDetectionSource, /DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_REGEX/u);
   assert.match(routeDetectionSource, /detectDeckyGamePageAchievementRouteFromUrl/u);
   assert.match(routeDetectionSource, /resolveDeckyGamePageAchievementAppIdFromRouteProps/u);
+  assert.match(summarySource, /type GamePageAchievementSummary/u);
+  assert.match(summarySource, /formatDeckyGamePageAchievementBadgeLabel/u);
+  assert.match(summarySource, /🏆 …/u);
+  assert.match(summarySource, /requestSequenceRef\.current !== requestSequence/u);
+  assert.match(summarySource, /readDeckySteamLibraryAchievementScanSummary/u);
+  assert.match(summarySource, /readDeckyDashboardSnapshotCacheEntry/u);
+  assert.match(summarySource, /loadDeckyGameDetailState\(STEAM_PROVIDER_ID, appId, \{\s*forceRefresh: false/u);
+  assert.match(summarySource, /no-retroachievements-shortcut-mapping/u);
   assert.match(bootstrapSource, /Decky bootstrap mounted/u);
   assert.doesNotMatch(bootstrapSource, /DeckyGamePageAchievementBubbleOverlayLifecycle/u);
   assert.doesNotMatch(bootstrapSource, /startGamePageAchievementBubbleOverlay\(/u);
@@ -10024,6 +10053,8 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(bubbleSource, /DeckyGamePageAchievementGlobalBadge/u);
   assert.match(bubbleSource, /AchievementCompanionGamePageBadge/u);
   assert.match(bubbleSource, /Game-page achievement bubble clicked/u);
+  assert.match(bubbleSource, /useGamePageAchievementSummary/u);
+  assert.match(bubbleSource, /formatDeckyGamePageAchievementBadgeLabel/u);
   assert.match(bubbleSource, /position:\s*"fixed"/u);
   assert.match(bubbleSource, /top:\s*90/u);
   assert.match(bubbleSource, /left:\s*32/u);
@@ -10038,8 +10069,11 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.doesNotMatch(bubbleSource, /react-dom\/client/u);
   assert.doesNotMatch(runtimeDebugSource, /createRoot/u);
   assert.doesNotMatch(runtimeDebugSource, /react-dom\/client/u);
+  assert.doesNotMatch(summarySource, /createRoot/u);
+  assert.doesNotMatch(summarySource, /react-dom\/client/u);
   assert.doesNotMatch(bubbleSource, /protondb/i);
   assert.doesNotMatch(runtimeDebugSource, /protondb/i);
+  assert.doesNotMatch(summarySource, /protondb/i);
   assert.doesNotMatch(indexSource, /ensureDeckyGamePageAchievementBubblePatchRegistered/u);
   assert.doesNotMatch(bubbleSource, /routerHook\.addPatch/u);
   assert.doesNotMatch(bubbleSource, /routerHook\.removePatch/u);
@@ -10125,6 +10159,86 @@ test("steam game page achievement badge uses the Decky global component path wit
     "1672970",
   );
   assert.equal(DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN, "/library/app/:appid");
+});
+
+test("game page achievement badge formatter shows loading and ready states but hides unavailable and error states", () => {
+  assert.equal(
+    formatDeckyGamePageAchievementBadgeLabel({
+      status: "loading",
+      appId: "1672970",
+    }),
+    "🏆 …",
+  );
+  assert.equal(
+    formatDeckyGamePageAchievementBadgeLabel({
+      status: "ready",
+      provider: "steam",
+      appId: "1672970",
+      earned: 12,
+      total: 45,
+      source: "cache",
+    }),
+    "🏆 12 / 45",
+  );
+  assert.equal(
+    formatDeckyGamePageAchievementBadgeLabel({
+      status: "unavailable",
+      appId: "2217040867",
+      reason: "no-retroachievements-shortcut-mapping",
+    }),
+    undefined,
+  );
+  assert.equal(
+    formatDeckyGamePageAchievementBadgeLabel({
+      status: "error",
+      appId: "1672970",
+      message: "boom",
+    }),
+    undefined,
+  );
+});
+
+test("game page achievement summary resolves Steam counts from the cached library scan summary first", async () => {
+  await withMockDeckyStorage(async () => {
+    clearDeckySteamLibraryAchievementScanSummary();
+    writeDeckySteamLibraryAchievementScanSummary({
+      scannedAt: "2026-06-29T12:00:00.000Z",
+      ownedGameCount: 1,
+      scannedGameCount: 1,
+      gamesWithAchievements: 1,
+      unlockedAchievements: 12,
+      totalAchievements: 45,
+      perfectGames: 0,
+      completionPercent: 27,
+      games: [
+        {
+          providerId: STEAM_PROVIDER_ID,
+          appid: 1672970,
+          gameId: "1672970",
+          id: "1672970",
+          title: "Minecraft Dungeons",
+          unlockedAchievements: 12,
+          totalAchievements: 45,
+          completionPercent: 27,
+          scanStatus: "scanned",
+          hasAchievements: true,
+        },
+      ],
+    } as SteamLibraryAchievementScanSummary);
+
+    const summary = await loadDeckyGamePageAchievementSummary("1672970");
+    assert.deepStrictEqual(summary, {
+      status: "ready",
+      provider: "steam",
+      appId: "1672970",
+      gameId: "1672970",
+      title: "Minecraft Dungeons",
+      earned: 12,
+      total: 45,
+      source: "cache",
+      updatedAt: "2026-06-29T12:00:00.000Z",
+    });
+  });
 });
 
 test("fullscreen return context writes provider dashboard, game, and achievement payloads", async () => {
