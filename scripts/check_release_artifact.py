@@ -21,6 +21,7 @@ EXPECTED_RELEASE_ARCHIVE_NAMES = {
   f"{PLUGIN_ARCHIVE_ROOT}/backend/__init__.py",
   f"{PLUGIN_ARCHIVE_ROOT}/backend/http.py",
   f"{PLUGIN_ARCHIVE_ROOT}/backend/diagnostics.py",
+  f"{PLUGIN_ARCHIVE_ROOT}/backend/steam_shortcuts.py",
   f"{PLUGIN_ARCHIVE_ROOT}/backend/redaction.py",
   f"{PLUGIN_ARCHIVE_ROOT}/backend/secrets.py",
   f"{PLUGIN_ARCHIVE_ROOT}/backend/provider_config.py",

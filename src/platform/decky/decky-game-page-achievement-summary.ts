@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { NormalizedGame, RecentlyPlayedGame } from "@core/domain";
+import type { DashboardSnapshot, NormalizedGame, RecentlyPlayedGame } from "@core/domain";
 import { readDeckyDashboardSnapshotCacheEntry } from "./decky-dashboard-snapshot-cache";
-import { loadDeckyGameDetailState } from "./decky-app-services";
-import { STEAM_PROVIDER_ID } from "./providers";
+import { loadDeckySteamShortcutMetadata } from "./decky-steam-shortcut-metadata";
 import {
   readDeckyProviderConfig as readDeckySteamProviderConfig,
   readDeckySteamLibraryAchievementScanSummary,
 } from "./providers/steam/config";
 import { findSteamLibraryScanGameSummaryByAppId } from "./providers/steam/game-detail";
+import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
+import { STEAM_PROVIDER_ID } from "../../providers/steam";
 import {
   markAchievementCompanionGamePageAchievementSummaryFetchCompleted,
   markAchievementCompanionGamePageAchievementSummaryFetchStarted,
+  markAchievementCompanionRetroAchievementsShortcutResolution,
   reportAchievementCompanionGamePageAchievementSummaryError,
 } from "./decky-runtime-debug";
 
@@ -43,13 +45,60 @@ export type GamePageAchievementSummary =
       readonly message: string;
     };
 
+type RetroAchievementsShortcutResolution =
+  | {
+      readonly status: "mapped";
+      readonly appId: string;
+      readonly raGameId: string;
+      readonly title: string;
+      readonly earned: number;
+      readonly total: number;
+      readonly source: "shortcut-title-match";
+      readonly confidence: "exact";
+      readonly updatedAt?: string;
+    }
+  | {
+      readonly status: "unavailable";
+      readonly appId: string;
+      readonly reason:
+        | "shortcut-metadata-unavailable"
+        | "ra-cache-unavailable"
+        | "no-retroachievements-shortcut-mapping"
+        | "ambiguous-retroachievements-shortcut-mapping"
+        | "ra-provider-not-configured";
+    }
+  | {
+      readonly status: "error";
+      readonly appId: string;
+      readonly message: string;
+    };
+
 interface CachedGamePageAchievementSummaryEntry {
   readonly storedAt: number;
   readonly summary: GamePageAchievementSummary;
 }
 
+interface RetroAchievementsDashboardCandidate {
+  readonly gameId: string;
+  readonly title: string;
+  readonly earned: number;
+  readonly total: number;
+  readonly updatedAt?: string;
+}
+
 const gamePageAchievementSummaryCache = new Map<string, CachedGamePageAchievementSummaryEntry>();
 const gamePageAchievementSummaryInFlight = new Map<string, Promise<GamePageAchievementSummary>>();
+
+async function loadDeckyGameDetailStateLazy(
+  providerId: string,
+  gameId: string,
+  options?: {
+    readonly forceRefresh?: boolean;
+  },
+) {
+  const { loadDeckyGameDetailState } = await import("./decky-app-services");
+  return loadDeckyGameDetailState(providerId, gameId, options);
+}
 
 function parsePositiveAppId(value: string | undefined): number | undefined {
   if (typeof value !== "string" || value.trim().length === 0) {
@@ -61,6 +110,7 @@ function parsePositiveAppId(value: string | undefined): number | undefined {
 }
 
 function createReadySummary(args: {
+  readonly provider: "steam" | "retroachievements";
   readonly appId: string;
   readonly gameId?: string;
   readonly title?: string;
@@ -71,7 +121,7 @@ function createReadySummary(args: {
 }): GamePageAchievementSummary {
   return {
     status: "ready",
-    provider: "steam",
+    provider: args.provider,
     appId: args.appId,
     ...(args.gameId !== undefined ? { gameId: args.gameId } : {}),
     ...(args.title !== undefined ? { title: args.title } : {}),
@@ -79,6 +129,14 @@ function createReadySummary(args: {
     total: args.total,
     source: args.source,
     ...(args.updatedAt !== undefined ? { updatedAt: args.updatedAt } : {}),
+  };
+}
+
+function createUnavailableSummary(appId: string, reason: string): GamePageAchievementSummary {
+  return {
+    status: "unavailable",
+    appId,
+    reason,
   };
 }
 
@@ -95,22 +153,19 @@ function resolveSummaryFromSteamScanCache(appId: string): GamePageAchievementSum
   }
 
   if (cachedGame.totalAchievements <= 0) {
-    return {
-      status: "unavailable",
-      appId,
-      reason: "steam-no-achievement-summary",
-    };
+    return createUnavailableSummary(appId, "steam-no-achievement-summary");
   }
 
-    return createReadySummary({
-      appId,
-      gameId: cachedGame.gameId,
-      title: cachedGame.title,
-      earned: cachedGame.unlockedAchievements,
-      total: cachedGame.totalAchievements,
-      source: "cache",
-      ...(summary?.scannedAt !== undefined ? { updatedAt: summary.scannedAt } : {}),
-    });
+  return createReadySummary({
+    provider: "steam",
+    appId,
+    gameId: cachedGame.gameId,
+    title: cachedGame.title,
+    earned: cachedGame.unlockedAchievements,
+    total: cachedGame.totalAchievements,
+    source: "cache",
+    ...(summary?.scannedAt !== undefined ? { updatedAt: summary.scannedAt } : {}),
+  });
 }
 
 function matchesSteamAppId(
@@ -132,36 +187,46 @@ function resolveSummaryFromSteamDashboardSnapshot(appId: string): GamePageAchiev
   }
 
   const matchingRecentlyPlayed = snapshot.recentlyPlayedGames.find((game) => matchesSteamAppId(game, appId));
-  if (
-    matchingRecentlyPlayed?.summary.totalCount !== undefined &&
-    matchingRecentlyPlayed.summary.totalCount > 0
-  ) {
-    return createReadySummary({
-      appId,
-      gameId: matchingRecentlyPlayed.gameId,
-      title: matchingRecentlyPlayed.title,
-      earned: matchingRecentlyPlayed.summary.unlockedCount,
-      total: matchingRecentlyPlayed.summary.totalCount,
-      source: "snapshot",
-      ...(snapshotEntry?.storedAt !== undefined
-        ? { updatedAt: new Date(snapshotEntry.storedAt).toISOString() }
-        : {}),
-    });
+  if (matchingRecentlyPlayed !== undefined) {
+    if (
+      matchingRecentlyPlayed.summary.totalCount !== undefined &&
+      matchingRecentlyPlayed.summary.totalCount > 0
+    ) {
+      return createReadySummary({
+        provider: "steam",
+        appId,
+        gameId: matchingRecentlyPlayed.gameId,
+        title: matchingRecentlyPlayed.title,
+        earned: matchingRecentlyPlayed.summary.unlockedCount,
+        total: matchingRecentlyPlayed.summary.totalCount,
+        source: "snapshot",
+        ...(snapshotEntry?.storedAt !== undefined
+          ? { updatedAt: new Date(snapshotEntry.storedAt).toISOString() }
+          : {}),
+      });
+    }
+
+    return createUnavailableSummary(appId, "steam-no-achievement-summary");
   }
 
   const matchingFeaturedGame = snapshot.featuredGames.find((game) => matchesSteamAppId(game, appId));
-  if (matchingFeaturedGame?.summary.totalCount !== undefined && matchingFeaturedGame.summary.totalCount > 0) {
-    return createReadySummary({
-      appId,
-      gameId: matchingFeaturedGame.gameId,
-      title: matchingFeaturedGame.title,
-      earned: matchingFeaturedGame.summary.unlockedCount,
-      total: matchingFeaturedGame.summary.totalCount,
-      source: "snapshot",
-      ...(snapshotEntry?.storedAt !== undefined
-        ? { updatedAt: new Date(snapshotEntry.storedAt).toISOString() }
-        : {}),
-    });
+  if (matchingFeaturedGame !== undefined) {
+    if (matchingFeaturedGame.summary.totalCount !== undefined && matchingFeaturedGame.summary.totalCount > 0) {
+      return createReadySummary({
+        provider: "steam",
+        appId,
+        gameId: matchingFeaturedGame.gameId,
+        title: matchingFeaturedGame.title,
+        earned: matchingFeaturedGame.summary.unlockedCount,
+        total: matchingFeaturedGame.summary.totalCount,
+        source: "snapshot",
+        ...(snapshotEntry?.storedAt !== undefined
+          ? { updatedAt: new Date(snapshotEntry.storedAt).toISOString() }
+          : {}),
+      });
+    }
+
+    return createUnavailableSummary(appId, "steam-no-achievement-summary");
   }
 
   return undefined;
@@ -170,24 +235,25 @@ function resolveSummaryFromSteamDashboardSnapshot(appId: string): GamePageAchiev
 async function resolveSummaryFromSteamGameDetail(appId: string): Promise<GamePageAchievementSummary | undefined> {
   const steamConfig = readDeckySteamProviderConfig(STEAM_PROVIDER_ID);
   if (steamConfig === undefined) {
-    return {
-      status: "unavailable",
-      appId,
-      reason: "steam-provider-not-configured",
-    };
+    return createUnavailableSummary(appId, "steam-provider-not-configured");
   }
 
-  const gameDetailState = await loadDeckyGameDetailState(STEAM_PROVIDER_ID, appId, {
+  const gameDetailState = await loadDeckyGameDetailStateLazy(STEAM_PROVIDER_ID, appId, {
     forceRefresh: false,
   });
   const game = gameDetailState.data?.game;
-  const total = game?.summary.totalCount;
 
-  if (gameDetailState.status !== "success" || game === undefined || total === undefined || total <= 0) {
+  if (gameDetailState.status !== "success" || game === undefined) {
     return undefined;
   }
 
+  const total = game.summary.totalCount;
+  if (total === undefined || total <= 0) {
+    return createUnavailableSummary(appId, "steam-no-achievement-summary");
+  }
+
   return createReadySummary({
+    provider: "steam",
     appId,
     gameId: game.gameId,
     title: game.title,
@@ -198,6 +264,181 @@ async function resolveSummaryFromSteamGameDetail(appId: string): Promise<GamePag
       ? { updatedAt: new Date(gameDetailState.lastUpdatedAt).toISOString() }
       : {}),
   });
+}
+
+function normalizeTitleForRetroAchievementsShortcutMatch(value: string | undefined): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const normalized = value.normalize("NFKC").trim().replace(/\s+/gu, " ").toLowerCase();
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function collectRetroAchievementsDashboardCandidates(
+  snapshot: DashboardSnapshot,
+  updatedAt: string | undefined,
+): readonly RetroAchievementsDashboardCandidate[] {
+  const candidatesByGameId = new Map<string, RetroAchievementsDashboardCandidate>();
+
+  const addCandidate = (
+    game:
+      | Pick<NormalizedGame, "gameId" | "title" | "summary">
+      | Pick<RecentlyPlayedGame, "gameId" | "title" | "summary">,
+  ) => {
+    const total = game.summary.totalCount;
+    if (total === undefined || total <= 0) {
+      return;
+    }
+
+    if (candidatesByGameId.has(game.gameId)) {
+      return;
+    }
+
+    candidatesByGameId.set(game.gameId, {
+      gameId: game.gameId,
+      title: game.title,
+      earned: game.summary.unlockedCount,
+      total,
+      ...(updatedAt !== undefined ? { updatedAt } : {}),
+    });
+  };
+
+  for (const game of snapshot.recentlyPlayedGames) {
+    addCandidate(game);
+  }
+
+  for (const game of snapshot.featuredGames) {
+    addCandidate(game);
+  }
+
+  for (const game of snapshot.profile.featuredGames ?? []) {
+    addCandidate(game);
+  }
+
+  return Array.from(candidatesByGameId.values());
+}
+
+function markRetroAchievementsShortcutResolution(
+  resolution: RetroAchievementsShortcutResolution,
+): void {
+  if (resolution.status === "mapped") {
+    markAchievementCompanionRetroAchievementsShortcutResolution({
+      appId: resolution.appId,
+      status: "mapped",
+      gameId: resolution.raGameId,
+      title: resolution.title,
+      earned: resolution.earned,
+      total: resolution.total,
+      source: resolution.source,
+      confidence: resolution.confidence,
+    });
+    return;
+  }
+
+  if (resolution.status === "error") {
+    markAchievementCompanionRetroAchievementsShortcutResolution({
+      appId: resolution.appId,
+      status: "error",
+      reason: resolution.message,
+      error: resolution.message,
+    });
+    return;
+  }
+
+  markAchievementCompanionRetroAchievementsShortcutResolution({
+    appId: resolution.appId,
+    status: "unavailable",
+    reason: resolution.reason,
+  });
+}
+
+async function resolveSummaryFromRetroAchievementsShortcut(
+  appId: string,
+): Promise<RetroAchievementsShortcutResolution> {
+  try {
+    const shortcutMetadata = await loadDeckySteamShortcutMetadata(appId);
+    const shortcutTitle = normalizeTitleForRetroAchievementsShortcutMatch(shortcutMetadata?.title);
+    if (shortcutTitle === undefined) {
+      const unavailableResolution: RetroAchievementsShortcutResolution = {
+        status: "unavailable",
+        appId,
+        reason: "shortcut-metadata-unavailable",
+      };
+      markRetroAchievementsShortcutResolution(unavailableResolution);
+      return unavailableResolution;
+    }
+
+    const snapshotEntry = readDeckyDashboardSnapshotCacheEntry(RETROACHIEVEMENTS_PROVIDER_ID);
+    const snapshot = snapshotEntry?.snapshot;
+    if (snapshot === undefined) {
+      const unavailableResolution: RetroAchievementsShortcutResolution = {
+        status: "unavailable",
+        appId,
+        reason: "ra-cache-unavailable",
+      };
+      markRetroAchievementsShortcutResolution(unavailableResolution);
+      return unavailableResolution;
+    }
+
+    const snapshotUpdatedAt =
+      snapshotEntry?.storedAt !== undefined ? new Date(snapshotEntry.storedAt).toISOString() : undefined;
+    const matchingCandidates = collectRetroAchievementsDashboardCandidates(snapshot, snapshotUpdatedAt).filter(
+      (candidate) => normalizeTitleForRetroAchievementsShortcutMatch(candidate.title) === shortcutTitle,
+    );
+
+    if (matchingCandidates.length === 0) {
+      const unavailableResolution: RetroAchievementsShortcutResolution = {
+        status: "unavailable",
+        appId,
+        reason: "no-retroachievements-shortcut-mapping",
+      };
+      markRetroAchievementsShortcutResolution(unavailableResolution);
+      return unavailableResolution;
+    }
+
+    if (matchingCandidates.length > 1) {
+      const unavailableResolution: RetroAchievementsShortcutResolution = {
+        status: "unavailable",
+        appId,
+        reason: "ambiguous-retroachievements-shortcut-mapping",
+      };
+      markRetroAchievementsShortcutResolution(unavailableResolution);
+      return unavailableResolution;
+    }
+
+    const matchingCandidate = matchingCandidates[0]!;
+    const mappedResolution: RetroAchievementsShortcutResolution = {
+      status: "mapped",
+      appId,
+      raGameId: matchingCandidate.gameId,
+      title: matchingCandidate.title,
+      earned: matchingCandidate.earned,
+      total: matchingCandidate.total,
+      source: "shortcut-title-match",
+      confidence: "exact",
+      ...(matchingCandidate.updatedAt !== undefined ? { updatedAt: matchingCandidate.updatedAt } : {}),
+    };
+    markRetroAchievementsShortcutResolution(mappedResolution);
+    return mappedResolution;
+  } catch (error: unknown) {
+    let message: string;
+    if (error instanceof Error) {
+      message = error.message;
+    } else if (typeof error === "string") {
+      message = error;
+    } else {
+      message = "Unexpected RetroAchievements shortcut mapping failure.";
+    }
+
+    const errorResolution: RetroAchievementsShortcutResolution = {
+      status: "error",
+      appId,
+      message,
+    };
+    markRetroAchievementsShortcutResolution(errorResolution);
+    return errorResolution;
+  }
 }
 
 export function formatDeckyGamePageAchievementBadgeLabel(
@@ -218,6 +459,11 @@ export function formatDeckyGamePageAchievementBadgeLabel(
   return `🏆 ${String(summary.earned)} / ${String(summary.total)}`;
 }
 
+export function clearDeckyGamePageAchievementSummaryCacheForTests(): void {
+  gamePageAchievementSummaryCache.clear();
+  gamePageAchievementSummaryInFlight.clear();
+}
+
 export async function loadDeckyGamePageAchievementSummary(
   appId: string,
 ): Promise<GamePageAchievementSummary> {
@@ -235,9 +481,15 @@ export async function loadDeckyGamePageAchievementSummary(
   }
 
   const loadPromise: Promise<GamePageAchievementSummary> = (async () => {
+    let steamUnavailableSummary: GamePageAchievementSummary | undefined;
+
     const steamCacheSummary = resolveSummaryFromSteamScanCache(appId);
     if (steamCacheSummary?.status === "ready") {
       return steamCacheSummary;
+    }
+
+    if (steamCacheSummary?.status === "unavailable") {
+      steamUnavailableSummary = steamCacheSummary;
     }
 
     const steamSnapshotSummary = resolveSummaryFromSteamDashboardSnapshot(appId);
@@ -245,29 +497,51 @@ export async function loadDeckyGamePageAchievementSummary(
       return steamSnapshotSummary;
     }
 
+    if (steamSnapshotSummary?.status === "unavailable") {
+      steamUnavailableSummary = steamSnapshotSummary;
+    }
+
     const steamDetailSummary = await resolveSummaryFromSteamGameDetail(appId);
     if (steamDetailSummary?.status === "ready") {
       return steamDetailSummary;
     }
 
-    if (steamCacheSummary?.status === "unavailable") {
-      return steamCacheSummary;
-    }
-
-    if (steamSnapshotSummary?.status === "unavailable") {
-      return steamSnapshotSummary;
-    }
-
     if (steamDetailSummary?.status === "unavailable") {
-      return steamDetailSummary;
+      steamUnavailableSummary = steamDetailSummary;
     }
 
-    const unavailableSummary: GamePageAchievementSummary = {
-      status: "unavailable",
-      appId,
-      reason: "no-retroachievements-shortcut-mapping",
-    };
-    return unavailableSummary;
+    const retroAchievementsShortcutResolution = await resolveSummaryFromRetroAchievementsShortcut(appId);
+    if (retroAchievementsShortcutResolution.status === "mapped") {
+      return createReadySummary({
+        provider: "retroachievements",
+        appId,
+        gameId: retroAchievementsShortcutResolution.raGameId,
+        title: retroAchievementsShortcutResolution.title,
+        earned: retroAchievementsShortcutResolution.earned,
+        total: retroAchievementsShortcutResolution.total,
+        source: "snapshot",
+        ...(retroAchievementsShortcutResolution.updatedAt !== undefined
+          ? { updatedAt: retroAchievementsShortcutResolution.updatedAt }
+          : {}),
+      });
+    }
+
+    if (retroAchievementsShortcutResolution.status === "error") {
+      return {
+        status: "error",
+        appId,
+        message: retroAchievementsShortcutResolution.message,
+      };
+    }
+
+    if (
+      retroAchievementsShortcutResolution.reason === "shortcut-metadata-unavailable" &&
+      steamUnavailableSummary !== undefined
+    ) {
+      return steamUnavailableSummary;
+    }
+
+    return createUnavailableSummary(appId, retroAchievementsShortcutResolution.reason);
   })();
 
   gamePageAchievementSummaryInFlight.set(appId, loadPromise);
