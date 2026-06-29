@@ -1,5 +1,16 @@
 import { definePlugin } from "@decky/api";
 import { DeckyBootstrap } from "@platform/decky/bootstrap";
+import {
+  ensureDeckyGamePageAchievementGlobalComponentRegistered,
+} from "@platform/decky/decky-game-page-achievement-bubble";
+import {
+  installAchievementCompanionRuntimeDebug,
+  removeAchievementCompanionRuntimeDebug,
+} from "@platform/decky/decky-runtime-debug";
+
+installAchievementCompanionRuntimeDebug();
+const removeDeckyGamePageAchievementGlobalComponent =
+  ensureDeckyGamePageAchievementGlobalComponentRegistered();
 
 function AchievementCompanionIcon(): JSX.Element {
   return (
@@ -36,5 +47,8 @@ export default definePlugin(() => ({
   titleView: <span>Achievement Companion</span>,
   content: <DeckyBootstrap />,
   icon: <AchievementCompanionIcon />,
-  onDismount() {},
+  onDismount() {
+    removeDeckyGamePageAchievementGlobalComponent();
+    removeAchievementCompanionRuntimeDebug();
+  },
 }));

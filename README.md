@@ -2,7 +2,7 @@
 
 ![Steam Deck](https://img.shields.io/badge/Steam%20Deck-Game%20Mode-blue)
 ![Decky Loader](https://img.shields.io/badge/Decky%20Loader-Plugin-blueviolet)
-![Version 0.2.8](https://img.shields.io/badge/Version-0.2.8-informational)
+![Version 0.2.10](https://img.shields.io/badge/Version-0.2.10-informational)
 ![Provider RetroAchievements](https://img.shields.io/badge/Provider-RetroAchievements-orange)
 ![Provider Steam](https://img.shields.io/badge/Provider-Steam-171a21)
 

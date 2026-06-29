@@ -1,12 +1,12 @@
 {
   "name": "steam-deck-achievement-companion",
   "private": true,
-  "version": "0.2.8",
+  "version": "0.2.10",
   "author": "Adam <nullbit5@protonmail.com>",
   "license": "BSD-3-Clause",
   "type": "module",
   "scripts": {
-    "build": "rollup -c",
+    "build": "python scripts/clean_decky_dist.py && rollup -c",
     "build:steamos": "rollup -c rollup.steamos.config.js",
     "start:steamos": "python -m backend.dev_shell",
     "doctor:steamos": "python -m backend.steamos_doctor",

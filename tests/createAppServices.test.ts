@@ -104,6 +104,15 @@ import {
   addProfileAvatarCacheBustParam,
 } from "../src/platform/decky/decky-avatar-cache-busting";
 import {
+  ACHIEVEMENT_COMPANION_RUNTIME_DEBUG_GLOBAL_NAME,
+  resolveAchievementCompanionRuntimeDebugHostContext,
+} from "../src/platform/decky/decky-runtime-debug";
+import {
+  DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN,
+  detectDeckyGamePageAchievementRouteFromUrl,
+  resolveDeckyGamePageAchievementAppIdFromRouteProps,
+} from "../src/platform/decky/decky-game-page-achievement-route";
+import {
   DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS,
   DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS,
   DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS,
@@ -3727,8 +3736,11 @@ test("provider setup and settings true actions use compact focusable pills", () 
   );
 });
 
-test("v0.2.8 release metadata and Decky cleanup stay aligned", () => {
-  const packageJson = JSON.parse(readFileSync("package.json", "utf8")) as { version?: string };
+test("v0.2.10 diagnostic release metadata and Decky cleanup stay aligned", () => {
+  const packageJson = JSON.parse(readFileSync("package.json", "utf8")) as {
+    version?: string;
+    scripts?: Record<string, string>;
+  };
   const pluginJson = JSON.parse(readFileSync("plugin.json", "utf8")) as { version?: string };
   const readmeSource = readFileSync("README.md", "utf8");
   const bootstrapSource = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
@@ -3759,16 +3771,29 @@ test("v0.2.8 release metadata and Decky cleanup stay aligned", () => {
   const releasePackageScriptSource = readFileSync("scripts/package_release.py", "utf8");
   const releaseCheckScriptSource = readFileSync("scripts/check_release_artifact.py", "utf8");
 
-  assert.equal(packageJson.version, "0.2.8");
-  assert.equal(pluginJson.version, "0.2.8");
-  assert.match(readmeSource, /Version 0\.2\.8/u);
-  assert.match(bootstrapSource, /const ACHIEVEMENT_COMPANION_VERSION = "0\.2\.8"/u);
+  assert.equal(packageJson.version, "0.2.10");
+  assert.equal(pluginJson.version, "0.2.10");
+  assert.match(readmeSource, /Version 0\.2\.10/u);
+  assert.match(bootstrapSource, /const ACHIEVEMENT_COMPANION_VERSION = "0\.2\.10"/u);
+  assert.doesNotMatch(bootstrapSource, /DIAGNOSTIC BUILD LOADED 2026-06-28/u);
   assert.doesNotMatch(
     `${readmeSource}\n${bootstrapSource}\n${JSON.stringify(packageJson)}\n${JSON.stringify(pluginJson)}`,
-    /0\.2\.7|v0\.2\.7/u,
+    /0\.2\.9|v0\.2\.9|0\.2\.8|v0\.2\.8/u,
   );
   assert.match(releasePackageScriptSource, /achievement-companion-v\{version\}\.zip/u);
   assert.match(releaseCheckScriptSource, /achievement-companion-v\{version\}\.zip/u);
+  assert.match(releasePackageScriptSource, /INSTALL_DIAGNOSTIC\.txt/u);
+  assert.match(releasePackageScriptSource, /AchievementCompanionGamePageBadge/u);
+  assert.match(releasePackageScriptSource, /addGlobalComponent/u);
+  assert.match(releasePackageScriptSource, /\/routes\/library\/app/u);
+  assert.match(releasePackageScriptSource, /global component render/u);
+  assert.match(releasePackageScriptSource, /createRoot/u);
+  assert.match(releasePackageScriptSource, /react-dom\/client/u);
+  assert.match(releaseCheckScriptSource, /INSTALL_DIAGNOSTIC\.txt/u);
+  assert.match(releaseCheckScriptSource, /AchievementCompanionGamePageBadge/u);
+  assert.match(releaseCheckScriptSource, /FORBIDDEN_FRONTEND_MARKERS/u);
+  assert.match(releaseCheckScriptSource, /verify_release_dist_bundles/u);
+  assert.match(packageJson.scripts?.build ?? "", /clean_decky_dist\.py/u);
 
   for (const deckySource of [
     bootstrapSource,
@@ -9942,6 +9967,164 @@ test("fullscreen game route can temporarily return to an achievement detail with
   popFullScreenGameRouteBackBehavior(providerId, gameId);
   assert.equal(resolveFullScreenGameRouteBackBehavior(providerId, gameId), "decky-panel");
   assert.equal(resolveFullScreenGameRouteAchievementReturnTarget(providerId, gameId), undefined);
+});
+
+test("steam game page achievement badge uses the Decky global component path without prototype UI", () => {
+  const indexSource = readFileSync("src/index.tsx", "utf8");
+  const bootstrapSource = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
+  const runtimeDebugSource = readFileSync("src/platform/decky/decky-runtime-debug.ts", "utf8");
+  const routeDetectionSource = readFileSync(
+    "src/platform/decky/decky-game-page-achievement-route.ts",
+    "utf8",
+  );
+  const bubbleSource = readFileSync(
+    "src/platform/decky/decky-game-page-achievement-bubble.tsx",
+    "utf8",
+  );
+
+  assert.match(indexSource, /installAchievementCompanionRuntimeDebug\(/u);
+  assert.match(indexSource, /ensureDeckyGamePageAchievementGlobalComponentRegistered\(/u);
+  assert.match(indexSource, /removeDeckyGamePageAchievementGlobalComponent\(\)/u);
+  assert.match(indexSource, /removeAchievementCompanionRuntimeDebug\(\)/u);
+  assert.match(indexSource, /DeckyBootstrap/u);
+  assert.match(runtimeDebugSource, /__achievementCompanionRuntimeDebug/u);
+  assert.match(runtimeDebugSource, /win\.top/u);
+  assert.match(runtimeDebugSource, /globalThis/u);
+  assert.match(runtimeDebugSource, /Runtime debug initialized/u);
+  assert.match(runtimeDebugSource, /globalComponentRegistered/u);
+  assert.match(runtimeDebugSource, /globalComponentName/u);
+  assert.match(runtimeDebugSource, /currentRouteUrl/u);
+  assert.match(runtimeDebugSource, /routeDetectionReason/u);
+  assert.match(runtimeDebugSource, /globalComponentRenderCount/u);
+  assert.match(runtimeDebugSource, /globalComponentVisibleRenderCount/u);
+  assert.match(runtimeDebugSource, /globalComponentHiddenRenderCount/u);
+  assert.match(runtimeDebugSource, /globalComponentLastRouteUrl/u);
+  assert.match(runtimeDebugSource, /globalComponentLastDetectedAppId/u);
+  assert.match(runtimeDebugSource, /globalComponentLastDetectionReason/u);
+  assert.match(runtimeDebugSource, /globalComponentLastRenderAt/u);
+  assert.match(runtimeDebugSource, /globalComponentLastError/u);
+  assert.match(runtimeDebugSource, /badgeRenderCount/u);
+  assert.match(runtimeDebugSource, /lastBadgeRenderAppId/u);
+  assert.match(runtimeDebugSource, /Game-page achievement badge global component registered/u);
+  assert.match(runtimeDebugSource, /Game-page achievement badge global component removed/u);
+  assert.match(runtimeDebugSource, /Game-page achievement badge rendered/u);
+  assert.match(runtimeDebugSource, /global component render/u);
+  assert.match(runtimeDebugSource, /reportAchievementCompanionRuntimeDebugError/u);
+  assert.match(runtimeDebugSource, /reportAchievementCompanionGamePageGlobalComponentError/u);
+  assert.match(routeDetectionSource, /target-url-route/u);
+  assert.match(routeDetectionSource, /DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_REGEX/u);
+  assert.match(routeDetectionSource, /detectDeckyGamePageAchievementRouteFromUrl/u);
+  assert.match(routeDetectionSource, /resolveDeckyGamePageAchievementAppIdFromRouteProps/u);
+  assert.match(bootstrapSource, /Decky bootstrap mounted/u);
+  assert.doesNotMatch(bootstrapSource, /DeckyGamePageAchievementBubbleOverlayLifecycle/u);
+  assert.doesNotMatch(bootstrapSource, /startGamePageAchievementBubbleOverlay\(/u);
+  assert.match(bubbleSource, /routerHook\.addGlobalComponent/u);
+  assert.match(bubbleSource, /routerHook\.removeGlobalComponent/u);
+  assert.match(bubbleSource, /DeckyGamePageAchievementBadge/u);
+  assert.match(bubbleSource, /DeckyGamePageAchievementGlobalBadge/u);
+  assert.match(bubbleSource, /AchievementCompanionGamePageBadge/u);
+  assert.match(bubbleSource, /Game-page achievement bubble clicked/u);
+  assert.match(bubbleSource, /position:\s*"fixed"/u);
+  assert.match(bubbleSource, /top:\s*90/u);
+  assert.match(bubbleSource, /left:\s*32/u);
+  assert.match(bubbleSource, /zIndex:\s*7002/u);
+  assert.match(bubbleSource, /reportAchievementCompanionGamePageGlobalComponentError/u);
+  assert.match(bubbleSource, /resolveAchievementCompanionRuntimeDebugHostContext\(/u);
+  assert.match(bubbleSource, /ensureDeckyGamePageAchievementGlobalComponentRegistered/u);
+  assert.match(bubbleSource, /markAchievementCompanionGamePageGlobalComponentRendered/u);
+  assert.match(bubbleSource, /markAchievementCompanionGamePageAchievementBadgeRendered/u);
+  assert.match(bubbleSource, /addGlobalComponent/u);
+  assert.doesNotMatch(bubbleSource, /createRoot/u);
+  assert.doesNotMatch(bubbleSource, /react-dom\/client/u);
+  assert.doesNotMatch(runtimeDebugSource, /createRoot/u);
+  assert.doesNotMatch(runtimeDebugSource, /react-dom\/client/u);
+  assert.doesNotMatch(bubbleSource, /protondb/i);
+  assert.doesNotMatch(runtimeDebugSource, /protondb/i);
+  assert.doesNotMatch(indexSource, /ensureDeckyGamePageAchievementBubblePatchRegistered/u);
+  assert.doesNotMatch(bubbleSource, /routerHook\.addPatch/u);
+  assert.doesNotMatch(bubbleSource, /routerHook\.removePatch/u);
+  assert.doesNotMatch(bubbleSource, /afterPatch/u);
+  assert.doesNotMatch(bubbleSource, /createReactTreePatcher/u);
+  assert.doesNotMatch(bubbleSource, /findInReactTree/u);
+  assert.doesNotMatch(bubbleSource, /appDetailsClasses/u);
+  assert.doesNotMatch(bubbleSource, /InnerContainer/u);
+  assert.doesNotMatch(bootstrapSource, /DIAGNOSTIC BUILD LOADED 2026-06-28/u);
+  assert.doesNotMatch(bootstrapSource, /Game Page Bubble Debug/u);
+  assert.equal(existsSync("src/platform/decky/decky-game-page-bubble-debug-section.tsx"), false);
+  assert.equal(existsSync("src/platform/decky/decky-game-page-achievement-bubble-view.tsx"), false);
+  assert.equal(
+    ACHIEVEMENT_COMPANION_RUNTIME_DEBUG_GLOBAL_NAME,
+    "__achievementCompanionRuntimeDebug",
+  );
+
+  const topHostDocument = {
+    body: {},
+  } as Document;
+  const topHostWindow = {
+    document: topHostDocument,
+  } as Window;
+  const hostContext = resolveAchievementCompanionRuntimeDebugHostContext(
+    {
+      body: {},
+    } as Document,
+    {
+      top: topHostWindow,
+    } as Window,
+  );
+  assert.deepStrictEqual(hostContext, {
+    hostWindow: topHostWindow,
+    hostDocument: topHostDocument,
+    hostIsTopWindow: true,
+  });
+
+  const fallbackDocument = {
+    body: {},
+  } as Document;
+  const fallbackWindow = {
+    top: undefined,
+  } as Window;
+  const fallbackContext = resolveAchievementCompanionRuntimeDebugHostContext(
+    fallbackDocument,
+    fallbackWindow,
+  );
+  assert.deepStrictEqual(fallbackContext, {
+    hostWindow: fallbackWindow,
+    hostDocument: fallbackDocument,
+    hostIsTopWindow: false,
+  });
+
+  assert.deepStrictEqual(
+    detectDeckyGamePageAchievementRouteFromUrl("https://steamloopback.host/routes/library/app/1672970"),
+    {
+      isGamePage: true,
+      appId: "1672970",
+      reason: "target-url-route",
+    },
+  );
+  assert.deepStrictEqual(
+    detectDeckyGamePageAchievementRouteFromUrl("https://steamloopback.host/library/app/2217040867"),
+    {
+      isGamePage: true,
+      appId: "2217040867",
+      reason: "target-url-route",
+    },
+  );
+  assert.deepStrictEqual(detectDeckyGamePageAchievementRouteFromUrl(undefined), {
+    isGamePage: false,
+    appId: undefined,
+    reason: "url-unavailable",
+  });
+  assert.deepStrictEqual(
+    resolveDeckyGamePageAchievementAppIdFromRouteProps({
+      match: {
+        params: {
+          appid: "1672970",
+        },
+      },
+    }),
+    "1672970",
+  );
+  assert.equal(DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN, "/library/app/:appid");
 });
 
 test("fullscreen return context writes provider dashboard, game, and achievement payloads", async () => {

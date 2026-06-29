@@ -75,7 +75,7 @@ interface SteamLibraryScanActionState {
 
 type ProviderLauncherTone = "connected" | "setup" | "neutral";
 
-const ACHIEVEMENT_COMPANION_VERSION = "0.2.8";
+const ACHIEVEMENT_COMPANION_VERSION = "0.2.10";
 
 function getChooserCardStyle(): CSSProperties {
   return {
@@ -905,43 +905,45 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                       surface: "full-screen",
                     });
                   }
-                : undefined
+              : undefined
             }
           />
         </TopAlignedScrollViewport>
       ) : selectedGame !== undefined ? (
-        <GameDetailScreen
-          key={`${selectedGame.providerId}:${selectedGame.gameId}`}
-          selectedGame={selectedGame}
-          onOpenFullScreenGame={(game) => {
-            const fullscreenContext = createDeckyFullscreenReturnContextForGame({
-              providerId: game.providerId,
-              gameId: game.gameId,
-              gameTitle: game.gameTitle,
-            });
-            setFullscreenReturnContext(fullscreenContext);
-            writeDeckyFullscreenReturnContext(fullscreenContext);
-            void platform.navigation?.go({
-              view: "game",
-              providerId: game.providerId,
-              gameId: game.gameId,
-              surface: "full-screen",
-            });
-          }}
-          onBackToDashboard={() => {
-            setSelectedAchievement(undefined);
-            setSelectedGame(undefined);
-            setFullscreenReturnContext(undefined);
-            clearDeckyFullscreenReturnContext();
-          }}
-          onOpenAchievementDetail={(target) => {
-            setSelectedAchievement(target);
-          }}
-          onRequestScrollReset={() => {
-            setDetailScrollResetNonce((value) => value + 1);
-          }}
-          scrollResetNonce={detailScrollResetNonce}
-        />
+        <>
+          <GameDetailScreen
+            key={`${selectedGame.providerId}:${selectedGame.gameId}`}
+            selectedGame={selectedGame}
+            onOpenFullScreenGame={(game) => {
+              const fullscreenContext = createDeckyFullscreenReturnContextForGame({
+                providerId: game.providerId,
+                gameId: game.gameId,
+                gameTitle: game.gameTitle,
+              });
+              setFullscreenReturnContext(fullscreenContext);
+              writeDeckyFullscreenReturnContext(fullscreenContext);
+              void platform.navigation?.go({
+                view: "game",
+                providerId: game.providerId,
+                gameId: game.gameId,
+                surface: "full-screen",
+              });
+            }}
+            onBackToDashboard={() => {
+              setSelectedAchievement(undefined);
+              setSelectedGame(undefined);
+              setFullscreenReturnContext(undefined);
+              clearDeckyFullscreenReturnContext();
+            }}
+            onOpenAchievementDetail={(target) => {
+              setSelectedAchievement(target);
+            }}
+            onRequestScrollReset={() => {
+              setDetailScrollResetNonce((value) => value + 1);
+            }}
+            scrollResetNonce={detailScrollResetNonce}
+          />
+        </>
   ) : (
         <>
           {selectedProviderId === undefined ? (
@@ -1107,6 +1109,10 @@ function DeckyBootstrapStateBridge(): JSX.Element {
 }
 
 export function DeckyBootstrap(): JSX.Element {
+  useEffect(() => {
+    console.debug("[Achievement Companion] Decky bootstrap mounted");
+  }, []);
+
   return (
     <>
       <DeckyFocusStyles />
