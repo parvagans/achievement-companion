@@ -722,6 +722,8 @@ interface DeckyBackendTestRetroAchievementsState {
     readonly recentlyPlayedCount?: number;
   };
   readonly secret?: string;
+  readonly completionProgressEntries?: readonly RawRetroAchievementsCompletionProgressEntry[];
+  readonly gameProgressByGameId?: Readonly<Record<string, RawRetroAchievementsGameProgressResponse>>;
 }
 
 interface DeckyBackendTestSteamState {
@@ -768,6 +770,49 @@ const deckyBackendTestCallImplementation = async (route: string, payload: unknow
     }
 
     return result;
+  }
+
+  if (route === "request_retroachievements_json") {
+    const path = typeof record?.path === "string" ? record.path : "";
+    if (path === "API_GetUserCompletionProgress.php") {
+      const entries = deckyBackendTestState.retroAchievements.completionProgressEntries;
+      if (entries === undefined) {
+        throw new Error("Unexpected RetroAchievements completion progress request in test");
+      }
+
+      return {
+        Count: entries.length,
+        Total: entries.length,
+        Results: entries,
+      };
+    }
+
+    if (path === "API_GetGameInfoAndUserProgress.php") {
+      const gameId = typeof record?.query === "object" && record.query !== null
+        ? (() => {
+            const query = record.query as Record<string, unknown>;
+            const rawGameId = query["g"];
+            return typeof rawGameId === "string"
+              ? rawGameId.trim()
+              : typeof rawGameId === "number"
+                ? String(rawGameId)
+                : "";
+          })()
+        : "";
+
+      if (gameId.length === 0) {
+        throw new Error("Unexpected RetroAchievements game progress request without a game id in test");
+      }
+
+      const response = deckyBackendTestState.retroAchievements.gameProgressByGameId?.[gameId];
+      if (response === undefined) {
+        throw new Error(`Unexpected RetroAchievements game progress request for game id ${gameId} in test`);
+      }
+
+      return response;
+    }
+
+    throw new Error(`Unexpected RetroAchievements backend request path in test: ${path}`);
   }
 
   if (route === "save_retroachievements_credentials") {
@@ -1082,10 +1127,12 @@ function createGameDetailSnapshot(): GameDetailSnapshot {
 function createRetroAchievementsGameProgressResponse(args: {
   readonly gameId: string;
   readonly title: string;
+  readonly consoleName?: string;
   readonly highestAwardKind?: string;
   readonly highestAwardDate?: string;
   readonly unlockedCount?: number;
   readonly totalCount?: number;
+  readonly hardcoreUnlockedCount?: number;
 }): RawRetroAchievementsGameProgressResponse {
   const unlockedCount = args.unlockedCount ?? 1;
   const totalCount = args.totalCount ?? Math.max(unlockedCount, 1);
@@ -1093,9 +1140,12 @@ function createRetroAchievementsGameProgressResponse(args: {
   return {
     ID: args.gameId,
     Title: args.title,
-    ConsoleName: "NES",
+    ConsoleName: args.consoleName ?? "NES",
     NumAchievements: totalCount,
     NumAwardedToUser: unlockedCount,
+    ...(args.hardcoreUnlockedCount !== undefined
+      ? { NumAwardedToUserHardcore: args.hardcoreUnlockedCount }
+      : {}),
     UserCompletion: totalCount > 0 ? `${((unlockedCount / totalCount) * 100).toFixed(2)}%` : undefined,
     ...(args.highestAwardKind !== undefined ? { HighestAwardKind: args.highestAwardKind } : {}),
     ...(args.highestAwardDate !== undefined ? { HighestAwardDate: args.highestAwardDate } : {}),
@@ -3817,10 +3867,10 @@ test("v0.2.10 diagnostic release metadata and Decky cleanup stay aligned", () =>
   assert.match(releaseCheckScriptSource, /achievement-companion-v\{version\}\.zip/u);
   assert.match(releasePackageScriptSource, /INSTALL_DIAGNOSTIC\.txt/u);
   assert.match(releasePackageScriptSource, /AchievementCompanionGamePageBadge/u);
-  assert.match(releasePackageScriptSource, /addGlobalComponent/u);
   assert.match(releasePackageScriptSource, /\/routes\/library\/app/u);
-  assert.match(releasePackageScriptSource, /global component render/u);
   assert.match(releasePackageScriptSource, /formatDeckyGamePageAchievementBadgeLabel/u);
+  assert.match(releasePackageScriptSource, /completion-progress-title-match/u);
+  assert.match(releasePackageScriptSource, /dashboard-identity-detail/u);
   assert.match(releasePackageScriptSource, /no-retroachievements-shortcut-mapping/u);
   assert.match(releasePackageScriptSource, /retroachievements/u);
   assert.match(releasePackageScriptSource, /createRoot/u);
@@ -10008,7 +10058,7 @@ test("fullscreen game route can temporarily return to an achievement detail with
   assert.equal(resolveFullScreenGameRouteAchievementReturnTarget(providerId, gameId), undefined);
 });
 
-test("steam game page achievement badge uses the Decky global component path without prototype UI", () => {
+test("steam game page achievement badge uses the route-patched header path without prototype UI", () => {
   const indexSource = readFileSync("src/index.tsx", "utf8");
   const bootstrapSource = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
   const runtimeDebugSource = readFileSync("src/platform/decky/decky-runtime-debug.ts", "utf8");
@@ -10039,26 +10089,16 @@ test("steam game page achievement badge uses the Decky global component path wit
     )?.[0] ?? "";
 
   assert.match(indexSource, /installAchievementCompanionRuntimeDebug\(/u);
-  assert.match(indexSource, /ensureDeckyGamePageAchievementGlobalComponentRegistered\(/u);
-  assert.match(indexSource, /removeDeckyGamePageAchievementGlobalComponent\(\)/u);
+  assert.doesNotMatch(indexSource, /ensureDeckyGamePageAchievementGlobalComponentRegistered\(/u);
+  assert.doesNotMatch(indexSource, /removeDeckyGamePageAchievementGlobalComponent\(\)/u);
   assert.match(indexSource, /removeAchievementCompanionRuntimeDebug\(\)/u);
   assert.match(indexSource, /DeckyBootstrap/u);
   assert.match(runtimeDebugSource, /__achievementCompanionRuntimeDebug/u);
   assert.match(runtimeDebugSource, /win\.top/u);
   assert.match(runtimeDebugSource, /globalThis/u);
   assert.match(runtimeDebugSource, /Runtime debug initialized/u);
-  assert.match(runtimeDebugSource, /globalComponentRegistered/u);
-  assert.match(runtimeDebugSource, /globalComponentName/u);
   assert.match(runtimeDebugSource, /currentRouteUrl/u);
   assert.match(runtimeDebugSource, /routeDetectionReason/u);
-  assert.match(runtimeDebugSource, /globalComponentRenderCount/u);
-  assert.match(runtimeDebugSource, /globalComponentVisibleRenderCount/u);
-  assert.match(runtimeDebugSource, /globalComponentHiddenRenderCount/u);
-  assert.match(runtimeDebugSource, /globalComponentLastRouteUrl/u);
-  assert.match(runtimeDebugSource, /globalComponentLastDetectedAppId/u);
-  assert.match(runtimeDebugSource, /globalComponentLastDetectionReason/u);
-  assert.match(runtimeDebugSource, /globalComponentLastRenderAt/u);
-  assert.match(runtimeDebugSource, /globalComponentLastError/u);
   assert.match(runtimeDebugSource, /badgeRenderCount/u);
   assert.match(runtimeDebugSource, /lastBadgeRenderAppId/u);
   assert.match(runtimeDebugSource, /lastSummaryStatus/u);
@@ -10069,6 +10109,8 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(runtimeDebugSource, /lastSummaryFetchStartedAt/u);
   assert.match(runtimeDebugSource, /lastSummaryFetchCompletedAt/u);
   assert.match(runtimeDebugSource, /lastRetroAchievementsShortcutAppId/u);
+  assert.match(runtimeDebugSource, /lastRetroAchievementsShortcutTitle/u);
+  assert.match(runtimeDebugSource, /lastRetroAchievementsShortcutPlatform/u);
   assert.match(runtimeDebugSource, /lastRetroAchievementsMappingStatus/u);
   assert.match(runtimeDebugSource, /lastRetroAchievementsMappingReason/u);
   assert.match(runtimeDebugSource, /lastRetroAchievementsGameId/u);
@@ -10078,12 +10120,17 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(runtimeDebugSource, /lastRetroAchievementsSource/u);
   assert.match(runtimeDebugSource, /lastRetroAchievementsConfidence/u);
   assert.match(runtimeDebugSource, /lastRetroAchievementsError/u);
-  assert.match(runtimeDebugSource, /Game-page achievement badge global component registered/u);
-  assert.match(runtimeDebugSource, /Game-page achievement badge global component removed/u);
+  assert.match(runtimeDebugSource, /lastRetroAchievementsResolutionSource/u);
+  assert.match(runtimeDebugSource, /lastRetroAchievementsResolutionReason/u);
+  assert.match(runtimeDebugSource, /lastRetroAchievementsMatchedTitle/u);
+  assert.match(runtimeDebugSource, /lastRetroAchievementsMatchedPlatform/u);
+  assert.match(runtimeDebugSource, /lastRetroAchievementsMatchedGameId/u);
+  assert.match(runtimeDebugSource, /lastRetroAchievementsCandidateCount/u);
+  assert.doesNotMatch(runtimeDebugSource, /globalComponent/u);
+  assert.doesNotMatch(runtimeDebugSource, /globalFallbackSuppressed/u);
   assert.match(runtimeDebugSource, /Game-page achievement badge rendered/u);
-  assert.match(runtimeDebugSource, /global component render/u);
   assert.match(runtimeDebugSource, /reportAchievementCompanionRuntimeDebugError/u);
-  assert.match(runtimeDebugSource, /reportAchievementCompanionGamePageGlobalComponentError/u);
+  assert.doesNotMatch(runtimeDebugSource, /reportAchievementCompanionGamePageGlobalComponentError/u);
   assert.match(runtimeDebugSource, /reportAchievementCompanionGamePageAchievementSummaryError/u);
   assert.match(runtimeDebugSource, /markAchievementCompanionRetroAchievementsShortcutResolution/u);
   assert.match(runtimeDebugSource, /markAchievementCompanionGamePageAchievementSummaryFetchStarted/u);
@@ -10094,7 +10141,7 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(routeDetectionSource, /resolveDeckyGamePageAchievementAppIdFromRouteProps/u);
   assert.match(summarySource, /type GamePageAchievementSummary/u);
   assert.match(summarySource, /formatDeckyGamePageAchievementBadgeLabel/u);
-  assert.match(summarySource, /🏆 …/u);
+  assert.match(summarySource, /\\u\{1f3c6\}/u);
   assert.match(summarySource, /requestSequenceRef\.current !== requestSequence/u);
   assert.match(summarySource, /readDeckySteamLibraryAchievementScanSummary/u);
   assert.match(summarySource, /readDeckyDashboardSnapshotCacheEntry/u);
@@ -10102,17 +10149,29 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(summarySource, /shortcut-title-match/u);
   assert.match(summarySource, /ambiguous-retroachievements-shortcut-mapping/u);
   assert.match(summarySource, /loadDeckyGameDetailStateLazy\(STEAM_PROVIDER_ID, appId, \{\s*forceRefresh: false/u);
-  assert.match(summarySource, /no-retroachievements-shortcut-mapping/u);
-  assert.match(summarySource, /ra-cache-unavailable/u);
+  assert.match(summarySource, /loadDeckyCompletionProgressStateLazy/u);
+  assert.match(summarySource, /matchesRetroAchievementsShortcutTitle/u);
+  assert.match(summarySource, /matchesRetroAchievementsShortcutPlatform/u);
+  assert.match(summarySource, /normalizeRetroAchievementsPlatformLabel/u);
+  assert.match(summarySource, /collectRetroAchievementsCompletionProgressCandidates/u);
   assert.match(summarySource, /collectRetroAchievementsDashboardCandidates/u);
+  assert.match(summarySource, /collectRetroAchievementsDashboardIdentityCandidates/u);
+  assert.match(summarySource, /completion-progress-title-match/u);
+  assert.match(summarySource, /dashboard-identity-detail/u);
+  assert.match(summarySource, /ra-detail-unavailable/u);
+  assert.match(summarySource, /ra-api-game-list/u);
+  assert.match(summarySource, /no-retroachievements-shortcut-mapping/u);
+  assert.doesNotMatch(summarySource, /ra-provider-not-configured/u);
+  assert.match(summarySource, /ra-cache-unavailable/u);
+  assert.match(summarySource, /recentAchievements/u);
+  assert.match(summarySource, /recentUnlocks/u);
+  assert.match(summarySource, /loadDeckyGameDetailStateLazy\([\s\S]*?RETROACHIEVEMENTS_PROVIDER_ID/u);
   assert.match(summarySource, /unlockedCount/u);
   assert.match(summarySource, /totalCount/u);
   assert.match(bootstrapSource, /Decky bootstrap mounted/u);
   assert.doesNotMatch(bootstrapSource, /DeckyGamePageAchievementBubbleOverlayLifecycle/u);
   assert.doesNotMatch(bootstrapSource, /startGamePageAchievementBubbleOverlay\(/u);
   assert.match(indexSource, /ensureDeckyGamePageAchievementRoutePatchRegistered/u);
-  assert.match(bubbleSource, /routerHook\.addGlobalComponent/u);
-  assert.match(bubbleSource, /routerHook\.removeGlobalComponent/u);
   assert.match(bubbleSource, /routerHook\.addPatch/u);
   assert.match(bubbleSource, /routerHook\.removePatch/u);
   assert.match(bubbleSource, /afterPatch/u);
@@ -10121,7 +10180,8 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(bubbleSource, /appDetailsClasses\.InnerContainer/u);
   assert.match(bubbleSource, /DeckyGamePageAchievementBadge/u);
   assert.match(bubbleSource, /DeckyGamePageAchievementRouteBadge/u);
-  assert.match(bubbleSource, /DeckyGamePageAchievementGlobalBadge/u);
+  assert.doesNotMatch(bubbleSource, /DeckyGamePageAchievementGlobalBadge/u);
+  assert.doesNotMatch(bubbleSource, /AchievementCompanionGamePageBadgeGlobalComponent/u);
   assert.match(bubbleSource, /AchievementCompanionGamePageBadge/u);
   assert.match(bubbleSource, /DeckySystemIcon/u);
   assert.match(bubbleSource, /renderDeckyGamePageAchievementBadgeContent/u);
@@ -10135,7 +10195,7 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(bubbleSource, /Game-page achievement bubble clicked/u);
   assert.match(bubbleSource, /useGamePageAchievementSummary/u);
   assert.match(bubbleSource, /formatDeckyGamePageAchievementBadgeLabel/u);
-  assert.match(bubbleSource, /🏆/u);
+  assert.match(bubbleSource, /\u{1f3c6}/u);
   assert.match(bubbleSource, /summary\.provider === "retroachievements" \? \(/u);
   assert.match(bubbleSource, /summary\.provider === "retroachievements" \? retroSystemIconMetadata\?\.systemIconUrl : undefined/u);
   assert.match(bubbleSource, /iconSize=\{20\}/u);
@@ -10166,32 +10226,17 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(bubbleSource, /offsetParent/u);
   assert.match(bubbleSource, /getBoundingClientRect/u);
   assert.match(bubbleSource, /markAchievementCompanionGamePageRouteBadgePlacement/u);
-  assert.match(bubbleSource, /position:\s*"fixed"/u);
-  assert.match(bubbleSource, /top:\s*90/u);
-  assert.match(bubbleSource, /left:\s*32/u);
-  assert.match(bubbleSource, /zIndex:\s*7002/u);
-  assert.match(bubbleSource, /GAME_PAGE_BADGE_MODAL_POLL_INTERVAL_MS = 500/u);
-  assert.match(bubbleSource, /resolveDeckyGamePageAchievementTargetContext/u);
-  assert.match(bubbleSource, /readDeckyGamePageModalOpenState/u);
-  assert.match(bubbleSource, /hasVisibleDeckyGamePageModal/u);
-  assert.match(bubbleSource, /badgeElementRef/u);
-  assert.match(bubbleSource, /badgeOwnerDocumentRef/u);
-  assert.match(bubbleSource, /ownerDocument/u);
-  assert.match(bubbleSource, /const badgeDocument = badgeElementRef\.current\?\.ownerDocument \?\? badgeOwnerDocumentRef\.current/u);
-  assert.match(bubbleSource, /function readDeckyGamePageModalOpenState\(badgeDocument\?: Document\): boolean/u);
-  assert.match(bubbleSource, /const hostDocument = resolveDeckyGamePageAchievementTargetContext\(\)\?\.targetDocument/u);
-  assert.match(bubbleSource, /hasVisibleDeckyGamePageModal\(badgeDocument\)/u);
-  assert.match(bubbleSource, /hasVisibleDeckyGamePageModal\(hostDocument\)/u);
-  assert.match(bubbleSource, /hasVisibleDeckyGamePageModal\(\)/u);
-  assert.match(
-    bubbleSource,
-    /hasVisibleDeckyGamePageModal\(badgeDocument\)\s*\|\|\s*hasVisibleDeckyGamePageModal\(hostDocument\)\s*\|\|\s*hasVisibleDeckyGamePageModal\(\)/u,
-  );
-  assert.match(bubbleSource, /ref=\{elementRef\}/u);
-  assert.match(bubbleSource, /data-achievement-companion-game-page-badge=\{marker\}/u);
-  assert.match(bubbleSource, /marker:\s*"global" \| "route"/u);
+  assert.doesNotMatch(bubbleSource, /GAME_PAGE_BADGE_MODAL_POLL_INTERVAL_MS/u);
+  assert.doesNotMatch(bubbleSource, /hasVisibleDeckyGamePageModal/u);
+  assert.doesNotMatch(bubbleSource, /reportAchievementCompanionGamePageGlobalComponentError/u);
+  assert.doesNotMatch(bubbleSource, /ensureDeckyGamePageAchievementGlobalComponentRegistered/u);
+  assert.doesNotMatch(bubbleSource, /markAchievementCompanionGamePageGlobalComponentRendered/u);
+  assert.doesNotMatch(bubbleSource, /markAchievementCompanionGamePageGlobalFallbackSuppressed/u);
+  assert.doesNotMatch(bubbleSource, /shouldSuppressGlobalFallback/u);
+  assert.doesNotMatch(bubbleSource, /addGlobalComponent/u);
+  assert.doesNotMatch(bubbleSource, /removeGlobalComponent/u);
+  assert.doesNotMatch(bubbleSource, /marker="global"/u);
   assert.match(bubbleSource, /marker="route"/u);
-  assert.match(bubbleSource, /marker="global"/u);
   assert.match(bubbleSource, /role="button"/u);
   assert.match(bubbleSource, /tabIndex=\{0\}/u);
   assert.match(bubbleSource, /Open Achievement Companion details for app/u);
@@ -10199,21 +10244,13 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(bubbleSource, /event\.key === "Enter" \|\| event\.key === " "/u);
   assert.match(bubbleSource, /markAchievementCompanionGamePageBadgeActivated/u);
   assert.match(bubbleSource, /reportAchievementCompanionGamePageBadgeNavigationError/u);
-  assert.match(
-    bubbleSource,
-    /if \(!visible \|\| badgeLabel === undefined \|\| modalOpen \|\| suppressGlobalFallback\)/u,
-  );
-  assert.match(bubbleSource, /if \(badgeLabel === undefined\) \{\s*return;\s*\}/u);
   assert.match(bubbleSource, /if \(badgeLabel === undefined\) \{\s*return null;\s*\}/u);
   assert.doesNotMatch(routeBadgeStyleFunctionSource, /bottom:/u);
   assert.doesNotMatch(
     bubbleSource,
     /function getDeckyGamePageAchievementRouteBadgeStyle\([\s\S]*position:\s*"fixed"/u,
   );
-  assert.match(bubbleSource, /reportAchievementCompanionGamePageGlobalComponentError/u);
   assert.match(bubbleSource, /resolveAchievementCompanionRuntimeDebugHostContext\(/u);
-  assert.match(bubbleSource, /shouldSuppressGlobalFallback/u);
-  assert.match(bubbleSource, /markAchievementCompanionGamePageGlobalFallbackSuppressed/u);
   assert.match(bubbleSource, /markAchievementCompanionGamePageRouteBadgePatchRegistered/u);
   assert.match(bubbleSource, /markAchievementCompanionGamePageRouteBadgePatchCallback/u);
   assert.match(bubbleSource, /markAchievementCompanionGamePageRouteBadgePatchHandlerFired/u);
@@ -10221,76 +10258,8 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(bubbleSource, /markAchievementCompanionGamePageRouteBadgeInserted/u);
   assert.match(bubbleSource, /markAchievementCompanionGamePageRouteBadgeRendered/u);
   assert.match(bubbleSource, /markAchievementCompanionGamePageBadgeSystemIcon/u);
-  assert.match(bubbleSource, /ensureDeckyGamePageAchievementGlobalComponentRegistered/u);
   assert.match(bubbleSource, /ensureDeckyGamePageAchievementRoutePatchRegistered/u);
-  assert.match(bubbleSource, /markAchievementCompanionGamePageGlobalComponentRendered/u);
   assert.match(bubbleSource, /markAchievementCompanionGamePageAchievementBadgeRendered/u);
-  assert.match(bubbleSource, /addGlobalComponent/u);
-  assert.match(deckySystemPillSource, /export function DeckySystemIcon/u);
-  assert.match(deckySystemPillSource, /getDeckySystemIconStyle/u);
-  assert.match(deckySystemPillSource, /<DeckySystemIcon iconSize=\{iconSize\} iconUrl=\{iconUrl\} \/>/u);
-  assert.match(navigationSource, /FULL_SCREEN_GAME_ROUTE_PATTERN/u);
-  assert.match(navigationSource, /\/achievement-companion\/full-screen\/game/u);
-  assert.match(navigationSource, /routerHook\.addRoute\(FULL_SCREEN_GAME_ROUTE_PATTERN, DeckyFullScreenGameRoute\)/u);
-  assert.match(navigationSource, /openDeckyFullScreenGameFromLibraryGamePage/u);
-  assert.match(navigationSource, /markFullScreenGameRouteBackBehavior\(providerId, gameId, "library-game-page"\)/u);
-  assert.match(navigationSource, /DeckyNavigation\.Navigate\(route\)/u);
-  assert.match(navigationSource, /if \(fullScreenGameRouteBackBehavior === "library-game-page"\) \{\s*DeckyNavigation\.NavigateBack\(\);\s*return;\s*\}/u);
-  assert.match(modalVisibilitySource, /hasVisibleDeckyGamePageModal\(targetDocument\?: Document\)/u);
-  assert.match(modalVisibilitySource, /\[role="dialog"\], \[aria-modal="true"\]/u);
-  assert.match(modalVisibilitySource, /window\.top\?\.document/u);
-  assert.match(modalVisibilitySource, /element\.ownerDocument\?\.defaultView/u);
-  assert.match(modalVisibilitySource, /rect\.width <= 100/u);
-  assert.match(modalVisibilitySource, /rect\.height <= 100/u);
-  assert.match(modalVisibilitySource, /computedStyle\.display === "none"/u);
-  assert.match(modalVisibilitySource, /computedStyle\.visibility === "hidden"/u);
-  assert.match(modalVisibilitySource, /computedStyle\.opacity !== "0"/u);
-  assert.doesNotMatch(bubbleSource, /createRoot/u);
-  assert.doesNotMatch(bubbleSource, /react-dom\/client/u);
-  assert.doesNotMatch(runtimeDebugSource, /createRoot/u);
-  assert.doesNotMatch(runtimeDebugSource, /react-dom\/client/u);
-  assert.doesNotMatch(summarySource, /createRoot/u);
-  assert.doesNotMatch(summarySource, /react-dom\/client/u);
-  assert.doesNotMatch(modalVisibilitySource, /createRoot/u);
-  assert.doesNotMatch(modalVisibilitySource, /react-dom\/client/u);
-  assert.doesNotMatch(bubbleSource, /protondb/i);
-  assert.doesNotMatch(runtimeDebugSource, /protondb/i);
-  assert.doesNotMatch(summarySource, /protondb/i);
-  assert.doesNotMatch(modalVisibilitySource, /protondb/i);
-  assert.match(runtimeDebugSource, /routeBadgePatchRegistered/u);
-  assert.match(runtimeDebugSource, /routeBadgePatchCallbackCount/u);
-  assert.match(runtimeDebugSource, /routeBadgeRenderFuncPatchedCount/u);
-  assert.match(runtimeDebugSource, /routeBadgePatchHandlerFiredCount/u);
-  assert.match(runtimeDebugSource, /routeBadgeInsertedCount/u);
-  assert.match(runtimeDebugSource, /routeBadgeRenderedCount/u);
-  assert.match(runtimeDebugSource, /lastRouteBadgeAppId/u);
-  assert.match(runtimeDebugSource, /lastRouteBadgeRenderedAt/u);
-  assert.match(runtimeDebugSource, /routeBadgePlacementSlot/u);
-  assert.match(runtimeDebugSource, /routeBadgePlacementCollisionCount/u);
-  assert.match(runtimeDebugSource, /routeBadgePlacementCandidateCount/u);
-  assert.match(runtimeDebugSource, /routeBadgePlacementFallbackUsed/u);
-  assert.match(runtimeDebugSource, /routeBadgePlacementUpdatedAt/u);
-  assert.match(runtimeDebugSource, /gamePageBadgeActivatedCount/u);
-  assert.match(runtimeDebugSource, /lastGamePageBadgeActivatedAppId/u);
-  assert.match(runtimeDebugSource, /lastGamePageBadgeActivatedAt/u);
-  assert.match(runtimeDebugSource, /lastGamePageBadgeNavigationTarget/u);
-  assert.match(runtimeDebugSource, /lastGamePageBadgeSourceRoute/u);
-  assert.match(runtimeDebugSource, /lastGamePageBadgeBackRoute/u);
-  assert.match(runtimeDebugSource, /lastGamePageBadgeNavigationError/u);
-  assert.match(runtimeDebugSource, /lastGamePageBadgeSystemIconProvider/u);
-  assert.match(runtimeDebugSource, /lastGamePageBadgeSystemIconPlatform/u);
-  assert.match(runtimeDebugSource, /lastGamePageBadgeSystemIconUrl/u);
-  assert.match(runtimeDebugSource, /lastGamePageBadgeSystemIconRendered/u);
-  assert.match(runtimeDebugSource, /globalFallbackSuppressed/u);
-  assert.doesNotMatch(bootstrapSource, /DIAGNOSTIC BUILD LOADED 2026-06-28/u);
-  assert.doesNotMatch(bootstrapSource, /Game Page Bubble Debug/u);
-  assert.equal(existsSync("src/platform/decky/decky-game-page-bubble-debug-section.tsx"), false);
-  assert.equal(existsSync("src/platform/decky/decky-game-page-achievement-bubble-view.tsx"), false);
-  assert.equal(
-    ACHIEVEMENT_COMPANION_RUNTIME_DEBUG_GLOBAL_NAME,
-    "__achievementCompanionRuntimeDebug",
-  );
-
   const topHostDocument = {
     body: {},
   } as Document;
@@ -10643,6 +10612,418 @@ test("game page achievement summary resolves RetroAchievements counts from an ex
   });
 });
 
+test("game page achievement summary falls back to RetroAchievements completion progress when the dashboard snapshot misses", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2217040871": {
+        title: "Legend of Zelda, The: Majora's Mask",
+      },
+    };
+    deckyBackendTestState.retroAchievements.completionProgressEntries = [
+      {
+        GameID: 64,
+        Title: "The Legend of Zelda: Majora's Mask",
+        ConsoleName: "Nintendo 64",
+        MaxPossible: 76,
+        NumAwarded: 38,
+      },
+    ];
+
+    const summary = await loadDeckyGamePageAchievementSummary("2217040871");
+    assert.equal(summary.status, "ready");
+    assert.equal(summary.provider, "retroachievements");
+    assert.equal(summary.appId, "2217040871");
+    assert.equal(summary.gameId, "64");
+    assert.equal(summary.title, "The Legend of Zelda: Majora's Mask");
+    assert.equal(summary.earned, 38);
+    assert.equal(summary.total, 76);
+    assert.equal(summary.source, "backend");
+    assert.notEqual(summary.updatedAt, undefined);
+  });
+});
+
+test("game page achievement summary resolves RetroAchievements counts from a dashboard identity detail match", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2217040873": {
+        title: "The Legend of Zelda: Majora's Mask",
+      },
+    };
+    deckyBackendTestState.retroAchievements.completionProgressEntries = [];
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      "64": createRetroAchievementsGameProgressResponse({
+        gameId: "64",
+        title: "The Legend of Zelda: Majora's Mask",
+        consoleName: "Nintendo 64",
+        unlockedCount: 13,
+        totalCount: 76,
+        hardcoreUnlockedCount: 13,
+      }),
+    };
+    assert.ok(
+      writeDeckyDashboardSnapshot({
+        ...createDashboardSnapshot(),
+        profile: {
+          ...createDashboardSnapshot().profile,
+          providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+          identity: {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            accountId: "alice",
+            displayName: "Alice",
+          },
+        },
+        recentAchievements: [
+          {
+            achievement: {
+              providerId: PROVIDER_ID,
+              achievementId: "majora-ach-1",
+              gameId: "64",
+              title: "Mask Trial",
+              isUnlocked: true,
+              unlockedAt: 1_700_000_010_000,
+              points: 10,
+              metrics: [],
+            },
+            game: {
+              providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+              gameId: "64",
+              title: "Legend of Zelda, The - Majora's Mask (USA)",
+              platformLabel: "Nintendo 64",
+            },
+            unlockedAt: 1_700_000_010_000,
+          },
+        ],
+        recentUnlocks: [
+          {
+            achievement: {
+              providerId: PROVIDER_ID,
+              achievementId: "majora-ach-1",
+              gameId: "64",
+              title: "Mask Trial",
+              isUnlocked: true,
+              unlockedAt: 1_700_000_010_000,
+              points: 10,
+              metrics: [],
+            },
+            game: {
+              providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+              gameId: "64",
+              title: "Legend of Zelda, The - Majora's Mask (USA)",
+              platformLabel: "Nintendo 64",
+            },
+            unlockedAt: 1_700_000_010_000,
+          },
+        ],
+        recentlyPlayedGames: [],
+        featuredGames: [],
+      }),
+    );
+
+    const summary = await loadDeckyGamePageAchievementSummary("2217040873");
+    assert.equal(summary.status, "ready");
+    if (summary.status !== "ready") {
+      return;
+    }
+    assert.deepStrictEqual(
+      {
+        ...summary,
+        updatedAt: undefined,
+      },
+      {
+        status: "ready",
+        provider: "retroachievements",
+        appId: "2217040873",
+        gameId: "64",
+        title: "The Legend of Zelda: Majora's Mask",
+        earned: 13,
+        total: 76,
+        source: "backend",
+        updatedAt: undefined,
+      },
+    );
+    assert.notEqual(summary.updatedAt, undefined);
+  });
+});
+
+test("game page achievement summary resolves RetroAchievements counts from a dashboard identity detail match for Ocarina of Time", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2217040874": {
+        title: "The Legend of Zelda: Ocarina of Time",
+      },
+    };
+    deckyBackendTestState.retroAchievements.completionProgressEntries = [];
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      "65": createRetroAchievementsGameProgressResponse({
+        gameId: "65",
+        title: "The Legend of Zelda: Ocarina of Time",
+        consoleName: "Nintendo 64",
+        unlockedCount: 4,
+        totalCount: 104,
+        hardcoreUnlockedCount: 4,
+      }),
+    };
+    assert.ok(
+      writeDeckyDashboardSnapshot({
+        ...createDashboardSnapshot(),
+        profile: {
+          ...createDashboardSnapshot().profile,
+          providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+          identity: {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            accountId: "alice",
+            displayName: "Alice",
+          },
+        },
+        recentAchievements: [
+          {
+            achievement: {
+              providerId: PROVIDER_ID,
+              achievementId: "ocarina-ach-1",
+              gameId: "65",
+              title: "Forest Trial",
+              isUnlocked: true,
+              unlockedAt: 1_700_000_020_000,
+              points: 10,
+              metrics: [],
+            },
+            game: {
+              providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+              gameId: "65",
+              title: "Legend of Zelda, The - Ocarina of Time (USA)",
+              platformLabel: "Nintendo 64",
+            },
+            unlockedAt: 1_700_000_020_000,
+          },
+        ],
+        recentUnlocks: [
+          {
+            achievement: {
+              providerId: PROVIDER_ID,
+              achievementId: "ocarina-ach-1",
+              gameId: "65",
+              title: "Forest Trial",
+              isUnlocked: true,
+              unlockedAt: 1_700_000_020_000,
+              points: 10,
+              metrics: [],
+            },
+            game: {
+              providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+              gameId: "65",
+              title: "Legend of Zelda, The - Ocarina of Time (USA)",
+              platformLabel: "Nintendo 64",
+            },
+            unlockedAt: 1_700_000_020_000,
+          },
+        ],
+        recentlyPlayedGames: [],
+        featuredGames: [],
+      }),
+    );
+
+    const summary = await loadDeckyGamePageAchievementSummary("2217040874");
+    assert.equal(summary.status, "ready");
+    if (summary.status !== "ready") {
+      return;
+    }
+    assert.equal(summary.provider, "retroachievements");
+    assert.equal(summary.appId, "2217040874");
+    assert.equal(summary.gameId, "65");
+    assert.equal(summary.title, "The Legend of Zelda: Ocarina of Time");
+    assert.equal(summary.earned, 4);
+    assert.equal(summary.total, 104);
+    assert.equal(summary.source, "backend");
+    assert.notEqual(summary.updatedAt, undefined);
+  });
+});
+
+test("game page achievement summary reports ra-detail-unavailable when dashboard identity detail load fails", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2217040875": {
+        title: "The Legend of Zelda: Majora's Mask",
+      },
+    };
+    deckyBackendTestState.retroAchievements.completionProgressEntries = [];
+    assert.ok(
+      writeDeckyDashboardSnapshot({
+        ...createDashboardSnapshot(),
+        profile: {
+          ...createDashboardSnapshot().profile,
+          providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+          identity: {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            accountId: "alice",
+            displayName: "Alice",
+          },
+        },
+        recentAchievements: [
+          {
+            achievement: {
+              providerId: PROVIDER_ID,
+              achievementId: "majora-ach-2",
+              gameId: "64",
+              title: "Mask Trial",
+              isUnlocked: true,
+              unlockedAt: 1_700_000_030_000,
+              points: 10,
+              metrics: [],
+            },
+            game: {
+              providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+              gameId: "64",
+              title: "Legend of Zelda, The - Majora's Mask (USA)",
+              platformLabel: "Nintendo 64",
+            },
+            unlockedAt: 1_700_000_030_000,
+          },
+        ],
+        recentUnlocks: [
+          {
+            achievement: {
+              providerId: PROVIDER_ID,
+              achievementId: "majora-ach-2",
+              gameId: "64",
+              title: "Mask Trial",
+              isUnlocked: true,
+              unlockedAt: 1_700_000_030_000,
+              points: 10,
+              metrics: [],
+            },
+            game: {
+              providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+              gameId: "64",
+              title: "Legend of Zelda, The - Majora's Mask (USA)",
+              platformLabel: "Nintendo 64",
+            },
+            unlockedAt: 1_700_000_030_000,
+          },
+        ],
+        recentlyPlayedGames: [],
+        featuredGames: [],
+      }),
+    );
+
+    const summary = await loadDeckyGamePageAchievementSummary("2217040875");
+    assert.deepStrictEqual(summary, {
+      status: "unavailable",
+      appId: "2217040875",
+      reason: "ra-detail-unavailable",
+    });
+  });
+});
+
+test("game page achievement summary reports ambiguous RetroAchievements dashboard identity matches", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2217040876": {
+        title: "Duplicate Game",
+      },
+    };
+    deckyBackendTestState.retroAchievements.completionProgressEntries = [];
+    assert.ok(
+      writeDeckyDashboardSnapshot({
+        ...createDashboardSnapshot(),
+        profile: {
+          ...createDashboardSnapshot().profile,
+          providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+          identity: {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            accountId: "alice",
+            displayName: "Alice",
+          },
+        },
+        recentAchievements: [
+          {
+            achievement: {
+              providerId: PROVIDER_ID,
+              achievementId: "duplicate-ach-1",
+              gameId: "11",
+              title: "Duplicate Game Achievement 1",
+              isUnlocked: true,
+              unlockedAt: 1_700_000_040_000,
+              points: 10,
+              metrics: [],
+            },
+            game: {
+              providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+              gameId: "11",
+              title: "Duplicate Game",
+              platformLabel: "Nintendo 64",
+            },
+            unlockedAt: 1_700_000_040_000,
+          },
+          {
+            achievement: {
+              providerId: PROVIDER_ID,
+              achievementId: "duplicate-ach-2",
+              gameId: "12",
+              title: "Duplicate Game Achievement 2",
+              isUnlocked: true,
+              unlockedAt: 1_700_000_041_000,
+              points: 10,
+              metrics: [],
+            },
+            game: {
+              providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+              gameId: "12",
+              title: "Duplicate Game",
+              platformLabel: "Nintendo 64",
+            },
+            unlockedAt: 1_700_000_041_000,
+          },
+        ],
+        recentUnlocks: [],
+        recentlyPlayedGames: [],
+        featuredGames: [],
+      }),
+    );
+
+    const summary = await loadDeckyGamePageAchievementSummary("2217040876");
+    assert.deepStrictEqual(summary, {
+      status: "unavailable",
+      appId: "2217040876",
+      reason: "ambiguous-retroachievements-shortcut-mapping",
+    });
+  });
+});
+
 test("game page achievement summary hides ambiguous RetroAchievements shortcut title matches", async () => {
   await withMockDeckyStorage(async () => {
     updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
@@ -10708,8 +11089,49 @@ test("game page achievement summary hides ambiguous RetroAchievements shortcut t
   });
 });
 
+test("game page achievement summary hides ambiguous RetroAchievements completion progress matches", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2217040872": {
+        title: "Duplicate Progress Game",
+      },
+    };
+    deckyBackendTestState.retroAchievements.completionProgressEntries = [
+      {
+        GameID: 11,
+        Title: "Duplicate Progress Game",
+        ConsoleName: "SNES",
+        MaxPossible: 10,
+        NumAwarded: 4,
+      },
+      {
+        GameID: 12,
+        Title: "Duplicate Progress Game",
+        ConsoleName: "Genesis",
+        MaxPossible: 14,
+        NumAwarded: 7,
+      },
+    ];
+
+    const summary = await loadDeckyGamePageAchievementSummary("2217040872");
+    assert.deepStrictEqual(summary, {
+      status: "unavailable",
+      appId: "2217040872",
+      reason: "ambiguous-retroachievements-shortcut-mapping",
+    });
+  });
+});
+
 test("game page achievement summary reports no RetroAchievements shortcut mapping when no exact title match exists", async () => {
   await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
     updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
       username: "alice",
       hasApiKey: true,
@@ -10721,6 +11143,15 @@ test("game page achievement summary reports no RetroAchievements shortcut mappin
         title: "Unmatched ROM",
       },
     };
+    deckyBackendTestState.retroAchievements.completionProgressEntries = [
+      {
+        GameID: 99,
+        Title: "Different Game",
+        ConsoleName: "SNES",
+        MaxPossible: 10,
+        NumAwarded: 4,
+      },
+    ];
     assert.ok(
       writeDeckyDashboardSnapshot({
         ...createDashboardSnapshot(),
@@ -10762,6 +11193,7 @@ test("game page achievement summary reports no RetroAchievements shortcut mappin
 
 test("game page achievement summary handles missing RetroAchievements cache without crashing", async () => {
   await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
     deckyBackendTestState.steam.shortcutMetadataByAppId = {
       "2217040870": {
         title: "Star Fox 64",

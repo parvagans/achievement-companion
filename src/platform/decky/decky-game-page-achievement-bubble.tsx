@@ -24,7 +24,6 @@ import {
   resolveDeckyGamePageAchievementAppId,
   type DeckyGamePageAchievementRouteDetectionState,
 } from "./decky-game-page-achievement-route";
-import { hasVisibleDeckyGamePageModal } from "./decky-game-page-achievement-modal-visibility";
 import {
   formatDeckyGamePageAchievementBadgeLabel,
   type GamePageAchievementSummary,
@@ -37,10 +36,6 @@ import {
   markAchievementCompanionGamePageBadgeActivated,
   markAchievementCompanionGamePageAchievementBadgeClicked,
   markAchievementCompanionGamePageAchievementBadgeRendered,
-  markAchievementCompanionGamePageGlobalComponentRegistered,
-  markAchievementCompanionGamePageGlobalComponentRemoved,
-  markAchievementCompanionGamePageGlobalComponentRendered,
-  markAchievementCompanionGamePageGlobalFallbackSuppressed,
   markAchievementCompanionGamePageRouteBadgeInserted,
   markAchievementCompanionGamePageRouteBadgePatchCallback,
   markAchievementCompanionGamePageRouteBadgePatchHandlerFired,
@@ -51,18 +46,13 @@ import {
   markAchievementCompanionGamePageRouteBadgeRendered,
   markAchievementCompanionGamePageBadgeSystemIcon,
   reportAchievementCompanionGamePageBadgeNavigationError,
-  reportAchievementCompanionGamePageGlobalComponentError,
   resolveAchievementCompanionRuntimeDebugHostContext,
 } from "./decky-runtime-debug";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 
-const ACHIEVEMENT_COMPANION_GAME_PAGE_BADGE_GLOBAL_COMPONENT_NAME =
-  "AchievementCompanionGamePageBadge";
 const ACHIEVEMENT_COMPANION_GAME_PAGE_ROUTE_BADGE_ELEMENT_KEY =
   "achievement-companion-game-page-badge-route";
 const GAME_PAGE_BADGE_ROUTE_POLL_INTERVAL_MS = 750;
-const GAME_PAGE_BADGE_MODAL_POLL_INTERVAL_MS = 500;
-const ROUTE_BADGE_FALLBACK_SUPPRESSION_WINDOW_MS = 2_000;
 const DECKY_GAME_PAGE_ROUTE_BADGE_COLLISION_PADDING = 12;
 const DECKY_GAME_PAGE_ROUTE_BADGE_DEFAULT_WIDTH = 180;
 const DECKY_GAME_PAGE_ROUTE_BADGE_DEFAULT_HEIGHT = 44;
@@ -72,16 +62,13 @@ const DECKY_GAME_PAGE_ROUTE_BADGE_MIN_OBSTACLE_WIDTH = 32;
 const DECKY_GAME_PAGE_ROUTE_BADGE_MIN_OBSTACLE_HEIGHT = 24;
 const DECKY_GAME_PAGE_ROUTE_BADGE_MAX_HERO_REGION_TOP = 460;
 
-let deckyGamePageAchievementGlobalComponentCleanup: (() => void) | undefined;
 let deckyGamePageAchievementRoutePatchCleanup: (() => void) | undefined;
-let lastRouteBadgeActivityAppId: string | undefined;
-let lastRouteBadgeActivityAt = 0;
 
 interface DeckyGamePageAchievementBadgeProps {
   readonly appId?: string | undefined;
   readonly ariaLabel: string;
   readonly content: ReactNode;
-  readonly marker: "global" | "route";
+  readonly marker: "route";
   readonly style: CSSProperties;
   readonly elementRef?: ((element: HTMLDivElement | null) => void) | undefined;
   readonly onActivate?: (() => void) | undefined;
@@ -234,16 +221,6 @@ function getDeckyGamePageAchievementBadgeTrophyStyle(): CSSProperties {
 function getDeckyGamePageAchievementBadgeCountStyle(): CSSProperties {
   return {
     whiteSpace: "nowrap",
-  };
-}
-
-function getDeckyGamePageAchievementGlobalBadgeStyle(): CSSProperties {
-  return {
-    ...getDeckyGamePageAchievementBadgeBaseStyle(),
-    position: "fixed",
-    top: 90,
-    left: 32,
-    zIndex: 7002,
   };
 }
 
@@ -674,83 +651,6 @@ function getRouteListenerWindows(): Window[] {
   return Array.from(windows);
 }
 
-function readDeckyGamePageModalOpenState(badgeDocument?: Document): boolean {
-  const hostDocument = resolveDeckyGamePageAchievementTargetContext()?.targetDocument;
-  return (
-    hasVisibleDeckyGamePageModal(badgeDocument) ||
-    hasVisibleDeckyGamePageModal(hostDocument) ||
-    hasVisibleDeckyGamePageModal()
-  );
-}
-
-function markRouteBadgeActivity(appId?: string): void {
-  if (appId === undefined || appId.trim().length === 0) {
-    return;
-  }
-
-  lastRouteBadgeActivityAppId = appId;
-  lastRouteBadgeActivityAt = Date.now();
-}
-
-function clearRouteBadgeActivity(): void {
-  lastRouteBadgeActivityAppId = undefined;
-  lastRouteBadgeActivityAt = 0;
-}
-
-function shouldSuppressGlobalFallback(appId?: string): boolean {
-  if (
-    appId === undefined ||
-    appId !== lastRouteBadgeActivityAppId ||
-    lastRouteBadgeActivityAt <= 0
-  ) {
-    return false;
-  }
-
-  return Date.now() - lastRouteBadgeActivityAt <= ROUTE_BADGE_FALLBACK_SUPPRESSION_WINDOW_MS;
-}
-
-function useDeckyGamePageBadgeModalState(): {
-  readonly modalOpen: boolean;
-  readonly setBadgeElement: (element: HTMLDivElement | null) => void;
-} {
-  const badgeElementRef = useRef<HTMLDivElement | null>(null);
-  const badgeOwnerDocumentRef = useRef<Document | undefined>(undefined);
-  const [modalOpen, setModalOpen] = useState<boolean>(() => readDeckyGamePageModalOpenState());
-
-  const setBadgeElement = useCallback((element: HTMLDivElement | null) => {
-    badgeElementRef.current = element;
-
-    if (element?.ownerDocument !== undefined) {
-      badgeOwnerDocumentRef.current = element.ownerDocument;
-    }
-  }, []);
-
-  const refreshModalState = useCallback(() => {
-    try {
-      setModalOpen((previousState) => {
-        const badgeDocument = badgeElementRef.current?.ownerDocument ?? badgeOwnerDocumentRef.current;
-        const nextState = readDeckyGamePageModalOpenState(badgeDocument);
-        return previousState === nextState ? previousState : nextState;
-      });
-    } catch (error) {
-      reportAchievementCompanionGamePageGlobalComponentError(error, "game-page-badge:modal");
-    }
-  }, []);
-
-  useEffect(() => {
-    refreshModalState();
-    const timer = window.setInterval(refreshModalState, GAME_PAGE_BADGE_MODAL_POLL_INTERVAL_MS);
-    return () => {
-      window.clearInterval(timer);
-    };
-  }, [refreshModalState]);
-
-  return {
-    modalOpen,
-    setBadgeElement,
-  };
-}
-
 function isAchievementCompanionRouteBadgeChild(child: unknown): boolean {
   if (typeof child !== "object" || child === null) {
     return false;
@@ -984,7 +884,6 @@ export function DeckyGamePageAchievementRouteBadge({
       return;
     }
 
-    markRouteBadgeActivity(appId);
     markAchievementCompanionGamePageRouteBadgeRendered(appId);
   }, [appId, badgeLabel]);
 
@@ -1015,113 +914,6 @@ export function DeckyGamePageAchievementRouteBadge({
       style={style}
     />
   );
-}
-
-export function DeckyGamePageAchievementGlobalBadge(): JSX.Element | null {
-  const [routeState, setRouteState] = useState<DeckyGamePageAchievementRouteState>(() =>
-    readDeckyGamePageAchievementRouteState(),
-  );
-  const { modalOpen, setBadgeElement } = useDeckyGamePageBadgeModalState();
-
-  const refreshRouteState = useCallback(() => {
-    try {
-      setRouteState((previousState) => {
-        const nextState = readDeckyGamePageAchievementRouteState();
-        if (
-          previousState.currentRouteUrl === nextState.currentRouteUrl &&
-          previousState.detection.isGamePage === nextState.detection.isGamePage &&
-          previousState.detection.appId === nextState.detection.appId &&
-          previousState.detection.reason === nextState.detection.reason
-        ) {
-          return previousState;
-        }
-
-        return nextState;
-      });
-    } catch (error) {
-      reportAchievementCompanionGamePageGlobalComponentError(error, "game-page-global-component:refresh");
-    }
-  }, []);
-
-  useEffect(() => {
-    refreshRouteState();
-    const listenerWindows = getRouteListenerWindows();
-    const handleRouteSignal = () => {
-      refreshRouteState();
-    };
-
-    for (const targetWindow of listenerWindows) {
-      targetWindow.addEventListener("popstate", handleRouteSignal);
-      targetWindow.addEventListener("hashchange", handleRouteSignal);
-    }
-
-    const timer = window.setInterval(handleRouteSignal, GAME_PAGE_BADGE_ROUTE_POLL_INTERVAL_MS);
-    return () => {
-      window.clearInterval(timer);
-      for (const targetWindow of listenerWindows) {
-        targetWindow.removeEventListener("popstate", handleRouteSignal);
-        targetWindow.removeEventListener("hashchange", handleRouteSignal);
-      }
-    };
-  }, [refreshRouteState]);
-
-  const appId = routeState.detection.appId;
-  const visible = routeState.detection.isGamePage;
-  const summary = useGamePageAchievementSummary(visible ? appId : undefined);
-  const badgeLabel = formatDeckyGamePageAchievementBadgeLabel(summary);
-  const suppressGlobalFallback = shouldSuppressGlobalFallback(appId);
-  const retroSystemIconMetadata = useMemo(
-    () => resolveDeckyGamePageRetroSystemIconMetadata(summary),
-    [summary],
-  );
-  const { ariaLabel, content } = useMemo(
-    () => renderDeckyGamePageAchievementBadgeContent(summary, retroSystemIconMetadata),
-    [retroSystemIconMetadata, summary],
-  );
-  const { onActivate } = useDeckyGamePageAchievementBadgeActivation(appId, summary);
-
-  useEffect(() => {
-    markAchievementCompanionGamePageGlobalComponentRendered(
-      routeState.currentRouteUrl,
-      routeState.detection,
-    );
-  }, [routeState]);
-
-  useEffect(() => {
-    markAchievementCompanionGamePageGlobalFallbackSuppressed(appId, suppressGlobalFallback);
-  }, [appId, suppressGlobalFallback]);
-
-  useEffect(() => {
-    markAchievementCompanionGamePageBadgeSystemIcon({
-      providerId: summary?.status === "ready" ? summary.provider : undefined,
-      platformLabel: retroSystemIconMetadata?.platformLabel,
-      iconUrl: retroSystemIconMetadata?.systemIconUrl,
-      rendered:
-        summary?.status === "ready" &&
-        summary.provider === "retroachievements" &&
-        retroSystemIconMetadata?.systemIconUrl !== undefined,
-    });
-  }, [retroSystemIconMetadata?.platformLabel, retroSystemIconMetadata?.systemIconUrl, summary]);
-
-  if (!visible || badgeLabel === undefined || modalOpen || suppressGlobalFallback) {
-    return null;
-  }
-
-  return (
-    <DeckyGamePageAchievementBadge
-      appId={appId}
-      ariaLabel={ariaLabel}
-      elementRef={setBadgeElement}
-      content={content}
-      marker="global"
-      onActivate={onActivate}
-      style={getDeckyGamePageAchievementGlobalBadgeStyle()}
-    />
-  );
-}
-
-function AchievementCompanionGamePageBadgeGlobalComponent(): JSX.Element | null {
-  return <DeckyGamePageAchievementGlobalBadge />;
 }
 
 export function ensureDeckyGamePageAchievementRoutePatchRegistered(): () => void {
@@ -1177,7 +969,6 @@ export function ensureDeckyGamePageAchievementRoutePatchRegistered(): () => void
           );
           nextChildren.splice(1, 0, createDeckyGamePageAchievementRouteBadgeElement(currentAppId));
           container.props.children = nextChildren;
-          markRouteBadgeActivity(currentAppId);
           markAchievementCompanionGamePageRouteBadgeInserted(currentAppId);
           return ret;
         },
@@ -1203,33 +994,9 @@ export function ensureDeckyGamePageAchievementRoutePatchRegistered(): () => void
       renderFuncPatch.unpatch();
     }
     renderFuncPatches.length = 0;
-    clearRouteBadgeActivity();
     markAchievementCompanionGamePageRouteBadgePatchRemoved();
     deckyGamePageAchievementRoutePatchCleanup = undefined;
   };
 
   return deckyGamePageAchievementRoutePatchCleanup;
-}
-
-export function ensureDeckyGamePageAchievementGlobalComponentRegistered(): () => void {
-  if (deckyGamePageAchievementGlobalComponentCleanup !== undefined) {
-    return deckyGamePageAchievementGlobalComponentCleanup;
-  }
-
-  routerHook.addGlobalComponent(
-    ACHIEVEMENT_COMPANION_GAME_PAGE_BADGE_GLOBAL_COMPONENT_NAME,
-    AchievementCompanionGamePageBadgeGlobalComponent,
-  );
-  markAchievementCompanionGamePageGlobalComponentRegistered(
-    ACHIEVEMENT_COMPANION_GAME_PAGE_BADGE_GLOBAL_COMPONENT_NAME,
-  );
-
-  deckyGamePageAchievementGlobalComponentCleanup = () => {
-    routerHook.removeGlobalComponent(ACHIEVEMENT_COMPANION_GAME_PAGE_BADGE_GLOBAL_COMPONENT_NAME);
-    clearRouteBadgeActivity();
-    markAchievementCompanionGamePageGlobalComponentRemoved();
-    deckyGamePageAchievementGlobalComponentCleanup = undefined;
-  };
-
-  return deckyGamePageAchievementGlobalComponentCleanup;
 }

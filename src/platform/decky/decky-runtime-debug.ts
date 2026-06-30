@@ -47,19 +47,6 @@ export interface AchievementCompanionRuntimeDebugState {
   readonly lastGamePageBadgeSystemIconPlatform: string | undefined;
   readonly lastGamePageBadgeSystemIconUrl: string | undefined;
   readonly lastGamePageBadgeSystemIconRendered: boolean;
-  readonly globalComponentRegistered: boolean;
-  readonly globalComponentName: string | undefined;
-  readonly globalComponentRenderCount: number;
-  readonly globalComponentVisibleRenderCount: number;
-  readonly globalComponentHiddenRenderCount: number;
-  readonly globalComponentLastRouteUrl: string | undefined;
-  readonly globalComponentLastDetectedAppId: string | undefined;
-  readonly globalComponentLastDetectionReason: string | undefined;
-  readonly globalComponentLastRenderAt: string | undefined;
-  readonly globalComponentLastError: string | undefined;
-  readonly globalFallbackSuppressed: boolean;
-  readonly globalFallbackSuppressedAppId: string | undefined;
-  readonly globalFallbackSuppressedAt: string | undefined;
   readonly badgeRendered: boolean;
   readonly badgeRenderCount: number;
   readonly lastBadgeRenderAt: string | undefined;
@@ -73,6 +60,8 @@ export interface AchievementCompanionRuntimeDebugState {
   readonly lastSummaryFetchStartedAt: string | undefined;
   readonly lastSummaryFetchCompletedAt: string | undefined;
   readonly lastRetroAchievementsShortcutAppId: string | undefined;
+  readonly lastRetroAchievementsShortcutTitle: string | undefined;
+  readonly lastRetroAchievementsShortcutPlatform: string | undefined;
   readonly lastRetroAchievementsMappingStatus: "mapped" | "unavailable" | "error" | undefined;
   readonly lastRetroAchievementsMappingReason: string | undefined;
   readonly lastRetroAchievementsGameId: string | undefined;
@@ -82,6 +71,12 @@ export interface AchievementCompanionRuntimeDebugState {
   readonly lastRetroAchievementsSource: string | undefined;
   readonly lastRetroAchievementsConfidence: string | undefined;
   readonly lastRetroAchievementsError: string | undefined;
+  readonly lastRetroAchievementsResolutionSource: string | undefined;
+  readonly lastRetroAchievementsResolutionReason: string | undefined;
+  readonly lastRetroAchievementsMatchedTitle: string | undefined;
+  readonly lastRetroAchievementsMatchedPlatform: string | undefined;
+  readonly lastRetroAchievementsMatchedGameId: string | undefined;
+  readonly lastRetroAchievementsCandidateCount: number | undefined;
   readonly lastError: string | undefined;
 }
 
@@ -146,19 +141,6 @@ let runtimeDebugLastGamePageBadgeSystemIconProvider: string | undefined;
 let runtimeDebugLastGamePageBadgeSystemIconPlatform: string | undefined;
 let runtimeDebugLastGamePageBadgeSystemIconUrl: string | undefined;
 let runtimeDebugLastGamePageBadgeSystemIconRendered = false;
-let runtimeDebugGlobalComponentRegistered = false;
-let runtimeDebugGlobalComponentName: string | undefined;
-let runtimeDebugGlobalComponentRenderCount = 0;
-let runtimeDebugGlobalComponentVisibleRenderCount = 0;
-let runtimeDebugGlobalComponentHiddenRenderCount = 0;
-let runtimeDebugGlobalComponentLastRouteUrl: string | undefined;
-let runtimeDebugGlobalComponentLastDetectedAppId: string | undefined;
-let runtimeDebugGlobalComponentLastDetectionReason: string | undefined;
-let runtimeDebugGlobalComponentLastRenderAt: string | undefined;
-let runtimeDebugGlobalComponentLastError: string | undefined;
-let runtimeDebugGlobalFallbackSuppressed = false;
-let runtimeDebugGlobalFallbackSuppressedAppId: string | undefined;
-let runtimeDebugGlobalFallbackSuppressedAt: string | undefined;
 let runtimeDebugBadgeRenderCount = 0;
 let runtimeDebugLastBadgeRenderAt: string | undefined;
 let runtimeDebugLastBadgeRenderAppId: string | undefined;
@@ -171,6 +153,8 @@ let runtimeDebugLastSummaryUnavailableReason: string | undefined;
 let runtimeDebugLastSummaryFetchStartedAt: string | undefined;
 let runtimeDebugLastSummaryFetchCompletedAt: string | undefined;
 let runtimeDebugLastRetroAchievementsShortcutAppId: string | undefined;
+let runtimeDebugLastRetroAchievementsShortcutTitle: string | undefined;
+let runtimeDebugLastRetroAchievementsShortcutPlatform: string | undefined;
 let runtimeDebugLastRetroAchievementsMappingStatus: "mapped" | "unavailable" | "error" | undefined;
 let runtimeDebugLastRetroAchievementsMappingReason: string | undefined;
 let runtimeDebugLastRetroAchievementsGameId: string | undefined;
@@ -180,6 +164,12 @@ let runtimeDebugLastRetroAchievementsTotal: number | undefined;
 let runtimeDebugLastRetroAchievementsSource: string | undefined;
 let runtimeDebugLastRetroAchievementsConfidence: string | undefined;
 let runtimeDebugLastRetroAchievementsError: string | undefined;
+let runtimeDebugLastRetroAchievementsResolutionSource: string | undefined;
+let runtimeDebugLastRetroAchievementsResolutionReason: string | undefined;
+let runtimeDebugLastRetroAchievementsMatchedTitle: string | undefined;
+let runtimeDebugLastRetroAchievementsMatchedPlatform: string | undefined;
+let runtimeDebugLastRetroAchievementsMatchedGameId: string | undefined;
+let runtimeDebugLastRetroAchievementsCandidateCount: number | undefined;
 let runtimeDebugLastObservedRouteUrl: string | undefined;
 let runtimeDebugLastObservedDetection: DeckyGamePageAchievementRouteDetectionState | undefined;
 let runtimeDebugLastError: string | undefined;
@@ -339,19 +329,6 @@ function computeRuntimeDebugState(): AchievementCompanionRuntimeDebugState {
     lastGamePageBadgeSystemIconPlatform: runtimeDebugLastGamePageBadgeSystemIconPlatform,
     lastGamePageBadgeSystemIconUrl: runtimeDebugLastGamePageBadgeSystemIconUrl,
     lastGamePageBadgeSystemIconRendered: runtimeDebugLastGamePageBadgeSystemIconRendered,
-    globalComponentRegistered: runtimeDebugGlobalComponentRegistered,
-    globalComponentName: runtimeDebugGlobalComponentName,
-    globalComponentRenderCount: runtimeDebugGlobalComponentRenderCount,
-    globalComponentVisibleRenderCount: runtimeDebugGlobalComponentVisibleRenderCount,
-    globalComponentHiddenRenderCount: runtimeDebugGlobalComponentHiddenRenderCount,
-    globalComponentLastRouteUrl: runtimeDebugGlobalComponentLastRouteUrl,
-    globalComponentLastDetectedAppId: runtimeDebugGlobalComponentLastDetectedAppId,
-    globalComponentLastDetectionReason: runtimeDebugGlobalComponentLastDetectionReason,
-    globalComponentLastRenderAt: runtimeDebugGlobalComponentLastRenderAt,
-    globalComponentLastError: runtimeDebugGlobalComponentLastError,
-    globalFallbackSuppressed: runtimeDebugGlobalFallbackSuppressed,
-    globalFallbackSuppressedAppId: runtimeDebugGlobalFallbackSuppressedAppId,
-    globalFallbackSuppressedAt: runtimeDebugGlobalFallbackSuppressedAt,
     badgeRendered: runtimeDebugBadgeRenderCount > 0,
     badgeRenderCount: runtimeDebugBadgeRenderCount,
     lastBadgeRenderAt: runtimeDebugLastBadgeRenderAt,
@@ -365,6 +342,8 @@ function computeRuntimeDebugState(): AchievementCompanionRuntimeDebugState {
     lastSummaryFetchStartedAt: runtimeDebugLastSummaryFetchStartedAt,
     lastSummaryFetchCompletedAt: runtimeDebugLastSummaryFetchCompletedAt,
     lastRetroAchievementsShortcutAppId: runtimeDebugLastRetroAchievementsShortcutAppId,
+    lastRetroAchievementsShortcutTitle: runtimeDebugLastRetroAchievementsShortcutTitle,
+    lastRetroAchievementsShortcutPlatform: runtimeDebugLastRetroAchievementsShortcutPlatform,
     lastRetroAchievementsMappingStatus: runtimeDebugLastRetroAchievementsMappingStatus,
     lastRetroAchievementsMappingReason: runtimeDebugLastRetroAchievementsMappingReason,
     lastRetroAchievementsGameId: runtimeDebugLastRetroAchievementsGameId,
@@ -374,6 +353,12 @@ function computeRuntimeDebugState(): AchievementCompanionRuntimeDebugState {
     lastRetroAchievementsSource: runtimeDebugLastRetroAchievementsSource,
     lastRetroAchievementsConfidence: runtimeDebugLastRetroAchievementsConfidence,
     lastRetroAchievementsError: runtimeDebugLastRetroAchievementsError,
+    lastRetroAchievementsResolutionSource: runtimeDebugLastRetroAchievementsResolutionSource,
+    lastRetroAchievementsResolutionReason: runtimeDebugLastRetroAchievementsResolutionReason,
+    lastRetroAchievementsMatchedTitle: runtimeDebugLastRetroAchievementsMatchedTitle,
+    lastRetroAchievementsMatchedPlatform: runtimeDebugLastRetroAchievementsMatchedPlatform,
+    lastRetroAchievementsMatchedGameId: runtimeDebugLastRetroAchievementsMatchedGameId,
+    lastRetroAchievementsCandidateCount: runtimeDebugLastRetroAchievementsCandidateCount,
     lastError: runtimeDebugLastError,
   };
 }
@@ -452,11 +437,24 @@ export function removeAchievementCompanionRuntimeDebug(): void {
   runtimeDebugLastGamePageBadgeSystemIconPlatform = undefined;
   runtimeDebugLastGamePageBadgeSystemIconUrl = undefined;
   runtimeDebugLastGamePageBadgeSystemIconRendered = false;
-  runtimeDebugGlobalComponentRegistered = false;
-  runtimeDebugGlobalComponentName = undefined;
-  runtimeDebugGlobalFallbackSuppressed = false;
-  runtimeDebugGlobalFallbackSuppressedAppId = undefined;
-  runtimeDebugGlobalFallbackSuppressedAt = undefined;
+  runtimeDebugLastRetroAchievementsShortcutAppId = undefined;
+  runtimeDebugLastRetroAchievementsShortcutTitle = undefined;
+  runtimeDebugLastRetroAchievementsShortcutPlatform = undefined;
+  runtimeDebugLastRetroAchievementsMappingStatus = undefined;
+  runtimeDebugLastRetroAchievementsMappingReason = undefined;
+  runtimeDebugLastRetroAchievementsGameId = undefined;
+  runtimeDebugLastRetroAchievementsTitle = undefined;
+  runtimeDebugLastRetroAchievementsEarned = undefined;
+  runtimeDebugLastRetroAchievementsTotal = undefined;
+  runtimeDebugLastRetroAchievementsSource = undefined;
+  runtimeDebugLastRetroAchievementsConfidence = undefined;
+  runtimeDebugLastRetroAchievementsError = undefined;
+  runtimeDebugLastRetroAchievementsResolutionSource = undefined;
+  runtimeDebugLastRetroAchievementsResolutionReason = undefined;
+  runtimeDebugLastRetroAchievementsMatchedTitle = undefined;
+  runtimeDebugLastRetroAchievementsMatchedPlatform = undefined;
+  runtimeDebugLastRetroAchievementsMatchedGameId = undefined;
+  runtimeDebugLastRetroAchievementsCandidateCount = undefined;
   runtimeDebugHostContext = undefined;
 }
 
@@ -552,62 +550,6 @@ export function markAchievementCompanionGamePageBadgeSystemIcon(args: {
   runtimeDebugLastGamePageBadgeSystemIconRendered = args.rendered;
 }
 
-export function markAchievementCompanionGamePageGlobalComponentRegistered(name: string): void {
-  runtimeDebugGlobalComponentRegistered = true;
-  runtimeDebugGlobalComponentName = name;
-  console.debug("[Achievement Companion] Game-page achievement badge global component registered", {
-    name,
-  });
-}
-
-export function markAchievementCompanionGamePageGlobalComponentRemoved(): void {
-  runtimeDebugGlobalComponentRegistered = false;
-  runtimeDebugGlobalComponentName = undefined;
-  console.debug("[Achievement Companion] Game-page achievement badge global component removed");
-}
-
-export function markAchievementCompanionGamePageGlobalComponentRendered(
-  currentRouteUrl: string | undefined,
-  detection: DeckyGamePageAchievementRouteDetectionState,
-): void {
-  runtimeDebugGlobalComponentRenderCount += 1;
-  runtimeDebugGlobalComponentLastRenderAt = new Date().toISOString();
-  runtimeDebugGlobalComponentLastRouteUrl = currentRouteUrl;
-  runtimeDebugGlobalComponentLastDetectedAppId = detection.appId;
-  runtimeDebugGlobalComponentLastDetectionReason = detection.reason;
-  runtimeDebugLastObservedRouteUrl = currentRouteUrl ?? runtimeDebugLastObservedRouteUrl;
-  runtimeDebugLastObservedDetection = detection;
-  if (detection.isGamePage) {
-    runtimeDebugGlobalComponentVisibleRenderCount += 1;
-  } else {
-    runtimeDebugGlobalComponentHiddenRenderCount += 1;
-  }
-  console.debug("[Achievement Companion] global component render", {
-    appId: detection.appId,
-    currentRouteUrl,
-    detectionReason: detection.reason,
-    visible: detection.isGamePage,
-  });
-}
-
-export function reportAchievementCompanionGamePageGlobalComponentError(
-  error: unknown,
-  context: string,
-): string {
-  const message = reportAchievementCompanionRuntimeDebugError(error, context);
-  runtimeDebugGlobalComponentLastError = message;
-  return message;
-}
-
-export function markAchievementCompanionGamePageGlobalFallbackSuppressed(
-  appId: string | undefined,
-  suppressed: boolean,
-): void {
-  runtimeDebugGlobalFallbackSuppressed = suppressed;
-  runtimeDebugGlobalFallbackSuppressedAt = new Date().toISOString();
-  runtimeDebugGlobalFallbackSuppressedAppId = appId;
-}
-
 export function markAchievementCompanionGamePageAchievementBadgeRendered(
   currentRouteUrl: string | undefined,
   appId: string | undefined,
@@ -688,8 +630,18 @@ export function markAchievementCompanionRetroAchievementsShortcutResolution(args
   readonly source?: string;
   readonly confidence?: string;
   readonly error?: string;
+  readonly shortcutTitle?: string;
+  readonly shortcutPlatform?: string;
+  readonly resolutionSource?: string;
+  readonly resolutionReason?: string;
+  readonly matchedTitle?: string;
+  readonly matchedPlatform?: string;
+  readonly matchedGameId?: string;
+  readonly candidateCount?: number;
 }): void {
   runtimeDebugLastRetroAchievementsShortcutAppId = args.appId;
+  runtimeDebugLastRetroAchievementsShortcutTitle = args.shortcutTitle;
+  runtimeDebugLastRetroAchievementsShortcutPlatform = args.shortcutPlatform;
   runtimeDebugLastRetroAchievementsMappingStatus = args.status;
   runtimeDebugLastRetroAchievementsMappingReason = args.reason;
   runtimeDebugLastRetroAchievementsGameId = args.gameId;
@@ -699,4 +651,10 @@ export function markAchievementCompanionRetroAchievementsShortcutResolution(args
   runtimeDebugLastRetroAchievementsSource = args.source;
   runtimeDebugLastRetroAchievementsConfidence = args.confidence;
   runtimeDebugLastRetroAchievementsError = args.error;
+  runtimeDebugLastRetroAchievementsResolutionSource = args.resolutionSource;
+  runtimeDebugLastRetroAchievementsResolutionReason = args.resolutionReason;
+  runtimeDebugLastRetroAchievementsMatchedTitle = args.matchedTitle;
+  runtimeDebugLastRetroAchievementsMatchedPlatform = args.matchedPlatform;
+  runtimeDebugLastRetroAchievementsMatchedGameId = args.matchedGameId;
+  runtimeDebugLastRetroAchievementsCandidateCount = args.candidateCount;
 }
