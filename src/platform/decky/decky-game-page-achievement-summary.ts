@@ -7,7 +7,10 @@ import type {
   RecentlyPlayedGame,
 } from "@core/domain";
 import { readDeckyDashboardSnapshotCacheEntry } from "./decky-dashboard-snapshot-cache";
-import { loadDeckySteamShortcutMetadata } from "./decky-steam-shortcut-metadata";
+import {
+  loadDeckySteamShortcutMetadata,
+  type DeckySteamShortcutMetadata,
+} from "./decky-steam-shortcut-metadata";
 import {
   readDeckyProviderConfig as readDeckySteamProviderConfig,
   readDeckySteamLibraryAchievementScanSummary,
@@ -140,6 +143,16 @@ function parsePositiveAppId(value: string | undefined): number | undefined {
 
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : undefined;
+}
+
+function normalizeRetroAchievementsShortcutPlatform(
+  shortcutMetadata: DeckySteamShortcutMetadata | undefined,
+): string | undefined {
+  const shortcutPlatform =
+    shortcutMetadata?.platformTag ??
+    shortcutMetadata?.platformLabel ??
+    shortcutMetadata?.tags?.[0];
+  return normalizeRetroAchievementsPlatformLabel(shortcutPlatform);
 }
 
 function createReadySummary(args: {
@@ -577,9 +590,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
     const shortcutMetadata = await loadDeckySteamShortcutMetadata(appId);
     const shortcutTitleCandidates = normalizeRetroAchievementsTitleCandidates(shortcutMetadata?.title);
     const shortcutTitle = shortcutTitleCandidates[0];
-    const shortcutPlatform = normalizeRetroAchievementsPlatformLabel(
-      (shortcutMetadata as { readonly platformLabel?: string } | undefined)?.platformLabel,
-    );
+    const shortcutPlatform = normalizeRetroAchievementsShortcutPlatform(shortcutMetadata);
     const shortcutPlatformCandidates =
       shortcutPlatform !== undefined ? [shortcutPlatform] : ([] as readonly string[]);
 

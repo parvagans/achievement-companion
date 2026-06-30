@@ -105,6 +105,7 @@ import {
 } from "../src/platform/decky/decky-avatar-cache-busting";
 import {
   ACHIEVEMENT_COMPANION_RUNTIME_DEBUG_GLOBAL_NAME,
+  getAchievementCompanionRuntimeDebugState,
   resolveAchievementCompanionRuntimeDebugHostContext,
 } from "../src/platform/decky/decky-runtime-debug";
 import {
@@ -121,6 +122,7 @@ import {
   formatDeckyGamePageAchievementBadgeLabel,
   loadDeckyGamePageAchievementSummary,
 } from "../src/platform/decky/decky-game-page-achievement-summary";
+import { loadDeckySteamShortcutMetadata } from "../src/platform/decky/decky-steam-shortcut-metadata";
 import {
   DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS,
   DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS,
@@ -736,7 +738,19 @@ interface DeckyBackendTestSteamState {
     readonly includePlayedFreeGames: boolean;
   };
   readonly secret?: string;
-  readonly shortcutMetadataByAppId?: Readonly<Record<string, { readonly title: string }>>;
+  readonly shortcutMetadataByAppId?: Readonly<
+    Record<
+      string,
+      {
+        readonly title: string;
+        readonly platformTag?: string;
+        readonly platformLabel?: string;
+        readonly tags?: readonly string[];
+        readonly exe?: string;
+        readonly startDir?: string;
+      }
+    >
+  >;
 }
 
 const deckyBackendTestState = {
@@ -1017,6 +1031,11 @@ const deckyBackendTestCallImplementation = async (route: string, payload: unknow
       : {
           appId,
           title: metadata.title,
+          ...(metadata.platformTag !== undefined ? { platformTag: metadata.platformTag } : {}),
+          ...(metadata.platformLabel !== undefined ? { platformLabel: metadata.platformLabel } : {}),
+          ...(metadata.tags !== undefined ? { tags: metadata.tags } : {}),
+          ...(metadata.exe !== undefined ? { exe: metadata.exe } : {}),
+          ...(metadata.startDir !== undefined ? { startDir: metadata.startDir } : {}),
         };
   }
 
@@ -10075,6 +10094,10 @@ test("steam game page achievement badge uses the route-patched header path witho
     "src/platform/decky/decky-navigation.tsx",
     "utf8",
   );
+  const shortcutMetadataSource = readFileSync(
+    "src/platform/decky/decky-steam-shortcut-metadata.ts",
+    "utf8",
+  );
   const summarySource = readFileSync(
     "src/platform/decky/decky-game-page-achievement-summary.ts",
     "utf8",
@@ -10146,6 +10169,11 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(summarySource, /readDeckySteamLibraryAchievementScanSummary/u);
   assert.match(summarySource, /readDeckyDashboardSnapshotCacheEntry/u);
   assert.match(summarySource, /loadDeckySteamShortcutMetadata/u);
+  assert.match(shortcutMetadataSource, /platformTag/u);
+  assert.match(shortcutMetadataSource, /platformLabel/u);
+  assert.match(shortcutMetadataSource, /tags/u);
+  assert.match(shortcutMetadataSource, /exe/u);
+  assert.match(shortcutMetadataSource, /startDir/u);
   assert.match(summarySource, /shortcut-title-match/u);
   assert.match(summarySource, /ambiguous-retroachievements-shortcut-mapping/u);
   assert.match(summarySource, /loadDeckyGameDetailStateLazy\(STEAM_PROVIDER_ID, appId, \{\s*forceRefresh: false/u);
@@ -11214,6 +11242,65 @@ test("game page achievement summary handles missing RetroAchievements cache with
       appId: "2217040870",
       reason: "ra-game-list-no-match",
     });
+  });
+});
+
+test("decky steam shortcut metadata loader preserves platform and path metadata", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2874315920": {
+        title: "Final Fantasy X International",
+        platformTag: "Sony PlayStation 2",
+        tags: ["Sony PlayStation 2"],
+        exe: '"/usr/bin/pcsx2"',
+        startDir: "/home/deck/Emulation/roms/ps2",
+      },
+    };
+
+    const metadata = await loadDeckySteamShortcutMetadata("2874315920");
+    assert.deepStrictEqual(metadata, {
+      appId: "2874315920",
+      title: "Final Fantasy X International",
+      platformTag: "Sony PlayStation 2",
+      platformLabel: "Sony PlayStation 2",
+      tags: ["Sony PlayStation 2"],
+      exe: '"/usr/bin/pcsx2"',
+      startDir: "/home/deck/Emulation/roms/ps2",
+    });
+  });
+});
+
+test("game page achievement summary records shortcut platform and no-match debug for Final Fantasy X International", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2874315920": {
+        title: "Final Fantasy X International",
+        platformTag: "Sony PlayStation 2",
+        tags: ["Sony PlayStation 2"],
+        exe: '"/usr/bin/pcsx2"',
+        startDir: "/home/deck/Emulation/roms/ps2",
+      },
+    };
+
+    const summary = await loadDeckyGamePageAchievementSummary("2874315920");
+    assert.deepStrictEqual(summary, {
+      status: "unavailable",
+      appId: "2874315920",
+      reason: "ra-game-list-no-match",
+    });
+
+    const runtimeDebugState = getAchievementCompanionRuntimeDebugState();
+    assert.equal(runtimeDebugState.lastRetroAchievementsShortcutAppId, "2874315920");
+    assert.equal(runtimeDebugState.lastRetroAchievementsMappingStatus, "unavailable");
+    assert.equal(runtimeDebugState.lastRetroAchievementsMappingReason, "ra-game-list-no-match");
   });
 });
 
