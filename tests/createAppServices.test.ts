@@ -10016,6 +10016,10 @@ test("steam game page achievement badge uses the Decky global component path wit
     "src/platform/decky/decky-game-page-achievement-route.ts",
     "utf8",
   );
+  const navigationSource = readFileSync(
+    "src/platform/decky/decky-navigation.tsx",
+    "utf8",
+  );
   const summarySource = readFileSync(
     "src/platform/decky/decky-game-page-achievement-summary.ts",
     "utf8",
@@ -10114,6 +10118,9 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(bubbleSource, /DeckyGamePageAchievementRouteBadge/u);
   assert.match(bubbleSource, /DeckyGamePageAchievementGlobalBadge/u);
   assert.match(bubbleSource, /AchievementCompanionGamePageBadge/u);
+  assert.match(bubbleSource, /useDeckyGamePageAchievementBadgeActivation/u);
+  assert.match(bubbleSource, /resolveDeckyGamePageAchievementBadgeNavigationTarget/u);
+  assert.match(bubbleSource, /openDeckyFullScreenGameFromLibraryGamePage/u);
   assert.match(bubbleSource, /routerHook\.addPatch\(DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN/u);
   assert.match(bubbleSource, /routerHook\.removePatch\(DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN/u);
   assert.match(bubbleSource, /Game-page achievement bubble clicked/u);
@@ -10170,6 +10177,13 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(bubbleSource, /marker:\s*"global" \| "route"/u);
   assert.match(bubbleSource, /marker="route"/u);
   assert.match(bubbleSource, /marker="global"/u);
+  assert.match(bubbleSource, /role="button"/u);
+  assert.match(bubbleSource, /tabIndex=\{0\}/u);
+  assert.match(bubbleSource, /Open Achievement Companion details for app/u);
+  assert.match(bubbleSource, /onActivate\?\.\(\)/u);
+  assert.match(bubbleSource, /event\.key === "Enter" \|\| event\.key === " "/u);
+  assert.match(bubbleSource, /markAchievementCompanionGamePageBadgeActivated/u);
+  assert.match(bubbleSource, /reportAchievementCompanionGamePageBadgeNavigationError/u);
   assert.match(
     bubbleSource,
     /if \(!visible \|\| badgeLabel === undefined \|\| modalOpen \|\| suppressGlobalFallback\)/u,
@@ -10196,6 +10210,13 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(bubbleSource, /markAchievementCompanionGamePageGlobalComponentRendered/u);
   assert.match(bubbleSource, /markAchievementCompanionGamePageAchievementBadgeRendered/u);
   assert.match(bubbleSource, /addGlobalComponent/u);
+  assert.match(navigationSource, /FULL_SCREEN_GAME_ROUTE_PATTERN/u);
+  assert.match(navigationSource, /\/achievement-companion\/full-screen\/game/u);
+  assert.match(navigationSource, /routerHook\.addRoute\(FULL_SCREEN_GAME_ROUTE_PATTERN, DeckyFullScreenGameRoute\)/u);
+  assert.match(navigationSource, /openDeckyFullScreenGameFromLibraryGamePage/u);
+  assert.match(navigationSource, /markFullScreenGameRouteBackBehavior\(providerId, gameId, "library-game-page"\)/u);
+  assert.match(navigationSource, /DeckyNavigation\.Navigate\(route\)/u);
+  assert.match(navigationSource, /if \(fullScreenGameRouteBackBehavior === "library-game-page"\) \{\s*DeckyNavigation\.NavigateBack\(\);\s*return;\s*\}/u);
   assert.match(modalVisibilitySource, /hasVisibleDeckyGamePageModal\(targetDocument\?: Document\)/u);
   assert.match(modalVisibilitySource, /\[role="dialog"\], \[aria-modal="true"\]/u);
   assert.match(modalVisibilitySource, /window\.top\?\.document/u);
@@ -10230,6 +10251,13 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(runtimeDebugSource, /routeBadgePlacementCandidateCount/u);
   assert.match(runtimeDebugSource, /routeBadgePlacementFallbackUsed/u);
   assert.match(runtimeDebugSource, /routeBadgePlacementUpdatedAt/u);
+  assert.match(runtimeDebugSource, /gamePageBadgeActivatedCount/u);
+  assert.match(runtimeDebugSource, /lastGamePageBadgeActivatedAppId/u);
+  assert.match(runtimeDebugSource, /lastGamePageBadgeActivatedAt/u);
+  assert.match(runtimeDebugSource, /lastGamePageBadgeNavigationTarget/u);
+  assert.match(runtimeDebugSource, /lastGamePageBadgeSourceRoute/u);
+  assert.match(runtimeDebugSource, /lastGamePageBadgeBackRoute/u);
+  assert.match(runtimeDebugSource, /lastGamePageBadgeNavigationError/u);
   assert.match(runtimeDebugSource, /globalFallbackSuppressed/u);
   assert.doesNotMatch(bootstrapSource, /DIAGNOSTIC BUILD LOADED 2026-06-28/u);
   assert.doesNotMatch(bootstrapSource, /Game Page Bubble Debug/u);

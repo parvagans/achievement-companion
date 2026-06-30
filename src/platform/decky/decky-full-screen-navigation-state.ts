@@ -1,6 +1,7 @@
 export type FullScreenSettingsBackTarget = "compact-panel" | "previous-fullscreen";
 export type FullScreenGameRouteBackBehavior =
   | "decky-panel"
+  | "library-game-page"
   | "completion-progress"
   | "achievement";
 

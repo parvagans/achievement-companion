@@ -198,6 +198,26 @@ function navigateToFullScreenGame(
   }
 }
 
+export function openDeckyFullScreenGameFromLibraryGamePage(
+  providerId: string,
+  gameId: string,
+): string | undefined {
+  registerFullScreenGameRoute();
+  markFullScreenGameRouteBackBehavior(providerId, gameId, "library-game-page");
+
+  const route = buildFullScreenGameRoute({
+    view: "game",
+    surface: "full-screen",
+    providerId,
+    gameId,
+  });
+  if (route !== undefined) {
+    DeckyNavigation.Navigate(route);
+  }
+
+  return route;
+}
+
 function navigateToFullScreenGameFromAchievement(
   providerId: string,
   gameId: string,
@@ -413,6 +433,11 @@ function DeckyFullScreenGameRoute(): JSX.Element {
       : undefined;
 
   const returnFromGamePage = (): void => {
+    if (fullScreenGameRouteBackBehavior === "library-game-page") {
+      DeckyNavigation.NavigateBack();
+      return;
+    }
+
     if (shouldReturnToCompletionProgress) {
       DeckyNavigation.NavigateBack();
       return;
