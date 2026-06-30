@@ -2802,12 +2802,16 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(deckySystemPillSource, /readonly iconUrl\?: string \| undefined;/u);
   assert.match(deckySystemPillSource, /useEffect/u);
   assert.match(deckySystemPillSource, /useState/u);
+  assert.match(deckySystemPillSource, /export interface DeckySystemIconProps/u);
+  assert.match(deckySystemPillSource, /export function DeckySystemIcon/u);
+  assert.match(deckySystemPillSource, /getDeckySystemIconStyle/u);
   assert.match(deckySystemPillSource, /loading="lazy"/u);
   assert.match(deckySystemPillSource, /onError=\{\(\) => \{/u);
   assert.match(deckySystemPillSource, /setIsIconHidden\(true\)/u);
   assert.match(deckySystemPillSource, /referrerPolicy="no-referrer"/u);
   assert.match(deckySystemPillSource, /objectFit: "contain"/u);
-  assert.match(deckySystemPillSource, /iconUrl !== undefined && !isIconHidden \? \(/u);
+  assert.match(deckySystemPillSource, /if \(iconUrl === undefined \|\| isIconHidden\) \{\s*return null;\s*\}/u);
+  assert.match(deckySystemPillSource, /<DeckySystemIcon iconSize=\{iconSize\} iconUrl=\{iconUrl\} \/>/u);
   assert.match(deckySystemPillSource, /<span style=\{style\}>/u);
   assert.match(deckySystemPillSource, /textOverflow: "ellipsis"/u);
   assert.doesNotMatch(achievementDetailViewSource, /PanelSection title="Navigation"/);
@@ -10008,6 +10012,7 @@ test("steam game page achievement badge uses the Decky global component path wit
   const indexSource = readFileSync("src/index.tsx", "utf8");
   const bootstrapSource = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
   const runtimeDebugSource = readFileSync("src/platform/decky/decky-runtime-debug.ts", "utf8");
+  const deckySystemPillSource = readFileSync("src/platform/decky/decky-system-pill.tsx", "utf8");
   const modalVisibilitySource = readFileSync(
     "src/platform/decky/decky-game-page-achievement-modal-visibility.ts",
     "utf8",
@@ -10118,6 +10123,10 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(bubbleSource, /DeckyGamePageAchievementRouteBadge/u);
   assert.match(bubbleSource, /DeckyGamePageAchievementGlobalBadge/u);
   assert.match(bubbleSource, /AchievementCompanionGamePageBadge/u);
+  assert.match(bubbleSource, /DeckySystemIcon/u);
+  assert.match(bubbleSource, /renderDeckyGamePageAchievementBadgeContent/u);
+  assert.match(bubbleSource, /resolveDeckyGamePageRetroSystemIconMetadata/u);
+  assert.match(bubbleSource, /collectDeckyGamePageRetroSystemIconCandidates/u);
   assert.match(bubbleSource, /useDeckyGamePageAchievementBadgeActivation/u);
   assert.match(bubbleSource, /resolveDeckyGamePageAchievementBadgeNavigationTarget/u);
   assert.match(bubbleSource, /openDeckyFullScreenGameFromLibraryGamePage/u);
@@ -10126,6 +10135,12 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(bubbleSource, /Game-page achievement bubble clicked/u);
   assert.match(bubbleSource, /useGamePageAchievementSummary/u);
   assert.match(bubbleSource, /formatDeckyGamePageAchievementBadgeLabel/u);
+  assert.match(bubbleSource, /🏆/u);
+  assert.match(bubbleSource, /summary\.provider === "retroachievements" \? \(/u);
+  assert.match(bubbleSource, /summary\.provider === "retroachievements" \? retroSystemIconMetadata\?\.systemIconUrl : undefined/u);
+  assert.match(bubbleSource, /iconSize=\{20\}/u);
+  assert.match(bubbleSource, /readDeckyDashboardSnapshotCacheEntry\(RETROACHIEVEMENTS_PROVIDER_ID\)/u);
+  assert.match(bubbleSource, /summary\.provider === "retroachievements" && platformLabel !== undefined/u);
   assert.match(bubbleSource, /position:\s*"absolute"/u);
   assert.match(bubbleSource, /DECKY_GAME_PAGE_ROUTE_BADGE_CANDIDATE_SLOTS/u);
   assert.match(bubbleSource, /top-left/u);
@@ -10205,11 +10220,15 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(bubbleSource, /markAchievementCompanionGamePageRouteBadgeRenderFuncPatched/u);
   assert.match(bubbleSource, /markAchievementCompanionGamePageRouteBadgeInserted/u);
   assert.match(bubbleSource, /markAchievementCompanionGamePageRouteBadgeRendered/u);
+  assert.match(bubbleSource, /markAchievementCompanionGamePageBadgeSystemIcon/u);
   assert.match(bubbleSource, /ensureDeckyGamePageAchievementGlobalComponentRegistered/u);
   assert.match(bubbleSource, /ensureDeckyGamePageAchievementRoutePatchRegistered/u);
   assert.match(bubbleSource, /markAchievementCompanionGamePageGlobalComponentRendered/u);
   assert.match(bubbleSource, /markAchievementCompanionGamePageAchievementBadgeRendered/u);
   assert.match(bubbleSource, /addGlobalComponent/u);
+  assert.match(deckySystemPillSource, /export function DeckySystemIcon/u);
+  assert.match(deckySystemPillSource, /getDeckySystemIconStyle/u);
+  assert.match(deckySystemPillSource, /<DeckySystemIcon iconSize=\{iconSize\} iconUrl=\{iconUrl\} \/>/u);
   assert.match(navigationSource, /FULL_SCREEN_GAME_ROUTE_PATTERN/u);
   assert.match(navigationSource, /\/achievement-companion\/full-screen\/game/u);
   assert.match(navigationSource, /routerHook\.addRoute\(FULL_SCREEN_GAME_ROUTE_PATTERN, DeckyFullScreenGameRoute\)/u);
@@ -10258,6 +10277,10 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(runtimeDebugSource, /lastGamePageBadgeSourceRoute/u);
   assert.match(runtimeDebugSource, /lastGamePageBadgeBackRoute/u);
   assert.match(runtimeDebugSource, /lastGamePageBadgeNavigationError/u);
+  assert.match(runtimeDebugSource, /lastGamePageBadgeSystemIconProvider/u);
+  assert.match(runtimeDebugSource, /lastGamePageBadgeSystemIconPlatform/u);
+  assert.match(runtimeDebugSource, /lastGamePageBadgeSystemIconUrl/u);
+  assert.match(runtimeDebugSource, /lastGamePageBadgeSystemIconRendered/u);
   assert.match(runtimeDebugSource, /globalFallbackSuppressed/u);
   assert.doesNotMatch(bootstrapSource, /DIAGNOSTIC BUILD LOADED 2026-06-28/u);
   assert.doesNotMatch(bootstrapSource, /Game Page Bubble Debug/u);

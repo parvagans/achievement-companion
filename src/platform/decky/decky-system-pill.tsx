@@ -17,7 +17,7 @@ function getSystemPillLabelStyle(): CSSProperties {
   };
 }
 
-function getSystemPillIconStyle(size: number): CSSProperties {
+export function getDeckySystemIconStyle(size: number): CSSProperties {
   return {
     width: size,
     height: size,
@@ -28,6 +28,40 @@ function getSystemPillIconStyle(size: number): CSSProperties {
   };
 }
 
+export interface DeckySystemIconProps {
+  readonly iconUrl?: string | undefined;
+  readonly iconSize?: number;
+}
+
+export function DeckySystemIcon({
+  iconUrl,
+  iconSize = 16,
+}: DeckySystemIconProps): JSX.Element | null {
+  const [isIconHidden, setIsIconHidden] = useState(iconUrl === undefined);
+
+  useEffect(() => {
+    setIsIconHidden(iconUrl === undefined);
+  }, [iconUrl]);
+
+  if (iconUrl === undefined || isIconHidden) {
+    return null;
+  }
+
+  return (
+    <img
+      alt=""
+      aria-hidden="true"
+      loading="lazy"
+      onError={() => {
+        setIsIconHidden(true);
+      }}
+      referrerPolicy="no-referrer"
+      src={iconUrl}
+      style={getDeckySystemIconStyle(iconSize)}
+    />
+  );
+}
+
 export function DeckySystemPill({
   label,
   iconUrl,
@@ -35,27 +69,9 @@ export function DeckySystemPill({
   labelStyle,
   iconSize = 16,
 }: DeckySystemPillProps): JSX.Element {
-  const [isIconHidden, setIsIconHidden] = useState(iconUrl === undefined);
-
-  useEffect(() => {
-    setIsIconHidden(iconUrl === undefined);
-  }, [iconUrl]);
-
   return (
     <span style={style}>
-      {iconUrl !== undefined && !isIconHidden ? (
-        <img
-          alt=""
-          aria-hidden="true"
-          loading="lazy"
-          onError={() => {
-            setIsIconHidden(true);
-          }}
-          referrerPolicy="no-referrer"
-          src={iconUrl}
-          style={getSystemPillIconStyle(iconSize)}
-        />
-      ) : null}
+      <DeckySystemIcon iconSize={iconSize} iconUrl={iconUrl} />
       <span style={{ ...getSystemPillLabelStyle(), ...labelStyle }}>{label}</span>
     </span>
   );

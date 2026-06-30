@@ -12,9 +12,11 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
   type CSSProperties,
   type JSX,
 } from "react";
+import type { DashboardSnapshot, NormalizedGame, RecentlyPlayedGame } from "@core/domain";
 import {
   DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN,
   DECKY_GAME_PAGE_ACHIEVEMENT_URL_ROUTE_PREFIX,
@@ -28,7 +30,9 @@ import {
   type GamePageAchievementSummary,
   useGamePageAchievementSummary,
 } from "./decky-game-page-achievement-summary";
+import { readDeckyDashboardSnapshotCacheEntry } from "./decky-dashboard-snapshot-cache";
 import { openDeckyFullScreenGameFromLibraryGamePage } from "./decky-navigation";
+import { DeckySystemIcon } from "./decky-system-pill";
 import {
   markAchievementCompanionGamePageBadgeActivated,
   markAchievementCompanionGamePageAchievementBadgeClicked,
@@ -45,10 +49,12 @@ import {
   markAchievementCompanionGamePageRouteBadgePatchRemoved,
   markAchievementCompanionGamePageRouteBadgeRenderFuncPatched,
   markAchievementCompanionGamePageRouteBadgeRendered,
+  markAchievementCompanionGamePageBadgeSystemIcon,
   reportAchievementCompanionGamePageBadgeNavigationError,
   reportAchievementCompanionGamePageGlobalComponentError,
   resolveAchievementCompanionRuntimeDebugHostContext,
 } from "./decky-runtime-debug";
+import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 
 const ACHIEVEMENT_COMPANION_GAME_PAGE_BADGE_GLOBAL_COMPONENT_NAME =
   "AchievementCompanionGamePageBadge";
@@ -74,7 +80,7 @@ let lastRouteBadgeActivityAt = 0;
 interface DeckyGamePageAchievementBadgeProps {
   readonly appId?: string | undefined;
   readonly ariaLabel: string;
-  readonly label: string;
+  readonly content: ReactNode;
   readonly marker: "global" | "route";
   readonly style: CSSProperties;
   readonly elementRef?: ((element: HTMLDivElement | null) => void) | undefined;
@@ -94,6 +100,21 @@ interface DeckyGamePageAchievementTargetContext {
 interface DeckyGamePageAchievementBadgeNavigationTarget {
   readonly providerId: string;
   readonly gameId: string;
+}
+
+interface DeckyGamePageAchievementBadgeVisualState {
+  readonly ariaLabel: string;
+  readonly content: ReactNode;
+}
+
+interface DeckyGamePageRetroSystemIconMetadata {
+  readonly platformLabel?: string | undefined;
+  readonly systemIconUrl?: string | undefined;
+}
+
+interface DeckyGamePageRetroSystemIconCandidate extends DeckyGamePageRetroSystemIconMetadata {
+  readonly gameId: string;
+  readonly title: string;
 }
 
 type DeckyGamePageAchievementRouteBadgeSlotId =
@@ -194,6 +215,28 @@ function getDeckyGamePageAchievementBadgeBaseStyle(): CSSProperties {
   };
 }
 
+function getDeckyGamePageAchievementBadgeContentStyle(): CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    minWidth: 0,
+  };
+}
+
+function getDeckyGamePageAchievementBadgeTrophyStyle(): CSSProperties {
+  return {
+    flexShrink: 0,
+    lineHeight: 1,
+  };
+}
+
+function getDeckyGamePageAchievementBadgeCountStyle(): CSSProperties {
+  return {
+    whiteSpace: "nowrap",
+  };
+}
+
 function getDeckyGamePageAchievementGlobalBadgeStyle(): CSSProperties {
   return {
     ...getDeckyGamePageAchievementBadgeBaseStyle(),
@@ -252,6 +295,115 @@ function resolveDeckyGamePageAchievementBadgeNavigationTarget(
   return {
     providerId: "retroachievements",
     gameId: summary.gameId,
+  };
+}
+
+function collectDeckyGamePageRetroSystemIconCandidates(
+  snapshot: DashboardSnapshot,
+): readonly DeckyGamePageRetroSystemIconCandidate[] {
+  const candidates: DeckyGamePageRetroSystemIconCandidate[] = [];
+  const pushCandidate = (
+    game:
+      | Pick<NormalizedGame, "platformLabel" | "systemIconUrl" | "gameId" | "title">
+      | Pick<RecentlyPlayedGame, "platformLabel" | "systemIconUrl" | "gameId" | "title">,
+  ) => {
+    candidates.push({
+      gameId: game.gameId,
+      title: game.title,
+      ...(game.platformLabel !== undefined ? { platformLabel: game.platformLabel } : {}),
+      ...(game.systemIconUrl !== undefined ? { systemIconUrl: game.systemIconUrl } : {}),
+    });
+  };
+
+  for (const game of snapshot.recentlyPlayedGames) {
+    pushCandidate(game);
+  }
+
+  for (const game of snapshot.featuredGames) {
+    pushCandidate(game);
+  }
+
+  for (const game of snapshot.profile.featuredGames ?? []) {
+    pushCandidate(game);
+  }
+
+  return candidates;
+}
+
+function resolveDeckyGamePageRetroSystemIconMetadata(
+  summary: GamePageAchievementSummary | undefined,
+): DeckyGamePageRetroSystemIconMetadata | undefined {
+  if (summary?.status !== "ready" || summary.provider !== "retroachievements") {
+    return undefined;
+  }
+
+  const snapshot = readDeckyDashboardSnapshotCacheEntry(RETROACHIEVEMENTS_PROVIDER_ID)?.snapshot;
+  if (snapshot === undefined) {
+    return undefined;
+  }
+
+  const candidates = collectDeckyGamePageRetroSystemIconCandidates(snapshot);
+
+  const matchingByGameId =
+    summary.gameId !== undefined
+      ? candidates.find((candidate) => candidate.gameId === summary.gameId)
+      : undefined;
+  if (matchingByGameId !== undefined) {
+    return matchingByGameId;
+  }
+
+  return summary.title !== undefined
+    ? candidates.find((candidate) => candidate.title === summary.title)
+    : undefined;
+}
+
+function renderDeckyGamePageAchievementBadgeContent(
+  summary: GamePageAchievementSummary | undefined,
+  retroSystemIconMetadata: DeckyGamePageRetroSystemIconMetadata | undefined,
+): DeckyGamePageAchievementBadgeVisualState {
+  if (summary?.status === "loading") {
+    return {
+      ariaLabel: "Achievement progress loading",
+      content: (
+        <span style={getDeckyGamePageAchievementBadgeContentStyle()}>
+          <span aria-hidden="true" style={getDeckyGamePageAchievementBadgeTrophyStyle()}>
+            🏆
+          </span>
+          <span style={getDeckyGamePageAchievementBadgeCountStyle()}>…</span>
+        </span>
+      ),
+    };
+  }
+
+  if (summary?.status !== "ready") {
+    return {
+      ariaLabel: "Open Achievement Companion details",
+      content: "",
+    };
+  }
+
+  const iconUrl =
+    summary.provider === "retroachievements" ? retroSystemIconMetadata?.systemIconUrl : undefined;
+  const platformLabel =
+    summary.provider === "retroachievements" ? retroSystemIconMetadata?.platformLabel : undefined;
+  const countText = `${String(summary.earned)} / ${String(summary.total)}`;
+
+  return {
+    ariaLabel:
+      summary.provider === "retroachievements" && platformLabel !== undefined
+        ? `Open Achievement Companion details for app ${summary.appId}, ${platformLabel}, ${countText}`
+        : `Open Achievement Companion details for app ${summary.appId}, ${countText}`,
+    content: (
+      <span style={getDeckyGamePageAchievementBadgeContentStyle()}>
+        <span aria-hidden="true" style={getDeckyGamePageAchievementBadgeTrophyStyle()}>
+          🏆
+        </span>
+        {summary.provider === "retroachievements" ? (
+          <DeckySystemIcon iconSize={20} iconUrl={iconUrl} />
+        ) : null}
+        <span style={getDeckyGamePageAchievementBadgeCountStyle()}>{countText}</span>
+      </span>
+    ),
   };
 }
 
@@ -711,7 +863,6 @@ function useDeckyGamePageAchievementBadgeActivation(
   appId: string | undefined,
   summary: GamePageAchievementSummary | undefined,
 ): {
-  readonly ariaLabel: string;
   readonly onActivate: () => void;
 } {
   const navigationTarget = useMemo(
@@ -751,10 +902,6 @@ function useDeckyGamePageAchievementBadgeActivation(
   }, [appId, navigationTarget]);
 
   return {
-    ariaLabel:
-      appId !== undefined
-        ? `Open Achievement Companion details for app ${appId}`
-        : "Open Achievement Companion details",
     onActivate,
   };
 }
@@ -771,7 +918,7 @@ function createDeckyGamePageAchievementRouteBadgeElement(appId: string): JSX.Ele
 export function DeckyGamePageAchievementBadge({
   appId,
   ariaLabel,
-  label,
+  content,
   marker,
   style,
   elementRef,
@@ -809,7 +956,7 @@ export function DeckyGamePageAchievementBadge({
         }
       }}
     >
-      {label}
+      {content}
     </div>
   );
 }
@@ -822,7 +969,15 @@ export function DeckyGamePageAchievementRouteBadge({
   const { style, setBadgeElement } = useDeckyGamePageAchievementRouteBadgePlacement();
   const summary = useGamePageAchievementSummary(appId);
   const badgeLabel = formatDeckyGamePageAchievementBadgeLabel(summary);
-  const { ariaLabel, onActivate } = useDeckyGamePageAchievementBadgeActivation(appId, summary);
+  const retroSystemIconMetadata = useMemo(
+    () => resolveDeckyGamePageRetroSystemIconMetadata(summary),
+    [summary],
+  );
+  const { ariaLabel, content } = useMemo(
+    () => renderDeckyGamePageAchievementBadgeContent(summary, retroSystemIconMetadata),
+    [retroSystemIconMetadata, summary],
+  );
+  const { onActivate } = useDeckyGamePageAchievementBadgeActivation(appId, summary);
 
   useEffect(() => {
     if (badgeLabel === undefined) {
@@ -833,6 +988,18 @@ export function DeckyGamePageAchievementRouteBadge({
     markAchievementCompanionGamePageRouteBadgeRendered(appId);
   }, [appId, badgeLabel]);
 
+  useEffect(() => {
+    markAchievementCompanionGamePageBadgeSystemIcon({
+      providerId: summary?.status === "ready" ? summary.provider : undefined,
+      platformLabel: retroSystemIconMetadata?.platformLabel,
+      iconUrl: retroSystemIconMetadata?.systemIconUrl,
+      rendered:
+        summary?.status === "ready" &&
+        summary.provider === "retroachievements" &&
+        retroSystemIconMetadata?.systemIconUrl !== undefined,
+    });
+  }, [retroSystemIconMetadata?.platformLabel, retroSystemIconMetadata?.systemIconUrl, summary]);
+
   if (badgeLabel === undefined) {
     return null;
   }
@@ -841,7 +1008,7 @@ export function DeckyGamePageAchievementRouteBadge({
     <DeckyGamePageAchievementBadge
       appId={appId}
       ariaLabel={ariaLabel}
-      label={badgeLabel}
+      content={content}
       elementRef={setBadgeElement}
       marker="route"
       onActivate={onActivate}
@@ -903,7 +1070,15 @@ export function DeckyGamePageAchievementGlobalBadge(): JSX.Element | null {
   const summary = useGamePageAchievementSummary(visible ? appId : undefined);
   const badgeLabel = formatDeckyGamePageAchievementBadgeLabel(summary);
   const suppressGlobalFallback = shouldSuppressGlobalFallback(appId);
-  const { ariaLabel, onActivate } = useDeckyGamePageAchievementBadgeActivation(appId, summary);
+  const retroSystemIconMetadata = useMemo(
+    () => resolveDeckyGamePageRetroSystemIconMetadata(summary),
+    [summary],
+  );
+  const { ariaLabel, content } = useMemo(
+    () => renderDeckyGamePageAchievementBadgeContent(summary, retroSystemIconMetadata),
+    [retroSystemIconMetadata, summary],
+  );
+  const { onActivate } = useDeckyGamePageAchievementBadgeActivation(appId, summary);
 
   useEffect(() => {
     markAchievementCompanionGamePageGlobalComponentRendered(
@@ -916,6 +1091,18 @@ export function DeckyGamePageAchievementGlobalBadge(): JSX.Element | null {
     markAchievementCompanionGamePageGlobalFallbackSuppressed(appId, suppressGlobalFallback);
   }, [appId, suppressGlobalFallback]);
 
+  useEffect(() => {
+    markAchievementCompanionGamePageBadgeSystemIcon({
+      providerId: summary?.status === "ready" ? summary.provider : undefined,
+      platformLabel: retroSystemIconMetadata?.platformLabel,
+      iconUrl: retroSystemIconMetadata?.systemIconUrl,
+      rendered:
+        summary?.status === "ready" &&
+        summary.provider === "retroachievements" &&
+        retroSystemIconMetadata?.systemIconUrl !== undefined,
+    });
+  }, [retroSystemIconMetadata?.platformLabel, retroSystemIconMetadata?.systemIconUrl, summary]);
+
   if (!visible || badgeLabel === undefined || modalOpen || suppressGlobalFallback) {
     return null;
   }
@@ -925,7 +1112,7 @@ export function DeckyGamePageAchievementGlobalBadge(): JSX.Element | null {
       appId={appId}
       ariaLabel={ariaLabel}
       elementRef={setBadgeElement}
-      label={badgeLabel}
+      content={content}
       marker="global"
       onActivate={onActivate}
       style={getDeckyGamePageAchievementGlobalBadgeStyle()}
