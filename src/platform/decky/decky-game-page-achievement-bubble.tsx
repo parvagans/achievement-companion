@@ -9,6 +9,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -24,9 +25,12 @@ import {
 import { hasVisibleDeckyGamePageModal } from "./decky-game-page-achievement-modal-visibility";
 import {
   formatDeckyGamePageAchievementBadgeLabel,
+  type GamePageAchievementSummary,
   useGamePageAchievementSummary,
 } from "./decky-game-page-achievement-summary";
+import { openDeckyFullScreenGameFromLibraryGamePage } from "./decky-navigation";
 import {
+  markAchievementCompanionGamePageBadgeActivated,
   markAchievementCompanionGamePageAchievementBadgeClicked,
   markAchievementCompanionGamePageAchievementBadgeRendered,
   markAchievementCompanionGamePageGlobalComponentRegistered,
@@ -41,6 +45,7 @@ import {
   markAchievementCompanionGamePageRouteBadgePatchRemoved,
   markAchievementCompanionGamePageRouteBadgeRenderFuncPatched,
   markAchievementCompanionGamePageRouteBadgeRendered,
+  reportAchievementCompanionGamePageBadgeNavigationError,
   reportAchievementCompanionGamePageGlobalComponentError,
   resolveAchievementCompanionRuntimeDebugHostContext,
 } from "./decky-runtime-debug";
@@ -68,10 +73,12 @@ let lastRouteBadgeActivityAt = 0;
 
 interface DeckyGamePageAchievementBadgeProps {
   readonly appId?: string | undefined;
+  readonly ariaLabel: string;
   readonly label: string;
   readonly marker: "global" | "route";
   readonly style: CSSProperties;
   readonly elementRef?: ((element: HTMLDivElement | null) => void) | undefined;
+  readonly onActivate?: (() => void) | undefined;
 }
 
 interface DeckyGamePageAchievementRouteState {
@@ -82,6 +89,11 @@ interface DeckyGamePageAchievementRouteState {
 interface DeckyGamePageAchievementTargetContext {
   readonly targetDocument: Document;
   readonly targetWindow: Window;
+}
+
+interface DeckyGamePageAchievementBadgeNavigationTarget {
+  readonly providerId: string;
+  readonly gameId: string;
 }
 
 type DeckyGamePageAchievementRouteBadgeSlotId =
@@ -216,6 +228,30 @@ function getDeckyGamePageAchievementRouteBadgePlacementDefault():
     collisionCount: 0,
     candidateCount: DECKY_GAME_PAGE_ROUTE_BADGE_CANDIDATE_SLOTS.length,
     fallbackUsed: false,
+  };
+}
+
+function resolveDeckyGamePageAchievementBadgeNavigationTarget(
+  summary: GamePageAchievementSummary | undefined,
+): DeckyGamePageAchievementBadgeNavigationTarget | undefined {
+  if (summary?.status !== "ready") {
+    return undefined;
+  }
+
+  if (summary.provider === "steam") {
+    return {
+      providerId: "steam",
+      gameId: summary.gameId ?? summary.appId,
+    };
+  }
+
+  if (summary.gameId === undefined || summary.gameId.trim().length === 0) {
+    return undefined;
+  }
+
+  return {
+    providerId: "retroachievements",
+    gameId: summary.gameId,
   };
 }
 
@@ -671,6 +707,58 @@ function useDeckyGamePageAchievementRouteBadgePlacement(): {
   };
 }
 
+function useDeckyGamePageAchievementBadgeActivation(
+  appId: string | undefined,
+  summary: GamePageAchievementSummary | undefined,
+): {
+  readonly ariaLabel: string;
+  readonly onActivate: () => void;
+} {
+  const navigationTarget = useMemo(
+    () => resolveDeckyGamePageAchievementBadgeNavigationTarget(summary),
+    [summary],
+  );
+
+  const onActivate = useCallback(() => {
+    const routeState = readDeckyGamePageAchievementRouteState();
+    const sourceRoute = routeState.currentRouteUrl;
+
+    if (navigationTarget === undefined) {
+      reportAchievementCompanionGamePageBadgeNavigationError(
+        `Navigation target unavailable for app ${appId ?? "unknown"}.`,
+        "game-page-badge:navigate:missing-target",
+      );
+      return;
+    }
+
+    try {
+      const route = openDeckyFullScreenGameFromLibraryGamePage(
+        navigationTarget.providerId,
+        navigationTarget.gameId,
+      );
+      markAchievementCompanionGamePageBadgeActivated({
+        appId,
+        navigationTarget: route,
+        sourceRoute,
+        backRoute: sourceRoute,
+      });
+    } catch (error) {
+      reportAchievementCompanionGamePageBadgeNavigationError(
+        error,
+        "game-page-badge:navigate",
+      );
+    }
+  }, [appId, navigationTarget]);
+
+  return {
+    ariaLabel:
+      appId !== undefined
+        ? `Open Achievement Companion details for app ${appId}`
+        : "Open Achievement Companion details",
+    onActivate,
+  };
+}
+
 function createDeckyGamePageAchievementRouteBadgeElement(appId: string): JSX.Element {
   return (
     <DeckyGamePageAchievementRouteBadge
@@ -682,10 +770,12 @@ function createDeckyGamePageAchievementRouteBadgeElement(appId: string): JSX.Ele
 
 export function DeckyGamePageAchievementBadge({
   appId,
+  ariaLabel,
   label,
   marker,
   style,
   elementRef,
+  onActivate,
 }: DeckyGamePageAchievementBadgeProps): JSX.Element {
   useEffect(() => {
     const routeState = readDeckyGamePageAchievementRouteState();
@@ -694,7 +784,7 @@ export function DeckyGamePageAchievementBadge({
 
   return (
     <div
-      aria-label={appId !== undefined ? `Achievement bubble for app ${appId}` : "Achievement bubble"}
+      aria-label={ariaLabel}
       className="ac-game-page-achievement-badge"
       data-achievement-companion-game-page-badge={marker}
       ref={elementRef}
@@ -706,6 +796,7 @@ export function DeckyGamePageAchievementBadge({
         console.debug("[Achievement Companion] Game-page achievement bubble clicked", {
           appId,
         });
+        onActivate?.();
       }}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -714,6 +805,7 @@ export function DeckyGamePageAchievementBadge({
           console.debug("[Achievement Companion] Game-page achievement bubble clicked", {
             appId,
           });
+          onActivate?.();
         }
       }}
     >
@@ -730,6 +822,7 @@ export function DeckyGamePageAchievementRouteBadge({
   const { style, setBadgeElement } = useDeckyGamePageAchievementRouteBadgePlacement();
   const summary = useGamePageAchievementSummary(appId);
   const badgeLabel = formatDeckyGamePageAchievementBadgeLabel(summary);
+  const { ariaLabel, onActivate } = useDeckyGamePageAchievementBadgeActivation(appId, summary);
 
   useEffect(() => {
     if (badgeLabel === undefined) {
@@ -747,9 +840,11 @@ export function DeckyGamePageAchievementRouteBadge({
   return (
     <DeckyGamePageAchievementBadge
       appId={appId}
+      ariaLabel={ariaLabel}
       label={badgeLabel}
       elementRef={setBadgeElement}
       marker="route"
+      onActivate={onActivate}
       style={style}
     />
   );
@@ -808,6 +903,7 @@ export function DeckyGamePageAchievementGlobalBadge(): JSX.Element | null {
   const summary = useGamePageAchievementSummary(visible ? appId : undefined);
   const badgeLabel = formatDeckyGamePageAchievementBadgeLabel(summary);
   const suppressGlobalFallback = shouldSuppressGlobalFallback(appId);
+  const { ariaLabel, onActivate } = useDeckyGamePageAchievementBadgeActivation(appId, summary);
 
   useEffect(() => {
     markAchievementCompanionGamePageGlobalComponentRendered(
@@ -827,9 +923,11 @@ export function DeckyGamePageAchievementGlobalBadge(): JSX.Element | null {
   return (
     <DeckyGamePageAchievementBadge
       appId={appId}
+      ariaLabel={ariaLabel}
       elementRef={setBadgeElement}
       label={badgeLabel}
       marker="global"
+      onActivate={onActivate}
       style={getDeckyGamePageAchievementGlobalBadgeStyle()}
     />
   );

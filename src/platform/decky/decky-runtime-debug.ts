@@ -36,6 +36,13 @@ export interface AchievementCompanionRuntimeDebugState {
   readonly routeBadgePlacementCandidateCount: number;
   readonly routeBadgePlacementFallbackUsed: boolean;
   readonly routeBadgePlacementUpdatedAt: string | undefined;
+  readonly gamePageBadgeActivatedCount: number;
+  readonly lastGamePageBadgeActivatedAppId: string | undefined;
+  readonly lastGamePageBadgeActivatedAt: string | undefined;
+  readonly lastGamePageBadgeNavigationTarget: string | undefined;
+  readonly lastGamePageBadgeSourceRoute: string | undefined;
+  readonly lastGamePageBadgeBackRoute: string | undefined;
+  readonly lastGamePageBadgeNavigationError: string | undefined;
   readonly globalComponentRegistered: boolean;
   readonly globalComponentName: string | undefined;
   readonly globalComponentRenderCount: number;
@@ -124,6 +131,13 @@ let runtimeDebugRouteBadgePlacementCollisionCount = 0;
 let runtimeDebugRouteBadgePlacementCandidateCount = 0;
 let runtimeDebugRouteBadgePlacementFallbackUsed = false;
 let runtimeDebugRouteBadgePlacementUpdatedAt: string | undefined;
+let runtimeDebugGamePageBadgeActivatedCount = 0;
+let runtimeDebugLastGamePageBadgeActivatedAppId: string | undefined;
+let runtimeDebugLastGamePageBadgeActivatedAt: string | undefined;
+let runtimeDebugLastGamePageBadgeNavigationTarget: string | undefined;
+let runtimeDebugLastGamePageBadgeSourceRoute: string | undefined;
+let runtimeDebugLastGamePageBadgeBackRoute: string | undefined;
+let runtimeDebugLastGamePageBadgeNavigationError: string | undefined;
 let runtimeDebugGlobalComponentRegistered = false;
 let runtimeDebugGlobalComponentName: string | undefined;
 let runtimeDebugGlobalComponentRenderCount = 0;
@@ -306,6 +320,13 @@ function computeRuntimeDebugState(): AchievementCompanionRuntimeDebugState {
     routeBadgePlacementCandidateCount: runtimeDebugRouteBadgePlacementCandidateCount,
     routeBadgePlacementFallbackUsed: runtimeDebugRouteBadgePlacementFallbackUsed,
     routeBadgePlacementUpdatedAt: runtimeDebugRouteBadgePlacementUpdatedAt,
+    gamePageBadgeActivatedCount: runtimeDebugGamePageBadgeActivatedCount,
+    lastGamePageBadgeActivatedAppId: runtimeDebugLastGamePageBadgeActivatedAppId,
+    lastGamePageBadgeActivatedAt: runtimeDebugLastGamePageBadgeActivatedAt,
+    lastGamePageBadgeNavigationTarget: runtimeDebugLastGamePageBadgeNavigationTarget,
+    lastGamePageBadgeSourceRoute: runtimeDebugLastGamePageBadgeSourceRoute,
+    lastGamePageBadgeBackRoute: runtimeDebugLastGamePageBadgeBackRoute,
+    lastGamePageBadgeNavigationError: runtimeDebugLastGamePageBadgeNavigationError,
     globalComponentRegistered: runtimeDebugGlobalComponentRegistered,
     globalComponentName: runtimeDebugGlobalComponentName,
     globalComponentRenderCount: runtimeDebugGlobalComponentRenderCount,
@@ -408,6 +429,13 @@ export function removeAchievementCompanionRuntimeDebug(): void {
   runtimeDebugRouteBadgePlacementCandidateCount = 0;
   runtimeDebugRouteBadgePlacementFallbackUsed = false;
   runtimeDebugRouteBadgePlacementUpdatedAt = undefined;
+  runtimeDebugGamePageBadgeActivatedCount = 0;
+  runtimeDebugLastGamePageBadgeActivatedAppId = undefined;
+  runtimeDebugLastGamePageBadgeActivatedAt = undefined;
+  runtimeDebugLastGamePageBadgeNavigationTarget = undefined;
+  runtimeDebugLastGamePageBadgeSourceRoute = undefined;
+  runtimeDebugLastGamePageBadgeBackRoute = undefined;
+  runtimeDebugLastGamePageBadgeNavigationError = undefined;
   runtimeDebugGlobalComponentRegistered = false;
   runtimeDebugGlobalComponentName = undefined;
   runtimeDebugGlobalFallbackSuppressed = false;
@@ -470,6 +498,30 @@ export function markAchievementCompanionGamePageRouteBadgePlacement(
   runtimeDebugRouteBadgePlacementCandidateCount = candidateCount;
   runtimeDebugRouteBadgePlacementFallbackUsed = fallbackUsed;
   runtimeDebugRouteBadgePlacementUpdatedAt = new Date().toISOString();
+}
+
+export function markAchievementCompanionGamePageBadgeActivated(args: {
+  readonly appId: string | undefined;
+  readonly navigationTarget: string | undefined;
+  readonly sourceRoute: string | undefined;
+  readonly backRoute: string | undefined;
+}): void {
+  runtimeDebugGamePageBadgeActivatedCount += 1;
+  runtimeDebugLastGamePageBadgeActivatedAt = new Date().toISOString();
+  runtimeDebugLastGamePageBadgeActivatedAppId = args.appId;
+  runtimeDebugLastGamePageBadgeNavigationTarget = args.navigationTarget;
+  runtimeDebugLastGamePageBadgeSourceRoute = args.sourceRoute;
+  runtimeDebugLastGamePageBadgeBackRoute = args.backRoute;
+  runtimeDebugLastGamePageBadgeNavigationError = undefined;
+}
+
+export function reportAchievementCompanionGamePageBadgeNavigationError(
+  error: unknown,
+  context: string,
+): string {
+  const message = reportAchievementCompanionRuntimeDebugError(error, context);
+  runtimeDebugLastGamePageBadgeNavigationError = message;
+  return message;
 }
 
 export function markAchievementCompanionGamePageGlobalComponentRegistered(name: string): void {
