@@ -3,6 +3,11 @@ import { callDeckyBackendMethod } from "./decky-backend-bridge";
 export interface DeckySteamShortcutMetadata {
   readonly appId: string;
   readonly title: string;
+  readonly platformTag?: string;
+  readonly platformLabel?: string;
+  readonly tags?: readonly string[];
+  readonly exe?: string;
+  readonly startDir?: string;
 }
 
 function normalizeShortcutMetadata(value: unknown): DeckySteamShortcutMetadata | undefined {
@@ -17,9 +22,31 @@ function normalizeShortcutMetadata(value: unknown): DeckySteamShortcutMetadata |
     return undefined;
   }
 
+  const platformTag =
+    typeof record["platformTag"] === "string" && record["platformTag"].trim().length > 0
+      ? record["platformTag"].trim()
+      : undefined;
+  const platformLabel =
+    typeof record["platformLabel"] === "string" && record["platformLabel"].trim().length > 0
+      ? record["platformLabel"].trim()
+      : platformTag;
+  const tags = Array.isArray(record["tags"])
+    ? record["tags"].filter((tag): tag is string => typeof tag === "string" && tag.trim().length > 0)
+    : undefined;
+  const exe = typeof record["exe"] === "string" && record["exe"].trim().length > 0 ? record["exe"].trim() : undefined;
+  const startDir =
+    typeof record["startDir"] === "string" && record["startDir"].trim().length > 0
+      ? record["startDir"].trim()
+      : undefined;
+
   return {
     appId,
     title,
+    ...(platformTag !== undefined ? { platformTag } : {}),
+    ...(platformLabel !== undefined ? { platformLabel } : {}),
+    ...(tags !== undefined ? { tags } : {}),
+    ...(exe !== undefined ? { exe } : {}),
+    ...(startDir !== undefined ? { startDir } : {}),
   };
 }
 

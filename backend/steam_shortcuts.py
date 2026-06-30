@@ -31,6 +31,40 @@ def _coerce_app_id(value: str | int) -> int | None:
   return parsed if parsed > 0 else None
 
 
+def _pick_shortcut_string(shortcut: Mapping[str, Any], *keys: str) -> str | None:
+  for key in keys:
+    value = shortcut.get(key)
+    if isinstance(value, str):
+      trimmed = value.strip()
+      if trimmed != "":
+        return trimmed
+  return None
+
+
+def _iter_shortcut_tags(shortcut: Mapping[str, Any]) -> list[str]:
+  tags_value = shortcut.get("tags")
+  if not isinstance(tags_value, Mapping):
+    tags_value = shortcut.get("Tags")
+
+  if not isinstance(tags_value, Mapping):
+    return []
+
+  def sort_key(key: Any) -> tuple[int, int | str]:
+    if isinstance(key, str) and key.isdigit():
+      return (0, int(key))
+    return (1, str(key))
+
+  tags: list[str] = []
+  for key in sorted(tags_value.keys(), key=sort_key):
+    value = tags_value.get(key)
+    if isinstance(value, str):
+      trimmed = value.strip()
+      if trimmed != "":
+        tags.append(trimmed)
+
+  return list(dict.fromkeys(tags))
+
+
 def _read_c_string(data: bytes, offset: int) -> tuple[str, int]:
   end = data.find(b"\x00", offset)
   if end < 0:
@@ -128,6 +162,7 @@ def load_steam_shortcut_metadata(
 
   paths_to_scan = shortcuts_files or tuple(iter_steam_shortcuts_files(home=home))
   matched_titles: list[str] = []
+  matched_shortcuts: list[Mapping[str, Any]] = []
 
   for shortcuts_path in paths_to_scan:
     try:
@@ -142,22 +177,43 @@ def load_steam_shortcut_metadata(
       if shortcut_app_id != normalized_app_id:
         continue
 
-      app_name = (
-        shortcut.get("appname")
-        or shortcut.get("AppName")
-        or shortcut.get("name")
-        or shortcut.get("Name")
-      )
+      app_name = _pick_shortcut_string(shortcut, "appname", "AppName", "name", "Name")
       if isinstance(app_name, str):
-        trimmed_title = app_name.strip()
-        if trimmed_title != "":
-          matched_titles.append(trimmed_title)
+        matched_titles.append(app_name)
+        matched_shortcuts.append(shortcut)
 
   unique_titles = list(dict.fromkeys(matched_titles))
   if len(unique_titles) != 1:
     return None
 
-  return {
+  platform_tags: list[str] = []
+  exe_value: str | None = None
+  start_dir_value: str | None = None
+  for shortcut in matched_shortcuts:
+    for tag_value in _iter_shortcut_tags(shortcut):
+      if tag_value not in platform_tags:
+        platform_tags.append(tag_value)
+
+    if exe_value is None:
+      exe_value = _pick_shortcut_string(shortcut, "exe", "Exe")
+
+    if start_dir_value is None:
+      start_dir_value = _pick_shortcut_string(shortcut, "startdir", "StartDir")
+
+  platform_tag = platform_tags[0] if len(platform_tags) > 0 else None
+
+  metadata: dict[str, Any] = {
     "appId": str(normalized_app_id),
     "title": unique_titles[0],
   }
+  if platform_tag is not None:
+    metadata["platformTag"] = platform_tag
+    metadata["platformLabel"] = platform_tag
+  if len(platform_tags) > 0:
+    metadata["tags"] = platform_tags
+  if exe_value is not None:
+    metadata["exe"] = exe_value
+  if start_dir_value is not None:
+    metadata["startDir"] = start_dir_value
+
+  return metadata
