@@ -43,6 +43,10 @@ export interface AchievementCompanionRuntimeDebugState {
   readonly lastGamePageBadgeSourceRoute: string | undefined;
   readonly lastGamePageBadgeBackRoute: string | undefined;
   readonly lastGamePageBadgeNavigationError: string | undefined;
+  readonly lastGamePageBadgeSystemIconProvider: string | undefined;
+  readonly lastGamePageBadgeSystemIconPlatform: string | undefined;
+  readonly lastGamePageBadgeSystemIconUrl: string | undefined;
+  readonly lastGamePageBadgeSystemIconRendered: boolean;
   readonly globalComponentRegistered: boolean;
   readonly globalComponentName: string | undefined;
   readonly globalComponentRenderCount: number;
@@ -138,6 +142,10 @@ let runtimeDebugLastGamePageBadgeNavigationTarget: string | undefined;
 let runtimeDebugLastGamePageBadgeSourceRoute: string | undefined;
 let runtimeDebugLastGamePageBadgeBackRoute: string | undefined;
 let runtimeDebugLastGamePageBadgeNavigationError: string | undefined;
+let runtimeDebugLastGamePageBadgeSystemIconProvider: string | undefined;
+let runtimeDebugLastGamePageBadgeSystemIconPlatform: string | undefined;
+let runtimeDebugLastGamePageBadgeSystemIconUrl: string | undefined;
+let runtimeDebugLastGamePageBadgeSystemIconRendered = false;
 let runtimeDebugGlobalComponentRegistered = false;
 let runtimeDebugGlobalComponentName: string | undefined;
 let runtimeDebugGlobalComponentRenderCount = 0;
@@ -327,6 +335,10 @@ function computeRuntimeDebugState(): AchievementCompanionRuntimeDebugState {
     lastGamePageBadgeSourceRoute: runtimeDebugLastGamePageBadgeSourceRoute,
     lastGamePageBadgeBackRoute: runtimeDebugLastGamePageBadgeBackRoute,
     lastGamePageBadgeNavigationError: runtimeDebugLastGamePageBadgeNavigationError,
+    lastGamePageBadgeSystemIconProvider: runtimeDebugLastGamePageBadgeSystemIconProvider,
+    lastGamePageBadgeSystemIconPlatform: runtimeDebugLastGamePageBadgeSystemIconPlatform,
+    lastGamePageBadgeSystemIconUrl: runtimeDebugLastGamePageBadgeSystemIconUrl,
+    lastGamePageBadgeSystemIconRendered: runtimeDebugLastGamePageBadgeSystemIconRendered,
     globalComponentRegistered: runtimeDebugGlobalComponentRegistered,
     globalComponentName: runtimeDebugGlobalComponentName,
     globalComponentRenderCount: runtimeDebugGlobalComponentRenderCount,
@@ -436,6 +448,10 @@ export function removeAchievementCompanionRuntimeDebug(): void {
   runtimeDebugLastGamePageBadgeSourceRoute = undefined;
   runtimeDebugLastGamePageBadgeBackRoute = undefined;
   runtimeDebugLastGamePageBadgeNavigationError = undefined;
+  runtimeDebugLastGamePageBadgeSystemIconProvider = undefined;
+  runtimeDebugLastGamePageBadgeSystemIconPlatform = undefined;
+  runtimeDebugLastGamePageBadgeSystemIconUrl = undefined;
+  runtimeDebugLastGamePageBadgeSystemIconRendered = false;
   runtimeDebugGlobalComponentRegistered = false;
   runtimeDebugGlobalComponentName = undefined;
   runtimeDebugGlobalFallbackSuppressed = false;
@@ -522,6 +538,18 @@ export function reportAchievementCompanionGamePageBadgeNavigationError(
   const message = reportAchievementCompanionRuntimeDebugError(error, context);
   runtimeDebugLastGamePageBadgeNavigationError = message;
   return message;
+}
+
+export function markAchievementCompanionGamePageBadgeSystemIcon(args: {
+  readonly providerId: string | undefined;
+  readonly platformLabel: string | undefined;
+  readonly iconUrl: string | undefined;
+  readonly rendered: boolean;
+}): void {
+  runtimeDebugLastGamePageBadgeSystemIconProvider = args.providerId;
+  runtimeDebugLastGamePageBadgeSystemIconPlatform = args.platformLabel;
+  runtimeDebugLastGamePageBadgeSystemIconUrl = args.iconUrl;
+  runtimeDebugLastGamePageBadgeSystemIconRendered = args.rendered;
 }
 
 export function markAchievementCompanionGamePageGlobalComponentRegistered(name: string): void {
