@@ -26,6 +26,7 @@ REQUIRED_FRONTEND_MARKERS: tuple[str, ...] = (
   "completion-progress-title-match",
   "dashboard-identity-detail",
   "no-retroachievements-shortcut-mapping",
+  "ra-game-list-no-match",
 )
 FORBIDDEN_FRONTEND_MARKERS: tuple[str, ...] = (
   "createRoot",

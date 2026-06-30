@@ -10156,13 +10156,16 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(summarySource, /collectRetroAchievementsCompletionProgressCandidates/u);
   assert.match(summarySource, /collectRetroAchievementsDashboardCandidates/u);
   assert.match(summarySource, /collectRetroAchievementsDashboardIdentityCandidates/u);
+  assert.match(summarySource, /sonic the hedgehog/u);
   assert.match(summarySource, /completion-progress-title-match/u);
   assert.match(summarySource, /dashboard-identity-detail/u);
   assert.match(summarySource, /ra-detail-unavailable/u);
+  assert.match(summarySource, /ra-game-list-no-match/u);
   assert.match(summarySource, /ra-api-game-list/u);
   assert.match(summarySource, /no-retroachievements-shortcut-mapping/u);
   assert.doesNotMatch(summarySource, /ra-provider-not-configured/u);
   assert.match(summarySource, /ra-cache-unavailable/u);
+  assert.match(summarySource, /ra-game-list-no-match/u);
   assert.match(summarySource, /recentAchievements/u);
   assert.match(summarySource, /recentUnlocks/u);
   assert.match(summarySource, /loadDeckyGameDetailStateLazy\([\s\S]*?RETROACHIEVEMENTS_PROVIDER_ID/u);
@@ -10738,23 +10741,13 @@ test("game page achievement summary resolves RetroAchievements counts from a das
     if (summary.status !== "ready") {
       return;
     }
-    assert.deepStrictEqual(
-      {
-        ...summary,
-        updatedAt: undefined,
-      },
-      {
-        status: "ready",
-        provider: "retroachievements",
-        appId: "2217040873",
-        gameId: "64",
-        title: "The Legend of Zelda: Majora's Mask",
-        earned: 13,
-        total: 76,
-        source: "backend",
-        updatedAt: undefined,
-      },
-    );
+    assert.equal(summary.provider, "retroachievements");
+    assert.equal(summary.appId, "2217040873");
+    assert.equal(summary.gameId, "64");
+    assert.equal(summary.title, "The Legend of Zelda: Majora's Mask");
+    assert.equal(summary.earned, 13);
+    assert.equal(summary.total, 76);
+    assert.equal(summary.source, "backend");
     assert.notEqual(summary.updatedAt, undefined);
   });
 });
@@ -11204,7 +11197,7 @@ test("game page achievement summary handles missing RetroAchievements cache with
     assert.deepStrictEqual(missingCacheWithoutConfigSummary, {
       status: "unavailable",
       appId: "2217040870",
-      reason: "ra-cache-unavailable",
+      reason: "ra-game-list-no-match",
     });
 
     clearDeckyGamePageAchievementSummaryCacheForTests();
@@ -11219,7 +11212,122 @@ test("game page achievement summary handles missing RetroAchievements cache with
     assert.deepStrictEqual(missingCacheSummary, {
       status: "unavailable",
       appId: "2217040870",
-      reason: "ra-cache-unavailable",
+      reason: "ra-game-list-no-match",
+    });
+  });
+});
+
+test("game page achievement summary normalizes Sonic the Hedgehog 3 & Knuckles to Sonic 3 & Knuckles", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2217040901": {
+        title: "Sonic the Hedgehog 3 & Knuckles",
+        platformLabel: "Sega Genesis/Mega Drive",
+      },
+    };
+    assert.ok(
+      writeDeckyDashboardSnapshot({
+        ...createDashboardSnapshot(),
+        profile: {
+          ...createDashboardSnapshot().profile,
+          providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+          identity: {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            accountId: "alice",
+            displayName: "Alice",
+          },
+        },
+        recentlyPlayedGames: [
+          {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            gameId: "4874",
+            title: "Sonic 3 & Knuckles",
+            platformLabel: "Genesis/Mega Drive",
+            summary: {
+              unlockedCount: 1,
+              totalCount: 2,
+            },
+          },
+        ],
+        recentUnlocks: [],
+        recentAchievements: [],
+        featuredGames: [],
+      }),
+    );
+
+    const summary = await loadDeckyGamePageAchievementSummary("2217040901");
+    assert.equal(summary.status, "ready");
+    if (summary.status !== "ready") {
+      return;
+    }
+    assert.equal(summary.provider, "retroachievements");
+    assert.equal(summary.appId, "2217040901");
+    assert.equal(summary.gameId, "4874");
+    assert.equal(summary.title, "Sonic 3 & Knuckles");
+    assert.equal(summary.earned, 1);
+    assert.equal(summary.total, 2);
+    assert.equal(summary.source, "snapshot");
+    assert.notEqual(summary.updatedAt, undefined);
+  });
+});
+
+test("game page achievement summary does not broaden Sonic the Hedgehog title aliases beyond numbered sequels", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2217040902": {
+        title: "Sonic the Hedgehog Spinball",
+        platformLabel: "Sega Genesis/Mega Drive",
+      },
+    };
+    assert.ok(
+      writeDeckyDashboardSnapshot({
+        ...createDashboardSnapshot(),
+        profile: {
+          ...createDashboardSnapshot().profile,
+          providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+          identity: {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            accountId: "alice",
+            displayName: "Alice",
+          },
+        },
+        recentUnlocks: [],
+        recentlyPlayedGames: [
+          {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            gameId: "4880",
+            title: "Sonic Spinball",
+            platformLabel: "Genesis/Mega Drive",
+            summary: {
+              unlockedCount: 1,
+              totalCount: 2,
+            },
+          },
+        ],
+        recentAchievements: [],
+        featuredGames: [],
+      }),
+    );
+
+    const summary = await loadDeckyGamePageAchievementSummary("2217040902");
+    assert.deepStrictEqual(summary, {
+      status: "unavailable",
+      appId: "2217040902",
+      reason: "ra-game-list-no-match",
     });
   });
 });
