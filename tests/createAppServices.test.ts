@@ -10024,6 +10024,10 @@ test("steam game page achievement badge uses the Decky global component path wit
     "src/platform/decky/decky-game-page-achievement-bubble.tsx",
     "utf8",
   );
+  const routeBadgeStyleFunctionSource =
+    bubbleSource.match(
+      /function getDeckyGamePageAchievementRouteBadgeStyle\([\s\S]*?\n\}\n\nfunction /u,
+    )?.[0] ?? "";
 
   assert.match(indexSource, /installAchievementCompanionRuntimeDebug\(/u);
   assert.match(indexSource, /ensureDeckyGamePageAchievementGlobalComponentRegistered\(/u);
@@ -10097,14 +10101,49 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.match(bootstrapSource, /Decky bootstrap mounted/u);
   assert.doesNotMatch(bootstrapSource, /DeckyGamePageAchievementBubbleOverlayLifecycle/u);
   assert.doesNotMatch(bootstrapSource, /startGamePageAchievementBubbleOverlay\(/u);
+  assert.match(indexSource, /ensureDeckyGamePageAchievementRoutePatchRegistered/u);
   assert.match(bubbleSource, /routerHook\.addGlobalComponent/u);
   assert.match(bubbleSource, /routerHook\.removeGlobalComponent/u);
+  assert.match(bubbleSource, /routerHook\.addPatch/u);
+  assert.match(bubbleSource, /routerHook\.removePatch/u);
+  assert.match(bubbleSource, /afterPatch/u);
+  assert.match(bubbleSource, /createReactTreePatcher/u);
+  assert.match(bubbleSource, /findInReactTree/u);
+  assert.match(bubbleSource, /appDetailsClasses\.InnerContainer/u);
   assert.match(bubbleSource, /DeckyGamePageAchievementBadge/u);
+  assert.match(bubbleSource, /DeckyGamePageAchievementRouteBadge/u);
   assert.match(bubbleSource, /DeckyGamePageAchievementGlobalBadge/u);
   assert.match(bubbleSource, /AchievementCompanionGamePageBadge/u);
+  assert.match(bubbleSource, /routerHook\.addPatch\(DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN/u);
+  assert.match(bubbleSource, /routerHook\.removePatch\(DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN/u);
   assert.match(bubbleSource, /Game-page achievement bubble clicked/u);
   assert.match(bubbleSource, /useGamePageAchievementSummary/u);
   assert.match(bubbleSource, /formatDeckyGamePageAchievementBadgeLabel/u);
+  assert.match(bubbleSource, /position:\s*"absolute"/u);
+  assert.match(bubbleSource, /DECKY_GAME_PAGE_ROUTE_BADGE_CANDIDATE_SLOTS/u);
+  assert.match(bubbleSource, /top-left/u);
+  assert.match(bubbleSource, /top-right/u);
+  assert.match(bubbleSource, /upper-left-below-buttons/u);
+  assert.match(bubbleSource, /lower-right/u);
+  assert.match(bubbleSource, /lower-left/u);
+  assert.match(bubbleSource, /top:\s*56/u);
+  assert.match(bubbleSource, /top:\s*84/u);
+  assert.match(bubbleSource, /top:\s*128/u);
+  assert.match(bubbleSource, /top:\s*360/u);
+  assert.match(bubbleSource, /right:\s*144/u);
+  assert.match(bubbleSource, /left:\s*32/u);
+  assert.match(
+    bubbleSource,
+    /position:\s*"absolute",\s*top:\s*slot\.top,\s*left:\s*slot\.left,\s*right:\s*slot\.right,\s*zIndex:\s*1000/u,
+  );
+  assert.match(bubbleSource, /chooseDeckyGamePageAchievementRouteBadgePlacement/u);
+  assert.match(bubbleSource, /collectDeckyGamePageAchievementRouteBadgeObstacleRects/u);
+  assert.match(bubbleSource, /resolveDeckyGamePageAchievementRouteBadgeContainer/u);
+  assert.match(bubbleSource, /DECKY_GAME_PAGE_ROUTE_BADGE_COLLISION_PADDING = 12/u);
+  assert.match(bubbleSource, /querySelectorAll<HTMLElement>\("\*"\)/u);
+  assert.match(bubbleSource, /offsetParent/u);
+  assert.match(bubbleSource, /getBoundingClientRect/u);
+  assert.match(bubbleSource, /markAchievementCompanionGamePageRouteBadgePlacement/u);
   assert.match(bubbleSource, /position:\s*"fixed"/u);
   assert.match(bubbleSource, /top:\s*90/u);
   assert.match(bubbleSource, /left:\s*32/u);
@@ -10127,10 +10166,33 @@ test("steam game page achievement badge uses the Decky global component path wit
     /hasVisibleDeckyGamePageModal\(badgeDocument\)\s*\|\|\s*hasVisibleDeckyGamePageModal\(hostDocument\)\s*\|\|\s*hasVisibleDeckyGamePageModal\(\)/u,
   );
   assert.match(bubbleSource, /ref=\{elementRef\}/u);
-  assert.match(bubbleSource, /data-achievement-companion-game-page-badge="true"/u);
+  assert.match(bubbleSource, /data-achievement-companion-game-page-badge=\{marker\}/u);
+  assert.match(bubbleSource, /marker:\s*"global" \| "route"/u);
+  assert.match(bubbleSource, /marker="route"/u);
+  assert.match(bubbleSource, /marker="global"/u);
+  assert.match(
+    bubbleSource,
+    /if \(!visible \|\| badgeLabel === undefined \|\| modalOpen \|\| suppressGlobalFallback\)/u,
+  );
+  assert.match(bubbleSource, /if \(badgeLabel === undefined\) \{\s*return;\s*\}/u);
+  assert.match(bubbleSource, /if \(badgeLabel === undefined\) \{\s*return null;\s*\}/u);
+  assert.doesNotMatch(routeBadgeStyleFunctionSource, /bottom:/u);
+  assert.doesNotMatch(
+    bubbleSource,
+    /function getDeckyGamePageAchievementRouteBadgeStyle\([\s\S]*position:\s*"fixed"/u,
+  );
   assert.match(bubbleSource, /reportAchievementCompanionGamePageGlobalComponentError/u);
   assert.match(bubbleSource, /resolveAchievementCompanionRuntimeDebugHostContext\(/u);
+  assert.match(bubbleSource, /shouldSuppressGlobalFallback/u);
+  assert.match(bubbleSource, /markAchievementCompanionGamePageGlobalFallbackSuppressed/u);
+  assert.match(bubbleSource, /markAchievementCompanionGamePageRouteBadgePatchRegistered/u);
+  assert.match(bubbleSource, /markAchievementCompanionGamePageRouteBadgePatchCallback/u);
+  assert.match(bubbleSource, /markAchievementCompanionGamePageRouteBadgePatchHandlerFired/u);
+  assert.match(bubbleSource, /markAchievementCompanionGamePageRouteBadgeRenderFuncPatched/u);
+  assert.match(bubbleSource, /markAchievementCompanionGamePageRouteBadgeInserted/u);
+  assert.match(bubbleSource, /markAchievementCompanionGamePageRouteBadgeRendered/u);
   assert.match(bubbleSource, /ensureDeckyGamePageAchievementGlobalComponentRegistered/u);
+  assert.match(bubbleSource, /ensureDeckyGamePageAchievementRoutePatchRegistered/u);
   assert.match(bubbleSource, /markAchievementCompanionGamePageGlobalComponentRendered/u);
   assert.match(bubbleSource, /markAchievementCompanionGamePageAchievementBadgeRendered/u);
   assert.match(bubbleSource, /addGlobalComponent/u);
@@ -10155,14 +10217,20 @@ test("steam game page achievement badge uses the Decky global component path wit
   assert.doesNotMatch(runtimeDebugSource, /protondb/i);
   assert.doesNotMatch(summarySource, /protondb/i);
   assert.doesNotMatch(modalVisibilitySource, /protondb/i);
-  assert.doesNotMatch(indexSource, /ensureDeckyGamePageAchievementBubblePatchRegistered/u);
-  assert.doesNotMatch(bubbleSource, /routerHook\.addPatch/u);
-  assert.doesNotMatch(bubbleSource, /routerHook\.removePatch/u);
-  assert.doesNotMatch(bubbleSource, /afterPatch/u);
-  assert.doesNotMatch(bubbleSource, /createReactTreePatcher/u);
-  assert.doesNotMatch(bubbleSource, /findInReactTree/u);
-  assert.doesNotMatch(bubbleSource, /appDetailsClasses/u);
-  assert.doesNotMatch(bubbleSource, /InnerContainer/u);
+  assert.match(runtimeDebugSource, /routeBadgePatchRegistered/u);
+  assert.match(runtimeDebugSource, /routeBadgePatchCallbackCount/u);
+  assert.match(runtimeDebugSource, /routeBadgeRenderFuncPatchedCount/u);
+  assert.match(runtimeDebugSource, /routeBadgePatchHandlerFiredCount/u);
+  assert.match(runtimeDebugSource, /routeBadgeInsertedCount/u);
+  assert.match(runtimeDebugSource, /routeBadgeRenderedCount/u);
+  assert.match(runtimeDebugSource, /lastRouteBadgeAppId/u);
+  assert.match(runtimeDebugSource, /lastRouteBadgeRenderedAt/u);
+  assert.match(runtimeDebugSource, /routeBadgePlacementSlot/u);
+  assert.match(runtimeDebugSource, /routeBadgePlacementCollisionCount/u);
+  assert.match(runtimeDebugSource, /routeBadgePlacementCandidateCount/u);
+  assert.match(runtimeDebugSource, /routeBadgePlacementFallbackUsed/u);
+  assert.match(runtimeDebugSource, /routeBadgePlacementUpdatedAt/u);
+  assert.match(runtimeDebugSource, /globalFallbackSuppressed/u);
   assert.doesNotMatch(bootstrapSource, /DIAGNOSTIC BUILD LOADED 2026-06-28/u);
   assert.doesNotMatch(bootstrapSource, /Game Page Bubble Debug/u);
   assert.equal(existsSync("src/platform/decky/decky-game-page-bubble-debug-section.tsx"), false);

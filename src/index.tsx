@@ -2,6 +2,7 @@ import { definePlugin } from "@decky/api";
 import { DeckyBootstrap } from "@platform/decky/bootstrap";
 import {
   ensureDeckyGamePageAchievementGlobalComponentRegistered,
+  ensureDeckyGamePageAchievementRoutePatchRegistered,
 } from "@platform/decky/decky-game-page-achievement-bubble";
 import {
   installAchievementCompanionRuntimeDebug,
@@ -9,6 +10,8 @@ import {
 } from "@platform/decky/decky-runtime-debug";
 
 installAchievementCompanionRuntimeDebug();
+const removeDeckyGamePageAchievementRoutePatch =
+  ensureDeckyGamePageAchievementRoutePatchRegistered();
 const removeDeckyGamePageAchievementGlobalComponent =
   ensureDeckyGamePageAchievementGlobalComponentRegistered();
 
@@ -48,6 +51,7 @@ export default definePlugin(() => ({
   content: <DeckyBootstrap />,
   icon: <AchievementCompanionIcon />,
   onDismount() {
+    removeDeckyGamePageAchievementRoutePatch();
     removeDeckyGamePageAchievementGlobalComponent();
     removeAchievementCompanionRuntimeDebug();
   },
