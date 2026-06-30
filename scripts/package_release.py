@@ -20,11 +20,11 @@ PACKAGE_RELEASE_COMMAND = "npm run package:release"
 EXPECTED_DECK_INSTALL_FOLDER = f"/home/deck/homebrew/plugins/{PLUGIN_ARCHIVE_ROOT}"
 REQUIRED_FRONTEND_MARKERS: tuple[str, ...] = (
   "AchievementCompanionGamePageBadge",
-  "addGlobalComponent",
   "/routes/library/app",
-  "global component render",
   "formatDeckyGamePageAchievementBadgeLabel",
   "retroachievements",
+  "completion-progress-title-match",
+  "dashboard-identity-detail",
   "no-retroachievements-shortcut-mapping",
 )
 FORBIDDEN_FRONTEND_MARKERS: tuple[str, ...] = (

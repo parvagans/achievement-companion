@@ -1,9 +1,6 @@
 import { definePlugin } from "@decky/api";
 import { DeckyBootstrap } from "@platform/decky/bootstrap";
-import {
-  ensureDeckyGamePageAchievementGlobalComponentRegistered,
-  ensureDeckyGamePageAchievementRoutePatchRegistered,
-} from "@platform/decky/decky-game-page-achievement-bubble";
+import { ensureDeckyGamePageAchievementRoutePatchRegistered } from "@platform/decky/decky-game-page-achievement-bubble";
 import {
   installAchievementCompanionRuntimeDebug,
   removeAchievementCompanionRuntimeDebug,
@@ -12,8 +9,6 @@ import {
 installAchievementCompanionRuntimeDebug();
 const removeDeckyGamePageAchievementRoutePatch =
   ensureDeckyGamePageAchievementRoutePatchRegistered();
-const removeDeckyGamePageAchievementGlobalComponent =
-  ensureDeckyGamePageAchievementGlobalComponentRegistered();
 
 function AchievementCompanionIcon(): JSX.Element {
   return (
@@ -52,7 +47,6 @@ export default definePlugin(() => ({
   icon: <AchievementCompanionIcon />,
   onDismount() {
     removeDeckyGamePageAchievementRoutePatch();
-    removeDeckyGamePageAchievementGlobalComponent();
     removeAchievementCompanionRuntimeDebug();
   },
 }));

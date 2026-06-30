@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { DashboardSnapshot, NormalizedGame, RecentlyPlayedGame } from "@core/domain";
+import type {
+  CompletionProgressSnapshot,
+  DashboardSnapshot,
+  NormalizedGame,
+  RecentUnlock,
+  RecentlyPlayedGame,
+} from "@core/domain";
 import { readDeckyDashboardSnapshotCacheEntry } from "./decky-dashboard-snapshot-cache";
 import { loadDeckySteamShortcutMetadata } from "./decky-steam-shortcut-metadata";
 import {
@@ -53,7 +59,10 @@ type RetroAchievementsShortcutResolution =
       readonly title: string;
       readonly earned: number;
       readonly total: number;
-      readonly source: "shortcut-title-match";
+      readonly source:
+        | "shortcut-title-match"
+        | "completion-progress-title-match"
+        | "dashboard-identity-detail";
       readonly confidence: "exact";
       readonly updatedAt?: string;
     }
@@ -65,7 +74,7 @@ type RetroAchievementsShortcutResolution =
         | "ra-cache-unavailable"
         | "no-retroachievements-shortcut-mapping"
         | "ambiguous-retroachievements-shortcut-mapping"
-        | "ra-provider-not-configured";
+        | "ra-detail-unavailable";
     }
   | {
       readonly status: "error";
@@ -86,6 +95,24 @@ interface RetroAchievementsDashboardCandidate {
   readonly updatedAt?: string;
 }
 
+interface RetroAchievementsCompletionProgressCandidate {
+  readonly gameId: string;
+  readonly title: string;
+  readonly platformLabel?: string;
+  readonly normalizedPlatformLabel?: string;
+  readonly earned: number;
+  readonly total: number;
+  readonly updatedAt?: string;
+}
+
+interface RetroAchievementsDashboardIdentityCandidate {
+  readonly gameId: string;
+  readonly title: string;
+  readonly platformLabel?: string;
+  readonly normalizedPlatformLabel?: string;
+  readonly updatedAt?: string;
+}
+
 const gamePageAchievementSummaryCache = new Map<string, CachedGamePageAchievementSummaryEntry>();
 const gamePageAchievementSummaryInFlight = new Map<string, Promise<GamePageAchievementSummary>>();
 
@@ -98,6 +125,11 @@ async function loadDeckyGameDetailStateLazy(
 ) {
   const { loadDeckyGameDetailState } = await import("./decky-app-services");
   return loadDeckyGameDetailState(providerId, gameId, options);
+}
+
+async function loadDeckyCompletionProgressStateLazy(providerId: string) {
+  const { loadDeckyCompletionProgressState } = await import("./decky-app-services");
+  return loadDeckyCompletionProgressState(providerId);
 }
 
 function parsePositiveAppId(value: string | undefined): number | undefined {
@@ -266,13 +298,100 @@ async function resolveSummaryFromSteamGameDetail(appId: string): Promise<GamePag
   });
 }
 
-function normalizeTitleForRetroAchievementsShortcutMatch(value: string | undefined): string | undefined {
+function matchesRetroAchievementsShortcutTitle(
+  candidateTitle: string,
+  shortcutTitleCandidates: readonly string[],
+): boolean {
+  return normalizeRetroAchievementsTitleCandidates(candidateTitle).some((candidateTitle) =>
+    shortcutTitleCandidates.includes(candidateTitle),
+  );
+}
+
+function normalizeRetroAchievementsPlatformLabel(value: string | undefined): string | undefined {
   if (typeof value !== "string") {
     return undefined;
   }
 
   const normalized = value.normalize("NFKC").trim().replace(/\s+/gu, " ").toLowerCase();
-  return normalized.length > 0 ? normalized : undefined;
+  if (normalized.length === 0) {
+    return undefined;
+  }
+
+  switch (normalized) {
+    case "sega genesis/mega drive":
+    case "genesis":
+    case "mega drive":
+      return "Genesis/Mega Drive";
+    case "sony playstation":
+    case "playstation":
+      return "PlayStation";
+    case "sony playstation 2":
+    case "playstation 2":
+      return "PlayStation 2";
+    case "sony playstation portable":
+    case "playstation portable":
+      return "PlayStation Portable";
+    case "nintendo 64":
+      return "Nintendo 64";
+    default:
+      return value.trim();
+  }
+}
+
+function stripRetroAchievementsTitleNoise(value: string): string {
+  let previous = value.trim();
+  let next = previous;
+
+  do {
+    previous = next;
+    next = previous
+      .replace(/\s*[\[(][^\])\]]*[\])]\s*$/gu, "")
+      .replace(/\s*[-â€“â€”]\s*$/gu, "")
+      .trim();
+  } while (next !== previous);
+
+  return next;
+}
+
+function normalizeRetroAchievementsTitleText(value: string): string {
+  return value
+    .normalize("NFKC")
+    .replace(/[â€™']/gu, "")
+    .replace(/["â€œâ€]/gu, "")
+    .replace(/[:;,.!?]/gu, " ")
+    .replace(/\s*[-â€“â€”]\s*/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function normalizeRetroAchievementsTitleCandidates(value: string | undefined): readonly string[] {
+  if (typeof value !== "string") {
+    return [];
+  }
+
+  const candidates = new Set<string>();
+  const baseTitle = stripRetroAchievementsTitleNoise(value);
+  const relocatedArticleMatch = baseTitle.match(/^(.*),\s*(the|a|an)\s*(.*)$/iu);
+  const rawCandidates = [
+    baseTitle,
+    relocatedArticleMatch !== null
+      ? `${relocatedArticleMatch[2]} ${relocatedArticleMatch[1]} ${relocatedArticleMatch[3]}`
+      : undefined,
+  ];
+
+  for (const candidate of rawCandidates) {
+    if (candidate === undefined) {
+      continue;
+    }
+
+    const normalized = normalizeRetroAchievementsTitleText(candidate);
+    if (normalized.length > 0) {
+      candidates.add(normalized);
+    }
+  }
+
+  return Array.from(candidates.values());
 }
 
 function collectRetroAchievementsDashboardCandidates(
@@ -319,6 +438,93 @@ function collectRetroAchievementsDashboardCandidates(
   return Array.from(candidatesByGameId.values());
 }
 
+function collectRetroAchievementsCompletionProgressCandidates(
+  snapshot: CompletionProgressSnapshot,
+): readonly RetroAchievementsCompletionProgressCandidate[] {
+  return snapshot.games
+    .filter((game) => game.summary.totalCount !== undefined && game.summary.totalCount > 0)
+    .map((game) => ({
+      gameId: game.gameId,
+      title: game.title,
+      ...(game.platformLabel !== undefined ? { platformLabel: game.platformLabel } : {}),
+      earned: game.summary.unlockedCount,
+      total: game.summary.totalCount ?? 0,
+      ...(snapshot.refreshedAt !== undefined ? { updatedAt: new Date(snapshot.refreshedAt).toISOString() } : {}),
+      ...(normalizeRetroAchievementsPlatformLabel(game.platformLabel) !== undefined
+        ? {
+            normalizedPlatformLabel: normalizeRetroAchievementsPlatformLabel(game.platformLabel)!,
+          }
+        : {}),
+    }));
+}
+
+function collectRetroAchievementsDashboardIdentityCandidates(
+  snapshot: DashboardSnapshot,
+  updatedAt: string | undefined,
+): readonly RetroAchievementsDashboardIdentityCandidate[] {
+  const candidatesByGameId = new Map<string, RetroAchievementsDashboardIdentityCandidate>();
+
+  const pushCandidate = (
+    game:
+      | Pick<NormalizedGame, "gameId" | "title" | "platformLabel">
+      | Pick<RecentlyPlayedGame, "gameId" | "title" | "platformLabel">
+      | Pick<RecentUnlock["game"], "gameId" | "title" | "platformLabel">,
+  ) => {
+    if (candidatesByGameId.has(game.gameId)) {
+      return;
+    }
+
+    candidatesByGameId.set(game.gameId, {
+      gameId: game.gameId,
+      title: game.title,
+      ...(game.platformLabel !== undefined ? { platformLabel: game.platformLabel } : {}),
+      ...(normalizeRetroAchievementsPlatformLabel(game.platformLabel) !== undefined
+        ? {
+            normalizedPlatformLabel: normalizeRetroAchievementsPlatformLabel(game.platformLabel)!,
+          }
+        : {}),
+      ...(updatedAt !== undefined ? { updatedAt } : {}),
+    });
+  };
+
+  for (const recentUnlock of snapshot.recentAchievements) {
+    pushCandidate(recentUnlock.game);
+  }
+
+  for (const recentUnlock of snapshot.recentUnlocks) {
+    pushCandidate(recentUnlock.game);
+  }
+
+  for (const game of snapshot.recentlyPlayedGames) {
+    pushCandidate(game);
+  }
+
+  for (const game of snapshot.featuredGames) {
+    pushCandidate(game);
+  }
+
+  for (const game of snapshot.profile.featuredGames ?? []) {
+    pushCandidate(game);
+  }
+
+  return Array.from(candidatesByGameId.values());
+}
+
+function matchesRetroAchievementsShortcutPlatform(
+  candidatePlatformLabel: string | undefined,
+  shortcutPlatformCandidates: readonly string[],
+): boolean {
+  if (shortcutPlatformCandidates.length === 0) {
+    return true;
+  }
+
+  const normalizedCandidatePlatform = normalizeRetroAchievementsPlatformLabel(candidatePlatformLabel);
+  return (
+    normalizedCandidatePlatform !== undefined &&
+    shortcutPlatformCandidates.includes(normalizedCandidatePlatform)
+  );
+}
+
 function markRetroAchievementsShortcutResolution(
   resolution: RetroAchievementsShortcutResolution,
 ): void {
@@ -358,43 +564,66 @@ async function resolveSummaryFromRetroAchievementsShortcut(
 ): Promise<RetroAchievementsShortcutResolution> {
   try {
     const shortcutMetadata = await loadDeckySteamShortcutMetadata(appId);
-    const shortcutTitle = normalizeTitleForRetroAchievementsShortcutMatch(shortcutMetadata?.title);
+    const shortcutTitleCandidates = normalizeRetroAchievementsTitleCandidates(shortcutMetadata?.title);
+    const shortcutTitle = shortcutTitleCandidates[0];
+    const shortcutPlatform = normalizeRetroAchievementsPlatformLabel(
+      (shortcutMetadata as { readonly platformLabel?: string } | undefined)?.platformLabel,
+    );
+    const shortcutPlatformCandidates =
+      shortcutPlatform !== undefined ? [shortcutPlatform] : ([] as readonly string[]);
+
     if (shortcutTitle === undefined) {
       const unavailableResolution: RetroAchievementsShortcutResolution = {
         status: "unavailable",
         appId,
         reason: "shortcut-metadata-unavailable",
       };
-      markRetroAchievementsShortcutResolution(unavailableResolution);
+      markRetroAchievementsShortcutResolution({
+        ...unavailableResolution,
+        shortcutTitle: shortcutMetadata?.title,
+        shortcutPlatform,
+        resolutionSource: "unavailable",
+        resolutionReason: unavailableResolution.reason,
+      } as unknown as Parameters<typeof markRetroAchievementsShortcutResolution>[0]);
       return unavailableResolution;
     }
 
     const snapshotEntry = readDeckyDashboardSnapshotCacheEntry(RETROACHIEVEMENTS_PROVIDER_ID);
     const snapshot = snapshotEntry?.snapshot;
-    if (snapshot === undefined) {
-      const unavailableResolution: RetroAchievementsShortcutResolution = {
-        status: "unavailable",
-        appId,
-        reason: "ra-cache-unavailable",
-      };
-      markRetroAchievementsShortcutResolution(unavailableResolution);
-      return unavailableResolution;
-    }
-
     const snapshotUpdatedAt =
       snapshotEntry?.storedAt !== undefined ? new Date(snapshotEntry.storedAt).toISOString() : undefined;
-    const matchingCandidates = collectRetroAchievementsDashboardCandidates(snapshot, snapshotUpdatedAt).filter(
-      (candidate) => normalizeTitleForRetroAchievementsShortcutMatch(candidate.title) === shortcutTitle,
-    );
+    const matchingCandidates =
+      snapshot !== undefined
+        ? collectRetroAchievementsDashboardCandidates(snapshot, snapshotUpdatedAt).filter((candidate) =>
+            matchesRetroAchievementsShortcutTitle(candidate.title, shortcutTitleCandidates),
+          )
+        : [];
 
-    if (matchingCandidates.length === 0) {
-      const unavailableResolution: RetroAchievementsShortcutResolution = {
-        status: "unavailable",
+    if (matchingCandidates.length === 1) {
+      const matchingCandidate = matchingCandidates[0]!;
+      const mappedResolution: RetroAchievementsShortcutResolution = {
+        status: "mapped",
         appId,
-        reason: "no-retroachievements-shortcut-mapping",
+        raGameId: matchingCandidate.gameId,
+        title: matchingCandidate.title,
+        earned: matchingCandidate.earned,
+        total: matchingCandidate.total,
+        source: "shortcut-title-match",
+        confidence: "exact",
+        ...(matchingCandidate.updatedAt !== undefined ? { updatedAt: matchingCandidate.updatedAt } : {}),
       };
-      markRetroAchievementsShortcutResolution(unavailableResolution);
-      return unavailableResolution;
+      markRetroAchievementsShortcutResolution({
+        ...mappedResolution,
+        shortcutTitle: shortcutMetadata?.title,
+        shortcutPlatform,
+        resolutionSource: "dashboard-snapshot",
+        resolutionReason: "shortcut-title-match",
+        matchedTitle: matchingCandidate.title,
+        matchedPlatform: undefined,
+        matchedGameId: matchingCandidate.gameId,
+        candidateCount: matchingCandidates.length,
+      } as unknown as Parameters<typeof markRetroAchievementsShortcutResolution>[0]);
+      return mappedResolution;
     }
 
     if (matchingCandidates.length > 1) {
@@ -403,24 +632,188 @@ async function resolveSummaryFromRetroAchievementsShortcut(
         appId,
         reason: "ambiguous-retroachievements-shortcut-mapping",
       };
-      markRetroAchievementsShortcutResolution(unavailableResolution);
+      markRetroAchievementsShortcutResolution({
+        ...unavailableResolution,
+        shortcutTitle: shortcutMetadata?.title,
+        shortcutPlatform,
+        resolutionSource: "dashboard-snapshot",
+        resolutionReason: unavailableResolution.reason,
+        candidateCount: matchingCandidates.length,
+      } as unknown as Parameters<typeof markRetroAchievementsShortcutResolution>[0]);
       return unavailableResolution;
     }
 
-    const matchingCandidate = matchingCandidates[0]!;
-    const mappedResolution: RetroAchievementsShortcutResolution = {
-      status: "mapped",
+    const completionProgressState = await loadDeckyCompletionProgressStateLazy(RETROACHIEVEMENTS_PROVIDER_ID);
+    let completionProgressUnavailableReason:
+      | "ambiguous-retroachievements-shortcut-mapping"
+      | "no-retroachievements-shortcut-mapping"
+      | undefined;
+    if (completionProgressState.status === "success" && completionProgressState.data !== undefined) {
+      const completionProgressCandidates = collectRetroAchievementsCompletionProgressCandidates(
+        completionProgressState.data,
+      ).filter((candidate) =>
+        matchesRetroAchievementsShortcutTitle(candidate.title, shortcutTitleCandidates),
+      );
+
+      if (completionProgressCandidates.length === 1) {
+        const matchingCandidate = completionProgressCandidates[0]!;
+        const mappedResolution: RetroAchievementsShortcutResolution = {
+          status: "mapped",
+          appId,
+          raGameId: matchingCandidate.gameId,
+          title: matchingCandidate.title,
+          earned: matchingCandidate.earned,
+          total: matchingCandidate.total,
+          source: "completion-progress-title-match",
+          confidence: "exact",
+          ...(matchingCandidate.updatedAt !== undefined ? { updatedAt: matchingCandidate.updatedAt } : {}),
+        };
+        markRetroAchievementsShortcutResolution({
+          ...mappedResolution,
+          shortcutTitle: shortcutMetadata?.title,
+          shortcutPlatform,
+          resolutionSource: "ra-api-game-list",
+          resolutionReason: "completion-progress-title-match",
+          matchedTitle: matchingCandidate.title,
+          matchedPlatform: matchingCandidate.normalizedPlatformLabel,
+          matchedGameId: matchingCandidate.gameId,
+          candidateCount: completionProgressCandidates.length,
+        } as unknown as Parameters<typeof markRetroAchievementsShortcutResolution>[0]);
+        return mappedResolution;
+      }
+
+      completionProgressUnavailableReason =
+        completionProgressCandidates.length > 1
+          ? "ambiguous-retroachievements-shortcut-mapping"
+          : "no-retroachievements-shortcut-mapping";
+    }
+
+    const dashboardIdentityCandidates = snapshotEntry?.snapshot
+      ? collectRetroAchievementsDashboardIdentityCandidates(snapshotEntry.snapshot, snapshotUpdatedAt).filter(
+          (candidate) =>
+            matchesRetroAchievementsShortcutTitle(candidate.title, shortcutTitleCandidates) &&
+            matchesRetroAchievementsShortcutPlatform(
+              candidate.platformLabel,
+              shortcutPlatformCandidates,
+            ),
+        )
+      : [];
+
+    if (dashboardIdentityCandidates.length === 1) {
+      const matchingCandidate = dashboardIdentityCandidates[0]!;
+      let gameDetailState: Awaited<ReturnType<typeof loadDeckyGameDetailStateLazy>>;
+      try {
+        gameDetailState = await loadDeckyGameDetailStateLazy(
+          RETROACHIEVEMENTS_PROVIDER_ID,
+          matchingCandidate.gameId,
+          {
+            forceRefresh: false,
+          },
+        );
+      } catch {
+        const unavailableResolution: RetroAchievementsShortcutResolution = {
+          status: "unavailable",
+          appId,
+          reason: "ra-detail-unavailable",
+        };
+        markRetroAchievementsShortcutResolution({
+          ...unavailableResolution,
+          shortcutTitle: shortcutMetadata?.title,
+          shortcutPlatform,
+          resolutionSource: "dashboard-identity-detail",
+          resolutionReason: unavailableResolution.reason,
+          matchedTitle: matchingCandidate.title,
+          matchedPlatform: matchingCandidate.normalizedPlatformLabel,
+          matchedGameId: matchingCandidate.gameId,
+          candidateCount: dashboardIdentityCandidates.length,
+        } as unknown as Parameters<typeof markRetroAchievementsShortcutResolution>[0]);
+        return unavailableResolution;
+      }
+      const game = gameDetailState.data?.game;
+      if (
+        gameDetailState.status === "success" &&
+        game !== undefined &&
+        game.summary.totalCount !== undefined &&
+        game.summary.totalCount > 0
+      ) {
+        const mappedResolution: RetroAchievementsShortcutResolution = {
+          status: "mapped",
+          appId,
+          raGameId: game.gameId,
+          title: game.title,
+          earned: game.summary.unlockedCount,
+          total: game.summary.totalCount,
+          source: "dashboard-identity-detail",
+          confidence: "exact",
+          ...(gameDetailState.lastUpdatedAt !== undefined
+            ? { updatedAt: new Date(gameDetailState.lastUpdatedAt).toISOString() }
+            : {}),
+        };
+        markRetroAchievementsShortcutResolution({
+          ...mappedResolution,
+          shortcutTitle: shortcutMetadata?.title,
+          shortcutPlatform,
+          resolutionSource: "dashboard-identity-detail",
+          resolutionReason: "dashboard-identity-detail-title-match",
+          matchedTitle: matchingCandidate.title,
+          matchedPlatform: matchingCandidate.normalizedPlatformLabel,
+          matchedGameId: matchingCandidate.gameId,
+          candidateCount: dashboardIdentityCandidates.length,
+        } as unknown as Parameters<typeof markRetroAchievementsShortcutResolution>[0]);
+        return mappedResolution;
+      }
+
+      const unavailableResolution: RetroAchievementsShortcutResolution = {
+        status: "unavailable",
+        appId,
+        reason: "ra-detail-unavailable",
+      };
+      markRetroAchievementsShortcutResolution({
+        ...unavailableResolution,
+        shortcutTitle: shortcutMetadata?.title,
+        shortcutPlatform,
+        resolutionSource: "dashboard-identity-detail",
+        resolutionReason: unavailableResolution.reason,
+        matchedTitle: matchingCandidate.title,
+        matchedPlatform: matchingCandidate.normalizedPlatformLabel,
+        matchedGameId: matchingCandidate.gameId,
+        candidateCount: dashboardIdentityCandidates.length,
+      } as unknown as Parameters<typeof markRetroAchievementsShortcutResolution>[0]);
+      return unavailableResolution;
+    }
+
+    if (dashboardIdentityCandidates.length > 1) {
+      const unavailableResolution: RetroAchievementsShortcutResolution = {
+        status: "unavailable",
+        appId,
+        reason: "ambiguous-retroachievements-shortcut-mapping",
+      };
+      markRetroAchievementsShortcutResolution({
+        ...unavailableResolution,
+        shortcutTitle: shortcutMetadata?.title,
+        shortcutPlatform,
+        resolutionSource: "dashboard-identity-detail",
+        resolutionReason: unavailableResolution.reason,
+        candidateCount: dashboardIdentityCandidates.length,
+      } as unknown as Parameters<typeof markRetroAchievementsShortcutResolution>[0]);
+      return unavailableResolution;
+    }
+
+    const unavailableReason =
+      completionProgressUnavailableReason ?? "ra-cache-unavailable";
+    const unavailableResolution: RetroAchievementsShortcutResolution = {
+      status: "unavailable",
       appId,
-      raGameId: matchingCandidate.gameId,
-      title: matchingCandidate.title,
-      earned: matchingCandidate.earned,
-      total: matchingCandidate.total,
-      source: "shortcut-title-match",
-      confidence: "exact",
-      ...(matchingCandidate.updatedAt !== undefined ? { updatedAt: matchingCandidate.updatedAt } : {}),
+      reason: unavailableReason,
     };
-    markRetroAchievementsShortcutResolution(mappedResolution);
-    return mappedResolution;
+    markRetroAchievementsShortcutResolution({
+      ...unavailableResolution,
+      shortcutTitle: shortcutMetadata?.title,
+      shortcutPlatform,
+      resolutionSource: "unavailable",
+      resolutionReason: unavailableReason,
+    } as unknown as Parameters<typeof markRetroAchievementsShortcutResolution>[0]);
+    return unavailableResolution;
   } catch (error: unknown) {
     let message: string;
     if (error instanceof Error) {
@@ -436,7 +829,13 @@ async function resolveSummaryFromRetroAchievementsShortcut(
       appId,
       message,
     };
-    markRetroAchievementsShortcutResolution(errorResolution);
+    markRetroAchievementsShortcutResolution({
+      ...errorResolution,
+      shortcutTitle: undefined,
+      shortcutPlatform: undefined,
+      resolutionSource: "unavailable",
+      resolutionReason: message,
+    } as unknown as Parameters<typeof markRetroAchievementsShortcutResolution>[0]);
     return errorResolution;
   }
 }
@@ -449,14 +848,14 @@ export function formatDeckyGamePageAchievementBadgeLabel(
   }
 
   if (summary.status === "loading") {
-    return "🏆 …";
+    return "\u{1f3c6} \u2026";
   }
 
   if (summary.status !== "ready") {
     return undefined;
   }
 
-  return `🏆 ${String(summary.earned)} / ${String(summary.total)}`;
+  return `\u{1f3c6} ${String(summary.earned)} / ${String(summary.total)}`;
 }
 
 export function clearDeckyGamePageAchievementSummaryCacheForTests(): void {
@@ -519,7 +918,11 @@ export async function loadDeckyGamePageAchievementSummary(
         title: retroAchievementsShortcutResolution.title,
         earned: retroAchievementsShortcutResolution.earned,
         total: retroAchievementsShortcutResolution.total,
-        source: "snapshot",
+        source:
+          retroAchievementsShortcutResolution.source === "completion-progress-title-match" ||
+          retroAchievementsShortcutResolution.source === "dashboard-identity-detail"
+            ? "backend"
+            : "snapshot",
         ...(retroAchievementsShortcutResolution.updatedAt !== undefined
           ? { updatedAt: retroAchievementsShortcutResolution.updatedAt }
           : {}),
