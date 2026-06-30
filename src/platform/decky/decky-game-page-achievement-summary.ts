@@ -74,7 +74,8 @@ type RetroAchievementsShortcutResolution =
         | "ra-cache-unavailable"
         | "no-retroachievements-shortcut-mapping"
         | "ambiguous-retroachievements-shortcut-mapping"
-        | "ra-detail-unavailable";
+        | "ra-detail-unavailable"
+        | "ra-game-list-no-match";
     }
   | {
       readonly status: "error";
@@ -380,14 +381,24 @@ function normalizeRetroAchievementsTitleCandidates(value: string | undefined): r
       : undefined,
   ];
 
-  for (const candidate of rawCandidates) {
+  const addNormalizedCandidate = (candidate: string | undefined) => {
     if (candidate === undefined) {
-      continue;
+      return;
     }
 
     const normalized = normalizeRetroAchievementsTitleText(candidate);
     if (normalized.length > 0) {
       candidates.add(normalized);
+    }
+  };
+
+  for (const candidate of rawCandidates) {
+    addNormalizedCandidate(candidate);
+
+    const normalizedCandidate = candidate !== undefined ? normalizeRetroAchievementsTitleText(candidate) : "";
+    const sonicHeroMatch = normalizedCandidate.match(/^sonic the hedgehog (?=\d)/u);
+    if (sonicHeroMatch !== null) {
+      addNormalizedCandidate(normalizedCandidate.replace(/^sonic the hedgehog /u, "sonic "));
     }
   }
 
@@ -800,7 +811,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
     }
 
     const unavailableReason =
-      completionProgressUnavailableReason ?? "ra-cache-unavailable";
+      completionProgressUnavailableReason ?? "ra-game-list-no-match";
     const unavailableResolution: RetroAchievementsShortcutResolution = {
       status: "unavailable",
       appId,
@@ -812,6 +823,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
       shortcutPlatform,
       resolutionSource: "unavailable",
       resolutionReason: unavailableReason,
+      candidateCount: 0,
     } as unknown as Parameters<typeof markRetroAchievementsShortcutResolution>[0]);
     return unavailableResolution;
   } catch (error: unknown) {
