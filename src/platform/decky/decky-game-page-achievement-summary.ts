@@ -120,6 +120,21 @@ type RetroAchievementsShortcutResolutionDebugArgs = RetroAchievementsShortcutRes
   readonly candidateCount?: number | undefined;
   readonly detailLoadStatus?: string | undefined;
   readonly detailLoadReason?: string | undefined;
+  readonly clearKeys?: readonly (
+    | "apiMatchedGameId"
+    | "apiMatchedTitle"
+    | "returnedSummaryProvider"
+    | "returnedSummaryEarned"
+    | "returnedSummaryTotal"
+    | "detailGameId"
+    | "detailTitle"
+    | "detailPlatformLabel"
+    | "detailEarned"
+    | "detailEarnedHardcore"
+    | "detailTotal"
+    | "detailLoadStatus"
+    | "detailLoadReason"
+  )[];
 };
 
 interface CachedGamePageAchievementSummaryEntry {
@@ -693,7 +708,7 @@ const RETROACHIEVEMENTS_PLATFORM_LABEL_ALIASES = new Map<string, string>([
   ["megaduck", "Mega Duck"],
 ]);
 
-function normalizeRetroAchievementsPlatformLabel(value: string | undefined): string | undefined {
+export function normalizeRetroAchievementsPlatformLabel(value: string | undefined): string | undefined {
   if (typeof value !== "string") {
     return undefined;
   }
@@ -1331,6 +1346,36 @@ async function resolveSummaryFromRetroAchievementsShortcut(
     readonly steamSkippedBecauseShortcut?: boolean;
   },
 ): Promise<RetroAchievementsShortcutResolution> {
+  const staleResultDebugFieldsToClear: readonly (
+    | "apiMatchedGameId"
+    | "apiMatchedTitle"
+    | "returnedSummaryProvider"
+    | "returnedSummaryEarned"
+    | "returnedSummaryTotal"
+    | "detailGameId"
+    | "detailTitle"
+    | "detailPlatformLabel"
+    | "detailEarned"
+    | "detailEarnedHardcore"
+    | "detailTotal"
+    | "detailLoadStatus"
+    | "detailLoadReason"
+  )[] = [
+    "apiMatchedGameId",
+    "apiMatchedTitle",
+    "returnedSummaryProvider",
+    "returnedSummaryEarned",
+    "returnedSummaryTotal",
+    "detailGameId",
+    "detailTitle",
+    "detailPlatformLabel",
+    "detailEarned",
+    "detailEarnedHardcore",
+    "detailTotal",
+    "detailLoadStatus",
+    "detailLoadReason",
+  ];
+
   try {
     const shortcutMetadata = shortcutMetadataOverride ?? (await loadDeckySteamShortcutMetadata(appId));
     const rawShortcutTitle = shortcutMetadata?.title;
@@ -1360,6 +1405,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
       apiGameListRelevantCandidates: [],
       apiAmbiguousCandidateTitles: [],
       detailLoadAttempted: false,
+      clearKeys: staleResultDebugFieldsToClear,
     });
     const debugBase = {
       shortcutTitle: rawShortcutTitle,
@@ -1386,6 +1432,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
       markResolution(unavailableResolution, {
         resolutionSource: "unavailable",
         resolutionReason: unavailableResolution.reason,
+        clearKeys: staleResultDebugFieldsToClear,
       });
       return unavailableResolution;
     }
@@ -1403,6 +1450,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
     updateAchievementCompanionRaShortcutResolutionDebug({
       resolverStage: "dashboard-summary",
       dashboardSummaryCandidateCount: matchingCandidates.length,
+      clearKeys: staleResultDebugFieldsToClear,
     });
 
     if (matchingCandidates.length === 1) {
@@ -1428,6 +1476,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
         matchedPlatform: matchingCandidate.platformLabel,
         matchedGameId: matchingCandidate.gameId,
         candidateCount: matchingCandidates.length,
+        clearKeys: staleResultDebugFieldsToClear,
       });
       return mappedResolution;
     }
@@ -1442,6 +1491,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
         resolutionSource: "dashboard-snapshot",
         resolutionReason: unavailableResolution.reason,
         candidateCount: matchingCandidates.length,
+        clearKeys: staleResultDebugFieldsToClear,
       });
       return unavailableResolution;
     }
@@ -1468,6 +1518,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
           preferredCompletionProgressCandidates.length > 1
             ? preferredCompletionProgressCandidates.map((candidate) => candidate.title)
             : [],
+        clearKeys: staleResultDebugFieldsToClear,
       });
 
       if (preferredCompletionProgressCandidates.length === 1) {
@@ -1493,6 +1544,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
           matchedPlatform: matchingCandidate.normalizedPlatformLabel,
           matchedGameId: matchingCandidate.gameId,
           candidateCount: preferredCompletionProgressCandidates.length,
+          clearKeys: staleResultDebugFieldsToClear,
         });
         return mappedResolution;
       }
@@ -1507,6 +1559,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
           resolutionSource: "completion-progress-title-match",
           resolutionReason: unavailableResolution.reason,
           candidateCount: preferredCompletionProgressCandidates.length,
+          clearKeys: staleResultDebugFieldsToClear,
         });
         return unavailableResolution;
       }
@@ -1525,6 +1578,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
     updateAchievementCompanionRaShortcutResolutionDebug({
       resolverStage: "dashboard-identity-detail",
       dashboardIdentityCandidateCount: dashboardIdentityCandidates.length,
+      clearKeys: staleResultDebugFieldsToClear,
     });
 
     if (dashboardIdentityCandidates.length === 1) {
@@ -1553,6 +1607,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
           candidateCount: dashboardIdentityCandidates.length,
           detailLoadStatus: "error",
           detailLoadReason: unavailableResolution.reason,
+          clearKeys: staleResultDebugFieldsToClear,
         });
         return unavailableResolution;
       }
@@ -1605,6 +1660,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
         candidateCount: dashboardIdentityCandidates.length,
         detailLoadStatus: "unavailable",
         detailLoadReason: unavailableResolution.reason,
+        clearKeys: staleResultDebugFieldsToClear,
       });
       return unavailableResolution;
     }
@@ -1619,6 +1675,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
         resolutionSource: "dashboard-identity-detail",
         resolutionReason: unavailableResolution.reason,
         candidateCount: dashboardIdentityCandidates.length,
+        clearKeys: staleResultDebugFieldsToClear,
       });
       return unavailableResolution;
     }
@@ -1648,6 +1705,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
         resolutionSource: "ra-api-game-list",
         resolutionReason: unavailableResolution.reason,
         candidateCount: 0,
+        clearKeys: staleResultDebugFieldsToClear,
       });
       return unavailableResolution;
     }
@@ -1676,6 +1734,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
         matchingGameListCandidates.length > 1
           ? matchingGameListCandidates.map((candidate) => candidate.title)
           : [],
+      clearKeys: staleResultDebugFieldsToClear,
     });
 
     if (matchingGameListCandidates.length === 1) {
@@ -1684,6 +1743,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
         apiMatchedGameId: matchingCandidate.gameId,
         apiMatchedTitle: matchingCandidate.title,
         detailLoadAttempted: true,
+        clearKeys: staleResultDebugFieldsToClear,
       });
       let gameDetailState: Awaited<ReturnType<typeof loadDeckyGameDetailStateLazy>>;
       try {
@@ -1823,6 +1883,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
             }
           : {}),
         candidateCount: matchingGameListCandidates.length,
+        clearKeys: staleResultDebugFieldsToClear,
       });
       return unavailableResolution;
     }
@@ -1843,6 +1904,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
           }
         : {}),
       candidateCount: 0,
+      clearKeys: staleResultDebugFieldsToClear,
     });
     return unavailableResolution;
   } catch (error: unknown) {
@@ -1865,6 +1927,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
       finalStatus: "error",
       finalReason: message,
       thrownErrorMessage: message,
+      clearKeys: staleResultDebugFieldsToClear,
     });
     markRetroAchievementsShortcutResolution({
       ...errorResolution,
@@ -1872,6 +1935,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
       resolutionReason: message,
       detailLoadStatus: "error",
       detailLoadReason: message,
+      clearKeys: staleResultDebugFieldsToClear,
     });
     return errorResolution;
   }

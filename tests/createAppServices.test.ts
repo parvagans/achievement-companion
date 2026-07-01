@@ -125,6 +125,7 @@ import {
   clearDeckyGamePageAchievementSummaryCacheForTests,
   formatDeckyGamePageAchievementBadgeLabel,
   loadDeckyGamePageAchievementSummary,
+  normalizeRetroAchievementsPlatformLabel,
 } from "../src/platform/decky/decky-game-page-achievement-summary";
 import { loadDeckySteamShortcutMetadata } from "../src/platform/decky/decky-steam-shortcut-metadata";
 import {
@@ -10267,6 +10268,11 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(summarySource, /matchesRetroAchievementsShortcutTitle/u);
   assert.match(summarySource, /matchesRetroAchievementsShortcutPlatform/u);
   assert.match(summarySource, /normalizeRetroAchievementsPlatformLabel/u);
+  assert.match(summarySource, /nintendo game boy advance/u);
+  assert.match(summarySource, /Game Boy Advance/u);
+  assert.match(summarySource, /sega genesis/u);
+  assert.match(summarySource, /PlayStation 2/u);
+  assert.match(summarySource, /sony playstation 2/u);
   assert.match(summarySource, /normalizeRetroAchievementsShortcutTitleCandidates/u);
   assert.match(summarySource, /collectRetroAchievementsCompletionProgressCandidates/u);
   assert.match(summarySource, /collectRetroAchievementsDashboardCandidates/u);
@@ -10876,6 +10882,167 @@ test("game page achievement summary writes FFX badge pipeline and RetroAchieveme
     assert.equal(resolverDebug.returnedSummaryProvider, "retroachievements");
     assert.equal(resolverDebug.returnedSummaryEarned, 97);
     assert.equal(resolverDebug.returnedSummaryTotal, 249);
+  });
+});
+
+test("decky retroachievements platform labels normalize common SRM and canonical labels", () => {
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo Game Boy Advance"), "Game Boy Advance");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Sega Genesis/Mega Drive"), "Genesis/Mega Drive");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Sony PlayStation 2"), "PlayStation 2");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Game Boy Advance"), "Game Boy Advance");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Genesis/Mega Drive"), "Genesis/Mega Drive");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("PlayStation 2"), "PlayStation 2");
+});
+
+test("game page achievement summary clears stale RetroAchievements debug fields after a later no-match result", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    clearDeckyGamePageAchievementSummaryCacheForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2874315920": {
+        title: "Final Fantasy X International",
+        platformTag: "Sony PlayStation 2",
+        tags: ["Sony PlayStation 2"],
+        exe: '"/usr/bin/pcsx2"',
+        startDir: "/home/deck/Emulation/roms/ps2",
+      },
+      "2874315921": {
+        title: "Final Fantasy X International",
+        platformTag: "Sony PlayStation 2",
+        tags: ["Sony PlayStation 2"],
+        exe: '"/usr/bin/pcsx2"',
+        startDir: "/home/deck/Emulation/roms/ps2",
+      },
+      "2217041999": {
+        title: "No Match Game",
+        platformTag: "Sony PlayStation 2",
+        tags: ["Sony PlayStation 2"],
+      },
+    };
+    deckyBackendTestState.retroAchievements.completionProgressEntries = [];
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 7,
+        Name: "PlayStation",
+        IconURL: "https://example.com/ps1.png",
+      },
+      {
+        ID: 21,
+        Name: "PlayStation 2",
+        IconURL: "https://example.com/ps2.png",
+      },
+    ];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "21": [
+        {
+          GameID: 2778,
+          Title: "Final Fantasy X: International",
+          ConsoleID: 21,
+          ConsoleName: "PlayStation 2",
+        },
+        {
+          GameID: 22629,
+          Title: "Final Fantasy X: International [Subset - No Sphere Grid]",
+          ConsoleID: 21,
+          ConsoleName: "PlayStation 2",
+        },
+        {
+          GameID: 101,
+          Title: "Final Fantasy XII",
+          ConsoleID: 21,
+          ConsoleName: "PlayStation 2",
+        },
+      ],
+    };
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      "2778": {
+        ID: 2778,
+        Title: "Final Fantasy X: International",
+        ConsoleID: 21,
+        ConsoleName: "PlayStation 2",
+        NumAchievements: 249,
+        NumAwardedToUser: 97,
+        NumAwardedToUserHardcore: 4,
+        UserCompletion: "38.96%",
+        UserCompletionHardcore: "1.61%",
+        HighestAwardKind: "beaten",
+        Achievements: [
+          {
+            ID: 1,
+            Title: "Besaid Island",
+            NumAwarded: 1,
+            NumAwardedHardcore: 1,
+          },
+        ],
+      },
+    };
+
+    const readySummary = await loadDeckyGamePageAchievementSummary("2874315920");
+    assert.equal(readySummary.status, "ready", "expected ready summary for FFX International");
+    if (readySummary.status !== "ready") {
+      return;
+    }
+
+    const readyBadgeDebug = JSON.parse(
+      readDeckyStorageText(ACHIEVEMENT_COMPANION_LAST_GAME_PAGE_BADGE_DEBUG_STORAGE_KEY) ?? "{}",
+    ) as ReturnType<typeof getAchievementCompanionLastGamePageBadgeDebug>;
+    const readyResolverDebug = JSON.parse(
+      readDeckyStorageText(ACHIEVEMENT_COMPANION_LAST_RA_SHORTCUT_RESOLUTION_DEBUG_STORAGE_KEY) ?? "{}",
+    ) as ReturnType<typeof getAchievementCompanionLastRaShortcutResolutionDebug>;
+
+    assert.equal(readyBadgeDebug.summaryStatus, "ready");
+    assert.equal(readyBadgeDebug.summaryGameId, "2778");
+    assert.equal(readyBadgeDebug.summaryTitle, "Final Fantasy X: International");
+    assert.equal(readyBadgeDebug.summaryEarned, 97);
+    assert.equal(readyBadgeDebug.summaryTotal, 249);
+    assert.equal(readyResolverDebug.finalStatus, "mapped");
+    assert.equal(readyResolverDebug.apiMatchedGameId, "2778");
+    assert.equal(readyResolverDebug.apiMatchedTitle, "Final Fantasy X: International");
+    assert.equal(readyResolverDebug.returnedSummaryEarned, 97);
+    assert.equal(readyResolverDebug.returnedSummaryTotal, 249);
+
+    const unavailableSummary = await loadDeckyGamePageAchievementSummary("2217041999");
+    assert.deepStrictEqual(unavailableSummary, {
+      status: "unavailable",
+      appId: "2217041999",
+      reason: "ra-game-list-no-match",
+    });
+
+    const badgeDebugText = readDeckyStorageText(
+      ACHIEVEMENT_COMPANION_LAST_GAME_PAGE_BADGE_DEBUG_STORAGE_KEY,
+    );
+    const resolverDebugText = readDeckyStorageText(
+      ACHIEVEMENT_COMPANION_LAST_RA_SHORTCUT_RESOLUTION_DEBUG_STORAGE_KEY,
+    );
+    assert.notEqual(badgeDebugText, undefined);
+    assert.notEqual(resolverDebugText, undefined);
+
+    const badgeDebug = JSON.parse(badgeDebugText ?? "{}") as ReturnType<
+      typeof getAchievementCompanionLastGamePageBadgeDebug
+    >;
+    const resolverDebug = JSON.parse(resolverDebugText ?? "{}") as ReturnType<
+      typeof getAchievementCompanionLastRaShortcutResolutionDebug
+    >;
+
+    assert.equal(badgeDebug.summaryStatus, "unavailable");
+    assert.equal(badgeDebug.summaryReason, "ra-game-list-no-match");
+    assert.notEqual(badgeDebug.summaryGameId, "2778");
+    assert.notEqual(badgeDebug.summaryTitle, "Final Fantasy X: International");
+    assert.notEqual(badgeDebug.summaryEarned, 97);
+    assert.notEqual(badgeDebug.summaryTotal, 249);
+    assert.equal(resolverDebug.finalStatus, "unavailable");
+    assert.equal(resolverDebug.finalReason, "ra-game-list-no-match");
+    assert.equal(resolverDebug.apiMatchedGameId, undefined);
+    assert.equal(resolverDebug.apiMatchedTitle, undefined);
+    assert.equal(resolverDebug.returnedSummaryProvider, undefined);
+    assert.equal(resolverDebug.returnedSummaryEarned, undefined);
+    assert.equal(resolverDebug.returnedSummaryTotal, undefined);
   });
 });
 
