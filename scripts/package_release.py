@@ -25,6 +25,8 @@ REQUIRED_FRONTEND_MARKERS: tuple[str, ...] = (
   "retroachievements",
   "completion-progress-title-match",
   "dashboard-identity-detail",
+  "API_GetGameList.php",
+  "ra-api-game-detail",
   "no-retroachievements-shortcut-mapping",
   "ra-game-list-no-match",
 )

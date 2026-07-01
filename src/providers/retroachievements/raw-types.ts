@@ -21,6 +21,27 @@ export interface RawRetroAchievementsSystemResponse {
   readonly isGameSystem?: number | boolean | string;
 }
 
+// Assumption: the game-list endpoint returns one record per game for a system, with
+// enough identity metadata to match titles and platforms conservatively.
+export interface RawRetroAchievementsGameListEntry {
+  readonly ID?: number | string;
+  readonly id?: number | string;
+  readonly GameID?: number | string;
+  readonly gameId?: number | string;
+  readonly Title?: string;
+  readonly title?: string;
+  readonly ConsoleID?: number | string;
+  readonly consoleId?: number | string;
+  readonly ConsoleName?: string;
+  readonly consoleName?: string;
+  readonly ImageIcon?: string;
+  readonly imageIcon?: string;
+  readonly NumAchievements?: number | string;
+  readonly numAchievements?: number | string;
+  readonly ParentGameID?: number | string | null;
+  readonly parentGameId?: number | string | null;
+}
+
 // Assumption: the Profile endpoint only supplies identity/basic account metadata.
 export interface RawRetroAchievementsProfileResponse {
   readonly User?: string;

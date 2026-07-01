@@ -41,7 +41,7 @@ function parseCompletionProgressSubsetTitle(
   return undefined;
 }
 
-function stripCompletionProgressSubsetSuffix(title: string): string | undefined {
+export function stripCompletionProgressSubsetSuffix(title: string): string | undefined {
   return parseCompletionProgressSubsetTitle(title)?.strippedTitle;
 }
 

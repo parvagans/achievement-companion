@@ -36,6 +36,7 @@ import {
   markAchievementCompanionGamePageBadgeActivated,
   markAchievementCompanionGamePageAchievementBadgeClicked,
   markAchievementCompanionGamePageAchievementBadgeRendered,
+  markAchievementCompanionGamePageBadgeHidden,
   markAchievementCompanionGamePageRouteBadgeInserted,
   markAchievementCompanionGamePageRouteBadgePatchCallback,
   markAchievementCompanionGamePageRouteBadgePatchHandlerFired,
@@ -123,6 +124,7 @@ interface DeckyGamePageAchievementRouteBadgePlacementState {
   readonly collisionCount: number;
   readonly candidateCount: number;
   readonly fallbackUsed: boolean;
+  readonly rejectedReasons: readonly string[];
 }
 
 interface DeckyGamePageAchievementRelativeRect {
@@ -248,6 +250,7 @@ function getDeckyGamePageAchievementRouteBadgePlacementDefault():
     collisionCount: 0,
     candidateCount: DECKY_GAME_PAGE_ROUTE_BADGE_CANDIDATE_SLOTS.length,
     fallbackUsed: false,
+    rejectedReasons: [],
   };
 }
 
@@ -312,6 +315,13 @@ function resolveDeckyGamePageRetroSystemIconMetadata(
 ): DeckyGamePageRetroSystemIconMetadata | undefined {
   if (summary?.status !== "ready" || summary.provider !== "retroachievements") {
     return undefined;
+  }
+
+  if (summary.platformLabel !== undefined || summary.systemIconUrl !== undefined) {
+    return {
+      ...(summary.platformLabel !== undefined ? { platformLabel: summary.platformLabel } : {}),
+      ...(summary.systemIconUrl !== undefined ? { systemIconUrl: summary.systemIconUrl } : {}),
+    };
   }
 
   const snapshot = readDeckyDashboardSnapshotCacheEntry(RETROACHIEVEMENTS_PROVIDER_ID)?.snapshot;
@@ -551,6 +561,7 @@ function chooseDeckyGamePageAchievementRouteBadgePlacement(
       DECKY_GAME_PAGE_ROUTE_BADGE_COLLISION_PADDING,
     ),
   ).length;
+  const rejectedReasons: string[] = [];
 
   for (const candidateSlot of DECKY_GAME_PAGE_ROUTE_BADGE_CANDIDATE_SLOTS) {
     const candidateRect = createDeckyGamePageAchievementRouteBadgeCandidateRect(
@@ -572,8 +583,11 @@ function chooseDeckyGamePageAchievementRouteBadgePlacement(
         collisionCount,
         candidateCount: DECKY_GAME_PAGE_ROUTE_BADGE_CANDIDATE_SLOTS.length,
         fallbackUsed: DECKY_GAME_PAGE_ROUTE_BADGE_FALLBACK_SLOT_IDS.has(candidateSlot.id),
+        rejectedReasons,
       };
     }
+
+    rejectedReasons.push(`${candidateSlot.id}:collision-${collisionCount}`);
 
     if (candidateSlot.id === fallbackSlot.id) {
       fallbackCollisionCount = collisionCount;
@@ -585,6 +599,7 @@ function chooseDeckyGamePageAchievementRouteBadgePlacement(
     collisionCount: fallbackCollisionCount,
     candidateCount: DECKY_GAME_PAGE_ROUTE_BADGE_CANDIDATE_SLOTS.length,
     fallbackUsed: true,
+    rejectedReasons,
   };
 }
 
@@ -693,7 +708,8 @@ function useDeckyGamePageAchievementRouteBadgePlacement(): {
         previousPlacement.slotId === nextPlacement.slotId &&
         previousPlacement.collisionCount === nextPlacement.collisionCount &&
         previousPlacement.candidateCount === nextPlacement.candidateCount &&
-        previousPlacement.fallbackUsed === nextPlacement.fallbackUsed
+        previousPlacement.fallbackUsed === nextPlacement.fallbackUsed &&
+        previousPlacement.rejectedReasons.join("|") === nextPlacement.rejectedReasons.join("|")
       ) {
         return previousPlacement;
       }
@@ -706,6 +722,7 @@ function useDeckyGamePageAchievementRouteBadgePlacement(): {
       nextPlacement.collisionCount,
       nextPlacement.candidateCount,
       nextPlacement.fallbackUsed,
+      nextPlacement.rejectedReasons,
     );
   }, []);
 
@@ -881,11 +898,20 @@ export function DeckyGamePageAchievementRouteBadge({
 
   useEffect(() => {
     if (badgeLabel === undefined) {
+      markAchievementCompanionGamePageBadgeHidden(
+        summary === undefined
+          ? "summary-unset"
+          : summary.status === "unavailable"
+            ? summary.reason
+            : summary.status === "error"
+              ? summary.message
+              : "badge-label-unavailable",
+      );
       return;
     }
 
     markAchievementCompanionGamePageRouteBadgeRendered(appId);
-  }, [appId, badgeLabel]);
+  }, [appId, badgeLabel, summary]);
 
   useEffect(() => {
     markAchievementCompanionGamePageBadgeSystemIcon({
