@@ -446,35 +446,270 @@ function matchesRetroAchievementsShortcutTitle(
   );
 }
 
+const RETROACHIEVEMENTS_CANONICAL_SYSTEM_NAMES = [
+  "Genesis/Mega Drive",
+  "Nintendo 64",
+  "SNES/Super Famicom",
+  "Game Boy",
+  "Game Boy Advance",
+  "Game Boy Color",
+  "NES/Famicom",
+  "PC Engine/TurboGrafx-16",
+  "Sega CD",
+  "32X",
+  "Master System",
+  "PlayStation",
+  "Atari Lynx",
+  "Neo Geo Pocket",
+  "Game Gear",
+  "GameCube",
+  "Atari Jaguar",
+  "Nintendo DS",
+  "Wii",
+  "Wii U",
+  "PlayStation 2",
+  "Xbox",
+  "Magnavox Odyssey 2",
+  "Pokemon Mini",
+  "Atari 2600",
+  "DOS",
+  "Arcade",
+  "Virtual Boy",
+  "MSX",
+  "Commodore 64",
+  "ZX81",
+  "Oric",
+  "SG-1000",
+  "VIC-20",
+  "Amiga",
+  "Atari ST",
+  "Amstrad CPC",
+  "Apple II",
+  "Saturn",
+  "Dreamcast",
+  "PlayStation Portable",
+  "Philips CD-i",
+  "3DO Interactive Multiplayer",
+  "ColecoVision",
+  "Intellivision",
+  "Vectrex",
+  "PC-8000/8800",
+  "PC-9800",
+  "PC-FX",
+  "Atari 5200",
+  "Atari 7800",
+  "Sharp X68000",
+  "WonderSwan",
+  "Cassette Vision",
+  "Super Cassette Vision",
+  "Neo Geo CD",
+  "Fairchild Channel F",
+  "FM Towns",
+  "ZX Spectrum",
+  "Game & Watch",
+  "Nokia N-Gage",
+  "Nintendo 3DS",
+  "Watara Supervision",
+  "Sharp X1",
+  "TIC-80",
+  "Thomson TO8",
+  "PC-6000",
+  "Sega Pico",
+  "Mega Duck",
+  "Zeebo",
+  "Arduboy",
+  "WASM-4",
+  "Arcadia 2001",
+  "Interton VC 4000",
+  "Elektor TV Games Computer",
+  "PC Engine CD/TurboGrafx-CD",
+  "Atari Jaguar CD",
+  "Nintendo DSi",
+  "TI-83",
+  "Uzebox",
+  "Famicom Disk System",
+  "Hubs",
+  "Events",
+  "Standalone",
+] as const;
+
+function normalizeRetroAchievementsPlatformAliasKey(value: string): string {
+  return value
+    .normalize("NFKC")
+    .trim()
+    .toLowerCase()
+    .replace(/[™®]/gu, "")
+    .replace(/&/gu, " and ")
+    .replace(/\+/gu, " plus ")
+    .replace(/[/_():[\]{}.,]/gu, " ")
+    .replace(/[‐-‒–—-]/gu, " ")
+    .replace(/\s+/gu, " ")
+    .trim();
+}
+
+const RETROACHIEVEMENTS_PLATFORM_LABEL_ALIASES = new Map<string, string>([
+  ...RETROACHIEVEMENTS_CANONICAL_SYSTEM_NAMES.map(
+    (systemName) => [normalizeRetroAchievementsPlatformAliasKey(systemName), systemName] as const,
+  ),
+
+  ["sega genesis", "Genesis/Mega Drive"],
+  ["genesis", "Genesis/Mega Drive"],
+  ["mega drive", "Genesis/Mega Drive"],
+  ["megadrive", "Genesis/Mega Drive"],
+  ["sega mega drive", "Genesis/Mega Drive"],
+  ["sega megadrive", "Genesis/Mega Drive"],
+  ["sega genesis", "Genesis/Mega Drive"],
+  ["genesis", "Genesis/Mega Drive"],
+  ["mega drive", "Genesis/Mega Drive"],
+  ["megadrive", "Genesis/Mega Drive"],
+  ["sega mega drive", "Genesis/Mega Drive"],
+  ["sega megadrive", "Genesis/Mega Drive"],
+  ["sega genesis mega drive", "Genesis/Mega Drive"],
+  ["sega mega drive genesis", "Genesis/Mega Drive"],
+  ["sega genesis megadrive", "Genesis/Mega Drive"],
+  ["sega megadrive genesis", "Genesis/Mega Drive"],
+
+  ["super nintendo", "SNES/Super Famicom"],
+  ["super nintendo entertainment system", "SNES/Super Famicom"],
+  ["snes", "SNES/Super Famicom"],
+  ["super famicom", "SNES/Super Famicom"],
+
+  ["nintendo entertainment system", "NES/Famicom"],
+  ["nes", "NES/Famicom"],
+  ["famicom", "NES/Famicom"],
+
+  ["n64", "Nintendo 64"],
+
+  ["nintendo game boy", "Game Boy"],
+  ["gameboy", "Game Boy"],
+  ["gb", "Game Boy"],
+
+  ["nintendo game boy color", "Game Boy Color"],
+  ["gameboy color", "Game Boy Color"],
+  ["gbc", "Game Boy Color"],
+
+  ["nintendo game boy advance", "Game Boy Advance"],
+  ["gameboy advance", "Game Boy Advance"],
+  ["gba", "Game Boy Advance"],
+
+  ["pc engine", "PC Engine/TurboGrafx-16"],
+  ["pcengine", "PC Engine/TurboGrafx-16"],
+  ["turbografx 16", "PC Engine/TurboGrafx-16"],
+  ["turbografx16", "PC Engine/TurboGrafx-16"],
+  ["tg16", "PC Engine/TurboGrafx-16"],
+
+  ["pc engine cd", "PC Engine CD/TurboGrafx-CD"],
+  ["turbografx cd", "PC Engine CD/TurboGrafx-CD"],
+  ["turbografxcd", "PC Engine CD/TurboGrafx-CD"],
+  ["tg cd", "PC Engine CD/TurboGrafx-CD"],
+
+  ["sega master system", "Master System"],
+  ["sms", "Master System"],
+
+  ["sega game gear", "Game Gear"],
+  ["gg", "Game Gear"],
+
+  ["sega saturn", "Saturn"],
+  ["sega dreamcast", "Dreamcast"],
+
+  ["sony playstation", "PlayStation"],
+  ["playstation 1", "PlayStation"],
+  ["ps1", "PlayStation"],
+  ["psx", "PlayStation"],
+
+  ["sony playstation 2", "PlayStation 2"],
+  ["ps2", "PlayStation 2"],
+
+  ["sony playstation portable", "PlayStation Portable"],
+  ["psp", "PlayStation Portable"],
+
+  ["nintendo gamecube", "GameCube"],
+  ["nintendo game cube", "GameCube"],
+  ["game cube", "GameCube"],
+  ["gc", "GameCube"],
+
+  ["nintendo ds", "Nintendo DS"],
+  ["nds", "Nintendo DS"],
+  ["ds", "Nintendo DS"],
+
+  ["nintendo 3ds", "Nintendo 3DS"],
+  ["3ds", "Nintendo 3DS"],
+
+  ["nintendo dsi", "Nintendo DSi"],
+  ["dsi", "Nintendo DSi"],
+
+  ["sega sg 1000", "SG-1000"],
+  ["sega sg1000", "SG-1000"],
+  ["sg 1000", "SG-1000"],
+  ["sg1000", "SG-1000"],
+
+  ["neo geo pocket", "Neo Geo Pocket"],
+  ["neogeo pocket", "Neo Geo Pocket"],
+  ["neo geo cd", "Neo Geo CD"],
+  ["neogeo cd", "Neo Geo CD"],
+
+  ["game and watch", "Game & Watch"],
+  ["game watch", "Game & Watch"],
+
+  ["mame", "Arcade"],
+  ["dos pc", "DOS"],
+  ["pc dos", "DOS"],
+
+  ["commodore c64", "Commodore 64"],
+  ["c64", "Commodore 64"],
+
+  ["zx spectrum", "ZX Spectrum"],
+  ["spectrum", "ZX Spectrum"],
+
+  ["atari lynx", "Atari Lynx"],
+  ["lynx", "Atari Lynx"],
+
+  ["atari jaguar", "Atari Jaguar"],
+  ["jaguar", "Atari Jaguar"],
+  ["atari jaguar cd", "Atari Jaguar CD"],
+  ["jaguar cd", "Atari Jaguar CD"],
+
+  ["atari st", "Atari ST"],
+  ["atari 2600", "Atari 2600"],
+  ["atari 5200", "Atari 5200"],
+  ["atari 7800", "Atari 7800"],
+
+  ["3do", "3DO Interactive Multiplayer"],
+  ["coleco vision", "ColecoVision"],
+  ["colecovision", "ColecoVision"],
+  ["mattel intellivision", "Intellivision"],
+  ["odyssey 2", "Magnavox Odyssey 2"],
+  ["videopac", "Magnavox Odyssey 2"],
+  ["philips videopac", "Magnavox Odyssey 2"],
+  ["pokemon mini", "Pokemon Mini"],
+  ["poke mini", "Pokemon Mini"],
+  ["pokemini", "Pokemon Mini"],
+
+  ["wonderswan", "WonderSwan"],
+  ["wonder swan", "WonderSwan"],
+
+  ["sega pico", "Sega Pico"],
+  ["mega duck", "Mega Duck"],
+  ["megaduck", "Mega Duck"],
+]);
+
 function normalizeRetroAchievementsPlatformLabel(value: string | undefined): string | undefined {
   if (typeof value !== "string") {
     return undefined;
   }
 
-  const normalized = value.normalize("NFKC").trim().replace(/\s+/gu, " ").toLowerCase();
-  if (normalized.length === 0) {
+  const trimmed = value.normalize("NFKC").trim().replace(/\s+/gu, " ");
+  if (trimmed.length === 0) {
     return undefined;
   }
 
-  switch (normalized) {
-    case "sega genesis/mega drive":
-    case "genesis":
-    case "mega drive":
-      return "Genesis/Mega Drive";
-    case "sony playstation":
-    case "playstation":
-      return "PlayStation";
-    case "sony playstation 2":
-    case "playstation 2":
-      return "PlayStation 2";
-    case "sony playstation portable":
-    case "playstation portable":
-      return "PlayStation Portable";
-    case "nintendo 64":
-      return "Nintendo 64";
-    default:
-      return value.trim();
+  const aliasKey = normalizeRetroAchievementsPlatformAliasKey(trimmed);
+  const alias = RETROACHIEVEMENTS_PLATFORM_LABEL_ALIASES.get(aliasKey);
+  if (alias !== undefined) {
+    return alias;
   }
+
+  return trimmed;
 }
 
 function parseRetroAchievementsConsoleIdentifier(value: unknown): string | undefined {
