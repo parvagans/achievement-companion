@@ -10886,12 +10886,121 @@ test("game page achievement summary writes FFX badge pipeline and RetroAchieveme
 });
 
 test("decky retroachievements platform labels normalize common SRM and canonical labels", () => {
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo SNES (Super Nintendo)"), "SNES/Super Famicom");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo SNES"), "SNES/Super Famicom");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("SFC"), "SNES/Super Famicom");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo NES (Nintendo Entertainment System)"), "NES/Famicom");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo NES"), "NES/Famicom");
   assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo Game Boy Advance"), "Game Boy Advance");
   assert.equal(normalizeRetroAchievementsPlatformLabel("Sega Genesis/Mega Drive"), "Genesis/Mega Drive");
   assert.equal(normalizeRetroAchievementsPlatformLabel("Sony PlayStation 2"), "PlayStation 2");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("SNES/Super Famicom"), "SNES/Super Famicom");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("NES/Famicom"), "NES/Famicom");
   assert.equal(normalizeRetroAchievementsPlatformLabel("Game Boy Advance"), "Game Boy Advance");
   assert.equal(normalizeRetroAchievementsPlatformLabel("Genesis/Mega Drive"), "Genesis/Mega Drive");
   assert.equal(normalizeRetroAchievementsPlatformLabel("PlayStation 2"), "PlayStation 2");
+});
+
+test("game page achievement summary resolves Cool Spot on Nintendo SNES through RetroAchievements API game list fallback", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    clearDeckyGamePageAchievementSummaryCacheForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2493414752": {
+        title: "Cool Spot",
+        platformTag: "Nintendo SNES (Super Nintendo)",
+        platformLabel: "Nintendo SNES (Super Nintendo)",
+        tags: ["Nintendo SNES (Super Nintendo)"],
+      },
+    };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 3,
+        Name: "SNES/Super Famicom",
+        IconURL: "https://example.com/snes.png",
+      },
+    ];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "3": [
+        {
+          GameID: 864,
+          Title: "Cool Spot",
+          ConsoleID: 3,
+          ConsoleName: "SNES/Super Famicom",
+        },
+      ],
+    };
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      "864": {
+        ID: 864,
+        Title: "Cool Spot",
+        ConsoleID: 3,
+        ConsoleName: "SNES/Super Famicom",
+        NumAchievements: 27,
+        NumAwardedToUser: 0,
+        NumAwardedToUserHardcore: 0,
+        UserCompletion: "0.00%",
+        UserCompletionHardcore: "0.00%",
+        HighestAwardKind: "played",
+        Achievements: [
+          {
+            ID: 1,
+            Title: "First Step",
+            NumAwarded: 0,
+            NumAwardedHardcore: 0,
+          },
+        ],
+      },
+    };
+
+    const summary = await loadDeckyGamePageAchievementSummary("2493414752");
+    assert.equal(summary.status, "ready");
+    if (summary.status !== "ready") {
+      return;
+    }
+    assert.equal(summary.provider, "retroachievements");
+    assert.equal(summary.appId, "2493414752");
+    assert.equal(summary.gameId, "864");
+    assert.equal(summary.title, "Cool Spot");
+    assert.equal(summary.platformLabel, "SNES/Super Famicom");
+    assert.equal(summary.systemIconUrl, "https://example.com/snes.png");
+    assert.equal(summary.earned, 0);
+    assert.equal(summary.total, 27);
+    assert.equal(summary.source, "backend");
+    assert.notEqual(summary.updatedAt, undefined);
+
+    const runtimeDebugState = getAchievementCompanionRuntimeDebugState();
+    assert.equal(runtimeDebugState.lastRetroAchievementsShortcutAppId, "2493414752");
+    assert.equal(runtimeDebugState.lastRetroAchievementsShortcutTitle, "Cool Spot");
+    assert.equal(runtimeDebugState.lastRetroAchievementsShortcutPlatform, "Nintendo SNES (Super Nintendo)");
+    assert.equal(runtimeDebugState.lastRetroAchievementsNormalizedPlatform, "SNES/Super Famicom");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolutionSource, "ra-api-game-detail");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolutionReason, "ra-api-game-list-title-match");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolvedSystemName, "SNES/Super Famicom");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolvedConsoleId, "3");
+    assert.equal(runtimeDebugState.lastRetroAchievementsMatchedTitle, "Cool Spot");
+    assert.equal(runtimeDebugState.lastRetroAchievementsMatchedGameId, "864");
+    assert.equal(runtimeDebugState.lastRetroAchievementsDetailLoadStatus, "success");
+    assert.equal(runtimeDebugState.lastRetroAchievementsCandidateCount, 1);
+
+    const resolverDebug = JSON.parse(
+      readDeckyStorageText(ACHIEVEMENT_COMPANION_LAST_RA_SHORTCUT_RESOLUTION_DEBUG_STORAGE_KEY) ?? "{}",
+    ) as ReturnType<typeof getAchievementCompanionLastRaShortcutResolutionDebug>;
+    assert.equal(resolverDebug.shortcutPlatform, "Nintendo SNES (Super Nintendo)");
+    assert.equal(resolverDebug.normalizedPlatform, "SNES/Super Famicom");
+    assert.equal(resolverDebug.apiSystemsResolvedConsoleId, "3");
+    assert.equal(resolverDebug.apiMatchedGameId, "864");
+    assert.equal(resolverDebug.apiMatchedTitle, "Cool Spot");
+    assert.equal(resolverDebug.finalStatus, "mapped");
+    assert.equal(resolverDebug.returnedSummaryEarned, 0);
+    assert.equal(resolverDebug.returnedSummaryTotal, 27);
+  });
 });
 
 test("game page achievement summary clears stale RetroAchievements debug fields after a later no-match result", async () => {
