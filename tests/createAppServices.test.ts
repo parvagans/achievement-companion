@@ -10886,18 +10886,58 @@ test("game page achievement summary writes FFX badge pipeline and RetroAchieveme
 });
 
 test("decky retroachievements platform labels normalize common SRM and canonical labels", () => {
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo Entertainment System"), "NES/Famicom");
   assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo SNES (Super Nintendo)"), "SNES/Super Famicom");
+  assert.equal(
+    normalizeRetroAchievementsPlatformLabel("Nintendo SNES (Super Nintendo) HD - bsnes-hd"),
+    "SNES/Super Famicom",
+  );
   assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo SNES"), "SNES/Super Famicom");
   assert.equal(normalizeRetroAchievementsPlatformLabel("SFC"), "SNES/Super Famicom");
   assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo NES (Nintendo Entertainment System)"), "NES/Famicom");
   assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo NES"), "NES/Famicom");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo Game Boy"), "Game Boy");
   assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo Game Boy Advance"), "Game Boy Advance");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo Game Boy Color"), "Game Boy Color");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo GameCube"), "GameCube");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo 64"), "Nintendo 64");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo DS"), "Nintendo DS");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo DS - melonDS (Standalone)"), "Nintendo DS");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo 3DS - Azahar (Standalone)"), "Nintendo 3DS");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo Virtual Boy"), "Virtual Boy");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo Wii"), "Wii");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo Wii U - Cemu Native"), "Wii U");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Sega CD/Mega CD"), "Sega CD");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Sega Game Gear"), "Game Gear");
   assert.equal(normalizeRetroAchievementsPlatformLabel("Sega Genesis/Mega Drive"), "Genesis/Mega Drive");
+  assert.equal(
+    normalizeRetroAchievementsPlatformLabel("Sega Genesis/Mega Drive WideScreen"),
+    "Genesis/Mega Drive",
+  );
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Sega Master System"), "Master System");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("NEC PC Engine/TurboGrafx 16"), "PC Engine/TurboGrafx-16");
+  assert.equal(
+    normalizeRetroAchievementsPlatformLabel("NEC PC Engine/TurboGrafx 16 CD"),
+    "PC Engine CD/TurboGrafx-CD",
+  );
   assert.equal(normalizeRetroAchievementsPlatformLabel("Sony PlayStation 2"), "PlayStation 2");
   assert.equal(normalizeRetroAchievementsPlatformLabel("SNES/Super Famicom"), "SNES/Super Famicom");
   assert.equal(normalizeRetroAchievementsPlatformLabel("NES/Famicom"), "NES/Famicom");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Game Boy"), "Game Boy");
   assert.equal(normalizeRetroAchievementsPlatformLabel("Game Boy Advance"), "Game Boy Advance");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Game Boy Color"), "Game Boy Color");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("GameCube"), "GameCube");
   assert.equal(normalizeRetroAchievementsPlatformLabel("Genesis/Mega Drive"), "Genesis/Mega Drive");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Master System"), "Master System");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Virtual Boy"), "Virtual Boy");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Wii"), "Wii");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Wii U"), "Wii U");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo 3DS"), "Nintendo 3DS");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Nintendo DS"), "Nintendo DS");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("PC Engine/TurboGrafx-16"), "PC Engine/TurboGrafx-16");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("PC Engine CD/TurboGrafx-CD"), "PC Engine CD/TurboGrafx-CD");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Sega CD"), "Sega CD");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Game Gear"), "Game Gear");
   assert.equal(normalizeRetroAchievementsPlatformLabel("PlayStation 2"), "PlayStation 2");
 });
 
