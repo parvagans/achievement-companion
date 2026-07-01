@@ -199,7 +199,16 @@ type AchievementCompanionRaShortcutResolutionDebugUpdate = {
   [K in keyof AchievementCompanionRaShortcutResolutionDebugRecord]?:
     | AchievementCompanionRaShortcutResolutionDebugRecord[K]
     | undefined;
+} & {
+  readonly clearKeys?:
+    | readonly AchievementCompanionRaShortcutResolutionDebugClearKey[]
+    | undefined;
 };
+
+type AchievementCompanionGamePageBadgePipelineDebugClearKey =
+  keyof AchievementCompanionGamePageBadgePipelineDebugRecord;
+type AchievementCompanionRaShortcutResolutionDebugClearKey =
+  keyof AchievementCompanionRaShortcutResolutionDebugRecord;
 
 interface RuntimeDebugRootLike {
   [ACHIEVEMENT_COMPANION_RUNTIME_DEBUG_GLOBAL_NAME]?: AchievementCompanionRuntimeDebugApi;
@@ -379,12 +388,19 @@ function omitUndefinedObjectValues<T extends Record<string, unknown>>(value: T):
 
 export function updateAchievementCompanionGamePageBadgeDebug(
   update: AchievementCompanionGamePageBadgePipelineDebugUpdate,
+  options?: {
+    readonly clearKeys?: readonly AchievementCompanionGamePageBadgePipelineDebugClearKey[];
+  },
 ): AchievementCompanionGamePageBadgePipelineDebugRecord {
-  runtimeDebugLastGamePageBadgeDiagnostic = omitUndefinedObjectValues({
+  const nextDiagnostic = {
     ...runtimeDebugLastGamePageBadgeDiagnostic,
     ...omitUndefinedObjectValues(update),
     timestamp: new Date().toISOString(),
-  }) as AchievementCompanionGamePageBadgePipelineDebugRecord;
+  } as Record<string, unknown>;
+  for (const clearKey of options?.clearKeys ?? []) {
+    delete nextDiagnostic[clearKey];
+  }
+  runtimeDebugLastGamePageBadgeDiagnostic = omitUndefinedObjectValues(nextDiagnostic) as unknown as AchievementCompanionGamePageBadgePipelineDebugRecord;
   writeAchievementCompanionRuntimeDebugStorage(
     ACHIEVEMENT_COMPANION_LAST_GAME_PAGE_BADGE_DEBUG_STORAGE_KEY,
     runtimeDebugLastGamePageBadgeDiagnostic,
@@ -395,12 +411,20 @@ export function updateAchievementCompanionGamePageBadgeDebug(
 
 export function updateAchievementCompanionRaShortcutResolutionDebug(
   update: AchievementCompanionRaShortcutResolutionDebugUpdate,
+  options?: {
+    readonly clearKeys?: readonly AchievementCompanionRaShortcutResolutionDebugClearKey[];
+  },
 ): AchievementCompanionRaShortcutResolutionDebugRecord {
-  runtimeDebugLastRaShortcutResolutionDiagnostic = omitUndefinedObjectValues({
+  const { clearKeys: updateClearKeys, ...updateWithoutClearKeys } = update;
+  const nextDiagnostic = {
     ...runtimeDebugLastRaShortcutResolutionDiagnostic,
-    ...omitUndefinedObjectValues(update),
+    ...omitUndefinedObjectValues(updateWithoutClearKeys),
     timestamp: new Date().toISOString(),
-  }) as AchievementCompanionRaShortcutResolutionDebugRecord;
+  } as Record<string, unknown>;
+  for (const clearKey of updateClearKeys ?? options?.clearKeys ?? []) {
+    delete nextDiagnostic[clearKey];
+  }
+  runtimeDebugLastRaShortcutResolutionDiagnostic = omitUndefinedObjectValues(nextDiagnostic) as unknown as AchievementCompanionRaShortcutResolutionDebugRecord;
   writeAchievementCompanionRuntimeDebugStorage(
     ACHIEVEMENT_COMPANION_LAST_RA_SHORTCUT_RESOLUTION_DEBUG_STORAGE_KEY,
     runtimeDebugLastRaShortcutResolutionDiagnostic,
@@ -871,6 +895,10 @@ export function markAchievementCompanionGamePageAchievementSummaryFetchCompleted
       : summary.status === "error"
         ? summary.message
         : undefined;
+  const clearKeys: readonly AchievementCompanionGamePageBadgePipelineDebugClearKey[] =
+    summary.status === "ready"
+      ? ["summaryReason", "thrownErrorMessage"]
+      : ["summaryProvider", "summaryGameId", "summaryTitle", "summaryEarned", "summaryTotal"];
   updateAchievementCompanionGamePageBadgeDebug({
     routeAppId: summary.appId,
     summaryLoadFinished: true,
@@ -887,12 +915,12 @@ export function markAchievementCompanionGamePageAchievementSummaryFetchCompleted
         ? {
             summaryReason: summary.reason,
           }
-        : summary.status === "error"
-          ? {
-              summaryReason: summary.message,
-            }
+          : summary.status === "error"
+            ? {
+                summaryReason: summary.message,
+              }
           : {}),
-  });
+  }, { clearKeys });
 }
 
 export function markAchievementCompanionGamePageShortcutDetected(args: {
@@ -971,6 +999,7 @@ export function markAchievementCompanionRetroAchievementsShortcutResolution(args
   readonly candidateCount?: number | undefined;
   readonly detailLoadStatus?: string | undefined;
   readonly detailLoadReason?: string | undefined;
+  readonly clearKeys?: readonly AchievementCompanionRaShortcutResolutionDebugClearKey[];
 }): void {
   runtimeDebugLastRetroAchievementsShortcutAppId = args.appId;
   runtimeDebugLastRetroAchievementsShortcutTitle = args.shortcutTitle;
@@ -1026,5 +1055,5 @@ export function markAchievementCompanionRetroAchievementsShortcutResolution(args
         }
       : {}),
     ...(args.error !== undefined ? { thrownErrorMessage: args.error } : {}),
-  });
+  }, args.clearKeys === undefined ? undefined : { clearKeys: args.clearKeys });
 }
