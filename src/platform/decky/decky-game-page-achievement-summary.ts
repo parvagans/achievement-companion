@@ -588,10 +588,19 @@ const RETROACHIEVEMENTS_PLATFORM_LABEL_ALIASES = new Map<string, string>([
   ["super nintendo entertainment system", "SNES/Super Famicom"],
   ["snes", "SNES/Super Famicom"],
   ["super famicom", "SNES/Super Famicom"],
+  ["nintendo snes", "SNES/Super Famicom"],
+  ["nintendo snes super nintendo", "SNES/Super Famicom"],
+  ["nintendo super nintendo", "SNES/Super Famicom"],
+  ["nintendo super nintendo entertainment system", "SNES/Super Famicom"],
+  ["sfc", "SNES/Super Famicom"],
 
   ["nintendo entertainment system", "NES/Famicom"],
   ["nes", "NES/Famicom"],
   ["famicom", "NES/Famicom"],
+  ["nintendo nes", "NES/Famicom"],
+  ["nintendo nes nintendo entertainment system", "NES/Famicom"],
+  ["nintendo famicom", "NES/Famicom"],
+  ["nintendo famicom nes", "NES/Famicom"],
 
   ["n64", "Nintendo 64"],
 
