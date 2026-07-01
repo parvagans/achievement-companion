@@ -583,6 +583,7 @@ const RETROACHIEVEMENTS_PLATFORM_LABEL_ALIASES = new Map<string, string>([
   ["sega mega drive genesis", "Genesis/Mega Drive"],
   ["sega genesis megadrive", "Genesis/Mega Drive"],
   ["sega megadrive genesis", "Genesis/Mega Drive"],
+  ["sega genesis mega drive widescreen", "Genesis/Mega Drive"],
 
   ["super nintendo", "SNES/Super Famicom"],
   ["super nintendo entertainment system", "SNES/Super Famicom"],
@@ -592,6 +593,7 @@ const RETROACHIEVEMENTS_PLATFORM_LABEL_ALIASES = new Map<string, string>([
   ["nintendo snes super nintendo", "SNES/Super Famicom"],
   ["nintendo super nintendo", "SNES/Super Famicom"],
   ["nintendo super nintendo entertainment system", "SNES/Super Famicom"],
+  ["nintendo snes super nintendo hd bsnes hd", "SNES/Super Famicom"],
   ["sfc", "SNES/Super Famicom"],
 
   ["nintendo entertainment system", "NES/Famicom"],
@@ -618,14 +620,18 @@ const RETROACHIEVEMENTS_PLATFORM_LABEL_ALIASES = new Map<string, string>([
 
   ["pc engine", "PC Engine/TurboGrafx-16"],
   ["pcengine", "PC Engine/TurboGrafx-16"],
+  ["nec pc engine turbografx 16", "PC Engine/TurboGrafx-16"],
   ["turbografx 16", "PC Engine/TurboGrafx-16"],
   ["turbografx16", "PC Engine/TurboGrafx-16"],
   ["tg16", "PC Engine/TurboGrafx-16"],
 
   ["pc engine cd", "PC Engine CD/TurboGrafx-CD"],
+  ["nec pc engine turbografx 16 cd", "PC Engine CD/TurboGrafx-CD"],
   ["turbografx cd", "PC Engine CD/TurboGrafx-CD"],
   ["turbografxcd", "PC Engine CD/TurboGrafx-CD"],
   ["tg cd", "PC Engine CD/TurboGrafx-CD"],
+
+  ["sega cd mega cd", "Sega CD"],
 
   ["sega master system", "Master System"],
   ["sms", "Master System"],
@@ -653,14 +659,21 @@ const RETROACHIEVEMENTS_PLATFORM_LABEL_ALIASES = new Map<string, string>([
   ["gc", "GameCube"],
 
   ["nintendo ds", "Nintendo DS"],
+  ["nintendo ds melonds standalone", "Nintendo DS"],
   ["nds", "Nintendo DS"],
   ["ds", "Nintendo DS"],
 
   ["nintendo 3ds", "Nintendo 3DS"],
+  ["nintendo 3ds azahar standalone", "Nintendo 3DS"],
   ["3ds", "Nintendo 3DS"],
 
   ["nintendo dsi", "Nintendo DSi"],
   ["dsi", "Nintendo DSi"],
+
+  ["nintendo virtual boy", "Virtual Boy"],
+  ["nintendo wii", "Wii"],
+  ["nintendo wii u", "Wii U"],
+  ["nintendo wii u cemu native", "Wii U"],
 
   ["sega sg 1000", "SG-1000"],
   ["sega sg1000", "SG-1000"],
