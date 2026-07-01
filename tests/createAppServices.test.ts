@@ -104,8 +104,12 @@ import {
   addProfileAvatarCacheBustParam,
 } from "../src/platform/decky/decky-avatar-cache-busting";
 import {
+  ACHIEVEMENT_COMPANION_LAST_GAME_PAGE_BADGE_DEBUG_STORAGE_KEY,
+  ACHIEVEMENT_COMPANION_LAST_RA_SHORTCUT_RESOLUTION_DEBUG_STORAGE_KEY,
   ACHIEVEMENT_COMPANION_RUNTIME_DEBUG_GLOBAL_NAME,
   getAchievementCompanionRuntimeDebugState,
+  getAchievementCompanionLastGamePageBadgeDebug,
+  getAchievementCompanionLastRaShortcutResolutionDebug,
   resolveAchievementCompanionRuntimeDebugHostContext,
 } from "../src/platform/decky/decky-runtime-debug";
 import {
@@ -248,6 +252,7 @@ import {
 } from "../src/providers/retroachievements/mappers/normalize";
 import type {
   RawRetroAchievementsCompletionProgressEntry,
+  RawRetroAchievementsGameListEntry,
   RawRetroAchievementsGameProgressResponse,
   RawRetroAchievementsProfileResponse,
   RawRetroAchievementsRecentUnlockResponse,
@@ -344,6 +349,8 @@ function readSourceTree(rootDir: string): string {
 interface CallCounts {
   config: number;
   profile: number;
+  retroAchievementsSystems: number;
+  retroAchievementsGameList: number;
   completionProgress: number;
   recentUnlocks: number;
   achievementsEarnedBetween: number;
@@ -724,8 +731,13 @@ interface DeckyBackendTestRetroAchievementsState {
     readonly recentlyPlayedCount?: number;
   };
   readonly secret?: string;
+  readonly systems?: readonly RawRetroAchievementsSystemResponse[];
   readonly completionProgressEntries?: readonly RawRetroAchievementsCompletionProgressEntry[];
+  readonly gameListByConsoleId?: Readonly<Record<string, readonly RawRetroAchievementsGameListEntry[]>>;
   readonly gameProgressByGameId?: Readonly<Record<string, RawRetroAchievementsGameProgressResponse>>;
+  systemsRequestCount?: number;
+  gameListRequestCount?: number;
+  gameListRequestedConsoleIds?: string[];
 }
 
 interface DeckyBackendTestSteamState {
@@ -751,6 +763,8 @@ interface DeckyBackendTestSteamState {
       }
     >
   >;
+  steamRequestCount?: number;
+  steamRequestedPaths?: string[];
 }
 
 const deckyBackendTestState = {
@@ -788,6 +802,49 @@ const deckyBackendTestCallImplementation = async (route: string, payload: unknow
 
   if (route === "request_retroachievements_json") {
     const path = typeof record?.path === "string" ? record.path : "";
+    if (path === "API_GetConsoleIDs.php") {
+      const systems = deckyBackendTestState.retroAchievements.systems;
+      if (systems === undefined) {
+        throw new Error("Unexpected RetroAchievements systems request in test");
+      }
+
+      deckyBackendTestState.retroAchievements.systemsRequestCount =
+        (deckyBackendTestState.retroAchievements.systemsRequestCount ?? 0) + 1;
+      return systems;
+    }
+
+    if (path === "API_GetGameList.php") {
+      const consoleId =
+        typeof record?.query === "object" && record.query !== null
+          ? (() => {
+              const query = record.query as Record<string, unknown>;
+              const rawConsoleId = query["i"];
+              return typeof rawConsoleId === "string"
+                ? rawConsoleId.trim()
+                : typeof rawConsoleId === "number"
+                  ? String(Math.trunc(rawConsoleId))
+                  : "";
+            })()
+          : "";
+
+      if (consoleId.length === 0) {
+        throw new Error("Unexpected RetroAchievements game list request without a console id in test");
+      }
+
+      const response = deckyBackendTestState.retroAchievements.gameListByConsoleId?.[consoleId];
+      if (response === undefined) {
+        throw new Error(`Unexpected RetroAchievements game list request for console id ${consoleId} in test`);
+      }
+
+      deckyBackendTestState.retroAchievements.gameListRequestCount =
+        (deckyBackendTestState.retroAchievements.gameListRequestCount ?? 0) + 1;
+      if (deckyBackendTestState.retroAchievements.gameListRequestedConsoleIds === undefined) {
+        deckyBackendTestState.retroAchievements.gameListRequestedConsoleIds = [];
+      }
+      deckyBackendTestState.retroAchievements.gameListRequestedConsoleIds.push(consoleId);
+      return response;
+    }
+
     if (path === "API_GetUserCompletionProgress.php") {
       const entries = deckyBackendTestState.retroAchievements.completionProgressEntries;
       if (entries === undefined) {
@@ -924,6 +981,12 @@ const deckyBackendTestCallImplementation = async (route: string, payload: unknow
 
   if (route === "request_steam_json") {
     const path = typeof record?.path === "string" ? record.path : "";
+    deckyBackendTestState.steam.steamRequestCount =
+      (deckyBackendTestState.steam.steamRequestCount ?? 0) + 1;
+    if (deckyBackendTestState.steam.steamRequestedPaths === undefined) {
+      deckyBackendTestState.steam.steamRequestedPaths = [];
+    }
+    deckyBackendTestState.steam.steamRequestedPaths.push(path);
     if (path === "ISteamUser/GetPlayerSummaries/v2/") {
       return {
         response: {
@@ -1147,6 +1210,7 @@ function createRetroAchievementsGameProgressResponse(args: {
   readonly gameId: string;
   readonly title: string;
   readonly consoleName?: string;
+  readonly consoleId?: number | string;
   readonly highestAwardKind?: string;
   readonly highestAwardDate?: string;
   readonly unlockedCount?: number;
@@ -1159,6 +1223,7 @@ function createRetroAchievementsGameProgressResponse(args: {
   return {
     ID: args.gameId,
     Title: args.title,
+    ...(args.consoleId !== undefined ? { ConsoleID: args.consoleId } : {}),
     ConsoleName: args.consoleName ?? "NES",
     NumAchievements: totalCount,
     NumAwardedToUser: unlockedCount,
@@ -2844,10 +2909,14 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(coreDomainSource, /readonly systemIconUrl\?: string;/u);
   assert.match(retroNormalizeSource, /readonly systemIconUrl\?: string \| undefined;/u);
   assert.match(retroRawTypesSource, /export interface RawRetroAchievementsSystemResponse/u);
+  assert.match(retroRawTypesSource, /export interface RawRetroAchievementsGameListEntry/u);
   assert.match(retroRawTypesSource, /readonly IconURL\?: string;/u);
   assert.match(retroClientSource, /loadSystems\?\(/u);
   assert.match(retroClientSource, /const SYSTEMS_PATH = "API_GetConsoleIDs\.php";/u);
   assert.match(retroClientSource, /path: SYSTEMS_PATH/u);
+  assert.match(retroClientSource, /const GAME_LIST_PATH = "API_GetGameList\.php";/u);
+  assert.match(retroClientSource, /loadGameList\(/u);
+  assert.match(retroClientSource, /i: consoleId/u);
   assert.match(retroProviderSource, /cachedSystemIconUrlByConsoleId/u);
   assert.match(retroProviderSource, /systemIconUrlByConsoleIdPromise/u);
   assert.match(retroProviderSource, /buildRetroAchievementsSystemIconUrlMap/u);
@@ -3890,6 +3959,8 @@ test("v0.2.10 diagnostic release metadata and Decky cleanup stay aligned", () =>
   assert.match(releasePackageScriptSource, /formatDeckyGamePageAchievementBadgeLabel/u);
   assert.match(releasePackageScriptSource, /completion-progress-title-match/u);
   assert.match(releasePackageScriptSource, /dashboard-identity-detail/u);
+  assert.match(releasePackageScriptSource, /API_GetGameList\.php/u);
+  assert.match(releasePackageScriptSource, /ra-api-game-detail/u);
   assert.match(releasePackageScriptSource, /no-retroachievements-shortcut-mapping/u);
   assert.match(releasePackageScriptSource, /retroachievements/u);
   assert.match(releasePackageScriptSource, /createRoot/u);
@@ -10098,6 +10169,7 @@ test("steam game page achievement badge uses the route-patched header path witho
     "src/platform/decky/decky-steam-shortcut-metadata.ts",
     "utf8",
   );
+  const retroClientSource = readFileSync("src/providers/retroachievements/client/client.ts", "utf8");
   const summarySource = readFileSync(
     "src/platform/decky/decky-game-page-achievement-summary.ts",
     "utf8",
@@ -10131,6 +10203,15 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(runtimeDebugSource, /lastSummaryUnavailableReason/u);
   assert.match(runtimeDebugSource, /lastSummaryFetchStartedAt/u);
   assert.match(runtimeDebugSource, /lastSummaryFetchCompletedAt/u);
+  assert.match(runtimeDebugSource, /achievement-companion:decky:last-game-page-badge-debug/u);
+  assert.match(runtimeDebugSource, /achievement-companion:decky:last-ra-shortcut-resolution-debug/u);
+  assert.match(runtimeDebugSource, /\[Achievement Companion\]\[Game Page Badge\]/u);
+  assert.match(runtimeDebugSource, /\[Achievement Companion\]\[RA Shortcut Resolver\]/u);
+  assert.match(runtimeDebugSource, /lastGamePageShortcutDetectedAppId/u);
+  assert.match(runtimeDebugSource, /lastGamePageShortcutTitle/u);
+  assert.match(runtimeDebugSource, /lastGamePageShortcutPlatform/u);
+  assert.match(runtimeDebugSource, /lastGamePageShortcutDetectionReason/u);
+  assert.match(runtimeDebugSource, /lastGamePageShortcutNextPath/u);
   assert.match(runtimeDebugSource, /lastRetroAchievementsShortcutAppId/u);
   assert.match(runtimeDebugSource, /lastRetroAchievementsShortcutTitle/u);
   assert.match(runtimeDebugSource, /lastRetroAchievementsShortcutPlatform/u);
@@ -10158,6 +10239,9 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(runtimeDebugSource, /markAchievementCompanionRetroAchievementsShortcutResolution/u);
   assert.match(runtimeDebugSource, /markAchievementCompanionGamePageAchievementSummaryFetchStarted/u);
   assert.match(runtimeDebugSource, /markAchievementCompanionGamePageAchievementSummaryFetchCompleted/u);
+  assert.match(runtimeDebugSource, /markAchievementCompanionGamePageShortcutDetected/u);
+  assert.match(runtimeDebugSource, /updateAchievementCompanionGamePageBadgeDebug/u);
+  assert.match(runtimeDebugSource, /updateAchievementCompanionRaShortcutResolutionDebug/u);
   assert.match(routeDetectionSource, /target-url-route/u);
   assert.match(routeDetectionSource, /DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_REGEX/u);
   assert.match(routeDetectionSource, /detectDeckyGamePageAchievementRouteFromUrl/u);
@@ -10169,6 +10253,8 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(summarySource, /readDeckySteamLibraryAchievementScanSummary/u);
   assert.match(summarySource, /readDeckyDashboardSnapshotCacheEntry/u);
   assert.match(summarySource, /loadDeckySteamShortcutMetadata/u);
+  assert.match(summarySource, /steam-shortcut-detected/u);
+  assert.match(summarySource, /nextPath: "retroachievements"/u);
   assert.match(shortcutMetadataSource, /platformTag/u);
   assert.match(shortcutMetadataSource, /platformLabel/u);
   assert.match(shortcutMetadataSource, /tags/u);
@@ -10181,14 +10267,21 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(summarySource, /matchesRetroAchievementsShortcutTitle/u);
   assert.match(summarySource, /matchesRetroAchievementsShortcutPlatform/u);
   assert.match(summarySource, /normalizeRetroAchievementsPlatformLabel/u);
+  assert.match(summarySource, /normalizeRetroAchievementsShortcutTitleCandidates/u);
   assert.match(summarySource, /collectRetroAchievementsCompletionProgressCandidates/u);
   assert.match(summarySource, /collectRetroAchievementsDashboardCandidates/u);
   assert.match(summarySource, /collectRetroAchievementsDashboardIdentityCandidates/u);
+  assert.match(summarySource, /loadRetroAchievementsGameListCandidatesForPlatform/u);
+  assert.match(summarySource, /ra-api-game-detail/u);
   assert.match(summarySource, /sonic the hedgehog/u);
   assert.match(summarySource, /completion-progress-title-match/u);
+  assert.match(summarySource, /preferRetroAchievementsBaseSetCandidates/u);
+  assert.match(runtimeDebugSource, /completionProgressRelevantCandidates/u);
+  assert.match(runtimeDebugSource, /completionProgressAmbiguousCandidateTitles/u);
   assert.match(summarySource, /dashboard-identity-detail/u);
   assert.match(summarySource, /ra-detail-unavailable/u);
   assert.match(summarySource, /ra-game-list-no-match/u);
+  assert.match(summarySource, /ra-platform-unsupported/u);
   assert.match(summarySource, /ra-api-game-list/u);
   assert.match(summarySource, /no-retroachievements-shortcut-mapping/u);
   assert.doesNotMatch(summarySource, /ra-provider-not-configured/u);
@@ -10197,8 +10290,13 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(summarySource, /recentAchievements/u);
   assert.match(summarySource, /recentUnlocks/u);
   assert.match(summarySource, /loadDeckyGameDetailStateLazy\([\s\S]*?RETROACHIEVEMENTS_PROVIDER_ID/u);
+  assert.match(summarySource, /normalizedPlatform/u);
+  assert.match(summarySource, /resolvedConsoleId/u);
+  assert.match(summarySource, /systemIconUrl/u);
   assert.match(summarySource, /unlockedCount/u);
   assert.match(summarySource, /totalCount/u);
+  assert.match(retroClientSource, /API_GetGameList\.php/u);
+  assert.match(retroClientSource, /loadGameList\(/u);
   assert.match(bootstrapSource, /Decky bootstrap mounted/u);
   assert.doesNotMatch(bootstrapSource, /DeckyGamePageAchievementBubbleOverlayLifecycle/u);
   assert.doesNotMatch(bootstrapSource, /startGamePageAchievementBubbleOverlay\(/u);
@@ -10218,6 +10316,7 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(bubbleSource, /renderDeckyGamePageAchievementBadgeContent/u);
   assert.match(bubbleSource, /resolveDeckyGamePageRetroSystemIconMetadata/u);
   assert.match(bubbleSource, /collectDeckyGamePageRetroSystemIconCandidates/u);
+  assert.match(bubbleSource, /summary\.platformLabel !== undefined \|\| summary\.systemIconUrl !== undefined/u);
   assert.match(bubbleSource, /useDeckyGamePageAchievementBadgeActivation/u);
   assert.match(bubbleSource, /resolveDeckyGamePageAchievementBadgeNavigationTarget/u);
   assert.match(bubbleSource, /openDeckyFullScreenGameFromLibraryGamePage/u);
@@ -10257,6 +10356,12 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(bubbleSource, /offsetParent/u);
   assert.match(bubbleSource, /getBoundingClientRect/u);
   assert.match(bubbleSource, /markAchievementCompanionGamePageRouteBadgePlacement/u);
+  assert.match(bubbleSource, /rejectedReasons/u);
+  assert.match(runtimeDebugSource, /placementRejectedReasons/u);
+  assert.match(bubbleSource, /markAchievementCompanionGamePageBadgeHidden/u);
+  assert.match(bubbleSource, /summary-unset/u);
+  assert.match(bubbleSource, /collision-/u);
+  assert.match(bubbleSource, /fallbackUsed:\s*true/u);
   assert.doesNotMatch(bubbleSource, /GAME_PAGE_BADGE_MODAL_POLL_INTERVAL_MS/u);
   assert.doesNotMatch(bubbleSource, /hasVisibleDeckyGamePageModal/u);
   assert.doesNotMatch(bubbleSource, /reportAchievementCompanionGamePageGlobalComponentError/u);
@@ -10501,7 +10606,7 @@ test("game page achievement summary resolves Steam counts from the cached librar
   });
 });
 
-test("game page achievement summary keeps Steam results when both Steam and RetroAchievements data exist", async () => {
+test("game page achievement summary keeps Steam results when no shortcut metadata exists even if RetroAchievements data also exists", async () => {
   await withMockDeckyStorage(async () => {
     updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
       username: "alice",
@@ -10509,11 +10614,6 @@ test("game page achievement summary keeps Steam results when both Steam and Retr
       recentAchievementsCount: 5,
       recentlyPlayedCount: 5,
     });
-    deckyBackendTestState.steam.shortcutMetadataByAppId = {
-      "1672970": {
-        title: "Minecraft Dungeons",
-      },
-    };
     assert.ok(
       writeDeckyDashboardSnapshot({
         ...createDashboardSnapshot(),
@@ -10583,6 +10683,202 @@ test("game page achievement summary keeps Steam results when both Steam and Retr
   });
 });
 
+test("game page achievement summary skips Steam resolution for known shortcut metadata and enters the RetroAchievements shortcut resolver", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    updateDeckyProviderConfigCache(STEAM_PROVIDER_ID, {
+      steamId64: "12345678901234567",
+      hasApiKey: true,
+      language: "english",
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+      includePlayedFreeGames: false,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2874315920": {
+        title: "Final Fantasy X International",
+        platformTag: "Sony PlayStation 2",
+        tags: ["Sony PlayStation 2"],
+      },
+    };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 21,
+        Name: "PlayStation 2",
+        IconURL: "https://example.com/ps2.png",
+      },
+    ];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "21": [
+        {
+          GameID: 2778,
+          Title: "Final Fantasy X: International",
+          ConsoleID: 21,
+          ConsoleName: "PlayStation 2",
+        },
+      ],
+    };
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      "2778": {
+        ID: 2778,
+        Title: "Final Fantasy X: International",
+        ConsoleID: 21,
+        ConsoleName: "PlayStation 2",
+        NumAchievements: 249,
+        NumAwardedToUser: 97,
+        NumAwardedToUserHardcore: 4,
+        UserCompletion: "38.96%",
+        UserCompletionHardcore: "1.61%",
+        HighestAwardKind: "beaten",
+        Achievements: [
+          {
+            ID: 1,
+            Title: "Besaid Island",
+            NumAwarded: 1,
+            NumAwardedHardcore: 1,
+          },
+        ],
+      },
+    };
+
+    const summary = await loadDeckyGamePageAchievementSummary("2874315920");
+    assert.equal(summary.status, "ready");
+    if (summary.status !== "ready") {
+      return;
+    }
+
+    assert.equal(summary.provider, "retroachievements");
+    assert.equal(summary.gameId, "2778");
+    assert.equal(deckyBackendTestState.steam.steamRequestCount ?? 0, 0);
+    assert.deepStrictEqual(deckyBackendTestState.steam.steamRequestedPaths ?? [], []);
+    assert.ok((deckyBackendTestState.retroAchievements.systemsRequestCount ?? 0) >= 1);
+    assert.equal(deckyBackendTestState.retroAchievements.gameListRequestCount, 1);
+
+    const runtimeDebugState = getAchievementCompanionRuntimeDebugState();
+    assert.equal(runtimeDebugState.lastGamePageShortcutDetectedAppId, "2874315920");
+    assert.equal(runtimeDebugState.lastGamePageShortcutTitle, "Final Fantasy X International");
+    assert.equal(runtimeDebugState.lastGamePageShortcutPlatform, "Sony PlayStation 2");
+    assert.equal(runtimeDebugState.lastGamePageShortcutDetectionReason, "steam-shortcut-detected");
+    assert.equal(runtimeDebugState.lastGamePageShortcutNextPath, "retroachievements");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolutionSource, "ra-api-game-detail");
+  });
+});
+
+test("game page achievement summary writes FFX badge pipeline and RetroAchievements resolver diagnostics to localStorage", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2874315920": {
+        title: "Final Fantasy X International",
+        platformTag: "Sony PlayStation 2",
+        tags: ["Sony PlayStation 2"],
+      },
+    };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 21,
+        Name: "PlayStation 2",
+        IconURL: "https://example.com/ps2.png",
+      },
+    ];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "21": [
+        {
+          GameID: 2778,
+          Title: "Final Fantasy X: International",
+          ConsoleID: 21,
+          ConsoleName: "PlayStation 2",
+        },
+      ],
+    };
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      "2778": {
+        ID: 2778,
+        Title: "Final Fantasy X: International",
+        ConsoleID: 21,
+        ConsoleName: "PlayStation 2",
+        NumAchievements: 249,
+        NumAwardedToUser: 97,
+        NumAwardedToUserHardcore: 4,
+        UserCompletion: "38.96%",
+        UserCompletionHardcore: "1.61%",
+        HighestAwardKind: "beaten",
+        Achievements: [
+          {
+            ID: 1,
+            Title: "Besaid Island",
+            NumAwarded: 1,
+            NumAwardedHardcore: 1,
+          },
+        ],
+      },
+    };
+
+    const summary = await loadDeckyGamePageAchievementSummary("2874315920");
+    assert.equal(summary.status, "ready");
+
+    const badgeDebugText = readDeckyStorageText(
+      ACHIEVEMENT_COMPANION_LAST_GAME_PAGE_BADGE_DEBUG_STORAGE_KEY,
+    );
+    const resolverDebugText = readDeckyStorageText(
+      ACHIEVEMENT_COMPANION_LAST_RA_SHORTCUT_RESOLUTION_DEBUG_STORAGE_KEY,
+    );
+    assert.notEqual(badgeDebugText, undefined);
+    assert.notEqual(resolverDebugText, undefined);
+
+    const badgeDebug = JSON.parse(badgeDebugText ?? "{}") as ReturnType<
+      typeof getAchievementCompanionLastGamePageBadgeDebug
+    >;
+    const resolverDebug = JSON.parse(resolverDebugText ?? "{}") as ReturnType<
+      typeof getAchievementCompanionLastRaShortcutResolutionDebug
+    >;
+
+    assert.equal(badgeDebug.routeAppId, "2874315920");
+    assert.equal(badgeDebug.summaryLoadStarted, true);
+    assert.equal(badgeDebug.summaryLoadFinished, true);
+    assert.equal(badgeDebug.summaryStatus, "ready");
+    assert.equal(badgeDebug.summaryProvider, "retroachievements");
+    assert.equal(badgeDebug.summaryGameId, "2778");
+    assert.equal(badgeDebug.summaryTitle, "Final Fantasy X: International");
+    assert.equal(badgeDebug.summaryEarned, 97);
+    assert.equal(badgeDebug.summaryTotal, 249);
+
+    assert.equal(resolverDebug.appId, "2874315920");
+    assert.equal(resolverDebug.shortcutMetadataLoaded, true);
+    assert.equal(resolverDebug.shortcutTitle, "Final Fantasy X International");
+    assert.equal(resolverDebug.shortcutPlatform, "Sony PlayStation 2");
+    assert.equal(resolverDebug.normalizedPlatform, "PlayStation 2");
+    assert.equal(resolverDebug.steamSkippedBecauseShortcut, true);
+    assert.equal(resolverDebug.apiSystemsResolvedConsoleId, "21");
+    assert.equal(resolverDebug.apiSystemsResolvedConsoleName, "PlayStation 2");
+    assert.equal(resolverDebug.apiMatchedGameId, "2778");
+    assert.equal(resolverDebug.apiMatchedTitle, "Final Fantasy X: International");
+    assert.equal(resolverDebug.detailLoadAttempted, true);
+    assert.equal(resolverDebug.detailLoadStatus, "success");
+    assert.equal(resolverDebug.detailGameId, "2778");
+    assert.equal(resolverDebug.detailTitle, "Final Fantasy X: International");
+    assert.equal(resolverDebug.detailEarned, 97);
+    assert.equal(resolverDebug.detailEarnedHardcore, 4);
+    assert.equal(resolverDebug.detailTotal, 249);
+    assert.equal(resolverDebug.finalStatus, "mapped");
+    assert.equal(resolverDebug.returnedSummaryProvider, "retroachievements");
+    assert.equal(resolverDebug.returnedSummaryEarned, 97);
+    assert.equal(resolverDebug.returnedSummaryTotal, 249);
+  });
+});
+
 test("game page achievement summary resolves RetroAchievements counts from an exact shortcut title match", async () => {
   await withMockDeckyStorage(async () => {
     updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
@@ -10596,6 +10892,13 @@ test("game page achievement summary resolves RetroAchievements counts from an ex
         title: "StarCraft 64",
       },
     };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 2,
+        Name: "Nintendo 64",
+        IconURL: "https://example.com/n64.png",
+      },
+    ];
     assert.ok(
       writeDeckyDashboardSnapshot({
         ...createDashboardSnapshot(),
@@ -10633,6 +10936,8 @@ test("game page achievement summary resolves RetroAchievements counts from an ex
       appId: "2217040867",
       gameId: "64",
       title: "StarCraft 64",
+      platformLabel: "Nintendo 64",
+      systemIconUrl: "https://example.com/n64.png",
       earned: 9,
       total: 18,
       source: "snapshot",
@@ -10657,6 +10962,13 @@ test("game page achievement summary falls back to RetroAchievements completion p
         title: "Legend of Zelda, The: Majora's Mask",
       },
     };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 2,
+        Name: "Nintendo 64",
+        IconURL: "https://example.com/n64.png",
+      },
+    ];
     deckyBackendTestState.retroAchievements.completionProgressEntries = [
       {
         GameID: 64,
@@ -10673,10 +10985,58 @@ test("game page achievement summary falls back to RetroAchievements completion p
     assert.equal(summary.appId, "2217040871");
     assert.equal(summary.gameId, "64");
     assert.equal(summary.title, "The Legend of Zelda: Majora's Mask");
+    assert.equal(summary.platformLabel, "Nintendo 64");
+    assert.equal(summary.systemIconUrl, "https://example.com/n64.png");
     assert.equal(summary.earned, 38);
     assert.equal(summary.total, 76);
     assert.equal(summary.source, "backend");
     assert.notEqual(summary.updatedAt, undefined);
+  });
+});
+
+test("game page achievement summary backfills RetroAchievements system icon metadata for completion progress matches", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2217040910": {
+        title: "Diddy Kong Racing",
+        platformTag: "Nintendo 64",
+        tags: ["Nintendo 64"],
+      },
+    };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 2,
+        Name: "Nintendo 64",
+        IconURL: "https://example.com/n64.png",
+      },
+    ];
+    deckyBackendTestState.retroAchievements.completionProgressEntries = [
+      {
+        GameID: 2662,
+        Title: "Diddy Kong Racing",
+        ConsoleName: "Nintendo 64",
+        MaxPossible: 94,
+        NumAwarded: 4,
+      },
+    ];
+
+    const summary = await loadDeckyGamePageAchievementSummary("2217040910");
+    assert.equal(summary.status, "ready");
+    if (summary.status !== "ready") {
+      return;
+    }
+    assert.equal(summary.provider, "retroachievements");
+    assert.equal(summary.platformLabel, "Nintendo 64");
+    assert.equal(summary.systemIconUrl, "https://example.com/n64.png");
+    assert.equal(summary.earned, 4);
+    assert.equal(summary.total, 94);
   });
 });
 
@@ -10694,11 +11054,19 @@ test("game page achievement summary resolves RetroAchievements counts from a das
         title: "The Legend of Zelda: Majora's Mask",
       },
     };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 2,
+        Name: "Nintendo 64",
+        IconURL: "https://example.com/n64.png",
+      },
+    ];
     deckyBackendTestState.retroAchievements.completionProgressEntries = [];
     deckyBackendTestState.retroAchievements.gameProgressByGameId = {
       "64": createRetroAchievementsGameProgressResponse({
         gameId: "64",
         title: "The Legend of Zelda: Majora's Mask",
+        consoleId: 2,
         consoleName: "Nintendo 64",
         unlockedCount: 13,
         totalCount: 76,
@@ -10775,6 +11143,8 @@ test("game page achievement summary resolves RetroAchievements counts from a das
     assert.equal(summary.title, "The Legend of Zelda: Majora's Mask");
     assert.equal(summary.earned, 13);
     assert.equal(summary.total, 76);
+    assert.equal(summary.platformLabel, "Nintendo 64");
+    assert.equal(summary.systemIconUrl, "https://example.com/n64.png");
     assert.equal(summary.source, "backend");
     assert.notEqual(summary.updatedAt, undefined);
   });
@@ -10794,11 +11164,19 @@ test("game page achievement summary resolves RetroAchievements counts from a das
         title: "The Legend of Zelda: Ocarina of Time",
       },
     };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 2,
+        Name: "Nintendo 64",
+        IconURL: "https://example.com/n64.png",
+      },
+    ];
     deckyBackendTestState.retroAchievements.completionProgressEntries = [];
     deckyBackendTestState.retroAchievements.gameProgressByGameId = {
       "65": createRetroAchievementsGameProgressResponse({
         gameId: "65",
         title: "The Legend of Zelda: Ocarina of Time",
+        consoleId: 2,
         consoleName: "Nintendo 64",
         unlockedCount: 4,
         totalCount: 104,
@@ -10873,6 +11251,8 @@ test("game page achievement summary resolves RetroAchievements counts from a das
     assert.equal(summary.appId, "2217040874");
     assert.equal(summary.gameId, "65");
     assert.equal(summary.title, "The Legend of Zelda: Ocarina of Time");
+    assert.equal(summary.platformLabel, "Nintendo 64");
+    assert.equal(summary.systemIconUrl, "https://example.com/n64.png");
     assert.equal(summary.earned, 4);
     assert.equal(summary.total, 104);
     assert.equal(summary.source, "backend");
@@ -11207,8 +11587,208 @@ test("game page achievement summary reports no RetroAchievements shortcut mappin
     assert.deepStrictEqual(summary, {
       status: "unavailable",
       appId: "2217040869",
-      reason: "no-retroachievements-shortcut-mapping",
+      reason: "ra-game-list-no-match",
     });
+  });
+});
+
+test("game page achievement summary prefers the base RetroAchievements completion progress candidate over subset variants", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2874315920": {
+        title: "Final Fantasy X International",
+        platformTag: "Sony PlayStation 2",
+        tags: ["Sony PlayStation 2"],
+      },
+    };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 21,
+        Name: "PlayStation 2",
+        IconURL: "https://example.com/ps2.png",
+      },
+    ];
+    deckyBackendTestState.retroAchievements.completionProgressEntries = [
+      {
+        GameID: 2778,
+        Title: "Final Fantasy X: International",
+        ConsoleName: "PlayStation 2",
+        MaxPossible: 249,
+        NumAwarded: 97,
+        NumAwardedHardcore: 4,
+      },
+      {
+        GameID: 22629,
+        Title: "Final Fantasy X: International [Subset - No Sphere Grid]",
+        ConsoleName: "PlayStation 2",
+        MaxPossible: 42,
+        NumAwarded: 12,
+        NumAwardedHardcore: 1,
+      },
+    ];
+
+    const summary = await loadDeckyGamePageAchievementSummary("2874315920");
+    assert.equal(summary.status, "ready");
+    if (summary.status !== "ready") {
+      return;
+    }
+
+    assert.equal(summary.provider, "retroachievements");
+    assert.equal(summary.gameId, "2778");
+    assert.equal(summary.title, "Final Fantasy X: International");
+    assert.equal(summary.earned, 97);
+    assert.equal(summary.total, 249);
+    assert.equal(summary.platformLabel, "PlayStation 2");
+    assert.equal(summary.systemIconUrl, "https://example.com/ps2.png");
+
+    const resolverDebugText = readDeckyStorageText(
+      ACHIEVEMENT_COMPANION_LAST_RA_SHORTCUT_RESOLUTION_DEBUG_STORAGE_KEY,
+    );
+    assert.notEqual(resolverDebugText, undefined);
+    const resolverDebug = JSON.parse(resolverDebugText ?? "{}") as ReturnType<
+      typeof getAchievementCompanionLastRaShortcutResolutionDebug
+    >;
+    assert.equal(resolverDebug.resolverStage, "completion-progress-title-match");
+    assert.equal(resolverDebug.completionProgressCandidateCount, 2);
+    assert.deepStrictEqual(resolverDebug.completionProgressRelevantCandidates, [
+      {
+        id: "2778",
+        title: "Final Fantasy X: International",
+        console: "PlayStation 2",
+      },
+      {
+        id: "22629",
+        title: "Final Fantasy X: International [Subset - No Sphere Grid]",
+        console: "PlayStation 2",
+      },
+    ]);
+    assert.deepStrictEqual(resolverDebug.completionProgressAmbiguousCandidateTitles, []);
+    assert.equal(resolverDebug.finalStatus, "mapped");
+    assert.equal(resolverDebug.finalReason, "completion-progress-title-match");
+    assert.equal(resolverDebug.returnedSummaryProvider, "retroachievements");
+    assert.equal(resolverDebug.returnedSummaryEarned, 97);
+    assert.equal(resolverDebug.returnedSummaryTotal, 249);
+  });
+});
+
+test("game page achievement summary keeps ambiguous RetroAchievements completion progress matches when multiple non-subset matches remain", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2217040877": {
+        title: "Duplicate Progress Game",
+        platformTag: "Sony PlayStation 2",
+        tags: ["Sony PlayStation 2"],
+      },
+    };
+    deckyBackendTestState.retroAchievements.completionProgressEntries = [
+      {
+        GameID: 11,
+        Title: "Duplicate Progress Game",
+        ConsoleName: "PlayStation 2",
+        MaxPossible: 10,
+        NumAwarded: 4,
+      },
+      {
+        GameID: 12,
+        Title: "Duplicate Progress Game",
+        ConsoleName: "PlayStation 2",
+        MaxPossible: 14,
+        NumAwarded: 7,
+      },
+    ];
+
+    const summary = await loadDeckyGamePageAchievementSummary("2217040877");
+    assert.deepStrictEqual(summary, {
+      status: "unavailable",
+      appId: "2217040877",
+      reason: "ambiguous-retroachievements-shortcut-mapping",
+    });
+
+    const resolverDebugText = readDeckyStorageText(
+      ACHIEVEMENT_COMPANION_LAST_RA_SHORTCUT_RESOLUTION_DEBUG_STORAGE_KEY,
+    );
+    assert.notEqual(resolverDebugText, undefined);
+    const resolverDebug = JSON.parse(resolverDebugText ?? "{}") as ReturnType<
+      typeof getAchievementCompanionLastRaShortcutResolutionDebug
+    >;
+    assert.equal(resolverDebug.completionProgressCandidateCount, 2);
+    assert.deepStrictEqual(resolverDebug.completionProgressAmbiguousCandidateTitles, [
+      "Duplicate Progress Game",
+      "Duplicate Progress Game",
+    ]);
+    assert.equal(resolverDebug.finalStatus, "unavailable");
+    assert.equal(resolverDebug.finalReason, "ambiguous-retroachievements-shortcut-mapping");
+  });
+});
+
+test("game page achievement summary keeps ambiguous RetroAchievements completion progress matches when only subset variants remain", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2217040878": {
+        title: "Subset Only Game",
+        platformTag: "Nintendo 64",
+        tags: ["Nintendo 64"],
+      },
+    };
+    deckyBackendTestState.retroAchievements.completionProgressEntries = [
+      {
+        GameID: 21,
+        Title: "Subset Only Game [Subset - Hard Mode]",
+        ConsoleName: "Nintendo 64",
+        MaxPossible: 10,
+        NumAwarded: 4,
+      },
+      {
+        GameID: 22,
+        Title: "Subset Only Game [Challenge Set - Low Percent]",
+        ConsoleName: "Nintendo 64",
+        MaxPossible: 8,
+        NumAwarded: 3,
+      },
+    ];
+
+    const summary = await loadDeckyGamePageAchievementSummary("2217040878");
+    assert.deepStrictEqual(summary, {
+      status: "unavailable",
+      appId: "2217040878",
+      reason: "ambiguous-retroachievements-shortcut-mapping",
+    });
+
+    const resolverDebugText = readDeckyStorageText(
+      ACHIEVEMENT_COMPANION_LAST_RA_SHORTCUT_RESOLUTION_DEBUG_STORAGE_KEY,
+    );
+    assert.notEqual(resolverDebugText, undefined);
+    const resolverDebug = JSON.parse(resolverDebugText ?? "{}") as ReturnType<
+      typeof getAchievementCompanionLastRaShortcutResolutionDebug
+    >;
+    assert.equal(resolverDebug.completionProgressCandidateCount, 2);
+    assert.deepStrictEqual(resolverDebug.completionProgressAmbiguousCandidateTitles, [
+      "Subset Only Game [Subset - Hard Mode]",
+      "Subset Only Game [Challenge Set - Low Percent]",
+    ]);
+    assert.equal(resolverDebug.finalStatus, "unavailable");
+    assert.equal(resolverDebug.finalReason, "ambiguous-retroachievements-shortcut-mapping");
   });
 });
 
@@ -11271,7 +11851,7 @@ test("decky steam shortcut metadata loader preserves platform and path metadata"
   });
 });
 
-test("game page achievement summary records shortcut platform and no-match debug for Final Fantasy X International", async () => {
+test("game page achievement summary resolves Final Fantasy X International through RetroAchievements API game list fallback and caches platform lookups", async () => {
   await withMockDeckyStorage(async () => {
     resetDeckyAppServicesForTests();
     updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
@@ -11288,19 +11868,449 @@ test("game page achievement summary records shortcut platform and no-match debug
         exe: '"/usr/bin/pcsx2"',
         startDir: "/home/deck/Emulation/roms/ps2",
       },
+      "2874315921": {
+        title: "Final Fantasy X International",
+        platformTag: "Sony PlayStation 2",
+        tags: ["Sony PlayStation 2"],
+        exe: '"/usr/bin/pcsx2"',
+        startDir: "/home/deck/Emulation/roms/ps2",
+      },
+    };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 7,
+        Name: "PlayStation",
+        IconURL: "https://example.com/ps1.png",
+      },
+      {
+        ID: 21,
+        Name: "PlayStation 2",
+        IconURL: "https://example.com/ps2.png",
+      },
+    ];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "21": [
+        {
+          GameID: 2778,
+          Title: "Final Fantasy X: International",
+          ConsoleID: 21,
+          ConsoleName: "PlayStation 2",
+        },
+        {
+          GameID: 22629,
+          Title: "Final Fantasy X: International [Subset - No Sphere Grid]",
+          ConsoleID: 21,
+          ConsoleName: "PlayStation 2",
+        },
+        {
+          GameID: 101,
+          Title: "Final Fantasy XII",
+          ConsoleID: 21,
+          ConsoleName: "PlayStation 2",
+        },
+      ],
+    };
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      "2778": {
+        ID: 2778,
+        Title: "Final Fantasy X: International",
+        ConsoleID: 21,
+        ConsoleName: "PlayStation 2",
+        NumAchievements: 249,
+        NumAwardedToUser: 97,
+        NumAwardedToUserHardcore: 4,
+        UserCompletion: "38.96%",
+        UserCompletionHardcore: "1.61%",
+        HighestAwardKind: "beaten",
+        Achievements: [
+          {
+            ID: 1,
+            Title: "Besaid Island",
+            NumAwarded: 1,
+            NumAwardedHardcore: 1,
+          },
+        ],
+      },
     };
 
-    const summary = await loadDeckyGamePageAchievementSummary("2874315920");
+    const firstSummary = await loadDeckyGamePageAchievementSummary("2874315920");
+    assert.equal(firstSummary.status, "ready");
+    if (firstSummary.status !== "ready") {
+      return;
+    }
+    assert.equal(firstSummary.provider, "retroachievements");
+    assert.equal(firstSummary.appId, "2874315920");
+    assert.equal(firstSummary.gameId, "2778");
+    assert.equal(firstSummary.title, "Final Fantasy X: International");
+    assert.equal(firstSummary.earned, 97);
+    assert.equal(firstSummary.total, 249);
+    assert.equal(firstSummary.platformLabel, "PlayStation 2");
+    assert.equal(firstSummary.systemIconUrl, "https://example.com/ps2.png");
+    assert.equal(firstSummary.source, "backend");
+    assert.notEqual(firstSummary.updatedAt, undefined);
+
+    const firstRuntimeDebugState = getAchievementCompanionRuntimeDebugState();
+    assert.equal(firstRuntimeDebugState.lastRetroAchievementsShortcutAppId, "2874315920");
+    assert.equal(firstRuntimeDebugState.lastRetroAchievementsShortcutTitle, "Final Fantasy X International");
+    assert.equal(firstRuntimeDebugState.lastRetroAchievementsShortcutPlatform, "Sony PlayStation 2");
+    assert.equal(firstRuntimeDebugState.lastRetroAchievementsNormalizedPlatform, "PlayStation 2");
+    assert.equal(firstRuntimeDebugState.lastRetroAchievementsMappingStatus, "mapped");
+    assert.equal(firstRuntimeDebugState.lastRetroAchievementsMappingReason, "ra-api-game-list-title-match");
+    assert.equal(firstRuntimeDebugState.lastRetroAchievementsResolutionSource, "ra-api-game-detail");
+    assert.equal(firstRuntimeDebugState.lastRetroAchievementsResolutionReason, "ra-api-game-list-title-match");
+    assert.equal(firstRuntimeDebugState.lastRetroAchievementsResolvedSystemName, "PlayStation 2");
+    assert.equal(firstRuntimeDebugState.lastRetroAchievementsResolvedConsoleId, "21");
+    assert.equal(firstRuntimeDebugState.lastRetroAchievementsMatchedTitle, "Final Fantasy X: International");
+    assert.equal(firstRuntimeDebugState.lastRetroAchievementsMatchedGameId, "2778");
+    assert.equal(firstRuntimeDebugState.lastRetroAchievementsDetailLoadStatus, "success");
+    assert.equal(firstRuntimeDebugState.lastRetroAchievementsCandidateCount, 1);
+
+    const secondSummary = await loadDeckyGamePageAchievementSummary("2874315921");
+    assert.equal(secondSummary.status, "ready");
+    if (secondSummary.status !== "ready") {
+      return;
+    }
+    assert.equal(secondSummary.provider, "retroachievements");
+    assert.equal(secondSummary.appId, "2874315921");
+    assert.equal(secondSummary.gameId, "2778");
+    assert.equal(secondSummary.title, "Final Fantasy X: International");
+    assert.equal(secondSummary.earned, 97);
+    assert.equal(secondSummary.total, 249);
+    assert.equal(secondSummary.platformLabel, "PlayStation 2");
+    assert.equal(secondSummary.systemIconUrl, "https://example.com/ps2.png");
+    assert.equal(secondSummary.source, "backend");
+    assert.notEqual(secondSummary.updatedAt, undefined);
+
+    assert.equal(deckyBackendTestState.retroAchievements.systemsRequestCount, 1);
+    assert.equal(deckyBackendTestState.retroAchievements.gameListRequestCount, 1);
+    assert.deepStrictEqual(deckyBackendTestState.retroAchievements.gameListRequestedConsoleIds, ["21"]);
+  });
+});
+
+test("game page achievement summary reports ra-platform-unsupported when no exact RetroAchievements system matches the shortcut platform", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2874315922": {
+        title: "Final Fantasy X International",
+        platformTag: "Sony PlayStation Portable",
+        tags: ["Sony PlayStation Portable"],
+      },
+    };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 7,
+        Name: "PlayStation",
+        IconURL: "https://example.com/ps1.png",
+      },
+      {
+        ID: 21,
+        Name: "PlayStation 2",
+        IconURL: "https://example.com/ps2.png",
+      },
+    ];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "21": [
+        {
+          GameID: 100,
+          Title: "Final Fantasy X",
+          ConsoleID: 21,
+          ConsoleName: "PlayStation 2",
+        },
+      ],
+    };
+
+    const summary = await loadDeckyGamePageAchievementSummary("2874315922");
     assert.deepStrictEqual(summary, {
       status: "unavailable",
-      appId: "2874315920",
+      appId: "2874315922",
+      reason: "ra-platform-unsupported",
+    });
+
+    const runtimeDebugState = getAchievementCompanionRuntimeDebugState();
+    assert.equal(runtimeDebugState.lastRetroAchievementsShortcutAppId, "2874315922");
+    assert.equal(runtimeDebugState.lastRetroAchievementsMappingStatus, "unavailable");
+    assert.equal(runtimeDebugState.lastRetroAchievementsMappingReason, "ra-platform-unsupported");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolutionSource, "ra-api-game-list");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolutionReason, "ra-platform-unsupported");
+    assert.equal(runtimeDebugState.lastRetroAchievementsShortcutPlatform, "Sony PlayStation Portable");
+    assert.equal(runtimeDebugState.lastRetroAchievementsNormalizedPlatform, "PlayStation Portable");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolvedSystemName, undefined);
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolvedConsoleId, undefined);
+    assert.equal(runtimeDebugState.lastRetroAchievementsCandidateCount, 0);
+  });
+});
+
+test("game page achievement summary reports ra-game-list-no-match when PlayStation 2 resolves exactly but the RetroAchievements list has no Final Fantasy X candidate", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2874315923": {
+        title: "Final Fantasy X International",
+        platformTag: "Sony PlayStation 2",
+        tags: ["Sony PlayStation 2"],
+      },
+    };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 21,
+        Name: "PlayStation 2",
+        IconURL: "https://example.com/ps2.png",
+      },
+    ];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "21": [
+        {
+          GameID: 101,
+          Title: "Final Fantasy XII",
+          ConsoleID: 21,
+          ConsoleName: "PlayStation 2",
+        },
+      ],
+    };
+
+    const summary = await loadDeckyGamePageAchievementSummary("2874315923");
+    assert.deepStrictEqual(summary, {
+      status: "unavailable",
+      appId: "2874315923",
       reason: "ra-game-list-no-match",
     });
 
     const runtimeDebugState = getAchievementCompanionRuntimeDebugState();
-    assert.equal(runtimeDebugState.lastRetroAchievementsShortcutAppId, "2874315920");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolvedSystemName, "PlayStation 2");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolvedConsoleId, "21");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolutionSource, "ra-api-game-list");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolutionReason, "ra-game-list-no-match");
+    assert.equal(runtimeDebugState.lastRetroAchievementsCandidateCount, 0);
+    assert.deepStrictEqual(deckyBackendTestState.retroAchievements.gameListRequestedConsoleIds, ["21"]);
+
+    const resolverDebugText = readDeckyStorageText(
+      ACHIEVEMENT_COMPANION_LAST_RA_SHORTCUT_RESOLUTION_DEBUG_STORAGE_KEY,
+    );
+    assert.notEqual(resolverDebugText, undefined);
+    const resolverDebug = JSON.parse(resolverDebugText ?? "{}") as ReturnType<
+      typeof getAchievementCompanionLastRaShortcutResolutionDebug
+    >;
+    assert.equal(resolverDebug.finalStatus, "unavailable");
+    assert.equal(resolverDebug.finalReason, "ra-game-list-no-match");
+    assert.equal(resolverDebug.apiGameListCandidateCount, 0);
+  });
+});
+
+test("game page achievement summary reports ambiguous RetroAchievements API game list matches when multiple PlayStation 2 candidates share a title", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2874315924": {
+        title: "Twin Match Game",
+        platformTag: "Sony PlayStation 2",
+        tags: ["Sony PlayStation 2"],
+      },
+    };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 7,
+        Name: "PlayStation",
+        IconURL: "https://example.com/ps1.png",
+      },
+      {
+        ID: 21,
+        Name: "PlayStation 2",
+        IconURL: "https://example.com/ps2.png",
+      },
+    ];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "21": [
+        {
+          GameID: 100,
+          Title: "Twin Match Game",
+          ConsoleID: 21,
+          ConsoleName: "PlayStation 2",
+        },
+        {
+          GameID: 101,
+          Title: "Twin Match Game",
+          ConsoleID: 21,
+          ConsoleName: "PlayStation 2",
+        },
+      ],
+    };
+
+    const summary = await loadDeckyGamePageAchievementSummary("2874315924");
+    assert.deepStrictEqual(summary, {
+      status: "unavailable",
+      appId: "2874315924",
+      reason: "ambiguous-retroachievements-shortcut-mapping",
+    });
+
+    const runtimeDebugState = getAchievementCompanionRuntimeDebugState();
+    assert.equal(runtimeDebugState.lastRetroAchievementsShortcutAppId, "2874315924");
     assert.equal(runtimeDebugState.lastRetroAchievementsMappingStatus, "unavailable");
-    assert.equal(runtimeDebugState.lastRetroAchievementsMappingReason, "ra-game-list-no-match");
+    assert.equal(runtimeDebugState.lastRetroAchievementsMappingReason, "ambiguous-retroachievements-shortcut-mapping");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolutionSource, "ra-api-game-list");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolutionReason, "ambiguous-retroachievements-shortcut-mapping");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolvedSystemName, "PlayStation 2");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolvedConsoleId, "21");
+    assert.equal(runtimeDebugState.lastRetroAchievementsCandidateCount, 2);
+  });
+});
+
+test("game page achievement summary prefers the non-subset RetroAchievements API game list match when subset variants are also present", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2874315926": {
+        title: "Final Fantasy X International",
+        platformTag: "Sony PlayStation 2",
+        tags: ["Sony PlayStation 2"],
+      },
+    };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 21,
+        Name: "PlayStation 2",
+        IconURL: "https://example.com/ps2.png",
+      },
+    ];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "21": [
+        {
+          GameID: 2778,
+          Title: "Final Fantasy X: International",
+          ConsoleID: 21,
+          ConsoleName: "PlayStation 2",
+        },
+        {
+          GameID: 22629,
+          Title: "Final Fantasy X: International [Subset - No Sphere Grid]",
+          ConsoleID: 21,
+          ConsoleName: "PlayStation 2",
+        },
+      ],
+    };
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      "2778": {
+        ID: 2778,
+        Title: "Final Fantasy X: International",
+        ConsoleID: 21,
+        ConsoleName: "PlayStation 2",
+        NumAchievements: 249,
+        NumAwardedToUser: 97,
+        NumAwardedToUserHardcore: 4,
+        UserCompletion: "38.96%",
+        UserCompletionHardcore: "1.61%",
+        HighestAwardKind: "beaten",
+        Achievements: [
+          {
+            ID: 1,
+            Title: "Besaid Island",
+            NumAwarded: 1,
+            NumAwardedHardcore: 1,
+          },
+        ],
+      },
+    };
+
+    const summary = await loadDeckyGamePageAchievementSummary("2874315926");
+    assert.equal(summary.status, "ready");
+    if (summary.status !== "ready") {
+      return;
+    }
+
+    assert.equal(summary.provider, "retroachievements");
+    assert.equal(summary.gameId, "2778");
+    assert.equal(summary.title, "Final Fantasy X: International");
+    assert.equal(summary.earned, 97);
+    assert.equal(summary.total, 249);
+
+    const runtimeDebugState = getAchievementCompanionRuntimeDebugState();
+    assert.equal(runtimeDebugState.lastRetroAchievementsMatchedTitle, "Final Fantasy X: International");
+    assert.equal(runtimeDebugState.lastRetroAchievementsMatchedGameId, "2778");
+    assert.equal(runtimeDebugState.lastRetroAchievementsCandidateCount, 1);
+  });
+});
+
+test("game page achievement summary reports ra-detail-unavailable when RetroAchievements API game list candidate detail load fails", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2874315925": {
+        title: "Final Fantasy X International",
+        platformTag: "Sony PlayStation 2",
+        tags: ["Sony PlayStation 2"],
+      },
+    };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 7,
+        Name: "PlayStation",
+        IconURL: "https://example.com/ps1.png",
+      },
+      {
+        ID: 21,
+        Name: "PlayStation 2",
+        IconURL: "https://example.com/ps2.png",
+      },
+    ];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "21": [
+        {
+          GameID: 2778,
+          Title: "Final Fantasy X: International",
+          ConsoleID: 21,
+          ConsoleName: "PlayStation 2",
+        },
+      ],
+    };
+
+    const summary = await loadDeckyGamePageAchievementSummary("2874315925");
+    assert.deepStrictEqual(summary, {
+      status: "unavailable",
+      appId: "2874315925",
+      reason: "ra-detail-unavailable",
+    });
+
+    const runtimeDebugState = getAchievementCompanionRuntimeDebugState();
+    assert.equal(runtimeDebugState.lastRetroAchievementsShortcutAppId, "2874315925");
+    assert.equal(runtimeDebugState.lastRetroAchievementsMappingStatus, "unavailable");
+    assert.equal(runtimeDebugState.lastRetroAchievementsMappingReason, "ra-detail-unavailable");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolutionSource, "ra-api-game-detail");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolutionReason, "ra-detail-unavailable");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolvedSystemName, "PlayStation 2");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolvedConsoleId, "21");
+    assert.equal(runtimeDebugState.lastRetroAchievementsDetailLoadStatus, "unavailable");
+    assert.equal(runtimeDebugState.lastRetroAchievementsDetailLoadReason, "ra-detail-unavailable");
+    assert.equal(runtimeDebugState.lastRetroAchievementsCandidateCount, 1);
   });
 });
 
@@ -11319,6 +12329,13 @@ test("game page achievement summary normalizes Sonic the Hedgehog 3 & Knuckles t
         platformLabel: "Sega Genesis/Mega Drive",
       },
     };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 1,
+        Name: "Genesis/Mega Drive",
+        IconURL: "https://example.com/genesis.png",
+      },
+    ];
     assert.ok(
       writeDeckyDashboardSnapshot({
         ...createDashboardSnapshot(),
@@ -11358,6 +12375,8 @@ test("game page achievement summary normalizes Sonic the Hedgehog 3 & Knuckles t
     assert.equal(summary.appId, "2217040901");
     assert.equal(summary.gameId, "4874");
     assert.equal(summary.title, "Sonic 3 & Knuckles");
+    assert.equal(summary.platformLabel, "Genesis/Mega Drive");
+    assert.equal(summary.systemIconUrl, "https://example.com/genesis.png");
     assert.equal(summary.earned, 1);
     assert.equal(summary.total, 2);
     assert.equal(summary.source, "snapshot");

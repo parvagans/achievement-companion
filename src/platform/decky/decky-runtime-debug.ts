@@ -59,9 +59,15 @@ export interface AchievementCompanionRuntimeDebugState {
   readonly lastSummaryUnavailableReason: string | undefined;
   readonly lastSummaryFetchStartedAt: string | undefined;
   readonly lastSummaryFetchCompletedAt: string | undefined;
+  readonly lastGamePageShortcutDetectedAppId: string | undefined;
+  readonly lastGamePageShortcutTitle: string | undefined;
+  readonly lastGamePageShortcutPlatform: string | undefined;
+  readonly lastGamePageShortcutDetectionReason: string | undefined;
+  readonly lastGamePageShortcutNextPath: string | undefined;
   readonly lastRetroAchievementsShortcutAppId: string | undefined;
   readonly lastRetroAchievementsShortcutTitle: string | undefined;
   readonly lastRetroAchievementsShortcutPlatform: string | undefined;
+  readonly lastRetroAchievementsNormalizedPlatform: string | undefined;
   readonly lastRetroAchievementsMappingStatus: "mapped" | "unavailable" | "error" | undefined;
   readonly lastRetroAchievementsMappingReason: string | undefined;
   readonly lastRetroAchievementsGameId: string | undefined;
@@ -73,10 +79,14 @@ export interface AchievementCompanionRuntimeDebugState {
   readonly lastRetroAchievementsError: string | undefined;
   readonly lastRetroAchievementsResolutionSource: string | undefined;
   readonly lastRetroAchievementsResolutionReason: string | undefined;
+  readonly lastRetroAchievementsResolvedSystemName: string | undefined;
+  readonly lastRetroAchievementsResolvedConsoleId: string | undefined;
   readonly lastRetroAchievementsMatchedTitle: string | undefined;
   readonly lastRetroAchievementsMatchedPlatform: string | undefined;
   readonly lastRetroAchievementsMatchedGameId: string | undefined;
   readonly lastRetroAchievementsCandidateCount: number | undefined;
+  readonly lastRetroAchievementsDetailLoadStatus: string | undefined;
+  readonly lastRetroAchievementsDetailLoadReason: string | undefined;
   readonly lastError: string | undefined;
 }
 
@@ -103,6 +113,93 @@ export const ACHIEVEMENT_COMPANION_RUNTIME_DEBUG_GLOBAL_NAME =
   "__achievementCompanionRuntimeDebug";
 export const ACHIEVEMENT_COMPANION_RUNTIME_DEBUG_VERSION_MARKER = "0.3.0-runtime";
 export const ACHIEVEMENT_COMPANION_RUNTIME_DEBUG_BUNDLE_MARKER = "decky-game-page-bubble";
+export const ACHIEVEMENT_COMPANION_LAST_GAME_PAGE_BADGE_DEBUG_STORAGE_KEY =
+  "achievement-companion:decky:last-game-page-badge-debug";
+export const ACHIEVEMENT_COMPANION_LAST_RA_SHORTCUT_RESOLUTION_DEBUG_STORAGE_KEY =
+  "achievement-companion:decky:last-ra-shortcut-resolution-debug";
+
+export interface AchievementCompanionGamePageBadgePipelineDebugRecord {
+  readonly timestamp: string;
+  readonly routeAppId?: string;
+  readonly routePatternMatched: boolean;
+  readonly routePatchHandlerFired: boolean;
+  readonly routeBadgeInserted: boolean;
+  readonly routeBadgeRendered: boolean;
+  readonly summaryLoadStarted: boolean;
+  readonly summaryLoadFinished: boolean;
+  readonly summaryStatus?: GamePageAchievementSummary["status"];
+  readonly summaryProvider?: "steam" | "retroachievements";
+  readonly summaryGameId?: string;
+  readonly summaryTitle?: string;
+  readonly summaryEarned?: number;
+  readonly summaryTotal?: number;
+  readonly summaryReason?: string;
+  readonly placementAttempted: boolean;
+  readonly placementSlot?: string;
+  readonly placementRejectedReasons: readonly string[];
+  readonly placementFallbackUsed: boolean;
+  readonly badgeHiddenReason?: string;
+  readonly thrownErrorMessage?: string;
+}
+
+export interface AchievementCompanionRaShortcutResolutionDebugRecord {
+  readonly timestamp: string;
+  readonly appId?: string;
+  readonly shortcutMetadataLoaded: boolean;
+  readonly shortcutTitle?: string;
+  readonly shortcutPlatform?: string;
+  readonly normalizedPlatform?: string;
+  readonly steamSkippedBecauseShortcut: boolean;
+  readonly resolverStage?: string;
+  readonly dashboardSummaryCandidateCount?: number;
+  readonly completionProgressCandidateCount?: number;
+  readonly completionProgressRelevantCandidates: readonly {
+    readonly id?: string;
+    readonly title?: string;
+    readonly console?: string;
+  }[];
+  readonly completionProgressAmbiguousCandidateTitles: readonly string[];
+  readonly dashboardIdentityCandidateCount?: number;
+  readonly apiSystemsResolvedConsoleId?: string;
+  readonly apiSystemsResolvedConsoleName?: string;
+  readonly apiGameListRequestConsoleId?: string;
+  readonly apiGameListCandidateCount?: number;
+  readonly apiGameListRelevantCandidates: readonly {
+    readonly id?: string;
+    readonly title?: string;
+    readonly console?: string;
+  }[];
+  readonly apiMatchedGameId?: string;
+  readonly apiMatchedTitle?: string;
+  readonly apiAmbiguousCandidateTitles: readonly string[];
+  readonly detailLoadAttempted: boolean;
+  readonly detailLoadStatus?: string;
+  readonly detailLoadReason?: string;
+  readonly detailGameId?: string;
+  readonly detailTitle?: string;
+  readonly detailPlatformLabel?: string;
+  readonly detailEarned?: number;
+  readonly detailEarnedHardcore?: number;
+  readonly detailTotal?: number;
+  readonly finalStatus?: "mapped" | "unavailable" | "error";
+  readonly finalReason?: string;
+  readonly returnedSummaryProvider?: "steam" | "retroachievements";
+  readonly returnedSummaryEarned?: number;
+  readonly returnedSummaryTotal?: number;
+  readonly thrownErrorMessage?: string;
+}
+
+type AchievementCompanionGamePageBadgePipelineDebugUpdate = {
+  [K in keyof AchievementCompanionGamePageBadgePipelineDebugRecord]?:
+    | AchievementCompanionGamePageBadgePipelineDebugRecord[K]
+    | undefined;
+};
+
+type AchievementCompanionRaShortcutResolutionDebugUpdate = {
+  [K in keyof AchievementCompanionRaShortcutResolutionDebugRecord]?:
+    | AchievementCompanionRaShortcutResolutionDebugRecord[K]
+    | undefined;
+};
 
 interface RuntimeDebugRootLike {
   [ACHIEVEMENT_COMPANION_RUNTIME_DEBUG_GLOBAL_NAME]?: AchievementCompanionRuntimeDebugApi;
@@ -152,9 +249,15 @@ let runtimeDebugLastSummaryTotal: number | undefined;
 let runtimeDebugLastSummaryUnavailableReason: string | undefined;
 let runtimeDebugLastSummaryFetchStartedAt: string | undefined;
 let runtimeDebugLastSummaryFetchCompletedAt: string | undefined;
+let runtimeDebugLastGamePageShortcutDetectedAppId: string | undefined;
+let runtimeDebugLastGamePageShortcutTitle: string | undefined;
+let runtimeDebugLastGamePageShortcutPlatform: string | undefined;
+let runtimeDebugLastGamePageShortcutDetectionReason: string | undefined;
+let runtimeDebugLastGamePageShortcutNextPath: string | undefined;
 let runtimeDebugLastRetroAchievementsShortcutAppId: string | undefined;
 let runtimeDebugLastRetroAchievementsShortcutTitle: string | undefined;
 let runtimeDebugLastRetroAchievementsShortcutPlatform: string | undefined;
+let runtimeDebugLastRetroAchievementsNormalizedPlatform: string | undefined;
 let runtimeDebugLastRetroAchievementsMappingStatus: "mapped" | "unavailable" | "error" | undefined;
 let runtimeDebugLastRetroAchievementsMappingReason: string | undefined;
 let runtimeDebugLastRetroAchievementsGameId: string | undefined;
@@ -166,13 +269,39 @@ let runtimeDebugLastRetroAchievementsConfidence: string | undefined;
 let runtimeDebugLastRetroAchievementsError: string | undefined;
 let runtimeDebugLastRetroAchievementsResolutionSource: string | undefined;
 let runtimeDebugLastRetroAchievementsResolutionReason: string | undefined;
+let runtimeDebugLastRetroAchievementsResolvedSystemName: string | undefined;
+let runtimeDebugLastRetroAchievementsResolvedConsoleId: string | undefined;
 let runtimeDebugLastRetroAchievementsMatchedTitle: string | undefined;
 let runtimeDebugLastRetroAchievementsMatchedPlatform: string | undefined;
 let runtimeDebugLastRetroAchievementsMatchedGameId: string | undefined;
 let runtimeDebugLastRetroAchievementsCandidateCount: number | undefined;
+let runtimeDebugLastRetroAchievementsDetailLoadStatus: string | undefined;
+let runtimeDebugLastRetroAchievementsDetailLoadReason: string | undefined;
 let runtimeDebugLastObservedRouteUrl: string | undefined;
 let runtimeDebugLastObservedDetection: DeckyGamePageAchievementRouteDetectionState | undefined;
 let runtimeDebugLastError: string | undefined;
+let runtimeDebugLastGamePageBadgeDiagnostic: AchievementCompanionGamePageBadgePipelineDebugRecord = {
+  timestamp: new Date().toISOString(),
+  routePatternMatched: false,
+  routePatchHandlerFired: false,
+  routeBadgeInserted: false,
+  routeBadgeRendered: false,
+  summaryLoadStarted: false,
+  summaryLoadFinished: false,
+  placementAttempted: false,
+  placementRejectedReasons: [],
+  placementFallbackUsed: false,
+};
+let runtimeDebugLastRaShortcutResolutionDiagnostic: AchievementCompanionRaShortcutResolutionDebugRecord = {
+  timestamp: new Date().toISOString(),
+  shortcutMetadataLoaded: false,
+  steamSkippedBecauseShortcut: false,
+  completionProgressRelevantCandidates: [],
+  completionProgressAmbiguousCandidateTitles: [],
+  apiGameListRelevantCandidates: [],
+  apiAmbiguousCandidateTitles: [],
+  detailLoadAttempted: false,
+};
 
 const runtimeDebugStartedAt = new Date().toISOString();
 
@@ -215,6 +344,72 @@ function readTargetDocumentUrl(targetDocument: Document | undefined): string | u
   } catch {
     return undefined;
   }
+}
+
+function writeAchievementCompanionRuntimeDebugStorage(
+  key: string,
+  value: unknown,
+): void {
+  try {
+    const storage = globalThis.localStorage;
+    if (storage === undefined) {
+      return;
+    }
+
+    storage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Ignore storage write failures in Steam/Decky runtime.
+  }
+}
+
+export function getAchievementCompanionLastGamePageBadgeDebug():
+  AchievementCompanionGamePageBadgePipelineDebugRecord {
+  return runtimeDebugLastGamePageBadgeDiagnostic;
+}
+
+export function getAchievementCompanionLastRaShortcutResolutionDebug():
+  AchievementCompanionRaShortcutResolutionDebugRecord {
+  return runtimeDebugLastRaShortcutResolutionDiagnostic;
+}
+
+function omitUndefinedObjectValues<T extends Record<string, unknown>>(value: T): Partial<T> {
+  const entries = Object.entries(value).filter(([, entryValue]) => entryValue !== undefined);
+  return Object.fromEntries(entries) as Partial<T>;
+}
+
+export function updateAchievementCompanionGamePageBadgeDebug(
+  update: AchievementCompanionGamePageBadgePipelineDebugUpdate,
+): AchievementCompanionGamePageBadgePipelineDebugRecord {
+  runtimeDebugLastGamePageBadgeDiagnostic = omitUndefinedObjectValues({
+    ...runtimeDebugLastGamePageBadgeDiagnostic,
+    ...omitUndefinedObjectValues(update),
+    timestamp: new Date().toISOString(),
+  }) as AchievementCompanionGamePageBadgePipelineDebugRecord;
+  writeAchievementCompanionRuntimeDebugStorage(
+    ACHIEVEMENT_COMPANION_LAST_GAME_PAGE_BADGE_DEBUG_STORAGE_KEY,
+    runtimeDebugLastGamePageBadgeDiagnostic,
+  );
+  console.debug("[Achievement Companion][Game Page Badge]", runtimeDebugLastGamePageBadgeDiagnostic);
+  return runtimeDebugLastGamePageBadgeDiagnostic;
+}
+
+export function updateAchievementCompanionRaShortcutResolutionDebug(
+  update: AchievementCompanionRaShortcutResolutionDebugUpdate,
+): AchievementCompanionRaShortcutResolutionDebugRecord {
+  runtimeDebugLastRaShortcutResolutionDiagnostic = omitUndefinedObjectValues({
+    ...runtimeDebugLastRaShortcutResolutionDiagnostic,
+    ...omitUndefinedObjectValues(update),
+    timestamp: new Date().toISOString(),
+  }) as AchievementCompanionRaShortcutResolutionDebugRecord;
+  writeAchievementCompanionRuntimeDebugStorage(
+    ACHIEVEMENT_COMPANION_LAST_RA_SHORTCUT_RESOLUTION_DEBUG_STORAGE_KEY,
+    runtimeDebugLastRaShortcutResolutionDiagnostic,
+  );
+  console.debug(
+    "[Achievement Companion][RA Shortcut Resolver]",
+    runtimeDebugLastRaShortcutResolutionDiagnostic,
+  );
+  return runtimeDebugLastRaShortcutResolutionDiagnostic;
 }
 
 export function reportAchievementCompanionRuntimeDebugError(
@@ -341,9 +536,15 @@ function computeRuntimeDebugState(): AchievementCompanionRuntimeDebugState {
     lastSummaryUnavailableReason: runtimeDebugLastSummaryUnavailableReason,
     lastSummaryFetchStartedAt: runtimeDebugLastSummaryFetchStartedAt,
     lastSummaryFetchCompletedAt: runtimeDebugLastSummaryFetchCompletedAt,
+    lastGamePageShortcutDetectedAppId: runtimeDebugLastGamePageShortcutDetectedAppId,
+    lastGamePageShortcutTitle: runtimeDebugLastGamePageShortcutTitle,
+    lastGamePageShortcutPlatform: runtimeDebugLastGamePageShortcutPlatform,
+    lastGamePageShortcutDetectionReason: runtimeDebugLastGamePageShortcutDetectionReason,
+    lastGamePageShortcutNextPath: runtimeDebugLastGamePageShortcutNextPath,
     lastRetroAchievementsShortcutAppId: runtimeDebugLastRetroAchievementsShortcutAppId,
     lastRetroAchievementsShortcutTitle: runtimeDebugLastRetroAchievementsShortcutTitle,
     lastRetroAchievementsShortcutPlatform: runtimeDebugLastRetroAchievementsShortcutPlatform,
+    lastRetroAchievementsNormalizedPlatform: runtimeDebugLastRetroAchievementsNormalizedPlatform,
     lastRetroAchievementsMappingStatus: runtimeDebugLastRetroAchievementsMappingStatus,
     lastRetroAchievementsMappingReason: runtimeDebugLastRetroAchievementsMappingReason,
     lastRetroAchievementsGameId: runtimeDebugLastRetroAchievementsGameId,
@@ -355,10 +556,14 @@ function computeRuntimeDebugState(): AchievementCompanionRuntimeDebugState {
     lastRetroAchievementsError: runtimeDebugLastRetroAchievementsError,
     lastRetroAchievementsResolutionSource: runtimeDebugLastRetroAchievementsResolutionSource,
     lastRetroAchievementsResolutionReason: runtimeDebugLastRetroAchievementsResolutionReason,
+    lastRetroAchievementsResolvedSystemName: runtimeDebugLastRetroAchievementsResolvedSystemName,
+    lastRetroAchievementsResolvedConsoleId: runtimeDebugLastRetroAchievementsResolvedConsoleId,
     lastRetroAchievementsMatchedTitle: runtimeDebugLastRetroAchievementsMatchedTitle,
     lastRetroAchievementsMatchedPlatform: runtimeDebugLastRetroAchievementsMatchedPlatform,
     lastRetroAchievementsMatchedGameId: runtimeDebugLastRetroAchievementsMatchedGameId,
     lastRetroAchievementsCandidateCount: runtimeDebugLastRetroAchievementsCandidateCount,
+    lastRetroAchievementsDetailLoadStatus: runtimeDebugLastRetroAchievementsDetailLoadStatus,
+    lastRetroAchievementsDetailLoadReason: runtimeDebugLastRetroAchievementsDetailLoadReason,
     lastError: runtimeDebugLastError,
   };
 }
@@ -437,6 +642,11 @@ export function removeAchievementCompanionRuntimeDebug(): void {
   runtimeDebugLastGamePageBadgeSystemIconPlatform = undefined;
   runtimeDebugLastGamePageBadgeSystemIconUrl = undefined;
   runtimeDebugLastGamePageBadgeSystemIconRendered = false;
+  runtimeDebugLastGamePageShortcutDetectedAppId = undefined;
+  runtimeDebugLastGamePageShortcutTitle = undefined;
+  runtimeDebugLastGamePageShortcutPlatform = undefined;
+  runtimeDebugLastGamePageShortcutDetectionReason = undefined;
+  runtimeDebugLastGamePageShortcutNextPath = undefined;
   runtimeDebugLastRetroAchievementsShortcutAppId = undefined;
   runtimeDebugLastRetroAchievementsShortcutTitle = undefined;
   runtimeDebugLastRetroAchievementsShortcutPlatform = undefined;
@@ -455,6 +665,28 @@ export function removeAchievementCompanionRuntimeDebug(): void {
   runtimeDebugLastRetroAchievementsMatchedPlatform = undefined;
   runtimeDebugLastRetroAchievementsMatchedGameId = undefined;
   runtimeDebugLastRetroAchievementsCandidateCount = undefined;
+  runtimeDebugLastGamePageBadgeDiagnostic = {
+    timestamp: new Date().toISOString(),
+    routePatternMatched: false,
+    routePatchHandlerFired: false,
+    routeBadgeInserted: false,
+    routeBadgeRendered: false,
+    summaryLoadStarted: false,
+    summaryLoadFinished: false,
+    placementAttempted: false,
+    placementRejectedReasons: [],
+    placementFallbackUsed: false,
+  };
+  runtimeDebugLastRaShortcutResolutionDiagnostic = {
+    timestamp: new Date().toISOString(),
+    shortcutMetadataLoaded: false,
+    steamSkippedBecauseShortcut: false,
+    completionProgressRelevantCandidates: [],
+    completionProgressAmbiguousCandidateTitles: [],
+    apiGameListRelevantCandidates: [],
+    apiAmbiguousCandidateTitles: [],
+    detailLoadAttempted: false,
+  };
   runtimeDebugHostContext = undefined;
 }
 
@@ -473,6 +705,10 @@ export function markAchievementCompanionGamePageRouteBadgePatchCallback(appId?: 
   if (appId !== undefined) {
     runtimeDebugLastRouteBadgeAppId = appId;
   }
+  updateAchievementCompanionGamePageBadgeDebug({
+    ...(appId !== undefined ? { routeAppId: appId } : {}),
+    routePatternMatched: true,
+  });
 }
 
 export function markAchievementCompanionGamePageRouteBadgeRenderFuncPatched(): void {
@@ -484,6 +720,10 @@ export function markAchievementCompanionGamePageRouteBadgePatchHandlerFired(appI
   if (appId !== undefined) {
     runtimeDebugLastRouteBadgeAppId = appId;
   }
+  updateAchievementCompanionGamePageBadgeDebug({
+    ...(appId !== undefined ? { routeAppId: appId } : {}),
+    routePatchHandlerFired: true,
+  });
 }
 
 export function markAchievementCompanionGamePageRouteBadgeInserted(appId?: string): void {
@@ -491,6 +731,10 @@ export function markAchievementCompanionGamePageRouteBadgeInserted(appId?: strin
   if (appId !== undefined) {
     runtimeDebugLastRouteBadgeAppId = appId;
   }
+  updateAchievementCompanionGamePageBadgeDebug({
+    ...(appId !== undefined ? { routeAppId: appId } : {}),
+    routeBadgeInserted: true,
+  });
 }
 
 export function markAchievementCompanionGamePageRouteBadgeRendered(appId?: string): void {
@@ -499,6 +743,10 @@ export function markAchievementCompanionGamePageRouteBadgeRendered(appId?: strin
   if (appId !== undefined) {
     runtimeDebugLastRouteBadgeAppId = appId;
   }
+  updateAchievementCompanionGamePageBadgeDebug({
+    ...(appId !== undefined ? { routeAppId: appId } : {}),
+    routeBadgeRendered: true,
+  });
 }
 
 export function markAchievementCompanionGamePageRouteBadgePlacement(
@@ -506,12 +754,19 @@ export function markAchievementCompanionGamePageRouteBadgePlacement(
   collisionCount: number,
   candidateCount: number,
   fallbackUsed: boolean,
+  rejectedReasons: readonly string[] = [],
 ): void {
   runtimeDebugRouteBadgePlacementSlot = slotId;
   runtimeDebugRouteBadgePlacementCollisionCount = collisionCount;
   runtimeDebugRouteBadgePlacementCandidateCount = candidateCount;
   runtimeDebugRouteBadgePlacementFallbackUsed = fallbackUsed;
   runtimeDebugRouteBadgePlacementUpdatedAt = new Date().toISOString();
+  updateAchievementCompanionGamePageBadgeDebug({
+    placementAttempted: true,
+    placementSlot: slotId,
+    placementRejectedReasons: [...rejectedReasons],
+    placementFallbackUsed: fallbackUsed,
+  });
 }
 
 export function markAchievementCompanionGamePageBadgeActivated(args: {
@@ -565,6 +820,10 @@ export function markAchievementCompanionGamePageAchievementBadgeRendered(
     appId: runtimeDebugLastBadgeRenderAppId,
     currentRouteUrl: runtimeDebugLastObservedRouteUrl,
   });
+  updateAchievementCompanionGamePageBadgeDebug({
+    ...(appId !== undefined ? { routeAppId: appId } : {}),
+    routeBadgeRendered: true,
+  });
 }
 
 export function markAchievementCompanionGamePageAchievementBadgeClicked(appId?: string): void {
@@ -572,6 +831,12 @@ export function markAchievementCompanionGamePageAchievementBadgeClicked(appId?: 
   if (appId !== undefined) {
     runtimeDebugLastBadgeRenderAppId = appId;
   }
+}
+
+export function markAchievementCompanionGamePageBadgeHidden(reason: string): void {
+  updateAchievementCompanionGamePageBadgeDebug({
+    badgeHiddenReason: reason,
+  });
 }
 
 export function markAchievementCompanionGamePageAchievementSummaryFetchStarted(appId: string): void {
@@ -585,6 +850,11 @@ export function markAchievementCompanionGamePageAchievementSummaryFetchStarted(a
     }),
     appId,
   };
+  updateAchievementCompanionGamePageBadgeDebug({
+    routeAppId: appId,
+    summaryLoadStarted: true,
+    summaryLoadFinished: false,
+  });
 }
 
 export function markAchievementCompanionGamePageAchievementSummaryFetchCompleted(
@@ -601,6 +871,57 @@ export function markAchievementCompanionGamePageAchievementSummaryFetchCompleted
       : summary.status === "error"
         ? summary.message
         : undefined;
+  updateAchievementCompanionGamePageBadgeDebug({
+    routeAppId: summary.appId,
+    summaryLoadFinished: true,
+    summaryStatus: summary.status,
+    ...(summary.status === "ready"
+      ? {
+          summaryProvider: summary.provider,
+          ...(summary.gameId !== undefined ? { summaryGameId: summary.gameId } : {}),
+          ...(summary.title !== undefined ? { summaryTitle: summary.title } : {}),
+          summaryEarned: summary.earned,
+          summaryTotal: summary.total,
+        }
+      : summary.status === "unavailable"
+        ? {
+            summaryReason: summary.reason,
+          }
+        : summary.status === "error"
+          ? {
+              summaryReason: summary.message,
+            }
+          : {}),
+  });
+}
+
+export function markAchievementCompanionGamePageShortcutDetected(args: {
+  readonly appId: string;
+  readonly title: string;
+  readonly platform: string | undefined;
+  readonly reason: string;
+  readonly nextPath: string;
+}): void {
+  runtimeDebugLastGamePageShortcutDetectedAppId = args.appId;
+  runtimeDebugLastGamePageShortcutTitle = args.title;
+  runtimeDebugLastGamePageShortcutPlatform = args.platform;
+  runtimeDebugLastGamePageShortcutDetectionReason = args.reason;
+  runtimeDebugLastGamePageShortcutNextPath = args.nextPath;
+  console.debug("[Achievement Companion] Game-page shortcut detected", {
+    appId: args.appId,
+    title: args.title,
+    platform: args.platform,
+    reason: args.reason,
+    nextPath: args.nextPath,
+  });
+  updateAchievementCompanionRaShortcutResolutionDebug({
+    appId: args.appId,
+    shortcutMetadataLoaded: true,
+    shortcutTitle: args.title,
+    ...(args.platform !== undefined ? { shortcutPlatform: args.platform } : {}),
+    steamSkippedBecauseShortcut: args.reason === "steam-shortcut-detected",
+    resolverStage: args.nextPath,
+  });
 }
 
 export function reportAchievementCompanionGamePageAchievementSummaryError(
@@ -616,32 +937,45 @@ export function reportAchievementCompanionGamePageAchievementSummaryError(
   runtimeDebugLastSummaryUnavailableReason = message;
   runtimeDebugLastSummaryFetchCompletedAt = new Date().toISOString();
   runtimeDebugLastBadgeRenderAppId = appId;
+  updateAchievementCompanionGamePageBadgeDebug({
+    routeAppId: appId,
+    summaryLoadFinished: true,
+    summaryStatus: "error",
+    summaryReason: message,
+    thrownErrorMessage: message,
+  });
   return message;
 }
 
 export function markAchievementCompanionRetroAchievementsShortcutResolution(args: {
   readonly appId: string;
   readonly status: "mapped" | "unavailable" | "error";
-  readonly reason?: string;
-  readonly gameId?: string;
-  readonly title?: string;
-  readonly earned?: number;
-  readonly total?: number;
-  readonly source?: string;
-  readonly confidence?: string;
-  readonly error?: string;
-  readonly shortcutTitle?: string;
-  readonly shortcutPlatform?: string;
-  readonly resolutionSource?: string;
-  readonly resolutionReason?: string;
-  readonly matchedTitle?: string;
-  readonly matchedPlatform?: string;
-  readonly matchedGameId?: string;
-  readonly candidateCount?: number;
+  readonly reason?: string | undefined;
+  readonly gameId?: string | undefined;
+  readonly title?: string | undefined;
+  readonly earned?: number | undefined;
+  readonly total?: number | undefined;
+  readonly source?: string | undefined;
+  readonly confidence?: string | undefined;
+  readonly error?: string | undefined;
+  readonly shortcutTitle?: string | undefined;
+  readonly shortcutPlatform?: string | undefined;
+  readonly normalizedPlatform?: string | undefined;
+  readonly resolutionSource?: string | undefined;
+  readonly resolutionReason?: string | undefined;
+  readonly resolvedSystemName?: string | undefined;
+  readonly resolvedConsoleId?: string | undefined;
+  readonly matchedTitle?: string | undefined;
+  readonly matchedPlatform?: string | undefined;
+  readonly matchedGameId?: string | undefined;
+  readonly candidateCount?: number | undefined;
+  readonly detailLoadStatus?: string | undefined;
+  readonly detailLoadReason?: string | undefined;
 }): void {
   runtimeDebugLastRetroAchievementsShortcutAppId = args.appId;
   runtimeDebugLastRetroAchievementsShortcutTitle = args.shortcutTitle;
   runtimeDebugLastRetroAchievementsShortcutPlatform = args.shortcutPlatform;
+  runtimeDebugLastRetroAchievementsNormalizedPlatform = args.normalizedPlatform;
   runtimeDebugLastRetroAchievementsMappingStatus = args.status;
   runtimeDebugLastRetroAchievementsMappingReason = args.reason;
   runtimeDebugLastRetroAchievementsGameId = args.gameId;
@@ -653,8 +987,44 @@ export function markAchievementCompanionRetroAchievementsShortcutResolution(args
   runtimeDebugLastRetroAchievementsError = args.error;
   runtimeDebugLastRetroAchievementsResolutionSource = args.resolutionSource;
   runtimeDebugLastRetroAchievementsResolutionReason = args.resolutionReason;
+  runtimeDebugLastRetroAchievementsResolvedSystemName = args.resolvedSystemName;
+  runtimeDebugLastRetroAchievementsResolvedConsoleId = args.resolvedConsoleId;
   runtimeDebugLastRetroAchievementsMatchedTitle = args.matchedTitle;
   runtimeDebugLastRetroAchievementsMatchedPlatform = args.matchedPlatform;
   runtimeDebugLastRetroAchievementsMatchedGameId = args.matchedGameId;
   runtimeDebugLastRetroAchievementsCandidateCount = args.candidateCount;
+  runtimeDebugLastRetroAchievementsDetailLoadStatus = args.detailLoadStatus;
+  runtimeDebugLastRetroAchievementsDetailLoadReason = args.detailLoadReason;
+  updateAchievementCompanionRaShortcutResolutionDebug({
+    appId: args.appId,
+    ...(args.shortcutTitle !== undefined ? { shortcutTitle: args.shortcutTitle } : {}),
+    ...(args.shortcutPlatform !== undefined ? { shortcutPlatform: args.shortcutPlatform } : {}),
+    ...(args.normalizedPlatform !== undefined ? { normalizedPlatform: args.normalizedPlatform } : {}),
+    finalStatus: args.status,
+    finalReason: args.reason ?? args.error,
+    resolverStage: args.resolutionSource,
+    ...(args.resolvedConsoleId !== undefined ? { apiSystemsResolvedConsoleId: args.resolvedConsoleId } : {}),
+    ...(args.resolvedSystemName !== undefined ? { apiSystemsResolvedConsoleName: args.resolvedSystemName } : {}),
+    ...(args.candidateCount !== undefined ? { apiGameListCandidateCount: args.candidateCount } : {}),
+    ...(args.matchedGameId !== undefined ? { apiMatchedGameId: args.matchedGameId } : {}),
+    ...(args.matchedTitle !== undefined ? { apiMatchedTitle: args.matchedTitle } : {}),
+    detailLoadAttempted:
+      args.detailLoadStatus === "success" ||
+      args.detailLoadStatus === "error" ||
+      args.detailLoadStatus === "unavailable",
+    ...(args.detailLoadStatus !== undefined ? { detailLoadStatus: args.detailLoadStatus } : {}),
+    ...(args.detailLoadReason !== undefined ? { detailLoadReason: args.detailLoadReason } : {}),
+    ...(args.gameId !== undefined ? { detailGameId: args.gameId } : {}),
+    ...(args.title !== undefined ? { detailTitle: args.title } : {}),
+    ...(args.earned !== undefined ? { detailEarned: args.earned } : {}),
+    ...(args.total !== undefined ? { detailTotal: args.total } : {}),
+    ...(args.status === "mapped"
+      ? {
+          returnedSummaryProvider: "retroachievements",
+          returnedSummaryEarned: args.earned,
+          returnedSummaryTotal: args.total,
+        }
+      : {}),
+    ...(args.error !== undefined ? { thrownErrorMessage: args.error } : {}),
+  });
 }

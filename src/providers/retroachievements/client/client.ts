@@ -2,6 +2,7 @@ import type { RetroAchievementsProviderConfig } from "../config";
 import type {
   RawRetroAchievementsCompletionProgressEntry,
   RawRetroAchievementsCompletionProgressResponse,
+  RawRetroAchievementsGameListEntry,
   RawRetroAchievementsGameProgressResponse,
   RawRetroAchievementsProfileResponse,
   RawRetroAchievementsRecentUnlockResponse,
@@ -14,6 +15,10 @@ export interface RetroAchievementsClient {
   loadSystems?(
     config: RetroAchievementsProviderConfig,
   ): Promise<readonly RawRetroAchievementsSystemResponse[]>;
+  loadGameList?(
+    config: RetroAchievementsProviderConfig,
+    consoleId: string,
+  ): Promise<readonly RawRetroAchievementsGameListEntry[]>;
   loadProfile(config: RetroAchievementsProviderConfig): Promise<RawRetroAchievementsProfileResponse>;
   loadCompletionProgress(
     config: RetroAchievementsProviderConfig,
@@ -46,6 +51,7 @@ export interface RetroAchievementsClient {
 
 const PROFILE_PATH = "API_GetUserProfile.php";
 const SYSTEMS_PATH = "API_GetConsoleIDs.php";
+const GAME_LIST_PATH = "API_GetGameList.php";
 const COMPLETION_PROGRESS_PATH = "API_GetUserCompletionProgress.php";
 const ACHIEVEMENTS_EARNED_BETWEEN_PATH = "API_GetAchievementsEarnedBetween.php";
 const RECENT_UNLOCKS_PATH = "API_GetUserRecentAchievements.php";
@@ -125,6 +131,18 @@ export function createRetroAchievementsClient(
       return transport.requestJson<readonly RawRetroAchievementsSystemResponse[]>({
         path: SYSTEMS_PATH,
         query: toAuthQuery(config),
+      });
+    },
+
+    async loadGameList(config, consoleId) {
+      return transport.requestJson<readonly RawRetroAchievementsGameListEntry[]>({
+        path: GAME_LIST_PATH,
+        query: {
+          ...toAuthQuery(config),
+          i: consoleId,
+          f: 1,
+          h: 0,
+        },
       });
     },
 
