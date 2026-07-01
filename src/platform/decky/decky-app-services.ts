@@ -65,6 +65,7 @@ const DECKY_RECENT_ACHIEVEMENTS_STORAGE_KEY_PREFIX =
   "achievement-companion:decky:recent-achievements";
 const DECKY_RECENT_ACHIEVEMENTS_LIMIT = 10;
 const DECKY_RECENT_ACHIEVEMENTS_BACKFILL_RECENTLY_PLAYED_LIMIT = 50;
+const DECKY_ACHIEVEMENT_HISTORY_MERGE_LIMIT = 500;
 
 export const deckyPlatformCapabilities: PlatformCapabilities = {
   supportsCompactNavigation: true,
@@ -353,6 +354,21 @@ function getNormalizedRecentUnlockTimestamp(recentUnlock: RecentUnlock): number 
   }
 
   return Math.trunc(normalizedUnlockAt);
+}
+
+function maxDefinedNumber(
+  ...values: readonly (number | undefined)[]
+): number | undefined {
+  const numericValues = values.filter(
+    (value): value is number =>
+      typeof value === "number" && Number.isFinite(value),
+  );
+
+  if (numericValues.length === 0) {
+    return undefined;
+  }
+
+  return Math.max(...numericValues);
 }
 
 function getDeckyRecentAchievementProfileMemberSinceAt(
@@ -653,6 +669,108 @@ export function mergeDeckySteamLibraryScanRecentAchievements(
     ...snapshot,
     recentAchievements,
     recentUnlocks: recentAchievements,
+  };
+}
+
+function compareDeckyAchievementHistoryEntries(
+  left: RecentUnlock,
+  right: RecentUnlock,
+): number {
+  const leftTimestamp = getNormalizedRecentUnlockTimestamp(left);
+  const rightTimestamp = getNormalizedRecentUnlockTimestamp(right);
+
+  if (leftTimestamp !== undefined && rightTimestamp !== undefined && leftTimestamp !== rightTimestamp) {
+    return rightTimestamp - leftTimestamp;
+  }
+
+  if (leftTimestamp !== undefined && rightTimestamp === undefined) {
+    return -1;
+  }
+
+  if (leftTimestamp === undefined && rightTimestamp !== undefined) {
+    return 1;
+  }
+
+  const gameTitleDelta = left.game.title.localeCompare(right.game.title);
+  if (gameTitleDelta !== 0) {
+    return gameTitleDelta;
+  }
+
+  const achievementTitleDelta = left.achievement.title.localeCompare(right.achievement.title);
+  if (achievementTitleDelta !== 0) {
+    return achievementTitleDelta;
+  }
+
+  return getRecentUnlockIdentity(left).localeCompare(getRecentUnlockIdentity(right));
+}
+
+function selectDeckyAchievementHistoryEntries(
+  entries: readonly RecentUnlock[],
+): readonly RecentUnlock[] {
+  const seen = new Set<string>();
+  const selectedEntries: RecentUnlock[] = [];
+
+  for (const entry of [...entries].sort(compareDeckyAchievementHistoryEntries)) {
+    const identity = getRecentUnlockIdentity(entry);
+    if (seen.has(identity)) {
+      continue;
+    }
+
+    seen.add(identity);
+    selectedEntries.push(entry);
+
+    if (selectedEntries.length >= DECKY_ACHIEVEMENT_HISTORY_MERGE_LIMIT) {
+      break;
+    }
+  }
+
+  return selectedEntries;
+}
+
+function summarizeDeckyAchievementHistoryEntries(
+  entries: readonly RecentUnlock[],
+): AchievementHistorySnapshot["summary"] {
+  const newestEntry = entries[0];
+  const oldestEntry = entries[entries.length - 1];
+  const newestUnlockedAt =
+    newestEntry !== undefined ? getNormalizedRecentUnlockTimestamp(newestEntry) : undefined;
+  const oldestUnlockedAt =
+    oldestEntry !== undefined ? getNormalizedRecentUnlockTimestamp(oldestEntry) : undefined;
+
+  return {
+    unlockedCount: entries.length,
+    ...(newestUnlockedAt !== undefined ? { newestUnlockedAt } : {}),
+    ...(oldestUnlockedAt !== undefined ? { oldestUnlockedAt } : {}),
+  };
+}
+
+function mergeDeckyAchievementHistoryWithDashboardRecent(
+  history: AchievementHistorySnapshot,
+  dashboard: DashboardSnapshot | undefined,
+): AchievementHistorySnapshot {
+  if (
+    dashboard === undefined ||
+    dashboard.profile.providerId !== history.providerId ||
+    dashboard.profile.identity.accountId !== history.profile.identity.accountId
+  ) {
+    return history;
+  }
+
+  const entries = selectDeckyAchievementHistoryEntries([
+    ...dashboard.recentAchievements,
+    ...dashboard.recentUnlocks,
+    ...history.entries,
+  ]);
+
+  const refreshedAt =
+    maxDefinedNumber(history.refreshedAt, dashboard.refreshedAt) ??
+    Date.now();
+
+  return {
+    ...history,
+    entries,
+    summary: summarizeDeckyAchievementHistoryEntries(entries),
+    refreshedAt,
   };
 }
 
@@ -1246,7 +1364,31 @@ export async function loadDeckyAchievementHistoryState(
     }
   }
 
-  return createDeckyAppServices(runtimeMode).achievementHistory.loadAchievementHistory(providerId);
+  const historyState = await createDeckyAppServices(runtimeMode).achievementHistory.loadAchievementHistory(providerId);
+
+  if (historyState.data === undefined) {
+    return historyState;
+  }
+
+  const dashboardState = await loadDeckyDashboardState(providerId);
+  const mergedHistory = mergeDeckyAchievementHistoryWithDashboardRecent(
+    historyState.data,
+    dashboardState.data,
+  );
+  const lastUpdatedAt =
+    maxDefinedNumber(
+      historyState.lastUpdatedAt,
+      historyState.data.refreshedAt,
+      dashboardState.lastUpdatedAt,
+      dashboardState.data?.refreshedAt,
+      mergedHistory.refreshedAt,
+    ) ?? Date.now();
+
+  return {
+    ...historyState,
+    data: mergedHistory,
+    lastUpdatedAt,
+  };
 }
 
 function describeDeckyRecentAchievementTimestampSources(
