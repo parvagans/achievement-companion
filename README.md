@@ -2,11 +2,17 @@
 
 ![Steam Deck](https://img.shields.io/badge/Steam%20Deck-Game%20Mode-blue)
 ![Decky Loader](https://img.shields.io/badge/Decky%20Loader-Plugin-blueviolet)
-![Version 0.2.10](https://img.shields.io/badge/Version-0.2.10-informational)
+![Version 0.3.0](https://img.shields.io/badge/Version-0.3.0-informational)
 ![Provider RetroAchievements](https://img.shields.io/badge/Provider-RetroAchievements-orange)
 ![Provider Steam](https://img.shields.io/badge/Provider-Steam-171a21)
 
 Achievement Companion brings RetroAchievements and Steam achievement progress into Steam Deck Game Mode through a provider-first Decky dashboard. It gives you compact quick views, fuller browsing screens, recent unlocks, recently played games, completion progress, and Steam library achievement totals while keeping provider API keys out of browser storage.
+
+## v0.3.0
+
+This release adds the non-Steam / Steam ROM Manager / EmuDeck game-page badge path. The badge now appears on supported shortcut pages, opens the fullscreen achievement detail view when clicked, resolves RetroAchievements games with platform-scoped and catalog-driven title matching, keeps completion-progress matching platform-safe, and merges fresh RetroAchievements recent unlock data into fullscreen Achievement History. It also includes runtime diagnostics for non-Steam game-page badge resolution.
+
+Not included in v0.3.0: ROM hash lookup, native Steam "Your Stuff" achievement injection, and Steam internal achievement store patching.
 
 ## Highlights
 
