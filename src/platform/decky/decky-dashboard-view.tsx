@@ -34,6 +34,7 @@ import {
   getRetroAchievementsProfileSectionTitleStyle,
   getSteamAccountProgressSummary,
 } from "./decky-stat-helpers";
+import { getSteamCompactGameArtworkUrl } from "./decky-steam-game-artwork";
 import { formatDeckyProviderLabel } from "./providers";
 import { getDeckyProviderIconSrc } from "./providers/provider-branding";
 import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
@@ -1041,35 +1042,18 @@ function RecentAchievementRow({
   readonly bottomSpacing?: number;
 }): JSX.Element {
   if (recentUnlock.game.providerId === STEAM_PROVIDER_ID) {
+    const statusLabel = buildAchievementStatus(recentUnlock.achievement).value;
+    const detailSummary =
+      formatRecentAchievementSummary(recentUnlock) ?? statusLabel;
     return (
-      <Field
+      <Focusable
         className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
-        focusable
-        highlightOnFocus
-        verticalAlignment="center"
-        icon={
-          recentUnlock.achievement.badgeImageUrl !== undefined ? (
-            <DeckyGameArtwork
-              compact
-              src={recentUnlock.achievement.badgeImageUrl}
-              size={32}
-              title={recentUnlock.achievement.title}
-            />
-          ) : undefined
-        }
-        bottomSeparator="none"
-        padding="compact"
-        label={recentUnlock.achievement.title}
-        description={
-          <CompactItemDescription
-            primary={recentUnlock.game.title}
-            secondary={
-              formatRecentAchievementSummary(recentUnlock) ??
-              buildAchievementStatus(recentUnlock.achievement).value
-            }
-          />
-        }
-        onCancelButton={onCancel}
+        focusClassName={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
+        focusWithinClassName={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
+        noFocusRing
+        role="button"
+        style={getDashboardCompactCardStyle(bottomSpacing)}
+        onCancel={onCancel}
         onActivate={() => {
           onOpenAchievementDetail({
             game: recentUnlock.game,
@@ -1082,7 +1066,28 @@ function RecentAchievementRow({
             achievement: recentUnlock.achievement,
           });
         }}
-      />
+      >
+        <div aria-hidden="true" style={getDashboardCompactCardAccentStyle("default")} />
+        <div style={getDashboardCompactArtworkFrameStyle("default")}>
+          {recentUnlock.achievement.badgeImageUrl !== undefined ? (
+            <DeckyGameArtwork
+              compact
+              src={recentUnlock.achievement.badgeImageUrl}
+              size={34}
+              title={recentUnlock.achievement.title}
+            />
+          ) : (
+            <span style={getDashboardCompactGameTitleStyle()}>{statusLabel.slice(0, 1)}</span>
+          )}
+        </div>
+        <div style={getDashboardCompactTextColumnStyle()}>
+          <div style={getDashboardCompactTitleStyle()}>{recentUnlock.achievement.title}</div>
+          <CompactItemDescription
+            primary={recentUnlock.game.title}
+            secondary={detailSummary}
+          />
+        </div>
+      </Focusable>
     );
   }
 
@@ -1154,29 +1159,42 @@ function RecentlyPlayedRow({
   readonly bottomSpacing?: number;
 }): JSX.Element {
   if (game.providerId === STEAM_PROVIDER_ID) {
+    const artworkUrl = getSteamCompactGameArtworkUrl(game);
     return (
-      <Field
+      <Focusable
         className={DECKY_FOCUS_NAV_ROW_CLASS}
-        focusable
-        highlightOnFocus
-        icon={
-          game.coverImageUrl !== undefined ? (
-            <DeckyGameArtwork compact src={game.coverImageUrl} size={32} title={game.title} />
-          ) : undefined
-        }
-        bottomSeparator="none"
-        padding="compact"
-        verticalAlignment="center"
-        label={game.title}
-        description={<SteamRecentlyPlayedDescription game={game} />}
-        onCancelButton={onCancel}
+        focusClassName={DECKY_FOCUS_NAV_ROW_CLASS}
+        focusWithinClassName={DECKY_FOCUS_NAV_ROW_CLASS}
+        noFocusRing
+        role="button"
+        style={getDashboardCompactCardStyle(bottomSpacing)}
+        onCancel={onCancel}
         onActivate={() => {
           onOpenGameDetail(game.providerId, game.gameId, game.title);
         }}
         onClick={() => {
           onOpenGameDetail(game.providerId, game.gameId, game.title);
         }}
-      />
+      >
+        <div aria-hidden="true" style={getDashboardCompactCardAccentStyle("default")} />
+        <div style={getDashboardCompactArtworkFrameStyle()}>
+          {artworkUrl !== undefined ? (
+            <DeckyGameArtwork compact src={artworkUrl} size={34} title={game.title} />
+          ) : (
+            <span style={getDashboardCompactGameTitleStyle()}>{(game.platformLabel ?? game.title).slice(0, 1)}</span>
+          )}
+        </div>
+        <div style={getDashboardCompactTextColumnStyle()}>
+          <div style={getDashboardCompactTitleStyle()}>{game.title}</div>
+          <DeckySystemPill
+            label={game.platformLabel ?? "Unknown platform"}
+            iconSize={14}
+            iconUrl={getDeckyProviderIconSrc(STEAM_PROVIDER_ID)}
+            style={getDashboardSystemPillStyle()}
+          />
+          <SteamRecentlyPlayedDescription game={game} />
+        </div>
+      </Focusable>
     );
   }
 
@@ -1453,12 +1471,13 @@ export function DeckyDashboardView({
       <PanelSection title="Recent Achievements">
         {recentAchievements.length > 0 ? (
           profile.providerId === STEAM_PROVIDER_ID ? (
-            recentAchievements.map((recentUnlock) => (
+            recentAchievements.map((recentUnlock, index) => (
               <PanelSectionRow key={`${recentUnlock.game.gameId}:${recentUnlock.achievement.achievementId}`}>
                 <RecentAchievementRow
                   recentUnlock={recentUnlock}
                   onOpenAchievementDetail={onOpenAchievementDetail}
                   onCancel={onBackToProviders}
+                  bottomSpacing={index === recentAchievements.length - 1 ? 0 : 12}
                 />
               </PanelSectionRow>
             ))
@@ -1488,12 +1507,13 @@ export function DeckyDashboardView({
       <PanelSection title="Recently Played">
         {recentlyPlayedGames.length > 0 ? (
           profile.providerId === STEAM_PROVIDER_ID ? (
-            recentlyPlayedGames.map((game) => (
+            recentlyPlayedGames.map((game, index) => (
               <PanelSectionRow key={game.gameId}>
                 <RecentlyPlayedRow
                   game={game}
                   onOpenGameDetail={onOpenGameDetail}
                   onCancel={onBackToProviders}
+                  bottomSpacing={index === recentlyPlayedGames.length - 1 ? 0 : 12}
                 />
               </PanelSectionRow>
             ))

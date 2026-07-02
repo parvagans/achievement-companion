@@ -339,6 +339,7 @@ export function normalizeSteamRecentlyPlayedGames(
 
     const detail = details.get(appId);
     const coverImageUrl = normalizeSteamArtworkUrl(rawGame.img_icon_url, appId);
+    const boxArtImageUrl = normalizeSteamArtworkUrl(rawGame.img_logo_url, appId);
     const playtimeForeverMinutes = coerceNumber(rawGame.playtime_forever);
     const playtimeTwoWeeksMinutes = coerceNumber(rawGame.playtime_2weeks);
     const playtimeDeckForeverMinutes = coerceNumber(rawGame.playtime_deck_forever);
@@ -348,7 +349,7 @@ export function normalizeSteamRecentlyPlayedGames(
       title: pickString(rawGame.name),
       platformLabel: "Steam",
       coverImageUrl,
-      boxArtImageUrl: undefined,
+      boxArtImageUrl,
     });
 
     normalizedGames.push({
@@ -358,6 +359,7 @@ export function normalizeSteamRecentlyPlayedGames(
       title: gameIdentity.title,
       ...(gameIdentity.platformLabel !== undefined ? { platformLabel: gameIdentity.platformLabel } : {}),
       ...(gameIdentity.coverImageUrl !== undefined ? { coverImageUrl: gameIdentity.coverImageUrl } : {}),
+      ...(gameIdentity.boxArtImageUrl !== undefined ? { boxArtImageUrl: gameIdentity.boxArtImageUrl } : {}),
       summary: detail?.game.summary ?? {
         unlockedCount: 0,
       },
