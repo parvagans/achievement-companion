@@ -126,6 +126,7 @@ import {
   formatDeckyGamePageAchievementBadgeLabel,
   loadDeckyGamePageAchievementSummary,
   normalizeRetroAchievementsPlatformLabel,
+  normalizeRetroAchievementsTitleMatchKey,
 } from "../src/platform/decky/decky-game-page-achievement-summary";
 import { loadDeckySteamShortcutMetadata } from "../src/platform/decky/decky-steam-shortcut-metadata";
 import {
@@ -10279,7 +10280,7 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(summarySource, /collectRetroAchievementsDashboardIdentityCandidates/u);
   assert.match(summarySource, /loadRetroAchievementsGameListCandidatesForPlatform/u);
   assert.match(summarySource, /ra-api-game-detail/u);
-  assert.match(summarySource, /sonic the hedgehog/u);
+  assert.match(summarySource, /normalizeRetroAchievementsTitleMatchKey/u);
   assert.match(summarySource, /completion-progress-title-match/u);
   assert.match(summarySource, /preferRetroAchievementsBaseSetCandidates/u);
   assert.match(runtimeDebugSource, /completionProgressRelevantCandidates/u);
@@ -10941,6 +10942,395 @@ test("decky retroachievements platform labels normalize common SRM and canonical
   assert.equal(normalizeRetroAchievementsPlatformLabel("PlayStation 2"), "PlayStation 2");
 });
 
+test("decky retroachievements title match keys normalize diacritics punctuation and safe separators", () => {
+  assert.equal(
+    normalizeRetroAchievementsTitleMatchKey("Pokemon Gold Version"),
+    normalizeRetroAchievementsTitleMatchKey("Pokémon Gold Version"),
+  );
+  assert.equal(
+    normalizeRetroAchievementsTitleMatchKey("Pokemon Stadium"),
+    normalizeRetroAchievementsTitleMatchKey("Pokémon Stadium"),
+  );
+  assert.equal(
+    normalizeRetroAchievementsTitleMatchKey("Pokemon Stadium 2"),
+    normalizeRetroAchievementsTitleMatchKey("Pokémon Stadium 2"),
+  );
+  assert.equal(
+    normalizeRetroAchievementsTitleMatchKey("Final Fantasy X International"),
+    normalizeRetroAchievementsTitleMatchKey("Final Fantasy X: International"),
+  );
+  assert.equal(
+    normalizeRetroAchievementsTitleMatchKey("New Super Mario Bros."),
+    normalizeRetroAchievementsTitleMatchKey("New Super Mario Bros"),
+  );
+});
+
+test("game page achievement summary resolves Pokemon Gold Version on Game Boy Color through RetroAchievements API game list fallback", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    clearDeckyGamePageAchievementSummaryCacheForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2493414753": {
+        title: "Pokemon Gold Version",
+        platformTag: "Nintendo Game Boy Color",
+        platformLabel: "Nintendo Game Boy Color",
+        tags: ["Nintendo Game Boy Color"],
+      },
+    };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 6,
+        Name: "Game Boy Color",
+        IconURL: "https://example.com/gbc.png",
+      },
+    ];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "6": [
+        {
+          GameID: 576,
+          Title: "Pokémon Gold Version",
+          ConsoleID: 6,
+          ConsoleName: "Game Boy Color",
+        },
+      ],
+    };
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      "576": createRetroAchievementsGameProgressResponse({
+        gameId: "576",
+        title: "Pokémon Gold Version",
+        consoleId: 6,
+        consoleName: "Game Boy Color",
+        unlockedCount: 0,
+        totalCount: 72,
+      }),
+    };
+
+    const summary = await loadDeckyGamePageAchievementSummary("2493414753");
+    assert.equal(summary.status, "ready");
+    if (summary.status !== "ready") {
+      return;
+    }
+    assert.equal(summary.provider, "retroachievements");
+    assert.equal(summary.gameId, "576");
+    assert.equal(summary.title, "Pokémon Gold Version");
+    assert.equal(summary.earned, 0);
+    assert.equal(summary.total, 72);
+    assert.equal(summary.platformLabel, "Game Boy Color");
+    assert.equal(summary.systemIconUrl, "https://example.com/gbc.png");
+
+    const resolverDebug = JSON.parse(
+      readDeckyStorageText(ACHIEVEMENT_COMPANION_LAST_RA_SHORTCUT_RESOLUTION_DEBUG_STORAGE_KEY) ?? "{}",
+    ) as ReturnType<typeof getAchievementCompanionLastRaShortcutResolutionDebug>;
+    assert.equal(resolverDebug.shortcutTitle, "Pokemon Gold Version");
+    assert.equal(resolverDebug.shortcutPlatform, "Nintendo Game Boy Color");
+    assert.equal(resolverDebug.normalizedPlatform, "Game Boy Color");
+    assert.equal(resolverDebug.apiSystemsResolvedConsoleId, "6");
+    assert.equal(resolverDebug.apiMatchedGameId, "576");
+    assert.equal(resolverDebug.apiMatchedTitle, "Pokémon Gold Version");
+    assert.equal(resolverDebug.detailLoadStatus, "success");
+    assert.equal(resolverDebug.finalStatus, "mapped");
+    assert.equal(resolverDebug.returnedSummaryEarned, 0);
+    assert.equal(resolverDebug.returnedSummaryTotal, 72);
+  });
+});
+
+test("game page achievement summary resolves Pokemon Stadium and Pokemon Stadium 2 on Nintendo 64 through RetroAchievements API game list fallback", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    clearDeckyGamePageAchievementSummaryCacheForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2493414754": {
+        title: "Pokemon Stadium",
+        platformTag: "Nintendo 64",
+        platformLabel: "Nintendo 64",
+        tags: ["Nintendo 64"],
+      },
+      "2493414755": {
+        title: "Pokemon Stadium 2",
+        platformTag: "Nintendo 64",
+        platformLabel: "Nintendo 64",
+        tags: ["Nintendo 64"],
+      },
+    };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 2,
+        Name: "Nintendo 64",
+        IconURL: "https://example.com/n64.png",
+      },
+    ];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "2": [
+        {
+          GameID: 10181,
+          Title: "Pokémon Stadium",
+          ConsoleID: 2,
+          ConsoleName: "Nintendo 64",
+        },
+        {
+          GameID: 10258,
+          Title: "Pokémon Stadium 2",
+          ConsoleID: 2,
+          ConsoleName: "Nintendo 64",
+        },
+      ],
+    };
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      "10181": createRetroAchievementsGameProgressResponse({
+        gameId: "10181",
+        title: "Pokémon Stadium",
+        consoleId: 2,
+        consoleName: "Nintendo 64",
+        unlockedCount: 12,
+        totalCount: 72,
+      }),
+      "10258": createRetroAchievementsGameProgressResponse({
+        gameId: "10258",
+        title: "Pokémon Stadium 2",
+        consoleId: 2,
+        consoleName: "Nintendo 64",
+        unlockedCount: 18,
+        totalCount: 109,
+      }),
+    };
+
+    const stadiumSummary = await loadDeckyGamePageAchievementSummary("2493414754");
+    assert.equal(stadiumSummary.status, "ready");
+    if (stadiumSummary.status !== "ready") {
+      return;
+    }
+    assert.equal(stadiumSummary.provider, "retroachievements");
+    assert.equal(stadiumSummary.gameId, "10181");
+    assert.equal(stadiumSummary.title, "Pokémon Stadium");
+    assert.equal(stadiumSummary.total, 72);
+
+    const stadium2Summary = await loadDeckyGamePageAchievementSummary("2493414755");
+    assert.equal(stadium2Summary.status, "ready");
+    if (stadium2Summary.status !== "ready") {
+      return;
+    }
+    assert.equal(stadium2Summary.provider, "retroachievements");
+    assert.equal(stadium2Summary.gameId, "10258");
+    assert.equal(stadium2Summary.title, "Pokémon Stadium 2");
+    assert.equal(stadium2Summary.total, 109);
+  });
+});
+
+test("game page achievement summary resolves New Super Mario Bros. Wii through safe Wii suffix stripping", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    clearDeckyGamePageAchievementSummaryCacheForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2493414756": {
+        title: "New Super Mario Bros.",
+        platformTag: "Nintendo Wii",
+        platformLabel: "Nintendo Wii",
+        tags: ["Nintendo Wii"],
+      },
+    };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 19,
+        Name: "Wii",
+        IconURL: "https://example.com/wii.png",
+      },
+    ];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "19": [
+        {
+          GameID: 95,
+          Title: "New Super Mario Bros. Wii",
+          ConsoleID: 19,
+          ConsoleName: "Wii",
+        },
+      ],
+    };
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      "95": createRetroAchievementsGameProgressResponse({
+        gameId: "95",
+        title: "New Super Mario Bros. Wii",
+        consoleId: 19,
+        consoleName: "Wii",
+        unlockedCount: 10,
+        totalCount: 96,
+      }),
+    };
+
+    const summary = await loadDeckyGamePageAchievementSummary("2493414756");
+    assert.equal(summary.status, "ready");
+    if (summary.status !== "ready") {
+      return;
+    }
+    assert.equal(summary.provider, "retroachievements");
+    assert.equal(summary.gameId, "95");
+    assert.equal(summary.title, "New Super Mario Bros. Wii");
+    assert.equal(summary.total, 96);
+    assert.equal(summary.platformLabel, "Wii");
+  });
+});
+
+test("game page achievement summary keeps Game Boy Color Donkey Kong Country on the correct platform and skips the wrong completion-progress candidate", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    clearDeckyGamePageAchievementSummaryCacheForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2493414757": {
+        title: "Donkey Kong Country",
+        platformTag: "Nintendo Game Boy Color",
+        platformLabel: "Nintendo Game Boy Color",
+        tags: ["Nintendo Game Boy Color"],
+      },
+    };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 6,
+        Name: "Game Boy Color",
+        IconURL: "https://example.com/gbc.png",
+      },
+      {
+        ID: 3,
+        Name: "SNES/Super Famicom",
+        IconURL: "https://example.com/snes.png",
+      },
+    ];
+    deckyBackendTestState.retroAchievements.completionProgressEntries = [
+      {
+        GameID: 337,
+        Title: "Donkey Kong Country",
+        ConsoleName: "SNES/Super Famicom",
+        MaxPossible: 71,
+        NumAwarded: 8,
+      },
+    ];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "6": [
+        {
+          GameID: 5021,
+          Title: "Donkey Kong Country",
+          ConsoleID: 6,
+          ConsoleName: "Game Boy Color",
+        },
+      ],
+    };
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      "5021": createRetroAchievementsGameProgressResponse({
+        gameId: "5021",
+        title: "Donkey Kong Country",
+        consoleId: 6,
+        consoleName: "Game Boy Color",
+        unlockedCount: 8,
+        totalCount: 38,
+      }),
+    };
+
+    const summary = await loadDeckyGamePageAchievementSummary("2493414757");
+    assert.equal(summary.status, "ready");
+    if (summary.status !== "ready") {
+      return;
+    }
+    assert.equal(summary.provider, "retroachievements");
+    assert.equal(summary.gameId, "5021");
+    assert.equal(summary.title, "Donkey Kong Country");
+    assert.equal(summary.earned, 8);
+    assert.equal(summary.total, 38);
+
+    const resolverDebug = JSON.parse(
+      readDeckyStorageText(ACHIEVEMENT_COMPANION_LAST_RA_SHORTCUT_RESOLUTION_DEBUG_STORAGE_KEY) ?? "{}",
+    ) as ReturnType<typeof getAchievementCompanionLastRaShortcutResolutionDebug>;
+    assert.equal(resolverDebug.shortcutPlatform, "Nintendo Game Boy Color");
+    assert.equal(resolverDebug.normalizedPlatform, "Game Boy Color");
+    assert.equal(resolverDebug.completionProgressCandidateCount, 0);
+    assert.equal(resolverDebug.resolverStage, "ra-api-game-detail");
+    assert.equal(resolverDebug.apiMatchedGameId, "5021");
+    assert.equal(resolverDebug.apiMatchedTitle, "Donkey Kong Country");
+  });
+});
+
+test("game page achievement summary keeps ambiguous RetroAchievements game list matches when normalized keys collide", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    clearDeckyGamePageAchievementSummaryCacheForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2493414758": {
+        title: "Duplicate Match Game",
+        platformTag: "Nintendo 64",
+        platformLabel: "Nintendo 64",
+        tags: ["Nintendo 64"],
+      },
+    };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 2,
+        Name: "Nintendo 64",
+        IconURL: "https://example.com/n64.png",
+      },
+    ];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "2": [
+        {
+          GameID: 1000,
+          Title: "Duplicate Match Game",
+          ConsoleID: 2,
+          ConsoleName: "Nintendo 64",
+        },
+        {
+          GameID: 1001,
+          Title: "Duplicate Match Game!",
+          ConsoleID: 2,
+          ConsoleName: "Nintendo 64",
+        },
+      ],
+    };
+
+    const summary = await loadDeckyGamePageAchievementSummary("2493414758");
+    assert.deepStrictEqual(summary, {
+      status: "unavailable",
+      appId: "2493414758",
+      reason: "ambiguous-retroachievements-shortcut-mapping",
+    });
+
+    const resolverDebug = JSON.parse(
+      readDeckyStorageText(ACHIEVEMENT_COMPANION_LAST_RA_SHORTCUT_RESOLUTION_DEBUG_STORAGE_KEY) ?? "{}",
+    ) as ReturnType<typeof getAchievementCompanionLastRaShortcutResolutionDebug>;
+    assert.equal(resolverDebug.apiGameListCandidateCount, 2);
+    assert.deepStrictEqual(resolverDebug.apiAmbiguousCandidateTitles, [
+      "Duplicate Match Game",
+      "Duplicate Match Game!",
+    ]);
+    assert.equal(resolverDebug.finalStatus, "unavailable");
+    assert.equal(resolverDebug.finalReason, "ambiguous-retroachievements-shortcut-mapping");
+  });
+});
 test("game page achievement summary resolves Cool Spot on Nintendo SNES through RetroAchievements API game list fallback", async () => {
   await withMockDeckyStorage(async () => {
     resetDeckyAppServicesForTests();
