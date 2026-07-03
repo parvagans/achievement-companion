@@ -4033,7 +4033,7 @@ test("provider setup and settings true actions use compact focusable pills", () 
   );
 });
 
-test("v0.3.0 release metadata and Decky cleanup stay aligned", () => {
+test("v0.3.1 release metadata and Decky cleanup stay aligned", () => {
   const packageJson = JSON.parse(readFileSync("package.json", "utf8")) as {
     version?: string;
     scripts?: Record<string, string>;
@@ -4041,6 +4041,7 @@ test("v0.3.0 release metadata and Decky cleanup stay aligned", () => {
   const pluginJson = JSON.parse(readFileSync("plugin.json", "utf8")) as { version?: string };
   const readmeSource = readFileSync("README.md", "utf8");
   const bootstrapSource = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
+  const runtimeDebugSource = readFileSync("src/platform/decky/decky-runtime-debug.ts", "utf8");
   const compactPillSource = readFileSync(
     "src/platform/decky/decky-compact-pill-action-item.tsx",
     "utf8",
@@ -4068,13 +4069,14 @@ test("v0.3.0 release metadata and Decky cleanup stay aligned", () => {
   const releasePackageScriptSource = readFileSync("scripts/package_release.py", "utf8");
   const releaseCheckScriptSource = readFileSync("scripts/check_release_artifact.py", "utf8");
 
-  assert.equal(packageJson.version, "0.3.0");
-  assert.equal(pluginJson.version, "0.3.0");
-  assert.match(readmeSource, /Version 0\.3\.0/u);
-  assert.match(bootstrapSource, /const ACHIEVEMENT_COMPANION_VERSION = "0\.3\.0"/u);
+  assert.equal(packageJson.version, "0.3.1");
+  assert.equal(pluginJson.version, "0.3.1");
+  assert.match(readmeSource, /Version 0\.3\.1/u);
+  assert.match(bootstrapSource, /const ACHIEVEMENT_COMPANION_VERSION = "0\.3\.1"/u);
+  assert.match(runtimeDebugSource, /0\.3\.1-runtime/u);
   assert.doesNotMatch(bootstrapSource, /DIAGNOSTIC BUILD LOADED 2026-06-28/u);
   assert.doesNotMatch(
-    `${readmeSource}\n${bootstrapSource}\n${JSON.stringify(packageJson)}\n${JSON.stringify(pluginJson)}`,
+    `${readmeSource}\n${bootstrapSource}\n${runtimeDebugSource}\n${JSON.stringify(packageJson)}\n${JSON.stringify(pluginJson)}`,
     /0\.2\.9|v0\.2\.9|0\.2\.8|v0\.2\.8|0\.2\.10|v0\.2\.10/u,
   );
   assert.match(releasePackageScriptSource, /achievement-companion-v\{version\}\.zip/u);
