@@ -99,7 +99,7 @@ function getSteamAchievementSpotlightBackRowStyle(): CSSProperties {
     justifyContent: "flex-start",
     alignItems: "center",
     minWidth: 0,
-    marginBottom: -2,
+    padding: "1px 2px 0",
   };
 }
 
@@ -202,6 +202,16 @@ function getSteamAchievementSpotlightGameCoverFrameStyle(interactive: boolean, f
     transition: "border-color 120ms ease, box-shadow 120ms ease, background 120ms ease",
     outline: "none",
     borderColor: focused ? "rgba(105, 176, 255, 0.8)" : "rgba(255, 255, 255, 0.1)",
+  };
+}
+
+function getSteamAchievementSpotlightArtworkStackStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 8,
+    minWidth: 0,
   };
 }
 
@@ -1126,35 +1136,35 @@ function SteamAchievementSpotlightCard({
         </div>
 
         {gameArtworkUrl !== undefined ? (
-          hasInteractiveGameArtwork ? (
-            <Focusable
-              noFocusRing
-              role="button"
-              aria-label={`Open game overview for ${game.title}`}
-              onActivate={onOpenFullScreenGame}
-              onClick={onOpenFullScreenGame}
-              onFocus={() => {
-                setIsGameArtworkFocused(true);
-              }}
-              onBlur={() => {
-                setIsGameArtworkFocused(false);
-              }}
-              onGamepadFocus={() => {
-                setIsGameArtworkFocused(true);
-              }}
-              style={getSteamAchievementSpotlightGameCoverFrameStyle(true, isGameArtworkFocused)}
-            >
-              <SteamAchievementSpotlightArtwork src={gameArtworkUrl} title={game.title} />
-            </Focusable>
-          ) : (
-            <div style={getSteamAchievementSpotlightGameCoverFrameStyle(false, false)}>
-              <SteamAchievementSpotlightArtwork src={gameArtworkUrl} title={game.title} />
+          <div style={getSteamAchievementSpotlightArtworkStackStyle()}>
+            {hasInteractiveGameArtwork ? (
+              <Focusable
+                noFocusRing
+                role="button"
+                aria-label={`Open game overview for ${game.title}`}
+                onActivate={onOpenFullScreenGame}
+                onClick={onOpenFullScreenGame}
+                onFocus={() => {
+                  setIsGameArtworkFocused(true);
+                }}
+                onBlur={() => {
+                  setIsGameArtworkFocused(false);
+                }}
+                onGamepadFocus={() => {
+                  setIsGameArtworkFocused(true);
+                }}
+                style={getSteamAchievementSpotlightGameCoverFrameStyle(true, isGameArtworkFocused)}
+              >
+                <SteamAchievementSpotlightArtwork src={gameArtworkUrl} title={game.title} />
+              </Focusable>
+            ) : (
+              <div style={getSteamAchievementSpotlightGameCoverFrameStyle(false, false)}>
+                <SteamAchievementSpotlightArtwork src={gameArtworkUrl} title={game.title} />
+              </div>
+            )}
+            <div style={getSteamAchievementSpotlightGameCoverCaptionStyle()}>
+              {onOpenFullScreenGame !== undefined ? "Open game overview" : game.title}
             </div>
-          )
-        ) : null}
-        {gameArtworkUrl !== undefined ? (
-          <div style={getSteamAchievementSpotlightGameCoverCaptionStyle()}>
-            {onOpenFullScreenGame !== undefined ? "Open game overview" : game.title}
           </div>
         ) : null}
       </div>
