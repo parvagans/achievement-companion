@@ -10,6 +10,18 @@ export interface DeckySteamShortcutMetadata {
   readonly startDir?: string;
 }
 
+export interface DeckySteamShortcutRomHashInfo {
+  readonly appId: string;
+  readonly shortcutRomPathDetected: boolean;
+  readonly shortcutRomPathSource?: string;
+  readonly romHashAttempted: boolean;
+  readonly romHashStatus: "resolved" | "skipped" | "error";
+  readonly romHashAlgorithm?: "md5";
+  readonly romHash?: string;
+  readonly hashResolverSkippedReason?: string;
+  readonly hashRejectedReason?: string;
+}
+
 function normalizeShortcutMetadata(value: unknown): DeckySteamShortcutMetadata | undefined {
   if (typeof value !== "object" || value === null) {
     return undefined;
@@ -57,4 +69,60 @@ export async function loadDeckySteamShortcutMetadata(
     appId,
   });
   return normalizeShortcutMetadata(metadata);
+}
+
+function normalizeShortcutRomHashInfo(value: unknown): DeckySteamShortcutRomHashInfo | undefined {
+  if (typeof value !== "object" || value === null) {
+    return undefined;
+  }
+
+  const record = value as Record<string, unknown>;
+  const appId = typeof record["appId"] === "string" ? record["appId"].trim() : "";
+  const romHashStatus =
+    record["romHashStatus"] === "resolved" || record["romHashStatus"] === "skipped" || record["romHashStatus"] === "error"
+      ? record["romHashStatus"]
+      : undefined;
+  if (appId === "" || romHashStatus === undefined) {
+    return undefined;
+  }
+
+  const shortcutRomPathSource =
+    typeof record["shortcutRomPathSource"] === "string" && record["shortcutRomPathSource"].trim().length > 0
+      ? record["shortcutRomPathSource"].trim()
+      : undefined;
+  const romHashAlgorithm =
+    record["romHashAlgorithm"] === "md5" ? "md5" : undefined;
+  const romHash =
+    typeof record["romHash"] === "string" && record["romHash"].trim().length > 0
+      ? record["romHash"].trim().toLowerCase()
+      : undefined;
+  const hashResolverSkippedReason =
+    typeof record["hashResolverSkippedReason"] === "string" && record["hashResolverSkippedReason"].trim().length > 0
+      ? record["hashResolverSkippedReason"].trim()
+      : undefined;
+  const hashRejectedReason =
+    typeof record["hashRejectedReason"] === "string" && record["hashRejectedReason"].trim().length > 0
+      ? record["hashRejectedReason"].trim()
+      : undefined;
+
+  return {
+    appId,
+    shortcutRomPathDetected: record["shortcutRomPathDetected"] === true,
+    ...(shortcutRomPathSource !== undefined ? { shortcutRomPathSource } : {}),
+    romHashAttempted: record["romHashAttempted"] === true,
+    romHashStatus,
+    ...(romHashAlgorithm !== undefined ? { romHashAlgorithm } : {}),
+    ...(romHash !== undefined ? { romHash } : {}),
+    ...(hashResolverSkippedReason !== undefined ? { hashResolverSkippedReason } : {}),
+    ...(hashRejectedReason !== undefined ? { hashRejectedReason } : {}),
+  };
+}
+
+export async function loadDeckySteamShortcutRomHashInfo(
+  appId: string,
+): Promise<DeckySteamShortcutRomHashInfo | undefined> {
+  const value = await callDeckyBackendMethod<unknown>("get_steam_shortcut_rom_hash", {
+    appId,
+  });
+  return normalizeShortcutRomHashInfo(value);
 }

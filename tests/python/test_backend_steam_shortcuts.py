@@ -1,10 +1,15 @@
 from __future__ import annotations
 
+import hashlib
 import tempfile
 import unittest
 from pathlib import Path
 
-from backend.steam_shortcuts import load_steam_shortcut_metadata, parse_steam_shortcuts_vdf
+from backend.steam_shortcuts import (
+  load_steam_shortcut_metadata,
+  load_steam_shortcut_rom_hash,
+  parse_steam_shortcuts_vdf,
+)
 
 
 def _encode_c_string(value: str) -> bytes:
@@ -74,6 +79,58 @@ def _build_uppercase_shortcuts_vdf() -> bytes:
   ])
 
 
+def _build_shortcuts_vdf_with_command_fields(
+  *,
+  app_id: int = 2493414760,
+  app_name: str = "Pyoro64",
+  exe: str = '"/usr/bin/retroarch"',
+  launch_options: str | None = None,
+  start_dir: str = "/home/deck/Emulation/roms/n64",
+  tag: str = "Nintendo 64",
+) -> bytes:
+  parts = [
+    bytes([0x00]),
+    _encode_c_string("shortcuts"),
+    bytes([0x00]),
+    _encode_c_string("0"),
+    bytes([0x02]),
+    _encode_c_string("appid"),
+    app_id.to_bytes(4, "little", signed=False),
+    bytes([0x01]),
+    _encode_c_string("appname"),
+    _encode_c_string(app_name),
+    bytes([0x01]),
+    _encode_c_string("exe"),
+    _encode_c_string(exe),
+    bytes([0x01]),
+    _encode_c_string("StartDir"),
+    _encode_c_string(start_dir),
+    bytes([0x00]),
+    _encode_c_string("tags"),
+    bytes([0x01]),
+    _encode_c_string("0"),
+    _encode_c_string(tag),
+    bytes([0x08]),
+    bytes([0x08]),
+    bytes([0x08]),
+  ]
+  if launch_options is not None:
+    parts[16:16] = [
+      bytes([0x01]),
+      _encode_c_string("LaunchOptions"),
+      _encode_c_string(launch_options),
+    ]
+  return b"".join(parts)
+
+
+def _build_shortcuts_vdf_with_launch_options(launch_options: str) -> bytes:
+  return _build_shortcuts_vdf_with_command_fields(launch_options=launch_options)
+
+
+def _build_shortcuts_vdf_with_exe(exe: str, *, launch_options: str | None = None) -> bytes:
+  return _build_shortcuts_vdf_with_command_fields(exe=exe, launch_options=launch_options)
+
+
 class SteamShortcutsTests(unittest.TestCase):
   def test_parse_steam_shortcuts_vdf_reads_unsigned_shortcut_app_ids(self) -> None:
     shortcuts = parse_steam_shortcuts_vdf(_build_shortcuts_vdf())
@@ -115,6 +172,174 @@ class SteamShortcutsTests(unittest.TestCase):
         "exe": '"/usr/bin/retroarch"',
         "startDir": "/home/deck/Emulation/tools",
       })
+
+  def test_load_steam_shortcut_rom_hash_hashes_launch_options_path_with_md5(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      rom_path = Path(temp_dir) / "Pyoro 64.z64"
+      rom_bytes = b"pyoro-64-test-rom"
+      rom_path.write_bytes(rom_bytes)
+
+      shortcuts_path = Path(temp_dir) / "shortcuts.vdf"
+      shortcuts_path.write_bytes(
+        _build_shortcuts_vdf_with_launch_options(f'"{rom_path}"'),
+      )
+
+      metadata = load_steam_shortcut_rom_hash("2493414760", shortcuts_files=[shortcuts_path])
+
+      self.assertEqual(
+        metadata,
+        {
+          "appId": "2493414760",
+          "shortcutRomPathDetected": True,
+          "shortcutRomPathSource": "launchoptions",
+          "romHashAttempted": True,
+          "romHashStatus": "resolved",
+          "romHashAlgorithm": "md5",
+          "romHash": hashlib.md5(rom_bytes).hexdigest(),
+        },
+      )
+
+  def test_load_steam_shortcut_rom_hash_hashes_exe_rom_path_when_launch_options_are_empty(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      rom_path = Path(temp_dir) / "Pyoro64 NTSC.n64"
+      rom_bytes = b"pyoro-64-ntsc-test-rom"
+      rom_path.write_bytes(rom_bytes)
+
+      shortcuts_path = Path(temp_dir) / "shortcuts.vdf"
+      shortcuts_path.write_bytes(
+        _build_shortcuts_vdf_with_exe(
+          f'"/run/media/deck/FF4Y7/Emulation/tools/launchers/retroarch.sh" -L /mupen64plus_next_libretro.so "{rom_path}"',
+        ),
+      )
+
+      metadata = load_steam_shortcut_rom_hash("2493414760", shortcuts_files=[shortcuts_path])
+
+      self.assertEqual(
+        metadata,
+        {
+          "appId": "2493414760",
+          "shortcutRomPathDetected": True,
+          "shortcutRomPathSource": "exe",
+          "romHashAttempted": True,
+          "romHashStatus": "resolved",
+          "romHashAlgorithm": "md5",
+          "romHash": hashlib.md5(rom_bytes).hexdigest(),
+        },
+      )
+
+  def test_load_steam_shortcut_rom_hash_prefers_launch_options_over_exe_paths(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      launch_rom_path = Path(temp_dir) / "LaunchOptions First.z64"
+      exe_rom_path = Path(temp_dir) / "Exe Second.n64"
+      launch_rom_bytes = b"launch-options-rom"
+      exe_rom_bytes = b"exe-rom"
+      launch_rom_path.write_bytes(launch_rom_bytes)
+      exe_rom_path.write_bytes(exe_rom_bytes)
+
+      shortcuts_path = Path(temp_dir) / "shortcuts.vdf"
+      shortcuts_path.write_bytes(
+        _build_shortcuts_vdf_with_exe(
+          f'"/run/media/deck/FF4Y7/Emulation/tools/launchers/retroarch.sh" -L /mupen64plus_next_libretro.so "{exe_rom_path}"',
+          launch_options=f'"{launch_rom_path}"',
+        ),
+      )
+
+      metadata = load_steam_shortcut_rom_hash("2493414760", shortcuts_files=[shortcuts_path])
+
+      self.assertEqual(
+        metadata,
+        {
+          "appId": "2493414760",
+          "shortcutRomPathDetected": True,
+          "shortcutRomPathSource": "launchoptions",
+          "romHashAttempted": True,
+          "romHashStatus": "resolved",
+          "romHashAlgorithm": "md5",
+          "romHash": hashlib.md5(launch_rom_bytes).hexdigest(),
+        },
+      )
+
+  def test_load_steam_shortcut_rom_hash_ignores_launcher_and_core_files_without_rom_path(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      shortcuts_path = Path(temp_dir) / "shortcuts.vdf"
+      shortcuts_path.write_bytes(
+        _build_shortcuts_vdf_with_exe(
+          '"/run/media/deck/FF4Y7/Emulation/tools/launchers/retroarch.sh" -L /mupen64plus_next_libretro.so',
+        ),
+      )
+
+      metadata = load_steam_shortcut_rom_hash("2493414760", shortcuts_files=[shortcuts_path])
+
+      self.assertEqual(
+        metadata,
+        {
+          "appId": "2493414760",
+          "shortcutRomPathDetected": False,
+          "romHashAttempted": False,
+          "romHashStatus": "skipped",
+          "hashResolverSkippedReason": "rom-path-unavailable",
+        },
+      )
+
+  def test_load_steam_shortcut_rom_hash_skips_ambiguous_container_paths(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      shortcuts_path = Path(temp_dir) / "shortcuts.vdf"
+      shortcuts_path.write_bytes(
+        _build_shortcuts_vdf_with_exe('"/run/media/deck/FF4Y7/Emulation/tools/launchers/retroarch.sh" -L /mupen64plus_next_libretro.so "/home/deck/Emulation/roms/n64/Pyoro 64.cue"'),
+      )
+
+      metadata = load_steam_shortcut_rom_hash("2493414760", shortcuts_files=[shortcuts_path])
+
+      self.assertEqual(
+        metadata,
+        {
+          "appId": "2493414760",
+          "shortcutRomPathDetected": True,
+          "shortcutRomPathSource": "exe",
+          "romHashAttempted": False,
+          "romHashStatus": "skipped",
+          "hashResolverSkippedReason": "rom-path-ambiguous-container",
+        },
+      )
+
+  def test_load_steam_shortcut_rom_hash_reports_missing_launch_options_as_unavailable(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      shortcuts_path = Path(temp_dir) / "shortcuts.vdf"
+      shortcuts_path.write_bytes(_build_uppercase_shortcuts_vdf())
+
+      metadata = load_steam_shortcut_rom_hash("2874315920", shortcuts_files=[shortcuts_path])
+
+      self.assertEqual(
+        metadata,
+        {
+          "appId": "2874315920",
+          "shortcutRomPathDetected": False,
+          "romHashAttempted": False,
+          "romHashStatus": "skipped",
+          "hashResolverSkippedReason": "rom-path-unavailable",
+        },
+      )
+
+  def test_load_steam_shortcut_rom_hash_reports_unreadable_rom_files_as_skipped(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      shortcuts_path = Path(temp_dir) / "shortcuts.vdf"
+      shortcuts_path.write_bytes(
+        _build_shortcuts_vdf_with_launch_options('"/home/deck/Emulation/roms/n64/Missing Pyoro 64.z64"'),
+      )
+
+      metadata = load_steam_shortcut_rom_hash("2493414760", shortcuts_files=[shortcuts_path])
+
+      self.assertEqual(
+        metadata,
+        {
+          "appId": "2493414760",
+          "shortcutRomPathDetected": True,
+          "shortcutRomPathSource": "launchoptions",
+          "romHashAttempted": True,
+          "romHashStatus": "skipped",
+          "hashResolverSkippedReason": "rom-file-unreadable",
+        },
+      )
 
 
 if __name__ == "__main__":

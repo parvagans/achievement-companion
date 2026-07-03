@@ -40,6 +40,8 @@ export interface RawRetroAchievementsGameListEntry {
   readonly numAchievements?: number | string;
   readonly ParentGameID?: number | string | null;
   readonly parentGameId?: number | string | null;
+  readonly Hashes?: readonly string[];
+  readonly hashes?: readonly string[];
 }
 
 // Assumption: the Profile endpoint only supplies identity/basic account metadata.

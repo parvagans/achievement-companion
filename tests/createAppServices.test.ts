@@ -129,6 +129,7 @@ import {
   normalizeRetroAchievementsTitleMatchKey,
 } from "../src/platform/decky/decky-game-page-achievement-summary";
 import { loadDeckySteamShortcutMetadata } from "../src/platform/decky/decky-steam-shortcut-metadata";
+import { loadDeckySteamShortcutRomHashInfo } from "../src/platform/decky/decky-steam-shortcut-metadata";
 import {
   DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS,
   DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS,
@@ -765,6 +766,21 @@ interface DeckyBackendTestSteamState {
       }
     >
   >;
+  readonly shortcutRomHashByAppId?: Readonly<
+    Record<
+      string,
+      {
+        readonly shortcutRomPathDetected: boolean;
+        readonly romHashAttempted: boolean;
+        readonly romHashStatus: "resolved" | "skipped" | "error";
+        readonly romHashAlgorithm?: "md5";
+        readonly romHash?: string;
+        readonly shortcutRomPathSource?: string;
+        readonly hashResolverSkippedReason?: string;
+        readonly hashRejectedReason?: string;
+      }
+    >
+  >;
   steamRequestCount?: number;
   steamRequestedPaths?: string[];
 }
@@ -1101,6 +1117,31 @@ const deckyBackendTestCallImplementation = async (route: string, payload: unknow
           ...(metadata.tags !== undefined ? { tags: metadata.tags } : {}),
           ...(metadata.exe !== undefined ? { exe: metadata.exe } : {}),
           ...(metadata.startDir !== undefined ? { startDir: metadata.startDir } : {}),
+      };
+  }
+
+  if (route === "get_steam_shortcut_rom_hash") {
+    const appId =
+      typeof record?.appId === "string"
+        ? record.appId
+        : typeof record?.appId === "number"
+          ? String(record.appId)
+          : "";
+    const hashInfo = deckyBackendTestState.steam.shortcutRomHashByAppId?.[appId];
+    return hashInfo === undefined
+      ? undefined
+      : {
+          appId,
+          shortcutRomPathDetected: hashInfo.shortcutRomPathDetected,
+          ...(hashInfo.shortcutRomPathSource !== undefined ? { shortcutRomPathSource: hashInfo.shortcutRomPathSource } : {}),
+          romHashAttempted: hashInfo.romHashAttempted,
+          romHashStatus: hashInfo.romHashStatus,
+          ...(hashInfo.romHashAlgorithm !== undefined ? { romHashAlgorithm: hashInfo.romHashAlgorithm } : {}),
+          ...(hashInfo.romHash !== undefined ? { romHash: hashInfo.romHash } : {}),
+          ...(hashInfo.hashResolverSkippedReason !== undefined
+            ? { hashResolverSkippedReason: hashInfo.hashResolverSkippedReason }
+            : {}),
+          ...(hashInfo.hashRejectedReason !== undefined ? { hashRejectedReason: hashInfo.hashRejectedReason } : {}),
         };
   }
 
@@ -12642,6 +12683,33 @@ test("decky steam shortcut metadata loader preserves platform and path metadata"
   });
 });
 
+test("decky steam shortcut rom hash loader preserves sanitized hash metadata", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    deckyBackendTestState.steam.shortcutRomHashByAppId = {
+      "2874315920": {
+        shortcutRomPathDetected: true,
+        shortcutRomPathSource: "launchoptions",
+        romHashAttempted: true,
+        romHashStatus: "resolved",
+        romHashAlgorithm: "md5",
+        romHash: "ABCDEF1234567890ABCDEF1234567890",
+      },
+    };
+
+    const hashInfo = await loadDeckySteamShortcutRomHashInfo("2874315920");
+    assert.deepStrictEqual(hashInfo, {
+      appId: "2874315920",
+      shortcutRomPathDetected: true,
+      shortcutRomPathSource: "launchoptions",
+      romHashAttempted: true,
+      romHashStatus: "resolved",
+      romHashAlgorithm: "md5",
+      romHash: "abcdef1234567890abcdef1234567890",
+    });
+  });
+});
+
 test("game page achievement summary resolves Final Fantasy X International through RetroAchievements API game list fallback and caches platform lookups", async () => {
   await withMockDeckyStorage(async () => {
     resetDeckyAppServicesForTests();
@@ -12775,6 +12843,181 @@ test("game page achievement summary resolves Final Fantasy X International throu
     assert.equal(deckyBackendTestState.retroAchievements.systemsRequestCount, 1);
     assert.equal(deckyBackendTestState.retroAchievements.gameListRequestCount, 1);
     assert.deepStrictEqual(deckyBackendTestState.retroAchievements.gameListRequestedConsoleIds, ["21"]);
+  });
+});
+
+test("game page achievement summary resolves a RetroAchievements shortcut through ROM hash before title matching", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2493414762": {
+        title: "Pyoro64",
+        platformTag: "Nintendo 64",
+        platformLabel: "Nintendo 64",
+        tags: ["Nintendo 64"],
+      },
+    };
+    deckyBackendTestState.steam.shortcutRomHashByAppId = {
+      "2493414762": {
+        shortcutRomPathDetected: true,
+        shortcutRomPathSource: "launchoptions",
+        romHashAttempted: true,
+        romHashStatus: "resolved",
+        romHashAlgorithm: "md5",
+        romHash: "DEADBEEFDEADBEEFDEADBEEFDEADBEEF",
+      },
+    };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 2,
+        Name: "Nintendo 64",
+        IconURL: "https://example.com/n64.png",
+      },
+    ];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "2": [
+        {
+          GameID: 9001,
+          Title: "~Homebrew~ Pyoro 64",
+          ConsoleID: 2,
+          ConsoleName: "Nintendo 64",
+          Hashes: ["deadbeefdeadbeefdeadbeefdeadbeef"],
+        },
+      ],
+    };
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      "9001": createRetroAchievementsGameProgressResponse({
+        gameId: "9001",
+        title: "~Homebrew~ Pyoro 64",
+        consoleId: 2,
+        consoleName: "Nintendo 64",
+        unlockedCount: 0,
+        totalCount: 1,
+      }),
+    };
+
+    const summary = await loadDeckyGamePageAchievementSummary("2493414762");
+    assert.equal(summary.status, "ready");
+    if (summary.status !== "ready") {
+      return;
+    }
+
+    assert.equal(summary.provider, "retroachievements");
+    assert.equal(summary.gameId, "9001");
+    assert.equal(summary.title, "~Homebrew~ Pyoro 64");
+    assert.equal(summary.earned, 0);
+    assert.equal(summary.total, 1);
+    assert.equal(summary.platformLabel, "Nintendo 64");
+    assert.equal(summary.systemIconUrl, "https://example.com/n64.png");
+
+    const runtimeDebugState = getAchievementCompanionRuntimeDebugState();
+    assert.equal(runtimeDebugState.lastRetroAchievementsShortcutAppId, "2493414762");
+    assert.equal(runtimeDebugState.lastRetroAchievementsShortcutTitle, "Pyoro64");
+    assert.equal(runtimeDebugState.lastRetroAchievementsShortcutPlatform, "Nintendo 64");
+    assert.equal(runtimeDebugState.lastRetroAchievementsNormalizedPlatform, "Nintendo 64");
+    assert.equal(runtimeDebugState.lastRetroAchievementsHashResolverAttempted, true);
+    assert.equal(runtimeDebugState.lastRetroAchievementsRomHashStatus, "resolved");
+    assert.equal(runtimeDebugState.lastRetroAchievementsRaHashLookupAttempted, true);
+    assert.equal(runtimeDebugState.lastRetroAchievementsRaHashLookupStatus, "matched");
+    assert.equal(runtimeDebugState.lastRetroAchievementsRaHashMatchedGameId, "9001");
+    assert.equal(runtimeDebugState.lastRetroAchievementsRaHashMatchedTitle, "~Homebrew~ Pyoro 64");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolvedSystemName, "Nintendo 64");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolvedConsoleId, "2");
+    assert.equal(runtimeDebugState.lastRetroAchievementsFinalResolverSource, "hash");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolutionSource, "ra-hash-game-detail");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolutionReason, "ra-hash-match");
+    assert.equal(runtimeDebugState.lastRetroAchievementsCandidateCount, 1);
+  });
+});
+
+test("game page achievement summary skips a wrong-platform RetroAchievements hash match and falls back to title matching", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2493414763": {
+        title: "Pyoro64",
+        platformTag: "Nintendo 64",
+        platformLabel: "Nintendo 64",
+        tags: ["Nintendo 64"],
+      },
+    };
+    deckyBackendTestState.steam.shortcutRomHashByAppId = {
+      "2493414763": {
+        shortcutRomPathDetected: true,
+        shortcutRomPathSource: "launchoptions",
+        romHashAttempted: true,
+        romHashStatus: "resolved",
+        romHashAlgorithm: "md5",
+        romHash: "DEADBEEFDEADBEEFDEADBEEFDEADBEEF",
+      },
+    };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 2,
+        Name: "Nintendo 64",
+        IconURL: "https://example.com/n64.png",
+      },
+    ];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "2": [
+        {
+          GameID: 9100,
+          Title: "~Homebrew~ Pyoro 64",
+          ConsoleID: 2,
+          ConsoleName: "Game Boy Color",
+          Hashes: ["deadbeefdeadbeefdeadbeefdeadbeef"],
+        },
+        {
+          GameID: 9101,
+          Title: "Pyoro64",
+          ConsoleID: 2,
+          ConsoleName: "Nintendo 64",
+        },
+      ],
+    };
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      "9101": createRetroAchievementsGameProgressResponse({
+        gameId: "9101",
+        title: "Pyoro64",
+        consoleId: 2,
+        consoleName: "Nintendo 64",
+        unlockedCount: 0,
+        totalCount: 2,
+      }),
+    };
+
+    const summary = await loadDeckyGamePageAchievementSummary("2493414763");
+    assert.equal(summary.status, "ready");
+    if (summary.status !== "ready") {
+      return;
+    }
+
+    assert.equal(summary.provider, "retroachievements");
+    assert.equal(summary.gameId, "9101");
+    assert.equal(summary.title, "Pyoro64");
+    assert.equal(summary.earned, 0);
+    assert.equal(summary.total, 2);
+
+    const runtimeDebugState = getAchievementCompanionRuntimeDebugState();
+    assert.equal(runtimeDebugState.lastRetroAchievementsHashResolverAttempted, true);
+    assert.equal(runtimeDebugState.lastRetroAchievementsRaHashLookupStatus, "no-match");
+    assert.equal(runtimeDebugState.lastRetroAchievementsHashRejectedReason, "ra-hash-no-match");
+    assert.equal(runtimeDebugState.lastRetroAchievementsMatchedGameId, "9101");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolutionSource, "ra-api-game-detail");
+    assert.equal(runtimeDebugState.lastRetroAchievementsFinalResolverSource, "title");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolutionReason, "ra-api-game-list-title-match");
   });
 });
 

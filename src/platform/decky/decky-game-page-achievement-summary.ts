@@ -10,7 +10,9 @@ import { readDeckyDashboardSnapshotCacheEntry } from "./decky-dashboard-snapshot
 import { stripCompletionProgressSubsetSuffix } from "./decky-completion-progress-grouping";
 import {
   loadDeckySteamShortcutMetadata,
+  loadDeckySteamShortcutRomHashInfo,
   type DeckySteamShortcutMetadata,
+  type DeckySteamShortcutRomHashInfo,
 } from "./decky-steam-shortcut-metadata";
 import { loadDeckyRetroAchievementsProviderConfig } from "./providers/retroachievements/config";
 import { createDeckyRetroAchievementsTransport } from "./providers/retroachievements/backend-transport";
@@ -78,6 +80,7 @@ type RetroAchievementsShortcutResolution =
       readonly total: number;
       readonly source:
         | "shortcut-title-match"
+        | "ra-hash-game-detail"
         | "completion-progress-title-match"
         | "dashboard-identity-detail"
         | "ra-api-game-list"
@@ -106,7 +109,78 @@ type RetroAchievementsShortcutResolution =
       readonly message: string;
     };
 
+type RetroAchievementsShortcutHashAttempt =
+  | {
+      readonly status: "mapped";
+      readonly appId: string;
+      readonly raGameId: string;
+      readonly title: string;
+      readonly earned: number;
+      readonly total: number;
+      readonly source: "ra-hash-game-detail";
+      readonly confidence: "exact";
+      readonly reason?: string;
+      readonly platformLabel?: string;
+      readonly systemIconUrl?: string;
+      readonly updatedAt?: string;
+      readonly shortcutRomPathDetected: boolean;
+      readonly shortcutRomPathSource?: string;
+      readonly romHashAttempted: boolean;
+      readonly romHashStatus: "resolved";
+      readonly romHashAlgorithm?: "md5";
+      readonly romHashPrefix?: string;
+      readonly raHashLookupAttempted: boolean;
+      readonly raHashLookupStatus: "matched";
+      readonly raHashMatchedGameId: string;
+      readonly raHashMatchedTitle: string;
+      readonly raHashMatchedConsoleId?: string;
+      readonly raHashMatchedConsoleName?: string;
+      readonly hashRejectedReason?: string;
+      readonly finalResolverSource: "hash";
+    }
+  | {
+      readonly status: "skipped";
+      readonly appId: string;
+      readonly reason: string;
+      readonly shortcutRomPathDetected: boolean;
+      readonly shortcutRomPathSource?: string;
+      readonly romHashAttempted: boolean;
+      readonly romHashStatus?: string;
+      readonly romHashAlgorithm?: string;
+      readonly romHashPrefix?: string;
+      readonly raHashLookupAttempted?: boolean;
+      readonly raHashLookupStatus?: string;
+      readonly raHashMatchedGameId?: string;
+      readonly raHashMatchedTitle?: string;
+      readonly raHashMatchedConsoleId?: string;
+      readonly raHashMatchedConsoleName?: string;
+      readonly hashRejectedReason?: string;
+      readonly finalResolverSource: "unavailable";
+    }
+  | {
+      readonly status: "error";
+      readonly appId: string;
+      readonly message: string;
+      readonly finalResolverSource: "unavailable";
+    };
+
 type RetroAchievementsShortcutResolutionDebugArgs = RetroAchievementsShortcutResolution & {
+  readonly hashResolverAttempted?: boolean | undefined;
+  readonly hashResolverSkippedReason?: string | undefined;
+  readonly shortcutRomPathDetected?: boolean | undefined;
+  readonly shortcutRomPathSource?: string | undefined;
+  readonly romHashAttempted?: boolean | undefined;
+  readonly romHashStatus?: string | undefined;
+  readonly romHashAlgorithm?: string | undefined;
+  readonly romHashPrefix?: string | undefined;
+  readonly raHashLookupAttempted?: boolean | undefined;
+  readonly raHashLookupStatus?: string | undefined;
+  readonly raHashMatchedGameId?: string | undefined;
+  readonly raHashMatchedTitle?: string | undefined;
+  readonly raHashMatchedConsoleId?: string | undefined;
+  readonly raHashMatchedConsoleName?: string | undefined;
+  readonly hashRejectedReason?: string | undefined;
+  readonly finalResolverSource?: "hash" | "title" | "completion-progress" | "unavailable" | undefined;
   readonly shortcutTitle?: string | undefined;
   readonly shortcutPlatform?: string | undefined;
   readonly normalizedPlatform?: string | undefined;
@@ -134,6 +208,22 @@ type RetroAchievementsShortcutResolutionDebugArgs = RetroAchievementsShortcutRes
     | "detailTotal"
     | "detailLoadStatus"
     | "detailLoadReason"
+    | "hashResolverAttempted"
+    | "hashResolverSkippedReason"
+    | "shortcutRomPathDetected"
+    | "shortcutRomPathSource"
+    | "romHashAttempted"
+    | "romHashStatus"
+    | "romHashAlgorithm"
+    | "romHashPrefix"
+    | "raHashLookupAttempted"
+    | "raHashLookupStatus"
+    | "raHashMatchedGameId"
+    | "raHashMatchedTitle"
+    | "raHashMatchedConsoleId"
+    | "raHashMatchedConsoleName"
+    | "hashRejectedReason"
+    | "finalResolverSource"
   )[];
 };
 
@@ -147,6 +237,7 @@ interface RetroAchievementsDashboardCandidate {
   readonly title: string;
   readonly platformLabel?: string;
   readonly systemIconUrl?: string;
+  readonly hashes?: readonly string[];
   readonly earned: number;
   readonly total: number;
   readonly updatedAt?: string;
@@ -158,6 +249,7 @@ interface RetroAchievementsCompletionProgressCandidate {
   readonly platformLabel?: string;
   readonly normalizedPlatformLabel?: string;
   readonly systemIconUrl?: string;
+  readonly hashes?: readonly string[];
   readonly earned: number;
   readonly total: number;
   readonly updatedAt?: string;
@@ -168,6 +260,7 @@ interface RetroAchievementsDashboardIdentityCandidate {
   readonly title: string;
   readonly platformLabel?: string;
   readonly normalizedPlatformLabel?: string;
+  readonly hashes?: readonly string[];
   readonly updatedAt?: string;
 }
 
@@ -177,6 +270,7 @@ interface RetroAchievementsApiGameListCandidate {
   readonly platformLabel?: string;
   readonly normalizedPlatformLabel?: string;
   readonly systemIconUrl?: string;
+  readonly hashes?: readonly string[];
   readonly updatedAt?: string;
 }
 
@@ -220,6 +314,13 @@ const retroAchievementsGameListCandidatesCacheByPlatform = new Map<
 const retroAchievementsGameListCandidatesInFlightByPlatform = new Map<
   string,
   Promise<RetroAchievementsGameListCandidatesLoadResult>
+>();
+const retroAchievementsShortcutRomHashInfoCacheByAppId = new Map<
+  string,
+  {
+    readonly storedAt: number;
+    readonly result: DeckySteamShortcutRomHashInfo | undefined;
+  }
 >();
 let retroAchievementsSystemsCache:
   | {
@@ -962,6 +1063,7 @@ function parseRetroAchievementsGameListCandidates(
     const titleValue = record["Title"] ?? record["title"] ?? record["GameTitle"] ?? record["gameTitle"];
     const consoleNameValue = record["ConsoleName"] ?? record["consoleName"];
     const consoleIdValue = record["ConsoleID"] ?? record["consoleId"];
+    const hashesValue = record["Hashes"] ?? record["hashes"];
     const gameId =
       typeof gameIdValue === "string"
         ? gameIdValue.trim()
@@ -985,12 +1087,18 @@ function parseRetroAchievementsGameListCandidates(
     ) ?? system.normalizedPlatform;
     const normalizedPlatformLabel =
       platformLabel !== undefined ? normalizeRetroAchievementsPlatformLabel(platformLabel) : undefined;
+    const hashes = Array.isArray(hashesValue)
+      ? hashesValue
+          .filter((hash): hash is string => typeof hash === "string" && hash.trim().length > 0)
+          .map((hash) => hash.trim().toLowerCase())
+      : undefined;
     candidatesByGameId.set(gameId, {
       gameId,
       title,
       ...(platformLabel !== undefined ? { platformLabel } : {}),
       ...(normalizedPlatformLabel !== undefined ? { normalizedPlatformLabel } : {}),
       ...(system.systemIconUrl !== undefined ? { systemIconUrl: system.systemIconUrl } : {}),
+      ...(hashes !== undefined ? { hashes } : {}),
       ...(updatedAt !== undefined ? { updatedAt } : {}),
     });
 
@@ -1028,6 +1136,49 @@ function collectRetroAchievementsGameListCandidatesForPlatform(
 
   const matchedCandidates = Array.from(matches.values());
   return preferRetroAchievementsBaseSetCandidates(matchedCandidates);
+}
+
+function collectRetroAchievementsGameListCandidatesForHash(
+  candidates: readonly RetroAchievementsApiGameListCandidate[],
+  romHash: string,
+  shortcutPlatformCandidates: readonly string[],
+): readonly RetroAchievementsApiGameListCandidate[] {
+  const normalizedRomHash = romHash.trim().toLowerCase();
+  const matches = new Map<string, RetroAchievementsApiGameListCandidate>();
+
+  for (const candidate of candidates) {
+    if (
+      !matchesRetroAchievementsShortcutPlatform(
+        candidate.platformLabel,
+        shortcutPlatformCandidates,
+      )
+    ) {
+      continue;
+    }
+
+    if (
+      candidate.hashes === undefined ||
+      !candidate.hashes.some((candidateHash) => candidateHash.trim().toLowerCase() === normalizedRomHash)
+    ) {
+      continue;
+    }
+
+    if (!matches.has(candidate.gameId)) {
+      matches.set(candidate.gameId, candidate);
+    }
+  }
+
+  const matchedCandidates = Array.from(matches.values());
+  return preferRetroAchievementsBaseSetCandidates(matchedCandidates);
+}
+
+function normalizeRetroAchievementsRomHashPreview(value: string | undefined): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmed = value.trim().toLowerCase();
+  return trimmed.length > 0 ? trimmed.slice(0, 12) : undefined;
 }
 
 function preferRetroAchievementsBaseSetCandidates<T extends RetroAchievementsSubsetAwareCandidate>(
@@ -1126,6 +1277,25 @@ async function loadRetroAchievementsGameListCandidatesForPlatform(
   retroAchievementsGameListCandidatesInFlightByPlatform.set(normalizedShortcutPlatform, loadPromise);
   const result = await loadPromise;
   retroAchievementsGameListCandidatesCacheByPlatform.set(normalizedShortcutPlatform, {
+    storedAt: Date.now(),
+    result,
+  });
+  return result;
+}
+
+async function loadDeckySteamShortcutRomHashInfoCached(
+  appId: string,
+): Promise<DeckySteamShortcutRomHashInfo | undefined> {
+  const cachedEntry = retroAchievementsShortcutRomHashInfoCacheByAppId.get(appId);
+  if (
+    cachedEntry !== undefined &&
+    Date.now() - cachedEntry.storedAt <= RETROACHIEVEMENTS_GAME_LIST_CACHE_TTL_MS
+  ) {
+    return cachedEntry.result;
+  }
+
+  const result = await loadDeckySteamShortcutRomHashInfo(appId);
+  retroAchievementsShortcutRomHashInfoCacheByAppId.set(appId, {
     storedAt: Date.now(),
     result,
   });
@@ -1293,6 +1463,32 @@ function markRetroAchievementsShortcutResolution(
       ...(resolution.candidateCount !== undefined ? { candidateCount: resolution.candidateCount } : {}),
       ...(resolution.detailLoadStatus !== undefined ? { detailLoadStatus: resolution.detailLoadStatus } : {}),
       ...(resolution.detailLoadReason !== undefined ? { detailLoadReason: resolution.detailLoadReason } : {}),
+      ...(resolution.hashResolverAttempted !== undefined ? { hashResolverAttempted: resolution.hashResolverAttempted } : {}),
+      ...(resolution.hashResolverSkippedReason !== undefined
+        ? { hashResolverSkippedReason: resolution.hashResolverSkippedReason }
+        : {}),
+      ...(resolution.shortcutRomPathDetected !== undefined
+        ? { shortcutRomPathDetected: resolution.shortcutRomPathDetected }
+        : {}),
+      ...(resolution.shortcutRomPathSource !== undefined ? { shortcutRomPathSource: resolution.shortcutRomPathSource } : {}),
+      ...(resolution.romHashAttempted !== undefined ? { romHashAttempted: resolution.romHashAttempted } : {}),
+      ...(resolution.romHashStatus !== undefined ? { romHashStatus: resolution.romHashStatus } : {}),
+      ...(resolution.romHashAlgorithm !== undefined ? { romHashAlgorithm: resolution.romHashAlgorithm } : {}),
+      ...(resolution.romHashPrefix !== undefined ? { romHashPrefix: resolution.romHashPrefix } : {}),
+      ...(resolution.raHashLookupAttempted !== undefined
+        ? { raHashLookupAttempted: resolution.raHashLookupAttempted }
+        : {}),
+      ...(resolution.raHashLookupStatus !== undefined ? { raHashLookupStatus: resolution.raHashLookupStatus } : {}),
+      ...(resolution.raHashMatchedGameId !== undefined ? { raHashMatchedGameId: resolution.raHashMatchedGameId } : {}),
+      ...(resolution.raHashMatchedTitle !== undefined ? { raHashMatchedTitle: resolution.raHashMatchedTitle } : {}),
+      ...(resolution.raHashMatchedConsoleId !== undefined
+        ? { raHashMatchedConsoleId: resolution.raHashMatchedConsoleId }
+        : {}),
+      ...(resolution.raHashMatchedConsoleName !== undefined
+        ? { raHashMatchedConsoleName: resolution.raHashMatchedConsoleName }
+        : {}),
+      ...(resolution.hashRejectedReason !== undefined ? { hashRejectedReason: resolution.hashRejectedReason } : {}),
+      ...(resolution.finalResolverSource !== undefined ? { finalResolverSource: resolution.finalResolverSource } : {}),
     });
     return;
   }
@@ -1316,6 +1512,32 @@ function markRetroAchievementsShortcutResolution(
       ...(resolution.candidateCount !== undefined ? { candidateCount: resolution.candidateCount } : {}),
       ...(resolution.detailLoadStatus !== undefined ? { detailLoadStatus: resolution.detailLoadStatus } : {}),
       ...(resolution.detailLoadReason !== undefined ? { detailLoadReason: resolution.detailLoadReason } : {}),
+      ...(resolution.hashResolverAttempted !== undefined ? { hashResolverAttempted: resolution.hashResolverAttempted } : {}),
+      ...(resolution.hashResolverSkippedReason !== undefined
+        ? { hashResolverSkippedReason: resolution.hashResolverSkippedReason }
+        : {}),
+      ...(resolution.shortcutRomPathDetected !== undefined
+        ? { shortcutRomPathDetected: resolution.shortcutRomPathDetected }
+        : {}),
+      ...(resolution.shortcutRomPathSource !== undefined ? { shortcutRomPathSource: resolution.shortcutRomPathSource } : {}),
+      ...(resolution.romHashAttempted !== undefined ? { romHashAttempted: resolution.romHashAttempted } : {}),
+      ...(resolution.romHashStatus !== undefined ? { romHashStatus: resolution.romHashStatus } : {}),
+      ...(resolution.romHashAlgorithm !== undefined ? { romHashAlgorithm: resolution.romHashAlgorithm } : {}),
+      ...(resolution.romHashPrefix !== undefined ? { romHashPrefix: resolution.romHashPrefix } : {}),
+      ...(resolution.raHashLookupAttempted !== undefined
+        ? { raHashLookupAttempted: resolution.raHashLookupAttempted }
+        : {}),
+      ...(resolution.raHashLookupStatus !== undefined ? { raHashLookupStatus: resolution.raHashLookupStatus } : {}),
+      ...(resolution.raHashMatchedGameId !== undefined ? { raHashMatchedGameId: resolution.raHashMatchedGameId } : {}),
+      ...(resolution.raHashMatchedTitle !== undefined ? { raHashMatchedTitle: resolution.raHashMatchedTitle } : {}),
+      ...(resolution.raHashMatchedConsoleId !== undefined
+        ? { raHashMatchedConsoleId: resolution.raHashMatchedConsoleId }
+        : {}),
+      ...(resolution.raHashMatchedConsoleName !== undefined
+        ? { raHashMatchedConsoleName: resolution.raHashMatchedConsoleName }
+        : {}),
+      ...(resolution.hashRejectedReason !== undefined ? { hashRejectedReason: resolution.hashRejectedReason } : {}),
+      ...(resolution.finalResolverSource !== undefined ? { finalResolverSource: resolution.finalResolverSource } : {}),
     });
     return;
   }
@@ -1337,6 +1559,32 @@ function markRetroAchievementsShortcutResolution(
     ...(resolution.candidateCount !== undefined ? { candidateCount: resolution.candidateCount } : {}),
     ...(resolution.detailLoadStatus !== undefined ? { detailLoadStatus: resolution.detailLoadStatus } : {}),
     ...(resolution.detailLoadReason !== undefined ? { detailLoadReason: resolution.detailLoadReason } : {}),
+    ...(resolution.hashResolverAttempted !== undefined ? { hashResolverAttempted: resolution.hashResolverAttempted } : {}),
+    ...(resolution.hashResolverSkippedReason !== undefined
+      ? { hashResolverSkippedReason: resolution.hashResolverSkippedReason }
+      : {}),
+    ...(resolution.shortcutRomPathDetected !== undefined
+      ? { shortcutRomPathDetected: resolution.shortcutRomPathDetected }
+      : {}),
+    ...(resolution.shortcutRomPathSource !== undefined ? { shortcutRomPathSource: resolution.shortcutRomPathSource } : {}),
+    ...(resolution.romHashAttempted !== undefined ? { romHashAttempted: resolution.romHashAttempted } : {}),
+    ...(resolution.romHashStatus !== undefined ? { romHashStatus: resolution.romHashStatus } : {}),
+    ...(resolution.romHashAlgorithm !== undefined ? { romHashAlgorithm: resolution.romHashAlgorithm } : {}),
+    ...(resolution.romHashPrefix !== undefined ? { romHashPrefix: resolution.romHashPrefix } : {}),
+    ...(resolution.raHashLookupAttempted !== undefined
+      ? { raHashLookupAttempted: resolution.raHashLookupAttempted }
+      : {}),
+    ...(resolution.raHashLookupStatus !== undefined ? { raHashLookupStatus: resolution.raHashLookupStatus } : {}),
+    ...(resolution.raHashMatchedGameId !== undefined ? { raHashMatchedGameId: resolution.raHashMatchedGameId } : {}),
+    ...(resolution.raHashMatchedTitle !== undefined ? { raHashMatchedTitle: resolution.raHashMatchedTitle } : {}),
+    ...(resolution.raHashMatchedConsoleId !== undefined
+      ? { raHashMatchedConsoleId: resolution.raHashMatchedConsoleId }
+      : {}),
+    ...(resolution.raHashMatchedConsoleName !== undefined
+      ? { raHashMatchedConsoleName: resolution.raHashMatchedConsoleName }
+      : {}),
+    ...(resolution.hashRejectedReason !== undefined ? { hashRejectedReason: resolution.hashRejectedReason } : {}),
+    ...(resolution.finalResolverSource !== undefined ? { finalResolverSource: resolution.finalResolverSource } : {}),
   });
 }
 
@@ -1364,6 +1612,7 @@ async function buildRetroAchievementsReadySummary(
     earned: resolution.earned,
     total: resolution.total,
     source:
+      resolution.source === "ra-hash-game-detail" ||
       resolution.source === "completion-progress-title-match" ||
       resolution.source === "dashboard-identity-detail" ||
       resolution.source === "ra-api-game-detail"
@@ -1371,6 +1620,326 @@ async function buildRetroAchievementsReadySummary(
         : "snapshot",
     ...(resolution.updatedAt !== undefined ? { updatedAt: resolution.updatedAt } : {}),
   });
+}
+
+async function attemptRetroAchievementsShortcutHashResolution(
+  appId: string,
+  shortcutMetadata: DeckySteamShortcutMetadata | undefined,
+): Promise<RetroAchievementsShortcutHashAttempt> {
+  if (shortcutMetadata === undefined) {
+    return {
+      status: "skipped",
+      appId,
+      reason: "shortcut-metadata-unavailable",
+      shortcutRomPathDetected: false,
+      romHashAttempted: false,
+      finalResolverSource: "unavailable",
+    };
+  }
+
+  const rawShortcutPlatform =
+    shortcutMetadata.platformTag ?? shortcutMetadata.platformLabel ?? shortcutMetadata.tags?.[0];
+  const shortcutPlatform = normalizeRetroAchievementsShortcutPlatform(shortcutMetadata);
+  const shortcutPlatformCandidates =
+    shortcutPlatform !== undefined ? [shortcutPlatform] : ([] as readonly string[]);
+  const hashInfo = await loadDeckySteamShortcutRomHashInfoCached(appId);
+  const romHashPrefix = normalizeRetroAchievementsRomHashPreview(hashInfo?.romHash);
+  const hashResolverAttempted = true;
+
+  updateAchievementCompanionRaShortcutResolutionDebug({
+    appId,
+    shortcutMetadataLoaded: true,
+    ...(shortcutMetadata.title !== undefined ? { shortcutTitle: shortcutMetadata.title } : {}),
+    ...(rawShortcutPlatform !== undefined ? { shortcutPlatform: rawShortcutPlatform } : {}),
+    ...(shortcutPlatform !== undefined ? { normalizedPlatform: shortcutPlatform } : {}),
+    steamSkippedBecauseShortcut: true,
+    resolverStage: "rom-hash",
+    hashResolverAttempted,
+    ...(hashInfo !== undefined ? { shortcutRomPathDetected: hashInfo.shortcutRomPathDetected } : {}),
+    ...(hashInfo?.shortcutRomPathSource !== undefined ? { shortcutRomPathSource: hashInfo.shortcutRomPathSource } : {}),
+    ...(hashInfo !== undefined ? { romHashAttempted: hashInfo.romHashAttempted } : {}),
+    ...(hashInfo !== undefined ? { romHashStatus: hashInfo.romHashStatus } : {}),
+    ...(hashInfo?.romHashAlgorithm !== undefined ? { romHashAlgorithm: hashInfo.romHashAlgorithm } : {}),
+    ...(romHashPrefix !== undefined ? { romHashPrefix } : {}),
+    ...(hashInfo?.hashResolverSkippedReason !== undefined
+      ? { hashResolverSkippedReason: hashInfo.hashResolverSkippedReason }
+      : {}),
+    ...(hashInfo?.hashRejectedReason !== undefined ? { hashRejectedReason: hashInfo.hashRejectedReason } : {}),
+    finalResolverSource: "unavailable",
+    clearKeys: [
+      "hashResolverAttempted",
+      "hashResolverSkippedReason",
+      "shortcutRomPathDetected",
+      "shortcutRomPathSource",
+      "romHashAttempted",
+      "romHashStatus",
+      "romHashAlgorithm",
+      "romHashPrefix",
+      "raHashLookupAttempted",
+      "raHashLookupStatus",
+      "raHashMatchedGameId",
+      "raHashMatchedTitle",
+      "raHashMatchedConsoleId",
+      "raHashMatchedConsoleName",
+      "hashRejectedReason",
+      "finalResolverSource",
+      "apiMatchedGameId",
+      "apiMatchedTitle",
+      "returnedSummaryProvider",
+      "returnedSummaryEarned",
+      "returnedSummaryTotal",
+      "detailGameId",
+      "detailTitle",
+      "detailPlatformLabel",
+      "detailEarned",
+      "detailEarnedHardcore",
+      "detailTotal",
+      "detailLoadStatus",
+      "detailLoadReason",
+    ],
+  });
+
+  if (hashInfo === undefined) {
+    return {
+      status: "skipped",
+      appId,
+      reason: "rom-hash-unavailable",
+      shortcutRomPathDetected: false,
+      romHashAttempted: false,
+      finalResolverSource: "unavailable",
+    };
+  }
+
+  if (hashInfo.romHashStatus !== "resolved" || hashInfo.romHash === undefined) {
+    return {
+      status: "skipped",
+      appId,
+      reason: hashInfo.hashResolverSkippedReason ?? "rom-hash-unavailable",
+      shortcutRomPathDetected: hashInfo.shortcutRomPathDetected,
+      ...(hashInfo.shortcutRomPathSource !== undefined ? { shortcutRomPathSource: hashInfo.shortcutRomPathSource } : {}),
+      romHashAttempted: hashInfo.romHashAttempted,
+      ...(hashInfo.romHashStatus !== undefined ? { romHashStatus: hashInfo.romHashStatus } : {}),
+      ...(hashInfo.romHashAlgorithm !== undefined ? { romHashAlgorithm: hashInfo.romHashAlgorithm } : {}),
+      ...(romHashPrefix !== undefined ? { romHashPrefix } : {}),
+      ...(hashInfo.hashRejectedReason !== undefined ? { hashRejectedReason: hashInfo.hashRejectedReason } : {}),
+      finalResolverSource: "unavailable",
+    };
+  }
+
+  if (shortcutPlatform === undefined) {
+    updateAchievementCompanionRaShortcutResolutionDebug({
+      appId,
+      hashResolverAttempted,
+      shortcutRomPathDetected: hashInfo.shortcutRomPathDetected,
+      ...(hashInfo.shortcutRomPathSource !== undefined ? { shortcutRomPathSource: hashInfo.shortcutRomPathSource } : {}),
+      romHashAttempted: hashInfo.romHashAttempted,
+      romHashStatus: hashInfo.romHashStatus,
+      ...(hashInfo.romHashAlgorithm !== undefined ? { romHashAlgorithm: hashInfo.romHashAlgorithm } : {}),
+      ...(romHashPrefix !== undefined ? { romHashPrefix } : {}),
+      raHashLookupAttempted: false,
+      raHashLookupStatus: "unavailable",
+      hashRejectedReason: "shortcut-platform-unavailable",
+      finalResolverSource: "unavailable",
+    });
+    return {
+      status: "skipped",
+      appId,
+      reason: "shortcut-platform-unavailable",
+      shortcutRomPathDetected: hashInfo.shortcutRomPathDetected,
+      ...(hashInfo.shortcutRomPathSource !== undefined ? { shortcutRomPathSource: hashInfo.shortcutRomPathSource } : {}),
+      romHashAttempted: hashInfo.romHashAttempted,
+      romHashStatus: hashInfo.romHashStatus,
+      ...(hashInfo.romHashAlgorithm !== undefined ? { romHashAlgorithm: hashInfo.romHashAlgorithm } : {}),
+      ...(romHashPrefix !== undefined ? { romHashPrefix } : {}),
+      raHashLookupAttempted: false,
+      raHashLookupStatus: "unavailable",
+      hashRejectedReason: "shortcut-platform-unavailable",
+      finalResolverSource: "unavailable",
+    };
+  }
+
+  let apiGameListResult: RetroAchievementsGameListCandidatesLoadResult;
+  try {
+    apiGameListResult = await loadRetroAchievementsGameListCandidatesForPlatform(shortcutPlatform);
+  } catch {
+    apiGameListResult = {
+      status: "unavailable",
+      normalizedPlatform: shortcutPlatform,
+      candidates: [],
+    };
+  }
+
+  if (apiGameListResult.status === "unsupported") {
+    updateAchievementCompanionRaShortcutResolutionDebug({
+      appId,
+      hashResolverAttempted,
+      shortcutRomPathDetected: hashInfo.shortcutRomPathDetected,
+      ...(hashInfo.shortcutRomPathSource !== undefined ? { shortcutRomPathSource: hashInfo.shortcutRomPathSource } : {}),
+      romHashAttempted: hashInfo.romHashAttempted,
+      romHashStatus: hashInfo.romHashStatus,
+      ...(hashInfo.romHashAlgorithm !== undefined ? { romHashAlgorithm: hashInfo.romHashAlgorithm } : {}),
+      ...(romHashPrefix !== undefined ? { romHashPrefix } : {}),
+      raHashLookupAttempted: false,
+      raHashLookupStatus: "unsupported",
+      hashRejectedReason: "ra-platform-unsupported",
+      finalResolverSource: "unavailable",
+    });
+    return {
+      status: "skipped",
+      appId,
+      reason: "ra-platform-unsupported",
+      shortcutRomPathDetected: hashInfo.shortcutRomPathDetected,
+      ...(hashInfo.shortcutRomPathSource !== undefined ? { shortcutRomPathSource: hashInfo.shortcutRomPathSource } : {}),
+      romHashAttempted: hashInfo.romHashAttempted,
+      romHashStatus: hashInfo.romHashStatus,
+      ...(hashInfo.romHashAlgorithm !== undefined ? { romHashAlgorithm: hashInfo.romHashAlgorithm } : {}),
+      ...(romHashPrefix !== undefined ? { romHashPrefix } : {}),
+      raHashLookupAttempted: false,
+      raHashLookupStatus: "unsupported",
+      hashRejectedReason: "ra-platform-unsupported",
+      finalResolverSource: "unavailable",
+    };
+  }
+
+  const hashCandidates = collectRetroAchievementsGameListCandidatesForHash(
+    apiGameListResult.candidates,
+    hashInfo.romHash,
+    shortcutPlatformCandidates,
+  );
+  const hashLookupStatus =
+    hashCandidates.length === 1 ? "matched" : hashCandidates.length > 1 ? "ambiguous" : "no-match";
+  const hashRejectedReason =
+    hashLookupStatus === "matched"
+      ? undefined
+      : hashLookupStatus === "ambiguous"
+        ? "ambiguous-retroachievements-shortcut-mapping"
+        : "ra-hash-no-match";
+  updateAchievementCompanionRaShortcutResolutionDebug({
+    appId,
+    hashResolverAttempted,
+    shortcutRomPathDetected: hashInfo.shortcutRomPathDetected,
+    ...(hashInfo.shortcutRomPathSource !== undefined ? { shortcutRomPathSource: hashInfo.shortcutRomPathSource } : {}),
+    romHashAttempted: hashInfo.romHashAttempted,
+    romHashStatus: hashInfo.romHashStatus,
+    ...(hashInfo.romHashAlgorithm !== undefined ? { romHashAlgorithm: hashInfo.romHashAlgorithm } : {}),
+    ...(romHashPrefix !== undefined ? { romHashPrefix } : {}),
+    raHashLookupAttempted: true,
+    raHashLookupStatus: hashLookupStatus,
+    ...(hashCandidates.length === 1
+      ? {
+          raHashMatchedGameId: hashCandidates[0]!.gameId,
+          raHashMatchedTitle: hashCandidates[0]!.title,
+          ...(apiGameListResult.status === "resolved"
+            ? {
+                raHashMatchedConsoleId: apiGameListResult.system.consoleId,
+                raHashMatchedConsoleName: apiGameListResult.system.systemName,
+              }
+            : {}),
+        }
+      : {}),
+    ...(hashRejectedReason !== undefined ? { hashRejectedReason } : {}),
+    finalResolverSource: hashLookupStatus === "matched" ? "hash" : "unavailable",
+  });
+
+  if (hashCandidates.length !== 1) {
+    return {
+      status: "skipped",
+      appId,
+      reason: hashRejectedReason ?? "ra-hash-no-match",
+      shortcutRomPathDetected: hashInfo.shortcutRomPathDetected,
+      ...(hashInfo.shortcutRomPathSource !== undefined ? { shortcutRomPathSource: hashInfo.shortcutRomPathSource } : {}),
+      romHashAttempted: hashInfo.romHashAttempted,
+      romHashStatus: hashInfo.romHashStatus,
+      ...(hashInfo.romHashAlgorithm !== undefined ? { romHashAlgorithm: hashInfo.romHashAlgorithm } : {}),
+      ...(romHashPrefix !== undefined ? { romHashPrefix } : {}),
+      raHashLookupAttempted: true,
+      raHashLookupStatus: hashLookupStatus,
+      ...(hashRejectedReason !== undefined ? { hashRejectedReason } : {}),
+      finalResolverSource: "unavailable",
+    };
+  }
+
+  const matchingCandidate = hashCandidates[0]!;
+  let gameDetailState: Awaited<ReturnType<typeof loadDeckyGameDetailStateLazy>>;
+  try {
+    gameDetailState = await loadDeckyGameDetailStateLazy(RETROACHIEVEMENTS_PROVIDER_ID, matchingCandidate.gameId, {
+      forceRefresh: false,
+    });
+  } catch {
+    return {
+      status: "skipped",
+      appId,
+      reason: "ra-detail-unavailable",
+      shortcutRomPathDetected: hashInfo.shortcutRomPathDetected,
+      ...(hashInfo.shortcutRomPathSource !== undefined ? { shortcutRomPathSource: hashInfo.shortcutRomPathSource } : {}),
+      romHashAttempted: hashInfo.romHashAttempted,
+      romHashStatus: hashInfo.romHashStatus,
+      ...(hashInfo.romHashAlgorithm !== undefined ? { romHashAlgorithm: hashInfo.romHashAlgorithm } : {}),
+      ...(romHashPrefix !== undefined ? { romHashPrefix } : {}),
+      raHashLookupAttempted: true,
+      raHashLookupStatus: "matched",
+      raHashMatchedGameId: matchingCandidate.gameId,
+      raHashMatchedTitle: matchingCandidate.title,
+      hashRejectedReason: "ra-detail-unavailable",
+      finalResolverSource: "unavailable",
+    };
+  }
+
+  const game = gameDetailState.data?.game;
+  if (
+    gameDetailState.status === "success" &&
+    game !== undefined &&
+    game.summary.totalCount !== undefined &&
+    game.summary.totalCount > 0
+  ) {
+    return {
+      status: "mapped",
+      appId,
+      raGameId: game.gameId,
+      title: game.title,
+      ...(game.platformLabel !== undefined ? { platformLabel: game.platformLabel } : {}),
+      ...(game.systemIconUrl !== undefined ? { systemIconUrl: game.systemIconUrl } : {}),
+      earned: game.summary.unlockedCount,
+      total: game.summary.totalCount,
+      source: "ra-hash-game-detail",
+      confidence: "exact",
+      reason: "ra-hash-match",
+      ...(gameDetailState.lastUpdatedAt !== undefined
+        ? { updatedAt: new Date(gameDetailState.lastUpdatedAt).toISOString() }
+        : {}),
+      shortcutRomPathDetected: hashInfo.shortcutRomPathDetected,
+      ...(hashInfo.shortcutRomPathSource !== undefined ? { shortcutRomPathSource: hashInfo.shortcutRomPathSource } : {}),
+      romHashAttempted: hashInfo.romHashAttempted,
+      romHashStatus: hashInfo.romHashStatus,
+      ...(hashInfo.romHashAlgorithm !== undefined ? { romHashAlgorithm: hashInfo.romHashAlgorithm } : {}),
+      raHashLookupAttempted: true,
+      raHashLookupStatus: "matched",
+      raHashMatchedGameId: matchingCandidate.gameId,
+      raHashMatchedTitle: matchingCandidate.title,
+      ...(apiGameListResult.status === "resolved"
+        ? {
+            raHashMatchedConsoleId: apiGameListResult.system.consoleId,
+            raHashMatchedConsoleName: apiGameListResult.system.systemName,
+          }
+        : {}),
+      ...(romHashPrefix !== undefined ? { romHashPrefix } : {}),
+      finalResolverSource: "hash",
+    };
+  }
+
+  return {
+    status: "skipped",
+    appId,
+    reason: "ra-detail-unavailable",
+    shortcutRomPathDetected: hashInfo.shortcutRomPathDetected,
+    ...(hashInfo.shortcutRomPathSource !== undefined ? { shortcutRomPathSource: hashInfo.shortcutRomPathSource } : {}),
+    romHashAttempted: hashInfo.romHashAttempted,
+    romHashStatus: hashInfo.romHashStatus,
+    ...(hashInfo.romHashAlgorithm !== undefined ? { romHashAlgorithm: hashInfo.romHashAlgorithm } : {}),
+    ...(romHashPrefix !== undefined ? { romHashPrefix } : {}),
+    hashRejectedReason: "ra-detail-unavailable",
+    finalResolverSource: "unavailable",
+  };
 }
 
 async function resolveSummaryFromRetroAchievementsShortcut(
@@ -1394,6 +1963,22 @@ async function resolveSummaryFromRetroAchievementsShortcut(
     | "detailTotal"
     | "detailLoadStatus"
     | "detailLoadReason"
+    | "hashResolverAttempted"
+    | "hashResolverSkippedReason"
+    | "shortcutRomPathDetected"
+    | "shortcutRomPathSource"
+    | "romHashAttempted"
+    | "romHashStatus"
+    | "romHashAlgorithm"
+    | "romHashPrefix"
+    | "raHashLookupAttempted"
+    | "raHashLookupStatus"
+    | "raHashMatchedGameId"
+    | "raHashMatchedTitle"
+    | "raHashMatchedConsoleId"
+    | "raHashMatchedConsoleName"
+    | "hashRejectedReason"
+    | "finalResolverSource"
   )[] = [
     "apiMatchedGameId",
     "apiMatchedTitle",
@@ -1408,6 +1993,22 @@ async function resolveSummaryFromRetroAchievementsShortcut(
     "detailTotal",
     "detailLoadStatus",
     "detailLoadReason",
+    "hashResolverAttempted",
+    "hashResolverSkippedReason",
+    "shortcutRomPathDetected",
+    "shortcutRomPathSource",
+    "romHashAttempted",
+    "romHashStatus",
+    "romHashAlgorithm",
+    "romHashPrefix",
+    "raHashLookupAttempted",
+    "raHashLookupStatus",
+    "raHashMatchedGameId",
+    "raHashMatchedTitle",
+    "raHashMatchedConsoleId",
+    "raHashMatchedConsoleName",
+    "hashRejectedReason",
+    "finalResolverSource",
   ];
 
   try {
@@ -1457,6 +2058,91 @@ async function resolveSummaryFromRetroAchievementsShortcut(
       });
     };
 
+    const hashResolution = await attemptRetroAchievementsShortcutHashResolution(appId, shortcutMetadata);
+    const hashResolutionDebugFields =
+      hashResolution.status === "error"
+        ? { hashResolverAttempted: true, finalResolverSource: "unavailable" as const }
+        : {
+            hashResolverAttempted: true,
+            ...(hashResolution.shortcutRomPathDetected !== undefined
+              ? { shortcutRomPathDetected: hashResolution.shortcutRomPathDetected }
+              : {}),
+            ...(hashResolution.shortcutRomPathSource !== undefined
+              ? { shortcutRomPathSource: hashResolution.shortcutRomPathSource }
+              : {}),
+            ...(hashResolution.romHashAttempted !== undefined ? { romHashAttempted: hashResolution.romHashAttempted } : {}),
+            ...(hashResolution.romHashStatus !== undefined ? { romHashStatus: hashResolution.romHashStatus } : {}),
+            ...(hashResolution.romHashAlgorithm !== undefined ? { romHashAlgorithm: hashResolution.romHashAlgorithm } : {}),
+            ...(hashResolution.romHashPrefix !== undefined ? { romHashPrefix: hashResolution.romHashPrefix } : {}),
+            ...(hashResolution.raHashLookupAttempted !== undefined
+              ? { raHashLookupAttempted: hashResolution.raHashLookupAttempted }
+              : {}),
+            ...(hashResolution.raHashLookupStatus !== undefined
+              ? { raHashLookupStatus: hashResolution.raHashLookupStatus }
+              : {}),
+            ...(hashResolution.raHashMatchedGameId !== undefined
+              ? { raHashMatchedGameId: hashResolution.raHashMatchedGameId }
+              : {}),
+            ...(hashResolution.raHashMatchedTitle !== undefined
+              ? { raHashMatchedTitle: hashResolution.raHashMatchedTitle }
+              : {}),
+            ...(hashResolution.raHashMatchedConsoleId !== undefined
+              ? { raHashMatchedConsoleId: hashResolution.raHashMatchedConsoleId }
+              : {}),
+            ...(hashResolution.raHashMatchedConsoleName !== undefined
+              ? { raHashMatchedConsoleName: hashResolution.raHashMatchedConsoleName }
+              : {}),
+            ...(hashResolution.hashRejectedReason !== undefined
+              ? { hashRejectedReason: hashResolution.hashRejectedReason }
+              : {}),
+            ...(hashResolution.finalResolverSource !== undefined
+              ? { finalResolverSource: hashResolution.finalResolverSource }
+              : {}),
+          };
+    if (hashResolution.status === "mapped") {
+      const mappedResolution: RetroAchievementsShortcutResolution = {
+        status: "mapped",
+        appId,
+        raGameId: hashResolution.raGameId,
+        title: hashResolution.title,
+        ...(hashResolution.platformLabel !== undefined ? { platformLabel: hashResolution.platformLabel } : {}),
+        ...(hashResolution.systemIconUrl !== undefined ? { systemIconUrl: hashResolution.systemIconUrl } : {}),
+        earned: hashResolution.earned,
+        total: hashResolution.total,
+        source: hashResolution.source,
+        confidence: hashResolution.confidence,
+        ...(hashResolution.reason !== undefined ? { reason: hashResolution.reason } : {}),
+        ...(hashResolution.updatedAt !== undefined ? { updatedAt: hashResolution.updatedAt } : {}),
+      };
+      markResolution(mappedResolution, {
+        resolutionSource: "ra-hash-game-detail",
+        resolutionReason: "ra-hash-match",
+        matchedTitle: hashResolution.title,
+        matchedPlatform: hashResolution.platformLabel,
+        matchedGameId: hashResolution.raGameId,
+        candidateCount: 1,
+        ...(hashResolution.raHashMatchedConsoleId !== undefined
+          ? { resolvedConsoleId: hashResolution.raHashMatchedConsoleId }
+          : {}),
+        ...(hashResolution.raHashMatchedConsoleName !== undefined
+          ? { resolvedSystemName: hashResolution.raHashMatchedConsoleName }
+          : {}),
+        detailLoadStatus: "success",
+        ...hashResolutionDebugFields,
+      });
+      return mappedResolution;
+    }
+
+    if (hashResolution.status === "error") {
+      const errorSummary: GamePageAchievementSummary = {
+        status: "error",
+        appId,
+        message: hashResolution.message,
+      };
+      markAchievementCompanionGamePageAchievementSummaryFetchCompleted(errorSummary);
+      return errorSummary;
+    }
+
     if (shortcutTitle === undefined) {
       const unavailableResolution: RetroAchievementsShortcutResolution = {
         status: "unavailable",
@@ -1504,12 +2190,14 @@ async function resolveSummaryFromRetroAchievementsShortcut(
         ...(matchingCandidate.updatedAt !== undefined ? { updatedAt: matchingCandidate.updatedAt } : {}),
       };
       markResolution(mappedResolution, {
+        ...hashResolutionDebugFields,
         resolutionSource: "dashboard-snapshot",
         resolutionReason: "shortcut-title-match",
         matchedTitle: matchingCandidate.title,
         matchedPlatform: matchingCandidate.platformLabel,
         matchedGameId: matchingCandidate.gameId,
         candidateCount: matchingCandidates.length,
+        finalResolverSource: "title",
         clearKeys: staleResultDebugFieldsToClear,
       });
       return mappedResolution;
@@ -1522,9 +2210,11 @@ async function resolveSummaryFromRetroAchievementsShortcut(
         reason: "ambiguous-retroachievements-shortcut-mapping",
       };
       markResolution(unavailableResolution, {
+        ...hashResolutionDebugFields,
         resolutionSource: "dashboard-snapshot",
         resolutionReason: unavailableResolution.reason,
         candidateCount: matchingCandidates.length,
+        finalResolverSource: "unavailable",
         clearKeys: staleResultDebugFieldsToClear,
       });
       return unavailableResolution;
@@ -1574,12 +2264,14 @@ async function resolveSummaryFromRetroAchievementsShortcut(
           ...(matchingCandidate.updatedAt !== undefined ? { updatedAt: matchingCandidate.updatedAt } : {}),
         };
         markResolution(mappedResolution, {
+          ...hashResolutionDebugFields,
           resolutionSource: "completion-progress-title-match",
           resolutionReason: "completion-progress-title-match",
           matchedTitle: matchingCandidate.title,
           matchedPlatform: matchingCandidate.normalizedPlatformLabel,
           matchedGameId: matchingCandidate.gameId,
           candidateCount: preferredCompletionProgressCandidates.length,
+          finalResolverSource: "completion-progress",
           clearKeys: staleResultDebugFieldsToClear,
         });
         return mappedResolution;
@@ -1592,9 +2284,11 @@ async function resolveSummaryFromRetroAchievementsShortcut(
           reason: "ambiguous-retroachievements-shortcut-mapping",
         };
         markResolution(unavailableResolution, {
+          ...hashResolutionDebugFields,
           resolutionSource: "completion-progress-title-match",
           resolutionReason: unavailableResolution.reason,
           candidateCount: preferredCompletionProgressCandidates.length,
+          finalResolverSource: "unavailable",
           clearKeys: staleResultDebugFieldsToClear,
         });
         return unavailableResolution;
@@ -1635,6 +2329,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
           reason: "ra-detail-unavailable",
         };
         markResolution(unavailableResolution, {
+          ...hashResolutionDebugFields,
           resolutionSource: "dashboard-identity-detail",
           resolutionReason: unavailableResolution.reason,
           matchedTitle: matchingCandidate.title,
@@ -1643,6 +2338,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
           candidateCount: dashboardIdentityCandidates.length,
           detailLoadStatus: "error",
           detailLoadReason: unavailableResolution.reason,
+          finalResolverSource: "unavailable",
           clearKeys: staleResultDebugFieldsToClear,
         });
         return unavailableResolution;
@@ -1671,6 +2367,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
             : {}),
         };
         markResolution(mappedResolution, {
+          ...hashResolutionDebugFields,
           resolutionSource: "dashboard-identity-detail",
           resolutionReason: "dashboard-identity-detail-title-match",
           matchedTitle: matchingCandidate.title,
@@ -1678,6 +2375,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
           matchedGameId: matchingCandidate.gameId,
           candidateCount: dashboardIdentityCandidates.length,
           detailLoadStatus: "success",
+          finalResolverSource: "title",
         });
         return mappedResolution;
       }
@@ -1688,6 +2386,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
         reason: "ra-detail-unavailable",
       };
       markResolution(unavailableResolution, {
+        ...hashResolutionDebugFields,
         resolutionSource: "dashboard-identity-detail",
         resolutionReason: unavailableResolution.reason,
         matchedTitle: matchingCandidate.title,
@@ -1696,6 +2395,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
         candidateCount: dashboardIdentityCandidates.length,
         detailLoadStatus: "unavailable",
         detailLoadReason: unavailableResolution.reason,
+        finalResolverSource: "unavailable",
         clearKeys: staleResultDebugFieldsToClear,
       });
       return unavailableResolution;
@@ -1708,9 +2408,11 @@ async function resolveSummaryFromRetroAchievementsShortcut(
         reason: "ambiguous-retroachievements-shortcut-mapping",
       };
       markResolution(unavailableResolution, {
+        ...hashResolutionDebugFields,
         resolutionSource: "dashboard-identity-detail",
         resolutionReason: unavailableResolution.reason,
         candidateCount: dashboardIdentityCandidates.length,
+        finalResolverSource: "unavailable",
         clearKeys: staleResultDebugFieldsToClear,
       });
       return unavailableResolution;
@@ -1738,6 +2440,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
         reason: "ra-platform-unsupported",
       };
       markResolution(unavailableResolution, {
+        ...hashResolutionDebugFields,
         resolutionSource: "ra-api-game-list",
         resolutionReason: unavailableResolution.reason,
         candidateCount: 0,
@@ -1811,6 +2514,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
           candidateCount: matchingGameListCandidates.length,
           detailLoadStatus: "error",
           detailLoadReason: unavailableResolution.reason,
+          finalResolverSource: "unavailable",
         });
         return unavailableResolution;
       }
@@ -1862,6 +2566,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
             : {}),
         };
         markResolution(mappedResolution, {
+          ...hashResolutionDebugFields,
           resolutionSource: "ra-api-game-detail",
           resolutionReason: "ra-api-game-list-title-match",
           ...(apiGameListResult.status === "resolved"
@@ -1875,6 +2580,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
           matchedGameId: matchingCandidate.gameId,
           candidateCount: matchingGameListCandidates.length,
           detailLoadStatus: "success",
+          finalResolverSource: "title",
         });
         return mappedResolution;
       }
@@ -1885,6 +2591,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
         reason: "ra-detail-unavailable",
       };
       markResolution(unavailableResolution, {
+        ...hashResolutionDebugFields,
         resolutionSource: "ra-api-game-detail",
         resolutionReason: unavailableResolution.reason,
         ...(apiGameListResult.status === "resolved"
@@ -1899,6 +2606,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
         candidateCount: matchingGameListCandidates.length,
         detailLoadStatus: "unavailable",
         detailLoadReason: unavailableResolution.reason,
+        finalResolverSource: "unavailable",
       });
       return unavailableResolution;
     }
@@ -1910,6 +2618,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
         reason: "ambiguous-retroachievements-shortcut-mapping",
       };
       markResolution(unavailableResolution, {
+        ...hashResolutionDebugFields,
         resolutionSource: "ra-api-game-list",
         resolutionReason: unavailableResolution.reason,
         ...(apiGameListResult.status === "resolved"
@@ -1919,6 +2628,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
             }
           : {}),
         candidateCount: matchingGameListCandidates.length,
+        finalResolverSource: "unavailable",
         clearKeys: staleResultDebugFieldsToClear,
       });
       return unavailableResolution;
@@ -1931,6 +2641,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
       reason: unavailableReason,
     };
     markResolution(unavailableResolution, {
+      ...hashResolutionDebugFields,
       resolutionSource: "ra-api-game-list",
       resolutionReason: unavailableReason,
       ...(apiGameListResult.status === "resolved"
@@ -1940,6 +2651,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
           }
         : {}),
       candidateCount: 0,
+      finalResolverSource: "unavailable",
       clearKeys: staleResultDebugFieldsToClear,
     });
     return unavailableResolution;
