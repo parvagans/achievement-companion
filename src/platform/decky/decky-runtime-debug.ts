@@ -70,6 +70,22 @@ export interface AchievementCompanionRuntimeDebugState {
   readonly lastRetroAchievementsNormalizedPlatform: string | undefined;
   readonly lastRetroAchievementsMappingStatus: "mapped" | "unavailable" | "error" | undefined;
   readonly lastRetroAchievementsMappingReason: string | undefined;
+  readonly lastRetroAchievementsHashResolverAttempted: boolean;
+  readonly lastRetroAchievementsHashResolverSkippedReason: string | undefined;
+  readonly lastRetroAchievementsShortcutRomPathDetected: boolean;
+  readonly lastRetroAchievementsShortcutRomPathSource: string | undefined;
+  readonly lastRetroAchievementsRomHashAttempted: boolean;
+  readonly lastRetroAchievementsRomHashStatus: string | undefined;
+  readonly lastRetroAchievementsRomHashAlgorithm: string | undefined;
+  readonly lastRetroAchievementsRomHashPrefix: string | undefined;
+  readonly lastRetroAchievementsRaHashLookupAttempted: boolean;
+  readonly lastRetroAchievementsRaHashLookupStatus: string | undefined;
+  readonly lastRetroAchievementsRaHashMatchedGameId: string | undefined;
+  readonly lastRetroAchievementsRaHashMatchedTitle: string | undefined;
+  readonly lastRetroAchievementsRaHashMatchedConsoleId: string | undefined;
+  readonly lastRetroAchievementsRaHashMatchedConsoleName: string | undefined;
+  readonly lastRetroAchievementsHashRejectedReason: string | undefined;
+  readonly lastRetroAchievementsFinalResolverSource: "hash" | "title" | "completion-progress" | "unavailable" | undefined;
   readonly lastRetroAchievementsGameId: string | undefined;
   readonly lastRetroAchievementsTitle: string | undefined;
   readonly lastRetroAchievementsEarned: number | undefined;
@@ -181,6 +197,22 @@ export interface AchievementCompanionRaShortcutResolutionDebugRecord {
   readonly detailEarned?: number;
   readonly detailEarnedHardcore?: number;
   readonly detailTotal?: number;
+  readonly hashResolverAttempted?: boolean;
+  readonly hashResolverSkippedReason?: string;
+  readonly shortcutRomPathDetected?: boolean;
+  readonly shortcutRomPathSource?: string;
+  readonly romHashAttempted?: boolean;
+  readonly romHashStatus?: string;
+  readonly romHashAlgorithm?: string;
+  readonly romHashPrefix?: string;
+  readonly raHashLookupAttempted?: boolean;
+  readonly raHashLookupStatus?: string;
+  readonly raHashMatchedGameId?: string;
+  readonly raHashMatchedTitle?: string;
+  readonly raHashMatchedConsoleId?: string;
+  readonly raHashMatchedConsoleName?: string;
+  readonly hashRejectedReason?: string;
+  readonly finalResolverSource?: "hash" | "title" | "completion-progress" | "unavailable";
   readonly finalStatus?: "mapped" | "unavailable" | "error";
   readonly finalReason?: string;
   readonly returnedSummaryProvider?: "steam" | "retroachievements";
@@ -269,6 +301,22 @@ let runtimeDebugLastRetroAchievementsShortcutPlatform: string | undefined;
 let runtimeDebugLastRetroAchievementsNormalizedPlatform: string | undefined;
 let runtimeDebugLastRetroAchievementsMappingStatus: "mapped" | "unavailable" | "error" | undefined;
 let runtimeDebugLastRetroAchievementsMappingReason: string | undefined;
+let runtimeDebugLastRetroAchievementsHashResolverAttempted = false;
+let runtimeDebugLastRetroAchievementsHashResolverSkippedReason: string | undefined;
+let runtimeDebugLastRetroAchievementsShortcutRomPathDetected = false;
+let runtimeDebugLastRetroAchievementsShortcutRomPathSource: string | undefined;
+let runtimeDebugLastRetroAchievementsRomHashAttempted = false;
+let runtimeDebugLastRetroAchievementsRomHashStatus: string | undefined;
+let runtimeDebugLastRetroAchievementsRomHashAlgorithm: string | undefined;
+let runtimeDebugLastRetroAchievementsRomHashPrefix: string | undefined;
+let runtimeDebugLastRetroAchievementsRaHashLookupAttempted = false;
+let runtimeDebugLastRetroAchievementsRaHashLookupStatus: string | undefined;
+let runtimeDebugLastRetroAchievementsRaHashMatchedGameId: string | undefined;
+let runtimeDebugLastRetroAchievementsRaHashMatchedTitle: string | undefined;
+let runtimeDebugLastRetroAchievementsRaHashMatchedConsoleId: string | undefined;
+let runtimeDebugLastRetroAchievementsRaHashMatchedConsoleName: string | undefined;
+let runtimeDebugLastRetroAchievementsHashRejectedReason: string | undefined;
+let runtimeDebugLastRetroAchievementsFinalResolverSource: "hash" | "title" | "completion-progress" | "unavailable" | undefined;
 let runtimeDebugLastRetroAchievementsGameId: string | undefined;
 let runtimeDebugLastRetroAchievementsTitle: string | undefined;
 let runtimeDebugLastRetroAchievementsEarned: number | undefined;
@@ -571,6 +619,22 @@ function computeRuntimeDebugState(): AchievementCompanionRuntimeDebugState {
     lastRetroAchievementsNormalizedPlatform: runtimeDebugLastRetroAchievementsNormalizedPlatform,
     lastRetroAchievementsMappingStatus: runtimeDebugLastRetroAchievementsMappingStatus,
     lastRetroAchievementsMappingReason: runtimeDebugLastRetroAchievementsMappingReason,
+    lastRetroAchievementsHashResolverAttempted: runtimeDebugLastRetroAchievementsHashResolverAttempted,
+    lastRetroAchievementsHashResolverSkippedReason: runtimeDebugLastRetroAchievementsHashResolverSkippedReason,
+    lastRetroAchievementsShortcutRomPathDetected: runtimeDebugLastRetroAchievementsShortcutRomPathDetected,
+    lastRetroAchievementsShortcutRomPathSource: runtimeDebugLastRetroAchievementsShortcutRomPathSource,
+    lastRetroAchievementsRomHashAttempted: runtimeDebugLastRetroAchievementsRomHashAttempted,
+    lastRetroAchievementsRomHashStatus: runtimeDebugLastRetroAchievementsRomHashStatus,
+    lastRetroAchievementsRomHashAlgorithm: runtimeDebugLastRetroAchievementsRomHashAlgorithm,
+    lastRetroAchievementsRomHashPrefix: runtimeDebugLastRetroAchievementsRomHashPrefix,
+    lastRetroAchievementsRaHashLookupAttempted: runtimeDebugLastRetroAchievementsRaHashLookupAttempted,
+    lastRetroAchievementsRaHashLookupStatus: runtimeDebugLastRetroAchievementsRaHashLookupStatus,
+    lastRetroAchievementsRaHashMatchedGameId: runtimeDebugLastRetroAchievementsRaHashMatchedGameId,
+    lastRetroAchievementsRaHashMatchedTitle: runtimeDebugLastRetroAchievementsRaHashMatchedTitle,
+    lastRetroAchievementsRaHashMatchedConsoleId: runtimeDebugLastRetroAchievementsRaHashMatchedConsoleId,
+    lastRetroAchievementsRaHashMatchedConsoleName: runtimeDebugLastRetroAchievementsRaHashMatchedConsoleName,
+    lastRetroAchievementsHashRejectedReason: runtimeDebugLastRetroAchievementsHashRejectedReason,
+    lastRetroAchievementsFinalResolverSource: runtimeDebugLastRetroAchievementsFinalResolverSource,
     lastRetroAchievementsGameId: runtimeDebugLastRetroAchievementsGameId,
     lastRetroAchievementsTitle: runtimeDebugLastRetroAchievementsTitle,
     lastRetroAchievementsEarned: runtimeDebugLastRetroAchievementsEarned,
@@ -676,6 +740,22 @@ export function removeAchievementCompanionRuntimeDebug(): void {
   runtimeDebugLastRetroAchievementsShortcutPlatform = undefined;
   runtimeDebugLastRetroAchievementsMappingStatus = undefined;
   runtimeDebugLastRetroAchievementsMappingReason = undefined;
+  runtimeDebugLastRetroAchievementsHashResolverAttempted = false;
+  runtimeDebugLastRetroAchievementsHashResolverSkippedReason = undefined;
+  runtimeDebugLastRetroAchievementsShortcutRomPathDetected = false;
+  runtimeDebugLastRetroAchievementsShortcutRomPathSource = undefined;
+  runtimeDebugLastRetroAchievementsRomHashAttempted = false;
+  runtimeDebugLastRetroAchievementsRomHashStatus = undefined;
+  runtimeDebugLastRetroAchievementsRomHashAlgorithm = undefined;
+  runtimeDebugLastRetroAchievementsRomHashPrefix = undefined;
+  runtimeDebugLastRetroAchievementsRaHashLookupAttempted = false;
+  runtimeDebugLastRetroAchievementsRaHashLookupStatus = undefined;
+  runtimeDebugLastRetroAchievementsRaHashMatchedGameId = undefined;
+  runtimeDebugLastRetroAchievementsRaHashMatchedTitle = undefined;
+  runtimeDebugLastRetroAchievementsRaHashMatchedConsoleId = undefined;
+  runtimeDebugLastRetroAchievementsRaHashMatchedConsoleName = undefined;
+  runtimeDebugLastRetroAchievementsHashRejectedReason = undefined;
+  runtimeDebugLastRetroAchievementsFinalResolverSource = undefined;
   runtimeDebugLastRetroAchievementsGameId = undefined;
   runtimeDebugLastRetroAchievementsTitle = undefined;
   runtimeDebugLastRetroAchievementsEarned = undefined;
@@ -999,6 +1079,22 @@ export function markAchievementCompanionRetroAchievementsShortcutResolution(args
   readonly candidateCount?: number | undefined;
   readonly detailLoadStatus?: string | undefined;
   readonly detailLoadReason?: string | undefined;
+  readonly hashResolverAttempted?: boolean | undefined;
+  readonly hashResolverSkippedReason?: string | undefined;
+  readonly shortcutRomPathDetected?: boolean | undefined;
+  readonly shortcutRomPathSource?: string | undefined;
+  readonly romHashAttempted?: boolean | undefined;
+  readonly romHashStatus?: string | undefined;
+  readonly romHashAlgorithm?: string | undefined;
+  readonly romHashPrefix?: string | undefined;
+  readonly raHashLookupAttempted?: boolean | undefined;
+  readonly raHashLookupStatus?: string | undefined;
+  readonly raHashMatchedGameId?: string | undefined;
+  readonly raHashMatchedTitle?: string | undefined;
+  readonly raHashMatchedConsoleId?: string | undefined;
+  readonly raHashMatchedConsoleName?: string | undefined;
+  readonly hashRejectedReason?: string | undefined;
+  readonly finalResolverSource?: "hash" | "title" | "completion-progress" | "unavailable" | undefined;
   readonly clearKeys?: readonly AchievementCompanionRaShortcutResolutionDebugClearKey[];
 }): void {
   runtimeDebugLastRetroAchievementsShortcutAppId = args.appId;
@@ -1007,6 +1103,54 @@ export function markAchievementCompanionRetroAchievementsShortcutResolution(args
   runtimeDebugLastRetroAchievementsNormalizedPlatform = args.normalizedPlatform;
   runtimeDebugLastRetroAchievementsMappingStatus = args.status;
   runtimeDebugLastRetroAchievementsMappingReason = args.reason;
+  if (args.hashResolverAttempted !== undefined) {
+    runtimeDebugLastRetroAchievementsHashResolverAttempted = args.hashResolverAttempted;
+  }
+  if (args.hashResolverSkippedReason !== undefined) {
+    runtimeDebugLastRetroAchievementsHashResolverSkippedReason = args.hashResolverSkippedReason;
+  }
+  if (args.shortcutRomPathDetected !== undefined) {
+    runtimeDebugLastRetroAchievementsShortcutRomPathDetected = args.shortcutRomPathDetected;
+  }
+  if (args.shortcutRomPathSource !== undefined) {
+    runtimeDebugLastRetroAchievementsShortcutRomPathSource = args.shortcutRomPathSource;
+  }
+  if (args.romHashAttempted !== undefined) {
+    runtimeDebugLastRetroAchievementsRomHashAttempted = args.romHashAttempted;
+  }
+  if (args.romHashStatus !== undefined) {
+    runtimeDebugLastRetroAchievementsRomHashStatus = args.romHashStatus;
+  }
+  if (args.romHashAlgorithm !== undefined) {
+    runtimeDebugLastRetroAchievementsRomHashAlgorithm = args.romHashAlgorithm;
+  }
+  if (args.romHashPrefix !== undefined) {
+    runtimeDebugLastRetroAchievementsRomHashPrefix = args.romHashPrefix;
+  }
+  if (args.raHashLookupAttempted !== undefined) {
+    runtimeDebugLastRetroAchievementsRaHashLookupAttempted = args.raHashLookupAttempted;
+  }
+  if (args.raHashLookupStatus !== undefined) {
+    runtimeDebugLastRetroAchievementsRaHashLookupStatus = args.raHashLookupStatus;
+  }
+  if (args.raHashMatchedGameId !== undefined) {
+    runtimeDebugLastRetroAchievementsRaHashMatchedGameId = args.raHashMatchedGameId;
+  }
+  if (args.raHashMatchedTitle !== undefined) {
+    runtimeDebugLastRetroAchievementsRaHashMatchedTitle = args.raHashMatchedTitle;
+  }
+  if (args.raHashMatchedConsoleId !== undefined) {
+    runtimeDebugLastRetroAchievementsRaHashMatchedConsoleId = args.raHashMatchedConsoleId;
+  }
+  if (args.raHashMatchedConsoleName !== undefined) {
+    runtimeDebugLastRetroAchievementsRaHashMatchedConsoleName = args.raHashMatchedConsoleName;
+  }
+  if (args.hashRejectedReason !== undefined) {
+    runtimeDebugLastRetroAchievementsHashRejectedReason = args.hashRejectedReason;
+  }
+  if (args.finalResolverSource !== undefined) {
+    runtimeDebugLastRetroAchievementsFinalResolverSource = args.finalResolverSource;
+  }
   runtimeDebugLastRetroAchievementsGameId = args.gameId;
   runtimeDebugLastRetroAchievementsTitle = args.title;
   runtimeDebugLastRetroAchievementsEarned = args.earned;
@@ -1037,6 +1181,32 @@ export function markAchievementCompanionRetroAchievementsShortcutResolution(args
     ...(args.candidateCount !== undefined ? { apiGameListCandidateCount: args.candidateCount } : {}),
     ...(args.matchedGameId !== undefined ? { apiMatchedGameId: args.matchedGameId } : {}),
     ...(args.matchedTitle !== undefined ? { apiMatchedTitle: args.matchedTitle } : {}),
+    ...(args.hashResolverAttempted !== undefined ? { hashResolverAttempted: args.hashResolverAttempted } : {}),
+    ...(args.hashResolverSkippedReason !== undefined
+      ? { hashResolverSkippedReason: args.hashResolverSkippedReason }
+      : {}),
+    ...(args.shortcutRomPathDetected !== undefined
+      ? { shortcutRomPathDetected: args.shortcutRomPathDetected }
+      : {}),
+    ...(args.shortcutRomPathSource !== undefined ? { shortcutRomPathSource: args.shortcutRomPathSource } : {}),
+    ...(args.romHashAttempted !== undefined ? { romHashAttempted: args.romHashAttempted } : {}),
+    ...(args.romHashStatus !== undefined ? { romHashStatus: args.romHashStatus } : {}),
+    ...(args.romHashAlgorithm !== undefined ? { romHashAlgorithm: args.romHashAlgorithm } : {}),
+    ...(args.romHashPrefix !== undefined ? { romHashPrefix: args.romHashPrefix } : {}),
+    ...(args.raHashLookupAttempted !== undefined
+      ? { raHashLookupAttempted: args.raHashLookupAttempted }
+      : {}),
+    ...(args.raHashLookupStatus !== undefined ? { raHashLookupStatus: args.raHashLookupStatus } : {}),
+    ...(args.raHashMatchedGameId !== undefined ? { raHashMatchedGameId: args.raHashMatchedGameId } : {}),
+    ...(args.raHashMatchedTitle !== undefined ? { raHashMatchedTitle: args.raHashMatchedTitle } : {}),
+    ...(args.raHashMatchedConsoleId !== undefined
+      ? { raHashMatchedConsoleId: args.raHashMatchedConsoleId }
+      : {}),
+    ...(args.raHashMatchedConsoleName !== undefined
+      ? { raHashMatchedConsoleName: args.raHashMatchedConsoleName }
+      : {}),
+    ...(args.hashRejectedReason !== undefined ? { hashRejectedReason: args.hashRejectedReason } : {}),
+    ...(args.finalResolverSource !== undefined ? { finalResolverSource: args.finalResolverSource } : {}),
     detailLoadAttempted:
       args.detailLoadStatus === "success" ||
       args.detailLoadStatus === "error" ||

@@ -141,7 +141,7 @@ export function createRetroAchievementsClient(
           ...toAuthQuery(config),
           i: consoleId,
           f: 1,
-          h: 0,
+          h: 1,
         },
       });
     },
