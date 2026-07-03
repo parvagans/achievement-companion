@@ -1,23 +1,36 @@
+# Dependencies
 node_modules/
-dist/
-release/staged/
-release/*.zip
 
-.DS_Store
-Thumbs.db
-desktop.ini
+# Build output
+dist/
+dist-steamos/
+*.tsbuildinfo
+
+# Release artifacts
+release/
+releases/
+*.zip
+
+# Documentation output
+docs/
+
+# Python cache/test artifacts
+__pycache__/
 *.pyc
 *.pyo
-__pycache__/
 .pytest_cache/
 .ruff_cache/
 
+# Coverage
+coverage/
+
+# Logs and temporary files
 *.log
 *.tmp
 *.bak
-*.tsbuildinfo
 *.local
 
+# Secrets / local provider config
 .env
 .env.*
 provider-config.json
@@ -25,13 +38,11 @@ provider-secrets.json
 **/provider-config.json
 **/provider-secrets.json
 
+# Editor / IDE files
 .vscode/
 .idea/
 
-coverage/
-
-release/
-releases/
-*.zip
-
-dist-steamos/
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
