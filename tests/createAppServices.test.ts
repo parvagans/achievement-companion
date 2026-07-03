@@ -2731,8 +2731,22 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   const deckyNavigationSource = readFileSync("src/platform/decky/decky-navigation.tsx", "utf8");
   assert.doesNotMatch(fullScreenAchievementPageSource, /PanelSection title="ACHIEVEMENT SPOTLIGHT"/);
   assert.match(fullScreenAchievementPageSource, /AchievementSpotlightCard/);
+  assert.match(fullScreenAchievementPageSource, /SteamAchievementSpotlightCard/);
   assert.match(fullScreenAchievementPageSource, /if \(!isSteamProvider\) \{/);
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightCardStyle\(tone\)/);
+  assert.match(fullScreenAchievementPageSource, /getSteamAchievementSpotlightCardStyle\(\)/);
+  assert.match(fullScreenAchievementPageSource, /getSteamAchievementSpotlightBackRowStyle\(\)/);
+  assert.match(fullScreenAchievementPageSource, /getSteamAchievementSpotlightGameCoverCaptionStyle\(\)/);
+  assert.match(fullScreenAchievementPageSource, /getSteamAchievementSpotlightHeroLabelStyle\(\)/);
+  assert.match(fullScreenAchievementPageSource, /dedupeDistinctLabels\(\[providerLabel, snapshotSourceLabel, achievementStatus\.value\]\)/);
+  assert.match(fullScreenAchievementPageSource, /DeckyGameArtwork compact src=\{achievement\.badgeImageUrl\} size=\{104\} title=\{achievement\.title\}/u);
+  assert.match(fullScreenAchievementPageSource, /gameArtworkUrl=\{steamHeroArtworkUrl\}/u);
+  assert.match(fullScreenAchievementPageSource, /label="Status"/);
+  assert.match(fullScreenAchievementPageSource, /label="Unlock date"/);
+  assert.match(fullScreenAchievementPageSource, /label="Global unlock rate"/);
+  assert.doesNotMatch(fullScreenAchievementPageSource, /PanelSection title="Navigation"/u);
+  assert.doesNotMatch(fullScreenAchievementPageSource, /PanelSection title="Achievement spotlight"/u);
+  assert.doesNotMatch(fullScreenAchievementPageSource, /PanelSection title="Achievement details"/u);
   assert.match(fullScreenAchievementPageSource, /readonly onOpenFullScreenGame\?: \(\(\) => void\) \| undefined;/u);
   assert.match(
     fullScreenGamePageSource,
@@ -2776,7 +2790,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightTitleStyle\(\)/);
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightDescriptionStyle\(\)/);
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightMetaRowStyle\(\)/);
-  assert.match(fullScreenAchievementPageSource, /dedupeDistinctLabels\(\[providerLabel\]\)/);
+  assert.match(fullScreenAchievementPageSource, /dedupeDistinctLabels\(\[providerLabel, snapshotSourceLabel, achievementStatus\.value\]\)/);
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightStatusStyle\(tone\)/);
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightCounts\(achievement\.metrics, game\.metrics\)/);
   assert.match(fullScreenAchievementPageSource, /formatAchievementUnlockRatePercent\(unlockRatePercent\)/);
@@ -2843,12 +2857,16 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightRarityStackStyle\(\)/);
   assert.match(fullScreenAchievementPageSource, /RarityBar percent=\{unlockRatePercent\} tone=\{tone\} caption=\{unlockRateCaption\}/);
   assert.match(fullScreenAchievementPageSource, /size=\{88\}/);
+  assert.match(fullScreenAchievementPageSource, /size=\{104\}/u);
   assert.match(fullScreenAchievementPageSource, /gap: 12/u);
   assert.match(fullScreenAchievementPageSource, /padding: 14/u);
   assert.doesNotMatch(fullScreenAchievementPageSource, /P2/u);
   assert.match(fullScreenAchievementPageSource, /<span style=\{getAchievementSpotlightMetaPillStyle\(\)\}>\s*RA\s*<\/span>/u);
   assert.match(fullScreenAchievementPageSource, /getAchievementDescriptionText\(achievement\.description\)/);
-  assert.match(fullScreenAchievementPageSource, /const steamStatusText = formatProviderAchievementStatusText\(providerId \?\? game\.providerId, achievement\)/);
+  assert.match(fullScreenAchievementPageSource, /Open game overview/);
+  assert.match(fullScreenAchievementPageSource, /label="Status"/);
+  assert.match(fullScreenAchievementPageSource, /label="Unlock date"/);
+  assert.match(fullScreenAchievementPageSource, /label="Global unlock rate"/);
   assert.equal(
     (fullScreenAchievementPageSource.match(/achievementStatus\.secondary \?\? achievementStatus\.value/g) ?? []).length,
     0,
