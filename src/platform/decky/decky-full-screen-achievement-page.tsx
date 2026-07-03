@@ -6,12 +6,12 @@ import { PlaceholderState } from "@ui/PlaceholderState";
 import { initialDeckyGameDetailState, loadDeckyGameDetailState } from "./decky-app-services";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
 import { DeckyGameArtwork } from "./decky-game-artwork";
+import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
 import {
   buildAchievementStatus,
   formatCount,
   formatPlatformBadgeLabel,
   formatAchievementUnlockRatePercent,
-  formatProviderAchievementStatusText,
   formatTimestamp,
   dedupeDistinctLabels,
   hasAchievementCounts,
@@ -62,47 +62,6 @@ function getAchievementSpotlightPageRailStyle(): CSSProperties {
   };
 }
 
-function getHeroCardStyle(): CSSProperties {
-  return {
-    display: "flex",
-    gap: 18,
-    alignItems: "flex-start",
-    flexWrap: "wrap",
-    padding: 18,
-    borderRadius: 20,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    background:
-      "linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.03))",
-  };
-}
-
-function getHeroArtworkStyle(): CSSProperties {
-  return {
-    flex: "0 0 auto",
-  };
-}
-
-function getHeroTextStyle(): CSSProperties {
-  return {
-    flex: "1 1 280px",
-    minWidth: 240,
-    display: "flex",
-    flexDirection: "column",
-    gap: 10,
-  };
-}
-
-function getHeroLabelStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.58)",
-    fontSize: "0.72em",
-    fontWeight: 800,
-    letterSpacing: "0.1em",
-    textTransform: "uppercase",
-    lineHeight: 1.2,
-  };
-}
-
 function resolveSteamAchievementHeroLabel(game: GameDetailSnapshot["game"]): string {
   if (game.title.trim().length > 0) {
     return game.title;
@@ -115,20 +74,103 @@ function resolveSteamAchievementHeroLabel(game: GameDetailSnapshot["game"]): str
   return "Steam Game";
 }
 
-function getHeroTitleStyle(): CSSProperties {
+function getSteamAchievementSpotlightCardStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.98)",
-    fontSize: "1.35em",
-    fontWeight: 800,
-    lineHeight: 1.08,
+    display: "flex",
+    flexDirection: "column",
+    gap: 14,
+    padding: 16,
+    borderRadius: 20,
+    boxSizing: "border-box",
+    border: "1px solid rgba(105, 176, 255, 0.24)",
+    borderLeftWidth: 4,
+    borderLeftStyle: "solid",
+    borderLeftColor: "rgba(105, 176, 255, 0.9)",
+    background:
+      "linear-gradient(180deg, rgba(20, 27, 40, 0.96), rgba(13, 18, 28, 0.98))",
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 12px rgba(0, 0, 0, 0.2)",
     minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
   };
 }
 
-function getHeroMetaRowStyle(): CSSProperties {
+function getSteamAchievementSpotlightBackRowStyle(): CSSProperties {
+  return {
+    display: "flex",
+    justifyContent: "flex-start",
+    alignItems: "center",
+    minWidth: 0,
+    marginBottom: -2,
+  };
+}
+
+function getSteamAchievementSpotlightBodyStyle(hasGameArtwork: boolean): CSSProperties {
+  return {
+    display: "grid",
+    gridTemplateColumns: hasGameArtwork ? "minmax(0, 1.1fr) minmax(200px, 0.9fr)" : "minmax(0, 1fr)",
+    gap: 16,
+    alignItems: "start",
+    minWidth: 0,
+  };
+}
+
+function getSteamAchievementSpotlightMainStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 14,
+    minWidth: 0,
+  };
+}
+
+function getSteamAchievementSpotlightIdentityStyle(): CSSProperties {
+  return {
+    display: "grid",
+    gridTemplateColumns: "auto minmax(0, 1fr)",
+    gap: 14,
+    alignItems: "start",
+    minWidth: 0,
+  };
+}
+
+function getSteamAchievementSpotlightIconFrameStyle(isUnlocked: boolean): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 104,
+    height: 104,
+    flexShrink: 0,
+    overflow: "hidden",
+    borderRadius: 18,
+    border: "1px solid rgba(255, 255, 255, 0.1)",
+    background: "rgba(255, 255, 255, 0.04)",
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+    opacity: isUnlocked ? 1 : 0.94,
+    filter: isUnlocked ? "none" : "grayscale(1) contrast(1.1) brightness(0.92)",
+  };
+}
+
+function getSteamAchievementSpotlightTitleBlockStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    minWidth: 0,
+  };
+}
+
+function getSteamAchievementSpotlightHeroLabelStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.58)",
+    fontSize: "0.74em",
+    fontWeight: 800,
+    letterSpacing: "0.1em",
+    lineHeight: 1.2,
+    textTransform: "uppercase",
+  };
+}
+
+function getSteamAchievementSpotlightMetaRowStyle(): CSSProperties {
   return {
     display: "flex",
     flexWrap: "wrap",
@@ -137,28 +179,126 @@ function getHeroMetaRowStyle(): CSSProperties {
   };
 }
 
-function getHeroMetaPillStyle(): CSSProperties {
+function getSteamAchievementSpotlightGameCoverFrameStyle(interactive: boolean, focused: boolean): CSSProperties {
   return {
-    display: "inline-flex",
+    display: "flex",
     alignItems: "center",
-    minHeight: 28,
-    padding: "0 10px",
-    borderRadius: 999,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.035)",
-    color: "rgba(255, 255, 255, 0.82)",
-    fontSize: "0.82em",
-    lineHeight: 1.2,
-    whiteSpace: "nowrap",
+    justifyContent: "center",
+    alignSelf: "start",
+    width: "100%",
+    maxWidth: 272,
+    aspectRatio: "460 / 215",
+    padding: 10,
+    borderRadius: 18,
+    border: "1px solid rgba(255, 255, 255, 0.1)",
+    background:
+      "radial-gradient(circle at top, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02) 52%, rgba(0, 0, 0, 0.18))",
+    boxShadow: focused
+      ? "0 0 0 2px rgba(73, 155, 255, 0.72), 0 0 18px rgba(39, 124, 226, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.14)"
+      : "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 4px 16px rgba(0, 0, 0, 0.2)",
+    boxSizing: "border-box",
+    overflow: "hidden",
+    cursor: interactive ? "pointer" : "default",
+    transition: "border-color 120ms ease, box-shadow 120ms ease, background 120ms ease",
+    outline: "none",
+    borderColor: focused ? "rgba(105, 176, 255, 0.8)" : "rgba(255, 255, 255, 0.1)",
   };
 }
 
-function getHeroSupportStyle(): CSSProperties {
+function getSteamAchievementSpotlightGameCoverImageStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.68)",
-    fontSize: "0.84em",
-    lineHeight: 1.35,
+    display: "block",
+    width: "100%",
+    height: "100%",
+    maxWidth: "100%",
+    maxHeight: "100%",
+    objectFit: "cover",
+    objectPosition: "center center",
   };
+}
+
+function getSteamAchievementSpotlightGameCoverFallbackStyle(): CSSProperties {
+  return {
+    display: "flex",
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    background:
+      "linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03))",
+    color: "rgba(255, 255, 255, 0.9)",
+    fontSize: "1em",
+    fontWeight: 700,
+    letterSpacing: "0.06em",
+  };
+}
+
+function getSteamAchievementSpotlightGameCoverCaptionStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.72)",
+    fontSize: "0.8em",
+    fontWeight: 700,
+    lineHeight: 1.2,
+    textAlign: "center",
+  };
+}
+
+function getSteamAchievementSpotlightStatsGridStyle(): CSSProperties {
+  return {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+    gap: 8,
+    width: "100%",
+    alignItems: "stretch",
+  };
+}
+
+function getSteamAchievementSpotlightStatStyle(): CSSProperties {
+  return {
+    padding: "8px 10px",
+  };
+}
+
+function getSteamArtworkFallbackInitials(title: string): string {
+  const words = title
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (words.length === 0) {
+    return "AC";
+  }
+
+  return words
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase() ?? "")
+    .join("")
+    .trim() || "AC";
+}
+
+function SteamAchievementSpotlightArtwork({
+  src,
+  title,
+}: {
+  readonly src: string;
+  readonly title: string;
+}): JSX.Element {
+  const [hasImageError, setHasImageError] = useState(false);
+
+  return hasImageError ? (
+    <span style={getSteamAchievementSpotlightGameCoverFallbackStyle()}>{getSteamArtworkFallbackInitials(title)}</span>
+  ) : (
+    <img
+      alt=""
+      loading="lazy"
+      referrerPolicy="no-referrer"
+      src={src}
+      onError={() => {
+        setHasImageError(true);
+      }}
+      style={getSteamAchievementSpotlightGameCoverImageStyle()}
+    />
+  );
 }
 
 function getAchievementBlockStyle(): CSSProperties {
@@ -913,6 +1053,137 @@ function AchievementSpotlightCard({
   );
 }
 
+function SteamAchievementSpotlightCard({
+  game,
+  achievement,
+  gameArtworkUrl,
+  heroLabel,
+  providerLabel,
+  achievementStatusLabel,
+  metaPills,
+  backLabel,
+  onBack,
+  onOpenFullScreenGame,
+}: {
+  readonly game: GameDetailSnapshot["game"];
+  readonly achievement: NormalizedAchievement;
+  readonly gameArtworkUrl: string | undefined;
+  readonly heroLabel: string;
+  readonly providerLabel: string;
+  readonly achievementStatusLabel: string;
+  readonly metaPills: readonly string[];
+  readonly backLabel: string;
+  readonly onBack: () => void;
+  readonly onOpenFullScreenGame: (() => void) | undefined;
+}): JSX.Element {
+  const [isGameArtworkFocused, setIsGameArtworkFocused] = useState(false);
+  const unlockTimestamp = achievement.unlockedAt;
+  const unlockRatePercent = getUnlockRatePercent(achievement);
+  const unlockRateCaption = unlockRatePercent !== undefined ? formatAchievementUnlockRatePercent(unlockRatePercent) : undefined;
+  const hasInteractiveGameArtwork = gameArtworkUrl !== undefined && onOpenFullScreenGame !== undefined;
+  const showUnlockDate = unlockTimestamp !== undefined;
+
+  return (
+    <div style={getSteamAchievementSpotlightCardStyle()}>
+      <div style={getSteamAchievementSpotlightBackRowStyle()}>
+        <DeckyFullscreenActionRow>
+          <DeckyFullscreenActionButton
+            label={backLabel}
+            isFullscreenBackAction
+            onClick={() => {
+              onBack();
+            }}
+          />
+        </DeckyFullscreenActionRow>
+      </div>
+
+      <div style={getSteamAchievementSpotlightBodyStyle(hasInteractiveGameArtwork)}>
+        <div style={getSteamAchievementSpotlightMainStyle()}>
+          <div style={getSteamAchievementSpotlightIdentityStyle()}>
+            {achievement.badgeImageUrl !== undefined ? (
+              <span style={getSteamAchievementSpotlightIconFrameStyle(achievement.isUnlocked)}>
+                <DeckyGameArtwork compact src={achievement.badgeImageUrl} size={104} title={achievement.title} />
+              </span>
+            ) : (
+              <span style={getSteamAchievementSpotlightIconFrameStyle(achievement.isUnlocked)}>
+                <span style={getSteamAchievementSpotlightGameCoverFallbackStyle()}>{providerLabel}</span>
+              </span>
+            )}
+
+            <div style={getSteamAchievementSpotlightTitleBlockStyle()}>
+              <div style={getSteamAchievementSpotlightHeroLabelStyle()}>{heroLabel}</div>
+              <div style={getAchievementSpotlightTitleStyle()}>{achievement.title}</div>
+              <div style={getSteamAchievementSpotlightMetaRowStyle()}>
+                {metaPills.map((label) => (
+                  <span key={label} style={getAchievementSpotlightMetaPillStyle()}>
+                    {label}
+                  </span>
+                ))}
+              </div>
+              <div style={getAchievementSpotlightDescriptionStyle()}>{getAchievementDescriptionText(achievement.description)}</div>
+            </div>
+          </div>
+        </div>
+
+        {gameArtworkUrl !== undefined ? (
+          hasInteractiveGameArtwork ? (
+            <Focusable
+              noFocusRing
+              role="button"
+              aria-label={`Open game overview for ${game.title}`}
+              onActivate={onOpenFullScreenGame}
+              onClick={onOpenFullScreenGame}
+              onFocus={() => {
+                setIsGameArtworkFocused(true);
+              }}
+              onBlur={() => {
+                setIsGameArtworkFocused(false);
+              }}
+              onGamepadFocus={() => {
+                setIsGameArtworkFocused(true);
+              }}
+              style={getSteamAchievementSpotlightGameCoverFrameStyle(true, isGameArtworkFocused)}
+            >
+              <SteamAchievementSpotlightArtwork src={gameArtworkUrl} title={game.title} />
+            </Focusable>
+          ) : (
+            <div style={getSteamAchievementSpotlightGameCoverFrameStyle(false, false)}>
+              <SteamAchievementSpotlightArtwork src={gameArtworkUrl} title={game.title} />
+            </div>
+          )
+        ) : null}
+        {gameArtworkUrl !== undefined ? (
+          <div style={getSteamAchievementSpotlightGameCoverCaptionStyle()}>
+            {onOpenFullScreenGame !== undefined ? "Open game overview" : game.title}
+          </div>
+        ) : null}
+      </div>
+
+      <div style={getSteamAchievementSpotlightStatsGridStyle()}>
+        <AchievementStat
+          label="Status"
+          value={achievementStatusLabel}
+          style={getSteamAchievementSpotlightStatStyle()}
+        />
+        {showUnlockDate ? (
+          <AchievementStat
+            label="Unlock date"
+            value={formatTimestamp(unlockTimestamp)}
+            style={getSteamAchievementSpotlightStatStyle()}
+          />
+        ) : null}
+        {unlockRateCaption !== undefined ? (
+          <AchievementStat
+            label="Global unlock rate"
+            value={unlockRateCaption}
+            style={getSteamAchievementSpotlightStatStyle()}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function isRenderableGameDetailState(
   state: ResourceState<GameDetailSnapshot>,
 ): state is ResourceState<GameDetailSnapshot> & { readonly data: GameDetailSnapshot } {
@@ -988,6 +1259,7 @@ export function DeckyFullScreenAchievementPage({
   }
 
   const heroArtworkUrl = game.boxArtImageUrl ?? game.coverImageUrl;
+  const steamHeroArtworkUrl = getSteamFullscreenGameArtworkUrl(game);
   const providerLabel = formatDeckyProviderLabel(providerId ?? game.providerId);
   const isSteamProvider = shouldHideSteamAchievementDetailStats(providerId ?? game.providerId);
   const heroLabel = isSteamProvider ? resolveSteamAchievementHeroLabel(game) : "Selected achievement";
@@ -995,8 +1267,8 @@ export function DeckyFullScreenAchievementPage({
   const showCounts = hasAchievementCounts(counts);
   const unlockRatePercent = getUnlockRatePercent(achievement);
   const achievementStatus = buildAchievementStatus(achievement);
-  const steamStatusText = formatProviderAchievementStatusText(providerId ?? game.providerId, achievement);
-  const heroMetaPills = dedupeDistinctLabels([game.platformLabel ?? "Unknown platform", providerLabel]);
+  const snapshotSourceLabel = state.status === "stale" ? "Cached snapshot" : "Live snapshot";
+  const steamMetaPills = dedupeDistinctLabels([providerLabel, snapshotSourceLabel, achievementStatus.value]);
 
   if (!isSteamProvider) {
     return (
@@ -1027,110 +1299,21 @@ export function DeckyFullScreenAchievementPage({
       <TopAlignedScrollViewport
         scrollKey={`full-screen-achievement:${providerId ?? game.providerId}:${game.gameId}:${achievement.achievementId}`}
       >
-        <div style={getPageFrameStyle()}>
-          <PanelSection title="Navigation">
-            <DeckyFullscreenActionRow>
-              <DeckyFullscreenActionButton
-                label={backLabel}
-                isFullscreenBackAction
-                onClick={() => {
-                  onBack();
-                }}
-              />
-            </DeckyFullscreenActionRow>
-          </PanelSection>
-
-          <PanelSection title="Achievement spotlight">
-            <PanelSectionRow>
-              <div style={getHeroCardStyle()}>
-                {heroArtworkUrl !== undefined ? (
-                  <div style={getHeroArtworkStyle()}>
-                    <DeckyGameArtwork src={heroArtworkUrl} size={144} title={game.title} />
-                  </div>
-                ) : null}
-
-                <div style={getHeroTextStyle()}>
-                  <div style={getHeroLabelStyle()}>{heroLabel}</div>
-                  <div style={getHeroTitleStyle()}>{achievement.title}</div>
-                  <div style={getHeroMetaRowStyle()}>
-                    {heroMetaPills.map((label) => (
-                      <span key={label} style={getHeroMetaPillStyle()}>
-                        {label}
-                      </span>
-                    ))}
-                  </div>
-                  <div style={getHeroSupportStyle()}>{steamStatusText}</div>
-                </div>
-              </div>
-            </PanelSectionRow>
-          </PanelSection>
-
-          <PanelSection title="Achievement details">
-            <PanelSectionRow>
-              <div style={getAchievementBlockStyle()}>
-                {achievement.badgeImageUrl !== undefined ? (
-                  <span style={getBadgeFrameStyle(achievement.isUnlocked)}>
-                    <DeckyGameArtwork compact src={achievement.badgeImageUrl} size={72} title={achievement.title} />
-                  </span>
-                ) : (
-                  <span style={getHeroMetaPillStyle()}>{formatPlatformBadgeLabel(game.platformLabel)}</span>
-                )}
-
-                <div style={getAchievementTextStyle()}>
-                  <div style={getAchievementTitleStyle()}>{achievement.title}</div>
-                  <div style={getAchievementDescriptionStyle()}>{getAchievementDescriptionText(achievement.description)}</div>
-                </div>
-              </div>
-            </PanelSectionRow>
-          </PanelSection>
-
-          {!isSteamProvider ? (
-            <>
-              <PanelSection title="Unlock details">
-                <PanelSectionRow>
-                  <div style={getStatGridStyle()}>
-                    <AchievementStat
-                      label="Points"
-                      value={achievement.points !== undefined ? formatCount(achievement.points) : "-"}
-                    />
-                    <AchievementStat
-                      label="Unlock rate"
-                      value={getMetricValue(achievement.metrics, "true-ratio", "True Ratio") ?? "-"}
-                    />
-                    <AchievementStat
-                      label="Unlocked at"
-                      value={achievement.unlockedAt !== undefined ? formatTimestamp(achievement.unlockedAt) : "-"}
-                    />
-                  </div>
-                </PanelSectionRow>
-              </PanelSection>
-
-              <PanelSection title="Rarity">
-                <PanelSectionRow>
-                  <RarityBar percent={unlockRatePercent} />
-                </PanelSectionRow>
-
-                {showCounts ? (
-                  <PanelSectionRow>
-                    <div style={getCountsGridStyle()}>
-                      <AchievementStat
-                        label="Softcore unlocks"
-                        value={counts.softcoreUnlockCount !== undefined ? formatCount(counts.softcoreUnlockCount) : "-"}
-                      />
-                      <AchievementStat
-                        label="Hardcore unlocks"
-                        value={counts.hardcoreUnlockCount !== undefined ? formatCount(counts.hardcoreUnlockCount) : "-"}
-                      />
-                      <AchievementStat
-                        label="Total players"
-                        value={counts.totalPlayers !== undefined ? formatCount(counts.totalPlayers) : "-"}
-                      />
-                    </div>
-                  </PanelSectionRow>
-                ) : null}
-              </PanelSection>
-            </>
-          ) : null}
+        <div style={getAchievementSpotlightPageFrameStyle()}>
+          <div style={getAchievementSpotlightPageRailStyle()}>
+            <SteamAchievementSpotlightCard
+              achievement={achievement}
+              backLabel={backLabel}
+              heroLabel={heroLabel}
+              game={game}
+              gameArtworkUrl={steamHeroArtworkUrl}
+              achievementStatusLabel={achievementStatus.value}
+              onBack={onBack}
+              onOpenFullScreenGame={onOpenFullScreenGame}
+              providerLabel={providerLabel}
+              metaPills={steamMetaPills}
+            />
+          </div>
         </div>
       </TopAlignedScrollViewport>
     </ScrollPanel>
