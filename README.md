@@ -2,23 +2,18 @@
 
 ![Steam Deck](https://img.shields.io/badge/Steam%20Deck-Game%20Mode-blue)
 ![Decky Loader](https://img.shields.io/badge/Decky%20Loader-Plugin-blueviolet)
-![Version 0.3.1](https://img.shields.io/badge/Version-0.3.0-informational)
+![Version 0.3.1](https://img.shields.io/badge/Version-0.3.1-informational)
 ![Provider RetroAchievements](https://img.shields.io/badge/Provider-RetroAchievements-orange)
 ![Provider Steam](https://img.shields.io/badge/Provider-Steam-171a21)
 
 Achievement Companion is a Decky Loader plugin for Steam Deck Game Mode. It brings RetroAchievements and Steam achievement progress into the Decky quick-access menu and adds game-page achievement badges that can open fullscreen achievement details. 
 
-## What Is New In v0.3.0
+## What Is New In v0.3.1
 
-- Expanded game-page badge support for supported non-Steam, Steam ROM Manager, and EmuDeck shortcut pages.
-- Existing Steam game-page badge support remains available for Steam titles with achievement data.
-- Badge click opens the fullscreen achievement detail view for the current game.
-- Platform-scoped RetroAchievements shortcut resolution for Steam ROM Manager and EmuDeck shortcuts.
-- Steam ROM Manager / EmuDeck platform alias normalization for common shortcut labels.
-- Generic RetroAchievements title matching with diacritic folding, punctuation normalization, platform-scoped matching, and ambiguity-safe behavior.
-- Cross-platform completion-progress safety so a shortcut only matches candidates for the right platform.
-- Fresh RetroAchievements recent unlock data merged into fullscreen Achievement History.
-- Runtime diagnostics for non-Steam game-page badge resolution.
+- Steam provider artwork and fullscreen game overview/detail pages were polished for a cleaner Deck UI.
+- RetroAchievements ROM hash fallback now helps supported non-Steam, Steam ROM Manager, and EmuDeck shortcut pages when a readable launched ROM path is available.
+- Hash fallback fails closed and falls back to the existing platform-scoped title matcher when hashing is not possible or does not produce a match.
+- Runtime diagnostics were expanded for non-Steam game-page and hash fallback troubleshooting.
 
 ## Core Features
 
@@ -55,15 +50,16 @@ Connect your Steam Web API key and SteamID64 to view Steam achievement activity,
 
 ## Non-Steam / SRM / EmuDeck Badge Support
 
-Steam game-page badge support uses Steam achievement data. For non-Steam shortcuts, v0.3.0 adds a RetroAchievements resolver path that matches supported Steam ROM Manager and EmuDeck shortcuts to RetroAchievements games.
+Steam game-page badge support uses Steam achievement data. For non-Steam shortcuts, v0.3.1 adds a RetroAchievements resolver path that can use a readable launched ROM path to help match supported Steam ROM Manager and EmuDeck shortcuts to RetroAchievements games.
 
 - The badge only appears when a shortcut can be matched safely.
 - Matching is scoped to the detected shortcut platform first.
 - Steam ROM Manager and EmuDeck platform labels are normalized to RetroAchievements canonical system names where the mapping is unambiguous.
 - Title matching is deterministic and platform-scoped.
 - Diacritic and Punctuation differences are handled safely.
+- If a readable launched ROM path is available, the resolver can hash it and use RetroAchievements hash data before falling back to title matching.
 - Platform suffix handling is conservative and only applies when it is safe for the detected platform.
-- If a shortcut is ambiguous or unsupported, the badge intentionally stays hidden rather than risk showing the wrong game.
+- If hashing is not possible, the hash lookup fails closed, or a shortcut is ambiguous or unsupported, the badge intentionally stays hidden rather than risk showing the wrong game.
 - Clicking the badge opens the fullscreen achievement detail view for that game.
 - Back behavior returns to the original Steam game page.
 
