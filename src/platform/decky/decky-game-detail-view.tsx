@@ -1,6 +1,6 @@
 import type { ResourceState } from "@core/cache";
 import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
-import { useState, type FocusEventHandler } from "react";
+import { useCallback, useState, type FocusEventHandler } from "react";
 import { Field, Focusable, type FocusableProps, PanelSection, PanelSectionRow } from "@decky/ui";
 import type { CSSProperties } from "react";
 import {
@@ -18,6 +18,7 @@ import { DeckySystemPill } from "./decky-system-pill";
 import { DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS, DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import type { CompactAchievementTarget } from "./decky-achievement-detail-view";
 import { DeckyCompactPillActionGroup, DeckyCompactPillActionItem } from "./decky-compact-pill-action-item";
+import { ensureCompactGameDetailCancelBridgeRegisteredForBackButtonElement } from "./decky-full-screen-cancel-bridge";
 import {
   formatRetroAchievementsBeatenAtText,
   formatRetroAchievementsMasteredAtText,
@@ -772,6 +773,9 @@ export function DeckyGameDetailView({
   onOpenFullScreenPage,
   onOpenAchievementDetail,
 }: DeckyGameDetailViewProps): JSX.Element {
+  const compactGameDetailBackButtonRef = useCallback((node: HTMLDivElement | null) => {
+    ensureCompactGameDetailCancelBridgeRegisteredForBackButtonElement(node);
+  }, []);
   const snapshot = state.data;
   const game = snapshot.game;
   const showAchievementModeFilter = shouldRenderAchievementModeFilter(game.providerId);
@@ -849,6 +853,10 @@ export function DeckyGameDetailView({
                   label="Back"
                   onClick={onBackToDashboard}
                   onCancelButton={onBackToDashboard}
+                  elementRef={compactGameDetailBackButtonRef}
+                  dataAttributes={{
+                    "data-achievement-companion-compact-game-detail-back": "true",
+                  }}
                 />
 
                 {onOpenFullScreenPage !== undefined ? (

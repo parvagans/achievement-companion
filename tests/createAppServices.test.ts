@@ -235,8 +235,10 @@ import {
 } from "../src/platform/decky/decky-full-screen-navigation-state";
 import {
   ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement,
+  ensureCompactGameDetailCancelBridgeRegisteredForBackButtonElement,
   ensureFullscreenCancelBridgeRegisteredForBackButtonElement,
   resetCompactAchievementCancelBridgeForTests,
+  resetCompactGameDetailCancelBridgeForTests,
   resetFullscreenCancelBridgeForTests,
 } from "../src/platform/decky/decky-full-screen-cancel-bridge";
 import type { SteamLibraryAchievementScanSummary } from "../src/platform/decky/providers/steam";
@@ -2548,6 +2550,12 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(achievementDetailViewSource, /PanelSection title="GAME OVERVIEW"/);
   assert.match(achievementDetailViewSource, /PanelSection title="PROGRESS SUMMARY"/);
   assert.match(achievementDetailViewSource, /PanelSection title="ACHIEVEMENTS"/);
+  assert.match(achievementDetailViewSource, /ensureCompactGameDetailCancelBridgeRegisteredForBackButtonElement/u);
+  assert.match(achievementDetailViewSource, /data-achievement-companion-compact-game-detail-back/u);
+  assert.match(
+    achievementDetailViewSource,
+    /<DeckyCompactPillActionItem[\s\S]*label="Back"[\s\S]*onClick=\{onBackToDashboard\}[\s\S]*onCancelButton=\{onBackToDashboard\}[\s\S]*elementRef=\{compactGameDetailBackButtonRef\}[\s\S]*dataAttributes=\{\s*\{\s*"data-achievement-companion-compact-game-detail-back": "true"/u,
+  );
   assert.match(achievementDetailViewSource, /getGameDetailOverviewIconFrameStyle\(\)/);
   assert.match(achievementDetailViewSource, /DeckyCompletionProgressBar[\s\S]*compact[\s\S]*percent=\{completionPercent\}/);
   assert.doesNotMatch(achievementDetailViewSource, /AchievementModeButtons/);
@@ -14373,6 +14381,208 @@ test("compact achievement cancel bridge leaves cancel alone when no marked back 
   } finally {
     restoreWindow();
     resetCompactAchievementCancelBridgeForTests();
+  }
+});
+
+test("compact game detail back button ownerWindow registers the cancel bridge", () => {
+  resetCompactGameDetailCancelBridgeForTests();
+  const addCalls: Array<{ readonly type: string; readonly capture: boolean }> = [];
+
+  const ownerWindow = {
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject, capture?: boolean) {
+      addCalls.push({ type, capture: capture === true });
+      void listener;
+    },
+    removeEventListener() {},
+  } as Window;
+  const ownerDocument = {
+    defaultView: ownerWindow,
+    querySelectorAll() {
+      return [];
+    },
+  } as Document;
+  const buttonElement = {
+    ownerDocument,
+  } as Element;
+
+  try {
+    ensureCompactGameDetailCancelBridgeRegisteredForBackButtonElement(buttonElement);
+    ensureCompactGameDetailCancelBridgeRegisteredForBackButtonElement(buttonElement);
+
+    assert.deepStrictEqual(addCalls, [
+      {
+        type: "vgp_oncancel",
+        capture: true,
+      },
+    ]);
+  } finally {
+    resetCompactGameDetailCancelBridgeForTests();
+  }
+});
+
+test("compact game detail cancel bridge stops a synthetic cancel event and clicks the marked visible back button", () => {
+  resetCompactGameDetailCancelBridgeForTests();
+  const clickCounts = new Map<string, number>();
+  const eventCalls: string[] = [];
+  let registeredListener: ((event: Event) => void) | undefined;
+
+  const ownerWindow = {
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
+      if (type === "vgp_oncancel") {
+        registeredListener = listener as (event: Event) => void;
+      }
+    },
+    removeEventListener() {},
+  } as Window;
+  const ownerDocument = {
+    defaultView: ownerWindow,
+    querySelectorAll() {
+      return [
+        {
+          disabled: false,
+          isConnected: true,
+          getClientRects() {
+            return [{}, {}];
+          },
+          click() {
+            clickCounts.set("back", (clickCounts.get("back") ?? 0) + 1);
+          },
+        },
+      ];
+    },
+  } as Document;
+
+  try {
+    ensureCompactGameDetailCancelBridgeRegisteredForBackButtonElement({
+      ownerDocument,
+    } as Element);
+
+    const cancelEvent = {
+      type: "vgp_oncancel",
+      preventDefault() {
+        eventCalls.push("preventDefault");
+      },
+      stopPropagation() {
+        eventCalls.push("stopPropagation");
+      },
+      stopImmediatePropagation() {
+        eventCalls.push("stopImmediatePropagation");
+      },
+    } as Event;
+
+    registeredListener?.(cancelEvent);
+
+    assert.deepStrictEqual(eventCalls, [
+      "preventDefault",
+      "stopPropagation",
+      "stopImmediatePropagation",
+    ]);
+    assert.equal(clickCounts.get("back"), 1);
+  } finally {
+    resetCompactGameDetailCancelBridgeForTests();
+  }
+});
+
+test("compact game detail cancel bridge ignores hidden marked buttons and leaves cancel unhandled", () => {
+  resetCompactGameDetailCancelBridgeForTests();
+  const eventCalls: string[] = [];
+  let registeredListener: ((event: Event) => void) | undefined;
+
+  const restoreWindow = setGlobalTestValue("window", {
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
+      if (type === "vgp_oncancel") {
+        registeredListener = listener as (event: Event) => void;
+      }
+    },
+    removeEventListener() {},
+  } as Window);
+  const ownerDocument = {
+    querySelectorAll() {
+      return [
+        {
+          disabled: false,
+          isConnected: true,
+          getClientRects() {
+            return [];
+          },
+          click() {
+            eventCalls.push("click");
+          },
+        },
+      ];
+    },
+  } as Document;
+
+  try {
+    ensureCompactGameDetailCancelBridgeRegisteredForBackButtonElement({
+      ownerDocument,
+    } as Element);
+
+    const cancelEvent = {
+      type: "vgp_oncancel",
+      preventDefault() {
+        eventCalls.push("preventDefault");
+      },
+      stopPropagation() {
+        eventCalls.push("stopPropagation");
+      },
+      stopImmediatePropagation() {
+        eventCalls.push("stopImmediatePropagation");
+      },
+    } as Event;
+
+    registeredListener?.(cancelEvent);
+
+    assert.deepStrictEqual(eventCalls, []);
+  } finally {
+    restoreWindow();
+    resetCompactGameDetailCancelBridgeForTests();
+  }
+});
+
+test("compact game detail cancel bridge leaves cancel alone when no marked back button exists", () => {
+  resetCompactGameDetailCancelBridgeForTests();
+  const eventCalls: string[] = [];
+  let registeredListener: ((event: Event) => void) | undefined;
+
+  const restoreWindow = setGlobalTestValue("window", {
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
+      if (type === "vgp_oncancel") {
+        registeredListener = listener as (event: Event) => void;
+      }
+    },
+    removeEventListener() {},
+  } as Window);
+  const ownerDocument = {
+    querySelectorAll() {
+      return [];
+    },
+  } as Document;
+
+  try {
+    ensureCompactGameDetailCancelBridgeRegisteredForBackButtonElement({
+      ownerDocument,
+    } as Element);
+
+    const cancelEvent = {
+      type: "vgp_oncancel",
+      preventDefault() {
+        eventCalls.push("preventDefault");
+      },
+      stopPropagation() {
+        eventCalls.push("stopPropagation");
+      },
+      stopImmediatePropagation() {
+        eventCalls.push("stopImmediatePropagation");
+      },
+    } as Event;
+
+    registeredListener?.(cancelEvent);
+
+    assert.deepStrictEqual(eventCalls, []);
+  } finally {
+    restoreWindow();
+    resetCompactGameDetailCancelBridgeForTests();
   }
 });
 
