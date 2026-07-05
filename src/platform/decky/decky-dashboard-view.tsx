@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useCallback, type CSSProperties } from "react";
 import type { ResourceState } from "@core/cache";
 import type { DashboardSnapshot, RecentUnlock, RecentlyPlayedGame } from "@core/domain";
 import { Field, Focusable, PanelSection, PanelSectionRow } from "@decky/ui";
@@ -7,6 +7,7 @@ import {
   DeckyCompactPillActionGroup,
   DeckyCompactPillActionItem,
 } from "./decky-compact-pill-action-item";
+import { ensureCompactProviderCancelBridgeRegisteredForBackButtonElement } from "./decky-full-screen-cancel-bridge";
 import {
   DeckyCompletionProgressBar,
   getCompletionPercent,
@@ -1286,6 +1287,9 @@ export function DeckyDashboardView({
   onOpenSettings,
   onRefreshDashboard,
 }: DeckyDashboardViewProps): JSX.Element {
+  const compactProviderBackButtonRef = useCallback((node: HTMLDivElement | null) => {
+    ensureCompactProviderCancelBridgeRegisteredForBackButtonElement(node);
+  }, []);
   if (!isRenderableDashboardState(state)) {
     return (
       <PlaceholderState
@@ -1300,6 +1304,10 @@ export function DeckyDashboardView({
                   label="Back"
                   onClick={onBackToProviders}
                   onCancelButton={onBackToProviders}
+                  elementRef={compactProviderBackButtonRef}
+                  dataAttributes={{
+                    "data-achievement-companion-compact-provider-back": "true",
+                  }}
                 />
                 <DeckyCompactPillActionItem
                   label="Settings"
@@ -1433,6 +1441,10 @@ export function DeckyDashboardView({
                   label="Back"
                   onClick={onBackToProviders}
                   onCancelButton={onBackToProviders}
+                  elementRef={compactProviderBackButtonRef}
+                  dataAttributes={{
+                    "data-achievement-companion-compact-provider-back": "true",
+                  }}
                 />
                 <DeckyCompactPillActionItem
                   label="Refresh"

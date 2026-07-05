@@ -236,9 +236,11 @@ import {
 import {
   ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement,
   ensureCompactGameDetailCancelBridgeRegisteredForBackButtonElement,
+  ensureCompactProviderCancelBridgeRegisteredForBackButtonElement,
   ensureFullscreenCancelBridgeRegisteredForBackButtonElement,
   resetCompactAchievementCancelBridgeForTests,
   resetCompactGameDetailCancelBridgeForTests,
+  resetCompactProviderCancelBridgeForTests,
   resetFullscreenCancelBridgeForTests,
 } from "../src/platform/decky/decky-full-screen-cancel-bridge";
 import type { SteamLibraryAchievementScanSummary } from "../src/platform/decky/providers/steam";
@@ -3031,6 +3033,8 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     dashboardViewSource,
     /label="Open full-screen"[\s\S]*label="Back"[\s\S]*label="Refresh"[\s\S]*label="Settings"/,
   );
+  assert.match(dashboardViewSource, /ensureCompactProviderCancelBridgeRegisteredForBackButtonElement/u);
+  assert.match(dashboardViewSource, /data-achievement-companion-compact-provider-back/u);
   assert.match(dashboardViewSource, /onOpenProfile\(profile\.providerId\)/);
   assert.match(dashboardViewSource, /addProfileAvatarCacheBustParam\(avatarUrl, refreshedAt\)/u);
   assert.match(
@@ -3792,10 +3796,19 @@ test("fullscreen action controls use Decky Focusable pills with unclipped labels
     fullscreenCancelBridgeSource,
     /\[data-achievement-companion-compact-achievement-back="true"\]\[role="button"\]/,
   );
+  assert.match(
+    fullscreenCancelBridgeSource,
+    /\[data-achievement-companion-compact-provider-back="true"\]\[role="button"\]/,
+  );
   assert.match(fullscreenCancelBridgeSource, /handleCompactAchievementCancelBridge/u);
+  assert.match(fullscreenCancelBridgeSource, /handleCompactProviderCancelBridge/u);
   assert.match(
     fullscreenCancelBridgeSource,
     /ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement/u,
+  );
+  assert.match(
+    fullscreenCancelBridgeSource,
+    /ensureCompactProviderCancelBridgeRegisteredForBackButtonElement/u,
   );
   assert.doesNotMatch(fullscreenCancelBridgeSource, /Achievement Details|innerText ===|textContent/u);
   assert.doesNotMatch(
@@ -14583,6 +14596,208 @@ test("compact game detail cancel bridge leaves cancel alone when no marked back 
   } finally {
     restoreWindow();
     resetCompactGameDetailCancelBridgeForTests();
+  }
+});
+
+test("compact provider back button ownerWindow registers the cancel bridge", () => {
+  resetCompactProviderCancelBridgeForTests();
+  const addCalls: Array<{ readonly type: string; readonly capture: boolean }> = [];
+
+  const ownerWindow = {
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject, capture?: boolean) {
+      addCalls.push({ type, capture: capture === true });
+      void listener;
+    },
+    removeEventListener() {},
+  } as Window;
+  const ownerDocument = {
+    defaultView: ownerWindow,
+    querySelectorAll() {
+      return [];
+    },
+  } as Document;
+  const buttonElement = {
+    ownerDocument,
+  } as Element;
+
+  try {
+    ensureCompactProviderCancelBridgeRegisteredForBackButtonElement(buttonElement);
+    ensureCompactProviderCancelBridgeRegisteredForBackButtonElement(buttonElement);
+
+    assert.deepStrictEqual(addCalls, [
+      {
+        type: "vgp_oncancel",
+        capture: true,
+      },
+    ]);
+  } finally {
+    resetCompactProviderCancelBridgeForTests();
+  }
+});
+
+test("compact provider cancel bridge stops a synthetic cancel event and clicks the marked visible back button", () => {
+  resetCompactProviderCancelBridgeForTests();
+  const clickCounts = new Map<string, number>();
+  const eventCalls: string[] = [];
+  let registeredListener: ((event: Event) => void) | undefined;
+
+  const ownerWindow = {
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
+      if (type === "vgp_oncancel") {
+        registeredListener = listener as (event: Event) => void;
+      }
+    },
+    removeEventListener() {},
+  } as Window;
+  const ownerDocument = {
+    defaultView: ownerWindow,
+    querySelectorAll() {
+      return [
+        {
+          disabled: false,
+          isConnected: true,
+          getClientRects() {
+            return [{}, {}];
+          },
+          click() {
+            clickCounts.set("back", (clickCounts.get("back") ?? 0) + 1);
+          },
+        },
+      ];
+    },
+  } as Document;
+
+  try {
+    ensureCompactProviderCancelBridgeRegisteredForBackButtonElement({
+      ownerDocument,
+    } as Element);
+
+    const cancelEvent = {
+      type: "vgp_oncancel",
+      preventDefault() {
+        eventCalls.push("preventDefault");
+      },
+      stopPropagation() {
+        eventCalls.push("stopPropagation");
+      },
+      stopImmediatePropagation() {
+        eventCalls.push("stopImmediatePropagation");
+      },
+    } as Event;
+
+    registeredListener?.(cancelEvent);
+
+    assert.deepStrictEqual(eventCalls, [
+      "preventDefault",
+      "stopPropagation",
+      "stopImmediatePropagation",
+    ]);
+    assert.equal(clickCounts.get("back"), 1);
+  } finally {
+    resetCompactProviderCancelBridgeForTests();
+  }
+});
+
+test("compact provider cancel bridge ignores hidden marked buttons and leaves cancel unhandled", () => {
+  resetCompactProviderCancelBridgeForTests();
+  const eventCalls: string[] = [];
+  let registeredListener: ((event: Event) => void) | undefined;
+
+  const restoreWindow = setGlobalTestValue("window", {
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
+      if (type === "vgp_oncancel") {
+        registeredListener = listener as (event: Event) => void;
+      }
+    },
+    removeEventListener() {},
+  } as Window);
+  const ownerDocument = {
+    querySelectorAll() {
+      return [
+        {
+          disabled: false,
+          isConnected: true,
+          getClientRects() {
+            return [];
+          },
+          click() {
+            eventCalls.push("click");
+          },
+        },
+      ];
+    },
+  } as Document;
+
+  try {
+    ensureCompactProviderCancelBridgeRegisteredForBackButtonElement({
+      ownerDocument,
+    } as Element);
+
+    const cancelEvent = {
+      type: "vgp_oncancel",
+      preventDefault() {
+        eventCalls.push("preventDefault");
+      },
+      stopPropagation() {
+        eventCalls.push("stopPropagation");
+      },
+      stopImmediatePropagation() {
+        eventCalls.push("stopImmediatePropagation");
+      },
+    } as Event;
+
+    registeredListener?.(cancelEvent);
+
+    assert.deepStrictEqual(eventCalls, []);
+  } finally {
+    restoreWindow();
+    resetCompactProviderCancelBridgeForTests();
+  }
+});
+
+test("compact provider cancel bridge leaves cancel alone when no marked back button exists", () => {
+  resetCompactProviderCancelBridgeForTests();
+  const eventCalls: string[] = [];
+  let registeredListener: ((event: Event) => void) | undefined;
+
+  const restoreWindow = setGlobalTestValue("window", {
+    addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
+      if (type === "vgp_oncancel") {
+        registeredListener = listener as (event: Event) => void;
+      }
+    },
+    removeEventListener() {},
+  } as Window);
+  const ownerDocument = {
+    querySelectorAll() {
+      return [];
+    },
+  } as Document;
+
+  try {
+    ensureCompactProviderCancelBridgeRegisteredForBackButtonElement({
+      ownerDocument,
+    } as Element);
+
+    const cancelEvent = {
+      type: "vgp_oncancel",
+      preventDefault() {
+        eventCalls.push("preventDefault");
+      },
+      stopPropagation() {
+        eventCalls.push("stopPropagation");
+      },
+      stopImmediatePropagation() {
+        eventCalls.push("stopImmediatePropagation");
+      },
+    } as Event;
+
+    registeredListener?.(cancelEvent);
+
+    assert.deepStrictEqual(eventCalls, []);
+  } finally {
+    restoreWindow();
+    resetCompactProviderCancelBridgeForTests();
   }
 });
 
