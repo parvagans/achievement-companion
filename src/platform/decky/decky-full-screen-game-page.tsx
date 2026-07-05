@@ -501,6 +501,26 @@ function getGameSpotlightStatsStyle(): CSSProperties {
     display: "flex",
     flexDirection: "column",
     gap: 12,
+    height: "100%",
+  };
+}
+
+function getRetroAchievementsProgressSummaryCardStyle(): CSSProperties {
+  return {
+    ...getGameDetailSectionCardStyle(),
+    flex: "1 1 auto",
+    minHeight: 0,
+    height: "100%",
+  };
+}
+
+function getCompletionStatusBlockStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 4,
+    width: "100%",
   };
 }
 
@@ -942,7 +962,7 @@ function getCompletionStatusPillStyle(
   return {
     display: "inline-flex",
     alignItems: "center",
-    alignSelf: "flex-start",
+    alignSelf: "center",
     gap: 8,
     width: "fit-content",
     maxWidth: "100%",
@@ -1861,23 +1881,25 @@ export function DeckyFullScreenGamePage({
                   </div>
 
                   <div style={getGameSpotlightStatsStyle()}>
-                    <div style={getGameDetailSectionCardStyle()}>
+                    <div style={getRetroAchievementsProgressSummaryCardStyle()}>
                       <div style={getGameDetailSectionHeaderStyle()}>Progress Summary</div>
                       {completionStatusLabel !== undefined && completionStatusAriaLabel !== undefined ? (
-                        <div
-                          aria-label={completionStatusAriaLabel}
-                          style={getCompletionStatusPillStyle(completionTone)}
-                          title={completionStatusAriaLabel}
-                        >
-                          <RetroAchievementsCompletionIndicator game={game} />
-                          <span>{completionStatusLabel}</span>
+                        <div style={getCompletionStatusBlockStyle()}>
+                          <div
+                            aria-label={completionStatusAriaLabel}
+                            style={getCompletionStatusPillStyle(completionTone)}
+                            title={completionStatusAriaLabel}
+                          >
+                            <RetroAchievementsCompletionIndicator game={game} />
+                            <span>{completionStatusLabel}</span>
+                          </div>
+                          {completionAtText !== undefined && completionTone !== "default" ? (
+                            <div style={getCompletionTimingTextStyle(completionTone)}>{completionAtText}</div>
+                          ) : null}
                         </div>
                       ) : (
                         <RetroAchievementsCompletionIndicator game={game} />
                       )}
-                      {completionAtText !== undefined && completionTone !== "default" ? (
-                        <div style={getCompletionTimingTextStyle(completionTone)}>{completionAtText}</div>
-                      ) : null}
                       {completionPercent !== undefined ? (
                         <DeckyCompletionProgressBar
                           percent={completionPercent}
