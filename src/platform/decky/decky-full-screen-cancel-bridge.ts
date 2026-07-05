@@ -1,6 +1,8 @@
 const CANCEL_EVENT_TYPE = "vgp_oncancel";
 const FULLSCREEN_BACK_BUTTON_SELECTOR =
   '[data-achievement-companion-fullscreen-back="true"][role="button"]';
+const COMPACT_PROVIDER_BACK_BUTTON_SELECTOR =
+  '[data-achievement-companion-compact-provider-back="true"][role="button"]';
 const COMPACT_ACHIEVEMENT_BACK_BUTTON_SELECTOR =
   '[data-achievement-companion-compact-achievement-back="true"][role="button"]';
 const COMPACT_GAME_DETAIL_BACK_BUTTON_SELECTOR =
@@ -21,6 +23,7 @@ type BridgeMarkedBackButton = {
 };
 
 const fullscreenCancelBridgeListeners = new Map<Window, EventListener>();
+const compactProviderCancelBridgeListeners = new Map<Window, EventListener>();
 const compactAchievementCancelBridgeListeners = new Map<Window, EventListener>();
 const compactGameDetailCancelBridgeListeners = new Map<Window, EventListener>();
 
@@ -98,6 +101,22 @@ export function handleCompactAchievementCancelBridge(
   backButton.click();
 }
 
+export function handleCompactProviderCancelBridge(
+  event: Event,
+  doc: Document | undefined = typeof document === "undefined" ? undefined : document,
+): void {
+  const cancelEvent = event as BridgeCancelableEvent;
+  const backButton = getVisibleMarkedBackButton(COMPACT_PROVIDER_BACK_BUTTON_SELECTOR, doc);
+  if (backButton === undefined) {
+    return;
+  }
+
+  cancelEvent.preventDefault?.();
+  cancelEvent.stopPropagation?.();
+  cancelEvent.stopImmediatePropagation?.();
+  backButton.click();
+}
+
 export function handleCompactGameDetailCancelBridge(
   event: Event,
   doc: Document | undefined = typeof document === "undefined" ? undefined : document,
@@ -132,6 +151,27 @@ export function ensureFullscreenCancelBridgeRegisteredForBackButtonElement(
     ownerDocument,
     fullscreenCancelBridgeListeners,
     handleFullscreenCancelBridge,
+  );
+}
+
+export function ensureCompactProviderCancelBridgeRegisteredForBackButtonElement(
+  element: Element | null | undefined,
+): void {
+  if (element === null || element === undefined) {
+    return;
+  }
+
+  const ownerDocument = element.ownerDocument;
+  const ownerWindow = ownerDocument?.defaultView;
+  if (ownerDocument === undefined || ownerWindow === undefined || ownerWindow === null) {
+    return;
+  }
+
+  registerCancelBridgeForWindow(
+    ownerWindow,
+    ownerDocument,
+    compactProviderCancelBridgeListeners,
+    handleCompactProviderCancelBridge,
   );
 }
 
@@ -183,6 +223,14 @@ export function resetFullscreenCancelBridgeForTests(): void {
   }
 
   fullscreenCancelBridgeListeners.clear();
+}
+
+export function resetCompactProviderCancelBridgeForTests(): void {
+  for (const [bridgeWindow, listener] of compactProviderCancelBridgeListeners.entries()) {
+    bridgeWindow.removeEventListener(CANCEL_EVENT_TYPE, listener, true);
+  }
+
+  compactProviderCancelBridgeListeners.clear();
 }
 
 export function resetCompactAchievementCancelBridgeForTests(): void {
