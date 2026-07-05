@@ -2691,6 +2691,8 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     gameSpotlightLayoutEnd,
   );
   assert.match(gameSpotlightLayoutSource, /alignItems: "stretch"/u);
+  assert.match(fullScreenGamePageSource, /function getRetroAchievementsProgressSummaryCardStyle\(\): CSSProperties/u);
+  assert.match(fullScreenGamePageSource, /function getCompletionStatusBlockStyle\(\): CSSProperties/u);
   assert.match(fullScreenGamePageSource, /import \{ RETROACHIEVEMENTS_PROVIDER_ID \} from "\.\.\/\.\.\/providers\/retroachievements";/u);
   assert.match(fullScreenGamePageSource, /function getRetroAchievementsGameSpotlightArtworkFrameStyle\(\): CSSProperties/u);
   assert.match(fullScreenGamePageSource, /function getRetroAchievementsGameSpotlightArtworkImageStyle\(\): CSSProperties/u);
@@ -2713,6 +2715,20 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.ok(heroStyleEnd > heroStyleStart);
   const heroStyleSource = fullScreenGamePageSource.slice(heroStyleStart, heroStyleEnd);
   assert.doesNotMatch(heroStyleSource, /borderLeft/);
+  assert.match(fullScreenGamePageSource, /function getGameSpotlightStatsStyle\(\): CSSProperties[\s\S]*height: "100%"/u);
+  const completionStatusBlockStart = fullScreenGamePageSource.indexOf("function getCompletionStatusBlockStyle()");
+  const completionStatusBlockEnd = fullScreenGamePageSource.indexOf("function getProgressStatGridStyle()", completionStatusBlockStart);
+  assert.ok(completionStatusBlockStart >= 0);
+  assert.ok(completionStatusBlockEnd > completionStatusBlockStart);
+  const completionStatusBlockSource = fullScreenGamePageSource.slice(
+    completionStatusBlockStart,
+    completionStatusBlockEnd,
+  );
+  assert.match(completionStatusBlockSource, /display: "flex"/u);
+  assert.match(completionStatusBlockSource, /flexDirection: "column"/u);
+  assert.match(completionStatusBlockSource, /alignItems: "center"/u);
+  assert.match(completionStatusBlockSource, /width: "100%"/u);
+  assert.match(fullScreenGamePageSource, /alignSelf: "center"/u);
   assert.match(fullScreenGamePageSource, /getGameOverviewPillRowStyle\(\)/);
   assert.doesNotMatch(fullScreenGamePageSource, /GameOverviewRefreshPill/);
   assert.doesNotMatch(fullScreenGamePageSource, /getProgressSummaryPercentStyle/);
