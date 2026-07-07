@@ -25,6 +25,7 @@ import {
   type DeckyGamePageAchievementRouteDetectionState,
 } from "./decky-game-page-achievement-route";
 import {
+  formatDeckyGamePageAchievementBadgeLoadingText,
   formatDeckyGamePageAchievementBadgeLabel,
   type GamePageAchievementSummary,
   useGamePageAchievementSummary,
@@ -48,6 +49,7 @@ import {
   markAchievementCompanionGamePageRouteBadgeRenderFuncPatched,
   markAchievementCompanionGamePageRouteBadgeRendered,
   markAchievementCompanionGamePageBadgeSystemIcon,
+  getAchievementCompanionRuntimeDebugState,
   reportAchievementCompanionGamePageBadgeNavigationError,
   resolveAchievementCompanionRuntimeDebugHostContext,
 } from "./decky-runtime-debug";
@@ -310,6 +312,20 @@ function getDeckyGamePageAchievementBadgeStatusStackStyle(): CSSProperties {
   };
 }
 
+function getDeckyGamePageAchievementBadgeLoadingShellStyle(): CSSProperties {
+  return {
+    ...getDeckyGamePageAchievementBadgeBaseStyle(),
+    minHeight: 34,
+    padding: "0 12px",
+    borderWidth: 1,
+    fontSize: 13,
+    fontWeight: 700,
+    letterSpacing: "0.02em",
+    background: "rgba(12, 18, 28, 0.94)",
+    boxShadow: "0 0 0 1px rgba(0, 0, 0, 0.48), 0 8px 22px rgba(0, 0, 0, 0.42)",
+  };
+}
+
 function getDeckyGamePageAchievementBadgeStatusPillStyle(
   statusVariant: Exclude<DeckyGamePageAchievementBadgeStatusVariant, "plain">,
 ): CSSProperties {
@@ -497,18 +513,28 @@ function renderDeckyGamePageAchievementBadgeContent(
   retroSystemIconMetadata: DeckyGamePageRetroSystemIconMetadata | undefined,
 ): DeckyGamePageAchievementBadgeVisualState {
   if (summary?.status === "loading") {
+    const loadingLabel = formatDeckyGamePageAchievementBadgeLoadingText(
+      summary,
+      getAchievementCompanionRuntimeDebugState(),
+    );
+    const loadingText = loadingLabel.replace(/^\u{1f3c6}\s*/u, "");
     return {
-      ariaLabel: "Achievement progress loading",
+      ariaLabel: loadingText,
       content: (
-        <span style={getDeckyGamePageAchievementBadgeContentStyle()}>
-          <span aria-hidden="true" style={getDeckyGamePageAchievementBadgeTrophyStyle()}>
-            🏆
+        <span style={getDeckyGamePageAchievementBadgeStatusStackStyle()}>
+          <span style={getDeckyGamePageAchievementBadgeLoadingShellStyle()}>
+            <span style={getDeckyGamePageAchievementBadgeContentStyle()}>
+              <span aria-hidden="true" style={getDeckyGamePageAchievementBadgeTrophyStyle()}>
+                {"\u{1f3c6}"}
+              </span>
+              <span style={getDeckyGamePageAchievementBadgeCountStyle()}>{loadingText}</span>
+            </span>
           </span>
-          <span style={getDeckyGamePageAchievementBadgeCountStyle()}>…</span>
         </span>
       ),
     };
   }
+
 
   if (summary?.status !== "ready") {
     return {

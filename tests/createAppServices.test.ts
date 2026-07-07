@@ -123,6 +123,7 @@ import {
 } from "../src/platform/decky/decky-game-page-achievement-modal-visibility";
 import {
   clearDeckyGamePageAchievementSummaryCacheForTests,
+  formatDeckyGamePageAchievementBadgeLoadingText,
   formatDeckyGamePageAchievementBadgeLabel,
   loadDeckyGamePageAchievementSummary,
   normalizeRetroAchievementsPlatformLabel,
@@ -10420,7 +10421,14 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(routeDetectionSource, /resolveDeckyGamePageAchievementAppIdFromRouteProps/u);
   assert.match(summarySource, /type GamePageAchievementSummary/u);
   assert.match(summarySource, /formatDeckyGamePageAchievementBadgeLabel/u);
-  assert.match(summarySource, /\\u\{1f3c6\}/u);
+  assert.match(summarySource, /formatDeckyGamePageAchievementBadgeLoadingText/u);
+  assert.match(summarySource, /Checking game\.\.\./u);
+  assert.match(summarySource, /Reading shortcut\.\.\./u);
+  assert.match(summarySource, /Detecting ROM\.\.\./u);
+  assert.match(summarySource, /Hashing ROM\.\.\./u);
+  assert.match(summarySource, /RA lookup\.\.\./u);
+  assert.match(summarySource, /Matching title\.\.\./u);
+  assert.match(summarySource, /Loading\.\.\./u);
   assert.match(summarySource, /requestSequenceRef\.current !== requestSequence/u);
   assert.match(summarySource, /readDeckySteamLibraryAchievementScanSummary/u);
   assert.match(summarySource, /readDeckyDashboardSnapshotCacheEntry/u);
@@ -10522,6 +10530,8 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(bubbleSource, /routerHook\.removePatch\(DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN/u);
   assert.match(bubbleSource, /Game-page achievement bubble clicked/u);
   assert.match(bubbleSource, /useGamePageAchievementSummary/u);
+  assert.match(bubbleSource, /formatDeckyGamePageAchievementBadgeLoadingText/u);
+  assert.match(bubbleSource, /getDeckyGamePageAchievementBadgeLoadingShellStyle/u);
   assert.match(bubbleSource, /formatDeckyGamePageAchievementBadgeLabel/u);
   assert.match(bubbleSource, /\u{1f3c6}/u);
   assert.match(bubbleSource, /resolveDeckyGamePageAchievementBadgeIconUrl/u);
@@ -10536,6 +10546,7 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(bubbleSource, /lower-right/u);
   assert.match(bubbleSource, /lower-left/u);
   assert.match(bubbleSource, /top:\s*56/u);
+  assert.doesNotMatch(bubbleSource, /<span style=\{getDeckyGamePageAchievementBadgeCountStyle\(\)\}>…<\/span>/u);
   assert.match(bubbleSource, /top:\s*84/u);
   assert.match(bubbleSource, /top:\s*128/u);
   assert.match(bubbleSource, /top:\s*360/u);
@@ -10664,13 +10675,92 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.equal(DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN, "/library/app/:appid");
 });
 
-test("game page achievement badge formatter shows loading and ready states but hides unavailable and error states", () => {
+test("game page achievement badge formatter shows stage-aware loading and ready states but hides unavailable and error states", () => {
+  assert.equal(formatDeckyGamePageAchievementBadgeLoadingText(undefined, {}), "\u{1f3c6} Checking game...");
   assert.equal(
-    formatDeckyGamePageAchievementBadgeLabel({
-      status: "loading",
-      appId: "1672970",
-    }),
-    "🏆 …",
+    formatDeckyGamePageAchievementBadgeLoadingText(
+      {
+        status: "loading",
+        appId: "1672970",
+      },
+      {
+        lastSummaryStatus: "loading",
+        lastSummaryFetchStartedAt: "2026-07-07T00:00:00.000Z",
+        lastRetroAchievementsShortcutAppId: "1672970",
+      },
+    ),
+    "\u{1f3c6} Reading shortcut...",
+  );
+  assert.equal(
+    formatDeckyGamePageAchievementBadgeLoadingText(
+      {
+        status: "loading",
+        appId: "1672970",
+      },
+      {
+        lastSummaryStatus: "loading",
+        lastSummaryFetchStartedAt: "2026-07-07T00:00:00.000Z",
+        lastRetroAchievementsShortcutAppId: "1672970",
+        lastRetroAchievementsShortcutRomPathDetected: true,
+      },
+    ),
+    "\u{1f3c6} Detecting ROM...",
+  );
+  assert.equal(
+    formatDeckyGamePageAchievementBadgeLoadingText(
+      {
+        status: "loading",
+        appId: "1672970",
+      },
+      {
+        lastSummaryStatus: "loading",
+        lastSummaryFetchStartedAt: "2026-07-07T00:00:00.000Z",
+        lastRetroAchievementsResolutionSource: "rom-hash",
+        lastRetroAchievementsRomHashAttempted: true,
+      },
+    ),
+    "\u{1f3c6} Hashing ROM...",
+  );
+  assert.equal(
+    formatDeckyGamePageAchievementBadgeLoadingText(
+      {
+        status: "loading",
+        appId: "1672970",
+      },
+      {
+        lastSummaryStatus: "loading",
+        lastSummaryFetchStartedAt: "2026-07-07T00:00:00.000Z",
+        lastRetroAchievementsResolutionSource: "ra-api-game-list",
+      },
+    ),
+    "\u{1f3c6} Matching title...",
+  );
+  assert.equal(
+    formatDeckyGamePageAchievementBadgeLoadingText(
+      {
+        status: "loading",
+        appId: "1672970",
+      },
+      {
+        lastSummaryStatus: "loading",
+        lastSummaryFetchStartedAt: "2026-07-07T00:00:00.000Z",
+      },
+    ),
+    "\u{1f3c6} Loading...",
+  );
+  assert.equal(
+    formatDeckyGamePageAchievementBadgeLoadingText(
+      {
+        status: "loading",
+        appId: "1672970",
+      },
+      {
+        lastSummaryStatus: "loading",
+        lastSummaryFetchStartedAt: "2026-07-07T00:00:00.000Z",
+        lastRetroAchievementsResolutionSource: "ra-hash-game-detail",
+      },
+    ),
+    "\u{1f3c6} RA lookup...",
   );
   assert.equal(
     formatDeckyGamePageAchievementBadgeLabel({
@@ -10681,7 +10771,7 @@ test("game page achievement badge formatter shows loading and ready states but h
       total: 45,
       source: "cache",
     }),
-    "🏆 12 / 45",
+    "\u{1f3c6} 12 / 45",
   );
   assert.equal(
     formatDeckyGamePageAchievementBadgeLabel({
@@ -12805,7 +12895,7 @@ test("game page achievement summary resolves Final Fantasy X International throu
     };
     deckyBackendTestState.steam.shortcutRomHashByAppId = {
       "2874315921": {
-        shortcutRomPathDetected: true,
+        lastRetroAchievementsShortcutRomPathDetected: true,
         shortcutRomPathSource: "exe",
         romHashAttempted: false,
         romHashStatus: "skipped",
@@ -13044,9 +13134,9 @@ test("game page achievement summary preserves mastered completion status for a h
     };
     deckyBackendTestState.steam.shortcutRomHashByAppId = {
       "2493414764": {
-        shortcutRomPathDetected: true,
+        lastRetroAchievementsShortcutRomPathDetected: true,
         shortcutRomPathSource: "exe",
-        romHashAttempted: true,
+        lastRetroAchievementsRomHashAttempted: true,
         romHashStatus: "resolved",
         romHashAlgorithm: "md5",
         romHash: "BADDCAFEBADDCAFEBADDCAFEBADDCAFE",
