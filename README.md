@@ -2,18 +2,21 @@
 
 ![Steam Deck](https://img.shields.io/badge/Steam%20Deck-Game%20Mode-blue)
 ![Decky Loader](https://img.shields.io/badge/Decky%20Loader-Plugin-blueviolet)
-![Version 0.3.1](https://img.shields.io/badge/Version-0.3.1-informational)
+![Version 0.3.2](https://img.shields.io/badge/Version-0.3.2-informational)
 ![Provider RetroAchievements](https://img.shields.io/badge/Provider-RetroAchievements-orange)
 ![Provider Steam](https://img.shields.io/badge/Provider-Steam-171a21)
 
 Achievement Companion is a Decky Loader plugin for Steam Deck Game Mode. It brings RetroAchievements and Steam achievement progress into the Decky quick-access menu and adds game-page achievement badges that can open fullscreen achievement details. 
 
-## What Is New In v0.3.1
+## What Is New In v0.3.2
 
-- Steam provider artwork and fullscreen game overview/detail pages were polished for a cleaner Deck UI.
-- RetroAchievements ROM hash fallback now helps supported non-Steam, Steam ROM Manager, and EmuDeck shortcut pages when a readable launched ROM path is available.
-- Hash fallback fails closed and falls back to the existing platform-scoped title matcher when hashing is not possible or does not produce a match.
-- Runtime diagnostics were expanded for non-Steam game-page and hash fallback troubleshooting.
+- Improved native Steam Game Mode badges for RetroAchievements shortcuts.
+- Added BEATEN / MASTERED status pills for RA native badges.
+- Added Steam provider icon support for native Steam badges.
+- Improved native badge loading messages with readable stage labels.
+- Skipped expensive hashing for large ROM/disc images to reduce slow badge loads.
+- Added safe single-ROM ZIP hashing for supported ROM shortcuts.
+- Preserved compact panel back-button behavior and fullscreen layout polish.
 
 ## Core Features
 
@@ -50,7 +53,7 @@ Connect your Steam Web API key and SteamID64 to view Steam achievement activity,
 
 ## Non-Steam / SRM / EmuDeck Badge Support
 
-Steam game-page badge support uses Steam achievement data. For non-Steam shortcuts, v0.3.1 adds a RetroAchievements resolver path that can use a readable launched ROM path to help match supported Steam ROM Manager and EmuDeck shortcuts to RetroAchievements games.
+Steam game-page badge support uses Steam achievement data. For non-Steam shortcuts, v0.3.2 adds a RetroAchievements resolver path that can use a readable launched ROM path to help match supported Steam ROM Manager and EmuDeck shortcuts to RetroAchievements games.
 
 - The badge only appears when a shortcut can be matched safely.
 - Matching is scoped to the detected shortcut platform first.

@@ -11,7 +11,7 @@ from typing import Iterable
 ROOT_DIR = Path(__file__).resolve().parents[1]
 RELEASE_DIR = ROOT_DIR / "release"
 STEAMOS_PREVIEW_ROOT_DIRNAME = "achievement-companion-steamos"
-STEAMOS_PREVIEW_VERSION = "0.3.1"
+STEAMOS_PREVIEW_VERSION = "0.3.2"
 STEAMOS_PREVIEW_ARCHIVE_NAME = f"achievement-companion-steamos-preview-v{STEAMOS_PREVIEW_VERSION}.tar.gz"
 STEAMOS_PREVIEW_STAGE_DIR = RELEASE_DIR / "staged" / STEAMOS_PREVIEW_ROOT_DIRNAME
 STEAMOS_PREVIEW_SOURCE_TO_STAGE_PATHS: dict[Path, Path] = {

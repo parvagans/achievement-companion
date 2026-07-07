@@ -130,7 +130,7 @@ export interface AchievementCompanionRuntimeDebugInstallOptions {
 
 export const ACHIEVEMENT_COMPANION_RUNTIME_DEBUG_GLOBAL_NAME =
   "__achievementCompanionRuntimeDebug";
-export const ACHIEVEMENT_COMPANION_RUNTIME_DEBUG_VERSION_MARKER = "0.3.1-runtime";
+export const ACHIEVEMENT_COMPANION_RUNTIME_DEBUG_VERSION_MARKER = "0.3.2-runtime";
 export const ACHIEVEMENT_COMPANION_RUNTIME_DEBUG_BUNDLE_MARKER = "decky-game-page-bubble";
 export const ACHIEVEMENT_COMPANION_LAST_GAME_PAGE_BADGE_DEBUG_STORAGE_KEY =
   "achievement-companion:decky:last-game-page-badge-debug";
