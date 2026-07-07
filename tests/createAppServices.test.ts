@@ -4071,7 +4071,7 @@ test("provider setup and settings true actions use compact focusable pills", () 
   );
 });
 
-test("v0.3.1 release metadata and Decky cleanup stay aligned", () => {
+test("v0.3.2 release metadata and Decky cleanup stay aligned", () => {
   const packageJson = JSON.parse(readFileSync("package.json", "utf8")) as {
     version?: string;
     scripts?: Record<string, string>;
@@ -4107,11 +4107,11 @@ test("v0.3.1 release metadata and Decky cleanup stay aligned", () => {
   const releasePackageScriptSource = readFileSync("scripts/package_release.py", "utf8");
   const releaseCheckScriptSource = readFileSync("scripts/check_release_artifact.py", "utf8");
 
-  assert.equal(packageJson.version, "0.3.1");
-  assert.equal(pluginJson.version, "0.3.1");
-  assert.match(readmeSource, /Version 0\.3\.1/u);
-  assert.match(bootstrapSource, /const ACHIEVEMENT_COMPANION_VERSION = "0\.3\.1"/u);
-  assert.match(runtimeDebugSource, /0\.3\.1-runtime/u);
+  assert.equal(packageJson.version, "0.3.2");
+  assert.equal(pluginJson.version, "0.3.2");
+  assert.match(readmeSource, /Version 0\.3\.2/u);
+  assert.match(bootstrapSource, /const ACHIEVEMENT_COMPANION_VERSION = "0\.3\.2"/u);
+  assert.match(runtimeDebugSource, /0\.3\.2-runtime/u);
   assert.doesNotMatch(bootstrapSource, /DIAGNOSTIC BUILD LOADED 2026-06-28/u);
   assert.doesNotMatch(
     `${readmeSource}\n${bootstrapSource}\n${runtimeDebugSource}\n${JSON.stringify(packageJson)}\n${JSON.stringify(pluginJson)}`,
