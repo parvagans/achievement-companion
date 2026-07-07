@@ -139,6 +139,7 @@ type RetroAchievementsShortcutHashAttempt =
       readonly raHashMatchedTitle: string;
       readonly raHashMatchedConsoleId?: string;
       readonly raHashMatchedConsoleName?: string;
+      readonly hashResolverSkippedReason?: string;
       readonly hashRejectedReason?: string;
       readonly finalResolverSource: "hash";
       readonly completionStatus?: RetroAchievementsCompletionStatus;
@@ -159,6 +160,7 @@ type RetroAchievementsShortcutHashAttempt =
       readonly raHashMatchedTitle?: string;
       readonly raHashMatchedConsoleId?: string;
       readonly raHashMatchedConsoleName?: string;
+      readonly hashResolverSkippedReason?: string;
       readonly hashRejectedReason?: string;
       readonly finalResolverSource: "unavailable";
     }
@@ -2142,6 +2144,9 @@ async function resolveSummaryFromRetroAchievementsShortcut(
             ...(hashResolution.romHashStatus !== undefined ? { romHashStatus: hashResolution.romHashStatus } : {}),
             ...(hashResolution.romHashAlgorithm !== undefined ? { romHashAlgorithm: hashResolution.romHashAlgorithm } : {}),
             ...(hashResolution.romHashPrefix !== undefined ? { romHashPrefix: hashResolution.romHashPrefix } : {}),
+            ...(hashResolution.hashResolverSkippedReason !== undefined
+              ? { hashResolverSkippedReason: hashResolution.hashResolverSkippedReason }
+              : {}),
             ...(hashResolution.raHashLookupAttempted !== undefined
               ? { raHashLookupAttempted: hashResolution.raHashLookupAttempted }
               : {}),

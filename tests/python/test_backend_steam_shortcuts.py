@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import backend.steam_shortcuts as steam_shortcuts
 from backend.steam_shortcuts import (
   load_steam_shortcut_metadata,
   load_steam_shortcut_rom_hash,
@@ -299,6 +300,61 @@ class SteamShortcutsTests(unittest.TestCase):
           "romHashAttempted": False,
           "romHashStatus": "skipped",
           "hashResolverSkippedReason": "rom-path-ambiguous-container",
+        },
+      )
+
+  def test_load_steam_shortcut_rom_hash_skips_large_rom_files_before_hashing(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      rom_path = Path(temp_dir) / "Large PS2 Disc.iso"
+      rom_path.write_bytes(b"too-large-test")
+
+      shortcuts_path = Path(temp_dir) / "shortcuts.vdf"
+      shortcuts_path.write_bytes(
+        _build_shortcuts_vdf_with_launch_options(f'"{rom_path}"'),
+      )
+
+      original_limit = steam_shortcuts.STEAM_SHORTCUT_ROM_HASH_MAX_BYTES
+      steam_shortcuts.STEAM_SHORTCUT_ROM_HASH_MAX_BYTES = 4
+      try:
+        metadata = load_steam_shortcut_rom_hash("2493414760", shortcuts_files=[shortcuts_path])
+      finally:
+        steam_shortcuts.STEAM_SHORTCUT_ROM_HASH_MAX_BYTES = original_limit
+
+      self.assertEqual(
+        metadata,
+        {
+          "appId": "2493414760",
+          "shortcutRomPathDetected": True,
+          "shortcutRomPathSource": "launchoptions",
+          "romHashAttempted": False,
+          "romHashStatus": "skipped",
+          "hashResolverSkippedReason": "rom-file-too-large",
+        },
+      )
+
+  def test_load_steam_shortcut_rom_hash_hashes_small_pbp_files(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      rom_path = Path(temp_dir) / "Minicraft PSP.PBP"
+      rom_bytes = b"pbp-test-rom"
+      rom_path.write_bytes(rom_bytes)
+
+      shortcuts_path = Path(temp_dir) / "shortcuts.vdf"
+      shortcuts_path.write_bytes(
+        _build_shortcuts_vdf_with_launch_options(f'"{rom_path}"'),
+      )
+
+      metadata = load_steam_shortcut_rom_hash("2493414760", shortcuts_files=[shortcuts_path])
+
+      self.assertEqual(
+        metadata,
+        {
+          "appId": "2493414760",
+          "shortcutRomPathDetected": True,
+          "shortcutRomPathSource": "launchoptions",
+          "romHashAttempted": True,
+          "romHashStatus": "resolved",
+          "romHashAlgorithm": "md5",
+          "romHash": hashlib.md5(rom_bytes).hexdigest(),
         },
       )
 
