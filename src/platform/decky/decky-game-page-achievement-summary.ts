@@ -34,6 +34,7 @@ import {
   markAchievementCompanionGamePageAchievementSummaryFetchStarted,
   markAchievementCompanionGamePageShortcutDetected,
   markAchievementCompanionRetroAchievementsShortcutResolution,
+  getAchievementCompanionRuntimeDebugState,
   reportAchievementCompanionGamePageAchievementSummaryError,
   updateAchievementCompanionGamePageBadgeDebug,
   updateAchievementCompanionRaShortcutResolutionDebug,
@@ -2800,18 +2801,111 @@ export function formatDeckyGamePageAchievementBadgeLabel(
   summary: GamePageAchievementSummary | undefined,
 ): string | undefined {
   if (summary === undefined) {
+    return formatDeckyGamePageAchievementBadgeLoadingText(undefined, getAchievementCompanionRuntimeDebugState());
+  }
+
+  if (summary?.status === "ready") {
+    return `\u{1f3c6} ${String(summary.earned)} / ${String(summary.total)}`;
+  }
+
+  if (summary.status !== "loading") {
     return undefined;
   }
 
-  if (summary.status === "loading") {
-    return "\u{1f3c6} \u2026";
+  return formatDeckyGamePageAchievementBadgeLoadingText(summary, getAchievementCompanionRuntimeDebugState());
+}
+
+type DeckyGamePageAchievementBadgeLoadingState = Partial<{
+  readonly lastSummaryStatus: GamePageAchievementSummary["status"] | undefined;
+  readonly lastSummaryFetchStartedAt: string | undefined;
+  readonly lastSummaryFetchCompletedAt: string | undefined;
+  readonly lastRetroAchievementsShortcutAppId: string | undefined;
+  readonly lastRetroAchievementsResolutionSource: string | undefined;
+  readonly lastRetroAchievementsShortcutRomPathDetected: boolean | undefined;
+  readonly lastRetroAchievementsRomHashAttempted: boolean | undefined;
+  readonly lastRetroAchievementsRomHashStatus: string | undefined;
+  readonly lastRetroAchievementsRaHashLookupAttempted: boolean | undefined;
+  readonly lastRetroAchievementsRaHashLookupStatus: string | undefined;
+}>;
+
+export function formatDeckyGamePageAchievementBadgeLoadingText(
+  summary: GamePageAchievementSummary | undefined,
+  runtimeDebugState: DeckyGamePageAchievementBadgeLoadingState,
+): string {
+  if (summary === undefined) {
+    return "\u{1f3c6} Checking game...";
   }
 
-  if (summary.status !== "ready") {
-    return undefined;
+  if (summary.status !== "loading") {
+    return "\u{1f3c6} Preparing badge...";
   }
 
-  return `\u{1f3c6} ${String(summary.earned)} / ${String(summary.total)}`;
+  if (
+    runtimeDebugState.lastSummaryFetchStartedAt === undefined &&
+    runtimeDebugState.lastSummaryStatus === undefined
+  ) {
+    return "\u{1f3c6} Checking game...";
+  }
+
+  if (
+    runtimeDebugState.lastRetroAchievementsShortcutRomPathDetected === true &&
+    runtimeDebugState.lastRetroAchievementsRomHashAttempted !== true
+  ) {
+    return "\u{1f3c6} Detecting ROM...";
+  }
+
+  switch (runtimeDebugState.lastRetroAchievementsResolutionSource) {
+    case "shortcut-metadata":
+      return "\u{1f3c6} Reading shortcut...";
+    case "rom-path":
+      return "\u{1f3c6} Detecting ROM...";
+    case "rom-hash":
+      return "\u{1f3c6} Hashing ROM...";
+    case "ra-hash-game-detail":
+      return "\u{1f3c6} RA lookup...";
+    case "dashboard-summary":
+      return "\u{1f3c6} Checking progress...";
+    case "completion-progress":
+      return "\u{1f3c6} Matching progress...";
+    case "dashboard-identity-detail":
+      return "\u{1f3c6} Checking progress...";
+    case "ra-api-game-list":
+      return "\u{1f3c6} Matching title...";
+    case "ra-api-game-detail":
+      return "\u{1f3c6} RA lookup...";
+    case "hash":
+    case "title":
+    case "unavailable":
+      return "\u{1f3c6} Preparing badge...";
+    default:
+      break;
+  }
+
+  if (runtimeDebugState.lastRetroAchievementsRomHashStatus === "skipped") {
+    return "\u{1f3c6} Matching title...";
+  }
+
+  if (runtimeDebugState.lastRetroAchievementsRomHashAttempted === true) {
+    return "\u{1f3c6} Hashing ROM...";
+  }
+
+  if (runtimeDebugState.lastRetroAchievementsShortcutAppId !== undefined) {
+    return "\u{1f3c6} Reading shortcut...";
+  }
+
+  if (runtimeDebugState.lastRetroAchievementsRaHashLookupAttempted === true) {
+    return "\u{1f3c6} RA lookup...";
+  }
+
+  if (runtimeDebugState.lastRetroAchievementsRaHashLookupStatus !== undefined) {
+    return "\u{1f3c6} RA lookup...";
+  }
+
+  if (runtimeDebugState.lastSummaryStatus === "loading") {
+    return "\u{1f3c6} Loading...";
+  }
+
+  return "\u{1f3c6} Preparing badge...";
 }
 
 export function clearDeckyGamePageAchievementSummaryCacheForTests(): void {
