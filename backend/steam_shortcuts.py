@@ -39,6 +39,11 @@ _ROM_FILE_EXTENSIONS = {
   ".z64",
 }
 
+# Cap ROM hashing so large disc images do not stall native badge resolution.
+# This keeps small homebrew/ROM shortcuts eligible for hash matching while
+# letting large PS2/ISO-style files fall through to title/completion matching.
+STEAM_SHORTCUT_ROM_HASH_MAX_BYTES = 512 * 1024 * 1024
+
 
 def _coerce_app_id(value: str | int) -> int | None:
   if isinstance(value, bool):
@@ -412,6 +417,28 @@ def load_steam_shortcut_rom_hash(
       "romHashAttempted": rom_path_attempted,
       "romHashStatus": "skipped",
       **({"hashResolverSkippedReason": skip_reason} if skip_reason is not None else {}),
+    }
+
+  try:
+    rom_file_size = rom_path.stat().st_size
+  except OSError:
+    return {
+      "appId": str(normalized_app_id),
+      "shortcutRomPathDetected": True,
+      **({"shortcutRomPathSource": rom_path_source} if rom_path_source is not None else {}),
+      "romHashAttempted": False,
+      "romHashStatus": "skipped",
+      "hashResolverSkippedReason": "rom-file-unreadable",
+    }
+
+  if rom_file_size > STEAM_SHORTCUT_ROM_HASH_MAX_BYTES:
+    return {
+      "appId": str(normalized_app_id),
+      "shortcutRomPathDetected": True,
+      **({"shortcutRomPathSource": rom_path_source} if rom_path_source is not None else {}),
+      "romHashAttempted": False,
+      "romHashStatus": "skipped",
+      "hashResolverSkippedReason": "rom-file-too-large",
     }
 
   try:

@@ -10337,6 +10337,10 @@ test("steam game page achievement badge uses the route-patched header path witho
     "utf8",
   );
   const retroClientSource = readFileSync("src/providers/retroachievements/client/client.ts", "utf8");
+  const providerBrandingSource = readFileSync(
+    "src/platform/decky/providers/provider-branding.ts",
+    "utf8",
+  );
   const summarySource = readFileSync(
     "src/platform/decky/decky-game-page-achievement-summary.ts",
     "utf8",
@@ -10487,8 +10491,10 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.doesNotMatch(bubbleSource, /DeckyGamePageAchievementGlobalBadge/u);
   assert.doesNotMatch(bubbleSource, /AchievementCompanionGamePageBadgeGlobalComponent/u);
   assert.match(bubbleSource, /AchievementCompanionGamePageBadge/u);
+  assert.match(bubbleSource, /getDeckyProviderIconSrc/u);
   assert.match(bubbleSource, /DeckySystemIcon/u);
   assert.match(bubbleSource, /renderDeckyGamePageAchievementBadgeContent/u);
+  assert.match(bubbleSource, /resolveDeckyGamePageAchievementBadgeIconUrl/u);
   assert.match(bubbleSource, /resolveDeckyGamePageAchievementBadgeCompletionStatus/u);
   assert.match(bubbleSource, /resolveDeckyGamePageAchievementBadgeStatusVariant/u);
   assert.match(bubbleSource, /formatDeckyGamePageAchievementBadgeStatusLabel/u);
@@ -10504,6 +10510,11 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(bubbleSource, /resolveDeckyGamePageRetroSystemIconMetadata/u);
   assert.match(bubbleSource, /collectDeckyGamePageRetroSystemIconCandidates/u);
   assert.match(bubbleSource, /summary\.platformLabel !== undefined \|\| summary\.systemIconUrl !== undefined/u);
+  assert.match(bubbleSource, /summary\.provider === "steam"/u);
+  assert.match(bubbleSource, /summary\.provider === "retroachievements"/u);
+  assert.match(bubbleSource, /iconUrl !== undefined/u);
+  assert.match(providerBrandingSource, /STEAM_PROVIDER_ICON_SRC/u);
+  assert.match(providerBrandingSource, /return STEAM_PROVIDER_ICON_SRC;/u);
   assert.match(bubbleSource, /useDeckyGamePageAchievementBadgeActivation/u);
   assert.match(bubbleSource, /resolveDeckyGamePageAchievementBadgeNavigationTarget/u);
   assert.match(bubbleSource, /openDeckyFullScreenGameFromLibraryGamePage/u);
@@ -10513,8 +10524,7 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(bubbleSource, /useGamePageAchievementSummary/u);
   assert.match(bubbleSource, /formatDeckyGamePageAchievementBadgeLabel/u);
   assert.match(bubbleSource, /\u{1f3c6}/u);
-  assert.match(bubbleSource, /summary\.provider === "retroachievements" \? \(/u);
-  assert.match(bubbleSource, /summary\.provider === "retroachievements" \? retroSystemIconMetadata\?\.systemIconUrl : undefined/u);
+  assert.match(bubbleSource, /resolveDeckyGamePageAchievementBadgeIconUrl/u);
   assert.match(bubbleSource, /iconSize=\{20\}/u);
   assert.match(bubbleSource, /readDeckyDashboardSnapshotCacheEntry\(RETROACHIEVEMENTS_PROVIDER_ID\)/u);
   assert.match(bubbleSource, /summary\.provider === "retroachievements" && platformLabel !== undefined/u);
@@ -12793,6 +12803,15 @@ test("game page achievement summary resolves Final Fantasy X International throu
         startDir: "/home/deck/Emulation/roms/ps2",
       },
     };
+    deckyBackendTestState.steam.shortcutRomHashByAppId = {
+      "2874315921": {
+        shortcutRomPathDetected: true,
+        shortcutRomPathSource: "exe",
+        romHashAttempted: false,
+        romHashStatus: "skipped",
+        hashResolverSkippedReason: "rom-file-too-large",
+      },
+    };
     deckyBackendTestState.retroAchievements.systems = [
       {
         ID: 7,
@@ -12899,6 +12918,11 @@ test("game page achievement summary resolves Final Fantasy X International throu
     assert.equal(secondSummary.systemIconUrl, "https://example.com/ps2.png");
     assert.equal(secondSummary.source, "backend");
     assert.notEqual(secondSummary.updatedAt, undefined);
+
+    const secondRuntimeDebugState = getAchievementCompanionRuntimeDebugState();
+    assert.equal(secondRuntimeDebugState.lastRetroAchievementsShortcutAppId, "2874315921");
+    assert.equal(secondRuntimeDebugState.lastRetroAchievementsHashResolverAttempted, true);
+    assert.equal(secondRuntimeDebugState.lastRetroAchievementsFinalResolverSource, "title");
 
     assert.equal(deckyBackendTestState.retroAchievements.systemsRequestCount, 1);
     assert.equal(deckyBackendTestState.retroAchievements.gameListRequestCount, 1);
