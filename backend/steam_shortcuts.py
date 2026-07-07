@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import shlex
+import zipfile
 from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Any, Iterable, Mapping, Sequence
 
 
@@ -267,11 +269,15 @@ def load_steam_shortcut_metadata(
 
 
 def _is_ambiguous_rom_path(path: Path) -> bool:
-  return path.suffix.lower() in {".zip", ".7z", ".rar", ".cue", ".m3u", ".pls"}
+  return path.suffix.lower() in {".7z", ".rar", ".cue", ".m3u", ".pls"}
 
 
 def _is_known_rom_file_path(path: Path) -> bool:
   return path.suffix.lower() in _ROM_FILE_EXTENSIONS
+
+
+def _is_zip_container_path(path: Path) -> bool:
+  return path.suffix.lower() == ".zip"
 
 
 def _looks_like_path_token(token: str) -> bool:
@@ -319,7 +325,7 @@ def _resolve_shortcut_rom_path_from_command(
       saw_ambiguous_container = True
       continue
 
-    if not _is_known_rom_file_path(candidate):
+    if not (_is_known_rom_file_path(candidate) or _is_zip_container_path(candidate)):
       continue
 
     saw_rom_candidate = True
@@ -381,6 +387,59 @@ def _hash_file_md5(path: Path) -> str:
   return digest.hexdigest()
 
 
+def _hash_zip_single_rom_md5(path: Path) -> tuple[str | None, str | None]:
+  try:
+    with zipfile.ZipFile(path) as archive:
+      supported_entries: list[zipfile.ZipInfo] = []
+      for zip_info in archive.infolist():
+        if zip_info.is_dir():
+          continue
+
+        entry_path = PurePosixPath(zip_info.filename)
+        if "__MACOSX" in entry_path.parts or entry_path.name.startswith("._"):
+          continue
+
+        entry_name_lower = entry_path.name.lower()
+        entry_parent_names_lower = {part.lower() for part in entry_path.parts[:-1]}
+        if (
+          entry_name_lower in {"readme", "manual", "changelog", "changes", "license", "copying", "info"}
+          or entry_name_lower.startswith("readme.")
+          or entry_name_lower.startswith("manual.")
+          or entry_name_lower.startswith("changelog.")
+          or entry_name_lower.startswith("license.")
+          or entry_name_lower.startswith("copying.")
+          or entry_name_lower.startswith("info.")
+          or entry_parent_names_lower.intersection({"doc", "docs", "documentation", "manual", "readme"})
+        ):
+          continue
+
+        if entry_path.suffix.lower() not in _ROM_FILE_EXTENSIONS:
+          continue
+
+        supported_entries.append(zip_info)
+
+      if len(supported_entries) == 0:
+        return None, "zip-no-supported-rom"
+
+      if len(supported_entries) > 1:
+        return None, "rom-path-ambiguous-container"
+
+      zip_info = supported_entries[0]
+      if zip_info.file_size > STEAM_SHORTCUT_ROM_HASH_MAX_BYTES:
+        return None, "rom-file-too-large"
+
+      digest = hashlib.md5()
+      with archive.open(zip_info, "r") as file_handle:
+        while True:
+          chunk = file_handle.read(1024 * 1024)
+          if not chunk:
+            break
+          digest.update(chunk)
+      return digest.hexdigest(), None
+  except (OSError, zipfile.BadZipFile):
+    return None, "rom-file-unreadable"
+
+
 def load_steam_shortcut_rom_hash(
   app_id: str | int,
   *,
@@ -417,6 +476,28 @@ def load_steam_shortcut_rom_hash(
       "romHashAttempted": rom_path_attempted,
       "romHashStatus": "skipped",
       **({"hashResolverSkippedReason": skip_reason} if skip_reason is not None else {}),
+    }
+
+  if rom_path.suffix.lower() == ".zip":
+    rom_hash, zip_skip_reason = _hash_zip_single_rom_md5(rom_path)
+    if rom_hash is None:
+      return {
+        "appId": str(normalized_app_id),
+        "shortcutRomPathDetected": True,
+        **({"shortcutRomPathSource": rom_path_source} if rom_path_source is not None else {}),
+        "romHashAttempted": True,
+        "romHashStatus": "skipped",
+        "hashResolverSkippedReason": zip_skip_reason,
+      }
+
+    return {
+      "appId": str(normalized_app_id),
+      "shortcutRomPathDetected": True,
+      **({"shortcutRomPathSource": rom_path_source} if rom_path_source is not None else {}),
+      "romHashAttempted": True,
+      "romHashStatus": "resolved",
+      "romHashAlgorithm": "md5",
+      "romHash": rom_hash,
     }
 
   try:

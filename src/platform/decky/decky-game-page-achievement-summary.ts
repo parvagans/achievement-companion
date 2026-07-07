@@ -2121,14 +2121,29 @@ async function resolveSummaryFromRetroAchievementsShortcut(
       resolution: RetroAchievementsShortcutResolution,
       extra: Omit<RetroAchievementsShortcutResolutionDebugArgs, keyof RetroAchievementsShortcutResolution> = {},
     ): void => {
+      const clearKeys =
+        resolvedHashResolutionSkipReason === undefined || extra.clearKeys === undefined
+          ? extra.clearKeys
+          : extra.clearKeys.filter((clearKey) => clearKey !== "hashResolverSkippedReason");
       markRetroAchievementsShortcutResolution({
         ...resolution,
         ...debugBase,
+        ...(resolvedHashResolutionSkipReason !== undefined
+          ? { hashResolverSkippedReason: resolvedHashResolutionSkipReason }
+          : {}),
         ...extra,
+        ...(resolvedHashResolutionSkipReason !== undefined
+          ? { hashResolverSkippedReason: resolvedHashResolutionSkipReason }
+          : {}),
+        ...(clearKeys !== undefined ? { clearKeys } : {}),
       });
     };
 
     const hashResolution = await attemptRetroAchievementsShortcutHashResolution(appId, shortcutMetadata);
+    const resolvedHashResolutionSkipReason =
+      hashResolution.status === "skipped"
+        ? hashResolution.hashResolverSkippedReason ?? hashResolution.reason
+        : undefined;
     const hashResolutionDebugFields =
       hashResolution.status === "error"
         ? { hashResolverAttempted: true, finalResolverSource: "unavailable" as const }
