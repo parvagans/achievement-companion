@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import tempfile
+import zipfile
 import unittest
 from pathlib import Path
 
@@ -132,6 +133,12 @@ def _build_shortcuts_vdf_with_exe(exe: str, *, launch_options: str | None = None
   return _build_shortcuts_vdf_with_command_fields(exe=exe, launch_options=launch_options)
 
 
+def _write_zip_entries(zip_path: Path, entries: dict[str, bytes]) -> None:
+  with zipfile.ZipFile(zip_path, mode="w", compression=zipfile.ZIP_DEFLATED) as archive:
+    for entry_name, entry_bytes in entries.items():
+      archive.writestr(entry_name, entry_bytes)
+
+
 class SteamShortcutsTests(unittest.TestCase):
   def test_parse_steam_shortcuts_vdf_reads_unsigned_shortcut_app_ids(self) -> None:
     shortcuts = parse_steam_shortcuts_vdf(_build_shortcuts_vdf())
@@ -200,6 +207,58 @@ class SteamShortcutsTests(unittest.TestCase):
         },
       )
 
+  def test_load_steam_shortcut_rom_hash_hashes_small_sfc_files(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      rom_path = Path(temp_dir) / "Supercooked!.sfc"
+      rom_bytes = b"sfc-test-rom"
+      rom_path.write_bytes(rom_bytes)
+
+      shortcuts_path = Path(temp_dir) / "shortcuts.vdf"
+      shortcuts_path.write_bytes(
+        _build_shortcuts_vdf_with_launch_options(f'"{rom_path}"'),
+      )
+
+      metadata = load_steam_shortcut_rom_hash("2493414760", shortcuts_files=[shortcuts_path])
+
+      self.assertEqual(
+        metadata,
+        {
+          "appId": "2493414760",
+          "shortcutRomPathDetected": True,
+          "shortcutRomPathSource": "launchoptions",
+          "romHashAttempted": True,
+          "romHashStatus": "resolved",
+          "romHashAlgorithm": "md5",
+          "romHash": hashlib.md5(rom_bytes).hexdigest(),
+        },
+      )
+
+  def test_load_steam_shortcut_rom_hash_hashes_small_smc_files(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      rom_path = Path(temp_dir) / "Supercooked!.smc"
+      rom_bytes = b"smc-test-rom"
+      rom_path.write_bytes(rom_bytes)
+
+      shortcuts_path = Path(temp_dir) / "shortcuts.vdf"
+      shortcuts_path.write_bytes(
+        _build_shortcuts_vdf_with_launch_options(f'"{rom_path}"'),
+      )
+
+      metadata = load_steam_shortcut_rom_hash("2493414760", shortcuts_files=[shortcuts_path])
+
+      self.assertEqual(
+        metadata,
+        {
+          "appId": "2493414760",
+          "shortcutRomPathDetected": True,
+          "shortcutRomPathSource": "launchoptions",
+          "romHashAttempted": True,
+          "romHashStatus": "resolved",
+          "romHashAlgorithm": "md5",
+          "romHash": hashlib.md5(rom_bytes).hexdigest(),
+        },
+      )
+
   def test_load_steam_shortcut_rom_hash_hashes_exe_rom_path_when_launch_options_are_empty(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
       rom_path = Path(temp_dir) / "Pyoro64 NTSC.n64"
@@ -227,6 +286,150 @@ class SteamShortcutsTests(unittest.TestCase):
           "romHash": hashlib.md5(rom_bytes).hexdigest(),
         },
       )
+
+  def test_load_steam_shortcut_rom_hash_reports_unsupported_extensions_as_skipped(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      rom_path = Path(temp_dir) / "Supercooked!.xyz"
+      rom_path.write_bytes(b"unsupported-extension-test")
+
+      shortcuts_path = Path(temp_dir) / "shortcuts.vdf"
+      shortcuts_path.write_bytes(
+        _build_shortcuts_vdf_with_launch_options(f'"{rom_path}"'),
+      )
+
+      metadata = load_steam_shortcut_rom_hash("2493414760", shortcuts_files=[shortcuts_path])
+
+      self.assertEqual(metadata["appId"], "2493414760")
+      self.assertEqual(metadata["romHashStatus"], "skipped")
+      self.assertIsInstance(metadata.get("hashResolverSkippedReason"), str)
+      self.assertNotEqual(metadata.get("hashResolverSkippedReason"), "")
+
+  def test_load_steam_shortcut_rom_hash_hashes_single_sfc_zip_entries(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      zip_path = Path(temp_dir) / "Supercooked!.zip"
+      rom_bytes = b"zip-sfc-test-rom"
+      _write_zip_entries(zip_path, {"Supercooked!.sfc": rom_bytes})
+
+      shortcuts_path = Path(temp_dir) / "shortcuts.vdf"
+      shortcuts_path.write_bytes(
+        _build_shortcuts_vdf_with_launch_options(f'"{zip_path}"'),
+      )
+
+      metadata = load_steam_shortcut_rom_hash("2493414760", shortcuts_files=[shortcuts_path])
+
+      self.assertEqual(
+        metadata,
+        {
+          "appId": "2493414760",
+          "shortcutRomPathDetected": True,
+          "shortcutRomPathSource": "launchoptions",
+          "romHashAttempted": True,
+          "romHashStatus": "resolved",
+          "romHashAlgorithm": "md5",
+          "romHash": hashlib.md5(rom_bytes).hexdigest(),
+        },
+      )
+
+  def test_load_steam_shortcut_rom_hash_hashes_single_smc_zip_entries(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      zip_path = Path(temp_dir) / "Supercooked!.zip"
+      rom_bytes = b"zip-smc-test-rom"
+      _write_zip_entries(zip_path, {"Supercooked!.smc": rom_bytes})
+
+      shortcuts_path = Path(temp_dir) / "shortcuts.vdf"
+      shortcuts_path.write_bytes(
+        _build_shortcuts_vdf_with_launch_options(f'"{zip_path}"'),
+      )
+
+      metadata = load_steam_shortcut_rom_hash("2493414760", shortcuts_files=[shortcuts_path])
+
+      self.assertEqual(
+        metadata,
+        {
+          "appId": "2493414760",
+          "shortcutRomPathDetected": True,
+          "shortcutRomPathSource": "launchoptions",
+          "romHashAttempted": True,
+          "romHashStatus": "resolved",
+          "romHashAlgorithm": "md5",
+          "romHash": hashlib.md5(rom_bytes).hexdigest(),
+        },
+      )
+
+  def test_load_steam_shortcut_rom_hash_skips_zip_with_multiple_supported_rom_entries(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      zip_path = Path(temp_dir) / "Supercooked!.zip"
+      _write_zip_entries(
+        zip_path,
+        {
+          "Supercooked!.sfc": b"zip-sfc-test-rom",
+          "Another Game.smc": b"zip-smc-test-rom",
+        },
+      )
+
+      shortcuts_path = Path(temp_dir) / "shortcuts.vdf"
+      shortcuts_path.write_bytes(
+        _build_shortcuts_vdf_with_launch_options(f'"{zip_path}"'),
+      )
+
+      metadata = load_steam_shortcut_rom_hash("2493414760", shortcuts_files=[shortcuts_path])
+
+      self.assertEqual(metadata["appId"], "2493414760")
+      self.assertEqual(metadata["shortcutRomPathDetected"], True)
+      self.assertEqual(metadata["shortcutRomPathSource"], "launchoptions")
+      self.assertEqual(metadata["romHashAttempted"], True)
+      self.assertEqual(metadata["romHashStatus"], "skipped")
+      self.assertEqual(metadata["hashResolverSkippedReason"], "rom-path-ambiguous-container")
+
+  def test_load_steam_shortcut_rom_hash_skips_zip_without_supported_rom_entries(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      zip_path = Path(temp_dir) / "Supercooked!.zip"
+      _write_zip_entries(
+        zip_path,
+        {
+          "README.txt": b"no-rom-entry-here",
+          "docs/manual.md": b"still-no-rom-entry",
+        },
+      )
+
+      shortcuts_path = Path(temp_dir) / "shortcuts.vdf"
+      shortcuts_path.write_bytes(
+        _build_shortcuts_vdf_with_launch_options(f'"{zip_path}"'),
+      )
+
+      metadata = load_steam_shortcut_rom_hash("2493414760", shortcuts_files=[shortcuts_path])
+
+      self.assertEqual(metadata["appId"], "2493414760")
+      self.assertEqual(metadata["shortcutRomPathDetected"], True)
+      self.assertEqual(metadata["shortcutRomPathSource"], "launchoptions")
+      self.assertEqual(metadata["romHashAttempted"], True)
+      self.assertEqual(metadata["romHashStatus"], "skipped")
+      self.assertEqual(metadata["hashResolverSkippedReason"], "zip-no-supported-rom")
+
+  def test_load_steam_shortcut_rom_hash_skips_oversized_zip_rom_entries_before_hashing(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      zip_path = Path(temp_dir) / "Supercooked!.zip"
+      rom_bytes = b"zip-large-rom-test"
+      _write_zip_entries(zip_path, {"Supercooked!.sfc": rom_bytes})
+
+      shortcuts_path = Path(temp_dir) / "shortcuts.vdf"
+      shortcuts_path.write_bytes(
+        _build_shortcuts_vdf_with_launch_options(f'"{zip_path}"'),
+      )
+
+      original_limit = steam_shortcuts.STEAM_SHORTCUT_ROM_HASH_MAX_BYTES
+      steam_shortcuts.STEAM_SHORTCUT_ROM_HASH_MAX_BYTES = 4
+      try:
+        metadata = load_steam_shortcut_rom_hash("2493414760", shortcuts_files=[shortcuts_path])
+      finally:
+        steam_shortcuts.STEAM_SHORTCUT_ROM_HASH_MAX_BYTES = original_limit
+
+      self.assertEqual(metadata["appId"], "2493414760")
+      self.assertEqual(metadata["shortcutRomPathDetected"], True)
+      self.assertEqual(metadata["shortcutRomPathSource"], "launchoptions")
+      self.assertEqual(metadata["romHashAttempted"], True)
+      self.assertEqual(metadata["romHashStatus"], "skipped")
+      self.assertEqual(metadata["hashResolverSkippedReason"], "rom-file-too-large")
 
   def test_load_steam_shortcut_rom_hash_prefers_launch_options_over_exe_paths(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -287,6 +490,27 @@ class SteamShortcutsTests(unittest.TestCase):
       shortcuts_path = Path(temp_dir) / "shortcuts.vdf"
       shortcuts_path.write_bytes(
         _build_shortcuts_vdf_with_exe('"/run/media/deck/FF4Y7/Emulation/tools/launchers/retroarch.sh" -L /mupen64plus_next_libretro.so "/home/deck/Emulation/roms/n64/Pyoro 64.cue"'),
+      )
+
+      metadata = load_steam_shortcut_rom_hash("2493414760", shortcuts_files=[shortcuts_path])
+
+      self.assertEqual(
+        metadata,
+        {
+          "appId": "2493414760",
+          "shortcutRomPathDetected": True,
+          "shortcutRomPathSource": "exe",
+          "romHashAttempted": False,
+          "romHashStatus": "skipped",
+          "hashResolverSkippedReason": "rom-path-ambiguous-container",
+        },
+      )
+
+  def test_load_steam_shortcut_rom_hash_skips_unsupported_archive_formats_as_ambiguous(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      shortcuts_path = Path(temp_dir) / "shortcuts.vdf"
+      shortcuts_path.write_bytes(
+        _build_shortcuts_vdf_with_exe('"/run/media/deck/FF4Y7/Emulation/tools/launchers/retroarch.sh" -L /mupen64plus_next_libretro.so "/home/deck/Emulation/roms/n64/Pyoro 64.7z"'),
       )
 
       metadata = load_steam_shortcut_rom_hash("2493414760", shortcuts_files=[shortcuts_path])

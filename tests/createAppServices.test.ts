@@ -12922,6 +12922,7 @@ test("game page achievement summary resolves Final Fantasy X International throu
     const secondRuntimeDebugState = getAchievementCompanionRuntimeDebugState();
     assert.equal(secondRuntimeDebugState.lastRetroAchievementsShortcutAppId, "2874315921");
     assert.equal(secondRuntimeDebugState.lastRetroAchievementsHashResolverAttempted, true);
+    assert.equal(secondRuntimeDebugState.lastRetroAchievementsHashResolverSkippedReason, "rom-file-too-large");
     assert.equal(secondRuntimeDebugState.lastRetroAchievementsFinalResolverSource, "title");
 
     assert.equal(deckyBackendTestState.retroAchievements.systemsRequestCount, 1);
