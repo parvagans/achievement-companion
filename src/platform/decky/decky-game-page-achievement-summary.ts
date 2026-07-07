@@ -41,6 +41,8 @@ import {
 
 const GAME_PAGE_ACHIEVEMENT_SUMMARY_CACHE_TTL_MS = 30 * 1000;
 
+export type RetroAchievementsCompletionStatus = "beaten" | "mastered";
+
 export type GamePageAchievementSummary =
   | {
       readonly status: "ready";
@@ -54,6 +56,7 @@ export type GamePageAchievementSummary =
       readonly total: number;
       readonly source: "cache" | "backend" | "snapshot";
       readonly updatedAt?: string;
+      readonly completionStatus?: RetroAchievementsCompletionStatus;
     }
   | {
       readonly status: "loading";
@@ -90,6 +93,7 @@ type RetroAchievementsShortcutResolution =
       readonly platformLabel?: string;
       readonly systemIconUrl?: string;
       readonly updatedAt?: string;
+      readonly completionStatus?: RetroAchievementsCompletionStatus;
     }
   | {
       readonly status: "unavailable";
@@ -137,6 +141,7 @@ type RetroAchievementsShortcutHashAttempt =
       readonly raHashMatchedConsoleName?: string;
       readonly hashRejectedReason?: string;
       readonly finalResolverSource: "hash";
+      readonly completionStatus?: RetroAchievementsCompletionStatus;
     }
   | {
       readonly status: "skipped";
@@ -241,6 +246,7 @@ interface RetroAchievementsDashboardCandidate {
   readonly earned: number;
   readonly total: number;
   readonly updatedAt?: string;
+  readonly completionStatus?: RetroAchievementsCompletionStatus;
 }
 
 interface RetroAchievementsCompletionProgressCandidate {
@@ -253,6 +259,7 @@ interface RetroAchievementsCompletionProgressCandidate {
   readonly earned: number;
   readonly total: number;
   readonly updatedAt?: string;
+  readonly completionStatus?: RetroAchievementsCompletionStatus;
 }
 
 interface RetroAchievementsDashboardIdentityCandidate {
@@ -367,6 +374,39 @@ function normalizeRetroAchievementsShortcutPlatform(
   return normalizeRetroAchievementsPlatformLabel(shortcutPlatform);
 }
 
+function normalizeRetroAchievementsCompletionStatus(
+  status: NormalizedGame["status"] | undefined,
+  highestAwardKind?: string | undefined,
+): RetroAchievementsCompletionStatus | undefined {
+  if (status === "beaten") {
+    return "beaten";
+  }
+
+  if (status === "mastered" || status === "completed") {
+    return "mastered";
+  }
+
+  const normalizedHighestAwardKind = highestAwardKind?.trim().toLowerCase();
+  if (normalizedHighestAwardKind?.includes("beaten")) {
+    return "beaten";
+  }
+
+  if (
+    normalizedHighestAwardKind?.includes("mastered") ||
+    normalizedHighestAwardKind?.includes("completed")
+  ) {
+    return "mastered";
+  }
+
+  return undefined;
+}
+
+function getRetroAchievementsHighestAwardKind(
+  game: Pick<NormalizedGame, "metrics">,
+): string | undefined {
+  return game.metrics.find((metric) => metric.key === "highest-award-kind")?.value;
+}
+
 function getRetroAchievementsClient(): RetroAchievementsClient {
   if (retroAchievementsClient === undefined) {
     retroAchievementsClient = createRetroAchievementsClient(createDeckyRetroAchievementsTransport());
@@ -393,6 +433,7 @@ function createReadySummary(args: {
   readonly total: number;
   readonly source: "cache" | "backend" | "snapshot";
   readonly updatedAt?: string;
+  readonly completionStatus?: RetroAchievementsCompletionStatus;
 }): GamePageAchievementSummary {
   return {
     status: "ready",
@@ -406,6 +447,7 @@ function createReadySummary(args: {
     total: args.total,
     source: args.source,
     ...(args.updatedAt !== undefined ? { updatedAt: args.updatedAt } : {}),
+    ...(args.completionStatus !== undefined ? { completionStatus: args.completionStatus } : {}),
   };
 }
 
@@ -1310,7 +1352,10 @@ function collectRetroAchievementsDashboardCandidates(
 
   const addCandidate = (
     game:
-      | Pick<NormalizedGame, "gameId" | "title" | "platformLabel" | "systemIconUrl" | "summary">
+      | Pick<
+          NormalizedGame,
+          "gameId" | "title" | "platformLabel" | "systemIconUrl" | "summary" | "status" | "metrics"
+        >
       | Pick<RecentlyPlayedGame, "gameId" | "title" | "platformLabel" | "systemIconUrl" | "summary">,
   ) => {
     const total = game.summary.totalCount;
@@ -1322,6 +1367,13 @@ function collectRetroAchievementsDashboardCandidates(
       return;
     }
 
+    const completionStatus =
+      "status" in game
+        ? normalizeRetroAchievementsCompletionStatus(
+            game.status,
+            "metrics" in game ? getRetroAchievementsHighestAwardKind(game) : undefined,
+          )
+        : undefined;
     candidatesByGameId.set(game.gameId, {
       gameId: game.gameId,
       title: game.title,
@@ -1330,6 +1382,7 @@ function collectRetroAchievementsDashboardCandidates(
       earned: game.summary.unlockedCount,
       total,
       ...(updatedAt !== undefined ? { updatedAt } : {}),
+      ...(completionStatus !== undefined ? { completionStatus } : {}),
     });
   };
 
@@ -1353,20 +1406,27 @@ function collectRetroAchievementsCompletionProgressCandidates(
 ): readonly RetroAchievementsCompletionProgressCandidate[] {
   return snapshot.games
     .filter((game) => game.summary.totalCount !== undefined && game.summary.totalCount > 0)
-    .map((game) => ({
-      gameId: game.gameId,
-      title: game.title,
-      ...(game.platformLabel !== undefined ? { platformLabel: game.platformLabel } : {}),
-      ...(game.systemIconUrl !== undefined ? { systemIconUrl: game.systemIconUrl } : {}),
-      earned: game.summary.unlockedCount,
-      total: game.summary.totalCount ?? 0,
-      ...(snapshot.refreshedAt !== undefined ? { updatedAt: new Date(snapshot.refreshedAt).toISOString() } : {}),
-      ...(normalizeRetroAchievementsPlatformLabel(game.platformLabel) !== undefined
-        ? {
-            normalizedPlatformLabel: normalizeRetroAchievementsPlatformLabel(game.platformLabel)!,
-          }
-        : {}),
-    }));
+    .map((game) => {
+      const completionStatus = normalizeRetroAchievementsCompletionStatus(
+        game.status,
+        getRetroAchievementsHighestAwardKind(game),
+      );
+      return {
+        gameId: game.gameId,
+        title: game.title,
+        ...(game.platformLabel !== undefined ? { platformLabel: game.platformLabel } : {}),
+        ...(game.systemIconUrl !== undefined ? { systemIconUrl: game.systemIconUrl } : {}),
+        earned: game.summary.unlockedCount,
+        total: game.summary.totalCount ?? 0,
+        ...(snapshot.refreshedAt !== undefined ? { updatedAt: new Date(snapshot.refreshedAt).toISOString() } : {}),
+        ...(normalizeRetroAchievementsPlatformLabel(game.platformLabel) !== undefined
+          ? {
+              normalizedPlatformLabel: normalizeRetroAchievementsPlatformLabel(game.platformLabel)!,
+            }
+          : {}),
+        ...(completionStatus !== undefined ? { completionStatus } : {}),
+      };
+    });
 }
 
 function collectRetroAchievementsDashboardIdentityCandidates(
@@ -1619,6 +1679,9 @@ async function buildRetroAchievementsReadySummary(
         ? "backend"
         : "snapshot",
     ...(resolution.updatedAt !== undefined ? { updatedAt: resolution.updatedAt } : {}),
+    ...(resolution.completionStatus !== undefined
+      ? { completionStatus: resolution.completionStatus }
+      : {}),
   });
 }
 
@@ -1892,6 +1955,10 @@ async function attemptRetroAchievementsShortcutHashResolution(
     game.summary.totalCount !== undefined &&
     game.summary.totalCount > 0
   ) {
+    const completionStatus = normalizeRetroAchievementsCompletionStatus(
+      game.status,
+      getRetroAchievementsHighestAwardKind(game),
+    );
     return {
       status: "mapped",
       appId,
@@ -1907,6 +1974,7 @@ async function attemptRetroAchievementsShortcutHashResolution(
       ...(gameDetailState.lastUpdatedAt !== undefined
         ? { updatedAt: new Date(gameDetailState.lastUpdatedAt).toISOString() }
         : {}),
+      ...(completionStatus !== undefined ? { completionStatus } : {}),
       shortcutRomPathDetected: hashInfo.shortcutRomPathDetected,
       ...(hashInfo.shortcutRomPathSource !== undefined ? { shortcutRomPathSource: hashInfo.shortcutRomPathSource } : {}),
       romHashAttempted: hashInfo.romHashAttempted,
@@ -2113,6 +2181,9 @@ async function resolveSummaryFromRetroAchievementsShortcut(
         confidence: hashResolution.confidence,
         ...(hashResolution.reason !== undefined ? { reason: hashResolution.reason } : {}),
         ...(hashResolution.updatedAt !== undefined ? { updatedAt: hashResolution.updatedAt } : {}),
+        ...(hashResolution.completionStatus !== undefined
+          ? { completionStatus: hashResolution.completionStatus }
+          : {}),
       };
       markResolution(mappedResolution, {
         resolutionSource: "ra-hash-game-detail",
@@ -2188,6 +2259,9 @@ async function resolveSummaryFromRetroAchievementsShortcut(
         confidence: "exact",
         reason: "shortcut-title-match",
         ...(matchingCandidate.updatedAt !== undefined ? { updatedAt: matchingCandidate.updatedAt } : {}),
+        ...(matchingCandidate.completionStatus !== undefined
+          ? { completionStatus: matchingCandidate.completionStatus }
+          : {}),
       };
       markResolution(mappedResolution, {
         ...hashResolutionDebugFields,
@@ -2262,6 +2336,9 @@ async function resolveSummaryFromRetroAchievementsShortcut(
           confidence: "exact",
           reason: "completion-progress-title-match",
           ...(matchingCandidate.updatedAt !== undefined ? { updatedAt: matchingCandidate.updatedAt } : {}),
+          ...(matchingCandidate.completionStatus !== undefined
+            ? { completionStatus: matchingCandidate.completionStatus }
+            : {}),
         };
         markResolution(mappedResolution, {
           ...hashResolutionDebugFields,
@@ -2350,6 +2427,10 @@ async function resolveSummaryFromRetroAchievementsShortcut(
         game.summary.totalCount !== undefined &&
         game.summary.totalCount > 0
       ) {
+        const completionStatus = normalizeRetroAchievementsCompletionStatus(
+          game.status,
+          getRetroAchievementsHighestAwardKind(game),
+        );
         const mappedResolution: RetroAchievementsShortcutResolution = {
           status: "mapped",
           appId,
@@ -2365,6 +2446,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
           ...(gameDetailState.lastUpdatedAt !== undefined
             ? { updatedAt: new Date(gameDetailState.lastUpdatedAt).toISOString() }
             : {}),
+          ...(completionStatus !== undefined ? { completionStatus } : {}),
         };
         markResolution(mappedResolution, {
           ...hashResolutionDebugFields,
@@ -2525,6 +2607,10 @@ async function resolveSummaryFromRetroAchievementsShortcut(
         game.summary.totalCount !== undefined &&
         game.summary.totalCount > 0
       ) {
+        const completionStatus = normalizeRetroAchievementsCompletionStatus(
+          game.status,
+          getRetroAchievementsHighestAwardKind(game),
+        );
         updateAchievementCompanionRaShortcutResolutionDebug({
           resolverStage: "ra-api-game-detail",
           detailLoadStatus: "success",
@@ -2564,6 +2650,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
           ...(gameDetailState.lastUpdatedAt !== undefined
             ? { updatedAt: new Date(gameDetailState.lastUpdatedAt).toISOString() }
             : {}),
+          ...(completionStatus !== undefined ? { completionStatus } : {}),
         };
         markResolution(mappedResolution, {
           ...hashResolutionDebugFields,

@@ -47,6 +47,9 @@ export interface AchievementCompanionRuntimeDebugState {
   readonly lastGamePageBadgeSystemIconPlatform: string | undefined;
   readonly lastGamePageBadgeSystemIconUrl: string | undefined;
   readonly lastGamePageBadgeSystemIconRendered: boolean;
+  readonly lastGamePageBadgeCompletionStatus: "beaten" | "mastered" | undefined;
+  readonly lastGamePageBadgeStatusVariant: "plain" | "beaten" | "mastered" | undefined;
+  readonly lastGamePageBadgeStatusRendered: boolean;
   readonly badgeRendered: boolean;
   readonly badgeRenderCount: number;
   readonly lastBadgeRenderAt: string | undefined;
@@ -149,11 +152,15 @@ export interface AchievementCompanionGamePageBadgePipelineDebugRecord {
   readonly summaryTitle?: string;
   readonly summaryEarned?: number;
   readonly summaryTotal?: number;
+  readonly summaryCompletionStatus?: "beaten" | "mastered";
   readonly summaryReason?: string;
   readonly placementAttempted: boolean;
   readonly placementSlot?: string;
   readonly placementRejectedReasons: readonly string[];
   readonly placementFallbackUsed: boolean;
+  readonly badgeCompletionStatus?: "beaten" | "mastered";
+  readonly badgeStatusVariant?: "plain" | "beaten" | "mastered";
+  readonly nativeBadgeStatusRendered?: boolean;
   readonly badgeHiddenReason?: string;
   readonly thrownErrorMessage?: string;
 }
@@ -279,6 +286,9 @@ let runtimeDebugLastGamePageBadgeSystemIconProvider: string | undefined;
 let runtimeDebugLastGamePageBadgeSystemIconPlatform: string | undefined;
 let runtimeDebugLastGamePageBadgeSystemIconUrl: string | undefined;
 let runtimeDebugLastGamePageBadgeSystemIconRendered = false;
+let runtimeDebugLastGamePageBadgeCompletionStatus: "beaten" | "mastered" | undefined;
+let runtimeDebugLastGamePageBadgeStatusVariant: "plain" | "beaten" | "mastered" | undefined;
+let runtimeDebugLastGamePageBadgeStatusRendered = false;
 let runtimeDebugBadgeRenderCount = 0;
 let runtimeDebugLastBadgeRenderAt: string | undefined;
 let runtimeDebugLastBadgeRenderAppId: string | undefined;
@@ -596,6 +606,9 @@ function computeRuntimeDebugState(): AchievementCompanionRuntimeDebugState {
     lastGamePageBadgeSystemIconPlatform: runtimeDebugLastGamePageBadgeSystemIconPlatform,
     lastGamePageBadgeSystemIconUrl: runtimeDebugLastGamePageBadgeSystemIconUrl,
     lastGamePageBadgeSystemIconRendered: runtimeDebugLastGamePageBadgeSystemIconRendered,
+    lastGamePageBadgeCompletionStatus: runtimeDebugLastGamePageBadgeCompletionStatus,
+    lastGamePageBadgeStatusVariant: runtimeDebugLastGamePageBadgeStatusVariant,
+    lastGamePageBadgeStatusRendered: runtimeDebugLastGamePageBadgeStatusRendered,
     badgeRendered: runtimeDebugBadgeRenderCount > 0,
     badgeRenderCount: runtimeDebugBadgeRenderCount,
     lastBadgeRenderAt: runtimeDebugLastBadgeRenderAt,
@@ -730,6 +743,9 @@ export function removeAchievementCompanionRuntimeDebug(): void {
   runtimeDebugLastGamePageBadgeSystemIconPlatform = undefined;
   runtimeDebugLastGamePageBadgeSystemIconUrl = undefined;
   runtimeDebugLastGamePageBadgeSystemIconRendered = false;
+  runtimeDebugLastGamePageBadgeCompletionStatus = undefined;
+  runtimeDebugLastGamePageBadgeStatusVariant = undefined;
+  runtimeDebugLastGamePageBadgeStatusRendered = false;
   runtimeDebugLastGamePageShortcutDetectedAppId = undefined;
   runtimeDebugLastGamePageShortcutTitle = undefined;
   runtimeDebugLastGamePageShortcutPlatform = undefined;
@@ -909,6 +925,33 @@ export function markAchievementCompanionGamePageBadgeSystemIcon(args: {
   runtimeDebugLastGamePageBadgeSystemIconRendered = args.rendered;
 }
 
+export function markAchievementCompanionGamePageBadgeStatus(args: {
+  readonly summaryCompletionStatus: "beaten" | "mastered" | undefined;
+  readonly badgeCompletionStatus: "beaten" | "mastered" | undefined;
+  readonly badgeStatusVariant: "plain" | "beaten" | "mastered";
+  readonly nativeBadgeStatusRendered: boolean;
+  readonly clearKeys?:
+    | readonly AchievementCompanionGamePageBadgePipelineDebugClearKey[]
+    | undefined;
+}): void {
+  runtimeDebugLastGamePageBadgeCompletionStatus = args.badgeCompletionStatus;
+  runtimeDebugLastGamePageBadgeStatusVariant = args.badgeStatusVariant;
+  runtimeDebugLastGamePageBadgeStatusRendered = args.nativeBadgeStatusRendered;
+  updateAchievementCompanionGamePageBadgeDebug(
+    {
+      ...(args.summaryCompletionStatus !== undefined
+        ? { summaryCompletionStatus: args.summaryCompletionStatus }
+        : {}),
+      ...(args.badgeCompletionStatus !== undefined
+        ? { badgeCompletionStatus: args.badgeCompletionStatus }
+        : {}),
+      badgeStatusVariant: args.badgeStatusVariant,
+      nativeBadgeStatusRendered: args.nativeBadgeStatusRendered,
+    },
+    args.clearKeys === undefined ? undefined : { clearKeys: args.clearKeys },
+  );
+}
+
 export function markAchievementCompanionGamePageAchievementBadgeRendered(
   currentRouteUrl: string | undefined,
   appId: string | undefined,
@@ -977,8 +1020,24 @@ export function markAchievementCompanionGamePageAchievementSummaryFetchCompleted
         : undefined;
   const clearKeys: readonly AchievementCompanionGamePageBadgePipelineDebugClearKey[] =
     summary.status === "ready"
-      ? ["summaryReason", "thrownErrorMessage"]
-      : ["summaryProvider", "summaryGameId", "summaryTitle", "summaryEarned", "summaryTotal"];
+      ? [
+          "summaryReason",
+          "thrownErrorMessage",
+          ...(summary.provider === "retroachievements" && summary.completionStatus !== undefined
+            ? []
+            : (["summaryCompletionStatus"] as const)),
+        ]
+      : [
+          "summaryProvider",
+          "summaryGameId",
+          "summaryTitle",
+          "summaryEarned",
+          "summaryTotal",
+          "summaryCompletionStatus",
+          "badgeCompletionStatus",
+          "badgeStatusVariant",
+          "nativeBadgeStatusRendered",
+        ];
   updateAchievementCompanionGamePageBadgeDebug({
     routeAppId: summary.appId,
     summaryLoadFinished: true,
@@ -990,6 +1049,9 @@ export function markAchievementCompanionGamePageAchievementSummaryFetchCompleted
           ...(summary.title !== undefined ? { summaryTitle: summary.title } : {}),
           summaryEarned: summary.earned,
           summaryTotal: summary.total,
+          ...(summary.provider === "retroachievements" && summary.completionStatus !== undefined
+            ? { summaryCompletionStatus: summary.completionStatus }
+            : {}),
         }
       : summary.status === "unavailable"
         ? {
