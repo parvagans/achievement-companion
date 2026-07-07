@@ -10406,6 +10406,7 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(runtimeDebugSource, /markAchievementCompanionRetroAchievementsShortcutResolution/u);
   assert.match(runtimeDebugSource, /markAchievementCompanionGamePageAchievementSummaryFetchStarted/u);
   assert.match(runtimeDebugSource, /markAchievementCompanionGamePageAchievementSummaryFetchCompleted/u);
+  assert.match(runtimeDebugSource, /markAchievementCompanionGamePageBadgeStatus/u);
   assert.match(runtimeDebugSource, /markAchievementCompanionGamePageShortcutDetected/u);
   assert.match(runtimeDebugSource, /updateAchievementCompanionGamePageBadgeDebug/u);
   assert.match(runtimeDebugSource, /updateAchievementCompanionRaShortcutResolutionDebug/u);
@@ -10446,6 +10447,8 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(summarySource, /loadRetroAchievementsGameListCandidatesForPlatform/u);
   assert.match(summarySource, /ra-api-game-detail/u);
   assert.match(summarySource, /normalizeRetroAchievementsTitleMatchKey/u);
+  assert.match(summarySource, /RetroAchievementsCompletionStatus/u);
+  assert.match(summarySource, /normalizeRetroAchievementsCompletionStatus/u);
   assert.match(summarySource, /completion-progress-title-match/u);
   assert.match(summarySource, /preferRetroAchievementsBaseSetCandidates/u);
   assert.match(runtimeDebugSource, /completionProgressRelevantCandidates/u);
@@ -10486,6 +10489,18 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(bubbleSource, /AchievementCompanionGamePageBadge/u);
   assert.match(bubbleSource, /DeckySystemIcon/u);
   assert.match(bubbleSource, /renderDeckyGamePageAchievementBadgeContent/u);
+  assert.match(bubbleSource, /resolveDeckyGamePageAchievementBadgeCompletionStatus/u);
+  assert.match(bubbleSource, /resolveDeckyGamePageAchievementBadgeStatusVariant/u);
+  assert.match(bubbleSource, /formatDeckyGamePageAchievementBadgeStatusLabel/u);
+  assert.match(bubbleSource, /getDeckyGamePageAchievementBadgeStatusStackStyle/u);
+  assert.match(bubbleSource, /getDeckyGamePageAchievementBadgeStatusShellStyle/u);
+  assert.match(bubbleSource, /getDeckyGamePageAchievementBadgeStatusPillStyle/u);
+  assert.match(bubbleSource, /getDeckyGamePageAchievementBadgeStatusLabelStyle/u);
+  assert.match(bubbleSource, /markAchievementCompanionGamePageBadgeStatus/u);
+  assert.match(bubbleSource, /summary\.completionStatus/u);
+  assert.match(bubbleSource, /badgeStatusVariant !== "plain"/u);
+  assert.match(bubbleSource, /BEATEN/u);
+  assert.match(bubbleSource, /MASTERED/u);
   assert.match(bubbleSource, /resolveDeckyGamePageRetroSystemIconMetadata/u);
   assert.match(bubbleSource, /collectDeckyGamePageRetroSystemIconCandidates/u);
   assert.match(bubbleSource, /summary\.platformLabel !== undefined \|\| summary\.systemIconUrl !== undefined/u);
@@ -10518,8 +10533,9 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(bubbleSource, /left:\s*32/u);
   assert.match(
     bubbleSource,
-    /position:\s*"absolute",\s*top:\s*slot\.top,\s*left:\s*slot\.left,\s*right:\s*slot\.right,\s*zIndex:\s*1000/u,
+    /position:\s*"absolute",\s*top:\s*slot\.top,\s*left:\s*slot\.left,\s*right:\s*slot\.right[\s\S]*background:\s*"transparent"[\s\S]*boxShadow:\s*"none"[\s\S]*zIndex:\s*1000/u,
   );
+  assert.doesNotMatch(routeBadgeStyleFunctionSource, /getDeckyGamePageAchievementBadgeBaseStyle/u);
   assert.match(bubbleSource, /chooseDeckyGamePageAchievementRouteBadgePlacement/u);
   assert.match(bubbleSource, /collectDeckyGamePageAchievementRouteBadgeObstacleRects/u);
   assert.match(bubbleSource, /resolveDeckyGamePageAchievementRouteBadgeContainer/u);
@@ -11026,6 +11042,7 @@ test("game page achievement summary writes FFX badge pipeline and RetroAchieveme
     assert.equal(badgeDebug.summaryTitle, "Final Fantasy X: International");
     assert.equal(badgeDebug.summaryEarned, 97);
     assert.equal(badgeDebug.summaryTotal, 249);
+    assert.equal(badgeDebug.summaryCompletionStatus, "beaten");
 
     assert.equal(resolverDebug.appId, "2874315920");
     assert.equal(resolverDebug.shortcutMetadataLoaded, true);
@@ -11705,6 +11722,7 @@ test("game page achievement summary clears stale RetroAchievements debug fields 
     assert.equal(readyBadgeDebug.summaryTitle, "Final Fantasy X: International");
     assert.equal(readyBadgeDebug.summaryEarned, 97);
     assert.equal(readyBadgeDebug.summaryTotal, 249);
+    assert.equal(readyBadgeDebug.summaryCompletionStatus, "beaten");
     assert.equal(readyResolverDebug.finalStatus, "mapped");
     assert.equal(readyResolverDebug.apiMatchedGameId, "2778");
     assert.equal(readyResolverDebug.apiMatchedTitle, "Final Fantasy X: International");
@@ -11740,6 +11758,7 @@ test("game page achievement summary clears stale RetroAchievements debug fields 
     assert.notEqual(badgeDebug.summaryTitle, "Final Fantasy X: International");
     assert.notEqual(badgeDebug.summaryEarned, 97);
     assert.notEqual(badgeDebug.summaryTotal, 249);
+    assert.equal(badgeDebug.summaryCompletionStatus, undefined);
     assert.equal(resolverDebug.finalStatus, "unavailable");
     assert.equal(resolverDebug.finalReason, "ra-game-list-no-match");
     assert.equal(resolverDebug.apiMatchedGameId, undefined);
@@ -12842,6 +12861,7 @@ test("game page achievement summary resolves Final Fantasy X International throu
     assert.equal(firstSummary.title, "Final Fantasy X: International");
     assert.equal(firstSummary.earned, 97);
     assert.equal(firstSummary.total, 249);
+    assert.equal(firstSummary.completionStatus, "beaten");
     assert.equal(firstSummary.platformLabel, "PlayStation 2");
     assert.equal(firstSummary.systemIconUrl, "https://example.com/ps2.png");
     assert.equal(firstSummary.source, "backend");
@@ -12874,6 +12894,7 @@ test("game page achievement summary resolves Final Fantasy X International throu
     assert.equal(secondSummary.title, "Final Fantasy X: International");
     assert.equal(secondSummary.earned, 97);
     assert.equal(secondSummary.total, 249);
+    assert.equal(secondSummary.completionStatus, "beaten");
     assert.equal(secondSummary.platformLabel, "PlayStation 2");
     assert.equal(secondSummary.systemIconUrl, "https://example.com/ps2.png");
     assert.equal(secondSummary.source, "backend");
@@ -12936,8 +12957,9 @@ test("game page achievement summary resolves a RetroAchievements shortcut throug
         title: "~Homebrew~ Pyoro 64",
         consoleId: 2,
         consoleName: "Nintendo 64",
-        unlockedCount: 0,
-        totalCount: 1,
+        highestAwardKind: "beaten",
+        unlockedCount: 16,
+        totalCount: 33,
       }),
     };
 
@@ -12950,12 +12972,15 @@ test("game page achievement summary resolves a RetroAchievements shortcut throug
     assert.equal(summary.provider, "retroachievements");
     assert.equal(summary.gameId, "9001");
     assert.equal(summary.title, "~Homebrew~ Pyoro 64");
-    assert.equal(summary.earned, 0);
-    assert.equal(summary.total, 1);
+    assert.equal(summary.earned, 16);
+    assert.equal(summary.total, 33);
+    assert.equal(summary.completionStatus, "beaten");
     assert.equal(summary.platformLabel, "Nintendo 64");
     assert.equal(summary.systemIconUrl, "https://example.com/n64.png");
 
+    const badgeDebug = getAchievementCompanionLastGamePageBadgeDebug();
     const runtimeDebugState = getAchievementCompanionRuntimeDebugState();
+    assert.equal(badgeDebug?.summaryCompletionStatus, "beaten");
     assert.equal(runtimeDebugState.lastRetroAchievementsShortcutAppId, "2493414762");
     assert.equal(runtimeDebugState.lastRetroAchievementsShortcutTitle, "Pyoro64");
     assert.equal(runtimeDebugState.lastRetroAchievementsShortcutPlatform, "Nintendo 64");
@@ -12972,6 +12997,87 @@ test("game page achievement summary resolves a RetroAchievements shortcut throug
     assert.equal(runtimeDebugState.lastRetroAchievementsResolutionSource, "ra-hash-game-detail");
     assert.equal(runtimeDebugState.lastRetroAchievementsResolutionReason, "ra-hash-match");
     assert.equal(runtimeDebugState.lastRetroAchievementsCandidateCount, 1);
+  });
+});
+
+test("game page achievement summary preserves mastered completion status for a hash-resolved RetroAchievements shortcut", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2493414764": {
+        title: "~Homebrew~ Minicraft PSP",
+        platformTag: "Sony PlayStation Portable",
+        platformLabel: "Sony PlayStation Portable",
+        tags: ["Sony PlayStation Portable"],
+      },
+    };
+    deckyBackendTestState.steam.shortcutRomHashByAppId = {
+      "2493414764": {
+        shortcutRomPathDetected: true,
+        shortcutRomPathSource: "exe",
+        romHashAttempted: true,
+        romHashStatus: "resolved",
+        romHashAlgorithm: "md5",
+        romHash: "BADDCAFEBADDCAFEBADDCAFEBADDCAFE",
+      },
+    };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 41,
+        Name: "PlayStation Portable",
+        IconURL: "https://example.com/psp.png",
+      },
+    ];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "41": [
+        {
+          GameID: 9200,
+          Title: "~Homebrew~ Minicraft PSP",
+          ConsoleID: 41,
+          ConsoleName: "PlayStation Portable",
+          Hashes: ["baddcafebaddcafebaddcafebaddcafe"],
+        },
+      ],
+    };
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      "9200": createRetroAchievementsGameProgressResponse({
+        gameId: "9200",
+        title: "~Homebrew~ Minicraft PSP",
+        consoleId: 41,
+        consoleName: "PlayStation Portable",
+        highestAwardKind: "mastered",
+        unlockedCount: 57,
+        totalCount: 57,
+        hardcoreUnlockedCount: 57,
+      }),
+    };
+
+    const summary = await loadDeckyGamePageAchievementSummary("2493414764");
+    assert.equal(summary.status, "ready");
+    if (summary.status !== "ready") {
+      return;
+    }
+
+    assert.equal(summary.provider, "retroachievements");
+    assert.equal(summary.gameId, "9200");
+    assert.equal(summary.title, "~Homebrew~ Minicraft PSP");
+    assert.equal(summary.earned, 57);
+    assert.equal(summary.total, 57);
+    assert.equal(summary.completionStatus, "mastered");
+    assert.equal(summary.platformLabel, "PlayStation Portable");
+    assert.equal(summary.systemIconUrl, "https://example.com/psp.png");
+
+    const badgeDebug = getAchievementCompanionLastGamePageBadgeDebug();
+    const runtimeDebugState = getAchievementCompanionRuntimeDebugState();
+    assert.equal(badgeDebug?.summaryCompletionStatus, "mastered");
+    assert.equal(runtimeDebugState.lastRetroAchievementsFinalResolverSource, "hash");
+    assert.equal(runtimeDebugState.lastRetroAchievementsResolutionSource, "ra-hash-game-detail");
   });
 });
 
