@@ -8,6 +8,24 @@
 
 Achievement Companion is a Decky Loader plugin for Steam Deck Game Mode. It brings RetroAchievements and Steam achievement progress into the Decky quick-access menu and adds game-page achievement badges that can open fullscreen achievement details. 
 
+## Screenshots
+
+### Provider Selection
+
+![Achievement Companion provider selection](assets/providers_menu.jpg)
+
+### Decky Quick Access Menu
+
+![Achievement Companion native Decky Loader menu](assets/decky_loader_plugin_Achievement_Companion.jpg)
+
+### RetroAchievements Fullscreen View
+
+![Achievement Companion RetroAchievements fullscreen view](assets/decky_loader_plugin_RA_Full-Screen.jpg)
+
+### Steam Fullscreen View
+
+![Achievement Companion Steam fullscreen view](assets/decky_loader_plugin_Steam_Full-Screen.jpg)
+
 ## What Is New In v0.3.2
 
 - Improved native Steam Game Mode badges for RetroAchievements shortcuts.
