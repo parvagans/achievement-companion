@@ -5287,7 +5287,12 @@ test("retroachievements profile completion tiles render compact and fullscreen b
   });
   assert.equal(steamStats.some((stat) => stat.completionBreakdown !== undefined), false);
   assert.match(compactDashboardSource, /RetroAchievementsCompletionBreakdown[\s\S]*variant="compact"/u);
-  assert.match(fullScreenProfileSource, /RetroAchievementsCompletionBreakdown[\s\S]*variant="full"/u);
+  assert.match(fullScreenProfileSource, /function ProfileCompletionBreakdown/u);
+  assert.match(fullScreenProfileSource, /softcoreItem\?\.count \?\? 0/u);
+  assert.match(fullScreenProfileSource, /hardcoreItem\?\.count \?\? 0/u);
+  assert.match(fullScreenProfileSource, /`\$\{softcoreCount\.toLocaleString\(\)\} SC`/u);
+  assert.match(fullScreenProfileSource, /`\$\{hardcoreCount\.toLocaleString\(\)\} HC`/u);
+  assert.match(fullScreenProfileSource, /Softcore, \$\{hardcoreCount\.toLocaleString\(\)\} Hardcore/u);
   assert.match(indicatorSource, /data-retroachievements-completion-breakdown=\{kind\}/u);
   assert.match(indicatorSource, /item\.count !== undefined && item\.count > 0/u);
 });
