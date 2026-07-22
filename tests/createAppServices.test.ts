@@ -91,6 +91,12 @@ import {
   buildRetroAchievementsProfileOverviewStatSections,
 } from "../src/platform/decky/decky-overview-stats";
 import {
+  getRetroAchievementsProfileAwardStatus,
+  getRetroAchievementsSupplementaryProfileStats,
+  selectRetroAchievementsCompletionProgressGames,
+  selectRetroAchievementsGameAwards,
+} from "../src/platform/decky/decky-full-screen-profile-data";
+import {
   buildCompletionProgressSummaryCards,
 } from "../src/platform/decky/decky-completion-progress-summary-card-data";
 import {
@@ -4463,6 +4469,274 @@ test("retroachievements full-screen profile groups stats by category", () => {
   assert.equal(
     sections.flatMap((section) => section.stats).some((stat) => stat.label === "Member since"),
     false,
+  );
+});
+
+test("retroachievements full-screen profile uses a compact stats grid and provider-scoped overview cards", () => {
+  const source = readFileSync("src/platform/decky/decky-full-screen-profile-page.tsx", "utf8");
+
+  assert.match(
+    source,
+    /function getCompactStatsOverviewStyle\(\): CSSProperties \{[\s\S]*gridTemplateColumns: "repeat\(2, minmax\(0, 1fr\)\)"/u,
+  );
+  assert.match(
+    source,
+    /function getAwardsProgressGridStyle\(\): CSSProperties \{[\s\S]*alignItems: "stretch"/u,
+  );
+  assert.match(
+    source,
+    /function getOverviewCardStyle\(\): CSSProperties \{[\s\S]*height: "100%"/u,
+  );
+  assert.match(source, /data-retroachievements-profile-stats-overview/u);
+  assert.match(source, /data-retroachievements-profile-supplementary-stats/u);
+  assert.match(source, /data-retroachievements-profile-game-awards/u);
+  assert.match(source, /data-retroachievements-profile-completion-progress/u);
+  assert.doesNotMatch(source, /completionStats=\{retroAchievementsCompletionStats\}/u);
+  assert.doesNotMatch(source, /function getAwardSummaryStyle/u);
+  assert.match(source, /loadDeckyCompletionProgressState\(providerId\)/u);
+  assert.match(source, /completionProgressState\.data\.games/u);
+  assert.doesNotMatch(
+    source,
+    /selectRetroAchievements(?:GameAward|CompletionProgress)Games\(snapshot\.featuredGames\)/u,
+  );
+  assert.match(source, /DeckyCompletionProgressBar compact percent=\{completionPercent\}/u);
+  assert.match(source, /Loading full completion records\.\.\./u);
+  assert.match(source, /Full completion records are unavailable right now\./u);
+  assert.match(source, /No completed game records are available\./u);
+  assert.match(source, />\s*Beaten Games\s*</u);
+  assert.match(source, /No unfinished games are available in this snapshot\./u);
+  assert.match(
+    source,
+    /\{profile\.providerId !== STEAM_PROVIDER_ID \? \([\s\S]*<PanelSection title="Awards & Progress">/u,
+  );
+  assert.match(source, /profile\.providerId === STEAM_PROVIDER_ID \? getSteamAccountProgressSummary/u);
+  assert.match(
+    source,
+    /DeckyFullscreenActionRow centered[\s\S]*label="Back"[\s\S]*label="Completion Progress"[\s\S]*label="Achievement History"[\s\S]*label="Settings"/u,
+  );
+});
+
+test("retroachievements supplementary profile stats render only meaningful loaded values", () => {
+  const profile = normalizeRetroAchievementsProfile(
+    {
+      User: "Retro User",
+      ULID: "abc123",
+      MemberSince: "2020-01-02 00:00:00",
+    },
+    {
+      unlockedCount: 12,
+      totalCount: 20,
+      completionPercent: 60,
+    },
+    {
+      username: "retro-user",
+      apiKey: "secret",
+    },
+  );
+  const completionGame: NormalizedGame = {
+    providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+    gameId: "1",
+    title: "Active Game",
+    status: "in_progress",
+    summary: {
+      unlockedCount: 2,
+      totalCount: 10,
+      completionPercent: 20,
+    },
+    metrics: [],
+    lastUnlockAt: Date.now() - 60_000,
+  };
+
+  const populated = getRetroAchievementsSupplementaryProfileStats({
+    profile,
+    recentlyPlayedGames: [],
+    completionGames: [completionGame],
+  });
+  assert.deepStrictEqual(populated.map((stat) => stat.label), ["Achievement completion", "Last activity"]);
+  assert.equal(populated[0]?.value, "60%");
+  assert.notEqual(populated[1]?.value, undefined);
+
+  const empty = getRetroAchievementsSupplementaryProfileStats({
+    profile: {
+      ...profile,
+      summary: {
+        unlockedCount: 0,
+      },
+    },
+    recentlyPlayedGames: [],
+    completionGames: [],
+  });
+  assert.deepStrictEqual(empty, []);
+});
+
+test("retroachievements profile game awards prefer authoritative mastered records and cap at three", () => {
+  const createAwardGame = (
+    gameId: string,
+    title: string,
+    highestAwardKind: string,
+  ): NormalizedGame => ({
+    providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+    gameId,
+    title,
+    platformLabel: "NES/Famicom",
+    status: highestAwardKind.includes("beaten") ? "beaten" : "mastered",
+    summary: {
+      unlockedCount: 5,
+      totalCount: 5,
+      completionPercent: 100,
+    },
+    metrics: [
+      {
+        key: "highest-award-kind",
+        label: "Highest Award",
+        value: highestAwardKind,
+      },
+    ],
+  });
+  const games = [
+    createAwardGame("1", "Beaten First", "beaten-hardcore"),
+    createAwardGame("2", "Mastered First", "mastered"),
+    createAwardGame("3", "Beaten Second", "beaten"),
+    createAwardGame("4", "Mastered Second", "completed"),
+    createAwardGame("5", "Mastered Third", "mastered-hardcore"),
+    createAwardGame("6", "Mastered Fourth", "completed-softcore"),
+  ];
+
+  const selection = selectRetroAchievementsGameAwards(games);
+  assert.equal(selection.mode, "mastered");
+  assert.equal(selection.subtitle, "4 mastered awards");
+  assert.deepStrictEqual(
+    selection.games.map((game) => game.title),
+    ["Mastered First", "Mastered Second", "Mastered Third"],
+  );
+});
+
+test("retroachievements profile game awards fall back to clearly labeled beaten games", () => {
+  const createBeatenGame = (gameId: string): NormalizedGame => ({
+    providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+    gameId,
+    title: `Beaten ${gameId}`,
+    status: "beaten",
+    summary: { unlockedCount: 8, totalCount: 10, completionPercent: 80 },
+    metrics: [
+      { key: "highest-award-kind", label: "Highest Award", value: "beaten-hardcore" },
+    ],
+  });
+  const selection = selectRetroAchievementsGameAwards([
+    createBeatenGame("1"),
+    createBeatenGame("2"),
+    createBeatenGame("3"),
+    createBeatenGame("4"),
+  ]);
+
+  assert.equal(selection.mode, "beaten");
+  assert.equal(selection.subtitle, "No mastered awards yet");
+  assert.equal(selection.games.length, 3);
+  assert.equal(
+    selection.games.every((game) => getRetroAchievementsProfileAwardStatus(game) === "beaten"),
+    true,
+  );
+});
+
+test("retroachievements profile game awards expose a compact empty state", () => {
+  assert.deepStrictEqual(selectRetroAchievementsGameAwards([]), {
+    mode: "empty",
+    games: [],
+    subtitle: "No awards yet",
+  });
+});
+
+test("retroachievements profile awards can use mastered records absent from the partial dashboard snapshot", () => {
+  const beatenGame: NormalizedGame = {
+    providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+    gameId: "partial-beaten",
+    title: "Partial Beaten",
+    status: "beaten",
+    summary: { unlockedCount: 8, totalCount: 10, completionPercent: 80 },
+    metrics: [
+      { key: "highest-award-kind", label: "Highest Award", value: "beaten-hardcore" },
+    ],
+  };
+  const masteredGame: NormalizedGame = {
+    providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+    gameId: "full-mastered",
+    title: "Full Mastered",
+    status: "mastered",
+    summary: { unlockedCount: 20, totalCount: 20, completionPercent: 100 },
+    metrics: [
+      { key: "highest-award-kind", label: "Highest Award", value: "mastered" },
+    ],
+  };
+
+  assert.equal(selectRetroAchievementsGameAwards([beatenGame]).mode, "beaten");
+  const fullSelection = selectRetroAchievementsGameAwards([beatenGame, masteredGame]);
+  assert.equal(fullSelection.mode, "mastered");
+  assert.equal(fullSelection.subtitle, "1 mastered award");
+  assert.deepStrictEqual(fullSelection.games.map((game) => game.gameId), ["full-mastered"]);
+});
+
+test("retroachievements profile completion preview ranks incomplete games closest to mastery", () => {
+  const createProgressGame = (
+    gameId: string,
+    title: string,
+    unlockedCount: number,
+    totalCount: number,
+    highestAwardKind?: string,
+    status: NormalizedGame["status"] = highestAwardKind === undefined ? "in_progress" : "mastered",
+  ): NormalizedGame => ({
+    providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+    gameId,
+    title,
+    platformLabel: "SNES/Super Famicom",
+    status,
+    summary: {
+      unlockedCount,
+      totalCount,
+      completionPercent: Math.round((unlockedCount / totalCount) * 100),
+    },
+    metrics:
+      highestAwardKind === undefined
+        ? []
+        : [
+            {
+              key: "highest-award-kind",
+              label: "Highest Award",
+              value: highestAwardKind,
+            },
+          ],
+  });
+  const games = [
+    createProgressGame("1", "Lower Progress", 3, 10),
+    createProgressGame("2", "Mastered Award", 8, 10, "mastered"),
+    createProgressGame("3", "Beaten Progress", 47, 70, "beaten-hardcore", "beaten"),
+    createProgressGame("4", "Highest Progress", 20, 25),
+    createProgressGame("5", "Equal Ratio Lower Earned", 8, 20),
+    createProgressGame("6", "Equal Ratio Higher Earned First", 16, 40),
+    createProgressGame("7", "Equal Ratio Higher Earned Second", 16, 40),
+    createProgressGame("8", "Complete Without Award", 10, 10, undefined, "completed"),
+    createProgressGame("9", "No Total", 2, 0),
+    createProgressGame("10", "Completed Status Below 100", 9, 10, undefined, "completed"),
+  ];
+
+  const selected = selectRetroAchievementsCompletionProgressGames(games, 6);
+  assert.deepStrictEqual(
+    selected.map((game) => game.title),
+    [
+      "Highest Progress",
+      "Beaten Progress",
+      "Equal Ratio Higher Earned First",
+      "Equal Ratio Higher Earned Second",
+      "Equal Ratio Lower Earned",
+      "Lower Progress",
+    ],
+  );
+  assert.equal(selected.some((game) => game.title === "Mastered Award"), false);
+  assert.equal(selected.some((game) => game.title === "Complete Without Award"), false);
+  assert.equal(selected.some((game) => game.title === "Completed Status Below 100"), false);
+  assert.equal(selected.some((game) => game.title === "Beaten Progress"), true);
+  assert.deepStrictEqual(
+    selectRetroAchievementsCompletionProgressGames(games).map((game) => game.title),
+    ["Highest Progress", "Beaten Progress", "Equal Ratio Higher Earned First"],
   );
 });
 
