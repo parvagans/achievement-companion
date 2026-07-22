@@ -216,6 +216,11 @@ type RetroAchievementsShortcutResolutionDebugArgs = RetroAchievementsShortcutRes
     | "detailTotal"
     | "detailLoadStatus"
     | "detailLoadReason"
+    | "completionStatusEnrichmentAttempted"
+    | "completionStatusEnrichmentStatus"
+    | "completionStatusEnrichmentSource"
+    | "completionStatusEnrichmentGameId"
+    | "enrichedCompletionStatus"
     | "hashResolverAttempted"
     | "hashResolverSkippedReason"
     | "shortcutRomPathDetected"
@@ -239,6 +244,15 @@ interface CachedGamePageAchievementSummaryEntry {
   readonly storedAt: number;
   readonly summary: GamePageAchievementSummary;
 }
+
+type RetroAchievementsCompletionStatusEnrichmentResult =
+  | {
+      readonly status: "resolved";
+      readonly completionStatus: RetroAchievementsCompletionStatus;
+    }
+  | {
+      readonly status: "unavailable" | "failed";
+    };
 
 interface RetroAchievementsDashboardCandidate {
   readonly gameId: string;
@@ -314,6 +328,17 @@ type RetroAchievementsGameListCandidatesLoadResult =
 
 const gamePageAchievementSummaryCache = new Map<string, CachedGamePageAchievementSummaryEntry>();
 const gamePageAchievementSummaryInFlight = new Map<string, Promise<GamePageAchievementSummary>>();
+const retroAchievementsCompletionStatusEnrichmentCacheByGameId = new Map<
+  string,
+  {
+    readonly storedAt: number;
+    readonly result: RetroAchievementsCompletionStatusEnrichmentResult;
+  }
+>();
+const retroAchievementsCompletionStatusEnrichmentInFlightByGameId = new Map<
+  string,
+  Promise<RetroAchievementsCompletionStatusEnrichmentResult>
+>();
 const retroAchievementsGameListCandidatesCacheByPlatform = new Map<
   string,
   {
@@ -2034,6 +2059,11 @@ async function resolveSummaryFromRetroAchievementsShortcut(
     | "detailTotal"
     | "detailLoadStatus"
     | "detailLoadReason"
+    | "completionStatusEnrichmentAttempted"
+    | "completionStatusEnrichmentStatus"
+    | "completionStatusEnrichmentSource"
+    | "completionStatusEnrichmentGameId"
+    | "enrichedCompletionStatus"
     | "hashResolverAttempted"
     | "hashResolverSkippedReason"
     | "shortcutRomPathDetected"
@@ -2064,6 +2094,11 @@ async function resolveSummaryFromRetroAchievementsShortcut(
     "detailTotal",
     "detailLoadStatus",
     "detailLoadReason",
+    "completionStatusEnrichmentAttempted",
+    "completionStatusEnrichmentStatus",
+    "completionStatusEnrichmentSource",
+    "completionStatusEnrichmentGameId",
+    "enrichedCompletionStatus",
     "hashResolverAttempted",
     "hashResolverSkippedReason",
     "shortcutRomPathDetected",
@@ -2815,6 +2850,115 @@ export function formatDeckyGamePageAchievementBadgeLabel(
   return formatDeckyGamePageAchievementBadgeLoadingText(summary, getAchievementCompanionRuntimeDebugState());
 }
 
+async function loadRetroAchievementsCompletionStatusEnrichment(
+  gameId: string,
+): Promise<RetroAchievementsCompletionStatusEnrichmentResult> {
+  const cachedEntry = retroAchievementsCompletionStatusEnrichmentCacheByGameId.get(gameId);
+  if (
+    cachedEntry !== undefined &&
+    Date.now() - cachedEntry.storedAt <= GAME_PAGE_ACHIEVEMENT_SUMMARY_CACHE_TTL_MS
+  ) {
+    return cachedEntry.result;
+  }
+
+  const inFlight = retroAchievementsCompletionStatusEnrichmentInFlightByGameId.get(gameId);
+  if (inFlight !== undefined) {
+    return inFlight;
+  }
+
+  const loadPromise = (async (): Promise<RetroAchievementsCompletionStatusEnrichmentResult> => {
+    try {
+      const gameDetailState = await loadDeckyGameDetailStateLazy(
+        RETROACHIEVEMENTS_PROVIDER_ID,
+        gameId,
+        { forceRefresh: false },
+      );
+      if (gameDetailState.status === "error") {
+        return { status: "failed" };
+      }
+
+      const game = gameDetailState.data?.game;
+      if (gameDetailState.status !== "success" || game === undefined) {
+        return { status: "unavailable" };
+      }
+
+      const completionStatus = normalizeRetroAchievementsCompletionStatus(
+        undefined,
+        getRetroAchievementsHighestAwardKind(game),
+      );
+      return completionStatus === undefined
+        ? { status: "unavailable" }
+        : { status: "resolved", completionStatus };
+    } catch {
+      return { status: "failed" };
+    }
+  })();
+
+  retroAchievementsCompletionStatusEnrichmentInFlightByGameId.set(gameId, loadPromise);
+  try {
+    const result = await loadPromise;
+    retroAchievementsCompletionStatusEnrichmentCacheByGameId.set(gameId, {
+      storedAt: Date.now(),
+      result,
+    });
+    return result;
+  } finally {
+    if (retroAchievementsCompletionStatusEnrichmentInFlightByGameId.get(gameId) === loadPromise) {
+      retroAchievementsCompletionStatusEnrichmentInFlightByGameId.delete(gameId);
+    }
+  }
+}
+
+export async function enrichDeckyGamePageAchievementSummaryCompletionStatus(
+  summary: GamePageAchievementSummary,
+): Promise<GamePageAchievementSummary> {
+  if (
+    summary.status !== "ready" ||
+    summary.provider !== "retroachievements" ||
+    summary.gameId === undefined ||
+    summary.completionStatus !== undefined
+  ) {
+    return summary;
+  }
+
+  updateAchievementCompanionRaShortcutResolutionDebug({
+    completionStatusEnrichmentAttempted: true,
+    completionStatusEnrichmentStatus: "loading",
+    completionStatusEnrichmentSource: "ra-game-detail",
+    completionStatusEnrichmentGameId: summary.gameId,
+    clearKeys: ["enrichedCompletionStatus"],
+  });
+  const result = await loadRetroAchievementsCompletionStatusEnrichment(summary.gameId);
+  if (result.status !== "resolved") {
+    updateAchievementCompanionRaShortcutResolutionDebug({
+      completionStatusEnrichmentAttempted: true,
+      completionStatusEnrichmentStatus: result.status,
+      completionStatusEnrichmentSource: "ra-game-detail",
+      completionStatusEnrichmentGameId: summary.gameId,
+      clearKeys: ["enrichedCompletionStatus"],
+    });
+    return summary;
+  }
+
+  const enrichedSummary: GamePageAchievementSummary = {
+    ...summary,
+    completionStatus: result.completionStatus,
+  };
+  gamePageAchievementSummaryCache.set(summary.appId, {
+    storedAt: Date.now(),
+    summary: enrichedSummary,
+  });
+  updateAchievementCompanionRaShortcutResolutionDebug({
+    completionStatusEnrichmentAttempted: true,
+    completionStatusEnrichmentStatus: "resolved",
+    completionStatusEnrichmentSource: "ra-game-detail",
+    completionStatusEnrichmentGameId: summary.gameId,
+    enrichedCompletionStatus: result.completionStatus,
+  });
+  markAchievementCompanionGamePageAchievementSummaryFetchCompleted(enrichedSummary);
+  return enrichedSummary;
+}
+
 type DeckyGamePageAchievementBadgeLoadingState = Partial<{
   readonly lastSummaryStatus: GamePageAchievementSummary["status"] | undefined;
   readonly lastSummaryFetchStartedAt: string | undefined;
@@ -2911,6 +3055,8 @@ export function formatDeckyGamePageAchievementBadgeLoadingText(
 export function clearDeckyGamePageAchievementSummaryCacheForTests(): void {
   gamePageAchievementSummaryCache.clear();
   gamePageAchievementSummaryInFlight.clear();
+  retroAchievementsCompletionStatusEnrichmentCacheByGameId.clear();
+  retroAchievementsCompletionStatusEnrichmentInFlightByGameId.clear();
   retroAchievementsSystemsCache = undefined;
   retroAchievementsSystemsInFlight = undefined;
   retroAchievementsGameListCandidatesCacheByPlatform.clear();
@@ -3108,6 +3254,35 @@ export function useGamePageAchievementSummary(
         markAchievementCompanionGamePageAchievementSummaryFetchCompleted(errorSummary);
       });
   }, [appId]);
+
+  useEffect(() => {
+    if (
+      summary?.status !== "ready" ||
+      summary.provider !== "retroachievements" ||
+      summary.gameId === undefined ||
+      summary.completionStatus !== undefined
+    ) {
+      return;
+    }
+
+    const requestSequence = requestSequenceRef.current;
+    let cancelled = false;
+    void enrichDeckyGamePageAchievementSummaryCompletionStatus(summary).then((enrichedSummary) => {
+      if (
+        cancelled ||
+        requestSequenceRef.current !== requestSequence ||
+        enrichedSummary === summary
+      ) {
+        return;
+      }
+
+      setSummary(enrichedSummary);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [summary]);
 
   return useMemo(() => summary, [summary]);
 }

@@ -204,6 +204,11 @@ export interface AchievementCompanionRaShortcutResolutionDebugRecord {
   readonly detailEarned?: number;
   readonly detailEarnedHardcore?: number;
   readonly detailTotal?: number;
+  readonly completionStatusEnrichmentAttempted?: boolean;
+  readonly completionStatusEnrichmentStatus?: "idle" | "loading" | "resolved" | "unavailable" | "failed";
+  readonly completionStatusEnrichmentSource?: "ra-game-detail";
+  readonly completionStatusEnrichmentGameId?: string;
+  readonly enrichedCompletionStatus?: "beaten" | "mastered";
   readonly hashResolverAttempted?: boolean;
   readonly hashResolverSkippedReason?: string;
   readonly shortcutRomPathDetected?: boolean;
