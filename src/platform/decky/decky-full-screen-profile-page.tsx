@@ -38,7 +38,10 @@ import {
 } from "./decky-stat-helpers";
 import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
 import { StatsGrid } from "./decky-layout-components";
-import { RetroAchievementsCompletionBreakdown } from "./decky-retroachievements-completion-indicator";
+import {
+  getRetroAchievementsCompletionIndicatorStyle,
+  type RetroAchievementsCompletionBreakdownItem,
+} from "./decky-retroachievements-completion-indicator";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 import {
   getRetroAchievementsProfileAwardStatus,
@@ -715,6 +718,77 @@ function ProfileAvatar({
   return <span style={getAvatarFallbackStyle(size)}>{getFallbackInitials(displayName)}</span>;
 }
 
+function getProfileCompletionBreakdownStyle(): CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    maxWidth: "100%",
+    color: "rgba(255, 255, 255, 0.72)",
+    fontSize: "0.76em",
+    fontWeight: 700,
+    lineHeight: 1.15,
+    whiteSpace: "nowrap",
+  };
+}
+
+function getProfileCompletionBreakdownItemStyle(): CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+  };
+}
+
+function getProfileCompletionBreakdownIndicatorStyle(
+  state: RetroAchievementsCompletionBreakdownItem["state"],
+): CSSProperties {
+  return {
+    ...getRetroAchievementsCompletionIndicatorStyle(state),
+    width: 9,
+    height: 9,
+  };
+}
+
+function ProfileCompletionBreakdown({
+  kind,
+  items,
+}: ProfileStatCompletionBreakdown): JSX.Element {
+  const softcoreItem = items.find((item) => item.mode === "softcore");
+  const hardcoreItem = items.find((item) => item.mode === "hardcore");
+  const softcoreCount = softcoreItem?.count ?? 0;
+  const hardcoreCount = hardcoreItem?.count ?? 0;
+  const softcoreState = softcoreItem?.state ?? (kind === "beaten" ? "beaten-softcore" : "mastered-softcore");
+  const hardcoreState = hardcoreItem?.state ?? (kind === "beaten" ? "beaten-hardcore" : "mastered-hardcore");
+
+  return (
+    <span
+      aria-label={`${softcoreCount.toLocaleString()} Softcore, ${hardcoreCount.toLocaleString()} Hardcore`}
+      data-retroachievements-profile-completion-breakdown={kind}
+      style={getProfileCompletionBreakdownStyle()}
+    >
+      <span
+        aria-label={`${softcoreCount.toLocaleString()} Softcore`}
+        title={`${softcoreCount.toLocaleString()} Softcore`}
+        style={getProfileCompletionBreakdownItemStyle()}
+      >
+        <span aria-hidden="true" style={getProfileCompletionBreakdownIndicatorStyle(softcoreState)} />
+        <span>{`${softcoreCount.toLocaleString()} SC`}</span>
+      </span>
+      <span aria-hidden="true" style={{ opacity: 0.42 }}>|</span>
+      <span
+        aria-label={`${hardcoreCount.toLocaleString()} Hardcore`}
+        title={`${hardcoreCount.toLocaleString()} Hardcore`}
+        style={getProfileCompletionBreakdownItemStyle()}
+      >
+        <span aria-hidden="true" style={getProfileCompletionBreakdownIndicatorStyle(hardcoreState)} />
+        <span>{`${hardcoreCount.toLocaleString()} HC`}</span>
+      </span>
+    </span>
+  );
+}
+
 function ProfileStat({
   label,
   value,
@@ -735,11 +809,7 @@ function ProfileStat({
       <div style={getStatLabelStyle()}>{label}</div>
       <div style={getStatValueStyle()}>{value}</div>
       {completionBreakdown !== undefined ? (
-        <RetroAchievementsCompletionBreakdown
-          kind={completionBreakdown.kind}
-          items={completionBreakdown.items}
-          variant="full"
-        />
+        <ProfileCompletionBreakdown {...completionBreakdown} />
       ) : null}
       {secondary !== undefined ? <div style={getStatSecondaryStyle()}>{secondary}</div> : null}
       {actionLabel !== undefined ? <div style={getStatActionLabelStyle()}>{actionLabel}</div> : null}
