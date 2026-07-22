@@ -1,11 +1,22 @@
 import { useMemo, type CSSProperties } from "react";
 import type { ResourceState } from "@core/cache";
-import type { DashboardSnapshot, NormalizedMetric, RecentlyPlayedGame } from "@core/domain";
+import type {
+  CompletionProgressSnapshot,
+  DashboardSnapshot,
+  NormalizedGame,
+  NormalizedMetric,
+  RecentlyPlayedGame,
+} from "@core/domain";
 import { Focusable, PanelSection, PanelSectionRow, ScrollPanel } from "@decky/ui";
 import { PlaceholderState } from "@ui/PlaceholderState";
 import { DeckyCompletionProgressBar } from "./decky-completion-progress-bar";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
-import { initialDeckyBootstrapState, loadDeckyDashboardState } from "./decky-app-services";
+import {
+  initialDeckyBootstrapState,
+  initialDeckyCompletionProgressState,
+  loadDeckyCompletionProgressState,
+  loadDeckyDashboardState,
+} from "./decky-app-services";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
@@ -28,6 +39,15 @@ import {
 import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
 import { StatsGrid } from "./decky-layout-components";
 import { RetroAchievementsCompletionBreakdown } from "./decky-retroachievements-completion-indicator";
+import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
+import {
+  getRetroAchievementsProfileAwardStatus,
+  getRetroAchievementsProfileGameCompletionPercent,
+  getRetroAchievementsSupplementaryProfileStats,
+  selectRetroAchievementsCompletionProgressGames,
+  selectRetroAchievementsGameAwards,
+  type RetroAchievementsGameAwardsSelection,
+} from "./decky-full-screen-profile-data";
 
 export interface DeckyFullScreenProfilePageProps {
   readonly providerId: string | undefined;
@@ -262,6 +282,192 @@ function getAvatarFallbackStyle(size: number): CSSProperties {
 
 function getSectionBlockStyle(variant: ProfileStatSectionVariant): CSSProperties {
   return getRetroAchievementsProfileSectionStyle(variant);
+}
+
+function getCompactStatsOverviewStyle(): CSSProperties {
+  return {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gap: 10,
+    width: "100%",
+    minWidth: 0,
+  };
+}
+
+function getCompactStatSectionStyle(variant: ProfileStatSectionVariant): CSSProperties {
+  return {
+    ...getSectionBlockStyle(variant),
+    gap: 8,
+    padding: 10,
+    position: "relative",
+    overflow: "hidden",
+    minWidth: 0,
+  };
+}
+
+function getSupplementaryStatsStyle(): CSSProperties {
+  return {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
+    gap: 8,
+    width: "100%",
+    minWidth: 0,
+    marginTop: 10,
+  };
+}
+
+function getSupplementaryStatStyle(): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: 12,
+    minWidth: 0,
+    padding: "8px 10px",
+    borderRadius: 12,
+    border: "1px solid rgba(255, 255, 255, 0.055)",
+    backgroundColor: "rgba(255, 255, 255, 0.025)",
+  };
+}
+
+function getAwardsProgressGridStyle(): CSSProperties {
+  return {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(340px, 1fr))",
+    alignItems: "stretch",
+    gap: 12,
+    width: "100%",
+    minWidth: 0,
+  };
+}
+
+function getOverviewCardStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    gap: 10,
+    minWidth: 0,
+    padding: 14,
+    borderRadius: 18,
+    border: "1px solid rgba(255, 255, 255, 0.07)",
+    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.025))",
+    boxSizing: "border-box",
+  };
+}
+
+function getOverviewCardHeaderStyle(): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: 12,
+    minWidth: 0,
+  };
+}
+
+function getOverviewCardTitleStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.94)",
+    fontSize: "0.86em",
+    fontWeight: 800,
+    letterSpacing: "0.06em",
+    textTransform: "uppercase",
+    lineHeight: 1.2,
+  };
+}
+
+function getOverviewCardMetaStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.56)",
+    fontSize: "0.72em",
+    fontWeight: 700,
+    lineHeight: 1.2,
+  };
+}
+
+function getPreviewRowsStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 7,
+    minWidth: 0,
+  };
+}
+
+function getPreviewRowStyle(): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    gap: 9,
+    minWidth: 0,
+    padding: 8,
+    borderRadius: 12,
+    border: "1px solid rgba(255, 255, 255, 0.055)",
+    backgroundColor: "rgba(255, 255, 255, 0.025)",
+  };
+}
+
+function getPreviewRowTextStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flex: "1 1 auto",
+    flexDirection: "column",
+    gap: 3,
+    minWidth: 0,
+  };
+}
+
+function getPreviewTitleStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.94)",
+    fontSize: "0.9em",
+    fontWeight: 750,
+    lineHeight: 1.15,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  };
+}
+
+function getPreviewMetaStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.62)",
+    fontSize: "0.74em",
+    lineHeight: 1.2,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  };
+}
+
+function getAwardPillStyle(status: "beaten" | "mastered"): CSSProperties {
+  const mastered = status === "mastered";
+  return {
+    flex: "0 0 auto",
+    padding: "4px 7px",
+    borderRadius: 999,
+    border: mastered
+      ? "1px solid rgba(232, 201, 102, 0.52)"
+      : "1px solid rgba(214, 221, 232, 0.42)",
+    backgroundColor: mastered
+      ? "rgba(214, 178, 74, 0.16)"
+      : "rgba(214, 221, 232, 0.1)",
+    color: mastered ? "rgba(242, 216, 127, 0.98)" : "rgba(230, 235, 242, 0.96)",
+    fontSize: "0.66em",
+    fontWeight: 850,
+    letterSpacing: "0.08em",
+    lineHeight: 1.1,
+  };
+}
+
+function getEmptyOverviewStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.58)",
+    fontSize: "0.82em",
+    lineHeight: 1.35,
+    padding: "8px 2px 2px",
+  };
 }
 
 function getProgressCardStyle(): CSSProperties {
@@ -565,6 +771,136 @@ interface ProfileStatDescriptor {
   readonly completionBreakdown?: ProfileStatCompletionBreakdown;
 }
 
+type RetroAchievementsProfileCompletionDataStatus = "loading" | "ready" | "unavailable";
+
+function ProfilePreviewArtwork({ game }: { readonly game: NormalizedGame }): JSX.Element {
+  const artworkUrl = game.coverImageUrl ?? game.boxArtImageUrl;
+  return artworkUrl !== undefined ? (
+    <DeckyGameArtwork compact src={artworkUrl} size={42} title={game.title} />
+  ) : (
+    <span style={getFallbackBadgeStyle(42)}>{getFallbackInitials(game.title)}</span>
+  );
+}
+
+function RetroAchievementsGameAwardRow({ game }: { readonly game: NormalizedGame }): JSX.Element | null {
+  const status = getRetroAchievementsProfileAwardStatus(game);
+  if (status === undefined) {
+    return null;
+  }
+
+  return (
+    <div data-retroachievements-profile-award={status} style={getPreviewRowStyle()}>
+      <ProfilePreviewArtwork game={game} />
+      <div style={getPreviewRowTextStyle()}>
+        <div title={game.title} style={getPreviewTitleStyle()}>{game.title}</div>
+        <div style={getPreviewMetaStyle()}>{game.platformLabel ?? "Unknown platform"}</div>
+      </div>
+      <span style={getAwardPillStyle(status)}>{status.toUpperCase()}</span>
+    </div>
+  );
+}
+
+function RetroAchievementsProgressRow({ game }: { readonly game: NormalizedGame }): JSX.Element | null {
+  const total = game.summary.totalCount;
+  const completionPercent = getRetroAchievementsProfileGameCompletionPercent(game);
+  const awardStatus = getRetroAchievementsProfileAwardStatus(game);
+  if (total === undefined || completionPercent === undefined) {
+    return null;
+  }
+
+  return (
+    <div data-retroachievements-profile-progress-game={game.gameId} style={getPreviewRowStyle()}>
+      <ProfilePreviewArtwork game={game} />
+      <div style={getPreviewRowTextStyle()}>
+        <div title={game.title} style={getPreviewTitleStyle()}>{game.title}</div>
+        <div style={getPreviewMetaStyle()}>
+          {`${game.platformLabel ?? "Unknown platform"} | ${formatCount(game.summary.unlockedCount)}/${formatCount(total)}`}
+        </div>
+        <DeckyCompletionProgressBar compact percent={completionPercent} />
+      </div>
+      {awardStatus === "beaten" ? (
+        <span style={getAwardPillStyle("beaten")}>BEATEN</span>
+      ) : null}
+    </div>
+  );
+}
+
+function RetroAchievementsGameAwardsCard({
+  dataStatus,
+  selection,
+}: {
+  readonly dataStatus: RetroAchievementsProfileCompletionDataStatus;
+  readonly selection: RetroAchievementsGameAwardsSelection;
+}): JSX.Element {
+  const subtitle =
+    dataStatus === "loading"
+      ? "Loading awards"
+      : dataStatus === "unavailable"
+        ? "Awards unavailable"
+        : selection.subtitle;
+
+  return (
+    <div
+      data-retroachievements-profile-game-awards
+      data-retroachievements-profile-game-awards-mode={selection.mode}
+      style={getOverviewCardStyle()}
+    >
+      <div style={getOverviewCardHeaderStyle()}>
+        <div style={getOverviewCardTitleStyle()}>Game Awards</div>
+        <div style={getOverviewCardMetaStyle()}>{subtitle}</div>
+      </div>
+      <div style={getPreviewRowsStyle()}>
+        {dataStatus === "loading" ? (
+          <div style={getEmptyOverviewStyle()}>Loading full completion records...</div>
+        ) : dataStatus === "unavailable" ? (
+          <div style={getEmptyOverviewStyle()}>Full completion records are unavailable right now.</div>
+        ) : selection.games.length > 0 ? (
+          <>
+            {selection.mode === "beaten" ? (
+              <div data-retroachievements-profile-beaten-fallback style={getOverviewCardTitleStyle()}>
+                Beaten Games
+              </div>
+            ) : null}
+            {selection.games.map((game) => (
+              <RetroAchievementsGameAwardRow key={game.gameId} game={game} />
+            ))}
+          </>
+        ) : (
+          <div style={getEmptyOverviewStyle()}>No completed game records are available.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RetroAchievementsCompletionProgressCard({
+  dataStatus,
+  games,
+}: {
+  readonly dataStatus: RetroAchievementsProfileCompletionDataStatus;
+  readonly games: readonly NormalizedGame[];
+}): JSX.Element {
+  return (
+    <div data-retroachievements-profile-completion-progress style={getOverviewCardStyle()}>
+      <div style={getOverviewCardHeaderStyle()}>
+        <div style={getOverviewCardTitleStyle()}>Completion Progress</div>
+        <div style={getOverviewCardMetaStyle()}>Up to 3 unfinished games</div>
+      </div>
+      <div style={getPreviewRowsStyle()}>
+        {dataStatus === "loading" ? (
+          <div style={getEmptyOverviewStyle()}>Loading full completion records...</div>
+        ) : dataStatus === "unavailable" ? (
+          <div style={getEmptyOverviewStyle()}>Full completion records are unavailable right now.</div>
+        ) : games.length > 0 ? (
+          games.map((game) => <RetroAchievementsProgressRow key={game.gameId} game={game} />)
+        ) : (
+          <div style={getEmptyOverviewStyle()}>No unfinished games are available in this snapshot.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function getSteamProfileStats(args: {
   readonly profile: DashboardSnapshot["profile"];
   readonly steamLibraryAchievementScanSummary?: SteamLibraryAchievementScanOverview;
@@ -747,6 +1083,12 @@ function isRenderableDashboardState(
   return (state.status === "success" || state.status === "stale") && state.data !== undefined;
 }
 
+function isRenderableCompletionProgressState(
+  state: ResourceState<CompletionProgressSnapshot>,
+): state is ResourceState<CompletionProgressSnapshot> & { readonly data: CompletionProgressSnapshot } {
+  return (state.status === "success" || state.status === "stale") && state.data !== undefined;
+}
+
 export function DeckyFullScreenProfilePage({
   providerId,
   onBack,
@@ -762,6 +1104,17 @@ export function DeckyFullScreenProfilePage({
     return () => loadDeckyDashboardState(providerId);
   }, [providerId]);
   const state = useAsyncResourceState(loadSelectedProfile, initialDeckyBootstrapState);
+  const loadSelectedCompletionProgress = useMemo(() => {
+    if (providerId !== RETROACHIEVEMENTS_PROVIDER_ID) {
+      return () => Promise.resolve(initialDeckyCompletionProgressState);
+    }
+
+    return () => loadDeckyCompletionProgressState(providerId);
+  }, [providerId]);
+  const completionProgressState = useAsyncResourceState(
+    loadSelectedCompletionProgress,
+    initialDeckyCompletionProgressState,
+  );
   const hasRouteParameters = providerId !== undefined;
   const steamLibraryAchievementScanSummary = useDeckySteamLibraryAchievementScanOverview(providerId);
 
@@ -815,6 +1168,32 @@ export function DeckyFullScreenProfilePage({
       : getRetroAchievementsProfileStatSections({
           profile,
         });
+  const retroAchievementsSupplementaryStats =
+    profile.providerId === STEAM_PROVIDER_ID
+      ? []
+      : getRetroAchievementsSupplementaryProfileStats({
+          profile,
+          recentlyPlayedGames: snapshot.recentlyPlayedGames,
+          completionGames: snapshot.featuredGames,
+        });
+  const retroAchievementsCompletionDataStatus: RetroAchievementsProfileCompletionDataStatus =
+    isRenderableCompletionProgressState(completionProgressState)
+      ? "ready"
+      : completionProgressState.status === "error"
+        ? "unavailable"
+        : "loading";
+  const retroAchievementsCompletionGames =
+    isRenderableCompletionProgressState(completionProgressState)
+      ? completionProgressState.data.games
+      : [];
+  const retroAchievementsGameAwards =
+    profile.providerId === STEAM_PROVIDER_ID
+      ? selectRetroAchievementsGameAwards([])
+      : selectRetroAchievementsGameAwards(retroAchievementsCompletionGames);
+  const retroAchievementsProgressGames =
+    profile.providerId === STEAM_PROVIDER_ID
+      ? []
+      : selectRetroAchievementsCompletionProgressGames(retroAchievementsCompletionGames);
   return (
     <ScrollPanel>
       <TopAlignedScrollViewport scrollKey={`full-screen-profile:${providerId ?? "missing"}`}>
@@ -935,38 +1314,63 @@ export function DeckyFullScreenProfilePage({
                   </>
                 ) : (
                   <>
-                    {retroAchievementsProfileStatSections?.map((section) => (
-                      <div
-                        key={section.title}
-                        data-profile-section-variant={section.variant}
-                        style={{
-                          ...getSectionBlockStyle(section.variant),
-                          position: "relative",
-                          overflow: "hidden",
-                        }}
-                      >
-                        <div aria-hidden="true" style={getRetroAchievementsProfileSectionAccentStyle(section.variant)} />
-                        <div style={getRetroAchievementsProfileSectionTitleStyle(section.variant)}>{section.title}</div>
-                        <StatsGrid>
-                          {section.stats.map((stat) => (
-                            <ProfileStat
-                              key={`${section.title}:${stat.label}`}
-                              label={stat.label}
-                              value={stat.value}
-                              {...(stat.secondary !== undefined ? { secondary: stat.secondary } : {})}
-                              {...(stat.completionBreakdown !== undefined
-                                ? { completionBreakdown: stat.completionBreakdown }
-                                : {})}
-                            />
-                          ))}
-                        </StatsGrid>
+                    <div data-retroachievements-profile-stats-overview style={getCompactStatsOverviewStyle()}>
+                      {retroAchievementsProfileStatSections?.map((section) => (
+                        <div
+                          key={section.title}
+                          data-profile-section-variant={section.variant}
+                          style={getCompactStatSectionStyle(section.variant)}
+                        >
+                          <div aria-hidden="true" style={getRetroAchievementsProfileSectionAccentStyle(section.variant)} />
+                          <div style={getRetroAchievementsProfileSectionTitleStyle(section.variant)}>{section.title}</div>
+                          <StatsGrid>
+                            {section.stats.map((stat) => (
+                              <ProfileStat
+                                key={`${section.title}:${stat.label}`}
+                                label={stat.label}
+                                value={stat.value}
+                                {...(stat.secondary !== undefined ? { secondary: stat.secondary } : {})}
+                                {...(stat.completionBreakdown !== undefined
+                                  ? { completionBreakdown: stat.completionBreakdown }
+                                  : {})}
+                              />
+                            ))}
+                          </StatsGrid>
+                        </div>
+                      ))}
+                    </div>
+                    {retroAchievementsSupplementaryStats.length > 0 ? (
+                      <div data-retroachievements-profile-supplementary-stats style={getSupplementaryStatsStyle()}>
+                        {retroAchievementsSupplementaryStats.map((stat) => (
+                          <div key={stat.label} style={getSupplementaryStatStyle()}>
+                            <span style={getStatLabelStyle()}>{stat.label}</span>
+                            <span style={getStatValueStyle()}>{stat.value}</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    ) : null}
                   </>
                 )}
               </div>
             </PanelSectionRow>
           </PanelSection>
+
+          {profile.providerId !== STEAM_PROVIDER_ID ? (
+            <PanelSection title="Awards & Progress">
+              <PanelSectionRow>
+                <div data-retroachievements-profile-awards-progress style={getAwardsProgressGridStyle()}>
+                  <RetroAchievementsGameAwardsCard
+                    dataStatus={retroAchievementsCompletionDataStatus}
+                    selection={retroAchievementsGameAwards}
+                  />
+                  <RetroAchievementsCompletionProgressCard
+                    dataStatus={retroAchievementsCompletionDataStatus}
+                    games={retroAchievementsProgressGames}
+                  />
+                </div>
+              </PanelSectionRow>
+            </PanelSection>
+          ) : null}
 
           <PanelSection title="Recent activity">
             <PanelSectionRow>
