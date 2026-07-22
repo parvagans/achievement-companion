@@ -123,6 +123,7 @@ import {
 } from "../src/platform/decky/decky-game-page-achievement-modal-visibility";
 import {
   clearDeckyGamePageAchievementSummaryCacheForTests,
+  enrichDeckyGamePageAchievementSummaryCompletionStatus,
   formatDeckyGamePageAchievementBadgeLoadingText,
   formatDeckyGamePageAchievementBadgeLabel,
   loadDeckyGamePageAchievementSummary,
@@ -746,6 +747,7 @@ interface DeckyBackendTestRetroAchievementsState {
   systemsRequestCount?: number;
   gameListRequestCount?: number;
   gameListRequestedConsoleIds?: string[];
+  gameProgressRequestCount?: number;
 }
 
 interface DeckyBackendTestSteamState {
@@ -897,6 +899,9 @@ const deckyBackendTestCallImplementation = async (route: string, payload: unknow
       if (gameId.length === 0) {
         throw new Error("Unexpected RetroAchievements game progress request without a game id in test");
       }
+
+      deckyBackendTestState.retroAchievements.gameProgressRequestCount =
+        (deckyBackendTestState.retroAchievements.gameProgressRequestCount ?? 0) + 1;
 
       const response = deckyBackendTestState.retroAchievements.gameProgressByGameId?.[gameId];
       if (response === undefined) {
@@ -11935,6 +11940,234 @@ test("game page achievement summary resolves RetroAchievements counts from an ex
         ? new Date(readDeckyDashboardSnapshotCacheEntry(RETROACHIEVEMENTS_PROVIDER_ID)!.storedAt).toISOString()
         : undefined,
     });
+  });
+});
+
+test("native RA title-matched summary renders counts before deduplicated completion status enrichment", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "2217041469": {
+        title: "Dr. Mario",
+        platformTag: "Nintendo NES",
+        tags: ["Nintendo NES"],
+      },
+    };
+    deckyBackendTestState.retroAchievements.systems = [
+      {
+        ID: 7,
+        Name: "NES/Famicom",
+        IconURL: "https://example.com/nes.png",
+      },
+    ];
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      "1469": createRetroAchievementsGameProgressResponse({
+        gameId: "1469",
+        title: "Dr. Mario",
+        consoleId: 7,
+        consoleName: "NES/Famicom",
+        highestAwardKind: "beaten",
+        highestAwardDate: "2026-07-20T12:00:00Z",
+        unlockedCount: 47,
+        totalCount: 70,
+      }),
+    };
+    assert.ok(
+      writeDeckyDashboardSnapshot({
+        ...createDashboardSnapshot(),
+        profile: {
+          ...createDashboardSnapshot().profile,
+          providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+          identity: {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            accountId: "alice",
+            displayName: "Alice",
+          },
+        },
+        recentlyPlayedGames: [
+          {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            gameId: "1469",
+            title: "Dr. Mario",
+            platformLabel: "NES/Famicom",
+            summary: {
+              unlockedCount: 47,
+              totalCount: 70,
+            },
+          },
+        ],
+        recentUnlocks: [],
+        recentAchievements: [],
+        featuredGames: [],
+      }),
+    );
+
+    const plainSummary = await loadDeckyGamePageAchievementSummary("2217041469");
+    assert.equal(plainSummary.status, "ready");
+    if (plainSummary.status !== "ready") {
+      return;
+    }
+    assert.equal(plainSummary.earned, 47);
+    assert.equal(plainSummary.total, 70);
+    assert.equal(plainSummary.completionStatus, undefined);
+    assert.equal(deckyBackendTestState.retroAchievements.gameProgressRequestCount ?? 0, 0);
+
+    const [firstEnrichedSummary, secondEnrichedSummary] = await Promise.all([
+      enrichDeckyGamePageAchievementSummaryCompletionStatus(plainSummary),
+      enrichDeckyGamePageAchievementSummaryCompletionStatus(plainSummary),
+    ]);
+    assert.equal(firstEnrichedSummary.status, "ready");
+    assert.equal(secondEnrichedSummary.status, "ready");
+    if (firstEnrichedSummary.status !== "ready" || secondEnrichedSummary.status !== "ready") {
+      return;
+    }
+    assert.equal(firstEnrichedSummary.completionStatus, "beaten");
+    assert.equal(secondEnrichedSummary.completionStatus, "beaten");
+    assert.equal(deckyBackendTestState.retroAchievements.gameProgressRequestCount, 1);
+
+    const resolverDebug = getAchievementCompanionLastRaShortcutResolutionDebug();
+    const badgeDebug = getAchievementCompanionLastGamePageBadgeDebug();
+    assert.equal(resolverDebug?.completionStatusEnrichmentAttempted, true);
+    assert.equal(resolverDebug?.completionStatusEnrichmentStatus, "resolved");
+    assert.equal(resolverDebug?.completionStatusEnrichmentSource, "ra-game-detail");
+    assert.equal(resolverDebug?.completionStatusEnrichmentGameId, "1469");
+    assert.equal(resolverDebug?.enrichedCompletionStatus, "beaten");
+    assert.equal(badgeDebug?.summaryCompletionStatus, "beaten");
+  });
+});
+
+test("native RA completion status enrichment maps authoritative completed awards to mastered", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      "9200": createRetroAchievementsGameProgressResponse({
+        gameId: "9200",
+        title: "Homebrew Test",
+        highestAwardKind: "completed",
+        unlockedCount: 57,
+        totalCount: 57,
+      }),
+    };
+    const plainSummary = {
+      status: "ready" as const,
+      provider: "retroachievements" as const,
+      appId: "2493414764",
+      gameId: "9200",
+      title: "Homebrew Test",
+      earned: 57,
+      total: 57,
+      source: "snapshot" as const,
+    };
+
+    const enrichedSummary = await enrichDeckyGamePageAchievementSummaryCompletionStatus(plainSummary);
+    assert.equal(enrichedSummary.status, "ready");
+    if (enrichedSummary.status !== "ready") {
+      return;
+    }
+    assert.equal(enrichedSummary.completionStatus, "mastered");
+    assert.equal(deckyBackendTestState.retroAchievements.gameProgressRequestCount, 1);
+  });
+});
+
+test("native RA completion status enrichment fails closed and never infers status from counts", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      "9300": createRetroAchievementsGameProgressResponse({
+        gameId: "9300",
+        title: "No Award State",
+        unlockedCount: 10,
+        totalCount: 10,
+      }),
+    };
+    const fullCountsSummary = {
+      status: "ready" as const,
+      provider: "retroachievements" as const,
+      appId: "2493414765",
+      gameId: "9300",
+      earned: 10,
+      total: 10,
+      source: "snapshot" as const,
+    };
+
+    const unavailableEnrichment = await enrichDeckyGamePageAchievementSummaryCompletionStatus(fullCountsSummary);
+    assert.strictEqual(unavailableEnrichment, fullCountsSummary);
+    assert.equal(unavailableEnrichment.status, "ready");
+    if (unavailableEnrichment.status !== "ready") {
+      return;
+    }
+    assert.equal(unavailableEnrichment.completionStatus, undefined);
+    assert.equal(
+      getAchievementCompanionLastRaShortcutResolutionDebug()?.completionStatusEnrichmentStatus,
+      "unavailable",
+    );
+
+    clearDeckyGamePageAchievementSummaryCacheForTests();
+    const failedSummary = {
+      ...fullCountsSummary,
+      appId: "2493414766",
+      gameId: "9301",
+      earned: 2,
+      total: 8,
+    };
+    const failedEnrichment = await enrichDeckyGamePageAchievementSummaryCompletionStatus(failedSummary);
+    assert.strictEqual(failedEnrichment, failedSummary);
+    assert.equal(
+      getAchievementCompanionLastRaShortcutResolutionDebug()?.completionStatusEnrichmentStatus,
+      "failed",
+    );
+  });
+});
+
+test("native completion status enrichment skips summaries that already have RA status or belong to Steam", async () => {
+  await withMockDeckyStorage(async () => {
+    const hashResolvedSummary = {
+      status: "ready" as const,
+      provider: "retroachievements" as const,
+      appId: "2493414762",
+      gameId: "9001",
+      earned: 16,
+      total: 33,
+      source: "backend" as const,
+      completionStatus: "beaten" as const,
+    };
+    const steamSummary = {
+      status: "ready" as const,
+      provider: "steam" as const,
+      appId: "1672970",
+      gameId: "1672970",
+      earned: 12,
+      total: 45,
+      source: "cache" as const,
+    };
+
+    assert.strictEqual(
+      await enrichDeckyGamePageAchievementSummaryCompletionStatus(hashResolvedSummary),
+      hashResolvedSummary,
+    );
+    assert.strictEqual(
+      await enrichDeckyGamePageAchievementSummaryCompletionStatus(steamSummary),
+      steamSummary,
+    );
+    assert.equal(deckyBackendTestState.retroAchievements.gameProgressRequestCount ?? 0, 0);
   });
 });
 
