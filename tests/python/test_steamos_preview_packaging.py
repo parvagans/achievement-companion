@@ -29,7 +29,7 @@ def _create_preview_source_tree(root_dir: Path) -> None:
       _write_text(target_path, json.dumps({"ok": True}) + "\n")
       continue
     if target_path.suffix == ".sh":
-      _write_text(target_path, "#!/usr/bin/env sh\nset -eu\nexec python3 -m backend.dev_shell --xdg-root .tmp-steamos-preview\n")
+      _write_text(target_path, "#!/usr/bin/env sh\nset -eu\nexec python3 -m steamos_backend.dev_shell --xdg-root .tmp-steamos-preview\n")
       continue
     _write_text(target_path, f"placeholder for {source_relative_path.as_posix()}\n")
 
@@ -48,8 +48,9 @@ class SteamOSPreviewPackagingTests(unittest.TestCase):
       )
       package_steamos_preview.verify_staged_steamos_preview_package(staged_dir)
 
-      self.assertTrue((staged_dir / "backend" / "dev_shell.py").exists())
-      self.assertTrue((staged_dir / "backend" / "steamos_doctor.py").exists())
+      self.assertTrue((staged_dir / "steamos_backend" / "dev_shell.py").exists())
+      self.assertTrue((staged_dir / "steamos_backend" / "steamos_doctor.py").exists())
+      self.assertTrue((staged_dir / "py_modules" / "backend" / "http.py").exists())
       self.assertTrue((staged_dir / "dist-steamos" / "steamos-bootstrap.js").exists())
       self.assertTrue((staged_dir / "scripts" / "start-steamos.sh").exists())
       self.assertTrue((staged_dir / "scripts" / "doctor-steamos.sh").exists())
@@ -70,7 +71,11 @@ class SteamOSPreviewPackagingTests(unittest.TestCase):
         names = set(archive.getnames())
         self.assertIn(package_steamos_preview.STEAMOS_PREVIEW_ROOT_DIRNAME, names)
         self.assertIn(
-          "achievement-companion-steamos/backend/local_server.py",
+          "achievement-companion-steamos/steamos_backend/local_server.py",
+          names,
+        )
+        self.assertIn(
+          "achievement-companion-steamos/py_modules/backend/http.py",
           names,
         )
         self.assertIn(

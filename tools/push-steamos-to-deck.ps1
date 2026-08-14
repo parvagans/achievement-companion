@@ -144,8 +144,8 @@ try {
   Write-Host ""
   Write-Host "Next commands to run on the Deck:"
   Write-Host "cd $RemoteDir"
-  Write-Host "python3 -m backend.steamos_doctor --xdg-root .tmp-steamos-deck"
-  Write-Host "python3 -m backend.dev_shell --xdg-root .tmp-steamos-deck"
+  Write-Host "python3 -m steamos_backend.steamos_doctor --xdg-root .tmp-steamos-deck"
+  Write-Host "python3 -m steamos_backend.dev_shell --xdg-root .tmp-steamos-deck"
   Write-Host ""
   Write-Host "Review output before sharing it, and never paste API keys, runtime tokens, provider config, or provider secrets."
 }

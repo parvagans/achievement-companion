@@ -12,7 +12,7 @@ from tempfile import NamedTemporaryFile
 from typing import Any, Callable, Iterable, Mapping
 from urllib.parse import urlsplit
 
-from backend.cache import (
+from steamos_backend.cache import (
   clear_dashboard_cache,
   clear_steam_scan_cache,
   read_dashboard_cache,
@@ -24,7 +24,7 @@ from backend.cache import (
 )
 from backend.diagnostics import sanitize_diagnostic_event
 from backend.http import ProviderRequestError, request_json as backend_request_json
-from backend.paths import BackendPaths, resolve_steamos_backend_paths
+from steamos_backend.paths import BackendPaths, resolve_steamos_backend_paths
 from backend.provider_config import (
   PLUGIN_CONFIG_VERSION,
   build_retroachievements_config_view,

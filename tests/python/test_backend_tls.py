@@ -7,6 +7,7 @@ import types
 import unittest
 from pathlib import Path
 
+import _test_support  # noqa: F401
 import backend.tls as backend_tls
 
 

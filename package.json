@@ -6,10 +6,10 @@
   "license": "BSD-3-Clause",
   "type": "module",
   "scripts": {
-    "build": "python scripts/clean_decky_dist.py && rollup -c",
+    "build": "node scripts/clean_decky_dist.mjs && node scripts/sync_decky_notices.mjs && rollup -c",
     "build:steamos": "rollup -c rollup.steamos.config.js",
-    "start:steamos": "python -m backend.dev_shell",
-    "doctor:steamos": "python -m backend.steamos_doctor",
+    "start:steamos": "python -m steamos_backend.dev_shell",
+    "doctor:steamos": "python -m steamos_backend.steamos_doctor",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "package:release": "python scripts/package_release.py",
     "check:release": "python scripts/check_release_artifact.py",
@@ -33,5 +33,5 @@
     "tsx": "^4.20.6",
     "typescript": "^5.6.3"
   },
-  "packageManager": "pnpm@10.33.0+sha512.10568bb4a6afb58c9eb3630da90cc9516417abebd3fabbe6739f0ae795728da1491e9db5a544c76ad8eb7570f5c4bb3d6c637b2cb41bfdcdb47fa823c8649319"
+  "packageManager": "pnpm@9.4.0"
 }

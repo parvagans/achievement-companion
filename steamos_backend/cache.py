@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Mapping
 
-from backend.paths import BackendPaths
+from steamos_backend.paths import BackendPaths
 from backend.storage import WarningCallback, read_json_file, write_json_file
 
 

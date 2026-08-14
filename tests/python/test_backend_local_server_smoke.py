@@ -10,9 +10,9 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Mapping
 
+from steamos_backend import local_server
+from steamos_backend.paths import BackendPaths
 from backend import http as backend_http
-from backend import local_server
-from backend.paths import BackendPaths
 from backend import secrets as secret_helpers
 
 
@@ -486,7 +486,7 @@ class LocalBackendSmokeTests(unittest.TestCase):
     self.assertNotIn("steam", configs_payload)
 
   def test_release_boundary_smoke_keeps_local_backend_out_of_decky_payload(self) -> None:
-    source = (ROOT_DIR / "backend" / "local_server.py").read_text(encoding="utf-8")
+    source = (ROOT_DIR / "steamos_backend" / "local_server.py").read_text(encoding="utf-8")
     package_release = (ROOT_DIR / "scripts" / "package_release.py").read_text(encoding="utf-8")
     check_release = (ROOT_DIR / "scripts" / "check_release_artifact.py").read_text(encoding="utf-8")
 
@@ -494,10 +494,10 @@ class LocalBackendSmokeTests(unittest.TestCase):
     self.assertNotIn("from decky", source)
     self.assertNotIn("import main", source)
     self.assertNotIn("from main import", source)
-    self.assertNotIn("backend/local_server.py", package_release)
-    self.assertNotIn("backend/local_server.py", check_release)
-    self.assertNotIn("backend/paths.py", package_release)
-    self.assertNotIn("backend/paths.py", check_release)
+    self.assertNotIn("steamos_backend/local_server.py", package_release)
+    self.assertNotIn("steamos_backend/local_server.py", check_release)
+    self.assertNotIn("steamos_backend/paths.py", package_release)
+    self.assertNotIn("steamos_backend/paths.py", check_release)
 
 
 if __name__ == "__main__":

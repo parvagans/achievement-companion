@@ -11,8 +11,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from backend import dev_shell
-from backend.paths import BackendPaths
+from steamos_backend import dev_shell
+from steamos_backend.paths import BackendPaths
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -242,10 +242,10 @@ class SteamOSDevShellTests(unittest.TestCase):
         self.assertEqual(payload["error"], "not_found")
 
         for unsafe_path in (
-          "/../backend/dev_shell.py",
-          "/%2e%2e/backend/dev_shell.py",
-          "/assets/../backend/dev_shell.py",
-          "/assets/%2e%2e/backend/dev_shell.py",
+          "/../steamos_backend/dev_shell.py",
+          "/%2e%2e/steamos_backend/dev_shell.py",
+          "/assets/../steamos_backend/dev_shell.py",
+          "/assets/%2e%2e/steamos_backend/dev_shell.py",
           "/foo\\bar",
         ):
           status, payload, _ = _request_json(f"{runtime.shell_url}{unsafe_path}")
@@ -383,7 +383,7 @@ class SteamOSDevShellTests(unittest.TestCase):
     self.assertNotIn("token", stderr.getvalue().lower())
 
   def test_dev_shell_stays_out_of_decky_boundaries_and_release_payload(self) -> None:
-    source = (ROOT_DIR / "backend" / "dev_shell.py").read_text(encoding="utf-8")
+    source = (ROOT_DIR / "steamos_backend" / "dev_shell.py").read_text(encoding="utf-8")
     steamos_rollup = (ROOT_DIR / "rollup.steamos.config.js").read_text(encoding="utf-8")
     decky_rollup = (ROOT_DIR / "rollup.config.js").read_text(encoding="utf-8")
     package_release = (ROOT_DIR / "scripts" / "package_release.py").read_text(encoding="utf-8")
@@ -400,11 +400,11 @@ class SteamOSDevShellTests(unittest.TestCase):
     self.assertNotIn("dist-steamos", decky_rollup)
     for steam_os_only_path in (
       "dist-steamos",
-      "backend/dev_shell.py",
-      "backend/local_launcher.py",
-      "backend/local_server.py",
-      "backend/paths.py",
-      "backend/cache.py",
+      "steamos_backend/dev_shell.py",
+      "steamos_backend/local_launcher.py",
+      "steamos_backend/local_server.py",
+      "steamos_backend/paths.py",
+      "steamos_backend/cache.py",
     ):
       self.assertNotIn(steam_os_only_path, package_release)
       self.assertNotIn(steam_os_only_path, check_release)

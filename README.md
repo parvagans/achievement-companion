@@ -123,7 +123,7 @@ Steam library scanning is manual because larger Steam libraries can take several
 
 Download the latest release ZIP from the project’s GitHub Releases page:
 
-[Download the latest release](https://github.com/CodeNode-Automation/achievement-companion/releases/latest)
+[Download the latest release](https://github.com/parvagans/achievement-companion/releases/latest)
 
 On your Steam Deck:
 
@@ -157,16 +157,6 @@ The release zip is packaged as:
 
 ```text
 achievement-companion/
-  backend/
-    __init__.py
-    diagnostics.py
-    http.py
-    provider_config.py
-    redaction.py
-    secrets.py
-    steam_shortcuts.py
-    storage.py
-    tls.py
   dist/
     index.js
   INSTALL_DIAGNOSTIC.txt
@@ -174,5 +164,16 @@ achievement-companion/
   main.py
   package.json
   plugin.json
+  py_modules/
+    backend/
+      __init__.py
+      diagnostics.py
+      http.py
+      provider_config.py
+      redaction.py
+      secrets.py
+      steam_shortcuts.py
+      storage.py
+      tls.py
   README.md
   THIRD_PARTY_NOTICES.md

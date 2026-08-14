@@ -5,6 +5,7 @@ node_modules/
 dist/
 dist-steamos/
 *.tsbuildinfo
+defaults/THIRD_PARTY_NOTICES.md
 
 # Release artifacts
 release/

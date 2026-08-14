@@ -6,6 +6,7 @@ import types
 import urllib.error
 import unittest
 
+import _test_support  # noqa: F401
 from backend import http as backend_http
 
 

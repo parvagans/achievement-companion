@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import _test_support  # noqa: F401
 from backend import secrets as secret_helpers
 
 

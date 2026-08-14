@@ -6,6 +6,7 @@ import zipfile
 import unittest
 from pathlib import Path
 
+import _test_support  # noqa: F401
 import backend.steam_shortcuts as steam_shortcuts
 from backend.steam_shortcuts import (
   load_steam_shortcut_metadata,

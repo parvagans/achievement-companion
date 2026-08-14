@@ -9,8 +9,8 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
-from backend import local_server
-from backend.paths import BackendPaths
+from steamos_backend import local_server
+from steamos_backend.paths import BackendPaths
 
 
 def _build_test_backend_paths(root: Path) -> BackendPaths:
