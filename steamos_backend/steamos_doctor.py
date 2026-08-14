@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping, Sequence, TextIO
 
-from backend.paths import derive_steamos_xdg_env, resolve_steamos_backend_paths, resolve_steamos_xdg_root
+from steamos_backend.paths import derive_steamos_xdg_env, resolve_steamos_backend_paths, resolve_steamos_xdg_root
 
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -16,7 +16,7 @@ _BUILD_STEAMOS_COMMAND = "npm run build:steamos"
 _START_STEAMOS_COMMAND = "npm run start:steamos"
 _REPO_ROOT_MARKERS: tuple[Path, ...] = (
   Path("package.json"),
-  Path("backend/dev_shell.py"),
+  Path("steamos_backend/dev_shell.py"),
   Path("rollup.steamos.config.js"),
 )
 _SCRATCH_DIR_PREFIX = ".tmp-steamos"
@@ -25,10 +25,10 @@ _DASHBOARD_CACHE_FILES = {
   "steam": "steam.json",
 }
 _IMPORT_CHECK_MODULES: tuple[str, ...] = (
-  "backend.dev_shell",
-  "backend.local_launcher",
-  "backend.local_server",
-  "backend.paths",
+  "steamos_backend.dev_shell",
+  "steamos_backend.local_launcher",
+  "steamos_backend.local_server",
+  "steamos_backend.paths",
 )
 
 
@@ -226,7 +226,7 @@ def run_steamos_doctor(
 
 def _build_parser() -> argparse.ArgumentParser:
   parser = argparse.ArgumentParser(
-    prog="python -m backend.steamos_doctor",
+    prog="python -m steamos_backend.steamos_doctor",
     description="Run a safe SteamOS standalone preflight check.",
   )
   parser.add_argument(

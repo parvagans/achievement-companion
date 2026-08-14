@@ -38,15 +38,15 @@ FORBIDDEN_FRONTEND_MARKERS: tuple[str, ...] = (
 STAGE_DIR = RELEASE_DIR / "staged" / PLUGIN_ARCHIVE_ROOT
 REQUIRED_RELATIVE_PATHS: tuple[Path, ...] = (
   Path("main.py"),
-  Path("backend/__init__.py"),
-  Path("backend/http.py"),
-  Path("backend/tls.py"),
-  Path("backend/redaction.py"),
-  Path("backend/secrets.py"),
-  Path("backend/storage.py"),
-  Path("backend/provider_config.py"),
-  Path("backend/diagnostics.py"),
-  Path("backend/steam_shortcuts.py"),
+  Path("py_modules/backend/__init__.py"),
+  Path("py_modules/backend/http.py"),
+  Path("py_modules/backend/tls.py"),
+  Path("py_modules/backend/redaction.py"),
+  Path("py_modules/backend/secrets.py"),
+  Path("py_modules/backend/storage.py"),
+  Path("py_modules/backend/provider_config.py"),
+  Path("py_modules/backend/diagnostics.py"),
+  Path("py_modules/backend/steam_shortcuts.py"),
   Path("package.json"),
   Path("plugin.json"),
   Path("README.md"),
@@ -245,12 +245,12 @@ def stage_release_package(root_dir: Path = ROOT_DIR, stage_dir: Path = STAGE_DIR
 
   if not (stage_dir / "main.py").exists():
     raise RuntimeError("Staged release output is missing main.py.")
-  if not (stage_dir / "backend" / "__init__.py").exists():
-    raise RuntimeError("Staged release output is missing backend/__init__.py.")
-  if not (stage_dir / "backend" / "http.py").exists():
-    raise RuntimeError("Staged release output is missing backend/http.py.")
-  if not (stage_dir / "backend" / "tls.py").exists():
-    raise RuntimeError("Staged release output is missing backend/tls.py.")
+  if not (stage_dir / "py_modules" / "backend" / "__init__.py").exists():
+    raise RuntimeError("Staged release output is missing py_modules/backend/__init__.py.")
+  if not (stage_dir / "py_modules" / "backend" / "http.py").exists():
+    raise RuntimeError("Staged release output is missing py_modules/backend/http.py.")
+  if not (stage_dir / "py_modules" / "backend" / "tls.py").exists():
+    raise RuntimeError("Staged release output is missing py_modules/backend/tls.py.")
   if not (stage_dir / "package.json").exists():
     raise RuntimeError("Staged release output is missing package.json.")
   if not any((stage_dir / "dist").glob("*.js")):
@@ -264,18 +264,18 @@ def stage_release_package(root_dir: Path = ROOT_DIR, stage_dir: Path = STAGE_DIR
 def verify_staged_release_package(stage_dir: Path = STAGE_DIR) -> None:
   if not (stage_dir / "main.py").exists():
     raise RuntimeError("Staged release output is missing main.py.")
-  if not (stage_dir / "backend" / "__init__.py").exists():
-    raise RuntimeError("Staged release output is missing backend/__init__.py.")
-  if not (stage_dir / "backend" / "secrets.py").exists():
-    raise RuntimeError("Staged release output is missing backend/secrets.py.")
-  if not (stage_dir / "backend" / "provider_config.py").exists():
-    raise RuntimeError("Staged release output is missing backend/provider_config.py.")
-  if not (stage_dir / "backend" / "diagnostics.py").exists():
-    raise RuntimeError("Staged release output is missing backend/diagnostics.py.")
-  if not (stage_dir / "backend" / "http.py").exists():
-    raise RuntimeError("Staged release output is missing backend/http.py.")
-  if not (stage_dir / "backend" / "tls.py").exists():
-    raise RuntimeError("Staged release output is missing backend/tls.py.")
+  if not (stage_dir / "py_modules" / "backend" / "__init__.py").exists():
+    raise RuntimeError("Staged release output is missing py_modules/backend/__init__.py.")
+  if not (stage_dir / "py_modules" / "backend" / "secrets.py").exists():
+    raise RuntimeError("Staged release output is missing py_modules/backend/secrets.py.")
+  if not (stage_dir / "py_modules" / "backend" / "provider_config.py").exists():
+    raise RuntimeError("Staged release output is missing py_modules/backend/provider_config.py.")
+  if not (stage_dir / "py_modules" / "backend" / "diagnostics.py").exists():
+    raise RuntimeError("Staged release output is missing py_modules/backend/diagnostics.py.")
+  if not (stage_dir / "py_modules" / "backend" / "http.py").exists():
+    raise RuntimeError("Staged release output is missing py_modules/backend/http.py.")
+  if not (stage_dir / "py_modules" / "backend" / "tls.py").exists():
+    raise RuntimeError("Staged release output is missing py_modules/backend/tls.py.")
   if not (stage_dir / "package.json").exists():
     raise RuntimeError("Staged release output is missing package.json.")
   if not (stage_dir / INSTALL_DIAGNOSTIC_RELATIVE_PATH).exists():

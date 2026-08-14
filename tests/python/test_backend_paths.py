@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from backend.paths import ensure_backend_dirs, resolve_steamos_backend_paths
+from steamos_backend.paths import ensure_backend_dirs, resolve_steamos_backend_paths
 
 
 class BackendPathsTests(unittest.TestCase):

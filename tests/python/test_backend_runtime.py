@@ -3,21 +3,23 @@ from __future__ import annotations
 import asyncio
 import base64
 import importlib.util
+import io
 import json
 import os
-import io
-import backend.http as backend_http
-import backend.tls as backend_tls
-import urllib.error
-import urllib.request
 import ssl
 import sys
 import tempfile
 import types
 import unittest
+import urllib.error
+import urllib.request
 import uuid
 import zipfile
 from pathlib import Path
+
+import _test_support  # noqa: F401
+import backend.http as backend_http
+import backend.tls as backend_tls
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -64,13 +66,17 @@ class CapturingDeckyLogger:
 
 FAKE_DECKY = types.SimpleNamespace(
   DECKY_PLUGIN_SETTINGS_DIR="",
+  DECKY_PLUGIN_LOG_DIR="",
   logger=FakeDeckyLogger(),
 )
 sys.modules["decky"] = FAKE_DECKY
 
 
-def load_main_module(settings_dir: Path) -> types.ModuleType:
+def load_main_module(settings_dir: Path, logs_dir: Path | None = None) -> types.ModuleType:
+  if logs_dir is None:
+    logs_dir = Path(tempfile.gettempdir()) / f"achievement-companion-test-logs-{uuid.uuid4().hex}"
   FAKE_DECKY.DECKY_PLUGIN_SETTINGS_DIR = str(settings_dir)
+  FAKE_DECKY.DECKY_PLUGIN_LOG_DIR = str(logs_dir)
   module_name = f"achievement_companion_main_{uuid.uuid4().hex}"
   spec = importlib.util.spec_from_file_location(module_name, ROOT_DIR / "main.py")
   if spec is None or spec.loader is None:
@@ -103,13 +109,20 @@ def write_malformed_text(path: Path, text: str) -> None:
 
 class BackendRuntimeTests(unittest.TestCase):
   def test_storage_paths_follow_temporary_root_and_valid_files_stay_quiet(self) -> None:
-    with tempfile.TemporaryDirectory() as temp_dir:
-      module = load_main_module(Path(temp_dir))
+    with tempfile.TemporaryDirectory() as settings_root, tempfile.TemporaryDirectory() as logs_root:
+      settings_dir = Path(settings_root) / "completely-different" / "settings"
+      logs_dir = Path(logs_root) / "decky-exported-logs"
+      module = load_main_module(settings_dir, logs_dir)
       module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
 
-      self.assertEqual(module.SETTINGS_PATH, Path(temp_dir))  # type: ignore[attr-defined]
-      self.assertEqual(module.CONFIG_PATH.parent, Path(temp_dir))  # type: ignore[attr-defined]
-      self.assertEqual(module.SECRETS_PATH.parent, Path(temp_dir))  # type: ignore[attr-defined]
+      self.assertEqual(module.SETTINGS_PATH, settings_dir)  # type: ignore[attr-defined]
+      self.assertEqual(module.LOGS_PATH, logs_dir)  # type: ignore[attr-defined]
+      self.assertNotEqual(  # type: ignore[attr-defined]
+        module.LOGS_PATH,
+        module.SETTINGS_PATH.parent.parent / "logs" / "achievement-companion",
+      )
+      self.assertEqual(module.CONFIG_PATH.parent, settings_dir)  # type: ignore[attr-defined]
+      self.assertEqual(module.SECRETS_PATH.parent, settings_dir)  # type: ignore[attr-defined]
 
       module._write_json_file(  # type: ignore[attr-defined]
         module.CONFIG_PATH,
@@ -131,8 +144,8 @@ class BackendRuntimeTests(unittest.TestCase):
       self.assertEqual(provider_configs["retroAchievements"]["hasApiKey"], True)
       self.assertEqual(provider_configs["retroAchievements"]["recentAchievementsCount"], 10)
       self.assertEqual(provider_configs["retroAchievements"]["recentlyPlayedCount"], 7)
-      self.assertEqual(list(Path(temp_dir).glob("provider-config.json.corrupt-*")), [])
-      self.assertEqual(list(Path(temp_dir).glob("provider-secrets.json.corrupt-*")), [])
+      self.assertEqual(list(settings_dir.glob("provider-config.json.corrupt-*")), [])
+      self.assertEqual(list(settings_dir.glob("provider-secrets.json.corrupt-*")), [])
 
   def test_corrupt_backup_path_stays_in_same_directory(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -653,12 +666,12 @@ class BackendRuntimeTests(unittest.TestCase):
       self.assertNotIn("key=secret", rendered)
 
   def test_backend_main_logs_storage_and_tls_readiness(self) -> None:
-    with tempfile.TemporaryDirectory() as temp_dir:
+    with tempfile.TemporaryDirectory() as temp_dir, tempfile.TemporaryDirectory() as logs_dir:
       original_logger = FAKE_DECKY.logger
       capture_logger = CapturingDeckyLogger()
       FAKE_DECKY.logger = capture_logger
       try:
-        module = load_main_module(Path(temp_dir))
+        module = load_main_module(Path(temp_dir), Path(logs_dir))
         module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
         plugin = module.Plugin()
         asyncio.run(plugin._main())
@@ -717,14 +730,14 @@ class BackendRuntimeTests(unittest.TestCase):
       stage_dir = Path(temp_dir) / "stage" / "achievement-companion"
       staged_dir = package_release.stage_release_package(root_dir=ROOT_DIR, stage_dir=stage_dir)
       self.assertTrue((staged_dir / "main.py").exists())
-      self.assertTrue((staged_dir / "backend" / "__init__.py").exists())
-      self.assertTrue((staged_dir / "backend" / "diagnostics.py").exists())
-      self.assertTrue((staged_dir / "backend" / "redaction.py").exists())
-      self.assertTrue((staged_dir / "backend" / "secrets.py").exists())
-      self.assertTrue((staged_dir / "backend" / "storage.py").exists())
-      self.assertTrue((staged_dir / "backend" / "provider_config.py").exists())
-      self.assertTrue((staged_dir / "backend" / "http.py").exists())
-      self.assertTrue((staged_dir / "backend" / "tls.py").exists())
+      self.assertTrue((staged_dir / "py_modules" / "backend" / "__init__.py").exists())
+      self.assertTrue((staged_dir / "py_modules" / "backend" / "diagnostics.py").exists())
+      self.assertTrue((staged_dir / "py_modules" / "backend" / "redaction.py").exists())
+      self.assertTrue((staged_dir / "py_modules" / "backend" / "secrets.py").exists())
+      self.assertTrue((staged_dir / "py_modules" / "backend" / "storage.py").exists())
+      self.assertTrue((staged_dir / "py_modules" / "backend" / "provider_config.py").exists())
+      self.assertTrue((staged_dir / "py_modules" / "backend" / "http.py").exists())
+      self.assertTrue((staged_dir / "py_modules" / "backend" / "tls.py").exists())
 
       zip_path = package_release.create_release_zip(
         root_dir=ROOT_DIR,
@@ -733,14 +746,14 @@ class BackendRuntimeTests(unittest.TestCase):
       )
       with zipfile.ZipFile(zip_path) as archive:
         self.assertIn("achievement-companion/main.py", set(archive.namelist()))
-        self.assertIn("achievement-companion/backend/__init__.py", set(archive.namelist()))
-        self.assertIn("achievement-companion/backend/diagnostics.py", set(archive.namelist()))
-        self.assertIn("achievement-companion/backend/redaction.py", set(archive.namelist()))
-        self.assertIn("achievement-companion/backend/secrets.py", set(archive.namelist()))
-        self.assertIn("achievement-companion/backend/provider_config.py", set(archive.namelist()))
-        self.assertIn("achievement-companion/backend/storage.py", set(archive.namelist()))
-        self.assertIn("achievement-companion/backend/http.py", set(archive.namelist()))
-        self.assertIn("achievement-companion/backend/tls.py", set(archive.namelist()))
+        self.assertIn("achievement-companion/py_modules/backend/__init__.py", set(archive.namelist()))
+        self.assertIn("achievement-companion/py_modules/backend/diagnostics.py", set(archive.namelist()))
+        self.assertIn("achievement-companion/py_modules/backend/redaction.py", set(archive.namelist()))
+        self.assertIn("achievement-companion/py_modules/backend/secrets.py", set(archive.namelist()))
+        self.assertIn("achievement-companion/py_modules/backend/provider_config.py", set(archive.namelist()))
+        self.assertIn("achievement-companion/py_modules/backend/storage.py", set(archive.namelist()))
+        self.assertIn("achievement-companion/py_modules/backend/http.py", set(archive.namelist()))
+        self.assertIn("achievement-companion/py_modules/backend/tls.py", set(archive.namelist()))
 
 
 if __name__ == "__main__":

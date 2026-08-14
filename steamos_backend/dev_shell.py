@@ -12,9 +12,9 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence, TextIO
 from urllib.parse import unquote, urlsplit
 
-from backend.local_launcher import LocalBackendRuntime, start_local_backend
-from backend.local_server import LOCAL_BACKEND_HOST, LocalBackendContext
-from backend.paths import BackendPaths, derive_steamos_xdg_env, resolve_steamos_backend_paths
+from steamos_backend.local_launcher import LocalBackendRuntime, start_local_backend
+from steamos_backend.local_server import LOCAL_BACKEND_HOST, LocalBackendContext
+from steamos_backend.paths import BackendPaths, derive_steamos_xdg_env, resolve_steamos_backend_paths
 
 
 _THREAD_JOIN_TIMEOUT_SECONDS = 5.0
@@ -326,7 +326,7 @@ def run_steamos_dev_shell(
 
 def _build_parser() -> argparse.ArgumentParser:
   parser = argparse.ArgumentParser(
-    prog="python -m backend.dev_shell",
+    prog="python -m steamos_backend.dev_shell",
     description="Start the Achievement Companion SteamOS dev shell.",
   )
   parser.add_argument(

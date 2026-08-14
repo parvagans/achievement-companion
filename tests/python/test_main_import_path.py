@@ -25,12 +25,13 @@ class FakeDeckyLogger:
     return
 
 
-def _path_entry_points_to_root(entry: str, cwd: Path) -> bool:
+def _path_entry_points_to_project_import_root(entry: str, cwd: Path) -> bool:
   if entry == "":
     return cwd.resolve() == ROOT_DIR
 
   try:
-    return Path(entry).resolve() == ROOT_DIR
+    resolved_entry = Path(entry).resolve()
+    return resolved_entry == ROOT_DIR or resolved_entry == ROOT_DIR / "py_modules"
   except OSError:
     return False
 
@@ -47,9 +48,16 @@ class MainImportPathTests(unittest.TestCase):
     }
     module_name = f"achievement_companion_main_import_path_{uuid.uuid4().hex}"
 
-    with tempfile.TemporaryDirectory() as settings_dir, tempfile.TemporaryDirectory() as other_cwd:
+    with (
+      tempfile.TemporaryDirectory() as settings_root,
+      tempfile.TemporaryDirectory() as logs_root,
+      tempfile.TemporaryDirectory() as other_cwd,
+    ):
+      settings_dir = Path(settings_root) / "completely-different" / "settings"
+      logs_dir = Path(logs_root) / "decky-exported-logs"
       decky_module = types.ModuleType("decky")
-      decky_module.DECKY_PLUGIN_SETTINGS_DIR = settings_dir
+      decky_module.DECKY_PLUGIN_SETTINGS_DIR = str(settings_dir)
+      decky_module.DECKY_PLUGIN_LOG_DIR = str(logs_dir)
       decky_module.logger = FakeDeckyLogger()
 
       try:
@@ -57,7 +65,7 @@ class MainImportPathTests(unittest.TestCase):
         sys.path = [
           entry
           for entry in original_sys_path
-          if not _path_entry_points_to_root(entry, Path(other_cwd))
+          if not _path_entry_points_to_project_import_root(entry, Path(other_cwd))
         ]
 
         for name in list(sys.modules):
@@ -73,8 +81,14 @@ class MainImportPathTests(unittest.TestCase):
         sys.modules[module_name] = module
         spec.loader.exec_module(module)
 
-        self.assertEqual(module.SETTINGS_PATH, Path(settings_dir))
+        self.assertEqual(module.SETTINGS_PATH, settings_dir)
+        self.assertEqual(module.LOGS_PATH, logs_dir)
+        self.assertNotEqual(
+          module.LOGS_PATH,
+          module.SETTINGS_PATH.parent.parent / "logs" / "achievement-companion",
+        )
         self.assertEqual(module._PLUGIN_DIR, ROOT_DIR)  # type: ignore[attr-defined]
+        self.assertEqual(module._PLUGIN_PY_MODULES_DIR, ROOT_DIR / "py_modules")  # type: ignore[attr-defined]
         self.assertIsNotNone(sys.modules.get("backend"))
       finally:
         os.chdir(original_cwd)

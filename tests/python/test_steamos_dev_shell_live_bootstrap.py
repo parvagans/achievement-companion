@@ -9,8 +9,8 @@ import unittest
 from pathlib import Path
 from typing import Any
 
-from backend import dev_shell, local_server
-from backend.paths import BackendPaths
+from steamos_backend import dev_shell, local_server
+from steamos_backend.paths import BackendPaths
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]

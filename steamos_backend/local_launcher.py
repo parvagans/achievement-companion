@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Mapping, Sequence, TextIO
 
-from backend.local_server import (
+from steamos_backend.local_server import (
   LOCAL_BACKEND_HOST,
   LocalBackendContext,
   LocalBackendHTTPServer,
@@ -20,7 +20,7 @@ from backend.local_server import (
   create_session_token,
   write_runtime_metadata,
 )
-from backend.paths import BackendPaths, derive_steamos_xdg_env, ensure_backend_dirs, resolve_steamos_backend_paths
+from steamos_backend.paths import BackendPaths, derive_steamos_xdg_env, ensure_backend_dirs, resolve_steamos_backend_paths
 
 
 _THREAD_JOIN_TIMEOUT_SECONDS = 5.0
@@ -171,7 +171,7 @@ def run_local_backend(
 
 def _build_parser() -> argparse.ArgumentParser:
   parser = argparse.ArgumentParser(
-    prog="python -m backend.local_launcher",
+    prog="python -m steamos_backend.local_launcher",
     description="Start the Achievement Companion local backend.",
   )
   parser.add_argument(

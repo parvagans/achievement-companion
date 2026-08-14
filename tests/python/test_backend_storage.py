@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from unittest import mock
 
+import _test_support  # noqa: F401
 from backend import storage
 
 

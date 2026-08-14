@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 
+import _test_support  # noqa: F401
 from backend import diagnostics
 
 

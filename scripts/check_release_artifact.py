@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 import sys
 import zipfile
@@ -18,15 +19,15 @@ EXPECTED_RELEASE_ARCHIVE_NAMES = {
   f"{PLUGIN_ARCHIVE_ROOT}/LICENSE",
   f"{PLUGIN_ARCHIVE_ROOT}/README.md",
   f"{PLUGIN_ARCHIVE_ROOT}/THIRD_PARTY_NOTICES.md",
-  f"{PLUGIN_ARCHIVE_ROOT}/backend/__init__.py",
-  f"{PLUGIN_ARCHIVE_ROOT}/backend/http.py",
-  f"{PLUGIN_ARCHIVE_ROOT}/backend/diagnostics.py",
-  f"{PLUGIN_ARCHIVE_ROOT}/backend/steam_shortcuts.py",
-  f"{PLUGIN_ARCHIVE_ROOT}/backend/redaction.py",
-  f"{PLUGIN_ARCHIVE_ROOT}/backend/secrets.py",
-  f"{PLUGIN_ARCHIVE_ROOT}/backend/provider_config.py",
-  f"{PLUGIN_ARCHIVE_ROOT}/backend/storage.py",
-  f"{PLUGIN_ARCHIVE_ROOT}/backend/tls.py",
+  f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/__init__.py",
+  f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/http.py",
+  f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/diagnostics.py",
+  f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/steam_shortcuts.py",
+  f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/redaction.py",
+  f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/secrets.py",
+  f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/provider_config.py",
+  f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/storage.py",
+  f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/tls.py",
   f"{PLUGIN_ARCHIVE_ROOT}/main.py",
   f"{PLUGIN_ARCHIVE_ROOT}/package.json",
   f"{PLUGIN_ARCHIVE_ROOT}/plugin.json",
@@ -50,6 +51,8 @@ PLUGIN_JSON_REQUIRED_FIELDS = (
   "name",
   "version",
 )
+RUNTIME_PACKAGE_NAME = "backend"
+RUNTIME_PACKAGE_ARCHIVE_DIR = f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend"
 
 
 def get_release_zip_path(root_dir: Path = ROOT_DIR) -> Path:
@@ -87,6 +90,136 @@ def verify_release_zip_payload(zip_path: Path) -> None:
     if unexpected_names:
       problems.append(f"unexpected: {', '.join(unexpected_names)}")
     raise RuntimeError(f"Release artifact payload mismatch ({'; '.join(problems)}).")
+
+
+def _runtime_module_archive_candidates(module_name: str) -> tuple[str, ...]:
+  if module_name == RUNTIME_PACKAGE_NAME:
+    return (f"{RUNTIME_PACKAGE_ARCHIVE_DIR}/__init__.py",)
+
+  relative_module_name = module_name.removeprefix(f"{RUNTIME_PACKAGE_NAME}.")
+  relative_module_path = relative_module_name.replace(".", "/")
+  return (
+    f"{RUNTIME_PACKAGE_ARCHIVE_DIR}/{relative_module_path}.py",
+    f"{RUNTIME_PACKAGE_ARCHIVE_DIR}/{relative_module_path}/__init__.py",
+  )
+
+
+def _resolve_relative_import_base(
+  *,
+  importer_module: str,
+  importer_is_package: bool,
+  imported_module: str | None,
+  level: int,
+) -> str | None:
+  package_parts = importer_module.split(".")
+  if not importer_is_package:
+    package_parts = package_parts[:-1]
+
+  parent_levels = level - 1
+  if parent_levels > len(package_parts):
+    return None
+
+  base_parts = package_parts[:len(package_parts) - parent_levels]
+  if imported_module:
+    base_parts.extend(imported_module.split("."))
+  return ".".join(base_parts)
+
+
+def _find_runtime_imports(
+  source_text: str,
+  *,
+  module_name: str,
+  is_package: bool,
+) -> set[str]:
+  try:
+    tree = ast.parse(source_text, filename=module_name)
+  except SyntaxError as error:
+    raise RuntimeError(f"Packaged Python source is invalid for {module_name}: {error}") from error
+
+  imported_modules: set[str] = set()
+  for node in ast.walk(tree):
+    if isinstance(node, ast.Import):
+      for alias in node.names:
+        if alias.name == RUNTIME_PACKAGE_NAME or alias.name.startswith(f"{RUNTIME_PACKAGE_NAME}."):
+          imported_modules.add(alias.name)
+      continue
+
+    if not isinstance(node, ast.ImportFrom):
+      continue
+
+    if node.level == 0:
+      imported_base = node.module
+    else:
+      imported_base = _resolve_relative_import_base(
+        importer_module=module_name,
+        importer_is_package=is_package,
+        imported_module=node.module,
+        level=node.level,
+      )
+
+    if not imported_base or (
+      imported_base != RUNTIME_PACKAGE_NAME
+      and not imported_base.startswith(f"{RUNTIME_PACKAGE_NAME}.")
+    ):
+      continue
+
+    imported_modules.add(imported_base)
+    if node.module is None or imported_base == RUNTIME_PACKAGE_NAME:
+      imported_modules.update(
+        f"{imported_base}.{alias.name}"
+        for alias in node.names
+        if alias.name != "*"
+      )
+
+  return imported_modules
+
+
+def verify_release_runtime_import_closure(zip_path: Path) -> None:
+  main_archive_name = f"{PLUGIN_ARCHIVE_ROOT}/main.py"
+  with zipfile.ZipFile(zip_path) as archive:
+    archive_names = set(archive.namelist())
+    if main_archive_name not in archive_names:
+      raise RuntimeError(f"Release artifact is missing Python entry point: {main_archive_name}")
+
+    pending: list[tuple[str, str, bool]] = [("main", main_archive_name, False)]
+    visited: set[str] = set()
+    while pending:
+      module_name, archive_name, is_package = pending.pop()
+      if module_name in visited:
+        continue
+      visited.add(module_name)
+
+      source_text = archive.read(archive_name).decode("utf-8")
+      for imported_module in sorted(
+        _find_runtime_imports(
+          source_text,
+          module_name=module_name,
+          is_package=is_package,
+        )
+      ):
+        if imported_module in visited:
+          continue
+
+        candidates = _runtime_module_archive_candidates(imported_module)
+        imported_archive_name = next(
+          (candidate for candidate in candidates if candidate in archive_names),
+          None,
+        )
+        if imported_archive_name is None:
+          raise RuntimeError(
+            "Release runtime import closure is missing "
+            f"{imported_module} required by {module_name}; expected "
+            + " or ".join(candidates)
+            + "."
+          )
+
+        pending.append(
+          (
+            imported_module,
+            imported_archive_name,
+            imported_archive_name.endswith("/__init__.py"),
+          )
+        )
 
 
 def verify_release_package_json(zip_path: Path) -> None:
@@ -217,6 +350,7 @@ def main(argv: list[str] | None = None) -> int:
   if not zip_path.exists():
     raise RuntimeError(f"Release artifact does not exist: {zip_path}")
 
+  verify_release_runtime_import_closure(zip_path)
   verify_release_zip_payload(zip_path)
   verify_release_package_json(zip_path)
   verify_release_plugin_json(zip_path)

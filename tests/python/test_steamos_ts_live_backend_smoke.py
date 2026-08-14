@@ -8,8 +8,8 @@ import unittest
 from pathlib import Path
 from typing import Any
 
-from backend import local_launcher, local_server
-from backend.paths import BackendPaths
+from steamos_backend import local_launcher, local_server
+from steamos_backend.paths import BackendPaths
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -93,12 +93,12 @@ class SteamOSTypeScriptLiveBackendSmokeTests(unittest.TestCase):
     self.assertNotIn("OneDrive", fixture_source)
     self.assertNotIn("tests/fixtures/steamos-live-client-smoke.ts", package_release)
     self.assertNotIn("tests/fixtures/steamos-live-client-smoke.ts", check_release)
-    self.assertNotIn("backend/local_launcher.py", package_release)
-    self.assertNotIn("backend/local_launcher.py", check_release)
-    self.assertNotIn("backend/local_server.py", package_release)
-    self.assertNotIn("backend/local_server.py", check_release)
-    self.assertNotIn("backend/paths.py", package_release)
-    self.assertNotIn("backend/paths.py", check_release)
+    self.assertNotIn("steamos_backend/local_launcher.py", package_release)
+    self.assertNotIn("steamos_backend/local_launcher.py", check_release)
+    self.assertNotIn("steamos_backend/local_server.py", package_release)
+    self.assertNotIn("steamos_backend/local_server.py", check_release)
+    self.assertNotIn("steamos_backend/paths.py", package_release)
+    self.assertNotIn("steamos_backend/paths.py", check_release)
 
 
 if __name__ == "__main__":

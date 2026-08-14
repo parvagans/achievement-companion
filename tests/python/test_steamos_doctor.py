@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from backend import steamos_doctor
+from steamos_backend import steamos_doctor
 
 
 def _write_repo_root_markers(root: Path) -> None:
@@ -155,8 +155,8 @@ class SteamOSDoctorTests(unittest.TestCase):
       _write_repo_root_markers(root)
       stdout = io.StringIO()
 
-      with patch("backend.local_launcher.start_local_backend", side_effect=AssertionError("must not start backend")), patch(
-        "backend.dev_shell.start_steamos_dev_shell",
+      with patch("steamos_backend.local_launcher.start_local_backend", side_effect=AssertionError("must not start backend")), patch(
+        "steamos_backend.dev_shell.start_steamos_dev_shell",
         side_effect=AssertionError("must not start shell"),
       ):
         exit_code = steamos_doctor.run_steamos_doctor(

@@ -12,10 +12,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping
 
-from backend import cache as cache_helpers
-from backend import local_server
+from steamos_backend import cache as cache_helpers
+from steamos_backend import local_server
 from backend import secrets as secret_helpers
-from backend.paths import BackendPaths
+from steamos_backend.paths import BackendPaths
 
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -1343,7 +1343,7 @@ class BackendLocalServerTests(unittest.TestCase):
       local_server.create_local_backend_server(host="0.0.0.0")
 
   def test_local_server_module_stays_out_of_decky_boundaries_and_release_payload(self) -> None:
-    source = (ROOT_DIR / "backend" / "local_server.py").read_text(encoding="utf-8")
+    source = (ROOT_DIR / "steamos_backend" / "local_server.py").read_text(encoding="utf-8")
     package_release = (ROOT_DIR / "scripts" / "package_release.py").read_text(encoding="utf-8")
     check_release = (ROOT_DIR / "scripts" / "check_release_artifact.py").read_text(encoding="utf-8")
 
@@ -1352,10 +1352,10 @@ class BackendLocalServerTests(unittest.TestCase):
     self.assertNotIn("import main", source)
     self.assertNotIn("from main import", source)
     self.assertNotIn("OneDrive", source)
-    self.assertNotIn("backend/local_server.py", package_release)
-    self.assertNotIn("backend/local_server.py", check_release)
-    self.assertNotIn("backend/paths.py", package_release)
-    self.assertNotIn("backend/paths.py", check_release)
+    self.assertNotIn("steamos_backend/local_server.py", package_release)
+    self.assertNotIn("steamos_backend/local_server.py", check_release)
+    self.assertNotIn("steamos_backend/paths.py", package_release)
+    self.assertNotIn("steamos_backend/paths.py", check_release)
 
 
 if __name__ == "__main__":

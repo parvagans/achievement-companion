@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 
+import _test_support  # noqa: F401
 from backend import redaction
 
 
@@ -53,4 +54,3 @@ class BackendRedactionTests(unittest.TestCase):
     self.assertTrue(redaction.is_secret_key("apiKeyDraft"))
     self.assertTrue(redaction.is_secret_key("y"))
     self.assertFalse(redaction.is_secret_key("providerId"))
-

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { beforeEach, test } from "node:test";
 import type { CacheEntry, CacheStore, ResourceState } from "../src/core/cache";
 import {
@@ -4143,13 +4145,26 @@ test("v0.3.2 release metadata and Decky cleanup stay aligned", () => {
   assert.match(releasePackageScriptSource, /createRoot/u);
   assert.match(releasePackageScriptSource, /react-dom\/client/u);
   assert.match(releasePackageScriptSource, /\.protondb-decky-indicator-container/u);
-  assert.match(releasePackageScriptSource, /backend\/steam_shortcuts\.py/u);
+  assert.match(releasePackageScriptSource, /py_modules\/backend\/steam_shortcuts\.py/u);
   assert.match(releaseCheckScriptSource, /INSTALL_DIAGNOSTIC\.txt/u);
   assert.match(releaseCheckScriptSource, /AchievementCompanionGamePageBadge/u);
-  assert.match(releaseCheckScriptSource, /backend\/steam_shortcuts\.py/u);
+  assert.match(releaseCheckScriptSource, /py_modules\/backend\/steam_shortcuts\.py/u);
   assert.match(releaseCheckScriptSource, /FORBIDDEN_FRONTEND_MARKERS/u);
   assert.match(releaseCheckScriptSource, /verify_release_dist_bundles/u);
-  assert.match(packageJson.scripts?.build ?? "", /clean_decky_dist\.py/u);
+  assert.equal(
+    packageJson.scripts?.build,
+    "node scripts/clean_decky_dist.mjs && node scripts/sync_decky_notices.mjs && rollup -c",
+  );
+  assert.doesNotMatch(packageJson.scripts?.build ?? "", /python|clean_decky_dist\.py/iu);
+  assert.match(packageJson.scripts?.build ?? "", /clean_decky_dist\.mjs/u);
+  assert.match(packageJson.scripts?.build ?? "", /sync_decky_notices\.mjs/u);
+  assert.match(packageJson.scripts?.build ?? "", /rollup -c/u);
+  assert.equal(packageJson.packageManager, "pnpm@9.4.0");
+  assert.equal(existsSync("scripts/clean_decky_dist.py"), false);
+  assert.equal(existsSync("scripts/clean_decky_dist.mjs"), true);
+  assert.equal(existsSync("scripts/sync_decky_notices.mjs"), true);
+  assert.match(releasePackageScriptSource, /Path\("THIRD_PARTY_NOTICES\.md"\)/u);
+  assert.doesNotMatch(releasePackageScriptSource, /defaults\/THIRD_PARTY_NOTICES\.md/u);
 
   for (const deckySource of [
     bootstrapSource,
@@ -4168,6 +4183,102 @@ test("v0.3.2 release metadata and Decky cleanup stay aligned", () => {
   assert.doesNotMatch(compactGameDetailSource, /function getGameDetailSectionHeaderStyle\(/u);
   assert.doesNotMatch(compactGameDetailSource, /readonly index: number;/u);
   assert.doesNotMatch(compactGameDetailSource, /achievements\.map\(\(achievement, index\) =>/u);
+});
+
+test("decky dist cleanup removes nested output and tolerates a missing directory", () => {
+  const tempRoot = mkdtempSync(join(tmpdir(), "achievement-companion-decky-clean-"));
+  const cleanupScriptPath = resolve("scripts/clean_decky_dist.mjs");
+
+  try {
+    const nestedDistPath = join(tempRoot, "dist", "nested");
+    mkdirSync(nestedDistPath, { recursive: true });
+    writeFileSync(join(nestedDistPath, "bundle.js"), "stale bundle\n", "utf8");
+
+    const firstRun = spawnSync(process.execPath, [cleanupScriptPath], {
+      cwd: tempRoot,
+      encoding: "utf8",
+    });
+    assert.equal(firstRun.status, 0, firstRun.stderr);
+    assert.equal(existsSync(join(tempRoot, "dist")), false);
+
+    const secondRun = spawnSync(process.execPath, [cleanupScriptPath], {
+      cwd: tempRoot,
+      encoding: "utf8",
+    });
+    assert.equal(secondRun.status, 0, secondRun.stderr);
+    assert.equal(existsSync(join(tempRoot, "dist")), false);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("Decky notice sync copies the canonical notice byte-for-byte and fails when it is missing", () => {
+  const syncScriptPath = resolve("scripts/sync_decky_notices.mjs");
+  const tempRoot = mkdtempSync(join(tmpdir(), "achievement-companion-decky-notices-"));
+  const missingRoot = mkdtempSync(join(tmpdir(), "achievement-companion-decky-notices-missing-"));
+
+  try {
+    const canonicalNotice = Buffer.from("Canonical notice with UTF-8: Caf\u00e9\n", "utf8");
+    writeFileSync(join(tempRoot, "THIRD_PARTY_NOTICES.md"), canonicalNotice);
+
+    const syncRun = spawnSync(process.execPath, [syncScriptPath], {
+      cwd: tempRoot,
+      encoding: "utf8",
+    });
+    assert.equal(syncRun.status, 0, syncRun.stderr);
+    assert.deepEqual(
+      readFileSync(join(tempRoot, "defaults", "THIRD_PARTY_NOTICES.md")),
+      canonicalNotice,
+    );
+
+    const missingRun = spawnSync(process.execPath, [syncScriptPath], {
+      cwd: missingRoot,
+      encoding: "utf8",
+    });
+    assert.notEqual(missingRun.status, 0);
+    assert.match(missingRun.stderr, /Canonical THIRD_PARTY_NOTICES\.md is missing or unreadable/u);
+    assert.equal(existsSync(join(missingRoot, "defaults", "THIRD_PARTY_NOTICES.md")), false);
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+    rmSync(missingRoot, { recursive: true, force: true });
+  }
+});
+
+test("Decky third-party notices preserve the bundled API license and generated-file boundary", () => {
+  const noticeSource = readFileSync("THIRD_PARTY_NOTICES.md", "utf8");
+  const ignoreLines = readFileSync(".gitignore", "utf8").split(/\r?\n/u);
+  const licenseStart = "                   GNU LESSER GENERAL PUBLIC LICENSE\n";
+
+  assert.equal(ignoreLines.filter((line) => line === "defaults/THIRD_PARTY_NOTICES.md").length, 1);
+  assert.equal(ignoreLines.includes("defaults/"), false);
+  assert.doesNotMatch(noticeSource, /\uFFFD/u);
+  assert.match(noticeSource, /`@decky\/api` \| `1\.1\.3`/u);
+  assert.match(noticeSource, /GNU Lesser General Public License v2\.1 \(`LGPL-2\.1`\)/u);
+  assert.match(noticeSource, /SteamDeckHomebrew\/loader-api\/tree\/v1\.1\.3/u);
+  assert.match(noticeSource, /Steam and the Steam logo are trademarks/u);
+  assert.match(noticeSource, new RegExp(licenseStart, "u"));
+  assert.match(noticeSource, /That's all there is to it!\n```/u);
+
+  const embeddedLicense = `${noticeSource.split("```text\n", 2)[1]?.split("\n```", 1)[0] ?? ""}\n`;
+  assert.equal(embeddedLicense, readFileSync("node_modules/@decky/api/LICENSE", "utf8"));
+});
+
+test("Decky publish image uses the current repository PNG asset", () => {
+  const expectedImageUrl =
+    "https://raw.githubusercontent.com/parvagans/achievement-companion/main/assets/providers_menu.png";
+  const pluginJson = JSON.parse(readFileSync("plugin.json", "utf8")) as {
+    publish?: { image?: string };
+  };
+  const imagePath = "assets/providers_menu.png";
+
+  assert.equal(pluginJson.publish?.image, expectedImageUrl);
+  assert.match(pluginJson.publish?.image ?? "", /parvagans\/achievement-companion/u);
+  assert.match(pluginJson.publish?.image ?? "", /\.png$/u);
+  assert.doesNotMatch(pluginJson.publish?.image ?? "", /CodeNode-Automation/u);
+  assert.equal(existsSync(imagePath), true);
+
+  const pngSignature = readFileSync(imagePath).subarray(0, 8);
+  assert.deepEqual([...pngSignature], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 });
 
 test("retroachievements profile exposes points, games beaten, and retroratio metrics", async () => {

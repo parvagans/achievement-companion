@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import _test_support  # noqa: F401
 from backend import provider_config
 
 

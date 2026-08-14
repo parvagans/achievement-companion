@@ -7,9 +7,10 @@ from pathlib import Path
 from typing import Any, Mapping
 
 _PLUGIN_DIR = Path(__file__).resolve().parent
-_PLUGIN_DIR_TEXT = str(_PLUGIN_DIR)
-if _PLUGIN_DIR_TEXT not in sys.path:
-  sys.path.insert(0, _PLUGIN_DIR_TEXT)
+_PLUGIN_PY_MODULES_DIR = _PLUGIN_DIR / "py_modules"
+_PLUGIN_PY_MODULES_DIR_TEXT = str(_PLUGIN_PY_MODULES_DIR)
+if _PLUGIN_PY_MODULES_DIR_TEXT not in sys.path:
+  sys.path.insert(0, _PLUGIN_PY_MODULES_DIR_TEXT)
 
 import decky
 from backend.http import request_json as _backend_request_json
@@ -44,7 +45,7 @@ from backend.storage import read_json_file as _read_json_file
 from backend.storage import write_json_file as _write_json_file
 
 SETTINGS_PATH = Path(decky.DECKY_PLUGIN_SETTINGS_DIR)
-LOGS_PATH = SETTINGS_PATH.parent.parent / "logs" / "achievement-companion"
+LOGS_PATH = Path(decky.DECKY_PLUGIN_LOG_DIR)
 CONFIG_PATH = SETTINGS_PATH / "provider-config.json"
 SECRETS_PATH = SETTINGS_PATH / "provider-secrets.json"
 
