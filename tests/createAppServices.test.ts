@@ -4084,7 +4084,7 @@ test("provider setup and settings true actions use compact focusable pills", () 
   );
 });
 
-test("v0.3.2 release metadata and Decky cleanup stay aligned", () => {
+test("v0.3.3 release metadata and Decky cleanup stay aligned", () => {
   const packageJson = JSON.parse(readFileSync("package.json", "utf8")) as {
     version?: string;
     scripts?: Record<string, string>;
@@ -4120,11 +4120,11 @@ test("v0.3.2 release metadata and Decky cleanup stay aligned", () => {
   const releasePackageScriptSource = readFileSync("scripts/package_release.py", "utf8");
   const releaseCheckScriptSource = readFileSync("scripts/check_release_artifact.py", "utf8");
 
-  assert.equal(packageJson.version, "0.3.2");
-  assert.equal(pluginJson.version, "0.3.2");
-  assert.match(readmeSource, /Version 0\.3\.2/u);
-  assert.match(bootstrapSource, /const ACHIEVEMENT_COMPANION_VERSION = "0\.3\.2"/u);
-  assert.match(runtimeDebugSource, /0\.3\.2-runtime/u);
+  assert.equal(packageJson.version, "0.3.3");
+  assert.equal(pluginJson.version, "0.3.3");
+  assert.match(readmeSource, /Version 0\.3\.3/u);
+  assert.match(bootstrapSource, /const ACHIEVEMENT_COMPANION_VERSION = "0\.3\.3"/u);
+  assert.match(runtimeDebugSource, /0\.3\.3-runtime/u);
   assert.doesNotMatch(bootstrapSource, /DIAGNOSTIC BUILD LOADED 2026-06-28/u);
   assert.doesNotMatch(
     `${readmeSource}\n${bootstrapSource}\n${runtimeDebugSource}\n${JSON.stringify(packageJson)}\n${JSON.stringify(pluginJson)}`,
@@ -4247,7 +4247,7 @@ test("Decky notice sync copies the canonical notice byte-for-byte and fails when
 test("Decky third-party notices preserve the bundled API license and generated-file boundary", () => {
   const noticeSource = readFileSync("THIRD_PARTY_NOTICES.md", "utf8");
   const ignoreLines = readFileSync(".gitignore", "utf8").split(/\r?\n/u);
-  const licenseStart = "                   GNU LESSER GENERAL PUBLIC LICENSE\n";
+  const licenseStart = "                   GNU LESSER GENERAL PUBLIC LICENSE";
 
   assert.equal(ignoreLines.filter((line) => line === "defaults/THIRD_PARTY_NOTICES.md").length, 1);
   assert.equal(ignoreLines.includes("defaults/"), false);
@@ -4257,10 +4257,14 @@ test("Decky third-party notices preserve the bundled API license and generated-f
   assert.match(noticeSource, /SteamDeckHomebrew\/loader-api\/tree\/v1\.1\.3/u);
   assert.match(noticeSource, /Steam and the Steam logo are trademarks/u);
   assert.match(noticeSource, new RegExp(licenseStart, "u"));
-  assert.match(noticeSource, /That's all there is to it!\n```/u);
+  assert.match(noticeSource, /That's all there is to it!\r?\n```/u);
 
-  const embeddedLicense = `${noticeSource.split("```text\n", 2)[1]?.split("\n```", 1)[0] ?? ""}\n`;
-  assert.equal(embeddedLicense, readFileSync("node_modules/@decky/api/LICENSE", "utf8"));
+  const embeddedLicense = `${noticeSource.split(/```text\r?\n/u, 2)[1]?.split(/\r?\n```/u, 1)[0] ?? ""}\n`;
+  const normalizeLineEndings = (value: string): string => value.replace(/\r\n/gu, "\n");
+  assert.equal(
+    normalizeLineEndings(embeddedLicense),
+    normalizeLineEndings(readFileSync("node_modules/@decky/api/LICENSE", "utf8")),
+  );
 });
 
 test("Decky publish image uses the current repository PNG asset", () => {
