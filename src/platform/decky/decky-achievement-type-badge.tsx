@@ -1,4 +1,4 @@
-import type { AchievementClassification } from "@core/domain";
+import { isAchievementClassification, type AchievementClassification } from "@core/domain";
 import type { CSSProperties } from "react";
 
 interface AchievementTypeBadgeDescriptor {
@@ -32,11 +32,7 @@ const BADGE_DESCRIPTORS: Readonly<Record<AchievementClassification, AchievementT
 export function getAchievementTypeBadgeDescriptor(
   classification: unknown,
 ): AchievementTypeBadgeDescriptor | undefined {
-  if (
-    classification !== "missable" &&
-    classification !== "progression" &&
-    classification !== "win-condition"
-  ) {
+  if (!isAchievementClassification(classification)) {
     return undefined;
   }
 

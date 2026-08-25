@@ -1,4 +1,4 @@
-import type { NormalizedMetric, ProviderId } from "@core/domain";
+import { isAchievementClassification, type NormalizedMetric, type ProviderId } from "@core/domain";
 import type { CompactAchievementTarget } from "./decky-achievement-detail-view";
 import { readDeckyStorageText, removeDeckyStorageText, writeDeckyStorageText } from "./storage";
 
@@ -126,6 +126,9 @@ function parseDeckyFullscreenAchievementReturnTarget(
   const achievementCandidate = achievement as Record<string, unknown>;
   const gameMetrics = parseNormalizedMetricList(gameCandidate["metrics"]);
   const achievementMetrics = parseNormalizedMetricList(achievementCandidate["metrics"]);
+  const achievementClassification = isAchievementClassification(achievementCandidate["classification"])
+    ? achievementCandidate["classification"]
+    : undefined;
 
   if (
     !isProviderId(gameCandidate["providerId"]) ||
@@ -195,6 +198,9 @@ function parseDeckyFullscreenAchievementReturnTarget(
         : {}),
       ...(achievementCandidate["points"] !== undefined
         ? { points: achievementCandidate["points"] }
+        : {}),
+      ...(achievementClassification !== undefined
+        ? { classification: achievementClassification }
         : {}),
     },
   };

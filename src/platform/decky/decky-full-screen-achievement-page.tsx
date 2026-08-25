@@ -4,6 +4,7 @@ import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
 import { Focusable, PanelSection, PanelSectionRow, ScrollPanel } from "@decky/ui";
 import { PlaceholderState } from "@ui/PlaceholderState";
 import { initialDeckyGameDetailState, loadDeckyGameDetailState } from "./decky-app-services";
+import { DeckyAchievementTypeBadge } from "./decky-achievement-type-badge";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
@@ -534,6 +535,16 @@ function getAchievementSpotlightTitleStyle(): CSSProperties {
   };
 }
 
+function getAchievementSpotlightTitleLineStyle(): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: "5px 8px",
+    minWidth: 0,
+  };
+}
+
 function getAchievementSpotlightDescriptionStyle(): CSSProperties {
   return {
     color: "rgba(255, 255, 255, 0.84)",
@@ -966,7 +977,10 @@ function AchievementSpotlightCard({
         </div>
 
         <div style={getAchievementSpotlightTextStyle()}>
-          <div style={getAchievementSpotlightTitleStyle()}>{achievement.title}</div>
+          <div style={getAchievementSpotlightTitleLineStyle()}>
+            <span style={getAchievementSpotlightTitleStyle()}>{achievement.title}</span>
+            <DeckyAchievementTypeBadge classification={achievement.classification} />
+          </div>
           <div style={getAchievementSpotlightDescriptionStyle()}>
             {getAchievementDescriptionText(achievement.description)}
           </div>

@@ -4,6 +4,7 @@ import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
 import { PanelSection, PanelSectionRow } from "@decky/ui";
 import { PlaceholderState } from "@ui/PlaceholderState";
 import { loadDeckyGameDetailState, initialDeckyGameDetailState } from "./decky-app-services";
+import { DeckyAchievementTypeBadge } from "./decky-achievement-type-badge";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DeckyCompactPillActionGroup, DeckyCompactPillActionItem } from "./decky-compact-pill-action-item";
 import { ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement } from "./decky-full-screen-cancel-bridge";
@@ -36,6 +37,7 @@ export interface CompactAchievementTarget {
     NormalizedAchievement,
     | "achievementId"
     | "title"
+    | "classification"
     | "description"
     | "badgeImageUrl"
     | "isUnlocked"
@@ -101,13 +103,22 @@ function getGameTitleStyle(): CSSProperties {
 function getAchievementTitleStyle(): CSSProperties {
   return {
     minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+    overflowWrap: "anywhere",
+    whiteSpace: "normal",
     color: "rgba(255, 255, 255, 0.98)",
     fontSize: "1.03em",
     fontWeight: 800,
     lineHeight: 1.1,
+  };
+}
+
+function getAchievementTitleLineStyle(): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: "4px 7px",
+    minWidth: 0,
   };
 }
 
@@ -441,7 +452,7 @@ function AchievementCard({
 }: {
   readonly achievement: Pick<
     NormalizedAchievement,
-    "achievementId" | "title" | "description" | "badgeImageUrl" | "isUnlocked" | "unlockedAt" | "unlockMode" | "points" | "metrics"
+    "achievementId" | "title" | "classification" | "description" | "badgeImageUrl" | "isUnlocked" | "unlockedAt" | "unlockMode" | "points" | "metrics"
   >;
   readonly game: CompactAchievementGameTarget;
   readonly onBack: () => void;
@@ -487,7 +498,10 @@ function AchievementCard({
         ) : null}
 
         <div style={getTextBlockStyle()}>
-          <div style={getAchievementTitleStyle()}>{achievement.title}</div>
+          <div style={getAchievementTitleLineStyle()}>
+            <span style={getAchievementTitleStyle()}>{achievement.title}</span>
+            <DeckyAchievementTypeBadge classification={achievement.classification} />
+          </div>
           {isSteamProvider ? (
             <div style={getDescriptionStyle()}>{getAchievementDescriptionText(achievement.description)}</div>
           ) : achievement.description !== undefined ? (

@@ -4,6 +4,10 @@ export type UnixEpochMs = number;
 export type AchievementUnlockMode = "hardcore" | "softcore";
 export type AchievementClassification = "missable" | "progression" | "win-condition";
 
+export function isAchievementClassification(value: unknown): value is AchievementClassification {
+  return value === "missable" || value === "progression" || value === "win-condition";
+}
+
 export type GameProgressStatus = "locked" | "in_progress" | "completed" | "beaten" | "mastered";
 
 export interface ProviderIdentity {
