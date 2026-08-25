@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { beforeEach, test } from "node:test";
+import { renderToStaticMarkup } from "react-dom/server";
 import type { CacheEntry, CacheStore, ResourceState } from "../src/core/cache";
 import {
   createProviderAchievementHistoryCacheKey,
@@ -16,10 +17,15 @@ import { createAppServices } from "../src/core/app-services";
 import type {
   DashboardSnapshot,
   GameDetailSnapshot,
+  NormalizedAchievement,
   NormalizedGame,
   ProviderCapabilities,
   RecentlyPlayedGame,
 } from "../src/core/domain";
+import {
+  DeckyAchievementTypeBadge,
+  getAchievementTypeBadgeDescriptor,
+} from "../src/platform/decky/decky-achievement-type-badge";
 import { createProviderRegistry } from "../src/core/provider-registry";
 import type { AchievementProvider } from "../src/core/ports";
 import type { KeyValueStore, PlatformServices } from "../src/core/platform";
@@ -1390,6 +1396,73 @@ test("retroachievements game progress normalizes achievement badge art", () => {
   );
 });
 
+test("retroachievements achievement types survive normalization as typed classifications", () => {
+  const rawGameProgress = createRetroAchievementsGameProgressResponse({
+    gameId: "typed-game",
+    title: "Typed Achievements",
+    totalCount: 6,
+  });
+  rawGameProgress.Achievements = {
+    "1": { ID: 1, Title: "Missable", Type: "missable", DisplayOrder: 1 },
+    "2": { ID: 2, Title: "Progression", type: "progression", DisplayOrder: 2 },
+    "3": { ID: 3, Title: "Win", Type: "win_condition", DisplayOrder: 3 },
+    "4": { ID: 4, Title: "Normal", Type: null, DisplayOrder: 4 },
+    "5": { ID: 5, Title: "Unknown", Type: "future_type", DisplayOrder: 5 },
+    "6": { ID: 6, Title: "Absent", DisplayOrder: 6 },
+  };
+
+  const snapshot = normalizeRetroAchievementsGameDetail(rawGameProgress);
+
+  assert.deepEqual(
+    snapshot.achievements.map((achievement) => achievement.classification),
+    ["missable", "progression", "win-condition", undefined, undefined, undefined],
+  );
+});
+
+test("achievement type badge maps supported classifications and ignores absent cached or unknown values", () => {
+  assert.equal(getAchievementTypeBadgeDescriptor("missable")?.label, "Missable");
+  assert.equal(getAchievementTypeBadgeDescriptor("progression")?.label, "Progression");
+  assert.equal(getAchievementTypeBadgeDescriptor("win-condition")?.label, "Win Condition");
+  assert.match(
+    renderToStaticMarkup(DeckyAchievementTypeBadge({ classification: "missable" })),
+    />Missable<\/span>/u,
+  );
+  assert.match(
+    renderToStaticMarkup(DeckyAchievementTypeBadge({ classification: "progression" })),
+    />Progression<\/span>/u,
+  );
+  assert.match(
+    renderToStaticMarkup(DeckyAchievementTypeBadge({ classification: "win-condition" })),
+    />Win Condition<\/span>/u,
+  );
+  assert.equal(getAchievementTypeBadgeDescriptor(null), undefined);
+  assert.equal(getAchievementTypeBadgeDescriptor(undefined), undefined);
+  assert.equal(getAchievementTypeBadgeDescriptor("future_type"), undefined);
+  assert.equal(DeckyAchievementTypeBadge({ classification: undefined }), null);
+  assert.equal(DeckyAchievementTypeBadge({ classification: "future_type" }), null);
+
+  const oldCachedAchievement = JSON.parse(JSON.stringify({
+    providerId: "retroachievements",
+    achievementId: "legacy-achievement",
+    gameId: "legacy-game",
+    title: "Legacy Achievement",
+    isUnlocked: false,
+    metrics: [],
+  })) as NormalizedAchievement;
+  assert.equal(getAchievementTypeBadgeDescriptor(oldCachedAchievement.classification), undefined);
+});
+
+test("compact and full-screen game rows share the achievement type badge", () => {
+  const compactSource = readFileSync("src/platform/decky/decky-game-detail-view.tsx", "utf8");
+  const fullScreenSource = readFileSync("src/platform/decky/decky-full-screen-game-page.tsx", "utf8");
+
+  for (const source of [compactSource, fullScreenSource]) {
+    assert.match(source, /DeckyAchievementTypeBadge/u);
+    assert.match(source, /classification=\{achievement\.classification\}/u);
+    assert.match(source, /getAchievementRowTitleLineStyle/u);
+  }
+});
+
 test("retroachievements recent unlocks normalize badge art urls", () => {
   const rawRecentUnlocks: readonly RawRetroAchievementsRecentUnlockResponse[] = [
     {
@@ -1403,6 +1476,7 @@ test("retroachievements recent unlocks normalize badge art urls", () => {
       ConsoleName: "NES",
       Date: "2024-01-01 00:00:00",
       HardcoreMode: true,
+      Type: "progression",
     },
     {
       AchievementID: 108303,
@@ -1425,6 +1499,7 @@ test("retroachievements recent unlocks normalize badge art urls", () => {
     "https://i.retroachievements.org/Badge/108302.png",
   );
   assert.equal(recentUnlocks[0]?.achievement.unlockMode, "hardcore");
+  assert.equal(recentUnlocks[0]?.achievement.classification, "progression");
   assert.equal(recentUnlocks[1]?.achievement.unlockMode, "softcore");
 });
 

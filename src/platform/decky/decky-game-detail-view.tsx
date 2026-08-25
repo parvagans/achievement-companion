@@ -14,6 +14,7 @@ import {
   RetroAchievementsCompletionIndicator,
 } from "./decky-retroachievements-completion-indicator";
 import { DeckyGameArtwork } from "./decky-game-artwork";
+import { DeckyAchievementTypeBadge } from "./decky-achievement-type-badge";
 import { DeckySystemPill } from "./decky-system-pill";
 import { DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS, DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import type { CompactAchievementTarget } from "./decky-achievement-detail-view";
@@ -440,6 +441,18 @@ function getAchievementRowTitleStyle(): CSSProperties {
     fontSize: "0.95em",
     fontWeight: 800,
     lineHeight: 1.2,
+    minWidth: 0,
+    overflowWrap: "anywhere",
+  };
+}
+
+function getAchievementRowTitleLineStyle(): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: "4px 7px",
+    minWidth: 0,
   };
 }
 
@@ -588,7 +601,10 @@ function AchievementRowCard({
       </div>
 
       <div style={getAchievementRowTextStyle()}>
-        <div style={getAchievementRowTitleStyle()}>{achievement.title}</div>
+        <div style={getAchievementRowTitleLineStyle()}>
+          <span style={getAchievementRowTitleStyle()}>{achievement.title}</span>
+          <DeckyAchievementTypeBadge classification={achievement.classification} />
+        </div>
         {isSteamProvider && achievement.description !== undefined ? (
           <div style={getAchievementRowDetailStyle()}>{achievement.description}</div>
         ) : null}

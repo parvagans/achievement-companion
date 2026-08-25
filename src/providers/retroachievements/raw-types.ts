@@ -223,8 +223,8 @@ export interface RawRetroAchievementsGameProgressAchievement {
   readonly displayOrder?: number | string;
   readonly MemAddr?: string;
   readonly memAddr?: string;
-  readonly Type?: string;
-  readonly type?: string;
+  readonly Type?: string | null;
+  readonly type?: string | null;
   readonly DateEarned?: string;
   readonly dateEarned?: string;
   readonly DateEarnedHardcore?: string;
