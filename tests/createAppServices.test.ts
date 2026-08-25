@@ -1463,6 +1463,31 @@ test("compact and full-screen game rows share the achievement type badge", () =>
   }
 });
 
+test("compact and full-screen achievement pages share the achievement type badge without affecting Steam", () => {
+  const compactSource = readFileSync("src/platform/decky/decky-achievement-detail-view.tsx", "utf8");
+  const fullScreenSource = readFileSync("src/platform/decky/decky-full-screen-achievement-page.tsx", "utf8");
+
+  assert.match(compactSource, /getAchievementTitleLineStyle/u);
+  assert.match(compactSource, /flexWrap: "wrap"/u);
+  assert.match(compactSource, /overflowWrap: "anywhere"/u);
+  assert.match(compactSource, /DeckyAchievementTypeBadge classification=\{achievement\.classification\}/u);
+
+  const retroSpotlightStart = fullScreenSource.indexOf("function AchievementSpotlightCard");
+  const steamSpotlightStart = fullScreenSource.indexOf("function SteamAchievementSpotlightCard");
+  const steamSpotlightEnd = fullScreenSource.indexOf("function isRenderableGameDetailState");
+  assert.ok(retroSpotlightStart >= 0);
+  assert.ok(steamSpotlightStart > retroSpotlightStart);
+  assert.ok(steamSpotlightEnd > steamSpotlightStart);
+
+  const retroSpotlightSource = fullScreenSource.slice(retroSpotlightStart, steamSpotlightStart);
+  const steamSpotlightSource = fullScreenSource.slice(steamSpotlightStart, steamSpotlightEnd);
+  assert.match(retroSpotlightSource, /getAchievementSpotlightTitleLineStyle/u);
+  assert.match(retroSpotlightSource, /DeckyAchievementTypeBadge classification=\{achievement\.classification\}/u);
+  assert.doesNotMatch(steamSpotlightSource, /DeckyAchievementTypeBadge/u);
+  assert.match(fullScreenSource, /function getAchievementSpotlightTitleLineStyle\(\): CSSProperties[\s\S]*flexWrap: "wrap"/u);
+  assert.match(fullScreenSource, /function getAchievementSpotlightTitleStyle\(\): CSSProperties[\s\S]*overflowWrap: "anywhere"/u);
+});
+
 test("retroachievements recent unlocks normalize badge art urls", () => {
   const rawRecentUnlocks: readonly RawRetroAchievementsRecentUnlockResponse[] = [
     {
@@ -14664,6 +14689,7 @@ test("fullscreen return context restores achievement detail selection only when 
           achievement: {
             achievementId: "777",
             title: "Bug Catcher",
+            classification: "missable",
             description: "Catch the bug.",
             badgeImageUrl: "https://example.com/badge.png",
             isUnlocked: true,
@@ -14704,6 +14730,7 @@ test("fullscreen return context restores achievement detail selection only when 
         achievement: {
           achievementId: "777",
           title: "Bug Catcher",
+          classification: "missable",
           description: "Catch the bug.",
           badgeImageUrl: "https://example.com/badge.png",
           isUnlocked: true,
