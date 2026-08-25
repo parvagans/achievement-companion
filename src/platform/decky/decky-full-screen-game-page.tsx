@@ -24,6 +24,7 @@ import {
   RetroAchievementsCompletionIndicator,
 } from "./decky-retroachievements-completion-indicator";
 import { DeckyGameArtwork } from "./decky-game-artwork";
+import { DeckyAchievementTypeBadge } from "./decky-achievement-type-badge";
 import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
 import { DeckySystemPill } from "./decky-system-pill";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
@@ -1369,6 +1370,18 @@ function getAchievementRowTitleStyle(): CSSProperties {
     fontSize: "0.95em",
     fontWeight: 800,
     lineHeight: 1.2,
+    minWidth: 0,
+    overflowWrap: "anywhere",
+  };
+}
+
+function getAchievementRowTitleLineStyle(): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: "4px 7px",
+    minWidth: 0,
   };
 }
 
@@ -1476,7 +1489,10 @@ function AchievementRowCard({
       </span>
 
       <span style={getAchievementRowTextStyle()}>
-        <span style={getAchievementRowTitleStyle()}>{achievement.title}</span>
+        <span style={getAchievementRowTitleLineStyle()}>
+          <span style={getAchievementRowTitleStyle()}>{achievement.title}</span>
+          <DeckyAchievementTypeBadge classification={achievement.classification} />
+        </span>
         {isSteamProvider && achievement.description !== undefined ? (
           <span style={getAchievementRowDetailStyle()}>{achievement.description}</span>
         ) : null}

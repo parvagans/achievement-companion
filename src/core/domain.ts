@@ -2,6 +2,7 @@ export type ProviderId = string;
 export type ProviderAccountId = string;
 export type UnixEpochMs = number;
 export type AchievementUnlockMode = "hardcore" | "softcore";
+export type AchievementClassification = "missable" | "progression" | "win-condition";
 
 export type GameProgressStatus = "locked" | "in_progress" | "completed" | "beaten" | "mastered";
 
@@ -149,6 +150,7 @@ export interface NormalizedAchievement {
   readonly hardcoreUnlockedAt?: UnixEpochMs;
   readonly softcoreUnlockedAt?: UnixEpochMs;
   readonly unlockMode?: AchievementUnlockMode;
+  readonly classification?: AchievementClassification;
   readonly points?: number;
   readonly metrics: readonly NormalizedMetric[];
 }

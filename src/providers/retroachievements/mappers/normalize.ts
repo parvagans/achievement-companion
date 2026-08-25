@@ -1,4 +1,5 @@
 import type {
+  AchievementClassification,
   GameDetailSnapshot,
   GameProgressStatus,
   NormalizedAchievement,
@@ -763,12 +764,31 @@ interface RetroAchievementsGameProgressAchievementInput {
   readonly displayOrder?: number | string;
   readonly MemAddr?: string;
   readonly memAddr?: string;
-  readonly Type?: string;
-  readonly type?: string;
+  readonly Type?: string | null;
+  readonly type?: string | null;
   readonly DateEarned?: string;
   readonly dateEarned?: string;
   readonly DateEarnedHardcore?: string;
   readonly dateEarnedHardcore?: string;
+}
+
+export function normalizeRetroAchievementsAchievementType(
+  value: unknown,
+): AchievementClassification | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  switch (value.trim().toLowerCase()) {
+    case "missable":
+      return "missable";
+    case "progression":
+      return "progression";
+    case "win_condition":
+      return "win-condition";
+    default:
+      return undefined;
+  }
 }
 
 function buildGameProgressAchievement(
@@ -799,6 +819,7 @@ function buildGameProgressAchievement(
   const displayOrder = pickNumber(raw.DisplayOrder, raw.displayOrder);
   const memAddr = pickString(raw.MemAddr, raw.memAddr);
   const type = pickString(raw.Type, raw.type);
+  const classification = normalizeRetroAchievementsAchievementType(raw.Type ?? raw.type);
   const hardcoreUnlockedAt = pickEpochMs(raw.DateEarnedHardcore, raw.dateEarnedHardcore);
   const softcoreUnlockedAt = pickEpochMs(raw.DateEarned, raw.dateEarned);
   const unlockedAt = hardcoreUnlockedAt ?? softcoreUnlockedAt;
@@ -934,6 +955,7 @@ function buildGameProgressAchievement(
     ...(hardcoreUnlockedAt !== undefined ? { hardcoreUnlockedAt } : {}),
     ...(softcoreUnlockedAt !== undefined ? { softcoreUnlockedAt } : {}),
     ...(unlockMode !== undefined ? { unlockMode } : {}),
+    ...(classification !== undefined ? { classification } : {}),
     ...(points !== undefined ? { points } : {}),
     metrics,
   };
@@ -947,6 +969,7 @@ interface RetroAchievementsRecentUnlockInput {
   readonly points?: number | string | undefined;
   readonly trueRatio?: number | string | undefined;
   readonly hardcoreMode?: boolean | number | string | undefined;
+  readonly type?: string | null | undefined;
   readonly BadgeURL?: string | undefined;
   readonly badgeUrl?: string | undefined;
   readonly gameId: string;
@@ -967,6 +990,7 @@ function buildRecentUnlockAchievement(
   const title = pickString(raw.title) ?? "Unknown Achievement";
   const badgeImageUrl = badgeUrl !== undefined ? normalizeRetroAchievementsBadgeUrl(badgeUrl) : undefined;
   const unlockMode = hardcoreMode === undefined ? undefined : hardcoreMode ? "hardcore" : "softcore";
+  const classification = normalizeRetroAchievementsAchievementType(raw.type);
 
   const metrics = [
     ...(points !== undefined
@@ -1010,6 +1034,7 @@ function buildRecentUnlockAchievement(
     ...(badgeImageUrl !== undefined ? { badgeImageUrl } : {}),
     ...(unlockedAt !== undefined ? { unlockedAt } : {}),
     ...(unlockMode !== undefined ? { unlockMode } : {}),
+    ...(classification !== undefined ? { classification } : {}),
     ...(hardcoreMode === true && unlockedAt !== undefined ? { hardcoreUnlockedAt: unlockedAt } : {}),
     ...(hardcoreMode === false && unlockedAt !== undefined ? { softcoreUnlockedAt: unlockedAt } : {}),
     ...(points !== undefined ? { points } : {}),
@@ -1094,6 +1119,7 @@ export function normalizeRetroAchievementsRecentUnlocks(
       points: raw.Points ?? raw.points,
       trueRatio: raw.TrueRatio ?? raw.trueRatio,
       hardcoreMode: raw.HardcoreMode ?? raw.hardcoreMode,
+      type: raw.Type ?? raw.type,
       BadgeURL: raw.BadgeURL ?? raw.badgeUrl,
       gameId: game.gameId,
       gameTitle: game.title,
