@@ -12112,6 +12112,195 @@ test("game page achievement summary keeps ambiguous RetroAchievements game list 
     assert.equal(resolverDebug.finalReason, "ambiguous-retroachievements-shortcut-mapping");
   });
 });
+
+test("game page achievement summary prefers an exact normalized dashboard base title over a subset alias", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    clearDeckyGamePageAchievementSummaryCacheForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "3100000001": {
+        title: "Final Fantasy X International",
+        platformTag: "Sony PlayStation 2",
+        platformLabel: "Sony PlayStation 2",
+        tags: ["Sony PlayStation 2"],
+      },
+    };
+    assert.ok(
+      writeDeckyDashboardSnapshot({
+        ...createDashboardSnapshot(),
+        profile: {
+          ...createDashboardSnapshot().profile,
+          providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+        },
+        recentlyPlayedGames: [],
+        featuredGames: [
+          {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            gameId: "test-base-game",
+            title: "Final Fantasy X: International",
+            platformLabel: "PlayStation 2",
+            systemIconUrl: "https://example.com/ps2.png",
+            status: "beaten",
+            summary: { unlockedCount: 97, totalCount: 249 },
+            metrics: [],
+          },
+          {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            gameId: "test-subset-game",
+            title: "Final Fantasy X: International [Subset - No Sphere Grid]",
+            platformLabel: "PlayStation 2",
+            systemIconUrl: "https://example.com/ps2.png",
+            status: "in_progress",
+            summary: { unlockedCount: 12, totalCount: 42 },
+            metrics: [],
+          },
+        ],
+        recentUnlocks: [],
+        recentAchievements: [],
+      }),
+    );
+
+    const summary = await loadDeckyGamePageAchievementSummary("3100000001");
+    assert.equal(summary.status, "ready");
+    if (summary.status !== "ready") {
+      return;
+    }
+    assert.equal(summary.gameId, "test-base-game");
+    assert.equal(summary.title, "Final Fantasy X: International");
+
+    const resolverDebug = getAchievementCompanionLastRaShortcutResolutionDebug();
+    assert.equal(resolverDebug.dashboardSummaryCandidateCount, 2);
+    assert.equal(resolverDebug.finalStatus, "mapped");
+    assert.equal(resolverDebug.finalReason, "shortcut-title-match");
+  });
+});
+
+test("game page achievement summary prefers an explicitly named subset through the API game list", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    clearDeckyGamePageAchievementSummaryCacheForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "3100000002": {
+        title: "Example Game [Subset - Challenge]",
+        platformTag: "Nintendo 64",
+        platformLabel: "Nintendo 64",
+        tags: ["Nintendo 64"],
+      },
+    };
+    deckyBackendTestState.retroAchievements.systems = [
+      { ID: 2, Name: "Nintendo 64", IconURL: "https://example.com/n64.png" },
+    ];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "2": [
+        { GameID: 9200, Title: "Example Game", ConsoleID: 2, ConsoleName: "Nintendo 64" },
+        {
+          GameID: 9201,
+          Title: "Example Game [Subset - Challenge]",
+          ConsoleID: 2,
+          ConsoleName: "Nintendo 64",
+        },
+      ],
+    };
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      "9201": createRetroAchievementsGameProgressResponse({
+        gameId: "9201",
+        title: "Example Game [Subset - Challenge]",
+        consoleId: 2,
+        consoleName: "Nintendo 64",
+        unlockedCount: 4,
+        totalCount: 10,
+      }),
+    };
+
+    const summary = await loadDeckyGamePageAchievementSummary("3100000002");
+    assert.equal(summary.status, "ready");
+    if (summary.status !== "ready") {
+      return;
+    }
+    assert.equal(summary.gameId, "9201");
+    assert.equal(summary.title, "Example Game [Subset - Challenge]");
+
+    const resolverDebug = getAchievementCompanionLastRaShortcutResolutionDebug();
+    assert.equal(resolverDebug.apiGameListCandidateCount, 1);
+    assert.equal(resolverDebug.apiMatchedGameId, "9201");
+    assert.equal(resolverDebug.finalStatus, "mapped");
+  });
+});
+
+test("game page achievement summary rejects an exact wrong-platform title before ranking compatible aliases", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    clearDeckyGamePageAchievementSummaryCacheForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      "3100000003": {
+        title: "Example Platform Game",
+        platformTag: "Nintendo 64",
+        platformLabel: "Nintendo 64",
+        tags: ["Nintendo 64"],
+      },
+    };
+    assert.ok(
+      writeDeckyDashboardSnapshot({
+        ...createDashboardSnapshot(),
+        profile: {
+          ...createDashboardSnapshot().profile,
+          providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+        },
+        recentlyPlayedGames: [],
+        featuredGames: [
+          {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            gameId: "wrong-platform-game",
+            title: "Example Platform Game",
+            platformLabel: "SNES/Super Famicom",
+            systemIconUrl: "https://example.com/snes.png",
+            status: "beaten",
+            summary: { unlockedCount: 8, totalCount: 10 },
+            metrics: [],
+          },
+          {
+            providerId: RETROACHIEVEMENTS_PROVIDER_ID,
+            gameId: "compatible-platform-game",
+            title: "Example Platform Game (USA)",
+            platformLabel: "Nintendo 64",
+            systemIconUrl: "https://example.com/n64.png",
+            status: "beaten",
+            summary: { unlockedCount: 6, totalCount: 10 },
+            metrics: [],
+          },
+        ],
+        recentUnlocks: [],
+        recentAchievements: [],
+      }),
+    );
+
+    const summary = await loadDeckyGamePageAchievementSummary("3100000003");
+    assert.equal(summary.status, "ready");
+    if (summary.status !== "ready") {
+      return;
+    }
+    assert.equal(summary.gameId, "compatible-platform-game");
+    assert.equal(summary.title, "Example Platform Game (USA)");
+  });
+});
 test("game page achievement summary resolves Cool Spot on Nintendo SNES through RetroAchievements API game list fallback", async () => {
   await withMockDeckyStorage(async () => {
     resetDeckyAppServicesForTests();

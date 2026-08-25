@@ -302,6 +302,18 @@ type RetroAchievementsSubsetAwareCandidate = {
   readonly title: string;
 };
 
+type RetroAchievementsTitleCandidate = RetroAchievementsSubsetAwareCandidate & {
+  readonly platformLabel?: string;
+};
+
+type RetroAchievementsTitleMatchStrength = "exact-normalized-title" | "normalized-title-alias";
+
+interface RetroAchievementsRankedTitleCandidates<T extends RetroAchievementsTitleCandidate> {
+  readonly relevantCandidates: readonly T[];
+  readonly strongestCandidates: readonly T[];
+  readonly matchStrength?: RetroAchievementsTitleMatchStrength;
+}
+
 interface RetroAchievementsResolvedSystemMetadata {
   readonly normalizedPlatform: string;
   readonly systemName: string;
@@ -621,6 +633,87 @@ function matchesRetroAchievementsShortcutTitle(
   return normalizeRetroAchievementsTitleCandidates(candidateTitle, candidatePlatformLabel).some((candidateKey) =>
     shortcutTitleCandidates.includes(candidateKey),
   );
+}
+
+function getRetroAchievementsShortcutTitleMatchStrength(
+  candidateTitle: string,
+  shortcutTitleCandidates: readonly string[],
+  candidatePlatformLabel?: string,
+): RetroAchievementsTitleMatchStrength | undefined {
+  const normalizedShortcutTitle = shortcutTitleCandidates[0];
+  const normalizedCandidateTitle = normalizeRetroAchievementsTitleMatchKey(candidateTitle);
+  if (
+    normalizedShortcutTitle !== undefined &&
+    normalizedCandidateTitle === normalizedShortcutTitle
+  ) {
+    return "exact-normalized-title";
+  }
+
+  return matchesRetroAchievementsShortcutTitle(
+    candidateTitle,
+    shortcutTitleCandidates,
+    candidatePlatformLabel,
+  )
+    ? "normalized-title-alias"
+    : undefined;
+}
+
+function rankRetroAchievementsShortcutTitleCandidates<T extends RetroAchievementsTitleCandidate>(
+  candidates: readonly T[],
+  shortcutTitleCandidates: readonly string[],
+  shortcutPlatformCandidates: readonly string[],
+): RetroAchievementsRankedTitleCandidates<T> {
+  const relevantCandidates: T[] = [];
+  const exactCandidates: T[] = [];
+  const aliasCandidates: T[] = [];
+
+  for (const candidate of candidates) {
+    if (
+      !matchesRetroAchievementsShortcutPlatform(
+        candidate.platformLabel,
+        shortcutPlatformCandidates,
+      )
+    ) {
+      continue;
+    }
+
+    const matchStrength = getRetroAchievementsShortcutTitleMatchStrength(
+      candidate.title,
+      shortcutTitleCandidates,
+      candidate.platformLabel,
+    );
+    if (matchStrength === undefined) {
+      continue;
+    }
+
+    relevantCandidates.push(candidate);
+    if (matchStrength === "exact-normalized-title") {
+      exactCandidates.push(candidate);
+    } else {
+      aliasCandidates.push(candidate);
+    }
+  }
+
+  if (exactCandidates.length > 0) {
+    return {
+      relevantCandidates,
+      strongestCandidates: exactCandidates,
+      matchStrength: "exact-normalized-title",
+    };
+  }
+
+  if (aliasCandidates.length > 0) {
+    return {
+      relevantCandidates,
+      strongestCandidates: aliasCandidates,
+      matchStrength: "normalized-title-alias",
+    };
+  }
+
+  return {
+    relevantCandidates,
+    strongestCandidates: [],
+  };
 }
 
 const RETROACHIEVEMENTS_CANONICAL_SYSTEM_NAMES = [
@@ -1070,9 +1163,11 @@ function normalizeRetroAchievementsTitleCandidates(
 
   const candidates = new Set<string>();
   const normalizedPlatform = normalizeRetroAchievementsPlatformLabel(platformLabel);
-  const baseTitle = stripRetroAchievementsTitleNoise(value);
+  const exactTitle = value.trim();
+  const baseTitle = stripRetroAchievementsTitleNoise(exactTitle);
   const relocatedArticleMatch = baseTitle.match(/^(.*),\s*(the|a|an)\s*(.*)$/iu);
   const rawCandidates = [
+    exactTitle,
     baseTitle,
     relocatedArticleMatch !== null
       ? `${relocatedArticleMatch[2]} ${relocatedArticleMatch[1]} ${relocatedArticleMatch[3]}`
@@ -1183,29 +1278,11 @@ function collectRetroAchievementsGameListCandidatesForPlatform(
   shortcutTitleCandidates: readonly string[],
   shortcutPlatformCandidates: readonly string[],
 ): readonly RetroAchievementsApiGameListCandidate[] {
-  const matches = new Map<string, RetroAchievementsApiGameListCandidate>();
-
-  for (const candidate of candidates) {
-    if (
-      !matchesRetroAchievementsShortcutPlatform(
-        candidate.platformLabel,
-        shortcutPlatformCandidates,
-      )
-    ) {
-      continue;
-    }
-
-    if (!matchesRetroAchievementsShortcutTitle(candidate.title, shortcutTitleCandidates, candidate.platformLabel)) {
-      continue;
-    }
-
-    if (!matches.has(candidate.gameId)) {
-      matches.set(candidate.gameId, candidate);
-    }
-  }
-
-  const matchedCandidates = Array.from(matches.values());
-  return preferRetroAchievementsBaseSetCandidates(matchedCandidates);
+  return rankRetroAchievementsShortcutTitleCandidates(
+    candidates,
+    shortcutTitleCandidates,
+    shortcutPlatformCandidates,
+  ).strongestCandidates;
 }
 
 function collectRetroAchievementsGameListCandidatesForHash(
@@ -2288,15 +2365,17 @@ async function resolveSummaryFromRetroAchievementsShortcut(
     const snapshot = snapshotEntry?.snapshot;
     const snapshotUpdatedAt =
       snapshotEntry?.storedAt !== undefined ? new Date(snapshotEntry.storedAt).toISOString() : undefined;
-    const matchingCandidates =
+    const dashboardCandidateRanking = rankRetroAchievementsShortcutTitleCandidates(
       snapshot !== undefined
-        ? collectRetroAchievementsDashboardCandidates(snapshot, snapshotUpdatedAt).filter((candidate) =>
-            matchesRetroAchievementsShortcutTitle(candidate.title, shortcutTitleCandidates, candidate.platformLabel),
-          )
-        : [];
+        ? collectRetroAchievementsDashboardCandidates(snapshot, snapshotUpdatedAt)
+        : [],
+      shortcutTitleCandidates,
+      shortcutPlatformCandidates,
+    );
+    const matchingCandidates = dashboardCandidateRanking.strongestCandidates;
     updateAchievementCompanionRaShortcutResolutionDebug({
       resolverStage: "dashboard-summary",
-      dashboardSummaryCandidateCount: matchingCandidates.length,
+      dashboardSummaryCandidateCount: dashboardCandidateRanking.relevantCandidates.length,
       clearKeys: staleResultDebugFieldsToClear,
     });
 
@@ -2352,16 +2431,13 @@ async function resolveSummaryFromRetroAchievementsShortcut(
 
     const completionProgressState = await loadDeckyCompletionProgressStateLazy(RETROACHIEVEMENTS_PROVIDER_ID);
     if (completionProgressState.status === "success" && completionProgressState.data !== undefined) {
-      const completionProgressCandidates = collectRetroAchievementsCompletionProgressCandidates(
-        completionProgressState.data,
-      ).filter(
-        (candidate) =>
-          matchesRetroAchievementsShortcutTitle(candidate.title, shortcutTitleCandidates, candidate.platformLabel) &&
-          matchesRetroAchievementsShortcutPlatform(candidate.platformLabel, shortcutPlatformCandidates),
+      const completionProgressCandidateRanking = rankRetroAchievementsShortcutTitleCandidates(
+        collectRetroAchievementsCompletionProgressCandidates(completionProgressState.data),
+        shortcutTitleCandidates,
+        shortcutPlatformCandidates,
       );
-      const preferredCompletionProgressCandidates = preferRetroAchievementsBaseSetCandidates(
-        completionProgressCandidates,
-      );
+      const completionProgressCandidates = completionProgressCandidateRanking.relevantCandidates;
+      const preferredCompletionProgressCandidates = completionProgressCandidateRanking.strongestCandidates;
       updateAchievementCompanionRaShortcutResolutionDebug({
         resolverStage: "completion-progress",
         completionProgressCandidateCount: completionProgressCandidates.length,
@@ -2428,19 +2504,17 @@ async function resolveSummaryFromRetroAchievementsShortcut(
       }
     }
 
-    const dashboardIdentityCandidates = snapshotEntry?.snapshot
-      ? collectRetroAchievementsDashboardIdentityCandidates(snapshotEntry.snapshot, snapshotUpdatedAt).filter(
-          (candidate) =>
-            matchesRetroAchievementsShortcutTitle(candidate.title, shortcutTitleCandidates, candidate.platformLabel) &&
-            matchesRetroAchievementsShortcutPlatform(
-              candidate.platformLabel,
-              shortcutPlatformCandidates,
-            ),
-        )
-      : [];
+    const dashboardIdentityCandidateRanking = rankRetroAchievementsShortcutTitleCandidates(
+      snapshotEntry?.snapshot
+        ? collectRetroAchievementsDashboardIdentityCandidates(snapshotEntry.snapshot, snapshotUpdatedAt)
+        : [],
+      shortcutTitleCandidates,
+      shortcutPlatformCandidates,
+    );
+    const dashboardIdentityCandidates = dashboardIdentityCandidateRanking.strongestCandidates;
     updateAchievementCompanionRaShortcutResolutionDebug({
       resolverStage: "dashboard-identity-detail",
-      dashboardIdentityCandidateCount: dashboardIdentityCandidates.length,
+      dashboardIdentityCandidateCount: dashboardIdentityCandidateRanking.relevantCandidates.length,
       clearKeys: staleResultDebugFieldsToClear,
     });
 
