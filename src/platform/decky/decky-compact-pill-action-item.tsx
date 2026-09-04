@@ -235,6 +235,7 @@ export function DeckyCompactPillActionItem({
       style={{
         ...getPillStyle(selected, stretch, emphasis, disabled),
         ...(isFocused ? getFocusedPillStyle() : {}),
+        scrollMarginTop: 140
       }}
       {...(dataAttributes ?? {})}
     >
