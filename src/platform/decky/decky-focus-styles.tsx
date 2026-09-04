@@ -24,9 +24,13 @@ export const DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS =
   "achievement-companion-achievement-filter-option--selected";
 export const DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS =
   "achievement-companion-achievement-filter-option--focused";
+export const DECKY_HEADER_SCROLL_MARGIN_TOP_PX = 140;
 
 export function getDeckyFocusStylesCss(): string {
   return `
+.Panel.Focusable {
+  scroll-margin-top: ${DECKY_HEADER_SCROLL_MARGIN_TOP_PX}px;
+}
 .${DECKY_FOCUS_NAV_ROW_CLASS}:focus-visible,
 .${DECKY_FOCUS_NAV_ROW_CLASS}:focus-within {
   box-shadow:
