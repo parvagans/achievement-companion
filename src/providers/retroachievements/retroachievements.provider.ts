@@ -350,9 +350,10 @@ export function createRetroAchievementsProvider(
     capabilities: retroAchievementsCapabilities,
 
     async loadProfile(config) {
-      const [rawProfile, rawCompletionProgress] = await Promise.all([
+      const [rawProfile, rawCompletionProgress, rawSummary] = await Promise.all([
         client.loadProfile(config),
         client.loadCompletionProgress(config),
+        client.loadSummary?.(config) ?? Promise.resolve(undefined),
       ]);
 
       const completionSummary = summarizeRetroAchievementsCompletionProgress(rawCompletionProgress);
@@ -372,6 +373,7 @@ export function createRetroAchievementsProvider(
         gamesMasteredCount,
         achievementCounts,
         completionAwardCounts,
+        rawSummary,
       );
     },
 

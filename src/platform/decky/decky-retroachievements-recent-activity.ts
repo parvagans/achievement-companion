@@ -1,23 +1,25 @@
-const RETROACHIEVEMENTS_NOW_PLAYING_WINDOW_MS = 5 * 60 * 1000;
+const RETROACHIEVEMENTS_ONLINE_WINDOW_MS = 10 * 60 * 1000; // matches RA's own "Online" threshold
 
-export type RetroAchievementsRecentActivityLabel = "Now Playing" | "Last Played";
+export type RetroAchievementsRecentActivityLabel = "In game" | "Recently played";
 
 /**
- * RetroAchievements supplies a last-activity timestamp, not a live-session flag.
- * Treat only a fresh server-reported activity update as currently playing.
+ * RA's site-wide convention (see API_GetUserSummary.php docblock):
+ * a user counts as "Online"/in-game if RichPresenceMsgDate is within
+ * the last 10 minutes. There is no dedicated live-session boolean;
+ * this freshness check on the rich presence timestamp *is* the signal.
  */
 export function getRetroAchievementsRecentActivityLabel(
-  lastPlayedAt: number | undefined,
+  richPresenceMsgDate: number | undefined,
   now = Date.now(),
 ): RetroAchievementsRecentActivityLabel {
   if (
-    lastPlayedAt !== undefined &&
-    Number.isFinite(lastPlayedAt) &&
-    lastPlayedAt <= now &&
-    now - lastPlayedAt <= RETROACHIEVEMENTS_NOW_PLAYING_WINDOW_MS
+    richPresenceMsgDate !== undefined &&
+    Number.isFinite(richPresenceMsgDate) &&
+    richPresenceMsgDate <= now &&
+    now - richPresenceMsgDate <= RETROACHIEVEMENTS_ONLINE_WINDOW_MS
   ) {
-    return "Now Playing";
+    return "In game";
   }
 
-  return "Last Played";
+  return "Recently played";
 }

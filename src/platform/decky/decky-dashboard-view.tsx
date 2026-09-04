@@ -755,7 +755,9 @@ function OverviewStat({
 
 function OverviewStatSectionBlock({ section }: { readonly section: OverviewStatSection }): JSX.Element {
   return (
-    <div
+    <Focusable
+      noFocusRing
+      onActivate={() => {}}
       data-profile-section-variant={section.variant}
       style={{
         ...getRetroAchievementsProfileSectionStyle(section.variant),
@@ -778,7 +780,7 @@ function OverviewStatSectionBlock({ section }: { readonly section: OverviewStatS
           />
         ))}
       </div>
-    </div>
+    </Focusable>
   );
 }
 
@@ -1042,35 +1044,45 @@ function ProviderIdentityRow({ providerId }: { readonly providerId: string }): J
 
 function RetroAchievementsRecentActivityBlock({
   game,
+  richPresenceMsgDate,
   onOpenGameDetail,
   onCancel,
 }: {
   readonly game: RecentlyPlayedGame;
+  readonly richPresenceMsgDate: number | undefined;
   readonly onOpenGameDetail: (providerId: string, gameId: string, gameTitle: string) => void;
   readonly onCancel: () => void;
 }): JSX.Element {
   const completionPercent = getCompletionPercent(game.summary);
-  const activityLabel = getRetroAchievementsRecentActivityLabel(game.lastPlayedAt);
+  const activityLabel = getRetroAchievementsRecentActivityLabel(richPresenceMsgDate);
+  const isInGame = activityLabel === "In game";
 
   return (
     <div style={getOverviewProgressBlockStyle()}>
-      <div style={getOverviewProgressTitleStyle()}>{activityLabel}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+        {isInGame ? (
+          <span
+            style={{
+              width: "8px",
+              height: "8px",
+              borderRadius: "50%",
+              backgroundColor: "#43b581",
+              flexShrink: 0,
+            }}
+          />
+        ) : null}
+        <span style={getOverviewProgressTitleStyle()}>{activityLabel}:</span>
+      </div>
       <div style={getOverviewProgressSubtitleStyle()}>{game.title}</div>
       <div style={getProfileMetaStyle()}>{formatNowPlayingAchievementCounts(game)}</div>
       {completionPercent !== undefined ? (
-        <DeckyCompletionProgressBar
-          compact
-          percent={completionPercent}
-          caption={`${completionPercent}% complete`}
-        />
+        <DeckyCompletionProgressBar compact percent={completionPercent} caption={`${completionPercent}% complete`} />
       ) : null}
       <div style={getOverviewPrimaryActionRowStyle()}>
         <DeckyCompactPillActionItem
           emphasis="primary"
           label="View achievements"
-          onClick={() => {
-            onOpenGameDetail(game.providerId, game.gameId, game.title);
-          }}
+          onClick={() => onOpenGameDetail(game.providerId, game.gameId, game.title)}
           onCancelButton={onCancel}
           stretch
         />
@@ -1450,16 +1462,17 @@ export function DeckyDashboardView({
             {recentActivityGame !== undefined ? (
               <RetroAchievementsRecentActivityBlock
                 game={recentActivityGame}
+                richPresenceMsgDate={profile.richPresenceMsgDate}
                 onOpenGameDetail={onOpenGameDetail}
                 onCancel={onBackToProviders}
               />
             ) : null}
 
             {overviewCompletionPercent !== undefined ? (
-              <div style={getOverviewProgressBlockStyle()}>
+              <Focusable noFocusRing onActivate={() => {}} style={getOverviewProgressBlockStyle()}>
                 <div style={getOverviewProgressTitleStyle()}>Library completion</div>
                 <DeckyCompletionProgressBar compact percent={overviewCompletionPercent} />
-              </div>
+              </Focusable>
             ) : null}
 
             {profile.providerId === STEAM_PROVIDER_ID ? (

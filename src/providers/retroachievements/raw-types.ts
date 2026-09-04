@@ -301,3 +301,15 @@ export interface RawRetroAchievementsGameProgressResponse {
   readonly HighestAwardDate?: string;
   readonly highestAwardDate?: string;
 }
+
+// Assumption: only the fields needed for rich-presence freshness are modeled here;
+// the rest of the (heavier) Summary payload is intentionally left untyped since we
+// only call this endpoint to get RichPresenceMsgDate, which GetUserProfile lacks.
+export interface RawRetroAchievementsSummaryResponse {
+  readonly RichPresenceMsg?: string;
+  readonly richPresenceMsg?: string;
+  readonly RichPresenceMsgDate?: string;
+  readonly richPresenceMsgDate?: string;
+  readonly LastGameID?: number | string;
+  readonly lastGameId?: number | string;
+}
