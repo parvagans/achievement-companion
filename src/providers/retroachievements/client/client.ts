@@ -5,9 +5,11 @@ import type {
   RawRetroAchievementsGameListEntry,
   RawRetroAchievementsGameProgressResponse,
   RawRetroAchievementsProfileResponse,
+  RawRetroAchievementsSummaryResponse,
   RawRetroAchievementsRecentUnlockResponse,
   RawRetroAchievementsRecentlyPlayedGameResponse,
   RawRetroAchievementsSystemResponse,
+  
 } from "../raw-types";
 import type { RetroAchievementsTransport } from "./transport";
 
@@ -20,6 +22,9 @@ export interface RetroAchievementsClient {
     consoleId: string,
   ): Promise<readonly RawRetroAchievementsGameListEntry[]>;
   loadProfile(config: RetroAchievementsProviderConfig): Promise<RawRetroAchievementsProfileResponse>;
+  loadSummary?(
+    config: RetroAchievementsProviderConfig,
+  ): Promise<RawRetroAchievementsSummaryResponse>;
   loadCompletionProgress(
     config: RetroAchievementsProviderConfig,
   ): Promise<readonly RawRetroAchievementsCompletionProgressEntry[]>;
@@ -50,6 +55,7 @@ export interface RetroAchievementsClient {
 }
 
 const PROFILE_PATH = "API_GetUserProfile.php";
+const SUMMARY_PATH = "API_GetUserSummary.php";
 const SYSTEMS_PATH = "API_GetConsoleIDs.php";
 const GAME_LIST_PATH = "API_GetGameList.php";
 const COMPLETION_PROGRESS_PATH = "API_GetUserCompletionProgress.php";
@@ -150,6 +156,18 @@ export function createRetroAchievementsClient(
       return transport.requestJson<RawRetroAchievementsProfileResponse>({
         path: PROFILE_PATH,
         query: toAuthQuery(config),
+      });
+    },
+    async loadSummary(config) {
+      // g: 0, a: 0 — we only need RichPresenceMsgDate, not recent games/achievements,
+      // to keep this call as light as the (documented-slow) endpoint allows.
+      return transport.requestJson<RawRetroAchievementsSummaryResponse>({
+        path: SUMMARY_PATH,
+        query: {
+          ...toAuthQuery(config),
+          g: 0,
+          a: 0,
+        },
       });
     },
 

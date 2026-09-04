@@ -17,6 +17,7 @@ import type {
   RawRetroAchievementsGameProgressResponse,
   RawRetroAchievementsMetric,
   RawRetroAchievementsProfileResponse,
+  RawRetroAchievementsSummaryResponse,
   RawRetroAchievementsRecentUnlockResponse,
   RawRetroAchievementsRecentlyPlayedGameResponse,
 } from "../raw-types";
@@ -1050,6 +1051,7 @@ export function normalizeRetroAchievementsProfile(
   gamesMasteredCount?: number,
   achievementCounts?: RetroAchievementsProfileAchievementCounts,
   completionAwardCounts?: RetroAchievementsGameCompletionAwardCounts,
+  rawSummary?: RawRetroAchievementsSummaryResponse, // add this param
 ): NormalizedProfile {
   const avatarPath = pickString(raw.UserPic, raw.userPic);
   const avatarUrl = avatarPath !== undefined ? normalizeRetroAchievementsImageUrl(avatarPath) : undefined;
@@ -1063,6 +1065,10 @@ export function normalizeRetroAchievementsProfile(
     ...(avatarUrl !== undefined ? { avatarUrl } : {}),
   };
 
+  const richPresenceMsgDate = parseRetroAchievementsUtcDateMs(
+    pickString(rawSummary?.RichPresenceMsgDate, rawSummary?.richPresenceMsgDate),
+  );
+
   return {
     providerId: RETROACHIEVEMENTS_PROVIDER_ID,
     identity,
@@ -1074,6 +1080,7 @@ export function normalizeRetroAchievementsProfile(
       ? { softcoreUnlockedCount: achievementCounts.softcoreUnlockedCount }
       : {}),
     ...(gamesMasteredCount !== undefined ? { masteredCount: gamesMasteredCount } : {}),
+    ...(richPresenceMsgDate !== undefined ? { richPresenceMsgDate } : {}),
     ...(completionAwardCounts !== undefined
       ? {
           beatenHardcoreCount: completionAwardCounts.beatenHardcoreCount,
@@ -1466,4 +1473,15 @@ export function normalizeRetroAchievementsGameDetail(
     achievements,
     refreshedAt: Date.now(),
   };
+}
+
+// RetroAchievements returns datetimes like "2025-11-19 12:05:04" with no timezone
+// marker; these are UTC. Convert to epoch ms for freshness comparisons.
+function parseRetroAchievementsUtcDateMs(value: string | undefined): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const isoLike = `${value.replace(" ", "T")}Z`;
+  const parsed = Date.parse(isoLike);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }

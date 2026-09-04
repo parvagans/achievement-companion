@@ -61,6 +61,7 @@ export interface NormalizedProfile {
   readonly motto?: string;
   readonly featuredGames?: readonly NormalizedGame[];
   readonly refreshedAt?: UnixEpochMs;
+  readonly richPresenceMsgDate?: UnixEpochMs;
 }
 
 export interface SteamBadgeSummary {
