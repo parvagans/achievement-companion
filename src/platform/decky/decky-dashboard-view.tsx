@@ -47,6 +47,7 @@ import {
   RetroAchievementsCompletionBreakdown,
   RetroAchievementsCompletionIndicator,
 } from "./decky-retroachievements-completion-indicator";
+import { getRetroAchievementsRecentActivityLabel } from "./decky-retroachievements-recent-activity";
 
 type OverviewCompletionBreakdown = OverviewStatSection["stats"][number]["completionBreakdown"];
 
@@ -911,6 +912,14 @@ function formatRecentlyPlayedProgressLine(game: RecentlyPlayedGame): string {
   return parts.join(" / ");
 }
 
+function formatNowPlayingAchievementCounts(game: RecentlyPlayedGame): string {
+  if (game.summary.totalCount !== undefined) {
+    return `${formatCount(game.summary.unlockedCount)} / ${formatCount(game.summary.totalCount)} achievements`;
+  }
+
+  return `${formatCount(game.summary.unlockedCount)} achievements`;
+}
+
 function formatRecentlyPlayedLastPlayedText(game: RecentlyPlayedGame): string | undefined {
   const when = formatRelativeTime(game.lastPlayedAt);
   if (when !== undefined) {
@@ -1026,6 +1035,45 @@ function ProviderIdentityRow({ providerId }: { readonly providerId: string }): J
       <div style={getProviderIdentityTextStyle()}>
         <div style={getProviderIdentityEyebrowStyle()}>Provider</div>
         <div style={getProviderIdentityLabelStyle()}>{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function RetroAchievementsRecentActivityBlock({
+  game,
+  onOpenGameDetail,
+  onCancel,
+}: {
+  readonly game: RecentlyPlayedGame;
+  readonly onOpenGameDetail: (providerId: string, gameId: string, gameTitle: string) => void;
+  readonly onCancel: () => void;
+}): JSX.Element {
+  const completionPercent = getCompletionPercent(game.summary);
+  const activityLabel = getRetroAchievementsRecentActivityLabel(game.lastPlayedAt);
+
+  return (
+    <div style={getOverviewProgressBlockStyle()}>
+      <div style={getOverviewProgressTitleStyle()}>{activityLabel}</div>
+      <div style={getOverviewProgressSubtitleStyle()}>{game.title}</div>
+      <div style={getProfileMetaStyle()}>{formatNowPlayingAchievementCounts(game)}</div>
+      {completionPercent !== undefined ? (
+        <DeckyCompletionProgressBar
+          compact
+          percent={completionPercent}
+          caption={`${completionPercent}% complete`}
+        />
+      ) : null}
+      <div style={getOverviewPrimaryActionRowStyle()}>
+        <DeckyCompactPillActionItem
+          emphasis="primary"
+          label="View achievements"
+          onClick={() => {
+            onOpenGameDetail(game.providerId, game.gameId, game.title);
+          }}
+          onCancelButton={onCancel}
+          stretch
+        />
       </div>
     </div>
   );
@@ -1345,6 +1393,8 @@ export function DeckyDashboardView({
     profile.providerId === "steam" && steamLibraryAchievementScanSummary !== undefined
       ? steamLibraryAchievementScanSummary.completionPercent
       : profile.summary.completionPercent;
+  const recentActivityGame =
+    profile.providerId === RETROACHIEVEMENTS_PROVIDER_ID ? recentlyPlayedGames[0] : undefined;
   return (
     <>
       <div style={getProviderIdentitySectionStyle()}>
@@ -1395,6 +1445,14 @@ export function DeckyDashboardView({
                   />
                 </div>
               </div>
+            ) : null}
+
+            {recentActivityGame !== undefined ? (
+              <RetroAchievementsRecentActivityBlock
+                game={recentActivityGame}
+                onOpenGameDetail={onOpenGameDetail}
+                onCancel={onBackToProviders}
+              />
             ) : null}
 
             {overviewCompletionPercent !== undefined ? (

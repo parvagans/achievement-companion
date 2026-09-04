@@ -114,6 +114,7 @@ import {
   isRetroAchievementsBeatenGame,
   isRetroAchievementsMasteredHardcoreGame,
 } from "../src/platform/decky/decky-retroachievements-completion-indicator";
+import { getRetroAchievementsRecentActivityLabel } from "../src/platform/decky/decky-retroachievements-recent-activity";
 import {
   addProfileAvatarCacheBustParam,
 } from "../src/platform/decky/decky-avatar-cache-busting";
@@ -3484,6 +3485,25 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(compactDashboardSource, /boxSizing: "border-box"/u);
   assert.match(compactDashboardSource, /profile\.providerId === STEAM_PROVIDER_ID/u);
   assert.match(compactDashboardSource, /<PanelSection title="Overview">[\s\S]*?<PanelSectionRow>\s*<div style=\{getOverviewCardStyle\(\)\}>/u);
+  assert.match(compactDashboardSource, /function RetroAchievementsRecentActivityBlock\(/u);
+  assert.match(compactDashboardSource, /getRetroAchievementsRecentActivityLabel\(game\.lastPlayedAt\)/u);
+  assert.match(compactDashboardSource, /formatNowPlayingAchievementCounts\(game\)/u);
+  assert.match(compactDashboardSource, /caption=\{`\$\{completionPercent\}% complete`\}/u);
+  assert.match(compactDashboardSource, /label="View achievements"/u);
+  assert.match(
+    compactDashboardSource,
+    /const recentActivityGame =\s*profile\.providerId === RETROACHIEVEMENTS_PROVIDER_ID \? recentlyPlayedGames\[0\] : undefined;/u,
+  );
+  const overviewProfileEntryIndex = compactDashboardSource.indexOf("<OverviewProfileEntry");
+  const recentActivityBlockIndex = compactDashboardSource.indexOf("<RetroAchievementsRecentActivityBlock");
+  const libraryCompletionIndex = compactDashboardSource.indexOf("Library completion");
+  assert.ok(overviewProfileEntryIndex >= 0);
+  assert.ok(recentActivityBlockIndex > overviewProfileEntryIndex);
+  assert.ok(libraryCompletionIndex > recentActivityBlockIndex);
+  assert.match(
+    compactDashboardSource,
+    /onOpenGameDetail\(game\.providerId, game\.gameId, game\.title\);/u,
+  );
   assert.match(compactDashboardSource, /recentAchievements\.map\(\(recentUnlock, index\) => \(\s*<PanelSectionRow[\s\S]*?<RecentAchievementRow/u);
   assert.match(compactDashboardSource, /recentlyPlayedGames\.map\(\(game, index\) => \(\s*<PanelSectionRow[\s\S]*?<RecentlyPlayedRow/u);
   assert.match(compactDashboardSource, /if \(recentUnlock\.game\.providerId === STEAM_PROVIDER_ID\) \{[\s\S]*<Focusable[\s\S]*style=\{getDashboardCompactCardStyle\(bottomSpacing\)\}/u);
