@@ -105,6 +105,35 @@ const scrollFocusedGamepadElementIntoView: DeckyGamepadFocusHandler = (event) =>
   }
 };
 
+function scrollNearestScrollableAncestorToTop(element: HTMLElement): void {
+  let node: HTMLElement | null = element.parentElement;
+
+  while (node !== null) {
+    const overflowY = window.getComputedStyle(node).overflowY;
+    const isScrollable =
+      (overflowY === "auto" || overflowY === "scroll") && node.scrollHeight > node.clientHeight;
+
+    if (isScrollable) {
+      node.scrollTo({ top: 0, behavior: "auto" });
+      return;
+    }
+
+    node = node.parentElement;
+  }
+}
+
+const scrollFullscreenBackButtonIntoView: FocusEventHandler<HTMLElement> = (event) => {
+  scrollNearestScrollableAncestorToTop(event.currentTarget);
+};
+
+const scrollFullscreenBackButtonGamepadIntoView: DeckyGamepadFocusHandler = (event) => {
+  const target = event.currentTarget;
+
+  if (target instanceof HTMLElement) {
+    scrollNearestScrollableAncestorToTop(target);
+  }
+};
+
 export function DeckyFullscreenActionRow({
   children,
   centered = false,
@@ -165,8 +194,10 @@ export function DeckyFullscreenActionButton({
       tabIndex={disabled ? -1 : 0}
       onActivate={handleClick}
       onClick={handleClick}
-      onFocus={scrollFocusedElementIntoView}
-      onGamepadFocus={scrollFocusedGamepadElementIntoView}
+      onFocus={isFullscreenBackAction ? scrollFullscreenBackButtonIntoView : scrollFocusedElementIntoView}
+      onGamepadFocus={
+        isFullscreenBackAction ? scrollFullscreenBackButtonGamepadIntoView : scrollFocusedGamepadElementIntoView
+      }
       {...(isFullscreenBackAction ? { onCancel: handleClick } : {})}
       {...(isFullscreenBackAction ? { ref: fullscreenBackButtonRef } : {})}
       {...(isFullscreenBackAction ? { "data-achievement-companion-fullscreen-back": "true" as const } : {})}
