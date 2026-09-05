@@ -910,7 +910,9 @@ function RetroAchievementsGameAwardsCard({
         : selection.subtitle;
 
   return (
-    <div
+    <Focusable
+      noFocusRing
+      onActivate={() => {}}
       data-retroachievements-profile-game-awards
       data-retroachievements-profile-game-awards-mode={selection.mode}
       style={getOverviewCardStyle()}
@@ -939,7 +941,7 @@ function RetroAchievementsGameAwardsCard({
           <div style={getEmptyOverviewStyle()}>No completed game records are available.</div>
         )}
       </div>
-    </div>
+    </Focusable>
   );
 }
 
@@ -951,7 +953,12 @@ function RetroAchievementsCompletionProgressCard({
   readonly games: readonly NormalizedGame[];
 }): JSX.Element {
   return (
-    <div data-retroachievements-profile-completion-progress style={getOverviewCardStyle()}>
+    <Focusable
+      noFocusRing
+      onActivate={() => {}}
+      data-retroachievements-profile-completion-progress
+      style={getOverviewCardStyle()}
+    >
       <div style={getOverviewCardHeaderStyle()}>
         <div style={getOverviewCardTitleStyle()}>Completion Progress</div>
         <div style={getOverviewCardMetaStyle()}>Up to 3 unfinished games</div>
@@ -967,7 +974,7 @@ function RetroAchievementsCompletionProgressCard({
           <div style={getEmptyOverviewStyle()}>No unfinished games are available in this snapshot.</div>
         )}
       </div>
-    </div>
+    </Focusable>
   );
 }
 
@@ -1086,7 +1093,7 @@ function RecentGameCard({
 }): JSX.Element {
   if (game === undefined) {
     return (
-      <div style={getInfoCardStyle()}>
+      <Focusable noFocusRing onActivate={() => {}} style={getInfoCardStyle()}>
         <div style={getInfoCardTitleStyle()}>Most recently played</div>
         <div style={getInfoCardTextStyle()}>No recently played games were returned yet.</div>
         {richPresence !== undefined ? (
@@ -1094,7 +1101,7 @@ function RecentGameCard({
             <div style={getRecentGamePresenceTextStyle()}>{richPresence}</div>
           </div>
         ) : null}
-      </div>
+      </Focusable>
     );
   }
 
@@ -1112,7 +1119,7 @@ function RecentGameCard({
   ].filter((line): line is string => line !== undefined);
 
   return (
-    <div style={getInfoCardStyle()}>
+    <Focusable noFocusRing onActivate={() => {}} style={getInfoCardStyle()}>
       <div style={getInfoCardTitleStyle()}>Most recently played</div>
       <div style={getRecentGameLayoutStyle()}>
         {game.coverImageUrl !== undefined ? (
@@ -1141,7 +1148,7 @@ function RecentGameCard({
           <div style={getRecentGamePresenceTextStyle()}>{richPresence}</div>
         </div>
       ) : null}
-    </div>
+    </Focusable>
   );
 }
 
@@ -1331,7 +1338,7 @@ export function DeckyFullScreenProfilePage({
           {steamAccountProgress !== undefined ? (
             <PanelSection title="Steam Account">
               <PanelSectionRow>
-                <div style={getProgressCardStyle()}>
+                <Focusable noFocusRing onActivate={() => {}} style={getProgressCardStyle()}>
                   <div style={getProgressTitleStyle()}>Steam Account</div>
                   <div style={getProgressSubtitleStyle()}>{steamAccountProgress.accountSubtitle}</div>
                   {steamAccountProgress.xpProgressPercent !== undefined ? (
@@ -1354,14 +1361,14 @@ export function DeckyFullScreenProfilePage({
                       />
                     ))}
                   </StatsGrid>
-                </div>
+                </Focusable>
               </PanelSectionRow>
             </PanelSection>
           ) : null}
 
           <PanelSection title={profile.providerId === STEAM_PROVIDER_ID ? "Library Progress" : "Account stats"}>
             <PanelSectionRow>
-              <div style={getSectionBlockStyle("default")}>
+              <Focusable noFocusRing onActivate={() => {}} style={getSectionBlockStyle("default")}>
                 {profile.providerId === STEAM_PROVIDER_ID ? (
                   <>
                     {steamLibraryCompletionPercent !== undefined ? (
@@ -1386,8 +1393,10 @@ export function DeckyFullScreenProfilePage({
                   <>
                     <div data-retroachievements-profile-stats-overview style={getCompactStatsOverviewStyle()}>
                       {retroAchievementsProfileStatSections?.map((section) => (
-                        <div
+                        <Focusable
                           key={section.title}
+                          noFocusRing
+                          onActivate={() => {}}
                           data-profile-section-variant={section.variant}
                           style={getCompactStatSectionStyle(section.variant)}
                         >
@@ -1406,7 +1415,7 @@ export function DeckyFullScreenProfilePage({
                               />
                             ))}
                           </StatsGrid>
-                        </div>
+                        </Focusable>
                       ))}
                     </div>
                     {retroAchievementsSupplementaryStats.length > 0 ? (
@@ -1421,7 +1430,7 @@ export function DeckyFullScreenProfilePage({
                     ) : null}
                   </>
                 )}
-              </div>
+              </Focusable>
             </PanelSectionRow>
           </PanelSection>
 
