@@ -2797,10 +2797,18 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(achievementDetailViewSource, /DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS/);
   assert.match(achievementDetailViewSource, /DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS/);
   const fullScreenGamePageSource = readFileSync("src/platform/decky/decky-full-screen-game-page.tsx", "utf8");
+  const fullScreenAchievementRowSource = readFileSync(
+    "src/platform/decky/decky-full-screen-achievement-row.tsx",
+    "utf8",
+  );
+  const fullScreenAchievementBrowserSource = readFileSync(
+    "src/platform/decky/decky-full-screen-achievement-browser.tsx",
+    "utf8",
+  );
   assert.match(fullScreenGamePageSource, /PanelSection title="Game Spotlight"/);
   assert.match(fullScreenGamePageSource, /PanelSection title="Achievements"/);
   assert.doesNotMatch(fullScreenGamePageSource, /PanelSection title="Navigation"/);
-  assert.match(fullScreenGamePageSource, /ACHIEVEMENT_MODE_FILTERS = \["all", "hardcore", "softcore"\] as const;/);
+  assert.match(fullScreenAchievementBrowserSource, /ACHIEVEMENT_MODE_FILTERS = \["all", "hardcore", "softcore"\] as const;/);
   assert.match(fullScreenGamePageSource, /useState<AchievementModeFilter>\("all"\)/);
   assert.match(fullScreenGamePageSource, /useState<AchievementFilter>\("all"\)/);
   assert.match(fullScreenGamePageSource, /sortAchievementsForDisplay\(snapshot\.achievements\)/);
@@ -2810,7 +2818,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     /matchesAchievementFilter\(achievement, achievementFilter\)[\s\S]*matchesAchievementModeFilter\(achievement, achievementModeFilter\)/,
   );
   assert.match(fullScreenGamePageSource, /shouldRenderAchievementModeFilter\(providerIdValue\)/);
-  assert.match(fullScreenGamePageSource, /showAchievementModeFilter \?\s*\(/u);
+  assert.match(fullScreenAchievementBrowserSource, /showAchievementModeFilter \?\s*\(/u);
   assert.match(fullScreenGamePageSource, /const isSteamProvider = game\.providerId === STEAM_PROVIDER_ID;/u);
   assert.match(fullScreenGamePageSource, /function getSteamGameSpotlightLayoutStyle\(\): CSSProperties/u);
   assert.match(
@@ -2923,29 +2931,30 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.doesNotMatch(fullScreenGamePageSource, /gameSystemLabel/);
   assert.doesNotMatch(fullScreenGamePageSource, /AchievementModeButtons/);
   assert.doesNotMatch(fullScreenGamePageSource, /AchievementStateButtons/);
-  assert.match(fullScreenGamePageSource, /getAchievementFilterGridStyle\(\)/);
-  assert.match(fullScreenGamePageSource, /AchievementFilterButton/);
-  assert.match(fullScreenGamePageSource, /Focusable/);
-  assert.match(fullScreenGamePageSource, /flow-children="left-right"/);
-  assert.match(fullScreenGamePageSource, /ACHIEVEMENT_MODE_FILTERS\.map\(\(filter\)/);
-  assert.match(fullScreenGamePageSource, /ACHIEVEMENT_FILTERS\.map\(\(filter\)/);
-  assert.match(fullScreenGamePageSource, /role="button"/);
-  assert.match(fullScreenGamePageSource, /aria-pressed=\{selected\}/);
-  assert.match(fullScreenGamePageSource, /onActivate=\{disabled \? \(\) => undefined : onActivate\}/);
-  assert.match(fullScreenGamePageSource, /onGamepadFocus=\{\(event\) => \{/);
-  assert.doesNotMatch(fullScreenGamePageSource, /role="radiogroup"/);
+  assert.match(fullScreenAchievementBrowserSource, /getAchievementFilterGridStyle\(\)/);
+  assert.match(fullScreenAchievementBrowserSource, /AchievementFilterButton/);
+  assert.match(fullScreenAchievementBrowserSource, /Focusable/);
+  assert.match(fullScreenAchievementBrowserSource, /flow-children="left-right"/);
+  assert.match(fullScreenAchievementBrowserSource, /ACHIEVEMENT_MODE_FILTERS\.map\(\(filter\)/);
+  assert.match(fullScreenAchievementBrowserSource, /ACHIEVEMENT_FILTERS\.map\(\(filter\)/);
+  assert.match(fullScreenAchievementBrowserSource, /role="button"/);
+  assert.match(fullScreenAchievementBrowserSource, /aria-pressed=\{selected\}/);
+  assert.match(fullScreenAchievementBrowserSource, /onActivate=\{disabled \? \(\) => undefined : onActivate\}/);
+  assert.match(fullScreenAchievementBrowserSource, /onGamepadFocus=\{\(event\) => \{/);
+  assert.doesNotMatch(fullScreenAchievementBrowserSource, /role="radiogroup"/);
   assert.match(fullScreenGamePageSource, /DeckyFullscreenActionButton[\s\S]*label="Refresh"/u);
   assert.doesNotMatch(fullScreenGamePageSource, /data-game-overview-pill="refresh"/);
   assert.doesNotMatch(fullScreenGamePageSource, /aria-label="Refresh the current game detail snapshot"/);
   assert.doesNotMatch(fullScreenGamePageSource, /DeckyCompactPillActionItem/);
-  assert.match(fullScreenGamePageSource, /getAchievementCardStyle\(achievement\)/);
-  assert.match(fullScreenGamePageSource, /getAchievementRowMetadataStackStyle\(\)/);
-  assert.match(fullScreenGamePageSource, /const isSteamProvider = isSteamAchievementPresentationProvider\(achievement\.providerId\)/);
-  assert.match(fullScreenGamePageSource, /const statusText = formatProviderAchievementStatusText\(achievement\.providerId, achievement\)/);
-  assert.match(fullScreenGamePageSource, /const pointsText = formatProviderAchievementPointsText\(achievement\.providerId, achievement\.points\)/);
-  assert.match(fullScreenGamePageSource, /isSteamProvider && achievement\.description !== undefined/);
-  assert.match(fullScreenGamePageSource, /pointsText !== undefined/);
-  assert.match(fullScreenGamePageSource, /!isSteamProvider && unlockedAt !== undefined/);
+  assert.match(fullScreenGamePageSource, /DeckyFullScreenAchievementBrowser/);
+  assert.match(fullScreenAchievementRowSource, /getAchievementCardStyle\(achievement\)/);
+  assert.match(fullScreenAchievementRowSource, /getAchievementRowMetadataStackStyle\(\)/);
+  assert.match(fullScreenAchievementRowSource, /const isSteamProvider = isSteamAchievementPresentationProvider\(achievement\.providerId\)/);
+  assert.match(fullScreenAchievementRowSource, /const statusText = formatProviderAchievementStatusText\(achievement\.providerId, achievement\)/);
+  assert.match(fullScreenAchievementRowSource, /const pointsText = formatProviderAchievementPointsText\(achievement\.providerId, achievement\.points\)/);
+  assert.match(fullScreenAchievementRowSource, /isSteamProvider && achievement\.description !== undefined/);
+  assert.match(fullScreenAchievementRowSource, /pointsText !== undefined/);
+  assert.match(fullScreenAchievementRowSource, /!isSteamProvider && unlockedAt !== undefined/);
   assert.match(fullScreenGamePageSource, /gridTemplateColumns: "repeat\(auto-fit, minmax\(320px, 1fr\)\)"/);
   assert.match(fullScreenGamePageSource, /gridTemplateColumns: "repeat\(auto-fit, minmax\(240px, 1fr\)\)"/);
   assert.match(fullScreenGamePageSource, /gridTemplateColumns: "repeat\(3, minmax\(0, 1fr\)\)"/);
