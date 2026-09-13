@@ -55,6 +55,26 @@ import {
   applySteamLibraryScanGameDetailMetadata,
   findSteamLibraryScanGameSummaryByAppId,
 } from "./providers/steam/game-detail";
+import {
+  createDeckyRecentAchievementCandidate,
+  createDeckyRecentAchievementCompletionProgressGameCandidate,
+  createDeckyRecentAchievementRecentlyPlayedGameCandidate,
+  DECKY_RECENT_ACHIEVEMENTS_LIMIT,
+  finalizeDeckyRecentAchievementCandidates,
+  getDeckyRecentAchievementProfileMemberSinceAt,
+  getNormalizedRecentUnlockTimestamp,
+  getRecentUnlockIdentity,
+  maxDefinedNumber,
+  rankDeckyRecentAchievements,
+  selectDeckyRecentAchievementCandidates,
+  selectDeckyRecentAchievementGameCandidates,
+  toRecentUnlock,
+  type DeckyRecentAchievementBackfillProvider,
+  type DeckyRecentAchievementCandidate,
+  type DeckyRecentAchievementGameCandidate,
+  type DeckyRecentAchievementGameSource,
+  type DeckyRecentAchievementSource,
+} from "./decky-recent-achievement-history-selection";
 
 const deckyPlatformInfo = {
   platformId: "decky",
@@ -62,8 +82,15 @@ const deckyPlatformInfo = {
 } as const;
 const DECKY_RECENT_ACHIEVEMENTS_STORAGE_KEY_PREFIX =
   "achievement-companion:decky:recent-achievements";
-const DECKY_RECENT_ACHIEVEMENTS_LIMIT = 10;
 const DECKY_RECENT_ACHIEVEMENTS_BACKFILL_RECENTLY_PLAYED_LIMIT = 50;
+
+interface DeckyRecentAchievementDebugGameCandidate {
+  readonly id: string;
+  readonly title: string;
+  readonly source: DeckyRecentAchievementGameSource;
+  readonly unlockedCount: number;
+  readonly sortEpoch?: number;
+}
 
 export const deckyPlatformCapabilities: PlatformCapabilities = {
   supportsCompactNavigation: true,
@@ -135,155 +162,6 @@ const deckyDashboardRefreshInFlightByProviderId = new Map<
   Promise<ResourceState<DashboardSnapshot>>
 >();
 
-interface DeckyRecentAchievementBackfillProvider {
-  readonly loadCompletionProgress: (
-    config: unknown,
-  ) => Promise<readonly NormalizedGame[]>;
-  readonly loadAchievementsEarnedBetween?: (
-    config: unknown,
-    options: {
-      readonly fromEpochSeconds: number;
-      readonly toEpochSeconds: number;
-      readonly limit?: number;
-    },
-  ) => Promise<readonly RecentUnlock[]>;
-  readonly loadRecentlyPlayedGames?: (
-    config: unknown,
-    options?: {
-      readonly count?: number;
-      readonly offset?: number;
-    },
-  ) => Promise<readonly RecentlyPlayedGame[]>;
-  readonly loadGameProgress: (
-    config: unknown,
-    gameId: string,
-  ) => Promise<GameDetailSnapshot>;
-}
-
-type DeckyRecentAchievementGameSource =
-  | "completion-progress"
-  | "recently-played"
-  | "snapshot-recently-played";
-
-interface DeckyRecentAchievementGameCandidate {
-  readonly gameId: string;
-  readonly title: string;
-  readonly source: DeckyRecentAchievementGameSource;
-  readonly unlockedCount: number;
-  readonly sortEpoch?: number;
-}
-
-interface DeckyRecentAchievementDebugGameCandidate {
-  readonly id: string;
-  readonly title: string;
-  readonly source: DeckyRecentAchievementGameSource;
-  readonly unlockedCount: number;
-  readonly sortEpoch?: number;
-}
-
-type DeckyRecentAchievementSource = "live-recent" | "cache" | "date-range" | "backfill";
-
-interface DeckyRecentAchievementCandidate {
-  readonly recentUnlock: RecentUnlock;
-  readonly source: DeckyRecentAchievementSource;
-  readonly normalizedUnlockAt?: number;
-}
-
-function createDeckyRecentAchievementGameCandidate(
-  gameId: string,
-  title: string,
-  unlockedCount: number,
-  source: DeckyRecentAchievementGameSource,
-  sortEpoch?: number,
-): DeckyRecentAchievementGameCandidate | undefined {
-  if (unlockedCount <= 0) {
-    return undefined;
-  }
-
-  return {
-    gameId,
-    title,
-    source,
-    unlockedCount,
-    ...(sortEpoch !== undefined ? { sortEpoch } : {}),
-  };
-}
-
-function createDeckyRecentAchievementCompletionProgressGameCandidate(
-  game: NormalizedGame,
-): DeckyRecentAchievementGameCandidate | undefined {
-  return createDeckyRecentAchievementGameCandidate(
-    game.gameId,
-    game.title,
-    game.summary.unlockedCount,
-    "completion-progress",
-    game.lastUnlockAt,
-  );
-}
-
-function createDeckyRecentAchievementRecentlyPlayedGameCandidate(
-  game: RecentlyPlayedGame,
-  source: DeckyRecentAchievementGameSource,
-): DeckyRecentAchievementGameCandidate | undefined {
-  return createDeckyRecentAchievementGameCandidate(
-    game.gameId,
-    game.title,
-    game.summary.unlockedCount,
-    source,
-    game.lastPlayedAt,
-  );
-}
-
-function compareDeckyRecentAchievementGameCandidates(
-  left: DeckyRecentAchievementGameCandidate,
-  right: DeckyRecentAchievementGameCandidate,
-): number {
-  const leftSortEpoch = left.sortEpoch ?? Number.NEGATIVE_INFINITY;
-  const rightSortEpoch = right.sortEpoch ?? Number.NEGATIVE_INFINITY;
-  if (leftSortEpoch !== rightSortEpoch) {
-    return rightSortEpoch - leftSortEpoch;
-  }
-
-  if (left.unlockedCount !== right.unlockedCount) {
-    return right.unlockedCount - left.unlockedCount;
-  }
-
-  const sourceOrder: Record<DeckyRecentAchievementGameSource, number> = {
-    "completion-progress": 0,
-    "recently-played": 1,
-    "snapshot-recently-played": 2,
-  };
-  const sourceOrderDelta = sourceOrder[left.source] - sourceOrder[right.source];
-  if (sourceOrderDelta !== 0) {
-    return sourceOrderDelta;
-  }
-
-  const titleDelta = left.title.localeCompare(right.title);
-  if (titleDelta !== 0) {
-    return titleDelta;
-  }
-
-  return left.gameId.localeCompare(right.gameId);
-}
-
-function selectDeckyRecentAchievementGameCandidates(
-  candidates: readonly DeckyRecentAchievementGameCandidate[],
-): readonly DeckyRecentAchievementGameCandidate[] {
-  const seen = new Set<string>();
-  const deduped: DeckyRecentAchievementGameCandidate[] = [];
-
-  for (const candidate of [...candidates].sort(compareDeckyRecentAchievementGameCandidates)) {
-    if (seen.has(candidate.gameId)) {
-      continue;
-    }
-
-    seen.add(candidate.gameId);
-    deduped.push(candidate);
-  }
-
-  return deduped;
-}
-
 function createIdleState<T>(): ResourceState<T> {
   return {
     status: "idle",
@@ -333,207 +211,15 @@ function getDeckyRecentAchievementStorageKey(providerId: ProviderId, accountId: 
   return `${DECKY_RECENT_ACHIEVEMENTS_STORAGE_KEY_PREFIX}:${providerId}:${accountId}`;
 }
 
-function getRecentUnlockIdentity(recentUnlock: RecentUnlock): string {
-  return `${recentUnlock.achievement.providerId}:${recentUnlock.achievement.gameId}:${recentUnlock.achievement.achievementId}`;
+interface DeckyRecentAchievementRunLogger {
+  log(stage: string, details: Record<string, unknown>): void;
 }
 
-function getNormalizedRecentUnlockTimestamp(recentUnlock: RecentUnlock): number | undefined {
-  const normalizedUnlockAt = recentUnlock.unlockedAt ?? recentUnlock.achievement.unlockedAt;
-  if (typeof normalizedUnlockAt !== "number" || !Number.isFinite(normalizedUnlockAt)) {
-    return undefined;
-  }
-
-  return Math.trunc(normalizedUnlockAt);
-}
-
-function maxDefinedNumber(
-  ...values: readonly (number | undefined)[]
-): number | undefined {
-  const numericValues = values.filter(
-    (value): value is number =>
-      typeof value === "number" && Number.isFinite(value),
-  );
-
-  if (numericValues.length === 0) {
-    return undefined;
-  }
-
-  return Math.max(...numericValues);
-}
-
-function getDeckyRecentAchievementProfileMemberSinceAt(
-  snapshot: DashboardSnapshot,
-): number | undefined {
-  const memberSinceMetric = snapshot.profile.metrics.find((metric) =>
-    metric.key === "member-since" || metric.label.toLowerCase() === "member since",
-  );
-  if (memberSinceMetric === undefined) {
-    return undefined;
-  }
-
-  const parsedAt = Date.parse(memberSinceMetric.value);
-  if (!Number.isFinite(parsedAt)) {
-    return undefined;
-  }
-
-  return Math.trunc(parsedAt);
-}
-
-function createDeckyRecentAchievementRunLogger() {
+function createDeckyRecentAchievementRunLogger(): DeckyRecentAchievementRunLogger {
   return {
     log(_stage: string, _details: Record<string, unknown>): void {
       return;
     },
-  };
-}
-
-function createDeckyRecentAchievementCandidate(
-  recentUnlock: RecentUnlock,
-  source: DeckyRecentAchievementSource,
-): DeckyRecentAchievementCandidate {
-  const normalizedUnlockAt = getNormalizedRecentUnlockTimestamp(recentUnlock);
-
-  return {
-    recentUnlock,
-    source,
-    ...(normalizedUnlockAt !== undefined ? { normalizedUnlockAt } : {}),
-  };
-}
-
-function compareDeckyRecentAchievementCandidates(
-  left: DeckyRecentAchievementCandidate,
-  right: DeckyRecentAchievementCandidate,
-): number {
-  const leftHasTrustedUnlockAt = left.normalizedUnlockAt !== undefined;
-  const rightHasTrustedUnlockAt = right.normalizedUnlockAt !== undefined;
-
-  if (leftHasTrustedUnlockAt !== rightHasTrustedUnlockAt) {
-    return leftHasTrustedUnlockAt ? -1 : 1;
-  }
-
-  if (
-    leftHasTrustedUnlockAt &&
-    rightHasTrustedUnlockAt &&
-    left.normalizedUnlockAt !== right.normalizedUnlockAt
-  ) {
-    return right.normalizedUnlockAt - left.normalizedUnlockAt;
-  }
-
-  const sourceOrder: Record<DeckyRecentAchievementSource, number> = {
-    "live-recent": 0,
-    cache: 1,
-    "date-range": 2,
-    backfill: 3,
-  };
-  const sourceOrderDelta = sourceOrder[left.source] - sourceOrder[right.source];
-  if (sourceOrderDelta !== 0) {
-    return sourceOrderDelta;
-  }
-
-  const titleDelta = left.recentUnlock.achievement.title.localeCompare(right.recentUnlock.achievement.title);
-  if (titleDelta !== 0) {
-    return titleDelta;
-  }
-
-  const gameTitleDelta = left.recentUnlock.game.title.localeCompare(right.recentUnlock.game.title);
-  if (gameTitleDelta !== 0) {
-    return gameTitleDelta;
-  }
-
-  return getRecentUnlockIdentity(left.recentUnlock).localeCompare(getRecentUnlockIdentity(right.recentUnlock));
-}
-
-function selectDeckyRecentAchievementCandidates(
-  candidates: readonly DeckyRecentAchievementCandidate[],
-): readonly DeckyRecentAchievementCandidate[] {
-  const seen = new Set<string>();
-  const deduped: DeckyRecentAchievementCandidate[] = [];
-
-  for (const candidate of [...candidates].sort(compareDeckyRecentAchievementCandidates)) {
-    const identity = getRecentUnlockIdentity(candidate.recentUnlock);
-    if (seen.has(identity)) {
-      continue;
-    }
-
-    seen.add(identity);
-    deduped.push(candidate);
-  }
-
-  return deduped;
-}
-
-function isTrustedDeckyRecentAchievementCandidate(
-  candidate: DeckyRecentAchievementCandidate,
-): boolean {
-  return candidate.normalizedUnlockAt !== undefined;
-}
-
-function compareFallbackDeckyRecentAchievementCandidates(
-  left: DeckyRecentAchievementCandidate,
-  right: DeckyRecentAchievementCandidate,
-): number {
-  const sourceOrder: Record<DeckyRecentAchievementSource, number> = {
-    "live-recent": 0,
-    cache: 1,
-    "date-range": 2,
-    backfill: 3,
-  };
-  const sourceOrderDelta = sourceOrder[left.source] - sourceOrder[right.source];
-  if (sourceOrderDelta !== 0) {
-    return sourceOrderDelta;
-  }
-
-  const titleDelta = left.recentUnlock.achievement.title.localeCompare(right.recentUnlock.achievement.title);
-  if (titleDelta !== 0) {
-    return titleDelta;
-  }
-
-  const gameTitleDelta = left.recentUnlock.game.title.localeCompare(right.recentUnlock.game.title);
-  if (gameTitleDelta !== 0) {
-    return gameTitleDelta;
-  }
-
-  return getRecentUnlockIdentity(left.recentUnlock).localeCompare(getRecentUnlockIdentity(right.recentUnlock));
-}
-
-function rankDeckyRecentAchievements(
-  candidates: readonly DeckyRecentAchievementCandidate[],
-): readonly RecentUnlock[] {
-  return finalizeDeckyRecentAchievementCandidates(candidates).selectedCandidates.map(
-    (candidate) => candidate.recentUnlock,
-  );
-}
-
-function finalizeDeckyRecentAchievementCandidates(
-  candidates: readonly DeckyRecentAchievementCandidate[],
-): {
-  readonly trustedCandidates: readonly DeckyRecentAchievementCandidate[];
-  readonly fallbackCandidates: readonly DeckyRecentAchievementCandidate[];
-  readonly selectedCandidates: readonly DeckyRecentAchievementCandidate[];
-} {
-  const dedupedCandidates = selectDeckyRecentAchievementCandidates(candidates);
-  const trustedCandidates = dedupedCandidates
-    .filter(isTrustedDeckyRecentAchievementCandidate)
-    .sort(compareDeckyRecentAchievementCandidates);
-  const fallbackCandidates = dedupedCandidates
-    .filter((candidate) => !isTrustedDeckyRecentAchievementCandidate(candidate))
-    .sort(compareFallbackDeckyRecentAchievementCandidates);
-
-  const selectedCandidates =
-    trustedCandidates.length >= DECKY_RECENT_ACHIEVEMENTS_LIMIT
-      ? trustedCandidates.slice(0, DECKY_RECENT_ACHIEVEMENTS_LIMIT)
-      : [
-          ...trustedCandidates,
-          ...fallbackCandidates.slice(
-            0,
-            DECKY_RECENT_ACHIEVEMENTS_LIMIT - trustedCandidates.length,
-          ),
-        ];
-
-  return {
-    trustedCandidates,
-    fallbackCandidates,
-    selectedCandidates,
   };
 }
 
@@ -563,6 +249,31 @@ function writeDeckyRecentAchievementHistory(
   if (!didWrite) {
     removeDeckyStorageText(storageKey);
   }
+}
+
+function withDeckyRecentAchievements(
+  snapshot: DashboardSnapshot,
+  recentAchievements: readonly RecentUnlock[],
+): DashboardSnapshot {
+  return {
+    ...snapshot,
+    recentAchievements,
+    recentUnlocks: recentAchievements,
+  };
+}
+
+function persistDeckyRecentAchievementHistoryResult(
+  snapshot: DashboardSnapshot,
+  storageKey: string,
+  recentAchievements: readonly RecentUnlock[],
+): DashboardSnapshot {
+  if (recentAchievements.length === 0) {
+    removeDeckyStorageText(storageKey);
+  } else {
+    writeDeckyRecentAchievementHistory(storageKey, recentAchievements);
+  }
+
+  return withDeckyRecentAchievements(snapshot, recentAchievements);
 }
 
 function describeDeckyRecentAchievementCandidate(
@@ -599,6 +310,244 @@ function describeDeckyRecentAchievementGameCandidate(
   };
 }
 
+async function loadDeckyRecentAchievementDateRangeCandidates(args: {
+  readonly provider: DeckyRecentAchievementBackfillProvider;
+  readonly providerConfig: unknown;
+  readonly memberSinceAt: number | undefined;
+  readonly storageKey: string;
+  readonly debugLog: DeckyRecentAchievementRunLogger;
+}): Promise<readonly DeckyRecentAchievementCandidate[]> {
+  if (args.provider.loadAchievementsEarnedBetween === undefined || args.memberSinceAt === undefined) {
+    args.debugLog.log("date-range-skipped", {
+      storageKey: args.storageKey,
+      reason:
+        args.provider.loadAchievementsEarnedBetween === undefined
+          ? "missing-provider-method"
+          : "missing-member-since",
+    });
+    return [];
+  }
+
+  const nowAt = Date.now();
+  const fromEpochSeconds = Math.trunc(args.memberSinceAt / 1000);
+  const toEpochSeconds = Math.trunc(nowAt / 1000);
+
+  try {
+    const recentUnlocks = await args.provider.loadAchievementsEarnedBetween(
+      args.providerConfig,
+      {
+        fromEpochSeconds,
+        toEpochSeconds,
+        limit: DECKY_RECENT_ACHIEVEMENTS_LIMIT,
+      },
+    );
+    const candidates = recentUnlocks.map((recentUnlock) =>
+      createDeckyRecentAchievementCandidate(recentUnlock, "date-range"),
+    );
+    const selection = finalizeDeckyRecentAchievementCandidates(candidates);
+    args.debugLog.log("date-range", {
+      storageKey: args.storageKey,
+      memberSinceAt: args.memberSinceAt,
+      fromEpochSeconds,
+      toEpochSeconds,
+      dateRangeRecentUnlockCount: recentUnlocks.length,
+      trustedCandidateCount: selection.trustedCandidates.length,
+      fallbackCandidateCount: selection.fallbackCandidates.length,
+      dateRangeSample: candidates.slice(0, 5).map(describeDeckyRecentAchievementCandidate),
+      missingTimestampSamples: candidates
+        .filter((candidate) => candidate.normalizedUnlockAt === undefined)
+        .slice(0, 3)
+        .map(describeDeckyRecentAchievementTimestampSources),
+    });
+
+    return candidates;
+  } catch (cause) {
+    args.debugLog.log("date-range-failed", {
+      storageKey: args.storageKey,
+      memberSinceAt: args.memberSinceAt,
+      cause,
+    });
+    return [];
+  }
+}
+
+interface DeckyRecentAchievementBackfillResult {
+  readonly status: "success" | "completion-progress-failed";
+  readonly candidates: readonly DeckyRecentAchievementCandidate[];
+  readonly perGameProgressFetchCount: number;
+  readonly perGameProgressFailureCount: number;
+  readonly extractedBackfillCount: number;
+}
+
+async function loadDeckyRecentAchievementBackfillCandidates(args: {
+  readonly provider: DeckyRecentAchievementBackfillProvider;
+  readonly providerConfig: unknown;
+  readonly snapshot: DashboardSnapshot;
+  readonly storageKey: string;
+  readonly debugLog: DeckyRecentAchievementRunLogger;
+}): Promise<DeckyRecentAchievementBackfillResult> {
+  let completionProgress: readonly NormalizedGame[];
+  try {
+    completionProgress = await args.provider.loadCompletionProgress(args.providerConfig);
+  } catch (cause) {
+    args.debugLog.log("completion-progress-failed", {
+      storageKey: args.storageKey,
+      cause,
+    });
+    return {
+      status: "completion-progress-failed",
+      candidates: [],
+      perGameProgressFetchCount: 0,
+      perGameProgressFailureCount: 0,
+      extractedBackfillCount: 0,
+    };
+  }
+
+  let providerRecentlyPlayedGames: readonly RecentlyPlayedGame[] = [];
+  if (args.provider.loadRecentlyPlayedGames !== undefined) {
+    try {
+      providerRecentlyPlayedGames = await args.provider.loadRecentlyPlayedGames(
+        args.providerConfig,
+        {
+          count: DECKY_RECENT_ACHIEVEMENTS_BACKFILL_RECENTLY_PLAYED_LIMIT,
+        },
+      );
+    } catch (cause) {
+      args.debugLog.log("recently-played-failed", { storageKey: args.storageKey, cause });
+    }
+  }
+
+  const completionProgressGameCandidates = completionProgress
+    .map((game) => createDeckyRecentAchievementCompletionProgressGameCandidate(game))
+    .filter((game): game is DeckyRecentAchievementGameCandidate => game !== undefined);
+  const snapshotRecentlyPlayedGameCandidates = args.snapshot.recentlyPlayedGames
+    .map((game) =>
+      createDeckyRecentAchievementRecentlyPlayedGameCandidate(
+        game,
+        "snapshot-recently-played",
+      ),
+    )
+    .filter((game): game is DeckyRecentAchievementGameCandidate => game !== undefined);
+  const providerRecentlyPlayedGameCandidates = providerRecentlyPlayedGames
+    .map((game) =>
+      createDeckyRecentAchievementRecentlyPlayedGameCandidate(game, "recently-played"),
+    )
+    .filter((game): game is DeckyRecentAchievementGameCandidate => game !== undefined);
+  args.debugLog.log("candidate-sources", {
+    storageKey: args.storageKey,
+    completionProgressCount: completionProgress.length,
+    completionProgressSample: completionProgressGameCandidates.slice(0, 5).map(
+      describeDeckyRecentAchievementGameCandidate,
+    ),
+    providerRecentlyPlayedCount: providerRecentlyPlayedGames.length,
+    providerRecentlyPlayedSample: providerRecentlyPlayedGameCandidates.slice(0, 5).map(
+      describeDeckyRecentAchievementGameCandidate,
+    ),
+    snapshotRecentlyPlayedCount: args.snapshot.recentlyPlayedGames.length,
+    snapshotRecentlyPlayedSample: snapshotRecentlyPlayedGameCandidates.slice(0, 5).map(
+      describeDeckyRecentAchievementGameCandidate,
+    ),
+  });
+  const candidateGames = selectDeckyRecentAchievementGameCandidates([
+    ...completionProgressGameCandidates,
+    ...snapshotRecentlyPlayedGameCandidates,
+    ...providerRecentlyPlayedGameCandidates,
+  ]);
+
+  args.debugLog.log("candidate-discovery", {
+    storageKey: args.storageKey,
+    completionProgressCount: completionProgress.length,
+    providerRecentlyPlayedCount: providerRecentlyPlayedGames.length,
+    snapshotRecentlyPlayedCount: args.snapshot.recentlyPlayedGames.length,
+    candidateBackfillGameCount: candidateGames.length,
+    candidateBackfillSample: candidateGames.slice(0, 5).map((game) => ({
+      id: game.gameId,
+      title: game.title,
+      source: game.source,
+      unlockedCount: game.unlockedCount,
+      sortEpoch: game.sortEpoch,
+    })),
+    containsDonkeyKongCountry: candidateGames.some((game) =>
+      game.title.toLowerCase().includes("donkey kong country"),
+    ),
+  });
+
+  if (candidateGames.length === 0) {
+    args.debugLog.log("no-candidates", {
+      storageKey: args.storageKey,
+      baselineRecentAchievementCount: args.snapshot.recentAchievements.length,
+      baselineRecentAchievementSample: args.snapshot.recentAchievements
+        .slice(0, 5)
+        .map((recentUnlock) =>
+          describeDeckyRecentAchievementCandidate(
+            createDeckyRecentAchievementCandidate(recentUnlock, "live-recent"),
+          ),
+        ),
+    });
+    return {
+      status: "success",
+      candidates: [],
+      perGameProgressFetchCount: 0,
+      perGameProgressFailureCount: 0,
+      extractedBackfillCount: 0,
+    };
+  }
+
+  const candidates: DeckyRecentAchievementCandidate[] = [];
+  let perGameProgressFailureCount = 0;
+  let extractedBackfillCount = 0;
+
+  for (const candidateGame of candidateGames) {
+    try {
+      const gameDetail = await args.provider.loadGameProgress(args.providerConfig, candidateGame.gameId);
+      const gameBackfillCandidates = gameDetail.achievements
+        .filter((achievement) => achievement.isUnlocked)
+        .map((achievement) => toRecentUnlock(gameDetail.game, achievement))
+        .map((recentUnlock) => createDeckyRecentAchievementCandidate(recentUnlock, "backfill"));
+
+      extractedBackfillCount += gameBackfillCandidates.length;
+      candidates.push(...gameBackfillCandidates);
+      args.debugLog.log("game-progress", {
+        storageKey: args.storageKey,
+        candidateGame: {
+          id: candidateGame.gameId,
+          title: candidateGame.title,
+          source: candidateGame.source,
+          sortEpoch: candidateGame.sortEpoch,
+        },
+        extractedCount: gameBackfillCandidates.length,
+        extractedSample: gameBackfillCandidates.slice(0, 2).map(
+          describeDeckyRecentAchievementCandidate,
+        ),
+        missingTimestampSamples: gameBackfillCandidates
+          .filter((candidate) => candidate.normalizedUnlockAt === undefined)
+          .slice(0, 3)
+          .map(describeDeckyRecentAchievementTimestampSources),
+      });
+    } catch (cause) {
+      perGameProgressFailureCount += 1;
+      args.debugLog.log("game-progress-failed", {
+        storageKey: args.storageKey,
+        candidateGame: {
+          id: candidateGame.gameId,
+          title: candidateGame.title,
+          source: candidateGame.source,
+          sortEpoch: candidateGame.sortEpoch,
+        },
+        cause,
+      });
+    }
+  }
+
+  return {
+    status: "success",
+    candidates,
+    perGameProgressFetchCount: candidateGames.length,
+    perGameProgressFailureCount,
+    extractedBackfillCount,
+  };
+}
+
 export function applyDeckyRecentAchievementHistory(
   snapshot: DashboardSnapshot,
 ): DashboardSnapshot {
@@ -623,11 +572,7 @@ export function applyDeckyRecentAchievementHistory(
 
   writeDeckyRecentAchievementHistory(storageKey, mergedRecentAchievements);
 
-  return {
-    ...snapshot,
-    recentAchievements: mergedRecentAchievements,
-    recentUnlocks: mergedRecentAchievements,
-  };
+  return withDeckyRecentAchievements(snapshot, mergedRecentAchievements);
 }
 
 export function mergeDeckySteamLibraryScanRecentAchievements(
@@ -655,11 +600,7 @@ export function mergeDeckySteamLibraryScanRecentAchievements(
     ),
   ]);
 
-  return {
-    ...snapshot,
-    recentAchievements,
-    recentUnlocks: recentAchievements,
-  };
+  return withDeckyRecentAchievements(snapshot, recentAchievements);
 }
 
 function compareDeckyAchievementHistoryEntries(
@@ -761,25 +702,6 @@ function mergeDeckyAchievementHistoryWithDashboardRecent(
   };
 }
 
-function toRecentUnlock(
-  game: GameDetailSnapshot["game"],
-  achievement: GameDetailSnapshot["achievements"][number],
-): RecentUnlock {
-  const unlockedAt = achievement.unlockedAt;
-
-  return {
-    achievement,
-    game: {
-      providerId: game.providerId,
-      gameId: game.gameId,
-      title: game.title,
-      ...(game.platformLabel !== undefined ? { platformLabel: game.platformLabel } : {}),
-      ...(game.coverImageUrl !== undefined ? { coverImageUrl: game.coverImageUrl } : {}),
-    },
-    ...(unlockedAt !== undefined ? { unlockedAt } : {}),
-  };
-}
-
 export async function buildDeckyRecentAchievementHistory(args: {
   readonly provider: DeckyRecentAchievementBackfillProvider | undefined;
   readonly providerConfig: unknown | undefined;
@@ -828,12 +750,6 @@ export async function buildDeckyRecentAchievementHistory(args: {
   });
 
   if (args.provider === undefined || args.providerConfig === undefined) {
-    if (baselineRecentAchievements.length === 0) {
-      removeDeckyStorageText(storageKey);
-    } else {
-      writeDeckyRecentAchievementHistory(storageKey, baselineRecentAchievements);
-    }
-
     debugLog.log("skip-backfill", {
       storageKey,
       reason: args.provider === undefined ? "missing-provider" : "missing-config",
@@ -842,11 +758,11 @@ export async function buildDeckyRecentAchievementHistory(args: {
         .slice(0, 5)
         .map(describeDeckyRecentAchievementCandidate),
     });
-    return {
-      ...args.snapshot,
-      recentAchievements: baselineRecentAchievements,
-      recentUnlocks: baselineRecentAchievements,
-    };
+    return persistDeckyRecentAchievementHistoryResult(
+      args.snapshot,
+      storageKey,
+      baselineRecentAchievements,
+    );
   }
 
   const memberSinceAt = getDeckyRecentAchievementProfileMemberSinceAt(args.snapshot);
@@ -861,71 +777,24 @@ export async function buildDeckyRecentAchievementHistory(args: {
 
   let candidateSelection = baselineSelection;
   let candidateRecentAchievementCandidates = baselineRecentAchievementCandidates;
-  let dateRangeRecentAchievementCandidates: DeckyRecentAchievementCandidate[] = [];
-  let dateRangeRecentUnlockCount = 0;
-  let perGameProgressFetchCount = 0;
-  let perGameProgressFailureCount = 0;
-  let extractedBackfillCount = 0;
-  let candidateGames: readonly DeckyRecentAchievementGameCandidate[] = [];
-
-  if (
-    args.provider.loadAchievementsEarnedBetween !== undefined &&
-    memberSinceAt !== undefined
-  ) {
-    const nowAt = Date.now();
-    try {
-      const dateRangeRecentUnlocks = await args.provider.loadAchievementsEarnedBetween(
-        args.providerConfig,
-        {
-          fromEpochSeconds: Math.trunc(memberSinceAt / 1000),
-          toEpochSeconds: Math.trunc(nowAt / 1000),
-          limit: DECKY_RECENT_ACHIEVEMENTS_LIMIT,
-        },
-      );
-      dateRangeRecentUnlockCount = dateRangeRecentUnlocks.length;
-      dateRangeRecentAchievementCandidates = dateRangeRecentUnlocks.map((recentUnlock) =>
-        createDeckyRecentAchievementCandidate(recentUnlock, "date-range"),
-      );
-      candidateRecentAchievementCandidates = [
-        ...candidateRecentAchievementCandidates,
-        ...dateRangeRecentAchievementCandidates,
-      ];
-      candidateSelection = finalizeDeckyRecentAchievementCandidates(candidateRecentAchievementCandidates);
-      debugLog.log("date-range", {
-        storageKey,
-        memberSinceAt,
-        fromEpochSeconds: Math.trunc(memberSinceAt / 1000),
-        toEpochSeconds: Math.trunc(nowAt / 1000),
-        dateRangeRecentUnlockCount,
-        trustedCandidateCount: candidateSelection.trustedCandidates.length,
-        fallbackCandidateCount: candidateSelection.fallbackCandidates.length,
-        dateRangeSample: dateRangeRecentAchievementCandidates.slice(0, 5).map(
-          describeDeckyRecentAchievementCandidate,
-        ),
-        missingTimestampSamples: dateRangeRecentAchievementCandidates
-          .filter((candidate) => candidate.normalizedUnlockAt === undefined)
-          .slice(0, 3)
-          .map(describeDeckyRecentAchievementTimestampSources),
-      });
-    } catch (cause) {
-      debugLog.log("date-range-failed", { storageKey, memberSinceAt, cause });
-    }
-  } else {
-    debugLog.log("date-range-skipped", {
-      storageKey,
-      reason:
-        args.provider.loadAchievementsEarnedBetween === undefined
-          ? "missing-provider-method"
-          : "missing-member-since",
-    });
-  }
+  const dateRangeRecentAchievementCandidates = await loadDeckyRecentAchievementDateRangeCandidates({
+    provider: args.provider,
+    providerConfig: args.providerConfig,
+    memberSinceAt,
+    storageKey,
+    debugLog,
+  });
+  candidateRecentAchievementCandidates = [
+    ...candidateRecentAchievementCandidates,
+    ...dateRangeRecentAchievementCandidates,
+  ];
+  candidateSelection = finalizeDeckyRecentAchievementCandidates(candidateRecentAchievementCandidates);
 
   if (candidateSelection.trustedCandidates.length >= DECKY_RECENT_ACHIEVEMENTS_LIMIT) {
     const finalRecentAchievementCandidates = candidateSelection.selectedCandidates;
     const finalRecentAchievements = finalRecentAchievementCandidates.map(
       (candidate) => candidate.recentUnlock,
     );
-    writeDeckyRecentAchievementHistory(storageKey, finalRecentAchievements);
     debugLog.log("candidate-discovery-skipped", {
       storageKey,
       reason: "date-range-satisfied",
@@ -940,184 +809,34 @@ export async function buildDeckyRecentAchievementHistory(args: {
       fallbackCandidateCount: candidateSelection.fallbackCandidates.length,
     });
 
-    return {
-      ...args.snapshot,
-      recentAchievements: finalRecentAchievements,
-      recentUnlocks: finalRecentAchievements,
-    };
+    return persistDeckyRecentAchievementHistoryResult(
+      args.snapshot,
+      storageKey,
+      finalRecentAchievements,
+    );
   }
 
-  let completionProgress: readonly NormalizedGame[] = [];
-  try {
-    completionProgress = await args.provider.loadCompletionProgress(args.providerConfig);
-  } catch (cause) {
-    debugLog.log("completion-progress-failed", {
-      storageKey,
-      cause,
-      trustedCandidateCount: candidateSelection.trustedCandidates.length,
-      fallbackCandidateCount: candidateSelection.fallbackCandidates.length,
-    });
-
+  const backfill = await loadDeckyRecentAchievementBackfillCandidates({
+    provider: args.provider,
+    providerConfig: args.providerConfig,
+    snapshot: args.snapshot,
+    storageKey,
+    debugLog,
+  });
+  if (backfill.status === "completion-progress-failed") {
     const finalRecentAchievements = candidateSelection.selectedCandidates.map(
       (candidate) => candidate.recentUnlock,
     );
-    if (finalRecentAchievements.length === 0) {
-      removeDeckyStorageText(storageKey);
-    } else {
-      writeDeckyRecentAchievementHistory(storageKey, finalRecentAchievements);
-    }
-
-    return {
-      ...args.snapshot,
-      recentAchievements: finalRecentAchievements,
-      recentUnlocks: finalRecentAchievements,
-    };
-  }
-
-  let providerRecentlyPlayedGames: readonly RecentlyPlayedGame[] = [];
-  if (args.provider.loadRecentlyPlayedGames !== undefined) {
-    try {
-      providerRecentlyPlayedGames = await args.provider.loadRecentlyPlayedGames(
-        args.providerConfig,
-        {
-          count: DECKY_RECENT_ACHIEVEMENTS_BACKFILL_RECENTLY_PLAYED_LIMIT,
-        },
-      );
-    } catch (cause) {
-      debugLog.log("recently-played-failed", { storageKey, cause });
-    }
-  }
-
-  const completionProgressGameCandidates = completionProgress
-    .map((game) => createDeckyRecentAchievementCompletionProgressGameCandidate(game))
-    .filter((game): game is DeckyRecentAchievementGameCandidate => game !== undefined);
-  const snapshotRecentlyPlayedGameCandidates = args.snapshot.recentlyPlayedGames
-    .map((game) =>
-      createDeckyRecentAchievementRecentlyPlayedGameCandidate(
-        game,
-        "snapshot-recently-played",
-      ),
-    )
-    .filter((game): game is DeckyRecentAchievementGameCandidate => game !== undefined);
-  const providerRecentlyPlayedGameCandidates = providerRecentlyPlayedGames
-    .map((game) =>
-      createDeckyRecentAchievementRecentlyPlayedGameCandidate(game, "recently-played"),
-    )
-    .filter((game): game is DeckyRecentAchievementGameCandidate => game !== undefined);
-  debugLog.log("candidate-sources", {
-    storageKey,
-    completionProgressCount: completionProgress.length,
-    completionProgressSample: completionProgressGameCandidates.slice(0, 5).map(
-      describeDeckyRecentAchievementGameCandidate,
-    ),
-    providerRecentlyPlayedCount: providerRecentlyPlayedGames.length,
-    providerRecentlyPlayedSample: providerRecentlyPlayedGameCandidates.slice(0, 5).map(
-      describeDeckyRecentAchievementGameCandidate,
-    ),
-    snapshotRecentlyPlayedCount: args.snapshot.recentlyPlayedGames.length,
-    snapshotRecentlyPlayedSample: snapshotRecentlyPlayedGameCandidates.slice(0, 5).map(
-      describeDeckyRecentAchievementGameCandidate,
-    ),
-  });
-  candidateGames = selectDeckyRecentAchievementGameCandidates([
-    ...completionProgressGameCandidates,
-    ...snapshotRecentlyPlayedGameCandidates,
-    ...providerRecentlyPlayedGameCandidates,
-  ]);
-
-  debugLog.log("candidate-discovery", {
-    storageKey,
-    completionProgressCount: completionProgress.length,
-    providerRecentlyPlayedCount: providerRecentlyPlayedGames.length,
-    snapshotRecentlyPlayedCount: args.snapshot.recentlyPlayedGames.length,
-    candidateBackfillGameCount: candidateGames.length,
-    candidateBackfillSample: candidateGames.slice(0, 5).map((game) => ({
-      id: game.gameId,
-      title: game.title,
-      source: game.source,
-      unlockedCount: game.unlockedCount,
-      sortEpoch: game.sortEpoch,
-    })),
-    containsDonkeyKongCountry: candidateGames.some((game) =>
-      game.title.toLowerCase().includes("donkey kong country"),
-    ),
-  });
-
-  if (candidateGames.length === 0) {
-    const finalRecentAchievements = candidateSelection.selectedCandidates.map(
-      (candidate) => candidate.recentUnlock,
-    );
-    if (finalRecentAchievements.length === 0) {
-      removeDeckyStorageText(storageKey);
-    } else {
-      writeDeckyRecentAchievementHistory(storageKey, finalRecentAchievements);
-    }
-
-    debugLog.log("no-candidates", {
+    return persistDeckyRecentAchievementHistoryResult(
+      args.snapshot,
       storageKey,
-      baselineRecentAchievementCount: candidateSelection.selectedCandidates.length,
-      baselineRecentAchievementSample: candidateSelection.selectedCandidates
-        .slice(0, 5)
-        .map(describeDeckyRecentAchievementCandidate),
-    });
-    return {
-      ...args.snapshot,
-      recentAchievements: finalRecentAchievements,
-      recentUnlocks: finalRecentAchievements,
-    };
-  }
-
-  const backfillRecentAchievementCandidates: DeckyRecentAchievementCandidate[] = [];
-  for (const candidateGame of candidateGames) {
-    perGameProgressFetchCount += 1;
-
-    try {
-      const gameDetail = await args.provider.loadGameProgress(args.providerConfig, candidateGame.gameId);
-      const gameBackfill = gameDetail.achievements
-        .filter((achievement) => achievement.isUnlocked)
-        .map((achievement) => toRecentUnlock(gameDetail.game, achievement));
-      const gameBackfillCandidates = gameBackfill.map((recentUnlock) =>
-        createDeckyRecentAchievementCandidate(recentUnlock, "backfill"),
-      );
-
-      extractedBackfillCount += gameBackfillCandidates.length;
-      backfillRecentAchievementCandidates.push(...gameBackfillCandidates);
-
-      debugLog.log("game-progress", {
-        storageKey,
-        candidateGame: {
-          id: candidateGame.gameId,
-          title: candidateGame.title,
-          source: candidateGame.source,
-          sortEpoch: candidateGame.sortEpoch,
-        },
-        extractedCount: gameBackfillCandidates.length,
-        extractedSample: gameBackfillCandidates.slice(0, 2).map(
-          describeDeckyRecentAchievementCandidate,
-        ),
-        missingTimestampSamples: gameBackfillCandidates
-          .filter((candidate) => candidate.normalizedUnlockAt === undefined)
-          .slice(0, 3)
-          .map(describeDeckyRecentAchievementTimestampSources),
-      });
-    } catch (cause) {
-      perGameProgressFailureCount += 1;
-      debugLog.log("game-progress-failed", {
-        storageKey,
-        candidateGame: {
-          id: candidateGame.gameId,
-          title: candidateGame.title,
-          source: candidateGame.source,
-          sortEpoch: candidateGame.sortEpoch,
-        },
-        cause,
-      });
-    }
+      finalRecentAchievements,
+    );
   }
 
   const finalSelection = finalizeDeckyRecentAchievementCandidates([
     ...candidateSelection.selectedCandidates,
-    ...backfillRecentAchievementCandidates,
+    ...backfill.candidates,
   ]);
   const finalRecentAchievementCandidates = finalSelection.selectedCandidates;
   const finalRecentAchievements = finalRecentAchievementCandidates.map(
@@ -1127,11 +846,11 @@ export async function buildDeckyRecentAchievementHistory(args: {
     storageKey,
     dateRangeTrustedCount: candidateSelection.trustedCandidates.length,
     dateRangeFallbackCount: candidateSelection.fallbackCandidates.length,
-    perGameProgressFetchCount,
-    perGameProgressFailureCount,
-    extractedBackfillCount,
+    perGameProgressFetchCount: backfill.perGameProgressFetchCount,
+    perGameProgressFailureCount: backfill.perGameProgressFailureCount,
+    extractedBackfillCount: backfill.extractedBackfillCount,
     mergedHistoryCountBeforeLimit:
-      candidateSelection.selectedCandidates.length + backfillRecentAchievementCandidates.length,
+      candidateSelection.selectedCandidates.length + backfill.candidates.length,
     trustedCandidateCount: finalSelection.trustedCandidates.length,
     fallbackCandidateCount: finalSelection.fallbackCandidates.length,
     topTrustedCandidateSample: finalSelection.trustedCandidates.slice(0, 10).map(
@@ -1142,7 +861,7 @@ export async function buildDeckyRecentAchievementHistory(args: {
     ),
     missingTimestampSamples: [
       ...candidateSelection.selectedCandidates,
-      ...backfillRecentAchievementCandidates,
+      ...backfill.candidates,
     ]
       .filter((candidate) => candidate.normalizedUnlockAt === undefined)
       .slice(0, 5)
@@ -1152,26 +871,22 @@ export async function buildDeckyRecentAchievementHistory(args: {
   if (finalRecentAchievements.length === 0) {
     removeDeckyStorageText(storageKey);
     debugLog.log("empty-after-backfill", { storageKey });
-    return {
-      ...args.snapshot,
-      recentAchievements: candidateSelection.selectedCandidates.map(
-        (candidate) => candidate.recentUnlock,
-      ),
-      recentUnlocks: candidateSelection.selectedCandidates.map((candidate) => candidate.recentUnlock),
-    };
+    return withDeckyRecentAchievements(
+      args.snapshot,
+      candidateSelection.selectedCandidates.map((candidate) => candidate.recentUnlock),
+    );
   }
 
-  writeDeckyRecentAchievementHistory(storageKey, finalRecentAchievements);
   debugLog.log("final", {
     storageKey,
     finalRecentAchievementCount: finalRecentAchievements.length,
   });
 
-  return {
-    ...args.snapshot,
-    recentAchievements: finalRecentAchievements,
-    recentUnlocks: finalRecentAchievements,
-  };
+  return persistDeckyRecentAchievementHistoryResult(
+    args.snapshot,
+    storageKey,
+    finalRecentAchievements,
+  );
 }
 
 export async function loadDeckyDashboardState(
