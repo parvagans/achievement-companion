@@ -2841,6 +2841,10 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     "src/platform/decky/decky-full-screen-game-metadata-pills.tsx",
     "utf8",
   );
+  const steamProgressSummarySource = readFileSync(
+    "src/platform/decky/decky-steam-progress-summary.tsx",
+    "utf8",
+  );
   assert.match(fullScreenGamePageSource, /PanelSection title="Game Spotlight"/);
   assert.match(fullScreenGamePageSource, /PanelSection title="Achievements"/);
   assert.doesNotMatch(fullScreenGamePageSource, /PanelSection title="Navigation"/);
@@ -2848,7 +2852,8 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenGamePageSource, /useState<AchievementModeFilter>\("all"\)/);
   assert.match(fullScreenGamePageSource, /useState<AchievementFilter>\("all"\)/);
   assert.match(fullScreenGamePageSource, /sortAchievementsForDisplay\(snapshot\.achievements\)/);
-  assert.match(fullScreenGamePageSource, /DeckyCompletionProgressBar[\s\S]*percent=\{completionPercent\}/);
+  assert.match(fullScreenGamePageSource, /DeckySteamProgressSummary/u);
+  assert.match(steamProgressSummarySource, /DeckyCompletionProgressBar[\s\S]*percent=\{completionPercent\}/);
   assert.match(
     fullScreenGamePageSource,
     /matchesAchievementFilter\(achievement, achievementFilter\)[\s\S]*matchesAchievementModeFilter\(achievement, achievementModeFilter\)/,
@@ -2862,12 +2867,12 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     /function getSteamGameSpotlightColumnStyle\(\): CSSProperties[\s\S]*height: "100%"/u,
   );
   assert.match(
-    fullScreenGamePageSource,
-    /function getSteamGameSpotlightStatsGridStyle\(\): CSSProperties[\s\S]*repeat\(3, minmax\(0, 1fr\)\)/u,
+    steamProgressSummarySource,
+    /function getStatsGridStyle\(\): CSSProperties[\s\S]*repeat\(3, minmax\(0, 1fr\)\)/u,
   );
   assert.match(fullScreenGamePageSource, /function getRetroAchievementsGameSpotlightLayoutStyle\(\): CSSProperties/u);
   assert.match(fullScreenGamePageSource, /function computeSteamRemainingAchievements\(summary: GameDetailSnapshot\["game"\]\["summary"\]\): number \| undefined/u);
-  assert.match(fullScreenGamePageSource, /function getSteamGameSpotlightStatsGridStyle\(\): CSSProperties/u);
+  assert.match(steamProgressSummarySource, /function getStatsGridStyle\(\): CSSProperties/u);
   assert.match(fullScreenGamePageSource, /function selectSteamRecentUnlockedAchievements\(/u);
   assert.match(fullScreenGamePageSource, /function selectSteamNextLockedAchievements\(/u);
   assert.match(steamAchievementSpotlightCardSource, /function SteamAchievementSpotlightCard\(/u);
@@ -2880,7 +2885,8 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenGamePageSource, /DeckySteamAchievementSpotlightCard/u);
   assert.match(fullScreenGamePageSource, /Latest Unlocks[\s\S]*Achievement Highlights/u);
   assert.doesNotMatch(fullScreenGamePageSource, /Most recent unlocked achievements already loaded in this snapshot\./u);
-  assert.match(fullScreenGamePageSource, /DeckyFullScreenGameProgressStat label="Remaining" value=\{formatCount\(steamRemainingCount\)\}/u);
+  assert.match(fullScreenGamePageSource, /remainingValue=\{/u);
+  assert.match(steamProgressSummarySource, /DeckyFullScreenGameProgressStat label="Remaining" value=\{remainingValue\}/u);
   assert.match(fullScreenGameProgressStatSource, /function getProgressStatStyle\(\): CSSProperties/u);
   assert.match(fullScreenGameProgressStatSource, /function getProgressStatValueStyle\(\): CSSProperties/u);
   assert.doesNotMatch(fullScreenGamePageSource, /handleSteamFullscreenRefreshKeyDown/u);
@@ -2960,7 +2966,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.doesNotMatch(fullScreenGamePageSource, /GameOverviewRefreshPill/);
   assert.doesNotMatch(fullScreenGamePageSource, /getProgressSummaryPercentStyle/);
   assert.match(fullScreenGamePageSource, /buildGameMetadataPills\(game\.metrics\)/);
-  assert.match(fullScreenGamePageSource, /DeckyFullScreenGameMetadataPills pills=\{gameMetadataPills\}/);
+  assert.match(fullScreenGamePageSource, /metadataPills=\{gameMetadataPills\}/);
   assert.match(fullScreenGameMetadataPillsSource, /function getPillRowStyle\(\): CSSProperties/u);
   assert.match(fullScreenGameMetadataPillsSource, /gridTemplateColumns: "repeat\(2, minmax\(0, 1fr\)\)"/);
   assert.match(fullScreenGamePageSource, /Total players/);
