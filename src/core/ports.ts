@@ -22,6 +22,7 @@ export interface AchievementProvider<Config = unknown> {
     options: {
       readonly fromEpochSeconds: number;
       readonly toEpochSeconds: number;
+      readonly limit?: number;
     },
   ): Promise<readonly RecentUnlock[]>;
   loadRecentUnlocks(
