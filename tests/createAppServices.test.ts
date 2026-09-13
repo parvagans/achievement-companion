@@ -2845,6 +2845,10 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     "src/platform/decky/decky-steam-progress-summary.tsx",
     "utf8",
   );
+  const steamGameSpotlightSource = readFileSync(
+    "src/platform/decky/decky-steam-game-spotlight.tsx",
+    "utf8",
+  );
   assert.match(fullScreenGamePageSource, /PanelSection title="Game Spotlight"/);
   assert.match(fullScreenGamePageSource, /PanelSection title="Achievements"/);
   assert.doesNotMatch(fullScreenGamePageSource, /PanelSection title="Navigation"/);
@@ -2852,7 +2856,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenGamePageSource, /useState<AchievementModeFilter>\("all"\)/);
   assert.match(fullScreenGamePageSource, /useState<AchievementFilter>\("all"\)/);
   assert.match(fullScreenGamePageSource, /sortAchievementsForDisplay\(snapshot\.achievements\)/);
-  assert.match(fullScreenGamePageSource, /DeckySteamProgressSummary/u);
+  assert.match(fullScreenGamePageSource, /DeckySteamGameSpotlight/u);
   assert.match(steamProgressSummarySource, /DeckyCompletionProgressBar[\s\S]*percent=\{completionPercent\}/);
   assert.match(
     fullScreenGamePageSource,
@@ -2861,31 +2865,31 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenGamePageSource, /shouldRenderAchievementModeFilter\(providerIdValue\)/);
   assert.match(fullScreenAchievementBrowserSource, /showAchievementModeFilter \?\s*\(/u);
   assert.match(fullScreenGamePageSource, /const isSteamProvider = game\.providerId === STEAM_PROVIDER_ID;/u);
-  assert.match(fullScreenGamePageSource, /function getSteamGameSpotlightLayoutStyle\(\): CSSProperties/u);
+  assert.match(steamGameSpotlightSource, /function getLayoutStyle\(\): CSSProperties/u);
   assert.match(
-    fullScreenGamePageSource,
-    /function getSteamGameSpotlightColumnStyle\(\): CSSProperties[\s\S]*height: "100%"/u,
+    steamGameSpotlightSource,
+    /function getColumnStyle\(\): CSSProperties[\s\S]*height: "100%"/u,
   );
   assert.match(
     steamProgressSummarySource,
     /function getStatsGridStyle\(\): CSSProperties[\s\S]*repeat\(3, minmax\(0, 1fr\)\)/u,
   );
   assert.match(fullScreenGamePageSource, /function getRetroAchievementsGameSpotlightLayoutStyle\(\): CSSProperties/u);
-  assert.match(fullScreenGamePageSource, /function computeSteamRemainingAchievements\(summary: GameDetailSnapshot\["game"\]\["summary"\]\): number \| undefined/u);
+  assert.match(steamGameSpotlightSource, /function computeRemainingAchievements\(game: SteamGame\): number \| undefined/u);
   assert.match(steamProgressSummarySource, /function getStatsGridStyle\(\): CSSProperties/u);
-  assert.match(fullScreenGamePageSource, /function selectSteamRecentUnlockedAchievements\(/u);
-  assert.match(fullScreenGamePageSource, /function selectSteamNextLockedAchievements\(/u);
+  assert.match(steamGameSpotlightSource, /function selectRecentUnlockedAchievements\(/u);
+  assert.match(steamGameSpotlightSource, /function selectNextLockedAchievements\(/u);
   assert.match(steamAchievementSpotlightCardSource, /function SteamAchievementSpotlightCard\(/u);
   assert.match(steamAchievementSpotlightCardSource, /function SteamAchievementSpotlightRow\(/u);
   assert.match(
-    fullScreenGamePageSource,
-    /function getSteamGameSpotlightLayoutStyle\(\): CSSProperties[\s\S]*gridTemplateColumns: "minmax\(0, 1\.18fr\) minmax\(320px, 0\.82fr\)"[\s\S]*alignItems: "stretch"/u,
+    steamGameSpotlightSource,
+    /function getLayoutStyle\(\): CSSProperties[\s\S]*gridTemplateColumns: "minmax\(0, 1\.18fr\) minmax\(320px, 0\.82fr\)"[\s\S]*alignItems: "stretch"/u,
   );
-  assert.match(fullScreenGamePageSource, /isSteamProvider \? \([\s\S]*DeckyFullScreenGameSpotlightOverview[\s\S]*DeckySteamFullscreenGameArtwork/u);
-  assert.match(fullScreenGamePageSource, /DeckySteamAchievementSpotlightCard/u);
-  assert.match(fullScreenGamePageSource, /Latest Unlocks[\s\S]*Achievement Highlights/u);
+  assert.match(steamGameSpotlightSource, /DeckyFullScreenGameSpotlightOverview[\s\S]*DeckySteamFullscreenGameArtwork/u);
+  assert.match(steamGameSpotlightSource, /DeckySteamAchievementSpotlightCard/u);
+  assert.match(steamGameSpotlightSource, /Latest Unlocks[\s\S]*Achievement Highlights/u);
   assert.doesNotMatch(fullScreenGamePageSource, /Most recent unlocked achievements already loaded in this snapshot\./u);
-  assert.match(fullScreenGamePageSource, /remainingValue=\{/u);
+  assert.match(steamGameSpotlightSource, /remainingValue=\{/u);
   assert.match(steamProgressSummarySource, /DeckyFullScreenGameProgressStat label="Remaining" value=\{remainingValue\}/u);
   assert.match(fullScreenGameProgressStatSource, /function getProgressStatStyle\(\): CSSProperties/u);
   assert.match(fullScreenGameProgressStatSource, /function getProgressStatValueStyle\(\): CSSProperties/u);
@@ -2906,8 +2910,8 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   );
   assert.doesNotMatch(steamSpotlightRowSource, /Focusable/u);
   assert.match(steamAchievementSpotlightCardSource, /DeckyGameArtwork compact src=\{achievement\.badgeImageUrl\} size=\{28\} title=\{achievement\.title\}/u);
-  assert.match(fullScreenGamePageSource, /selectSteamRecentUnlockedAchievements\(orderedAchievements, 3\)/u);
-  assert.match(fullScreenGamePageSource, /selectSteamNextLockedAchievements\(orderedAchievements, 3\)/u);
+  assert.match(steamGameSpotlightSource, /selectRecentUnlockedAchievements\(orderedAchievements\)/u);
+  assert.match(steamGameSpotlightSource, /selectNextLockedAchievements\(orderedAchievements\)/u);
   assert.match(steamAchievementSpotlightCardSource, /gridTemplateColumns: "auto minmax\(0, 1fr\)"[\s\S]*padding: 8/u);
   assert.match(steamAchievementSpotlightCardSource, /width: 30[\s\S]*height: 30/u);
   assert.match(steamAchievementSpotlightCardSource, /flex: "1 1 auto"[\s\S]*minHeight: 0/u);
@@ -3051,8 +3055,8 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.doesNotMatch(fullScreenAchievementPageSource, /PanelSection title="Achievement details"/u);
   assert.match(fullScreenAchievementPageSource, /readonly onOpenFullScreenGame\?: \(\(\) => void\) \| undefined;/u);
   assert.match(
-    fullScreenGamePageSource,
-    /const heroArtworkUrl =[\s\S]*getSteamFullscreenGameArtworkUrl\(game\)/u,
+    steamGameSpotlightSource,
+    /const artworkUrl = getSteamFullscreenGameArtworkUrl\(game\)/u,
   );
   assert.match(
     fullScreenAchievementPageSource,
