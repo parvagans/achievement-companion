@@ -2809,6 +2809,10 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     "src/platform/decky/decky-retroachievements-fullscreen-game-artwork.tsx",
     "utf8",
   );
+  const steamFullscreenGameArtworkSource = readFileSync(
+    "src/platform/decky/decky-steam-fullscreen-game-artwork.tsx",
+    "utf8",
+  );
   assert.match(fullScreenGamePageSource, /PanelSection title="Game Spotlight"/);
   assert.match(fullScreenGamePageSource, /PanelSection title="Achievements"/);
   assert.doesNotMatch(fullScreenGamePageSource, /PanelSection title="Navigation"/);
@@ -2844,7 +2848,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     fullScreenGamePageSource,
     /function getSteamGameSpotlightLayoutStyle\(\): CSSProperties[\s\S]*gridTemplateColumns: "minmax\(0, 1\.18fr\) minmax\(320px, 0\.82fr\)"[\s\S]*alignItems: "stretch"/u,
   );
-  assert.match(fullScreenGamePageSource, /isSteamProvider \? \([\s\S]*SteamFullscreenGameArtwork[\s\S]*DeckyFullscreenActionRow centered/u);
+  assert.match(fullScreenGamePageSource, /isSteamProvider \? \([\s\S]*DeckySteamFullscreenGameArtwork[\s\S]*DeckyFullscreenActionRow centered/u);
   assert.match(fullScreenGamePageSource, /SteamAchievementSpotlightCard[\s\S]*Latest Unlocks[\s\S]*Achievement Highlights/u);
   assert.doesNotMatch(fullScreenGamePageSource, /Most recent unlocked achievements already loaded in this snapshot\./u);
   assert.match(fullScreenGamePageSource, /ProgressStat label="Remaining" value=\{formatCount\(steamRemainingCount\)\}/u);
@@ -2977,8 +2981,8 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(steamGameArtworkSource, /getSteamFullscreenGameArtworkUrl/);
   assert.match(steamGameArtworkSource, /header\.jpg/);
   assert.match(steamGameArtworkSource, /game\.boxArtImageUrl \?\?/u);
-  assert.match(fullScreenGamePageSource, /function SteamFullscreenGameArtwork\(/);
-  assert.match(fullScreenGamePageSource, /aspectRatio: "460 \/ 215"/u);
+  assert.match(steamFullscreenGameArtworkSource, /function getArtworkFrameStyle\(\): CSSProperties/u);
+  assert.match(steamFullscreenGameArtworkSource, /aspectRatio: "460 \/ 215"/u);
   assert.match(achievementDetailViewSource, /DeckyGameArtwork compact src=\{headerArtworkUrl\} size=\{48\} title=\{game\.title\}/u);
   const fullScreenAchievementPageSource = readFileSync(
     "src/platform/decky/decky-full-screen-achievement-page.tsx",
