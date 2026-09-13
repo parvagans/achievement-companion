@@ -5309,6 +5309,10 @@ test("retroachievements completion indicator maps award kind to compact circle s
   const compactDashboardSource = readFileSync("src/platform/decky/decky-dashboard-view.tsx", "utf8");
   const gameDetailSource = readFileSync("src/platform/decky/decky-game-detail-view.tsx", "utf8");
   const fullScreenGameSource = readFileSync("src/platform/decky/decky-full-screen-game-page.tsx", "utf8");
+  const retroAchievementsModeProgressCardsSource = readFileSync(
+    "src/platform/decky/decky-retroachievements-mode-progress-cards.tsx",
+    "utf8",
+  );
 
   assert.match(fullScreenCompletionProgressSource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
   assert.match(gameDetailSource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
@@ -5526,12 +5530,12 @@ test("retroachievements game detail surfaces hide empty mode cards and keep mean
 
   assert.match(fullScreenGameSource, /const showHardcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard\(\{/u);
   assert.match(fullScreenGameSource, /const showSoftcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard\(\{/u);
-  assert.match(fullScreenGameSource, /function getModeProgressGridStyle\(\): CSSProperties/u);
+  assert.match(fullScreenGameSource, /DeckyRetroAchievementsModeProgressCards/u);
+  assert.match(retroAchievementsModeProgressCardsSource, /function getGridStyle\(\): CSSProperties/u);
+  assert.match(retroAchievementsModeProgressCardsSource, /showHardcore \? <ModeCard/u);
+  assert.match(retroAchievementsModeProgressCardsSource, /showSoftcore \? <ModeCard/u);
   assert.doesNotMatch(fullScreenGameSource, /visibleModeCardCount/u);
   assert.doesNotMatch(fullScreenGameSource, /singleColumn/u);
-  assert.match(fullScreenGameSource, /\{showHardcoreModeCard \|\| showSoftcoreModeCard \? \(/u);
-  assert.match(fullScreenGameSource, /\{showHardcoreModeCard \? \(/u);
-  assert.match(fullScreenGameSource, /\{showSoftcoreModeCard \? \(/u);
   assert.doesNotMatch(fullScreenGameSource, /\{game\.hardcoreSummary !== undefined \? \(/u);
   assert.doesNotMatch(fullScreenGameSource, /\{game\.softcoreSummary !== undefined \? \(/u);
   assert.doesNotMatch(steamProviderSource, /shouldRenderRetroAchievementsModeSummaryCard/u);
