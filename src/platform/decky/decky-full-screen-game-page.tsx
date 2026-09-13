@@ -13,29 +13,19 @@ import {
 } from "./decky-app-services";
 import { getCompletionPercent } from "./decky-completion-progress-bar";
 import {
-  formatRetroAchievementsCompletionIndicatorLabel,
-  getRetroAchievementsCompletionIndicatorState,
-} from "./decky-retroachievements-completion-indicator";
-import { getDeckyGameArtworkFallbackInitials } from "./decky-game-artwork-fallback";
-import { DeckyRetroAchievementsFullscreenGameArtwork } from "./decky-retroachievements-fullscreen-game-artwork";
-import {
   DeckyFullScreenAchievementBrowser,
   matchesAchievementFilter,
   matchesAchievementModeFilter,
   type AchievementFilter,
   type AchievementModeFilter,
 } from "./decky-full-screen-achievement-browser";
-import { DeckyFullScreenGameSpotlightOverview } from "./decky-full-screen-game-spotlight-overview";
 import type { DeckyFullScreenGameMetadataPill } from "./decky-full-screen-game-metadata-pills";
+import { DeckyRetroAchievementsGameSpotlight } from "./decky-retroachievements-game-spotlight";
 import { DeckySteamGameSpotlight } from "./decky-steam-game-spotlight";
 import {
-  formatRetroAchievementsBeatenAtText,
-  formatRetroAchievementsMasteredAtText,
   dedupeDistinctLabels,
-  shouldRenderRetroAchievementsModeSummaryCard,
   shouldRenderAchievementModeFilter,
 } from "./decky-achievement-detail-helpers";
-import { DeckyRetroAchievementsProgressSummary } from "./decky-retroachievements-progress-summary";
 import { sortAchievementsForDisplay } from "./decky-game-detail-ordering";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
@@ -68,27 +58,6 @@ function getMetricValue(
   key: string,
 ): string | undefined {
   return metrics.find((metric) => metric.key === key)?.value;
-}
-
-function getAchievementModePoints(
-  achievements: readonly NormalizedAchievement[],
-  modeFilter: Exclude<AchievementModeFilter, "all">,
-): number | undefined {
-  let points = 0;
-  let hasPoints = false;
-
-  for (const achievement of achievements) {
-    if (!achievement.isUnlocked || achievement.unlockMode !== modeFilter) {
-      continue;
-    }
-
-    if (achievement.points !== undefined) {
-      points += achievement.points;
-      hasPoints = true;
-    }
-  }
-
-  return hasPoints ? points : undefined;
 }
 
 function buildGameMetadataPills(
@@ -148,16 +117,6 @@ function formatAchievementStatusSummary(
   return `Total ${formatCount(achievements.length)} · Unlocked ${formatCount(unlockedCount)} · Locked ${formatCount(lockedCount)}`;
 }
 
-function getRetroAchievementsGameSpotlightLayoutStyle(): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-    gap: 12,
-    width: "100%",
-    alignItems: "stretch",
-  };
-}
-
 const FULLSCREEN_GAME_BOTTOM_SCROLL_PADDING = 88;
 const FULLSCREEN_GAME_TOP_PADDING = 42;
 
@@ -165,16 +124,6 @@ function getFullScreenPageFrameStyle(): CSSProperties {
   return {
     padding: `calc(env(safe-area-inset-top, 0px) + ${FULLSCREEN_GAME_TOP_PADDING}px) 12px calc(env(safe-area-inset-bottom, 0px) + ${FULLSCREEN_GAME_BOTTOM_SCROLL_PADDING}px)`,
     boxSizing: "border-box",
-  };
-}
-
-function getGameSpotlightStatsStyle(): CSSProperties {
-  return {
-    minWidth: 0,
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-    height: "100%",
   };
 }
 
@@ -231,7 +180,6 @@ export function DeckyFullScreenGamePage({
   const snapshot = state.data;
   const game = snapshot.game;
   const isSteamProvider = game.providerId === STEAM_PROVIDER_ID;
-  const retroAchievementsArtworkUrl = game.boxArtImageUrl ?? game.coverImageUrl;
   const orderedAchievements = sortAchievementsForDisplay(snapshot.achievements);
   const achievementSummary = formatAchievementStatusSummary(orderedAchievements);
   const summary = snapshot.game.summary;
@@ -242,23 +190,6 @@ export function DeckyFullScreenGamePage({
   );
   const filteredAchievementCount = filteredAchievements.length;
   const completionPercent = getCompletionPercent(snapshot.game.summary);
-  const completionIndicatorState = getRetroAchievementsCompletionIndicatorState(game);
-  const isBeaten =
-    completionIndicatorState === "beaten-hardcore" || completionIndicatorState === "beaten-softcore";
-  const isMasteredHardcore = completionIndicatorState === "mastered-hardcore";
-  const completionStatusLabel = isMasteredHardcore ? "Mastered" : isBeaten ? "Beaten" : undefined;
-  const completionStatusAriaLabel =
-    completionIndicatorState !== undefined
-      ? formatRetroAchievementsCompletionIndicatorLabel(completionIndicatorState)
-      : undefined;
-  const completionTone = isMasteredHardcore
-    ? "retroachievements-mastered"
-    : isBeaten
-      ? "retroachievements-beaten"
-      : "default";
-  const masteredAtText = formatRetroAchievementsMasteredAtText(game);
-  const beatenAtText = formatRetroAchievementsBeatenAtText(game);
-  const completionAtText = isMasteredHardcore ? masteredAtText : beatenAtText;
   const achievements = filteredAchievements;
   const providerLabel = formatDeckyProviderLabel(providerId ?? game.providerId);
   const isCachedView = state.status === "stale";
@@ -267,20 +198,6 @@ export function DeckyFullScreenGamePage({
   const totalAchievementCount = summary.totalCount ?? snapshot.achievements.length;
   const heroMetaPills = dedupeDistinctLabels([providerLabel, snapshotSourceLabel]);
   const gameMetadataPills = buildGameMetadataPills(game.metrics);
-  const hardcoreModePoints = getAchievementModePoints(snapshot.achievements, "hardcore");
-  const softcoreModePoints = getAchievementModePoints(snapshot.achievements, "softcore");
-  const showHardcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard({
-    game,
-    mode: "hardcore",
-    summary: game.hardcoreSummary,
-    points: hardcoreModePoints,
-  });
-  const showSoftcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard({
-    game,
-    mode: "softcore",
-    summary: game.softcoreSummary,
-    points: softcoreModePoints,
-  });
 
   return (
     <ScrollPanel>
@@ -296,7 +213,7 @@ export function DeckyFullScreenGamePage({
                   orderedAchievements={orderedAchievements}
                   totalAchievementCount={totalAchievementCount}
                   completionPercent={completionPercent}
-                  completionTone={completionTone}
+                  completionTone="default"
                   metadataLabels={heroMetaPills}
                   metadataPills={gameMetadataPills}
                   backLabel={backLabel}
@@ -306,47 +223,18 @@ export function DeckyFullScreenGamePage({
                   }}
                 />
               ) : (
-                <div style={getRetroAchievementsGameSpotlightLayoutStyle()}>
-                  <DeckyFullScreenGameSpotlightOverview
-                    title={game.title}
-                    metadataLabels={heroMetaPills}
-                    artwork={
-                      retroAchievementsArtworkUrl !== undefined ? (
-                        <DeckyRetroAchievementsFullscreenGameArtwork
-                          src={retroAchievementsArtworkUrl}
-                          fallbackLabel={getDeckyGameArtworkFallbackInitials(game.title)}
-                        />
-                      ) : undefined
-                    }
-                    backLabel={backLabel}
-                    onBack={onBack}
-                    onRefresh={() => {
-                      setRefreshNonce((current) => current + 1);
-                    }}
-                    platform={{
-                      label: game.platformLabel ?? "Unknown system",
-                      iconUrl: game.systemIconUrl,
-                    }}
-                  />
-
-                  <div style={getGameSpotlightStatsStyle()}>
-                    <DeckyRetroAchievementsProgressSummary
-                      game={game}
-                      completionPercent={completionPercent}
-                      completionTone={completionTone}
-                      completionStatusLabel={completionStatusLabel}
-                      completionStatusAriaLabel={completionStatusAriaLabel}
-                      completionAtText={completionAtText}
-                      unlockedValue={formatCount(summary.unlockedCount)}
-                      totalValue={formatCount(totalAchievementCount)}
-                      metadataPills={gameMetadataPills}
-                      hardcorePoints={hardcoreModePoints}
-                      softcorePoints={softcoreModePoints}
-                      showHardcoreModeCard={showHardcoreModeCard}
-                      showSoftcoreModeCard={showSoftcoreModeCard}
-                    />
-                  </div>
-                </div>
+                <DeckyRetroAchievementsGameSpotlight
+                  game={game}
+                  achievements={snapshot.achievements}
+                  totalAchievementCount={totalAchievementCount}
+                  metadataLabels={heroMetaPills}
+                  metadataPills={gameMetadataPills}
+                  backLabel={backLabel}
+                  onBack={onBack}
+                  onRefresh={() => {
+                    setRefreshNonce((current) => current + 1);
+                  }}
+                />
               )}
             </PanelSectionRow>
           </PanelSection>
