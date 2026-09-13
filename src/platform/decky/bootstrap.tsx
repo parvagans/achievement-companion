@@ -62,6 +62,7 @@ import {
 } from "./providers/steam";
 import { resolveProviderDashboardPreferences } from "@core/provider-dashboard-preferences";
 import { DeckyFirstRunSetupScreen } from "./decky-first-run-setup-screen";
+import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 interface SelectedGame {
   readonly providerId: ProviderId;
   readonly gameId: string;
@@ -363,23 +364,13 @@ function getChooserProviderCardStatusStyleForTone(tone: ProviderLauncherTone): C
 }
 
 const scrollFocusedLauncherElementIntoView: FocusEventHandler<HTMLElement> = (event) => {
-  event.currentTarget.scrollIntoView({
-    block: "nearest",
-    inline: "nearest",
-  });
+  scrollDeckyFocusTargetIntoView(event.currentTarget);
 };
 
 type DeckyGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
 
 const scrollFocusedLauncherGamepadElementIntoView: DeckyGamepadFocusHandler = (event) => {
-  const target = event.currentTarget;
-
-  if (target instanceof HTMLElement) {
-    target.scrollIntoView({
-      block: "nearest",
-      inline: "nearest",
-    });
-  }
+  scrollDeckyFocusTargetIntoView(event.currentTarget);
 };
 
 function ProviderLauncherCard({

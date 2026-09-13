@@ -10,6 +10,7 @@ import {
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
+import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
@@ -447,25 +448,13 @@ function getAchievementHistoryRowTone(
 }
 
 const scrollFocusedElementIntoView: FocusEventHandler<HTMLElement> = (event) => {
-  event.currentTarget.scrollIntoView({
-    block: "nearest",
-    inline: "nearest",
-  });
+  scrollDeckyFocusTargetIntoView(event.currentTarget);
 };
 
 type FullScreenGamepadFocusHandler = NonNullable<ComponentProps<typeof Field>["onGamepadFocus"]>;
 
 const scrollFocusedGamepadElementIntoView: FullScreenGamepadFocusHandler = (event) => {
-  const target = event.currentTarget;
-
-  if (!(target instanceof HTMLElement)) {
-    return;
-  }
-
-  target.scrollIntoView({
-    block: "nearest",
-    inline: "nearest",
-  });
+  scrollDeckyFocusTargetIntoView(event.currentTarget);
 };
 
 function isRenderableAchievementHistoryState(

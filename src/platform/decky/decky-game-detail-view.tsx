@@ -15,6 +15,7 @@ import {
 } from "./decky-retroachievements-completion-indicator";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DeckyAchievementTypeBadge } from "./decky-achievement-type-badge";
+import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { DeckySystemPill } from "./decky-system-pill";
 import { DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS, DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import type { CompactAchievementTarget } from "./decky-achievement-detail-view";
@@ -104,10 +105,7 @@ function matchesAchievementFilter(
 }
 
 const scrollFocusedElementIntoView: FocusEventHandler<HTMLElement> = (event) => {
-  event.currentTarget.scrollIntoView({
-    block: "nearest",
-    inline: "nearest",
-  });
+  scrollDeckyFocusTargetIntoView(event.currentTarget);
 };
 
 function formatAchievementFilterEmptyMessage(filter: AchievementFilter): string {
@@ -575,12 +573,7 @@ function AchievementRowCard({
       }}
       onGamepadFocus={((event) => {
         setIsFocused(true);
-        if (event.currentTarget instanceof HTMLElement) {
-          event.currentTarget.scrollIntoView({
-            block: "nearest",
-            inline: "nearest",
-          });
-        }
+        scrollDeckyFocusTargetIntoView(event.currentTarget);
       }) satisfies DeckyGamepadFocusHandler}
       onBlur={() => {
         setIsFocused(false);

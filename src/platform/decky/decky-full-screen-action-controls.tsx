@@ -14,6 +14,7 @@ import {
   DECKY_FULLSCREEN_CHIP_SELECTED_CLASS,
 } from "./decky-focus-styles";
 import { getDeckyFullscreenActionStylesCss } from "./decky-full-screen-action-styles";
+import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { ensureFullscreenCancelBridgeRegisteredForBackButtonElement } from "./decky-full-screen-cancel-bridge";
 import { markDeckyFullscreenReturnRequested } from "./decky-full-screen-return-context";
 
@@ -90,20 +91,11 @@ function getFullscreenChipIconStyle(): CSSProperties {
 type DeckyGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
 
 const scrollFocusedElementIntoView: FocusEventHandler<HTMLElement> = (event) => {
-  event.currentTarget.scrollIntoView({
-    block: "nearest",
-    inline: "nearest",
-  });
+  scrollDeckyFocusTargetIntoView(event.currentTarget);
 };
 
 const scrollFocusedGamepadElementIntoView: DeckyGamepadFocusHandler = (event) => {
-  const target = event.currentTarget;
-  if (target instanceof HTMLElement) {
-    target.scrollIntoView({
-      block: "nearest",
-      inline: "nearest",
-    });
-  }
+  scrollDeckyFocusTargetIntoView(event.currentTarget);
 };
 
 function scrollNearestScrollableAncestorToTop(element: HTMLElement): void {

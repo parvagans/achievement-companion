@@ -11,6 +11,7 @@ import {
   DECKY_PROVIDER_SETTINGS_ACTION_ROW_ACTIVE_CLASS,
   DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS,
 } from "./decky-focus-styles";
+import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 
 export interface DeckyProviderSettingsActionRowProps {
   readonly label: string;
@@ -139,21 +140,11 @@ function getActionPillStyle(focused: boolean): CSSProperties {
 }
 
 const scrollFocusedElementIntoView: FocusEventHandler<HTMLElement> = (event) => {
-  event.currentTarget.scrollIntoView({
-    block: "nearest",
-    inline: "nearest",
-  });
+  scrollDeckyFocusTargetIntoView(event.currentTarget);
 };
 
 const scrollFocusedGamepadElementIntoView: DeckyGamepadFocusHandler = (event) => {
-  const target = event.currentTarget;
-
-  if (target instanceof HTMLElement) {
-    target.scrollIntoView({
-      block: "nearest",
-      inline: "nearest",
-    });
-  }
+  scrollDeckyFocusTargetIntoView(event.currentTarget);
 };
 
 export function DeckyProviderSettingsActionGroup({
