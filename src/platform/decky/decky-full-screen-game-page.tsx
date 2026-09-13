@@ -14,12 +14,10 @@ import {
 import {
   DeckyCompletionProgressBar,
   getCompletionPercent,
-  type DeckyCompletionProgressBarTone,
 } from "./decky-completion-progress-bar";
 import {
   formatRetroAchievementsCompletionIndicatorLabel,
   getRetroAchievementsCompletionIndicatorState,
-  RetroAchievementsCompletionIndicator,
 } from "./decky-retroachievements-completion-indicator";
 import { getDeckyGameArtworkFallbackInitials } from "./decky-game-artwork-fallback";
 import { DeckyRetroAchievementsFullscreenGameArtwork } from "./decky-retroachievements-fullscreen-game-artwork";
@@ -47,7 +45,7 @@ import {
   shouldRenderRetroAchievementsModeSummaryCard,
   shouldRenderAchievementModeFilter,
 } from "./decky-achievement-detail-helpers";
-import { DeckyRetroAchievementsModeProgressCards } from "./decky-retroachievements-mode-progress-cards";
+import { DeckyRetroAchievementsProgressSummary } from "./decky-retroachievements-progress-summary";
 import { sortAchievementsForDisplay } from "./decky-game-detail-ordering";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
@@ -219,24 +217,6 @@ function getGameSpotlightStatsStyle(): CSSProperties {
   };
 }
 
-function getRetroAchievementsProgressSummaryCardStyle(): CSSProperties {
-  return {
-    flex: "1 1 auto",
-    minHeight: 0,
-    height: "100%",
-  };
-}
-
-function getCompletionStatusBlockStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 4,
-    width: "100%",
-  };
-}
-
 function getSteamGameSpotlightStatsGridStyle(): CSSProperties {
   return {
     display: "grid",
@@ -275,62 +255,6 @@ function selectSteamNextLockedAchievements(
   limit = 3,
 ): readonly NormalizedAchievement[] {
   return achievements.filter((achievement) => !achievement.isUnlocked).slice(0, limit);
-}
-
-function getCompletionStatusPillStyle(
-  tone: DeckyCompletionProgressBarTone,
-): CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    alignSelf: "center",
-    gap: 8,
-    width: "fit-content",
-    maxWidth: "100%",
-    minHeight: 28,
-    padding: "5px 11px",
-    borderRadius: 999,
-    border:
-      tone === "retroachievements-mastered"
-        ? "1px solid rgba(232, 201, 102, 0.44)"
-        : "1px solid rgba(214, 221, 232, 0.34)",
-    background:
-      tone === "retroachievements-mastered"
-        ? "linear-gradient(180deg, rgba(232, 201, 102, 0.14), rgba(214, 178, 74, 0.06))"
-        : "linear-gradient(180deg, rgba(214, 221, 232, 0.14), rgba(188, 198, 211, 0.06))",
-    color:
-      tone === "retroachievements-mastered"
-        ? "rgba(255, 239, 184, 0.97)"
-        : "rgba(231, 237, 245, 0.97)",
-    fontSize: "0.82em",
-    fontWeight: 800,
-    letterSpacing: "0.05em",
-    lineHeight: 1,
-    textTransform: "uppercase",
-    boxSizing: "border-box",
-  };
-}
-
-function getCompletionTimingTextStyle(
-  tone: DeckyCompletionProgressBarTone,
-): CSSProperties {
-  return {
-    color:
-      tone === "retroachievements-mastered"
-        ? "rgba(255, 239, 184, 0.84)"
-        : "rgba(221, 228, 236, 0.84)",
-    fontSize: "0.86em",
-    fontWeight: 700,
-    lineHeight: 1.25,
-  };
-}
-
-function getProgressStatGridStyle(): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-    gap: 8,
-  };
 }
 
 function isRenderableGameDetailState(
@@ -530,48 +454,21 @@ export function DeckyFullScreenGamePage({
                   />
 
                   <div style={getGameSpotlightStatsStyle()}>
-                    <DeckyFullScreenGameSpotlightCard
-                      title="Progress Summary"
-                      style={getRetroAchievementsProgressSummaryCardStyle()}
-                    >
-                      {completionStatusLabel !== undefined && completionStatusAriaLabel !== undefined ? (
-                        <div style={getCompletionStatusBlockStyle()}>
-                          <div
-                            aria-label={completionStatusAriaLabel}
-                            style={getCompletionStatusPillStyle(completionTone)}
-                            title={completionStatusAriaLabel}
-                          >
-                            <RetroAchievementsCompletionIndicator game={game} />
-                            <span>{completionStatusLabel}</span>
-                          </div>
-                          {completionAtText !== undefined && completionTone !== "default" ? (
-                            <div style={getCompletionTimingTextStyle(completionTone)}>{completionAtText}</div>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <RetroAchievementsCompletionIndicator game={game} />
-                      )}
-                      {completionPercent !== undefined ? (
-                        <DeckyCompletionProgressBar
-                          percent={completionPercent}
-                          tone={completionTone}
-                        />
-                      ) : null}
-                      <div style={getProgressStatGridStyle()}>
-                        <DeckyFullScreenGameProgressStat label="Unlocked" value={formatCount(summary.unlockedCount)} />
-                        <DeckyFullScreenGameProgressStat label="Total" value={formatCount(totalAchievementCount)} />
-                      </div>
-
-                      <DeckyFullScreenGameMetadataPills pills={gameMetadataPills} />
-
-                      <DeckyRetroAchievementsModeProgressCards
-                        game={game}
-                        hardcorePoints={hardcoreModePoints}
-                        softcorePoints={softcoreModePoints}
-                        showHardcore={showHardcoreModeCard}
-                        showSoftcore={showSoftcoreModeCard}
-                      />
-                    </DeckyFullScreenGameSpotlightCard>
+                    <DeckyRetroAchievementsProgressSummary
+                      game={game}
+                      completionPercent={completionPercent}
+                      completionTone={completionTone}
+                      completionStatusLabel={completionStatusLabel}
+                      completionStatusAriaLabel={completionStatusAriaLabel}
+                      completionAtText={completionAtText}
+                      unlockedValue={formatCount(summary.unlockedCount)}
+                      totalValue={formatCount(totalAchievementCount)}
+                      metadataPills={gameMetadataPills}
+                      hardcorePoints={hardcoreModePoints}
+                      softcorePoints={softcoreModePoints}
+                      showHardcoreModeCard={showHardcoreModeCard}
+                      showSoftcoreModeCard={showSoftcoreModeCard}
+                    />
                   </div>
                 </div>
               )}
