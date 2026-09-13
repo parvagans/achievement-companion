@@ -65,7 +65,6 @@ const DECKY_RECENT_ACHIEVEMENTS_STORAGE_KEY_PREFIX =
   "achievement-companion:decky:recent-achievements";
 const DECKY_RECENT_ACHIEVEMENTS_LIMIT = 10;
 const DECKY_RECENT_ACHIEVEMENTS_BACKFILL_RECENTLY_PLAYED_LIMIT = 50;
-const DECKY_ACHIEVEMENT_HISTORY_MERGE_LIMIT = 500;
 
 export const deckyPlatformCapabilities: PlatformCapabilities = {
   supportsCompactNavigation: true,
@@ -146,6 +145,7 @@ interface DeckyRecentAchievementBackfillProvider {
     options: {
       readonly fromEpochSeconds: number;
       readonly toEpochSeconds: number;
+      readonly limit?: number;
     },
   ) => Promise<readonly RecentUnlock[]>;
   readonly loadRecentlyPlayedGames?: (
@@ -719,9 +719,6 @@ function selectDeckyAchievementHistoryEntries(
     seen.add(identity);
     selectedEntries.push(entry);
 
-    if (selectedEntries.length >= DECKY_ACHIEVEMENT_HISTORY_MERGE_LIMIT) {
-      break;
-    }
   }
 
   return selectedEntries;
@@ -892,6 +889,7 @@ export async function buildDeckyRecentAchievementHistory(args: {
         {
           fromEpochSeconds: Math.trunc(memberSinceAt / 1000),
           toEpochSeconds: Math.trunc(nowAt / 1000),
+          limit: DECKY_RECENT_ACHIEVEMENTS_LIMIT,
         },
       );
       dateRangeRecentUnlockCount = dateRangeRecentUnlocks.length;
@@ -1364,7 +1362,13 @@ export async function loadDeckyAchievementHistoryState(
     }
   }
 
-  const historyState = await createDeckyAppServices(runtimeMode).achievementHistory.loadAchievementHistory(providerId);
+  let historyState = await createDeckyAppServices(runtimeMode).achievementHistory.loadAchievementHistory(providerId);
+  if (historyState.isStale) {
+    historyState = await createDeckyAppServices(runtimeMode).achievementHistory.loadAchievementHistory(
+      providerId,
+      { forceRefresh: true },
+    );
+  }
 
   if (historyState.data === undefined) {
     return historyState;
