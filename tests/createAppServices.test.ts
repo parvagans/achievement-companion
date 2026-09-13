@@ -1529,6 +1529,67 @@ test("retroachievements recent unlocks normalize badge art urls", () => {
   assert.equal(recentUnlocks[1]?.achievement.unlockMode, "softcore");
 });
 
+test("retroachievements earned-between history splits saturated date ranges without dropping recent unlocks", async () => {
+  const requests: Array<{ readonly from: number; readonly to: number }> = [];
+  const saturatedResponse = Array.from({ length: 500 }, (_, index) => ({
+    AchievementID: index + 1,
+    Title: `Older ${String(index + 1)}`,
+    GameID: 1,
+    GameTitle: "Older Game",
+    Date: "2020-01-01 00:00:00",
+  } satisfies RawRetroAchievementsRecentUnlockResponse));
+  const provider = createRetroAchievementsProvider({
+    client: {
+      async loadProfile() {
+        throw new Error("not used");
+      },
+      async loadCompletionProgress() {
+        throw new Error("not used");
+      },
+      async loadAchievementsEarnedBetween(_config, options) {
+        requests.push({ from: options.fromEpochSeconds, to: options.toEpochSeconds });
+        if (options.fromEpochSeconds === 100 && options.toEpochSeconds === 200) {
+          return saturatedResponse;
+        }
+
+        return [
+          {
+            AchievementID: options.fromEpochSeconds === 100 ? 501 : 502,
+            Title: options.fromEpochSeconds === 100 ? "Older boundary" : "Recent boundary",
+            GameID: 1,
+            GameTitle: "Test Game",
+            Date: options.fromEpochSeconds === 100 ? "2020-01-02 00:00:00" : "2020-01-03 00:00:00",
+          },
+        ] satisfies readonly RawRetroAchievementsRecentUnlockResponse[];
+      },
+      async loadRecentUnlocks() {
+        throw new Error("not used");
+      },
+      async loadRecentlyPlayedGames() {
+        throw new Error("not used");
+      },
+      async loadGameProgress() {
+        throw new Error("not used");
+      },
+    },
+  });
+
+  const unlocks = await provider.loadAchievementsEarnedBetween?.(
+    { username: "alice", apiKey: "secret" },
+    { fromEpochSeconds: 100, toEpochSeconds: 200 },
+  );
+
+  assert.deepStrictEqual(requests, [
+    { from: 100, to: 200 },
+    { from: 151, to: 200 },
+    { from: 100, to: 150 },
+  ]);
+  assert.deepStrictEqual(
+    unlocks?.map((unlock) => unlock.achievement.achievementId),
+    ["501", "502"],
+  );
+});
+
 test("retroachievements recent unlock timestamps parse timezone-less UTC strings correctly", () => {
   const nowAt = Date.parse("2026-04-18T18:45:00Z");
   const rawRecentUnlocks: readonly RawRetroAchievementsRecentUnlockResponse[] = [

@@ -58,8 +58,57 @@ interface RetroAchievementsProviderRuntime extends AchievementProvider<RetroAchi
     options: {
       readonly fromEpochSeconds: number;
       readonly toEpochSeconds: number;
+      readonly limit?: number;
     },
   ): Promise<readonly RecentUnlock[]>;
+}
+
+// The date-range endpoint can return at most 500 records for a broad request. Split a saturated
+// range until every response is complete, so a long account history does not omit recent unlocks.
+const ACHIEVEMENTS_EARNED_BETWEEN_RESPONSE_LIMIT = 500;
+
+async function loadAllAchievementsEarnedBetween(
+  client: RetroAchievementsClient,
+  config: RetroAchievementsProviderConfig,
+  options: {
+    readonly fromEpochSeconds: number;
+    readonly toEpochSeconds: number;
+    readonly limit?: number;
+  },
+): Promise<readonly RecentUnlock[]> {
+  const rawUnlocks = await client.loadAchievementsEarnedBetween(config, {
+    fromEpochSeconds: options.fromEpochSeconds,
+    toEpochSeconds: options.toEpochSeconds,
+  });
+  const isSmallestRange = options.fromEpochSeconds >= options.toEpochSeconds;
+
+  if (rawUnlocks.length < ACHIEVEMENTS_EARNED_BETWEEN_RESPONSE_LIMIT || isSmallestRange) {
+    return normalizeRetroAchievementsRecentUnlocks(rawUnlocks);
+  }
+
+  const midpoint = options.fromEpochSeconds + Math.floor(
+    (options.toEpochSeconds - options.fromEpochSeconds) / 2,
+  );
+  const newerUnlocks = await loadAllAchievementsEarnedBetween(client, config, {
+    fromEpochSeconds: midpoint + 1,
+    toEpochSeconds: options.toEpochSeconds,
+    ...(options.limit !== undefined ? { limit: options.limit } : {}),
+  });
+  const remainingLimit = options.limit !== undefined
+    ? Math.max(0, options.limit - newerUnlocks.length)
+    : undefined;
+
+  if (remainingLimit === 0) {
+    return newerUnlocks;
+  }
+
+  const olderUnlocks = await loadAllAchievementsEarnedBetween(client, config, {
+    fromEpochSeconds: options.fromEpochSeconds,
+    toEpochSeconds: midpoint,
+    ...(remainingLimit !== undefined ? { limit: remainingLimit } : {}),
+  });
+
+  return [...olderUnlocks, ...newerUnlocks];
 }
 
 function resolveClient(
@@ -383,11 +432,11 @@ export function createRetroAchievementsProvider(
     },
 
     async loadAchievementsEarnedBetween(config, options) {
-      const rawAchievementsEarnedBetween = await client.loadAchievementsEarnedBetween(
+      return loadAllAchievementsEarnedBetween(
+        client,
         config,
         options,
       );
-      return normalizeRetroAchievementsRecentUnlocks(rawAchievementsEarnedBetween);
     },
 
     async loadRecentUnlocks(config, options) {
