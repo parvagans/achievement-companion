@@ -40,10 +40,10 @@ import {
   formatRetroAchievementsBeatenAtText,
   formatRetroAchievementsMasteredAtText,
   dedupeDistinctLabels,
-  formatModeProgressSummary,
   shouldRenderRetroAchievementsModeSummaryCard,
   shouldRenderAchievementModeFilter,
 } from "./decky-achievement-detail-helpers";
+import { DeckyRetroAchievementsModeProgressCards } from "./decky-retroachievements-mode-progress-cards";
 import { sortAchievementsForDisplay } from "./decky-game-detail-ordering";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
@@ -469,68 +469,6 @@ function getProgressStatGridStyle(): CSSProperties {
   };
 }
 
-function getModeProgressGridStyle(): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-    gap: 10,
-    alignItems: "stretch",
-    minWidth: 0,
-    width: "100%",
-  };
-}
-
-function getModeProgressCardStyle(mode: Exclude<AchievementModeFilter, "all">): CSSProperties {
-  const isHardcore = mode === "hardcore";
-
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    minWidth: 0,
-    boxSizing: "border-box",
-    padding: "11px 12px",
-    borderRadius: 16,
-    border: `1px solid ${isHardcore ? "rgba(214, 178, 74, 0.28)" : "rgba(214, 221, 232, 0.2)"}`,
-    borderLeftWidth: 4,
-    borderLeftStyle: "solid",
-    borderLeftColor: isHardcore ? "rgba(214, 178, 74, 0.8)" : "rgba(214, 221, 232, 0.72)",
-    background: isHardcore
-      ? "linear-gradient(180deg, rgba(214, 178, 74, 0.08), rgba(214, 178, 74, 0.03))"
-      : "linear-gradient(180deg, rgba(214, 221, 232, 0.07), rgba(214, 221, 232, 0.03))",
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 8px rgba(0, 0, 0, 0.14)",
-  };
-}
-
-function getModeProgressCardTitleStyle(mode: Exclude<AchievementModeFilter, "all">): CSSProperties {
-  const isHardcore = mode === "hardcore";
-
-  return {
-    color: isHardcore ? "rgba(232, 201, 102, 0.95)" : "rgba(220, 225, 233, 0.95)",
-    fontSize: "0.78em",
-    fontWeight: 800,
-    letterSpacing: "0.05em",
-    lineHeight: 1.15,
-    textTransform: "uppercase",
-  };
-}
-
-function getModeProgressCardLineStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.86)",
-    fontSize: "0.84em",
-    lineHeight: 1.2,
-  };
-}
-
-function getModeProgressCardPointsStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.72)",
-    fontSize: "0.8em",
-    lineHeight: 1.2,
-  };
-}
-
 function isRenderableGameDetailState(
   state: ResourceState<GameDetailSnapshot>,
 ): state is ResourceState<GameDetailSnapshot> & { readonly data: GameDetailSnapshot } {
@@ -808,37 +746,13 @@ export function DeckyFullScreenGamePage({
                         </div>
                       ) : null}
 
-                      {showHardcoreModeCard || showSoftcoreModeCard ? (
-                        <div style={getModeProgressGridStyle()}>
-                          {showHardcoreModeCard ? (
-                            <div style={getModeProgressCardStyle("hardcore")}>
-                              <div style={getModeProgressCardTitleStyle("hardcore")}>Hardcore</div>
-                              <div style={getModeProgressCardLineStyle()}>
-                                {formatModeProgressSummary(game.hardcoreSummary, "Hardcore")}
-                              </div>
-                              {hardcoreModePoints !== undefined ? (
-                                <div style={getModeProgressCardPointsStyle()}>
-                                  {`Points ${formatCount(hardcoreModePoints)}`}
-                                </div>
-                              ) : null}
-                            </div>
-                          ) : null}
-
-                          {showSoftcoreModeCard ? (
-                            <div style={getModeProgressCardStyle("softcore")}>
-                              <div style={getModeProgressCardTitleStyle("softcore")}>Softcore</div>
-                              <div style={getModeProgressCardLineStyle()}>
-                                {formatModeProgressSummary(game.softcoreSummary, "Softcore")}
-                              </div>
-                              {softcoreModePoints !== undefined ? (
-                                <div style={getModeProgressCardPointsStyle()}>
-                                  {`Points ${formatCount(softcoreModePoints)}`}
-                                </div>
-                              ) : null}
-                            </div>
-                          ) : null}
-                        </div>
-                      ) : null}
+                      <DeckyRetroAchievementsModeProgressCards
+                        game={game}
+                        hardcorePoints={hardcoreModePoints}
+                        softcorePoints={softcoreModePoints}
+                        showHardcore={showHardcoreModeCard}
+                        showSoftcore={showSoftcoreModeCard}
+                      />
                     </div>
                   </div>
                 </div>
