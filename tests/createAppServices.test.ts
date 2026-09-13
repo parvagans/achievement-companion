@@ -2825,6 +2825,10 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     "src/platform/decky/decky-full-screen-game-progress-stat.tsx",
     "utf8",
   );
+  const fullScreenGameMetadataPillsSource = readFileSync(
+    "src/platform/decky/decky-full-screen-game-metadata-pills.tsx",
+    "utf8",
+  );
   assert.match(fullScreenGamePageSource, /PanelSection title="Game Spotlight"/);
   assert.match(fullScreenGamePageSource, /PanelSection title="Achievements"/);
   assert.doesNotMatch(fullScreenGamePageSource, /PanelSection title="Navigation"/);
@@ -2949,9 +2953,9 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.doesNotMatch(fullScreenGamePageSource, /GameOverviewRefreshPill/);
   assert.doesNotMatch(fullScreenGamePageSource, /getProgressSummaryPercentStyle/);
   assert.match(fullScreenGamePageSource, /buildGameMetadataPills\(game\.metrics\)/);
-  assert.match(fullScreenGamePageSource, /getGameDetailMetaRowStyle\(\)/);
-  assert.match(fullScreenGamePageSource, /getGameDetailMetaPillStyle\(\)/);
-  assert.match(fullScreenGamePageSource, /gridTemplateColumns: "repeat\(2, minmax\(0, 1fr\)\)"/);
+  assert.match(fullScreenGamePageSource, /DeckyFullScreenGameMetadataPills pills=\{gameMetadataPills\}/);
+  assert.match(fullScreenGameMetadataPillsSource, /function getPillRowStyle\(\): CSSProperties/u);
+  assert.match(fullScreenGameMetadataPillsSource, /gridTemplateColumns: "repeat\(2, minmax\(0, 1fr\)\)"/);
   assert.match(fullScreenGamePageSource, /Total players/);
   assert.match(fullScreenGamePageSource, /Release date/);
   assert.match(fullScreenGamePageSource, /Points/);

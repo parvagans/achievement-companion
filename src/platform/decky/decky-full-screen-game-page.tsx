@@ -37,6 +37,10 @@ import { DeckySystemPill } from "./decky-system-pill";
 import { DeckyFullScreenGameSpotlightActions } from "./decky-full-screen-game-spotlight-actions";
 import { DeckyFullScreenGameProgressStat } from "./decky-full-screen-game-progress-stat";
 import {
+  DeckyFullScreenGameMetadataPills,
+  type DeckyFullScreenGameMetadataPill,
+} from "./decky-full-screen-game-metadata-pills";
+import {
   formatRetroAchievementsBeatenAtText,
   formatRetroAchievementsMasteredAtText,
   dedupeDistinctLabels,
@@ -107,15 +111,9 @@ function getAchievementModePoints(
   return hasPoints ? points : undefined;
 }
 
-interface GameMetadataPill {
-  readonly key: string;
-  readonly label: string;
-  readonly value: string;
-}
-
 function buildGameMetadataPills(
   metrics: readonly { readonly key: string; readonly label: string; readonly value: string }[],
-): readonly GameMetadataPill[] {
+): readonly DeckyFullScreenGameMetadataPill[] {
   const totalPlayers = getMetricValue(metrics, "total-players");
   const released = getMetricValue(metrics, "released");
   const points = getMetricValue(metrics, "points");
@@ -350,37 +348,6 @@ function getGameDetailOverviewTitleStyle(): CSSProperties {
     textOverflow: "ellipsis",
     textAlign: "center",
     whiteSpace: "normal",
-  };
-}
-
-function getGameDetailMetaRowStyle(): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: 8,
-    width: "100%",
-    alignItems: "stretch",
-  };
-}
-
-function getGameDetailMetaPillStyle(): CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    boxSizing: "border-box",
-    minHeight: 28,
-    width: "100%",
-    padding: "6px 10px",
-    borderRadius: 999,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.035)",
-    color: "rgba(255, 255, 255, 0.82)",
-    fontSize: "0.74em",
-    fontWeight: 700,
-    lineHeight: 1.15,
-    textAlign: "center",
-    whiteSpace: "nowrap",
   };
 }
 
@@ -644,15 +611,7 @@ export function DeckyFullScreenGamePage({
                         ) : null}
                       </div>
 
-                      {gameMetadataPills.length > 0 ? (
-                        <div style={getGameDetailMetaRowStyle()}>
-                          {gameMetadataPills.map((pill) => (
-                            <span key={pill.key} style={getGameDetailMetaPillStyle()}>
-                              {`${pill.label}: ${pill.value}`}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
+                      <DeckyFullScreenGameMetadataPills pills={gameMetadataPills} />
                     </div>
 
                     {steamSecondaryAchievements.length > 0 ? (
@@ -736,15 +695,7 @@ export function DeckyFullScreenGamePage({
                         <DeckyFullScreenGameProgressStat label="Total" value={formatCount(totalAchievementCount)} />
                       </div>
 
-                      {gameMetadataPills.length > 0 ? (
-                        <div style={getGameDetailMetaRowStyle()}>
-                          {gameMetadataPills.map((pill) => (
-                            <span key={pill.key} style={getGameDetailMetaPillStyle()}>
-                              {`${pill.label}: ${pill.value}`}
-                            </span>
-                          ))}
-                        </div>
-                      ) : null}
+                      <DeckyFullScreenGameMetadataPills pills={gameMetadataPills} />
 
                       <DeckyRetroAchievementsModeProgressCards
                         game={game}
