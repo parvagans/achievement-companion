@@ -36,6 +36,7 @@ import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
 import { DeckySystemPill } from "./decky-system-pill";
 import { DeckyFullScreenGameSpotlightActions } from "./decky-full-screen-game-spotlight-actions";
 import { DeckyFullScreenGameProgressStat } from "./decky-full-screen-game-progress-stat";
+import { DeckyFullScreenGameSpotlightCard } from "./decky-full-screen-game-spotlight-card";
 import {
   DeckyFullScreenGameMetadataPills,
   type DeckyFullScreenGameMetadataPill,
@@ -231,7 +232,6 @@ function getGameSpotlightStatsStyle(): CSSProperties {
 
 function getRetroAchievementsProgressSummaryCardStyle(): CSSProperties {
   return {
-    ...getGameDetailSectionCardStyle(),
     flex: "1 1 auto",
     minHeight: 0,
     height: "100%",
@@ -286,34 +286,6 @@ function selectSteamNextLockedAchievements(
   limit = 3,
 ): readonly NormalizedAchievement[] {
   return achievements.filter((achievement) => !achievement.isUnlocked).slice(0, limit);
-}
-
-function getGameDetailSectionCardStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-    width: "100%",
-    minWidth: 0,
-    boxSizing: "border-box",
-    padding: 14,
-    borderRadius: 18,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.02))",
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 10px rgba(0, 0, 0, 0.18)",
-  };
-}
-
-function getGameDetailSectionHeaderStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.6)",
-    fontSize: "0.8em",
-    fontWeight: 800,
-    letterSpacing: "0.12em",
-    lineHeight: 1.1,
-    textAlign: "center",
-    textTransform: "uppercase",
-  };
 }
 
 function getGameDetailOverviewLayoutStyle(): CSSProperties {
@@ -564,8 +536,7 @@ export function DeckyFullScreenGamePage({
             <PanelSectionRow>
               {isSteamProvider ? (
                 <div style={getSteamGameSpotlightLayoutStyle()}>
-                  <div style={getGameDetailSectionCardStyle()}>
-                    <div style={getGameDetailSectionHeaderStyle()}>Game Overview</div>
+                  <DeckyFullScreenGameSpotlightCard title="Game Overview">
                     <div style={getGameDetailOverviewLayoutStyle()}>
                       <div style={getGameDetailOverviewTextStyle()}>
                         <div style={getGameDetailOverviewTitleStyle()}>{game.title}</div>
@@ -595,11 +566,10 @@ export function DeckyFullScreenGamePage({
                         }}
                       />
                     </div>
-                  </div>
+                  </DeckyFullScreenGameSpotlightCard>
 
                   <div style={getSteamGameSpotlightColumnStyle()}>
-                    <div style={getGameDetailSectionCardStyle()}>
-                      <div style={getGameDetailSectionHeaderStyle()}>Progress Summary</div>
+                    <DeckyFullScreenGameSpotlightCard title="Progress Summary">
                       {completionPercent !== undefined ? (
                         <DeckyCompletionProgressBar percent={completionPercent} tone={completionTone} />
                       ) : null}
@@ -612,7 +582,7 @@ export function DeckyFullScreenGamePage({
                       </div>
 
                       <DeckyFullScreenGameMetadataPills pills={gameMetadataPills} />
-                    </div>
+                    </DeckyFullScreenGameSpotlightCard>
 
                     {steamSecondaryAchievements.length > 0 ? (
                       <DeckySteamAchievementSpotlightCard
@@ -625,8 +595,7 @@ export function DeckyFullScreenGamePage({
                 </div>
               ) : (
                 <div style={getRetroAchievementsGameSpotlightLayoutStyle()}>
-                  <div style={getGameDetailSectionCardStyle()}>
-                    <div style={getGameDetailSectionHeaderStyle()}>Game Overview</div>
+                  <DeckyFullScreenGameSpotlightCard title="Game Overview">
                     <div style={getGameDetailOverviewLayoutStyle()}>
                       <div style={getGameDetailOverviewTextStyle()}>
                         <DeckySystemPill
@@ -662,11 +631,13 @@ export function DeckyFullScreenGamePage({
                         }}
                       />
                     </div>
-                  </div>
+                  </DeckyFullScreenGameSpotlightCard>
 
                   <div style={getGameSpotlightStatsStyle()}>
-                    <div style={getRetroAchievementsProgressSummaryCardStyle()}>
-                      <div style={getGameDetailSectionHeaderStyle()}>Progress Summary</div>
+                    <DeckyFullScreenGameSpotlightCard
+                      title="Progress Summary"
+                      style={getRetroAchievementsProgressSummaryCardStyle()}
+                    >
                       {completionStatusLabel !== undefined && completionStatusAriaLabel !== undefined ? (
                         <div style={getCompletionStatusBlockStyle()}>
                           <div
@@ -704,7 +675,7 @@ export function DeckyFullScreenGamePage({
                         showHardcore={showHardcoreModeCard}
                         showSoftcore={showSoftcoreModeCard}
                       />
-                    </div>
+                    </DeckyFullScreenGameSpotlightCard>
                   </div>
                 </div>
               )}

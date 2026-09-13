@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import type { NormalizedAchievement } from "@core/domain";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { getDeckyGameArtworkFallbackInitials } from "./decky-game-artwork-fallback";
+import { DeckyFullScreenGameSpotlightCard } from "./decky-full-screen-game-spotlight-card";
 
 type SteamAchievementSpotlightMode = "recent" | "highlight";
 
@@ -18,36 +19,6 @@ function formatAchievementDetail(
   }
 
   return achievement.description ?? "Not yet unlocked";
-}
-
-function getCardStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-    width: "100%",
-    minWidth: 0,
-    boxSizing: "border-box",
-    padding: 14,
-    borderRadius: 18,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.02))",
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 10px rgba(0, 0, 0, 0.18)",
-    flex: "1 1 auto",
-    minHeight: 0,
-  };
-}
-
-function getHeaderStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.6)",
-    fontSize: "0.8em",
-    fontWeight: 800,
-    letterSpacing: "0.12em",
-    lineHeight: 1.1,
-    textAlign: "center",
-    textTransform: "uppercase",
-  };
 }
 
 function getListStyle(): CSSProperties {
@@ -155,8 +126,10 @@ export function DeckySteamAchievementSpotlightCard({
   mode,
 }: DeckySteamAchievementSpotlightCardProps): JSX.Element {
   return (
-    <div style={getCardStyle()}>
-      <div style={getHeaderStyle()}>{title}</div>
+    <DeckyFullScreenGameSpotlightCard
+      title={title}
+      style={{ flex: "1 1 auto", minHeight: 0 }}
+    >
       <div style={getListStyle()}>
         {achievements.map((achievement) => (
           <SteamAchievementSpotlightRow
@@ -166,6 +139,6 @@ export function DeckySteamAchievementSpotlightCard({
           />
         ))}
       </div>
-    </div>
+    </DeckyFullScreenGameSpotlightCard>
   );
 }

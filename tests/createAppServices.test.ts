@@ -2825,6 +2825,10 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     "src/platform/decky/decky-full-screen-game-progress-stat.tsx",
     "utf8",
   );
+  const fullScreenGameSpotlightCardSource = readFileSync(
+    "src/platform/decky/decky-full-screen-game-spotlight-card.tsx",
+    "utf8",
+  );
   const fullScreenGameMetadataPillsSource = readFileSync(
     "src/platform/decky/decky-full-screen-game-metadata-pills.tsx",
     "utf8",
@@ -2923,7 +2927,9 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(retroAchievementsFullscreenGameArtworkSource, /objectPosition: "center center"/u);
   assert.doesNotMatch(retroAchievementsFullscreenGameArtworkSource, /getArtworkImageStyle\(\)[\s\S]*objectFit: "cover"/u);
   assert.match(fullScreenGamePageSource, /getGameDetailOverviewLayoutStyle\(\)/);
-  assert.match(fullScreenGamePageSource, /DeckyFullscreenActionRow centered/);
+  assert.match(fullScreenGamePageSource, /DeckyFullScreenGameSpotlightCard title="Game Overview"/);
+  assert.match(fullScreenGameSpotlightCardSource, /function getCardStyle\(\): CSSProperties/u);
+  assert.match(fullScreenGameSpotlightCardSource, /function getHeaderStyle\(\): CSSProperties/u);
   const heroStyleStart = fullScreenGamePageSource.indexOf(
     "function getGameSpotlightHeroStyle()",
   );
