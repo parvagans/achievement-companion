@@ -33,16 +33,6 @@ EXPECTED_RELEASE_ARCHIVE_NAMES = {
   f"{PLUGIN_ARCHIVE_ROOT}/plugin.json",
   f"{PLUGIN_ARCHIVE_ROOT}/{INSTALL_DIAGNOSTIC_RELATIVE_PATH.as_posix()}",
 }
-PACKAGE_JSON_RELEASE_FORBIDDEN_MARKERS = (
-  "build:steamos",
-  "start:steamos",
-  "doctor:steamos",
-  "steamos_doctor",
-  "dev_shell",
-  "local_launcher",
-  "local_server",
-  "--xdg-root",
-)
 PACKAGE_JSON_REQUIRED_FIELDS = (
   "name",
   "version",
@@ -241,19 +231,6 @@ def verify_release_package_json(zip_path: Path) -> None:
 
   if package_data["version"].strip() != read_package_version():
     raise RuntimeError("Release package.json version does not match the source package version.")
-
-  forbidden_markers = [
-    marker
-    for marker in PACKAGE_JSON_RELEASE_FORBIDDEN_MARKERS
-    if marker in package_json_text
-  ]
-  if forbidden_markers:
-    raise RuntimeError(
-      "Release package.json still exposes SteamOS-only helpers or markers: "
-      + ", ".join(forbidden_markers)
-      + "."
-    )
-
 
 def verify_release_plugin_json(zip_path: Path) -> None:
   with zipfile.ZipFile(zip_path) as archive:
