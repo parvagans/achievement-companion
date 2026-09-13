@@ -11,10 +11,7 @@ import {
   initialDeckyGameDetailState,
   loadDeckyGameDetailState,
 } from "./decky-app-services";
-import {
-  DeckyCompletionProgressBar,
-  getCompletionPercent,
-} from "./decky-completion-progress-bar";
+import { getCompletionPercent } from "./decky-completion-progress-bar";
 import {
   formatRetroAchievementsCompletionIndicatorLabel,
   getRetroAchievementsCompletionIndicatorState,
@@ -31,13 +28,9 @@ import {
   type AchievementModeFilter,
 } from "./decky-full-screen-achievement-browser";
 import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
-import { DeckyFullScreenGameProgressStat } from "./decky-full-screen-game-progress-stat";
-import { DeckyFullScreenGameSpotlightCard } from "./decky-full-screen-game-spotlight-card";
 import { DeckyFullScreenGameSpotlightOverview } from "./decky-full-screen-game-spotlight-overview";
-import {
-  DeckyFullScreenGameMetadataPills,
-  type DeckyFullScreenGameMetadataPill,
-} from "./decky-full-screen-game-metadata-pills";
+import type { DeckyFullScreenGameMetadataPill } from "./decky-full-screen-game-metadata-pills";
+import { DeckySteamProgressSummary } from "./decky-steam-progress-summary";
 import {
   formatRetroAchievementsBeatenAtText,
   formatRetroAchievementsMasteredAtText,
@@ -214,17 +207,6 @@ function getGameSpotlightStatsStyle(): CSSProperties {
     flexDirection: "column",
     gap: 12,
     height: "100%",
-  };
-}
-
-function getSteamGameSpotlightStatsGridStyle(): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-    gap: 8,
-    justifyItems: "stretch",
-    alignItems: "stretch",
-    width: "100%",
   };
 }
 
@@ -405,20 +387,16 @@ export function DeckyFullScreenGamePage({
                   />
 
                   <div style={getSteamGameSpotlightColumnStyle()}>
-                    <DeckyFullScreenGameSpotlightCard title="Progress Summary">
-                      {completionPercent !== undefined ? (
-                        <DeckyCompletionProgressBar percent={completionPercent} tone={completionTone} />
-                      ) : null}
-                      <div style={getSteamGameSpotlightStatsGridStyle()}>
-                        <DeckyFullScreenGameProgressStat label="Unlocked" value={formatCount(summary.unlockedCount)} />
-                        <DeckyFullScreenGameProgressStat label="Total" value={formatCount(totalAchievementCount)} />
-                        {steamRemainingCount !== undefined ? (
-                          <DeckyFullScreenGameProgressStat label="Remaining" value={formatCount(steamRemainingCount)} />
-                        ) : null}
-                      </div>
-
-                      <DeckyFullScreenGameMetadataPills pills={gameMetadataPills} />
-                    </DeckyFullScreenGameSpotlightCard>
+                    <DeckySteamProgressSummary
+                      completionPercent={completionPercent}
+                      completionTone={completionTone}
+                      unlockedValue={formatCount(summary.unlockedCount)}
+                      totalValue={formatCount(totalAchievementCount)}
+                      remainingValue={
+                        steamRemainingCount !== undefined ? formatCount(steamRemainingCount) : undefined
+                      }
+                      metadataPills={gameMetadataPills}
+                    />
 
                     {steamSecondaryAchievements.length > 0 ? (
                       <DeckySteamAchievementSpotlightCard
