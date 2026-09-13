@@ -2833,6 +2833,10 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     "src/platform/decky/decky-full-screen-game-spotlight-overview.tsx",
     "utf8",
   );
+  const retroAchievementsProgressSummarySource = readFileSync(
+    "src/platform/decky/decky-retroachievements-progress-summary.tsx",
+    "utf8",
+  );
   const fullScreenGameMetadataPillsSource = readFileSync(
     "src/platform/decky/decky-full-screen-game-metadata-pills.tsx",
     "utf8",
@@ -2920,8 +2924,9 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     gameSpotlightLayoutEnd,
   );
   assert.match(gameSpotlightLayoutSource, /alignItems: "stretch"/u);
-  assert.match(fullScreenGamePageSource, /function getRetroAchievementsProgressSummaryCardStyle\(\): CSSProperties/u);
-  assert.match(fullScreenGamePageSource, /function getCompletionStatusBlockStyle\(\): CSSProperties/u);
+  assert.match(fullScreenGamePageSource, /DeckyRetroAchievementsProgressSummary/u);
+  assert.match(retroAchievementsProgressSummarySource, /function getCardStyle\(\): CSSProperties/u);
+  assert.match(retroAchievementsProgressSummarySource, /function getCompletionStatusBlockStyle\(\): CSSProperties/u);
   assert.match(fullScreenGamePageSource, /import \{ RETROACHIEVEMENTS_PROVIDER_ID \} from "\.\.\/\.\.\/providers\/retroachievements";/u);
   assert.match(retroAchievementsFullscreenGameArtworkSource, /function getArtworkFrameStyle\(\): CSSProperties/u);
   assert.match(retroAchievementsFullscreenGameArtworkSource, /function getArtworkImageStyle\(\): CSSProperties/u);
@@ -2938,11 +2943,11 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenGameSpotlightOverviewSource, /function getHeroStyle\(\): CSSProperties/u);
   assert.doesNotMatch(fullScreenGameSpotlightOverviewSource, /getHeroStyle\(\)[\s\S]*borderLeft/u);
   assert.match(fullScreenGamePageSource, /function getGameSpotlightStatsStyle\(\): CSSProperties[\s\S]*height: "100%"/u);
-  const completionStatusBlockStart = fullScreenGamePageSource.indexOf("function getCompletionStatusBlockStyle()");
-  const completionStatusBlockEnd = fullScreenGamePageSource.indexOf("function getProgressStatGridStyle()", completionStatusBlockStart);
+  const completionStatusBlockStart = retroAchievementsProgressSummarySource.indexOf("function getCompletionStatusBlockStyle()");
+  const completionStatusBlockEnd = retroAchievementsProgressSummarySource.indexOf("function getCompletionStatusPillStyle", completionStatusBlockStart);
   assert.ok(completionStatusBlockStart >= 0);
   assert.ok(completionStatusBlockEnd > completionStatusBlockStart);
-  const completionStatusBlockSource = fullScreenGamePageSource.slice(
+  const completionStatusBlockSource = retroAchievementsProgressSummarySource.slice(
     completionStatusBlockStart,
     completionStatusBlockEnd,
   );
@@ -2950,7 +2955,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(completionStatusBlockSource, /flexDirection: "column"/u);
   assert.match(completionStatusBlockSource, /alignItems: "center"/u);
   assert.match(completionStatusBlockSource, /width: "100%"/u);
-  assert.match(fullScreenGamePageSource, /alignSelf: "center"/u);
+  assert.match(retroAchievementsProgressSummarySource, /alignSelf: "center"/u);
   assert.match(fullScreenGameSpotlightOverviewSource, /function getPillRowStyle\(\): CSSProperties/u);
   assert.doesNotMatch(fullScreenGamePageSource, /GameOverviewRefreshPill/);
   assert.doesNotMatch(fullScreenGamePageSource, /getProgressSummaryPercentStyle/);
@@ -2962,7 +2967,8 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenGamePageSource, /Release date/);
   assert.match(fullScreenGamePageSource, /Points/);
   assert.match(fullScreenGamePageSource, /RetroPoints/);
-  assert.equal((fullScreenGamePageSource.match(/gameMetadataPills\.map/g) ?? []).length, 2);
+  assert.equal((fullScreenGamePageSource.match(/gameMetadataPills\.map/g) ?? []).length, 0);
+  assert.equal((fullScreenGameMetadataPillsSource.match(/pills\.map/g) ?? []).length, 1);
   assert.doesNotMatch(fullScreenGamePageSource, /hardcore-\$\{pill\.key\}/);
   assert.doesNotMatch(fullScreenGamePageSource, /softcore-\$\{pill\.key\}/);
   assert.doesNotMatch(fullScreenGamePageSource, /label="Completion"/);
@@ -5319,10 +5325,15 @@ test("retroachievements completion indicator maps award kind to compact circle s
     "src/platform/decky/decky-retroachievements-mode-progress-cards.tsx",
     "utf8",
   );
+  const retroAchievementsProgressSummarySource = readFileSync(
+    "src/platform/decky/decky-retroachievements-progress-summary.tsx",
+    "utf8",
+  );
 
   assert.match(fullScreenCompletionProgressSource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
   assert.match(gameDetailSource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
-  assert.match(fullScreenGameSource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
+  assert.match(fullScreenGameSource, /DeckyRetroAchievementsProgressSummary/u);
+  assert.match(retroAchievementsProgressSummarySource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
   assert.match(compactDashboardSource, /function RecentlyPlayedRow\([\s\S]*<RetroAchievementsCompletionIndicator game=\{game\} \/>/u);
 });
 
