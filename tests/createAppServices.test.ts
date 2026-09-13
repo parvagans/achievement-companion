@@ -2837,6 +2837,10 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     "src/platform/decky/decky-retroachievements-progress-summary.tsx",
     "utf8",
   );
+  const retroAchievementsGameSpotlightSource = readFileSync(
+    "src/platform/decky/decky-retroachievements-game-spotlight.tsx",
+    "utf8",
+  );
   const fullScreenGameMetadataPillsSource = readFileSync(
     "src/platform/decky/decky-full-screen-game-metadata-pills.tsx",
     "utf8",
@@ -2874,7 +2878,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     steamProgressSummarySource,
     /function getStatsGridStyle\(\): CSSProperties[\s\S]*repeat\(3, minmax\(0, 1fr\)\)/u,
   );
-  assert.match(fullScreenGamePageSource, /function getRetroAchievementsGameSpotlightLayoutStyle\(\): CSSProperties/u);
+  assert.match(retroAchievementsGameSpotlightSource, /function getLayoutStyle\(\): CSSProperties/u);
   assert.match(steamGameSpotlightSource, /function computeRemainingAchievements\(game: SteamGame\): number \| undefined/u);
   assert.match(steamProgressSummarySource, /function getStatsGridStyle\(\): CSSProperties/u);
   assert.match(steamGameSpotlightSource, /function selectRecentUnlockedAchievements\(/u);
@@ -2915,26 +2919,26 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(steamAchievementSpotlightCardSource, /gridTemplateColumns: "auto minmax\(0, 1fr\)"[\s\S]*padding: 8/u);
   assert.match(steamAchievementSpotlightCardSource, /width: 30[\s\S]*height: 30/u);
   assert.match(steamAchievementSpotlightCardSource, /flex: "1 1 auto"[\s\S]*minHeight: 0/u);
-  assert.match(fullScreenGamePageSource, /DeckyFullScreenGameSpotlightOverview[\s\S]*DeckyRetroAchievementsFullscreenGameArtwork/u);
+  assert.match(retroAchievementsGameSpotlightSource, /DeckyFullScreenGameSpotlightOverview[\s\S]*DeckyRetroAchievementsFullscreenGameArtwork/u);
   assert.match(fullScreenGameSpotlightOverviewSource, /DeckySystemPill/u);
   assert.match(fullScreenGameSpotlightActionsSource, /DeckyFullscreenActionRow centered/u);
   assert.match(fullScreenGameSpotlightActionsSource, /isFullscreenBackAction/u);
   assert.match(fullScreenGameSpotlightActionsSource, /label="Refresh"/u);
-  const gameSpotlightLayoutStart = fullScreenGamePageSource.indexOf(
-    "function getRetroAchievementsGameSpotlightLayoutStyle()",
+  const gameSpotlightLayoutStart = retroAchievementsGameSpotlightSource.indexOf(
+    "function getLayoutStyle()",
   );
-  const gameSpotlightLayoutEnd = fullScreenGamePageSource.indexOf(
-    "const FULLSCREEN_GAME_BOTTOM_SCROLL_PADDING",
+  const gameSpotlightLayoutEnd = retroAchievementsGameSpotlightSource.indexOf(
+    "function getStatsStyle()",
     gameSpotlightLayoutStart,
   );
   assert.ok(gameSpotlightLayoutStart >= 0);
   assert.ok(gameSpotlightLayoutEnd > gameSpotlightLayoutStart);
-  const gameSpotlightLayoutSource = fullScreenGamePageSource.slice(
+  const gameSpotlightLayoutSource = retroAchievementsGameSpotlightSource.slice(
     gameSpotlightLayoutStart,
     gameSpotlightLayoutEnd,
   );
   assert.match(gameSpotlightLayoutSource, /alignItems: "stretch"/u);
-  assert.match(fullScreenGamePageSource, /DeckyRetroAchievementsProgressSummary/u);
+  assert.match(retroAchievementsGameSpotlightSource, /DeckyRetroAchievementsProgressSummary/u);
   assert.match(retroAchievementsProgressSummarySource, /function getCardStyle\(\): CSSProperties/u);
   assert.match(retroAchievementsProgressSummarySource, /function getCompletionStatusBlockStyle\(\): CSSProperties/u);
   assert.match(fullScreenGamePageSource, /import \{ RETROACHIEVEMENTS_PROVIDER_ID \} from "\.\.\/\.\.\/providers\/retroachievements";/u);
@@ -2952,7 +2956,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenGameSpotlightCardSource, /function getHeaderStyle\(\): CSSProperties/u);
   assert.match(fullScreenGameSpotlightOverviewSource, /function getHeroStyle\(\): CSSProperties/u);
   assert.doesNotMatch(fullScreenGameSpotlightOverviewSource, /getHeroStyle\(\)[\s\S]*borderLeft/u);
-  assert.match(fullScreenGamePageSource, /function getGameSpotlightStatsStyle\(\): CSSProperties[\s\S]*height: "100%"/u);
+  assert.match(retroAchievementsGameSpotlightSource, /function getStatsStyle\(\): CSSProperties[\s\S]*height: "100%"/u);
   const completionStatusBlockStart = retroAchievementsProgressSummarySource.indexOf("function getCompletionStatusBlockStyle()");
   const completionStatusBlockEnd = retroAchievementsProgressSummarySource.indexOf("function getCompletionStatusPillStyle", completionStatusBlockStart);
   assert.ok(completionStatusBlockStart >= 0);
@@ -5331,6 +5335,10 @@ test("retroachievements completion indicator maps award kind to compact circle s
   const compactDashboardSource = readFileSync("src/platform/decky/decky-dashboard-view.tsx", "utf8");
   const gameDetailSource = readFileSync("src/platform/decky/decky-game-detail-view.tsx", "utf8");
   const fullScreenGameSource = readFileSync("src/platform/decky/decky-full-screen-game-page.tsx", "utf8");
+  const retroAchievementsGameSpotlightSource = readFileSync(
+    "src/platform/decky/decky-retroachievements-game-spotlight.tsx",
+    "utf8",
+  );
   const retroAchievementsModeProgressCardsSource = readFileSync(
     "src/platform/decky/decky-retroachievements-mode-progress-cards.tsx",
     "utf8",
@@ -5342,7 +5350,8 @@ test("retroachievements completion indicator maps award kind to compact circle s
 
   assert.match(fullScreenCompletionProgressSource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
   assert.match(gameDetailSource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
-  assert.match(fullScreenGameSource, /DeckyRetroAchievementsProgressSummary/u);
+  assert.match(fullScreenGameSource, /DeckyRetroAchievementsGameSpotlight/u);
+  assert.match(retroAchievementsGameSpotlightSource, /DeckyRetroAchievementsProgressSummary/u);
   assert.match(retroAchievementsProgressSummarySource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
   assert.match(compactDashboardSource, /function RecentlyPlayedRow\([\s\S]*<RetroAchievementsCompletionIndicator game=\{game\} \/>/u);
 });
@@ -5445,7 +5454,14 @@ test("retroachievements mastered games use explicit mastered presentation on gam
   const progressBarSource = readFileSync("src/platform/decky/decky-completion-progress-bar.tsx", "utf8");
   const compactDashboardSource = readFileSync("src/platform/decky/decky-dashboard-view.tsx", "utf8");
   const gameDetailSource = readFileSync("src/platform/decky/decky-game-detail-view.tsx", "utf8");
-  const fullScreenGameSource = readFileSync("src/platform/decky/decky-full-screen-game-page.tsx", "utf8");
+  const retroAchievementsGameSpotlightSource = readFileSync(
+    "src/platform/decky/decky-retroachievements-game-spotlight.tsx",
+    "utf8",
+  );
+  const retroAchievementsProgressSummarySource = readFileSync(
+    "src/platform/decky/decky-retroachievements-progress-summary.tsx",
+    "utf8",
+  );
   const steamProviderSource = readFileSync("src/providers/steam/mappers/normalize.ts", "utf8");
 
   assert.match(
@@ -5469,14 +5485,14 @@ test("retroachievements mastered games use explicit mastered presentation on gam
   assert.match(gameDetailSource, /const completionAtText = isMasteredHardcore \? masteredAtText : beatenAtText;/u);
   assert.match(gameDetailSource, /tone=\{completionTone\}/u);
 
-  assert.match(fullScreenGameSource, /const completionIndicatorState = getRetroAchievementsCompletionIndicatorState\(game\);/u);
-  assert.match(fullScreenGameSource, /const isBeaten =[\s\S]*completionIndicatorState === "beaten-hardcore"[\s\S]*completionIndicatorState === "beaten-softcore"/u);
-  assert.match(fullScreenGameSource, /const completionStatusLabel = isMasteredHardcore \? "Mastered" : isBeaten \? "Beaten" : undefined;/u);
-  assert.match(fullScreenGameSource, /<span>\{completionStatusLabel\}<\/span>/u);
-  assert.match(fullScreenGameSource, /const beatenAtText = formatRetroAchievementsBeatenAtText\(game\);/u);
-  assert.match(fullScreenGameSource, /const masteredAtText = formatRetroAchievementsMasteredAtText\(game\);/u);
-  assert.match(fullScreenGameSource, /const completionAtText = isMasteredHardcore \? masteredAtText : beatenAtText;/u);
-  assert.match(fullScreenGameSource, /tone=\{completionTone\}/u);
+  assert.match(retroAchievementsGameSpotlightSource, /const completionState = getRetroAchievementsCompletionIndicatorState\(game\);/u);
+  assert.match(retroAchievementsGameSpotlightSource, /const isBeaten =[\s\S]*completionState === "beaten-hardcore"[\s\S]*completionState === "beaten-softcore"/u);
+  assert.match(retroAchievementsGameSpotlightSource, /const completionStatusLabel = isMasteredHardcore \? "Mastered" : isBeaten \? "Beaten" : undefined;/u);
+  assert.match(retroAchievementsProgressSummarySource, /<span>\{completionStatusLabel\}<\/span>/u);
+  assert.match(retroAchievementsGameSpotlightSource, /const beatenAtText = formatRetroAchievementsBeatenAtText\(game\);/u);
+  assert.match(retroAchievementsGameSpotlightSource, /const masteredAtText = formatRetroAchievementsMasteredAtText\(game\);/u);
+  assert.match(retroAchievementsGameSpotlightSource, /const completionAtText = isMasteredHardcore \? masteredAtText : beatenAtText;/u);
+  assert.match(retroAchievementsGameSpotlightSource, /completionTone=\{completionTone\}/u);
 
   assert.match(compactDashboardSource, /const completionIndicatorState = getRetroAchievementsCompletionIndicatorState\(game\);/u);
   assert.match(compactDashboardSource, /const isBeaten =[\s\S]*completionIndicatorState === "beaten-hardcore"[\s\S]*completionIndicatorState === "beaten-softcore"/u);
@@ -5527,7 +5543,14 @@ test("retroachievements game detail surfaces hide empty mode cards and keep mean
     "utf8",
   );
   const gameDetailSource = readFileSync("src/platform/decky/decky-game-detail-view.tsx", "utf8");
-  const fullScreenGameSource = readFileSync("src/platform/decky/decky-full-screen-game-page.tsx", "utf8");
+  const retroAchievementsGameSpotlightSource = readFileSync(
+    "src/platform/decky/decky-retroachievements-game-spotlight.tsx",
+    "utf8",
+  );
+  const retroAchievementsProgressSummarySource = readFileSync(
+    "src/platform/decky/decky-retroachievements-progress-summary.tsx",
+    "utf8",
+  );
   const steamProviderSource = readFileSync("src/providers/steam/mappers/normalize.ts", "utf8");
 
   assert.match(achievementDetailHelperSource, /export function shouldRenderRetroAchievementsModeSummaryCard/u);
@@ -5555,16 +5578,16 @@ test("retroachievements game detail surfaces hide empty mode cards and keep mean
   assert.doesNotMatch(gameDetailSource, /\{game\.softcoreSummary !== undefined \? \(/u);
   assert.doesNotMatch(gameDetailSource, /\{game\.hardcoreSummary !== undefined \? \(/u);
 
-  assert.match(fullScreenGameSource, /const showHardcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard\(\{/u);
-  assert.match(fullScreenGameSource, /const showSoftcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard\(\{/u);
-  assert.match(fullScreenGameSource, /DeckyRetroAchievementsModeProgressCards/u);
+  assert.match(retroAchievementsGameSpotlightSource, /const showHardcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard\(\{/u);
+  assert.match(retroAchievementsGameSpotlightSource, /const showSoftcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard\(\{/u);
+  assert.match(retroAchievementsProgressSummarySource, /DeckyRetroAchievementsModeProgressCards/u);
   assert.match(retroAchievementsModeProgressCardsSource, /function getGridStyle\(\): CSSProperties/u);
   assert.match(retroAchievementsModeProgressCardsSource, /showHardcore \? <ModeCard/u);
   assert.match(retroAchievementsModeProgressCardsSource, /showSoftcore \? <ModeCard/u);
-  assert.doesNotMatch(fullScreenGameSource, /visibleModeCardCount/u);
-  assert.doesNotMatch(fullScreenGameSource, /singleColumn/u);
-  assert.doesNotMatch(fullScreenGameSource, /\{game\.hardcoreSummary !== undefined \? \(/u);
-  assert.doesNotMatch(fullScreenGameSource, /\{game\.softcoreSummary !== undefined \? \(/u);
+  assert.doesNotMatch(retroAchievementsGameSpotlightSource, /visibleModeCardCount/u);
+  assert.doesNotMatch(retroAchievementsGameSpotlightSource, /singleColumn/u);
+  assert.doesNotMatch(retroAchievementsGameSpotlightSource, /\{game\.hardcoreSummary !== undefined \? \(/u);
+  assert.doesNotMatch(retroAchievementsGameSpotlightSource, /\{game\.softcoreSummary !== undefined \? \(/u);
   assert.doesNotMatch(steamProviderSource, /shouldRenderRetroAchievementsModeSummaryCard/u);
 });
 
