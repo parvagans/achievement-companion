@@ -23,6 +23,7 @@ import {
 } from "./decky-retroachievements-completion-indicator";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DeckyRetroAchievementsFullscreenGameArtwork } from "./decky-retroachievements-fullscreen-game-artwork";
+import { DeckySteamFullscreenGameArtwork } from "./decky-steam-fullscreen-game-artwork";
 import {
   DeckyFullScreenAchievementBrowser,
   matchesAchievementFilter,
@@ -216,84 +217,6 @@ function getGameSpotlightHeroStyle(): CSSProperties {
     paddingTop: 4,
     width: "100%",
   };
-}
-
-function getSteamGameSpotlightArtworkFrameStyle(): CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "100%",
-    maxWidth: 520,
-    aspectRatio: "460 / 215",
-    padding: 14,
-    borderRadius: 18,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    background:
-      "radial-gradient(circle at top, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02) 52%, rgba(0, 0, 0, 0.18))",
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 4px 16px rgba(0, 0, 0, 0.2)",
-    boxSizing: "border-box",
-    overflow: "hidden",
-  };
-}
-
-function getSteamGameSpotlightArtworkImageStyle(): CSSProperties {
-  return {
-    display: "block",
-    width: "100%",
-    height: "100%",
-    maxWidth: "100%",
-    maxHeight: "100%",
-    objectFit: "cover",
-    objectPosition: "center center",
-  };
-}
-
-function getSteamGameSpotlightArtworkFallbackStyle(): CSSProperties {
-  return {
-    display: "flex",
-    width: "100%",
-    height: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-    background:
-      "linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03))",
-    color: "rgba(255, 255, 255, 0.9)",
-    fontSize: "1em",
-    fontWeight: 700,
-    letterSpacing: "0.06em",
-  };
-}
-
-function SteamFullscreenGameArtwork({
-  src,
-  title,
-}: {
-  readonly src: string;
-  readonly title: string;
-}): JSX.Element {
-  const [hasImageError, setHasImageError] = useState(false);
-
-  return (
-    <span aria-hidden="true" style={getSteamGameSpotlightArtworkFrameStyle()}>
-      {hasImageError ? (
-        <span style={getSteamGameSpotlightArtworkFallbackStyle()}>
-          {getArtworkFallbackInitials(title)}
-        </span>
-      ) : (
-        <img
-          alt=""
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          src={src}
-          onError={() => {
-            setHasImageError(true);
-          }}
-          style={getSteamGameSpotlightArtworkImageStyle()}
-        />
-      )}
-    </span>
-  );
 }
 
 function getArtworkFallbackInitials(title: string): string {
@@ -963,7 +886,10 @@ export function DeckyFullScreenGamePage({
 
                       {heroArtworkUrl !== undefined ? (
                         <div style={getGameSpotlightHeroStyle()}>
-                          <SteamFullscreenGameArtwork src={heroArtworkUrl} title={game.title} />
+                          <DeckySteamFullscreenGameArtwork
+                            src={heroArtworkUrl}
+                            fallbackLabel={getArtworkFallbackInitials(game.title)}
+                          />
                         </div>
                       ) : null}
 
