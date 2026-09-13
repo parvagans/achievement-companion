@@ -2821,6 +2821,10 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     "src/platform/decky/decky-full-screen-game-spotlight-actions.tsx",
     "utf8",
   );
+  const fullScreenGameProgressStatSource = readFileSync(
+    "src/platform/decky/decky-full-screen-game-progress-stat.tsx",
+    "utf8",
+  );
   assert.match(fullScreenGamePageSource, /PanelSection title="Game Spotlight"/);
   assert.match(fullScreenGamePageSource, /PanelSection title="Achievements"/);
   assert.doesNotMatch(fullScreenGamePageSource, /PanelSection title="Navigation"/);
@@ -2860,7 +2864,9 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenGamePageSource, /DeckySteamAchievementSpotlightCard/u);
   assert.match(fullScreenGamePageSource, /Latest Unlocks[\s\S]*Achievement Highlights/u);
   assert.doesNotMatch(fullScreenGamePageSource, /Most recent unlocked achievements already loaded in this snapshot\./u);
-  assert.match(fullScreenGamePageSource, /ProgressStat label="Remaining" value=\{formatCount\(steamRemainingCount\)\}/u);
+  assert.match(fullScreenGamePageSource, /DeckyFullScreenGameProgressStat label="Remaining" value=\{formatCount\(steamRemainingCount\)\}/u);
+  assert.match(fullScreenGameProgressStatSource, /function getProgressStatStyle\(\): CSSProperties/u);
+  assert.match(fullScreenGameProgressStatSource, /function getProgressStatValueStyle\(\): CSSProperties/u);
   assert.doesNotMatch(fullScreenGamePageSource, /handleSteamFullscreenRefreshKeyDown/u);
   assert.doesNotMatch(fullScreenGamePageSource, /handleSteamFullscreenSpotlightRowKeyDown/u);
   assert.doesNotMatch(fullScreenGamePageSource, /data-achievement-companion-steam-fullscreen-refresh="true"/u);

@@ -35,6 +35,7 @@ import {
 import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
 import { DeckySystemPill } from "./decky-system-pill";
 import { DeckyFullScreenGameSpotlightActions } from "./decky-full-screen-game-spotlight-actions";
+import { DeckyFullScreenGameProgressStat } from "./decky-full-screen-game-progress-stat";
 import {
   formatRetroAchievementsBeatenAtText,
   formatRetroAchievementsMasteredAtText,
@@ -468,61 +469,6 @@ function getProgressStatGridStyle(): CSSProperties {
   };
 }
 
-function getProgressStatStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 2,
-    padding: "10px 11px",
-    borderRadius: 12,
-    border: "1px solid rgba(255, 255, 255, 0.06)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    minWidth: 0,
-    textAlign: "center",
-  };
-}
-
-function getProgressStatLabelStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.62)",
-    fontSize: "0.72em",
-    fontWeight: 700,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-    lineHeight: 1.2,
-  };
-}
-
-function getProgressStatValueStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.98)",
-    fontSize: "0.98em",
-    fontWeight: 700,
-    lineHeight: 1.15,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    textAlign: "center",
-  };
-}
-
-function ProgressStat({
-  label,
-  value,
-}: {
-  readonly label: string;
-  readonly value: string;
-}): JSX.Element {
-  return (
-    <div style={getProgressStatStyle()}>
-      <div style={getProgressStatLabelStyle()}>{label}</div>
-      <div style={getProgressStatValueStyle()}>{value}</div>
-    </div>
-  );
-}
-
 function getModeProgressGridStyle(): CSSProperties {
   return {
     display: "grid",
@@ -753,10 +699,10 @@ export function DeckyFullScreenGamePage({
                         <DeckyCompletionProgressBar percent={completionPercent} tone={completionTone} />
                       ) : null}
                       <div style={getSteamGameSpotlightStatsGridStyle()}>
-                        <ProgressStat label="Unlocked" value={formatCount(summary.unlockedCount)} />
-                        <ProgressStat label="Total" value={formatCount(totalAchievementCount)} />
+                        <DeckyFullScreenGameProgressStat label="Unlocked" value={formatCount(summary.unlockedCount)} />
+                        <DeckyFullScreenGameProgressStat label="Total" value={formatCount(totalAchievementCount)} />
                         {steamRemainingCount !== undefined ? (
-                          <ProgressStat label="Remaining" value={formatCount(steamRemainingCount)} />
+                          <DeckyFullScreenGameProgressStat label="Remaining" value={formatCount(steamRemainingCount)} />
                         ) : null}
                       </div>
 
@@ -848,8 +794,8 @@ export function DeckyFullScreenGamePage({
                         />
                       ) : null}
                       <div style={getProgressStatGridStyle()}>
-                        <ProgressStat label="Unlocked" value={formatCount(summary.unlockedCount)} />
-                        <ProgressStat label="Total" value={formatCount(totalAchievementCount)} />
+                        <DeckyFullScreenGameProgressStat label="Unlocked" value={formatCount(summary.unlockedCount)} />
+                        <DeckyFullScreenGameProgressStat label="Total" value={formatCount(totalAchievementCount)} />
                       </div>
 
                       {gameMetadataPills.length > 0 ? (
