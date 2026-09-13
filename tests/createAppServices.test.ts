@@ -2817,6 +2817,10 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     "src/platform/decky/decky-steam-achievement-spotlight-card.tsx",
     "utf8",
   );
+  const fullScreenGameSpotlightActionsSource = readFileSync(
+    "src/platform/decky/decky-full-screen-game-spotlight-actions.tsx",
+    "utf8",
+  );
   assert.match(fullScreenGamePageSource, /PanelSection title="Game Spotlight"/);
   assert.match(fullScreenGamePageSource, /PanelSection title="Achievements"/);
   assert.doesNotMatch(fullScreenGamePageSource, /PanelSection title="Navigation"/);
@@ -2852,7 +2856,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     fullScreenGamePageSource,
     /function getSteamGameSpotlightLayoutStyle\(\): CSSProperties[\s\S]*gridTemplateColumns: "minmax\(0, 1\.18fr\) minmax\(320px, 0\.82fr\)"[\s\S]*alignItems: "stretch"/u,
   );
-  assert.match(fullScreenGamePageSource, /isSteamProvider \? \([\s\S]*DeckySteamFullscreenGameArtwork[\s\S]*DeckyFullscreenActionRow centered/u);
+  assert.match(fullScreenGamePageSource, /isSteamProvider \? \([\s\S]*DeckySteamFullscreenGameArtwork[\s\S]*DeckyFullScreenGameSpotlightActions/u);
   assert.match(fullScreenGamePageSource, /DeckySteamAchievementSpotlightCard/u);
   assert.match(fullScreenGamePageSource, /Latest Unlocks[\s\S]*Achievement Highlights/u);
   assert.doesNotMatch(fullScreenGamePageSource, /Most recent unlocked achievements already loaded in this snapshot\./u);
@@ -2879,7 +2883,10 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(steamAchievementSpotlightCardSource, /gridTemplateColumns: "auto minmax\(0, 1fr\)"[\s\S]*padding: 8/u);
   assert.match(steamAchievementSpotlightCardSource, /width: 30[\s\S]*height: 30/u);
   assert.match(steamAchievementSpotlightCardSource, /flex: "1 1 auto"[\s\S]*minHeight: 0/u);
-  assert.match(fullScreenGamePageSource, /DeckySystemPill[\s\S]*DeckyRetroAchievementsFullscreenGameArtwork[\s\S]*DeckyFullscreenActionRow centered[\s\S]*DeckyFullscreenActionButton[\s\S]*label=\{backLabel\}[\s\S]*DeckyFullscreenActionButton[\s\S]*label="Refresh"/u);
+  assert.match(fullScreenGamePageSource, /DeckySystemPill[\s\S]*DeckyRetroAchievementsFullscreenGameArtwork[\s\S]*DeckyFullScreenGameSpotlightActions/u);
+  assert.match(fullScreenGameSpotlightActionsSource, /DeckyFullscreenActionRow centered/u);
+  assert.match(fullScreenGameSpotlightActionsSource, /isFullscreenBackAction/u);
+  assert.match(fullScreenGameSpotlightActionsSource, /label="Refresh"/u);
   const gameSpotlightLayoutStart = fullScreenGamePageSource.indexOf(
     "function getRetroAchievementsGameSpotlightLayoutStyle()",
   );

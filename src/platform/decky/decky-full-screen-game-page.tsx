@@ -34,7 +34,7 @@ import {
 } from "./decky-full-screen-achievement-browser";
 import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
 import { DeckySystemPill } from "./decky-system-pill";
-import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
+import { DeckyFullScreenGameSpotlightActions } from "./decky-full-screen-game-spotlight-actions";
 import {
   formatRetroAchievementsBeatenAtText,
   formatRetroAchievementsMasteredAtText,
@@ -736,21 +736,13 @@ export function DeckyFullScreenGamePage({
                         </div>
                       ) : null}
 
-                      <DeckyFullscreenActionRow centered>
-                        <DeckyFullscreenActionButton
-                          label={backLabel}
-                          isFullscreenBackAction
-                          onClick={() => {
-                            onBack();
-                          }}
-                        />
-                        <DeckyFullscreenActionButton
-                          label="Refresh"
-                          onClick={() => {
-                            setRefreshNonce((current) => current + 1);
-                          }}
-                        />
-                      </DeckyFullscreenActionRow>
+                      <DeckyFullScreenGameSpotlightActions
+                        backLabel={backLabel}
+                        onBack={onBack}
+                        onRefresh={() => {
+                          setRefreshNonce((current) => current + 1);
+                        }}
+                      />
                     </div>
                   </div>
 
@@ -819,21 +811,13 @@ export function DeckyFullScreenGamePage({
                         </div>
                       ) : null}
 
-                      <DeckyFullscreenActionRow centered>
-                        <DeckyFullscreenActionButton
-                          label={backLabel}
-                          isFullscreenBackAction
-                          onClick={() => {
-                            onBack();
-                          }}
-                        />
-                        <DeckyFullscreenActionButton
-                          label="Refresh"
-                          onClick={() => {
-                            setRefreshNonce((current) => current + 1);
-                          }}
-                        />
-                      </DeckyFullscreenActionRow>
+                      <DeckyFullScreenGameSpotlightActions
+                        backLabel={backLabel}
+                        onBack={onBack}
+                        onRefresh={() => {
+                          setRefreshNonce((current) => current + 1);
+                        }}
+                      />
                     </div>
                   </div>
 
