@@ -47,7 +47,6 @@ import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
 import { formatDeckyProviderLabel } from "./providers";
-import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 
 const ACHIEVEMENT_FILTERS = ["all", "unlocked", "locked"] as const;
 const ACHIEVEMENT_MODE_FILTERS = ["all", "hardcore", "softcore"] as const;
@@ -61,7 +60,6 @@ export interface DeckyFullScreenGamePageProps {
   readonly onOpenAchievementDetail: ((achievementId: string) => void) | undefined;
   readonly onBack: () => void;
   readonly backLabel?: string;
-  readonly backDescription?: string;
   readonly backFooter?: string;
 }
 
@@ -732,24 +730,6 @@ function getGameDetailSectionHeaderStyle(): CSSProperties {
   };
 }
 
-function getGameDetailSystemPillStyle(): CSSProperties {
-  return {
-    alignSelf: "center",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: "4px 10px",
-    borderRadius: 999,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    background: "rgba(255, 255, 255, 0.05)",
-    color: "rgba(255, 255, 255, 0.74)",
-    fontSize: "0.72em",
-    fontWeight: 800,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-  };
-}
-
 function getGameDetailOverviewLayoutStyle(): CSSProperties {
   return {
     display: "flex",
@@ -816,15 +796,6 @@ function getGameDetailMetaPillStyle(): CSSProperties {
   };
 }
 
-function getGameDetailSupportStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.68)",
-    fontSize: "0.84em",
-    lineHeight: 1.3,
-    textAlign: "center",
-  };
-}
-
 function getGameOverviewPillRowStyle(): CSSProperties {
   return {
     display: "flex",
@@ -859,101 +830,6 @@ function getAchievementBrowserStackStyle(): CSSProperties {
     display: "flex",
     flexDirection: "column",
     gap: 12,
-  };
-}
-
-function getGameSpotlightTitleBlockStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    minWidth: 0,
-  };
-}
-
-function getGameSpotlightKickerStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.58)",
-    fontSize: "0.72em",
-    fontWeight: 800,
-    letterSpacing: "0.1em",
-    textTransform: "uppercase",
-    lineHeight: 1.2,
-  };
-}
-
-function getGameSpotlightTitleStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.98)",
-    fontSize: "1.45em",
-    fontWeight: 800,
-    lineHeight: 1.08,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  };
-}
-
-function getGameSpotlightMetaRowStyle(): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: 8,
-    alignItems: "stretch",
-    width: "100%",
-  };
-}
-
-function getGameSpotlightMetaPillStyle(): CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 28,
-    width: "100%",
-    padding: "6px 10px",
-    borderRadius: 999,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.035)",
-    color: "rgba(255, 255, 255, 0.82)",
-    boxSizing: "border-box",
-    fontSize: "0.76em",
-    fontWeight: 700,
-    lineHeight: 1.2,
-    textAlign: "center",
-    whiteSpace: "nowrap",
-  };
-}
-
-function getGameSpotlightSupportStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.68)",
-    fontSize: "0.84em",
-    lineHeight: 1.3,
-  };
-}
-
-function getProgressCardStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 10,
-    padding: 14,
-    borderRadius: 16,
-    border: "1px solid rgba(255, 255, 255, 0.06)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-  };
-}
-
-function getProgressCardTitleStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.62)",
-    fontSize: "0.72em",
-    fontWeight: 700,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-    lineHeight: 1.2,
   };
 }
 
@@ -1305,15 +1181,6 @@ function getAchievementBrowserMetaStyle(): CSSProperties {
   };
 }
 
-function getAchievementBrowserContinuationStyle(hasBothActions: boolean): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: hasBothActions ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)",
-    gap: 10,
-    paddingTop: 2,
-  };
-}
-
 function getAchievementBadgeFrameStyle(isUnlocked: boolean): CSSProperties {
   return {
     display: "inline-flex",
@@ -1661,7 +1528,6 @@ export function DeckyFullScreenGamePage({
   onOpenAchievementDetail,
   onBack,
   backLabel = "Back",
-  backDescription = "Return to the compact side panel.",
   backFooter = "Use Back to return to the compact side panel.",
 }: DeckyFullScreenGamePageProps): JSX.Element {
   const [refreshNonce, setRefreshNonce] = useState(0);

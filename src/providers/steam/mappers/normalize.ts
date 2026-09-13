@@ -1,6 +1,5 @@
 import type {
   GameDetailSnapshot,
-  GameProgressStatus,
   NormalizedAchievement,
   NormalizedGame,
   NormalizedMetric,
@@ -13,7 +12,6 @@ import type {
 import { normalizeSteamArtworkUrl } from "../artwork";
 import { STEAM_PROVIDER_ID, type SteamProviderConfig } from "../config";
 import type {
-  RawSteamGlobalAchievementPercentage,
   RawSteamOwnedGame,
   RawSteamPlayerAchievement,
   RawSteamPlayerSummary,
@@ -303,26 +301,6 @@ function compareRecentUnlocks(left: RecentUnlock, right: RecentUnlock): number {
   return `${left.achievement.providerId}:${left.game.gameId}:${left.achievement.achievementId}`.localeCompare(
     `${right.achievement.providerId}:${right.game.gameId}:${right.achievement.achievementId}`,
   );
-}
-
-function summarizeSteamGames(games: readonly NormalizedGame[]): ProgressSummary {
-  let unlockedCount = 0;
-  let totalCount = 0;
-
-  for (const game of games) {
-    unlockedCount += game.summary.unlockedCount;
-    totalCount += game.summary.totalCount ?? 0;
-  }
-
-  return {
-    unlockedCount,
-    ...(totalCount > 0
-      ? {
-          totalCount,
-          completionPercent: Math.round((unlockedCount / totalCount) * 100),
-        }
-      : {}),
-  };
 }
 
 export function normalizeSteamRecentlyPlayedGames(

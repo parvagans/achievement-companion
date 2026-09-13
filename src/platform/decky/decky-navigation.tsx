@@ -1,5 +1,5 @@
 import { routerHook } from "@decky/api";
-import { useEffect, useMemo, useRef, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { NavigationPort, NavigationTarget } from "@core/platform";
 import {
   Navigation as DeckyNavigation,
@@ -480,7 +480,6 @@ function DeckyFullScreenGameRoute(): JSX.Element {
         {...(shouldReturnToCompletionProgress
           ? {
               backLabel: "Back",
-              backDescription: "Return to the full-screen completion progress page.",
               backFooter: "Use Back to return to the full-screen completion progress page.",
             }
           : {})}
@@ -526,7 +525,6 @@ function DeckyFullScreenAchievementRoute(): JSX.Element {
         {...(shouldReturnToAchievementHistory
           ? {
               backLabel: "Back",
-              backDescription: "Return to the full-screen achievement history page.",
             }
           : {})}
         gameId={params.gameId}

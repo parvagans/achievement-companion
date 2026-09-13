@@ -15,7 +15,6 @@ import type {
   RawRetroAchievementsCompletionProgressEntry,
   RawRetroAchievementsGameProgressAchievement,
   RawRetroAchievementsGameProgressResponse,
-  RawRetroAchievementsMetric,
   RawRetroAchievementsProfileResponse,
   RawRetroAchievementsSummaryResponse,
   RawRetroAchievementsRecentUnlockResponse,
@@ -218,36 +217,6 @@ function buildRetroAchievementsBadgeImageUrl(badgeName: string): string {
 
 function normalizeRetroAchievementsBadgeUrl(badgeUrl: string): string {
   return normalizeRetroAchievementsImageUrl(badgeUrl);
-}
-
-function normalizeMetric(metric: RawRetroAchievementsMetric, index: number): NormalizedMetric {
-  const key = coerceString(metric.key) ?? `metric-${index + 1}`;
-  const label = coerceString(metric.label) ?? key;
-  const value = coerceString(metric.value) ?? String(metric.value ?? "");
-
-  const normalizedMetric: NormalizedMetric = {
-    key,
-    label,
-    value,
-  };
-
-  const detail = coerceString(metric.detail);
-  if (detail !== undefined) {
-    return {
-      ...normalizedMetric,
-      detail,
-    };
-  }
-
-  return normalizedMetric;
-}
-
-function toMetrics(metrics: readonly RawRetroAchievementsMetric[] | undefined): readonly NormalizedMetric[] {
-  if (!metrics || metrics.length === 0) {
-    return [];
-  }
-
-  return metrics.map(normalizeMetric);
 }
 
 function coercePercent(value: unknown): number | undefined {

@@ -1,10 +1,8 @@
 import type {
   GameDetailSnapshot,
-  GameProgressStatus,
   NormalizedGame,
   ProviderCapabilities,
   RecentlyPlayedGame,
-  RecentUnlock,
 } from "@core/domain";
 import type { AchievementProvider } from "@core/ports";
 import { redactFrontendLogText } from "@core/redaction";

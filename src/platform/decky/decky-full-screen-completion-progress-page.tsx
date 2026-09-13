@@ -171,28 +171,6 @@ function getBrowserMetaStyle(): CSSProperties {
   };
 }
 
-function getFilterWrapStyle(): CSSProperties {
-  return {
-    borderRadius: 12,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    padding: 4,
-    width: "100%",
-  };
-}
-
-function getFilterGroupStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexWrap: "wrap",
-    alignItems: "flex-start",
-    justifyContent: "flex-start",
-    gap: "8px 10px",
-    minWidth: 0,
-    width: "100%",
-  };
-}
-
 function getBrowserContinuationStyle(): CSSProperties {
   return {
     display: "flex",
@@ -254,19 +232,6 @@ function getGameRowSupportStyle(): CSSProperties {
   };
 }
 
-function getGameRowTitleStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.98)",
-    fontSize: "1em",
-    fontWeight: 800,
-    lineHeight: 1.15,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  };
-}
-
 type FullScreenGamepadFocusHandler = NonNullable<ComponentProps<typeof Field>["onGamepadFocus"]>;
 
 const scrollFocusedGamepadElementIntoView: FullScreenGamepadFocusHandler = (event) => {
@@ -320,15 +285,6 @@ function formatCompletionProgressFilterEmptyMessage(
 
   return `No ${formatCompletionProgressFilterLabelForProvider(filter, providerId).toLowerCase()} games match this filter.`;
 }
-
-function formatProgressSummary(game: NormalizedGame): string {
-  if (game.summary.totalCount !== undefined) {
-    return `${formatCount(game.summary.unlockedCount)}/${formatCount(game.summary.totalCount)} achievements`;
-  }
-
-  return `${formatCount(game.summary.unlockedCount)} unlocked achievements`;
-}
-
 
 function formatCompletionProgressSubsetSummary(
   group: CompletionProgressGameGroup,
@@ -626,7 +582,6 @@ export function DeckyFullScreenCompletionProgressPage({
   const isCachedView = state.status === "stale";
   const snapshotSourceLabel = isCachedView ? "Cached snapshot" : "Live snapshot";
   const isSteamProvider = snapshot.providerId === STEAM_PROVIDER_ID;
-  const hasSteamLibraryScan = isSteamProvider && snapshot.games.some((game) => game.scanStatus !== undefined);
   const displaySummary = summarizeCompletionProgressSummaryBySubsetVisibility(
     snapshot.summary,
     snapshot.games,

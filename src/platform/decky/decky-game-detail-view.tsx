@@ -25,7 +25,6 @@ import {
   formatRetroAchievementsMasteredAtText,
   formatProviderAchievementPointsText,
   formatProviderAchievementStatusText,
-  formatModeProgressSummary,
   isSteamAchievementPresentationProvider,
   shouldRenderRetroAchievementsModeSummaryCard,
   shouldRenderAchievementModeFilter,
@@ -629,7 +628,6 @@ interface AchievementSectionBodyProps {
   readonly showAchievementModeFilter: boolean;
   readonly canLoadMoreAchievements: boolean;
   readonly canShowAllAchievements: boolean;
-  readonly filteredAchievementCount: number;
   readonly onAchievementModeFilterChange: (filter: AchievementModeFilter) => void;
   readonly onAchievementFilterChange: (filter: AchievementFilter) => void;
   readonly onOpenAchievementDetail: (target: CompactAchievementTarget) => void;
@@ -646,7 +644,6 @@ function AchievementSectionBody({
   showAchievementModeFilter,
   canLoadMoreAchievements,
   canShowAllAchievements,
-  filteredAchievementCount,
   onAchievementModeFilterChange,
   onAchievementFilterChange,
   onOpenAchievementDetail,
@@ -655,9 +652,6 @@ function AchievementSectionBody({
   onBackToDashboard,
   game,
 }: AchievementSectionBodyProps): JSX.Element {
-  const hardcoreProgress = game.hardcoreSummary;
-  const softcoreProgress = game.softcoreSummary;
-
   return (
     <>
       <PanelSectionRow>
@@ -957,7 +951,6 @@ export function DeckyGameDetailView({
             showAchievementModeFilter={showAchievementModeFilter}
             canLoadMoreAchievements={canLoadMoreAchievements}
             canShowAllAchievements={canShowAllAchievements}
-            filteredAchievementCount={filteredAchievementCount}
             onAchievementModeFilterChange={(filter) => {
               setAchievementModeFilter(filter);
               setVisibleAchievementLimit(INITIAL_ACHIEVEMENT_LIMIT);

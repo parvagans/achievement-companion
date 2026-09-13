@@ -111,11 +111,6 @@ interface SteamLibraryScanStats {
   perfectGames: number;
 }
 
-interface SteamLibraryScanGameResult {
-  readonly gameSummary: SteamLibraryGameProgressSummary;
-  readonly unlockedSummaries: readonly SteamLibraryUnlockSummary[];
-}
-
 function coerceString(value: unknown): string | undefined {
   if (typeof value !== "string") {
     return undefined;

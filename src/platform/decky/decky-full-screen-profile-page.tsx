@@ -64,14 +64,6 @@ function formatCount(value: number): string {
   return value.toLocaleString();
 }
 
-function formatTimestamp(epochMs: number | undefined): string {
-  if (epochMs === undefined) {
-    return "Unknown";
-  }
-
-  return new Date(epochMs).toLocaleString();
-}
-
 function formatRelativeTime(epochMs: number | undefined): string | undefined {
   if (epochMs === undefined) {
     return undefined;

@@ -8,11 +8,6 @@ import type {
   RawSteamGetSteamLevelResponse,
   RawSteamGetRecentlyPlayedGamesResponse,
   RawSteamSchemaForGameResponse,
-  RawSteamPlayerAchievement,
-  RawSteamPlayerSummary,
-  RawSteamOwnedGame,
-  RawSteamRecentlyPlayedGame,
-  RawSteamSchemaAchievement,
 } from "../raw-types";
 import type { SteamTransport } from "./transport";
 import type { SteamTransportHandledHttpErrorResponse } from "./transport";
@@ -59,46 +54,6 @@ function coerceAppId(appId: number): number {
   }
 
   return Math.trunc(appId);
-}
-
-function ensureSuccessMessage(error: string | undefined, fallback: string): string {
-  return error !== undefined && error.trim().length > 0 ? error : fallback;
-}
-
-function readSteamAchievementsResponse(
-  response: RawSteamGetPlayerAchievementsResponse,
-): ReadonlyArray<RawSteamPlayerAchievement> {
-  const playerStats = response.playerstats;
-  if (playerStats === undefined || playerStats.success === false) {
-    throw new Error(
-      ensureSuccessMessage(playerStats?.error, "Steam player achievements request was not successful."),
-    );
-  }
-
-  return playerStats.achievements ?? [];
-}
-
-function readSteamSchemaResponse(
-  response: RawSteamSchemaForGameResponse,
-): ReadonlyArray<RawSteamSchemaAchievement> {
-  const achievements = response.game?.availableGameStats?.achievements;
-  if (achievements === undefined) {
-    return [];
-  }
-
-  return achievements;
-}
-
-function readSteamPlayerSummariesResponse(
-  response: RawSteamGetPlayerSummariesResponse,
-): ReadonlyArray<RawSteamPlayerSummary> {
-  return response.response?.players ?? [];
-}
-
-function readSteamRecentlyPlayedGamesResponse(
-  response: RawSteamGetRecentlyPlayedGamesResponse,
-): ReadonlyArray<RawSteamRecentlyPlayedGame> {
-  return response.response?.games ?? [];
 }
 
 export function createSteamClient(transport: SteamTransport): SteamClient {

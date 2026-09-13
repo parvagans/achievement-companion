@@ -56,19 +56,6 @@ export interface DeckyAchievementDetailViewProps {
   readonly onOpenFullScreenGame: (() => void) | undefined;
 }
 
-function getCardStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-    padding: 14,
-    borderRadius: 18,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
-    boxSizing: "border-box",
-  };
-}
-
 function getRowStyle(): CSSProperties {
   return {
     display: "flex",
