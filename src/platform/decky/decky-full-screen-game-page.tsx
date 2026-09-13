@@ -21,8 +21,9 @@ import {
   getRetroAchievementsCompletionIndicatorState,
   RetroAchievementsCompletionIndicator,
 } from "./decky-retroachievements-completion-indicator";
-import { DeckyGameArtwork } from "./decky-game-artwork";
+import { getDeckyGameArtworkFallbackInitials } from "./decky-game-artwork-fallback";
 import { DeckyRetroAchievementsFullscreenGameArtwork } from "./decky-retroachievements-fullscreen-game-artwork";
+import { DeckySteamAchievementSpotlightCard } from "./decky-steam-achievement-spotlight-card";
 import { DeckySteamFullscreenGameArtwork } from "./decky-steam-fullscreen-game-artwork";
 import {
   DeckyFullScreenAchievementBrowser,
@@ -219,25 +220,6 @@ function getGameSpotlightHeroStyle(): CSSProperties {
   };
 }
 
-function getArtworkFallbackInitials(title: string): string {
-  const words = title
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (words.length === 0) {
-    return "AC";
-  }
-
-  return (
-    words
-      .slice(0, 2)
-      .map((word) => word[0]?.toUpperCase() ?? "")
-      .join("")
-      .trim() || "AC"
-  );
-}
-
 function getGameSpotlightStatsStyle(): CSSProperties {
   return {
     minWidth: 0,
@@ -278,109 +260,6 @@ function getSteamGameSpotlightStatsGridStyle(): CSSProperties {
   };
 }
 
-function getSteamAchievementSpotlightListStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 8,
-    width: "100%",
-  };
-}
-
-function getSteamAchievementSpotlightRowStyle(): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: "auto minmax(0, 1fr)",
-    gap: 8,
-    alignItems: "center",
-    boxSizing: "border-box",
-    minWidth: 0,
-    padding: 8,
-    borderRadius: 12,
-    border: "1px solid rgba(255, 255, 255, 0.06)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-  };
-}
-
-function getSteamAchievementSpotlightIconFrameStyle(): CSSProperties {
-  return {
-    display: "flex",
-    width: 30,
-    height: 30,
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-    borderRadius: 8,
-  };
-}
-
-function getSteamAchievementSpotlightTextStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 2,
-    minWidth: 0,
-  };
-}
-
-function getSteamAchievementSpotlightTitleStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.96)",
-    fontSize: "0.86em",
-    fontWeight: 700,
-    lineHeight: 1.2,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  };
-}
-
-function getSteamAchievementSpotlightDetailStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.66)",
-    fontSize: "0.7em",
-    lineHeight: 1.25,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  };
-}
-
-function SteamAchievementSpotlightRow({
-  achievement,
-  mode,
-}: {
-  readonly achievement: NormalizedAchievement;
-  readonly mode: "recent" | "highlight";
-}): JSX.Element {
-  const rowStyle: CSSProperties = {
-    ...getSteamAchievementSpotlightRowStyle(),
-  };
-
-  const rowContent = (
-    <>
-      <span style={getSteamAchievementSpotlightIconFrameStyle()}>
-        {achievement.badgeImageUrl !== undefined ? (
-          <DeckyGameArtwork compact src={achievement.badgeImageUrl} size={28} title={achievement.title} />
-        ) : (
-          <span style={getSteamAchievementSpotlightDetailStyle()}>
-            {getArtworkFallbackInitials(achievement.title)}
-          </span>
-        )}
-      </span>
-      <div style={getSteamAchievementSpotlightTextStyle()}>
-        <div style={getSteamAchievementSpotlightTitleStyle()}>{achievement.title}</div>
-        <div style={getSteamAchievementSpotlightDetailStyle()}>
-          {formatSteamAchievementSpotlightDetail(achievement, mode)}
-        </div>
-      </div>
-    </>
-  );
-
-  return <div style={rowStyle}>{rowContent}</div>;
-}
-
 function selectSteamRecentUnlockedAchievements(
   achievements: readonly NormalizedAchievement[],
   limit = 3,
@@ -408,42 +287,6 @@ function selectSteamNextLockedAchievements(
   limit = 3,
 ): readonly NormalizedAchievement[] {
   return achievements.filter((achievement) => !achievement.isUnlocked).slice(0, limit);
-}
-
-function formatSteamAchievementSpotlightDetail(
-  achievement: NormalizedAchievement,
-  mode: "recent" | "highlight",
-): string {
-  if (mode === "recent") {
-    return achievement.unlockedAt !== undefined ? `Unlocked ${formatTimestamp(achievement.unlockedAt)}` : "Unlocked";
-  }
-
-  return achievement.description !== undefined ? achievement.description : "Not yet unlocked";
-}
-
-function SteamAchievementSpotlightCard({
-  title,
-  achievements,
-  mode,
-}: {
-  readonly title: string;
-  readonly achievements: readonly NormalizedAchievement[];
-  readonly mode: "recent" | "highlight";
-}): JSX.Element {
-  return (
-    <div style={{ ...getGameDetailSectionCardStyle(), flex: "1 1 auto", minHeight: 0 }}>
-      <div style={getGameDetailSectionHeaderStyle()}>{title}</div>
-      <div style={getSteamAchievementSpotlightListStyle()}>
-        {achievements.map((achievement) => (
-          <SteamAchievementSpotlightRow
-            key={achievement.achievementId}
-            achievement={achievement}
-            mode={mode}
-          />
-        ))}
-      </div>
-    </div>
-  );
 }
 
 function getGameDetailSectionCardStyle(): CSSProperties {
@@ -888,7 +731,7 @@ export function DeckyFullScreenGamePage({
                         <div style={getGameSpotlightHeroStyle()}>
                           <DeckySteamFullscreenGameArtwork
                             src={heroArtworkUrl}
-                            fallbackLabel={getArtworkFallbackInitials(game.title)}
+                            fallbackLabel={getDeckyGameArtworkFallbackInitials(game.title)}
                           />
                         </div>
                       ) : null}
@@ -937,7 +780,7 @@ export function DeckyFullScreenGamePage({
                     </div>
 
                     {steamSecondaryAchievements.length > 0 ? (
-                      <SteamAchievementSpotlightCard
+                      <DeckySteamAchievementSpotlightCard
                         achievements={steamSecondaryAchievements}
                         mode={steamRecentAchievements.length > 0 ? "recent" : "highlight"}
                         title={steamSecondaryCardTitle}
@@ -971,7 +814,7 @@ export function DeckyFullScreenGamePage({
                         <div style={getGameSpotlightHeroStyle()}>
                           <DeckyRetroAchievementsFullscreenGameArtwork
                             src={heroArtworkUrl}
-                            fallbackLabel={getArtworkFallbackInitials(game.title)}
+                            fallbackLabel={getDeckyGameArtworkFallbackInitials(game.title)}
                           />
                         </div>
                       ) : null}
