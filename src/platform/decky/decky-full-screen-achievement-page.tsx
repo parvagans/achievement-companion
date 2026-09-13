@@ -1,7 +1,7 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import type { ResourceState } from "@core/cache";
 import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
-import { Focusable, PanelSection, PanelSectionRow, ScrollPanel } from "@decky/ui";
+import { Focusable, ScrollPanel } from "@decky/ui";
 import { PlaceholderState } from "@ui/PlaceholderState";
 import { initialDeckyGameDetailState, loadDeckyGameDetailState } from "./decky-app-services";
 import { DeckyAchievementTypeBadge } from "./decky-achievement-type-badge";
@@ -11,12 +11,10 @@ import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
 import {
   buildAchievementStatus,
   formatCount,
-  formatPlatformBadgeLabel,
   formatAchievementUnlockRatePercent,
   formatTimestamp,
   dedupeDistinctLabels,
   hasAchievementCounts,
-  getAchievementCounts,
   getAchievementSpotlightCounts,
   getAchievementDescriptionText,
   getMetricValue,
@@ -26,7 +24,6 @@ import {
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
 import { formatDeckyProviderLabel } from "./providers";
-import { STEAM_PROVIDER_ID } from "./providers/steam";
 
 export interface DeckyFullScreenAchievementPageProps {
   readonly providerId: string | undefined;
@@ -35,7 +32,6 @@ export interface DeckyFullScreenAchievementPageProps {
   readonly onBack: () => void;
   readonly onOpenFullScreenGame?: (() => void) | undefined;
   readonly backLabel?: string;
-  readonly backDescription?: string;
 }
 
 const FULLSCREEN_ACHIEVEMENT_PAGE_BOTTOM_SCROLL_PADDING = 88;
@@ -312,61 +308,6 @@ function SteamAchievementSpotlightArtwork({
   );
 }
 
-function getAchievementBlockStyle(): CSSProperties {
-  return {
-    display: "flex",
-    gap: 14,
-    alignItems: "flex-start",
-    flexWrap: "wrap",
-    padding: 14,
-    borderRadius: 18,
-    border: "1px solid rgba(255, 255, 255, 0.06)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-  };
-}
-
-function getAchievementTextStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    minWidth: 0,
-    flex: "1 1 260px",
-  };
-}
-
-function getAchievementTitleStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.98)",
-    fontSize: "1.1em",
-    fontWeight: 800,
-    lineHeight: 1.12,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  };
-}
-
-function getAchievementDescriptionStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.86)",
-    fontSize: "0.92em",
-    lineHeight: 1.4,
-    whiteSpace: "pre-wrap",
-  };
-}
-
-function getBadgeFrameStyle(isUnlocked: boolean): CSSProperties {
-  return {
-    display: "inline-flex",
-    flexShrink: 0,
-    lineHeight: 0,
-    opacity: isUnlocked ? 1 : 0.94,
-    filter: isUnlocked ? "none" : "grayscale(1) contrast(1.12) brightness(0.92)",
-  };
-}
-
 type AchievementSpotlightTone = "hardcore" | "softcore" | "locked";
 
 function getAchievementSpotlightTone(
@@ -444,14 +385,6 @@ function getAchievementSpotlightToneColors(tone: AchievementSpotlightTone): {
     statLabel: "rgba(255, 255, 255, 0.7)",
     statValue: "rgba(255, 255, 255, 0.96)",
     statusLabel: "rgba(255, 255, 255, 0.72)",
-  };
-}
-
-function getSectionBlockStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 10,
   };
 }
 
@@ -728,25 +661,6 @@ function getAchievementSpotlightRarityBarCaptionStyle(): CSSProperties {
   };
 }
 
-function getSectionLabelStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.58)",
-    fontSize: "0.7em",
-    fontWeight: 800,
-    letterSpacing: "0.1em",
-    textTransform: "uppercase",
-    lineHeight: 1.2,
-  };
-}
-
-function getStatGridStyle(): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-    gap: 10,
-  };
-}
-
 function getStatStyle(): CSSProperties {
   return {
     display: "flex",
@@ -835,14 +749,6 @@ function getRarityBarCaptionStyle(): CSSProperties {
     fontSize: "0.84em",
     fontWeight: 700,
     lineHeight: 1.2,
-  };
-}
-
-function getCountsGridStyle(): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-    gap: 10,
   };
 }
 
@@ -1221,7 +1127,6 @@ export function DeckyFullScreenAchievementPage({
   onBack,
   onOpenFullScreenGame,
   backLabel = "Back",
-  backDescription = "Return to the full-screen game page.",
 }: DeckyFullScreenAchievementPageProps): JSX.Element {
   const loadSelectedGameDetail = useMemo(() => {
     if (providerId === undefined || gameId === undefined) {
@@ -1287,9 +1192,6 @@ export function DeckyFullScreenAchievementPage({
   const providerLabel = formatDeckyProviderLabel(providerId ?? game.providerId);
   const isSteamProvider = shouldHideSteamAchievementDetailStats(providerId ?? game.providerId);
   const heroLabel = isSteamProvider ? resolveSteamAchievementHeroLabel(game) : "Selected achievement";
-  const counts = getAchievementCounts(achievement.metrics);
-  const showCounts = hasAchievementCounts(counts);
-  const unlockRatePercent = getUnlockRatePercent(achievement);
   const achievementStatus = buildAchievementStatus(achievement);
   const snapshotSourceLabel = state.status === "stale" ? "Cached snapshot" : "Live snapshot";
   const steamMetaPills = dedupeDistinctLabels([providerLabel, snapshotSourceLabel, achievementStatus.value]);

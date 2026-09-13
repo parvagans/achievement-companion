@@ -16,7 +16,6 @@ import type {
   PlatformServices,
 } from "@core/platform";
 import { createAppRuntime } from "@core/app-runtime";
-import { resolveProviderDashboardPreferences } from "@core/provider-dashboard-preferences";
 import { createProviderRegistry } from "@core/provider-registry";
 import { createRetroAchievementsProvider } from "../../providers/retroachievements";
 import {
@@ -172,15 +171,6 @@ interface DeckyRecentAchievementGameCandidate {
   readonly source: DeckyRecentAchievementGameSource;
   readonly unlockedCount: number;
   readonly sortEpoch?: number;
-}
-
-interface DeckyRecentAchievementDebugSelectedEntry {
-  readonly id: string;
-  readonly title: string;
-  readonly gameTitle: string;
-  readonly source: DeckyRecentAchievementSource;
-  readonly normalizedUnlockAt?: number;
-  readonly trusted: boolean;
 }
 
 interface DeckyRecentAchievementDebugGameCandidate {

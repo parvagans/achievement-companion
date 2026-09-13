@@ -52,14 +52,6 @@ const COMPLETION_PROGRESS_CACHE_TTL_MS = 15 * 60 * 1000;
 const GAME_DETAIL_CACHE_TTL_MS = 15 * 60 * 1000;
 const providerRefreshQueues = new Map<ProviderId, Promise<void>>();
 
-function createIdleState<T>(): ResourceState<T> {
-  return {
-    status: "idle",
-    isStale: false,
-    isRefreshing: false,
-  };
-}
-
 function createErrorState<T>(error: AppError): ResourceState<T> {
   return {
     status: "error",

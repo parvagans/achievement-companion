@@ -3,7 +3,6 @@ import type {
   CompletionProgressSummary,
   DashboardSnapshot,
   NormalizedGame,
-  RecentlyPlayedGame,
 } from "@core/domain";
 import type { CSSProperties } from "react";
 import { formatCompletionProgressFilterLabel, type CompletionProgressFilter } from "@core/settings";

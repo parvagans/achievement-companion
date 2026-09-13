@@ -197,13 +197,6 @@ function getChooserProviderCardStyle(
   tone: ProviderLauncherTone,
   isFocused: boolean,
 ): CSSProperties {
-  const accentColor =
-    tone === "connected"
-      ? "rgba(116, 176, 255, 0.82)"
-      : tone === "setup"
-        ? "rgba(214, 158, 46, 0.82)"
-        : "rgba(255, 255, 255, 0.32)";
-
   return {
     display: "flex",
     alignItems: "stretch",

@@ -247,19 +247,6 @@ function getStatValueStyle(): CSSProperties {
   };
 }
 
-function getStatSecondaryStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.72)",
-    fontSize: "0.82em",
-    lineHeight: 1.2,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    textAlign: "center",
-  };
-}
-
 function getBrowserCardStyle(): CSSProperties {
   return {
     display: "flex",

@@ -36,7 +36,6 @@ import {
   markAchievementCompanionRetroAchievementsShortcutResolution,
   getAchievementCompanionRuntimeDebugState,
   reportAchievementCompanionGamePageAchievementSummaryError,
-  updateAchievementCompanionGamePageBadgeDebug,
   updateAchievementCompanionRaShortcutResolutionDebug,
 } from "./decky-runtime-debug";
 
