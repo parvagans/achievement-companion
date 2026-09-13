@@ -33,10 +33,9 @@ import {
   type AchievementModeFilter,
 } from "./decky-full-screen-achievement-browser";
 import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
-import { DeckySystemPill } from "./decky-system-pill";
-import { DeckyFullScreenGameSpotlightActions } from "./decky-full-screen-game-spotlight-actions";
 import { DeckyFullScreenGameProgressStat } from "./decky-full-screen-game-progress-stat";
 import { DeckyFullScreenGameSpotlightCard } from "./decky-full-screen-game-spotlight-card";
+import { DeckyFullScreenGameSpotlightOverview } from "./decky-full-screen-game-spotlight-overview";
 import {
   DeckyFullScreenGameMetadataPills,
   type DeckyFullScreenGameMetadataPill,
@@ -210,16 +209,6 @@ function getFullScreenPageFrameStyle(): CSSProperties {
   };
 }
 
-function getGameSpotlightHeroStyle(): CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingTop: 4,
-    width: "100%",
-  };
-}
-
 function getGameSpotlightStatsStyle(): CSSProperties {
   return {
     minWidth: 0,
@@ -286,70 +275,6 @@ function selectSteamNextLockedAchievements(
   limit = 3,
 ): readonly NormalizedAchievement[] {
   return achievements.filter((achievement) => !achievement.isUnlocked).slice(0, limit);
-}
-
-function getGameDetailOverviewLayoutStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 14,
-    alignItems: "center",
-    minWidth: 0,
-  };
-}
-
-function getGameDetailOverviewTextStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 8,
-    minWidth: 0,
-    width: "100%",
-    alignItems: "center",
-  };
-}
-
-function getGameDetailOverviewTitleStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.95)",
-    fontSize: "1.18em",
-    fontWeight: 800,
-    lineHeight: 1.15,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    textAlign: "center",
-    whiteSpace: "normal",
-  };
-}
-
-function getGameOverviewPillRowStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: 8,
-    width: "100%",
-  };
-}
-
-function getGameOverviewInfoPillStyle(): CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    minWidth: 0,
-    minHeight: 28,
-    padding: "0 10px",
-    borderRadius: 999,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.035)",
-    color: "rgba(255, 255, 255, 0.82)",
-    fontSize: "0.82em",
-    lineHeight: 1.2,
-    whiteSpace: "nowrap",
-  };
 }
 
 function getCompletionStatusPillStyle(
@@ -536,37 +461,24 @@ export function DeckyFullScreenGamePage({
             <PanelSectionRow>
               {isSteamProvider ? (
                 <div style={getSteamGameSpotlightLayoutStyle()}>
-                  <DeckyFullScreenGameSpotlightCard title="Game Overview">
-                    <div style={getGameDetailOverviewLayoutStyle()}>
-                      <div style={getGameDetailOverviewTextStyle()}>
-                        <div style={getGameDetailOverviewTitleStyle()}>{game.title}</div>
-                        <div style={getGameOverviewPillRowStyle()}>
-                          {heroMetaPills.map((label) => (
-                            <span key={label} style={getGameOverviewInfoPillStyle()}>
-                              {label}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-
-                      {heroArtworkUrl !== undefined ? (
-                        <div style={getGameSpotlightHeroStyle()}>
-                          <DeckySteamFullscreenGameArtwork
-                            src={heroArtworkUrl}
-                            fallbackLabel={getDeckyGameArtworkFallbackInitials(game.title)}
-                          />
-                        </div>
-                      ) : null}
-
-                      <DeckyFullScreenGameSpotlightActions
-                        backLabel={backLabel}
-                        onBack={onBack}
-                        onRefresh={() => {
-                          setRefreshNonce((current) => current + 1);
-                        }}
-                      />
-                    </div>
-                  </DeckyFullScreenGameSpotlightCard>
+                  <DeckyFullScreenGameSpotlightOverview
+                    title={game.title}
+                    metadataLabels={heroMetaPills}
+                    artwork={
+                      heroArtworkUrl !== undefined ? (
+                        <DeckySteamFullscreenGameArtwork
+                          src={heroArtworkUrl}
+                          fallbackLabel={getDeckyGameArtworkFallbackInitials(game.title)}
+                        />
+                      ) : undefined
+                    }
+                    backLabel={backLabel}
+                    onBack={onBack}
+                    onRefresh={() => {
+                      setRefreshNonce((current) => current + 1);
+                    }}
+                    platform={undefined}
+                  />
 
                   <div style={getSteamGameSpotlightColumnStyle()}>
                     <DeckyFullScreenGameSpotlightCard title="Progress Summary">
@@ -595,43 +507,27 @@ export function DeckyFullScreenGamePage({
                 </div>
               ) : (
                 <div style={getRetroAchievementsGameSpotlightLayoutStyle()}>
-                  <DeckyFullScreenGameSpotlightCard title="Game Overview">
-                    <div style={getGameDetailOverviewLayoutStyle()}>
-                      <div style={getGameDetailOverviewTextStyle()}>
-                        <DeckySystemPill
-                          label={game.platformLabel ?? "Unknown system"}
-                          iconSize={16}
-                          iconUrl={game.systemIconUrl}
-                          style={getGameOverviewInfoPillStyle()}
+                  <DeckyFullScreenGameSpotlightOverview
+                    title={game.title}
+                    metadataLabels={heroMetaPills}
+                    artwork={
+                      heroArtworkUrl !== undefined ? (
+                        <DeckyRetroAchievementsFullscreenGameArtwork
+                          src={heroArtworkUrl}
+                          fallbackLabel={getDeckyGameArtworkFallbackInitials(game.title)}
                         />
-                        <div style={getGameDetailOverviewTitleStyle()}>{game.title}</div>
-                        <div style={getGameOverviewPillRowStyle()}>
-                          {heroMetaPills.map((label) => (
-                            <span key={label} style={getGameOverviewInfoPillStyle()}>
-                              {label}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-
-                      {heroArtworkUrl !== undefined ? (
-                        <div style={getGameSpotlightHeroStyle()}>
-                          <DeckyRetroAchievementsFullscreenGameArtwork
-                            src={heroArtworkUrl}
-                            fallbackLabel={getDeckyGameArtworkFallbackInitials(game.title)}
-                          />
-                        </div>
-                      ) : null}
-
-                      <DeckyFullScreenGameSpotlightActions
-                        backLabel={backLabel}
-                        onBack={onBack}
-                        onRefresh={() => {
-                          setRefreshNonce((current) => current + 1);
-                        }}
-                      />
-                    </div>
-                  </DeckyFullScreenGameSpotlightCard>
+                      ) : undefined
+                    }
+                    backLabel={backLabel}
+                    onBack={onBack}
+                    onRefresh={() => {
+                      setRefreshNonce((current) => current + 1);
+                    }}
+                    platform={{
+                      label: game.platformLabel ?? "Unknown system",
+                      iconUrl: game.systemIconUrl,
+                    }}
+                  />
 
                   <div style={getGameSpotlightStatsStyle()}>
                     <DeckyFullScreenGameSpotlightCard
