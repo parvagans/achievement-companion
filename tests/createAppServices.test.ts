@@ -4030,6 +4030,15 @@ test("fullscreen action controls use Decky Focusable pills with unclipped labels
     fullscreenProfileSource,
     /DeckyFullscreenActionRow centered[\s\S]*label="Back"[\s\S]*label="Completion Progress"[\s\S]*label="Achievement History"[\s\S]*label="Settings"/u,
   );
+  assert.match(fullscreenActionControlsSource, /readonly scrollToTopOnFocus\?: boolean \| undefined;/u);
+  assert.match(fullscreenActionControlsSource, /shouldScrollToTopOnFocus = isFullscreenBackAction \|\| scrollToTopOnFocus/u);
+  assert.match(
+    fullscreenProfileSource,
+    /label="Completion Progress"\s+scrollToTopOnFocus[\s\S]*label="Achievement History"\s+scrollToTopOnFocus[\s\S]*label="Settings"\s+scrollToTopOnFocus/u,
+  );
+  assert.match(fullscreenProfileSource, /onGamepadFocus=\{scrollFocusedRecentActivityGamepadIntoView\}/u);
+  assert.match(fullscreenProfileSource, /function scrollRecentActivityCardFullyIntoView[\s\S]*FULLSCREEN_PROFILE_BOTTOM_SCROLL_PADDING/u);
+  assert.match(fullscreenProfileSource, /scrollableAncestor\.scrollBy\(\{ top: overflowBelowFooter, behavior: "auto" \}\)/u);
   assert.match(
     fullscreenGameSource,
     /DeckyFullscreenActionRow centered[\s\S]*label=\{backLabel\}[\s\S]*label="Refresh"/u,

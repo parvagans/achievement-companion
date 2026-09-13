@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties } from "react";
+import { useMemo, type ComponentProps, type CSSProperties, type FocusEventHandler } from "react";
 import type { ResourceState } from "@core/cache";
 import type {
   CompletionProgressSnapshot,
@@ -153,6 +153,60 @@ function getFallbackInitials(title: string): string {
 
 const FULLSCREEN_PROFILE_BOTTOM_SCROLL_PADDING = 88;
 const FULLSCREEN_PROFILE_TOP_PADDING = 42;
+type DeckyGamepadFocusHandler = NonNullable<ComponentProps<typeof Focusable>["onGamepadFocus"]>;
+
+function findScrollableAncestor(element: HTMLElement): HTMLElement | null {
+  let ancestor: HTMLElement | null = element.parentElement;
+
+  while (ancestor !== null) {
+    const overflowY = globalThis.getComputedStyle(ancestor).overflowY;
+    if (
+      (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") &&
+      ancestor.scrollHeight > ancestor.clientHeight
+    ) {
+      return ancestor;
+    }
+
+    ancestor = ancestor.parentElement;
+  }
+
+  return document.scrollingElement instanceof HTMLElement ? document.scrollingElement : null;
+}
+
+function scrollRecentActivityCardFullyIntoView(target: HTMLElement): void {
+  target.scrollIntoView({ block: "end", inline: "nearest" });
+
+  // Steam's fixed footer covers the bottom of the scroll viewport. Compensate after Decky's
+  // focus scrolling so the complete card, including rich presence, remains visible above it.
+  globalThis.requestAnimationFrame(() => {
+    if (!target.isConnected) {
+      return;
+    }
+
+    const scrollableAncestor = findScrollableAncestor(target);
+    if (scrollableAncestor === null) {
+      return;
+    }
+
+    const protectedBottom =
+      scrollableAncestor.getBoundingClientRect().bottom - FULLSCREEN_PROFILE_BOTTOM_SCROLL_PADDING;
+    const overflowBelowFooter = target.getBoundingClientRect().bottom - protectedBottom;
+    if (overflowBelowFooter > 0) {
+      scrollableAncestor.scrollBy({ top: overflowBelowFooter, behavior: "auto" });
+    }
+  });
+}
+
+const scrollFocusedRecentActivityIntoView: FocusEventHandler<HTMLElement> = (event) => {
+  scrollRecentActivityCardFullyIntoView(event.currentTarget);
+};
+
+const scrollFocusedRecentActivityGamepadIntoView: DeckyGamepadFocusHandler = (event) => {
+  const target = event.currentTarget;
+  if (target instanceof HTMLElement) {
+    scrollRecentActivityCardFullyIntoView(target);
+  }
+};
 
 function getPageFrameStyle(): CSSProperties {
   return {
@@ -1093,7 +1147,13 @@ function RecentGameCard({
 }): JSX.Element {
   if (game === undefined) {
     return (
-      <Focusable noFocusRing onActivate={() => {}} style={getInfoCardStyle()}>
+      <Focusable
+        noFocusRing
+        onActivate={() => {}}
+        onFocus={scrollFocusedRecentActivityIntoView}
+        onGamepadFocus={scrollFocusedRecentActivityGamepadIntoView}
+        style={getInfoCardStyle()}
+      >
         <div style={getInfoCardTitleStyle()}>Most recently played</div>
         <div style={getInfoCardTextStyle()}>No recently played games were returned yet.</div>
         {richPresence !== undefined ? (
@@ -1119,7 +1179,13 @@ function RecentGameCard({
   ].filter((line): line is string => line !== undefined);
 
   return (
-    <Focusable noFocusRing onActivate={() => {}} style={getInfoCardStyle()}>
+    <Focusable
+      noFocusRing
+      onActivate={() => {}}
+      onFocus={scrollFocusedRecentActivityIntoView}
+      onGamepadFocus={scrollFocusedRecentActivityGamepadIntoView}
+      style={getInfoCardStyle()}
+    >
       <div style={getInfoCardTitleStyle()}>Most recently played</div>
       <div style={getRecentGameLayoutStyle()}>
         {game.coverImageUrl !== undefined ? (
@@ -1314,18 +1380,21 @@ export function DeckyFullScreenProfilePage({
                   />
                   <DeckyFullscreenActionButton
                     label="Completion Progress"
+                    scrollToTopOnFocus
                     onClick={() => {
                       onOpenCompletionProgress(profile.providerId);
                     }}
                   />
                   <DeckyFullscreenActionButton
                     label="Achievement History"
+                    scrollToTopOnFocus
                     onClick={() => {
                       onOpenAchievementHistory(profile.providerId);
                     }}
                   />
                   <DeckyFullscreenActionButton
                     label="Settings"
+                    scrollToTopOnFocus
                     onClick={() => {
                       onOpenSettings();
                     }}

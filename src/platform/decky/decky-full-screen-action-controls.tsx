@@ -35,6 +35,7 @@ export interface DeckyFullscreenActionButtonProps {
   readonly disabled?: boolean;
   readonly icon?: ReactNode;
   readonly isFullscreenBackAction?: boolean | undefined;
+  readonly scrollToTopOnFocus?: boolean | undefined;
 }
 
 function getFullscreenActionRowStyle(centered: boolean): CSSProperties {
@@ -163,6 +164,7 @@ export function DeckyFullscreenActionButton({
   disabled = false,
   icon,
   isFullscreenBackAction = false,
+  scrollToTopOnFocus = false,
 }: DeckyFullscreenActionButtonProps): JSX.Element {
   const fullscreenBackButtonRef = useCallback((node: HTMLDivElement | null) => {
     if (isFullscreenBackAction) {
@@ -180,6 +182,7 @@ export function DeckyFullscreenActionButton({
 
     onClick();
   }, [disabled, isFullscreenBackAction, onClick]);
+  const shouldScrollToTopOnFocus = isFullscreenBackAction || scrollToTopOnFocus;
 
   return (
     <Focusable
@@ -194,9 +197,9 @@ export function DeckyFullscreenActionButton({
       tabIndex={disabled ? -1 : 0}
       onActivate={handleClick}
       onClick={handleClick}
-      onFocus={isFullscreenBackAction ? scrollFullscreenBackButtonIntoView : scrollFocusedElementIntoView}
+      onFocus={shouldScrollToTopOnFocus ? scrollFullscreenBackButtonIntoView : scrollFocusedElementIntoView}
       onGamepadFocus={
-        isFullscreenBackAction ? scrollFullscreenBackButtonGamepadIntoView : scrollFocusedGamepadElementIntoView
+        shouldScrollToTopOnFocus ? scrollFullscreenBackButtonGamepadIntoView : scrollFocusedGamepadElementIntoView
       }
       {...(isFullscreenBackAction ? { onCancel: handleClick } : {})}
       {...(isFullscreenBackAction ? { ref: fullscreenBackButtonRef } : {})}
