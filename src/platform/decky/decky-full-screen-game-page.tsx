@@ -43,6 +43,7 @@ import {
   shouldRenderAchievementModeFilter,
 } from "./decky-achievement-detail-helpers";
 import { sortAchievementsForDisplay } from "./decky-game-detail-ordering";
+import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
@@ -248,23 +249,11 @@ function formatAchievementStatusSummary(
 type FullScreenGamepadFocusHandler = NonNullable<ComponentProps<typeof Field>["onGamepadFocus"]>;
 
 const scrollFocusedGamepadElementIntoView: FullScreenGamepadFocusHandler = (event) => {
-  const target = event.currentTarget;
-
-  if (!(target instanceof HTMLElement)) {
-    return;
-  }
-
-  target.scrollIntoView({
-    block: "nearest",
-    inline: "nearest",
-  });
+  scrollDeckyFocusTargetIntoView(event.currentTarget);
 };
 
 const scrollFocusedElementIntoView: FocusEventHandler<HTMLElement> = (event) => {
-  event.currentTarget.scrollIntoView({
-    block: "nearest",
-    inline: "nearest",
-  });
+  scrollDeckyFocusTargetIntoView(event.currentTarget);
 };
 
 function getSteamGameSpotlightLayoutStyle(): CSSProperties {

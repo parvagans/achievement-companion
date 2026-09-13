@@ -12,6 +12,7 @@ import {
   DECKY_FOCUS_PILL_ACTIVE_CLASS,
   DECKY_FOCUS_PILL_CLASS,
 } from "./decky-focus-styles";
+import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 
 export interface DeckyCompactPillActionItemProps {
   readonly iconSrc?: string | undefined;
@@ -167,21 +168,11 @@ type DeckyGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
 type DeckyGamepadCancelHandler = NonNullable<FocusableProps["onCancel"]>;
 
 const scrollFocusedElementIntoView: FocusEventHandler<HTMLElement> = (event) => {
-  event.currentTarget.scrollIntoView({
-    block: "nearest",
-    inline: "nearest",
-  });
+  scrollDeckyFocusTargetIntoView(event.currentTarget);
 };
 
 const scrollFocusedGamepadElementIntoView: DeckyGamepadFocusHandler = (event) => {
-  const target = event.currentTarget;
-
-  if (target instanceof HTMLElement) {
-    target.scrollIntoView({
-      block: "nearest",
-      inline: "nearest",
-    });
-  }
+  scrollDeckyFocusTargetIntoView(event.currentTarget);
 };
 
 export function DeckyCompactPillActionItem({

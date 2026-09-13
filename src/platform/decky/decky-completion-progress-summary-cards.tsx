@@ -1,6 +1,7 @@
 import { useState, type CSSProperties, type JSX, type FocusEventHandler } from "react";
 import { Focusable, type FocusableProps } from "@decky/ui";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
+import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import {
   formatCompletionProgressSelectionLabelForProvider,
   type CompletionProgressSelectionFilter,
@@ -153,22 +154,12 @@ function CompletionProgressSummaryCard({
 
   const onFocus: FocusEventHandler<HTMLElement> = (event) => {
     setIsFocused(true);
-    event.currentTarget.scrollIntoView({
-      block: "nearest",
-      inline: "nearest",
-    });
+    scrollDeckyFocusTargetIntoView(event.currentTarget);
   };
 
   const onGamepadFocus: NonNullable<FocusableProps["onGamepadFocus"]> = (event) => {
     setIsFocused(true);
-    const target = event.currentTarget;
-
-    if (target instanceof HTMLElement) {
-      target.scrollIntoView({
-        block: "nearest",
-        inline: "nearest",
-      });
-    }
+    scrollDeckyFocusTargetIntoView(event.currentTarget);
   };
 
   return (

@@ -15,6 +15,7 @@ import {
   DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS,
   DECKY_FOCUS_ACTION_ROW_CLASS,
 } from "./decky-focus-styles";
+import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { initialDeckyCompletionProgressState, loadDeckyCompletionProgressState } from "./decky-app-services";
 import { useDeckySettings } from "./decky-settings";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
@@ -235,16 +236,7 @@ function getGameRowSupportStyle(): CSSProperties {
 type FullScreenGamepadFocusHandler = NonNullable<ComponentProps<typeof Field>["onGamepadFocus"]>;
 
 const scrollFocusedGamepadElementIntoView: FullScreenGamepadFocusHandler = (event) => {
-  const target = event.currentTarget;
-
-  if (!(target instanceof HTMLElement)) {
-    return;
-  }
-
-  target.scrollIntoView({
-    block: "nearest",
-    inline: "nearest",
-  });
+  scrollDeckyFocusTargetIntoView(event.currentTarget);
 };
 
 function matchesCompletionProgressFilter(
