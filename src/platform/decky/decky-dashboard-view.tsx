@@ -1,6 +1,8 @@
 import { useCallback, type CSSProperties } from "react";
 import type { ResourceState } from "@core/cache";
 import type { DashboardSnapshot, RecentUnlock, RecentlyPlayedGame } from "@core/domain";
+import type { RetroAchievementsConnectionState } from "./providers/retroachievements/connection";
+import { getRetroAchievementsConnectionBanner } from "./providers/retroachievements/connection";
 import { Field, Focusable, PanelSection, PanelSectionRow } from "@decky/ui";
 import { PlaceholderState } from "@ui/PlaceholderState";
 import {
@@ -68,6 +70,8 @@ export interface DeckyDashboardViewProps {
   readonly onBackToProviders: () => void;
   readonly onOpenSettings: () => void;
   readonly onRefreshDashboard: () => void;
+  readonly retroAchievementsConnectionState?: RetroAchievementsConnectionState;
+  readonly onUpdateRetroAchievementsCredentials?: () => void;
 }
 
 function formatCount(value: number): string {
@@ -1346,6 +1350,8 @@ export function DeckyDashboardView({
   onBackToProviders,
   onOpenSettings,
   onRefreshDashboard,
+  retroAchievementsConnectionState,
+  onUpdateRetroAchievementsCredentials,
 }: DeckyDashboardViewProps): JSX.Element {
   const compactProviderBackButtonRef = useCallback((node: HTMLDivElement | null) => {
     ensureCompactProviderCancelBridgeRegisteredForBackButtonElement(node);
@@ -1409,6 +1415,20 @@ export function DeckyDashboardView({
     profile.providerId === RETROACHIEVEMENTS_PROVIDER_ID ? recentlyPlayedGames[0] : undefined;
   return (
     <>
+      {profile.providerId === RETROACHIEVEMENTS_PROVIDER_ID && retroAchievementsConnectionState !== undefined && getRetroAchievementsConnectionBanner(retroAchievementsConnectionState) !== undefined ? (
+        <PanelSection title={retroAchievementsConnectionState.status === "authentication-required" ? "Authentication required" : "RetroAchievements unavailable"}>
+          <PanelSectionRow>
+            <div style={getOverviewProgressBlockStyle()}>
+              <div style={getProfileMetaStyle()}>{getRetroAchievementsConnectionBanner(retroAchievementsConnectionState)}</div>
+              {retroAchievementsConnectionState.status === "authentication-required" && onUpdateRetroAchievementsCredentials !== undefined ? (
+                <div style={getOverviewPrimaryActionRowStyle()}>
+                  <DeckyCompactPillActionItem emphasis="primary" label="Update credentials" onClick={onUpdateRetroAchievementsCredentials} stretch />
+                </div>
+              ) : null}
+            </div>
+          </PanelSectionRow>
+        </PanelSection>
+      ) : null}
       <div style={getProviderIdentitySectionStyle()}>
         <ProviderIdentityRow providerId={profile.providerId} />
       </div>

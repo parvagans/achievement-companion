@@ -41,6 +41,7 @@ import {
   resolveFullScreenSettingsBackTarget,
 } from "./decky-full-screen-navigation-state";
 import { shouldRefreshDashboardOnEntry } from "./dashboard-refresh";
+import { useRetroAchievementsConnectionState } from "./providers/retroachievements/connection";
 import { useDeckySettings } from "./decky-settings";
 import {
   DeckyCompactPillActionGroup,
@@ -512,6 +513,7 @@ function DashboardScreen({
 }): JSX.Element {
   const settings = useDeckySettings();
   const providerConfig = useDeckyProviderConfig(providerId);
+  const retroAchievementsConnectionState = useRetroAchievementsConnectionState();
   const quickAccessVisible = useQuickAccessVisible();
   const [dashboardRefreshNonce, setDashboardRefreshNonce] = useState(0);
   const [steamLibraryScanState, setSteamLibraryScanState] = useState<SteamLibraryScanActionState>({
@@ -657,6 +659,12 @@ function DashboardScreen({
       onRefreshDashboard={() => {
         requestDashboardReload(true);
       }}
+      {...(providerId === "retroachievements"
+        ? {
+            retroAchievementsConnectionState,
+            onUpdateRetroAchievementsCredentials: onOpenSettings,
+          }
+        : {})}
       onOpenGameDetail={onOpenGameDetail}
       onOpenAchievementDetail={onOpenAchievementDetail}
       onOpenProfile={onOpenProfile}

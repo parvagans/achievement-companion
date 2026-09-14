@@ -840,6 +840,10 @@ const deckyBackendTestCallImplementation = async (route: string, payload: unknow
     return result;
   }
 
+  if (route === "validate_retroachievements_credentials") {
+    return { ok: true };
+  }
+
   if (route === "request_retroachievements_json") {
     const path = typeof record?.path === "string" ? record.path : "";
     if (path === "API_GetConsoleIDs.php") {

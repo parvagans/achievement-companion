@@ -14,6 +14,12 @@ import {
   useDeckyProviderConfig as useDeckyProviderConfigFromStore,
   updateDeckyProviderConfigCache,
 } from "../provider-config-store";
+import {
+  clearRetroAchievementsConnectionState,
+  readRetroAchievementsConnectionState,
+  validateAndSaveRetroAchievementsCredentials,
+  type RetroAchievementsCredentialSaveResult,
+} from "./connection";
 
 export type { RetroAchievementsProviderConfig } from "../../../../providers/retroachievements/config";
 export type StoredRetroAchievementsConfig = Readonly<{
@@ -55,22 +61,40 @@ export async function writeDeckyProviderConfig(
   config: Omit<RetroAchievementsProviderConfig, "hasApiKey">,
   apiKeyDraft: string,
 ): Promise<boolean> {
-  const savedConfig = await saveDeckyRetroAchievementsCredentials({
+  return (await writeDeckyRetroAchievementsProviderConfig(config, apiKeyDraft)).saved;
+}
+
+export async function writeDeckyRetroAchievementsProviderConfig(
+  config: Omit<RetroAchievementsProviderConfig, "hasApiKey">,
+  apiKeyDraft: string,
+): Promise<RetroAchievementsCredentialSaveResult> {
+  if (apiKeyDraft.trim().length === 0) {
+    const savedConfig = await saveDeckyRetroAchievementsCredentials({
+      username: config.username,
+      ...(config.recentAchievementsCount !== undefined ? { recentAchievementsCount: config.recentAchievementsCount } : {}),
+      ...(config.recentlyPlayedCount !== undefined ? { recentlyPlayedCount: config.recentlyPlayedCount } : {}),
+      apiKeyDraft,
+    });
+    return {
+      saved: savedConfig !== undefined,
+      userMessage: savedConfig !== undefined ? "Provider settings saved." : "Unable to save provider settings right now.",
+      connectionState: readRetroAchievementsConnectionState(),
+    };
+  }
+
+  return validateAndSaveRetroAchievementsCredentials({
     username: config.username,
-    ...(config.recentAchievementsCount !== undefined
-      ? { recentAchievementsCount: config.recentAchievementsCount }
-      : {}),
-    ...(config.recentlyPlayedCount !== undefined
-      ? { recentlyPlayedCount: config.recentlyPlayedCount }
-      : {}),
     apiKeyDraft,
+    ...(config.recentAchievementsCount !== undefined ? { recentAchievementsCount: config.recentAchievementsCount } : {}),
+    ...(config.recentlyPlayedCount !== undefined ? { recentlyPlayedCount: config.recentlyPlayedCount } : {}),
+    save: saveDeckyRetroAchievementsCredentials,
   });
-  return savedConfig !== undefined;
 }
 
 export async function clearDeckyProviderConfig(): Promise<boolean> {
   const cleared = await clearDeckyRetroAchievementsAccountStateFromStore();
   if (cleared) {
+    clearRetroAchievementsConnectionState();
     removeDeckyStorageTextsByPrefix(DECKY_RECENT_ACHIEVEMENTS_STORAGE_KEY_PREFIX);
     clearDeckyDashboardSnapshot(RETROACHIEVEMENTS_PROVIDER_ID);
   }
@@ -81,6 +105,7 @@ export async function clearDeckyProviderConfig(): Promise<boolean> {
 export async function clearDeckyRetroAchievementsAccountState(): Promise<boolean> {
   const cleared = await clearDeckyRetroAchievementsAccountStateFromStore();
   if (cleared) {
+    clearRetroAchievementsConnectionState();
     removeDeckyStorageTextsByPrefix(DECKY_RECENT_ACHIEVEMENTS_STORAGE_KEY_PREFIX);
     clearDeckyDashboardSnapshot(RETROACHIEVEMENTS_PROVIDER_ID);
   }

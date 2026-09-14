@@ -8,6 +8,18 @@ export interface RetroAchievementsTransport {
   requestJson<T>(request: RetroAchievementsTransportRequest): Promise<T>;
 }
 
+/** A safe, structured failure produced by a RetroAchievements transport. */
+export class RetroAchievementsRequestError extends Error {
+  public constructor(
+    message: string,
+    public readonly statusCode?: number,
+    public readonly category: "network" | "http" | "unknown" = "unknown",
+  ) {
+    super(message);
+    this.name = "RetroAchievementsRequestError";
+  }
+}
+
 export interface FetchRetroAchievementsTransportOptions {
   readonly baseUrl?: string;
   readonly fetchImpl?: typeof fetch;
@@ -67,8 +79,10 @@ export function createFetchRetroAchievementsTransport(
       if (!response.ok) {
         const bodyText = await readResponseText(response);
         const detail = bodyText !== undefined ? `: ${bodyText}` : "";
-        throw new Error(
+        throw new RetroAchievementsRequestError(
           `RetroAchievements request failed with ${response.status} ${response.statusText}${detail}`,
+          response.status,
+          "http",
         );
       }
 

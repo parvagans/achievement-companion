@@ -1,6 +1,7 @@
 import { type CSSProperties, useEffect, useState } from "react";
 import { Field, PanelSectionRow } from "@decky/ui";
 import type { RetroAchievementsProviderConfig } from "../../../../providers/retroachievements";
+import type { RetroAchievementsCredentialSaveResult } from "./connection";
 import {
   DeckyCredentialTextField,
   getDeckyCredentialTextFieldMaskStyle,
@@ -23,7 +24,7 @@ export interface DeckyRetroAchievementsCredentialsFormProps {
   readonly onSave: (
     config: Omit<RetroAchievementsProviderConfig, "hasApiKey">,
     apiKeyDraft: string,
-  ) => boolean | Promise<boolean>;
+  ) => boolean | RetroAchievementsCredentialSaveResult | Promise<boolean | RetroAchievementsCredentialSaveResult>;
   readonly onClear?: () => boolean | Promise<boolean>;
 }
 
@@ -174,7 +175,7 @@ export function DeckyRetroAchievementsCredentialsForm({
     }
 
     try {
-      const saved = await onSave(
+      const saveResult = await onSave(
         {
           username: trimmedUsername,
           ...(config?.recentAchievementsCount !== undefined
@@ -186,7 +187,12 @@ export function DeckyRetroAchievementsCredentialsForm({
         },
         apiKeyDraft,
       );
-      setStatusCopy(saved ? "Provider settings saved." : "Unable to save provider settings right now.");
+      const saved = typeof saveResult === "boolean" ? saveResult : saveResult.saved;
+      setStatusCopy(
+        typeof saveResult === "boolean"
+          ? saved ? "Provider settings saved." : "Unable to save provider settings right now."
+          : saveResult.userMessage,
+      );
     } catch {
       setStatusCopy("Unable to save provider settings right now.");
     }

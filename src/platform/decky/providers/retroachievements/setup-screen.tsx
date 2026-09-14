@@ -5,7 +5,7 @@ import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../../../providers/retroachiev
 import { RETROACHIEVEMENTS_PROVIDER_ICON_SRC } from "./icon";
 import { DeckyCompactPillActionItem } from "../../decky-compact-pill-action-item";
 import { DeckyRetroAchievementsCredentialsForm } from "./credentials-form";
-import { useDeckyProviderConfig, writeDeckyProviderConfig } from "./config";
+import { useDeckyProviderConfig, writeDeckyRetroAchievementsProviderConfig } from "./config";
 import { useDeckySettings } from "../../decky-settings";
 
 export interface DeckyFirstRunSetupScreenProps {
@@ -176,7 +176,7 @@ export function DeckyRetroAchievementsSetupScreen({
           saveLabel="Save provider settings"
           compactSurface
           onSave={(nextConfig, apiKeyDraft) =>
-            writeDeckyProviderConfig(
+            writeDeckyRetroAchievementsProviderConfig(
               {
                 ...nextConfig,
                 recentAchievementsCount:
