@@ -1,4 +1,4 @@
-import type { CompletionProgressSummary, NormalizedGame } from "@core/domain";
+import type { CompletionProgressSnapshot, CompletionProgressSummary, NormalizedGame } from "@core/domain";
 
 const COMPLETION_PROGRESS_SUBSET_PAREN_TITLE_PATTERN =
   /^(.+?)\s*\((subset|challenge set)\b[^\)]*\)\s*$/i;
@@ -122,6 +122,24 @@ export function countCompletionProgressSubsetGames(games: readonly NormalizedGam
   return games.filter((game) => isCompletionProgressSubsetGame(game, referencedParentGameIds)).length;
 }
 
+/** Shared RA collection totals for Profile and Completion Progress. */
+export interface RetroAchievementsCompletionCollection {
+  readonly playedCount: number;
+  readonly unfinishedCount: number;
+  readonly beatenCount: number;
+  readonly masteredCount: number;
+  readonly subsetCount: number;
+}
+
+export function buildRetroAchievementsCompletionCollection(
+  snapshot: Pick<CompletionProgressSnapshot, "summary" | "games">,
+): RetroAchievementsCompletionCollection {
+  return {
+    ...snapshot.summary,
+    subsetCount: countCompletionProgressSubsetGames(snapshot.games),
+  };
+}
+
 function compareCompletionProgressGroupedGames(
   left: NormalizedGame,
   right: NormalizedGame,
@@ -230,6 +248,30 @@ export interface CompletionProgressGameGroup {
   readonly subsetGames: readonly NormalizedGame[];
   readonly isSubsetGame: boolean;
   readonly sortEpoch?: number;
+}
+
+export type CompletionProgressSort = "recent" | "title" | "completion";
+
+export function sortCompletionProgressGroups(
+  groups: readonly CompletionProgressGameGroup[],
+  sort: CompletionProgressSort,
+): readonly CompletionProgressGameGroup[] {
+  if (sort === "recent") {
+    return groups;
+  }
+
+  return [...groups].sort((left, right) => {
+    if (sort === "title") {
+      return left.representativeGame.title.localeCompare(right.representativeGame.title);
+    }
+
+    const leftPercent = left.representativeGame.summary.completionPercent ?? 0;
+    const rightPercent = right.representativeGame.summary.completionPercent ?? 0;
+    if (leftPercent !== rightPercent) {
+      return rightPercent - leftPercent;
+    }
+    return left.representativeGame.title.localeCompare(right.representativeGame.title);
+  });
 }
 
 export function groupCompletionProgressGames(

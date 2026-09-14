@@ -19,6 +19,7 @@ import {
 } from "./decky-app-services";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
+import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
@@ -51,6 +52,7 @@ import {
   selectRetroAchievementsGameAwards,
   type RetroAchievementsGameAwardsSelection,
 } from "./decky-full-screen-profile-data";
+import { buildRetroAchievementsCompletionCollection } from "./decky-completion-progress-grouping";
 
 export interface DeckyFullScreenProfilePageProps {
   readonly providerId: string | undefined;
@@ -146,6 +148,14 @@ function getFallbackInitials(title: string): string {
 const FULLSCREEN_PROFILE_BOTTOM_SCROLL_PADDING = 88;
 const FULLSCREEN_PROFILE_TOP_PADDING = 42;
 type DeckyGamepadFocusHandler = NonNullable<ComponentProps<typeof Focusable>["onGamepadFocus"]>;
+
+const scrollFocusedProfileContent: FocusEventHandler<HTMLElement> = (event) => {
+  scrollDeckyFocusTargetIntoView(event.currentTarget);
+};
+
+const scrollFocusedProfileGamepadContent: DeckyGamepadFocusHandler = (event) => {
+  scrollDeckyFocusTargetIntoView(event.currentTarget);
+};
 
 function findScrollableAncestor(element: HTMLElement): HTMLElement | null {
   let ancestor: HTMLElement | null = element.parentElement;
@@ -351,31 +361,6 @@ function getCompactStatSectionStyle(variant: ProfileStatSectionVariant): CSSProp
     position: "relative",
     overflow: "hidden",
     minWidth: 0,
-  };
-}
-
-function getSupplementaryStatsStyle(): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))",
-    gap: 8,
-    width: "100%",
-    minWidth: 0,
-    marginTop: 10,
-  };
-}
-
-function getSupplementaryStatStyle(): CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "baseline",
-    justifyContent: "space-between",
-    gap: 12,
-    minWidth: 0,
-    padding: "8px 10px",
-    borderRadius: 12,
-    border: "1px solid rgba(255, 255, 255, 0.055)",
-    backgroundColor: "rgba(255, 255, 255, 0.025)",
   };
 }
 
@@ -877,7 +862,17 @@ function ProfileStat({
     );
   }
 
-  return <div style={getStatCardStyle()}>{content}</div>;
+  return (
+    <Focusable
+      noFocusRing
+      onActivate={() => {}}
+      onFocus={scrollFocusedProfileContent}
+      onGamepadFocus={scrollFocusedProfileGamepadContent}
+      style={getStatCardStyle()}
+    >
+      {content}
+    </Focusable>
+  );
 }
 
 interface ProfileStatDescriptor {
@@ -905,14 +900,21 @@ function RetroAchievementsGameAwardRow({ game }: { readonly game: NormalizedGame
   }
 
   return (
-    <div data-retroachievements-profile-award={status} style={getPreviewRowStyle()}>
+    <Focusable
+      noFocusRing
+      onActivate={() => {}}
+      onFocus={scrollFocusedProfileContent}
+      onGamepadFocus={scrollFocusedProfileGamepadContent}
+      data-retroachievements-profile-award={status}
+      style={getPreviewRowStyle()}
+    >
       <ProfilePreviewArtwork game={game} />
       <div style={getPreviewRowTextStyle()}>
         <div title={game.title} style={getPreviewTitleStyle()}>{game.title}</div>
         <div style={getPreviewMetaStyle()}>{game.platformLabel ?? "Unknown platform"}</div>
       </div>
       <span style={getAwardPillStyle(status)}>{status.toUpperCase()}</span>
-    </div>
+    </Focusable>
   );
 }
 
@@ -925,7 +927,14 @@ function RetroAchievementsProgressRow({ game }: { readonly game: NormalizedGame 
   }
 
   return (
-    <div data-retroachievements-profile-progress-game={game.gameId} style={getPreviewRowStyle()}>
+    <Focusable
+      noFocusRing
+      onActivate={() => {}}
+      onFocus={scrollFocusedProfileContent}
+      onGamepadFocus={scrollFocusedProfileGamepadContent}
+      data-retroachievements-profile-progress-game={game.gameId}
+      style={getPreviewRowStyle()}
+    >
       <ProfilePreviewArtwork game={game} />
       <div style={getPreviewRowTextStyle()}>
         <div title={game.title} style={getPreviewTitleStyle()}>{game.title}</div>
@@ -937,7 +946,7 @@ function RetroAchievementsProgressRow({ game }: { readonly game: NormalizedGame 
       {awardStatus === "beaten" ? (
         <span style={getAwardPillStyle("beaten")}>BEATEN</span>
       ) : null}
-    </div>
+    </Focusable>
   );
 }
 
@@ -959,6 +968,8 @@ function RetroAchievementsGameAwardsCard({
     <Focusable
       noFocusRing
       onActivate={() => {}}
+      onFocus={scrollFocusedProfileContent}
+      onGamepadFocus={scrollFocusedProfileGamepadContent}
       data-retroachievements-profile-game-awards
       data-retroachievements-profile-game-awards-mode={selection.mode}
       style={getOverviewCardStyle()}
@@ -1002,6 +1013,8 @@ function RetroAchievementsCompletionProgressCard({
     <Focusable
       noFocusRing
       onActivate={() => {}}
+      onFocus={scrollFocusedProfileContent}
+      onGamepadFocus={scrollFocusedProfileGamepadContent}
       data-retroachievements-profile-completion-progress
       style={getOverviewCardStyle()}
     >
@@ -1297,11 +1310,18 @@ export function DeckyFullScreenProfilePage({
       : {}),
   });
   const refreshedAt = state.lastUpdatedAt ?? snapshot.refreshedAt;
+  const retroAchievementsCompletionCollection =
+    profile.providerId !== STEAM_PROVIDER_ID && isRenderableCompletionProgressState(completionProgressState)
+      ? buildRetroAchievementsCompletionCollection(completionProgressState.data)
+      : undefined;
   const retroAchievementsProfileStatSections =
     profile.providerId === STEAM_PROVIDER_ID
       ? undefined
       : getRetroAchievementsProfileStatSections({
           profile,
+          ...(retroAchievementsCompletionCollection !== undefined
+            ? { completionCollection: retroAchievementsCompletionCollection }
+            : {}),
         });
   const retroAchievementsSupplementaryStats =
     profile.providerId === STEAM_PROVIDER_ID
@@ -1463,8 +1483,21 @@ export function DeckyFullScreenProfilePage({
                         >
                           <div aria-hidden="true" style={getRetroAchievementsProfileSectionAccentStyle(section.variant)} />
                           <div style={getRetroAchievementsProfileSectionTitleStyle(section.variant)}>{section.title}</div>
+                          {section.helper !== undefined ? (
+                            <div style={getOverviewCardMetaStyle()}>{section.helper}</div>
+                          ) : null}
                           <StatsGrid>
-                            {section.stats.map((stat) => (
+                            {[
+                              ...section.stats,
+                              ...(section.variant === "retroachievements"
+                                ? retroAchievementsSupplementaryStats.map(
+                                    (stat): ProfileStatDescriptor => ({
+                                      label: stat.label,
+                                      value: stat.value,
+                                    }),
+                                  )
+                                : []),
+                            ].map((stat) => (
                               <ProfileStat
                                 key={`${section.title}:${stat.label}`}
                                 label={stat.label}
@@ -1479,16 +1512,6 @@ export function DeckyFullScreenProfilePage({
                         </Focusable>
                       ))}
                     </div>
-                    {retroAchievementsSupplementaryStats.length > 0 ? (
-                      <div data-retroachievements-profile-supplementary-stats style={getSupplementaryStatsStyle()}>
-                        {retroAchievementsSupplementaryStats.map((stat) => (
-                          <div key={stat.label} style={getSupplementaryStatStyle()}>
-                            <span style={getStatLabelStyle()}>{stat.label}</span>
-                            <span style={getStatValueStyle()}>{stat.value}</span>
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
                   </>
                 )}
               </Focusable>

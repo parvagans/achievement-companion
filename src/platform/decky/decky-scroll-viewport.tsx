@@ -1,4 +1,8 @@
 import { useLayoutEffect, useRef, type CSSProperties, type ReactNode } from "react";
+import {
+  DECKY_FOOTER_SCROLL_MARGIN_BOTTOM_PX,
+  DECKY_HEADER_SCROLL_MARGIN_TOP_PX,
+} from "./decky-focus-styles";
 
 const DECKY_SCROLL_RESET_EVENT = "achievement-companion:decky-scroll-reset";
 interface DeckyScrollResetEventDetail {
@@ -69,6 +73,23 @@ function resetRealDeckyScrollContainer(anchor: HTMLElement): void {
   resetScrollPosition(target);
 }
 
+function configureDeckyScrollInsets(anchor: HTMLElement): () => void {
+  const target = findScrollableAncestor(anchor);
+  if (target === null) {
+    return () => undefined;
+  }
+
+  const previousScrollPaddingTop = target.style.scrollPaddingTop;
+  const previousScrollPaddingBottom = target.style.scrollPaddingBottom;
+  target.style.scrollPaddingTop = `${DECKY_HEADER_SCROLL_MARGIN_TOP_PX}px`;
+  target.style.scrollPaddingBottom = `${DECKY_FOOTER_SCROLL_MARGIN_BOTTOM_PX}px`;
+
+  return () => {
+    target.style.scrollPaddingTop = previousScrollPaddingTop;
+    target.style.scrollPaddingBottom = previousScrollPaddingBottom;
+  };
+}
+
 
 export function dispatchDeckyScrollReset(scrollKey: string): void {
   if (typeof window === "undefined") {
@@ -96,6 +117,11 @@ export function TopAlignedScrollViewport({
   scrollKey,
 }: TopAlignedScrollViewportProps): JSX.Element {
   const anchorRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const anchor = anchorRef.current;
+    return anchor === null ? undefined : configureDeckyScrollInsets(anchor);
+  });
 
   useLayoutEffect(() => {
     const anchor = anchorRef.current;

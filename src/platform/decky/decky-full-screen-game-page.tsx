@@ -62,6 +62,7 @@ function getMetricValue(
 
 function buildGameMetadataPills(
   metrics: readonly { readonly key: string; readonly label: string; readonly value: string }[],
+  includeTotalPlayers: boolean,
 ): readonly DeckyFullScreenGameMetadataPill[] {
   const totalPlayers = getMetricValue(metrics, "total-players");
   const released = getMetricValue(metrics, "released");
@@ -69,7 +70,7 @@ function buildGameMetadataPills(
   const retroPoints = getMetricValue(metrics, "retro-points");
 
   return [
-    ...(totalPlayers !== undefined
+    ...(includeTotalPlayers && totalPlayers !== undefined
       ? [
           {
             key: "total-players",
@@ -197,7 +198,10 @@ export function DeckyFullScreenGamePage({
   const refreshTimestamp = state.lastUpdatedAt ?? snapshot.refreshedAt;
   const totalAchievementCount = summary.totalCount ?? snapshot.achievements.length;
   const heroMetaPills = dedupeDistinctLabels([providerLabel, snapshotSourceLabel]);
-  const gameMetadataPills = buildGameMetadataPills(game.metrics);
+  const gameMetadataPills = buildGameMetadataPills(
+    game.metrics,
+    isSteamProvider || game.communityStats === undefined,
+  );
 
   return (
     <ScrollPanel>

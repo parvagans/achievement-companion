@@ -4,6 +4,8 @@ import type {
   RawRetroAchievementsCompletionProgressResponse,
   RawRetroAchievementsGameListEntry,
   RawRetroAchievementsGameProgressResponse,
+  RawRetroAchievementsAchievementDistributionResponse,
+  RawRetroAchievementsGameProgressionResponse,
   RawRetroAchievementsProfileResponse,
   RawRetroAchievementsSummaryResponse,
   RawRetroAchievementsRecentUnlockResponse,
@@ -52,6 +54,14 @@ export interface RetroAchievementsClient {
     config: RetroAchievementsProviderConfig,
     gameId: string,
   ): Promise<RawRetroAchievementsGameProgressResponse>;
+  loadAchievementDistribution?(
+    config: RetroAchievementsProviderConfig,
+    gameId: string,
+  ): Promise<RawRetroAchievementsAchievementDistributionResponse>;
+  loadGameProgression?(
+    config: RetroAchievementsProviderConfig,
+    gameId: string,
+  ): Promise<RawRetroAchievementsGameProgressionResponse>;
 }
 
 const PROFILE_PATH = "API_GetUserProfile.php";
@@ -63,6 +73,8 @@ const ACHIEVEMENTS_EARNED_BETWEEN_PATH = "API_GetAchievementsEarnedBetween.php";
 const RECENT_UNLOCKS_PATH = "API_GetUserRecentAchievements.php";
 const RECENTLY_PLAYED_GAMES_PATH = "API_GetUserRecentlyPlayedGames.php";
 const GAME_PROGRESS_PATH = "API_GetGameInfoAndUserProgress.php";
+const ACHIEVEMENT_DISTRIBUTION_PATH = "API_GetAchievementDistribution.php";
+const GAME_PROGRESSION_PATH = "API_GetGameProgression.php";
 // Assumption: 500 keeps the page count low while matching the documented maximum.
 const COMPLETION_PROGRESS_PAGE_SIZE = 500;
 // Assumption: a one-day recent-unlock window is a small but useful improvement over the default hour.
@@ -215,6 +227,20 @@ export function createRetroAchievementsClient(
           a: 1,
           g: gameId,
         },
+      });
+    },
+
+    async loadAchievementDistribution(config, gameId) {
+      return transport.requestJson<RawRetroAchievementsAchievementDistributionResponse>({
+        path: ACHIEVEMENT_DISTRIBUTION_PATH,
+        query: { ...toAuthQuery(config), i: gameId, h: 1, f: 3 },
+      });
+    },
+
+    async loadGameProgression(config, gameId) {
+      return transport.requestJson<RawRetroAchievementsGameProgressionResponse>({
+        path: GAME_PROGRESSION_PATH,
+        query: { ...toAuthQuery(config), i: gameId, h: 1 },
       });
     },
   };

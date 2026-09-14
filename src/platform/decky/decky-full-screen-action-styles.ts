@@ -4,6 +4,8 @@ import {
   DECKY_FULLSCREEN_CHIP_CLASS,
   DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS,
   DECKY_FULLSCREEN_CHIP_SELECTED_CLASS,
+  DECKY_FOOTER_SCROLL_MARGIN_BOTTOM_PX,
+  DECKY_HEADER_SCROLL_MARGIN_TOP_PX,
 } from "./decky-focus-styles";
 
 export function getDeckyFullscreenActionStylesCss(): string {
@@ -30,6 +32,8 @@ export function getDeckyFullscreenActionStylesCss(): string {
   width: max-content !important;
   min-width: max-content !important;
   max-width: none !important;
+  scroll-margin-top: ${DECKY_HEADER_SCROLL_MARGIN_TOP_PX}px;
+  scroll-margin-bottom: ${DECKY_FOOTER_SCROLL_MARGIN_BOTTOM_PX}px;
   min-height: 40px !important;
   padding: 0 14px !important;
   border: 1px solid rgba(255, 255, 255, 0.16) !important;
@@ -57,9 +61,12 @@ export function getDeckyFullscreenActionStylesCss(): string {
 }
 
 .${DECKY_FULLSCREEN_CHIP_CLASS}.${DECKY_FULLSCREEN_CHIP_SELECTED_CLASS} {
-  border-color: rgba(255, 255, 255, 0.24) !important;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.09)) !important;
+  border-color: rgba(105, 176, 255, 0.82) !important;
+  background: linear-gradient(180deg, rgba(74, 138, 204, 0.4), rgba(34, 79, 124, 0.34)) !important;
   color: rgba(255, 255, 255, 0.99) !important;
+  box-shadow:
+    0 0 0 1px rgba(73, 155, 255, 0.62),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
 }
 
 .${DECKY_FULLSCREEN_CHIP_CLASS}.${DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS},

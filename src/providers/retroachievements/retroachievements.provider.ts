@@ -1,4 +1,5 @@
 import type {
+  GameCommunityStats,
   NormalizedGame,
   NormalizedMetric,
   ProviderCapabilities,
@@ -28,10 +29,13 @@ import {
   summarizeRetroAchievementsGameCompletionAwardCounts,
 } from "./mappers/normalize";
 import type {
+  RawRetroAchievementsAchievementDistributionResponse,
   RawRetroAchievementsGameProgressResponse,
+  RawRetroAchievementsGameProgressionResponse,
   RawRetroAchievementsRecentlyPlayedGameResponse,
   RawRetroAchievementsSystemResponse,
 } from "./raw-types";
+import { normalizeRetroAchievementsGameCommunityStats } from "./community-stats";
 
 const retroAchievementsCapabilities: ProviderCapabilities = {
   requiresCredentials: true,
@@ -66,6 +70,12 @@ interface RetroAchievementsProviderRuntime extends AchievementProvider<RetroAchi
 // The date-range endpoint can return at most 500 records for a broad request. Split a saturated
 // range until every response is complete, so a long account history does not omit recent unlocks.
 const ACHIEVEMENTS_EARNED_BETWEEN_RESPONSE_LIMIT = 500;
+const GAME_COMMUNITY_STATS_TTL_MS = 60 * 60 * 1000;
+
+interface CachedGameCommunityStats {
+  readonly value: GameCommunityStats | undefined;
+  readonly expiresAt: number;
+}
 
 async function loadAllAchievementsEarnedBetween(
   client: RetroAchievementsClient,
@@ -145,6 +155,15 @@ function getMetricValue(
   key: string,
 ): string | undefined {
   return metrics?.find((metric) => metric.key === key)?.value;
+}
+
+function getMetricNumber(
+  metrics: readonly NormalizedMetric[] | undefined,
+  key: string,
+): number | undefined {
+  const value = getMetricValue(metrics, key);
+  const numeric = value !== undefined ? Number(value) : Number.NaN;
+  return Number.isFinite(numeric) && numeric >= 0 ? Math.trunc(numeric) : undefined;
 }
 
 function mergeMetrics(
@@ -361,6 +380,51 @@ export function createRetroAchievementsProvider(
   const client = resolveClient(dependencies);
   let cachedSystemIconUrlByConsoleId: ReadonlyMap<string, string> | undefined;
   let systemIconUrlByConsoleIdPromise: Promise<ReadonlyMap<string, string>> | undefined;
+  const gameCommunityStatsCache = new Map<string, CachedGameCommunityStats>();
+  const gameCommunityStatsLoads = new Map<string, Promise<GameCommunityStats | undefined>>();
+
+  async function loadGameCommunityStats(
+    config: RetroAchievementsProviderConfig,
+    snapshot: ReturnType<typeof normalizeRetroAchievementsGameDetail>,
+  ): Promise<GameCommunityStats | undefined> {
+    const gameId = snapshot.game.gameId;
+    const cached = gameCommunityStatsCache.get(gameId);
+    if (cached !== undefined && cached.expiresAt > Date.now()) {
+      return cached.value;
+    }
+
+    const inFlight = gameCommunityStatsLoads.get(gameId);
+    if (inFlight !== undefined) {
+      return inFlight;
+    }
+
+    const load = (async () => {
+      const [distributionResult, progressionResult] = await Promise.allSettled([
+        client.loadAchievementDistribution?.(config, gameId) ??
+          Promise.resolve<RawRetroAchievementsAchievementDistributionResponse | undefined>(undefined),
+        client.loadGameProgression?.(config, gameId) ??
+          Promise.resolve<RawRetroAchievementsGameProgressionResponse | undefined>(undefined),
+      ]);
+      const stats = normalizeRetroAchievementsGameCommunityStats({
+        totalAchievementCount: snapshot.game.summary.totalCount,
+        totalPlayers: getMetricNumber(snapshot.game.metrics, "total-players"),
+        distribution: distributionResult.status === "fulfilled" ? distributionResult.value : undefined,
+        progression: progressionResult.status === "fulfilled" ? progressionResult.value : undefined,
+      });
+      gameCommunityStatsCache.set(gameId, {
+        value: stats,
+        expiresAt: Date.now() + GAME_COMMUNITY_STATS_TTL_MS,
+      });
+      return stats;
+    })();
+
+    gameCommunityStatsLoads.set(gameId, load);
+    try {
+      return await load;
+    } finally {
+      gameCommunityStatsLoads.delete(gameId);
+    }
+  }
 
   async function loadSystemIconUrlByConsoleId(
     config: RetroAchievementsProviderConfig,
@@ -472,11 +536,21 @@ export function createRetroAchievementsProvider(
       const rawGameProgress = await client.loadGameProgress(config, gameId);
       const normalizedGameDetail = normalizeRetroAchievementsGameDetail(rawGameProgress);
       const systemIconUrlByConsoleId = await loadSystemIconUrlByConsoleId(config);
-      return enrichGameDetailSnapshotWithSystemIcon(
+      const iconEnrichedSnapshot = enrichGameDetailSnapshotWithSystemIcon(
         normalizedGameDetail,
         rawGameProgress,
         systemIconUrlByConsoleId,
       );
+      const communityStats = await loadGameCommunityStats(config, iconEnrichedSnapshot);
+      return communityStats !== undefined
+        ? {
+            ...iconEnrichedSnapshot,
+            game: {
+              ...iconEnrichedSnapshot.game,
+              communityStats,
+            },
+          }
+        : iconEnrichedSnapshot;
     },
   };
 

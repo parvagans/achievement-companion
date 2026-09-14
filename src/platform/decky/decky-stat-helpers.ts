@@ -8,6 +8,7 @@ import type { CSSProperties } from "react";
 import { formatCompletionProgressFilterLabel, type CompletionProgressFilter } from "@core/settings";
 import { STEAM_PROVIDER_ID } from "../../providers/steam";
 import type { RetroAchievementsCompletionBreakdownItem } from "./decky-retroachievements-completion-indicator";
+import type { RetroAchievementsCompletionCollection } from "./decky-completion-progress-grouping";
 import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
 import { formatSteamXp, getSteamXpProgress } from "./steam-xp";
 
@@ -140,6 +141,7 @@ export interface ProfileStatSection {
   readonly title: string;
   readonly variant: ProfileStatSectionVariant;
   readonly stats: readonly ProfileStatDescriptor[];
+  readonly helper?: string;
 }
 
 export type ProfileStatSectionVariant =
@@ -196,6 +198,7 @@ export function getRetroAchievementsProfileStatValues(args: {
 
 export function getRetroAchievementsProfileStatSections(args: {
   readonly profile: DashboardSnapshot["profile"];
+  readonly completionCollection?: RetroAchievementsCompletionCollection;
 }): readonly ProfileStatSection[] {
   const values = getRetroAchievementsProfileStatValues(args);
 
@@ -246,9 +249,17 @@ export function getRetroAchievementsProfileStatSections(args: {
       title: "Game Completion",
       variant: "completion",
       stats: [
+        ...(args.completionCollection !== undefined
+          ? [
+              { label: "Played", value: formatCount(args.completionCollection.playedCount) },
+              { label: "Unfinished", value: formatCount(args.completionCollection.unfinishedCount) },
+            ]
+          : []),
         {
           label: "Beaten",
-          value: values.beaten ?? "-",
+          value: args.completionCollection !== undefined
+            ? formatCount(args.completionCollection.beatenCount)
+            : values.beaten ?? "-",
           completionBreakdown: {
             kind: "beaten",
             items: [
@@ -271,7 +282,9 @@ export function getRetroAchievementsProfileStatSections(args: {
         },
         {
           label: "Mastered",
-          value: values.mastered ?? "-",
+          value: args.completionCollection !== undefined
+            ? formatCount(args.completionCollection.masteredCount)
+            : values.mastered ?? "-",
           completionBreakdown: {
             kind: "mastered",
             items: [
@@ -293,6 +306,9 @@ export function getRetroAchievementsProfileStatSections(args: {
           },
         },
       ],
+      ...(args.completionCollection !== undefined && args.completionCollection.subsetCount > 0
+        ? { helper: `${formatCount(args.completionCollection.subsetCount)} subsets tracked separately` }
+        : {}),
     },
   ];
 }
