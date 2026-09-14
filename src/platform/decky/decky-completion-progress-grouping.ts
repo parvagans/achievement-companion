@@ -1,4 +1,5 @@
 import type { CompletionProgressSnapshot, CompletionProgressSummary, NormalizedGame } from "@core/domain";
+import { STEAM_PROVIDER_ID } from "../../providers/steam";
 
 const COMPLETION_PROGRESS_SUBSET_PAREN_TITLE_PATTERN =
   /^(.+?)\s*\((subset|challenge set)\b[^\)]*\)\s*$/i;
@@ -152,8 +153,8 @@ function compareCompletionProgressGroupedGames(
     return leftIsSubset ? 1 : -1;
   }
 
-  const leftSortEpoch = left.lastUnlockAt ?? Number.NEGATIVE_INFINITY;
-  const rightSortEpoch = right.lastUnlockAt ?? Number.NEGATIVE_INFINITY;
+  const leftSortEpoch = getCompletionProgressRecentEpoch(left) ?? Number.NEGATIVE_INFINITY;
+  const rightSortEpoch = getCompletionProgressRecentEpoch(right) ?? Number.NEGATIVE_INFINITY;
   if (leftSortEpoch !== rightSortEpoch) {
     return rightSortEpoch - leftSortEpoch;
   }
@@ -168,6 +169,16 @@ function compareCompletionProgressGroupedGames(
   }
 
   return left.gameId.localeCompare(right.gameId);
+}
+
+function getCompletionProgressRecentEpoch(game: NormalizedGame): number | undefined {
+  // Steam's collection page promises "Most Recent" by play activity, while
+  // RetroAchievements' completion data is most reliably ordered by unlocks.
+  if (game.providerId === STEAM_PROVIDER_ID) {
+    return game.lastPlayedAt ?? game.lastUnlockAt;
+  }
+
+  return game.lastUnlockAt ?? game.lastPlayedAt;
 }
 
 function compareCompletionProgressGroups(
@@ -285,7 +296,7 @@ export function groupCompletionProgressGames(
     return [...games]
       .sort((left, right) => compareCompletionProgressGroupedGames(left, right, referencedParentGameIds))
       .map((game) => {
-        const sortEpoch = game.lastUnlockAt;
+        const sortEpoch = getCompletionProgressRecentEpoch(game);
 
         return {
           groupKey: `game:${game.gameId}`,
@@ -346,7 +357,7 @@ export function groupCompletionProgressGames(
         compareCompletionProgressGroupedGames(left, right, referencedParentGameIds),
       );
       const sortEpoch = rankedGames.reduce<number | undefined>((current, game) => {
-        const gameSortEpoch = game.lastUnlockAt;
+        const gameSortEpoch = getCompletionProgressRecentEpoch(game);
         if (gameSortEpoch === undefined) {
           return current;
         }

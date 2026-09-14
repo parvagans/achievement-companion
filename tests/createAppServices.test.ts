@@ -265,6 +265,7 @@ import {
   countCompletionProgressSubsetGames,
   filterCompletionProgressGamesBySubsetVisibility,
   groupCompletionProgressGames,
+  sortCompletionProgressGroups,
   summarizeCompletionProgressSummaryBySubsetVisibility,
 } from "../src/platform/decky/decky-completion-progress-grouping";
 import {
@@ -5800,6 +5801,39 @@ test("completion progress groups explicit subsets under the parent game", () => 
   assert.deepStrictEqual(
     groupedMegaManX?.subsetGames.map((game) => game.title),
     ["Mega Man X (Subset)", "Mega Man X (Challenge Set)"],
+  );
+});
+
+test("steam completion progress sorts Most Recent by last played activity", () => {
+  const groupedGames = groupCompletionProgressGames([
+    {
+      providerId: STEAM_PROVIDER_ID,
+      gameId: "older-play-session",
+      title: "Older play session",
+      status: "in_progress",
+      summary: { unlockedCount: 10, totalCount: 20, completionPercent: 50 },
+      metrics: [],
+      lastPlayedAt: Date.parse("2026-04-22T17:33:54Z"),
+      // A newer achievement unlock must not make this game appear more recently played.
+      lastUnlockAt: Date.parse("2026-08-01T12:00:00Z"),
+    },
+    {
+      providerId: STEAM_PROVIDER_ID,
+      gameId: "newer-play-session",
+      title: "Newer play session",
+      status: "in_progress",
+      summary: { unlockedCount: 4, totalCount: 10, completionPercent: 40 },
+      metrics: [],
+      lastPlayedAt: Date.parse("2026-07-08T15:44:30Z"),
+      lastUnlockAt: Date.parse("2026-05-01T12:00:00Z"),
+    },
+  ] satisfies readonly NormalizedGame[]);
+
+  const sortedGames = sortCompletionProgressGroups(groupedGames, "recent");
+
+  assert.deepStrictEqual(
+    sortedGames.map((group) => group.representativeGame.gameId),
+    ["newer-play-session", "older-play-session"],
   );
 });
 
