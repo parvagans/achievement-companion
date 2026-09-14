@@ -20,6 +20,7 @@ import {
   clearDeckyRetroAchievementsAccountState,
   useDeckyProviderConfig,
   writeDeckyProviderConfig,
+  writeDeckyRetroAchievementsProviderConfig,
 } from "./config";
 
 export interface DeckyFullScreenProviderSettingsPageProps {
@@ -196,7 +197,7 @@ export function DeckyRetroAchievementsProviderSettingsPage({
               saveLabel="Save provider settings"
               clearLabel="Sign out"
               onSave={(nextConfig, apiKeyDraft) =>
-                writeDeckyProviderConfig(
+                writeDeckyRetroAchievementsProviderConfig(
                   {
                     ...nextConfig,
                     recentAchievementsCount:

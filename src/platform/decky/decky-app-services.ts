@@ -39,6 +39,11 @@ import { loadDeckyProviderConfig } from "./providers";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 import { STEAM_PROVIDER_ID } from "../../providers/steam";
 import { createDeckyRetroAchievementsTransport } from "./providers/retroachievements/backend-transport";
+import {
+  markRetroAchievementsAuthenticatedSuccess,
+  markRetroAchievementsCachedDashboardRestored,
+  markRetroAchievementsRefreshFailure,
+} from "./providers/retroachievements/connection";
 import { createDeckySteamTransport } from "./providers/steam/backend-transport";
 import { deckyProviderConfigStore } from "./providers/provider-config-store";
 import {
@@ -908,6 +913,9 @@ export async function loadDeckyDashboardState(
   if (runtimeMode === "live" && !options?.forceRefresh) {
     const cachedDashboardState = readDeckyDashboardSnapshotState(providerId);
     if (cachedDashboardState !== undefined) {
+      if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+        markRetroAchievementsCachedDashboardRestored(cachedDashboardState.lastUpdatedAt);
+      }
       return cachedDashboardState;
     }
   }
@@ -930,6 +938,9 @@ export async function loadDeckyDashboardState(
   const refreshPromise = (async () => {
     const state = await createDeckyAppServices(runtimeMode).dashboard.loadDashboard(providerId, options);
     if (state.data === undefined) {
+      if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+        markRetroAchievementsRefreshFailure(state.error, { isShowingCachedData: false });
+      }
       console.warn("[Achievement Companion][Decky] Dashboard refresh failed", {
         providerId,
         mode: options?.forceRefresh ? "manual" : "initial",
@@ -943,6 +954,13 @@ export async function loadDeckyDashboardState(
         durationMs: Date.now() - dashboardRefreshStartedAt,
         errorKind: state.error?.kind ?? "unknown",
       });
+      return state;
+    }
+
+    if (state.error !== undefined) {
+      if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+        markRetroAchievementsRefreshFailure(state.error, { isShowingCachedData: true });
+      }
       return state;
     }
 
@@ -963,21 +981,11 @@ export async function loadDeckyDashboardState(
     });
     writeDeckyDashboardSnapshot(dashboardSnapshot);
 
-    if (state.error !== undefined) {
-      console.warn("[Achievement Companion][Decky] Dashboard refresh failed", {
-        providerId,
-        mode: options?.forceRefresh ? "manual" : "initial",
-        durationMs: Date.now() - dashboardRefreshStartedAt,
-        errorKind: state.error.kind,
-      });
-      void deckyDiagnosticLogger.record({
-        event: "dashboard_refresh_failed",
-        providerId,
-        mode: options?.forceRefresh ? "manual" : "initial",
-        durationMs: Date.now() - dashboardRefreshStartedAt,
-        errorKind: state.error.kind,
-      });
-    } else {
+    if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+      markRetroAchievementsAuthenticatedSuccess(state.lastUpdatedAt ?? Date.now());
+    }
+
+    {
       console.info("[Achievement Companion][Decky] Dashboard refresh completed", {
         providerId,
         mode: options?.forceRefresh ? "manual" : "initial",

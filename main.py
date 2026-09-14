@@ -13,6 +13,7 @@ if _PLUGIN_PY_MODULES_DIR_TEXT not in sys.path:
   sys.path.insert(0, _PLUGIN_PY_MODULES_DIR_TEXT)
 
 import decky
+from backend.http import ProviderRequestError as _ProviderRequestError
 from backend.http import request_json as _backend_request_json
 from backend.tls import get_backend_http_ssl_context as _backend_get_backend_http_ssl_context
 from backend.tls import get_backend_http_ssl_context_source as _backend_get_backend_http_ssl_context_source
@@ -342,7 +343,48 @@ class Plugin:
         "u": config["username"],
         "y": secret,
       },
+      handled_http_statuses={401, 403, 404, 429},
     )
+
+  async def validate_retroachievements_credentials(self, payload: dict[str, Any]) -> dict[str, Any]:
+    username = _coerce_string(payload.get("username"))
+    api_key = _coerce_string(payload.get("apiKey"))
+    if username is None or api_key is None:
+      return {"ok": False, "failure": {"category": "authentication"}}
+
+    try:
+      # API_GetUserProfile is a small authenticated endpoint and does not persist draft credentials.
+      response = _request_json(
+        provider_id="retroachievements",
+        provider_label="RetroAchievements",
+        base_url="https://retroachievements.org/API/",
+        path="API_GetUserProfile.php",
+        query=None,
+        auth_query={"u": username, "y": api_key},
+        handled_http_statuses={400, 401, 403, 404, 429},
+      )
+      if isinstance(response, Mapping) and response.get("handledHttpError") is True:
+        return {
+          "ok": False,
+          "failure": {
+            "category": "http",
+            "statusCode": response.get("status"),
+          },
+        }
+      # RetroAchievements can return a JSON error object for an unknown user without a HTTP error.
+      if isinstance(response, Mapping) and any(
+        key in response for key in ("Error", "error", "ErrorCode", "errorCode")
+      ):
+        return {"ok": False, "failure": {"category": "authentication"}}
+      return {"ok": True}
+    except _ProviderRequestError as cause:
+      return {
+        "ok": False,
+        "failure": {
+          "category": cause.category,
+          **({"statusCode": cause.status_code} if cause.status_code is not None else {}),
+        },
+      }
 
   async def request_steam_json(self, payload: dict[str, Any]) -> Any:
     path = _coerce_string(payload.get("path"))

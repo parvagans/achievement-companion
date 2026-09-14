@@ -46,7 +46,6 @@ export const deckyProviderConfigStore: ProviderConfigStore<DeckyProviderConfigVa
       );
       if (savedConfig !== undefined) {
         updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, savedConfig);
-        clearDeckyDashboardSnapshot(RETROACHIEVEMENTS_PROVIDER_ID);
       }
       return savedConfig;
     }
@@ -393,7 +392,6 @@ export async function saveDeckyRetroAchievementsCredentials(args: {
 
   if (savedConfig !== undefined) {
     updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, savedConfig);
-    clearDeckyDashboardSnapshot(RETROACHIEVEMENTS_PROVIDER_ID);
   }
 
   return savedConfig;
