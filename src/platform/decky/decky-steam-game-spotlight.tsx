@@ -79,7 +79,6 @@ export interface DeckySteamGameSpotlightProps {
   readonly totalAchievementCount: number;
   readonly completionPercent: number | undefined;
   readonly completionTone: DeckyCompletionProgressBarTone;
-  readonly metadataLabels: readonly string[];
   readonly metadataPills: readonly DeckyFullScreenGameMetadataPill[];
   readonly backLabel: string;
   readonly onBack: () => void;
@@ -92,7 +91,6 @@ export function DeckySteamGameSpotlight({
   totalAchievementCount,
   completionPercent,
   completionTone,
-  metadataLabels,
   metadataPills,
   backLabel,
   onBack,
@@ -111,7 +109,6 @@ export function DeckySteamGameSpotlight({
     <div style={getLayoutStyle()}>
       <DeckyFullScreenGameSpotlightOverview
         title={game.title}
-        metadataLabels={metadataLabels}
         artwork={
           artworkUrl !== undefined ? (
             <DeckySteamFullscreenGameArtwork

@@ -2989,7 +2989,10 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(completionStatusBlockSource, /alignItems: "center"/u);
   assert.match(completionStatusBlockSource, /width: "100%"/u);
   assert.match(retroAchievementsProgressSummarySource, /alignSelf: "center"/u);
-  assert.match(fullScreenGameSpotlightOverviewSource, /function getPillRowStyle\(\): CSSProperties/u);
+  assert.doesNotMatch(fullScreenGamePageSource, /heroMetaPills|formatDeckyProviderLabel/u);
+  assert.doesNotMatch(steamGameSpotlightSource, /metadataLabels/u);
+  assert.doesNotMatch(retroAchievementsGameSpotlightSource, /metadataLabels/u);
+  assert.doesNotMatch(fullScreenGameSpotlightOverviewSource, /metadataLabels|getPillRowStyle/u);
   assert.doesNotMatch(fullScreenGamePageSource, /GameOverviewRefreshPill/);
   assert.doesNotMatch(fullScreenGamePageSource, /getProgressSummaryPercentStyle/);
   assert.match(fullScreenGamePageSource, /buildGameMetadataPills\(game\.metrics\)/);
