@@ -97,7 +97,7 @@ export function DeckyFullScreenGameSpotlightOverview({
   platform,
 }: DeckyFullScreenGameSpotlightOverviewProps): JSX.Element {
   return (
-    <DeckyFullScreenGameSpotlightCard title="Game Overview">
+    <DeckyFullScreenGameSpotlightCard title="Game Overview" focusable={false}>
       <div style={getOverviewLayoutStyle()}>
         <div style={getOverviewTextStyle()}>
           {platform !== undefined ? (
