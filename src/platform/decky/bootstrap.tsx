@@ -962,7 +962,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                               ? `${provider.label} provider, connected`
                               : `${provider.label} provider, not connected`
                           }
-                          statusLabel={provider.connected ? "CONNECTED" : "SET UP"}
+                          statusLabel={provider.connected ? "CONFIGURED" : "SET UP"}
                           onClick={() => {
                             if (!provider.enabled) {
                               return;
