@@ -51,7 +51,7 @@ export function formatProfileMemberSince(
   });
 }
 
-function formatRelativeTime(epochMs: number | undefined): string | undefined {
+export function formatDeckyRelativeTime(epochMs: number | undefined): string | undefined {
   if (epochMs === undefined) {
     return undefined;
   }
@@ -577,7 +577,7 @@ export function getSteamProfileStats(args: {
       : undefined;
   const lastLibraryScan =
     parsedLastLibraryScan !== undefined && Number.isFinite(parsedLastLibraryScan)
-      ? formatRelativeTime(parsedLastLibraryScan)
+      ? formatDeckyRelativeTime(parsedLastLibraryScan)
       : undefined;
 
   return [

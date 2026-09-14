@@ -3,6 +3,7 @@ export type FullScreenGameRouteBackBehavior =
   | "decky-panel"
   | "library-game-page"
   | "completion-progress"
+  | "profile"
   | "achievement";
 
 export interface FullScreenAchievementRouteReturnTarget {

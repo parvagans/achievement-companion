@@ -24,8 +24,9 @@ import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
 import { formatDeckyProviderLabel } from "./providers";
-import { STEAM_PROVIDER_ID, useDeckySteamLibraryAchievementScanOverview } from "./providers/steam";
+import { STEAM_PROVIDER_ID, useDeckySteamLibraryAchievementScanSummary } from "./providers/steam";
 import {
+  formatDeckyRelativeTime,
   formatProfileMemberSince,
   formatSteamPlaytimeMinutes,
   type ProfileStatCompletionBreakdown,
@@ -34,10 +35,7 @@ import {
   getRetroAchievementsProfileSectionAccentStyle,
   getRetroAchievementsProfileSectionStyle,
   getRetroAchievementsProfileSectionTitleStyle,
-  getSteamAccountProgressCards,
-  getSteamAccountProgressSummary,
 } from "./decky-stat-helpers";
-import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
 import { StatsGrid } from "./decky-layout-components";
 import {
   getRetroAchievementsCompletionIndicatorStyle,
@@ -53,47 +51,25 @@ import {
   type RetroAchievementsGameAwardsSelection,
 } from "./decky-full-screen-profile-data";
 import { buildRetroAchievementsCompletionCollection } from "./decky-completion-progress-grouping";
+import { buildSteamFullScreenProfileSummary } from "./decky-steam-full-screen-profile-data";
+import {
+  SteamAccountOverview,
+  SteamLibraryHighlights,
+  SteamLibraryProgress,
+  SteamRecentActivity,
+} from "./decky-steam-full-screen-profile-sections";
 
 export interface DeckyFullScreenProfilePageProps {
   readonly providerId: string | undefined;
   readonly onBack: () => void;
   readonly onOpenCompletionProgress: (providerId: string) => void;
   readonly onOpenAchievementHistory: (providerId: string) => void;
+  readonly onOpenGameDetail: (providerId: string, gameId: string) => void;
   readonly onOpenSettings: () => void;
 }
 
 function formatCount(value: number): string {
   return value.toLocaleString();
-}
-
-function formatRelativeTime(epochMs: number | undefined): string | undefined {
-  if (epochMs === undefined) {
-    return undefined;
-  }
-
-  const elapsedMs = Date.now() - epochMs;
-  const absoluteMs = Math.abs(elapsedMs);
-  const formatter = new Intl.RelativeTimeFormat(undefined, {
-    numeric: "auto",
-  });
-
-  if (absoluteMs < 60_000) {
-    const value = Math.max(1, Math.round(absoluteMs / 1000));
-    return formatter.format(elapsedMs >= 0 ? -value : value, "second");
-  }
-
-  if (absoluteMs < 3_600_000) {
-    const value = Math.max(1, Math.round(absoluteMs / 60_000));
-    return formatter.format(elapsedMs >= 0 ? -value : value, "minute");
-  }
-
-  if (absoluteMs < 86_400_000) {
-    const value = Math.max(1, Math.round(absoluteMs / 3_600_000));
-    return formatter.format(elapsedMs >= 0 ? -value : value, "hour");
-  }
-
-  const value = Math.max(1, Math.round(absoluteMs / 86_400_000));
-  return formatter.format(elapsedMs >= 0 ? -value : value, "day");
 }
 
 function getMetricValue(metrics: readonly NormalizedMetric[], ...keys: string[]): string | undefined {
@@ -155,59 +131,6 @@ const scrollFocusedProfileContent: FocusEventHandler<HTMLElement> = (event) => {
 
 const scrollFocusedProfileGamepadContent: DeckyGamepadFocusHandler = (event) => {
   scrollDeckyFocusTargetIntoView(event.currentTarget);
-};
-
-function findScrollableAncestor(element: HTMLElement): HTMLElement | null {
-  let ancestor: HTMLElement | null = element.parentElement;
-
-  while (ancestor !== null) {
-    const overflowY = globalThis.getComputedStyle(ancestor).overflowY;
-    if (
-      (overflowY === "auto" || overflowY === "scroll" || overflowY === "overlay") &&
-      ancestor.scrollHeight > ancestor.clientHeight
-    ) {
-      return ancestor;
-    }
-
-    ancestor = ancestor.parentElement;
-  }
-
-  return document.scrollingElement instanceof HTMLElement ? document.scrollingElement : null;
-}
-
-function scrollRecentActivityCardFullyIntoView(target: HTMLElement): void {
-  target.scrollIntoView({ block: "end", inline: "nearest" });
-
-  // Steam's fixed footer covers the bottom of the scroll viewport. Compensate after Decky's
-  // focus scrolling so the complete card, including rich presence, remains visible above it.
-  globalThis.requestAnimationFrame(() => {
-    if (!target.isConnected) {
-      return;
-    }
-
-    const scrollableAncestor = findScrollableAncestor(target);
-    if (scrollableAncestor === null) {
-      return;
-    }
-
-    const protectedBottom =
-      scrollableAncestor.getBoundingClientRect().bottom - FULLSCREEN_PROFILE_BOTTOM_SCROLL_PADDING;
-    const overflowBelowFooter = target.getBoundingClientRect().bottom - protectedBottom;
-    if (overflowBelowFooter > 0) {
-      scrollableAncestor.scrollBy({ top: overflowBelowFooter, behavior: "auto" });
-    }
-  });
-}
-
-const scrollFocusedRecentActivityIntoView: FocusEventHandler<HTMLElement> = (event) => {
-  scrollRecentActivityCardFullyIntoView(event.currentTarget);
-};
-
-const scrollFocusedRecentActivityGamepadIntoView: DeckyGamepadFocusHandler = (event) => {
-  const target = event.currentTarget;
-  if (target instanceof HTMLElement) {
-    scrollRecentActivityCardFullyIntoView(target);
-  }
 };
 
 function getPageFrameStyle(): CSSProperties {
@@ -501,38 +424,6 @@ function getEmptyOverviewStyle(): CSSProperties {
     fontSize: "0.82em",
     lineHeight: 1.35,
     padding: "8px 2px 2px",
-  };
-}
-
-function getProgressCardStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 10,
-    padding: 14,
-    borderRadius: 18,
-    border: "1px solid rgba(255, 255, 255, 0.06)",
-    background:
-      "linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.025))",
-  };
-}
-
-function getProgressTitleStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.58)",
-    fontSize: "0.7em",
-    fontWeight: 800,
-    letterSpacing: "0.1em",
-    textTransform: "uppercase",
-    lineHeight: 1.2,
-  };
-}
-
-function getProgressSubtitleStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.92)",
-    fontSize: "0.96em",
-    lineHeight: 1.3,
   };
 }
 
@@ -1037,112 +928,6 @@ function RetroAchievementsCompletionProgressCard({
   );
 }
 
-export function getSteamProfileStats(args: {
-  readonly profile: DashboardSnapshot["profile"];
-  readonly steamLibraryAchievementScanSummary?: SteamLibraryAchievementScanOverview;
-}): readonly ProfileStatDescriptor[] {
-  const { profile, steamLibraryAchievementScanSummary } = args;
-  const steamLevel =
-    getProfileMetric({
-      metrics: profile.metrics,
-      keys: ["steam-level", "Steam Level"],
-    }) ?? profile.steamLevel?.toString();
-  const ownedGames =
-    steamLibraryAchievementScanSummary?.ownedGameCount ??
-    profile.ownedGameCount ??
-    getProfileMetric({
-      metrics: profile.metrics,
-      keys: ["owned-games", "Owned Games"],
-    });
-  const badges = profile.badgeCount;
-  const badgeXp = profile.playerXp;
-  const achievementsUnlocked =
-    steamLibraryAchievementScanSummary?.unlockedAchievements ??
-    profile.summary.unlockedCount;
-  const perfectGames =
-    steamLibraryAchievementScanSummary?.perfectGames ??
-    Number(
-      getProfileMetric({
-        metrics: profile.metrics,
-        keys: ["games-beaten", "Perfect Games", "Games Beaten"],
-      }) ?? "0",
-    );
-  const completionPercent =
-    steamLibraryAchievementScanSummary?.completionPercent ??
-    profile.summary.completionPercent;
-  const parsedLastLibraryScan =
-    steamLibraryAchievementScanSummary !== undefined
-      ? Date.parse(steamLibraryAchievementScanSummary.scannedAt)
-      : undefined;
-  const lastLibraryScan =
-    parsedLastLibraryScan !== undefined && Number.isFinite(parsedLastLibraryScan)
-      ? formatRelativeTime(parsedLastLibraryScan)
-      : undefined;
-
-  return [
-    {
-      label: "Steam Level",
-      value: steamLevel ?? "-",
-    },
-    {
-      label: "Owned Games",
-      value: ownedGames !== undefined ? ownedGames.toString() : "-",
-    },
-    {
-      label: "Achievements Unlocked",
-      value: formatCount(achievementsUnlocked),
-    },
-    {
-      label: "Perfect Games",
-      value: formatCount(perfectGames),
-    },
-    {
-      label: "Completion",
-      value: completionPercent !== undefined ? `${formatCount(completionPercent)}%` : "-",
-    },
-    {
-      label: "Badges",
-      value: badges !== undefined ? formatCount(badges) : "-",
-      ...(badgeXp !== undefined ? { secondary: `${formatCount(badgeXp)} XP` } : {}),
-    },
-    ...(lastLibraryScan !== undefined
-      ? [
-          {
-            label: "Last Library Scan",
-            value: lastLibraryScan,
-          },
-        ]
-      : []),
-  ];
-}
-
-export function getDeckyProfileStats(args: {
-  readonly profile: DashboardSnapshot["profile"];
-  readonly steamLibraryAchievementScanSummary?: SteamLibraryAchievementScanOverview;
-}): readonly ProfileStatDescriptor[] {
-  if (args.profile.providerId === STEAM_PROVIDER_ID) {
-    return getSteamProfileStats(args);
-  }
-
-  return getRetroAchievementsProfileStatSections({
-    profile: args.profile,
-  }).flatMap((section) =>
-    section.stats.map((stat) => ({
-      label:
-        section.title === "RetroAchievements"
-          ? `RA ${stat.label}`
-          : section.title === "Softcore" || section.title === "Hardcore"
-            ? `${section.title} ${stat.label}`
-            : stat.label,
-      value: stat.value,
-      ...(stat.secondary !== undefined ? { secondary: stat.secondary } : {}),
-      ...(stat.completionBreakdown !== undefined
-        ? { completionBreakdown: stat.completionBreakdown }
-        : {}),
-    })),
-  );
-}
-
 function RecentGameCard({
   game,
   richPresence,
@@ -1155,8 +940,8 @@ function RecentGameCard({
       <Focusable
         noFocusRing
         onActivate={() => {}}
-        onFocus={scrollFocusedRecentActivityIntoView}
-        onGamepadFocus={scrollFocusedRecentActivityGamepadIntoView}
+        onFocus={scrollFocusedProfileContent}
+        onGamepadFocus={scrollFocusedProfileGamepadContent}
         style={getInfoCardStyle()}
       >
         <div style={getInfoCardTitleStyle()}>Most recently played</div>
@@ -1170,7 +955,7 @@ function RecentGameCard({
     );
   }
 
-  const playedLabel = formatRelativeTime(game.lastPlayedAt);
+  const playedLabel = formatDeckyRelativeTime(game.lastPlayedAt);
   const playtimeLines = [
     game.playtimeTwoWeeksMinutes !== undefined
       ? `Past 2 weeks: ${formatSteamPlaytimeMinutes(game.playtimeTwoWeeksMinutes) ?? "-"}`
@@ -1187,8 +972,8 @@ function RecentGameCard({
     <Focusable
       noFocusRing
       onActivate={() => {}}
-      onFocus={scrollFocusedRecentActivityIntoView}
-      onGamepadFocus={scrollFocusedRecentActivityGamepadIntoView}
+      onFocus={scrollFocusedProfileContent}
+      onGamepadFocus={scrollFocusedProfileGamepadContent}
       style={getInfoCardStyle()}
     >
       <div style={getInfoCardTitleStyle()}>Most recently played</div>
@@ -1242,6 +1027,7 @@ export function DeckyFullScreenProfilePage({
   onBack,
   onOpenCompletionProgress,
   onOpenAchievementHistory,
+  onOpenGameDetail,
   onOpenSettings,
 }: DeckyFullScreenProfilePageProps): JSX.Element {
   const loadSelectedProfile = useMemo(() => {
@@ -1264,7 +1050,18 @@ export function DeckyFullScreenProfilePage({
     initialDeckyCompletionProgressState,
   );
   const hasRouteParameters = providerId !== undefined;
-  const steamLibraryAchievementScanSummary = useDeckySteamLibraryAchievementScanOverview(providerId);
+  const steamLibraryAchievementScanSummary = useDeckySteamLibraryAchievementScanSummary(providerId);
+  const steamProfileSummary = useMemo(() => {
+    if (!isRenderableDashboardState(state) || state.data.profile.providerId !== STEAM_PROVIDER_ID) {
+      return undefined;
+    }
+
+    return buildSteamFullScreenProfileSummary({
+      profile: state.data.profile,
+      recentlyPlayedGames: state.data.recentlyPlayedGames,
+      ...(steamLibraryAchievementScanSummary !== undefined ? { libraryScan: steamLibraryAchievementScanSummary } : {}),
+    });
+  }, [state, steamLibraryAchievementScanSummary]);
 
   if (!isRenderableDashboardState(state)) {
     return (
@@ -1294,20 +1091,6 @@ export function DeckyFullScreenProfilePage({
   const richPresence = getProfileMetric({
     metrics: profile.metrics,
     keys: ["rich-presence", "Rich Presence"],
-  });
-  const steamAccountProgress =
-    profile.providerId === STEAM_PROVIDER_ID ? getSteamAccountProgressSummary({ profile }) : undefined;
-  const steamAccountCards =
-    profile.providerId === STEAM_PROVIDER_ID ? getSteamAccountProgressCards({ profile }) : undefined;
-  const steamLibraryCompletionPercent =
-    profile.providerId === STEAM_PROVIDER_ID
-      ? steamLibraryAchievementScanSummary?.completionPercent ?? profile.summary.completionPercent
-      : profile.summary.completionPercent;
-  const profileStats = getDeckyProfileStats({
-    profile,
-    ...(steamLibraryAchievementScanSummary !== undefined
-      ? { steamLibraryAchievementScanSummary }
-      : {}),
   });
   const refreshedAt = state.lastUpdatedAt ?? snapshot.refreshedAt;
   const retroAchievementsCompletionCollection =
@@ -1416,60 +1199,22 @@ export function DeckyFullScreenProfilePage({
             </PanelSectionRow>
           </PanelSection>
 
-          {steamAccountProgress !== undefined ? (
-            <PanelSection title="Steam Account">
+          {steamProfileSummary !== undefined ? (
+            <PanelSection title="Account Overview">
               <PanelSectionRow>
-                <Focusable noFocusRing onActivate={() => {}} style={getProgressCardStyle()}>
-                  <div style={getProgressTitleStyle()}>Steam Account</div>
-                  <div style={getProgressSubtitleStyle()}>{steamAccountProgress.accountSubtitle}</div>
-                  {steamAccountProgress.xpProgressPercent !== undefined ? (
-                    <DeckyCompletionProgressBar
-                      compact
-                      percent={steamAccountProgress.xpProgressPercent}
-                      caption={steamAccountProgress.xpProgressCaption}
-                      captionPlacement="above"
-                    />
-                  ) : (
-                    <div style={getProgressSubtitleStyle()}>{steamAccountProgress.xpProgressCaption}</div>
-                  )}
-                  <StatsGrid>
-                    {steamAccountCards?.map((card) => (
-                      <ProfileStat
-                        key={card.label}
-                        label={card.label}
-                        value={card.value}
-                        {...(card.secondary !== undefined ? { secondary: card.secondary } : {})}
-                      />
-                    ))}
-                  </StatsGrid>
-                </Focusable>
+                <SteamAccountOverview summary={steamProfileSummary} />
               </PanelSectionRow>
             </PanelSection>
           ) : null}
 
           <PanelSection title={profile.providerId === STEAM_PROVIDER_ID ? "Library Progress" : "Account stats"}>
             <PanelSectionRow>
+              {steamProfileSummary !== undefined ? (
+                <SteamLibraryProgress summary={steamProfileSummary} />
+              ) : (
               <Focusable noFocusRing onActivate={() => {}} style={getSectionBlockStyle("default")}>
                 {profile.providerId === STEAM_PROVIDER_ID ? (
-                  <>
-                    {steamLibraryCompletionPercent !== undefined ? (
-                      <DeckyCompletionProgressBar
-                        compact
-                        percent={steamLibraryCompletionPercent}
-                        caption={`${formatCount(steamLibraryCompletionPercent)}% complete`}
-                      />
-                    ) : null}
-                    <StatsGrid>
-                      {profileStats.map((stat) => (
-                        <ProfileStat
-                          key={stat.label}
-                          label={stat.label}
-                          value={stat.value}
-                          {...(stat.secondary !== undefined ? { secondary: stat.secondary } : {})}
-                        />
-                      ))}
-                    </StatsGrid>
-                  </>
+                  null
                 ) : (
                   <>
                     <div data-retroachievements-profile-stats-overview style={getCompactStatsOverviewStyle()}>
@@ -1515,8 +1260,20 @@ export function DeckyFullScreenProfilePage({
                   </>
                 )}
               </Focusable>
+              )}
             </PanelSectionRow>
           </PanelSection>
+
+          {steamProfileSummary !== undefined ? (
+            <PanelSection title="Library Highlights">
+              <PanelSectionRow>
+                <SteamLibraryHighlights
+                  summary={steamProfileSummary}
+                  onOpenGameDetail={(gameId) => { onOpenGameDetail(profile.providerId, gameId); }}
+                />
+              </PanelSectionRow>
+            </PanelSection>
+          ) : null}
 
           {profile.providerId !== STEAM_PROVIDER_ID ? (
             <PanelSection title="Awards & Progress">
@@ -1537,7 +1294,14 @@ export function DeckyFullScreenProfilePage({
 
           <PanelSection title="Recent activity">
             <PanelSectionRow>
-              <RecentGameCard game={recentGame} richPresence={richPresence} />
+              {steamProfileSummary !== undefined ? (
+                <SteamRecentActivity
+                  games={steamProfileSummary.recentGames}
+                  onOpenGameDetail={(gameId) => { onOpenGameDetail(profile.providerId, gameId); }}
+                />
+              ) : (
+                <RecentGameCard game={recentGame} richPresence={richPresence} />
+              )}
             </PanelSectionRow>
           </PanelSection>
         </div>

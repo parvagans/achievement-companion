@@ -34,12 +34,18 @@ export interface DeckyFullScreenGameSpotlightCardProps {
   readonly title: string;
   readonly children: ReactNode;
   readonly style?: CSSProperties;
+  /**
+   * Passive stat cards are controller focus targets. Cards that contain an
+   * interactive action row opt out so Decky can route focus to the buttons.
+   */
+  readonly focusable?: boolean;
 }
 
 export function DeckyFullScreenGameSpotlightCard({
   title,
   children,
   style,
+  focusable = true,
 }: DeckyFullScreenGameSpotlightCardProps): JSX.Element {
   const onFocus: FocusEventHandler<HTMLElement> = (event) => {
     scrollDeckyFocusTargetIntoView(event.currentTarget);
@@ -48,10 +54,19 @@ export function DeckyFullScreenGameSpotlightCard({
     scrollDeckyFocusTargetIntoView(event.currentTarget);
   };
 
+  const cardStyle = { ...getCardStyle(), ...style };
+  const content = <>
+    <div style={getHeaderStyle()}>{title}</div>
+    {children}
+  </>;
+
+  if (!focusable) {
+    return <div style={cardStyle}>{content}</div>;
+  }
+
   return (
-    <Focusable noFocusRing onActivate={() => {}} onFocus={onFocus} onGamepadFocus={onGamepadFocus} style={{ ...getCardStyle(), ...style }}>
-      <div style={getHeaderStyle()}>{title}</div>
-      {children}
+    <Focusable noFocusRing onActivate={() => {}} onFocus={onFocus} onGamepadFocus={onGamepadFocus} style={cardStyle}>
+      {content}
     </Focusable>
   );
 }

@@ -425,6 +425,7 @@ function DeckyFullScreenGameRoute(): JSX.Element {
     [params.providerId, params.gameId],
   );
   const shouldReturnToCompletionProgress = fullScreenGameRouteBackBehavior === "completion-progress";
+  const shouldReturnToProfile = fullScreenGameRouteBackBehavior === "profile";
   const shouldReturnToAchievementDetail =
     fullScreenGameRouteBackBehavior === "achievement" && achievementReturnTarget !== undefined;
   const detailScrollKey =
@@ -438,7 +439,7 @@ function DeckyFullScreenGameRoute(): JSX.Element {
       return;
     }
 
-    if (shouldReturnToCompletionProgress) {
+    if (shouldReturnToCompletionProgress || shouldReturnToProfile) {
       DeckyNavigation.NavigateBack();
       return;
     }
@@ -626,6 +627,9 @@ function DeckyFullScreenProfileRoute(): JSX.Element {
             suppressNextFullscreenRouteUnmountAction();
             DeckyNavigation.Navigate(route);
           }
+        }}
+        onOpenGameDetail={(providerId, gameId) => {
+          navigateToFullScreenGame(providerId, gameId, "profile", true);
         }}
       />
     </DeckyFullscreenRouteLeaveBoundary>
