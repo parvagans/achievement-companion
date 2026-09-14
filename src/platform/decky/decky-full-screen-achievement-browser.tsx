@@ -193,7 +193,11 @@ export function DeckyFullScreenAchievementBrowser({
           {showAchievementModeFilter ? (
             <>
               <div style={getAchievementBrowserSectionLabelStyle()}>Mode / State</div>
-              <Focusable flow-children="left-right" style={getAchievementFilterGridStyle()}>
+              <Focusable
+                flow-children="left-right"
+                tabIndex={-1}
+                style={getAchievementFilterGridStyle()}
+              >
                 {ACHIEVEMENT_MODE_FILTERS.map((filter) => (
                   <AchievementFilterButton key={`mode-${filter}`} label={formatAchievementModeLabel(filter)} selected={filter === achievementModeFilter} onActivate={() => onAchievementModeFilterChange(filter)} onCancel={onBack} />
                 ))}
@@ -205,7 +209,11 @@ export function DeckyFullScreenAchievementBrowser({
           ) : (
             <>
               <div style={getAchievementBrowserSectionLabelStyle()}>State</div>
-              <Focusable flow-children="left-right" style={getAchievementFilterGridStyle()}>
+              <Focusable
+                flow-children="left-right"
+                tabIndex={-1}
+                style={getAchievementFilterGridStyle()}
+              >
                 {ACHIEVEMENT_FILTERS.map((filter) => (
                   <AchievementFilterButton key={filter} label={formatAchievementFilterLabel(filter)} selected={filter === achievementFilter} onActivate={() => onAchievementFilterChange(filter)} onCancel={onBack} />
                 ))}

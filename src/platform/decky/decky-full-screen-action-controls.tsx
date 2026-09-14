@@ -140,6 +140,9 @@ export function DeckyFullscreenActionRow({
       <Focusable
         flow-children="left-right"
         noFocusRing
+        // This groups the action buttons for horizontal navigation, but is not an action itself.
+        // Leaving it tabbable creates an invisible stop between the visible buttons and the next section.
+        tabIndex={-1}
         className={`${DECKY_FULLSCREEN_ACTION_ROW_CLASS} ${centered ? DECKY_FULLSCREEN_ACTION_ROW_CENTERED_CLASS : ""}`.trim()}
         style={getFullscreenActionRowStyle(centered)}
       >
@@ -191,7 +194,9 @@ export function DeckyFullscreenActionButton({
       onClick={handleClick}
       onFocus={shouldScrollToTopOnFocus ? scrollFullscreenBackButtonIntoView : scrollFocusedElementIntoView}
       onGamepadFocus={
-        shouldScrollToTopOnFocus ? scrollFullscreenBackButtonGamepadIntoView : scrollFocusedGamepadElementIntoView
+        shouldScrollToTopOnFocus
+          ? scrollFullscreenBackButtonGamepadIntoView
+          : scrollFocusedGamepadElementIntoView
       }
       {...(isFullscreenBackAction ? { onCancel: handleClick } : {})}
       {...(isFullscreenBackAction ? { ref: fullscreenBackButtonRef } : {})}
