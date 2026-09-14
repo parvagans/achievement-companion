@@ -45,6 +45,11 @@ import {
   markRetroAchievementsRefreshFailure,
 } from "./providers/retroachievements/connection";
 import { createDeckySteamTransport } from "./providers/steam/backend-transport";
+import {
+  markSteamAuthenticatedSuccess,
+  markSteamCachedDashboardRestored,
+  markSteamRefreshFailure,
+} from "./providers/steam/connection";
 import { deckyProviderConfigStore } from "./providers/provider-config-store";
 import {
   buildDeckySteamAchievementHistorySnapshotFromSummary,
@@ -916,6 +921,9 @@ export async function loadDeckyDashboardState(
       if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
         markRetroAchievementsCachedDashboardRestored(cachedDashboardState.lastUpdatedAt);
       }
+      if (providerId === STEAM_PROVIDER_ID) {
+        markSteamCachedDashboardRestored(cachedDashboardState.lastUpdatedAt);
+      }
       return cachedDashboardState;
     }
   }
@@ -941,6 +949,9 @@ export async function loadDeckyDashboardState(
       if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
         markRetroAchievementsRefreshFailure(state.error, { isShowingCachedData: false });
       }
+      if (providerId === STEAM_PROVIDER_ID) {
+        markSteamRefreshFailure(state.error, { isShowingCachedData: false });
+      }
       console.warn("[Achievement Companion][Decky] Dashboard refresh failed", {
         providerId,
         mode: options?.forceRefresh ? "manual" : "initial",
@@ -960,6 +971,9 @@ export async function loadDeckyDashboardState(
     if (state.error !== undefined) {
       if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
         markRetroAchievementsRefreshFailure(state.error, { isShowingCachedData: true });
+      }
+      if (providerId === STEAM_PROVIDER_ID) {
+        markSteamRefreshFailure(state.error, { isShowingCachedData: true });
       }
       return state;
     }
@@ -983,6 +997,9 @@ export async function loadDeckyDashboardState(
 
     if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
       markRetroAchievementsAuthenticatedSuccess(state.lastUpdatedAt ?? Date.now());
+    }
+    if (providerId === STEAM_PROVIDER_ID) {
+      markSteamAuthenticatedSuccess(state.lastUpdatedAt ?? Date.now());
     }
 
     {

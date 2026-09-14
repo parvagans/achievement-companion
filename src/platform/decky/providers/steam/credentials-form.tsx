@@ -2,6 +2,7 @@ import { type CSSProperties, useEffect, useState } from "react";
 import { Field, PanelSectionRow, TextField } from "@decky/ui";
 import { ACHIEVEMENT_COMPANION_COUNT_OPTIONS, type AchievementCompanionCount } from "@core/settings";
 import type { SteamProviderConfig } from "../../../../providers/steam";
+import type { SteamCredentialSaveResult } from "./connection";
 import {
   DeckyCredentialTextField,
   getDeckyCredentialTextFieldMaskStyle,
@@ -27,7 +28,7 @@ export interface DeckySteamProviderCredentialsFormProps {
   readonly onSave: (
     config: Omit<SteamProviderConfig, "hasApiKey">,
     apiKeyDraft: string,
-  ) => boolean | Promise<boolean>;
+  ) => boolean | SteamCredentialSaveResult | Promise<boolean | SteamCredentialSaveResult>;
   readonly onClear?: () => boolean | Promise<boolean>;
 }
 
@@ -215,7 +216,7 @@ export function DeckySteamProviderCredentialsForm({
     }
 
     try {
-      const saved = await onSave(
+      const saveResult = await onSave(
         {
           steamId64: trimmedSteamId64,
           language: language.trim() || "english",
@@ -225,7 +226,7 @@ export function DeckySteamProviderCredentialsForm({
         },
         apiKeyDraft,
       );
-      setStatusCopy(saved ? "Provider settings saved." : "Unable to save provider settings right now.");
+      setStatusCopy(typeof saveResult === "boolean" ? saveResult ? "Provider settings saved." : "Unable to save provider settings right now." : saveResult.userMessage);
     } catch {
       setStatusCopy("Unable to save provider settings right now.");
     }

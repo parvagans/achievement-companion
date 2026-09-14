@@ -3,6 +3,8 @@ import type { ResourceState } from "@core/cache";
 import type { DashboardSnapshot, RecentUnlock, RecentlyPlayedGame } from "@core/domain";
 import type { RetroAchievementsConnectionState } from "./providers/retroachievements/connection";
 import { getRetroAchievementsConnectionBanner } from "./providers/retroachievements/connection";
+import type { SteamConnectionState } from "./providers/steam/connection";
+import { getSteamConnectionBanner } from "./providers/steam/connection";
 import { Field, Focusable, PanelSection, PanelSectionRow } from "@decky/ui";
 import { PlaceholderState } from "@ui/PlaceholderState";
 import {
@@ -72,6 +74,8 @@ export interface DeckyDashboardViewProps {
   readonly onRefreshDashboard: () => void;
   readonly retroAchievementsConnectionState?: RetroAchievementsConnectionState;
   readonly onUpdateRetroAchievementsCredentials?: () => void;
+  readonly steamConnectionState?: SteamConnectionState;
+  readonly onUpdateSteamCredentials?: () => void;
 }
 
 function formatCount(value: number): string {
@@ -1352,6 +1356,8 @@ export function DeckyDashboardView({
   onRefreshDashboard,
   retroAchievementsConnectionState,
   onUpdateRetroAchievementsCredentials,
+  steamConnectionState,
+  onUpdateSteamCredentials,
 }: DeckyDashboardViewProps): JSX.Element {
   const compactProviderBackButtonRef = useCallback((node: HTMLDivElement | null) => {
     ensureCompactProviderCancelBridgeRegisteredForBackButtonElement(node);
@@ -1427,6 +1433,11 @@ export function DeckyDashboardView({
               ) : null}
             </div>
           </PanelSectionRow>
+        </PanelSection>
+      ) : null}
+      {profile.providerId === STEAM_PROVIDER_ID && steamConnectionState !== undefined && getSteamConnectionBanner(steamConnectionState) !== undefined ? (
+        <PanelSection title={steamConnectionState.status === "authentication-required" ? "Authentication required" : steamConnectionState.status === "account-invalid" ? "Steam account needs attention" : steamConnectionState.status === "privacy-restricted" ? "Steam data restricted" : "Steam unavailable"}>
+          <PanelSectionRow><div style={getOverviewProgressBlockStyle()}><div style={getProfileMetaStyle()}>{getSteamConnectionBanner(steamConnectionState)}</div>{(steamConnectionState.status === "authentication-required" || steamConnectionState.status === "account-invalid") && onUpdateSteamCredentials !== undefined ? <div style={getOverviewPrimaryActionRowStyle()}><DeckyCompactPillActionItem emphasis="primary" label="Update credentials" onClick={onUpdateSteamCredentials} stretch /></div> : null}</div></PanelSectionRow>
         </PanelSection>
       ) : null}
       <div style={getProviderIdentitySectionStyle()}>

@@ -17,6 +17,19 @@ export interface SteamTransport {
   requestJson<T>(request: SteamTransportRequest): Promise<T>;
 }
 
+/** A structured, credential-safe failure emitted by the Steam transport. */
+export class SteamRequestError extends Error {
+  public constructor(
+    message: string,
+    public readonly path: string,
+    public readonly statusCode?: number,
+    public readonly category: "network" | "http" | "unknown" = "unknown",
+  ) {
+    super(message);
+    this.name = "SteamRequestError";
+  }
+}
+
 export interface FetchSteamTransportOptions {
   readonly baseUrl?: string;
   readonly fetchImpl?: typeof fetch;
@@ -103,7 +116,12 @@ export function createFetchSteamTransport(
           } as T;
         }
         const detail = bodyText !== undefined ? `: ${bodyText}` : "";
-        throw new Error(`Steam request failed with ${response.status} ${response.statusText}${detail}`);
+        throw new SteamRequestError(
+          `Steam request failed with ${response.status} ${response.statusText}${detail}`,
+          path,
+          response.status,
+          "http",
+        );
       }
 
       return response.json() as Promise<T>;

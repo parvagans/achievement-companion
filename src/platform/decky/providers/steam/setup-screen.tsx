@@ -4,7 +4,7 @@ import type { ProviderId } from "@core/domain";
 import { STEAM_PROVIDER_ICON_SRC } from "./icon";
 import { DeckyCompactPillActionItem } from "../../decky-compact-pill-action-item";
 import { DeckySteamProviderCredentialsForm } from "./credentials-form";
-import { useDeckySteamProviderConfig, writeDeckySteamProviderConfig } from "./config";
+import { useDeckySteamProviderConfig, writeValidatedDeckySteamProviderConfig } from "./config";
 import { STEAM_PROVIDER_ID } from "../../../../providers/steam";
 
 export interface DeckySteamSetupScreenProps {
@@ -169,7 +169,7 @@ export function DeckySteamSetupScreen({
           statusLabel="Account status"
           saveLabel="Save provider settings"
           compactSurface
-          onSave={(nextConfig, apiKeyDraft) => writeDeckySteamProviderConfig(nextConfig, apiKeyDraft)}
+          onSave={(nextConfig, apiKeyDraft) => writeValidatedDeckySteamProviderConfig(nextConfig, apiKeyDraft)}
         />
       </PanelSection>
     </div>

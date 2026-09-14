@@ -64,7 +64,6 @@ export const deckyProviderConfigStore: ProviderConfigStore<DeckyProviderConfigVa
       );
       if (savedConfig !== undefined) {
         updateDeckyProviderConfigCache(STEAM_PROVIDER_ID, savedConfig);
-        clearDeckyDashboardSnapshot(STEAM_PROVIDER_ID);
       }
       return savedConfig;
     }
@@ -412,7 +411,6 @@ export async function saveDeckySteamCredentials(args: {
 
   if (savedConfig !== undefined) {
     updateDeckyProviderConfigCache(STEAM_PROVIDER_ID, savedConfig);
-    clearDeckyDashboardSnapshot(STEAM_PROVIDER_ID);
   }
 
   return savedConfig;
