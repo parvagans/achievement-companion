@@ -22,15 +22,11 @@ import {
 import type { DeckyFullScreenGameMetadataPill } from "./decky-full-screen-game-metadata-pills";
 import { DeckyRetroAchievementsGameSpotlight } from "./decky-retroachievements-game-spotlight";
 import { DeckySteamGameSpotlight } from "./decky-steam-game-spotlight";
-import {
-  dedupeDistinctLabels,
-  shouldRenderAchievementModeFilter,
-} from "./decky-achievement-detail-helpers";
+import { shouldRenderAchievementModeFilter } from "./decky-achievement-detail-helpers";
 import { sortAchievementsForDisplay } from "./decky-game-detail-ordering";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
-import { formatDeckyProviderLabel } from "./providers";
 
 export interface DeckyFullScreenGamePageProps {
   readonly providerId: string | undefined;
@@ -215,12 +211,10 @@ export function DeckyFullScreenGamePage({
   const filteredAchievementCount = filteredAchievements.length;
   const completionPercent = getCompletionPercent(snapshot.game.summary);
   const achievements = filteredAchievements;
-  const providerLabel = formatDeckyProviderLabel(providerId ?? game.providerId);
   const isCachedView = state.status === "stale";
   const snapshotSourceLabel = isCachedView ? "Cached snapshot" : "Live snapshot";
   const refreshTimestamp = state.lastUpdatedAt ?? snapshot.refreshedAt;
   const totalAchievementCount = summary.totalCount ?? snapshot.achievements.length;
-  const heroMetaPills = dedupeDistinctLabels([providerLabel, snapshotSourceLabel]);
   const gameMetadataPills = buildGameMetadataPills(
     game.metrics,
     isSteamProvider || game.communityStats === undefined,
@@ -242,7 +236,6 @@ export function DeckyFullScreenGamePage({
                   totalAchievementCount={totalAchievementCount}
                   completionPercent={completionPercent}
                   completionTone="default"
-                  metadataLabels={heroMetaPills}
                   metadataPills={gameMetadataPills}
                   backLabel={backLabel}
                   onBack={onBack}
@@ -255,7 +248,6 @@ export function DeckyFullScreenGamePage({
                   game={game}
                   achievements={snapshot.achievements}
                   totalAchievementCount={totalAchievementCount}
-                  metadataLabels={heroMetaPills}
                   metadataPills={gameMetadataPills}
                   backLabel={backLabel}
                   onBack={onBack}

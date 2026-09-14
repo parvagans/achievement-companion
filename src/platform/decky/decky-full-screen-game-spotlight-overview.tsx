@@ -38,16 +38,6 @@ function getOverviewTitleStyle(): CSSProperties {
   };
 }
 
-function getPillRowStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: 8,
-    width: "100%",
-  };
-}
-
 function getInfoPillStyle(): CSSProperties {
   return {
     display: "inline-flex",
@@ -79,7 +69,6 @@ function getHeroStyle(): CSSProperties {
 
 export interface DeckyFullScreenGameSpotlightOverviewProps {
   readonly title: string;
-  readonly metadataLabels: readonly string[];
   readonly artwork: ReactNode | undefined;
   readonly backLabel: string;
   readonly onBack: () => void;
@@ -89,7 +78,6 @@ export interface DeckyFullScreenGameSpotlightOverviewProps {
 
 export function DeckyFullScreenGameSpotlightOverview({
   title,
-  metadataLabels,
   artwork,
   backLabel,
   onBack,
@@ -109,13 +97,6 @@ export function DeckyFullScreenGameSpotlightOverview({
             />
           ) : null}
           <div style={getOverviewTitleStyle()}>{title}</div>
-          <div style={getPillRowStyle()}>
-            {metadataLabels.map((label) => (
-              <span key={label} style={getInfoPillStyle()}>
-                {label}
-              </span>
-            ))}
-          </div>
         </div>
 
         {artwork !== undefined ? <div style={getHeroStyle()}>{artwork}</div> : null}

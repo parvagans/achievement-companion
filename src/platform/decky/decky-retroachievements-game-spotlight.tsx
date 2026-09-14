@@ -84,7 +84,6 @@ export interface DeckyRetroAchievementsGameSpotlightProps {
   readonly game: RetroAchievementsGame;
   readonly achievements: readonly NormalizedAchievement[];
   readonly totalAchievementCount: number;
-  readonly metadataLabels: readonly string[];
   readonly metadataPills: readonly DeckyFullScreenGameMetadataPill[];
   readonly backLabel: string;
   readonly onBack: () => void;
@@ -95,7 +94,6 @@ export function DeckyRetroAchievementsGameSpotlight({
   game,
   achievements,
   totalAchievementCount,
-  metadataLabels,
   metadataPills,
   backLabel,
   onBack,
@@ -133,7 +131,6 @@ export function DeckyRetroAchievementsGameSpotlight({
     <div style={getLayoutStyle()}>
       <DeckyFullScreenGameSpotlightOverview
         title={game.title}
-        metadataLabels={metadataLabels}
         artwork={
           artworkUrl !== undefined ? (
             <DeckyRetroAchievementsFullscreenGameArtwork
