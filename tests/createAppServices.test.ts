@@ -844,6 +844,10 @@ const deckyBackendTestCallImplementation = async (route: string, payload: unknow
     return { ok: true };
   }
 
+  if (route === "validate_steam_credentials") {
+    return { ok: true };
+  }
+
   if (route === "request_retroachievements_json") {
     const path = typeof record?.path === "string" ? record.path : "";
     if (path === "API_GetConsoleIDs.php") {

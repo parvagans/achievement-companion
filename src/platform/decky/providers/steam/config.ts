@@ -22,6 +22,12 @@ import {
   useDeckyProviderConfig as useDeckyProviderConfigFromStore,
   updateDeckyProviderConfigCache,
 } from "../provider-config-store";
+import {
+  clearSteamConnectionState,
+  readSteamConnectionState,
+  validateAndSaveSteamConfiguration,
+  type SteamCredentialSaveResult,
+} from "./connection";
 
 export type { SteamProviderConfig } from "../../../../providers/steam/config";
 export type { DeckyProviderConfigs };
@@ -326,20 +332,31 @@ export async function writeDeckySteamProviderConfig(
   config: Omit<SteamProviderConfig, "hasApiKey">,
   apiKeyDraft: string,
 ): Promise<boolean> {
-  const savedConfig = await saveDeckySteamCredentials({
-    steamId64: config.steamId64,
-    language: config.language,
-    recentAchievementsCount: config.recentAchievementsCount,
-    recentlyPlayedCount: config.recentlyPlayedCount,
-    includePlayedFreeGames: config.includePlayedFreeGames,
-    apiKeyDraft,
-  });
-  return savedConfig !== undefined;
+  return (await writeValidatedDeckySteamProviderConfig(config, apiKeyDraft)).saved;
+}
+
+export async function writeValidatedDeckySteamProviderConfig(
+  config: Omit<SteamProviderConfig, "hasApiKey">,
+  apiKeyDraft: string,
+): Promise<SteamCredentialSaveResult> {
+  if (apiKeyDraft.trim().length === 0) {
+    const saved = await saveDeckySteamCredentials({
+      steamId64: config.steamId64,
+      language: config.language,
+      recentAchievementsCount: config.recentAchievementsCount,
+      recentlyPlayedCount: config.recentlyPlayedCount,
+      includePlayedFreeGames: config.includePlayedFreeGames,
+      apiKeyDraft,
+    });
+    return { saved: saved !== undefined, userMessage: saved !== undefined ? "Provider settings saved." : "Unable to save provider settings right now.", connectionState: readSteamConnectionState() };
+  }
+  return validateAndSaveSteamConfiguration({ config, apiKeyDraft, save: saveDeckySteamCredentials });
 }
 
 export async function clearDeckySteamProviderConfig(): Promise<boolean> {
   const cleared = await clearDeckySteamAccountStateFromStore();
   if (cleared) {
+    clearSteamConnectionState();
     clearDeckySteamLibraryAchievementScanSummary();
     removeDeckyStorageTextsByPrefix(DECKY_RECENT_ACHIEVEMENTS_STORAGE_KEY_PREFIX);
     clearDeckyDashboardSnapshot(STEAM_PROVIDER_ID);
@@ -351,6 +368,7 @@ export async function clearDeckySteamProviderConfig(): Promise<boolean> {
 export async function clearDeckySteamAccountState(): Promise<boolean> {
   const cleared = await clearDeckySteamAccountStateFromStore();
   if (cleared) {
+    clearSteamConnectionState();
     clearDeckySteamLibraryAchievementScanSummary();
     removeDeckyStorageTextsByPrefix(DECKY_RECENT_ACHIEVEMENTS_STORAGE_KEY_PREFIX);
     clearDeckyDashboardSnapshot(STEAM_PROVIDER_ID);

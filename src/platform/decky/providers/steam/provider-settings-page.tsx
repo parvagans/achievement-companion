@@ -11,7 +11,7 @@ import {
   clearDeckySteamAccountState,
   useDeckySteamLibraryAchievementScanSummary,
   useDeckySteamProviderConfig,
-  writeDeckySteamProviderConfig,
+  writeValidatedDeckySteamProviderConfig,
 } from "./config";
 import { DeckySteamProviderCredentialsForm } from "./credentials-form";
 import {
@@ -258,7 +258,7 @@ export function DeckySteamProviderSettingsPage({
               statusLabel="Account status"
               saveLabel="Save provider settings"
               clearLabel="Sign out"
-              onSave={(nextConfig, apiKeyDraft) => writeDeckySteamProviderConfig(nextConfig, apiKeyDraft)}
+              onSave={(nextConfig, apiKeyDraft) => writeValidatedDeckySteamProviderConfig(nextConfig, apiKeyDraft)}
               onClear={() => clearDeckySteamAccountState()}
             />
           </PanelSection>

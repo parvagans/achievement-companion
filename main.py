@@ -415,6 +415,10 @@ class Plugin:
           handled_http_statuses.add(int(status_value))
       if len(handled_http_statuses) == 0:
         handled_http_statuses = None
+    if handled_http_statuses is None:
+      handled_http_statuses = {401, 403, 429}
+    else:
+      handled_http_statuses.update({401, 403, 429})
     return _request_json(
       provider_id="steam",
       provider_label="Steam",
@@ -427,6 +431,33 @@ class Plugin:
       },
       handled_http_statuses=handled_http_statuses,
     )
+
+  async def validate_steam_credentials(self, payload: dict[str, Any]) -> dict[str, Any]:
+    steam_id64 = _coerce_string(payload.get("steamId64"))
+    api_key = _coerce_string(payload.get("apiKey"))
+    if steam_id64 is None or api_key is None:
+      return {"ok": False, "failure": {"category": "account"}}
+    if not steam_id64.isdigit() or not 15 <= len(steam_id64) <= 20:
+      return {"ok": False, "failure": {"category": "account"}}
+
+    try:
+      response = _request_json(
+        provider_id="steam",
+        provider_label="Steam",
+        base_url="https://api.steampowered.com/",
+        path="ISteamUser/GetPlayerSummaries/v2/",
+        query={"steamids": steam_id64, "format": "json"},
+        auth_query={"steamid": steam_id64, "key": api_key},
+        handled_http_statuses={401, 403, 429},
+      )
+      if isinstance(response, Mapping) and response.get("handledHttpError") is True:
+        return {"ok": False, "failure": {"category": "http", "statusCode": response.get("status")}}
+      players = response.get("response", {}).get("players") if isinstance(response, Mapping) else None
+      if not isinstance(players, list) or len(players) == 0:
+        return {"ok": False, "failure": {"category": "account"}}
+      return {"ok": True}
+    except _ProviderRequestError as cause:
+      return {"ok": False, "failure": {"category": cause.category, **({"statusCode": cause.status_code} if cause.status_code is not None else {})}}
 
   async def get_steam_shortcut_metadata(self, payload: dict[str, Any]) -> dict[str, Any] | None:
     raw_app_id = payload.get("appId")
