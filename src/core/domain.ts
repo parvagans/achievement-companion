@@ -41,6 +41,15 @@ export interface ProgressSummary {
   readonly completionPercent?: number;
 }
 
+/** Provider-normalized, optional community enrichment for an individual game. */
+export interface GameCommunityStats {
+  readonly totalPlayers?: number;
+  readonly masteredPlayers?: number;
+  readonly masteryPercent?: number;
+  readonly medianBeatSeconds?: number;
+  readonly medianMasterySeconds?: number;
+}
+
 export interface NormalizedProfile {
   readonly providerId: ProviderId;
   readonly identity: ProviderIdentity;
@@ -86,6 +95,7 @@ export interface NormalizedGame {
   readonly status: GameProgressStatus;
   readonly summary: ProgressSummary;
   readonly metrics: readonly NormalizedMetric[];
+  readonly communityStats?: GameCommunityStats;
   readonly playtimeForeverMinutes?: number;
   readonly playtimeTwoWeeksMinutes?: number;
   readonly playtimeDeckForeverMinutes?: number;

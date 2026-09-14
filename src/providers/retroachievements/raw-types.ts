@@ -313,3 +313,19 @@ export interface RawRetroAchievementsSummaryResponse {
   readonly LastGameID?: number | string;
   readonly lastGameId?: number | string;
 }
+
+/** The distribution maps an exact achievement-unlock count to its player count. */
+export type RawRetroAchievementsAchievementDistributionResponse = Readonly<Record<string, number | string>>;
+
+export interface RawRetroAchievementsGameProgressionResponse {
+  readonly NumDistinctPlayers?: number | string;
+  readonly numDistinctPlayers?: number | string;
+  readonly TimesUsedInHardcoreBeatMedian?: number | string;
+  readonly timesUsedInHardcoreBeatMedian?: number | string;
+  readonly MedianTimeToBeatHardcore?: number | string;
+  readonly medianTimeToBeatHardcore?: number | string;
+  readonly TimesUsedInMasteryMedian?: number | string;
+  readonly timesUsedInMasteryMedian?: number | string;
+  readonly MedianTimeToMaster?: number | string;
+  readonly medianTimeToMaster?: number | string;
+}

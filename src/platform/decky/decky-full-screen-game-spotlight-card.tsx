@@ -1,4 +1,6 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, FocusEventHandler, ReactNode } from "react";
+import { Focusable, type FocusableProps } from "@decky/ui";
+import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 
 function getCardStyle(): CSSProperties {
   return {
@@ -39,10 +41,17 @@ export function DeckyFullScreenGameSpotlightCard({
   children,
   style,
 }: DeckyFullScreenGameSpotlightCardProps): JSX.Element {
+  const onFocus: FocusEventHandler<HTMLElement> = (event) => {
+    scrollDeckyFocusTargetIntoView(event.currentTarget);
+  };
+  const onGamepadFocus: NonNullable<FocusableProps["onGamepadFocus"]> = (event) => {
+    scrollDeckyFocusTargetIntoView(event.currentTarget);
+  };
+
   return (
-    <div style={{ ...getCardStyle(), ...style }}>
+    <Focusable noFocusRing onActivate={() => {}} onFocus={onFocus} onGamepadFocus={onGamepadFocus} style={{ ...getCardStyle(), ...style }}>
       <div style={getHeaderStyle()}>{title}</div>
       {children}
-    </div>
+    </Focusable>
   );
 }

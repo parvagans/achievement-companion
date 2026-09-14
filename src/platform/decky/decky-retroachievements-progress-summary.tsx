@@ -4,10 +4,8 @@ import {
   DeckyCompletionProgressBar,
   type DeckyCompletionProgressBarTone,
 } from "./decky-completion-progress-bar";
-import { DeckyFullScreenGameMetadataPills, type DeckyFullScreenGameMetadataPill } from "./decky-full-screen-game-metadata-pills";
 import { DeckyFullScreenGameProgressStat } from "./decky-full-screen-game-progress-stat";
 import { DeckyFullScreenGameSpotlightCard } from "./decky-full-screen-game-spotlight-card";
-import { DeckyRetroAchievementsModeProgressCards } from "./decky-retroachievements-mode-progress-cards";
 import { RetroAchievementsCompletionIndicator } from "./decky-retroachievements-completion-indicator";
 
 type RetroAchievementsGame = GameDetailSnapshot["game"];
@@ -91,11 +89,6 @@ export interface DeckyRetroAchievementsProgressSummaryProps {
   readonly completionAtText: string | undefined;
   readonly unlockedValue: string;
   readonly totalValue: string;
-  readonly metadataPills: readonly DeckyFullScreenGameMetadataPill[];
-  readonly hardcorePoints: number | undefined;
-  readonly softcorePoints: number | undefined;
-  readonly showHardcoreModeCard: boolean;
-  readonly showSoftcoreModeCard: boolean;
 }
 
 export function DeckyRetroAchievementsProgressSummary({
@@ -107,14 +100,9 @@ export function DeckyRetroAchievementsProgressSummary({
   completionAtText,
   unlockedValue,
   totalValue,
-  metadataPills,
-  hardcorePoints,
-  softcorePoints,
-  showHardcoreModeCard,
-  showSoftcoreModeCard,
 }: DeckyRetroAchievementsProgressSummaryProps): JSX.Element {
   return (
-    <DeckyFullScreenGameSpotlightCard title="Progress Summary" style={getCardStyle()}>
+    <DeckyFullScreenGameSpotlightCard title="Your Progress" style={getCardStyle()}>
       {completionStatusLabel !== undefined && completionStatusAriaLabel !== undefined ? (
         <div style={getCompletionStatusBlockStyle()}>
           <div
@@ -139,14 +127,6 @@ export function DeckyRetroAchievementsProgressSummary({
         <DeckyFullScreenGameProgressStat label="Unlocked" value={unlockedValue} />
         <DeckyFullScreenGameProgressStat label="Total" value={totalValue} />
       </div>
-      <DeckyFullScreenGameMetadataPills pills={metadataPills} />
-      <DeckyRetroAchievementsModeProgressCards
-        game={game}
-        hardcorePoints={hardcorePoints}
-        softcorePoints={softcorePoints}
-        showHardcore={showHardcoreModeCard}
-        showSoftcore={showSoftcoreModeCard}
-      />
     </DeckyFullScreenGameSpotlightCard>
   );
 }

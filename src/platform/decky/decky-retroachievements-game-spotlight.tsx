@@ -15,6 +15,10 @@ import { DeckyFullScreenGameSpotlightOverview } from "./decky-full-screen-game-s
 import type { DeckyFullScreenGameMetadataPill } from "./decky-full-screen-game-metadata-pills";
 import { DeckyRetroAchievementsFullscreenGameArtwork } from "./decky-retroachievements-fullscreen-game-artwork";
 import { DeckyRetroAchievementsProgressSummary } from "./decky-retroachievements-progress-summary";
+import { DeckyRetroAchievementsCommunityStats } from "./decky-retroachievements-community-stats";
+import { DeckyRetroAchievementsModeProgressCards } from "./decky-retroachievements-mode-progress-cards";
+import { DeckyRetroAchievementsSetDetails } from "./decky-retroachievements-set-details";
+import { DeckyFullScreenGameSpotlightCard } from "./decky-full-screen-game-spotlight-card";
 
 type RetroAchievementsGame = GameDetailSnapshot["game"];
 type AchievementMode = "hardcore" | "softcore";
@@ -25,21 +29,19 @@ function formatCount(value: number): string {
 
 function getLayoutStyle(): CSSProperties {
   return {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+    display: "flex",
+    flexDirection: "column",
     gap: 12,
     width: "100%",
     alignItems: "stretch",
   };
 }
 
-function getStatsStyle(): CSSProperties {
+function getSummaryGridStyle(hasCommunityStats: boolean): CSSProperties {
   return {
-    minWidth: 0,
-    display: "flex",
-    flexDirection: "column",
+    display: "grid",
+    gridTemplateColumns: hasCommunityStats ? "repeat(auto-fit, minmax(320px, 1fr))" : "1fr",
     gap: 12,
-    height: "100%",
   };
 }
 
@@ -149,7 +151,7 @@ export function DeckyRetroAchievementsGameSpotlight({
         }}
       />
 
-      <div style={getStatsStyle()}>
+      <div style={getSummaryGridStyle(game.communityStats !== undefined)}>
         <DeckyRetroAchievementsProgressSummary
           game={game}
           completionPercent={getCompletionPercent(game.summary)}
@@ -159,13 +161,21 @@ export function DeckyRetroAchievementsGameSpotlight({
           completionAtText={completionAtText}
           unlockedValue={formatCount(game.summary.unlockedCount)}
           totalValue={formatCount(totalAchievementCount)}
-          metadataPills={metadataPills}
-          hardcorePoints={hardcorePoints}
-          softcorePoints={softcorePoints}
-          showHardcoreModeCard={showHardcoreModeCard}
-          showSoftcoreModeCard={showSoftcoreModeCard}
         />
+        <DeckyRetroAchievementsCommunityStats stats={game.communityStats} />
       </div>
+      {showHardcoreModeCard || showSoftcoreModeCard ? (
+        <DeckyFullScreenGameSpotlightCard title="Mode Progress">
+          <DeckyRetroAchievementsModeProgressCards
+            game={game}
+            hardcorePoints={hardcorePoints}
+            softcorePoints={softcorePoints}
+            showHardcore={showHardcoreModeCard}
+            showSoftcore={showSoftcoreModeCard}
+          />
+        </DeckyFullScreenGameSpotlightCard>
+      ) : null}
+      <DeckyRetroAchievementsSetDetails details={metadataPills} />
     </div>
   );
 }

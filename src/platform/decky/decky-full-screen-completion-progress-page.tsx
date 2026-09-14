@@ -24,11 +24,14 @@ import { formatDeckyProviderLabel } from "./providers";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
 import {
   countCompletionProgressSubsetGames,
+  buildRetroAchievementsCompletionCollection,
   filterCompletionProgressGamesBySubsetVisibility,
   formatCompletionProgressSubsetSummary as formatCompletionProgressSubsetSummaryFromGrouping,
   groupCompletionProgressGames,
   summarizeCompletionProgressSummaryBySubsetVisibility,
   type CompletionProgressGameGroup,
+  sortCompletionProgressGroups,
+  type CompletionProgressSort,
 } from "./decky-completion-progress-grouping";
 import {
   buildCompletionProgressSummaryCards,
@@ -38,7 +41,6 @@ import {
 import {
   formatCompletionProgressFilterLabelForProvider,
   formatCompletionProgressStatusLabel,
-  formatCompletionProgressSummary,
   formatSteamPlaytimeMinutes,
   getSteamCompletionProgressGameDetailId,
 } from "./decky-stat-helpers";
@@ -49,6 +51,11 @@ import {
 
 const COMPLETION_PROGRESS_INITIAL_GAME_LIMIT = 12;
 const COMPLETION_PROGRESS_GAME_LOAD_STEP = 12;
+const COMPLETION_PROGRESS_SORT_OPTIONS: readonly { readonly value: CompletionProgressSort; readonly label: string }[] = [
+  { value: "recent", label: "Most Recent" },
+  { value: "title", label: "Title" },
+  { value: "completion", label: "Completion %" },
+];
 
 export interface DeckyFullScreenCompletionProgressPageProps {
   readonly providerId: string | undefined;
@@ -159,8 +166,9 @@ function getBrowserTitleStyle(): CSSProperties {
 function getBrowserSummaryStyle(): CSSProperties {
   return {
     color: "rgba(255, 255, 255, 0.92)",
-    fontSize: "0.94em",
-    lineHeight: 1.35,
+    fontSize: "1.05em",
+    fontWeight: 700,
+    lineHeight: 1.25,
   };
 }
 
@@ -283,6 +291,71 @@ function formatCompletionProgressSubsetSummary(
   showSubsets: boolean,
 ): string | undefined {
   return showSubsets ? formatCompletionProgressSubsetSummaryFromGrouping(group) : undefined;
+}
+
+function getSortLabelStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.6)", fontSize: "0.72em", fontWeight: 800,
+    letterSpacing: "0.1em", lineHeight: 1.2, textTransform: "uppercase",
+  };
+}
+
+function getBrowserBreakdownStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.68)",
+    fontSize: "0.88em",
+    lineHeight: 1.35,
+  };
+}
+
+function getBrowserViewContextStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    paddingTop: 12,
+    borderTop: "1px solid rgba(255, 255, 255, 0.07)",
+  };
+}
+
+function getSortControlStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 8,
+    width: "100%",
+    boxSizing: "border-box",
+    marginBottom: 10,
+    padding: 12,
+    borderRadius: 16,
+    border: "1px solid rgba(255, 255, 255, 0.075)",
+    background: "rgba(255, 255, 255, 0.025)",
+  };
+}
+
+function formatBrowserSelectionSummary(args: {
+  readonly filter: CompletionProgressSelectionFilter;
+  readonly summary: CompletionProgressSnapshot["summary"];
+  readonly providerId: string;
+}): string {
+  if (args.filter === "subsets") {
+    return "Subset games are tracked separately from your played-game total.";
+  }
+
+  if (args.filter === "all") {
+    return "Viewing all played games.";
+  }
+
+  const label = formatCompletionProgressFilterLabelForProvider(
+    args.filter,
+    args.providerId,
+  );
+  const count = args.filter === "unfinished"
+    ? args.summary.unfinishedCount
+    : args.filter === "beaten"
+      ? args.summary.beatenCount
+      : args.summary.masteredCount;
+  return `${label} games: ${formatCount(count)}.`;
 }
 
 function getCompletionProgressRowTone(
@@ -419,6 +492,7 @@ function CompletionProgressBrowser({
   canShowAllGames,
   onOpenGameDetail,
   providerId,
+  sort,
 }: {
   readonly currentFilter: CompletionProgressSelectionFilter;
   readonly showSubsets: boolean;
@@ -431,13 +505,22 @@ function CompletionProgressBrowser({
   readonly canShowAllGames: boolean;
   readonly onOpenGameDetail: (gameId: string) => void;
   readonly providerId: string;
+  readonly sort: CompletionProgressSort;
 }): JSX.Element {
   return (
     <div style={getBrowserCardStyle()}>
       <div style={getBrowserTitleStyle()}>Browse</div>
-      <div style={getBrowserSummaryStyle()}>{formatCompletionProgressSummary(summary, providerId)}</div>
-      <div style={getBrowserMetaStyle()}>
-        {`Showing ${formatCount(visibleGroups.length)} of ${formatCount(filteredGroupCount)} grouped games in this filter.`}
+      <div style={getBrowserSummaryStyle()}>{`${formatCount(summary.playedCount)} games played`}</div>
+      <div style={getBrowserBreakdownStyle()}>
+        {`${formatCount(summary.unfinishedCount)} unfinished · ${formatCount(summary.beatenCount)} beaten · ${formatCount(summary.masteredCount)} mastered`}
+      </div>
+      <div style={getBrowserViewContextStyle()}>
+        <div style={getBrowserMetaStyle()}>
+          {formatBrowserSelectionSummary({ filter: currentFilter, summary, providerId })}
+        </div>
+        <div style={getBrowserMetaStyle()}>
+          {`Showing ${formatCount(visibleGroups.length)} of ${formatCount(filteredGroupCount)} games · ${COMPLETION_PROGRESS_SORT_OPTIONS.find((option) => option.value === sort)?.label ?? "Most Recent"} first`}
+        </div>
       </div>
 
       {visibleGroups.length > 0 ? (
@@ -511,6 +594,7 @@ export function DeckyFullScreenCompletionProgressPage({
   );
   const [visibleGameLimit, setVisibleGameLimit] = useState(COMPLETION_PROGRESS_INITIAL_GAME_LIMIT);
   const [isShowingAllGames, setIsShowingAllGames] = useState(false);
+  const [sort, setSort] = useState<CompletionProgressSort>("recent");
   const loadSelectedCompletionProgress = useMemo(() => {
     if (providerId === undefined) {
       return () => Promise.resolve(initialDeckyCompletionProgressState);
@@ -557,9 +641,9 @@ export function DeckyFullScreenCompletionProgressPage({
     visibleGames,
     deckySettings.showCompletionProgressSubsets,
   );
-  const filteredGroups = groupedGames.filter((gameGroup) =>
+  const filteredGroups = sortCompletionProgressGroups(groupedGames.filter((gameGroup) =>
     matchesCompletionProgressFilter(gameGroup, currentFilter, deckySettings.showCompletionProgressSubsets),
-  );
+  ), sort);
   const filteredGroupCount = filteredGroups.length;
   const effectiveGameLimit = isShowingAllGames ? filteredGroupCount : visibleGameLimit;
   const canLoadMoreGames = !isShowingAllGames && effectiveGameLimit < filteredGroupCount;
@@ -579,9 +663,12 @@ export function DeckyFullScreenCompletionProgressPage({
     snapshot.games,
     deckySettings.showCompletionProgressSubsets,
   );
-  const subsetCount = countCompletionProgressSubsetGames(snapshot.games);
+  const retroAchievementsCollection = snapshot.providerId === STEAM_PROVIDER_ID
+    ? undefined
+    : buildRetroAchievementsCompletionCollection(snapshot);
+  const subsetCount = retroAchievementsCollection?.subsetCount ?? countCompletionProgressSubsetGames(snapshot.games);
   const summaryCards = buildCompletionProgressSummaryCards({
-    summary: displaySummary,
+    summary: retroAchievementsCollection ?? displaySummary,
     subsetCount,
     providerId: snapshot.providerId,
     currentFilter,
@@ -632,10 +719,25 @@ export function DeckyFullScreenCompletionProgressPage({
           </PanelSection>
 
           <PanelSection title="Games">
+            <PanelSectionRow>
+              <div style={getSortControlStyle()}>
+                <div style={getSortLabelStyle()}>Sort by</div>
+                <DeckyFullscreenActionRow>
+                  {COMPLETION_PROGRESS_SORT_OPTIONS.map((option) => (
+                    <DeckyFullscreenActionButton
+                      key={option.value}
+                      label={option.label}
+                      selected={sort === option.value}
+                      onClick={() => { setSort(option.value); }}
+                    />
+                  ))}
+                </DeckyFullscreenActionRow>
+              </div>
+            </PanelSectionRow>
             <CompletionProgressBrowser
               currentFilter={currentFilter}
               showSubsets={deckySettings.showCompletionProgressSubsets}
-              summary={displaySummary}
+              summary={retroAchievementsCollection ?? displaySummary}
               visibleGroups={visibleGroups}
               filteredGroupCount={filteredGroupCount}
               onLoadMoreGames={() => {
@@ -646,6 +748,7 @@ export function DeckyFullScreenCompletionProgressPage({
               }}
               onOpenGameDetail={onOpenGameDetail}
               providerId={snapshot.providerId}
+              sort={sort}
               onShowAllGames={() => {
                 setIsShowingAllGames(true);
                 setVisibleGameLimit(filteredGroupCount);
