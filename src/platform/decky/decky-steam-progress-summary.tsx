@@ -33,7 +33,7 @@ export function DeckySteamProgressSummary({
   metadataPills,
 }: DeckySteamProgressSummaryProps): JSX.Element {
   return (
-    <DeckyFullScreenGameSpotlightCard title="Progress Summary">
+    <DeckyFullScreenGameSpotlightCard title="Progress Summary" focusable={false}>
       {completionPercent !== undefined ? (
         <DeckyCompletionProgressBar percent={completionPercent} tone={completionTone} />
       ) : null}

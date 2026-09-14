@@ -49,7 +49,7 @@ export function DeckyRetroAchievementsCommunityStats({
   }
 
   return (
-    <DeckyFullScreenGameSpotlightCard title="Community">
+    <DeckyFullScreenGameSpotlightCard title="Community" focusable={false}>
       <div style={getSectionStyle()}>
       <div style={getGridStyle()}>
         {entries.map((entry) => <DeckyFullScreenGameProgressStat key={entry.label} {...entry} />)}

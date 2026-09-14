@@ -2846,6 +2846,10 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     "src/platform/decky/decky-retroachievements-progress-summary.tsx",
     "utf8",
   );
+  const retroAchievementsCommunityStatsSource = readFileSync(
+    "src/platform/decky/decky-retroachievements-community-stats.tsx",
+    "utf8",
+  );
   const retroAchievementsGameSpotlightSource = readFileSync(
     "src/platform/decky/decky-retroachievements-game-spotlight.tsx",
     "utf8",
@@ -2865,12 +2869,17 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenGamePageSource, /PanelSection title="Game Spotlight"/);
   assert.match(fullScreenGamePageSource, /PanelSection title="Achievements"/);
   assert.doesNotMatch(fullScreenGamePageSource, /PanelSection title="Navigation"/);
+  assert.match(fullScreenGamePageSource, /FULLSCREEN_GAME_FOCUS_DIAGNOSTICS_CLASS/u);
+  assert.match(fullScreenGamePageSource, /\.Panel\.Focusable\.gpfocuswithin/u);
+  assert.match(fullScreenGamePageSource, /\.Panel\.Focusable\.gpfocus/u);
   assert.match(fullScreenAchievementBrowserSource, /ACHIEVEMENT_MODE_FILTERS = \["all", "hardcore", "softcore"\] as const;/);
   assert.match(fullScreenGamePageSource, /useState<AchievementModeFilter>\("all"\)/);
   assert.match(fullScreenGamePageSource, /useState<AchievementFilter>\("all"\)/);
   assert.match(fullScreenGamePageSource, /sortAchievementsForDisplay\(snapshot\.achievements\)/);
   assert.match(fullScreenGamePageSource, /DeckySteamGameSpotlight/u);
   assert.match(steamProgressSummarySource, /DeckyCompletionProgressBar[\s\S]*percent=\{completionPercent\}/);
+  assert.match(steamProgressSummarySource, /title="Progress Summary" focusable=\{false\}/u);
+  assert.match(retroAchievementsCommunityStatsSource, /title="Community" focusable=\{false\}/u);
   assert.match(
     fullScreenGamePageSource,
     /matchesAchievementFilter\(achievement, achievementFilter\)[\s\S]*matchesAchievementModeFilter\(achievement, achievementModeFilter\)/,
@@ -2901,6 +2910,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(steamGameSpotlightSource, /DeckyFullScreenGameSpotlightOverview[\s\S]*DeckySteamFullscreenGameArtwork/u);
   assert.match(steamGameSpotlightSource, /DeckySteamAchievementSpotlightCard/u);
   assert.match(steamGameSpotlightSource, /Latest Unlocks[\s\S]*Achievement Highlights/u);
+  assert.match(steamAchievementSpotlightCardSource, /title=\{title\}[\s\S]*focusable=\{false\}/u);
   assert.doesNotMatch(fullScreenGamePageSource, /Most recent unlocked achievements already loaded in this snapshot\./u);
   assert.match(steamGameSpotlightSource, /remainingValue=\{/u);
   assert.match(steamProgressSummarySource, /DeckyFullScreenGameProgressStat label="Remaining" value=\{remainingValue\}/u);
@@ -3002,6 +3012,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenAchievementBrowserSource, /AchievementFilterButton/);
   assert.match(fullScreenAchievementBrowserSource, /Focusable/);
   assert.match(fullScreenAchievementBrowserSource, /flow-children="left-right"/);
+  assert.match(fullScreenAchievementBrowserSource, /flow-children="left-right"\s+tabIndex=\{-1\}/u);
   assert.match(fullScreenAchievementBrowserSource, /ACHIEVEMENT_MODE_FILTERS\.map\(\(filter\)/);
   assert.match(fullScreenAchievementBrowserSource, /ACHIEVEMENT_FILTERS\.map\(\(filter\)/);
   assert.match(fullScreenAchievementBrowserSource, /role="button"/);
@@ -4062,6 +4073,7 @@ test("fullscreen action controls use Decky Focusable pills with unclipped labels
   );
   assert.doesNotMatch(fullscreenActionControlsSource, /\bButton\b|\bButtonItem\b|\bDialogButton\b/);
   assert.match(fullscreenActionControlsSource, /flow-children="left-right"/);
+  assert.match(fullscreenActionControlsSource, /flow-children="left-right"\s+noFocusRing\s+tabIndex=\{-1\}/u);
   assert.match(
     fullscreenActionControlsSource,
     /<Focusable[\s\S]*focusClassName=\{DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS\}[\s\S]*focusWithinClassName=\{DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS\}[\s\S]*role="button"[\s\S]*onActivate=\{handleClick\}[\s\S]*onClick=\{handleClick\}/u,

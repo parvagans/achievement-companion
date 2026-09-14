@@ -120,6 +120,28 @@ function formatAchievementStatusSummary(
 
 const FULLSCREEN_GAME_BOTTOM_SCROLL_PADDING = 88;
 const FULLSCREEN_GAME_TOP_PADDING = 42;
+const FULLSCREEN_GAME_FOCUS_DIAGNOSTICS_CLASS = "achievement-companion-fullscreen-game-focus-diagnostics";
+
+// Steam marks the current target and its focusable container separately. Distinct outlines make
+// invisible focus stops and parent-child focus transitions visible while testing controller paths.
+function FullScreenGameFocusDiagnostics(): JSX.Element {
+  return (
+    <style>{`
+.${FULLSCREEN_GAME_FOCUS_DIAGNOSTICS_CLASS} .Panel.Focusable.gpfocuswithin,
+.${FULLSCREEN_GAME_FOCUS_DIAGNOSTICS_CLASS} .Panel.Focusable:focus-within {
+  outline: 2px dashed rgba(56, 189, 248, 0.9) !important;
+  outline-offset: 3px !important;
+}
+
+.${FULLSCREEN_GAME_FOCUS_DIAGNOSTICS_CLASS} .Panel.Focusable.gpfocus,
+.${FULLSCREEN_GAME_FOCUS_DIAGNOSTICS_CLASS} .Panel.Focusable:focus {
+  outline: 3px solid rgba(250, 204, 21, 1) !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 5px rgba(250, 204, 21, 0.28) !important;
+}
+`}</style>
+  );
+}
 
 function getFullScreenPageFrameStyle(): CSSProperties {
   return {
@@ -161,7 +183,8 @@ export function DeckyFullScreenGamePage({
         <TopAlignedScrollViewport
           scrollKey={`full-screen-game:${providerId ?? "missing"}:${gameId ?? "missing"}`}
         >
-          <div style={getFullScreenPageFrameStyle()}>
+          <div className={FULLSCREEN_GAME_FOCUS_DIAGNOSTICS_CLASS} style={getFullScreenPageFrameStyle()}>
+            <FullScreenGameFocusDiagnostics />
             <PlaceholderState
               title="Full-screen game page"
               description={
@@ -208,7 +231,8 @@ export function DeckyFullScreenGamePage({
       <TopAlignedScrollViewport
         scrollKey={`full-screen-game:${providerId ?? game.providerId}:${game.gameId}`}
       >
-        <div style={getFullScreenPageFrameStyle()}>
+        <div className={FULLSCREEN_GAME_FOCUS_DIAGNOSTICS_CLASS} style={getFullScreenPageFrameStyle()}>
+          <FullScreenGameFocusDiagnostics />
           <PanelSection title="Game Spotlight">
             <PanelSectionRow>
               {isSteamProvider ? (

@@ -128,6 +128,7 @@ export function DeckySteamAchievementSpotlightCard({
   return (
     <DeckyFullScreenGameSpotlightCard
       title={title}
+      focusable={false}
       style={{ flex: "1 1 auto", minHeight: 0 }}
     >
       <div style={getListStyle()}>
