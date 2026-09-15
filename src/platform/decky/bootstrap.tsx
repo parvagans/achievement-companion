@@ -7,7 +7,19 @@ import {
   type CSSProperties,
   type FocusEventHandler,
 } from "react";
-import { Focusable, type FocusableProps, PanelSection, PanelSectionRow, useQuickAccessVisible } from "@decky/ui";
+import {
+  DropdownItem,
+  Focusable,
+  type FocusableProps,
+  PanelSection,
+  PanelSectionRow,
+  ToggleField,
+  useQuickAccessVisible,
+} from "@decky/ui";
+import {
+  GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS,
+  type GamePageAchievementBadgePosition,
+} from "@core/settings";
 import type { ResourceState } from "@core/cache";
 import type { DashboardSnapshot, GameDetailSnapshot, ProviderId } from "@core/domain";
 import { PlaceholderState } from "@ui/PlaceholderState";
@@ -43,7 +55,7 @@ import {
 import { shouldRefreshDashboardOnEntry } from "./dashboard-refresh";
 import { useRetroAchievementsConnectionState } from "./providers/retroachievements/connection";
 import { useSteamConnectionState } from "./providers/steam/connection";
-import { useDeckySettings } from "./decky-settings";
+import { readDeckySettings, saveDeckySettings, useDeckySettings } from "./decky-settings";
 import {
   DeckyCompactPillActionGroup,
   DeckyCompactPillActionItem,
@@ -79,6 +91,30 @@ interface SteamLibraryScanActionState {
 type ProviderLauncherTone = "connected" | "setup" | "neutral";
 
 const ACHIEVEMENT_COMPANION_VERSION = "0.3.4";
+
+const GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_LABELS: Readonly<
+  Record<GamePageAchievementBadgePosition, string>
+> = {
+  "top-left": "Top Left",
+  "top-center": "Top Center",
+  "top-right": "Top Right",
+  "bottom-left": "Bottom Left",
+  "bottom-center": "Bottom Center",
+  "bottom-right": "Bottom Right",
+};
+
+const GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_DROPDOWN_OPTIONS =
+  GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS.map((position) => ({
+    data: position,
+    label: GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_LABELS[position],
+  }));
+
+function isGamePageAchievementBadgePosition(value: unknown): value is GamePageAchievementBadgePosition {
+  return (
+    typeof value === "string" &&
+    GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS.includes(value as GamePageAchievementBadgePosition)
+  );
+}
 
 function getChooserCardStyle(): CSSProperties {
   return {
@@ -763,6 +799,7 @@ function GameDetailScreen({
 
 function DeckyBootstrapStateBridge(): JSX.Element {
   const providerConfigs = useDeckyProviderConfigs();
+  const settings = useDeckySettings();
   const quickAccessVisible = useQuickAccessVisible();
   const [selectedProviderId, setSelectedProviderId] = useState<ProviderId | undefined>(undefined);
   const [setupProviderId, setSetupProviderId] = useState<ProviderId | undefined>(undefined);
@@ -943,9 +980,10 @@ function DeckyBootstrapStateBridge(): JSX.Element {
         <>
           {selectedProviderId === undefined ? (
             <TopAlignedScrollViewport scrollKey="providers">
-              <PanelSection title="Providers">
-                <PanelSectionRow>
-                  <div style={getChooserCardStyle()}>
+              <>
+                <PanelSection title="Providers">
+                  <PanelSectionRow>
+                    <div style={getChooserCardStyle()}>
                     <div style={getChooserHeaderStyle()}>Achievement Companion</div>
                     <div style={getChooserTitleStyle()}>Choose a provider</div>
                     <div style={getChooserSupportStyle()}>
@@ -1042,9 +1080,46 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                         );
                       })()}
                     </div>
-                  </div>
-                </PanelSectionRow>
-              </PanelSection>
+                    </div>
+                  </PanelSectionRow>
+                </PanelSection>
+
+                <PanelSection title="Game Page Badge">
+                  <PanelSectionRow>
+                    <ToggleField
+                      label="Show game page badge"
+                      description="Show achievement progress on Steam and non-Steam game pages."
+                      checked={settings.showGamePageAchievementBadge}
+                      highlightOnFocus
+                      onChange={(showGamePageAchievementBadge) => {
+                        void saveDeckySettings({
+                          ...readDeckySettings(),
+                          showGamePageAchievementBadge,
+                        });
+                      }}
+                    />
+                  </PanelSectionRow>
+
+                  <DropdownItem
+                    label="Badge position"
+                    description="Choose where the game page badge is anchored."
+                    disabled={!settings.showGamePageAchievementBadge}
+                    menuLabel="Game Page Badge Position"
+                    rgOptions={GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_DROPDOWN_OPTIONS}
+                    selectedOption={settings.gamePageAchievementBadgePosition}
+                    onChange={(option) => {
+                      if (!isGamePageAchievementBadgePosition(option.data)) {
+                        return;
+                      }
+
+                      void saveDeckySettings({
+                        ...readDeckySettings(),
+                        gamePageAchievementBadgePosition: option.data,
+                      });
+                    }}
+                  />
+                </PanelSection>
+              </>
             </TopAlignedScrollViewport>
           ) : (
             <TopAlignedScrollViewport scrollKey="dashboard">
