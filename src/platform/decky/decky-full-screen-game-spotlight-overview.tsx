@@ -139,7 +139,7 @@ export function DeckyFullScreenGameSpotlightOverview({
       ) : overviewContent}
       <DeckyFullScreenGameSpotlightActions
         backLabel={backLabel}
-        centered={layout === "vertical"}
+        centered
         onBack={onBack}
         onRefresh={onRefresh}
       />

@@ -114,7 +114,6 @@ export function DeckyRetroAchievementsGameSpotlight({
       <DeckyFullScreenGameSpotlightOverview
         title={game.title}
         layout="horizontal"
-        focusable
         artwork={
           artworkUrl !== undefined ? (
             <DeckyRetroAchievementsFullscreenGameArtwork

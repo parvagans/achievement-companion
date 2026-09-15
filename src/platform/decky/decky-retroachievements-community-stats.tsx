@@ -53,7 +53,11 @@ export function DeckyRetroAchievementsCommunityStats({
   ];
 
   return (
-    <DeckyFullScreenGameSpotlightCard title="Community" style={getDeckyFullScreenGameSpotlightFillStyle()}>
+    <DeckyFullScreenGameSpotlightCard
+      title="Community"
+      focusable={false}
+      style={getDeckyFullScreenGameSpotlightFillStyle()}
+    >
       <DeckyFullScreenGameProgressStatGrid fillHeight>
         {entries.map((entry) => <DeckyFullScreenGameProgressStat key={entry.label} {...entry} />)}
       </DeckyFullScreenGameProgressStatGrid>

@@ -162,7 +162,8 @@ test("full-screen RetroAchievements spotlight keeps the compact header, passive 
   const progressBarSource = readFileSync("src/platform/decky/decky-completion-progress-bar.tsx", "utf8");
   const actionSource = readFileSync("src/platform/decky/decky-full-screen-action-controls.tsx", "utf8");
 
-  assert.match(spotlightSource, /layout="horizontal"[\s\S]*focusable[\s\S]*variant="compact"/u);
+  assert.match(spotlightSource, /layout="horizontal"[\s\S]*variant="compact"/u);
+  assert.doesNotMatch(spotlightSource, /layout="horizontal"[\s\S]*focusable/u);
   assert.doesNotMatch(spotlightSource, /metadataLabels|loadDecky|useAsyncResourceState|fetch\(/u);
   assert.match(overviewSource, /flexDirection: isHorizontal \? "row" : "column"/u);
   assert.match(overviewSource, /whiteSpace: "normal"/u);
@@ -170,7 +171,7 @@ test("full-screen RetroAchievements spotlight keeps the compact header, passive 
   assert.match(overviewSource, /headerAlignment=\{layout === "horizontal" \? "left" : "center"\}/u);
   assert.match(
     overviewSource,
-    /DeckyFullScreenGameSpotlightCard[\s\S]*title="Game Overview"[\s\S]*focusable=\{false\}[\s\S]*DeckyFullScreenGameSpotlightFocusTarget[\s\S]*DeckyFullScreenGameSpotlightActions/u,
+    /DeckyFullScreenGameSpotlightCard[\s\S]*title="Game Overview"[\s\S]*focusable=\{false\}[\s\S]*DeckyFullScreenGameSpotlightActions[\s\S]*centered/u,
   );
   assert.match(artworkSource, /height: isCompact \? 168 : 256/u);
   assert.match(artworkSource, /objectFit: "contain"/u);
@@ -181,7 +182,7 @@ test("full-screen RetroAchievements spotlight keeps the compact header, passive 
   assert.match(progressSource, /formatDeckyRelativeTime\(progress\.lastUnlockAt\) \?\? "None yet"/u);
   assert.doesNotMatch(progressSource, /title="Your Progress"[\s\S]*focusable=\{false\}/u);
   assert.doesNotMatch(progressSource, /hardcore|softcore/u);
-  assert.match(communitySource, /DeckyFullScreenGameProgressStatGrid fillHeight/u);
+  assert.match(communitySource, /title="Community"[\s\S]*focusable=\{false\}[\s\S]*DeckyFullScreenGameProgressStatGrid fillHeight/u);
   assert.match(communitySource, /Players[\s\S]*Mastered[\s\S]*Median beat[\s\S]*Median mastery/u);
   assert.match(communitySource, /formatMasteryValue/u);
   assert.match(progressStatSource, /gridTemplateColumns: "repeat\(2, minmax\(0, 1fr\)\)"/u);
