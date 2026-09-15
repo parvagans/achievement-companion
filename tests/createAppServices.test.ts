@@ -2869,7 +2869,9 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenGamePageSource, /PanelSection title="Game Spotlight"/);
   assert.match(fullScreenGamePageSource, /PanelSection title="Achievements"/);
   assert.doesNotMatch(fullScreenGamePageSource, /PanelSection title="Navigation"/);
-  assert.doesNotMatch(fullScreenGamePageSource, /FULLSCREEN_GAME_FOCUS_DIAGNOSTICS_CLASS|\.gpfocus/u);
+  assert.match(fullScreenGamePageSource, /FULLSCREEN_GAME_FOCUS_DIAGNOSTICS_CLASS/u);
+  assert.match(fullScreenGamePageSource, /\.Panel\.Focusable\.gpfocus/u);
+  assert.match(fullScreenGamePageSource, /outline: 3px solid rgba\(250, 204, 21, 1\)/u);
   assert.match(fullScreenAchievementBrowserSource, /ACHIEVEMENT_MODE_FILTERS = \["all", "hardcore", "softcore"\] as const;/);
   assert.match(fullScreenGamePageSource, /useState<AchievementModeFilter>\("all"\)/);
   assert.match(fullScreenGamePageSource, /useState<AchievementFilter>\("all"\)/);
@@ -2878,7 +2880,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(steamProgressSummarySource, /DeckyCompletionProgressBar[\s\S]*percent=\{completionPercent\}/);
   assert.match(steamProgressSummarySource, /title="Progress Summary" focusable=\{false\}/u);
   assert.match(retroAchievementsCommunityStatsSource, /title="Community">/u);
-  assert.doesNotMatch(retroAchievementsCommunityStatsSource, /title="Community" focusable=\{false\}/u);
+  assert.match(retroAchievementsCommunityStatsSource, /title="Community"[\s\S]*focusable=\{false\}/u);
   assert.match(
     fullScreenGamePageSource,
     /matchesAchievementFilter\(achievement, achievementFilter\)[\s\S]*matchesAchievementModeFilter\(achievement, achievementModeFilter\)/,
@@ -2972,7 +2974,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenGameSpotlightCardSource, /function getHeaderStyle\(alignment: "center" \| "left"\): CSSProperties/u);
   assert.match(fullScreenGameSpotlightOverviewSource, /function getHeroStyle\(layout: DeckyFullScreenGameSpotlightOverviewLayout\): CSSProperties/u);
   assert.doesNotMatch(fullScreenGameSpotlightOverviewSource, /getHeroStyle\(layout\)[\s\S]*borderLeft/u);
-  assert.match(retroAchievementsGameSpotlightSource, /layout="horizontal"[\s\S]*focusable/u);
+  assert.doesNotMatch(retroAchievementsGameSpotlightSource, /layout="horizontal"[\s\S]*focusable/u);
   assert.match(retroAchievementsGameSpotlightSource, /variant="compact"/u);
   assert.match(retroAchievementsProgressSummarySource, /DeckyFullScreenGameProgressStatGrid/u);
   assert.match(retroAchievementsProgressSummarySource, /showCaption=\{false\}/u);
