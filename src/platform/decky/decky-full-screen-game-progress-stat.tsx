@@ -1,10 +1,11 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 function getProgressStatStyle(): CSSProperties {
   return {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
+    justifyContent: "center",
     gap: 2,
     padding: "10px 11px",
     borderRadius: 12,
@@ -43,6 +44,31 @@ function getProgressStatValueStyle(): CSSProperties {
 export interface DeckyFullScreenGameProgressStatProps {
   readonly label: string;
   readonly value: string;
+}
+
+function getProgressStatGridStyle(fillHeight: boolean): CSSProperties {
+  return {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    ...(fillHeight
+      ? {
+          flex: "1 1 auto",
+          gridTemplateRows: "repeat(2, minmax(0, 1fr))",
+          minHeight: 0,
+        }
+      : {}),
+    gap: 8,
+  };
+}
+
+export function DeckyFullScreenGameProgressStatGrid({
+  children,
+  fillHeight = false,
+}: {
+  readonly children: ReactNode;
+  readonly fillHeight?: boolean;
+}): JSX.Element {
+  return <div style={getProgressStatGridStyle(fillHeight)}>{children}</div>;
 }
 
 export function DeckyFullScreenGameProgressStat({

@@ -1,18 +1,15 @@
-import type { CSSProperties } from "react";
 import type { GameCommunityStats } from "@core/domain";
-import { DeckyFullScreenGameProgressStat } from "./decky-full-screen-game-progress-stat";
-import { DeckyFullScreenGameSpotlightCard } from "./decky-full-screen-game-spotlight-card";
+import {
+  DeckyFullScreenGameProgressStat,
+  DeckyFullScreenGameProgressStatGrid,
+} from "./decky-full-screen-game-progress-stat";
+import {
+  DeckyFullScreenGameSpotlightCard,
+  getDeckyFullScreenGameSpotlightFillStyle,
+} from "./decky-full-screen-game-spotlight-card";
 import { formatRetroAchievementsCommunityDuration } from "./decky-retroachievements-community-stats-data";
 
 export { formatRetroAchievementsCommunityDuration } from "./decky-retroachievements-community-stats-data";
-
-function getSectionStyle(): CSSProperties {
-  return { display: "flex", flexDirection: "column", gap: 8, minWidth: 0 };
-}
-
-function getGridStyle(): CSSProperties {
-  return { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 8 };
-}
 
 function formatCount(value: number): string {
   return value.toLocaleString();
@@ -20,6 +17,20 @@ function formatCount(value: number): string {
 
 function formatPercent(value: number): string {
   return `${value.toFixed(value < 10 ? 1 : 0)}%`;
+}
+
+function formatMasteryValue({
+  masteredPlayers,
+  masteryPercent,
+}: GameCommunityStats): string | undefined {
+  const mastered = masteredPlayers !== undefined ? formatCount(masteredPlayers) : undefined;
+  const percent = masteryPercent !== undefined ? formatPercent(masteryPercent) : undefined;
+
+  if (mastered === undefined) {
+    return percent;
+  }
+
+  return percent !== undefined ? `${mastered} · ${percent}` : mastered;
 }
 
 export function DeckyRetroAchievementsCommunityStats({
@@ -33,28 +44,19 @@ export function DeckyRetroAchievementsCommunityStats({
 
   const medianBeat = formatRetroAchievementsCommunityDuration(stats.medianBeatSeconds);
   const medianMastery = formatRetroAchievementsCommunityDuration(stats.medianMasterySeconds);
+  const masteryValue = formatMasteryValue(stats);
   const entries = [
-    ...(stats.totalPlayers !== undefined ? [{ label: "Players", value: formatCount(stats.totalPlayers) }] : []),
-    ...(stats.masteredPlayers !== undefined ? [{ label: "Mastered", value: formatCount(stats.masteredPlayers) }] : []),
-    ...(stats.masteryPercent !== undefined ? [{ label: "Mastery", value: formatPercent(stats.masteryPercent) }] : []),
-    ...(medianBeat !== undefined
-      ? [{ label: "Median beat", value: medianBeat }]
-      : []),
-    ...(medianMastery !== undefined
-      ? [{ label: "Median mastery", value: medianMastery }]
-      : []),
+    { label: "Players", value: stats.totalPlayers !== undefined ? formatCount(stats.totalPlayers) : "-" },
+    { label: "Mastered", value: masteryValue ?? "-" },
+    { label: "Median beat", value: medianBeat ?? "-" },
+    { label: "Median mastery", value: medianMastery ?? "-" },
   ];
-  if (entries.length === 0) {
-    return null;
-  }
 
   return (
-    <DeckyFullScreenGameSpotlightCard title="Community" focusable={false}>
-      <div style={getSectionStyle()}>
-      <div style={getGridStyle()}>
+    <DeckyFullScreenGameSpotlightCard title="Community" style={getDeckyFullScreenGameSpotlightFillStyle()}>
+      <DeckyFullScreenGameProgressStatGrid fillHeight>
         {entries.map((entry) => <DeckyFullScreenGameProgressStat key={entry.label} {...entry} />)}
-      </div>
-      </div>
+      </DeckyFullScreenGameProgressStatGrid>
     </DeckyFullScreenGameSpotlightCard>
   );
 }

@@ -1,20 +1,14 @@
 import type { CSSProperties } from "react";
 import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
-import { getCompletionPercent, type DeckyCompletionProgressBarTone } from "./decky-completion-progress-bar";
-import {
-  formatRetroAchievementsBeatenAtText,
-  formatRetroAchievementsMasteredAtText,
-  shouldRenderRetroAchievementsModeSummaryCard,
-} from "./decky-achievement-detail-helpers";
-import {
-  formatRetroAchievementsCompletionIndicatorLabel,
-  getRetroAchievementsCompletionIndicatorState,
-} from "./decky-retroachievements-completion-indicator";
+import type { DeckyCompletionProgressBarTone } from "./decky-completion-progress-bar";
+import { shouldRenderRetroAchievementsModeSummaryCard } from "./decky-achievement-detail-helpers";
+import { getRetroAchievementsCompletionIndicatorState } from "./decky-retroachievements-completion-indicator";
 import { getDeckyGameArtworkFallbackInitials } from "./decky-game-artwork-fallback";
 import { DeckyFullScreenGameSpotlightOverview } from "./decky-full-screen-game-spotlight-overview";
 import type { DeckyFullScreenGameMetadataPill } from "./decky-full-screen-game-metadata-pills";
 import { DeckyRetroAchievementsFullscreenGameArtwork } from "./decky-retroachievements-fullscreen-game-artwork";
 import { DeckyRetroAchievementsProgressSummary } from "./decky-retroachievements-progress-summary";
+import { buildDeckyRetroAchievementsProgressSummaryData } from "./decky-retroachievements-progress-summary-data";
 import { DeckyRetroAchievementsCommunityStats } from "./decky-retroachievements-community-stats";
 import { DeckyRetroAchievementsModeProgressCards } from "./decky-retroachievements-mode-progress-cards";
 import { DeckyRetroAchievementsSetDetails } from "./decky-retroachievements-set-details";
@@ -22,10 +16,6 @@ import { DeckyFullScreenGameSpotlightCard } from "./decky-full-screen-game-spotl
 
 type RetroAchievementsGame = GameDetailSnapshot["game"];
 type AchievementMode = "hardcore" | "softcore";
-
-function formatCount(value: number): string {
-  return value.toLocaleString();
-}
 
 function getLayoutStyle(): CSSProperties {
   return {
@@ -83,7 +73,6 @@ function getCompletionTone(
 export interface DeckyRetroAchievementsGameSpotlightProps {
   readonly game: RetroAchievementsGame;
   readonly achievements: readonly NormalizedAchievement[];
-  readonly totalAchievementCount: number;
   readonly metadataPills: readonly DeckyFullScreenGameMetadataPill[];
   readonly backLabel: string;
   readonly onBack: () => void;
@@ -93,24 +82,17 @@ export interface DeckyRetroAchievementsGameSpotlightProps {
 export function DeckyRetroAchievementsGameSpotlight({
   game,
   achievements,
-  totalAchievementCount,
   metadataPills,
   backLabel,
   onBack,
   onRefresh,
 }: DeckyRetroAchievementsGameSpotlightProps): JSX.Element {
   const completionState = getRetroAchievementsCompletionIndicatorState(game);
-  const isBeaten = completionState === "beaten-hardcore" || completionState === "beaten-softcore";
-  const isMasteredHardcore = completionState === "mastered-hardcore";
-  const completionStatusLabel = isMasteredHardcore ? "Mastered" : isBeaten ? "Beaten" : undefined;
-  const completionStatusAriaLabel =
-    completionState !== undefined
-      ? formatRetroAchievementsCompletionIndicatorLabel(completionState)
-      : undefined;
   const completionTone = getCompletionTone(completionState);
-  const masteredAtText = formatRetroAchievementsMasteredAtText(game);
-  const beatenAtText = formatRetroAchievementsBeatenAtText(game);
-  const completionAtText = isMasteredHardcore ? masteredAtText : beatenAtText;
+  const progress = buildDeckyRetroAchievementsProgressSummaryData({
+    summary: game.summary,
+    achievements,
+  });
   const hardcorePoints = getAchievementModePoints(achievements, "hardcore");
   const softcorePoints = getAchievementModePoints(achievements, "softcore");
   const showHardcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard({
@@ -131,11 +113,14 @@ export function DeckyRetroAchievementsGameSpotlight({
     <div style={getLayoutStyle()}>
       <DeckyFullScreenGameSpotlightOverview
         title={game.title}
+        layout="horizontal"
+        focusable
         artwork={
           artworkUrl !== undefined ? (
             <DeckyRetroAchievementsFullscreenGameArtwork
               src={artworkUrl}
               fallbackLabel={getDeckyGameArtworkFallbackInitials(game.title)}
+              variant="compact"
             />
           ) : undefined
         }
@@ -149,16 +134,7 @@ export function DeckyRetroAchievementsGameSpotlight({
       />
 
       <div style={getSummaryGridStyle(game.communityStats !== undefined)}>
-        <DeckyRetroAchievementsProgressSummary
-          game={game}
-          completionPercent={getCompletionPercent(game.summary)}
-          completionTone={completionTone}
-          completionStatusLabel={completionStatusLabel}
-          completionStatusAriaLabel={completionStatusAriaLabel}
-          completionAtText={completionAtText}
-          unlockedValue={formatCount(game.summary.unlockedCount)}
-          totalValue={formatCount(totalAchievementCount)}
-        />
+        <DeckyRetroAchievementsProgressSummary completionTone={completionTone} progress={progress} />
         <DeckyRetroAchievementsCommunityStats stats={game.communityStats} />
       </div>
       {showHardcoreModeCard || showSoftcoreModeCard ? (

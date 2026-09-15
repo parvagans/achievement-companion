@@ -4,15 +4,17 @@ export interface DeckyFullScreenGameSpotlightActionsProps {
   readonly backLabel: string;
   readonly onBack: () => void;
   readonly onRefresh: () => void;
+  readonly centered?: boolean;
 }
 
 export function DeckyFullScreenGameSpotlightActions({
   backLabel,
   onBack,
   onRefresh,
+  centered = true,
 }: DeckyFullScreenGameSpotlightActionsProps): JSX.Element {
   return (
-    <DeckyFullscreenActionRow centered>
+    <DeckyFullscreenActionRow centered={centered}>
       <DeckyFullscreenActionButton
         label={backLabel}
         isFullscreenBackAction

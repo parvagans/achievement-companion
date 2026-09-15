@@ -18,14 +18,14 @@ function getCardStyle(): CSSProperties {
   };
 }
 
-function getHeaderStyle(): CSSProperties {
+function getHeaderStyle(alignment: "center" | "left"): CSSProperties {
   return {
     color: "rgba(255, 255, 255, 0.6)",
     fontSize: "0.8em",
     fontWeight: 800,
     letterSpacing: "0.12em",
     lineHeight: 1.1,
-    textAlign: "center",
+    textAlign: alignment,
     textTransform: "uppercase",
   };
 }
@@ -34,6 +34,7 @@ export interface DeckyFullScreenGameSpotlightCardProps {
   readonly title: string;
   readonly children: ReactNode;
   readonly style?: CSSProperties;
+  readonly headerAlignment?: "center" | "left";
   /**
    * Passive stat cards are controller focus targets. Cards that contain an
    * interactive action row opt out so Decky can route focus to the buttons.
@@ -41,12 +42,13 @@ export interface DeckyFullScreenGameSpotlightCardProps {
   readonly focusable?: boolean;
 }
 
-export function DeckyFullScreenGameSpotlightCard({
-  title,
+export function DeckyFullScreenGameSpotlightFocusTarget({
   children,
   style,
-  focusable = true,
-}: DeckyFullScreenGameSpotlightCardProps): JSX.Element {
+}: {
+  readonly children: ReactNode;
+  readonly style?: CSSProperties;
+}): JSX.Element {
   const onFocus: FocusEventHandler<HTMLElement> = (event) => {
     scrollDeckyFocusTargetIntoView(event.currentTarget);
   };
@@ -54,9 +56,31 @@ export function DeckyFullScreenGameSpotlightCard({
     scrollDeckyFocusTargetIntoView(event.currentTarget);
   };
 
+  return (
+    <Focusable noFocusRing onActivate={() => {}} onFocus={onFocus} onGamepadFocus={onGamepadFocus} style={style}>
+      {children}
+    </Focusable>
+  );
+}
+
+export function getDeckyFullScreenGameSpotlightFillStyle(): CSSProperties {
+  return {
+    flex: "1 1 auto",
+    minHeight: 0,
+    height: "100%",
+  };
+}
+
+export function DeckyFullScreenGameSpotlightCard({
+  title,
+  children,
+  style,
+  headerAlignment = "center",
+  focusable = true,
+}: DeckyFullScreenGameSpotlightCardProps): JSX.Element {
   const cardStyle = { ...getCardStyle(), ...style };
   const content = <>
-    <div style={getHeaderStyle()}>{title}</div>
+    <div style={getHeaderStyle(headerAlignment)}>{title}</div>
     {children}
   </>;
 
@@ -65,8 +89,8 @@ export function DeckyFullScreenGameSpotlightCard({
   }
 
   return (
-    <Focusable noFocusRing onActivate={() => {}} onFocus={onFocus} onGamepadFocus={onGamepadFocus} style={cardStyle}>
+    <DeckyFullScreenGameSpotlightFocusTarget style={cardStyle}>
       {content}
-    </Focusable>
+    </DeckyFullScreenGameSpotlightFocusTarget>
   );
 }
