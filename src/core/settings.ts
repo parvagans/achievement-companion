@@ -10,11 +10,25 @@ export type AchievementCompanionCount =
 
 export type CompletionProgressFilter = "all" | "unfinished" | "beaten" | "mastered";
 
+export const GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS = [
+  "top-left",
+  "top-center",
+  "top-right",
+  "bottom-left",
+  "bottom-center",
+  "bottom-right",
+] as const;
+
+export type GamePageAchievementBadgePosition =
+  (typeof GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS)[number];
+
 export interface AchievementCompanionSettings {
   readonly recentAchievementsCount: AchievementCompanionCount;
   readonly recentlyPlayedCount: AchievementCompanionCount;
   readonly showCompletionProgressSubsets: boolean;
   readonly defaultCompletionProgressFilter: CompletionProgressFilter;
+  readonly showGamePageAchievementBadge: boolean;
+  readonly gamePageAchievementBadgePosition: GamePageAchievementBadgePosition;
 }
 
 export const DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS: AchievementCompanionSettings = {
@@ -22,6 +36,8 @@ export const DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS: AchievementCompanionSetting
   recentlyPlayedCount: 5,
   showCompletionProgressSubsets: true,
   defaultCompletionProgressFilter: "all",
+  showGamePageAchievementBadge: true,
+  gamePageAchievementBadgePosition: "top-left",
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -40,6 +56,15 @@ function normalizeCompletionProgressFilter(
 ): CompletionProgressFilter {
   return value === "all" || value === "unfinished" || value === "beaten" || value === "mastered"
     ? value
+    : fallback;
+}
+
+function normalizeGamePageAchievementBadgePosition(
+  value: unknown,
+  fallback: GamePageAchievementBadgePosition,
+): GamePageAchievementBadgePosition {
+  return GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS.includes(value as GamePageAchievementBadgePosition)
+    ? (value as GamePageAchievementBadgePosition)
     : fallback;
 }
 
@@ -66,6 +91,14 @@ export function normalizeAchievementCompanionSettings(
     defaultCompletionProgressFilter: normalizeCompletionProgressFilter(
       value["defaultCompletionProgressFilter"],
       DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.defaultCompletionProgressFilter,
+    ),
+    showGamePageAchievementBadge:
+      typeof value["showGamePageAchievementBadge"] === "boolean"
+        ? value["showGamePageAchievementBadge"]
+        : DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.showGamePageAchievementBadge,
+    gamePageAchievementBadgePosition: normalizeGamePageAchievementBadgePosition(
+      value["gamePageAchievementBadgePosition"],
+      DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.gamePageAchievementBadgePosition,
     ),
   };
 }
