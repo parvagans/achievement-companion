@@ -75,12 +75,14 @@ export function DeckyCompletionProgressBar({
   percent,
   caption,
   captionPlacement = "below",
+  showCaption = true,
   tone = "default",
 }: {
   readonly compact?: boolean;
   readonly percent: number;
   readonly caption?: string;
   readonly captionPlacement?: "above" | "below";
+  readonly showCaption?: boolean;
   readonly tone?: DeckyCompletionProgressBarTone;
 }): JSX.Element {
   const normalizedPercent = clampPercent(percent);
@@ -88,7 +90,7 @@ export function DeckyCompletionProgressBar({
 
   return (
     <div style={getCompletionBarFrameStyle(compact)}>
-      {captionPlacement === "above" ? (
+      {showCaption && captionPlacement === "above" ? (
         <div style={getCompletionBarCaptionStyle(compact)}>{resolvedCaption}</div>
       ) : null}
 
@@ -104,7 +106,7 @@ export function DeckyCompletionProgressBar({
         <div data-completion-progress-tone={tone} style={getCompletionBarFillStyle(normalizedPercent, tone)} />
       </div>
 
-      {captionPlacement === "below" ? (
+      {showCaption && captionPlacement === "below" ? (
         <div style={getCompletionBarCaptionStyle(compact)}>{resolvedCaption}</div>
       ) : null}
     </div>

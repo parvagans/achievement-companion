@@ -1,21 +1,25 @@
 import { useState, type CSSProperties } from "react";
 
-function getArtworkFrameStyle(): CSSProperties {
+function getArtworkFrameStyle(variant: "default" | "compact"): CSSProperties {
+  const isCompact = variant === "compact";
+
   return {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    width: "100%",
-    maxWidth: 268,
-    height: 256,
-    maxHeight: 256,
-    padding: 14,
+    width: isCompact ? 168 : "100%",
+    minWidth: isCompact ? 140 : 0,
+    maxWidth: isCompact ? 180 : 268,
+    height: isCompact ? 168 : 256,
+    maxHeight: isCompact ? 180 : 256,
+    padding: isCompact ? 10 : 14,
     borderRadius: 18,
     border: "1px solid rgba(255, 255, 255, 0.08)",
     background:
       "radial-gradient(circle at top, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02) 52%, rgba(0, 0, 0, 0.18))",
     boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 4px 16px rgba(0, 0, 0, 0.2)",
     boxSizing: "border-box",
+    flexShrink: 0,
     overflow: "hidden",
   };
 }
@@ -51,16 +55,18 @@ function getArtworkFallbackStyle(): CSSProperties {
 export interface DeckyRetroAchievementsFullscreenGameArtworkProps {
   readonly src: string;
   readonly fallbackLabel: string;
+  readonly variant?: "default" | "compact";
 }
 
 export function DeckyRetroAchievementsFullscreenGameArtwork({
   src,
   fallbackLabel,
+  variant = "default",
 }: DeckyRetroAchievementsFullscreenGameArtworkProps): JSX.Element {
   const [hasImageError, setHasImageError] = useState(false);
 
   return (
-    <span aria-hidden="true" style={getArtworkFrameStyle()}>
+    <span aria-hidden="true" style={getArtworkFrameStyle(variant)}>
       {hasImageError ? (
         <span style={getArtworkFallbackStyle()}>{fallbackLabel}</span>
       ) : (
