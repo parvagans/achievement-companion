@@ -19,6 +19,7 @@ import {
   formatProviderAchievementStatusText,
   isSteamAchievementPresentationProvider,
 } from "./decky-achievement-detail-helpers";
+import { formatDeckyNumericText } from "./decky-number-format";
 import { formatDeckyProviderLabel } from "./providers";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
 
@@ -467,7 +468,7 @@ function formatAchievementHistoryRetroPointsText(
   achievement: Pick<RecentUnlock["achievement"], "metrics">,
 ): string | undefined {
   const retroPoints = getMetricValue(achievement.metrics, "true-ratio", "True Ratio");
-  return retroPoints !== undefined ? `RetroPoints ${retroPoints}` : undefined;
+  return retroPoints !== undefined ? `RetroPoints ${formatDeckyNumericText(retroPoints)}` : undefined;
 }
 
 function formatAchievementHistoryHeroCountLabel(providerId: string, sourceLabel: string): string {

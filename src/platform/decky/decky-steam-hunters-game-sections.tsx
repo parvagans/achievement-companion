@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { DeckyFullScreenGameProgressStat, DeckyFullScreenGameProgressStatGrid } from "./decky-full-screen-game-progress-stat";
 import { DeckyFullScreenGameSpotlightCard } from "./decky-full-screen-game-spotlight-card";
 import type { DeckySteamHuntersGameViewModel } from "./decky-steam-hunters-view-model";
+import { formatSteamHuntersCompletionDuration, formatSteamHuntersPercentage } from "./decky-steam-hunters-presentation";
 
 function formatCount(value: number): string {
   return value.toLocaleString();
@@ -38,8 +39,8 @@ export function DeckySteamHuntersCommunitySection({
   readonly model: DeckySteamHuntersGameViewModel;
   readonly compact?: boolean;
 }): JSX.Element | null {
-  const app = model.enrichment.app;
-  if (!model.hasCommunityStats) {
+  const summary = model.communitySummary;
+  if (!model.hasCommunityStats || summary === undefined) {
     return null;
   }
 
@@ -51,14 +52,17 @@ export function DeckySteamHuntersCommunitySection({
     >
       <div style={getAttributionStyle()}>SteamHunters</div>
       <DeckyFullScreenGameProgressStatGrid gap={compact ? 6 : 8}>
-        {app.playersPerfectedCount !== undefined ? (
-          <DeckyFullScreenGameProgressStat dense={compact} label="Perfected" value={formatCount(app.playersPerfectedCount)} />
+        {summary.perfectedPercentage !== undefined ? (
+          <DeckyFullScreenGameProgressStat dense={compact} label="Perfected" value={formatSteamHuntersPercentage(summary.perfectedPercentage)} />
         ) : null}
-        {app.playersStartedCount !== undefined ? (
-          <DeckyFullScreenGameProgressStat dense={compact} label="Players started" value={formatCount(app.playersStartedCount)} />
+        {summary.qualifiedPlayers !== undefined ? (
+          <DeckyFullScreenGameProgressStat dense={compact} label="Players" value={formatCount(summary.qualifiedPlayers)} />
         ) : null}
-        {app.playersCompletedCount !== undefined ? (
-          <DeckyFullScreenGameProgressStat dense={compact} label="Completed" value={formatCount(app.playersCompletedCount)} />
+        {summary.medianCompletionMinutes !== undefined ? (
+          <DeckyFullScreenGameProgressStat dense={compact} label="Median 100%" value={formatSteamHuntersCompletionDuration(summary.medianCompletionMinutes)} />
+        ) : null}
+        {summary.fastestCompletionMinutes !== undefined ? (
+          <DeckyFullScreenGameProgressStat dense={compact} label="Fastest 100%" value={formatSteamHuntersCompletionDuration(summary.fastestCompletionMinutes)} />
         ) : null}
       </DeckyFullScreenGameProgressStatGrid>
     </DeckyFullScreenGameSpotlightCard>

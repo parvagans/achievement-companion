@@ -16,6 +16,7 @@ import {
   getAchievementDescriptionText,
   formatPlatformBadgeLabel,
   formatTimestamp,
+  formatMetricValue,
   getAchievementDetailCounts,
   getMetricValue,
   shouldHideSteamAchievementDetailStats,
@@ -454,7 +455,7 @@ function AchievementCard({
     counts.softcoreUnlockCount !== undefined ||
     counts.hardcoreUnlockCount !== undefined ||
     counts.totalPlayers !== undefined;
-  const retroPoints = getMetricValue(achievement.metrics, "true-ratio", "True Ratio");
+  const retroPoints = formatMetricValue(getMetricValue(achievement.metrics, "true-ratio", "True Ratio"));
   const achievementStatus = buildAchievementStatus(achievement);
   const achievementStatusTone = getAchievementStatusTone(achievement);
   const achievementStatusSecondary =

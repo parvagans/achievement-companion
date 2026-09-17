@@ -14,7 +14,10 @@ import {
   type SteamHuntersClient,
 } from "../src/providers/steamhunters";
 import { buildDeckySteamHuntersGameViewModel } from "../src/platform/decky/decky-steam-hunters-view-model";
-import { formatSteamHuntersPercentage } from "../src/platform/decky/decky-steam-hunters-presentation";
+import {
+  formatSteamHuntersCompletionDuration,
+  formatSteamHuntersPercentage,
+} from "../src/platform/decky/decky-steam-hunters-presentation";
 
 function steamAchievement(achievementId: string, title = achievementId): NormalizedAchievement {
   return {
@@ -149,6 +152,12 @@ test("SteamHunters percentage presentation is concise", () => {
   assert.equal(formatSteamHuntersPercentage(12), "12%");
 });
 
+test("SteamHunters completion durations render whole API minutes as hours and minutes", () => {
+  assert.equal(formatSteamHuntersCompletionDuration(5843), "97h 23m");
+  assert.equal(formatSteamHuntersCompletionDuration(1802), "30h 2m");
+  assert.equal(formatSteamHuntersCompletionDuration(42), "42m");
+});
+
 test("SteamHunters matching uses only exact stable API identifiers", () => {
   const steamAchievements = [steamAchievement("API_ONE", "Localized title"), steamAchievement("API_TWO", "Same title")];
   const matches = matchSteamAchievements(steamAchievements, [
@@ -243,7 +252,10 @@ test("SteamHunters full-screen view model shows only complete-set points and hea
       points: 50,
       hasPaidDlc: true,
       unobtainableAchievementCount: 0,
-      playersStartedCount: 500,
+      playersPerfectedCount: 25,
+      playersQualifiedCount: 500,
+      medianCompletionTime: 5843,
+      fastestCompletionTime: 1802,
       tags: [],
     },
     achievements: [
@@ -264,6 +276,12 @@ test("SteamHunters full-screen view model shows only complete-set points and hea
     brokenButObtainableCount: 1,
   });
   assert.equal(model?.hasCommunityStats, true);
+  assert.deepEqual(model?.communitySummary, {
+    perfectedPercentage: 5,
+    qualifiedPlayers: 500,
+    medianCompletionMinutes: 5843,
+    fastestCompletionMinutes: 1802,
+  });
 
   const partial = composeSteamGameDetailWithSteamHunters(snapshot, {
     app: { appId: 1672970, achievementCount: 2, points: 50, tags: [] },
@@ -285,6 +303,6 @@ test("SteamHunters full-screen view model shows only complete-set points and hea
       achievements: snapshot.achievements,
       enrichment: completedOnly.steamHunters,
     })?.hasCommunityStats,
-    true,
+    false,
   );
 });

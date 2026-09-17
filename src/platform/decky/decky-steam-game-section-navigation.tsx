@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
+import { markDeckyFullscreenReturnRequested } from "./decky-full-screen-return-context";
 import { measureSteamGameFooterLayout, STEAM_GAME_FOOTER_FALLBACK_HEIGHT_PX } from "./decky-steam-game-footer-layout";
 
 export type DeckySteamGameSectionId = "overview" | "achievements" | "community";
@@ -9,6 +10,12 @@ export interface DeckySteamGameSection {
   readonly id: DeckySteamGameSectionId;
   readonly label: string;
 }
+
+type CancelableGamepadEvent = Event & {
+  readonly preventDefault?: () => void;
+  readonly stopPropagation?: () => void;
+  readonly stopImmediatePropagation?: () => void;
+};
 
 function getFooterStyle(height: number, zIndex: number): CSSProperties {
   return {
@@ -106,16 +113,23 @@ export function DeckySteamGameSectionNavigation({
   activeSection,
   sections,
   onSelectSection,
+  onBack,
   onHeightChange,
 }: {
   readonly activeSection: DeckySteamGameSectionId;
   readonly sections: readonly DeckySteamGameSection[];
   readonly onSelectSection: (section: DeckySteamGameSectionId) => void;
+  readonly onBack: () => void;
   readonly onHeightChange: (height: number) => void;
 }): JSX.Element {
   const anchorRef = useRef<HTMLSpanElement>(null);
+  const onBackRef = useRef(onBack);
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [layout, setLayout] = useState({ height: STEAM_GAME_FOOTER_FALLBACK_HEIGHT_PX, zIndex: 20 });
+
+  useLayoutEffect(() => {
+    onBackRef.current = onBack;
+  }, [onBack]);
 
   useLayoutEffect(() => {
     // The plugin executes in SharedJSContext; its global document is NOT the
@@ -142,6 +156,26 @@ export function DeckySteamGameSectionNavigation({
       target.remove();
     };
   }, [onHeightChange]);
+
+  useLayoutEffect(() => {
+    const ownerWindow = anchorRef.current?.ownerDocument.defaultView;
+    if (ownerWindow === undefined || ownerWindow === null) {
+      return;
+    }
+
+    // The overlay replaces Steam's visual Back legend, so it provides the
+    // equivalent controller behavior for every focused child on this route.
+    const onCancel = (event: Event): void => {
+      const cancelEvent = event as CancelableGamepadEvent;
+      cancelEvent.preventDefault?.();
+      cancelEvent.stopPropagation?.();
+      cancelEvent.stopImmediatePropagation?.();
+      markDeckyFullscreenReturnRequested();
+      onBackRef.current();
+    };
+    ownerWindow.addEventListener("vgp_oncancel", onCancel, true);
+    return () => ownerWindow.removeEventListener("vgp_oncancel", onCancel, true);
+  }, []);
 
   return (
     <>

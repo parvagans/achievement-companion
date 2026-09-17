@@ -22,6 +22,7 @@ import {
   getAchievementSpotlightCounts,
   getAchievementDescriptionText,
   getMetricValue,
+  formatMetricValue,
   getUnlockRatePercent,
   shouldHideSteamAchievementDetailStats,
 } from "./decky-achievement-detail-helpers";
@@ -962,7 +963,7 @@ function AchievementSpotlightCard({
         <AchievementStat
           label="RetroPoints"
           tone={tone}
-          value={getMetricValue(achievement.metrics, "true-ratio", "True Ratio") ?? "-"}
+          value={formatMetricValue(getMetricValue(achievement.metrics, "true-ratio", "True Ratio")) ?? "-"}
         />
       </div>
 

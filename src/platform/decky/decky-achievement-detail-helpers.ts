@@ -3,6 +3,7 @@ import {
   getRetroAchievementsCompletionIndicatorState,
   isRetroAchievementsMasteredHardcoreGame,
 } from "./decky-retroachievements-completion-indicator";
+import { formatDeckyNumericText } from "./decky-number-format";
 
 const STEAM_PROVIDER_ID = "steam";
 
@@ -51,6 +52,10 @@ export function getMetricValue(
   }
 
   return undefined;
+}
+
+export function formatMetricValue(value: string | undefined): string | undefined {
+  return value === undefined ? undefined : formatDeckyNumericText(value);
 }
 
 export function parseMetricNumber(

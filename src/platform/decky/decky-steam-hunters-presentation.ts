@@ -2,3 +2,11 @@
 export function formatSteamHuntersPercentage(value: number): string {
   return `${Number(value.toFixed(1))}%`;
 }
+
+/** SteamHunters app completion-time fields are expressed in whole minutes. */
+export function formatSteamHuntersCompletionDuration(minutes: number): string {
+  const totalMinutes = Math.max(0, Math.trunc(minutes));
+  const hours = Math.floor(totalMinutes / 60);
+  const remainingMinutes = totalMinutes % 60;
+  return hours > 0 ? `${hours}h ${remainingMinutes}m` : `${remainingMinutes}m`;
+}

@@ -17,10 +17,18 @@ export interface DeckySteamHuntersCompletionHealth {
   readonly brokenButObtainableCount?: number;
 }
 
+export interface DeckySteamHuntersCommunitySummary {
+  readonly perfectedPercentage?: number;
+  readonly qualifiedPlayers?: number;
+  readonly medianCompletionMinutes?: number;
+  readonly fastestCompletionMinutes?: number;
+}
+
 export interface DeckySteamHuntersGameViewModel {
   readonly enrichment: SteamHuntersGameEnrichment;
   readonly progressPoints?: DeckySteamHuntersProgressPoints;
   readonly completionHealth: DeckySteamHuntersCompletionHealth;
+  readonly communitySummary?: DeckySteamHuntersCommunitySummary;
   readonly hasCommunityStats: boolean;
 }
 
@@ -67,6 +75,24 @@ function buildProgressPoints(args: {
   return { earned, total: args.enrichment.app.points };
 }
 
+function buildCommunitySummary(
+  app: SteamHuntersGameEnrichment["app"],
+): DeckySteamHuntersCommunitySummary | undefined {
+  const perfectedPercentage =
+    app.playersPerfectedCount !== undefined &&
+    app.playersQualifiedCount !== undefined &&
+    app.playersQualifiedCount > 0
+      ? (app.playersPerfectedCount / app.playersQualifiedCount) * 100
+      : undefined;
+  const summary = {
+    ...(perfectedPercentage !== undefined ? { perfectedPercentage } : {}),
+    ...(app.playersQualifiedCount !== undefined ? { qualifiedPlayers: app.playersQualifiedCount } : {}),
+    ...(app.medianCompletionTime !== undefined ? { medianCompletionMinutes: app.medianCompletionTime } : {}),
+    ...(app.fastestCompletionTime !== undefined ? { fastestCompletionMinutes: app.fastestCompletionTime } : {}),
+  };
+  return Object.keys(summary).length > 0 ? summary : undefined;
+}
+
 export function buildDeckySteamHuntersGameViewModel(args: {
   readonly achievements: readonly NormalizedAchievement[];
   readonly enrichment: SteamHuntersGameEnrichment | undefined;
@@ -86,14 +112,12 @@ export function buildDeckySteamHuntersGameViewModel(args: {
     : undefined;
   const progressPoints = buildProgressPoints({ achievements: args.achievements, enrichment, hasCompleteSet });
   const app = enrichment.app;
-  const hasCommunityStats =
-    app.playersPerfectedCount !== undefined ||
-    app.playersStartedCount !== undefined ||
-    app.playersCompletedCount !== undefined;
+  const communitySummary = buildCommunitySummary(app);
 
   return {
     enrichment,
     ...(progressPoints !== undefined ? { progressPoints } : {}),
+    ...(communitySummary !== undefined ? { communitySummary } : {}),
     completionHealth: {
       ...(app.hasPaidDlc !== undefined ? { hasPaidDlc: app.hasPaidDlc } : {}),
       ...(app.unobtainableAchievementCount !== undefined
@@ -102,6 +126,6 @@ export function buildDeckySteamHuntersGameViewModel(args: {
       ...(conditionalCount !== undefined ? { conditionalCount } : {}),
       ...(brokenButObtainableCount !== undefined ? { brokenButObtainableCount } : {}),
     },
-    hasCommunityStats,
+    hasCommunityStats: communitySummary !== undefined,
   };
 }

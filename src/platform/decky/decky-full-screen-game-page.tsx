@@ -32,6 +32,7 @@ import {
   type DeckySteamGameSectionId,
 } from "./decky-steam-game-section-navigation";
 import { STEAM_GAME_FOOTER_FALLBACK_HEIGHT_PX } from "./decky-steam-game-footer-layout";
+import { formatDeckyNumericText } from "./decky-number-format";
 import { DeckySteamHuntersCommunitySection } from "./decky-steam-hunters-game-sections";
 import { buildDeckySteamHuntersGameViewModel } from "./decky-steam-hunters-view-model";
 import { shouldRenderAchievementModeFilter } from "./decky-achievement-detail-helpers";
@@ -92,7 +93,7 @@ function buildGameMetadataPills(
           {
             key: "total-players",
             label: "Total players",
-            value: totalPlayers,
+            value: formatDeckyNumericText(totalPlayers),
           },
         ]
       : []),
@@ -110,7 +111,7 @@ function buildGameMetadataPills(
           {
             key: "points",
             label: "Points",
-            value: points,
+            value: formatDeckyNumericText(points),
           },
         ]
       : []),
@@ -119,7 +120,7 @@ function buildGameMetadataPills(
           {
             key: "retro-points",
             label: "RetroPoints",
-            value: retroPoints,
+            value: formatDeckyNumericText(retroPoints),
           },
         ]
       : []),
@@ -552,6 +553,7 @@ export function DeckyFullScreenGamePage({
           activeSection={activeSteamSection}
           sections={visibleSteamSections}
           onSelectSection={selectSteamSection}
+          onBack={onBack}
           onHeightChange={setSteamFooterHeight}
         />
       </div>

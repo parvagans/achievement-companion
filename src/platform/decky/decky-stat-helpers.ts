@@ -11,6 +11,7 @@ import type { RetroAchievementsCompletionBreakdownItem } from "./decky-retroachi
 import type { RetroAchievementsCompletionCollection } from "./decky-completion-progress-grouping";
 import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
 import { formatSteamXp, getSteamXpProgress } from "./steam-xp";
+import { formatDeckyNumericText } from "./decky-number-format";
 
 function formatCount(value: number): string {
   return value.toLocaleString();
@@ -170,7 +171,8 @@ function formatOptionalMetricValue(
   metrics: DashboardSnapshot["profile"]["metrics"],
   ...keys: string[]
 ): string | undefined {
-  return getMetricValue(metrics, ...keys);
+  const value = getMetricValue(metrics, ...keys);
+  return value === undefined ? undefined : formatDeckyNumericText(value);
 }
 
 export function getRetroAchievementsProfileStatValues(args: {
@@ -517,8 +519,9 @@ export function getSteamAccountProgressSummary(args: {
   readonly profile: DashboardSnapshot["profile"];
 }): SteamAccountProgressSummary {
   const { profile } = args;
-  const steamLevelValue =
-    getMetricValue(profile.metrics, "steam-level", "Steam Level") ?? profile.steamLevel?.toString() ?? "-";
+  const steamLevelValue = formatDeckyNumericText(
+    getMetricValue(profile.metrics, "steam-level", "Steam Level") ?? profile.steamLevel?.toString() ?? "-",
+  );
   const badgesValue = profile.badgeCount !== undefined ? formatCount(profile.badgeCount) : "-";
   const badgesSecondary =
     profile.playerXp !== undefined ? `${formatSteamXp(profile.playerXp)} XP` : undefined;
