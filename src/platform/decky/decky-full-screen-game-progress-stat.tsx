@@ -1,13 +1,13 @@
 import type { CSSProperties, ReactNode } from "react";
 
-function getProgressStatStyle(): CSSProperties {
+function getProgressStatStyle(dense: boolean): CSSProperties {
   return {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
-    gap: 2,
-    padding: "10px 11px",
+    gap: dense ? 1 : 2,
+    padding: dense ? "5px 6px" : "7px 8px",
     borderRadius: 12,
     border: "1px solid rgba(255, 255, 255, 0.06)",
     backgroundColor: "rgba(255, 255, 255, 0.03)",
@@ -44,12 +44,13 @@ function getProgressStatValueStyle(): CSSProperties {
 export interface DeckyFullScreenGameProgressStatProps {
   readonly label: string;
   readonly value: string;
+  readonly dense?: boolean;
 }
 
-function getProgressStatGridStyle(fillHeight: boolean): CSSProperties {
+function getProgressStatGridStyle(fillHeight: boolean, columns: number, gap: number): CSSProperties {
   return {
     display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
+    gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
     ...(fillHeight
       ? {
           flex: "1 1 auto",
@@ -57,26 +58,31 @@ function getProgressStatGridStyle(fillHeight: boolean): CSSProperties {
           minHeight: 0,
         }
       : {}),
-    gap: 8,
+    gap,
   };
 }
 
 export function DeckyFullScreenGameProgressStatGrid({
   children,
   fillHeight = false,
+  columns = 2,
+  gap = 8,
 }: {
   readonly children: ReactNode;
   readonly fillHeight?: boolean;
+  readonly columns?: number;
+  readonly gap?: number;
 }): JSX.Element {
-  return <div style={getProgressStatGridStyle(fillHeight)}>{children}</div>;
+  return <div style={getProgressStatGridStyle(fillHeight, columns, gap)}>{children}</div>;
 }
 
 export function DeckyFullScreenGameProgressStat({
   label,
   value,
+  dense = false,
 }: DeckyFullScreenGameProgressStatProps): JSX.Element {
   return (
-    <div style={getProgressStatStyle()}>
+    <div style={getProgressStatStyle(dense)}>
       <div style={getProgressStatLabelStyle()}>{label}</div>
       <div style={getProgressStatValueStyle()}>{value}</div>
     </div>

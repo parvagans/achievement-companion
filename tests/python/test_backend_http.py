@@ -43,6 +43,22 @@ class FakeLoop:
 
 
 class BackendHttpTests(unittest.TestCase):
+  def test_request_json_uses_monotonic_clock_outside_an_event_loop(self) -> None:
+    def fake_opener(request, timeout=None, context=None):  # noqa: ANN001, ANN002, ANN003
+      return FakeResponse(b'{"ok": true}')
+
+    result = backend_http.request_json(
+      provider_id="steamhunters",
+      provider_label="SteamHunters",
+      base_url="https://steamhunters.com/api/",
+      path="apps/275850",
+      query=None,
+      auth_query={},
+      opener=fake_opener,
+    )
+
+    self.assertEqual(result, {"ok": True})
+
   def test_request_json_uses_injected_opener_and_returns_json(self) -> None:
     calls: list[tuple[str, int | None, object | None]] = []
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 from urllib.error import HTTPError, URLError
@@ -18,6 +19,14 @@ BACKEND_HTTP_USER_AGENT = "Achievement Companion Decky Plugin"
 LogCallback = Callable[..., None]
 Opener = Callable[..., Any]
 SslContextProvider = Callable[[], Any]
+
+
+def _elapsed_time_seconds() -> float:
+  try:
+    return asyncio.get_running_loop().time()
+  except RuntimeError:
+    # Backend request callables use a worker thread so Decky's event loop stays responsive.
+    return time.monotonic()
 
 
 @dataclass(frozen=True)
@@ -89,9 +98,9 @@ def request_json(
   log: LogCallback | None = None,
   get_ssl_context: SslContextProvider | None = None,
   opener: Opener | None = None,
+  timeout_seconds: int = REQUEST_TIMEOUT_SECONDS,
 ) -> Any:
-  loop = asyncio.get_running_loop()
-  started_at = loop.time()
+  started_at = _elapsed_time_seconds()
   request_url = urljoin(base_url, path)
   request_query = _request_query_items(query, auth_query)
   full_url = f"{request_url}?{urlencode(request_query, doseq=True)}" if request_query else request_url
@@ -108,9 +117,9 @@ def request_json(
   ssl_context = get_ssl_context() if get_ssl_context is not None else None
 
   try:
-    with request_opener(request, timeout=REQUEST_TIMEOUT_SECONDS, context=ssl_context) as response:
+    with request_opener(request, timeout=timeout_seconds, context=ssl_context) as response:
       body = response.read().decode("utf-8")
-      duration_ms = int((loop.time() - started_at) * 1000)
+      duration_ms = int((_elapsed_time_seconds() - started_at) * 1000)
       if duration_ms >= SLOW_PROVIDER_REQUEST_LOG_THRESHOLD_MS and log is not None:
         log(
           "info",
@@ -123,7 +132,7 @@ def request_json(
         return None
       return json.loads(body)
   except HTTPError as cause:
-    duration_ms = int((loop.time() - started_at) * 1000)
+    duration_ms = int((_elapsed_time_seconds() - started_at) * 1000)
 
     if handled_http_statuses is not None and cause.code in handled_http_statuses:
       response_body = ""
@@ -160,7 +169,7 @@ def request_json(
       message=f"{provider_label} request failed with HTTP {getattr(cause, 'code', 'unknown')}.",
     ) from cause
   except URLError as cause:
-    duration_ms = int((loop.time() - started_at) * 1000)
+    duration_ms = int((_elapsed_time_seconds() - started_at) * 1000)
     if log is not None:
       log(
         "warning",
@@ -179,7 +188,7 @@ def request_json(
       message=f"{provider_label} request failed due to a network error.",
     ) from cause
   except json.JSONDecodeError as cause:
-    duration_ms = int((loop.time() - started_at) * 1000)
+    duration_ms = int((_elapsed_time_seconds() - started_at) * 1000)
     if log is not None:
       log(
         "warning",

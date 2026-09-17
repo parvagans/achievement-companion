@@ -781,6 +781,7 @@ export function DeckyGameDetailView({
   }, []);
   const snapshot = state.data;
   const game = snapshot.game;
+  const isSteamGame = game.providerId === "steam";
   const showAchievementModeFilter = shouldRenderAchievementModeFilter(game.providerId);
   const headerArtworkUrl = game.coverImageUrl;
   const [achievementFilter, setAchievementFilter] = useState<AchievementFilter>("all");
@@ -864,7 +865,7 @@ export function DeckyGameDetailView({
 
                 {onOpenFullScreenPage !== undefined ? (
                   <DeckyCompactPillActionItem
-                    label="Open Game"
+                    label={isSteamGame ? "Open Full-Screen" : "Open Game"}
                     onClick={onOpenFullScreenPage}
                     onCancelButton={onBackToDashboard}
                   />

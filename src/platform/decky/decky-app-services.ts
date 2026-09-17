@@ -22,6 +22,12 @@ import {
   clearSteamRecentGameSnapshotLoadCache,
   createSteamProvider,
 } from "../../providers/steam";
+import {
+  composeSteamGameDetailWithSteamHunters,
+  createSteamHuntersClient,
+  createSteamHuntersService,
+} from "../../providers/steamhunters";
+import { createDeckySteamHuntersTransport } from "./providers/steamhunters/backend-transport";
 import { createMemoryCacheStore } from "./memory-cache";
 import { createDeckySettingsStore } from "./decky-settings";
 import { loadDeckyRuntimeMode, type DeckyRuntimeMode } from "./runtime-mode";
@@ -94,6 +100,12 @@ const DECKY_RECENT_ACHIEVEMENTS_STORAGE_KEY_PREFIX =
   "achievement-companion:decky:recent-achievements";
 const DECKY_RECENT_ACHIEVEMENTS_BACKFILL_RECENTLY_PLAYED_LIMIT = 50;
 
+// This service instance is shared with the Steam provider. A page can await an
+// already-started optional lookup without repeating any Steam account requests.
+const deckySteamHuntersService = createSteamHuntersService({
+  client: createSteamHuntersClient({ transport: createDeckySteamHuntersTransport() }),
+});
+
 interface DeckyRecentAchievementDebugGameCandidate {
   readonly id: string;
   readonly title: string;
@@ -142,6 +154,7 @@ const providerRegistry = createProviderRegistry([
   }),
   createSteamProvider({
     transport: deckyAuthenticatedProviderTransportFactory.create(STEAM_PROVIDER_ID),
+    steamHuntersService: deckySteamHuntersService,
   }),
 ]);
 export function createDeckyAppRuntime(runtimeMode: DeckySmokeTestCacheMode | "live") {
@@ -215,6 +228,25 @@ function createDeckyAppServices(runtimeMode: DeckySmokeTestCacheMode | "live") {
 export function resetDeckyAppServicesForTests(): void {
   liveDeckyAppRuntime = undefined;
   deckyDashboardRefreshInFlightByProviderId.clear();
+  deckySteamHuntersService.clearCache();
+}
+
+/**
+ * Resolves optional SteamHunters data against an existing Steam snapshot.
+ * This deliberately does not refresh Steam user/account data.
+ */
+export async function loadDeckySteamHuntersEnrichedGameDetail(
+  snapshot: GameDetailSnapshot,
+): Promise<GameDetailSnapshot> {
+  const appId = snapshot.game.appid ?? Number(snapshot.game.gameId);
+  if (snapshot.game.providerId !== STEAM_PROVIDER_ID || !Number.isSafeInteger(appId) || appId <= 0) {
+    return snapshot;
+  }
+
+  return composeSteamGameDetailWithSteamHunters(
+    snapshot,
+    await deckySteamHuntersService.loadGameData(appId),
+  );
 }
 
 function getDeckyRecentAchievementStorageKey(providerId: ProviderId, accountId: string): string {

@@ -1,6 +1,8 @@
 import { Focusable, type FocusableProps } from "@decky/ui";
 import {
   useCallback,
+  useLayoutEffect,
+  useRef,
   type CSSProperties,
   type FocusEventHandler,
   type JSX,
@@ -19,14 +21,21 @@ import { ensureFullscreenCancelBridgeRegisteredForBackButtonElement } from "./de
 import { markDeckyFullscreenReturnRequested } from "./decky-full-screen-return-context";
 
 function DeckyFullscreenActionStyles(): JSX.Element {
-  if (
-    typeof document !== "undefined" &&
-    document.querySelector('style[data-achievement-companion-fullscreen-action-styles="true"]') !== null
-  ) {
-    return <></>;
-  }
-
-  return <style data-achievement-companion-fullscreen-action-styles="true">{getDeckyFullscreenActionStylesCss()}</style>;
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const ownerDocument = anchorRef.current?.ownerDocument;
+    if (ownerDocument === undefined) {
+      return;
+    }
+    // Steam can render our controls in a different window from plugin code.
+    // Own the stylesheet in that document for exactly this row's lifetime.
+    const style = ownerDocument.createElement("style");
+    style.dataset["achievementCompanionFullscreenActionStyles"] = "true";
+    style.textContent = getDeckyFullscreenActionStylesCss();
+    ownerDocument.head.appendChild(style);
+    return () => style.remove();
+  }, []);
+  return <span ref={anchorRef} hidden aria-hidden="true" />;
 }
 
 export interface DeckyFullscreenActionButtonProps {
@@ -34,8 +43,11 @@ export interface DeckyFullscreenActionButtonProps {
   readonly onClick: () => void;
   readonly selected?: boolean;
   readonly disabled?: boolean;
+  readonly compact?: boolean;
+  readonly fullWidth?: boolean;
   readonly icon?: ReactNode;
   readonly isFullscreenBackAction?: boolean | undefined;
+  readonly primary?: boolean;
   readonly scrollToTopOnFocus?: boolean | undefined;
 }
 
@@ -157,8 +169,11 @@ export function DeckyFullscreenActionButton({
   onClick,
   selected = false,
   disabled = false,
+  compact = false,
+  fullWidth = false,
   icon,
   isFullscreenBackAction = false,
+  primary = false,
   scrollToTopOnFocus = false,
 }: DeckyFullscreenActionButtonProps): JSX.Element {
   const fullscreenBackButtonRef = useCallback((node: HTMLDivElement | null) => {
@@ -181,7 +196,7 @@ export function DeckyFullscreenActionButton({
 
   return (
     <Focusable
-      className={`${DECKY_FULLSCREEN_CHIP_CLASS} ${selected ? DECKY_FULLSCREEN_CHIP_SELECTED_CLASS : ""}`.trim()}
+      className={`${DECKY_FULLSCREEN_CHIP_CLASS} ${selected ? DECKY_FULLSCREEN_CHIP_SELECTED_CLASS : ""} ${compact ? "achievement-companion-fullscreen-chip-compact" : ""} ${fullWidth ? "achievement-companion-fullscreen-chip-full-width" : ""} ${primary ? "achievement-companion-fullscreen-chip-primary" : ""}`.trim()}
       focusClassName={DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS}
       focusWithinClassName={DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS}
       noFocusRing

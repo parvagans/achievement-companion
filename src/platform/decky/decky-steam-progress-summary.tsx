@@ -1,6 +1,5 @@
 import type { CSSProperties } from "react";
-import { DeckyCompletionProgressBar, type DeckyCompletionProgressBarTone } from "./decky-completion-progress-bar";
-import { DeckyFullScreenGameMetadataPills, type DeckyFullScreenGameMetadataPill } from "./decky-full-screen-game-metadata-pills";
+import { DeckyCompletionProgressBar } from "./decky-completion-progress-bar";
 import { DeckyFullScreenGameProgressStat } from "./decky-full-screen-game-progress-stat";
 import { DeckyFullScreenGameSpotlightCard } from "./decky-full-screen-game-spotlight-card";
 
@@ -8,7 +7,7 @@ function getStatsGridStyle(): CSSProperties {
   return {
     display: "grid",
     gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-    gap: 8,
+    gap: 6,
     justifyItems: "stretch",
     alignItems: "stretch",
     width: "100%",
@@ -17,34 +16,40 @@ function getStatsGridStyle(): CSSProperties {
 
 export interface DeckySteamProgressSummaryProps {
   readonly completionPercent: number | undefined;
-  readonly completionTone: DeckyCompletionProgressBarTone;
   readonly unlockedValue: string;
   readonly totalValue: string;
   readonly remainingValue: string | undefined;
-  readonly metadataPills: readonly DeckyFullScreenGameMetadataPill[];
+  readonly lastUnlockValue: string | undefined;
+}
+
+function getProgressCardStyle(): CSSProperties {
+  return { gap: 6, padding: 8, borderRadius: 14 };
 }
 
 export function DeckySteamProgressSummary({
   completionPercent,
-  completionTone,
   unlockedValue,
   totalValue,
   remainingValue,
-  metadataPills,
+  lastUnlockValue,
 }: DeckySteamProgressSummaryProps): JSX.Element {
   return (
-    <DeckyFullScreenGameSpotlightCard title="Progress Summary" focusable={false}>
+    <DeckyFullScreenGameSpotlightCard title="Your Progress" focusable={false} style={getProgressCardStyle()}>
+      <div style={{ color: "rgba(255, 255, 255, 0.92)", fontSize: "0.94em", fontWeight: 700 }}>
+        {`${unlockedValue} / ${totalValue} achievements${completionPercent !== undefined ? ` · ${Math.round(completionPercent)}% complete` : ""}`}
+      </div>
       {completionPercent !== undefined ? (
-        <DeckyCompletionProgressBar percent={completionPercent} tone={completionTone} />
+        <DeckyCompletionProgressBar percent={completionPercent} showCaption={false} />
       ) : null}
       <div style={getStatsGridStyle()}>
-        <DeckyFullScreenGameProgressStat label="Unlocked" value={unlockedValue} />
-        <DeckyFullScreenGameProgressStat label="Total" value={totalValue} />
+        <DeckyFullScreenGameProgressStat dense label="Unlocked" value={unlockedValue} />
         {remainingValue !== undefined ? (
-          <DeckyFullScreenGameProgressStat label="Remaining" value={remainingValue} />
+          <DeckyFullScreenGameProgressStat dense label="Remaining" value={remainingValue} />
+        ) : null}
+        {lastUnlockValue !== undefined ? (
+          <DeckyFullScreenGameProgressStat dense label="Last unlock" value={lastUnlockValue} />
         ) : null}
       </div>
-      <DeckyFullScreenGameMetadataPills pills={metadataPills} />
     </DeckyFullScreenGameSpotlightCard>
   );
 }

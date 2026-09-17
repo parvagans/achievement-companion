@@ -1,9 +1,13 @@
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import type { ResourceState } from "@core/cache";
 import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
 import { Focusable, ScrollPanel } from "@decky/ui";
 import { PlaceholderState } from "@ui/PlaceholderState";
-import { initialDeckyGameDetailState, loadDeckyGameDetailState } from "./decky-app-services";
+import {
+  initialDeckyGameDetailState,
+  loadDeckyGameDetailState,
+  loadDeckySteamHuntersEnrichedGameDetail,
+} from "./decky-app-services";
 import { DeckyAchievementTypeBadge } from "./decky-achievement-type-badge";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
 import { DeckyGameArtwork } from "./decky-game-artwork";
@@ -24,6 +28,13 @@ import {
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
 import { formatDeckyProviderLabel } from "./providers";
+import {
+  getSteamHuntersAchievementEnrichment,
+  getSteamHuntersGameEnrichment,
+  type SteamHuntersAchievement,
+} from "../../providers/steamhunters";
+import { STEAM_PROVIDER_ID } from "./providers/steam";
+import { formatSteamHuntersPercentage } from "./decky-steam-hunters-presentation";
 
 export interface DeckyFullScreenAchievementPageProps {
   readonly providerId: string | undefined;
@@ -994,6 +1005,7 @@ function SteamAchievementSpotlightCard({
   backLabel,
   onBack,
   onOpenFullScreenGame,
+  steamHuntersAchievement,
 }: {
   readonly game: GameDetailSnapshot["game"];
   readonly achievement: NormalizedAchievement;
@@ -1005,6 +1017,7 @@ function SteamAchievementSpotlightCard({
   readonly backLabel: string;
   readonly onBack: () => void;
   readonly onOpenFullScreenGame: (() => void) | undefined;
+  readonly steamHuntersAchievement: SteamHuntersAchievement | undefined;
 }): JSX.Element {
   const [isGameArtworkFocused, setIsGameArtworkFocused] = useState(false);
   const unlockTimestamp = achievement.unlockedAt;
@@ -1110,6 +1123,43 @@ function SteamAchievementSpotlightCard({
           />
         ) : null}
       </div>
+
+      {steamHuntersAchievement !== undefined ? (
+        <>
+          <div style={getSteamAchievementSpotlightHeroLabelStyle()}>SteamHunters</div>
+          <div style={getSteamAchievementSpotlightStatsGridStyle()}>
+            {steamHuntersAchievement.points !== undefined ? (
+              <AchievementStat
+                label="Points"
+                value={formatCount(steamHuntersAchievement.points)}
+                style={getSteamAchievementSpotlightStatStyle()}
+              />
+            ) : null}
+            {steamHuntersAchievement.localPercentage !== undefined ? (
+              <AchievementStat
+                label="SteamHunters unlock rate"
+                value={formatSteamHuntersPercentage(steamHuntersAchievement.localPercentage)}
+                style={getSteamAchievementSpotlightStatStyle()}
+              />
+            ) : null}
+            {steamHuntersAchievement.obtainability !== "unknown" ? (
+              <AchievementStat
+                label="Obtainability"
+                value={
+                  steamHuntersAchievement.obtainability === "broken-but-obtainable"
+                    ? "Broken but obtainable"
+                    : steamHuntersAchievement.obtainability === "conditionally-obtainable"
+                      ? "Conditional"
+                      : steamHuntersAchievement.obtainability === "unobtainable"
+                        ? "Unobtainable"
+                        : "Obtainable"
+                }
+                style={getSteamAchievementSpotlightStatStyle()}
+              />
+            ) : null}
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -1137,6 +1187,32 @@ export function DeckyFullScreenAchievementPage({
   }, [gameId, providerId]);
   const state = useAsyncResourceState(loadSelectedGameDetail, initialDeckyGameDetailState);
   const hasRouteParameters = providerId !== undefined && gameId !== undefined && achievementId !== undefined;
+  const loadedSnapshot = isRenderableGameDetailState(state) ? state.data : undefined;
+  const [backgroundEnrichment, setBackgroundEnrichment] = useState<{
+    readonly sourceSnapshot: GameDetailSnapshot;
+    readonly enrichedSnapshot: GameDetailSnapshot;
+  } | undefined>(undefined);
+
+  useEffect(() => {
+    if (
+      loadedSnapshot === undefined ||
+      loadedSnapshot.game.providerId !== STEAM_PROVIDER_ID ||
+      getSteamHuntersGameEnrichment(loadedSnapshot) !== undefined
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    void loadDeckySteamHuntersEnrichedGameDetail(loadedSnapshot).then((enrichedSnapshot) => {
+      if (!cancelled && getSteamHuntersGameEnrichment(enrichedSnapshot) !== undefined) {
+        setBackgroundEnrichment({ sourceSnapshot: loadedSnapshot, enrichedSnapshot });
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadedSnapshot]);
 
   if (!isRenderableGameDetailState(state)) {
     return (
@@ -1161,7 +1237,10 @@ export function DeckyFullScreenAchievementPage({
     );
   }
 
-  const snapshot = state.data;
+  const snapshot =
+    backgroundEnrichment?.sourceSnapshot === state.data
+      ? backgroundEnrichment.enrichedSnapshot
+      : state.data;
   const game = snapshot.game;
   const achievement =
     achievementId !== undefined
@@ -1195,6 +1274,9 @@ export function DeckyFullScreenAchievementPage({
   const achievementStatus = buildAchievementStatus(achievement);
   const snapshotSourceLabel = state.status === "stale" ? "Cached snapshot" : "Live snapshot";
   const steamMetaPills = dedupeDistinctLabels([providerLabel, snapshotSourceLabel, achievementStatus.value]);
+  const steamHuntersAchievement = isSteamProvider
+    ? getSteamHuntersAchievementEnrichment(snapshot, achievement.achievementId)
+    : undefined;
 
   if (!isSteamProvider) {
     return (
@@ -1238,6 +1320,7 @@ export function DeckyFullScreenAchievementPage({
               onOpenFullScreenGame={onOpenFullScreenGame}
               providerLabel={providerLabel}
               metaPills={steamMetaPills}
+              steamHuntersAchievement={steamHuntersAchievement}
             />
           </div>
         </div>

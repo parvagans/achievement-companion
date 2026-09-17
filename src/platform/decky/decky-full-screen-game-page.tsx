@@ -1,5 +1,8 @@
 import {
+  useEffect,
+  useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
 } from "react";
@@ -10,6 +13,7 @@ import { PlaceholderState } from "@ui/PlaceholderState";
 import {
   initialDeckyGameDetailState,
   loadDeckyGameDetailState,
+  loadDeckySteamHuntersEnrichedGameDetail,
 } from "./decky-app-services";
 import { getCompletionPercent } from "./decky-completion-progress-bar";
 import {
@@ -21,12 +25,29 @@ import {
 } from "./decky-full-screen-achievement-browser";
 import type { DeckyFullScreenGameMetadataPill } from "./decky-full-screen-game-metadata-pills";
 import { DeckyRetroAchievementsGameSpotlight } from "./decky-retroachievements-game-spotlight";
-import { DeckySteamGameSpotlight } from "./decky-steam-game-spotlight";
+import { DeckySteamGameOverview } from "./decky-steam-game-overview";
+import {
+  DeckySteamGameSectionNavigation,
+  type DeckySteamGameSection,
+  type DeckySteamGameSectionId,
+} from "./decky-steam-game-section-navigation";
+import { STEAM_GAME_FOOTER_FALLBACK_HEIGHT_PX } from "./decky-steam-game-footer-layout";
+import { DeckySteamHuntersCommunitySection } from "./decky-steam-hunters-game-sections";
+import { buildDeckySteamHuntersGameViewModel } from "./decky-steam-hunters-view-model";
 import { shouldRenderAchievementModeFilter } from "./decky-achievement-detail-helpers";
 import { sortAchievementsForDisplay } from "./decky-game-detail-ordering";
-import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
+import { findDeckyScrollableAncestor, TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
+import { getSteamHuntersGameEnrichment } from "../../providers/steamhunters";
+import { useSteamGameShoulderNavigation } from "./use-steam-game-shoulder-navigation";
+import {
+  consumeSteamGameSectionRestoration,
+  readSteamGameSectionPageState,
+  requestSteamGameSectionRestoration,
+  selectSteamAchievementRestorationTarget,
+  updateSteamGameSectionPageState,
+} from "./decky-steam-game-section-state";
 
 export interface DeckyFullScreenGamePageProps {
   readonly providerId: string | undefined;
@@ -114,11 +135,40 @@ function formatAchievementStatusSummary(
   return `Total ${formatCount(achievements.length)} · Unlocked ${formatCount(unlockedCount)} · Locked ${formatCount(lockedCount)}`;
 }
 
+// RetroAchievements retains its established independent scroll clearance.
 const FULLSCREEN_GAME_BOTTOM_SCROLL_PADDING = 88;
 const FULLSCREEN_GAME_TOP_PADDING = 42;
 function getFullScreenPageFrameStyle(): CSSProperties {
   return {
     padding: `calc(env(safe-area-inset-top, 0px) + ${FULLSCREEN_GAME_TOP_PADDING}px) 12px calc(env(safe-area-inset-bottom, 0px) + ${FULLSCREEN_GAME_BOTTOM_SCROLL_PADDING}px)`,
+    boxSizing: "border-box",
+  };
+}
+
+function getSteamGameShellStyle(footerHeight: number): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    minHeight: 0,
+    overflow: "hidden",
+    boxSizing: "border-box",
+    paddingBottom: footerHeight,
+  };
+}
+
+function getSteamGameContentStyle(section: DeckySteamGameSectionId): CSSProperties {
+  return {
+    flex: "1 1 auto",
+    minHeight: 0,
+    // Overview is a single dashboard, not a focus-driven scroll surface.
+    overflow: section === "overview" ? "clip" : "hidden auto",
+  };
+}
+
+function getSteamGameContentFrameStyle(): CSSProperties {
+  return {
+    padding: `calc(env(safe-area-inset-top, 0px) + ${FULLSCREEN_GAME_TOP_PADDING}px) 12px 0`,
     boxSizing: "border-box",
   };
 }
@@ -137,9 +187,20 @@ export function DeckyFullScreenGamePage({
   backLabel = "Back",
   backFooter = "Use Back to return to the compact side panel.",
 }: DeckyFullScreenGamePageProps): JSX.Element {
+  const sectionAnchorRef = useRef<HTMLDivElement>(null);
+  const [steamFooterHeight, setSteamFooterHeight] = useState(STEAM_GAME_FOOTER_FALLBACK_HEIGHT_PX);
+  const initialSectionState = providerId !== undefined && gameId !== undefined
+    ? readSteamGameSectionPageState(providerId, gameId)
+    : undefined;
   const [refreshNonce, setRefreshNonce] = useState(0);
-  const [achievementFilter, setAchievementFilter] = useState<AchievementFilter>("all");
-  const [achievementModeFilter, setAchievementModeFilter] = useState<AchievementModeFilter>("all");
+  const [achievementFilter, setAchievementFilter] = useState<AchievementFilter>(initialSectionState?.achievements.achievementFilter ?? "all");
+  const [achievementModeFilter, setAchievementModeFilter] = useState<AchievementModeFilter>(initialSectionState?.achievements.achievementModeFilter ?? "all");
+  const [activeSteamSection, setActiveSteamSection] = useState<DeckySteamGameSectionId>(initialSectionState?.activeSection ?? "overview");
+  const [sectionRestoreNonce, setSectionRestoreNonce] = useState(0);
+  const [backgroundEnrichment, setBackgroundEnrichment] = useState<{
+    readonly sourceSnapshot: GameDetailSnapshot;
+    readonly enrichedSnapshot: GameDetailSnapshot;
+  } | undefined>(undefined);
   const loadSelectedGameDetail = useMemo(() => {
     if (providerId === undefined || gameId === undefined) {
       return () => Promise.resolve(initialDeckyGameDetailState);
@@ -149,6 +210,184 @@ export function DeckyFullScreenGamePage({
   }, [gameId, providerId, refreshNonce]);
   const state = useAsyncResourceState(loadSelectedGameDetail, initialDeckyGameDetailState);
   const hasRouteParameters = providerId !== undefined && gameId !== undefined;
+  const loadedSnapshot = isRenderableGameDetailState(state) ? state.data : undefined;
+  const displayedLoadedSnapshot =
+    backgroundEnrichment !== undefined && backgroundEnrichment.sourceSnapshot === loadedSnapshot
+      ? backgroundEnrichment.enrichedSnapshot
+      : loadedSnapshot;
+  const loadedSteamHunters = displayedLoadedSnapshot !== undefined && displayedLoadedSnapshot.game.providerId === STEAM_PROVIDER_ID
+    ? getSteamHuntersGameEnrichment(displayedLoadedSnapshot)
+    : undefined;
+  const loadedSteamHuntersViewModel = buildDeckySteamHuntersGameViewModel({
+    achievements: displayedLoadedSnapshot?.achievements ?? [],
+    enrichment: loadedSteamHunters,
+  });
+  const visibleSteamSections = useMemo<readonly DeckySteamGameSection[]>(() => [
+    { id: "overview", label: "Overview" },
+    { id: "achievements", label: "Achievements" },
+    ...(loadedSteamHuntersViewModel?.hasCommunityStats === true
+      ? [{ id: "community" as const, label: "Community" }]
+      : []),
+  ], [loadedSteamHuntersViewModel?.hasCommunityStats]);
+
+  const persistSteamSectionState = (
+    update: Parameters<typeof updateSteamGameSectionPageState>[2],
+  ): void => {
+    if (providerId !== undefined && gameId !== undefined) {
+      updateSteamGameSectionPageState(providerId, gameId, update);
+    }
+  };
+
+  const saveCurrentSectionScroll = (): void => {
+    const anchor = sectionAnchorRef.current;
+    if (anchor === null) {
+      return;
+    }
+    const scrollTop = findDeckyScrollableAncestor(anchor)?.scrollTop ?? 0;
+    persistSteamSectionState((current) => ({
+      ...current,
+      [activeSteamSection]: {
+        ...current[activeSteamSection],
+        scrollTop,
+      },
+    }));
+  };
+
+  const selectSteamSection = (nextSection: DeckySteamGameSectionId): void => {
+    if (nextSection === activeSteamSection) {
+      return;
+    }
+    saveCurrentSectionScroll();
+    persistSteamSectionState((current) => ({ ...current, activeSection: nextSection }));
+    setActiveSteamSection(nextSection);
+    setSectionRestoreNonce((current) => current + 1);
+  };
+
+  useEffect(() => {
+    if (!visibleSteamSections.some((section) => section.id === activeSteamSection)) {
+      selectSteamSection("overview");
+    }
+  }, [activeSteamSection, visibleSteamSections]);
+  useSteamGameShoulderNavigation({
+    enabled: displayedLoadedSnapshot?.game.providerId === STEAM_PROVIDER_ID,
+    onPreviousSection: () => {
+      const currentIndex = visibleSteamSections.findIndex((section) => section.id === activeSteamSection);
+      const previousIndex = currentIndex <= 0 ? visibleSteamSections.length - 1 : currentIndex - 1;
+      selectSteamSection(visibleSteamSections[previousIndex]?.id ?? "overview");
+    },
+    onNextSection: () => {
+      const currentIndex = visibleSteamSections.findIndex((section) => section.id === activeSteamSection);
+      const nextIndex = currentIndex < 0 || currentIndex === visibleSteamSections.length - 1
+        ? 0
+        : currentIndex + 1;
+      selectSteamSection(visibleSteamSections[nextIndex]?.id ?? "overview");
+    },
+  });
+
+  useEffect(() => {
+    if (
+      loadedSnapshot === undefined ||
+      loadedSnapshot.game.providerId !== STEAM_PROVIDER_ID ||
+      getSteamHuntersGameEnrichment(loadedSnapshot) !== undefined
+    ) {
+      return;
+    }
+
+    let cancelled = false;
+    void loadDeckySteamHuntersEnrichedGameDetail(loadedSnapshot).then((enrichedSnapshot) => {
+      if (!cancelled && getSteamHuntersGameEnrichment(enrichedSnapshot) !== undefined) {
+        setBackgroundEnrichment({ sourceSnapshot: loadedSnapshot, enrichedSnapshot });
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadedSnapshot]);
+
+  useEffect(() => {
+    if (providerId === undefined || gameId === undefined || displayedLoadedSnapshot?.game.providerId !== STEAM_PROVIDER_ID) {
+      return;
+    }
+    const anchor = sectionAnchorRef.current;
+    const scrollContainer = anchor === null ? null : findDeckyScrollableAncestor(anchor);
+    if (scrollContainer === null) {
+      return;
+    }
+    const onScroll = (): void => {
+      persistSteamSectionState((current) => ({
+        ...current,
+        [activeSteamSection]: { ...current[activeSteamSection], scrollTop: scrollContainer.scrollTop },
+      }));
+    };
+    scrollContainer.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      onScroll();
+      scrollContainer.removeEventListener("scroll", onScroll);
+    };
+  }, [activeSteamSection, displayedLoadedSnapshot?.game.providerId, gameId, providerId]);
+
+  const restorationSnapshot = isRenderableGameDetailState(state)
+    ? (backgroundEnrichment?.sourceSnapshot === state.data ? backgroundEnrichment.enrichedSnapshot : state.data)
+    : undefined;
+  const restorationIsSteamProvider = restorationSnapshot?.game.providerId === STEAM_PROVIDER_ID;
+  const restorationProviderId = restorationSnapshot === undefined
+    ? providerId
+    : providerId ?? restorationSnapshot.game.providerId;
+  const restorationFilteredAchievements = restorationSnapshot === undefined
+    ? []
+    : sortAchievementsForDisplay(restorationSnapshot.achievements).filter((achievement) =>
+      matchesAchievementFilter(achievement, achievementFilter) &&
+      (shouldRenderAchievementModeFilter(restorationProviderId) ? matchesAchievementModeFilter(achievement, achievementModeFilter) : true),
+    );
+
+  useEffect(() => {
+    if (!restorationIsSteamProvider) {
+      return;
+    }
+    persistSteamSectionState((current) => ({
+      ...current,
+      achievements: {
+        ...current.achievements,
+        achievementFilter,
+        achievementModeFilter,
+        visibleAchievementIds: restorationFilteredAchievements.map((achievement) => achievement.achievementId),
+      },
+    }));
+  }, [achievementFilter, achievementModeFilter, restorationFilteredAchievements, restorationIsSteamProvider]);
+
+  useLayoutEffect(() => {
+    if (!restorationIsSteamProvider || providerId === undefined || gameId === undefined) {
+      return;
+    }
+    const shouldRestore = sectionRestoreNonce > 0 || consumeSteamGameSectionRestoration(providerId, gameId);
+    if (!shouldRestore) {
+      return;
+    }
+    setSectionRestoreNonce(0);
+    const currentState = readSteamGameSectionPageState(providerId, gameId);
+    const sectionState = currentState[activeSteamSection];
+    const frame = globalThis.requestAnimationFrame(() => {
+      const anchor = sectionAnchorRef.current;
+      const scrollContainer = anchor === null ? null : findDeckyScrollableAncestor(anchor);
+      if (scrollContainer !== null) {
+        scrollContainer.scrollTop = sectionState.scrollTop;
+      }
+      if (activeSteamSection !== "achievements") {
+        return;
+      }
+      const targetId = selectSteamAchievementRestorationTarget({
+        focusedAchievementId: currentState.achievements.focusedId,
+        previousVisibleAchievementIds: currentState.achievements.visibleAchievementIds,
+        currentVisibleAchievementIds: restorationFilteredAchievements.map((achievement) => achievement.achievementId),
+      });
+      const targets = Array.from(document.querySelectorAll<HTMLElement>("[data-achievement-companion-steam-achievement-id]"));
+      const target = targets.find((element) => element.dataset["achievementCompanionSteamAchievementId"] === targetId)
+        ?? document.querySelector<HTMLElement>("[data-achievement-companion-steam-filter-control='true']");
+      target?.focus();
+    });
+    return () => globalThis.cancelAnimationFrame(frame);
+  }, [activeSteamSection, gameId, providerId, restorationFilteredAchievements, restorationIsSteamProvider, sectionRestoreNonce]);
 
   if (!isRenderableGameDetailState(state)) {
     return (
@@ -173,7 +412,10 @@ export function DeckyFullScreenGamePage({
     );
   }
 
-  const snapshot = state.data;
+  const snapshot =
+    backgroundEnrichment?.sourceSnapshot === state.data
+      ? backgroundEnrichment.enrichedSnapshot
+      : state.data;
   const game = snapshot.game;
   const isSteamProvider = game.providerId === STEAM_PROVIDER_ID;
   const orderedAchievements = sortAchievementsForDisplay(snapshot.achievements);
@@ -195,30 +437,30 @@ export function DeckyFullScreenGamePage({
     game.metrics,
     isSteamProvider || game.communityStats === undefined,
   );
+  const steamHuntersEnrichment = isSteamProvider ? getSteamHuntersGameEnrichment(snapshot) : undefined;
+  const steamHuntersViewModel = buildDeckySteamHuntersGameViewModel({
+    achievements: orderedAchievements,
+    enrichment: steamHuntersEnrichment,
+  });
 
-  return (
-    <ScrollPanel>
-      <TopAlignedScrollViewport
-        scrollKey={`full-screen-game:${providerId ?? game.providerId}:${game.gameId}`}
-      >
-        <div style={getFullScreenPageFrameStyle()}>
-          <PanelSection title="Game Spotlight">
+  const pageSections = (
+    <>
+          {isSteamProvider && activeSteamSection === "overview" ? (
             <PanelSectionRow>
-              {isSteamProvider ? (
-                <DeckySteamGameSpotlight
-                  game={game}
-                  orderedAchievements={orderedAchievements}
-                  totalAchievementCount={totalAchievementCount}
-                  completionPercent={completionPercent}
-                  completionTone="default"
-                  metadataPills={gameMetadataPills}
-                  backLabel={backLabel}
-                  onBack={onBack}
-                  onRefresh={() => {
-                    setRefreshNonce((current) => current + 1);
-                  }}
-                />
-              ) : (
+              <DeckySteamGameOverview
+                game={game}
+                achievements={orderedAchievements}
+                totalAchievementCount={totalAchievementCount}
+                completionPercent={completionPercent}
+                steamHuntersEnrichment={steamHuntersEnrichment}
+                updatedLabel={`${snapshotSourceLabel} · ${formatTimestamp(refreshTimestamp)}`}
+              />
+            </PanelSectionRow>
+          ) : null}
+
+          {!isSteamProvider ? <PanelSection title="Game Spotlight">
+            <PanelSectionRow>
+              {
                 <DeckyRetroAchievementsGameSpotlight
                   game={game}
                   achievements={snapshot.achievements}
@@ -229,11 +471,11 @@ export function DeckyFullScreenGamePage({
                     setRefreshNonce((current) => current + 1);
                   }}
                 />
-              )}
+              }
             </PanelSectionRow>
-          </PanelSection>
+          </PanelSection> : null}
 
-          <PanelSection title="Achievements">
+          {(!isSteamProvider || activeSteamSection === "achievements") ? <PanelSection title="Achievements">
             <PanelSectionRow>
               <DeckyFullScreenAchievementBrowser
                 achievementFilter={achievementFilter}
@@ -248,13 +490,36 @@ export function DeckyFullScreenGamePage({
                 onAchievementModeFilterChange={(filter) => {
                   setAchievementModeFilter(filter);
                 }}
-                onOpenAchievementDetail={onOpenAchievementDetail}
+                onFocusAchievement={(achievementId) => {
+                  persistSteamSectionState((current) => ({
+                    ...current,
+                    achievements: { ...current.achievements, focusedId: achievementId },
+                  }));
+                }}
+                onOpenAchievementDetail={(achievementId) => {
+                  if (isSteamProvider && providerId !== undefined && gameId !== undefined) {
+                    saveCurrentSectionScroll();
+                    requestSteamGameSectionRestoration(providerId, gameId);
+                  }
+                  onOpenAchievementDetail?.(achievementId);
+                }}
                 onBack={onBack}
+                {...(steamHuntersEnrichment !== undefined
+                  ? { steamHuntersAchievementsBySteamAchievementId: steamHuntersEnrichment.achievementsBySteamAchievementId }
+                  : {})}
               />
             </PanelSectionRow>
-          </PanelSection>
+          </PanelSection> : null}
 
-          <PanelSection title="Snapshot">
+          {isSteamProvider && activeSteamSection === "community" && steamHuntersViewModel !== undefined ? (
+            <PanelSection title="Community">
+              <PanelSectionRow>
+                <DeckySteamHuntersCommunitySection model={steamHuntersViewModel} />
+              </PanelSectionRow>
+            </PanelSection>
+          ) : null}
+
+          {!isSteamProvider ? <PanelSection title="Snapshot">
             {state.error ? (
               <PanelSectionRow>
                 <Field bottomSeparator="none" description={state.error.userMessage} label="Snapshot note" />
@@ -268,8 +533,37 @@ export function DeckyFullScreenGamePage({
                 label="Updated"
               />
             </PanelSectionRow>
-          </PanelSection>
+          </PanelSection> : null}
+
+    </>
+  );
+
+  if (isSteamProvider) {
+    return (
+      <div style={getSteamGameShellStyle(steamFooterHeight)}>
+        <div style={getSteamGameContentStyle(activeSteamSection)}>
+          <TopAlignedScrollViewport
+            scrollKey={`full-screen-game:${providerId ?? game.providerId}:${game.gameId}`}
+          >
+            <div ref={sectionAnchorRef} style={getSteamGameContentFrameStyle()}>{pageSections}</div>
+          </TopAlignedScrollViewport>
         </div>
+        <DeckySteamGameSectionNavigation
+          activeSection={activeSteamSection}
+          sections={visibleSteamSections}
+          onSelectSection={selectSteamSection}
+          onHeightChange={setSteamFooterHeight}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <ScrollPanel>
+      <TopAlignedScrollViewport
+        scrollKey={`full-screen-game:${providerId ?? game.providerId}:${game.gameId}`}
+      >
+        <div ref={sectionAnchorRef} style={getFullScreenPageFrameStyle()}>{pageSections}</div>
       </TopAlignedScrollViewport>
     </ScrollPanel>
   );

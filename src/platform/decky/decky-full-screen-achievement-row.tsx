@@ -10,6 +10,8 @@ import { DeckyAchievementTypeBadge } from "./decky-achievement-type-badge";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
+import { formatSteamHuntersPercentage } from "./decky-steam-hunters-presentation";
+import type { SteamHuntersAchievement } from "../../providers/steamhunters";
 
 function formatTimestamp(epochMs: number): string {
   return new Date(epochMs).toLocaleString();
@@ -119,6 +121,23 @@ function getAchievementRowDetailStyle(): CSSProperties {
   };
 }
 
+function formatSteamHuntersMetadata(achievement: SteamHuntersAchievement): string | undefined {
+  const details = [
+    achievement.obtainability !== "unknown"
+      ? achievement.obtainability === "broken-but-obtainable"
+        ? "Broken but obtainable"
+        : achievement.obtainability === "conditionally-obtainable"
+          ? "Conditional"
+          : achievement.obtainability === "unobtainable"
+            ? "Unobtainable"
+            : "Obtainable"
+      : undefined,
+    achievement.points !== undefined ? `${achievement.points.toLocaleString()} SH pts` : undefined,
+    achievement.localPercentage !== undefined ? `${formatSteamHuntersPercentage(achievement.localPercentage)} SH` : undefined,
+  ].filter((value): value is string => value !== undefined);
+  return details.length > 0 ? `SteamHunters · ${details.join(" · ")}` : undefined;
+}
+
 function getAchievementRowIconStyle(): CSSProperties {
   return {
     display: "flex",
@@ -132,18 +151,25 @@ export interface DeckyFullScreenAchievementRowProps {
   readonly achievement: NormalizedAchievement;
   readonly onOpenAchievementDetail: ((achievementId: string) => void) | undefined;
   readonly onBack: () => void;
+  readonly steamHuntersAchievement: SteamHuntersAchievement | undefined;
+  readonly onFocusAchievement?: (achievementId: string) => void;
 }
 
 export function DeckyFullScreenAchievementRow({
   achievement,
   onOpenAchievementDetail,
   onBack,
+  steamHuntersAchievement,
+  onFocusAchievement,
 }: DeckyFullScreenAchievementRowProps): JSX.Element {
   const [isFocused, setIsFocused] = useState(false);
   const isSteamProvider = isSteamAchievementPresentationProvider(achievement.providerId);
   const statusText = formatProviderAchievementStatusText(achievement.providerId, achievement);
   const pointsText = formatProviderAchievementPointsText(achievement.providerId, achievement.points);
   const unlockedAt = achievement.unlockedAt;
+  const steamHuntersMetadata = steamHuntersAchievement !== undefined
+    ? formatSteamHuntersMetadata(steamHuntersAchievement)
+    : undefined;
   const openAchievementDetail = (): void => {
     if (onOpenAchievementDetail !== undefined) {
       onOpenAchievementDetail(achievement.achievementId);
@@ -161,10 +187,12 @@ export function DeckyFullScreenAchievementRow({
       onCancel={onBack}
       onFocus={(event: Parameters<FocusEventHandler<HTMLElement>>[0]) => {
         setIsFocused(true);
+        onFocusAchievement?.(achievement.achievementId);
         scrollDeckyFocusTargetIntoView(event.currentTarget);
       }}
       onGamepadFocus={(event) => {
         setIsFocused(true);
+        onFocusAchievement?.(achievement.achievementId);
         scrollDeckyFocusTargetIntoView(event.currentTarget);
       }}
       onBlur={() => {
@@ -178,6 +206,7 @@ export function DeckyFullScreenAchievementRow({
           ? "inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(69, 148, 255, 0.55), 0 4px 14px rgba(0, 0, 0, 0.22)"
           : undefined,
       }}
+      data-achievement-companion-steam-achievement-id={isSteamProvider ? achievement.achievementId : undefined}
     >
       <span style={getAchievementRowIconStyle()}>
         {achievement.badgeImageUrl !== undefined ? (
@@ -197,6 +226,9 @@ export function DeckyFullScreenAchievementRow({
           <span style={getAchievementRowStatusStyle(achievement)}>{statusText}</span>
           {pointsText !== undefined ? (
             <span style={getAchievementRowDetailStyle()}>{pointsText}</span>
+          ) : null}
+          {steamHuntersMetadata !== undefined ? (
+            <span style={getAchievementRowDetailStyle()}>{steamHuntersMetadata}</span>
           ) : null}
           {!isSteamProvider && unlockedAt !== undefined ? (
             <span style={getAchievementRowDetailStyle()}>Unlocked {formatTimestamp(unlockedAt)}</span>

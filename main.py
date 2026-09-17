@@ -49,6 +49,7 @@ SETTINGS_PATH = Path(decky.DECKY_PLUGIN_SETTINGS_DIR)
 LOGS_PATH = Path(decky.DECKY_PLUGIN_LOG_DIR)
 CONFIG_PATH = SETTINGS_PATH / "provider-config.json"
 SECRETS_PATH = SETTINGS_PATH / "provider-secrets.json"
+STEAM_HUNTERS_REQUEST_TIMEOUT_SECONDS = 8
 
 
 _sanitize_backend_runtime_environment()
@@ -156,6 +157,7 @@ def _request_json(
   query: Mapping[str, Any] | None,
   auth_query: Mapping[str, Any],
   handled_http_statuses: set[int] | None = None,
+  timeout_seconds: int | None = None,
 ) -> Any:
   return _backend_request_json(
     provider_id=provider_id,
@@ -167,6 +169,7 @@ def _request_json(
     handled_http_statuses=handled_http_statuses,
     log=_log,
     get_ssl_context=_get_backend_http_ssl_context,
+    **({"timeout_seconds": timeout_seconds} if timeout_seconds is not None else {}),
   )
 
 
@@ -430,6 +433,31 @@ class Plugin:
         "key": secret,
       },
       handled_http_statuses=handled_http_statuses,
+    )
+
+  async def request_steamhunters_json(self, payload: dict[str, Any]) -> Any:
+    raw_app_id = payload.get("appId")
+    if isinstance(raw_app_id, bool) or not isinstance(raw_app_id, int) or raw_app_id <= 0:
+      raise RuntimeError("SteamHunters request requires a positive Steam AppID.")
+
+    resource = _coerce_string(payload.get("resource"))
+    if resource == "app":
+      path = f"apps/{raw_app_id}"
+    elif resource == "achievements":
+      path = f"apps/{raw_app_id}/achievements"
+    else:
+      raise RuntimeError("SteamHunters request requires an allowed resource.")
+
+    return await asyncio.to_thread(
+      _request_json,
+      provider_id="steamhunters",
+      provider_label="SteamHunters",
+      base_url="https://steamhunters.com/api/",
+      path=path,
+      query=None,
+      auth_query={},
+      handled_http_statuses={404},
+      timeout_seconds=STEAM_HUNTERS_REQUEST_TIMEOUT_SECONDS,
     )
 
   async def validate_steam_credentials(self, payload: dict[str, Any]) -> dict[str, Any]:

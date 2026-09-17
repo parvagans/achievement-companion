@@ -29,7 +29,7 @@ function isScrollableElement(element: HTMLElement): boolean {
   return element.scrollHeight > element.clientHeight + 1;
 }
 
-function findScrollableAncestor(anchor: HTMLElement): HTMLElement | null {
+export function findDeckyScrollableAncestor(anchor: HTMLElement): HTMLElement | null {
   let current: HTMLElement | null = anchor.parentElement;
 
   while (current !== null) {
@@ -65,7 +65,7 @@ function resetScrollPosition(target: HTMLElement): void {
 }
 
 function resetRealDeckyScrollContainer(anchor: HTMLElement): void {
-  const target = findScrollableAncestor(anchor);
+  const target = findDeckyScrollableAncestor(anchor);
   if (target === null) {
     return;
   }
@@ -74,7 +74,7 @@ function resetRealDeckyScrollContainer(anchor: HTMLElement): void {
 }
 
 function configureDeckyScrollInsets(anchor: HTMLElement): () => void {
-  const target = findScrollableAncestor(anchor);
+  const target = findDeckyScrollableAncestor(anchor);
   if (target === null) {
     return () => undefined;
   }

@@ -518,6 +518,41 @@ class BackendRuntimeTests(unittest.TestCase):
       self.assertNotIn("steamid", rendered)
       self.assertNotIn("Access is denied", rendered)
 
+  def test_steamhunters_callable_is_allowlisted_and_credential_free(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      module = load_main_module(Path(temp_dir))
+      calls: list[dict[str, object]] = []
+      original_request_json = module._request_json  # type: ignore[attr-defined]
+
+      def fake_request_json(**kwargs: object) -> dict[str, object]:
+        calls.append(kwargs)
+        return {"appId": 275850, "achievementCount": 27}
+
+      module._request_json = fake_request_json  # type: ignore[attr-defined,assignment]
+      try:
+        response = asyncio.run(
+          module.Plugin().request_steamhunters_json(  # type: ignore[attr-defined]
+            {"appId": 275850, "resource": "app"},
+          ),
+        )
+        with self.assertRaises(RuntimeError):
+          asyncio.run(
+            module.Plugin().request_steamhunters_json(  # type: ignore[attr-defined]
+              {"appId": 275850, "resource": "https://example.invalid/"},
+            ),
+          )
+      finally:
+        module._request_json = original_request_json  # type: ignore[attr-defined,assignment]
+
+      self.assertEqual(response, {"appId": 275850, "achievementCount": 27})
+      self.assertEqual(len(calls), 1)
+      self.assertEqual(calls[0]["provider_id"], "steamhunters")
+      self.assertEqual(calls[0]["base_url"], "https://steamhunters.com/api/")
+      self.assertEqual(calls[0]["path"], "apps/275850")
+      self.assertEqual(calls[0]["auth_query"], {})
+      self.assertEqual(calls[0]["handled_http_statuses"], {404})
+      self.assertEqual(calls[0]["timeout_seconds"], 8)
+
   def test_backend_request_json_uses_injected_urlopen_for_successful_json(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
       original_logger = FAKE_DECKY.logger

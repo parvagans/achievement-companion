@@ -6,11 +6,11 @@ function getCardStyle(): CSSProperties {
   return {
     display: "flex",
     flexDirection: "column",
-    gap: 12,
+    gap: 8,
     width: "100%",
     minWidth: 0,
     boxSizing: "border-box",
-    padding: 14,
+    padding: 10,
     borderRadius: 18,
     border: "1px solid rgba(255, 255, 255, 0.08)",
     background: "linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.02))",

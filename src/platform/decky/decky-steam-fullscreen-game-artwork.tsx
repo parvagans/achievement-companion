@@ -1,14 +1,15 @@
 import { useState, type CSSProperties } from "react";
 
-function getArtworkFrameStyle(): CSSProperties {
+function getArtworkFrameStyle(compact: boolean, dense: boolean): CSSProperties {
   return {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
-    maxWidth: 520,
-    aspectRatio: "460 / 215",
-    padding: 14,
+    maxWidth: compact ? 230 : 520,
+    aspectRatio: compact ? "2 / 1" : "460 / 215",
+    maxHeight: dense ? 154 : undefined,
+    padding: compact ? 8 : dense ? 10 : 14,
     borderRadius: 18,
     border: "1px solid rgba(255, 255, 255, 0.08)",
     background:
@@ -50,16 +51,20 @@ function getArtworkFallbackStyle(): CSSProperties {
 export interface DeckySteamFullscreenGameArtworkProps {
   readonly src: string;
   readonly fallbackLabel: string;
+  readonly compact?: boolean;
+  readonly dense?: boolean;
 }
 
 export function DeckySteamFullscreenGameArtwork({
   src,
   fallbackLabel,
+  compact = false,
+  dense = false,
 }: DeckySteamFullscreenGameArtworkProps): JSX.Element {
   const [hasImageError, setHasImageError] = useState(false);
 
   return (
-    <span aria-hidden="true" style={getArtworkFrameStyle()}>
+    <span aria-hidden="true" style={getArtworkFrameStyle(compact, dense)}>
       {hasImageError ? (
         <span style={getArtworkFallbackStyle()}>{fallbackLabel}</span>
       ) : (

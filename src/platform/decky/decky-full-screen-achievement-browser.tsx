@@ -5,6 +5,7 @@ import { shouldRenderAchievementModeFilter } from "./decky-achievement-detail-he
 import { DeckyFullScreenAchievementRow } from "./decky-full-screen-achievement-row";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
+import type { SteamHuntersAchievement } from "../../providers/steamhunters";
 
 const ACHIEVEMENT_FILTERS = ["all", "unlocked", "locked"] as const;
 const ACHIEVEMENT_MODE_FILTERS = ["all", "hardcore", "softcore"] as const;
@@ -144,6 +145,7 @@ function AchievementFilterButton({ label, selected, disabled = false, onActivate
       style={getAchievementFilterButtonStyle(selected, isFocused, disabled)}
       data-achievement-filter-selected={selected ? "true" : "false"}
       data-achievement-filter-disabled={disabled ? "true" : "false"}
+      data-achievement-companion-steam-filter-control="true"
     >
       <span style={getAchievementFilterButtonLabelStyle()}>{label}</span>
     </Focusable>
@@ -173,12 +175,14 @@ export interface DeckyFullScreenAchievementBrowserProps {
   readonly onAchievementModeFilterChange: (filter: AchievementModeFilter) => void;
   readonly onOpenAchievementDetail: ((achievementId: string) => void) | undefined;
   readonly onBack: () => void;
+  readonly onFocusAchievement?: (achievementId: string) => void;
+  readonly steamHuntersAchievementsBySteamAchievementId?: Readonly<Record<string, SteamHuntersAchievement>>;
 }
 
 export function DeckyFullScreenAchievementBrowser({
   achievementFilter, achievementModeFilter, achievementSummary, achievements, providerId,
   filteredAchievementCount, onAchievementFilterChange, onAchievementModeFilterChange,
-  onOpenAchievementDetail, onBack,
+  onOpenAchievementDetail, onBack, onFocusAchievement, steamHuntersAchievementsBySteamAchievementId,
 }: DeckyFullScreenAchievementBrowserProps): JSX.Element {
   const showAchievementModeFilter = shouldRenderAchievementModeFilter(providerId);
   return (
@@ -226,7 +230,13 @@ export function DeckyFullScreenAchievementBrowser({
         <div style={getAchievementRowsLayoutStyle()}>
           {achievements.map((achievement) => (
             <PanelSectionRow key={achievement.achievementId}>
-              <DeckyFullScreenAchievementRow achievement={achievement} onOpenAchievementDetail={onOpenAchievementDetail} onBack={onBack} />
+              <DeckyFullScreenAchievementRow
+                achievement={achievement}
+                onOpenAchievementDetail={onOpenAchievementDetail}
+                onBack={onBack}
+                {...(onFocusAchievement !== undefined ? { onFocusAchievement } : {})}
+                steamHuntersAchievement={steamHuntersAchievementsBySteamAchievementId?.[achievement.achievementId]}
+              />
             </PanelSectionRow>
           ))}
         </div>

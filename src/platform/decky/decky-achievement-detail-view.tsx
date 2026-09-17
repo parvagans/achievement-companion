@@ -549,7 +549,14 @@ function AchievementCard({
       ) : (
         <div style={getSectionBlockStyle()}>
           <div style={getSectionLabelStyle()}>Unlock status</div>
-          <div style={getSubtleStyle()}>{formatProviderAchievementStatusText(game.providerId, achievement)}</div>
+          <div style={getAchievementStatusCardStyle(achievementStatusTone)}>
+            <div style={getAchievementStatusValueStyle(achievementStatusTone)}>
+              {formatProviderAchievementStatusText(game.providerId, achievement)}
+            </div>
+            {achievementStatusSecondary !== undefined ? (
+              <div style={getAchievementStatusSecondaryStyle(achievementStatusTone)}>{achievementStatusSecondary}</div>
+            ) : null}
+          </div>
         </div>
       )}
 
@@ -566,7 +573,7 @@ function AchievementCard({
 
         {onOpenFullScreenGame !== undefined ? (
           <DeckyCompactPillActionItem
-            label="Open Game"
+            label={isSteamProvider ? "Open Full-Screen" : "Open Game"}
             onClick={onOpenFullScreenGame}
             onCancelButton={onBack}
           />

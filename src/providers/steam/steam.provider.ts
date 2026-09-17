@@ -23,6 +23,11 @@ import {
   sortSteamRecentlyPlayedGamesNewestFirst,
 } from "./mappers/normalize";
 import { normalizeSteamBadges } from "./badges";
+import {
+  composeSteamGameDetailWithSteamHuntersWithinBudget,
+  createSteamHuntersService,
+  type SteamHuntersService,
+} from "../steamhunters";
 import type {
   RawSteamPlayerSummary,
   RawSteamOwnedGame,
@@ -43,6 +48,9 @@ interface SteamProviderDependencies {
   readonly client?: SteamClient;
   readonly transport?: SteamTransport;
   readonly transportOptions?: FetchSteamTransportOptions;
+  /** Optional achievement-hunting enrichment; Steam remains the base snapshot. */
+  readonly steamHuntersService?: SteamHuntersService;
+  readonly steamHuntersEnrichmentWaitMs?: number;
 }
 
 interface SteamRecentGameSnapshot {
@@ -81,6 +89,10 @@ function resolveClient(dependencies: SteamProviderDependencies): SteamClient {
 
   const transport = dependencies.transport ?? createFetchSteamTransport(dependencies.transportOptions);
   return createSteamClient(transport);
+}
+
+function resolveSteamHuntersService(dependencies: SteamProviderDependencies): SteamHuntersService {
+  return dependencies.steamHuntersService ?? createSteamHuntersService();
 }
 
 function applyRecentLimit<T>(items: readonly T[], limit?: number): readonly T[] {
@@ -435,6 +447,7 @@ export function createSteamProvider(
   dependencies: SteamProviderDependencies = {},
 ): AchievementProvider<SteamProviderConfig> {
   const client = resolveClient(dependencies);
+  const steamHuntersService = resolveSteamHuntersService(dependencies);
 
   return {
     id: STEAM_PROVIDER_ID,
@@ -522,7 +535,13 @@ export function createSteamProvider(
 
       const cachedRecentGameSnapshot = await getCachedSteamRecentGameSnapshot(config, normalizedAppId);
       if (cachedRecentGameSnapshot?.detail !== undefined) {
-        return cachedRecentGameSnapshot.detail;
+        return composeSteamGameDetailWithSteamHuntersWithinBudget({
+          snapshot: cachedRecentGameSnapshot.detail,
+          service: steamHuntersService,
+          ...(dependencies.steamHuntersEnrichmentWaitMs !== undefined
+            ? { waitMs: dependencies.steamHuntersEnrichmentWaitMs }
+            : {}),
+        });
       }
 
       const rawRecentlyPlayedGamesResponse =
@@ -533,11 +552,18 @@ export function createSteamProvider(
           (game) => parseAppId(game.appid) === normalizedAppId,
         );
 
-      return loadSteamGameProgressSnapshot({
+      const snapshot = await loadSteamGameProgressSnapshot({
         client,
         config,
         appId: normalizedAppId,
         ...(rawGame !== undefined ? { rawGame } : {}),
+      });
+      return composeSteamGameDetailWithSteamHuntersWithinBudget({
+        snapshot,
+        service: steamHuntersService,
+        ...(dependencies.steamHuntersEnrichmentWaitMs !== undefined
+          ? { waitMs: dependencies.steamHuntersEnrichmentWaitMs }
+          : {}),
       });
     },
   };
