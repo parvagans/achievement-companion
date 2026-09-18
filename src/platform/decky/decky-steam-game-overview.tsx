@@ -37,6 +37,7 @@ function getOverviewGridStyle(): CSSProperties {
     gridTemplateColumns: "minmax(280px, 0.9fr) minmax(0, 1.8fr)",
     gap: 12,
     width: "100%",
+    height: "100%",
     minWidth: 0,
     alignItems: "stretch",
   };
@@ -46,6 +47,7 @@ function getIdentityPanelStyle(): CSSProperties {
   return {
     display: "flex",
     flexDirection: "column",
+    justifyContent: "space-between",
     gap: 7,
     minWidth: 0,
     padding: 10,
@@ -92,14 +94,23 @@ function getMetadataValueStyle(): CSSProperties {
 }
 
 function getDashboardStyle(): CSSProperties {
-  return { display: "flex", flexDirection: "column", gap: 6, minWidth: 0 };
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 6,
+    height: "100%",
+    minHeight: 0,
+    minWidth: 0,
+  };
 }
 
 function getDashboardTopRowStyle(hasCommunity: boolean): CSSProperties {
   return {
     display: "grid",
     gridTemplateColumns: hasCommunity ? "minmax(0, 1.6fr) minmax(250px, 1fr)" : "minmax(0, 1fr)",
+    flex: "1 1 auto",
     gap: 8,
+    minHeight: 0,
     minWidth: 0,
   };
 }
@@ -186,12 +197,13 @@ export function DeckySteamGameOverview({
         <div style={getDashboardTopRowStyle(hasCommunity)}>
           <DeckySteamProgressSummary
             completionPercent={completionPercent}
+            fillHeight
             unlockedValue={formatCount(game.summary.unlockedCount)}
             totalValue={formatCount(totalAchievementCount)}
             remainingValue={remainingCount === undefined ? undefined : formatCount(remainingCount)}
             lastUnlockValue={formatDate(lastUnlock)}
           />
-          {hasCommunity && steamHunters !== undefined ? <DeckySteamHuntersCommunitySection model={steamHunters} compact /> : null}
+          {hasCommunity && steamHunters !== undefined ? <DeckySteamHuntersCommunitySection model={steamHunters} compact fillHeight /> : null}
         </div>
         {steamHunters !== undefined ? <DeckySteamHuntersCompletionHealthSection model={steamHunters} title="Completion Status" /> : null}
         <DeckySteamHuntersSetDetailsSection

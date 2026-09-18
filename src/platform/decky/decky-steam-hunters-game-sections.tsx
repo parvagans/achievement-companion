@@ -24,8 +24,13 @@ function getAttributionStyle(): CSSProperties {
   };
 }
 
-function getCompactDashboardCardStyle(): CSSProperties {
-  return { gap: 6, padding: 8, borderRadius: 14 };
+function getCompactDashboardCardStyle(fillHeight = false): CSSProperties {
+  return {
+    gap: 6,
+    padding: 8,
+    borderRadius: 14,
+    ...(fillHeight ? { height: "100%", justifyContent: "space-between" } : {}),
+  };
 }
 
 function SteamHuntersCardTitle({ title }: { readonly title: string }): JSX.Element {
@@ -44,9 +49,11 @@ function getFooterMetadataStyle(): CSSProperties {
 export function DeckySteamHuntersCommunitySection({
   model,
   compact = false,
+  fillHeight = false,
 }: {
   readonly model: DeckySteamHuntersGameViewModel;
   readonly compact?: boolean;
+  readonly fillHeight?: boolean;
 }): JSX.Element | null {
   const summary = model.communitySummary;
   if (!model.hasCommunityStats || summary === undefined) {
@@ -57,7 +64,7 @@ export function DeckySteamHuntersCommunitySection({
     <DeckyFullScreenGameSpotlightCard
       title={<SteamHuntersCardTitle title="Community" />}
       focusable={false}
-      {...(compact ? { style: getCompactDashboardCardStyle() } : {})}
+      {...(compact ? { style: getCompactDashboardCardStyle(fillHeight) } : {})}
     >
       <DeckyFullScreenGameProgressStatGrid gap={compact ? 6 : 8}>
         {summary.perfectedPercentage !== undefined ? (

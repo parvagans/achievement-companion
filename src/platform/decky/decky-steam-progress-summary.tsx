@@ -20,10 +20,16 @@ export interface DeckySteamProgressSummaryProps {
   readonly totalValue: string;
   readonly remainingValue: string | undefined;
   readonly lastUnlockValue: string | undefined;
+  readonly fillHeight?: boolean;
 }
 
-function getProgressCardStyle(): CSSProperties {
-  return { gap: 6, padding: 8, borderRadius: 14 };
+function getProgressCardStyle(fillHeight: boolean): CSSProperties {
+  return {
+    gap: 6,
+    padding: 8,
+    borderRadius: 14,
+    ...(fillHeight ? { height: "100%", justifyContent: "space-between" } : {}),
+  };
 }
 
 export function DeckySteamProgressSummary({
@@ -32,9 +38,10 @@ export function DeckySteamProgressSummary({
   totalValue,
   remainingValue,
   lastUnlockValue,
+  fillHeight = false,
 }: DeckySteamProgressSummaryProps): JSX.Element {
   return (
-    <DeckyFullScreenGameSpotlightCard title="Your Progress" focusable={false} style={getProgressCardStyle()}>
+    <DeckyFullScreenGameSpotlightCard title="Your Progress" focusable={false} style={getProgressCardStyle(fillHeight)}>
       <div style={{ color: "rgba(255, 255, 255, 0.92)", fontSize: "0.86em", fontWeight: 700 }}>
         {`${unlockedValue} / ${totalValue} achievements${completionPercent !== undefined ? ` · ${Math.round(completionPercent)}% complete` : ""}`}
       </div>

@@ -9,7 +9,16 @@ interface DeckyScrollResetEventDetail {
   readonly scrollKey: string;
 }
 
-function getAnchorStyle(): CSSProperties {
+function getAnchorStyle(fillHeight: boolean): CSSProperties {
+  if (fillHeight) {
+    return {
+      display: "flex",
+      flex: "1 1 auto",
+      flexDirection: "column",
+      minHeight: 0,
+    };
+  }
+
   return {
     display: "contents",
   };
@@ -107,12 +116,14 @@ export function dispatchDeckyScrollReset(scrollKey: string): void {
 
 export interface TopAlignedScrollViewportProps {
   readonly children: ReactNode;
+  readonly fillHeight?: boolean;
   readonly resetNonce?: number;
   readonly scrollKey: string;
 }
 
 export function TopAlignedScrollViewport({
   children,
+  fillHeight = false,
   resetNonce = 0,
   scrollKey,
 }: TopAlignedScrollViewportProps): JSX.Element {
@@ -155,7 +166,7 @@ export function TopAlignedScrollViewport({
   }, [scrollKey]);
 
   return (
-    <div ref={anchorRef} style={getAnchorStyle()}>
+    <div ref={anchorRef} style={getAnchorStyle(fillHeight)}>
       {children}
     </div>
   );

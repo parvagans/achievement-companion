@@ -139,6 +139,7 @@ function formatAchievementStatusSummary(
 // RetroAchievements retains its established independent scroll clearance.
 const FULLSCREEN_GAME_BOTTOM_SCROLL_PADDING = 88;
 const FULLSCREEN_GAME_TOP_PADDING = 42;
+const STEAM_OVERVIEW_FRAME_INSET = 12;
 function getFullScreenPageFrameStyle(): CSSProperties {
   return {
     padding: `calc(env(safe-area-inset-top, 0px) + ${FULLSCREEN_GAME_TOP_PADDING}px) 12px calc(env(safe-area-inset-bottom, 0px) + ${FULLSCREEN_GAME_BOTTOM_SCROLL_PADDING}px)`,
@@ -160,6 +161,7 @@ function getSteamGameShellStyle(footerHeight: number): CSSProperties {
 
 function getSteamGameContentStyle(section: DeckySteamGameSectionId): CSSProperties {
   return {
+    ...(section === "overview" ? { display: "flex", flexDirection: "column" } : {}),
     flex: "1 1 auto",
     minHeight: 0,
     // Overview is a single dashboard, not a focus-driven scroll surface.
@@ -167,10 +169,28 @@ function getSteamGameContentStyle(section: DeckySteamGameSectionId): CSSProperti
   };
 }
 
-function getSteamGameContentFrameStyle(): CSSProperties {
+function getSteamGameContentFrameStyle(section: DeckySteamGameSectionId): CSSProperties {
+  if (section === "overview") {
+    return {
+      display: "flex",
+      flexDirection: "column",
+      flex: "1 1 auto",
+      minHeight: 0,
+      padding: `calc(env(safe-area-inset-top, 0px) + ${FULLSCREEN_GAME_TOP_PADDING + STEAM_OVERVIEW_FRAME_INSET}px) 12px ${STEAM_OVERVIEW_FRAME_INSET}px`,
+      boxSizing: "border-box",
+    };
+  }
+
   return {
     padding: `calc(env(safe-area-inset-top, 0px) + ${FULLSCREEN_GAME_TOP_PADDING}px) 12px 0`,
     boxSizing: "border-box",
+  };
+}
+
+function getSteamOverviewSectionStyle(): CSSProperties {
+  return {
+    flex: "1 1 auto",
+    minHeight: 0,
   };
 }
 
@@ -447,7 +467,7 @@ export function DeckyFullScreenGamePage({
   const pageSections = (
     <>
           {isSteamProvider && activeSteamSection === "overview" ? (
-            <PanelSectionRow>
+            <div style={getSteamOverviewSectionStyle()}>
               <DeckySteamGameOverview
                 game={game}
                 achievements={orderedAchievements}
@@ -456,7 +476,7 @@ export function DeckyFullScreenGamePage({
                 steamHuntersEnrichment={steamHuntersEnrichment}
                 updatedLabel={`${snapshotSourceLabel} · ${formatTimestamp(refreshTimestamp)}`}
               />
-            </PanelSectionRow>
+            </div>
           ) : null}
 
           {!isSteamProvider ? <PanelSection title="Game Spotlight">
@@ -544,9 +564,10 @@ export function DeckyFullScreenGamePage({
       <div style={getSteamGameShellStyle(steamFooterHeight)}>
         <div style={getSteamGameContentStyle(activeSteamSection)}>
           <TopAlignedScrollViewport
+            fillHeight={activeSteamSection === "overview"}
             scrollKey={`full-screen-game:${providerId ?? game.providerId}:${game.gameId}`}
           >
-            <div ref={sectionAnchorRef} style={getSteamGameContentFrameStyle()}>{pageSections}</div>
+            <div ref={sectionAnchorRef} style={getSteamGameContentFrameStyle(activeSteamSection)}>{pageSections}</div>
           </TopAlignedScrollViewport>
         </div>
         <DeckySteamGameSectionNavigation
