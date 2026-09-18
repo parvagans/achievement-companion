@@ -28,6 +28,15 @@ function getCompactDashboardCardStyle(): CSSProperties {
   return { gap: 6, padding: 8, borderRadius: 14 };
 }
 
+function SteamHuntersCardTitle({ title }: { readonly title: string }): JSX.Element {
+  return (
+    <>
+      <div>{title}</div>
+      <div style={getAttributionStyle()}>(SteamHunters)</div>
+    </>
+  );
+}
+
 function getFooterMetadataStyle(): CSSProperties {
   return { color: "rgba(255, 255, 255, 0.5)", fontSize: "0.68em", lineHeight: 1.15 };
 }
@@ -46,11 +55,10 @@ export function DeckySteamHuntersCommunitySection({
 
   return (
     <DeckyFullScreenGameSpotlightCard
-      title={compact ? "Community (SteamHunters)" : "Community"}
+      title={<SteamHuntersCardTitle title="Community" />}
       focusable={false}
       {...(compact ? { style: getCompactDashboardCardStyle() } : {})}
     >
-      <div style={getAttributionStyle()}>SteamHunters</div>
       <DeckyFullScreenGameProgressStatGrid gap={compact ? 6 : 8}>
         {summary.perfectedPercentage !== undefined ? (
           <DeckyFullScreenGameProgressStat dense={compact} label="Perfected" value={formatSteamHuntersPercentage(summary.perfectedPercentage)} />
@@ -87,8 +95,11 @@ export function DeckySteamHuntersCompletionHealthSection({
   }
 
   return (
-    <DeckyFullScreenGameSpotlightCard title={title} focusable={false} style={getCompactDashboardCardStyle()}>
-      <div style={getAttributionStyle()}>SteamHunters</div>
+    <DeckyFullScreenGameSpotlightCard
+      title={<SteamHuntersCardTitle title={title} />}
+      focusable={false}
+      style={getCompactDashboardCardStyle()}
+    >
       <DeckyFullScreenGameProgressStatGrid columns={4} gap={6}>
         {health.hasPaidDlc !== undefined ? (
           <DeckyFullScreenGameProgressStat dense label="DLC required" value={health.hasPaidDlc ? "Yes" : "No"} />
@@ -148,8 +159,11 @@ export function DeckySteamHuntersSetDetailsSection({
   }
 
   return (
-    <DeckyFullScreenGameSpotlightCard title="Set Details" focusable={false} style={getCompactDashboardCardStyle()}>
-      {model !== undefined ? <div style={getAttributionStyle()}>SteamHunters</div> : null}
+    <DeckyFullScreenGameSpotlightCard
+      title={<SteamHuntersCardTitle title="Set Details" />}
+      focusable={false}
+      style={getCompactDashboardCardStyle()}
+    >
       <DeckyFullScreenGameProgressStatGrid columns={values.length} gap={6}>
         {values}
       </DeckyFullScreenGameProgressStatGrid>

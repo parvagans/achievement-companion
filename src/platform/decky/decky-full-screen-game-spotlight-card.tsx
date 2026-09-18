@@ -31,7 +31,7 @@ function getHeaderStyle(alignment: "center" | "left"): CSSProperties {
 }
 
 export interface DeckyFullScreenGameSpotlightCardProps {
-  readonly title: string;
+  readonly title: ReactNode;
   readonly children: ReactNode;
   readonly style?: CSSProperties;
   readonly headerAlignment?: "center" | "left";

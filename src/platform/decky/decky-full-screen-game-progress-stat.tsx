@@ -19,7 +19,7 @@ function getProgressStatStyle(dense: boolean): CSSProperties {
 function getProgressStatLabelStyle(): CSSProperties {
   return {
     color: "rgba(255, 255, 255, 0.62)",
-    fontSize: "0.72em",
+    fontSize: "0.68em",
     fontWeight: 700,
     letterSpacing: "0.08em",
     textTransform: "uppercase",
@@ -30,7 +30,7 @@ function getProgressStatLabelStyle(): CSSProperties {
 function getProgressStatValueStyle(): CSSProperties {
   return {
     color: "rgba(255, 255, 255, 0.98)",
-    fontSize: "0.98em",
+    fontSize: "0.9em",
     fontWeight: 700,
     lineHeight: 1.15,
     minWidth: 0,

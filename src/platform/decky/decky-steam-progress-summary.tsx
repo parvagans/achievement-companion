@@ -35,7 +35,7 @@ export function DeckySteamProgressSummary({
 }: DeckySteamProgressSummaryProps): JSX.Element {
   return (
     <DeckyFullScreenGameSpotlightCard title="Your Progress" focusable={false} style={getProgressCardStyle()}>
-      <div style={{ color: "rgba(255, 255, 255, 0.92)", fontSize: "0.94em", fontWeight: 700 }}>
+      <div style={{ color: "rgba(255, 255, 255, 0.92)", fontSize: "0.86em", fontWeight: 700 }}>
         {`${unlockedValue} / ${totalValue} achievements${completionPercent !== undefined ? ` · ${Math.round(completionPercent)}% complete` : ""}`}
       </div>
       {completionPercent !== undefined ? (
