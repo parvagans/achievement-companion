@@ -63,18 +63,18 @@ export function DeckySteamHuntersCommunitySection({
       focusable={false}
       {...(compact ? { style: getCompactDashboardCardStyle(fillHeight) } : {})}
     >
-      <DeckyFullScreenGameProgressStatGrid columns={3} gap={compact ? 6 : 8}>
-        {summary.perfectedPercentage !== undefined ? (
-          <DeckyFullScreenGameProgressStat dense={compact} label="Perfected" value={formatSteamHuntersPercentage(summary.perfectedPercentage)} />
-        ) : null}
-        {summary.qualifiedPlayers !== undefined ? (
-          <DeckyFullScreenGameProgressStat dense={compact} label="Players" value={formatCount(summary.qualifiedPlayers)} />
-        ) : null}
+      <DeckyFullScreenGameProgressStatGrid columns={2} gap={compact ? 6 : 8}>
         {summary.startedPlayers !== undefined ? (
           <DeckyFullScreenGameProgressStat dense={compact} label="Started" value={formatCount(summary.startedPlayers)} />
         ) : null}
-        {summary.completedPlayers !== undefined ? (
-          <DeckyFullScreenGameProgressStat dense={compact} label="Completed" value={formatCount(summary.completedPlayers)} />
+        {summary.perfectedPercentage !== undefined ? (
+          <DeckyFullScreenGameProgressStat dense={compact} label="Perfected %" value={formatSteamHuntersPercentage(summary.perfectedPercentage)} />
+        ) : null}
+        {summary.perfectedPlayers !== undefined ? (
+          <DeckyFullScreenGameProgressStat dense={compact} label="Perfected" value={formatCount(summary.perfectedPlayers)} />
+        ) : null}
+        {summary.beatenPlayers !== undefined ? (
+          <DeckyFullScreenGameProgressStat dense={compact} label="Beaten" value={formatCount(summary.beatenPlayers)} />
         ) : null}
         {summary.medianCompletionMinutes !== undefined ? (
           <DeckyFullScreenGameProgressStat dense={compact} label="Median 100%" value={formatSteamHuntersCompletionDuration(summary.medianCompletionMinutes)} />

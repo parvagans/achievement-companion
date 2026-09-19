@@ -19,9 +19,9 @@ export interface DeckySteamHuntersCompletionHealth {
 
 export interface DeckySteamHuntersCommunitySummary {
   readonly perfectedPercentage?: number;
-  readonly qualifiedPlayers?: number;
   readonly startedPlayers?: number;
-  readonly completedPlayers?: number;
+  readonly perfectedPlayers?: number;
+  readonly beatenPlayers?: number;
   readonly medianCompletionMinutes?: number;
   readonly fastestCompletionMinutes?: number;
 }
@@ -87,10 +87,10 @@ function buildCommunitySummary(
       ? (app.playersPerfectedCount / app.playersQualifiedCount) * 100
       : undefined;
   const summary = {
+    ...(app.playersQualifiedCount !== undefined ? { startedPlayers: app.playersQualifiedCount } : {}),
     ...(perfectedPercentage !== undefined ? { perfectedPercentage } : {}),
-    ...(app.playersQualifiedCount !== undefined ? { qualifiedPlayers: app.playersQualifiedCount } : {}),
-    ...(app.playersStartedCount !== undefined ? { startedPlayers: app.playersStartedCount } : {}),
-    ...(app.playersCompletedCount !== undefined ? { completedPlayers: app.playersCompletedCount } : {}),
+    ...(app.playersPerfectedCount !== undefined ? { perfectedPlayers: app.playersPerfectedCount } : {}),
+    ...(app.playersBaseGameCompletedCount !== undefined ? { beatenPlayers: app.playersBaseGameCompletedCount } : {}),
     ...(app.medianCompletionTime !== undefined ? { medianCompletionMinutes: app.medianCompletionTime } : {}),
     ...(app.fastestCompletionTime !== undefined ? { fastestCompletionMinutes: app.fastestCompletionTime } : {}),
   };

@@ -253,9 +253,8 @@ test("SteamHunters full-screen view model shows only complete-set points and hea
       hasPaidDlc: true,
       unobtainableAchievementCount: 0,
       playersPerfectedCount: 25,
+      playersBaseGameCompletedCount: 100,
       playersQualifiedCount: 500,
-      playersStartedCount: 1200,
-      playersCompletedCount: 100,
       medianCompletionTime: 5843,
       fastestCompletionTime: 1802,
       tags: [],
@@ -280,9 +279,9 @@ test("SteamHunters full-screen view model shows only complete-set points and hea
   assert.equal(model?.hasCommunityStats, true);
   assert.deepEqual(model?.communitySummary, {
     perfectedPercentage: 5,
-    qualifiedPlayers: 500,
-    startedPlayers: 1200,
-    completedPlayers: 100,
+    startedPlayers: 500,
+    perfectedPlayers: 25,
+    beatenPlayers: 100,
     medianCompletionMinutes: 5843,
     fastestCompletionMinutes: 1802,
   });
