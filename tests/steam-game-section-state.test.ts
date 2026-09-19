@@ -22,6 +22,8 @@ test("Steam section state preserves filters and stable achievement ids by game",
       scrollTop: 760,
       focusedId: "API_37",
       achievementFilter: "locked",
+      achievementGroupFilter: "missable",
+      achievementAvailabilityFilter: "unobtainable",
       visibleAchievementIds: ["API_36", "API_37", "API_38"],
     },
   }));
@@ -31,6 +33,8 @@ test("Steam section state preserves filters and stable achievement ids by game",
   assert.equal(state.achievements.scrollTop, 760);
   assert.equal(state.achievements.focusedId, "API_37");
   assert.equal(state.achievements.achievementFilter, "locked");
+  assert.equal(state.achievements.achievementGroupFilter, "missable");
+  assert.equal(state.achievements.achievementAvailabilityFilter, "unobtainable");
   assert.equal(readSteamGameSectionPageState("steam", "other").activeSection, "overview");
 });
 

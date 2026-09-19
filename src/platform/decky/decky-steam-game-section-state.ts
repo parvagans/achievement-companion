@@ -1,4 +1,9 @@
-import type { AchievementFilter, AchievementModeFilter } from "./decky-full-screen-achievement-browser";
+import type {
+  AchievementAvailabilityFilter,
+  AchievementFilter,
+  AchievementGroupFilter,
+  AchievementModeFilter,
+} from "./decky-full-screen-achievement-browser";
 import type { DeckySteamGameSectionId } from "./decky-steam-game-section-navigation";
 
 export interface SteamGameSectionState {
@@ -9,6 +14,8 @@ export interface SteamGameSectionState {
 export interface SteamGameAchievementSectionState extends SteamGameSectionState {
   readonly achievementFilter: AchievementFilter;
   readonly achievementModeFilter: AchievementModeFilter;
+  readonly achievementGroupFilter: AchievementGroupFilter;
+  readonly achievementAvailabilityFilter: AchievementAvailabilityFilter;
   /** Stable ids, retained only to select a sensible neighbour after a refresh. */
   readonly visibleAchievementIds: readonly string[];
 }
@@ -29,6 +36,8 @@ const defaultPageState: SteamGameSectionPageState = {
     scrollTop: 0,
     achievementFilter: "all",
     achievementModeFilter: "all",
+    achievementGroupFilter: "all",
+    achievementAvailabilityFilter: "all",
     visibleAchievementIds: [],
   },
   community: defaultSectionState,

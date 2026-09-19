@@ -4,6 +4,7 @@ import type { NormalizedAchievement } from "@core/domain";
 import {
   formatProviderAchievementPointsText,
   formatProviderAchievementStatusText,
+  getMetricValue,
   isSteamAchievementPresentationProvider,
 } from "./decky-achievement-detail-helpers";
 import { DeckyAchievementTypeBadge } from "./decky-achievement-type-badge";
@@ -147,12 +148,235 @@ function getAchievementRowIconStyle(): CSSProperties {
   };
 }
 
+function getSteamAchievementCardStyle(achievement: NormalizedAchievement): CSSProperties {
+  const accentColor = achievement.isUnlocked ? "rgba(245, 181, 30, 0.95)" : "rgba(203, 213, 225, 0.74)";
+
+  return {
+    display: "grid",
+    gridTemplateColumns: "auto minmax(0, 1fr) auto minmax(150px, 0.24fr)",
+    gap: 16,
+    alignItems: "center",
+    minWidth: 0,
+    minHeight: 88,
+    padding: "10px 16px 10px 14px",
+    borderRadius: 15,
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+    borderLeft: `5px solid ${accentColor}`,
+    background: achievement.isUnlocked
+      ? "linear-gradient(180deg, rgba(13, 34, 48, 0.9), rgba(9, 25, 37, 0.88))"
+      : "linear-gradient(180deg, rgba(14, 30, 43, 0.86), rgba(9, 22, 33, 0.84))",
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 8px rgba(0, 0, 0, 0.16)",
+    boxSizing: "border-box",
+  };
+}
+
+function getSteamAchievementBadgeFrameStyle(isUnlocked: boolean): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: 72,
+    height: 72,
+    flexShrink: 0,
+    overflow: "hidden",
+    borderRadius: 9,
+    border: "1px solid rgba(255, 255, 255, 0.12)",
+    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    opacity: isUnlocked ? 1 : 0.92,
+    filter: isUnlocked ? "none" : "grayscale(1) contrast(1.08) brightness(0.9)",
+  };
+}
+
+function getSteamAchievementBadgeFallbackStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.65)",
+    fontSize: "1.4em",
+    fontWeight: 800,
+  };
+}
+
+function getSteamAchievementTextStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 5,
+    minWidth: 0,
+  };
+}
+
+function getSteamAchievementTitleStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.98)",
+    fontSize: "1em",
+    fontWeight: 800,
+    lineHeight: 1.15,
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  };
+}
+
+function getSteamAchievementDescriptionStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.76)",
+    fontSize: "0.84em",
+    lineHeight: 1.2,
+    minWidth: 0,
+    overflow: "hidden",
+    display: "-webkit-box",
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: 2,
+  };
+}
+
+function getSteamAchievementMetricsStyle(): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    flexShrink: 0,
+  };
+}
+
+function getSteamAchievementMetricStyle(): CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 94,
+    minHeight: 44,
+    padding: "0 14px",
+    borderRadius: 12,
+    border: "1px solid rgba(255, 255, 255, 0.1)",
+    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.035))",
+    color: "rgba(255, 255, 255, 0.96)",
+    fontSize: "0.94em",
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+    boxSizing: "border-box",
+  };
+}
+
+function getSteamAchievementStatusStyle(isUnlocked: boolean): CSSProperties {
+  return {
+    display: "grid",
+    gridTemplateColumns: "auto minmax(0, 1fr)",
+    columnGap: 9,
+    alignItems: "center",
+    minWidth: 0,
+    color: isUnlocked ? "rgba(93, 240, 108, 0.98)" : "rgba(203, 213, 225, 0.84)",
+  };
+}
+
+function getSteamAchievementStatusTextStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+    minWidth: 0,
+    fontSize: "0.92em",
+    fontWeight: 800,
+    lineHeight: 1.15,
+    whiteSpace: "nowrap",
+  };
+}
+
+function getSteamAchievementStatusDateStyle(): CSSProperties {
+  return { color: "rgba(255, 255, 255, 0.82)", fontSize: "0.84em", fontWeight: 600 };
+}
+
+function SteamAchievementStatusIcon({ isUnlocked }: { readonly isUnlocked: boolean }): JSX.Element {
+  return (
+    <svg aria-hidden="true" focusable="false" height="28" viewBox="0 0 28 28" width="28">
+      {isUnlocked ? (
+        <>
+          <circle cx="14" cy="14" fill="currentColor" r="12" />
+          <path d="m8.5 14.2 3.5 3.5 7.5-7.6" fill="none" stroke="#07141d" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.4" />
+        </>
+      ) : (
+        <>
+          <circle cx="14" cy="14" fill="none" r="11" stroke="currentColor" strokeWidth="2" />
+          <rect fill="currentColor" height="8" rx="1.5" width="10" x="9" y="12" />
+          <path d="M11.5 12v-2.1a2.5 2.5 0 0 1 5 0V12" fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2" />
+          <circle cx="14" cy="15.5" fill="#07141d" r="1" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+function formatSteamAchievementRarity(
+  achievement: NormalizedAchievement,
+  steamHuntersAchievement: SteamHuntersAchievement | undefined,
+): string {
+  if (steamHuntersAchievement?.localPercentage !== undefined) {
+    return formatSteamHuntersPercentage(steamHuntersAchievement.localPercentage);
+  }
+
+  const globalPercentage = Number(getMetricValue(achievement.metrics, "global-percent", "Global Unlock Rate"));
+  return Number.isFinite(globalPercentage) ? `${Number(globalPercentage.toFixed(1))}%` : "—";
+}
+
+function formatSteamAchievementPoints(
+  achievement: NormalizedAchievement,
+  steamHuntersAchievement: SteamHuntersAchievement | undefined,
+): string {
+  const points = steamHuntersAchievement?.points ?? achievement.points;
+  return points !== undefined ? `${points.toLocaleString()} pts` : "— pts";
+}
+
+function formatSteamAchievementUnlockDate(unlockedAt: number | undefined): string | undefined {
+  return unlockedAt === undefined ? undefined : new Date(unlockedAt).toLocaleDateString();
+}
+
 export interface DeckyFullScreenAchievementRowProps {
   readonly achievement: NormalizedAchievement;
   readonly onOpenAchievementDetail: ((achievementId: string) => void) | undefined;
   readonly onBack: () => void;
   readonly steamHuntersAchievement: SteamHuntersAchievement | undefined;
   readonly onFocusAchievement?: (achievementId: string) => void;
+}
+
+function SteamAchievementRowContent({
+  achievement,
+  steamHuntersAchievement,
+}: {
+  readonly achievement: NormalizedAchievement;
+  readonly steamHuntersAchievement: SteamHuntersAchievement | undefined;
+}): JSX.Element {
+  const unlockedDate = formatSteamAchievementUnlockDate(achievement.unlockedAt);
+
+  return (
+    <>
+      <span style={getSteamAchievementBadgeFrameStyle(achievement.isUnlocked)}>
+        {achievement.badgeImageUrl !== undefined ? (
+          <DeckyGameArtwork compact src={achievement.badgeImageUrl} size={72} title={achievement.title} />
+        ) : (
+          <span style={getSteamAchievementBadgeFallbackStyle()}>?</span>
+        )}
+      </span>
+      <span style={getSteamAchievementTextStyle()}>
+        <span style={getSteamAchievementTitleStyle()}>{achievement.title}</span>
+        {achievement.description !== undefined ? (
+          <span style={getSteamAchievementDescriptionStyle()}>{achievement.description}</span>
+        ) : null}
+      </span>
+      <span aria-label={`${formatSteamAchievementPoints(achievement, steamHuntersAchievement)}, ${formatSteamAchievementRarity(achievement, steamHuntersAchievement)} rarity`} style={getSteamAchievementMetricsStyle()}>
+        <span style={getSteamAchievementMetricStyle()}>{formatSteamAchievementPoints(achievement, steamHuntersAchievement)}</span>
+        <span style={getSteamAchievementMetricStyle()}>{formatSteamAchievementRarity(achievement, steamHuntersAchievement)}</span>
+      </span>
+      <span style={getSteamAchievementStatusStyle(achievement.isUnlocked)}>
+        <SteamAchievementStatusIcon isUnlocked={achievement.isUnlocked} />
+        <span style={getSteamAchievementStatusTextStyle()}>
+          <span>{achievement.isUnlocked ? "Unlocked" : "Locked"}</span>
+          {achievement.isUnlocked && unlockedDate !== undefined ? (
+            <span style={getSteamAchievementStatusDateStyle()}>{unlockedDate}</span>
+          ) : null}
+        </span>
+      </span>
+    </>
+  );
 }
 
 export function DeckyFullScreenAchievementRow({
@@ -199,42 +423,45 @@ export function DeckyFullScreenAchievementRow({
         setIsFocused(false);
       }}
       style={{
-        ...getAchievementCardStyle(achievement),
+        ...(isSteamProvider ? getSteamAchievementCardStyle(achievement) : getAchievementCardStyle(achievement)),
         outline: isFocused ? "2px solid rgba(69, 148, 255, 0.8)" : "none",
         outlineOffset: 1,
-        boxShadow: isFocused
-          ? "inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(69, 148, 255, 0.55), 0 4px 14px rgba(0, 0, 0, 0.22)"
-          : undefined,
+        ...(isFocused
+          ? { boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(69, 148, 255, 0.55), 0 4px 14px rgba(0, 0, 0, 0.22)" }
+          : {}),
       }}
       data-achievement-companion-steam-achievement-id={isSteamProvider ? achievement.achievementId : undefined}
     >
-      <span style={getAchievementRowIconStyle()}>
-        {achievement.badgeImageUrl !== undefined ? (
-          <AchievementBadgeIcon achievement={achievement} />
-        ) : null}
-      </span>
+      {isSteamProvider ? (
+        <SteamAchievementRowContent achievement={achievement} steamHuntersAchievement={steamHuntersAchievement} />
+      ) : (
+        <>
+          <span style={getAchievementRowIconStyle()}>
+            {achievement.badgeImageUrl !== undefined ? (
+              <AchievementBadgeIcon achievement={achievement} />
+            ) : null}
+          </span>
 
-      <span style={getAchievementRowTextStyle()}>
-        <span style={getAchievementRowTitleLineStyle()}>
-          <span style={getAchievementRowTitleStyle()}>{achievement.title}</span>
-          <DeckyAchievementTypeBadge classification={achievement.classification} />
-        </span>
-        {isSteamProvider && achievement.description !== undefined ? (
-          <span style={getAchievementRowDetailStyle()}>{achievement.description}</span>
-        ) : null}
-        <span style={getAchievementRowMetadataStackStyle()}>
-          <span style={getAchievementRowStatusStyle(achievement)}>{statusText}</span>
-          {pointsText !== undefined ? (
-            <span style={getAchievementRowDetailStyle()}>{pointsText}</span>
-          ) : null}
-          {steamHuntersMetadata !== undefined ? (
-            <span style={getAchievementRowDetailStyle()}>{steamHuntersMetadata}</span>
-          ) : null}
-          {!isSteamProvider && unlockedAt !== undefined ? (
-            <span style={getAchievementRowDetailStyle()}>Unlocked {formatTimestamp(unlockedAt)}</span>
-          ) : null}
-        </span>
-      </span>
+          <span style={getAchievementRowTextStyle()}>
+            <span style={getAchievementRowTitleLineStyle()}>
+              <span style={getAchievementRowTitleStyle()}>{achievement.title}</span>
+              <DeckyAchievementTypeBadge classification={achievement.classification} />
+            </span>
+            <span style={getAchievementRowMetadataStackStyle()}>
+              <span style={getAchievementRowStatusStyle(achievement)}>{statusText}</span>
+              {pointsText !== undefined ? (
+                <span style={getAchievementRowDetailStyle()}>{pointsText}</span>
+              ) : null}
+              {steamHuntersMetadata !== undefined ? (
+                <span style={getAchievementRowDetailStyle()}>{steamHuntersMetadata}</span>
+              ) : null}
+              {unlockedAt !== undefined ? (
+                <span style={getAchievementRowDetailStyle()}>Unlocked {formatTimestamp(unlockedAt)}</span>
+              ) : null}
+            </span>
+          </span>
+        </>
+      )}
     </Focusable>
   );
 }
