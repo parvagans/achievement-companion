@@ -45,6 +45,7 @@ export interface DeckyFullScreenGameProgressStatProps {
   readonly label: string;
   readonly value: string;
   readonly dense?: boolean;
+  readonly icon?: ReactNode;
 }
 
 function getProgressStatGridStyle(fillHeight: boolean, columns: number, gap: number): CSSProperties {
@@ -80,11 +81,17 @@ export function DeckyFullScreenGameProgressStat({
   label,
   value,
   dense = false,
+  icon,
 }: DeckyFullScreenGameProgressStatProps): JSX.Element {
   return (
     <div style={getProgressStatStyle(dense)}>
-      <div style={getProgressStatLabelStyle()}>{label}</div>
-      <div style={getProgressStatValueStyle()}>{value}</div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, minWidth: 0 }}>
+        {icon !== undefined ? <span style={{ display: "inline-flex", flexShrink: 0 }}>{icon}</span> : null}
+        <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>
+          <div style={getProgressStatLabelStyle()}>{label}</div>
+          <div style={getProgressStatValueStyle()}>{value}</div>
+        </div>
+      </div>
     </div>
   );
 }

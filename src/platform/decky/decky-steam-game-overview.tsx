@@ -11,6 +11,8 @@ import {
   DeckySteamHuntersSetDetailsSection,
 } from "./decky-steam-hunters-game-sections";
 import { buildDeckySteamHuntersGameViewModel } from "./decky-steam-hunters-view-model";
+import { STEAM_PROVIDER_ICON_SRC } from "./providers/steam/icon";
+import { DeckySteamExternalLinkIcon, DeckySteamPlayIcon } from "./decky-steam-icons";
 import type { SteamHuntersGameEnrichment } from "../../providers/steamhunters";
 
 type SteamGame = GameDetailSnapshot["game"];
@@ -73,7 +75,7 @@ function getTitleStyle(): CSSProperties {
 }
 
 function getProviderStyle(): CSSProperties {
-  return { color: "rgba(255, 255, 255, 0.74)", fontSize: "0.86em", fontWeight: 700 };
+  return { display: "inline-flex", alignItems: "center", gap: 6, color: "rgba(255, 255, 255, 0.74)", fontSize: "0.86em", fontWeight: 700 };
 }
 
 function getMetadataStyle(): CSSProperties {
@@ -143,16 +145,17 @@ function SteamGameIdentityPanel({
         />
       ) : null}
       <div style={getTitleStyle()}>{game.title}</div>
-      <div style={getProviderStyle()}>Steam</div>
+      <div style={getProviderStyle()}><img alt="" height={16} src={STEAM_PROVIDER_ICON_SRC} width={16} />Steam</div>
       {game.appid !== undefined ? (
         <DeckyFullscreenActionRow>
           <DeckyFullscreenActionButton
             fullWidth
             label="Play Game"
+            icon={<DeckySteamPlayIcon />}
             onClick={() => launchSteamGame(game.appid!)}
             primary
           />
-          <DeckyFullscreenActionButton fullWidth label="View on Steam" onClick={() => openSteamStore(game.appid!)} />
+          <DeckyFullscreenActionButton fullWidth icon={<DeckySteamExternalLinkIcon />} label="View on Steam" onClick={() => openSteamStore(game.appid!)} />
         </DeckyFullscreenActionRow>
       ) : null}
       <div style={getMetadataStyle()}>
@@ -209,7 +212,7 @@ export function DeckySteamGameOverview({
         <DeckySteamHuntersSetDetailsSection
           model={steamHunters}
           totalAchievementCount={totalAchievementCount}
-          footerText={`Updated · ${updatedLabel}`}
+          updatedLabel={updatedLabel}
         />
       </div>
     </div>

@@ -254,6 +254,8 @@ test("SteamHunters full-screen view model shows only complete-set points and hea
       unobtainableAchievementCount: 0,
       playersPerfectedCount: 25,
       playersQualifiedCount: 500,
+      playersStartedCount: 1200,
+      playersCompletedCount: 100,
       medianCompletionTime: 5843,
       fastestCompletionTime: 1802,
       tags: [],
@@ -279,6 +281,8 @@ test("SteamHunters full-screen view model shows only complete-set points and hea
   assert.deepEqual(model?.communitySummary, {
     perfectedPercentage: 5,
     qualifiedPlayers: 500,
+    startedPlayers: 1200,
+    completedPlayers: 100,
     medianCompletionMinutes: 5843,
     fastestCompletionMinutes: 1802,
   });

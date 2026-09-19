@@ -3,6 +3,7 @@ import { DeckyFullScreenGameProgressStat, DeckyFullScreenGameProgressStatGrid } 
 import { DeckyFullScreenGameSpotlightCard } from "./decky-full-screen-game-spotlight-card";
 import type { DeckySteamHuntersGameViewModel } from "./decky-steam-hunters-view-model";
 import { formatSteamHuntersCompletionDuration, formatSteamHuntersPercentage } from "./decky-steam-hunters-presentation";
+import { DeckySteamBrokenIcon, DeckySteamConditionalIcon, DeckySteamDlcIcon, DeckySteamUnobtainableIcon } from "./decky-steam-icons";
 
 function formatCount(value: number): string {
   return value.toLocaleString();
@@ -42,10 +43,6 @@ function SteamHuntersCardTitle({ title }: { readonly title: string }): JSX.Eleme
   );
 }
 
-function getFooterMetadataStyle(): CSSProperties {
-  return { color: "rgba(255, 255, 255, 0.5)", fontSize: "0.68em", lineHeight: 1.15 };
-}
-
 export function DeckySteamHuntersCommunitySection({
   model,
   compact = false,
@@ -66,12 +63,18 @@ export function DeckySteamHuntersCommunitySection({
       focusable={false}
       {...(compact ? { style: getCompactDashboardCardStyle(fillHeight) } : {})}
     >
-      <DeckyFullScreenGameProgressStatGrid gap={compact ? 6 : 8}>
+      <DeckyFullScreenGameProgressStatGrid columns={3} gap={compact ? 6 : 8}>
         {summary.perfectedPercentage !== undefined ? (
           <DeckyFullScreenGameProgressStat dense={compact} label="Perfected" value={formatSteamHuntersPercentage(summary.perfectedPercentage)} />
         ) : null}
         {summary.qualifiedPlayers !== undefined ? (
           <DeckyFullScreenGameProgressStat dense={compact} label="Players" value={formatCount(summary.qualifiedPlayers)} />
+        ) : null}
+        {summary.startedPlayers !== undefined ? (
+          <DeckyFullScreenGameProgressStat dense={compact} label="Started" value={formatCount(summary.startedPlayers)} />
+        ) : null}
+        {summary.completedPlayers !== undefined ? (
+          <DeckyFullScreenGameProgressStat dense={compact} label="Completed" value={formatCount(summary.completedPlayers)} />
         ) : null}
         {summary.medianCompletionMinutes !== undefined ? (
           <DeckyFullScreenGameProgressStat dense={compact} label="Median 100%" value={formatSteamHuntersCompletionDuration(summary.medianCompletionMinutes)} />
@@ -109,16 +112,16 @@ export function DeckySteamHuntersCompletionHealthSection({
     >
       <DeckyFullScreenGameProgressStatGrid columns={4} gap={6}>
         {health.hasPaidDlc !== undefined ? (
-          <DeckyFullScreenGameProgressStat dense label="DLC required" value={health.hasPaidDlc ? "Yes" : "No"} />
+          <DeckyFullScreenGameProgressStat dense icon={<DeckySteamDlcIcon />} label="DLC required" value={health.hasPaidDlc ? "Yes" : "No"} />
         ) : null}
         {health.unobtainableCount !== undefined ? (
-          <DeckyFullScreenGameProgressStat dense label="Unobtainable" value={formatCount(health.unobtainableCount)} />
+          <DeckyFullScreenGameProgressStat dense icon={<DeckySteamUnobtainableIcon />} label="Unobtainable" value={formatCount(health.unobtainableCount)} />
         ) : null}
         {health.conditionalCount !== undefined ? (
-          <DeckyFullScreenGameProgressStat dense label="Conditional" value={formatCount(health.conditionalCount)} />
+          <DeckyFullScreenGameProgressStat dense icon={<DeckySteamConditionalIcon />} label="Conditional" value={formatCount(health.conditionalCount)} />
         ) : null}
         {health.brokenButObtainableCount !== undefined ? (
-          <DeckyFullScreenGameProgressStat dense label="Broken but obtainable" value={formatCount(health.brokenButObtainableCount)} />
+          <DeckyFullScreenGameProgressStat dense icon={<DeckySteamBrokenIcon />} label="Broken but obtainable" value={formatCount(health.brokenButObtainableCount)} />
         ) : null}
       </DeckyFullScreenGameProgressStatGrid>
     </DeckyFullScreenGameSpotlightCard>
@@ -128,11 +131,11 @@ export function DeckySteamHuntersCompletionHealthSection({
 export function DeckySteamHuntersSetDetailsSection({
   model,
   totalAchievementCount,
-  footerText,
+  updatedLabel,
 }: {
   readonly model: DeckySteamHuntersGameViewModel | undefined;
   readonly totalAchievementCount: number | undefined;
-  readonly footerText?: string;
+  readonly updatedLabel: string;
 }): JSX.Element | null {
   const app = model?.enrichment.app;
   const values = [
@@ -147,7 +150,7 @@ export function DeckySteamHuntersSetDetailsSection({
     ...(app?.points !== undefined ? [
       <DeckyFullScreenGameProgressStat
         key="points"
-        label="SteamHunters points"
+        label="SH points"
         value={formatCount(app.points)}
         dense
       />,
@@ -160,6 +163,12 @@ export function DeckySteamHuntersSetDetailsSection({
         dense
       />,
     ] : []),
+    <DeckyFullScreenGameProgressStat
+      key="last-sh-update"
+      label="Last SH update"
+      value={updatedLabel}
+      dense
+    />,
   ];
   if (values.length === 0) {
     return null;
@@ -174,7 +183,6 @@ export function DeckySteamHuntersSetDetailsSection({
       <DeckyFullScreenGameProgressStatGrid columns={values.length} gap={6}>
         {values}
       </DeckyFullScreenGameProgressStatGrid>
-      {footerText !== undefined ? <div style={getFooterMetadataStyle()}>{footerText}</div> : null}
     </DeckyFullScreenGameSpotlightCard>
   );
 }

@@ -67,6 +67,14 @@ function formatTimestamp(epochMs: number | undefined): string {
   return new Date(epochMs).toLocaleString();
 }
 
+function formatDateOnly(epochMs: number | undefined): string {
+  if (epochMs === undefined) {
+    return "Unknown";
+  }
+
+  return new Date(epochMs).toLocaleDateString();
+}
+
 function formatCount(value: number): string {
   return value.toLocaleString();
 }
@@ -474,7 +482,7 @@ export function DeckyFullScreenGamePage({
                 totalAchievementCount={totalAchievementCount}
                 completionPercent={completionPercent}
                 steamHuntersEnrichment={steamHuntersEnrichment}
-                updatedLabel={`${snapshotSourceLabel} · ${formatTimestamp(refreshTimestamp)}`}
+                updatedLabel={formatDateOnly(refreshTimestamp)}
               />
             </div>
           ) : null}
