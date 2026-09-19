@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { Navigation as DeckyNavigation } from "@decky/ui";
 import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
 import { DeckySteamFullscreenGameArtwork } from "./decky-steam-fullscreen-game-artwork";
@@ -12,7 +13,9 @@ import {
 } from "./decky-steam-hunters-game-sections";
 import { buildDeckySteamHuntersGameViewModel } from "./decky-steam-hunters-view-model";
 import { STEAM_PROVIDER_ICON_SRC } from "./providers/steam/icon";
-import { DeckySteamExternalLinkIcon, DeckySteamPlayIcon } from "./decky-steam-icons";
+import { formatSteamPlaytimeMinutes } from "./decky-stat-helpers";
+import { DeckySteamExternalLinkIcon, DeckySteamHuntersIcon, DeckySteamPlayIcon } from "./decky-steam-icons";
+import { suppressNextFullscreenRouteUnmountAction } from "./decky-full-screen-navigation-state";
 import type { SteamHuntersGameEnrichment } from "../../providers/steamhunters";
 
 type SteamGame = GameDetailSnapshot["game"];
@@ -118,11 +121,26 @@ function getDashboardTopRowStyle(hasCommunity: boolean): CSSProperties {
 }
 
 function openSteamStore(appId: number): void {
-  SteamClient.Apps.ShowStore(appId);
+  suppressNextFullscreenRouteUnmountAction();
+  // Steam diverts Store and s.team URLs before its visible external browser
+  // can attach them. A self-contained redirect document mounts that browser
+  // first, then replaces its initial history entry with the Store page.
+  const storeUrl = `https://store.steampowered.com/app/${appId}`;
+  const redirectDocument = `<script>location.replace(${JSON.stringify(storeUrl)})</script>`;
+  DeckyNavigation.NavigateToExternalWeb(
+    `data:text/html;charset=utf-8,${encodeURIComponent(redirectDocument)}`,
+  );
+}
+
+function openSteamHunters(appId: number): void {
+  suppressNextFullscreenRouteUnmountAction();
+  DeckyNavigation.NavigateToExternalWeb(`https://steamhunters.com/apps/${appId}`);
 }
 
 function launchSteamGame(appId: number): void {
-  SteamClient.System.OpenInSystemBrowser(`steam://rungameid/${appId}`);
+  suppressNextFullscreenRouteUnmountAction();
+  const libraryDetailsLaunchSource = 100 as Parameters<typeof SteamClient.Apps.RunGame>[3];
+  SteamClient.Apps.RunGame(String(appId), "", 0, libraryDetailsLaunchSource);
 }
 
 function SteamGameIdentityPanel({
@@ -156,12 +174,15 @@ function SteamGameIdentityPanel({
             primary
           />
           <DeckyFullscreenActionButton fullWidth icon={<DeckySteamExternalLinkIcon />} label="View on Steam" onClick={() => openSteamStore(game.appid!)} />
+          <DeckyFullscreenActionButton fullWidth icon={<DeckySteamHuntersIcon />} label="View on SteamHunters" onClick={() => openSteamHunters(game.appid!)} />
         </DeckyFullscreenActionRow>
       ) : null}
       <div style={getMetadataStyle()}>
         {game.appid !== undefined ? <><span>App ID</span><span style={getMetadataValueStyle()}>{game.appid}</span></> : null}
         {releaseDate !== undefined ? <><span>Release date</span><span style={getMetadataValueStyle()}>{releaseDate}</span></> : null}
         {lastPlayed !== undefined ? <><span>Last played</span><span style={getMetadataValueStyle()}>{lastPlayed}</span></> : null}
+        {game.playtimeForeverMinutes !== undefined ? <><span>Total Steam hours</span><span style={getMetadataValueStyle()}>{formatSteamPlaytimeMinutes(game.playtimeForeverMinutes)}</span></> : null}
+        {game.playtimeDeckForeverMinutes !== undefined ? <><span>Total Deck hours</span><span style={getMetadataValueStyle()}>{formatSteamPlaytimeMinutes(game.playtimeDeckForeverMinutes)}</span></> : null}
       </div>
     </div>
   );

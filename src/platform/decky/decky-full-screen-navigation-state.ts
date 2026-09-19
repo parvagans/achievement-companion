@@ -19,6 +19,7 @@ interface FullScreenGameRouteBackState {
 
 const fullScreenGameRouteBackBehaviors = new Map<string, FullScreenGameRouteBackState[]>();
 let nextFullScreenSettingsBackTarget: FullScreenSettingsBackTarget = "compact-panel";
+let shouldSuppressNextFullscreenRouteUnmountAction = false;
 
 function getFullScreenGameRouteKey(providerId: string, gameId: string): string {
   return `${providerId}:${gameId}`;
@@ -130,4 +131,14 @@ export function shouldSuppressGameRouteUnmountWhenOpeningAchievement(
 ): boolean {
   void backBehavior;
   return true;
+}
+
+export function suppressNextFullscreenRouteUnmountAction(): void {
+  shouldSuppressNextFullscreenRouteUnmountAction = true;
+}
+
+export function consumeNextFullscreenRouteUnmountActionSuppression(): boolean {
+  const shouldSuppress = shouldSuppressNextFullscreenRouteUnmountAction;
+  shouldSuppressNextFullscreenRouteUnmountAction = false;
+  return shouldSuppress;
 }

@@ -16,6 +16,7 @@ import { DeckyFullScreenProviderSettingsPage } from "./decky-full-screen-provide
 import { dispatchDeckyScrollReset } from "./decky-scroll-viewport";
 import {
   clearNextFullScreenSettingsBackTarget,
+  consumeNextFullscreenRouteUnmountActionSuppression,
   markFullScreenGameRouteBackBehavior,
   markNextFullScreenSettingsBackTarget,
   popFullScreenGameRouteBackBehavior,
@@ -25,6 +26,7 @@ import {
   resolveFullScreenGameRouteBackBehavior,
   shouldSuppressGameRouteUnmountWhenOpeningAchievement,
   resolveFullScreenSettingsBackTarget,
+  suppressNextFullscreenRouteUnmountAction,
   type FullScreenGameRouteBackBehavior,
 } from "./decky-full-screen-navigation-state";
 
@@ -87,7 +89,6 @@ let isFullScreenProviderSettingsRouteRegistered = false;
 
 type FullScreenAchievementRouteBackBehavior = "game" | "achievement-history";
 const fullScreenAchievementRouteBackBehaviors = new Map<string, FullScreenAchievementRouteBackBehavior>();
-let shouldSuppressNextFullscreenRouteUnmountAction = false;
 
 function registerFullScreenGameRoute(): void {
   if (isFullScreenGameRouteRegistered) {
@@ -276,16 +277,6 @@ function resolveFullScreenAchievementRouteBackBehavior(
       getFullScreenAchievementRouteKey(providerId, gameId, achievementId),
     ) ?? "game"
   );
-}
-
-function suppressNextFullscreenRouteUnmountAction(): void {
-  shouldSuppressNextFullscreenRouteUnmountAction = true;
-}
-
-function consumeNextFullscreenRouteUnmountActionSuppression(): boolean {
-  const shouldSuppress = shouldSuppressNextFullscreenRouteUnmountAction;
-  shouldSuppressNextFullscreenRouteUnmountAction = false;
-  return shouldSuppress;
 }
 
 function returnToDeckyPanel(): void {
