@@ -43,6 +43,7 @@ function getOverviewGridStyle(): CSSProperties {
     gap: 12,
     width: "100%",
     height: "100%",
+    minHeight: 0,
     minWidth: 0,
     alignItems: "stretch",
   };
@@ -54,6 +55,7 @@ function getIdentityPanelStyle(): CSSProperties {
     flexDirection: "column",
     justifyContent: "space-between",
     gap: 7,
+    minHeight: 0,
     minWidth: 0,
     padding: 10,
     borderRadius: 14,
@@ -63,12 +65,18 @@ function getIdentityPanelStyle(): CSSProperties {
   };
 }
 
-function getTitleStyle(): CSSProperties {
+function getTitleStyle(title: string): CSSProperties {
+  const titleLength = title.trim().length;
+  const isLongTitle = titleLength >= 24;
+  const isVeryLongTitle = titleLength >= 36;
+
   return {
     color: "rgba(255, 255, 255, 0.98)",
-    fontSize: "1.28em",
+    // Keep longer titles from consuming the vertical space needed by the
+    // action buttons and metadata in the bounded Steam overview frame.
+    fontSize: isVeryLongTitle ? "0.92em" : isLongTitle ? "1em" : "1.28em",
     fontWeight: 800,
-    lineHeight: 1.15,
+    lineHeight: isLongTitle ? 1.08 : 1.15,
     minWidth: 0,
     overflow: "hidden",
     display: "-webkit-box",
@@ -162,7 +170,7 @@ function SteamGameIdentityPanel({
           dense
         />
       ) : null}
-      <div style={getTitleStyle()}>{game.title}</div>
+      <div style={getTitleStyle(game.title)}>{game.title}</div>
       <div style={getProviderStyle()}><img alt="" height={16} src={STEAM_PROVIDER_ICON_SRC} width={16} />Steam</div>
       {game.appid !== undefined ? (
         <DeckyFullscreenActionRow>
