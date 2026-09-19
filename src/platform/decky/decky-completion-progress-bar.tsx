@@ -20,13 +20,30 @@ function getCompletionBarFrameStyle(compact: boolean): CSSProperties {
   };
 }
 
-function getCompletionBarTrackStyle(compact: boolean): CSSProperties {
+function getCompletionBarTrackStyle(compact: boolean, captionPlacement: "above" | "below" | "inside"): CSSProperties {
   return {
-    height: compact ? 4 : 8,
+    position: "relative",
+    height: captionPlacement === "inside" ? (compact ? 22 : 28) : compact ? 4 : 8,
     borderRadius: 999,
     overflow: "hidden",
     backgroundColor: "rgba(255, 255, 255, 0.08)",
     boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.06)",
+  };
+}
+
+function getCompletionBarInsideCaptionStyle(compact: boolean): CSSProperties {
+  return {
+    position: "absolute",
+    inset: 0,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: "rgba(255, 255, 255, 0.96)",
+    fontSize: compact ? "11px" : "12px",
+    fontWeight: 700,
+    lineHeight: 1,
+    textShadow: "0 1px 2px rgba(0, 0, 0, 0.7)",
+    pointerEvents: "none",
   };
 }
 
@@ -81,7 +98,7 @@ export function DeckyCompletionProgressBar({
   readonly compact?: boolean;
   readonly percent: number;
   readonly caption?: string;
-  readonly captionPlacement?: "above" | "below";
+  readonly captionPlacement?: "above" | "below" | "inside";
   readonly showCaption?: boolean;
   readonly tone?: DeckyCompletionProgressBarTone;
 }): JSX.Element {
@@ -101,9 +118,12 @@ export function DeckyCompletionProgressBar({
         aria-valuenow={normalizedPercent}
         aria-valuetext={resolvedCaption}
         role="progressbar"
-        style={getCompletionBarTrackStyle(compact)}
+        style={getCompletionBarTrackStyle(compact, captionPlacement)}
       >
         <div data-completion-progress-tone={tone} style={getCompletionBarFillStyle(normalizedPercent, tone)} />
+        {showCaption && captionPlacement === "inside" ? (
+          <div style={getCompletionBarInsideCaptionStyle(compact)}>{resolvedCaption}</div>
+        ) : null}
       </div>
 
       {showCaption && captionPlacement === "below" ? (

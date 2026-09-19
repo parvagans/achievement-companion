@@ -6,7 +6,7 @@ import { DeckyFullScreenGameSpotlightCard } from "./decky-full-screen-game-spotl
 function getStatsGridStyle(): CSSProperties {
   return {
     display: "grid",
-    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
     gap: 6,
     justifyItems: "stretch",
     alignItems: "stretch",
@@ -42,11 +42,15 @@ export function DeckySteamProgressSummary({
 }: DeckySteamProgressSummaryProps): JSX.Element {
   return (
     <DeckyFullScreenGameSpotlightCard title="Your Progress" focusable={false} style={getProgressCardStyle(fillHeight)}>
-      <div style={{ color: "rgba(255, 255, 255, 0.92)", fontSize: "0.86em", fontWeight: 700 }}>
-        {`${unlockedValue} / ${totalValue} achievements${completionPercent !== undefined ? ` · ${Math.round(completionPercent)}% complete` : ""}`}
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 8, color: "rgba(255, 255, 255, 0.92)", fontSize: "0.86em", fontWeight: 700, textAlign: "center" }}>
+        <span>{`${unlockedValue} / ${totalValue} achievements`}</span>
       </div>
       {completionPercent !== undefined ? (
-        <DeckyCompletionProgressBar percent={completionPercent} showCaption={false} />
+        <DeckyCompletionProgressBar
+          caption={`${Math.round(completionPercent)}% complete`}
+          captionPlacement="inside"
+          percent={completionPercent}
+        />
       ) : null}
       <div style={getStatsGridStyle()}>
         <DeckyFullScreenGameProgressStat dense label="Unlocked" value={unlockedValue} />
@@ -54,7 +58,9 @@ export function DeckySteamProgressSummary({
           <DeckyFullScreenGameProgressStat dense label="Remaining" value={remainingValue} />
         ) : null}
         {lastUnlockValue !== undefined ? (
-          <DeckyFullScreenGameProgressStat dense label="Last unlock" value={lastUnlockValue} />
+          <div style={{ gridColumn: "1 / -1" }}>
+            <DeckyFullScreenGameProgressStat dense label="Last unlock" value={lastUnlockValue} />
+          </div>
         ) : null}
       </div>
     </DeckyFullScreenGameSpotlightCard>
