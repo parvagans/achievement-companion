@@ -108,6 +108,21 @@ export function getDeckyFullscreenActionStylesCss(): string {
     inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
 }
 
+/* Keep the primary action's blue treatment while making controller focus unmistakable. */
+.${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-primary.${DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS},
+.${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-primary.gpfocus,
+.${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-primary.gpfocuswithin,
+.${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-primary:focus,
+.${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-primary:focus-visible,
+.${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-primary:focus-within {
+  border-color: rgba(255, 255, 255, 0.98) !important;
+  background: linear-gradient(180deg, rgba(34, 155, 232, 0.92), rgba(15, 91, 162, 0.96)) !important;
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.96),
+    0 0 20px rgba(42, 145, 230, 0.52),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+}
+
 .${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > .${DECKY_FULLSCREEN_CHIP_CLASS} > span {
   display: inline-flex !important;
   width: max-content !important;
