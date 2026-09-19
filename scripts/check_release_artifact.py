@@ -12,6 +12,7 @@ from package_release import (
   PLUGIN_ARCHIVE_ROOT,
   REQUIRED_FRONTEND_MARKERS,
   ROOT_DIR,
+  get_dist_runtime_file_paths,
   read_package_version,
 )
 
@@ -52,18 +53,10 @@ def get_release_zip_path(root_dir: Path = ROOT_DIR) -> Path:
 
 def get_expected_dist_archive_names(root_dir: Path = ROOT_DIR) -> set[str]:
   dist_dir = root_dir / "dist"
-  if not dist_dir.is_dir():
-    raise RuntimeError("Release dist directory is missing.")
-
-  dist_js_names = {
-    f"{PLUGIN_ARCHIVE_ROOT}/dist/{path.name}"
-    for path in dist_dir.iterdir()
-    if path.is_file() and path.suffix == ".js"
+  return {
+    f"{PLUGIN_ARCHIVE_ROOT}/dist/{path.relative_to(dist_dir).as_posix()}"
+    for path in get_dist_runtime_file_paths(root_dir)
   }
-  if not dist_js_names:
-    raise RuntimeError("Release dist JavaScript bundle files are missing.")
-
-  return dist_js_names
 
 
 def verify_release_zip_payload(zip_path: Path) -> None:

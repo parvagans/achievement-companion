@@ -91,19 +91,26 @@ def _copy_required_file(root_dir: Path, stage_dir: Path, relative_path: Path) ->
   shutil.copy2(source_path, destination_path)
 
 
-def _copy_dist_bundle_files(root_dir: Path, stage_dir: Path) -> None:
+def get_dist_runtime_file_paths(root_dir: Path = ROOT_DIR) -> list[Path]:
   source_dist_dir = root_dir / "dist"
   if not source_dist_dir.is_dir():
     raise FileNotFoundError("Required release dist directory is missing: dist")
 
-  dist_bundle_paths = sorted(
-    path for path in source_dist_dir.iterdir() if path.is_file() and path.suffix == ".js"
+  runtime_file_paths = sorted(
+    path
+    for path in source_dist_dir.rglob("*")
+    if path.is_file() and path.suffix != ".map"
   )
-  if not dist_bundle_paths:
+  if not any(path.suffix == ".js" for path in runtime_file_paths):
     raise RuntimeError("Required release dist JavaScript bundle files are missing.")
 
-  for source_path in dist_bundle_paths:
-    destination_path = stage_dir / "dist" / source_path.name
+  return runtime_file_paths
+
+
+def _copy_dist_bundle_files(root_dir: Path, stage_dir: Path) -> None:
+  source_dist_dir = root_dir / "dist"
+  for source_path in get_dist_runtime_file_paths(root_dir):
+    destination_path = stage_dir / "dist" / source_path.relative_to(source_dist_dir)
     destination_path.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(source_path, destination_path)
 
@@ -111,7 +118,7 @@ def _copy_dist_bundle_files(root_dir: Path, stage_dir: Path) -> None:
 def _get_staged_dist_bundle_paths(stage_dir: Path) -> list[Path]:
   dist_dir = stage_dir / "dist"
   return sorted(
-    path for path in dist_dir.iterdir() if path.is_file() and path.suffix == ".js"
+    path for path in dist_dir.rglob("*.js") if path.is_file()
   )
 
 

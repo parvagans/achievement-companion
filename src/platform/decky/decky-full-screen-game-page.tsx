@@ -9,7 +9,6 @@ import {
 import type { ResourceState } from "@core/cache";
 import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
 import { Field, PanelSection, PanelSectionRow, ScrollPanel } from "@decky/ui";
-import { PlaceholderState } from "@ui/PlaceholderState";
 import {
   initialDeckyGameDetailState,
   loadDeckyGameDetailState,
@@ -51,6 +50,8 @@ import {
   selectSteamAchievementRestorationTarget,
   updateSteamGameSectionPageState,
 } from "./decky-steam-game-section-state";
+import trophyIconUrl from "./assets/trophy.svg";
+import infoIconUrl from "./assets/info.svg";
 
 export interface DeckyFullScreenGamePageProps {
   readonly providerId: string | undefined;
@@ -155,6 +156,222 @@ function getFullScreenPageFrameStyle(): CSSProperties {
     padding: `calc(env(safe-area-inset-top, 0px) + ${FULLSCREEN_GAME_TOP_PADDING}px) 12px calc(env(safe-area-inset-bottom, 0px) + ${FULLSCREEN_GAME_BOTTOM_SCROLL_PADDING}px)`,
     boxSizing: "border-box",
   };
+}
+
+function getFullScreenLoadingFrameStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flex: "1 1 auto",
+    alignItems: "center",
+    justifyContent: "center",
+    height: "100%",
+    minHeight: 0,
+    padding: "clamp(82px, 15vh, 128px) clamp(18px, 8vw, 120px) 72px",
+    boxSizing: "border-box",
+    overflow: "hidden",
+    position: "relative",
+    color: "rgba(238, 246, 255, 0.96)",
+    background:
+      "radial-gradient(ellipse at 50% 28%, rgba(34, 102, 162, 0.26), transparent 42%), radial-gradient(circle at 12% 70%, rgba(44, 91, 139, 0.16), transparent 28%), linear-gradient(135deg, #07111c 0%, #0b1724 54%, #07101a 100%)",
+  };
+}
+
+function getFullScreenLoadingContentStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 760,
+    gap: 28,
+    textAlign: "center",
+    position: "relative",
+    zIndex: 1,
+  };
+}
+
+function getFullScreenLoadingProgressStyle(): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "clamp(142px, 22vw, 184px)",
+    height: "clamp(142px, 22vw, 184px)",
+    borderRadius: "50%",
+    background:
+      "conic-gradient(from -24deg, #1cbcf1 0deg, #18a9e4 76deg, rgba(37, 85, 151, 0.84) 77deg, rgba(27, 58, 107, 0.76) 360deg)",
+    boxShadow: "0 0 34px rgba(24, 174, 239, 0.22), inset 0 0 0 1px rgba(151, 225, 255, 0.18)",
+  };
+}
+
+function getFullScreenLoadingIconWellStyle(): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "calc(100% - 18px)",
+    height: "calc(100% - 18px)",
+    borderRadius: "50%",
+    background: "radial-gradient(circle at 40% 30%, #112b42, #07131f 72%)",
+    boxShadow: "inset 0 0 0 1px rgba(115, 192, 239, 0.18)",
+  };
+}
+
+function getFullScreenLoadingIconStyle(): CSSProperties {
+  return {
+    width: "clamp(72px, 12vw, 102px)",
+    height: "clamp(72px, 12vw, 102px)",
+    objectFit: "contain",
+    filter: "brightness(0) saturate(100%) invert(68%) sepia(79%) saturate(1428%) hue-rotate(161deg) brightness(101%) contrast(102%) drop-shadow(0 0 10px rgba(41, 196, 246, 0.36))",
+  };
+}
+
+function getFullScreenLoadingTitleStyle(): CSSProperties {
+  return {
+    margin: 0,
+    color: "rgba(247, 250, 255, 0.98)",
+    fontSize: "clamp(1.8rem, 4vw, 3rem)",
+    fontWeight: 750,
+    letterSpacing: "-0.02em",
+    lineHeight: 1.1,
+  };
+}
+
+function getFullScreenLoadingInfoCardStyle(): CSSProperties {
+  return {
+    display: "grid",
+    gridTemplateColumns: "54px minmax(0, 1fr)",
+    alignItems: "center",
+    gap: 18,
+    width: "100%",
+    padding: "20px 24px",
+    boxSizing: "border-box",
+    border: "1px solid rgba(72, 155, 222, 0.28)",
+    borderRadius: 18,
+    textAlign: "left",
+    background: "linear-gradient(135deg, rgba(17, 37, 57, 0.9), rgba(12, 27, 43, 0.78))",
+    boxShadow: "inset 0 1px 0 rgba(185, 225, 255, 0.06), 0 8px 28px rgba(0, 0, 0, 0.18)",
+  };
+}
+
+function getFullScreenLoadingInfoIconStyle(): CSSProperties {
+  return {
+    width: 38,
+    height: 38,
+    justifySelf: "center",
+    opacity: 0.96,
+    filter: "brightness(0) saturate(100%) invert(68%) sepia(79%) saturate(1428%) hue-rotate(161deg) brightness(101%) contrast(102%) drop-shadow(0 0 8px rgba(41, 196, 246, 0.3))",
+  };
+}
+
+function getFullScreenLoadingInfoTitleStyle(): CSSProperties {
+  return {
+    margin: 0,
+    color: "rgba(249, 252, 255, 0.96)",
+    fontSize: "1.08rem",
+    fontWeight: 700,
+    lineHeight: 1.25,
+  };
+}
+
+function getFullScreenLoadingInfoDescriptionStyle(): CSSProperties {
+  return {
+    margin: "6px 0 0",
+    color: "rgba(183, 208, 231, 0.9)",
+    fontSize: "0.96rem",
+    lineHeight: 1.45,
+  };
+}
+
+function getFullScreenLoadingFooterStyle(): CSSProperties {
+  return {
+    margin: "-8px 0 0",
+    color: "rgba(183, 208, 231, 0.74)",
+    fontSize: "0.86rem",
+  };
+}
+
+interface FullScreenLoadingCopy {
+  readonly title: string;
+  readonly description: string;
+  readonly infoTitle: string;
+  readonly infoDescription: string;
+  readonly isError: boolean;
+}
+
+function getFullScreenLoadingCopy(
+  state: ResourceState<GameDetailSnapshot>,
+  hasRouteParameters: boolean,
+  backFooter: string,
+): FullScreenLoadingCopy {
+  if (!hasRouteParameters) {
+    return {
+      title: "Game details unavailable",
+      description: "The full-screen game page route is missing provider or game information.",
+      infoTitle: "Return to the game page",
+      infoDescription: backFooter,
+      isError: true,
+    };
+  }
+
+  if (state.status === "error") {
+    return {
+      title: "Unable to load game details",
+      description: state.error?.userMessage ?? "The game details could not be loaded.",
+      infoTitle: "Try again from the game page",
+      infoDescription: backFooter,
+      isError: true,
+    };
+  }
+
+  return {
+    title: "Loading game details...",
+    description: "Loading the full-screen game page from the existing game-detail service.",
+    infoTitle: "Good things take a moment",
+    infoDescription: "Hang tight — we’re loading everything you need for the best experience.",
+    isError: false,
+  };
+}
+
+function DeckyFullScreenGameLoadingState({
+  state,
+  hasRouteParameters,
+  backFooter,
+}: {
+  readonly state: ResourceState<GameDetailSnapshot>;
+  readonly hasRouteParameters: boolean;
+  readonly backFooter: string;
+}): JSX.Element {
+  const copy = getFullScreenLoadingCopy(state, hasRouteParameters, backFooter);
+
+  return (
+    <section
+      aria-busy={!copy.isError}
+      aria-label={copy.title}
+      aria-live="polite"
+      data-state={state.status}
+      role={copy.isError ? "alert" : "status"}
+      style={getFullScreenLoadingFrameStyle()}
+    >
+      <div style={getFullScreenLoadingContentStyle()}>
+        <div aria-hidden="true" style={getFullScreenLoadingProgressStyle()}>
+          <div style={getFullScreenLoadingIconWellStyle()}>
+            <img alt="" src={trophyIconUrl} style={getFullScreenLoadingIconStyle()} />
+          </div>
+        </div>
+        <h1 style={getFullScreenLoadingTitleStyle()}>{copy.title}</h1>
+        <p style={{ display: "none" }}>{copy.description}</p>
+        <div style={getFullScreenLoadingInfoCardStyle()}>
+          <img alt="" aria-hidden="true" src={infoIconUrl} style={getFullScreenLoadingInfoIconStyle()} />
+          <div>
+            <p style={getFullScreenLoadingInfoTitleStyle()}>{copy.infoTitle}</p>
+            <p style={getFullScreenLoadingInfoDescriptionStyle()}>{copy.infoDescription}</p>
+          </div>
+        </div>
+        {copy.isError ? <p style={getFullScreenLoadingFooterStyle()}>{copy.description}</p> : null}
+      </div>
+    </section>
+  );
 }
 
 function getSteamGameShellStyle(footerHeight: number): CSSProperties {
@@ -430,20 +647,14 @@ export function DeckyFullScreenGamePage({
     return (
       <ScrollPanel>
         <TopAlignedScrollViewport
+          fillHeight
           scrollKey={`full-screen-game:${providerId ?? "missing"}:${gameId ?? "missing"}`}
         >
-          <div style={getFullScreenPageFrameStyle()}>
-            <PlaceholderState
-              title="Full-screen game page"
-              description={
-                hasRouteParameters
-                  ? "Loading the full-screen game page from the existing game-detail service."
-                  : "The full-screen game page route is missing provider or game information."
-              }
-              state={state}
-              footer={<span>{backFooter}</span>}
-            />
-          </div>
+          <DeckyFullScreenGameLoadingState
+            state={state}
+            hasRouteParameters={hasRouteParameters}
+            backFooter={backFooter}
+          />
         </TopAlignedScrollViewport>
       </ScrollPanel>
     );
