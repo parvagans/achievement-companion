@@ -581,7 +581,6 @@ export function DeckyFullScreenGamePage({
         <DeckySteamGameSectionNavigation
           activeSection={activeSteamSection}
           sections={visibleSteamSections}
-          onSelectSection={selectSteamSection}
           onBack={onBack}
           onHeightChange={setSteamFooterHeight}
         />

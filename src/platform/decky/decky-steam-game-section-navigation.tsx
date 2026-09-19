@@ -1,6 +1,5 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
 import { markDeckyFullscreenReturnRequested } from "./decky-full-screen-return-context";
 import { measureSteamGameFooterLayout, STEAM_GAME_FOOTER_FALLBACK_HEIGHT_PX } from "./decky-steam-game-footer-layout";
 
@@ -35,12 +34,41 @@ function getFooterStyle(height: number, zIndex: number): CSSProperties {
     bottom: 0,
     left: 0,
     zIndex,
-    pointerEvents: "auto",
+    // Section changes are intentionally controller-only through L1/R1.
+    pointerEvents: "none",
   };
 }
 
 function getSectionTabsStyle(): CSSProperties {
-  return { flex: "1 1 auto", minWidth: 0 };
+  return {
+    display: "flex",
+    flex: "1 1 auto",
+    gap: 6,
+    minWidth: 0,
+  };
+}
+
+function getSectionTabStyle(active: boolean): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flex: "1 1 0",
+    minWidth: 0,
+    minHeight: 30,
+    padding: "3px 10px",
+    border: `1px solid ${active ? "rgba(105, 176, 255, 0.72)" : "rgba(255, 255, 255, 0.12)"}`,
+    borderRadius: 999,
+    background: active
+      ? "linear-gradient(180deg, rgba(74, 138, 204, 0.34), rgba(34, 79, 124, 0.3))"
+      : "rgba(255, 255, 255, 0.035)",
+    boxShadow: active ? "0 0 0 1px rgba(73, 155, 255, 0.32)" : "none",
+    color: active ? "rgba(255, 255, 255, 0.98)" : "rgba(255, 255, 255, 0.68)",
+    fontSize: 12,
+    fontWeight: active ? 800 : 700,
+    lineHeight: 1.1,
+    whiteSpace: "nowrap",
+  };
 }
 
 function getLegendStyle(): CSSProperties {
@@ -112,13 +140,11 @@ function DeckySteamGameActionHint({ button, label }: { readonly button: string; 
 export function DeckySteamGameSectionNavigation({
   activeSection,
   sections,
-  onSelectSection,
   onBack,
   onHeightChange,
 }: {
   readonly activeSection: DeckySteamGameSectionId;
   readonly sections: readonly DeckySteamGameSection[];
-  readonly onSelectSection: (section: DeckySteamGameSectionId) => void;
   readonly onBack: () => void;
   readonly onHeightChange: (height: number) => void;
 }): JSX.Element {
@@ -184,19 +210,11 @@ export function DeckySteamGameSectionNavigation({
         <div aria-label="Steam game sections" style={getFooterStyle(layout.height, layout.zIndex)}>
           <span style={getShoulderHintStyle()}>L1</span>
           <div style={getSectionTabsStyle()}>
-            <DeckyFullscreenActionRow>
-              {sections.map((section) => (
-                <DeckyFullscreenActionButton
-                  key={section.id}
-                  compact
-                  label={section.label}
-                  selected={activeSection === section.id}
-                  onClick={() => {
-                    onSelectSection(section.id);
-                  }}
-                />
-              ))}
-            </DeckyFullscreenActionRow>
+            {sections.map((section) => (
+              <span key={section.id} style={getSectionTabStyle(activeSection === section.id)}>
+                {section.label}
+              </span>
+            ))}
           </div>
           <span style={getShoulderHintStyle()}>R1</span>
           <span style={getActionLegendStyle()}>
