@@ -5,6 +5,8 @@ import type { DeckySteamHuntersGameViewModel } from "./decky-steam-hunters-view-
 import { formatSteamHuntersCompletionDuration, formatSteamHuntersPercentage } from "./decky-steam-hunters-presentation";
 import { DeckySteamBrokenIcon, DeckySteamConditionalIcon, DeckySteamDlcIcon, DeckySteamUnobtainableIcon } from "./decky-steam-icons";
 
+export const STEAM_HUNTERS_COMMUNITY_SECTION_FOCUS_TARGET = "steam-community-section";
+
 function formatCount(value: number): string {
   return value.toLocaleString();
 }
@@ -47,10 +49,12 @@ export function DeckySteamHuntersCommunitySection({
   model,
   compact = false,
   fillHeight = false,
+  sectionEntryFocusTarget = false,
 }: {
   readonly model: DeckySteamHuntersGameViewModel;
   readonly compact?: boolean;
   readonly fillHeight?: boolean;
+  readonly sectionEntryFocusTarget?: boolean;
 }): JSX.Element | null {
   const summary = model.communitySummary;
   if (!model.hasCommunityStats || summary === undefined) {
@@ -60,7 +64,12 @@ export function DeckySteamHuntersCommunitySection({
   return (
     <DeckyFullScreenGameSpotlightCard
       title={<SteamHuntersCardTitle title="Community" />}
-      focusable={false}
+      // The standalone Community tab has no actions. Its card is therefore a
+      // deliberate section-entry anchor so shoulder navigation retains focus.
+      focusable={sectionEntryFocusTarget}
+      {...(sectionEntryFocusTarget
+        ? { focusTargetId: STEAM_HUNTERS_COMMUNITY_SECTION_FOCUS_TARGET }
+        : {})}
       {...(compact ? { style: getCompactDashboardCardStyle(fillHeight) } : {})}
     >
       <DeckyFullScreenGameProgressStatGrid columns={2} gap={compact ? 6 : 8}>

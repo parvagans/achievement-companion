@@ -1,7 +1,9 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import type { GamepadEvent } from "@decky/ui";
 import { markDeckyFullscreenReturnRequested } from "./decky-full-screen-return-context";
 import { measureSteamGameFooterLayout, STEAM_GAME_FOOTER_FALLBACK_HEIGHT_PX } from "./decky-steam-game-footer-layout";
+import { handleSteamGameShoulderButtonDown } from "./decky-steam-game-shoulder-navigation";
 
 export type DeckySteamGameSectionId = "overview" | "achievements" | "community";
 
@@ -140,22 +142,30 @@ function DeckySteamGameActionHint({ button, label }: { readonly button: string; 
 export function DeckySteamGameSectionNavigation({
   activeSection,
   sections,
+  onPreviousSection,
+  onNextSection,
   onBack,
   onHeightChange,
 }: {
   readonly activeSection: DeckySteamGameSectionId;
   readonly sections: readonly DeckySteamGameSection[];
+  readonly onPreviousSection: () => void;
+  readonly onNextSection: () => void;
   readonly onBack: () => void;
   readonly onHeightChange: (height: number) => void;
 }): JSX.Element {
   const anchorRef = useRef<HTMLSpanElement>(null);
   const onBackRef = useRef(onBack);
+  const onPreviousSectionRef = useRef(onPreviousSection);
+  const onNextSectionRef = useRef(onNextSection);
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [layout, setLayout] = useState({ height: STEAM_GAME_FOOTER_FALLBACK_HEIGHT_PX, zIndex: 20 });
 
   useLayoutEffect(() => {
     onBackRef.current = onBack;
-  }, [onBack]);
+    onPreviousSectionRef.current = onPreviousSection;
+    onNextSectionRef.current = onNextSection;
+  }, [onBack, onNextSection, onPreviousSection]);
 
   useLayoutEffect(() => {
     // The plugin executes in SharedJSContext; its global document is NOT the
@@ -189,6 +199,17 @@ export function DeckySteamGameSectionNavigation({
       return;
     }
 
+    // Raw SteamClient controller subscriptions only observe input. GamepadUI's
+    // route event is cancelable, so one press changes one section and cannot
+    // also activate Steam's global chrome after the old section unmounts.
+    const onButtonDown = (event: Event): void => {
+      handleSteamGameShoulderButtonDown(event as GamepadEvent, {
+        onPreviousSection: () => onPreviousSectionRef.current(),
+        onNextSection: () => onNextSectionRef.current(),
+      });
+    };
+    ownerWindow.addEventListener("vgp_onbuttondown", onButtonDown, true);
+
     // The overlay replaces Steam's visual Back legend, so it provides the
     // equivalent controller behavior for every focused child on this route.
     const onCancel = (event: Event): void => {
@@ -200,7 +221,10 @@ export function DeckySteamGameSectionNavigation({
       onBackRef.current();
     };
     ownerWindow.addEventListener("vgp_oncancel", onCancel, true);
-    return () => ownerWindow.removeEventListener("vgp_oncancel", onCancel, true);
+    return () => {
+      ownerWindow.removeEventListener("vgp_onbuttondown", onButtonDown, true);
+      ownerWindow.removeEventListener("vgp_oncancel", onCancel, true);
+    };
   }, []);
 
   return (

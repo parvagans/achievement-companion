@@ -35,6 +35,7 @@ export interface DeckyFullScreenGameSpotlightCardProps {
   readonly children: ReactNode;
   readonly style?: CSSProperties;
   readonly headerAlignment?: "center" | "left";
+  readonly focusTargetId?: string;
   /**
    * Passive stat cards are controller focus targets. Cards that contain an
    * interactive action row opt out so Decky can route focus to the buttons.
@@ -45,9 +46,11 @@ export interface DeckyFullScreenGameSpotlightCardProps {
 export function DeckyFullScreenGameSpotlightFocusTarget({
   children,
   style,
+  focusTargetId,
 }: {
   readonly children: ReactNode;
   readonly style?: CSSProperties;
+  readonly focusTargetId?: string;
 }): JSX.Element {
   const onFocus: FocusEventHandler<HTMLElement> = (event) => {
     scrollDeckyFocusTargetIntoView(event.currentTarget);
@@ -57,7 +60,16 @@ export function DeckyFullScreenGameSpotlightFocusTarget({
   };
 
   return (
-    <Focusable noFocusRing onActivate={() => {}} onFocus={onFocus} onGamepadFocus={onGamepadFocus} style={style}>
+    <Focusable
+      noFocusRing
+      onActivate={() => {}}
+      onFocus={onFocus}
+      onGamepadFocus={onGamepadFocus}
+      style={style}
+      {...(focusTargetId !== undefined
+        ? { "data-achievement-companion-focus-target": focusTargetId }
+        : {})}
+    >
       {children}
     </Focusable>
   );
@@ -77,6 +89,7 @@ export function DeckyFullScreenGameSpotlightCard({
   style,
   headerAlignment = "center",
   focusable = true,
+  focusTargetId,
 }: DeckyFullScreenGameSpotlightCardProps): JSX.Element {
   const cardStyle = { ...getCardStyle(), ...style };
   const content = <>
@@ -89,7 +102,10 @@ export function DeckyFullScreenGameSpotlightCard({
   }
 
   return (
-    <DeckyFullScreenGameSpotlightFocusTarget style={cardStyle}>
+    <DeckyFullScreenGameSpotlightFocusTarget
+      style={cardStyle}
+      {...(focusTargetId !== undefined ? { focusTargetId } : {})}
+    >
       {content}
     </DeckyFullScreenGameSpotlightFocusTarget>
   );

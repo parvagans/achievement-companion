@@ -33,7 +33,10 @@ import {
 } from "./decky-steam-game-section-navigation";
 import { STEAM_GAME_FOOTER_FALLBACK_HEIGHT_PX } from "./decky-steam-game-footer-layout";
 import { formatDeckyNumericText } from "./decky-number-format";
-import { DeckySteamHuntersCommunitySection } from "./decky-steam-hunters-game-sections";
+import {
+  DeckySteamHuntersCommunitySection,
+  STEAM_HUNTERS_COMMUNITY_SECTION_FOCUS_TARGET,
+} from "./decky-steam-hunters-game-sections";
 import { buildDeckySteamHuntersGameViewModel } from "./decky-steam-hunters-view-model";
 import { shouldRenderAchievementModeFilter } from "./decky-achievement-detail-helpers";
 import { sortAchievementsForDisplay } from "./decky-game-detail-ordering";
@@ -41,7 +44,6 @@ import { findDeckyScrollableAncestor, TopAlignedScrollViewport } from "./decky-s
 import { useAsyncResourceState } from "./useAsyncResourceState";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
 import { getSteamHuntersGameEnrichment } from "../../providers/steamhunters";
-import { useSteamGameShoulderNavigation } from "./use-steam-game-shoulder-navigation";
 import {
   consumeSteamGameSectionRestoration,
   readSteamGameSectionPageState,
@@ -217,6 +219,8 @@ export function DeckyFullScreenGamePage({
   backFooter = "Use Back to return to the compact side panel.",
 }: DeckyFullScreenGamePageProps): JSX.Element {
   const sectionAnchorRef = useRef<HTMLDivElement>(null);
+  const focusedRouteKeyRef = useRef<string | undefined>(undefined);
+  const restoredSectionNonceRef = useRef(0);
   const [steamFooterHeight, setSteamFooterHeight] = useState(STEAM_GAME_FOOTER_FALLBACK_HEIGHT_PX);
   const initialSectionState = providerId !== undefined && gameId !== undefined
     ? readSteamGameSectionPageState(providerId, gameId)
@@ -297,22 +301,6 @@ export function DeckyFullScreenGamePage({
       selectSteamSection("overview");
     }
   }, [activeSteamSection, visibleSteamSections]);
-  useSteamGameShoulderNavigation({
-    enabled: displayedLoadedSnapshot?.game.providerId === STEAM_PROVIDER_ID,
-    onPreviousSection: () => {
-      const currentIndex = visibleSteamSections.findIndex((section) => section.id === activeSteamSection);
-      const previousIndex = currentIndex <= 0 ? visibleSteamSections.length - 1 : currentIndex - 1;
-      selectSteamSection(visibleSteamSections[previousIndex]?.id ?? "overview");
-    },
-    onNextSection: () => {
-      const currentIndex = visibleSteamSections.findIndex((section) => section.id === activeSteamSection);
-      const nextIndex = currentIndex < 0 || currentIndex === visibleSteamSections.length - 1
-        ? 0
-        : currentIndex + 1;
-      selectSteamSection(visibleSteamSections[nextIndex]?.id ?? "overview");
-    },
-  });
-
   useEffect(() => {
     if (
       loadedSnapshot === undefined ||
@@ -389,33 +377,53 @@ export function DeckyFullScreenGamePage({
     if (!restorationIsSteamProvider || providerId === undefined || gameId === undefined) {
       return;
     }
-    const shouldRestore = sectionRestoreNonce > 0 || consumeSteamGameSectionRestoration(providerId, gameId);
-    if (!shouldRestore) {
+    const routeKey = `${providerId}:${gameId}`;
+    const shouldFocusInitialSection = focusedRouteKeyRef.current !== routeKey;
+    const shouldRestoreChangedSection = restoredSectionNonceRef.current !== sectionRestoreNonce;
+    const shouldRestoreDetailReturn = readSteamGameSectionPageState(providerId, gameId).restoreRequested;
+    if (!shouldFocusInitialSection && !shouldRestoreChangedSection && !shouldRestoreDetailReturn) {
       return;
     }
-    setSectionRestoreNonce(0);
-    const currentState = readSteamGameSectionPageState(providerId, gameId);
-    const sectionState = currentState[activeSteamSection];
-    const frame = globalThis.requestAnimationFrame(() => {
-      const anchor = sectionAnchorRef.current;
-      const scrollContainer = anchor === null ? null : findDeckyScrollableAncestor(anchor);
+    const anchor = sectionAnchorRef.current;
+    const ownerWindow = anchor?.ownerDocument.defaultView;
+    if (anchor === null || anchor === undefined || ownerWindow === null || ownerWindow === undefined) {
+      return;
+    }
+
+    const frame = ownerWindow.requestAnimationFrame(() => {
+      const currentState = readSteamGameSectionPageState(providerId, gameId);
+      const sectionState = currentState[activeSteamSection];
+      const scrollContainer = findDeckyScrollableAncestor(anchor);
       if (scrollContainer !== null) {
         scrollContainer.scrollTop = sectionState.scrollTop;
       }
-      if (activeSteamSection !== "achievements") {
-        return;
+
+      let target: HTMLElement | null | undefined;
+      if (activeSteamSection === "overview") {
+        target = anchor.querySelector<HTMLElement>("[role='button'][aria-label='Play Game']");
+      } else if (activeSteamSection === "achievements") {
+        const targetId = selectSteamAchievementRestorationTarget({
+          focusedAchievementId: currentState.achievements.focusedId,
+          previousVisibleAchievementIds: currentState.achievements.visibleAchievementIds,
+          currentVisibleAchievementIds: restorationFilteredAchievements.map((achievement) => achievement.achievementId),
+        });
+        const targets = Array.from(anchor.querySelectorAll<HTMLElement>("[data-achievement-companion-steam-achievement-id]"));
+        target = targets.find((element) => element.dataset["achievementCompanionSteamAchievementId"] === targetId)
+          ?? anchor.querySelector<HTMLElement>("[data-achievement-companion-steam-filter-control='true']");
+      } else {
+        target = anchor.querySelector<HTMLElement>(
+          `[data-achievement-companion-focus-target='${STEAM_HUNTERS_COMMUNITY_SECTION_FOCUS_TARGET}']`,
+        );
       }
-      const targetId = selectSteamAchievementRestorationTarget({
-        focusedAchievementId: currentState.achievements.focusedId,
-        previousVisibleAchievementIds: currentState.achievements.visibleAchievementIds,
-        currentVisibleAchievementIds: restorationFilteredAchievements.map((achievement) => achievement.achievementId),
-      });
-      const targets = Array.from(document.querySelectorAll<HTMLElement>("[data-achievement-companion-steam-achievement-id]"));
-      const target = targets.find((element) => element.dataset["achievementCompanionSteamAchievementId"] === targetId)
-        ?? document.querySelector<HTMLElement>("[data-achievement-companion-steam-filter-control='true']");
+
+      focusedRouteKeyRef.current = routeKey;
+      restoredSectionNonceRef.current = sectionRestoreNonce;
+      if (shouldRestoreDetailReturn) {
+        consumeSteamGameSectionRestoration(providerId, gameId);
+      }
       target?.focus();
     });
-    return () => globalThis.cancelAnimationFrame(frame);
+    return () => ownerWindow.cancelAnimationFrame(frame);
   }, [activeSteamSection, gameId, providerId, restorationFilteredAchievements, restorationIsSteamProvider, sectionRestoreNonce]);
 
   if (!isRenderableGameDetailState(state)) {
@@ -543,7 +551,7 @@ export function DeckyFullScreenGamePage({
           {isSteamProvider && activeSteamSection === "community" && steamHuntersViewModel !== undefined ? (
             <PanelSection title="Community">
               <PanelSectionRow>
-                <DeckySteamHuntersCommunitySection model={steamHuntersViewModel} />
+                <DeckySteamHuntersCommunitySection model={steamHuntersViewModel} sectionEntryFocusTarget />
               </PanelSectionRow>
             </PanelSection>
           ) : null}
@@ -581,6 +589,18 @@ export function DeckyFullScreenGamePage({
         <DeckySteamGameSectionNavigation
           activeSection={activeSteamSection}
           sections={visibleSteamSections}
+          onPreviousSection={() => {
+            const currentIndex = visibleSteamSections.findIndex((section) => section.id === activeSteamSection);
+            const previousIndex = currentIndex <= 0 ? visibleSteamSections.length - 1 : currentIndex - 1;
+            selectSteamSection(visibleSteamSections[previousIndex]?.id ?? "overview");
+          }}
+          onNextSection={() => {
+            const currentIndex = visibleSteamSections.findIndex((section) => section.id === activeSteamSection);
+            const nextIndex = currentIndex < 0 || currentIndex === visibleSteamSections.length - 1
+              ? 0
+              : currentIndex + 1;
+            selectSteamSection(visibleSteamSections[nextIndex]?.id ?? "overview");
+          }}
           onBack={onBack}
           onHeightChange={setSteamFooterHeight}
         />

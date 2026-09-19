@@ -3004,6 +3004,12 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.doesNotMatch(fullScreenGamePageSource, /aria-label="Refresh the current game detail snapshot"/);
   assert.doesNotMatch(fullScreenGamePageSource, /DeckyCompactPillActionItem/);
   assert.match(fullScreenGamePageSource, /DeckyFullScreenAchievementBrowser/);
+  assert.match(fullScreenGamePageSource, /ownerWindow\.requestAnimationFrame/u);
+  assert.match(fullScreenGamePageSource, /restoredSectionNonceRef\.current = sectionRestoreNonce/u);
+  assert.match(fullScreenGamePageSource, /anchor\.querySelector<HTMLElement>/u);
+  assert.match(fullScreenGamePageSource, /sectionEntryFocusTarget/u);
+  assert.doesNotMatch(fullScreenGamePageSource, /setSectionRestoreNonce\(0\)/u);
+  assert.doesNotMatch(fullScreenGamePageSource, /document\.querySelector(?:All)?<HTMLElement>/u);
   assert.match(fullScreenAchievementRowSource, /getAchievementCardStyle\(achievement\)/);
   assert.match(fullScreenAchievementRowSource, /getAchievementRowMetadataStackStyle\(\)/);
   assert.match(fullScreenAchievementRowSource, /const isSteamProvider = isSteamAchievementPresentationProvider\(achievement\.providerId\)/);
