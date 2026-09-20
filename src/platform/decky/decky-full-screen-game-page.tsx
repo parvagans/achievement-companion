@@ -8,7 +8,7 @@ import {
 } from "react";
 import type { ResourceState } from "@core/cache";
 import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
-import { Field, PanelSection, PanelSectionRow, ScrollPanel } from "@decky/ui";
+import { Field, Focusable, PanelSection, PanelSectionRow, ScrollPanel } from "@decky/ui";
 import {
   initialDeckyGameDetailState,
   loadDeckyGameDetailState,
@@ -363,21 +363,33 @@ function DeckyFullScreenGameLoadingState({
   state,
   hasRouteParameters,
   backFooter,
+  onBack,
 }: {
   readonly state: ResourceState<GameDetailSnapshot>;
   readonly hasRouteParameters: boolean;
   readonly backFooter: string;
+  readonly onBack: () => void;
 }): JSX.Element {
+  const focusRef = useRef<HTMLDivElement>(null);
   const copy = getFullScreenLoadingCopy(state, hasRouteParameters, backFooter);
 
+  useLayoutEffect(() => {
+    focusRef.current?.focus({ preventScroll: true });
+  }, []);
+
   return (
-    <section
+    <Focusable
+      ref={focusRef}
       aria-busy={!copy.isError}
       aria-label={copy.title}
       aria-live="polite"
       data-state={state.status}
+      noFocusRing
+      onActivate={() => {}}
+      onCancel={onBack}
       role={copy.isError ? "alert" : "status"}
       style={getFullScreenLoadingFrameStyle()}
+      tabIndex={0}
     >
       <div style={getFullScreenLoadingContentStyle()}>
         <DeckyFullScreenLoadingProgress />
@@ -392,7 +404,7 @@ function DeckyFullScreenGameLoadingState({
         </div>
         {copy.isError ? <p style={getFullScreenLoadingFooterStyle()}>{copy.description}</p> : null}
       </div>
-    </section>
+    </Focusable>
   );
 }
 
@@ -798,6 +810,7 @@ export function DeckyFullScreenGamePage({
             state={state}
             hasRouteParameters={hasRouteParameters}
             backFooter={backFooter}
+            onBack={onBack}
           />
         </TopAlignedScrollViewport>
       </ScrollPanel>

@@ -1473,7 +1473,7 @@ test("compact and full-screen game rows share the achievement type badge", () =>
   }
 });
 
-test("compact and full-screen achievement pages share the achievement type badge without affecting Steam", () => {
+test("compact achievement details retain type badges while the full-screen page is static and B-only", () => {
   const compactSource = readFileSync("src/platform/decky/decky-achievement-detail-view.tsx", "utf8");
   const fullScreenSource = readFileSync("src/platform/decky/decky-full-screen-achievement-page.tsx", "utf8");
 
@@ -1482,20 +1482,14 @@ test("compact and full-screen achievement pages share the achievement type badge
   assert.match(compactSource, /overflowWrap: "anywhere"/u);
   assert.match(compactSource, /DeckyAchievementTypeBadge classification=\{achievement\.classification\}/u);
 
-  const retroSpotlightStart = fullScreenSource.indexOf("function AchievementSpotlightCard");
-  const steamSpotlightStart = fullScreenSource.indexOf("function SteamAchievementSpotlightCard");
-  const steamSpotlightEnd = fullScreenSource.indexOf("function isRenderableGameDetailState");
-  assert.ok(retroSpotlightStart >= 0);
-  assert.ok(steamSpotlightStart > retroSpotlightStart);
-  assert.ok(steamSpotlightEnd > steamSpotlightStart);
-
-  const retroSpotlightSource = fullScreenSource.slice(retroSpotlightStart, steamSpotlightStart);
-  const steamSpotlightSource = fullScreenSource.slice(steamSpotlightStart, steamSpotlightEnd);
-  assert.match(retroSpotlightSource, /getAchievementSpotlightTitleLineStyle/u);
-  assert.match(retroSpotlightSource, /DeckyAchievementTypeBadge classification=\{achievement\.classification\}/u);
-  assert.doesNotMatch(steamSpotlightSource, /DeckyAchievementTypeBadge/u);
-  assert.match(fullScreenSource, /function getAchievementSpotlightTitleLineStyle\(\): CSSProperties[\s\S]*flexWrap: "wrap"/u);
-  assert.match(fullScreenSource, /function getAchievementSpotlightTitleStyle\(\): CSSProperties[\s\S]*overflowWrap: "anywhere"/u);
+  assert.match(fullScreenSource, /function DeckyFullScreenAchievementInputSurface/u);
+  assert.match(fullScreenSource, /surface\.focus\(\{ preventScroll: true \}\)/u);
+  assert.match(fullScreenSource, /onCancel=\{handleCancel\}/u);
+  assert.match(fullScreenSource, /markDeckyFullscreenReturnRequested\(\)/u);
+  assert.match(fullScreenSource, /function DeckyFullScreenAchievementLoadingState/u);
+  assert.doesNotMatch(fullScreenSource, /DeckyAchievementTypeBadge/u);
+  assert.match(fullScreenSource, /<Focusable/u);
+  assert.doesNotMatch(fullScreenSource, /DeckyFullscreenActionButton/u);
 });
 
 test("retroachievements recent unlocks normalize badge art urls", () => {
@@ -3044,214 +3038,34 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     "utf8",
   );
   const deckyNavigationSource = readFileSync("src/platform/decky/decky-navigation.tsx", "utf8");
-  assert.doesNotMatch(fullScreenAchievementPageSource, /PanelSection title="ACHIEVEMENT SPOTLIGHT"/);
-  assert.match(fullScreenAchievementPageSource, /AchievementSpotlightCard/);
-  assert.match(fullScreenAchievementPageSource, /SteamAchievementSpotlightCard/);
-  assert.match(fullScreenAchievementPageSource, /if \(!isSteamProvider\) \{/);
-  assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightCardStyle\(tone\)/);
-  assert.match(fullScreenAchievementPageSource, /getSteamAchievementSpotlightCardStyle\(\)/);
-  assert.match(fullScreenAchievementPageSource, /getSteamAchievementSpotlightBackRowStyle\(\)/);
-  assert.match(fullScreenAchievementPageSource, /getSteamAchievementSpotlightGameCoverCaptionStyle\(\)/);
-  assert.match(fullScreenAchievementPageSource, /getSteamAchievementSpotlightHeroLabelStyle\(\)/);
-  assert.match(fullScreenAchievementPageSource, /dedupeDistinctLabels\(\[providerLabel, snapshotSourceLabel, achievementStatus\.value\]\)/);
-  assert.match(fullScreenAchievementPageSource, /DeckyGameArtwork compact src=\{achievement\.badgeImageUrl\} size=\{104\} title=\{achievement\.title\}/u);
-  assert.match(fullScreenAchievementPageSource, /gameArtworkUrl=\{steamHeroArtworkUrl\}/u);
-  assert.match(fullScreenAchievementPageSource, /label="Status"/);
-  assert.match(fullScreenAchievementPageSource, /label="Unlock date"/);
-  assert.match(fullScreenAchievementPageSource, /label="Global unlock rate"/);
-  assert.doesNotMatch(fullScreenAchievementPageSource, /PanelSection title="Navigation"/u);
-  assert.doesNotMatch(fullScreenAchievementPageSource, /PanelSection title="Achievement spotlight"/u);
-  assert.doesNotMatch(fullScreenAchievementPageSource, /PanelSection title="Achievement details"/u);
-  assert.match(fullScreenAchievementPageSource, /readonly onOpenFullScreenGame\?: \(\(\) => void\) \| undefined;/u);
-  assert.match(
-    steamGameOverviewSource,
-    /const artworkUrl = getSteamFullscreenGameArtworkUrl\(game\)/u,
-  );
-  assert.match(
-    fullScreenAchievementPageSource,
-    /FULLSCREEN_ACHIEVEMENT_PAGE_BOTTOM_SCROLL_PADDING = 88/,
-  );
-  assert.match(
-    fullScreenAchievementPageSource,
-    /FULLSCREEN_ACHIEVEMENT_SPOTLIGHT_TOP_PADDING = 80/,
-  );
-  assert.match(
-    fullScreenAchievementPageSource,
-    /FULLSCREEN_ACHIEVEMENT_SPOTLIGHT_BOTTOM_PADDING = 20/,
-  );
-  assert.doesNotMatch(fullScreenAchievementPageSource, /FULLSCREEN_ACHIEVEMENT_SPOTLIGHT_TOP_CHROME_PADDING/u);
-  assert.match(
-    fullScreenAchievementPageSource,
-    /calc\(env\(safe-area-inset-bottom, 0px\) \+ \$\{FULLSCREEN_ACHIEVEMENT_PAGE_BOTTOM_SCROLL_PADDING\}px\)/,
-  );
-  assert.match(fullScreenAchievementPageSource, /function getAchievementSpotlightPageFrameStyle\(\): CSSProperties/u);
-  assert.doesNotMatch(fullScreenAchievementPageSource, /height: "100vh"/u);
-  assert.match(
-    fullScreenAchievementPageSource,
-    /calc\(env\(safe-area-inset-top, 0px\) \+ \$\{FULLSCREEN_ACHIEVEMENT_SPOTLIGHT_TOP_PADDING\}px\) 12px calc\(env\(safe-area-inset-bottom, 0px\) \+ \$\{FULLSCREEN_ACHIEVEMENT_SPOTLIGHT_BOTTOM_PADDING\}px\)/u,
-  );
-  assert.match(fullScreenAchievementPageSource, /function getAchievementSpotlightPageRailStyle\(\): CSSProperties/u);
-  assert.doesNotMatch(fullScreenAchievementPageSource, /FULLSCREEN_ACHIEVEMENT_SPOTLIGHT_VISUAL_Y_OFFSET/u);
-  assert.doesNotMatch(fullScreenAchievementPageSource, /translateY\(/u);
-  assert.doesNotMatch(fullScreenAchievementPageSource, /FULLSCREEN_ACHIEVEMENT_PAGE_BOTTOM_SCROLL_PADDING \+ 24/u);
-  assert.doesNotMatch(fullScreenAchievementPageSource, /minHeight:\s*`calc\(100vh/u);
-  assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightBackRowStyle\(\)/);
-  assert.match(fullScreenAchievementPageSource, /backLabel=\{backLabel\}/);
-  assert.match(fullScreenAchievementPageSource, /onBack=\{onBack\}/);
-  assert.match(fullScreenAchievementPageSource, /onOpenFullScreenGame=\{onOpenFullScreenGame\}/u);
-  assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightBadgeFrameStyle\(tone\)/);
-  assert.match(fullScreenAchievementPageSource, /readonly gameArtworkUrl: string \| undefined;/u);
-  assert.match(fullScreenAchievementPageSource, /gameArtworkUrl=\{heroArtworkUrl\}/u);
-  assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightTitleStyle\(\)/);
-  assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightDescriptionStyle\(\)/);
-  assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightMetaRowStyle\(\)/);
-  assert.match(fullScreenAchievementPageSource, /dedupeDistinctLabels\(\[providerLabel, snapshotSourceLabel, achievementStatus\.value\]\)/);
-  assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightStatusStyle\(tone\)/);
-  assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightCounts\(achievement\.metrics, game\.metrics\)/);
-  assert.match(fullScreenAchievementPageSource, /formatAchievementUnlockRatePercent\(unlockRatePercent\)/);
-  assert.match(fullScreenAchievementPageSource, /achievementStatus\.value/);
-  assert.match(
-    fullScreenAchievementPageSource,
-    /achievement\.hardcoreUnlockedAt \?\? achievement\.softcoreUnlockedAt \?\? achievement\.unlockedAt/u,
-  );
-  assert.match(fullScreenAchievementPageSource, /Unlocked on \$\{formatTimestamp\(unlockTimestamp\)\}/u);
-  assert.match(fullScreenAchievementPageSource, /label="Points"/);
-  assert.match(fullScreenAchievementPageSource, /label="RetroPoints"/);
-  const spotlightStatGridStart = fullScreenAchievementPageSource.indexOf(
-    "<div style={getAchievementSpotlightStatGridStyle()}>",
-  );
-  const spotlightRarityStackStart = fullScreenAchievementPageSource.indexOf(
-    "<div style={getAchievementSpotlightRarityStackStyle()}>",
-  );
-  assert.ok(spotlightStatGridStart >= 0);
-  assert.ok(spotlightRarityStackStart > spotlightStatGridStart);
-  const spotlightStatGridSource = fullScreenAchievementPageSource.slice(
-    spotlightStatGridStart,
-    spotlightRarityStackStart,
-  );
-  assert.match(spotlightStatGridSource, /label="Points"/);
-  assert.match(spotlightStatGridSource, /label="RetroPoints"/);
-  assert.doesNotMatch(spotlightStatGridSource, /label="Unlock rate"/u);
-  assert.match(fullScreenAchievementPageSource, /label="Softcore unlocks"/);
-  assert.match(fullScreenAchievementPageSource, /label="Hardcore unlocks"/);
-  assert.match(fullScreenAchievementPageSource, /label="Total players"/);
-  assert.match(
-    fullScreenAchievementPageSource,
-    /function getAchievementSpotlightGameCoverFrameStyle\(\s*interactive: boolean,\s*focused: boolean,\s*\): CSSProperties/u,
-  );
-  assert.match(fullScreenAchievementPageSource, /function getAchievementSpotlightGameCoverImageStyle\(\): CSSProperties/u);
-  assert.match(fullScreenAchievementPageSource, /objectFit: "contain"/u);
-  assert.match(fullScreenAchievementPageSource, /maxWidth: 196/u);
-  assert.match(fullScreenAchievementPageSource, /maxHeight: 116/u);
-  assert.match(fullScreenAchievementPageSource, /gameArtworkUrl !== undefined && onOpenFullScreenGame !== undefined \? \(/u);
-  assert.match(fullScreenAchievementPageSource, /<Focusable[\s\S]*role="button"/u);
-  assert.match(fullScreenAchievementPageSource, /aria-label=\{`Open game details for \$\{game\.title\}`\}/u);
-  assert.match(fullScreenAchievementPageSource, /onActivate=\{onOpenFullScreenGame\}/u);
-  assert.match(fullScreenAchievementPageSource, /onClick=\{onOpenFullScreenGame\}/u);
-  assert.match(fullScreenAchievementPageSource, /onGamepadFocus=\{\(\) => \{/u);
-  assert.match(fullScreenAchievementPageSource, /setIsGameCoverFocused\(true\)/u);
-  assert.match(fullScreenAchievementPageSource, /setIsGameCoverFocused\(false\)/u);
-  assert.match(fullScreenAchievementPageSource, /cursor: interactive \? "pointer" : "default"/u);
-  assert.match(fullScreenAchievementPageSource, /borderColor: focused \? "rgba\(105, 176, 255, 0\.8\)" : "rgba\(255, 255, 255, 0\.1\)"/u);
-  assert.doesNotMatch(fullScreenAchievementPageSource, /getAchievementSpotlightGameCoverImageStyle\(\)[\s\S]*objectFit: "cover"/u);
-  assert.match(fullScreenAchievementPageSource, /<div style=\{getAchievementSpotlightPageFrameStyle\(\)\}>/u);
-  assert.match(fullScreenAchievementPageSource, /<div style=\{getPageFrameStyle\(\)\}>/u);
-  assert.match(fullScreenAchievementPageSource, /<div style=\{getAchievementSpotlightPageRailStyle\(\)\}>/u);
-  const spotlightCardSourceStart = fullScreenAchievementPageSource.indexOf("function AchievementSpotlightCard");
-  const spotlightCardSourceEnd = fullScreenAchievementPageSource.indexOf("function isRenderableGameDetailState");
-  assert.ok(spotlightCardSourceStart >= 0);
-  assert.ok(spotlightCardSourceEnd > spotlightCardSourceStart);
-  const spotlightCardSource = fullScreenAchievementPageSource.slice(
-    spotlightCardSourceStart,
-    spotlightCardSourceEnd,
-  );
-  assert.doesNotMatch(spotlightCardSource, /PanelSection/u);
-  assert.doesNotMatch(spotlightCardSource, /PanelSectionRow/u);
-  assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightStatGridStyle\(\)/);
-  assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightCountsGridStyle\(\)/);
-  assert.match(fullScreenAchievementPageSource, /getAchievementSpotlightRarityStackStyle\(\)/);
-  assert.match(fullScreenAchievementPageSource, /RarityBar percent=\{unlockRatePercent\} tone=\{tone\} caption=\{unlockRateCaption\}/);
-  assert.match(fullScreenAchievementPageSource, /size=\{88\}/);
-  assert.match(fullScreenAchievementPageSource, /size=\{104\}/u);
-  assert.match(fullScreenAchievementPageSource, /gap: 12/u);
-  assert.match(fullScreenAchievementPageSource, /padding: 14/u);
-  assert.doesNotMatch(fullScreenAchievementPageSource, /P2/u);
-  assert.match(fullScreenAchievementPageSource, /<span style=\{getAchievementSpotlightMetaPillStyle\(\)\}>\s*RA\s*<\/span>/u);
-  assert.match(fullScreenAchievementPageSource, /getAchievementDescriptionText\(achievement\.description\)/);
-  assert.match(fullScreenAchievementPageSource, /Open game overview/);
-  assert.match(fullScreenAchievementPageSource, /label="Status"/);
-  assert.match(fullScreenAchievementPageSource, /label="Unlock date"/);
-  assert.match(fullScreenAchievementPageSource, /label="Global unlock rate"/);
-  assert.equal(
-    (fullScreenAchievementPageSource.match(/achievementStatus\.secondary \?\? achievementStatus\.value/g) ?? []).length,
-    0,
-  );
-  assert.match(deckyNavigationSource, /function DeckyFullScreenAchievementRoute\(\): JSX\.Element/u);
-  assert.match(deckyNavigationSource, /onOpenFullScreenGame=/u);
-  assert.match(
-    deckyNavigationSource,
-    /function navigateToFullScreenGameFromAchievement\(/u,
-  );
-  assert.match(
-    deckyNavigationSource,
-    /pushFullScreenGameRouteAchievementReturnTarget\(providerId, gameId, \{/u,
-  );
-  assert.match(
-    deckyNavigationSource,
-    /navigateToFullScreenGameFromAchievement\(\s*params\.providerId!,\s*params\.gameId!,\s*params\.achievementId!,\s*\)/u,
-  );
-  assert.match(
-    deckyNavigationSource,
-    /const achievementReturnTarget = useMemo\(/u,
-  );
-  assert.match(
-    deckyNavigationSource,
-    /resolveFullScreenGameRouteAchievementReturnTarget\(params\.providerId, params\.gameId\)/u,
-  );
-  assert.match(
-    deckyNavigationSource,
-    /const shouldReturnToAchievementDetail =\s*fullScreenGameRouteBackBehavior === "achievement" && achievementReturnTarget !== undefined/u,
-  );
-  assert.match(
-    deckyNavigationSource,
-    /popFullScreenGameRouteBackBehavior\(params\.providerId, params\.gameId\)/u,
-  );
-  assert.match(
-    deckyNavigationSource,
-    /popFullScreenGameRouteBackBehavior\(params\.providerId, params\.gameId\);\s*DeckyNavigation\.NavigateBack\(\);/u,
-  );
-  assert.doesNotMatch(
-    deckyNavigationSource,
-    /navigateToFullScreenAchievement\(\s*achievementReturnTarget\.providerId/u,
-  );
-  assert.match(
-    deckyNavigationSource,
-    /const fullScreenAchievementRouteBackBehaviors = new Map<string, FullScreenAchievementRouteBackBehavior>\(\)/u,
-  );
-  assert.match(
-    deckyNavigationSource,
-    /function resolveFullScreenAchievementRouteBackBehavior\(/u,
-  );
-  assert.match(
-    deckyNavigationSource,
-    /resolveFullScreenAchievementRouteBackBehavior\(\s*params\.providerId,\s*params\.gameId,\s*params\.achievementId,\s*\) === "achievement-history"/u,
-  );
-  assert.doesNotMatch(
-    deckyNavigationSource,
-    /consumeNextFullScreenAchievementRouteBackBehavior/u,
-  );
-  assert.match(
-    readFileSync("src/platform/decky/decky-compact-pill-action-item.tsx", "utf8"),
-    /readonly emphasis\?: "default" \| "primary"/,
-  );
-  assert.match(
-    readFileSync("src/platform/decky/decky-compact-pill-action-item.tsx", "utf8"),
-    /const isPrimary = emphasis === "primary"/,
-  );
-  assert.doesNotMatch(
-    readFileSync("src/platform/decky/decky-compact-pill-action-item.tsx", "utf8"),
-    /readonly ariaPressed\?: boolean/,
-  );
+  assert.match(fullScreenGamePageSource, /function DeckyFullScreenGameLoadingState/u);
+  assert.match(fullScreenGamePageSource, /focusRef\.current\?\.focus\(\{ preventScroll: true \}\)/u);
+  assert.match(fullScreenGamePageSource, /<Focusable[\s\S]*onCancel=\{onBack\}[\s\S]*role=\{copy\.isError/u);
+  assert.match(fullScreenAchievementPageSource, /function DeckyFullScreenAchievementContent/u);
+  assert.match(fullScreenAchievementPageSource, /function DeckyFullScreenAchievementInputSurface/u);
+  assert.match(fullScreenAchievementPageSource, /onCancel=\{handleCancel\}/u);
+  assert.match(fullScreenAchievementPageSource, /markDeckyFullscreenReturnRequested\(\)/u);
+  assert.match(fullScreenAchievementPageSource, /function DeckyFullScreenAchievementLoadingState/u);
+  assert.match(fullScreenAchievementPageSource, /matchMedia/u);
+  assert.match(fullScreenAchievementPageSource, /calendarIconUrl/u);
+  assert.match(fullScreenAchievementPageSource, /checkCircleIconUrl/u);
+  assert.match(fullScreenAchievementPageSource, /starIconUrl/u);
+  assert.match(fullScreenAchievementPageSource, /usersIconUrl/u);
+  assert.match(fullScreenAchievementPageSource, /getSteamHuntersAchievementEnrichment/u);
+  assert.match(fullScreenAchievementPageSource, /getSteamFullscreenGameArtworkUrl/u);
+  assert.match(fullScreenAchievementPageSource, /hardcoreUnlockedAt/u);
+  assert.match(fullScreenAchievementPageSource, /getAchievementDescriptionText/u);
+  assert.match(fullScreenAchievementPageSource, /Obtainability/u);
+  assert.match(fullScreenAchievementPageSource, /<Focusable/u);
+  assert.doesNotMatch(fullScreenAchievementPageSource, /DeckyFullscreenActionButton/u);
+  assert.doesNotMatch(fullScreenAchievementPageSource, /onOpenFullScreenGame/u);
+  assert.doesNotMatch(fullScreenAchievementPageSource, /backLabel/u);
+  assert.doesNotMatch(fullScreenAchievementPageSource, /<ScrollPanel/u);
+  assert.match(deckyNavigationSource, /function DeckyFullScreenAchievementRoute/u);
+  assert.doesNotMatch(deckyNavigationSource, /onOpenFullScreenGame=/u);
+  assert.doesNotMatch(deckyNavigationSource, /navigateToFullScreenGameFromAchievement/u);
+  assert.doesNotMatch(deckyNavigationSource, /fullScreenAchievementRouteBackBehaviors/u);
+  assert.match(deckyNavigationSource, /navigateToFullScreenAchievement\(params\.providerId, gameId, achievementId, true\)/u);
   const coreDomainSource = readFileSync("src/core/domain.ts", "utf8");
   const retroRawTypesSource = readFileSync("src/providers/retroachievements/raw-types.ts", "utf8");
   const retroClientSource = readFileSync("src/providers/retroachievements/client/client.ts", "utf8");

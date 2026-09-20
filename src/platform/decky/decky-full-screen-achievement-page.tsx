@@ -1,32 +1,24 @@
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { ResourceState } from "@core/cache";
 import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
-import { Focusable, ScrollPanel } from "@decky/ui";
-import { PlaceholderState } from "@ui/PlaceholderState";
+import { Focusable } from "@decky/ui";
 import {
   initialDeckyGameDetailState,
   loadDeckyGameDetailState,
   loadDeckySteamHuntersEnrichedGameDetail,
 } from "./decky-app-services";
-import { DeckyAchievementTypeBadge } from "./decky-achievement-type-badge";
-import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
 import { DeckyGameArtwork } from "./decky-game-artwork";
-import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
 import {
   buildAchievementStatus,
-  formatCount,
   formatAchievementUnlockRatePercent,
+  formatCount,
   formatTimestamp,
-  dedupeDistinctLabels,
-  hasAchievementCounts,
-  getAchievementSpotlightCounts,
   getAchievementDescriptionText,
-  getMetricValue,
-  formatMetricValue,
   getUnlockRatePercent,
   shouldHideSteamAchievementDetailStats,
 } from "./decky-achievement-detail-helpers";
-import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
+import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
+import { markDeckyFullscreenReturnRequested } from "./decky-full-screen-return-context";
 import { useAsyncResourceState } from "./useAsyncResourceState";
 import { formatDeckyProviderLabel } from "./providers";
 import {
@@ -36,150 +28,140 @@ import {
 } from "../../providers/steamhunters";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
 import { formatSteamHuntersPercentage } from "./decky-steam-hunters-presentation";
+import calendarIconUrl from "./assets/calendar.svg";
+import checkCircleIconUrl from "./assets/check-circle.svg";
+import infoIconUrl from "./assets/info.svg";
+import starIconUrl from "./assets/star.svg";
+import steamIconUrl from "./assets/steam.svg";
+import trophyIconUrl from "./assets/trophy-filled.svg";
+import usersIconUrl from "./assets/users.svg";
 
 export interface DeckyFullScreenAchievementPageProps {
   readonly providerId: string | undefined;
   readonly gameId: string | undefined;
   readonly achievementId: string | undefined;
   readonly onBack: () => void;
-  readonly onOpenFullScreenGame?: (() => void) | undefined;
-  readonly backLabel?: string;
 }
 
-const FULLSCREEN_ACHIEVEMENT_PAGE_BOTTOM_SCROLL_PADDING = 88;
-const FULLSCREEN_ACHIEVEMENT_SPOTLIGHT_TOP_PADDING = 80;
-const FULLSCREEN_ACHIEVEMENT_SPOTLIGHT_BOTTOM_PADDING = 20;
-
-function getPageFrameStyle(): CSSProperties {
-  return {
-    padding: `calc(env(safe-area-inset-top, 0px) + 12px) 12px calc(env(safe-area-inset-bottom, 0px) + ${FULLSCREEN_ACHIEVEMENT_PAGE_BOTTOM_SCROLL_PADDING}px)`,
-    boxSizing: "border-box",
-  };
-}
-
-function getAchievementSpotlightPageFrameStyle(): CSSProperties {
-  return {
-    padding: `calc(env(safe-area-inset-top, 0px) + ${FULLSCREEN_ACHIEVEMENT_SPOTLIGHT_TOP_PADDING}px) 12px calc(env(safe-area-inset-bottom, 0px) + ${FULLSCREEN_ACHIEVEMENT_SPOTLIGHT_BOTTOM_PADDING}px)`,
-    boxSizing: "border-box",
-  };
-}
-
-function getAchievementSpotlightPageRailStyle(): CSSProperties {
-  return {
-    width: "100%",
-    boxSizing: "border-box",
-  };
-}
-
-function resolveSteamAchievementHeroLabel(game: GameDetailSnapshot["game"]): string {
-  if (game.title.trim().length > 0) {
-    return game.title;
-  }
-
-  if (game.appid !== undefined) {
-    return `Steam App ${game.appid}`;
-  }
-
-  return "Steam Game";
-}
-
-function getSteamAchievementSpotlightCardStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 14,
-    padding: 16,
-    borderRadius: 20,
-    boxSizing: "border-box",
-    border: "1px solid rgba(105, 176, 255, 0.24)",
-    borderLeftWidth: 4,
-    borderLeftStyle: "solid",
-    borderLeftColor: "rgba(105, 176, 255, 0.9)",
-    background:
-      "linear-gradient(180deg, rgba(20, 27, 40, 0.96), rgba(13, 18, 28, 0.98))",
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 12px rgba(0, 0, 0, 0.2)",
-    minWidth: 0,
-  };
-}
-
-function getSteamAchievementSpotlightBackRowStyle(): CSSProperties {
-  return {
-    display: "flex",
-    justifyContent: "flex-start",
-    alignItems: "center",
-    minWidth: 0,
-    padding: "1px 2px 0",
-  };
-}
-
-function getSteamAchievementSpotlightBodyStyle(hasGameArtwork: boolean): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: hasGameArtwork ? "minmax(0, 1.1fr) minmax(200px, 0.9fr)" : "minmax(0, 1fr)",
-    gap: 16,
-    alignItems: "start",
-    minWidth: 0,
-  };
-}
-
-function getSteamAchievementSpotlightMainStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 14,
-    minWidth: 0,
-  };
-}
-
-function getSteamAchievementSpotlightIdentityStyle(): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: "auto minmax(0, 1fr)",
-    gap: 14,
-    alignItems: "start",
-    minWidth: 0,
-  };
-}
-
-function getSteamAchievementSpotlightIconFrameStyle(isUnlocked: boolean): CSSProperties {
+function getPageStyle(): CSSProperties {
   return {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    width: 104,
-    height: 104,
-    flexShrink: 0,
+    width: "100%",
+    height: "100%",
+    minHeight: 0,
+    padding: "clamp(18px, 3.5vh, 38px) clamp(20px, 4vw, 54px)",
+    boxSizing: "border-box",
     overflow: "hidden",
-    borderRadius: 18,
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-    background: "rgba(255, 255, 255, 0.04)",
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
-    opacity: isUnlocked ? 1 : 0.94,
-    filter: isUnlocked ? "none" : "grayscale(1) contrast(1.1) brightness(0.92)",
+    color: "rgba(245, 250, 255, 0.98)",
+    background:
+      "radial-gradient(ellipse at 76% 18%, rgba(42, 116, 172, 0.18), transparent 39%), radial-gradient(circle at 16% 80%, rgba(23, 91, 148, 0.14), transparent 34%), linear-gradient(135deg, #06111b 0%, #091827 52%, #06101a 100%)",
   };
 }
 
-function getSteamAchievementSpotlightTitleBlockStyle(): CSSProperties {
+function getAchievementPanelStyle(): CSSProperties {
   return {
     display: "flex",
     flexDirection: "column",
-    gap: 8,
+    gap: "clamp(10px, 1.5vh, 14px)",
+    width: "100%",
+    maxWidth: 1_060,
+    maxHeight: "100%",
+    padding: "14px clamp(16px, 2vw, 22px)",
+    boxSizing: "border-box",
+    overflow: "hidden",
+    border: "1px solid rgba(90, 176, 239, 0.44)",
+    borderLeft: "4px solid rgba(42, 173, 244, 0.96)",
+    borderRadius: 24,
+    background:
+      "linear-gradient(145deg, rgba(8, 30, 47, 0.97), rgba(5, 19, 31, 0.98) 58%, rgba(7, 24, 38, 0.98))",
+    boxShadow: "inset 0 1px 0 rgba(196, 234, 255, 0.08), 0 18px 46px rgba(0, 0, 0, 0.26)",
+  };
+}
+
+function getHeroStyle(): CSSProperties {
+  return {
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1.18fr) minmax(260px, 0.82fr)",
+    gap: "clamp(18px, 3vw, 38px)",
+    alignItems: "center",
     minWidth: 0,
   };
 }
 
-function getSteamAchievementSpotlightHeroLabelStyle(): CSSProperties {
+function getAchievementIdentityStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.58)",
-    fontSize: "0.74em",
-    fontWeight: 800,
-    letterSpacing: "0.1em",
-    lineHeight: 1.2,
-    textTransform: "uppercase",
+    display: "grid",
+    gridTemplateColumns: "clamp(96px, 11vw, 124px) minmax(0, 1fr)",
+    gap: "clamp(14px, 2vw, 24px)",
+    alignItems: "center",
+    minWidth: 0,
   };
 }
 
-function getSteamAchievementSpotlightMetaRowStyle(): CSSProperties {
+function getBadgeFrameStyle(isUnlocked: boolean): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    aspectRatio: "1",
+    overflow: "hidden",
+    borderRadius: 18,
+    border: isUnlocked ? "2px solid rgba(242, 190, 55, 0.94)" : "1px solid rgba(150, 174, 192, 0.28)",
+    background: "linear-gradient(145deg, rgba(17, 50, 73, 0.92), rgba(7, 24, 38, 0.96))",
+    boxShadow: isUnlocked
+      ? "inset 0 1px 0 rgba(255, 243, 190, 0.13), 0 0 22px rgba(240, 180, 36, 0.16)"
+      : "inset 0 1px 0 rgba(255, 255, 255, 0.06)",
+    filter: isUnlocked ? "none" : "grayscale(1) contrast(1.05) brightness(0.84)",
+  };
+}
+
+function getBadgeFallbackStyle(): CSSProperties {
+  return {
+    color: "rgba(181, 218, 245, 0.76)",
+    fontSize: "1.4em",
+    fontWeight: 800,
+    letterSpacing: "0.09em",
+  };
+}
+
+function getAchievementTextStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    minWidth: 0,
+  };
+}
+
+function getGameTitleStyle(): CSSProperties {
+  return {
+    color: "rgba(174, 207, 239, 0.92)",
+    fontSize: "clamp(0.78rem, 1.45vw, 1rem)",
+    fontWeight: 800,
+    letterSpacing: "0.1em",
+    lineHeight: 1.15,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    textTransform: "uppercase",
+    whiteSpace: "nowrap",
+  };
+}
+
+function getAchievementTitleStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.99)",
+    fontSize: "clamp(1.45rem, 3vw, 2.25rem)",
+    fontWeight: 800,
+    letterSpacing: "-0.02em",
+    lineHeight: 1.05,
+    overflowWrap: "anywhere",
+  };
+}
+
+function getMetaRowStyle(): CSSProperties {
   return {
     display: "flex",
     flexWrap: "wrap",
@@ -188,981 +170,300 @@ function getSteamAchievementSpotlightMetaRowStyle(): CSSProperties {
   };
 }
 
-function getSteamAchievementSpotlightGameCoverFrameStyle(interactive: boolean, focused: boolean): CSSProperties {
+function getMetaPillStyle(tone: "default" | "success" = "default"): CSSProperties {
+  const success = tone === "success";
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    minHeight: 30,
+    padding: "0 11px",
+    boxSizing: "border-box",
+    borderRadius: 999,
+    border: "1px solid " + (success ? "rgba(64, 231, 141, 0.36)" : "rgba(106, 179, 237, 0.24)"),
+    background: success ? "rgba(25, 154, 91, 0.13)" : "rgba(22, 73, 111, 0.24)",
+    color: success ? "rgba(86, 244, 159, 0.98)" : "rgba(190, 224, 250, 0.94)",
+    fontSize: "0.82em",
+    fontWeight: 750,
+    lineHeight: 1.1,
+    whiteSpace: "nowrap",
+  };
+}
+
+function getMetaIconStyle(tone: "default" | "success" = "default"): CSSProperties {
+  return {
+    width: 18,
+    height: 18,
+    filter: tone === "success"
+      ? "brightness(0) saturate(100%) invert(79%) sepia(79%) saturate(493%) hue-rotate(91deg) brightness(105%) contrast(94%)"
+      : "brightness(0) saturate(100%) invert(86%) sepia(27%) saturate(584%) hue-rotate(166deg) brightness(100%) contrast(98%)",
+  };
+}
+
+function getDescriptionStyle(): CSSProperties {
+  return {
+    margin: 0,
+    color: "rgba(188, 216, 242, 0.94)",
+    fontSize: "clamp(0.92rem, 1.7vw, 1.16rem)",
+    lineHeight: 1.38,
+    whiteSpace: "pre-wrap",
+  };
+}
+
+function getGameArtworkFrameStyle(): CSSProperties {
   return {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    alignSelf: "start",
     width: "100%",
-    maxWidth: 272,
     aspectRatio: "460 / 215",
-    padding: 10,
-    borderRadius: 18,
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-    background:
-      "radial-gradient(circle at top, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02) 52%, rgba(0, 0, 0, 0.18))",
-    boxShadow: focused
-      ? "0 0 0 2px rgba(73, 155, 255, 0.72), 0 0 18px rgba(39, 124, 226, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.14)"
-      : "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 4px 16px rgba(0, 0, 0, 0.2)",
-    boxSizing: "border-box",
     overflow: "hidden",
-    cursor: interactive ? "pointer" : "default",
-    transition: "border-color 120ms ease, box-shadow 120ms ease, background 120ms ease",
-    outline: "none",
-    borderColor: focused ? "rgba(105, 176, 255, 0.8)" : "rgba(255, 255, 255, 0.1)",
+    borderRadius: 16,
+    border: "1px solid rgba(108, 174, 220, 0.28)",
+    background: "linear-gradient(145deg, rgba(12, 34, 51, 0.96), rgba(5, 17, 28, 0.96))",
+    boxShadow: "inset 0 1px 0 rgba(228, 244, 255, 0.06), 0 8px 22px rgba(0, 0, 0, 0.2)",
   };
 }
 
-function getSteamAchievementSpotlightArtworkStackStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 8,
-    minWidth: 0,
-  };
-}
-
-function getSteamAchievementSpotlightGameCoverImageStyle(): CSSProperties {
+function getGameArtworkStyle(): CSSProperties {
   return {
     display: "block",
     width: "100%",
     height: "100%",
-    maxWidth: "100%",
-    maxHeight: "100%",
     objectFit: "cover",
     objectPosition: "center center",
   };
 }
 
-function getSteamAchievementSpotlightGameCoverFallbackStyle(): CSSProperties {
+function getGameArtworkFallbackStyle(): CSSProperties {
   return {
     display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
     width: "100%",
     height: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-    background:
-      "linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03))",
-    color: "rgba(255, 255, 255, 0.9)",
-    fontSize: "1em",
-    fontWeight: 700,
-    letterSpacing: "0.06em",
-  };
-}
-
-function getSteamAchievementSpotlightGameCoverCaptionStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.72)",
-    fontSize: "0.8em",
-    fontWeight: 700,
-    lineHeight: 1.2,
-    textAlign: "center",
-  };
-}
-
-function getSteamAchievementSpotlightStatsGridStyle(): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
-    gap: 8,
-    width: "100%",
-    alignItems: "stretch",
-  };
-}
-
-function getSteamAchievementSpotlightStatStyle(): CSSProperties {
-  return {
-    padding: "8px 10px",
-  };
-}
-
-function getSteamArtworkFallbackInitials(title: string): string {
-  const words = title
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
-
-  if (words.length === 0) {
-    return "AC";
-  }
-
-  return words
-    .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase() ?? "")
-    .join("")
-    .trim() || "AC";
-}
-
-function SteamAchievementSpotlightArtwork({
-  src,
-  title,
-}: {
-  readonly src: string;
-  readonly title: string;
-}): JSX.Element {
-  const [hasImageError, setHasImageError] = useState(false);
-
-  return hasImageError ? (
-    <span style={getSteamAchievementSpotlightGameCoverFallbackStyle()}>{getSteamArtworkFallbackInitials(title)}</span>
-  ) : (
-    <img
-      alt=""
-      loading="lazy"
-      referrerPolicy="no-referrer"
-      src={src}
-      onError={() => {
-        setHasImageError(true);
-      }}
-      style={getSteamAchievementSpotlightGameCoverImageStyle()}
-    />
-  );
-}
-
-type AchievementSpotlightTone = "hardcore" | "softcore" | "locked";
-
-function getAchievementSpotlightTone(
-  achievement: Pick<NormalizedAchievement, "isUnlocked" | "unlockMode">,
-): AchievementSpotlightTone {
-  if (!achievement.isUnlocked) {
-    return "locked";
-  }
-
-  return achievement.unlockMode === "hardcore" ? "hardcore" : "softcore";
-}
-
-function getAchievementSpotlightToneColors(tone: AchievementSpotlightTone): {
-  readonly accent: string;
-  readonly background: string;
-  readonly border: string;
-  readonly pillBackground: string;
-  readonly pillBorder: string;
-  readonly rarityBarEnd: string;
-  readonly rarityBarStart: string;
-  readonly secondary: string;
-  readonly statBackground: string;
-  readonly statBorder: string;
-  readonly statLabel: string;
-  readonly statValue: string;
-  readonly statusLabel: string;
-} {
-  if (tone === "hardcore") {
-    return {
-      accent: "rgba(232, 201, 102, 0.96)",
-      background: "linear-gradient(180deg, rgba(214, 178, 74, 0.09), rgba(214, 178, 74, 0.035))",
-      border: "rgba(214, 178, 74, 0.3)",
-      pillBackground: "rgba(214, 178, 74, 0.11)",
-      pillBorder: "rgba(214, 178, 74, 0.35)",
-      rarityBarStart: "rgba(232, 201, 102, 0.96)",
-      rarityBarEnd: "rgba(214, 178, 74, 0.88)",
-      secondary: "rgba(232, 201, 102, 0.78)",
-      statBackground: "rgba(214, 178, 74, 0.045)",
-      statBorder: "rgba(214, 178, 74, 0.2)",
-      statLabel: "rgba(232, 201, 102, 0.86)",
-      statValue: "rgba(255, 255, 255, 0.98)",
-      statusLabel: "rgba(232, 201, 102, 0.98)",
-    };
-  }
-
-  if (tone === "softcore") {
-    return {
-      accent: "rgba(220, 225, 233, 0.98)",
-      background: "linear-gradient(180deg, rgba(214, 221, 232, 0.08), rgba(214, 221, 232, 0.03))",
-      border: "rgba(214, 221, 232, 0.24)",
-      pillBackground: "rgba(214, 221, 232, 0.1)",
-      pillBorder: "rgba(214, 221, 232, 0.3)",
-      rarityBarStart: "rgba(220, 225, 233, 0.98)",
-      rarityBarEnd: "rgba(214, 221, 232, 0.82)",
-      secondary: "rgba(214, 221, 232, 0.78)",
-      statBackground: "rgba(214, 221, 232, 0.04)",
-      statBorder: "rgba(214, 221, 232, 0.18)",
-      statLabel: "rgba(220, 225, 233, 0.86)",
-      statValue: "rgba(255, 255, 255, 0.98)",
-      statusLabel: "rgba(220, 225, 233, 0.98)",
-    };
-  }
-
-  return {
-    accent: "rgba(255, 255, 255, 0.72)",
-    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.025))",
-    border: "rgba(255, 255, 255, 0.09)",
-    pillBackground: "rgba(255, 255, 255, 0.05)",
-    pillBorder: "rgba(255, 255, 255, 0.1)",
-    rarityBarStart: "rgba(180, 186, 196, 0.82)",
-    rarityBarEnd: "rgba(120, 126, 138, 0.82)",
-    secondary: "rgba(255, 255, 255, 0.68)",
-    statBackground: "rgba(255, 255, 255, 0.03)",
-    statBorder: "rgba(255, 255, 255, 0.08)",
-    statLabel: "rgba(255, 255, 255, 0.7)",
-    statValue: "rgba(255, 255, 255, 0.96)",
-    statusLabel: "rgba(255, 255, 255, 0.72)",
-  };
-}
-
-function getAchievementSpotlightCardStyle(tone: AchievementSpotlightTone): CSSProperties {
-  const colors = getAchievementSpotlightToneColors(tone);
-
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-    padding: 14,
-    borderRadius: 20,
-    boxSizing: "border-box",
-    border: `1px solid ${colors.border}`,
-    borderLeftWidth: 4,
-    borderLeftStyle: "solid",
-    borderLeftColor: colors.accent,
-    background: colors.background,
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 12px rgba(0, 0, 0, 0.2)",
-    minWidth: 0,
-  };
-}
-
-function getAchievementSpotlightBackRowStyle(): CSSProperties {
-  return {
-    display: "flex",
-    justifyContent: "flex-end",
-    alignItems: "center",
-    minWidth: 0,
-    marginBottom: -2,
-  };
-}
-
-function getAchievementSpotlightHeaderStyle(): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: "auto minmax(0, 1fr) auto",
-    gap: 12,
-    alignItems: "start",
-    minWidth: 0,
-  };
-}
-
-function getAchievementSpotlightBadgeFrameStyle(tone: AchievementSpotlightTone): CSSProperties {
-  const colors = getAchievementSpotlightToneColors(tone);
-
-  return {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: 88,
-    height: 88,
-    flexShrink: 0,
-    overflow: "hidden",
-    borderRadius: 16,
-    border: `1px solid ${colors.pillBorder}`,
-    background: colors.pillBackground,
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
-    filter: tone === "locked" ? "grayscale(1) contrast(1.08) brightness(0.92)" : "none",
-  };
-}
-
-function getAchievementSpotlightTextStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 7,
-    minWidth: 0,
-  };
-}
-
-function getAchievementSpotlightTitleStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.98)",
-    fontSize: "1.18em",
+    background: "linear-gradient(145deg, rgba(27, 70, 99, 0.84), rgba(8, 24, 39, 0.98))",
+    color: "rgba(191, 221, 246, 0.88)",
+    fontSize: "1.15em",
     fontWeight: 800,
-    lineHeight: 1.12,
-    minWidth: 0,
-    overflowWrap: "anywhere",
-    whiteSpace: "normal",
+    letterSpacing: "0.08em",
   };
 }
 
-function getAchievementSpotlightTitleLineStyle(): CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: "5px 8px",
-    minWidth: 0,
-  };
-}
-
-function getAchievementSpotlightDescriptionStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.84)",
-    fontSize: "0.86em",
-    lineHeight: 1.3,
-    whiteSpace: "pre-wrap",
-  };
-}
-
-function getAchievementSpotlightMetaRowStyle(): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, max-content))",
-    gap: 7,
-    alignItems: "center",
-    justifyContent: "start",
-  };
-}
-
-function getAchievementSpotlightMetaPillStyle(): CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 28,
-    padding: "0 10px",
-    borderRadius: 999,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.035)",
-    color: "rgba(255, 255, 255, 0.82)",
-    fontSize: "0.8em",
-    lineHeight: 1.2,
-    whiteSpace: "nowrap",
-  };
-}
-
-function getAchievementSpotlightStatusStyle(tone: AchievementSpotlightTone): CSSProperties {
-  const colors = getAchievementSpotlightToneColors(tone);
-
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "fit-content",
-    maxWidth: "100%",
-    minHeight: 28,
-    padding: "0 10px",
-    borderRadius: 999,
-    border: `1px solid ${colors.pillBorder}`,
-    backgroundColor: colors.pillBackground,
-    color: colors.statusLabel,
-    fontSize: "0.8em",
-    fontWeight: 800,
-    letterSpacing: "0.02em",
-    lineHeight: 1.2,
-    whiteSpace: "nowrap",
-  };
-}
-
-function getAchievementSpotlightSecondaryStyle(tone: AchievementSpotlightTone): CSSProperties {
-  const colors = getAchievementSpotlightToneColors(tone);
-
-  return {
-    color: colors.secondary,
-    fontSize: "0.8em",
-    lineHeight: 1.25,
-  };
-}
-
-function getAchievementSpotlightGameCoverFrameStyle(
-  interactive: boolean,
-  focused: boolean,
-): CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    alignSelf: "start",
-    width: "clamp(170px, 19vw, 196px)",
-    height: "clamp(96px, 12vw, 116px)",
-    maxWidth: 196,
-    maxHeight: 116,
-    minWidth: 170,
-    minHeight: 96,
-    overflow: "hidden",
-    borderRadius: 16,
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-    background: "linear-gradient(180deg, rgba(12, 16, 24, 0.9), rgba(22, 28, 38, 0.82))",
-    boxShadow: focused
-      ? "0 0 0 2px rgba(73, 155, 255, 0.72), 0 0 18px rgba(39, 124, 226, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.14)"
-      : "inset 0 1px 0 rgba(255, 255, 255, 0.04)",
-    padding: 8,
-    boxSizing: "border-box",
-    cursor: interactive ? "pointer" : "default",
-    transition: "border-color 120ms ease, box-shadow 120ms ease, background 120ms ease",
-    outline: "none",
-    borderColor: focused ? "rgba(105, 176, 255, 0.8)" : "rgba(255, 255, 255, 0.1)",
-  };
-}
-
-function getAchievementSpotlightGameCoverImageStyle(): CSSProperties {
-  return {
-    display: "block",
-    width: "100%",
-    height: "100%",
-    objectFit: "contain",
-  };
-}
-
-function getAchievementSpotlightStatGridStyle(): CSSProperties {
+function getPrimaryStatsStyle(): CSSProperties {
   return {
     display: "grid",
     gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: 6,
-    width: "100%",
-    alignItems: "stretch",
+    gap: 10,
   };
 }
 
-function getAchievementSpotlightCountsGridStyle(): CSSProperties {
+function getCommunityHeadingStyle(): CSSProperties {
   return {
-    display: "grid",
-    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-    gap: 6,
-    width: "100%",
-    alignItems: "stretch",
-  };
-}
-
-function getAchievementSpotlightRarityStackStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 5,
-    width: "100%",
-  };
-}
-
-function getAchievementSpotlightRarityLabelStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.66)",
-    fontSize: "0.72em",
+    margin: "2px 0 -2px",
+    color: "rgba(173, 208, 239, 0.92)",
+    fontSize: "0.78em",
     fontWeight: 800,
-    letterSpacing: "0.1em",
+    letterSpacing: "0.12em",
     lineHeight: 1.2,
     textTransform: "uppercase",
   };
 }
 
-function getAchievementSpotlightRarityBarTrackStyle(): CSSProperties {
+function getCommunityStatsStyle(): CSSProperties {
   return {
-    height: 8,
-    borderRadius: 999,
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: 10,
+  };
+}
+
+function getMetricCardStyle(): CSSProperties {
+  return {
+    display: "grid",
+    gridTemplateColumns: "42px minmax(0, 1fr)",
+    alignItems: "center",
+    gap: 12,
+    minHeight: 74,
+    padding: "10px 14px",
+    boxSizing: "border-box",
+    borderRadius: 16,
+    border: "1px solid rgba(90, 157, 203, 0.2)",
+    background: "linear-gradient(145deg, rgba(11, 39, 59, 0.86), rgba(7, 26, 41, 0.9))",
+    boxShadow: "inset 0 1px 0 rgba(205, 235, 255, 0.045)",
+    minWidth: 0,
+  };
+}
+
+function getMetricIconStyle(tone: "blue" | "green" | "gold"): CSSProperties {
+  const filter = tone === "green"
+    ? "brightness(0) saturate(100%) invert(79%) sepia(79%) saturate(493%) hue-rotate(91deg) brightness(105%) contrast(94%)"
+    : tone === "gold"
+      ? "brightness(0) saturate(100%) invert(78%) sepia(63%) saturate(754%) hue-rotate(350deg) brightness(102%) contrast(92%)"
+      : "brightness(0) saturate(100%) invert(62%) sepia(84%) saturate(1250%) hue-rotate(165deg) brightness(101%) contrast(102%)";
+  return { width: 31, height: 31, justifySelf: "center", filter };
+}
+
+function getMetricTextStyle(): CSSProperties {
+  return { display: "flex", flexDirection: "column", gap: 3, minWidth: 0 };
+}
+
+function getMetricLabelStyle(): CSSProperties {
+  return {
+    color: "rgba(173, 207, 237, 0.78)",
+    fontSize: "0.74em",
+    fontWeight: 800,
+    letterSpacing: "0.09em",
+    lineHeight: 1.15,
+    textTransform: "uppercase",
+  };
+}
+
+function getMetricValueStyle(tone: "default" | "success" = "default"): CSSProperties {
+  return {
+    color: tone === "success" ? "rgba(82, 242, 156, 0.99)" : "rgba(255, 255, 255, 0.98)",
+    fontSize: "clamp(1.05rem, 2vw, 1.42rem)",
+    fontWeight: 800,
+    lineHeight: 1.12,
+    minWidth: 0,
     overflow: "hidden",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.06)",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   };
 }
 
-function getAchievementSpotlightRarityBarFillStyle(
-  percent: number,
-  tone: AchievementSpotlightTone,
-): CSSProperties {
-  const colors = getAchievementSpotlightToneColors(tone);
-
+function getLoadingFrameStyle(): CSSProperties {
   return {
-    width: `${Math.max(0, Math.min(100, percent))}%`,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
     height: "100%",
-    borderRadius: 999,
-    background: `linear-gradient(90deg, ${colors.rarityBarStart}, ${colors.rarityBarEnd})`,
-    transition: "width 120ms ease",
+    minHeight: 0,
+    padding: "clamp(72px, 13vh, 116px) clamp(20px, 8vw, 112px)",
+    boxSizing: "border-box",
+    textAlign: "center",
   };
 }
 
-function getAchievementSpotlightRarityBarCaptionStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.76)",
-    fontSize: "0.84em",
-    fontWeight: 700,
-    lineHeight: 1.2,
-  };
-}
-
-function getStatStyle(): CSSProperties {
+function getLoadingContentStyle(): CSSProperties {
   return {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: 2,
-    padding: "9px 10px",
-    borderRadius: 14,
-    border: "1px solid rgba(255, 255, 255, 0.06)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    minWidth: 0,
-    textAlign: "center",
+    gap: 22,
+    width: "100%",
+    maxWidth: 680,
   };
 }
 
-function getStatLabelStyle(): CSSProperties {
+function getLoadingSpinnerStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.62)",
-    fontSize: "0.72em",
-    fontWeight: 700,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-    lineHeight: 1.2,
+    position: "relative",
+    width: "clamp(112px, 18vw, 154px)",
+    height: "clamp(112px, 18vw, 154px)",
+    borderRadius: "50%",
+    background: "rgba(7, 25, 40, 0.96)",
+    boxShadow: "0 0 32px rgba(25, 178, 241, 0.2), inset 0 0 0 1px rgba(151, 225, 255, 0.16)",
   };
 }
 
-function getStatValueStyle(): CSSProperties {
+function getLoadingSpinnerRingStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.98)",
-    fontSize: "0.94em",
-    fontWeight: 700,
-    lineHeight: 1.2,
-    minWidth: 0,
-    overflow: "visible",
-    textOverflow: "clip",
-    whiteSpace: "normal",
-    textAlign: "center",
+    position: "absolute",
+    inset: 0,
+    borderRadius: "50%",
+    background:
+      "conic-gradient(from -24deg, #1cbcf1 0deg, #18a9e4 76deg, rgba(37, 85, 151, 0.84) 77deg, rgba(27, 58, 107, 0.76) 360deg)",
   };
 }
 
-function getStatSecondaryStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.72)",
-    fontSize: "0.78em",
-    lineHeight: 1.2,
-    minWidth: 0,
-    overflow: "visible",
-    textOverflow: "clip",
-    whiteSpace: "normal",
-    textAlign: "center",
-  };
-}
-
-function getRarityBarFrameStyle(): CSSProperties {
+function getLoadingIconWellStyle(): CSSProperties {
   return {
     display: "flex",
-    flexDirection: "column",
-    gap: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "absolute",
+    inset: 9,
+    borderRadius: "50%",
+    background: "radial-gradient(circle at 40% 30%, #112b42, #07131f 72%)",
+    boxShadow: "inset 0 0 0 1px rgba(115, 192, 239, 0.18)",
+  };
+}
+
+function getLoadingIconStyle(): CSSProperties {
+  return {
+    width: "46%",
+    height: "46%",
+    filter: "brightness(0) saturate(100%) invert(68%) sepia(79%) saturate(1428%) hue-rotate(161deg) brightness(101%) contrast(102%) drop-shadow(0 0 10px rgba(41, 196, 246, 0.36))",
+  };
+}
+
+function getLoadingTitleStyle(): CSSProperties {
+  return {
+    margin: 0,
+    color: "rgba(247, 250, 255, 0.99)",
+    fontSize: "clamp(1.5rem, 3.2vw, 2.35rem)",
+    fontWeight: 800,
+    letterSpacing: "-0.02em",
+    lineHeight: 1.08,
+  };
+}
+
+function getLoadingInfoStyle(): CSSProperties {
+  return {
+    display: "grid",
+    gridTemplateColumns: "38px minmax(0, 1fr)",
+    alignItems: "center",
+    gap: 14,
     width: "100%",
+    padding: "17px 20px",
+    boxSizing: "border-box",
+    border: "1px solid rgba(72, 155, 222, 0.28)",
+    borderRadius: 16,
+    textAlign: "left",
+    background: "linear-gradient(135deg, rgba(17, 37, 57, 0.9), rgba(12, 27, 43, 0.78))",
   };
 }
 
-function getRarityBarTrackStyle(): CSSProperties {
+function getLoadingInfoIconStyle(): CSSProperties {
   return {
-    height: 7,
-    borderRadius: 999,
-    overflow: "hidden",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.06)",
+    width: 30,
+    height: 30,
+    filter: "brightness(0) saturate(100%) invert(68%) sepia(79%) saturate(1428%) hue-rotate(161deg) brightness(101%) contrast(102%)",
   };
 }
 
-function getRarityBarFillStyle(percent: number): CSSProperties {
-  return {
-    width: `${Math.max(0, Math.min(100, percent))}%`,
-    height: "100%",
-    borderRadius: 999,
-    background: "linear-gradient(90deg, rgba(147, 197, 253, 0.92), rgba(96, 165, 250, 0.98))",
-    transition: "width 120ms ease",
-  };
+function getLoadingInfoTextStyle(): CSSProperties {
+  return { margin: 0, color: "rgba(188, 216, 242, 0.92)", fontSize: "0.95rem", lineHeight: 1.35 };
 }
 
-function getRarityBarCaptionStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.76)",
-    fontSize: "0.84em",
-    fontWeight: 700,
-    lineHeight: 1.2,
-  };
+function getArtworkFallbackInitials(title: string): string {
+  const initials = title
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase() ?? "")
+    .join("");
+  return initials || "AC";
 }
 
-function AchievementStat({
-  label,
-  value,
-  secondary,
-  tone,
-  style,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly secondary?: string;
-  readonly tone?: AchievementSpotlightTone;
-  readonly style?: CSSProperties;
-}): JSX.Element {
-  const colors = tone !== undefined ? getAchievementSpotlightToneColors(tone) : undefined;
-
-  return (
-    <div
-      style={{
-        ...getStatStyle(),
-        ...(colors !== undefined
-          ? {
-              border: `1px solid ${colors.statBorder}`,
-              backgroundColor: colors.statBackground,
-              boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 8px rgba(0, 0, 0, 0.14)",
-            }
-          : {}),
-        ...(style ?? {}),
-      }}
-    >
-      <div style={colors !== undefined ? { ...getStatLabelStyle(), color: colors.statLabel } : getStatLabelStyle()}>
-        {label}
-      </div>
-      <div style={colors !== undefined ? { ...getStatValueStyle(), color: colors.statValue } : getStatValueStyle()}>
-        {value}
-      </div>
-      {secondary !== undefined ? <div style={getStatSecondaryStyle()}>{secondary}</div> : null}
-    </div>
-  );
-}
-
-function RarityBar({
-  percent,
-  tone,
-  caption,
-}: {
-  readonly percent: number | undefined;
-  readonly tone?: AchievementSpotlightTone;
-  readonly caption?: string;
-}): JSX.Element {
-  const resolvedPercent = percent ?? 0;
-  const resolvedCaption =
-    caption ??
-    (percent !== undefined
-      ? tone !== undefined
-        ? "Rarity"
-        : `${resolvedPercent}% unlock rate`
-      : "Unlock rate unavailable");
-
-  return (
-    <div style={getRarityBarFrameStyle()}>
-      <div style={tone !== undefined ? getAchievementSpotlightRarityBarCaptionStyle() : getRarityBarCaptionStyle()}>
-        {resolvedCaption}
-      </div>
-      <div
-        aria-label="Achievement unlock rate"
-        aria-valuemax={100}
-        aria-valuemin={0}
-        aria-valuenow={resolvedPercent}
-        aria-valuetext={resolvedCaption}
-        role="progressbar"
-        style={tone !== undefined ? getAchievementSpotlightRarityBarTrackStyle() : getRarityBarTrackStyle()}
-      >
-        <div style={tone !== undefined ? getAchievementSpotlightRarityBarFillStyle(resolvedPercent, tone) : getRarityBarFillStyle(resolvedPercent)} />
-      </div>
-    </div>
-  );
-}
-
-function AchievementSpotlightCard({
-  game,
-  achievement,
-  gameArtworkUrl,
-  providerLabel,
-  backLabel,
-  onBack,
-  onOpenFullScreenGame,
-}: {
-  readonly game: GameDetailSnapshot["game"];
-  readonly achievement: NormalizedAchievement;
-  readonly gameArtworkUrl: string | undefined;
-  readonly providerLabel: string;
-  readonly backLabel: string;
-  readonly onBack: () => void;
-  readonly onOpenFullScreenGame: (() => void) | undefined;
-}): JSX.Element {
-  const [isGameCoverFocused, setIsGameCoverFocused] = useState(false);
-  const tone = getAchievementSpotlightTone(achievement);
-  const counts = getAchievementSpotlightCounts(achievement.metrics, game.metrics);
-  const showCounts = hasAchievementCounts(counts);
-  const unlockRatePercent = counts.unlockRatePercent;
-  const unlockRateCaption = formatAchievementUnlockRatePercent(unlockRatePercent);
-  const achievementStatus = buildAchievementStatus(achievement);
-  const unlockTimestamp = achievement.hardcoreUnlockedAt ?? achievement.softcoreUnlockedAt ?? achievement.unlockedAt;
-  const metaPills = dedupeDistinctLabels([providerLabel]);
-
-  return (
-    <div style={getAchievementSpotlightCardStyle(tone)}>
-      <div style={getAchievementSpotlightBackRowStyle()}>
-        <DeckyFullscreenActionRow>
-          <DeckyFullscreenActionButton
-            label={backLabel}
-            isFullscreenBackAction
-            onClick={() => {
-              onBack();
-            }}
-          />
-        </DeckyFullscreenActionRow>
-      </div>
-
-      <div style={getAchievementSpotlightHeaderStyle()}>
-        <div style={getAchievementSpotlightBadgeFrameStyle(tone)}>
-          {achievement.badgeImageUrl !== undefined ? (
-            <DeckyGameArtwork compact src={achievement.badgeImageUrl} size={88} title={achievement.title} />
-          ) : (
-            <span style={getAchievementSpotlightMetaPillStyle()}>
-              RA
-            </span>
-          )}
-        </div>
-
-        <div style={getAchievementSpotlightTextStyle()}>
-          <div style={getAchievementSpotlightTitleLineStyle()}>
-            <span style={getAchievementSpotlightTitleStyle()}>{achievement.title}</span>
-            <DeckyAchievementTypeBadge classification={achievement.classification} />
-          </div>
-          <div style={getAchievementSpotlightDescriptionStyle()}>
-            {getAchievementDescriptionText(achievement.description)}
-          </div>
-          <div style={getAchievementSpotlightMetaRowStyle()}>
-            {metaPills.map((label) => (
-              <span key={label} style={getAchievementSpotlightMetaPillStyle()}>
-                {label}
-              </span>
-            ))}
-            <span style={getAchievementSpotlightStatusStyle(tone)}>{achievementStatus.value}</span>
-          </div>
-          {unlockTimestamp !== undefined ? (
-            <div style={getAchievementSpotlightSecondaryStyle(tone)}>{`Unlocked on ${formatTimestamp(unlockTimestamp)}`}</div>
-          ) : null}
-        </div>
-
-        {gameArtworkUrl !== undefined && onOpenFullScreenGame !== undefined ? (
-          <Focusable
-            noFocusRing
-            role="button"
-            aria-label={`Open game details for ${game.title}`}
-            onActivate={onOpenFullScreenGame}
-            onClick={onOpenFullScreenGame}
-            onFocus={() => {
-              setIsGameCoverFocused(true);
-            }}
-            onBlur={() => {
-              setIsGameCoverFocused(false);
-            }}
-            onGamepadFocus={() => {
-              setIsGameCoverFocused(true);
-            }}
-            style={getAchievementSpotlightGameCoverFrameStyle(true, isGameCoverFocused)}
-          >
-            <img
-              alt=""
-              loading="lazy"
-              referrerPolicy="no-referrer"
-              src={gameArtworkUrl}
-              style={getAchievementSpotlightGameCoverImageStyle()}
-            />
-          </Focusable>
-        ) : gameArtworkUrl !== undefined ? (
-          <div style={getAchievementSpotlightGameCoverFrameStyle(false, false)}>
-            <img
-              alt=""
-              loading="lazy"
-              referrerPolicy="no-referrer"
-              src={gameArtworkUrl}
-              style={getAchievementSpotlightGameCoverImageStyle()}
-            />
-          </div>
-        ) : null}
-      </div>
-
-      <div style={getAchievementSpotlightStatGridStyle()}>
-        <AchievementStat
-          label="Points"
-          tone={tone}
-          value={achievement.points !== undefined ? formatCount(achievement.points) : "-"}
-        />
-        <AchievementStat
-          label="RetroPoints"
-          tone={tone}
-          value={formatMetricValue(getMetricValue(achievement.metrics, "true-ratio", "True Ratio")) ?? "-"}
-        />
-      </div>
-
-      <div style={getAchievementSpotlightRarityStackStyle()}>
-        <div style={getAchievementSpotlightRarityLabelStyle()}>Unlock rate</div>
-        <RarityBar percent={unlockRatePercent} tone={tone} caption={unlockRateCaption} />
-      </div>
-
-      {showCounts ? (
-        <div style={getAchievementSpotlightCountsGridStyle()}>
-          <AchievementStat
-            label="Softcore unlocks"
-            tone={tone}
-            value={counts.softcoreUnlockCount !== undefined ? formatCount(counts.softcoreUnlockCount) : "-"}
-          />
-          <AchievementStat
-            label="Hardcore unlocks"
-            tone={tone}
-            value={counts.hardcoreUnlockCount !== undefined ? formatCount(counts.hardcoreUnlockCount) : "-"}
-          />
-          <AchievementStat
-            label="Total players"
-            tone={tone}
-            value={counts.totalPlayers !== undefined ? formatCount(counts.totalPlayers) : "-"}
-          />
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function SteamAchievementSpotlightCard({
-  game,
-  achievement,
-  gameArtworkUrl,
-  heroLabel,
-  providerLabel,
-  achievementStatusLabel,
-  metaPills,
-  backLabel,
-  onBack,
-  onOpenFullScreenGame,
-  steamHuntersAchievement,
-}: {
-  readonly game: GameDetailSnapshot["game"];
-  readonly achievement: NormalizedAchievement;
-  readonly gameArtworkUrl: string | undefined;
-  readonly heroLabel: string;
-  readonly providerLabel: string;
-  readonly achievementStatusLabel: string;
-  readonly metaPills: readonly string[];
-  readonly backLabel: string;
-  readonly onBack: () => void;
-  readonly onOpenFullScreenGame: (() => void) | undefined;
-  readonly steamHuntersAchievement: SteamHuntersAchievement | undefined;
-}): JSX.Element {
-  const [isGameArtworkFocused, setIsGameArtworkFocused] = useState(false);
-  const unlockTimestamp = achievement.unlockedAt;
-  const unlockRatePercent = getUnlockRatePercent(achievement);
-  const unlockRateCaption = unlockRatePercent !== undefined ? formatAchievementUnlockRatePercent(unlockRatePercent) : undefined;
-  const hasInteractiveGameArtwork = gameArtworkUrl !== undefined && onOpenFullScreenGame !== undefined;
-  const showUnlockDate = unlockTimestamp !== undefined;
-
-  return (
-    <div style={getSteamAchievementSpotlightCardStyle()}>
-      <div style={getSteamAchievementSpotlightBackRowStyle()}>
-        <DeckyFullscreenActionRow>
-          <DeckyFullscreenActionButton
-            label={backLabel}
-            isFullscreenBackAction
-            onClick={() => {
-              onBack();
-            }}
-          />
-        </DeckyFullscreenActionRow>
-      </div>
-
-      <div style={getSteamAchievementSpotlightBodyStyle(hasInteractiveGameArtwork)}>
-        <div style={getSteamAchievementSpotlightMainStyle()}>
-          <div style={getSteamAchievementSpotlightIdentityStyle()}>
-            {achievement.badgeImageUrl !== undefined ? (
-              <span style={getSteamAchievementSpotlightIconFrameStyle(achievement.isUnlocked)}>
-                <DeckyGameArtwork compact src={achievement.badgeImageUrl} size={104} title={achievement.title} />
-              </span>
-            ) : (
-              <span style={getSteamAchievementSpotlightIconFrameStyle(achievement.isUnlocked)}>
-                <span style={getSteamAchievementSpotlightGameCoverFallbackStyle()}>{providerLabel}</span>
-              </span>
-            )}
-
-            <div style={getSteamAchievementSpotlightTitleBlockStyle()}>
-              <div style={getSteamAchievementSpotlightHeroLabelStyle()}>{heroLabel}</div>
-              <div style={getAchievementSpotlightTitleStyle()}>{achievement.title}</div>
-              <div style={getSteamAchievementSpotlightMetaRowStyle()}>
-                {metaPills.map((label) => (
-                  <span key={label} style={getAchievementSpotlightMetaPillStyle()}>
-                    {label}
-                  </span>
-                ))}
-              </div>
-              <div style={getAchievementSpotlightDescriptionStyle()}>{getAchievementDescriptionText(achievement.description)}</div>
-            </div>
-          </div>
-        </div>
-
-        {gameArtworkUrl !== undefined ? (
-          <div style={getSteamAchievementSpotlightArtworkStackStyle()}>
-            {hasInteractiveGameArtwork ? (
-              <Focusable
-                noFocusRing
-                role="button"
-                aria-label={`Open game overview for ${game.title}`}
-                onActivate={onOpenFullScreenGame}
-                onClick={onOpenFullScreenGame}
-                onFocus={() => {
-                  setIsGameArtworkFocused(true);
-                }}
-                onBlur={() => {
-                  setIsGameArtworkFocused(false);
-                }}
-                onGamepadFocus={() => {
-                  setIsGameArtworkFocused(true);
-                }}
-                style={getSteamAchievementSpotlightGameCoverFrameStyle(true, isGameArtworkFocused)}
-              >
-                <SteamAchievementSpotlightArtwork src={gameArtworkUrl} title={game.title} />
-              </Focusable>
-            ) : (
-              <div style={getSteamAchievementSpotlightGameCoverFrameStyle(false, false)}>
-                <SteamAchievementSpotlightArtwork src={gameArtworkUrl} title={game.title} />
-              </div>
-            )}
-            <div style={getSteamAchievementSpotlightGameCoverCaptionStyle()}>
-              {onOpenFullScreenGame !== undefined ? "Open game overview" : game.title}
-            </div>
-          </div>
-        ) : null}
-      </div>
-
-      <div style={getSteamAchievementSpotlightStatsGridStyle()}>
-        <AchievementStat
-          label="Status"
-          value={achievementStatusLabel}
-          style={getSteamAchievementSpotlightStatStyle()}
-        />
-        {showUnlockDate ? (
-          <AchievementStat
-            label="Unlock date"
-            value={formatTimestamp(unlockTimestamp)}
-            style={getSteamAchievementSpotlightStatStyle()}
-          />
-        ) : null}
-        {unlockRateCaption !== undefined ? (
-          <AchievementStat
-            label="Global unlock rate"
-            value={unlockRateCaption}
-            style={getSteamAchievementSpotlightStatStyle()}
-          />
-        ) : null}
-      </div>
-
-      {steamHuntersAchievement !== undefined ? (
-        <>
-          <div style={getSteamAchievementSpotlightHeroLabelStyle()}>SteamHunters</div>
-          <div style={getSteamAchievementSpotlightStatsGridStyle()}>
-            {steamHuntersAchievement.points !== undefined ? (
-              <AchievementStat
-                label="Points"
-                value={formatCount(steamHuntersAchievement.points)}
-                style={getSteamAchievementSpotlightStatStyle()}
-              />
-            ) : null}
-            {steamHuntersAchievement.localPercentage !== undefined ? (
-              <AchievementStat
-                label="SteamHunters unlock rate"
-                value={formatSteamHuntersPercentage(steamHuntersAchievement.localPercentage)}
-                style={getSteamAchievementSpotlightStatStyle()}
-              />
-            ) : null}
-            {steamHuntersAchievement.obtainability !== "unknown" ? (
-              <AchievementStat
-                label="Obtainability"
-                value={
-                  steamHuntersAchievement.obtainability === "broken-but-obtainable"
-                    ? "Broken but obtainable"
-                    : steamHuntersAchievement.obtainability === "conditionally-obtainable"
-                      ? "Conditional"
-                      : steamHuntersAchievement.obtainability === "unobtainable"
-                        ? "Unobtainable"
-                        : "Obtainable"
-                }
-                style={getSteamAchievementSpotlightStatStyle()}
-              />
-            ) : null}
-          </div>
-        </>
-      ) : null}
-    </div>
-  );
+function getSteamHuntersObtainabilityLabel(
+  obtainability: SteamHuntersAchievement["obtainability"],
+): string {
+  switch (obtainability) {
+    case "broken-but-obtainable":
+      return "Broken but obtainable";
+    case "conditionally-obtainable":
+      return "Conditional";
+    case "unobtainable":
+      return "Unobtainable";
+    case "obtainable":
+      return "Obtainable";
+    default:
+      return "Unknown";
+  }
 }
 
 function isRenderableGameDetailState(
@@ -1171,13 +472,257 @@ function isRenderableGameDetailState(
   return (state.status === "success" || state.status === "stale") && state.data !== undefined;
 }
 
+function DeckyFullScreenAchievementInputSurface({
+  children,
+  onBack,
+}: {
+  readonly children: JSX.Element;
+  readonly onBack: () => void;
+}): JSX.Element {
+  const surfaceRef = useRef<HTMLDivElement>(null);
+  const onBackRef = useRef(onBack);
+
+  useEffect(() => {
+    onBackRef.current = onBack;
+  }, [onBack]);
+
+  useLayoutEffect(() => {
+    const surface = surfaceRef.current;
+    if (surface === null) {
+      return;
+    }
+
+    surface.focus({ preventScroll: true });
+  }, []);
+
+  const handleCancel = (): void => {
+    markDeckyFullscreenReturnRequested();
+    onBackRef.current();
+  };
+
+  return (
+    <Focusable
+      ref={surfaceRef}
+      aria-label="Achievement details"
+      noFocusRing
+      onCancel={handleCancel}
+      role="group"
+      style={getPageStyle()}
+      tabIndex={0}
+    >
+      {children}
+    </Focusable>
+  );
+}
+
+function DeckyFullScreenAchievementLoadingState({
+  hasRouteParameters,
+  state,
+}: {
+  readonly hasRouteParameters: boolean;
+  readonly state: ResourceState<GameDetailSnapshot>;
+}): JSX.Element {
+  const isError = state.status === "error" || !hasRouteParameters;
+  const title = isError ? "Unable to load achievement details" : "Loading achievement...";
+  const description = !hasRouteParameters
+    ? "The achievement route is missing the provider, game, or achievement identifier."
+    : state.error?.userMessage ?? "Fetching the latest achievement data and community details.";
+  const spinnerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const spinner = spinnerRef.current;
+    const ownerWindow = spinner?.ownerDocument.defaultView;
+    if (spinner === null || ownerWindow === null || ownerWindow === undefined || isError) {
+      return;
+    }
+
+    const reducedMotion = ownerWindow.matchMedia("(prefers-reduced-motion: reduce)");
+    let animation: Animation | undefined;
+    const updateAnimation = (): void => {
+      animation?.cancel();
+      animation = reducedMotion.matches
+        ? undefined
+        : spinner.animate(
+          [{ transform: "rotate(0deg)" }, { transform: "rotate(360deg)" }],
+          { duration: 1_450, easing: "linear", iterations: Infinity },
+        );
+    };
+
+    updateAnimation();
+    reducedMotion.addEventListener("change", updateAnimation);
+    return () => {
+      reducedMotion.removeEventListener("change", updateAnimation);
+      animation?.cancel();
+    };
+  }, [isError]);
+
+  return (
+    <section
+      aria-busy={!isError}
+      aria-label={title}
+      aria-live="polite"
+      role={isError ? "alert" : "status"}
+      style={getLoadingFrameStyle()}
+    >
+      <div style={getLoadingContentStyle()}>
+        <div aria-hidden="true" style={getLoadingSpinnerStyle()}>
+          <div ref={spinnerRef} style={getLoadingSpinnerRingStyle()} />
+          <div style={getLoadingIconWellStyle()}>
+            <img alt="" src={trophyIconUrl} style={getLoadingIconStyle()} />
+          </div>
+        </div>
+        <h1 style={getLoadingTitleStyle()}>{title}</h1>
+        <div style={getLoadingInfoStyle()}>
+          <img alt="" aria-hidden="true" src={infoIconUrl} style={getLoadingInfoIconStyle()} />
+          <p style={getLoadingInfoTextStyle()}>{description}</p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function GameArtwork({ src, title }: { readonly src: string | undefined; readonly title: string }): JSX.Element {
+  const [hasImageError, setHasImageError] = useState(false);
+  return (
+    <div style={getGameArtworkFrameStyle()}>
+      {src === undefined || hasImageError ? (
+        <span style={getGameArtworkFallbackStyle()}>{getArtworkFallbackInitials(title)}</span>
+      ) : (
+        <img
+          alt=""
+          loading="lazy"
+          referrerPolicy="no-referrer"
+          src={src}
+          onError={() => {
+            setHasImageError(true);
+          }}
+          style={getGameArtworkStyle()}
+        />
+      )}
+    </div>
+  );
+}
+
+function AchievementMetricCard({
+  iconUrl,
+  iconTone = "blue",
+  label,
+  value,
+  valueTone = "default",
+}: {
+  readonly iconUrl: string;
+  readonly iconTone?: "blue" | "green" | "gold";
+  readonly label: string;
+  readonly value: string;
+  readonly valueTone?: "default" | "success";
+}): JSX.Element {
+  return (
+    <div style={getMetricCardStyle()}>
+      <img alt="" aria-hidden="true" src={iconUrl} style={getMetricIconStyle(iconTone)} />
+      <div style={getMetricTextStyle()}>
+        <div style={getMetricLabelStyle()}>{label}</div>
+        <div style={getMetricValueStyle(valueTone)}>{value}</div>
+      </div>
+    </div>
+  );
+}
+
+function DeckyFullScreenAchievementContent({
+  achievement,
+  game,
+  isSteamProvider,
+  providerLabel,
+  steamHuntersAchievement,
+}: {
+  readonly achievement: NormalizedAchievement;
+  readonly game: GameDetailSnapshot["game"];
+  readonly isSteamProvider: boolean;
+  readonly providerLabel: string;
+  readonly steamHuntersAchievement: SteamHuntersAchievement | undefined;
+}): JSX.Element {
+  const achievementStatus = buildAchievementStatus(achievement);
+  const unlockTimestamp = achievement.hardcoreUnlockedAt ?? achievement.softcoreUnlockedAt ?? achievement.unlockedAt;
+  const unlockRate = getUnlockRatePercent(achievement);
+  const heroArtworkUrl = isSteamProvider
+    ? getSteamFullscreenGameArtworkUrl(game)
+    : game.boxArtImageUrl ?? game.coverImageUrl;
+  const communityHeading = isSteamProvider ? "SteamHunters" : providerLabel;
+  const secondaryValues = isSteamProvider
+    ? {
+        points: steamHuntersAchievement?.points !== undefined ? formatCount(steamHuntersAchievement.points) : "—",
+        unlockRate: steamHuntersAchievement?.localPercentage !== undefined
+          ? formatSteamHuntersPercentage(steamHuntersAchievement.localPercentage)
+          : formatAchievementUnlockRatePercent(unlockRate),
+        obtainability: steamHuntersAchievement === undefined
+          ? "Unavailable"
+          : getSteamHuntersObtainabilityLabel(steamHuntersAchievement.obtainability),
+      }
+    : {
+        points: achievement.points !== undefined ? formatCount(achievement.points) : "—",
+        unlockRate: formatAchievementUnlockRatePercent(unlockRate),
+        obtainability: achievement.isUnlocked ? "Unlocked" : "Locked",
+      };
+
+  return (
+    <article aria-label={achievement.title + " achievement details"} style={getAchievementPanelStyle()}>
+      <div style={getHeroStyle()}>
+        <div style={getAchievementIdentityStyle()}>
+          <div style={getBadgeFrameStyle(achievement.isUnlocked)}>
+            {achievement.badgeImageUrl !== undefined ? (
+              <DeckyGameArtwork compact src={achievement.badgeImageUrl} size={144} title={achievement.title} />
+            ) : (
+              <span style={getBadgeFallbackStyle()}>{providerLabel}</span>
+            )}
+          </div>
+          <div style={getAchievementTextStyle()}>
+            <div style={getGameTitleStyle()}>{game.title}</div>
+            <div style={getAchievementTitleStyle()}>{achievement.title}</div>
+            <div style={getMetaRowStyle()}>
+              <span style={getMetaPillStyle()}>
+                {isSteamProvider ? <img alt="" src={steamIconUrl} style={getMetaIconStyle()} /> : null}
+                {providerLabel}
+              </span>
+              <span style={getMetaPillStyle(achievement.isUnlocked ? "success" : "default")}>
+                {achievement.isUnlocked ? <img alt="" src={checkCircleIconUrl} style={getMetaIconStyle("success")} /> : null}
+                {achievementStatus.value}
+              </span>
+            </div>
+            <p style={getDescriptionStyle()}>{getAchievementDescriptionText(achievement.description)}</p>
+          </div>
+        </div>
+        <GameArtwork src={heroArtworkUrl} title={game.title} />
+      </div>
+
+      <div style={getPrimaryStatsStyle()}>
+        <AchievementMetricCard
+          iconUrl={checkCircleIconUrl}
+          iconTone={achievement.isUnlocked ? "green" : "blue"}
+          label="Status"
+          value={achievementStatus.value}
+          valueTone={achievement.isUnlocked ? "success" : "default"}
+        />
+        <AchievementMetricCard
+          iconUrl={calendarIconUrl}
+          label="Unlock date"
+          value={unlockTimestamp !== undefined ? formatTimestamp(unlockTimestamp) : "Not unlocked"}
+        />
+      </div>
+
+      <div style={getCommunityHeadingStyle()}>{communityHeading}</div>
+      <div style={getCommunityStatsStyle()}>
+        <AchievementMetricCard iconUrl={trophyIconUrl} iconTone="gold" label="Points" value={secondaryValues.points} />
+        <AchievementMetricCard iconUrl={usersIconUrl} label={communityHeading + " unlock rate"} value={secondaryValues.unlockRate} />
+        <AchievementMetricCard iconUrl={starIconUrl} iconTone="gold" label="Obtainability" value={secondaryValues.obtainability} />
+      </div>
+    </article>
+  );
+}
+
 export function DeckyFullScreenAchievementPage({
   providerId,
   gameId,
   achievementId,
   onBack,
-  onOpenFullScreenGame,
-  backLabel = "Back",
 }: DeckyFullScreenAchievementPageProps): JSX.Element {
   const loadSelectedGameDetail = useMemo(() => {
     if (providerId === undefined || gameId === undefined) {
@@ -1217,24 +762,9 @@ export function DeckyFullScreenAchievementPage({
 
   if (!isRenderableGameDetailState(state)) {
     return (
-      <ScrollPanel>
-        <TopAlignedScrollViewport
-          scrollKey={`full-screen-achievement:${providerId ?? "missing"}:${gameId ?? "missing"}:${achievementId ?? "missing"}`}
-        >
-          <div style={getPageFrameStyle()}>
-            <PlaceholderState
-              title="Full-screen achievement page"
-              description={
-                hasRouteParameters
-                  ? "Loading the full-screen achievement page from the existing game-detail service."
-                  : "The full-screen achievement page route is missing provider, game, or achievement information."
-              }
-              state={state}
-              footer={<span>Use Back to return to the full-screen game page.</span>}
-            />
-          </div>
-        </TopAlignedScrollViewport>
-      </ScrollPanel>
+      <DeckyFullScreenAchievementInputSurface onBack={onBack}>
+        <DeckyFullScreenAchievementLoadingState hasRouteParameters={hasRouteParameters} state={state} />
+      </DeckyFullScreenAchievementInputSurface>
     );
   }
 
@@ -1244,88 +774,33 @@ export function DeckyFullScreenAchievementPage({
       : state.data;
   const game = snapshot.game;
   const achievement =
-    achievementId !== undefined
-      ? snapshot.achievements.find((entry) => entry.achievementId === achievementId)
-      : undefined;
+    achievementId === undefined
+      ? undefined
+      : snapshot.achievements.find((entry) => entry.achievementId === achievementId);
 
   if (achievement === undefined) {
     return (
-      <ScrollPanel>
-        <TopAlignedScrollViewport
-          scrollKey={`full-screen-achievement:${providerId ?? game.providerId}:${game.gameId}:${achievementId ?? "missing"}`}
-        >
-          <div style={getPageFrameStyle()}>
-            <PlaceholderState
-              title={game.title}
-              description="Achievement details are unavailable for the selected row."
-              state={state}
-              footer={<span>Use Back to return to the full-screen game page.</span>}
-            />
-          </div>
-        </TopAlignedScrollViewport>
-      </ScrollPanel>
+      <DeckyFullScreenAchievementInputSurface onBack={onBack}>
+        <DeckyFullScreenAchievementLoadingState hasRouteParameters={false} state={{ ...state, status: "error" }} />
+      </DeckyFullScreenAchievementInputSurface>
     );
   }
 
-  const heroArtworkUrl = game.boxArtImageUrl ?? game.coverImageUrl;
-  const steamHeroArtworkUrl = getSteamFullscreenGameArtworkUrl(game);
-  const providerLabel = formatDeckyProviderLabel(providerId ?? game.providerId);
-  const isSteamProvider = shouldHideSteamAchievementDetailStats(providerId ?? game.providerId);
-  const heroLabel = isSteamProvider ? resolveSteamAchievementHeroLabel(game) : "Selected achievement";
-  const achievementStatus = buildAchievementStatus(achievement);
-  const snapshotSourceLabel = state.status === "stale" ? "Cached snapshot" : "Live snapshot";
-  const steamMetaPills = dedupeDistinctLabels([providerLabel, snapshotSourceLabel, achievementStatus.value]);
+  const resolvedProviderId = providerId ?? game.providerId;
+  const isSteamProvider = shouldHideSteamAchievementDetailStats(resolvedProviderId);
   const steamHuntersAchievement = isSteamProvider
     ? getSteamHuntersAchievementEnrichment(snapshot, achievement.achievementId)
     : undefined;
 
-  if (!isSteamProvider) {
-    return (
-      <ScrollPanel>
-        <TopAlignedScrollViewport
-          scrollKey={`full-screen-achievement:${providerId ?? game.providerId}:${game.gameId}:${achievement.achievementId}`}
-        >
-          <div style={getAchievementSpotlightPageFrameStyle()}>
-            <div style={getAchievementSpotlightPageRailStyle()}>
-              <AchievementSpotlightCard
-                achievement={achievement}
-                game={game}
-                gameArtworkUrl={heroArtworkUrl}
-                providerLabel={providerLabel}
-                backLabel={backLabel}
-                onBack={onBack}
-                onOpenFullScreenGame={onOpenFullScreenGame}
-              />
-            </div>
-          </div>
-        </TopAlignedScrollViewport>
-      </ScrollPanel>
-    );
-  }
-
   return (
-    <ScrollPanel>
-      <TopAlignedScrollViewport
-        scrollKey={`full-screen-achievement:${providerId ?? game.providerId}:${game.gameId}:${achievement.achievementId}`}
-      >
-        <div style={getAchievementSpotlightPageFrameStyle()}>
-          <div style={getAchievementSpotlightPageRailStyle()}>
-            <SteamAchievementSpotlightCard
-              achievement={achievement}
-              backLabel={backLabel}
-              heroLabel={heroLabel}
-              game={game}
-              gameArtworkUrl={steamHeroArtworkUrl}
-              achievementStatusLabel={achievementStatus.value}
-              onBack={onBack}
-              onOpenFullScreenGame={onOpenFullScreenGame}
-              providerLabel={providerLabel}
-              metaPills={steamMetaPills}
-              steamHuntersAchievement={steamHuntersAchievement}
-            />
-          </div>
-        </div>
-      </TopAlignedScrollViewport>
-    </ScrollPanel>
+    <DeckyFullScreenAchievementInputSurface onBack={onBack}>
+      <DeckyFullScreenAchievementContent
+        achievement={achievement}
+        game={game}
+        isSteamProvider={isSteamProvider}
+        providerLabel={formatDeckyProviderLabel(resolvedProviderId)}
+        steamHuntersAchievement={steamHuntersAchievement}
+      />
+    </DeckyFullScreenAchievementInputSurface>
   );
 }
