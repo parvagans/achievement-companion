@@ -76,6 +76,12 @@ export function getDeckyFullscreenActionStylesCss(): string {
   border-radius: 10px !important;
 }
 
+.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > .${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-overview-action {
+  justify-content: flex-start !important;
+  padding: 0 16px !important;
+  font-size: 14px !important;
+}
+
 /* The Steam section footer shares the native footer's narrow CSS-pixel height. */
 .${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > .${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-compact {
   min-height: 32px !important;
@@ -130,6 +136,10 @@ export function getDeckyFullscreenActionStylesCss(): string {
   white-space: nowrap !important;
   overflow: visible !important;
   text-overflow: clip !important;
+}
+
+.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > .${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-overview-action > span {
+  justify-content: flex-start !important;
 }
 
 .${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > .${DECKY_FULLSCREEN_CHIP_CLASS}::before,

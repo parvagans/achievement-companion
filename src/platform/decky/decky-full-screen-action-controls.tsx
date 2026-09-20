@@ -48,6 +48,7 @@ export interface DeckyFullscreenActionButtonProps {
   readonly icon?: ReactNode;
   readonly isFullscreenBackAction?: boolean | undefined;
   readonly primary?: boolean;
+  readonly contentAlign?: "center" | "left";
   readonly scrollToTopOnFocus?: boolean | undefined;
 }
 
@@ -63,14 +64,14 @@ function getFullscreenActionRowStyle(centered: boolean): CSSProperties {
   };
 }
 
-function getFullscreenChipContentStyle(): CSSProperties {
+function getFullscreenChipContentStyle(contentAlign: "center" | "left"): CSSProperties {
   return {
     display: "inline-flex",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: contentAlign === "left" ? "flex-start" : "center",
     gap: 6,
-    width: "max-content",
-    minWidth: "max-content",
+    width: contentAlign === "left" ? "100%" : "max-content",
+    minWidth: contentAlign === "left" ? 0 : "max-content",
     overflow: "visible",
     whiteSpace: "nowrap",
   };
@@ -174,6 +175,7 @@ export function DeckyFullscreenActionButton({
   icon,
   isFullscreenBackAction = false,
   primary = false,
+  contentAlign = "center",
   scrollToTopOnFocus = false,
 }: DeckyFullscreenActionButtonProps): JSX.Element {
   const fullscreenBackButtonRef = useCallback((node: HTMLDivElement | null) => {
@@ -196,7 +198,7 @@ export function DeckyFullscreenActionButton({
 
   return (
     <Focusable
-      className={`${DECKY_FULLSCREEN_CHIP_CLASS} ${selected ? DECKY_FULLSCREEN_CHIP_SELECTED_CLASS : ""} ${compact ? "achievement-companion-fullscreen-chip-compact" : ""} ${fullWidth ? "achievement-companion-fullscreen-chip-full-width" : ""} ${primary ? "achievement-companion-fullscreen-chip-primary" : ""}`.trim()}
+      className={`${DECKY_FULLSCREEN_CHIP_CLASS} ${selected ? DECKY_FULLSCREEN_CHIP_SELECTED_CLASS : ""} ${compact ? "achievement-companion-fullscreen-chip-compact" : ""} ${fullWidth ? "achievement-companion-fullscreen-chip-full-width" : ""} ${primary ? "achievement-companion-fullscreen-chip-primary" : ""} ${contentAlign === "left" ? "achievement-companion-fullscreen-chip-overview-action" : ""}`.trim()}
       focusClassName={DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS}
       focusWithinClassName={DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS}
       noFocusRing
@@ -218,7 +220,7 @@ export function DeckyFullscreenActionButton({
       {...(isFullscreenBackAction ? { "data-achievement-companion-fullscreen-back": "true" as const } : {})}
       style={getFullscreenChipStyle(disabled)}
     >
-      <span style={getFullscreenChipContentStyle()}>
+      <span style={getFullscreenChipContentStyle(contentAlign)}>
         {icon !== undefined ? <span style={getFullscreenChipIconStyle()}>{icon}</span> : null}
         <span style={{ whiteSpace: "nowrap" }}>{label}</span>
       </span>

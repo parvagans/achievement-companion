@@ -177,12 +177,13 @@ function SteamGameIdentityPanel({
           <DeckyFullscreenActionButton
             fullWidth
             label="Play Game"
-            icon={<DeckySteamPlayIcon />}
+            icon={<DeckySteamPlayIcon size={20} />}
             onClick={() => launchSteamGame(game.appid!)}
+            contentAlign="left"
             primary
           />
-          <DeckyFullscreenActionButton fullWidth icon={<DeckySteamExternalLinkIcon />} label="View on Steam" onClick={() => openSteamStore(game.appid!)} />
-          <DeckyFullscreenActionButton fullWidth icon={<DeckySteamHuntersIcon />} label="View on SteamHunters" onClick={() => openSteamHunters(game.appid!)} />
+          <DeckyFullscreenActionButton fullWidth contentAlign="left" icon={<DeckySteamExternalLinkIcon size={20} />} label="View on Steam" onClick={() => openSteamStore(game.appid!)} />
+          <DeckyFullscreenActionButton fullWidth contentAlign="left" icon={<DeckySteamHuntersIcon size={20} />} label="View on SteamHunters" onClick={() => openSteamHunters(game.appid!)} />
         </DeckyFullscreenActionRow>
       ) : null}
       <div style={getMetadataStyle()}>
