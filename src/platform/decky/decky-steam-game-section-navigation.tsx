@@ -10,10 +10,23 @@ export type DeckySteamGameSectionId = "overview" | "achievements" | "achievement
 
 const COMPACT_FOOTER_REDUCTION_PX = 4;
 const COMPACT_FOOTER_MINIMUM_HEIGHT_PX = 40;
+const STEAM_TAB_TRANSITION_SOUND_URL = "/sounds/deck_ui_tab_transition_01.wav";
 
 export interface DeckySteamGameSection {
   readonly id: DeckySteamGameSectionId;
   readonly label: string;
+}
+
+export function getAdjacentSteamGameSectionId(
+  sections: readonly DeckySteamGameSection[],
+  currentSection: DeckySteamGameSectionId,
+  direction: "previous" | "next",
+): DeckySteamGameSectionId {
+  const currentIndex = sections.findIndex((section) => section.id === currentSection);
+  const nextIndex = direction === "previous"
+    ? currentIndex <= 0 ? sections.length - 1 : currentIndex - 1
+    : currentIndex < 0 || currentIndex === sections.length - 1 ? 0 : currentIndex + 1;
+  return sections[nextIndex]?.id ?? "overview";
 }
 
 type CancelableGamepadEvent = Event & {
@@ -165,6 +178,7 @@ export function DeckySteamGameSectionNavigation({
   const onBackRef = useRef(onBack);
   const onPreviousSectionRef = useRef(onPreviousSection);
   const onNextSectionRef = useRef(onNextSection);
+  const tabTransitionSoundRef = useRef<HTMLAudioElement | null>(null);
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [layout, setLayout] = useState({ height: STEAM_GAME_FOOTER_FALLBACK_HEIGHT_PX, zIndex: 20 });
 
@@ -184,6 +198,10 @@ export function DeckySteamGameSectionNavigation({
     }
     const target = ownerDocument.createElement("div");
     target.dataset["achievementCompanionSteamGameFooterOverlay"] = "true";
+    const tabTransitionSound = ownerDocument.createElement("audio");
+    tabTransitionSound.preload = "auto";
+    tabTransitionSound.src = STEAM_TAB_TRANSITION_SOUND_URL;
+    tabTransitionSoundRef.current = tabTransitionSound;
     const updateLayout = (): void => {
       const measured = measureSteamGameFooterLayout(ownerDocument, target);
       const compactHeight = Math.max(
@@ -200,6 +218,10 @@ export function DeckySteamGameSectionNavigation({
 
     return () => {
       ownerWindow.removeEventListener("resize", updateLayout);
+      tabTransitionSound.pause();
+      tabTransitionSound.removeAttribute("src");
+      tabTransitionSound.load();
+      tabTransitionSoundRef.current = null;
       target.remove();
     };
   }, [onHeightChange]);
@@ -215,8 +237,14 @@ export function DeckySteamGameSectionNavigation({
     // also activate Steam's global chrome after the old section unmounts.
     const onButtonDown = (event: Event): void => {
       handleSteamGameShoulderButtonDown(event as GamepadEvent, {
-        onPreviousSection: () => onPreviousSectionRef.current(),
-        onNextSection: () => onNextSectionRef.current(),
+        onPreviousSection: () => {
+          onPreviousSectionRef.current();
+          playSteamTabTransitionSound(tabTransitionSoundRef.current);
+        },
+        onNextSection: () => {
+          onNextSectionRef.current();
+          playSteamTabTransitionSound(tabTransitionSoundRef.current);
+        },
       });
     };
     ownerWindow.addEventListener("vgp_onbuttondown", onButtonDown, true);
@@ -267,4 +295,13 @@ export function DeckySteamGameSectionNavigation({
       ) : null}
     </>
   );
+}
+
+function playSteamTabTransitionSound(sound: HTMLAudioElement | null): void {
+  if (sound === null) {
+    return;
+  }
+
+  sound.currentTime = 0;
+  void sound.play().catch(() => undefined);
 }

@@ -13,6 +13,10 @@ import {
   handleSteamGameShoulderButtonDown,
   STEAM_GAMEPAD_UI_SHOULDER_BUTTON,
 } from "../src/platform/decky/decky-steam-game-shoulder-navigation";
+import {
+  getAdjacentSteamGameSectionId,
+  type DeckySteamGameSection,
+} from "../src/platform/decky/decky-steam-game-section-navigation";
 import { isDeckySteamFullscreenEnrichmentPending } from "../src/platform/decky/decky-steam-fullscreen-enrichment";
 
 test("Steam section state preserves filters and stable achievement ids by game", () => {
@@ -157,4 +161,22 @@ test("Steam shoulder section navigation ignores unrelated GamepadUI presses", ()
 
   assert.equal(handled, false);
   assert.deepEqual(calls, []);
+});
+
+test("Steam section navigation advances every rapid shoulder press from the latest target", () => {
+  const sections: readonly DeckySteamGameSection[] = [
+    { id: "overview", label: "Overview" },
+    { id: "achievements", label: "Achievements" },
+    { id: "achievement-groups", label: "DLC / Groups" },
+    { id: "community", label: "Community" },
+  ];
+  let activeSection: DeckySteamGameSection["id"] = "overview";
+
+  activeSection = getAdjacentSteamGameSectionId(sections, activeSection, "next");
+  activeSection = getAdjacentSteamGameSectionId(sections, activeSection, "next");
+  activeSection = getAdjacentSteamGameSectionId(sections, activeSection, "next");
+
+  assert.equal(activeSection, "community");
+  assert.equal(getAdjacentSteamGameSectionId(sections, activeSection, "next"), "overview");
+  assert.equal(getAdjacentSteamGameSectionId(sections, activeSection, "previous"), "achievement-groups");
 });

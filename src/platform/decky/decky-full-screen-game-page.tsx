@@ -33,6 +33,7 @@ import { DeckyRetroAchievementsGameSpotlight } from "./decky-retroachievements-g
 import { DeckySteamGameOverview } from "./decky-steam-game-overview";
 import {
   DeckySteamGameSectionNavigation,
+  getAdjacentSteamGameSectionId,
   type DeckySteamGameSection,
   type DeckySteamGameSectionId,
 } from "./decky-steam-game-section-navigation";
@@ -326,6 +327,7 @@ export function DeckyFullScreenGamePage({
     initialSectionState?.["achievement-groups"].expandedGroupIds ?? [],
   );
   const [activeSteamSection, setActiveSteamSection] = useState<DeckySteamGameSectionId>(initialSectionState?.activeSection ?? "overview");
+  const activeSteamSectionRef = useRef(activeSteamSection);
   const [sectionRestoreNonce, setSectionRestoreNonce] = useState(0);
   const [steamHuntersEnrichmentResult, setSteamHuntersEnrichmentResult] = useState<{
     readonly sourceSnapshot: GameDetailSnapshot;
@@ -379,7 +381,7 @@ export function DeckyFullScreenGamePage({
     }
   };
 
-  const saveCurrentSectionScroll = (): void => {
+  const saveCurrentSectionScroll = (section: DeckySteamGameSectionId = activeSteamSectionRef.current): void => {
     const anchor = sectionAnchorRef.current;
     if (anchor === null) {
       return;
@@ -387,21 +389,33 @@ export function DeckyFullScreenGamePage({
     const scrollTop = findDeckyScrollableAncestor(anchor)?.scrollTop ?? 0;
     persistSteamSectionState((current) => ({
       ...current,
-      [activeSteamSection]: {
-        ...current[activeSteamSection],
+      [section]: {
+        ...current[section],
         scrollTop,
       },
     }));
   };
 
   const selectSteamSection = (nextSection: DeckySteamGameSectionId): void => {
-    if (nextSection === activeSteamSection) {
+    const currentSection = activeSteamSectionRef.current;
+    if (nextSection === currentSection) {
       return;
     }
-    saveCurrentSectionScroll();
+    if (activeSteamSection === currentSection) {
+      saveCurrentSectionScroll(currentSection);
+    }
     persistSteamSectionState((current) => ({ ...current, activeSection: nextSection }));
+    activeSteamSectionRef.current = nextSection;
     setActiveSteamSection(nextSection);
     setSectionRestoreNonce((current) => current + 1);
+  };
+
+  const selectAdjacentSteamSection = (direction: "previous" | "next"): void => {
+    selectSteamSection(getAdjacentSteamGameSectionId(
+      visibleSteamSections,
+      activeSteamSectionRef.current,
+      direction,
+    ));
   };
 
   useEffect(() => {
@@ -409,6 +423,9 @@ export function DeckyFullScreenGamePage({
       selectSteamSection("overview");
     }
   }, [activeSteamSection, visibleSteamSections]);
+  useLayoutEffect(() => {
+    activeSteamSectionRef.current = activeSteamSection;
+  }, [activeSteamSection]);
   useEffect(() => {
     if (
       loadedSnapshot === undefined ||
@@ -829,16 +846,10 @@ export function DeckyFullScreenGamePage({
           activeSection={activeSteamSection}
           sections={visibleSteamSections}
           onPreviousSection={() => {
-            const currentIndex = visibleSteamSections.findIndex((section) => section.id === activeSteamSection);
-            const previousIndex = currentIndex <= 0 ? visibleSteamSections.length - 1 : currentIndex - 1;
-            selectSteamSection(visibleSteamSections[previousIndex]?.id ?? "overview");
+            selectAdjacentSteamSection("previous");
           }}
           onNextSection={() => {
-            const currentIndex = visibleSteamSections.findIndex((section) => section.id === activeSteamSection);
-            const nextIndex = currentIndex < 0 || currentIndex === visibleSteamSections.length - 1
-              ? 0
-              : currentIndex + 1;
-            selectSteamSection(visibleSteamSections[nextIndex]?.id ?? "overview");
+            selectAdjacentSteamSection("next");
           }}
           onBack={onBack}
           onHeightChange={setSteamFooterHeight}
