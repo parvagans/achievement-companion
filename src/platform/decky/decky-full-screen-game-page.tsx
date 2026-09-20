@@ -209,12 +209,22 @@ function getFullScreenLoadingProgressStyle(): CSSProperties {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    position: "relative",
     width: "clamp(142px, 22vw, 184px)",
     height: "clamp(142px, 22vw, 184px)",
     borderRadius: "50%",
+    background: "rgba(8, 23, 37, 0.94)",
+    boxShadow: "0 0 34px rgba(24, 174, 239, 0.22), inset 0 0 0 1px rgba(151, 225, 255, 0.18)",
+  };
+}
+
+function getFullScreenLoadingSpinnerRingStyle(): CSSProperties {
+  return {
+    position: "absolute",
+    inset: 0,
+    borderRadius: "50%",
     background:
       "conic-gradient(from -24deg, #1cbcf1 0deg, #18a9e4 76deg, rgba(37, 85, 151, 0.84) 77deg, rgba(27, 58, 107, 0.76) 360deg)",
-    boxShadow: "0 0 34px rgba(24, 174, 239, 0.22), inset 0 0 0 1px rgba(151, 225, 255, 0.18)",
   };
 }
 
@@ -223,6 +233,8 @@ function getFullScreenLoadingIconWellStyle(): CSSProperties {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
+    position: "relative",
+    zIndex: 1,
     width: "calc(100% - 18px)",
     height: "calc(100% - 18px)",
     borderRadius: "50%",
@@ -368,11 +380,7 @@ function DeckyFullScreenGameLoadingState({
       style={getFullScreenLoadingFrameStyle()}
     >
       <div style={getFullScreenLoadingContentStyle()}>
-        <div aria-hidden="true" style={getFullScreenLoadingProgressStyle()}>
-          <div style={getFullScreenLoadingIconWellStyle()}>
-            <img alt="" src={trophyIconUrl} style={getFullScreenLoadingIconStyle()} />
-          </div>
-        </div>
+        <DeckyFullScreenLoadingProgress />
         <h1 style={getFullScreenLoadingTitleStyle()}>{copy.title}</h1>
         <p style={{ display: "none" }}>{copy.description}</p>
         <div style={getFullScreenLoadingInfoCardStyle()}>
@@ -385,6 +393,46 @@ function DeckyFullScreenGameLoadingState({
         {copy.isError ? <p style={getFullScreenLoadingFooterStyle()}>{copy.description}</p> : null}
       </div>
     </section>
+  );
+}
+
+function DeckyFullScreenLoadingProgress(): JSX.Element {
+  const spinnerRingRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const spinnerRing = spinnerRingRef.current;
+    const ownerWindow = spinnerRing?.ownerDocument.defaultView;
+    if (spinnerRing === null || ownerWindow === null || ownerWindow === undefined) {
+      return;
+    }
+
+    const reducedMotion = ownerWindow.matchMedia("(prefers-reduced-motion: reduce)");
+    let animation: Animation | undefined;
+    const updateAnimation = (): void => {
+      animation?.cancel();
+      animation = reducedMotion.matches
+        ? undefined
+        : spinnerRing.animate(
+          [{ transform: "rotate(0deg)" }, { transform: "rotate(360deg)" }],
+          { duration: 1_450, easing: "linear", iterations: Infinity },
+        );
+    };
+
+    updateAnimation();
+    reducedMotion.addEventListener("change", updateAnimation);
+    return () => {
+      reducedMotion.removeEventListener("change", updateAnimation);
+      animation?.cancel();
+    };
+  }, []);
+
+  return (
+    <div aria-hidden="true" style={getFullScreenLoadingProgressStyle()}>
+      <div ref={spinnerRingRef} style={getFullScreenLoadingSpinnerRingStyle()} />
+      <div style={getFullScreenLoadingIconWellStyle()}>
+        <img alt="" src={trophyIconUrl} style={getFullScreenLoadingIconStyle()} />
+      </div>
+    </div>
   );
 }
 
