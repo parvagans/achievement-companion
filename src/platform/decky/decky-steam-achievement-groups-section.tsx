@@ -12,12 +12,14 @@ import { DeckyFullScreenAchievementRow } from "./decky-full-screen-achievement-r
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
+import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
 
 export interface DeckySteamAchievementGroupSection {
   readonly id: string;
   readonly kind: SteamHuntersAchievementGroupKind;
   readonly title: string;
   readonly bannerUrl?: string;
+  readonly artworkAppId?: number;
   readonly achievements: readonly NormalizedAchievement[];
 }
 
@@ -86,6 +88,7 @@ export function buildDeckySteamAchievementGroupSections({
         kind,
         title: getGroupTitle(group),
         ...(group.bannerUrl !== undefined ? { bannerUrl: group.bannerUrl } : {}),
+        ...(group.dlcAppId !== undefined ? { artworkAppId: group.dlcAppId } : {}),
         achievements: groupAchievements,
       });
     }
@@ -152,7 +155,7 @@ function getGroupArtworkFallbackStyle(): CSSProperties {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    width: 112,
+    width: 260,
     height: 112,
     flexShrink: 0,
     border: "1px solid rgba(255, 255, 255, 0.12)",
@@ -197,6 +200,8 @@ export function DeckySteamAchievementGroupsSection({
   readonly onOpenAchievementDetail: (achievementId: string) => void;
   readonly onBack: () => void;
 }): JSX.Element {
+  const groupArtworkWidth = 260;
+  const groupArtworkHeight = 112;
   const [focusedGroupId, setFocusedGroupId] = useState<string | undefined>(undefined);
   const toggleGroup = (groupId: string): void => {
     onExpandedGroupIdsChange(
@@ -217,7 +222,11 @@ export function DeckySteamAchievementGroupsSection({
         const isExpanded = expandedGroupIds.includes(section.id);
         const unlockedCount = section.achievements.filter((achievement) => achievement.isUnlocked).length;
         const completionPercent = getCompletionPercent(section.achievements);
-        const artworkUrl = section.bannerUrl ?? (section.kind === "base-game" ? gameArtworkUrl : undefined);
+        const artworkUrl = section.bannerUrl
+          ?? (section.artworkAppId !== undefined
+            ? getSteamFullscreenGameArtworkUrl({ appid: section.artworkAppId })
+            : undefined)
+          ?? (section.kind === "base-game" ? gameArtworkUrl : undefined);
         return (
           <div key={section.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <Focusable
@@ -241,7 +250,14 @@ export function DeckySteamAchievementGroupsSection({
               style={getGroupCardStyle(focusedGroupId === section.id, isExpanded)}
             >
               {artworkUrl !== undefined ? (
-                <DeckyGameArtwork compact size={112} src={artworkUrl} title={section.title} />
+                <DeckyGameArtwork
+                  compact
+                  height={groupArtworkHeight}
+                  size={groupArtworkHeight}
+                  src={artworkUrl}
+                  title={section.title}
+                  width={groupArtworkWidth}
+                />
               ) : (
                 <span aria-hidden="true" style={getGroupArtworkFallbackStyle()}>
                   {section.kind === "dlc" ? "DLC" : "UPDATE"}

@@ -4,6 +4,8 @@ export interface DeckyGameArtworkProps {
   readonly src?: string;
   readonly title: string;
   readonly size: number;
+  readonly width?: number;
+  readonly height?: number;
   readonly compact?: boolean;
 }
 
@@ -24,10 +26,10 @@ function getFallbackInitials(title: string): string {
     .trim() || "AC";
 }
 
-function getArtworkFrameStyle(size: number, compact: boolean): CSSProperties {
+function getArtworkFrameStyle(width: number, height: number, compact: boolean): CSSProperties {
   return {
-    width: size,
-    height: size,
+    width,
+    height,
     flexShrink: 0,
     overflow: "hidden",
     borderRadius: compact ? 8 : 10,
@@ -65,6 +67,8 @@ export function DeckyGameArtwork({
   src,
   title,
   size,
+  width = size,
+  height = size,
   compact = false,
 }: DeckyGameArtworkProps): JSX.Element | null {
   const [hasImageError, setHasImageError] = useState(false);
@@ -74,7 +78,7 @@ export function DeckyGameArtwork({
   }
 
   return (
-    <span aria-hidden="true" style={getArtworkFrameStyle(size, compact)}>
+    <span aria-hidden="true" style={getArtworkFrameStyle(width, height, compact)}>
       {hasImageError ? (
         <span style={getArtworkFallbackStyle()}>{getFallbackInitials(title)}</span>
       ) : (

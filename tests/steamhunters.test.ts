@@ -293,11 +293,12 @@ test("Steam achievement groups retain base, DLC, update, and ungrouped achieveme
   assert.deepEqual(sections.map((section) => ({
     kind: section.kind,
     title: section.title,
+    artworkAppId: section.artworkAppId,
     achievementIds: section.achievements.map((achievement) => achievement.achievementId),
   })), [
-    { kind: "base-game", title: "Base Game", achievementIds: ["BASE_ONE", "BASE_TWO", "UNGROUPED"] },
-    { kind: "dlc", title: "Creeping Winter", achievementIds: ["DLC_ONE"] },
-    { kind: "update", title: "Anniversary Update", achievementIds: ["UPDATE_ONE"] },
+    { kind: "base-game", title: "Base Game", artworkAppId: undefined, achievementIds: ["BASE_ONE", "BASE_TWO", "UNGROUPED"] },
+    { kind: "dlc", title: "Creeping Winter", artworkAppId: 123, achievementIds: ["DLC_ONE"] },
+    { kind: "update", title: "Anniversary Update", artworkAppId: undefined, achievementIds: ["UPDATE_ONE"] },
   ]);
   assert.equal(hasDeckySteamAchievementGroups(sections), true);
   assert.equal(hasDeckySteamAchievementGroups(buildDeckySteamAchievementGroupSections({ achievements, groups: [] })), false);

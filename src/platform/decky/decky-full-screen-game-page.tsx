@@ -38,6 +38,7 @@ import {
 } from "./decky-steam-game-section-navigation";
 import { STEAM_GAME_FOOTER_FALLBACK_HEIGHT_PX } from "./decky-steam-game-footer-layout";
 import { formatDeckyNumericText } from "./decky-number-format";
+import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
 import {
   DeckySteamHuntersCommunitySection,
   STEAM_HUNTERS_COMMUNITY_SECTION_FOCUS_TARGET,
@@ -885,7 +886,7 @@ export function DeckyFullScreenGamePage({
               <PanelSectionRow>
                 <DeckySteamAchievementGroupsSection
                   sections={steamAchievementGroupSections}
-                  gameArtworkUrl={game.boxArtImageUrl ?? game.coverImageUrl}
+                  gameArtworkUrl={getSteamFullscreenGameArtworkUrl(game)}
                   steamHuntersAchievementsBySteamAchievementId={steamHuntersEnrichment.achievementsBySteamAchievementId}
                   expandedGroupIds={expandedSteamAchievementGroupIds}
                   onExpandedGroupIdsChange={setExpandedSteamAchievementGroupIds}
