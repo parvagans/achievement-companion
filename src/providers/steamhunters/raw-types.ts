@@ -41,3 +41,16 @@ export interface RawSteamHuntersAchievementResponse {
   readonly steamPoints?: unknown;
   readonly obtainability?: unknown;
 }
+
+export interface RawSteamHuntersAchievementGroupResponse {
+  readonly achievementApiNames?: unknown;
+  readonly bannerUrl?: unknown;
+  readonly dlcAppId?: unknown;
+  readonly dlcAppName?: unknown;
+  readonly name?: unknown;
+  readonly releaseDate?: unknown;
+}
+
+export interface RawSteamHuntersAchievementGroupsResponse {
+  readonly groups?: unknown;
+}

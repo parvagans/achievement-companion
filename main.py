@@ -445,6 +445,8 @@ class Plugin:
       path = f"apps/{raw_app_id}"
     elif resource == "achievements":
       path = f"apps/{raw_app_id}/achievements"
+    elif resource == "groups":
+      path = f"GetAchievementGroups/v1?appid={raw_app_id}"
     else:
       raise RuntimeError("SteamHunters request requires an allowed resource.")
 

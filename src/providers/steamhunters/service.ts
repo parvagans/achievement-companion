@@ -1,5 +1,9 @@
 import { createSteamHuntersClient, type SteamHuntersClient } from "./client";
-import { normalizeSteamHuntersAchievements, normalizeSteamHuntersApp } from "./normalize";
+import {
+  normalizeSteamHuntersAchievementGroups,
+  normalizeSteamHuntersAchievements,
+  normalizeSteamHuntersApp,
+} from "./normalize";
 import type { SteamHuntersGameData } from "./types";
 
 interface CacheEntry<T> {
@@ -37,6 +41,7 @@ export function createSteamHuntersService(
   const now = options.now ?? Date.now;
   const appCache = new Map<number, CacheEntry<SteamHuntersGameData["app"]>>();
   const achievementCache = new Map<number, CacheEntry<SteamHuntersGameData["achievements"]>>();
+  const groupCache = new Map<number, CacheEntry<SteamHuntersGameData["groups"]>>();
   const pendingLoads = new Map<number, Promise<SteamHuntersGameData | undefined>>();
 
   async function loadApp(appId: number): Promise<SteamHuntersGameData["app"] | undefined> {
@@ -65,6 +70,17 @@ export function createSteamHuntersService(
     return normalized;
   }
 
+  async function loadGroups(appId: number): Promise<SteamHuntersGameData["groups"]> {
+    const cached = readFresh(groupCache, appId, now());
+    if (cached !== undefined) {
+      return cached;
+    }
+
+    const normalized = normalizeSteamHuntersAchievementGroups(await client.loadGroups(appId));
+    groupCache.set(appId, { value: normalized, expiresAt: now() + cacheTtlMs });
+    return normalized;
+  }
+
   return {
     loadGameData(appId) {
       if (!validAppId(appId)) {
@@ -83,13 +99,12 @@ export function createSteamHuntersService(
             return undefined;
           }
 
-          try {
-            const achievements = await loadAchievements(appId);
-            return { app, achievements };
-          } catch {
-            // App-level enrichment is still useful when the achievement set is temporarily unavailable.
-            return { app, achievements: [] };
-          }
+          const [achievements, groups] = await Promise.all([
+            loadAchievements(appId).catch(() => []),
+            // Group metadata is optional; Steam achievements remain usable if this endpoint is unavailable.
+            loadGroups(appId).catch(() => []),
+          ]);
+          return { app, achievements, groups };
         } catch {
           // Missing games and transient network failures are normal optional-enrichment outcomes.
           return undefined;
@@ -104,6 +119,7 @@ export function createSteamHuntersService(
     clearCache() {
       appCache.clear();
       achievementCache.clear();
+      groupCache.clear();
       pendingLoads.clear();
     },
   };

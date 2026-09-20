@@ -43,7 +43,18 @@ export interface SteamHuntersAchievement {
   readonly obtainability: SteamHuntersObtainability;
 }
 
+export interface SteamHuntersAchievementGroup {
+  /** Steam achievement API names assigned to this group by SteamHunters. */
+  readonly achievementApiNames: readonly string[];
+  readonly bannerUrl?: string;
+  readonly dlcAppId?: number;
+  readonly dlcAppName?: string;
+  readonly name?: string;
+  readonly releaseDate?: string;
+}
+
 export interface SteamHuntersGameData {
   readonly app: SteamHuntersApp;
   readonly achievements: readonly SteamHuntersAchievement[];
+  readonly groups: readonly SteamHuntersAchievementGroup[];
 }

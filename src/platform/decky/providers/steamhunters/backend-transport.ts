@@ -22,7 +22,11 @@ function isFailureEnvelope(value: unknown): value is DeckySteamHuntersFailureEnv
 }
 
 function pathFor(appId: number, resource: SteamHuntersResource): string {
-  return resource === "app" ? `apps/${appId}` : `apps/${appId}/achievements`;
+  return resource === "app"
+    ? `apps/${appId}`
+    : resource === "achievements"
+      ? `apps/${appId}/achievements`
+      : `GetAchievementGroups/v1?appid=${appId}`;
 }
 
 export function createDeckySteamHuntersTransport(): SteamHuntersTransport {

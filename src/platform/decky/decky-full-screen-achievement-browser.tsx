@@ -5,11 +5,14 @@ import { shouldRenderAchievementModeFilter } from "./decky-achievement-detail-he
 import { DeckyFullScreenAchievementRow } from "./decky-full-screen-achievement-row";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
-import type { SteamHuntersAchievement } from "../../providers/steamhunters";
+import type {
+  SteamHuntersAchievement,
+  SteamHuntersAchievementGroup,
+} from "../../providers/steamhunters";
 
 const ACHIEVEMENT_FILTERS = ["all", "unlocked", "locked"] as const;
 const ACHIEVEMENT_MODE_FILTERS = ["all", "hardcore", "softcore"] as const;
-const ACHIEVEMENT_GROUP_FILTERS = ["all", "missable", "progression", "win-condition"] as const;
+const ACHIEVEMENT_GROUP_FILTERS = ["all", "base-game", "dlc", "update"] as const;
 const ACHIEVEMENT_AVAILABILITY_FILTERS = [
   "all",
   "obtainable",
@@ -46,8 +49,18 @@ export function matchesAchievementModeFilter(
 export function matchesAchievementGroupFilter(
   achievement: NormalizedAchievement,
   groupFilter: AchievementGroupFilter,
+  achievementGroupsBySteamAchievementId: Readonly<Record<string, SteamHuntersAchievementGroup>> | undefined,
 ): boolean {
-  return groupFilter === "all" || achievement.classification === groupFilter;
+  if (groupFilter === "all") {
+    return true;
+  }
+
+  const group = achievementGroupsBySteamAchievementId?.[achievement.achievementId];
+  if (group === undefined) {
+    return false;
+  }
+
+  return getAchievementGroupKind(group) === groupFilter;
 }
 
 export function matchesAchievementAvailabilityFilter(
@@ -64,13 +77,36 @@ export function matchesAchievementAvailabilityFilter(
 
 export function getAchievementGroupFilterOptions(
   achievements: readonly NormalizedAchievement[],
+  achievementGroupsBySteamAchievementId: Readonly<Record<string, SteamHuntersAchievementGroup>> | undefined,
 ): readonly AchievementGroupFilter[] {
   return [
     "all",
     ...ACHIEVEMENT_GROUP_FILTERS.filter((filter) =>
-      filter !== "all" && achievements.some((achievement) => achievement.classification === filter),
+      filter !== "all" && achievements.some((achievement) => {
+        const group = achievementGroupsBySteamAchievementId?.[achievement.achievementId];
+        return group !== undefined && getAchievementGroupKind(group) === filter;
+      }),
     ),
   ];
+}
+
+function getAchievementGroupKind(
+  group: SteamHuntersAchievementGroup,
+): Exclude<AchievementGroupFilter, "all"> {
+  if (group.dlcAppId !== undefined || group.dlcAppName !== undefined) {
+    return "dlc";
+  }
+
+  const normalizedName = group.name?.trim().toLowerCase();
+  // SteamHunters represents DLC linkage explicitly; unnamed groups are the
+  // base game, while named non-DLC groups are update groups.
+  const isBaseGameName = normalizedName === undefined
+    || normalizedName === "base"
+    || normalizedName === "base game"
+    || normalizedName === "base-game";
+  return isBaseGameName
+    ? "base-game"
+    : "update";
 }
 
 export function getAchievementAvailabilityFilterOptions(
@@ -101,8 +137,9 @@ function formatAchievementModeLabel(modeFilter: AchievementModeFilter): string {
 
 function formatAchievementGroupLabel(groupFilter: AchievementGroupFilter): string {
   if (groupFilter === "all") return "All";
-  if (groupFilter === "win-condition") return "Win Condition";
-  return groupFilter.charAt(0).toUpperCase() + groupFilter.slice(1);
+  if (groupFilter === "base-game") return "Base Game";
+  if (groupFilter === "dlc") return "DLC / Expansion";
+  return "Update";
 }
 
 function formatAchievementAvailabilityLabel(availabilityFilter: AchievementAvailabilityFilter): string {
@@ -414,6 +451,7 @@ export interface DeckyFullScreenAchievementBrowserProps {
   readonly onBack: () => void;
   readonly onFocusAchievement?: (achievementId: string) => void;
   readonly steamHuntersAchievementsBySteamAchievementId?: Readonly<Record<string, SteamHuntersAchievement>>;
+  readonly steamHuntersAchievementGroupsBySteamAchievementId?: Readonly<Record<string, SteamHuntersAchievementGroup>>;
 }
 
 export function DeckyFullScreenAchievementBrowser({
@@ -422,10 +460,11 @@ export function DeckyFullScreenAchievementBrowser({
   filteredAchievementCount, onAchievementFilterChange, onAchievementModeFilterChange,
   onAchievementGroupFilterChange, onAchievementAvailabilityFilterChange,
   onOpenAchievementDetail, onBack, onFocusAchievement, steamHuntersAchievementsBySteamAchievementId,
+  steamHuntersAchievementGroupsBySteamAchievementId,
 }: DeckyFullScreenAchievementBrowserProps): JSX.Element {
   const showAchievementModeFilter = shouldRenderAchievementModeFilter(providerId);
   const isSteamProvider = providerId === "steam";
-  const groupOptions = getAchievementGroupFilterOptions(allAchievements);
+  const groupOptions = getAchievementGroupFilterOptions(allAchievements, steamHuntersAchievementGroupsBySteamAchievementId);
   const availabilityOptions = getAchievementAvailabilityFilterOptions(allAchievements, steamHuntersAchievementsBySteamAchievementId);
   const visibleGroupFilter = groupOptions.includes(achievementGroupFilter) ? achievementGroupFilter : "all";
   const visibleAvailabilityFilter = availabilityOptions.includes(achievementAvailabilityFilter) ? achievementAvailabilityFilter : "all";

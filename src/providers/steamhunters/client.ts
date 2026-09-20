@@ -1,9 +1,10 @@
 export interface SteamHuntersClient {
   loadApp(appId: number): Promise<unknown>;
   loadAchievements(appId: number): Promise<unknown>;
+  loadGroups(appId: number): Promise<unknown>;
 }
 
-export type SteamHuntersResource = "app" | "achievements";
+export type SteamHuntersResource = "app" | "achievements" | "groups";
 
 export interface SteamHuntersTransport {
   requestJson(appId: number, resource: SteamHuntersResource): Promise<unknown>;
@@ -63,7 +64,11 @@ export function createFetchSteamHuntersTransport(
       throw new Error("SteamHunters client requires a fetch implementation.");
     }
 
-    const path = resource === "app" ? `apps/${appId}` : `apps/${appId}/achievements`;
+    const path = resource === "app"
+      ? `apps/${appId}`
+      : resource === "achievements"
+        ? `apps/${appId}/achievements`
+        : `GetAchievementGroups/v1?appid=${appId}`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -123,6 +128,9 @@ export function createSteamHuntersClient(
     },
     loadAchievements(appId) {
       return transport.requestJson(normalizeAppId(appId), "achievements");
+    },
+    loadGroups(appId) {
+      return transport.requestJson(normalizeAppId(appId), "groups");
     },
   };
 }

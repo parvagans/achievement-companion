@@ -579,7 +579,10 @@ export function DeckyFullScreenGamePage({
   const restorationSteamHuntersEnrichment = restorationSnapshot === undefined
     ? undefined
     : getSteamHuntersGameEnrichment(restorationSnapshot);
-  const restorationGroupFilterOptions = getAchievementGroupFilterOptions(restorationSnapshot?.achievements ?? []);
+  const restorationGroupFilterOptions = getAchievementGroupFilterOptions(
+    restorationSnapshot?.achievements ?? [],
+    restorationSteamHuntersEnrichment?.achievementGroupsBySteamAchievementId,
+  );
   const restorationAvailabilityFilterOptions = getAchievementAvailabilityFilterOptions(
     restorationSnapshot?.achievements ?? [],
     restorationSteamHuntersEnrichment?.achievementsBySteamAchievementId,
@@ -594,7 +597,11 @@ export function DeckyFullScreenGamePage({
     ? []
     : sortAchievementsForDisplay(restorationSnapshot.achievements).filter((achievement) =>
       matchesAchievementFilter(achievement, achievementFilter) &&
-      matchesAchievementGroupFilter(achievement, restorationGroupFilter) &&
+      matchesAchievementGroupFilter(
+        achievement,
+        restorationGroupFilter,
+        restorationSteamHuntersEnrichment?.achievementGroupsBySteamAchievementId,
+      ) &&
       matchesAchievementAvailabilityFilter(
         achievement,
         restorationAvailabilityFilter,
@@ -701,7 +708,10 @@ export function DeckyFullScreenGamePage({
   const summary = snapshot.game.summary;
   const providerIdValue = providerId ?? game.providerId;
   const steamHuntersEnrichment = isSteamProvider ? getSteamHuntersGameEnrichment(snapshot) : undefined;
-  const achievementGroupFilterOptions = getAchievementGroupFilterOptions(orderedAchievements);
+  const achievementGroupFilterOptions = getAchievementGroupFilterOptions(
+    orderedAchievements,
+    steamHuntersEnrichment?.achievementGroupsBySteamAchievementId,
+  );
   const achievementAvailabilityFilterOptions = getAchievementAvailabilityFilterOptions(
     orderedAchievements,
     steamHuntersEnrichment?.achievementsBySteamAchievementId,
@@ -714,7 +724,11 @@ export function DeckyFullScreenGamePage({
     : "all";
   const filteredAchievements = orderedAchievements.filter((achievement) =>
     matchesAchievementFilter(achievement, achievementFilter) &&
-    matchesAchievementGroupFilter(achievement, activeAchievementGroupFilter) &&
+    matchesAchievementGroupFilter(
+      achievement,
+      activeAchievementGroupFilter,
+      steamHuntersEnrichment?.achievementGroupsBySteamAchievementId,
+    ) &&
     matchesAchievementAvailabilityFilter(
       achievement,
       activeAchievementAvailabilityFilter,
@@ -809,7 +823,10 @@ export function DeckyFullScreenGamePage({
                 }}
                 onBack={onBack}
                 {...(steamHuntersEnrichment !== undefined
-                  ? { steamHuntersAchievementsBySteamAchievementId: steamHuntersEnrichment.achievementsBySteamAchievementId }
+                  ? {
+                    steamHuntersAchievementsBySteamAchievementId: steamHuntersEnrichment.achievementsBySteamAchievementId,
+                    steamHuntersAchievementGroupsBySteamAchievementId: steamHuntersEnrichment.achievementGroupsBySteamAchievementId,
+                  }
                   : {})}
               />
             </PanelSectionRow>

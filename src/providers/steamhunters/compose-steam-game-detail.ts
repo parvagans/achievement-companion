@@ -1,13 +1,19 @@
 import type { GameDetailSnapshot } from "@core/domain";
 import { matchSteamAchievements } from "./achievement-match";
 import type { SteamHuntersService } from "./service";
-import type { SteamHuntersAchievement, SteamHuntersApp, SteamHuntersGameData } from "./types";
+import type {
+  SteamHuntersAchievement,
+  SteamHuntersAchievementGroup,
+  SteamHuntersApp,
+  SteamHuntersGameData,
+} from "./types";
 
 export interface SteamHuntersGameEnrichment {
   readonly source: "steamhunters";
   readonly app: SteamHuntersApp;
   /** Only exact stable-ID matches are represented here. */
   readonly achievementsBySteamAchievementId: Readonly<Record<string, SteamHuntersAchievement>>;
+  readonly achievementGroupsBySteamAchievementId: Readonly<Record<string, SteamHuntersAchievementGroup>>;
 }
 
 export type SteamHuntersEnrichedGameDetailSnapshot = GameDetailSnapshot & {
@@ -36,6 +42,20 @@ function buildAchievementEnrichment(
   return Object.fromEntries(entries);
 }
 
+function buildAchievementGroupEnrichment(
+  groups: readonly SteamHuntersAchievementGroup[],
+): Readonly<Record<string, SteamHuntersAchievementGroup>> {
+  const groupsByAchievementId = new Map<string, SteamHuntersAchievementGroup>();
+  for (const group of groups) {
+    for (const achievementApiName of group.achievementApiNames) {
+      if (!groupsByAchievementId.has(achievementApiName)) {
+        groupsByAchievementId.set(achievementApiName, group);
+      }
+    }
+  }
+  return Object.fromEntries(groupsByAchievementId.entries());
+}
+
 export function composeSteamGameDetailWithSteamHunters(
   snapshot: GameDetailSnapshot,
   gameData: SteamHuntersGameData | undefined,
@@ -55,6 +75,7 @@ export function composeSteamGameDetailWithSteamHunters(
       source: "steamhunters",
       app: gameData.app,
       achievementsBySteamAchievementId: buildAchievementEnrichment(snapshot, gameData),
+      achievementGroupsBySteamAchievementId: buildAchievementGroupEnrichment(gameData.groups),
     },
   };
 }

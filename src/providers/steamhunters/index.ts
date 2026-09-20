@@ -19,6 +19,8 @@ export {
 } from "./compose-steam-game-detail";
 export {
   normalizeSteamHuntersAchievement,
+  normalizeSteamHuntersAchievementGroup,
+  normalizeSteamHuntersAchievementGroups,
   normalizeSteamHuntersAchievements,
   normalizeSteamHuntersApp,
   normalizeSteamHuntersObtainability,
@@ -26,6 +28,7 @@ export {
 export { createSteamHuntersService, type CreateSteamHuntersServiceOptions, type SteamHuntersService } from "./service";
 export type {
   SteamHuntersAchievement,
+  SteamHuntersAchievementGroup,
   SteamHuntersApp,
   SteamHuntersGameData,
   SteamHuntersObtainability,

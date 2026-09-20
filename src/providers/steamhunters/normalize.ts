@@ -1,10 +1,13 @@
 import type {
   RawSteamHuntersAchievementResponse,
+  RawSteamHuntersAchievementGroupResponse,
+  RawSteamHuntersAchievementGroupsResponse,
   RawSteamHuntersAppResponse,
   RawSteamHuntersTag,
 } from "./raw-types";
 import type {
   SteamHuntersAchievement,
+  SteamHuntersAchievementGroup,
   SteamHuntersApp,
   SteamHuntersObtainability,
   SteamHuntersTag,
@@ -20,6 +23,10 @@ function asRawApp(value: unknown): RawSteamHuntersAppResponse | undefined {
 
 function asRawAchievement(value: unknown): RawSteamHuntersAchievementResponse | undefined {
   return isRecord(value) ? value as RawSteamHuntersAchievementResponse : undefined;
+}
+
+function asRawAchievementGroup(value: unknown): RawSteamHuntersAchievementGroupResponse | undefined {
+  return isRecord(value) ? value as RawSteamHuntersAchievementGroupResponse : undefined;
 }
 
 function asRawTag(value: unknown): RawSteamHuntersTag | undefined {
@@ -53,6 +60,17 @@ function percentage(value: unknown): number | undefined {
 
 function booleanValue(value: unknown): boolean | undefined {
   return typeof value === "boolean" ? value : undefined;
+}
+
+function stringArray(value: unknown): readonly string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((entry) => {
+    const normalized = stringValue(entry);
+    return normalized === undefined ? [] : [normalized];
+  });
 }
 
 export function normalizeSteamHuntersObtainability(value: unknown): SteamHuntersObtainability {
@@ -178,4 +196,45 @@ export function normalizeSteamHuntersAchievements(value: unknown): readonly Stea
         return achievement !== undefined ? [achievement] : [];
       })
     : [];
+}
+
+export function normalizeSteamHuntersAchievementGroup(value: unknown): SteamHuntersAchievementGroup | undefined {
+  const raw = asRawAchievementGroup(value);
+  if (raw === undefined) {
+    return undefined;
+  }
+
+  const achievementApiNames = stringArray(raw.achievementApiNames);
+  if (achievementApiNames.length === 0) {
+    return undefined;
+  }
+
+  const bannerUrl = stringValue(raw.bannerUrl);
+  const dlcAppId = nonNegativeInteger(raw.dlcAppId);
+  const dlcAppName = stringValue(raw.dlcAppName);
+  const name = stringValue(raw.name);
+  const releaseDate = stringValue(raw.releaseDate);
+
+  return {
+    achievementApiNames,
+    ...(bannerUrl !== undefined ? { bannerUrl } : {}),
+    ...(dlcAppId !== undefined ? { dlcAppId } : {}),
+    ...(dlcAppName !== undefined ? { dlcAppName } : {}),
+    ...(name !== undefined ? { name } : {}),
+    ...(releaseDate !== undefined ? { releaseDate } : {}),
+  };
+}
+
+export function normalizeSteamHuntersAchievementGroups(value: unknown): readonly SteamHuntersAchievementGroup[] {
+  const rawCollection = isRecord(value)
+    ? (value as RawSteamHuntersAchievementGroupsResponse).groups
+    : value;
+  if (!Array.isArray(rawCollection)) {
+    return [];
+  }
+
+  return rawCollection.flatMap((entry) => {
+    const group = normalizeSteamHuntersAchievementGroup(entry);
+    return group === undefined ? [] : [group];
+  });
 }

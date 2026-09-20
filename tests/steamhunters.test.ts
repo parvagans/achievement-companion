@@ -8,6 +8,7 @@ import {
   createSteamHuntersService,
   matchSteamAchievements,
   normalizeSteamHuntersAchievement,
+  normalizeSteamHuntersAchievementGroups,
   normalizeSteamHuntersApp,
   normalizeSteamHuntersObtainability,
   SteamHuntersRequestError,
@@ -55,10 +56,12 @@ test("SteamHunters client uses credential-free AppID endpoint URLs", async () =>
 
   await client.loadApp(1672970);
   await client.loadAchievements(1672970);
+  await client.loadGroups(1672970);
 
   assert.deepEqual(requests.map((request) => request.url), [
     "https://example.test/api/apps/1672970",
     "https://example.test/api/apps/1672970/achievements",
+    "https://example.test/api/GetAchievementGroups/v1?appid=1672970",
   ]);
   assert.equal(requests[0]?.credentials, "omit");
   assert.equal(requests[0]?.headers.get("Accept"), "application/json");
@@ -147,6 +150,30 @@ test("SteamHunters normalization safely handles achievement fields and obtainabi
   ]);
 });
 
+test("SteamHunters normalization accepts grouped achievement metadata", () => {
+  assert.deepEqual(normalizeSteamHuntersAchievementGroups({
+    groups: [
+      {
+        achievementApiNames: [" API_ONE ", "API_TWO"],
+        dlcAppId: 123,
+        dlcAppName: " Creeping Winter ",
+        name: " Update 1 ",
+        releaseDate: "2021-09-22",
+      },
+      { achievementApiNames: [] },
+    ],
+  }), [
+    {
+      achievementApiNames: ["API_ONE", "API_TWO"],
+      dlcAppId: 123,
+      dlcAppName: "Creeping Winter",
+      name: "Update 1",
+      releaseDate: "2021-09-22",
+    },
+  ]);
+  assert.deepEqual(normalizeSteamHuntersAchievementGroups([]), []);
+});
+
 test("SteamHunters percentage presentation is concise", () => {
   assert.equal(formatSteamHuntersPercentage(6.507072905331882), "6.5%");
   assert.equal(formatSteamHuntersPercentage(12), "12%");
@@ -180,6 +207,7 @@ test("SteamHunters matching omits ambiguous API identifiers", () => {
 test("SteamHunters service deduplicates concurrent requests, caches metadata, and degrades gracefully", async () => {
   let appCalls = 0;
   let achievementCalls = 0;
+  let groupCalls = 0;
   const client: SteamHuntersClient = {
     async loadApp() {
       appCalls += 1;
@@ -189,6 +217,10 @@ test("SteamHunters service deduplicates concurrent requests, caches metadata, an
       achievementCalls += 1;
       return [{ apiName: "API_ONE", obtainability: 0 }];
     },
+    async loadGroups() {
+      groupCalls += 1;
+      return { groups: [{ achievementApiNames: ["API_ONE"] }] };
+    },
   };
   const service = createSteamHuntersService({ client, cacheTtlMs: 60_000 });
   const [first, second] = await Promise.all([service.loadGameData(1672970), service.loadGameData(1672970)]);
@@ -196,12 +228,18 @@ test("SteamHunters service deduplicates concurrent requests, caches metadata, an
   assert.deepEqual(first, second);
   assert.equal(appCalls, 1);
   assert.equal(achievementCalls, 1);
+  assert.equal(groupCalls, 1);
   await service.loadGameData(1672970);
   assert.equal(appCalls, 1);
   assert.equal(achievementCalls, 1);
+  assert.equal(groupCalls, 1);
 
   const unavailable = createSteamHuntersService({
-    client: { loadApp: async () => { throw new Error("offline"); }, loadAchievements: async () => [] },
+    client: {
+      loadApp: async () => { throw new Error("offline"); },
+      loadAchievements: async () => [],
+      loadGroups: async () => [],
+    },
   });
   assert.equal(await unavailable.loadGameData(1672970), undefined);
 });
@@ -214,12 +252,16 @@ test("SteamHunters composition preserves Steam truth and enriches only exact mat
       { apiName: "API_ONE", points: 42, obtainability: "obtainable" },
       { apiName: "NOT_API_TWO", points: 99, obtainability: "unobtainable" },
     ],
+    groups: [{ achievementApiNames: ["API_ONE"], dlcAppId: 123, dlcAppName: "Creeping Winter" }],
   });
 
   assert.equal(composed.game, snapshot.game);
   assert.equal(composed.achievements, snapshot.achievements);
   assert.deepEqual(composed.steamHunters?.achievementsBySteamAchievementId, {
     API_ONE: { apiName: "API_ONE", points: 42, obtainability: "obtainable" },
+  });
+  assert.deepEqual(composed.steamHunters?.achievementGroupsBySteamAchievementId, {
+    API_ONE: { achievementApiNames: ["API_ONE"], dlcAppId: 123, dlcAppName: "Creeping Winter" },
   });
   assert.equal(composeSteamGameDetailWithSteamHunters(snapshot, undefined), snapshot);
 });
@@ -229,6 +271,7 @@ test("SteamHunters composition returns Steam data when enrichment exceeds its wa
   const service: SteamHuntersClient = {
     loadApp: async () => new Promise(() => {}),
     loadAchievements: async () => [],
+    loadGroups: async () => [],
   };
   const result = await composeSteamGameDetailWithSteamHuntersWithinBudget({
     snapshot,
@@ -263,6 +306,7 @@ test("SteamHunters full-screen view model shows only complete-set points and hea
       { apiName: "API_ONE", points: 20, obtainability: "conditionally-obtainable" },
       { apiName: "API_TWO", points: 30, obtainability: "broken-but-obtainable" },
     ],
+    groups: [],
   });
   const model = buildDeckySteamHuntersGameViewModel({
     achievements: snapshot.achievements,
@@ -289,6 +333,7 @@ test("SteamHunters full-screen view model shows only complete-set points and hea
   const partial = composeSteamGameDetailWithSteamHunters(snapshot, {
     app: { appId: 1672970, achievementCount: 2, points: 50, tags: [] },
     achievements: [{ apiName: "API_ONE", points: 20, obtainability: "unobtainable" }],
+    groups: [],
   });
   const partialModel = buildDeckySteamHuntersGameViewModel({
     achievements: snapshot.achievements,
@@ -300,6 +345,7 @@ test("SteamHunters full-screen view model shows only complete-set points and hea
   const completedOnly = composeSteamGameDetailWithSteamHunters(snapshot, {
     app: { appId: 1672970, playersCompletedCount: 12, tags: [] },
     achievements: [],
+    groups: [],
   });
   assert.equal(
     buildDeckySteamHuntersGameViewModel({
