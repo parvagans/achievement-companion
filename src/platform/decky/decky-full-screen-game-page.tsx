@@ -658,6 +658,7 @@ export function DeckyFullScreenGamePage({
   const restorationGroupFilterOptions = getAchievementGroupFilterOptions(
     restorationSnapshot?.achievements ?? [],
     restorationSteamHuntersEnrichment?.achievementGroupsBySteamAchievementId,
+    restorationSteamHuntersEnrichment?.achievementGroups,
   );
   const restorationAvailabilityFilterOptions = getAchievementAvailabilityFilterOptions(
     restorationSnapshot?.achievements ?? [],
@@ -817,6 +818,7 @@ export function DeckyFullScreenGamePage({
   const achievementGroupFilterOptions = getAchievementGroupFilterOptions(
     orderedAchievements,
     steamHuntersEnrichment?.achievementGroupsBySteamAchievementId,
+    steamHuntersEnrichment?.achievementGroups,
   );
   const achievementAvailabilityFilterOptions = getAchievementAvailabilityFilterOptions(
     orderedAchievements,
@@ -936,6 +938,7 @@ export function DeckyFullScreenGamePage({
                   ? {
                     steamHuntersAchievementsBySteamAchievementId: steamHuntersEnrichment.achievementsBySteamAchievementId,
                     steamHuntersAchievementGroupsBySteamAchievementId: steamHuntersEnrichment.achievementGroupsBySteamAchievementId,
+                    steamHuntersAchievementGroups: steamHuntersEnrichment.achievementGroups,
                   }
                   : {})}
               />

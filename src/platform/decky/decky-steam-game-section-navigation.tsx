@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import type { GamepadEvent } from "@decky/ui";
 import { markDeckyFullscreenReturnRequested } from "./decky-full-screen-return-context";
+import { consumeDeckyFullscreenPopupCancel } from "./decky-full-screen-popup-state";
 import { measureSteamGameFooterLayout, STEAM_GAME_FOOTER_FALLBACK_HEIGHT_PX } from "./decky-steam-game-footer-layout";
 import { handleSteamGameShoulderButtonDown } from "./decky-steam-game-shoulder-navigation";
 
@@ -214,6 +215,12 @@ export function DeckySteamGameSectionNavigation({
     // equivalent controller behavior for every focused child on this route.
     const onCancel = (event: Event): void => {
       const cancelEvent = event as CancelableGamepadEvent;
+      if (consumeDeckyFullscreenPopupCancel()) {
+        cancelEvent.preventDefault?.();
+        cancelEvent.stopPropagation?.();
+        cancelEvent.stopImmediatePropagation?.();
+        return;
+      }
       cancelEvent.preventDefault?.();
       cancelEvent.stopPropagation?.();
       cancelEvent.stopImmediatePropagation?.();

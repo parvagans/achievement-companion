@@ -1,10 +1,11 @@
-import { useState, type CSSProperties, type ComponentProps, type FocusEventHandler } from "react";
+import { useRef, useState, type CSSProperties, type ComponentProps, type FocusEventHandler } from "react";
 import type { NormalizedAchievement } from "@core/domain";
-import { Field, Focusable, PanelSectionRow } from "@decky/ui";
+import { Field, Focusable, Menu, MenuItem, PanelSectionRow, showContextMenu } from "@decky/ui";
 import { shouldRenderAchievementModeFilter } from "./decky-achievement-detail-helpers";
 import { DeckyFullScreenAchievementRow } from "./decky-full-screen-achievement-row";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
+import { registerDeckyFullscreenPopupCancel } from "./decky-full-screen-popup-state";
 import { getSteamHuntersAchievementGroupKind } from "../../providers/steamhunters";
 import type {
   SteamHuntersAchievement,
@@ -22,10 +23,11 @@ const ACHIEVEMENT_AVAILABILITY_FILTERS = [
   "unobtainable",
   "unknown",
 ] as const;
+const ACHIEVEMENT_GROUP_FILTER_PREFIX = "group:";
 
 export type AchievementFilter = (typeof ACHIEVEMENT_FILTERS)[number];
 export type AchievementModeFilter = (typeof ACHIEVEMENT_MODE_FILTERS)[number];
-export type AchievementGroupFilter = (typeof ACHIEVEMENT_GROUP_FILTERS)[number];
+export type AchievementGroupFilter = (typeof ACHIEVEMENT_GROUP_FILTERS)[number] | `${typeof ACHIEVEMENT_GROUP_FILTER_PREFIX}${string}`;
 export type AchievementAvailabilityFilter = (typeof ACHIEVEMENT_AVAILABILITY_FILTERS)[number];
 
 export function matchesAchievementFilter(
@@ -57,11 +59,39 @@ export function matchesAchievementGroupFilter(
   }
 
   const group = achievementGroupsBySteamAchievementId?.[achievement.achievementId];
+  if (groupFilter.startsWith(ACHIEVEMENT_GROUP_FILTER_PREFIX)) {
+    return getAchievementGroupFilterValue(group) === groupFilter;
+  }
   if (group === undefined) {
     return false;
   }
 
   return getSteamHuntersAchievementGroupKind(group) === groupFilter;
+}
+
+function getAchievementGroupTitle(group: SteamHuntersAchievementGroup | undefined): string {
+  if (group === undefined || getSteamHuntersAchievementGroupKind(group) === "base-game") {
+    return "Base Game";
+  }
+  return group.dlcAppName ?? group.name ?? (getSteamHuntersAchievementGroupKind(group) === "update" ? "Update" : "DLC / Expansion");
+}
+
+function getAchievementGroupFilterValue(group: SteamHuntersAchievementGroup | undefined): `${typeof ACHIEVEMENT_GROUP_FILTER_PREFIX}${string}` {
+  if (group === undefined || getSteamHuntersAchievementGroupKind(group) === "base-game") {
+    return `${ACHIEVEMENT_GROUP_FILTER_PREFIX}base-game:Base%20Game`;
+  }
+  const kind = getSteamHuntersAchievementGroupKind(group);
+  const identity = `${kind}|${group.dlcAppId ?? ""}|${group.dlcAppName ?? ""}|${group.name ?? ""}`;
+  return `${ACHIEVEMENT_GROUP_FILTER_PREFIX}${encodeURIComponent(identity)}:${encodeURIComponent(getAchievementGroupTitle(group))}`;
+}
+
+function getAchievementGroupFilterLabel(groupFilter: AchievementGroupFilter): string | undefined {
+  if (!groupFilter.startsWith(ACHIEVEMENT_GROUP_FILTER_PREFIX)) return undefined;
+  try {
+    return decodeURIComponent(groupFilter.slice(groupFilter.lastIndexOf(":") + 1));
+  } catch {
+    return undefined;
+  }
 }
 
 export function matchesAchievementAvailabilityFilter(
@@ -79,16 +109,24 @@ export function matchesAchievementAvailabilityFilter(
 export function getAchievementGroupFilterOptions(
   achievements: readonly NormalizedAchievement[],
   achievementGroupsBySteamAchievementId: Readonly<Record<string, SteamHuntersAchievementGroup>> | undefined,
+  achievementGroups?: readonly SteamHuntersAchievementGroup[],
 ): readonly AchievementGroupFilter[] {
-  return [
-    "all",
-    ...ACHIEVEMENT_GROUP_FILTERS.filter((filter) =>
-      filter !== "all" && achievements.some((achievement) => {
-        const group = achievementGroupsBySteamAchievementId?.[achievement.achievementId];
-        return group !== undefined && getSteamHuntersAchievementGroupKind(group) === filter;
-      }),
-    ),
-  ];
+  const groups = achievementGroups ?? Object.values(achievementGroupsBySteamAchievementId ?? {});
+  const availableFilters = new Set<AchievementGroupFilter>();
+  const hasBaseGameAchievements = achievements.some((achievement) => {
+    const group = achievementGroupsBySteamAchievementId?.[achievement.achievementId];
+    return group === undefined || getSteamHuntersAchievementGroupKind(group) === "base-game";
+  });
+  if (hasBaseGameAchievements) availableFilters.add(getAchievementGroupFilterValue(undefined));
+
+  for (const group of groups) {
+    const hasAchievements = group.achievementApiNames.some((achievementId) =>
+      achievements.some((achievement) => achievement.achievementId === achievementId),
+    );
+    if (hasAchievements) availableFilters.add(getAchievementGroupFilterValue(group));
+  }
+
+  return ["all", ...availableFilters];
 }
 
 export function getAchievementAvailabilityFilterOptions(
@@ -119,6 +157,8 @@ function formatAchievementModeLabel(modeFilter: AchievementModeFilter): string {
 
 function formatAchievementGroupLabel(groupFilter: AchievementGroupFilter): string {
   if (groupFilter === "all") return "All";
+  const specificGroupLabel = getAchievementGroupFilterLabel(groupFilter);
+  if (specificGroupLabel !== undefined) return specificGroupLabel;
   if (groupFilter === "base-game") return "Base Game";
   if (groupFilter === "dlc") return "DLC / Expansion";
   return "Update";
@@ -267,7 +307,39 @@ function getSteamAchievementSelectValueStyle(): CSSProperties {
 }
 
 function getSteamAchievementSelectChevronStyle(): CSSProperties {
-  return { flexShrink: 0, color: "rgba(255, 255, 255, 0.9)", fontSize: "1.25em", lineHeight: 0.8 };
+  return {
+    width: 8,
+    height: 8,
+    flexShrink: 0,
+    borderRight: "2px solid rgba(255, 255, 255, 0.9)",
+    borderBottom: "2px solid rgba(255, 255, 255, 0.9)",
+    transform: "rotate(45deg) translate(-2px, -2px)",
+  };
+}
+
+function getSteamAchievementSelectedGroupStyle(): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "baseline",
+    gap: 8,
+    width: "100%",
+    minWidth: 0,
+    padding: "2px 4px 0",
+    color: "rgba(255, 255, 255, 0.72)",
+    fontSize: "0.86em",
+    lineHeight: 1.25,
+  };
+}
+
+function getSteamAchievementSelectedGroupValueStyle(): CSSProperties {
+  return {
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    color: "rgba(255, 255, 255, 0.98)",
+    fontWeight: 800,
+  };
 }
 
 interface AchievementFilterButtonProps {
@@ -316,6 +388,7 @@ function AchievementSelectButton({
   formatValue,
   onChange,
   onCancel,
+  nativeDropdown,
 }: {
   readonly label: string;
   readonly value: string;
@@ -323,10 +396,71 @@ function AchievementSelectButton({
   readonly formatValue: (value: string) => string;
   readonly onChange: (value: string) => void;
   readonly onCancel: () => void;
+  readonly nativeDropdown?: boolean;
 }): JSX.Element {
   const [isFocused, setIsFocused] = useState(false);
+  const buttonRef = useRef<HTMLDivElement>(null);
+  const activeMenuRef = useRef<ReturnType<typeof showContextMenu> | undefined>(undefined);
+  const unregisterMenuCancelRef = useRef<(() => void) | undefined>(undefined);
   const currentIndex = Math.max(0, options.indexOf(value));
   const nextValue = options[(currentIndex + 1) % Math.max(options.length, 1)] ?? value;
+
+  if (nativeDropdown) {
+    const closeMenu = (): void => {
+      activeMenuRef.current?.Hide();
+      activeMenuRef.current = undefined;
+      unregisterMenuCancelRef.current?.();
+      unregisterMenuCancelRef.current = undefined;
+    };
+    const openMenu = (): void => {
+      if (activeMenuRef.current !== undefined || buttonRef.current === null) return;
+      const menu = showContextMenu(
+        <Menu label={label} onCancel={closeMenu}>
+          {options.map((option) => (
+            <MenuItem
+              key={option}
+              selected={option === value}
+              onClick={() => {
+                onChange(option);
+                closeMenu();
+              }}
+            >
+              {formatValue(option)}
+            </MenuItem>
+          ))}
+        </Menu>,
+        buttonRef.current,
+        { bModal: true, bMatchWidth: true },
+      );
+      activeMenuRef.current = menu;
+      unregisterMenuCancelRef.current = registerDeckyFullscreenPopupCancel(closeMenu);
+    };
+
+    return (
+      <Focusable
+        ref={buttonRef}
+        className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
+        noFocusRing
+        role="button"
+        aria-label={`${label}: ${formatValue(value)}`}
+        onActivate={openMenu}
+        onClick={openMenu}
+        onFocus={(event) => { setIsFocused(true); scrollFocusedElementIntoView(event); }}
+        onGamepadFocus={(event) => { setIsFocused(true); scrollFocusedGamepadElementIntoView(event); }}
+        onBlur={() => { setIsFocused(false); }}
+        onCancel={() => {
+          if (activeMenuRef.current !== undefined) closeMenu();
+          else onCancel();
+        }}
+        style={getSteamAchievementSelectButtonStyle(isFocused)}
+        data-achievement-companion-steam-filter-control="true"
+      >
+        <span style={getSteamAchievementSelectLabelStyle()}>{label}:</span>
+        <span style={getSteamAchievementSelectValueStyle()}>{formatValue(value)}</span>
+        <span aria-hidden="true" style={getSteamAchievementSelectChevronStyle()} />
+      </Focusable>
+    );
+  }
 
   return (
     <Focusable
@@ -345,7 +479,7 @@ function AchievementSelectButton({
     >
       <span style={getSteamAchievementSelectLabelStyle()}>{label}:</span>
       <span style={getSteamAchievementSelectValueStyle()}>{formatValue(value)}</span>
-      <span aria-hidden="true" style={getSteamAchievementSelectChevronStyle()}>⌄</span>
+      <span aria-hidden="true" style={getSteamAchievementSelectChevronStyle()} />
     </Focusable>
   );
 }
@@ -402,6 +536,7 @@ function SteamAchievementFilterBar({
         formatValue={(value) => formatAchievementGroupLabel(value as AchievementGroupFilter)}
         onChange={(value) => { onAchievementGroupFilterChange(value as AchievementGroupFilter); }}
         onCancel={onBack}
+        nativeDropdown
       />
       <AchievementSelectButton
         label="Availability"
@@ -410,6 +545,7 @@ function SteamAchievementFilterBar({
         formatValue={(value) => formatAchievementAvailabilityLabel(value as AchievementAvailabilityFilter)}
         onChange={(value) => { onAchievementAvailabilityFilterChange(value as AchievementAvailabilityFilter); }}
         onCancel={onBack}
+        nativeDropdown
       />
     </Focusable>
   );
@@ -434,6 +570,7 @@ export interface DeckyFullScreenAchievementBrowserProps {
   readonly onFocusAchievement?: (achievementId: string) => void;
   readonly steamHuntersAchievementsBySteamAchievementId?: Readonly<Record<string, SteamHuntersAchievement>>;
   readonly steamHuntersAchievementGroupsBySteamAchievementId?: Readonly<Record<string, SteamHuntersAchievementGroup>>;
+  readonly steamHuntersAchievementGroups?: readonly SteamHuntersAchievementGroup[];
 }
 
 export function DeckyFullScreenAchievementBrowser({
@@ -442,11 +579,11 @@ export function DeckyFullScreenAchievementBrowser({
   filteredAchievementCount, onAchievementFilterChange, onAchievementModeFilterChange,
   onAchievementGroupFilterChange, onAchievementAvailabilityFilterChange,
   onOpenAchievementDetail, onBack, onFocusAchievement, steamHuntersAchievementsBySteamAchievementId,
-  steamHuntersAchievementGroupsBySteamAchievementId,
+  steamHuntersAchievementGroupsBySteamAchievementId, steamHuntersAchievementGroups,
 }: DeckyFullScreenAchievementBrowserProps): JSX.Element {
   const showAchievementModeFilter = shouldRenderAchievementModeFilter(providerId);
   const isSteamProvider = providerId === "steam";
-  const groupOptions = getAchievementGroupFilterOptions(allAchievements, steamHuntersAchievementGroupsBySteamAchievementId);
+  const groupOptions = getAchievementGroupFilterOptions(allAchievements, steamHuntersAchievementGroupsBySteamAchievementId, steamHuntersAchievementGroups);
   const availabilityOptions = getAchievementAvailabilityFilterOptions(allAchievements, steamHuntersAchievementsBySteamAchievementId);
   const visibleGroupFilter = groupOptions.includes(achievementGroupFilter) ? achievementGroupFilter : "all";
   const visibleAvailabilityFilter = availabilityOptions.includes(achievementAvailabilityFilter) ? achievementAvailabilityFilter : "all";
@@ -505,6 +642,12 @@ export function DeckyFullScreenAchievementBrowser({
           </div>
         </div>
       )}
+      {isSteamProvider ? (
+        <div style={getSteamAchievementSelectedGroupStyle()}>
+          <span>Group:</span>
+          <span style={getSteamAchievementSelectedGroupValueStyle()}>{formatAchievementGroupLabel(visibleGroupFilter)}</span>
+        </div>
+      ) : null}
       {achievements.length > 0 ? (
         <div style={getAchievementRowsLayoutStyle()}>
           {achievements.map((achievement) => (
