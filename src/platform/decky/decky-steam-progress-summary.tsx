@@ -50,6 +50,7 @@ export function DeckySteamProgressSummary({
           caption={`${Math.round(completionPercent)}% complete`}
           captionPlacement="inside"
           percent={completionPercent}
+          breathe
         />
       ) : null}
       <div style={getStatsGridStyle()}>
