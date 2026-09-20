@@ -479,15 +479,11 @@ function DeckyFullScreenGameRoute(): JSX.Element {
       />
   );
 
-  return (
-    <DeckyFullscreenRouteLeaveBoundary
-      onUnmount={() => {
-        returnFromGamePage();
-      }}
-    >
-      {content}
-    </DeckyFullscreenRouteLeaveBoundary>
-  );
+  // Steam can unmount this route while opening its Home, Quick Access, and
+  // header overlays. Those are Steam-owned navigation transitions, not an
+  // Achievement Companion Back action. Explicit Back handlers retain the
+  // return behavior above; passive route unmounts must not navigate anywhere.
+  return content;
 }
 
 function DeckyFullScreenAchievementRoute(): JSX.Element {
