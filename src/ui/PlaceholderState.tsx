@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { ResourceState } from "@core/cache";
+import trophyIconUrl from "../platform/decky/assets/trophy-filled.svg";
 
 export interface PlaceholderStateProps {
   readonly title: string;
@@ -34,6 +35,7 @@ export function PlaceholderState({
 }: PlaceholderStateProps): JSX.Element {
   const statusCopy = getStatusCopy(state);
   const cachedCopy = state.data ? "Current data is available." : "No data yet.";
+  const isLoading = state.status === "loading" || state.status === "refreshing";
 
   return (
     <section
@@ -43,6 +45,7 @@ export function PlaceholderState({
       data-state={state.status}
       role={state.status === "error" ? "alert" : "status"}
     >
+      {isLoading ? <img alt="" aria-hidden="true" src={trophyIconUrl} /> : null}
       <header>
         <p>{title}</p>
         <h1>{statusCopy}</h1>
