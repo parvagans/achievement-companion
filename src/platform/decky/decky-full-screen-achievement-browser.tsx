@@ -5,6 +5,7 @@ import { shouldRenderAchievementModeFilter } from "./decky-achievement-detail-he
 import { DeckyFullScreenAchievementRow } from "./decky-full-screen-achievement-row";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
+import { getSteamHuntersAchievementGroupKind } from "../../providers/steamhunters";
 import type {
   SteamHuntersAchievement,
   SteamHuntersAchievementGroup,
@@ -60,7 +61,7 @@ export function matchesAchievementGroupFilter(
     return false;
   }
 
-  return getAchievementGroupKind(group) === groupFilter;
+  return getSteamHuntersAchievementGroupKind(group) === groupFilter;
 }
 
 export function matchesAchievementAvailabilityFilter(
@@ -84,29 +85,10 @@ export function getAchievementGroupFilterOptions(
     ...ACHIEVEMENT_GROUP_FILTERS.filter((filter) =>
       filter !== "all" && achievements.some((achievement) => {
         const group = achievementGroupsBySteamAchievementId?.[achievement.achievementId];
-        return group !== undefined && getAchievementGroupKind(group) === filter;
+        return group !== undefined && getSteamHuntersAchievementGroupKind(group) === filter;
       }),
     ),
   ];
-}
-
-function getAchievementGroupKind(
-  group: SteamHuntersAchievementGroup,
-): Exclude<AchievementGroupFilter, "all"> {
-  if (group.dlcAppId !== undefined || group.dlcAppName !== undefined) {
-    return "dlc";
-  }
-
-  const normalizedName = group.name?.trim().toLowerCase();
-  // SteamHunters represents DLC linkage explicitly; unnamed groups are the
-  // base game, while named non-DLC groups are update groups.
-  const isBaseGameName = normalizedName === undefined
-    || normalizedName === "base"
-    || normalizedName === "base game"
-    || normalizedName === "base-game";
-  return isBaseGameName
-    ? "base-game"
-    : "update";
 }
 
 export function getAchievementAvailabilityFilterOptions(

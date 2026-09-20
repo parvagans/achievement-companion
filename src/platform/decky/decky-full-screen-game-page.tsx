@@ -42,6 +42,11 @@ import {
   DeckySteamHuntersCommunitySection,
   STEAM_HUNTERS_COMMUNITY_SECTION_FOCUS_TARGET,
 } from "./decky-steam-hunters-game-sections";
+import {
+  buildDeckySteamAchievementGroupSections,
+  DeckySteamAchievementGroupsSection,
+  hasDeckySteamAchievementGroups,
+} from "./decky-steam-achievement-groups-section";
 import { buildDeckySteamHuntersGameViewModel } from "./decky-steam-hunters-view-model";
 import { shouldRenderAchievementModeFilter } from "./decky-achievement-detail-helpers";
 import { sortAchievementsForDisplay } from "./decky-game-detail-ordering";
@@ -453,6 +458,9 @@ export function DeckyFullScreenGamePage({
   const [achievementModeFilter, setAchievementModeFilter] = useState<AchievementModeFilter>(initialSectionState?.achievements.achievementModeFilter ?? "all");
   const [achievementGroupFilter, setAchievementGroupFilter] = useState<AchievementGroupFilter>(initialSectionState?.achievements.achievementGroupFilter ?? "all");
   const [achievementAvailabilityFilter, setAchievementAvailabilityFilter] = useState<AchievementAvailabilityFilter>(initialSectionState?.achievements.achievementAvailabilityFilter ?? "all");
+  const [expandedSteamAchievementGroupIds, setExpandedSteamAchievementGroupIds] = useState<readonly string[]>(
+    initialSectionState?.["achievement-groups"].expandedGroupIds ?? [],
+  );
   const [activeSteamSection, setActiveSteamSection] = useState<DeckySteamGameSectionId>(initialSectionState?.activeSection ?? "overview");
   const [sectionRestoreNonce, setSectionRestoreNonce] = useState(0);
   const [backgroundEnrichment, setBackgroundEnrichment] = useState<{
@@ -480,13 +488,24 @@ export function DeckyFullScreenGamePage({
     achievements: displayedLoadedSnapshot?.achievements ?? [],
     enrichment: loadedSteamHunters,
   });
+  const loadedSteamAchievementGroupSections = useMemo(
+    () => buildDeckySteamAchievementGroupSections({
+      achievements: displayedLoadedSnapshot?.achievements ?? [],
+      groups: loadedSteamHunters?.achievementGroups ?? [],
+    }),
+    [displayedLoadedSnapshot?.achievements, loadedSteamHunters?.achievementGroups],
+  );
+  const hasLoadedSteamAchievementGroups = hasDeckySteamAchievementGroups(loadedSteamAchievementGroupSections);
   const visibleSteamSections = useMemo<readonly DeckySteamGameSection[]>(() => [
     { id: "overview", label: "Overview" },
     { id: "achievements", label: "Achievements" },
+    ...(hasLoadedSteamAchievementGroups
+      ? [{ id: "achievement-groups" as const, label: "DLC / Groups" }]
+      : []),
     ...(loadedSteamHuntersViewModel?.hasCommunityStats === true
       ? [{ id: "community" as const, label: "Community" }]
       : []),
-  ], [loadedSteamHuntersViewModel?.hasCommunityStats]);
+  ], [hasLoadedSteamAchievementGroups, loadedSteamHuntersViewModel?.hasCommunityStats]);
 
   const persistSteamSectionState = (
     update: Parameters<typeof updateSteamGameSectionPageState>[2],
@@ -627,6 +646,19 @@ export function DeckyFullScreenGamePage({
     }));
   }, [achievementAvailabilityFilter, achievementFilter, achievementGroupFilter, achievementModeFilter, restorationFilteredAchievements, restorationIsSteamProvider]);
 
+  useEffect(() => {
+    if (!restorationIsSteamProvider) {
+      return;
+    }
+    persistSteamSectionState((current) => ({
+      ...current,
+      "achievement-groups": {
+        ...current["achievement-groups"],
+        expandedGroupIds: expandedSteamAchievementGroupIds,
+      },
+    }));
+  }, [expandedSteamAchievementGroupIds, restorationIsSteamProvider]);
+
   useLayoutEffect(() => {
     if (!restorationIsSteamProvider || providerId === undefined || gameId === undefined) {
       return;
@@ -664,6 +696,18 @@ export function DeckyFullScreenGamePage({
         const targets = Array.from(anchor.querySelectorAll<HTMLElement>("[data-achievement-companion-steam-achievement-id]"));
         target = targets.find((element) => element.dataset["achievementCompanionSteamAchievementId"] === targetId)
           ?? anchor.querySelector<HTMLElement>("[data-achievement-companion-steam-filter-control='true']");
+      } else if (activeSteamSection === "achievement-groups") {
+        target = currentState["achievement-groups"].focusedAchievementId === undefined
+          ? undefined
+          : Array.from(anchor.querySelectorAll<HTMLElement>("[data-achievement-companion-steam-achievement-id]"))
+            .find((element) => element.dataset["achievementCompanionSteamAchievementId"] === currentState["achievement-groups"].focusedAchievementId);
+        target ??= currentState["achievement-groups"].focusedGroupId === undefined
+          ? undefined
+          : Array.from(anchor.querySelectorAll<HTMLElement>("[data-achievement-companion-steam-group-id]"))
+            .find((element) => element.dataset["achievementCompanionSteamGroupId"] === currentState["achievement-groups"].focusedGroupId);
+        target ??= anchor.querySelector<HTMLElement>(
+          "[data-achievement-companion-steam-group-id]",
+        );
       } else {
         target = anchor.querySelector<HTMLElement>(
           `[data-achievement-companion-focus-target='${STEAM_HUNTERS_COMMUNITY_SECTION_FOCUS_TARGET}']`,
@@ -751,6 +795,10 @@ export function DeckyFullScreenGamePage({
     achievements: orderedAchievements,
     enrichment: steamHuntersEnrichment,
   });
+  const steamAchievementGroupSections = buildDeckySteamAchievementGroupSections({
+    achievements: orderedAchievements,
+    groups: steamHuntersEnrichment?.achievementGroups ?? [],
+  });
 
   const pageSections = (
     <>
@@ -831,6 +879,40 @@ export function DeckyFullScreenGamePage({
               />
             </PanelSectionRow>
           </PanelSection> : null}
+
+          {isSteamProvider && activeSteamSection === "achievement-groups" && steamHuntersEnrichment !== undefined ? (
+            <PanelSection title="DLC / Groups">
+              <PanelSectionRow>
+                <DeckySteamAchievementGroupsSection
+                  sections={steamAchievementGroupSections}
+                  gameArtworkUrl={game.boxArtImageUrl ?? game.coverImageUrl}
+                  steamHuntersAchievementsBySteamAchievementId={steamHuntersEnrichment.achievementsBySteamAchievementId}
+                  expandedGroupIds={expandedSteamAchievementGroupIds}
+                  onExpandedGroupIdsChange={setExpandedSteamAchievementGroupIds}
+                  onFocusGroup={(groupId) => {
+                    persistSteamSectionState((current) => ({
+                      ...current,
+                      "achievement-groups": { ...current["achievement-groups"], focusedGroupId: groupId, focusedAchievementId: undefined },
+                    }));
+                  }}
+                  onFocusAchievement={(groupId, achievementId) => {
+                    persistSteamSectionState((current) => ({
+                      ...current,
+                      "achievement-groups": { ...current["achievement-groups"], focusedGroupId: groupId, focusedAchievementId: achievementId },
+                    }));
+                  }}
+                  onOpenAchievementDetail={(achievementId) => {
+                    if (providerId !== undefined && gameId !== undefined) {
+                      saveCurrentSectionScroll();
+                      requestSteamGameSectionRestoration(providerId, gameId);
+                    }
+                    onOpenAchievementDetail?.(achievementId);
+                  }}
+                  onBack={onBack}
+                />
+              </PanelSectionRow>
+            </PanelSection>
+          ) : null}
 
           {isSteamProvider && activeSteamSection === "community" && steamHuntersViewModel !== undefined ? (
             <PanelSection title="Community">

@@ -20,10 +20,17 @@ export interface SteamGameAchievementSectionState extends SteamGameSectionState 
   readonly visibleAchievementIds: readonly string[];
 }
 
+export interface SteamGameAchievementGroupsSectionState extends SteamGameSectionState {
+  readonly expandedGroupIds: readonly string[];
+  readonly focusedGroupId?: string | undefined;
+  readonly focusedAchievementId?: string | undefined;
+}
+
 export interface SteamGameSectionPageState {
   readonly activeSection: DeckySteamGameSectionId;
   readonly overview: SteamGameSectionState;
   readonly achievements: SteamGameAchievementSectionState;
+  readonly "achievement-groups": SteamGameAchievementGroupsSectionState;
   readonly community: SteamGameSectionState;
   readonly restoreRequested: boolean;
 }
@@ -39,6 +46,10 @@ const defaultPageState: SteamGameSectionPageState = {
     achievementGroupFilter: "all",
     achievementAvailabilityFilter: "all",
     visibleAchievementIds: [],
+  },
+  "achievement-groups": {
+    scrollTop: 0,
+    expandedGroupIds: [],
   },
   community: defaultSectionState,
   restoreRequested: false,

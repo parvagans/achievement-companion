@@ -16,6 +16,10 @@ import {
 } from "../src/providers/steamhunters";
 import { buildDeckySteamHuntersGameViewModel } from "../src/platform/decky/decky-steam-hunters-view-model";
 import {
+  buildDeckySteamAchievementGroupSections,
+  hasDeckySteamAchievementGroups,
+} from "../src/platform/decky/decky-steam-achievement-groups-section";
+import {
   formatSteamHuntersCompletionDuration,
   formatSteamHuntersPercentage,
 } from "../src/platform/decky/decky-steam-hunters-presentation";
@@ -263,7 +267,40 @@ test("SteamHunters composition preserves Steam truth and enriches only exact mat
   assert.deepEqual(composed.steamHunters?.achievementGroupsBySteamAchievementId, {
     API_ONE: { achievementApiNames: ["API_ONE"], dlcAppId: 123, dlcAppName: "Creeping Winter" },
   });
+  assert.deepEqual(composed.steamHunters?.achievementGroups, [
+    { achievementApiNames: ["API_ONE"], dlcAppId: 123, dlcAppName: "Creeping Winter" },
+  ]);
   assert.equal(composeSteamGameDetailWithSteamHunters(snapshot, undefined), snapshot);
+});
+
+test("Steam achievement groups retain base, DLC, update, and ungrouped achievements", () => {
+  const achievements = [
+    { ...steamAchievement("BASE_ONE"), isUnlocked: true },
+    steamAchievement("BASE_TWO"),
+    steamAchievement("DLC_ONE"),
+    steamAchievement("UPDATE_ONE"),
+    steamAchievement("UNGROUPED"),
+  ];
+  const sections = buildDeckySteamAchievementGroupSections({
+    achievements,
+    groups: [
+      { achievementApiNames: ["BASE_ONE", "BASE_TWO"] },
+      { achievementApiNames: ["DLC_ONE"], dlcAppId: 123, dlcAppName: "Creeping Winter", bannerUrl: "https://example.test/dlc.jpg" },
+      { achievementApiNames: ["UPDATE_ONE"], name: "Anniversary Update" },
+    ],
+  });
+
+  assert.deepEqual(sections.map((section) => ({
+    kind: section.kind,
+    title: section.title,
+    achievementIds: section.achievements.map((achievement) => achievement.achievementId),
+  })), [
+    { kind: "base-game", title: "Base Game", achievementIds: ["BASE_ONE", "BASE_TWO", "UNGROUPED"] },
+    { kind: "dlc", title: "Creeping Winter", achievementIds: ["DLC_ONE"] },
+    { kind: "update", title: "Anniversary Update", achievementIds: ["UPDATE_ONE"] },
+  ]);
+  assert.equal(hasDeckySteamAchievementGroups(sections), true);
+  assert.equal(hasDeckySteamAchievementGroups(buildDeckySteamAchievementGroupSections({ achievements, groups: [] })), false);
 });
 
 test("SteamHunters composition returns Steam data when enrichment exceeds its wait budget", async () => {

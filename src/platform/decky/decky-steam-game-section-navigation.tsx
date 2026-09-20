@@ -5,7 +5,7 @@ import { markDeckyFullscreenReturnRequested } from "./decky-full-screen-return-c
 import { measureSteamGameFooterLayout, STEAM_GAME_FOOTER_FALLBACK_HEIGHT_PX } from "./decky-steam-game-footer-layout";
 import { handleSteamGameShoulderButtonDown } from "./decky-steam-game-shoulder-navigation";
 
-export type DeckySteamGameSectionId = "overview" | "achievements" | "community";
+export type DeckySteamGameSectionId = "overview" | "achievements" | "achievement-groups" | "community";
 
 export interface DeckySteamGameSection {
   readonly id: DeckySteamGameSectionId;

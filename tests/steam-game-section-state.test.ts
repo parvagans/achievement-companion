@@ -26,6 +26,12 @@ test("Steam section state preserves filters and stable achievement ids by game",
       achievementAvailabilityFilter: "unobtainable",
       visibleAchievementIds: ["API_36", "API_37", "API_38"],
     },
+    "achievement-groups": {
+      ...current["achievement-groups"],
+      scrollTop: 320,
+      expandedGroupIds: ["base-game", "dlc:123:1"],
+      focusedGroupId: "dlc:123:1",
+    },
   }));
 
   const state = readSteamGameSectionPageState("steam", "42");
@@ -35,6 +41,9 @@ test("Steam section state preserves filters and stable achievement ids by game",
   assert.equal(state.achievements.achievementFilter, "locked");
   assert.equal(state.achievements.achievementGroupFilter, "missable");
   assert.equal(state.achievements.achievementAvailabilityFilter, "unobtainable");
+  assert.equal(state["achievement-groups"].scrollTop, 320);
+  assert.deepEqual(state["achievement-groups"].expandedGroupIds, ["base-game", "dlc:123:1"]);
+  assert.equal(state["achievement-groups"].focusedGroupId, "dlc:123:1");
   assert.equal(readSteamGameSectionPageState("steam", "other").activeSection, "overview");
 });
 

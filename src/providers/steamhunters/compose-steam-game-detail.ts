@@ -13,6 +13,8 @@ export interface SteamHuntersGameEnrichment {
   readonly app: SteamHuntersApp;
   /** Only exact stable-ID matches are represented here. */
   readonly achievementsBySteamAchievementId: Readonly<Record<string, SteamHuntersAchievement>>;
+  /** Original SteamHunters group ordering, retained for the DLC/Groups view. */
+  readonly achievementGroups: readonly SteamHuntersAchievementGroup[];
   readonly achievementGroupsBySteamAchievementId: Readonly<Record<string, SteamHuntersAchievementGroup>>;
 }
 
@@ -75,6 +77,7 @@ export function composeSteamGameDetailWithSteamHunters(
       source: "steamhunters",
       app: gameData.app,
       achievementsBySteamAchievementId: buildAchievementEnrichment(snapshot, gameData),
+      achievementGroups: gameData.groups,
       achievementGroupsBySteamAchievementId: buildAchievementGroupEnrichment(gameData.groups),
     },
   };

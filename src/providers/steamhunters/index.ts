@@ -9,6 +9,10 @@ export {
 } from "./client";
 export { matchSteamAchievements, type SteamHuntersAchievementMatch } from "./achievement-match";
 export {
+  getSteamHuntersAchievementGroupKind,
+  type SteamHuntersAchievementGroupKind,
+} from "./achievement-groups";
+export {
   composeSteamGameDetailWithSteamHunters,
   composeSteamGameDetailWithSteamHuntersWithinBudget,
   DEFAULT_STEAM_HUNTERS_ENRICHMENT_WAIT_MS,
