@@ -12,11 +12,11 @@ import {
   DeckySteamHuntersSetDetailsSection,
 } from "./decky-steam-hunters-game-sections";
 import { buildDeckySteamHuntersGameViewModel } from "./decky-steam-hunters-view-model";
-import { STEAM_PROVIDER_ICON_SRC } from "./providers/steam/icon";
 import { formatSteamPlaytimeMinutes } from "./decky-stat-helpers";
 import { DeckySteamExternalLinkIcon, DeckySteamHuntersIcon, DeckySteamPlayIcon } from "./decky-steam-icons";
 import { suppressNextFullscreenRouteUnmountAction } from "./decky-full-screen-navigation-state";
 import type { SteamHuntersGameEnrichment } from "../../providers/steamhunters";
+import steamIconUrl from "./assets/steam.svg";
 
 type SteamGame = GameDetailSnapshot["game"];
 
@@ -87,6 +87,12 @@ function getTitleStyle(title: string): CSSProperties {
 
 function getProviderStyle(): CSSProperties {
   return { display: "inline-flex", alignItems: "center", gap: 6, color: "rgba(255, 255, 255, 0.74)", fontSize: "0.86em", fontWeight: 700 };
+}
+
+function getSteamProviderIconStyle(): CSSProperties {
+  return {
+    filter: "invert(1)",
+  };
 }
 
 function getMetadataStyle(): CSSProperties {
@@ -171,7 +177,7 @@ function SteamGameIdentityPanel({
         />
       ) : null}
       <div style={getTitleStyle(game.title)}>{game.title}</div>
-      <div style={getProviderStyle()}><img alt="" height={16} src={STEAM_PROVIDER_ICON_SRC} width={16} />Steam</div>
+      <div style={getProviderStyle()}><img alt="" height={16} src={steamIconUrl} style={getSteamProviderIconStyle()} width={16} />Steam</div>
       {game.appid !== undefined ? (
         <DeckyFullscreenActionRow>
           <DeckyFullscreenActionButton

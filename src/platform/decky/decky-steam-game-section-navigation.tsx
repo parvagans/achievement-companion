@@ -8,6 +8,9 @@ import { handleSteamGameShoulderButtonDown } from "./decky-steam-game-shoulder-n
 
 export type DeckySteamGameSectionId = "overview" | "achievements" | "achievement-groups" | "community";
 
+const COMPACT_FOOTER_REDUCTION_PX = 4;
+const COMPACT_FOOTER_MINIMUM_HEIGHT_PX = 40;
+
 export interface DeckySteamGameSection {
   readonly id: DeckySteamGameSectionId;
   readonly label: string;
@@ -47,6 +50,7 @@ function getSectionTabsStyle(): CSSProperties {
     display: "flex",
     flex: "1 1 auto",
     gap: 6,
+    justifyContent: "center",
     minWidth: 0,
   };
 }
@@ -56,10 +60,12 @@ function getSectionTabStyle(active: boolean): CSSProperties {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    flex: "1 1 0",
+    flex: "0 0 auto",
+    width: "max-content",
     minWidth: 0,
-    minHeight: 30,
-    padding: "3px 10px",
+    minHeight: 28,
+    padding: "2px 8px",
+    boxSizing: "border-box",
     border: `1px solid ${active ? "rgba(105, 176, 255, 0.72)" : "rgba(255, 255, 255, 0.12)"}`,
     borderRadius: 999,
     background: active
@@ -180,8 +186,12 @@ export function DeckySteamGameSectionNavigation({
     target.dataset["achievementCompanionSteamGameFooterOverlay"] = "true";
     const updateLayout = (): void => {
       const measured = measureSteamGameFooterLayout(ownerDocument, target);
-      setLayout(measured);
-      onHeightChange(measured.height);
+      const compactHeight = Math.max(
+        COMPACT_FOOTER_MINIMUM_HEIGHT_PX,
+        measured.height - COMPACT_FOOTER_REDUCTION_PX,
+      );
+      setLayout({ ...measured, height: compactHeight });
+      onHeightChange(compactHeight);
     };
     updateLayout();
     ownerDocument.body.appendChild(target);
