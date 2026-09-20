@@ -39,6 +39,7 @@ import {
 import { STEAM_GAME_FOOTER_FALLBACK_HEIGHT_PX } from "./decky-steam-game-footer-layout";
 import { formatDeckyNumericText } from "./decky-number-format";
 import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
+import { isDeckySteamFullscreenEnrichmentPending } from "./decky-steam-fullscreen-enrichment";
 import {
   DeckySteamHuntersCommunitySection,
   STEAM_HUNTERS_COMMUNITY_SECTION_FOCUS_TARGET,
@@ -465,7 +466,7 @@ export function DeckyFullScreenGamePage({
   );
   const [activeSteamSection, setActiveSteamSection] = useState<DeckySteamGameSectionId>(initialSectionState?.activeSection ?? "overview");
   const [sectionRestoreNonce, setSectionRestoreNonce] = useState(0);
-  const [backgroundEnrichment, setBackgroundEnrichment] = useState<{
+  const [steamHuntersEnrichmentResult, setSteamHuntersEnrichmentResult] = useState<{
     readonly sourceSnapshot: GameDetailSnapshot;
     readonly enrichedSnapshot: GameDetailSnapshot;
   } | undefined>(undefined);
@@ -480,8 +481,8 @@ export function DeckyFullScreenGamePage({
   const hasRouteParameters = providerId !== undefined && gameId !== undefined;
   const loadedSnapshot = isRenderableGameDetailState(state) ? state.data : undefined;
   const displayedLoadedSnapshot =
-    backgroundEnrichment !== undefined && backgroundEnrichment.sourceSnapshot === loadedSnapshot
-      ? backgroundEnrichment.enrichedSnapshot
+    steamHuntersEnrichmentResult !== undefined && steamHuntersEnrichmentResult.sourceSnapshot === loadedSnapshot
+      ? steamHuntersEnrichmentResult.enrichedSnapshot
       : loadedSnapshot;
   const loadedSteamHunters = displayedLoadedSnapshot !== undefined && displayedLoadedSnapshot.game.providerId === STEAM_PROVIDER_ID
     ? getSteamHuntersGameEnrichment(displayedLoadedSnapshot)
@@ -557,11 +558,17 @@ export function DeckyFullScreenGamePage({
     }
 
     let cancelled = false;
-    void loadDeckySteamHuntersEnrichedGameDetail(loadedSnapshot).then((enrichedSnapshot) => {
-      if (!cancelled && getSteamHuntersGameEnrichment(enrichedSnapshot) !== undefined) {
-        setBackgroundEnrichment({ sourceSnapshot: loadedSnapshot, enrichedSnapshot });
-      }
-    });
+    void loadDeckySteamHuntersEnrichedGameDetail(loadedSnapshot)
+      .then((enrichedSnapshot) => {
+        if (!cancelled) {
+          setSteamHuntersEnrichmentResult({ sourceSnapshot: loadedSnapshot, enrichedSnapshot });
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSteamHuntersEnrichmentResult({ sourceSnapshot: loadedSnapshot, enrichedSnapshot: loadedSnapshot });
+        }
+      });
 
     return () => {
       cancelled = true;
@@ -591,7 +598,7 @@ export function DeckyFullScreenGamePage({
   }, [activeSteamSection, displayedLoadedSnapshot?.game.providerId, gameId, providerId]);
 
   const restorationSnapshot = isRenderableGameDetailState(state)
-    ? (backgroundEnrichment?.sourceSnapshot === state.data ? backgroundEnrichment.enrichedSnapshot : state.data)
+    ? (steamHuntersEnrichmentResult?.sourceSnapshot === state.data ? steamHuntersEnrichmentResult.enrichedSnapshot : state.data)
     : undefined;
   const restorationIsSteamProvider = restorationSnapshot?.game.providerId === STEAM_PROVIDER_ID;
   const restorationProviderId = restorationSnapshot === undefined
@@ -726,7 +733,12 @@ export function DeckyFullScreenGamePage({
     return () => ownerWindow.cancelAnimationFrame(frame);
   }, [activeSteamSection, gameId, providerId, restorationFilteredAchievements, restorationIsSteamProvider, sectionRestoreNonce]);
 
-  if (!isRenderableGameDetailState(state)) {
+  const isWaitingForSteamHuntersEnrichment = isDeckySteamFullscreenEnrichmentPending(
+    loadedSnapshot,
+    steamHuntersEnrichmentResult?.sourceSnapshot,
+  );
+
+  if (!isRenderableGameDetailState(state) || isWaitingForSteamHuntersEnrichment) {
     return (
       <ScrollPanel>
         <TopAlignedScrollViewport
@@ -744,8 +756,8 @@ export function DeckyFullScreenGamePage({
   }
 
   const snapshot =
-    backgroundEnrichment?.sourceSnapshot === state.data
-      ? backgroundEnrichment.enrichedSnapshot
+    steamHuntersEnrichmentResult?.sourceSnapshot === state.data
+      ? steamHuntersEnrichmentResult.enrichedSnapshot
       : state.data;
   const game = snapshot.game;
   const isSteamProvider = game.providerId === STEAM_PROVIDER_ID;

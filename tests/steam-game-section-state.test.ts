@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { GameDetailSnapshot } from "../src/core/domain";
+import { composeSteamGameDetailWithSteamHunters } from "../src/providers/steamhunters";
 import {
   readSteamGameSectionPageState,
   requestSteamGameSectionRestoration,
@@ -11,6 +13,7 @@ import {
   handleSteamGameShoulderButtonDown,
   STEAM_GAMEPAD_UI_SHOULDER_BUTTON,
 } from "../src/platform/decky/decky-steam-game-shoulder-navigation";
+import { isDeckySteamFullscreenEnrichmentPending } from "../src/platform/decky/decky-steam-fullscreen-enrichment";
 
 test("Steam section state preserves filters and stable achievement ids by game", () => {
   resetSteamGameSectionPageStatesForTests();
@@ -63,6 +66,35 @@ test("Steam restoration target prefers exact, then nearest previous id, then fir
     previousVisibleAchievementIds: ["API_36", "API_37", "API_38"],
     currentVisibleAchievementIds: ["API_99"],
   }), "API_99");
+});
+
+test("Steam fullscreen loading waits for its SteamHunters follow-up result", () => {
+  const snapshot: GameDetailSnapshot = {
+    game: {
+      providerId: "steam",
+      appid: 1672970,
+      gameId: "1672970",
+      title: "Minecraft Dungeons",
+      status: "in_progress",
+      summary: { unlockedCount: 1, totalCount: 2, completionPercent: 50 },
+      metrics: [],
+    },
+    achievements: [],
+  };
+  const enrichedSnapshot = composeSteamGameDetailWithSteamHunters(snapshot, {
+    app: { appId: 1672970, achievementCount: 2, tags: [] },
+    achievements: [],
+    groups: [],
+  });
+  const retroSnapshot: GameDetailSnapshot = {
+    ...snapshot,
+    game: { ...snapshot.game, providerId: "retroachievements" },
+  };
+
+  assert.equal(isDeckySteamFullscreenEnrichmentPending(snapshot, undefined), true);
+  assert.equal(isDeckySteamFullscreenEnrichmentPending(snapshot, snapshot), false);
+  assert.equal(isDeckySteamFullscreenEnrichmentPending(enrichedSnapshot, undefined), false);
+  assert.equal(isDeckySteamFullscreenEnrichmentPending(retroSnapshot, undefined), false);
 });
 
 test("Steam detail return restoration is explicitly requested per game", () => {
