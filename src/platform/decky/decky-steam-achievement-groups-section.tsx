@@ -142,14 +142,6 @@ function getGroupPercentStyle(): CSSProperties {
   return { color: "rgba(226, 242, 255, 0.96)", fontSize: "1.2em", fontWeight: 800, lineHeight: 1 };
 }
 
-function getGroupProgressStyle(): CSSProperties {
-  return { gridColumn: "2 / -1", minWidth: 0 };
-}
-
-function getGroupHintStyle(): CSSProperties {
-  return { color: "rgba(255, 255, 255, 0.66)", fontSize: "0.75em", fontWeight: 700, lineHeight: 1.1 };
-}
-
 function getGroupArtworkFallbackStyle(): CSSProperties {
   return {
     display: "flex",
@@ -170,6 +162,39 @@ function getGroupArtworkFallbackStyle(): CSSProperties {
 
 function getExpandedAchievementsStyle(): CSSProperties {
   return { display: "flex", flexDirection: "column", gap: 8, padding: "4px 8px 10px" };
+}
+
+function getGroupExpansionIconStyle(): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "flex-end",
+    justifyContent: "flex-end",
+    alignSelf: "stretch",
+    color: "rgba(226, 242, 255, 0.92)",
+    gridColumn: "3",
+    gridRow: "2",
+  };
+}
+
+function DeckyGroupExpansionIcon({ isExpanded }: { readonly isExpanded: boolean }): JSX.Element {
+  return (
+    <svg
+      aria-hidden="true"
+      focusable="false"
+      height="24"
+      viewBox="0 0 24 24"
+      width="24"
+    >
+      <path
+        d={isExpanded ? "M12 19V8m0 0-7 7m7-7 7 7" : "M12 5v11m0 0-7-7m7 7 7-7"}
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2.4"
+      />
+    </svg>
+  );
 }
 
 function getCompletionPercent(achievements: readonly NormalizedAchievement[]): number {
@@ -266,11 +291,11 @@ export function DeckySteamAchievementGroupsSection({
               <span style={getGroupTextStyle()}>
                 <span style={getGroupTitleStyle()}>{section.title}</span>
                 <span style={getGroupCountStyle()}>{unlockedCount.toLocaleString()} / {section.achievements.length.toLocaleString()}</span>
-                <span style={getGroupHintStyle()}>A {isExpanded ? "Collapse" : "Expand"} achievements</span>
+                <DeckyCompletionProgressBar percent={completionPercent} showCaption={false} />
               </span>
               <span style={getGroupPercentStyle()}>{completionPercent}%</span>
-              <span style={getGroupProgressStyle()}>
-                <DeckyCompletionProgressBar percent={completionPercent} showCaption={false} />
+              <span aria-hidden="true" style={getGroupExpansionIconStyle()}>
+                <DeckyGroupExpansionIcon isExpanded={isExpanded} />
               </span>
             </Focusable>
             {isExpanded ? (
