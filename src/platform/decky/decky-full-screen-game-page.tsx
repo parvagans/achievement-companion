@@ -64,6 +64,7 @@ import {
 } from "./decky-steam-game-section-state";
 import trophyIconUrl from "./assets/trophy.svg";
 import infoIconUrl from "./assets/info.svg";
+import updateArtworkUrl from "./assets/providers/steam/update.png";
 
 export interface DeckyFullScreenGamePageProps {
   readonly providerId: string | undefined;
@@ -887,6 +888,7 @@ export function DeckyFullScreenGamePage({
                 <DeckySteamAchievementGroupsSection
                   sections={steamAchievementGroupSections}
                   gameArtworkUrl={getSteamFullscreenGameArtworkUrl(game)}
+                  updateArtworkUrl={updateArtworkUrl}
                   steamHuntersAchievementsBySteamAchievementId={steamHuntersEnrichment.achievementsBySteamAchievementId}
                   expandedGroupIds={expandedSteamAchievementGroupIds}
                   onExpandedGroupIdsChange={setExpandedSteamAchievementGroupIds}

@@ -18,6 +18,7 @@ import { buildDeckySteamHuntersGameViewModel } from "../src/platform/decky/decky
 import {
   buildDeckySteamAchievementGroupSections,
   hasDeckySteamAchievementGroups,
+  sortDeckySteamAchievementGroupAchievements,
 } from "../src/platform/decky/decky-steam-achievement-groups-section";
 import {
   formatSteamHuntersCompletionDuration,
@@ -302,6 +303,21 @@ test("Steam achievement groups retain base, DLC, update, and ungrouped achieveme
   ]);
   assert.equal(hasDeckySteamAchievementGroups(sections), true);
   assert.equal(hasDeckySteamAchievementGroups(buildDeckySteamAchievementGroupSections({ achievements, groups: [] })), false);
+});
+
+test("Steam achievement group lists put the newest unlocked achievements first", () => {
+  const achievements = [
+    { ...steamAchievement("LOCKED_ONE"), isUnlocked: false },
+    { ...steamAchievement("UNLOCKED_OLD"), isUnlocked: true, unlockedAt: 100 },
+    { ...steamAchievement("UNLOCKED_NEW"), isUnlocked: true, unlockedAt: 300 },
+    { ...steamAchievement("LOCKED_TWO"), isUnlocked: false },
+    { ...steamAchievement("UNLOCKED_UNKNOWN"), isUnlocked: true },
+  ];
+
+  assert.deepEqual(
+    sortDeckySteamAchievementGroupAchievements(achievements).map((achievement) => achievement.achievementId),
+    ["UNLOCKED_NEW", "UNLOCKED_OLD", "UNLOCKED_UNKNOWN", "LOCKED_ONE", "LOCKED_TWO"],
+  );
 });
 
 test("SteamHunters composition returns Steam data when enrichment exceeds its wait budget", async () => {

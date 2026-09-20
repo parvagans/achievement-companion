@@ -13,7 +13,6 @@ import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
-import updateArtworkUrl from "./assets/providers/steam/update.png";
 
 export interface DeckySteamAchievementGroupSection {
   readonly id: string;
@@ -102,6 +101,37 @@ export function hasDeckySteamAchievementGroups(
   sections: readonly DeckySteamAchievementGroupSection[],
 ): boolean {
   return sections.some((section) => section.kind !== "base-game");
+}
+
+export function sortDeckySteamAchievementGroupAchievements(
+  achievements: readonly NormalizedAchievement[],
+): readonly NormalizedAchievement[] {
+  return achievements
+    .map((achievement, index) => ({ achievement, index }))
+    .sort((left, right) => {
+      if (left.achievement.isUnlocked !== right.achievement.isUnlocked) {
+        return left.achievement.isUnlocked ? -1 : 1;
+      }
+
+      if (!left.achievement.isUnlocked) {
+        return left.index - right.index;
+      }
+
+      const leftUnlockedAt = left.achievement.unlockedAt;
+      const rightUnlockedAt = right.achievement.unlockedAt;
+      if (leftUnlockedAt === undefined && rightUnlockedAt !== undefined) {
+        return 1;
+      }
+      if (leftUnlockedAt !== undefined && rightUnlockedAt === undefined) {
+        return -1;
+      }
+      if (leftUnlockedAt !== undefined && rightUnlockedAt !== undefined && leftUnlockedAt !== rightUnlockedAt) {
+        return rightUnlockedAt - leftUnlockedAt;
+      }
+
+      return left.index - right.index;
+    })
+    .map(({ achievement }) => achievement);
 }
 
 function getGroupCardStyle(isFocused: boolean, isExpanded: boolean): CSSProperties {
@@ -208,6 +238,7 @@ function getCompletionPercent(achievements: readonly NormalizedAchievement[]): n
 export function DeckySteamAchievementGroupsSection({
   sections,
   gameArtworkUrl,
+  updateArtworkUrl,
   steamHuntersAchievementsBySteamAchievementId,
   expandedGroupIds,
   onExpandedGroupIdsChange,
@@ -218,6 +249,7 @@ export function DeckySteamAchievementGroupsSection({
 }: {
   readonly sections: readonly DeckySteamAchievementGroupSection[];
   readonly gameArtworkUrl: string | undefined;
+  readonly updateArtworkUrl: string;
   readonly steamHuntersAchievementsBySteamAchievementId: Readonly<Record<string, SteamHuntersAchievement>>;
   readonly expandedGroupIds: readonly string[];
   readonly onExpandedGroupIdsChange: (groupIds: readonly string[]) => void;
@@ -246,6 +278,7 @@ export function DeckySteamAchievementGroupsSection({
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
       {sections.map((section) => {
         const isExpanded = expandedGroupIds.includes(section.id);
+        const groupAchievements = sortDeckySteamAchievementGroupAchievements(section.achievements);
         const unlockedCount = section.achievements.filter((achievement) => achievement.isUnlocked).length;
         const completionPercent = getCompletionPercent(section.achievements);
         const artworkUrl = section.bannerUrl
@@ -303,7 +336,7 @@ export function DeckySteamAchievementGroupsSection({
             </Focusable>
             {isExpanded ? (
               <div style={getExpandedAchievementsStyle()}>
-                {section.achievements.map((achievement) => (
+                {groupAchievements.map((achievement) => (
                   <DeckyFullScreenAchievementRow
                     key={achievement.achievementId}
                     achievement={achievement}
