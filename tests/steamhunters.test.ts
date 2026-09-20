@@ -357,8 +357,8 @@ test("SteamHunters full-screen view model shows only complete-set points and hea
       tags: [],
     },
     achievements: [
-      { apiName: "API_ONE", points: 20, obtainability: "conditionally-obtainable" },
-      { apiName: "API_TWO", points: 30, obtainability: "broken-but-obtainable" },
+      { apiName: "API_ONE", points: 20, localPercentage: 75, obtainability: "conditionally-obtainable" },
+      { apiName: "API_TWO", points: 30, localPercentage: 3, obtainability: "broken-but-obtainable" },
     ],
     groups: [],
   });
@@ -382,6 +382,14 @@ test("SteamHunters full-screen view model shows only complete-set points and hea
     beatenPlayers: 100,
     medianCompletionMinutes: 5843,
     fastestCompletionMinutes: 1802,
+    totalPlayers: 500,
+  });
+  assert.deepEqual(model?.rarityDistribution, {
+    common: 1,
+    uncommon: 0,
+    rare: 0,
+    veryRare: 1,
+    total: 2,
   });
 
   const partial = composeSteamGameDetailWithSteamHunters(snapshot, {
@@ -395,6 +403,7 @@ test("SteamHunters full-screen view model shows only complete-set points and hea
   });
   assert.equal(partialModel?.progressPoints, undefined);
   assert.equal(partialModel?.completionHealth.conditionalCount, undefined);
+  assert.equal(partialModel?.rarityDistribution, undefined);
 
   const completedOnly = composeSteamGameDetailWithSteamHunters(snapshot, {
     app: { appId: 1672970, playersCompletedCount: 12, tags: [] },

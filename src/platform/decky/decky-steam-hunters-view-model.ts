@@ -24,6 +24,15 @@ export interface DeckySteamHuntersCommunitySummary {
   readonly beatenPlayers?: number;
   readonly medianCompletionMinutes?: number;
   readonly fastestCompletionMinutes?: number;
+  readonly totalPlayers?: number;
+}
+
+export interface DeckySteamHuntersRarityDistribution {
+  readonly common: number;
+  readonly uncommon: number;
+  readonly rare: number;
+  readonly veryRare: number;
+  readonly total: number;
 }
 
 export interface DeckySteamHuntersGameViewModel {
@@ -31,6 +40,7 @@ export interface DeckySteamHuntersGameViewModel {
   readonly progressPoints?: DeckySteamHuntersProgressPoints;
   readonly completionHealth: DeckySteamHuntersCompletionHealth;
   readonly communitySummary?: DeckySteamHuntersCommunitySummary;
+  readonly rarityDistribution?: DeckySteamHuntersRarityDistribution;
   readonly hasCommunityStats: boolean;
 }
 
@@ -80,6 +90,8 @@ function buildProgressPoints(args: {
 function buildCommunitySummary(
   app: SteamHuntersGameEnrichment["app"],
 ): DeckySteamHuntersCommunitySummary | undefined {
+  const startedPlayers = app.playersStartedCount ?? app.playersQualifiedCount;
+  const totalPlayers = app.playerCount ?? app.playersStartedCount ?? app.playersQualifiedCount ?? app.userCount;
   const perfectedPercentage =
     app.playersPerfectedCount !== undefined &&
     app.playersQualifiedCount !== undefined &&
@@ -87,14 +99,38 @@ function buildCommunitySummary(
       ? (app.playersPerfectedCount / app.playersQualifiedCount) * 100
       : undefined;
   const summary = {
-    ...(app.playersQualifiedCount !== undefined ? { startedPlayers: app.playersQualifiedCount } : {}),
+    ...(startedPlayers !== undefined ? { startedPlayers } : {}),
     ...(perfectedPercentage !== undefined ? { perfectedPercentage } : {}),
     ...(app.playersPerfectedCount !== undefined ? { perfectedPlayers: app.playersPerfectedCount } : {}),
     ...(app.playersBaseGameCompletedCount !== undefined ? { beatenPlayers: app.playersBaseGameCompletedCount } : {}),
     ...(app.medianCompletionTime !== undefined ? { medianCompletionMinutes: app.medianCompletionTime } : {}),
     ...(app.fastestCompletionTime !== undefined ? { fastestCompletionMinutes: app.fastestCompletionTime } : {}),
+    ...(totalPlayers !== undefined ? { totalPlayers } : {}),
   };
   return Object.keys(summary).length > 0 ? summary : undefined;
+}
+
+function buildRarityDistribution(args: {
+  readonly achievements: readonly SteamHuntersAchievement[];
+  readonly hasCompleteSet: boolean;
+}): DeckySteamHuntersRarityDistribution | undefined {
+  if (!args.hasCompleteSet || args.achievements.some((achievement) => achievement.localPercentage === undefined)) {
+    return undefined;
+  }
+
+  let common = 0;
+  let uncommon = 0;
+  let rare = 0;
+  let veryRare = 0;
+  for (const achievement of args.achievements) {
+    const percentage = achievement.localPercentage!;
+    if (percentage >= 50) common += 1;
+    else if (percentage >= 20) uncommon += 1;
+    else if (percentage >= 5) rare += 1;
+    else veryRare += 1;
+  }
+
+  return { common, uncommon, rare, veryRare, total: args.achievements.length };
 }
 
 export function buildDeckySteamHuntersGameViewModel(args: {
@@ -117,11 +153,13 @@ export function buildDeckySteamHuntersGameViewModel(args: {
   const progressPoints = buildProgressPoints({ achievements: args.achievements, enrichment, hasCompleteSet });
   const app = enrichment.app;
   const communitySummary = buildCommunitySummary(app);
+  const rarityDistribution = buildRarityDistribution({ achievements: matchedAchievements, hasCompleteSet });
 
   return {
     enrichment,
     ...(progressPoints !== undefined ? { progressPoints } : {}),
     ...(communitySummary !== undefined ? { communitySummary } : {}),
+    ...(rarityDistribution !== undefined ? { rarityDistribution } : {}),
     completionHealth: {
       ...(app.hasPaidDlc !== undefined ? { hasPaidDlc: app.hasPaidDlc } : {}),
       ...(app.unobtainableAchievementCount !== undefined
