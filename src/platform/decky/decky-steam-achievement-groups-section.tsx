@@ -13,6 +13,7 @@ import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
+import updateArtworkUrl from "./assets/providers/steam/update.png";
 
 export interface DeckySteamAchievementGroupSection {
   readonly id: string;
@@ -251,7 +252,9 @@ export function DeckySteamAchievementGroupsSection({
           ?? (section.artworkAppId !== undefined
             ? getSteamFullscreenGameArtworkUrl({ appid: section.artworkAppId })
             : undefined)
-          ?? (section.kind === "base-game" ? gameArtworkUrl : undefined);
+          ?? (section.kind === "base-game"
+            ? gameArtworkUrl
+            : section.kind === "update" ? updateArtworkUrl : undefined);
         return (
           <div key={section.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <Focusable
