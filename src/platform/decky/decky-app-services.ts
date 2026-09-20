@@ -38,6 +38,10 @@ import {
   writeDeckyDashboardSnapshot,
 } from "./decky-dashboard-snapshot-cache";
 import {
+  readDeckySteamGameDetailState,
+  writeDeckySteamGameDetail,
+} from "./decky-steam-game-detail-cache";
+import {
   createDeckySmokeTestDashboardCacheEntries,
   type DeckySmokeTestCacheMode,
 } from "./smoke-test-cache";
@@ -243,10 +247,15 @@ export async function loadDeckySteamHuntersEnrichedGameDetail(
     return snapshot;
   }
 
-  return composeSteamGameDetailWithSteamHunters(
+  const enrichedSnapshot = composeSteamGameDetailWithSteamHunters(
     snapshot,
     await deckySteamHuntersService.loadGameData(appId),
   );
+  if (enrichedSnapshot !== snapshot) {
+    writeDeckySteamGameDetail(enrichedSnapshot);
+  }
+
+  return enrichedSnapshot;
 }
 
 function getDeckyRecentAchievementStorageKey(providerId: ProviderId, accountId: string): string {
@@ -1182,6 +1191,10 @@ export async function loadDeckyGameDetailState(
     return initialDeckyGameDetailState;
   }
 
+  const cachedSteamGameDetailState = runtimeMode === "live" && providerId === STEAM_PROVIDER_ID
+    ? readDeckySteamGameDetailState(gameId)
+    : undefined;
+
   const state = await createDeckyAppServices(runtimeMode).gameDetail.loadGameDetail(
     providerId,
     gameId,
@@ -1190,38 +1203,46 @@ export async function loadDeckyGameDetailState(
     },
   );
 
-  if (providerId !== STEAM_PROVIDER_ID || state.data === undefined) {
+  if (providerId !== STEAM_PROVIDER_ID) {
     return state;
+  }
+
+  if (state.data === undefined) {
+    return cachedSteamGameDetailState === undefined
+      ? state
+      : {
+        ...cachedSteamGameDetailState,
+        ...(state.error !== undefined ? { error: state.error } : {}),
+      };
   }
 
   const cachedSteamLibraryScanSummary = readDeckySteamLibraryAchievementScanSummary(providerId);
-  if (cachedSteamLibraryScanSummary === undefined) {
-    return state;
+  const patchedGameDetail = cachedSteamLibraryScanSummary === undefined
+    ? state.data
+    : applySteamLibraryScanGameDetailMetadata(state.data, cachedSteamLibraryScanSummary);
+
+  if (cachedSteamLibraryScanSummary !== undefined && patchedGameDetail !== state.data) {
+    const cachedGameSummary = findSteamLibraryScanGameSummaryByAppId(
+      cachedSteamLibraryScanSummary,
+      state.data.game.appid ?? Number.parseInt(state.data.game.gameId, 10),
+    );
+    console.debug("[Achievement Companion][Steam]", {
+      operation: "loadGameDetail",
+      appid: patchedGameDetail.game.appid,
+      cachedTitle: cachedGameSummary?.title,
+      originalTitle: state.data.game.title,
+      resolvedTitle: patchedGameDetail.game.title,
+      hasCachedIcon: cachedGameSummary?.iconUrl !== undefined,
+      hasResolvedIcon:
+        patchedGameDetail.game.coverImageUrl !== undefined || patchedGameDetail.game.boxArtImageUrl !== undefined,
+    });
   }
 
-  const cachedGameSummary = findSteamLibraryScanGameSummaryByAppId(
-    cachedSteamLibraryScanSummary,
-    state.data.game.appid ?? Number.parseInt(state.data.game.gameId, 10),
-  );
-  const patchedGameDetail = applySteamLibraryScanGameDetailMetadata(
-    state.data,
-    cachedSteamLibraryScanSummary,
-  );
-
-  if (patchedGameDetail === state.data) {
-    return state;
+  // Persist only successful live data; a failed refresh must not replace a
+  // last-known-good offline snapshot with partial or stale provider data.
+  if (state.status === "success" && state.error === undefined) {
+    writeDeckySteamGameDetail(patchedGameDetail);
   }
-
-  console.debug("[Achievement Companion][Steam]", {
-    operation: "loadGameDetail",
-    appid: patchedGameDetail.game.appid,
-    cachedTitle: cachedGameSummary?.title,
-    originalTitle: state.data.game.title,
-    resolvedTitle: patchedGameDetail.game.title,
-    hasCachedIcon: cachedGameSummary?.iconUrl !== undefined,
-    hasResolvedIcon:
-      patchedGameDetail.game.coverImageUrl !== undefined || patchedGameDetail.game.boxArtImageUrl !== undefined,
-  });
 
   return {
     ...state,
