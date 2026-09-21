@@ -17,8 +17,10 @@ import { dispatchDeckyScrollReset } from "./decky-scroll-viewport";
 import { resetSteamGameSectionActiveSection } from "./decky-steam-game-section-state";
 import {
   clearNextFullScreenSettingsBackTarget,
+  consumeNextFullScreenCompletionProgressFilter,
   consumeNextFullscreenRouteUnmountActionSuppression,
   markFullScreenGameRouteBackBehavior,
+  markNextFullScreenCompletionProgressFilter,
   markNextFullScreenSettingsBackTarget,
   popFullScreenGameRouteBackBehavior,
   peekNextFullScreenSettingsBackTarget,
@@ -29,6 +31,7 @@ import {
   suppressNextFullscreenRouteUnmountAction,
   type FullScreenGameRouteBackBehavior,
 } from "./decky-full-screen-navigation-state";
+import type { CompletionProgressSelectionFilter } from "./decky-completion-progress-summary-card-data";
 
 const FULL_SCREEN_GAME_ROUTE_BASE = "/achievement-companion/full-screen/game";
 const FULL_SCREEN_GAME_ROUTE_PATTERN = `${FULL_SCREEN_GAME_ROUTE_BASE}/:providerId/:gameId`;
@@ -500,6 +503,16 @@ function DeckyFullScreenProfileRoute(): JSX.Element {
             DeckyNavigation.Navigate(route);
           }
         }}
+        onOpenAchievementDetail={(providerId, gameId, achievementId) => {
+          navigateToFullScreenAchievement(providerId, gameId, achievementId, true);
+        }}
+        onOpenExternalUrl={(url) => {
+          suppressNextFullscreenRouteUnmountAction();
+          DeckyNavigation.NavigateToExternalWeb(url);
+        }}
+        onOpenProviderSettings={(providerId) => {
+          navigateToFullScreenProviderSettings(providerId);
+        }}
         onOpenSettings={() => {
           registerFullScreenSettingsRoute();
           markNextFullScreenSettingsBackTarget(
@@ -514,7 +527,7 @@ function DeckyFullScreenProfileRoute(): JSX.Element {
             DeckyNavigation.Navigate(route);
           }
         }}
-        onOpenCompletionProgress={(providerId) => {
+        onOpenCompletionProgress={(providerId, initialFilter) => {
           registerFullScreenCompletionProgressRoute();
           const route = buildFullScreenCompletionProgressRoute({
             view: "completion-progress",
@@ -522,6 +535,7 @@ function DeckyFullScreenProfileRoute(): JSX.Element {
             providerId,
           });
           if (route !== undefined) {
+            markNextFullScreenCompletionProgressFilter(initialFilter);
             suppressNextFullscreenRouteUnmountAction();
             DeckyNavigation.Navigate(route);
           }
@@ -536,6 +550,10 @@ function DeckyFullScreenProfileRoute(): JSX.Element {
 
 function DeckyFullScreenCompletionProgressRoute(): JSX.Element {
   const params = useParams<FullScreenCompletionProgressRouteParams>();
+  const initialFilter = useMemo<CompletionProgressSelectionFilter | undefined>(
+    () => consumeNextFullScreenCompletionProgressFilter(),
+    [],
+  );
 
   return (
     <DeckyFullscreenRouteLeaveBoundary
@@ -545,6 +563,7 @@ function DeckyFullScreenCompletionProgressRoute(): JSX.Element {
     >
       <DeckyFullScreenCompletionProgressPage
         providerId={params.providerId}
+        {...(initialFilter !== undefined ? { initialFilter } : {})}
         onBack={() => {
           suppressNextFullscreenRouteUnmountAction();
           DeckyNavigation.NavigateBack();

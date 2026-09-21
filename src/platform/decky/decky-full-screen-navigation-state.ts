@@ -1,3 +1,5 @@
+import type { CompletionProgressSelectionFilter } from "./decky-completion-progress-summary-card-data";
+
 export type FullScreenSettingsBackTarget = "compact-panel" | "previous-fullscreen";
 export type FullScreenGameRouteBackBehavior =
   | "decky-panel"
@@ -19,6 +21,7 @@ interface FullScreenGameRouteBackState {
 
 const fullScreenGameRouteBackBehaviors = new Map<string, FullScreenGameRouteBackState[]>();
 let nextFullScreenSettingsBackTarget: FullScreenSettingsBackTarget = "compact-panel";
+let nextFullScreenCompletionProgressFilter: CompletionProgressSelectionFilter | undefined;
 let shouldSuppressNextFullscreenRouteUnmountAction = false;
 
 function getFullScreenGameRouteKey(providerId: string, gameId: string): string {
@@ -131,6 +134,18 @@ export function shouldSuppressGameRouteUnmountWhenOpeningAchievement(
 ): boolean {
   void backBehavior;
   return true;
+}
+
+export function markNextFullScreenCompletionProgressFilter(
+  filter: CompletionProgressSelectionFilter | undefined,
+): void {
+  nextFullScreenCompletionProgressFilter = filter;
+}
+
+export function consumeNextFullScreenCompletionProgressFilter(): CompletionProgressSelectionFilter | undefined {
+  const filter = nextFullScreenCompletionProgressFilter;
+  nextFullScreenCompletionProgressFilter = undefined;
+  return filter;
 }
 
 export function suppressNextFullscreenRouteUnmountAction(): void {

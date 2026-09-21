@@ -51,21 +51,23 @@ import {
   type RetroAchievementsGameAwardsSelection,
 } from "./decky-full-screen-profile-data";
 import { buildRetroAchievementsCompletionCollection } from "./decky-completion-progress-grouping";
+import type { CompletionProgressSelectionFilter } from "./decky-completion-progress-summary-card-data";
 import { buildSteamFullScreenProfileSummary } from "./decky-steam-full-screen-profile-data";
-import {
-  SteamAccountOverview,
-  SteamLibraryHighlights,
-  SteamLibraryProgress,
-  SteamRecentActivity,
-} from "./decky-steam-full-screen-profile-sections";
+import { SteamFullScreenProfileDashboard } from "./decky-steam-full-screen-profile-dashboard";
 
 export interface DeckyFullScreenProfilePageProps {
   readonly providerId: string | undefined;
   readonly onBack: () => void;
-  readonly onOpenCompletionProgress: (providerId: string) => void;
+  readonly onOpenCompletionProgress: (
+    providerId: string,
+    initialFilter?: CompletionProgressSelectionFilter,
+  ) => void;
   readonly onOpenAchievementHistory: (providerId: string) => void;
+  readonly onOpenAchievementDetail: (providerId: string, gameId: string, achievementId: string) => void;
   readonly onOpenGameDetail: (providerId: string, gameId: string) => void;
   readonly onOpenSettings: () => void;
+  readonly onOpenProviderSettings: (providerId: string) => void;
+  readonly onOpenExternalUrl: (url: string) => void;
 }
 
 function formatCount(value: number): string {
@@ -1027,8 +1029,11 @@ export function DeckyFullScreenProfilePage({
   onBack,
   onOpenCompletionProgress,
   onOpenAchievementHistory,
+  onOpenAchievementDetail,
   onOpenGameDetail,
   onOpenSettings,
+  onOpenProviderSettings,
+  onOpenExternalUrl,
 }: DeckyFullScreenProfilePageProps): JSX.Element {
   const loadSelectedProfile = useMemo(() => {
     if (providerId === undefined) {
@@ -1093,6 +1098,45 @@ export function DeckyFullScreenProfilePage({
     keys: ["rich-presence", "Rich Presence"],
   });
   const refreshedAt = state.lastUpdatedAt ?? snapshot.refreshedAt;
+
+  if (steamProfileSummary !== undefined) {
+    return (
+      <ScrollPanel>
+        <TopAlignedScrollViewport scrollKey={`full-screen-profile:${providerId ?? "missing"}`}>
+          <div style={getPageFrameStyle()}>
+            <SteamFullScreenProfileDashboard
+              profile={profile}
+              recentUnlocks={snapshot.recentAchievements}
+              refreshedAt={refreshedAt}
+              summary={steamProfileSummary}
+              onBack={onBack}
+              onOpenAchievementDetail={(gameId, achievementId) => {
+                onOpenAchievementDetail(profile.providerId, gameId, achievementId);
+              }}
+              onOpenAchievementHistory={() => {
+                onOpenAchievementHistory(profile.providerId);
+              }}
+              onOpenCompletionProgress={() => {
+                onOpenCompletionProgress(profile.providerId);
+              }}
+              onOpenPerfectedGames={() => {
+                onOpenCompletionProgress(profile.providerId, "mastered");
+              }}
+              onOpenExternalUrl={onOpenExternalUrl}
+              onOpenGameDetail={(gameId) => {
+                onOpenGameDetail(profile.providerId, gameId);
+              }}
+              onOpenProviderSettings={() => {
+                onOpenProviderSettings(profile.providerId);
+              }}
+              onOpenSettings={onOpenSettings}
+            />
+          </div>
+        </TopAlignedScrollViewport>
+      </ScrollPanel>
+    );
+  }
+
   const retroAchievementsCompletionCollection =
     profile.providerId !== STEAM_PROVIDER_ID && isRenderableCompletionProgressState(completionProgressState)
       ? buildRetroAchievementsCompletionCollection(completionProgressState.data)
@@ -1199,109 +1243,71 @@ export function DeckyFullScreenProfilePage({
             </PanelSectionRow>
           </PanelSection>
 
-          {steamProfileSummary !== undefined ? (
-            <PanelSection title="Account Overview">
-              <PanelSectionRow>
-                <SteamAccountOverview summary={steamProfileSummary} />
-              </PanelSectionRow>
-            </PanelSection>
-          ) : null}
-
-          <PanelSection title={profile.providerId === STEAM_PROVIDER_ID ? "Library Progress" : "Account stats"}>
+          <PanelSection title="Account stats">
             <PanelSectionRow>
-              {steamProfileSummary !== undefined ? (
-                <SteamLibraryProgress summary={steamProfileSummary} />
-              ) : (
               <Focusable noFocusRing onActivate={() => {}} style={getSectionBlockStyle("default")}>
-                {profile.providerId === STEAM_PROVIDER_ID ? (
-                  null
-                ) : (
-                  <>
-                    <div data-retroachievements-profile-stats-overview style={getCompactStatsOverviewStyle()}>
-                      {retroAchievementsProfileStatSections?.map((section) => (
-                        <Focusable
-                          key={section.title}
-                          noFocusRing
-                          onActivate={() => {}}
-                          data-profile-section-variant={section.variant}
-                          style={getCompactStatSectionStyle(section.variant)}
-                        >
-                          <div aria-hidden="true" style={getRetroAchievementsProfileSectionAccentStyle(section.variant)} />
-                          <div style={getRetroAchievementsProfileSectionTitleStyle(section.variant)}>{section.title}</div>
-                          {section.helper !== undefined ? (
-                            <div style={getOverviewCardMetaStyle()}>{section.helper}</div>
-                          ) : null}
-                          <StatsGrid>
-                            {[
-                              ...section.stats,
-                              ...(section.variant === "retroachievements"
-                                ? retroAchievementsSupplementaryStats.map(
-                                    (stat): ProfileStatDescriptor => ({
-                                      label: stat.label,
-                                      value: stat.value,
-                                    }),
-                                  )
-                                : []),
-                            ].map((stat) => (
-                              <ProfileStat
-                                key={`${section.title}:${stat.label}`}
-                                label={stat.label}
-                                value={stat.value}
-                                {...(stat.secondary !== undefined ? { secondary: stat.secondary } : {})}
-                                {...(stat.completionBreakdown !== undefined
-                                  ? { completionBreakdown: stat.completionBreakdown }
-                                  : {})}
-                              />
-                            ))}
-                          </StatsGrid>
-                        </Focusable>
-                      ))}
-                    </div>
-                  </>
-                )}
+                <div data-retroachievements-profile-stats-overview style={getCompactStatsOverviewStyle()}>
+                  {retroAchievementsProfileStatSections?.map((section) => (
+                    <Focusable
+                      key={section.title}
+                      noFocusRing
+                      onActivate={() => {}}
+                      data-profile-section-variant={section.variant}
+                      style={getCompactStatSectionStyle(section.variant)}
+                    >
+                      <div aria-hidden="true" style={getRetroAchievementsProfileSectionAccentStyle(section.variant)} />
+                      <div style={getRetroAchievementsProfileSectionTitleStyle(section.variant)}>{section.title}</div>
+                      {section.helper !== undefined ? (
+                        <div style={getOverviewCardMetaStyle()}>{section.helper}</div>
+                      ) : null}
+                      <StatsGrid>
+                        {[
+                          ...section.stats,
+                          ...(section.variant === "retroachievements"
+                            ? retroAchievementsSupplementaryStats.map(
+                                (stat): ProfileStatDescriptor => ({
+                                  label: stat.label,
+                                  value: stat.value,
+                                }),
+                              )
+                            : []),
+                        ].map((stat) => (
+                          <ProfileStat
+                            key={`${section.title}:${stat.label}`}
+                            label={stat.label}
+                            value={stat.value}
+                            {...(stat.secondary !== undefined ? { secondary: stat.secondary } : {})}
+                            {...(stat.completionBreakdown !== undefined
+                              ? { completionBreakdown: stat.completionBreakdown }
+                              : {})}
+                          />
+                        ))}
+                      </StatsGrid>
+                    </Focusable>
+                  ))}
+                </div>
               </Focusable>
-              )}
             </PanelSectionRow>
           </PanelSection>
 
-          {steamProfileSummary !== undefined ? (
-            <PanelSection title="Library Highlights">
-              <PanelSectionRow>
-                <SteamLibraryHighlights
-                  summary={steamProfileSummary}
-                  onOpenGameDetail={(gameId) => { onOpenGameDetail(profile.providerId, gameId); }}
+          <PanelSection title="Awards & Progress">
+            <PanelSectionRow>
+              <div data-retroachievements-profile-awards-progress style={getAwardsProgressGridStyle()}>
+                <RetroAchievementsGameAwardsCard
+                  dataStatus={retroAchievementsCompletionDataStatus}
+                  selection={retroAchievementsGameAwards}
                 />
-              </PanelSectionRow>
-            </PanelSection>
-          ) : null}
-
-          {profile.providerId !== STEAM_PROVIDER_ID ? (
-            <PanelSection title="Awards & Progress">
-              <PanelSectionRow>
-                <div data-retroachievements-profile-awards-progress style={getAwardsProgressGridStyle()}>
-                  <RetroAchievementsGameAwardsCard
-                    dataStatus={retroAchievementsCompletionDataStatus}
-                    selection={retroAchievementsGameAwards}
-                  />
-                  <RetroAchievementsCompletionProgressCard
-                    dataStatus={retroAchievementsCompletionDataStatus}
-                    games={retroAchievementsProgressGames}
-                  />
-                </div>
-              </PanelSectionRow>
-            </PanelSection>
-          ) : null}
+                <RetroAchievementsCompletionProgressCard
+                  dataStatus={retroAchievementsCompletionDataStatus}
+                  games={retroAchievementsProgressGames}
+                />
+              </div>
+            </PanelSectionRow>
+          </PanelSection>
 
           <PanelSection title="Recent activity">
             <PanelSectionRow>
-              {steamProfileSummary !== undefined ? (
-                <SteamRecentActivity
-                  games={steamProfileSummary.recentGames}
-                  onOpenGameDetail={(gameId) => { onOpenGameDetail(profile.providerId, gameId); }}
-                />
-              ) : (
-                <RecentGameCard game={recentGame} richPresence={richPresence} />
-              )}
+              <RecentGameCard game={recentGame} richPresence={richPresence} />
             </PanelSectionRow>
           </PanelSection>
         </div>

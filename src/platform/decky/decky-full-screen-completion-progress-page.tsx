@@ -59,6 +59,7 @@ const COMPLETION_PROGRESS_SORT_OPTIONS: readonly { readonly value: CompletionPro
 
 export interface DeckyFullScreenCompletionProgressPageProps {
   readonly providerId: string | undefined;
+  readonly initialFilter?: CompletionProgressSelectionFilter;
   readonly onBack: () => void;
   readonly onOpenGameDetail: (gameId: string) => void;
 }
@@ -585,12 +586,13 @@ function isRenderableCompletionProgressState(
 
 export function DeckyFullScreenCompletionProgressPage({
   providerId,
+  initialFilter,
   onBack,
   onOpenGameDetail,
 }: DeckyFullScreenCompletionProgressPageProps): JSX.Element {
   const deckySettings = useDeckySettings();
   const [currentFilter, setCurrentFilter] = useState<CompletionProgressSelectionFilter>(
-    deckySettings.defaultCompletionProgressFilter,
+    initialFilter ?? deckySettings.defaultCompletionProgressFilter,
   );
   const [visibleGameLimit, setVisibleGameLimit] = useState(COMPLETION_PROGRESS_INITIAL_GAME_LIMIT);
   const [isShowingAllGames, setIsShowingAllGames] = useState(false);

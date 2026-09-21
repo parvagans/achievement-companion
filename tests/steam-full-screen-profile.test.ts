@@ -3,6 +3,10 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import type { NormalizedProfile, RecentlyPlayedGame } from "../src/core/domain";
 import type { SteamLibraryAchievementScanSummary } from "../src/providers/steam/library-scan";
+import {
+  consumeNextFullScreenCompletionProgressFilter,
+  markNextFullScreenCompletionProgressFilter,
+} from "../src/platform/decky/decky-full-screen-navigation-state";
 import { buildSteamFullScreenProfileSummary } from "../src/platform/decky/decky-steam-full-screen-profile-data";
 
 function createProfile(): NormalizedProfile {
@@ -139,7 +143,7 @@ test("steam full-screen profile summary derives account, library, playtime, and 
     nextLevel: 30,
     xpProgressPercent: 31,
   });
-  assert.deepEqual(summary.achievements, { unlocked: 44, perfectGames: 1, completionPercent: 44 });
+  assert.deepEqual(summary.achievements, { unlocked: 44, total: 100, perfectGames: 1, completionPercent: 44 });
   assert.deepEqual(summary.library, {
     ownedGames: 6,
     playedGames: 4,
@@ -164,10 +168,53 @@ test("steam full-screen profile omits unavailable library decoration without inv
 
   assert.equal(summary.library.playedGames, undefined);
   assert.equal(summary.library.inProgressGames, undefined);
+  assert.equal(summary.achievements.total, 120);
   assert.equal(summary.achievements.perfectGames, undefined);
   assert.equal(summary.mostPlayedGame, undefined);
   assert.equal(summary.closestToPerfectGame, undefined);
   assert.deepEqual(summary.recentGames, []);
+});
+
+test("steam full-screen profile uses the three-column dashboard concept without fabricated SteamHunters account stats", async () => {
+  const [pageSource, dashboardSource] = await Promise.all([
+    readFile(
+      new URL("../src/platform/decky/decky-full-screen-profile-page.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../src/platform/decky/decky-steam-full-screen-profile-dashboard.tsx", import.meta.url),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(pageSource, /if \(steamProfileSummary !== undefined\) \{[\s\S]*<SteamFullScreenProfileDashboard/u);
+  assert.ok(
+    dashboardSource.includes(
+      `gridTemplateAreas: '\"profile progress insights\" \"profile activity recent\"'`,
+    ),
+  );
+  assert.match(dashboardSource, /data-steam-full-screen-profile-dashboard/u);
+  assert.match(dashboardSource, /title="Your Progress \(Steam\)"/u);
+  assert.match(dashboardSource, /title="SteamHunters & Library"/u);
+  assert.match(dashboardSource, /title="Recent Activity"/u);
+  assert.match(dashboardSource, /title="Recently Played"/u);
+  assert.match(dashboardSource, /label="View Steam Profile"/u);
+  assert.match(dashboardSource, /label="Provider Settings"/u);
+  assert.match(dashboardSource, /label="Profile" selected/u);
+  assert.match(dashboardSource, /label="Games"/u);
+  assert.match(dashboardSource, /label="Perfected"/u);
+  assert.match(dashboardSource, /label="Activity"/u);
+  assert.match(dashboardSource, /label="Perfected" onClick=\{onOpenPerfectedGames\}/u);
+  assert.match(dashboardSource, /<DeckyCompletionProgressBar breathe percent=\{completionPercent\}/u);
+  assert.match(pageSource, /onOpenCompletionProgress\(profile\.providerId, "mastered"\)/u);
+  assert.doesNotMatch(dashboardSource, /SH Points|Global Rank/u);
+});
+
+test("perfected profile navigation carries a one-shot completion filter", () => {
+  markNextFullScreenCompletionProgressFilter("mastered");
+
+  assert.equal(consumeNextFullScreenCompletionProgressFilter(), "mastered");
+  assert.equal(consumeNextFullScreenCompletionProgressFilter(), undefined);
 });
 
 test("profile summary memo runs before the loading-state early return", async () => {

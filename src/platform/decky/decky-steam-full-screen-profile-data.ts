@@ -26,6 +26,7 @@ export interface SteamFullScreenProfileSummary {
   };
   readonly achievements: {
     readonly unlocked: number;
+    readonly total?: number;
     readonly perfectGames?: number;
     readonly completionPercent?: number;
   };
@@ -201,6 +202,9 @@ export function buildSteamFullScreenProfileSummary(args: {
     },
     achievements: {
       unlocked: libraryScan?.unlockedAchievements ?? profile.summary.unlockedCount,
+      ...(libraryScan?.totalAchievements ?? profile.summary.totalCount) !== undefined
+        ? { total: libraryScan?.totalAchievements ?? profile.summary.totalCount }
+        : {},
       ...(libraryScan !== undefined ? { perfectGames: libraryScan.perfectGames } : {}),
       ...(libraryScan?.completionPercent ?? profile.summary.completionPercent) !== undefined
         ? { completionPercent: libraryScan?.completionPercent ?? profile.summary.completionPercent }
