@@ -299,7 +299,7 @@ function getSteamAchievementSelectButtonStyle(focused: boolean): CSSProperties {
 }
 
 function getSteamAchievementSelectLabelStyle(): CSSProperties {
-  return { color: "rgba(255, 255, 255, 0.76)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+  return { color: "rgba(255, 255, 255, 0.76)", flexShrink: 0, whiteSpace: "nowrap" };
 }
 
 function getSteamAchievementSelectValueStyle(): CSSProperties {
