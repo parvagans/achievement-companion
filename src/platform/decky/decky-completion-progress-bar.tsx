@@ -7,6 +7,12 @@ export type DeckyCompletionProgressBarTone =
   | "retroachievements-mastered"
   | "retroachievements-beaten";
 
+const FLAME_COMPLETION_THRESHOLD_PERCENT = 90;
+const DEFAULT_COMPLETION_BACKGROUND =
+  "linear-gradient(90deg, rgba(99, 179, 237, 0.92), rgba(125, 211, 252, 0.98))";
+const FLAME_COMPLETION_BACKGROUND =
+  "linear-gradient(90deg, rgba(245, 196, 66, 0.96), rgba(249, 115, 22, 0.98), rgba(239, 68, 68, 0.98))";
+
 function clampPercent(value: number): number {
   return Math.max(0, Math.min(100, value));
 }
@@ -61,12 +67,12 @@ function DeckyCompletionProgressAnimationStyles(): JSX.Element {
     style.textContent = `
 @keyframes achievement-companion-progress-breathe {
   0%, 100% {
-    filter: saturate(1) brightness(1);
-    box-shadow: 0 0 0 rgba(125, 211, 252, 0);
+    filter: saturate(1) brightness(0.98);
+    box-shadow: 0 0 4px var(--achievement-progress-glow);
   }
   50% {
-    filter: saturate(calc(1 + var(--achievement-progress-intensity))) brightness(1.08);
-    box-shadow: 0 0 14px var(--achievement-progress-glow);
+    filter: saturate(calc(1 + var(--achievement-progress-intensity))) brightness(1.18);
+    box-shadow: 0 0 22px var(--achievement-progress-glow);
   }
 }
 
@@ -83,17 +89,16 @@ function DeckyCompletionProgressAnimationStyles(): JSX.Element {
   return <span ref={anchorRef} hidden aria-hidden="true" />;
 }
 
-function getCompletionBarFillStyle(
+export function getCompletionBarFillStyle(
   percent: number,
   tone: DeckyCompletionProgressBarTone,
   breathe: boolean,
 ): CSSProperties {
   const normalizedPercent = clampPercent(percent);
   const completionRatio = normalizedPercent / 100;
-  const startHue = Math.round(198 - completionRatio * 72);
-  const endHue = Math.round(190 - completionRatio * 65);
-  const startColor = `hsl(${startHue} 82% 64% / 0.94)`;
-  const endColor = `hsl(${endHue} 86% 69% / 0.98)`;
+  const usesFlamePalette =
+    tone === "default" && breathe && normalizedPercent >= FLAME_COMPLETION_THRESHOLD_PERCENT;
+  const glowHue = usesFlamePalette ? 24 : 198;
 
   return {
     width: `${normalizedPercent}%`,
@@ -104,15 +109,15 @@ function getCompletionBarFillStyle(
         ? "linear-gradient(90deg, rgba(214, 178, 74, 0.94), rgba(232, 201, 102, 0.98))"
         : tone === "retroachievements-beaten"
           ? "linear-gradient(90deg, rgba(188, 198, 211, 0.94), rgba(223, 230, 239, 0.98))"
-        : breathe
-          ? `linear-gradient(90deg, ${startColor}, ${endColor})`
-          : "linear-gradient(90deg, rgba(99, 179, 237, 0.92), rgba(125, 211, 252, 0.98))",
+        : usesFlamePalette
+          ? FLAME_COMPLETION_BACKGROUND
+          : DEFAULT_COMPLETION_BACKGROUND,
     transition: "width 120ms ease, background 300ms ease",
     ...(breathe
       ? {
-        animation: "achievement-companion-progress-breathe 2.8s ease-in-out infinite",
-        ["--achievement-progress-glow" as string]: `hsl(${endHue} 86% 69% / ${0.12 + completionRatio * 0.34})`,
-        ["--achievement-progress-intensity" as string]: (0.08 + completionRatio * 0.32).toFixed(2),
+        animation: "achievement-companion-progress-breathe 1.9s ease-in-out infinite",
+        ["--achievement-progress-glow" as string]: `hsl(${glowHue} 96% 60% / ${0.2 + completionRatio * 0.35})`,
+        ["--achievement-progress-intensity" as string]: (0.24 + completionRatio * 0.28).toFixed(2),
       }
       : {}),
   };

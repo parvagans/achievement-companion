@@ -26,6 +26,7 @@ import {
   DeckyAchievementTypeBadge,
   getAchievementTypeBadgeDescriptor,
 } from "../src/platform/decky/decky-achievement-type-badge";
+import { getCompletionBarFillStyle } from "../src/platform/decky/decky-completion-progress-bar";
 import { createProviderRegistry } from "../src/core/provider-registry";
 import type { AchievementProvider } from "../src/core/ports";
 import type { KeyValueStore, PlatformServices } from "../src/core/platform";
@@ -5323,6 +5324,22 @@ test("retroachievements mastered games use explicit mastered presentation on gam
   assert.doesNotMatch(
     steamProviderSource,
     /highest-award-kind|retroachievements-mastered|retroachievements-beaten|RetroAchievementsCompletionIndicator/u,
+  );
+});
+
+test("animated default completion progress switches the whole fill to flame colors at 90 percent", () => {
+  const blueBackground =
+    "linear-gradient(90deg, rgba(99, 179, 237, 0.92), rgba(125, 211, 252, 0.98))";
+  const flameBackground =
+    "linear-gradient(90deg, rgba(245, 196, 66, 0.96), rgba(249, 115, 22, 0.98), rgba(239, 68, 68, 0.98))";
+
+  assert.equal(getCompletionBarFillStyle(89, "default", true).background, blueBackground);
+  assert.equal(getCompletionBarFillStyle(90, "default", true).background, flameBackground);
+  assert.equal(getCompletionBarFillStyle(100, "default", true).background, flameBackground);
+  assert.equal(getCompletionBarFillStyle(100, "default", false).background, blueBackground);
+  assert.equal(
+    getCompletionBarFillStyle(100, "retroachievements-mastered", true).background,
+    "linear-gradient(90deg, rgba(214, 178, 74, 0.94), rgba(232, 201, 102, 0.98))",
   );
 });
 
