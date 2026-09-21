@@ -14,6 +14,7 @@ import { DeckyFullScreenGamePage } from "./decky-full-screen-game-page";
 import { DeckyFullScreenSettingsPage } from "./decky-full-screen-settings-page";
 import { DeckyFullScreenProviderSettingsPage } from "./decky-full-screen-provider-settings-page";
 import { dispatchDeckyScrollReset } from "./decky-scroll-viewport";
+import { resetSteamGameSectionActiveSection } from "./decky-steam-game-section-state";
 import {
   clearNextFullScreenSettingsBackTarget,
   consumeNextFullscreenRouteUnmountActionSuppression,
@@ -359,6 +360,10 @@ function DeckyFullScreenGameRoute(): JSX.Element {
       : undefined;
 
   const returnFromGamePage = (): void => {
+    if (params.providerId !== undefined && params.gameId !== undefined) {
+      resetSteamGameSectionActiveSection(params.providerId, params.gameId);
+    }
+
     if (fullScreenGameRouteBackBehavior === "library-game-page") {
       DeckyNavigation.NavigateBack();
       return;

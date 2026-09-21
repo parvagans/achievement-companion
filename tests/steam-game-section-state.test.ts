@@ -4,6 +4,7 @@ import type { GameDetailSnapshot } from "../src/core/domain";
 import { composeSteamGameDetailWithSteamHunters } from "../src/providers/steamhunters";
 import {
   readSteamGameSectionPageState,
+  resetSteamGameSectionActiveSection,
   requestSteamGameSectionRestoration,
   resetSteamGameSectionPageStatesForTests,
   selectSteamAchievementRestorationTarget,
@@ -105,6 +106,26 @@ test("Steam detail return restoration is explicitly requested per game", () => {
   resetSteamGameSectionPageStatesForTests();
   requestSteamGameSectionRestoration("steam", "42");
   assert.equal(readSteamGameSectionPageState("steam", "42").restoreRequested, true);
+});
+
+test("leaving a Steam game page returns its next visit to Overview", () => {
+  resetSteamGameSectionPageStatesForTests();
+  updateSteamGameSectionPageState("steam", "42", (current) => ({
+    ...current,
+    activeSection: "achievements",
+    achievements: {
+      ...current.achievements,
+      achievementFilter: "locked",
+      scrollTop: 760,
+    },
+  }));
+
+  resetSteamGameSectionActiveSection("steam", "42");
+
+  const state = readSteamGameSectionPageState("steam", "42");
+  assert.equal(state.activeSection, "overview");
+  assert.equal(state.achievements.achievementFilter, "locked");
+  assert.equal(state.achievements.scrollTop, 760);
 });
 
 test("Steam shoulder section navigation consumes handled GamepadUI presses", () => {

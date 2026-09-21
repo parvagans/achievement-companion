@@ -75,6 +75,14 @@ export function updateSteamGameSectionPageState(
   return next;
 }
 
+/** Returns a game page to its default landing section after the page is exited. */
+export function resetSteamGameSectionActiveSection(providerId: string, gameId: string): void {
+  updateSteamGameSectionPageState(providerId, gameId, (current) => ({
+    ...current,
+    activeSection: "overview",
+  }));
+}
+
 export function requestSteamGameSectionRestoration(providerId: string, gameId: string): void {
   updateSteamGameSectionPageState(providerId, gameId, (current) => ({ ...current, restoreRequested: true }));
 }
