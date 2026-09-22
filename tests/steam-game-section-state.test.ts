@@ -11,9 +11,9 @@ import {
   updateSteamGameSectionPageState,
 } from "../src/platform/decky/decky-steam-game-section-state";
 import {
-  handleSteamGameShoulderButtonDown,
-  STEAM_GAMEPAD_UI_SHOULDER_BUTTON,
-} from "../src/platform/decky/decky-steam-game-shoulder-navigation";
+  DECKY_FULLSCREEN_FOOTER_SHOULDER_BUTTON,
+  handleDeckyFullScreenFooterShoulderButtonDown,
+} from "../src/platform/decky/decky-full-screen-footer-overlay";
 import {
   getAdjacentSteamGameSectionId,
   type DeckySteamGameSection,
@@ -128,7 +128,7 @@ test("leaving a Steam game page returns its next visit to Overview", () => {
   assert.equal(state.achievements.scrollTop, 760);
 });
 
-test("Steam shoulder section navigation consumes handled GamepadUI presses", () => {
+test("full-screen footer shoulder navigation consumes handled GamepadUI presses", () => {
   const navigations: string[] = [];
   const cancellations: string[] = [];
   const createEvent = (button: number, isRepeat = false) => ({
@@ -138,20 +138,20 @@ test("Steam shoulder section navigation consumes handled GamepadUI presses", () 
     stopImmediatePropagation: () => cancellations.push("immediate"),
   });
   const actions = {
-    onPreviousSection: () => navigations.push("previous"),
-    onNextSection: () => navigations.push("next"),
+    onPrevious: () => navigations.push("previous"),
+    onNext: () => navigations.push("next"),
   };
 
-  assert.equal(handleSteamGameShoulderButtonDown(
-    createEvent(STEAM_GAMEPAD_UI_SHOULDER_BUTTON.right),
+  assert.equal(handleDeckyFullScreenFooterShoulderButtonDown(
+    createEvent(DECKY_FULLSCREEN_FOOTER_SHOULDER_BUTTON.right),
     actions,
   ), true);
-  assert.equal(handleSteamGameShoulderButtonDown(
-    createEvent(STEAM_GAMEPAD_UI_SHOULDER_BUTTON.left),
+  assert.equal(handleDeckyFullScreenFooterShoulderButtonDown(
+    createEvent(DECKY_FULLSCREEN_FOOTER_SHOULDER_BUTTON.left),
     actions,
   ), true);
-  assert.equal(handleSteamGameShoulderButtonDown(
-    createEvent(STEAM_GAMEPAD_UI_SHOULDER_BUTTON.right, true),
+  assert.equal(handleDeckyFullScreenFooterShoulderButtonDown(
+    createEvent(DECKY_FULLSCREEN_FOOTER_SHOULDER_BUTTON.right, true),
     actions,
   ), true);
   assert.deepEqual(navigations, ["next", "previous"]);
@@ -168,16 +168,16 @@ test("Steam shoulder section navigation consumes handled GamepadUI presses", () 
   ]);
 });
 
-test("Steam shoulder section navigation ignores unrelated GamepadUI presses", () => {
+test("full-screen footer shoulder navigation ignores unrelated GamepadUI presses", () => {
   const calls: string[] = [];
-  const handled = handleSteamGameShoulderButtonDown({
+  const handled = handleDeckyFullScreenFooterShoulderButtonDown({
     detail: { button: 1, source: 0 },
     preventDefault: () => calls.push("default"),
     stopPropagation: () => calls.push("propagation"),
     stopImmediatePropagation: () => calls.push("immediate"),
   }, {
-    onPreviousSection: () => calls.push("previous"),
-    onNextSection: () => calls.push("next"),
+    onPrevious: () => calls.push("previous"),
+    onNext: () => calls.push("next"),
   });
 
   assert.equal(handled, false);

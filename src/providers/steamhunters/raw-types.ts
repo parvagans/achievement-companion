@@ -23,6 +23,10 @@ export interface RawSteamHuntersAppResponse {
   readonly achievementCount?: unknown;
   readonly unobtainableAchievementCount?: unknown;
   readonly points?: unknown;
+  readonly unrestrictedPoints?: unknown;
+  readonly agc?: unknown;
+  readonly agcObtainable?: unknown;
+  readonly startedGameCount?: unknown;
   readonly fastestCompletionTime?: unknown;
   readonly medianCompletionTime?: unknown;
   readonly releaseDate?: unknown;
@@ -53,4 +57,18 @@ export interface RawSteamHuntersAchievementGroupResponse {
 
 export interface RawSteamHuntersAchievementGroupsResponse {
   readonly groups?: unknown;
+}
+
+/** Public profile payload returned by /api/steam-users/{steamId}. */
+export interface RawSteamHuntersProfileResponse {
+  readonly points?: unknown;
+  readonly unrestrictedPoints?: unknown;
+  readonly agc?: unknown;
+  readonly agcObtainable?: unknown;
+  readonly startedGameCount?: unknown;
+  readonly appCount?: unknown;
+  readonly perfectGameCount?: unknown;
+  readonly completedGameCount?: unknown;
+  readonly achievementUnlockCount?: unknown;
+  readonly legendaryAchievementUnlockCount?: unknown;
 }

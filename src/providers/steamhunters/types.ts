@@ -58,3 +58,25 @@ export interface SteamHuntersGameData {
   readonly achievements: readonly SteamHuntersAchievement[];
   readonly groups: readonly SteamHuntersAchievementGroup[];
 }
+
+/**
+ * Profile totals as reported by SteamHunters, deliberately separate from the
+ * Steam library scan. SteamHunters' public profile payload does not expose a
+ * global leaderboard rank.
+ */
+export interface SteamHuntersProfile {
+  /** The SteamID64 used for this lookup; never trust the remote numeric echo. */
+  readonly steamId: string;
+  readonly points?: number;
+  readonly unrestrictedPoints?: number;
+  /** SteamHunters' Average Game Completion percentage. */
+  readonly averageGameCompletion?: number;
+  /** SteamHunters' Average Game Completion excluding unobtainable achievements. */
+  readonly obtainableAverageGameCompletion?: number;
+  readonly startedGames?: number;
+  readonly trackedGames?: number;
+  readonly perfectedGames?: number;
+  readonly completedGames?: number;
+  readonly achievements?: number;
+  readonly legendaryAchievements?: number;
+}

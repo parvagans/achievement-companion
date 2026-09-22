@@ -6,7 +6,8 @@ import {
 } from "../../../../providers/steamhunters";
 
 interface DeckySteamHuntersRequest {
-  readonly appId: number;
+  readonly appId?: number;
+  readonly steamId?: string;
   readonly resource: SteamHuntersResource;
 }
 
@@ -21,21 +22,23 @@ function isFailureEnvelope(value: unknown): value is DeckySteamHuntersFailureEnv
     (value as Record<string, unknown>)["handledHttpError"] === true;
 }
 
-function pathFor(appId: number, resource: SteamHuntersResource): string {
-  return resource === "app"
-    ? `apps/${appId}`
+function pathFor(identifier: number | string, resource: SteamHuntersResource): string {
+  return resource === "profile"
+    ? `steam-users/${identifier}`
+    : resource === "app"
+    ? `apps/${identifier}`
     : resource === "achievements"
-      ? `apps/${appId}/achievements`
-      : `GetAchievementGroups/v1?appid=${appId}`;
+      ? `apps/${identifier}/achievements`
+      : `GetAchievementGroups/v1?appid=${identifier}`;
 }
 
 export function createDeckySteamHuntersTransport(): SteamHuntersTransport {
   return {
-    async requestJson(appId, resource) {
-      const path = pathFor(appId, resource);
+    async requestJson(identifier, resource) {
+      const path = pathFor(identifier, resource);
       try {
         const response = await callDeckyBackendMethod<unknown>("request_steamhunters_json", {
-          appId,
+          ...(resource === "profile" ? { steamId: String(identifier) } : { appId: Number(identifier) }),
           resource,
         } satisfies DeckySteamHuntersRequest);
         if (isFailureEnvelope(response)) {

@@ -436,19 +436,25 @@ class Plugin:
     )
 
   async def request_steamhunters_json(self, payload: dict[str, Any]) -> Any:
-    raw_app_id = payload.get("appId")
-    if isinstance(raw_app_id, bool) or not isinstance(raw_app_id, int) or raw_app_id <= 0:
-      raise RuntimeError("SteamHunters request requires a positive Steam AppID.")
-
     resource = _coerce_string(payload.get("resource"))
-    if resource == "app":
-      path = f"apps/{raw_app_id}"
-    elif resource == "achievements":
-      path = f"apps/{raw_app_id}/achievements"
-    elif resource == "groups":
-      path = f"GetAchievementGroups/v1?appid={raw_app_id}"
+    if resource == "profile":
+      steam_id = _coerce_string(payload.get("steamId"))
+      if steam_id is None or not steam_id.isdigit() or not 15 <= len(steam_id) <= 20:
+        raise RuntimeError("SteamHunters profile request requires a SteamID64.")
+      path = f"steam-users/{steam_id}"
     else:
-      raise RuntimeError("SteamHunters request requires an allowed resource.")
+      raw_app_id = payload.get("appId")
+      if isinstance(raw_app_id, bool) or not isinstance(raw_app_id, int) or raw_app_id <= 0:
+        raise RuntimeError("SteamHunters request requires a positive Steam AppID.")
+
+      if resource == "app":
+        path = f"apps/{raw_app_id}"
+      elif resource == "achievements":
+        path = f"apps/{raw_app_id}/achievements"
+      elif resource == "groups":
+        path = f"GetAchievementGroups/v1?appid={raw_app_id}"
+      else:
+        raise RuntimeError("SteamHunters request requires an allowed resource.")
 
     return await asyncio.to_thread(
       _request_json,

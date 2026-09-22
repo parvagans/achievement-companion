@@ -14,8 +14,10 @@ import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-f
 import {
   initialDeckyBootstrapState,
   initialDeckyCompletionProgressState,
+  initialDeckySteamHuntersProfileState,
   loadDeckyCompletionProgressState,
   loadDeckyDashboardState,
+  loadDeckySteamHuntersProfileState,
 } from "./decky-app-services";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
@@ -54,6 +56,18 @@ import { buildRetroAchievementsCompletionCollection } from "./decky-completion-p
 import type { CompletionProgressSelectionFilter } from "./decky-completion-progress-summary-card-data";
 import { buildSteamFullScreenProfileSummary } from "./decky-steam-full-screen-profile-data";
 import { SteamFullScreenProfileDashboard } from "./decky-steam-full-screen-profile-dashboard";
+import {
+  DeckyFullScreenFooterOverlay,
+  type DeckyFullScreenFooterNavigationItem,
+} from "./decky-full-screen-footer-overlay";
+
+const STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS = [
+  { id: "profile", label: "Profile" },
+  { id: "games", label: "Games" },
+  { id: "perfected", label: "Perfected" },
+  { id: "activity", label: "Activity" },
+  { id: "settings", label: "Settings" },
+] as const satisfies readonly DeckyFullScreenFooterNavigationItem[];
 
 export interface DeckyFullScreenProfilePageProps {
   readonly providerId: string | undefined;
@@ -125,6 +139,7 @@ function getFallbackInitials(title: string): string {
 
 const FULLSCREEN_PROFILE_BOTTOM_SCROLL_PADDING = 88;
 const FULLSCREEN_PROFILE_TOP_PADDING = 42;
+const STEAM_PROFILE_FOOTER_CLEARANCE = 48;
 type DeckyGamepadFocusHandler = NonNullable<ComponentProps<typeof Focusable>["onGamepadFocus"]>;
 
 const scrollFocusedProfileContent: FocusEventHandler<HTMLElement> = (event) => {
@@ -138,6 +153,28 @@ const scrollFocusedProfileGamepadContent: DeckyGamepadFocusHandler = (event) => 
 function getPageFrameStyle(): CSSProperties {
   return {
     padding: `calc(env(safe-area-inset-top, 0px) + ${FULLSCREEN_PROFILE_TOP_PADDING}px) 12px calc(env(safe-area-inset-bottom, 0px) + ${FULLSCREEN_PROFILE_BOTTOM_SCROLL_PADDING}px)`,
+    boxSizing: "border-box",
+  };
+}
+
+function getSteamProfileViewportStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    height: "100%",
+    minHeight: 0,
+    overflow: "hidden",
+  };
+}
+
+function getSteamProfileFrameStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flex: "1 1 auto",
+    flexDirection: "column",
+    minHeight: 0,
+    overflow: "hidden",
+    padding: `calc(env(safe-area-inset-top, 0px) + ${FULLSCREEN_PROFILE_TOP_PADDING}px) 12px calc(env(safe-area-inset-bottom, 0px) + ${STEAM_PROFILE_FOOTER_CLEARANCE}px)`,
     boxSizing: "border-box",
   };
 }
@@ -1056,6 +1093,23 @@ export function DeckyFullScreenProfilePage({
   );
   const hasRouteParameters = providerId !== undefined;
   const steamLibraryAchievementScanSummary = useDeckySteamLibraryAchievementScanSummary(providerId);
+  const steamId = isRenderableDashboardState(state) && state.data.profile.providerId === STEAM_PROVIDER_ID
+    ? state.data.profile.identity.accountId
+    : undefined;
+  const loadSteamHuntersProfile = useMemo(() => {
+    if (steamId === undefined) {
+      return () => Promise.resolve(initialDeckySteamHuntersProfileState);
+    }
+
+    return () => loadDeckySteamHuntersProfileState(steamId);
+  }, [steamId]);
+  const steamHuntersProfileState = useAsyncResourceState(
+    loadSteamHuntersProfile,
+    initialDeckySteamHuntersProfileState,
+  );
+  const steamHuntersProfile = steamHuntersProfileState.data?.steamId === steamId
+    ? steamHuntersProfileState.data
+    : undefined;
   const steamProfileSummary = useMemo(() => {
     if (!isRenderableDashboardState(state) || state.data.profile.providerId !== STEAM_PROVIDER_ID) {
       return undefined;
@@ -1101,15 +1155,15 @@ export function DeckyFullScreenProfilePage({
 
   if (steamProfileSummary !== undefined) {
     return (
-      <ScrollPanel>
-        <TopAlignedScrollViewport scrollKey={`full-screen-profile:${providerId ?? "missing"}`}>
-          <div style={getPageFrameStyle()}>
+      <>
+        <div style={getSteamProfileViewportStyle()}>
+          <div style={getSteamProfileFrameStyle()}>
             <SteamFullScreenProfileDashboard
               profile={profile}
               recentUnlocks={snapshot.recentAchievements}
               refreshedAt={refreshedAt}
               summary={steamProfileSummary}
-              onBack={onBack}
+              steamHuntersProfile={steamHuntersProfile}
               onOpenAchievementDetail={(gameId, achievementId) => {
                 onOpenAchievementDetail(profile.providerId, gameId, achievementId);
               }}
@@ -1119,9 +1173,6 @@ export function DeckyFullScreenProfilePage({
               onOpenCompletionProgress={() => {
                 onOpenCompletionProgress(profile.providerId);
               }}
-              onOpenPerfectedGames={() => {
-                onOpenCompletionProgress(profile.providerId, "mastered");
-              }}
               onOpenExternalUrl={onOpenExternalUrl}
               onOpenGameDetail={(gameId) => {
                 onOpenGameDetail(profile.providerId, gameId);
@@ -1129,11 +1180,20 @@ export function DeckyFullScreenProfilePage({
               onOpenProviderSettings={() => {
                 onOpenProviderSettings(profile.providerId);
               }}
-              onOpenSettings={onOpenSettings}
             />
           </div>
-        </TopAlignedScrollViewport>
-      </ScrollPanel>
+        </div>
+        <DeckyFullScreenFooterOverlay
+          activeNavigationItemId="profile"
+          ariaLabel="Steam profile navigation"
+          navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
+          onBack={onBack}
+          onNextNavigationItem={() => {
+            onOpenCompletionProgress(profile.providerId);
+          }}
+          onPreviousNavigationItem={onOpenSettings}
+        />
+      </>
     );
   }
 

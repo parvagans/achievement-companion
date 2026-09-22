@@ -540,6 +540,11 @@ class BackendRuntimeTests(unittest.TestCase):
             {"appId": 275850, "resource": "groups"},
           ),
         )
+        profile_response = asyncio.run(
+          module.Plugin().request_steamhunters_json(  # type: ignore[attr-defined]
+            {"steamId": "76561198000000000", "resource": "profile"},
+          ),
+        )
         with self.assertRaises(RuntimeError):
           asyncio.run(
             module.Plugin().request_steamhunters_json(  # type: ignore[attr-defined]
@@ -551,7 +556,8 @@ class BackendRuntimeTests(unittest.TestCase):
 
       self.assertEqual(response, {"appId": 275850, "achievementCount": 27})
       self.assertEqual(groups_response, {"appId": 275850, "achievementCount": 27})
-      self.assertEqual(len(calls), 2)
+      self.assertEqual(profile_response, {"appId": 275850, "achievementCount": 27})
+      self.assertEqual(len(calls), 3)
       self.assertEqual(calls[0]["provider_id"], "steamhunters")
       self.assertEqual(calls[0]["base_url"], "https://steamhunters.com/api/")
       self.assertEqual(calls[0]["path"], "apps/275850")
@@ -560,6 +566,8 @@ class BackendRuntimeTests(unittest.TestCase):
       self.assertEqual(calls[0]["timeout_seconds"], 8)
       self.assertEqual(calls[1]["path"], "GetAchievementGroups/v1?appid=275850")
       self.assertEqual(calls[1]["auth_query"], {})
+      self.assertEqual(calls[2]["path"], "steam-users/76561198000000000")
+      self.assertEqual(calls[2]["auth_query"], {})
 
   def test_backend_request_json_uses_injected_urlopen_for_successful_json(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:

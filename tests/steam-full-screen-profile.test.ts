@@ -175,7 +175,7 @@ test("steam full-screen profile omits unavailable library decoration without inv
   assert.deepEqual(summary.recentGames, []);
 });
 
-test("steam full-screen profile uses the three-column dashboard concept without fabricated SteamHunters account stats", async () => {
+test("steam full-screen profile uses the three-column dashboard concept with SteamHunters profile stats", async () => {
   const [pageSource, dashboardSource] = await Promise.all([
     readFile(
       new URL("../src/platform/decky/decky-full-screen-profile-page.tsx", import.meta.url),
@@ -188,26 +188,51 @@ test("steam full-screen profile uses the three-column dashboard concept without 
   ]);
 
   assert.match(pageSource, /if \(steamProfileSummary !== undefined\) \{[\s\S]*<SteamFullScreenProfileDashboard/u);
+  const steamProfileBranch = pageSource.slice(
+    pageSource.indexOf("if (steamProfileSummary !== undefined)"),
+    pageSource.indexOf("const retroAchievementsCompletionCollection"),
+  );
+  assert.match(steamProfileBranch, /getSteamProfileViewportStyle\(\)/u);
+  assert.match(steamProfileBranch, /getSteamProfileFrameStyle\(\)/u);
+  assert.doesNotMatch(steamProfileBranch, /<ScrollPanel>/u);
   assert.ok(
     dashboardSource.includes(
       `gridTemplateAreas: '\"profile progress insights\" \"profile activity recent\"'`,
     ),
   );
+  assert.match(
+    dashboardSource,
+    /gridTemplateColumns: "minmax\(192px, 0\.9fr\) minmax\(248px, 1fr\) minmax\(248px, 1\.04fr\)"/u,
+  );
+  assert.match(
+    dashboardSource,
+    /gridTemplateRows: "minmax\(192px, 1fr\) minmax\(174px, 0\.9fr\)"/u,
+  );
   assert.match(dashboardSource, /data-steam-full-screen-profile-dashboard/u);
   assert.match(dashboardSource, /title="Your Progress \(Steam\)"/u);
-  assert.match(dashboardSource, /title="SteamHunters & Library"/u);
+  assert.match(dashboardSource, /title="SteamHunters Profile"/u);
+  assert.match(dashboardSource, /label="Points"/u);
+  assert.match(dashboardSource, /label="Avg\. completion"/u);
+  assert.match(dashboardSource, /label="Tracked games"/u);
+  assert.match(dashboardSource, /label="Unrestricted points"/u);
+  assert.match(dashboardSource, /label="Legendary unlocks"/u);
+  assert.match(dashboardSource, /label="Obtainable completion"/u);
   assert.match(dashboardSource, /title="Recent Activity"/u);
   assert.match(dashboardSource, /title="Recently Played"/u);
   assert.match(dashboardSource, /label="View Steam Profile"/u);
   assert.match(dashboardSource, /label="Provider Settings"/u);
-  assert.match(dashboardSource, /label="Profile" selected/u);
-  assert.match(dashboardSource, /label="Games"/u);
-  assert.match(dashboardSource, /label="Perfected"/u);
-  assert.match(dashboardSource, /label="Activity"/u);
-  assert.match(dashboardSource, /label="Perfected" onClick=\{onOpenPerfectedGames\}/u);
+  assert.match(pageSource, /navigationItems=\{STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS\}/u);
+  assert.match(pageSource, /activeNavigationItemId="profile"/u);
+  assert.match(pageSource, /onNextNavigationItem=\{\(\) => \{\s*onOpenCompletionProgress\(profile\.providerId\);/u);
+  assert.match(pageSource, /onPreviousNavigationItem=\{onOpenSettings\}/u);
+  assert.doesNotMatch(dashboardSource, /aria-label="Profile navigation"/u);
+  assert.doesNotMatch(dashboardSource, /label="Profile" selected/u);
   assert.match(dashboardSource, /<DeckyCompletionProgressBar breathe percent=\{completionPercent\}/u);
   assert.match(pageSource, /onOpenCompletionProgress\(profile\.providerId, "mastered"\)/u);
-  assert.doesNotMatch(dashboardSource, /SH Points|Global Rank/u);
+  assert.doesNotMatch(
+    dashboardSource,
+    /label="Played games"|label="Steam level"|label="Perfected games"|label="Completed games"|value="Enabled"/u,
+  );
 });
 
 test("perfected profile navigation carries a one-shot completion filter", () => {

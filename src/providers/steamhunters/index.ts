@@ -27,6 +27,7 @@ export {
   normalizeSteamHuntersAchievementGroups,
   normalizeSteamHuntersAchievements,
   normalizeSteamHuntersApp,
+  normalizeSteamHuntersProfile,
   normalizeSteamHuntersObtainability,
 } from "./normalize";
 export { createSteamHuntersService, type CreateSteamHuntersServiceOptions, type SteamHuntersService } from "./service";
@@ -36,5 +37,6 @@ export type {
   SteamHuntersApp,
   SteamHuntersGameData,
   SteamHuntersObtainability,
+  SteamHuntersProfile,
   SteamHuntersTag,
 } from "./types";

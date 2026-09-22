@@ -3,8 +3,9 @@ import {
   normalizeSteamHuntersAchievementGroups,
   normalizeSteamHuntersAchievements,
   normalizeSteamHuntersApp,
+  normalizeSteamHuntersProfile,
 } from "./normalize";
-import type { SteamHuntersGameData } from "./types";
+import type { SteamHuntersGameData, SteamHuntersProfile } from "./types";
 
 interface CacheEntry<T> {
   readonly value: T;
@@ -13,6 +14,7 @@ interface CacheEntry<T> {
 
 export interface SteamHuntersService {
   loadGameData(appId: number): Promise<SteamHuntersGameData | undefined>;
+  loadProfile(steamId: string): Promise<SteamHuntersProfile | undefined>;
   clearCache(): void;
 }
 
@@ -28,8 +30,16 @@ function validAppId(appId: number): boolean {
   return Number.isSafeInteger(appId) && appId > 0;
 }
 
-function readFresh<T>(cache: ReadonlyMap<number, CacheEntry<T>>, appId: number, now: number): T | undefined {
-  const entry = cache.get(appId);
+function validSteamId(steamId: string): boolean {
+  return /^\d{15,20}$/.test(steamId);
+}
+
+function readFresh<TKey, TValue>(
+  cache: ReadonlyMap<TKey, CacheEntry<TValue>>,
+  key: TKey,
+  now: number,
+): TValue | undefined {
+  const entry = cache.get(key);
   return entry !== undefined && entry.expiresAt > now ? entry.value : undefined;
 }
 
@@ -43,6 +53,8 @@ export function createSteamHuntersService(
   const achievementCache = new Map<number, CacheEntry<SteamHuntersGameData["achievements"]>>();
   const groupCache = new Map<number, CacheEntry<SteamHuntersGameData["groups"]>>();
   const pendingLoads = new Map<number, Promise<SteamHuntersGameData | undefined>>();
+  const profileCache = new Map<string, CacheEntry<SteamHuntersProfile>>();
+  const pendingProfileLoads = new Map<string, Promise<SteamHuntersProfile | undefined>>();
 
   async function loadApp(appId: number): Promise<SteamHuntersGameData["app"] | undefined> {
     const cached = readFresh(appCache, appId, now());
@@ -116,11 +128,47 @@ export function createSteamHuntersService(
       pendingLoads.set(appId, load);
       return load;
     },
+    loadProfile(steamId) {
+      if (!validSteamId(steamId)) {
+        return Promise.resolve(undefined);
+      }
+
+      const cached = readFresh(profileCache, steamId, now());
+      if (cached !== undefined) {
+        return Promise.resolve(cached);
+      }
+
+      const pending = pendingProfileLoads.get(steamId);
+      if (pending !== undefined) {
+        return pending;
+      }
+
+      const load = (async () => {
+        try {
+          const normalized = normalizeSteamHuntersProfile(await client.loadProfile(steamId));
+          if (normalized !== undefined) {
+            const profile = { steamId, ...normalized };
+            profileCache.set(steamId, { value: profile, expiresAt: now() + cacheTtlMs });
+            return profile;
+          }
+          return undefined;
+        } catch {
+          return undefined;
+        } finally {
+          pendingProfileLoads.delete(steamId);
+        }
+      })();
+
+      pendingProfileLoads.set(steamId, load);
+      return load;
+    },
     clearCache() {
       appCache.clear();
       achievementCache.clear();
       groupCache.clear();
       pendingLoads.clear();
+      profileCache.clear();
+      pendingProfileLoads.clear();
     },
   };
 }

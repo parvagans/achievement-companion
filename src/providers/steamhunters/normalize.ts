@@ -3,6 +3,7 @@ import type {
   RawSteamHuntersAchievementGroupResponse,
   RawSteamHuntersAchievementGroupsResponse,
   RawSteamHuntersAppResponse,
+  RawSteamHuntersProfileResponse,
   RawSteamHuntersTag,
 } from "./raw-types";
 import type {
@@ -10,6 +11,7 @@ import type {
   SteamHuntersAchievementGroup,
   SteamHuntersApp,
   SteamHuntersObtainability,
+  SteamHuntersProfile,
   SteamHuntersTag,
 } from "./types";
 
@@ -31,6 +33,10 @@ function asRawAchievementGroup(value: unknown): RawSteamHuntersAchievementGroupR
 
 function asRawTag(value: unknown): RawSteamHuntersTag | undefined {
   return isRecord(value) ? value as RawSteamHuntersTag : undefined;
+}
+
+function asRawProfile(value: unknown): RawSteamHuntersProfileResponse | undefined {
+  return isRecord(value) ? value as RawSteamHuntersProfileResponse : undefined;
 }
 
 function stringValue(value: unknown): string | undefined {
@@ -155,6 +161,55 @@ export function normalizeSteamHuntersApp(value: unknown): SteamHuntersApp | unde
     ...(hasPaidDlc !== undefined ? { hasPaidDlc } : {}),
     tags: normalizeTags(raw.tags),
   };
+}
+
+export function normalizeSteamHuntersProfile(
+  value: unknown,
+): Omit<SteamHuntersProfile, "steamId"> | undefined {
+  const raw = asRawProfile(value);
+  if (raw === undefined) {
+    return undefined;
+  }
+
+  const points = nonNegativeNumber(raw.points);
+  const unrestrictedPoints = nonNegativeNumber(raw.unrestrictedPoints);
+  const averageGameCompletion = percentage(raw.agc);
+  const obtainableAverageGameCompletion = percentage(raw.agcObtainable);
+  const startedGames = nonNegativeInteger(raw.startedGameCount);
+  const trackedGames = nonNegativeInteger(raw.appCount);
+  const perfectedGames = nonNegativeInteger(raw.perfectGameCount);
+  const completedGames = nonNegativeInteger(raw.completedGameCount);
+  const achievements = nonNegativeInteger(raw.achievementUnlockCount);
+  const legendaryAchievements = nonNegativeInteger(raw.legendaryAchievementUnlockCount);
+  const hasProfileMetric = [
+    points,
+    unrestrictedPoints,
+    averageGameCompletion,
+    obtainableAverageGameCompletion,
+    startedGames,
+    trackedGames,
+    perfectedGames,
+    completedGames,
+    achievements,
+    legendaryAchievements,
+  ].some((metric) => metric !== undefined);
+
+  return hasProfileMetric
+    ? {
+      ...(points !== undefined ? { points } : {}),
+      ...(unrestrictedPoints !== undefined ? { unrestrictedPoints } : {}),
+      ...(averageGameCompletion !== undefined ? { averageGameCompletion } : {}),
+      ...(obtainableAverageGameCompletion !== undefined
+        ? { obtainableAverageGameCompletion }
+        : {}),
+      ...(startedGames !== undefined ? { startedGames } : {}),
+      ...(trackedGames !== undefined ? { trackedGames } : {}),
+      ...(perfectedGames !== undefined ? { perfectedGames } : {}),
+      ...(completedGames !== undefined ? { completedGames } : {}),
+      ...(achievements !== undefined ? { achievements } : {}),
+      ...(legendaryAchievements !== undefined ? { legendaryAchievements } : {}),
+    }
+    : undefined;
 }
 
 export function normalizeSteamHuntersAchievement(value: unknown): SteamHuntersAchievement | undefined {

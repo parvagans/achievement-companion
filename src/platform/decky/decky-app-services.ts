@@ -26,6 +26,7 @@ import {
   composeSteamGameDetailWithSteamHunters,
   createSteamHuntersClient,
   createSteamHuntersService,
+  type SteamHuntersProfile,
 } from "../../providers/steamhunters";
 import { createDeckySteamHuntersTransport } from "./providers/steamhunters/backend-transport";
 import { createMemoryCacheStore } from "./memory-cache";
@@ -201,6 +202,7 @@ export const initialDeckyBootstrapState = createIdleState<DashboardSnapshot>();
 export const initialDeckyAchievementHistoryState = createIdleState<AchievementHistorySnapshot>();
 export const initialDeckyCompletionProgressState = createIdleState<CompletionProgressSnapshot>();
 export const initialDeckyGameDetailState = createIdleState<GameDetailSnapshot>();
+export const initialDeckySteamHuntersProfileState = createIdleState<SteamHuntersProfile>();
 
 export function createDeckyPlatform(navigation?: NavigationPort): PlatformServices {
   if (navigation === undefined) {
@@ -256,6 +258,19 @@ export async function loadDeckySteamHuntersEnrichedGameDetail(
   }
 
   return enrichedSnapshot;
+}
+
+/** Loads optional SteamHunters profile totals without refreshing Steam account data. */
+export async function loadDeckySteamHuntersProfileState(
+  steamId: string,
+): Promise<ResourceState<SteamHuntersProfile>> {
+  const profile = await deckySteamHuntersService.loadProfile(steamId);
+  return {
+    status: "success",
+    isStale: false,
+    isRefreshing: false,
+    ...(profile !== undefined ? { data: profile } : {}),
+  };
 }
 
 function getDeckyRecentAchievementStorageKey(providerId: ProviderId, accountId: string): string {

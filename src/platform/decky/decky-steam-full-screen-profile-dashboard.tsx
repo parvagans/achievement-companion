@@ -13,8 +13,10 @@ import type {
   SteamFullScreenProfileSummary,
   SteamProfileGameSummary,
 } from "./decky-steam-full-screen-profile-data";
+import type { SteamHuntersProfile } from "../../providers/steamhunters";
 import barChartIconUrl from "./assets/bar-chart.svg";
 import calendarIconUrl from "./assets/calendar.svg";
+import checkCircleIconUrl from "./assets/check-circle.svg";
 import crownIconUrl from "./assets/crown.svg";
 import libraryIconUrl from "./assets/library.svg";
 import pieChartIconUrl from "./assets/pie-chart.svg";
@@ -26,15 +28,13 @@ import xpIconUrl from "./assets/xp.svg";
 export interface SteamFullScreenProfileDashboardProps {
   readonly profile: NormalizedProfile;
   readonly summary: SteamFullScreenProfileSummary;
+  readonly steamHuntersProfile: SteamHuntersProfile | undefined;
   readonly recentUnlocks: readonly RecentUnlock[];
   readonly refreshedAt: number | undefined;
-  readonly onBack: () => void;
   readonly onOpenCompletionProgress: () => void;
-  readonly onOpenPerfectedGames: () => void;
   readonly onOpenAchievementHistory: () => void;
   readonly onOpenGameDetail: (gameId: string) => void;
   readonly onOpenAchievementDetail: (gameId: string, achievementId: string) => void;
-  readonly onOpenSettings: () => void;
   readonly onOpenProviderSettings: () => void;
   readonly onOpenExternalUrl: (url: string) => void;
 }
@@ -77,34 +77,27 @@ function getFallbackInitials(title: string): string {
 function getDashboardStyle(): CSSProperties {
   return {
     display: "flex",
+    flex: "1 1 auto",
     flexDirection: "column",
-    gap: 10,
+    gap: 6,
     width: "100%",
     minWidth: 0,
+    minHeight: 0,
+    overflow: "hidden",
     color: "rgba(242, 246, 251, 0.98)",
-  };
-}
-
-function getPageTitleStyle(): CSSProperties {
-  return {
-    margin: 0,
-    color: "rgba(210, 228, 247, 0.94)",
-    fontSize: "clamp(1rem, 1.65vw, 1.35rem)",
-    fontWeight: 850,
-    letterSpacing: "0.08em",
-    lineHeight: 1.1,
-    textTransform: "uppercase",
   };
 }
 
 function getDashboardGridStyle(): CSSProperties {
   return {
     display: "grid",
-    gridTemplateColumns: "minmax(248px, 0.9fr) minmax(324px, 1fr) minmax(324px, 1.04fr)",
-    gridTemplateRows: "minmax(286px, auto) minmax(234px, auto)",
+    // Gaming Mode's visible route is 854 CSS pixels wide. These minimums,
+    // including the grid gap, remain inside its content viewport.
+    gridTemplateColumns: "minmax(192px, 0.9fr) minmax(248px, 1fr) minmax(248px, 1.04fr)",
+    gridTemplateRows: "minmax(192px, 1fr) minmax(174px, 0.9fr)",
     gridTemplateAreas: '"profile progress insights" "profile activity recent"',
     alignItems: "stretch",
-    gap: 10,
+    gap: 8,
     width: "100%",
     minWidth: 0,
   };
@@ -115,10 +108,10 @@ function getPanelStyle(gridArea: string): CSSProperties {
     gridArea,
     display: "flex",
     flexDirection: "column",
-    gap: 10,
+    gap: 6,
     minWidth: 0,
     height: "100%",
-    padding: 12,
+    padding: 10,
     border: "1px solid rgba(35, 156, 215, 0.52)",
     borderRadius: 14,
     background:
@@ -200,16 +193,16 @@ function getAvatarIdentityStyle(): CSSProperties {
   return {
     display: "flex",
     alignItems: "center",
-    gap: 12,
+    gap: 9,
     minWidth: 0,
   };
 }
 
 function getAvatarFrameStyle(): CSSProperties {
   return {
-    width: 94,
-    height: 94,
-    flex: "0 0 94px",
+    width: 70,
+    height: 70,
+    flex: "0 0 70px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -289,7 +282,7 @@ function getDividerStyle(): CSSProperties {
 }
 
 function getProfileFactsStyle(): CSSProperties {
-  return { display: "flex", flexDirection: "column", gap: 8, minWidth: 0 };
+  return { display: "flex", flexDirection: "column", gap: 5, minWidth: 0 };
 }
 
 function getProfileFactStyle(): CSSProperties {
@@ -316,7 +309,7 @@ function getIconStyle(size: number, tone: "blue" | "gold" = "blue"): CSSProperti
 function ProfileFact({ iconUrl, children }: { readonly iconUrl: string; readonly children: ReactNode }): JSX.Element {
   return (
     <div style={getProfileFactStyle()}>
-      <img alt="" src={iconUrl} style={getIconStyle(18)} />
+      <img alt="" src={iconUrl} style={getIconStyle(16)} />
       <span>{children}</span>
     </div>
   );
@@ -333,17 +326,17 @@ function getProvidersTitleStyle(): CSSProperties {
 }
 
 function getProviderRowsStyle(): CSSProperties {
-  return { display: "flex", flexDirection: "column", gap: 6 };
+  return { display: "flex", flexDirection: "column", gap: 4 };
 }
 
 function getProviderRowStyle(): CSSProperties {
   return {
     display: "grid",
-    gridTemplateColumns: "28px minmax(0, 1fr) auto",
+    gridTemplateColumns: "24px minmax(0, 1fr) auto",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
     minWidth: 0,
-    padding: "8px 10px",
+    padding: "4px 8px",
     border: "1px solid rgba(66, 153, 198, 0.28)",
     borderRadius: 10,
     backgroundColor: "rgba(16, 54, 75, 0.48)",
@@ -381,9 +374,9 @@ function ProviderRow({ kind, label, state }: {
   return (
     <div style={getProviderRowStyle()}>
       {kind === "steam" ? (
-        <img alt="" src={steamIconUrl} style={getIconStyle(24)} />
+        <img alt="" src={steamIconUrl} style={getIconStyle(20)} />
       ) : (
-        <DeckySteamHuntersIcon color="#59cbff" size={24} />
+        <DeckySteamHuntersIcon color="#59cbff" size={20} />
       )}
       <div style={getProviderNameStyle()}>{label}</div>
       <div style={getProviderStateStyle()}>
@@ -395,7 +388,7 @@ function ProviderRow({ kind, label, state }: {
 }
 
 function getProfileActionsStyle(): CSSProperties {
-  return { display: "flex", flexDirection: "column", gap: 7, marginTop: "auto" };
+  return { display: "flex", flexDirection: "column", gap: 5, marginTop: "auto" };
 }
 
 function SteamProfileIdentityPanel({
@@ -416,7 +409,7 @@ function SteamProfileIdentityPanel({
       <div style={getAvatarIdentityStyle()}>
         <div style={getAvatarFrameStyle()}>
           {avatarUrl !== undefined ? (
-            <DeckyGameArtwork src={avatarUrl} size={90} title={profile.identity.displayName} />
+            <DeckyGameArtwork src={avatarUrl} size={66} title={profile.identity.displayName} />
           ) : (
             <span style={getAvatarFallbackStyle()}>{getFallbackInitials(profile.identity.displayName)}</span>
           )}
@@ -455,6 +448,7 @@ function SteamProfileIdentityPanel({
         <DeckyFullscreenActionRow>
           <DeckyFullscreenActionButton
             contentAlign="left"
+            compact
             disabled={profileUrl === undefined}
             fullWidth
             icon={<DeckySteamExternalLinkIcon size={18} />}
@@ -468,6 +462,7 @@ function SteamProfileIdentityPanel({
           />
           <DeckyFullscreenActionButton
             contentAlign="left"
+            compact
             fullWidth
             icon={<DeckySteamHuntersIcon size={18} />}
             label="Provider Settings"
@@ -485,7 +480,7 @@ function getProgressHeroStyle(): CSSProperties {
     flexDirection: "column",
     alignItems: "center",
     gap: 1,
-    padding: "6px 0 2px",
+    padding: "2px 0",
     textAlign: "center",
   };
 }
@@ -529,11 +524,11 @@ function getMetricGridStyle(columns = 2): CSSProperties {
 function getMetricTileStyle(): CSSProperties {
   return {
     display: "grid",
-    gridTemplateColumns: "32px minmax(0, 1fr)",
+    gridTemplateColumns: "28px minmax(0, 1fr)",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
     minWidth: 0,
-    padding: "9px 10px",
+    padding: "6px 8px",
     border: "1px solid rgba(74, 154, 194, 0.28)",
     borderRadius: 11,
     backgroundColor: "rgba(13, 46, 65, 0.56)",
@@ -579,7 +574,7 @@ function MetricTile({ iconUrl, label, value, tone = "blue" }: {
 }): JSX.Element {
   return (
     <div style={getMetricTileStyle()}>
-      <img alt="" src={iconUrl} style={getIconStyle(27, tone)} />
+      <img alt="" src={iconUrl} style={getIconStyle(23, tone)} />
       <div style={getMetricTextStyle()}>
         <div style={getMetricLabelStyle()}>{label}</div>
         <div style={getMetricValueStyle()}>{value}</div>
@@ -621,8 +616,8 @@ function SteamProgressPanel({ summary }: { readonly summary: SteamFullScreenProf
 function getStatusMetricTileStyle(): CSSProperties {
   return {
     ...getMetricTileStyle(),
-    gridTemplateColumns: "30px minmax(0, 1fr)",
-    padding: "10px",
+    gridTemplateColumns: "28px minmax(0, 1fr)",
+    padding: "6px 8px",
   };
 }
 
@@ -644,31 +639,46 @@ function StatusMetricTile({ icon, label, value }: {
   );
 }
 
-function SteamInsightsPanel({ summary }: { readonly summary: SteamFullScreenProfileSummary }): JSX.Element {
+function SteamInsightsPanel({ steamHuntersProfile }: {
+  readonly steamHuntersProfile: SteamHuntersProfile | undefined;
+}): JSX.Element {
   return (
     <DashboardPanel
       gridArea="insights"
-      title="SteamHunters & Library"
-      subtitle="Verified Steam totals with per-game SteamHunters enrichment"
+      title="SteamHunters Profile"
+      subtitle="SteamHunters totals, separate from your Steam library"
     >
       <div style={getMetricGridStyle()}>
         <StatusMetricTile
-          icon={<DeckySteamHuntersIcon color="#36b9ff" size={27} />}
-          label="SteamHunters"
-          value="Enabled"
+          icon={<DeckySteamHuntersIcon color="#36b9ff" size={23} />}
+          label="Points"
+          value={formatCount(steamHuntersProfile?.points)}
         />
-        <MetricTile iconUrl={libraryIconUrl} label="Played games" value={formatCount(summary.library.playedGames)} />
-        <MetricTile iconUrl={crownIconUrl} label="Perfected games" tone="gold" value={formatCount(summary.achievements.perfectGames)} />
-        <MetricTile iconUrl={barChartIconUrl} label="Completion rate" value={formatPercent(summary.achievements.completionPercent)} />
-        <MetricTile iconUrl={trophyIconUrl} label="Achievements" value={formatCount(summary.achievements.unlocked)} />
-        <MetricTile iconUrl={xpIconUrl} label="Steam level" value={formatCount(summary.account.level)} />
+        <MetricTile
+          iconUrl={pieChartIconUrl}
+          label="Avg. completion"
+          value={formatPercent(steamHuntersProfile?.averageGameCompletion)}
+        />
+        <MetricTile iconUrl={libraryIconUrl} label="Tracked games" value={formatCount(steamHuntersProfile?.trackedGames)} />
+        <MetricTile
+          iconUrl={crownIconUrl}
+          label="Unrestricted points"
+          tone="gold"
+          value={formatCount(steamHuntersProfile?.unrestrictedPoints)}
+        />
+        <MetricTile iconUrl={checkCircleIconUrl} label="Legendary unlocks" value={formatCount(steamHuntersProfile?.legendaryAchievements)} />
+        <MetricTile
+          iconUrl={barChartIconUrl}
+          label="Obtainable completion"
+          value={formatPercent(steamHuntersProfile?.obtainableAverageGameCompletion)}
+        />
       </div>
     </DashboardPanel>
   );
 }
 
 function getListStyle(): CSSProperties {
-  return { display: "flex", flexDirection: "column", gap: 6, minWidth: 0 };
+  return { display: "flex", flexDirection: "column", gap: 4, minWidth: 0 };
 }
 
 function getListRowStyle(): CSSProperties {
@@ -676,9 +686,9 @@ function getListRowStyle(): CSSProperties {
     display: "grid",
     gridTemplateColumns: "auto minmax(0, 1fr) auto",
     alignItems: "center",
-    gap: 9,
+    gap: 6,
     minWidth: 0,
-    padding: 6,
+    padding: 4,
     border: "1px solid rgba(66, 153, 198, 0.24)",
     borderRadius: 10,
     backgroundColor: "rgba(10, 37, 53, 0.62)",
@@ -845,10 +855,10 @@ function SteamRecentActivityPanel({
                 }}
               >
                 <DashboardArtwork
-                  height={42}
+                  height={32}
                   src={recentUnlock.achievement.badgeImageUrl}
                   title={recentUnlock.achievement.title}
-                  width={42}
+                  width={32}
                 />
                 <div style={getListTextStyle()}>
                   <div style={getListTitleStyle()}>{recentUnlock.achievement.title}</div>
@@ -894,10 +904,10 @@ function SteamRecentGameRow({ game, onOpenGameDetail }: {
       }}
     >
       <DashboardArtwork
-        height={44}
+        height={32}
         src={game.artworkUrl}
         title={game.title}
-        width={76}
+        width={56}
       />
       <div style={getListTextStyle()}>
         <div style={getListTitleStyle()}>{game.title}</div>
@@ -941,68 +951,21 @@ function SteamRecentlyPlayedPanel({ summary, onOpenCompletionProgress, onOpenGam
   );
 }
 
-function getFooterStyle(): CSSProperties {
-  return {
-    position: "sticky",
-    bottom: 0,
-    zIndex: 2,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    width: "100%",
-    padding: "9px 12px 5px",
-    borderTop: "1px solid rgba(54, 185, 255, 0.26)",
-    background: "linear-gradient(180deg, rgba(3, 18, 29, 0.84), rgba(3, 18, 29, 0.98) 34%)",
-    boxSizing: "border-box",
-  };
-}
-
-function SteamProfileFooterNavigation({
-  onBack,
-  onOpenCompletionProgress,
-  onOpenPerfectedGames,
-  onOpenAchievementHistory,
-  onOpenSettings,
-}: Pick<
-  SteamFullScreenProfileDashboardProps,
-  | "onBack"
-  | "onOpenCompletionProgress"
-  | "onOpenPerfectedGames"
-  | "onOpenAchievementHistory"
-  | "onOpenSettings"
->): JSX.Element {
-  return (
-    <div aria-label="Profile navigation" style={getFooterStyle()}>
-      <DeckyFullscreenActionRow centered>
-        <DeckyFullscreenActionButton compact isFullscreenBackAction label="Back" onClick={onBack} />
-        <DeckyFullscreenActionButton compact label="Profile" selected onClick={() => {}} />
-        <DeckyFullscreenActionButton compact label="Games" onClick={onOpenCompletionProgress} />
-        <DeckyFullscreenActionButton compact label="Perfected" onClick={onOpenPerfectedGames} />
-        <DeckyFullscreenActionButton compact label="Activity" onClick={onOpenAchievementHistory} />
-        <DeckyFullscreenActionButton compact label="Settings" onClick={onOpenSettings} />
-      </DeckyFullscreenActionRow>
-    </div>
-  );
-}
-
 export function SteamFullScreenProfileDashboard({
   profile,
   summary,
+  steamHuntersProfile,
   recentUnlocks,
   refreshedAt,
-  onBack,
   onOpenCompletionProgress,
-  onOpenPerfectedGames,
   onOpenAchievementHistory,
   onOpenGameDetail,
   onOpenAchievementDetail,
-  onOpenSettings,
   onOpenProviderSettings,
   onOpenExternalUrl,
 }: SteamFullScreenProfileDashboardProps): JSX.Element {
   return (
     <div data-steam-full-screen-profile-dashboard style={getDashboardStyle()}>
-      <h1 style={getPageTitleStyle()}>Profile</h1>
       <div style={getDashboardGridStyle()}>
         <SteamProfileIdentityPanel
           profile={profile}
@@ -1011,7 +974,7 @@ export function SteamFullScreenProfileDashboard({
           onOpenExternalUrl={onOpenExternalUrl}
         />
         <SteamProgressPanel summary={summary} />
-        <SteamInsightsPanel summary={summary} />
+      <SteamInsightsPanel steamHuntersProfile={steamHuntersProfile} />
         <SteamRecentActivityPanel
           recentUnlocks={recentUnlocks}
           onOpenAchievementHistory={onOpenAchievementHistory}
@@ -1023,13 +986,6 @@ export function SteamFullScreenProfileDashboard({
           onOpenGameDetail={onOpenGameDetail}
         />
       </div>
-      <SteamProfileFooterNavigation
-        onBack={onBack}
-        onOpenCompletionProgress={onOpenCompletionProgress}
-        onOpenPerfectedGames={onOpenPerfectedGames}
-        onOpenAchievementHistory={onOpenAchievementHistory}
-        onOpenSettings={onOpenSettings}
-      />
     </div>
   );
 }

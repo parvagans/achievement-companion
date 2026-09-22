@@ -10,6 +10,7 @@ import {
   normalizeSteamHuntersAchievement,
   normalizeSteamHuntersAchievementGroups,
   normalizeSteamHuntersApp,
+  normalizeSteamHuntersProfile,
   normalizeSteamHuntersObtainability,
   SteamHuntersRequestError,
   type SteamHuntersClient,
@@ -62,11 +63,13 @@ test("SteamHunters client uses credential-free AppID endpoint URLs", async () =>
   await client.loadApp(1672970);
   await client.loadAchievements(1672970);
   await client.loadGroups(1672970);
+  await client.loadProfile("76561198000000000");
 
   assert.deepEqual(requests.map((request) => request.url), [
     "https://example.test/api/apps/1672970",
     "https://example.test/api/apps/1672970/achievements",
     "https://example.test/api/GetAchievementGroups/v1?appid=1672970",
+    "https://example.test/api/steam-users/76561198000000000",
   ]);
   assert.equal(requests[0]?.credentials, "omit");
   assert.equal(requests[0]?.headers.get("Accept"), "application/json");
@@ -127,6 +130,33 @@ test("SteamHunters normalization accepts complete and partial app payloads", () 
     tags: [],
   });
   assert.equal(normalizeSteamHuntersApp({ appId: "1672970" }), undefined);
+});
+
+test("SteamHunters profile normalization keeps only SteamHunters profile totals", () => {
+  assert.deepEqual(normalizeSteamHuntersProfile({
+    points: 17_207,
+    unrestrictedPoints: 16_904,
+    agc: 61.4,
+    agcObtainable: 64.7,
+    startedGameCount: 187,
+    appCount: 187,
+    perfectGameCount: 23,
+    completedGameCount: 38,
+    achievementUnlockCount: 7_842,
+    legendaryAchievementUnlockCount: 12,
+  }), {
+    points: 17_207,
+    unrestrictedPoints: 16_904,
+    averageGameCompletion: 61.4,
+    obtainableAverageGameCompletion: 64.7,
+    startedGames: 187,
+    trackedGames: 187,
+    perfectedGames: 23,
+    completedGames: 38,
+    achievements: 7_842,
+    legendaryAchievements: 12,
+  });
+  assert.equal(normalizeSteamHuntersProfile({ points: "17,207" }), undefined);
 });
 
 test("SteamHunters normalization safely handles achievement fields and obtainability values", () => {
@@ -226,6 +256,9 @@ test("SteamHunters service deduplicates concurrent requests, caches metadata, an
       groupCalls += 1;
       return { groups: [{ achievementApiNames: ["API_ONE"] }] };
     },
+    async loadProfile() {
+      return {};
+    },
   };
   const service = createSteamHuntersService({ client, cacheTtlMs: 60_000 });
   const [first, second] = await Promise.all([service.loadGameData(1672970), service.loadGameData(1672970)]);
@@ -244,6 +277,7 @@ test("SteamHunters service deduplicates concurrent requests, caches metadata, an
       loadApp: async () => { throw new Error("offline"); },
       loadAchievements: async () => [],
       loadGroups: async () => [],
+      loadProfile: async () => ({}),
     },
   });
   assert.equal(await unavailable.loadGameData(1672970), undefined);

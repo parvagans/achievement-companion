@@ -2,12 +2,13 @@ export interface SteamHuntersClient {
   loadApp(appId: number): Promise<unknown>;
   loadAchievements(appId: number): Promise<unknown>;
   loadGroups(appId: number): Promise<unknown>;
+  loadProfile(steamId: string): Promise<unknown>;
 }
 
-export type SteamHuntersResource = "app" | "achievements" | "groups";
+export type SteamHuntersResource = "app" | "achievements" | "groups" | "profile";
 
 export interface SteamHuntersTransport {
-  requestJson(appId: number, resource: SteamHuntersResource): Promise<unknown>;
+  requestJson(identifier: number | string, resource: SteamHuntersResource): Promise<unknown>;
 }
 
 export class SteamHuntersRequestError extends Error {
@@ -40,6 +41,15 @@ function normalizeAppId(appId: number): number {
   return appId;
 }
 
+function normalizeSteamId(steamId: string): string {
+  const normalized = steamId.trim();
+  if (!/^\d{15,20}$/.test(normalized)) {
+    throw new Error("SteamHunters profile lookup requires a SteamID64.");
+  }
+
+  return normalized;
+}
+
 function normalizeBaseUrl(value: string): string {
   return value.endsWith("/") ? value : `${value}/`;
 }
@@ -59,16 +69,18 @@ export function createFetchSteamHuntersTransport(
   const fetchImpl = options.fetchImpl ?? globalThis.fetch;
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
-  async function requestJson(appId: number, resource: SteamHuntersResource): Promise<unknown> {
+  async function requestJson(identifier: number | string, resource: SteamHuntersResource): Promise<unknown> {
     if (typeof fetchImpl !== "function") {
       throw new Error("SteamHunters client requires a fetch implementation.");
     }
 
-    const path = resource === "app"
-      ? `apps/${appId}`
-      : resource === "achievements"
-        ? `apps/${appId}/achievements`
-        : `GetAchievementGroups/v1?appid=${appId}`;
+    const path = resource === "profile"
+      ? `steam-users/${normalizeSteamId(String(identifier))}`
+      : resource === "app"
+        ? `apps/${normalizeAppId(Number(identifier))}`
+        : resource === "achievements"
+          ? `apps/${normalizeAppId(Number(identifier))}/achievements`
+          : `GetAchievementGroups/v1?appid=${normalizeAppId(Number(identifier))}`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -131,6 +143,9 @@ export function createSteamHuntersClient(
     },
     loadGroups(appId) {
       return transport.requestJson(normalizeAppId(appId), "groups");
+    },
+    loadProfile(steamId) {
+      return transport.requestJson(normalizeSteamId(steamId), "profile");
     },
   };
 }
