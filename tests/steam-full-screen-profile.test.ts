@@ -332,6 +332,13 @@ test("steam games route uses the fixed concept dashboard and shared profile foot
   assert.match(dashboardSource, /data-steam-full-screen-games-dashboard/u);
   assert.match(dashboardSource, /height: "100%"[\s\S]*overflow: "hidden"/u);
   assert.match(dashboardSource, /repeat\(5, minmax\(0, 1fr\)\) minmax\(230px, 2\.2fr\)/u);
+  assert.match(dashboardSource, /const STEAM_GAMES_ROW_ARTWORK_WIDTH = 134;/u);
+  assert.match(dashboardSource, /const STEAM_GAMES_ROW_ARTWORK_HEIGHT = 58;/u);
+  assert.match(dashboardSource, /const STEAM_GAMES_ROW_HEIGHT = 65;/u);
+  assert.match(dashboardSource, /<img\s+alt=""\s+aria-hidden="true"\s+src=\{src\}/u);
+  assert.match(dashboardSource, /filter: STEAM_GAMES_ICON_FILTERS\[tone\]/u);
+  assert.doesNotMatch(dashboardSource, /MaskImage|IconMask/u);
+  assert.doesNotMatch(dashboardSource, /checkCircleIconUrl|steamIconUrl|getPillStyle/u);
   assert.match(dashboardSource, /All Games \(\$\{formatCount\(summary\.trackedCount\)\}\)/u);
   assert.match(dashboardSource, /Played \(\$\{formatCount\(summary\.playedCount\)\}\)/u);
   assert.match(dashboardSource, /Unfinished \(\$\{formatCount\(summary\.unfinishedCount\)\}\)/u);

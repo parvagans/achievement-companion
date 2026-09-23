@@ -29,7 +29,6 @@ import {
 import barChartIconUrl from "./assets/bar-chart.svg";
 import calendarIconUrl from "./assets/calendar.svg";
 import caretDownIconUrl from "./assets/caret-down.svg";
-import checkCircleIconUrl from "./assets/check-circle.svg";
 import chevronRightIconUrl from "./assets/chevron-right.svg";
 import clockIconUrl from "./assets/clock.svg";
 import crownIconUrl from "./assets/crown.svg";
@@ -37,13 +36,23 @@ import gamepadIconUrl from "./assets/gamepad.svg";
 import listIconUrl from "./assets/list.svg";
 import prohibitedIconUrl from "./assets/prohibited.svg";
 import searchIconUrl from "./assets/search.svg";
-import steamIconUrl from "./assets/steam.svg";
 
 const STEAM_GAMES_FOCUS_CLASS = "achievement-companion-steam-games-focus";
 const STEAM_GAMES_SEARCH_CLASS = "achievement-companion-steam-games-search";
 const STEAM_GAMES_LIST_CLASS = "achievement-companion-steam-games-list";
-const STEAM_GAMES_ROW_ARTWORK_WIDTH = 120;
-const STEAM_GAMES_ROW_HEIGHT = 45;
+const STEAM_GAMES_ROW_ARTWORK_WIDTH = 134;
+const STEAM_GAMES_ROW_ARTWORK_HEIGHT = 58;
+const STEAM_GAMES_ROW_HEIGHT = 65;
+const STEAM_GAMES_ICON_FILTERS = {
+  blue:
+    "brightness(0) saturate(100%) invert(62%) sepia(84%) saturate(1250%) hue-rotate(165deg) brightness(101%) contrast(102%)",
+  gold:
+    "brightness(0) saturate(100%) invert(78%) sepia(63%) saturate(754%) hue-rotate(350deg) brightness(102%) contrast(92%)",
+  light:
+    "brightness(0) saturate(100%) invert(94%) sepia(13%) saturate(467%) hue-rotate(172deg) brightness(104%) contrast(97%)",
+  red:
+    "brightness(0) saturate(100%) invert(43%) sepia(92%) saturate(2924%) hue-rotate(329deg) brightness(104%) contrast(102%)",
+} as const;
 const SteamGamesSearchField = TextField as unknown as FC<
   ComponentProps<typeof TextField> & { readonly placeholder?: string }
 >;
@@ -135,32 +144,28 @@ function SteamGamesRouteStyles(): JSX.Element {
   return <span ref={anchorRef} hidden aria-hidden="true" />;
 }
 
-function IconMask({
+type SteamGamesIconTone = keyof typeof STEAM_GAMES_ICON_FILTERS;
+
+function IconAsset({
   src,
-  color = "currentColor",
   size,
+  tone = "blue",
 }: {
   readonly src: string;
-  readonly color?: string;
   readonly size: number;
+  readonly tone?: SteamGamesIconTone;
 }): JSX.Element {
   return (
-    <span
+    <img
+      alt=""
       aria-hidden="true"
+      src={src}
       style={{
-        display: "inline-block",
+        display: "block",
         width: size,
         height: size,
         flex: `0 0 ${size}px`,
-        backgroundColor: color,
-        WebkitMaskImage: `url(${src})`,
-        WebkitMaskPosition: "center",
-        WebkitMaskRepeat: "no-repeat",
-        WebkitMaskSize: "contain",
-        maskImage: `url(${src})`,
-        maskPosition: "center",
-        maskRepeat: "no-repeat",
-        maskSize: "contain",
+        filter: STEAM_GAMES_ICON_FILTERS[tone],
       }}
     />
   );
@@ -233,20 +238,20 @@ function getMetricHelperStyle(): CSSProperties {
 
 function MetricCard({
   iconUrl,
-  iconColor,
+  iconTone = "blue",
   value,
   label,
   helper,
 }: {
   readonly iconUrl: string;
-  readonly iconColor: string;
+  readonly iconTone?: SteamGamesIconTone;
   readonly value: string;
   readonly label: string;
   readonly helper?: string;
 }): JSX.Element {
   return (
     <div style={getMetricCardStyle()}>
-      <IconMask color={iconColor} size={27} src={iconUrl} />
+      <IconAsset size={27} src={iconUrl} tone={iconTone} />
       <div style={{ minWidth: 0 }}>
         <div style={getMetricValueStyle()}>{value}</div>
         <div style={getMetricLabelStyle()}>{label}</div>
@@ -463,7 +468,7 @@ function SteamGamesSortButton({
         style={getSortButtonStyle()}
       >
         <span>{selectedLabel}</span>
-        <IconMask color="#d5e6f4" size={12} src={caretDownIconUrl} />
+        <IconAsset size={12} src={caretDownIconUrl} tone="light" />
       </Focusable>
     </div>
   );
@@ -506,7 +511,7 @@ function getTitleStyle(): CSSProperties {
     minWidth: 0,
     overflow: "hidden",
     color: "#f3f7fb",
-    fontSize: 10.5,
+    fontSize: 12,
     fontWeight: 850,
     lineHeight: 1.15,
     textOverflow: "ellipsis",
@@ -514,30 +519,12 @@ function getTitleStyle(): CSSProperties {
   };
 }
 
-function getPillStyle(): CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 4,
-    height: 17,
-    padding: "0 7px",
-    border: "1px solid rgba(95, 153, 193, 0.2)",
-    borderRadius: 999,
-    boxSizing: "border-box",
-    color: "#d3e1ed",
-    background: "rgba(28, 58, 78, 0.72)",
-    fontSize: 8,
-    lineHeight: 1,
-    whiteSpace: "nowrap",
-  };
-}
-
 function getProgressMetaStyle(): CSSProperties {
-  return { color: "#edf4fa", fontSize: 9, fontWeight: 750, lineHeight: 1, whiteSpace: "nowrap" };
+  return { color: "#edf4fa", fontSize: 10, fontWeight: 750, lineHeight: 1, whiteSpace: "nowrap" };
 }
 
 function getSecondaryMetaStyle(): CSSProperties {
-  return { color: "#aac0d3", fontSize: 8.5, lineHeight: 1, whiteSpace: "nowrap" };
+  return { color: "#aac0d3", fontSize: 9.5, lineHeight: 1, whiteSpace: "nowrap" };
 }
 
 function getProgressTrackStyle(): CSSProperties {
@@ -581,28 +568,18 @@ function SteamGamesRow({
     >
       <DeckyGameArtwork
         compact
-        height={STEAM_GAMES_ROW_HEIGHT - 5}
-        size={STEAM_GAMES_ROW_HEIGHT - 5}
+        height={STEAM_GAMES_ROW_ARTWORK_HEIGHT}
+        size={STEAM_GAMES_ROW_ARTWORK_HEIGHT}
         {...(artworkUrl !== undefined ? { src: artworkUrl } : {})}
         title={game.title}
         width={STEAM_GAMES_ROW_ARTWORK_WIDTH}
       />
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+      <div style={{ minWidth: 0 }}>
         <div style={getTitleStyle()}>{game.title}</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
-          <span style={getPillStyle()}>
-            <IconMask color="#dfeaf3" size={10} src={steamIconUrl} />
-            Steam
-          </span>
-          <span style={getPillStyle()}>
-            <IconMask color="#00e69a" size={10} src={checkCircleIconUrl} />
-            Tracked
-          </span>
-        </div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 5, minWidth: 0 }}>
         <div style={getProgressMetaStyle()}>
           {totalCount !== undefined
             ? `${formatCount(game.summary.unlockedCount)} / ${formatCount(totalCount)} achievements`
@@ -621,15 +598,15 @@ function SteamGamesRow({
               }}
             />
           </div>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, minWidth: 33, color: "#f3f7fb", fontSize: 11, fontWeight: 900 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, minWidth: 36, color: "#f3f7fb", fontSize: 12, fontWeight: 900 }}>
             {formatPercent(completionPercent)}
-            {isPerfected ? <IconMask color="#ffc928" size={13} src={crownIconUrl} /> : null}
+            {isPerfected ? <IconAsset size={14} src={crownIconUrl} tone="gold" /> : null}
           </span>
         </div>
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "22px minmax(0, 1fr)", alignItems: "center", gap: 6, minWidth: 0 }}>
-        <IconMask color="#19baff" size={19} src={clockIconUrl} />
+        <IconAsset size={20} src={clockIconUrl} />
         <div style={{ minWidth: 0 }}>
           <div style={{ ...getProgressMetaStyle(), overflow: "hidden", textOverflow: "ellipsis" }}>{playtime}</div>
           <div style={getSecondaryMetaStyle()}>Total Playtime</div>
@@ -637,7 +614,7 @@ function SteamGamesRow({
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "22px minmax(0, 1fr)", alignItems: "center", gap: 6, minWidth: 0 }}>
-        <IconMask color="#19baff" size={18} src={calendarIconUrl} />
+        <IconAsset size={20} src={calendarIconUrl} />
         <div style={{ minWidth: 0 }}>
           <div style={{ ...getProgressMetaStyle(), overflow: "hidden", textOverflow: "ellipsis" }}>
             {formatLastPlayed(game.lastPlayedAt)}
@@ -646,7 +623,7 @@ function SteamGamesRow({
         </div>
       </div>
 
-      <IconMask color="#c7eaff" size={16} src={chevronRightIconUrl} />
+      <IconAsset size={17} src={chevronRightIconUrl} tone="light" />
     </Focusable>
   );
 }
@@ -656,35 +633,32 @@ function SteamGamesSummaryCards({ summary }: { readonly summary: SteamGamesDashb
     <div style={getSummaryGridStyle()}>
       <MetricCard
         helper="(Steam Library)"
-        iconColor="#4ec5ff"
         iconUrl={gamepadIconUrl}
         label="Games Tracked"
         value={formatCount(summary.trackedCount)}
       />
       <MetricCard
         helper={formatPercent(getSteamGamesPercentage(summary.playedCount, summary.trackedCount))}
-        iconColor="#2db7f2"
         iconUrl={barChartIconUrl}
         label="Played"
         value={formatCount(summary.playedCount)}
       />
       <MetricCard
         helper={formatPercent(getSteamGamesPercentage(summary.unfinishedCount, summary.trackedCount))}
-        iconColor="#58c7ff"
         iconUrl={listIconUrl}
         label="Unfinished"
         value={formatCount(summary.unfinishedCount)}
       />
       <MetricCard
         helper={formatPercent(getSteamGamesPercentage(summary.skippedCount, summary.trackedCount))}
-        iconColor="#ff4e59"
+        iconTone="red"
         iconUrl={prohibitedIconUrl}
         label="Skipped"
         value={formatCount(summary.skippedCount)}
       />
       <MetricCard
         helper={formatPercent(getSteamGamesPercentage(summary.perfectedCount, summary.trackedCount))}
-        iconColor="#ffc92f"
+        iconTone="gold"
         iconUrl={crownIconUrl}
         label="Perfected"
         value={formatCount(summary.perfectedCount)}
@@ -728,7 +702,7 @@ export function DeckySteamFullScreenGamesDashboard({
         <Focusable flow-children="left-right" noFocusRing tabIndex={-1} style={getToolbarStyle()}>
           <div style={getSearchWrapStyle()}>
             <span style={getSearchIconStyle()}>
-              <IconMask color="#eef7ff" size={14} src={searchIconUrl} />
+              <IconAsset size={14} src={searchIconUrl} tone="light" />
             </span>
             <SteamGamesSearchField
               aria-label="Search your games"
