@@ -561,6 +561,22 @@ function DeckyFullScreenCompletionProgressRoute(): JSX.Element {
           suppressNextFullscreenRouteUnmountAction();
           DeckyNavigation.NavigateBack();
         }}
+        onOpenActivity={() => {
+          if (params.providerId === undefined) {
+            return;
+          }
+
+          registerFullScreenAchievementHistoryRoute();
+          const route = buildFullScreenAchievementHistoryRoute({
+            view: "achievement-history",
+            surface: "full-screen",
+            providerId: params.providerId,
+          });
+          if (route !== undefined) {
+            suppressNextFullscreenRouteUnmountAction();
+            DeckyNavigation.Navigate(route);
+          }
+        }}
         onOpenGameDetail={(gameId) => {
           if (params.providerId !== undefined) {
             navigateToFullScreenGame(params.providerId, gameId, "completion-progress", true);

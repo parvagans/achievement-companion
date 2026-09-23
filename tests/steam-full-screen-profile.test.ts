@@ -1,13 +1,23 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import type { NormalizedProfile, RecentlyPlayedGame } from "../src/core/domain";
+import type {
+  CompletionProgressSnapshot,
+  NormalizedGame,
+  NormalizedProfile,
+  RecentlyPlayedGame,
+} from "../src/core/domain";
 import type { SteamLibraryAchievementScanSummary } from "../src/providers/steam/library-scan";
 import {
   consumeNextFullScreenCompletionProgressFilter,
   markNextFullScreenCompletionProgressFilter,
 } from "../src/platform/decky/decky-full-screen-navigation-state";
 import { buildSteamFullScreenProfileSummary } from "../src/platform/decky/decky-steam-full-screen-profile-data";
+import {
+  matchesSteamGamesFilter,
+  selectSteamGames,
+  summarizeSteamGamesDashboard,
+} from "../src/platform/decky/decky-steam-full-screen-games-data";
 
 function createProfile(): NormalizedProfile {
   return {
@@ -194,6 +204,146 @@ test("steam full-screen profile uses Steam's native game icon for recently playe
     summary.recentGames[0]?.artworkUrl,
     "https://cdn.example.invalid/game-icon.jpg",
   );
+});
+
+test("steam games dashboard preserves scan semantics across summary, filters, search, and sorting", () => {
+  const games = [
+    {
+      providerId: "steam",
+      gameId: "perfect",
+      title: "Perfect Game",
+      status: "mastered",
+      summary: { unlockedCount: 10, totalCount: 10, completionPercent: 100 },
+      metrics: [],
+      hasAchievements: true,
+      scanStatus: "scanned",
+      playtimeForeverMinutes: 600,
+      lastPlayedAt: 100,
+    },
+    {
+      providerId: "steam",
+      gameId: "unfinished-played",
+      title: "Alpha Adventure",
+      status: "in_progress",
+      summary: { unlockedCount: 30, totalCount: 50, completionPercent: 60 },
+      metrics: [],
+      hasAchievements: true,
+      scanStatus: "scanned",
+      playtimeForeverMinutes: 120,
+      lastPlayedAt: 300,
+    },
+    {
+      providerId: "steam",
+      gameId: "unfinished-unplayed",
+      title: "Zero Hour",
+      status: "locked",
+      summary: { unlockedCount: 0, totalCount: 20, completionPercent: 0 },
+      metrics: [],
+      hasAchievements: false,
+      scanStatus: "scanned",
+    },
+    {
+      providerId: "steam",
+      gameId: "skipped",
+      title: "Skipped Game",
+      status: "locked",
+      summary: { unlockedCount: 0 },
+      metrics: [],
+      hasAchievements: false,
+      scanStatus: "no-achievements",
+      playtimeForeverMinutes: 40,
+      lastPlayedAt: 200,
+    },
+    {
+      providerId: "steam",
+      gameId: "failed",
+      title: "Failed Scan",
+      status: "locked",
+      summary: { unlockedCount: 0 },
+      metrics: [],
+      hasAchievements: false,
+      scanStatus: "failed",
+    },
+  ] satisfies readonly NormalizedGame[];
+  const snapshot = {
+    providerId: "steam",
+    games,
+    summary: {
+      playedCount: 3,
+      unfinishedCount: 2,
+      beatenCount: 2,
+      masteredCount: 1,
+    },
+  } satisfies CompletionProgressSnapshot;
+
+  assert.deepEqual(summarizeSteamGamesDashboard(snapshot), {
+    trackedCount: 5,
+    playedCount: 3,
+    unfinishedCount: 2,
+    skippedCount: 2,
+    perfectedCount: 1,
+    unlockedAchievements: 40,
+    totalAchievements: 80,
+    completionPercent: 50,
+  });
+  assert.deepEqual(games.filter((game) => matchesSteamGamesFilter(game, "played")).map((game) => game.gameId), [
+    "perfect",
+    "unfinished-played",
+    "skipped",
+  ]);
+  assert.deepEqual(games.filter((game) => matchesSteamGamesFilter(game, "unfinished")).map((game) => game.gameId), [
+    "unfinished-played",
+    "unfinished-unplayed",
+  ]);
+  assert.deepEqual(games.filter((game) => matchesSteamGamesFilter(game, "beaten")).map((game) => game.gameId), [
+    "skipped",
+    "failed",
+  ]);
+  assert.deepEqual(games.filter((game) => matchesSteamGamesFilter(game, "mastered")).map((game) => game.gameId), [
+    "perfect",
+  ]);
+  assert.deepEqual(
+    selectSteamGames({ games, filter: "all", query: "game", sort: "completion" }).map((game) => game.gameId),
+    ["perfect", "skipped"],
+  );
+  assert.deepEqual(
+    selectSteamGames({ games, filter: "all", query: "", sort: "recent" }).map((game) => game.gameId),
+    ["unfinished-played", "skipped", "perfect", "failed", "unfinished-unplayed"],
+  );
+});
+
+test("steam games route uses the fixed concept dashboard and shared profile footer", async () => {
+  const [pageSource, dashboardSource, footerSource] = await Promise.all([
+    readFile(
+      new URL("../src/platform/decky/decky-full-screen-completion-progress-page.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../src/platform/decky/decky-steam-full-screen-games-dashboard.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../src/platform/decky/decky-full-screen-footer-overlay.tsx", import.meta.url),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(pageSource, /snapshot\.providerId === STEAM_PROVIDER_ID[\s\S]*<DeckySteamFullScreenGamesDashboard/u);
+  assert.match(dashboardSource, /data-steam-full-screen-games-dashboard/u);
+  assert.match(dashboardSource, /height: "100%"[\s\S]*overflow: "hidden"/u);
+  assert.match(dashboardSource, /repeat\(5, minmax\(0, 1fr\)\) minmax\(230px, 2\.2fr\)/u);
+  assert.match(dashboardSource, /All Games \(\$\{formatCount\(summary\.trackedCount\)\}\)/u);
+  assert.match(dashboardSource, /Played \(\$\{formatCount\(summary\.playedCount\)\}\)/u);
+  assert.match(dashboardSource, /Unfinished \(\$\{formatCount\(summary\.unfinishedCount\)\}\)/u);
+  assert.match(dashboardSource, /Perfected \(\$\{formatCount\(summary\.perfectedCount\)\}\)/u);
+  assert.match(dashboardSource, /Skipped \(\$\{formatCount\(summary\.skippedCount\)\}\)/u);
+  assert.match(dashboardSource, /<DeckyFullScreenFooterOverlay/u);
+  assert.match(dashboardSource, /navigationItems=\{STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS\}/u);
+  assert.match(dashboardSource, /activeNavigationItemId=\{activeNavigationItemId\}/u);
+  assert.match(dashboardSource, /if \(filter === "mastered"\)[\s\S]*onOpenActivity\(\)/u);
+  assert.match(dashboardSource, /if \(filter === "mastered"\)[\s\S]*setFilter\("all"\)/u);
+  assert.match(footerSource, /export const STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS/u);
+  assert.doesNotMatch(dashboardSource, /<ScrollPanel>/u);
 });
 
 test("steam full-screen profile uses the requested top-row and equal lower-row dashboard layout", async () => {

@@ -12,6 +12,14 @@ import {
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
 import {
+  DeckyFullScreenFooterOverlay,
+  STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS,
+} from "./decky-full-screen-footer-overlay";
+import {
+  DeckyFullScreenLoadingState,
+  getDeckyFullScreenLoadingPageStyle,
+} from "./decky-full-screen-loading-state";
+import {
   DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS,
   DECKY_FOCUS_ACTION_ROW_CLASS,
 } from "./decky-focus-styles";
@@ -48,6 +56,7 @@ import {
   getRetroAchievementsCompletionIndicatorState,
   RetroAchievementsCompletionIndicator,
 } from "./decky-retroachievements-completion-indicator";
+import { DeckySteamFullScreenGamesDashboard } from "./decky-steam-full-screen-games-dashboard";
 
 const COMPLETION_PROGRESS_INITIAL_GAME_LIMIT = 12;
 const COMPLETION_PROGRESS_GAME_LOAD_STEP = 12;
@@ -61,6 +70,7 @@ export interface DeckyFullScreenCompletionProgressPageProps {
   readonly providerId: string | undefined;
   readonly initialFilter?: CompletionProgressSelectionFilter;
   readonly onBack: () => void;
+  readonly onOpenActivity: () => void;
   readonly onOpenGameDetail: (gameId: string) => void;
 }
 
@@ -588,11 +598,14 @@ export function DeckyFullScreenCompletionProgressPage({
   providerId,
   initialFilter,
   onBack,
+  onOpenActivity,
   onOpenGameDetail,
 }: DeckyFullScreenCompletionProgressPageProps): JSX.Element {
   const deckySettings = useDeckySettings();
   const [currentFilter, setCurrentFilter] = useState<CompletionProgressSelectionFilter>(
-    initialFilter ?? deckySettings.defaultCompletionProgressFilter,
+    initialFilter ?? (
+      providerId === STEAM_PROVIDER_ID ? "all" : deckySettings.defaultCompletionProgressFilter
+    ),
   );
   const [visibleGameLimit, setVisibleGameLimit] = useState(COMPLETION_PROGRESS_INITIAL_GAME_LIMIT);
   const [isShowingAllGames, setIsShowingAllGames] = useState(false);
@@ -614,6 +627,43 @@ export function DeckyFullScreenCompletionProgressPage({
   }, [currentFilter, deckySettings.showCompletionProgressSubsets]);
 
   if (!isRenderableCompletionProgressState(state)) {
+    if (providerId === STEAM_PROVIDER_ID) {
+      const activeNavigationItemId = currentFilter === "mastered" ? "perfected" : "games";
+      return (
+        <>
+          <div style={{ ...getDeckyFullScreenLoadingPageStyle(), paddingBottom: 48 }}>
+            <DeckyFullScreenLoadingState
+              description={state.error?.userMessage ?? "Loading your cached Steam library achievement scan."}
+              isError={state.status === "error"}
+              title={state.status === "error" ? "Steam games unavailable" : "Loading Steam games..."}
+            />
+          </div>
+          <DeckyFullScreenFooterOverlay
+            activeNavigationItemId={activeNavigationItemId}
+            ariaLabel="Steam profile navigation"
+            navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
+            onBack={onBack}
+            onNextNavigationItem={() => {
+              if (currentFilter === "mastered") {
+                onOpenActivity();
+                return;
+              }
+
+              setCurrentFilter("mastered");
+            }}
+            onPreviousNavigationItem={() => {
+              if (currentFilter === "mastered") {
+                setCurrentFilter("all");
+                return;
+              }
+
+              onBack();
+            }}
+          />
+        </>
+      );
+    }
+
     return (
       <ScrollPanel>
         <TopAlignedScrollViewport scrollKey={`full-screen-completion-progress:${providerId ?? "missing"}`}>
@@ -635,6 +685,18 @@ export function DeckyFullScreenCompletionProgressPage({
   }
 
   const snapshot = state.data;
+  if (snapshot.providerId === STEAM_PROVIDER_ID) {
+    return (
+      <DeckySteamFullScreenGamesDashboard
+        snapshot={snapshot}
+        initialFilter={currentFilter}
+        onBack={onBack}
+        onOpenActivity={onOpenActivity}
+        onOpenGameDetail={onOpenGameDetail}
+      />
+    );
+  }
+
   const visibleGames = filterCompletionProgressGamesBySubsetVisibility(
     snapshot.games,
     deckySettings.showCompletionProgressSubsets,

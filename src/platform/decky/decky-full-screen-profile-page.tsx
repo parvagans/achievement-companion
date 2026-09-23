@@ -59,16 +59,8 @@ import { buildSteamFullScreenProfileSummary } from "./decky-steam-full-screen-pr
 import { SteamFullScreenProfileDashboard } from "./decky-steam-full-screen-profile-dashboard";
 import {
   DeckyFullScreenFooterOverlay,
-  type DeckyFullScreenFooterNavigationItem,
+  STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS,
 } from "./decky-full-screen-footer-overlay";
-
-const STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS = [
-  { id: "profile", label: "Profile" },
-  { id: "games", label: "Games" },
-  { id: "perfected", label: "Perfected" },
-  { id: "activity", label: "Activity" },
-  { id: "settings", label: "Settings" },
-] as const satisfies readonly DeckyFullScreenFooterNavigationItem[];
 
 export interface DeckyFullScreenProfilePageProps {
   readonly providerId: string | undefined;
