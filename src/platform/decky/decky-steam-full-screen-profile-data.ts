@@ -1,5 +1,6 @@
 import type { DashboardSnapshot, RecentlyPlayedGame } from "@core/domain";
 import type { SteamLibraryAchievementScanSummary } from "../../providers/steam/library-scan";
+import { getSteamProfileGameIconUrl } from "./decky-steam-game-artwork";
 import { getSteamXpProgress } from "./steam-xp";
 
 export interface SteamProfileGameSummary {
@@ -94,7 +95,8 @@ function toSteamProfileGameSummary(
 
 function toRecentSteamProfileGameSummary(game: RecentlyPlayedGame): SteamProfileGameSummary {
   const totalAchievements = game.summary.totalCount;
-  const artworkUrl = game.coverImageUrl ?? game.boxArtImageUrl;
+  // Steam's `img_icon_url` is normalized into coverImageUrl for recently played games.
+  const artworkUrl = getSteamProfileGameIconUrl(game);
   const totalPlaytimeMinutes = normalizeMinutes(game.playtimeForeverMinutes);
   const steamDeckPlaytimeMinutes = normalizeMinutes(game.playtimeDeckForeverMinutes);
 

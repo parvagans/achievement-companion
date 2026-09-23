@@ -134,6 +134,12 @@ test("SteamHunters normalization accepts complete and partial app payloads", () 
 
 test("SteamHunters profile normalization keeps only SteamHunters profile totals", () => {
   assert.deepEqual(normalizeSteamHuntersProfile({
+    globalPointsRank: 132_902,
+    achievementUnlockCountRank: 124_887,
+    completedGameCountRank: 125_182,
+    previousPointsRank: 132_818,
+    previousAchievementUnlockCountRank: 124_802,
+    previousCompletedGameCountRank: 125_093,
     points: 17_207,
     unrestrictedPoints: 16_904,
     agc: 61.4,
@@ -143,8 +149,15 @@ test("SteamHunters profile normalization keeps only SteamHunters profile totals"
     perfectGameCount: 23,
     completedGameCount: 38,
     achievementUnlockCount: 7_842,
+    epicAchievementUnlockCount: 27,
     legendaryAchievementUnlockCount: 12,
   }), {
+    globalPointsRank: 132_902,
+    globalAchievementsRank: 124_887,
+    globalCompletedGamesRank: 125_182,
+    globalPointsRankTrend: "down",
+    globalAchievementsRankTrend: "down",
+    globalCompletedGamesRankTrend: "down",
     points: 17_207,
     unrestrictedPoints: 16_904,
     averageGameCompletion: 61.4,
@@ -154,9 +167,12 @@ test("SteamHunters profile normalization keeps only SteamHunters profile totals"
     perfectedGames: 23,
     completedGames: 38,
     achievements: 7_842,
+    epicAchievements: 27,
     legendaryAchievements: 12,
   });
   assert.equal(normalizeSteamHuntersProfile({ points: "17,207" }), undefined);
+  assert.deepEqual(normalizeSteamHuntersProfile({ epicAchievementCount: 15 }), { epicAchievements: 15 });
+  assert.deepEqual(normalizeSteamHuntersProfile({ epicCount: 15 }), { epicAchievements: 15 });
 });
 
 test("SteamHunters normalization safely handles achievement fields and obtainability values", () => {

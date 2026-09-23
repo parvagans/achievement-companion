@@ -1,27 +1,36 @@
 import { Focusable, type FocusableProps } from "@decky/ui";
 import type { NormalizedProfile, RecentUnlock } from "@core/domain";
-import type { CSSProperties, FocusEventHandler, JSX, ReactNode } from "react";
+import {
+  useLayoutEffect,
+  useRef,
+  type CSSProperties,
+  type FocusEventHandler,
+  type JSX,
+  type KeyboardEventHandler,
+  type ReactNode,
+} from "react";
 import { DeckyCompletionProgressBar } from "./decky-completion-progress-bar";
-import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
+import { DeckyFullscreenActionButton } from "./decky-full-screen-action-controls";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
 import { formatDeckyRelativeTime, formatProfileMemberSince } from "./decky-stat-helpers";
-import { DeckySteamExternalLinkIcon, DeckySteamHuntersIcon } from "./decky-steam-icons";
+import { DeckySteamHuntersIcon } from "./decky-steam-icons";
 import type {
   SteamFullScreenProfileSummary,
   SteamProfileGameSummary,
 } from "./decky-steam-full-screen-profile-data";
 import type { SteamHuntersProfile } from "../../providers/steamhunters";
-import barChartIconUrl from "./assets/bar-chart.svg";
 import calendarIconUrl from "./assets/calendar.svg";
-import checkCircleIconUrl from "./assets/check-circle.svg";
 import crownIconUrl from "./assets/crown.svg";
 import libraryIconUrl from "./assets/library.svg";
+import masteredIconUrl from "./assets/mastered.svg";
 import pieChartIconUrl from "./assets/pie-chart.svg";
+import rankAchievementsIconUrl from "./assets/rank-achievements.svg";
+import rankCompletedGamesIconUrl from "./assets/rank-completed-games.svg";
+import rankPointsIconUrl from "./assets/rank-points.svg";
 import starIconUrl from "./assets/star.svg";
-import steamIconUrl from "./assets/steam.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
 import xpIconUrl from "./assets/xp.svg";
 
@@ -35,16 +44,58 @@ export interface SteamFullScreenProfileDashboardProps {
   readonly onOpenAchievementHistory: () => void;
   readonly onOpenGameDetail: (gameId: string) => void;
   readonly onOpenAchievementDetail: (gameId: string, achievementId: string) => void;
-  readonly onOpenProviderSettings: () => void;
-  readonly onOpenExternalUrl: (url: string) => void;
 }
 
 const BLUE_ICON_FILTER =
   "brightness(0) saturate(100%) invert(62%) sepia(84%) saturate(1250%) hue-rotate(165deg) brightness(101%) contrast(102%)";
 const GOLD_ICON_FILTER =
   "brightness(0) saturate(100%) invert(78%) sepia(63%) saturate(754%) hue-rotate(350deg) brightness(102%) contrast(92%)";
+const PURPLE_ICON_FILTER =
+  "brightness(0) saturate(100%) invert(41%) sepia(93%) saturate(1444%) hue-rotate(249deg) brightness(95%) contrast(96%)";
+const DASHBOARD_LIST_ARTWORK_SIZE = 40;
+const DASHBOARD_FOCUS_RING_CLASS = "achievement-companion-steam-profile-focus-ring";
+const DASHBOARD_FOCUS_RING_ACTIVE_CLASS = "achievement-companion-steam-profile-focus-ring--active";
 
 type DashboardGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
+type DashboardPanelId = "activity" | "recent";
+
+interface DashboardFocusTarget {
+  readonly panelId: DashboardPanelId;
+  readonly rowIndex?: number;
+}
+
+function SteamProfileDashboardFocusStyles(): JSX.Element {
+  const anchorRef = useRef<HTMLSpanElement>(null);
+
+  useLayoutEffect(() => {
+    const ownerDocument = anchorRef.current?.ownerDocument;
+    if (ownerDocument === undefined) {
+      return;
+    }
+
+    const style = ownerDocument.createElement("style");
+    style.dataset["achievementCompanionSteamProfileFocusStyles"] = "true";
+    style.textContent = `
+.${DASHBOARD_FOCUS_RING_CLASS}.gpfocus,
+.${DASHBOARD_FOCUS_RING_CLASS}.gpfocuswithin,
+.${DASHBOARD_FOCUS_RING_CLASS}:focus,
+.${DASHBOARD_FOCUS_RING_CLASS}:focus-within,
+.${DASHBOARD_FOCUS_RING_ACTIVE_CLASS} {
+  outline: 2px solid rgba(104, 193, 255, 0.98) !important;
+  outline-offset: 1px !important;
+  box-shadow:
+    0 0 0 2px rgba(32, 113, 182, 0.62),
+    0 0 18px rgba(48, 168, 255, 0.48),
+    inset 0 0 0 999px rgba(65, 156, 218, 0.16) !important;
+  background-color: rgba(30, 100, 149, 0.46) !important;
+}
+`;
+    ownerDocument.head.appendChild(style);
+    return () => style.remove();
+  }, []);
+
+  return <span ref={anchorRef} hidden aria-hidden="true" />;
+}
 
 const scrollFocusedDashboardContent: FocusEventHandler<HTMLElement> = (event) => {
   scrollDeckyFocusTargetIntoView(event.currentTarget);
@@ -54,12 +105,56 @@ const scrollFocusedDashboardGamepadContent: DashboardGamepadFocusHandler = (even
   scrollDeckyFocusTargetIntoView(event.currentTarget);
 };
 
+function focusDashboardTarget(source: HTMLElement, target: DashboardFocusTarget): boolean {
+  const dashboard = source.closest<HTMLElement>("[data-steam-full-screen-profile-dashboard]");
+  const panel = dashboard?.querySelector<HTMLElement>(`[data-steam-profile-panel="${target.panelId}"]`);
+  const selector = target.rowIndex === undefined
+    ? "[data-steam-profile-panel-header] [role=button]"
+    : `[data-steam-profile-row-index="${target.rowIndex}"]`;
+  const focusTarget = panel?.querySelector<HTMLElement>(selector);
+
+  if (focusTarget === undefined || focusTarget === null) {
+    return false;
+  }
+
+  focusTarget.focus();
+  return true;
+}
+
+function createDashboardHorizontalFocusHandler(
+  direction: "ArrowLeft" | "ArrowRight",
+  target: DashboardFocusTarget | undefined,
+): KeyboardEventHandler<HTMLDivElement> | undefined {
+  if (target === undefined) {
+    return undefined;
+  }
+
+  return (event) => {
+    if (event.key !== direction || !focusDashboardTarget(event.currentTarget, target)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+  };
+}
+
 function formatCount(value: number | undefined): string {
   return value !== undefined ? value.toLocaleString() : "-";
 }
 
 function formatPercent(value: number | undefined): string {
   return value !== undefined ? `${value}%` : "-";
+}
+
+function formatSteamHuntersPercent(value: number | undefined): string {
+  return value !== undefined
+    ? `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })}%`
+    : "-";
+}
+
+function formatGlobalRank(value: number | undefined): string {
+  return value !== undefined ? `#${value.toLocaleString()}` : "-";
 }
 
 function getFallbackInitials(title: string): string {
@@ -91,11 +186,14 @@ function getDashboardStyle(): CSSProperties {
 function getDashboardGridStyle(): CSSProperties {
   return {
     display: "grid",
-    // Gaming Mode's visible route is 854 CSS pixels wide. These minimums,
-    // including the grid gap, remain inside its content viewport.
-    gridTemplateColumns: "minmax(192px, 0.9fr) minmax(248px, 1fr) minmax(248px, 1.04fr)",
-    gridTemplateRows: "minmax(192px, 1fr) minmax(174px, 0.9fr)",
-    gridTemplateAreas: '"profile progress insights" "profile activity recent"',
+    // Constrain both dashboard rows to the frame above Steam's fixed footer.
+    flex: "1 1 auto",
+    minHeight: 0,
+    // The upper row has three panels. The lower row divides the same viewport
+    // evenly, so activity and recently played meet at the center.
+    gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
+    gridTemplateRows: "minmax(210px, 0.5fr) minmax(174px, 1fr)",
+    gridTemplateAreas: '"profile profile progress progress insights insights" "activity activity activity recent recent recent"',
     alignItems: "stretch",
     gap: 8,
     width: "100%",
@@ -162,27 +260,42 @@ function getPanelSubtitleStyle(): CSSProperties {
 
 function DashboardPanel({
   gridArea,
+  panelId,
   title,
   subtitle,
   action,
+  onHeaderKeyDownCapture,
   children,
 }: {
   readonly gridArea: string;
+  readonly panelId?: DashboardPanelId;
   readonly title?: string;
   readonly subtitle?: string;
   readonly action?: ReactNode;
+  readonly onHeaderKeyDownCapture?: KeyboardEventHandler<HTMLDivElement> | undefined;
   readonly children: ReactNode;
 }): JSX.Element {
   return (
-    <section style={getPanelStyle(gridArea)}>
+    <section
+      {...(panelId !== undefined ? { "data-steam-profile-panel": panelId } : {})}
+      style={getPanelStyle(gridArea)}
+    >
       {title !== undefined ? (
-        <div style={getPanelHeaderStyle()}>
+        <Focusable
+          flow-children="left-right"
+          noFocusRing
+          // The heading is a controller-flow group; only its visible action is focusable.
+          tabIndex={-1}
+          {...(panelId !== undefined ? { "data-steam-profile-panel-header": "true" as const } : {})}
+          onKeyDownCapture={onHeaderKeyDownCapture}
+          style={getPanelHeaderStyle()}
+        >
           <div style={getPanelHeadingGroupStyle()}>
             <div style={getPanelTitleStyle()}>{title}</div>
             {subtitle !== undefined ? <div style={getPanelSubtitleStyle()}>{subtitle}</div> : null}
           </div>
           {action}
-        </div>
+        </Focusable>
       ) : null}
       {children}
     </section>
@@ -297,12 +410,12 @@ function getProfileFactStyle(): CSSProperties {
   };
 }
 
-function getIconStyle(size: number, tone: "blue" | "gold" = "blue"): CSSProperties {
+function getIconStyle(size: number, tone: "blue" | "gold" | "purple" = "blue"): CSSProperties {
   return {
     width: size,
     height: size,
     flexShrink: 0,
-    filter: tone === "gold" ? GOLD_ICON_FILTER : BLUE_ICON_FILTER,
+    filter: tone === "gold" ? GOLD_ICON_FILTER : tone === "purple" ? PURPLE_ICON_FILTER : BLUE_ICON_FILTER,
   };
 }
 
@@ -315,93 +428,14 @@ function ProfileFact({ iconUrl, children }: { readonly iconUrl: string; readonly
   );
 }
 
-function getProvidersTitleStyle(): CSSProperties {
-  return {
-    color: "rgba(189, 215, 239, 0.88)",
-    fontSize: "0.76em",
-    fontWeight: 850,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-  };
-}
-
-function getProviderRowsStyle(): CSSProperties {
-  return { display: "flex", flexDirection: "column", gap: 4 };
-}
-
-function getProviderRowStyle(): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: "24px minmax(0, 1fr) auto",
-    alignItems: "center",
-    gap: 6,
-    minWidth: 0,
-    padding: "4px 8px",
-    border: "1px solid rgba(66, 153, 198, 0.28)",
-    borderRadius: 10,
-    backgroundColor: "rgba(16, 54, 75, 0.48)",
-  };
-}
-
-function getProviderNameStyle(): CSSProperties {
-  return {
-    color: "rgba(243, 248, 252, 0.96)",
-    fontSize: "0.78em",
-    fontWeight: 750,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  };
-}
-
-function getProviderStateStyle(): CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 5,
-    color: "#59cbff",
-    fontSize: "0.68em",
-    fontWeight: 700,
-    whiteSpace: "nowrap",
-  };
-}
-
-function ProviderRow({ kind, label, state }: {
-  readonly kind: "steam" | "steamhunters";
-  readonly label: string;
-  readonly state: string;
-}): JSX.Element {
-  return (
-    <div style={getProviderRowStyle()}>
-      {kind === "steam" ? (
-        <img alt="" src={steamIconUrl} style={getIconStyle(20)} />
-      ) : (
-        <DeckySteamHuntersIcon color="#59cbff" size={20} />
-      )}
-      <div style={getProviderNameStyle()}>{label}</div>
-      <div style={getProviderStateStyle()}>
-        <span aria-hidden="true" style={getStatusDotStyle()} />
-        {state}
-      </div>
-    </div>
-  );
-}
-
-function getProfileActionsStyle(): CSSProperties {
-  return { display: "flex", flexDirection: "column", gap: 5, marginTop: "auto" };
-}
-
 function SteamProfileIdentityPanel({
   profile,
   refreshedAt,
-  onOpenProviderSettings,
-  onOpenExternalUrl,
 }: Pick<
   SteamFullScreenProfileDashboardProps,
-  "profile" | "refreshedAt" | "onOpenProviderSettings" | "onOpenExternalUrl"
+  "profile" | "refreshedAt"
 >): JSX.Element {
   const memberSince = formatProfileMemberSince(profile.metrics);
-  const profileUrl = profile.identity.profileUrl;
   const avatarUrl = addProfileAvatarCacheBustParam(profile.identity.avatarUrl, refreshedAt);
 
   return (
@@ -436,40 +470,6 @@ function SteamProfileIdentityPanel({
           <ProfileFact iconUrl={starIconUrl}>{`${formatCount(profile.badgeCount)} badges`}</ProfileFact>
         ) : null}
       </div>
-
-      <div style={getDividerStyle()} />
-      <div style={getProvidersTitleStyle()}>Connected providers</div>
-      <div style={getProviderRowsStyle()}>
-        <ProviderRow kind="steam" label="Steam" state="Connected" />
-        <ProviderRow kind="steamhunters" label="SteamHunters" state="Enrichment" />
-      </div>
-
-      <div style={getProfileActionsStyle()}>
-        <DeckyFullscreenActionRow>
-          <DeckyFullscreenActionButton
-            contentAlign="left"
-            compact
-            disabled={profileUrl === undefined}
-            fullWidth
-            icon={<DeckySteamExternalLinkIcon size={18} />}
-            label="View Steam Profile"
-            primary
-            onClick={() => {
-              if (profileUrl !== undefined) {
-                onOpenExternalUrl(profileUrl);
-              }
-            }}
-          />
-          <DeckyFullscreenActionButton
-            contentAlign="left"
-            compact
-            fullWidth
-            icon={<DeckySteamHuntersIcon size={18} />}
-            label="Provider Settings"
-            onClick={onOpenProviderSettings}
-          />
-        </DeckyFullscreenActionRow>
-      </div>
     </DashboardPanel>
   );
 }
@@ -488,7 +488,7 @@ function getProgressHeroStyle(): CSSProperties {
 function getProgressValueStyle(): CSSProperties {
   return {
     color: "#f5f9fd",
-    fontSize: "clamp(1.35rem, 2.55vw, 2.1rem)",
+    fontSize: "clamp(1.18rem, 2.2vw, 1.78rem)",
     fontWeight: 900,
     lineHeight: 1,
     letterSpacing: "0.015em",
@@ -524,7 +524,7 @@ function getMetricGridStyle(columns = 2): CSSProperties {
 function getMetricTileStyle(): CSSProperties {
   return {
     display: "grid",
-    gridTemplateColumns: "28px minmax(0, 1fr)",
+    gridTemplateColumns: "24px minmax(0, 1fr)",
     alignItems: "center",
     gap: 6,
     minWidth: 0,
@@ -537,27 +537,34 @@ function getMetricTileStyle(): CSSProperties {
 }
 
 function getMetricTextStyle(): CSSProperties {
-  return { display: "flex", flexDirection: "column", gap: 1, minWidth: 0 };
+  return {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 1,
+    minWidth: 0,
+    width: "100%",
+    textAlign: "center",
+  };
 }
 
 function getMetricLabelStyle(): CSSProperties {
   return {
     color: "rgba(178, 208, 235, 0.78)",
-    fontSize: "0.63em",
+    fontSize: "0.53em",
     fontWeight: 800,
-    letterSpacing: "0.07em",
-    lineHeight: 1.1,
+    letterSpacing: "0.035em",
+    lineHeight: 1.05,
     textTransform: "uppercase",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+    overflowWrap: "anywhere",
+    whiteSpace: "normal",
   };
 }
 
-function getMetricValueStyle(): CSSProperties {
+function getMetricValueStyle(compact = false): CSSProperties {
   return {
     color: "rgba(245, 249, 253, 0.98)",
-    fontSize: "0.98em",
+    fontSize: compact ? "0.82em" : "0.98em",
     fontWeight: 850,
     lineHeight: 1.1,
     overflow: "hidden",
@@ -566,18 +573,36 @@ function getMetricValueStyle(): CSSProperties {
   };
 }
 
-function MetricTile({ iconUrl, label, value, tone = "blue" }: {
+function getRankTrendStyle(trend: "up" | "down"): CSSProperties {
+  return {
+    color: trend === "up" ? "#43dd7f" : "#ff5d5d",
+    fontSize: "0.9em",
+    fontWeight: 900,
+    marginRight: 2,
+  };
+}
+
+function MetricTile({ iconUrl, label, value, tone = "blue", compactValue = false, rankTrend }: {
   readonly iconUrl: string;
   readonly label: string;
   readonly value: string;
-  readonly tone?: "blue" | "gold";
+  readonly tone?: "blue" | "gold" | "purple";
+  readonly compactValue?: boolean;
+  readonly rankTrend?: "up" | "down" | "unchanged" | undefined;
 }): JSX.Element {
   return (
     <div style={getMetricTileStyle()}>
       <img alt="" src={iconUrl} style={getIconStyle(23, tone)} />
       <div style={getMetricTextStyle()}>
         <div style={getMetricLabelStyle()}>{label}</div>
-        <div style={getMetricValueStyle()}>{value}</div>
+        <div style={getMetricValueStyle(compactValue)}>
+          {rankTrend === "up" || rankTrend === "down" ? (
+            <span aria-label={rankTrend === "up" ? "Rank improved" : "Rank declined"} style={getRankTrendStyle(rankTrend)}>
+              {rankTrend === "up" ? "↑" : "↓"}
+            </span>
+          ) : null}
+          {value}
+        </div>
       </div>
     </div>
   );
@@ -586,11 +611,10 @@ function MetricTile({ iconUrl, label, value, tone = "blue" }: {
 function SteamProgressPanel({ summary }: { readonly summary: SteamFullScreenProfileSummary }): JSX.Element {
   const total = summary.achievements.total;
   const unlocked = summary.achievements.unlocked;
-  const remaining = total !== undefined ? Math.max(0, total - unlocked) : undefined;
   const completionPercent = summary.achievements.completionPercent;
 
   return (
-    <DashboardPanel gridArea="progress" title="Your Progress (Steam)" subtitle="Across all tracked games">
+    <DashboardPanel gridArea="progress" title="Your Progress (Steam)">
       <div style={getProgressHeroStyle()}>
         <div style={getProgressValueStyle()}>
           {total !== undefined ? `${formatCount(unlocked)} / ${formatCount(total)}` : formatCount(unlocked)}
@@ -604,10 +628,10 @@ function SteamProgressPanel({ summary }: { readonly summary: SteamFullScreenProf
         </div>
       ) : null}
       <div style={getMetricGridStyle()}>
-        <MetricTile iconUrl={trophyIconUrl} label="Unlocked" value={formatCount(unlocked)} />
-        <MetricTile iconUrl={pieChartIconUrl} label="Remaining" value={formatCount(remaining)} />
+        <MetricTile iconUrl={libraryIconUrl} label="Owned" value={formatCount(summary.library.ownedGames)} />
+        <MetricTile iconUrl={trophyIconUrl} label="Played" value={formatCount(summary.library.playedGames)} />
+        <MetricTile iconUrl={pieChartIconUrl} label="In progress" value={formatCount(summary.library.inProgressGames)} />
         <MetricTile iconUrl={crownIconUrl} label="Perfected" tone="gold" value={formatCount(summary.achievements.perfectGames)} />
-        <MetricTile iconUrl={barChartIconUrl} label="Completion avg" value={formatPercent(completionPercent)} />
       </div>
     </DashboardPanel>
   );
@@ -616,8 +640,6 @@ function SteamProgressPanel({ summary }: { readonly summary: SteamFullScreenProf
 function getStatusMetricTileStyle(): CSSProperties {
   return {
     ...getMetricTileStyle(),
-    gridTemplateColumns: "28px minmax(0, 1fr)",
-    padding: "6px 8px",
   };
 }
 
@@ -643,42 +665,64 @@ function SteamInsightsPanel({ steamHuntersProfile }: {
   readonly steamHuntersProfile: SteamHuntersProfile | undefined;
 }): JSX.Element {
   return (
-    <DashboardPanel
-      gridArea="insights"
-      title="SteamHunters Profile"
-      subtitle="SteamHunters totals, separate from your Steam library"
-    >
-      <div style={getMetricGridStyle()}>
-        <StatusMetricTile
-          icon={<DeckySteamHuntersIcon color="#36b9ff" size={23} />}
-          label="Points"
-          value={formatCount(steamHuntersProfile?.points)}
-        />
-        <MetricTile
-          iconUrl={pieChartIconUrl}
-          label="Avg. completion"
-          value={formatPercent(steamHuntersProfile?.averageGameCompletion)}
-        />
-        <MetricTile iconUrl={libraryIconUrl} label="Tracked games" value={formatCount(steamHuntersProfile?.trackedGames)} />
-        <MetricTile
-          iconUrl={crownIconUrl}
-          label="Unrestricted points"
-          tone="gold"
-          value={formatCount(steamHuntersProfile?.unrestrictedPoints)}
-        />
-        <MetricTile iconUrl={checkCircleIconUrl} label="Legendary unlocks" value={formatCount(steamHuntersProfile?.legendaryAchievements)} />
-        <MetricTile
-          iconUrl={barChartIconUrl}
-          label="Obtainable completion"
-          value={formatPercent(steamHuntersProfile?.obtainableAverageGameCompletion)}
-        />
+    <DashboardPanel gridArea="insights" title="SteamHunters Profile">
+      <div style={getSteamInsightsMetricsStyle()}>
+        <div style={getMetricGridStyle()}>
+          <StatusMetricTile
+            icon={<DeckySteamHuntersIcon color="#36b9ff" size={23} />}
+            label="Points"
+            value={formatCount(steamHuntersProfile?.points)}
+          />
+          <MetricTile
+            iconUrl={rankPointsIconUrl}
+            label="Points"
+            value={formatGlobalRank(steamHuntersProfile?.globalPointsRank)}
+            compactValue
+            rankTrend={steamHuntersProfile?.globalPointsRankTrend}
+          />
+          <MetricTile
+            iconUrl={pieChartIconUrl}
+            label="Avg. completion"
+            value={formatSteamHuntersPercent(steamHuntersProfile?.averageGameCompletion)}
+          />
+          <MetricTile
+            iconUrl={rankAchievementsIconUrl}
+            label="Achievements"
+            value={formatGlobalRank(steamHuntersProfile?.globalAchievementsRank)}
+            compactValue
+            rankTrend={steamHuntersProfile?.globalAchievementsRankTrend}
+          />
+          <MetricTile
+            iconUrl={masteredIconUrl}
+            label="Legendary unlocks"
+            tone="gold"
+            value={formatCount(steamHuntersProfile?.legendaryAchievements)}
+          />
+          <MetricTile
+            iconUrl={rankCompletedGamesIconUrl}
+            label="Completed games"
+            value={formatGlobalRank(steamHuntersProfile?.globalCompletedGamesRank)}
+            compactValue
+            rankTrend={steamHuntersProfile?.globalCompletedGamesRankTrend}
+          />
+        </div>
       </div>
     </DashboardPanel>
   );
 }
 
+function getSteamInsightsMetricsStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flex: "1 1 auto",
+    flexDirection: "column",
+    justifyContent: "center",
+    minHeight: 0,
+  };
+}
+
 function getListStyle(): CSSProperties {
-  return { display: "flex", flexDirection: "column", gap: 4, minWidth: 0 };
+  return { display: "flex", flex: "1 1 auto", flexDirection: "column", gap: 4, minWidth: 0, minHeight: 0 };
 }
 
 function getListRowStyle(): CSSProperties {
@@ -688,6 +732,8 @@ function getListRowStyle(): CSSProperties {
     alignItems: "center",
     gap: 6,
     minWidth: 0,
+    flex: "1 1 0",
+    minHeight: 0,
     padding: 4,
     border: "1px solid rgba(66, 153, 198, 0.24)",
     borderRadius: 10,
@@ -800,21 +846,45 @@ function DashboardArtwork({
   );
 }
 
-function DashboardListRow({ children, ariaLabel, onActivate }: {
+function getListArtworkSlotStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flex: `0 0 ${DASHBOARD_LIST_ARTWORK_SIZE}px`,
+    alignItems: "center",
+    justifyContent: "center",
+    width: DASHBOARD_LIST_ARTWORK_SIZE,
+    height: DASHBOARD_LIST_ARTWORK_SIZE,
+  };
+}
+
+function DashboardFocusableList({ children }: { readonly children: ReactNode }): JSX.Element {
+  return (
+    <Focusable flow-children="vertical" noFocusRing tabIndex={-1} style={getListStyle()}>
+      {children}
+    </Focusable>
+  );
+}
+
+function DashboardListRow({ children, ariaLabel, focusRowIndex, onActivate, onKeyDownCapture }: {
   readonly children: ReactNode;
   readonly ariaLabel: string;
+  readonly focusRowIndex?: number;
   readonly onActivate: () => void;
+  readonly onKeyDownCapture?: KeyboardEventHandler<HTMLDivElement> | undefined;
 }): JSX.Element {
   return (
     <Focusable
       aria-label={ariaLabel}
-      className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
-      focusClassName={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
-      focusWithinClassName={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
+      className={`${DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS} ${DASHBOARD_FOCUS_RING_CLASS}`}
+      focusClassName={DASHBOARD_FOCUS_RING_ACTIVE_CLASS}
+      focusWithinClassName={DASHBOARD_FOCUS_RING_ACTIVE_CLASS}
       noFocusRing
       role="button"
+      tabIndex={0}
+      {...(focusRowIndex !== undefined ? { "data-steam-profile-row-index": focusRowIndex } : {})}
       onActivate={onActivate}
       onClick={onActivate}
+      onKeyDownCapture={onKeyDownCapture}
       onFocus={scrollFocusedDashboardContent}
       onGamepadFocus={scrollFocusedDashboardGamepadContent}
       style={getListRowStyle()}
@@ -826,40 +896,55 @@ function DashboardListRow({ children, ariaLabel, onActivate }: {
 
 function SteamRecentActivityPanel({
   recentUnlocks,
+  recentGameCount,
   onOpenAchievementHistory,
   onOpenAchievementDetail,
 }: Pick<
   SteamFullScreenProfileDashboardProps,
   "recentUnlocks" | "onOpenAchievementHistory" | "onOpenAchievementDetail"
->): JSX.Element {
+> & { readonly recentGameCount: number }): JSX.Element {
   const visibleUnlocks = recentUnlocks.slice(0, 3);
+  const recentHeaderFocusHandler = createDashboardHorizontalFocusHandler("ArrowRight", { panelId: "recent" });
   return (
     <DashboardPanel
       gridArea="activity"
+      panelId="activity"
       title="Recent Activity"
-      subtitle="Latest 3 achievement unlocks"
+      onHeaderKeyDownCapture={recentHeaderFocusHandler}
       action={(
-        <DeckyFullscreenActionButton compact label="View All" onClick={onOpenAchievementHistory} />
+        <DeckyFullscreenActionButton
+          compact
+          focusClassName={DASHBOARD_FOCUS_RING_ACTIVE_CLASS}
+          label="View All"
+          onClick={onOpenAchievementHistory}
+        />
       )}
     >
       {visibleUnlocks.length > 0 ? (
-        <div style={getListStyle()}>
-          {visibleUnlocks.map((recentUnlock) => {
+        <DashboardFocusableList>
+          {visibleUnlocks.map((recentUnlock, index) => {
             const unlockedAt = recentUnlock.unlockedAt ?? recentUnlock.achievement.unlockedAt;
+            const recentGameFocusTarget = recentGameCount > 0
+              ? { panelId: "recent" as const, rowIndex: Math.min(index, recentGameCount - 1) }
+              : undefined;
             return (
               <DashboardListRow
                 key={`${recentUnlock.game.gameId}:${recentUnlock.achievement.achievementId}`}
                 ariaLabel={`Open ${recentUnlock.achievement.title}`}
+                focusRowIndex={index}
                 onActivate={() => {
                   onOpenAchievementDetail(recentUnlock.game.gameId, recentUnlock.achievement.achievementId);
                 }}
+                onKeyDownCapture={createDashboardHorizontalFocusHandler("ArrowRight", recentGameFocusTarget)}
               >
-                <DashboardArtwork
-                  height={32}
-                  src={recentUnlock.achievement.badgeImageUrl}
-                  title={recentUnlock.achievement.title}
-                  width={32}
-                />
+                <div style={getListArtworkSlotStyle()}>
+                  <DashboardArtwork
+                    height={DASHBOARD_LIST_ARTWORK_SIZE}
+                    src={recentUnlock.achievement.badgeImageUrl}
+                    title={recentUnlock.achievement.title}
+                    width={DASHBOARD_LIST_ARTWORK_SIZE}
+                  />
+                </div>
                 <div style={getListTextStyle()}>
                   <div style={getListTitleStyle()}>{recentUnlock.achievement.title}</div>
                   <div style={getListMetaStyle()}>{recentUnlock.game.title}</div>
@@ -871,7 +956,7 @@ function SteamRecentActivityPanel({
               </DashboardListRow>
             );
           })}
-        </div>
+        </DashboardFocusableList>
       ) : (
         <div style={getEmptyListStyle()}>No recent achievement unlocks are available.</div>
       )}
@@ -888,9 +973,11 @@ function getGameProgressStyle(): CSSProperties {
   };
 }
 
-function SteamRecentGameRow({ game, onOpenGameDetail }: {
+function SteamRecentGameRow({ game, focusRowIndex, onOpenGameDetail, onKeyDownCapture }: {
   readonly game: SteamProfileGameSummary;
+  readonly focusRowIndex: number;
   readonly onOpenGameDetail: (gameId: string) => void;
+  readonly onKeyDownCapture?: KeyboardEventHandler<HTMLDivElement> | undefined;
 }): JSX.Element {
   const achievementLabel = game.totalAchievements !== undefined
     ? `${formatCount(game.unlockedAchievements)} / ${formatCount(game.totalAchievements)} achievements`
@@ -899,16 +986,20 @@ function SteamRecentGameRow({ game, onOpenGameDetail }: {
   return (
     <DashboardListRow
       ariaLabel={`Open ${game.title}`}
+      focusRowIndex={focusRowIndex}
       onActivate={() => {
         onOpenGameDetail(game.gameId);
       }}
+      onKeyDownCapture={onKeyDownCapture}
     >
-      <DashboardArtwork
-        height={32}
-        src={game.artworkUrl}
-        title={game.title}
-        width={56}
-      />
+      <div style={getListArtworkSlotStyle()}>
+        <DashboardArtwork
+          height={DASHBOARD_LIST_ARTWORK_SIZE}
+          src={game.artworkUrl}
+          title={game.title}
+          width={DASHBOARD_LIST_ARTWORK_SIZE}
+        />
+      </div>
       <div style={getListTextStyle()}>
         <div style={getListTitleStyle()}>{game.title}</div>
         <div style={getListMetaStyle()}>{achievementLabel}</div>
@@ -924,26 +1015,44 @@ function SteamRecentGameRow({ game, onOpenGameDetail }: {
   );
 }
 
-function SteamRecentlyPlayedPanel({ summary, onOpenCompletionProgress, onOpenGameDetail }: Pick<
+function SteamRecentlyPlayedPanel({ summary, recentUnlockCount, onOpenCompletionProgress, onOpenGameDetail }: Pick<
   SteamFullScreenProfileDashboardProps,
   "summary" | "onOpenCompletionProgress" | "onOpenGameDetail"
->): JSX.Element {
+> & { readonly recentUnlockCount: number }): JSX.Element {
   const visibleGames = summary.recentGames.slice(0, 3);
+  const recentHeaderFocusHandler = createDashboardHorizontalFocusHandler("ArrowLeft", { panelId: "activity" });
   return (
     <DashboardPanel
       gridArea="recent"
+      panelId="recent"
       title="Recently Played"
-      subtitle="Your latest Steam games"
+      onHeaderKeyDownCapture={recentHeaderFocusHandler}
       action={(
-        <DeckyFullscreenActionButton compact label="View All" onClick={onOpenCompletionProgress} />
+        <DeckyFullscreenActionButton
+          compact
+          focusClassName={DASHBOARD_FOCUS_RING_ACTIVE_CLASS}
+          label="View All"
+          onClick={onOpenCompletionProgress}
+        />
       )}
     >
       {visibleGames.length > 0 ? (
-        <div style={getListStyle()}>
-          {visibleGames.map((game) => (
-            <SteamRecentGameRow key={game.gameId} game={game} onOpenGameDetail={onOpenGameDetail} />
+        <DashboardFocusableList>
+          {visibleGames.map((game, index) => (
+            <SteamRecentGameRow
+              key={game.gameId}
+              game={game}
+              focusRowIndex={index}
+              onKeyDownCapture={createDashboardHorizontalFocusHandler(
+                "ArrowLeft",
+                recentUnlockCount > 0
+                  ? { panelId: "activity", rowIndex: Math.min(index, recentUnlockCount - 1) }
+                  : undefined,
+              )}
+              onOpenGameDetail={onOpenGameDetail}
+            />
           ))}
-        </div>
+        </DashboardFocusableList>
       ) : (
         <div style={getEmptyListStyle()}>No recently played games are available.</div>
       )}
@@ -961,31 +1070,30 @@ export function SteamFullScreenProfileDashboard({
   onOpenAchievementHistory,
   onOpenGameDetail,
   onOpenAchievementDetail,
-  onOpenProviderSettings,
-  onOpenExternalUrl,
 }: SteamFullScreenProfileDashboardProps): JSX.Element {
   return (
     <div data-steam-full-screen-profile-dashboard style={getDashboardStyle()}>
-      <div style={getDashboardGridStyle()}>
+      <SteamProfileDashboardFocusStyles />
+      <Focusable flow-children="left-right" noFocusRing tabIndex={-1} style={getDashboardGridStyle()}>
         <SteamProfileIdentityPanel
           profile={profile}
           refreshedAt={refreshedAt}
-          onOpenProviderSettings={onOpenProviderSettings}
-          onOpenExternalUrl={onOpenExternalUrl}
         />
         <SteamProgressPanel summary={summary} />
-      <SteamInsightsPanel steamHuntersProfile={steamHuntersProfile} />
+        <SteamInsightsPanel steamHuntersProfile={steamHuntersProfile} />
         <SteamRecentActivityPanel
           recentUnlocks={recentUnlocks}
+          recentGameCount={summary.recentGames.slice(0, 3).length}
           onOpenAchievementHistory={onOpenAchievementHistory}
           onOpenAchievementDetail={onOpenAchievementDetail}
         />
         <SteamRecentlyPlayedPanel
           summary={summary}
+          recentUnlockCount={recentUnlocks.slice(0, 3).length}
           onOpenCompletionProgress={onOpenCompletionProgress}
           onOpenGameDetail={onOpenGameDetail}
         />
-      </div>
+      </Focusable>
     </div>
   );
 }

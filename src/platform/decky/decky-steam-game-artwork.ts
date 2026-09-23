@@ -26,3 +26,9 @@ export function getSteamFullscreenGameArtworkUrl(
     game.coverImageUrl
   );
 }
+
+export function getSteamProfileGameIconUrl(
+  game: Pick<RecentlyPlayedGame, "coverImageUrl" | "boxArtImageUrl">,
+): string | undefined {
+  return game.coverImageUrl ?? game.boxArtImageUrl;
+}

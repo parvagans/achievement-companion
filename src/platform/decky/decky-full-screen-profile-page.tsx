@@ -80,8 +80,6 @@ export interface DeckyFullScreenProfilePageProps {
   readonly onOpenAchievementDetail: (providerId: string, gameId: string, achievementId: string) => void;
   readonly onOpenGameDetail: (providerId: string, gameId: string) => void;
   readonly onOpenSettings: () => void;
-  readonly onOpenProviderSettings: (providerId: string) => void;
-  readonly onOpenExternalUrl: (url: string) => void;
 }
 
 function formatCount(value: number): string {
@@ -1069,8 +1067,6 @@ export function DeckyFullScreenProfilePage({
   onOpenAchievementDetail,
   onOpenGameDetail,
   onOpenSettings,
-  onOpenProviderSettings,
-  onOpenExternalUrl,
 }: DeckyFullScreenProfilePageProps): JSX.Element {
   const loadSelectedProfile = useMemo(() => {
     if (providerId === undefined) {
@@ -1173,12 +1169,8 @@ export function DeckyFullScreenProfilePage({
               onOpenCompletionProgress={() => {
                 onOpenCompletionProgress(profile.providerId);
               }}
-              onOpenExternalUrl={onOpenExternalUrl}
               onOpenGameDetail={(gameId) => {
                 onOpenGameDetail(profile.providerId, gameId);
-              }}
-              onOpenProviderSettings={() => {
-                onOpenProviderSettings(profile.providerId);
               }}
             />
           </div>

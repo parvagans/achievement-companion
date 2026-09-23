@@ -61,6 +61,17 @@ export interface RawSteamHuntersAchievementGroupsResponse {
 
 /** Public profile payload returned by /api/steam-users/{steamId}. */
 export interface RawSteamHuntersProfileResponse {
+  /** Global position in SteamHunters' points leaderboard, when supplied. */
+  readonly globalPointsRank?: unknown;
+  /** Legacy alias used by some SteamHunters profile responses. */
+  readonly pointsRank?: unknown;
+  /** Global position in SteamHunters' achievement-unlocks leaderboard. */
+  readonly achievementUnlockCountRank?: unknown;
+  /** Global position in SteamHunters' completed-games leaderboard. */
+  readonly completedGameCountRank?: unknown;
+  readonly previousPointsRank?: unknown;
+  readonly previousAchievementUnlockCountRank?: unknown;
+  readonly previousCompletedGameCountRank?: unknown;
   readonly points?: unknown;
   readonly unrestrictedPoints?: unknown;
   readonly agc?: unknown;
@@ -70,5 +81,9 @@ export interface RawSteamHuntersProfileResponse {
   readonly perfectGameCount?: unknown;
   readonly completedGameCount?: unknown;
   readonly achievementUnlockCount?: unknown;
+  readonly epicAchievementUnlockCount?: unknown;
+  /** Alternate field names returned by SteamHunters public profile responses. */
+  readonly epicAchievementCount?: unknown;
+  readonly epicCount?: unknown;
   readonly legendaryAchievementUnlockCount?: unknown;
 }

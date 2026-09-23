@@ -50,6 +50,7 @@ export interface DeckyFullscreenActionButtonProps {
   readonly primary?: boolean;
   readonly contentAlign?: "center" | "left";
   readonly scrollToTopOnFocus?: boolean | undefined;
+  readonly focusClassName?: string | undefined;
 }
 
 function getFullscreenActionRowStyle(centered: boolean): CSSProperties {
@@ -177,6 +178,7 @@ export function DeckyFullscreenActionButton({
   primary = false,
   contentAlign = "center",
   scrollToTopOnFocus = false,
+  focusClassName,
 }: DeckyFullscreenActionButtonProps): JSX.Element {
   const fullscreenBackButtonRef = useCallback((node: HTMLDivElement | null) => {
     if (isFullscreenBackAction) {
@@ -199,8 +201,8 @@ export function DeckyFullscreenActionButton({
   return (
     <Focusable
       className={`${DECKY_FULLSCREEN_CHIP_CLASS} ${selected ? DECKY_FULLSCREEN_CHIP_SELECTED_CLASS : ""} ${compact ? "achievement-companion-fullscreen-chip-compact" : ""} ${fullWidth ? "achievement-companion-fullscreen-chip-full-width" : ""} ${primary ? "achievement-companion-fullscreen-chip-primary" : ""} ${contentAlign === "left" ? "achievement-companion-fullscreen-chip-overview-action" : ""}`.trim()}
-      focusClassName={DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS}
-      focusWithinClassName={DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS}
+      focusClassName={`${DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS} ${focusClassName ?? ""}`.trim()}
+      focusWithinClassName={`${DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS} ${focusClassName ?? ""}`.trim()}
       noFocusRing
       role="button"
       aria-label={label}

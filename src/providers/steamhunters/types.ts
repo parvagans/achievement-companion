@@ -61,12 +61,21 @@ export interface SteamHuntersGameData {
 
 /**
  * Profile totals as reported by SteamHunters, deliberately separate from the
- * Steam library scan. SteamHunters' public profile payload does not expose a
- * global leaderboard rank.
+ * Steam library scan.
  */
 export interface SteamHuntersProfile {
   /** The SteamID64 used for this lookup; never trust the remote numeric echo. */
   readonly steamId: string;
+  /** Global position in SteamHunters' points leaderboard, when supplied. */
+  readonly globalPointsRank?: number;
+  /** Global position in SteamHunters' achievement-unlocks leaderboard. */
+  readonly globalAchievementsRank?: number;
+  /** Global position in SteamHunters' completed-games leaderboard. */
+  readonly globalCompletedGamesRank?: number;
+  /** Change in the corresponding global rank since the prior SteamHunters snapshot. */
+  readonly globalPointsRankTrend?: SteamHuntersRankTrend;
+  readonly globalAchievementsRankTrend?: SteamHuntersRankTrend;
+  readonly globalCompletedGamesRankTrend?: SteamHuntersRankTrend;
   readonly points?: number;
   readonly unrestrictedPoints?: number;
   /** SteamHunters' Average Game Completion percentage. */
@@ -78,5 +87,8 @@ export interface SteamHuntersProfile {
   readonly perfectedGames?: number;
   readonly completedGames?: number;
   readonly achievements?: number;
+  readonly epicAchievements?: number;
   readonly legendaryAchievements?: number;
 }
+
+export type SteamHuntersRankTrend = "up" | "down" | "unchanged";

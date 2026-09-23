@@ -54,6 +54,27 @@ function nonNegativeInteger(value: unknown): number | undefined {
     : undefined;
 }
 
+function positiveInteger(value: unknown): number | undefined {
+  const numberValue = nonNegativeInteger(value);
+  return numberValue !== undefined && numberValue > 0 ? numberValue : undefined;
+}
+
+function rankTrend(
+  currentRank: number | undefined,
+  previousRank: number | undefined,
+): "up" | "down" | "unchanged" | undefined {
+  if (currentRank === undefined || previousRank === undefined) {
+    return undefined;
+  }
+  if (currentRank < previousRank) {
+    return "up";
+  }
+  if (currentRank > previousRank) {
+    return "down";
+  }
+  return "unchanged";
+}
+
 function nonNegativeNumber(value: unknown): number | undefined {
   const numberValue = finiteNumber(value);
   return numberValue !== undefined && numberValue >= 0 ? numberValue : undefined;
@@ -171,6 +192,18 @@ export function normalizeSteamHuntersProfile(
     return undefined;
   }
 
+  const globalPointsRank = positiveInteger(raw.globalPointsRank) ?? positiveInteger(raw.pointsRank);
+  const globalAchievementsRank = positiveInteger(raw.achievementUnlockCountRank);
+  const globalCompletedGamesRank = positiveInteger(raw.completedGameCountRank);
+  const globalPointsRankTrend = rankTrend(globalPointsRank, positiveInteger(raw.previousPointsRank));
+  const globalAchievementsRankTrend = rankTrend(
+    globalAchievementsRank,
+    positiveInteger(raw.previousAchievementUnlockCountRank),
+  );
+  const globalCompletedGamesRankTrend = rankTrend(
+    globalCompletedGamesRank,
+    positiveInteger(raw.previousCompletedGameCountRank),
+  );
   const points = nonNegativeNumber(raw.points);
   const unrestrictedPoints = nonNegativeNumber(raw.unrestrictedPoints);
   const averageGameCompletion = percentage(raw.agc);
@@ -180,8 +213,14 @@ export function normalizeSteamHuntersProfile(
   const perfectedGames = nonNegativeInteger(raw.perfectGameCount);
   const completedGames = nonNegativeInteger(raw.completedGameCount);
   const achievements = nonNegativeInteger(raw.achievementUnlockCount);
+  const epicAchievements = nonNegativeInteger(raw.epicAchievementUnlockCount)
+    ?? nonNegativeInteger(raw.epicAchievementCount)
+    ?? nonNegativeInteger(raw.epicCount);
   const legendaryAchievements = nonNegativeInteger(raw.legendaryAchievementUnlockCount);
   const hasProfileMetric = [
+    globalPointsRank,
+    globalAchievementsRank,
+    globalCompletedGamesRank,
     points,
     unrestrictedPoints,
     averageGameCompletion,
@@ -191,11 +230,18 @@ export function normalizeSteamHuntersProfile(
     perfectedGames,
     completedGames,
     achievements,
+    epicAchievements,
     legendaryAchievements,
   ].some((metric) => metric !== undefined);
 
   return hasProfileMetric
     ? {
+      ...(globalPointsRank !== undefined ? { globalPointsRank } : {}),
+      ...(globalAchievementsRank !== undefined ? { globalAchievementsRank } : {}),
+      ...(globalCompletedGamesRank !== undefined ? { globalCompletedGamesRank } : {}),
+      ...(globalPointsRankTrend !== undefined ? { globalPointsRankTrend } : {}),
+      ...(globalAchievementsRankTrend !== undefined ? { globalAchievementsRankTrend } : {}),
+      ...(globalCompletedGamesRankTrend !== undefined ? { globalCompletedGamesRankTrend } : {}),
       ...(points !== undefined ? { points } : {}),
       ...(unrestrictedPoints !== undefined ? { unrestrictedPoints } : {}),
       ...(averageGameCompletion !== undefined ? { averageGameCompletion } : {}),
@@ -207,6 +253,7 @@ export function normalizeSteamHuntersProfile(
       ...(perfectedGames !== undefined ? { perfectedGames } : {}),
       ...(completedGames !== undefined ? { completedGames } : {}),
       ...(achievements !== undefined ? { achievements } : {}),
+      ...(epicAchievements !== undefined ? { epicAchievements } : {}),
       ...(legendaryAchievements !== undefined ? { legendaryAchievements } : {}),
     }
     : undefined;

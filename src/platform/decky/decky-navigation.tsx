@@ -506,13 +506,6 @@ function DeckyFullScreenProfileRoute(): JSX.Element {
         onOpenAchievementDetail={(providerId, gameId, achievementId) => {
           navigateToFullScreenAchievement(providerId, gameId, achievementId, true);
         }}
-        onOpenExternalUrl={(url) => {
-          suppressNextFullscreenRouteUnmountAction();
-          DeckyNavigation.NavigateToExternalWeb(url);
-        }}
-        onOpenProviderSettings={(providerId) => {
-          navigateToFullScreenProviderSettings(providerId);
-        }}
         onOpenSettings={() => {
           registerFullScreenSettingsRoute();
           markNextFullScreenSettingsBackTarget(

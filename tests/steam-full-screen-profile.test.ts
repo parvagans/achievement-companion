@@ -175,7 +175,28 @@ test("steam full-screen profile omits unavailable library decoration without inv
   assert.deepEqual(summary.recentGames, []);
 });
 
-test("steam full-screen profile uses the three-column dashboard concept with SteamHunters profile stats", async () => {
+test("steam full-screen profile uses Steam's native game icon for recently played games", () => {
+  const summary = buildSteamFullScreenProfileSummary({
+    profile: createProfile(),
+    recentlyPlayedGames: [{
+      providerId: "steam",
+      appid: 70,
+      gameId: "70",
+      title: "Half-Life",
+      summary: { unlockedCount: 5, totalCount: 10, completionPercent: 50 },
+      coverImageUrl: "https://cdn.example.invalid/game-icon.jpg",
+      boxArtImageUrl: "https://cdn.example.invalid/game-logo.jpg",
+      lastPlayedAt: 100,
+    }],
+  });
+
+  assert.equal(
+    summary.recentGames[0]?.artworkUrl,
+    "https://cdn.example.invalid/game-icon.jpg",
+  );
+});
+
+test("steam full-screen profile uses the requested top-row and equal lower-row dashboard layout", async () => {
   const [pageSource, dashboardSource] = await Promise.all([
     readFile(
       new URL("../src/platform/decky/decky-full-screen-profile-page.tsx", import.meta.url),
@@ -197,30 +218,90 @@ test("steam full-screen profile uses the three-column dashboard concept with Ste
   assert.doesNotMatch(steamProfileBranch, /<ScrollPanel>/u);
   assert.ok(
     dashboardSource.includes(
-      `gridTemplateAreas: '\"profile progress insights\" \"profile activity recent\"'`,
+      `gridTemplateAreas: '\"profile profile progress progress insights insights\" \"activity activity activity recent recent recent\"'`,
     ),
   );
   assert.match(
     dashboardSource,
-    /gridTemplateColumns: "minmax\(192px, 0\.9fr\) minmax\(248px, 1fr\) minmax\(248px, 1\.04fr\)"/u,
+    /gridTemplateColumns: "repeat\(6, minmax\(0, 1fr\)\)"/u,
   );
   assert.match(
     dashboardSource,
-    /gridTemplateRows: "minmax\(192px, 1fr\) minmax\(174px, 0\.9fr\)"/u,
+    /gridTemplateRows: "minmax\(210px, 0\.5fr\) minmax\(174px, 1fr\)"/u,
   );
+  const dashboardGridSource = dashboardSource.slice(
+    dashboardSource.indexOf("function getDashboardGridStyle"),
+    dashboardSource.indexOf("function getPanelStyle"),
+  );
+  assert.match(dashboardGridSource, /flex: "1 1 auto"/u);
+  assert.match(dashboardGridSource, /minHeight: 0/u);
   assert.match(dashboardSource, /data-steam-full-screen-profile-dashboard/u);
   assert.match(dashboardSource, /title="Your Progress \(Steam\)"/u);
   assert.match(dashboardSource, /title="SteamHunters Profile"/u);
   assert.match(dashboardSource, /label="Points"/u);
+  assert.match(dashboardSource, /iconUrl=\{rankPointsIconUrl\}[\s\S]*label="Points"/u);
   assert.match(dashboardSource, /label="Avg\. completion"/u);
-  assert.match(dashboardSource, /label="Tracked games"/u);
-  assert.match(dashboardSource, /label="Unrestricted points"/u);
+  assert.match(dashboardSource, /iconUrl=\{rankAchievementsIconUrl\}[\s\S]*label="Achievements"/u);
+  assert.match(dashboardSource, /iconUrl=\{rankCompletedGamesIconUrl\}[\s\S]*label="Completed games"/u);
+  assert.match(dashboardSource, /Rank improved/u);
+  assert.match(dashboardSource, /Rank declined/u);
   assert.match(dashboardSource, /label="Legendary unlocks"/u);
-  assert.match(dashboardSource, /label="Obtainable completion"/u);
+  assert.doesNotMatch(dashboardSource, /label="Tracked games"/u);
+  assert.doesNotMatch(dashboardSource, /label="Started games"|label="Epic unlocks"/u);
+  assert.doesNotMatch(dashboardSource, /label="Unrestricted points"/u);
+  assert.doesNotMatch(dashboardSource, /label="Obtainable completion"/u);
+  assert.match(dashboardSource, /label="Owned"/u);
+  assert.match(dashboardSource, /label="Played"/u);
+  assert.match(dashboardSource, /label="In progress"/u);
+  assert.match(dashboardSource, /label="Perfected"/u);
+  assert.match(dashboardSource, /function formatSteamHuntersPercent/u);
+  assert.match(dashboardSource, /maximumFractionDigits: 1/u);
+  assert.match(dashboardSource, /value=\{formatSteamHuntersPercent\(steamHuntersProfile\?\.averageGameCompletion\)\}/u);
+  assert.match(dashboardSource, /fontSize: "clamp\(1\.18rem, 2\.2vw, 1\.78rem\)"/u);
+  assert.match(dashboardSource, /fontSize: "0\.53em"/u);
+  assert.match(dashboardSource, /overflowWrap: "anywhere"/u);
+  assert.doesNotMatch(
+    dashboardSource.slice(
+      dashboardSource.indexOf("function getMetricLabelStyle"),
+      dashboardSource.indexOf("function getMetricValueStyle"),
+    ),
+    /textOverflow: "ellipsis"|whiteSpace: "nowrap"/u,
+  );
+  assert.match(dashboardSource, /function getSteamInsightsMetricsStyle/u);
   assert.match(dashboardSource, /title="Recent Activity"/u);
   assert.match(dashboardSource, /title="Recently Played"/u);
-  assert.match(dashboardSource, /label="View Steam Profile"/u);
-  assert.match(dashboardSource, /label="Provider Settings"/u);
+  assert.match(
+    dashboardSource,
+    /title="Recent Activity"[\s\S]*focusClassName=\{DASHBOARD_FOCUS_RING_ACTIVE_CLASS\}[\s\S]*label="View All"[\s\S]*onClick=\{onOpenAchievementHistory\}/u,
+  );
+  assert.match(
+    dashboardSource,
+    /title="Recently Played"[\s\S]*focusClassName=\{DASHBOARD_FOCUS_RING_ACTIVE_CLASS\}[\s\S]*label="View All"[\s\S]*onClick=\{onOpenCompletionProgress\}/u,
+  );
+  assert.match(
+    dashboardSource,
+    /<Focusable\s+flow-children="left-right"\s+noFocusRing[\s\S]*tabIndex=\{-1\}[\s\S]*style=\{getPanelHeaderStyle\(\)\}/u,
+  );
+  assert.doesNotMatch(dashboardSource, /initialFocusApplied|initialFocusTarget\.focus\(\)/u);
+  assert.match(
+    dashboardSource,
+    /<Focusable flow-children="left-right" noFocusRing tabIndex=\{-1\} style=\{getDashboardGridStyle\(\)\}>/u,
+  );
+  assert.match(dashboardSource, /createDashboardHorizontalFocusHandler\("ArrowRight", \{ panelId: "recent" \}\)/u);
+  assert.match(dashboardSource, /createDashboardHorizontalFocusHandler\("ArrowLeft", \{ panelId: "activity" \}\)/u);
+  assert.match(dashboardSource, /data-steam-profile-row-index/u);
+  assert.match(dashboardSource, /function SteamProfileDashboardFocusStyles\(\)/u);
+  assert.match(dashboardSource, /outline: 2px solid rgba\(104, 193, 255, 0\.98\) !important/u);
+  assert.match(dashboardSource, /<DashboardFocusableList>/u);
+  assert.match(dashboardSource, /function getListArtworkSlotStyle\(\)/u);
+  assert.match(dashboardSource, /const DASHBOARD_LIST_ARTWORK_SIZE = 40/u);
+  assert.match(dashboardSource, /flex: `0 0 \$\{DASHBOARD_LIST_ARTWORK_SIZE\}px`/u);
+  assert.doesNotMatch(dashboardSource, /label="View Steam Profile"|label="Provider Settings"/u);
+  assert.doesNotMatch(dashboardSource, /Connected providers|label="Steam" state="Connected"|label="SteamHunters" state="Enrichment"/u);
+  assert.doesNotMatch(
+    dashboardSource,
+    /Across all tracked games|SteamHunters totals, separate from your Steam library|Latest 3 achievement unlocks|Your latest Steam games/u,
+  );
   assert.match(pageSource, /navigationItems=\{STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS\}/u);
   assert.match(pageSource, /activeNavigationItemId="profile"/u);
   assert.match(pageSource, /onNextNavigationItem=\{\(\) => \{\s*onOpenCompletionProgress\(profile\.providerId\);/u);
@@ -228,10 +309,14 @@ test("steam full-screen profile uses the three-column dashboard concept with Ste
   assert.doesNotMatch(dashboardSource, /aria-label="Profile navigation"/u);
   assert.doesNotMatch(dashboardSource, /label="Profile" selected/u);
   assert.match(dashboardSource, /<DeckyCompletionProgressBar breathe percent=\{completionPercent\}/u);
-  assert.match(pageSource, /onOpenCompletionProgress\(profile\.providerId, "mastered"\)/u);
+  assert.match(
+    dashboardSource,
+    /<DashboardArtwork\s+height=\{DASHBOARD_LIST_ARTWORK_SIZE\}\s+src=\{game\.artworkUrl\}\s+title=\{game\.title\}\s+width=\{DASHBOARD_LIST_ARTWORK_SIZE\}/u,
+  );
+  assert.match(dashboardSource, /recentUnlocks\.slice\(0, 3\)/u);
   assert.doesNotMatch(
     dashboardSource,
-    /label="Played games"|label="Steam level"|label="Perfected games"|label="Completed games"|value="Enabled"/u,
+    /label="Steam level"|value="Enabled"/u,
   );
 });
 
