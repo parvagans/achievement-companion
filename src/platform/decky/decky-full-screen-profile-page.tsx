@@ -20,6 +20,7 @@ import {
   loadDeckySteamHuntersProfileState,
 } from "./decky-app-services";
 import { DeckyGameArtwork } from "./decky-game-artwork";
+import { DeckyFullScreenLoadingState } from "./decky-full-screen-loading-state";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
@@ -1150,6 +1151,16 @@ export function DeckyFullScreenProfilePage({
   const refreshedAt = state.lastUpdatedAt ?? snapshot.refreshedAt;
 
   if (steamProfileSummary !== undefined) {
+    if (steamHuntersProfileState.status === "idle") {
+      return (
+        <DeckyFullScreenLoadingState
+          description="Fetching the latest Steam profile and SteamHunters data."
+          isError={false}
+          title="Loading Steam profile..."
+        />
+      );
+    }
+
     return (
       <>
         <div style={getSteamProfileViewportStyle()}>

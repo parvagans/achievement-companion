@@ -304,6 +304,9 @@ test("steam full-screen profile uses the requested top-row and equal lower-row d
   );
   assert.match(pageSource, /navigationItems=\{STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS\}/u);
   assert.match(pageSource, /activeNavigationItemId="profile"/u);
+  assert.match(pageSource, /steamHuntersProfileState\.status === "idle"/u);
+  assert.match(pageSource, /<DeckyFullScreenLoadingState[\s\S]*title="Loading Steam profile\.\.\."/u);
+  assert.match(pageSource, /Fetching the latest Steam profile and SteamHunters data\./u);
   assert.match(pageSource, /onNextNavigationItem=\{\(\) => \{\s*onOpenCompletionProgress\(profile\.providerId\);/u);
   assert.match(pageSource, /onPreviousNavigationItem=\{onOpenSettings\}/u);
   assert.doesNotMatch(dashboardSource, /aria-label="Profile navigation"/u);
