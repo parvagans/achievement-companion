@@ -1,4 +1,4 @@
-import { Focusable, type GamepadEvent } from "@decky/ui";
+import { Focusable, GamepadButton, type GamepadEvent } from "@decky/ui";
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements/config";
 import { STEAM_PROVIDER_ID } from "../../providers/steam/config";
@@ -11,7 +11,6 @@ import { createDeckySettingsStore } from "./decky-settings";
 import { removeDeckyStorageTextsByPrefix } from "./storage";
 import { getDeckyProviderOptions, useDeckyProviderConfigs } from "./providers";
 import { clearDeckyProviderConfig as clearRetroAchievementsAccount } from "./providers/retroachievements";
-import { useRetroAchievementsConnectionState } from "./providers/retroachievements/connection";
 import { clearDeckySteamLibraryAchievementScanSummary, clearDeckySteamProviderConfig, useDeckySteamLibraryAchievementScanSummary } from "./providers/steam";
 import { useSteamConnectionState } from "./providers/steam/connection";
 import bellIconUrl from "./assets/bell.svg";
@@ -24,6 +23,7 @@ import refreshIconUrl from "./assets/refresh.svg";
 import settingsIconUrl from "./assets/settings.svg";
 import trashIconUrl from "./assets/trash.svg";
 import brandLogoUrl from "./assets/brand/AC_main_logo.png";
+import brandSecondaryLogoUrl from "./assets/brand/AC_secondary_logo.png";
 import retroAchievementsLogoUrl from "./assets/providers/retroachievements/retroachievements.png";
 import steamLogoUrl from "./assets/providers/steam/steam.png";
 
@@ -94,20 +94,21 @@ function Heading({ children }: { readonly children: ReactNode }): JSX.Element {
 }
 
 function Logo({ compact = false }: { readonly compact?: boolean }): JSX.Element {
-  return <img alt="Achievement Companion" src={brandLogoUrl} style={{ display: "block", width: compact ? 75 : 105, height: compact ? 39 : 58, flex: "0 0 auto", objectFit: "contain" }} />;
+  return <img alt="Achievement Companion" src={compact ? brandSecondaryLogoUrl : brandLogoUrl} style={{ display: "block", width: compact ? 48 : 138, height: compact ? 48 : 82, flex: "0 0 auto", objectFit: "contain" }} />;
 }
 
-function ActionRow({ title, subtitle, icon, onActivate, danger = false, disabled = false }: {
+function ActionRow({ title, subtitle, icon, onActivate, danger = false, disabled = false, onGamepadDirection }: {
   readonly title: string;
   readonly subtitle?: string;
   readonly icon: string;
   readonly onActivate?: () => void;
   readonly danger?: boolean;
   readonly disabled?: boolean;
+  readonly onGamepadDirection?: (event: GamepadEvent) => void;
 }): JSX.Element {
   const interactive = onActivate !== undefined && !disabled;
   return (
-    <Focusable className="ac-settings-action" noFocusRing aria-label={title} aria-disabled={!interactive} tabIndex={interactive ? 0 : -1} {...(interactive ? { role: "button" as const, onActivate, onClick: onActivate } : {})} style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 26, padding: "1px 7px", boxSizing: "border-box", border: `1px solid ${danger ? "rgba(255,67,91,.5)" : "rgba(91,165,213,.18)"}`, borderRadius: 7, background: danger ? "linear-gradient(90deg,rgba(89,17,31,.56),rgba(57,15,27,.45))" : "rgba(12,35,51,.76)", color: danger ? "#ff6075" : "#eef8ff", opacity: disabled ? .56 : 1 }}>
+    <Focusable className="ac-settings-action" noFocusRing aria-label={title} aria-disabled={!interactive} tabIndex={interactive ? 0 : -1} {...(interactive ? { role: "button" as const, onActivate, onClick: onActivate, onGamepadDirection } : {})} style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 26, padding: "1px 7px", boxSizing: "border-box", border: `1px solid ${danger ? "rgba(255,67,91,.5)" : "rgba(91,165,213,.18)"}`, borderRadius: 7, background: danger ? "linear-gradient(90deg,rgba(89,17,31,.56),rgba(57,15,27,.45))" : "rgba(12,35,51,.76)", color: danger ? "#ff6075" : "#eef8ff", opacity: disabled ? .56 : 1 }}>
       <img alt="" aria-hidden="true" src={icon} style={{ ...iconStyle(17), ...(danger ? { filter: "brightness(0) saturate(100%) invert(49%) sepia(92%) saturate(2856%) hue-rotate(324deg) brightness(102%) contrast(101%)" } : {}) }} />
       <div style={{ minWidth: 0, flex: "1 1 auto" }}><div style={{ fontSize: 8, fontWeight: 800, lineHeight: 1.05 }}>{title}</div>{subtitle !== undefined ? <div style={{ marginTop: 1, color: danger ? "#ffc0c8" : "#a8bed0", fontSize: 6.5, lineHeight: 1.05 }}>{subtitle}</div> : null}</div>
       {interactive ? <img alt="" aria-hidden="true" src={chevronRightIconUrl} style={{ ...iconStyle(15), opacity: .85 }} /> : null}
@@ -125,9 +126,44 @@ export function DeckyFullScreenSettingsPage({ onBack, onOpenProviderSettings, on
   const pageRef = useRef<HTMLDivElement>(null);
   const initialFocusRef = useRef<HTMLDivElement>(null);
   const didSetInitialFocus = useRef(false);
+  const handleColumnDirection = (event: GamepadEvent): void => {
+    const button = event.detail.button;
+    const isVertical = button === GamepadButton.DIR_UP || button === GamepadButton.DIR_DOWN;
+    const isHorizontal = button === GamepadButton.DIR_LEFT || button === GamepadButton.DIR_RIGHT;
+    if (!isVertical && !isHorizontal) return;
+    if (isHorizontal && event.detail.is_repeat === true) return;
+    const page = pageRef.current;
+    const active = page?.ownerDocument.activeElement;
+    const HTMLElementConstructor = page?.ownerDocument.defaultView?.HTMLElement;
+    if (page === null || page === undefined || HTMLElementConstructor === undefined || !(active instanceof HTMLElementConstructor)) return;
+    const sourceId = active.closest<HTMLElement>("[data-settings-column]")?.dataset["settingsColumn"];
+    const destinationId = isVertical
+      ? sourceId
+      : sourceId === "left" ? "right" : sourceId === "right" ? "left" : undefined;
+    if (destinationId === undefined) return;
+    const destination = page.querySelector<HTMLElement>(`[data-settings-column="${destinationId}"]`);
+    if (destination === null) return;
+    const activeBounds = active.getBoundingClientRect();
+    const activeCenter = activeBounds.top + activeBounds.height / 2;
+    const targets = [...destination.querySelectorAll<HTMLElement>(".Panel.Focusable[role='button']:not([aria-disabled='true'])")];
+    const target = targets.reduce<{ readonly element: HTMLElement; readonly distance: number } | undefined>((closest, candidate) => {
+      if (candidate === active) return closest;
+      const bounds = candidate.getBoundingClientRect();
+      const center = bounds.top + bounds.height / 2;
+      const delta = center - activeCenter;
+      if (isVertical && (button === GamepadButton.DIR_UP ? delta >= 0 : delta <= 0)) return closest;
+      const distance = Math.abs(delta);
+      return closest === undefined || distance < closest.distance ? { element: candidate, distance } : closest;
+    }, undefined)?.element;
+    // The focused Decky control owns directional input, so consume the event even at
+    // a vertical endpoint instead of allowing focus to escape into another region.
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    target?.focus();
+  };
   const configs = useDeckyProviderConfigs();
   const providers = getDeckyProviderOptions(configs).filter((provider) => provider.enabled);
-  const retroConnection = useRetroAchievementsConnectionState();
   const steamConnection = useSteamConnectionState();
   const steamScan = useDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID);
   const [operation, setOperation] = useState<OperationState>("idle");
@@ -146,42 +182,6 @@ export function DeckyFullScreenSettingsPage({ onBack, onOpenProviderSettings, on
       didSetInitialFocus.current = true;
     });
     return () => ownerWindow.cancelAnimationFrame(frame);
-  }, []);
-
-  useLayoutEffect(() => {
-    const page = pageRef.current;
-    const ownerWindow = page?.ownerDocument.defaultView;
-    if (page === null || page === undefined || ownerWindow === null || ownerWindow === undefined) return;
-    const onButtonDown = (nativeEvent: Event): void => {
-      const event = nativeEvent as GamepadEvent;
-      if (event.detail.button !== 11 && event.detail.button !== 12) return;
-      if (event.detail.is_repeat === true) return;
-      const document = page.ownerDocument;
-      const active = document.activeElement;
-      if (!(active instanceof HTMLElement)) return;
-      const source = active.closest<HTMLElement>("[data-settings-column]");
-      const sourceId = source?.dataset["settingsColumn"];
-      const destinationId = sourceId === "left" ? "right" : sourceId === "right" ? "left" : undefined;
-      if (destinationId === undefined) return;
-      const destination = page.querySelector<HTMLElement>(`[data-settings-column="${destinationId}"]`);
-      if (destination === null) return;
-      const activeBounds = active.getBoundingClientRect();
-      const activeCenter = activeBounds.top + activeBounds.height / 2;
-      const targets = [...destination.querySelectorAll<HTMLElement>(".Panel.Focusable[role='button']:not([aria-disabled='true'])")];
-      const target = targets.reduce<HTMLElement | undefined>((closest, candidate) => {
-        if (closest === undefined) return candidate;
-        const candidateBounds = candidate.getBoundingClientRect();
-        const closestBounds = closest.getBoundingClientRect();
-        return Math.abs(candidateBounds.top + candidateBounds.height / 2 - activeCenter) < Math.abs(closestBounds.top + closestBounds.height / 2 - activeCenter) ? candidate : closest;
-      }, undefined);
-      if (target === undefined) return;
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-      target.focus();
-    };
-    ownerWindow.addEventListener("vgp_onbuttondown", onButtonDown, true);
-    return () => ownerWindow.removeEventListener("vgp_onbuttondown", onButtonDown, true);
   }, []);
 
   const refreshAll = async (): Promise<void> => {
@@ -215,13 +215,6 @@ export function DeckyFullScreenSettingsPage({ onBack, onOpenProviderSettings, on
   };
   const updateLabel = update.status === "checking" ? "Checking…" : update.status === "available" ? `v${update.latestVersion} available` : update.status === "current" ? "Up to date" : update.status === "error" ? "Try Again" : "Check for Updates";
   const operationMessage = operation === "refreshed" ? "All connected providers refreshed" : operation === "cleared" ? "Cached data cleared" : operation === "reset" ? "All plugin data reset" : operation === "error" ? "The operation could not be completed" : undefined;
-  const hasConnectionProblem = !["unknown", "connected"].includes(retroConnection.status) || !["unknown", "connected"].includes(steamConnection.status);
-  const systemStatus = hasConnectionProblem
-    ? { label: "Provider attention required", color: "#ff7182" }
-    : providers.every((provider) => provider.connected)
-      ? { label: "All systems operational", color: "#20e884" }
-      : { label: "Provider setup required", color: "#f5c542" };
-
   return (
     <div ref={pageRef} style={{ position: "relative", height: "100vh", minHeight: 0, overflow: "hidden", padding: `calc(env(safe-area-inset-top, 0px) + 43px) 12px ${showSteamProfileFooter ? 50 : 10}px`, boxSizing: "border-box", color: "#f2f7fb", background: "linear-gradient(120deg,#06111a,#071724 55%,#06121c)" }}>
       <Styles />
@@ -229,24 +222,24 @@ export function DeckyFullScreenSettingsPage({ onBack, onOpenProviderSettings, on
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", minHeight: 31 }}><Heading>SETTINGS</Heading>{!showSteamProfileFooter ? <DeckyFullscreenActionButton label="Back" isFullscreenBackAction onClick={onBack} compact /> : null}</div>
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.9fr) minmax(270px,.95fr)", gap: 10, minHeight: 0, flex: "1 1 auto" }}>
           <div data-settings-column="left" style={{ display: "flex", flexDirection: "column", gap: 5, minWidth: 0, minHeight: 0, overflow: "hidden" }}>
-            <div style={{ ...cardStyle, display: "flex", alignItems: "center", minHeight: 69, padding: "7px 13px", background: "linear-gradient(90deg,rgba(9,35,52,.95),rgba(7,29,44,.9))" }}><Logo /><div style={{ minWidth: 0, flex: "1 1 auto", paddingLeft: 11 }}><div style={{ fontSize: 13, fontWeight: 850 }}>Achievement Companion</div><div style={{ marginTop: 2, color: "#b3c7d8", fontSize: 9 }}>v{VERSION}</div><div style={{ marginTop: 4, color: systemStatus.color, fontSize: 8, fontWeight: 750 }}>●&nbsp; {systemStatus.label}</div></div><div style={{ alignSelf: "stretch", width: 1, margin: "5px 13px", background: "rgba(102,178,225,.25)" }} /><div style={{ width: "42%", color: "#afc2d2", fontSize: 9, lineHeight: 1.35 }}>Manage provider accounts, credentials, scans, and display preferences.</div></div>
+            <div style={{ ...cardStyle, display: "flex", alignItems: "center", minHeight: 91, padding: "5px 13px", background: "linear-gradient(90deg,rgba(9,35,52,.95),rgba(7,29,44,.9))" }}><Logo /><div style={{ alignSelf: "stretch", width: 1, margin: "5px 13px", background: "rgba(102,178,225,.25)" }} /><div style={{ width: "42%", color: "#afc2d2", fontSize: 9, lineHeight: 1.35 }}>Manage provider accounts, credentials, scans, and display preferences.</div></div>
             <Heading>PROVIDERS</Heading>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>{providers.map((provider) => {
               const isSteam = provider.id === STEAM_PROVIDER_ID;
               const account = isSteam ? configs.steam?.steamId64 : configs.retroAchievements?.username;
               const detail = !provider.connected ? "Credentials required" : isSteam && account ? `SteamID • ${account.slice(-6)}` : account || "Account configured";
-              return <Focusable key={provider.id} ref={provider.id === RETROACHIEVEMENTS_PROVIDER_ID ? initialFocusRef : undefined} className="ac-settings-action" noFocusRing role="button" aria-label={`Manage ${provider.label}`} tabIndex={0} onActivate={() => onOpenProviderSettings(provider.id)} onClick={() => onOpenProviderSettings(provider.id)} style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 46, padding: "4px 10px", boxSizing: "border-box", border: "1px solid rgba(71,158,214,.22)", borderRadius: 8, background: "rgba(8,31,47,.88)" }}><div style={{ width: 35, height: 35, borderRadius: 8, border: "1px solid rgba(67,196,255,.7)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", background: "#07141f", flexShrink: 0 }}><img alt="" src={isSteam ? steamLogoUrl : retroAchievementsLogoUrl} style={{ width: 31, height: 31, objectFit: "contain" }} /></div><div style={{ minWidth: 0, flex: "1 1 auto" }}><div style={{ fontSize: 10, fontWeight: 850 }}>{provider.label}</div><div style={{ marginTop: 2, color: provider.connected ? "#20e884" : "#f5c542", fontSize: 8, fontWeight: 750 }}>●&nbsp; {provider.connected ? "Connected" : "Set up account"}</div><div style={{ marginTop: 1, color: "#8ca8bb", fontSize: 7 }}>{detail}</div></div><span className="ac-settings-pill" style={{ padding: "5px 14px", border: "1px solid rgba(64,165,225,.32)", borderRadius: 999, background: "rgba(12,62,94,.68)", fontSize: 8, fontWeight: 800 }}>Manage</span><img alt="" src={chevronRightIconUrl} style={{ ...iconStyle(17), opacity: .85 }} /></Focusable>;
+              return <Focusable key={provider.id} ref={provider.id === RETROACHIEVEMENTS_PROVIDER_ID ? initialFocusRef : undefined} className="ac-settings-action" noFocusRing role="button" aria-label={`Manage ${provider.label}`} tabIndex={0} onActivate={() => onOpenProviderSettings(provider.id)} onClick={() => onOpenProviderSettings(provider.id)} onGamepadDirection={handleColumnDirection} style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 46, padding: "4px 10px", boxSizing: "border-box", border: "1px solid rgba(71,158,214,.22)", borderRadius: 8, background: "rgba(8,31,47,.88)" }}><div style={{ width: 35, height: 35, borderRadius: 8, border: "1px solid rgba(67,196,255,.7)", display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", background: "#07141f", flexShrink: 0 }}><img alt="" src={isSteam ? steamLogoUrl : retroAchievementsLogoUrl} style={{ width: 31, height: 31, objectFit: "contain" }} /></div><div style={{ minWidth: 0, flex: "1 1 auto" }}><div style={{ fontSize: 10, fontWeight: 850 }}>{provider.label}</div><div style={{ marginTop: 2, color: provider.connected ? "#20e884" : "#f5c542", fontSize: 8, fontWeight: 750 }}>●&nbsp; {provider.connected ? "Connected" : "Set up account"}</div><div style={{ marginTop: 1, color: "#8ca8bb", fontSize: 7 }}>{detail}</div></div><span className="ac-settings-pill" style={{ padding: "5px 14px", border: "1px solid rgba(64,165,225,.32)", borderRadius: 999, background: "rgba(12,62,94,.68)", fontSize: 8, fontWeight: 800 }}>Manage</span><img alt="" src={chevronRightIconUrl} style={{ ...iconStyle(17), opacity: .85 }} /></Focusable>;
             })}</div>
             <Heading>GENERAL</Heading>
-            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}><ActionRow icon={settingsIconUrl} title="Display Preferences" subtitle="Theme, layout, date format, and UI options" onActivate={() => onOpenProviderSettings(RETROACHIEVEMENTS_PROVIDER_ID)} /><ActionRow icon={gamepadIconUrl} title="Game Scanning" subtitle="Steam library scan settings and data refresh" onActivate={() => onOpenProviderSettings(STEAM_PROVIDER_ID)} /><ActionRow disabled icon={bellIconUrl} title="Notifications" subtitle="Notification preferences are not available in this build" /></div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}><ActionRow onGamepadDirection={handleColumnDirection} icon={settingsIconUrl} title="Display Preferences" subtitle="Theme, layout, date format, and UI options" onActivate={() => onOpenProviderSettings(RETROACHIEVEMENTS_PROVIDER_ID)} /><ActionRow onGamepadDirection={handleColumnDirection} icon={gamepadIconUrl} title="Game Scanning" subtitle="Steam library scan settings and data refresh" onActivate={() => onOpenProviderSettings(STEAM_PROVIDER_ID)} /><ActionRow disabled icon={bellIconUrl} title="Notifications" subtitle="Notification preferences are not available in this build" /></div>
             <Heading>DATA &amp; STORAGE</Heading>
-            <ActionRow icon={databaseIconUrl} title="Cache Management" subtitle="View cache size, clear cache, and refresh data" onActivate={() => setArmedAction("clear")} />
+            <ActionRow onGamepadDirection={handleColumnDirection} icon={databaseIconUrl} title="Cache Management" subtitle="View cache size, clear cache, and refresh data" onActivate={() => setArmedAction("clear")} />
           </div>
 
           <div data-settings-column="right" style={{ display: "flex", flexDirection: "column", gap: 5, minWidth: 0, minHeight: 0, overflow: "hidden", justifyContent: "space-between" }}>
-            <div style={{ ...cardStyle, padding: 8 }}><Heading>ABOUT</Heading><div style={{ display: "flex", alignItems: "center", gap: 9, minHeight: 43, padding: "2px 3px 4px" }}><Logo compact /><div><div style={{ fontSize: 11, fontWeight: 850 }}>Achievement Companion</div><div style={{ marginTop: 2, color: "#a9bdcd", fontSize: 8 }}>v{VERSION}</div></div></div><div style={{ display: "flex", flexDirection: "column", gap: 3 }}><ActionRow icon={externalLinkIconUrl} title="View Changelog" onActivate={() => onOpenExternalUrl(RELEASES_URL)} /><ActionRow icon={externalLinkIconUrl} title="GitHub Repository" onActivate={() => onOpenExternalUrl(REPOSITORY_URL)} /><ActionRow icon={infoIconUrl} title="Report an Issue" onActivate={() => onOpenExternalUrl(ISSUES_URL)} /><ActionRow icon={refreshIconUrl} title={updateLabel} disabled={update.status === "checking"} onActivate={() => { void checkUpdates(); }} /></div></div>
-            <div style={{ ...cardStyle, padding: 8 }}><Heading>DATA &amp; SYNC</Heading><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, margin: "6px 0" }}><div style={{ display: "flex", alignItems: "center", gap: 7, padding: 7, borderRadius: 7, border: "1px solid rgba(75,157,208,.18)", background: "rgba(11,39,57,.78)" }}><img alt="" src={databaseIconUrl} style={iconStyle(23)} /><div><div style={{ color: "#a8bdcc", fontSize: 7 }}>Cached Games</div><div style={{ fontSize: 13, fontWeight: 900 }}>{steamScan?.games.length.toLocaleString() ?? "—"}</div></div></div><div style={{ display: "flex", alignItems: "center", gap: 7, padding: 7, borderRadius: 7, border: "1px solid rgba(75,157,208,.18)", background: "rgba(11,39,57,.78)" }}><img alt="" src={refreshIconUrl} style={iconStyle(23)} /><div><div style={{ color: "#a8bdcc", fontSize: 7 }}>Last Sync</div><div style={{ fontSize: 9, fontWeight: 850 }}>{lastSync.date}</div><div style={{ color: "#a8bdcc", fontSize: 7 }}>{lastSync.time}</div></div></div></div><div style={{ display: "flex", flexDirection: "column", gap: 4 }}><ActionRow icon={refreshIconUrl} title={operation === "refreshing" ? "Refreshing All Data…" : "Refresh All Data"} disabled={operation === "refreshing" || !providers.some((provider) => provider.connected)} onActivate={() => { void refreshAll(); }} /><ActionRow danger icon={trashIconUrl} title={armedAction === "clear" ? "Press again to clear cached data" : "Clear Cached Data"} onActivate={() => { if (armedAction === "clear") clearCache(); else setArmedAction("clear"); }} /></div>{operationMessage !== undefined ? <div style={{ marginTop: 5, color: operation === "error" ? "#ff7182" : "#74dba1", fontSize: 7, textAlign: "center" }}>{operationMessage}</div> : null}</div>
-            <div style={{ ...cardStyle, padding: 8 }}><Heading>DANGEROUS ZONE</Heading><div style={{ marginTop: 6 }}><ActionRow danger icon={refreshIconUrl} title={armedAction === "reset" ? "Press again to reset all data" : "Reset All Data"} subtitle="Clear cache, local data, provider accounts, and settings" onActivate={() => { if (armedAction === "reset") void resetAll(); else setArmedAction("reset"); }} /></div></div>
+            <div style={{ ...cardStyle, padding: 8 }}><Heading>ABOUT</Heading><div style={{ display: "flex", alignItems: "center", gap: 9, minHeight: 43, padding: "2px 3px 4px" }}><Logo compact /><div><div style={{ fontSize: 11, fontWeight: 850 }}>Achievement Companion</div><div style={{ marginTop: 2, color: "#a9bdcd", fontSize: 8 }}>v{VERSION}</div></div></div><div style={{ display: "flex", flexDirection: "column", gap: 3 }}><ActionRow onGamepadDirection={handleColumnDirection} icon={externalLinkIconUrl} title="View Changelog" onActivate={() => onOpenExternalUrl(RELEASES_URL)} /><ActionRow onGamepadDirection={handleColumnDirection} icon={externalLinkIconUrl} title="GitHub Repository" onActivate={() => onOpenExternalUrl(REPOSITORY_URL)} /><ActionRow onGamepadDirection={handleColumnDirection} icon={infoIconUrl} title="Report an Issue" onActivate={() => onOpenExternalUrl(ISSUES_URL)} /><ActionRow onGamepadDirection={handleColumnDirection} icon={refreshIconUrl} title={updateLabel} disabled={update.status === "checking"} onActivate={() => { void checkUpdates(); }} /></div></div>
+            <div style={{ ...cardStyle, padding: 8 }}><Heading>DATA &amp; SYNC</Heading><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, margin: "6px 0" }}><div style={{ display: "flex", alignItems: "center", gap: 7, padding: 7, borderRadius: 7, border: "1px solid rgba(75,157,208,.18)", background: "rgba(11,39,57,.78)" }}><img alt="" src={databaseIconUrl} style={iconStyle(23)} /><div><div style={{ color: "#a8bdcc", fontSize: 7 }}>Cached Games</div><div style={{ fontSize: 13, fontWeight: 900 }}>{steamScan?.games.length.toLocaleString() ?? "—"}</div></div></div><div style={{ display: "flex", alignItems: "center", gap: 7, padding: 7, borderRadius: 7, border: "1px solid rgba(75,157,208,.18)", background: "rgba(11,39,57,.78)" }}><img alt="" src={refreshIconUrl} style={iconStyle(23)} /><div><div style={{ color: "#a8bdcc", fontSize: 7 }}>Last Sync</div><div style={{ fontSize: 9, fontWeight: 850 }}>{lastSync.date}</div><div style={{ color: "#a8bdcc", fontSize: 7 }}>{lastSync.time}</div></div></div></div><div style={{ display: "flex", flexDirection: "column", gap: 4 }}><ActionRow onGamepadDirection={handleColumnDirection} icon={refreshIconUrl} title={operation === "refreshing" ? "Refreshing All Data…" : "Refresh All Data"} disabled={operation === "refreshing" || !providers.some((provider) => provider.connected)} onActivate={() => { void refreshAll(); }} /><ActionRow onGamepadDirection={handleColumnDirection} danger icon={trashIconUrl} title={armedAction === "clear" ? "Press again to clear cached data" : "Clear Cached Data"} onActivate={() => { if (armedAction === "clear") clearCache(); else setArmedAction("clear"); }} /></div>{operationMessage !== undefined ? <div style={{ marginTop: 5, color: operation === "error" ? "#ff7182" : "#74dba1", fontSize: 7, textAlign: "center" }}>{operationMessage}</div> : null}</div>
+            <div style={{ ...cardStyle, padding: 8 }}><Heading>DANGEROUS ZONE</Heading><div style={{ marginTop: 6 }}><ActionRow onGamepadDirection={handleColumnDirection} danger icon={refreshIconUrl} title={armedAction === "reset" ? "Press again to reset all data" : "Reset All Data"} subtitle="Clear cache, local data, provider accounts, and settings" onActivate={() => { if (armedAction === "reset") void resetAll(); else setArmedAction("reset"); }} /></div></div>
           </div>
         </div>
       </div>
