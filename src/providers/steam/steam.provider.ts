@@ -7,7 +7,11 @@ import type {
 import type { AchievementProvider } from "@core/ports";
 import { redactFrontendLogText } from "@core/redaction";
 import { STEAM_PROVIDER_ID, type SteamProviderConfig } from "./config";
-import { createSteamClient, type SteamClient } from "./client/client";
+import {
+  createSteamClient,
+  loadSteamPlayerAchievementsCoalesced,
+  type SteamClient,
+} from "./client/client";
 import {
   createFetchSteamTransport,
   type FetchSteamTransportOptions,
@@ -23,6 +27,7 @@ import {
   sortSteamRecentlyPlayedGamesNewestFirst,
 } from "./mappers/normalize";
 import { normalizeSteamBadges } from "./badges";
+import { countSteamPlayerAchievements, getSteamSchemaAchievementApiNames } from "./achievement-count";
 import {
   composeSteamGameDetailWithSteamHuntersWithinBudget,
   createSteamHuntersService,
@@ -312,29 +317,74 @@ async function loadSteamGameProgressSnapshot(args: {
   readonly appId: number;
   readonly rawGame?: RawSteamRecentlyPlayedGame;
 }): Promise<GameDetailSnapshot> {
-  const [playerAchievements, schemaResponse, globalPercentagesResponse] = await Promise.all([
-    args.client.loadPlayerAchievements(args.config, args.appId),
+  const [playerResult, schemaResult, globalPercentagesResult] = await Promise.allSettled([
+    loadSteamPlayerAchievementsCoalesced(args.client, args.config, args.appId),
     args.client.loadSchemaForGame(args.config, args.appId),
     args.client.loadGlobalAchievementPercentagesForApp(args.appId),
   ]);
+  if (playerResult.status === "rejected") {
+    throw playerResult.reason;
+  }
 
-  const globalAchievementPercentages = buildGlobalPercentMap(globalPercentagesResponse);
-  const schemaAchievements = schemaResponse.game?.availableGameStats?.achievements ?? [];
+  const playerStats = playerResult.value.playerstats;
+  if (
+    playerStats?.success !== true ||
+    !Array.isArray(playerStats.achievements) ||
+    countSteamPlayerAchievements(playerStats.achievements) === undefined
+  ) {
+    throw new Error("Steam player-achievements response was incomplete or malformed.");
+  }
+
+  const schemaResponse = schemaResult.status === "fulfilled" ? schemaResult.value : undefined;
+  const globalPercentagesResponse =
+    globalPercentagesResult.status === "fulfilled" ? globalPercentagesResult.value : undefined;
+  const globalAchievementPercentages = globalPercentagesResponse !== undefined
+    ? buildGlobalPercentMap(globalPercentagesResponse)
+    : new Map<string, number>();
+  const rawSchemaAchievements = schemaResponse?.game?.availableGameStats?.achievements;
+  const schemaAchievements = Array.isArray(rawSchemaAchievements) ? rawSchemaAchievements : [];
+  const playerCounts = countSteamPlayerAchievements(playerStats.achievements);
+  const schemaAchievementNames = Array.isArray(rawSchemaAchievements)
+    ? getSteamSchemaAchievementApiNames(rawSchemaAchievements)
+    : undefined;
+  if (
+    playerCounts === undefined ||
+    schemaAchievementNames?.some(
+      (name) => !playerCounts.achievements.some((achievement) => achievement.apiname?.trim() === name),
+    )
+  ) {
+    throw new Error("Steam player-achievements response was incomplete relative to the available schema.");
+  }
+  const isNoAchievementStateConfirmed =
+    schemaAchievementNames?.length === 0 &&
+    playerStats.achievements.length === 0;
+  const achievementStateIsComplete =
+    schemaAchievementNames !== undefined &&
+    playerCounts !== undefined &&
+    schemaAchievementNames.length === playerCounts.total &&
+    schemaAchievementNames.every((name) =>
+      playerCounts.achievements.some((achievement) => achievement.apiname?.trim() === name),
+    );
   const rawGameName =
-    args.rawGame?.name ?? schemaResponse.game?.gameName ?? `Steam App ${String(args.appId)}`;
+    args.rawGame?.name ?? schemaResponse?.game?.gameName ?? `Steam App ${String(args.appId)}`;
 
-  return normalizeSteamGameDetail({
+  const detail = normalizeSteamGameDetail({
     appId: args.appId,
     rawGameName,
     rawGameIcon: args.rawGame?.img_icon_url,
     rawGameBoxArt: args.rawGame?.img_logo_url,
-    playerAchievements: playerAchievements.playerstats?.achievements ?? [],
+    playerAchievements: playerStats.achievements,
     schemaAchievements,
+    noAchievementStateConfirmed: isNoAchievementStateConfirmed,
     globalAchievementPercentages,
     playtimeForever: args.rawGame?.playtime_forever,
     playtimeTwoWeeks: args.rawGame?.playtime_2weeks,
     playtimeDeckForever: args.rawGame?.playtime_deck_forever,
   });
+  return {
+    ...detail,
+    ...(achievementStateIsComplete ? { achievementStateIsComplete: true } : {}),
+  };
 }
 
 async function loadSteamRecentGameSnapshots(

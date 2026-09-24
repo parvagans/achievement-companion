@@ -13,6 +13,7 @@ import { DeckyCompletionProgressBar } from "./decky-completion-progress-bar";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
 import {
   initialDeckyBootstrapState,
+  getDeckyDashboardStateForFullScreenEntryInitial,
   initialDeckyCompletionProgressState,
   initialDeckySteamHuntersProfileState,
   loadDeckyCompletionProgressState,
@@ -1068,7 +1069,8 @@ export function DeckyFullScreenProfilePage({
 
     return () => loadDeckyDashboardStateForFullScreenEntry(providerId);
   }, [providerId]);
-  const state = useAsyncResourceState(loadSelectedProfile, initialDeckyBootstrapState);
+  const initialProfileState = getDeckyDashboardStateForFullScreenEntryInitial(providerId);
+  const state = useAsyncResourceState(loadSelectedProfile, initialProfileState);
   const loadSelectedCompletionProgress = useMemo(() => {
     if (providerId !== RETROACHIEVEMENTS_PROVIDER_ID) {
       return () => Promise.resolve(initialDeckyCompletionProgressState);
@@ -1153,16 +1155,6 @@ export function DeckyFullScreenProfilePage({
   const refreshedAt = state.lastUpdatedAt ?? snapshot.refreshedAt;
 
   if (steamProfileSummary !== undefined) {
-    if (steamHuntersProfileState.status === "idle") {
-      return (
-        <DeckyFullScreenLoadingState
-          description="Fetching the latest Steam profile and SteamHunters data."
-          isError={false}
-          title="Loading Steam profile..."
-        />
-      );
-    }
-
     return (
       <>
         <div style={getSteamProfileViewportStyle()}>

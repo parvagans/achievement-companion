@@ -48,7 +48,7 @@ import {
 } from "./smoke-test-cache";
 import { loadDeckyProviderConfig } from "./providers";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
-import { STEAM_PROVIDER_ID } from "../../providers/steam";
+import { STEAM_PROVIDER_ID, type SteamProviderConfig } from "../../providers/steam";
 import { createDeckyRetroAchievementsTransport } from "./providers/retroachievements/backend-transport";
 import {
   markRetroAchievementsAuthenticatedSuccess,
@@ -65,14 +65,13 @@ import { deckyProviderConfigStore } from "./providers/provider-config-store";
 import {
   buildDeckySteamAchievementHistorySnapshotFromSummary,
   buildDeckySteamCompletionProgressSnapshotFromSummary,
+  refreshAndCacheDeckySteamLibraryAchievementProgress,
 } from "./providers/steam/library-scan";
-import { reconcileSteamLibraryAchievementScanWithRecentGames } from "../../providers/steam/library-scan";
 import { deckyDiagnosticLogger } from "./decky-diagnostic-logger";
 import {
   deckySteamLibraryScanStore,
   readDeckySteamLibraryAchievementScanSummary,
   type SteamLibraryAchievementScanSummary,
-  writeDeckySteamLibraryAchievementScanSummary,
 } from "./providers/steam/config";
 import {
   applySteamLibraryScanGameDetailMetadata,
@@ -965,6 +964,8 @@ export async function loadDeckyDashboardState(
   providerId: ProviderId,
   options?: {
     readonly forceRefresh?: boolean;
+    /** Full-screen entry renders direct recent data first; history backfill is non-critical. */
+    readonly skipRecentAchievementHistoryBackfill?: boolean;
   },
 ): Promise<ResourceState<DashboardSnapshot>> {
   const runtimeMode: DeckyRuntimeMode = loadDeckyRuntimeMode();
@@ -1006,7 +1007,8 @@ export async function loadDeckyDashboardState(
     mode: options?.forceRefresh ? "manual" : "initial",
   });
   const refreshPromise = (async () => {
-    const state = await createDeckyAppServices(runtimeMode).dashboard.loadDashboard(providerId, options);
+    const dashboardRefreshPromise = createDeckyAppServices(runtimeMode).dashboard.loadDashboard(providerId, options);
+    const state = await dashboardRefreshPromise;
     if (state.data === undefined) {
       if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
         markRetroAchievementsRefreshFailure(state.error, { isShowingCachedData: false });
@@ -1044,31 +1046,23 @@ export async function loadDeckyDashboardState(
       ? (providerRegistry.get(providerId) as DeckyRecentAchievementBackfillProvider | undefined)
       : undefined;
     const providerConfig = runtimeMode === "live" ? await loadDeckyProviderConfig(providerId) : undefined;
-    const cachedSteamLibraryScanSummary = providerId === STEAM_PROVIDER_ID
+    // The dashboard/profile path deliberately uses the last-known-good library
+    // summary. Refreshing every owned game's player state belongs to explicit
+    // refresh, so failed or incomplete recent-game data cannot lower totals.
+    const steamLibraryScanSummary = providerId === STEAM_PROVIDER_ID
       ? readDeckySteamLibraryAchievementScanSummary(providerId)
       : undefined;
-    const reconciledSteamLibraryScanSummary = cachedSteamLibraryScanSummary !== undefined
-      ? reconcileSteamLibraryAchievementScanWithRecentGames({
-          summary: cachedSteamLibraryScanSummary,
-          recentlyPlayedGames: state.data.recentlyPlayedGames,
-          refreshedAt: state.lastUpdatedAt ?? Date.now(),
-        })
-      : undefined;
-    if (
-      reconciledSteamLibraryScanSummary !== undefined &&
-      reconciledSteamLibraryScanSummary !== cachedSteamLibraryScanSummary
-    ) {
-      writeDeckySteamLibraryAchievementScanSummary(reconciledSteamLibraryScanSummary);
-    }
     const snapshotWithSteamScanAchievements = mergeDeckySteamLibraryScanRecentAchievements(
       state.data,
-      reconciledSteamLibraryScanSummary,
+      steamLibraryScanSummary,
     );
-    const dashboardSnapshot = await buildDeckyRecentAchievementHistory({
-      provider,
-      providerConfig,
-      snapshot: snapshotWithSteamScanAchievements,
-    });
+    const dashboardSnapshot = options?.skipRecentAchievementHistoryBackfill === true
+      ? snapshotWithSteamScanAchievements
+      : await buildDeckyRecentAchievementHistory({
+          provider,
+          providerConfig,
+          snapshot: snapshotWithSteamScanAchievements,
+        });
     writeDeckyDashboardSnapshot(dashboardSnapshot);
 
     if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
@@ -1140,6 +1134,28 @@ export async function loadDeckyCompletionProgressState(
 }
 
 /**
+ * Refresh the complete owned Steam library only for an explicit user action.
+ * The underlying coordinator retains account/revision and stale-write guards.
+ */
+export async function refreshDeckySteamLibraryForExplicitRefresh(): Promise<
+  SteamLibraryAchievementScanSummary | undefined
+> {
+  const config = await loadDeckyProviderConfig(STEAM_PROVIDER_ID);
+  if (config === undefined || !("steamId64" in config)) {
+    return readDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID);
+  }
+
+  try {
+    return await refreshAndCacheDeckySteamLibraryAchievementProgress(config as SteamProviderConfig);
+  } catch (cause) {
+    console.warn("[Achievement Companion][Steam] Explicit library refresh failed; cached library was retained", {
+      error: cause instanceof Error ? cause.message : String(cause),
+    });
+    return readDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID);
+  }
+}
+
+/**
  * Starts a new Steam full-screen visit. Internal footer navigation deliberately
  * keeps this session so Profile, Games, and Activity share one account refresh.
  */
@@ -1166,7 +1182,10 @@ export function loadDeckyDashboardStateForFullScreenEntry(
     return deckySteamFullScreenDashboardRefreshSession;
   }
 
-  const refreshSession = loadDeckyDashboardState(providerId, { forceRefresh: true });
+  const refreshSession = loadDeckyDashboardState(providerId, {
+    forceRefresh: true,
+    skipRecentAchievementHistoryBackfill: true,
+  });
   deckySteamFullScreenDashboardRefreshSession = refreshSession;
   void refreshSession.then((state) => {
     if (
@@ -1177,6 +1196,22 @@ export function loadDeckyDashboardStateForFullScreenEntry(
     }
   });
   return refreshSession;
+}
+
+/**
+ * Seed the full-screen profile with cached data before its bounded live refresh
+ * finishes. A missing cache intentionally falls back to the regular loader.
+ */
+export function getDeckyDashboardStateForFullScreenEntryInitial(
+  providerId: ProviderId | undefined,
+): ResourceState<DashboardSnapshot> {
+  if (providerId === undefined || providerId === STEAM_PROVIDER_ID) {
+    return providerId === STEAM_PROVIDER_ID
+      ? readDeckyDashboardSnapshotState(providerId) ?? initialDeckyBootstrapState
+      : initialDeckyBootstrapState;
+  }
+
+  return initialDeckyBootstrapState;
 }
 
 export async function refreshDeckySteamDashboardOnFullScreenEntry(providerId: ProviderId): Promise<void> {
@@ -1220,7 +1255,9 @@ export function mergeDeckySteamCompletionProgressWithDashboard(
       ...game,
       gameId: recentlyPlayed.gameId,
       title: recentlyPlayed.title,
-      summary: recentlyPlayed.summary,
+      ...(recentlyPlayed.achievementStateIsComplete === true
+        ? { summary: recentlyPlayed.summary }
+        : {}),
       ...(recentlyPlayed.appid !== undefined ? { appid: recentlyPlayed.appid } : {}),
       ...(recentlyPlayed.platformLabel !== undefined
         ? { platformLabel: recentlyPlayed.platformLabel }

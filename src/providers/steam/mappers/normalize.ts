@@ -18,6 +18,7 @@ import type {
   RawSteamRecentlyPlayedGame,
   RawSteamSchemaAchievement,
 } from "../raw-types";
+import { countSteamPlayerAchievements } from "../achievement-count";
 
 function coerceString(value: unknown): string | undefined {
   if (typeof value !== "string") {
@@ -341,6 +342,7 @@ export function normalizeSteamRecentlyPlayedGames(
       summary: detail?.game.summary ?? {
         unlockedCount: 0,
       },
+      ...(detail?.achievementStateIsComplete === true ? { achievementStateIsComplete: true } : {}),
       ...(playtimeForeverMinutes !== undefined ? { playtimeForeverMinutes } : {}),
       ...(playtimeTwoWeeksMinutes !== undefined ? { playtimeTwoWeeksMinutes } : {}),
       ...(playtimeDeckForeverMinutes !== undefined ? { playtimeDeckForeverMinutes } : {}),
@@ -499,14 +501,16 @@ export function normalizeSteamGameDetail(args: {
   readonly rawGameBoxArt: string | undefined;
   readonly playerAchievements: readonly RawSteamPlayerAchievement[];
   readonly schemaAchievements: readonly RawSteamSchemaAchievement[];
+  readonly noAchievementStateConfirmed?: boolean;
   readonly globalAchievementPercentages: ReadonlyMap<string, number>;
   readonly playtimeForever: number | undefined;
   readonly playtimeTwoWeeks: number | undefined;
   readonly playtimeDeckForever: number | undefined;
 }): GameDetailSnapshot {
   const title = args.rawGameName ?? "Unknown Game";
+  const playerAchievementCounts = countSteamPlayerAchievements(args.playerAchievements);
   const playerAchievementsByName = new Map(
-    args.playerAchievements.flatMap((achievement) => {
+    (playerAchievementCounts?.achievements ?? args.playerAchievements).flatMap((achievement) => {
       const achievementName = pickString(achievement.apiname);
       if (achievementName === undefined) {
         return [];
@@ -516,55 +520,53 @@ export function normalizeSteamGameDetail(args: {
     }),
   );
 
-  const normalizedAchievements: NormalizedAchievement[] = [];
-
-  if (args.schemaAchievements.length > 0) {
-    for (const schemaAchievement of args.schemaAchievements) {
-      const achievementId = pickString(schemaAchievement.name);
-      if (achievementId === undefined) {
-        continue;
-      }
-
-      const playerAchievement = playerAchievementsByName.get(achievementId);
-      const achieved = pickBoolean(playerAchievement?.achieved) ?? false;
-      const unlockTime = normalizeEpochSeconds(playerAchievement?.unlocktime);
-      const globalPercent = args.globalAchievementPercentages.get(achievementId);
-      const normalizedAchievement = createSteamAchievementFromSchema({
-        appId: args.appId,
-        schemaAchievement,
-        playerAchievement,
-        achieved,
-        unlockTime,
-        globalPercent,
-      });
-
-      if (normalizedAchievement !== undefined) {
-        normalizedAchievements.push(normalizedAchievement);
-      }
-    }
-  } else {
-    for (const playerAchievement of args.playerAchievements) {
-      const achievementId = pickString(playerAchievement.apiname);
-      if (achievementId === undefined) {
-        continue;
-      }
-
-      const globalPercent = args.globalAchievementPercentages.get(achievementId);
-      const normalizedAchievement = createSteamAchievementFromPlayerOnly({
-        appId: args.appId,
-        playerAchievement,
-        globalPercent,
-      });
-
-      if (normalizedAchievement !== undefined) {
-        normalizedAchievements.push(normalizedAchievement);
-      }
+  const schemaByApiName = new Map(
+    args.schemaAchievements.flatMap((achievement) => {
+      const apiName = pickString(achievement.name);
+      return apiName !== undefined ? [[apiName, achievement] as const] : [];
+    }),
+  );
+  const normalizedByApiName = new Map<string, NormalizedAchievement>();
+  for (const [achievementId, playerAchievement] of playerAchievementsByName) {
+    const globalPercent = args.globalAchievementPercentages.get(achievementId);
+    const schemaAchievement = schemaByApiName.get(achievementId);
+    const normalizedAchievement = schemaAchievement !== undefined
+      ? createSteamAchievementFromSchema({
+          appId: args.appId,
+          schemaAchievement,
+          playerAchievement,
+          achieved: pickBoolean(playerAchievement.achieved) ?? false,
+          unlockTime: normalizeEpochSeconds(playerAchievement.unlocktime),
+          globalPercent,
+        })
+      : createSteamAchievementFromPlayerOnly({ appId: args.appId, playerAchievement, globalPercent });
+    if (normalizedAchievement !== undefined) {
+      normalizedByApiName.set(achievementId, normalizedAchievement);
     }
   }
-
-  const unlockedAchievements = normalizedAchievements.filter((achievement) => achievement.isUnlocked);
-  const unlockedCount = unlockedAchievements.length;
-  const totalCount = normalizedAchievements.length > 0 ? normalizedAchievements.length : undefined;
+  for (const [achievementId, schemaAchievement] of schemaByApiName) {
+    if (normalizedByApiName.has(achievementId)) {
+      continue;
+    }
+    const normalizedAchievement = createSteamAchievementFromSchema({
+      appId: args.appId,
+      schemaAchievement,
+      playerAchievement: undefined,
+      achieved: false,
+      unlockTime: undefined,
+      globalPercent: args.globalAchievementPercentages.get(achievementId),
+    });
+    if (normalizedAchievement !== undefined) {
+      normalizedByApiName.set(achievementId, normalizedAchievement);
+    }
+  }
+  const normalizedAchievements = [...normalizedByApiName.values()];
+  const unlockedCount = playerAchievementCounts?.unlocked ?? 0;
+  const totalCount = playerAchievementCounts !== undefined && playerAchievementCounts.total > 0
+    ? playerAchievementCounts.total
+    : args.noAchievementStateConfirmed === true
+      ? 0
+      : undefined;
   const completionPercent =
     totalCount !== undefined && totalCount > 0
       ? Math.round((unlockedCount / totalCount) * 100)

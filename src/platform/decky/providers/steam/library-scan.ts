@@ -3,7 +3,9 @@ import type { CompletionProgressSnapshot, NormalizedGame } from "@core/domain";
 import { createSteamClient } from "../../../../providers/steam";
 import {
   scanSteamLibraryAchievements,
+  refreshSteamLibraryAchievementProgress,
   type SteamLibraryAchievementScanSummary,
+  type SteamLibraryAchievementSchemaCache,
   type SteamLibraryScanLogger,
   type SteamLibraryGameProgressSummary,
 } from "../../../../providers/steam/library-scan";
@@ -16,14 +18,27 @@ import {
   type DeckyDiagnosticEventPayload,
 } from "../../decky-diagnostic-logger";
 import {
-  writeDeckySteamLibraryAchievementScanSummary,
+  getDeckySteamLibraryAchievementScanRevision,
+  readDeckySteamLibraryAchievementScanSummary,
+  readDeckySteamAchievementSchemaCache,
+  writeDeckySteamAchievementSchemaCache,
+  writeDeckySteamLibraryAchievementScanSummaryIfRevisionMatches,
 } from "./config";
 import { createDeckySteamTransport } from "./backend-transport";
 
 // Keep only one manual Steam library scan active in a Decky runtime at a time.
-let activeDeckySteamLibraryAchievementScan:
-  | Promise<SteamLibraryAchievementScanSummary>
-  | undefined;
+const activeDeckySteamLibraryAchievementScans = new Map<string, Promise<SteamLibraryAchievementScanSummary>>();
+const activeDeckySteamLibraryAchievementRefreshes = new Map<
+  string,
+  Promise<SteamLibraryAchievementScanSummary | undefined>
+>();
+let steamLibrarySummaryUpdateQueue: Promise<void> = Promise.resolve();
+
+function runSteamLibrarySummaryUpdate<T>(operation: () => Promise<T>): Promise<T> {
+  const queuedOperation = steamLibrarySummaryUpdateQueue.then(operation, operation);
+  steamLibrarySummaryUpdateQueue = queuedOperation.then(() => undefined, () => undefined);
+  return queuedOperation;
+}
 
 function logDeckySteamLibraryScan(
   level: "info" | "warn",
@@ -94,12 +109,45 @@ function createDeckySteamLibraryScanLogger(): SteamLibraryScanLogger {
   };
 }
 
-export function createDeckySteamLibraryScanDependencies(): Parameters<
+export function createDeckySteamLibraryScanDependencies(): NonNullable<Parameters<
   typeof scanSteamLibraryAchievements
->[1] {
+>[1]> {
   return {
     client: createSteamClient(createDeckySteamTransport()),
     logger: createDeckySteamLibraryScanLogger(),
+  };
+}
+
+function createDeckySteamSchemaCache(steamId64: string): SteamLibraryAchievementSchemaCache {
+  return {
+    read(appId) {
+      return readDeckySteamAchievementSchemaCache(steamId64, appId);
+    },
+    write(appId, achievements) {
+      writeDeckySteamAchievementSchemaCache(steamId64, appId, achievements);
+    },
+  };
+}
+
+function getPreviousSummaryForSteamAccount(
+  summary: SteamLibraryAchievementScanSummary | undefined,
+  steamId64: string,
+): SteamLibraryAchievementScanSummary | undefined {
+  // Summaries written before account scoping are treated as belonging to the
+  // currently configured account for compatibility; account changes clear them.
+  return summary === undefined || summary.steamId64 === undefined || summary.steamId64 === steamId64
+    ? summary
+    : undefined;
+}
+
+function getDeckySteamLibraryScanDependencies(
+  config: SteamProviderConfig,
+  dependencies?: Parameters<typeof scanSteamLibraryAchievements>[1],
+): NonNullable<Parameters<typeof scanSteamLibraryAchievements>[1]> {
+  const defaults = dependencies ?? createDeckySteamLibraryScanDependencies();
+  return {
+    ...defaults,
+    schemaCache: defaults.schemaCache ?? createDeckySteamSchemaCache(config.steamId64),
   };
 }
 
@@ -107,25 +155,79 @@ export async function runAndCacheDeckySteamLibraryAchievementScan(
   config: SteamProviderConfig,
   dependencies?: Parameters<typeof scanSteamLibraryAchievements>[1],
 ): Promise<SteamLibraryAchievementScanSummary> {
-  if (activeDeckySteamLibraryAchievementScan !== undefined) {
-    return activeDeckySteamLibraryAchievementScan;
+  const active = activeDeckySteamLibraryAchievementScans.get(config.steamId64);
+  if (active !== undefined) {
+    return active;
   }
 
-  const scanPromise = (async () => {
+  const scanPromise = runSteamLibrarySummaryUpdate(async () => {
+    const expectedRevision = getDeckySteamLibraryAchievementScanRevision();
+    const previousSummary = getPreviousSummaryForSteamAccount(
+      readDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID),
+      config.steamId64,
+    );
     const summary = await scanSteamLibraryAchievements(
       config,
-      dependencies ?? createDeckySteamLibraryScanDependencies(),
+      {
+        ...getDeckySteamLibraryScanDependencies(config, dependencies),
+        ...(previousSummary !== undefined ? { previousSummary } : {}),
+      },
     );
-    writeDeckySteamLibraryAchievementScanSummary(summary);
-    return summary;
-  })();
+    if (writeDeckySteamLibraryAchievementScanSummaryIfRevisionMatches(expectedRevision, summary)) {
+      return summary;
+    }
+    return readDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID) ?? summary;
+  });
 
-  activeDeckySteamLibraryAchievementScan = scanPromise;
+  activeDeckySteamLibraryAchievementScans.set(config.steamId64, scanPromise);
   try {
     return await scanPromise;
   } finally {
-    if (activeDeckySteamLibraryAchievementScan === scanPromise) {
-      activeDeckySteamLibraryAchievementScan = undefined;
+    if (activeDeckySteamLibraryAchievementScans.get(config.steamId64) === scanPromise) {
+      activeDeckySteamLibraryAchievementScans.delete(config.steamId64);
+    }
+  }
+}
+
+export async function refreshAndCacheDeckySteamLibraryAchievementProgress(
+  config: SteamProviderConfig,
+  dependencies?: Parameters<typeof refreshSteamLibraryAchievementProgress>[2],
+): Promise<SteamLibraryAchievementScanSummary | undefined> {
+  const active = activeDeckySteamLibraryAchievementRefreshes.get(config.steamId64);
+  if (active !== undefined) {
+    return active;
+  }
+
+  const refreshPromise = runSteamLibrarySummaryUpdate(async () => {
+    const expectedRevision = getDeckySteamLibraryAchievementScanRevision();
+    const previousSummary = getPreviousSummaryForSteamAccount(
+      readDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID),
+      config.steamId64,
+    );
+    try {
+      const summary = await refreshSteamLibraryAchievementProgress(
+        config,
+        previousSummary,
+        getDeckySteamLibraryScanDependencies(config, dependencies),
+      );
+      if (writeDeckySteamLibraryAchievementScanSummaryIfRevisionMatches(expectedRevision, summary)) {
+        return summary;
+      }
+      return readDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID);
+    } catch (cause) {
+      logDeckySteamLibraryScan("warn", "Steam library refresh retained cached data", {
+        error: cause instanceof Error ? cause.message : String(cause),
+      });
+      return readDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID);
+    }
+  });
+
+  activeDeckySteamLibraryAchievementRefreshes.set(config.steamId64, refreshPromise);
+  try {
+    return await refreshPromise;
+  } finally {
+    if (activeDeckySteamLibraryAchievementRefreshes.get(config.steamId64) === refreshPromise) {
+      activeDeckySteamLibraryAchievementRefreshes.delete(config.steamId64);
     }
   }
 }
@@ -179,6 +281,7 @@ function mapSteamScanGameToNormalizedGame(
       : {}),
     ...(game.scanStatus !== undefined ? { scanStatus: game.scanStatus } : {}),
     ...(game.hasAchievements !== undefined ? { hasAchievements: game.hasAchievements } : {}),
+    ...(game.ownershipStatus !== undefined ? { ownershipStatus: game.ownershipStatus } : {}),
     status: getSteamScanGameSummaryStatus(game),
     summary: {
       unlockedCount: game.unlockedAchievements,
@@ -213,8 +316,9 @@ function mapSteamScanGameToNormalizedGame(
 export function buildDeckySteamCompletionProgressSnapshotFromSummary(
   summary: SteamLibraryAchievementScanSummary,
 ): CompletionProgressSnapshot {
-  const games = summary.games.map(mapSteamScanGameToNormalizedGame);
-  const playedCount = summary.games.filter((game) => {
+  const activeGames = summary.games.filter((game) => game.ownershipStatus !== "inactive");
+  const games = activeGames.map(mapSteamScanGameToNormalizedGame);
+  const playedCount = activeGames.filter((game) => {
     if ((game.playtimeForeverMinutes ?? 0) > 0) {
       return true;
     }
@@ -229,9 +333,9 @@ export function buildDeckySteamCompletionProgressSnapshotFromSummary(
 
     return game.hasAchievements;
   }).length;
-  const unfinishedCount = summary.games.filter((game) => game.scanStatus === "scanned" && game.totalAchievements > 0 && game.unlockedAchievements < game.totalAchievements).length;
-  const perfectGames = summary.games.filter((game) => game.scanStatus === "scanned" && game.totalAchievements > 0 && game.unlockedAchievements >= game.totalAchievements).length;
-  const skippedOrFailedCount = summary.games.filter((game) => game.scanStatus !== "scanned").length;
+  const unfinishedCount = activeGames.filter((game) => game.scanStatus === "scanned" && game.totalAchievements > 0 && game.unlockedAchievements < game.totalAchievements).length;
+  const perfectGames = activeGames.filter((game) => game.scanStatus === "scanned" && game.totalAchievements > 0 && game.unlockedAchievements >= game.totalAchievements).length;
+  const skippedOrFailedCount = activeGames.filter((game) => game.scanStatus !== "scanned").length;
 
   return {
     providerId: STEAM_PROVIDER_ID,

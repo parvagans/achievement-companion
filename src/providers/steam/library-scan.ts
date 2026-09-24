@@ -2,19 +2,26 @@ import type {
   AchievementHistorySnapshot,
   NormalizedProfile,
   RecentUnlock,
-  RecentlyPlayedGame,
 } from "@core/domain";
 import { redactFrontendLogText } from "@core/redaction";
 import { STEAM_PROVIDER_ID, type SteamProviderConfig } from "./config";
-import { createSteamClient, type SteamClient } from "./client/client";
+import {
+  createSteamClient,
+  loadSteamPlayerAchievementsCoalesced,
+  type SteamClient,
+} from "./client/client";
+import { countSteamPlayerAchievements, getSteamSchemaAchievementApiNames } from "./achievement-count";
 import {
   createFetchSteamTransport,
   type FetchSteamTransportOptions,
-  isSteamTransportHandledHttpErrorResponse,
   type SteamTransport,
 } from "./client/transport";
 import { normalizeSteamArtworkUrl } from "./artwork";
-import type { RawSteamOwnedGame, RawSteamSchemaAchievement } from "./raw-types";
+import type {
+  RawSteamGetOwnedGamesResponse,
+  RawSteamOwnedGame,
+  RawSteamSchemaAchievement,
+} from "./raw-types";
 
 export interface SteamLibraryGameProgressSummary {
   readonly appid: number;
@@ -22,6 +29,7 @@ export interface SteamLibraryGameProgressSummary {
   readonly gameId: string;
   readonly title: string;
   readonly providerId: "steam";
+  readonly ownershipStatus?: "owned" | "inactive";
   readonly platformLabel?: string;
   readonly iconUrl?: string;
   readonly playtimeForeverMinutes?: number;
@@ -33,6 +41,10 @@ export interface SteamLibraryGameProgressSummary {
   readonly completionPercent: number;
   readonly hasAchievements: boolean;
   readonly scanStatus: "scanned" | "no-achievements" | "failed";
+  /** Legacy persisted field, read only to migrate older summaries into schema cache. */
+  readonly achievementSchema?: readonly RawSteamSchemaAchievement[];
+  readonly lastAchievementRefreshAt?: string;
+  readonly lastAchievementRefreshError?: string;
 }
 
 export interface SteamLibraryUnlockSummary {
@@ -50,9 +62,12 @@ export interface SteamLibraryUnlockSummary {
 }
 
 export interface SteamLibraryAchievementScanSummary {
+  /** Steam account that produced this active-library summary. */
+  readonly steamId64?: string;
   readonly scannedAt: string;
   /** The full-library scan timestamp remains separate from incremental refreshes. */
   readonly lastRecentActivityRefreshAt?: string;
+  readonly lastLibraryRefreshAt?: string;
   readonly ownedGameCount: number;
   readonly scannedGameCount: number;
   readonly gamesWithAchievements: number;
@@ -72,6 +87,13 @@ interface SteamLibraryScanDependencies {
   readonly transportOptions?: FetchSteamTransportOptions;
   readonly concurrencyLimit?: number;
   readonly logger?: SteamLibraryScanLogger;
+  readonly previousSummary?: SteamLibraryAchievementScanSummary;
+  readonly schemaCache?: SteamLibraryAchievementSchemaCache;
+}
+
+export interface SteamLibraryAchievementSchemaCache {
+  read(appId: number): readonly RawSteamSchemaAchievement[] | undefined;
+  write(appId: number, achievements: readonly RawSteamSchemaAchievement[]): void;
 }
 
 export interface SteamLibraryScanLogger {
@@ -128,136 +150,6 @@ function formatSteamLibraryCompletionPercent(
   );
 }
 
-function formatSteamRecentGameLastPlayedAt(game: RecentlyPlayedGame): string | undefined {
-  return game.lastPlayedAt !== undefined && Number.isFinite(game.lastPlayedAt)
-    ? new Date(game.lastPlayedAt).toISOString()
-    : undefined;
-}
-
-function getSteamRecentGameAppId(game: RecentlyPlayedGame): number | undefined {
-  if (game.appid !== undefined && Number.isFinite(game.appid) && game.appid > 0) {
-    return Math.trunc(game.appid);
-  }
-
-  const appId = Number.parseInt(game.gameId, 10);
-  return Number.isFinite(appId) && appId > 0 ? appId : undefined;
-}
-
-/**
- * Reconciles only recently played games for which the normal dashboard refresh
- * obtained detailed achievement counts. This keeps full-library scan coverage
- * and its timestamp intact while making the cached aggregate current quickly.
- */
-export function reconcileSteamLibraryAchievementScanWithRecentGames(args: {
-  readonly summary: SteamLibraryAchievementScanSummary;
-  readonly recentlyPlayedGames: readonly RecentlyPlayedGame[];
-  readonly refreshedAt: number;
-}): SteamLibraryAchievementScanSummary {
-  const recentlyPlayedByAppId = new Map(
-    args.recentlyPlayedGames
-      .map((game) => {
-        const appId = getSteamRecentGameAppId(game);
-        return appId !== undefined ? [appId, game] as const : undefined;
-      })
-      .filter((entry): entry is readonly [number, RecentlyPlayedGame] => entry !== undefined),
-  );
-  let didReconcile = false;
-  const games = args.summary.games.map((game) => {
-    const recentlyPlayed = recentlyPlayedByAppId.get(game.appid);
-    const totalAchievements = recentlyPlayed?.summary.totalCount;
-    if (
-      recentlyPlayed === undefined ||
-      totalAchievements === undefined ||
-      !Number.isFinite(totalAchievements) ||
-      totalAchievements <= 0
-    ) {
-      return game;
-    }
-
-    const unlockedAchievements = Math.max(
-      0,
-      Math.min(Math.trunc(totalAchievements), Math.trunc(recentlyPlayed.summary.unlockedCount)),
-    );
-    const normalizedTotalAchievements = Math.trunc(totalAchievements);
-    const lastPlayedAt = formatSteamRecentGameLastPlayedAt(recentlyPlayed);
-    const didGameChange =
-      game.totalAchievements !== normalizedTotalAchievements ||
-      game.unlockedAchievements !== unlockedAchievements ||
-      game.scanStatus !== "scanned" ||
-      !game.hasAchievements ||
-      (lastPlayedAt !== undefined && game.lastPlayedAt !== lastPlayedAt) ||
-      (recentlyPlayed.playtimeForeverMinutes !== undefined &&
-        game.playtimeForeverMinutes !== recentlyPlayed.playtimeForeverMinutes) ||
-      (recentlyPlayed.playtimeTwoWeeksMinutes !== undefined &&
-        game.playtimeTwoWeeksMinutes !== recentlyPlayed.playtimeTwoWeeksMinutes) ||
-      (recentlyPlayed.playtimeDeckForeverMinutes !== undefined &&
-        game.playtimeDeckForeverMinutes !== recentlyPlayed.playtimeDeckForeverMinutes);
-    if (!didGameChange) {
-      return game;
-    }
-
-    didReconcile = true;
-    return {
-      ...game,
-      title: recentlyPlayed.title,
-      totalAchievements: normalizedTotalAchievements,
-      unlockedAchievements,
-      completionPercent: formatSteamLibraryCompletionPercent(
-        unlockedAchievements,
-        normalizedTotalAchievements,
-      ),
-      hasAchievements: true,
-      scanStatus: "scanned",
-      ...(recentlyPlayed.platformLabel !== undefined
-        ? { platformLabel: recentlyPlayed.platformLabel }
-        : {}),
-      ...(recentlyPlayed.coverImageUrl !== undefined ? { iconUrl: recentlyPlayed.coverImageUrl } : {}),
-      ...(recentlyPlayed.playtimeForeverMinutes !== undefined
-        ? { playtimeForeverMinutes: recentlyPlayed.playtimeForeverMinutes }
-        : {}),
-      ...(recentlyPlayed.playtimeTwoWeeksMinutes !== undefined
-        ? { playtimeTwoWeeksMinutes: recentlyPlayed.playtimeTwoWeeksMinutes }
-        : {}),
-      ...(recentlyPlayed.playtimeDeckForeverMinutes !== undefined
-        ? { playtimeDeckForeverMinutes: recentlyPlayed.playtimeDeckForeverMinutes }
-        : {}),
-      ...(lastPlayedAt !== undefined ? { lastPlayedAt } : {}),
-    } satisfies SteamLibraryGameProgressSummary;
-  });
-
-  if (!didReconcile) {
-    return args.summary;
-  }
-
-  const gamesWithAchievements = games.filter(
-    (game) => game.scanStatus === "scanned" && game.hasAchievements && game.totalAchievements > 0,
-  );
-  const totalAchievements = gamesWithAchievements.reduce(
-    (total, game) => total + game.totalAchievements,
-    0,
-  );
-  const unlockedAchievements = gamesWithAchievements.reduce(
-    (total, game) => total + game.unlockedAchievements,
-    0,
-  );
-  const perfectGames = gamesWithAchievements.filter(
-    (game) => game.unlockedAchievements >= game.totalAchievements,
-  ).length;
-
-  return {
-    ...args.summary,
-    lastRecentActivityRefreshAt: new Date(args.refreshedAt).toISOString(),
-    gamesWithAchievements: gamesWithAchievements.length,
-    skippedGameCount: games.filter((game) => game.scanStatus === "no-achievements").length,
-    failedGameCount: games.filter((game) => game.scanStatus === "failed").length,
-    totalAchievements,
-    unlockedAchievements,
-    perfectGames,
-    completionPercent: formatSteamLibraryCompletionPercent(unlockedAchievements, totalAchievements),
-    games,
-  };
-}
-
 function coerceString(value: unknown): string | undefined {
   if (typeof value !== "string") {
     return undefined;
@@ -289,6 +181,47 @@ function parseOwnedGameAppId(game: RawSteamOwnedGame): number | undefined {
   return Math.trunc(game.appid);
 }
 
+export function validateSteamOwnedGamesResponse(
+  response: RawSteamGetOwnedGamesResponse,
+): readonly RawSteamOwnedGame[] | undefined {
+  const payload = response.response;
+  if (
+    payload === undefined ||
+    !Array.isArray(payload.games) ||
+    typeof payload.game_count !== "number" ||
+    !Number.isSafeInteger(payload.game_count) ||
+    payload.game_count < 0 ||
+    payload.game_count !== payload.games.length
+  ) {
+    return undefined;
+  }
+
+  const seenAppIds = new Set<number>();
+  for (const game of payload.games) {
+    if (typeof game !== "object" || game === null) {
+      return undefined;
+    }
+
+    const appId = parseOwnedGameAppId(game);
+    if (appId === undefined || seenAppIds.has(appId)) {
+      return undefined;
+    }
+    seenAppIds.add(appId);
+  }
+
+  return payload.games;
+}
+
+function getValidSchemaAchievements(
+  response: Awaited<ReturnType<SteamClient["loadSchemaForGame"]>>,
+): readonly RawSteamSchemaAchievement[] | undefined {
+  const achievements = response.game?.availableGameStats?.achievements;
+  if (!Array.isArray(achievements) || getSteamSchemaAchievementApiNames(achievements) === undefined) {
+    return undefined;
+  }
+  return achievements;
+}
+
 function coercePlaytimeMinutes(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) {
     return Math.trunc(value);
@@ -313,6 +246,10 @@ function buildSteamLibraryGameProgressSummary(args: {
   readonly totalAchievements: number;
   readonly unlockedAchievements: number;
   readonly hasAchievements: boolean;
+  readonly ownershipStatus?: "owned" | "inactive";
+  readonly achievementSchema?: readonly RawSteamSchemaAchievement[];
+  readonly lastAchievementRefreshAt?: string;
+  readonly lastAchievementRefreshError?: string;
 }): SteamLibraryGameProgressSummary {
   const playtimeForeverMinutes = coercePlaytimeMinutes(args.game?.playtime_forever);
   const playtimeTwoWeeksMinutes = coercePlaytimeMinutes(args.game?.playtime_2weeks);
@@ -335,6 +272,7 @@ function buildSteamLibraryGameProgressSummary(args: {
     gameId: String(args.appId),
     title: args.title,
     providerId: "steam",
+    ...(args.ownershipStatus !== undefined ? { ownershipStatus: args.ownershipStatus } : {}),
     platformLabel: "Steam",
     ...(iconUrl !== undefined ? { iconUrl } : {}),
     ...(playtimeForeverMinutes !== undefined ? { playtimeForeverMinutes } : {}),
@@ -346,6 +284,13 @@ function buildSteamLibraryGameProgressSummary(args: {
     completionPercent,
     hasAchievements: args.hasAchievements,
     scanStatus: args.scanStatus,
+    ...(args.achievementSchema !== undefined ? { achievementSchema: args.achievementSchema } : {}),
+    ...(args.lastAchievementRefreshAt !== undefined
+      ? { lastAchievementRefreshAt: args.lastAchievementRefreshAt }
+      : {}),
+    ...(args.lastAchievementRefreshError !== undefined
+      ? { lastAchievementRefreshError: args.lastAchievementRefreshError }
+      : {}),
   };
 }
 
@@ -433,25 +378,6 @@ function compareSteamLibraryUnlockSummaries(
   return left.id.localeCompare(right.id);
 }
 
-function getAchievementCount(
-  achievements: ReadonlyArray<{ readonly achieved?: number | boolean }>,
-): {
-  readonly total: number;
-  readonly unlocked: number;
-} {
-  let total = 0;
-  let unlocked = 0;
-
-  for (const achievement of achievements) {
-    total += 1;
-    if (achievement.achieved === 1 || achievement.achieved === true) {
-      unlocked += 1;
-    }
-  }
-
-  return { total, unlocked };
-}
-
 async function mapWithConcurrency<T, U>(
   items: readonly T[],
   limit: number,
@@ -511,6 +437,26 @@ export async function scanSteamLibraryAchievements(
   config: SteamProviderConfig,
   dependencies: SteamLibraryScanDependencies = {},
 ): Promise<SteamLibraryAchievementScanSummary> {
+  return updateSteamLibraryAchievementSummary(config, dependencies, "full-scan");
+}
+
+export async function refreshSteamLibraryAchievementProgress(
+  config: SteamProviderConfig,
+  previousSummary: SteamLibraryAchievementScanSummary | undefined,
+  dependencies: Omit<SteamLibraryScanDependencies, "previousSummary"> = {},
+): Promise<SteamLibraryAchievementScanSummary> {
+  return updateSteamLibraryAchievementSummary(
+    config,
+    { ...dependencies, ...(previousSummary !== undefined ? { previousSummary } : {}) },
+    "incremental-refresh",
+  );
+}
+
+async function updateSteamLibraryAchievementSummary(
+  config: SteamProviderConfig,
+  dependencies: SteamLibraryScanDependencies,
+  mode: "full-scan" | "incremental-refresh",
+): Promise<SteamLibraryAchievementScanSummary> {
   const client = resolveClient(dependencies);
   const concurrencyLimit = dependencies.concurrencyLimit ?? 4;
   const startedAt = new Date().toISOString();
@@ -533,35 +479,32 @@ export async function scanSteamLibraryAchievements(
   logSteamLibraryScan("started");
   try {
     const ownedGamesResponse = await client.loadOwnedGames(config);
-    const ownedGames = ownedGamesResponse.response?.games ?? [];
-    ownedGameCount =
-      typeof ownedGamesResponse.response?.game_count === "number" &&
-        Number.isFinite(ownedGamesResponse.response.game_count)
-        ? Math.trunc(ownedGamesResponse.response.game_count)
-        : ownedGames.length;
+    const ownedGames = validateSteamOwnedGamesResponse(ownedGamesResponse);
+    if (ownedGames === undefined) {
+      throw new Error("Steam owned-games response was incomplete or inconsistent; cached library was preserved.");
+    }
+    if (ownedGames.length === 0 && (dependencies.previousSummary?.games.length ?? 0) > 0) {
+      throw new Error("Steam returned an empty owned-games list for a cached non-empty library; cached library was preserved.");
+    }
+    ownedGameCount = ownedGames.length;
     logSteamLibraryScan("owned games loaded", { ownedGameCount });
     logger?.started?.({ ownedGameCount });
 
-    const validOwnedGames = ownedGames
-      .map((game) => {
-        const appId = parseOwnedGameAppId(game);
-        if (appId === undefined) {
-          return undefined;
-        }
-
-        return {
-          appId,
-          game,
-          title: getOwnedGameTitle(game, appId),
-        } as const;
-      })
-      .filter(
-        (game): game is { readonly appId: number; readonly game: RawSteamOwnedGame; readonly title: string } =>
-          game !== undefined,
-      );
+    const validOwnedGames = ownedGames.map((game) => {
+      const appId = parseOwnedGameAppId(game) as number;
+      return { appId, game, title: getOwnedGameTitle(game, appId) } as const;
+    });
     const ownedGamesByAppId = new Map(
       validOwnedGames.map((game) => [game.appId, game.game] as const),
     );
+    const previousGamesByAppId = new Map(
+      (dependencies.previousSummary?.games ?? []).map((game) => [game.appid, game] as const),
+    );
+    for (const previousGame of dependencies.previousSummary?.games ?? []) {
+      if (previousGame.achievementSchema !== undefined) {
+        dependencies.schemaCache?.write(previousGame.appid, previousGame.achievementSchema);
+      }
+    }
 
     const gameResults = await mapWithConcurrency(validOwnedGames, concurrencyLimit, async (game) => {
     stats.scannedGameCount += 1;
@@ -573,33 +516,166 @@ export async function scanSteamLibraryAchievements(
         }
       | undefined;
 
+    const ownedGame = ownedGamesByAppId.get(game.appId);
+    const previousGame = previousGamesByAppId.get(game.appId);
+    let schemaAchievements = dependencies.schemaCache?.read(game.appId) ?? previousGame?.achievementSchema;
+    let schemaWasConfirmed = schemaAchievements !== undefined;
+    let schemaRefreshed = false;
     try {
-      const response =
-        client.loadPlayerAchievementsWithHandledHttpStatuses !== undefined
-          ? await client.loadPlayerAchievementsWithHandledHttpStatuses(config, game.appId, [400, 403])
-          : await client.loadPlayerAchievements(config, game.appId);
-      if (isSteamTransportHandledHttpErrorResponse(response)) {
-        stats.failedGameCount += 1;
-        const ownedGame = ownedGamesByAppId.get(game.appId);
-        gameResult = {
-          gameSummary: buildSteamLibraryGameProgressSummary({
+      if (!schemaWasConfirmed) {
+        const schemaResponse = await client.loadSchemaForGame(config, game.appId);
+        schemaAchievements = getValidSchemaAchievements(schemaResponse);
+        schemaWasConfirmed = schemaAchievements !== undefined;
+        schemaRefreshed = schemaWasConfirmed;
+        if (schemaWasConfirmed && schemaAchievements !== undefined) {
+          dependencies.schemaCache?.write(game.appId, schemaAchievements);
+        }
+      }
+    } catch (cause) {
+      logSteamSchemaLoadFailureMessage(cause, { appId: game.appId, title: game.title });
+    }
+
+    try {
+      const response = await loadSteamPlayerAchievementsCoalesced(client, config, game.appId);
+
+      const playerStats = response.playerstats;
+      if (playerStats?.success !== true || !Array.isArray(playerStats.achievements)) {
+        throw new Error("Steam player-achievements response was missing a successful playerstats achievement array.");
+      }
+
+      const counts = countSteamPlayerAchievements(playerStats.achievements);
+      if (counts === undefined) {
+        throw new Error("Steam player-achievements response contained malformed or conflicting entries.");
+      }
+
+      let schemaNames = schemaWasConfirmed
+        ? getSteamSchemaAchievementApiNames(schemaAchievements ?? [])
+        : undefined;
+      let playerNames = new Set(counts.achievements.map((achievement) => achievement.apiname?.trim()));
+      const decreasedTotal = previousGame !== undefined && counts.total < previousGame.totalAchievements;
+      const decreasedUnlocked = previousGame !== undefined && counts.unlocked < previousGame.unlockedAchievements;
+      const decreasedAny = decreasedTotal || decreasedUnlocked;
+      if (decreasedAny && !schemaRefreshed) {
+        try {
+          const schemaResponse = await client.loadSchemaForGame(config, game.appId);
+          const refreshedSchema = getValidSchemaAchievements(schemaResponse);
+          if (refreshedSchema !== undefined) {
+            schemaAchievements = refreshedSchema;
+            schemaNames = getSteamSchemaAchievementApiNames(refreshedSchema);
+            schemaWasConfirmed = true;
+            schemaRefreshed = true;
+            dependencies.schemaCache?.write(game.appId, refreshedSchema);
+          }
+        } catch (cause) {
+          logSteamSchemaLoadFailureMessage(cause, { appId: game.appId, title: game.title });
+        }
+        playerNames = new Set(counts.achievements.map((achievement) => achievement.apiname?.trim()));
+      }
+      const schemaMatchesPlayer = schemaNames !== undefined &&
+        schemaNames.length === playerNames.size &&
+        schemaNames.every((apiName) => playerNames.has(apiName));
+      if (
+        previousGame !== undefined &&
+        decreasedAny &&
+        (!schemaMatchesPlayer || (decreasedTotal && !schemaRefreshed))
+      ) {
+        throw new Error("Steam player-achievements decrease was not supported by a complete authoritative state.");
+      }
+      if (counts.total === 0 && (!schemaWasConfirmed || (schemaAchievements?.length ?? 0) !== 0)) {
+        throw new Error("Empty Steam achievement state was ambiguous; cached counts were preserved.");
+      }
+
+      const schemaAchievementByName = new Map(
+        (schemaAchievements ?? []).flatMap((achievement) => {
+          const name = coerceString(achievement.name);
+          return name !== undefined ? [[name, achievement] as const] : [];
+        }),
+      );
+      const unlockedSummaries = counts.achievements
+        .map((achievement) => {
+          const schemaAchievement = schemaAchievementByName.get(achievement.apiname?.trim() ?? "");
+          return buildSteamLibraryUnlockSummary({
             game: ownedGame,
             appId: game.appId,
             title: game.title,
-            scanStatus: "failed",
-            totalAchievements: 0,
-            unlockedAchievements: 0,
-            hasAchievements: false,
-          }),
-          unlockedSummaries: [],
-        } as const;
-      } else {
-        const playerStats = response.playerstats;
-        if (playerStats?.success === false) {
-          stats.failedGameCount += 1;
-          const ownedGame = ownedGamesByAppId.get(game.appId);
-          gameResult = {
-            gameSummary: buildSteamLibraryGameProgressSummary({
+            achievement,
+            ...(schemaAchievement !== undefined ? { schemaAchievement } : {}),
+          });
+        })
+        .filter((unlock): unlock is SteamLibraryUnlockSummary => unlock !== undefined);
+      const refreshedAt = new Date().toISOString();
+      const refreshedGameSummary = buildSteamLibraryGameProgressSummary({
+          game: ownedGame,
+          appId: game.appId,
+          title: game.title,
+          scanStatus: counts.total === 0 ? "no-achievements" : "scanned",
+          totalAchievements: counts.total,
+          unlockedAchievements: counts.unlocked,
+          hasAchievements: counts.total > 0,
+          ownershipStatus: "owned",
+          lastAchievementRefreshAt: refreshedAt,
+        });
+      const previousGameWithoutError = previousGame !== undefined ? { ...previousGame } : undefined;
+      if (previousGameWithoutError !== undefined) {
+        delete previousGameWithoutError.lastAchievementRefreshError;
+        delete previousGameWithoutError.achievementSchema;
+      }
+      gameResult = {
+        gameSummary: previousGame === undefined
+          ? refreshedGameSummary
+          : {
+              ...previousGameWithoutError,
+              ...refreshedGameSummary,
+              ...((refreshedGameSummary.iconUrl ?? previousGame.iconUrl) !== undefined
+                ? { iconUrl: refreshedGameSummary.iconUrl ?? previousGame.iconUrl }
+                : {}),
+              ...((refreshedGameSummary.playtimeForeverMinutes ?? previousGame.playtimeForeverMinutes) !== undefined
+                ? {
+                    playtimeForeverMinutes:
+                      refreshedGameSummary.playtimeForeverMinutes ?? previousGame.playtimeForeverMinutes,
+                  }
+                : {}),
+              ...((refreshedGameSummary.playtimeTwoWeeksMinutes ?? previousGame.playtimeTwoWeeksMinutes) !== undefined
+                ? {
+                    playtimeTwoWeeksMinutes:
+                      refreshedGameSummary.playtimeTwoWeeksMinutes ?? previousGame.playtimeTwoWeeksMinutes,
+                  }
+                : {}),
+              ...((refreshedGameSummary.playtimeDeckForeverMinutes ?? previousGame.playtimeDeckForeverMinutes) !== undefined
+                ? {
+                    playtimeDeckForeverMinutes:
+                      refreshedGameSummary.playtimeDeckForeverMinutes ?? previousGame.playtimeDeckForeverMinutes,
+                  }
+                : {}),
+            },
+        unlockedSummaries,
+      } as const;
+    } catch (cause) {
+      stats.failedGameCount += 1;
+      if (!isExpectedSteamLibraryScanGameFailure(cause)) {
+        logSteamLoadFailureMessage(cause, { appId: game.appId, title: game.title });
+      }
+      const refreshedAt = new Date().toISOString();
+      gameResult = {
+        gameSummary: previousGame !== undefined
+          ? {
+              ...previousGame,
+              ...buildSteamLibraryGameProgressSummary({
+                game: ownedGame,
+                appId: game.appId,
+                title: game.title,
+                scanStatus: previousGame.scanStatus,
+                totalAchievements: previousGame.totalAchievements,
+                unlockedAchievements: previousGame.unlockedAchievements,
+                hasAchievements: previousGame.hasAchievements,
+                ownershipStatus: "owned",
+                ...(previousGame.lastAchievementRefreshAt !== undefined
+                  ? { lastAchievementRefreshAt: previousGame.lastAchievementRefreshAt }
+                  : {}),
+                lastAchievementRefreshError: sanitizeSteamLoadFailureMessage(cause),
+              }),
+            }
+          : buildSteamLibraryGameProgressSummary({
               game: ownedGame,
               appId: game.appId,
               title: game.title,
@@ -607,117 +683,15 @@ export async function scanSteamLibraryAchievements(
               totalAchievements: 0,
               unlockedAchievements: 0,
               hasAchievements: false,
+              ownershipStatus: "owned",
+              lastAchievementRefreshAt: refreshedAt,
+              lastAchievementRefreshError: sanitizeSteamLoadFailureMessage(cause),
             }),
-            unlockedSummaries: [],
-          } as const;
-        } else {
-          const achievements = playerStats?.achievements ?? [];
-          if (achievements.length === 0) {
-            stats.skippedGameCount += 1;
-            const ownedGame = ownedGamesByAppId.get(game.appId);
-            gameResult = {
-              gameSummary: buildSteamLibraryGameProgressSummary({
-                game: ownedGame,
-                appId: game.appId,
-                title: game.title,
-                scanStatus: "no-achievements",
-                totalAchievements: 0,
-                unlockedAchievements: 0,
-                hasAchievements: false,
-              }),
-              unlockedSummaries: [],
-            } as const;
-          } else {
-            const counts = getAchievementCount(achievements);
-            let schemaAchievementByName = new Map<string, RawSteamSchemaAchievement>();
-            if (counts.unlocked > 0) {
-              try {
-                const schemaResponse = await client.loadSchemaForGame(config, game.appId);
-                const schemaAchievements = schemaResponse.game?.availableGameStats?.achievements ?? [];
-                schemaAchievementByName = new Map(
-                  schemaAchievements
-                    .map((achievement) => {
-                      const name = coerceString(achievement.name);
-                      if (name === undefined) {
-                        return undefined;
-                      }
-
-                      return [name, achievement] as const;
-                    })
-                    .filter(
-                      (entry): entry is readonly [
-                        string,
-                        {
-                          readonly name?: string;
-                          readonly displayName?: string;
-                          readonly description?: string;
-                          readonly icon?: string;
-                          readonly icongray?: string;
-                        },
-                      ] => entry !== undefined,
-                    ),
-                );
-              } catch (cause) {
-                logSteamSchemaLoadFailureMessage(cause, { appId: game.appId, title: game.title });
-              }
-            }
-            const unlockedSummaries = achievements
-              .map((achievement) => {
-                const achievementApiName =
-                  coerceString(achievement.apiname) ??
-                  coerceString(achievement.name) ??
-                  coerceString(achievement.displayName) ??
-                  "";
-                const schemaAchievement = schemaAchievementByName.get(achievementApiName);
-
-                return buildSteamLibraryUnlockSummary({
-                  game: ownedGamesByAppId.get(game.appId),
-                  appId: game.appId,
-                  title: game.title,
-                  achievement,
-                  ...(schemaAchievement !== undefined ? { schemaAchievement } : {}),
-                });
-              })
-              .filter((unlock): unlock is SteamLibraryUnlockSummary => unlock !== undefined);
-            stats.gamesWithAchievements += 1;
-            stats.totalAchievements += counts.total;
-            stats.unlockedAchievements += counts.unlocked;
-            if (counts.total > 0 && counts.total === counts.unlocked) {
-              stats.perfectGames += 1;
-            }
-            const ownedGame = ownedGamesByAppId.get(game.appId);
-            gameResult = {
-              gameSummary: buildSteamLibraryGameProgressSummary({
-                game: ownedGame,
-                appId: game.appId,
-                title: game.title,
-                scanStatus: "scanned",
-                totalAchievements: counts.total,
-                unlockedAchievements: counts.unlocked,
-                hasAchievements: true,
-              }),
-              unlockedSummaries,
-            } as const;
-          }
-        }
-      }
-    } catch (cause) {
-      stats.failedGameCount += 1;
-      if (!isExpectedSteamLibraryScanGameFailure(cause)) {
-        logSteamLoadFailureMessage(cause, { appId: game.appId, title: game.title });
-      }
-      const ownedGame = ownedGamesByAppId.get(game.appId);
-      gameResult = {
-        gameSummary: buildSteamLibraryGameProgressSummary({
-          game: ownedGame,
-          appId: game.appId,
-          title: game.title,
-          scanStatus: "failed",
-          totalAchievements: 0,
-          unlockedAchievements: 0,
-          hasAchievements: false,
-        }),
-        unlockedSummaries: [],
+        unlockedSummaries: previousGame === undefined
+          ? []
+          : (dependencies.previousSummary?.unlockedAchievementsList ?? []).filter(
+              (unlock) => unlock.gameId === previousGame.gameId,
+            ),
       } as const;
     }
 
@@ -749,19 +723,74 @@ export async function scanSteamLibraryAchievements(
       readonly unlockedSummaries: readonly SteamLibraryUnlockSummary[];
     };
   });
-    const gameSummaries = gameResults.map((result) => result.gameSummary);
-    const unlockedAchievementsList = gameResults
-      .flatMap((result) => result.unlockedSummaries)
+    const returnedAppIds = new Set(validOwnedGames.map((game) => game.appId));
+    const absentPreviousGames = (dependencies.previousSummary?.games ?? []).filter(
+      (game) => !returnedAppIds.has(game.appid),
+    );
+    const preservedAbsentGames = mode === "full-scan"
+      ? absentPreviousGames.map((game) => ({ ...game, ownershipStatus: "inactive" as const }))
+      : absentPreviousGames;
+    const gameSummariesWithLegacySchema = [...gameResults.map((result) => result.gameSummary), ...preservedAbsentGames];
+    const gameSummaries = gameSummariesWithLegacySchema.map((game) => {
+      if (game.achievementSchema === undefined) {
+        return game;
+      }
+      const { achievementSchema: _legacySchema, ...lightweightGame } = game;
+      return lightweightGame;
+    });
+    const successfulAppIds = new Set(
+      gameResults
+        .filter((result) => result.gameSummary.lastAchievementRefreshError === undefined)
+        .map((result) => result.gameSummary.appid),
+    );
+    const refreshedUnlocks = gameResults.flatMap((result) => result.unlockedSummaries);
+    const preservedUnlocks = (dependencies.previousSummary?.unlockedAchievementsList ?? [])
+      .filter((unlock) => {
+        const appId = Number.parseInt(unlock.gameId, 10);
+        return !successfulAppIds.has(appId);
+      });
+    const unlockedAchievementsList = [...preservedUnlocks, ...refreshedUnlocks]
       .sort(compareSteamLibraryUnlockSummaries);
-
-    const completionPercent =
-      stats.totalAchievements > 0
-        ? Math.round((stats.unlockedAchievements / stats.totalAchievements) * 100)
-        : 0;
+    const activeGamesWithAchievements = gameSummaries.filter(
+      (game) =>
+        game.ownershipStatus !== "inactive" &&
+        game.scanStatus === "scanned" &&
+        game.hasAchievements &&
+        game.totalAchievements > 0,
+    );
+    stats.scannedGameCount = validOwnedGames.length;
+    stats.gamesWithAchievements = activeGamesWithAchievements.length;
+    stats.skippedGameCount = gameSummaries.filter(
+      (game) => game.ownershipStatus !== "inactive" && game.scanStatus === "no-achievements",
+    ).length;
+    stats.failedGameCount = gameSummaries.filter(
+      (game) =>
+        game.ownershipStatus !== "inactive" &&
+        (game.scanStatus === "failed" || game.lastAchievementRefreshError !== undefined),
+    ).length;
+    stats.totalAchievements = activeGamesWithAchievements.reduce(
+      (total, game) => total + game.totalAchievements,
+      0,
+    );
+    stats.unlockedAchievements = activeGamesWithAchievements.reduce(
+      (total, game) => total + game.unlockedAchievements,
+      0,
+    );
+    stats.perfectGames = activeGamesWithAchievements.filter(
+      (game) => game.unlockedAchievements >= game.totalAchievements,
+    ).length;
+    const completionPercent = formatSteamLibraryCompletionPercent(
+      stats.unlockedAchievements,
+      stats.totalAchievements,
+    );
 
     const summary: SteamLibraryAchievementScanSummary = {
-      scannedAt: startedAt,
-      ownedGameCount,
+      steamId64: config.steamId64,
+      scannedAt: mode === "full-scan" ? startedAt : dependencies.previousSummary?.scannedAt ?? startedAt,
+      ...(mode === "incremental-refresh"
+        ? { lastLibraryRefreshAt: new Date().toISOString() }
+        : {}),
+      ownedGameCount: gameSummaries.filter((game) => game.ownershipStatus !== "inactive").length,
       scannedGameCount: stats.scannedGameCount,
       gamesWithAchievements: stats.gamesWithAchievements,
       skippedGameCount: stats.skippedGameCount,

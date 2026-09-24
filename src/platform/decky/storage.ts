@@ -55,6 +55,25 @@ export function writeDeckyStorageText(storageKey: string, value: string): boolea
   return wroteValue;
 }
 
+/**
+ * Atomically replace a single authoritative cache value in the preferred
+ * storage. On quota/write failure, leave the previous value untouched rather
+ * than falling back to a lower-priority store that reads could shadow.
+ */
+export function writeDeckyStorageTextPreservingExisting(storageKey: string, value: string): boolean {
+  const storage = getAvailableStorages()[0];
+  if (storage === undefined) {
+    return false;
+  }
+
+  try {
+    storage.setItem(storageKey, value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function removeDeckyStorageText(storageKey: string): boolean {
   let removedValue = false;
 

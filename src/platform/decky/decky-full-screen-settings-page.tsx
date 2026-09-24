@@ -2,7 +2,10 @@ import { Focusable, GamepadButton, type GamepadEvent } from "@decky/ui";
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements/config";
 import { STEAM_PROVIDER_ID } from "../../providers/steam/config";
-import { loadDeckyDashboardState } from "./decky-app-services";
+import {
+  loadDeckyDashboardState,
+  refreshDeckySteamLibraryForExplicitRefresh,
+} from "./decky-app-services";
 import { DeckyFullscreenActionButton } from "./decky-full-screen-action-controls";
 import { clearDeckyDashboardSnapshot } from "./decky-dashboard-snapshot-cache";
 import { DeckyFullScreenFooterOverlay, STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS } from "./decky-full-screen-footer-overlay";
@@ -192,7 +195,13 @@ export function DeckyFullScreenSettingsPage({ onBack, onOpenProviderSettings, on
   const refreshAll = async (): Promise<void> => {
     setOperation("refreshing");
     try {
-      const states = await Promise.all(providers.filter((provider) => provider.connected).map((provider) => loadDeckyDashboardState(provider.id, { forceRefresh: true })));
+      const connectedProviders = providers.filter((provider) => provider.connected);
+      const [states] = await Promise.all([
+        Promise.all(connectedProviders.map((provider) => loadDeckyDashboardState(provider.id, { forceRefresh: true }))),
+        connectedProviders.some((provider) => provider.id === STEAM_PROVIDER_ID)
+          ? refreshDeckySteamLibraryForExplicitRefresh()
+          : Promise.resolve(undefined),
+      ]);
       setOperation(states.every((state) => state.data !== undefined && state.error === undefined) ? "refreshed" : "error");
     } catch { setOperation("error"); }
   };

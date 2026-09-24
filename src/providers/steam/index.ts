@@ -9,6 +9,7 @@ export {
 } from "./client/transport";
 export {
   buildSteamLibraryAchievementHistorySnapshot,
+  refreshSteamLibraryAchievementProgress,
   scanSteamLibraryAchievements,
   type SteamLibraryAchievementScanSummary,
 } from "./library-scan";

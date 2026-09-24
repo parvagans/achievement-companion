@@ -605,15 +605,16 @@ test("compact dashboard Profile navigation suppresses the outgoing full-screen r
   );
 });
 
-test("Cache Management focuses the cache action without arming destructive confirmation", async () => {
+test("Steam settings omit the Data & Storage section but keep Steam sync actions", async () => {
   const source = await readFile(
     new URL("../src/platform/decky/decky-full-screen-settings-page.tsx", import.meta.url),
     "utf8",
   );
 
-  assert.match(source, /const openCacheManagement = \(\): void => \{\s*setArmedAction\(undefined\);\s*pageRef\.current\?\.querySelector<HTMLElement>\("#steam-clear-cache-action"\)\?\.focus\(\);/u);
-  assert.match(source, /title="Cache Management"[\s\S]*onActivate=\{openCacheManagement\}/u);
-  assert.match(source, /id="steam-clear-cache-action"[\s\S]*title=\{armedAction === "clear" \? "Press again to clear cached data"/u);
+  assert.doesNotMatch(source, /Cache Management|DATA &amp; STORAGE|openCacheManagement|Persistent cache payload/u);
+  assert.match(source, /<Heading>DATA &amp; SYNC<\/Heading>/u);
+  assert.match(source, /title=\{operation === "refreshing" \? "Refreshing All Data…" : "Refresh All Data"\}/u);
+  assert.match(source, /title=\{armedAction === "clear" \? "Press again to clear cached data"/u);
 });
 
 test("profile summary memo runs before the loading-state early return", async () => {

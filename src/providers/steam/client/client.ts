@@ -33,6 +33,35 @@ export interface SteamClient {
   ): Promise<RawSteamGetGlobalAchievementPercentagesForAppResponse>;
 }
 
+const pendingPlayerAchievementLoads = new Map<
+  string,
+  Promise<RawSteamGetPlayerAchievementsResponse>
+>();
+
+/** Share only concurrent player-state requests; never reuse a result across refreshes. */
+export function loadSteamPlayerAchievementsCoalesced(
+  client: SteamClient,
+  config: SteamProviderConfig,
+  appId: number,
+): Promise<RawSteamGetPlayerAchievementsResponse> {
+  const normalizedAppId = coerceAppId(appId);
+  const key = `${config.steamId64}:${normalizedAppId}:${config.language}`;
+  const existing = pendingPlayerAchievementLoads.get(key);
+  if (existing !== undefined) {
+    return existing;
+  }
+
+  const request = client.loadPlayerAchievements(config, normalizedAppId);
+  pendingPlayerAchievementLoads.set(key, request);
+  const clearPending = (): void => {
+    if (pendingPlayerAchievementLoads.get(key) === request) {
+      pendingPlayerAchievementLoads.delete(key);
+    }
+  };
+  void request.then(clearPending, clearPending);
+  return request;
+}
+
 const PLAYER_SUMMARIES_PATH = "ISteamUser/GetPlayerSummaries/v2/";
 const STEAM_LEVEL_PATH = "IPlayerService/GetSteamLevel/v1/";
 const BADGES_PATH = "IPlayerService/GetBadges/v1/";

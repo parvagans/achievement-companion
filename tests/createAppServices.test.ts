@@ -50,12 +50,15 @@ import { redactFrontendLogText, redactFrontendLogValue } from "../src/core/redac
 import {
   applyDeckyRecentAchievementHistory,
   buildDeckyRecentAchievementHistory,
+  getDeckyDashboardStateForFullScreenEntryInitial,
   loadDeckyDashboardState,
+  loadDeckyDashboardStateForFullScreenEntry,
   loadDeckyCompletionProgressState,
   deckyAuthenticatedProviderTransportFactory,
   mergeDeckySteamCompletionProgressWithDashboard,
   mergeDeckySteamLibraryScanRecentAchievements,
   deckyPlatformCapabilities,
+  refreshDeckySteamLibraryForExplicitRefresh,
   resetDeckyAppServicesForTests,
 } from "../src/platform/decky/decky-app-services";
 import { setDeckyBackendCallImplementationForTests } from "../src/platform/decky/decky-backend-bridge";
@@ -150,6 +153,7 @@ import {
 } from "../src/platform/decky/decky-game-page-achievement-summary";
 import { loadDeckySteamShortcutMetadata } from "../src/platform/decky/decky-steam-shortcut-metadata";
 import { loadDeckySteamShortcutRomHashInfo } from "../src/platform/decky/decky-steam-shortcut-metadata";
+import { readDeckyStorageText } from "../src/platform/decky/storage";
 import {
   DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS,
   DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS,
@@ -210,8 +214,12 @@ import {
   loadDeckyProviderConfig as loadDeckySteamProviderConfig,
   readDeckySteamLibraryAchievementScanOverview,
   readDeckySteamLibraryAchievementScanSummary,
+  readDeckySteamAchievementSchemaCache,
+  getDeckySteamLibraryAchievementScanRevision,
   readDeckySteamProviderConfig,
   writeDeckySteamLibraryAchievementScanSummary,
+  writeDeckySteamLibraryAchievementScanSummaryIfRevisionMatches,
+  writeDeckySteamAchievementSchemaCache,
   writeDeckySteamProviderConfig,
   type SteamLibraryAchievementScanOverview,
   type SteamLibraryAchievementScanSummary,
@@ -232,13 +240,19 @@ import {
 import {
   buildDeckySteamCompletionProgressSnapshotFromSummary,
   buildDeckySteamAchievementHistorySnapshotFromSummary,
+  refreshAndCacheDeckySteamLibraryAchievementProgress,
   runAndCacheDeckySteamLibraryAchievementScan,
 } from "../src/platform/decky/providers/steam/library-scan";
 import {
-  reconcileSteamLibraryAchievementScanWithRecentGames,
+  refreshSteamLibraryAchievementProgress,
   scanSteamLibraryAchievements,
+  validateSteamOwnedGamesResponse,
 } from "../src/providers/steam/library-scan";
-import type { SteamClient } from "../src/providers/steam/client/client";
+import { countSteamPlayerAchievements } from "../src/providers/steam/achievement-count";
+import {
+  loadSteamPlayerAchievementsCoalesced,
+  type SteamClient,
+} from "../src/providers/steam/client/client";
 import { normalizeSteamBadges } from "../src/providers/steam/badges";
 import {
   applySteamLibraryScanGameDetailMetadata,
@@ -8356,6 +8370,43 @@ test("steam recently played merges owned-game timestamps before sorting", async 
     providerGames.map((game) => game.lastPlayedAt),
     [1_700_000_300_000, 1_700_000_200_000, 1_700_000_100_000],
   );
+  assert.equal(providerGames.every((game) => game.achievementStateIsComplete === true), true);
+});
+
+test("Steam recent detail without usable schema is not marked complete for library projections", async () => {
+  clearSteamRecentGameSnapshotLoadCacheForTests();
+  const provider = createSteamProvider({
+    client: {
+      async loadRecentlyPlayedGames() {
+        return { response: { games: [{ appid: 991, name: "Schema Unavailable", playtime_forever: 10 }] } };
+      },
+      async loadOwnedGames() {
+        return { response: { games: [] } };
+      },
+      async loadPlayerAchievements() {
+        return { playerstats: { success: true, achievements: [{ apiname: "A", achieved: 1 }] } };
+      },
+      async loadSchemaForGame() {
+        throw new Error("temporary schema failure");
+      },
+      async loadGlobalAchievementPercentagesForApp() {
+        return { achievementpercentages: { achievements: [] } };
+      },
+    } as SteamClient,
+  });
+  const config = normalizeSteamProviderConfig({
+    steamId64: "32345678901234567",
+    hasApiKey: true,
+    language: "english",
+    recentAchievementsCount: 1,
+    recentlyPlayedCount: 1,
+    includePlayedFreeGames: false,
+  });
+
+  const recentGames = await provider.loadRecentlyPlayedGames(config, { count: 1 });
+  assert.equal(recentGames[0]?.summary.unlockedCount, 1);
+  assert.equal(recentGames[0]?.achievementStateIsComplete, undefined);
+  clearSteamRecentGameSnapshotLoadCacheForTests();
 });
 
 test("steam recently played falls back safely when owned-game candidates fail to load", async () => {
@@ -8569,6 +8620,8 @@ test("steam provider config and normalization stay round-trippable", () => {
   assert.equal(recentGames.length, 1);
   assert.equal(recentGames[0]?.providerId, "steam");
   assert.equal(recentGames[0]?.summary.unlockedCount, 1);
+  assert.equal(recentGames[0]?.achievementStateIsComplete, undefined,
+    "normalization must not certify detail completeness without provider provenance");
   assert.equal(recentGames[0]?.lastPlayedAt, undefined);
   assert.equal(recentGames[0]?.playtimeTwoWeeksMinutes, 12);
   assert.equal(recentGames[0]?.playtimeForeverMinutes, 42);
@@ -8992,7 +9045,11 @@ test("steam library achievement scan caches full library totals and survives per
             throw new Error("Steam schema unavailable.");
           }
 
-          throw new Error("Steam schema should not have been requested.");
+          if (appId === 3) {
+            return { game: { availableGameStats: { achievements: [] } } };
+          }
+
+          throw new Error("Steam schema unavailable for a game that already fails player-state loading.");
         },
         async loadGlobalAchievementPercentagesForApp() {
           throw new Error("not used");
@@ -9030,7 +9087,7 @@ test("steam library achievement scan caches full library totals and survives per
       summary.unlockedAchievementsList?.map((unlock) => unlock.apiName),
       ["B_TWO", "B_ONE", "A_TWO", "A_ONE"],
     );
-    assert.deepStrictEqual([...schemaCalls].sort((left, right) => left - right), [1, 2]);
+    assert.deepStrictEqual([...schemaCalls].sort((left, right) => left - right), [1, 2, 3, 4, 5]);
     assert.equal(
       summary.unlockedAchievementsList?.[0]?.gameIconUrl,
       "https://media.steampowered.com/steamcommunity/public/images/apps/2/almost-two-hash.jpg",
@@ -9284,7 +9341,13 @@ test("steam library achievement scan de-duplicates final progress diagnostics", 
         return achievementsDeferred.promise;
       },
       async loadSchemaForGame() {
-        throw new Error("schema should not be needed when no achievements are unlocked");
+        return {
+          game: {
+            availableGameStats: {
+              achievements: [],
+            },
+          },
+        };
       },
       async loadGlobalAchievementPercentagesForApp() {
         return {
@@ -9435,6 +9498,7 @@ test("decky steam library scan reuses an in-flight runtime scan", async () => {
       concurrencyLimit: 1,
     });
 
+    await Promise.resolve();
     assert.equal(ownedGamesCalls, 1);
 
     ownedGamesDeferred.resolve({
@@ -10168,6 +10232,7 @@ test("steam fullscreen games overlays freshly refreshed recent-game activity ont
         gameId: "2218750",
         title: "Halls of Torment",
         summary: { unlockedCount: 168, totalCount: 500, completionPercent: 34 },
+        achievementStateIsComplete: true,
         playtimeForeverMinutes: 780,
         lastPlayedAt: 1_790_100_000_000,
       },
@@ -10185,68 +10250,814 @@ test("steam fullscreen games overlays freshly refreshed recent-game activity ont
   assert.deepStrictEqual(merged.summary, completionProgress.summary);
 });
 
-test("standard Steam refresh reconciles recent achievement progress into cached library totals", () => {
+test("Steam Games projection keeps library counts when recent detail is fallback, and accepts valid recent detail", () => {
+  const completionProgress: CompletionProgressSnapshot = {
+    providerId: "steam",
+    summary: { playedCount: 1, unfinishedCount: 1, beatenCount: 0, masteredCount: 0 },
+    games: [{
+      providerId: "steam",
+      appid: 55,
+      gameId: "55",
+      title: "Recent Failure Test",
+      status: "in_progress",
+      summary: { unlockedCount: 50, totalCount: 100, completionPercent: 50 },
+      metrics: [],
+      scanStatus: "scanned",
+      hasAchievements: true,
+    }],
+  };
+  const dashboard: DashboardSnapshot = {
+    ...createDashboardSnapshot(),
+    profile: {
+      ...createDashboardSnapshot().profile,
+      providerId: "steam",
+      identity: { ...createDashboardSnapshot().profile.identity, providerId: "steam" },
+    },
+    recentlyPlayedGames: [{
+      providerId: "steam",
+      appid: 55,
+      gameId: "55",
+      title: "Recent Failure Test",
+      summary: { unlockedCount: 0 },
+    }],
+  };
+
+  const fallbackProjection = mergeDeckySteamCompletionProgressWithDashboard(completionProgress, dashboard);
+  assert.equal(fallbackProjection.games[0]?.summary.unlockedCount, 50);
+
+  const validDashboard: DashboardSnapshot = {
+    ...dashboard,
+    recentlyPlayedGames: dashboard.recentlyPlayedGames.map((game) => ({
+      ...game,
+      summary: { unlockedCount: 55, totalCount: 100, completionPercent: 55 },
+      achievementStateIsComplete: true,
+    })),
+  };
+  const validProjection = mergeDeckySteamCompletionProgressWithDashboard(completionProgress, validDashboard);
+  assert.equal(validProjection.games[0]?.summary.unlockedCount, 55);
+});
+
+test("Steam dashboard refresh keeps cached library totals when bounded recent detail fails", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    const config = normalizeSteamProviderConfig({
+      steamId64: "12345678901234567", hasApiKey: true, language: "english",
+      recentAchievementsCount: 1, recentlyPlayedCount: 1, includePlayedFreeGames: false,
+    });
+    deckyBackendTestState.steam.config = config;
+    deckyBackendTestState.steam.secret = "steam-test-secret";
+    updateDeckyProviderConfigCache("steam", config);
+    writeDeckySteamLibraryAchievementScanSummary({
+      steamId64: config.steamId64,
+      scannedAt: "2026-09-01T00:00:00.000Z",
+      ownedGameCount: 1,
+      scannedGameCount: 1,
+      gamesWithAchievements: 1,
+      skippedGameCount: 0,
+      failedGameCount: 0,
+      totalAchievements: 100,
+      unlockedAchievements: 50,
+      perfectGames: 0,
+      completionPercent: 50,
+      games: [{
+        appid: 220, id: "220", gameId: "220", title: "Half-Life 2", providerId: "steam",
+        totalAchievements: 100, unlockedAchievements: 50, completionPercent: 50,
+        hasAchievements: true, scanStatus: "scanned",
+      }],
+    });
+
+    let signalPlayerRequest: (() => void) | undefined;
+    const playerRequestStarted = new Promise<void>((resolve) => { signalPlayerRequest = resolve; });
+    let releasePlayerRequest: (() => void) | undefined;
+    const playerRequestGate = new Promise<void>((resolve) => { releasePlayerRequest = resolve; });
+    let playerRequestCount = 0;
+    let refreshSettled = false;
+    setDeckyBackendCallImplementationForTests(async (route: string, payload: unknown) => {
+      if (route === "request_steam_json" && (payload as Record<string, unknown>).path === "ISteamUserStats/GetPlayerAchievements/v1/") {
+        playerRequestCount += 1;
+        signalPlayerRequest?.();
+        await playerRequestGate;
+        throw new Error("temporary recent player-state failure");
+      }
+      return deckyBackendTestCallImplementation(route, payload);
+    });
+
+    try {
+      const refresh = loadDeckyDashboardState("steam", { forceRefresh: true }).then((state) => {
+        refreshSettled = true;
+        return state;
+      });
+      await playerRequestStarted;
+      await Promise.resolve();
+      assert.equal(refreshSettled, false);
+      releasePlayerRequest?.();
+      const dashboardState = await refresh;
+      assert.equal(dashboardState.data?.recentlyPlayedGames[0]?.summary.unlockedCount, 0);
+      assert.equal(playerRequestCount, 2, "only the bounded dashboard and history requests run; no complete library updater runs");
+      const completionState = await loadDeckyCompletionProgressState("steam");
+      assert.equal(completionState.data?.games[0]?.summary.unlockedCount, 50);
+    } finally {
+      setDeckyBackendCallImplementationForTests(deckyBackendTestCallImplementation);
+      resetDeckyAppServicesForTests();
+    }
+  });
+});
+
+test("Steam full-screen profile entry uses cached totals and bounded recent-game requests, while explicit refresh updates the complete library", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    const config = normalizeSteamProviderConfig({
+      steamId64: "12345678901234567", hasApiKey: true, language: "english",
+      recentAchievementsCount: 1, recentlyPlayedCount: 1, includePlayedFreeGames: false,
+    });
+    deckyBackendTestState.steam.config = config;
+    deckyBackendTestState.steam.secret = "steam-test-secret";
+    updateDeckyProviderConfigCache("steam", config);
+
+    const ownedGames = Array.from({ length: 101 }, (_, index) => ({
+      appid: 220 + index,
+      name: `Owned Game ${index + 1}`,
+      playtime_forever: index === 0 ? 42 : 0,
+      ...(index === 0 ? { playtime_2weeks: 12 } : {}),
+    }));
+    let ownedGamesRequestCount = 0;
+    let playerAchievementRequestCount = 0;
+    setDeckyBackendCallImplementationForTests(async (route: string, payload: unknown) => {
+      if (route === "request_steam_json") {
+        const path = (payload as Record<string, unknown>).path;
+        if (path === "IPlayerService/GetOwnedGames/v1/") {
+          ownedGamesRequestCount += 1;
+          return { response: { game_count: ownedGames.length, games: ownedGames } };
+        }
+        if (path === "ISteamUserStats/GetPlayerAchievements/v1/") {
+          playerAchievementRequestCount += 1;
+        }
+      }
+      return deckyBackendTestCallImplementation(route, payload);
+    });
+
+    try {
+      const profileState = await loadDeckyDashboardStateForFullScreenEntry("steam");
+      assert.equal(profileState.status, "success");
+      assert.ok(profileState.data !== undefined);
+      assert.equal(ownedGamesRequestCount, 1, "profile entry uses GetOwnedGames only for bounded recent-game candidates");
+      assert.equal(
+        playerAchievementRequestCount,
+        1,
+        "profile entry requests only the configured recent game's player state, not all 101 owned games",
+      );
+
+      const cachedEntryState = getDeckyDashboardStateForFullScreenEntryInitial("steam");
+      assert.equal(cachedEntryState.status, "stale");
+      assert.equal(cachedEntryState.data?.profile.providerId, "steam");
+
+      playerAchievementRequestCount = 0;
+      ownedGamesRequestCount = 0;
+      await refreshDeckySteamLibraryForExplicitRefresh();
+      assert.equal(ownedGamesRequestCount, 1);
+      assert.equal(
+        playerAchievementRequestCount,
+        ownedGames.length,
+        "the explicit library refresh, not profile entry, refreshes every owned game's achievement state",
+      );
+    } finally {
+      setDeckyBackendCallImplementationForTests(deckyBackendTestCallImplementation);
+      resetDeckyAppServicesForTests();
+    }
+  });
+});
+
+test("Steam inactive games remain historical but are excluded from current completion projections", () => {
+  const historicalUnlock = {
+    id: "9:OLD:1700000000",
+    achievementId: "OLD",
+    apiName: "OLD",
+    title: "Old achievement",
+    unlockedAt: "2023-11-14T22:13:20.000Z",
+    gameId: "9",
+    gameTitle: "Inactive Game",
+    providerId: "steam" as const,
+  };
   const summary: SteamLibraryAchievementScanSummary = {
-    scannedAt: "2026-09-20T12:00:00.000Z",
-    ownedGameCount: 2,
-    scannedGameCount: 2,
-    gamesWithAchievements: 2,
+    steamId64: "12345678901234567",
+    scannedAt: "2026-09-24T00:00:00.000Z",
+    ownedGameCount: 1,
+    scannedGameCount: 1,
+    gamesWithAchievements: 1,
     skippedGameCount: 0,
     failedGameCount: 0,
-    totalAchievements: 1_000,
-    unlockedAchievements: 821,
+    totalAchievements: 2,
+    unlockedAchievements: 1,
     perfectGames: 0,
-    completionPercent: 82,
+    completionPercent: 50,
+    unlockedAchievementsList: [historicalUnlock],
     games: [
       {
-        appid: 2218750,
-        id: "2218750",
-        gameId: "2218750",
-        title: "Halls of Torment",
+        appid: 9,
+        id: "9",
+        gameId: "9",
+        title: "Inactive Game",
         providerId: "steam",
-        totalAchievements: 500,
-        unlockedAchievements: 164,
-        completionPercent: 33,
-        hasAchievements: true,
-        scanStatus: "scanned",
-      },
-      {
-        appid: 2,
-        id: "2",
-        gameId: "2",
-        title: "Another Game",
-        providerId: "steam",
-        totalAchievements: 500,
-        unlockedAchievements: 657,
+        totalAchievements: 10,
+        unlockedAchievements: 10,
         completionPercent: 100,
         hasAchievements: true,
         scanStatus: "scanned",
+        ownershipStatus: "inactive",
+      },
+      {
+        appid: 10,
+        id: "10",
+        gameId: "10",
+        title: "Owned Game",
+        providerId: "steam",
+        totalAchievements: 2,
+        unlockedAchievements: 1,
+        completionPercent: 50,
+        hasAchievements: true,
+        scanStatus: "scanned",
+        ownershipStatus: "owned",
       },
     ],
   };
 
-  const reconciled = reconcileSteamLibraryAchievementScanWithRecentGames({
-    summary,
-    recentlyPlayedGames: [
-      {
-        providerId: "steam",
-        appid: 2218750,
-        gameId: "2218750",
-        title: "Halls of Torment",
-        summary: { unlockedCount: 168, totalCount: 500, completionPercent: 34 },
-        playtimeForeverMinutes: 780,
-        lastPlayedAt: 1_790_100_000_000,
-      },
-    ],
-    refreshedAt: 1_790_100_000_000,
+  const projection = buildDeckySteamCompletionProgressSnapshotFromSummary(summary);
+  assert.deepStrictEqual(projection.games.map((game) => game.gameId), ["10"]);
+  assert.equal(projection.summary.playedCount, 1);
+  assert.equal(projection.summary.unfinishedCount, 1);
+  assert.equal(projection.summary.masteredCount, 0);
+  assert.equal(summary.unlockedAchievementsList?.length, 1, "historical unlock stays retained");
+});
+
+test("incremental Steam library refresh discovers and safely updates the complete owned library", async () => {
+  const config = normalizeSteamProviderConfig({
+    steamId64: "12345678901234567",
+    hasApiKey: true,
+    language: "english",
+    recentAchievementsCount: 1,
+    recentlyPlayedCount: 1,
+    includePlayedFreeGames: false,
+  });
+  let ownedGames: RawSteamOwnedGame[] = [
+    { appid: 10, name: "Recent Game", playtime_forever: 10 },
+    { appid: 20, name: "Non-recent Owned Game", playtime_forever: 0 },
+  ];
+  const playerState = new Map<number, RawSteamPlayerAchievement[]>([
+    [10, [{ apiname: "A", achieved: 1, unlocktime: 1_700_000_001 }, { apiname: "B", achieved: 0 }]],
+    [20, [{ apiname: "C", achieved: 1, unlocktime: 1_700_000_002 }, { apiname: "D", achieved: 0 }]],
+  ]);
+  const schemaState = new Map<number, RawSteamSchemaAchievement[]>([
+    [10, [{ name: "A" }, { name: "B" }]],
+    [20, [{ name: "C" }, { name: "D" }]],
+  ]);
+  const failedGames = new Set<number>();
+  const missingAchievementsGames = new Set<number>();
+  let ownedGamesResponse: RawSteamGetOwnedGamesResponse | undefined;
+  const schemaCalls = new Map<number, number>();
+  const schemaCache = new Map<number, readonly RawSteamSchemaAchievement[]>();
+  const schemaCacheAdapter = {
+    read(appId: number) { return schemaCache.get(appId); },
+    write(appId: number, achievements: readonly RawSteamSchemaAchievement[]) {
+      schemaCache.set(appId, achievements);
+    },
+  };
+  const client: SteamClient = {
+    async loadOwnedGames() {
+      return ownedGamesResponse ?? { response: { game_count: ownedGames.length, games: ownedGames } };
+    },
+    async loadPlayerAchievements(_config, appId) {
+      if (failedGames.has(appId)) {
+        throw new Error("temporary player-achievements failure");
+      }
+      if (missingAchievementsGames.has(appId)) {
+        return { playerstats: { success: true } };
+      }
+      return { playerstats: { success: true, achievements: playerState.get(appId) ?? [] } };
+    },
+    async loadSchemaForGame(_config, appId) {
+      schemaCalls.set(appId, (schemaCalls.get(appId) ?? 0) + 1);
+      return { game: { availableGameStats: { achievements: schemaState.get(appId) ?? [] } } };
+    },
+    async loadPlayerSummaries() { throw new Error("unused"); },
+    async loadSteamLevel() { throw new Error("unused"); },
+    async loadBadges() { throw new Error("unused"); },
+    async loadRecentlyPlayedGames() { throw new Error("unused"); },
+    async loadGlobalAchievementPercentagesForApp() { throw new Error("unused"); },
+  };
+
+  const initial = await scanSteamLibraryAchievements(config, { client, schemaCache: schemaCacheAdapter });
+  assert.equal(initial.ownedGameCount, 2);
+  assert.equal(initial.totalAchievements, 4);
+  assert.equal(initial.unlockedAchievements, 2);
+  assert.equal(initial.games.find((game) => game.appid === 20)?.totalAchievements, 2);
+
+  const unchanged = await refreshSteamLibraryAchievementProgress(config, initial, { client, schemaCache: schemaCacheAdapter });
+  assert.equal(unchanged.totalAchievements, 4);
+  assert.equal(unchanged.unlockedAchievements, 2);
+  assert.equal(unchanged.games.find((game) => game.appid === 20)?.totalAchievements, 2);
+  assert.equal(schemaCalls.get(10), 1, "cached static schema should be reused");
+  assert.equal(schemaCalls.get(20), 1, "cached static schema should be reused");
+
+  // A newly unlocked state on a game outside the recent-game UI limit is still refreshed.
+  playerState.set(20, [
+    { apiname: "C", achieved: 1, unlocktime: 1_700_000_002 },
+    { apiname: "D", achieved: 1, unlocktime: 1_800_000_000 },
+  ]);
+  let updated = await refreshSteamLibraryAchievementProgress(config, unchanged, { client, schemaCache: schemaCacheAdapter });
+  assert.equal(updated.unlockedAchievements, 3);
+  assert.equal(updated.games.find((game) => game.appid === 20)?.unlockedAchievements, 2);
+  assert.equal(updated.unlockedAchievementsList?.some((unlock) => unlock.apiName === "D"), true);
+
+  // Owned-game discovery does not use installation state and adds new titles on normal refresh.
+  const uninstalledButOwned = { appid: 30, name: "Owned but uninstalled" } as RawSteamOwnedGame & {
+    readonly installed: false;
+  };
+  ownedGames = [...ownedGames, uninstalledButOwned];
+  playerState.set(30, [{ apiname: "E", achieved: 1, unlocktime: 1_800_000_100 }]);
+  schemaState.set(30, [{ name: "E" }]);
+  updated = await refreshSteamLibraryAchievementProgress(config, updated, { client, schemaCache: schemaCacheAdapter });
+  assert.equal(updated.ownedGameCount, 3);
+  assert.equal(updated.games.some((game) => game.appid === 30 && game.ownershipStatus === "owned"), true);
+  assert.equal(updated.unlockedAchievements, 4);
+
+  // Absence in a single routine refresh is not proof of ownership loss.
+  ownedGames = ownedGames.filter((game) => game.appid !== 20);
+  updated = await refreshSteamLibraryAchievementProgress(config, updated, { client, schemaCache: schemaCacheAdapter });
+  assert.equal(updated.games.find((game) => game.appid === 20)?.ownershipStatus, "owned");
+  assert.equal(updated.ownedGameCount, 3);
+  assert.equal(updated.unlockedAchievements, 4);
+  ownedGames = [...ownedGames, { appid: 20, name: "Non-recent Owned Game", playtime_forever: 0 }];
+
+  const knownGoodUnlocked = updated.unlockedAchievements;
+  failedGames.add(20);
+  const afterRequestFailure = await refreshSteamLibraryAchievementProgress(config, updated, { client, schemaCache: schemaCacheAdapter });
+  assert.equal(afterRequestFailure.unlockedAchievements, knownGoodUnlocked);
+  assert.equal(afterRequestFailure.games.find((game) => game.appid === 20)?.unlockedAchievements, 2);
+  assert.match(afterRequestFailure.games.find((game) => game.appid === 20)?.lastAchievementRefreshError ?? "", /failure/u);
+
+  failedGames.clear();
+  missingAchievementsGames.add(20);
+  const afterMissingState = await refreshSteamLibraryAchievementProgress(config, afterRequestFailure, { client, schemaCache: schemaCacheAdapter });
+  assert.equal(afterMissingState.unlockedAchievements, knownGoodUnlocked);
+  assert.equal(afterMissingState.games.find((game) => game.appid === 20)?.unlockedAchievements, 2);
+
+  // Shape/count mismatches and ambiguous empty responses cannot replace the prior collection.
+  assert.equal(validateSteamOwnedGamesResponse({ response: { game_count: 2, games: ownedGames } }), undefined);
+  assert.equal(validateSteamOwnedGamesResponse({ response: { game_count: 0 } }), undefined);
+  ownedGamesResponse = { response: { game_count: 2, games: ownedGames.slice(0, 2) } };
+  await assert.rejects(refreshSteamLibraryAchievementProgress(config, afterMissingState, { client, schemaCache: schemaCacheAdapter }));
+  ownedGamesResponse = { response: { game_count: 0, games: [] } };
+  await assert.rejects(refreshSteamLibraryAchievementProgress(config, afterMissingState, { client, schemaCache: schemaCacheAdapter }));
+  assert.equal(afterMissingState.ownedGameCount, 3);
+  assert.equal(afterMissingState.unlockedAchievements, knownGoodUnlocked);
+
+  // Player API names define counts; a partial schema cannot omit valid player states.
+  const playerAchievements = [
+    { apiname: "A", achieved: 1 },
+    { apiname: "B", achieved: 0 },
+  ] satisfies RawSteamPlayerAchievement[];
+  const partialSchemaCounts = countSteamPlayerAchievements(playerAchievements);
+  assert.equal(partialSchemaCounts?.total, 2);
+  assert.equal(partialSchemaCounts?.unlocked, 1);
+  const partialSchemaDetail = normalizeSteamGameDetail({
+    appId: 10,
+    rawGameName: "Recent Game",
+    rawGameIcon: undefined,
+    rawGameBoxArt: undefined,
+    playerAchievements,
+    schemaAchievements: [{ name: "A" }],
+    globalAchievementPercentages: new Map(),
+    playtimeForever: undefined,
+    playtimeTwoWeeks: undefined,
+    playtimeDeckForever: undefined,
+  });
+  assert.equal(partialSchemaDetail.game.summary.totalCount, 2);
+  assert.equal(partialSchemaDetail.game.summary.unlockedCount, 1);
+
+  // A complete player response with a refreshed schema can authoritatively lower totals.
+  failedGames.clear();
+  missingAchievementsGames.clear();
+  schemaState.set(10, [{ name: "A" }]);
+  playerState.set(10, [{ apiname: "A", achieved: 0 }]);
+  updated = await refreshSteamLibraryAchievementProgress(config, updated, { client, schemaCache: schemaCacheAdapter });
+  assert.equal(updated.games.find((game) => game.appid === 10)?.totalAchievements, 1);
+  const rebuilt = await scanSteamLibraryAchievements(config, { client, previousSummary: updated, schemaCache: schemaCacheAdapter });
+  assert.equal(rebuilt.totalAchievements, updated.totalAchievements);
+  assert.equal(rebuilt.unlockedAchievements, updated.unlockedAchievements);
+});
+
+test("concurrent Steam recent-detail and library requests share only the in-flight player state", async () => {
+  const config = normalizeSteamProviderConfig({
+    steamId64: "12345678901234567", hasApiKey: true, language: "english",
+    recentAchievementsCount: 1, recentlyPlayedCount: 1, includePlayedFreeGames: false,
+  });
+  let requestCount = 0;
+  let resolveRequest: ((response: RawSteamGetPlayerAchievementsResponse) => void) | undefined;
+  const pendingResponse = new Promise<RawSteamGetPlayerAchievementsResponse>((resolve) => {
+    resolveRequest = resolve;
+  });
+  const createClient = (): SteamClient => ({
+    loadPlayerAchievements() {
+      requestCount += 1;
+      return pendingResponse;
+    },
+    async loadOwnedGames() { throw new Error("unused"); },
+    async loadPlayerSummaries() { throw new Error("unused"); },
+    async loadSteamLevel() { throw new Error("unused"); },
+    async loadBadges() { throw new Error("unused"); },
+    async loadRecentlyPlayedGames() { throw new Error("unused"); },
+    async loadSchemaForGame() { throw new Error("unused"); },
+    async loadGlobalAchievementPercentagesForApp() { throw new Error("unused"); },
   });
 
-  assert.equal(reconciled.unlockedAchievements, 825);
-  assert.equal(reconciled.totalAchievements, 1_000);
-  assert.equal(reconciled.games[0]?.unlockedAchievements, 168);
-  assert.equal(reconciled.games[0]?.playtimeForeverMinutes, 780);
-  assert.equal(reconciled.scannedAt, summary.scannedAt);
-  assert.equal(reconciled.lastRecentActivityRefreshAt, "2026-09-22T18:00:00.000Z");
+  const recentRequest = loadSteamPlayerAchievementsCoalesced(createClient(), config, 123);
+  const libraryRequest = loadSteamPlayerAchievementsCoalesced(createClient(), config, 123);
+  assert.equal(requestCount, 1);
+  resolveRequest?.({ playerstats: { success: true, achievements: [{ apiname: "A", achieved: 1 }] } });
+  assert.deepStrictEqual(await recentRequest, await libraryRequest);
+  await Promise.resolve();
+  const laterRefresh = loadSteamPlayerAchievementsCoalesced(createClient(), config, 123);
+  assert.equal(requestCount, 2, "resolved player state is not reused across refreshes");
+  resolveRequest?.({ playerstats: { success: true, achievements: [{ apiname: "A", achieved: 1 }] } });
+  await laterRefresh;
+});
+
+test("Steam library refresh preserves unverifiable decreases and accepts complete lower or increased state", async () => {
+  const config = normalizeSteamProviderConfig({
+    steamId64: "12345678901234567",
+    hasApiKey: true,
+    language: "english",
+    recentAchievementsCount: 1,
+    recentlyPlayedCount: 1,
+    includePlayedFreeGames: false,
+  });
+  const previousAchievements = Array.from({ length: 100 }, (_, index) => ({
+    apiname: `ACH_${index}`,
+    achieved: index < 50 ? 1 : 0,
+  } satisfies RawSteamPlayerAchievement));
+  const previous: SteamLibraryAchievementScanSummary = {
+    steamId64: config.steamId64,
+    scannedAt: "2026-09-01T00:00:00.000Z",
+    ownedGameCount: 1,
+    scannedGameCount: 1,
+    gamesWithAchievements: 1,
+    skippedGameCount: 0,
+    failedGameCount: 0,
+    totalAchievements: 100,
+    unlockedAchievements: 50,
+    perfectGames: 0,
+    completionPercent: 50,
+    games: [{
+      appid: 1,
+      id: "1",
+      gameId: "1",
+      title: "Known Game",
+      providerId: "steam",
+      totalAchievements: 100,
+      unlockedAchievements: 50,
+      completionPercent: 50,
+      hasAchievements: true,
+      scanStatus: "scanned",
+    }],
+  };
+  const makeClient = (
+    achievements: readonly RawSteamPlayerAchievement[],
+    schema: readonly RawSteamSchemaAchievement[] | undefined,
+  ): SteamClient => ({
+    async loadOwnedGames() { return { response: { game_count: 1, games: [{ appid: 1, name: "Known Game" }] } }; },
+    async loadPlayerAchievements() { return { playerstats: { success: true, achievements } }; },
+    async loadSchemaForGame() {
+      if (schema === undefined) throw new Error("schema unavailable");
+      return { game: { availableGameStats: { achievements: schema } } };
+    },
+    async loadPlayerSummaries() { throw new Error("unused"); },
+    async loadSteamLevel() { throw new Error("unused"); },
+    async loadBadges() { throw new Error("unused"); },
+    async loadRecentlyPlayedGames() { throw new Error("unused"); },
+    async loadGlobalAchievementPercentagesForApp() { throw new Error("unused"); },
+  });
+
+  const lowerPartial = Array.from({ length: 90 }, (_, index) => ({
+    apiname: `ACH_${index}`,
+    achieved: index < 45 ? 1 : 0,
+  } satisfies RawSteamPlayerAchievement));
+  const preserved = await refreshSteamLibraryAchievementProgress(
+    config,
+    previous,
+    { client: makeClient(lowerPartial, undefined) },
+  );
+  assert.equal(preserved.totalAchievements, 100);
+  assert.equal(preserved.unlockedAchievements, 50);
+  assert.match(preserved.games[0]?.lastAchievementRefreshError ?? "", /authoritative state/u);
+
+  const increased = previousAchievements.map((achievement, index) => ({
+    ...achievement,
+    achieved: index < 51 ? 1 : 0,
+  }));
+  const acceptedIncrease = await refreshSteamLibraryAchievementProgress(
+    config,
+    previous,
+    { client: makeClient(increased, undefined) },
+  );
+  assert.equal(acceptedIncrease.totalAchievements, 100);
+  assert.equal(acceptedIncrease.unlockedAchievements, 51);
+
+  const completeSchema = Array.from({ length: 90 }, (_, index) => ({ name: `ACH_${index}` }));
+  const acceptedDecrease = await refreshSteamLibraryAchievementProgress(
+    config,
+    previous,
+    { client: makeClient(lowerPartial, completeSchema) },
+  );
+  assert.equal(acceptedDecrease.totalAchievements, 90);
+  assert.equal(acceptedDecrease.unlockedAchievements, 45);
+
+  const newGameClient: SteamClient = {
+    ...makeClient([
+      { apiname: "NEW_A", achieved: 1 },
+      { apiname: "NEW_B", achieved: 0 },
+      { apiname: "NEW_C", achieved: 0 },
+    ], undefined),
+    async loadOwnedGames() { return { response: { game_count: 1, games: [{ appid: 2, name: "New Game" }] } }; },
+  };
+  const initialized = await refreshSteamLibraryAchievementProgress(config, undefined, { client: newGameClient });
+  assert.equal(initialized.totalAchievements, 3);
+  assert.equal(initialized.unlockedAchievements, 1);
+});
+
+test("Steam incremental refresh prevents the 825 to 812 stale-detail regression and stale cache writes", async () => {
+  await withMockDeckyStorage(async () => {
+    const achievements = Array.from({ length: 825 }, (_, index) => ({
+      apiname: `ACH_${index}`,
+      achieved: index < 825 ? 1 : 0,
+      unlocktime: 1_800_000_000 + index,
+    } satisfies RawSteamPlayerAchievement));
+    const schema = achievements.map((achievement) => ({ name: achievement.apiname }));
+    const ownedGames: RawSteamOwnedGame[] = [{ appid: 99, name: "825-count game" }];
+    const client: SteamClient = {
+      async loadOwnedGames() { return { response: { game_count: 1, games: ownedGames } }; },
+      async loadPlayerAchievements() { return { playerstats: { success: true, achievements } }; },
+      async loadSchemaForGame() { return { game: { availableGameStats: { achievements: schema } } }; },
+      async loadPlayerSummaries() { throw new Error("unused"); },
+      async loadSteamLevel() { throw new Error("unused"); },
+      async loadBadges() { throw new Error("unused"); },
+      async loadRecentlyPlayedGames() { throw new Error("unused"); },
+      async loadGlobalAchievementPercentagesForApp() { throw new Error("unused"); },
+    };
+    const config = normalizeSteamProviderConfig({
+      steamId64: "12345678901234567",
+      hasApiKey: true,
+      language: "english",
+      recentAchievementsCount: 1,
+      recentlyPlayedCount: 1,
+      includePlayedFreeGames: false,
+    });
+    const initial = await scanSteamLibraryAchievements(config, { client });
+    assert.equal(initial.unlockedAchievements, 825);
+    const refreshed = await refreshSteamLibraryAchievementProgress(config, initial, { client });
+    assert.equal(refreshed.unlockedAchievements, 825);
+    assert.equal(refreshed.games[0]?.unlockedAchievements, 825);
+
+    const newer = { ...refreshed, unlockedAchievements: 826 };
+    const stale = { ...refreshed, unlockedAchievements: 812 };
+    writeDeckySteamLibraryAchievementScanSummary(newer);
+    const expectedRevision = getDeckySteamLibraryAchievementScanRevision();
+    writeDeckySteamLibraryAchievementScanSummary({ ...newer, unlockedAchievements: 827 });
+    assert.equal(
+      writeDeckySteamLibraryAchievementScanSummaryIfRevisionMatches(expectedRevision, stale),
+      false,
+    );
+    assert.equal(readDeckySteamLibraryAchievementScanSummary("steam")?.unlockedAchievements, 827);
+
+    const cached = await refreshAndCacheDeckySteamLibraryAchievementProgress(config, { client });
+    assert.equal(cached?.unlockedAchievements, 825);
+  });
+});
+
+test("Steam scan and incremental refresh serialize so older work cannot overwrite the later operation", async () => {
+  await withMockDeckyStorage(async () => {
+    const config = normalizeSteamProviderConfig({
+      steamId64: "12345678901234567",
+      hasApiKey: true,
+      language: "english",
+      recentAchievementsCount: 1,
+      recentlyPlayedCount: 1,
+      includePlayedFreeGames: false,
+    });
+    const ownedGames: RawSteamOwnedGame[] = [{ appid: 77, name: "Race Test" }];
+    const oldPlayerState: RawSteamPlayerAchievement[] = [
+      { apiname: "A", achieved: 0 },
+      { apiname: "B", achieved: 0 },
+    ];
+    const newPlayerState: RawSteamPlayerAchievement[] = [
+      { apiname: "A", achieved: 1, unlocktime: 1_800_000_001 },
+      { apiname: "B", achieved: 1, unlocktime: 1_800_000_002 },
+    ];
+    writeDeckySteamLibraryAchievementScanSummary({
+      scannedAt: "2026-09-01T00:00:00.000Z",
+      ownedGameCount: 1,
+      scannedGameCount: 1,
+      gamesWithAchievements: 1,
+      skippedGameCount: 0,
+      failedGameCount: 0,
+      totalAchievements: 2,
+      unlockedAchievements: 0,
+      perfectGames: 0,
+      completionPercent: 0,
+      games: [{
+        appid: 77,
+        id: "77",
+        gameId: "77",
+        title: "Race Test",
+        providerId: "steam",
+        totalAchievements: 2,
+        unlockedAchievements: 0,
+        completionPercent: 0,
+        hasAchievements: true,
+        scanStatus: "scanned",
+        achievementSchema: [{ name: "A" }, { name: "B" }],
+      }],
+    });
+
+    let notifyRefreshStarted: (() => void) | undefined;
+    const refreshStarted = new Promise<void>((resolve) => { notifyRefreshStarted = resolve; });
+    let releaseRefresh: (() => void) | undefined;
+    const refreshGate = new Promise<void>((resolve) => { releaseRefresh = resolve; });
+    const refreshClient: SteamClient = {
+      async loadOwnedGames() { return { response: { game_count: 1, games: ownedGames } }; },
+      async loadPlayerAchievements() {
+        notifyRefreshStarted?.();
+        await refreshGate;
+        return { playerstats: { success: true, achievements: oldPlayerState } };
+      },
+      async loadSchemaForGame() { throw new Error("cached schema should be reused"); },
+      async loadPlayerSummaries() { throw new Error("unused"); },
+      async loadSteamLevel() { throw new Error("unused"); },
+      async loadBadges() { throw new Error("unused"); },
+      async loadRecentlyPlayedGames() { throw new Error("unused"); },
+      async loadGlobalAchievementPercentagesForApp() { throw new Error("unused"); },
+    };
+    const scanClient: SteamClient = {
+      async loadOwnedGames() { return { response: { game_count: 1, games: ownedGames } }; },
+      async loadPlayerAchievements() { return { playerstats: { success: true, achievements: newPlayerState } }; },
+      async loadSchemaForGame() { throw new Error("cached schema should be reused"); },
+      async loadPlayerSummaries() { throw new Error("unused"); },
+      async loadSteamLevel() { throw new Error("unused"); },
+      async loadBadges() { throw new Error("unused"); },
+      async loadRecentlyPlayedGames() { throw new Error("unused"); },
+      async loadGlobalAchievementPercentagesForApp() { throw new Error("unused"); },
+    };
+
+    const refresh = refreshAndCacheDeckySteamLibraryAchievementProgress(config, { client: refreshClient });
+    await refreshStarted;
+    const scan = runAndCacheDeckySteamLibraryAchievementScan(config, { client: scanClient });
+    releaseRefresh?.();
+    await Promise.all([refresh, scan]);
+    assert.equal(readDeckySteamLibraryAchievementScanSummary("steam")?.unlockedAchievements, 2);
+  });
+});
+
+test("Steam account changes clear prior library state and old in-flight refreshes cannot write across accounts", async () => {
+  await withMockDeckyStorage(async () => {
+    const accountA = normalizeSteamProviderConfig({
+      steamId64: "12345678901234567", hasApiKey: true, language: "english",
+      recentAchievementsCount: 1, recentlyPlayedCount: 1, includePlayedFreeGames: false,
+    });
+    const accountB = normalizeSteamProviderConfig({
+      steamId64: "22345678901234567", hasApiKey: true, language: "english",
+      recentAchievementsCount: 1, recentlyPlayedCount: 1, includePlayedFreeGames: false,
+    });
+    deckyBackendTestState.steam.config = {
+      ...accountA,
+      hasApiKey: true,
+    };
+    deckyBackendTestState.steam.secret = "steam-test-secret";
+    updateDeckyProviderConfigCache("steam", accountA);
+    writeDeckySteamLibraryAchievementScanSummary({
+      steamId64: accountA.steamId64,
+      scannedAt: "2026-09-01T00:00:00.000Z",
+      ownedGameCount: 1,
+      scannedGameCount: 1,
+      gamesWithAchievements: 1,
+      skippedGameCount: 0,
+      failedGameCount: 0,
+      totalAchievements: 1,
+      unlockedAchievements: 1,
+      perfectGames: 1,
+      completionPercent: 100,
+      games: [{
+        appid: 101,
+        id: "101",
+        gameId: "101",
+        title: "Account A Game",
+        providerId: "steam",
+        totalAchievements: 1,
+        unlockedAchievements: 1,
+        completionPercent: 100,
+        hasAchievements: true,
+        scanStatus: "scanned",
+      }],
+    });
+
+    let signalAccountAPlayerRequest: (() => void) | undefined;
+    const accountAPlayerRequest = new Promise<void>((resolve) => { signalAccountAPlayerRequest = resolve; });
+    let releaseAccountAPlayer: (() => void) | undefined;
+    const accountAPlayerGate = new Promise<void>((resolve) => { releaseAccountAPlayer = resolve; });
+    const accountAClient: SteamClient = {
+      async loadOwnedGames() { return { response: { game_count: 1, games: [{ appid: 101, name: "Account A Game" }] } }; },
+      async loadPlayerAchievements() {
+        signalAccountAPlayerRequest?.();
+        await accountAPlayerGate;
+        return { playerstats: { success: true, achievements: [{ apiname: "A", achieved: 1 }] } };
+      },
+      async loadSchemaForGame() { return { game: { availableGameStats: { achievements: [{ name: "A" }] } } }; },
+      async loadPlayerSummaries() { throw new Error("unused"); },
+      async loadSteamLevel() { throw new Error("unused"); },
+      async loadBadges() { throw new Error("unused"); },
+      async loadRecentlyPlayedGames() { throw new Error("unused"); },
+      async loadGlobalAchievementPercentagesForApp() { throw new Error("unused"); },
+    };
+    const accountARefresh = refreshAndCacheDeckySteamLibraryAchievementProgress(accountA, { client: accountAClient });
+    await accountAPlayerRequest;
+
+    assert.equal(await writeDeckySteamProviderConfig({
+      steamId64: accountB.steamId64,
+      language: accountB.language,
+      recentAchievementsCount: accountB.recentAchievementsCount,
+      recentlyPlayedCount: accountB.recentlyPlayedCount,
+      includePlayedFreeGames: accountB.includePlayedFreeGames,
+    }, ""), true);
+    assert.equal(readDeckySteamLibraryAchievementScanSummary("steam"), undefined);
+
+    const accountBClient: SteamClient = {
+      async loadOwnedGames() { return { response: { game_count: 1, games: [{ appid: 202, name: "Account B Game" }] } }; },
+      async loadPlayerAchievements() { return { playerstats: { success: true, achievements: [{ apiname: "B", achieved: 1 }] } }; },
+      async loadSchemaForGame() { return { game: { availableGameStats: { achievements: [{ name: "B" }] } } }; },
+      async loadPlayerSummaries() { throw new Error("unused"); },
+      async loadSteamLevel() { throw new Error("unused"); },
+      async loadBadges() { throw new Error("unused"); },
+      async loadRecentlyPlayedGames() { throw new Error("unused"); },
+      async loadGlobalAchievementPercentagesForApp() { throw new Error("unused"); },
+    };
+    const accountBRefresh = refreshAndCacheDeckySteamLibraryAchievementProgress(accountB, { client: accountBClient });
+    releaseAccountAPlayer?.();
+    await Promise.all([accountARefresh, accountBRefresh]);
+    const activeSummary = readDeckySteamLibraryAchievementScanSummary("steam");
+    assert.equal(activeSummary?.steamId64, accountB.steamId64);
+    assert.deepStrictEqual(activeSummary?.games.map((game) => game.appid), [202]);
+  });
+});
+
+test("Steam summary storage write failure retains the previous durable and in-memory summary", async () => {
+  await withMockDeckyStorage(async () => {
+    const existing: SteamLibraryAchievementScanSummary = {
+      steamId64: "12345678901234567",
+      scannedAt: "2026-09-01T00:00:00.000Z",
+      ownedGameCount: 1,
+      scannedGameCount: 1,
+      gamesWithAchievements: 1,
+      skippedGameCount: 0,
+      failedGameCount: 0,
+      totalAchievements: 100,
+      unlockedAchievements: 50,
+      perfectGames: 0,
+      completionPercent: 50,
+      games: [{
+        appid: 1, id: "1", gameId: "1", title: "Known Game", providerId: "steam",
+        totalAchievements: 100, unlockedAchievements: 50, completionPercent: 50,
+        hasAchievements: true, scanStatus: "scanned",
+        achievementSchema: [{ name: "A" }],
+      }],
+    };
+    writeDeckySteamLibraryAchievementScanSummary(existing);
+    const summaryKey = "achievement-companion:decky:steam:library-achievement-scan-summary";
+    const storedInitial = JSON.parse(readDeckyStorageText(summaryKey) ?? "{}") as {
+      games?: Array<Record<string, unknown>>;
+    };
+    assert.equal(storedInitial.games?.[0]?.["achievementSchema"], undefined);
+    assert.equal(writeDeckySteamAchievementSchemaCache(existing.steamId64 ?? "", 1, [{ name: "A" }]), true);
+    assert.deepStrictEqual(readDeckySteamAchievementSchemaCache(existing.steamId64 ?? "", 1), [{ name: "A" }]);
+    const localStorageObject = globalThis.localStorage as Storage & { setItem: Storage["setItem"] };
+    const originalSetItem = localStorageObject.setItem.bind(localStorageObject);
+    Object.defineProperty(localStorageObject, "setItem", {
+      configurable: true,
+      value(key: string, value: string) {
+        if (key === summaryKey) throw new Error("simulated storage quota failure");
+        originalSetItem(key, value);
+      },
+    });
+    try {
+      const attempted = writeDeckySteamLibraryAchievementScanSummary({
+        ...existing,
+        unlockedAchievements: 40,
+        completionPercent: 40,
+      });
+      assert.equal(attempted, false);
+      assert.equal(readDeckySteamLibraryAchievementScanSummary("steam")?.unlockedAchievements, 50);
+      assert.equal(JSON.parse(readDeckyStorageText(summaryKey) ?? "{}").unlockedAchievements, 50);
+    } finally {
+      Object.defineProperty(localStorageObject, "setItem", { configurable: true, value: originalSetItem });
+    }
+  });
 });
 
 test("steam fullscreen completion falls back to loaded games when no cached scan exists", async () => {

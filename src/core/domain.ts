@@ -105,6 +105,10 @@ export interface NormalizedGame {
   readonly softcoreSummary?: ProgressSummary;
   readonly scanStatus?: "scanned" | "no-achievements" | "failed";
   readonly hasAchievements?: boolean;
+  /** Steam-only membership state for cached collection entries. */
+  readonly ownershipStatus?: "owned" | "inactive";
+  /** True only when the provider has verified a complete player achievement state. */
+  readonly achievementStateIsComplete?: boolean;
 }
 
 export interface RecentlyPlayedGame {
@@ -117,6 +121,8 @@ export interface RecentlyPlayedGame {
   readonly coverImageUrl?: string;
   readonly boxArtImageUrl?: string;
   readonly summary: ProgressSummary;
+  /** True only when recent-game achievement counts came from verified complete player state. */
+  readonly achievementStateIsComplete?: boolean;
   readonly metrics?: readonly NormalizedMetric[];
   readonly playtimeForeverMinutes?: number;
   readonly playtimeTwoWeeksMinutes?: number;
@@ -179,6 +185,8 @@ export interface RecentUnlock {
 export interface GameDetailSnapshot {
   readonly game: NormalizedGame;
   readonly achievements: readonly NormalizedAchievement[];
+  /** True only when player achievement state is verified complete against the game schema. */
+  readonly achievementStateIsComplete?: boolean;
   readonly refreshedAt?: UnixEpochMs;
 }
 

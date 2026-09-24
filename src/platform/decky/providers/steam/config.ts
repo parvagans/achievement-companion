@@ -5,6 +5,7 @@ import {
   removeDeckyStorageText,
   removeDeckyStorageTextsByPrefix,
   writeDeckyStorageText,
+  writeDeckyStorageTextPreservingExisting,
 } from "../../storage";
 import { clearDeckyDashboardSnapshot } from "../../decky-dashboard-snapshot-cache";
 import { clearDeckySteamGameDetailCache } from "../../decky-steam-game-detail-cache";
@@ -14,6 +15,7 @@ import {
   type SteamProviderConfig,
 } from "../../../../providers/steam/config";
 import { normalizeSteamArtworkUrl } from "../../../../providers/steam/artwork";
+import type { RawSteamSchemaAchievement } from "../../../../providers/steam/raw-types";
 import {
   clearDeckySteamAccountState as clearDeckySteamAccountStateFromStore,
   loadDeckyProviderConfig as loadDeckyProviderConfigFromStore,
@@ -54,6 +56,8 @@ const LEGACY_STEAM_LIBRARY_ACHIEVEMENT_SCAN_SUMMARY_STORAGE_KEY =
   "achievement-companion:decky:steam:library-achievement-scan";
 const DECKY_RECENT_ACHIEVEMENTS_STORAGE_KEY_PREFIX =
   "achievement-companion:decky:recent-achievements:steam:";
+const DECKY_STEAM_ACHIEVEMENT_SCHEMA_CACHE_KEY_PREFIX =
+  "achievement-companion:decky:steam:achievement-schema:";
 
 type SteamLibraryAchievementScanSummaryListener = () => void;
 type SteamLibraryAchievementScanOverviewListener = () => void;
@@ -347,6 +351,7 @@ export async function writeValidatedDeckySteamProviderConfig(
   config: Omit<SteamProviderConfig, "hasApiKey">,
   apiKeyDraft: string,
 ): Promise<SteamCredentialSaveResult> {
+  const previousSteamConfig = await loadDeckyProviderConfigFromStore(STEAM_PROVIDER_ID) as SteamProviderConfig | undefined;
   let result: SteamCredentialSaveResult;
   if (apiKeyDraft.trim().length === 0) {
     const saved = await saveDeckySteamCredentials({
@@ -367,6 +372,15 @@ export async function writeValidatedDeckySteamProviderConfig(
   }
   if (result.saved) {
     clearDeckySteamGameDetailCache();
+    if (
+      previousSteamConfig?.steamId64 !== undefined &&
+      previousSteamConfig.steamId64 !== config.steamId64
+    ) {
+      clearDeckySteamLibraryAchievementScanSummary();
+      clearDeckyDashboardSnapshot(STEAM_PROVIDER_ID);
+      removeDeckyStorageTextsByPrefix(DECKY_RECENT_ACHIEVEMENTS_STORAGE_KEY_PREFIX);
+      clearDeckySteamAchievementSchemaCache();
+    }
   }
   return result;
 }
@@ -479,24 +493,112 @@ export function useDeckySteamLibraryAchievementScanOverview(
 
 export function writeDeckySteamLibraryAchievementScanSummary(
   summary: SteamLibraryAchievementScanSummary,
-): void {
+): boolean {
   const normalizedSummary = normalizeSteamLibraryAchievementScanSummary(summary);
   const normalizedOverview = normalizeSteamLibraryAchievementScanOverview(normalizedSummary);
-  const didWrite = writeDeckyStorageText(
+  const persistedSummary = stripSteamLibraryAchievementSchemas(normalizedSummary);
+  const didWrite = writeDeckyStorageTextPreservingExisting(
     STEAM_LIBRARY_ACHIEVEMENT_SCAN_SUMMARY_STORAGE_KEY,
-    JSON.stringify(normalizedSummary),
+    JSON.stringify(persistedSummary),
   );
 
   if (!didWrite) {
-    removeDeckyStorageText(STEAM_LIBRARY_ACHIEVEMENT_SCAN_SUMMARY_STORAGE_KEY);
+    console.warn("[Achievement Companion][Steam] Unable to persist library summary; previous cache retained");
+    return false;
   }
 
   writeSteamLibraryAchievementScanOverview(normalizedOverview);
 
   removeDeckyStorageText(LEGACY_STEAM_LIBRARY_ACHIEVEMENT_SCAN_SUMMARY_STORAGE_KEY);
 
-  cacheSteamLibraryAchievementScanSummary(normalizedSummary);
+  cacheSteamLibraryAchievementScanSummary(persistedSummary);
   cacheSteamLibraryAchievementScanOverview(normalizedOverview);
+  return true;
+}
+
+export function getDeckySteamLibraryAchievementScanRevision(): number {
+  return steamLibraryAchievementScanSummaryRevision;
+}
+
+export function writeDeckySteamLibraryAchievementScanSummaryIfRevisionMatches(
+  expectedRevision: number,
+  summary: SteamLibraryAchievementScanSummary,
+): boolean {
+  if (steamLibraryAchievementScanSummaryRevision !== expectedRevision) {
+    return false;
+  }
+  const activeSteamConfig = readDeckyProviderConfigFromStore(STEAM_PROVIDER_ID) as SteamProviderConfig | undefined;
+  if (
+    activeSteamConfig?.steamId64 !== undefined &&
+    summary.steamId64 !== undefined &&
+    summary.steamId64 !== activeSteamConfig.steamId64
+  ) {
+    return false;
+  }
+  return writeDeckySteamLibraryAchievementScanSummary(summary);
+}
+
+function stripSteamLibraryAchievementSchemas(
+  summary: SteamLibraryAchievementScanSummary,
+): SteamLibraryAchievementScanSummary {
+  return {
+    ...summary,
+    games: summary.games.map((game) => {
+      if (game.achievementSchema === undefined) {
+        return game;
+      }
+      const { achievementSchema: _schema, ...lightweightGame } = game;
+      return lightweightGame;
+    }),
+  };
+}
+
+function getSteamAchievementSchemaCacheKey(steamId64: string, appId: number): string {
+  return `${DECKY_STEAM_ACHIEVEMENT_SCHEMA_CACHE_KEY_PREFIX}${steamId64}:${String(appId)}`;
+}
+
+export function readDeckySteamAchievementSchemaCache(
+  steamId64: string,
+  appId: number,
+): readonly RawSteamSchemaAchievement[] | undefined {
+  const rawValue = readDeckyStorageText(getSteamAchievementSchemaCacheKey(steamId64, appId));
+  if (rawValue === undefined) {
+    return undefined;
+  }
+  try {
+    const value = JSON.parse(rawValue) as unknown;
+    if (
+      !Array.isArray(value) ||
+      !value.every((entry) =>
+        typeof entry === "object" && entry !== null && typeof (entry as Record<string, unknown>)["name"] === "string")
+    ) {
+      return undefined;
+    }
+    return value as readonly RawSteamSchemaAchievement[];
+  } catch {
+    return undefined;
+  }
+}
+
+export function writeDeckySteamAchievementSchemaCache(
+  steamId64: string,
+  appId: number,
+  achievements: readonly RawSteamSchemaAchievement[],
+): boolean {
+  const didWrite = writeDeckyStorageTextPreservingExisting(
+    getSteamAchievementSchemaCacheKey(steamId64, appId),
+    JSON.stringify(achievements),
+  );
+  if (!didWrite) {
+    console.warn("[Achievement Companion][Steam] Unable to persist static achievement schema", {
+      appId,
+    });
+  }
+  return didWrite;
+}
+
+export function clearDeckySteamAchievementSchemaCache(): boolean {
+  return removeDeckyStorageTextsByPrefix(DECKY_STEAM_ACHIEVEMENT_SCHEMA_CACHE_KEY_PREFIX);
 }
 
 export function clearDeckySteamLibraryAchievementScanSummary(): boolean {
