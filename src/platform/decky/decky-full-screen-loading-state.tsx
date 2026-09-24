@@ -1,6 +1,5 @@
 import { useEffect, useRef, type CSSProperties } from "react";
 import infoIconUrl from "./assets/info.svg";
-import trophyIconUrl from "./assets/trophy-filled.svg";
 
 export interface DeckyFullScreenLoadingStateProps {
   readonly description: string;
@@ -179,7 +178,12 @@ export function DeckyFullScreenLoadingState({
         <div aria-hidden="true" style={getLoadingSpinnerStyle()}>
           <div ref={spinnerRef} style={getLoadingSpinnerRingStyle()} />
           <div style={getLoadingIconWellStyle()}>
-            <img alt="" src={trophyIconUrl} style={getLoadingIconStyle()} />
+            <svg aria-hidden="true" viewBox="0 0 24 24" style={getLoadingIconStyle()}>
+              <path
+                fill="#2bc3f2"
+                d="M6.2 3.5h11.6v3.9a5.8 5.8 0 0 1-4.3 5.6v2.1h2.2a1.1 1.1 0 0 1 0 2.2H8.3a1.1 1.1 0 0 1 0-2.2h2.2V13a5.8 5.8 0 0 1-4.3-5.6V3.5Zm-2.7 2h2v2.1a3.3 3.3 0 0 0 1.1 2.5A5.9 5.9 0 0 1 4 9.3a3.7 3.7 0 0 1-.5-1.8V5.5Zm15 0h2v2a3.7 3.7 0 0 1-.5 1.8 5.9 5.9 0 0 1-2.6.8 3.3 3.3 0 0 0 1.1-2.5V5.5Z"
+              />
+            </svg>
           </div>
         </div>
         <h1 style={getLoadingTitleStyle()}>{title}</h1>

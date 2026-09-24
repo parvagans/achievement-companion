@@ -592,6 +592,22 @@ function DeckyFullScreenCompletionProgressRoute(): JSX.Element {
           suppressNextFullscreenRouteUnmountAction();
           DeckyNavigation.NavigateBack();
         }}
+        onOpenProfile={() => {
+          if (params.providerId === undefined) {
+            return;
+          }
+
+          registerFullScreenProfileRoute();
+          const route = buildFullScreenProfileRoute({
+            view: "profile",
+            surface: "full-screen",
+            providerId: params.providerId,
+          });
+          if (route !== undefined) {
+            suppressNextFullscreenRouteUnmountAction();
+            DeckyNavigation.Navigate(route);
+          }
+        }}
         onOpenActivity={() => {
           if (params.providerId === undefined) {
             return;
@@ -747,6 +763,10 @@ export function createDeckyNavigationPort(): NavigationPort {
         const profileRoute = buildFullScreenProfileRoute(target);
         if (profileRoute !== undefined) {
           registerFullScreenProfileRoute();
+          // Opening Profile from the compact dashboard replaces whichever
+          // full-screen tab was underneath Quick Access. Do not let that
+          // tab's unmount fallback issue a competing Back navigation.
+          suppressNextFullscreenRouteUnmountAction();
           DeckyNavigation.Navigate(profileRoute);
           DeckyNavigation.CloseSideMenus();
           return;

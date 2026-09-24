@@ -10,6 +10,16 @@ import {
 
 const COMPACT_FOOTER_REDUCTION_PX = 4;
 const COMPACT_FOOTER_MINIMUM_HEIGHT_PX = 40;
+const mountedFooterOverlayOwners: symbol[] = [];
+
+function isTopFooterOverlayOwner(owner: symbol): boolean {
+  return mountedFooterOverlayOwners[mountedFooterOverlayOwners.length - 1] === owner;
+}
+
+function releaseFooterOverlayOwner(owner: symbol): void {
+  const index = mountedFooterOverlayOwners.indexOf(owner);
+  if (index >= 0) mountedFooterOverlayOwners.splice(index, 1);
+}
 
 export const DECKY_FULLSCREEN_FOOTER_SHOULDER_BUTTON = {
   left: 5,
@@ -258,8 +268,11 @@ export function DeckyFullScreenFooterOverlay({
     if (ownerWindow === undefined || ownerWindow === null) {
       return;
     }
+    const owner = Symbol("decky-full-screen-footer-overlay");
+    mountedFooterOverlayOwners.push(owner);
 
     const onButtonDown = (event: Event): void => {
+      if (!isTopFooterOverlayOwner(owner)) return;
       handleDeckyFullScreenFooterShoulderButtonDown(event as GamepadEvent, {
         onPrevious: () => onPreviousNavigationItemRef.current(),
         onNext: () => onNextNavigationItemRef.current(),
@@ -269,6 +282,7 @@ export function DeckyFullScreenFooterOverlay({
 
     // The overlay replaces Steam's Back legend for the mounted full-screen route.
     const onCancel = (event: Event): void => {
+      if (!isTopFooterOverlayOwner(owner)) return;
       const cancelEvent = event as CancelableGamepadEvent;
       if (consumeDeckyFullscreenPopupCancel()) {
         cancelEvent.preventDefault?.();
@@ -286,6 +300,7 @@ export function DeckyFullScreenFooterOverlay({
     return () => {
       ownerWindow.removeEventListener("vgp_onbuttondown", onButtonDown, true);
       ownerWindow.removeEventListener("vgp_oncancel", onCancel, true);
+      releaseFooterOverlayOwner(owner);
     };
   }, []);
 

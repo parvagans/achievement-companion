@@ -74,6 +74,7 @@ export interface DeckyFullScreenCompletionProgressPageProps {
   readonly providerId: string | undefined;
   readonly initialFilter?: CompletionProgressSelectionFilter;
   readonly onBack: () => void;
+  readonly onOpenProfile: () => void;
   readonly onOpenActivity: () => void;
   readonly onOpenGameDetail: (gameId: string) => void;
 }
@@ -602,6 +603,7 @@ export function DeckyFullScreenCompletionProgressPage({
   providerId,
   initialFilter,
   onBack,
+  onOpenProfile,
   onOpenActivity,
   onOpenGameDetail,
 }: DeckyFullScreenCompletionProgressPageProps): JSX.Element {
@@ -664,7 +666,7 @@ export function DeckyFullScreenCompletionProgressPage({
                 return;
               }
 
-              onBack();
+              onOpenProfile();
             }}
           />
         </>
@@ -698,6 +700,7 @@ export function DeckyFullScreenCompletionProgressPage({
         snapshot={snapshot}
         initialFilter={currentFilter}
         onBack={onBack}
+        onOpenProfile={onOpenProfile}
         onOpenActivity={onOpenActivity}
         onOpenGameDetail={onOpenGameDetail}
       />

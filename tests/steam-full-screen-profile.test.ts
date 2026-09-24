@@ -562,6 +562,60 @@ test("perfected profile navigation carries a one-shot completion filter", () => 
   assert.equal(consumeNextFullScreenCompletionProgressFilter(), undefined);
 });
 
+test("Steam activity loading state owns the Activity footer and renders its trophy inline", async () => {
+  const [historySource, loadingSource, footerSource] = await Promise.all([
+    readFile(new URL("../src/platform/decky/decky-full-screen-achievement-history-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-loading-state.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-footer-overlay.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(historySource, /title=\{state\.status === "error"[\s\S]*activeNavigationItemId="activity"/u);
+  assert.match(historySource, /onPreviousNavigationItem=\{onOpenPerfected\}[\s\S]*onNextNavigationItem=\{onOpenSettings\}/u);
+  assert.match(loadingSource, /<svg aria-hidden="true" viewBox="0 0 24 24"[\s\S]*<path[\s\S]*fill="#2bc3f2"/u);
+  assert.match(footerSource, /if \(!isTopFooterOverlayOwner\(owner\)\) return;/u);
+});
+
+test("Games footer L1 returns to Profile rather than the route that opened Games", async () => {
+  const [dashboardSource, completionSource, navigationSource] = await Promise.all([
+    readFile(new URL("../src/platform/decky/decky-steam-full-screen-games-dashboard.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-completion-progress-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-navigation.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(dashboardSource, /if \(filter === "mastered"\)[\s\S]*setFilter\("all"\)[\s\S]*onOpenProfile\(\)/u);
+  assert.match(completionSource, /if \(currentFilter === "mastered"\)[\s\S]*setCurrentFilter\("all"\)[\s\S]*onOpenProfile\(\)/u);
+  assert.match(navigationSource, /<DeckyFullScreenCompletionProgressPage[\s\S]*onOpenProfile=\{\(\) => \{[\s\S]*buildFullScreenProfileRoute/u);
+});
+
+test("compact dashboard Profile navigation suppresses the outgoing full-screen route fallback", async () => {
+  const navigationSource = await readFile(
+    new URL("../src/platform/decky/decky-navigation.tsx", import.meta.url),
+    "utf8",
+  );
+  const navigationPortIndex = navigationSource.indexOf("export function createDeckyNavigationPort()");
+  const profileRouteIndex = navigationSource.indexOf("const profileRoute = buildFullScreenProfileRoute(target)", navigationPortIndex);
+  const suppressionIndex = navigationSource.indexOf("suppressNextFullscreenRouteUnmountAction();", profileRouteIndex);
+  const navigateIndex = navigationSource.indexOf("DeckyNavigation.Navigate(profileRoute);", profileRouteIndex);
+
+  assert.ok(navigationPortIndex >= 0, "the Decky navigation port must exist");
+  assert.ok(profileRouteIndex > navigationPortIndex, "compact full-screen navigation must handle Profile");
+  assert.ok(
+    suppressionIndex > profileRouteIndex && suppressionIndex < navigateIndex,
+    "Profile navigation must consume the outgoing route's unmount fallback before navigating",
+  );
+});
+
+test("Cache Management focuses the cache action without arming destructive confirmation", async () => {
+  const source = await readFile(
+    new URL("../src/platform/decky/decky-full-screen-settings-page.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /const openCacheManagement = \(\): void => \{\s*setArmedAction\(undefined\);\s*pageRef\.current\?\.querySelector<HTMLElement>\("#steam-clear-cache-action"\)\?\.focus\(\);/u);
+  assert.match(source, /title="Cache Management"[\s\S]*onActivate=\{openCacheManagement\}/u);
+  assert.match(source, /id="steam-clear-cache-action"[\s\S]*title=\{armedAction === "clear" \? "Press again to clear cached data"/u);
+});
+
 test("profile summary memo runs before the loading-state early return", async () => {
   const source = await readFile(
     new URL("../src/platform/decky/decky-full-screen-profile-page.tsx", import.meta.url),

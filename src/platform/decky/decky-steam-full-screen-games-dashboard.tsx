@@ -72,6 +72,7 @@ export interface DeckySteamFullScreenGamesDashboardProps {
   readonly snapshot: CompletionProgressSnapshot;
   readonly initialFilter?: CompletionProgressSelectionFilter;
   readonly onBack: () => void;
+  readonly onOpenProfile: () => void;
   readonly onOpenActivity: () => void;
   readonly onOpenGameDetail: (gameId: string) => void;
 }
@@ -688,6 +689,7 @@ export function DeckySteamFullScreenGamesDashboard({
   snapshot,
   initialFilter,
   onBack,
+  onOpenProfile,
   onOpenActivity,
   onOpenGameDetail,
 }: DeckySteamFullScreenGamesDashboardProps): JSX.Element {
@@ -848,7 +850,7 @@ export function DeckySteamFullScreenGamesDashboard({
             return;
           }
 
-          onBack();
+          onOpenProfile();
         }}
       />
     </>
