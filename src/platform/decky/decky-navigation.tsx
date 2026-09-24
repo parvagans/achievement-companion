@@ -647,6 +647,35 @@ function DeckyFullScreenSettingsRoute(): JSX.Element {
         onOpenProviderSettings={(providerId) => {
           navigateToFullScreenProviderSettings(providerId);
         }}
+        onOpenExternalUrl={(url) => {
+          suppressNextFullscreenRouteUnmountAction();
+          DeckyNavigation.NavigateToExternalWeb(url);
+        }}
+        showSteamProfileFooter={!shouldReturnToDeckyPanel}
+        onOpenActivity={() => {
+          registerFullScreenAchievementHistoryRoute();
+          const route = buildFullScreenAchievementHistoryRoute({
+            view: "achievement-history",
+            surface: "full-screen",
+            providerId: STEAM_PROVIDER_ID,
+          });
+          if (route !== undefined) {
+            suppressNextFullscreenRouteUnmountAction();
+            DeckyNavigation.Navigate(route);
+          }
+        }}
+        onOpenProfile={() => {
+          registerFullScreenProfileRoute();
+          const route = buildFullScreenProfileRoute({
+            view: "profile",
+            surface: "full-screen",
+            providerId: STEAM_PROVIDER_ID,
+          });
+          if (route !== undefined) {
+            suppressNextFullscreenRouteUnmountAction();
+            DeckyNavigation.Navigate(route);
+          }
+        }}
       />
     </DeckyFullscreenRouteLeaveBoundary>
   );
