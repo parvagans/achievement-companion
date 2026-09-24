@@ -369,6 +369,7 @@ function SteamGamesFilterButton({
       role="button"
       aria-label={label}
       aria-pressed={selected}
+      data-steam-games-filter={filter}
       onActivate={() => { onSelect(filter); }}
       onClick={() => { onSelect(filter); }}
       onCancel={onBack}
@@ -692,6 +693,7 @@ export function DeckySteamFullScreenGamesDashboard({
 }: DeckySteamFullScreenGamesDashboardProps): JSX.Element {
   const dashboardRef = useRef<HTMLElement>(null);
   const initialControllerFocusAppliedRef = useRef(false);
+  const focusPerfectedRowAfterFilterRef = useRef(false);
   const [filter, setFilter] = useState<SteamGamesFilter>(() => normalizeInitialFilter(initialFilter));
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<CompletionProgressSort>("recent");
@@ -734,6 +736,30 @@ export function DeckySteamFullScreenGamesDashboard({
     });
     return () => ownerWindow.cancelAnimationFrame(frame);
   }, []);
+
+  useLayoutEffect(() => {
+    // R1 swaps the row set; restore a real focus target after commit so the
+    // next shoulder press can advance from Perfected to Activity immediately.
+    if (!focusPerfectedRowAfterFilterRef.current || filter !== "mastered") {
+      return;
+    }
+
+    focusPerfectedRowAfterFilterRef.current = false;
+    const dashboard = dashboardRef.current;
+    const ownerWindow = dashboard?.ownerDocument.defaultView;
+    if (dashboard === null || dashboard === undefined || ownerWindow === null || ownerWindow === undefined) {
+      return;
+    }
+
+    const frame = ownerWindow.requestAnimationFrame(() => {
+      const firstPerfectedRow = dashboard.querySelector<HTMLElement>("[data-steam-games-row='true']");
+      const focusTarget = firstPerfectedRow
+        ?? dashboard.querySelector<HTMLElement>("[data-steam-games-filter='mastered']");
+      focusTarget?.focus();
+    });
+
+    return () => ownerWindow.cancelAnimationFrame(frame);
+  }, [filter]);
 
   return (
     <>
@@ -813,6 +839,7 @@ export function DeckySteamFullScreenGamesDashboard({
             return;
           }
 
+          focusPerfectedRowAfterFilterRef.current = true;
           setFilter("mastered");
         }}
         onPreviousNavigationItem={() => {
