@@ -16,6 +16,7 @@ import {
 import { createAppServices } from "../src/core/app-services";
 import type {
   DashboardSnapshot,
+  CompletionProgressSnapshot,
   GameDetailSnapshot,
   NormalizedAchievement,
   NormalizedGame,
@@ -52,6 +53,7 @@ import {
   loadDeckyDashboardState,
   loadDeckyCompletionProgressState,
   deckyAuthenticatedProviderTransportFactory,
+  mergeDeckySteamCompletionProgressWithDashboard,
   mergeDeckySteamLibraryScanRecentAchievements,
   deckyPlatformCapabilities,
   resetDeckyAppServicesForTests,
@@ -232,7 +234,10 @@ import {
   buildDeckySteamAchievementHistorySnapshotFromSummary,
   runAndCacheDeckySteamLibraryAchievementScan,
 } from "../src/platform/decky/providers/steam/library-scan";
-import { scanSteamLibraryAchievements } from "../src/providers/steam/library-scan";
+import {
+  reconcileSteamLibraryAchievementScanWithRecentGames,
+  scanSteamLibraryAchievements,
+} from "../src/providers/steam/library-scan";
 import type { SteamClient } from "../src/providers/steam/client/client";
 import { normalizeSteamBadges } from "../src/providers/steam/badges";
 import {
@@ -10118,6 +10123,130 @@ test("steam fullscreen completion prefers cached library scan games and labels p
     assert.equal(formatCompletionProgressStatusLabel("mastered", "steam"), "Perfect");
     assert.equal(formatCompletionProgressFilterLabelForProvider("mastered", "steam"), "Perfect");
   });
+});
+
+test("steam fullscreen games overlays freshly refreshed recent-game activity onto the library scan", () => {
+  const completionProgress: CompletionProgressSnapshot = {
+    providerId: "steam",
+    summary: {
+      playedCount: 1,
+      unfinishedCount: 1,
+      beatenCount: 0,
+      masteredCount: 0,
+    },
+    games: [
+      {
+        providerId: "steam",
+        appid: 2218750,
+        gameId: "2218750",
+        title: "Halls of Torment",
+        status: "in_progress",
+        summary: { unlockedCount: 164, totalCount: 500, completionPercent: 33 },
+        metrics: [],
+        playtimeForeverMinutes: 720,
+        lastPlayedAt: 1_790_000_000_000,
+        scanStatus: "scanned",
+        hasAchievements: true,
+      } satisfies NormalizedGame,
+    ],
+    refreshedAt: 1_790_000_000_000,
+  };
+  const dashboard: DashboardSnapshot = {
+    ...createDashboardSnapshot(),
+    profile: {
+      ...createDashboardSnapshot().profile,
+      providerId: "steam",
+      identity: {
+        ...createDashboardSnapshot().profile.identity,
+        providerId: "steam",
+      },
+    },
+    recentlyPlayedGames: [
+      {
+        providerId: "steam",
+        appid: 2218750,
+        gameId: "2218750",
+        title: "Halls of Torment",
+        summary: { unlockedCount: 168, totalCount: 500, completionPercent: 34 },
+        playtimeForeverMinutes: 780,
+        lastPlayedAt: 1_790_100_000_000,
+      },
+    ],
+    refreshedAt: 1_790_100_000_000,
+  };
+
+  const merged = mergeDeckySteamCompletionProgressWithDashboard(completionProgress, dashboard);
+
+  assert.equal(merged.games[0]?.summary.unlockedCount, 168);
+  assert.equal(merged.games[0]?.summary.completionPercent, 34);
+  assert.equal(merged.games[0]?.playtimeForeverMinutes, 780);
+  assert.equal(merged.games[0]?.lastPlayedAt, 1_790_100_000_000);
+  assert.equal(merged.games[0]?.scanStatus, "scanned");
+  assert.deepStrictEqual(merged.summary, completionProgress.summary);
+});
+
+test("standard Steam refresh reconciles recent achievement progress into cached library totals", () => {
+  const summary: SteamLibraryAchievementScanSummary = {
+    scannedAt: "2026-09-20T12:00:00.000Z",
+    ownedGameCount: 2,
+    scannedGameCount: 2,
+    gamesWithAchievements: 2,
+    skippedGameCount: 0,
+    failedGameCount: 0,
+    totalAchievements: 1_000,
+    unlockedAchievements: 821,
+    perfectGames: 0,
+    completionPercent: 82,
+    games: [
+      {
+        appid: 2218750,
+        id: "2218750",
+        gameId: "2218750",
+        title: "Halls of Torment",
+        providerId: "steam",
+        totalAchievements: 500,
+        unlockedAchievements: 164,
+        completionPercent: 33,
+        hasAchievements: true,
+        scanStatus: "scanned",
+      },
+      {
+        appid: 2,
+        id: "2",
+        gameId: "2",
+        title: "Another Game",
+        providerId: "steam",
+        totalAchievements: 500,
+        unlockedAchievements: 657,
+        completionPercent: 100,
+        hasAchievements: true,
+        scanStatus: "scanned",
+      },
+    ],
+  };
+
+  const reconciled = reconcileSteamLibraryAchievementScanWithRecentGames({
+    summary,
+    recentlyPlayedGames: [
+      {
+        providerId: "steam",
+        appid: 2218750,
+        gameId: "2218750",
+        title: "Halls of Torment",
+        summary: { unlockedCount: 168, totalCount: 500, completionPercent: 34 },
+        playtimeForeverMinutes: 780,
+        lastPlayedAt: 1_790_100_000_000,
+      },
+    ],
+    refreshedAt: 1_790_100_000_000,
+  });
+
+  assert.equal(reconciled.unlockedAchievements, 825);
+  assert.equal(reconciled.totalAchievements, 1_000);
+  assert.equal(reconciled.games[0]?.unlockedAchievements, 168);
+  assert.equal(reconciled.games[0]?.playtimeForeverMinutes, 780);
+  assert.equal(reconciled.scannedAt, summary.scannedAt);
+  assert.equal(reconciled.lastRecentActivityRefreshAt, "2026-09-22T18:00:00.000Z");
 });
 
 test("steam fullscreen completion falls back to loaded games when no cached scan exists", async () => {

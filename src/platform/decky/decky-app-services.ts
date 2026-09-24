@@ -66,11 +66,13 @@ import {
   buildDeckySteamAchievementHistorySnapshotFromSummary,
   buildDeckySteamCompletionProgressSnapshotFromSummary,
 } from "./providers/steam/library-scan";
+import { reconcileSteamLibraryAchievementScanWithRecentGames } from "../../providers/steam/library-scan";
 import { deckyDiagnosticLogger } from "./decky-diagnostic-logger";
 import {
   deckySteamLibraryScanStore,
   readDeckySteamLibraryAchievementScanSummary,
   type SteamLibraryAchievementScanSummary,
+  writeDeckySteamLibraryAchievementScanSummary,
 } from "./providers/steam/config";
 import {
   applySteamLibraryScanGameDetailMetadata,
@@ -189,6 +191,9 @@ const deckyDashboardRefreshInFlightByProviderId = new Map<
   ProviderId,
   Promise<ResourceState<DashboardSnapshot>>
 >();
+let deckySteamFullScreenDashboardRefreshSession:
+  | Promise<ResourceState<DashboardSnapshot>>
+  | undefined;
 
 function createIdleState<T>(): ResourceState<T> {
   return {
@@ -234,6 +239,7 @@ function createDeckyAppServices(runtimeMode: DeckySmokeTestCacheMode | "live") {
 export function resetDeckyAppServicesForTests(): void {
   liveDeckyAppRuntime = undefined;
   deckyDashboardRefreshInFlightByProviderId.clear();
+  deckySteamFullScreenDashboardRefreshSession = undefined;
   deckySteamHuntersService.clearCache();
 }
 
@@ -1038,11 +1044,25 @@ export async function loadDeckyDashboardState(
       ? (providerRegistry.get(providerId) as DeckyRecentAchievementBackfillProvider | undefined)
       : undefined;
     const providerConfig = runtimeMode === "live" ? await loadDeckyProviderConfig(providerId) : undefined;
+    const cachedSteamLibraryScanSummary = providerId === STEAM_PROVIDER_ID
+      ? readDeckySteamLibraryAchievementScanSummary(providerId)
+      : undefined;
+    const reconciledSteamLibraryScanSummary = cachedSteamLibraryScanSummary !== undefined
+      ? reconcileSteamLibraryAchievementScanWithRecentGames({
+          summary: cachedSteamLibraryScanSummary,
+          recentlyPlayedGames: state.data.recentlyPlayedGames,
+          refreshedAt: state.lastUpdatedAt ?? Date.now(),
+        })
+      : undefined;
+    if (
+      reconciledSteamLibraryScanSummary !== undefined &&
+      reconciledSteamLibraryScanSummary !== cachedSteamLibraryScanSummary
+    ) {
+      writeDeckySteamLibraryAchievementScanSummary(reconciledSteamLibraryScanSummary);
+    }
     const snapshotWithSteamScanAchievements = mergeDeckySteamLibraryScanRecentAchievements(
       state.data,
-      providerId === STEAM_PROVIDER_ID
-        ? readDeckySteamLibraryAchievementScanSummary(providerId)
-        : undefined,
+      reconciledSteamLibraryScanSummary,
     );
     const dashboardSnapshot = await buildDeckyRecentAchievementHistory({
       provider,
@@ -1105,7 +1125,10 @@ export async function loadDeckyCompletionProgressState(
       const parsedLastUpdatedAt = Date.parse(cachedSteamLibraryScanSummary.scannedAt);
       return {
         status: "success",
-        data: buildDeckySteamCompletionProgressSnapshotFromSummary(cachedSteamLibraryScanSummary),
+        data: mergeDeckySteamCompletionProgressWithDashboard(
+          buildDeckySteamCompletionProgressSnapshotFromSummary(cachedSteamLibraryScanSummary),
+          readDeckyDashboardSnapshotState(providerId)?.data,
+        ),
         lastUpdatedAt: Number.isFinite(parsedLastUpdatedAt) ? parsedLastUpdatedAt : Date.now(),
         isStale: false,
         isRefreshing: false,
@@ -1114,6 +1137,124 @@ export async function loadDeckyCompletionProgressState(
   }
 
   return createDeckyAppServices(runtimeMode).completionProgress.loadCompletionProgress(providerId);
+}
+
+/**
+ * Starts a new Steam full-screen visit. Internal footer navigation deliberately
+ * keeps this session so Profile, Games, and Activity share one account refresh.
+ */
+export function beginDeckySteamFullScreenRefreshSession(providerId: ProviderId): void {
+  if (providerId !== STEAM_PROVIDER_ID) {
+    return;
+  }
+
+  deckySteamFullScreenDashboardRefreshSession = undefined;
+}
+
+/**
+ * Steam full-screen routes refresh account data once per visit, while collection
+ * views retain the separately managed full-library scan.
+ */
+export function loadDeckyDashboardStateForFullScreenEntry(
+  providerId: ProviderId,
+): Promise<ResourceState<DashboardSnapshot>> {
+  if (providerId !== STEAM_PROVIDER_ID) {
+    return loadDeckyDashboardState(providerId);
+  }
+
+  if (deckySteamFullScreenDashboardRefreshSession !== undefined) {
+    return deckySteamFullScreenDashboardRefreshSession;
+  }
+
+  const refreshSession = loadDeckyDashboardState(providerId, { forceRefresh: true });
+  deckySteamFullScreenDashboardRefreshSession = refreshSession;
+  void refreshSession.then((state) => {
+    if (
+      state.data === undefined &&
+      deckySteamFullScreenDashboardRefreshSession === refreshSession
+    ) {
+      deckySteamFullScreenDashboardRefreshSession = undefined;
+    }
+  });
+  return refreshSession;
+}
+
+export async function refreshDeckySteamDashboardOnFullScreenEntry(providerId: ProviderId): Promise<void> {
+  await loadDeckyDashboardStateForFullScreenEntry(providerId);
+}
+
+/**
+ * A library scan owns the complete collection and its classifications. The live
+ * dashboard owns current Steam activity, achievement totals, and artwork for
+ * games it has just observed. Overlay those fields without changing scan-only
+ * games or collection counts.
+ */
+export function mergeDeckySteamCompletionProgressWithDashboard(
+  completionProgress: CompletionProgressSnapshot,
+  dashboard: DashboardSnapshot | undefined,
+): CompletionProgressSnapshot {
+  if (
+    completionProgress.providerId !== STEAM_PROVIDER_ID ||
+    dashboard?.profile.providerId !== STEAM_PROVIDER_ID
+  ) {
+    return completionProgress;
+  }
+
+  const recentlyPlayedByGameId = new Map(
+    dashboard.recentlyPlayedGames.map((game) => [game.gameId, game]),
+  );
+  const recentlyPlayedByAppId = new Map(
+    dashboard.recentlyPlayedGames
+      .filter((game) => game.appid !== undefined)
+      .map((game) => [game.appid!, game]),
+  );
+  const games = completionProgress.games.map((game) => {
+    const recentlyPlayed =
+      (game.appid !== undefined ? recentlyPlayedByAppId.get(game.appid) : undefined) ??
+      recentlyPlayedByGameId.get(game.gameId);
+    if (recentlyPlayed === undefined) {
+      return game;
+    }
+
+    return {
+      ...game,
+      gameId: recentlyPlayed.gameId,
+      title: recentlyPlayed.title,
+      summary: recentlyPlayed.summary,
+      ...(recentlyPlayed.appid !== undefined ? { appid: recentlyPlayed.appid } : {}),
+      ...(recentlyPlayed.platformLabel !== undefined
+        ? { platformLabel: recentlyPlayed.platformLabel }
+        : {}),
+      ...(recentlyPlayed.systemIconUrl !== undefined
+        ? { systemIconUrl: recentlyPlayed.systemIconUrl }
+        : {}),
+      ...(recentlyPlayed.coverImageUrl !== undefined
+        ? { coverImageUrl: recentlyPlayed.coverImageUrl }
+        : {}),
+      ...(recentlyPlayed.boxArtImageUrl !== undefined
+        ? { boxArtImageUrl: recentlyPlayed.boxArtImageUrl }
+        : {}),
+      ...(recentlyPlayed.metrics !== undefined ? { metrics: recentlyPlayed.metrics } : {}),
+      ...(recentlyPlayed.playtimeForeverMinutes !== undefined
+        ? { playtimeForeverMinutes: recentlyPlayed.playtimeForeverMinutes }
+        : {}),
+      ...(recentlyPlayed.playtimeTwoWeeksMinutes !== undefined
+        ? { playtimeTwoWeeksMinutes: recentlyPlayed.playtimeTwoWeeksMinutes }
+        : {}),
+      ...(recentlyPlayed.playtimeDeckForeverMinutes !== undefined
+        ? { playtimeDeckForeverMinutes: recentlyPlayed.playtimeDeckForeverMinutes }
+        : {}),
+      ...(recentlyPlayed.lastPlayedAt !== undefined
+        ? { lastPlayedAt: recentlyPlayed.lastPlayedAt }
+        : {}),
+    } satisfies NormalizedGame;
+  });
+
+  return {
+    ...completionProgress,
+    games,
+    ...(dashboard.refreshedAt !== undefined ? { refreshedAt: dashboard.refreshedAt } : {}),
+  };
 }
 
 export async function loadDeckyAchievementHistoryState(

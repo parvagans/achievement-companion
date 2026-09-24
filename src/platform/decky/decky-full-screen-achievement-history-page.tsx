@@ -6,8 +6,10 @@ import { PlaceholderState } from "@ui/PlaceholderState";
 import {
   initialDeckyAchievementHistoryState,
   loadDeckyAchievementHistoryState,
+  refreshDeckySteamDashboardOnFullScreenEntry,
 } from "./decky-app-services";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
+import { DeckyFullScreenLoadingState } from "./decky-full-screen-loading-state";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
@@ -669,12 +671,25 @@ export function DeckyFullScreenAchievementHistoryPage({
       return () => Promise.resolve(initialDeckyAchievementHistoryState);
     }
 
-    return () => loadDeckyAchievementHistoryState(providerId);
+    return async () => {
+      await refreshDeckySteamDashboardOnFullScreenEntry(providerId);
+      return loadDeckyAchievementHistoryState(providerId);
+    };
   }, [providerId]);
   const state = useAsyncResourceState(loadSelectedAchievementHistory, initialDeckyAchievementHistoryState);
   const hasRouteParameters = providerId !== undefined;
 
   if (!isRenderableAchievementHistoryState(state)) {
+    if (providerId === STEAM_PROVIDER_ID) {
+      return (
+        <DeckyFullScreenLoadingState
+          description={state.error?.userMessage ?? "Refreshing your Steam account and loading achievement history."}
+          isError={state.status === "error"}
+          title={state.status === "error" ? "Steam achievement history unavailable" : "Loading Steam achievement history..."}
+        />
+      );
+    }
+
     return (
       <ScrollPanel>
         <TopAlignedScrollViewport scrollKey={`full-screen-achievement-history:${providerId ?? "missing"}`}>

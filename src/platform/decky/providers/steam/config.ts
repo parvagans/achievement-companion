@@ -43,6 +43,7 @@ export type SteamLibraryAchievementScanOverview = Pick<
   | "perfectGames"
   | "completionPercent"
   | "scannedAt"
+  | "lastRecentActivityRefreshAt"
 >;
 
 const STEAM_LIBRARY_ACHIEVEMENT_SCAN_SUMMARY_STORAGE_KEY =
@@ -224,6 +225,9 @@ function normalizeSteamLibraryAchievementScanOverview(
     perfectGames: summary.perfectGames,
     completionPercent: summary.completionPercent,
     scannedAt: summary.scannedAt,
+    ...(summary.lastRecentActivityRefreshAt !== undefined
+      ? { lastRecentActivityRefreshAt: summary.lastRecentActivityRefreshAt }
+      : {}),
   };
 }
 
@@ -267,6 +271,9 @@ function readSteamLibraryAchievementScanOverviewFromStorage():
       perfectGames: record["perfectGames"],
       completionPercent: record["completionPercent"],
       scannedAt: record["scannedAt"],
+      ...(typeof record["lastRecentActivityRefreshAt"] === "string"
+        ? { lastRecentActivityRefreshAt: record["lastRecentActivityRefreshAt"] }
+        : {}),
     };
   } catch {
     return undefined;

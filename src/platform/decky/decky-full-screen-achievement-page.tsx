@@ -580,7 +580,7 @@ export function DeckyFullScreenAchievementPage({
       return () => Promise.resolve(initialDeckyGameDetailState);
     }
 
-    return () => loadDeckyGameDetailState(providerId, gameId);
+    return () => loadDeckyGameDetailState(providerId, gameId, { forceRefresh: true });
   }, [gameId, providerId]);
   const state = useAsyncResourceState(loadSelectedGameDetail, initialDeckyGameDetailState);
   const hasRouteParameters = providerId !== undefined && gameId !== undefined && achievementId !== undefined;

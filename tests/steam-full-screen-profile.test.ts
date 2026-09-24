@@ -353,6 +353,33 @@ test("steam games route uses the fixed concept dashboard and shared profile foot
   assert.doesNotMatch(dashboardSource, /<ScrollPanel>/u);
 });
 
+test("Steam full-screen routes share one account refresh per visit and refresh game data on entry", async () => {
+  const [servicesSource, navigationSource, profileSource, completionSource, historySource, gameSource, achievementSource] = await Promise.all([
+    readFile(new URL("../src/platform/decky/decky-app-services.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-navigation.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-profile-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-completion-progress-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-achievement-history-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-game-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-achievement-page.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(
+    servicesSource,
+    /export function loadDeckyDashboardStateForFullScreenEntry[\s\S]*deckySteamFullScreenDashboardRefreshSession/u,
+  );
+  assert.match(servicesSource, /mergeDeckySteamCompletionProgressWithDashboard\([\s\S]*readDeckyDashboardSnapshotState\(providerId\)\?\.data/u);
+  assert.match(navigationSource, /beginDeckySteamFullScreenRefreshSession\(STEAM_PROVIDER_ID\)/u);
+  assert.match(profileSource, /loadDeckyDashboardStateForFullScreenEntry\(providerId\)/u);
+  assert.match(profileSource, /if \(providerId === STEAM_PROVIDER_ID\) \{[\s\S]*<DeckyFullScreenLoadingState/u);
+  assert.match(completionSource, /await refreshDeckySteamDashboardOnFullScreenEntry\(providerId\)/u);
+  assert.match(completionSource, /Refreshing your Steam account and loading your library achievement scan\./u);
+  assert.match(historySource, /await refreshDeckySteamDashboardOnFullScreenEntry\(providerId\)/u);
+  assert.match(historySource, /Refreshing your Steam account and loading achievement history\./u);
+  assert.match(gameSource, /loadDeckyGameDetailState\(providerId, gameId, \{ forceRefresh: true \}\)/u);
+  assert.match(achievementSource, /loadDeckyGameDetailState\(providerId, gameId, \{ forceRefresh: true \}\)/u);
+});
+
 test("steam full-screen profile uses the requested top-row and equal lower-row dashboard layout", async () => {
   const [pageSource, dashboardSource] = await Promise.all([
     readFile(

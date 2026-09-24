@@ -16,7 +16,7 @@ import {
   initialDeckyCompletionProgressState,
   initialDeckySteamHuntersProfileState,
   loadDeckyCompletionProgressState,
-  loadDeckyDashboardState,
+  loadDeckyDashboardStateForFullScreenEntry,
   loadDeckySteamHuntersProfileState,
 } from "./decky-app-services";
 import { DeckyGameArtwork } from "./decky-game-artwork";
@@ -1066,7 +1066,7 @@ export function DeckyFullScreenProfilePage({
       return () => Promise.resolve(initialDeckyBootstrapState);
     }
 
-    return () => loadDeckyDashboardState(providerId);
+    return () => loadDeckyDashboardStateForFullScreenEntry(providerId);
   }, [providerId]);
   const state = useAsyncResourceState(loadSelectedProfile, initialDeckyBootstrapState);
   const loadSelectedCompletionProgress = useMemo(() => {
@@ -1112,6 +1112,16 @@ export function DeckyFullScreenProfilePage({
   }, [state, steamLibraryAchievementScanSummary]);
 
   if (!isRenderableDashboardState(state)) {
+    if (providerId === STEAM_PROVIDER_ID) {
+      return (
+        <DeckyFullScreenLoadingState
+          description={state.error?.userMessage ?? "Fetching the latest Steam profile and SteamHunters data."}
+          isError={state.status === "error"}
+          title={state.status === "error" ? "Steam profile unavailable" : "Loading Steam profile..."}
+        />
+      );
+    }
+
     return (
       <ScrollPanel>
         <TopAlignedScrollViewport scrollKey={`full-screen-profile:${providerId ?? "missing"}`}>

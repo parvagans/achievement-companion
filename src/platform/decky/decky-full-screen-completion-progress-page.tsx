@@ -24,7 +24,11 @@ import {
   DECKY_FOCUS_ACTION_ROW_CLASS,
 } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
-import { initialDeckyCompletionProgressState, loadDeckyCompletionProgressState } from "./decky-app-services";
+import {
+  initialDeckyCompletionProgressState,
+  loadDeckyCompletionProgressState,
+  refreshDeckySteamDashboardOnFullScreenEntry,
+} from "./decky-app-services";
 import { useDeckySettings } from "./decky-settings";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
@@ -615,7 +619,10 @@ export function DeckyFullScreenCompletionProgressPage({
       return () => Promise.resolve(initialDeckyCompletionProgressState);
     }
 
-    return () => loadDeckyCompletionProgressState(providerId);
+    return async () => {
+      await refreshDeckySteamDashboardOnFullScreenEntry(providerId);
+      return loadDeckyCompletionProgressState(providerId);
+    };
   }, [providerId]);
   const state = useAsyncResourceState(loadSelectedCompletionProgress, initialDeckyCompletionProgressState);
   const hasRouteParameters = providerId !== undefined;
@@ -633,7 +640,7 @@ export function DeckyFullScreenCompletionProgressPage({
         <>
           <div style={{ ...getDeckyFullScreenLoadingPageStyle(), paddingBottom: 48 }}>
             <DeckyFullScreenLoadingState
-              description={state.error?.userMessage ?? "Loading your cached Steam library achievement scan."}
+              description={state.error?.userMessage ?? "Refreshing your Steam account and loading your library achievement scan."}
               isError={state.status === "error"}
               title={state.status === "error" ? "Steam games unavailable" : "Loading Steam games..."}
             />

@@ -15,6 +15,8 @@ import { DeckyFullScreenSettingsPage } from "./decky-full-screen-settings-page";
 import { DeckyFullScreenProviderSettingsPage } from "./decky-full-screen-provider-settings-page";
 import { dispatchDeckyScrollReset } from "./decky-scroll-viewport";
 import { resetSteamGameSectionActiveSection } from "./decky-steam-game-section-state";
+import { beginDeckySteamFullScreenRefreshSession } from "./decky-app-services";
+import { STEAM_PROVIDER_ID } from "./providers/steam";
 import {
   clearNextFullScreenSettingsBackTarget,
   consumeNextFullScreenCompletionProgressFilter,
@@ -203,6 +205,9 @@ export function openDeckyFullScreenGameFromLibraryGamePage(
   providerId: string,
   gameId: string,
 ): string | undefined {
+  if (providerId === STEAM_PROVIDER_ID) {
+    beginDeckySteamFullScreenRefreshSession(STEAM_PROVIDER_ID);
+  }
   registerFullScreenGameRoute();
   markFullScreenGameRouteBackBehavior(providerId, gameId, "library-game-page");
 
@@ -650,6 +655,10 @@ export function createDeckyNavigationPort(): NavigationPort {
   return {
     go(target) {
       if (target.surface === "full-screen") {
+        if (target.providerId === STEAM_PROVIDER_ID) {
+          beginDeckySteamFullScreenRefreshSession(STEAM_PROVIDER_ID);
+        }
+
         const completionProgressRoute = buildFullScreenCompletionProgressRoute(target);
         if (completionProgressRoute !== undefined) {
           registerFullScreenCompletionProgressRoute();
