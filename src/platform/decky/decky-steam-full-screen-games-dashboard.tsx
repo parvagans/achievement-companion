@@ -529,6 +529,19 @@ function getSecondaryMetaStyle(): CSSProperties {
   return { color: "#aac0d3", fontSize: 9.5, lineHeight: 1, whiteSpace: "nowrap" };
 }
 
+function getMetadataCellStyle(): CSSProperties {
+  return {
+    display: "grid",
+    gridTemplateColumns: "22px minmax(0, 1fr)",
+    alignItems: "center",
+    gap: 6,
+    minWidth: 0,
+    paddingLeft: 8,
+    borderLeft: "1px solid rgba(76, 148, 187, 0.22)",
+    boxSizing: "border-box",
+  };
+}
+
 function getProgressTrackStyle(): CSSProperties {
   return { height: 10, overflow: "hidden", borderRadius: 999, background: "#183246" };
 }
@@ -607,7 +620,7 @@ function SteamGamesRow({
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "22px minmax(0, 1fr)", alignItems: "center", gap: 6, minWidth: 0 }}>
+      <div style={getMetadataCellStyle()}>
         <IconAsset size={20} src={clockIconUrl} />
         <div style={{ minWidth: 0 }}>
           <div style={{ ...getProgressMetaStyle(), overflow: "hidden", textOverflow: "ellipsis" }}>{playtime}</div>
@@ -615,7 +628,7 @@ function SteamGamesRow({
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "22px minmax(0, 1fr)", alignItems: "center", gap: 6, minWidth: 0 }}>
+      <div style={getMetadataCellStyle()}>
         <IconAsset size={20} src={calendarIconUrl} />
         <div style={{ minWidth: 0 }}>
           <div style={{ ...getProgressMetaStyle(), overflow: "hidden", textOverflow: "ellipsis" }}>

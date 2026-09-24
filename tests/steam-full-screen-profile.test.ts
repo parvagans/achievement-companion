@@ -340,6 +340,8 @@ test("steam games route uses the fixed concept dashboard and shared profile foot
   assert.match(artworkSource, /STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT = 58;/u);
   assert.match(artworkSource, /STEAM_FULLSCREEN_GAME_ROW_HEIGHT = 70;/u);
   assert.match(dashboardSource, /minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT/u);
+  assert.match(dashboardSource, /function getMetadataCellStyle[\s\S]*borderLeft: "1px solid rgba\(76, 148, 187, 0\.22\)"/u);
+  assert.equal((dashboardSource.match(/style=\{getMetadataCellStyle\(\)\}/gu) ?? []).length, 2);
   assert.match(dashboardSource, /<img\s+alt=""\s+aria-hidden="true"\s+src=\{src\}/u);
   assert.match(dashboardSource, /filter: STEAM_GAMES_ICON_FILTERS\[tone\]/u);
   assert.doesNotMatch(dashboardSource, /MaskImage|IconMask/u);
