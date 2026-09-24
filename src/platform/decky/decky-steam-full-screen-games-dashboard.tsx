@@ -675,6 +675,8 @@ export function DeckySteamFullScreenGamesDashboard({
   onOpenActivity,
   onOpenGameDetail,
 }: DeckySteamFullScreenGamesDashboardProps): JSX.Element {
+  const dashboardRef = useRef<HTMLElement>(null);
+  const initialControllerFocusAppliedRef = useRef(false);
   const [filter, setFilter] = useState<SteamGamesFilter>(() => normalizeInitialFilter(initialFilter));
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<CompletionProgressSort>("recent");
@@ -692,9 +694,35 @@ export function DeckySteamFullScreenGamesDashboard({
     { filter: "beaten" as const, label: `Skipped (${formatCount(summary.skippedCount)})` },
   ];
 
+  useLayoutEffect(() => {
+    if (initialControllerFocusAppliedRef.current) {
+      return;
+    }
+
+    const dashboard = dashboardRef.current;
+    const ownerWindow = dashboard?.ownerDocument.defaultView;
+    if (dashboard === null || dashboard === undefined || ownerWindow === null || ownerWindow === undefined) {
+      return;
+    }
+
+    const frame = ownerWindow.requestAnimationFrame(() => {
+      // Like the full-screen game page, a visible action must own GamepadUI
+      // focus before the shared footer can receive the first L1/R1 press.
+      const initialFocusTarget = dashboard.querySelector<HTMLElement>("[data-steam-games-row='true']")
+        ?? dashboard.querySelector<HTMLElement>("[role='button']");
+      if (initialFocusTarget === null) {
+        return;
+      }
+
+      initialFocusTarget.focus();
+      initialControllerFocusAppliedRef.current = true;
+    });
+    return () => ownerWindow.cancelAnimationFrame(frame);
+  }, []);
+
   return (
     <>
-      <main data-steam-full-screen-games-dashboard style={getPageStyle()}>
+      <main ref={dashboardRef} data-steam-full-screen-games-dashboard style={getPageStyle()}>
         <SteamGamesRouteStyles />
         <div style={getSectionTitleStyle()}>Games</div>
         <SteamGamesSummaryCards summary={summary} />

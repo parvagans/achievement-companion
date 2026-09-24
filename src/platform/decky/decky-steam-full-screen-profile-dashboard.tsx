@@ -1071,8 +1071,39 @@ export function SteamFullScreenProfileDashboard({
   onOpenGameDetail,
   onOpenAchievementDetail,
 }: SteamFullScreenProfileDashboardProps): JSX.Element {
+  const dashboardRef = useRef<HTMLDivElement>(null);
+  const initialControllerFocusAppliedRef = useRef(false);
+
+  useLayoutEffect(() => {
+    if (initialControllerFocusAppliedRef.current) {
+      return;
+    }
+
+    const dashboard = dashboardRef.current;
+    const ownerWindow = dashboard?.ownerDocument.defaultView;
+    if (dashboard === null || dashboard === undefined || ownerWindow === null || ownerWindow === undefined) {
+      return;
+    }
+
+    const frame = ownerWindow.requestAnimationFrame(() => {
+      // Match the full-screen game page: GamepadUI dispatches route shoulder
+      // events only after a real action owns focus. Starting at View All keeps
+      // the first L1/R1 press with the shared footer instead of entering a row.
+      const initialFocusTarget = dashboard.querySelector<HTMLElement>(
+        "[data-steam-profile-panel='activity'] [data-steam-profile-panel-header] [role='button']",
+      );
+      if (initialFocusTarget === null) {
+        return;
+      }
+
+      initialFocusTarget.focus();
+      initialControllerFocusAppliedRef.current = true;
+    });
+    return () => ownerWindow.cancelAnimationFrame(frame);
+  }, []);
+
   return (
-    <div data-steam-full-screen-profile-dashboard style={getDashboardStyle()}>
+    <div ref={dashboardRef} data-steam-full-screen-profile-dashboard style={getDashboardStyle()}>
       <SteamProfileDashboardFocusStyles />
       <Focusable flow-children="left-right" noFocusRing tabIndex={-1} style={getDashboardGridStyle()}>
         <SteamProfileIdentityPanel

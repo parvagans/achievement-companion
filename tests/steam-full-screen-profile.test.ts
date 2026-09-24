@@ -347,6 +347,10 @@ test("steam games route uses the fixed concept dashboard and shared profile foot
   assert.match(dashboardSource, /<DeckyFullScreenFooterOverlay/u);
   assert.match(dashboardSource, /navigationItems=\{STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS\}/u);
   assert.match(dashboardSource, /activeNavigationItemId=\{activeNavigationItemId\}/u);
+  assert.match(
+    dashboardSource,
+    /visible action must own GamepadUI[\s\S]*\[data-steam-games-row='true'\][\s\S]*initialFocusTarget\.focus\(\)/u,
+  );
   assert.match(dashboardSource, /if \(filter === "mastered"\)[\s\S]*onOpenActivity\(\)/u);
   assert.match(dashboardSource, /if \(filter === "mastered"\)[\s\S]*setFilter\("all"\)/u);
   assert.match(footerSource, /export const STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS/u);
@@ -466,7 +470,14 @@ test("steam full-screen profile uses the requested top-row and equal lower-row d
     dashboardSource,
     /<Focusable\s+flow-children="left-right"\s+noFocusRing[\s\S]*tabIndex=\{-1\}[\s\S]*style=\{getPanelHeaderStyle\(\)\}/u,
   );
-  assert.doesNotMatch(dashboardSource, /initialFocusApplied|initialFocusTarget\.focus\(\)/u);
+  assert.match(
+    dashboardSource,
+    /GamepadUI dispatches route shoulder[\s\S]*initialFocusTarget\.focus\(\)/u,
+  );
+  assert.match(
+    dashboardSource,
+    /data-steam-profile-panel='activity'[\s\S]*data-steam-profile-panel-header[\s\S]*\[role='button'\]/u,
+  );
   assert.match(
     dashboardSource,
     /<Focusable flow-children="left-right" noFocusRing tabIndex=\{-1\} style=\{getDashboardGridStyle\(\)\}>/u,
