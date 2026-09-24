@@ -24,10 +24,13 @@ import {
 import { formatDeckyNumericText } from "./decky-number-format";
 import { formatDeckyProviderLabel } from "./providers";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
+import { DeckySteamFullScreenActivityDashboard } from "./decky-steam-full-screen-activity-dashboard";
 
 export interface DeckyFullScreenAchievementHistoryPageProps {
   readonly providerId: string | undefined;
   readonly onBack: () => void;
+  readonly onOpenPerfected: () => void;
+  readonly onOpenSettings: () => void;
   readonly onOpenAchievementDetail: (gameId: string, achievementId: string) => void;
 }
 
@@ -664,6 +667,8 @@ function AchievementHistoryBrowser({
 export function DeckyFullScreenAchievementHistoryPage({
   providerId,
   onBack,
+  onOpenPerfected,
+  onOpenSettings,
   onOpenAchievementDetail,
 }: DeckyFullScreenAchievementHistoryPageProps): JSX.Element {
   const loadSelectedAchievementHistory = useMemo(() => {
@@ -720,6 +725,18 @@ export function DeckyFullScreenAchievementHistoryPage({
   const isSteamProvider = snapshot.providerId === STEAM_PROVIDER_ID;
   const heroCountLabel = formatAchievementHistoryHeroCountLabel(snapshot.providerId, snapshotSourceLabel);
   const isLibraryUnlockHistory = isSteamProvider && snapshotSourceLabel.toLowerCase().includes("library unlock");
+
+  if (isSteamProvider) {
+    return (
+      <DeckySteamFullScreenActivityDashboard
+        snapshot={snapshot}
+        onBack={onBack}
+        onOpenAchievementDetail={onOpenAchievementDetail}
+        onOpenPerfected={onOpenPerfected}
+        onOpenSettings={onOpenSettings}
+      />
+    );
+  }
 
   return (
     <ScrollPanel>

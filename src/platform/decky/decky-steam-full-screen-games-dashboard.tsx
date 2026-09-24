@@ -17,7 +17,12 @@ import { registerDeckyFullscreenPopupCancel } from "./decky-full-screen-popup-st
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { formatSteamPlaytimeMinutes, getSteamCompletionProgressGameDetailId } from "./decky-stat-helpers";
-import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
+import {
+  getSteamFullscreenGameArtworkUrl,
+  STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT,
+  STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH,
+  STEAM_FULLSCREEN_GAME_ROW_HEIGHT,
+} from "./decky-steam-game-artwork";
 import {
   clampSteamGamesPercent,
   getSteamGamesPercentage,
@@ -40,9 +45,6 @@ import searchIconUrl from "./assets/search.svg";
 const STEAM_GAMES_FOCUS_CLASS = "achievement-companion-steam-games-focus";
 const STEAM_GAMES_SEARCH_CLASS = "achievement-companion-steam-games-search";
 const STEAM_GAMES_LIST_CLASS = "achievement-companion-steam-games-list";
-const STEAM_GAMES_ROW_ARTWORK_WIDTH = 134;
-const STEAM_GAMES_ROW_ARTWORK_HEIGHT = 58;
-const STEAM_GAMES_ROW_HEIGHT = 65;
 const STEAM_GAMES_ICON_FILTERS = {
   blue:
     "brightness(0) saturate(100%) invert(62%) sepia(84%) saturate(1250%) hue-rotate(165deg) brightness(101%) contrast(102%)",
@@ -491,12 +493,12 @@ function getGameListStyle(): CSSProperties {
 function getGameRowStyle(): CSSProperties {
   return {
     display: "grid",
-    gridTemplateColumns: `${STEAM_GAMES_ROW_ARTWORK_WIDTH}px minmax(165px, 1.55fr) minmax(145px, 1.45fr) 96px 116px 16px`,
+    gridTemplateColumns: `${STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}px minmax(165px, 1.55fr) minmax(145px, 1.45fr) 96px 116px 16px`,
     alignItems: "center",
     gap: 8,
-    flex: `0 0 ${STEAM_GAMES_ROW_HEIGHT}px`,
+    flex: `0 0 ${STEAM_FULLSCREEN_GAME_ROW_HEIGHT}px`,
     minWidth: 0,
-    minHeight: STEAM_GAMES_ROW_HEIGHT,
+    minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT,
     padding: "2px 7px 2px 3px",
     border: "1px solid rgba(66, 124, 160, 0.28)",
     borderRadius: 8,
@@ -568,11 +570,11 @@ function SteamGamesRow({
     >
       <DeckyGameArtwork
         compact
-        height={STEAM_GAMES_ROW_ARTWORK_HEIGHT}
-        size={STEAM_GAMES_ROW_ARTWORK_HEIGHT}
+        height={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT}
+        size={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT}
         {...(artworkUrl !== undefined ? { src: artworkUrl } : {})}
         title={game.title}
-        width={STEAM_GAMES_ROW_ARTWORK_WIDTH}
+        width={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}
       />
 
       <div style={{ minWidth: 0 }}>

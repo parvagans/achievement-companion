@@ -313,7 +313,7 @@ test("steam games dashboard preserves scan semantics across summary, filters, se
 });
 
 test("steam games route uses the fixed concept dashboard and shared profile footer", async () => {
-  const [pageSource, dashboardSource, footerSource] = await Promise.all([
+  const [pageSource, dashboardSource, footerSource, artworkSource] = await Promise.all([
     readFile(
       new URL("../src/platform/decky/decky-full-screen-completion-progress-page.tsx", import.meta.url),
       "utf8",
@@ -326,15 +326,20 @@ test("steam games route uses the fixed concept dashboard and shared profile foot
       new URL("../src/platform/decky/decky-full-screen-footer-overlay.tsx", import.meta.url),
       "utf8",
     ),
+    readFile(
+      new URL("../src/platform/decky/decky-steam-game-artwork.ts", import.meta.url),
+      "utf8",
+    ),
   ]);
 
   assert.match(pageSource, /snapshot\.providerId === STEAM_PROVIDER_ID[\s\S]*<DeckySteamFullScreenGamesDashboard/u);
   assert.match(dashboardSource, /data-steam-full-screen-games-dashboard/u);
   assert.match(dashboardSource, /height: "100%"[\s\S]*overflow: "hidden"/u);
   assert.match(dashboardSource, /repeat\(5, minmax\(0, 1fr\)\) minmax\(230px, 2\.2fr\)/u);
-  assert.match(dashboardSource, /const STEAM_GAMES_ROW_ARTWORK_WIDTH = 134;/u);
-  assert.match(dashboardSource, /const STEAM_GAMES_ROW_ARTWORK_HEIGHT = 58;/u);
-  assert.match(dashboardSource, /const STEAM_GAMES_ROW_HEIGHT = 65;/u);
+  assert.match(artworkSource, /STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH = 134;/u);
+  assert.match(artworkSource, /STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT = 58;/u);
+  assert.match(artworkSource, /STEAM_FULLSCREEN_GAME_ROW_HEIGHT = 70;/u);
+  assert.match(dashboardSource, /minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT/u);
   assert.match(dashboardSource, /<img\s+alt=""\s+aria-hidden="true"\s+src=\{src\}/u);
   assert.match(dashboardSource, /filter: STEAM_GAMES_ICON_FILTERS\[tone\]/u);
   assert.doesNotMatch(dashboardSource, /MaskImage|IconMask/u);
@@ -516,6 +521,36 @@ test("steam full-screen profile uses the requested top-row and equal lower-row d
     dashboardSource,
     /label="Steam level"|value="Enabled"/u,
   );
+});
+
+test("steam activity dashboard derives timeline metrics from timestamped unlock history without fabricating rarity", async () => {
+  const [activitySource, historySource] = await Promise.all([
+    readFile(
+      new URL("../src/platform/decky/decky-steam-full-screen-activity-dashboard.tsx", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../src/platform/decky/decky-full-screen-achievement-history-page.tsx", import.meta.url),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(historySource, /snapshot\.providerId === STEAM_PROVIDER_ID[\s\S]*DeckySteamFullScreenActivityDashboard/u);
+  assert.match(activitySource, /data-steam-full-screen-activity-dashboard/u);
+  assert.match(activitySource, /getCurrentStreak[\s\S]*getLongestStreak/u);
+  assert.match(activitySource, /ACTIVITY CALENDAR[\s\S]*Last 12 weeks/u);
+  assert.match(activitySource, /getSteamFullscreenGameArtworkUrlByGameId\(entry\.game\.gameId/u);
+  assert.match(activitySource, /ACTIVITY_TOP_PADDING_PX = 43/u);
+  assert.match(activitySource, /minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT[\s\S]*height=\{STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT\}[\s\S]*width=\{STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH\}/u);
+  assert.match(activitySource, /focused \? \{[\s\S]*outline: "2px solid #bfeaff"/u);
+  assert.match(activitySource, /data-steam-activity-summary[\s\S]*<ActivityTrend entries=\{snapshot\.entries\}/u);
+  assert.match(activitySource, /data-steam-activity-filter-row[\s\S]*data-steam-activity-side-column/u);
+  assert.match(activitySource, /flow-children="left-right"[\s\S]*flow-children="vertical"/u);
+  assert.match(activitySource, /event\.key === "ArrowDown"[\s\S]*event\.key !== "ArrowLeft"[\s\S]*event\.key !== "ArrowRight"/u);
+  assert.match(activitySource, /rowIndex !== 0 \|\| event\.key !== "ArrowUp"/u);
+  assert.match(activitySource, /onPreviousNavigationItem=\{onOpenPerfected\}[\s\S]*onNextNavigationItem=\{onOpenSettings\}/u);
+  assert.doesNotMatch(activitySource, /Steam library history|RecentGames|RECENT GAMES WITH UNLOCKS/u);
+  assert.doesNotMatch(activitySource, /rarity|Rare|Common|Very Rare/u);
 });
 
 test("perfected profile navigation carries a one-shot completion filter", () => {

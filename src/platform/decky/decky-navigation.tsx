@@ -471,6 +471,32 @@ function DeckyFullScreenAchievementHistoryRoute(): JSX.Element {
           suppressNextFullscreenRouteUnmountAction();
           DeckyNavigation.NavigateBack();
         }}
+        onOpenPerfected={() => {
+          if (params.providerId === undefined) {
+            return;
+          }
+
+          registerFullScreenCompletionProgressRoute();
+          const route = buildFullScreenCompletionProgressRoute({
+            view: "completion-progress",
+            surface: "full-screen",
+            providerId: params.providerId,
+          });
+          if (route !== undefined) {
+            markNextFullScreenCompletionProgressFilter("mastered");
+            suppressNextFullscreenRouteUnmountAction();
+            DeckyNavigation.Navigate(route);
+          }
+        }}
+        onOpenSettings={() => {
+          registerFullScreenSettingsRoute();
+          markNextFullScreenSettingsBackTarget("previous-fullscreen");
+          const route = buildFullScreenSettingsRoute({ view: "settings", surface: "full-screen" });
+          if (route !== undefined) {
+            suppressNextFullscreenRouteUnmountAction();
+            DeckyNavigation.Navigate(route);
+          }
+        }}
         onOpenAchievementDetail={(gameId, achievementId) => {
           if (params.providerId !== undefined) {
             navigateToFullScreenAchievement(params.providerId, gameId, achievementId, true);
