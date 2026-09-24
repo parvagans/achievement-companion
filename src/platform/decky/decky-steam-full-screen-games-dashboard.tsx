@@ -122,10 +122,9 @@ function SteamGamesRouteStyles(): JSX.Element {
 .${STEAM_GAMES_FOCUS_CLASS}.gpfocuswithin,
 .${STEAM_GAMES_FOCUS_CLASS}:focus,
 .${STEAM_GAMES_FOCUS_CLASS}:focus-within {
-  outline: 2px solid #27c2ff !important;
-  outline-offset: 1px !important;
+  outline: none !important;
   border-color: rgba(39, 194, 255, 0.92) !important;
-  box-shadow: 0 0 0 1px rgba(21, 137, 204, 0.72), 0 0 14px rgba(24, 174, 239, 0.34) !important;
+  box-shadow: inset 0 0 0 2px #27c2ff, inset 0 0 14px rgba(24, 174, 239, 0.2) !important;
 }
 .${STEAM_GAMES_SEARCH_CLASS}:focus,
 .${STEAM_GAMES_SEARCH_CLASS}:focus-within {
@@ -486,7 +485,8 @@ function getGameListStyle(): CSSProperties {
     marginTop: 8,
     overflowX: "hidden",
     overflowY: "auto",
-    padding: "1px 1px 3px",
+    padding: "4px 5px 5px",
+    boxSizing: "border-box",
   };
 }
 
