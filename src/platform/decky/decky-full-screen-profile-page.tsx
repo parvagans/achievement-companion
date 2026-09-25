@@ -70,6 +70,8 @@ import {
 
 export interface DeckyFullScreenProfilePageProps {
   readonly providerId: string | undefined;
+  readonly isActive?: boolean;
+  readonly showSteamProfileFooter?: boolean;
   readonly onBack: () => void;
   readonly onOpenCompletionProgress: (
     providerId: string,
@@ -1060,6 +1062,8 @@ function isRenderableCompletionProgressState(
 
 export function DeckyFullScreenProfilePage({
   providerId,
+  isActive = true,
+  showSteamProfileFooter = true,
   onBack,
   onOpenCompletionProgress,
   onOpenAchievementHistory,
@@ -1140,7 +1144,8 @@ export function DeckyFullScreenProfilePage({
             isError={state.status === "error"}
             title={state.status === "error" ? "Steam profile unavailable" : "Loading Steam profile..."}
           />
-          <DeckyFullScreenFooterOverlay
+          {showSteamProfileFooter ? <DeckyFullScreenFooterOverlay
+            isActive={isActive}
             activeNavigationItemId="profile"
             ariaLabel="Steam profile navigation"
             navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
@@ -1149,7 +1154,7 @@ export function DeckyFullScreenProfilePage({
               onOpenCompletionProgress(STEAM_PROVIDER_ID);
             }}
             onPreviousNavigationItem={onOpenSettings}
-          />
+          /> : null}
         </>
       );
     }
@@ -1191,6 +1196,7 @@ export function DeckyFullScreenProfilePage({
           <div style={getSteamProfileFrameStyle()}>
             <SteamFullScreenProfileDashboard
               profile={profile}
+              isActive={isActive}
               recentUnlocks={snapshot.recentAchievements}
               refreshedAt={refreshedAt}
               summary={steamProfileSummary}
@@ -1210,7 +1216,8 @@ export function DeckyFullScreenProfilePage({
             />
           </div>
         </div>
-        <DeckyFullScreenFooterOverlay
+        {showSteamProfileFooter ? <DeckyFullScreenFooterOverlay
+          isActive={isActive}
           activeNavigationItemId="profile"
           ariaLabel="Steam profile navigation"
           navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
@@ -1219,7 +1226,7 @@ export function DeckyFullScreenProfilePage({
             onOpenCompletionProgress(profile.providerId);
           }}
           onPreviousNavigationItem={onOpenSettings}
-        />
+        /> : null}
       </>
     );
   }

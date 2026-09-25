@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import type { GameDetailSnapshot } from "../src/core/domain";
 import { composeSteamGameDetailWithSteamHunters } from "../src/providers/steamhunters";
@@ -200,4 +201,21 @@ test("Steam section navigation advances every rapid shoulder press from the late
   assert.equal(activeSection, "community");
   assert.equal(getAdjacentSteamGameSectionId(sections, activeSection, "next"), "overview");
   assert.equal(getAdjacentSteamGameSectionId(sections, activeSection, "previous"), "achievement-groups");
+});
+
+test("Steam game sections retain visited content behind one stable footer owner", async () => {
+  const source = await readFile(
+    new URL("../src/platform/decky/decky-full-screen-game-page.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /visitedSteamSections[\s\S]*currentSections\.has\(nextSection\)/u);
+  assert.match(source, /data-steam-game-section="overview"[\s\S]*display: activeSteamSection === "overview" \? "contents" : "none"/u);
+  assert.match(source, /data-steam-game-section="achievement-groups"[\s\S]*display: activeSteamSection === "achievement-groups" \? "contents" : "none"/u);
+  assert.match(source, /activeSectionRoot[\s\S]*activeSectionRoot\?\.querySelectorAll/u);
+  assert.equal(
+    (source.match(/<DeckySteamGameSectionNavigation/gu) ?? []).length,
+    1,
+    "the Steam game page must keep one stable global footer/input owner",
+  );
 });

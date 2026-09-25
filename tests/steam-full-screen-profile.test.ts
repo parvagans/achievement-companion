@@ -20,6 +20,7 @@ import {
   summarizeSteamGamesDashboard,
 } from "../src/platform/decky/decky-steam-full-screen-games-data";
 import { buildSteamActivityStats } from "../src/platform/decky/decky-steam-activity-data";
+import { getAdjacentSteamFullScreenSessionTab } from "../src/platform/decky/decky-steam-full-screen-session-navigation";
 
 function createUnlock(gameId: string, gameTitle: string, unlockedAt?: number): RecentUnlock {
   return {
@@ -407,8 +408,24 @@ test("Steam full-screen routes share one account refresh per visit and refresh g
   assert.doesNotMatch(profileSource, /progressSteps=|useDeckyFullScreenLoadingProgress/u);
   assert.doesNotMatch(loadingSource, /LoadingProgressSteps|DashboardRefreshProgressEvent/u);
   assert.match(completionSource, /await refreshDeckySteamDashboardOnFullScreenEntry\(providerId\)/u);
+  assert.match(
+    completionSource,
+    /getDeckyCompletionProgressStateForFullScreenEntryInitial\(providerId\)[\s\S]*useAsyncResourceState\(loadSelectedCompletionProgress, initialState\)/u,
+  );
   assert.match(completionSource, /Refreshing your Steam account and loading your library achievement scan\./u);
   assert.match(historySource, /await refreshDeckySteamDashboardOnFullScreenEntry\(providerId\)/u);
+  assert.match(
+    historySource,
+    /getDeckyAchievementHistoryStateForFullScreenEntryInitial\(providerId\)[\s\S]*useAsyncResourceState\(loadSelectedAchievementHistory, initialState\)/u,
+  );
+  assert.match(
+    servicesSource,
+    /export function getDeckyCompletionProgressStateForFullScreenEntryInitial[\s\S]*readDeckySteamLibraryAchievementScanSummary[\s\S]*readDeckyDashboardSnapshotState/u,
+  );
+  assert.match(
+    servicesSource,
+    /export function getDeckyAchievementHistoryStateForFullScreenEntryInitial[\s\S]*readDeckySteamLibraryAchievementScanSummary[\s\S]*readDeckyDashboardSnapshotState/u,
+  );
   assert.match(historySource, /Refreshing your Steam account and loading achievement history\./u);
   assert.match(gameSource, /loadDeckyGameDetailState\(providerId, gameId, \{ forceRefresh: true \}\)/u);
   assert.match(achievementSource, /loadDeckyGameDetailState\(providerId, gameId, \{ forceRefresh: true \}\)/u);
@@ -640,6 +657,18 @@ test("completion filters can still carry a one-shot perfected selection without 
   assert.equal(consumeNextFullScreenCompletionProgressFilter(), undefined);
 });
 
+test("Steam full-screen shoulder navigation moves exactly one tab in either direction", () => {
+  assert.equal(getAdjacentSteamFullScreenSessionTab("profile", "next"), "games");
+  assert.equal(getAdjacentSteamFullScreenSessionTab("games", "next"), "activity");
+  assert.equal(getAdjacentSteamFullScreenSessionTab("activity", "next"), "settings");
+  assert.equal(getAdjacentSteamFullScreenSessionTab("settings", "next"), "profile");
+
+  assert.equal(getAdjacentSteamFullScreenSessionTab("profile", "previous"), "settings");
+  assert.equal(getAdjacentSteamFullScreenSessionTab("settings", "previous"), "activity");
+  assert.equal(getAdjacentSteamFullScreenSessionTab("activity", "previous"), "games");
+  assert.equal(getAdjacentSteamFullScreenSessionTab("games", "previous"), "profile");
+});
+
 test("Steam activity loading state owns the Activity footer and renders its trophy inline", async () => {
   const [historySource, loadingSource, footerSource] = await Promise.all([
     readFile(new URL("../src/platform/decky/decky-full-screen-achievement-history-page.tsx", import.meta.url), "utf8"),
@@ -696,16 +725,18 @@ test("Games footer moves directly between Profile and Activity without a Perfect
 });
 
 test("Steam full-screen tabs share one session while details retain route history", async () => {
-  const navigationSource = await readFile(
-    new URL("../src/platform/decky/decky-navigation.tsx", import.meta.url),
-    "utf8",
-  );
+  const [navigationSource, gamesDashboardSource, activityDashboardSource, footerSource] = await Promise.all([
+    readFile(new URL("../src/platform/decky/decky-navigation.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-steam-full-screen-games-dashboard.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-steam-full-screen-activity-dashboard.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-footer-overlay.tsx", import.meta.url), "utf8"),
+  ]);
   const sessionStart = navigationSource.indexOf("function DeckySteamFullScreenSession");
   const sessionEnd = navigationSource.indexOf("function DeckyFullScreenProfileRoute", sessionStart);
   const sessionSource = navigationSource.slice(sessionStart, sessionEnd);
 
   assert.ok(sessionStart >= 0, "Steam must render its footer tabs inside one session shell");
-  assert.match(navigationSource, /type SteamFullScreenSessionTab = "profile" \| "games" \| "activity" \| "settings"/u);
+  assert.match(navigationSource, /type SteamFullScreenSessionTab,[\s\S]*decky-steam-full-screen-session-navigation/u);
   assert.match(sessionSource, /onOpenProfile=\{\(\) => selectTab\("profile"\)\}/u);
   assert.match(sessionSource, /onOpenActivity=\{\(\) => selectTab\("activity"\)\}/u);
   assert.match(sessionSource, /onOpenSettings=\{\(\) => selectTab\("settings"\)\}/u);
@@ -714,6 +745,17 @@ test("Steam full-screen tabs share one session while details retain route histor
   assert.match(sessionSource, /navigateToFullScreenAchievement\(providerId, gameId, achievementId, true\)/u);
   assert.doesNotMatch(sessionSource, /DeckyNavigation\.Navigate\(.*completion-progress/u);
   assert.doesNotMatch(sessionSource, /DeckyNavigation\.Navigate\(.*achievement-history/u);
+  assert.match(sessionSource, /visitedTabs[\s\S]*display: activeTab === "games" \? "contents" : "none"/u);
+  assert.match(sessionSource, /isActive=\{activeTab === "activity"\}/u);
+  assert.match(sessionSource, /showSteamProfileFooter=\{false\}[\s\S]*activeNavigationItemId=\{activeTab\}/u);
+  assert.equal(
+    (sessionSource.match(/<DeckyFullScreenFooterOverlay/gu) ?? []).length,
+    1,
+    "the retained Steam session must have one stable global footer/input owner",
+  );
+  assert.match(footerSource, /readonly isActive\?: boolean[\s\S]*if \(!isActive\)[\s\S]*isActive && portalTarget/u);
+  assert.match(gamesDashboardSource, /STEAM_GAMES_INITIAL_RENDER_LIMIT[\s\S]*visibleGames\.slice\(0, renderLimit\)[\s\S]*Show \$\{Math\.min\(STEAM_GAMES_RENDER_STEP/u);
+  assert.match(activityDashboardSource, /STEAM_ACTIVITY_INITIAL_RENDER_LIMIT[\s\S]*entries\.slice\(0, renderLimit\)[\s\S]*Show \$\{Math\.min\(STEAM_ACTIVITY_RENDER_STEP/u);
 
   const navigationPortStart = navigationSource.indexOf("export function createDeckyNavigationPort");
   const navigationPortSource = navigationSource.slice(navigationPortStart);

@@ -1257,6 +1257,39 @@ export async function loadDeckyCompletionProgressState(
 }
 
 /**
+ * Builds the Steam Games-tab state exclusively from already-persisted state.
+ *
+ * A full-screen Steam session refreshes the bounded dashboard once from the
+ * Profile route.  Subsequent tab mounts must be able to paint from that
+ * completed session/cache immediately instead of briefly showing their own
+ * loader while they re-read the same data.
+ */
+export function getDeckyCompletionProgressStateForFullScreenEntryInitial(
+  providerId: ProviderId | undefined,
+): ResourceState<CompletionProgressSnapshot> {
+  if (providerId !== STEAM_PROVIDER_ID || loadDeckyRuntimeMode() === "empty") {
+    return initialDeckyCompletionProgressState;
+  }
+
+  const summary = readDeckySteamLibraryAchievementScanSummary(providerId);
+  if (summary === undefined || summary.games.length === 0) {
+    return initialDeckyCompletionProgressState;
+  }
+
+  const parsedLastUpdatedAt = Date.parse(summary.scannedAt);
+  return {
+    status: "success",
+    data: mergeDeckySteamCompletionProgressWithDashboard(
+      buildDeckySteamCompletionProgressSnapshotFromSummary(summary),
+      readDeckyDashboardSnapshotState(providerId)?.data,
+    ),
+    lastUpdatedAt: Number.isFinite(parsedLastUpdatedAt) ? parsedLastUpdatedAt : Date.now(),
+    isStale: false,
+    isRefreshing: false,
+  };
+}
+
+/**
  * Refresh the complete owned Steam library only for an explicit user action.
  * The underlying coordinator retains account/revision and stale-write guards.
  */
@@ -1540,6 +1573,40 @@ export async function loadDeckyAchievementHistoryState(
     ...historyState,
     data: mergedHistory,
     lastUpdatedAt,
+  };
+}
+
+/**
+ * Returns an Activity-tab snapshot without starting network work.  It is used
+ * only as the first render for a Steam full-screen session; the normal loader
+ * still reconciles it with the single bounded Profile-session refresh.
+ */
+export function getDeckyAchievementHistoryStateForFullScreenEntryInitial(
+  providerId: ProviderId | undefined,
+): ResourceState<AchievementHistorySnapshot> {
+  if (providerId !== STEAM_PROVIDER_ID || loadDeckyRuntimeMode() === "empty") {
+    return initialDeckyAchievementHistoryState;
+  }
+
+  const summary = readDeckySteamLibraryAchievementScanSummary(providerId);
+  const dashboard = readDeckyDashboardSnapshotState(providerId)?.data;
+  if (summary === undefined || (summary.unlockedAchievementsList?.length ?? 0) === 0 || dashboard === undefined) {
+    return initialDeckyAchievementHistoryState;
+  }
+
+  const parsedLastUpdatedAt = Date.parse(summary.scannedAt);
+  return {
+    status: "success",
+    data: mergeDeckyAchievementHistoryWithDashboardRecent(
+      buildDeckySteamAchievementHistorySnapshotFromSummary({
+        profile: dashboard.profile,
+        summary,
+      }),
+      dashboard,
+    ),
+    lastUpdatedAt: Number.isFinite(parsedLastUpdatedAt) ? parsedLastUpdatedAt : Date.now(),
+    isStale: false,
+    isRefreshing: false,
   };
 }
 

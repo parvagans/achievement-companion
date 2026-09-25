@@ -4,6 +4,7 @@ import type { AchievementHistorySnapshot, NormalizedMetric, RecentUnlock } from 
 import { Field, Focusable, PanelSection, PanelSectionRow, ScrollPanel } from "@decky/ui";
 import { PlaceholderState } from "@ui/PlaceholderState";
 import {
+  getDeckyAchievementHistoryStateForFullScreenEntryInitial,
   initialDeckyAchievementHistoryState,
   loadDeckyAchievementHistoryState,
   refreshDeckySteamDashboardOnFullScreenEntry,
@@ -31,6 +32,8 @@ import { DeckySteamFullScreenActivityDashboard } from "./decky-steam-full-screen
 
 export interface DeckyFullScreenAchievementHistoryPageProps {
   readonly providerId: string | undefined;
+  readonly isActive?: boolean;
+  readonly showSteamProfileFooter?: boolean;
   readonly onBack: () => void;
   readonly onOpenGames: () => void;
   readonly onOpenSettings: () => void;
@@ -669,6 +672,8 @@ function AchievementHistoryBrowser({
 
 export function DeckyFullScreenAchievementHistoryPage({
   providerId,
+  isActive = true,
+  showSteamProfileFooter = true,
   onBack,
   onOpenGames,
   onOpenSettings,
@@ -684,7 +689,8 @@ export function DeckyFullScreenAchievementHistoryPage({
       return loadDeckyAchievementHistoryState(providerId);
     };
   }, [providerId]);
-  const state = useAsyncResourceState(loadSelectedAchievementHistory, initialDeckyAchievementHistoryState);
+  const initialState = getDeckyAchievementHistoryStateForFullScreenEntryInitial(providerId);
+  const state = useAsyncResourceState(loadSelectedAchievementHistory, initialState);
   const hasRouteParameters = providerId !== undefined;
 
   if (!isRenderableAchievementHistoryState(state)) {
@@ -696,14 +702,15 @@ export function DeckyFullScreenAchievementHistoryPage({
             isError={state.status === "error"}
             title={state.status === "error" ? "Steam achievement history unavailable" : "Loading Steam achievement history..."}
           />
-          <DeckyFullScreenFooterOverlay
+          {showSteamProfileFooter ? <DeckyFullScreenFooterOverlay
+            isActive={isActive}
             activeNavigationItemId="activity"
             ariaLabel="Steam profile navigation"
             navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
             onBack={onBack}
             onPreviousNavigationItem={onOpenGames}
             onNextNavigationItem={onOpenSettings}
-          />
+          /> : null}
         </>
       );
     }
@@ -743,6 +750,8 @@ export function DeckyFullScreenAchievementHistoryPage({
     return (
       <DeckySteamFullScreenActivityDashboard
         snapshot={snapshot}
+        isActive={isActive}
+        showSteamProfileFooter={showSteamProfileFooter}
         onBack={onBack}
         onOpenAchievementDetail={onOpenAchievementDetail}
         onOpenGames={onOpenGames}

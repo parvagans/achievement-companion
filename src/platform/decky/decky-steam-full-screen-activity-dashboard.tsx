@@ -2,6 +2,7 @@ import { Focusable, type FocusableProps } from "@decky/ui";
 import type { AchievementHistorySnapshot, RecentUnlock } from "@core/domain";
 import {
   useLayoutEffect,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -38,6 +39,8 @@ const GOLD_ICON_FILTER =
 const ACTIVITY_TOP_PADDING_PX = 43;
 const ACTIVITY_FOOTER_CLEARANCE_PX = 48;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const STEAM_ACTIVITY_INITIAL_RENDER_LIMIT = 12;
+const STEAM_ACTIVITY_RENDER_STEP = 12;
 
 function getUnlockTime(entry: RecentUnlock): number | undefined {
   const timestamp = entry.unlockedAt ?? entry.achievement.unlockedAt;
@@ -370,25 +373,34 @@ function ActivityCalendar({ dayCounts }: { readonly dayCounts: ReadonlyMap<numbe
 
 export function DeckySteamFullScreenActivityDashboard({
   snapshot,
+  isActive = true,
+  showSteamProfileFooter = true,
   onBack,
   onOpenAchievementDetail,
   onOpenGames,
   onOpenSettings,
 }: {
   readonly snapshot: AchievementHistorySnapshot;
+  readonly isActive?: boolean;
+  readonly showSteamProfileFooter?: boolean;
   readonly onBack: () => void;
   readonly onOpenAchievementDetail: (gameId: string, achievementId: string) => void;
   readonly onOpenGames: () => void;
   readonly onOpenSettings: () => void;
 }): JSX.Element {
   const dashboardRef = useRef<HTMLElement>(null);
-  const initialControllerFocusAppliedRef = useRef(false);
   const [filter, setFilter] = useState<ActivityFilter>("all");
+  const [renderLimit, setRenderLimit] = useState(STEAM_ACTIVITY_INITIAL_RENDER_LIMIT);
   const entries = useMemo(() => filterActivityEntries(snapshot.entries, filter), [filter, snapshot.entries]);
+  const renderedEntries = entries.slice(0, renderLimit);
   const stats = useMemo(() => buildSteamActivityStats(snapshot.entries), [snapshot.entries]);
 
+  useEffect(() => {
+    setRenderLimit(STEAM_ACTIVITY_INITIAL_RENDER_LIMIT);
+  }, [filter]);
+
   useLayoutEffect(() => {
-    if (initialControllerFocusAppliedRef.current) return;
+    if (!isActive) return;
     const dashboard = dashboardRef.current;
     const ownerWindow = dashboard?.ownerDocument.defaultView;
     if (dashboard === null || dashboard === undefined || ownerWindow === null || ownerWindow === undefined) return;
@@ -398,12 +410,13 @@ export function DeckySteamFullScreenActivityDashboard({
       const target = dashboard.querySelector<HTMLElement>("[data-steam-activity-row='true']")
         ?? dashboard.querySelector<HTMLElement>("[role='button']");
       if (target !== null) {
-        target.focus();
-        initialControllerFocusAppliedRef.current = true;
+        if (!dashboard.contains(dashboard.ownerDocument.activeElement)) {
+          target.focus();
+        }
       }
     });
     return () => ownerWindow.cancelAnimationFrame(frame);
-  }, []);
+  }, [isActive]);
 
   return (
     <>
@@ -446,7 +459,8 @@ export function DeckySteamFullScreenActivityDashboard({
                 style={{ display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", minHeight: 0, padding: "4px 5px 5px 4px", boxSizing: "border-box" }}
               >
                 {entries.length > 0
-                  ? entries.map((entry, rowIndex) => (
+                  ? <>
+                    {renderedEntries.map((entry, rowIndex) => (
                     <AchievementActivityRow
                       key={`${entry.game.gameId}:${entry.achievement.achievementId}:${getUnlockTime(entry) ?? "unknown"}`}
                       entry={entry}
@@ -454,7 +468,20 @@ export function DeckySteamFullScreenActivityDashboard({
                       onOpenAchievementDetail={onOpenAchievementDetail}
                       onBack={onBack}
                     />
-                  ))
+                    ))}
+                    {renderedEntries.length < entries.length ? <Focusable
+                      className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
+                      noFocusRing
+                      role="button"
+                      aria-label={`Show ${Math.min(STEAM_ACTIVITY_RENDER_STEP, entries.length - renderedEntries.length)} more unlocks`}
+                      onActivate={() => { setRenderLimit((current) => current + STEAM_ACTIVITY_RENDER_STEP); }}
+                      onClick={() => { setRenderLimit((current) => current + STEAM_ACTIVITY_RENDER_STEP); }}
+                      onCancel={onBack}
+                      style={{ ...getCardStyle(), minHeight: 36, display: "grid", placeItems: "center", color: "#d8ecf9", fontSize: 11, fontWeight: 800 }}
+                    >
+                      {`Show ${Math.min(STEAM_ACTIVITY_RENDER_STEP, entries.length - renderedEntries.length)} more`}
+                    </Focusable> : null}
+                  </>
                   : <div style={{ ...getCardStyle(), padding: 18, color: "#b5cbd9" }}>No timestamped unlocks match this filter.</div>}
               </Focusable>
             </section>
@@ -466,14 +493,14 @@ export function DeckySteamFullScreenActivityDashboard({
           </div>
         </div>
       </main>
-      <DeckyFullScreenFooterOverlay
+      {showSteamProfileFooter ? <DeckyFullScreenFooterOverlay
         activeNavigationItemId="activity"
         ariaLabel="Steam profile navigation"
         navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
         onBack={onBack}
         onPreviousNavigationItem={onOpenGames}
         onNextNavigationItem={onOpenSettings}
-      />
+      /> : null}
     </>
   );
 }

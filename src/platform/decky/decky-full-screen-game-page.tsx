@@ -327,6 +327,9 @@ export function DeckyFullScreenGamePage({
     initialSectionState?.["achievement-groups"].expandedGroupIds ?? [],
   );
   const [activeSteamSection, setActiveSteamSection] = useState<DeckySteamGameSectionId>(initialSectionState?.activeSection ?? "overview");
+  const [visitedSteamSections, setVisitedSteamSections] = useState<ReadonlySet<DeckySteamGameSectionId>>(
+    () => new Set<DeckySteamGameSectionId>([initialSectionState?.activeSection ?? "overview"]),
+  );
   const activeSteamSectionRef = useRef(activeSteamSection);
   const [sectionRestoreNonce, setSectionRestoreNonce] = useState(0);
   const [steamHuntersEnrichmentResult, setSteamHuntersEnrichmentResult] = useState<{
@@ -406,6 +409,9 @@ export function DeckyFullScreenGamePage({
     }
     persistSteamSectionState((current) => ({ ...current, activeSection: nextSection }));
     activeSteamSectionRef.current = nextSection;
+    setVisitedSteamSections((currentSections) => currentSections.has(nextSection)
+      ? currentSections
+      : new Set<DeckySteamGameSectionId>([...currentSections, nextSection]));
     setActiveSteamSection(nextSection);
     setSectionRestoreNonce((current) => current + 1);
   };
@@ -572,32 +578,35 @@ export function DeckyFullScreenGamePage({
         scrollContainer.scrollTop = sectionState.scrollTop;
       }
 
+      const activeSectionRoot = anchor.querySelector<HTMLElement>(
+        `[data-steam-game-section='${activeSteamSection}']`,
+      );
       let target: HTMLElement | null | undefined;
       if (activeSteamSection === "overview") {
-        target = anchor.querySelector<HTMLElement>("[role='button'][aria-label='Play Game']");
+        target = activeSectionRoot?.querySelector<HTMLElement>("[role='button'][aria-label='Play Game']");
       } else if (activeSteamSection === "achievements") {
         const targetId = selectSteamAchievementRestorationTarget({
           focusedAchievementId: currentState.achievements.focusedId,
           previousVisibleAchievementIds: currentState.achievements.visibleAchievementIds,
           currentVisibleAchievementIds: restorationFilteredAchievements.map((achievement) => achievement.achievementId),
         });
-        const targets = Array.from(anchor.querySelectorAll<HTMLElement>("[data-achievement-companion-steam-achievement-id]"));
+        const targets = Array.from(activeSectionRoot?.querySelectorAll<HTMLElement>("[data-achievement-companion-steam-achievement-id]") ?? []);
         target = targets.find((element) => element.dataset["achievementCompanionSteamAchievementId"] === targetId)
-          ?? anchor.querySelector<HTMLElement>("[data-achievement-companion-steam-filter-control='true']");
+          ?? activeSectionRoot?.querySelector<HTMLElement>("[data-achievement-companion-steam-filter-control='true']");
       } else if (activeSteamSection === "achievement-groups") {
         target = currentState["achievement-groups"].focusedAchievementId === undefined
           ? undefined
-          : Array.from(anchor.querySelectorAll<HTMLElement>("[data-achievement-companion-steam-achievement-id]"))
+          : Array.from(activeSectionRoot?.querySelectorAll<HTMLElement>("[data-achievement-companion-steam-achievement-id]") ?? [])
             .find((element) => element.dataset["achievementCompanionSteamAchievementId"] === currentState["achievement-groups"].focusedAchievementId);
         target ??= currentState["achievement-groups"].focusedGroupId === undefined
           ? undefined
-          : Array.from(anchor.querySelectorAll<HTMLElement>("[data-achievement-companion-steam-group-id]"))
+          : Array.from(activeSectionRoot?.querySelectorAll<HTMLElement>("[data-achievement-companion-steam-group-id]") ?? [])
             .find((element) => element.dataset["achievementCompanionSteamGroupId"] === currentState["achievement-groups"].focusedGroupId);
-        target ??= anchor.querySelector<HTMLElement>(
+        target ??= activeSectionRoot?.querySelector<HTMLElement>(
           "[data-achievement-companion-steam-group-id]",
         );
       } else {
-        target = anchor.querySelector<HTMLElement>(
+        target = activeSectionRoot?.querySelector<HTMLElement>(
           `[data-achievement-companion-focus-target='${STEAM_HUNTERS_COMMUNITY_SECTION_FOCUS_TARGET}']`,
         );
       }
@@ -690,16 +699,21 @@ export function DeckyFullScreenGamePage({
 
   const pageSections = (
     <>
-          {isSteamProvider && activeSteamSection === "overview" ? (
-            <div style={getSteamOverviewSectionStyle()}>
-              <DeckySteamGameOverview
-                game={game}
-                achievements={orderedAchievements}
-                totalAchievementCount={totalAchievementCount}
-                completionPercent={completionPercent}
-                steamHuntersEnrichment={steamHuntersEnrichment}
-                updatedLabel={formatDateOnly(refreshTimestamp)}
-              />
+          {isSteamProvider && visitedSteamSections.has("overview") ? (
+            <div
+              data-steam-game-section="overview"
+              style={{ display: activeSteamSection === "overview" ? "contents" : "none" }}
+            >
+              <div style={getSteamOverviewSectionStyle()}>
+                <DeckySteamGameOverview
+                  game={game}
+                  achievements={orderedAchievements}
+                  totalAchievementCount={totalAchievementCount}
+                  completionPercent={completionPercent}
+                  steamHuntersEnrichment={steamHuntersEnrichment}
+                  updatedLabel={formatDateOnly(refreshTimestamp)}
+                />
+              </div>
             </div>
           ) : null}
 
@@ -720,7 +734,10 @@ export function DeckyFullScreenGamePage({
             </PanelSectionRow>
           </PanelSection> : null}
 
-          {(!isSteamProvider || activeSteamSection === "achievements") ? <PanelSection title="Achievements">
+          {(!isSteamProvider || visitedSteamSections.has("achievements")) ? <div
+            {...(isSteamProvider ? { "data-steam-game-section": "achievements" } : {})}
+            style={isSteamProvider ? { display: activeSteamSection === "achievements" ? "contents" : "none" } : undefined}
+          ><PanelSection title="Achievements">
             <PanelSectionRow>
               <DeckyFullScreenAchievementBrowser
                 achievementFilter={achievementFilter}
@@ -767,12 +784,16 @@ export function DeckyFullScreenGamePage({
                   : {})}
               />
             </PanelSectionRow>
-          </PanelSection> : null}
+          </PanelSection></div> : null}
 
-          {isSteamProvider && activeSteamSection === "achievement-groups" && steamHuntersEnrichment !== undefined ? (
-            <PanelSection title="DLC / Groups">
-              <PanelSectionRow>
-                <DeckySteamAchievementGroupsSection
+          {isSteamProvider && visitedSteamSections.has("achievement-groups") && steamHuntersEnrichment !== undefined ? (
+            <div
+              data-steam-game-section="achievement-groups"
+              style={{ display: activeSteamSection === "achievement-groups" ? "contents" : "none" }}
+            >
+              <PanelSection title="DLC / Groups">
+                <PanelSectionRow>
+                  <DeckySteamAchievementGroupsSection
                   sections={steamAchievementGroupSections}
                   gameArtworkUrl={getSteamFullscreenGameArtworkUrl(game)}
                   updateArtworkUrl={updateArtworkUrl}
@@ -799,17 +820,23 @@ export function DeckyFullScreenGamePage({
                     onOpenAchievementDetail?.(achievementId);
                   }}
                   onBack={onBack}
-                />
-              </PanelSectionRow>
-            </PanelSection>
+                  />
+                </PanelSectionRow>
+              </PanelSection>
+            </div>
           ) : null}
 
-          {isSteamProvider && activeSteamSection === "community" && steamHuntersViewModel !== undefined ? (
-            <PanelSection title="Community">
-              <PanelSectionRow>
-                <DeckySteamHuntersCommunitySection model={steamHuntersViewModel} sectionEntryFocusTarget />
-              </PanelSectionRow>
-            </PanelSection>
+          {isSteamProvider && visitedSteamSections.has("community") && steamHuntersViewModel !== undefined ? (
+            <div
+              data-steam-game-section="community"
+              style={{ display: activeSteamSection === "community" ? "contents" : "none" }}
+            >
+              <PanelSection title="Community">
+                <PanelSectionRow>
+                  <DeckySteamHuntersCommunitySection model={steamHuntersViewModel} sectionEntryFocusTarget />
+                </PanelSectionRow>
+              </PanelSection>
+            </div>
           ) : null}
 
           {!isSteamProvider ? <PanelSection title="Snapshot">

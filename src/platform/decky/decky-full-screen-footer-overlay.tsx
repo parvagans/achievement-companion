@@ -220,6 +220,7 @@ export function DeckyFullScreenFooterOverlay({
   onNextNavigationItem,
   onBack,
   onHeightChange,
+  isActive = true,
 }: {
   readonly ariaLabel: string;
   readonly activeNavigationItemId: string;
@@ -228,6 +229,8 @@ export function DeckyFullScreenFooterOverlay({
   readonly onNextNavigationItem: () => void;
   readonly onBack: () => void;
   readonly onHeightChange?: (height: number) => void;
+  /** A retained full-screen tab must not own the footer or controller input. */
+  readonly isActive?: boolean;
 }): JSX.Element {
   const anchorRef = useRef<HTMLSpanElement>(null);
   const onBackRef = useRef(onBack);
@@ -247,7 +250,7 @@ export function DeckyFullScreenFooterOverlay({
   useLayoutEffect(() => {
     // Use the visible Gaming Mode document, not SharedJSContext, just as the
     // Steam game-page section footer does.
-    if (!ariaLabel.startsWith("Steam ")) {
+    if (!isActive || !ariaLabel.startsWith("Steam ")) {
       return;
     }
     const ownerDocument = anchorRef.current?.ownerDocument;
@@ -264,9 +267,12 @@ export function DeckyFullScreenFooterOverlay({
       sound.load();
       tabTransitionSoundRef.current = null;
     };
-  }, [ariaLabel]);
+  }, [ariaLabel, isActive]);
 
   useLayoutEffect(() => {
+    if (!isActive) {
+      return;
+    }
     // SharedJSContext is not the visible Gaming Mode document. The anchor is.
     const ownerDocument = anchorRef.current?.ownerDocument;
     const ownerWindow = ownerDocument?.defaultView;
@@ -303,9 +309,12 @@ export function DeckyFullScreenFooterOverlay({
       ownerDocument.removeEventListener("focusout", updateTextEntryFocus, true);
       target.remove();
     };
-  }, [onHeightChange]);
+  }, [isActive, onHeightChange]);
 
   useLayoutEffect(() => {
+    if (!isActive) {
+      return;
+    }
     const ownerWindow = anchorRef.current?.ownerDocument.defaultView;
     if (ownerWindow === undefined || ownerWindow === null) {
       return;
@@ -350,12 +359,12 @@ export function DeckyFullScreenFooterOverlay({
       ownerWindow.removeEventListener("vgp_oncancel", onCancel, true);
       releaseFooterOverlayOwner(owner);
     };
-  }, []);
+  }, [isActive]);
 
   return (
     <>
       <span ref={anchorRef} hidden aria-hidden="true" />
-      {portalTarget !== null && !isTextEntryFocused ? createPortal(
+      {isActive && portalTarget !== null && !isTextEntryFocused ? createPortal(
         <div aria-label={ariaLabel} style={getFooterStyle(layout.height, layout.zIndex)}>
           <span style={getShoulderHintStyle()}>L1</span>
           <div style={getSectionTabsStyle()}>

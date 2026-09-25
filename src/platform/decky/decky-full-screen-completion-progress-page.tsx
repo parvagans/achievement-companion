@@ -25,6 +25,7 @@ import {
 } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import {
+  getDeckyCompletionProgressStateForFullScreenEntryInitial,
   initialDeckyCompletionProgressState,
   loadDeckyCompletionProgressState,
   refreshDeckySteamDashboardOnFullScreenEntry,
@@ -72,6 +73,8 @@ const COMPLETION_PROGRESS_SORT_OPTIONS: readonly { readonly value: CompletionPro
 
 export interface DeckyFullScreenCompletionProgressPageProps {
   readonly providerId: string | undefined;
+  readonly isActive?: boolean;
+  readonly showSteamProfileFooter?: boolean;
   readonly initialFilter?: CompletionProgressSelectionFilter;
   readonly onBack: () => void;
   readonly onOpenProfile: () => void;
@@ -601,6 +604,8 @@ function isRenderableCompletionProgressState(
 
 export function DeckyFullScreenCompletionProgressPage({
   providerId,
+  isActive = true,
+  showSteamProfileFooter = true,
   initialFilter,
   onBack,
   onOpenProfile,
@@ -626,7 +631,8 @@ export function DeckyFullScreenCompletionProgressPage({
       return loadDeckyCompletionProgressState(providerId);
     };
   }, [providerId]);
-  const state = useAsyncResourceState(loadSelectedCompletionProgress, initialDeckyCompletionProgressState);
+  const initialState = getDeckyCompletionProgressStateForFullScreenEntryInitial(providerId);
+  const state = useAsyncResourceState(loadSelectedCompletionProgress, initialState);
   const hasRouteParameters = providerId !== undefined;
 
   useEffect(() => {
@@ -646,14 +652,15 @@ export function DeckyFullScreenCompletionProgressPage({
               title={state.status === "error" ? "Steam games unavailable" : "Loading Steam games..."}
             />
           </div>
-          <DeckyFullScreenFooterOverlay
+          {showSteamProfileFooter ? <DeckyFullScreenFooterOverlay
+            isActive={isActive}
             activeNavigationItemId="games"
             ariaLabel="Steam profile navigation"
             navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
             onBack={onBack}
             onNextNavigationItem={onOpenActivity}
             onPreviousNavigationItem={onOpenProfile}
-          />
+          /> : null}
         </>
       );
     }
@@ -683,7 +690,9 @@ export function DeckyFullScreenCompletionProgressPage({
     return (
       <DeckySteamFullScreenGamesDashboard
         snapshot={snapshot}
+        isActive={isActive}
         initialFilter={currentFilter}
+        showSteamProfileFooter={showSteamProfileFooter}
         onBack={onBack}
         onOpenProfile={onOpenProfile}
         onOpenActivity={onOpenActivity}

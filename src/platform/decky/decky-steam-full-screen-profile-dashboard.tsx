@@ -36,6 +36,7 @@ import xpIconUrl from "./assets/xp.svg";
 
 export interface SteamFullScreenProfileDashboardProps {
   readonly profile: NormalizedProfile;
+  readonly isActive?: boolean;
   readonly summary: SteamFullScreenProfileSummary;
   readonly steamHuntersProfile: SteamHuntersProfile | undefined;
   readonly recentUnlocks: readonly RecentUnlock[];
@@ -1071,6 +1072,7 @@ function SteamRecentlyPlayedPanel({ summary, recentUnlockCount, onOpenCompletion
 
 export function SteamFullScreenProfileDashboard({
   profile,
+  isActive = true,
   summary,
   steamHuntersProfile,
   recentUnlocks,
@@ -1081,10 +1083,8 @@ export function SteamFullScreenProfileDashboard({
   onOpenAchievementDetail,
 }: SteamFullScreenProfileDashboardProps): JSX.Element {
   const dashboardRef = useRef<HTMLDivElement>(null);
-  const initialControllerFocusAppliedRef = useRef(false);
-
   useLayoutEffect(() => {
-    if (initialControllerFocusAppliedRef.current) {
+    if (!isActive) {
       return;
     }
 
@@ -1105,11 +1105,12 @@ export function SteamFullScreenProfileDashboard({
         return;
       }
 
-      initialFocusTarget.focus();
-      initialControllerFocusAppliedRef.current = true;
+      if (!dashboard.contains(dashboard.ownerDocument.activeElement)) {
+        initialFocusTarget.focus();
+      }
     });
     return () => ownerWindow.cancelAnimationFrame(frame);
-  }, []);
+  }, [isActive]);
 
   return (
     <div ref={dashboardRef} data-steam-full-screen-profile-dashboard style={getDashboardStyle()}>

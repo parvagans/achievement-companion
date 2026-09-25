@@ -43,6 +43,8 @@ import prohibitedIconUrl from "./assets/prohibited.svg";
 import searchIconUrl from "./assets/search.svg";
 
 const STEAM_GAMES_FOCUS_CLASS = "achievement-companion-steam-games-focus";
+const STEAM_GAMES_INITIAL_RENDER_LIMIT = 12;
+const STEAM_GAMES_RENDER_STEP = 12;
 const STEAM_GAMES_SEARCH_CLASS = "achievement-companion-steam-games-search";
 const STEAM_GAMES_LIST_CLASS = "achievement-companion-steam-games-list";
 const STEAM_GAMES_ICON_FILTERS = {
@@ -70,7 +72,9 @@ const STEAM_GAMES_SORT_OPTIONS: readonly {
 
 export interface DeckySteamFullScreenGamesDashboardProps {
   readonly snapshot: CompletionProgressSnapshot;
+  readonly isActive?: boolean;
   readonly initialFilter?: CompletionProgressSelectionFilter;
+  readonly showSteamProfileFooter?: boolean;
   readonly onBack: () => void;
   readonly onOpenProfile: () => void;
   readonly onOpenActivity: () => void;
@@ -687,22 +691,29 @@ function SteamGamesSummaryCards({ summary }: { readonly summary: SteamGamesDashb
 
 export function DeckySteamFullScreenGamesDashboard({
   snapshot,
+  isActive = true,
   initialFilter,
+  showSteamProfileFooter = true,
   onBack,
   onOpenProfile,
   onOpenActivity,
   onOpenGameDetail,
 }: DeckySteamFullScreenGamesDashboardProps): JSX.Element {
   const dashboardRef = useRef<HTMLElement>(null);
-  const initialControllerFocusAppliedRef = useRef(false);
   const [filter, setFilter] = useState<SteamGamesFilter>(() => normalizeInitialFilter(initialFilter));
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<CompletionProgressSort>("recent");
+  const [renderLimit, setRenderLimit] = useState(STEAM_GAMES_INITIAL_RENDER_LIMIT);
   const summary = useMemo(() => summarizeSteamGamesDashboard(snapshot), [snapshot]);
   const visibleGames = useMemo(
     () => selectSteamGames({ games: snapshot.games, filter, query, sort }),
     [filter, query, snapshot.games, sort],
   );
+  const renderedGames = visibleGames.slice(0, renderLimit);
+
+  useEffect(() => {
+    setRenderLimit(STEAM_GAMES_INITIAL_RENDER_LIMIT);
+  }, [filter, query, sort]);
   const filterButtons = [
     { filter: "all" as const, label: `All Games (${formatCount(summary.trackedCount)})` },
     { filter: "played" as const, label: `Played (${formatCount(summary.playedCount)})` },
@@ -712,7 +723,7 @@ export function DeckySteamFullScreenGamesDashboard({
   ];
 
   useLayoutEffect(() => {
-    if (initialControllerFocusAppliedRef.current) {
+    if (!isActive) {
       return;
     }
 
@@ -731,11 +742,12 @@ export function DeckySteamFullScreenGamesDashboard({
         return;
       }
 
-      initialFocusTarget.focus();
-      initialControllerFocusAppliedRef.current = true;
+      if (!dashboard.contains(dashboard.ownerDocument.activeElement)) {
+        initialFocusTarget.focus();
+      }
     });
     return () => ownerWindow.cancelAnimationFrame(frame);
-  }, []);
+  }, [isActive]);
 
   return (
     <>
@@ -776,14 +788,28 @@ export function DeckySteamFullScreenGamesDashboard({
         </Focusable>
 
         <div aria-live="polite" className={STEAM_GAMES_LIST_CLASS} style={getGameListStyle()}>
-          {visibleGames.length > 0 ? visibleGames.map((game) => (
+          {visibleGames.length > 0 ? <>
+            {renderedGames.map((game) => (
             <SteamGamesRow
               key={game.gameId}
               game={game}
               onBack={onBack}
               onOpenGameDetail={onOpenGameDetail}
             />
-          )) : (
+            ))}
+            {renderedGames.length < visibleGames.length ? <Focusable
+              className={STEAM_GAMES_FOCUS_CLASS}
+              noFocusRing
+              role="button"
+              aria-label={`Show ${Math.min(STEAM_GAMES_RENDER_STEP, visibleGames.length - renderedGames.length)} more games`}
+              onActivate={() => { setRenderLimit((current) => current + STEAM_GAMES_RENDER_STEP); }}
+              onClick={() => { setRenderLimit((current) => current + STEAM_GAMES_RENDER_STEP); }}
+              onCancel={onBack}
+              style={{ ...getFilterButtonStyle(false), width: "100%", minHeight: 34 }}
+            >
+              {`Show ${Math.min(STEAM_GAMES_RENDER_STEP, visibleGames.length - renderedGames.length)} more`}
+            </Focusable> : null}
+          </> : (
             <div
               style={{
                 display: "flex",
@@ -804,14 +830,14 @@ export function DeckySteamFullScreenGamesDashboard({
         </div>
       </main>
 
-      <DeckyFullScreenFooterOverlay
+      {showSteamProfileFooter ? <DeckyFullScreenFooterOverlay
         activeNavigationItemId="games"
         ariaLabel="Steam profile navigation"
         navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
         onBack={onBack}
         onNextNavigationItem={onOpenActivity}
         onPreviousNavigationItem={onOpenProfile}
-      />
+      /> : null}
     </>
   );
 }
