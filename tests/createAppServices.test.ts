@@ -6409,11 +6409,15 @@ test("decky dashboard refresh reuses an in-flight refresh for the same provider"
     });
 
     try {
+      const firstProgressEvents: { stepId: string; status: string }[] = [];
+      const joinedProgressEvents: { stepId: string; status: string }[] = [];
       const firstRefresh = loadDeckyDashboardState("steam", {
         forceRefresh: true,
+        onProgress: (event) => firstProgressEvents.push(event),
       });
       const secondRefresh = loadDeckyDashboardState("steam", {
         forceRefresh: true,
+        onProgress: (event) => joinedProgressEvents.push(event),
       });
 
       const [firstState, secondState] = await Promise.all([firstRefresh, secondRefresh]);
@@ -6432,6 +6436,11 @@ test("decky dashboard refresh reuses an in-flight refresh for the same provider"
         diagnosticEvents.filter((event) => event.event === "dashboard_refresh_failed").length,
         0,
       );
+      for (const progressEvents of [firstProgressEvents, joinedProgressEvents]) {
+        assert.ok(progressEvents.some((event) => event.stepId === "profile" && event.status === "in-progress"));
+        assert.ok(progressEvents.some((event) => event.stepId === "profile" && event.status === "complete"));
+        assert.ok(progressEvents.some((event) => event.stepId === "finalize" && event.status === "complete"));
+      }
     } finally {
       setDeckyBackendCallImplementationForTests(deckyBackendTestCallImplementation);
       resetDeckyAppServicesForTests();
@@ -17045,7 +17054,11 @@ test("dashboard derives recently played games from recent unlocks when provider 
     },
   });
 
-  const state = await appServices.dashboard.loadDashboard(PROVIDER_ID);
+  const progressEvents: { stepId: string; status: string }[] = [];
+  const state = await appServices.dashboard.loadDashboard(PROVIDER_ID, {
+    forceRefresh: true,
+    onProgress: (event) => progressEvents.push(event),
+  });
 
   assert.equal(state.status, "success");
   assert.equal(state.error, undefined);
@@ -17056,6 +17069,10 @@ test("dashboard derives recently played games from recent unlocks when provider 
   assert.equal(counts.profile, 1);
   assert.equal(counts.recentUnlocks, 1);
   assert.equal(counts.recentlyPlayedGames, 1);
+  for (const stepId of ["profile", "recent-achievements", "recent-games", "finalize"]) {
+    assert.ok(progressEvents.some((event) => event.stepId === stepId && event.status === "in-progress"));
+    assert.ok(progressEvents.some((event) => event.stepId === stepId && event.status === "complete"));
+  }
 });
 
 test("core platform seam contracts are exported for future platform adapters", () => {

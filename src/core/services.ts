@@ -9,6 +9,19 @@ import type {
 
 export interface LoadRequestOptions {
   readonly forceRefresh?: boolean;
+  readonly onProgress?: (event: DashboardRefreshProgressEvent) => void;
+}
+
+export type DashboardRefreshProgressStepId =
+  | "profile"
+  | "recent-games"
+  | "recent-achievements"
+  | "finalize";
+
+export interface DashboardRefreshProgressEvent {
+  readonly stepId: DashboardRefreshProgressStepId;
+  readonly status: "in-progress" | "complete" | "failed";
+  readonly durationMs?: number;
 }
 
 export interface DashboardService {

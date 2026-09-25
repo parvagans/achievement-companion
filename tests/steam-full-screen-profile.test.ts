@@ -384,7 +384,7 @@ test("steam games route uses the fixed concept dashboard and shared profile foot
 });
 
 test("Steam full-screen routes share one account refresh per visit and refresh game data on entry", async () => {
-  const [servicesSource, navigationSource, profileSource, completionSource, historySource, gameSource, achievementSource] = await Promise.all([
+  const [servicesSource, navigationSource, profileSource, completionSource, historySource, gameSource, achievementSource, loadingSource] = await Promise.all([
     readFile(new URL("../src/platform/decky/decky-app-services.ts", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-navigation.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-full-screen-profile-page.tsx", import.meta.url), "utf8"),
@@ -392,6 +392,7 @@ test("Steam full-screen routes share one account refresh per visit and refresh g
     readFile(new URL("../src/platform/decky/decky-full-screen-achievement-history-page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-full-screen-game-page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-full-screen-achievement-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-loading-state.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(
@@ -403,6 +404,8 @@ test("Steam full-screen routes share one account refresh per visit and refresh g
   assert.match(profileSource, /useSyncExternalStore\([\s\S]*subscribeDeckySteamFullScreenRefreshSession[\s\S]*getDeckySteamFullScreenRefreshSessionRevision/u);
   assert.match(profileSource, /loadDeckyDashboardStateForFullScreenEntry\(providerId\)[\s\S]*\[providerId, steamFullScreenRefreshSessionRevision\]/u);
   assert.match(profileSource, /if \(providerId === STEAM_PROVIDER_ID\) \{[\s\S]*<DeckyFullScreenLoadingState/u);
+  assert.doesNotMatch(profileSource, /progressSteps=|useDeckyFullScreenLoadingProgress/u);
+  assert.doesNotMatch(loadingSource, /LoadingProgressSteps|DashboardRefreshProgressEvent/u);
   assert.match(completionSource, /await refreshDeckySteamDashboardOnFullScreenEntry\(providerId\)/u);
   assert.match(completionSource, /Refreshing your Steam account and loading your library achievement scan\./u);
   assert.match(historySource, /await refreshDeckySteamDashboardOnFullScreenEntry\(providerId\)/u);
@@ -648,6 +651,34 @@ test("Steam activity loading state owns the Activity footer and renders its trop
   assert.match(historySource, /onPreviousNavigationItem=\{onOpenGames\}[\s\S]*onNextNavigationItem=\{onOpenSettings\}/u);
   assert.match(loadingSource, /<svg aria-hidden="true" viewBox="0 0 24 24"[\s\S]*<path[\s\S]*fill="#2bc3f2"/u);
   assert.match(footerSource, /if \(!isTopFooterOverlayOwner\(owner\)\) return;/u);
+});
+
+test("full-screen loading screens retain simple provider-specific loading states", async () => {
+  const [profileSource, historySource, loadingSource, appServicesSource, deckyServicesSource, serviceTypesSource] = await Promise.all([
+    readFile(new URL("../src/platform/decky/decky-full-screen-profile-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-achievement-history-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-loading-state.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/core/app-services.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-app-services.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/core/services.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(profileSource, /loadDeckyDashboardStateForFullScreenEntry\(providerId\)/u);
+  assert.match(profileSource, /loadDeckySteamHuntersProfileState\(steamId\)/u);
+  assert.match(historySource, /await refreshDeckySteamDashboardOnFullScreenEntry\(providerId\)[\s\S]*return loadDeckyAchievementHistoryState\(providerId\)/u);
+  assert.doesNotMatch(profileSource, /progressSteps=|useDeckyFullScreenLoadingProgress|STEAM_PROFILE_LOADING_STEP_DEFINITIONS/u);
+  assert.doesNotMatch(historySource, /progressSteps=|useDeckyFullScreenLoadingProgress|STEAM_ACHIEVEMENT_HISTORY_LOADING_STEPS/u);
+  assert.doesNotMatch(loadingSource, /LoadingProgressSteps|DashboardRefreshProgressEvent|useDeckyFullScreenLoadingProgress/u);
+  assert.match(loadingSource, /FULL_SCREEN_LOADING_FONT_FAMILY/u);
+  assert.match(loadingSource, /FULL_SCREEN_LOADING_TITLE_FONT_SIZE/u);
+  assert.match(loadingSource, /loading frame below is the sole vertical-positioning authority[\s\S]*padding: 0/u);
+  assert.match(loadingSource, /rgba\(218, 70, 241, 0\.28\)[\s\S]*rgba\(27, 161, 255, 0\.25\)[\s\S]*rgba\(0, 224, 239, 0\.16\)/u);
+  assert.match(loadingSource, /style=\{\{ \.\.\.getDeckyFullScreenLoadingPageStyle\(\), \.\.\.getLoadingFrameStyle\(\) \}\}/u);
+  assert.match(appServicesSource, /const \[profile, recentAchievements, recentlyPlayedGames\] = await Promise\.all\(\[[\s\S]*loadStep\("profile"[\s\S]*recentAchievementsPromise,[\s\S]*recentlyPlayedGamesPromise/u);
+  assert.match(serviceTypesSource, /DashboardRefreshProgressStepId[\s\S]*recent-games[\s\S]*recent-achievements[\s\S]*finalize/u);
+  assert.match(deckyServicesSource, /if \(activeRefresh !== undefined\)[\s\S]*subscribeToDeckyDashboardProgress\(providerId, options\.onProgress\)[\s\S]*return await activeRefresh/u);
+  assert.match(deckyServicesSource, /onProgress: \(event\) => publishDeckyDashboardProgress\(providerId, event\)/u);
+  assert.match(deckyServicesSource, /stepId: "steam-hunters", status: "failed"[\s\S]*status: "error"[\s\S]*isRefreshing: false/u);
 });
 
 test("Games footer moves directly between Profile and Activity without a Perfected tab", async () => {

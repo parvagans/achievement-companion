@@ -23,7 +23,9 @@ import {
   subscribeDeckySteamFullScreenRefreshSession,
 } from "./decky-app-services";
 import { DeckyGameArtwork } from "./decky-game-artwork";
-import { DeckyFullScreenLoadingState } from "./decky-full-screen-loading-state";
+import {
+  DeckyFullScreenLoadingState,
+} from "./decky-full-screen-loading-state";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
@@ -48,6 +50,7 @@ import {
   type RetroAchievementsCompletionBreakdownItem,
 } from "./decky-retroachievements-completion-indicator";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
+
 import {
   getRetroAchievementsProfileAwardStatus,
   getRetroAchievementsProfileGameCompletionPercent,

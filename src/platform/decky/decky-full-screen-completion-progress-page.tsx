@@ -639,7 +639,7 @@ export function DeckyFullScreenCompletionProgressPage({
     if (providerId === STEAM_PROVIDER_ID) {
       return (
         <>
-          <div style={{ ...getDeckyFullScreenLoadingPageStyle(), paddingBottom: 48 }}>
+          <div style={getDeckyFullScreenLoadingPageStyle()}>
             <DeckyFullScreenLoadingState
               description={state.error?.userMessage ?? "Refreshing your Steam account and loading your library achievement scan."}
               isError={state.status === "error"}

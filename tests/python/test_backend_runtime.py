@@ -9,6 +9,7 @@ import os
 import ssl
 import sys
 import tempfile
+import threading
 import types
 import unittest
 import urllib.error
@@ -568,6 +569,43 @@ class BackendRuntimeTests(unittest.TestCase):
       self.assertEqual(calls[1]["auth_query"], {})
       self.assertEqual(calls[2]["path"], "steam-users/76561198000000000")
       self.assertEqual(calls[2]["auth_query"], {})
+
+  def test_steam_callable_does_not_block_the_async_event_loop(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      module = load_main_module(Path(temp_dir))
+      started = threading.Event()
+      release = threading.Event()
+
+      def blocking_request_json(**kwargs: object) -> dict[str, bool]:
+        started.set()
+        if not release.wait(timeout=2):
+          raise TimeoutError("Test did not release the mocked Steam request.")
+        return {"ok": True}
+
+      module._build_steam_config_view = lambda _config, _has_key: {  # type: ignore[attr-defined,assignment]
+        "steamId64": "76561198000000000",
+        "hasApiKey": True,
+      }
+      module._load_provider_config = lambda _provider_id: {}  # type: ignore[attr-defined,assignment]
+      module._load_secret_api_key = lambda _provider_id: "test-api-key"  # type: ignore[attr-defined,assignment]
+      module._request_json = blocking_request_json  # type: ignore[attr-defined,assignment]
+
+      async def exercise_callable() -> tuple[dict[str, bool], bool]:
+        request = asyncio.create_task(
+          module.Plugin().request_steam_json(  # type: ignore[attr-defined]
+            {"path": "IPlayerService/GetOwnedGames/v1/"},
+          ),
+        )
+        await asyncio.sleep(0.02)
+        event_loop_remained_responsive = started.is_set() and not request.done()
+        release.set()
+        response = await asyncio.wait_for(request, timeout=1)
+        return response, event_loop_remained_responsive
+
+      response, event_loop_remained_responsive = asyncio.run(exercise_callable())
+
+      self.assertEqual(response, {"ok": True})
+      self.assertTrue(event_loop_remained_responsive)
 
   def test_backend_request_json_uses_injected_urlopen_for_successful_json(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:

@@ -1,4 +1,5 @@
 import type { ResourceState } from "@core/cache";
+import type { DashboardRefreshProgressEvent } from "@core/services";
 import type {
   AchievementHistorySnapshot,
   CompletionProgressSnapshot,
@@ -194,11 +195,48 @@ const deckyDashboardRefreshInFlightByProviderId = new Map<
   ProviderId,
   Promise<ResourceState<DashboardSnapshot>>
 >();
+interface DeckyDashboardProgressChannel {
+  readonly latestByStep: Map<DashboardRefreshProgressEvent["stepId"], DashboardRefreshProgressEvent>;
+  readonly listeners: Set<(event: DashboardRefreshProgressEvent) => void>;
+}
+const deckyDashboardProgressChannels = new Map<ProviderId, DeckyDashboardProgressChannel>();
 let deckySteamFullScreenDashboardRefreshSession:
   | Promise<ResourceState<DashboardSnapshot>>
   | undefined;
+const deckySteamFullScreenDashboardProgress = new Map<DashboardRefreshProgressEvent["stepId"], DashboardRefreshProgressEvent>();
 let deckySteamFullScreenRefreshSessionRevision = 0;
 const deckySteamFullScreenRefreshSessionListeners = new Set<() => void>();
+
+function getDeckyDashboardProgressChannel(providerId: ProviderId): DeckyDashboardProgressChannel {
+  let channel = deckyDashboardProgressChannels.get(providerId);
+  if (channel === undefined) {
+    channel = { latestByStep: new Map(), listeners: new Set() };
+    deckyDashboardProgressChannels.set(providerId, channel);
+  }
+
+  return channel;
+}
+
+function publishDeckyDashboardProgress(providerId: ProviderId, event: DashboardRefreshProgressEvent): void {
+  const channel = getDeckyDashboardProgressChannel(providerId);
+  channel.latestByStep.set(event.stepId, event);
+  for (const listener of channel.listeners) {
+    listener(event);
+  }
+}
+
+function subscribeToDeckyDashboardProgress(
+  providerId: ProviderId,
+  listener: (event: DashboardRefreshProgressEvent) => void,
+): () => void {
+  const channel = getDeckyDashboardProgressChannel(providerId);
+  channel.listeners.add(listener);
+  for (const event of channel.latestByStep.values()) {
+    listener(event);
+  }
+
+  return () => channel.listeners.delete(listener);
+}
 
 function notifyDeckySteamFullScreenRefreshSessionChanged(): void {
   deckySteamFullScreenRefreshSessionRevision += 1;
@@ -251,7 +289,9 @@ function createDeckyAppServices(runtimeMode: DeckySmokeTestCacheMode | "live") {
 export function resetDeckyAppServicesForTests(): void {
   liveDeckyAppRuntime = undefined;
   deckyDashboardRefreshInFlightByProviderId.clear();
+  deckyDashboardProgressChannels.clear();
   deckySteamFullScreenDashboardRefreshSession = undefined;
+  deckySteamFullScreenDashboardProgress.clear();
   deckySteamFullScreenRefreshSessionRevision = 0;
   deckySteamFullScreenRefreshSessionListeners.clear();
   deckySteamHuntersService.clearCache();
@@ -283,14 +323,33 @@ export async function loadDeckySteamHuntersEnrichedGameDetail(
 /** Loads optional SteamHunters profile totals without refreshing Steam account data. */
 export async function loadDeckySteamHuntersProfileState(
   steamId: string,
+  onProgress?: (event: Omit<DashboardRefreshProgressEvent, "stepId"> & { readonly stepId: "steam-hunters" }) => void,
 ): Promise<ResourceState<SteamHuntersProfile>> {
-  const profile = await deckySteamHuntersService.loadProfile(steamId);
-  return {
-    status: "success",
-    isStale: false,
-    isRefreshing: false,
-    ...(profile !== undefined ? { data: profile } : {}),
-  };
+  const startedAt = Date.now();
+  onProgress?.({ stepId: "steam-hunters", status: "in-progress" });
+  try {
+    const profile = await deckySteamHuntersService.loadProfile(steamId);
+    onProgress?.({ stepId: "steam-hunters", status: "complete", durationMs: Date.now() - startedAt });
+    return {
+      status: "success",
+      isStale: false,
+      isRefreshing: false,
+      ...(profile !== undefined ? { data: profile } : {}),
+    };
+  } catch (error) {
+    onProgress?.({ stepId: "steam-hunters", status: "failed", durationMs: Date.now() - startedAt });
+    return {
+      status: "error",
+      error: {
+        kind: "unknown",
+        userMessage: "SteamHunters profile data is currently unavailable.",
+        retryable: true,
+        cause: error,
+      },
+      isStale: false,
+      isRefreshing: false,
+    };
+  }
 }
 
 /** Refreshes the optional SteamHunters profile separately from Steam's API data. */
@@ -992,6 +1051,7 @@ export async function loadDeckyDashboardState(
     readonly forceRefresh?: boolean;
     /** Full-screen entry renders direct recent data first; history backfill is non-critical. */
     readonly skipRecentAchievementHistoryBackfill?: boolean;
+    readonly onProgress?: (event: DashboardRefreshProgressEvent) => void;
   },
 ): Promise<ResourceState<DashboardSnapshot>> {
   const runtimeMode: DeckyRuntimeMode = loadDeckyRuntimeMode();
@@ -1019,8 +1079,23 @@ export async function loadDeckyDashboardState(
 
   const activeRefresh = deckyDashboardRefreshInFlightByProviderId.get(providerId);
   if (activeRefresh !== undefined) {
-    return activeRefresh;
+    if (options?.onProgress === undefined) {
+      return activeRefresh;
+    }
+
+    // Refreshes are coalesced by provider. Subscribe to the existing operation
+    // so a screen joining it receives both its current phase and future events.
+    const unsubscribe = subscribeToDeckyDashboardProgress(providerId, options.onProgress);
+    try {
+      return await activeRefresh;
+    } finally {
+      unsubscribe();
+    }
   }
+
+  const unsubscribeProgress = options?.onProgress === undefined
+    ? undefined
+    : subscribeToDeckyDashboardProgress(providerId, options.onProgress);
 
   const dashboardRefreshStartedAt = Date.now();
   console.info("[Achievement Companion][Decky] Dashboard refresh started", {
@@ -1033,9 +1108,13 @@ export async function loadDeckyDashboardState(
     mode: options?.forceRefresh ? "manual" : "initial",
   });
   const refreshPromise = (async () => {
-    const dashboardRefreshPromise = createDeckyAppServices(runtimeMode).dashboard.loadDashboard(providerId, options);
+    const dashboardRefreshPromise = createDeckyAppServices(runtimeMode).dashboard.loadDashboard(providerId, {
+      ...options,
+      onProgress: (event) => publishDeckyDashboardProgress(providerId, event),
+    });
     const state = await dashboardRefreshPromise;
     if (state.data === undefined) {
+      publishDeckyDashboardProgress(providerId, { stepId: "finalize", status: "failed" });
       if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
         markRetroAchievementsRefreshFailure(state.error, { isShowingCachedData: false });
       }
@@ -1059,6 +1138,7 @@ export async function loadDeckyDashboardState(
     }
 
     if (state.error !== undefined) {
+      publishDeckyDashboardProgress(providerId, { stepId: "finalize", status: "failed" });
       if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
         markRetroAchievementsRefreshFailure(state.error, { isShowingCachedData: true });
       }
@@ -1104,6 +1184,7 @@ export async function loadDeckyDashboardState(
           snapshot: snapshotWithSteamScanAchievements,
         });
     writeDeckyDashboardSnapshot(dashboardSnapshot);
+    publishDeckyDashboardProgress(providerId, { stepId: "finalize", status: "complete" });
 
     if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
       markRetroAchievementsAuthenticatedSuccess(state.lastUpdatedAt ?? Date.now());
@@ -1141,6 +1222,8 @@ export async function loadDeckyDashboardState(
     if (deckyDashboardRefreshInFlightByProviderId.get(providerId) === refreshPromise) {
       deckyDashboardRefreshInFlightByProviderId.delete(providerId);
     }
+    unsubscribeProgress?.();
+    deckyDashboardProgressChannels.delete(providerId);
   }
 }
 
@@ -1227,6 +1310,7 @@ export function beginDeckySteamFullScreenRefreshSession(providerId: ProviderId):
   }
 
   deckySteamFullScreenDashboardRefreshSession = undefined;
+  deckySteamFullScreenDashboardProgress.clear();
   // A full-screen visit intentionally fetches fresh optional profile totals,
   // without invalidating cached per-game SteamHunters enrichment.
   deckySteamHuntersService.clearProfileCache();
@@ -1253,18 +1337,29 @@ export function getDeckySteamFullScreenRefreshSessionRevision(): number {
  */
 export function loadDeckyDashboardStateForFullScreenEntry(
   providerId: ProviderId,
+  onProgress?: (event: DashboardRefreshProgressEvent) => void,
 ): Promise<ResourceState<DashboardSnapshot>> {
   if (providerId !== STEAM_PROVIDER_ID) {
-    return loadDeckyDashboardState(providerId);
+    return loadDeckyDashboardState(providerId, onProgress !== undefined ? { onProgress } : undefined);
   }
 
   if (deckySteamFullScreenDashboardRefreshSession !== undefined) {
+    if (onProgress !== undefined) {
+      for (const event of deckySteamFullScreenDashboardProgress.values()) {
+        onProgress(event);
+      }
+    }
     return deckySteamFullScreenDashboardRefreshSession;
   }
 
+  const reportProgress = (event: DashboardRefreshProgressEvent): void => {
+    deckySteamFullScreenDashboardProgress.set(event.stepId, event);
+    onProgress?.(event);
+  };
   const refreshSession = loadDeckyDashboardState(providerId, {
     forceRefresh: true,
     skipRecentAchievementHistoryBackfill: true,
+    onProgress: reportProgress,
   });
   deckySteamFullScreenDashboardRefreshSession = refreshSession;
   void refreshSession.then((state) => {

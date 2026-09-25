@@ -12,6 +12,7 @@ import type {
   RecentlyPlayedGame,
   RecentUnlock,
 } from "./domain";
+import type { DashboardRefreshProgressEvent } from "./services";
 import type { AppError } from "./errors";
 import {
   CACHE_VERSION,
@@ -329,6 +330,7 @@ async function loadDashboardSnapshot(
   provider: AchievementProvider,
   providerConfig: unknown,
   settingsStore: PlatformServices["settingsStore"],
+  onProgress?: (event: DashboardRefreshProgressEvent) => void,
 ): Promise<DashboardSnapshot> {
   const settings =
     settingsStore !== undefined
@@ -344,14 +346,30 @@ async function loadDashboardSnapshot(
     DASHBOARD_RECENTLY_PLAYED_LIMIT,
   );
 
+  const loadStep = async <Value,>(
+    stepId: DashboardRefreshProgressEvent["stepId"],
+    load: () => Promise<Value>,
+  ): Promise<Value> => {
+    const startedAt = Date.now();
+    onProgress?.({ stepId, status: "in-progress" });
+    try {
+      const value = await load();
+      onProgress?.({ stepId, status: "complete", durationMs: Date.now() - startedAt });
+      return value;
+    } catch (error) {
+      onProgress?.({ stepId, status: "failed", durationMs: Date.now() - startedAt });
+      throw error;
+    }
+  };
+
   const recentAchievementsPromise: Promise<readonly RecentUnlock[]> = provider.capabilities.recentUnlocks
-    ? provider.loadRecentUnlocks(providerConfig, { limit: recentAchievementLimit })
+    ? loadStep("recent-achievements", () => provider.loadRecentUnlocks(providerConfig, { limit: recentAchievementLimit }))
     : Promise.resolve<readonly RecentUnlock[]>([]);
   const recentlyPlayedGamesPromise: Promise<readonly RecentlyPlayedGame[]> =
-    provider.loadRecentlyPlayedGames(providerConfig, { count: recentlyPlayedLimit });
+    loadStep("recent-games", () => provider.loadRecentlyPlayedGames(providerConfig, { count: recentlyPlayedLimit }));
 
   const [profile, recentAchievements, recentlyPlayedGames] = await Promise.all([
-    provider.loadProfile(providerConfig),
+    loadStep("profile", () => provider.loadProfile(providerConfig)),
     recentAchievementsPromise,
     recentlyPlayedGamesPromise,
   ]);
@@ -622,6 +640,7 @@ async function refreshDashboard(args: {
   readonly loadProviderConfig: (providerId: ProviderId) => Promise<unknown | undefined>;
   readonly cacheKey: string;
   readonly cachedState?: ResourceState<DashboardSnapshot>;
+  readonly onProgress?: (event: DashboardRefreshProgressEvent) => void;
 }): Promise<ResourceState<DashboardSnapshot>> {
   const provider = args.providerRegistry.get(args.providerId);
   if (provider === undefined) {
@@ -661,10 +680,18 @@ async function refreshDashboard(args: {
   }
 
   return runProviderRefreshExclusive(args.providerId, async () => {
+    let finalizeStartedAt: number | undefined;
     try {
-      const snapshot = await loadDashboardSnapshot(provider, providerConfig, args.platform.settingsStore);
+      const snapshot = await loadDashboardSnapshot(
+        provider,
+        providerConfig,
+        args.platform.settingsStore,
+        args.onProgress,
+      );
       const now = Date.now();
 
+      finalizeStartedAt = Date.now();
+      args.onProgress?.({ stepId: "finalize", status: "in-progress" });
       await args.cacheStore.write<DashboardSnapshot>({
         key: args.cacheKey,
         value: snapshot,
@@ -672,9 +699,21 @@ async function refreshDashboard(args: {
         expiresAt: now + DASHBOARD_CACHE_TTL_MS,
         version: CACHE_VERSION,
       });
+      args.onProgress?.({
+        stepId: "finalize",
+        status: "complete",
+        durationMs: Date.now() - finalizeStartedAt,
+      });
 
       return createSuccessState(snapshot, now);
     } catch (cause) {
+      if (finalizeStartedAt !== undefined) {
+        args.onProgress?.({
+          stepId: "finalize",
+          status: "failed",
+          durationMs: Date.now() - finalizeStartedAt,
+        });
+      }
       const error = createRefreshError("dashboard", args.providerId, cause);
       return args.cachedState !== undefined
         ? createCachedStateWithError(args.cachedState, error)
@@ -908,6 +947,7 @@ export function createAppServices(options: AppServiceBootstrapOptions): AppServi
           loadProviderConfig: options.loadProviderConfig,
           cacheKey,
           ...(cacheRead.cachedState !== undefined ? { cachedState: cacheRead.cachedState } : {}),
+          ...(requestOptions?.onProgress !== undefined ? { onProgress: requestOptions.onProgress } : {}),
         });
       },
     },

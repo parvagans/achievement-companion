@@ -422,7 +422,8 @@ class Plugin:
       handled_http_statuses = {401, 403, 429}
     else:
       handled_http_statuses.update({401, 403, 429})
-    return _request_json(
+    return await asyncio.to_thread(
+      _request_json,
       provider_id="steam",
       provider_label="Steam",
       base_url="https://api.steampowered.com/",

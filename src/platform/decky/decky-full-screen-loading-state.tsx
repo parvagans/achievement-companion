@@ -1,6 +1,10 @@
 import { useEffect, useRef, type CSSProperties } from "react";
 import infoIconUrl from "./assets/info.svg";
 
+const FULL_SCREEN_LOADING_FONT_FAMILY = '"Motiva Sans", "Noto Sans", system-ui, sans-serif';
+const FULL_SCREEN_LOADING_TITLE_FONT_SIZE = "clamp(1.25rem, 2.4vw, 2rem)";
+const FULL_SCREEN_LOADING_BODY_FONT_SIZE = "clamp(0.82rem, 1.5vw, 1.05rem)";
+
 export interface DeckyFullScreenLoadingStateProps {
   readonly description: string;
   readonly isError: boolean;
@@ -15,12 +19,15 @@ export function getDeckyFullScreenLoadingPageStyle(): CSSProperties {
     width: "100%",
     height: "100%",
     minHeight: 0,
-    padding: "clamp(18px, 3.5vh, 38px) clamp(20px, 4vw, 54px)",
+    // Route wrappers use this surface too. Keep it padding-free so the
+    // loading frame below is the sole vertical-positioning authority.
+    padding: 0,
     boxSizing: "border-box",
     overflow: "hidden",
     color: "rgba(245, 250, 255, 0.98)",
+    fontFamily: FULL_SCREEN_LOADING_FONT_FAMILY,
     background:
-      "radial-gradient(ellipse at 76% 18%, rgba(42, 116, 172, 0.18), transparent 39%), radial-gradient(circle at 16% 80%, rgba(23, 91, 148, 0.14), transparent 34%), linear-gradient(135deg, #06111b 0%, #091827 52%, #06101a 100%)",
+      "radial-gradient(ellipse at 79% 13%, rgba(218, 70, 241, 0.28), transparent 37%), radial-gradient(ellipse at 20% 82%, rgba(27, 161, 255, 0.25), transparent 42%), radial-gradient(ellipse at 50% 34%, rgba(0, 224, 239, 0.16), transparent 40%), linear-gradient(135deg, #06111e 0%, #0a2855 48%, #251148 100%)",
   };
 }
 
@@ -32,9 +39,10 @@ function getLoadingFrameStyle(): CSSProperties {
     width: "100%",
     height: "100%",
     minHeight: 0,
-    padding: "clamp(72px, 13vh, 116px) clamp(20px, 8vw, 112px)",
+    padding: "clamp(12px, 2vh, 24px) clamp(16px, 5vw, 72px)",
     boxSizing: "border-box",
     textAlign: "center",
+    fontFamily: FULL_SCREEN_LOADING_FONT_FAMILY,
   };
 }
 
@@ -43,17 +51,17 @@ function getLoadingContentStyle(): CSSProperties {
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: 22,
+    gap: 10,
     width: "100%",
-    maxWidth: 680,
+    maxWidth: 840,
   };
 }
 
 function getLoadingSpinnerStyle(): CSSProperties {
   return {
     position: "relative",
-    width: "clamp(112px, 18vw, 154px)",
-    height: "clamp(112px, 18vw, 154px)",
+    width: "clamp(92px, 15vw, 132px)",
+    height: "clamp(92px, 15vw, 132px)",
     borderRadius: "50%",
     background: "rgba(7, 25, 40, 0.96)",
     boxShadow: "0 0 32px rgba(25, 178, 241, 0.2), inset 0 0 0 1px rgba(151, 225, 255, 0.16)",
@@ -95,7 +103,7 @@ function getLoadingTitleStyle(): CSSProperties {
   return {
     margin: 0,
     color: "rgba(247, 250, 255, 0.99)",
-    fontSize: "clamp(1.5rem, 3.2vw, 2.35rem)",
+    fontSize: FULL_SCREEN_LOADING_TITLE_FONT_SIZE,
     fontWeight: 800,
     letterSpacing: "-0.02em",
     lineHeight: 1.08,
@@ -109,10 +117,11 @@ function getLoadingInfoStyle(): CSSProperties {
     justifyContent: "center",
     position: "relative",
     width: "100%",
-    padding: "13px 20px",
+    minHeight: 42,
+    padding: "8px 48px",
     boxSizing: "border-box",
     border: "1px solid rgba(72, 155, 222, 0.28)",
-    borderRadius: 16,
+    borderRadius: 12,
     textAlign: "center",
     background: "linear-gradient(135deg, rgba(17, 37, 57, 0.9), rgba(12, 27, 43, 0.78))",
   };
@@ -121,15 +130,15 @@ function getLoadingInfoStyle(): CSSProperties {
 function getLoadingInfoIconStyle(): CSSProperties {
   return {
     position: "absolute",
-    left: 20,
-    width: 30,
-    height: 30,
+    left: 14,
+    width: 22,
+    height: 22,
     filter: "brightness(0) saturate(100%) invert(68%) sepia(79%) saturate(1428%) hue-rotate(161deg) brightness(101%) contrast(102%)",
   };
 }
 
 function getLoadingInfoTextStyle(): CSSProperties {
-  return { margin: 0, color: "rgba(188, 216, 242, 0.92)", fontSize: "0.95rem", lineHeight: 1.35 };
+  return { margin: 0, color: "rgba(188, 216, 242, 0.92)", fontSize: "clamp(0.78rem, 1.35vw, 1rem)", lineHeight: 1.25 };
 }
 
 export function DeckyFullScreenLoadingState({
@@ -172,7 +181,7 @@ export function DeckyFullScreenLoadingState({
       aria-label={title}
       aria-live="polite"
       role={isError ? "alert" : "status"}
-      style={getLoadingFrameStyle()}
+      style={{ ...getDeckyFullScreenLoadingPageStyle(), ...getLoadingFrameStyle() }}
     >
       <div style={getLoadingContentStyle()}>
         <div aria-hidden="true" style={getLoadingSpinnerStyle()}>
@@ -187,6 +196,7 @@ export function DeckyFullScreenLoadingState({
           </div>
         </div>
         <h1 style={getLoadingTitleStyle()}>{title}</h1>
+        <p style={{ margin: "-5px 0 0", color: "#b8d8f3", fontSize: FULL_SCREEN_LOADING_BODY_FONT_SIZE, lineHeight: 1.2 }}>Preparing your data. This may take a few moments.</p>
         <div style={getLoadingInfoStyle()}>
           <img alt="" aria-hidden="true" src={infoIconUrl} style={getLoadingInfoIconStyle()} />
           <p style={getLoadingInfoTextStyle()}>{description}</p>
