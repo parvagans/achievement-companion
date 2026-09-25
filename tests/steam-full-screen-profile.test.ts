@@ -5,6 +5,7 @@ import type {
   CompletionProgressSnapshot,
   NormalizedGame,
   NormalizedProfile,
+  RecentUnlock,
   RecentlyPlayedGame,
 } from "../src/core/domain";
 import type { SteamLibraryAchievementScanSummary } from "../src/providers/steam/library-scan";
@@ -18,6 +19,23 @@ import {
   selectSteamGames,
   summarizeSteamGamesDashboard,
 } from "../src/platform/decky/decky-steam-full-screen-games-data";
+import { buildSteamActivityStats } from "../src/platform/decky/decky-steam-activity-data";
+
+function createUnlock(gameId: string, gameTitle: string, unlockedAt?: number): RecentUnlock {
+  return {
+    achievement: {
+      providerId: "steam",
+      achievementId: `${gameId}-${unlockedAt ?? "undated"}`,
+      gameId,
+      title: "Test achievement",
+      isUnlocked: true,
+      metrics: [],
+      ...(unlockedAt !== undefined ? { unlockedAt } : {}),
+    },
+    game: { providerId: "steam", gameId, title: gameTitle },
+    ...(unlockedAt !== undefined ? { unlockedAt } : {}),
+  };
+}
 
 function createProfile(): NormalizedProfile {
   return {
@@ -529,7 +547,7 @@ test("steam full-screen profile uses the requested top-row and equal lower-row d
 });
 
 test("steam activity dashboard derives timeline metrics from timestamped unlock history without fabricating rarity", async () => {
-  const [activitySource, historySource] = await Promise.all([
+  const [activitySource, historySource, activityDataSource] = await Promise.all([
     readFile(
       new URL("../src/platform/decky/decky-steam-full-screen-activity-dashboard.tsx", import.meta.url),
       "utf8",
@@ -538,23 +556,43 @@ test("steam activity dashboard derives timeline metrics from timestamped unlock 
       new URL("../src/platform/decky/decky-full-screen-achievement-history-page.tsx", import.meta.url),
       "utf8",
     ),
+    readFile(
+      new URL("../src/platform/decky/decky-steam-activity-data.ts", import.meta.url),
+      "utf8",
+    ),
   ]);
 
   assert.match(historySource, /snapshot\.providerId === STEAM_PROVIDER_ID[\s\S]*DeckySteamFullScreenActivityDashboard/u);
   assert.match(activitySource, /data-steam-full-screen-activity-dashboard/u);
-  assert.match(activitySource, /getCurrentStreak[\s\S]*getLongestStreak/u);
+  assert.match(activityDataSource, /getCurrentStreak[\s\S]*getLongestStreak/u);
   assert.match(activitySource, /ACTIVITY CALENDAR[\s\S]*Last 12 weeks/u);
   assert.match(activitySource, /Array\.from\(\{ length: 30 \}/u);
   assert.match(activitySource, /Last 30 days/u);
   assert.match(activitySource, /\["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"\]/u);
   assert.match(activitySource, /<span>Less<\/span>[\s\S]*<span>More<\/span>/u);
+  assert.match(activitySource, /gridTemplateRows: "repeat\(7, minmax\(0, 1fr\)\)"[\s\S]*height: "100%"[\s\S]*flex: "0 0 auto"/u);
+  assert.doesNotMatch(activitySource, /aspectRatio: "1"/u);
   assert.doesNotMatch(activitySource, /Unlocks by day/u);
   assert.match(activitySource, /getSteamFullscreenGameArtworkUrlByGameId\(entry\.game\.gameId/u);
   assert.match(activitySource, /ACTIVITY_TOP_PADDING_PX = 43/u);
   assert.match(activitySource, /minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT[\s\S]*height=\{STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT\}[\s\S]*width=\{STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH\}/u);
   assert.match(activitySource, /focused \? \{[\s\S]*outline: "2px solid #bfeaff"/u);
-  assert.match(activitySource, /data-steam-activity-summary[\s\S]*<ActivityTrend entries=\{snapshot\.entries\}/u);
-  assert.match(activitySource, /Loaded Unlocks" value=\{formatCount\(snapshot\.summary\.unlockedCount\)\}/u);
+  assert.match(activitySource, /data-steam-activity-summary[\s\S]*<ActivityTrend stats=\{stats\}/u);
+  assert.match(activitySource, /Total Unlocks" value=\{formatCount\(snapshot\.summary\.unlockedCount\)\}/u);
+  assert.match(activitySource, /ACTIVITY INSIGHTS/u);
+  assert.match(activitySource, /Longest Streak[\s\S]*Best Month[\s\S]*Most Active Day/u);
+  assert.doesNotMatch(activitySource, /Most Active Game/u);
+  assert.doesNotMatch(activityDataSource, /mostActiveGame/u);
+  assert.match(activitySource, /streakIconUrl[\s\S]*activity-flame\.svg/u);
+  assert.match(activitySource, /label="Current Streak"[\s\S]*iconTone="original"/u);
+  assert.match(activitySource, /icon=\{unlockedLockIconUrl\} label="This Month"/u);
+  assert.match(activitySource, /gridTemplateColumns: "minmax\(0, 1fr\)", gap: 4, marginTop: 5/u);
+  assert.match(activitySource, /label="Current Streak"[\s\S]*iconSize=\{36\}/u);
+  assert.match(activitySource, /gridTemplateColumns: "24px minmax\(0, 1fr\)", alignItems: "center"/u);
+  assert.match(activitySource, /fontSize: 11\.5, fontWeight: 800/u);
+  assert.doesNotMatch(activitySource, /emphasized|boxShadow: "0 0 17px/u);
+  assert.match(activitySource, /recentThirtyDayCount/u);
+  assert.doesNotMatch(activitySource, /ACTIVITY OVERVIEW/u);
   assert.match(activitySource, /All Unlocks \(\$\{formatCount\(snapshot\.summary\.unlockedCount\)\}\)/u);
   assert.match(activitySource, /data-steam-activity-filter-row[\s\S]*data-steam-activity-side-column/u);
   assert.match(activitySource, /flow-children="left-right"[\s\S]*flow-children="vertical"/u);
@@ -563,6 +601,33 @@ test("steam activity dashboard derives timeline metrics from timestamped unlock 
   assert.match(activitySource, /onPreviousNavigationItem=\{onOpenGames\}[\s\S]*onNextNavigationItem=\{onOpenSettings\}/u);
   assert.doesNotMatch(activitySource, /Steam library history|RecentGames|RECENT GAMES WITH UNLOCKS/u);
   assert.doesNotMatch(activitySource, /rarity|Rare|Common|Very Rare/u);
+});
+
+test("Steam activity insights rank timestamped unlock history and compare real 30-day windows", () => {
+  const now = new Date(2026, 8, 25, 12).getTime();
+  const entries = [
+    createUnlock("1", "Halls of Torment", new Date(2026, 8, 22, 10).getTime()),
+    createUnlock("1", "Halls of Torment", new Date(2026, 8, 23, 10).getTime()),
+    createUnlock("1", "Halls of Torment", new Date(2026, 8, 24, 10).getTime()),
+    createUnlock("1", "Halls of Torment", new Date(2026, 8, 25, 10).getTime()),
+    createUnlock("2", "Balatro", new Date(2026, 8, 24, 11).getTime()),
+    createUnlock("2", "Balatro", new Date(2026, 7, 20, 11).getTime()),
+    createUnlock("3", "Undated history", undefined),
+  ];
+
+  const stats = buildSteamActivityStats(entries, now);
+  const busiestLocalDay = new Date(2026, 8, 24, 12);
+  const busiestDayKey = Date.UTC(busiestLocalDay.getFullYear(), busiestLocalDay.getMonth(), busiestLocalDay.getDate());
+
+  assert.equal(stats.gameCount, 3);
+  assert.equal(stats.thisMonthCount, 5);
+  assert.equal(stats.currentStreak, 4);
+  assert.equal(stats.longestStreak, 4);
+  assert.equal(stats.recentThirtyDayCount, 5);
+  assert.match(stats.bestMonth.value, /2026/u);
+  assert.equal(stats.bestMonth.detail, "5 unlocks");
+  assert.equal(stats.mostActiveDay.detail, "2 unlocks");
+  assert.equal(stats.dayCounts.get(busiestDayKey), 2);
 });
 
 test("completion filters can still carry a one-shot perfected selection without a footer tab", () => {

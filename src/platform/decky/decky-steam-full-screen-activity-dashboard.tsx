@@ -14,6 +14,7 @@ import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DeckyFullScreenFooterOverlay, STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS } from "./decky-full-screen-footer-overlay";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
+import { buildSteamActivityStats, type SteamActivityStats } from "./decky-steam-activity-data";
 import {
   getSteamFullscreenGameArtworkUrlByGameId,
   STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT,
@@ -23,13 +24,17 @@ import {
 import calendarIconUrl from "./assets/calendar.svg";
 import clockIconUrl from "./assets/clock.svg";
 import gamepadIconUrl from "./assets/gamepad.svg";
+import streakIconUrl from "./assets/activity-flame.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
+import unlockedLockIconUrl from "./assets/unlocked-lock.svg";
 
 type ActivityFilter = "all" | "recent" | "year" | "month" | "streak";
 type ActivityGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
 
 const BLUE_ICON_FILTER =
   "brightness(0) saturate(100%) invert(62%) sepia(84%) saturate(1250%) hue-rotate(165deg) brightness(101%) contrast(101%)";
+const GOLD_ICON_FILTER =
+  "brightness(0) saturate(100%) invert(78%) sepia(63%) saturate(754%) hue-rotate(350deg) brightness(102%) contrast(92%)";
 const ACTIVITY_TOP_PADDING_PX = 43;
 const ACTIVITY_FOOTER_CLEARANCE_PX = 48;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -67,18 +72,6 @@ function getActivityDays(entries: readonly RecentUnlock[]): readonly number[] {
     .sort((left, right) => left - right);
 }
 
-function getLongestStreak(days: readonly number[]): number {
-  let longest = 0;
-  let current = 0;
-  let previous: number | undefined;
-  for (const day of days) {
-    current = previous !== undefined && day - previous === DAY_MS ? current + 1 : 1;
-    longest = Math.max(longest, current);
-    previous = day;
-  }
-  return longest;
-}
-
 function getCurrentStreak(days: readonly number[], now = Date.now()): number {
   const present = new Set(days);
   let cursor = getLocalDayTimestamp(now);
@@ -109,21 +102,8 @@ function filterActivityEntries(entries: readonly RecentUnlock[], filter: Activit
   return entries.filter((entry) => (getUnlockTime(entry) ?? Number.NEGATIVE_INFINITY) >= cutoff);
 }
 
-function getActivityStats(entries: readonly RecentUnlock[]) {
-  const days = getActivityDays(entries);
-  const unlockedGameIds = new Set(entries.map((entry) => `${entry.game.providerId}:${entry.game.gameId}`));
-  const thisMonthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-  return {
-    unlockedCount: entries.length,
-    gameCount: unlockedGameIds.size,
-    thisMonthCount: entries.filter((entry) => (getUnlockTime(entry) ?? 0) >= thisMonthStart).length,
-    currentStreak: getCurrentStreak(days),
-    longestStreak: getLongestStreak(days),
-  };
-}
-
-function Icon({ src, size = 26 }: { readonly src: string; readonly size?: number }): JSX.Element {
-  return <img alt="" aria-hidden="true" src={src} style={{ width: size, height: size, filter: BLUE_ICON_FILTER }} />;
+function Icon({ src, size = 26, tone = "blue" }: { readonly src: string; readonly size?: number; readonly tone?: "blue" | "gold" | "original" }): JSX.Element {
+  return <img alt="" aria-hidden="true" src={src} style={{ width: size, height: size, ...(tone === "original" ? {} : { filter: tone === "gold" ? GOLD_ICON_FILTER : BLUE_ICON_FILTER }) }} />;
 }
 
 function getPageStyle(): CSSProperties {
@@ -148,43 +128,70 @@ function getCardStyle(): CSSProperties {
   };
 }
 
-function ActivityMetricCard({ icon, label, value, emphasized = false, compact = false }: {
+function ActivityMetricCard({ icon, label, value, iconTone = "blue", iconSize = 24 }: {
   readonly icon: string;
   readonly label: string;
   readonly value: string;
-  readonly emphasized?: boolean;
-  readonly compact?: boolean;
+  readonly iconTone?: "blue" | "gold" | "original";
+  readonly iconSize?: number;
 }): JSX.Element {
   return (
-    <div style={{ ...getCardStyle(), display: "flex", alignItems: "center", gap: compact ? 5 : 8, padding: compact ? "5px 7px" : "8px 10px", minHeight: compact ? 38 : 54, ...(emphasized ? { borderColor: "#20c6ff", boxShadow: "0 0 17px rgba(16, 183, 255, 0.22), inset 0 1px 0 rgba(164, 224, 255, 0.1)" } : {}) }}>
-      <Icon src={icon} size={compact ? 19 : 24} />
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: compact ? 13 : 15, fontWeight: 800, lineHeight: 1.05 }}>{value}</div>
-        <div style={{ color: "#abc6da", fontSize: compact ? 8.5 : 9.5, lineHeight: 1.15 }}>{label}</div>
+    <div style={{ ...getCardStyle(), display: "grid", gridTemplateColumns: `${iconSize}px minmax(0, 1fr)`, alignItems: "center", gap: 8, padding: "8px 10px", minHeight: 54 }}>
+      <Icon src={icon} size={iconSize} tone={iconTone} />
+      <div style={{ minWidth: 0, textAlign: "center" }}>
+        <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.05 }}>{value}</div>
+        <div style={{ color: "#abc6da", fontSize: 9.5, lineHeight: 1.15 }}>{label}</div>
       </div>
     </div>
   );
 }
 
-function ActivityTrend({ entries }: { readonly entries: readonly RecentUnlock[] }): JSX.Element {
-  const counts = useMemo(() => {
-    const start = getLocalDayTimestamp(Date.now()) - 29 * DAY_MS;
-    const dayCounts = new Map<number, number>();
-    for (const entry of entries) {
-      const timestamp = getUnlockTime(entry);
-      if (timestamp !== undefined) {
-        const day = getLocalDayTimestamp(timestamp);
-        if (day >= start) dayCounts.set(day, (dayCounts.get(day) ?? 0) + 1);
-      }
-    }
-    return Array.from({ length: 30 }, (_, index) => dayCounts.get(start + index * DAY_MS) ?? 0);
-  }, [entries]);
+function ActivityTrend({ stats }: { readonly stats: SteamActivityStats }): JSX.Element {
+  const start = getLocalDayTimestamp(Date.now()) - 29 * DAY_MS;
+  const counts = Array.from({ length: 30 }, (_, index) => stats.dayCounts.get(start + index * DAY_MS) ?? 0);
   const maximum = Math.max(1, ...counts);
   return (
     <div style={{ ...getCardStyle(), padding: "7px 10px", display: "grid", gridTemplateColumns: "minmax(92px,.7fr) minmax(0,1.6fr)", alignItems: "end", gap: 9 }}>
-      <div><div style={{ fontSize: 12, fontWeight: 700 }}>Recent Activity</div><div style={{ color: "#9cb9ce", fontSize: 9, marginTop: 2 }}>Last 30 days</div></div>
+      <div>
+        <div style={{ fontSize: 12, fontWeight: 700 }}>Recent Activity</div>
+        <div style={{ color: "#9cb9ce", fontSize: 9, marginTop: 2 }}>Last 30 days</div>
+        <div style={{ color: "#d8f3ff", fontSize: 9.5, fontWeight: 800, marginTop: 3 }}>{`${formatCount(stats.recentThirtyDayCount)} unlock${stats.recentThirtyDayCount === 1 ? "" : "s"}`}</div>
+      </div>
       <div style={{ display: "flex", alignItems: "end", gap: 2, height: 34 }}>
         {counts.map((count, index) => <span key={index} aria-label={`${count} unlocks`} style={{ display: "block", flex: "1 1 0", minWidth: 2, minHeight: 4, height: `${count === 0 ? 14 : Math.max(20, (count / maximum) * 100)}%`, borderRadius: 2, background: count > 0 ? "linear-gradient(#55d7ff, #1489c8)" : "#244258" }} />)}
+      </div>
+    </div>
+  );
+}
+
+function ActivityInsightCard({ icon, title, value, detail, tone = "blue", iconSize = 17 }: {
+  readonly icon: string;
+  readonly title: string;
+  readonly value: string;
+  readonly detail: string;
+  readonly tone?: "blue" | "gold" | "original";
+  readonly iconSize?: number;
+}): JSX.Element {
+  return (
+    <div style={{ ...getCardStyle(), display: "grid", gridTemplateColumns: "24px minmax(0, 1fr)", alignItems: "center", gap: 5, padding: "6px 6px", minHeight: 46, boxSizing: "border-box" }}>
+      <Icon src={icon} size={iconSize} tone={tone} />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ color: "#a9c8da", fontSize: 8.5, lineHeight: 1.05 }}>{title}</div>
+        <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#f0f9ff", fontSize: 11.5, fontWeight: 800, lineHeight: 1.15, marginTop: 1 }}>{value}</div>
+        <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#8fb0c4", fontSize: 8.5, lineHeight: 1.1, marginTop: 1 }}>{detail}</div>
+      </div>
+    </div>
+  );
+}
+
+function ActivityInsights({ stats }: { readonly stats: SteamActivityStats }): JSX.Element {
+  return (
+    <div data-steam-activity-insights style={{ ...getCardStyle(), padding: 7 }}>
+      <div style={{ fontSize: 9.5, fontWeight: 800 }}>ACTIVITY INSIGHTS</div>
+      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 4, marginTop: 5 }}>
+        <ActivityInsightCard icon={streakIconUrl} title="Longest Streak" value={`${stats.longestStreak} days`} detail="Consecutive active days" tone="original" iconSize={24} />
+        <ActivityInsightCard icon={calendarIconUrl} title="Best Month" value={stats.bestMonth.value} detail={stats.bestMonth.detail} />
+        <ActivityInsightCard icon={clockIconUrl} title="Most Active Day" value={stats.mostActiveDay.value} detail={stats.mostActiveDay.detail} />
       </div>
     </div>
   );
@@ -310,21 +317,55 @@ function AchievementActivityRow({ entry, rowIndex, onOpenAchievementDetail, onBa
   );
 }
 
-function ActivityCalendar({ entries }: { readonly entries: readonly RecentUnlock[] }): JSX.Element {
-  const counts = useMemo(() => {
-    const values = new Map<number, number>();
-    for (const entry of entries) { const time = getUnlockTime(entry); if (time !== undefined) { const day = getLocalDayTimestamp(time); values.set(day, (values.get(day) ?? 0) + 1); } }
-    return values;
-  }, [entries]);
+function ActivityCalendar({ dayCounts }: { readonly dayCounts: ReadonlyMap<number, number> }): JSX.Element {
   const today = getLocalDayTimestamp(Date.now());
   const mondayOffset = (new Date(today).getUTCDay() + 6) % 7;
   // Use full Monday-Sunday weeks so the current local day is always present.
   const start = today - (mondayOffset + 77) * DAY_MS;
-  const maximum = Math.max(1, ...counts.values());
+  const maximum = Math.max(1, ...dayCounts.values());
   const days = Array.from({ length: 84 }, (_, index) => start + index * DAY_MS);
   const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const intensity = (count: number): string => count === 0 ? "#1d3c51" : count / maximum >= .75 ? "#50d5ff" : count / maximum >= .45 ? "#2fb9ef" : count / maximum >= .2 ? "#267da9" : "#21546f";
-  return <div style={{ ...getCardStyle(), padding: 7, display: "flex", flexDirection: "column", flex: "1 1 0", minHeight: 0 }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontWeight: 800 }}><span>ACTIVITY CALENDAR</span><span style={{ color: "#a7c1d2", fontWeight: 500 }}>Last 12 weeks</span></div><div style={{ display: "grid", gridTemplateColumns: "22px repeat(12, minmax(0, 1fr))", gridTemplateRows: "repeat(7, 1fr)", gap: 2, marginTop: 6, alignItems: "center", flex: "1 1 auto", minHeight: 0 }}>{labels.map((label, row) => <span key={label} style={{ gridColumn: 1, gridRow: row + 1, color: "#b6cbd9", fontSize: 8 }}>{label}</span>)}{days.map((day) => { const count = counts.get(day) ?? 0; const offset = Math.floor((day - start) / DAY_MS); return <span key={day} aria-label={`${count} unlocks`} style={{ gridColumn: Math.floor(offset / 7) + 2, gridRow: offset % 7 + 1, aspectRatio: "1", borderRadius: 2, background: intensity(count) }} />; })}</div><div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, color: "#a9c1d1", fontSize: 8, marginTop: 6 }}><span>Less</span>{[0, .1, .25, .5, 1].map((level) => <span key={level} style={{ width: 12, height: 12, borderRadius: 2, background: intensity(level * maximum) }} />)}<span>More</span></div></div>;
+  return (
+    <div style={{ ...getCardStyle(), padding: 7, display: "flex", flexDirection: "column", flex: "1 1 0", minHeight: 0 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontWeight: 800, flex: "0 0 auto" }}>
+        <span>ACTIVITY CALENDAR</span>
+        <span style={{ color: "#a7c1d2", fontWeight: 500 }}>Last 12 weeks</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "22px repeat(12, minmax(0, 1fr))", gridTemplateRows: "repeat(7, minmax(0, 1fr))", gap: 2, marginTop: 6, alignItems: "stretch", flex: "1 1 0", minHeight: 0, overflow: "hidden" }}>
+        {labels.map((label, row) => (
+          <span key={label} style={{ gridColumn: 1, gridRow: row + 1, color: "#b6cbd9", fontSize: 8 }}>{label}</span>
+        ))}
+        {days.map((day) => {
+          const count = dayCounts.get(day) ?? 0;
+          const offset = Math.floor((day - start) / DAY_MS);
+          return (
+            <span
+              key={day}
+              aria-label={`${count} unlocks`}
+              style={{
+                gridColumn: Math.floor(offset / 7) + 2,
+                gridRow: offset % 7 + 1,
+                width: "100%",
+                height: "100%",
+                minHeight: 0,
+                boxSizing: "border-box",
+                borderRadius: 2,
+                background: intensity(count),
+              }}
+            />
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, color: "#a9c1d1", fontSize: 8, marginTop: 6, flex: "0 0 auto" }}>
+        <span>Less</span>
+        {[0, .1, .25, .5, 1].map((level) => (
+          <span key={level} style={{ width: 12, height: 12, borderRadius: 2, background: intensity(level * maximum) }} />
+        ))}
+        <span>More</span>
+      </div>
+    </div>
+  );
 }
 
 export function DeckySteamFullScreenActivityDashboard({
@@ -344,7 +385,7 @@ export function DeckySteamFullScreenActivityDashboard({
   const initialControllerFocusAppliedRef = useRef(false);
   const [filter, setFilter] = useState<ActivityFilter>("all");
   const entries = useMemo(() => filterActivityEntries(snapshot.entries, filter), [filter, snapshot.entries]);
-  const stats = useMemo(() => getActivityStats(snapshot.entries), [snapshot.entries]);
+  const stats = useMemo(() => buildSteamActivityStats(snapshot.entries), [snapshot.entries]);
 
   useLayoutEffect(() => {
     if (initialControllerFocusAppliedRef.current) return;
@@ -375,11 +416,11 @@ export function DeckySteamFullScreenActivityDashboard({
             data-steam-activity-summary
             style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr)) minmax(220px, 2.6fr)", gap: 6, minWidth: 0 }}
           >
-            <ActivityMetricCard icon={trophyIconUrl} label="Loaded Unlocks" value={formatCount(snapshot.summary.unlockedCount)} emphasized />
+            <ActivityMetricCard icon={trophyIconUrl} label="Total Unlocks" value={formatCount(snapshot.summary.unlockedCount)} />
             <ActivityMetricCard icon={gamepadIconUrl} label="Games with Unlocks" value={formatCount(stats.gameCount)} />
-            <ActivityMetricCard icon={calendarIconUrl} label="This Month" value={formatCount(stats.thisMonthCount)} />
-            <ActivityMetricCard icon={clockIconUrl} label="Current Streak" value={`${stats.currentStreak} days`} />
-            <ActivityTrend entries={snapshot.entries} />
+            <ActivityMetricCard icon={unlockedLockIconUrl} label="This Month" value={formatCount(stats.thisMonthCount)} />
+            <ActivityMetricCard icon={streakIconUrl} label="Current Streak" value={`${stats.currentStreak} days`} iconTone="original" iconSize={36} />
+            <ActivityTrend stats={stats} />
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 3.25fr) minmax(250px, 1.05fr)", gap: 8, minHeight: 0 }}>
@@ -419,18 +460,8 @@ export function DeckySteamFullScreenActivityDashboard({
             </section>
 
             <aside data-steam-activity-side-column style={{ display: "flex", flexDirection: "column", gap: 8, minHeight: 0, overflow: "hidden" }}>
-              <div style={{ ...getCardStyle(), padding: 7 }}>
-                <div style={{ fontSize: 9.5, fontWeight: 800 }}>
-                  ACTIVITY OVERVIEW <span style={{ color: "#9ebacd", fontWeight: 500 }}>(STEAM)</span>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, marginTop: 5 }}>
-                  <ActivityMetricCard compact icon={trophyIconUrl} label="Loaded Unlocks" value={formatCount(snapshot.summary.unlockedCount)} />
-                  <ActivityMetricCard compact icon={gamepadIconUrl} label="Games with Unlocks" value={formatCount(stats.gameCount)} />
-                  <ActivityMetricCard compact icon={calendarIconUrl} label="This Month" value={formatCount(stats.thisMonthCount)} />
-                  <ActivityMetricCard compact icon={clockIconUrl} label="Longest Streak" value={`${stats.longestStreak} days`} />
-                </div>
-              </div>
-              <ActivityCalendar entries={snapshot.entries} />
+              <ActivityInsights stats={stats} />
+              <ActivityCalendar dayCounts={stats.dayCounts} />
             </aside>
           </div>
         </div>
