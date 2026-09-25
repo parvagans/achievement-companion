@@ -244,6 +244,7 @@ import {
   runAndCacheDeckySteamLibraryAchievementScan,
 } from "../src/platform/decky/providers/steam/library-scan";
 import {
+  reconcileSteamLibraryAchievementSummaryWithRecentGames,
   refreshSteamLibraryAchievementProgress,
   scanSteamLibraryAchievements,
   validateSteamOwnedGamesResponse,
@@ -10295,6 +10296,55 @@ test("Steam Games projection keeps library counts when recent detail is fallback
   };
   const validProjection = mergeDeckySteamCompletionProgressWithDashboard(completionProgress, validDashboard);
   assert.equal(validProjection.games[0]?.summary.unlockedCount, 55);
+});
+
+test("Steam bounded profile refresh reconciles only complete recent-game progress into library totals", () => {
+  const summary: SteamLibraryAchievementScanSummary = {
+    steamId64: "12345678901234567",
+    scannedAt: "2026-09-01T00:00:00.000Z",
+    ownedGameCount: 2,
+    scannedGameCount: 2,
+    gamesWithAchievements: 2,
+    skippedGameCount: 0,
+    failedGameCount: 0,
+    totalAchievements: 1_500,
+    unlockedAchievements: 825,
+    perfectGames: 0,
+    completionPercent: 55,
+    games: [
+      {
+        appid: 2218750, id: "2218750", gameId: "2218750", title: "Halls of Torment", providerId: "steam",
+        totalAchievements: 500, unlockedAchievements: 168, completionPercent: 34,
+        hasAchievements: true, scanStatus: "scanned",
+      },
+      {
+        appid: 70, id: "70", gameId: "70", title: "Half-Life", providerId: "steam",
+        totalAchievements: 1_000, unlockedAchievements: 657, completionPercent: 66,
+        hasAchievements: true, scanStatus: "scanned",
+      },
+    ],
+  };
+  const reconciled = reconcileSteamLibraryAchievementSummaryWithRecentGames(summary, [{
+    providerId: "steam",
+    appid: 2218750,
+    gameId: "2218750",
+    title: "Halls of Torment",
+    summary: { unlockedCount: 169, totalCount: 500, completionPercent: 34 },
+    achievementStateIsComplete: true,
+  }], "2026-09-25T20:00:00.000Z");
+
+  assert.equal(reconciled.unlockedAchievements, 826);
+  assert.equal(reconciled.games[0]?.unlockedAchievements, 169);
+  assert.equal(reconciled.lastRecentActivityRefreshAt, "2026-09-25T20:00:00.000Z");
+
+  const unchanged = reconcileSteamLibraryAchievementSummaryWithRecentGames(summary, [{
+    providerId: "steam",
+    appid: 2218750,
+    gameId: "2218750",
+    title: "Halls of Torment",
+    summary: { unlockedCount: 169, totalCount: 500, completionPercent: 34 },
+  }]);
+  assert.equal(unchanged, summary, "fallback detail must not alter the saved library aggregate");
 });
 
 test("Steam dashboard refresh keeps cached library totals when bounded recent detail fails", async () => {

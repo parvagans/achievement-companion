@@ -15,6 +15,7 @@ interface CacheEntry<T> {
 export interface SteamHuntersService {
   loadGameData(appId: number): Promise<SteamHuntersGameData | undefined>;
   loadProfile(steamId: string): Promise<SteamHuntersProfile | undefined>;
+  clearProfileCache(): void;
   clearCache(): void;
 }
 
@@ -161,6 +162,9 @@ export function createSteamHuntersService(
 
       pendingProfileLoads.set(steamId, load);
       return load;
+    },
+    clearProfileCache() {
+      profileCache.clear();
     },
     clearCache() {
       appCache.clear();

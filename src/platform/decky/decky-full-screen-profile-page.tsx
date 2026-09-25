@@ -1120,14 +1120,34 @@ export function DeckyFullScreenProfilePage({
     });
   }, [state, steamLibraryAchievementScanSummary]);
 
-  if (!isRenderableDashboardState(state)) {
+  const isSteamProfileLoading =
+    providerId === STEAM_PROVIDER_ID &&
+    (state.status !== "error" &&
+      (!isRenderableDashboardState(state) ||
+        state.isRefreshing === true ||
+        steamHuntersProfileState.status === "idle" ||
+        steamHuntersProfileState.isRefreshing === true));
+
+  if (isSteamProfileLoading || !isRenderableDashboardState(state)) {
     if (providerId === STEAM_PROVIDER_ID) {
       return (
-        <DeckyFullScreenLoadingState
-          description={state.error?.userMessage ?? "Fetching the latest Steam profile and SteamHunters data."}
-          isError={state.status === "error"}
-          title={state.status === "error" ? "Steam profile unavailable" : "Loading Steam profile..."}
-        />
+        <>
+          <DeckyFullScreenLoadingState
+            description={state.error?.userMessage ?? "Fetching the latest Steam profile and SteamHunters data."}
+            isError={state.status === "error"}
+            title={state.status === "error" ? "Steam profile unavailable" : "Loading Steam profile..."}
+          />
+          <DeckyFullScreenFooterOverlay
+            activeNavigationItemId="profile"
+            ariaLabel="Steam profile navigation"
+            navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
+            onBack={onBack}
+            onNextNavigationItem={() => {
+              onOpenCompletionProgress(STEAM_PROVIDER_ID);
+            }}
+            onPreviousNavigationItem={onOpenSettings}
+          />
+        </>
       );
     }
 

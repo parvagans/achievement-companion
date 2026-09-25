@@ -1,6 +1,7 @@
 import type {
   AchievementHistorySnapshot,
   NormalizedProfile,
+  RecentlyPlayedGame,
   RecentUnlock,
 } from "@core/domain";
 import { redactFrontendLogText } from "@core/redaction";
@@ -148,6 +149,113 @@ function formatSteamLibraryCompletionPercent(
     0,
     Math.min(100, Math.round((unlockedAchievements / totalAchievements) * 100)),
   );
+}
+
+/**
+ * Applies only complete, bounded recent-game player states to an existing
+ * full-library summary. Profile refreshes must never make an unverified recent
+ * detail response authoritative, but a schema-verified recent response is
+ * safe to use for that game's aggregate contribution.
+ */
+export function reconcileSteamLibraryAchievementSummaryWithRecentGames(
+  summary: SteamLibraryAchievementScanSummary,
+  recentlyPlayedGames: readonly RecentlyPlayedGame[],
+  refreshedAt = new Date().toISOString(),
+): SteamLibraryAchievementScanSummary {
+  const recentGamesByIdentity = new Map<string, {
+    readonly totalAchievements: number;
+    readonly unlockedAchievements: number;
+  }>();
+  for (const recentGame of recentlyPlayedGames) {
+    const totalAchievements = recentGame.summary.totalCount;
+    const unlockedAchievements = recentGame.summary.unlockedCount;
+    if (
+      recentGame.achievementStateIsComplete !== true ||
+      typeof totalAchievements !== "number" ||
+      !Number.isSafeInteger(unlockedAchievements) ||
+      unlockedAchievements < 0 ||
+      !Number.isSafeInteger(totalAchievements) ||
+      totalAchievements < unlockedAchievements
+    ) {
+      continue;
+    }
+
+    const completeCounts = { totalAchievements, unlockedAchievements };
+    recentGamesByIdentity.set(recentGame.gameId, completeCounts);
+    if (recentGame.appid !== undefined) {
+      recentGamesByIdentity.set(String(recentGame.appid), completeCounts);
+    }
+  }
+
+  let changed = false;
+  const games = summary.games.map((game): SteamLibraryGameProgressSummary => {
+    if (game.ownershipStatus === "inactive") {
+      return game;
+    }
+
+    const recentGame = recentGamesByIdentity.get(game.gameId) ?? recentGamesByIdentity.get(String(game.appid));
+    if (
+      recentGame === undefined ||
+      recentGame.totalAchievements === game.totalAchievements &&
+        recentGame.unlockedAchievements === game.unlockedAchievements
+    ) {
+      return game;
+    }
+
+    const { totalAchievements, unlockedAchievements } = recentGame;
+    const { lastAchievementRefreshError: _lastAchievementRefreshError, ...gameWithoutRefreshError } = game;
+    changed = true;
+    return {
+      ...gameWithoutRefreshError,
+      totalAchievements,
+      unlockedAchievements,
+      completionPercent: formatSteamLibraryCompletionPercent(unlockedAchievements, totalAchievements),
+      hasAchievements: totalAchievements > 0,
+      scanStatus: totalAchievements > 0 ? "scanned" : "no-achievements",
+      lastAchievementRefreshAt: refreshedAt,
+    };
+  });
+
+  if (!changed) {
+    return summary;
+  }
+
+  const activeGamesWithAchievements = games.filter(
+    (game) =>
+      game.ownershipStatus !== "inactive" &&
+      game.scanStatus === "scanned" &&
+      game.hasAchievements &&
+      game.totalAchievements > 0,
+  );
+  const totalAchievements = activeGamesWithAchievements.reduce(
+    (total, game) => total + game.totalAchievements,
+    0,
+  );
+  const unlockedAchievements = activeGamesWithAchievements.reduce(
+    (total, game) => total + game.unlockedAchievements,
+    0,
+  );
+
+  return {
+    ...summary,
+    lastRecentActivityRefreshAt: refreshedAt,
+    gamesWithAchievements: activeGamesWithAchievements.length,
+    skippedGameCount: games.filter(
+      (game) => game.ownershipStatus !== "inactive" && game.scanStatus === "no-achievements",
+    ).length,
+    failedGameCount: games.filter(
+      (game) =>
+        game.ownershipStatus !== "inactive" &&
+        (game.scanStatus === "failed" || game.lastAchievementRefreshError !== undefined),
+    ).length,
+    totalAchievements,
+    unlockedAchievements,
+    perfectGames: activeGamesWithAchievements.filter(
+      (game) => game.unlockedAchievements >= game.totalAchievements,
+    ).length,
+    completionPercent: formatSteamLibraryCompletionPercent(unlockedAchievements, totalAchievements),
+    games,
+  };
 }
 
 function coerceString(value: unknown): string | undefined {

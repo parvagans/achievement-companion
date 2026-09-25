@@ -508,7 +508,8 @@ test("steam full-screen profile uses the requested top-row and equal lower-row d
   assert.match(pageSource, /navigationItems=\{STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS\}/u);
   assert.match(pageSource, /activeNavigationItemId="profile"/u);
   assert.match(pageSource, /steamHuntersProfileState\.status === "idle"/u);
-  assert.match(pageSource, /<DeckyFullScreenLoadingState[\s\S]*title="Loading Steam profile\.\.\."/u);
+  assert.match(pageSource, /isSteamProfileLoading[\s\S]*state\.isRefreshing === true[\s\S]*steamHuntersProfileState\.status === "idle"/u);
+  assert.match(pageSource, /<DeckyFullScreenLoadingState[\s\S]*title=\{state\.status === "error"/u);
   assert.match(pageSource, /Fetching the latest Steam profile and SteamHunters data\./u);
   assert.match(pageSource, /onNextNavigationItem=\{\(\) => \{\s*onOpenCompletionProgress\(profile\.providerId\);/u);
   assert.match(pageSource, /onPreviousNavigationItem=\{onOpenSettings\}/u);
@@ -636,7 +637,7 @@ test("profile summary memo runs before the loading-state early return", async ()
     "utf8",
   );
   const summaryMemoIndex = source.indexOf("const steamProfileSummary = useMemo");
-  const loadingReturnIndex = source.indexOf("if (!isRenderableDashboardState(state))");
+  const loadingReturnIndex = source.indexOf("if (isSteamProfileLoading || !isRenderableDashboardState(state))");
 
   assert.ok(summaryMemoIndex >= 0, "the Steam profile summary must remain memoized");
   assert.ok(loadingReturnIndex >= 0, "the profile page must retain its loading-state guard");

@@ -68,11 +68,14 @@ import {
   refreshAndCacheDeckySteamLibraryAchievementProgress,
   runAndCacheDeckySteamLibraryAchievementScan,
 } from "./providers/steam/library-scan";
+import { reconcileSteamLibraryAchievementSummaryWithRecentGames } from "../../providers/steam/library-scan";
 import { deckyDiagnosticLogger } from "./decky-diagnostic-logger";
 import {
+  getDeckySteamLibraryAchievementScanRevision,
   deckySteamLibraryScanStore,
   readDeckySteamLibraryAchievementScanSummary,
   type SteamLibraryAchievementScanSummary,
+  writeDeckySteamLibraryAchievementScanSummaryIfRevisionMatches,
 } from "./providers/steam/config";
 import {
   applySteamLibraryScanGameDetailMetadata,
@@ -1072,9 +1075,23 @@ export async function loadDeckyDashboardState(
     const steamLibraryScanSummary = providerId === STEAM_PROVIDER_ID
       ? readDeckySteamLibraryAchievementScanSummary(providerId)
       : undefined;
+    const reconciledSteamLibraryScanSummary = steamLibraryScanSummary === undefined
+      ? undefined
+      : reconcileSteamLibraryAchievementSummaryWithRecentGames(
+          steamLibraryScanSummary,
+          state.data.recentlyPlayedGames,
+          new Date(state.lastUpdatedAt ?? Date.now()).toISOString(),
+        );
+    if (reconciledSteamLibraryScanSummary !== undefined && reconciledSteamLibraryScanSummary !== steamLibraryScanSummary) {
+      const expectedRevision = getDeckySteamLibraryAchievementScanRevision();
+      writeDeckySteamLibraryAchievementScanSummaryIfRevisionMatches(
+        expectedRevision,
+        reconciledSteamLibraryScanSummary,
+      );
+    }
     const snapshotWithSteamScanAchievements = mergeDeckySteamLibraryScanRecentAchievements(
       state.data,
-      steamLibraryScanSummary,
+      reconciledSteamLibraryScanSummary,
     );
     const dashboardSnapshot = options?.skipRecentAchievementHistoryBackfill === true
       ? snapshotWithSteamScanAchievements
@@ -1207,6 +1224,9 @@ export function beginDeckySteamFullScreenRefreshSession(providerId: ProviderId):
   }
 
   deckySteamFullScreenDashboardRefreshSession = undefined;
+  // A full-screen visit intentionally fetches fresh optional profile totals,
+  // without invalidating cached per-game SteamHunters enrichment.
+  deckySteamHuntersService.clearProfileCache();
   notifyDeckySteamFullScreenRefreshSessionChanged();
 }
 
@@ -1263,9 +1283,14 @@ export function getDeckyDashboardStateForFullScreenEntryInitial(
   providerId: ProviderId | undefined,
 ): ResourceState<DashboardSnapshot> {
   if (providerId === undefined || providerId === STEAM_PROVIDER_ID) {
-    return providerId === STEAM_PROVIDER_ID
-      ? readDeckyDashboardSnapshotState(providerId) ?? initialDeckyBootstrapState
-      : initialDeckyBootstrapState;
+    if (providerId !== STEAM_PROVIDER_ID) {
+      return initialDeckyBootstrapState;
+    }
+
+    const cachedState = readDeckyDashboardSnapshotState(providerId);
+    return cachedState === undefined
+      ? initialDeckyBootstrapState
+      : { ...cachedState, isRefreshing: true };
   }
 
   return initialDeckyBootstrapState;
