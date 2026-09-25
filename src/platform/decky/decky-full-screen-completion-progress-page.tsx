@@ -637,7 +637,6 @@ export function DeckyFullScreenCompletionProgressPage({
 
   if (!isRenderableCompletionProgressState(state)) {
     if (providerId === STEAM_PROVIDER_ID) {
-      const activeNavigationItemId = currentFilter === "mastered" ? "perfected" : "games";
       return (
         <>
           <div style={{ ...getDeckyFullScreenLoadingPageStyle(), paddingBottom: 48 }}>
@@ -648,26 +647,12 @@ export function DeckyFullScreenCompletionProgressPage({
             />
           </div>
           <DeckyFullScreenFooterOverlay
-            activeNavigationItemId={activeNavigationItemId}
+            activeNavigationItemId="games"
             ariaLabel="Steam profile navigation"
             navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
             onBack={onBack}
-            onNextNavigationItem={() => {
-              if (currentFilter === "mastered") {
-                onOpenActivity();
-                return;
-              }
-
-              setCurrentFilter("mastered");
-            }}
-            onPreviousNavigationItem={() => {
-              if (currentFilter === "mastered") {
-                setCurrentFilter("all");
-                return;
-              }
-
-              onOpenProfile();
-            }}
+            onNextNavigationItem={onOpenActivity}
+            onPreviousNavigationItem={onOpenProfile}
           />
         </>
       );

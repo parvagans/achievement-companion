@@ -353,13 +353,14 @@ test("steam games route uses the fixed concept dashboard and shared profile foot
   assert.match(dashboardSource, /Skipped \(\$\{formatCount\(summary\.skippedCount\)\}\)/u);
   assert.match(dashboardSource, /<DeckyFullScreenFooterOverlay/u);
   assert.match(dashboardSource, /navigationItems=\{STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS\}/u);
-  assert.match(dashboardSource, /activeNavigationItemId=\{activeNavigationItemId\}/u);
+  assert.match(dashboardSource, /activeNavigationItemId="games"/u);
   assert.match(
     dashboardSource,
     /visible action must own GamepadUI[\s\S]*\[data-steam-games-row='true'\][\s\S]*initialFocusTarget\.focus\(\)/u,
   );
-  assert.match(dashboardSource, /if \(filter === "mastered"\)[\s\S]*onOpenActivity\(\)/u);
-  assert.match(dashboardSource, /if \(filter === "mastered"\)[\s\S]*setFilter\("all"\)/u);
+  assert.match(dashboardSource, /activeNavigationItemId="games"/u);
+  assert.match(dashboardSource, /onNextNavigationItem=\{onOpenActivity\}/u);
+  assert.match(dashboardSource, /onPreviousNavigationItem=\{onOpenProfile\}/u);
   assert.match(footerSource, /export const STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS/u);
   assert.doesNotMatch(dashboardSource, /<ScrollPanel>/u);
 });
@@ -559,12 +560,12 @@ test("steam activity dashboard derives timeline metrics from timestamped unlock 
   assert.match(activitySource, /flow-children="left-right"[\s\S]*flow-children="vertical"/u);
   assert.match(activitySource, /event\.key === "ArrowDown"[\s\S]*event\.key !== "ArrowLeft"[\s\S]*event\.key !== "ArrowRight"/u);
   assert.match(activitySource, /rowIndex !== 0 \|\| event\.key !== "ArrowUp"/u);
-  assert.match(activitySource, /onPreviousNavigationItem=\{onOpenPerfected\}[\s\S]*onNextNavigationItem=\{onOpenSettings\}/u);
+  assert.match(activitySource, /onPreviousNavigationItem=\{onOpenGames\}[\s\S]*onNextNavigationItem=\{onOpenSettings\}/u);
   assert.doesNotMatch(activitySource, /Steam library history|RecentGames|RECENT GAMES WITH UNLOCKS/u);
   assert.doesNotMatch(activitySource, /rarity|Rare|Common|Very Rare/u);
 });
 
-test("perfected profile navigation carries a one-shot completion filter", () => {
+test("completion filters can still carry a one-shot perfected selection without a footer tab", () => {
   markNextFullScreenCompletionProgressFilter("mastered");
 
   assert.equal(consumeNextFullScreenCompletionProgressFilter(), "mastered");
@@ -579,20 +580,22 @@ test("Steam activity loading state owns the Activity footer and renders its trop
   ]);
 
   assert.match(historySource, /title=\{state\.status === "error"[\s\S]*activeNavigationItemId="activity"/u);
-  assert.match(historySource, /onPreviousNavigationItem=\{onOpenPerfected\}[\s\S]*onNextNavigationItem=\{onOpenSettings\}/u);
+  assert.match(historySource, /onPreviousNavigationItem=\{onOpenGames\}[\s\S]*onNextNavigationItem=\{onOpenSettings\}/u);
   assert.match(loadingSource, /<svg aria-hidden="true" viewBox="0 0 24 24"[\s\S]*<path[\s\S]*fill="#2bc3f2"/u);
   assert.match(footerSource, /if \(!isTopFooterOverlayOwner\(owner\)\) return;/u);
 });
 
-test("Games footer L1 returns to Profile rather than the route that opened Games", async () => {
-  const [dashboardSource, completionSource, navigationSource] = await Promise.all([
+test("Games footer moves directly between Profile and Activity without a Perfected tab", async () => {
+  const [dashboardSource, completionSource, navigationSource, footerSource] = await Promise.all([
     readFile(new URL("../src/platform/decky/decky-steam-full-screen-games-dashboard.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-full-screen-completion-progress-page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-navigation.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-footer-overlay.tsx", import.meta.url), "utf8"),
   ]);
 
-  assert.match(dashboardSource, /if \(filter === "mastered"\)[\s\S]*setFilter\("all"\)[\s\S]*onOpenProfile\(\)/u);
-  assert.match(completionSource, /if \(currentFilter === "mastered"\)[\s\S]*setCurrentFilter\("all"\)[\s\S]*onOpenProfile\(\)/u);
+  assert.match(dashboardSource, /onNextNavigationItem=\{onOpenActivity\}[\s\S]*onPreviousNavigationItem=\{onOpenProfile\}/u);
+  assert.match(completionSource, /onNextNavigationItem=\{onOpenActivity\}[\s\S]*onPreviousNavigationItem=\{onOpenProfile\}/u);
+  assert.doesNotMatch(footerSource, /\{ id: "perfected", label: "Perfected" \}/u);
   assert.match(navigationSource, /<DeckyFullScreenCompletionProgressPage[\s\S]*onOpenProfile=\{\(\) => \{[\s\S]*buildFullScreenProfileRoute/u);
 });
 

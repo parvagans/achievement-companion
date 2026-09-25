@@ -35,7 +35,6 @@ export interface DeckyFullScreenFooterNavigationItem {
 export const STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS = [
   { id: "profile", label: "Profile" },
   { id: "games", label: "Games" },
-  { id: "perfected", label: "Perfected" },
   { id: "activity", label: "Activity" },
   { id: "settings", label: "Settings" },
 ] as const satisfies readonly DeckyFullScreenFooterNavigationItem[];

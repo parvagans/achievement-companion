@@ -331,13 +331,13 @@ export function DeckySteamFullScreenActivityDashboard({
   snapshot,
   onBack,
   onOpenAchievementDetail,
-  onOpenPerfected,
+  onOpenGames,
   onOpenSettings,
 }: {
   readonly snapshot: AchievementHistorySnapshot;
   readonly onBack: () => void;
   readonly onOpenAchievementDetail: (gameId: string, achievementId: string) => void;
-  readonly onOpenPerfected: () => void;
+  readonly onOpenGames: () => void;
   readonly onOpenSettings: () => void;
 }): JSX.Element {
   const dashboardRef = useRef<HTMLElement>(null);
@@ -440,7 +440,7 @@ export function DeckySteamFullScreenActivityDashboard({
         ariaLabel="Steam profile navigation"
         navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
         onBack={onBack}
-        onPreviousNavigationItem={onOpenPerfected}
+        onPreviousNavigationItem={onOpenGames}
         onNextNavigationItem={onOpenSettings}
       />
     </>

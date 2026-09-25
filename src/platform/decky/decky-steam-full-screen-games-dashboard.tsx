@@ -695,7 +695,6 @@ export function DeckySteamFullScreenGamesDashboard({
 }: DeckySteamFullScreenGamesDashboardProps): JSX.Element {
   const dashboardRef = useRef<HTMLElement>(null);
   const initialControllerFocusAppliedRef = useRef(false);
-  const focusPerfectedRowAfterFilterRef = useRef(false);
   const [filter, setFilter] = useState<SteamGamesFilter>(() => normalizeInitialFilter(initialFilter));
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<CompletionProgressSort>("recent");
@@ -704,7 +703,6 @@ export function DeckySteamFullScreenGamesDashboard({
     () => selectSteamGames({ games: snapshot.games, filter, query, sort }),
     [filter, query, snapshot.games, sort],
   );
-  const activeNavigationItemId = filter === "mastered" ? "perfected" : "games";
   const filterButtons = [
     { filter: "all" as const, label: `All Games (${formatCount(summary.trackedCount)})` },
     { filter: "played" as const, label: `Played (${formatCount(summary.playedCount)})` },
@@ -738,30 +736,6 @@ export function DeckySteamFullScreenGamesDashboard({
     });
     return () => ownerWindow.cancelAnimationFrame(frame);
   }, []);
-
-  useLayoutEffect(() => {
-    // R1 swaps the row set; restore a real focus target after commit so the
-    // next shoulder press can advance from Perfected to Activity immediately.
-    if (!focusPerfectedRowAfterFilterRef.current || filter !== "mastered") {
-      return;
-    }
-
-    focusPerfectedRowAfterFilterRef.current = false;
-    const dashboard = dashboardRef.current;
-    const ownerWindow = dashboard?.ownerDocument.defaultView;
-    if (dashboard === null || dashboard === undefined || ownerWindow === null || ownerWindow === undefined) {
-      return;
-    }
-
-    const frame = ownerWindow.requestAnimationFrame(() => {
-      const firstPerfectedRow = dashboard.querySelector<HTMLElement>("[data-steam-games-row='true']");
-      const focusTarget = firstPerfectedRow
-        ?? dashboard.querySelector<HTMLElement>("[data-steam-games-filter='mastered']");
-      focusTarget?.focus();
-    });
-
-    return () => ownerWindow.cancelAnimationFrame(frame);
-  }, [filter]);
 
   return (
     <>
@@ -831,27 +805,12 @@ export function DeckySteamFullScreenGamesDashboard({
       </main>
 
       <DeckyFullScreenFooterOverlay
-        activeNavigationItemId={activeNavigationItemId}
+        activeNavigationItemId="games"
         ariaLabel="Steam profile navigation"
         navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
         onBack={onBack}
-        onNextNavigationItem={() => {
-          if (filter === "mastered") {
-            onOpenActivity();
-            return;
-          }
-
-          focusPerfectedRowAfterFilterRef.current = true;
-          setFilter("mastered");
-        }}
-        onPreviousNavigationItem={() => {
-          if (filter === "mastered") {
-            setFilter("all");
-            return;
-          }
-
-          onOpenProfile();
-        }}
+        onNextNavigationItem={onOpenActivity}
+        onPreviousNavigationItem={onOpenProfile}
       />
     </>
   );

@@ -22,7 +22,6 @@ import {
   consumeNextFullScreenCompletionProgressFilter,
   consumeNextFullscreenRouteUnmountActionSuppression,
   markFullScreenGameRouteBackBehavior,
-  markNextFullScreenCompletionProgressFilter,
   markNextFullScreenSettingsBackTarget,
   popFullScreenGameRouteBackBehavior,
   peekNextFullScreenSettingsBackTarget,
@@ -511,7 +510,7 @@ function DeckyFullScreenAchievementHistoryRoute(): JSX.Element {
           suppressNextFullscreenRouteUnmountAction();
           DeckyNavigation.NavigateBack();
         }}
-        onOpenPerfected={() => {
+        onOpenGames={() => {
           if (params.providerId === undefined) {
             return;
           }
@@ -523,7 +522,6 @@ function DeckyFullScreenAchievementHistoryRoute(): JSX.Element {
             providerId: params.providerId,
           });
           if (route !== undefined) {
-            markNextFullScreenCompletionProgressFilter("mastered");
             suppressNextFullscreenRouteUnmountAction();
             DeckyNavigation.Navigate(route);
           }
@@ -612,7 +610,7 @@ function DeckySteamFullScreenSession({ providerId }: { readonly providerId: stri
       <DeckyFullScreenAchievementHistoryPage
         providerId={providerId}
         onBack={exitSession}
-        onOpenPerfected={() => openGames("mastered")}
+        onOpenGames={() => openGames()}
         onOpenSettings={() => selectTab("settings")}
         onOpenAchievementDetail={(gameId, achievementId) => {
           if (providerId !== undefined) {

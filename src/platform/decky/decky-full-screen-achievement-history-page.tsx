@@ -30,7 +30,7 @@ import { DeckySteamFullScreenActivityDashboard } from "./decky-steam-full-screen
 export interface DeckyFullScreenAchievementHistoryPageProps {
   readonly providerId: string | undefined;
   readonly onBack: () => void;
-  readonly onOpenPerfected: () => void;
+  readonly onOpenGames: () => void;
   readonly onOpenSettings: () => void;
   readonly onOpenAchievementDetail: (gameId: string, achievementId: string) => void;
 }
@@ -668,7 +668,7 @@ function AchievementHistoryBrowser({
 export function DeckyFullScreenAchievementHistoryPage({
   providerId,
   onBack,
-  onOpenPerfected,
+  onOpenGames,
   onOpenSettings,
   onOpenAchievementDetail,
 }: DeckyFullScreenAchievementHistoryPageProps): JSX.Element {
@@ -699,7 +699,7 @@ export function DeckyFullScreenAchievementHistoryPage({
             ariaLabel="Steam profile navigation"
             navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
             onBack={onBack}
-            onPreviousNavigationItem={onOpenPerfected}
+            onPreviousNavigationItem={onOpenGames}
             onNextNavigationItem={onOpenSettings}
           />
         </>
@@ -743,7 +743,7 @@ export function DeckyFullScreenAchievementHistoryPage({
         snapshot={snapshot}
         onBack={onBack}
         onOpenAchievementDetail={onOpenAchievementDetail}
-        onOpenPerfected={onOpenPerfected}
+        onOpenGames={onOpenGames}
         onOpenSettings={onOpenSettings}
       />
     );
