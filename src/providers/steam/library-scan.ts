@@ -1040,7 +1040,9 @@ export function buildSteamLibraryAchievementHistorySnapshot(args: {
     profile: args.profile,
     entries,
     summary: {
-      unlockedCount: entries.length,
+      // A valid Steam count can include unlocks whose timestamp is unavailable.
+      // Keep the library aggregate authoritative while entries stay timestamped.
+      unlockedCount: args.summary.unlockedAchievements,
       ...(newestUnlockedAt !== undefined ? { newestUnlockedAt } : {}),
       ...(oldestUnlockedAt !== undefined ? { oldestUnlockedAt } : {}),
     },

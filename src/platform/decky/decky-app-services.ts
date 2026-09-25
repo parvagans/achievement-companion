@@ -791,7 +791,10 @@ function mergeDeckyAchievementHistoryWithDashboardRecent(
   return {
     ...history,
     entries,
-    summary: summarizeDeckyAchievementHistoryEntries(entries),
+    summary: {
+      ...summarizeDeckyAchievementHistoryEntries(entries),
+      unlockedCount: Math.max(history.summary.unlockedCount, entries.length),
+    },
     refreshedAt,
   };
 }

@@ -478,7 +478,7 @@ function SteamProfileIdentityPanel({
           <ProfileFact iconUrl={starIconUrl}>{`${formatCount(profile.badgeCount)} badges`}</ProfileFact>
         ) : null}
       </div>
-      {refreshTime !== undefined ? <div style={{ marginTop: 4, color: "#86a7bb", fontSize: 7, textAlign: "center" }}>{`Steam / SteamHunters refreshed ${refreshTime}`}</div> : null}
+      {refreshTime !== undefined ? <div style={{ marginTop: "auto", color: "#86a7bb", fontSize: 7, textAlign: "center" }}>{`Steam / SteamHunters refreshed ${refreshTime}`}</div> : null}
     </DashboardPanel>
   );
 }

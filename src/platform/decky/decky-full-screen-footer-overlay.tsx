@@ -106,6 +106,16 @@ function getFooterStyle(height: number, zIndex: number): CSSProperties {
   };
 }
 
+function isTextEntryTarget(target: EventTarget | null): boolean {
+  if (target === null || typeof target !== "object" || !("tagName" in target)) {
+    return false;
+  }
+  const element = target as { readonly tagName?: unknown; readonly isContentEditable?: unknown };
+  return element.tagName === "INPUT" ||
+    element.tagName === "TEXTAREA" ||
+    element.isContentEditable === true;
+}
+
 function getSectionTabsStyle(): CSSProperties {
   return {
     display: "flex",
@@ -226,6 +236,7 @@ export function DeckyFullScreenFooterOverlay({
   const onNextNavigationItemRef = useRef(onNextNavigationItem);
   const tabTransitionSoundRef = useRef<HTMLAudioElement | null>(null);
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  const [isTextEntryFocused, setIsTextEntryFocused] = useState(false);
   const [layout, setLayout] = useState({ height: STEAM_GAME_FOOTER_FALLBACK_HEIGHT_PX, zIndex: 20 });
 
   useLayoutEffect(() => {
@@ -281,8 +292,16 @@ export function DeckyFullScreenFooterOverlay({
     setPortalTarget(target);
     ownerWindow.addEventListener("resize", updateLayout);
 
+    const updateTextEntryFocus = (): void => {
+      setIsTextEntryFocused(isTextEntryTarget(ownerDocument.activeElement));
+    };
+    ownerDocument.addEventListener("focusin", updateTextEntryFocus, true);
+    ownerDocument.addEventListener("focusout", updateTextEntryFocus, true);
+
     return () => {
       ownerWindow.removeEventListener("resize", updateLayout);
+      ownerDocument.removeEventListener("focusin", updateTextEntryFocus, true);
+      ownerDocument.removeEventListener("focusout", updateTextEntryFocus, true);
       target.remove();
     };
   }, [onHeightChange]);
@@ -337,7 +356,7 @@ export function DeckyFullScreenFooterOverlay({
   return (
     <>
       <span ref={anchorRef} hidden aria-hidden="true" />
-      {portalTarget !== null ? createPortal(
+      {portalTarget !== null && !isTextEntryFocused ? createPortal(
         <div aria-label={ariaLabel} style={getFooterStyle(layout.height, layout.zIndex)}>
           <span style={getShoulderHintStyle()}>L1</span>
           <div style={getSectionTabsStyle()}>

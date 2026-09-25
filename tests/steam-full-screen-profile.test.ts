@@ -553,6 +553,8 @@ test("steam activity dashboard derives timeline metrics from timestamped unlock 
   assert.match(activitySource, /minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT[\s\S]*height=\{STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT\}[\s\S]*width=\{STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH\}/u);
   assert.match(activitySource, /focused \? \{[\s\S]*outline: "2px solid #bfeaff"/u);
   assert.match(activitySource, /data-steam-activity-summary[\s\S]*<ActivityTrend entries=\{snapshot\.entries\}/u);
+  assert.match(activitySource, /Loaded Unlocks" value=\{formatCount\(snapshot\.summary\.unlockedCount\)\}/u);
+  assert.match(activitySource, /All Unlocks \(\$\{formatCount\(snapshot\.summary\.unlockedCount\)\}\)/u);
   assert.match(activitySource, /data-steam-activity-filter-row[\s\S]*data-steam-activity-side-column/u);
   assert.match(activitySource, /flow-children="left-right"[\s\S]*flow-children="vertical"/u);
   assert.match(activitySource, /event\.key === "ArrowDown"[\s\S]*event\.key !== "ArrowLeft"[\s\S]*event\.key !== "ArrowRight"/u);
