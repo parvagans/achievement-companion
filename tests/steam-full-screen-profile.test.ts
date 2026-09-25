@@ -381,7 +381,8 @@ test("Steam full-screen routes share one account refresh per visit and refresh g
   );
   assert.match(servicesSource, /mergeDeckySteamCompletionProgressWithDashboard\([\s\S]*readDeckyDashboardSnapshotState\(providerId\)\?\.data/u);
   assert.match(navigationSource, /beginDeckySteamFullScreenRefreshSession\(STEAM_PROVIDER_ID\)/u);
-  assert.match(profileSource, /loadDeckyDashboardStateForFullScreenEntry\(providerId\)/u);
+  assert.match(profileSource, /useSyncExternalStore\([\s\S]*subscribeDeckySteamFullScreenRefreshSession[\s\S]*getDeckySteamFullScreenRefreshSessionRevision/u);
+  assert.match(profileSource, /loadDeckyDashboardStateForFullScreenEntry\(providerId\)[\s\S]*\[providerId, steamFullScreenRefreshSessionRevision\]/u);
   assert.match(profileSource, /if \(providerId === STEAM_PROVIDER_ID\) \{[\s\S]*<DeckyFullScreenLoadingState/u);
   assert.match(completionSource, /await refreshDeckySteamDashboardOnFullScreenEntry\(providerId\)/u);
   assert.match(completionSource, /Refreshing your Steam account and loading your library achievement scan\./u);
@@ -605,13 +606,20 @@ test("compact dashboard Profile navigation suppresses the outgoing full-screen r
   );
 });
 
-test("Steam settings omit the Data & Storage section but keep Steam sync actions", async () => {
+test("Steam settings are a Steam-only account screen with expandable account and display sections", async () => {
   const source = await readFile(
     new URL("../src/platform/decky/decky-full-screen-settings-page.tsx", import.meta.url),
     "utf8",
   );
 
   assert.doesNotMatch(source, /Cache Management|DATA &amp; STORAGE|openCacheManagement|Persistent cache payload/u);
+  assert.doesNotMatch(source, /RETROACHIEVEMENTS_PROVIDER_ID|RetroAchievements|clearRetroAchievementsAccount/u);
+  assert.doesNotMatch(source, /<Heading>PROVIDERS<\/Heading>|Game Scanning|Notifications/u);
+  assert.match(source, /STEAM SETTINGS/u);
+  assert.match(source, /title="Account"[\s\S]*SteamAccountFields/u);
+  assert.match(source, /title="Display Preferences"/u);
+  assert.match(source, /STEAM_CREDENTIAL_HELPER_COPY/u);
+  assert.match(source, /writeValidatedDeckySteamProviderConfig/u);
   assert.match(source, /<Heading>DATA &amp; SYNC<\/Heading>/u);
   assert.match(source, /title=\{operation === "refreshing" \? "Refreshing All Data…" : "Refresh All Data"\}/u);
   assert.match(source, /title=\{armedAction === "clear" \? "Press again to clear cached data"/u);

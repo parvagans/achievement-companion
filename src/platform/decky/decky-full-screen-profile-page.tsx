@@ -1,4 +1,4 @@
-import { useMemo, type ComponentProps, type CSSProperties, type FocusEventHandler } from "react";
+import { useMemo, useSyncExternalStore, type ComponentProps, type CSSProperties, type FocusEventHandler } from "react";
 import type { ResourceState } from "@core/cache";
 import type {
   CompletionProgressSnapshot,
@@ -13,12 +13,14 @@ import { DeckyCompletionProgressBar } from "./decky-completion-progress-bar";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
 import {
   initialDeckyBootstrapState,
+  getDeckySteamFullScreenRefreshSessionRevision,
   getDeckyDashboardStateForFullScreenEntryInitial,
   initialDeckyCompletionProgressState,
   initialDeckySteamHuntersProfileState,
   loadDeckyCompletionProgressState,
   loadDeckyDashboardStateForFullScreenEntry,
   loadDeckySteamHuntersProfileState,
+  subscribeDeckySteamFullScreenRefreshSession,
 } from "./decky-app-services";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DeckyFullScreenLoadingState } from "./decky-full-screen-loading-state";
@@ -1062,13 +1064,18 @@ export function DeckyFullScreenProfilePage({
   onOpenGameDetail,
   onOpenSettings,
 }: DeckyFullScreenProfilePageProps): JSX.Element {
+  const steamFullScreenRefreshSessionRevision = useSyncExternalStore(
+    subscribeDeckySteamFullScreenRefreshSession,
+    getDeckySteamFullScreenRefreshSessionRevision,
+    getDeckySteamFullScreenRefreshSessionRevision,
+  );
   const loadSelectedProfile = useMemo(() => {
     if (providerId === undefined) {
       return () => Promise.resolve(initialDeckyBootstrapState);
     }
 
     return () => loadDeckyDashboardStateForFullScreenEntry(providerId);
-  }, [providerId]);
+  }, [providerId, steamFullScreenRefreshSessionRevision]);
   const initialProfileState = getDeckyDashboardStateForFullScreenEntryInitial(providerId);
   const state = useAsyncResourceState(loadSelectedProfile, initialProfileState);
   const loadSelectedCompletionProgress = useMemo(() => {

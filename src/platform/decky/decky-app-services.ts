@@ -193,6 +193,15 @@ const deckyDashboardRefreshInFlightByProviderId = new Map<
 let deckySteamFullScreenDashboardRefreshSession:
   | Promise<ResourceState<DashboardSnapshot>>
   | undefined;
+let deckySteamFullScreenRefreshSessionRevision = 0;
+const deckySteamFullScreenRefreshSessionListeners = new Set<() => void>();
+
+function notifyDeckySteamFullScreenRefreshSessionChanged(): void {
+  deckySteamFullScreenRefreshSessionRevision += 1;
+  for (const listener of deckySteamFullScreenRefreshSessionListeners) {
+    listener();
+  }
+}
 
 function createIdleState<T>(): ResourceState<T> {
   return {
@@ -239,6 +248,8 @@ export function resetDeckyAppServicesForTests(): void {
   liveDeckyAppRuntime = undefined;
   deckyDashboardRefreshInFlightByProviderId.clear();
   deckySteamFullScreenDashboardRefreshSession = undefined;
+  deckySteamFullScreenRefreshSessionRevision = 0;
+  deckySteamFullScreenRefreshSessionListeners.clear();
   deckySteamHuntersService.clearCache();
 }
 
@@ -1165,6 +1176,21 @@ export function beginDeckySteamFullScreenRefreshSession(providerId: ProviderId):
   }
 
   deckySteamFullScreenDashboardRefreshSession = undefined;
+  notifyDeckySteamFullScreenRefreshSessionChanged();
+}
+
+/**
+ * A same-route Profile navigation can retain the mounted React component.
+ * Expose the session revision so that the route can start its new bounded
+ * dashboard refresh after a compact-panel Profile action resets the session.
+ */
+export function subscribeDeckySteamFullScreenRefreshSession(listener: () => void): () => void {
+  deckySteamFullScreenRefreshSessionListeners.add(listener);
+  return () => deckySteamFullScreenRefreshSessionListeners.delete(listener);
+}
+
+export function getDeckySteamFullScreenRefreshSessionRevision(): number {
+  return deckySteamFullScreenRefreshSessionRevision;
 }
 
 /**
