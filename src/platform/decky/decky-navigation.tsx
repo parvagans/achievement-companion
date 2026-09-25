@@ -1,5 +1,5 @@
 import { routerHook } from "@decky/api";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { NavigationPort, NavigationTarget } from "@core/platform";
 import {
   Navigation as DeckyNavigation,
@@ -29,7 +29,6 @@ import {
   resolveFullScreenGameRouteAchievementReturnTarget,
   resolveFullScreenGameRouteBackBehavior,
   shouldSuppressGameRouteUnmountWhenOpeningAchievement,
-  resolveFullScreenSettingsBackTarget,
   suppressNextFullscreenRouteUnmountAction,
   type FullScreenGameRouteBackBehavior,
 } from "./decky-full-screen-navigation-state";
@@ -82,6 +81,47 @@ interface FullScreenCompletionProgressRouteParams {
 
 interface FullScreenProviderSettingsRouteParams {
   readonly providerId?: string;
+}
+
+type SteamFullScreenSessionTab = "profile" | "games" | "activity" | "settings";
+
+let isSteamFullScreenSessionActive = false;
+let steamFullScreenSessionTab: SteamFullScreenSessionTab = "profile";
+const steamFullScreenSessionListeners = new Set<() => void>();
+
+function setSteamFullScreenSessionTab(tab: SteamFullScreenSessionTab): void {
+  if (steamFullScreenSessionTab === tab) {
+    return;
+  }
+
+  steamFullScreenSessionTab = tab;
+  for (const listener of steamFullScreenSessionListeners) {
+    listener();
+  }
+}
+
+function subscribeToSteamFullScreenSession(listener: () => void): () => void {
+  steamFullScreenSessionListeners.add(listener);
+  return () => steamFullScreenSessionListeners.delete(listener);
+}
+
+function getSteamSessionTabForNavigationTarget(target: NavigationTarget): SteamFullScreenSessionTab | undefined {
+  if (target.providerId !== STEAM_PROVIDER_ID || target.surface !== "full-screen") {
+    return undefined;
+  }
+
+  switch (target.view) {
+    case "profile":
+      return "profile";
+    case "completion-progress":
+      return "games";
+    case "achievement-history":
+      return "activity";
+    case "settings":
+      return "settings";
+    default:
+      return undefined;
+  }
 }
 
 let isFullScreenGameRouteRegistered = false;
@@ -507,6 +547,117 @@ function DeckyFullScreenAchievementHistoryRoute(): JSX.Element {
   );
 }
 
+/**
+ * Steam's Profile, Games, Activity, and Settings are views within one
+ * full-screen visit, not entries in the Decky route history. Keeping the
+ * session mounted makes a single Back press leave the visit regardless of
+ * how many footer tabs the player has visited. Game and achievement details
+ * still use real routes above this session so their Back semantics remain
+ * hierarchical.
+ */
+function DeckySteamFullScreenSession({ providerId }: { readonly providerId: string | undefined }): JSX.Element {
+  const [activeTab, setActiveTab] = useState<SteamFullScreenSessionTab>(() => steamFullScreenSessionTab);
+  const [gamesInitialFilter, setGamesInitialFilter] = useState<CompletionProgressSelectionFilter>("all");
+  const [gamesViewRevision, setGamesViewRevision] = useState(0);
+
+  useEffect(() => {
+    isSteamFullScreenSessionActive = true;
+    const unsubscribe = subscribeToSteamFullScreenSession(() => {
+      setActiveTab(steamFullScreenSessionTab);
+    });
+
+    return () => {
+      unsubscribe();
+      isSteamFullScreenSessionActive = false;
+      steamFullScreenSessionTab = "profile";
+    };
+  }, []);
+
+  const selectTab = (tab: SteamFullScreenSessionTab): void => {
+    setSteamFullScreenSessionTab(tab);
+    setActiveTab(tab);
+  };
+
+  const openGames = (initialFilter: CompletionProgressSelectionFilter = "all"): void => {
+    setGamesInitialFilter(initialFilter);
+    setGamesViewRevision((currentRevision) => currentRevision + 1);
+    selectTab("games");
+  };
+
+  const exitSession = (): void => {
+    suppressNextFullscreenRouteUnmountAction();
+    returnToDeckyPanel();
+  };
+
+  if (activeTab === "games") {
+    return (
+      <DeckyFullScreenCompletionProgressPage
+        key={`steam-games-${gamesViewRevision}`}
+        providerId={providerId}
+        initialFilter={gamesInitialFilter}
+        onBack={exitSession}
+        onOpenProfile={() => selectTab("profile")}
+        onOpenActivity={() => selectTab("activity")}
+        onOpenGameDetail={(gameId) => {
+          if (providerId !== undefined) {
+            navigateToFullScreenGame(providerId, gameId, "completion-progress", true);
+          }
+        }}
+      />
+    );
+  }
+
+  if (activeTab === "activity") {
+    return (
+      <DeckyFullScreenAchievementHistoryPage
+        providerId={providerId}
+        onBack={exitSession}
+        onOpenPerfected={() => openGames("mastered")}
+        onOpenSettings={() => selectTab("settings")}
+        onOpenAchievementDetail={(gameId, achievementId) => {
+          if (providerId !== undefined) {
+            navigateToFullScreenAchievement(providerId, gameId, achievementId, true);
+          }
+        }}
+      />
+    );
+  }
+
+  if (activeTab === "settings") {
+    return (
+      <DeckyFullScreenSettingsPage
+        onBack={exitSession}
+        onOpenProviderSettings={(providerId) => {
+          navigateToFullScreenProviderSettings(providerId);
+        }}
+        onOpenExternalUrl={(url) => {
+          suppressNextFullscreenRouteUnmountAction();
+          DeckyNavigation.NavigateToExternalWeb(url);
+        }}
+        showSteamProfileFooter
+        onOpenActivity={() => selectTab("activity")}
+        onOpenProfile={() => selectTab("profile")}
+      />
+    );
+  }
+
+  return (
+    <DeckyFullScreenProfilePage
+      providerId={providerId}
+      onBack={exitSession}
+      onOpenAchievementHistory={() => selectTab("activity")}
+      onOpenAchievementDetail={(profileProviderId, gameId, achievementId) => {
+        navigateToFullScreenAchievement(profileProviderId, gameId, achievementId, true);
+      }}
+      onOpenSettings={() => selectTab("settings")}
+      onOpenCompletionProgress={(_profileProviderId, initialFilter) => openGames(initialFilter)}
+      onOpenGameDetail={(profileProviderId, gameId) => {
+        navigateToFullScreenGame(profileProviderId, gameId, "profile", true);
+      }}
+    />
+  );
+}
+
 function DeckyFullScreenProfileRoute(): JSX.Element {
   const params = useParams<FullScreenProfileRouteParams>();
 
@@ -516,58 +667,7 @@ function DeckyFullScreenProfileRoute(): JSX.Element {
         returnToDeckyPanel();
       }}
     >
-      <DeckyFullScreenProfilePage
-        providerId={params.providerId}
-        onBack={() => {
-          suppressNextFullscreenRouteUnmountAction();
-          returnToDeckyPanel();
-        }}
-        onOpenAchievementHistory={(providerId) => {
-          registerFullScreenAchievementHistoryRoute();
-          const route = buildFullScreenAchievementHistoryRoute({
-            view: "achievement-history",
-            surface: "full-screen",
-            providerId,
-          });
-          if (route !== undefined) {
-            suppressNextFullscreenRouteUnmountAction();
-            DeckyNavigation.Navigate(route);
-          }
-        }}
-        onOpenAchievementDetail={(providerId, gameId, achievementId) => {
-          navigateToFullScreenAchievement(providerId, gameId, achievementId, true);
-        }}
-        onOpenSettings={() => {
-          registerFullScreenSettingsRoute();
-          markNextFullScreenSettingsBackTarget(
-            resolveFullScreenSettingsBackTarget("fullscreen-profile"),
-          );
-          const route = buildFullScreenSettingsRoute({
-            view: "settings",
-            surface: "full-screen",
-          });
-          if (route !== undefined) {
-            suppressNextFullscreenRouteUnmountAction();
-            DeckyNavigation.Navigate(route);
-          }
-        }}
-        onOpenCompletionProgress={(providerId, initialFilter) => {
-          registerFullScreenCompletionProgressRoute();
-          const route = buildFullScreenCompletionProgressRoute({
-            view: "completion-progress",
-            surface: "full-screen",
-            providerId,
-          });
-          if (route !== undefined) {
-            markNextFullScreenCompletionProgressFilter(initialFilter);
-            suppressNextFullscreenRouteUnmountAction();
-            DeckyNavigation.Navigate(route);
-          }
-        }}
-        onOpenGameDetail={(providerId, gameId) => {
-          navigateToFullScreenGame(providerId, gameId, "profile", true);
-        }}
-      />
+      <DeckySteamFullScreenSession providerId={params.providerId} />
     </DeckyFullscreenRouteLeaveBoundary>
   );
 }
@@ -726,8 +826,33 @@ export function createDeckyNavigationPort(): NavigationPort {
   return {
     go(target) {
       if (target.surface === "full-screen") {
+        const steamSessionTab = getSteamSessionTabForNavigationTarget(target);
+        if (steamSessionTab !== undefined && isSteamFullScreenSessionActive) {
+          // Compact-panel Profile actions must reveal the existing visit rather
+          // than push another full-screen route or restart its refresh session.
+          setSteamFullScreenSessionTab(steamSessionTab);
+          DeckyNavigation.CloseSideMenus();
+          return;
+        }
+
         if (target.providerId === STEAM_PROVIDER_ID) {
           beginDeckySteamFullScreenRefreshSession(STEAM_PROVIDER_ID);
+        }
+
+        if (steamSessionTab !== undefined) {
+          setSteamFullScreenSessionTab(steamSessionTab);
+          registerFullScreenProfileRoute();
+          const profileRoute = buildFullScreenProfileRoute({
+            view: "profile",
+            surface: "full-screen",
+            providerId: STEAM_PROVIDER_ID,
+          });
+          if (profileRoute !== undefined) {
+            suppressNextFullscreenRouteUnmountAction();
+            DeckyNavigation.Navigate(profileRoute);
+            DeckyNavigation.CloseSideMenus();
+          }
+          return;
         }
 
         const completionProgressRoute = buildFullScreenCompletionProgressRoute(target);

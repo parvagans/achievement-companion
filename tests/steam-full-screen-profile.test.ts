@@ -596,6 +596,34 @@ test("Games footer L1 returns to Profile rather than the route that opened Games
   assert.match(navigationSource, /<DeckyFullScreenCompletionProgressPage[\s\S]*onOpenProfile=\{\(\) => \{[\s\S]*buildFullScreenProfileRoute/u);
 });
 
+test("Steam full-screen tabs share one session while details retain route history", async () => {
+  const navigationSource = await readFile(
+    new URL("../src/platform/decky/decky-navigation.tsx", import.meta.url),
+    "utf8",
+  );
+  const sessionStart = navigationSource.indexOf("function DeckySteamFullScreenSession");
+  const sessionEnd = navigationSource.indexOf("function DeckyFullScreenProfileRoute", sessionStart);
+  const sessionSource = navigationSource.slice(sessionStart, sessionEnd);
+
+  assert.ok(sessionStart >= 0, "Steam must render its footer tabs inside one session shell");
+  assert.match(navigationSource, /type SteamFullScreenSessionTab = "profile" \| "games" \| "activity" \| "settings"/u);
+  assert.match(sessionSource, /onOpenProfile=\{\(\) => selectTab\("profile"\)\}/u);
+  assert.match(sessionSource, /onOpenActivity=\{\(\) => selectTab\("activity"\)\}/u);
+  assert.match(sessionSource, /onOpenSettings=\{\(\) => selectTab\("settings"\)\}/u);
+  assert.match(sessionSource, /onBack=\{exitSession\}/u);
+  assert.match(sessionSource, /navigateToFullScreenGame\(providerId, gameId, "completion-progress", true\)/u);
+  assert.match(sessionSource, /navigateToFullScreenAchievement\(providerId, gameId, achievementId, true\)/u);
+  assert.doesNotMatch(sessionSource, /DeckyNavigation\.Navigate\(.*completion-progress/u);
+  assert.doesNotMatch(sessionSource, /DeckyNavigation\.Navigate\(.*achievement-history/u);
+
+  const navigationPortStart = navigationSource.indexOf("export function createDeckyNavigationPort");
+  const navigationPortSource = navigationSource.slice(navigationPortStart);
+  assert.match(
+    navigationPortSource,
+    /steamSessionTab !== undefined && isSteamFullScreenSessionActive[\s\S]*setSteamFullScreenSessionTab\(steamSessionTab\)[\s\S]*DeckyNavigation\.CloseSideMenus\(\)[\s\S]*return;/u,
+  );
+});
+
 test("compact dashboard Profile navigation suppresses the outgoing full-screen route fallback", async () => {
   const navigationSource = await readFile(
     new URL("../src/platform/decky/decky-navigation.tsx", import.meta.url),
