@@ -66,6 +66,7 @@ import {
   buildDeckySteamAchievementHistorySnapshotFromSummary,
   buildDeckySteamCompletionProgressSnapshotFromSummary,
   refreshAndCacheDeckySteamLibraryAchievementProgress,
+  runAndCacheDeckySteamLibraryAchievementScan,
 } from "./providers/steam/library-scan";
 import { deckyDiagnosticLogger } from "./decky-diagnostic-logger";
 import {
@@ -287,6 +288,14 @@ export async function loadDeckySteamHuntersProfileState(
     isRefreshing: false,
     ...(profile !== undefined ? { data: profile } : {}),
   };
+}
+
+/** Refreshes the optional SteamHunters profile separately from Steam's API data. */
+export async function refreshDeckySteamHuntersProfileState(
+  steamId: string,
+): Promise<ResourceState<SteamHuntersProfile>> {
+  deckySteamHuntersService.clearCache();
+  return loadDeckySteamHuntersProfileState(steamId);
 }
 
 function getDeckyRecentAchievementStorageKey(providerId: ProviderId, accountId: string): string {
@@ -1160,6 +1169,28 @@ export async function refreshDeckySteamLibraryForExplicitRefresh(): Promise<
     return await refreshAndCacheDeckySteamLibraryAchievementProgress(config as SteamProviderConfig);
   } catch (cause) {
     console.warn("[Achievement Companion][Steam] Explicit library refresh failed; cached library was retained", {
+      error: cause instanceof Error ? cause.message : String(cause),
+    });
+    return readDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID);
+  }
+}
+
+/**
+ * Runs the explicit full-library scan used for initial population and recovery.
+ * This is intentionally separate from the bounded Steam dashboard refresh.
+ */
+export async function runDeckySteamFullLibraryScan(): Promise<
+  SteamLibraryAchievementScanSummary | undefined
+> {
+  const config = await loadDeckyProviderConfig(STEAM_PROVIDER_ID);
+  if (config === undefined || !("steamId64" in config)) {
+    return readDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID);
+  }
+
+  try {
+    return await runAndCacheDeckySteamLibraryAchievementScan(config as SteamProviderConfig);
+  } catch (cause) {
+    console.warn("[Achievement Companion][Steam] Full library scan failed; cached library was retained", {
       error: cause instanceof Error ? cause.message : String(cause),
     });
     return readDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID);

@@ -621,7 +621,12 @@ test("Steam settings are a Steam-only account screen with expandable account and
   assert.match(source, /STEAM_CREDENTIAL_HELPER_COPY/u);
   assert.match(source, /writeValidatedDeckySteamProviderConfig/u);
   assert.match(source, /<Heading>DATA &amp; SYNC<\/Heading>/u);
-  assert.match(source, /title=\{operation === "refreshing" \? "Refreshing All Data…" : "Refresh All Data"\}/u);
+  assert.match(source, /refreshDeckySteamHuntersProfileState/u);
+  assert.match(source, /runDeckySteamFullLibraryScan/u);
+  assert.match(source, /Last Full Scan/u);
+  assert.match(source, /fullScan\?\.date \?\? "Never"/u);
+  assert.match(source, /Refresh Steam & SteamHunters/u);
+  assert.match(source, /Refresh Steam Library/u);
   assert.match(source, /title=\{armedAction === "clear" \? "Press again to clear cached data"/u);
 });
 
