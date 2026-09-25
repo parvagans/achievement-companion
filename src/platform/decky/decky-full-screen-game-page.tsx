@@ -327,9 +327,6 @@ export function DeckyFullScreenGamePage({
     initialSectionState?.["achievement-groups"].expandedGroupIds ?? [],
   );
   const [activeSteamSection, setActiveSteamSection] = useState<DeckySteamGameSectionId>(initialSectionState?.activeSection ?? "overview");
-  const [visitedSteamSections, setVisitedSteamSections] = useState<ReadonlySet<DeckySteamGameSectionId>>(
-    () => new Set<DeckySteamGameSectionId>([initialSectionState?.activeSection ?? "overview"]),
-  );
   const activeSteamSectionRef = useRef(activeSteamSection);
   const [sectionRestoreNonce, setSectionRestoreNonce] = useState(0);
   const [steamHuntersEnrichmentResult, setSteamHuntersEnrichmentResult] = useState<{
@@ -409,9 +406,6 @@ export function DeckyFullScreenGamePage({
     }
     persistSteamSectionState((current) => ({ ...current, activeSection: nextSection }));
     activeSteamSectionRef.current = nextSection;
-    setVisitedSteamSections((currentSections) => currentSections.has(nextSection)
-      ? currentSections
-      : new Set<DeckySteamGameSectionId>([...currentSections, nextSection]));
     setActiveSteamSection(nextSection);
     setSectionRestoreNonce((current) => current + 1);
   };
@@ -491,13 +485,17 @@ export function DeckyFullScreenGamePage({
   const restorationSteamHuntersEnrichment = restorationSnapshot === undefined
     ? undefined
     : getSteamHuntersGameEnrichment(restorationSnapshot);
+  const restorationOrderedAchievements = useMemo(
+    () => sortAchievementsForDisplay(restorationSnapshot?.achievements ?? []),
+    [restorationSnapshot?.achievements],
+  );
   const restorationGroupFilterOptions = getAchievementGroupFilterOptions(
-    restorationSnapshot?.achievements ?? [],
+    restorationOrderedAchievements,
     restorationSteamHuntersEnrichment?.achievementGroupsBySteamAchievementId,
     restorationSteamHuntersEnrichment?.achievementGroups,
   );
   const restorationAvailabilityFilterOptions = getAchievementAvailabilityFilterOptions(
-    restorationSnapshot?.achievements ?? [],
+    restorationOrderedAchievements,
     restorationSteamHuntersEnrichment?.achievementsBySteamAchievementId,
   );
   const restorationGroupFilter = restorationGroupFilterOptions.includes(achievementGroupFilter)
@@ -506,9 +504,10 @@ export function DeckyFullScreenGamePage({
   const restorationAvailabilityFilter = restorationAvailabilityFilterOptions.includes(achievementAvailabilityFilter)
     ? achievementAvailabilityFilter
     : "all";
-  const restorationFilteredAchievements = restorationSnapshot === undefined
-    ? []
-    : sortAchievementsForDisplay(restorationSnapshot.achievements).filter((achievement) =>
+  const restorationFilteredAchievements = useMemo(
+    () => restorationSnapshot === undefined
+      ? []
+      : restorationOrderedAchievements.filter((achievement) =>
       matchesAchievementFilter(achievement, achievementFilter) &&
       matchesAchievementGroupFilter(
         achievement,
@@ -521,7 +520,38 @@ export function DeckyFullScreenGamePage({
         restorationSteamHuntersEnrichment?.achievementsBySteamAchievementId,
       ) &&
       (shouldRenderAchievementModeFilter(restorationProviderId) ? matchesAchievementModeFilter(achievement, achievementModeFilter) : true),
-    );
+      ),
+    [
+      achievementAvailabilityFilter,
+      achievementFilter,
+      achievementGroupFilter,
+      achievementModeFilter,
+      restorationAvailabilityFilter,
+      restorationGroupFilter,
+      restorationIsSteamProvider,
+      restorationOrderedAchievements,
+      restorationProviderId,
+      restorationSnapshot,
+      restorationSteamHuntersEnrichment?.achievementGroupsBySteamAchievementId,
+      restorationSteamHuntersEnrichment?.achievementsBySteamAchievementId,
+    ],
+  );
+  const restorationSteamHuntersViewModel = useMemo(
+    () => restorationIsSteamProvider
+      ? buildDeckySteamHuntersGameViewModel({
+          achievements: restorationOrderedAchievements,
+          enrichment: restorationSteamHuntersEnrichment,
+        })
+      : undefined,
+    [restorationIsSteamProvider, restorationOrderedAchievements, restorationSteamHuntersEnrichment],
+  );
+  const restorationSteamAchievementGroupSections = useMemo(
+    () => buildDeckySteamAchievementGroupSections({
+      achievements: restorationOrderedAchievements,
+      groups: restorationSteamHuntersEnrichment?.achievementGroups ?? [],
+    }),
+    [restorationOrderedAchievements, restorationSteamHuntersEnrichment?.achievementGroups],
+  );
 
   useEffect(() => {
     if (!restorationIsSteamProvider) {
@@ -643,7 +673,7 @@ export function DeckyFullScreenGamePage({
       : state.data;
   const game = snapshot.game;
   const isSteamProvider = game.providerId === STEAM_PROVIDER_ID;
-  const orderedAchievements = sortAchievementsForDisplay(snapshot.achievements);
+  const orderedAchievements = restorationOrderedAchievements;
   const achievementSummary = formatAchievementStatusSummary(orderedAchievements);
   const summary = snapshot.game.summary;
   const providerIdValue = providerId ?? game.providerId;
@@ -663,20 +693,7 @@ export function DeckyFullScreenGamePage({
   const activeAchievementAvailabilityFilter = achievementAvailabilityFilterOptions.includes(achievementAvailabilityFilter)
     ? achievementAvailabilityFilter
     : "all";
-  const filteredAchievements = orderedAchievements.filter((achievement) =>
-    matchesAchievementFilter(achievement, achievementFilter) &&
-    matchesAchievementGroupFilter(
-      achievement,
-      activeAchievementGroupFilter,
-      steamHuntersEnrichment?.achievementGroupsBySteamAchievementId,
-    ) &&
-    matchesAchievementAvailabilityFilter(
-      achievement,
-      activeAchievementAvailabilityFilter,
-      steamHuntersEnrichment?.achievementsBySteamAchievementId,
-    ) &&
-    (shouldRenderAchievementModeFilter(providerIdValue) ? matchesAchievementModeFilter(achievement, achievementModeFilter) : true),
-  );
+  const filteredAchievements = restorationFilteredAchievements;
   const filteredAchievementCount = filteredAchievements.length;
   const completionPercent = getCompletionPercent(snapshot.game.summary);
   const achievements = filteredAchievements;
@@ -688,18 +705,12 @@ export function DeckyFullScreenGamePage({
     game.metrics,
     isSteamProvider || game.communityStats === undefined,
   );
-  const steamHuntersViewModel = buildDeckySteamHuntersGameViewModel({
-    achievements: orderedAchievements,
-    enrichment: steamHuntersEnrichment,
-  });
-  const steamAchievementGroupSections = buildDeckySteamAchievementGroupSections({
-    achievements: orderedAchievements,
-    groups: steamHuntersEnrichment?.achievementGroups ?? [],
-  });
+  const steamHuntersViewModel = restorationSteamHuntersViewModel;
+  const steamAchievementGroupSections = restorationSteamAchievementGroupSections;
 
   const pageSections = (
     <>
-          {isSteamProvider && visitedSteamSections.has("overview") ? (
+          {isSteamProvider ? (
             <div
               data-steam-game-section="overview"
               style={{ display: activeSteamSection === "overview" ? "contents" : "none" }}
@@ -734,7 +745,7 @@ export function DeckyFullScreenGamePage({
             </PanelSectionRow>
           </PanelSection> : null}
 
-          {(!isSteamProvider || visitedSteamSections.has("achievements")) ? <div
+          <div
             {...(isSteamProvider ? { "data-steam-game-section": "achievements" } : {})}
             style={isSteamProvider ? { display: activeSteamSection === "achievements" ? "contents" : "none" } : undefined}
           ><PanelSection title="Achievements">
@@ -784,9 +795,9 @@ export function DeckyFullScreenGamePage({
                   : {})}
               />
             </PanelSectionRow>
-          </PanelSection></div> : null}
+          </PanelSection></div>
 
-          {isSteamProvider && visitedSteamSections.has("achievement-groups") && steamHuntersEnrichment !== undefined ? (
+          {isSteamProvider && steamHuntersEnrichment !== undefined ? (
             <div
               data-steam-game-section="achievement-groups"
               style={{ display: activeSteamSection === "achievement-groups" ? "contents" : "none" }}
@@ -826,7 +837,7 @@ export function DeckyFullScreenGamePage({
             </div>
           ) : null}
 
-          {isSteamProvider && visitedSteamSections.has("community") && steamHuntersViewModel !== undefined ? (
+          {isSteamProvider && steamHuntersViewModel !== undefined ? (
             <div
               data-steam-game-section="community"
               style={{ display: activeSteamSection === "community" ? "contents" : "none" }}
