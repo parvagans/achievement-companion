@@ -168,7 +168,7 @@ function ActivityMetricCard({ icon, label, value, emphasized = false, compact = 
 
 function ActivityTrend({ entries }: { readonly entries: readonly RecentUnlock[] }): JSX.Element {
   const counts = useMemo(() => {
-    const start = getLocalDayTimestamp(Date.now()) - 13 * DAY_MS;
+    const start = getLocalDayTimestamp(Date.now()) - 29 * DAY_MS;
     const dayCounts = new Map<number, number>();
     for (const entry of entries) {
       const timestamp = getUnlockTime(entry);
@@ -177,16 +177,15 @@ function ActivityTrend({ entries }: { readonly entries: readonly RecentUnlock[] 
         if (day >= start) dayCounts.set(day, (dayCounts.get(day) ?? 0) + 1);
       }
     }
-    return Array.from({ length: 14 }, (_, index) => dayCounts.get(start + index * DAY_MS) ?? 0);
+    return Array.from({ length: 30 }, (_, index) => dayCounts.get(start + index * DAY_MS) ?? 0);
   }, [entries]);
   const maximum = Math.max(1, ...counts);
   return (
-    <div style={{ ...getCardStyle(), padding: "7px 10px", display: "flex", flexDirection: "column", justifyContent: "space-between", gap: 3 }}>
-      <div style={{ fontSize: 12, fontWeight: 700 }}>Recent Activity</div>
-      <div style={{ display: "flex", alignItems: "end", gap: 3, height: 28 }}>
-        {counts.map((count, index) => <span key={index} aria-label={`${count} unlocks`} style={{ display: "block", flex: "1 1 0", minHeight: 4, height: `${Math.max(10, (count / maximum) * 100)}%`, borderRadius: 2, background: count > 0 ? "linear-gradient(#4bd3ff, #1689c4)" : "#244258" }} />)}
+    <div style={{ ...getCardStyle(), padding: "7px 10px", display: "grid", gridTemplateColumns: "minmax(92px,.7fr) minmax(0,1.6fr)", alignItems: "end", gap: 9 }}>
+      <div><div style={{ fontSize: 12, fontWeight: 700 }}>Recent Activity</div><div style={{ color: "#9cb9ce", fontSize: 9, marginTop: 2 }}>Last 30 days</div></div>
+      <div style={{ display: "flex", alignItems: "end", gap: 2, height: 34 }}>
+        {counts.map((count, index) => <span key={index} aria-label={`${count} unlocks`} style={{ display: "block", flex: "1 1 0", minWidth: 2, minHeight: 4, height: `${count === 0 ? 14 : Math.max(20, (count / maximum) * 100)}%`, borderRadius: 2, background: count > 0 ? "linear-gradient(#55d7ff, #1489c8)" : "#244258" }} />)}
       </div>
-      <div style={{ color: "#9cb9ce", fontSize: 9 }}>Last 14 days</div>
     </div>
   );
 }
@@ -317,10 +316,15 @@ function ActivityCalendar({ entries }: { readonly entries: readonly RecentUnlock
     for (const entry of entries) { const time = getUnlockTime(entry); if (time !== undefined) { const day = getLocalDayTimestamp(time); values.set(day, (values.get(day) ?? 0) + 1); } }
     return values;
   }, [entries]);
-  const start = getLocalDayTimestamp(Date.now()) - 83 * DAY_MS;
+  const today = getLocalDayTimestamp(Date.now());
+  const mondayOffset = (new Date(today).getUTCDay() + 6) % 7;
+  // Use full Monday-Sunday weeks so the current local day is always present.
+  const start = today - (mondayOffset + 77) * DAY_MS;
   const maximum = Math.max(1, ...counts.values());
   const days = Array.from({ length: 84 }, (_, index) => start + index * DAY_MS);
-  return <div style={{ ...getCardStyle(), padding: 7 }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontWeight: 800 }}><span>ACTIVITY CALENDAR</span><span style={{ color: "#a7c1d2", fontWeight: 500 }}>Last 12 weeks</span></div><div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 2, marginTop: 6 }}>{days.map((day) => { const count = counts.get(day) ?? 0; const opacity = count === 0 ? 0.18 : 0.35 + (count / maximum) * 0.65; return <span key={day} aria-label={`${count} unlocks`} style={{ aspectRatio: "1", borderRadius: 2, background: `rgba(45, 184, 255, ${opacity})` }} />; })}</div><div style={{ color: "#9db7ca", fontSize: 8, marginTop: 4 }}>Unlocks by day — more activity is brighter.</div></div>;
+  const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const intensity = (count: number): string => count === 0 ? "#1d3c51" : count / maximum >= .75 ? "#50d5ff" : count / maximum >= .45 ? "#2fb9ef" : count / maximum >= .2 ? "#267da9" : "#21546f";
+  return <div style={{ ...getCardStyle(), padding: 7 }}><div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontWeight: 800 }}><span>ACTIVITY CALENDAR</span><span style={{ color: "#a7c1d2", fontWeight: 500 }}>Last 12 weeks</span></div><div style={{ display: "grid", gridTemplateColumns: "22px repeat(12, minmax(0, 1fr))", gridTemplateRows: "repeat(7, 1fr)", gap: 2, marginTop: 6, alignItems: "center" }}>{labels.map((label, row) => <span key={label} style={{ gridColumn: 1, gridRow: row + 1, color: "#b6cbd9", fontSize: 8 }}>{label}</span>)}{days.map((day) => { const count = counts.get(day) ?? 0; const offset = Math.floor((day - start) / DAY_MS); return <span key={day} aria-label={`${count} unlocks`} style={{ gridColumn: Math.floor(offset / 7) + 2, gridRow: offset % 7 + 1, aspectRatio: "1", borderRadius: 2, background: intensity(count) }} />; })}</div><div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, color: "#a9c1d1", fontSize: 8, marginTop: 6 }}><span>Less</span>{[0, .1, .25, .5, 1].map((level) => <span key={level} style={{ width: 12, height: 12, borderRadius: 2, background: intensity(level * maximum) }} />)}<span>More</span></div></div>;
 }
 
 export function DeckySteamFullScreenActivityDashboard({

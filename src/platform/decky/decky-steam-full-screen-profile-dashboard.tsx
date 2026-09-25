@@ -143,6 +143,13 @@ function formatCount(value: number | undefined): string {
   return value !== undefined ? value.toLocaleString() : "-";
 }
 
+function formatRefreshTime(value: number | undefined): string | undefined {
+  if (value === undefined || !Number.isFinite(value)) {
+    return undefined;
+  }
+  return new Date(value).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
 function formatPercent(value: number | undefined): string {
   return value !== undefined ? `${value}%` : "-";
 }
@@ -437,6 +444,7 @@ function SteamProfileIdentityPanel({
 >): JSX.Element {
   const memberSince = formatProfileMemberSince(profile.metrics);
   const avatarUrl = addProfileAvatarCacheBustParam(profile.identity.avatarUrl, refreshedAt);
+  const refreshTime = formatRefreshTime(refreshedAt);
 
   return (
     <DashboardPanel gridArea="profile">
@@ -470,6 +478,7 @@ function SteamProfileIdentityPanel({
           <ProfileFact iconUrl={starIconUrl}>{`${formatCount(profile.badgeCount)} badges`}</ProfileFact>
         ) : null}
       </div>
+      {refreshTime !== undefined ? <div style={{ marginTop: 4, color: "#86a7bb", fontSize: 7, textAlign: "center" }}>{`Steam / SteamHunters refreshed ${refreshTime}`}</div> : null}
     </DashboardPanel>
   );
 }

@@ -543,6 +543,11 @@ test("steam activity dashboard derives timeline metrics from timestamped unlock 
   assert.match(activitySource, /data-steam-full-screen-activity-dashboard/u);
   assert.match(activitySource, /getCurrentStreak[\s\S]*getLongestStreak/u);
   assert.match(activitySource, /ACTIVITY CALENDAR[\s\S]*Last 12 weeks/u);
+  assert.match(activitySource, /Array\.from\(\{ length: 30 \}/u);
+  assert.match(activitySource, /Last 30 days/u);
+  assert.match(activitySource, /\["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"\]/u);
+  assert.match(activitySource, /<span>Less<\/span>[\s\S]*<span>More<\/span>/u);
+  assert.doesNotMatch(activitySource, /Unlocks by day/u);
   assert.match(activitySource, /getSteamFullscreenGameArtworkUrlByGameId\(entry\.game\.gameId/u);
   assert.match(activitySource, /ACTIVITY_TOP_PADDING_PX = 43/u);
   assert.match(activitySource, /minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT[\s\S]*height=\{STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT\}[\s\S]*width=\{STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH\}/u);
@@ -619,6 +624,8 @@ test("Steam settings are a Steam-only account screen with expandable account and
   assert.match(source, /STEAM SETTINGS/u);
   assert.match(source, /title="Account"[\s\S]*SteamAccountFields/u);
   assert.match(source, /title="Display Preferences"/u);
+  assert.match(source, /SteamDisplayPreferences/u);
+  assert.match(source, /useState\(false\).*displayExpanded/u);
   assert.match(source, /STEAM_CREDENTIAL_HELPER_COPY/u);
   assert.match(source, /writeValidatedDeckySteamProviderConfig/u);
   assert.match(source, /<Heading>DATA &amp; SYNC<\/Heading>/u);
@@ -627,7 +634,7 @@ test("Steam settings are a Steam-only account screen with expandable account and
   assert.match(source, /Last Full Scan/u);
   assert.match(source, /fullScan\?\.date \?\? "Never"/u);
   assert.match(source, /Refresh Steam & SteamHunters/u);
-  assert.match(source, /Refresh Steam Library/u);
+  assert.match(source, /title === "Refresh Steam Library" \? "Last Full Scan"/u);
   assert.match(source, /title=\{armedAction === "clear" \? "Press again to clear cached data"/u);
 });
 

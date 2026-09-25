@@ -10,6 +10,7 @@ import {
 
 const COMPACT_FOOTER_REDUCTION_PX = 4;
 const COMPACT_FOOTER_MINIMUM_HEIGHT_PX = 40;
+const STEAM_TAB_TRANSITION_SOUND_URL = "/sounds/deck_ui_tab_transition_01.wav";
 const mountedFooterOverlayOwners: symbol[] = [];
 
 function isTopFooterOverlayOwner(owner: symbol): boolean {
@@ -223,6 +224,7 @@ export function DeckyFullScreenFooterOverlay({
   const onBackRef = useRef(onBack);
   const onPreviousNavigationItemRef = useRef(onPreviousNavigationItem);
   const onNextNavigationItemRef = useRef(onNextNavigationItem);
+  const tabTransitionSoundRef = useRef<HTMLAudioElement | null>(null);
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [layout, setLayout] = useState({ height: STEAM_GAME_FOOTER_FALLBACK_HEIGHT_PX, zIndex: 20 });
 
@@ -231,6 +233,28 @@ export function DeckyFullScreenFooterOverlay({
     onPreviousNavigationItemRef.current = onPreviousNavigationItem;
     onNextNavigationItemRef.current = onNextNavigationItem;
   }, [onBack, onNextNavigationItem, onPreviousNavigationItem]);
+
+  useLayoutEffect(() => {
+    // Use the visible Gaming Mode document, not SharedJSContext, just as the
+    // Steam game-page section footer does.
+    if (!ariaLabel.startsWith("Steam ")) {
+      return;
+    }
+    const ownerDocument = anchorRef.current?.ownerDocument;
+    if (ownerDocument === undefined) {
+      return;
+    }
+    const sound = ownerDocument.createElement("audio");
+    sound.preload = "auto";
+    sound.src = STEAM_TAB_TRANSITION_SOUND_URL;
+    tabTransitionSoundRef.current = sound;
+    return () => {
+      sound.pause();
+      sound.removeAttribute("src");
+      sound.load();
+      tabTransitionSoundRef.current = null;
+    };
+  }, [ariaLabel]);
 
   useLayoutEffect(() => {
     // SharedJSContext is not the visible Gaming Mode document. The anchor is.
@@ -274,8 +298,14 @@ export function DeckyFullScreenFooterOverlay({
     const onButtonDown = (event: Event): void => {
       if (!isTopFooterOverlayOwner(owner)) return;
       handleDeckyFullScreenFooterShoulderButtonDown(event as GamepadEvent, {
-        onPrevious: () => onPreviousNavigationItemRef.current(),
-        onNext: () => onNextNavigationItemRef.current(),
+        onPrevious: () => {
+          onPreviousNavigationItemRef.current();
+          playSteamTabTransitionSound(tabTransitionSoundRef.current);
+        },
+        onNext: () => {
+          onNextNavigationItemRef.current();
+          playSteamTabTransitionSound(tabTransitionSoundRef.current);
+        },
       });
     };
     ownerWindow.addEventListener("vgp_onbuttondown", onButtonDown, true);
@@ -327,4 +357,12 @@ export function DeckyFullScreenFooterOverlay({
       ) : null}
     </>
   );
+}
+
+function playSteamTabTransitionSound(sound: HTMLAudioElement | null): void {
+  if (sound === null) {
+    return;
+  }
+  sound.currentTime = 0;
+  void sound.play().catch(() => undefined);
 }

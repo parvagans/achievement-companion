@@ -1,4 +1,3 @@
-import { useLayoutEffect, useRef } from "react";
 import {
   DeckyFullScreenFooterOverlay,
   type DeckyFullScreenFooterNavigationItem,
@@ -6,7 +5,6 @@ import {
 
 export type DeckySteamGameSectionId = "overview" | "achievements" | "achievement-groups" | "community";
 
-const STEAM_TAB_TRANSITION_SOUND_URL = "/sounds/deck_ui_tab_transition_01.wav";
 
 export interface DeckySteamGameSection {
   readonly id: DeckySteamGameSectionId;
@@ -40,54 +38,15 @@ export function DeckySteamGameSectionNavigation({
   readonly onBack: () => void;
   readonly onHeightChange: (height: number) => void;
 }): JSX.Element {
-  const soundAnchorRef = useRef<HTMLSpanElement>(null);
-  const tabTransitionSoundRef = useRef<HTMLAudioElement | null>(null);
-
-  useLayoutEffect(() => {
-    const ownerDocument = soundAnchorRef.current?.ownerDocument;
-    if (ownerDocument === undefined) {
-      return;
-    }
-    const tabTransitionSound = ownerDocument.createElement("audio");
-    tabTransitionSound.preload = "auto";
-    tabTransitionSound.src = STEAM_TAB_TRANSITION_SOUND_URL;
-    tabTransitionSoundRef.current = tabTransitionSound;
-
-    return () => {
-      tabTransitionSound.pause();
-      tabTransitionSound.removeAttribute("src");
-      tabTransitionSound.load();
-      tabTransitionSoundRef.current = null;
-    };
-  }, []);
-
   return (
-    <>
-      <span ref={soundAnchorRef} hidden aria-hidden="true" />
-      <DeckyFullScreenFooterOverlay
+    <DeckyFullScreenFooterOverlay
         activeNavigationItemId={activeSection}
         ariaLabel="Steam game sections"
         navigationItems={sections satisfies readonly DeckyFullScreenFooterNavigationItem[]}
         onBack={onBack}
         onHeightChange={onHeightChange}
-        onNextNavigationItem={() => {
-          onNextSection();
-          playSteamTabTransitionSound(tabTransitionSoundRef.current);
-        }}
-        onPreviousNavigationItem={() => {
-          onPreviousSection();
-          playSteamTabTransitionSound(tabTransitionSoundRef.current);
-        }}
+        onNextNavigationItem={onNextSection}
+        onPreviousNavigationItem={onPreviousSection}
       />
-    </>
   );
-}
-
-function playSteamTabTransitionSound(sound: HTMLAudioElement | null): void {
-  if (sound === null) {
-    return;
-  }
-
-  sound.currentTime = 0;
-  void sound.play().catch(() => undefined);
 }

@@ -1394,12 +1394,16 @@ export async function loadDeckyAchievementHistoryState(
       const dashboardState = await loadDeckyDashboardState(providerId);
       if (dashboardState.data !== undefined) {
         const parsedLastUpdatedAt = Date.parse(cachedSteamLibraryScanSummary.scannedAt);
-        return {
-          status: "success",
-          data: buildDeckySteamAchievementHistorySnapshotFromSummary({
+        const history = mergeDeckyAchievementHistoryWithDashboardRecent(
+          buildDeckySteamAchievementHistorySnapshotFromSummary({
             profile: dashboardState.data.profile,
             summary: cachedSteamLibraryScanSummary,
           }),
+          dashboardState.data,
+        );
+        return {
+          status: "success",
+          data: history,
           lastUpdatedAt: Number.isFinite(parsedLastUpdatedAt) ? parsedLastUpdatedAt : Date.now(),
           isStale: false,
           isRefreshing: false,
