@@ -3619,7 +3619,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   );
   assert.match(
     compactBootstrapSource,
-    /Open a connected dashboard or update provider settings\./u,
+    /Connect and manage achievement sources\./u,
   );
   assert.match(
     compactBootstrapSource,
@@ -3627,11 +3627,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   );
   assert.match(
     compactBootstrapSource,
-    /function getChooserVersionStyle\(/u,
-  );
-  assert.match(
-    compactBootstrapSource,
-    /function getChooserFooterStyle\(/u,
+    /function getChooserProviderCardStatusDotStyle\(/u,
   );
   assert.match(
     compactBootstrapSource,
@@ -3671,67 +3667,39 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   );
   assert.match(
     readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
-    /statusLabel=\{provider\.connected \? "CONNECTED" : "SET UP"\}/u,
+    /statusLabel=\{provider\.connected \? "Configured" : "Set up"\}/u,
   );
   assert.match(
     readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
-    /getChooserProviderCardStatusStyleForTone\(tone\)/u,
+    /getChooserProviderCardStatusStyle\(tone\)/u,
   );
   assert.match(
     readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
-    /getChooserProviderCardAccentStyle\(tone\)/u,
+    /getChooserProviderCardStatusDotStyle\(tone\)/u,
   );
   assert.match(
     readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
-    /padding: "12px 14px 12px 14px"/u,
+    /getChooserProviderCardChevronStyle\(tone\)/u,
   );
   assert.match(
     readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
-    /marginBlock: 8/u,
+    /minHeight: 62/u,
   );
   assert.match(
     readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
-    /marginInlineStart: 3/u,
+    /background: tone === "connected" \? "#4FD17A" : "#F5C542"/u,
   );
   assert.match(
     readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
-    /rgba\(214, 158, 46, 0\.82\)/u,
+    /ariaLabel=\{\s*provider\.connected\s*\? `\$\{provider\.label\} provider, configured`/u,
   );
-  assert.match(
+  assert.doesNotMatch(
     readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
-    /rgba\(214, 158, 46, 0\.14\)/u,
-  );
-  assert.match(
-    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
-    /rgba\(96, 165, 250, 0\.12\)/u,
+    /No providers connected|1 provider connected|providers connected|connected dashboard/u,
   );
   assert.match(
     readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
     /label="Provider Settings"/u,
-  );
-  assert.match(
-    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
-    /Achievement Companion v\{ACHIEVEMENT_COMPANION_VERSION\}/u,
-  );
-  assert.match(
-    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
-    /visibleProviders\.filter\(\(provider\) => provider\.connected\)\.length/u,
-  );
-  assert.match(
-    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
-    /No providers connected/u,
-  );
-  assert.match(
-    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
-    /1 provider connected/u,
-  );
-  assert.match(
-    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
-    /providers connected/u,
-  );
-  assert.match(
-    readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),
-    /getChooserFooterStyle\(\)/u,
   );
   assert.match(
     readFileSync("src/platform/decky/bootstrap.tsx", "utf8"),

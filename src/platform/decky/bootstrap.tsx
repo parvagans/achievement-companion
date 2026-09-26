@@ -90,8 +90,6 @@ interface SteamLibraryScanActionState {
 
 type ProviderLauncherTone = "connected" | "setup" | "neutral";
 
-const ACHIEVEMENT_COMPANION_VERSION = "0.3.4";
-
 const GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_LABELS: Readonly<
   Record<GamePageAchievementBadgePosition, string>
 > = {
@@ -114,78 +112,6 @@ function isGamePageAchievementBadgePosition(value: unknown): value is GamePageAc
     typeof value === "string" &&
     GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS.includes(value as GamePageAchievementBadgePosition)
   );
-}
-
-function getChooserCardStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 12,
-    padding: 14,
-    borderRadius: 18,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
-    boxSizing: "border-box",
-  };
-}
-
-function getChooserHeaderStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.62)",
-    fontSize: "0.72em",
-    fontWeight: 700,
-    letterSpacing: "0.06em",
-    lineHeight: 1.2,
-    textTransform: "uppercase",
-  };
-}
-
-function getChooserTitleStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.98)",
-    fontSize: "1.08em",
-    fontWeight: 750,
-    lineHeight: 1.15,
-  };
-}
-
-function getChooserSupportStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.72)",
-    fontSize: "0.88em",
-    lineHeight: 1.35,
-  };
-}
-
-function getChooserStatusStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.68)",
-    fontSize: "0.82em",
-    lineHeight: 1.2,
-    textAlign: "center",
-  };
-}
-
-function getChooserVersionStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.44)",
-    fontSize: "0.72em",
-    fontWeight: 600,
-    letterSpacing: "0.03em",
-    lineHeight: 1.2,
-    textAlign: "center",
-  };
-}
-
-function getChooserFooterStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 4,
-    alignItems: "center",
-    width: "100%",
-    minWidth: 0,
-  };
 }
 
 function getChooserActionRowStyle(): CSSProperties {
@@ -238,29 +164,29 @@ function getChooserProviderCardStyle(
 ): CSSProperties {
   return {
     display: "flex",
-    alignItems: "stretch",
-    gap: 12,
+    alignItems: "center",
+    gap: 10,
     width: "100%",
     minWidth: 0,
-    padding: "12px 14px 12px 14px",
-    borderRadius: 16,
+    minHeight: 62,
+    padding: "9px 12px",
+    borderRadius: 12,
     border: `1px solid ${
       isFocused
         ? tone === "setup"
           ? "rgba(245, 189, 82, 0.72)"
           : "rgba(125, 190, 255, 0.7)"
-        : "rgba(255, 255, 255, 0.09)"
+        : "rgba(86, 137, 173, 0.24)"
     }`,
     background: isFocused
-      ? "linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.06))"
-      : "linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.035))",
+      ? "linear-gradient(135deg, rgba(7, 78, 129, 0.94), rgba(10, 40, 62, 0.98))"
+      : "linear-gradient(135deg, rgba(17, 38, 54, 0.98), rgba(11, 27, 39, 0.98))",
     boxShadow: isFocused
       ? tone === "setup"
-        ? "0 0 0 1px rgba(245, 189, 82, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 2px 12px rgba(0, 0, 0, 0.24)"
-        : "0 0 0 1px rgba(96, 165, 250, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 2px 12px rgba(0, 0, 0, 0.24)"
-      : "inset 0 1px 0 rgba(255, 255, 255, 0.04)",
+        ? "0 0 0 1px rgba(245, 189, 82, 0.5), 0 0 14px rgba(245, 189, 82, 0.28)"
+        : "0 0 0 1px rgba(54, 185, 255, 0.8), 0 0 15px rgba(54, 185, 255, 0.45)"
+      : "inset 0 1px 0 rgba(255, 255, 255, 0.045)",
     boxSizing: "border-box",
-    overflow: "hidden",
     cursor: "pointer",
     color: "rgba(255, 255, 255, 0.96)",
     transition:
@@ -268,22 +194,18 @@ function getChooserProviderCardStyle(
   };
 }
 
-function getChooserProviderCardAccentStyle(tone: ProviderLauncherTone): CSSProperties {
-  const accentColor =
-    tone === "connected"
-      ? "rgba(116, 176, 255, 0.82)"
-      : tone === "setup"
-        ? "rgba(214, 158, 46, 0.82)"
-        : "rgba(255, 255, 255, 0.32)";
-
+function getChooserProviderCardSettingsIconStyle(): CSSProperties {
   return {
-    width: 4,
+    width: 40,
+    height: 40,
     flexShrink: 0,
-    marginBlock: 8,
-    marginInlineStart: 3,
-    borderRadius: 999,
-    background: accentColor,
-    boxShadow: `0 0 0 1px ${accentColor}`,
+    display: "grid",
+    placeItems: "center",
+    borderRadius: 10,
+    background: "rgba(102, 136, 160, 0.16)",
+    color: "rgba(187, 211, 229, 0.9)",
+    fontSize: 24,
+    lineHeight: 1,
   };
 }
 
@@ -292,18 +214,18 @@ function getChooserProviderCardBodyStyle(): CSSProperties {
     display: "flex",
     flexDirection: "column",
     justifyContent: "center",
-    gap: 6,
+    gap: 3,
     minWidth: 0,
     flex: 1,
-    padding: "0 0 0 2px",
+    padding: 0,
   };
 }
 
-function getChooserProviderCardHeaderStyle(): CSSProperties {
+function getChooserProviderCardDetailsStyle(): CSSProperties {
   return {
     display: "flex",
     alignItems: "center",
-    gap: 10,
+    gap: 6,
     minWidth: 0,
   };
 }
@@ -317,11 +239,11 @@ function getChooserProviderCardIconFrameStyle(tone: ProviderLauncherTone): CSSPr
         : "rgba(255, 255, 255, 0.18)";
 
   return {
-    width: 28,
-    height: 28,
+    width: 40,
+    height: 40,
     flexShrink: 0,
     overflow: "hidden",
-    borderRadius: 8,
+    borderRadius: 10,
     border: `1px solid ${accentColor}`,
     background: "rgba(255, 255, 255, 0.06)",
     display: "flex",
@@ -341,63 +263,68 @@ function getChooserProviderCardIconStyle(): CSSProperties {
 
 function getChooserProviderCardTitleStyle(): CSSProperties {
   return {
-    flex: "1 1 auto",
     minWidth: 0,
     overflow: "visible",
     overflowWrap: "anywhere",
     wordBreak: "break-word",
     textOverflow: "clip",
     whiteSpace: "normal",
-    fontSize: "0.98em",
+    fontSize: "0.82em",
     fontWeight: 750,
     lineHeight: 1.2,
   };
 }
 
-function getChooserProviderCardStatusStyle(): CSSProperties {
+function getChooserProviderCardStatusStyle(tone: ProviderLauncherTone): CSSProperties {
+  const isConfigured = tone === "connected";
+
   return {
     display: "inline-flex",
     alignItems: "center",
-    justifyContent: "center",
-    width: "fit-content",
-    maxWidth: "100%",
-    padding: "2px 8px",
-    borderRadius: 999,
-    border: "1px solid rgba(255, 255, 255, 0.10)",
-    background: "rgba(255, 255, 255, 0.07)",
-    color: "rgba(255, 255, 255, 0.78)",
-    fontSize: "11px",
-    fontWeight: 750,
-    letterSpacing: "0.04em",
+    gap: 6,
+    color: isConfigured ? "rgba(194, 239, 210, 0.94)" : "rgba(255, 225, 159, 0.96)",
+    fontSize: "0.70em",
+    fontWeight: 600,
     lineHeight: 1.15,
-    textTransform: "uppercase",
     whiteSpace: "nowrap",
   };
 }
 
-function getChooserProviderCardStatusStyleForTone(tone: ProviderLauncherTone): CSSProperties {
-  const accent =
-    tone === "connected"
-      ? {
-          border: "1px solid rgba(125, 190, 255, 0.46)",
-          background: "rgba(96, 165, 250, 0.12)",
-          color: "rgba(226, 236, 255, 0.98)",
-        }
-      : tone === "setup"
-        ? {
-            border: "1px solid rgba(214, 158, 46, 0.52)",
-            background: "rgba(214, 158, 46, 0.14)",
-            color: "rgba(255, 244, 201, 0.98)",
-          }
-        : {
-            border: "1px solid rgba(255, 255, 255, 0.10)",
-            background: "rgba(255, 255, 255, 0.07)",
-            color: "rgba(255, 255, 255, 0.78)",
-          };
-
+function getChooserProviderCardStatusDotStyle(tone: ProviderLauncherTone): CSSProperties {
   return {
-    ...getChooserProviderCardStatusStyle(),
-    ...accent,
+    width: 8,
+    height: 8,
+    flexShrink: 0,
+    borderRadius: 999,
+    background: tone === "connected" ? "#4FD17A" : "#F5C542",
+    boxShadow: tone === "connected" ? "0 0 7px rgba(79, 209, 122, 0.68)" : "0 0 7px rgba(245, 197, 66, 0.54)",
+  };
+}
+
+function getChooserProviderCardChevronStyle(tone: ProviderLauncherTone): CSSProperties {
+  return {
+    flexShrink: 0,
+    color: tone === "setup" ? "rgba(245, 197, 66, 0.92)" : "rgba(54, 185, 255, 0.94)",
+    fontSize: 28,
+    fontWeight: 400,
+    lineHeight: 1,
+  };
+}
+
+function getGamePageBadgeLabelStyle(disabled = false): CSSProperties {
+  return {
+    color: disabled ? "rgba(125, 171, 198, 0.56)" : "rgba(125, 210, 255, 0.98)",
+    fontSize: "0.9em",
+    fontWeight: 700,
+    lineHeight: 1.2,
+  };
+}
+
+function getGamePageBadgeDescriptionStyle(disabled = false): CSSProperties {
+  return {
+    color: disabled ? "rgba(125, 171, 198, 0.42)" : "rgba(159, 204, 231, 0.82)",
+    fontSize: "0.8em",
+    lineHeight: 1.25,
   };
 }
 
@@ -452,20 +379,23 @@ function ProviderLauncherCard({
       }}
       style={getChooserProviderCardStyle(tone, isFocused)}
     >
-      <span aria-hidden="true" style={getChooserProviderCardAccentStyle(tone)} />
-      <span style={getChooserProviderCardBodyStyle()}>
-        <span style={getChooserProviderCardHeaderStyle()}>
-          {iconSrc !== undefined ? (
-            <span aria-hidden="true" style={getChooserProviderCardIconFrameStyle(tone)}>
-              <img alt={label} loading="lazy" src={iconSrc} style={getChooserProviderCardIconStyle()} />
-            </span>
-          ) : null}
-          <span style={getChooserProviderCardTitleStyle()}>{label}</span>
+      {iconSrc !== undefined ? (
+        <span aria-hidden="true" style={getChooserProviderCardIconFrameStyle(tone)}>
+          <img alt="" loading="lazy" src={iconSrc} style={getChooserProviderCardIconStyle()} />
         </span>
+      ) : (
+        <span aria-hidden="true" style={getChooserProviderCardSettingsIconStyle()}>{"\u2699"}</span>
+      )}
+      <span style={getChooserProviderCardBodyStyle()}>
+        <span style={getChooserProviderCardTitleStyle()}>{label}</span>
         {statusLabel !== undefined ? (
-          <span style={getChooserProviderCardStatusStyleForTone(tone)}>{statusLabel}</span>
+          <span style={getChooserProviderCardDetailsStyle()}>
+            <span aria-hidden="true" style={getChooserProviderCardStatusDotStyle(tone)} />
+            <span style={getChooserProviderCardStatusStyle(tone)}>{statusLabel}</span>
+          </span>
         ) : null}
       </span>
+      <span aria-hidden="true" style={getChooserProviderCardChevronStyle(tone)}>{"\u203a"}</span>
     </Focusable>
   );
 }
@@ -981,105 +911,62 @@ function DeckyBootstrapStateBridge(): JSX.Element {
           {selectedProviderId === undefined ? (
             <TopAlignedScrollViewport scrollKey="providers">
               <>
-                <PanelSection title="Providers">
+                <PanelSection>
                   <PanelSectionRow>
-                    <div style={getChooserCardStyle()}>
-                    <div style={getChooserHeaderStyle()}>Achievement Companion</div>
-                    <div style={getChooserTitleStyle()}>Choose a provider</div>
-                    <div style={getChooserSupportStyle()}>
-                      Open a connected dashboard or update provider settings.
-                    </div>
-
                     <div style={getChooserProviderListStyle()}>
-                      {visibleProviders.map((provider) => (
+                      <div style={getChooserProviderListStyle()}>
+                        {visibleProviders.map((provider) => (
+                          <ProviderLauncherCard
+                            key={provider.id}
+                            providerId={provider.id}
+                            iconSrc={provider.iconSrc}
+                            label={provider.label}
+                            connected={provider.connected}
+                            ariaLabel={
+                              provider.connected
+                                ? `${provider.label} provider, configured`
+                                : `${provider.label} provider, needs setup`
+                            }
+                            statusLabel={provider.connected ? "Configured" : "Set up"}
+                            onClick={() => {
+                              if (!provider.enabled) {
+                                return;
+                              }
+
+                              setSelectedAchievement(undefined);
+                              setSelectedGame(undefined);
+                              setFullscreenReturnContext(undefined);
+                              clearDeckyFullscreenReturnContext();
+                              if (
+                                (provider.id === "retroachievements" && providerConfigs.retroAchievements === undefined) ||
+                                (provider.id === "steam" && providerConfigs.steam === undefined)
+                              ) {
+                                setSetupProviderId(provider.id);
+                                return;
+                              }
+
+                              setSetupProviderId(undefined);
+                              setSelectedProviderId(provider.id);
+                              setDashboardEntryNonce((value) => value + 1);
+                            }}
+                          />
+                        ))}
                         <ProviderLauncherCard
-                          key={provider.id}
-                          providerId={provider.id}
-                          iconSrc={provider.iconSrc}
-                          label={provider.label}
-                          connected={provider.connected}
-                          ariaLabel={
-                            provider.connected
-                              ? `${provider.label} provider, connected`
-                              : `${provider.label} provider, not connected`
-                          }
-                          statusLabel={provider.connected ? "CONFIGURED" : "SET UP"}
+                          providerId="settings"
+                          iconSrc={undefined}
+                          label="Provider Settings"
+                          ariaLabel="Open provider settings"
                           onClick={() => {
-                            if (!provider.enabled) {
-                              return;
-                            }
-
-                            setSelectedAchievement(undefined);
-                            setSelectedGame(undefined);
-                            setFullscreenReturnContext(undefined);
-                            clearDeckyFullscreenReturnContext();
-                            if (
-                              (provider.id === "retroachievements" && providerConfigs.retroAchievements === undefined) ||
-                              (provider.id === "steam" && providerConfigs.steam === undefined)
-                            ) {
-                              setSetupProviderId(provider.id);
-                              return;
-                            }
-
-                            setSetupProviderId(undefined);
-                            setSelectedProviderId(provider.id);
-                            setDashboardEntryNonce((value) => value + 1);
+                            markNextFullScreenSettingsBackTarget(
+                              resolveFullScreenSettingsBackTarget("compact-panel"),
+                            );
+                            void platform.navigation?.go({
+                              view: "settings",
+                              surface: "full-screen",
+                            });
                           }}
                         />
-                      ))}
-                      <ProviderLauncherCard
-                        providerId="settings"
-                        iconSrc={undefined}
-                        label="Provider Settings"
-                        ariaLabel="Open provider settings"
-                        onClick={() => {
-                          markNextFullScreenSettingsBackTarget(
-                            resolveFullScreenSettingsBackTarget("compact-panel"),
-                          );
-                          void platform.navigation?.go({
-                            view: "settings",
-                            surface: "full-screen",
-                          });
-                        }}
-                      />
-                    </div>
-
-                    <div style={getChooserFooterStyle()}>
-                      {(() => {
-                        const connectedCount = visibleProviders.filter((provider) => provider.connected).length;
-
-                        if (connectedCount === 0) {
-                          return (
-                            <>
-                              <div style={getChooserStatusStyle()}>No providers connected</div>
-                              <div style={getChooserVersionStyle()}>
-                                Achievement Companion v{ACHIEVEMENT_COMPANION_VERSION}
-                              </div>
-                            </>
-                          );
-                        }
-
-                        if (connectedCount === 1) {
-                          return (
-                            <>
-                              <div style={getChooserStatusStyle()}>1 provider connected</div>
-                              <div style={getChooserVersionStyle()}>
-                                Achievement Companion v{ACHIEVEMENT_COMPANION_VERSION}
-                              </div>
-                            </>
-                          );
-                        }
-
-                        return (
-                          <>
-                            <div style={getChooserStatusStyle()}>{`${connectedCount} providers connected`}</div>
-                            <div style={getChooserVersionStyle()}>
-                              Achievement Companion v{ACHIEVEMENT_COMPANION_VERSION}
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </div>
+                      </div>
                     </div>
                   </PanelSectionRow>
                 </PanelSection>
@@ -1087,8 +974,12 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                 <PanelSection title="Game Page Badge">
                   <PanelSectionRow>
                     <ToggleField
-                      label="Show game page badge"
-                      description="Show achievement progress on Steam and non-Steam game pages."
+                      label={<span style={getGamePageBadgeLabelStyle()}>Show game page badge</span>}
+                      description={
+                        <span style={getGamePageBadgeDescriptionStyle()}>
+                          Show achievement progress on Steam and non-Steam game pages.
+                        </span>
+                      }
                       checked={settings.showGamePageAchievementBadge}
                       highlightOnFocus
                       onChange={(showGamePageAchievementBadge) => {
@@ -1101,8 +992,16 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                   </PanelSectionRow>
 
                   <DropdownItem
-                    label="Badge position"
-                    description="Choose where the game page badge is anchored."
+                    label={
+                      <span style={getGamePageBadgeLabelStyle(!settings.showGamePageAchievementBadge)}>
+                        Badge position
+                      </span>
+                    }
+                    description={
+                      <span style={getGamePageBadgeDescriptionStyle(!settings.showGamePageAchievementBadge)}>
+                        Choose where the game page badge is anchored.
+                      </span>
+                    }
                     disabled={!settings.showGamePageAchievementBadge}
                     menuLabel="Game Page Badge Position"
                     rgOptions={GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_DROPDOWN_OPTIONS}

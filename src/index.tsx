@@ -42,7 +42,7 @@ function AchievementCompanionIcon(): JSX.Element {
 
 export default definePlugin(() => ({
   name: "Achievement Companion",
-  titleView: <span>Achievement Companion</span>,
+  titleView: <span style={{ fontSize: "0.85em", whiteSpace: "nowrap" }}>Achievement Companion</span>,
   content: <DeckyBootstrap />,
   icon: <AchievementCompanionIcon />,
   onDismount() {
