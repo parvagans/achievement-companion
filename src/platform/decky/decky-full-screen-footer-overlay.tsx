@@ -12,6 +12,32 @@ const COMPACT_FOOTER_REDUCTION_PX = 4;
 const COMPACT_FOOTER_MINIMUM_HEIGHT_PX = 40;
 const STEAM_TAB_TRANSITION_SOUND_URL = "/sounds/deck_ui_tab_transition_01.wav";
 const mountedFooterOverlayOwners: symbol[] = [];
+const DECKY_FULLSCREEN_ONSCREEN_KEYBOARD_OPEN_ATTRIBUTE = "data-achievement-companion-onscreen-keyboard-open";
+
+/**
+ * Steam delivers vgp_oncancel to the full-screen footer during text entry.
+ * Remember that an AC credential field opened the on-screen keyboard so that
+ * the next B press is yielded to Steam instead of closing the full-screen session.
+ */
+export function markDeckyFullscreenOnScreenKeyboardOpen(document: Document): void {
+  document.documentElement.setAttribute(DECKY_FULLSCREEN_ONSCREEN_KEYBOARD_OPEN_ATTRIBUTE, "true");
+}
+
+export function clearDeckyFullscreenOnScreenKeyboardOpen(document: Document): void {
+  document.documentElement.removeAttribute(DECKY_FULLSCREEN_ONSCREEN_KEYBOARD_OPEN_ATTRIBUTE);
+}
+
+export function isDeckyFullscreenOnScreenKeyboardOpen(document: Document): boolean {
+  return document.documentElement.getAttribute(DECKY_FULLSCREEN_ONSCREEN_KEYBOARD_OPEN_ATTRIBUTE) === "true";
+}
+
+function consumeDeckyFullscreenOnScreenKeyboardCancel(document: Document): boolean {
+  if (!isDeckyFullscreenOnScreenKeyboardOpen(document)) {
+    return false;
+  }
+  clearDeckyFullscreenOnScreenKeyboardOpen(document);
+  return true;
+}
 
 function isTopFooterOverlayOwner(owner: symbol): boolean {
   return mountedFooterOverlayOwners[mountedFooterOverlayOwners.length - 1] === owner;
@@ -341,6 +367,10 @@ export function DeckyFullScreenFooterOverlay({
     const onCancel = (event: Event): void => {
       if (!isTopFooterOverlayOwner(owner)) return;
       const cancelEvent = event as CancelableGamepadEvent;
+      if (consumeDeckyFullscreenOnScreenKeyboardCancel(ownerWindow.document)) {
+        // Do not consume this event: Steam's keyboard must receive B and close itself.
+        return;
+      }
       if (consumeDeckyFullscreenPopupCancel()) {
         cancelEvent.preventDefault?.();
         cancelEvent.stopPropagation?.();

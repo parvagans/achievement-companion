@@ -783,30 +783,39 @@ test("compact dashboard Profile navigation suppresses the outgoing full-screen r
   );
 });
 
-test("Steam settings are a Steam-only account screen with expandable account and display sections", async () => {
-  const source = await readFile(
-    new URL("../src/platform/decky/decky-full-screen-settings-page.tsx", import.meta.url),
-    "utf8",
-  );
+test("Steam settings are a Steam-only account screen with the expanded account and scan action", async () => {
+  const [source, footerSource] = await Promise.all([
+    readFile(new URL("../src/platform/decky/decky-full-screen-settings-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-footer-overlay.tsx", import.meta.url), "utf8"),
+  ]);
 
   assert.doesNotMatch(source, /Cache Management|DATA &amp; STORAGE|openCacheManagement|Persistent cache payload/u);
   assert.doesNotMatch(source, /RETROACHIEVEMENTS_PROVIDER_ID|RetroAchievements|clearRetroAchievementsAccount/u);
   assert.doesNotMatch(source, /<Heading>PROVIDERS<\/Heading>|Game Scanning|Notifications/u);
   assert.match(source, /STEAM SETTINGS/u);
   assert.match(source, /title="Account"[\s\S]*SteamAccountFields/u);
-  assert.match(source, /title="Display Preferences"/u);
-  assert.match(source, /SteamDisplayPreferences/u);
-  assert.match(source, /useState\(false\).*displayExpanded/u);
+  assert.doesNotMatch(source, /title="Display Preferences"|SteamDisplayPreferences|displayExpanded/u);
+  assert.match(source, /accountExpanded.*useState\(true\)/u);
   assert.match(source, /STEAM_CREDENTIAL_HELPER_COPY/u);
+  assert.doesNotMatch(source, /Connected to Steam|Test Connection|Check for Updates|Clear Cached Data|DeckyFullscreenActionButton/u);
   assert.match(source, /writeValidatedDeckySteamProviderConfig/u);
   assert.match(source, /<Heading>DATA &amp; SYNC<\/Heading>/u);
   assert.match(source, /refreshDeckySteamHuntersProfileState/u);
   assert.match(source, /runDeckySteamFullLibraryScan/u);
   assert.match(source, /Last Full Scan/u);
-  assert.match(source, /fullScan\?\.date \?\? "Never"/u);
+  assert.match(source, /Last Full Scan: \$\{fullScan\?\.date \?\? "Never"\}/u);
   assert.match(source, /Refresh Steam & SteamHunters/u);
-  assert.match(source, /title === "Refresh Steam Library" \? "Last Full Scan"/u);
-  assert.match(source, /title=\{armedAction === "clear" \? "Press again to clear cached data"/u);
+  assert.match(source, /Select to run a full library scan/u);
+  assert.match(source, /success=\{fullScan !== undefined\} danger=\{fullScan === undefined\}/u);
+  assert.doesNotMatch(source, /Cached Games|Refresh Steam Library/u);
+  assert.match(source, /input:not\(\[disabled\]\)/u);
+  assert.match(source, /active\.closest<HTMLElement>\("\[data-settings-column\]"\)[\s\S]*input:not\(\[disabled\]\)/u);
+  assert.doesNotMatch(source, /SteamSettingsInput/u);
+  assert.match(source, /DeckyCredentialTextField[\s\S]*onClick=.*markDeckyFullscreenOnScreenKeyboardOpen/u);
+  assert.match(source, /active instanceof ownerWindow\.HTMLInputElement[\s\S]*handleColumnDirection/u);
+  assert.match(source, /RegisterForUserDismissKeyboardMessages[\s\S]*clearDeckyFullscreenOnScreenKeyboardOpen/u);
+  assert.match(footerSource, /consumeDeckyFullscreenOnScreenKeyboardCancel\(ownerWindow\.document\)[\s\S]*Do not consume this event/u);
+  assert.match(source, /title=\{armedAction === "reset" \? "Press again to reset Steam data"/u);
 });
 
 test("profile summary memo runs before the loading-state early return", async () => {
