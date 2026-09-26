@@ -1,4 +1,6 @@
 import {
+  memo,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -69,6 +71,11 @@ import {
   updateSteamGameSectionPageState,
 } from "./decky-steam-game-section-state";
 import updateArtworkUrl from "./assets/providers/steam/update.png";
+
+const MemoizedDeckyFullScreenAchievementBrowser = memo(DeckyFullScreenAchievementBrowser);
+const MemoizedDeckySteamGameOverview = memo(DeckySteamGameOverview);
+const MemoizedDeckySteamAchievementGroupsSection = memo(DeckySteamAchievementGroupsSection);
+const MemoizedDeckySteamHuntersCommunitySection = memo(DeckySteamHuntersCommunitySection);
 
 export interface DeckyFullScreenGamePageProps {
   readonly providerId: string | undefined;
@@ -373,15 +380,17 @@ export function DeckyFullScreenGamePage({
       : []),
   ], [hasLoadedSteamAchievementGroups, loadedSteamHuntersViewModel?.hasCommunityStats]);
 
-  const persistSteamSectionState = (
+  const persistSteamSectionState = useCallback((
     update: Parameters<typeof updateSteamGameSectionPageState>[2],
   ): void => {
     if (providerId !== undefined && gameId !== undefined) {
       updateSteamGameSectionPageState(providerId, gameId, update);
     }
-  };
+  }, [gameId, providerId]);
 
-  const saveCurrentSectionScroll = (section: DeckySteamGameSectionId = activeSteamSectionRef.current): void => {
+  const saveCurrentSectionScroll = useCallback((
+    section: DeckySteamGameSectionId = activeSteamSectionRef.current,
+  ): void => {
     const anchor = sectionAnchorRef.current;
     if (anchor === null) {
       return;
@@ -394,7 +403,7 @@ export function DeckyFullScreenGamePage({
         scrollTop,
       },
     }));
-  };
+  }, [persistSteamSectionState]);
 
   const selectSteamSection = (nextSection: DeckySteamGameSectionId): void => {
     const currentSection = activeSteamSectionRef.current;
@@ -552,6 +561,51 @@ export function DeckyFullScreenGamePage({
     }),
     [restorationOrderedAchievements, restorationSteamHuntersEnrichment?.achievementGroups],
   );
+  const handleAchievementFilterChange = useCallback((filter: AchievementFilter): void => {
+    setAchievementFilter(filter);
+  }, []);
+  const handleAchievementModeFilterChange = useCallback((filter: AchievementModeFilter): void => {
+    setAchievementModeFilter(filter);
+  }, []);
+  const handleAchievementGroupFilterChange = useCallback((filter: AchievementGroupFilter): void => {
+    setAchievementGroupFilter(filter);
+  }, []);
+  const handleAchievementAvailabilityFilterChange = useCallback((filter: AchievementAvailabilityFilter): void => {
+    setAchievementAvailabilityFilter(filter);
+  }, []);
+  const handleFocusAchievement = useCallback((achievementId: string): void => {
+    persistSteamSectionState((current) => ({
+      ...current,
+      achievements: { ...current.achievements, focusedId: achievementId },
+    }));
+  }, [persistSteamSectionState]);
+  const handleOpenAchievementDetail = useCallback((achievementId: string): void => {
+    if (restorationIsSteamProvider && providerId !== undefined && gameId !== undefined) {
+      saveCurrentSectionScroll();
+      requestSteamGameSectionRestoration(providerId, gameId);
+    }
+    onOpenAchievementDetail?.(achievementId);
+  }, [gameId, onOpenAchievementDetail, providerId, restorationIsSteamProvider, saveCurrentSectionScroll]);
+  const handleFocusAchievementGroup = useCallback((groupId: string): void => {
+    persistSteamSectionState((current) => ({
+      ...current,
+      "achievement-groups": {
+        ...current["achievement-groups"],
+        focusedGroupId: groupId,
+        focusedAchievementId: undefined,
+      },
+    }));
+  }, [persistSteamSectionState]);
+  const handleFocusGroupedAchievement = useCallback((groupId: string, achievementId: string): void => {
+    persistSteamSectionState((current) => ({
+      ...current,
+      "achievement-groups": {
+        ...current["achievement-groups"],
+        focusedGroupId: groupId,
+        focusedAchievementId: achievementId,
+      },
+    }));
+  }, [persistSteamSectionState]);
 
   useEffect(() => {
     if (!restorationIsSteamProvider) {
@@ -716,7 +770,7 @@ export function DeckyFullScreenGamePage({
               style={{ display: activeSteamSection === "overview" ? "contents" : "none" }}
             >
               <div style={getSteamOverviewSectionStyle()}>
-                <DeckySteamGameOverview
+                <MemoizedDeckySteamGameOverview
                   game={game}
                   achievements={orderedAchievements}
                   totalAchievementCount={totalAchievementCount}
@@ -750,7 +804,7 @@ export function DeckyFullScreenGamePage({
             style={isSteamProvider ? { display: activeSteamSection === "achievements" ? "contents" : "none" } : undefined}
           ><PanelSection title="Achievements">
             <PanelSectionRow>
-              <DeckyFullScreenAchievementBrowser
+              <MemoizedDeckyFullScreenAchievementBrowser
                 achievementFilter={achievementFilter}
                 achievementModeFilter={achievementModeFilter}
                 achievementGroupFilter={activeAchievementGroupFilter}
@@ -760,31 +814,12 @@ export function DeckyFullScreenGamePage({
                 achievements={achievements}
                 providerId={providerIdValue}
                 filteredAchievementCount={filteredAchievementCount}
-                onAchievementFilterChange={(filter) => {
-                  setAchievementFilter(filter);
-                }}
-                onAchievementModeFilterChange={(filter) => {
-                  setAchievementModeFilter(filter);
-                }}
-                onAchievementGroupFilterChange={(filter) => {
-                  setAchievementGroupFilter(filter);
-                }}
-                onAchievementAvailabilityFilterChange={(filter) => {
-                  setAchievementAvailabilityFilter(filter);
-                }}
-                onFocusAchievement={(achievementId) => {
-                  persistSteamSectionState((current) => ({
-                    ...current,
-                    achievements: { ...current.achievements, focusedId: achievementId },
-                  }));
-                }}
-                onOpenAchievementDetail={(achievementId) => {
-                  if (isSteamProvider && providerId !== undefined && gameId !== undefined) {
-                    saveCurrentSectionScroll();
-                    requestSteamGameSectionRestoration(providerId, gameId);
-                  }
-                  onOpenAchievementDetail?.(achievementId);
-                }}
+                onAchievementFilterChange={handleAchievementFilterChange}
+                onAchievementModeFilterChange={handleAchievementModeFilterChange}
+                onAchievementGroupFilterChange={handleAchievementGroupFilterChange}
+                onAchievementAvailabilityFilterChange={handleAchievementAvailabilityFilterChange}
+                onFocusAchievement={handleFocusAchievement}
+                onOpenAchievementDetail={handleOpenAchievementDetail}
                 onBack={onBack}
                 {...(steamHuntersEnrichment !== undefined
                   ? {
@@ -804,32 +839,16 @@ export function DeckyFullScreenGamePage({
             >
               <PanelSection title="DLC / Groups">
                 <PanelSectionRow>
-                  <DeckySteamAchievementGroupsSection
+                  <MemoizedDeckySteamAchievementGroupsSection
                   sections={steamAchievementGroupSections}
                   gameArtworkUrl={getSteamFullscreenGameArtworkUrl(game)}
                   updateArtworkUrl={updateArtworkUrl}
                   steamHuntersAchievementsBySteamAchievementId={steamHuntersEnrichment.achievementsBySteamAchievementId}
                   expandedGroupIds={expandedSteamAchievementGroupIds}
                   onExpandedGroupIdsChange={setExpandedSteamAchievementGroupIds}
-                  onFocusGroup={(groupId) => {
-                    persistSteamSectionState((current) => ({
-                      ...current,
-                      "achievement-groups": { ...current["achievement-groups"], focusedGroupId: groupId, focusedAchievementId: undefined },
-                    }));
-                  }}
-                  onFocusAchievement={(groupId, achievementId) => {
-                    persistSteamSectionState((current) => ({
-                      ...current,
-                      "achievement-groups": { ...current["achievement-groups"], focusedGroupId: groupId, focusedAchievementId: achievementId },
-                    }));
-                  }}
-                  onOpenAchievementDetail={(achievementId) => {
-                    if (providerId !== undefined && gameId !== undefined) {
-                      saveCurrentSectionScroll();
-                      requestSteamGameSectionRestoration(providerId, gameId);
-                    }
-                    onOpenAchievementDetail?.(achievementId);
-                  }}
+                  onFocusGroup={handleFocusAchievementGroup}
+                  onFocusAchievement={handleFocusGroupedAchievement}
+                  onOpenAchievementDetail={handleOpenAchievementDetail}
                   onBack={onBack}
                   />
                 </PanelSectionRow>
@@ -844,7 +863,7 @@ export function DeckyFullScreenGamePage({
             >
               <PanelSection title="Community">
                 <PanelSectionRow>
-                  <DeckySteamHuntersCommunitySection model={steamHuntersViewModel} sectionEntryFocusTarget />
+                  <MemoizedDeckySteamHuntersCommunitySection model={steamHuntersViewModel} sectionEntryFocusTarget />
                 </PanelSectionRow>
               </PanelSection>
             </div>

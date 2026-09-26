@@ -132,7 +132,7 @@ export function TopAlignedScrollViewport({
   useLayoutEffect(() => {
     const anchor = anchorRef.current;
     return anchor === null ? undefined : configureDeckyScrollInsets(anchor);
-  });
+  }, [fillHeight]);
 
   useLayoutEffect(() => {
     const anchor = anchorRef.current;

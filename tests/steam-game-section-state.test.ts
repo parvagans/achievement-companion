@@ -216,6 +216,9 @@ test("Steam game sections stay mounted behind one stable footer owner", async ()
   assert.match(source, /data-steam-game-section="community"[\s\S]*display: activeSteamSection === "community" \? "contents" : "none"/u);
   assert.match(source, /restorationOrderedAchievements = useMemo/u);
   assert.match(source, /restorationSteamHuntersViewModel = useMemo/u);
+  assert.match(source, /MemoizedDeckyFullScreenAchievementBrowser = memo/u);
+  assert.match(source, /onAchievementFilterChange=\{handleAchievementFilterChange\}/u);
+  assert.match(source, /MemoizedDeckySteamAchievementGroupsSection/u);
   assert.match(source, /activeSectionRoot[\s\S]*activeSectionRoot\?\.querySelectorAll/u);
   assert.equal(
     (source.match(/<DeckySteamGameSectionNavigation/gu) ?? []).length,
