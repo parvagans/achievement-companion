@@ -40,9 +40,11 @@ import {
   getSteamAccountProgressSummary,
 } from "./decky-stat-helpers";
 import { getSteamCompactGameArtworkUrl } from "./decky-steam-game-artwork";
+import { DeckySteamCompactProfile } from "./decky-steam-compact-profile";
 import { formatDeckyProviderLabel } from "./providers";
 import { getDeckyProviderIconSrc } from "./providers/provider-branding";
 import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
+import type { SteamHuntersProfile } from "../../providers/steamhunters";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 import { STEAM_PROVIDER_ID } from "../../providers/steam/config";
 import {
@@ -69,9 +71,12 @@ export interface DeckyDashboardViewProps {
   readonly onOpenGameDetail: (providerId: string, gameId: string, gameTitle: string) => void;
   readonly onOpenAchievementDetail: (target: CompactAchievementTarget) => void;
   readonly onOpenProfile: (providerId: string) => void;
+  readonly onOpenAchievementHistory: (providerId: string) => void;
+  readonly onOpenCompletionProgress: (providerId: string) => void;
   readonly onBackToProviders: () => void;
   readonly onOpenSettings: () => void;
   readonly onRefreshDashboard: () => void;
+  readonly steamHuntersProfile?: SteamHuntersProfile | undefined;
   readonly retroAchievementsConnectionState?: RetroAchievementsConnectionState;
   readonly onUpdateRetroAchievementsCredentials?: () => void;
   readonly steamConnectionState?: SteamConnectionState;
@@ -1351,9 +1356,12 @@ export function DeckyDashboardView({
   onOpenGameDetail,
   onOpenAchievementDetail,
   onOpenProfile,
+  onOpenAchievementHistory,
+  onOpenCompletionProgress,
   onBackToProviders,
   onOpenSettings,
   onRefreshDashboard,
+  steamHuntersProfile,
   retroAchievementsConnectionState,
   onUpdateRetroAchievementsCredentials,
   steamConnectionState,
@@ -1419,6 +1427,41 @@ export function DeckyDashboardView({
       : profile.summary.completionPercent;
   const recentActivityGame =
     profile.providerId === RETROACHIEVEMENTS_PROVIDER_ID ? recentlyPlayedGames[0] : undefined;
+
+  if (profile.providerId === STEAM_PROVIDER_ID && steamAccountProgress !== undefined) {
+    return (
+      <>
+        {steamConnectionState !== undefined && getSteamConnectionBanner(steamConnectionState) !== undefined ? (
+          <PanelSection title={steamConnectionState.status === "authentication-required" ? "Authentication required" : steamConnectionState.status === "account-invalid" ? "Steam account needs attention" : steamConnectionState.status === "privacy-restricted" ? "Steam data restricted" : "Steam unavailable"}>
+            <PanelSectionRow><div style={getOverviewProgressBlockStyle()}><div style={getProfileMetaStyle()}>{getSteamConnectionBanner(steamConnectionState)}</div>{(steamConnectionState.status === "authentication-required" || steamConnectionState.status === "account-invalid") && onUpdateSteamCredentials !== undefined ? <div style={getOverviewPrimaryActionRowStyle()}><DeckyCompactPillActionItem emphasis="primary" label="Update credentials" onClick={onUpdateSteamCredentials} stretch /></div> : null}</div></PanelSectionRow>
+          </PanelSection>
+        ) : null}
+        <DeckySteamCompactProfile
+          profile={profile}
+          steamAccountProgress={steamAccountProgress}
+          steamHuntersProfile={steamHuntersProfile}
+          recentAchievements={recentAchievements}
+          recentlyPlayedGames={recentlyPlayedGames}
+          refreshedAt={refreshedAt}
+          onOpenProfile={() => onOpenProfile(profile.providerId)}
+          onOpenAchievementHistory={() => onOpenAchievementHistory(profile.providerId)}
+          onOpenCompletionProgress={() => onOpenCompletionProgress(profile.providerId)}
+          onOpenAchievementDetail={(recentUnlock) => {
+            onOpenAchievementDetail({
+              game: recentUnlock.game,
+              achievement: recentUnlock.achievement,
+            });
+          }}
+          onOpenGameDetail={(game) => {
+            onOpenGameDetail(game.providerId, game.gameId, game.title);
+          }}
+          onOpenSettings={onOpenSettings}
+          onCancel={onBackToProviders}
+        />
+      </>
+    );
+  }
+
   return (
     <>
       {profile.providerId === RETROACHIEVEMENTS_PROVIDER_ID && retroAchievementsConnectionState !== undefined && getRetroAchievementsConnectionBanner(retroAchievementsConnectionState) !== undefined ? (

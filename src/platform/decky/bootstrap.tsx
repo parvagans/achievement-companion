@@ -28,8 +28,10 @@ import {
   createDeckyPlatform,
   initialDeckyBootstrapState,
   initialDeckyGameDetailState,
+  initialDeckySteamHuntersProfileState,
   loadDeckyDashboardState,
   loadDeckyGameDetailState,
+  loadDeckySteamHuntersProfileState,
 } from "./decky-app-services";
 import {
   DeckyAchievementDetailView,
@@ -468,6 +470,8 @@ function DashboardScreen({
   onOpenGameDetail,
   onOpenAchievementDetail,
   onOpenProfile,
+  onOpenAchievementHistory,
+  onOpenCompletionProgress,
   onBackToProviders,
   onOpenSettings,
 }: {
@@ -475,6 +479,8 @@ function DashboardScreen({
   readonly onOpenGameDetail: (providerId: ProviderId, gameId: string, gameTitle: string) => void;
   readonly onOpenAchievementDetail: (target: CompactAchievementTarget) => void;
   readonly onOpenProfile: (providerId: string) => void;
+  readonly onOpenAchievementHistory: (providerId: string) => void;
+  readonly onOpenCompletionProgress: (providerId: string) => void;
   readonly onBackToProviders: () => void;
   readonly onOpenSettings: () => void;
 }): JSX.Element {
@@ -534,6 +540,22 @@ function DashboardScreen({
     [dashboardRefreshNonce, providerId],
   );
   const state = useAsyncResourceState(dashboardLoader, initialDeckyBootstrapState);
+  const steamId = providerId === STEAM_PROVIDER_ID
+    ? (providerConfig as SteamProviderConfig | undefined)?.steamId64.trim()
+    : undefined;
+  const steamHuntersProfileLoader = useMemo(
+    () => () => steamId === undefined || steamId.length === 0
+      ? Promise.resolve(initialDeckySteamHuntersProfileState)
+      : loadDeckySteamHuntersProfileState(steamId),
+    [dashboardRefreshNonce, steamId],
+  );
+  const steamHuntersProfileState = useAsyncResourceState(
+    steamHuntersProfileLoader,
+    initialDeckySteamHuntersProfileState,
+  );
+  const steamHuntersProfile = steamHuntersProfileState.data?.steamId === steamId
+    ? steamHuntersProfileState.data
+    : undefined;
   const dashboardReentryRefreshKey = `${providerId}:${state.status}:${state.data?.profile.providerId ?? "none"}:${state.error?.kind ?? "none"}:${state.error?.debugMessage ?? "none"}`;
   const lastDashboardReentryRefreshKey = useRef<string | undefined>(undefined);
 
@@ -637,6 +659,9 @@ function DashboardScreen({
       onOpenGameDetail={onOpenGameDetail}
       onOpenAchievementDetail={onOpenAchievementDetail}
       onOpenProfile={onOpenProfile}
+      onOpenAchievementHistory={onOpenAchievementHistory}
+      onOpenCompletionProgress={onOpenCompletionProgress}
+      {...(steamHuntersProfile !== undefined ? { steamHuntersProfile } : {})}
       {...(providerId === STEAM_PROVIDER_ID && steamLibraryScanButtonLabel !== undefined && steamLibraryScanStatusLabel !== undefined
         ? {
             steamLibraryScanAction: {
@@ -772,6 +797,23 @@ function DeckyBootstrapStateBridge(): JSX.Element {
     },
     [],
   );
+
+  const openProviderFullScreenView = useCallback((
+    providerId: string,
+    view: "profile" | "achievement-history" | "completion-progress",
+  ) => {
+    setSelectedGame(undefined);
+    setSelectedAchievement(undefined);
+    const fullscreenContext = createDeckyFullscreenReturnContextForProviderDashboard(providerId);
+    setFullscreenReturnContext(fullscreenContext);
+    writeDeckyFullscreenReturnContext(fullscreenContext);
+    dispatchDeckyScrollReset("dashboard");
+    void platform.navigation?.go({
+      view,
+      providerId,
+      surface: "full-screen",
+    });
+  }, []);
 
   useEffect(() => {
     const previousSignature = lastProviderConfigsSignature.current;
@@ -1056,17 +1098,13 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                   setSelectedAchievement(target);
                 }}
                 onOpenProfile={(providerId) => {
-                  setSelectedGame(undefined);
-                  setSelectedAchievement(undefined);
-                  const fullscreenContext = createDeckyFullscreenReturnContextForProviderDashboard(providerId);
-                  setFullscreenReturnContext(fullscreenContext);
-                  writeDeckyFullscreenReturnContext(fullscreenContext);
-                  dispatchDeckyScrollReset("dashboard");
-                  void platform.navigation?.go({
-                    view: "profile",
-                    providerId,
-                    surface: "full-screen",
-                  });
+                  openProviderFullScreenView(providerId, "profile");
+                }}
+                onOpenAchievementHistory={(providerId) => {
+                  openProviderFullScreenView(providerId, "achievement-history");
+                }}
+                onOpenCompletionProgress={(providerId) => {
+                  openProviderFullScreenView(providerId, "completion-progress");
                 }}
               />
             </TopAlignedScrollViewport>
