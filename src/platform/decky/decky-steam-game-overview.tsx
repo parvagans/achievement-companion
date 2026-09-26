@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { Navigation as DeckyNavigation } from "@decky/ui";
 import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
@@ -20,6 +20,8 @@ import steamIconUrl from "./assets/steam.svg";
 
 type SteamGame = GameDetailSnapshot["game"];
 
+const MIN_GAME_TITLE_FONT_SIZE_PX = 15;
+
 function formatCount(value: number): string {
   return value.toLocaleString();
 }
@@ -28,12 +30,12 @@ function formatDate(value: number | undefined): string | undefined {
   return value === undefined ? undefined : new Date(value).toLocaleDateString();
 }
 
-function formatReleaseDate(value: string | undefined): string | undefined {
-  if (value === undefined) {
+function formatGameRefreshTime(value: number | undefined): string | undefined {
+  if (value === undefined || !Number.isFinite(value)) {
     return undefined;
   }
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed) ? new Date(parsed).toLocaleDateString() : value;
+
+  return new Date(value).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
 
 function getOverviewGridStyle(): CSSProperties {
@@ -65,23 +67,16 @@ function getIdentityPanelStyle(): CSSProperties {
   };
 }
 
-function getTitleStyle(title: string): CSSProperties {
-  const titleLength = title.trim().length;
-  const isLongTitle = titleLength >= 24;
-  const isVeryLongTitle = titleLength >= 36;
-
+function getTitleStyle(fontSizePx: number | undefined): CSSProperties {
   return {
     color: "rgba(255, 255, 255, 0.98)",
-    // Keep longer titles from consuming the vertical space needed by the
-    // action buttons and metadata in the bounded Steam overview frame.
-    fontSize: isVeryLongTitle ? "0.92em" : isLongTitle ? "1em" : "1.28em",
+    fontSize: fontSizePx === undefined ? "1.28em" : `${fontSizePx}px`,
     fontWeight: 800,
-    lineHeight: isLongTitle ? 1.08 : 1.15,
+    lineHeight: 1.15,
     minWidth: 0,
     overflow: "hidden",
-    display: "-webkit-box",
-    WebkitBoxOrient: "vertical",
-    WebkitLineClamp: 2,
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   };
 }
 
@@ -93,6 +88,42 @@ function getSteamProviderIconStyle(): CSSProperties {
   return {
     filter: "invert(1)",
   };
+}
+
+function SteamGameTitle({ title }: { readonly title: string }): JSX.Element {
+  const titleRef = useRef<HTMLDivElement>(null);
+  const [fittedTitle, setFittedTitle] = useState<{
+    readonly title: string;
+    readonly fontSizePx: number;
+  } | undefined>(undefined);
+  const fontSizePx = fittedTitle?.title === title ? fittedTitle.fontSizePx : undefined;
+
+  useLayoutEffect(() => {
+    const element = titleRef.current;
+    const ownerWindow = element?.ownerDocument.defaultView;
+    if (element === null || ownerWindow === null || ownerWindow === undefined || element.clientWidth === 0) {
+      return;
+    }
+
+    const currentFontSizePx = Number.parseFloat(ownerWindow.getComputedStyle(element).fontSize);
+    if (!Number.isFinite(currentFontSizePx) || element.scrollWidth <= element.clientWidth) {
+      return;
+    }
+
+    const nextFontSizePx = Math.max(
+      MIN_GAME_TITLE_FONT_SIZE_PX,
+      Math.floor((currentFontSizePx * element.clientWidth / element.scrollWidth) * 10) / 10,
+    );
+    if (nextFontSizePx >= currentFontSizePx) {
+      return;
+    }
+
+    setFittedTitle((current) => current?.title === title && current.fontSizePx === nextFontSizePx
+      ? current
+      : { title, fontSizePx: nextFontSizePx });
+  }, [fontSizePx, title]);
+
+  return <div ref={titleRef} style={getTitleStyle(fontSizePx)}>{title}</div>;
 }
 
 function getMetadataStyle(): CSSProperties {
@@ -159,13 +190,14 @@ function launchSteamGame(appId: number): void {
 
 function SteamGameIdentityPanel({
   game,
-  releaseDate,
+  refreshedAt,
 }: {
   readonly game: SteamGame;
-  readonly releaseDate: string | undefined;
+  readonly refreshedAt: number | undefined;
 }): JSX.Element {
   const artworkUrl = getSteamFullscreenGameArtworkUrl(game);
   const lastPlayed = formatDate(game.lastPlayedAt);
+  const refreshTime = formatGameRefreshTime(refreshedAt);
 
   return (
     <div style={getIdentityPanelStyle()}>
@@ -176,7 +208,7 @@ function SteamGameIdentityPanel({
           dense
         />
       ) : null}
-      <div style={getTitleStyle(game.title)}>{game.title}</div>
+      <SteamGameTitle title={game.title} />
       <div style={getProviderStyle()}><img alt="" height={16} src={steamIconUrl} style={getSteamProviderIconStyle()} width={16} />Steam</div>
       {game.appid !== undefined ? (
         <DeckyFullscreenActionRow>
@@ -194,11 +226,11 @@ function SteamGameIdentityPanel({
       ) : null}
       <div style={getMetadataStyle()}>
         {game.appid !== undefined ? <><span>App ID</span><span style={getMetadataValueStyle()}>{game.appid}</span></> : null}
-        {releaseDate !== undefined ? <><span>Release date</span><span style={getMetadataValueStyle()}>{releaseDate}</span></> : null}
         {lastPlayed !== undefined ? <><span>Last played</span><span style={getMetadataValueStyle()}>{lastPlayed}</span></> : null}
         {game.playtimeForeverMinutes !== undefined ? <><span>Total Steam hours</span><span style={getMetadataValueStyle()}>{formatSteamPlaytimeMinutes(game.playtimeForeverMinutes)}</span></> : null}
         {game.playtimeDeckForeverMinutes !== undefined ? <><span>Total Deck hours</span><span style={getMetadataValueStyle()}>{formatSteamPlaytimeMinutes(game.playtimeDeckForeverMinutes)}</span></> : null}
       </div>
+      {refreshTime !== undefined ? <div style={{ marginTop: "auto", color: "#86a7bb", fontSize: "0.7em", textAlign: "center" }}>{`Game data refreshed ${refreshTime}`}</div> : null}
     </div>
   );
 }
@@ -210,6 +242,7 @@ export interface DeckySteamGameOverviewProps {
   readonly completionPercent: number | undefined;
   readonly steamHuntersEnrichment: SteamHuntersGameEnrichment | undefined;
   readonly updatedLabel: string;
+  readonly refreshedAt: number | undefined;
 }
 
 export function DeckySteamGameOverview({
@@ -219,6 +252,7 @@ export function DeckySteamGameOverview({
   completionPercent,
   steamHuntersEnrichment,
   updatedLabel,
+  refreshedAt,
 }: DeckySteamGameOverviewProps): JSX.Element {
   const steamHunters = buildDeckySteamHuntersGameViewModel({ achievements, enrichment: steamHuntersEnrichment });
   const remainingCount = game.summary.totalCount === undefined ? undefined : Math.max(0, game.summary.totalCount - game.summary.unlockedCount);
@@ -227,11 +261,9 @@ export function DeckySteamGameOverview({
       ? achievement.unlockedAt
       : latest, undefined);
   const hasCommunity = steamHunters?.hasCommunityStats === true;
-  const releaseDate = formatReleaseDate(steamHunters?.enrichment.app.releaseDate);
-
   return (
     <div style={getOverviewGridStyle()}>
-      <SteamGameIdentityPanel game={game} releaseDate={releaseDate} />
+      <SteamGameIdentityPanel game={game} refreshedAt={refreshedAt} />
       <div style={getDashboardStyle()}>
         <div style={getDashboardTopRowStyle(hasCommunity)}>
           <DeckySteamProgressSummary
@@ -244,12 +276,12 @@ export function DeckySteamGameOverview({
           />
           {hasCommunity && steamHunters !== undefined ? <DeckySteamHuntersCommunitySection model={steamHunters} compact fillHeight /> : null}
         </div>
-        {steamHunters !== undefined ? <DeckySteamHuntersCompletionHealthSection model={steamHunters} title="Completion Status" /> : null}
         <DeckySteamHuntersSetDetailsSection
           model={steamHunters}
           totalAchievementCount={totalAchievementCount}
           updatedLabel={updatedLabel}
         />
+        {steamHunters !== undefined ? <DeckySteamHuntersCompletionHealthSection model={steamHunters} title="Achievement Set Status" /> : null}
       </div>
     </div>
   );

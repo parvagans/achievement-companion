@@ -10038,9 +10038,6 @@ test("steam cached game detail metadata prefers cached library titles and icons 
         completionPercent: 67,
       },
       metrics: [],
-      playtimeForeverMinutes: 28,
-      playtimeTwoWeeksMinutes: 1,
-      playtimeDeckForeverMinutes: 28,
     },
     achievements: [],
   };
@@ -10049,6 +10046,9 @@ test("steam cached game detail metadata prefers cached library titles and icons 
   assert.equal(patchedDungeonsSnapshot.game.appid, 423530);
   assert.equal(patchedDungeonsSnapshot.game.gameId, "423530");
   assert.equal(patchedDungeonsSnapshot.game.title, "Minecraft Dungeons");
+  assert.equal(patchedDungeonsSnapshot.game.playtimeForeverMinutes, 28);
+  assert.equal(patchedDungeonsSnapshot.game.playtimeTwoWeeksMinutes, 1);
+  assert.equal(patchedDungeonsSnapshot.game.playtimeDeckForeverMinutes, 28);
   assert.equal(
     patchedDungeonsSnapshot.game.coverImageUrl,
     "https://media.steampowered.com/steamcommunity/public/images/apps/423530/cached-dungeons-icon.jpg",
@@ -10082,6 +10082,15 @@ test("steam cached game detail metadata prefers cached library titles and icons 
     patchedBattlefieldSnapshot.game.coverImageUrl,
     "https://media.steampowered.com/steamcommunity/public/images/apps/1174150/cached-battlefield-icon.jpg",
   );
+
+  const livePlaytimeSnapshot = applySteamLibraryScanGameDetailMetadata({
+    ...battlefieldSnapshot,
+    game: {
+      ...battlefieldSnapshot.game,
+      playtimeForeverMinutes: 44,
+    },
+  }, cachedSummary);
+  assert.equal(livePlaytimeSnapshot.game.playtimeForeverMinutes, 44);
 
   const fallbackSnapshot = applySteamLibraryScanGameDetailMetadata(dungeonsSnapshot, undefined);
   assert.deepStrictEqual(fallbackSnapshot, dungeonsSnapshot);

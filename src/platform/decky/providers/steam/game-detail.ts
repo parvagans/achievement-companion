@@ -46,11 +46,23 @@ export function applySteamLibraryScanGameDetailMetadata(
   const resolvedIconUrl = normalizeSteamArtworkUrl(cachedGame.iconUrl, cachedGame.appid);
   const resolvedCoverImageUrl = resolvedIconUrl ?? snapshot.game.coverImageUrl;
   const resolvedBoxArtImageUrl = resolvedIconUrl ?? snapshot.game.boxArtImageUrl ?? resolvedCoverImageUrl;
+  // Game-detail API responses do not consistently include the owned-library
+  // playtime fields. Keep the live value when present, otherwise use the
+  // last-known-good value collected from GetOwnedGames during the library scan.
+  const resolvedPlaytimeForeverMinutes =
+    snapshot.game.playtimeForeverMinutes ?? cachedGame.playtimeForeverMinutes;
+  const resolvedPlaytimeTwoWeeksMinutes =
+    snapshot.game.playtimeTwoWeeksMinutes ?? cachedGame.playtimeTwoWeeksMinutes;
+  const resolvedPlaytimeDeckForeverMinutes =
+    snapshot.game.playtimeDeckForeverMinutes ?? cachedGame.playtimeDeckForeverMinutes;
 
   const didChange =
     resolvedTitle !== snapshot.game.title ||
     resolvedCoverImageUrl !== snapshot.game.coverImageUrl ||
     resolvedBoxArtImageUrl !== snapshot.game.boxArtImageUrl ||
+    resolvedPlaytimeForeverMinutes !== snapshot.game.playtimeForeverMinutes ||
+    resolvedPlaytimeTwoWeeksMinutes !== snapshot.game.playtimeTwoWeeksMinutes ||
+    resolvedPlaytimeDeckForeverMinutes !== snapshot.game.playtimeDeckForeverMinutes ||
     cachedGame.appid !== snapshot.game.appid ||
     cachedGame.gameId !== snapshot.game.gameId;
 
@@ -68,6 +80,15 @@ export function applySteamLibraryScanGameDetailMetadata(
       platformLabel: cachedGame.platformLabel ?? snapshot.game.platformLabel ?? "Steam",
       ...(resolvedCoverImageUrl !== undefined ? { coverImageUrl: resolvedCoverImageUrl } : {}),
       ...(resolvedBoxArtImageUrl !== undefined ? { boxArtImageUrl: resolvedBoxArtImageUrl } : {}),
+      ...(resolvedPlaytimeForeverMinutes !== undefined
+        ? { playtimeForeverMinutes: resolvedPlaytimeForeverMinutes }
+        : {}),
+      ...(resolvedPlaytimeTwoWeeksMinutes !== undefined
+        ? { playtimeTwoWeeksMinutes: resolvedPlaytimeTwoWeeksMinutes }
+        : {}),
+      ...(resolvedPlaytimeDeckForeverMinutes !== undefined
+        ? { playtimeDeckForeverMinutes: resolvedPlaytimeDeckForeverMinutes }
+        : {}),
     },
   };
 }

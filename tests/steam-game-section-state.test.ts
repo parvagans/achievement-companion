@@ -20,6 +20,7 @@ import {
   type DeckySteamGameSection,
 } from "../src/platform/decky/decky-steam-game-section-navigation";
 import { isDeckySteamFullscreenEnrichmentPending } from "../src/platform/decky/decky-steam-fullscreen-enrichment";
+import { isSteamHuntersSetFullyObtainable } from "../src/platform/decky/decky-steam-hunters-game-sections";
 
 test("Steam section state preserves filters and stable achievement ids by game", () => {
   resetSteamGameSectionPageStatesForTests();
@@ -54,6 +55,50 @@ test("Steam section state preserves filters and stable achievement ids by game",
   assert.deepEqual(state["achievement-groups"].expandedGroupIds, ["base-game", "dlc:123:1"]);
   assert.equal(state["achievement-groups"].focusedGroupId, "dlc:123:1");
   assert.equal(readSteamGameSectionPageState("steam", "other").activeSection, "overview");
+});
+
+test("SteamHunters uses the fully obtainable state only when every restriction is explicitly clear", () => {
+  assert.equal(isSteamHuntersSetFullyObtainable({
+    hasPaidDlc: false,
+    unobtainableCount: 0,
+    conditionalCount: 0,
+    brokenButObtainableCount: 0,
+  }), true);
+  assert.equal(isSteamHuntersSetFullyObtainable({
+    hasPaidDlc: true,
+    unobtainableCount: 0,
+    conditionalCount: 0,
+    brokenButObtainableCount: 0,
+  }), false);
+  assert.equal(isSteamHuntersSetFullyObtainable({
+    hasPaidDlc: false,
+    unobtainableCount: 1,
+    conditionalCount: 0,
+    brokenButObtainableCount: 0,
+  }), false);
+  assert.equal(isSteamHuntersSetFullyObtainable({}), false);
+});
+
+test("Steam overview title fitting is one-line measured sizing and set status has no legacy card grid", async () => {
+  const [overviewSource, statusSource] = await Promise.all([
+    readFile(new URL("../src/platform/decky/decky-steam-game-overview.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-steam-hunters-game-sections.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(overviewSource, /MIN_GAME_TITLE_FONT_SIZE_PX = 15/u);
+  assert.match(overviewSource, /element\.scrollWidth <= element\.clientWidth/u);
+  assert.match(overviewSource, /whiteSpace: "nowrap"/u);
+  assert.match(overviewSource, /textOverflow: "ellipsis"/u);
+  assert.doesNotMatch(overviewSource, /WebkitLineClamp/u);
+  assert.match(overviewSource, /title="Achievement Set Status"/u);
+  assert.match(overviewSource, /Game data refreshed \$\{refreshTime\}/u);
+  assert.doesNotMatch(overviewSource, /releaseDate=\{releaseDate\}/u);
+  assert.ok(
+    overviewSource.indexOf("<DeckySteamHuntersSetDetailsSection") <
+      overviewSource.indexOf("<DeckySteamHuntersCompletionHealthSection"),
+  );
+  assert.match(statusSource, /getAchievementSetStatusPresentation/u);
+  assert.doesNotMatch(statusSource, /<DeckyFullScreenGameProgressStatGrid columns=\{4\} gap=\{6\}>/u);
 });
 
 test("Steam restoration target prefers exact, then nearest previous id, then first current id", () => {

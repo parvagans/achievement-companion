@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import type { CSSProperties, JSX } from "react";
 import { DeckyFullScreenGameProgressStat, DeckyFullScreenGameProgressStatGrid } from "./decky-full-screen-game-progress-stat";
 import { DeckyFullScreenGameSpotlightCard } from "./decky-full-screen-game-spotlight-card";
 import type { DeckySteamHuntersGameViewModel } from "./decky-steam-hunters-view-model";
@@ -6,6 +6,72 @@ import { formatSteamHuntersCompletionDuration, formatSteamHuntersPercentage } fr
 import { DeckySteamBrokenIcon, DeckySteamConditionalIcon, DeckySteamDlcIcon, DeckySteamUnobtainableIcon } from "./decky-steam-icons";
 
 export const STEAM_HUNTERS_COMMUNITY_SECTION_FOCUS_TARGET = "steam-community-section";
+
+function DeckySteamFullyObtainableIcon(): JSX.Element {
+  return (
+    <svg aria-hidden="true" focusable="false" height={22} viewBox="0 0 24 24" width={22}>
+      <g fill="none" stroke="#22c55e" strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.2}>
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="m8 12 2.6 2.6L16.5 9" />
+      </g>
+    </svg>
+  );
+}
+
+export function isSteamHuntersSetFullyObtainable(
+  health: DeckySteamHuntersGameViewModel["completionHealth"],
+): boolean {
+  return health.hasPaidDlc === false &&
+    health.unobtainableCount === 0 &&
+    health.conditionalCount === 0 &&
+    health.brokenButObtainableCount === 0;
+}
+
+function getAchievementSetStatusSummary(
+  health: DeckySteamHuntersGameViewModel["completionHealth"],
+): string {
+  return [
+    health.hasPaidDlc === undefined ? undefined : health.hasPaidDlc ? "DLC required" : "No DLC required",
+    health.unobtainableCount === undefined ? undefined : `${formatCount(health.unobtainableCount)} unobtainable`,
+    health.conditionalCount === undefined ? undefined : `${formatCount(health.conditionalCount)} conditional`,
+    health.brokenButObtainableCount === undefined ? undefined : `${formatCount(health.brokenButObtainableCount)} broken but obtainable`,
+  ].filter((value): value is string => value !== undefined).join(" • ");
+}
+
+function getAchievementSetStatusPresentation(
+  health: DeckySteamHuntersGameViewModel["completionHealth"],
+): { readonly headline: string; readonly color: string; readonly icon: JSX.Element } {
+  if (isSteamHuntersSetFullyObtainable(health)) {
+    return { headline: "Fully obtainable", color: "#22c55e", icon: <DeckySteamFullyObtainableIcon /> };
+  }
+  if ((health.unobtainableCount ?? 0) > 0) {
+    return { headline: "Full completion currently unavailable", color: "#ef4444", icon: <DeckySteamUnobtainableIcon /> };
+  }
+  if (health.hasPaidDlc === true) {
+    return { headline: "DLC required for 100%", color: "#c084fc", icon: <DeckySteamDlcIcon size={22} /> };
+  }
+  if ((health.conditionalCount ?? 0) > 0) {
+    return { headline: "Conditional achievements", color: "#facc15", icon: <DeckySteamConditionalIcon /> };
+  }
+  if ((health.brokenButObtainableCount ?? 0) > 0) {
+    return { headline: "Broken but obtainable achievements", color: "#cbd5e1", icon: <DeckySteamBrokenIcon /> };
+  }
+  return { headline: "Completion requirements", color: "rgba(255, 255, 255, 0.78)", icon: <DeckySteamConditionalIcon color="rgba(255, 255, 255, 0.72)" /> };
+}
+
+function getAchievementSetStatusContentStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    // Match the former dense-status-grid content height so this card keeps
+    // its established slot in the fixed overview layout.
+    minHeight: 53,
+    textAlign: "center",
+  };
+}
 
 function formatCount(value: number): string {
   return value.toLocaleString();
@@ -253,7 +319,7 @@ export function DeckySteamHuntersCommunitySection({
 
 export function DeckySteamHuntersCompletionHealthSection({
   model,
-  title = "Completion Health",
+  title = "Achievement Set Status",
 }: {
   readonly model: DeckySteamHuntersGameViewModel;
   readonly title?: string;
@@ -267,6 +333,8 @@ export function DeckySteamHuntersCompletionHealthSection({
   ) {
     return null;
   }
+  const presentation = getAchievementSetStatusPresentation(health);
+  const summary = getAchievementSetStatusSummary(health);
 
   return (
     <DeckyFullScreenGameSpotlightCard
@@ -274,20 +342,13 @@ export function DeckySteamHuntersCompletionHealthSection({
       focusable={false}
       style={getCompactDashboardCardStyle()}
     >
-      <DeckyFullScreenGameProgressStatGrid columns={4} gap={6}>
-        {health.hasPaidDlc !== undefined ? (
-          <DeckyFullScreenGameProgressStat dense icon={<DeckySteamDlcIcon />} label="DLC required" value={health.hasPaidDlc ? "Yes" : "No"} />
-        ) : null}
-        {health.unobtainableCount !== undefined ? (
-          <DeckyFullScreenGameProgressStat dense icon={<DeckySteamUnobtainableIcon />} label="Unobtainable" value={formatCount(health.unobtainableCount)} />
-        ) : null}
-        {health.conditionalCount !== undefined ? (
-          <DeckyFullScreenGameProgressStat dense icon={<DeckySteamConditionalIcon />} label="Conditional" value={formatCount(health.conditionalCount)} />
-        ) : null}
-        {health.brokenButObtainableCount !== undefined ? (
-          <DeckyFullScreenGameProgressStat dense icon={<DeckySteamBrokenIcon />} label="Broken but obtainable" value={formatCount(health.brokenButObtainableCount)} />
-        ) : null}
-      </DeckyFullScreenGameProgressStatGrid>
+      <div style={getAchievementSetStatusContentStyle()}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: presentation.color, fontSize: "1.02em", fontWeight: 800 }}>
+          {presentation.icon}
+          <span>{presentation.headline}</span>
+        </div>
+        {summary.length > 0 ? <div style={{ color: "rgba(255, 255, 255, 0.62)", fontSize: "0.76em", lineHeight: 1.25 }}>{summary}</div> : null}
+      </div>
     </DeckyFullScreenGameSpotlightCard>
   );
 }

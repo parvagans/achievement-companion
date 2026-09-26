@@ -777,6 +777,7 @@ export function DeckyFullScreenGamePage({
                   completionPercent={completionPercent}
                   steamHuntersEnrichment={steamHuntersEnrichment}
                   updatedLabel={formatDateOnly(refreshTimestamp)}
+                  refreshedAt={refreshTimestamp}
                 />
               </div>
             </div>
