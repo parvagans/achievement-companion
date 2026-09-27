@@ -1,4 +1,4 @@
-import { Focusable } from "@decky/ui";
+import { Focusable, NavEntryPositionPreferences } from "@decky/ui";
 import type { DashboardSnapshot, RecentUnlock, RecentlyPlayedGame } from "@core/domain";
 import {
   useRef,
@@ -169,6 +169,7 @@ function SteamCompactAction({
   onActivate,
   onCancel,
   onFocused,
+  preferredFocus = false,
   scrollToTopOnFocus = false,
   style,
   tone = "row",
@@ -179,6 +180,7 @@ function SteamCompactAction({
   readonly onActivate: () => void;
   readonly onCancel: () => void;
   readonly onFocused?: () => void;
+  readonly preferredFocus?: boolean;
   readonly scrollToTopOnFocus?: boolean;
   readonly style?: CSSProperties;
   readonly tone?: SteamCompactActionTone;
@@ -197,6 +199,7 @@ function SteamCompactAction({
       role="button"
       tabIndex={0}
       aria-label={ariaLabel}
+      preferredFocus={preferredFocus}
       onActivate={onActivate}
       onClick={onActivate}
       onCancel={onCancel}
@@ -828,7 +831,12 @@ export function DeckySteamCompactProfile({
   const refreshTime = formatRefreshTime(refreshedAt);
 
   return (
-    <div data-achievement-companion-steam-compact-profile style={getRootStyle()}>
+    <Focusable
+      data-achievement-companion-steam-compact-profile
+      navEntryPreferPosition={NavEntryPositionPreferences.PREFERRED_CHILD}
+      preferredFocus
+      style={getRootStyle()}
+    >
       <section style={getSectionStyle()}>
         <SectionHeader title="Profile" />
         <ProfileCard profile={profile} progress={steamAccountProgress} refreshedAt={refreshedAt} />
@@ -839,6 +847,7 @@ export function DeckySteamCompactProfile({
           onFocused={() => {
             setHasEnteredActionNavigation(true);
           }}
+          preferredFocus
           scrollToTopOnFocus
           tone="primary"
         >
@@ -937,6 +946,6 @@ export function DeckySteamCompactProfile({
       {refreshTime === undefined ? null : (
         <div style={getRefreshTimestampStyle()}>{`Steam and SteamHunters refreshed ${refreshTime}`}</div>
       )}
-    </div>
+    </Focusable>
   );
 }

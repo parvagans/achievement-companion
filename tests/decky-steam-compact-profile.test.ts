@@ -73,6 +73,54 @@ test("Steam compact profile matches the refined controller-first information hie
 
 });
 
+test("provider and Steam use explicit native entry scopes without changing RetroAchievements", () => {
+  const providerLauncherStart = bootstrapSource.indexOf("function ProviderLauncherCard");
+  const providerLauncherEnd = bootstrapSource.indexOf("function formatSteamLibraryScanUpdatedLabel", providerLauncherStart);
+  const providerLauncherSource = bootstrapSource.slice(providerLauncherStart, providerLauncherEnd);
+  const steamActionStart = compactProfileSource.indexOf("function SteamCompactAction");
+  const steamActionEnd = compactProfileSource.indexOf("function getIconStyle", steamActionStart);
+  const steamActionSource = compactProfileSource.slice(steamActionStart, steamActionEnd);
+  const retroProfileEntryStart = dashboardSource.indexOf("function OverviewProfileEntry");
+  const retroProfileEntryEnd = dashboardSource.indexOf("function ProviderIdentityRow", retroProfileEntryStart);
+  const retroProfileEntrySource = dashboardSource.slice(retroProfileEntryStart, retroProfileEntryEnd);
+
+  assert.ok(providerLauncherStart >= 0 && providerLauncherEnd > providerLauncherStart);
+  assert.ok(steamActionStart >= 0 && steamActionEnd > steamActionStart);
+  assert.ok(retroProfileEntryStart >= 0 && retroProfileEntryEnd > retroProfileEntryStart);
+
+  assert.match(bootstrapSource, /NavEntryPositionPreferences/u);
+  assert.match(compactProfileSource, /NavEntryPositionPreferences/u);
+  assert.match(
+    bootstrapSource,
+    /navEntryPreferPosition=\{NavEntryPositionPreferences\.PREFERRED_CHILD\}[\s\S]*preferredFocus/u,
+  );
+  assert.match(
+    providerLauncherSource,
+    /preferredFocus=\{preferredFocus\}/u,
+    "provider cards preserve their controller focusability while accepting the entry target marker",
+  );
+  assert.match(bootstrapSource, /preferredFocus=\{index === 0\}/u);
+  assert.match(bootstrapSource, /preferredFocus=\{visibleProviders\.length === 0\}/u);
+  assert.match(bootstrapSource, /index === 0 \? \{ elementRef: setProviderInitialFocusTarget \} : \{\}/u);
+  assert.match(
+    bootstrapSource,
+    /visibleProviders\.length === 0 \? \{ elementRef: setProviderInitialFocusTarget \} : \{\}/u,
+  );
+
+  assert.match(
+    compactProfileSource,
+    /<Focusable[\s\S]*navEntryPreferPosition=\{NavEntryPositionPreferences\.PREFERRED_CHILD\}[\s\S]*preferredFocus/u,
+  );
+  assert.match(steamActionSource, /preferredFocus=\{preferredFocus\}/u);
+  assert.match(compactProfileSource, /ariaLabel="Open Steam profile full-screen"[\s\S]*preferredFocus/u);
+
+  assert.doesNotMatch(retroProfileEntrySource, /navEntryPreferPosition|preferredFocus/u);
+
+  assert.match(providerLauncherSource, /onActivate=\{onClick\}/u);
+  assert.match(steamActionSource, /onCancel=\{onCancel\}/u);
+  assert.match(retroProfileEntrySource, /onCancel=\{\(\) => \{/u);
+});
+
 test("Steam compact settings reuse the provider configuration and keep API credentials full-screen", () => {
   assert.match(dashboardSource, /DeckySteamCompactSettings/u);
   assert.match(dashboardSource, /isShowingSteamCompactSettings/u);

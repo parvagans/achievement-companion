@@ -1,15 +1,18 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type CSSProperties,
   type FocusEventHandler,
+  type RefCallback,
 } from "react";
 import {
   DropdownItem,
   Focusable,
+  NavEntryPositionPreferences,
   type FocusableProps,
   PanelSection,
   PanelSectionRow,
@@ -71,6 +74,12 @@ import {
 import { resolveProviderDashboardPreferences } from "@core/provider-dashboard-preferences";
 import { DeckyFirstRunSetupScreen } from "./decky-first-run-setup-screen";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
+import { readDeckyGamepadNavigationTrees } from "./decky-gamepad-navigation";
+import {
+  createDeckyProviderInitialFocusAttempt,
+  requestDeckyProviderInitialFocus,
+  shouldRequestDeckyProviderInitialFocus,
+} from "./decky-provider-initial-focus";
 interface SteamLibraryScanActionState {
   readonly status: "idle" | "scanning" | "success" | "error";
   readonly message?: string;
@@ -334,6 +343,8 @@ function ProviderLauncherCard({
   connected,
   ariaLabel,
   onClick,
+  preferredFocus = false,
+  elementRef,
 }: {
   readonly providerId: ProviderId | "settings";
   readonly iconSrc: string | undefined;
@@ -342,6 +353,8 @@ function ProviderLauncherCard({
   readonly statusLabel?: string;
   readonly ariaLabel: string;
   readonly onClick: () => void;
+  readonly preferredFocus?: boolean;
+  readonly elementRef?: RefCallback<HTMLDivElement>;
 }): JSX.Element {
   const [isFocused, setIsFocused] = useState(false);
   const tone = getChooserProviderLauncherTone(providerId, connected === true);
@@ -352,6 +365,8 @@ function ProviderLauncherCard({
       role="button"
       aria-label={ariaLabel}
       tabIndex={0}
+      preferredFocus={preferredFocus}
+      ref={elementRef}
       onActivate={onClick}
       onClick={onClick}
       onFocus={(event) => {
@@ -813,6 +828,8 @@ function DeckyBootstrapStateBridge(): JSX.Element {
   const settings = useDeckySettings();
   const compactNavigation = useDeckyCompactNavigation();
   const [detailScrollResetNonce, setDetailScrollResetNonce] = useState(0);
+  const providerInitialFocusTargetRef = useRef<HTMLDivElement | null>(null);
+  const initialProviderFocusRequested = useRef(shouldRequestDeckyProviderInitialFocus(compactNavigation));
   const providerConfigsSignature = `${providerConfigs.retroAchievements?.username ?? ""}:${providerConfigs.retroAchievements?.hasApiKey ? 1 : 0}:${providerConfigs.steam?.steamId64 ?? ""}:${providerConfigs.steam?.hasApiKey ? 1 : 0}`;
   const enabledProviders = useMemo(() => getDeckyProviderOptions(providerConfigs), [providerConfigs]);
   const visibleProviders = useMemo(
@@ -840,6 +857,29 @@ function DeckyBootstrapStateBridge(): JSX.Element {
         ? providerConfigs.steam
         : undefined;
   const lastProviderConfigsSignature = useRef<string | undefined>(undefined);
+
+  const setProviderInitialFocusTarget = useCallback((node: HTMLDivElement | null) => {
+    providerInitialFocusTargetRef.current = node;
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!initialProviderFocusRequested.current || providerInitialFocusTargetRef.current === null) {
+      return;
+    }
+
+    const attempt = createDeckyProviderInitialFocusAttempt({
+      requestAnimationFrame: window.requestAnimationFrame.bind(window),
+      cancelAnimationFrame: window.cancelAnimationFrame.bind(window),
+      requestFocus: (target) => requestDeckyProviderInitialFocus(target, {
+        getNavigationTrees: readDeckyGamepadNavigationTrees,
+      }),
+    });
+    attempt.start(providerInitialFocusTargetRef.current);
+
+    return () => {
+      attempt.cancel();
+    };
+  }, []);
 
   const openProviderFullScreenView = useCallback((
     providerId: string,
@@ -961,52 +1001,58 @@ function DeckyBootstrapStateBridge(): JSX.Element {
               <>
                 <PanelSection>
                   <PanelSectionRow>
-                    <div style={getChooserProviderListStyle()}>
-                      <div style={getChooserProviderListStyle()}>
-                        {visibleProviders.map((provider) => (
-                          <ProviderLauncherCard
-                            key={provider.id}
-                            providerId={provider.id}
-                            iconSrc={provider.iconSrc}
-                            label={provider.label}
-                            connected={provider.connected}
-                            ariaLabel={
-                              provider.connected
-                                ? `${provider.label} provider, configured`
-                                : `${provider.label} provider, needs setup`
-                            }
-                            statusLabel={provider.connected ? "Configured" : "Set up"}
-                            onClick={() => {
-                              if (!provider.enabled) {
-                                return;
-                              }
-
-                              if (
-                                (provider.id === "retroachievements" && providerConfigs.retroAchievements === undefined) ||
-                                (provider.id === "steam" && providerConfigs.steam === undefined)
-                              ) {
-                                setDeckyCompactNavigation({ kind: "provider-setup", providerId: provider.id });
-                                return;
-                              }
-
-                              setDeckyCompactNavigation({ kind: "provider-dashboard", providerId: provider.id });
-                            }}
-                          />
-                        ))}
+                    <Focusable
+                      navEntryPreferPosition={NavEntryPositionPreferences.PREFERRED_CHILD}
+                      preferredFocus
+                      style={getChooserProviderListStyle()}
+                    >
+                      {visibleProviders.map((provider, index) => (
                         <ProviderLauncherCard
-                          providerId="settings"
-                          iconSrc={undefined}
-                          label="Provider Settings"
-                          ariaLabel="Open provider settings"
+                          key={provider.id}
+                          providerId={provider.id}
+                          iconSrc={provider.iconSrc}
+                          label={provider.label}
+                          connected={provider.connected}
+                          ariaLabel={
+                            provider.connected
+                              ? `${provider.label} provider, configured`
+                              : `${provider.label} provider, needs setup`
+                          }
+                          statusLabel={provider.connected ? "Configured" : "Set up"}
+                          preferredFocus={index === 0}
+                          {...(index === 0 ? { elementRef: setProviderInitialFocusTarget } : {})}
                           onClick={() => {
-                            void platform.navigation?.go({
-                              view: "settings",
-                              surface: "full-screen",
-                            });
+                            if (!provider.enabled) {
+                              return;
+                            }
+
+                            if (
+                              (provider.id === "retroachievements" && providerConfigs.retroAchievements === undefined) ||
+                              (provider.id === "steam" && providerConfigs.steam === undefined)
+                            ) {
+                              setDeckyCompactNavigation({ kind: "provider-setup", providerId: provider.id });
+                              return;
+                            }
+
+                            setDeckyCompactNavigation({ kind: "provider-dashboard", providerId: provider.id });
                           }}
                         />
-                      </div>
-                    </div>
+                      ))}
+                      <ProviderLauncherCard
+                        providerId="settings"
+                        iconSrc={undefined}
+                        label="Provider Settings"
+                        ariaLabel="Open provider settings"
+                        preferredFocus={visibleProviders.length === 0}
+                        {...(visibleProviders.length === 0 ? { elementRef: setProviderInitialFocusTarget } : {})}
+                        onClick={() => {
+                          void platform.navigation?.go({
+                            view: "settings",
+                            surface: "full-screen",
+                          });
+                        }}
+                      />
+                    </Focusable>
                   </PanelSectionRow>
                 </PanelSection>
 
