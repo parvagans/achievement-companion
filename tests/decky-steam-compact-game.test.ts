@@ -28,13 +28,18 @@ test("Steam compact game overview uses the refined narrow-panel hierarchy and op
   assert.match(compactGameSource, /DeckySteamCompactAction/u);
   assert.match(compactGameSource, /Your Progress/u);
   assert.match(compactGameSource, /Play Time/u);
-  assert.match(compactGameSource, /Last Played/u);
+  assert.match(compactGameSource, /Steam Deck/u);
+  assert.match(compactGameSource, /steamDeckIconUrl/u);
+  assert.match(compactGameSource, /gridTemplateColumns: "26px minmax\(0, 1fr\)"/u);
+  assert.match(compactGameSource, /alignItems: "center", justifyContent: "center"/u);
   assert.match(compactGameSource, /Achievement Set Status \(SteamHunters\)/u);
+  assert.match(compactGameSource, /No DLC required/u);
+  assert.match(compactGameSource, /conditions/u);
+  assert.match(compactGameSource, /broken but obtainable/u);
   assert.match(compactGameSource, /SteamHunters Stats/u);
   assert.match(compactGameSource, /Game Info/u);
   assert.match(compactGameSource, /loadDeckySteamHuntersEnrichedGameDetail\(snapshot\)/u);
   assert.match(compactGameSource, /getSteamHuntersAchievementSetStatusPresentation/u);
-  assert.match(compactGameSource, /getSteamHuntersAchievementSetStatusSummary/u);
   assert.match(compactGameSource, /registerCompactGameDetailCancelCallback/u);
   assert.doesNotMatch(compactGameSource, /<PanelSection title="GAME OVERVIEW"/u);
 

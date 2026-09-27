@@ -4,31 +4,26 @@ import { DeckyCompletionProgressBar, getCompletionPercent } from "./decky-comple
 import { loadDeckySteamHuntersEnrichedGameDetail } from "./decky-app-services";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { registerCompactGameDetailCancelCallback } from "./decky-full-screen-cancel-bridge";
-import { formatDeckyRelativeTime, formatSteamPlaytimeMinutes } from "./decky-stat-helpers";
+import { formatSteamPlaytimeMinutes } from "./decky-stat-helpers";
 import { DeckySteamCompactAction } from "./decky-steam-compact-profile";
 import {
   getSteamHuntersAchievementSetStatusPresentation,
-  getSteamHuntersAchievementSetStatusSummary,
   isSteamHuntersSetFullyObtainable,
 } from "./decky-steam-hunters-game-sections";
 import { buildDeckySteamHuntersGameViewModel } from "./decky-steam-hunters-view-model";
 import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
 import { getSteamHuntersGameEnrichment, type SteamHuntersGameEnrichment } from "../../providers/steamhunters";
-import calendarIconUrl from "./assets/calendar.svg";
 import clockIconUrl from "./assets/clock.svg";
 import externalLinkIconUrl from "./assets/external-link.svg";
 import steamIconUrl from "./assets/steam.svg";
 import starIconUrl from "./assets/star.svg";
+import steamDeckIconUrl from "./assets/steam-deck.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
 
 const MIN_TITLE_FONT_SIZE_PX = 12;
 
 function formatCount(value: number | undefined): string {
   return value === undefined ? "—" : value.toLocaleString();
-}
-
-function formatDate(value: number | undefined): string {
-  return value === undefined ? "Never" : new Date(value).toLocaleDateString();
 }
 
 function formatReleaseDate(value: string | undefined): string {
@@ -172,7 +167,7 @@ function getSnapshotGridStyle(): CSSProperties {
 function getSnapshotMetricStyle(): CSSProperties {
   return {
     display: "grid",
-    gridTemplateColumns: "18px minmax(0, 1fr)",
+    gridTemplateColumns: "26px minmax(0, 1fr)",
     alignItems: "center",
     gap: 6,
     minWidth: 0,
@@ -244,6 +239,29 @@ function getSteamHuntersStatStyle(): CSSProperties {
     background: "rgba(8, 29, 45, 0.65)",
     boxSizing: "border-box",
     textAlign: "center",
+  };
+}
+
+function getSetStatusDetailRowsStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 2,
+    color: "rgba(166, 206, 233, 0.78)",
+    fontSize: 8,
+    lineHeight: 1.25,
+    textAlign: "center",
+  };
+}
+
+function getSetStatusDetailRowStyle(): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    width: "100%",
   };
 }
 
@@ -333,19 +351,21 @@ function SteamCompactGameTitle({ title }: { readonly title: string }): JSX.Eleme
 
 function SnapshotMetric({
   iconUrl,
+  iconStyle,
   label,
   secondary,
   value,
 }: {
   readonly iconUrl: string;
+  readonly iconStyle?: CSSProperties;
   readonly label: string;
   readonly secondary?: string;
   readonly value: string;
 }): JSX.Element {
   return (
     <div style={getSnapshotMetricStyle()}>
-      <img alt="" aria-hidden="true" src={iconUrl} style={{ width: 18, height: 18, filter: "brightness(0) saturate(100%) invert(69%) sepia(84%) saturate(1582%) hue-rotate(162deg) brightness(98%) contrast(101%)" }} />
-      <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+      <img alt="" aria-hidden="true" src={iconUrl} style={{ width: 22, height: 22, filter: "brightness(0) saturate(100%) invert(69%) sepia(84%) saturate(1582%) hue-rotate(162deg) brightness(98%) contrast(101%)", ...iconStyle }} />
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, minWidth: 0, textAlign: "center" }}>
         <span style={getMetricLabelStyle()}>{label}</span>
         <span style={getMetricValueStyle()}>{value}</span>
         {secondary !== undefined ? <span style={getMetricSecondaryStyle()}>{secondary}</span> : null}
@@ -393,10 +413,7 @@ export function DeckySteamCompactGameOverview({
   const status = steamHunters === undefined
     ? undefined
     : getSteamHuntersAchievementSetStatusPresentation(steamHunters.completionHealth);
-  const statusSummary = steamHunters === undefined
-    ? "SteamHunters data unavailable."
-    : getSteamHuntersAchievementSetStatusSummary(steamHunters.completionHealth);
-  const lastPlayedRelative = formatDeckyRelativeTime(game.lastPlayedAt);
+  const completionHealth = steamHunters?.completionHealth;
   const artworkUrl = getSteamFullscreenGameArtworkUrl(game);
 
   useLayoutEffect(() => registerCompactGameDetailCancelCallback(rootRef.current, onBack), [onBack]);
@@ -485,24 +502,35 @@ export function DeckySteamCompactGameOverview({
           value={formatSteamPlaytimeMinutes(game.playtimeForeverMinutes) ?? "—"}
         />
         <SnapshotMetric
-          iconUrl={calendarIconUrl}
-          label="Last Played"
-          value={formatDate(game.lastPlayedAt)}
-          {...(lastPlayedRelative !== undefined ? { secondary: lastPlayedRelative } : {})}
+          iconStyle={{ width: 26, height: 15, objectFit: "contain" }}
+          iconUrl={steamDeckIconUrl}
+          label="Steam Deck"
+          value={formatSteamPlaytimeMinutes(game.playtimeDeckForeverMinutes) ?? "—"}
         />
       </div>
 
       <div style={getSectionCardStyle()}>
         <div style={getSectionLabelStyle()}>Achievement Set Status (SteamHunters)</div>
         {status === undefined ? (
-          <div style={{ color: "rgba(174, 207, 231, 0.78)", fontSize: 10, lineHeight: 1.25 }}>{statusSummary}</div>
+          <div style={{ color: "rgba(174, 207, 231, 0.78)", fontSize: 10, lineHeight: 1.25, textAlign: "center" }}>SteamHunters data unavailable.</div>
         ) : (
           <>
-            <div style={{ display: "flex", alignItems: "center", gap: 7, color: status.color, fontSize: 12, fontWeight: 850, lineHeight: 1.12 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 7, color: status.color, fontSize: 12, fontWeight: 850, lineHeight: 1.12, textAlign: "center" }}>
               {status.icon}
               <span>{status.headline}</span>
             </div>
-            {statusSummary.length > 0 ? <div style={{ color: "rgba(166, 206, 233, 0.78)", fontSize: 8, lineHeight: 1.25 }}>{statusSummary}</div> : null}
+            <div style={getSetStatusDetailRowsStyle()}>
+              <div style={getSetStatusDetailRowStyle()}>
+                <span>{completionHealth?.hasPaidDlc === undefined ? "DLC status unavailable" : completionHealth.hasPaidDlc ? "DLC required" : "No DLC required"}</span>
+                <span aria-hidden="true">•</span>
+                <span>{`${formatCount(completionHealth?.unobtainableCount)} unobtainable`}</span>
+              </div>
+              <div style={getSetStatusDetailRowStyle()}>
+                <span>{`${formatCount(completionHealth?.conditionalCount)} conditions`}</span>
+                <span aria-hidden="true">•</span>
+                <span>{`${formatCount(completionHealth?.brokenButObtainableCount)} broken but obtainable`}</span>
+              </div>
+            </div>
           </>
         )}
       </div>
