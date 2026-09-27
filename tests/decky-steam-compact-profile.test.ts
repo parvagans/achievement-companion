@@ -6,6 +6,10 @@ const compactProfileSource = readFileSync(
   "src/platform/decky/decky-steam-compact-profile.tsx",
   "utf8",
 );
+const compactSettingsSource = readFileSync(
+  "src/platform/decky/decky-steam-compact-settings.tsx",
+  "utf8",
+);
 const dashboardSource = readFileSync("src/platform/decky/decky-dashboard-view.tsx", "utf8");
 const bootstrapSource = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
 const indexSource = readFileSync("src/index.tsx", "utf8");
@@ -24,10 +28,11 @@ test("Steam compact profile matches the refined controller-first information hie
   assert.match(compactProfileSource, /label="Points"/u);
   assert.match(compactProfileSource, /label="Points Rank"/u);
   assert.match(compactProfileSource, /label="Legendary Unlocks"/u);
+  assert.match(compactProfileSource, /label="Legendary Unlocks"[\s\S]*tone="gold"/u);
   assert.match(compactProfileSource, /label="Completed Games"/u);
   assert.match(compactProfileSource, /title="Recent Activity"/u);
   assert.match(compactProfileSource, /title="Recently Played"/u);
-  assert.match(compactProfileSource, />Profile Settings</u);
+  assert.match(compactProfileSource, />Steam Settings</u);
 
   assert.match(compactProfileSource, /function SteamCompactAction/u);
   const compactActionStart = compactProfileSource.indexOf("function SteamCompactAction");
@@ -62,6 +67,31 @@ test("Steam compact profile matches the refined controller-first information hie
   assert.ok(recentActivityRows < recentActivityViewAll && recentActivityViewAll < recentlyPlayedHeader);
   assert.ok(recentlyPlayedHeader < recentlyPlayedRows && recentlyPlayedRows < recentlyPlayedViewAll);
 
+});
+
+test("Steam compact settings reuse the provider configuration and keep API credentials full-screen", () => {
+  assert.match(dashboardSource, /DeckySteamCompactSettings/u);
+  assert.match(dashboardSource, /onOpenSettings=\{\(\) => setIsShowingSteamSettings\(true\)\}/u);
+  assert.match(dashboardSource, /onOpenApiSettings=\{onOpenSettings\}/u);
+  assert.match(bootstrapSource, /includePlayedFreeGames/u);
+  assert.match(compactSettingsSource, /data-achievement-companion-steam-compact-settings/u);
+  assert.match(compactSettingsSource, /padding: "0 16px 4px"/u);
+  assert.match(compactSettingsSource, /data-achievement-companion-steam-settings-initial-focus/u);
+  assert.match(compactSettingsSource, /scrollTop = 0/u);
+  assert.match(compactSettingsSource, /writeValidatedDeckySteamProviderConfig/u);
+  assert.doesNotMatch(compactSettingsSource, /apiKeyDraft/u, "settings must not contain a second API-key field");
+  assert.match(compactSettingsSource, /Recent Activity/u);
+  assert.match(compactSettingsSource, /Recently Played/u);
+  assert.match(compactSettingsSource, /Show free games/u);
+  assert.match(compactSettingsSource, /API Settings/u);
+  assert.match(compactSettingsSource, /getCompactSettingLabelStyle/u);
+  assert.match(compactSettingsSource, /getCompactSettingDescriptionStyle/u);
+  assert.match(compactSettingsSource, /getToggleFieldWrapperStyle/u);
+  assert.match(compactSettingsSource, /function SteamCompactCountPicker/u);
+  assert.match(compactSettingsSource, /data-achievement-companion-count-picker-option/u);
+  assert.match(compactSettingsSource, /margin: "4px 12px 10px"/u);
+  assert.match(compactSettingsSource, /padding: "7px 12px"/u);
+  assert.doesNotMatch(compactSettingsSource, /DropdownItem/u);
 });
 
 test("Steam compact profile loads optional SteamHunters data and preserves full-screen return context", () => {

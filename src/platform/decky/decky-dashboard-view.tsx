@@ -1,4 +1,4 @@
-import { useCallback, type CSSProperties } from "react";
+import { useCallback, useState, type CSSProperties } from "react";
 import type { ResourceState } from "@core/cache";
 import type { DashboardSnapshot, RecentUnlock, RecentlyPlayedGame } from "@core/domain";
 import type { RetroAchievementsConnectionState } from "./providers/retroachievements/connection";
@@ -41,6 +41,7 @@ import {
 } from "./decky-stat-helpers";
 import { getSteamCompactGameArtworkUrl } from "./decky-steam-game-artwork";
 import { DeckySteamCompactProfile } from "./decky-steam-compact-profile";
+import { DeckySteamCompactSettings } from "./decky-steam-compact-settings";
 import { formatDeckyProviderLabel } from "./providers";
 import { getDeckyProviderIconSrc } from "./providers/provider-branding";
 import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
@@ -1367,6 +1368,7 @@ export function DeckyDashboardView({
   steamConnectionState,
   onUpdateSteamCredentials,
 }: DeckyDashboardViewProps): JSX.Element {
+  const [isShowingSteamSettings, setIsShowingSteamSettings] = useState(false);
   const compactProviderBackButtonRef = useCallback((node: HTMLDivElement | null) => {
     ensureCompactProviderCancelBridgeRegisteredForBackButtonElement(node);
   }, []);
@@ -1429,6 +1431,15 @@ export function DeckyDashboardView({
     profile.providerId === RETROACHIEVEMENTS_PROVIDER_ID ? recentlyPlayedGames[0] : undefined;
 
   if (profile.providerId === STEAM_PROVIDER_ID && steamAccountProgress !== undefined) {
+    if (isShowingSteamSettings) {
+      return (
+        <DeckySteamCompactSettings
+          onBack={() => setIsShowingSteamSettings(false)}
+          onOpenApiSettings={onOpenSettings}
+        />
+      );
+    }
+
     return (
       <>
         {steamConnectionState !== undefined && getSteamConnectionBanner(steamConnectionState) !== undefined ? (
@@ -1455,7 +1466,7 @@ export function DeckyDashboardView({
           onOpenGameDetail={(game) => {
             onOpenGameDetail(game.providerId, game.gameId, game.title);
           }}
-          onOpenSettings={onOpenSettings}
+          onOpenSettings={() => setIsShowingSteamSettings(true)}
           onCancel={onBackToProviders}
         />
       </>

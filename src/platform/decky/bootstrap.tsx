@@ -500,7 +500,10 @@ function DashboardScreen({
     [providerConfig, settings],
   );
   const steamLibraryAchievementScanSummary = useDeckySteamLibraryAchievementScanOverview(providerId);
-  const dashboardSettingsSignature = `${providerId}:${dashboardPreferences.recentAchievementsCount}:${dashboardPreferences.recentlyPlayedCount}`;
+  const dashboardIncludesPlayedFreeGames = providerId === STEAM_PROVIDER_ID
+    ? (providerConfig as SteamProviderConfig | undefined)?.includePlayedFreeGames ?? false
+    : false;
+  const dashboardSettingsSignature = `${providerId}:${dashboardPreferences.recentAchievementsCount}:${dashboardPreferences.recentlyPlayedCount}:${dashboardIncludesPlayedFreeGames}`;
   const requestDashboardReload = useCallback((forceRefresh: boolean) => {
     if (forceRefresh) {
       dashboardForceRefreshNextLoad.current = true;

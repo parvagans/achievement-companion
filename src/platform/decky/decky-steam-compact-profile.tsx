@@ -867,7 +867,7 @@ export function DeckySteamCompactProfile({
           <SteamHuntersMetric
             iconUrl={masteredIconUrl}
             label="Legendary Unlocks"
-            tone="purple"
+            tone="gold"
             value={formatCount(steamHuntersProfile?.legendaryAchievements)}
           />
           <SteamHuntersMetric
@@ -931,7 +931,7 @@ export function DeckySteamCompactProfile({
         <span style={getSettingsIconFrameStyle()}>
           <img alt="" src={settingsIconUrl} style={getIconStyle(18)} />
         </span>
-        <span style={getSettingsLabelStyle()}>Profile Settings</span>
+        <span style={getSettingsLabelStyle()}>Steam Settings</span>
         <img alt="" src={chevronRightIconUrl} style={getIconStyle(17)} />
       </SteamCompactAction>
       {refreshTime === undefined ? null : (
