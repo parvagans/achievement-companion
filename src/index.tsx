@@ -5,7 +5,7 @@ import {
   installAchievementCompanionRuntimeDebug,
   removeAchievementCompanionRuntimeDebug,
 } from "@platform/decky/decky-runtime-debug";
-import brandLogoUrl from "./platform/decky/assets/brand/AC_main_logo.png";
+import compactBrandLogoUrl from "./platform/decky/assets/brand/AC_decky_compact_logo.png";
 
 installAchievementCompanionRuntimeDebug();
 const removeDeckyGamePageAchievementRoutePatch =
@@ -46,7 +46,7 @@ export default definePlugin(() => ({
   titleView: (
     <img
       alt="Achievement Companion"
-      src={brandLogoUrl}
+      src={compactBrandLogoUrl}
       style={{ display: "block", width: 150, height: 48, objectFit: "contain" }}
     />
   ),

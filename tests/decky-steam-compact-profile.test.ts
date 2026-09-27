@@ -8,12 +8,15 @@ const compactProfileSource = readFileSync(
 );
 const dashboardSource = readFileSync("src/platform/decky/decky-dashboard-view.tsx", "utf8");
 const bootstrapSource = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
+const indexSource = readFileSync("src/index.tsx", "utf8");
 
 test("Steam compact profile matches the refined controller-first information hierarchy", () => {
   assert.match(compactProfileSource, /data-achievement-companion-steam-compact-profile/u);
   assert.match(compactProfileSource, /width: "100%"/u);
-  assert.match(compactProfileSource, /padding: "0 4px 4px"/u);
+  assert.match(compactProfileSource, /padding: "0 16px 4px"/u);
   assert.doesNotMatch(compactProfileSource, /width: 352/u);
+  assert.match(indexSource, /AC_decky_compact_logo\.png/u);
+  assert.doesNotMatch(indexSource, /AC_main_logo\.png/u);
 
   assert.match(compactProfileSource, /<SectionHeader title="Profile"/u);
   assert.match(compactProfileSource, /Open Profile Full-Screen/u);

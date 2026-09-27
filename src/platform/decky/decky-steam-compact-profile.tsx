@@ -91,7 +91,7 @@ function getRootStyle(): CSSProperties {
     gap: 8,
     width: "100%",
     minWidth: 0,
-    padding: "0 4px 4px",
+    padding: "0 16px 4px",
     boxSizing: "border-box",
     color: "#f2f6fb",
   };
