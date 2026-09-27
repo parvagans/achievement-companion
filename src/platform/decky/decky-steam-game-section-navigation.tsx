@@ -28,14 +28,12 @@ export function DeckySteamGameSectionNavigation({
   sections,
   onPreviousSection,
   onNextSection,
-  onBack,
   onHeightChange,
 }: {
   readonly activeSection: DeckySteamGameSectionId;
   readonly sections: readonly DeckySteamGameSection[];
   readonly onPreviousSection: () => void;
   readonly onNextSection: () => void;
-  readonly onBack: () => void;
   readonly onHeightChange: (height: number) => void;
 }): JSX.Element {
   return (
@@ -43,7 +41,6 @@ export function DeckySteamGameSectionNavigation({
         activeNavigationItemId={activeSection}
         ariaLabel="Steam game sections"
         navigationItems={sections satisfies readonly DeckyFullScreenFooterNavigationItem[]}
-        onBack={onBack}
         onHeightChange={onHeightChange}
         onNextNavigationItem={onNextSection}
         onPreviousNavigationItem={onPreviousSection}

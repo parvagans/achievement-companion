@@ -17,8 +17,6 @@ import {
 } from "./decky-focus-styles";
 import { getDeckyFullscreenActionStylesCss } from "./decky-full-screen-action-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
-import { ensureFullscreenCancelBridgeRegisteredForBackButtonElement } from "./decky-full-screen-cancel-bridge";
-import { markDeckyFullscreenReturnRequested } from "./decky-full-screen-return-context";
 
 function DeckyFullscreenActionStyles(): JSX.Element {
   const anchorRef = useRef<HTMLSpanElement>(null);
@@ -180,22 +178,13 @@ export function DeckyFullscreenActionButton({
   scrollToTopOnFocus = false,
   focusClassName,
 }: DeckyFullscreenActionButtonProps): JSX.Element {
-  const fullscreenBackButtonRef = useCallback((node: HTMLDivElement | null) => {
-    if (isFullscreenBackAction) {
-      ensureFullscreenCancelBridgeRegisteredForBackButtonElement(node);
-    }
-  }, [isFullscreenBackAction]);
   const handleClick = useCallback(() => {
     if (disabled) {
       return;
     }
 
-    if (isFullscreenBackAction) {
-      markDeckyFullscreenReturnRequested();
-    }
-
     onClick();
-  }, [disabled, isFullscreenBackAction, onClick]);
+  }, [disabled, onClick]);
   const shouldScrollToTopOnFocus = isFullscreenBackAction || scrollToTopOnFocus;
 
   return (
@@ -217,9 +206,6 @@ export function DeckyFullscreenActionButton({
           ? scrollFullscreenBackButtonGamepadIntoView
           : scrollFocusedGamepadElementIntoView
       }
-      {...(isFullscreenBackAction ? { onCancel: handleClick } : {})}
-      {...(isFullscreenBackAction ? { ref: fullscreenBackButtonRef } : {})}
-      {...(isFullscreenBackAction ? { "data-achievement-companion-fullscreen-back": "true" as const } : {})}
       style={getFullscreenChipStyle(disabled)}
     >
       <span style={getFullscreenChipContentStyle(contentAlign)}>

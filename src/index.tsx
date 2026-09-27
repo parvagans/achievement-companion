@@ -1,15 +1,17 @@
 import { definePlugin } from "@decky/api";
 import { DeckyBootstrap } from "@platform/decky/bootstrap";
+import { removeDeckyCompactCancelBridges } from "@platform/decky/decky-full-screen-cancel-bridge";
+import { resetDeckyCompactNavigation } from "@platform/decky/decky-compact-navigation";
 import { ensureDeckyGamePageAchievementRoutePatchRegistered } from "@platform/decky/decky-game-page-achievement-bubble";
+import {
+  clearDeckyCompactOriginFullScreenSession,
+  registerDeckyFullScreenRoutes,
+} from "@platform/decky/decky-navigation";
 import {
   installAchievementCompanionRuntimeDebug,
   removeAchievementCompanionRuntimeDebug,
 } from "@platform/decky/decky-runtime-debug";
 import compactBrandLogoUrl from "./platform/decky/assets/brand/AC_decky_compact_logo.png";
-
-installAchievementCompanionRuntimeDebug();
-const removeDeckyGamePageAchievementRoutePatch =
-  ensureDeckyGamePageAchievementRoutePatchRegistered();
 
 function AchievementCompanionIcon(): JSX.Element {
   return (
@@ -41,19 +43,30 @@ function AchievementCompanionIcon(): JSX.Element {
   );
 }
 
-export default definePlugin(() => ({
-  name: "Achievement Companion",
-  titleView: (
-    <img
-      alt="Achievement Companion"
-      src={compactBrandLogoUrl}
-      style={{ display: "block", width: 150, height: 48, objectFit: "contain" }}
-    />
-  ),
-  content: <DeckyBootstrap />,
-  icon: <AchievementCompanionIcon />,
-  onDismount() {
-    removeDeckyGamePageAchievementRoutePatch();
-    removeAchievementCompanionRuntimeDebug();
-  },
-}));
+export default definePlugin(() => {
+  installAchievementCompanionRuntimeDebug();
+  const removeDeckyGamePageAchievementRoutePatch =
+    ensureDeckyGamePageAchievementRoutePatchRegistered();
+  const removeDeckyFullScreenRoutes = registerDeckyFullScreenRoutes();
+
+  return {
+    name: "Achievement Companion",
+    titleView: (
+      <img
+        alt="Achievement Companion"
+        src={compactBrandLogoUrl}
+        style={{ display: "block", width: 150, height: 48, objectFit: "contain" }}
+      />
+    ),
+    content: <DeckyBootstrap />,
+    icon: <AchievementCompanionIcon />,
+    onDismount() {
+      removeDeckyCompactCancelBridges();
+      resetDeckyCompactNavigation();
+      clearDeckyCompactOriginFullScreenSession();
+      removeDeckyFullScreenRoutes();
+      removeDeckyGamePageAchievementRoutePatch();
+      removeAchievementCompanionRuntimeDebug();
+    },
+  };
+});

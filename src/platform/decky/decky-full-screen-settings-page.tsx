@@ -28,7 +28,6 @@ const CYAN_FILTER = "brightness(0) saturate(100%) invert(63%) sepia(89%) saturat
 type OperationState = "idle" | "refreshing-steam" | "refreshing-library" | "steam-refreshed" | "library-refreshed" | "cleared" | "reset" | "error";
 
 export interface DeckyFullScreenSettingsPageProps {
-  readonly onBack: () => void;
   readonly isActive?: boolean;
   /** Retained for the separate provider-settings route; Steam Settings no longer launches it. */
   readonly onOpenProviderSettings: (providerId: string) => void;
@@ -112,7 +111,7 @@ function SteamAccountFields({ config, onSaved }: { readonly config: SteamProvide
   </>;
 }
 
-export function DeckyFullScreenSettingsPage({ onBack, isActive = true, onOpenExternalUrl, onOpenActivity, onOpenProfile, showSteamProfileFooter = false }: DeckyFullScreenSettingsPageProps): JSX.Element {
+export function DeckyFullScreenSettingsPage({ isActive = true, onOpenExternalUrl, onOpenActivity, onOpenProfile, showSteamProfileFooter = false }: DeckyFullScreenSettingsPageProps): JSX.Element {
   const pageRef = useRef<HTMLDivElement>(null); const initialFocusRef = useRef<HTMLDivElement>(null);
   const [accountExpanded, setAccountExpanded] = useState(true); const [accountMessage, setAccountMessage] = useState<{ readonly message: string; readonly isError: boolean }>();
   const handleColumnDirection = (event: GamepadEvent): void => { const button = event.detail.button; const isVertical = button === GamepadButton.DIR_UP || button === GamepadButton.DIR_DOWN; const isHorizontal = button === GamepadButton.DIR_LEFT || button === GamepadButton.DIR_RIGHT; if (!isVertical && !isHorizontal) return; if (isHorizontal && event.detail.is_repeat === true) return; const page = pageRef.current; const active = page?.ownerDocument.activeElement; const HTMLElementConstructor = page?.ownerDocument.defaultView?.HTMLElement; if (page === null || page === undefined || HTMLElementConstructor === undefined || !(active instanceof HTMLElementConstructor)) return; const sourceId = active.closest<HTMLElement>("[data-settings-column]")?.dataset["settingsColumn"]; const destinationId = isVertical ? sourceId : sourceId === "left" ? "right" : sourceId === "right" ? "left" : undefined; if (destinationId === undefined) return; const destination = page.querySelector<HTMLElement>(`[data-settings-column="${destinationId}"]`); if (destination === null) return; const activeBounds = active.getBoundingClientRect(); const activeCenter = activeBounds.top + activeBounds.height / 2; const targets = [...destination.querySelectorAll<HTMLElement>(".Panel.Focusable[role='button']:not([aria-disabled='true']), input:not([disabled]), textarea:not([disabled]), [contenteditable='true']")]; const target = targets.reduce<{ readonly element: HTMLElement; readonly distance: number } | undefined>((closest, candidate) => { if (candidate === active) return closest; const bounds = candidate.getBoundingClientRect(); const delta = bounds.top + bounds.height / 2 - activeCenter; if (isVertical && (button === GamepadButton.DIR_UP ? delta >= 0 : delta <= 0)) return closest; const distance = Math.abs(delta); return closest === undefined || distance < closest.distance ? { element: candidate, distance } : closest; }, undefined)?.element; event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation(); target?.focus(); };
@@ -163,5 +162,5 @@ export function DeckyFullScreenSettingsPage({ onBack, isActive = true, onOpenExt
         <div style={{ ...cardStyle, padding: 10 }}><Heading>DANGEROUS ZONE</Heading><div style={{ marginTop: 7 }}><ActionRow onGamepadDirection={handleColumnDirection} danger icon={refreshIconUrl} title={armedAction === "reset" ? "Press again to reset Steam data" : "Reset Steam Data"} subtitle="Clear cache, local data, and Steam settings" onActivate={() => { if (armedAction === "reset") void resetSteamData(); else setArmedAction("reset"); }} /></div></div>
       </div>
     </div>
-  </div>{showSteamProfileFooter && onOpenActivity !== undefined && onOpenProfile !== undefined ? <DeckyFullScreenFooterOverlay isActive={isActive} activeNavigationItemId="settings" ariaLabel="Steam profile navigation" navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS} onBack={onBack} onPreviousNavigationItem={onOpenActivity} onNextNavigationItem={onOpenProfile} /> : null}</div>;
+  </div>{showSteamProfileFooter && onOpenActivity !== undefined && onOpenProfile !== undefined ? <DeckyFullScreenFooterOverlay isActive={isActive} activeNavigationItemId="settings" ariaLabel="Steam profile navigation" navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS} onPreviousNavigationItem={onOpenActivity} onNextNavigationItem={onOpenProfile} /> : null}</div>;
 }

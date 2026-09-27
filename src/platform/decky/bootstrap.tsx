@@ -37,23 +37,15 @@ import {
   DeckyAchievementDetailView,
   type CompactAchievementTarget,
 } from "./decky-achievement-detail-view";
+import {
+  setDeckyCompactNavigation,
+  useDeckyCompactNavigation,
+  type DeckyCompactAchievementDestination,
+  type DeckyCompactGameDestination,
+} from "./decky-compact-navigation";
 import { DeckyDashboardView } from "./decky-dashboard-view";
 import { DeckyGameDetailView } from "./decky-game-detail-view";
 import { DeckyFocusStyles } from "./decky-focus-styles";
-import {
-  createDeckyFullscreenReturnContextForAchievement,
-  createDeckyFullscreenReturnContextForGame,
-  createDeckyFullscreenReturnContextForProviderDashboard,
-  clearDeckyFullscreenReturnContext,
-  readDeckyFullscreenReturnContext,
-  writeDeckyFullscreenReturnContext,
-  restoreDeckyFullscreenSelectionFromContext,
-  type DeckyFullscreenReturnContext,
-} from "./decky-full-screen-return-context";
-import {
-  markNextFullScreenSettingsBackTarget,
-  resolveFullScreenSettingsBackTarget,
-} from "./decky-full-screen-navigation-state";
 import { shouldRefreshDashboardOnEntry } from "./dashboard-refresh";
 import { useRetroAchievementsConnectionState } from "./providers/retroachievements/connection";
 import { useSteamConnectionState } from "./providers/steam/connection";
@@ -79,12 +71,6 @@ import {
 import { resolveProviderDashboardPreferences } from "@core/provider-dashboard-preferences";
 import { DeckyFirstRunSetupScreen } from "./decky-first-run-setup-screen";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
-interface SelectedGame {
-  readonly providerId: ProviderId;
-  readonly gameId: string;
-  readonly gameTitle: string;
-}
-
 interface SteamLibraryScanActionState {
   readonly status: "idle" | "scanning" | "success" | "error";
   readonly message?: string;
@@ -474,6 +460,9 @@ function DashboardScreen({
   onOpenCompletionProgress,
   onBackToProviders,
   onOpenSettings,
+  isShowingSteamCompactSettings,
+  onOpenSteamCompactSettings,
+  onCloseSteamCompactSettings,
 }: {
   readonly providerId: ProviderId;
   readonly onOpenGameDetail: (providerId: ProviderId, gameId: string, gameTitle: string) => void;
@@ -483,6 +472,9 @@ function DashboardScreen({
   readonly onOpenCompletionProgress: (providerId: string) => void;
   readonly onBackToProviders: () => void;
   readonly onOpenSettings: () => void;
+  readonly isShowingSteamCompactSettings: boolean;
+  readonly onOpenSteamCompactSettings: () => void;
+  readonly onCloseSteamCompactSettings: () => void;
 }): JSX.Element {
   const settings = useDeckySettings();
   const providerConfig = useDeckyProviderConfig(providerId);
@@ -649,6 +641,9 @@ function DashboardScreen({
         : {})}
       onBackToProviders={onBackToProviders}
       onOpenSettings={onOpenSettings}
+      isShowingSteamCompactSettings={isShowingSteamCompactSettings}
+      onOpenSteamCompactSettings={onOpenSteamCompactSettings}
+      onCloseSteamCompactSettings={onCloseSteamCompactSettings}
       onRefreshDashboard={() => {
         requestDashboardReload(true);
       }}
@@ -704,30 +699,30 @@ function DashboardScreen({
 }
 
 function GameDetailScreen({
-  selectedGame,
+  game,
   onOpenFullScreenGame,
   onBackToDashboard,
   onOpenAchievementDetail,
   onRequestScrollReset,
   scrollResetNonce,
 }: {
-  readonly selectedGame: SelectedGame;
-  readonly onOpenFullScreenGame: (game: SelectedGame) => void;
+  readonly game: DeckyCompactGameDestination;
+  readonly onOpenFullScreenGame: (game: DeckyCompactGameDestination) => void;
   readonly onBackToDashboard: () => void;
   readonly onOpenAchievementDetail: (target: CompactAchievementTarget) => void;
   readonly onRequestScrollReset: () => void;
   readonly scrollResetNonce: number;
 }): JSX.Element {
   const loadSelectedGameDetail = useMemo(
-    () => () => loadGameDetailState(selectedGame.providerId, selectedGame.gameId),
-    [selectedGame.gameId, selectedGame.providerId],
+    () => () => loadGameDetailState(game.providerId, game.gameId),
+    [game.gameId, game.providerId],
   );
   const loader = useAsyncResourceState(loadSelectedGameDetail, initialDeckyGameDetailState);
 
   return (
     <TopAlignedScrollViewport
       resetNonce={scrollResetNonce}
-      scrollKey={`game-detail:${selectedGame.providerId}:${selectedGame.gameId}`}
+      scrollKey={`game-detail:${game.providerId}:${game.gameId}`}
     >
       {isRenderableGameDetailState(loader) ? (
         <DeckyGameDetailView
@@ -737,7 +732,7 @@ function GameDetailScreen({
             platform.navigation !== undefined
               ? () => {
                   onRequestScrollReset();
-                  onOpenFullScreenGame(selectedGame);
+                  onOpenFullScreenGame(game);
                 }
               : undefined
           }
@@ -745,7 +740,7 @@ function GameDetailScreen({
         />
       ) : (
         <PlaceholderState
-          title={selectedGame.gameTitle}
+          title={game.gameTitle}
           description="Loading game details from the selected provider."
           state={loader}
           footer={<span>Use Back to return to the dashboard while the detail view loads.</span>}
@@ -755,25 +750,83 @@ function GameDetailScreen({
   );
 }
 
+function CompactAchievementDetailScreen({
+  destination,
+  onBack,
+  onOpenFullScreenGame,
+}: {
+  readonly destination: DeckyCompactAchievementDestination;
+  readonly onBack: () => void;
+  readonly onOpenFullScreenGame: () => void;
+}): JSX.Element {
+  const loadAchievementGameDetail = useMemo(
+    () => () => loadGameDetailState(destination.providerId, destination.gameId),
+    [destination.gameId, destination.providerId],
+  );
+  const loader = useAsyncResourceState(loadAchievementGameDetail, initialDeckyGameDetailState);
+  const target = isRenderableGameDetailState(loader)
+    ? (() => {
+        const achievement = loader.data.achievements.find(
+          (candidate) => candidate.achievementId === destination.achievementId,
+        );
+        return achievement === undefined
+          ? undefined
+          : {
+              game: {
+                providerId: loader.data.game.providerId,
+                gameId: loader.data.game.gameId,
+                title: loader.data.game.title,
+                platformLabel: loader.data.game.platformLabel,
+                coverImageUrl: loader.data.game.coverImageUrl,
+                metrics: loader.data.game.metrics,
+              },
+              achievement,
+            } satisfies CompactAchievementTarget;
+      })()
+    : undefined;
+
+  return (
+    <TopAlignedScrollViewport
+      key={`achievement:${destination.providerId}:${destination.gameId}:${destination.achievementId}`}
+      scrollKey={`achievement:${destination.providerId}:${destination.gameId}:${destination.achievementId}`}
+    >
+      {target !== undefined ? (
+        <DeckyAchievementDetailView
+          target={target}
+          onBack={onBack}
+          onOpenFullScreenGame={platform.navigation === undefined ? undefined : onOpenFullScreenGame}
+        />
+      ) : (
+        <PlaceholderState
+          title="Achievement"
+          description="Loading achievement details from the selected provider."
+          state={loader}
+          footer={<span>Use Back to return to the previous compact view while details load.</span>}
+        />
+      )}
+    </TopAlignedScrollViewport>
+  );
+}
+
 function DeckyBootstrapStateBridge(): JSX.Element {
   const providerConfigs = useDeckyProviderConfigs();
   const settings = useDeckySettings();
-  const quickAccessVisible = useQuickAccessVisible();
-  const [selectedProviderId, setSelectedProviderId] = useState<ProviderId | undefined>(undefined);
-  const [setupProviderId, setSetupProviderId] = useState<ProviderId | undefined>(undefined);
-  const [selectedGame, setSelectedGame] = useState<SelectedGame | undefined>(undefined);
-  const [selectedAchievement, setSelectedAchievement] = useState<CompactAchievementTarget | undefined>(undefined);
+  const compactNavigation = useDeckyCompactNavigation();
   const [detailScrollResetNonce, setDetailScrollResetNonce] = useState(0);
-  const [dashboardEntryNonce, setDashboardEntryNonce] = useState(0);
-  const [fullscreenReturnContext, setFullscreenReturnContext] = useState<DeckyFullscreenReturnContext | undefined>(
-    undefined,
-  );
   const providerConfigsSignature = `${providerConfigs.retroAchievements?.username ?? ""}:${providerConfigs.retroAchievements?.hasApiKey ? 1 : 0}:${providerConfigs.steam?.steamId64 ?? ""}:${providerConfigs.steam?.hasApiKey ? 1 : 0}`;
   const enabledProviders = useMemo(() => getDeckyProviderOptions(providerConfigs), [providerConfigs]);
   const visibleProviders = useMemo(
     () => enabledProviders.filter((provider) => provider.enabled),
     [enabledProviders],
   );
+  const selectedProviderId = compactNavigation.kind === "provider-dashboard" || compactNavigation.kind === "settings"
+    ? compactNavigation.providerId
+    : undefined;
+  const setupProviderId = compactNavigation.kind === "provider-setup"
+    ? compactNavigation.providerId
+    : undefined;
+  const selectedGame = compactNavigation.kind === "game" ? compactNavigation : undefined;
+  const selectedAchievement = compactNavigation.kind === "achievement" ? compactNavigation : undefined;
   const selectedProviderConfig =
     selectedProviderId === "retroachievements"
       ? providerConfigs.retroAchievements
@@ -788,28 +841,10 @@ function DeckyBootstrapStateBridge(): JSX.Element {
         : undefined;
   const lastProviderConfigsSignature = useRef<string | undefined>(undefined);
 
-  const restoreCompactSelectionFromFullscreenContext = useCallback(
-    (context: DeckyFullscreenReturnContext) => {
-      const restoredSelection = restoreDeckyFullscreenSelectionFromContext(context);
-      setSelectedProviderId(restoredSelection.selectedProviderId);
-      setSelectedGame(restoredSelection.selectedGame);
-      setSelectedAchievement(restoredSelection.selectedAchievement);
-      setSetupProviderId(undefined);
-      setFullscreenReturnContext(undefined);
-      clearDeckyFullscreenReturnContext();
-    },
-    [],
-  );
-
   const openProviderFullScreenView = useCallback((
     providerId: string,
     view: "profile" | "achievement-history" | "completion-progress",
   ) => {
-    setSelectedGame(undefined);
-    setSelectedAchievement(undefined);
-    const fullscreenContext = createDeckyFullscreenReturnContextForProviderDashboard(providerId);
-    setFullscreenReturnContext(fullscreenContext);
-    writeDeckyFullscreenReturnContext(fullscreenContext);
     dispatchDeckyScrollReset("dashboard");
     void platform.navigation?.go({
       view,
@@ -826,9 +861,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
       return;
     }
 
-    setSelectedProviderId(undefined);
-    setSelectedGame(undefined);
-    setSelectedAchievement(undefined);
+    setDeckyCompactNavigation({ kind: "provider-chooser" });
   }, [providerConfigsSignature]);
 
   useEffect(() => {
@@ -836,8 +869,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
       return;
     }
 
-    setSelectedProviderId(setupProviderId);
-    setSetupProviderId(undefined);
+    setDeckyCompactNavigation({ kind: "provider-dashboard", providerId: setupProviderId });
   }, [setupProviderConfig, setupProviderId]);
 
   useEffect(() => {
@@ -845,31 +877,8 @@ function DeckyBootstrapStateBridge(): JSX.Element {
       return;
     }
 
-    setSelectedProviderId(undefined);
-    setSelectedGame(undefined);
-    setSelectedAchievement(undefined);
+    setDeckyCompactNavigation({ kind: "provider-chooser" });
   }, [selectedProviderConfig, selectedProviderId]);
-
-  useEffect(() => {
-    const persistedFullscreenReturnContext = readDeckyFullscreenReturnContext();
-
-    if (quickAccessVisible) {
-      if (persistedFullscreenReturnContext?.returnRequested === true) {
-        restoreCompactSelectionFromFullscreenContext(persistedFullscreenReturnContext);
-      }
-
-      return;
-    }
-
-    if (fullscreenReturnContext !== undefined || persistedFullscreenReturnContext !== undefined) {
-      return;
-    }
-
-    setSelectedProviderId(undefined);
-    setSetupProviderId(undefined);
-    setSelectedGame(undefined);
-    setSelectedAchievement(undefined);
-  }, [fullscreenReturnContext, quickAccessVisible, restoreCompactSelectionFromFullscreenContext]);
 
   if (setupProviderId !== undefined) {
     return (
@@ -877,7 +886,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
         <DeckyFirstRunSetupScreen
           providerId={setupProviderId}
           onBackToProviders={() => {
-            setSetupProviderId(undefined);
+            setDeckyCompactNavigation({ kind: "provider-chooser" });
           }}
         />
       </TopAlignedScrollViewport>
@@ -887,48 +896,35 @@ function DeckyBootstrapStateBridge(): JSX.Element {
   return (
     <>
       {selectedAchievement !== undefined ? (
-        <TopAlignedScrollViewport
-          key={`achievement:${selectedAchievement.game.providerId}:${selectedAchievement.game.gameId}:${selectedAchievement.achievement.achievementId}`}
-          scrollKey={`achievement:${selectedAchievement.game.providerId}:${selectedAchievement.game.gameId}:${selectedAchievement.achievement.achievementId}`}
-        >
-          <DeckyAchievementDetailView
-            target={selectedAchievement}
-            onBack={() => {
-              setSelectedAchievement(undefined);
-            }}
-            onOpenFullScreenGame={
-              platform.navigation !== undefined
-                ? () => {
-                    const fullscreenContext = createDeckyFullscreenReturnContextForAchievement(
-                      selectedAchievement,
-                      selectedGame,
-                    );
-                    setFullscreenReturnContext(fullscreenContext);
-                    writeDeckyFullscreenReturnContext(fullscreenContext);
-                    void platform.navigation?.go({
-                      view: "game",
-                      providerId: selectedAchievement.game.providerId,
-                      gameId: selectedAchievement.game.gameId,
-                      surface: "full-screen",
-                    });
+        <CompactAchievementDetailScreen
+          destination={selectedAchievement}
+          onBack={() => {
+            setDeckyCompactNavigation(
+              selectedAchievement.parent === "game"
+                ? {
+                    kind: "game",
+                    providerId: selectedAchievement.providerId,
+                    gameId: selectedAchievement.gameId,
+                    gameTitle: selectedAchievement.gameTitle,
                   }
-              : undefined
-            }
-          />
-        </TopAlignedScrollViewport>
+                : { kind: "provider-dashboard", providerId: selectedAchievement.providerId },
+            );
+          }}
+          onOpenFullScreenGame={() => {
+            void platform.navigation?.go({
+              view: "game",
+              providerId: selectedAchievement.providerId,
+              gameId: selectedAchievement.gameId,
+              surface: "full-screen",
+            });
+          }}
+        />
       ) : selectedGame !== undefined ? (
         <>
           <GameDetailScreen
             key={`${selectedGame.providerId}:${selectedGame.gameId}`}
-            selectedGame={selectedGame}
+            game={selectedGame}
             onOpenFullScreenGame={(game) => {
-              const fullscreenContext = createDeckyFullscreenReturnContextForGame({
-                providerId: game.providerId,
-                gameId: game.gameId,
-                gameTitle: game.gameTitle,
-              });
-              setFullscreenReturnContext(fullscreenContext);
-              writeDeckyFullscreenReturnContext(fullscreenContext);
               void platform.navigation?.go({
                 view: "game",
                 providerId: game.providerId,
@@ -937,13 +933,20 @@ function DeckyBootstrapStateBridge(): JSX.Element {
               });
             }}
             onBackToDashboard={() => {
-              setSelectedAchievement(undefined);
-              setSelectedGame(undefined);
-              setFullscreenReturnContext(undefined);
-              clearDeckyFullscreenReturnContext();
+              setDeckyCompactNavigation({
+                kind: "provider-dashboard",
+                providerId: selectedGame.providerId,
+              });
             }}
             onOpenAchievementDetail={(target) => {
-              setSelectedAchievement(target);
+              setDeckyCompactNavigation({
+                kind: "achievement",
+                providerId: target.game.providerId,
+                gameId: target.game.gameId,
+                achievementId: target.achievement.achievementId,
+                gameTitle: target.game.title,
+                parent: "game",
+              });
             }}
             onRequestScrollReset={() => {
               setDetailScrollResetNonce((value) => value + 1);
@@ -978,21 +981,15 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                                 return;
                               }
 
-                              setSelectedAchievement(undefined);
-                              setSelectedGame(undefined);
-                              setFullscreenReturnContext(undefined);
-                              clearDeckyFullscreenReturnContext();
                               if (
                                 (provider.id === "retroachievements" && providerConfigs.retroAchievements === undefined) ||
                                 (provider.id === "steam" && providerConfigs.steam === undefined)
                               ) {
-                                setSetupProviderId(provider.id);
+                                setDeckyCompactNavigation({ kind: "provider-setup", providerId: provider.id });
                                 return;
                               }
 
-                              setSetupProviderId(undefined);
-                              setSelectedProviderId(provider.id);
-                              setDashboardEntryNonce((value) => value + 1);
+                              setDeckyCompactNavigation({ kind: "provider-dashboard", providerId: provider.id });
                             }}
                           />
                         ))}
@@ -1002,9 +999,6 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                           label="Provider Settings"
                           ariaLabel="Open provider settings"
                           onClick={() => {
-                            markNextFullScreenSettingsBackTarget(
-                              resolveFullScreenSettingsBackTarget("compact-panel"),
-                            );
                             void platform.navigation?.go({
                               view: "settings",
                               surface: "full-screen",
@@ -1068,37 +1062,41 @@ function DeckyBootstrapStateBridge(): JSX.Element {
           ) : (
             <TopAlignedScrollViewport scrollKey="dashboard">
               <DashboardScreen
-                key={`${selectedProviderId}:${dashboardEntryNonce}`}
                 providerId={selectedProviderId}
                 onBackToProviders={() => {
-                  setSelectedAchievement(undefined);
-                  setSelectedGame(undefined);
-                  setSelectedProviderId(undefined);
-                  setFullscreenReturnContext(undefined);
-                  clearDeckyFullscreenReturnContext();
-                  setDashboardEntryNonce((value) => value + 1);
+                  setDeckyCompactNavigation({ kind: "provider-chooser" });
                   dispatchDeckyScrollReset("providers");
                 }}
                 onOpenSettings={() => {
-                  markNextFullScreenSettingsBackTarget(
-                    resolveFullScreenSettingsBackTarget("compact-panel"),
-                  );
                   void platform.navigation?.go({
                     view: "settings",
                     surface: "full-screen",
                   });
                 }}
+                isShowingSteamCompactSettings={compactNavigation.kind === "settings"}
+                onOpenSteamCompactSettings={() => {
+                  setDeckyCompactNavigation({ kind: "settings", providerId: STEAM_PROVIDER_ID });
+                }}
+                onCloseSteamCompactSettings={() => {
+                  setDeckyCompactNavigation({ kind: "provider-dashboard", providerId: STEAM_PROVIDER_ID });
+                }}
                 onOpenGameDetail={(providerId, gameId, gameTitle) => {
-                  setSelectedAchievement(undefined);
-                  setSelectedGame({
+                  setDeckyCompactNavigation({
+                    kind: "game",
                     providerId,
                     gameId,
                     gameTitle,
                   });
                 }}
                 onOpenAchievementDetail={(target) => {
-                  setSelectedGame(undefined);
-                  setSelectedAchievement(target);
+                  setDeckyCompactNavigation({
+                    kind: "achievement",
+                    providerId: target.game.providerId,
+                    gameId: target.game.gameId,
+                    achievementId: target.achievement.achievementId,
+                    gameTitle: target.game.title,
+                    parent: "provider-dashboard",
+                  });
                 }}
                 onOpenProfile={(providerId) => {
                   openProviderFullScreenView(providerId, "profile");

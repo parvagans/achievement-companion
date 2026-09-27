@@ -12,6 +12,10 @@ const compactSettingsSource = readFileSync(
 );
 const dashboardSource = readFileSync("src/platform/decky/decky-dashboard-view.tsx", "utf8");
 const bootstrapSource = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
+const compactNavigationSource = readFileSync(
+  "src/platform/decky/decky-compact-navigation.ts",
+  "utf8",
+);
 const indexSource = readFileSync("src/index.tsx", "utf8");
 
 test("Steam compact profile matches the refined controller-first information hierarchy", () => {
@@ -71,7 +75,8 @@ test("Steam compact profile matches the refined controller-first information hie
 
 test("Steam compact settings reuse the provider configuration and keep API credentials full-screen", () => {
   assert.match(dashboardSource, /DeckySteamCompactSettings/u);
-  assert.match(dashboardSource, /onOpenSettings=\{\(\) => setIsShowingSteamSettings\(true\)\}/u);
+  assert.match(dashboardSource, /isShowingSteamCompactSettings/u);
+  assert.match(dashboardSource, /onOpenSettings=\{onOpenSteamCompactSettings\}/u);
   assert.match(dashboardSource, /onOpenApiSettings=\{onOpenSettings\}/u);
   assert.match(bootstrapSource, /includePlayedFreeGames/u);
   assert.match(compactSettingsSource, /data-achievement-companion-steam-compact-settings/u);
@@ -94,7 +99,7 @@ test("Steam compact settings reuse the provider configuration and keep API crede
   assert.doesNotMatch(compactSettingsSource, /DropdownItem/u);
 });
 
-test("Steam compact profile loads optional SteamHunters data and preserves full-screen return context", () => {
+test("Steam compact profile loads optional SteamHunters data and preserves compact state across fullscreen handoff", () => {
   const steamDashboardStart = dashboardSource.indexOf("profile.providerId === STEAM_PROVIDER_ID");
   const compactProfileUsage = dashboardSource.indexOf("<DeckySteamCompactProfile", steamDashboardStart);
   assert.ok(steamDashboardStart >= 0);
@@ -104,7 +109,11 @@ test("Steam compact profile loads optional SteamHunters data and preserves full-
   assert.match(dashboardSource, /onOpenCompletionProgress\(profile\.providerId\)/u);
 
   assert.match(bootstrapSource, /loadDeckySteamHuntersProfileState\(steamId\)/u);
-  assert.match(bootstrapSource, /createDeckyFullscreenReturnContextForProviderDashboard\(providerId\)/u);
+  assert.match(bootstrapSource, /useDeckyCompactNavigation\(\)/u);
+  assert.match(bootstrapSource, /setDeckyCompactNavigation\(\{ kind: "provider-dashboard", providerId/u);
+  assert.doesNotMatch(bootstrapSource, /preserveCompactSelectionForFullscreen|preserveCompactSelectionAfterFullscreen/u);
+  assert.match(compactNavigationSource, /useSyncExternalStore/u);
+  assert.match(compactNavigationSource, /kind: "provider-dashboard"/u);
   assert.match(bootstrapSource, /openProviderFullScreenView\(providerId, "achievement-history"\)/u);
   assert.match(bootstrapSource, /openProviderFullScreenView\(providerId, "completion-progress"\)/u);
 });

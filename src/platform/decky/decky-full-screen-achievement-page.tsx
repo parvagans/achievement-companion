@@ -22,7 +22,6 @@ import {
   DeckyFullScreenLoadingState,
   getDeckyFullScreenLoadingPageStyle,
 } from "./decky-full-screen-loading-state";
-import { markDeckyFullscreenReturnRequested } from "./decky-full-screen-return-context";
 import { useAsyncResourceState } from "./useAsyncResourceState";
 import { formatDeckyProviderLabel } from "./providers";
 import {
@@ -43,7 +42,6 @@ export interface DeckyFullScreenAchievementPageProps {
   readonly providerId: string | undefined;
   readonly gameId: string | undefined;
   readonly achievementId: string | undefined;
-  readonly onBack: () => void;
 }
 
 function getPageStyle(): CSSProperties {
@@ -371,19 +369,12 @@ function isRenderableGameDetailState(
 
 function DeckyFullScreenAchievementInputSurface({
   children,
-  onBack,
   surfaceStyle = getPageStyle(),
 }: {
   readonly children: JSX.Element;
-  readonly onBack: () => void;
   readonly surfaceStyle?: CSSProperties;
 }): JSX.Element {
   const surfaceRef = useRef<HTMLDivElement>(null);
-  const onBackRef = useRef(onBack);
-
-  useEffect(() => {
-    onBackRef.current = onBack;
-  }, [onBack]);
 
   useLayoutEffect(() => {
     const surface = surfaceRef.current;
@@ -394,17 +385,11 @@ function DeckyFullScreenAchievementInputSurface({
     surface.focus({ preventScroll: true });
   }, []);
 
-  const handleCancel = (): void => {
-    markDeckyFullscreenReturnRequested();
-    onBackRef.current();
-  };
-
   return (
     <Focusable
       ref={surfaceRef}
       aria-label="Achievement details"
       noFocusRing
-      onCancel={handleCancel}
       role="group"
       style={surfaceStyle}
       tabIndex={0}
@@ -573,7 +558,6 @@ export function DeckyFullScreenAchievementPage({
   providerId,
   gameId,
   achievementId,
-  onBack,
 }: DeckyFullScreenAchievementPageProps): JSX.Element {
   const loadSelectedGameDetail = useMemo(() => {
     if (providerId === undefined || gameId === undefined) {
@@ -614,7 +598,6 @@ export function DeckyFullScreenAchievementPage({
   if (!isRenderableGameDetailState(state)) {
     return (
       <DeckyFullScreenAchievementInputSurface
-        onBack={onBack}
         surfaceStyle={getDeckyFullScreenLoadingPageStyle()}
       >
         <DeckyFullScreenAchievementLoadingState hasRouteParameters={hasRouteParameters} state={state} />
@@ -635,7 +618,6 @@ export function DeckyFullScreenAchievementPage({
   if (achievement === undefined) {
     return (
       <DeckyFullScreenAchievementInputSurface
-        onBack={onBack}
         surfaceStyle={getDeckyFullScreenLoadingPageStyle()}
       >
         <DeckyFullScreenAchievementLoadingState hasRouteParameters={false} state={{ ...state, status: "error" }} />
@@ -650,7 +632,7 @@ export function DeckyFullScreenAchievementPage({
     : undefined;
 
   return (
-    <DeckyFullScreenAchievementInputSurface onBack={onBack}>
+    <DeckyFullScreenAchievementInputSurface>
       <DeckyFullScreenAchievementContent
         achievement={achievement}
         game={game}

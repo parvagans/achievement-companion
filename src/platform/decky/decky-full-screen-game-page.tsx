@@ -909,7 +909,6 @@ export function DeckyFullScreenGamePage({
           onNextSection={() => {
             selectAdjacentSteamSection("next");
           }}
-          onBack={onBack}
           onHeightChange={setSteamFooterHeight}
         />
       </div>

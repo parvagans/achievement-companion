@@ -177,18 +177,6 @@ import {
   deckyDiagnosticLogger,
   type DeckyDiagnosticEventPayload,
 } from "../src/platform/decky/decky-diagnostic-logger";
-import {
-  DECKY_FULLSCREEN_RETURN_CONTEXT_STORAGE_KEY,
-  consumeDeckyFullscreenReturnContext,
-  createDeckyFullscreenReturnContextForAchievement,
-  createDeckyFullscreenReturnContextForGame,
-  createDeckyFullscreenReturnContextForProviderDashboard,
-  clearDeckyFullscreenReturnContext,
-  markDeckyFullscreenReturnRequested,
-  readDeckyFullscreenReturnContext,
-  writeDeckyFullscreenReturnContext,
-  restoreDeckyFullscreenSelectionFromContext,
-} from "../src/platform/decky/decky-full-screen-return-context";
 import { getSteamBadgeSummaryCards } from "../src/platform/decky/steam-badges";
 import { shouldRefreshDashboardOnEntry } from "../src/platform/decky/dashboard-refresh";
 import {
@@ -260,26 +248,12 @@ import {
   findSteamLibraryScanGameSummaryByAppId,
 } from "../src/platform/decky/providers/steam/game-detail";
 import {
-  clearNextFullScreenSettingsBackTarget,
-  markFullScreenGameRouteBackBehavior,
-  markNextFullScreenSettingsBackTarget,
-  popFullScreenGameRouteBackBehavior,
-  peekNextFullScreenSettingsBackTarget,
-  pushFullScreenGameRouteAchievementReturnTarget,
-  resolveFullScreenGameRouteAchievementReturnTarget,
-  resolveFullScreenGameRouteBackBehavior,
-  resolveFullScreenSettingsBackTarget,
-  shouldSuppressGameRouteUnmountWhenOpeningAchievement,
-} from "../src/platform/decky/decky-full-screen-navigation-state";
-import {
   ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement,
   ensureCompactGameDetailCancelBridgeRegisteredForBackButtonElement,
   ensureCompactProviderCancelBridgeRegisteredForBackButtonElement,
-  ensureFullscreenCancelBridgeRegisteredForBackButtonElement,
   resetCompactAchievementCancelBridgeForTests,
   resetCompactGameDetailCancelBridgeForTests,
   resetCompactProviderCancelBridgeForTests,
-  resetFullscreenCancelBridgeForTests,
 } from "../src/platform/decky/decky-full-screen-cancel-bridge";
 import type { SteamLibraryAchievementScanSummary } from "../src/platform/decky/providers/steam";
 import {
@@ -1505,8 +1479,7 @@ test("compact achievement details retain type badges while the full-screen page 
 
   assert.match(fullScreenSource, /function DeckyFullScreenAchievementInputSurface/u);
   assert.match(fullScreenSource, /surface\.focus\(\{ preventScroll: true \}\)/u);
-  assert.match(fullScreenSource, /onCancel=\{handleCancel\}/u);
-  assert.match(fullScreenSource, /markDeckyFullscreenReturnRequested\(\)/u);
+  assert.doesNotMatch(fullScreenSource, /onCancel=\{handleCancel\}|markDeckyFullscreenReturnRequested/u);
   assert.match(fullScreenSource, /function DeckyFullScreenAchievementLoadingState/u);
   assert.doesNotMatch(fullScreenSource, /DeckyAchievementTypeBadge/u);
   assert.match(fullScreenSource, /<Focusable/u);
@@ -3064,8 +3037,10 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenGamePageSource, /<Focusable[\s\S]*onCancel=\{onBack\}[\s\S]*role=\{copy\.isError/u);
   assert.match(fullScreenAchievementPageSource, /function DeckyFullScreenAchievementContent/u);
   assert.match(fullScreenAchievementPageSource, /function DeckyFullScreenAchievementInputSurface/u);
-  assert.match(fullScreenAchievementPageSource, /onCancel=\{handleCancel\}/u);
-  assert.match(fullScreenAchievementPageSource, /markDeckyFullscreenReturnRequested\(\)/u);
+  assert.doesNotMatch(
+    fullScreenAchievementPageSource,
+    /onCancel=\{handleCancel\}|markDeckyFullscreenReturnRequested/u,
+  );
   assert.match(fullScreenAchievementPageSource, /function DeckyFullScreenAchievementLoadingState/u);
   assert.match(fullScreenAchievementPageSource, /matchMedia/u);
   assert.match(fullScreenAchievementPageSource, /calendarIconUrl/u);
@@ -3562,60 +3537,16 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(compactAchievementDetailSource, /Unlocked \$\{formatTimestamp\(achievement\.unlockedAt\)\}/u);
   assert.doesNotMatch(compactAchievementDetailSource, /replace\(\^Unlocked\\s\+\/u,/u);
   assert.doesNotMatch(compactAchievementDetailSource, /preferredFocus/u);
-  assert.match(
-    compactBootstrapSource,
-    /fullscreenReturnContext/,
-  );
-  assert.match(
-    compactBootstrapSource,
-    /createDeckyFullscreenReturnContextForProviderDashboard/,
-  );
-  assert.match(
-    compactBootstrapSource,
-    /createDeckyFullscreenReturnContextForAchievement/,
-  );
-  assert.match(
-    compactBootstrapSource,
-    /createDeckyFullscreenReturnContextForGame/,
-  );
-  assert.match(
-    compactBootstrapSource,
-    /restoreDeckyFullscreenSelectionFromContext/,
-  );
-  assert.match(
-    compactBootstrapSource,
-    /setSelectedAchievement\(restoredSelection\.selectedAchievement\)/,
-  );
-  assert.match(
-    compactBootstrapSource,
-    /const fullscreenContext = createDeckyFullscreenReturnContextForAchievement\(\s*selectedAchievement,\s*selectedGame,\s*\)/u,
-  );
-  assert.match(
-    compactBootstrapSource,
-    /writeDeckyFullscreenReturnContext\(fullscreenContext\);[\s\S]*view: "game"[\s\S]*providerId: selectedAchievement\.game\.providerId[\s\S]*gameId: selectedAchievement\.game\.gameId/u,
-  );
+  assert.match(compactBootstrapSource, /useDeckyCompactNavigation\(\)/u);
+  assert.match(compactBootstrapSource, /setDeckyCompactNavigation\(/u);
+  assert.doesNotMatch(compactBootstrapSource, /preserveCompactSelectionAfterFullscreen|preserveCompactSelectionForFullscreen/u);
+  assert.doesNotMatch(compactBootstrapSource, /full-screen-return-context|fullscreenReturnContext/u);
   assert.doesNotMatch(compactBootstrapSource, /vgp_oncancel/u);
   assert.doesNotMatch(compactBootstrapSource, /addEventListener\(/u);
   assert.doesNotMatch(compactBootstrapSource, /preferredFocus/u);
-  assert.match(
+  assert.doesNotMatch(
     readFileSync("src/platform/decky/decky-full-screen-action-controls.tsx", "utf8"),
-    /markDeckyFullscreenReturnRequested/,
-  );
-  assert.match(
-    compactBootstrapSource,
-    /fullscreenReturnContext/,
-  );
-  assert.match(
-    compactBootstrapSource,
-    /createDeckyFullscreenReturnContextForProviderDashboard/,
-  );
-  assert.match(
-    compactBootstrapSource,
-    /createDeckyFullscreenReturnContextForGame/,
-  );
-  assert.match(
-    compactBootstrapSource,
-    /setFullscreenReturnContext\(fullscreenContext\);[\s\S]*writeDeckyFullscreenReturnContext\(fullscreenContext\);[\s\S]*view: "game"[\s\S]*providerId: game\.providerId[\s\S]*gameId: game\.gameId/u,
+    /markDeckyFullscreenReturnRequested|onCancel=\{handleClick\}/u,
   );
   assert.match(
     compactBootstrapSource,
@@ -3861,12 +3792,20 @@ test("fullscreen action controls use Decky Focusable pills with unclipped labels
   );
   assert.doesNotMatch(fullscreenActionControlsSource, /\bButton\b|\bButtonItem\b|\bDialogButton\b/);
   assert.match(fullscreenActionControlsSource, /flow-children="left-right"/);
-  assert.match(fullscreenActionControlsSource, /flow-children="left-right"\s+noFocusRing\s+tabIndex=\{-1\}/u);
   assert.match(
     fullscreenActionControlsSource,
-    /<Focusable[\s\S]*focusClassName=\{DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS\}[\s\S]*focusWithinClassName=\{DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS\}[\s\S]*role="button"[\s\S]*onActivate=\{handleClick\}[\s\S]*onClick=\{handleClick\}/u,
+    /flow-children="left-right"[\s\S]*noFocusRing[\s\S]*tabIndex=\{-1\}/u,
   );
-  assert.match(fullscreenActionControlsSource, /onCancel: handleClick/);
+  assert.match(fullscreenActionControlsSource, /focusClassName=.*DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS/u);
+  assert.match(
+    fullscreenActionControlsSource,
+    /focusWithinClassName=.*DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS/u,
+  );
+  assert.match(
+    fullscreenActionControlsSource,
+    /role="button"[\s\S]*onActivate=\{handleClick\}[\s\S]*onClick=\{handleClick\}/u,
+  );
+  assert.doesNotMatch(fullscreenActionControlsSource, /onCancel=|onCancel:/u);
   assert.match(fullscreenActionControlsSource, /<span style=\{\{ whiteSpace: "nowrap" \}\}>\{label\}<\/span>/);
   assert.doesNotMatch(getDeckyFullscreenActionStylesCss(), /DialogButton|ButtonItem/);
   assert.match(getDeckyFullscreenActionStylesCss(), /border-radius:\s*999px\s*!important/);
@@ -3875,10 +3814,7 @@ test("fullscreen action controls use Decky Focusable pills with unclipped labels
   assert.match(getDeckyFullscreenActionStylesCss(), /min-width:\s*max-content\s*!important/);
   assert.match(getDeckyFullscreenActionStylesCss(), /white-space:\s*nowrap\s*!important/);
   assert.doesNotMatch(getDeckyFullscreenActionStylesCss(), /text-overflow:\s*ellipsis/);
-  assert.match(
-    fullscreenCancelBridgeSource,
-    /\[data-achievement-companion-fullscreen-back="true"\]\[role="button"\]/,
-  );
+  assert.doesNotMatch(fullscreenCancelBridgeSource, /fullscreen-back|handleFullscreenCancelBridge/u);
   assert.match(
     fullscreenCancelBridgeSource,
     /\[data-achievement-companion-compact-achievement-back="true"\]\[role="button"\]/,
@@ -11767,83 +11703,23 @@ test("steam badge summary cards reduce redundant account stats", () => {
   );
 });
 
-test("fullscreen settings back target persists across settings round trips", async () => {
-  await withMockDeckyStorage(async () => {
-    const bootstrapSource = readFileSync(join("src", "platform", "decky", "bootstrap.tsx"), "utf8");
-    const navigationSource = readFileSync(
-      join("src", "platform", "decky", "decky-navigation.tsx"),
-      "utf8",
-    );
-
-    assert.equal(resolveFullScreenSettingsBackTarget("compact-panel"), "compact-panel");
-    assert.equal(resolveFullScreenSettingsBackTarget("fullscreen-profile"), "previous-fullscreen");
-
-    assert.equal(peekNextFullScreenSettingsBackTarget(), "compact-panel");
-    assert.equal(navigationSource.includes("peekNextFullScreenSettingsBackTarget()"), true);
-    assert.equal(navigationSource.includes("clearNextFullScreenSettingsBackTarget()"), true);
-    assert.equal(
-      navigationSource.includes('resolveFullScreenSettingsBackTarget("fullscreen-profile")'),
-      true,
-    );
-    assert.equal(bootstrapSource.includes('resolveFullScreenSettingsBackTarget("compact-panel")'), true);
-    assert.equal(bootstrapSource.includes("markNextFullScreenSettingsBackTarget("), true);
-    assert.equal(navigationSource.includes("markNextFullScreenSettingsBackTarget("), true);
-
-    markNextFullScreenSettingsBackTarget("previous-fullscreen");
-    assert.equal(peekNextFullScreenSettingsBackTarget(), "previous-fullscreen");
-    assert.equal(peekNextFullScreenSettingsBackTarget(), "previous-fullscreen");
-    assert.equal(clearNextFullScreenSettingsBackTarget(), true);
-    assert.equal(peekNextFullScreenSettingsBackTarget(), "compact-panel");
-
-    markNextFullScreenSettingsBackTarget("compact-panel");
-    assert.equal(peekNextFullScreenSettingsBackTarget(), "compact-panel");
-    assert.equal(clearNextFullScreenSettingsBackTarget(), false);
-    assert.equal(peekNextFullScreenSettingsBackTarget(), "compact-panel");
-  });
-});
-
-test("fullscreen game route suppresses unmount when opening an achievement from the game page", () => {
-  assert.equal(shouldSuppressGameRouteUnmountWhenOpeningAchievement("decky-panel"), true);
-  assert.equal(shouldSuppressGameRouteUnmountWhenOpeningAchievement("completion-progress"), true);
-  assert.equal(shouldSuppressGameRouteUnmountWhenOpeningAchievement("achievement"), true);
-});
-
-test("fullscreen game route preserves its original back behavior across achievement round trips", () => {
-  const providerId = "steam";
-  const gameId = "1482380";
-
-  markFullScreenGameRouteBackBehavior(providerId, gameId, "completion-progress");
-  assert.equal(
-    resolveFullScreenGameRouteBackBehavior(providerId, gameId),
-    "completion-progress",
+test("fullscreen settings uses native route history without an origin side channel", () => {
+  const bootstrapSource = readFileSync(join("src", "platform", "decky", "bootstrap.tsx"), "utf8");
+  const navigationSource = readFileSync(
+    join("src", "platform", "decky", "decky-navigation.tsx"),
+    "utf8",
+  );
+  const navigationStateSource = readFileSync(
+    join("src", "platform", "decky", "decky-full-screen-navigation-state.ts"),
+    "utf8",
   );
 
-  markFullScreenGameRouteBackBehavior(providerId, gameId, "decky-panel");
-  assert.equal(resolveFullScreenGameRouteBackBehavior(providerId, gameId), "decky-panel");
-});
-
-test("fullscreen game route can temporarily return to an achievement detail without losing its original back behavior", () => {
-  const providerId = "retroachievements";
-  const gameId = "1234";
-  const achievementId = "5678";
-
-  markFullScreenGameRouteBackBehavior(providerId, gameId, "decky-panel");
-  pushFullScreenGameRouteAchievementReturnTarget(providerId, gameId, {
-    providerId,
-    gameId,
-    achievementId,
-  });
-
-  assert.equal(resolveFullScreenGameRouteBackBehavior(providerId, gameId), "achievement");
-  assert.deepStrictEqual(resolveFullScreenGameRouteAchievementReturnTarget(providerId, gameId), {
-    providerId,
-    gameId,
-    achievementId,
-  });
-
-  popFullScreenGameRouteBackBehavior(providerId, gameId);
-  assert.equal(resolveFullScreenGameRouteBackBehavior(providerId, gameId), "decky-panel");
-  assert.equal(resolveFullScreenGameRouteAchievementReturnTarget(providerId, gameId), undefined);
+  assert.doesNotMatch(
+    `${bootstrapSource}\n${navigationSource}\n${navigationStateSource}`,
+    /FullScreenSettingsBackTarget|markNextFullScreenSettingsBackTarget|peekNextFullScreenSettingsBackTarget/u,
+  );
+  assert.match(navigationSource, /function DeckyFullScreenSettingsRoute/u);
+  assert.doesNotMatch(navigationSource, /openedFromCompactPanel|showSteamProfileFooter=\{!/u);
 });
 
 test("steam game page achievement badge uses the route-patched header path without prototype UI", () => {
@@ -15680,665 +15556,6 @@ test("game page achievement summary does not broaden Sonic the Hedgehog title al
       reason: "ra-game-list-no-match",
     });
   });
-});
-
-test("fullscreen return context writes provider dashboard, game, and achievement payloads", async () => {
-  await withMockDeckyStorage(async () => {
-    const dashboardContext = createDeckyFullscreenReturnContextForProviderDashboard("retroachievements");
-    const dashboardPersisted = writeDeckyFullscreenReturnContext(dashboardContext);
-    assert.ok(dashboardPersisted !== undefined);
-
-    const dashboardStored = readDeckyStorageText(DECKY_FULLSCREEN_RETURN_CONTEXT_STORAGE_KEY);
-    assert.ok(dashboardStored !== undefined);
-    assert.deepStrictEqual(JSON.parse(dashboardStored), {
-      providerId: "retroachievements",
-      deckyReturnView: "provider-dashboard",
-      focusTarget: "open-full-screen",
-      createdAt: dashboardPersisted?.createdAt,
-      returnRequested: false,
-    });
-
-    const gameContext = createDeckyFullscreenReturnContextForGame({
-      providerId: "steam",
-      gameId: "1482380",
-      gameTitle: "Test Game",
-    });
-    const gamePersisted = writeDeckyFullscreenReturnContext(gameContext);
-    assert.ok(gamePersisted !== undefined);
-
-    const gameStored = readDeckyStorageText(DECKY_FULLSCREEN_RETURN_CONTEXT_STORAGE_KEY);
-    assert.ok(gameStored !== undefined);
-    assert.deepStrictEqual(JSON.parse(gameStored), {
-      providerId: "steam",
-      deckyReturnView: "game",
-      gameId: "1482380",
-      gameTitle: "Test Game",
-      focusTarget: "open-full-screen",
-      createdAt: gamePersisted?.createdAt,
-      returnRequested: false,
-    });
-
-    const achievementContext = createDeckyFullscreenReturnContextForAchievement(
-      {
-        game: {
-          providerId: "retroachievements",
-          gameId: "42",
-          title: "Achievement Game",
-          platformLabel: "SNES/Super Famicom",
-          coverImageUrl: "https://example.com/game-cover.png",
-          metrics: [{ key: "players", label: "Players", value: "123" }],
-        },
-        achievement: {
-          achievementId: "777",
-          title: "Bug Catcher",
-          description: "Catch the bug.",
-          badgeImageUrl: "https://example.com/badge.png",
-          isUnlocked: true,
-          unlockedAt: 1_700_000_123_000,
-          hardcoreUnlockedAt: 1_700_000_123_000,
-          unlockMode: "hardcore",
-          points: 5,
-          metrics: [{ key: "true-ratio", label: "True Ratio", value: "2" }],
-        },
-      },
-      {
-        providerId: "retroachievements",
-        gameId: "42",
-        gameTitle: "Achievement Game",
-      },
-    );
-    const achievementPersisted = writeDeckyFullscreenReturnContext(achievementContext);
-    assert.ok(achievementPersisted !== undefined);
-
-    const achievementStored = readDeckyStorageText(DECKY_FULLSCREEN_RETURN_CONTEXT_STORAGE_KEY);
-    assert.ok(achievementStored !== undefined);
-    assert.deepStrictEqual(JSON.parse(achievementStored), {
-      providerId: "retroachievements",
-      deckyReturnView: "achievement",
-      achievementTarget: {
-        game: {
-          providerId: "retroachievements",
-          gameId: "42",
-          title: "Achievement Game",
-          platformLabel: "SNES/Super Famicom",
-          coverImageUrl: "https://example.com/game-cover.png",
-          metrics: [{ key: "players", label: "Players", value: "123" }],
-        },
-        achievement: {
-          achievementId: "777",
-          title: "Bug Catcher",
-          description: "Catch the bug.",
-          badgeImageUrl: "https://example.com/badge.png",
-          isUnlocked: true,
-          unlockedAt: 1_700_000_123_000,
-          hardcoreUnlockedAt: 1_700_000_123_000,
-          unlockMode: "hardcore",
-          points: 5,
-          metrics: [{ key: "true-ratio", label: "True Ratio", value: "2" }],
-        },
-      },
-      parentGameOrigin: {
-        providerId: "retroachievements",
-        gameId: "42",
-        gameTitle: "Achievement Game",
-      },
-      focusTarget: "open-full-screen",
-      createdAt: achievementPersisted?.createdAt,
-      returnRequested: false,
-    });
-  });
-});
-
-test("fullscreen return context marking requested updates the stored payload", async () => {
-  await withMockDeckyStorage(async () => {
-    const context = createDeckyFullscreenReturnContextForGame({
-      providerId: "steam",
-      gameId: "1482380",
-      gameTitle: "Test Game",
-    });
-    const persisted = writeDeckyFullscreenReturnContext(context);
-    assert.ok(persisted !== undefined);
-
-    const updated = markDeckyFullscreenReturnRequested();
-    assert.ok(updated !== undefined);
-    assert.equal(updated?.createdAt, persisted?.createdAt);
-    assert.equal(updated?.returnRequested, true);
-
-    const stored = readDeckyStorageText(DECKY_FULLSCREEN_RETURN_CONTEXT_STORAGE_KEY);
-    assert.ok(stored !== undefined);
-    assert.deepStrictEqual(JSON.parse(stored), {
-      providerId: "steam",
-      deckyReturnView: "game",
-      gameId: "1482380",
-      gameTitle: "Test Game",
-      focusTarget: "open-full-screen",
-      createdAt: persisted?.createdAt,
-      returnRequested: true,
-    });
-  });
-});
-
-test("fullscreen return context clear removes the stored payload", async () => {
-  await withMockDeckyStorage(async () => {
-    const context = createDeckyFullscreenReturnContextForProviderDashboard("retroachievements");
-    assert.ok(writeDeckyFullscreenReturnContext(context) !== undefined);
-    assert.equal(clearDeckyFullscreenReturnContext(), true);
-    assert.equal(readDeckyStorageText(DECKY_FULLSCREEN_RETURN_CONTEXT_STORAGE_KEY), undefined);
-  });
-});
-
-test("fullscreen return context invalid json is ignored safely", async () => {
-  await withMockDeckyStorage(async () => {
-    globalThis.localStorage?.setItem(DECKY_FULLSCREEN_RETURN_CONTEXT_STORAGE_KEY, "{invalid-json");
-    assert.equal(readDeckyFullscreenReturnContext(), undefined);
-    assert.equal(markDeckyFullscreenReturnRequested(), undefined);
-    assert.equal(consumeDeckyFullscreenReturnContext(), undefined);
-  });
-});
-
-test("fullscreen return context restores provider dashboard selection only when requested", async () => {
-  await withMockDeckyStorage(async () => {
-    const context = writeDeckyFullscreenReturnContext(
-      createDeckyFullscreenReturnContextForProviderDashboard("retroachievements"),
-    );
-    assert.ok(context !== undefined);
-
-    assert.equal(consumeDeckyFullscreenReturnContext(), undefined);
-    assert.equal(readDeckyStorageText(DECKY_FULLSCREEN_RETURN_CONTEXT_STORAGE_KEY), JSON.stringify(context));
-
-    assert.ok(markDeckyFullscreenReturnRequested() !== undefined);
-    const restored = consumeDeckyFullscreenReturnContext();
-    assert.deepStrictEqual(restored?.selection, {
-      selectedProviderId: "retroachievements",
-    });
-    assert.equal(readDeckyStorageText(DECKY_FULLSCREEN_RETURN_CONTEXT_STORAGE_KEY), undefined);
-  });
-});
-
-test("fullscreen return context restores steam provider dashboard selection when requested", async () => {
-  await withMockDeckyStorage(async () => {
-    assert.ok(
-      writeDeckyFullscreenReturnContext(createDeckyFullscreenReturnContextForProviderDashboard("steam")) !==
-        undefined,
-    );
-    assert.ok(markDeckyFullscreenReturnRequested() !== undefined);
-
-    const restored = consumeDeckyFullscreenReturnContext();
-    assert.deepStrictEqual(restored?.selection, {
-      selectedProviderId: "steam",
-    });
-    assert.equal(readDeckyStorageText(DECKY_FULLSCREEN_RETURN_CONTEXT_STORAGE_KEY), undefined);
-  });
-});
-
-test("fullscreen return context restores game selection only when requested", async () => {
-  await withMockDeckyStorage(async () => {
-    const context = writeDeckyFullscreenReturnContext(
-      createDeckyFullscreenReturnContextForGame({
-        providerId: "steam",
-        gameId: "1482380",
-        gameTitle: "Test Game",
-      }),
-    );
-    assert.ok(context !== undefined);
-    assert.ok(markDeckyFullscreenReturnRequested() !== undefined);
-
-    const restored = consumeDeckyFullscreenReturnContext();
-    assert.deepStrictEqual(restored?.selection, {
-      selectedProviderId: "steam",
-      selectedGame: {
-        providerId: "steam",
-        gameId: "1482380",
-        gameTitle: "Test Game",
-      },
-    });
-    assert.equal(readDeckyStorageText(DECKY_FULLSCREEN_RETURN_CONTEXT_STORAGE_KEY), undefined);
-  });
-});
-
-test("fullscreen return context restores achievement detail selection only when requested", async () => {
-  await withMockDeckyStorage(async () => {
-    const context = writeDeckyFullscreenReturnContext(
-      createDeckyFullscreenReturnContextForAchievement(
-        {
-          game: {
-            providerId: "retroachievements",
-            gameId: "42",
-            title: "Achievement Game",
-            platformLabel: "SNES/Super Famicom",
-            coverImageUrl: "https://example.com/game-cover.png",
-            metrics: [{ key: "players", label: "Players", value: "123" }],
-          },
-          achievement: {
-            achievementId: "777",
-            title: "Bug Catcher",
-            classification: "missable",
-            description: "Catch the bug.",
-            badgeImageUrl: "https://example.com/badge.png",
-            isUnlocked: true,
-            unlockedAt: 1_700_000_123_000,
-            hardcoreUnlockedAt: 1_700_000_123_000,
-            unlockMode: "hardcore",
-            points: 5,
-            metrics: [{ key: "true-ratio", label: "True Ratio", value: "2" }],
-          },
-        },
-        {
-          providerId: "retroachievements",
-          gameId: "42",
-          gameTitle: "Achievement Game",
-        },
-      ),
-    );
-    assert.ok(context !== undefined);
-    assert.ok(markDeckyFullscreenReturnRequested() !== undefined);
-
-    const restored = consumeDeckyFullscreenReturnContext();
-    assert.deepStrictEqual(restored?.selection, {
-      selectedProviderId: "retroachievements",
-      selectedGame: {
-        providerId: "retroachievements",
-        gameId: "42",
-        gameTitle: "Achievement Game",
-      },
-      selectedAchievement: {
-        game: {
-          providerId: "retroachievements",
-          gameId: "42",
-          title: "Achievement Game",
-          platformLabel: "SNES/Super Famicom",
-          coverImageUrl: "https://example.com/game-cover.png",
-          metrics: [{ key: "players", label: "Players", value: "123" }],
-        },
-        achievement: {
-          achievementId: "777",
-          title: "Bug Catcher",
-          classification: "missable",
-          description: "Catch the bug.",
-          badgeImageUrl: "https://example.com/badge.png",
-          isUnlocked: true,
-          unlockedAt: 1_700_000_123_000,
-          hardcoreUnlockedAt: 1_700_000_123_000,
-          unlockMode: "hardcore",
-          points: 5,
-          metrics: [{ key: "true-ratio", label: "True Ratio", value: "2" }],
-        },
-      },
-    });
-    assert.equal(readDeckyStorageText(DECKY_FULLSCREEN_RETURN_CONTEXT_STORAGE_KEY), undefined);
-  });
-});
-
-test("fullscreen return context helper captures provider dashboard, game, and achievement origins", () => {
-  const dashboardContext = createDeckyFullscreenReturnContextForProviderDashboard("retroachievements");
-  assert.deepStrictEqual(dashboardContext, {
-    providerId: "retroachievements",
-    deckyReturnView: "provider-dashboard",
-    focusTarget: "open-full-screen",
-  });
-
-  const gameContext = createDeckyFullscreenReturnContextForGame({
-    providerId: "steam",
-    gameId: "1482380",
-    gameTitle: "Test Game",
-  });
-  assert.deepStrictEqual(gameContext, {
-    providerId: "steam",
-    deckyReturnView: "game",
-    gameId: "1482380",
-    gameTitle: "Test Game",
-    focusTarget: "open-full-screen",
-  });
-  assert.deepStrictEqual(restoreDeckyFullscreenSelectionFromContext(gameContext), {
-    selectedProviderId: "steam",
-    selectedGame: {
-      providerId: "steam",
-      gameId: "1482380",
-      gameTitle: "Test Game",
-    },
-  });
-  assert.deepStrictEqual(restoreDeckyFullscreenSelectionFromContext(dashboardContext), {
-    selectedProviderId: "retroachievements",
-  });
-
-  const achievementContext = createDeckyFullscreenReturnContextForAchievement(
-    {
-      game: {
-        providerId: "steam",
-        gameId: "1482380",
-        title: "Test Game",
-        platformLabel: "Steam",
-        coverImageUrl: "https://example.com/game.png",
-        metrics: [{ key: "players", label: "Players", value: "123" }],
-      },
-      achievement: {
-        achievementId: "ach-1",
-        title: "First Win",
-        description: "Win once.",
-        badgeImageUrl: "https://example.com/badge.png",
-        isUnlocked: true,
-        unlockedAt: 1_700_000_000_000,
-        softcoreUnlockedAt: 1_700_000_000_000,
-        unlockMode: "softcore",
-        points: 10,
-        metrics: [{ key: "true-ratio", label: "True Ratio", value: "2" }],
-      },
-    },
-    {
-      providerId: "steam",
-      gameId: "1482380",
-      gameTitle: "Test Game",
-    },
-  );
-  assert.deepStrictEqual(achievementContext, {
-    providerId: "steam",
-    deckyReturnView: "achievement",
-    achievementTarget: {
-      game: {
-        providerId: "steam",
-        gameId: "1482380",
-        title: "Test Game",
-        platformLabel: "Steam",
-        coverImageUrl: "https://example.com/game.png",
-        metrics: [{ key: "players", label: "Players", value: "123" }],
-      },
-      achievement: {
-        achievementId: "ach-1",
-        title: "First Win",
-        description: "Win once.",
-        badgeImageUrl: "https://example.com/badge.png",
-        isUnlocked: true,
-        unlockedAt: 1_700_000_000_000,
-        softcoreUnlockedAt: 1_700_000_000_000,
-        unlockMode: "softcore",
-        points: 10,
-        metrics: [{ key: "true-ratio", label: "True Ratio", value: "2" }],
-      },
-    },
-    parentGameOrigin: {
-      providerId: "steam",
-      gameId: "1482380",
-      gameTitle: "Test Game",
-    },
-    focusTarget: "open-full-screen",
-  });
-  assert.deepStrictEqual(restoreDeckyFullscreenSelectionFromContext(achievementContext), {
-    selectedProviderId: "steam",
-    selectedGame: {
-      providerId: "steam",
-      gameId: "1482380",
-      gameTitle: "Test Game",
-    },
-    selectedAchievement: {
-      game: {
-        providerId: "steam",
-        gameId: "1482380",
-        title: "Test Game",
-        platformLabel: "Steam",
-        coverImageUrl: "https://example.com/game.png",
-        metrics: [{ key: "players", label: "Players", value: "123" }],
-      },
-      achievement: {
-        achievementId: "ach-1",
-        title: "First Win",
-        description: "Win once.",
-        badgeImageUrl: "https://example.com/badge.png",
-        isUnlocked: true,
-        unlockedAt: 1_700_000_000_000,
-        softcoreUnlockedAt: 1_700_000_000_000,
-        unlockMode: "softcore",
-        points: 10,
-        metrics: [{ key: "true-ratio", label: "True Ratio", value: "2" }],
-      },
-    },
-  });
-});
-
-test("fullscreen back button ownerWindow registers the cancel bridge", () => {
-  resetFullscreenCancelBridgeForTests();
-  const addCalls: Array<{ readonly type: string; readonly capture: boolean }> = [];
-
-  const ownerWindow = {
-    addEventListener(type: string, listener: EventListenerOrEventListenerObject, capture?: boolean) {
-      addCalls.push({ type, capture: capture === true });
-      void listener;
-    },
-    removeEventListener() {},
-  } as Window;
-  const ownerDocument = {
-    defaultView: ownerWindow,
-    querySelectorAll() {
-      return [];
-    },
-  } as Document;
-  const buttonElement = {
-    ownerDocument,
-  } as Element;
-
-  try {
-    ensureFullscreenCancelBridgeRegisteredForBackButtonElement(buttonElement);
-    ensureFullscreenCancelBridgeRegisteredForBackButtonElement(buttonElement);
-
-    assert.deepStrictEqual(addCalls, [
-      {
-        type: "vgp_oncancel",
-        capture: true,
-      },
-    ]);
-  } finally {
-    resetFullscreenCancelBridgeForTests();
-  }
-});
-
-test("fullscreen cancel bridge helper tolerates a missing element", () => {
-  resetFullscreenCancelBridgeForTests();
-  const addCalls: Array<{ readonly type: string; readonly capture: boolean }> = [];
-
-  const restoreWindow = setGlobalTestValue("window", {
-    addEventListener(type: string, listener: EventListenerOrEventListenerObject, capture?: boolean) {
-      addCalls.push({ type, capture: capture === true });
-      void listener;
-    },
-    removeEventListener() {},
-  } as Window);
-
-  try {
-    ensureFullscreenCancelBridgeRegisteredForBackButtonElement(null);
-    assert.deepStrictEqual(addCalls, []);
-  } finally {
-    restoreWindow();
-    resetFullscreenCancelBridgeForTests();
-  }
-});
-
-test("fullscreen cancel bridge helper tolerates a missing owner window", () => {
-  resetFullscreenCancelBridgeForTests();
-  const addCalls: Array<{ readonly type: string; readonly capture: boolean }> = [];
-  const restoreWindow = setGlobalTestValue("window", {
-    addEventListener(type: string, listener: EventListenerOrEventListenerObject, capture?: boolean) {
-      addCalls.push({ type, capture: capture === true });
-      void listener;
-    },
-    removeEventListener() {},
-  } as Window);
-
-  try {
-    ensureFullscreenCancelBridgeRegisteredForBackButtonElement({
-      ownerDocument: undefined,
-    } as Element);
-    assert.deepStrictEqual(addCalls, []);
-  } finally {
-    restoreWindow();
-    resetFullscreenCancelBridgeForTests();
-  }
-});
-
-test("fullscreen cancel bridge stops a synthetic cancel event and clicks the marked visible back button", () => {
-  resetFullscreenCancelBridgeForTests();
-  const clickCounts = new Map<string, number>();
-  const eventCalls: string[] = [];
-  let registeredListener: ((event: Event) => void) | undefined;
-
-  const ownerWindow = {
-    addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
-      if (type === "vgp_oncancel") {
-        registeredListener = listener as (event: Event) => void;
-      }
-    },
-    removeEventListener() {},
-  } as Window;
-  const ownerDocument = {
-    defaultView: ownerWindow,
-    querySelectorAll() {
-      return [
-        {
-          disabled: false,
-          isConnected: true,
-          innerText: "Back",
-          getClientRects() {
-            return [{}, {}];
-          },
-          click() {
-            clickCounts.set("back", (clickCounts.get("back") ?? 0) + 1);
-          },
-        },
-      ];
-    },
-  } as Document;
-
-  try {
-    ensureFullscreenCancelBridgeRegisteredForBackButtonElement({
-      ownerDocument,
-    } as Element);
-
-    const cancelEvent = {
-      type: "vgp_oncancel",
-      preventDefault() {
-        eventCalls.push("preventDefault");
-      },
-      stopPropagation() {
-        eventCalls.push("stopPropagation");
-      },
-      stopImmediatePropagation() {
-        eventCalls.push("stopImmediatePropagation");
-      },
-    } as Event;
-
-    registeredListener?.(cancelEvent);
-
-    assert.deepStrictEqual(eventCalls, [
-      "preventDefault",
-      "stopPropagation",
-      "stopImmediatePropagation",
-    ]);
-    assert.equal(clickCounts.get("back"), 1);
-  } finally {
-    resetFullscreenCancelBridgeForTests();
-  }
-});
-
-test("fullscreen cancel bridge ignores hidden marked buttons and leaves cancel unhandled", () => {
-  resetFullscreenCancelBridgeForTests();
-  const eventCalls: string[] = [];
-  let registeredListener: ((event: Event) => void) | undefined;
-
-  const restoreWindow = setGlobalTestValue("window", {
-    addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
-      if (type === "vgp_oncancel") {
-        registeredListener = listener as (event: Event) => void;
-      }
-    },
-    removeEventListener() {},
-  } as Window);
-  const ownerDocument = {
-    querySelectorAll() {
-      return [
-        {
-          disabled: false,
-          isConnected: true,
-          innerText: "Back",
-          getClientRects() {
-            return [];
-          },
-          click() {
-            eventCalls.push("click");
-          },
-        },
-      ];
-    },
-  } as Document;
-
-  try {
-    ensureFullscreenCancelBridgeRegisteredForBackButtonElement({
-      ownerDocument,
-    } as Element);
-
-    const cancelEvent = {
-      type: "vgp_oncancel",
-      preventDefault() {
-        eventCalls.push("preventDefault");
-      },
-      stopPropagation() {
-        eventCalls.push("stopPropagation");
-      },
-      stopImmediatePropagation() {
-        eventCalls.push("stopImmediatePropagation");
-      },
-    } as Event;
-
-    registeredListener?.(cancelEvent);
-
-    assert.deepStrictEqual(eventCalls, []);
-  } finally {
-    restoreWindow();
-    resetFullscreenCancelBridgeForTests();
-  }
-});
-
-test("fullscreen cancel bridge leaves cancel alone when no marked back button exists", () => {
-  resetFullscreenCancelBridgeForTests();
-  const eventCalls: string[] = [];
-  let registeredListener: ((event: Event) => void) | undefined;
-
-  const restoreWindow = setGlobalTestValue("window", {
-    addEventListener(type: string, listener: EventListenerOrEventListenerObject) {
-      if (type === "vgp_oncancel") {
-        registeredListener = listener as (event: Event) => void;
-      }
-    },
-    removeEventListener() {},
-  } as Window);
-  const ownerDocument = {
-    querySelectorAll() {
-      return [];
-    },
-  } as Document;
-
-  try {
-    ensureFullscreenCancelBridgeRegisteredForBackButtonElement({
-      ownerDocument,
-    } as Element);
-
-    const cancelEvent = {
-      type: "vgp_oncancel",
-      preventDefault() {
-        eventCalls.push("preventDefault");
-      },
-      stopPropagation() {
-        eventCalls.push("stopPropagation");
-      },
-      stopImmediatePropagation() {
-        eventCalls.push("stopImmediatePropagation");
-      },
-    } as Event;
-
-    registeredListener?.(cancelEvent);
-
-    assert.deepStrictEqual(eventCalls, []);
-  } finally {
-    restoreWindow();
-    resetFullscreenCancelBridgeForTests();
-  }
 });
 
 test("compact achievement back button ownerWindow registers the cancel bridge", () => {

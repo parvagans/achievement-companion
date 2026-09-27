@@ -1,6 +1,4 @@
 const CANCEL_EVENT_TYPE = "vgp_oncancel";
-const FULLSCREEN_BACK_BUTTON_SELECTOR =
-  '[data-achievement-companion-fullscreen-back="true"][role="button"]';
 const COMPACT_PROVIDER_BACK_BUTTON_SELECTOR =
   '[data-achievement-companion-compact-provider-back="true"][role="button"]';
 const COMPACT_ACHIEVEMENT_BACK_BUTTON_SELECTOR =
@@ -22,10 +20,17 @@ type BridgeMarkedBackButton = {
   readonly getClientRects?: (() => ArrayLike<unknown>) | undefined;
 };
 
-const fullscreenCancelBridgeListeners = new Map<Window, EventListener>();
 const compactProviderCancelBridgeListeners = new Map<Window, EventListener>();
 const compactAchievementCancelBridgeListeners = new Map<Window, EventListener>();
 const compactGameDetailCancelBridgeListeners = new Map<Window, EventListener>();
+
+function removeCancelBridgeListeners(listeners: Map<Window, EventListener>): void {
+  for (const [bridgeWindow, listener] of listeners.entries()) {
+    bridgeWindow.removeEventListener(CANCEL_EVENT_TYPE, listener, true);
+  }
+
+  listeners.clear();
+}
 
 function getVisibleMarkedBackButton(
   selector: string,
@@ -67,22 +72,6 @@ function registerCancelBridgeForWindow(
 
   ownerWindow.addEventListener(CANCEL_EVENT_TYPE, listener, true);
   listeners.set(ownerWindow, listener);
-}
-
-export function handleFullscreenCancelBridge(
-  event: Event,
-  doc: Document | undefined = typeof document === "undefined" ? undefined : document,
-): void {
-  const cancelEvent = event as BridgeCancelableEvent;
-  const backButton = getVisibleMarkedBackButton(FULLSCREEN_BACK_BUTTON_SELECTOR, doc);
-  if (backButton === undefined) {
-    return;
-  }
-
-  cancelEvent.preventDefault?.();
-  cancelEvent.stopPropagation?.();
-  cancelEvent.stopImmediatePropagation?.();
-  backButton.click();
 }
 
 export function handleCompactAchievementCancelBridge(
@@ -131,27 +120,6 @@ export function handleCompactGameDetailCancelBridge(
   cancelEvent.stopPropagation?.();
   cancelEvent.stopImmediatePropagation?.();
   backButton.click();
-}
-
-export function ensureFullscreenCancelBridgeRegisteredForBackButtonElement(
-  element: Element | null | undefined,
-): void {
-  if (element === null || element === undefined) {
-    return;
-  }
-
-  const ownerDocument = element.ownerDocument;
-  const ownerWindow = ownerDocument?.defaultView;
-  if (ownerDocument === undefined || ownerWindow === undefined || ownerWindow === null) {
-    return;
-  }
-
-  registerCancelBridgeForWindow(
-    ownerWindow,
-    ownerDocument,
-    fullscreenCancelBridgeListeners,
-    handleFullscreenCancelBridge,
-  );
 }
 
 export function ensureCompactProviderCancelBridgeRegisteredForBackButtonElement(
@@ -217,34 +185,20 @@ export function ensureCompactGameDetailCancelBridgeRegisteredForBackButtonElemen
   );
 }
 
-export function resetFullscreenCancelBridgeForTests(): void {
-  for (const [bridgeWindow, listener] of fullscreenCancelBridgeListeners.entries()) {
-    bridgeWindow.removeEventListener(CANCEL_EVENT_TYPE, listener, true);
-  }
-
-  fullscreenCancelBridgeListeners.clear();
-}
-
 export function resetCompactProviderCancelBridgeForTests(): void {
-  for (const [bridgeWindow, listener] of compactProviderCancelBridgeListeners.entries()) {
-    bridgeWindow.removeEventListener(CANCEL_EVENT_TYPE, listener, true);
-  }
-
-  compactProviderCancelBridgeListeners.clear();
+  removeCancelBridgeListeners(compactProviderCancelBridgeListeners);
 }
 
 export function resetCompactAchievementCancelBridgeForTests(): void {
-  for (const [bridgeWindow, listener] of compactAchievementCancelBridgeListeners.entries()) {
-    bridgeWindow.removeEventListener(CANCEL_EVENT_TYPE, listener, true);
-  }
-
-  compactAchievementCancelBridgeListeners.clear();
+  removeCancelBridgeListeners(compactAchievementCancelBridgeListeners);
 }
 
 export function resetCompactGameDetailCancelBridgeForTests(): void {
-  for (const [bridgeWindow, listener] of compactGameDetailCancelBridgeListeners.entries()) {
-    bridgeWindow.removeEventListener(CANCEL_EVENT_TYPE, listener, true);
-  }
+  removeCancelBridgeListeners(compactGameDetailCancelBridgeListeners);
+}
 
-  compactGameDetailCancelBridgeListeners.clear();
+export function removeDeckyCompactCancelBridges(): void {
+  removeCancelBridgeListeners(compactProviderCancelBridgeListeners);
+  removeCancelBridgeListeners(compactAchievementCancelBridgeListeners);
+  removeCancelBridgeListeners(compactGameDetailCancelBridgeListeners);
 }

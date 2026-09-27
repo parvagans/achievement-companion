@@ -1149,7 +1149,6 @@ export function DeckyFullScreenProfilePage({
             activeNavigationItemId="profile"
             ariaLabel="Steam profile navigation"
             navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
-            onBack={onBack}
             onNextNavigationItem={() => {
               onOpenCompletionProgress(STEAM_PROVIDER_ID);
             }}
@@ -1221,7 +1220,6 @@ export function DeckyFullScreenProfilePage({
           activeNavigationItemId="profile"
           ariaLabel="Steam profile navigation"
           navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
-          onBack={onBack}
           onNextNavigationItem={() => {
             onOpenCompletionProgress(profile.providerId);
           }}

@@ -2,7 +2,6 @@ import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import type { GamepadEvent } from "@decky/ui";
 import { consumeDeckyFullscreenPopupCancel } from "./decky-full-screen-popup-state";
-import { markDeckyFullscreenReturnRequested } from "./decky-full-screen-return-context";
 import {
   measureSteamGameFooterLayout,
   STEAM_GAME_FOOTER_FALLBACK_HEIGHT_PX,
@@ -13,6 +12,7 @@ const COMPACT_FOOTER_MINIMUM_HEIGHT_PX = 40;
 const STEAM_TAB_TRANSITION_SOUND_URL = "/sounds/deck_ui_tab_transition_01.wav";
 const mountedFooterOverlayOwners: symbol[] = [];
 const DECKY_FULLSCREEN_ONSCREEN_KEYBOARD_OPEN_ATTRIBUTE = "data-achievement-companion-onscreen-keyboard-open";
+const yieldedDeckyFullscreenKeyboardCancelEvents = new WeakSet<Event>();
 
 /**
  * Steam delivers vgp_oncancel to the full-screen footer during text entry.
@@ -36,6 +36,37 @@ function consumeDeckyFullscreenOnScreenKeyboardCancel(document: Document): boole
     return false;
   }
   clearDeckyFullscreenOnScreenKeyboardOpen(document);
+  return true;
+}
+
+/**
+ * Gives AC-owned transient UI priority over a terminal route return. Keyboard
+ * cancel deliberately remains unconsumed so Steam can dismiss the keyboard.
+ */
+export function consumeDeckyFullscreenTransientCancel(
+  event: Event,
+  document: Document,
+): boolean {
+  if (yieldedDeckyFullscreenKeyboardCancelEvents.has(event)) {
+    return true;
+  }
+
+  if (consumeDeckyFullscreenOnScreenKeyboardCancel(document)) {
+    // The terminal root bridge and the shared footer can both receive the
+    // capture event. Mark this one B as yielded so the second listener cannot
+    // turn a keyboard dismissal into a route exit.
+    yieldedDeckyFullscreenKeyboardCancelEvents.add(event);
+    return true;
+  }
+
+  if (!consumeDeckyFullscreenPopupCancel()) {
+    return false;
+  }
+
+  const cancelEvent = event as CancelableGamepadEvent;
+  cancelEvent.preventDefault?.();
+  cancelEvent.stopPropagation?.();
+  cancelEvent.stopImmediatePropagation?.();
   return true;
 }
 
@@ -244,7 +275,6 @@ export function DeckyFullScreenFooterOverlay({
   navigationItems,
   onPreviousNavigationItem,
   onNextNavigationItem,
-  onBack,
   onHeightChange,
   isActive = true,
 }: {
@@ -253,13 +283,11 @@ export function DeckyFullScreenFooterOverlay({
   readonly navigationItems: readonly DeckyFullScreenFooterNavigationItem[];
   readonly onPreviousNavigationItem: () => void;
   readonly onNextNavigationItem: () => void;
-  readonly onBack: () => void;
   readonly onHeightChange?: (height: number) => void;
   /** A retained full-screen tab must not own the footer or controller input. */
   readonly isActive?: boolean;
 }): JSX.Element {
   const anchorRef = useRef<HTMLSpanElement>(null);
-  const onBackRef = useRef(onBack);
   const onPreviousNavigationItemRef = useRef(onPreviousNavigationItem);
   const onNextNavigationItemRef = useRef(onNextNavigationItem);
   const tabTransitionSoundRef = useRef<HTMLAudioElement | null>(null);
@@ -268,10 +296,9 @@ export function DeckyFullScreenFooterOverlay({
   const [layout, setLayout] = useState({ height: STEAM_GAME_FOOTER_FALLBACK_HEIGHT_PX, zIndex: 20 });
 
   useLayoutEffect(() => {
-    onBackRef.current = onBack;
     onPreviousNavigationItemRef.current = onPreviousNavigationItem;
     onNextNavigationItemRef.current = onNextNavigationItem;
-  }, [onBack, onNextNavigationItem, onPreviousNavigationItem]);
+  }, [onNextNavigationItem, onPreviousNavigationItem]);
 
   useLayoutEffect(() => {
     // Use the visible Gaming Mode document, not SharedJSContext, just as the
@@ -366,22 +393,13 @@ export function DeckyFullScreenFooterOverlay({
     // The overlay replaces Steam's Back legend for the mounted full-screen route.
     const onCancel = (event: Event): void => {
       if (!isTopFooterOverlayOwner(owner)) return;
-      const cancelEvent = event as CancelableGamepadEvent;
-      if (consumeDeckyFullscreenOnScreenKeyboardCancel(ownerWindow.document)) {
-        // Do not consume this event: Steam's keyboard must receive B and close itself.
+      if (consumeDeckyFullscreenTransientCancel(event, ownerWindow.document)) {
+        // Keyboard cancel is deliberately left for Steam; popup cancel is
+        // consumed by the shared helper above.
         return;
       }
-      if (consumeDeckyFullscreenPopupCancel()) {
-        cancelEvent.preventDefault?.();
-        cancelEvent.stopPropagation?.();
-        cancelEvent.stopImmediatePropagation?.();
-        return;
-      }
-      cancelEvent.preventDefault?.();
-      cancelEvent.stopPropagation?.();
-      cancelEvent.stopImmediatePropagation?.();
-      markDeckyFullscreenReturnRequested();
-      onBackRef.current();
+      // Ordinary B remains unconsumed so Steam/Decky can unwind its native
+      // route stack. Only AC-owned transient UI consumes cancel above.
     };
     ownerWindow.addEventListener("vgp_oncancel", onCancel, true);
     return () => {

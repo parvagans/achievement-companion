@@ -14,7 +14,6 @@ import {
 import { buildDeckySteamHuntersGameViewModel } from "./decky-steam-hunters-view-model";
 import { formatSteamPlaytimeMinutes } from "./decky-stat-helpers";
 import { DeckySteamExternalLinkIcon, DeckySteamHuntersIcon, DeckySteamPlayIcon } from "./decky-steam-icons";
-import { suppressNextFullscreenRouteUnmountAction } from "./decky-full-screen-navigation-state";
 import type { SteamHuntersGameEnrichment } from "../../providers/steamhunters";
 import steamIconUrl from "./assets/steam.svg";
 
@@ -166,7 +165,6 @@ function getDashboardTopRowStyle(hasCommunity: boolean): CSSProperties {
 }
 
 function openSteamStore(appId: number): void {
-  suppressNextFullscreenRouteUnmountAction();
   // Steam diverts Store and s.team URLs before its visible external browser
   // can attach them. A self-contained redirect document mounts that browser
   // first, then replaces its initial history entry with the Store page.
@@ -178,12 +176,10 @@ function openSteamStore(appId: number): void {
 }
 
 function openSteamHunters(appId: number): void {
-  suppressNextFullscreenRouteUnmountAction();
   DeckyNavigation.NavigateToExternalWeb(`https://steamhunters.com/apps/${appId}`);
 }
 
 function launchSteamGame(appId: number): void {
-  suppressNextFullscreenRouteUnmountAction();
   const libraryDetailsLaunchSource = 100 as Parameters<typeof SteamClient.Apps.RunGame>[3];
   SteamClient.Apps.RunGame(String(appId), "", 0, libraryDetailsLaunchSource);
 }

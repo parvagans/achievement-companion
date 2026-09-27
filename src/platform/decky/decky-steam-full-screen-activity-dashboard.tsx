@@ -497,7 +497,6 @@ export function DeckySteamFullScreenActivityDashboard({
         activeNavigationItemId="activity"
         ariaLabel="Steam profile navigation"
         navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
-        onBack={onBack}
         onPreviousNavigationItem={onOpenGames}
         onNextNavigationItem={onOpenSettings}
       /> : null}

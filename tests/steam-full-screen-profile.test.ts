@@ -741,8 +741,8 @@ test("Steam full-screen tabs share one session while details retain route histor
   assert.match(sessionSource, /onOpenActivity=\{\(\) => selectTab\("activity"\)\}/u);
   assert.match(sessionSource, /onOpenSettings=\{\(\) => selectTab\("settings"\)\}/u);
   assert.match(sessionSource, /onBack=\{exitSession\}/u);
-  assert.match(sessionSource, /navigateToFullScreenGame\(providerId, gameId, "completion-progress", true\)/u);
-  assert.match(sessionSource, /navigateToFullScreenAchievement\(providerId, gameId, achievementId, true\)/u);
+  assert.match(sessionSource, /navigateToFullScreenGame\(providerId, gameId\)/u);
+  assert.match(sessionSource, /navigateToFullScreenAchievement\(providerId, gameId, achievementId\)/u);
   assert.doesNotMatch(sessionSource, /DeckyNavigation\.Navigate\(.*completion-progress/u);
   assert.doesNotMatch(sessionSource, /DeckyNavigation\.Navigate\(.*achievement-history/u);
   assert.match(sessionSource, /visitedTabs[\s\S]*display: activeTab === "games" \? "contents" : "none"/u);
@@ -765,21 +765,22 @@ test("Steam full-screen tabs share one session while details retain route histor
   );
 });
 
-test("compact dashboard Profile navigation suppresses the outgoing full-screen route fallback", async () => {
+test("compact dashboard Profile navigation uses the native route before closing QAM", async () => {
   const navigationSource = await readFile(
     new URL("../src/platform/decky/decky-navigation.tsx", import.meta.url),
     "utf8",
   );
   const navigationPortIndex = navigationSource.indexOf("export function createDeckyNavigationPort()");
   const profileRouteIndex = navigationSource.indexOf("const profileRoute = buildFullScreenProfileRoute(target)", navigationPortIndex);
-  const suppressionIndex = navigationSource.indexOf("suppressNextFullscreenRouteUnmountAction();", profileRouteIndex);
   const navigateIndex = navigationSource.indexOf("DeckyNavigation.Navigate(profileRoute);", profileRouteIndex);
+  const closeSideMenusIndex = navigationSource.indexOf("DeckyNavigation.CloseSideMenus();", navigateIndex);
 
   assert.ok(navigationPortIndex >= 0, "the Decky navigation port must exist");
   assert.ok(profileRouteIndex > navigationPortIndex, "compact full-screen navigation must handle Profile");
+  assert.ok(navigateIndex > profileRouteIndex, "Profile navigation must enter the Decky route");
   assert.ok(
-    suppressionIndex > profileRouteIndex && suppressionIndex < navigateIndex,
-    "Profile navigation must consume the outgoing route's unmount fallback before navigating",
+    closeSideMenusIndex > navigateIndex,
+    "Profile navigation must close QAM only after entering the Decky route",
   );
 });
 
@@ -814,7 +815,9 @@ test("Steam settings are a Steam-only account screen with the expanded account a
   assert.match(source, /DeckyCredentialTextField[\s\S]*onClick=.*markDeckyFullscreenOnScreenKeyboardOpen/u);
   assert.match(source, /active instanceof ownerWindow\.HTMLInputElement[\s\S]*handleColumnDirection/u);
   assert.match(source, /RegisterForUserDismissKeyboardMessages[\s\S]*clearDeckyFullscreenOnScreenKeyboardOpen/u);
-  assert.match(footerSource, /consumeDeckyFullscreenOnScreenKeyboardCancel\(ownerWindow\.document\)[\s\S]*Do not consume this event/u);
+  assert.match(footerSource, /consumeDeckyFullscreenTransientCancel\(event, ownerWindow\.document\)/u);
+  assert.match(footerSource, /consumeDeckyFullscreenOnScreenKeyboardCancel\(document\)/u);
+  assert.match(footerSource, /cancel deliberately remains unconsumed/u);
   assert.match(source, /title=\{armedAction === "reset" \? "Press again to reset Steam data"/u);
 });
 

@@ -1,4 +1,4 @@
-import { useCallback, useState, type CSSProperties } from "react";
+import { useCallback, type CSSProperties } from "react";
 import type { ResourceState } from "@core/cache";
 import type { DashboardSnapshot, RecentUnlock, RecentlyPlayedGame } from "@core/domain";
 import type { RetroAchievementsConnectionState } from "./providers/retroachievements/connection";
@@ -76,6 +76,9 @@ export interface DeckyDashboardViewProps {
   readonly onOpenCompletionProgress: (providerId: string) => void;
   readonly onBackToProviders: () => void;
   readonly onOpenSettings: () => void;
+  readonly isShowingSteamCompactSettings: boolean;
+  readonly onOpenSteamCompactSettings: () => void;
+  readonly onCloseSteamCompactSettings: () => void;
   readonly onRefreshDashboard: () => void;
   readonly steamHuntersProfile?: SteamHuntersProfile | undefined;
   readonly retroAchievementsConnectionState?: RetroAchievementsConnectionState;
@@ -1361,6 +1364,9 @@ export function DeckyDashboardView({
   onOpenCompletionProgress,
   onBackToProviders,
   onOpenSettings,
+  isShowingSteamCompactSettings,
+  onOpenSteamCompactSettings,
+  onCloseSteamCompactSettings,
   onRefreshDashboard,
   steamHuntersProfile,
   retroAchievementsConnectionState,
@@ -1368,7 +1374,6 @@ export function DeckyDashboardView({
   steamConnectionState,
   onUpdateSteamCredentials,
 }: DeckyDashboardViewProps): JSX.Element {
-  const [isShowingSteamSettings, setIsShowingSteamSettings] = useState(false);
   const compactProviderBackButtonRef = useCallback((node: HTMLDivElement | null) => {
     ensureCompactProviderCancelBridgeRegisteredForBackButtonElement(node);
   }, []);
@@ -1431,10 +1436,10 @@ export function DeckyDashboardView({
     profile.providerId === RETROACHIEVEMENTS_PROVIDER_ID ? recentlyPlayedGames[0] : undefined;
 
   if (profile.providerId === STEAM_PROVIDER_ID && steamAccountProgress !== undefined) {
-    if (isShowingSteamSettings) {
+    if (isShowingSteamCompactSettings) {
       return (
         <DeckySteamCompactSettings
-          onBack={() => setIsShowingSteamSettings(false)}
+          onBack={onCloseSteamCompactSettings}
           onOpenApiSettings={onOpenSettings}
         />
       );
@@ -1466,7 +1471,7 @@ export function DeckyDashboardView({
           onOpenGameDetail={(game) => {
             onOpenGameDetail(game.providerId, game.gameId, game.title);
           }}
-          onOpenSettings={() => setIsShowingSteamSettings(true)}
+          onOpenSettings={onOpenSteamCompactSettings}
           onCancel={onBackToProviders}
         />
       </>
