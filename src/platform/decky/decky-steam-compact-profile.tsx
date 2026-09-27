@@ -32,7 +32,7 @@ const GOLD_ICON_FILTER =
 const PURPLE_ICON_FILTER =
   "brightness(0) saturate(100%) invert(41%) sepia(93%) saturate(1444%) hue-rotate(249deg) brightness(95%) contrast(96%)";
 
-type SteamCompactActionTone = "primary" | "row";
+export type DeckySteamCompactActionTone = "primary" | "row";
 type SteamCompactIconTone = "blue" | "gold" | "purple";
 
 export interface DeckySteamCompactProfileProps {
@@ -126,7 +126,7 @@ function getSectionTitleStyle(): CSSProperties {
   };
 }
 
-function getActionStyle(tone: SteamCompactActionTone, isFocused: boolean): CSSProperties {
+function getActionStyle(tone: DeckySteamCompactActionTone, isFocused: boolean): CSSProperties {
   const isPrimary = tone === "primary";
 
   return {
@@ -162,7 +162,7 @@ function getActionStyle(tone: SteamCompactActionTone, isFocused: boolean): CSSPr
   };
 }
 
-function SteamCompactAction({
+export function DeckySteamCompactAction({
   ariaLabel,
   children,
   isNavigable = true,
@@ -183,7 +183,7 @@ function SteamCompactAction({
   readonly preferredFocus?: boolean;
   readonly scrollToTopOnFocus?: boolean;
   readonly style?: CSSProperties;
-  readonly tone?: SteamCompactActionTone;
+  readonly tone?: DeckySteamCompactActionTone;
 }): JSX.Element {
   const [isFocused, setIsFocused] = useState(false);
   const focusGeneration = useRef(0);
@@ -710,7 +710,7 @@ function ViewAllAction({
   readonly onCancel: () => void;
 }): JSX.Element {
   return (
-    <SteamCompactAction
+    <DeckySteamCompactAction
       ariaLabel={ariaLabel}
       isNavigable={isNavigable}
       onActivate={onActivate}
@@ -721,7 +721,7 @@ function ViewAllAction({
         View All
       </span>
       <img alt="" src={chevronRightIconUrl} style={getIconStyle(15)} />
-    </SteamCompactAction>
+    </DeckySteamCompactAction>
   );
 }
 
@@ -737,7 +737,7 @@ function RecentAchievementItem({
   readonly onCancel: () => void;
 }): JSX.Element {
   return (
-    <SteamCompactAction
+    <DeckySteamCompactAction
       ariaLabel={`Open ${recentUnlock.achievement.title}`}
       isNavigable={isNavigable}
       onActivate={onActivate}
@@ -761,7 +761,7 @@ function RecentAchievementItem({
         <span style={getRowMetaStyle()}>{formatAchievementTime(recentUnlock)}</span>
       </span>
       <img alt="" src={chevronRightIconUrl} style={getIconStyle(17)} />
-    </SteamCompactAction>
+    </DeckySteamCompactAction>
   );
 }
 
@@ -780,7 +780,7 @@ function RecentlyPlayedItem({
   const playtime = formatGamePlaytime(game);
 
   return (
-    <SteamCompactAction
+    <DeckySteamCompactAction
       ariaLabel={`Open ${game.title}`}
       isNavigable={isNavigable}
       onActivate={onActivate}
@@ -800,7 +800,7 @@ function RecentlyPlayedItem({
         {playtime !== undefined ? <span style={getPlaytimeStyle()}>{playtime}</span> : null}
         <img alt="" src={chevronRightIconUrl} style={getIconStyle(17)} />
       </span>
-    </SteamCompactAction>
+    </DeckySteamCompactAction>
   );
 }
 
@@ -840,7 +840,7 @@ export function DeckySteamCompactProfile({
       <section style={getSectionStyle()}>
         <SectionHeader title="Profile" />
         <ProfileCard profile={profile} progress={steamAccountProgress} refreshedAt={refreshedAt} />
-        <SteamCompactAction
+        <DeckySteamCompactAction
           ariaLabel="Open Steam profile full-screen"
           onActivate={onOpenProfile}
           onCancel={onCancel}
@@ -855,7 +855,7 @@ export function DeckySteamCompactProfile({
             <img alt="" src={externalLinkIconUrl} style={getIconStyle(17)} />
             <span>Open Profile Full-Screen</span>
           </span>
-        </SteamCompactAction>
+        </DeckySteamCompactAction>
       </section>
 
       <section style={getSectionStyle()}>
@@ -930,7 +930,7 @@ export function DeckySteamCompactProfile({
         />
       </section>
 
-      <SteamCompactAction
+      <DeckySteamCompactAction
         ariaLabel="Open Steam profile settings"
         isNavigable={hasEnteredActionNavigation}
         onActivate={onOpenSettings}
@@ -942,7 +942,7 @@ export function DeckySteamCompactProfile({
         </span>
         <span style={getSettingsLabelStyle()}>Steam Settings</span>
         <img alt="" src={chevronRightIconUrl} style={getIconStyle(17)} />
-      </SteamCompactAction>
+      </DeckySteamCompactAction>
       {refreshTime === undefined ? null : (
         <div style={getRefreshTimestampStyle()}>{`Steam and SteamHunters refreshed ${refreshTime}`}</div>
       )}

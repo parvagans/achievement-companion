@@ -60,6 +60,7 @@ import {
   DeckyCompactPillActionItem,
 } from "./decky-compact-pill-action-item";
 import { dispatchDeckyScrollReset, TopAlignedScrollViewport } from "./decky-scroll-viewport";
+import { updateSteamGameSectionPageState } from "./decky-steam-game-section-state";
 import { useAsyncResourceState } from "./useAsyncResourceState";
 import {
   getDeckyProviderOptions,
@@ -753,6 +754,7 @@ function DashboardScreen({
 function GameDetailScreen({
   game,
   onOpenFullScreenGame,
+  onOpenFullScreenAchievements,
   onBackToDashboard,
   onOpenAchievementDetail,
   onRequestScrollReset,
@@ -760,6 +762,7 @@ function GameDetailScreen({
 }: {
   readonly game: DeckyCompactGameDestination;
   readonly onOpenFullScreenGame: (game: DeckyCompactGameDestination) => void;
+  readonly onOpenFullScreenAchievements: (game: DeckyCompactGameDestination) => void;
   readonly onBackToDashboard: () => void;
   readonly onOpenAchievementDetail: (target: CompactAchievementTarget) => void;
   readonly onRequestScrollReset: () => void;
@@ -788,7 +791,21 @@ function GameDetailScreen({
                 }
               : undefined
           }
+          onOpenFullScreenAchievements={
+            platform.navigation !== undefined && game.providerId === STEAM_PROVIDER_ID
+              ? () => {
+                  onRequestScrollReset();
+                  onOpenFullScreenAchievements(game);
+                }
+              : undefined
+          }
           state={loader}
+        />
+      ) : game.providerId === STEAM_PROVIDER_ID ? (
+        <DeckyCompactLoadingState
+          description={loader.error?.userMessage ?? "Fetching the latest Steam game and SteamHunters data."}
+          isError={loader.status === "error"}
+          title={loader.status === "error" ? "Steam game unavailable" : `Loading ${game.gameTitle}...`}
         />
       ) : (
         <PlaceholderState
@@ -1002,6 +1019,22 @@ function DeckyBootstrapStateBridge(): JSX.Element {
             key={`${selectedGame.providerId}:${selectedGame.gameId}`}
             game={selectedGame}
             onOpenFullScreenGame={(game) => {
+              void platform.navigation?.go({
+                view: "game",
+                providerId: game.providerId,
+                gameId: game.gameId,
+                surface: "full-screen",
+              });
+            }}
+            onOpenFullScreenAchievements={(game) => {
+              updateSteamGameSectionPageState(game.providerId, game.gameId, (current) => ({
+                ...current,
+                activeSection: "achievements",
+                achievements: {
+                  ...current.achievements,
+                  scrollTop: 0,
+                },
+              }));
               void platform.navigation?.go({
                 view: "game",
                 providerId: game.providerId,

@@ -27,7 +27,7 @@ export function isSteamHuntersSetFullyObtainable(
     health.brokenButObtainableCount === 0;
 }
 
-function getAchievementSetStatusSummary(
+export function getSteamHuntersAchievementSetStatusSummary(
   health: DeckySteamHuntersGameViewModel["completionHealth"],
 ): string {
   return [
@@ -38,7 +38,7 @@ function getAchievementSetStatusSummary(
   ].filter((value): value is string => value !== undefined).join(" • ");
 }
 
-function getAchievementSetStatusPresentation(
+export function getSteamHuntersAchievementSetStatusPresentation(
   health: DeckySteamHuntersGameViewModel["completionHealth"],
 ): { readonly headline: string; readonly color: string; readonly icon: JSX.Element } {
   if (isSteamHuntersSetFullyObtainable(health)) {
@@ -333,8 +333,8 @@ export function DeckySteamHuntersCompletionHealthSection({
   ) {
     return null;
   }
-  const presentation = getAchievementSetStatusPresentation(health);
-  const summary = getAchievementSetStatusSummary(health);
+  const presentation = getSteamHuntersAchievementSetStatusPresentation(health);
+  const summary = getSteamHuntersAchievementSetStatusSummary(health);
 
   return (
     <DeckyFullScreenGameSpotlightCard

@@ -42,8 +42,8 @@ test("Steam compact profile matches the refined controller-first information hie
   assert.match(compactProfileSource, /title="Recently Played"/u);
   assert.match(compactProfileSource, />Steam Settings</u);
 
-  assert.match(compactProfileSource, /function SteamCompactAction/u);
-  const compactActionStart = compactProfileSource.indexOf("function SteamCompactAction");
+  assert.match(compactProfileSource, /export function DeckySteamCompactAction/u);
+  const compactActionStart = compactProfileSource.indexOf("export function DeckySteamCompactAction");
   const compactActionEnd = compactProfileSource.indexOf("function getIconStyle", compactActionStart);
   const compactActionSource = compactProfileSource.slice(compactActionStart, compactActionEnd);
   assert.ok(compactActionStart >= 0);
@@ -81,7 +81,7 @@ test("provider and Steam use explicit native entry scopes without changing Retro
   const providerLauncherStart = bootstrapSource.indexOf("function ProviderLauncherCard");
   const providerLauncherEnd = bootstrapSource.indexOf("function formatSteamLibraryScanUpdatedLabel", providerLauncherStart);
   const providerLauncherSource = bootstrapSource.slice(providerLauncherStart, providerLauncherEnd);
-  const steamActionStart = compactProfileSource.indexOf("function SteamCompactAction");
+  const steamActionStart = compactProfileSource.indexOf("export function DeckySteamCompactAction");
   const steamActionEnd = compactProfileSource.indexOf("function getIconStyle", steamActionStart);
   const steamActionSource = compactProfileSource.slice(steamActionStart, steamActionEnd);
   const retroProfileEntryStart = dashboardSource.indexOf("function OverviewProfileEntry");

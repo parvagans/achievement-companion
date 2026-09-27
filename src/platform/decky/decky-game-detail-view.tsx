@@ -17,6 +17,7 @@ import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DeckyAchievementTypeBadge } from "./decky-achievement-type-badge";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { DeckySystemPill } from "./decky-system-pill";
+import { DeckySteamCompactGameOverview } from "./decky-steam-compact-game-overview";
 import { DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS, DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import type { CompactAchievementTarget } from "./decky-achievement-detail-view";
 import { DeckyCompactPillActionGroup, DeckyCompactPillActionItem } from "./decky-compact-pill-action-item";
@@ -47,6 +48,7 @@ export interface DeckyGameDetailViewProps {
   };
   readonly onBackToDashboard: () => void;
   readonly onOpenFullScreenPage: (() => void) | undefined;
+  readonly onOpenFullScreenAchievements: (() => void) | undefined;
   readonly onOpenAchievementDetail: (target: CompactAchievementTarget) => void;
 }
 
@@ -774,6 +776,7 @@ export function DeckyGameDetailView({
   state,
   onBackToDashboard,
   onOpenFullScreenPage,
+  onOpenFullScreenAchievements,
   onOpenAchievementDetail,
 }: DeckyGameDetailViewProps): JSX.Element {
   const compactGameDetailBackButtonRef = useCallback((node: HTMLDivElement | null) => {
@@ -833,6 +836,19 @@ export function DeckyGameDetailView({
   const achievements = filteredAchievements.slice(0, visibleAchievementLimit);
   const isCachedView = state.status === "stale";
   const refreshTimestamp = state.lastUpdatedAt ?? snapshot.refreshedAt;
+
+  if (isSteamGame) {
+    return (
+      <>
+        <DeckySteamCompactGameOverview
+          onBack={onBackToDashboard}
+          onOpenFullScreen={onOpenFullScreenPage}
+          onViewAchievements={onOpenFullScreenAchievements}
+          snapshot={snapshot}
+        />
+      </>
+    );
+  }
 
   return (
     <>

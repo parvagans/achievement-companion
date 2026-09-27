@@ -23,6 +23,7 @@ type BridgeMarkedBackButton = {
 const compactProviderCancelBridgeListeners = new Map<Window, EventListener>();
 const compactAchievementCancelBridgeListeners = new Map<Window, EventListener>();
 const compactGameDetailCancelBridgeListeners = new Map<Window, EventListener>();
+const compactGameDetailCancelCallbacks = new Map<Window, () => void>();
 
 function removeCancelBridgeListeners(listeners: Map<Window, EventListener>): void {
   for (const [bridgeWindow, listener] of listeners.entries()) {
@@ -110,6 +111,18 @@ export function handleCompactGameDetailCancelBridge(
   event: Event,
   doc: Document | undefined = typeof document === "undefined" ? undefined : document,
 ): void {
+  const callback = doc?.defaultView === null || doc?.defaultView === undefined
+    ? undefined
+    : compactGameDetailCancelCallbacks.get(doc.defaultView);
+  if (callback !== undefined) {
+    const cancelEvent = event as BridgeCancelableEvent;
+    cancelEvent.preventDefault?.();
+    cancelEvent.stopPropagation?.();
+    cancelEvent.stopImmediatePropagation?.();
+    callback();
+    return;
+  }
+
   const cancelEvent = event as BridgeCancelableEvent;
   const backButton = getVisibleMarkedBackButton(COMPACT_GAME_DETAIL_BACK_BUTTON_SELECTOR, doc);
   if (backButton === undefined) {
@@ -185,6 +198,40 @@ export function ensureCompactGameDetailCancelBridgeRegisteredForBackButtonElemen
   );
 }
 
+/**
+ * Registers B for a compact game layout that deliberately has no visible Back
+ * action. The callback is scoped to the mounted Steam game view and is removed
+ * on unmount, while legacy game layouts continue using their marked Back pill.
+ */
+export function registerCompactGameDetailCancelCallback(
+  element: Element | null | undefined,
+  onCancel: () => void,
+): () => void {
+  if (element === null || element === undefined) {
+    return () => undefined;
+  }
+
+  const ownerDocument = element.ownerDocument;
+  const ownerWindow = ownerDocument?.defaultView;
+  if (ownerDocument === undefined || ownerWindow === undefined || ownerWindow === null) {
+    return () => undefined;
+  }
+
+  registerCancelBridgeForWindow(
+    ownerWindow,
+    ownerDocument,
+    compactGameDetailCancelBridgeListeners,
+    handleCompactGameDetailCancelBridge,
+  );
+  compactGameDetailCancelCallbacks.set(ownerWindow, onCancel);
+
+  return () => {
+    if (compactGameDetailCancelCallbacks.get(ownerWindow) === onCancel) {
+      compactGameDetailCancelCallbacks.delete(ownerWindow);
+    }
+  };
+}
+
 export function resetCompactProviderCancelBridgeForTests(): void {
   removeCancelBridgeListeners(compactProviderCancelBridgeListeners);
 }
@@ -195,6 +242,7 @@ export function resetCompactAchievementCancelBridgeForTests(): void {
 
 export function resetCompactGameDetailCancelBridgeForTests(): void {
   removeCancelBridgeListeners(compactGameDetailCancelBridgeListeners);
+  compactGameDetailCancelCallbacks.clear();
 }
 
 export function removeDeckyCompactCancelBridges(): void {
