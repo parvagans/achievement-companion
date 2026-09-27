@@ -10,6 +10,10 @@ const compactSettingsSource = readFileSync(
   "src/platform/decky/decky-steam-compact-settings.tsx",
   "utf8",
 );
+const compactLoadingSource = readFileSync(
+  "src/platform/decky/decky-compact-loading-state.tsx",
+  "utf8",
+);
 const dashboardSource = readFileSync("src/platform/decky/decky-dashboard-view.tsx", "utf8");
 const bootstrapSource = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
 const compactNavigationSource = readFileSync(
@@ -164,4 +168,33 @@ test("Steam compact profile loads optional SteamHunters data and preserves compa
   assert.match(compactNavigationSource, /kind: "provider-dashboard"/u);
   assert.match(bootstrapSource, /openProviderFullScreenView\(providerId, "achievement-history"\)/u);
   assert.match(bootstrapSource, /openProviderFullScreenView\(providerId, "completion-progress"\)/u);
+});
+
+test("Steam compact entry waits for fresh Steam and SteamHunters data before rendering the profile", () => {
+  assert.match(bootstrapSource, /dashboardForceRefreshNextLoad = useRef\(providerId === STEAM_PROVIDER_ID\)/u);
+  assert.match(bootstrapSource, /steamHuntersForceRefreshNextLoad = useRef\(providerId === STEAM_PROVIDER_ID\)/u);
+  assert.match(bootstrapSource, /refreshDeckySteamHuntersProfileState\(steamId\)/u);
+  assert.match(bootstrapSource, /const isSteamCompactProfileLoading =/u);
+  assert.match(
+    bootstrapSource,
+    /isSteamCompactProfileLoading[\s\S]*steamHuntersProfileState\.status === "idle"[\s\S]*steamHuntersProfileState\.status === "loading"[\s\S]*steamHuntersProfileState\.status === "refreshing"/u,
+  );
+  assert.match(
+    bootstrapSource,
+    /isRenderableDashboardState\(visibleState\) && !isSteamCompactProfileLoading[\s\S]*<DeckyDashboardView/u,
+  );
+  assert.match(bootstrapSource, /<DeckyCompactLoadingState[\s\S]*Loading Steam profile\.\.\./u);
+  assert.match(bootstrapSource, /Fetching the latest Steam profile and SteamHunters data\./u);
+  assert.match(bootstrapSource, /<TopAlignedScrollViewport scrollKey="dashboard">/u);
+
+  assert.match(compactLoadingSource, /data-achievement-companion-compact-loading-state/u);
+  assert.match(compactLoadingSource, /justifyContent: "center"/u);
+  assert.match(compactLoadingSource, /flex: "1 1 auto"/u);
+  assert.match(compactLoadingSource, /findDeckyScrollContainerAncestor\(surface\)/u);
+  assert.match(compactLoadingSource, /scrollContainer\.getBoundingClientRect\(\)\.bottom - surface\.getBoundingClientRect\(\)\.top/u);
+  assert.match(compactLoadingSource, /padding: "18px 16px"/u);
+  assert.match(compactLoadingSource, /spinner\?\.ownerDocument\.defaultView/u);
+  assert.match(compactLoadingSource, /prefers-reduced-motion/u);
+  assert.match(compactLoadingSource, /aria-busy=\{!isError\}/u);
+  assert.doesNotMatch(compactLoadingSource, /actions|DeckyCompactPillAction/u);
 });

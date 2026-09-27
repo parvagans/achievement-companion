@@ -1,0 +1,236 @@
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import infoIconUrl from "./assets/info.svg";
+import { findDeckyScrollContainerAncestor } from "./decky-scroll-viewport";
+
+const COMPACT_LOADING_FONT_FAMILY = '"Motiva Sans", "Noto Sans", system-ui, sans-serif';
+
+export interface DeckyCompactLoadingStateProps {
+  readonly description: string;
+  readonly isError: boolean;
+  readonly title: string;
+}
+
+function getLoadingSurfaceStyle(visibleHeight: number | undefined): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+    flex: "1 1 auto",
+    width: "100%",
+    minHeight: visibleHeight === undefined ? 0 : visibleHeight,
+    minWidth: 0,
+    padding: "18px 16px",
+    boxSizing: "border-box",
+    color: "rgba(245, 250, 255, 0.98)",
+    fontFamily: COMPACT_LOADING_FONT_FAMILY,
+    background:
+      "radial-gradient(ellipse at 86% 11%, rgba(218, 70, 241, 0.16), transparent 34%), radial-gradient(ellipse at 12% 84%, rgba(27, 161, 255, 0.16), transparent 44%), radial-gradient(ellipse at 50% 33%, rgba(0, 224, 239, 0.1), transparent 42%)",
+  };
+}
+
+function getLoadingContentStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: 8,
+    width: "100%",
+    minWidth: 0,
+    textAlign: "center",
+  };
+}
+
+function getLoadingSpinnerStyle(): CSSProperties {
+  return {
+    position: "relative",
+    width: 74,
+    height: 74,
+    flexShrink: 0,
+    borderRadius: "50%",
+    background: "rgba(7, 25, 40, 0.96)",
+    boxShadow: "0 0 22px rgba(25, 178, 241, 0.18), inset 0 0 0 1px rgba(151, 225, 255, 0.16)",
+  };
+}
+
+function getLoadingSpinnerRingStyle(): CSSProperties {
+  return {
+    position: "absolute",
+    inset: 0,
+    borderRadius: "50%",
+    background:
+      "conic-gradient(from -24deg, #1cbcf1 0deg, #18a9e4 76deg, rgba(37, 85, 151, 0.84) 77deg, rgba(27, 58, 107, 0.76) 360deg)",
+  };
+}
+
+function getLoadingIconWellStyle(): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    position: "absolute",
+    inset: 7,
+    borderRadius: "50%",
+    background: "radial-gradient(circle at 40% 30%, #112b42, #07131f 72%)",
+    boxShadow: "inset 0 0 0 1px rgba(115, 192, 239, 0.18)",
+  };
+}
+
+function getLoadingIconStyle(): CSSProperties {
+  return {
+    width: "46%",
+    height: "46%",
+    filter: "brightness(0) saturate(100%) invert(68%) sepia(79%) saturate(1428%) hue-rotate(161deg) brightness(101%) contrast(102%) drop-shadow(0 0 8px rgba(41, 196, 246, 0.36))",
+  };
+}
+
+function getLoadingTitleStyle(): CSSProperties {
+  return {
+    margin: 0,
+    color: "rgba(247, 250, 255, 0.99)",
+    fontSize: "18px",
+    fontWeight: 800,
+    letterSpacing: "-0.02em",
+    lineHeight: 1.1,
+  };
+}
+
+function getPreparingTextStyle(): CSSProperties {
+  return {
+    margin: "-2px 0 0",
+    color: "#b8d8f3",
+    fontSize: "12px",
+    lineHeight: 1.25,
+  };
+}
+
+function getLoadingInfoStyle(): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    position: "relative",
+    width: "100%",
+    minHeight: 48,
+    padding: "8px 12px 8px 38px",
+    boxSizing: "border-box",
+    border: "1px solid rgba(72, 155, 222, 0.28)",
+    borderRadius: 10,
+    textAlign: "left",
+    background: "linear-gradient(135deg, rgba(17, 37, 57, 0.9), rgba(12, 27, 43, 0.78))",
+  };
+}
+
+function getLoadingInfoIconStyle(): CSSProperties {
+  return {
+    position: "absolute",
+    left: 11,
+    width: 18,
+    height: 18,
+    filter: "brightness(0) saturate(100%) invert(68%) sepia(79%) saturate(1428%) hue-rotate(161deg) brightness(101%) contrast(102%)",
+  };
+}
+
+function getLoadingInfoTextStyle(): CSSProperties {
+  return {
+    margin: 0,
+    color: "rgba(188, 216, 242, 0.92)",
+    fontSize: "12px",
+    lineHeight: 1.3,
+  };
+}
+
+export function DeckyCompactLoadingState({
+  description,
+  isError,
+  title,
+}: DeckyCompactLoadingStateProps): JSX.Element {
+  const surfaceRef = useRef<HTMLElement>(null);
+  const spinnerRef = useRef<HTMLDivElement>(null);
+  const [visibleHeight, setVisibleHeight] = useState<number | undefined>(undefined);
+
+  useLayoutEffect(() => {
+    const surface = surfaceRef.current;
+    const ownerWindow = surface?.ownerDocument.defaultView;
+    if (surface === null || ownerWindow === null || ownerWindow === undefined) {
+      return;
+    }
+
+    const updateVisibleHeight = (): void => {
+      const scrollContainer = findDeckyScrollContainerAncestor(surface);
+      if (scrollContainer === null) {
+        return;
+      }
+
+      const availableHeight = Math.max(
+        0,
+        scrollContainer.getBoundingClientRect().bottom - surface.getBoundingClientRect().top,
+      );
+      setVisibleHeight((currentHeight) => currentHeight === availableHeight ? currentHeight : availableHeight);
+    };
+
+    updateVisibleHeight();
+    ownerWindow.addEventListener("resize", updateVisibleHeight);
+    return () => {
+      ownerWindow.removeEventListener("resize", updateVisibleHeight);
+    };
+  }, []);
+
+  useEffect(() => {
+    const spinner = spinnerRef.current;
+    const ownerWindow = spinner?.ownerDocument.defaultView;
+    if (spinner === null || ownerWindow === null || ownerWindow === undefined || isError) {
+      return;
+    }
+
+    const reducedMotion = ownerWindow.matchMedia("(prefers-reduced-motion: reduce)");
+    let animation: Animation | undefined;
+    const updateAnimation = (): void => {
+      animation?.cancel();
+      animation = reducedMotion.matches
+        ? undefined
+        : spinner.animate(
+          [{ transform: "rotate(0deg)" }, { transform: "rotate(360deg)" }],
+          { duration: 1_450, easing: "linear", iterations: Infinity },
+        );
+    };
+
+    updateAnimation();
+    reducedMotion.addEventListener("change", updateAnimation);
+    return () => {
+      reducedMotion.removeEventListener("change", updateAnimation);
+      animation?.cancel();
+    };
+  }, [isError]);
+
+  return (
+    <section
+      aria-busy={!isError}
+      aria-label={title}
+      aria-live="polite"
+      data-achievement-companion-compact-loading-state="true"
+      ref={surfaceRef}
+      role={isError ? "alert" : "status"}
+      style={getLoadingSurfaceStyle(visibleHeight)}
+    >
+      <div style={getLoadingContentStyle()}>
+        <div aria-hidden="true" style={getLoadingSpinnerStyle()}>
+          <div ref={spinnerRef} style={getLoadingSpinnerRingStyle()} />
+          <div style={getLoadingIconWellStyle()}>
+            <svg aria-hidden="true" viewBox="0 0 24 24" style={getLoadingIconStyle()}>
+              <path
+                fill="#2bc3f2"
+                d="M6.2 3.5h11.6v3.9a5.8 5.8 0 0 1-4.3 5.6v2.1h2.2a1.1 1.1 0 0 1 0 2.2H8.3a1.1 1.1 0 0 1 0-2.2h2.2V13a5.8 5.8 0 0 1-4.3-5.6V3.5Zm-2.7 2h2v2.1a3.3 3.3 0 0 0 1.1 2.5A5.9 5.9 0 0 1 4 9.3a3.7 3.7 0 0 1-.5-1.8V5.5Zm15 0h2v2a3.7 3.7 0 0 1-.5 1.8 5.9 5.9 0 0 1-2.6.8 3.3 3.3 0 0 0 1.1-2.5V5.5Z"
+              />
+            </svg>
+          </div>
+        </div>
+        <h1 style={getLoadingTitleStyle()}>{title}</h1>
+        {!isError ? <p style={getPreparingTextStyle()}>Preparing your data. This may take a few moments.</p> : null}
+        <div style={getLoadingInfoStyle()}>
+          <img alt="" aria-hidden="true" src={infoIconUrl} style={getLoadingInfoIconStyle()} />
+          <p style={getLoadingInfoTextStyle()}>{description}</p>
+        </div>
+      </div>
+    </section>
+  );
+}

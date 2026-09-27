@@ -24,18 +24,41 @@ function getAnchorStyle(fillHeight: boolean): CSSProperties {
   };
 }
 
-function isScrollableElement(element: HTMLElement): boolean {
-  const style = globalThis.getComputedStyle(element);
+function supportsVerticalScrolling(element: HTMLElement): boolean {
+  const ownerWindow = element.ownerDocument.defaultView;
+  if (ownerWindow === null || ownerWindow === undefined) {
+    return false;
+  }
 
-  if (
-    style.overflowY !== "auto" &&
-    style.overflowY !== "scroll" &&
-    style.overflowY !== "overlay"
-  ) {
+  const style = ownerWindow.getComputedStyle(element);
+
+  return style.overflowY === "auto" || style.overflowY === "scroll" || style.overflowY === "overlay";
+}
+
+function isScrollableElement(element: HTMLElement): boolean {
+  if (!supportsVerticalScrolling(element)) {
     return false;
   }
 
   return element.scrollHeight > element.clientHeight + 1;
+}
+
+/**
+ * Finds the native vertical viewport even when short content does not yet
+ * overflow. Loading layouts use this to fill the currently visible QAM lane.
+ */
+export function findDeckyScrollContainerAncestor(anchor: HTMLElement): HTMLElement | null {
+  let current: HTMLElement | null = anchor.parentElement;
+
+  while (current !== null) {
+    if (supportsVerticalScrolling(current)) {
+      return current;
+    }
+
+    current = current.parentElement;
+  }
+
+  return null;
 }
 
 export function findDeckyScrollableAncestor(anchor: HTMLElement): HTMLElement | null {
@@ -49,7 +72,7 @@ export function findDeckyScrollableAncestor(anchor: HTMLElement): HTMLElement | 
     current = current.parentElement;
   }
 
-  const scrollingElement = document.scrollingElement;
+  const scrollingElement = anchor.ownerDocument.scrollingElement;
   if (scrollingElement instanceof HTMLElement) {
     return scrollingElement;
   }

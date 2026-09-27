@@ -35,6 +35,7 @@ import {
   loadDeckyDashboardState,
   loadDeckyGameDetailState,
   loadDeckySteamHuntersProfileState,
+  refreshDeckySteamHuntersProfileState,
 } from "./decky-app-services";
 import {
   DeckyAchievementDetailView,
@@ -47,6 +48,7 @@ import {
   type DeckyCompactGameDestination,
 } from "./decky-compact-navigation";
 import { DeckyDashboardView } from "./decky-dashboard-view";
+import { DeckyCompactLoadingState } from "./decky-compact-loading-state";
 import { DeckyGameDetailView } from "./decky-game-detail-view";
 import { DeckyFocusStyles } from "./decky-focus-styles";
 import { shouldRefreshDashboardOnEntry } from "./dashboard-refresh";
@@ -509,7 +511,11 @@ function DashboardScreen({
   const [steamLibraryScanState, setSteamLibraryScanState] = useState<SteamLibraryScanActionState>({
     status: "idle",
   });
-  const dashboardForceRefreshNextLoad = useRef(false);
+  // A compact Steam visit mirrors the full-screen profile's fresh account
+  // boundary. Cached dashboard data remains available to other surfaces, but
+  // this view waits for the new bounded Steam and SteamHunters results.
+  const dashboardForceRefreshNextLoad = useRef(providerId === STEAM_PROVIDER_ID);
+  const steamHuntersForceRefreshNextLoad = useRef(providerId === STEAM_PROVIDER_ID);
   const previousQuickAccessVisible = useRef(quickAccessVisible);
   const dashboardPreferences = useMemo(
     () => resolveProviderDashboardPreferences(providerConfig, settings),
@@ -563,9 +569,17 @@ function DashboardScreen({
     ? (providerConfig as SteamProviderConfig | undefined)?.steamId64.trim()
     : undefined;
   const steamHuntersProfileLoader = useMemo(
-    () => () => steamId === undefined || steamId.length === 0
-      ? Promise.resolve(initialDeckySteamHuntersProfileState)
-      : loadDeckySteamHuntersProfileState(steamId),
+    () => () => {
+      if (steamId === undefined || steamId.length === 0) {
+        return Promise.resolve(initialDeckySteamHuntersProfileState);
+      }
+
+      const forceRefresh = steamHuntersForceRefreshNextLoad.current;
+      steamHuntersForceRefreshNextLoad.current = false;
+      return forceRefresh
+        ? refreshDeckySteamHuntersProfileState(steamId)
+        : loadDeckySteamHuntersProfileState(steamId);
+    },
     [dashboardRefreshNonce, steamId],
   );
   const steamHuntersProfileState = useAsyncResourceState(
@@ -575,6 +589,14 @@ function DashboardScreen({
   const steamHuntersProfile = steamHuntersProfileState.data?.steamId === steamId
     ? steamHuntersProfileState.data
     : undefined;
+  const isSteamCompactProfileLoading =
+    providerId === STEAM_PROVIDER_ID &&
+    state.status !== "error" &&
+    (!isRenderableDashboardState(state) ||
+      state.isRefreshing === true ||
+      steamHuntersProfileState.status === "idle" ||
+      steamHuntersProfileState.status === "loading" ||
+      steamHuntersProfileState.status === "refreshing");
   const dashboardReentryRefreshKey = `${providerId}:${state.status}:${state.data?.profile.providerId ?? "none"}:${state.error?.kind ?? "none"}:${state.error?.debugMessage ?? "none"}`;
   const lastDashboardReentryRefreshKey = useRef<string | undefined>(undefined);
 
@@ -657,7 +679,7 @@ function DashboardScreen({
             : "Scan full Steam library"
       : undefined;
 
-  return isRenderableDashboardState(visibleState) ? (
+  return isRenderableDashboardState(visibleState) && !isSteamCompactProfileLoading ? (
     <DeckyDashboardView
       state={visibleState}
       {...(steamLibraryAchievementScanSummary !== undefined
@@ -694,6 +716,12 @@ function DashboardScreen({
             },
           }
         : {})}
+    />
+  ) : providerId === STEAM_PROVIDER_ID ? (
+    <DeckyCompactLoadingState
+      description={state.error?.userMessage ?? "Fetching the latest Steam profile and SteamHunters data."}
+      isError={state.status === "error"}
+      title={state.status === "error" ? "Steam profile unavailable" : "Loading Steam profile..."}
     />
   ) : (
     <PlaceholderState
