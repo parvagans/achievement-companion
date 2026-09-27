@@ -8,11 +8,11 @@ import { formatSteamPlaytimeMinutes } from "./decky-stat-helpers";
 import { DeckySteamCompactAction } from "./decky-steam-compact-profile";
 import {
   getSteamHuntersAchievementSetStatusPresentation,
-  isSteamHuntersSetFullyObtainable,
 } from "./decky-steam-hunters-game-sections";
 import { buildDeckySteamHuntersGameViewModel } from "./decky-steam-hunters-view-model";
 import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
-import { getSteamHuntersGameEnrichment, type SteamHuntersGameEnrichment } from "../../providers/steamhunters";
+import { getSteamHuntersGameEnrichment } from "../../providers/steamhunters";
+import calendarIconUrl from "./assets/calendar.svg";
 import clockIconUrl from "./assets/clock.svg";
 import externalLinkIconUrl from "./assets/external-link.svg";
 import steamIconUrl from "./assets/steam.svg";
@@ -313,19 +313,43 @@ function getInitials(title: string): string {
     .join("") || "AC";
 }
 
-function getAverageUnlockRate(enrichment: SteamHuntersGameEnrichment | undefined): string {
-  if (enrichment === undefined) {
+function formatPersonalGameDuration(durationMilliseconds: number | undefined): string {
+  if (durationMilliseconds === undefined || !Number.isFinite(durationMilliseconds) || durationMilliseconds < 0) {
     return "—";
   }
 
-  const values = Object.values(enrichment.achievementsBySteamAchievementId)
-    .map((achievement) => achievement.localPercentage)
+  const totalDays = Math.floor(durationMilliseconds / (24 * 60 * 60 * 1000));
+  if (totalDays < 7) {
+    return totalDays === 1 ? "1 day" : `${totalDays} days`;
+  }
+
+  const totalMonths = Math.floor(totalDays / 30.4375);
+  if (totalMonths < 12) {
+    return totalMonths === 1 ? "1 mo" : `${totalMonths} mos`;
+  }
+
+  const years = Math.floor(totalMonths / 12);
+  const remainingMonths = totalMonths % 12;
+  const fraction = remainingMonths >= 9 ? "3/4" : remainingMonths >= 6 ? "1/2" : remainingMonths >= 3 ? "1/4" : undefined;
+  return fraction === undefined
+    ? `${years} yr${years === 1 ? "" : "s"}`
+    : `${years} ${fraction} yrs`;
+}
+
+function getPersonalAchievementDuration(snapshot: GameDetailSnapshot): string {
+  const unlockedAt = snapshot.achievements
+    .map((achievement) => achievement.unlockedAt)
     .filter((value): value is number => value !== undefined && Number.isFinite(value));
-  if (values.length === 0) {
+  const firstUnlockAt = unlockedAt.length === 0 ? undefined : Math.min(...unlockedAt);
+  if (firstUnlockAt === undefined) {
     return "—";
   }
 
-  return `${Math.round(values.reduce((total, value) => total + value, 0) / values.length)}%`;
+  const lastActivityAt = Math.max(
+    snapshot.game.lastPlayedAt ?? Number.NEGATIVE_INFINITY,
+    ...unlockedAt,
+  );
+  return formatPersonalGameDuration(lastActivityAt - firstUnlockAt);
 }
 
 function SteamCompactGameTitle({ title }: { readonly title: string }): JSX.Element {
@@ -414,6 +438,7 @@ export function DeckySteamCompactGameOverview({
     ? undefined
     : getSteamHuntersAchievementSetStatusPresentation(steamHunters.completionHealth);
   const completionHealth = steamHunters?.completionHealth;
+  const personalAchievementDuration = getPersonalAchievementDuration(displayedSnapshot);
   const artworkUrl = getSteamFullscreenGameArtworkUrl(game);
 
   useLayoutEffect(() => registerCompactGameDetailCancelCallback(rootRef.current, onBack), [onBack]);
@@ -540,18 +565,18 @@ export function DeckySteamCompactGameOverview({
         <div style={getSteamHuntersStatsStyle()}>
           <div style={getSteamHuntersStatStyle()}>
             <img alt="" aria-hidden="true" src={trophyIconUrl} style={{ width: 17, height: 17, filter: "brightness(0) saturate(100%) invert(74%) sepia(95%) saturate(418%) hue-rotate(357deg) brightness(99%) contrast(92%)" }} />
-            <span style={getMetricLabelStyle()}>Points</span>
-            <span style={getMetricValueStyle()}>{formatCount(steamHunters?.enrichment.app.points)}</span>
+            <span style={getMetricLabelStyle()}>My Points</span>
+            <span style={getMetricValueStyle()}>{formatCount(steamHunters?.progressPoints?.earned)}</span>
           </div>
           <div style={getSteamHuntersStatStyle()}>
             <img alt="" aria-hidden="true" src={starIconUrl} style={{ width: 17, height: 17, filter: "brightness(0) saturate(100%) invert(68%) sepia(88%) saturate(1878%) hue-rotate(160deg) brightness(98%) contrast(101%)" }} />
-            <span style={getMetricLabelStyle()}>Unlock Rate</span>
-            <span style={getMetricValueStyle()}>{getAverageUnlockRate(enrichment)}</span>
+            <span style={getMetricLabelStyle()}>My Unlock %</span>
+            <span style={getMetricValueStyle()}>{completionPercent === undefined ? "—" : `${completionPercent}%`}</span>
           </div>
           <div style={getSteamHuntersStatStyle()}>
-            <span aria-hidden="true" style={{ color: isSteamHuntersSetFullyObtainable(steamHunters?.completionHealth ?? {}) ? "#42e98d" : status?.color ?? "#9fc8e8", fontSize: 17, fontWeight: 900, lineHeight: 1 }}>✓</span>
-            <span style={getMetricLabelStyle()}>Obtainability</span>
-            <span style={{ ...getMetricValueStyle(), fontSize: 9 }}>{status?.headline ?? "—"}</span>
+            <img alt="" aria-hidden="true" src={calendarIconUrl} style={{ width: 17, height: 17, filter: "brightness(0) saturate(100%) invert(69%) sepia(84%) saturate(1582%) hue-rotate(162deg) brightness(98%) contrast(101%)" }} />
+            <span style={getMetricLabelStyle()}>Duration</span>
+            <span style={getMetricValueStyle()}>{personalAchievementDuration}</span>
           </div>
         </div>
       </div>
