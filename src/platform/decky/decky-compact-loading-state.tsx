@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import infoIconUrl from "./assets/info.svg";
+import { registerCompactProviderCancelCallback } from "./decky-full-screen-cancel-bridge";
 import { findDeckyScrollContainerAncestor } from "./decky-scroll-viewport";
 
 const COMPACT_LOADING_FONT_FAMILY = '"Motiva Sans", "Noto Sans", system-ui, sans-serif';
@@ -7,6 +8,7 @@ const COMPACT_LOADING_FONT_FAMILY = '"Motiva Sans", "Noto Sans", system-ui, sans
 export interface DeckyCompactLoadingStateProps {
   readonly description: string;
   readonly isError: boolean;
+  readonly onCancel?: (() => void) | undefined;
   readonly title: string;
 }
 
@@ -142,11 +144,17 @@ function getLoadingInfoTextStyle(): CSSProperties {
 export function DeckyCompactLoadingState({
   description,
   isError,
+  onCancel,
   title,
 }: DeckyCompactLoadingStateProps): JSX.Element {
   const surfaceRef = useRef<HTMLElement>(null);
   const spinnerRef = useRef<HTMLDivElement>(null);
   const [visibleHeight, setVisibleHeight] = useState<number | undefined>(undefined);
+
+  useLayoutEffect(
+    () => onCancel === undefined ? undefined : registerCompactProviderCancelCallback(surfaceRef.current, onCancel),
+    [onCancel],
+  );
 
   useLayoutEffect(() => {
     const surface = surfaceRef.current;
@@ -169,8 +177,13 @@ export function DeckyCompactLoadingState({
     };
 
     updateVisibleHeight();
+    // A compact game -> dashboard return replaces the child before its parent
+    // scroll viewport applies its own layout-effect reset. Measure once more
+    // after that reset so the loader never retains the previous game's offset.
+    const updateFrame = ownerWindow.requestAnimationFrame(updateVisibleHeight);
     ownerWindow.addEventListener("resize", updateVisibleHeight);
     return () => {
+      ownerWindow.cancelAnimationFrame(updateFrame);
       ownerWindow.removeEventListener("resize", updateVisibleHeight);
     };
   }, []);

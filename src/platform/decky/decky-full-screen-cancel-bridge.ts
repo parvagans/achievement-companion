@@ -21,6 +21,7 @@ type BridgeMarkedBackButton = {
 };
 
 const compactProviderCancelBridgeListeners = new Map<Window, EventListener>();
+const compactProviderCancelCallbacks = new Map<Window, () => void>();
 const compactAchievementCancelBridgeListeners = new Map<Window, EventListener>();
 const compactGameDetailCancelBridgeListeners = new Map<Window, EventListener>();
 const compactGameDetailCancelCallbacks = new Map<Window, () => void>();
@@ -96,6 +97,17 @@ export function handleCompactProviderCancelBridge(
   doc: Document | undefined = typeof document === "undefined" ? undefined : document,
 ): void {
   const cancelEvent = event as BridgeCancelableEvent;
+  const callback = doc?.defaultView === null || doc?.defaultView === undefined
+    ? undefined
+    : compactProviderCancelCallbacks.get(doc.defaultView);
+  if (callback !== undefined) {
+    cancelEvent.preventDefault?.();
+    cancelEvent.stopPropagation?.();
+    cancelEvent.stopImmediatePropagation?.();
+    callback();
+    return;
+  }
+
   const backButton = getVisibleMarkedBackButton(COMPACT_PROVIDER_BACK_BUTTON_SELECTOR, doc);
   if (backButton === undefined) {
     return;
@@ -199,6 +211,39 @@ export function ensureCompactGameDetailCancelBridgeRegisteredForBackButtonElemen
 }
 
 /**
+ * Registers B for a compact provider state that deliberately has no visible
+ * Back action, such as the Steam profile loading screen.
+ */
+export function registerCompactProviderCancelCallback(
+  element: Element | null | undefined,
+  onCancel: () => void,
+): () => void {
+  if (element === null || element === undefined) {
+    return () => undefined;
+  }
+
+  const ownerDocument = element.ownerDocument;
+  const ownerWindow = ownerDocument?.defaultView;
+  if (ownerDocument === undefined || ownerWindow === undefined || ownerWindow === null) {
+    return () => undefined;
+  }
+
+  registerCancelBridgeForWindow(
+    ownerWindow,
+    ownerDocument,
+    compactProviderCancelBridgeListeners,
+    handleCompactProviderCancelBridge,
+  );
+  compactProviderCancelCallbacks.set(ownerWindow, onCancel);
+
+  return () => {
+    if (compactProviderCancelCallbacks.get(ownerWindow) === onCancel) {
+      compactProviderCancelCallbacks.delete(ownerWindow);
+    }
+  };
+}
+
+/**
  * Registers B for a compact game layout that deliberately has no visible Back
  * action. The callback is scoped to the mounted Steam game view and is removed
  * on unmount, while legacy game layouts continue using their marked Back pill.
@@ -234,6 +279,7 @@ export function registerCompactGameDetailCancelCallback(
 
 export function resetCompactProviderCancelBridgeForTests(): void {
   removeCancelBridgeListeners(compactProviderCancelBridgeListeners);
+  compactProviderCancelCallbacks.clear();
 }
 
 export function resetCompactAchievementCancelBridgeForTests(): void {
@@ -247,6 +293,7 @@ export function resetCompactGameDetailCancelBridgeForTests(): void {
 
 export function removeDeckyCompactCancelBridges(): void {
   removeCancelBridgeListeners(compactProviderCancelBridgeListeners);
+  compactProviderCancelCallbacks.clear();
   removeCancelBridgeListeners(compactAchievementCancelBridgeListeners);
   removeCancelBridgeListeners(compactGameDetailCancelBridgeListeners);
 }

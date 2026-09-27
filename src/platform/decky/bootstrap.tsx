@@ -722,6 +722,7 @@ function DashboardScreen({
     <DeckyCompactLoadingState
       description={state.error?.userMessage ?? "Fetching the latest Steam profile and SteamHunters data."}
       isError={state.status === "error"}
+      onCancel={onBackToProviders}
       title={state.status === "error" ? "Steam profile unavailable" : "Loading Steam profile..."}
     />
   ) : (
@@ -805,6 +806,7 @@ function GameDetailScreen({
         <DeckyCompactLoadingState
           description={loader.error?.userMessage ?? "Fetching the latest Steam game and SteamHunters data."}
           isError={loader.status === "error"}
+          onCancel={onBackToDashboard}
           title={loader.status === "error" ? "Steam game unavailable" : `Loading ${game.gameTitle}...`}
         />
       ) : (

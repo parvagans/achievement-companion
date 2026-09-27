@@ -192,9 +192,14 @@ test("Steam compact entry waits for fresh Steam and SteamHunters data before ren
   assert.match(compactLoadingSource, /flex: "1 1 auto"/u);
   assert.match(compactLoadingSource, /findDeckyScrollContainerAncestor\(surface\)/u);
   assert.match(compactLoadingSource, /scrollContainer\.getBoundingClientRect\(\)\.bottom - surface\.getBoundingClientRect\(\)\.top/u);
+  assert.match(compactLoadingSource, /ownerWindow\.requestAnimationFrame\(updateVisibleHeight\)/u);
+  assert.match(compactLoadingSource, /ownerWindow\.cancelAnimationFrame\(updateFrame\)/u);
+  assert.match(compactLoadingSource, /registerCompactProviderCancelCallback\(surfaceRef\.current, onCancel\)/u);
   assert.match(compactLoadingSource, /padding: "18px 16px"/u);
   assert.match(compactLoadingSource, /spinner\?\.ownerDocument\.defaultView/u);
   assert.match(compactLoadingSource, /prefers-reduced-motion/u);
   assert.match(compactLoadingSource, /aria-busy=\{!isError\}/u);
   assert.doesNotMatch(compactLoadingSource, /actions|DeckyCompactPillAction/u);
+  assert.match(bootstrapSource, /Loading Steam profile\.\.\.[\s\S]*onCancel=\{onBackToProviders\}|onCancel=\{onBackToProviders\}[\s\S]*Loading Steam profile\.\.\./u);
+  assert.match(bootstrapSource, /Fetching the latest Steam game and SteamHunters data\.[\s\S]*onCancel=\{onBackToDashboard\}|onCancel=\{onBackToDashboard\}[\s\S]*Fetching the latest Steam game and SteamHunters data\./u);
 });

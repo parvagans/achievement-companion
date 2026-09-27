@@ -64,6 +64,10 @@ test("Steam compact game overview uses the refined narrow-panel hierarchy and op
 });
 
 test("Steam compact game B handler is scoped to the mounted view instead of requiring a visible Back action", () => {
+  assert.match(compactCancelBridgeSource, /const compactProviderCancelCallbacks = new Map<Window, \(\) => void>\(\)/u);
+  assert.match(compactCancelBridgeSource, /export function registerCompactProviderCancelCallback/u);
+  assert.match(compactCancelBridgeSource, /compactProviderCancelCallbacks\.set\(ownerWindow, onCancel\)/u);
+  assert.match(compactCancelBridgeSource, /compactProviderCancelCallbacks\.delete\(ownerWindow\)/u);
   assert.match(compactCancelBridgeSource, /const compactGameDetailCancelCallbacks = new Map<Window, \(\) => void>\(\)/u);
   assert.match(compactCancelBridgeSource, /export function registerCompactGameDetailCancelCallback/u);
   assert.match(compactCancelBridgeSource, /compactGameDetailCancelCallbacks\.set\(ownerWindow, onCancel\)/u);
