@@ -191,6 +191,9 @@ test("Steam compact entry waits for fresh Steam and SteamHunters data before ren
   assert.match(compactLoadingSource, /justifyContent: "center"/u);
   assert.match(compactLoadingSource, /flex: "1 1 auto"/u);
   assert.match(compactLoadingSource, /findDeckyScrollContainerAncestor\(surface\)/u);
+  assert.match(compactLoadingSource, /scrollContainer\.style\.overflowY = "hidden"/u);
+  assert.match(compactLoadingSource, /scrollContainer\.style\.overflowY = previousOverflowY/u);
+  assert.match(compactLoadingSource, /touchAction: "none"/u);
   assert.match(compactLoadingSource, /scrollContainer\.getBoundingClientRect\(\)\.bottom - surface\.getBoundingClientRect\(\)\.top/u);
   assert.match(compactLoadingSource, /ownerWindow\.requestAnimationFrame\(updateVisibleHeight\)/u);
   assert.match(compactLoadingSource, /ownerWindow\.cancelAnimationFrame\(updateFrame\)/u);

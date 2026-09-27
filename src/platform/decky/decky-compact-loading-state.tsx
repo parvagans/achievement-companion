@@ -26,6 +26,8 @@ function getLoadingSurfaceStyle(visibleHeight: number | undefined): CSSPropertie
     boxSizing: "border-box",
     color: "rgba(245, 250, 255, 0.98)",
     fontFamily: COMPACT_LOADING_FONT_FAMILY,
+    overscrollBehavior: "none",
+    touchAction: "none",
     background:
       "radial-gradient(ellipse at 86% 11%, rgba(218, 70, 241, 0.16), transparent 34%), radial-gradient(ellipse at 12% 84%, rgba(27, 161, 255, 0.16), transparent 44%), radial-gradient(ellipse at 50% 33%, rgba(0, 224, 239, 0.1), transparent 42%)",
   };
@@ -163,12 +165,15 @@ export function DeckyCompactLoadingState({
       return;
     }
 
-    const updateVisibleHeight = (): void => {
-      const scrollContainer = findDeckyScrollContainerAncestor(surface);
-      if (scrollContainer === null) {
-        return;
-      }
+    const scrollContainer = findDeckyScrollContainerAncestor(surface);
+    if (scrollContainer === null) {
+      return;
+    }
 
+    const previousOverflowY = scrollContainer.style.overflowY;
+    scrollContainer.style.overflowY = "hidden";
+
+    const updateVisibleHeight = (): void => {
       const availableHeight = Math.max(
         0,
         scrollContainer.getBoundingClientRect().bottom - surface.getBoundingClientRect().top,
@@ -185,6 +190,9 @@ export function DeckyCompactLoadingState({
     return () => {
       ownerWindow.cancelAnimationFrame(updateFrame);
       ownerWindow.removeEventListener("resize", updateVisibleHeight);
+      if (scrollContainer.style.overflowY === "hidden") {
+        scrollContainer.style.overflowY = previousOverflowY;
+      }
     };
   }, []);
 
