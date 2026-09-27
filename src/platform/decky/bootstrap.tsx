@@ -98,8 +98,17 @@ const GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_LABELS: Readonly<
   "bottom-right": "Bottom Right",
 };
 
+const COMPACT_GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS = [
+  "top-left",
+  "top-center",
+  "top-right",
+  // "bottom-left",
+  // "bottom-center",
+  // "bottom-right",
+] as const satisfies readonly GamePageAchievementBadgePosition[];
+
 const GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_DROPDOWN_OPTIONS =
-  GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS.map((position) => ({
+  COMPACT_GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS.map((position) => ({
     data: position,
     label: GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_LABELS[position],
   }));
