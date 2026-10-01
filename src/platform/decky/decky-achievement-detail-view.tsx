@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useRef, type CSSProperties } from "react";
+import { useCallback, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { Focusable, PanelSection, PanelSectionRow, type FocusableProps } from "@decky/ui";
 import chevronRightIconUrl from "./assets/chevron-right.svg";
 import { DeckyAchievementTypeBadge } from "./decky-achievement-type-badge";
@@ -8,7 +8,7 @@ import {
   ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement,
   registerCompactAchievementCancelCallback,
 } from "./decky-full-screen-cancel-bridge";
-import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
+import { scrollDeckyFocusTargetIntoView, scrollDeckyFocusTargetToTop } from "./decky-focus-scroll";
 import type {
   CompactAchievementDetailBlock,
   CompactAchievementDetailStat,
@@ -165,11 +165,30 @@ function getRarityCaptionStyle(): CSSProperties {
   return { color: "rgba(255, 255, 255, 0.76)", fontSize: "0.72em", fontWeight: 700 };
 }
 
-function getGameRowStyle(): CSSProperties {
+function getGameRowStyle(isFocused: boolean): CSSProperties {
   return {
     display: "grid", gridTemplateColumns: "38px minmax(0, 1fr) 18px", alignItems: "center", gap: 8,
     width: "100%", minWidth: 0, padding: "8px 9px", boxSizing: "border-box", borderRadius: 11,
-    border: "1px solid rgba(63, 142, 196, 0.2)", background: "rgba(10, 39, 58, 0.78)",
+    border: isFocused ? "1px solid rgba(54, 185, 255, 0.92)" : "1px solid rgba(63, 142, 196, 0.2)",
+    background: isFocused
+      ? "linear-gradient(180deg, rgba(17, 91, 139, 0.78), rgba(8, 53, 82, 0.9))"
+      : "rgba(10, 39, 58, 0.78)",
+    boxShadow: isFocused
+      ? "0 0 0 1px rgba(54, 185, 255, 0.72), 0 0 13px rgba(54, 185, 255, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.1)"
+      : "none",
+    transition: "background 120ms ease, border-color 120ms ease, box-shadow 120ms ease",
+  };
+}
+
+function getAchievementHeadingStyle(isFocused: boolean): CSSProperties {
+  return {
+    ...getRowStyle(),
+    margin: "-3px",
+    padding: 3,
+    borderRadius: 9,
+    border: isFocused ? "1px solid rgba(54, 185, 255, 0.2)" : "1px solid transparent",
+    boxShadow: isFocused ? "inset 0 0 0 1px rgba(54, 185, 255, 0.07)" : "none",
+    transition: "border-color 120ms ease, box-shadow 120ms ease",
   };
 }
 
@@ -263,16 +282,24 @@ function GameContextRow({
   readonly onBack: () => void;
   readonly onOpen: () => void;
 }): JSX.Element {
+  const [isFocused, setIsFocused] = useState(false);
+
   return (
     <div style={getSectionStyle()}>
       <div style={getSectionLabelStyle()}>Game</div>
       <Focusable
         aria-label={`Open ${model.game.title} compact game overview`}
-        className="achievement-companion-focus-nav-row"
         noFocusRing onActivate={onOpen} onCancel={onBack} onClick={onOpen}
-        onFocus={(event) => scrollDeckyFocusTargetIntoView(event.currentTarget)}
-        onGamepadFocus={((event) => scrollDeckyFocusTargetIntoView(event.currentTarget)) satisfies DeckyGamepadFocusHandler}
-        role="button" style={getGameRowStyle()}
+        onFocus={(event) => {
+          setIsFocused(true);
+          scrollDeckyFocusTargetIntoView(event.currentTarget);
+        }}
+        onGamepadFocus={((event) => {
+          setIsFocused(true);
+          scrollDeckyFocusTargetIntoView(event.currentTarget);
+        }) satisfies DeckyGamepadFocusHandler}
+        onBlur={() => setIsFocused(false)}
+        role="button" style={getGameRowStyle(isFocused)}
       >
         {model.game.artworkUrl !== undefined ? (
           <DeckyGameArtwork compact src={model.game.artworkUrl} size={36} title={model.game.title} />
@@ -291,6 +318,8 @@ function AchievementDetailCard({
   model, onBack, onOpenCompactGame, onOpenFullScreenGame,
 }: DeckyAchievementDetailViewProps): JSX.Element {
   const rootRef = useRef<HTMLDivElement>(null);
+  const headingFocusGeneration = useRef(0);
+  const [achievementHeadingFocused, setAchievementHeadingFocused] = useState(false);
   const compactAchievementBackButtonRef = useCallback((node: HTMLDivElement | null) => {
     ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement(node);
   }, []);
@@ -304,7 +333,27 @@ function AchievementDetailCard({
   return (
     <div ref={rootRef} style={getCardStyle()}>
       {model.gamePlacement === "before-achievement" ? gameRow : null}
-      <div style={getRowStyle()}>
+      <Focusable
+        aria-label={`Achievement ${model.title}`}
+        noFocusRing
+        onActivate={() => {}}
+        onFocus={(event) => {
+          const generation = ++headingFocusGeneration.current;
+          setAchievementHeadingFocused(true);
+          scrollDeckyFocusTargetToTop(event.currentTarget, () => headingFocusGeneration.current === generation);
+        }}
+        onGamepadFocus={((event) => {
+          const generation = ++headingFocusGeneration.current;
+          setAchievementHeadingFocused(true);
+          scrollDeckyFocusTargetToTop(event.currentTarget, () => headingFocusGeneration.current === generation);
+        }) satisfies DeckyGamepadFocusHandler}
+        onBlur={() => {
+          headingFocusGeneration.current += 1;
+          setAchievementHeadingFocused(false);
+        }}
+        role="group"
+        style={getAchievementHeadingStyle(achievementHeadingFocused)}
+      >
         {model.iconUrl !== undefined ? (
           <DeckyGameArtwork compact src={model.iconUrl} size={model.gamePlacement === "after-details" ? 54 : 40} title={model.title} />
         ) : null}
@@ -314,7 +363,7 @@ function AchievementDetailCard({
             <DeckyAchievementTypeBadge classification={model.classification} />
           </div>
         </div>
-      </div>
+      </Focusable>
       {model.description.length > 0 ? <p style={getDescriptionStyle()}>{model.description}</p> : null}
       {model.badges.length > 0 ? (
         <div style={getBadgeRowStyle()}>

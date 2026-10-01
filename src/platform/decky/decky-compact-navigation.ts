@@ -19,12 +19,21 @@ export interface DeckyCompactProviderDashboardDestination {
   readonly providerId: ProviderId;
 }
 
+export type DeckyCompactAchievementParent = "provider-dashboard" | "game" | "achievement-list";
+
+export interface DeckyCompactAchievementReturnDestination {
+  readonly achievementId: string;
+  readonly parent: DeckyCompactAchievementParent;
+}
+
 export interface DeckyCompactGameDestination {
   readonly kind: "game";
   readonly providerId: ProviderId;
   readonly gameId: string;
   /** Presentation metadata from the selected row; it is not a second state owner. */
   readonly gameTitle: string;
+  /** Preserve the originating achievement detail when its game context is opened. */
+  readonly returnToAchievement?: DeckyCompactAchievementReturnDestination;
 }
 
 export interface DeckyCompactAchievementListDestination {
@@ -42,7 +51,7 @@ export interface DeckyCompactAchievementDestination {
   readonly gameId: string;
   readonly achievementId: string;
   readonly gameTitle: string;
-  readonly parent: "provider-dashboard" | "game" | "achievement-list";
+  readonly parent: DeckyCompactAchievementParent;
 }
 
 export interface DeckyCompactSettingsDestination {
@@ -95,7 +104,18 @@ export function getDeckyCompactParentDestination(
     case "provider-dashboard":
       return providerChooser;
     case "settings":
+      return { kind: "provider-dashboard", providerId: destination.providerId };
     case "game":
+      if (destination.returnToAchievement !== undefined) {
+        return {
+          kind: "achievement",
+          providerId: destination.providerId,
+          gameId: destination.gameId,
+          gameTitle: destination.gameTitle,
+          achievementId: destination.returnToAchievement.achievementId,
+          parent: destination.returnToAchievement.parent,
+        };
+      }
       return { kind: "provider-dashboard", providerId: destination.providerId };
     case "achievement-list":
       return {

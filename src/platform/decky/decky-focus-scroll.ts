@@ -78,3 +78,31 @@ export function scrollDeckyFocusTargetIntoView(target: EventTarget | null): void
     });
   });
 }
+
+/** Reset the owning compact scroll viewport when its first content target receives focus. */
+export function scrollDeckyFocusTargetToTop(
+  target: EventTarget | null,
+  isStillFocused: () => boolean = () => true,
+): void {
+  if (!(target instanceof HTMLElement)) {
+    return;
+  }
+
+  const scrollable = findScrollableAncestor(target);
+  if (scrollable === null) {
+    return;
+  }
+
+  const resetScroll = (): void => {
+    if (target.isConnected && isStillFocused()) {
+      scrollable.scrollTop = 0;
+    }
+  };
+
+  resetScroll();
+  // Decky may apply its own focus scroll after the focus callback.
+  const ownerWindow = target.ownerDocument.defaultView;
+  ownerWindow?.requestAnimationFrame(() => {
+    ownerWindow.requestAnimationFrame(resetScroll);
+  });
+}

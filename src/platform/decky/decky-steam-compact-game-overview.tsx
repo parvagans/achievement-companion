@@ -119,7 +119,7 @@ function getPrimaryActionLabelStyle(): CSSProperties {
   };
 }
 
-function getSectionCardStyle(): CSSProperties {
+function getSectionCardStyle(isFocused: boolean): CSSProperties {
   return {
     display: "flex",
     flexDirection: "column",
@@ -128,13 +128,14 @@ function getSectionCardStyle(): CSSProperties {
     minWidth: 0,
     padding: "9px 10px",
     borderRadius: 9,
-    border: "1px solid rgba(54, 142, 191, 0.18)",
+    border: isFocused ? "1px solid rgba(54, 185, 255, 0.24)" : "1px solid rgba(54, 142, 191, 0.18)",
     background: "linear-gradient(145deg, rgba(10, 43, 64, 0.88), rgba(7, 27, 42, 0.9))",
+    boxShadow: isFocused ? "inset 0 0 0 1px rgba(54, 185, 255, 0.09)" : "none",
     boxSizing: "border-box",
   };
 }
 
-/** An intentionally no-ring navigation anchor lets controller focus scroll through this passive information page. */
+/** A low-emphasis focus target lets controller focus scroll through passive game information. */
 function CompactGameSectionFocusTarget({
   label,
   children,
@@ -142,10 +143,13 @@ function CompactGameSectionFocusTarget({
   readonly label: string;
   readonly children: ReactNode;
 }): JSX.Element {
+  const [isFocused, setIsFocused] = useState(false);
   const onFocus: FocusEventHandler<HTMLElement> = (event) => {
+    setIsFocused(true);
     scrollDeckyFocusTargetIntoView(event.currentTarget);
   };
   const onGamepadFocus: NonNullable<FocusableProps["onGamepadFocus"]> = (event) => {
+    setIsFocused(true);
     scrollDeckyFocusTargetIntoView(event.currentTarget);
   };
 
@@ -156,8 +160,9 @@ function CompactGameSectionFocusTarget({
       onActivate={() => {}}
       onFocus={onFocus}
       onGamepadFocus={onGamepadFocus}
+      onBlur={() => setIsFocused(false)}
       role="group"
-      style={getSectionCardStyle()}
+      style={getSectionCardStyle(isFocused)}
     >
       {children}
     </Focusable>

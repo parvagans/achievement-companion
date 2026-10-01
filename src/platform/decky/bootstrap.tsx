@@ -1117,6 +1117,10 @@ function DeckyBootstrapStateBridge(): JSX.Element {
               providerId: selectedAchievement.providerId,
               gameId: selectedAchievement.gameId,
               gameTitle: selectedAchievement.gameTitle,
+              returnToAchievement: {
+                achievementId: selectedAchievement.achievementId,
+                parent: selectedAchievement.parent,
+              },
             });
           }}
           onOpenFullScreenGame={() => {
