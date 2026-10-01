@@ -96,8 +96,9 @@ test("provider and Steam use explicit native entry scopes without changing Retro
   assert.match(compactProfileSource, /NavEntryPositionPreferences/u);
   assert.match(
     bootstrapSource,
-    /navEntryPreferPosition=\{NavEntryPositionPreferences\.PREFERRED_CHILD\}[\s\S]*preferredFocus/u,
+    /providerListHasReceivedFocus[\s\S]*navEntryPreferPosition: NavEntryPositionPreferences\.PREFERRED_CHILD[\s\S]*preferredFocus/u,
   );
+  assert.match(bootstrapSource, /onFocused=\{\(\) => setProviderListHasReceivedFocus\(true\)\}/u);
   assert.match(
     providerLauncherSource,
     /preferredFocus=\{preferredFocus\}/u,

@@ -373,6 +373,7 @@ function ProviderLauncherCard({
   connected,
   ariaLabel,
   onClick,
+  onFocused,
   preferredFocus = false,
   elementRef,
 }: {
@@ -383,6 +384,7 @@ function ProviderLauncherCard({
   readonly statusLabel?: string;
   readonly ariaLabel: string;
   readonly onClick: () => void;
+  readonly onFocused?: () => void;
   readonly preferredFocus?: boolean;
   readonly elementRef?: RefCallback<HTMLDivElement>;
 }): JSX.Element {
@@ -401,10 +403,12 @@ function ProviderLauncherCard({
       onClick={onClick}
       onFocus={(event) => {
         setIsFocused(true);
+        onFocused?.();
         scrollFocusedLauncherElementIntoView(event);
       }}
       onGamepadFocus={(event) => {
         setIsFocused(true);
+        onFocused?.();
         scrollFocusedLauncherGamepadElementIntoView(event);
       }}
       onBlur={() => {
@@ -996,6 +1000,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
     returnFromDeckyCompactDestination(compactNavigation);
   }, [compactNavigation]);
   const [detailScrollResetNonce, setDetailScrollResetNonce] = useState(0);
+  const [providerListHasReceivedFocus, setProviderListHasReceivedFocus] = useState(false);
   const providerInitialFocusTargetRef = useRef<HTMLDivElement | null>(null);
   const initialProviderFocusRequested = useRef(shouldRequestDeckyProviderInitialFocus(compactNavigation));
   const providerConfigsSignature = `${providerConfigs.retroAchievements?.username ?? ""}:${providerConfigs.retroAchievements?.hasApiKey ? 1 : 0}:${providerConfigs.steam?.steamId64 ?? ""}:${providerConfigs.steam?.hasApiKey ? 1 : 0}`;
@@ -1198,7 +1203,10 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                 <PanelSection>
                   <PanelSectionRow>
                     <Focusable
-                      navEntryPreferPosition={NavEntryPositionPreferences.PREFERRED_CHILD}
+                      // Prefer RA only on first entry; afterward native focus should resume the last card.
+                      {...(!providerListHasReceivedFocus
+                        ? { navEntryPreferPosition: NavEntryPositionPreferences.PREFERRED_CHILD }
+                        : {})}
                       preferredFocus
                       style={getChooserProviderListStyle()}
                     >
@@ -1216,6 +1224,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                           }
                           statusLabel={provider.connected ? "Configured" : "Set up"}
                           preferredFocus={index === 0}
+                          onFocused={() => setProviderListHasReceivedFocus(true)}
                           {...(index === 0 ? { elementRef: setProviderInitialFocusTarget } : {})}
                           onClick={() => {
                             if (!provider.enabled) {
@@ -1240,6 +1249,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                         label="Provider Settings"
                         ariaLabel="Open provider settings"
                         preferredFocus={visibleProviders.length === 0}
+                        onFocused={() => setProviderListHasReceivedFocus(true)}
                         {...(visibleProviders.length === 0 ? { elementRef: setProviderInitialFocusTarget } : {})}
                         onClick={() => {
                           void platform.navigation?.go({
