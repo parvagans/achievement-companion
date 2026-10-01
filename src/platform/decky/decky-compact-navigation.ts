@@ -2,10 +2,12 @@ import { useSyncExternalStore } from "react";
 import type { ProviderId } from "@core/domain";
 
 /**
- * Plugin-lifetime navigation for Decky's compact/QAM surface. It deliberately
- * stores destinations only; loading, focus, scroll, and transient UI remain
- * component-local. A recreated compact React tree reads this store rather
- * than falling back to the provider chooser.
+ * Active-plugin-session navigation for Decky's compact/QAM surface. It deliberately
+ * stores destinations only. Loading and transient UI remain component-local;
+ * achievement list focus/scroll checkpoints live in their separate keyed page
+ * state store. A recreated compact React tree reads this destination store
+ * rather than falling back to the provider chooser. Closing the active plugin
+ * (not merely hiding QAM) ends the session and restores the provider chooser.
  */
 export interface DeckyCompactProviderSetupDestination {
   readonly kind: "provider-setup";
@@ -25,13 +27,22 @@ export interface DeckyCompactGameDestination {
   readonly gameTitle: string;
 }
 
+export interface DeckyCompactAchievementListDestination {
+  readonly kind: "achievement-list";
+  readonly providerId: ProviderId;
+  readonly gameId: string;
+  /** Presentation metadata from the selected game; it is not a second data owner. */
+  readonly gameTitle: string;
+  readonly parent: "game";
+}
+
 export interface DeckyCompactAchievementDestination {
   readonly kind: "achievement";
   readonly providerId: ProviderId;
   readonly gameId: string;
   readonly achievementId: string;
   readonly gameTitle: string;
-  readonly parent: "provider-dashboard" | "game";
+  readonly parent: "provider-dashboard" | "game" | "achievement-list";
 }
 
 export interface DeckyCompactSettingsDestination {
@@ -44,6 +55,7 @@ export type DeckyCompactNavigationDestination =
   | DeckyCompactProviderSetupDestination
   | DeckyCompactProviderDashboardDestination
   | DeckyCompactGameDestination
+  | DeckyCompactAchievementListDestination
   | DeckyCompactAchievementDestination
   | DeckyCompactSettingsDestination;
 
@@ -70,6 +82,61 @@ export function setDeckyCompactNavigation(
 
 export function resetDeckyCompactNavigation(): void {
   setDeckyCompactNavigation(providerChooser);
+}
+
+/** The compact store owns one destination, not a second history stack. */
+export function getDeckyCompactParentDestination(
+  destination: DeckyCompactNavigationDestination,
+): DeckyCompactNavigationDestination | undefined {
+  switch (destination.kind) {
+    case "provider-chooser":
+      return undefined;
+    case "provider-setup":
+    case "provider-dashboard":
+      return providerChooser;
+    case "settings":
+    case "game":
+      return { kind: "provider-dashboard", providerId: destination.providerId };
+    case "achievement-list":
+      return {
+        kind: "game",
+        providerId: destination.providerId,
+        gameId: destination.gameId,
+        gameTitle: destination.gameTitle,
+      };
+    case "achievement":
+      if (destination.parent === "provider-dashboard") {
+        return { kind: "provider-dashboard", providerId: destination.providerId };
+      }
+      if (destination.parent === "achievement-list") {
+        return {
+          kind: "achievement-list",
+          providerId: destination.providerId,
+          gameId: destination.gameId,
+          gameTitle: destination.gameTitle,
+          parent: "game",
+        };
+      }
+      return {
+        kind: "game",
+        providerId: destination.providerId,
+        gameId: destination.gameId,
+        gameTitle: destination.gameTitle,
+      };
+  }
+}
+
+/** Ignore callbacks retained by a destination that has already been left. */
+export function returnFromDeckyCompactDestination(
+  destination: DeckyCompactNavigationDestination,
+): void {
+  if (compactNavigation !== destination) {
+    return;
+  }
+  const parent = getDeckyCompactParentDestination(destination);
+  if (parent !== undefined) {
+    setDeckyCompactNavigation(parent);
+  }
 }
 
 export function useDeckyCompactNavigation(): DeckyCompactNavigationDestination {

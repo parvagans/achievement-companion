@@ -1,641 +1,355 @@
-import { useCallback, useMemo, type CSSProperties } from "react";
-import type { ResourceState } from "@core/cache";
-import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
-import { PanelSection, PanelSectionRow } from "@decky/ui";
-import { PlaceholderState } from "@ui/PlaceholderState";
-import { loadDeckyGameDetailState, initialDeckyGameDetailState } from "./decky-app-services";
+import { useCallback, useLayoutEffect, useRef, type CSSProperties } from "react";
+import { Focusable, PanelSection, PanelSectionRow, type FocusableProps } from "@decky/ui";
+import chevronRightIconUrl from "./assets/chevron-right.svg";
 import { DeckyAchievementTypeBadge } from "./decky-achievement-type-badge";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DeckyCompactPillActionGroup, DeckyCompactPillActionItem } from "./decky-compact-pill-action-item";
-import { ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement } from "./decky-full-screen-cancel-bridge";
 import {
-  buildAchievementStatus,
-  formatAchievementDetailUnlockRatePercent,
-  formatCount,
-  formatProviderAchievementStatusText,
-  getAchievementDescriptionText,
-  formatPlatformBadgeLabel,
-  formatTimestamp,
-  formatMetricValue,
-  getAchievementDetailCounts,
-  getMetricValue,
-  shouldHideSteamAchievementDetailStats,
-} from "./decky-achievement-detail-helpers";
-import { useAsyncResourceState } from "./useAsyncResourceState";
+  ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement,
+  registerCompactAchievementCancelCallback,
+} from "./decky-full-screen-cancel-bridge";
+import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
+import type {
+  CompactAchievementDetailBlock,
+  CompactAchievementDetailStat,
+  CompactAchievementDetailViewModel,
+  CompactAchievementTone,
+} from "./decky-compact-achievement-model";
 
-export interface CompactAchievementGameTarget {
-  readonly providerId: string;
-  readonly gameId: string;
-  readonly title: string;
-  readonly platformLabel?: string | undefined;
-  readonly coverImageUrl?: string | undefined;
-  readonly metrics?: readonly import("@core/domain").NormalizedMetric[] | undefined;
-}
-
-export interface CompactAchievementTarget {
-  readonly game: CompactAchievementGameTarget;
-  readonly achievement: Pick<
-    NormalizedAchievement,
-    | "achievementId"
-    | "title"
-    | "classification"
-    | "description"
-    | "badgeImageUrl"
-    | "isUnlocked"
-    | "unlockedAt"
-    | "hardcoreUnlockedAt"
-    | "softcoreUnlockedAt"
-    | "unlockMode"
-    | "points"
-    | "metrics"
-  >;
-}
+type DeckyGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
 
 export interface DeckyAchievementDetailViewProps {
-  readonly target: CompactAchievementTarget;
+  readonly model: CompactAchievementDetailViewModel;
   readonly onBack: () => void;
-  readonly onOpenFullScreenGame: (() => void) | undefined;
+  readonly onOpenCompactGame: () => void;
+  readonly onOpenFullScreenGame?: (() => void) | undefined;
+}
+
+function getStandaloneRootStyle(): CSSProperties {
+  return { width: "100%", minWidth: 0, boxSizing: "border-box", padding: "0 16px 4px" };
+}
+
+function getCardStyle(): CSSProperties {
+  return {
+    display: "flex", flexDirection: "column", gap: 11, width: "100%", minWidth: 0,
+    padding: 12, boxSizing: "border-box", borderRadius: 14,
+    border: "1px solid rgba(48, 152, 215, 0.22)",
+    background: "linear-gradient(180deg, rgba(8, 31, 47, 0.97), rgba(7, 24, 38, 0.97))",
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 2px 10px rgba(0, 0, 0, 0.2)",
+  };
 }
 
 function getRowStyle(): CSSProperties {
-  return {
-    display: "flex",
-    gap: 10,
-    alignItems: "center",
-    minWidth: 0,
-  };
+  return { display: "flex", gap: 9, alignItems: "center", minWidth: 0 };
 }
 
 function getTextBlockStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    minWidth: 0,
-    gap: 1,
-  };
+  return { display: "flex", flexDirection: "column", minWidth: 0, gap: 3 };
 }
 
-function getGameTitleStyle(): CSSProperties {
-  return {
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    color: "rgba(255, 255, 255, 0.9)",
-    fontSize: "0.96em",
-    fontWeight: 700,
-    lineHeight: 1.15,
-  };
+function getTitleLineStyle(): CSSProperties {
+  return { display: "flex", alignItems: "center", flexWrap: "wrap", gap: "4px 6px", minWidth: 0 };
 }
 
-function getAchievementTitleStyle(): CSSProperties {
+function getTitleStyle(): CSSProperties {
   return {
-    minWidth: 0,
-    overflowWrap: "anywhere",
-    whiteSpace: "normal",
-    color: "rgba(255, 255, 255, 0.98)",
-    fontSize: "1.03em",
-    fontWeight: 800,
-    lineHeight: 1.1,
-  };
-}
-
-function getAchievementTitleLineStyle(): CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: "4px 7px",
-    minWidth: 0,
-  };
-}
-
-function getSubtleStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.74)",
-    fontSize: "0.8em",
-    lineHeight: 1.2,
+    color: "rgba(255, 255, 255, 0.99)", fontSize: "0.9em", fontWeight: 850,
+    lineHeight: 1.14, minWidth: 0, overflowWrap: "anywhere",
   };
 }
 
 function getDescriptionStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.82)",
-    fontSize: "0.84em",
-    lineHeight: 1.28,
-    whiteSpace: "pre-wrap",
+    margin: 0, color: "rgba(190, 220, 243, 0.88)", fontSize: "0.76em",
+    lineHeight: 1.32, whiteSpace: "pre-wrap",
   };
 }
 
-type AchievementStatusTone = "softcore" | "hardcore" | "locked" | "default";
-
-function getAchievementStatusTone(achievement: Pick<NormalizedAchievement, "isUnlocked" | "unlockMode">): AchievementStatusTone {
-  if (!achievement.isUnlocked) {
-    return "locked";
-  }
-
-  if (achievement.unlockMode === "hardcore") {
-    return "hardcore";
-  }
-
-  if (achievement.unlockMode === "softcore") {
-    return "softcore";
-  }
-
-  return "default";
+function getBadgeRowStyle(): CSSProperties {
+  return { display: "flex", flexWrap: "wrap", gap: 6, minWidth: 0 };
 }
 
-function getAchievementStatusCardStyle(tone: AchievementStatusTone): CSSProperties {
-  const isHardcore = tone === "hardcore";
-  const isSoftcore = tone === "softcore";
-  const isLocked = tone === "locked";
-
+function getBadgeStyle(tone: "default" | "success" | "points"): CSSProperties {
   return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 4,
-    padding: "10px 12px",
-    borderRadius: 14,
-    border: `1px solid ${
-      isHardcore
-        ? "rgba(251, 191, 36, 0.24)"
-        : isSoftcore
-          ? "rgba(148, 163, 184, 0.22)"
-          : isLocked
-            ? "rgba(148, 163, 184, 0.14)"
-            : "rgba(255, 255, 255, 0.12)"
-    }`,
-    backgroundColor: isHardcore
-      ? "rgba(251, 191, 36, 0.09)"
-      : isSoftcore
-        ? "rgba(148, 163, 184, 0.08)"
-        : isLocked
-          ? "rgba(255, 255, 255, 0.025)"
-          : "rgba(255, 255, 255, 0.04)",
+    display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 27,
+    padding: "4px 9px", boxSizing: "border-box", borderRadius: 8,
+    border: `1px solid ${tone === "success"
+      ? "rgba(48, 224, 145, 0.34)"
+      : tone === "points" ? "rgba(245, 190, 54, 0.32)" : "rgba(86, 163, 218, 0.28)"}`,
+    background: tone === "success"
+      ? "rgba(20, 117, 77, 0.16)"
+      : tone === "points" ? "rgba(124, 89, 17, 0.15)" : "rgba(30, 79, 116, 0.18)",
+    color: tone === "success"
+      ? "rgba(69, 239, 154, 0.98)"
+      : tone === "points" ? "rgba(255, 211, 88, 0.98)" : "rgba(223, 239, 251, 0.94)",
+    fontSize: "0.69em", fontWeight: 750, lineHeight: 1,
   };
 }
 
-function getAchievementStatusValueStyle(tone: AchievementStatusTone): CSSProperties {
-  const isHardcore = tone === "hardcore";
-  const isSoftcore = tone === "softcore";
-  const isLocked = tone === "locked";
-
-  return {
-    color: isHardcore
-      ? "rgba(252, 211, 77, 0.98)"
-      : isSoftcore
-        ? "rgba(203, 213, 225, 0.96)"
-        : isLocked
-          ? "rgba(255, 255, 255, 0.68)"
-          : "rgba(255, 255, 255, 0.95)",
-    fontSize: "0.92em",
-    fontWeight: 800,
-    lineHeight: 1.2,
-  };
-}
-
-function getAchievementStatusSecondaryStyle(tone: AchievementStatusTone): CSSProperties {
-  const isHardcore = tone === "hardcore";
-  const isSoftcore = tone === "softcore";
-  const isLocked = tone === "locked";
-
-  return {
-    color: isHardcore
-      ? "rgba(252, 211, 77, 0.82)"
-      : isSoftcore
-        ? "rgba(203, 213, 225, 0.8)"
-        : isLocked
-          ? "rgba(255, 255, 255, 0.54)"
-          : "rgba(255, 255, 255, 0.72)",
-    fontSize: "0.76em",
-    lineHeight: 1.2,
-  };
-}
-
-function getAchievementCardActionRowStyle(): CSSProperties {
-  return {
-    justifyContent: "center",
-  };
-}
-
-function getPlatformBadgeStyle(): CSSProperties {
-  return {
-    minWidth: 32,
-    height: 32,
-    padding: "0 7px",
-    boxSizing: "border-box",
-    borderRadius: 10,
-    border: "1px solid rgba(255, 255, 255, 0.12)",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "rgba(255, 255, 255, 0.9)",
-    fontSize: "0.76em",
-    fontWeight: 700,
-    letterSpacing: "0.06em",
-  };
-}
-
-function getStatsGridStyle(): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: 7,
-  };
-}
-
-function getSectionBlockStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-  };
+function getSectionStyle(): CSSProperties {
+  return { display: "flex", flexDirection: "column", gap: 6, minWidth: 0 };
 }
 
 function getSectionLabelStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.58)",
-    fontSize: "0.68em",
-    fontWeight: 800,
-    letterSpacing: "0.1em",
-    textTransform: "uppercase",
-    lineHeight: 1.2,
+    color: "#66d6ff", fontSize: "0.68em", fontWeight: 850, letterSpacing: "0.07em",
+    lineHeight: 1.2, textTransform: "uppercase",
+  };
+}
+
+function getStatusStyle(tone: CompactAchievementTone): CSSProperties {
+  const color = tone === "hardcore"
+    ? "rgba(252, 211, 77, 0.98)"
+    : tone === "softcore"
+      ? "rgba(220, 225, 233, 0.96)"
+      : tone === "locked" ? "rgba(255, 255, 255, 0.68)" : "rgba(82, 242, 156, 0.98)";
+  return {
+    display: "flex", flexDirection: "column", gap: 3, padding: "9px 10px", borderRadius: 11,
+    border: "1px solid rgba(255, 255, 255, 0.09)", background: "rgba(255, 255, 255, 0.035)",
+    color, fontSize: "0.8em", fontWeight: 800, lineHeight: 1.2,
+  };
+}
+
+function getStatusSecondaryStyle(): CSSProperties {
+  return { color: "rgba(255, 255, 255, 0.68)", fontSize: "0.86em", fontWeight: 600 };
+}
+
+function getStatsGridStyle(columns: 2 | 3): CSSProperties {
+  return {
+    display: "grid", gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: 6, minWidth: 0,
   };
 }
 
 function getStatStyle(): CSSProperties {
   return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 1,
-    padding: "10px 10px",
-    borderRadius: 12,
-    border: "1px solid rgba(255, 255, 255, 0.06)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    minWidth: 0,
-    alignItems: "center",
-    textAlign: "center",
+    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2,
+    minWidth: 0, minHeight: 48, padding: "7px 5px", boxSizing: "border-box", borderRadius: 10,
+    border: "1px solid rgba(63, 142, 196, 0.17)", background: "rgba(10, 39, 58, 0.72)", textAlign: "center",
   };
 }
 
 function getStatLabelStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.62)",
-    fontSize: "0.72em",
-    fontWeight: 700,
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
-    lineHeight: 1.2,
+    color: "rgba(164, 201, 229, 0.8)", fontSize: "0.57em", fontWeight: 750,
+    letterSpacing: "0.04em", lineHeight: 1.15, textTransform: "uppercase",
   };
 }
 
 function getStatValueStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.96)",
-    fontSize: "0.94em",
-    fontWeight: 700,
-    lineHeight: 1.2,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+    color: "rgba(255, 255, 255, 0.98)", fontSize: "0.75em", fontWeight: 800,
+    lineHeight: 1.15, minWidth: 0, overflowWrap: "anywhere",
   };
 }
 
 function getStatSecondaryStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.7)",
-    fontSize: "0.74em",
-    lineHeight: 1.15,
-    minWidth: 0,
-    overflow: "visible",
-    textOverflow: "clip",
-    whiteSpace: "normal",
-    textAlign: "center",
-  };
+  return { color: "rgba(255, 255, 255, 0.66)", fontSize: "0.62em", lineHeight: 1.15 };
 }
 
-function getRarityBarFrameStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    width: "100%",
-  };
+function getTimestampStyle(): CSSProperties {
+  return { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6 };
 }
 
-function getRarityBarTrackStyle(): CSSProperties {
-  return {
-    height: 6,
-    borderRadius: 999,
-    overflow: "hidden",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
-    boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.06)",
-  };
+function getRarityTrackStyle(): CSSProperties {
+  return { height: 6, borderRadius: 999, overflow: "hidden", background: "rgba(255, 255, 255, 0.08)" };
 }
 
-function getRarityBarFillStyle(percent: number): CSSProperties {
+function getRarityFillStyle(percent: number): CSSProperties {
   return {
-    width: `${Math.max(0, Math.min(100, percent))}%`,
-    height: "100%",
-    borderRadius: 999,
+    width: `${Math.max(0, Math.min(100, percent))}%`, height: "100%", borderRadius: 999,
     background: "linear-gradient(90deg, rgba(147, 197, 253, 0.92), rgba(96, 165, 250, 0.98))",
-    transition: "width 120ms ease",
   };
 }
 
-function getRarityBarCaptionStyle(): CSSProperties {
+function getRarityCaptionStyle(): CSSProperties {
+  return { color: "rgba(255, 255, 255, 0.76)", fontSize: "0.72em", fontWeight: 700 };
+}
+
+function getGameRowStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.76)",
-    fontSize: "0.84em",
-    fontWeight: 700,
-    lineHeight: 1.2,
+    display: "grid", gridTemplateColumns: "38px minmax(0, 1fr) 18px", alignItems: "center", gap: 8,
+    width: "100%", minWidth: 0, padding: "8px 9px", boxSizing: "border-box", borderRadius: 11,
+    border: "1px solid rgba(63, 142, 196, 0.2)", background: "rgba(10, 39, 58, 0.78)",
   };
 }
 
-function getCountsGridStyle(): CSSProperties {
+function getGameTitleStyle(): CSSProperties {
   return {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: 7,
+    color: "rgba(246, 251, 255, 0.96)", fontSize: "0.72em", fontWeight: 750,
+    lineHeight: 1.18, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
   };
 }
 
-function AchievementStat({
-  label,
-  value,
-  secondary,
-  style,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly secondary?: string;
-  readonly style?: CSSProperties;
-}): JSX.Element {
+function getGamePlatformStyle(): CSSProperties {
+  return { color: "rgba(166, 201, 228, 0.76)", fontSize: "0.62em", lineHeight: 1.15 };
+}
+
+function getChevronStyle(): CSSProperties {
+  return {
+    width: 18, height: 18,
+    filter: "brightness(0) saturate(100%) invert(65%) sepia(90%) saturate(1150%) hue-rotate(161deg) brightness(101%) contrast(101%)",
+  };
+}
+
+function DetailStat({ stat, fullWidth }: { readonly stat: CompactAchievementDetailStat; readonly fullWidth: boolean }): JSX.Element {
   return (
-    <div style={{ ...getStatStyle(), ...style }}>
-      <div style={getStatLabelStyle()}>{label}</div>
-      <div style={getStatValueStyle()}>{value}</div>
-      {secondary !== undefined ? <div style={getStatSecondaryStyle()}>{secondary}</div> : null}
+    <div style={{ ...getStatStyle(), ...(fullWidth ? { gridColumn: "1 / -1" } : {}) }}>
+      <div style={getStatLabelStyle()}>{stat.label}</div>
+      <div style={getStatValueStyle()}>{stat.value}</div>
+      {stat.secondary !== undefined ? <div style={getStatSecondaryStyle()}>{stat.secondary}</div> : null}
     </div>
   );
 }
 
-function RarityBar({
-  percent,
-  caption,
-}: {
-  readonly percent: number | undefined;
-  readonly caption?: string;
-}): JSX.Element {
-  const resolvedPercent = percent ?? 0;
-  const resolvedCaption = caption ?? (percent !== undefined ? `${resolvedPercent}% unlock rate` : "Unlock rate unavailable");
-
-  return (
-    <div style={getRarityBarFrameStyle()}>
-      <div style={getRarityBarCaptionStyle()}>{resolvedCaption}</div>
-      <div
-        aria-label="Achievement unlock rate"
-        aria-valuemax={100}
-        aria-valuemin={0}
-        aria-valuenow={resolvedPercent}
-        aria-valuetext={resolvedCaption}
-        role="progressbar"
-        style={getRarityBarTrackStyle()}
-      >
-        <div style={getRarityBarFillStyle(resolvedPercent)} />
+function DetailBlock({ block }: { readonly block: CompactAchievementDetailBlock }): JSX.Element {
+  if (block.kind === "status") {
+    return (
+      <div style={getSectionStyle()}>
+        <div style={getSectionLabelStyle()}>{block.title}</div>
+        <div style={getStatusStyle(block.tone)}>
+          <span>{block.value}</span>
+          {block.secondary !== undefined ? <span style={getStatusSecondaryStyle()}>{block.secondary}</span> : null}
+        </div>
       </div>
+    );
+  }
+  if (block.kind === "timestamp") {
+    return (
+      <div style={getSectionStyle()}>
+        <div style={getSectionLabelStyle()}>{block.title}</div>
+        <div style={getTimestampStyle()}>
+          <DetailStat stat={{ key: "date", label: "Date", value: block.value }} fullWidth={false} />
+          <DetailStat stat={{ key: "time", label: "Time", value: block.secondary }} fullWidth={false} />
+        </div>
+      </div>
+    );
+  }
+  if (block.kind === "stats") {
+    return (
+      <div style={getSectionStyle()}>
+        <div style={getSectionLabelStyle()}>{block.title}</div>
+        <div style={getStatsGridStyle(block.columns)}>
+          {block.stats.map((stat) => <DetailStat key={stat.key} stat={stat} fullWidth={false} />)}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div style={getSectionStyle()}>
+      <div style={getSectionLabelStyle()}>{block.title}</div>
+      <div style={getRarityCaptionStyle()}>{block.caption}</div>
+      <div
+        aria-label="Achievement unlock rate" aria-valuemax={100} aria-valuemin={0}
+        aria-valuenow={block.percent ?? 0} aria-valuetext={block.caption} role="progressbar"
+        style={getRarityTrackStyle()}
+      >
+        <div style={getRarityFillStyle(block.percent ?? 0)} />
+      </div>
+      {block.stats.length > 0 ? (
+        <div style={getStatsGridStyle(2)}>
+          {block.stats.map((stat) => (
+            <DetailStat key={stat.key} stat={stat} fullWidth={stat.key === "players"} />
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
 
-function getAchievementCardStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 11,
-    padding: 13,
-    borderRadius: 16,
-    border: "1px solid rgba(255, 255, 255, 0.06)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-  };
-}
-
-function getAchievementBadgeStyle(isUnlocked: boolean): CSSProperties {
-  return {
-    display: "inline-flex",
-    flexShrink: 0,
-    lineHeight: 0,
-    opacity: isUnlocked ? 1 : 0.9,
-    filter: isUnlocked ? "none" : "grayscale(1) contrast(1.08) brightness(0.92)",
-  };
-}
-
-function AchievementCard({
-  achievement,
-  game,
-  onBack,
-  onOpenFullScreenGame,
+function GameContextRow({
+  model, onBack, onOpen,
 }: {
-  readonly achievement: Pick<
-    NormalizedAchievement,
-    "achievementId" | "title" | "classification" | "description" | "badgeImageUrl" | "isUnlocked" | "unlockedAt" | "unlockMode" | "points" | "metrics"
-  >;
-  readonly game: CompactAchievementGameTarget;
+  readonly model: CompactAchievementDetailViewModel;
   readonly onBack: () => void;
-  readonly onOpenFullScreenGame: (() => void) | undefined;
+  readonly onOpen: () => void;
 }): JSX.Element {
+  return (
+    <div style={getSectionStyle()}>
+      <div style={getSectionLabelStyle()}>Game</div>
+      <Focusable
+        aria-label={`Open ${model.game.title} compact game overview`}
+        className="achievement-companion-focus-nav-row"
+        noFocusRing onActivate={onOpen} onCancel={onBack} onClick={onOpen}
+        onFocus={(event) => scrollDeckyFocusTargetIntoView(event.currentTarget)}
+        onGamepadFocus={((event) => scrollDeckyFocusTargetIntoView(event.currentTarget)) satisfies DeckyGamepadFocusHandler}
+        role="button" style={getGameRowStyle()}
+      >
+        {model.game.artworkUrl !== undefined ? (
+          <DeckyGameArtwork compact src={model.game.artworkUrl} size={36} title={model.game.title} />
+        ) : <span />}
+        <div style={getTextBlockStyle()}>
+          <div style={getGameTitleStyle()}>{model.game.title}</div>
+          <div style={getGamePlatformStyle()}>{model.game.platformLabel}</div>
+        </div>
+        <img alt="" aria-hidden="true" src={chevronRightIconUrl} style={getChevronStyle()} />
+      </Focusable>
+    </div>
+  );
+}
+
+function AchievementDetailCard({
+  model, onBack, onOpenCompactGame, onOpenFullScreenGame,
+}: DeckyAchievementDetailViewProps): JSX.Element {
+  const rootRef = useRef<HTMLDivElement>(null);
   const compactAchievementBackButtonRef = useCallback((node: HTMLDivElement | null) => {
     ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement(node);
   }, []);
-  const isSteamProvider = shouldHideSteamAchievementDetailStats(game.providerId);
-  const counts = getAchievementDetailCounts(achievement.metrics, game.metrics ?? []);
-  const showCounts =
-    counts.softcoreUnlockCount !== undefined ||
-    counts.hardcoreUnlockCount !== undefined ||
-    counts.totalPlayers !== undefined;
-  const retroPoints = formatMetricValue(getMetricValue(achievement.metrics, "true-ratio", "True Ratio"));
-  const achievementStatus = buildAchievementStatus(achievement);
-  const achievementStatusTone = getAchievementStatusTone(achievement);
-  const achievementStatusSecondary =
-    achievement.isUnlocked && achievement.unlockedAt !== undefined
-      ? `Unlocked ${formatTimestamp(achievement.unlockedAt)}`
-      : undefined;
 
+  useLayoutEffect(
+    () => model.showLegacyActions ? undefined : registerCompactAchievementCancelCallback(rootRef.current, onBack),
+    [model.showLegacyActions, onBack],
+  );
+
+  const gameRow = <GameContextRow model={model} onBack={onBack} onOpen={onOpenCompactGame} />;
   return (
-    <div style={getAchievementCardStyle()}>
+    <div ref={rootRef} style={getCardStyle()}>
+      {model.gamePlacement === "before-achievement" ? gameRow : null}
       <div style={getRowStyle()}>
-        {game.coverImageUrl !== undefined ? (
-          <DeckyGameArtwork compact src={game.coverImageUrl} size={40} title={game.title} />
-        ) : (
-          <span style={getPlatformBadgeStyle()}>{formatPlatformBadgeLabel(game.platformLabel)}</span>
-        )}
-
-        <div style={getTextBlockStyle()}>
-          <div style={getGameTitleStyle()}>{game.title}</div>
-          <div style={getSubtleStyle()}>{game.platformLabel ?? "Unknown platform"}</div>
-        </div>
-      </div>
-
-      <div style={getRowStyle()}>
-        {achievement.badgeImageUrl !== undefined ? (
-          <span style={getAchievementBadgeStyle(achievement.isUnlocked)}>
-            <DeckyGameArtwork compact src={achievement.badgeImageUrl} size={40} title={achievement.title} />
-          </span>
+        {model.iconUrl !== undefined ? (
+          <DeckyGameArtwork compact src={model.iconUrl} size={model.gamePlacement === "after-details" ? 54 : 40} title={model.title} />
         ) : null}
-
         <div style={getTextBlockStyle()}>
-          <div style={getAchievementTitleLineStyle()}>
-            <span style={getAchievementTitleStyle()}>{achievement.title}</span>
-            <DeckyAchievementTypeBadge classification={achievement.classification} />
+          <div style={getTitleLineStyle()}>
+            <span style={getTitleStyle()}>{model.title}</span>
+            <DeckyAchievementTypeBadge classification={model.classification} />
           </div>
-          {isSteamProvider ? (
-            <div style={getDescriptionStyle()}>{getAchievementDescriptionText(achievement.description)}</div>
-          ) : achievement.description !== undefined ? (
-            <div style={getDescriptionStyle()}>{achievement.description}</div>
-          ) : null}
         </div>
       </div>
-
-      {!isSteamProvider ? (
-        <>
-          <div style={getSectionBlockStyle()}>
-            <div style={getSectionLabelStyle()}>Status</div>
-            <div style={getAchievementStatusCardStyle(achievementStatusTone)}>
-              <div style={getAchievementStatusValueStyle(achievementStatusTone)}>{achievementStatus.value}</div>
-              {achievementStatusSecondary !== undefined ? (
-                <div style={getAchievementStatusSecondaryStyle(achievementStatusTone)}>{achievementStatusSecondary}</div>
-              ) : null}
-            </div>
-          </div>
-
-          <div style={getSectionBlockStyle()}>
-            <div style={getSectionLabelStyle()}>Unlock details</div>
-            <div style={getStatsGridStyle()}>
-              <AchievementStat
-                label="Points"
-                value={achievement.points !== undefined ? formatCount(achievement.points) : "-"}
-              />
-              <AchievementStat label="RetroPoints" value={retroPoints ?? "-"} />
-            </div>
-          </div>
-
-          <div style={getSectionBlockStyle()}>
-            <div style={getSectionLabelStyle()}>Rarity</div>
-            <RarityBar
-              caption={formatAchievementDetailUnlockRatePercent(counts.unlockRatePercent)}
-              percent={counts.unlockRatePercent}
-            />
-
-            {showCounts ? (
-              <div style={getCountsGridStyle()}>
-                <AchievementStat
-                  label="Softcore unlocks"
-                  value={counts.softcoreUnlockCount !== undefined ? formatCount(counts.softcoreUnlockCount) : "-"}
-                />
-                <AchievementStat
-                  label="Hardcore unlocks"
-                  value={counts.hardcoreUnlockCount !== undefined ? formatCount(counts.hardcoreUnlockCount) : "-"}
-                />
-                <AchievementStat
-                  label="Total players"
-                  value={counts.totalPlayers !== undefined ? formatCount(counts.totalPlayers) : "-"}
-                  style={{ gridColumn: "1 / -1" }}
-                />
-              </div>
-            ) : null}
-          </div>
-        </>
-      ) : (
-        <div style={getSectionBlockStyle()}>
-          <div style={getSectionLabelStyle()}>Unlock status</div>
-          <div style={getAchievementStatusCardStyle(achievementStatusTone)}>
-            <div style={getAchievementStatusValueStyle(achievementStatusTone)}>
-              {formatProviderAchievementStatusText(game.providerId, achievement)}
-            </div>
-            {achievementStatusSecondary !== undefined ? (
-              <div style={getAchievementStatusSecondaryStyle(achievementStatusTone)}>{achievementStatusSecondary}</div>
-            ) : null}
-          </div>
+      {model.description.length > 0 ? <p style={getDescriptionStyle()}>{model.description}</p> : null}
+      {model.badges.length > 0 ? (
+        <div style={getBadgeRowStyle()}>
+          {model.badges.map((badge) => <span key={badge.key} style={getBadgeStyle(badge.tone)}>{badge.label}</span>)}
         </div>
-      )}
-
-      <DeckyCompactPillActionGroup style={getAchievementCardActionRowStyle()}>
-        <DeckyCompactPillActionItem
-          label="Back"
-          onClick={onBack}
-          onCancelButton={onBack}
-          elementRef={compactAchievementBackButtonRef}
-          dataAttributes={{
-            "data-achievement-companion-compact-achievement-back": "true",
-          }}
-        />
-
-        {onOpenFullScreenGame !== undefined ? (
+      ) : null}
+      {model.blocks.map((block, index) => <DetailBlock key={`${block.kind}:${index}`} block={block} />)}
+      {model.gamePlacement === "after-details" ? gameRow : null}
+      {model.showLegacyActions ? (
+        <DeckyCompactPillActionGroup style={{ justifyContent: "center" }}>
           <DeckyCompactPillActionItem
-            label={isSteamProvider ? "Open Full-Screen" : "Open Game"}
-            onClick={onOpenFullScreenGame}
-            onCancelButton={onBack}
+            dataAttributes={{ "data-achievement-companion-compact-achievement-back": "true" }}
+            elementRef={compactAchievementBackButtonRef}
+            label="Back" onCancelButton={onBack} onClick={onBack}
           />
-        ) : null}
-      </DeckyCompactPillActionGroup>
+          {onOpenFullScreenGame !== undefined ? (
+            <DeckyCompactPillActionItem label="Open Game" onCancelButton={onBack} onClick={onOpenFullScreenGame} />
+          ) : null}
+        </DeckyCompactPillActionGroup>
+      ) : null}
     </div>
   );
 }
 
-function isRenderableGameDetailState(
-  state: ResourceState<GameDetailSnapshot>,
-): state is ResourceState<GameDetailSnapshot> & { readonly data: GameDetailSnapshot } {
-  return (state.status === "success" || state.status === "stale") && state.data !== undefined;
-}
-
-export function DeckyAchievementDetailView({
-  target,
-  onBack,
-  onOpenFullScreenGame,
-}: DeckyAchievementDetailViewProps): JSX.Element {
-  const loadSelectedGameDetail = useMemo(
-    () => () => loadDeckyGameDetailState(target.game.providerId, target.game.gameId),
-    [target.game.gameId, target.game.providerId],
-  );
-  const loader = useAsyncResourceState(loadSelectedGameDetail, initialDeckyGameDetailState);
-
-  if (!isRenderableGameDetailState(loader)) {
+export function DeckyAchievementDetailView(props: DeckyAchievementDetailViewProps): JSX.Element {
+  if (props.model.panelTitle !== undefined) {
     return (
-      <PlaceholderState
-        title={target.achievement.title}
-        description="Loading achievement details from the selected provider."
-        state={loader}
-        footer={<span>Use Back to return to the previous compact view.</span>}
-      />
+      <PanelSection title={props.model.panelTitle}>
+        <PanelSectionRow><AchievementDetailCard {...props} /></PanelSectionRow>
+      </PanelSection>
     );
   }
-
-  const achievement =
-    loader.data.achievements.find((entry) => entry.achievementId === target.achievement.achievementId) ??
-    target.achievement;
-  const game = {
-    providerId: loader.data.game.providerId,
-    gameId: loader.data.game.gameId,
-    title: loader.data.game.title,
-    ...(loader.data.game.platformLabel !== undefined ? { platformLabel: loader.data.game.platformLabel } : {}),
-    ...(loader.data.game.coverImageUrl !== undefined ? { coverImageUrl: loader.data.game.coverImageUrl } : {}),
-    metrics: loader.data.game.metrics,
-  };
-
   return (
-    <>
-      <PanelSection title="Achievement details">
-        <PanelSectionRow>
-          <AchievementCard
-            achievement={achievement}
-            game={game}
-            onBack={onBack}
-            onOpenFullScreenGame={onOpenFullScreenGame}
-          />
-        </PanelSectionRow>
-      </PanelSection>
-    </>
+    <section aria-label="Achievement details" style={getStandaloneRootStyle()}>
+      <AchievementDetailCard {...props} />
+    </section>
   );
 }

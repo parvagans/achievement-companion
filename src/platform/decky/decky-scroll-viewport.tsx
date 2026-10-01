@@ -140,6 +140,7 @@ export function dispatchDeckyScrollReset(scrollKey: string): void {
 export interface TopAlignedScrollViewportProps {
   readonly children: ReactNode;
   readonly fillHeight?: boolean;
+  readonly restoreScrollTop?: number | undefined;
   readonly resetNonce?: number;
   readonly scrollKey: string;
 }
@@ -147,6 +148,7 @@ export interface TopAlignedScrollViewportProps {
 export function TopAlignedScrollViewport({
   children,
   fillHeight = false,
+  restoreScrollTop,
   resetNonce = 0,
   scrollKey,
 }: TopAlignedScrollViewportProps): JSX.Element {
@@ -165,6 +167,31 @@ export function TopAlignedScrollViewport({
 
     resetRealDeckyScrollContainer(anchor);
   }, [resetNonce, scrollKey]);
+
+  useLayoutEffect(() => {
+    const anchor = anchorRef.current;
+    if (anchor === null || restoreScrollTop === undefined || restoreScrollTop <= 0) {
+      return;
+    }
+
+    const target = findDeckyScrollableAncestor(anchor);
+    if (target === null) {
+      return;
+    }
+
+    target.scrollTop = restoreScrollTop;
+    const ownerWindow = anchor.ownerDocument.defaultView;
+    if (ownerWindow === null || ownerWindow === undefined) {
+      return;
+    }
+
+    const restoreFrame = ownerWindow.requestAnimationFrame(() => {
+      if (target.isConnected) {
+        target.scrollTop = restoreScrollTop;
+      }
+    });
+    return () => ownerWindow.cancelAnimationFrame(restoreFrame);
+  }, [restoreScrollTop, scrollKey]);
 
   useLayoutEffect(() => {
     const handleScrollReset = (event: Event): void => {

@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import {
+  registerCompactProviderCancelCallback,
+  removeDeckyCompactCancelBridges,
+  setDeckyCompactCancelBridgesEnabled,
+} from "../src/platform/decky/decky-full-screen-cancel-bridge";
 
 const compactGameSource = readFileSync(
   "src/platform/decky/decky-steam-compact-game-overview.tsx",
@@ -10,10 +15,6 @@ const gameDetailSource = readFileSync("src/platform/decky/decky-game-detail-view
 const bootstrapSource = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
 const steamHuntersSectionsSource = readFileSync(
   "src/platform/decky/decky-steam-hunters-game-sections.tsx",
-  "utf8",
-);
-const compactCancelBridgeSource = readFileSync(
-  "src/platform/decky/decky-full-screen-cancel-bridge.ts",
   "utf8",
 );
 
@@ -55,22 +56,40 @@ test("Steam compact game overview uses the refined narrow-panel hierarchy and op
   const steamBranchSource = gameDetailSource.slice(steamBranchStart, retroBranchStart);
   assert.ok(steamBranchStart >= 0 && retroBranchStart > steamBranchStart);
   assert.doesNotMatch(steamBranchSource, /<PanelSection title="ACHIEVEMENTS">/u);
-  assert.match(gameDetailSource, /onViewAchievements=\{onOpenFullScreenAchievements\}/u);
-  assert.match(bootstrapSource, /updateSteamGameSectionPageState\(game\.providerId, game\.gameId/u);
-  assert.match(bootstrapSource, /activeSection: "achievements"/u);
+  assert.match(gameDetailSource, /onViewAchievements=\{onOpenCompactAchievements\}/u);
+  assert.match(bootstrapSource, /kind: "achievement-list"/u);
+  assert.match(bootstrapSource, /<CompactAchievementListScreen/u);
+  assert.match(bootstrapSource, /parent: "achievement-list"/u);
   assert.match(bootstrapSource, /<DeckyCompactLoadingState[\s\S]*Fetching the latest Steam game and SteamHunters data\./u);
   assert.match(steamHuntersSectionsSource, /export function getSteamHuntersAchievementSetStatusPresentation/u);
   assert.match(steamHuntersSectionsSource, /export function getSteamHuntersAchievementSetStatusSummary/u);
 });
 
 test("Steam compact game B handler is scoped to the mounted view instead of requiring a visible Back action", () => {
-  assert.match(compactCancelBridgeSource, /const compactProviderCancelCallbacks = new Map<Window, \(\) => void>\(\)/u);
-  assert.match(compactCancelBridgeSource, /export function registerCompactProviderCancelCallback/u);
-  assert.match(compactCancelBridgeSource, /compactProviderCancelCallbacks\.set\(ownerWindow, onCancel\)/u);
-  assert.match(compactCancelBridgeSource, /compactProviderCancelCallbacks\.delete\(ownerWindow\)/u);
-  assert.match(compactCancelBridgeSource, /const compactGameDetailCancelCallbacks = new Map<Window, \(\) => void>\(\)/u);
-  assert.match(compactCancelBridgeSource, /export function registerCompactGameDetailCancelCallback/u);
-  assert.match(compactCancelBridgeSource, /compactGameDetailCancelCallbacks\.set\(ownerWindow, onCancel\)/u);
-  assert.match(compactCancelBridgeSource, /compactGameDetailCancelCallbacks\.delete\(ownerWindow\)/u);
-  assert.match(compactCancelBridgeSource, /callback\(\);\s*return;/u);
+  const ownerWindow = new EventTarget() as Window;
+  const ownerDocument = { defaultView: ownerWindow, querySelectorAll: () => [] } as unknown as Document;
+  const createVisibleElement = () => ({
+    ownerDocument,
+    isConnected: true,
+    getClientRects: () => [{}],
+  }) as unknown as Element;
+  const calls: string[] = [];
+
+  try {
+    const removeOld = registerCompactProviderCancelCallback(createVisibleElement(), () => calls.push("old"));
+    registerCompactProviderCancelCallback(createVisibleElement(), () => calls.push("latest"));
+    removeOld();
+
+    const firstEvent = new Event("vgp_oncancel", { cancelable: true });
+    ownerWindow.dispatchEvent(firstEvent);
+    assert.deepStrictEqual(calls, ["latest"]);
+    assert.equal(firstEvent.defaultPrevented, true);
+
+    setDeckyCompactCancelBridgesEnabled(false);
+    ownerWindow.dispatchEvent(new Event("vgp_oncancel", { cancelable: true }));
+    assert.deepStrictEqual(calls, ["latest"]);
+  } finally {
+    removeDeckyCompactCancelBridges();
+    setDeckyCompactCancelBridgesEnabled(true);
+  }
 });

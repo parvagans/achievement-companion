@@ -1,0 +1,543 @@
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type FocusEventHandler } from "react";
+import { Focusable, type FocusableProps } from "@decky/ui";
+import checkCircleIconUrl from "./assets/check-circle.svg";
+import lockedIconUrl from "./assets/prohibited.svg";
+import { DeckyGameArtwork } from "./decky-game-artwork";
+import { DeckyAchievementTypeBadge } from "./decky-achievement-type-badge";
+import { DeckyCompactPillActionGroup, DeckyCompactPillActionItem } from "./decky-compact-pill-action-item";
+import {
+  DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS,
+  DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS,
+  DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS,
+  DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS,
+  DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS,
+} from "./decky-focus-styles";
+import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
+import { findDeckyScrollContainerAncestor } from "./decky-scroll-viewport";
+import { registerCompactAchievementCancelCallback } from "./decky-full-screen-cancel-bridge";
+import { getSteamCompactActionStyle, getSteamCompactAchievementFilterStyle } from "./decky-steam-compact-action-styles";
+import {
+  getCompactAchievementFilterCounts,
+  matchesCompactAchievementFilter,
+  matchesCompactAchievementModeFilter,
+  type CompactAchievementFilter,
+  type CompactAchievementListViewModel,
+  type CompactAchievementModeFilter,
+  type CompactAchievementRowViewModel,
+  type CompactAchievementTone,
+} from "./decky-compact-achievement-model";
+import {
+  readDeckyCompactAchievementPageState,
+  writeDeckyCompactAchievementPageState,
+  type DeckyCompactAchievementPageState,
+} from "./decky-compact-achievement-page-state";
+
+type DeckyGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
+
+export interface DeckyCompactAchievementListProps {
+  readonly embedded: boolean;
+  readonly model: CompactAchievementListViewModel;
+  readonly onBack: () => void;
+  readonly onOpenAchievement: (achievementId: string) => void;
+}
+
+const FILTERS: readonly CompactAchievementFilter[] = ["all", "unlocked", "locked"];
+const MODE_FILTERS: readonly CompactAchievementModeFilter[] = ["all", "hardcore", "softcore"];
+
+function getRootStyle(embedded: boolean): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: 10,
+    width: "100%",
+    minWidth: 0,
+    boxSizing: "border-box",
+    padding: embedded ? 0 : "0 16px 4px",
+  };
+}
+
+function getHeadingStyle(): CSSProperties {
+  return {
+    margin: 0,
+    color: "#66d6ff",
+    fontSize: "0.78em",
+    fontWeight: 850,
+    letterSpacing: "0.06em",
+    lineHeight: 1.2,
+    textTransform: "uppercase",
+  };
+}
+
+function getRowsStyle(): CSSProperties {
+  return { display: "flex", flexDirection: "column", gap: 8, minWidth: 0 };
+}
+
+function getCompactCountFilterStyle(): CSSProperties {
+  return {
+    padding: "6px 3px",
+    fontSize: 11,
+  };
+}
+
+function getRowStyle(row: CompactAchievementRowViewModel, isFocused: boolean): CSSProperties {
+  if (row.metadataPlacement === "rail") {
+    return {
+      ...getSteamCompactActionStyle("row", isFocused),
+      display: "grid",
+      gridTemplateColumns: "40px minmax(0, 1fr) minmax(42px, auto)",
+      alignItems: "start",
+      padding: "9px",
+    };
+  }
+  const accent = row.tone === "hardcore"
+    ? "rgba(214, 178, 74, 0.78)"
+    : row.tone === "softcore"
+      ? "rgba(214, 221, 232, 0.72)"
+      : row.stateIndicator === "unlocked"
+        ? "rgba(34, 211, 238, 0.72)"
+        : row.stateIndicator === "locked"
+          ? "rgba(248, 113, 113, 0.5)"
+          : "rgba(255, 255, 255, 0.12)";
+  return {
+    display: "grid",
+    gridTemplateColumns: "40px minmax(0, 1fr)",
+    gap: 8,
+    width: "100%",
+    minWidth: 0,
+    padding: "9px 9px",
+    boxSizing: "border-box",
+    border: `1px solid ${accent}`,
+    borderLeftWidth: 3,
+    borderRadius: 12,
+    background: "linear-gradient(180deg, rgba(12, 36, 53, 0.96), rgba(9, 28, 43, 0.96))",
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 2px 8px rgba(0, 0, 0, 0.16)",
+  };
+}
+
+function getIconFrameStyle(isUnlocked: boolean): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "flex-start",
+    justifyContent: "center",
+    width: 40,
+    minWidth: 40,
+    lineHeight: 0,
+    opacity: isUnlocked ? 1 : 0.9,
+    filter: isUnlocked ? "none" : "grayscale(1) contrast(1.08) brightness(0.92)",
+  };
+}
+
+function getMainStyle(): CSSProperties {
+  return { display: "flex", flexDirection: "column", gap: 3, minWidth: 0 };
+}
+
+function getTitleLineStyle(): CSSProperties {
+  return { display: "flex", alignItems: "flex-start", flexWrap: "wrap", gap: "3px 5px", minWidth: 0 };
+}
+
+function getTitleStyle(): CSSProperties {
+  return {
+    color: "rgba(255, 255, 255, 0.98)",
+    fontSize: "0.78em",
+    fontWeight: 800,
+    lineHeight: 1.17,
+    minWidth: 0,
+    overflow: "hidden",
+    display: "-webkit-box",
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: 2,
+  };
+}
+
+function getDescriptionStyle(): CSSProperties {
+  return {
+    color: "rgba(182, 215, 239, 0.82)",
+    fontSize: "0.68em",
+    lineHeight: 1.2,
+    overflow: "hidden",
+    display: "-webkit-box",
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: 2,
+  };
+}
+
+function getSecondaryStyle(tone: CompactAchievementTone): CSSProperties {
+  return {
+    color: tone === "hardcore"
+      ? "rgba(232, 201, 102, 0.94)"
+      : tone === "softcore"
+        ? "rgba(220, 225, 233, 0.94)"
+        : "rgba(255, 255, 255, 0.68)",
+    fontSize: "0.66em",
+    fontWeight: 650,
+    lineHeight: 1.18,
+  };
+}
+
+function getRailStyle(): CSSProperties {
+  return {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-end",
+    gap: 5,
+    minWidth: 42,
+  };
+}
+
+function getStateIndicatorStyle(state: "unlocked" | "locked"): CSSProperties {
+  return {
+    width: 18,
+    height: 18,
+    filter: state === "unlocked"
+      ? "brightness(0) saturate(100%) invert(73%) sepia(95%) saturate(479%) hue-rotate(91deg) brightness(96%) contrast(91%)"
+      : "brightness(0) saturate(100%) invert(59%) sepia(51%) saturate(1948%) hue-rotate(319deg) brightness(104%) contrast(95%)",
+  };
+}
+
+function getRailMetadataStyle(): CSSProperties {
+  return {
+    color: "rgba(232, 242, 250, 0.92)",
+    fontSize: "0.65em",
+    fontWeight: 750,
+    lineHeight: 1.1,
+    whiteSpace: "nowrap",
+  };
+}
+
+function getEmptyStyle(): CSSProperties {
+  return {
+    padding: "14px 10px",
+    borderRadius: 12,
+    color: "rgba(255, 255, 255, 0.68)",
+    fontSize: "0.78em",
+    lineHeight: 1.25,
+    textAlign: "center",
+    background: "rgba(255, 255, 255, 0.03)",
+  };
+}
+
+function formatFilterLabel(
+  filter: CompactAchievementFilter,
+  counts: Readonly<Record<CompactAchievementFilter, number>>,
+): string {
+  const label = filter === "all" ? "All" : filter === "unlocked" ? "Unlocked" : "Locked";
+  return `${label} (${counts[filter].toLocaleString()})`;
+}
+
+function formatModeFilterLabel(filter: CompactAchievementModeFilter): string {
+  return filter === "all" ? "All" : filter === "hardcore" ? "Hardcore" : "Softcore";
+}
+
+function readScrollTop(target: EventTarget | null, fallback: number): number {
+  return target instanceof HTMLElement
+    ? findDeckyScrollContainerAncestor(target)?.scrollTop ?? fallback
+    : fallback;
+}
+
+function CompactAchievementRow({
+  model,
+  onBack,
+  onFocusRow,
+  onOpen,
+  preferredFocus,
+}: {
+  readonly model: CompactAchievementRowViewModel;
+  readonly onBack: () => void;
+  readonly onFocusRow: (target: EventTarget | null, achievementId: string) => void;
+  readonly onOpen: () => void;
+  readonly preferredFocus: boolean;
+}): JSX.Element {
+  const [isFocused, setIsFocused] = useState(false);
+  const handleFocus: FocusEventHandler<HTMLElement> = (event) => {
+    setIsFocused(true);
+    scrollDeckyFocusTargetIntoView(event.currentTarget);
+    onFocusRow(event.currentTarget, model.achievementId);
+  };
+  const handleGamepadFocus: DeckyGamepadFocusHandler = (event) => {
+    setIsFocused(true);
+    scrollDeckyFocusTargetIntoView(event.currentTarget);
+    onFocusRow(event.currentTarget, model.achievementId);
+  };
+
+  return (
+    <Focusable
+      aria-label={`${model.title}, ${model.statusText}`}
+      className={model.metadataPlacement === "rail" ? undefined : DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
+      noFocusRing
+      onActivate={onOpen}
+      onBlur={() => setIsFocused(false)}
+      onCancel={onBack}
+      onClick={onOpen}
+      onFocus={handleFocus}
+      onGamepadFocus={handleGamepadFocus}
+      preferredFocus={preferredFocus}
+      role="button"
+      style={getRowStyle(model, isFocused)}
+    >
+      <div style={getIconFrameStyle(model.isUnlocked)}>
+        {model.iconUrl !== undefined ? (
+          <DeckyGameArtwork compact src={model.iconUrl} size={38} title={model.title} />
+        ) : null}
+      </div>
+
+      <div style={getMainStyle()}>
+        <div style={getTitleLineStyle()}>
+          <span style={getTitleStyle()}>{model.title}</span>
+          <DeckyAchievementTypeBadge classification={model.classification} />
+        </div>
+        {model.description !== undefined ? <div style={getDescriptionStyle()}>{model.description}</div> : null}
+        {model.metadataPlacement === "stack" ? (
+          <>
+            <div style={getSecondaryStyle(model.tone)}>{model.statusText}</div>
+            {model.metadata.map((item) => (
+              <div key={item.key} style={getSecondaryStyle(model.tone)}>{item.value}</div>
+            ))}
+          </>
+        ) : null}
+        {model.timestampText !== undefined ? (
+          <div style={getSecondaryStyle(model.tone)}>{model.timestampText}</div>
+        ) : null}
+      </div>
+
+      {model.metadataPlacement === "rail" ? (
+        <div style={getRailStyle()}>
+          {model.stateIndicator !== undefined ? (
+            <span aria-label={model.statusText} role="img">
+              <img
+                alt=""
+                aria-hidden="true"
+                src={model.stateIndicator === "unlocked" ? checkCircleIconUrl : lockedIconUrl}
+                style={getStateIndicatorStyle(model.stateIndicator)}
+              />
+            </span>
+          ) : null}
+          {model.metadata.map((item) => (
+            <span key={item.key} style={getRailMetadataStyle()}>{item.value}</span>
+          ))}
+        </div>
+      ) : null}
+    </Focusable>
+  );
+}
+
+export function DeckyCompactAchievementList({
+  embedded,
+  model,
+  onBack,
+  onOpenAchievement,
+}: DeckyCompactAchievementListProps): JSX.Element {
+  const rootRef = useRef<HTMLElement>(null);
+  const [pageState, setPageState] = useState<DeckyCompactAchievementPageState>(() =>
+    readDeckyCompactAchievementPageState(model.providerId, model.gameId, model.initialVisibleCount));
+  const pageStateRef = useRef(pageState);
+  const [focusedControl, setFocusedControl] = useState<string | undefined>();
+  const refined = model.providerId === "steam";
+  const counts = useMemo(() => getCompactAchievementFilterCounts(model.rows), [model.rows]);
+  const filteredRows = useMemo(
+    () => model.rows.filter((row) =>
+      matchesCompactAchievementFilter(row, pageState.filter) &&
+      (!model.supportsModeFilter || matchesCompactAchievementModeFilter(row, pageState.modeFilter))),
+    [model.rows, model.supportsModeFilter, pageState.filter, pageState.modeFilter],
+  );
+  const visibleRows = filteredRows.slice(0, pageState.visibleCount);
+  const canLoadMore = pageState.visibleCount < filteredRows.length;
+  const canShowAll = filteredRows.length > pageState.visibleCount + 5;
+
+  useLayoutEffect(() => {
+    if (embedded) {
+      return;
+    }
+    return registerCompactAchievementCancelCallback(rootRef.current, onBack);
+  }, [embedded, onBack]);
+
+  const commitPageState = (
+    update: (current: DeckyCompactAchievementPageState) => DeckyCompactAchievementPageState,
+  ): void => {
+    // Persist before opening details can unmount the list in the same React batch.
+    const next = update(pageStateRef.current);
+    pageStateRef.current = next;
+    writeDeckyCompactAchievementPageState(model.providerId, model.gameId, next);
+    setPageState(next);
+  };
+
+  const rememberFocus = (target: EventTarget | null, achievementId: string): void => {
+    commitPageState((current) => ({
+      ...current,
+      focusedAchievementId: achievementId,
+      scrollTop: readScrollTop(target, current.scrollTop),
+    }));
+  };
+
+  return (
+    <section aria-label={`${model.gameTitle} achievements`} ref={rootRef} style={getRootStyle(embedded)}>
+      {!embedded ? <h2 style={getHeadingStyle()}>Achievements</h2> : null}
+
+      {model.supportsModeFilter ? (
+        <Focusable
+          aria-label="Achievement mode filters"
+          className={DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS}
+          flow-children="left-right"
+          role="radiogroup"
+        >
+          {MODE_FILTERS.map((filter) => {
+            const active = pageState.modeFilter === filter;
+            const className = [
+              DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS,
+              active ? DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS : undefined,
+            ].filter((value): value is string => value !== undefined).join(" ");
+            return (
+              <Focusable
+                aria-checked={active}
+                aria-label={formatModeFilterLabel(filter)}
+                className={className}
+                focusClassName={DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS}
+                focusWithinClassName={DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS}
+                key={filter}
+                noFocusRing
+                onActivate={() => commitPageState((current) => ({
+                  ...current,
+                  modeFilter: filter,
+                  visibleCount: model.initialVisibleCount,
+                  focusedAchievementId: undefined,
+                  scrollTop: 0,
+                }))}
+                onCancelButton={onBack}
+                onClick={() => commitPageState((current) => ({
+                  ...current,
+                  modeFilter: filter,
+                  visibleCount: model.initialVisibleCount,
+                  focusedAchievementId: undefined,
+                  scrollTop: 0,
+                }))}
+                onFocus={(event) => scrollDeckyFocusTargetIntoView(event.currentTarget)}
+                role="radio"
+              >
+                {formatModeFilterLabel(filter)}
+              </Focusable>
+            );
+          })}
+        </Focusable>
+      ) : null}
+
+      <Focusable
+        aria-label="Achievement filters"
+        className={refined ? undefined : DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS}
+        style={refined ? { display: "flex", gap: 5, width: "100%", minWidth: 0 } : undefined}
+        flow-children="left-right"
+        role="radiogroup"
+      >
+        {FILTERS.map((filter) => {
+          const active = pageState.filter === filter;
+          const className = [
+            DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS,
+            active ? DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS : undefined,
+          ].filter((value): value is string => value !== undefined).join(" ");
+          const label = formatFilterLabel(filter, counts);
+          return (
+            <Focusable
+              aria-checked={active}
+              aria-label={label}
+              className={refined ? undefined : className}
+              {...(refined ? {} : {
+                focusClassName: DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS,
+                focusWithinClassName: DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS,
+              })}
+              key={filter}
+              noFocusRing
+              onActivate={() => commitPageState((current) => ({
+                ...current,
+                filter,
+                visibleCount: model.initialVisibleCount,
+                focusedAchievementId: undefined,
+                scrollTop: 0,
+              }))}
+              onCancelButton={onBack}
+              onClick={() => commitPageState((current) => ({
+                ...current,
+                filter,
+                visibleCount: model.initialVisibleCount,
+                focusedAchievementId: undefined,
+                scrollTop: 0,
+              }))}
+              onFocus={(event) => {
+                setFocusedControl(filter);
+                scrollDeckyFocusTargetIntoView(event.currentTarget);
+              }}
+              onGamepadFocus={(event) => {
+                setFocusedControl(filter);
+                scrollDeckyFocusTargetIntoView(event.currentTarget);
+              }}
+              onBlur={() => setFocusedControl(undefined)}
+              role="radio"
+              style={refined
+                ? getSteamCompactAchievementFilterStyle(active, focusedControl === filter)
+                : getCompactCountFilterStyle()}
+            >
+              {label}
+            </Focusable>
+          );
+        })}
+      </Focusable>
+
+      {visibleRows.length > 0 ? (
+        <div style={getRowsStyle()}>
+          {visibleRows.map((row) => (
+            <CompactAchievementRow
+              key={row.achievementId}
+              model={row}
+              onBack={onBack}
+              onFocusRow={rememberFocus}
+              onOpen={() => {
+                commitPageState((current) => ({ ...current, focusedAchievementId: row.achievementId }));
+                onOpenAchievement(row.achievementId);
+              }}
+              preferredFocus={pageState.focusedAchievementId === row.achievementId}
+            />
+          ))}
+        </div>
+      ) : (
+        <div style={getEmptyStyle()}>
+          {pageState.filter === "all"
+            ? "No achievements were returned for this game."
+            : `No ${pageState.filter} achievements match this filter.`}
+        </div>
+      )}
+
+      {refined && (canLoadMore || canShowAll) ? (
+        <div style={{ display: "flex", gap: 6, minWidth: 0 }}>
+          {(["Show 5 more", "Show all"] as const).filter((label) => label === "Show 5 more" ? canLoadMore : canShowAll).map((label) => (
+            <Focusable
+              key={label} role="button" noFocusRing onCancelButton={onBack}
+              onFocus={(event) => { setFocusedControl(label); scrollDeckyFocusTargetIntoView(event.currentTarget); }}
+              onGamepadFocus={(event) => { setFocusedControl(label); scrollDeckyFocusTargetIntoView(event.currentTarget); }}
+              onBlur={() => setFocusedControl(undefined)}
+              onActivate={() => commitPageState((current) => ({ ...current, visibleCount: label === "Show all" ? filteredRows.length : Math.min(filteredRows.length, current.visibleCount + 5) }))}
+              onClick={() => commitPageState((current) => ({ ...current, visibleCount: label === "Show all" ? filteredRows.length : Math.min(filteredRows.length, current.visibleCount + 5) }))}
+              style={{ ...getSteamCompactActionStyle("row", focusedControl === label), justifyContent: "center", padding: "8px", fontSize: 11 }}
+            >{label}</Focusable>
+          ))}
+        </div>
+      ) : canLoadMore || canShowAll ? (
+        <DeckyCompactPillActionGroup>
+          {canLoadMore ? (
+            <DeckyCompactPillActionItem
+              label="Show 5 more"
+              onCancelButton={onBack}
+              onClick={() => commitPageState((current) => ({
+                ...current,
+                visibleCount: Math.min(filteredRows.length, current.visibleCount + 5),
+              }))}
+            />
+          ) : null}
+          {canShowAll ? (
+            <DeckyCompactPillActionItem
+              label="Show all"
+              onCancelButton={onBack}
+              onClick={() => commitPageState((current) => ({ ...current, visibleCount: filteredRows.length }))}
+            />
+          ) : null}
+        </DeckyCompactPillActionGroup>
+      ) : null}
+    </section>
+  );
+}

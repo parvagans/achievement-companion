@@ -17,6 +17,7 @@ import {
   type SteamAccountProgressSummary,
 } from "./decky-stat-helpers";
 import { getSteamCompactGameArtworkUrl } from "./decky-steam-game-artwork";
+import { getSteamCompactActionStyle, type DeckySteamCompactActionTone } from "./decky-steam-compact-action-styles";
 import chevronRightIconUrl from "./assets/chevron-right.svg";
 import externalLinkIconUrl from "./assets/external-link.svg";
 import masteredIconUrl from "./assets/mastered.svg";
@@ -32,7 +33,7 @@ const GOLD_ICON_FILTER =
 const PURPLE_ICON_FILTER =
   "brightness(0) saturate(100%) invert(41%) sepia(93%) saturate(1444%) hue-rotate(249deg) brightness(95%) contrast(96%)";
 
-export type DeckySteamCompactActionTone = "primary" | "row";
+export type { DeckySteamCompactActionTone } from "./decky-steam-compact-action-styles";
 type SteamCompactIconTone = "blue" | "gold" | "purple";
 
 export interface DeckySteamCompactProfileProps {
@@ -126,42 +127,6 @@ function getSectionTitleStyle(): CSSProperties {
   };
 }
 
-function getActionStyle(tone: DeckySteamCompactActionTone, isFocused: boolean): CSSProperties {
-  const isPrimary = tone === "primary";
-
-  return {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "flex-start",
-    gap: 8,
-    width: "100%",
-    minWidth: 0,
-    minHeight: isPrimary ? 38 : undefined,
-    padding: isPrimary ? "8px 12px" : 0,
-    border: isFocused
-      ? "1px solid rgba(54, 185, 255, 0.92)"
-      : isPrimary
-        ? "1px solid rgba(54, 185, 255, 0.52)"
-        : "1px solid rgba(54, 142, 191, 0.16)",
-    borderRadius: isPrimary ? 8 : 9,
-    background: isFocused
-      ? "linear-gradient(180deg, rgba(17, 91, 139, 0.78), rgba(8, 53, 82, 0.9))"
-      : isPrimary
-        ? "linear-gradient(180deg, rgba(10, 63, 96, 0.82), rgba(7, 43, 67, 0.92))"
-        : "linear-gradient(150deg, rgba(9, 35, 51, 0.88), rgba(7, 27, 41, 0.94))",
-    boxShadow: isFocused
-      ? "0 0 0 1px rgba(54, 185, 255, 0.72), 0 0 13px rgba(54, 185, 255, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.1)"
-      : isPrimary
-        ? "inset 0 1px 0 rgba(125, 211, 252, 0.08), 0 4px 12px rgba(0, 0, 0, 0.16)"
-        : "inset 0 1px 0 rgba(255, 255, 255, 0.025)",
-    boxSizing: "border-box",
-    color: "#f2f6fb",
-    cursor: "pointer",
-    outline: "none",
-    transition: "background 120ms ease, border-color 120ms ease, box-shadow 120ms ease",
-  };
-}
-
 export function DeckySteamCompactAction({
   ariaLabel,
   children,
@@ -190,7 +155,7 @@ export function DeckySteamCompactAction({
 
   // Only the Full Screen action enters Decky's focus tree before the first controller move.
   if (!isNavigable) {
-    return <div onClick={onActivate} style={{ ...getActionStyle(tone, false), ...style }}>{children}</div>;
+    return <div onClick={onActivate} style={{ ...getSteamCompactActionStyle(tone, false), ...style }}>{children}</div>;
   }
 
   return (
@@ -219,7 +184,7 @@ export function DeckySteamCompactAction({
         focusGeneration.current += 1;
         setIsFocused(false);
       }}
-      style={{ ...getActionStyle(tone, isFocused), ...style }}
+      style={{ ...getSteamCompactActionStyle(tone, isFocused), ...style }}
     >
       {children}
     </Focusable>

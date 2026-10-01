@@ -1458,24 +1458,25 @@ test("achievement type badge maps supported classifications and ignores absent c
 });
 
 test("compact and full-screen game rows share the achievement type badge", () => {
-  const compactSource = readFileSync("src/platform/decky/decky-game-detail-view.tsx", "utf8");
-  const fullScreenSource = readFileSync("src/platform/decky/decky-full-screen-game-page.tsx", "utf8");
+  const compactSource = readFileSync("src/platform/decky/decky-compact-achievement-list.tsx", "utf8");
+  const fullScreenSource = readFileSync("src/platform/decky/decky-full-screen-achievement-row.tsx", "utf8");
 
-  for (const source of [compactSource, fullScreenSource]) {
-    assert.match(source, /DeckyAchievementTypeBadge/u);
-    assert.match(source, /classification=\{achievement\.classification\}/u);
-    assert.match(source, /getAchievementRowTitleLineStyle/u);
-  }
+  assert.match(compactSource, /DeckyAchievementTypeBadge/u);
+  assert.match(compactSource, /classification=\{model\.classification\}/u);
+  assert.match(compactSource, /getTitleLineStyle/u);
+  assert.match(fullScreenSource, /DeckyAchievementTypeBadge/u);
+  assert.match(fullScreenSource, /classification=\{achievement\.classification\}/u);
+  assert.match(fullScreenSource, /getAchievementRowTitleLineStyle/u);
 });
 
 test("compact achievement details retain type badges while the full-screen page is static and B-only", () => {
   const compactSource = readFileSync("src/platform/decky/decky-achievement-detail-view.tsx", "utf8");
   const fullScreenSource = readFileSync("src/platform/decky/decky-full-screen-achievement-page.tsx", "utf8");
 
-  assert.match(compactSource, /getAchievementTitleLineStyle/u);
+  assert.match(compactSource, /getTitleLineStyle/u);
   assert.match(compactSource, /flexWrap: "wrap"/u);
   assert.match(compactSource, /overflowWrap: "anywhere"/u);
-  assert.match(compactSource, /DeckyAchievementTypeBadge classification=\{achievement\.classification\}/u);
+  assert.match(compactSource, /DeckyAchievementTypeBadge classification=\{model\.classification\}/u);
 
   assert.match(fullScreenSource, /function DeckyFullScreenAchievementInputSurface/u);
   assert.match(fullScreenSource, /surface\.focus\(\{ preventScroll: true \}\)/u);
@@ -3490,27 +3491,22 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(compactDashboardSource, /onOpenAchievementDetail\(\{\s*game: recentUnlock\.game,\s*achievement: recentUnlock\.achievement,\s*\}\)/u);
   assert.match(compactDashboardSource, /onOpenGameDetail\(game\.providerId, game\.gameId, game\.title\)/u);
   const compactAchievementDetailSource = readFileSync("src/platform/decky/decky-achievement-detail-view.tsx", "utf8");
-  assert.match(compactAchievementDetailSource, /PanelSection title="Achievement details"/);
+  const compactAchievementModelSource = readFileSync("src/platform/decky/decky-compact-achievement-model.ts", "utf8");
+  assert.match(compactAchievementDetailSource, /PanelSection title=\{props\.model\.panelTitle\}/);
   assert.doesNotMatch(compactAchievementDetailSource, /PanelSection title="Navigation"/);
-  assert.match(compactAchievementDetailSource, /getAchievementDetailCounts\(achievement\.metrics, game\.metrics \?\? \[\]\)/u);
-  assert.match(compactAchievementDetailSource, /formatAchievementDetailUnlockRatePercent\(counts\.unlockRatePercent\)/u);
-  assert.match(compactAchievementDetailSource, /label="Points"/);
-  assert.match(compactAchievementDetailSource, /label="RetroPoints"/);
+  assert.doesNotMatch(compactAchievementDetailSource, /loadDeckyGameDetailState/u);
+  assert.match(compactAchievementModelSource, /getAchievementDetailCounts\(achievement\.metrics, snapshot\.game\.metrics\)/u);
+  assert.match(compactAchievementModelSource, /formatAchievementDetailUnlockRatePercent\(counts\.unlockRatePercent\)/u);
+  assert.match(compactAchievementModelSource, /label: "Points"/);
+  assert.match(compactAchievementModelSource, /label: "RetroPoints"/);
   assert.doesNotMatch(compactAchievementDetailSource, /label="Unlock rate"/u);
-  assert.match(compactAchievementDetailSource, /label="Softcore unlocks"/);
-  assert.match(compactAchievementDetailSource, /label="Hardcore unlocks"/);
-  assert.match(compactAchievementDetailSource, /label="Total players"/);
-  assert.match(
-    compactAchievementDetailSource,
-    /RarityBar[\s\S]*caption=\{formatAchievementDetailUnlockRatePercent\(counts\.unlockRatePercent\)\}/u,
-  );
-  assert.match(
-    compactAchievementDetailSource,
-    /RarityBar[\s\S]*percent=\{counts\.unlockRatePercent\}/u,
-  );
+  assert.match(compactAchievementModelSource, /label: "Softcore unlocks"/);
+  assert.match(compactAchievementModelSource, /label: "Hardcore unlocks"/);
+  assert.match(compactAchievementModelSource, /label: "Total players"/);
+  assert.match(compactAchievementDetailSource, /block\.kind === "rarity"/u);
+  assert.match(compactAchievementDetailSource, /aria-label="Achievement unlock rate"/u);
   assert.match(compactAchievementDetailSource, /label="Open Game"/);
   assert.doesNotMatch(compactAchievementDetailSource, /label="Open full-screen game"/);
-  assert.match(compactAchievementDetailSource, /PanelSection title="Achievement details"/);
   assert.match(compactAchievementDetailSource, /DeckyCompactPillActionGroup/);
   assert.match(compactAchievementDetailSource, /DeckyCompactPillActionItem/);
   assert.match(compactAchievementDetailSource, /label="Back"/);
@@ -3527,14 +3523,9 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     compactAchievementDetailSource,
     /<DeckyCompactPillActionItem[\s\S]*label="Back"[\s\S]*onClick=\{onBack\}[\s\S]*onCancelButton=\{onBack\}[\s\S]*elementRef=\{compactAchievementBackButtonRef\}[\s\S]*dataAttributes=\{\s*\{\s*"data-achievement-companion-compact-achievement-back": "true"/u,
   );
-  assert.match(compactAchievementDetailSource, /metrics: loader\.data\.game\.metrics/);
-  assert.match(compactAchievementDetailSource, /getAchievementStatusTone\(achievement\)/);
-  assert.match(compactAchievementDetailSource, /getAchievementStatusCardStyle\(achievementStatusTone\)/);
-  assert.match(compactAchievementDetailSource, /getAchievementStatusValueStyle\(achievementStatusTone\)/);
-  assert.match(compactAchievementDetailSource, /getAchievementStatusSecondaryStyle\(achievementStatusTone\)/);
-  assert.match(compactAchievementDetailSource, /formatProviderAchievementStatusText\(game\.providerId, achievement\)/);
-  assert.match(compactAchievementDetailSource, />Unlock status</);
-  assert.match(compactAchievementDetailSource, /Unlocked \$\{formatTimestamp\(achievement\.unlockedAt\)\}/u);
+  assert.match(compactAchievementModelSource, /buildAchievementStatus\(achievement\)/u);
+  assert.match(compactAchievementModelSource, /statusSecondary/u);
+  assert.match(compactAchievementModelSource, /Unlocked \$\{formatTimestamp\(achievement\.unlockedAt\)\}/u);
   assert.doesNotMatch(compactAchievementDetailSource, /replace\(\^Unlocked\\s\+\/u,/u);
   assert.doesNotMatch(compactAchievementDetailSource, /preferredFocus/u);
   assert.match(compactBootstrapSource, /useDeckyCompactNavigation\(\)/u);

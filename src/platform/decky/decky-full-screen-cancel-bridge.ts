@@ -1,299 +1,215 @@
 const CANCEL_EVENT_TYPE = "vgp_oncancel";
-const COMPACT_PROVIDER_BACK_BUTTON_SELECTOR =
-  '[data-achievement-companion-compact-provider-back="true"][role="button"]';
-const COMPACT_ACHIEVEMENT_BACK_BUTTON_SELECTOR =
-  '[data-achievement-companion-compact-achievement-back="true"][role="button"]';
-const COMPACT_GAME_DETAIL_BACK_BUTTON_SELECTOR =
-  '[data-achievement-companion-compact-game-detail-back="true"][role="button"]';
+type CompactCancelScope = "provider" | "achievement" | "game-detail";
 
-type BridgeCancelableEvent = Event & {
-  readonly preventDefault?: (() => void) | undefined;
-  readonly stopPropagation?: (() => void) | undefined;
-  readonly stopImmediatePropagation?: (() => void) | undefined;
+const BACK_BUTTON_SELECTORS: Record<CompactCancelScope, string> = {
+  provider: '[data-achievement-companion-compact-provider-back="true"][role="button"]',
+  achievement: '[data-achievement-companion-compact-achievement-back="true"][role="button"]',
+  "game-detail": '[data-achievement-companion-compact-game-detail-back="true"][role="button"]',
 };
 
-type BridgeMarkedBackButton = {
-  readonly click: () => void;
-  readonly disabled?: boolean | undefined;
-  readonly innerText?: string | undefined;
-  readonly isConnected?: boolean | undefined;
-  readonly getClientRects?: (() => ArrayLike<unknown>) | undefined;
-};
-
-const compactProviderCancelBridgeListeners = new Map<Window, EventListener>();
-const compactProviderCancelCallbacks = new Map<Window, () => void>();
-const compactAchievementCancelBridgeListeners = new Map<Window, EventListener>();
-const compactGameDetailCancelBridgeListeners = new Map<Window, EventListener>();
-const compactGameDetailCancelCallbacks = new Map<Window, () => void>();
-
-function removeCancelBridgeListeners(listeners: Map<Window, EventListener>): void {
-  for (const [bridgeWindow, listener] of listeners.entries()) {
-    bridgeWindow.removeEventListener(CANCEL_EVENT_TYPE, listener, true);
-  }
-
-  listeners.clear();
+interface CompactCancelRegistration {
+  readonly element: Element;
+  readonly onCancel: () => void;
 }
 
-function getVisibleMarkedBackButton(
-  selector: string,
-  doc: Document | undefined = typeof document === "undefined" ? undefined : document,
-): BridgeMarkedBackButton | undefined {
-  if (doc === undefined) {
-    return undefined;
-  }
+interface CompactCancelBridge {
+  readonly document: Document;
+  readonly listener: EventListener;
+  readonly callbacks: Map<CompactCancelScope, CompactCancelRegistration>;
+  readonly legacyScopes: Set<CompactCancelScope>;
+}
 
-  const buttons = Array.from(doc.querySelectorAll(selector));
-  for (const button of buttons) {
-    const candidate = button as unknown as BridgeMarkedBackButton;
-    if (
-      candidate.disabled !== true &&
-      candidate.isConnected !== false &&
-      (candidate.getClientRects?.().length ?? 0) > 0
-    ) {
-      return candidate;
+// Exactly one capture listener owns compact Back in each Steam UI window.
+// Loader/detail transitions may briefly overlap effects; latest live scope wins.
+const compactCancelBridges = new Map<Window, CompactCancelBridge>();
+let compactCancelEnabled = true;
+
+function isVisible(element: Element): boolean {
+  return element.isConnected !== false && (element.getClientRects?.().length ?? 0) > 0;
+}
+
+function getVisibleLegacyBackAction(
+  bridge: CompactCancelBridge,
+  scope?: CompactCancelScope,
+): (() => void) | undefined {
+  for (const registeredScope of [...bridge.legacyScopes].reverse()) {
+    if (scope !== undefined && registeredScope !== scope) {
+      continue;
+    }
+    for (const element of bridge.document.querySelectorAll(BACK_BUTTON_SELECTORS[registeredScope])) {
+      // Legacy RA layouts already mark their actual Back control. Preserve this
+      // compatibility path without making callback-driven Steam views query DOM.
+      const button = element as HTMLElement & { readonly disabled?: boolean };
+      if (button.disabled !== true && isVisible(button)) {
+        return () => button.click();
+      }
     }
   }
-
   return undefined;
 }
 
-function registerCancelBridgeForWindow(
-  ownerWindow: Window,
-  ownerDocument: Document,
-  listeners: Map<Window, EventListener>,
-  bridgeHandler: (event: Event, doc: Document | undefined) => void,
+function handleCompactCancel(
+  event: Event,
+  doc: Document | undefined,
+  scope?: CompactCancelScope,
 ): void {
-  const existingListener = listeners.get(ownerWindow);
-  if (existingListener !== undefined) {
+  if (!compactCancelEnabled || event.defaultPrevented || doc?.defaultView == null) {
+    return;
+  }
+  const bridge = compactCancelBridges.get(doc.defaultView);
+  if (bridge === undefined) {
     return;
   }
 
-  const listener: EventListener = (event) => {
-    bridgeHandler(event, ownerDocument);
+  let onCancel: (() => void) | undefined;
+  for (const [registeredScope, registration] of [...bridge.callbacks].reverse()) {
+    if ((scope === undefined || registeredScope === scope) && isVisible(registration.element)) {
+      onCancel = registration.onCancel;
+      break;
+    }
+  }
+  onCancel ??= getVisibleLegacyBackAction(bridge, scope);
+  if (onCancel === undefined) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+  event.stopImmediatePropagation();
+  onCancel();
+}
+
+function ensureBridge(element: Element | null | undefined): CompactCancelBridge | undefined {
+  const doc = element?.ownerDocument;
+  const ownerWindow = doc?.defaultView;
+  if (doc === undefined || ownerWindow == null) {
+    return undefined;
+  }
+  let bridge = compactCancelBridges.get(ownerWindow);
+  if (bridge === undefined) {
+    const listener: EventListener = (event) => handleCompactCancel(event, doc);
+    bridge = { document: doc, listener, callbacks: new Map(), legacyScopes: new Set() };
+    compactCancelBridges.set(ownerWindow, bridge);
+    ownerWindow.addEventListener(CANCEL_EVENT_TYPE, listener, true);
+  }
+  return bridge;
+}
+
+function removeUnusedBridge(bridge: CompactCancelBridge): void {
+  const ownerWindow = bridge.document.defaultView;
+  if (ownerWindow == null || bridge.callbacks.size > 0 || bridge.legacyScopes.size > 0) {
+    return;
+  }
+  ownerWindow.removeEventListener(CANCEL_EVENT_TYPE, bridge.listener, true);
+  if (compactCancelBridges.get(ownerWindow) === bridge) {
+    compactCancelBridges.delete(ownerWindow);
+  }
+}
+
+function registerCompactCancelCallback(
+  scope: CompactCancelScope,
+  element: Element | null | undefined,
+  onCancel: () => void,
+): () => void {
+  const bridge = ensureBridge(element);
+  if (bridge === undefined || element == null) {
+    return () => undefined;
+  }
+  const registration = { element, onCancel };
+  bridge.callbacks.delete(scope);
+  bridge.callbacks.set(scope, registration);
+  return () => {
+    if (bridge.callbacks.get(scope) === registration) {
+      bridge.callbacks.delete(scope);
+      removeUnusedBridge(bridge);
+    }
   };
-
-  ownerWindow.addEventListener(CANCEL_EVENT_TYPE, listener, true);
-  listeners.set(ownerWindow, listener);
 }
 
-export function handleCompactAchievementCancelBridge(
-  event: Event,
-  doc: Document | undefined = typeof document === "undefined" ? undefined : document,
-): void {
-  const cancelEvent = event as BridgeCancelableEvent;
-  const backButton = getVisibleMarkedBackButton(COMPACT_ACHIEVEMENT_BACK_BUTTON_SELECTOR, doc);
-  if (backButton === undefined) {
-    return;
-  }
-
-  cancelEvent.preventDefault?.();
-  cancelEvent.stopPropagation?.();
-  cancelEvent.stopImmediatePropagation?.();
-  backButton.click();
-}
-
-export function handleCompactProviderCancelBridge(
-  event: Event,
-  doc: Document | undefined = typeof document === "undefined" ? undefined : document,
-): void {
-  const cancelEvent = event as BridgeCancelableEvent;
-  const callback = doc?.defaultView === null || doc?.defaultView === undefined
-    ? undefined
-    : compactProviderCancelCallbacks.get(doc.defaultView);
-  if (callback !== undefined) {
-    cancelEvent.preventDefault?.();
-    cancelEvent.stopPropagation?.();
-    cancelEvent.stopImmediatePropagation?.();
-    callback();
-    return;
-  }
-
-  const backButton = getVisibleMarkedBackButton(COMPACT_PROVIDER_BACK_BUTTON_SELECTOR, doc);
-  if (backButton === undefined) {
-    return;
-  }
-
-  cancelEvent.preventDefault?.();
-  cancelEvent.stopPropagation?.();
-  cancelEvent.stopImmediatePropagation?.();
-  backButton.click();
-}
-
-export function handleCompactGameDetailCancelBridge(
-  event: Event,
-  doc: Document | undefined = typeof document === "undefined" ? undefined : document,
-): void {
-  const callback = doc?.defaultView === null || doc?.defaultView === undefined
-    ? undefined
-    : compactGameDetailCancelCallbacks.get(doc.defaultView);
-  if (callback !== undefined) {
-    const cancelEvent = event as BridgeCancelableEvent;
-    cancelEvent.preventDefault?.();
-    cancelEvent.stopPropagation?.();
-    cancelEvent.stopImmediatePropagation?.();
-    callback();
-    return;
-  }
-
-  const cancelEvent = event as BridgeCancelableEvent;
-  const backButton = getVisibleMarkedBackButton(COMPACT_GAME_DETAIL_BACK_BUTTON_SELECTOR, doc);
-  if (backButton === undefined) {
-    return;
-  }
-
-  cancelEvent.preventDefault?.();
-  cancelEvent.stopPropagation?.();
-  cancelEvent.stopImmediatePropagation?.();
-  backButton.click();
+export function setDeckyCompactCancelBridgesEnabled(enabled: boolean): void {
+  // The lightweight alwaysRender session shell gates the entire compatibility
+  // bridge before passive effect cleanup can leave a hidden callback eligible.
+  compactCancelEnabled = enabled;
 }
 
 export function ensureCompactProviderCancelBridgeRegisteredForBackButtonElement(
   element: Element | null | undefined,
 ): void {
-  if (element === null || element === undefined) {
-    return;
-  }
-
-  const ownerDocument = element.ownerDocument;
-  const ownerWindow = ownerDocument?.defaultView;
-  if (ownerDocument === undefined || ownerWindow === undefined || ownerWindow === null) {
-    return;
-  }
-
-  registerCancelBridgeForWindow(
-    ownerWindow,
-    ownerDocument,
-    compactProviderCancelBridgeListeners,
-    handleCompactProviderCancelBridge,
-  );
+  ensureBridge(element)?.legacyScopes.add("provider");
 }
 
 export function ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement(
   element: Element | null | undefined,
 ): void {
-  if (element === null || element === undefined) {
-    return;
-  }
-
-  const ownerDocument = element.ownerDocument;
-  const ownerWindow = ownerDocument?.defaultView;
-  if (ownerDocument === undefined || ownerWindow === undefined || ownerWindow === null) {
-    return;
-  }
-
-  registerCancelBridgeForWindow(
-    ownerWindow,
-    ownerDocument,
-    compactAchievementCancelBridgeListeners,
-    handleCompactAchievementCancelBridge,
-  );
+  ensureBridge(element)?.legacyScopes.add("achievement");
 }
 
 export function ensureCompactGameDetailCancelBridgeRegisteredForBackButtonElement(
   element: Element | null | undefined,
 ): void {
-  if (element === null || element === undefined) {
-    return;
-  }
-
-  const ownerDocument = element.ownerDocument;
-  const ownerWindow = ownerDocument?.defaultView;
-  if (ownerDocument === undefined || ownerWindow === undefined || ownerWindow === null) {
-    return;
-  }
-
-  registerCancelBridgeForWindow(
-    ownerWindow,
-    ownerDocument,
-    compactGameDetailCancelBridgeListeners,
-    handleCompactGameDetailCancelBridge,
-  );
+  ensureBridge(element)?.legacyScopes.add("game-detail");
 }
 
-/**
- * Registers B for a compact provider state that deliberately has no visible
- * Back action, such as the Steam profile loading screen.
- */
+/** Loading screens can own Back without adding an invisible focus stop. */
 export function registerCompactProviderCancelCallback(
   element: Element | null | undefined,
   onCancel: () => void,
 ): () => void {
-  if (element === null || element === undefined) {
-    return () => undefined;
-  }
-
-  const ownerDocument = element.ownerDocument;
-  const ownerWindow = ownerDocument?.defaultView;
-  if (ownerDocument === undefined || ownerWindow === undefined || ownerWindow === null) {
-    return () => undefined;
-  }
-
-  registerCancelBridgeForWindow(
-    ownerWindow,
-    ownerDocument,
-    compactProviderCancelBridgeListeners,
-    handleCompactProviderCancelBridge,
-  );
-  compactProviderCancelCallbacks.set(ownerWindow, onCancel);
-
-  return () => {
-    if (compactProviderCancelCallbacks.get(ownerWindow) === onCancel) {
-      compactProviderCancelCallbacks.delete(ownerWindow);
-    }
-  };
+  return registerCompactCancelCallback("provider", element, onCancel);
 }
 
-/**
- * Registers B for a compact game layout that deliberately has no visible Back
- * action. The callback is scoped to the mounted Steam game view and is removed
- * on unmount, while legacy game layouts continue using their marked Back pill.
- */
+export function registerCompactAchievementCancelCallback(
+  element: Element | null | undefined,
+  onCancel: () => void,
+): () => void {
+  return registerCompactCancelCallback("achievement", element, onCancel);
+}
+
 export function registerCompactGameDetailCancelCallback(
   element: Element | null | undefined,
   onCancel: () => void,
 ): () => void {
-  if (element === null || element === undefined) {
-    return () => undefined;
+  return registerCompactCancelCallback("game-detail", element, onCancel);
+}
+
+export function handleCompactProviderCancelBridge(event: Event, doc?: Document): void {
+  handleCompactCancel(event, doc, "provider");
+}
+
+export function handleCompactAchievementCancelBridge(event: Event, doc?: Document): void {
+  handleCompactCancel(event, doc, "achievement");
+}
+
+export function handleCompactGameDetailCancelBridge(event: Event, doc?: Document): void {
+  handleCompactCancel(event, doc, "game-detail");
+}
+
+function resetScopeForTests(scope: CompactCancelScope): void {
+  for (const bridge of compactCancelBridges.values()) {
+    bridge.callbacks.delete(scope);
+    bridge.legacyScopes.delete(scope);
+    removeUnusedBridge(bridge);
   }
-
-  const ownerDocument = element.ownerDocument;
-  const ownerWindow = ownerDocument?.defaultView;
-  if (ownerDocument === undefined || ownerWindow === undefined || ownerWindow === null) {
-    return () => undefined;
-  }
-
-  registerCancelBridgeForWindow(
-    ownerWindow,
-    ownerDocument,
-    compactGameDetailCancelBridgeListeners,
-    handleCompactGameDetailCancelBridge,
-  );
-  compactGameDetailCancelCallbacks.set(ownerWindow, onCancel);
-
-  return () => {
-    if (compactGameDetailCancelCallbacks.get(ownerWindow) === onCancel) {
-      compactGameDetailCancelCallbacks.delete(ownerWindow);
-    }
-  };
+  compactCancelEnabled = true;
 }
 
 export function resetCompactProviderCancelBridgeForTests(): void {
-  removeCancelBridgeListeners(compactProviderCancelBridgeListeners);
-  compactProviderCancelCallbacks.clear();
+  resetScopeForTests("provider");
 }
 
 export function resetCompactAchievementCancelBridgeForTests(): void {
-  removeCancelBridgeListeners(compactAchievementCancelBridgeListeners);
+  resetScopeForTests("achievement");
 }
 
 export function resetCompactGameDetailCancelBridgeForTests(): void {
-  removeCancelBridgeListeners(compactGameDetailCancelBridgeListeners);
-  compactGameDetailCancelCallbacks.clear();
+  resetScopeForTests("game-detail");
 }
 
 export function removeDeckyCompactCancelBridges(): void {
-  removeCancelBridgeListeners(compactProviderCancelBridgeListeners);
-  compactProviderCancelCallbacks.clear();
-  removeCancelBridgeListeners(compactAchievementCancelBridgeListeners);
-  removeCancelBridgeListeners(compactGameDetailCancelBridgeListeners);
+  for (const [ownerWindow, bridge] of compactCancelBridges) {
+    ownerWindow.removeEventListener(CANCEL_EVENT_TYPE, bridge.listener, true);
+    bridge.callbacks.clear();
+    bridge.legacyScopes.clear();
+  }
+  compactCancelBridges.clear();
 }

@@ -1,7 +1,9 @@
 import { definePlugin } from "@decky/api";
 import { DeckyBootstrap } from "@platform/decky/bootstrap";
+import { DeckyCompactSession } from "@platform/decky/decky-compact-session";
 import { removeDeckyCompactCancelBridges } from "@platform/decky/decky-full-screen-cancel-bridge";
 import { resetDeckyCompactNavigation } from "@platform/decky/decky-compact-navigation";
+import { resetDeckyCompactAchievementPageState } from "@platform/decky/decky-compact-achievement-page-state";
 import { ensureDeckyGamePageAchievementRoutePatchRegistered } from "@platform/decky/decky-game-page-achievement-bubble";
 import {
   clearDeckyCompactOriginFullScreenSession,
@@ -58,11 +60,13 @@ export default definePlugin(() => {
         style={{ display: "block", width: 150, height: 48, objectFit: "contain" }}
       />
     ),
-    content: <DeckyBootstrap />,
+    alwaysRender: true,
+    content: <DeckyCompactSession><DeckyBootstrap /></DeckyCompactSession>,
     icon: <AchievementCompanionIcon />,
     onDismount() {
       removeDeckyCompactCancelBridges();
       resetDeckyCompactNavigation();
+      resetDeckyCompactAchievementPageState();
       clearDeckyCompactOriginFullScreenSession();
       removeDeckyFullScreenRoutes();
       removeDeckyGamePageAchievementRoutePatch();

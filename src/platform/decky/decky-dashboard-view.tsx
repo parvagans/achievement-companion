@@ -24,7 +24,7 @@ import {
   DECKY_FOCUS_NAV_ROW_CLASS,
 } from "./decky-focus-styles";
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
-import type { CompactAchievementTarget } from "./decky-achievement-detail-view";
+import type { CompactAchievementTarget } from "./decky-compact-achievement-model";
 import { buildAchievementStatus, formatAchievementUnlockModeLabel } from "./decky-achievement-detail-helpers";
 import {
   buildProviderOverviewStats,

@@ -1,7 +1,7 @@
 import type { ResourceState } from "@core/cache";
-import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
-import { useCallback, useState, type FocusEventHandler } from "react";
-import { Field, Focusable, type FocusableProps, PanelSection, PanelSectionRow } from "@decky/ui";
+import type { GameDetailSnapshot } from "@core/domain";
+import { useCallback } from "react";
+import { Field, PanelSection, PanelSectionRow } from "@decky/ui";
 import type { CSSProperties } from "react";
 import {
   DeckyCompletionProgressBar,
@@ -14,33 +14,22 @@ import {
   RetroAchievementsCompletionIndicator,
 } from "./decky-retroachievements-completion-indicator";
 import { DeckyGameArtwork } from "./decky-game-artwork";
-import { DeckyAchievementTypeBadge } from "./decky-achievement-type-badge";
-import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { DeckySystemPill } from "./decky-system-pill";
 import { DeckySteamCompactGameOverview } from "./decky-steam-compact-game-overview";
-import { DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS, DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS, DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
-import type { CompactAchievementTarget } from "./decky-achievement-detail-view";
 import { DeckyCompactPillActionGroup, DeckyCompactPillActionItem } from "./decky-compact-pill-action-item";
 import { ensureCompactGameDetailCancelBridgeRegisteredForBackButtonElement } from "./decky-full-screen-cancel-bridge";
 import {
   formatRetroAchievementsBeatenAtText,
   formatRetroAchievementsMasteredAtText,
-  formatProviderAchievementPointsText,
-  formatProviderAchievementStatusText,
-  isSteamAchievementPresentationProvider,
   shouldRenderRetroAchievementsModeSummaryCard,
-  shouldRenderAchievementModeFilter,
 } from "./decky-achievement-detail-helpers";
-import { sortAchievementsForDisplay } from "./decky-game-detail-ordering";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
+import { DeckyCompactAchievementList } from "./decky-compact-achievement-list";
+import {
+  buildCompactAchievementListModel,
+  type CompactAchievementModeFilter,
+} from "./decky-compact-achievement-model";
 
-const INITIAL_ACHIEVEMENT_LIMIT = 3;
-const ACHIEVEMENT_FILTERS = ["all", "unlocked", "locked"] as const;
-const ACHIEVEMENT_MODE_FILTERS = ["all", "hardcore", "softcore"] as const;
-
-type AchievementFilter = (typeof ACHIEVEMENT_FILTERS)[number];
-type AchievementModeFilter = (typeof ACHIEVEMENT_MODE_FILTERS)[number];
-type DeckyGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
 
 export interface DeckyGameDetailViewProps {
   readonly state: ResourceState<GameDetailSnapshot> & {
@@ -48,8 +37,8 @@ export interface DeckyGameDetailViewProps {
   };
   readonly onBackToDashboard: () => void;
   readonly onOpenFullScreenPage: (() => void) | undefined;
-  readonly onOpenFullScreenAchievements: (() => void) | undefined;
-  readonly onOpenAchievementDetail: (target: CompactAchievementTarget) => void;
+  readonly onOpenCompactAchievements: (() => void) | undefined;
+  readonly onOpenAchievementDetail: (achievementId: string) => void;
 }
 
 function formatTimestamp(epochMs: number | undefined): string {
@@ -79,75 +68,9 @@ function formatDataSourceLabel(isCachedView: boolean): string {
   return isCachedView ? "Cached snapshot" : "Live snapshot";
 }
 
-function formatAchievementFilterLabel(filter: AchievementFilter): string {
-  if (filter === "all") {
-    return "All";
-  }
-
-  if (filter === "unlocked") {
-    return "Unlocked";
-  }
-
-  return "Locked";
-}
-
-function matchesAchievementFilter(
-  achievement: NormalizedAchievement,
-  filter: AchievementFilter,
-): boolean {
-  if (filter === "all") {
-    return true;
-  }
-
-  if (filter === "unlocked") {
-    return achievement.isUnlocked;
-  }
-
-  return !achievement.isUnlocked;
-}
-
-const scrollFocusedElementIntoView: FocusEventHandler<HTMLElement> = (event) => {
-  scrollDeckyFocusTargetIntoView(event.currentTarget);
-};
-
-function formatAchievementFilterEmptyMessage(filter: AchievementFilter): string {
-  if (filter === "all") {
-    return "No achievements were returned for this game.";
-  }
-
-  return `No ${formatAchievementFilterLabel(filter).toLowerCase()} achievements match this filter.`;
-}
-
-function formatAchievementModeLabel(modeFilter: AchievementModeFilter): string {
-  if (modeFilter === "all") {
-    return "All";
-  }
-
-  return modeFilter === "hardcore" ? "Hardcore" : "Softcore";
-}
-
-function matchesAchievementModeFilter(
-  achievement: NormalizedAchievement,
-  modeFilter: AchievementModeFilter,
-): boolean {
-  if (modeFilter === "all") {
-    return true;
-  }
-
-  if (!achievement.isUnlocked) {
-    return true;
-  }
-
-  if (modeFilter === "hardcore") {
-    return achievement.unlockMode !== "softcore";
-  }
-
-  return achievement.unlockMode !== "hardcore";
-}
-
 function getAchievementModeProgressSummary(
-  achievements: readonly NormalizedAchievement[],
-  modeFilter: AchievementModeFilter,
+  achievements: GameDetailSnapshot["achievements"],
+  modeFilter: CompactAchievementModeFilter,
 ): {
   readonly unlockedCount: number;
   readonly points: number | undefined;
@@ -171,16 +94,6 @@ function getAchievementModeProgressSummary(
   return {
     unlockedCount,
     points: hasPoints ? points : undefined,
-  };
-}
-
-function getAchievementBadgeFrameStyle(isUnlocked: boolean): CSSProperties {
-  return {
-    display: "inline-flex",
-    flexShrink: 0,
-    lineHeight: 0,
-    opacity: isUnlocked ? 1 : 0.94,
-    filter: isUnlocked ? "none" : "grayscale(1) contrast(1.12) brightness(0.92)",
   };
 }
 
@@ -333,7 +246,7 @@ function getModeProgressGridStyle(singleColumn: boolean): CSSProperties {
   };
 }
 
-function getModeProgressCardStyle(mode: AchievementModeFilter): CSSProperties {
+function getModeProgressCardStyle(mode: CompactAchievementModeFilter): CSSProperties {
   const isHardcore = mode === "hardcore";
 
   return {
@@ -356,7 +269,7 @@ function getModeProgressCardStyle(mode: AchievementModeFilter): CSSProperties {
   };
 }
 
-function getModeProgressCardTitleStyle(mode: AchievementModeFilter): CSSProperties {
+function getModeProgressCardTitleStyle(mode: CompactAchievementModeFilter): CSSProperties {
   const isHardcore = mode === "hardcore";
 
   return {
@@ -385,398 +298,11 @@ function getModeProgressCardPointsStyle(): CSSProperties {
   };
 }
 
-function getAchievementControlsRowStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 10,
-  };
-}
-
-function getAchievementCardStyle(achievement: NormalizedAchievement): CSSProperties {
-  const isHardcore = achievement.isUnlocked && achievement.unlockMode === "hardcore";
-  const isSoftcore = achievement.isUnlocked && achievement.unlockMode === "softcore";
-  const accentColor = isHardcore
-    ? "rgba(214, 178, 74, 0.78)"
-    : isSoftcore
-      ? "rgba(214, 221, 232, 0.72)"
-      : "rgba(255, 255, 255, 0.12)";
-  const accentBackground = isHardcore
-    ? "linear-gradient(180deg, rgba(214, 178, 74, 0.08), rgba(214, 178, 74, 0.03))"
-    : isSoftcore
-      ? "linear-gradient(180deg, rgba(214, 221, 232, 0.07), rgba(214, 221, 232, 0.03))"
-      : "rgba(255, 255, 255, 0.03)";
-
-  return {
-    display: "grid",
-    gridTemplateColumns: "auto minmax(0, 1fr)",
-    gap: 12,
-    minWidth: 0,
-    boxSizing: "border-box",
-    padding: "11px 12px",
-    borderRadius: 16,
-    border: `1px solid ${accentColor}`,
-    borderLeftWidth: 4,
-    borderLeftStyle: "solid",
-    borderLeftColor: accentColor,
-    background: accentBackground,
-    boxShadow:
-      "inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 8px rgba(0, 0, 0, 0.15)",
-  };
-}
-
-function getAchievementRowTextStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    minWidth: 0,
-  };
-}
-
-function getAchievementRowTitleStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.96)",
-    fontSize: "0.95em",
-    fontWeight: 800,
-    lineHeight: 1.2,
-    minWidth: 0,
-    overflowWrap: "anywhere",
-  };
-}
-
-function getAchievementRowTitleLineStyle(): CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: "4px 7px",
-    minWidth: 0,
-  };
-}
-
-function getAchievementRowMetadataStackStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 3,
-    minWidth: 0,
-  };
-}
-
-function getAchievementRowStatusStyle(achievement: NormalizedAchievement): CSSProperties {
-  const isHardcore = achievement.isUnlocked && achievement.unlockMode === "hardcore";
-  const isSoftcore = achievement.isUnlocked && achievement.unlockMode === "softcore";
-
-  return {
-    color: isHardcore
-      ? "rgba(232, 201, 102, 0.95)"
-      : isSoftcore
-        ? "rgba(220, 225, 233, 0.95)"
-        : "rgba(255, 255, 255, 0.7)",
-    fontSize: "0.8em",
-    fontWeight: 800,
-    lineHeight: 1.2,
-  };
-}
-
-function getAchievementRowDetailStyle(): CSSProperties {
-  return {
-    color: "rgba(255, 255, 255, 0.72)",
-    fontSize: "0.8em",
-    lineHeight: 1.2,
-  };
-}
-
-function getAchievementRowIconStyle(): CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "flex-start",
-    justifyContent: "center",
-    paddingTop: 2,
-  };
-}
-
-function getAchievementRowsLayoutStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 8,
-  };
-}
-
-function AchievementBadgeIcon({
-  achievement,
-}: {
-  readonly achievement: NormalizedAchievement;
-}): JSX.Element | null {
-  if (achievement.badgeImageUrl === undefined) {
-    return null;
-  }
-
-  return (
-    <span style={getAchievementBadgeFrameStyle(achievement.isUnlocked)}>
-      <DeckyGameArtwork compact src={achievement.badgeImageUrl} size={32} title={achievement.title} />
-    </span>
-  );
-}
-
-function AchievementRowCard({
-  achievement,
-  game,
-  onBackToDashboard,
-  onOpenAchievementDetail,
-}: {
-  readonly achievement: NormalizedAchievement;
-  readonly game: GameDetailSnapshot["game"];
-  readonly onBackToDashboard: () => void;
-  readonly onOpenAchievementDetail: (target: CompactAchievementTarget) => void;
-}): JSX.Element {
-  const [isFocused, setIsFocused] = useState(false);
-  const isSteamProvider = isSteamAchievementPresentationProvider(game.providerId);
-  const statusText = formatProviderAchievementStatusText(game.providerId, achievement);
-  const pointsText = formatProviderAchievementPointsText(game.providerId, achievement.points);
-  const unlockedAt = achievement.unlockedAt;
-
-  return (
-    <Focusable
-      className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
-      noFocusRing
-      role="button"
-      aria-label={`${achievement.title} achievement detail`}
-      onActivate={() => {
-        onOpenAchievementDetail({
-          game: {
-            providerId: game.providerId,
-            gameId: game.gameId,
-            title: game.title,
-            platformLabel: game.platformLabel,
-            coverImageUrl: game.coverImageUrl,
-          },
-          achievement,
-        });
-      }}
-      onClick={() => {
-        onOpenAchievementDetail({
-          game: {
-            providerId: game.providerId,
-            gameId: game.gameId,
-            title: game.title,
-            platformLabel: game.platformLabel,
-            coverImageUrl: game.coverImageUrl,
-          },
-          achievement,
-        });
-      }}
-      onCancel={onBackToDashboard}
-      onFocus={(event) => {
-        setIsFocused(true);
-        scrollFocusedElementIntoView(event);
-      }}
-      onGamepadFocus={((event) => {
-        setIsFocused(true);
-        scrollDeckyFocusTargetIntoView(event.currentTarget);
-      }) satisfies DeckyGamepadFocusHandler}
-      onBlur={() => {
-        setIsFocused(false);
-      }}
-      style={{
-        ...getAchievementCardStyle(achievement),
-        ...(isFocused
-          ? {
-              boxShadow:
-                "0 0 0 1px rgba(96, 165, 250, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 4px 16px rgba(0, 0, 0, 0.24)",
-            }
-          : {}),
-      }}
-    >
-      <div style={getAchievementRowIconStyle()}>
-        {achievement.badgeImageUrl !== undefined ? <AchievementBadgeIcon achievement={achievement} /> : null}
-      </div>
-
-      <div style={getAchievementRowTextStyle()}>
-        <div style={getAchievementRowTitleLineStyle()}>
-          <span style={getAchievementRowTitleStyle()}>{achievement.title}</span>
-          <DeckyAchievementTypeBadge classification={achievement.classification} />
-        </div>
-        {isSteamProvider && achievement.description !== undefined ? (
-          <div style={getAchievementRowDetailStyle()}>{achievement.description}</div>
-        ) : null}
-        <div style={getAchievementRowMetadataStackStyle()}>
-          <div style={getAchievementRowStatusStyle(achievement)}>{statusText}</div>
-          {pointsText !== undefined ? (
-            <div style={getAchievementRowDetailStyle()}>{pointsText}</div>
-          ) : null}
-          {!isSteamProvider && unlockedAt !== undefined ? (
-            <div style={getAchievementRowDetailStyle()}>{`Unlocked ${formatTimestamp(unlockedAt)}`}</div>
-          ) : null}
-        </div>
-      </div>
-    </Focusable>
-  );
-}
-
-interface AchievementSectionBodyProps {
-  readonly achievementModeFilter: AchievementModeFilter;
-  readonly achievementFilter: AchievementFilter;
-  readonly achievements: readonly NormalizedAchievement[];
-  readonly showAchievementModeFilter: boolean;
-  readonly canLoadMoreAchievements: boolean;
-  readonly canShowAllAchievements: boolean;
-  readonly onAchievementModeFilterChange: (filter: AchievementModeFilter) => void;
-  readonly onAchievementFilterChange: (filter: AchievementFilter) => void;
-  readonly onOpenAchievementDetail: (target: CompactAchievementTarget) => void;
-  readonly onLoadFiveMoreAchievements: () => void;
-  readonly onShowAllAchievements: () => void;
-  readonly onBackToDashboard: () => void;
-  readonly game: GameDetailSnapshot["game"];
-}
-
-function AchievementSectionBody({
-  achievementModeFilter,
-  achievementFilter,
-  achievements,
-  showAchievementModeFilter,
-  canLoadMoreAchievements,
-  canShowAllAchievements,
-  onAchievementModeFilterChange,
-  onAchievementFilterChange,
-  onOpenAchievementDetail,
-  onLoadFiveMoreAchievements,
-  onShowAllAchievements,
-  onBackToDashboard,
-  game,
-}: AchievementSectionBodyProps): JSX.Element {
-  return (
-    <>
-      <PanelSectionRow>
-        <div style={getGameDetailSectionCardStyle()}>
-          <Focusable
-            flow-children="left-right"
-            role="radiogroup"
-            aria-label="Achievement filters"
-            className={DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS}
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-              gap: 8,
-              width: "100%",
-            }}
-          >
-            {showAchievementModeFilter
-              ? ACHIEVEMENT_MODE_FILTERS.map((filter) => {
-                  const active = filter === achievementModeFilter;
-                  const optionClassName = [
-                    DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS,
-                    active ? DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS : undefined,
-                  ]
-                    .filter((v): v is string => v !== undefined)
-                    .join(" ");
-
-                  return (
-                    <Focusable
-                      key={`mode-${filter}`}
-                      className={optionClassName}
-                      focusClassName={DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS}
-                      focusWithinClassName={DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS}
-                      noFocusRing
-                      role="radio"
-                      aria-checked={active}
-                      aria-label={formatAchievementModeLabel(filter)}
-                      onActivate={() => onAchievementModeFilterChange(filter)}
-                      onClick={() => onAchievementModeFilterChange(filter)}
-                      onCancelButton={onBackToDashboard}
-                      onFocus={scrollFocusedElementIntoView}
-                    >
-                      {formatAchievementModeLabel(filter)}
-                    </Focusable>
-                  );
-                })
-              : null}
-
-            {ACHIEVEMENT_FILTERS.map((filter) => {
-              const active = filter === achievementFilter;
-              const optionClassName = [
-                DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS,
-                active ? DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS : undefined,
-              ]
-                .filter((v): v is string => v !== undefined)
-                .join(" ");
-
-              return (
-                <Focusable
-                  key={`state-${filter}`}
-                  className={optionClassName}
-                  focusClassName={DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS}
-                  focusWithinClassName={DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS}
-                  noFocusRing
-                  role="radio"
-                  aria-checked={active}
-                  aria-label={formatAchievementFilterLabel(filter)}
-                  onActivate={() => onAchievementFilterChange(filter)}
-                  onClick={() => onAchievementFilterChange(filter)}
-                  onCancelButton={onBackToDashboard}
-                  onFocus={scrollFocusedElementIntoView}
-                >
-                  {formatAchievementFilterLabel(filter)}
-                </Focusable>
-              );
-            })}
-          </Focusable>
-
-          {achievements.length > 0 ? (
-            <div style={getAchievementControlsRowStyle()}>
-              <div style={getAchievementRowsLayoutStyle()}>
-                {achievements.map((achievement) => (
-                  <AchievementRowCard
-                    key={achievement.achievementId}
-                    achievement={achievement}
-                    game={game}
-                    onBackToDashboard={onBackToDashboard}
-                    onOpenAchievementDetail={onOpenAchievementDetail}
-                  />
-                ))}
-              </div>
-
-              {canLoadMoreAchievements || canShowAllAchievements ? (
-                <DeckyCompactPillActionGroup>
-                  {canLoadMoreAchievements ? (
-                    <DeckyCompactPillActionItem
-                      label="Show 5 more"
-                      onClick={onLoadFiveMoreAchievements}
-                      onCancelButton={onBackToDashboard}
-                    />
-                  ) : null}
-
-                  {canShowAllAchievements ? (
-                    <DeckyCompactPillActionItem
-                      label="Show all"
-                      onClick={onShowAllAchievements}
-                      onCancelButton={onBackToDashboard}
-                    />
-                  ) : null}
-                </DeckyCompactPillActionGroup>
-              ) : null}
-            </div>
-          ) : (
-            <Field
-              bottomSeparator="none"
-              description={formatAchievementFilterEmptyMessage(achievementFilter)}
-              label="Achievements"
-              onCancelButton={onBackToDashboard}
-            />
-          )}
-        </div>
-      </PanelSectionRow>
-    </>
-  );
-}
-
 export function DeckyGameDetailView({
   state,
   onBackToDashboard,
   onOpenFullScreenPage,
-  onOpenFullScreenAchievements,
+  onOpenCompactAchievements,
   onOpenAchievementDetail,
 }: DeckyGameDetailViewProps): JSX.Element {
   const compactGameDetailBackButtonRef = useCallback((node: HTMLDivElement | null) => {
@@ -785,18 +311,8 @@ export function DeckyGameDetailView({
   const snapshot = state.data;
   const game = snapshot.game;
   const isSteamGame = game.providerId === "steam";
-  const showAchievementModeFilter = shouldRenderAchievementModeFilter(game.providerId);
   const headerArtworkUrl = game.coverImageUrl;
-  const [achievementFilter, setAchievementFilter] = useState<AchievementFilter>("all");
-  const [achievementModeFilter, setAchievementModeFilter] = useState<AchievementModeFilter>("all");
-  const [visibleAchievementLimit, setVisibleAchievementLimit] = useState(INITIAL_ACHIEVEMENT_LIMIT);
-  const totalAchievements = snapshot.achievements.length;
-  const orderedAchievements = sortAchievementsForDisplay(snapshot.achievements);
-  const filteredAchievements = orderedAchievements.filter((achievement) =>
-    matchesAchievementFilter(achievement, achievementFilter) &&
-    (showAchievementModeFilter ? matchesAchievementModeFilter(achievement, achievementModeFilter) : true),
-  );
-  const filteredAchievementCount = filteredAchievements.length;
+  const achievementListModel = buildCompactAchievementListModel(snapshot);
   const completionPercent = getCompletionPercent(snapshot.game.summary);
   const completionIndicatorState = getRetroAchievementsCompletionIndicatorState(game);
   const isBeaten =
@@ -830,10 +346,6 @@ export function DeckyGameDetailView({
     points: hardcoreModeProgress.points,
   });
   const visibleModeCardCount = Number(showSoftcoreModeCard) + Number(showHardcoreModeCard);
-  const hasAchievements = totalAchievements > 0;
-  const canLoadMoreAchievements = visibleAchievementLimit < filteredAchievementCount;
-  const canShowAllAchievements = filteredAchievementCount > visibleAchievementLimit + 5;
-  const achievements = filteredAchievements.slice(0, visibleAchievementLimit);
   const isCachedView = state.status === "stale";
   const refreshTimestamp = state.lastUpdatedAt ?? snapshot.refreshedAt;
 
@@ -843,7 +355,7 @@ export function DeckyGameDetailView({
         <DeckySteamCompactGameOverview
           onBack={onBackToDashboard}
           onOpenFullScreen={onOpenFullScreenPage}
-          onViewAchievements={onOpenFullScreenAchievements}
+          onViewAchievements={onOpenCompactAchievements}
           snapshot={snapshot}
         />
       </>
@@ -953,41 +465,14 @@ export function DeckyGameDetailView({
       </PanelSection>
 
       <PanelSection title="ACHIEVEMENTS">
-        {hasAchievements ? (
-          <AchievementSectionBody
-            achievementModeFilter={achievementModeFilter}
-            achievementFilter={achievementFilter}
-            achievements={achievements}
-            showAchievementModeFilter={showAchievementModeFilter}
-            canLoadMoreAchievements={canLoadMoreAchievements}
-            canShowAllAchievements={canShowAllAchievements}
-            onAchievementModeFilterChange={(filter) => {
-              setAchievementModeFilter(filter);
-              setVisibleAchievementLimit(INITIAL_ACHIEVEMENT_LIMIT);
-            }}
-            onAchievementFilterChange={(filter) => {
-              setAchievementFilter(filter);
-              setVisibleAchievementLimit(INITIAL_ACHIEVEMENT_LIMIT);
-            }}
-            onOpenAchievementDetail={onOpenAchievementDetail}
-            onLoadFiveMoreAchievements={() => {
-              setVisibleAchievementLimit((current) => Math.min(filteredAchievementCount, current + 5));
-            }}
-            onShowAllAchievements={() => {
-              setVisibleAchievementLimit(filteredAchievementCount);
-            }}
-            onBackToDashboard={onBackToDashboard}
-            game={game}
+        <PanelSectionRow>
+          <DeckyCompactAchievementList
+            embedded
+            model={achievementListModel}
+            onBack={onBackToDashboard}
+            onOpenAchievement={onOpenAchievementDetail}
           />
-        ) : (
-          <PanelSectionRow>
-            <Field
-              bottomSeparator="none"
-              description={formatAchievementFilterEmptyMessage(achievementFilter)}
-              label="Achievements"
-            />
-          </PanelSectionRow>
-        )}
+        </PanelSectionRow>
       </PanelSection>
 
       <PanelSection title="Snapshot">

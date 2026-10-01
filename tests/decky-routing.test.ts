@@ -11,6 +11,14 @@ import {
 } from "../src/platform/decky/decky-full-screen-cancel-bridge";
 import { createDeckyRouteRegistration } from "../src/platform/decky/decky-route-registration";
 import {
+  createDeckyCompactSessionLifecycle,
+  endDeckyCompactSession,
+} from "../src/platform/decky/decky-compact-session-lifecycle";
+import {
+  readDeckyCompactAchievementPageState,
+  writeDeckyCompactAchievementPageState,
+} from "../src/platform/decky/decky-compact-achievement-page-state";
+import {
   buildDeckyFullScreenAchievementHistoryRoute,
   buildDeckyFullScreenAchievementRoute,
   buildDeckyFullScreenCompletionProgressRoute,
@@ -320,7 +328,39 @@ test("plugin cleanup removes every compact cancel bridge listener", () => {
   ensureCompactGameDetailCancelBridgeRegisteredForBackButtonElement(element);
   removeDeckyCompactCancelBridges();
 
-  assert.deepStrictEqual(removedEventTypes, ["vgp_oncancel", "vgp_oncancel", "vgp_oncancel"]);
+  // All compact scopes share one capture listener per Steam UI window.
+  assert.deepStrictEqual(removedEventTypes, ["vgp_oncancel"]);
+});
+
+test("compact session visibility suspends cancel handling without ending its destination", () => {
+  const changes: string[] = [];
+  setDeckyCompactNavigation({ kind: "settings", providerId: "steam" });
+  writeDeckyCompactAchievementPageState("steam", "2321470", {
+    filter: "locked",
+    modeFilter: "all",
+    visibleCount: 52,
+    focusedAchievementId: "ACH_47",
+    scrollTop: 734,
+  });
+  const lifecycle = createDeckyCompactSessionLifecycle({
+    setCancelEnabled: (enabled) => changes.push(`cancel:${enabled}`),
+    endSession: () => {
+      endDeckyCompactSession();
+      changes.push("end");
+    },
+  });
+
+  lifecycle.setVisible(false);
+  assert.deepStrictEqual(readDeckyCompactNavigation(), { kind: "settings", providerId: "steam" });
+  assert.equal(readDeckyCompactAchievementPageState("steam", "2321470", 12).scrollTop, 734);
+  lifecycle.setVisible(true);
+  lifecycle.end();
+  lifecycle.end();
+  lifecycle.setVisible(true);
+
+  assert.deepStrictEqual(changes, ["cancel:false", "cancel:true", "cancel:false", "end"]);
+  assert.deepStrictEqual(readDeckyCompactNavigation(), { kind: "provider-chooser" });
+  assert.equal(readDeckyCompactAchievementPageState("steam", "2321470", 12).scrollTop, 0);
 });
 
 test("compact-to-full-screen navigation enters the route before closing QAM", () => {

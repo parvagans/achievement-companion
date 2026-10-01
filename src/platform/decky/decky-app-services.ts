@@ -320,6 +320,17 @@ export async function loadDeckySteamHuntersEnrichedGameDetail(
   return enrichedSnapshot;
 }
 
+/**
+ * Resolves the existing shared SteamHunters per-game request without applying
+ * the provider's general 750ms optional-enrichment budget. Compact achievement
+ * destinations use this to wait for a terminal result before rendering.
+ */
+export function loadDeckySteamHuntersGameData(
+  appId: number,
+): Promise<import("../../providers/steamhunters/types").SteamHuntersGameData | undefined> {
+  return deckySteamHuntersService.loadGameData(appId);
+}
+
 /** Loads optional SteamHunters profile totals without refreshing Steam account data. */
 export async function loadDeckySteamHuntersProfileState(
   steamId: string,
