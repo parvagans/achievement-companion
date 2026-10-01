@@ -52,7 +52,7 @@ export interface DeckySteamCompactProfileProps {
   readonly onCancel: () => void;
 }
 
-function scrollSteamCompactProfileToTop(target: HTMLElement, isStillFocused: () => boolean): void {
+function scrollCompactViewToTop(target: HTMLElement, isStillFocused: () => boolean): void {
   const scrollable = findDeckyScrollableAncestor(target);
   if (scrollable === null) {
     return;
@@ -78,7 +78,7 @@ function scrollFocusedCompactAction(
   isStillFocused: () => boolean,
 ): void {
   if (scrollToTopOnFocus) {
-    scrollSteamCompactProfileToTop(target, isStillFocused);
+    scrollCompactViewToTop(target, isStillFocused);
     return;
   }
 

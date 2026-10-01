@@ -1,5 +1,6 @@
 import type { GameDetailSnapshot } from "@core/domain";
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { Focusable, type FocusableProps } from "@decky/ui";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FocusEventHandler, type ReactNode } from "react";
 import { DeckyCompletionProgressBar, getCompletionPercent } from "./decky-completion-progress-bar";
 import { loadDeckySteamHuntersEnrichedGameDetail } from "./decky-app-services";
 import { DeckyGameArtwork } from "./decky-game-artwork";
@@ -12,6 +13,7 @@ import {
 import { buildDeckySteamHuntersGameViewModel } from "./decky-steam-hunters-view-model";
 import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
 import { getSteamHuntersGameEnrichment } from "../../providers/steamhunters";
+import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import calendarIconUrl from "./assets/calendar.svg";
 import clockIconUrl from "./assets/clock.svg";
 import externalLinkIconUrl from "./assets/external-link.svg";
@@ -130,6 +132,36 @@ function getSectionCardStyle(): CSSProperties {
     background: "linear-gradient(145deg, rgba(10, 43, 64, 0.88), rgba(7, 27, 42, 0.9))",
     boxSizing: "border-box",
   };
+}
+
+/** An intentionally no-ring navigation anchor lets controller focus scroll through this passive information page. */
+function CompactGameSectionFocusTarget({
+  label,
+  children,
+}: {
+  readonly label: string;
+  readonly children: ReactNode;
+}): JSX.Element {
+  const onFocus: FocusEventHandler<HTMLElement> = (event) => {
+    scrollDeckyFocusTargetIntoView(event.currentTarget);
+  };
+  const onGamepadFocus: NonNullable<FocusableProps["onGamepadFocus"]> = (event) => {
+    scrollDeckyFocusTargetIntoView(event.currentTarget);
+  };
+
+  return (
+    <Focusable
+      aria-label={`${label} section`}
+      noFocusRing
+      onActivate={() => {}}
+      onFocus={onFocus}
+      onGamepadFocus={onGamepadFocus}
+      role="group"
+      style={getSectionCardStyle()}
+    >
+      {children}
+    </Focusable>
+  );
 }
 
 function getSectionLabelStyle(): CSSProperties {
@@ -488,6 +520,7 @@ export function DeckySteamCompactGameOverview({
           onActivate={onOpenFullScreen}
           onCancel={onBack}
           preferredFocus
+          scrollToTopOnFocus
           tone="primary"
         >
           <span style={getPrimaryActionLabelStyle()}>
@@ -511,30 +544,32 @@ export function DeckySteamCompactGameOverview({
         </DeckySteamCompactAction>
       ) : null}
 
-      <div style={getSectionCardStyle()}>
+      <CompactGameSectionFocusTarget label="Your Progress">
         <div style={getSectionLabelStyle()}>Your Progress</div>
         <div style={getProgressSummaryStyle()}>
           <img alt="" aria-hidden="true" src={trophyIconUrl} style={{ width: 17, height: 17, filter: "brightness(0) saturate(100%) invert(68%) sepia(88%) saturate(1878%) hue-rotate(160deg) brightness(98%) contrast(101%)" }} />
           <span>{`${formatCount(game.summary.unlockedCount)} / ${formatCount(game.summary.totalCount)} achievements`}</span>
         </div>
         {completionPercent !== undefined ? <DeckyCompletionProgressBar compact percent={completionPercent} /> : null}
-      </div>
+      </CompactGameSectionFocusTarget>
 
-      <div style={getSnapshotGridStyle()}>
-        <SnapshotMetric
-          iconUrl={clockIconUrl}
-          label="Play Time"
-          value={formatSteamPlaytimeMinutes(game.playtimeForeverMinutes) ?? "—"}
-        />
-        <SnapshotMetric
-          iconStyle={{ width: 26, height: 15, objectFit: "contain" }}
-          iconUrl={steamDeckIconUrl}
-          label="Steam Deck"
-          value={formatSteamPlaytimeMinutes(game.playtimeDeckForeverMinutes) ?? "—"}
-        />
-      </div>
+      <CompactGameSectionFocusTarget label="Play Time and Steam Deck">
+        <div style={getSnapshotGridStyle()}>
+          <SnapshotMetric
+            iconUrl={clockIconUrl}
+            label="Play Time"
+            value={formatSteamPlaytimeMinutes(game.playtimeForeverMinutes) ?? "—"}
+          />
+          <SnapshotMetric
+            iconStyle={{ width: 26, height: 15, objectFit: "contain" }}
+            iconUrl={steamDeckIconUrl}
+            label="Steam Deck"
+            value={formatSteamPlaytimeMinutes(game.playtimeDeckForeverMinutes) ?? "—"}
+          />
+        </div>
+      </CompactGameSectionFocusTarget>
 
-      <div style={getSectionCardStyle()}>
+      <CompactGameSectionFocusTarget label="Achievement Set Status">
         <div style={getSectionLabelStyle()}>Achievement Set Status (SteamHunters)</div>
         {status === undefined ? (
           <div style={{ color: "rgba(174, 207, 231, 0.78)", fontSize: 10, lineHeight: 1.25, textAlign: "center" }}>SteamHunters data unavailable.</div>
@@ -558,9 +593,9 @@ export function DeckySteamCompactGameOverview({
             </div>
           </>
         )}
-      </div>
+      </CompactGameSectionFocusTarget>
 
-      <div style={getSectionCardStyle()}>
+      <CompactGameSectionFocusTarget label="SteamHunters Stats">
         <div style={getSectionLabelStyle()}>SteamHunters Stats</div>
         <div style={getSteamHuntersStatsStyle()}>
           <div style={getSteamHuntersStatStyle()}>
@@ -579,9 +614,9 @@ export function DeckySteamCompactGameOverview({
             <span style={getMetricValueStyle()}>{personalAchievementDuration}</span>
           </div>
         </div>
-      </div>
+      </CompactGameSectionFocusTarget>
 
-      <div style={getSectionCardStyle()}>
+      <CompactGameSectionFocusTarget label="Game Info">
         <div style={getSectionLabelStyle()}>Game Info</div>
         <div style={getGameInfoStyle()}>
           <GameInfoRow label="App ID" value={game.appid?.toString() ?? "—"} />
@@ -589,7 +624,7 @@ export function DeckySteamCompactGameOverview({
           <GameInfoRow label="Total Steam hours" value={formatSteamPlaytimeMinutes(game.playtimeForeverMinutes) ?? "—"} />
           <GameInfoRow label="Total Deck hours" value={formatSteamPlaytimeMinutes(game.playtimeDeckForeverMinutes) ?? "—"} />
         </div>
-      </div>
+      </CompactGameSectionFocusTarget>
     </section>
   );
 }
