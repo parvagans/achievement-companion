@@ -82,6 +82,17 @@ test("Steam compact profile matches the refined controller-first information hie
 
 });
 
+test("Steam compact achievement details focus a child control instead of trapping QAM navigation on the page wrapper", () => {
+  const surfaceStart = bootstrapSource.indexOf("function DeckySteamCompactAchievementDetailSurface");
+  const surfaceEnd = bootstrapSource.indexOf("function CompactAchievementDetailScreen", surfaceStart);
+  const surfaceSource = bootstrapSource.slice(surfaceStart, surfaceEnd);
+
+  assert.ok(surfaceStart >= 0 && surfaceEnd > surfaceStart);
+  assert.match(surfaceSource, /The page wrapper must not own focus[\s\S]*\[role='group'\]\[aria-label\^='Achievement '\]/u);
+  assert.match(surfaceSource, /<div[\s\S]*aria-label="Achievement details"[\s\S]*\{children\}[\s\S]*<\/div>/u);
+  assert.doesNotMatch(surfaceSource, /<Focusable/u);
+});
+
 test("provider and Steam use explicit native entry scopes without changing RetroAchievements", () => {
   const providerLauncherStart = bootstrapSource.indexOf("function ProviderLauncherCard");
   const providerLauncherEnd = bootstrapSource.indexOf("function formatSteamLibraryScanUpdatedLabel", providerLauncherStart);

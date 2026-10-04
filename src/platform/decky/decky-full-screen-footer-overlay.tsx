@@ -301,6 +301,7 @@ export function DeckyFullScreenFooterOverlay({
   onPreviousNavigationItem,
   onNextNavigationItem,
   onHeightChange,
+  secondaryActionLabel,
   isActive = true,
 }: {
   readonly ariaLabel: string;
@@ -309,6 +310,7 @@ export function DeckyFullScreenFooterOverlay({
   readonly onPreviousNavigationItem: () => void;
   readonly onNextNavigationItem: () => void;
   readonly onHeightChange?: (height: number) => void;
+  readonly secondaryActionLabel?: string;
   /** A retained full-screen tab must not own the footer or controller input. */
   readonly isActive?: boolean;
 }): JSX.Element {
@@ -467,6 +469,9 @@ export function DeckyFullScreenFooterOverlay({
           <span style={getShoulderHintStyle()}>R1</span>
           <span style={getActionLegendStyle()}>
             <DeckyFullScreenFooterActionHint button="A" label="Select" />
+            {secondaryActionLabel !== undefined
+              ? <DeckyFullScreenFooterActionHint button="Y" label={secondaryActionLabel} />
+              : null}
             <DeckyFullScreenFooterActionHint button="B" label="Back" />
           </span>
         </div>,

@@ -29,12 +29,14 @@ export function DeckySteamGameSectionNavigation({
   onPreviousSection,
   onNextSection,
   onHeightChange,
+  secondaryActionLabel,
 }: {
   readonly activeSection: DeckySteamGameSectionId;
   readonly sections: readonly DeckySteamGameSection[];
   readonly onPreviousSection: () => void;
   readonly onNextSection: () => void;
   readonly onHeightChange: (height: number) => void;
+  readonly secondaryActionLabel?: string;
 }): JSX.Element {
   return (
     <DeckyFullScreenFooterOverlay
@@ -44,6 +46,7 @@ export function DeckySteamGameSectionNavigation({
         onHeightChange={onHeightChange}
         onNextNavigationItem={onNextSection}
         onPreviousNavigationItem={onPreviousSection}
+        {...(secondaryActionLabel !== undefined ? { secondaryActionLabel } : {})}
       />
   );
 }

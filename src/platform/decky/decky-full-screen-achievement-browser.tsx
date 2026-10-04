@@ -1,6 +1,15 @@
 import { useRef, useState, type CSSProperties, type ComponentProps, type FocusEventHandler } from "react";
 import type { NormalizedAchievement } from "@core/domain";
-import { Field, Focusable, Menu, MenuItem, PanelSectionRow, showContextMenu } from "@decky/ui";
+import {
+  Field,
+  Focusable,
+  Menu,
+  MenuItem,
+  NavEntryPositionPreferences,
+  PanelSectionRow,
+  showContextMenu,
+  type GamepadEvent,
+} from "@decky/ui";
 import { shouldRenderAchievementModeFilter } from "./decky-achievement-detail-helpers";
 import { DeckyFullScreenAchievementRow } from "./decky-full-screen-achievement-row";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
@@ -567,6 +576,7 @@ export interface DeckyFullScreenAchievementBrowserProps {
   readonly onAchievementAvailabilityFilterChange: (filter: AchievementAvailabilityFilter) => void;
   readonly onOpenAchievementDetail: ((achievementId: string) => void) | undefined;
   readonly onBack: () => void;
+  readonly onJumpToTop?: () => void;
   readonly onFocusAchievement?: (achievementId: string) => void;
   readonly steamHuntersAchievementsBySteamAchievementId?: Readonly<Record<string, SteamHuntersAchievement>>;
   readonly steamHuntersAchievementGroupsBySteamAchievementId?: Readonly<Record<string, SteamHuntersAchievementGroup>>;
@@ -578,7 +588,7 @@ export function DeckyFullScreenAchievementBrowser({
   achievementSummary, allAchievements, achievements, providerId,
   filteredAchievementCount, onAchievementFilterChange, onAchievementModeFilterChange,
   onAchievementGroupFilterChange, onAchievementAvailabilityFilterChange,
-  onOpenAchievementDetail, onBack, onFocusAchievement, steamHuntersAchievementsBySteamAchievementId,
+  onOpenAchievementDetail, onBack, onJumpToTop, onFocusAchievement, steamHuntersAchievementsBySteamAchievementId,
   steamHuntersAchievementGroupsBySteamAchievementId, steamHuntersAchievementGroups,
 }: DeckyFullScreenAchievementBrowserProps): JSX.Element {
   const showAchievementModeFilter = shouldRenderAchievementModeFilter(providerId);
@@ -588,7 +598,23 @@ export function DeckyFullScreenAchievementBrowser({
   const visibleGroupFilter = groupOptions.includes(achievementGroupFilter) ? achievementGroupFilter : "all";
   const visibleAvailabilityFilter = availabilityOptions.includes(achievementAvailabilityFilter) ? achievementAvailabilityFilter : "all";
   return (
-    <div style={getAchievementBrowserStackStyle()}>
+    <Focusable
+      flow-children="vertical"
+      navEntryPreferPosition={NavEntryPositionPreferences.FIRST}
+      noFocusRing
+      {...(onJumpToTop !== undefined
+        ? {
+            onOptionsActionDescription: "Top",
+            onOptionsButton: (event: GamepadEvent): void => {
+              event.preventDefault();
+              event.stopPropagation();
+              onJumpToTop();
+            },
+          }
+        : {})}
+      tabIndex={-1}
+      style={getAchievementBrowserStackStyle()}
+    >
       {isSteamProvider ? (
         <SteamAchievementFilterBar
           achievementFilter={achievementFilter}
@@ -649,24 +675,31 @@ export function DeckyFullScreenAchievementBrowser({
         </div>
       ) : null}
       {achievements.length > 0 ? (
-        <div style={getAchievementRowsLayoutStyle()}>
+        <Focusable
+          flow-children="vertical"
+          navEntryPreferPosition={NavEntryPositionPreferences.FIRST}
+          noFocusRing
+          tabIndex={-1}
+          style={getAchievementRowsLayoutStyle()}
+        >
           {achievements.map((achievement) => (
             <PanelSectionRow key={achievement.achievementId}>
               <DeckyFullScreenAchievementRow
                 achievement={achievement}
                 onOpenAchievementDetail={onOpenAchievementDetail}
                 onBack={onBack}
+                {...(onJumpToTop !== undefined ? { onJumpToTop } : {})}
                 {...(onFocusAchievement !== undefined ? { onFocusAchievement } : {})}
                 steamHuntersAchievement={steamHuntersAchievementsBySteamAchievementId?.[achievement.achievementId]}
               />
             </PanelSectionRow>
           ))}
-        </div>
+        </Focusable>
       ) : (
         <PanelSectionRow>
           <Field bottomSeparator="none" description={formatAchievementFilterEmptyMessage(achievementFilter)} label="Achievements" />
         </PanelSectionRow>
       )}
-    </div>
+    </Focusable>
   );
 }

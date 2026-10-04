@@ -1,5 +1,10 @@
-import { useState, type CSSProperties } from "react";
-import { Focusable } from "@decky/ui";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  Focusable,
+  GamepadButton,
+  NavEntryPositionPreferences,
+  type GamepadEvent,
+} from "@decky/ui";
 import type { NormalizedAchievement } from "@core/domain";
 import {
   getSteamHuntersAchievementGroupKind,
@@ -12,6 +17,7 @@ import { DeckyFullScreenAchievementRow } from "./decky-full-screen-achievement-r
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
+import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
 
 export interface DeckySteamAchievementGroupSection {
@@ -22,6 +28,8 @@ export interface DeckySteamAchievementGroupSection {
   readonly artworkAppId?: number;
   readonly achievements: readonly NormalizedAchievement[];
 }
+
+const STEAM_GROUP_NAVIGATION_SOUND_URL = "/sounds/deck_ui_navigation.wav";
 
 function getGroupId(group: SteamHuntersAchievementGroup, index: number): string {
   const identity = group.dlcAppId ?? group.dlcAppName ?? group.name ?? "base-game";
@@ -261,6 +269,7 @@ export function DeckySteamAchievementGroupsSection({
   const groupArtworkWidth = 260;
   const groupArtworkHeight = 112;
   const [focusedGroupId, setFocusedGroupId] = useState<string | undefined>(undefined);
+  const navigationSoundRef = useRef<HTMLAudioElement | null>(null);
   const toggleGroup = (groupId: string): void => {
     onExpandedGroupIdsChange(
       expandedGroupIds.includes(groupId)
@@ -273,10 +282,61 @@ export function DeckySteamAchievementGroupsSection({
     onFocusGroup(groupId);
     scrollDeckyFocusTargetIntoView(target);
   };
+  const playGroupNavigationSound = (ownerDocument: Document): void => {
+    const sound = navigationSoundRef.current ?? ownerDocument.createElement("audio");
+    if (navigationSoundRef.current === null) {
+      sound.preload = "auto";
+      sound.src = STEAM_GROUP_NAVIGATION_SOUND_URL;
+      navigationSoundRef.current = sound;
+    }
+    sound.currentTime = 0;
+    void sound.play().catch(() => undefined);
+  };
+  const handleFirstGroupDirection = (event: GamepadEvent): void => {
+    if (event.detail.button !== GamepadButton.DIR_UP && event.detail.button !== GamepadButton.DIR_DOWN) {
+      return;
+    }
+
+    const source = event.currentTarget as HTMLElement;
+    const groupContainer = source.closest<HTMLElement>("[data-achievement-companion-steam-group-container]");
+    const groupsRoot = source.closest<HTMLElement>("[data-achievement-companion-steam-groups-section]");
+    const groupControls = Array.from(
+      groupsRoot?.querySelectorAll<HTMLElement>("[data-achievement-companion-steam-group-id]") ?? [],
+    );
+    const target = event.detail.button === GamepadButton.DIR_UP
+      ? source
+      : groupContainer?.querySelector<HTMLElement>("[data-achievement-companion-steam-achievement-id]")
+        ?? groupControls[1]
+        ?? source;
+    if (!takeDeckySteamGamepadFocus(target)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    if (target !== source) {
+      playGroupNavigationSound(source.ownerDocument);
+    }
+  };
+
+  useEffect(() => () => {
+    const sound = navigationSoundRef.current;
+    sound?.pause();
+    sound?.removeAttribute("src");
+    sound?.load();
+    navigationSoundRef.current = null;
+  }, []);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      {sections.map((section) => {
+    <Focusable
+      data-achievement-companion-steam-groups-section
+      flow-children="vertical"
+      navEntryPreferPosition={NavEntryPositionPreferences.FIRST}
+      noFocusRing
+      tabIndex={-1}
+      style={{ display: "flex", flexDirection: "column", gap: 10 }}
+    >
+      {sections.map((section, sectionIndex) => {
         const isExpanded = expandedGroupIds.includes(section.id);
         const groupAchievements = sortDeckySteamAchievementGroupAchievements(section.achievements);
         const unlockedCount = section.achievements.filter((achievement) => achievement.isUnlocked).length;
@@ -289,16 +349,26 @@ export function DeckySteamAchievementGroupsSection({
             ? gameArtworkUrl
             : section.kind === "update" ? updateArtworkUrl : undefined);
         return (
-          <div key={section.id} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <Focusable
+            key={section.id}
+            data-achievement-companion-steam-group-container
+            flow-children="vertical"
+            navEntryPreferPosition={NavEntryPositionPreferences.FIRST}
+            noFocusRing
+            tabIndex={-1}
+            style={{ display: "flex", flexDirection: "column", gap: 8 }}
+          >
             <Focusable
               className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
               noFocusRing
+              preferredFocus
               role="button"
               aria-expanded={isExpanded}
               aria-label={`${section.title}, ${unlockedCount} of ${section.achievements.length} achievements, ${completionPercent}% complete. ${isExpanded ? "Collapse" : "Expand"}.`}
               data-achievement-companion-steam-group-id={section.id}
               onActivate={() => toggleGroup(section.id)}
               onClick={() => toggleGroup(section.id)}
+              {...(sectionIndex === 0 ? { onGamepadDirection: handleFirstGroupDirection } : {})}
               onFocus={(event) => handleGroupFocus(section.id, event.currentTarget)}
               onGamepadFocus={(event) => {
                 if (event.currentTarget !== null) {
@@ -335,7 +405,13 @@ export function DeckySteamAchievementGroupsSection({
               </span>
             </Focusable>
             {isExpanded ? (
-              <div style={getExpandedAchievementsStyle()}>
+              <Focusable
+                flow-children="vertical"
+                navEntryPreferPosition={NavEntryPositionPreferences.FIRST}
+                noFocusRing
+                tabIndex={-1}
+                style={getExpandedAchievementsStyle()}
+              >
                 {groupAchievements.map((achievement) => (
                   <DeckyFullScreenAchievementRow
                     key={achievement.achievementId}
@@ -346,11 +422,11 @@ export function DeckySteamAchievementGroupsSection({
                     steamHuntersAchievement={steamHuntersAchievementsBySteamAchievementId[achievement.achievementId]}
                   />
                 ))}
-              </div>
+              </Focusable>
             ) : null}
-          </div>
+          </Focusable>
         );
       })}
-    </div>
+    </Focusable>
   );
 }

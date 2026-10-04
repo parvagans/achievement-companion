@@ -572,7 +572,10 @@ export function DeckyFullScreenAchievementPage({
       return () => Promise.resolve(initialDeckyGameDetailState);
     }
 
-    return () => loadDeckyGameDetailState(providerId, gameId, { forceRefresh: true });
+    // A full-screen achievement is always opened from an already-loaded game
+    // surface. Reuse that snapshot so the child route and its Back transition
+    // do not perform two redundant provider refreshes.
+    return () => loadDeckyGameDetailState(providerId, gameId, { forceRefresh: false });
   }, [gameId, providerId]);
   const state = useAsyncResourceState(loadSelectedGameDetail, initialDeckyGameDetailState);
   const hasRouteParameters = providerId !== undefined && gameId !== undefined && achievementId !== undefined;

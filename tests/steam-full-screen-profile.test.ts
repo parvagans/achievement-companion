@@ -432,8 +432,8 @@ test("Steam full-screen routes share one account refresh per visit and refresh g
     /export function getDeckyAchievementHistoryStateForFullScreenEntryInitial[\s\S]*readDeckySteamLibraryAchievementScanSummary[\s\S]*readDeckyDashboardSnapshotState/u,
   );
   assert.match(historySource, /Refreshing your Steam account and loading achievement history\./u);
-  assert.match(gameSource, /loadDeckyGameDetailState\(providerId, gameId, \{ forceRefresh: true \}\)/u);
-  assert.match(achievementSource, /loadDeckyGameDetailState\(providerId, gameId, \{ forceRefresh: true \}\)/u);
+  assert.match(gameSource, /forceRefresh: refreshNonce > 0 \|\| initialSectionState\?\.restoreRequested !== true/u);
+  assert.match(achievementSource, /loadDeckyGameDetailState\(providerId, gameId, \{ forceRefresh: false \}\)/u);
 });
 
 test("steam full-screen profile uses the requested top-row and equal lower-row dashboard layout", async () => {
@@ -621,8 +621,13 @@ test("steam activity dashboard derives timeline metrics from timestamped unlock 
   assert.match(activitySource, /All Unlocks \(\$\{formatCount\(snapshot\.summary\.unlockedCount\)\}\)/u);
   assert.match(activitySource, /data-steam-activity-filter-row[\s\S]*data-steam-activity-side-column/u);
   assert.match(activitySource, /flow-children="left-right"[\s\S]*flow-children="vertical"/u);
-  assert.match(activitySource, /event\.key === "ArrowDown"[\s\S]*event\.key !== "ArrowLeft"[\s\S]*event\.key !== "ArrowRight"/u);
-  assert.match(activitySource, /rowIndex !== 0 \|\| event\.key !== "ArrowUp"/u);
+  assert.match(activitySource, /flow-children="vertical"[\s\S]*data-steam-activity-filter-row/u);
+  assert.match(activitySource, /navEntryPreferPosition=\{NavEntryPositionPreferences\.PREFERRED_CHILD\}/u);
+  assert.match(activitySource, /preferredFocus=\{selected\}/u);
+  assert.match(activitySource, /takeDeckySteamGamepadFocus\(target\)/u);
+  assert.match(activitySource, /GamepadButton\.DIR_DOWN[\s\S]*data-steam-activity-row/u);
+  assert.match(activitySource, /GamepadButton\.DIR_UP[\s\S]*data-steam-activity-filter-selected/u);
+  assert.doesNotMatch(activitySource, /createActivityFilterKeyDownHandler|onKeyDown=/u);
   assert.match(activitySource, /onPreviousNavigationItem=\{onOpenGames\}[\s\S]*onNextNavigationItem=\{onOpenSettings\}/u);
   assert.doesNotMatch(activitySource, /Steam library history|RecentGames|RECENT GAMES WITH UNLOCKS/u);
   assert.doesNotMatch(activitySource, /rarity|Rare|Common|Very Rare/u);
@@ -756,7 +761,8 @@ test("Steam full-screen tabs share one session while details retain route histor
   assert.match(sessionSource, /navigateToFullScreenAchievement\(providerId, gameId, achievementId\)/u);
   assert.doesNotMatch(sessionSource, /DeckyNavigation\.Navigate\(.*completion-progress/u);
   assert.doesNotMatch(sessionSource, /DeckyNavigation\.Navigate\(.*achievement-history/u);
-  assert.match(sessionSource, /visitedTabs[\s\S]*display: activeTab === "games" \? "contents" : "none"/u);
+  assert.doesNotMatch(sessionSource, /visitedTabs|display: activeTab/u);
+  assert.match(sessionSource, /activeTab === "profile"[\s\S]*activeTab === "games"[\s\S]*activeTab === "activity"[\s\S]*activeTab === "settings"/u);
   assert.match(sessionSource, /isActive=\{activeTab === "activity"\}/u);
   assert.match(sessionSource, /showSteamProfileFooter=\{false\}[\s\S]*activeNavigationItemId=\{activeTab\}/u);
   assert.equal(

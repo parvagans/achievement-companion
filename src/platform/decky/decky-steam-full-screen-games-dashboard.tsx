@@ -1,5 +1,15 @@
 import type { CompletionProgressSnapshot, NormalizedGame } from "@core/domain";
-import { Focusable, Menu, MenuItem, TextField, showContextMenu, type FocusableProps } from "@decky/ui";
+import {
+  Focusable,
+  GamepadButton,
+  Menu,
+  MenuItem,
+  NavEntryPositionPreferences,
+  TextField,
+  showContextMenu,
+  type FocusableProps,
+  type GamepadEvent,
+} from "@decky/ui";
 import {
   useEffect,
   useLayoutEffect,
@@ -367,6 +377,96 @@ function getFilterButtonStyle(selected: boolean): CSSProperties {
   };
 }
 
+function handleSteamGamesToolbarDirection(event: GamepadEvent): void {
+  const button = event.detail.button;
+  if (
+    button !== GamepadButton.DIR_UP &&
+    button !== GamepadButton.DIR_DOWN &&
+    button !== GamepadButton.DIR_LEFT &&
+    button !== GamepadButton.DIR_RIGHT
+  ) {
+    return;
+  }
+
+  const source = event.currentTarget as HTMLElement;
+  const dashboard = source.closest<HTMLElement>("[data-steam-full-screen-games-dashboard]");
+  let target: HTMLElement | null | undefined;
+  if (button === GamepadButton.DIR_UP) {
+    target = source;
+  } else if (button === GamepadButton.DIR_DOWN) {
+    target = dashboard?.querySelector<HTMLElement>("[data-steam-games-row='true']") ?? source;
+  } else {
+    const controls = Array.from(
+      dashboard?.querySelectorAll<HTMLElement>("[data-steam-games-toolbar-control]") ?? [],
+    );
+    const sourceIndex = controls.indexOf(source);
+    target = controls[sourceIndex + (button === GamepadButton.DIR_LEFT ? -1 : 1)] ?? source;
+  }
+  if (!takeDeckySteamGamepadFocus(target)) {
+    return;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function handleSteamGamesRowDirection(event: GamepadEvent): void {
+  const button = event.detail.button;
+  if (
+    button !== GamepadButton.DIR_UP &&
+    button !== GamepadButton.DIR_DOWN &&
+    button !== GamepadButton.DIR_LEFT &&
+    button !== GamepadButton.DIR_RIGHT
+  ) {
+    return;
+  }
+
+  const source = event.currentTarget as HTMLElement;
+  const dashboard = source.closest<HTMLElement>("[data-steam-full-screen-games-dashboard]");
+  const rows = Array.from(dashboard?.querySelectorAll<HTMLElement>("[data-steam-games-row='true']") ?? []);
+  const sourceIndex = rows.indexOf(source);
+  let target: HTMLElement | null | undefined = source;
+  if (button === GamepadButton.DIR_UP) {
+    target = sourceIndex > 0
+      ? rows[sourceIndex - 1]
+      : dashboard?.querySelector<HTMLElement>("[data-steam-games-toolbar-control='search']");
+  } else if (button === GamepadButton.DIR_DOWN) {
+    target = rows[sourceIndex + 1]
+      ?? dashboard?.querySelector<HTMLElement>("[data-steam-games-show-more='true']")
+      ?? source;
+  }
+
+  if (!takeDeckySteamGamepadFocus(target)) {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+}
+
+function handleSteamGamesShowMoreDirection(event: GamepadEvent): void {
+  const button = event.detail.button;
+  if (
+    button !== GamepadButton.DIR_UP &&
+    button !== GamepadButton.DIR_DOWN &&
+    button !== GamepadButton.DIR_LEFT &&
+    button !== GamepadButton.DIR_RIGHT
+  ) {
+    return;
+  }
+
+  const source = event.currentTarget as HTMLElement;
+  const rows = Array.from(
+    source.closest<HTMLElement>("[data-steam-full-screen-games-dashboard]")
+      ?.querySelectorAll<HTMLElement>("[data-steam-games-row='true']") ?? [],
+  );
+  const target = button === GamepadButton.DIR_UP ? rows[rows.length - 1] : source;
+  if (!takeDeckySteamGamepadFocus(target)) {
+    return;
+  }
+  event.preventDefault();
+  event.stopPropagation();
+}
+
 function SteamGamesFilterButton({
   label,
   filter,
@@ -388,9 +488,12 @@ function SteamGamesFilterButton({
       aria-label={label}
       aria-pressed={selected}
       data-steam-games-filter={filter}
+      preferredFocus={selected}
       onActivate={() => { onSelect(filter); }}
       onClick={() => { onSelect(filter); }}
       onCancel={onBack}
+      onGamepadDirection={handleSteamGamesToolbarDirection}
+      data-steam-games-toolbar-control="true"
       style={getFilterButtonStyle(selected)}
     >
       {label}
@@ -478,6 +581,8 @@ function SteamGamesSortButton({
         aria-label={`Sort by ${selectedLabel}`}
         onActivate={openMenu}
         onClick={openMenu}
+        onGamepadDirection={handleSteamGamesToolbarDirection}
+        data-steam-games-toolbar-control="true"
         onCancel={() => {
           if (activeMenuRef.current !== undefined) {
             closeMenu();
@@ -601,6 +706,7 @@ function SteamGamesRow({
       onCancel={onBack}
       onFocus={(event) => { rememberDeckySteamGamesFocus(game.gameId); scrollDeckyFocusTargetIntoView(event.currentTarget); }}
       onGamepadFocus={(event) => { rememberDeckySteamGamesFocus(game.gameId); scrollFocusedRow(event); }}
+      onGamepadDirection={handleSteamGamesRowDirection}
       style={getGameRowStyle()}
       data-steam-games-row="true"
     >
@@ -718,7 +824,10 @@ export function DeckySteamFullScreenGamesDashboard({
 }: DeckySteamFullScreenGamesDashboardProps): JSX.Element {
   const initialPageState = useRef(readDeckySteamGamesPageState()).current;
   const dashboardRef = useRef<HTMLElement>(null);
+  const searchControlRef = useRef<HTMLDivElement>(null);
   const restorationTargetRef = useRef<HTMLDivElement | null>(null);
+  const appendedGameFocusTargetRef = useRef<HTMLDivElement | null>(null);
+  const [appendedGameIdToFocus, setAppendedGameIdToFocus] = useState<string | undefined>(undefined);
   const shouldUseRequestedFilter = initialFilter !== undefined && initialFilter !== "all";
   const [filter, setFilter] = useState<SteamGamesFilter>(() => shouldUseRequestedFilter
     ? normalizeInitialFilter(initialFilter)
@@ -783,6 +892,42 @@ export function DeckySteamFullScreenGamesDashboard({
     return () => ownerWindow.cancelAnimationFrame(frame);
   }, [isActive]);
 
+  useLayoutEffect(() => {
+    if (appendedGameIdToFocus === undefined || appendedGameFocusTargetRef.current === null) {
+      return;
+    }
+
+    // Expanding the page replaces the focused "Show more" action. Hand native
+    // GamepadUI focus to the first appended row while that action still exists
+    // in the previous controller tree, rather than leaving its focus offscreen.
+    const target = appendedGameFocusTargetRef.current;
+    takeDeckySteamGamepadFocus(target);
+    scrollDeckyFocusTargetIntoView(target);
+    setAppendedGameIdToFocus(undefined);
+  }, [appendedGameIdToFocus, renderedGames]);
+
+  const showMoreGames = (): void => {
+    const firstAppendedGame = visibleGames[renderedGames.length];
+    if (firstAppendedGame !== undefined) {
+      setAppendedGameIdToFocus(firstAppendedGame.gameId);
+    }
+    setRenderLimit((current) => {
+      const next = current + STEAM_GAMES_RENDER_STEP;
+      rememberDeckySteamGamesRenderLimit(next);
+      return next;
+    });
+  };
+  const activateSearch = (): void => {
+    const input = searchControlRef.current?.querySelector<HTMLInputElement>("input");
+    if (input === null || input === undefined) {
+      return;
+    }
+
+    markDeckyFullscreenOnScreenKeyboardOpen(input.ownerDocument);
+    input.focus();
+    input.click();
+  };
+
   return (
     <>
       <main ref={dashboardRef} data-steam-full-screen-games-dashboard style={getPageStyle()}>
@@ -790,8 +935,32 @@ export function DeckySteamFullScreenGamesDashboard({
         <div style={getSectionTitleStyle()}>Games</div>
         <SteamGamesSummaryCards summary={summary} />
 
-        <Focusable flow-children="left-right" noFocusRing tabIndex={-1} style={getToolbarStyle()}>
-          <div style={getSearchWrapStyle()}>
+        <Focusable
+          flow-children="vertical"
+          navEntryPreferPosition={NavEntryPositionPreferences.FIRST}
+          noFocusRing
+          tabIndex={-1}
+          style={{ display: "flex", flex: "1 1 auto", flexDirection: "column", minHeight: 0 }}
+        >
+        <Focusable
+          flow-children="left-right"
+          navEntryPreferPosition={NavEntryPositionPreferences.MAINTAIN_X}
+          noFocusRing
+          tabIndex={-1}
+          style={getToolbarStyle()}
+        >
+          <Focusable
+            ref={searchControlRef}
+            className={STEAM_GAMES_FOCUS_CLASS}
+            noFocusRing
+            role="button"
+            aria-label="Search your games"
+            onActivate={activateSearch}
+            onCancel={onBack}
+            onGamepadDirection={handleSteamGamesToolbarDirection}
+            data-steam-games-toolbar-control="search"
+            style={getSearchWrapStyle()}
+          >
             <span style={getSearchIconStyle()}>
               <IconAsset size={14} src={searchIconUrl} tone="light" />
             </span>
@@ -799,6 +968,7 @@ export function DeckySteamFullScreenGamesDashboard({
               aria-label="Search your games"
               className={STEAM_GAMES_SEARCH_CLASS}
               placeholder="Search your games…"
+              tabIndex={-1}
               value={query}
               onClick={(event) => {
                 markDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument);
@@ -806,9 +976,15 @@ export function DeckySteamFullScreenGamesDashboard({
               onChange={(event) => { setQuery(event.currentTarget.value); }}
               style={getSearchFieldStyle()}
             />
-          </div>
+          </Focusable>
 
-          <Focusable flow-children="left-right" noFocusRing tabIndex={-1} style={getFilterGroupStyle()}>
+          <Focusable
+            flow-children="left-right"
+            navEntryPreferPosition={NavEntryPositionPreferences.PREFERRED_CHILD}
+            noFocusRing
+            tabIndex={-1}
+            style={getFilterGroupStyle()}
+          >
             {filterButtons.map((button) => (
               <SteamGamesFilterButton
                 key={button.filter}
@@ -824,13 +1000,24 @@ export function DeckySteamFullScreenGamesDashboard({
           <SteamGamesSortButton value={sort} onBack={onBack} onChange={setSort} />
         </Focusable>
 
-        <div aria-live="polite" className={STEAM_GAMES_LIST_CLASS} style={getGameListStyle()}>
+        <Focusable
+          aria-live="polite"
+          className={STEAM_GAMES_LIST_CLASS}
+          flow-children="vertical"
+          navEntryPreferPosition={NavEntryPositionPreferences.FIRST}
+          noFocusRing
+          tabIndex={-1}
+          style={getGameListStyle()}
+        >
           {visibleGames.length > 0 ? <>
             {renderedGames.map((game) => (
             <SteamGamesRow
               key={game.gameId}
-              elementRef={initialPageState.focusGameId === game.gameId
-                ? (node) => { restorationTargetRef.current = node; }
+              elementRef={initialPageState.focusGameId === game.gameId || appendedGameIdToFocus === game.gameId
+                ? (node) => {
+                    if (initialPageState.focusGameId === game.gameId) restorationTargetRef.current = node;
+                    if (appendedGameIdToFocus === game.gameId) appendedGameFocusTargetRef.current = node;
+                  }
                 : undefined}
               game={game}
               onBack={onBack}
@@ -842,9 +1029,11 @@ export function DeckySteamFullScreenGamesDashboard({
               noFocusRing
               role="button"
               aria-label={`Show ${Math.min(STEAM_GAMES_RENDER_STEP, visibleGames.length - renderedGames.length)} more games`}
-              onActivate={() => { setRenderLimit((current) => { const next = current + STEAM_GAMES_RENDER_STEP; rememberDeckySteamGamesRenderLimit(next); return next; }); }}
-              onClick={() => { setRenderLimit((current) => { const next = current + STEAM_GAMES_RENDER_STEP; rememberDeckySteamGamesRenderLimit(next); return next; }); }}
+              onActivate={showMoreGames}
+              onClick={showMoreGames}
               onCancel={onBack}
+              onGamepadDirection={handleSteamGamesShowMoreDirection}
+              data-steam-games-show-more="true"
               style={{ ...getFilterButtonStyle(false), width: "100%", minHeight: 34 }}
             >
               {`Show ${Math.min(STEAM_GAMES_RENDER_STEP, visibleGames.length - renderedGames.length)} more`}
@@ -867,7 +1056,8 @@ export function DeckySteamFullScreenGamesDashboard({
               No games match the current search and filter.
             </div>
           )}
-        </div>
+        </Focusable>
+        </Focusable>
       </main>
 
       {showSteamProfileFooter ? <DeckyFullScreenFooterOverlay

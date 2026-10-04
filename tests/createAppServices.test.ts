@@ -10150,6 +10150,15 @@ test("steam fullscreen games overlays freshly refreshed recent-game activity ont
         playtimeForeverMinutes: 780,
         lastPlayedAt: 1_790_100_000_000,
       },
+      {
+        providerId: "steam",
+        appid: 1672970,
+        gameId: "1672970",
+        title: "Minecraft Dungeons 2",
+        summary: { unlockedCount: 0 },
+        playtimeForeverMinutes: 65,
+        lastPlayedAt: 1_790_200_000_000,
+      },
     ],
     refreshedAt: 1_790_100_000_000,
   };
@@ -10161,7 +10170,15 @@ test("steam fullscreen games overlays freshly refreshed recent-game activity ont
   assert.equal(merged.games[0]?.playtimeForeverMinutes, 780);
   assert.equal(merged.games[0]?.lastPlayedAt, 1_790_100_000_000);
   assert.equal(merged.games[0]?.scanStatus, "scanned");
-  assert.deepStrictEqual(merged.summary, completionProgress.summary);
+  assert.equal(merged.games[1]?.title, "Minecraft Dungeons 2");
+  assert.equal(merged.games[1]?.playtimeForeverMinutes, 65);
+  assert.equal(merged.games[1]?.scanStatus, undefined);
+  assert.deepStrictEqual(merged.summary, {
+    playedCount: 2,
+    unfinishedCount: 1,
+    beatenCount: 0,
+    masteredCount: 0,
+  });
 });
 
 test("Steam Games projection keeps library counts when recent detail is fallback, and accepts valid recent detail", () => {

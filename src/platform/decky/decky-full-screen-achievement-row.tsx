@@ -1,5 +1,5 @@
 import { useState, type CSSProperties, type FocusEventHandler } from "react";
-import { Focusable } from "@decky/ui";
+import { Focusable, type GamepadEvent } from "@decky/ui";
 import type { NormalizedAchievement } from "@core/domain";
 import {
   formatProviderAchievementPointsText,
@@ -315,6 +315,7 @@ export interface DeckyFullScreenAchievementRowProps {
   readonly achievement: NormalizedAchievement;
   readonly onOpenAchievementDetail: ((achievementId: string) => void) | undefined;
   readonly onBack: () => void;
+  readonly onJumpToTop?: () => void;
   readonly steamHuntersAchievement: SteamHuntersAchievement | undefined;
   readonly onFocusAchievement?: (achievementId: string) => void;
 }
@@ -364,6 +365,7 @@ export function DeckyFullScreenAchievementRow({
   achievement,
   onOpenAchievementDetail,
   onBack,
+  onJumpToTop,
   steamHuntersAchievement,
   onFocusAchievement,
 }: DeckyFullScreenAchievementRowProps): JSX.Element {
@@ -390,6 +392,16 @@ export function DeckyFullScreenAchievementRow({
       onActivate={openAchievementDetail}
       onClick={openAchievementDetail}
       onCancel={onBack}
+      {...(onJumpToTop !== undefined
+        ? {
+            onOptionsActionDescription: "Top",
+            onOptionsButton: (event: GamepadEvent): void => {
+              event.preventDefault();
+              event.stopPropagation();
+              onJumpToTop();
+            },
+          }
+        : {})}
       onFocus={(event: Parameters<FocusEventHandler<HTMLElement>>[0]) => {
         setIsFocused(true);
         onFocusAchievement?.(achievement.achievementId);

@@ -943,10 +943,8 @@ function CompactAchievementListScreen({
 
 function DeckySteamCompactAchievementDetailSurface({
   children,
-  onBack,
 }: {
   readonly children: ReactNode;
-  readonly onBack: () => void;
 }): JSX.Element {
   const surfaceRef = useRef<HTMLDivElement | null>(null);
 
@@ -957,25 +955,22 @@ function DeckySteamCompactAchievementDetailSurface({
       return;
     }
     const frame = ownerWindow.requestAnimationFrame(() => {
-      takeDeckySteamGamepadFocus(surfaceRef.current);
+      // The page wrapper must not own focus: a Focusable wrapper traps QAM's
+      // vertical navigation before it can reach the clickable game context.
+      const initialFocusTarget = surface.querySelector<HTMLElement>("[role='group'][aria-label^='Achievement ']")
+        ?? surface.querySelector<HTMLElement>("[role='button']");
+      takeDeckySteamGamepadFocus(initialFocusTarget);
     });
     return () => ownerWindow.cancelAnimationFrame(frame);
   }, []);
 
   return (
-    <Focusable
+    <div
       ref={surfaceRef}
       aria-label="Achievement details"
-      flow-children="vertical"
-      noFocusRing
-      onActivate={() => undefined}
-      onCancel={onBack}
-      preferredFocus
-      role="region"
-      tabIndex={0}
     >
       {children}
-    </Focusable>
+    </div>
   );
 }
 
@@ -1025,7 +1020,7 @@ function CompactAchievementDetailScreen({
     >
       {model !== undefined ? (
         destination.providerId === STEAM_PROVIDER_ID ? (
-          <DeckySteamCompactAchievementDetailSurface onBack={onBack}>
+          <DeckySteamCompactAchievementDetailSurface>
             {detailContent}
           </DeckySteamCompactAchievementDetailSurface>
         ) : detailContent

@@ -248,26 +248,72 @@ test("Steam section navigation advances every rapid shoulder press from the late
   assert.equal(getAdjacentSteamGameSectionId(sections, activeSection, "previous"), "achievement-groups");
 });
 
-test("Steam game sections stay mounted behind one stable footer owner", async () => {
+test("Steam game sections unmount inactive focus trees behind one stable footer owner", async () => {
   const source = await readFile(
     new URL("../src/platform/decky/decky-full-screen-game-page.tsx", import.meta.url),
     "utf8",
   );
 
   assert.doesNotMatch(source, /visitedSteamSections/u);
-  assert.match(source, /data-steam-game-section="overview"[\s\S]*display: activeSteamSection === "overview" \? "contents" : "none"/u);
-  assert.match(source, /data-steam-game-section="achievements"[\s\S]*display: activeSteamSection === "achievements" \? "contents" : "none"/u);
-  assert.match(source, /data-steam-game-section="achievement-groups"[\s\S]*display: activeSteamSection === "achievement-groups" \? "contents" : "none"/u);
-  assert.match(source, /data-steam-game-section="community"[\s\S]*display: activeSteamSection === "community" \? "contents" : "none"/u);
+  assert.match(source, /isSteamProvider && activeSteamSection === "overview"/u);
+  assert.match(source, /activeSteamSection === "achievements"/u);
+  assert.match(source, /activeSteamSection === "achievement-groups"/u);
+  assert.match(source, /activeSteamSection === "community"/u);
+  assert.doesNotMatch(source, /display: activeSteamSection/u);
   assert.match(source, /restorationOrderedAchievements = useMemo/u);
+  assert.match(source, /loadedSnapshot === undefined \|\| isWaitingForSteamHuntersEnrichment/u);
+  assert.match(source, /forceRefresh: refreshNonce > 0 \|\| initialSectionState\?\.restoreRequested !== true/u);
   assert.match(source, /restorationSteamHuntersViewModel = useMemo/u);
   assert.match(source, /MemoizedDeckyFullScreenAchievementBrowser = memo/u);
   assert.match(source, /onAchievementFilterChange=\{handleAchievementFilterChange\}/u);
   assert.match(source, /MemoizedDeckySteamAchievementGroupsSection/u);
   assert.match(source, /activeSectionRoot[\s\S]*activeSectionRoot\?\.querySelectorAll/u);
+  assert.match(source, /jumpSteamAchievementsToTop[\s\S]*data-achievement-companion-steam-filter-control/u);
+  assert.match(source, /onJumpToTop: jumpSteamAchievementsToTop/u);
   assert.equal(
     (source.match(/<DeckySteamGameSectionNavigation/gu) ?? []).length,
     1,
     "the Steam game page must keep one stable global footer/input owner",
   );
+});
+
+test("Steam achievements and groups use nested GamepadUI focus primitives", async () => {
+  const source = await readFile(
+    new URL("../src/platform/decky/decky-steam-achievement-groups-section.tsx", import.meta.url),
+    "utf8",
+  );
+  const browserSource = await readFile(
+    new URL("../src/platform/decky/decky-full-screen-achievement-browser.tsx", import.meta.url),
+    "utf8",
+  );
+  const rowSource = await readFile(
+    new URL("../src/platform/decky/decky-full-screen-achievement-row.tsx", import.meta.url),
+    "utf8",
+  );
+  const gamePageSource = await readFile(
+    new URL("../src/platform/decky/decky-full-screen-game-page.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /flow-children="vertical"/u);
+  assert.match(source, /navEntryPreferPosition=\{NavEntryPositionPreferences\.FIRST\}/u);
+  assert.match(source, /sectionIndex === 0 \? \{ onGamepadDirection: handleFirstGroupDirection \} : \{\}/u);
+  assert.match(source, /GamepadButton\.DIR_UP[\s\S]*GamepadButton\.DIR_DOWN/u);
+  assert.match(source, /groupControls\[1\][\s\S]*takeDeckySteamGamepadFocus\(target\)/u);
+  assert.match(source, /deck_ui_navigation\.wav[\s\S]*sound\.play\(\)/u);
+  assert.doesNotMatch(source, /groupControlsRef|stopImmediatePropagation/u);
+  assert.match(browserSource, /onJumpToTop !== undefined \? \{ onJumpToTop \}/u);
+  assert.match(rowSource, /onOptionsActionDescription: "Top"[\s\S]*onOptionsButton:[\s\S]*onJumpToTop\(\)/u);
+  assert.match(browserSource, /onOptionsActionDescription: "Top"[\s\S]*onOptionsButton:[\s\S]*onJumpToTop\(\)/u);
+  assert.match(gamePageSource, /activeSteamSection === "achievements" \? \{ secondaryActionLabel: "Top" \} : \{\}/u);
+  assert.match(browserSource, /flow-children="vertical"/u);
+});
+
+test("full-screen achievement child route reuses the loaded game snapshot", async () => {
+  const source = await readFile(
+    new URL("../src/platform/decky/decky-full-screen-achievement-page.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /loadDeckyGameDetailState\(providerId, gameId, \{ forceRefresh: false \}\)/u);
 });

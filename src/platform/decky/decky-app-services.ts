@@ -70,6 +70,7 @@ import {
   runAndCacheDeckySteamLibraryAchievementScan,
 } from "./providers/steam/library-scan";
 import { reconcileSteamLibraryAchievementSummaryWithRecentGames } from "../../providers/steam/library-scan";
+import { normalizeSteamCompletionProgressGames } from "../../providers/steam/mappers/normalize";
 import { deckyDiagnosticLogger } from "./decky-diagnostic-logger";
 import {
   getDeckySteamLibraryAchievementScanRevision,
@@ -1444,9 +1445,9 @@ export async function refreshDeckySteamDashboardOnFullScreenEntry(providerId: Pr
 
 /**
  * A library scan owns the complete collection and its classifications. The live
- * dashboard owns current Steam activity, achievement totals, and artwork for
- * games it has just observed. Overlay those fields without changing scan-only
- * games or collection counts.
+ * dashboard owns the exact recently-played set returned by the same bounded
+ * refresh used by QAM. Overlay its current fields and project any newly observed
+ * recent game into the full-screen Games view without mutating the saved scan.
  */
 export function mergeDeckySteamCompletionProgressWithDashboard(
   completionProgress: CompletionProgressSnapshot,
@@ -1510,10 +1511,72 @@ export function mergeDeckySteamCompletionProgressWithDashboard(
         : {}),
     } satisfies NormalizedGame;
   });
+  const knownGameIds = new Set(games.flatMap((game) => [
+    game.gameId,
+    ...(game.appid !== undefined ? [String(game.appid)] : []),
+  ]));
+  const appendedGames: NormalizedGame[] = [];
+  for (const recentlyPlayed of dashboard.recentlyPlayedGames) {
+    const identities = [
+      recentlyPlayed.gameId,
+      ...(recentlyPlayed.appid !== undefined ? [String(recentlyPlayed.appid)] : []),
+    ];
+    if (identities.some((identity) => knownGameIds.has(identity))) {
+      continue;
+    }
+
+    const normalized = normalizeSteamCompletionProgressGames([recentlyPlayed])[0];
+    if (normalized === undefined) {
+      continue;
+    }
+    const totalCount = recentlyPlayed.summary.totalCount;
+    appendedGames.push({
+      ...normalized,
+      ...(recentlyPlayed.systemIconUrl !== undefined ? { systemIconUrl: recentlyPlayed.systemIconUrl } : {}),
+      ...(recentlyPlayed.boxArtImageUrl !== undefined ? { boxArtImageUrl: recentlyPlayed.boxArtImageUrl } : {}),
+      ...(recentlyPlayed.metrics !== undefined ? { metrics: recentlyPlayed.metrics } : {}),
+      ...(recentlyPlayed.achievementStateIsComplete !== undefined
+        ? { achievementStateIsComplete: recentlyPlayed.achievementStateIsComplete }
+        : {}),
+      ...(recentlyPlayed.achievementStateIsComplete === true && totalCount !== undefined
+        ? {
+            status: totalCount > 0 ? normalized.status : "locked",
+            hasAchievements: totalCount > 0,
+            scanStatus: totalCount > 0 ? "scanned" : "no-achievements",
+          }
+        : {}),
+    });
+    for (const identity of identities) knownGameIds.add(identity);
+  }
+  const projectedGames = [...games, ...appendedGames];
+  const projectedSummary = appendedGames.length === 0
+    ? completionProgress.summary
+    : {
+        playedCount: projectedGames.filter((game) =>
+          (game.playtimeForeverMinutes ?? 0) > 0 ||
+          (game.playtimeTwoWeeksMinutes ?? 0) > 0 ||
+          (game.playtimeDeckForeverMinutes ?? 0) > 0 ||
+          game.hasAchievements === true
+        ).length,
+        unfinishedCount: projectedGames.filter((game) =>
+          game.scanStatus === "scanned" &&
+          (game.summary.totalCount ?? 0) > 0 &&
+          game.summary.unlockedCount < (game.summary.totalCount ?? 0)
+        ).length,
+        beatenCount: projectedGames.filter((game) =>
+          game.scanStatus !== undefined && game.scanStatus !== "scanned"
+        ).length,
+        masteredCount: projectedGames.filter((game) =>
+          game.scanStatus === "scanned" &&
+          (game.summary.totalCount ?? 0) > 0 &&
+          game.summary.unlockedCount >= (game.summary.totalCount ?? 0)
+        ).length,
+      };
 
   return {
     ...completionProgress,
-    games,
+    games: projectedGames,
+    summary: projectedSummary,
     ...(dashboard.refreshedAt !== undefined ? { refreshedAt: dashboard.refreshedAt } : {}),
   };
 }

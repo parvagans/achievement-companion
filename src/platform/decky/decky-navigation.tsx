@@ -423,11 +423,10 @@ function DeckyFullScreenAchievementHistoryRoute(): JSX.Element {
 
 /**
  * Steam's Profile, Games, Activity, and Settings are views within one
- * full-screen visit, not entries in the Decky route history. Keeping the
- * session mounted makes a single Back press leave the visit regardless of
- * how many footer tabs the player has visited. Game and achievement details
- * still use real routes above this session so their Back semantics remain
- * hierarchical.
+ * full-screen visit, not entries in the Decky route history. The session shell
+ * stays mounted so a single Back press leaves the visit, while only the active
+ * tab's GamepadUI tree is rendered. Game and achievement details still use real
+ * routes above this session so their Back semantics remain hierarchical.
  */
 function DeckySteamFullScreenSession({
   providerId,
@@ -437,9 +436,6 @@ function DeckySteamFullScreenSession({
   readonly onBack: () => void;
 }): JSX.Element {
   const [activeTab, setActiveTab] = useState<SteamFullScreenSessionTab>(() => steamFullScreenSessionTab);
-  const [visitedTabs, setVisitedTabs] = useState<ReadonlySet<SteamFullScreenSessionTab>>(
-    () => new Set<SteamFullScreenSessionTab>([steamFullScreenSessionTab]),
-  );
   const [gamesInitialFilter, setGamesInitialFilter] = useState<CompletionProgressSelectionFilter>("all");
   const [gamesViewRevision, setGamesViewRevision] = useState(0);
 
@@ -457,16 +453,13 @@ function DeckySteamFullScreenSession({
 
   const selectTab = (tab: SteamFullScreenSessionTab): void => {
     setSteamFullScreenSessionTab(tab);
-    setVisitedTabs((currentTabs) => currentTabs.has(tab)
-      ? currentTabs
-      : new Set<SteamFullScreenSessionTab>([...currentTabs, tab]));
     setActiveTab(tab);
   };
 
   const openGames = (initialFilter: CompletionProgressSelectionFilter = "all"): void => {
     setGamesInitialFilter(initialFilter);
-    // L1/R1 traversal must retain the already-mounted Games tree.  A
-    // non-default profile shortcut still intentionally resets its filter.
+    // A non-default profile shortcut intentionally resets the Games view so
+    // its requested filter wins over the module-level restoration state.
     if (initialFilter !== "all") {
       setGamesViewRevision((currentRevision) => currentRevision + 1);
     }
@@ -480,7 +473,7 @@ function DeckySteamFullScreenSession({
 
   return (
     <>
-      {visitedTabs.has("profile") ? <div style={{ display: activeTab === "profile" ? "contents" : "none" }}>
+      {activeTab === "profile" ?
         <DeckyFullScreenProfilePage
           providerId={providerId}
           isActive={activeTab === "profile"}
@@ -496,8 +489,8 @@ function DeckySteamFullScreenSession({
             navigateToFullScreenGame(profileProviderId, gameId);
           }}
         />
-      </div> : null}
-      {visitedTabs.has("games") ? <div style={{ display: activeTab === "games" ? "contents" : "none" }}>
+      : null}
+      {activeTab === "games" ?
         <DeckyFullScreenCompletionProgressPage
           key={`steam-games-${gamesViewRevision}`}
           providerId={providerId}
@@ -513,8 +506,8 @@ function DeckySteamFullScreenSession({
             }
           }}
         />
-      </div> : null}
-      {visitedTabs.has("activity") ? <div style={{ display: activeTab === "activity" ? "contents" : "none" }}>
+      : null}
+      {activeTab === "activity" ?
         <DeckyFullScreenAchievementHistoryPage
           providerId={providerId}
           isActive={activeTab === "activity"}
@@ -528,8 +521,8 @@ function DeckySteamFullScreenSession({
             }
           }}
         />
-      </div> : null}
-      {visitedTabs.has("settings") ? <div style={{ display: activeTab === "settings" ? "contents" : "none" }}>
+      : null}
+      {activeTab === "settings" ?
         <DeckyFullScreenSettingsPage
           isActive={activeTab === "settings"}
           onOpenProviderSettings={(providerId) => {
@@ -541,7 +534,7 @@ function DeckySteamFullScreenSession({
           onOpenActivity={() => selectTab("activity")}
           onOpenProfile={() => selectTab("profile")}
         />
-      </div> : null}
+      : null}
       <DeckyFullScreenFooterOverlay
         activeNavigationItemId={activeTab}
         ariaLabel="Steam profile navigation"
