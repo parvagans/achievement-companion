@@ -140,6 +140,8 @@ export function dispatchDeckyScrollReset(scrollKey: string): void {
 export interface TopAlignedScrollViewportProps {
   readonly children: ReactNode;
   readonly fillHeight?: boolean;
+  readonly onRestoreAfterLayoutComplete?: () => void;
+  readonly restoreAfterLayout?: boolean;
   readonly restoreScrollTop?: number | undefined;
   readonly resetNonce?: number;
   readonly scrollKey: string;
@@ -148,6 +150,8 @@ export interface TopAlignedScrollViewportProps {
 export function TopAlignedScrollViewport({
   children,
   fillHeight = false,
+  onRestoreAfterLayoutComplete,
+  restoreAfterLayout = false,
   restoreScrollTop,
   resetNonce = 0,
   scrollKey,
@@ -165,8 +169,12 @@ export function TopAlignedScrollViewport({
       return;
     }
 
+    if (restoreAfterLayout && restoreScrollTop !== undefined && restoreScrollTop > 0) {
+      return;
+    }
+
     resetRealDeckyScrollContainer(anchor);
-  }, [resetNonce, scrollKey]);
+  }, [resetNonce, restoreAfterLayout, restoreScrollTop, scrollKey]);
 
   useLayoutEffect(() => {
     const anchor = anchorRef.current;
@@ -174,24 +182,35 @@ export function TopAlignedScrollViewport({
       return;
     }
 
-    const target = findDeckyScrollableAncestor(anchor);
-    if (target === null) {
-      return;
-    }
-
-    target.scrollTop = restoreScrollTop;
     const ownerWindow = anchor.ownerDocument.defaultView;
     if (ownerWindow === null || ownerWindow === undefined) {
       return;
     }
 
+    if (!restoreAfterLayout) {
+      const target = findDeckyScrollableAncestor(anchor);
+      if (target === null) {
+        return;
+      }
+
+      target.scrollTop = restoreScrollTop;
+      const restoreFrame = ownerWindow.requestAnimationFrame(() => {
+        if (target.isConnected) {
+          target.scrollTop = restoreScrollTop;
+        }
+      });
+      return () => ownerWindow.cancelAnimationFrame(restoreFrame);
+    }
+
     const restoreFrame = ownerWindow.requestAnimationFrame(() => {
-      if (target.isConnected) {
+      const target = findDeckyScrollableAncestor(anchor);
+      if (target?.isConnected) {
         target.scrollTop = restoreScrollTop;
+        onRestoreAfterLayoutComplete?.();
       }
     });
     return () => ownerWindow.cancelAnimationFrame(restoreFrame);
-  }, [restoreScrollTop, scrollKey]);
+  }, [onRestoreAfterLayoutComplete, restoreAfterLayout, restoreScrollTop, scrollKey]);
 
   useLayoutEffect(() => {
     const handleScrollReset = (event: Event): void => {

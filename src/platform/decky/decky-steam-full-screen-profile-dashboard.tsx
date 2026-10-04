@@ -22,6 +22,7 @@ import type {
   SteamProfileGameSummary,
 } from "./decky-steam-full-screen-profile-data";
 import type { SteamHuntersProfile } from "../../providers/steamhunters";
+import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import calendarIconUrl from "./assets/calendar.svg";
 import crownIconUrl from "./assets/crown.svg";
 import libraryIconUrl from "./assets/library.svg";
@@ -118,8 +119,7 @@ function focusDashboardTarget(source: HTMLElement, target: DashboardFocusTarget)
     return false;
   }
 
-  focusTarget.focus();
-  return true;
+  return takeDeckySteamGamepadFocus(focusTarget);
 }
 
 function createDashboardHorizontalFocusHandler(
@@ -1106,7 +1106,7 @@ export function SteamFullScreenProfileDashboard({
       }
 
       if (!dashboard.contains(dashboard.ownerDocument.activeElement)) {
-        initialFocusTarget.focus();
+        takeDeckySteamGamepadFocus(initialFocusTarget);
       }
     });
     return () => ownerWindow.cancelAnimationFrame(frame);

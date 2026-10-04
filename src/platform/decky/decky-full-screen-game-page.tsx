@@ -63,6 +63,7 @@ import { findDeckyScrollableAncestor, TopAlignedScrollViewport } from "./decky-s
 import { useAsyncResourceState } from "./useAsyncResourceState";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
 import { getSteamHuntersGameEnrichment } from "../../providers/steamhunters";
+import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import {
   consumeSteamGameSectionRestoration,
   readSteamGameSectionPageState,
@@ -225,18 +226,24 @@ function DeckyFullScreenGameLoadingState({
   hasRouteParameters,
   backFooter,
   onBack,
+  useNativeFocus,
 }: {
   readonly state: ResourceState<GameDetailSnapshot>;
   readonly hasRouteParameters: boolean;
   readonly backFooter: string;
   readonly onBack: () => void;
+  readonly useNativeFocus: boolean;
 }): JSX.Element {
   const focusRef = useRef<HTMLDivElement>(null);
   const copy = getFullScreenLoadingCopy(state, hasRouteParameters, backFooter);
 
   useLayoutEffect(() => {
+    if (useNativeFocus) {
+      takeDeckySteamGamepadFocus(focusRef.current);
+      return;
+    }
     focusRef.current?.focus({ preventScroll: true });
-  }, []);
+  }, [useNativeFocus]);
 
   return (
     <Focusable
@@ -472,6 +479,9 @@ export function DeckyFullScreenGamePage({
       return;
     }
     const onScroll = (): void => {
+      if (readSteamGameSectionPageState(providerId, gameId).restoreRequested) {
+        return;
+      }
       persistSteamSectionState((current) => ({
         ...current,
         [activeSteamSection]: { ...current[activeSteamSection], scrollTop: scrollContainer.scrollTop },
@@ -479,7 +489,6 @@ export function DeckyFullScreenGamePage({
     };
     scrollContainer.addEventListener("scroll", onScroll, { passive: true });
     return () => {
-      onScroll();
       scrollContainer.removeEventListener("scroll", onScroll);
     };
   }, [activeSteamSection, displayedLoadedSnapshot?.game.providerId, gameId, providerId]);
@@ -656,11 +665,6 @@ export function DeckyFullScreenGamePage({
 
     const frame = ownerWindow.requestAnimationFrame(() => {
       const currentState = readSteamGameSectionPageState(providerId, gameId);
-      const sectionState = currentState[activeSteamSection];
-      const scrollContainer = findDeckyScrollableAncestor(anchor);
-      if (scrollContainer !== null) {
-        scrollContainer.scrollTop = sectionState.scrollTop;
-      }
 
       const activeSectionRoot = anchor.querySelector<HTMLElement>(
         `[data-steam-game-section='${activeSteamSection}']`,
@@ -700,7 +704,10 @@ export function DeckyFullScreenGamePage({
       if (shouldRestoreDetailReturn) {
         consumeSteamGameSectionRestoration(providerId, gameId);
       }
-      target?.focus();
+      if (target !== null && target !== undefined) {
+        takeDeckySteamGamepadFocus(target);
+        target.scrollIntoView({ block: "center", inline: "nearest" });
+      }
     });
     return () => ownerWindow.cancelAnimationFrame(frame);
   }, [activeSteamSection, gameId, providerId, restorationFilteredAchievements, restorationIsSteamProvider, sectionRestoreNonce]);
@@ -717,6 +724,7 @@ export function DeckyFullScreenGamePage({
         hasRouteParameters={hasRouteParameters}
         backFooter={backFooter}
         onBack={onBack}
+        useNativeFocus={providerId === STEAM_PROVIDER_ID}
       />
     );
   }
@@ -895,6 +903,11 @@ export function DeckyFullScreenGamePage({
         <div style={getSteamGameContentStyle(activeSteamSection)}>
           <TopAlignedScrollViewport
             fillHeight={activeSteamSection === "overview"}
+            restoreAfterLayout
+            restoreScrollTop={readSteamGameSectionPageState(
+              providerId ?? game.providerId,
+              game.gameId,
+            )[activeSteamSection].scrollTop}
             scrollKey={`full-screen-game:${providerId ?? game.providerId}:${game.gameId}`}
           >
             <div ref={sectionAnchorRef} style={getSteamGameContentFrameStyle(activeSteamSection)}>{pageSections}</div>

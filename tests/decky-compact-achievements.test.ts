@@ -346,6 +346,57 @@ test("achievement-list destination and page state preserve deterministic return 
   }
 });
 
+test("View Achievements checkpoints remain scoped to the selected game", () => {
+  resetDeckyCompactAchievementPageState();
+  writeDeckyCompactAchievementPageState("steam", "game-a", {
+    filter: "locked",
+    modeFilter: "all",
+    visibleCount: 40,
+    focusedAchievementId: "achievement-a",
+    scrollTop: 612,
+  });
+  writeDeckyCompactAchievementPageState("steam", "game-b", {
+    filter: "unlocked",
+    modeFilter: "all",
+    visibleCount: 12,
+    focusedAchievementId: "achievement-b",
+    scrollTop: 88,
+  });
+
+  assert.deepEqual(readDeckyCompactAchievementPageState("steam", "game-a", 12), {
+    filter: "locked",
+    modeFilter: "all",
+    visibleCount: 40,
+    focusedAchievementId: "achievement-a",
+    scrollTop: 612,
+  });
+  assert.deepEqual(readDeckyCompactAchievementPageState("steam", "game-b", 12), {
+    filter: "unlocked",
+    modeFilter: "all",
+    visibleCount: 12,
+    focusedAchievementId: "achievement-b",
+    scrollTop: 88,
+  });
+
+  const listSource = readFileSync("src/platform/decky/decky-compact-achievement-list.tsx", "utf8");
+  const bootstrapSource = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
+  assert.match(listSource, /data-achievement-companion-compact-achievement-id=\{model\.achievementId\}/u);
+  assert.match(listSource, /restoreAchievementIdRef = useRef\(pageState\.focusedAchievementId\)/u);
+  assert.match(listSource, /element\?\.ownerDocument\?\.defaultView\?\.HTMLElement/u);
+  assert.match(listSource, /model\.providerId === "steam"\s*\? readSteamScrollTop/u);
+  assert.match(
+    listSource,
+    /onOpen=\{\(target\) => \{[\s\S]*focusedAchievementId: row\.achievementId,[\s\S]*scrollTop: model\.providerId === "steam"[\s\S]*readSteamScrollTop\(target, current\.scrollTop\)/u,
+  );
+  assert.match(listSource, /requestDeckySteamGamepadFocusAfterMount\(target\)/u);
+  assert.match(listSource, /!focusRestorationReady \|\| embedded/u);
+  assert.match(listSource, /\(embedded \|\| model\.providerId !== "steam"\) &&/u);
+  assert.match(listSource, /\}, \[embedded, focusRestorationReady, model\.gameId, model\.providerId\]\);/u);
+  assert.match(bootstrapSource, /onRestoreAfterLayoutComplete=\{handleScrollRestoreComplete\}/u);
+  assert.match(bootstrapSource, /focusRestorationReady=\{focusRestorationReady\}/u);
+  assert.match(bootstrapSource, /restoreAfterLayout=\{destination\.providerId === STEAM_PROVIDER_ID\}/u);
+});
+
 test("loading completion is render-owned and stale hook completion is ignored after unmount", () => {
   const resolverSource = readFileSync("src/platform/decky/decky-compact-achievement-resource.ts", "utf8");
   const asyncHookSource = readFileSync("src/platform/decky/useAsyncResourceState.ts", "utf8");

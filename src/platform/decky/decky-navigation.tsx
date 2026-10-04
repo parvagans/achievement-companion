@@ -30,6 +30,9 @@ import { dispatchDeckyScrollReset } from "./decky-scroll-viewport";
 import { resetSteamGameSectionActiveSection } from "./decky-steam-game-section-state";
 import { beginDeckySteamFullScreenRefreshSession } from "./decky-app-services";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
+import { resetDeckySteamActivityPageState } from "./decky-steam-full-screen-activity-state";
+import { resetDeckySteamGamesPageState } from "./decky-steam-full-screen-games-state";
+import { requestDeckySteamCompactFocusRestore } from "./decky-steam-compact-focus-state";
 import {
   consumeNextFullScreenCompletionProgressFilter,
   markNextFullScreenCompletionProgressFilter,
@@ -85,7 +88,10 @@ const deckyFullScreenTerminalReturn = createDeckyFullScreenTerminalReturn({
   consumeSession: consumeDeckyCompactOriginFullScreenSession,
   clearSession: clearDeckyFullScreenSession,
   navigateBack: () => DeckyNavigation.NavigateBack(),
-  openDeckyQuickAccessMenu: () => DeckyNavigation.OpenQuickAccessMenu(QuickAccessTab.Decky),
+  openDeckyQuickAccessMenu: () => {
+    DeckyNavigation.OpenQuickAccessMenu(QuickAccessTab.Decky);
+    requestDeckySteamCompactFocusRestore();
+  },
   schedule: (callback, delayMs) => setTimeout(callback, delayMs),
   cancel: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
 });
@@ -435,7 +441,6 @@ function DeckySteamFullScreenSession({
     return () => {
       unsubscribe();
       isSteamFullScreenSessionActive = false;
-      steamFullScreenSessionTab = "profile";
     };
   }, []);
 
@@ -458,6 +463,9 @@ function DeckySteamFullScreenSession({
   };
 
   const exitSession = (): void => {
+    steamFullScreenSessionTab = "profile";
+    resetDeckySteamActivityPageState();
+    resetDeckySteamGamesPageState();
     onBack();
   };
 

@@ -49,18 +49,23 @@ test("Steam compact profile matches the refined controller-first information hie
   assert.ok(compactActionStart >= 0);
   assert.ok(compactActionEnd > compactActionStart);
   assert.ok(compactActionSource.includes("<Focusable"));
-  assert.ok(compactActionSource.includes("onActivate={onActivate}"));
+  assert.ok(compactActionSource.includes("onActivate={activate}"));
   assert.ok(compactActionSource.includes("onCancel={onCancel}"));
   assert.match(compactActionSource, /role="button"/u);
   assert.match(compactActionSource, /tabIndex=\{0\}/u);
   assert.match(compactActionSource, /onGamepadFocus=/u);
-  assert.match(compactActionSource, /if \(!isNavigable\)/u);
-  assert.match(compactProfileSource, /scrollDeckyFocusTargetIntoView/u);
-  assert.match(compactProfileSource, /scrollSteamCompactProfileToTop/u);
+  assert.doesNotMatch(compactActionSource, /isNavigable/u);
+  assert.match(compactProfileSource, /target\.scrollIntoView/u);
+  assert.match(compactProfileSource, /scrollCompactViewToTop/u);
   assert.doesNotMatch(compactProfileSource, /getWideViewAllActionStyle/u);
   assert.doesNotMatch(compactProfileSource, /onGamepadDirection|createElement\("audio"\)|\.focus\(\)|\/sounds\//u);
-  assert.match(compactProfileSource, /hasEnteredActionNavigation/u);
-  assert.match(compactProfileSource, /onFocused=\{\(\) => \{/u);
+  assert.doesNotMatch(compactProfileSource, /hasEnteredActionNavigation/u);
+  assert.match(compactProfileSource, /useQuickAccessVisible\(\)/u);
+  assert.match(compactProfileSource, /subscribeToDeckySteamCompactFocusRestore/u);
+  assert.match(compactProfileSource, /handledRestorationRequest\.current === restorationRequest/u);
+  assert.match(compactProfileSource, /restorationElementRef\.current/u);
+  assert.match(compactProfileSource, /!isQuickAccessVisible[\s\S]*handledRestorationRequest\.current === restorationRequest/u);
+  assert.match(compactProfileSource, /requestDeckySteamGamepadFocusAfterMount\(target\)/u);
   assert.ok(compactProfileSource.includes("<DeckyGameArtwork compact src={artworkUrl} size={34} title={game.title} />"));
   assert.ok(compactProfileSource.includes("Steam and SteamHunters refreshed ${refreshTime}"));
   assert.match(compactProfileSource, /recentAchievements\.map/u);
@@ -117,7 +122,11 @@ test("provider and Steam use explicit native entry scopes without changing Retro
     /<Focusable[\s\S]*navEntryPreferPosition=\{NavEntryPositionPreferences\.PREFERRED_CHILD\}[\s\S]*preferredFocus/u,
   );
   assert.match(steamActionSource, /preferredFocus=\{preferredFocus\}/u);
-  assert.match(compactProfileSource, /ariaLabel="Open Steam profile full-screen"[\s\S]*preferredFocus/u);
+  assert.match(
+    compactProfileSource,
+    /ariaLabel="Open Steam profile full-screen"[\s\S]*\.\.\.targetProps\(\{ kind: "profile" \}\)/u,
+  );
+  assert.match(compactProfileSource, /preferredFocus: key === restorationKey/u);
 
   assert.doesNotMatch(retroProfileEntrySource, /navEntryPreferPosition|preferredFocus/u);
 
@@ -135,7 +144,9 @@ test("Steam compact settings reuse the provider configuration and keep API crede
   assert.match(compactSettingsSource, /data-achievement-companion-steam-compact-settings/u);
   assert.match(compactSettingsSource, /padding: "0 16px 4px"/u);
   assert.match(compactSettingsSource, /data-achievement-companion-steam-settings-initial-focus/u);
-  assert.match(compactSettingsSource, /scrollTop = 0/u);
+  assert.match(compactSettingsSource, /autoFocus=\{isInitialFocusTarget\}/u);
+  assert.match(compactSettingsSource, /preferredFocus=\{isInitialFocusTarget\}/u);
+  assert.doesNotMatch(compactSettingsSource, /takeDeckySteamGamepadFocus|\.focus\(\)|requestAnimationFrame|scrollTop = 0/u);
   assert.match(compactSettingsSource, /writeValidatedDeckySteamProviderConfig/u);
   assert.doesNotMatch(compactSettingsSource, /apiKeyDraft/u, "settings must not contain a second API-key field");
   assert.match(compactSettingsSource, /Recent Activity/u);
@@ -171,9 +182,11 @@ test("Steam compact profile loads optional SteamHunters data and preserves compa
   assert.match(bootstrapSource, /openProviderFullScreenView\(providerId, "completion-progress"\)/u);
 });
 
-test("Steam compact entry waits for fresh Steam and SteamHunters data before rendering the profile", () => {
-  assert.match(bootstrapSource, /dashboardForceRefreshNextLoad = useRef\(providerId === STEAM_PROVIDER_ID\)/u);
-  assert.match(bootstrapSource, /steamHuntersForceRefreshNextLoad = useRef\(providerId === STEAM_PROVIDER_ID\)/u);
+test("Steam compact entry waits for claimed fresh Steam and SteamHunters data before rendering the profile", () => {
+  assert.match(bootstrapSource, /initialSteamRefresh = useRef<boolean \| undefined>\(undefined\)/u);
+  assert.match(bootstrapSource, /claimDeckyCompactSteamDashboardRefresh\(\)/u);
+  assert.match(bootstrapSource, /dashboardForceRefreshNextLoad = useRef\(initialSteamRefresh\.current\)/u);
+  assert.match(bootstrapSource, /steamHuntersForceRefreshNextLoad = useRef\(initialSteamRefresh\.current\)/u);
   assert.match(bootstrapSource, /refreshDeckySteamHuntersProfileState\(steamId\)/u);
   assert.match(bootstrapSource, /const isSteamCompactProfileLoading =/u);
   assert.match(
@@ -186,7 +199,10 @@ test("Steam compact entry waits for fresh Steam and SteamHunters data before ren
   );
   assert.match(bootstrapSource, /<DeckyCompactLoadingState[\s\S]*Loading Steam profile\.\.\./u);
   assert.match(bootstrapSource, /Fetching the latest Steam profile and SteamHunters data\./u);
-  assert.match(bootstrapSource, /<TopAlignedScrollViewport scrollKey="dashboard">/u);
+  assert.match(
+    bootstrapSource,
+    /<TopAlignedScrollViewport[\s\S]*restoreAfterLayout=\{selectedProviderId === STEAM_PROVIDER_ID\}[\s\S]*scrollKey="dashboard"/u,
+  );
 
   assert.match(compactLoadingSource, /data-achievement-companion-compact-loading-state/u);
   assert.match(compactLoadingSource, /justifyContent: "center"/u);

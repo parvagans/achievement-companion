@@ -2,7 +2,6 @@ import { Focusable, type FocusableProps } from "@decky/ui";
 import type { AchievementHistorySnapshot, RecentUnlock } from "@core/domain";
 import {
   useLayoutEffect,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -10,6 +9,7 @@ import {
   type FocusEventHandler,
   type JSX,
   type KeyboardEventHandler,
+  type RefCallback,
 } from "react";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DeckyFullScreenFooterOverlay, STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS } from "./decky-full-screen-footer-overlay";
@@ -28,8 +28,16 @@ import gamepadIconUrl from "./assets/gamepad.svg";
 import streakIconUrl from "./assets/activity-flame.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
 import unlockedLockIconUrl from "./assets/unlocked-lock.svg";
+import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
+import {
+  readDeckySteamActivityPageState,
+  rememberDeckySteamActivityFilter,
+  rememberDeckySteamActivityFocusTarget,
+  rememberDeckySteamActivityRenderLimit,
+  type DeckySteamActivityFilter,
+} from "./decky-steam-full-screen-activity-state";
 
-type ActivityFilter = "all" | "recent" | "year" | "month" | "streak";
+type ActivityFilter = DeckySteamActivityFilter;
 type ActivityGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
 
 const BLUE_ICON_FILTER =
@@ -207,8 +215,7 @@ function focusActivityTarget(source: HTMLElement, selector: string): boolean {
     return false;
   }
 
-  target.focus();
-  return true;
+  return takeDeckySteamGamepadFocus(target);
 }
 
 function createActivityFilterKeyDownHandler(): KeyboardEventHandler<HTMLDivElement> {
@@ -236,7 +243,7 @@ function createActivityFilterKeyDownHandler(): KeyboardEventHandler<HTMLDivEleme
       return;
     }
 
-    nextFilter.focus();
+    takeDeckySteamGamepadFocus(nextFilter);
     event.preventDefault();
     event.stopPropagation();
   };
@@ -286,7 +293,8 @@ function ActivityFilterButton({ label, selected, onClick, onBack }: {
   );
 }
 
-function AchievementActivityRow({ entry, rowIndex, onOpenAchievementDetail, onBack }: {
+function AchievementActivityRow({ elementRef, entry, rowIndex, onOpenAchievementDetail, onBack }: {
+  readonly elementRef?: RefCallback<HTMLDivElement> | undefined;
   readonly entry: RecentUnlock;
   readonly rowIndex: number;
   readonly onOpenAchievementDetail: (gameId: string, achievementId: string) => void;
@@ -310,7 +318,7 @@ function AchievementActivityRow({ entry, rowIndex, onOpenAchievementDetail, onBa
     }
   };
   return (
-    <Focusable className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS} noFocusRing role="button" data-steam-activity-row="true" data-steam-activity-row-index={rowIndex} aria-label={`Open ${entry.achievement.title}`} onActivate={() => onOpenAchievementDetail(entry.game.gameId, entry.achievement.achievementId)} onClick={() => onOpenAchievementDetail(entry.game.gameId, entry.achievement.achievementId)} onCancel={onBack} onKeyDown={onKeyDown} onFocus={onFocus} onGamepadFocus={onGamepadFocus} onBlur={() => setFocused(false)} style={{ ...getCardStyle(), display: "grid", gridTemplateColumns: `${STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}px 48px minmax(0, 1fr) 128px 16px`, alignItems: "center", gap: 8, flex: `0 0 ${STEAM_FULLSCREEN_GAME_ROW_HEIGHT}px`, minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT, padding: "2px 7px 2px 3px", boxSizing: "border-box", ...(focused ? { outline: "none", background: "linear-gradient(135deg, rgba(20, 87, 123, 0.95), rgba(9, 39, 58, 0.95))", boxShadow: "inset 0 0 0 2px #3bc7ff, inset 0 0 18px rgba(25, 184, 255, 0.2)" } : {}) }}>
+    <Focusable ref={elementRef} className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS} noFocusRing role="button" data-steam-activity-row="true" data-steam-activity-row-index={rowIndex} aria-label={`Open ${entry.achievement.title}`} onActivate={() => { rememberDeckySteamActivityFocusTarget({ gameId: entry.game.gameId, achievementId: entry.achievement.achievementId }); onOpenAchievementDetail(entry.game.gameId, entry.achievement.achievementId); }} onClick={() => { rememberDeckySteamActivityFocusTarget({ gameId: entry.game.gameId, achievementId: entry.achievement.achievementId }); onOpenAchievementDetail(entry.game.gameId, entry.achievement.achievementId); }} onCancel={onBack} onKeyDown={onKeyDown} onFocus={(event) => { rememberDeckySteamActivityFocusTarget({ gameId: entry.game.gameId, achievementId: entry.achievement.achievementId }); onFocus(event); }} onGamepadFocus={(event) => { rememberDeckySteamActivityFocusTarget({ gameId: entry.game.gameId, achievementId: entry.achievement.achievementId }); onGamepadFocus(event); }} onBlur={() => setFocused(false)} style={{ ...getCardStyle(), display: "grid", gridTemplateColumns: `${STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}px 48px minmax(0, 1fr) 128px 16px`, alignItems: "center", gap: 8, flex: `0 0 ${STEAM_FULLSCREEN_GAME_ROW_HEIGHT}px`, minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT, padding: "2px 7px 2px 3px", boxSizing: "border-box", ...(focused ? { outline: "none", background: "linear-gradient(135deg, rgba(20, 87, 123, 0.95), rgba(9, 39, 58, 0.95))", boxShadow: "inset 0 0 0 2px #3bc7ff, inset 0 0 18px rgba(25, 184, 255, 0.2)" } : {}) }}>
       <DeckyGameArtwork compact height={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT} size={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT} width={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH} {...(heroArtworkUrl !== undefined ? { src: heroArtworkUrl } : {})} title={entry.game.title} />
       {entry.achievement.badgeImageUrl !== undefined ? <DeckyGameArtwork compact size={46} src={entry.achievement.badgeImageUrl} title={entry.achievement.title} /> : <span style={{ width: 46, height: 46, display: "grid", placeItems: "center", borderRadius: 7, background: "#18394d", color: "#dceefa", fontWeight: 800 }}>{entry.achievement.title.slice(0, 1)}</span>}
       <div style={{ minWidth: 0 }}><div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13, fontWeight: 800 }}>{entry.achievement.title}</div><div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#b4cbdb", fontSize: 10 }}>{entry.achievement.description ?? entry.game.title}</div></div>
@@ -388,16 +396,20 @@ export function DeckySteamFullScreenActivityDashboard({
   readonly onOpenGames: () => void;
   readonly onOpenSettings: () => void;
 }): JSX.Element {
+  const initialPageState = useRef(readDeckySteamActivityPageState()).current;
   const dashboardRef = useRef<HTMLElement>(null);
-  const [filter, setFilter] = useState<ActivityFilter>("all");
-  const [renderLimit, setRenderLimit] = useState(STEAM_ACTIVITY_INITIAL_RENDER_LIMIT);
+  const restorationTargetRef = useRef<HTMLDivElement | null>(null);
+  const [filter, setFilter] = useState<ActivityFilter>(initialPageState.filter);
+  const [renderLimit, setRenderLimit] = useState(initialPageState.renderLimit);
   const entries = useMemo(() => filterActivityEntries(snapshot.entries, filter), [filter, snapshot.entries]);
   const renderedEntries = entries.slice(0, renderLimit);
   const stats = useMemo(() => buildSteamActivityStats(snapshot.entries), [snapshot.entries]);
 
-  useEffect(() => {
+  const selectFilter = (nextFilter: ActivityFilter): void => {
+    setFilter(nextFilter);
     setRenderLimit(STEAM_ACTIVITY_INITIAL_RENDER_LIMIT);
-  }, [filter]);
+    rememberDeckySteamActivityFilter(nextFilter);
+  };
 
   useLayoutEffect(() => {
     if (!isActive) return;
@@ -407,12 +419,12 @@ export function DeckySteamFullScreenActivityDashboard({
     const frame = ownerWindow.requestAnimationFrame(() => {
       // A real action must own GamepadUI focus for the shared footer to handle
       // the first shoulder press, as on the Profile and Games dashboards.
-      const target = dashboard.querySelector<HTMLElement>("[data-steam-activity-row='true']")
+      const target = restorationTargetRef.current
+        ?? dashboard.querySelector<HTMLElement>("[data-steam-activity-row='true']")
         ?? dashboard.querySelector<HTMLElement>("[role='button']");
-      if (target !== null) {
-        if (!dashboard.contains(dashboard.ownerDocument.activeElement)) {
-          target.focus();
-        }
+      if (target !== null && !dashboard.contains(dashboard.ownerDocument.activeElement)) {
+        takeDeckySteamGamepadFocus(target);
+        target.scrollIntoView({ block: "center", inline: "nearest" });
       }
     });
     return () => ownerWindow.cancelAnimationFrame(frame);
@@ -445,11 +457,11 @@ export function DeckySteamFullScreenActivityDashboard({
                 data-steam-activity-filter-row
                 style={{ display: "flex", gap: 5, alignItems: "center", minWidth: 0 }}
               >
-                <ActivityFilterButton label={`All Unlocks (${formatCount(snapshot.summary.unlockedCount)})`} selected={filter === "all"} onClick={() => setFilter("all")} onBack={onBack} />
-                <ActivityFilterButton label="Recent (90 days)" selected={filter === "recent"} onClick={() => setFilter("recent")} onBack={onBack} />
-                <ActivityFilterButton label="This Year" selected={filter === "year"} onClick={() => setFilter("year")} onBack={onBack} />
-                <ActivityFilterButton label="This Month" selected={filter === "month"} onClick={() => setFilter("month")} onBack={onBack} />
-                <ActivityFilterButton label="Current Streak" selected={filter === "streak"} onClick={() => setFilter("streak")} onBack={onBack} />
+                <ActivityFilterButton label={`All Unlocks (${formatCount(snapshot.summary.unlockedCount)})`} selected={filter === "all"} onClick={() => selectFilter("all")} onBack={onBack} />
+                <ActivityFilterButton label="Recent (90 days)" selected={filter === "recent"} onClick={() => selectFilter("recent")} onBack={onBack} />
+                <ActivityFilterButton label="This Year" selected={filter === "year"} onClick={() => selectFilter("year")} onBack={onBack} />
+                <ActivityFilterButton label="This Month" selected={filter === "month"} onClick={() => selectFilter("month")} onBack={onBack} />
+                <ActivityFilterButton label="Current Streak" selected={filter === "streak"} onClick={() => selectFilter("streak")} onBack={onBack} />
                 <span style={{ marginLeft: "auto", color: "#afc6d5", fontSize: 9 }}>Newest First</span>
               </Focusable>
               <Focusable
@@ -464,6 +476,12 @@ export function DeckySteamFullScreenActivityDashboard({
                     <AchievementActivityRow
                       key={`${entry.game.gameId}:${entry.achievement.achievementId}:${getUnlockTime(entry) ?? "unknown"}`}
                       entry={entry}
+                      elementRef={
+                        initialPageState.focusTarget?.gameId === entry.game.gameId
+                          && initialPageState.focusTarget.achievementId === entry.achievement.achievementId
+                          ? (node) => { restorationTargetRef.current = node; }
+                          : undefined
+                      }
                       rowIndex={rowIndex}
                       onOpenAchievementDetail={onOpenAchievementDetail}
                       onBack={onBack}
@@ -474,8 +492,8 @@ export function DeckySteamFullScreenActivityDashboard({
                       noFocusRing
                       role="button"
                       aria-label={`Show ${Math.min(STEAM_ACTIVITY_RENDER_STEP, entries.length - renderedEntries.length)} more unlocks`}
-                      onActivate={() => { setRenderLimit((current) => current + STEAM_ACTIVITY_RENDER_STEP); }}
-                      onClick={() => { setRenderLimit((current) => current + STEAM_ACTIVITY_RENDER_STEP); }}
+                      onActivate={() => { setRenderLimit((current) => { const next = current + STEAM_ACTIVITY_RENDER_STEP; rememberDeckySteamActivityRenderLimit(next); return next; }); }}
+                      onClick={() => { setRenderLimit((current) => { const next = current + STEAM_ACTIVITY_RENDER_STEP; rememberDeckySteamActivityRenderLimit(next); return next; }); }}
                       onCancel={onBack}
                       style={{ ...getCardStyle(), minHeight: 36, display: "grid", placeItems: "center", color: "#d8ecf9", fontSize: 11, fontWeight: 800 }}
                     >

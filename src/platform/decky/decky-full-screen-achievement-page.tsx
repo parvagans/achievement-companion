@@ -370,9 +370,11 @@ function isRenderableGameDetailState(
 function DeckyFullScreenAchievementInputSurface({
   children,
   surfaceStyle = getPageStyle(),
+  useNativeFocus = false,
 }: {
   readonly children: JSX.Element;
   readonly surfaceStyle?: CSSProperties;
+  readonly useNativeFocus?: boolean;
 }): JSX.Element {
   const surfaceRef = useRef<HTMLDivElement>(null);
 
@@ -382,15 +384,21 @@ function DeckyFullScreenAchievementInputSurface({
       return;
     }
 
+    if (useNativeFocus) {
+      return;
+    }
     surface.focus({ preventScroll: true });
-  }, []);
+  }, [useNativeFocus]);
 
   return (
     <Focusable
       ref={surfaceRef}
+      {...(useNativeFocus ? { focusable: true } : {})}
       aria-label="Achievement details"
+      autoFocus={useNativeFocus}
       noFocusRing
-      role="group"
+      preferredFocus={useNativeFocus}
+      role="region"
       style={surfaceStyle}
       tabIndex={0}
     >
@@ -599,6 +607,7 @@ export function DeckyFullScreenAchievementPage({
     return (
       <DeckyFullScreenAchievementInputSurface
         surfaceStyle={getDeckyFullScreenLoadingPageStyle()}
+        useNativeFocus={providerId === STEAM_PROVIDER_ID}
       >
         <DeckyFullScreenAchievementLoadingState hasRouteParameters={hasRouteParameters} state={state} />
       </DeckyFullScreenAchievementInputSurface>
@@ -619,6 +628,7 @@ export function DeckyFullScreenAchievementPage({
     return (
       <DeckyFullScreenAchievementInputSurface
         surfaceStyle={getDeckyFullScreenLoadingPageStyle()}
+        useNativeFocus={providerId === STEAM_PROVIDER_ID}
       >
         <DeckyFullScreenAchievementLoadingState hasRouteParameters={false} state={{ ...state, status: "error" }} />
       </DeckyFullScreenAchievementInputSurface>
@@ -632,7 +642,7 @@ export function DeckyFullScreenAchievementPage({
     : undefined;
 
   return (
-    <DeckyFullScreenAchievementInputSurface>
+    <DeckyFullScreenAchievementInputSurface useNativeFocus={isSteamProvider}>
       <DeckyFullScreenAchievementContent
         achievement={achievement}
         game={game}

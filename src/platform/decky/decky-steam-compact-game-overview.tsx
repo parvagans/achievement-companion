@@ -14,6 +14,7 @@ import { buildDeckySteamHuntersGameViewModel } from "./decky-steam-hunters-view-
 import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
 import { getSteamHuntersGameEnrichment } from "../../providers/steamhunters";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
+import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
 import calendarIconUrl from "./assets/calendar.svg";
 import clockIconUrl from "./assets/clock.svg";
 import externalLinkIconUrl from "./assets/external-link.svg";
@@ -456,6 +457,7 @@ export function DeckySteamCompactGameOverview({
   readonly onViewAchievements: (() => void) | undefined;
 }): JSX.Element {
   const rootRef = useRef<HTMLElement>(null);
+  const initialFocusTargetRef = useRef<HTMLDivElement | null>(null);
   const [enrichmentResult, setEnrichmentResult] = useState<{
     readonly sourceSnapshot: GameDetailSnapshot;
     readonly enrichedSnapshot: GameDetailSnapshot;
@@ -479,6 +481,10 @@ export function DeckySteamCompactGameOverview({
   const artworkUrl = getSteamFullscreenGameArtworkUrl(game);
 
   useLayoutEffect(() => registerCompactGameDetailCancelCallback(rootRef.current, onBack), [onBack]);
+  useLayoutEffect(
+    () => requestDeckySteamGamepadFocusAfterMount(initialFocusTargetRef.current),
+    [],
+  );
 
   useEffect(() => {
     if (getSteamHuntersGameEnrichment(snapshot) !== undefined) {
@@ -522,6 +528,7 @@ export function DeckySteamCompactGameOverview({
       {onOpenFullScreen !== undefined ? (
         <DeckySteamCompactAction
           ariaLabel="Open game full-screen"
+          elementRef={(node) => { initialFocusTargetRef.current = node; }}
           onActivate={onOpenFullScreen}
           onCancel={onBack}
           preferredFocus

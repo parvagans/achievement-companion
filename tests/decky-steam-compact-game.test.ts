@@ -27,6 +27,7 @@ test("Steam compact game overview uses the refined narrow-panel hierarchy and op
   assert.match(compactGameSource, /Open Full-Screen/u);
   assert.match(compactGameSource, /View Achievements/u);
   assert.match(compactGameSource, /DeckySteamCompactAction/u);
+  assert.match(compactGameSource, /requestDeckySteamGamepadFocusAfterMount\(initialFocusTargetRef\.current\)/u);
   assert.match(compactGameSource, /Your Progress/u);
   assert.match(compactGameSource, /Play Time/u);
   assert.match(compactGameSource, /Steam Deck/u);

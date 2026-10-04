@@ -31,11 +31,13 @@ import {
   writeDeckyCompactAchievementPageState,
   type DeckyCompactAchievementPageState,
 } from "./decky-compact-achievement-page-state";
+import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
 
 type DeckyGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
 
 export interface DeckyCompactAchievementListProps {
   readonly embedded: boolean;
+  readonly focusRestorationReady?: boolean;
   readonly model: CompactAchievementListViewModel;
   readonly onBack: () => void;
   readonly onOpenAchievement: (achievementId: string) => void;
@@ -234,6 +236,14 @@ function readScrollTop(target: EventTarget | null, fallback: number): number {
     : fallback;
 }
 
+function readSteamScrollTop(target: EventTarget | null, fallback: number): number {
+  const element = target as HTMLElement | null;
+  const HTMLElementConstructor = element?.ownerDocument?.defaultView?.HTMLElement;
+  return HTMLElementConstructor !== undefined && element instanceof HTMLElementConstructor
+    ? findDeckyScrollContainerAncestor(element)?.scrollTop ?? fallback
+    : fallback;
+}
+
 function CompactAchievementRow({
   model,
   onBack,
@@ -244,7 +254,7 @@ function CompactAchievementRow({
   readonly model: CompactAchievementRowViewModel;
   readonly onBack: () => void;
   readonly onFocusRow: (target: EventTarget | null, achievementId: string) => void;
-  readonly onOpen: () => void;
+  readonly onOpen: (target: EventTarget | null) => void;
   readonly preferredFocus: boolean;
 }): JSX.Element {
   const [isFocused, setIsFocused] = useState(false);
@@ -261,13 +271,14 @@ function CompactAchievementRow({
 
   return (
     <Focusable
+      data-achievement-companion-compact-achievement-id={model.achievementId}
       aria-label={`${model.title}, ${model.statusText}`}
       className={model.metadataPlacement === "rail" ? undefined : DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
       noFocusRing
-      onActivate={onOpen}
+      onActivate={(event) => onOpen(event.currentTarget)}
       onBlur={() => setIsFocused(false)}
       onCancel={onBack}
-      onClick={onOpen}
+      onClick={(event) => onOpen(event.currentTarget)}
       onFocus={handleFocus}
       onGamepadFocus={handleGamepadFocus}
       preferredFocus={preferredFocus}
@@ -322,6 +333,7 @@ function CompactAchievementRow({
 
 export function DeckyCompactAchievementList({
   embedded,
+  focusRestorationReady = true,
   model,
   onBack,
   onOpenAchievement,
@@ -330,6 +342,7 @@ export function DeckyCompactAchievementList({
   const [pageState, setPageState] = useState<DeckyCompactAchievementPageState>(() =>
     readDeckyCompactAchievementPageState(model.providerId, model.gameId, model.initialVisibleCount));
   const pageStateRef = useRef(pageState);
+  const restoreAchievementIdRef = useRef(pageState.focusedAchievementId);
   const [focusedControl, setFocusedControl] = useState<string | undefined>();
   const refined = model.providerId === "steam";
   const counts = useMemo(() => getCompactAchievementFilterCounts(model.rows), [model.rows]);
@@ -342,6 +355,18 @@ export function DeckyCompactAchievementList({
   const visibleRows = filteredRows.slice(0, pageState.visibleCount);
   const canLoadMore = pageState.visibleCount < filteredRows.length;
   const canShowAll = filteredRows.length > pageState.visibleCount + 5;
+
+  useLayoutEffect(() => {
+    const restoreAchievementId = restoreAchievementIdRef.current;
+    if (!focusRestorationReady || embedded || model.providerId !== "steam" || restoreAchievementId === undefined) {
+      return;
+    }
+
+    const target = rootRef.current?.querySelector<HTMLElement>(
+      `[data-achievement-companion-compact-achievement-id='${restoreAchievementId}']`,
+    );
+    return requestDeckySteamGamepadFocusAfterMount(target);
+  }, [embedded, focusRestorationReady, model.gameId, model.providerId]);
 
   useLayoutEffect(() => {
     if (embedded) {
@@ -364,7 +389,9 @@ export function DeckyCompactAchievementList({
     commitPageState((current) => ({
       ...current,
       focusedAchievementId: achievementId,
-      scrollTop: readScrollTop(target, current.scrollTop),
+      scrollTop: model.providerId === "steam"
+        ? readSteamScrollTop(target, current.scrollTop)
+        : readScrollTop(target, current.scrollTop),
     }));
   };
 
@@ -487,11 +514,20 @@ export function DeckyCompactAchievementList({
               model={row}
               onBack={onBack}
               onFocusRow={rememberFocus}
-              onOpen={() => {
-                commitPageState((current) => ({ ...current, focusedAchievementId: row.achievementId }));
+              onOpen={(target) => {
+                commitPageState((current) => ({
+                  ...current,
+                  focusedAchievementId: row.achievementId,
+                  scrollTop: model.providerId === "steam"
+                    ? readSteamScrollTop(target, current.scrollTop)
+                    : current.scrollTop,
+                }));
                 onOpenAchievement(row.achievementId);
               }}
-              preferredFocus={pageState.focusedAchievementId === row.achievementId}
+              preferredFocus={
+                (embedded || model.providerId !== "steam") &&
+                pageState.focusedAchievementId === row.achievementId
+              }
             />
           ))}
         </div>

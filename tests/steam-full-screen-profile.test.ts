@@ -21,6 +21,11 @@ import {
 } from "../src/platform/decky/decky-steam-full-screen-games-data";
 import { buildSteamActivityStats } from "../src/platform/decky/decky-steam-activity-data";
 import { getAdjacentSteamFullScreenSessionTab } from "../src/platform/decky/decky-steam-full-screen-session-navigation";
+import {
+  consumeDeckyFullscreenTransientCancel,
+  isDeckyFullscreenOnScreenKeyboardOpen,
+  markDeckyFullscreenOnScreenKeyboardOpen,
+} from "../src/platform/decky/decky-full-screen-footer-overlay";
 
 function createUnlock(gameId: string, gameTitle: string, unlockedAt?: number): RecentUnlock {
   return {
@@ -375,7 +380,7 @@ test("steam games route uses the fixed concept dashboard and shared profile foot
   assert.match(dashboardSource, /activeNavigationItemId="games"/u);
   assert.match(
     dashboardSource,
-    /visible action must own GamepadUI[\s\S]*\[data-steam-games-row='true'\][\s\S]*initialFocusTarget\.focus\(\)/u,
+    /visible action must own GamepadUI[\s\S]*\[data-steam-games-row='true'\][\s\S]*takeDeckySteamGamepadFocus\(initialFocusTarget\)/u,
   );
   assert.match(dashboardSource, /activeNavigationItemId="games"/u);
   assert.match(dashboardSource, /onNextNavigationItem=\{onOpenActivity\}/u);
@@ -519,7 +524,7 @@ test("steam full-screen profile uses the requested top-row and equal lower-row d
   );
   assert.match(
     dashboardSource,
-    /GamepadUI dispatches route shoulder[\s\S]*initialFocusTarget\.focus\(\)/u,
+    /GamepadUI dispatches route shoulder[\s\S]*takeDeckySteamGamepadFocus\(initialFocusTarget\)/u,
   );
   assert.match(
     dashboardSource,
@@ -741,6 +746,12 @@ test("Steam full-screen tabs share one session while details retain route histor
   assert.match(sessionSource, /onOpenActivity=\{\(\) => selectTab\("activity"\)\}/u);
   assert.match(sessionSource, /onOpenSettings=\{\(\) => selectTab\("settings"\)\}/u);
   assert.match(sessionSource, /onBack=\{exitSession\}/u);
+  assert.match(sessionSource, /const exitSession = \(\): void => \{[\s\S]*steamFullScreenSessionTab = "profile";[\s\S]*onBack\(\);/u);
+  assert.match(
+    sessionSource,
+    /return \(\) => \{\s*unsubscribe\(\);\s*isSteamFullScreenSessionActive = false;\s*\};/u,
+    "child-route unmounts must preserve the active Steam tab",
+  );
   assert.match(sessionSource, /navigateToFullScreenGame\(providerId, gameId\)/u);
   assert.match(sessionSource, /navigateToFullScreenAchievement\(providerId, gameId, achievementId\)/u);
   assert.doesNotMatch(sessionSource, /DeckyNavigation\.Navigate\(.*completion-progress/u);
@@ -753,7 +764,7 @@ test("Steam full-screen tabs share one session while details retain route histor
     1,
     "the retained Steam session must have one stable global footer/input owner",
   );
-  assert.match(footerSource, /readonly isActive\?: boolean[\s\S]*if \(!isActive\)[\s\S]*isActive && portalTarget/u);
+  assert.match(footerSource, /readonly isActive\?: boolean[\s\S]*if \(!isActive\)[\s\S]*isActive && !isOnScreenKeyboardOpen && portalTarget/u);
   assert.match(gamesDashboardSource, /STEAM_GAMES_INITIAL_RENDER_LIMIT[\s\S]*visibleGames\.slice\(0, renderLimit\)[\s\S]*Show \$\{Math\.min\(STEAM_GAMES_RENDER_STEP/u);
   assert.match(activityDashboardSource, /STEAM_ACTIVITY_INITIAL_RENDER_LIMIT[\s\S]*entries\.slice\(0, renderLimit\)[\s\S]*Show \$\{Math\.min\(STEAM_ACTIVITY_RENDER_STEP/u);
 
@@ -814,11 +825,46 @@ test("Steam settings are a Steam-only account screen with the expanded account a
   assert.doesNotMatch(source, /SteamSettingsInput/u);
   assert.match(source, /DeckyCredentialTextField[\s\S]*onClick=.*markDeckyFullscreenOnScreenKeyboardOpen/u);
   assert.match(source, /active instanceof ownerWindow\.HTMLInputElement[\s\S]*handleColumnDirection/u);
-  assert.match(source, /RegisterForUserDismissKeyboardMessages[\s\S]*clearDeckyFullscreenOnScreenKeyboardOpen/u);
+  assert.match(source, /useDeckyFullscreenOnScreenKeyboardLifecycle\(pageRef\)/u);
   assert.match(footerSource, /consumeDeckyFullscreenTransientCancel\(event, ownerWindow\.document\)/u);
   assert.match(footerSource, /consumeDeckyFullscreenOnScreenKeyboardCancel\(document\)/u);
   assert.match(footerSource, /cancel deliberately remains unconsumed/u);
   assert.match(source, /title=\{armedAction === "reset" \? "Press again to reset Steam data"/u);
+});
+
+test("full-screen text entry yields the first B to Steam, then returns normal Back ownership", () => {
+  const attributes = new Map<string, string>();
+  const document = {
+    documentElement: {
+      getAttribute: (name: string) => attributes.get(name) ?? null,
+      removeAttribute: (name: string) => attributes.delete(name),
+      setAttribute: (name: string, value: string) => attributes.set(name, value),
+    },
+  } as unknown as Document;
+  const keyboardCancel = {} as Event;
+
+  markDeckyFullscreenOnScreenKeyboardOpen(document);
+  assert.equal(isDeckyFullscreenOnScreenKeyboardOpen(document), true);
+  assert.equal(consumeDeckyFullscreenTransientCancel(keyboardCancel, document), true);
+  assert.equal(isDeckyFullscreenOnScreenKeyboardOpen(document), false);
+  assert.equal(consumeDeckyFullscreenTransientCancel(keyboardCancel, document), true);
+  assert.equal(consumeDeckyFullscreenTransientCancel({} as Event, document), false);
+});
+
+test("Games Search and Settings keep the footer on focus and yield it only to Steam keyboard ownership", async () => {
+  const [gamesSource, settingsSource, footerSource] = await Promise.all([
+    readFile(new URL("../src/platform/decky/decky-steam-full-screen-games-dashboard.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-settings-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-footer-overlay.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(gamesSource, /useDeckyFullscreenOnScreenKeyboardLifecycle\(dashboardRef\)/u);
+  assert.match(gamesSource, /Search your games[\s\S]*onClick=\{\(event\) => \{[\s\S]*markDeckyFullscreenOnScreenKeyboardOpen/u);
+  assert.match(settingsSource, /useDeckyFullscreenOnScreenKeyboardLifecycle\(pageRef\)/u);
+  assert.match(footerSource, /RegisterForUserDismissKeyboardMessages/u);
+  assert.doesNotMatch(footerSource, /isTextEntryFocused|!isTextEntryFocused/u);
+  assert.match(footerSource, /isActive && !isOnScreenKeyboardOpen && portalTarget/u);
+  assert.match(footerSource, /isDeckyFullscreenOnScreenKeyboardOpen\(ownerWindow\.document\)/u);
 });
 
 test("profile summary memo runs before the loading-state early return", async () => {

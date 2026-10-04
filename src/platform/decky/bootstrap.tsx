@@ -7,6 +7,7 @@ import {
   useState,
   type CSSProperties,
   type FocusEventHandler,
+  type ReactNode,
   type RefCallback,
 } from "react";
 import {
@@ -96,6 +97,8 @@ import { resolveProviderDashboardPreferences } from "@core/provider-dashboard-pr
 import { DeckyFirstRunSetupScreen } from "./decky-first-run-setup-screen";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { readDeckyGamepadNavigationTrees } from "./decky-gamepad-navigation";
+import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
+import { readDeckySteamCompactFocusScrollTop } from "./decky-steam-compact-focus-state";
 import {
   createDeckyProviderInitialFocusAttempt,
   requestDeckyProviderInitialFocus,
@@ -903,15 +906,21 @@ function CompactAchievementListScreen({
     destination.gameId,
     model?.initialVisibleCount ?? 12,
   );
+  const [isScrollRestored, setIsScrollRestored] = useState(destination.providerId !== STEAM_PROVIDER_ID);
+  const handleScrollRestoreComplete = useCallback(() => setIsScrollRestored(true), []);
+  const focusRestorationReady = restoredPageState.scrollTop <= 0 || isScrollRestored;
 
   return (
     <TopAlignedScrollViewport
+      onRestoreAfterLayoutComplete={handleScrollRestoreComplete}
+      restoreAfterLayout={destination.providerId === STEAM_PROVIDER_ID}
       restoreScrollTop={restoredPageState.scrollTop}
       scrollKey={`achievement-list:${destination.providerId}:${destination.gameId}`}
     >
       {model !== undefined ? (
         <DeckyCompactAchievementList
           embedded={false}
+          focusRestorationReady={focusRestorationReady}
           model={model}
           onBack={onBack}
           onOpenAchievement={onOpenAchievement}
@@ -929,6 +938,44 @@ function CompactAchievementListScreen({
         />
       )}
     </TopAlignedScrollViewport>
+  );
+}
+
+function DeckySteamCompactAchievementDetailSurface({
+  children,
+  onBack,
+}: {
+  readonly children: ReactNode;
+  readonly onBack: () => void;
+}): JSX.Element {
+  const surfaceRef = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    const surface = surfaceRef.current;
+    const ownerWindow = surface?.ownerDocument.defaultView;
+    if (surface === null || ownerWindow === null || ownerWindow === undefined) {
+      return;
+    }
+    const frame = ownerWindow.requestAnimationFrame(() => {
+      takeDeckySteamGamepadFocus(surfaceRef.current);
+    });
+    return () => ownerWindow.cancelAnimationFrame(frame);
+  }, []);
+
+  return (
+    <Focusable
+      ref={surfaceRef}
+      aria-label="Achievement details"
+      flow-children="vertical"
+      noFocusRing
+      onActivate={() => undefined}
+      onCancel={onBack}
+      preferredFocus
+      role="region"
+      tabIndex={0}
+    >
+      {children}
+    </Focusable>
   );
 }
 
@@ -960,20 +1007,28 @@ function CompactAchievementDetailScreen({
     ? buildCompactAchievementDetailModel(loader.data, destination.achievementId)
     : undefined;
 
+  const detailContent = model === undefined ? undefined : (
+    <DeckyAchievementDetailView
+      model={model}
+      onBack={onBack}
+      onOpenCompactGame={onOpenCompactGame}
+      onOpenFullScreenGame={
+        model.showLegacyActions && platform.navigation !== undefined ? onOpenFullScreenGame : undefined
+      }
+    />
+  );
+
   return (
     <TopAlignedScrollViewport
       key={`achievement:${destination.providerId}:${destination.gameId}:${destination.achievementId}`}
       scrollKey={`achievement:${destination.providerId}:${destination.gameId}:${destination.achievementId}`}
     >
       {model !== undefined ? (
-        <DeckyAchievementDetailView
-          model={model}
-          onBack={onBack}
-          onOpenCompactGame={onOpenCompactGame}
-          onOpenFullScreenGame={
-            model.showLegacyActions && platform.navigation !== undefined ? onOpenFullScreenGame : undefined
-          }
-        />
+        destination.providerId === STEAM_PROVIDER_ID ? (
+          <DeckySteamCompactAchievementDetailSurface onBack={onBack}>
+            {detailContent}
+          </DeckySteamCompactAchievementDetailSurface>
+        ) : detailContent
       ) : (
         <DeckyCompactLoadingState
           description={loader.error?.userMessage ?? (
@@ -1312,7 +1367,15 @@ function DeckyBootstrapStateBridge(): JSX.Element {
               </>
             </TopAlignedScrollViewport>
           ) : (
-            <TopAlignedScrollViewport scrollKey="dashboard">
+            <TopAlignedScrollViewport
+              restoreAfterLayout={selectedProviderId === STEAM_PROVIDER_ID}
+              restoreScrollTop={
+                selectedProviderId === STEAM_PROVIDER_ID && compactNavigation.kind === "provider-dashboard"
+                  ? readDeckySteamCompactFocusScrollTop()
+                  : undefined
+              }
+              scrollKey="dashboard"
+            >
               <DashboardScreen
                 providerId={selectedProviderId}
                 onBackToProviders={() => {

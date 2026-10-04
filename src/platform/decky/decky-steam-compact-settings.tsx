@@ -5,8 +5,6 @@ import {
 } from "@core/settings";
 import {
   useEffect,
-  useLayoutEffect,
-  useRef,
   useState,
   type CSSProperties,
   type ReactNode,
@@ -17,7 +15,6 @@ import {
 } from "./providers/steam/config";
 import { STEAM_PROVIDER_ID } from "../../providers/steam/config";
 import chevronRightIconUrl from "./assets/chevron-right.svg";
-import { findDeckyScrollableAncestor } from "./decky-scroll-viewport";
 
 export interface DeckySteamCompactSettingsProps {
   readonly onBack: () => void;
@@ -272,7 +269,9 @@ function SteamCompactSettingsAction({
 
   return (
     <Focusable
+      autoFocus={isInitialFocusTarget}
       noFocusRing
+      preferredFocus={isInitialFocusTarget}
       role="button"
       tabIndex={0}
       aria-label={ariaLabel}
@@ -307,46 +306,17 @@ function SteamCompactCountPicker({
   readonly onChange: (value: AchievementCompanionCount) => void;
   readonly value: AchievementCompanionCount;
 }): JSX.Element {
-  const rootRef = useRef<HTMLDivElement>(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
   const [focusedOption, setFocusedOption] = useState<AchievementCompanionCount | undefined>();
 
-  const focusTrigger = (): void => {
-    rootRef.current
-      ?.querySelector<HTMLElement>(`[data-achievement-companion-count-picker-trigger="${id}"]`)
-      ?.focus();
-  };
-
-  useLayoutEffect(() => {
-    if (!isExpanded) {
-      return;
-    }
-
-    const root = rootRef.current;
-    const ownerWindow = root?.ownerDocument.defaultView;
-    if (root === null || root === undefined || ownerWindow === null || ownerWindow === undefined) {
-      return;
-    }
-
-    const focusFrame = ownerWindow.requestAnimationFrame(() => {
-      root
-        .querySelector<HTMLElement>(`[data-achievement-companion-count-picker-option="${id}:${value}"]`)
-        ?.focus();
-    });
-
-    return () => ownerWindow.cancelAnimationFrame(focusFrame);
-  }, [id, isExpanded, value]);
-
   const selectCount = (nextValue: AchievementCompanionCount): void => {
     onChange(nextValue);
     setIsExpanded(false);
-    const ownerWindow = rootRef.current?.ownerDocument.defaultView;
-    ownerWindow?.requestAnimationFrame(focusTrigger);
   };
 
   return (
-    <div ref={rootRef}>
+    <div>
       <Focusable
         noFocusRing
         role="button"
@@ -376,7 +346,9 @@ function SteamCompactCountPicker({
           {ACHIEVEMENT_COMPANION_COUNT_OPTIONS.map((option) => (
             <Focusable
               key={option}
+              autoFocus={value === option}
               noFocusRing
+              preferredFocus={value === option}
               role="button"
               tabIndex={0}
               aria-label={`Show ${option} ${label.toLowerCase()} items`}
@@ -385,8 +357,6 @@ function SteamCompactCountPicker({
               onClick={() => selectCount(option)}
               onCancel={() => {
                 setIsExpanded(false);
-                const ownerWindow = rootRef.current?.ownerDocument.defaultView;
-                ownerWindow?.requestAnimationFrame(focusTrigger);
               }}
               onFocus={() => setFocusedOption(option)}
               onGamepadFocus={() => setFocusedOption(option)}
@@ -406,7 +376,6 @@ export function DeckySteamCompactSettings({
   onBack,
   onOpenApiSettings,
 }: DeckySteamCompactSettingsProps): JSX.Element {
-  const rootRef = useRef<HTMLDivElement>(null);
   const config = useDeckySteamProviderConfig(STEAM_PROVIDER_ID);
   const [recentAchievementsCount, setRecentAchievementsCount] = useState<AchievementCompanionCount>(
     config?.recentAchievementsCount ?? 5,
@@ -429,35 +398,6 @@ export function DeckySteamCompactSettings({
     config?.recentAchievementsCount,
     config?.recentlyPlayedCount,
   ]);
-
-  useLayoutEffect(() => {
-    const root = rootRef.current;
-    const ownerWindow = root?.ownerDocument.defaultView;
-    if (root === null || root === undefined || ownerWindow === null || ownerWindow === undefined) {
-      return;
-    }
-
-    const scrollable = findDeckyScrollableAncestor(root);
-    const resetScroll = (): void => {
-      if (root.isConnected && scrollable !== null) {
-        scrollable.scrollTop = 0;
-      }
-    };
-    const focusInitialAction = (): void => {
-      root
-        .querySelector<HTMLElement>("[data-achievement-companion-steam-settings-initial-focus='true']")
-        ?.focus();
-    };
-
-    resetScroll();
-    const firstFrame = ownerWindow.requestAnimationFrame(() => {
-      resetScroll();
-      focusInitialAction();
-      ownerWindow.requestAnimationFrame(resetScroll);
-    });
-
-    return () => ownerWindow.cancelAnimationFrame(firstFrame);
-  }, []);
 
   const saveSettings = async (): Promise<void> => {
     if (config === undefined || isSaving) {
@@ -487,7 +427,7 @@ export function DeckySteamCompactSettings({
   };
 
   return (
-    <div ref={rootRef} data-achievement-companion-steam-compact-settings style={getRootStyle()}>
+    <div data-achievement-companion-steam-compact-settings style={getRootStyle()}>
       <section style={getSectionStyle()}>
         <div style={getSectionTitleStyle()}>Steam Settings</div>
         <SteamCompactSettingsAction

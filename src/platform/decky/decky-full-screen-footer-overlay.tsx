@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import type { GamepadEvent } from "@decky/ui";
 import { consumeDeckyFullscreenPopupCancel } from "./decky-full-screen-popup-state";
@@ -13,6 +13,13 @@ const STEAM_TAB_TRANSITION_SOUND_URL = "/sounds/deck_ui_tab_transition_01.wav";
 const mountedFooterOverlayOwners: symbol[] = [];
 const DECKY_FULLSCREEN_ONSCREEN_KEYBOARD_OPEN_ATTRIBUTE = "data-achievement-companion-onscreen-keyboard-open";
 const yieldedDeckyFullscreenKeyboardCancelEvents = new WeakSet<Event>();
+const deckyFullscreenKeyboardStateListeners = new WeakMap<Document, Set<() => void>>();
+
+function notifyDeckyFullscreenKeyboardStateChanged(document: Document): void {
+  for (const listener of deckyFullscreenKeyboardStateListeners.get(document) ?? []) {
+    listener();
+  }
+}
 
 /**
  * Steam delivers vgp_oncancel to the full-screen footer during text entry.
@@ -21,14 +28,42 @@ const yieldedDeckyFullscreenKeyboardCancelEvents = new WeakSet<Event>();
  */
 export function markDeckyFullscreenOnScreenKeyboardOpen(document: Document): void {
   document.documentElement.setAttribute(DECKY_FULLSCREEN_ONSCREEN_KEYBOARD_OPEN_ATTRIBUTE, "true");
+  notifyDeckyFullscreenKeyboardStateChanged(document);
 }
 
 export function clearDeckyFullscreenOnScreenKeyboardOpen(document: Document): void {
   document.documentElement.removeAttribute(DECKY_FULLSCREEN_ONSCREEN_KEYBOARD_OPEN_ATTRIBUTE);
+  notifyDeckyFullscreenKeyboardStateChanged(document);
 }
 
 export function isDeckyFullscreenOnScreenKeyboardOpen(document: Document): boolean {
   return document.documentElement.getAttribute(DECKY_FULLSCREEN_ONSCREEN_KEYBOARD_OPEN_ATTRIBUTE) === "true";
+}
+
+/**
+ * Steam owns dismissal of its on-screen keyboard.  Pages only mark the one
+ * activation that opened text editing, then clear that mark when Steam reports
+ * dismissal.  This lets the shared B owner yield exactly one cancel without
+ * turning it into route navigation.
+ */
+export function useDeckyFullscreenOnScreenKeyboardLifecycle(
+  rootRef: RefObject<HTMLElement | null>,
+): void {
+  useEffect(() => {
+    const document = rootRef.current?.ownerDocument;
+    const keyboardDismissSubscription = globalThis.SteamClient?.Input?.RegisterForUserDismissKeyboardMessages?.(() => {
+      if (document !== undefined) {
+        clearDeckyFullscreenOnScreenKeyboardOpen(document);
+      }
+    });
+
+    return () => {
+      keyboardDismissSubscription?.unregister();
+      if (document !== undefined) {
+        clearDeckyFullscreenOnScreenKeyboardOpen(document);
+      }
+    };
+  }, [rootRef]);
 }
 
 function consumeDeckyFullscreenOnScreenKeyboardCancel(document: Document): boolean {
@@ -162,16 +197,6 @@ function getFooterStyle(height: number, zIndex: number): CSSProperties {
   };
 }
 
-function isTextEntryTarget(target: EventTarget | null): boolean {
-  if (target === null || typeof target !== "object" || !("tagName" in target)) {
-    return false;
-  }
-  const element = target as { readonly tagName?: unknown; readonly isContentEditable?: unknown };
-  return element.tagName === "INPUT" ||
-    element.tagName === "TEXTAREA" ||
-    element.isContentEditable === true;
-}
-
 function getSectionTabsStyle(): CSSProperties {
   return {
     display: "flex",
@@ -292,7 +317,7 @@ export function DeckyFullScreenFooterOverlay({
   const onNextNavigationItemRef = useRef(onNextNavigationItem);
   const tabTransitionSoundRef = useRef<HTMLAudioElement | null>(null);
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
-  const [isTextEntryFocused, setIsTextEntryFocused] = useState(false);
+  const [isOnScreenKeyboardOpen, setIsOnScreenKeyboardOpen] = useState(false);
   const [layout, setLayout] = useState({ height: STEAM_GAME_FOOTER_FALLBACK_HEIGHT_PX, zIndex: 20 });
 
   useLayoutEffect(() => {
@@ -350,19 +375,35 @@ export function DeckyFullScreenFooterOverlay({
     setPortalTarget(target);
     ownerWindow.addEventListener("resize", updateLayout);
 
-    const updateTextEntryFocus = (): void => {
-      setIsTextEntryFocused(isTextEntryTarget(ownerDocument.activeElement));
-    };
-    ownerDocument.addEventListener("focusin", updateTextEntryFocus, true);
-    ownerDocument.addEventListener("focusout", updateTextEntryFocus, true);
-
     return () => {
       ownerWindow.removeEventListener("resize", updateLayout);
-      ownerDocument.removeEventListener("focusin", updateTextEntryFocus, true);
-      ownerDocument.removeEventListener("focusout", updateTextEntryFocus, true);
       target.remove();
     };
   }, [isActive, onHeightChange]);
+
+  useEffect(() => {
+    if (!isActive) {
+      setIsOnScreenKeyboardOpen(false);
+      return;
+    }
+    const ownerDocument = anchorRef.current?.ownerDocument;
+    if (ownerDocument === undefined) {
+      return;
+    }
+    const updateKeyboardState = (): void => {
+      setIsOnScreenKeyboardOpen(isDeckyFullscreenOnScreenKeyboardOpen(ownerDocument));
+    };
+    const listeners = deckyFullscreenKeyboardStateListeners.get(ownerDocument) ?? new Set<() => void>();
+    listeners.add(updateKeyboardState);
+    deckyFullscreenKeyboardStateListeners.set(ownerDocument, listeners);
+    updateKeyboardState();
+    return () => {
+      listeners.delete(updateKeyboardState);
+      if (listeners.size === 0) {
+        deckyFullscreenKeyboardStateListeners.delete(ownerDocument);
+      }
+    };
+  }, [isActive]);
 
   useLayoutEffect(() => {
     if (!isActive) {
@@ -377,6 +418,7 @@ export function DeckyFullScreenFooterOverlay({
 
     const onButtonDown = (event: Event): void => {
       if (!isTopFooterOverlayOwner(owner)) return;
+      if (isDeckyFullscreenOnScreenKeyboardOpen(ownerWindow.document)) return;
       handleDeckyFullScreenFooterShoulderButtonDown(event as GamepadEvent, {
         onPrevious: () => {
           onPreviousNavigationItemRef.current();
@@ -412,7 +454,7 @@ export function DeckyFullScreenFooterOverlay({
   return (
     <>
       <span ref={anchorRef} hidden aria-hidden="true" />
-      {isActive && portalTarget !== null && !isTextEntryFocused ? createPortal(
+      {isActive && !isOnScreenKeyboardOpen && portalTarget !== null ? createPortal(
         <div aria-label={ariaLabel} style={getFooterStyle(layout.height, layout.zIndex)}>
           <span style={getShoulderHintStyle()}>L1</span>
           <div style={getSectionTabsStyle()}>

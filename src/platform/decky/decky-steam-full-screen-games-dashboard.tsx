@@ -9,10 +9,16 @@ import {
   type ComponentProps,
   type CSSProperties,
   type FC,
+  type RefCallback,
 } from "react";
 import type { CompletionProgressSelectionFilter } from "./decky-completion-progress-summary-card-data";
 import type { CompletionProgressSort } from "./decky-completion-progress-grouping";
-import { DeckyFullScreenFooterOverlay, STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS } from "./decky-full-screen-footer-overlay";
+import {
+  DeckyFullScreenFooterOverlay,
+  markDeckyFullscreenOnScreenKeyboardOpen,
+  STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS,
+  useDeckyFullscreenOnScreenKeyboardLifecycle,
+} from "./decky-full-screen-footer-overlay";
 import { registerDeckyFullscreenPopupCancel } from "./decky-full-screen-popup-state";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
@@ -41,6 +47,13 @@ import gamepadIconUrl from "./assets/gamepad.svg";
 import listIconUrl from "./assets/list.svg";
 import prohibitedIconUrl from "./assets/prohibited.svg";
 import searchIconUrl from "./assets/search.svg";
+import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
+import {
+  readDeckySteamGamesPageState,
+  rememberDeckySteamGamesControls,
+  rememberDeckySteamGamesFocus,
+  rememberDeckySteamGamesRenderLimit,
+} from "./decky-steam-full-screen-games-state";
 
 const STEAM_GAMES_FOCUS_CLASS = "achievement-companion-steam-games-focus";
 const STEAM_GAMES_INITIAL_RENDER_LIMIT = 12;
@@ -553,10 +566,12 @@ function getProgressTrackStyle(): CSSProperties {
 }
 
 function SteamGamesRow({
+  elementRef,
   game,
   onOpenGameDetail,
   onBack,
 }: {
+  readonly elementRef?: RefCallback<HTMLDivElement> | undefined;
   readonly game: NormalizedGame;
   readonly onOpenGameDetail: (gameId: string) => void;
   readonly onBack: () => void;
@@ -567,6 +582,7 @@ function SteamGamesRow({
   const artworkUrl = getSteamFullscreenGameArtworkUrl(game);
   const playtime = formatSteamPlaytimeMinutes(game.playtimeForeverMinutes) ?? "Not played";
   const openGame = (): void => {
+    rememberDeckySteamGamesFocus(game.gameId);
     onOpenGameDetail(getSteamCompletionProgressGameDetailId(game));
   };
   const scrollFocusedRow: SteamGamesGamepadFocusHandler = (event) => {
@@ -575,6 +591,7 @@ function SteamGamesRow({
 
   return (
     <Focusable
+      ref={elementRef}
       className={STEAM_GAMES_FOCUS_CLASS}
       noFocusRing
       role="button"
@@ -582,8 +599,8 @@ function SteamGamesRow({
       onActivate={openGame}
       onClick={openGame}
       onCancel={onBack}
-      onFocus={(event) => { scrollDeckyFocusTargetIntoView(event.currentTarget); }}
-      onGamepadFocus={scrollFocusedRow}
+      onFocus={(event) => { rememberDeckySteamGamesFocus(game.gameId); scrollDeckyFocusTargetIntoView(event.currentTarget); }}
+      onGamepadFocus={(event) => { rememberDeckySteamGamesFocus(game.gameId); scrollFocusedRow(event); }}
       style={getGameRowStyle()}
       data-steam-games-row="true"
     >
@@ -699,11 +716,19 @@ export function DeckySteamFullScreenGamesDashboard({
   onOpenActivity,
   onOpenGameDetail,
 }: DeckySteamFullScreenGamesDashboardProps): JSX.Element {
+  const initialPageState = useRef(readDeckySteamGamesPageState()).current;
   const dashboardRef = useRef<HTMLElement>(null);
-  const [filter, setFilter] = useState<SteamGamesFilter>(() => normalizeInitialFilter(initialFilter));
-  const [query, setQuery] = useState("");
-  const [sort, setSort] = useState<CompletionProgressSort>("recent");
-  const [renderLimit, setRenderLimit] = useState(STEAM_GAMES_INITIAL_RENDER_LIMIT);
+  const restorationTargetRef = useRef<HTMLDivElement | null>(null);
+  const shouldUseRequestedFilter = initialFilter !== undefined && initialFilter !== "all";
+  const [filter, setFilter] = useState<SteamGamesFilter>(() => shouldUseRequestedFilter
+    ? normalizeInitialFilter(initialFilter)
+    : initialPageState.filter);
+  const [query, setQuery] = useState(initialPageState.query);
+  const [sort, setSort] = useState<CompletionProgressSort>(initialPageState.sort);
+  const [renderLimit, setRenderLimit] = useState(shouldUseRequestedFilter
+    ? STEAM_GAMES_INITIAL_RENDER_LIMIT
+    : initialPageState.renderLimit);
+  const hasMountedControls = useRef(false);
   const summary = useMemo(() => summarizeSteamGamesDashboard(snapshot), [snapshot]);
   const visibleGames = useMemo(
     () => selectSteamGames({ games: snapshot.games, filter, query, sort }),
@@ -711,8 +736,15 @@ export function DeckySteamFullScreenGamesDashboard({
   );
   const renderedGames = visibleGames.slice(0, renderLimit);
 
+  useDeckyFullscreenOnScreenKeyboardLifecycle(dashboardRef);
+
   useEffect(() => {
+    if (!hasMountedControls.current) {
+      hasMountedControls.current = true;
+      return;
+    }
     setRenderLimit(STEAM_GAMES_INITIAL_RENDER_LIMIT);
+    rememberDeckySteamGamesControls(filter, query, sort);
   }, [filter, query, sort]);
   const filterButtons = [
     { filter: "all" as const, label: `All Games (${formatCount(summary.trackedCount)})` },
@@ -736,14 +768,16 @@ export function DeckySteamFullScreenGamesDashboard({
     const frame = ownerWindow.requestAnimationFrame(() => {
       // Like the full-screen game page, a visible action must own GamepadUI
       // focus before the shared footer can receive the first L1/R1 press.
-      const initialFocusTarget = dashboard.querySelector<HTMLElement>("[data-steam-games-row='true']")
+      const initialFocusTarget = restorationTargetRef.current
+        ?? dashboard.querySelector<HTMLElement>("[data-steam-games-row='true']")
         ?? dashboard.querySelector<HTMLElement>("[role='button']");
       if (initialFocusTarget === null) {
         return;
       }
 
       if (!dashboard.contains(dashboard.ownerDocument.activeElement)) {
-        initialFocusTarget.focus();
+        takeDeckySteamGamepadFocus(initialFocusTarget);
+        initialFocusTarget.scrollIntoView({ block: "center", inline: "nearest" });
       }
     });
     return () => ownerWindow.cancelAnimationFrame(frame);
@@ -766,6 +800,9 @@ export function DeckySteamFullScreenGamesDashboard({
               className={STEAM_GAMES_SEARCH_CLASS}
               placeholder="Search your games…"
               value={query}
+              onClick={(event) => {
+                markDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument);
+              }}
               onChange={(event) => { setQuery(event.currentTarget.value); }}
               style={getSearchFieldStyle()}
             />
@@ -792,6 +829,9 @@ export function DeckySteamFullScreenGamesDashboard({
             {renderedGames.map((game) => (
             <SteamGamesRow
               key={game.gameId}
+              elementRef={initialPageState.focusGameId === game.gameId
+                ? (node) => { restorationTargetRef.current = node; }
+                : undefined}
               game={game}
               onBack={onBack}
               onOpenGameDetail={onOpenGameDetail}
@@ -802,8 +842,8 @@ export function DeckySteamFullScreenGamesDashboard({
               noFocusRing
               role="button"
               aria-label={`Show ${Math.min(STEAM_GAMES_RENDER_STEP, visibleGames.length - renderedGames.length)} more games`}
-              onActivate={() => { setRenderLimit((current) => current + STEAM_GAMES_RENDER_STEP); }}
-              onClick={() => { setRenderLimit((current) => current + STEAM_GAMES_RENDER_STEP); }}
+              onActivate={() => { setRenderLimit((current) => { const next = current + STEAM_GAMES_RENDER_STEP; rememberDeckySteamGamesRenderLimit(next); return next; }); }}
+              onClick={() => { setRenderLimit((current) => { const next = current + STEAM_GAMES_RENDER_STEP; rememberDeckySteamGamesRenderLimit(next); return next; }); }}
               onCancel={onBack}
               style={{ ...getFilterButtonStyle(false), width: "100%", minHeight: 34 }}
             >

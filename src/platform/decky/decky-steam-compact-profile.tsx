@@ -1,15 +1,17 @@
-import { Focusable, NavEntryPositionPreferences } from "@decky/ui";
+import { Focusable, NavEntryPositionPreferences, useQuickAccessVisible } from "@decky/ui";
 import type { DashboardSnapshot, RecentUnlock, RecentlyPlayedGame } from "@core/domain";
 import {
+  useLayoutEffect,
   useRef,
   useState,
+  useSyncExternalStore,
   type CSSProperties,
+  type RefCallback,
   type ReactNode,
 } from "react";
 import type { SteamHuntersProfile } from "../../providers/steamhunters";
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
 import { DeckyGameArtwork } from "./decky-game-artwork";
-import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { findDeckyScrollableAncestor } from "./decky-scroll-viewport";
 import {
   formatProfileMemberSince,
@@ -18,6 +20,15 @@ import {
 } from "./decky-stat-helpers";
 import { getSteamCompactGameArtworkUrl } from "./decky-steam-game-artwork";
 import { getSteamCompactActionStyle, type DeckySteamCompactActionTone } from "./decky-steam-compact-action-styles";
+import {
+  getDeckySteamCompactFocusTargetKey,
+  readDeckySteamCompactFocusRestoreRequest,
+  readDeckySteamCompactFocusTarget,
+  setDeckySteamCompactFocusTarget,
+  subscribeToDeckySteamCompactFocusRestore,
+  type DeckySteamCompactFocusTarget,
+} from "./decky-steam-compact-focus-state";
+import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
 import chevronRightIconUrl from "./assets/chevron-right.svg";
 import externalLinkIconUrl from "./assets/external-link.svg";
 import masteredIconUrl from "./assets/mastered.svg";
@@ -82,7 +93,10 @@ function scrollFocusedCompactAction(
     return;
   }
 
-  scrollDeckyFocusTargetIntoView(target);
+  // The QAM content lives in a different browser realm from the injected
+  // plugin bundle, so shared `instanceof HTMLElement` guards cannot safely
+  // identify this node. Use the node's own native scrolling method.
+  target.scrollIntoView({ block: "center", inline: "nearest" });
 }
 
 function getRootStyle(): CSSProperties {
@@ -130,9 +144,10 @@ function getSectionTitleStyle(): CSSProperties {
 export function DeckySteamCompactAction({
   ariaLabel,
   children,
-  isNavigable = true,
   onActivate,
+  onActivated,
   onCancel,
+  elementRef,
   onFocused,
   preferredFocus = false,
   scrollToTopOnFocus = false,
@@ -141,22 +156,26 @@ export function DeckySteamCompactAction({
 }: {
   readonly ariaLabel: string;
   readonly children: ReactNode;
-  readonly isNavigable?: boolean;
   readonly onActivate: () => void;
+  readonly onActivated?: ((target: HTMLElement) => void) | undefined;
   readonly onCancel: () => void;
-  readonly onFocused?: () => void;
-  readonly preferredFocus?: boolean;
+  readonly elementRef?: RefCallback<HTMLDivElement> | undefined;
+  readonly onFocused?: ((target: HTMLElement) => void) | undefined;
+  readonly preferredFocus?: boolean | undefined;
   readonly scrollToTopOnFocus?: boolean;
   readonly style?: CSSProperties;
   readonly tone?: DeckySteamCompactActionTone;
 }): JSX.Element {
   const [isFocused, setIsFocused] = useState(false);
+  const actionElementRef = useRef<HTMLDivElement | null>(null);
   const focusGeneration = useRef(0);
-
-  // Only the Full Screen action enters Decky's focus tree before the first controller move.
-  if (!isNavigable) {
-    return <div onClick={onActivate} style={{ ...getSteamCompactActionStyle(tone, false), ...style }}>{children}</div>;
-  }
+  const activate = (): void => {
+    const target = actionElementRef.current;
+    if (target !== null) {
+      onActivated?.(target);
+    }
+    onActivate();
+  };
 
   return (
     <Focusable
@@ -164,21 +183,25 @@ export function DeckySteamCompactAction({
       role="button"
       tabIndex={0}
       aria-label={ariaLabel}
+      ref={(node) => {
+        actionElementRef.current = node;
+        elementRef?.(node);
+      }}
       preferredFocus={preferredFocus}
-      onActivate={onActivate}
-      onClick={onActivate}
+      onActivate={activate}
+      onClick={activate}
       onCancel={onCancel}
       onFocus={(event) => {
         const generation = ++focusGeneration.current;
         setIsFocused(true);
         scrollFocusedCompactAction(event.currentTarget, scrollToTopOnFocus, () => focusGeneration.current === generation);
-        onFocused?.();
+        onFocused?.(event.currentTarget);
       }}
       onGamepadFocus={(event) => {
         const generation = ++focusGeneration.current;
         setIsFocused(true);
         scrollFocusedCompactAction(event.currentTarget as HTMLElement, scrollToTopOnFocus, () => focusGeneration.current === generation);
-        onFocused?.();
+        onFocused?.(event.currentTarget as HTMLElement);
       }}
       onBlur={() => {
         focusGeneration.current += 1;
@@ -665,21 +688,30 @@ function SectionHeader({ title }: { readonly title: string }): JSX.Element {
 
 function ViewAllAction({
   ariaLabel,
-  isNavigable,
+  elementRef,
   onActivate,
+  onActivated,
   onCancel,
+  onFocused,
+  preferredFocus,
 }: {
   readonly ariaLabel: string;
-  readonly isNavigable: boolean;
+  readonly elementRef?: RefCallback<HTMLDivElement> | undefined;
   readonly onActivate: () => void;
+  readonly onActivated?: ((target: HTMLElement) => void) | undefined;
   readonly onCancel: () => void;
+  readonly onFocused?: ((target: HTMLElement) => void) | undefined;
+  readonly preferredFocus?: boolean | undefined;
 }): JSX.Element {
   return (
     <DeckySteamCompactAction
       ariaLabel={ariaLabel}
-      isNavigable={isNavigable}
+      elementRef={elementRef}
       onActivate={onActivate}
+      onActivated={onActivated}
       onCancel={onCancel}
+      onFocused={onFocused}
+      preferredFocus={preferredFocus}
       style={{ minHeight: 30, padding: "5px 8px" }}
     >
       <span style={{ flex: "1 1 auto", color: "#69cfff", fontSize: 10, fontWeight: 800, textAlign: "center" }}>
@@ -691,22 +723,31 @@ function ViewAllAction({
 }
 
 function RecentAchievementItem({
-  isNavigable,
+  elementRef,
   recentUnlock,
   onActivate,
+  onActivated,
   onCancel,
+  onFocused,
+  preferredFocus,
 }: {
-  readonly isNavigable: boolean;
+  readonly elementRef?: RefCallback<HTMLDivElement> | undefined;
   readonly recentUnlock: RecentUnlock;
   readonly onActivate: () => void;
+  readonly onActivated?: ((target: HTMLElement) => void) | undefined;
   readonly onCancel: () => void;
+  readonly onFocused?: ((target: HTMLElement) => void) | undefined;
+  readonly preferredFocus?: boolean | undefined;
 }): JSX.Element {
   return (
     <DeckySteamCompactAction
       ariaLabel={`Open ${recentUnlock.achievement.title}`}
-      isNavigable={isNavigable}
+      elementRef={elementRef}
       onActivate={onActivate}
+      onActivated={onActivated}
       onCancel={onCancel}
+      onFocused={onFocused}
+      preferredFocus={preferredFocus}
       style={getListRowStyle(46)}
     >
       <span style={getAchievementArtworkFrameStyle()}>
@@ -731,15 +772,21 @@ function RecentAchievementItem({
 }
 
 function RecentlyPlayedItem({
-  isNavigable,
+  elementRef,
   game,
   onActivate,
+  onActivated,
   onCancel,
+  onFocused,
+  preferredFocus,
 }: {
-  readonly isNavigable: boolean;
+  readonly elementRef?: RefCallback<HTMLDivElement> | undefined;
   readonly game: RecentlyPlayedGame;
   readonly onActivate: () => void;
+  readonly onActivated?: ((target: HTMLElement) => void) | undefined;
   readonly onCancel: () => void;
+  readonly onFocused?: ((target: HTMLElement) => void) | undefined;
+  readonly preferredFocus?: boolean | undefined;
 }): JSX.Element {
   const artworkUrl = getSteamCompactGameArtworkUrl(game);
   const playtime = formatGamePlaytime(game);
@@ -747,9 +794,12 @@ function RecentlyPlayedItem({
   return (
     <DeckySteamCompactAction
       ariaLabel={`Open ${game.title}`}
-      isNavigable={isNavigable}
+      elementRef={elementRef}
       onActivate={onActivate}
+      onActivated={onActivated}
       onCancel={onCancel}
+      onFocused={onFocused}
+      preferredFocus={preferredFocus}
       style={getListRowStyle(50)}
     >
       {artworkUrl !== undefined ? (
@@ -792,8 +842,61 @@ export function DeckySteamCompactProfile({
   onOpenSettings,
   onCancel,
 }: DeckySteamCompactProfileProps): JSX.Element {
-  const [hasEnteredActionNavigation, setHasEnteredActionNavigation] = useState(false);
+  const isQuickAccessVisible = useQuickAccessVisible();
+  const restorationRequest = useSyncExternalStore(
+    subscribeToDeckySteamCompactFocusRestore,
+    readDeckySteamCompactFocusRestoreRequest,
+    readDeckySteamCompactFocusRestoreRequest,
+  );
+  const handledRestorationRequest = useRef(restorationRequest);
+  const restorationTarget = useRef(readDeckySteamCompactFocusTarget()).current;
+  const restorationKey = getDeckySteamCompactFocusTargetKey(restorationTarget);
+  const restorationElementRef = useRef<HTMLDivElement | null>(null);
   const refreshTime = formatRefreshTime(refreshedAt);
+  const targetProps = (target: DeckySteamCompactFocusTarget): {
+    readonly elementRef?: RefCallback<HTMLDivElement>;
+    readonly onActivated: (element: HTMLElement) => void;
+    readonly onFocused: (element: HTMLElement) => void;
+    readonly preferredFocus: boolean;
+  } => {
+    const key = getDeckySteamCompactFocusTargetKey(target);
+    return {
+      ...(key === restorationKey
+        ? { elementRef: (node) => { restorationElementRef.current = node; } }
+        : {}),
+      onActivated: (element) => {
+        const scrollTop = findDeckyScrollableAncestor(element)?.scrollTop ?? 0;
+        setDeckySteamCompactFocusTarget(target, scrollTop);
+      },
+      onFocused: (element) => {
+        const scrollTop = findDeckyScrollableAncestor(element)?.scrollTop ?? 0;
+        setDeckySteamCompactFocusTarget(target, scrollTop);
+      },
+      preferredFocus: key === restorationKey,
+    };
+  };
+
+  useLayoutEffect(() => {
+    if (!isQuickAccessVisible) {
+      return;
+    }
+    return requestDeckySteamGamepadFocusAfterMount(restorationElementRef.current);
+  }, [isQuickAccessVisible, restorationKey]);
+
+  useLayoutEffect(() => {
+    if (
+      !isQuickAccessVisible
+      || handledRestorationRequest.current === restorationRequest
+    ) {
+      return;
+    }
+    handledRestorationRequest.current = restorationRequest;
+    const target = restorationElementRef.current;
+    if (target === null) {
+      return;
+    }
+    return requestDeckySteamGamepadFocusAfterMount(target);
+  }, [isQuickAccessVisible, restorationRequest]);
 
   return (
     <Focusable
@@ -809,10 +912,7 @@ export function DeckySteamCompactProfile({
           ariaLabel="Open Steam profile full-screen"
           onActivate={onOpenProfile}
           onCancel={onCancel}
-          onFocused={() => {
-            setHasEnteredActionNavigation(true);
-          }}
-          preferredFocus
+          {...targetProps({ kind: "profile" })}
           scrollToTopOnFocus
           tone="primary"
         >
@@ -859,18 +959,22 @@ export function DeckySteamCompactProfile({
           {recentAchievements.length > 0 ? recentAchievements.map((recentUnlock) => (
             <RecentAchievementItem
               key={`${recentUnlock.game.gameId}:${recentUnlock.achievement.achievementId}`}
-              isNavigable={hasEnteredActionNavigation}
               recentUnlock={recentUnlock}
               onActivate={() => onOpenAchievementDetail(recentUnlock)}
               onCancel={onCancel}
+              {...targetProps({
+                kind: "achievement",
+                gameId: recentUnlock.game.gameId,
+                achievementId: recentUnlock.achievement.achievementId,
+              })}
             />
           )) : <EmptyListRow label="No recent achievements yet." />}
         </div>
         <ViewAllAction
           ariaLabel="View all recent Steam achievements"
-          isNavigable={hasEnteredActionNavigation}
           onActivate={onOpenAchievementHistory}
           onCancel={onCancel}
+          {...targetProps({ kind: "activity" })}
         />
       </section>
 
@@ -880,26 +984,26 @@ export function DeckySteamCompactProfile({
           {recentlyPlayedGames.length > 0 ? recentlyPlayedGames.map((game) => (
             <RecentlyPlayedItem
               key={game.gameId}
-              isNavigable={hasEnteredActionNavigation}
               game={game}
               onActivate={() => onOpenGameDetail(game)}
               onCancel={onCancel}
+              {...targetProps({ kind: "game", gameId: game.gameId })}
             />
           )) : <EmptyListRow label="No recently played games yet." />}
         </div>
         <ViewAllAction
           ariaLabel="View all Steam games"
-          isNavigable={hasEnteredActionNavigation}
           onActivate={onOpenCompletionProgress}
           onCancel={onCancel}
+          {...targetProps({ kind: "games" })}
         />
       </section>
 
       <DeckySteamCompactAction
         ariaLabel="Open Steam profile settings"
-        isNavigable={hasEnteredActionNavigation}
         onActivate={onOpenSettings}
         onCancel={onCancel}
+        {...targetProps({ kind: "settings" })}
         style={{ minHeight: 40, padding: "5px 8px" }}
       >
         <span style={getSettingsIconFrameStyle()}>
