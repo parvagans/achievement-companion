@@ -1,7 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type FocusEventHandler } from "react";
 import { Focusable, type FocusableProps } from "@decky/ui";
 import checkCircleIconUrl from "./assets/check-circle.svg";
-import lockedIconUrl from "./assets/prohibited.svg";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DeckyAchievementTypeBadge } from "./decky-achievement-type-badge";
 import { DeckyCompactPillActionGroup, DeckyCompactPillActionItem } from "./decky-compact-pill-action-item";
@@ -32,6 +31,7 @@ import {
   type DeckyCompactAchievementPageState,
 } from "./decky-compact-achievement-page-state";
 import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
+import { DeckySteamAchievementStatusIcon } from "./decky-steam-achievement-status-icon";
 
 type DeckyGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
 
@@ -186,13 +186,20 @@ function getRailStyle(): CSSProperties {
   };
 }
 
-function getStateIndicatorStyle(state: "unlocked" | "locked"): CSSProperties {
+function getStateIndicatorStyle(): CSSProperties {
   return {
     width: 18,
     height: 18,
-    filter: state === "unlocked"
-      ? "brightness(0) saturate(100%) invert(73%) sepia(95%) saturate(479%) hue-rotate(91deg) brightness(96%) contrast(91%)"
-      : "brightness(0) saturate(100%) invert(59%) sepia(51%) saturate(1948%) hue-rotate(319deg) brightness(104%) contrast(95%)",
+    filter: "brightness(0) saturate(100%) invert(73%) sepia(95%) saturate(479%) hue-rotate(91deg) brightness(96%) contrast(91%)",
+  };
+}
+
+function getLockedStateIndicatorStyle(): CSSProperties {
+  return {
+    display: "inline-flex",
+    width: 18,
+    height: 18,
+    color: "rgba(203, 213, 225, 0.84)",
   };
 }
 
@@ -314,12 +321,13 @@ function CompactAchievementRow({
         <div style={getRailStyle()}>
           {model.stateIndicator !== undefined ? (
             <span aria-label={model.statusText} role="img">
-              <img
-                alt=""
-                aria-hidden="true"
-                src={model.stateIndicator === "unlocked" ? checkCircleIconUrl : lockedIconUrl}
-                style={getStateIndicatorStyle(model.stateIndicator)}
-              />
+              {model.stateIndicator === "unlocked" ? (
+                <img alt="" aria-hidden="true" src={checkCircleIconUrl} style={getStateIndicatorStyle()} />
+              ) : (
+                <span style={getLockedStateIndicatorStyle()}>
+                  <DeckySteamAchievementStatusIcon isUnlocked={false} size={18} />
+                </span>
+              )}
             </span>
           ) : null}
           {model.metadata.map((item) => (

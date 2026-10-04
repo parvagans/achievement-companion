@@ -746,7 +746,7 @@ test("Steam full-screen tabs share one session while details retain route histor
   assert.match(sessionSource, /onOpenActivity=\{\(\) => selectTab\("activity"\)\}/u);
   assert.match(sessionSource, /onOpenSettings=\{\(\) => selectTab\("settings"\)\}/u);
   assert.match(sessionSource, /onBack=\{exitSession\}/u);
-  assert.match(sessionSource, /const exitSession = \(\): void => \{[\s\S]*steamFullScreenSessionTab = "profile";[\s\S]*onBack\(\);/u);
+  assert.match(sessionSource, /resetDeckySteamFullScreenSessionState\(\);[\s\S]*onBack\(\);/u);
   assert.match(
     sessionSource,
     /return \(\) => \{\s*unsubscribe\(\);\s*isSteamFullScreenSessionActive = false;\s*\};/u,
@@ -773,6 +773,11 @@ test("Steam full-screen tabs share one session while details retain route histor
   assert.match(
     navigationPortSource,
     /steamSessionTab !== undefined && isSteamFullScreenSessionActive[\s\S]*setSteamFullScreenSessionTab\(steamSessionTab\)[\s\S]*DeckyNavigation\.CloseSideMenus\(\)[\s\S]*return;/u,
+  );
+  assert.match(
+    navigationPortSource,
+    /target\.providerId === STEAM_PROVIDER_ID[\s\S]*resetDeckySteamFullScreenSessionState\(\);[\s\S]*beginDeckySteamFullScreenRefreshSession/u,
+    "a new Steam full-screen visit must reset session state after the previous tree has unmounted",
   );
 });
 

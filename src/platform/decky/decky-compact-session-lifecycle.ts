@@ -1,6 +1,7 @@
 import { resetDeckyCompactAchievementPageState } from "./decky-compact-achievement-page-state";
 import { resetDeckyCompactNavigation } from "./decky-compact-navigation";
 import { clearDeckyCompactSessionResources } from "./decky-compact-session-resources";
+import { resetDeckySteamCompactFocusState } from "./decky-steam-compact-focus-state";
 import {
   removeDeckyCompactCancelBridges,
   setDeckyCompactCancelBridgesEnabled,
@@ -9,40 +10,55 @@ import {
 interface DeckyCompactSessionLifecycleDependencies {
   readonly setCancelEnabled: (enabled: boolean) => void;
   readonly endSession: () => void;
+  readonly shouldPreserveHiddenSession?: () => boolean;
 }
 
-/** Clear session-owned state only when Decky removes the active plugin root. */
+/** Clear state when a compact surface session really ends. */
 export function endDeckyCompactSession(): void {
   removeDeckyCompactCancelBridges();
   setDeckyCompactCancelBridgesEnabled(false);
   resetDeckyCompactNavigation();
   resetDeckyCompactAchievementPageState();
+  resetDeckySteamCompactFocusState();
   clearDeckyCompactSessionResources();
 }
 
-/** Visibility suspends a visit; only removal from Decky's active-plugin slot ends it. */
+/** Hidden handoffs/popups preserve the visit; an ordinary QAM close ends it. */
 export function createDeckyCompactSessionLifecycle({
   setCancelEnabled,
   endSession,
+  shouldPreserveHiddenSession = () => false,
 }: DeckyCompactSessionLifecycleDependencies): {
   readonly setVisible: (visible: boolean) => void;
   readonly end: () => void;
 } {
-  let ended = false;
+  let disposed = false;
+  let sessionActive = true;
 
   return {
     setVisible(visible) {
-      if (!ended) {
-        setCancelEnabled(visible);
+      if (disposed) {
+        return;
+      }
+
+      setCancelEnabled(visible);
+      if (visible) {
+        sessionActive = true;
+      } else if (sessionActive && !shouldPreserveHiddenSession()) {
+        sessionActive = false;
+        endSession();
       }
     },
     end() {
-      if (ended) {
+      if (disposed) {
         return;
       }
-      ended = true;
+      disposed = true;
       setCancelEnabled(false);
-      endSession();
+      if (sessionActive) {
+        sessionActive = false;
+        endSession();
+      }
     },
   };
 }

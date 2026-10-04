@@ -83,6 +83,10 @@ export function resetSteamGameSectionActiveSection(providerId: string, gameId: s
   }));
 }
 
+export function resetSteamGameSectionPageStates(): void {
+  sectionPageStates.clear();
+}
+
 export function requestSteamGameSectionRestoration(providerId: string, gameId: string): void {
   updateSteamGameSectionPageState(providerId, gameId, (current) => ({ ...current, restoreRequested: true }));
 }
@@ -128,5 +132,5 @@ export function selectSteamAchievementRestorationTarget({
 }
 
 export function resetSteamGameSectionPageStatesForTests(): void {
-  sectionPageStates.clear();
+  resetSteamGameSectionPageStates();
 }

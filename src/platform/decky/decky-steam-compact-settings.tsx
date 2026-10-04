@@ -1,10 +1,11 @@
-import { Focusable, ToggleField } from "@decky/ui";
+import { Focusable, Menu, MenuItem, ToggleField, showContextMenu } from "@decky/ui";
 import {
   ACHIEVEMENT_COMPANION_COUNT_OPTIONS,
   type AchievementCompanionCount,
 } from "@core/settings";
 import {
   useEffect,
+  useRef,
   useState,
   type CSSProperties,
   type ReactNode,
@@ -15,6 +16,7 @@ import {
 } from "./providers/steam/config";
 import { STEAM_PROVIDER_ID } from "../../providers/steam/config";
 import chevronRightIconUrl from "./assets/chevron-right.svg";
+import { beginDeckyCompactPopup } from "./decky-compact-popup-state";
 
 export interface DeckySteamCompactSettingsProps {
   readonly onBack: () => void;
@@ -195,48 +197,6 @@ function getCountValueChevronStyle(): CSSProperties {
   };
 }
 
-function getCountOptionsStyle(): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: "minmax(0, 1fr)",
-    gap: 6,
-    margin: "4px 12px 10px",
-    padding: 6,
-    border: "1px solid rgba(54, 142, 191, 0.3)",
-    borderRadius: 7,
-    background: "rgba(4, 24, 37, 0.96)",
-    boxShadow: "0 8px 18px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(125, 211, 252, 0.04)",
-  };
-}
-
-function getCountOptionStyle(isFocused: boolean, isSelected: boolean): CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "center",
-    minHeight: 36,
-    padding: "7px 12px",
-    border: isFocused
-      ? "1px solid rgba(54, 185, 255, 0.96)"
-      : isSelected
-        ? "1px solid rgba(54, 185, 255, 0.55)"
-        : "1px solid rgba(54, 142, 191, 0.24)",
-    borderRadius: 5,
-    background: isFocused
-      ? "rgba(18, 88, 129, 0.9)"
-      : isSelected
-        ? "rgba(11, 70, 105, 0.72)"
-        : "rgba(5, 29, 44, 0.66)",
-    boxShadow: isFocused ? "0 0 9px rgba(54, 185, 255, 0.34)" : "none",
-    color: "#f2f6fb",
-    fontSize: 12,
-    fontWeight: 800,
-    textAlign: "left",
-    cursor: "pointer",
-    outline: "none",
-    boxSizing: "border-box",
-  };
-}
-
 function getToggleFieldWrapperStyle(): CSSProperties {
   return { padding: "0 12px" };
 }
@@ -306,69 +266,80 @@ function SteamCompactCountPicker({
   readonly onChange: (value: AchievementCompanionCount) => void;
   readonly value: AchievementCompanionCount;
 }): JSX.Element {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
-  const [focusedOption, setFocusedOption] = useState<AchievementCompanionCount | undefined>();
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<ReturnType<typeof showContextMenu> | undefined>(undefined);
+  const releasePopupRef = useRef<(() => void) | undefined>(undefined);
 
-  const selectCount = (nextValue: AchievementCompanionCount): void => {
-    onChange(nextValue);
-    setIsExpanded(false);
+  const closeMenu = (): void => {
+    menuRef.current?.Hide();
+    menuRef.current = undefined;
+    releasePopupRef.current?.();
+    releasePopupRef.current = undefined;
+    setIsMenuOpen(false);
   };
 
+  const openMenu = (): void => {
+    if (menuRef.current !== undefined || triggerRef.current === null) {
+      return;
+    }
+
+    setIsMenuOpen(true);
+    releasePopupRef.current = beginDeckyCompactPopup();
+    menuRef.current = showContextMenu(
+      <Menu label={label} onCancel={closeMenu}>
+        {ACHIEVEMENT_COMPANION_COUNT_OPTIONS.map((option) => (
+          <MenuItem
+            key={option}
+            selected={value === option}
+            onClick={() => {
+              onChange(option);
+              closeMenu();
+            }}
+          >
+            {option}
+          </MenuItem>
+        ))}
+      </Menu>,
+      triggerRef.current,
+      { bModal: true, bMatchWidth: true },
+    );
+  };
+
+  useEffect(() => () => {
+    menuRef.current?.Hide();
+    menuRef.current = undefined;
+    releasePopupRef.current?.();
+    releasePopupRef.current = undefined;
+  }, []);
+
   return (
-    <div>
-      <Focusable
-        noFocusRing
-        role="button"
-        tabIndex={0}
-        aria-expanded={isExpanded}
-        aria-label={`${label}: ${value}. Select to choose a count.`}
-        data-achievement-companion-count-picker-trigger={id}
-        onActivate={() => setIsExpanded((expanded) => !expanded)}
-        onClick={() => setIsExpanded((expanded) => !expanded)}
-        onCancel={onBack}
-        onFocus={() => setIsFocused(true)}
-        onGamepadFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
-        style={getCountPickerStyle(isFocused, isExpanded)}
-      >
-        <span style={getCountPickerTextStyle()}>
-          <span style={getCompactSettingLabelStyle()}>{label}</span>
-          <span style={getCompactSettingDescriptionStyle()}>{description}</span>
-        </span>
-        <span aria-hidden="true" style={getCountValueStyle()}>
-          <span>{value}</span>
-          <span style={getCountValueChevronStyle()} />
-        </span>
-      </Focusable>
-      {isExpanded ? (
-        <div aria-label={`${label} options`} style={getCountOptionsStyle()}>
-          {ACHIEVEMENT_COMPANION_COUNT_OPTIONS.map((option) => (
-            <Focusable
-              key={option}
-              autoFocus={value === option}
-              noFocusRing
-              preferredFocus={value === option}
-              role="button"
-              tabIndex={0}
-              aria-label={`Show ${option} ${label.toLowerCase()} items`}
-              data-achievement-companion-count-picker-option={`${id}:${option}`}
-              onActivate={() => selectCount(option)}
-              onClick={() => selectCount(option)}
-              onCancel={() => {
-                setIsExpanded(false);
-              }}
-              onFocus={() => setFocusedOption(option)}
-              onGamepadFocus={() => setFocusedOption(option)}
-              onBlur={() => setFocusedOption(undefined)}
-              style={getCountOptionStyle(focusedOption === option, value === option)}
-            >
-              {option}
-            </Focusable>
-          ))}
-        </div>
-      ) : null}
-    </div>
+    <Focusable
+      ref={triggerRef}
+      noFocusRing
+      role="button"
+      tabIndex={0}
+      aria-expanded={isMenuOpen}
+      aria-label={`${label}: ${value}. Select to choose a count.`}
+      data-achievement-companion-count-picker-trigger={id}
+      onActivate={openMenu}
+      onClick={openMenu}
+      onCancel={onBack}
+      onFocus={() => setIsFocused(true)}
+      onGamepadFocus={() => setIsFocused(true)}
+      onBlur={() => setIsFocused(false)}
+      style={getCountPickerStyle(isFocused, isMenuOpen)}
+    >
+      <span style={getCountPickerTextStyle()}>
+        <span style={getCompactSettingLabelStyle()}>{label}</span>
+        <span style={getCompactSettingDescriptionStyle()}>{description}</span>
+      </span>
+      <span aria-hidden="true" style={getCountValueStyle()}>
+        <span>{value}</span>
+        <span style={getCountValueChevronStyle()} />
+      </span>
+    </Focusable>
   );
 }
 

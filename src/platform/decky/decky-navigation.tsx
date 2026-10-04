@@ -27,7 +27,10 @@ import {
 } from "./decky-full-screen-session";
 import { createDeckyFullScreenTerminalReturn } from "./decky-full-screen-terminal-return";
 import { dispatchDeckyScrollReset } from "./decky-scroll-viewport";
-import { resetSteamGameSectionActiveSection } from "./decky-steam-game-section-state";
+import {
+  resetSteamGameSectionActiveSection,
+  resetSteamGameSectionPageStates,
+} from "./decky-steam-game-section-state";
 import { beginDeckySteamFullScreenRefreshSession } from "./decky-app-services";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
 import { resetDeckySteamActivityPageState } from "./decky-steam-full-screen-activity-state";
@@ -84,6 +87,14 @@ interface FullScreenProviderSettingsRouteParams {
 let isSteamFullScreenSessionActive = false;
 let steamFullScreenSessionTab: SteamFullScreenSessionTab = "profile";
 const steamFullScreenSessionListeners = new Set<() => void>();
+
+function resetDeckySteamFullScreenSessionState(): void {
+  steamFullScreenSessionTab = "profile";
+  resetDeckySteamActivityPageState();
+  resetDeckySteamGamesPageState();
+  resetSteamGameSectionPageStates();
+}
+
 const deckyFullScreenTerminalReturn = createDeckyFullScreenTerminalReturn({
   consumeSession: consumeDeckyCompactOriginFullScreenSession,
   clearSession: clearDeckyFullScreenSession,
@@ -463,9 +474,7 @@ function DeckySteamFullScreenSession({
   };
 
   const exitSession = (): void => {
-    steamFullScreenSessionTab = "profile";
-    resetDeckySteamActivityPageState();
-    resetDeckySteamGamesPageState();
+    resetDeckySteamFullScreenSessionState();
     onBack();
   };
 
@@ -741,6 +750,9 @@ export function createDeckyNavigationPort(): NavigationPort {
         }
 
         if (target.providerId === STEAM_PROVIDER_ID) {
+          // The prior route tree has fully unmounted by the time a new visit is
+          // launched, so stale cleanup cannot repopulate these session stores.
+          resetDeckySteamFullScreenSessionState();
           beginDeckySteamFullScreenRefreshSession(STEAM_PROVIDER_ID);
         }
 

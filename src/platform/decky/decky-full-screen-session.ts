@@ -30,6 +30,10 @@ export function isDeckyCompactOriginFullScreenSessionRoot(
     activeFullScreenSession.rootRoute === rootRoute;
 }
 
+export function hasDeckyCompactOriginFullScreenSession(): boolean {
+  return activeFullScreenSession?.source === "compact";
+}
+
 /** Consume before the native pop so a repeated B cannot reopen QAM twice. */
 export function consumeDeckyCompactOriginFullScreenSession(
   rootRoute: DeckyFullScreenSessionRoot,

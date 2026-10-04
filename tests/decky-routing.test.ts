@@ -332,7 +332,7 @@ test("plugin cleanup removes every compact cancel bridge listener", () => {
   assert.deepStrictEqual(removedEventTypes, ["vgp_oncancel"]);
 });
 
-test("compact session visibility suspends cancel handling without ending its destination", () => {
+test("closing QAM ends compact session state while a compact-origin full-screen handoff preserves it", () => {
   const changes: string[] = [];
   setDeckyCompactNavigation({ kind: "settings", providerId: "steam" });
   writeDeckyCompactAchievementPageState("steam", "2321470", {
@@ -351,14 +351,40 @@ test("compact session visibility suspends cancel handling without ending its des
   });
 
   lifecycle.setVisible(false);
-  assert.deepStrictEqual(readDeckyCompactNavigation(), { kind: "settings", providerId: "steam" });
-  assert.equal(readDeckyCompactAchievementPageState("steam", "2321470", 12).scrollTop, 734);
+  assert.deepStrictEqual(readDeckyCompactNavigation(), { kind: "provider-chooser" });
+  assert.equal(readDeckyCompactAchievementPageState("steam", "2321470", 12).scrollTop, 0);
   lifecycle.setVisible(true);
   lifecycle.end();
   lifecycle.end();
   lifecycle.setVisible(true);
 
-  assert.deepStrictEqual(changes, ["cancel:false", "cancel:true", "cancel:false", "end"]);
+  assert.deepStrictEqual(changes, ["cancel:false", "end", "cancel:true", "cancel:false", "end"]);
+
+  setDeckyCompactNavigation({ kind: "settings", providerId: "steam" });
+  writeDeckyCompactAchievementPageState("steam", "2321470", {
+    filter: "locked",
+    modeFilter: "all",
+    visibleCount: 52,
+    focusedAchievementId: "ACH_47",
+    scrollTop: 734,
+  });
+  const preservedChanges: string[] = [];
+  const preservedLifecycle = createDeckyCompactSessionLifecycle({
+    setCancelEnabled: (enabled) => preservedChanges.push(`cancel:${enabled}`),
+    endSession: () => {
+      endDeckyCompactSession();
+      preservedChanges.push("end");
+    },
+    shouldPreserveHiddenSession: () => true,
+  });
+
+  preservedLifecycle.setVisible(false);
+  assert.deepStrictEqual(readDeckyCompactNavigation(), { kind: "settings", providerId: "steam" });
+  assert.equal(readDeckyCompactAchievementPageState("steam", "2321470", 12).scrollTop, 734);
+  preservedLifecycle.setVisible(true);
+  preservedLifecycle.end();
+
+  assert.deepStrictEqual(preservedChanges, ["cancel:false", "cancel:true", "cancel:false", "end"]);
   assert.deepStrictEqual(readDeckyCompactNavigation(), { kind: "provider-chooser" });
   assert.equal(readDeckyCompactAchievementPageState("steam", "2321470", 12).scrollTop, 0);
 });

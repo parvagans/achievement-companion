@@ -60,7 +60,11 @@ export function subscribeToDeckySteamCompactFocusRestore(listener: () => void): 
   return () => restorationRequestListeners.delete(listener);
 }
 
-export function resetDeckySteamCompactFocusTargetForTests(): void {
+export function resetDeckySteamCompactFocusState(): void {
   focusState = { scrollTop: 0, target: { kind: "profile" } };
   restorationRequestVersion = 0;
+}
+
+export function resetDeckySteamCompactFocusTargetForTests(): void {
+  resetDeckySteamCompactFocusState();
 }

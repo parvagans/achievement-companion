@@ -157,9 +157,11 @@ test("Steam compact settings reuse the provider configuration and keep API crede
   assert.match(compactSettingsSource, /getCompactSettingDescriptionStyle/u);
   assert.match(compactSettingsSource, /getToggleFieldWrapperStyle/u);
   assert.match(compactSettingsSource, /function SteamCompactCountPicker/u);
-  assert.match(compactSettingsSource, /data-achievement-companion-count-picker-option/u);
-  assert.match(compactSettingsSource, /margin: "4px 12px 10px"/u);
-  assert.match(compactSettingsSource, /padding: "7px 12px"/u);
+  assert.match(compactSettingsSource, /showContextMenu/u);
+  assert.match(compactSettingsSource, /<Menu label=\{label\} onCancel=\{closeMenu\}>/u);
+  assert.match(compactSettingsSource, /<MenuItem/u);
+  assert.match(compactSettingsSource, /\{ bModal: true, bMatchWidth: true \}/u);
+  assert.doesNotMatch(compactSettingsSource, /data-achievement-companion-count-picker-option/u);
   assert.doesNotMatch(compactSettingsSource, /DropdownItem/u);
 });
 

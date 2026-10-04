@@ -31,6 +31,20 @@ import { composeSteamGameDetailWithSteamHunters } from "../src/providers/steamhu
 import type { SteamHuntersGameData } from "../src/providers/steamhunters/types";
 
 const UNLOCKED_AT = Date.UTC(2025, 10, 7, 17, 21);
+const compactAchievementListSource = readFileSync(
+  "src/platform/decky/decky-compact-achievement-list.tsx",
+  "utf8",
+);
+const fullScreenAchievementRowSource = readFileSync(
+  "src/platform/decky/decky-full-screen-achievement-row.tsx",
+  "utf8",
+);
+
+test("Steam compact and full-screen achievement rows share the same locked status icon", () => {
+  assert.match(compactAchievementListSource, /DeckySteamAchievementStatusIcon isUnlocked=\{false\} size=\{18\}/u);
+  assert.match(fullScreenAchievementRowSource, /DeckySteamAchievementStatusIcon isUnlocked=\{achievement\.isUnlocked\}/u);
+  assert.doesNotMatch(compactAchievementListSource, /prohibited\.svg/u);
+});
 
 function createSnapshot(providerId: ProviderId): GameDetailSnapshot {
   return {
