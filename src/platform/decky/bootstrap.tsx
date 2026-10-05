@@ -561,7 +561,9 @@ function DashboardScreen({
   const dashboardIncludesPlayedFreeGames = providerId === STEAM_PROVIDER_ID
     ? (providerConfig as SteamProviderConfig | undefined)?.includePlayedFreeGames ?? false
     : false;
-  const dashboardSettingsSignature = `${providerId}:${dashboardPreferences.recentAchievementsCount}:${dashboardPreferences.recentlyPlayedCount}:${dashboardIncludesPlayedFreeGames}`;
+  // Count settings are presentation slices over a maximum-size dashboard
+  // snapshot. Only settings that change membership require a provider reload.
+  const dashboardSettingsSignature = `${providerId}:${dashboardIncludesPlayedFreeGames}`;
   const requestDashboardReload = useCallback((forceRefresh: boolean) => {
     if (forceRefresh) {
       dashboardForceRefreshNextLoad.current = true;

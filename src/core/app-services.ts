@@ -24,11 +24,6 @@ import {
 import type { AchievementProvider, ProviderRegistry } from "./ports";
 import type { PlatformServices } from "./platform";
 import type { AppServices } from "./services";
-import {
-  DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS,
-  loadAchievementCompanionSettings,
-} from "./settings";
-import { resolveProviderDashboardPreferences } from "./provider-dashboard-preferences";
 import { redactFrontendLogText } from "./redaction";
 
 type ResourceCapability = "profileSummary" | "completionProgress" | "gameProgress" | "achievementHistory";
@@ -329,22 +324,12 @@ async function readCachedStateSafely<T>(args: {
 async function loadDashboardSnapshot(
   provider: AchievementProvider,
   providerConfig: unknown,
-  settingsStore: PlatformServices["settingsStore"],
   onProgress?: (event: DashboardRefreshProgressEvent) => void,
 ): Promise<DashboardSnapshot> {
-  const settings =
-    settingsStore !== undefined
-      ? await loadAchievementCompanionSettings(settingsStore)
-      : DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS;
-  const dashboardPreferences = resolveProviderDashboardPreferences(providerConfig, settings);
-  const recentAchievementLimit = Math.min(
-    dashboardPreferences.recentAchievementsCount,
-    DASHBOARD_RECENT_ACHIEVEMENT_LIMIT,
-  );
-  const recentlyPlayedLimit = Math.min(
-    dashboardPreferences.recentlyPlayedCount,
-    DASHBOARD_RECENTLY_PLAYED_LIMIT,
-  );
+  // Retain enough data for every supported compact display count. The view owns
+  // the selected slice, so changing a count never requires a provider reload.
+  const recentAchievementLimit = DASHBOARD_RECENT_ACHIEVEMENT_LIMIT;
+  const recentlyPlayedLimit = DASHBOARD_RECENTLY_PLAYED_LIMIT;
 
   const loadStep = async <Value,>(
     stepId: DashboardRefreshProgressEvent["stepId"],
@@ -685,7 +670,6 @@ async function refreshDashboard(args: {
       const snapshot = await loadDashboardSnapshot(
         provider,
         providerConfig,
-        args.platform.settingsStore,
         args.onProgress,
       );
       const now = Date.now();

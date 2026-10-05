@@ -198,6 +198,16 @@ test("Steam compact settings reuse the provider configuration and keep API crede
   assert.match(compactSettingsSource, /getCompactSettingLabelStyle/u);
   assert.match(compactSettingsSource, /getCompactSettingDescriptionStyle/u);
   assert.match(compactSettingsSource, /getToggleFieldWrapperStyle/u);
+  assert.match(compactSettingsSource, /const persistSettings = \(\): void =>/u);
+  assert.match(compactSettingsSource, /saveQueueRef\.current = saveQueueRef\.current\.then/u);
+  assert.match(compactSettingsSource, /onChange=\{updateRecentAchievementsCount\}/u);
+  assert.match(compactSettingsSource, /onChange=\{updateRecentlyPlayedCount\}/u);
+  assert.match(compactSettingsSource, /onChange=\{updateActivityCalendarWeeks\}/u);
+  assert.match(compactSettingsSource, /onChange=\{updateIncludePlayedFreeGames\}/u);
+  assert.doesNotMatch(compactSettingsSource, /Save Settings|Back to Steam Profile|Saving\.\.\./u);
+  assert.match(bootstrapSource, /recentlyPlayedGames: state\.data\.recentlyPlayedGames\.slice\(0, dashboardPreferences\.recentlyPlayedCount\)/u);
+  assert.match(bootstrapSource, /const dashboardSettingsSignature = `\$\{providerId\}:\$\{dashboardIncludesPlayedFreeGames\}`/u);
+  assert.doesNotMatch(bootstrapSource, /dashboardSettingsSignature = `[^`]*recentlyPlayedCount/u);
   assert.match(compactSettingsSource, /function SteamCompactCountPicker/u);
   assert.match(compactSettingsSource, /showContextMenu/u);
   assert.match(compactSettingsSource, /requestDeckySteamGamepadFocusAfterMount\(triggerRef\.current\)/u);

@@ -6576,7 +6576,7 @@ test("dashboard recent achievements and recently played games populate from prov
   assert.equal(counts.recentlyPlayedGames, 1);
 });
 
-test("dashboard honors decky settings counts for recent achievements and recently played games", async () => {
+test("dashboard retains maximum recent collections so display counts can change without a provider reload", async () => {
   const settingsStore = createMemoryKeyValueStore({
     [ACHIEVEMENT_COMPANION_SETTINGS_STORAGE_KEY]: JSON.stringify({
       recentAchievementsCount: 3,
@@ -6593,11 +6593,11 @@ test("dashboard honors decky settings counts for recent achievements and recentl
       return DASHBOARD_REFRESH_PROFILE;
     },
     async loadRecentUnlocks(_config: unknown, options?: { readonly limit?: number }) {
-      assert.equal(options?.limit, 3);
+      assert.equal(options?.limit, 10);
       return Array.from({ length: 8 }, (_value, index) => createRecentUnlock(index + 1));
     },
     async loadRecentlyPlayedGames(_config: unknown, options?: { readonly count?: number }) {
-      assert.equal(options?.count, 7);
+      assert.equal(options?.count, 10);
       return Array.from({ length: 8 }, (_value, index) => ({
         providerId: PROVIDER_ID,
         gameId: `game-${index + 1}`,

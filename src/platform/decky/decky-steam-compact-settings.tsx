@@ -203,15 +203,6 @@ function getToggleFieldWrapperStyle(): CSSProperties {
   return { padding: "0 12px" };
 }
 
-function getStatusStyle(isError: boolean): CSSProperties {
-  return {
-    minHeight: 15,
-    color: isError ? steamTheme.color.danger : steamTheme.color.textSecondary,
-    fontSize: steamTheme.type.compact.caption,
-    lineHeight: 1.25,
-  };
-}
-
 function SteamCompactSettingsAction({
   ariaLabel,
   children,
@@ -366,53 +357,70 @@ export function DeckySteamCompactSettings({
   const [activityCalendarWeeks, setActivityCalendarWeeks] = useState<ActivityCalendarWeeks>(
     settings.steamCompactActivityCalendarWeeks,
   );
-  const [isSaving, setIsSaving] = useState(false);
-  const [status, setStatus] = useState<{ readonly message: string; readonly isError: boolean } | undefined>();
+  const configRef = useRef(config);
+  const valuesRef = useRef({
+    recentAchievementsCount: config?.recentAchievementsCount ?? 5,
+    recentlyPlayedCount: config?.recentlyPlayedCount ?? 5,
+    includePlayedFreeGames: config?.includePlayedFreeGames ?? false,
+    activityCalendarWeeks: settings.steamCompactActivityCalendarWeeks,
+  });
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
-    setRecentAchievementsCount(config?.recentAchievementsCount ?? 5);
-    setRecentlyPlayedCount(config?.recentlyPlayedCount ?? 5);
-    setIncludePlayedFreeGames(config?.includePlayedFreeGames ?? false);
-    setActivityCalendarWeeks(settings.steamCompactActivityCalendarWeeks);
+    const nextValues = {
+      recentAchievementsCount: config?.recentAchievementsCount ?? 5,
+      recentlyPlayedCount: config?.recentlyPlayedCount ?? 5,
+      includePlayedFreeGames: config?.includePlayedFreeGames ?? false,
+    };
+    configRef.current = config;
+    valuesRef.current = { ...valuesRef.current, ...nextValues };
+    setRecentAchievementsCount(nextValues.recentAchievementsCount);
+    setRecentlyPlayedCount(nextValues.recentlyPlayedCount);
+    setIncludePlayedFreeGames(nextValues.includePlayedFreeGames);
   }, [
     config?.includePlayedFreeGames,
     config?.recentAchievementsCount,
     config?.recentlyPlayedCount,
-    settings.steamCompactActivityCalendarWeeks,
   ]);
 
-  const saveSettings = async (): Promise<void> => {
-    if (config === undefined || isSaving) {
-      setStatus({ message: "Steam account settings are unavailable right now.", isError: true });
-      return;
-    }
+  useEffect(() => {
+    const nextWeeks = settings.steamCompactActivityCalendarWeeks;
+    valuesRef.current.activityCalendarWeeks = nextWeeks;
+    setActivityCalendarWeeks(nextWeeks);
+  }, [settings.steamCompactActivityCalendarWeeks]);
 
-    setIsSaving(true);
-    setStatus(undefined);
-    try {
-      const result = await writeValidatedDeckySteamProviderConfig(
-        {
-          steamId64: config.steamId64,
-          language: config.language,
-          recentAchievementsCount,
-          recentlyPlayedCount,
-          includePlayedFreeGames,
-        },
-        "",
-      );
-      const savedCalendarSettings = await saveDeckySettings({
-        ...readDeckySettings(),
-        steamCompactActivityCalendarWeeks: activityCalendarWeeks,
-      });
-      setStatus({
-        message: result.saved && savedCalendarSettings ? result.userMessage : "Unable to save all Steam display settings.",
-        isError: !result.saved || !savedCalendarSettings,
-      });
-    } catch {
-      setStatus({ message: "Unable to save Steam display settings right now.", isError: true });
-    } finally {
-      setIsSaving(false);
-    }
+  const persistSettings = (): void => {
+    const values = { ...valuesRef.current };
+    saveQueueRef.current = saveQueueRef.current.then(async () => {
+      const currentConfig = configRef.current;
+      if (currentConfig === undefined) return;
+      await Promise.all([
+        writeValidatedDeckySteamProviderConfig({
+          steamId64: currentConfig.steamId64,
+          language: currentConfig.language,
+          recentAchievementsCount: values.recentAchievementsCount,
+          recentlyPlayedCount: values.recentlyPlayedCount,
+          includePlayedFreeGames: values.includePlayedFreeGames,
+        }, ""),
+        saveDeckySettings({
+          ...readDeckySettings(),
+          steamCompactActivityCalendarWeeks: values.activityCalendarWeeks,
+        }),
+      ]);
+    }).catch(() => undefined);
+  };
+
+  const updateRecentAchievementsCount = (value: AchievementCompanionCount): void => {
+    setRecentAchievementsCount(value); valuesRef.current.recentAchievementsCount = value; persistSettings();
+  };
+  const updateRecentlyPlayedCount = (value: AchievementCompanionCount): void => {
+    setRecentlyPlayedCount(value); valuesRef.current.recentlyPlayedCount = value; persistSettings();
+  };
+  const updateActivityCalendarWeeks = (value: ActivityCalendarWeeks): void => {
+    setActivityCalendarWeeks(value); valuesRef.current.activityCalendarWeeks = value; persistSettings();
+  };
+  const updateIncludePlayedFreeGames = (value: boolean): void => {
+    setIncludePlayedFreeGames(value); valuesRef.current.includePlayedFreeGames = value; persistSettings();
   };
 
   return (
@@ -442,7 +450,7 @@ export function DeckySteamCompactSettings({
             id="recent-achievements"
             label="Recent Activity"
             onBack={onBack}
-            onChange={setRecentAchievementsCount}
+            onChange={updateRecentAchievementsCount}
             options={ACHIEVEMENT_COMPANION_COUNT_OPTIONS}
             value={recentAchievementsCount}
           />
@@ -451,7 +459,7 @@ export function DeckySteamCompactSettings({
             id="recently-played"
             label="Recently Played"
             onBack={onBack}
-            onChange={setRecentlyPlayedCount}
+            onChange={updateRecentlyPlayedCount}
             options={ACHIEVEMENT_COMPANION_COUNT_OPTIONS}
             value={recentlyPlayedCount}
           />
@@ -460,7 +468,7 @@ export function DeckySteamCompactSettings({
             id="activity-calendar-weeks"
             label="Activity Calendar"
             onBack={onBack}
-            onChange={setActivityCalendarWeeks}
+            onChange={updateActivityCalendarWeeks}
             options={ACTIVITY_CALENDAR_WEEK_OPTIONS}
             value={activityCalendarWeeks}
           />
@@ -474,29 +482,12 @@ export function DeckySteamCompactSettings({
               }
               checked={includePlayedFreeGames}
               highlightOnFocus
-              onChange={setIncludePlayedFreeGames}
+              onChange={updateIncludePlayedFreeGames}
             />
           </div>
         </div>
       </section>
 
-      <div style={getStatusStyle(status?.isError ?? false)}>{status?.message}</div>
-      <SteamCompactSettingsAction
-        ariaLabel="Save Steam compact profile settings"
-        emphasis="primary"
-        onActivate={() => { void saveSettings(); }}
-        onCancel={onBack}
-      >
-        <span style={getActionTitleStyle()}>{isSaving ? "Saving..." : "Save Settings"}</span>
-      </SteamCompactSettingsAction>
-      <SteamCompactSettingsAction
-        ariaLabel="Back to Steam profile"
-        emphasis="secondary"
-        onActivate={onBack}
-        onCancel={onBack}
-      >
-        <span style={getActionTitleStyle()}>Back to Steam Profile</span>
-      </SteamCompactSettingsAction>
     </div>
   );
 }

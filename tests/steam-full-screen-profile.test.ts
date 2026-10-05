@@ -818,7 +818,7 @@ test("compact dashboard Profile navigation uses the native route before closing 
   );
 });
 
-test("Steam settings are a Steam-only account screen with the expanded account and scan action", async () => {
+test("Steam settings start with two visible collapsed sections and keep expansion exclusive", async () => {
   const [source, footerSource] = await Promise.all([
     readFile(new URL("../src/platform/decky/decky-full-screen-settings-page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-full-screen-footer-overlay.tsx", import.meta.url), "utf8"),
@@ -828,16 +828,24 @@ test("Steam settings are a Steam-only account screen with the expanded account a
   assert.doesNotMatch(source, /RETROACHIEVEMENTS_PROVIDER_ID|RetroAchievements|clearRetroAchievementsAccount/u);
   assert.doesNotMatch(source, /<Heading>PROVIDERS<\/Heading>|Game Scanning|Notifications/u);
   assert.match(source, /STEAM SETTINGS/u);
-  assert.match(source, /title="Account"[\s\S]*SteamAccountFields/u);
-  assert.match(source, /title="Full-Screen Settings"[\s\S]*SteamActivityCalendarWeeksPicker/u);
+  assert.match(source, /SteamAccordionHeader title="Account"[\s\S]*SteamAccordionHeader title="Full-Screen Settings"/u);
+  assert.match(source, /accountExpanded \? <SteamAccordionContent><SteamAccountFields/u);
+  assert.match(source, /fullscreenSettingsExpanded \? <SteamAccordionContent><SteamActivityCalendarWeeksPicker/u);
   assert.match(source, /if \(!expanded\) setAccountExpanded\(false\)/u);
   assert.match(source, /if \(!expanded\) setFullscreenSettingsExpanded\(false\)/u);
   assert.match(source, /ACTIVITY_CALENDAR_WEEK_OPTIONS\.map/u);
   assert.match(source, /showContextMenu\([\s\S]*<Menu label="Activity Calendar weeks"/u);
   assert.match(source, /steamFullscreenActivityCalendarWeeks/u);
   assert.doesNotMatch(source, /title="Display Preferences"|SteamDisplayPreferences|displayExpanded/u);
-  assert.match(source, /accountExpanded.*useState\(true\)/u);
+  assert.match(source, /accountExpanded.*useState\(false\)/u);
+  assert.match(source, /ac-settings-accordion-trigger[\s\S]*insetShadow/u);
   assert.match(source, /STEAM_CREDENTIAL_HELPER_COPY/u);
+  assert.match(source, /function CredentialStatusLabel/u);
+  assert.match(source, /\^\\d\{17\}\$/u);
+  assert.match(source, /\^\[0-9a-f\]\{32\}\$/u);
+  assert.match(source, /steamTheme\.iconFilter\.success : steamTheme\.iconFilter\.danger/u);
+  assert.match(source, /description=\{undefined\}/u);
+  assert.doesNotMatch(source, /description=\{fields\.(?:steamId64|language)\.description\}/u);
   assert.doesNotMatch(source, /Connected to Steam|Test Connection|Check for Updates|Clear Cached Data|DeckyFullscreenActionButton/u);
   assert.match(source, /writeValidatedDeckySteamProviderConfig/u);
   assert.match(source, /<Heading>DATA &amp; SYNC<\/Heading>/u);
