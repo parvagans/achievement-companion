@@ -21,6 +21,7 @@ import type {
   SteamHuntersAchievementGroup,
 } from "../../providers/steamhunters";
 import { steamRecipes, steamTheme } from "./steam-theme";
+import { getSteamCompactAchievementFilterStyle } from "./decky-steam-compact-action-styles";
 import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
 
 const ACHIEVEMENT_FILTERS = ["all", "unlocked", "locked"] as const;
@@ -270,7 +271,7 @@ function getAchievementFilterButtonLabelStyle(): CSSProperties {
 
 function getSteamAchievementFilterButtonStyle(selected: boolean, focused: boolean): CSSProperties {
   return {
-    ...steamRecipes.filterTab("fullscreen", selected),
+    ...getSteamCompactAchievementFilterStyle(selected, focused),
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -278,20 +279,14 @@ function getSteamAchievementFilterButtonStyle(selected: boolean, focused: boolea
     minWidth: 0,
     minHeight: 34,
     padding: "6px 10px",
-    borderRadius: 0,
+    borderRadius: steamTheme.radius.small,
     boxSizing: "border-box",
-    border: `1px solid ${focused ? steamTheme.focus.border : "transparent"}`,
-    background: focused ? "rgba(21, 74, 107, 0.5)" : "transparent",
-    color: selected ? steamTheme.selection.compactText : steamTheme.color.textSecondary,
     fontSize: "0.9em",
     fontWeight: selected ? 800 : 700,
     lineHeight: 1.1,
     textAlign: "center",
     whiteSpace: "nowrap",
     cursor: "pointer",
-    outline: focused ? `2px solid ${steamTheme.focus.border}` : "none",
-    outlineOffset: 1,
-    boxShadow: focused ? `${steamTheme.focus.shadow}${selected ? `, ${steamTheme.selection.compactUnderline}` : ""}` : selected ? steamTheme.selection.compactUnderline : "none",
   };
 }
 

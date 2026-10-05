@@ -471,10 +471,10 @@ export function DeckyFullScreenFooterOverlay({
           </div>
           <span style={getShoulderHintStyle()}>R1</span>
           <span style={getActionLegendStyle()}>
-            <DeckyFullScreenFooterActionHint button="A" label="Select" />
             <span style={{ visibility: secondaryActionLabel === undefined ? "hidden" : "visible" }}>
               <DeckyFullScreenFooterActionHint button="Y" label={secondaryActionLabel ?? "Top"} />
             </span>
+            <DeckyFullScreenFooterActionHint button="A" label="Select" />
             <DeckyFullScreenFooterActionHint button="B" label="Back" />
           </span>
         </div>,

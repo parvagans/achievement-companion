@@ -7,7 +7,7 @@ export function formatSteamHuntersPercentage(value: number): string {
 export function formatSteamHuntersPlayersUnlocked(localPercentage: number | undefined, playersPlayed: number | undefined): string {
   if (localPercentage === undefined || playersPlayed === undefined || playersPlayed <= 0) return "—";
   const estimatedUnlocked = Math.round(playersPlayed * localPercentage / 100);
-  return `≈${estimatedUnlocked.toLocaleString()} / ${playersPlayed.toLocaleString()}`;
+  return `${estimatedUnlocked.toLocaleString()} / ${playersPlayed.toLocaleString()}`;
 }
 
 /** SteamHunters app completion-time fields are expressed in whole minutes. */

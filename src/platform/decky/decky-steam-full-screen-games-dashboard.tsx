@@ -59,6 +59,7 @@ import prohibitedIconUrl from "./assets/prohibited.svg";
 import searchIconUrl from "./assets/search.svg";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
+import { getSteamCompactAchievementFilterStyle } from "./decky-steam-compact-action-styles";
 import {
   readDeckySteamGamesPageState,
   rememberDeckySteamGamesControls,
@@ -151,6 +152,9 @@ function SteamGamesRouteStyles(): JSX.Element {
   outline: none !important;
   border-color: ${steamTheme.color.accentStrong} !important;
   box-shadow: ${steamTheme.focus.insetShadow} !important;
+}
+.${STEAM_GAMES_FOCUS_CLASS}[data-steam-games-filter].gpfocus[aria-pressed="true"] {
+  box-shadow: ${steamTheme.focus.insetShadow}, ${steamTheme.selection.compactUnderline} !important;
 }
 .${STEAM_GAMES_SEARCH_CLASS}:focus,
 .${STEAM_GAMES_SEARCH_CLASS}:focus-within {
@@ -351,7 +355,7 @@ function getFilterGroupStyle(): CSSProperties {
 
 function getFilterButtonStyle(selected: boolean): CSSProperties {
   return {
-    ...steamRecipes.filterTab("fullscreen", selected),
+    ...getSteamCompactAchievementFilterStyle(selected, false),
     minWidth: 0,
     height: 28,
     padding: "0 7px",

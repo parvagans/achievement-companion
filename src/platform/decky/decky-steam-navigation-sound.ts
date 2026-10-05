@@ -6,7 +6,7 @@ export function playDeckySteamNavigationSound(document: Document): void {
   if (sound === undefined) {
     sound = document.createElement("audio");
     sound.preload = "auto";
-    sound.src = "/sounds/deck_ui_navigation.wav";
+    sound.src = "/sounds/deck_ui_misc_10.wav";
     navigationSounds.set(document, sound);
   }
   sound.currentTime = 0;

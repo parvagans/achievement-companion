@@ -601,7 +601,7 @@ test("steam activity dashboard derives timeline metrics from timestamped unlock 
   assert.match(activitySource, /getSteamFullscreenGameArtworkUrlByGameId\(entry\.game\.gameId/u);
   assert.match(activitySource, /ACTIVITY_TOP_PADDING_PX = 43/u);
   assert.match(activitySource, /minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT[\s\S]*height=\{STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT\}[\s\S]*width=\{STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH\}/u);
-  assert.match(activitySource, /focused \? \{[\s\S]*outline: `2px solid \$\{steamTheme\.focus\.border\}`/u);
+  assert.match(activitySource, /getSteamCompactAchievementFilterStyle\(selected, focused\)[\s\S]*width: "auto"/u);
   assert.match(activitySource, /data-steam-activity-summary[\s\S]*<ActivityTrend stats=\{stats\}/u);
   assert.match(activitySource, /Total Unlocks" value=\{formatCount\(snapshot\.summary\.unlockedCount\)\}/u);
   assert.match(activitySource, /ACTIVITY INSIGHTS/u);
@@ -773,7 +773,8 @@ test("Steam full-screen tabs share one session while details retain route histor
   );
   assert.match(footerSource, /readonly isActive\?: boolean[\s\S]*if \(!isActive\)[\s\S]*isActive && !isOnScreenKeyboardOpen && portalTarget/u);
   assert.match(gamesDashboardSource, /STEAM_GAMES_INITIAL_RENDER_LIMIT[\s\S]*visibleGames\.slice\(0, renderLimit\)[\s\S]*Show \$\{Math\.min\(STEAM_GAMES_RENDER_STEP/u);
-  assert.match(activityDashboardSource, /STEAM_ACTIVITY_INITIAL_RENDER_LIMIT[\s\S]*entries\.slice\(0, renderLimit\)[\s\S]*Show \$\{Math\.min\(STEAM_ACTIVITY_RENDER_STEP/u);
+  assert.match(activityDashboardSource, /STEAM_ACTIVITY_INITIAL_RENDER_LIMIT[\s\S]*entries\.slice\(0, renderLimit\)[\s\S]*onRevealMore/u);
+  assert.doesNotMatch(activityDashboardSource, /data-steam-activity-show-more|Show \$\{Math\.min\(STEAM_ACTIVITY_RENDER_STEP/u);
 
   const navigationPortStart = navigationSource.indexOf("export function createDeckyNavigationPort");
   const navigationPortSource = navigationSource.slice(navigationPortStart);

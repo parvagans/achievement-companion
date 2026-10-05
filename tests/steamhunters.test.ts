@@ -231,8 +231,8 @@ test("SteamHunters percentage presentation is concise", () => {
   assert.equal(formatSteamHuntersPercentage(12), "12%");
 });
 
-test("SteamHunters player ratio marks its rate-derived unlock count as approximate", () => {
-  assert.equal(formatSteamHuntersPlayersUnlocked(25, 200), "≈50 / 200");
+test("SteamHunters player ratio presents unlocked and qualified counts", () => {
+  assert.equal(formatSteamHuntersPlayersUnlocked(25, 200), "50 / 200");
   assert.equal(formatSteamHuntersPlayersUnlocked(undefined, 200), "—");
 });
 

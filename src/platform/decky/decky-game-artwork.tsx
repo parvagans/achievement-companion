@@ -12,6 +12,7 @@ export interface DeckyGameArtworkProps {
   readonly compact?: boolean;
   readonly fit?: "cover" | "contain";
   readonly fluid?: boolean;
+  readonly frameless?: boolean;
 }
 
 function getFallbackInitials(title: string): string {
@@ -79,6 +80,7 @@ export function DeckyGameArtwork({
   compact = false,
   fit = "cover",
   fluid = false,
+  frameless = false,
 }: DeckyGameArtworkProps): JSX.Element | null {
   const [failedSource, setFailedSource] = useState<string | undefined>(undefined);
   const [hasImageError, setHasImageError] = useState(false);
@@ -93,7 +95,7 @@ export function DeckyGameArtwork({
   const displayedSource = failedSource === src ? resolvedFallbackSrc : src ?? resolvedFallbackSrc;
 
   return (
-    <span aria-hidden="true" style={{ ...getArtworkFrameStyle(width, height, compact), ...(fluid ? { width: "100%", height: "100%", minWidth: 0, flexShrink: 1 } : {}) }}>
+    <span aria-hidden="true" style={{ ...getArtworkFrameStyle(width, height, compact), ...(fluid ? { width: "100%", height: "100%", minWidth: 0, flexShrink: 1 } : {}), ...(frameless ? { border: "none", borderRadius: 0 } : {}) }}>
       {hasImageError ? (
         <span style={getArtworkFallbackStyle()}>{getFallbackInitials(title)}</span>
       ) : (

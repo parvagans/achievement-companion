@@ -10,6 +10,7 @@ import {
 
 test("Steam activity state preserves semantic child-route origin", () => {
   resetDeckySteamActivityPageState();
+  assert.equal(readDeckySteamActivityPageState().renderLimit, 24);
   rememberDeckySteamActivityFilter("year");
   rememberDeckySteamActivityRenderLimit(36);
   rememberDeckySteamActivityFocusTarget({ gameId: "2321470", achievementId: "survivor-2" });

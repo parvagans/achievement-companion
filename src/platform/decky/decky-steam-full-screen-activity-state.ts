@@ -14,7 +14,7 @@ interface DeckySteamActivityPageState {
 const initialState: DeckySteamActivityPageState = {
   filter: "all",
   focusTarget: undefined,
-  renderLimit: 12,
+  renderLimit: 24,
 };
 
 let pageState = initialState;
@@ -24,7 +24,7 @@ export function readDeckySteamActivityPageState(): DeckySteamActivityPageState {
 }
 
 export function rememberDeckySteamActivityFilter(filter: DeckySteamActivityFilter): void {
-  pageState = { filter, focusTarget: undefined, renderLimit: 12 };
+  pageState = { filter, focusTarget: undefined, renderLimit: 24 };
 }
 
 export function rememberDeckySteamActivityRenderLimit(renderLimit: number): void {

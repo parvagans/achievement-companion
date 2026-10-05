@@ -64,6 +64,7 @@ function getHeroStyle(): CSSProperties {
     height: 124,
     minWidth: 0,
     overflow: "hidden",
+    padding: 0,
     boxShadow: "0 4px 16px rgba(0, 0, 0, 0.22)",
     boxSizing: "border-box",
   };
@@ -524,7 +525,7 @@ export function DeckySteamCompactGameOverview({
         {artworkUrl === undefined && hunterBannerUrl === undefined && storeBannerUrl === undefined ? (
           <div aria-hidden="true" style={getHeroFallbackStyle()}>{getInitials(game.title)}</div>
         ) : (
-          <DeckyGameArtwork compact fallbackSrc={hunterBannerUrl ?? storeBannerUrl} fit="contain" fluid height={120} size={120} {...(artworkUrl !== undefined ? { src: artworkUrl } : {})} title={game.title} width={264} />
+          <DeckyGameArtwork compact fallbackSrc={hunterBannerUrl ?? storeBannerUrl} fit="cover" fluid frameless height={124} size={124} {...(artworkUrl !== undefined ? { src: artworkUrl } : {})} title={game.title} width={264} />
         )}
       </div>
 
