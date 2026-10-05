@@ -3767,22 +3767,19 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.equal(resolveSteamApiKeyForSave(""), undefined);
 });
 
-test("compact provider menu uses accent section titles and primary setting labels", () => {
+test("compact provider menu uses a collapsed focusable game-page badge settings disclosure", () => {
   const source = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
 
-  assert.match(
-    source,
-    /function getProviderMenuSectionTitleStyle\(\)[\s\S]*color: steamTheme\.color\.accent/u,
-  );
+  assert.match(source, /const \[gamePageBadgeSettingsExpanded, setGamePageBadgeSettingsExpanded\] = useState\(false\)/u);
+  assert.match(source, /<GamePageBadgeSettingsDisclosure[\s\S]*expanded=\{gamePageBadgeSettingsExpanded\}/u);
+  assert.match(source, /aria-expanded=\{expanded\}/u);
+  assert.match(source, /aria-label=\{`Game Page Badge settings, \$\{expanded \? "expanded" : "collapsed"\}`\}/u);
+  assert.match(source, /transform: expanded \? "rotate\(-90deg\)" : "rotate\(90deg\)"/u);
   assert.match(
     source,
     /function getGamePageBadgeLabelStyle\(disabled = false\)[\s\S]*steamTheme\.color\.textPrimary/u,
   );
-  assert.match(
-    source,
-    /<PanelSection>[\s\S]*getProviderMenuSectionTitleStyle\(\)[\s\S]*Game Page Badge/u,
-  );
-  assert.doesNotMatch(source, /<PanelSection title="Game Page Badge">/u);
+  assert.match(source, /gamePageBadgeSettingsExpanded \? \([\s\S]*Show game page badge/u);
   assert.match(source, /GAME_PAGE_ACHIEVEMENT_BADGE_COLOR_DROPDOWN_OPTIONS/u);
   assert.match(source, /label="Perfected color"/u);
   assert.match(source, /label="Mastered color"/u);

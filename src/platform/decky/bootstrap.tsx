@@ -397,16 +397,87 @@ function getChooserProviderCardChevronStyle(tone: ProviderLauncherTone): CSSProp
   };
 }
 
-function getProviderMenuSectionTitleStyle(): CSSProperties {
+function getGamePageBadgeSettingsDisclosureStyle(
+  focused: boolean,
+  expanded: boolean,
+): CSSProperties {
   return {
-    marginBottom: 6,
-    color: steamTheme.color.accent,
-    fontSize: steamTheme.type.compact.heading,
-    fontWeight: steamTheme.type.weight.strong,
-    letterSpacing: "0.055em",
-    lineHeight: 1,
-    textTransform: "uppercase",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: steamTheme.space.sm,
+    width: "100%",
+    minHeight: 44,
+    marginBottom: expanded ? 6 : 0,
+    padding: `0 ${steamTheme.space.md}px`,
+    boxSizing: "border-box",
+    color: steamTheme.color.textPrimary,
+    background: focused ? steamTheme.focus.compactBackground : steamTheme.surface.compactRow,
+    border: `1px solid ${focused ? steamTheme.focus.compactBorder : steamTheme.color.borderSubtle}`,
+    borderRadius: steamTheme.radius.medium,
+    boxShadow: focused ? steamTheme.focus.compactShadow : "none",
+    cursor: "pointer",
   };
+}
+
+function GamePageBadgeSettingsDisclosure({
+  expanded,
+  onToggle,
+}: {
+  readonly expanded: boolean;
+  readonly onToggle: () => void;
+}): JSX.Element {
+  const [focused, setFocused] = useState(false);
+
+  return (
+    <Focusable
+      noFocusRing
+      role="button"
+      tabIndex={0}
+      aria-expanded={expanded}
+      aria-label={`Game Page Badge settings, ${expanded ? "expanded" : "collapsed"}`}
+      data-achievement-companion-game-page-badge-settings-disclosure="true"
+      onActivate={onToggle}
+      onClick={onToggle}
+      onFocus={(event) => {
+        setFocused(true);
+        scrollDeckyFocusTargetIntoView(event.currentTarget);
+      }}
+      onGamepadFocus={(event) => {
+        setFocused(true);
+        scrollDeckyFocusTargetIntoView(event.currentTarget);
+      }}
+      onBlur={() => setFocused(false)}
+      style={getGamePageBadgeSettingsDisclosureStyle(focused, expanded)}
+    >
+      <span
+        style={{
+          color: steamTheme.color.accent,
+          fontSize: steamTheme.type.compact.heading,
+          fontWeight: steamTheme.type.weight.strong,
+          letterSpacing: "0.055em",
+          lineHeight: 1,
+          textTransform: "uppercase",
+        }}
+      >
+        Game Page Badge
+      </span>
+      <span
+        aria-hidden="true"
+        style={{
+          flexShrink: 0,
+          color: steamTheme.color.accent,
+          fontSize: 24,
+          fontWeight: steamTheme.type.weight.strong,
+          lineHeight: 1,
+          transform: expanded ? "rotate(-90deg)" : "rotate(90deg)",
+          transition: "transform 120ms ease",
+        }}
+      >
+        {"\u203a"}
+      </span>
+    </Focusable>
+  );
 }
 
 function getGamePageBadgeLabelStyle(disabled = false): CSSProperties {
@@ -1219,6 +1290,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
   }, [compactNavigation]);
   const [detailScrollResetNonce, setDetailScrollResetNonce] = useState(0);
   const [providerListHasReceivedFocus, setProviderListHasReceivedFocus] = useState(false);
+  const [gamePageBadgeSettingsExpanded, setGamePageBadgeSettingsExpanded] = useState(false);
   const providerInitialFocusTargetRef = useRef<HTMLDivElement | null>(null);
   const initialProviderFocusRequested = useRef(shouldRequestDeckyProviderInitialFocus(compactNavigation));
   const providerConfigsSignature = `${providerConfigs.retroAchievements?.username ?? ""}:${providerConfigs.retroAchievements?.hasApiKey ? 1 : 0}:${providerConfigs.steam?.steamId64 ?? ""}:${providerConfigs.steam?.hasApiKey ? 1 : 0}`;
@@ -1481,65 +1553,74 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                 </PanelSection>
 
                 <PanelSection>
-                  <div style={getProviderMenuSectionTitleStyle()}>Game Page Badge</div>
-                  <PanelSectionRow>
-                    <ToggleField
-                      label={<span style={getGamePageBadgeLabelStyle()}>Show game page badge</span>}
-                      description={
-                        <span style={getGamePageBadgeDescriptionStyle()}>
-                          Show achievement progress on Steam and non-Steam game pages.
-                        </span>
-                      }
-                      checked={settings.showGamePageAchievementBadge}
-                      highlightOnFocus
-                      onChange={(showGamePageAchievementBadge) => {
-                        void saveDeckySettings({
-                          ...readDeckySettings(),
-                          showGamePageAchievementBadge,
-                        });
-                      }}
-                    />
-                  </PanelSectionRow>
-
-                  <GamePageBadgePositionDropdown
-                    selectedPosition={settings.gamePageAchievementBadgePosition}
-                    disabled={!settings.showGamePageAchievementBadge}
-                    onChange={(gamePageAchievementBadgePosition) => {
-                      void saveDeckySettings({
-                        ...readDeckySettings(),
-                        gamePageAchievementBadgePosition,
-                      });
+                  <GamePageBadgeSettingsDisclosure
+                    expanded={gamePageBadgeSettingsExpanded}
+                    onToggle={() => {
+                      setGamePageBadgeSettingsExpanded((expanded) => !expanded);
                     }}
                   />
+                  {gamePageBadgeSettingsExpanded ? (
+                    <>
+                      <PanelSectionRow>
+                        <ToggleField
+                          label={<span style={getGamePageBadgeLabelStyle()}>Show game page badge</span>}
+                          description={
+                            <span style={getGamePageBadgeDescriptionStyle()}>
+                              Show achievement progress on Steam and non-Steam game pages.
+                            </span>
+                          }
+                          checked={settings.showGamePageAchievementBadge}
+                          highlightOnFocus
+                          onChange={(showGamePageAchievementBadge) => {
+                            void saveDeckySettings({
+                              ...readDeckySettings(),
+                              showGamePageAchievementBadge,
+                            });
+                          }}
+                        />
+                      </PanelSectionRow>
 
-                  <GamePageBadgeColorDropdown
-                    label="Perfected color"
-                    description="Color used for completed Steam achievement sets."
-                    selectedColor={settings.gamePageAchievementBadgeColors.perfected}
-                    disabled={!settings.showGamePageAchievementBadge}
-                    onChange={(color) => saveGamePageAchievementBadgeColor("perfected", color)}
-                  />
-                  <GamePageBadgeColorDropdown
-                    label="Mastered color"
-                    description="Color used for mastered RetroAchievements games."
-                    selectedColor={settings.gamePageAchievementBadgeColors.mastered}
-                    disabled={!settings.showGamePageAchievementBadge}
-                    onChange={(color) => saveGamePageAchievementBadgeColor("mastered", color)}
-                  />
-                  <GamePageBadgeColorDropdown
-                    label="Beaten color"
-                    description="Color used for beaten RetroAchievements games."
-                    selectedColor={settings.gamePageAchievementBadgeColors.beaten}
-                    disabled={!settings.showGamePageAchievementBadge}
-                    onChange={(color) => saveGamePageAchievementBadgeColor("beaten", color)}
-                  />
-                  <GamePageBadgeColorDropdown
-                    label="In Progress color"
-                    description="Color used while a ready game is still in progress."
-                    selectedColor={settings.gamePageAchievementBadgeColors.inProgress}
-                    disabled={!settings.showGamePageAchievementBadge}
-                    onChange={(color) => saveGamePageAchievementBadgeColor("inProgress", color)}
-                  />
+                      <GamePageBadgePositionDropdown
+                        selectedPosition={settings.gamePageAchievementBadgePosition}
+                        disabled={!settings.showGamePageAchievementBadge}
+                        onChange={(gamePageAchievementBadgePosition) => {
+                          void saveDeckySettings({
+                            ...readDeckySettings(),
+                            gamePageAchievementBadgePosition,
+                          });
+                        }}
+                      />
+
+                      <GamePageBadgeColorDropdown
+                        label="Perfected color"
+                        description="Color used for completed Steam achievement sets."
+                        selectedColor={settings.gamePageAchievementBadgeColors.perfected}
+                        disabled={!settings.showGamePageAchievementBadge}
+                        onChange={(color) => saveGamePageAchievementBadgeColor("perfected", color)}
+                      />
+                      <GamePageBadgeColorDropdown
+                        label="Mastered color"
+                        description="Color used for mastered RetroAchievements games."
+                        selectedColor={settings.gamePageAchievementBadgeColors.mastered}
+                        disabled={!settings.showGamePageAchievementBadge}
+                        onChange={(color) => saveGamePageAchievementBadgeColor("mastered", color)}
+                      />
+                      <GamePageBadgeColorDropdown
+                        label="Beaten color"
+                        description="Color used for beaten RetroAchievements games."
+                        selectedColor={settings.gamePageAchievementBadgeColors.beaten}
+                        disabled={!settings.showGamePageAchievementBadge}
+                        onChange={(color) => saveGamePageAchievementBadgeColor("beaten", color)}
+                      />
+                      <GamePageBadgeColorDropdown
+                        label="In Progress color"
+                        description="Color used while a ready game is still in progress."
+                        selectedColor={settings.gamePageAchievementBadgeColors.inProgress}
+                        disabled={!settings.showGamePageAchievementBadge}
+                        onChange={(color) => saveGamePageAchievementBadgeColor("inProgress", color)}
+                      />
+                    </>
+                  ) : null}
                 </PanelSection>
               </>
             </TopAlignedScrollViewport>
