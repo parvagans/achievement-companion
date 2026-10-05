@@ -17,6 +17,7 @@ import {
 import { STEAM_PROVIDER_ID } from "../../providers/steam/config";
 import chevronRightIconUrl from "./assets/chevron-right.svg";
 import { beginDeckyCompactPopup } from "./decky-compact-popup-state";
+import { steamRecipes, steamTheme } from "./steam-theme";
 
 export interface DeckySteamCompactSettingsProps {
   readonly onBack: () => void;
@@ -32,7 +33,8 @@ function getRootStyle(): CSSProperties {
     minWidth: 0,
     padding: "0 16px 4px",
     boxSizing: "border-box",
-    color: "#f2f6fb",
+    color: steamTheme.color.textPrimary,
+    fontFamily: steamTheme.type.fontFamily,
   };
 }
 
@@ -47,9 +49,9 @@ function getSectionStyle(): CSSProperties {
 
 function getSectionTitleStyle(): CSSProperties {
   return {
-    color: "#69cfff",
-    fontSize: 12,
-    fontWeight: 850,
+    color: steamTheme.color.accent,
+    fontSize: steamTheme.type.compact.heading,
+    fontWeight: steamTheme.type.weight.strong,
     letterSpacing: "0.055em",
     lineHeight: 1,
     textTransform: "uppercase",
@@ -60,6 +62,7 @@ function getActionStyle(isFocused: boolean, emphasis: "primary" | "secondary"): 
   const isPrimary = emphasis === "primary";
 
   return {
+    ...steamRecipes.action("compact", isPrimary),
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
@@ -68,22 +71,16 @@ function getActionStyle(isFocused: boolean, emphasis: "primary" | "secondary"): 
     minWidth: 0,
     minHeight: 38,
     padding: "8px 12px",
-    border: isFocused
-      ? "1px solid rgba(54, 185, 255, 0.92)"
-      : isPrimary
-        ? "1px solid rgba(54, 185, 255, 0.52)"
-        : "1px solid rgba(54, 142, 191, 0.3)",
-    borderRadius: 8,
+    ...(isFocused ? { border: `1px solid ${steamTheme.focus.border}` } : {}),
+    borderRadius: steamTheme.radius.small,
     background: isFocused
-      ? "linear-gradient(180deg, rgba(17, 91, 139, 0.78), rgba(8, 53, 82, 0.9))"
-      : isPrimary
-        ? "linear-gradient(180deg, rgba(10, 63, 96, 0.82), rgba(7, 43, 67, 0.92))"
-        : "linear-gradient(150deg, rgba(9, 35, 51, 0.88), rgba(7, 27, 41, 0.94))",
+      ? steamTheme.focus.background
+      : isPrimary ? steamTheme.surface.primaryAction : steamTheme.surface.secondaryAction,
     boxShadow: isFocused
-      ? "0 0 0 1px rgba(54, 185, 255, 0.72), 0 0 13px rgba(54, 185, 255, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.1)"
+      ? steamTheme.focus.shadow
       : "inset 0 1px 0 rgba(125, 211, 252, 0.05), 0 4px 12px rgba(0, 0, 0, 0.14)",
     boxSizing: "border-box",
-    color: "#f2f6fb",
+    color: steamTheme.color.textPrimary,
     cursor: "pointer",
     outline: "none",
   };
@@ -92,9 +89,9 @@ function getActionStyle(isFocused: boolean, emphasis: "primary" | "secondary"): 
 function getActionTitleStyle(): CSSProperties {
   return {
     display: "block",
-    color: "#f2f6fb",
-    fontSize: 13,
-    fontWeight: 800,
+    color: steamTheme.color.textPrimary,
+    fontSize: steamTheme.type.compact.body,
+    fontWeight: steamTheme.type.weight.strong,
     lineHeight: 1.1,
   };
 }
@@ -103,54 +100,55 @@ function getActionDescriptionStyle(): CSSProperties {
   return {
     display: "block",
     marginTop: 3,
-    color: "#8ebfe0",
-    fontSize: 10,
+    ...steamRecipes.text("compact", "metadata"),
+    color: steamTheme.color.textSecondary,
+    fontSize: steamTheme.type.compact.metadata,
     lineHeight: 1.25,
   };
 }
 
 function getCompactSettingLabelStyle(): CSSProperties {
   return {
-    color: "#f2f6fb",
-    fontSize: 13,
-    fontWeight: 800,
+    color: steamTheme.color.textPrimary,
+    fontSize: steamTheme.type.compact.body,
+    fontWeight: steamTheme.type.weight.strong,
     lineHeight: 1.1,
   };
 }
 
 function getCompactSettingDescriptionStyle(): CSSProperties {
   return {
-    color: "#8ebfe0",
-    fontSize: 10,
+    ...steamRecipes.text("compact", "metadata"),
+    color: steamTheme.color.textSecondary,
+    fontSize: steamTheme.type.compact.metadata,
     lineHeight: 1.25,
   };
 }
 
 function getChevronStyle(): CSSProperties {
-  return { width: 17, height: 17, flexShrink: 0 };
+  return { width: 17, height: 17, flexShrink: 0, filter: steamTheme.iconFilter.accent };
 }
 
 function getSettingsCardStyle(): CSSProperties {
   return {
+    ...steamRecipes.card("compact", "raised"),
     display: "flex",
     flexDirection: "column",
     overflow: "hidden",
-    border: "1px solid rgba(54, 142, 191, 0.18)",
-    borderRadius: 9,
-    background: "linear-gradient(150deg, rgba(9, 35, 51, 0.9), rgba(7, 27, 41, 0.96))",
     boxShadow: "inset 0 1px 0 rgba(125, 211, 252, 0.035)",
   };
 }
 
 function getCountPickerStyle(isFocused: boolean, isExpanded: boolean): CSSProperties {
   return {
+    ...steamRecipes.interactiveRow("compact"),
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 10,
     minHeight: 70,
     padding: "9px 12px",
-    border: isFocused ? "1px solid rgba(54, 185, 255, 0.92)" : "1px solid transparent",
+    border: isFocused ? `1px solid ${steamTheme.color.borderStrong}` : "1px solid transparent",
     borderRadius: 7,
     background: isFocused
       ? "rgba(18, 78, 113, 0.64)"
@@ -159,7 +157,7 @@ function getCountPickerStyle(isFocused: boolean, isExpanded: boolean): CSSProper
         : "transparent",
     boxShadow: isFocused ? "inset 0 0 0 1px rgba(54, 185, 255, 0.48)" : "none",
     boxSizing: "border-box",
-    color: "#f2f6fb",
+    color: steamTheme.color.textPrimary,
     cursor: "pointer",
     outline: "none",
   };
@@ -180,9 +178,9 @@ function getCountValueStyle(): CSSProperties {
     flex: "0 0 72px",
     borderRadius: 4,
     background: "rgba(85, 111, 130, 0.55)",
-    color: "#f2f6fb",
-    fontSize: 16,
-    fontWeight: 500,
+    color: steamTheme.color.textPrimary,
+    fontSize: steamTheme.type.compact.heading,
+    fontWeight: steamTheme.type.weight.medium,
   };
 }
 
@@ -192,7 +190,7 @@ function getCountValueChevronStyle(): CSSProperties {
     height: 0,
     borderLeft: "8px solid transparent",
     borderRight: "8px solid transparent",
-    borderTop: "9px solid #f2f6fb",
+    borderTop: `9px solid ${steamTheme.color.textPrimary}`,
     transform: "translateY(2px)",
   };
 }
@@ -204,8 +202,8 @@ function getToggleFieldWrapperStyle(): CSSProperties {
 function getStatusStyle(isError: boolean): CSSProperties {
   return {
     minHeight: 15,
-    color: isError ? "#ff9b9b" : "#8ebfe0",
-    fontSize: 10,
+    color: isError ? steamTheme.color.danger : steamTheme.color.textSecondary,
+    fontSize: steamTheme.type.compact.caption,
     lineHeight: 1.25,
   };
 }
@@ -398,7 +396,7 @@ export function DeckySteamCompactSettings({
   };
 
   return (
-    <div data-achievement-companion-steam-compact-settings style={getRootStyle()}>
+    <div data-ac-steam-theme="compact" data-achievement-companion-steam-compact-settings style={getRootStyle()}>
       <section style={getSectionStyle()}>
         <div style={getSectionTitleStyle()}>Steam Settings</div>
         <SteamCompactSettingsAction

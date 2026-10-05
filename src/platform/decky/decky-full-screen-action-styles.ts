@@ -7,6 +7,7 @@ import {
   DECKY_FOOTER_SCROLL_MARGIN_BOTTOM_PX,
   DECKY_HEADER_SCROLL_MARGIN_TOP_PX,
 } from "./decky-focus-styles";
+import { getSteamActionStylesCss } from "./steam-theme";
 
 export function getDeckyFullscreenActionStylesCss(): string {
   return `
@@ -24,7 +25,7 @@ export function getDeckyFullscreenActionStylesCss(): string {
   justify-content: center;
 }
 
-.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > .${DECKY_FULLSCREEN_CHIP_CLASS} {
+.${DECKY_FULLSCREEN_CHIP_CLASS} {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
@@ -69,27 +70,27 @@ export function getDeckyFullscreenActionStylesCss(): string {
     inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
 }
 
-.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > .${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-full-width {
+.${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-full-width {
   width: 100% !important;
   min-width: 0 !important;
   max-width: 100% !important;
   border-radius: 10px !important;
 }
 
-.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > .${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-overview-action {
+.${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-overview-action {
   justify-content: flex-start !important;
   padding: 0 16px !important;
   font-size: 14px !important;
 }
 
 /* The Steam section footer shares the native footer's narrow CSS-pixel height. */
-.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > .${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-compact {
+.${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-compact {
   min-height: 32px !important;
   padding: 0 10px !important;
   font-size: 12px !important;
 }
 
-.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > .${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-primary {
+.${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-primary {
   border-color: rgba(83, 193, 255, 0.96) !important;
   background: linear-gradient(180deg, rgba(34, 155, 232, 0.82), rgba(15, 91, 162, 0.88)) !important;
   box-shadow:
@@ -129,7 +130,7 @@ export function getDeckyFullscreenActionStylesCss(): string {
     inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
 }
 
-.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > .${DECKY_FULLSCREEN_CHIP_CLASS} > span {
+.${DECKY_FULLSCREEN_CHIP_CLASS} > span {
   display: inline-flex !important;
   width: max-content !important;
   min-width: max-content !important;
@@ -138,15 +139,15 @@ export function getDeckyFullscreenActionStylesCss(): string {
   text-overflow: clip !important;
 }
 
-.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > .${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-overview-action > span {
+.${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-overview-action > span {
   justify-content: flex-start !important;
 }
 
-.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > .${DECKY_FULLSCREEN_CHIP_CLASS}::before,
-.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > .${DECKY_FULLSCREEN_CHIP_CLASS}::after {
+.${DECKY_FULLSCREEN_CHIP_CLASS}::before,
+.${DECKY_FULLSCREEN_CHIP_CLASS}::after {
   content: none !important;
   background: transparent !important;
   box-shadow: none !important;
 }
-`;
+` + getSteamActionStylesCss();
 }

@@ -397,7 +397,7 @@ export function DeckySteamAchievementGroupsSection({
               <span style={getGroupTextStyle()}>
                 <span style={getGroupTitleStyle()}>{section.title}</span>
                 <span style={getGroupCountStyle()}>{unlockedCount.toLocaleString()} / {section.achievements.length.toLocaleString()}</span>
-                <DeckyCompletionProgressBar percent={completionPercent} showCaption={false} />
+                <DeckyCompletionProgressBar percent={completionPercent} showCaption={false} steamTheme />
               </span>
               <span style={getGroupPercentStyle()}>{completionPercent}%</span>
               <span aria-hidden="true" style={getGroupExpansionIconStyle()}>

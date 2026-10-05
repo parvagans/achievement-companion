@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, type CSSProperties, type JSX } from "react";
 import type { GameDetailSnapshot } from "@core/domain";
+import { steamRecipes, steamTheme } from "./steam-theme";
 
 type GameSummary = GameDetailSnapshot["game"]["summary"];
 export type DeckyCompletionProgressBarTone =
@@ -26,13 +27,14 @@ function getCompletionBarFrameStyle(compact: boolean): CSSProperties {
   };
 }
 
-function getCompletionBarTrackStyle(compact: boolean, captionPlacement: "above" | "below" | "inside"): CSSProperties {
+function getCompletionBarTrackStyle(compact: boolean, captionPlacement: "above" | "below" | "inside", isSteam: boolean): CSSProperties {
   return {
+    ...(isSteam ? steamRecipes.progressTrack : {}),
     position: "relative",
     height: captionPlacement === "inside" ? (compact ? 22 : 28) : compact ? 4 : 8,
     borderRadius: 999,
     overflow: "hidden",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: isSteam ? undefined : "rgba(255, 255, 255, 0.08)",
     boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.06)",
   };
 }
@@ -93,6 +95,7 @@ export function getCompletionBarFillStyle(
   percent: number,
   tone: DeckyCompletionProgressBarTone,
   breathe: boolean,
+  isSteam = false,
 ): CSSProperties {
   const normalizedPercent = clampPercent(percent);
   const completionRatio = normalizedPercent / 100;
@@ -111,6 +114,8 @@ export function getCompletionBarFillStyle(
           ? "linear-gradient(90deg, rgba(188, 198, 211, 0.94), rgba(223, 230, 239, 0.98))"
         : usesFlamePalette
           ? FLAME_COMPLETION_BACKGROUND
+        : isSteam
+          ? steamRecipes.progressFill.completion
           : DEFAULT_COMPLETION_BACKGROUND,
     transition: "width 120ms ease, background 300ms ease",
     ...(breathe
@@ -123,10 +128,11 @@ export function getCompletionBarFillStyle(
   };
 }
 
-function getCompletionBarCaptionStyle(compact: boolean): CSSProperties {
+function getCompletionBarCaptionStyle(compact: boolean, isSteam: boolean): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.76)",
-    fontSize: compact ? "12px" : "14px",
+    ...(isSteam ? steamRecipes.text(compact ? "compact" : "fullscreen", "metadata") : {}),
+    color: isSteam ? steamTheme.color.textSecondary : "rgba(255, 255, 255, 0.76)",
+    fontSize: isSteam ? steamTheme.type[compact ? "compact" : "fullscreen"].metadata : compact ? "12px" : "14px",
     fontWeight: 600,
     lineHeight: 1.2,
   };
@@ -156,6 +162,7 @@ export function DeckyCompletionProgressBar({
   showCaption = true,
   tone = "default",
   breathe = false,
+  steamTheme: isSteam = false,
 }: {
   readonly compact?: boolean;
   readonly percent: number;
@@ -164,14 +171,15 @@ export function DeckyCompletionProgressBar({
   readonly showCaption?: boolean;
   readonly tone?: DeckyCompletionProgressBarTone;
   readonly breathe?: boolean;
+  readonly steamTheme?: boolean;
 }): JSX.Element {
   const normalizedPercent = clampPercent(percent);
   const resolvedCaption = caption ?? `${normalizedPercent}% complete`;
 
   return (
-    <div style={getCompletionBarFrameStyle(compact)}>
+    <div data-ac-steam-theme={isSteam ? (compact ? "compact" : "fullscreen") : undefined} style={getCompletionBarFrameStyle(compact)}>
       {showCaption && captionPlacement === "above" ? (
-        <div style={getCompletionBarCaptionStyle(compact)}>{resolvedCaption}</div>
+        <div style={getCompletionBarCaptionStyle(compact, isSteam)}>{resolvedCaption}</div>
       ) : null}
 
       <div
@@ -181,13 +189,13 @@ export function DeckyCompletionProgressBar({
         aria-valuenow={normalizedPercent}
         aria-valuetext={resolvedCaption}
         role="progressbar"
-        style={getCompletionBarTrackStyle(compact, captionPlacement)}
+        style={getCompletionBarTrackStyle(compact, captionPlacement, isSteam)}
       >
         {breathe ? <DeckyCompletionProgressAnimationStyles /> : null}
         <div
           data-achievement-companion-completion-progress-fill={breathe ? "true" : undefined}
           data-completion-progress-tone={tone}
-          style={getCompletionBarFillStyle(normalizedPercent, tone, breathe)}
+          style={getCompletionBarFillStyle(normalizedPercent, tone, breathe, isSteam)}
         />
         {showCaption && captionPlacement === "inside" ? (
           <div style={getCompletionBarInsideCaptionStyle(compact)}>{resolvedCaption}</div>
@@ -195,7 +203,7 @@ export function DeckyCompletionProgressBar({
       </div>
 
       {showCaption && captionPlacement === "below" ? (
-        <div style={getCompletionBarCaptionStyle(compact)}>{resolvedCaption}</div>
+        <div style={getCompletionBarCaptionStyle(compact, isSteam)}>{resolvedCaption}</div>
       ) : null}
     </div>
   );

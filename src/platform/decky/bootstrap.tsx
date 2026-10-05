@@ -763,6 +763,7 @@ function DashboardScreen({
     />
   ) : providerId === STEAM_PROVIDER_ID ? (
     <DeckyCompactLoadingState
+      steamTheme
       description={state.error?.userMessage ?? "Fetching the latest Steam profile and SteamHunters data."}
       isError={state.status === "error"}
       onCancel={onBackToProviders}
@@ -859,6 +860,7 @@ function GameDetailScreen({
         />
       ) : game.providerId === STEAM_PROVIDER_ID ? (
         <DeckyCompactLoadingState
+          steamTheme
           description={loader.error?.userMessage ?? "Fetching the latest Steam game and SteamHunters data."}
           isError={loader.status === "error"}
           onCancel={onBackToDashboard}
@@ -927,6 +929,7 @@ function CompactAchievementListScreen({
         />
       ) : (
         <DeckyCompactLoadingState
+          steamTheme={destination.providerId === STEAM_PROVIDER_ID}
           description={loader.error?.userMessage ?? (
             destination.providerId === STEAM_PROVIDER_ID
               ? "Fetching Steam achievements and SteamHunters data."
@@ -1026,6 +1029,7 @@ function CompactAchievementDetailScreen({
         ) : detailContent
       ) : (
         <DeckyCompactLoadingState
+          steamTheme={destination.providerId === STEAM_PROVIDER_ID}
           description={loader.error?.userMessage ?? (
             destination.providerId === STEAM_PROVIDER_ID
               ? "Fetching the Steam achievement and SteamHunters data."

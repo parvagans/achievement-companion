@@ -647,6 +647,7 @@ export function DeckyFullScreenCompletionProgressPage({
         <>
           <div style={getDeckyFullScreenLoadingPageStyle()}>
             <DeckyFullScreenLoadingState
+              useSteamTheme
               description={state.error?.userMessage ?? "Refreshing your Steam account and loading your library achievement scan."}
               isError={state.status === "error"}
               title={state.status === "error" ? "Steam games unavailable" : "Loading Steam games..."}

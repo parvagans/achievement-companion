@@ -2,6 +2,7 @@ import type { CSSProperties } from "react";
 import { DeckyCompletionProgressBar } from "./decky-completion-progress-bar";
 import { DeckyFullScreenGameProgressStat } from "./decky-full-screen-game-progress-stat";
 import { DeckyFullScreenGameSpotlightCard } from "./decky-full-screen-game-spotlight-card";
+import { steamRecipes } from "./steam-theme";
 
 function getStatsGridStyle(): CSSProperties {
   return {
@@ -25,9 +26,9 @@ export interface DeckySteamProgressSummaryProps {
 
 function getProgressCardStyle(fillHeight: boolean): CSSProperties {
   return {
+    ...steamRecipes.card("fullscreen", "raised"),
     gap: 6,
     padding: 8,
-    borderRadius: 14,
     ...(fillHeight ? { height: "100%", justifyContent: "space-between" } : {}),
   };
 }
@@ -42,7 +43,7 @@ export function DeckySteamProgressSummary({
 }: DeckySteamProgressSummaryProps): JSX.Element {
   return (
     <DeckyFullScreenGameSpotlightCard title="Your Progress" focusable={false} style={getProgressCardStyle(fillHeight)}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "center", gap: 8, color: "rgba(255, 255, 255, 0.92)", fontSize: "0.86em", fontWeight: 700, textAlign: "center" }}>
+      <div style={{ ...steamRecipes.text("fullscreen", "body"), display: "flex", alignItems: "baseline", justifyContent: "center", gap: 8, fontWeight: 700, textAlign: "center" }}>
         <span>{`${unlockedValue} / ${totalValue} achievements`}</span>
       </div>
       {completionPercent !== undefined ? (
@@ -51,6 +52,7 @@ export function DeckySteamProgressSummary({
           captionPlacement="inside"
           percent={completionPercent}
           breathe
+          steamTheme
         />
       ) : null}
       <div style={getStatsGridStyle()}>

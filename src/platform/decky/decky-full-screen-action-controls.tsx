@@ -18,6 +18,8 @@ import {
 import { getDeckyFullscreenActionStylesCss } from "./decky-full-screen-action-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 
+const actionStylesByDocument = new WeakMap<Document, { style: HTMLStyleElement; owners: number }>();
+
 function DeckyFullscreenActionStyles(): JSX.Element {
   const anchorRef = useRef<HTMLSpanElement>(null);
   useLayoutEffect(() => {
@@ -25,13 +27,25 @@ function DeckyFullscreenActionStyles(): JSX.Element {
     if (ownerDocument === undefined) {
       return;
     }
-    // Steam can render our controls in a different window from plugin code.
-    // Own the stylesheet in that document for exactly this row's lifetime.
-    const style = ownerDocument.createElement("style");
-    style.dataset["achievementCompanionFullscreenActionStyles"] = "true";
-    style.textContent = getDeckyFullscreenActionStylesCss();
-    ownerDocument.head.appendChild(style);
-    return () => style.remove();
+    // Each button owns its presentation even outside an action row. Share one
+    // stylesheet per Steam document while any row or standalone button is mounted.
+    let entry = actionStylesByDocument.get(ownerDocument);
+    if (entry === undefined) {
+      const style = ownerDocument.createElement("style");
+      style.dataset["achievementCompanionFullscreenActionStyles"] = "true";
+      style.textContent = getDeckyFullscreenActionStylesCss();
+      ownerDocument.head.appendChild(style);
+      entry = { style, owners: 0 };
+      actionStylesByDocument.set(ownerDocument, entry);
+    }
+    entry.owners += 1;
+    return () => {
+      entry.owners -= 1;
+      if (entry.owners === 0) {
+        entry.style.remove();
+        actionStylesByDocument.delete(ownerDocument);
+      }
+    };
   }, []);
   return <span ref={anchorRef} hidden aria-hidden="true" />;
 }
@@ -188,6 +202,8 @@ export function DeckyFullscreenActionButton({
   const shouldScrollToTopOnFocus = isFullscreenBackAction || scrollToTopOnFocus;
 
   return (
+    <>
+    <DeckyFullscreenActionStyles />
     <Focusable
       className={`${DECKY_FULLSCREEN_CHIP_CLASS} ${selected ? DECKY_FULLSCREEN_CHIP_SELECTED_CLASS : ""} ${compact ? "achievement-companion-fullscreen-chip-compact" : ""} ${fullWidth ? "achievement-companion-fullscreen-chip-full-width" : ""} ${primary ? "achievement-companion-fullscreen-chip-primary" : ""} ${contentAlign === "left" ? "achievement-companion-fullscreen-chip-overview-action" : ""}`.trim()}
       focusClassName={`${DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS} ${focusClassName ?? ""}`.trim()}
@@ -213,5 +229,6 @@ export function DeckyFullscreenActionButton({
         <span style={{ whiteSpace: "nowrap" }}>{label}</span>
       </span>
     </Focusable>
+    </>
   );
 }

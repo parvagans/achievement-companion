@@ -259,7 +259,12 @@ function DeckyFullScreenGameLoadingState({
       style={getDeckyFullScreenLoadingPageStyle()}
       tabIndex={0}
     >
-      <DeckyFullScreenLoadingState description={copy.infoText} isError={copy.isError} title={copy.title} />
+      <DeckyFullScreenLoadingState
+        description={copy.infoText}
+        isError={copy.isError}
+        title={copy.title}
+        useSteamTheme={useNativeFocus}
+      />
     </Focusable>
   );
 }
@@ -916,7 +921,7 @@ export function DeckyFullScreenGamePage({
 
   if (isSteamProvider) {
     return (
-      <div style={getSteamGameShellStyle(steamFooterHeight)}>
+      <div data-ac-steam-theme="fullscreen" style={getSteamGameShellStyle(steamFooterHeight)}>
         <div style={getSteamGameContentStyle(activeSteamSection)}>
           <TopAlignedScrollViewport
             fillHeight={activeSteamSection === "overview"}

@@ -14,6 +14,7 @@ import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { formatSteamHuntersPercentage } from "./decky-steam-hunters-presentation";
 import { DeckySteamAchievementStatusIcon } from "./decky-steam-achievement-status-icon";
 import type { SteamHuntersAchievement } from "../../providers/steamhunters";
+import { steamRecipes, steamTheme } from "./steam-theme";
 
 function formatTimestamp(epochMs: number): string {
   return new Date(epochMs).toLocaleString();
@@ -150,9 +151,11 @@ function getAchievementRowIconStyle(): CSSProperties {
 }
 
 function getSteamAchievementCardStyle(achievement: NormalizedAchievement): CSSProperties {
-  const accentColor = achievement.isUnlocked ? "rgba(245, 181, 30, 0.95)" : "rgba(203, 213, 225, 0.74)";
+  // The row rail marks earned points, while the status text marks completion.
+  const accentColor = achievement.isUnlocked ? steamTheme.color.rewardGold : steamTheme.color.locked;
 
   return {
+    ...steamRecipes.interactiveRow("fullscreen"),
     display: "grid",
     gridTemplateColumns: "auto minmax(0, 1fr) auto minmax(150px, 0.24fr)",
     gap: 16,
@@ -160,12 +163,10 @@ function getSteamAchievementCardStyle(achievement: NormalizedAchievement): CSSPr
     minWidth: 0,
     minHeight: 88,
     padding: "10px 16px 10px 14px",
-    borderRadius: 15,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
+    borderRadius: steamTheme.radius.large,
+    border: `1px solid ${steamTheme.color.borderSubtle}`,
     borderLeft: `5px solid ${accentColor}`,
-    background: achievement.isUnlocked
-      ? "linear-gradient(180deg, rgba(13, 34, 48, 0.9), rgba(9, 25, 37, 0.88))"
-      : "linear-gradient(180deg, rgba(14, 30, 43, 0.86), rgba(9, 22, 33, 0.84))",
+    background: steamTheme.surface.raised,
     boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 8px rgba(0, 0, 0, 0.16)",
     boxSizing: "border-box",
   };
@@ -181,8 +182,8 @@ function getSteamAchievementBadgeFrameStyle(isUnlocked: boolean): CSSProperties 
     flexShrink: 0,
     overflow: "hidden",
     borderRadius: 9,
-    border: "1px solid rgba(255, 255, 255, 0.12)",
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    border: `1px solid ${steamTheme.color.borderSubtle}`,
+    backgroundColor: steamTheme.surface.interactive,
     opacity: isUnlocked ? 1 : 0.92,
     filter: isUnlocked ? "none" : "grayscale(1) contrast(1.08) brightness(0.9)",
   };
@@ -207,7 +208,7 @@ function getSteamAchievementTextStyle(): CSSProperties {
 
 function getSteamAchievementTitleStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.98)",
+    ...steamRecipes.text("fullscreen", "title"),
     fontSize: "1em",
     fontWeight: 800,
     lineHeight: 1.15,
@@ -220,7 +221,7 @@ function getSteamAchievementTitleStyle(): CSSProperties {
 
 function getSteamAchievementDescriptionStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.76)",
+    ...steamRecipes.text("fullscreen", "body"),
     fontSize: "0.84em",
     lineHeight: 1.2,
     minWidth: 0,
@@ -266,7 +267,7 @@ function getSteamAchievementStatusStyle(isUnlocked: boolean): CSSProperties {
     columnGap: 9,
     alignItems: "center",
     minWidth: 0,
-    color: isUnlocked ? "rgba(93, 240, 108, 0.98)" : "rgba(203, 213, 225, 0.84)",
+    color: isUnlocked ? steamTheme.color.unlocked : steamTheme.color.locked,
   };
 }
 

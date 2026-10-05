@@ -64,6 +64,7 @@ import {
   rememberDeckySteamGamesFocus,
   rememberDeckySteamGamesRenderLimit,
 } from "./decky-steam-full-screen-games-state";
+import { steamRecipes, steamTheme } from "./steam-theme";
 
 const STEAM_GAMES_FOCUS_CLASS = "achievement-companion-steam-games-focus";
 const STEAM_GAMES_INITIAL_RENDER_LIMIT = 12;
@@ -71,14 +72,10 @@ const STEAM_GAMES_RENDER_STEP = 12;
 const STEAM_GAMES_SEARCH_CLASS = "achievement-companion-steam-games-search";
 const STEAM_GAMES_LIST_CLASS = "achievement-companion-steam-games-list";
 const STEAM_GAMES_ICON_FILTERS = {
-  blue:
-    "brightness(0) saturate(100%) invert(62%) sepia(84%) saturate(1250%) hue-rotate(165deg) brightness(101%) contrast(102%)",
-  gold:
-    "brightness(0) saturate(100%) invert(78%) sepia(63%) saturate(754%) hue-rotate(350deg) brightness(102%) contrast(92%)",
-  light:
-    "brightness(0) saturate(100%) invert(94%) sepia(13%) saturate(467%) hue-rotate(172deg) brightness(104%) contrast(97%)",
-  red:
-    "brightness(0) saturate(100%) invert(43%) sepia(92%) saturate(2924%) hue-rotate(329deg) brightness(104%) contrast(102%)",
+  blue: steamTheme.iconFilter.accent,
+  gold: steamTheme.iconFilter.reward,
+  light: steamTheme.iconFilter.primary,
+  red: steamTheme.iconFilter.danger,
 } as const;
 const SteamGamesSearchField = TextField as unknown as FC<
   ComponentProps<typeof TextField> & { readonly placeholder?: string }
@@ -151,12 +148,12 @@ function SteamGamesRouteStyles(): JSX.Element {
 .${STEAM_GAMES_FOCUS_CLASS}:focus,
 .${STEAM_GAMES_FOCUS_CLASS}:focus-within {
   outline: none !important;
-  border-color: rgba(39, 194, 255, 0.92) !important;
-  box-shadow: inset 0 0 0 2px #27c2ff, inset 0 0 14px rgba(24, 174, 239, 0.2) !important;
+  border-color: ${steamTheme.color.accentStrong} !important;
+  box-shadow: ${steamTheme.focus.insetShadow} !important;
 }
 .${STEAM_GAMES_SEARCH_CLASS}:focus,
 .${STEAM_GAMES_SEARCH_CLASS}:focus-within {
-  outline: 2px solid #27c2ff !important;
+  outline: 2px solid ${steamTheme.color.accentStrong} !important;
   outline-offset: 1px !important;
 }
 .${STEAM_GAMES_LIST_CLASS} {
@@ -210,9 +207,8 @@ function getPageStyle(): CSSProperties {
     padding: "43px 14px 48px",
     boxSizing: "border-box",
     overflow: "hidden",
-    color: "#f2f6fb",
-    background:
-      "radial-gradient(ellipse at 74% 6%, rgba(19, 100, 148, 0.12), transparent 38%), linear-gradient(180deg, #06131d 0%, #071620 64%, #06121b 100%)",
+    color: steamTheme.color.textPrimary,
+    background: steamTheme.surface.page,
   };
 }
 
@@ -239,6 +235,7 @@ function getSummaryGridStyle(): CSSProperties {
 
 function getMetricCardStyle(): CSSProperties {
   return {
+    ...steamRecipes.metricTile("fullscreen"),
     display: "grid",
     gridTemplateColumns: "34px minmax(0, 1fr)",
     alignItems: "center",
@@ -246,19 +243,16 @@ function getMetricCardStyle(): CSSProperties {
     minWidth: 0,
     minHeight: 58,
     padding: "7px 9px",
-    border: "1px solid rgba(65, 132, 177, 0.24)",
-    borderRadius: 8,
     boxSizing: "border-box",
-    background: "linear-gradient(145deg, rgba(13, 35, 49, 0.96), rgba(10, 27, 39, 0.96))",
   };
 }
 
 function getMetricValueStyle(): CSSProperties {
-  return { color: "#f4f7fb", fontSize: 16, fontWeight: 900, lineHeight: 1 };
+  return { ...steamRecipes.text("fullscreen", "title"), fontSize: 16, fontWeight: 700, lineHeight: 1 };
 }
 
 function getMetricLabelStyle(): CSSProperties {
-  return { color: "#9ed5ff", fontSize: 9, lineHeight: 1.2, marginTop: 4, whiteSpace: "nowrap" };
+  return { ...steamRecipes.text("fullscreen", "caption"), color: steamTheme.color.accent, fontSize: 9, lineHeight: 1.2, marginTop: 4, whiteSpace: "nowrap" };
 }
 
 function getMetricHelperStyle(): CSSProperties {
@@ -293,19 +287,19 @@ function MetricCard({
 function OverallProgressCard({ summary }: { readonly summary: SteamGamesDashboardSummary }): JSX.Element {
   return (
     <div style={{ ...getMetricCardStyle(), display: "flex", flexDirection: "column", alignItems: "stretch", gap: 6 }}>
-      <div style={{ color: "#9ed5ff", fontSize: 10, fontWeight: 800, lineHeight: 1 }}>Completion Progress</div>
+        <div style={{ ...steamRecipes.text("fullscreen", "metadata"), color: steamTheme.color.accent, fontSize: 10, fontWeight: 700, lineHeight: 1 }}>Completion Progress</div>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", gap: 8 }}>
-        <div style={{ height: 10, overflow: "hidden", borderRadius: 999, background: "#183246" }}>
+        <div style={{ ...steamRecipes.progressTrack, height: 10 }}>
           <div
             style={{
               width: `${summary.completionPercent}%`,
               height: "100%",
               borderRadius: 999,
-              background: "linear-gradient(90deg, #22b8f1, #30c9ff)",
+              background: steamRecipes.progressFill.completion,
             }}
           />
         </div>
-        <span style={{ color: "#f4f7fb", fontSize: 13, fontWeight: 900 }}>
+        <span style={{ ...steamRecipes.text("fullscreen", "body"), fontWeight: 700 }}>
           {formatPercent(summary.completionPercent)}
         </span>
       </div>
@@ -616,6 +610,7 @@ function getGameListStyle(): CSSProperties {
 
 function getGameRowStyle(): CSSProperties {
   return {
+    ...steamRecipes.interactiveRow("fullscreen"),
     display: "grid",
     gridTemplateColumns: `${STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}px minmax(165px, 1.55fr) minmax(145px, 1.45fr) 96px 116px 16px`,
     alignItems: "center",
@@ -624,11 +619,7 @@ function getGameRowStyle(): CSSProperties {
     minWidth: 0,
     minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT,
     padding: "2px 7px 2px 3px",
-    border: "1px solid rgba(66, 124, 160, 0.28)",
-    borderRadius: 8,
     boxSizing: "border-box",
-    color: "#edf6fd",
-    background: "linear-gradient(90deg, rgba(9, 29, 42, 0.96), rgba(10, 34, 48, 0.92))",
   };
 }
 
@@ -636,7 +627,7 @@ function getTitleStyle(): CSSProperties {
   return {
     minWidth: 0,
     overflow: "hidden",
-    color: "#f3f7fb",
+    color: steamTheme.color.textPrimary,
     fontSize: 12,
     fontWeight: 850,
     lineHeight: 1.15,
@@ -646,11 +637,11 @@ function getTitleStyle(): CSSProperties {
 }
 
 function getProgressMetaStyle(): CSSProperties {
-  return { color: "#edf4fa", fontSize: 10, fontWeight: 750, lineHeight: 1, whiteSpace: "nowrap" };
+  return { ...steamRecipes.text("fullscreen", "metadata"), color: steamTheme.color.textPrimary, fontSize: 10, fontWeight: 600, lineHeight: 1, whiteSpace: "nowrap" };
 }
 
 function getSecondaryMetaStyle(): CSSProperties {
-  return { color: "#aac0d3", fontSize: 9.5, lineHeight: 1, whiteSpace: "nowrap" };
+  return { ...steamRecipes.text("fullscreen", "caption"), fontSize: 9.5, lineHeight: 1, whiteSpace: "nowrap" };
 }
 
 function getMetadataCellStyle(): CSSProperties {
@@ -667,7 +658,7 @@ function getMetadataCellStyle(): CSSProperties {
 }
 
 function getProgressTrackStyle(): CSSProperties {
-  return { height: 10, overflow: "hidden", borderRadius: 999, background: "#183246" };
+  return { ...steamRecipes.progressTrack, height: 10 };
 }
 
 function SteamGamesRow({
@@ -930,7 +921,7 @@ export function DeckySteamFullScreenGamesDashboard({
 
   return (
     <>
-      <main ref={dashboardRef} data-steam-full-screen-games-dashboard style={getPageStyle()}>
+      <main ref={dashboardRef} data-ac-steam-theme="fullscreen" data-steam-full-screen-games-dashboard style={getPageStyle()}>
         <SteamGamesRouteStyles />
         <div style={getSectionTitleStyle()}>Games</div>
         <SteamGamesSummaryCards summary={summary} />

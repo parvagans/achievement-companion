@@ -22,6 +22,7 @@ import steamIconUrl from "./assets/steam.svg";
 import starIconUrl from "./assets/star.svg";
 import steamDeckIconUrl from "./assets/steam-deck.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
+import { steamRecipes, steamTheme } from "./steam-theme";
 
 const MIN_TITLE_FONT_SIZE_PX = 12;
 
@@ -47,20 +48,19 @@ function getRootStyle(): CSSProperties {
     minWidth: 0,
     padding: "0 16px 4px",
     boxSizing: "border-box",
-    color: "#f2f6fb",
+    color: steamTheme.color.textPrimary,
+    fontFamily: steamTheme.type.fontFamily,
   };
 }
 
 function getHeroStyle(): CSSProperties {
   return {
+    ...steamRecipes.card("compact", "raised"),
     display: "flex",
     width: "100%",
     height: 124,
     minWidth: 0,
     overflow: "hidden",
-    borderRadius: 9,
-    border: "1px solid rgba(81, 178, 238, 0.23)",
-    background: "linear-gradient(135deg, rgba(12, 51, 76, 0.94), rgba(11, 27, 43, 0.94))",
     boxShadow: "0 4px 16px rgba(0, 0, 0, 0.22)",
     boxSizing: "border-box",
   };
@@ -98,8 +98,9 @@ function getProviderStyle(): CSSProperties {
     display: "inline-flex",
     alignItems: "center",
     gap: 5,
-    color: "rgba(185, 215, 240, 0.94)",
-    fontSize: 10,
+    ...steamRecipes.text("compact", "metadata"),
+    color: steamTheme.color.textSecondary,
+    fontSize: steamTheme.type.compact.metadata,
     fontWeight: 750,
     lineHeight: 1,
   };
@@ -122,15 +123,13 @@ function getPrimaryActionLabelStyle(): CSSProperties {
 
 function getSectionCardStyle(isFocused: boolean): CSSProperties {
   return {
+    ...steamRecipes.card("compact", "card"),
     display: "flex",
     flexDirection: "column",
     gap: 6,
     width: "100%",
     minWidth: 0,
     padding: "9px 10px",
-    borderRadius: 9,
-    border: isFocused ? "1px solid rgba(54, 185, 255, 0.24)" : "1px solid rgba(54, 142, 191, 0.18)",
-    background: "linear-gradient(145deg, rgba(10, 43, 64, 0.88), rgba(7, 27, 42, 0.9))",
     boxShadow: isFocused ? "inset 0 0 0 1px rgba(54, 185, 255, 0.09)" : "none",
     boxSizing: "border-box",
   };
@@ -172,8 +171,9 @@ function CompactGameSectionFocusTarget({
 
 function getSectionLabelStyle(): CSSProperties {
   return {
-    color: "#69cfff",
-    fontSize: 9,
+    ...steamRecipes.text("compact", "heading"),
+    color: steamTheme.color.accent,
+    fontSize: steamTheme.type.compact.metadata,
     fontWeight: 850,
     letterSpacing: "0.055em",
     lineHeight: 1.1,
@@ -204,6 +204,7 @@ function getSnapshotGridStyle(): CSSProperties {
 
 function getSnapshotMetricStyle(): CSSProperties {
   return {
+    ...steamRecipes.metricTile("compact"),
     display: "grid",
     gridTemplateColumns: "26px minmax(0, 1fr)",
     alignItems: "center",
@@ -211,17 +212,15 @@ function getSnapshotMetricStyle(): CSSProperties {
     minWidth: 0,
     minHeight: 48,
     padding: "7px 8px",
-    borderRadius: 8,
-    border: "1px solid rgba(67, 145, 194, 0.16)",
-    background: "rgba(8, 29, 45, 0.65)",
     boxSizing: "border-box",
   };
 }
 
 function getMetricLabelStyle(): CSSProperties {
   return {
-    color: "rgba(151, 202, 235, 0.8)",
-    fontSize: 8,
+    ...steamRecipes.text("compact", "metadata"),
+    color: steamTheme.color.textSecondary,
+    fontSize: 10,
     fontWeight: 800,
     letterSpacing: "0.04em",
     lineHeight: 1.1,
@@ -233,8 +232,9 @@ function getMetricValueStyle(): CSSProperties {
   return {
     minWidth: 0,
     overflow: "hidden",
-    color: "rgba(246, 250, 255, 0.98)",
-    fontSize: 11,
+    ...steamRecipes.text("compact", "body"),
+    color: steamTheme.color.textPrimary,
+    fontSize: 12,
     fontWeight: 800,
     lineHeight: 1.15,
     textOverflow: "ellipsis",
@@ -244,8 +244,9 @@ function getMetricValueStyle(): CSSProperties {
 
 function getMetricSecondaryStyle(): CSSProperties {
   return {
-    color: "rgba(149, 189, 219, 0.75)",
-    fontSize: 8,
+    ...steamRecipes.text("compact", "caption"),
+    color: steamTheme.color.textMuted,
+    fontSize: 10,
     lineHeight: 1.12,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -264,6 +265,7 @@ function getSteamHuntersStatsStyle(): CSSProperties {
 
 function getSteamHuntersStatStyle(): CSSProperties {
   return {
+    ...steamRecipes.metricTile("compact"),
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
@@ -272,9 +274,6 @@ function getSteamHuntersStatStyle(): CSSProperties {
     minWidth: 0,
     minHeight: 48,
     padding: "6px 4px",
-    borderRadius: 7,
-    border: "1px solid rgba(54, 142, 191, 0.16)",
-    background: "rgba(8, 29, 45, 0.65)",
     boxSizing: "border-box",
     textAlign: "center",
   };
@@ -286,8 +285,9 @@ function getSetStatusDetailRowsStyle(): CSSProperties {
     flexDirection: "column",
     alignItems: "center",
     gap: 2,
-    color: "rgba(166, 206, 233, 0.78)",
-    fontSize: 8,
+    ...steamRecipes.text("compact", "metadata"),
+    color: steamTheme.color.textSecondary,
+    fontSize: 10,
     lineHeight: 1.25,
     textAlign: "center",
   };
@@ -321,8 +321,9 @@ function getGameInfoRowStyle(): CSSProperties {
 
 function getGameInfoLabelStyle(): CSSProperties {
   return {
-    color: "rgba(159, 204, 234, 0.75)",
-    fontSize: 9,
+    ...steamRecipes.text("compact", "metadata"),
+    color: steamTheme.color.textSecondary,
+    fontSize: 10,
     lineHeight: 1.2,
   };
 }
@@ -331,8 +332,9 @@ function getGameInfoValueStyle(): CSSProperties {
   return {
     minWidth: 0,
     overflow: "hidden",
-    color: "rgba(239, 247, 255, 0.93)",
-    fontSize: 9,
+    ...steamRecipes.text("compact", "metadata"),
+    color: steamTheme.color.textPrimary,
+    fontSize: 10,
     fontWeight: 700,
     lineHeight: 1.2,
     textAlign: "right",
@@ -426,7 +428,7 @@ function SnapshotMetric({
 }): JSX.Element {
   return (
     <div style={getSnapshotMetricStyle()}>
-      <img alt="" aria-hidden="true" src={iconUrl} style={{ width: 22, height: 22, filter: "brightness(0) saturate(100%) invert(69%) sepia(84%) saturate(1582%) hue-rotate(162deg) brightness(98%) contrast(101%)", ...iconStyle }} />
+      <img alt="" aria-hidden="true" src={iconUrl} style={{ width: 22, height: 22, filter: steamTheme.iconFilter.accent, ...iconStyle }} />
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, minWidth: 0, textAlign: "center" }}>
         <span style={getMetricLabelStyle()}>{label}</span>
         <span style={getMetricValueStyle()}>{value}</span>
@@ -510,7 +512,7 @@ export function DeckySteamCompactGameOverview({
   }, [snapshot]);
 
   return (
-    <section ref={rootRef} style={getRootStyle()}>
+    <section data-ac-steam-theme="compact" ref={rootRef} style={getRootStyle()}>
       <div style={getHeroStyle()}>
         {artworkUrl === undefined ? (
           <div aria-hidden="true" style={getHeroFallbackStyle()}>{getInitials(game.title)}</div>
@@ -536,7 +538,7 @@ export function DeckySteamCompactGameOverview({
           tone="primary"
         >
           <span style={getPrimaryActionLabelStyle()}>
-            <img alt="" aria-hidden="true" src={externalLinkIconUrl} style={{ width: 17, height: 17, filter: "brightness(0) saturate(100%) invert(62%) sepia(84%) saturate(1250%) hue-rotate(165deg) brightness(101%) contrast(102%)" }} />
+            <img alt="" aria-hidden="true" src={externalLinkIconUrl} style={{ width: 17, height: 17, filter: steamTheme.iconFilter.accent }} />
             <span>Open Full-Screen</span>
           </span>
         </DeckySteamCompactAction>
@@ -550,7 +552,7 @@ export function DeckySteamCompactGameOverview({
           tone="primary"
         >
           <span style={getPrimaryActionLabelStyle()}>
-            <img alt="" aria-hidden="true" src={trophyIconUrl} style={{ width: 17, height: 17, filter: "brightness(0) saturate(100%) invert(62%) sepia(84%) saturate(1250%) hue-rotate(165deg) brightness(101%) contrast(102%)" }} />
+            <img alt="" aria-hidden="true" src={trophyIconUrl} style={{ width: 17, height: 17, filter: steamTheme.iconFilter.accent }} />
             <span>View Achievements</span>
           </span>
         </DeckySteamCompactAction>
@@ -559,10 +561,10 @@ export function DeckySteamCompactGameOverview({
       <CompactGameSectionFocusTarget label="Your Progress">
         <div style={getSectionLabelStyle()}>Your Progress</div>
         <div style={getProgressSummaryStyle()}>
-          <img alt="" aria-hidden="true" src={trophyIconUrl} style={{ width: 17, height: 17, filter: "brightness(0) saturate(100%) invert(68%) sepia(88%) saturate(1878%) hue-rotate(160deg) brightness(98%) contrast(101%)" }} />
+          <img alt="" aria-hidden="true" src={trophyIconUrl} style={{ width: 17, height: 17, filter: steamTheme.iconFilter.accent }} />
           <span>{`${formatCount(game.summary.unlockedCount)} / ${formatCount(game.summary.totalCount)} achievements`}</span>
         </div>
-        {completionPercent !== undefined ? <DeckyCompletionProgressBar compact percent={completionPercent} /> : null}
+        {completionPercent !== undefined ? <DeckyCompletionProgressBar compact percent={completionPercent} steamTheme /> : null}
       </CompactGameSectionFocusTarget>
 
       <CompactGameSectionFocusTarget label="Play Time and Steam Deck">
@@ -611,17 +613,17 @@ export function DeckySteamCompactGameOverview({
         <div style={getSectionLabelStyle()}>SteamHunters Stats</div>
         <div style={getSteamHuntersStatsStyle()}>
           <div style={getSteamHuntersStatStyle()}>
-            <img alt="" aria-hidden="true" src={trophyIconUrl} style={{ width: 17, height: 17, filter: "brightness(0) saturate(100%) invert(74%) sepia(95%) saturate(418%) hue-rotate(357deg) brightness(99%) contrast(92%)" }} />
+            <img alt="" aria-hidden="true" src={trophyIconUrl} style={{ width: 17, height: 17, filter: steamTheme.iconFilter.reward }} />
             <span style={getMetricLabelStyle()}>My Points</span>
             <span style={getMetricValueStyle()}>{formatCount(steamHunters?.progressPoints?.earned)}</span>
           </div>
           <div style={getSteamHuntersStatStyle()}>
-            <img alt="" aria-hidden="true" src={starIconUrl} style={{ width: 17, height: 17, filter: "brightness(0) saturate(100%) invert(68%) sepia(88%) saturate(1878%) hue-rotate(160deg) brightness(98%) contrast(101%)" }} />
+            <img alt="" aria-hidden="true" src={starIconUrl} style={{ width: 17, height: 17, filter: steamTheme.iconFilter.accent }} />
             <span style={getMetricLabelStyle()}>My Unlock %</span>
             <span style={getMetricValueStyle()}>{completionPercent === undefined ? "—" : `${completionPercent}%`}</span>
           </div>
           <div style={getSteamHuntersStatStyle()}>
-            <img alt="" aria-hidden="true" src={calendarIconUrl} style={{ width: 17, height: 17, filter: "brightness(0) saturate(100%) invert(69%) sepia(84%) saturate(1582%) hue-rotate(162deg) brightness(98%) contrast(101%)" }} />
+            <img alt="" aria-hidden="true" src={calendarIconUrl} style={{ width: 17, height: 17, filter: steamTheme.iconFilter.accent }} />
             <span style={getMetricLabelStyle()}>Duration</span>
             <span style={getMetricValueStyle()}>{personalAchievementDuration}</span>
           </div>

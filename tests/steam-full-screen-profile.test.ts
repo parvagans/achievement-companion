@@ -538,7 +538,7 @@ test("steam full-screen profile uses the requested top-row and equal lower-row d
   assert.match(dashboardSource, /createDashboardHorizontalFocusHandler\("ArrowLeft", \{ panelId: "activity" \}\)/u);
   assert.match(dashboardSource, /data-steam-profile-row-index/u);
   assert.match(dashboardSource, /function SteamProfileDashboardFocusStyles\(\)/u);
-  assert.match(dashboardSource, /outline: 2px solid rgba\(104, 193, 255, 0\.98\) !important/u);
+  assert.match(dashboardSource, /outline: 2px solid \$\{steamTheme\.focus\.border\} !important/u);
   assert.match(dashboardSource, /<DashboardFocusableList>/u);
   assert.match(dashboardSource, /function getListArtworkSlotStyle\(\)/u);
   assert.match(dashboardSource, /const DASHBOARD_LIST_ARTWORK_SIZE = 40/u);
@@ -601,7 +601,7 @@ test("steam activity dashboard derives timeline metrics from timestamped unlock 
   assert.match(activitySource, /getSteamFullscreenGameArtworkUrlByGameId\(entry\.game\.gameId/u);
   assert.match(activitySource, /ACTIVITY_TOP_PADDING_PX = 43/u);
   assert.match(activitySource, /minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT[\s\S]*height=\{STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT\}[\s\S]*width=\{STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH\}/u);
-  assert.match(activitySource, /focused \? \{[\s\S]*outline: "2px solid #bfeaff"/u);
+  assert.match(activitySource, /focused \? \{[\s\S]*outline: `2px solid \$\{steamTheme\.focus\.border\}`/u);
   assert.match(activitySource, /data-steam-activity-summary[\s\S]*<ActivityTrend stats=\{stats\}/u);
   assert.match(activitySource, /Total Unlocks" value=\{formatCount\(snapshot\.summary\.unlockedCount\)\}/u);
   assert.match(activitySource, /ACTIVITY INSIGHTS/u);
@@ -712,7 +712,8 @@ test("full-screen loading screens retain simple provider-specific loading states
   assert.match(loadingSource, /FULL_SCREEN_LOADING_TITLE_FONT_SIZE/u);
   assert.match(loadingSource, /loading frame below is the sole vertical-positioning authority[\s\S]*padding: 0/u);
   assert.match(loadingSource, /rgba\(218, 70, 241, 0\.28\)[\s\S]*rgba\(27, 161, 255, 0\.25\)[\s\S]*rgba\(0, 224, 239, 0\.16\)/u);
-  assert.match(loadingSource, /style=\{\{ \.\.\.getDeckyFullScreenLoadingPageStyle\(\), \.\.\.getLoadingFrameStyle\(\) \}\}/u);
+  assert.match(loadingSource, /\.\.\.getDeckyFullScreenLoadingPageStyle\(\)[\s\S]*useSteamTheme \?[\s\S]*\.\.\.getLoadingFrameStyle\(\)/u);
+  assert.match(loadingSource, /!isError \|\| !useSteamTheme/u);
   assert.match(appServicesSource, /const \[profile, recentAchievements, recentlyPlayedGames\] = await Promise\.all\(\[[\s\S]*loadStep\("profile"[\s\S]*recentAchievementsPromise,[\s\S]*recentlyPlayedGamesPromise/u);
   assert.match(serviceTypesSource, /DashboardRefreshProgressStepId[\s\S]*recent-games[\s\S]*recent-achievements[\s\S]*finalize/u);
   assert.match(deckyServicesSource, /if \(activeRefresh !== undefined\)[\s\S]*subscribeToDeckyDashboardProgress\(providerId, options\.onProgress\)[\s\S]*return await activeRefresh/u);

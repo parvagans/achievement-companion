@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import type { SteamHuntersProfile } from "../../providers/steamhunters";
+import { steamRecipes, steamTheme } from "./steam-theme";
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { findDeckyScrollableAncestor } from "./decky-scroll-viewport";
@@ -36,13 +37,6 @@ import rankPointsIconUrl from "./assets/rank-points.svg";
 import settingsIconUrl from "./assets/settings.svg";
 import starIconUrl from "./assets/star.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
-
-const BLUE_ICON_FILTER =
-  "brightness(0) saturate(100%) invert(62%) sepia(84%) saturate(1250%) hue-rotate(165deg) brightness(101%) contrast(102%)";
-const GOLD_ICON_FILTER =
-  "brightness(0) saturate(100%) invert(78%) sepia(63%) saturate(754%) hue-rotate(350deg) brightness(102%) contrast(92%)";
-const PURPLE_ICON_FILTER =
-  "brightness(0) saturate(100%) invert(41%) sepia(93%) saturate(1444%) hue-rotate(249deg) brightness(95%) contrast(96%)";
 
 export type { DeckySteamCompactActionTone } from "./decky-steam-compact-action-styles";
 type SteamCompactIconTone = "blue" | "gold" | "purple";
@@ -108,7 +102,8 @@ function getRootStyle(): CSSProperties {
     minWidth: 0,
     padding: "0 16px 4px",
     boxSizing: "border-box",
-    color: "#f2f6fb",
+    color: steamTheme.color.textPrimary,
+    fontFamily: steamTheme.type.fontFamily,
   };
 }
 
@@ -132,8 +127,8 @@ function getSectionHeaderStyle(): CSSProperties {
 
 function getSectionTitleStyle(): CSSProperties {
   return {
-    color: "#69cfff",
-    fontSize: 12,
+    color: steamTheme.color.accent,
+    fontSize: steamTheme.type.compact.heading,
     fontWeight: 850,
     letterSpacing: "0.055em",
     lineHeight: 1,
@@ -220,19 +215,17 @@ function getIconStyle(size: number, tone: SteamCompactIconTone = "blue"): CSSPro
     width: size,
     height: size,
     flexShrink: 0,
-    filter: tone === "gold" ? GOLD_ICON_FILTER : tone === "purple" ? PURPLE_ICON_FILTER : BLUE_ICON_FILTER,
+    filter: tone === "gold" ? steamTheme.iconFilter.reward : tone === "purple" ? steamTheme.iconFilter.rarityPurple : steamTheme.iconFilter.accent,
   };
 }
 
 function getProfileCardStyle(): CSSProperties {
   return {
+    ...steamRecipes.card("compact", "raised"),
     display: "flex",
     flexDirection: "column",
     gap: 7,
     padding: 9,
-    border: "1px solid rgba(54, 142, 191, 0.18)",
-    borderRadius: 9,
-    background: "linear-gradient(150deg, rgba(9, 35, 51, 0.9), rgba(7, 27, 41, 0.96))",
     boxSizing: "border-box",
     boxShadow: "inset 0 1px 0 rgba(125, 211, 252, 0.035)",
   };
@@ -289,7 +282,7 @@ function getProfileNameStyle(): CSSProperties {
 }
 
 function getProfileMetaStyle(): CSSProperties {
-  return { color: "#8ebfe0", fontSize: 10, lineHeight: 1.2 };
+  return { ...steamRecipes.text("compact", "metadata"), color: steamTheme.color.textSecondary, lineHeight: 1.25 };
 }
 
 function getLevelRowStyle(): CSSProperties {
@@ -311,10 +304,10 @@ function getXpValueStyle(): CSSProperties {
 
 function getProgressTrackStyle(): CSSProperties {
   return {
+    ...steamRecipes.progressTrack,
     height: 7,
     overflow: "hidden",
     borderRadius: 999,
-    background: "rgba(33, 78, 106, 0.78)",
     boxShadow: "inset 0 0 0 1px rgba(125, 211, 252, 0.05)",
   };
 }
@@ -324,12 +317,12 @@ function getProgressFillStyle(percent: number): CSSProperties {
     width: `${Math.max(0, Math.min(100, percent))}%`,
     height: "100%",
     borderRadius: 999,
-    background: "linear-gradient(90deg, #139ee2, #20baff)",
+    background: steamRecipes.progressFill.xp,
   };
 }
 
 function getXpCaptionStyle(): CSSProperties {
-  return { color: "#7fa7bf", fontSize: 9.5, lineHeight: 1.1 };
+  return { ...steamRecipes.text("compact", "caption"), color: steamTheme.color.textMuted, lineHeight: 1.2 };
 }
 
 function getPrimaryActionLabelStyle(): CSSProperties {
@@ -357,6 +350,7 @@ function getMetricsGridStyle(): CSSProperties {
 
 function getMetricStyle(): CSSProperties {
   return {
+    ...steamRecipes.metricTile("compact"),
     display: "grid",
     gridTemplateColumns: "28px minmax(0, 1fr)",
     alignItems: "center",
@@ -364,9 +358,6 @@ function getMetricStyle(): CSSProperties {
     minHeight: 49,
     minWidth: 0,
     padding: "6px 8px",
-    border: "1px solid rgba(54, 142, 191, 0.16)",
-    borderRadius: 8,
-    background: "linear-gradient(150deg, rgba(9, 35, 51, 0.88), rgba(7, 27, 41, 0.94))",
     boxSizing: "border-box",
   };
 }
@@ -378,12 +369,12 @@ function getMetricTextStyle(): CSSProperties {
 function getMetricLabelStyle(): CSSProperties {
   return {
     minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    color: "#88acd0",
-    fontSize: 9,
-    lineHeight: 1.05,
+    overflowWrap: "anywhere",
+    whiteSpace: "normal",
+    ...steamRecipes.text("compact", "metadata"),
+    color: steamTheme.color.textSecondary,
+    fontSize: 11,
+    lineHeight: 1.12,
   };
 }
 
@@ -393,8 +384,9 @@ function getMetricValueStyle(): CSSProperties {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    color: "#f4f8fb",
-    fontSize: 13,
+    ...steamRecipes.text("compact", "title"),
+    color: steamTheme.color.textPrimary,
+    fontSize: 14,
     fontWeight: 850,
     lineHeight: 1.05,
   };
@@ -900,6 +892,7 @@ export function DeckySteamCompactProfile({
 
   return (
     <Focusable
+      data-ac-steam-theme="compact"
       data-achievement-companion-steam-compact-profile
       navEntryPreferPosition={NavEntryPositionPreferences.PREFERRED_CHILD}
       preferredFocus

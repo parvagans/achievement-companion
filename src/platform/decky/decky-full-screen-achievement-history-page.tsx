@@ -698,6 +698,7 @@ export function DeckyFullScreenAchievementHistoryPage({
       return (
         <>
           <DeckyFullScreenLoadingState
+            useSteamTheme
             description={state.error?.userMessage ?? "Refreshing your Steam account and loading achievement history."}
             isError={state.status === "error"}
             title={state.status === "error" ? "Steam achievement history unavailable" : "Loading Steam achievement history..."}

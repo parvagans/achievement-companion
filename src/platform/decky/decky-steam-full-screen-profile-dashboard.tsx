@@ -22,6 +22,7 @@ import type {
   SteamProfileGameSummary,
 } from "./decky-steam-full-screen-profile-data";
 import type { SteamHuntersProfile } from "../../providers/steamhunters";
+import { steamRecipes, steamTheme } from "./steam-theme";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import calendarIconUrl from "./assets/calendar.svg";
 import crownIconUrl from "./assets/crown.svg";
@@ -48,12 +49,6 @@ export interface SteamFullScreenProfileDashboardProps {
   readonly onOpenAchievementDetail: (gameId: string, achievementId: string) => void;
 }
 
-const BLUE_ICON_FILTER =
-  "brightness(0) saturate(100%) invert(62%) sepia(84%) saturate(1250%) hue-rotate(165deg) brightness(101%) contrast(102%)";
-const GOLD_ICON_FILTER =
-  "brightness(0) saturate(100%) invert(78%) sepia(63%) saturate(754%) hue-rotate(350deg) brightness(102%) contrast(92%)";
-const PURPLE_ICON_FILTER =
-  "brightness(0) saturate(100%) invert(41%) sepia(93%) saturate(1444%) hue-rotate(249deg) brightness(95%) contrast(96%)";
 const DASHBOARD_LIST_ARTWORK_SIZE = 40;
 const DASHBOARD_FOCUS_RING_CLASS = "achievement-companion-steam-profile-focus-ring";
 const DASHBOARD_FOCUS_RING_ACTIVE_CLASS = "achievement-companion-steam-profile-focus-ring--active";
@@ -83,13 +78,10 @@ function SteamProfileDashboardFocusStyles(): JSX.Element {
 .${DASHBOARD_FOCUS_RING_CLASS}:focus,
 .${DASHBOARD_FOCUS_RING_CLASS}:focus-within,
 .${DASHBOARD_FOCUS_RING_ACTIVE_CLASS} {
-  outline: 2px solid rgba(104, 193, 255, 0.98) !important;
+  outline: 2px solid ${steamTheme.focus.border} !important;
   outline-offset: 1px !important;
-  box-shadow:
-    0 0 0 2px rgba(32, 113, 182, 0.62),
-    0 0 18px rgba(48, 168, 255, 0.48),
-    inset 0 0 0 999px rgba(65, 156, 218, 0.16) !important;
-  background-color: rgba(30, 100, 149, 0.46) !important;
+  box-shadow: ${steamTheme.focus.shadow} !important;
+  background: ${steamTheme.focus.background} !important;
 }
 `;
     ownerDocument.head.appendChild(style);
@@ -187,7 +179,7 @@ function getDashboardStyle(): CSSProperties {
     minWidth: 0,
     minHeight: 0,
     overflow: "hidden",
-    color: "rgba(242, 246, 251, 0.98)",
+    color: steamTheme.color.textPrimary,
   };
 }
 
@@ -211,6 +203,7 @@ function getDashboardGridStyle(): CSSProperties {
 
 function getPanelStyle(gridArea: string): CSSProperties {
   return {
+    ...steamRecipes.card("fullscreen", "raised"),
     gridArea,
     display: "flex",
     flexDirection: "column",
@@ -218,10 +211,6 @@ function getPanelStyle(gridArea: string): CSSProperties {
     minWidth: 0,
     height: "100%",
     padding: 10,
-    border: "1px solid rgba(35, 156, 215, 0.52)",
-    borderRadius: 14,
-    background:
-      "linear-gradient(155deg, rgba(10, 38, 56, 0.92), rgba(6, 25, 39, 0.92) 56%, rgba(10, 31, 46, 0.94))",
     boxShadow: "inset 0 1px 0 rgba(125, 211, 252, 0.06), 0 8px 22px rgba(0, 0, 0, 0.16)",
     boxSizing: "border-box",
     overflow: "hidden",
@@ -249,7 +238,7 @@ function getPanelHeadingGroupStyle(): CSSProperties {
 
 function getPanelTitleStyle(): CSSProperties {
   return {
-    color: "rgba(211, 228, 247, 0.96)",
+    color: steamTheme.color.textPrimary,
     fontSize: "clamp(0.86rem, 1.25vw, 1.02rem)",
     fontWeight: 850,
     letterSpacing: "0.075em",
@@ -260,7 +249,7 @@ function getPanelTitleStyle(): CSSProperties {
 
 function getPanelSubtitleStyle(): CSSProperties {
   return {
-    color: "rgba(176, 207, 235, 0.78)",
+    color: steamTheme.color.textSecondary,
     fontSize: "0.76em",
     lineHeight: 1.2,
   };
@@ -327,7 +316,7 @@ function getAvatarFrameStyle(): CSSProperties {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    border: "3px solid #36b9ff",
+    border: `3px solid ${steamTheme.color.accent}`,
     borderRadius: 999,
     overflow: "hidden",
     background: "linear-gradient(145deg, rgba(54, 185, 255, 0.22), rgba(5, 22, 34, 0.96))",
@@ -343,7 +332,7 @@ function getAvatarFallbackStyle(): CSSProperties {
     justifyContent: "center",
     width: "100%",
     height: "100%",
-    color: "#f2f6fb",
+    color: steamTheme.color.textPrimary,
     fontSize: "1.45em",
     fontWeight: 850,
     letterSpacing: "0.04em",
@@ -356,7 +345,7 @@ function getIdentityTextStyle(): CSSProperties {
 
 function getDisplayNameStyle(): CSSProperties {
   return {
-    color: "#f2f6fb",
+    color: steamTheme.color.textPrimary,
     fontSize: "clamp(1.05rem, 1.55vw, 1.35rem)",
     fontWeight: 850,
     lineHeight: 1.08,
@@ -371,7 +360,7 @@ function getProviderStatusStyle(): CSSProperties {
     display: "inline-flex",
     alignItems: "center",
     gap: 6,
-    color: "#59cbff",
+    color: steamTheme.color.accent,
     fontSize: "0.82em",
     fontWeight: 700,
   };
@@ -390,7 +379,7 @@ function getStatusDotStyle(): CSSProperties {
 
 function getMottoStyle(): CSSProperties {
   return {
-    color: "rgba(194, 219, 241, 0.82)",
+    color: steamTheme.color.textSecondary,
     fontSize: "0.76em",
     lineHeight: 1.25,
     overflow: "hidden",
@@ -399,7 +388,7 @@ function getMottoStyle(): CSSProperties {
 }
 
 function getDividerStyle(): CSSProperties {
-  return { height: 1, flexShrink: 0, backgroundColor: "rgba(90, 184, 229, 0.22)" };
+  return { height: 1, flexShrink: 0, backgroundColor: steamTheme.color.borderSubtle };
 }
 
 function getProfileFactsStyle(): CSSProperties {
@@ -412,7 +401,7 @@ function getProfileFactStyle(): CSSProperties {
     gridTemplateColumns: "22px minmax(0, 1fr)",
     alignItems: "center",
     gap: 8,
-    color: "rgba(229, 239, 248, 0.9)",
+    color: steamTheme.color.textSecondary,
     fontSize: "0.77em",
     lineHeight: 1.2,
   };
@@ -423,7 +412,7 @@ function getIconStyle(size: number, tone: "blue" | "gold" | "purple" = "blue"): 
     width: size,
     height: size,
     flexShrink: 0,
-    filter: tone === "gold" ? GOLD_ICON_FILTER : tone === "purple" ? PURPLE_ICON_FILTER : BLUE_ICON_FILTER,
+    filter: tone === "gold" ? steamTheme.iconFilter.reward : tone === "purple" ? steamTheme.iconFilter.accent : steamTheme.iconFilter.accent,
   };
 }
 
@@ -479,7 +468,7 @@ function SteamProfileIdentityPanel({
           <ProfileFact iconUrl={starIconUrl}>{`${formatCount(profile.badgeCount)} badges`}</ProfileFact>
         ) : null}
       </div>
-      {refreshTime !== undefined ? <div style={{ marginTop: "auto", color: "#86a7bb", fontSize: 7, textAlign: "center" }}>{`Steam / SteamHunters refreshed ${refreshTime}`}</div> : null}
+      {refreshTime !== undefined ? <div style={{ marginTop: "auto", color: steamTheme.color.textMuted, fontSize: steamTheme.type.fullscreen.caption, textAlign: "center" }}>{`Steam / SteamHunters refreshed ${refreshTime}`}</div> : null}
     </DashboardPanel>
   );
 }
@@ -497,7 +486,7 @@ function getProgressHeroStyle(): CSSProperties {
 
 function getProgressValueStyle(): CSSProperties {
   return {
-    color: "#f5f9fd",
+    color: steamTheme.color.textPrimary,
     fontSize: "clamp(1.18rem, 2.2vw, 1.78rem)",
     fontWeight: 900,
     lineHeight: 1,
@@ -539,9 +528,9 @@ function getMetricTileStyle(): CSSProperties {
     gap: 6,
     minWidth: 0,
     padding: "6px 8px",
-    border: "1px solid rgba(74, 154, 194, 0.28)",
+    border: `1px solid ${steamTheme.color.borderSubtle}`,
     borderRadius: 11,
-    backgroundColor: "rgba(13, 46, 65, 0.56)",
+    background: steamTheme.surface.raised,
     boxSizing: "border-box",
   };
 }
@@ -633,7 +622,7 @@ function SteamProgressPanel({ summary }: { readonly summary: SteamFullScreenProf
       </div>
       {completionPercent !== undefined ? (
         <div style={getProgressBarRowStyle()}>
-          <DeckyCompletionProgressBar breathe percent={completionPercent} showCaption={false} />
+          <DeckyCompletionProgressBar breathe percent={completionPercent} showCaption={false} steamTheme />
           <span style={getProgressPercentStyle()}>{formatPercent(completionPercent)}</span>
         </div>
       ) : null}
@@ -1015,7 +1004,7 @@ function SteamRecentGameRow({ game, focusRowIndex, onOpenGameDetail, onKeyDownCa
         <div style={getListMetaStyle()}>{achievementLabel}</div>
         {game.completionPercent !== undefined ? (
           <div style={getGameProgressStyle()}>
-            <DeckyCompletionProgressBar compact percent={game.completionPercent} showCaption={false} />
+            <DeckyCompletionProgressBar compact percent={game.completionPercent} showCaption={false} steamTheme />
             <span style={getListTitleStyle()}>{formatPercent(game.completionPercent)}</span>
           </div>
         ) : null}
@@ -1113,7 +1102,7 @@ export function SteamFullScreenProfileDashboard({
   }, [isActive]);
 
   return (
-    <div ref={dashboardRef} data-steam-full-screen-profile-dashboard style={getDashboardStyle()}>
+    <div ref={dashboardRef} data-ac-steam-theme="fullscreen" data-steam-full-screen-profile-dashboard style={getDashboardStyle()}>
       <SteamProfileDashboardFocusStyles />
       <Focusable flow-children="left-right" noFocusRing tabIndex={-1} style={getDashboardGridStyle()}>
         <SteamProfileIdentityPanel

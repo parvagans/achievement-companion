@@ -182,7 +182,7 @@ test("Steam detail exposes verified SteamHunters fields and omits unsupported se
 
   const source = readFileSync("src/platform/decky/decky-achievement-detail-view.tsx", "utf8");
   const listSource = readFileSync("src/platform/decky/decky-compact-achievement-list.tsx", "utf8");
-  assert.equal((source.match(/<p style=\{getDescriptionStyle\(\)\}>/gu) ?? []).length, 1);
+  assert.equal((source.match(/<p style=\{getDescriptionStyle\(isSteam\)\}>/gu) ?? []).length, 1);
   assert.doesNotMatch(source, /View on Steam|View on SteamHunters|No tips available|Tips \(SteamHunters\)|title="Links"/u);
   assert.doesNotMatch(listSource, /Search achievements|type="search"|searchQuery/u);
   assert.equal((listSource.match(/role="img"/gu) ?? []).length, 1);

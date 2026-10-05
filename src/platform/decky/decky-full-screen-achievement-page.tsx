@@ -37,6 +37,7 @@ import starIconUrl from "./assets/star.svg";
 import steamIconUrl from "./assets/steam.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
 import usersIconUrl from "./assets/users.svg";
+import { steamRecipes, steamTheme } from "./steam-theme";
 
 export interface DeckyFullScreenAchievementPageProps {
   readonly providerId: string | undefined;
@@ -399,7 +400,8 @@ function DeckyFullScreenAchievementInputSurface({
       noFocusRing
       preferredFocus={useNativeFocus}
       role="region"
-      style={surfaceStyle}
+      {...(useNativeFocus ? { "data-ac-steam-theme": "fullscreen" } : {})}
+      style={useNativeFocus ? { ...surfaceStyle, color: steamTheme.color.textPrimary, background: steamTheme.surface.page } : surfaceStyle}
       tabIndex={0}
     >
       {children}
@@ -410,9 +412,11 @@ function DeckyFullScreenAchievementInputSurface({
 function DeckyFullScreenAchievementLoadingState({
   hasRouteParameters,
   state,
+  useSteamTheme,
 }: {
   readonly hasRouteParameters: boolean;
   readonly state: ResourceState<GameDetailSnapshot>;
+  readonly useSteamTheme: boolean;
 }): JSX.Element {
   const isError = state.status === "error" || !hasRouteParameters;
   const title = isError ? "Unable to load achievement details" : "Loading achievement...";
@@ -421,7 +425,7 @@ function DeckyFullScreenAchievementLoadingState({
     : state.error?.userMessage ?? "Fetching the latest achievement data and community details.";
 
   return (
-    <DeckyFullScreenLoadingState description={description} isError={isError} title={title} />
+    <DeckyFullScreenLoadingState description={description} isError={isError} title={title} useSteamTheme={useSteamTheme} />
   );
 }
 
@@ -508,7 +512,9 @@ function DeckyFullScreenAchievementContent({
       };
 
   return (
-    <article aria-label={achievement.title + " achievement details"} style={getAchievementPanelStyle()}>
+    <article aria-label={achievement.title + " achievement details"} style={isSteamProvider
+      ? { ...getAchievementPanelStyle(), ...steamRecipes.card("fullscreen", "raised"), borderLeft: "4px solid " + steamTheme.color.accent }
+      : getAchievementPanelStyle()}>
       <div style={getHeroStyle()}>
         <div style={getAchievementIdentityStyle()}>
           <div style={getBadgeFrameStyle(achievement.isUnlocked)}>
@@ -519,8 +525,8 @@ function DeckyFullScreenAchievementContent({
             )}
           </div>
           <div style={getAchievementTextStyle()}>
-            <div style={getGameTitleStyle()}>{game.title}</div>
-            <div style={getAchievementTitleStyle()}>{achievement.title}</div>
+            <div style={isSteamProvider ? { ...getGameTitleStyle(), ...steamRecipes.text("fullscreen", "metadata") } : getGameTitleStyle()}>{game.title}</div>
+            <div style={isSteamProvider ? { ...getAchievementTitleStyle(), ...steamRecipes.text("fullscreen", "hero"), overflowWrap: "anywhere" } : getAchievementTitleStyle()}>{achievement.title}</div>
             <div style={getMetaRowStyle()}>
               <span style={getMetaPillStyle()}>
                 {isSteamProvider ? <img alt="" src={steamIconUrl} style={getMetaIconStyle()} /> : null}
@@ -612,7 +618,7 @@ export function DeckyFullScreenAchievementPage({
         surfaceStyle={getDeckyFullScreenLoadingPageStyle()}
         useNativeFocus={providerId === STEAM_PROVIDER_ID}
       >
-        <DeckyFullScreenAchievementLoadingState hasRouteParameters={hasRouteParameters} state={state} />
+        <DeckyFullScreenAchievementLoadingState hasRouteParameters={hasRouteParameters} state={state} useSteamTheme={providerId === STEAM_PROVIDER_ID} />
       </DeckyFullScreenAchievementInputSurface>
     );
   }
@@ -633,7 +639,7 @@ export function DeckyFullScreenAchievementPage({
         surfaceStyle={getDeckyFullScreenLoadingPageStyle()}
         useNativeFocus={providerId === STEAM_PROVIDER_ID}
       >
-        <DeckyFullScreenAchievementLoadingState hasRouteParameters={false} state={{ ...state, status: "error" }} />
+        <DeckyFullScreenAchievementLoadingState hasRouteParameters={false} state={{ ...state, status: "error" }} useSteamTheme={providerId === STEAM_PROVIDER_ID} />
       </DeckyFullScreenAchievementInputSurface>
     );
   }

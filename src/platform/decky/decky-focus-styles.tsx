@@ -1,4 +1,5 @@
 import { type JSX } from "react";
+import { getSteamFocusStylesCss } from "./steam-theme";
 
 export const DECKY_FOCUS_NAV_ROW_CLASS = "achievement-companion-focus-nav-row";
 export const DECKY_FOCUS_ACTION_ROW_CLASS = "achievement-companion-focus-action-row";
@@ -29,7 +30,7 @@ export const DECKY_FOOTER_SCROLL_MARGIN_BOTTOM_PX = 104;
 
 export function getDeckyFocusStylesCss(): string {
   return `
-.Panel.Focusable {
+[data-ac-steam-theme="fullscreen"] .Panel.Focusable[tabindex] {
   scroll-margin-top: ${DECKY_HEADER_SCROLL_MARGIN_TOP_PX}px;
   scroll-margin-bottom: ${DECKY_FOOTER_SCROLL_MARGIN_BOTTOM_PX}px;
 }
@@ -246,5 +247,5 @@ export function getDeckyFocusStylesCss(): string {
 }
 
 export function DeckyFocusStyles(): JSX.Element {
-  return <style>{getDeckyFocusStylesCss()}</style>;
+  return <style>{getDeckyFocusStylesCss() + getSteamFocusStylesCss()}</style>;
 }

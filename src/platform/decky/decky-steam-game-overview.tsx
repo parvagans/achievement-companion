@@ -16,6 +16,7 @@ import { formatSteamPlaytimeMinutes } from "./decky-stat-helpers";
 import { DeckySteamExternalLinkIcon, DeckySteamHuntersIcon, DeckySteamPlayIcon } from "./decky-steam-icons";
 import type { SteamHuntersGameEnrichment } from "../../providers/steamhunters";
 import steamIconUrl from "./assets/steam.svg";
+import { steamRecipes, steamTheme } from "./steam-theme";
 
 type SteamGame = GameDetailSnapshot["game"];
 
@@ -52,6 +53,7 @@ function getOverviewGridStyle(): CSSProperties {
 
 function getIdentityPanelStyle(): CSSProperties {
   return {
+    ...steamRecipes.card("fullscreen", "raised"),
     display: "flex",
     flexDirection: "column",
     justifyContent: "space-between",
@@ -59,16 +61,13 @@ function getIdentityPanelStyle(): CSSProperties {
     minHeight: 0,
     minWidth: 0,
     padding: 10,
-    borderRadius: 14,
-    border: "1px solid rgba(125, 190, 255, 0.16)",
-    background: "linear-gradient(180deg, rgba(10, 29, 41, 0.84), rgba(8, 20, 30, 0.72))",
     boxSizing: "border-box",
   };
 }
 
 function getTitleStyle(fontSizePx: number | undefined): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.98)",
+    color: steamTheme.color.textPrimary,
     fontSize: fontSizePx === undefined ? "1.28em" : `${fontSizePx}px`,
     fontWeight: 800,
     lineHeight: 1.15,
@@ -80,7 +79,7 @@ function getTitleStyle(fontSizePx: number | undefined): CSSProperties {
 }
 
 function getProviderStyle(): CSSProperties {
-  return { display: "inline-flex", alignItems: "center", gap: 6, color: "rgba(255, 255, 255, 0.74)", fontSize: "0.86em", fontWeight: 700 };
+  return { ...steamRecipes.text("fullscreen", "body"), display: "inline-flex", alignItems: "center", gap: 6, color: steamTheme.color.textSecondary, fontWeight: 700 };
 }
 
 function getSteamProviderIconStyle(): CSSProperties {
@@ -132,14 +131,14 @@ function getMetadataStyle(): CSSProperties {
     gap: "4px 8px",
     paddingTop: 6,
     borderTop: "1px solid rgba(255, 255, 255, 0.08)",
-    color: "rgba(255, 255, 255, 0.64)",
+    color: steamTheme.color.textSecondary,
     fontSize: "0.75em",
     lineHeight: 1.2,
   };
 }
 
 function getMetadataValueStyle(): CSSProperties {
-  return { color: "rgba(255, 255, 255, 0.86)", textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+  return { color: steamTheme.color.textPrimary, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
 }
 
 function getDashboardStyle(): CSSProperties {
@@ -258,7 +257,7 @@ export function DeckySteamGameOverview({
       : latest, undefined);
   const hasCommunity = steamHunters?.hasCommunityStats === true;
   return (
-    <div style={getOverviewGridStyle()}>
+    <div data-ac-steam-theme="fullscreen" style={getOverviewGridStyle()}>
       <SteamGameIdentityPanel game={game} refreshedAt={refreshedAt} />
       <div style={getDashboardStyle()}>
         <div style={getDashboardTopRowStyle(hasCommunity)}>

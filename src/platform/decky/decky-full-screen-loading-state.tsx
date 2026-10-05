@@ -1,5 +1,6 @@
 import { useEffect, useRef, type CSSProperties } from "react";
 import infoIconUrl from "./assets/info.svg";
+import { steamRecipes, steamTheme } from "./steam-theme";
 
 const FULL_SCREEN_LOADING_FONT_FAMILY = '"Motiva Sans", "Noto Sans", system-ui, sans-serif';
 const FULL_SCREEN_LOADING_TITLE_FONT_SIZE = "clamp(1.25rem, 2.4vw, 2rem)";
@@ -9,6 +10,7 @@ export interface DeckyFullScreenLoadingStateProps {
   readonly description: string;
   readonly isError: boolean;
   readonly title: string;
+  readonly useSteamTheme?: boolean;
 }
 
 export function getDeckyFullScreenLoadingPageStyle(): CSSProperties {
@@ -145,6 +147,7 @@ export function DeckyFullScreenLoadingState({
   description,
   isError,
   title,
+  useSteamTheme = false,
 }: DeckyFullScreenLoadingStateProps): JSX.Element {
   const spinnerRef = useRef<HTMLDivElement>(null);
 
@@ -181,7 +184,17 @@ export function DeckyFullScreenLoadingState({
       aria-label={title}
       aria-live="polite"
       role={isError ? "alert" : "status"}
-      style={{ ...getDeckyFullScreenLoadingPageStyle(), ...getLoadingFrameStyle() }}
+      {...(useSteamTheme ? { "data-ac-steam-theme": "fullscreen" } : {})}
+      style={{
+        ...getDeckyFullScreenLoadingPageStyle(),
+        ...(useSteamTheme ? {
+          background: steamTheme.surface.page,
+          color: steamTheme.color.textPrimary,
+          fontFamily: steamTheme.type.fontFamily,
+          ...steamRecipes.state(isError ? "error" : "loading"),
+        } : {}),
+        ...getLoadingFrameStyle(),
+      }}
     >
       <div style={getLoadingContentStyle()}>
         <div aria-hidden="true" style={getLoadingSpinnerStyle()}>
@@ -196,8 +209,8 @@ export function DeckyFullScreenLoadingState({
           </div>
         </div>
         <h1 style={getLoadingTitleStyle()}>{title}</h1>
-        <p style={{ margin: "-5px 0 0", color: "#b8d8f3", fontSize: FULL_SCREEN_LOADING_BODY_FONT_SIZE, lineHeight: 1.2 }}>Preparing your data. This may take a few moments.</p>
-        <div style={getLoadingInfoStyle()}>
+        {!isError || !useSteamTheme ? <p style={{ margin: "-5px 0 0", color: useSteamTheme ? steamTheme.color.textSecondary : "#b8d8f3", fontSize: FULL_SCREEN_LOADING_BODY_FONT_SIZE, lineHeight: 1.2 }}>Preparing your data. This may take a few moments.</p> : null}
+        <div style={useSteamTheme ? { ...getLoadingInfoStyle(), ...steamRecipes.card("fullscreen", "raised"), display: "flex", alignItems: "center", justifyContent: "center", minHeight: 42 } : getLoadingInfoStyle()}>
           <img alt="" aria-hidden="true" src={infoIconUrl} style={getLoadingInfoIconStyle()} />
           <p style={getLoadingInfoTextStyle()}>{description}</p>
         </div>

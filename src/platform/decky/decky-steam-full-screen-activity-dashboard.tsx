@@ -34,6 +34,7 @@ import streakIconUrl from "./assets/activity-flame.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
 import unlockedLockIconUrl from "./assets/unlocked-lock.svg";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
+import { steamRecipes, steamTheme } from "./steam-theme";
 import {
   readDeckySteamActivityPageState,
   rememberDeckySteamActivityFilter,
@@ -45,10 +46,6 @@ import {
 type ActivityFilter = DeckySteamActivityFilter;
 type ActivityGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
 
-const BLUE_ICON_FILTER =
-  "brightness(0) saturate(100%) invert(62%) sepia(84%) saturate(1250%) hue-rotate(165deg) brightness(101%) contrast(101%)";
-const GOLD_ICON_FILTER =
-  "brightness(0) saturate(100%) invert(78%) sepia(63%) saturate(754%) hue-rotate(350deg) brightness(102%) contrast(92%)";
 const ACTIVITY_TOP_PADDING_PX = 43;
 const ACTIVITY_FOOTER_CLEARANCE_PX = 48;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -119,7 +116,7 @@ function filterActivityEntries(entries: readonly RecentUnlock[], filter: Activit
 }
 
 function Icon({ src, size = 26, tone = "blue" }: { readonly src: string; readonly size?: number; readonly tone?: "blue" | "gold" | "original" }): JSX.Element {
-  return <img alt="" aria-hidden="true" src={src} style={{ width: size, height: size, ...(tone === "original" ? {} : { filter: tone === "gold" ? GOLD_ICON_FILTER : BLUE_ICON_FILTER }) }} />;
+  return <img alt="" aria-hidden="true" src={src} style={{ width: size, height: size, ...(tone === "original" ? {} : { filter: tone === "gold" ? steamTheme.iconFilter.reward : steamTheme.iconFilter.accent }) }} />;
 }
 
 function getPageStyle(): CSSProperties {
@@ -129,16 +126,14 @@ function getPageStyle(): CSSProperties {
     padding: `${ACTIVITY_TOP_PADDING_PX}px 12px ${ACTIVITY_FOOTER_CLEARANCE_PX}px`,
     boxSizing: "border-box",
     overflow: "hidden",
-    background: "linear-gradient(135deg, #051521 0%, #07101a 58%, #041019 100%)",
-    color: "#eff8ff",
+    background: steamTheme.surface.page,
+    color: steamTheme.color.textPrimary,
   };
 }
 
 function getCardStyle(): CSSProperties {
   return {
-    border: "1px solid rgba(74, 158, 207, 0.25)",
-    borderRadius: 10,
-    background: "linear-gradient(135deg, rgba(9, 34, 49, 0.98), rgba(7, 23, 34, 0.94))",
+    ...steamRecipes.card("fullscreen"),
     boxShadow: "inset 0 1px 0 rgba(164, 224, 255, 0.04)",
     minWidth: 0,
   };
@@ -260,19 +255,17 @@ function ActivityFilterButton({ label, selected, onClick, onBack }: {
       onGamepadFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       style={{
-        border: selected ? "1px solid #31bdff" : "1px solid rgba(103, 162, 198, 0.22)",
-        borderRadius: 8,
+        ...steamRecipes.filter("fullscreen", selected),
+        minHeight: 30,
         padding: "6px 10px",
-        background: selected ? "linear-gradient(180deg, rgba(37, 129, 189, 0.55), rgba(21, 79, 123, 0.58))" : "rgba(13, 35, 49, 0.92)",
-        color: selected ? "#f4fbff" : "#c4d9e8",
         fontSize: 10,
         fontWeight: 700,
         ...(focused ? {
-          outline: "2px solid #bfeaff",
+          outline: `2px solid ${steamTheme.focus.border}`,
           outlineOffset: 1,
-          boxShadow: "0 0 0 2px rgba(28, 143, 210, 0.55), 0 0 16px rgba(44, 194, 255, 0.5)",
-          background: "linear-gradient(180deg, rgba(42, 144, 206, 0.8), rgba(23, 91, 139, 0.82))",
-          color: "#ffffff",
+          boxShadow: steamTheme.focus.shadow,
+          background: steamTheme.focus.background,
+          color: steamTheme.color.textPrimary,
         } : {}),
       }}
     >
@@ -410,7 +403,7 @@ export function DeckySteamFullScreenActivityDashboard({
 
   return (
     <>
-      <main ref={dashboardRef} data-steam-full-screen-activity-dashboard style={getPageStyle()}>
+      <main ref={dashboardRef} data-ac-steam-theme="fullscreen" data-steam-full-screen-activity-dashboard style={getPageStyle()}>
         <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", margin: "0 0 5px 2px", lineHeight: 1.1 }}>
           ACTIVITY
         </div>

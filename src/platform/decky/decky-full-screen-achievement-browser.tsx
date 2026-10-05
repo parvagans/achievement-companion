@@ -20,6 +20,7 @@ import type {
   SteamHuntersAchievement,
   SteamHuntersAchievementGroup,
 } from "../../providers/steamhunters";
+import { steamRecipes, steamTheme } from "./steam-theme";
 
 const ACHIEVEMENT_FILTERS = ["all", "unlocked", "locked"] as const;
 const ACHIEVEMENT_MODE_FILTERS = ["all", "hardcore", "softcore"] as const;
@@ -267,31 +268,28 @@ function getAchievementFilterButtonLabelStyle(): CSSProperties {
 
 function getSteamAchievementFilterButtonStyle(selected: boolean, focused: boolean): CSSProperties {
   return {
+    ...steamRecipes.filter("fullscreen", selected),
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
     minWidth: 0,
-    minHeight: 48,
+    minHeight: steamTheme.density.fullscreen.controlHeight,
     padding: "8px 12px",
-    borderRadius: 14,
+    borderRadius: steamTheme.radius.medium,
     boxSizing: "border-box",
-    border: `1px solid ${focused ? "rgba(0, 169, 255, 0.96)" : selected ? "rgba(0, 156, 238, 0.88)" : "rgba(255, 255, 255, 0.11)"}`,
-    background: focused
-      ? "linear-gradient(180deg, rgba(0, 144, 218, 0.42), rgba(0, 77, 130, 0.36))"
-      : selected
-        ? "linear-gradient(180deg, rgba(0, 118, 190, 0.34), rgba(0, 69, 115, 0.3))"
-        : "linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.025))",
-    color: selected ? "rgba(255, 255, 255, 0.98)" : "rgba(255, 255, 255, 0.82)",
+    border: `1px solid ${focused ? steamTheme.focus.border : selected ? steamTheme.color.borderStrong : steamTheme.color.borderSubtle}`,
+    background: focused ? steamTheme.focus.background : selected ? steamTheme.surface.selected : steamTheme.surface.secondaryAction,
+    color: selected ? steamTheme.color.textPrimary : steamTheme.color.textSecondary,
     fontSize: "0.9em",
     fontWeight: selected ? 800 : 700,
     lineHeight: 1.1,
     textAlign: "center",
     whiteSpace: "nowrap",
     cursor: "pointer",
-    outline: focused ? "2px solid rgba(0, 169, 255, 0.98)" : "none",
+    outline: focused ? `2px solid ${steamTheme.focus.border}` : "none",
     outlineOffset: 1,
-    boxShadow: focused ? "0 0 0 1px rgba(0, 169, 255, 0.5), 0 4px 16px rgba(0, 0, 0, 0.28)" : "none",
+    boxShadow: focused ? steamTheme.focus.shadow : "none",
   };
 }
 
@@ -308,11 +306,11 @@ function getSteamAchievementSelectButtonStyle(focused: boolean): CSSProperties {
 }
 
 function getSteamAchievementSelectLabelStyle(): CSSProperties {
-  return { color: "rgba(255, 255, 255, 0.76)", flexShrink: 0, whiteSpace: "nowrap" };
+  return { color: steamTheme.color.textSecondary, flexShrink: 0, whiteSpace: "nowrap" };
 }
 
 function getSteamAchievementSelectValueStyle(): CSSProperties {
-  return { color: "rgba(255, 255, 255, 0.96)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+  return { color: steamTheme.color.textPrimary, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
 }
 
 function getSteamAchievementSelectChevronStyle(): CSSProperties {
@@ -334,7 +332,7 @@ function getSteamAchievementSelectedGroupStyle(): CSSProperties {
     width: "100%",
     minWidth: 0,
     padding: "2px 4px 0",
-    color: "rgba(255, 255, 255, 0.72)",
+    color: steamTheme.color.textSecondary,
     fontSize: "0.86em",
     lineHeight: 1.25,
   };
@@ -346,7 +344,7 @@ function getSteamAchievementSelectedGroupValueStyle(): CSSProperties {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    color: "rgba(255, 255, 255, 0.98)",
+    color: steamTheme.color.textPrimary,
     fontWeight: 800,
   };
 }
@@ -613,6 +611,7 @@ export function DeckyFullScreenAchievementBrowser({
           }
         : {})}
       tabIndex={-1}
+      {...(isSteamProvider ? { "data-ac-steam-theme": "fullscreen" } : {})}
       style={getAchievementBrowserStackStyle()}
     >
       {isSteamProvider ? (

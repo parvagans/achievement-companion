@@ -32,6 +32,7 @@ import {
 } from "./decky-compact-achievement-page-state";
 import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
 import { DeckySteamAchievementStatusIcon } from "./decky-steam-achievement-status-icon";
+import { steamRecipes, steamTheme } from "./steam-theme";
 
 type DeckyGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
 
@@ -61,8 +62,9 @@ function getRootStyle(embedded: boolean): CSSProperties {
 function getHeadingStyle(): CSSProperties {
   return {
     margin: 0,
-    color: "#66d6ff",
-    fontSize: "0.78em",
+    ...steamRecipes.text("compact", "heading"),
+    color: steamTheme.color.accent,
+    fontSize: steamTheme.type.compact.heading,
     fontWeight: 850,
     letterSpacing: "0.06em",
     lineHeight: 1.2,
@@ -84,7 +86,8 @@ function getCompactCountFilterStyle(): CSSProperties {
 function getRowStyle(row: CompactAchievementRowViewModel, isFocused: boolean): CSSProperties {
   if (row.metadataPlacement === "rail") {
     return {
-      ...getSteamCompactActionStyle("row", isFocused),
+      ...steamRecipes.card("compact", "raised"),
+      ...(isFocused ? { borderColor: steamTheme.color.borderStrong, boxShadow: steamTheme.focus.shadow } : {}),
       display: "grid",
       gridTemplateColumns: "40px minmax(0, 1fr) minmax(42px, auto)",
       alignItems: "start",
@@ -125,7 +128,7 @@ function getIconFrameStyle(isUnlocked: boolean): CSSProperties {
     minWidth: 40,
     lineHeight: 0,
     opacity: isUnlocked ? 1 : 0.9,
-    filter: isUnlocked ? "none" : "grayscale(1) contrast(1.08) brightness(0.92)",
+    filter: isUnlocked ? steamRecipes.achievementState.unlocked.artworkFilter : steamRecipes.achievementState.locked.artworkFilter,
   };
 }
 
@@ -139,8 +142,9 @@ function getTitleLineStyle(): CSSProperties {
 
 function getTitleStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.98)",
-    fontSize: "0.78em",
+    ...steamRecipes.text("compact", "title"),
+    color: steamTheme.color.textPrimary,
+    fontSize: steamTheme.type.compact.title,
     fontWeight: 800,
     lineHeight: 1.17,
     minWidth: 0,
@@ -153,8 +157,9 @@ function getTitleStyle(): CSSProperties {
 
 function getDescriptionStyle(): CSSProperties {
   return {
-    color: "rgba(182, 215, 239, 0.82)",
-    fontSize: "0.68em",
+    ...steamRecipes.text("compact", "body"),
+    color: steamTheme.color.textSecondary,
+    fontSize: steamTheme.type.compact.body,
     lineHeight: 1.2,
     overflow: "hidden",
     display: "-webkit-box",
@@ -165,12 +170,13 @@ function getDescriptionStyle(): CSSProperties {
 
 function getSecondaryStyle(tone: CompactAchievementTone): CSSProperties {
   return {
+    ...steamRecipes.text("compact", "metadata"),
     color: tone === "hardcore"
       ? "rgba(232, 201, 102, 0.94)"
       : tone === "softcore"
         ? "rgba(220, 225, 233, 0.94)"
-        : "rgba(255, 255, 255, 0.68)",
-    fontSize: "0.66em",
+        : steamTheme.color.textSecondary,
+    fontSize: steamTheme.type.compact.metadata,
     fontWeight: 650,
     lineHeight: 1.18,
   };
@@ -190,7 +196,7 @@ function getStateIndicatorStyle(): CSSProperties {
   return {
     width: 18,
     height: 18,
-    filter: "brightness(0) saturate(100%) invert(73%) sepia(95%) saturate(479%) hue-rotate(91deg) brightness(96%) contrast(91%)",
+    filter: steamTheme.iconFilter.success,
   };
 }
 
@@ -199,14 +205,25 @@ function getLockedStateIndicatorStyle(): CSSProperties {
     display: "inline-flex",
     width: 18,
     height: 18,
-    color: "rgba(203, 213, 225, 0.84)",
+    color: steamRecipes.achievementState.locked.color,
+  };
+}
+
+function getSteamAchievementLoadActionStyle(focused: boolean): CSSProperties {
+  return {
+    ...steamRecipes.action("compact"),
+    width: "100%",
+    justifyContent: "center",
+    padding: 8,
+    ...(focused ? { borderColor: steamTheme.color.borderStrong, boxShadow: steamTheme.focus.shadow } : {}),
   };
 }
 
 function getRailMetadataStyle(): CSSProperties {
   return {
-    color: "rgba(232, 242, 250, 0.92)",
-    fontSize: "0.65em",
+    ...steamRecipes.text("compact", "metadata"),
+    color: steamTheme.color.textPrimary,
+    fontSize: steamTheme.type.compact.metadata,
     fontWeight: 750,
     lineHeight: 1.1,
     whiteSpace: "nowrap",
@@ -320,7 +337,7 @@ function CompactAchievementRow({
       {model.metadataPlacement === "rail" ? (
         <div style={getRailStyle()}>
           {model.stateIndicator !== undefined ? (
-            <span aria-label={model.statusText} role="img">
+            <span aria-label={model.statusText} role="img" style={{ color: model.stateIndicator === "unlocked" ? steamRecipes.achievementState.unlocked.color : steamRecipes.achievementState.locked.color }}>
               {model.stateIndicator === "unlocked" ? (
                 <img alt="" aria-hidden="true" src={checkCircleIconUrl} style={getStateIndicatorStyle()} />
               ) : (
@@ -404,7 +421,7 @@ export function DeckyCompactAchievementList({
   };
 
   return (
-    <section aria-label={`${model.gameTitle} achievements`} ref={rootRef} style={getRootStyle(embedded)}>
+      <section aria-label={`${model.gameTitle} achievements`} data-ac-steam-theme={refined ? "compact" : undefined} ref={rootRef} style={getRootStyle(embedded)}>
       {!embedded ? <h2 style={getHeadingStyle()}>Achievements</h2> : null}
 
       {model.supportsModeFilter ? (
@@ -557,7 +574,9 @@ export function DeckyCompactAchievementList({
               onBlur={() => setFocusedControl(undefined)}
               onActivate={() => commitPageState((current) => ({ ...current, visibleCount: label === "Show all" ? filteredRows.length : Math.min(filteredRows.length, current.visibleCount + 5) }))}
               onClick={() => commitPageState((current) => ({ ...current, visibleCount: label === "Show all" ? filteredRows.length : Math.min(filteredRows.length, current.visibleCount + 5) }))}
-              style={{ ...getSteamCompactActionStyle("row", focusedControl === label), justifyContent: "center", padding: "8px", fontSize: 11 }}
+              style={model.providerId === "steam"
+                ? getSteamAchievementLoadActionStyle(focusedControl === label)
+                : { ...getSteamCompactActionStyle("row", focusedControl === label), justifyContent: "center", padding: "8px", fontSize: 11 }}
             >{label}</Focusable>
           ))}
         </div>

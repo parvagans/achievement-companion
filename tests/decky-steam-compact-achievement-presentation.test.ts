@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import { getSteamCompactActionStyle, getSteamCompactAchievementFilterStyle } from "../src/platform/decky/decky-steam-compact-action-styles";
+import { steamTheme } from "../src/platform/decky/steam-theme";
 
 test("Steam compact focus changes colors without changing action geometry", () => {
   for (const tone of ["row", "primary"] as const) {
@@ -11,8 +12,8 @@ test("Steam compact focus changes colors without changing action geometry", () =
       assert.equal(rest[key], focus[key]);
     }
     assert.notEqual(rest.background, focus.background);
-    assert.match(String(focus.border), /54, 185, 255/u);
-    assert.match(String(focus.boxShadow), /54, 185, 255/u);
+    assert.equal(focus.border, `1px solid ${steamTheme.focus.compactBorder}`);
+    assert.equal(focus.boxShadow, steamTheme.focus.compactShadow);
   }
 });
 

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from
 import infoIconUrl from "./assets/info.svg";
 import { registerCompactProviderCancelCallback } from "./decky-full-screen-cancel-bridge";
 import { findDeckyScrollContainerAncestor } from "./decky-scroll-viewport";
+import { steamRecipes, steamTheme } from "./steam-theme";
 
 const COMPACT_LOADING_FONT_FAMILY = '"Motiva Sans", "Noto Sans", system-ui, sans-serif';
 
@@ -10,9 +11,10 @@ export interface DeckyCompactLoadingStateProps {
   readonly isError: boolean;
   readonly onCancel?: (() => void) | undefined;
   readonly title: string;
+  readonly steamTheme?: boolean;
 }
 
-function getLoadingSurfaceStyle(visibleHeight: number | undefined): CSSProperties {
+function getLoadingSurfaceStyle(visibleHeight: number | undefined, isSteam: boolean, isError: boolean): CSSProperties {
   return {
     display: "flex",
     flexDirection: "column",
@@ -24,11 +26,12 @@ function getLoadingSurfaceStyle(visibleHeight: number | undefined): CSSPropertie
     minWidth: 0,
     padding: "18px 16px",
     boxSizing: "border-box",
-    color: "rgba(245, 250, 255, 0.98)",
-    fontFamily: COMPACT_LOADING_FONT_FAMILY,
+    ...(isSteam ? steamRecipes.state(isError ? "error" : "loading") : {}),
+    color: isSteam ? (isError ? steamTheme.color.danger : steamTheme.color.textPrimary) : "rgba(245, 250, 255, 0.98)",
+    fontFamily: isSteam ? steamTheme.type.fontFamily : COMPACT_LOADING_FONT_FAMILY,
     overscrollBehavior: "none",
     touchAction: "none",
-    background:
+    background: isSteam ? steamTheme.surface.page :
       "radial-gradient(ellipse at 86% 11%, rgba(218, 70, 241, 0.16), transparent 34%), radial-gradient(ellipse at 12% 84%, rgba(27, 161, 255, 0.16), transparent 44%), radial-gradient(ellipse at 50% 33%, rgba(0, 224, 239, 0.1), transparent 42%)",
   };
 }
@@ -45,11 +48,11 @@ function getLoadingContentStyle(): CSSProperties {
   };
 }
 
-function getLoadingSpinnerStyle(): CSSProperties {
+function getLoadingSpinnerStyle(isSteam: boolean): CSSProperties {
   return {
     position: "relative",
-    width: 74,
-    height: 74,
+    width: isSteam ? 56 : 74,
+    height: isSteam ? 56 : 74,
     flexShrink: 0,
     borderRadius: "50%",
     background: "rgba(7, 25, 40, 0.96)",
@@ -148,6 +151,7 @@ export function DeckyCompactLoadingState({
   isError,
   onCancel,
   title,
+  steamTheme: isSteam = false,
 }: DeckyCompactLoadingStateProps): JSX.Element {
   const surfaceRef = useRef<HTMLElement>(null);
   const spinnerRef = useRef<HTMLDivElement>(null);
@@ -229,12 +233,13 @@ export function DeckyCompactLoadingState({
       aria-label={title}
       aria-live="polite"
       data-achievement-companion-compact-loading-state="true"
+      data-ac-steam-theme={isSteam ? "compact" : undefined}
       ref={surfaceRef}
       role={isError ? "alert" : "status"}
-      style={getLoadingSurfaceStyle(visibleHeight)}
+      style={getLoadingSurfaceStyle(visibleHeight, isSteam, isError)}
     >
       <div style={getLoadingContentStyle()}>
-        <div aria-hidden="true" style={getLoadingSpinnerStyle()}>
+        <div aria-hidden="true" style={getLoadingSpinnerStyle(isSteam)}>
           <div ref={spinnerRef} style={getLoadingSpinnerRingStyle()} />
           <div style={getLoadingIconWellStyle()}>
             <svg aria-hidden="true" viewBox="0 0 24 24" style={getLoadingIconStyle()}>

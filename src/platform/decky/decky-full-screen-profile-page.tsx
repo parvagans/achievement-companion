@@ -1140,6 +1140,7 @@ export function DeckyFullScreenProfilePage({
       return (
         <>
           <DeckyFullScreenLoadingState
+            useSteamTheme
             description={state.error?.userMessage ?? "Fetching the latest Steam profile and SteamHunters data."}
             isError={state.status === "error"}
             title={state.status === "error" ? "Steam profile unavailable" : "Loading Steam profile..."}
