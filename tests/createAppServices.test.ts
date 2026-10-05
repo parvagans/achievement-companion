@@ -3767,10 +3767,17 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.equal(resolveSteamApiKeyForSave(""), undefined);
 });
 
-test("compact provider menu uses a collapsed focusable game-page badge settings disclosure", () => {
+test("compact provider menu uses a session-retained focusable game-page badge settings disclosure", () => {
   const source = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
 
-  assert.match(source, /const \[gamePageBadgeSettingsExpanded, setGamePageBadgeSettingsExpanded\] = useState\(false\)/u);
+  assert.match(
+    source,
+    /const \[gamePageBadgeSettingsExpanded, setGamePageBadgeSettingsExpanded\] = useState\(\s*readDeckyGamePageBadgeSettingsExpanded,\s*\)/u,
+  );
+  assert.match(source, /writeDeckyGamePageBadgeSettingsExpanded\(nextExpanded\)/u);
+  assert.match(source, /function useDeckyCompactDropdownPopupGuard\(\)/u);
+  assert.match(source, /releasePopupRef\.current = beginDeckyCompactPopup\(\)/u);
+  assert.match(source, /onMenuWillOpen=\{openGuardedMenu\}/u);
   assert.match(source, /<GamePageBadgeSettingsDisclosure[\s\S]*expanded=\{gamePageBadgeSettingsExpanded\}/u);
   assert.match(source, /aria-expanded=\{expanded\}/u);
   assert.match(source, /aria-label=\{`Game Page Badge settings, \$\{expanded \? "expanded" : "collapsed"\}`\}/u);

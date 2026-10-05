@@ -1,5 +1,6 @@
 import { resetDeckyCompactAchievementPageState } from "./decky-compact-achievement-page-state";
 import { resetDeckyCompactNavigation } from "./decky-compact-navigation";
+import { resetDeckyProviderMenuSessionState } from "./decky-provider-menu-session-state";
 import { clearDeckyCompactSessionResources } from "./decky-compact-session-resources";
 import { resetDeckySteamCompactFocusState } from "./decky-steam-compact-focus-state";
 import { resetDeckySteamCompactActivityState } from "./decky-steam-compact-activity-state";
@@ -19,6 +20,7 @@ export function endDeckyCompactSession(): void {
   removeDeckyCompactCancelBridges();
   setDeckyCompactCancelBridgesEnabled(false);
   resetDeckyCompactNavigation();
+  resetDeckyProviderMenuSessionState();
   resetDeckyCompactAchievementPageState();
   resetDeckySteamCompactFocusState();
   resetDeckySteamCompactActivityState();

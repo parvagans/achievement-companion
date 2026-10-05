@@ -40,6 +40,10 @@ import {
   useDeckyCompactNavigation,
 } from "../src/platform/decky/decky-compact-navigation";
 import {
+  readDeckyGamePageBadgeSettingsExpanded,
+  writeDeckyGamePageBadgeSettingsExpanded,
+} from "../src/platform/decky/decky-provider-menu-session-state";
+import {
   createDeckyFullScreenTerminalReturn,
   DECKY_COMPACT_ORIGIN_QAM_REOPEN_DELAY_MS,
 } from "../src/platform/decky/decky-full-screen-terminal-return";
@@ -335,6 +339,7 @@ test("plugin cleanup removes every compact cancel bridge listener", () => {
 test("closing QAM ends compact session state while a compact-origin full-screen handoff preserves it", () => {
   const changes: string[] = [];
   setDeckyCompactNavigation({ kind: "settings", providerId: "steam" });
+  writeDeckyGamePageBadgeSettingsExpanded(true);
   writeDeckyCompactAchievementPageState("steam", "2321470", {
     filter: "locked",
     modeFilter: "all",
@@ -352,6 +357,7 @@ test("closing QAM ends compact session state while a compact-origin full-screen 
 
   lifecycle.setVisible(false);
   assert.deepStrictEqual(readDeckyCompactNavigation(), { kind: "provider-chooser" });
+  assert.equal(readDeckyGamePageBadgeSettingsExpanded(), false);
   assert.equal(readDeckyCompactAchievementPageState("steam", "2321470", 12).scrollTop, 0);
   lifecycle.setVisible(true);
   lifecycle.end();
@@ -361,6 +367,7 @@ test("closing QAM ends compact session state while a compact-origin full-screen 
   assert.deepStrictEqual(changes, ["cancel:false", "end", "cancel:true", "cancel:false", "end"]);
 
   setDeckyCompactNavigation({ kind: "settings", providerId: "steam" });
+  writeDeckyGamePageBadgeSettingsExpanded(true);
   writeDeckyCompactAchievementPageState("steam", "2321470", {
     filter: "locked",
     modeFilter: "all",
@@ -380,12 +387,14 @@ test("closing QAM ends compact session state while a compact-origin full-screen 
 
   preservedLifecycle.setVisible(false);
   assert.deepStrictEqual(readDeckyCompactNavigation(), { kind: "settings", providerId: "steam" });
+  assert.equal(readDeckyGamePageBadgeSettingsExpanded(), true);
   assert.equal(readDeckyCompactAchievementPageState("steam", "2321470", 12).scrollTop, 734);
   preservedLifecycle.setVisible(true);
   preservedLifecycle.end();
 
   assert.deepStrictEqual(preservedChanges, ["cancel:false", "cancel:true", "cancel:false", "end"]);
   assert.deepStrictEqual(readDeckyCompactNavigation(), { kind: "provider-chooser" });
+  assert.equal(readDeckyGamePageBadgeSettingsExpanded(), false);
   assert.equal(readDeckyCompactAchievementPageState("steam", "2321470", 12).scrollTop, 0);
 });
 

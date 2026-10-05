@@ -61,6 +61,11 @@ import { useRetroAchievementsConnectionState } from "./providers/retroachievemen
 import { useSteamConnectionState } from "./providers/steam/connection";
 import { readDeckySettings, saveDeckySettings, useDeckySettings } from "./decky-settings";
 import {
+  readDeckyGamePageBadgeSettingsExpanded,
+  writeDeckyGamePageBadgeSettingsExpanded,
+} from "./decky-provider-menu-session-state";
+import { beginDeckyCompactPopup } from "./decky-compact-popup-state";
+import {
   DeckyCompactPillActionGroup,
   DeckyCompactPillActionItem,
 } from "./decky-compact-pill-action-item";
@@ -499,6 +504,41 @@ function getGamePageBadgeDescriptionStyle(disabled = false): CSSProperties {
   };
 }
 
+function useDeckyCompactDropdownPopupGuard(): (showMenu: () => void) => void {
+  const isQuickAccessVisible = useQuickAccessVisible();
+  const releasePopupRef = useRef<(() => void) | undefined>(undefined);
+  const popupWasHiddenRef = useRef(false);
+
+  useEffect(() => {
+    if (releasePopupRef.current === undefined) {
+      return;
+    }
+
+    if (!isQuickAccessVisible) {
+      popupWasHiddenRef.current = true;
+      return;
+    }
+
+    if (popupWasHiddenRef.current) {
+      releasePopupRef.current();
+      releasePopupRef.current = undefined;
+      popupWasHiddenRef.current = false;
+    }
+  }, [isQuickAccessVisible]);
+
+  useEffect(() => () => {
+    releasePopupRef.current?.();
+    releasePopupRef.current = undefined;
+  }, []);
+
+  return useCallback((showMenu: () => void) => {
+    releasePopupRef.current?.();
+    popupWasHiddenRef.current = false;
+    releasePopupRef.current = beginDeckyCompactPopup();
+    showMenu();
+  }, []);
+}
+
 function GamePageBadgePositionDropdown({
   selectedPosition,
   disabled,
@@ -508,6 +548,8 @@ function GamePageBadgePositionDropdown({
   readonly disabled: boolean;
   readonly onChange: (position: GamePageAchievementBadgePosition) => void;
 }): JSX.Element {
+  const openGuardedMenu = useDeckyCompactDropdownPopupGuard();
+
   return (
     <DropdownItem
       label={<span style={getGamePageBadgeLabelStyle(disabled)}>Badge position</span>}
@@ -518,6 +560,7 @@ function GamePageBadgePositionDropdown({
       }
       disabled={disabled}
       menuLabel="Game Page Badge Position"
+      onMenuWillOpen={openGuardedMenu}
       rgOptions={GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_DROPDOWN_OPTIONS}
       selectedOption={selectedPosition}
       onChange={(option) => {
@@ -542,12 +585,15 @@ function GamePageBadgeColorDropdown({
   readonly disabled: boolean;
   readonly onChange: (color: GamePageAchievementBadgeColor) => void;
 }): JSX.Element {
+  const openGuardedMenu = useDeckyCompactDropdownPopupGuard();
+
   return (
     <DropdownItem
       label={<span style={getGamePageBadgeLabelStyle(disabled)}>{label}</span>}
       description={<span style={getGamePageBadgeDescriptionStyle(disabled)}>{description}</span>}
       disabled={disabled}
       menuLabel={`${label} Badge Color`}
+      onMenuWillOpen={openGuardedMenu}
       rgOptions={GAME_PAGE_ACHIEVEMENT_BADGE_COLOR_DROPDOWN_OPTIONS}
       selectedOption={selectedColor}
       onChange={(option) => {
@@ -1290,7 +1336,9 @@ function DeckyBootstrapStateBridge(): JSX.Element {
   }, [compactNavigation]);
   const [detailScrollResetNonce, setDetailScrollResetNonce] = useState(0);
   const [providerListHasReceivedFocus, setProviderListHasReceivedFocus] = useState(false);
-  const [gamePageBadgeSettingsExpanded, setGamePageBadgeSettingsExpanded] = useState(false);
+  const [gamePageBadgeSettingsExpanded, setGamePageBadgeSettingsExpanded] = useState(
+    readDeckyGamePageBadgeSettingsExpanded,
+  );
   const providerInitialFocusTargetRef = useRef<HTMLDivElement | null>(null);
   const initialProviderFocusRequested = useRef(shouldRequestDeckyProviderInitialFocus(compactNavigation));
   const providerConfigsSignature = `${providerConfigs.retroAchievements?.username ?? ""}:${providerConfigs.retroAchievements?.hasApiKey ? 1 : 0}:${providerConfigs.steam?.steamId64 ?? ""}:${providerConfigs.steam?.hasApiKey ? 1 : 0}`;
@@ -1556,7 +1604,11 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                   <GamePageBadgeSettingsDisclosure
                     expanded={gamePageBadgeSettingsExpanded}
                     onToggle={() => {
-                      setGamePageBadgeSettingsExpanded((expanded) => !expanded);
+                      setGamePageBadgeSettingsExpanded((expanded) => {
+                        const nextExpanded = !expanded;
+                        writeDeckyGamePageBadgeSettingsExpanded(nextExpanded);
+                        return nextExpanded;
+                      });
                     }}
                   />
                   {gamePageBadgeSettingsExpanded ? (
