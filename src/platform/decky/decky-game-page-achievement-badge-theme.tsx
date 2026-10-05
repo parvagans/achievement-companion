@@ -1,4 +1,8 @@
 import type { CSSProperties, ReactNode } from "react";
+import {
+  DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS,
+  type GamePageAchievementBadgeColors,
+} from "@core/settings";
 import steamIconUrl from "./assets/steam.svg";
 import crownIconUrl from "./assets/achievement-badge/crown.svg";
 import laurelIconUrl from "./assets/achievement-badge/laurel.svg";
@@ -8,68 +12,15 @@ import type {
   DeckyGamePageAchievementBadgeProvider,
   DeckyGamePageAchievementBadgeVariant,
 } from "./decky-game-page-achievement-badge-presentation";
-
-interface DeckyGamePageAchievementBadgePalette {
-  readonly accent: string;
-  readonly accentBright: string;
-  readonly border: string;
-  readonly surface: string;
-  readonly surfaceDeep: string;
-  readonly track: string;
-  readonly glow: string;
-}
+import {
+  resolveDeckyGamePageAchievementBadgePalette,
+  type DeckyGamePageAchievementBadgePalette,
+} from "./decky-game-page-achievement-badge-colors";
 
 const BADGE_WIDTH = 292;
 const BADGE_HEIGHT = 74;
 const PROGRESS_RING_STROKE_WIDTH = 7.5;
 
-const badgePalettes: Readonly<Record<DeckyGamePageAchievementBadgeVariant, DeckyGamePageAchievementBadgePalette>> = {
-  perfected: {
-    accent: "#d633ff",
-    accentBright: "#f2a2ff",
-    border: "#f4dcff",
-    surface: "#5c067f",
-    surfaceDeep: "#19002f",
-    track: "rgba(104, 25, 137, 0.78)",
-    glow: "rgba(207, 44, 255, 0.76)",
-  },
-  beaten: {
-    accent: "#00b7ff",
-    accentBright: "#85e8ff",
-    border: "#e0f8ff",
-    surface: "#004ea5",
-    surfaceDeep: "#001438",
-    track: "rgba(0, 53, 115, 0.88)",
-    glow: "rgba(0, 184, 255, 0.72)",
-  },
-  mastered: {
-    accent: "#28ef72",
-    accentBright: "#a0ffc1",
-    border: "#ddffe8",
-    surface: "#00743b",
-    surfaceDeep: "#002918",
-    track: "rgba(0, 82, 42, 0.86)",
-    glow: "rgba(39, 244, 112, 0.72)",
-  },
-  "in-progress": {
-    accent: "#b5d8f6",
-    accentBright: "#edf7ff",
-    border: "#eef8ff",
-    surface: "#26394f",
-    surfaceDeep: "#0d1726",
-    track: "rgba(53, 72, 94, 0.9)",
-    glow: "rgba(190, 221, 247, 0.42)",
-  },
-  loading: {
-    accent: "#b5d8f6",
-    accentBright: "#edf7ff",
-    border: "#eef8ff",
-    surface: "#26394f",
-    surfaceDeep: "#0d1726",
-    track: "rgba(53, 72, 94, 0.9)",
-    glow: "rgba(190, 221, 247, 0.42)",
-  },
-};
 
 export function resolveDeckyGamePageAchievementBadgeProviderIconUrl(
   provider: DeckyGamePageAchievementBadgeProvider,
@@ -280,12 +231,14 @@ function renderProgressRing(
 
 export function DeckyGamePageAchievementBadgeVisual({
   presentation,
+  colors = DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS,
   focused = false,
 }: {
   readonly presentation: DeckyGamePageAchievementBadgePresentation;
+  readonly colors?: GamePageAchievementBadgeColors | undefined;
   readonly focused?: boolean | undefined;
 }): JSX.Element {
-  const palette = badgePalettes[presentation.variant];
+  const palette = resolveDeckyGamePageAchievementBadgePalette(presentation.variant, colors);
   const providerIconUrl = resolveDeckyGamePageAchievementBadgeProviderIconUrl(presentation.provider);
 
   return (

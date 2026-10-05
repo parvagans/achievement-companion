@@ -667,6 +667,7 @@ function DeckyGamePageAchievementRouteBadgeEnabled({
 }: {
   readonly appId: string;
 }): JSX.Element | null {
+  const settings = useDeckySettings();
   const { style, setBadgeElement } = useDeckyGamePageAchievementRouteBadgePlacement();
   const summary = useGamePageAchievementSummary(appId);
   const badgeCompletionStatus = resolveDeckyGamePageAchievementBadgeCompletionStatus(summary);
@@ -734,6 +735,7 @@ function DeckyGamePageAchievementRouteBadgeEnabled({
     <DeckyGamePageAchievementBadge
       appId={appId}
       ariaLabel={presentation.ariaLabel}
+      colors={settings.gamePageAchievementBadgeColors}
       elementRef={setBadgeElement}
       marker="route"
       onActivate={onActivate}

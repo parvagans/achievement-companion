@@ -42,6 +42,7 @@ import type {
 import {
   ACHIEVEMENT_COMPANION_SETTINGS_STORAGE_KEY,
   DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS,
+  DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS,
   parseAchievementCompanionSettings,
   serializeAchievementCompanionSettings,
 } from "../src/core/settings";
@@ -152,6 +153,10 @@ import {
   normalizeRetroAchievementsTitleMatchKey,
 } from "../src/platform/decky/decky-game-page-achievement-summary";
 import { resolveDeckyGamePageAchievementBadgePresentation } from "../src/platform/decky/decky-game-page-achievement-badge-presentation";
+import {
+  resolveDeckyGamePageAchievementBadgeColor,
+  resolveDeckyGamePageAchievementBadgePalette,
+} from "../src/platform/decky/decky-game-page-achievement-badge-colors";
 import { loadDeckySteamShortcutMetadata } from "../src/platform/decky/decky-steam-shortcut-metadata";
 import { loadDeckySteamShortcutRomHashInfo } from "../src/platform/decky/decky-steam-shortcut-metadata";
 import { readDeckyStorageText } from "../src/platform/decky/storage";
@@ -1984,20 +1989,43 @@ test("game page badge settings preserve valid preferences and reject invalid pos
     JSON.stringify({
       showGamePageAchievementBadge: false,
       gamePageAchievementBadgePosition: "bottom-center",
+      gamePageAchievementBadgeColors: {
+        perfected: "gold",
+        mastered: "cyan",
+        beaten: "red",
+        inProgress: "purple",
+      },
     }),
   );
   assert.equal(validSettings.showGamePageAchievementBadge, false);
   assert.equal(validSettings.gamePageAchievementBadgePosition, "bottom-center");
+  assert.deepStrictEqual(validSettings.gamePageAchievementBadgeColors, {
+    perfected: "gold",
+    mastered: "cyan",
+    beaten: "red",
+    inProgress: "purple",
+  });
 
   const invalidPositionSettings = parseAchievementCompanionSettings(
     JSON.stringify({
       gamePageAchievementBadgePosition: "middle-left",
+      gamePageAchievementBadgeColors: {
+        perfected: "orange",
+        mastered: "green",
+        beaten: 42,
+        inProgress: "gray",
+      },
     }),
   );
   assert.equal(
     invalidPositionSettings.gamePageAchievementBadgePosition,
     DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.gamePageAchievementBadgePosition,
   );
+  assert.deepStrictEqual(invalidPositionSettings.gamePageAchievementBadgeColors, {
+    ...DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS,
+    mastered: "green",
+    inProgress: "gray",
+  });
 });
 
 test("decky provider config persists and clears retroachievements credentials", async () => {
@@ -3755,6 +3783,12 @@ test("compact provider menu uses accent section titles and primary setting label
     /<PanelSection>[\s\S]*getProviderMenuSectionTitleStyle\(\)[\s\S]*Game Page Badge/u,
   );
   assert.doesNotMatch(source, /<PanelSection title="Game Page Badge">/u);
+  assert.match(source, /GAME_PAGE_ACHIEVEMENT_BADGE_COLOR_DROPDOWN_OPTIONS/u);
+  assert.match(source, /label="Perfected color"/u);
+  assert.match(source, /label="Mastered color"/u);
+  assert.match(source, /label="Beaten color"/u);
+  assert.match(source, /label="In Progress color"/u);
+  assert.match(source, /saveGamePageAchievementBadgeColor/u);
 });
 
 test("fullscreen action controls use Decky Focusable pills with unclipped labels", () => {
@@ -12344,6 +12378,32 @@ test("game page achievement badge presentation follows the neon specification va
       reason: "no-achievements",
     }),
     undefined,
+  );
+});
+
+test("game page achievement badge color preferences preserve defaults and recolor complete variants", () => {
+  assert.equal(resolveDeckyGamePageAchievementBadgeColor("perfected"), "purple");
+  assert.equal(resolveDeckyGamePageAchievementBadgeColor("mastered"), "green");
+  assert.equal(resolveDeckyGamePageAchievementBadgeColor("beaten"), "blue");
+  assert.equal(resolveDeckyGamePageAchievementBadgeColor("in-progress"), "gray");
+  assert.equal(
+    resolveDeckyGamePageAchievementBadgeColor("loading", {
+      perfected: "red",
+      mastered: "red",
+      beaten: "red",
+      inProgress: "red",
+    }),
+    "gray",
+  );
+
+  assert.equal(
+    resolveDeckyGamePageAchievementBadgePalette("perfected", {
+      perfected: "gold",
+      mastered: "green",
+      beaten: "blue",
+      inProgress: "gray",
+    }).accent,
+    "#ffc83d",
   );
 });
 

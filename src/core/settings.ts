@@ -25,6 +25,33 @@ export const GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS = [
 export type GamePageAchievementBadgePosition =
   (typeof GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS)[number];
 
+export const GAME_PAGE_ACHIEVEMENT_BADGE_COLOR_OPTIONS = [
+  "purple",
+  "blue",
+  "green",
+  "gray",
+  "cyan",
+  "gold",
+  "red",
+] as const;
+
+export type GamePageAchievementBadgeColor =
+  (typeof GAME_PAGE_ACHIEVEMENT_BADGE_COLOR_OPTIONS)[number];
+
+export interface GamePageAchievementBadgeColors {
+  readonly perfected: GamePageAchievementBadgeColor;
+  readonly mastered: GamePageAchievementBadgeColor;
+  readonly beaten: GamePageAchievementBadgeColor;
+  readonly inProgress: GamePageAchievementBadgeColor;
+}
+
+export const DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS: GamePageAchievementBadgeColors = {
+  perfected: "purple",
+  mastered: "green",
+  beaten: "blue",
+  inProgress: "gray",
+};
+
 export interface AchievementCompanionSettings {
   readonly recentAchievementsCount: AchievementCompanionCount;
   readonly recentlyPlayedCount: AchievementCompanionCount;
@@ -32,6 +59,7 @@ export interface AchievementCompanionSettings {
   readonly defaultCompletionProgressFilter: CompletionProgressFilter;
   readonly showGamePageAchievementBadge: boolean;
   readonly gamePageAchievementBadgePosition: GamePageAchievementBadgePosition;
+  readonly gamePageAchievementBadgeColors: GamePageAchievementBadgeColors;
   readonly steamCompactActivityCalendarWeeks: ActivityCalendarWeeks;
   readonly steamFullscreenActivityCalendarWeeks: ActivityCalendarWeeks;
 }
@@ -43,6 +71,7 @@ export const DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS: AchievementCompanionSetting
   defaultCompletionProgressFilter: "all",
   showGamePageAchievementBadge: true,
   gamePageAchievementBadgePosition: "top-left",
+  gamePageAchievementBadgeColors: DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS,
   steamCompactActivityCalendarWeeks: 4,
   steamFullscreenActivityCalendarWeeks: 12,
 };
@@ -81,6 +110,40 @@ function normalizeGamePageAchievementBadgePosition(
     : fallback;
 }
 
+function normalizeGamePageAchievementBadgeColor(
+  value: unknown,
+  fallback: GamePageAchievementBadgeColor,
+): GamePageAchievementBadgeColor {
+  return GAME_PAGE_ACHIEVEMENT_BADGE_COLOR_OPTIONS.includes(value as GamePageAchievementBadgeColor)
+    ? (value as GamePageAchievementBadgeColor)
+    : fallback;
+}
+
+function normalizeGamePageAchievementBadgeColors(value: unknown): GamePageAchievementBadgeColors {
+  if (!isRecord(value)) {
+    return DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS;
+  }
+
+  return {
+    perfected: normalizeGamePageAchievementBadgeColor(
+      value["perfected"],
+      DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS.perfected,
+    ),
+    mastered: normalizeGamePageAchievementBadgeColor(
+      value["mastered"],
+      DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS.mastered,
+    ),
+    beaten: normalizeGamePageAchievementBadgeColor(
+      value["beaten"],
+      DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS.beaten,
+    ),
+    inProgress: normalizeGamePageAchievementBadgeColor(
+      value["inProgress"],
+      DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS.inProgress,
+    ),
+  };
+}
+
 export function normalizeAchievementCompanionSettings(
   value: unknown,
 ): AchievementCompanionSettings {
@@ -112,6 +175,9 @@ export function normalizeAchievementCompanionSettings(
     gamePageAchievementBadgePosition: normalizeGamePageAchievementBadgePosition(
       value["gamePageAchievementBadgePosition"],
       DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.gamePageAchievementBadgePosition,
+    ),
+    gamePageAchievementBadgeColors: normalizeGamePageAchievementBadgeColors(
+      value["gamePageAchievementBadgeColors"],
     ),
     steamCompactActivityCalendarWeeks: normalizeActivityCalendarWeeks(
       value["steamCompactActivityCalendarWeeks"],
