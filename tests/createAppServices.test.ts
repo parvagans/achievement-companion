@@ -151,6 +151,7 @@ import {
   normalizeRetroAchievementsPlatformLabel,
   normalizeRetroAchievementsTitleMatchKey,
 } from "../src/platform/decky/decky-game-page-achievement-summary";
+import { resolveDeckyGamePageAchievementBadgePresentation } from "../src/platform/decky/decky-game-page-achievement-badge-presentation";
 import { loadDeckySteamShortcutMetadata } from "../src/platform/decky/decky-steam-shortcut-metadata";
 import { loadDeckySteamShortcutRomHashInfo } from "../src/platform/decky/decky-steam-shortcut-metadata";
 import { readDeckyStorageText } from "../src/platform/decky/storage";
@@ -3071,7 +3072,6 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     "src/providers/retroachievements/mappers/normalize.ts",
     "utf8",
   );
-  const deckySystemPillSource = readFileSync("src/platform/decky/decky-system-pill.tsx", "utf8");
   const dashboardViewSource = readFileSync("src/platform/decky/decky-dashboard-view.tsx", "utf8");
   const fullScreenProfileSource = readFileSync("src/platform/decky/decky-full-screen-profile-page.tsx", "utf8");
   const achievementHistorySource = readFileSync(
@@ -3737,6 +3737,24 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.equal(resolveSteamApiKeyForSave("secret"), "secret");
   assert.equal(resolveSteamApiKeyForSave(" new-secret "), "new-secret");
   assert.equal(resolveSteamApiKeyForSave(""), undefined);
+});
+
+test("compact provider menu uses accent section titles and primary setting labels", () => {
+  const source = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
+
+  assert.match(
+    source,
+    /function getProviderMenuSectionTitleStyle\(\)[\s\S]*color: steamTheme\.color\.accent/u,
+  );
+  assert.match(
+    source,
+    /function getGamePageBadgeLabelStyle\(disabled = false\)[\s\S]*steamTheme\.color\.textPrimary/u,
+  );
+  assert.match(
+    source,
+    /<PanelSection>[\s\S]*getProviderMenuSectionTitleStyle\(\)[\s\S]*Game Page Badge/u,
+  );
+  assert.doesNotMatch(source, /<PanelSection title="Game Page Badge">/u);
 });
 
 test("fullscreen action controls use Decky Focusable pills with unclipped labels", () => {
@@ -11752,10 +11770,6 @@ test("steam game page achievement badge uses the route-patched header path witho
     "utf8",
   );
   const retroClientSource = readFileSync("src/providers/retroachievements/client/client.ts", "utf8");
-  const providerBrandingSource = readFileSync(
-    "src/platform/decky/providers/provider-branding.ts",
-    "utf8",
-  );
   const summarySource = readFileSync(
     "src/platform/decky/decky-game-page-achievement-summary.ts",
     "utf8",
@@ -11768,10 +11782,18 @@ test("steam game page achievement badge uses the route-patched header path witho
     "src/platform/decky/decky-game-page-achievement-badge.tsx",
     "utf8",
   );
-  const bubbleSource = `${routeBadgeSource}\n${badgeSource}`;
+  const badgeThemeSource = readFileSync(
+    "src/platform/decky/decky-game-page-achievement-badge-theme.tsx",
+    "utf8",
+  );
+  const badgePresentationSource = readFileSync(
+    "src/platform/decky/decky-game-page-achievement-badge-presentation.ts",
+    "utf8",
+  );
+  const bubbleSource = `${routeBadgeSource}\n${badgeSource}\n${badgeThemeSource}\n${badgePresentationSource}`;
   const routeBadgeStyleFunctionSource =
     routeBadgeSource.match(
-      /function getDeckyGamePageAchievementRouteBadgeStyle\([\s\S]*?\n\}\n\nfunction /u,
+      /function getDeckyGamePageAchievementRouteBadgeStyle\([\s\S]*?\r?\n\}\r?\n\r?\nfunction /u,
     )?.[0] ?? "";
 
   assert.match(indexSource, /installAchievementCompanionRuntimeDebug\(/u);
@@ -11918,30 +11940,38 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.doesNotMatch(bubbleSource, /DeckyGamePageAchievementGlobalBadge/u);
   assert.doesNotMatch(bubbleSource, /AchievementCompanionGamePageBadgeGlobalComponent/u);
   assert.match(bubbleSource, /AchievementCompanionGamePageBadge/u);
-  assert.match(bubbleSource, /getDeckyProviderIconSrc/u);
-  assert.match(bubbleSource, /DeckySystemIcon/u);
-  assert.match(bubbleSource, /renderDeckyGamePageAchievementBadgeContent/u);
-  assert.match(bubbleSource, /resolveDeckyGamePageAchievementBadgeIconUrl/u);
+  assert.match(bubbleSource, /DeckyGamePageAchievementBadgeVisual/u);
+  assert.match(bubbleSource, /resolveDeckyGamePageAchievementBadgePresentation/u);
+  assert.match(bubbleSource, /resolveDeckyGamePageAchievementBadgeProviderIconUrl/u);
   assert.match(bubbleSource, /resolveDeckyGamePageAchievementBadgeCompletionStatus/u);
-  assert.match(bubbleSource, /resolveDeckyGamePageAchievementBadgeStatusVariant/u);
-  assert.match(bubbleSource, /formatDeckyGamePageAchievementBadgeStatusLabel/u);
-  assert.match(bubbleSource, /getDeckyGamePageAchievementBadgeStatusStackStyle/u);
-  assert.match(bubbleSource, /getDeckyGamePageAchievementBadgeStatusShellStyle/u);
-  assert.match(bubbleSource, /getDeckyGamePageAchievementBadgeStatusPillStyle/u);
-  assert.match(bubbleSource, /getDeckyGamePageAchievementBadgeStatusLabelStyle/u);
   assert.match(bubbleSource, /markAchievementCompanionGamePageBadgeStatus/u);
   assert.match(bubbleSource, /summary\.completionStatus/u);
-  assert.match(bubbleSource, /badgeStatusVariant !== "plain"/u);
+  assert.match(bubbleSource, /"perfected"/u);
   assert.match(bubbleSource, /BEATEN/u);
   assert.match(bubbleSource, /MASTERED/u);
-  assert.match(bubbleSource, /resolveDeckyGamePageRetroSystemIconMetadata/u);
-  assert.match(bubbleSource, /collectDeckyGamePageRetroSystemIconCandidates/u);
-  assert.match(bubbleSource, /summary\.platformLabel !== undefined \|\| summary\.systemIconUrl !== undefined/u);
+  assert.match(bubbleSource, /IN PROGRESS/u);
+  assert.match(bubbleSource, /PLEASE WAIT\.\.\./u);
+  assert.match(bubbleSource, /data-ac-game-page-badge-status-icon="crown-laurel"/u);
+  assert.match(bubbleSource, /assets\/achievement-badge\/crown\.svg/u);
+  assert.match(bubbleSource, /assets\/achievement-badge\/laurel\.svg/u);
+  assert.match(bubbleSource, /data-ac-game-page-badge-status-icon="flag"/u);
+  assert.match(bubbleSource, /data-ac-game-page-badge-status-icon="bars"/u);
+  assert.match(bubbleSource, /assets\/steam\.svg/u);
+  assert.match(bubbleSource, /RETROACHIEVEMENTS_PROVIDER_ICON_SRC/u);
+  assert.match(bubbleSource, /strokeDashoffset/u);
+  assert.match(bubbleSource, /PROGRESS_RING_STROKE_WIDTH = 7\.5/u);
+  assert.match(bubbleSource, /data-ac-game-page-badge-gloss="true"/u);
+  assert.match(bubbleSource, /radial-gradient\(120% 90% at 42% -24%/u);
+  assert.match(bubbleSource, /data-ac-game-page-badge-variant/u);
+  assert.match(bubbleSource, /GAME_PAGE_ACHIEVEMENT_BADGE_FOCUS_CSS/u);
+  assert.match(bubbleSource, /\.ac-game-page-achievement-badge:is\(\.gpfocus,\.gpfocuswithin,:focus,:focus-within\)/u);
+  assert.match(bubbleSource, /background: transparent !important/u);
+  assert.match(bubbleSource, /border: 0 solid transparent !important/u);
+  assert.match(bubbleSource, /box-shadow: none !important/u);
+  assert.doesNotMatch(bubbleSource, /🏆/u);
   assert.match(bubbleSource, /summary\.provider === "steam"/u);
   assert.match(bubbleSource, /summary\.provider === "retroachievements"/u);
   assert.match(bubbleSource, /iconUrl !== undefined/u);
-  assert.match(providerBrandingSource, /STEAM_PROVIDER_ICON_SRC/u);
-  assert.match(providerBrandingSource, /return STEAM_PROVIDER_ICON_SRC;/u);
   assert.match(bubbleSource, /useDeckyGamePageAchievementBadgeActivation/u);
   assert.match(bubbleSource, /resolveDeckyGamePageAchievementBadgeNavigationTarget/u);
   assert.match(bubbleSource, /openDeckyFullScreenGameFromLibraryGamePage/u);
@@ -11949,14 +11979,7 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(bubbleSource, /routerHook\.removePatch\(DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN/u);
   assert.match(bubbleSource, /Game-page achievement badge activated/u);
   assert.match(bubbleSource, /useGamePageAchievementSummary/u);
-  assert.match(bubbleSource, /formatDeckyGamePageAchievementBadgeLoadingText/u);
-  assert.match(bubbleSource, /getDeckyGamePageAchievementBadgeLoadingShellStyle/u);
   assert.match(bubbleSource, /formatDeckyGamePageAchievementBadgeLabel/u);
-  assert.match(bubbleSource, /\u{1f3c6}/u);
-  assert.match(bubbleSource, /resolveDeckyGamePageAchievementBadgeIconUrl/u);
-  assert.match(bubbleSource, /iconSize=\{20\}/u);
-  assert.match(bubbleSource, /readDeckyDashboardSnapshotCacheEntry\(RETROACHIEVEMENTS_PROVIDER_ID\)/u);
-  assert.match(bubbleSource, /summary\.provider === "retroachievements" && platformLabel !== undefined/u);
   assert.match(bubbleSource, /position:\s*"absolute"/u);
   assert.match(bubbleSource, /DECKY_GAME_PAGE_ROUTE_BADGE_CANDIDATE_SLOTS/u);
   assert.match(bubbleSource, /top-left/u);
@@ -12000,13 +12023,14 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.doesNotMatch(bubbleSource, /marker="global"/u);
   assert.match(bubbleSource, /marker="route"/u);
   assert.match(bubbleSource, /role="button"/u);
+  assert.match(bubbleSource, /noFocusRing/u);
   assert.match(bubbleSource, /tabIndex=\{0\}/u);
   assert.match(bubbleSource, /Open Achievement Companion details for app/u);
   assert.match(bubbleSource, /onActivate\?\.\(\)/u);
   assert.match(bubbleSource, /event\.key === "Enter" \|\| event\.key === " "/u);
   assert.match(bubbleSource, /markAchievementCompanionGamePageBadgeActivated/u);
   assert.match(bubbleSource, /reportAchievementCompanionGamePageBadgeNavigationError/u);
-  assert.match(bubbleSource, /if \(badgeLabel === undefined\) \{\s*return null;\s*\}/u);
+  assert.match(bubbleSource, /if \(badgeLabel === undefined \|\| presentation === undefined\) \{\s*return null;\s*\}/u);
   assert.match(routeBadgeStyleFunctionSource, /bottom:\s*slot\.bottom/u);
   assert.doesNotMatch(
     bubbleSource,
@@ -12203,6 +12227,120 @@ test("game page achievement badge formatter shows stage-aware loading and ready 
       status: "error",
       appId: "1672970",
       message: "boom",
+    }),
+    undefined,
+  );
+});
+
+test("game page achievement badge presentation follows the neon specification variants", () => {
+  assert.deepStrictEqual(resolveDeckyGamePageAchievementBadgePresentation(undefined), {
+    ariaLabel: "Achievement Companion, please wait",
+    provider: "steam",
+    variant: "loading",
+    statusLabel: "PLEASE WAIT...",
+    countLabel: "-- / --",
+    progress: 0.18,
+  });
+
+  assert.deepStrictEqual(
+    resolveDeckyGamePageAchievementBadgePresentation({
+      status: "loading",
+      appId: "11",
+      provider: "retroachievements",
+    }),
+    {
+      ariaLabel: "Achievement Companion, please wait",
+      provider: "retroachievements",
+      variant: "loading",
+      statusLabel: "PLEASE WAIT...",
+      countLabel: "-- / --",
+      progress: 0.18,
+    },
+  );
+
+  assert.deepStrictEqual(
+    resolveDeckyGamePageAchievementBadgePresentation({
+      status: "ready",
+      provider: "steam",
+      appId: "10",
+      earned: 42,
+      total: 42,
+      source: "cache",
+    }),
+    {
+      ariaLabel: "Open Achievement Companion details for app 10, perfected, 42 / 42",
+      provider: "steam",
+      variant: "perfected",
+      statusLabel: "PERFECTED",
+      countLabel: "42 / 42",
+      progress: 1,
+    },
+  );
+
+  assert.deepStrictEqual(
+    resolveDeckyGamePageAchievementBadgePresentation({
+      status: "ready",
+      provider: "retroachievements",
+      appId: "11",
+      earned: 12,
+      total: 15,
+      source: "cache",
+      completionStatus: "beaten",
+    }),
+    {
+      ariaLabel: "Open Achievement Companion details for app 11, beaten, 12 / 15",
+      provider: "retroachievements",
+      variant: "beaten",
+      statusLabel: "BEATEN",
+      countLabel: "12 / 15",
+      progress: 0.8,
+    },
+  );
+
+  assert.deepStrictEqual(
+    resolveDeckyGamePageAchievementBadgePresentation({
+      status: "ready",
+      provider: "retroachievements",
+      appId: "12",
+      earned: 23,
+      total: 23,
+      source: "cache",
+      completionStatus: "mastered",
+    }),
+    {
+      ariaLabel: "Open Achievement Companion details for app 12, mastered, 23 / 23",
+      provider: "retroachievements",
+      variant: "mastered",
+      statusLabel: "MASTERED",
+      countLabel: "23 / 23",
+      progress: 1,
+    },
+  );
+
+  assert.deepStrictEqual(
+    resolveDeckyGamePageAchievementBadgePresentation({
+      status: "ready",
+      provider: "steam",
+      appId: "13",
+      earned: 8,
+      total: 20,
+      source: "cache",
+    }),
+    {
+      ariaLabel: "Open Achievement Companion details for app 13, in progress, 8 / 20",
+      provider: "steam",
+      variant: "in-progress",
+      statusLabel: "IN PROGRESS",
+      countLabel: "8 / 20",
+      progress: 0.4,
+    },
+  );
+
+  assert.equal(
+    resolveDeckyGamePageAchievementBadgePresentation({
+      status: "unavailable",
+      appId: "14",
+      reason: "no-achievements",
     }),
     undefined,
   );

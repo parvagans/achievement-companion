@@ -108,6 +108,7 @@ import {
   requestDeckyProviderInitialFocus,
   shouldRequestDeckyProviderInitialFocus,
 } from "./decky-provider-initial-focus";
+import { steamTheme } from "./steam-theme";
 interface SteamLibraryScanActionState {
   readonly status: "idle" | "scanning" | "success" | "error";
   readonly message?: string;
@@ -345,9 +346,22 @@ function getChooserProviderCardChevronStyle(tone: ProviderLauncherTone): CSSProp
   };
 }
 
+function getProviderMenuSectionTitleStyle(): CSSProperties {
+  return {
+    marginBottom: 6,
+    color: steamTheme.color.accent,
+    fontSize: steamTheme.type.compact.heading,
+    fontWeight: steamTheme.type.weight.strong,
+    letterSpacing: "0.055em",
+    lineHeight: 1,
+    textTransform: "uppercase",
+  };
+}
+
 function getGamePageBadgeLabelStyle(disabled = false): CSSProperties {
   return {
-    color: disabled ? "rgba(125, 171, 198, 0.56)" : "rgba(125, 210, 255, 0.98)",
+    color: disabled ? steamTheme.color.textMuted : steamTheme.color.textPrimary,
+    opacity: disabled ? 0.58 : 1,
     fontSize: "0.9em",
     fontWeight: 700,
     lineHeight: 1.2,
@@ -356,7 +370,8 @@ function getGamePageBadgeLabelStyle(disabled = false): CSSProperties {
 
 function getGamePageBadgeDescriptionStyle(disabled = false): CSSProperties {
   return {
-    color: disabled ? "rgba(125, 171, 198, 0.42)" : "rgba(159, 204, 231, 0.82)",
+    color: disabled ? steamTheme.color.textMuted : steamTheme.color.textSecondary,
+    opacity: disabled ? 0.48 : 1,
     fontSize: "0.8em",
     lineHeight: 1.25,
   };
@@ -1340,7 +1355,8 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                   </PanelSectionRow>
                 </PanelSection>
 
-                <PanelSection title="Game Page Badge">
+                <PanelSection>
+                  <div style={getProviderMenuSectionTitleStyle()}>Game Page Badge</div>
                   <PanelSectionRow>
                     <ToggleField
                       label={<span style={getGamePageBadgeLabelStyle()}>Show game page badge</span>}

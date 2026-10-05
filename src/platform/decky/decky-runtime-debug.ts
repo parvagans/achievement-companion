@@ -3,6 +3,7 @@ import {
   type DeckyGamePageAchievementRouteDetectionState,
 } from "./decky-game-page-achievement-route";
 import type { GamePageAchievementSummary } from "./decky-game-page-achievement-summary";
+import type { DeckyGamePageAchievementBadgeVariant } from "./decky-game-page-achievement-badge-presentation";
 
 export type AchievementCompanionRuntimeDebugAccessMode =
   | "host-top-window"
@@ -48,7 +49,7 @@ export interface AchievementCompanionRuntimeDebugState {
   readonly lastGamePageBadgeSystemIconUrl: string | undefined;
   readonly lastGamePageBadgeSystemIconRendered: boolean;
   readonly lastGamePageBadgeCompletionStatus: "beaten" | "mastered" | undefined;
-  readonly lastGamePageBadgeStatusVariant: "plain" | "beaten" | "mastered" | undefined;
+  readonly lastGamePageBadgeStatusVariant: DeckyGamePageAchievementBadgeVariant | undefined;
   readonly lastGamePageBadgeStatusRendered: boolean;
   readonly badgeRendered: boolean;
   readonly badgeRenderCount: number;
@@ -159,7 +160,7 @@ export interface AchievementCompanionGamePageBadgePipelineDebugRecord {
   readonly placementRejectedReasons: readonly string[];
   readonly placementFallbackUsed: boolean;
   readonly badgeCompletionStatus?: "beaten" | "mastered";
-  readonly badgeStatusVariant?: "plain" | "beaten" | "mastered";
+  readonly badgeStatusVariant?: DeckyGamePageAchievementBadgeVariant;
   readonly nativeBadgeStatusRendered?: boolean;
   readonly badgeHiddenReason?: string;
   readonly thrownErrorMessage?: string;
@@ -292,7 +293,7 @@ let runtimeDebugLastGamePageBadgeSystemIconPlatform: string | undefined;
 let runtimeDebugLastGamePageBadgeSystemIconUrl: string | undefined;
 let runtimeDebugLastGamePageBadgeSystemIconRendered = false;
 let runtimeDebugLastGamePageBadgeCompletionStatus: "beaten" | "mastered" | undefined;
-let runtimeDebugLastGamePageBadgeStatusVariant: "plain" | "beaten" | "mastered" | undefined;
+let runtimeDebugLastGamePageBadgeStatusVariant: DeckyGamePageAchievementBadgeVariant | undefined;
 let runtimeDebugLastGamePageBadgeStatusRendered = false;
 let runtimeDebugBadgeRenderCount = 0;
 let runtimeDebugLastBadgeRenderAt: string | undefined;
@@ -933,7 +934,7 @@ export function markAchievementCompanionGamePageBadgeSystemIcon(args: {
 export function markAchievementCompanionGamePageBadgeStatus(args: {
   readonly summaryCompletionStatus: "beaten" | "mastered" | undefined;
   readonly badgeCompletionStatus: "beaten" | "mastered" | undefined;
-  readonly badgeStatusVariant: "plain" | "beaten" | "mastered";
+  readonly badgeStatusVariant: DeckyGamePageAchievementBadgeVariant;
   readonly nativeBadgeStatusRendered: boolean;
   readonly clearKeys?:
     | readonly AchievementCompanionGamePageBadgePipelineDebugClearKey[]

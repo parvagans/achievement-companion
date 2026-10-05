@@ -14,12 +14,10 @@ import {
   useState,
   type CSSProperties,
   type JSX,
-  type ReactNode,
 } from "react";
 import { DeckyGamePageAchievementBadge } from "./decky-game-page-achievement-badge";
 import { type GamePageAchievementBadgePosition } from "@core/settings";
 import { useDeckySettings } from "./decky-settings";
-import type { DashboardSnapshot, NormalizedGame, RecentlyPlayedGame } from "@core/domain";
 import {
   DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN,
   DECKY_GAME_PAGE_ACHIEVEMENT_URL_ROUTE_PREFIX,
@@ -28,15 +26,15 @@ import {
   type DeckyGamePageAchievementRouteDetectionState,
 } from "./decky-game-page-achievement-route";
 import {
-  formatDeckyGamePageAchievementBadgeLoadingText,
   formatDeckyGamePageAchievementBadgeLabel,
   type GamePageAchievementSummary,
   useGamePageAchievementSummary,
 } from "./decky-game-page-achievement-summary";
-import { readDeckyDashboardSnapshotCacheEntry } from "./decky-dashboard-snapshot-cache";
 import { openDeckyFullScreenGameFromLibraryGamePage } from "./decky-navigation";
-import { getDeckyProviderIconSrc } from "./providers/provider-branding";
-import { DeckySystemIcon } from "./decky-system-pill";
+import {
+  resolveDeckyGamePageAchievementBadgeProviderIconUrl,
+} from "./decky-game-page-achievement-badge-theme";
+import { resolveDeckyGamePageAchievementBadgePresentation } from "./decky-game-page-achievement-badge-presentation";
 import {
   markAchievementCompanionGamePageBadgeActivated,
   markAchievementCompanionGamePageBadgeHidden,
@@ -50,17 +48,15 @@ import {
   markAchievementCompanionGamePageRouteBadgeRenderFuncPatched,
   markAchievementCompanionGamePageRouteBadgeRendered,
   markAchievementCompanionGamePageBadgeSystemIcon,
-  getAchievementCompanionRuntimeDebugState,
   reportAchievementCompanionGamePageBadgeNavigationError,
   resolveAchievementCompanionRuntimeDebugHostContext,
 } from "./decky-runtime-debug";
-import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 
 const ACHIEVEMENT_COMPANION_GAME_PAGE_ROUTE_BADGE_ELEMENT_KEY =
   "achievement-companion-game-page-badge-route";
 const DECKY_GAME_PAGE_ROUTE_BADGE_COLLISION_PADDING = 12;
-const DECKY_GAME_PAGE_ROUTE_BADGE_DEFAULT_WIDTH = 180;
-const DECKY_GAME_PAGE_ROUTE_BADGE_DEFAULT_HEIGHT = 44;
+const DECKY_GAME_PAGE_ROUTE_BADGE_DEFAULT_WIDTH = 292;
+const DECKY_GAME_PAGE_ROUTE_BADGE_DEFAULT_HEIGHT = 74;
 const DECKY_GAME_PAGE_ROUTE_BADGE_MAX_OBSTACLE_WIDTH = 360;
 const DECKY_GAME_PAGE_ROUTE_BADGE_MAX_OBSTACLE_HEIGHT = 120;
 const DECKY_GAME_PAGE_ROUTE_BADGE_MIN_OBSTACLE_WIDTH = 32;
@@ -83,21 +79,6 @@ interface DeckyGamePageAchievementTargetContext {
 interface DeckyGamePageAchievementBadgeNavigationTarget {
   readonly providerId: string;
   readonly gameId: string;
-}
-
-interface DeckyGamePageAchievementBadgeVisualState {
-  readonly ariaLabel: string;
-  readonly content: ReactNode;
-}
-
-interface DeckyGamePageRetroSystemIconMetadata {
-  readonly platformLabel?: string | undefined;
-  readonly systemIconUrl?: string | undefined;
-}
-
-interface DeckyGamePageRetroSystemIconCandidate extends DeckyGamePageRetroSystemIconMetadata {
-  readonly gameId: string;
-  readonly title: string;
 }
 
 type DeckyGamePageAchievementRouteBadgeSlotId = GamePageAchievementBadgePosition;
@@ -168,51 +149,6 @@ function getDeckyGamePageAchievementRouteBadgePrimarySlot():
 }
 
 
-function getDeckyGamePageAchievementBadgeBaseStyle(): CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 40,
-    padding: "0 14px",
-    borderRadius: 8,
-    border: "1px solid rgba(255, 255, 255, 0.18)",
-    background: "rgba(12, 18, 28, 0.88)",
-    boxShadow: "0 10px 30px rgba(0, 0, 0, 0.36)",
-    color: "rgba(255, 255, 255, 0.98)",
-    fontSize: 20,
-    fontWeight: 700,
-    letterSpacing: "0.01em",
-    lineHeight: 1.1,
-    pointerEvents: "auto",
-    userSelect: "none",
-  };
-}
-
-function getDeckyGamePageAchievementBadgeContentStyle(): CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 8,
-    minWidth: 0,
-  };
-}
-
-function getDeckyGamePageAchievementBadgeTrophyStyle(): CSSProperties {
-  return {
-    flexShrink: 0,
-    lineHeight: 1,
-  };
-}
-
-function getDeckyGamePageAchievementBadgeCountStyle(): CSSProperties {
-  return {
-    whiteSpace: "nowrap",
-  };
-}
-
-type DeckyGamePageAchievementBadgeStatusVariant = "plain" | "beaten" | "mastered";
-
 function resolveDeckyGamePageAchievementBadgeCompletionStatus(
   summary: GamePageAchievementSummary | undefined,
 ): "beaten" | "mastered" | undefined {
@@ -221,125 +157,6 @@ function resolveDeckyGamePageAchievementBadgeCompletionStatus(
   }
 
   return summary.completionStatus;
-}
-
-function resolveDeckyGamePageAchievementBadgeStatusVariant(
-  summary: GamePageAchievementSummary | undefined,
-): DeckyGamePageAchievementBadgeStatusVariant {
-  return resolveDeckyGamePageAchievementBadgeCompletionStatus(summary) ?? "plain";
-}
-
-function formatDeckyGamePageAchievementBadgeStatusLabel(
-  status: "beaten" | "mastered" | undefined,
-): string | undefined {
-  if (status === "beaten") {
-    return "BEATEN";
-  }
-
-  if (status === "mastered") {
-    return "MASTERED";
-  }
-
-  return undefined;
-}
-
-function getDeckyGamePageAchievementBadgeStatusAccentStyle(
-  statusVariant: DeckyGamePageAchievementBadgeStatusVariant,
-): CSSProperties {
-  if (statusVariant === "mastered") {
-    return {
-      borderColor: "rgba(248, 225, 148, 0.98)",
-      boxShadow:
-        "0 0 0 1px rgba(168, 126, 20, 0.98), 0 0 0 3px rgba(248, 225, 148, 0.18), 0 8px 24px rgba(0, 0, 0, 0.36)",
-      background: "rgba(34, 26, 9, 0.98)",
-    };
-  }
-
-  if (statusVariant === "beaten") {
-    return {
-      borderColor: "rgba(238, 242, 248, 0.98)",
-      boxShadow:
-        "0 0 0 1px rgba(130, 142, 157, 0.98), 0 0 0 3px rgba(238, 242, 248, 0.14), 0 8px 24px rgba(0, 0, 0, 0.36)",
-      background: "rgba(15, 20, 28, 0.98)",
-    };
-  }
-
-  return {};
-}
-
-function getDeckyGamePageAchievementBadgeStatusShellStyle(
-  statusVariant: DeckyGamePageAchievementBadgeStatusVariant,
-): CSSProperties {
-  return {
-    ...getDeckyGamePageAchievementBadgeBaseStyle(),
-    ...(statusVariant === "plain"
-      ? {}
-      : {
-          minHeight: 42,
-          padding: "0 13px",
-          borderWidth: 2,
-        }),
-    ...getDeckyGamePageAchievementBadgeStatusAccentStyle(statusVariant),
-  };
-}
-
-function getDeckyGamePageAchievementBadgeStatusStackStyle(): CSSProperties {
-  return {
-    display: "inline-flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 5,
-    overflow: "visible",
-  };
-}
-
-function getDeckyGamePageAchievementBadgeLoadingShellStyle(): CSSProperties {
-  return {
-    ...getDeckyGamePageAchievementBadgeBaseStyle(),
-    minHeight: 34,
-    padding: "0 12px",
-    borderWidth: 1,
-    fontSize: 13,
-    fontWeight: 700,
-    letterSpacing: "0.02em",
-    background: "rgba(12, 18, 28, 0.94)",
-    boxShadow: "0 0 0 1px rgba(0, 0, 0, 0.48), 0 8px 22px rgba(0, 0, 0, 0.42)",
-  };
-}
-
-function getDeckyGamePageAchievementBadgeStatusPillStyle(
-  statusVariant: Exclude<DeckyGamePageAchievementBadgeStatusVariant, "plain">,
-): CSSProperties {
-  const isMastered = statusVariant === "mastered";
-  const accentColor = isMastered ? "rgba(248, 225, 148, 0.98)" : "rgba(240, 244, 250, 0.98)";
-  const accentTint = isMastered ? "rgba(79, 60, 15, 0.98)" : "rgba(34, 42, 52, 0.98)";
-  const glowTint = isMastered ? "rgba(248, 225, 148, 0.44)" : "rgba(240, 244, 250, 0.34)";
-  const outerGlow = isMastered ? "rgba(125, 92, 18, 0.5)" : "rgba(111, 123, 137, 0.46)";
-
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 25,
-    padding: "4px 12px",
-    borderRadius: 999,
-    border: `1px solid ${accentColor}`,
-    background: accentTint,
-    color: accentColor,
-    boxShadow: `0 0 0 1px rgba(0, 0, 0, 0.48), 0 0 0 2px ${outerGlow}, 0 0 16px ${glowTint}`,
-    fontSize: 11,
-    fontWeight: 800,
-    letterSpacing: "0.1em",
-    lineHeight: 1,
-    textTransform: "uppercase",
-    whiteSpace: "nowrap",
-  };
-}
-
-function getDeckyGamePageAchievementBadgeStatusLabelStyle(): CSSProperties {
-  return {
-    textShadow: "0 1px 0 rgba(0, 0, 0, 0.35)",
-  };
 }
 
 function getDeckyGamePageAchievementRouteBadgeStyle(
@@ -408,171 +225,6 @@ function resolveDeckyGamePageAchievementBadgeNavigationTarget(
   return {
     providerId: "retroachievements",
     gameId: summary.gameId,
-  };
-}
-
-function collectDeckyGamePageRetroSystemIconCandidates(
-  snapshot: DashboardSnapshot,
-): readonly DeckyGamePageRetroSystemIconCandidate[] {
-  const candidates: DeckyGamePageRetroSystemIconCandidate[] = [];
-  const pushCandidate = (
-    game:
-      | Pick<NormalizedGame, "platformLabel" | "systemIconUrl" | "gameId" | "title">
-      | Pick<RecentlyPlayedGame, "platformLabel" | "systemIconUrl" | "gameId" | "title">,
-  ) => {
-    candidates.push({
-      gameId: game.gameId,
-      title: game.title,
-      ...(game.platformLabel !== undefined ? { platformLabel: game.platformLabel } : {}),
-      ...(game.systemIconUrl !== undefined ? { systemIconUrl: game.systemIconUrl } : {}),
-    });
-  };
-
-  for (const game of snapshot.recentlyPlayedGames) {
-    pushCandidate(game);
-  }
-
-  for (const game of snapshot.featuredGames) {
-    pushCandidate(game);
-  }
-
-  for (const game of snapshot.profile.featuredGames ?? []) {
-    pushCandidate(game);
-  }
-
-  return candidates;
-}
-
-function resolveDeckyGamePageRetroSystemIconMetadata(
-  summary: GamePageAchievementSummary | undefined,
-): DeckyGamePageRetroSystemIconMetadata | undefined {
-  if (summary?.status !== "ready" || summary.provider !== "retroachievements") {
-    return undefined;
-  }
-
-  if (summary.platformLabel !== undefined || summary.systemIconUrl !== undefined) {
-    return {
-      ...(summary.platformLabel !== undefined ? { platformLabel: summary.platformLabel } : {}),
-      ...(summary.systemIconUrl !== undefined ? { systemIconUrl: summary.systemIconUrl } : {}),
-    };
-  }
-
-  const snapshot = readDeckyDashboardSnapshotCacheEntry(RETROACHIEVEMENTS_PROVIDER_ID)?.snapshot;
-  if (snapshot === undefined) {
-    return undefined;
-  }
-
-  const candidates = collectDeckyGamePageRetroSystemIconCandidates(snapshot);
-
-  const matchingByGameId =
-    summary.gameId !== undefined
-      ? candidates.find((candidate) => candidate.gameId === summary.gameId)
-      : undefined;
-  if (matchingByGameId !== undefined) {
-    return matchingByGameId;
-  }
-
-  return summary.title !== undefined
-    ? candidates.find((candidate) => candidate.title === summary.title)
-    : undefined;
-}
-
-function resolveDeckyGamePageAchievementBadgeIconUrl(
-  summary: GamePageAchievementSummary | undefined,
-  retroSystemIconMetadata: DeckyGamePageRetroSystemIconMetadata | undefined,
-): string | undefined {
-  if (summary?.status !== "ready") {
-    return undefined;
-  }
-
-  if (summary.provider === "retroachievements") {
-    return retroSystemIconMetadata?.systemIconUrl;
-  }
-
-  if (summary.provider === "steam") {
-    return getDeckyProviderIconSrc(summary.provider);
-  }
-
-  return undefined;
-}
-
-function renderDeckyGamePageAchievementBadgeContent(
-  summary: GamePageAchievementSummary | undefined,
-  retroSystemIconMetadata: DeckyGamePageRetroSystemIconMetadata | undefined,
-): DeckyGamePageAchievementBadgeVisualState {
-  if (summary?.status === "loading") {
-    const loadingLabel = formatDeckyGamePageAchievementBadgeLoadingText(
-      summary,
-      getAchievementCompanionRuntimeDebugState(),
-    );
-    const loadingText = loadingLabel.replace(/^\u{1f3c6}\s*/u, "");
-    return {
-      ariaLabel: loadingText,
-      content: (
-        <span style={getDeckyGamePageAchievementBadgeStatusStackStyle()}>
-          <span style={getDeckyGamePageAchievementBadgeLoadingShellStyle()}>
-            <span style={getDeckyGamePageAchievementBadgeContentStyle()}>
-              <span aria-hidden="true" style={getDeckyGamePageAchievementBadgeTrophyStyle()}>
-                {"\u{1f3c6}"}
-              </span>
-              <span style={getDeckyGamePageAchievementBadgeCountStyle()}>{loadingText}</span>
-            </span>
-          </span>
-        </span>
-      ),
-    };
-  }
-
-
-  if (summary?.status !== "ready") {
-    return {
-      ariaLabel: "Open Achievement Companion details",
-      content: "",
-    };
-  }
-
-  const iconUrl =
-    resolveDeckyGamePageAchievementBadgeIconUrl(summary, retroSystemIconMetadata);
-  const platformLabel =
-    summary.provider === "retroachievements" ? retroSystemIconMetadata?.platformLabel : undefined;
-  const badgeCompletionStatus =
-    summary.provider === "retroachievements"
-      ? resolveDeckyGamePageAchievementBadgeCompletionStatus(summary)
-      : undefined;
-  const badgeStatusVariant =
-    summary.provider === "retroachievements"
-      ? resolveDeckyGamePageAchievementBadgeStatusVariant(summary)
-      : "plain";
-  const badgeStatusLabel = formatDeckyGamePageAchievementBadgeStatusLabel(badgeCompletionStatus);
-  const countText = `${String(summary.earned)} / ${String(summary.total)}`;
-
-  return {
-    ariaLabel:
-      summary.provider === "retroachievements" && platformLabel !== undefined
-        ? `Open Achievement Companion details for app ${summary.appId}, ${platformLabel}, ${countText}`
-        : `Open Achievement Companion details for app ${summary.appId}, ${countText}`,
-    content: (
-      <span style={getDeckyGamePageAchievementBadgeStatusStackStyle()}>
-        <span style={getDeckyGamePageAchievementBadgeStatusShellStyle(badgeStatusVariant)}>
-          <span style={getDeckyGamePageAchievementBadgeContentStyle()}>
-            <span aria-hidden="true" style={getDeckyGamePageAchievementBadgeTrophyStyle()}>
-              🏆
-            </span>
-            {iconUrl !== undefined ? (
-              <DeckySystemIcon iconSize={20} iconUrl={iconUrl} />
-            ) : null}
-            <span style={getDeckyGamePageAchievementBadgeCountStyle()}>{countText}</span>
-          </span>
-        </span>
-        {badgeStatusVariant !== "plain" && badgeStatusLabel !== undefined ? (
-          <span style={getDeckyGamePageAchievementBadgeStatusPillStyle(badgeStatusVariant)}>
-            <span style={getDeckyGamePageAchievementBadgeStatusLabelStyle()}>
-              {badgeStatusLabel}
-            </span>
-          </span>
-        ) : null}
-      </span>
-    ),
   };
 }
 
@@ -1018,16 +670,12 @@ function DeckyGamePageAchievementRouteBadgeEnabled({
   const { style, setBadgeElement } = useDeckyGamePageAchievementRouteBadgePlacement();
   const summary = useGamePageAchievementSummary(appId);
   const badgeCompletionStatus = resolveDeckyGamePageAchievementBadgeCompletionStatus(summary);
-  const badgeStatusVariant = resolveDeckyGamePageAchievementBadgeStatusVariant(summary);
-  const badgeLabel = formatDeckyGamePageAchievementBadgeLabel(summary);
-  const retroSystemIconMetadata = useMemo(
-    () => resolveDeckyGamePageRetroSystemIconMetadata(summary),
+  const presentation = useMemo(
+    () => resolveDeckyGamePageAchievementBadgePresentation(summary),
     [summary],
   );
-  const { ariaLabel, content } = useMemo(
-    () => renderDeckyGamePageAchievementBadgeContent(summary, retroSystemIconMetadata),
-    [retroSystemIconMetadata, summary],
-  );
+  const badgeStatusVariant = presentation?.variant ?? "loading";
+  const badgeLabel = formatDeckyGamePageAchievementBadgeLabel(summary);
   const { onActivate } = useDeckyGamePageAchievementBadgeActivation(appId, summary);
 
   useEffect(() => {
@@ -1048,15 +696,18 @@ function DeckyGamePageAchievementRouteBadgeEnabled({
   }, [appId, badgeLabel, summary]);
 
   useEffect(() => {
-    const iconUrl = resolveDeckyGamePageAchievementBadgeIconUrl(summary, retroSystemIconMetadata);
+    const iconUrl =
+      presentation === undefined
+        ? undefined
+        : resolveDeckyGamePageAchievementBadgeProviderIconUrl(presentation.provider);
     markAchievementCompanionGamePageBadgeSystemIcon({
-      providerId: summary?.status === "ready" ? summary.provider : undefined,
-      platformLabel: retroSystemIconMetadata?.platformLabel,
+      providerId: presentation?.provider,
+      platformLabel:
+        presentation?.provider === "retroachievements" ? "RetroAchievements" : "Steam",
       iconUrl,
-      rendered:
-        summary?.status === "ready" && iconUrl !== undefined,
+      rendered: presentation !== undefined && iconUrl !== undefined,
     });
-  }, [retroSystemIconMetadata, summary]);
+  }, [presentation]);
 
   useEffect(() => {
     const summaryCompletionStatus =
@@ -1067,26 +718,26 @@ function DeckyGamePageAchievementRouteBadgeEnabled({
       summaryCompletionStatus,
       badgeCompletionStatus,
       badgeStatusVariant,
-      nativeBadgeStatusRendered: badgeStatusVariant !== "plain",
+      nativeBadgeStatusRendered: presentation !== undefined,
       clearKeys:
         summaryCompletionStatus === undefined && badgeCompletionStatus === undefined
           ? ["summaryCompletionStatus", "badgeCompletionStatus"]
           : undefined,
     });
-  }, [badgeCompletionStatus, badgeStatusVariant, summary]);
+  }, [badgeCompletionStatus, badgeStatusVariant, presentation, summary]);
 
-  if (badgeLabel === undefined) {
+  if (badgeLabel === undefined || presentation === undefined) {
     return null;
   }
 
   return (
     <DeckyGamePageAchievementBadge
       appId={appId}
-      ariaLabel={ariaLabel}
-      content={content}
+      ariaLabel={presentation.ariaLabel}
       elementRef={setBadgeElement}
       marker="route"
       onActivate={onActivate}
+      presentation={presentation}
       routeUrl={readDeckyGamePageAchievementRouteState().currentRouteUrl}
       style={style}
     />

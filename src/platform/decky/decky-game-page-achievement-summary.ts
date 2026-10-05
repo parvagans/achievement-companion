@@ -61,6 +61,7 @@ export type GamePageAchievementSummary =
   | {
       readonly status: "loading";
       readonly appId: string;
+      readonly provider?: "steam" | "retroachievements";
     }
   | {
       readonly status: "unavailable";
@@ -3300,13 +3301,34 @@ export function useGamePageAchievementSummary(
     markAchievementCompanionGamePageAchievementSummaryFetchStarted(appId);
 
     void loadDeckyGamePageAchievementSummary(appId)
-      .then((nextSummary) => {
+      .then(async (nextSummary) => {
         if (requestSequenceRef.current !== requestSequence) {
           return;
         }
 
-        setSummary(nextSummary);
-        markAchievementCompanionGamePageAchievementSummaryFetchCompleted(nextSummary);
+        if (
+          nextSummary.status === "ready" &&
+          nextSummary.provider === "retroachievements" &&
+          nextSummary.gameId !== undefined &&
+          nextSummary.completionStatus === undefined
+        ) {
+          setSummary({
+            status: "loading",
+            appId,
+            provider: "retroachievements",
+          });
+        }
+
+        const presentationSummary =
+          nextSummary.status === "ready" && nextSummary.provider === "retroachievements"
+            ? await enrichDeckyGamePageAchievementSummaryCompletionStatus(nextSummary)
+            : nextSummary;
+        if (requestSequenceRef.current !== requestSequence) {
+          return;
+        }
+
+        setSummary(presentationSummary);
+        markAchievementCompanionGamePageAchievementSummaryFetchCompleted(presentationSummary);
       })
       .catch((error: unknown) => {
         if (requestSequenceRef.current !== requestSequence) {
@@ -3327,35 +3349,6 @@ export function useGamePageAchievementSummary(
         markAchievementCompanionGamePageAchievementSummaryFetchCompleted(errorSummary);
       });
   }, [appId]);
-
-  useEffect(() => {
-    if (
-      summary?.status !== "ready" ||
-      summary.provider !== "retroachievements" ||
-      summary.gameId === undefined ||
-      summary.completionStatus !== undefined
-    ) {
-      return;
-    }
-
-    const requestSequence = requestSequenceRef.current;
-    let cancelled = false;
-    void enrichDeckyGamePageAchievementSummaryCompletionStatus(summary).then((enrichedSummary) => {
-      if (
-        cancelled ||
-        requestSequenceRef.current !== requestSequence ||
-        enrichedSummary === summary
-      ) {
-        return;
-      }
-
-      setSummary(enrichedSummary);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [summary]);
 
   return useMemo(() => summary, [summary]);
 }
