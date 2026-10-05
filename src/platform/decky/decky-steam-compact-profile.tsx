@@ -1,7 +1,8 @@
-import { Focusable, NavEntryPositionPreferences, useQuickAccessVisible } from "@decky/ui";
+import { Focusable, GamepadButton, NavEntryPositionPreferences, useQuickAccessVisible, type GamepadEvent } from "@decky/ui";
 import type { DashboardSnapshot, RecentUnlock, RecentlyPlayedGame } from "@core/domain";
 import {
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   useSyncExternalStore,
@@ -31,6 +32,24 @@ import {
   type DeckySteamCompactFocusTarget,
 } from "./decky-steam-compact-focus-state";
 import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
+import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
+import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
+import { buildSteamActivityStats } from "./decky-steam-activity-data";
+import {
+  buildSteamActivityCalendarModel,
+  type SteamActivityCalendarIntensity,
+  type SteamActivityCalendarWeeks,
+} from "./decky-steam-activity-calendar-model";
+import {
+  buildSteamCompactActivityGamesForDay,
+  filterSteamActivityEntriesForDay,
+  getSteamActivityLocalDayTimestamp,
+  STEAM_COMPACT_ACTIVITY_CALENDAR_WEEKS,
+} from "./decky-steam-compact-activity-data";
+import {
+  readDeckySteamCompactActivityDay,
+  setDeckySteamCompactActivityDay,
+} from "./decky-steam-compact-activity-state";
 import chevronRightIconUrl from "./assets/chevron-right.svg";
 import externalLinkIconUrl from "./assets/external-link.svg";
 import masteredIconUrl from "./assets/mastered.svg";
@@ -41,14 +60,23 @@ import trophyIconUrl from "./assets/trophy-filled.svg";
 
 export type { DeckySteamCompactActionTone } from "./decky-steam-compact-action-styles";
 type SteamCompactIconTone = "blue" | "gold" | "purple";
+interface CompactTargetProps {
+  readonly elementRef?: RefCallback<HTMLDivElement>;
+  readonly onActivated: (element: HTMLElement) => void;
+  readonly onFocused: (element: HTMLElement) => void;
+  readonly preferredFocus: boolean;
+}
 
 export interface DeckySteamCompactProfileProps {
   readonly profile: DashboardSnapshot["profile"];
   readonly steamAccountProgress: SteamAccountProgressSummary;
   readonly steamHuntersProfile: SteamHuntersProfile | undefined;
+  readonly activityEntries: readonly RecentUnlock[];
+  readonly activityKnownGames: readonly RecentlyPlayedGame[];
   readonly recentAchievements: readonly RecentUnlock[];
   readonly recentlyPlayedGames: readonly RecentlyPlayedGame[];
   readonly refreshedAt: number | undefined;
+  readonly activityCalendarWeeks?: SteamActivityCalendarWeeks;
   readonly onOpenProfile: () => void;
   readonly onOpenAchievementHistory: () => void;
   readonly onOpenCompletionProgress: () => void;
@@ -149,6 +177,7 @@ export function DeckySteamCompactAction({
   scrollToTopOnFocus = false,
   style,
   tone = "row",
+  dataAttributes,
 }: {
   readonly ariaLabel: string;
   readonly children: ReactNode;
@@ -161,6 +190,7 @@ export function DeckySteamCompactAction({
   readonly scrollToTopOnFocus?: boolean;
   readonly style?: CSSProperties;
   readonly tone?: DeckySteamCompactActionTone;
+  readonly dataAttributes?: Readonly<Record<string, string>>;
 }): JSX.Element {
   const [isFocused, setIsFocused] = useState(false);
   const actionElementRef = useRef<HTMLDivElement | null>(null);
@@ -179,6 +209,7 @@ export function DeckySteamCompactAction({
       role="button"
       tabIndex={0}
       aria-label={ariaLabel}
+      {...dataAttributes}
       ref={(node) => {
         actionElementRef.current = node;
         elementRef?.(node);
@@ -347,6 +378,101 @@ function getMetricsGridStyle(): CSSProperties {
     gap: 5,
     minWidth: 0,
   };
+}
+
+const COMPACT_ACTIVITY_CALENDAR_COLORS: Record<SteamActivityCalendarIntensity, string> = {
+  0: "#1d3c51",
+  1: "#21546f",
+  2: "#267da9",
+  3: "#2fb9ef",
+  4: "#50d5ff",
+};
+
+function moveCompactCalendarFocus(event: GamepadEvent, target: HTMLElement | null | undefined): void {
+  const source = event.currentTarget as HTMLElement;
+  if (!takeDeckySteamGamepadFocus(target)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (target !== source) playDeckySteamNavigationSound(source.ownerDocument);
+}
+
+function handleCompactCalendarDirection(event: GamepadEvent): void {
+  const source = event.currentTarget as HTMLElement;
+  const root = source.closest<HTMLElement>("[data-achievement-companion-steam-compact-profile]");
+  const cells = Array.from(root?.querySelectorAll<HTMLElement>("[data-steam-compact-activity-calendar-day='true']") ?? []);
+  const index = cells.indexOf(source);
+  const row = index % 7;
+  const column = Math.floor(index / 7);
+  const columns = Math.ceil(cells.length / 7);
+  const button = event.detail.button;
+  let target: HTMLElement | null | undefined;
+  if (button === GamepadButton.DIR_UP) {
+    target = row > 0
+      ? cells[index - 1]
+      : root?.querySelector<HTMLElement>("[data-steam-compact-profile-action='true']") ?? source;
+  }
+  else if (button === GamepadButton.DIR_DOWN) {
+    target = row < 6
+      ? cells[index + 1] ?? source
+      : root?.querySelector<HTMLElement>("[data-steam-compact-recent-achievement='true']") ?? source;
+  } else if (button === GamepadButton.DIR_LEFT) target = column > 0 ? cells[index - 7] : source;
+  else if (button === GamepadButton.DIR_RIGHT) target = column < columns - 1 ? cells[index + 7] ?? source : source;
+  if (target !== undefined) moveCompactCalendarFocus(event, target);
+}
+
+function CompactActivityCalendarDay({ day, count, intensity, current, selected, onSelect, onCancel, targetProps }: {
+  readonly day: number;
+  readonly count: number;
+  readonly intensity: SteamActivityCalendarIntensity;
+  readonly current: boolean;
+  readonly selected: boolean;
+  readonly onSelect: () => void;
+  readonly onCancel: () => void;
+  readonly targetProps: CompactTargetProps;
+}): JSX.Element {
+  const [focused, setFocused] = useState(false);
+  const elementRef = useRef<HTMLDivElement | null>(null);
+  const dateLabel = new Date(day).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+  const activate = (): void => {
+    if (elementRef.current !== null) targetProps.onActivated(elementRef.current);
+    onSelect();
+  };
+  return (
+    <Focusable
+      noFocusRing
+      role="button"
+      tabIndex={0}
+      aria-label={`${dateLabel}, ${count} unlock${count === 1 ? "" : "s"}`}
+      aria-pressed={selected}
+      ref={(node) => { elementRef.current = node; targetProps.elementRef?.(node); }}
+      preferredFocus={targetProps.preferredFocus}
+      data-steam-compact-activity-calendar-day="true"
+      data-steam-compact-activity-calendar-current={current ? "true" : "false"}
+      data-steam-compact-activity-calendar-selected={selected ? "true" : "false"}
+      data-steam-compact-activity-calendar-count={count}
+      data-steam-compact-activity-calendar-intensity={intensity}
+      onActivate={activate}
+      onClick={activate}
+      onCancel={onCancel}
+      onGamepadDirection={handleCompactCalendarDirection}
+      onFocus={(event) => { setFocused(true); event.currentTarget.scrollIntoView({ block: "center", inline: "nearest" }); targetProps.onFocused(event.currentTarget); }}
+      onGamepadFocus={(event) => { setFocused(true); (event.currentTarget as HTMLElement).scrollIntoView({ block: "center", inline: "nearest" }); targetProps.onFocused(event.currentTarget as HTMLElement); }}
+      onBlur={() => setFocused(false)}
+      style={{
+        width: 22,
+        height: 22,
+        minWidth: 22,
+        minHeight: 22,
+        padding: 0,
+        border: selected ? `2px solid ${steamTheme.color.textPrimary}` : "2px solid transparent",
+        borderRadius: 4,
+        outline: "none",
+        background: COMPACT_ACTIVITY_CALENDAR_COLORS[intensity],
+        boxShadow: focused ? steamTheme.focus.compactShadow : "none",
+        boxSizing: "border-box",
+      }}
+    >{null}</Focusable>
+  );
 }
 
 function getMetricStyle(): CSSProperties {
@@ -686,6 +812,60 @@ function SectionHeader({ title }: { readonly title: string }): JSX.Element {
   );
 }
 
+function CompactActivityCalendar({ dayCounts, weeks, selectedDay, onSelectDay, onCancel, targetProps }: {
+  readonly dayCounts: ReadonlyMap<number, number>;
+  readonly weeks: SteamActivityCalendarWeeks;
+  readonly selectedDay: number | undefined;
+  readonly onSelectDay: (day: number) => void;
+  readonly onCancel: () => void;
+  readonly targetProps: (day: number) => CompactTargetProps;
+}): JSX.Element {
+  const model = useMemo(() => buildSteamActivityCalendarModel(dayCounts, weeks), [dayCounts, weeks]);
+  const today = getSteamActivityLocalDayTimestamp(Date.now());
+  const start = model.days[0]?.day ?? 0;
+  const labels = ["M", "T", "W", "T", "F", "S", "S"];
+  const status = selectedDay === undefined
+    ? `Last ${weeks} weeks`
+    : new Date(selectedDay).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+  return (
+    <div
+      data-steam-compact-activity-calendar
+      data-steam-compact-activity-calendar-weeks={weeks}
+      style={{ ...steamRecipes.card("compact"), padding: 8, minWidth: 0 }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
+        <span style={{ color: steamTheme.color.textPrimary, fontSize: 10, fontWeight: 800 }}>ACTIVITY CALENDAR</span>
+        <span style={{ color: selectedDay === undefined ? steamTheme.color.textMuted : steamTheme.color.accent, fontSize: 9, fontWeight: selectedDay === undefined ? 600 : 800 }}>{status}</span>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: `18px repeat(${weeks}, 22px)`, gridTemplateRows: "repeat(7, 22px)", justifyContent: "center", gap: 3, marginTop: 7 }}>
+        {labels.map((label, row) => <span key={`${label}:${row}`} style={{ gridColumn: 1, gridRow: row + 1, alignSelf: "center", color: steamTheme.color.textMuted, fontSize: 8 }}>{label}</span>)}
+        {model.days.map(({ day, count, intensity }) => {
+          const offset = Math.floor((day - start) / 86_400_000);
+          return (
+            <div key={day} style={{ gridColumn: Math.floor(offset / 7) + 2, gridRow: offset % 7 + 1 }}>
+              {today !== undefined && day <= today ? <CompactActivityCalendarDay
+                day={day}
+                count={count}
+                intensity={intensity}
+                current={day === today}
+                selected={day === selectedDay}
+                onSelect={() => onSelectDay(day)}
+                onCancel={onCancel}
+                targetProps={targetProps(day)}
+              /> : <span aria-hidden="true" style={{ display: "block", width: 22, height: 22, borderRadius: 4, background: COMPACT_ACTIVITY_CALENDAR_COLORS[0] }} />}
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, marginTop: 7, color: steamTheme.color.textMuted, fontSize: 8 }}>
+        <span>Less</span>
+        {([0, 1, 2, 3, 4] as const).map((level) => <span key={level} style={{ width: 10, height: 10, borderRadius: 2, background: COMPACT_ACTIVITY_CALENDAR_COLORS[level] }} />)}
+        <span>More</span>
+      </div>
+    </div>
+  );
+}
+
 function ViewAllAction({
   ariaLabel,
   elementRef,
@@ -742,6 +922,7 @@ function RecentAchievementItem({
   return (
     <DeckySteamCompactAction
       ariaLabel={`Open ${recentUnlock.achievement.title}`}
+      dataAttributes={{ "data-steam-compact-recent-achievement": "true" }}
       elementRef={elementRef}
       onActivate={onActivate}
       onActivated={onActivated}
@@ -774,6 +955,7 @@ function RecentAchievementItem({
 function RecentlyPlayedItem({
   elementRef,
   game,
+  activityUnlockCount,
   onActivate,
   onActivated,
   onCancel,
@@ -782,6 +964,7 @@ function RecentlyPlayedItem({
 }: {
   readonly elementRef?: RefCallback<HTMLDivElement> | undefined;
   readonly game: RecentlyPlayedGame;
+  readonly activityUnlockCount?: number;
   readonly onActivate: () => void;
   readonly onActivated?: ((target: HTMLElement) => void) | undefined;
   readonly onCancel: () => void;
@@ -789,7 +972,10 @@ function RecentlyPlayedItem({
   readonly preferredFocus?: boolean | undefined;
 }): JSX.Element {
   const artworkUrl = getSteamCompactGameArtworkUrl(game);
-  const playtime = formatGamePlaytime(game);
+  const playtime = activityUnlockCount === undefined ? formatGamePlaytime(game) : undefined;
+  const progress = activityUnlockCount === undefined
+    ? formatGameProgress(game)
+    : `${activityUnlockCount.toLocaleString()} achievement${activityUnlockCount === 1 ? "" : "s"} unlocked`;
 
   return (
     <DeckySteamCompactAction
@@ -809,7 +995,7 @@ function RecentlyPlayedItem({
       )}
       <span style={getRowTextStyle()}>
         <span style={getRowTitleStyle()}>{game.title}</span>
-        <span style={getRowMetaStyle()}>{formatGameProgress(game)}</span>
+        <span style={getRowMetaStyle()}>{progress}</span>
       </span>
       <span style={getRowTrailingStyle()}>
         {playtime !== undefined ? <span style={getPlaytimeStyle()}>{playtime}</span> : null}
@@ -831,9 +1017,12 @@ export function DeckySteamCompactProfile({
   profile,
   steamAccountProgress,
   steamHuntersProfile,
+  activityEntries,
+  activityKnownGames,
   recentAchievements,
   recentlyPlayedGames,
   refreshedAt,
+  activityCalendarWeeks = STEAM_COMPACT_ACTIVITY_CALENDAR_WEEKS,
   onOpenProfile,
   onOpenAchievementHistory,
   onOpenCompletionProgress,
@@ -853,6 +1042,30 @@ export function DeckySteamCompactProfile({
   const restorationKey = getDeckySteamCompactFocusTargetKey(restorationTarget);
   const restorationElementRef = useRef<HTMLDivElement | null>(null);
   const refreshTime = formatRefreshTime(refreshedAt);
+  const [selectedActivityDay, setSelectedActivityDay] = useState(readDeckySteamCompactActivityDay);
+  const activityStats = useMemo(() => buildSteamActivityStats(activityEntries), [activityEntries]);
+  const visibleAchievements = useMemo(
+    () => selectedActivityDay === undefined
+      ? recentAchievements
+      : filterSteamActivityEntriesForDay(activityEntries, selectedActivityDay),
+    [activityEntries, recentAchievements, selectedActivityDay],
+  );
+  const filteredActivityGames = useMemo(
+    () => selectedActivityDay === undefined
+      ? undefined
+      : buildSteamCompactActivityGamesForDay(visibleAchievements, activityKnownGames),
+    [activityKnownGames, selectedActivityDay, visibleAchievements],
+  );
+  const visibleGames = filteredActivityGames?.map(({ game }) => game) ?? recentlyPlayedGames;
+  const activityUnlockCounts = useMemo(
+    () => new Map(filteredActivityGames?.map(({ game, unlockCount }) => [game.gameId, unlockCount]) ?? []),
+    [filteredActivityGames],
+  );
+  const selectActivityDay = (day: number): void => {
+    const nextDay = selectedActivityDay === day ? undefined : day;
+    setSelectedActivityDay(nextDay);
+    setDeckySteamCompactActivityDay(nextDay);
+  };
   const targetProps = (target: DeckySteamCompactFocusTarget): {
     readonly elementRef?: RefCallback<HTMLDivElement>;
     readonly onActivated: (element: HTMLElement) => void;
@@ -898,6 +1111,18 @@ export function DeckySteamCompactProfile({
     return requestDeckySteamGamepadFocusAfterMount(target);
   }, [isQuickAccessVisible, restorationRequest]);
 
+  useLayoutEffect(() => {
+    if (selectedActivityDay === undefined) {
+      return;
+    }
+    const isVisible = buildSteamActivityCalendarModel(activityStats.dayCounts, activityCalendarWeeks)
+      .days.some(({ day }) => day === selectedActivityDay);
+    if (!isVisible) {
+      setSelectedActivityDay(undefined);
+      setDeckySteamCompactActivityDay(undefined);
+    }
+  }, [activityCalendarWeeks, activityStats.dayCounts, selectedActivityDay]);
+
   return (
     <Focusable
       data-ac-steam-theme="compact"
@@ -911,6 +1136,7 @@ export function DeckySteamCompactProfile({
         <ProfileCard profile={profile} progress={steamAccountProgress} refreshedAt={refreshedAt} />
         <DeckySteamCompactAction
           ariaLabel="Open Steam profile full-screen"
+          dataAttributes={{ "data-steam-compact-profile-action": "true" }}
           onActivate={onOpenProfile}
           onCancel={onCancel}
           {...targetProps({ kind: "profile" })}
@@ -956,9 +1182,20 @@ export function DeckySteamCompactProfile({
       </section>
 
       <section style={getSectionStyle()}>
+        <CompactActivityCalendar
+          dayCounts={activityStats.dayCounts}
+          weeks={activityCalendarWeeks}
+          selectedDay={selectedActivityDay}
+          onSelectDay={selectActivityDay}
+          onCancel={onCancel}
+          targetProps={(day) => targetProps({ kind: "calendar", day })}
+        />
+      </section>
+
+      <section style={getSectionStyle()}>
         <SectionHeader title="Recent Activity" />
-        <div style={getListStyle()}>
-          {recentAchievements.length > 0 ? recentAchievements.map((recentUnlock) => (
+        <div data-steam-compact-recent-activity-count={visibleAchievements.length} style={getListStyle()}>
+          {visibleAchievements.length > 0 ? visibleAchievements.map((recentUnlock) => (
             <RecentAchievementItem
               key={`${recentUnlock.game.gameId}:${recentUnlock.achievement.achievementId}`}
               recentUnlock={recentUnlock}
@@ -970,7 +1207,7 @@ export function DeckySteamCompactProfile({
                 achievementId: recentUnlock.achievement.achievementId,
               })}
             />
-          )) : <EmptyListRow label="No recent achievements yet." />}
+          )) : <EmptyListRow label={selectedActivityDay === undefined ? "No recent achievements yet." : "No achievements unlocked on this date."} />}
         </div>
         <ViewAllAction
           ariaLabel="View all recent Steam achievements"
@@ -982,16 +1219,19 @@ export function DeckySteamCompactProfile({
 
       <section style={getSectionStyle()}>
         <SectionHeader title="Recently Played" />
-        <div style={getListStyle()}>
-          {recentlyPlayedGames.length > 0 ? recentlyPlayedGames.map((game) => (
+        <div data-steam-compact-recently-played-count={visibleGames.length} style={getListStyle()}>
+          {visibleGames.length > 0 ? visibleGames.map((game) => (
             <RecentlyPlayedItem
               key={game.gameId}
               game={game}
+              {...(activityUnlockCounts.has(game.gameId)
+                ? { activityUnlockCount: activityUnlockCounts.get(game.gameId)! }
+                : {})}
               onActivate={() => onOpenGameDetail(game)}
               onCancel={onCancel}
               {...targetProps({ kind: "game", gameId: game.gameId })}
             />
-          )) : <EmptyListRow label="No recently played games yet." />}
+          )) : <EmptyListRow label={selectedActivityDay === undefined ? "No recently played games yet." : "No games with achievements on this date."} />}
         </div>
         <ViewAllAction
           ariaLabel="View all Steam games"

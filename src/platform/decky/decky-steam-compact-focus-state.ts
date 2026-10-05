@@ -1,5 +1,6 @@
 export type DeckySteamCompactFocusTarget =
   | { readonly kind: "profile" }
+  | { readonly kind: "calendar"; readonly day: number }
   | { readonly kind: "achievement"; readonly gameId: string; readonly achievementId: string }
   | { readonly kind: "activity" }
   | { readonly kind: "game"; readonly gameId: string }
@@ -20,6 +21,8 @@ const restorationRequestListeners = new Set<() => void>();
 
 export function getDeckySteamCompactFocusTargetKey(target: DeckySteamCompactFocusTarget): string {
   switch (target.kind) {
+    case "calendar":
+      return `calendar:${target.day}`;
     case "achievement":
       return `achievement:${target.gameId}:${target.achievementId}`;
     case "game":

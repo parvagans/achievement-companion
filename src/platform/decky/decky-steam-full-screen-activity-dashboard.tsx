@@ -22,6 +22,12 @@ import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { buildSteamActivityStats, type SteamActivityStats } from "./decky-steam-activity-data";
 import {
+  buildSteamActivityCalendarModel,
+  DEFAULT_STEAM_ACTIVITY_CALENDAR_WEEKS,
+  type SteamActivityCalendarIntensity,
+  type SteamActivityCalendarWeeks,
+} from "./decky-steam-activity-calendar-model";
+import {
   getSteamFullscreenGameArtworkUrlByGameId,
   STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT,
   STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH,
@@ -40,6 +46,7 @@ import { getSteamCompactAchievementFilterStyle } from "./decky-steam-compact-act
 import { steamRecipes, steamTheme } from "./steam-theme";
 import {
   readDeckySteamActivityPageState,
+  rememberDeckySteamActivityCalendarDay,
   rememberDeckySteamActivityFilter,
   rememberDeckySteamActivityFocusTarget,
   rememberDeckySteamActivityRenderLimit,
@@ -103,7 +110,19 @@ function getCurrentStreak(days: readonly number[], now = Date.now()): number {
   return streak;
 }
 
-function filterActivityEntries(entries: readonly RecentUnlock[], filter: ActivityFilter, now = Date.now()): readonly RecentUnlock[] {
+function filterActivityEntries(
+  entries: readonly RecentUnlock[],
+  filter: ActivityFilter,
+  selectedCalendarDay: number | undefined,
+  now = Date.now(),
+): readonly RecentUnlock[] {
+  if (selectedCalendarDay !== undefined) {
+    return entries.filter((entry) => {
+      const timestamp = getUnlockTime(entry);
+      return timestamp !== undefined && getLocalDayTimestamp(timestamp) === selectedCalendarDay;
+    });
+  }
+
   if (filter === "all") {
     return entries;
   }
@@ -234,9 +253,39 @@ function handleActivityFilterDirection(event: GamepadEvent): void {
   const index = filters.indexOf(source);
   const button = event.detail.button;
   const target = button === GamepadButton.DIR_LEFT ? filters[index - 1] ?? source
-    : button === GamepadButton.DIR_RIGHT ? filters[index + 1] ?? source
+    : button === GamepadButton.DIR_RIGHT ? filters[index + 1]
+      ?? dashboard?.querySelector<HTMLElement>("[data-steam-activity-calendar-current='true']")
+      ?? source
       : button === GamepadButton.DIR_DOWN ? dashboard?.querySelector<HTMLElement>("[data-steam-activity-row='true']") ?? source
         : button === GamepadButton.DIR_UP ? source : undefined;
+  if (target !== undefined) moveActivityGamepadFocus(event, source, target);
+}
+
+function handleActivityCalendarDirection(event: GamepadEvent): void {
+  const source = event.currentTarget as HTMLElement;
+  const dashboard = source.closest<HTMLElement>("[data-steam-full-screen-activity-dashboard]");
+  const cells = Array.from(dashboard?.querySelectorAll<HTMLElement>("[data-steam-activity-calendar-day='true']") ?? []);
+  const index = cells.indexOf(source);
+  const row = index % 7;
+  const column = Math.floor(index / 7);
+  const columnCount = Math.ceil(cells.length / 7);
+  const button = event.detail.button;
+  let target: HTMLElement | null | undefined;
+  if (button === GamepadButton.DIR_UP) {
+    target = row > 0 ? cells[index - 1] : source;
+  } else if (button === GamepadButton.DIR_DOWN) {
+    target = row < 6
+      ? cells[index + 1] ?? source
+      : dashboard?.querySelector<HTMLElement>("[data-steam-activity-row='true']") ?? source;
+  } else if (button === GamepadButton.DIR_LEFT) {
+    target = column > 0
+      ? cells[index - 7]
+      : dashboard?.querySelector<HTMLElement>("[data-steam-activity-filter-selected='true']")
+        ?? dashboard?.querySelector<HTMLElement>("[data-steam-activity-filter='true']")
+        ?? source;
+  } else if (button === GamepadButton.DIR_RIGHT) {
+    target = column < columnCount - 1 ? cells[index + 7] ?? source : source;
+  }
   if (target !== undefined) moveActivityGamepadFocus(event, source, target);
 }
 
@@ -252,10 +301,16 @@ function handleActivityRowDirection(event: GamepadEvent, onRevealMore: (lastRowI
     return;
   }
   const target = button === GamepadButton.DIR_UP
-    ? rows[index - 1] ?? dashboard?.querySelector<HTMLElement>("[data-steam-activity-filter-selected='true']")
+    ? rows[index - 1]
+      ?? dashboard?.querySelector<HTMLElement>("[data-steam-activity-filter-selected='true']")
+      ?? dashboard?.querySelector<HTMLElement>("[data-steam-activity-filter='true']")
     : button === GamepadButton.DIR_DOWN
       ? rows[index + 1] ?? source
-      : button === GamepadButton.DIR_LEFT || button === GamepadButton.DIR_RIGHT ? source : undefined;
+      : button === GamepadButton.DIR_RIGHT
+        ? dashboard?.querySelector<HTMLElement>("[data-steam-activity-calendar-selected='true']")
+          ?? dashboard?.querySelector<HTMLElement>("[data-steam-activity-calendar-current='true']")
+          ?? source
+        : button === GamepadButton.DIR_LEFT ? source : undefined;
   if (target !== undefined) moveActivityGamepadFocus(event, source, target);
 }
 
@@ -323,50 +378,120 @@ function AchievementActivityRow({ elementRef, entry, rowIndex, onOpenAchievement
   );
 }
 
-function ActivityCalendar({ dayCounts }: { readonly dayCounts: ReadonlyMap<number, number> }): JSX.Element {
-  const today = getLocalDayTimestamp(Date.now());
-  const mondayOffset = (new Date(today).getUTCDay() + 6) % 7;
-  // Use full Monday-Sunday weeks so the current local day is always present.
-  const start = today - (mondayOffset + 77) * DAY_MS;
-  const maximum = Math.max(1, ...dayCounts.values());
-  const days = Array.from({ length: 84 }, (_, index) => start + index * DAY_MS);
-  const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const intensity = (count: number): string => count === 0 ? "#1d3c51" : count / maximum >= .75 ? "#50d5ff" : count / maximum >= .45 ? "#2fb9ef" : count / maximum >= .2 ? "#267da9" : "#21546f";
+const ACTIVITY_CALENDAR_COLORS: Record<SteamActivityCalendarIntensity, string> = {
+  0: "#1d3c51",
+  1: "#21546f",
+  2: "#267da9",
+  3: "#2fb9ef",
+  4: "#50d5ff",
+};
+
+function ActivityCalendarDay({ day, count, intensity, selected, current, onSelect, onBack }: {
+  readonly day: number;
+  readonly count: number;
+  readonly intensity: SteamActivityCalendarIntensity;
+  readonly selected: boolean;
+  readonly current: boolean;
+  readonly onSelect: () => void;
+  readonly onBack: () => void;
+}): JSX.Element {
+  const [focused, setFocused] = useState(false);
+  const dateLabel = new Date(day).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
   return (
-    <div style={{ ...getCardStyle(), padding: 7, display: "flex", flexDirection: "column", flex: "1 1 0", minHeight: 0 }}>
+    <Focusable
+      className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
+      noFocusRing
+      role="button"
+      aria-label={`${dateLabel}, ${count} unlock${count === 1 ? "" : "s"}`}
+      aria-pressed={selected}
+      data-steam-activity-calendar-day="true"
+      data-steam-activity-calendar-current={current ? "true" : "false"}
+      data-steam-activity-calendar-day-key={day}
+      data-steam-activity-calendar-count={count}
+      data-steam-activity-calendar-intensity={intensity}
+      data-steam-activity-calendar-selected={selected ? "true" : "false"}
+      onActivate={onSelect}
+      onClick={onSelect}
+      onCancel={onBack}
+      onGamepadDirection={handleActivityCalendarDirection}
+      onFocus={() => setFocused(true)}
+      onGamepadFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={{
+        width: "100%",
+        height: "100%",
+        minHeight: 0,
+        padding: 0,
+        boxSizing: "border-box",
+        border: selected ? "1px solid #f2fbff" : "1px solid transparent",
+        borderRadius: 2,
+        outline: "none",
+        background: ACTIVITY_CALENDAR_COLORS[intensity],
+        boxShadow: focused ? "inset 0 0 0 1px #a9e9ff, 0 0 5px rgba(80, 213, 255, 0.7)" : "none",
+      }}
+    >
+      {null}
+    </Focusable>
+  );
+}
+
+function ActivityCalendar({ dayCounts, weeks, selectedDay, onSelectDay, onBack }: {
+  readonly dayCounts: ReadonlyMap<number, number>;
+  readonly weeks: SteamActivityCalendarWeeks;
+  readonly selectedDay: number | undefined;
+  readonly onSelectDay: (day: number) => void;
+  readonly onBack: () => void;
+}): JSX.Element {
+  const today = getLocalDayTimestamp(Date.now());
+  const model = useMemo(() => buildSteamActivityCalendarModel(dayCounts, weeks), [dayCounts, weeks]);
+  const start = model.days[0]?.day ?? today;
+  const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const selectedLabel = selectedDay === undefined
+    ? `Last ${weeks} weeks`
+    : new Date(selectedDay).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+  return (
+    <div data-steam-activity-calendar-weeks={weeks} data-steam-activity-calendar-effective-maximum={model.effectiveMaximum} style={{ ...getCardStyle(), padding: 7, display: "flex", flexDirection: "column", flex: "1 1 0", minHeight: 0 }}>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontWeight: 800, flex: "0 0 auto" }}>
         <span>ACTIVITY CALENDAR</span>
-        <span style={{ color: "#a7c1d2", fontWeight: 500 }}>Last 12 weeks</span>
+        <span style={{ color: selectedDay === undefined ? "#a7c1d2" : "#dff7ff", fontWeight: selectedDay === undefined ? 500 : 800 }}>{selectedLabel}</span>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "22px repeat(12, minmax(0, 1fr))", gridTemplateRows: "repeat(7, minmax(0, 1fr))", gap: 2, marginTop: 6, alignItems: "stretch", flex: "1 1 0", minHeight: 0, overflow: "hidden" }}>
+      <div style={{ display: "grid", gridTemplateColumns: `22px repeat(${weeks}, minmax(0, 1fr))`, gridTemplateRows: "repeat(7, minmax(0, 1fr))", gap: 2, marginTop: 6, alignItems: "stretch", flex: "1 1 0", minHeight: 0, overflow: "hidden" }}>
         {labels.map((label, row) => (
           <span key={label} style={{ gridColumn: 1, gridRow: row + 1, color: "#b6cbd9", fontSize: 8 }}>{label}</span>
         ))}
-        {days.map((day) => {
-          const count = dayCounts.get(day) ?? 0;
+        {model.days.map(({ day, count, intensity }) => {
           const offset = Math.floor((day - start) / DAY_MS);
+          const cell = day <= today
+            ? <ActivityCalendarDay
+                day={day}
+                count={count}
+                intensity={intensity}
+                selected={selectedDay === day}
+                current={today === day}
+                onSelect={() => onSelectDay(day)}
+                onBack={onBack}
+              />
+            : <span aria-hidden="true" style={{ display: "block", width: "100%", height: "100%", borderRadius: 2, background: ACTIVITY_CALENDAR_COLORS[0] }} />;
           return (
-            <span
+            <div
               key={day}
-              aria-label={`${count} unlocks`}
               style={{
                 gridColumn: Math.floor(offset / 7) + 2,
                 gridRow: offset % 7 + 1,
                 width: "100%",
                 height: "100%",
                 minHeight: 0,
-                boxSizing: "border-box",
-                borderRadius: 2,
-                background: intensity(count),
               }}
-            />
+            >
+              {cell}
+            </div>
           );
         })}
       </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, color: "#a9c1d1", fontSize: 8, marginTop: 6, flex: "0 0 auto" }}>
         <span>Less</span>
-        {[0, .1, .25, .5, 1].map((level) => (
-          <span key={level} style={{ width: 12, height: 12, borderRadius: 2, background: intensity(level * maximum) }} />
+        {([0, 1, 2, 3, 4] as const).map((level) => (
+          <span key={level} style={{ width: 12, height: 12, borderRadius: 2, background: ACTIVITY_CALENDAR_COLORS[level] }} />
         ))}
         <span>More</span>
       </div>
@@ -376,6 +501,7 @@ function ActivityCalendar({ dayCounts }: { readonly dayCounts: ReadonlyMap<numbe
 
 export function DeckySteamFullScreenActivityDashboard({
   snapshot,
+  calendarWeeks = DEFAULT_STEAM_ACTIVITY_CALENDAR_WEEKS,
   isActive = true,
   showSteamProfileFooter = true,
   onBack,
@@ -384,6 +510,7 @@ export function DeckySteamFullScreenActivityDashboard({
   onOpenSettings,
 }: {
   readonly snapshot: AchievementHistorySnapshot;
+  readonly calendarWeeks?: SteamActivityCalendarWeeks;
   readonly isActive?: boolean;
   readonly showSteamProfileFooter?: boolean;
   readonly onBack: () => void;
@@ -396,16 +523,39 @@ export function DeckySteamFullScreenActivityDashboard({
   const restorationTargetRef = useRef<HTMLDivElement | null>(null);
   const pendingRevealedRowIndexRef = useRef<number | null>(null);
   const [filter, setFilter] = useState<ActivityFilter>(initialPageState.filter);
+  const [selectedCalendarDay, setSelectedCalendarDay] = useState(initialPageState.selectedCalendarDay);
   const [renderLimit, setRenderLimit] = useState(initialPageState.renderLimit);
-  const entries = useMemo(() => filterActivityEntries(snapshot.entries, filter), [filter, snapshot.entries]);
+  const entries = useMemo(
+    () => filterActivityEntries(snapshot.entries, filter, selectedCalendarDay),
+    [filter, selectedCalendarDay, snapshot.entries],
+  );
   const renderedEntries = entries.slice(0, renderLimit);
   const stats = useMemo(() => buildSteamActivityStats(snapshot.entries), [snapshot.entries]);
+
+  useLayoutEffect(() => {
+    if (selectedCalendarDay === undefined) return;
+    const selectedDayIsVisible = buildSteamActivityCalendarModel(stats.dayCounts, calendarWeeks).days
+      .some(({ day }) => day === selectedCalendarDay);
+    if (selectedDayIsVisible) return;
+    setSelectedCalendarDay(undefined);
+    rememberDeckySteamActivityCalendarDay(undefined);
+  }, [calendarWeeks, selectedCalendarDay, stats.dayCounts]);
 
   const selectFilter = (nextFilter: ActivityFilter): void => {
     pendingRevealedRowIndexRef.current = null;
     setFilter(nextFilter);
+    setSelectedCalendarDay(undefined);
     setRenderLimit(STEAM_ACTIVITY_INITIAL_RENDER_LIMIT);
     rememberDeckySteamActivityFilter(nextFilter);
+  };
+
+  const selectCalendarDay = (day: number): void => {
+    pendingRevealedRowIndexRef.current = null;
+    const nextDay = selectedCalendarDay === day ? undefined : day;
+    setFilter("all");
+    setSelectedCalendarDay(nextDay);
+    setRenderLimit(STEAM_ACTIVITY_INITIAL_RENDER_LIMIT);
+    rememberDeckySteamActivityCalendarDay(nextDay);
   };
 
   const revealMore = (lastRowIndex?: number): boolean => {
@@ -484,11 +634,11 @@ export function DeckySteamFullScreenActivityDashboard({
                 data-steam-activity-filter-row
                 style={{ display: "flex", gap: 5, alignItems: "center", minWidth: 0 }}
               >
-                <ActivityFilterButton label={`All Unlocks (${formatCount(snapshot.summary.unlockedCount)})`} selected={filter === "all"} onClick={() => selectFilter("all")} onBack={onBack} />
-                <ActivityFilterButton label="Recent (90 days)" selected={filter === "recent"} onClick={() => selectFilter("recent")} onBack={onBack} />
-                <ActivityFilterButton label="This Year" selected={filter === "year"} onClick={() => selectFilter("year")} onBack={onBack} />
-                <ActivityFilterButton label="This Month" selected={filter === "month"} onClick={() => selectFilter("month")} onBack={onBack} />
-                <ActivityFilterButton label="Current Streak" selected={filter === "streak"} onClick={() => selectFilter("streak")} onBack={onBack} />
+                <ActivityFilterButton label={`All Unlocks (${formatCount(snapshot.summary.unlockedCount)})`} selected={selectedCalendarDay === undefined && filter === "all"} onClick={() => selectFilter("all")} onBack={onBack} />
+                <ActivityFilterButton label="Recent (90 days)" selected={selectedCalendarDay === undefined && filter === "recent"} onClick={() => selectFilter("recent")} onBack={onBack} />
+                <ActivityFilterButton label="This Year" selected={selectedCalendarDay === undefined && filter === "year"} onClick={() => selectFilter("year")} onBack={onBack} />
+                <ActivityFilterButton label="This Month" selected={selectedCalendarDay === undefined && filter === "month"} onClick={() => selectFilter("month")} onBack={onBack} />
+                <ActivityFilterButton label="Current Streak" selected={selectedCalendarDay === undefined && filter === "streak"} onClick={() => selectFilter("streak")} onBack={onBack} />
                 <span style={{ marginLeft: "auto", color: "#afc6d5", fontSize: 9 }}>Newest First</span>
               </Focusable>
               <Focusable
@@ -526,7 +676,13 @@ export function DeckySteamFullScreenActivityDashboard({
 
             <aside data-steam-activity-side-column style={{ display: "flex", flexDirection: "column", gap: 8, minHeight: 0, overflow: "hidden" }}>
               <ActivityInsights stats={stats} />
-              <ActivityCalendar dayCounts={stats.dayCounts} />
+              <ActivityCalendar
+                dayCounts={stats.dayCounts}
+                weeks={calendarWeeks}
+                selectedDay={selectedCalendarDay}
+                onSelectDay={selectCalendarDay}
+                onBack={onBack}
+              />
             </aside>
           </div>
         </div>

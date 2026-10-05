@@ -61,6 +61,8 @@ type OverviewCompletionBreakdown = OverviewStatSection["stats"][number]["complet
 export interface DeckyDashboardViewProps {
   readonly state: ResourceState<DashboardSnapshot>;
   readonly steamLibraryAchievementScanSummary?: SteamLibraryAchievementScanOverview;
+  readonly steamActivityEntries?: readonly RecentUnlock[];
+  readonly steamActivityKnownGames?: readonly RecentlyPlayedGame[];
   readonly steamLibraryScanAction?:
     | {
         readonly label: string;
@@ -1356,6 +1358,8 @@ function RecentlyPlayedRow({
 export function DeckyDashboardView({
   state,
   steamLibraryAchievementScanSummary,
+  steamActivityEntries,
+  steamActivityKnownGames,
   steamLibraryScanAction,
   onOpenGameDetail,
   onOpenAchievementDetail,
@@ -1456,6 +1460,8 @@ export function DeckyDashboardView({
           profile={profile}
           steamAccountProgress={steamAccountProgress}
           steamHuntersProfile={steamHuntersProfile}
+          activityEntries={steamActivityEntries ?? recentAchievements}
+          activityKnownGames={steamActivityKnownGames ?? recentlyPlayedGames}
           recentAchievements={recentAchievements}
           recentlyPlayedGames={recentlyPlayedGames}
           refreshedAt={refreshedAt}

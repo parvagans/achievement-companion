@@ -1,5 +1,5 @@
 import type { ResourceState } from "@core/cache";
-import type { DashboardSnapshot, GameDetailSnapshot, ProviderId } from "@core/domain";
+import type { AchievementHistorySnapshot, DashboardSnapshot, GameDetailSnapshot, ProviderId } from "@core/domain";
 import type { SteamHuntersProfile } from "../../providers/steamhunters/types";
 
 interface CachedState<T> {
@@ -9,6 +9,7 @@ interface CachedState<T> {
 
 const steamGameStateById = new Map<string, CachedState<GameDetailSnapshot>>();
 const steamDashboardStateByProvider = new Map<ProviderId, CachedState<DashboardSnapshot>>();
+const steamActivityStateByProvider = new Map<ProviderId, CachedState<AchievementHistorySnapshot>>();
 const steamHuntersProfileStateById = new Map<string, CachedState<SteamHuntersProfile>>();
 let sessionGeneration = 0;
 let steamDashboardRefreshClaimed = false;
@@ -86,6 +87,16 @@ export function claimDeckyCompactSteamDashboardRefresh(): boolean {
   return true;
 }
 
+export function readDeckyCompactSteamActivityState(): ResourceState<AchievementHistorySnapshot> | undefined {
+  return readState(steamActivityStateByProvider, "steam");
+}
+
+export function loadDeckyCompactSteamActivityState(
+  loader: () => Promise<ResourceState<AchievementHistorySnapshot>>,
+): Promise<ResourceState<AchievementHistorySnapshot>> {
+  return loadOnce(steamActivityStateByProvider, "steam", loader);
+}
+
 export function readDeckyCompactSteamHuntersProfileState(
   steamId: string,
 ): ResourceState<SteamHuntersProfile> | undefined {
@@ -105,5 +116,6 @@ export function clearDeckyCompactSessionResources(): void {
   steamDashboardRefreshClaimed = false;
   steamGameStateById.clear();
   steamDashboardStateByProvider.clear();
+  steamActivityStateByProvider.clear();
   steamHuntersProfileStateById.clear();
 }

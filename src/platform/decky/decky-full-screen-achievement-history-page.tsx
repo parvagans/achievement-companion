@@ -29,9 +29,11 @@ import { formatDeckyNumericText } from "./decky-number-format";
 import { formatDeckyProviderLabel } from "./providers";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
 import { DeckySteamFullScreenActivityDashboard } from "./decky-steam-full-screen-activity-dashboard";
+import type { SteamActivityCalendarWeeks } from "./decky-steam-activity-calendar-model";
 
 export interface DeckyFullScreenAchievementHistoryPageProps {
   readonly providerId: string | undefined;
+  readonly activityCalendarWeeks?: SteamActivityCalendarWeeks;
   readonly isActive?: boolean;
   readonly showSteamProfileFooter?: boolean;
   readonly onBack: () => void;
@@ -672,6 +674,7 @@ function AchievementHistoryBrowser({
 
 export function DeckyFullScreenAchievementHistoryPage({
   providerId,
+  activityCalendarWeeks,
   isActive = true,
   showSteamProfileFooter = true,
   onBack,
@@ -750,6 +753,7 @@ export function DeckyFullScreenAchievementHistoryPage({
     return (
       <DeckySteamFullScreenActivityDashboard
         snapshot={snapshot}
+        {...(activityCalendarWeeks !== undefined ? { calendarWeeks: activityCalendarWeeks } : {})}
         isActive={isActive}
         showSteamProfileFooter={showSteamProfileFooter}
         onBack={onBack}

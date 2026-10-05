@@ -31,9 +31,11 @@ import { createDeckyNavigationPort } from "./decky-navigation";
 import {
   createDeckyPlatform,
   initialDeckyBootstrapState,
+  initialDeckyAchievementHistoryState,
   initialDeckyGameDetailState,
   initialDeckySteamHuntersProfileState,
   loadDeckyDashboardState,
+  loadDeckyAchievementHistoryState,
   loadDeckyGameDetailState,
   loadDeckySteamHuntersProfileState,
   refreshDeckySteamHuntersProfileState,
@@ -71,9 +73,11 @@ import { resolveDeckyCompactAchievementResource } from "./decky-compact-achievem
 import {
   claimDeckyCompactSteamDashboardRefresh,
   loadDeckyCompactSteamDashboardState,
+  loadDeckyCompactSteamActivityState,
   loadDeckyCompactSteamGameState,
   loadDeckyCompactSteamHuntersProfileState,
   readDeckyCompactSteamDashboardState,
+  readDeckyCompactSteamActivityState,
   readDeckyCompactSteamGameState,
   readDeckyCompactSteamHuntersProfileState,
 } from "./decky-compact-session-resources";
@@ -601,6 +605,18 @@ function DashboardScreen({
     ? readDeckyCompactSteamDashboardState() ?? initialDeckyBootstrapState
     : initialDeckyBootstrapState;
   const state = useAsyncResourceState(dashboardLoader, initialDashboardState);
+  const steamActivityLoader = useMemo(
+    () => () => providerId === STEAM_PROVIDER_ID
+      ? loadDeckyCompactSteamActivityState(() => loadDeckyAchievementHistoryState(providerId))
+      : Promise.resolve(initialDeckyAchievementHistoryState),
+    [dashboardRefreshNonce, providerId],
+  );
+  const steamActivityState = useAsyncResourceState(
+    steamActivityLoader,
+    providerId === STEAM_PROVIDER_ID
+      ? readDeckyCompactSteamActivityState() ?? initialDeckyAchievementHistoryState
+      : initialDeckyAchievementHistoryState,
+  );
   const steamId = providerId === STEAM_PROVIDER_ID
     ? (providerConfig as SteamProviderConfig | undefined)?.steamId64.trim()
     : undefined;
@@ -726,6 +742,12 @@ function DashboardScreen({
   return isRenderableDashboardState(visibleState) && !isSteamCompactProfileLoading ? (
     <DeckyDashboardView
       state={visibleState}
+      {...(providerId === STEAM_PROVIDER_ID && state.data !== undefined
+        ? { steamActivityKnownGames: state.data.recentlyPlayedGames }
+        : {})}
+      {...(providerId === STEAM_PROVIDER_ID && steamActivityState.data !== undefined
+        ? { steamActivityEntries: steamActivityState.data.entries }
+        : {})}
       {...(steamLibraryAchievementScanSummary !== undefined
         ? { steamLibraryAchievementScanSummary }
         : {})}

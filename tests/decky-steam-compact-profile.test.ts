@@ -58,7 +58,7 @@ test("Steam compact profile matches the refined controller-first information hie
   assert.match(compactProfileSource, /target\.scrollIntoView/u);
   assert.match(compactProfileSource, /scrollCompactViewToTop/u);
   assert.doesNotMatch(compactProfileSource, /getWideViewAllActionStyle/u);
-  assert.doesNotMatch(compactProfileSource, /onGamepadDirection|createElement\("audio"\)|\.focus\(\)|\/sounds\//u);
+  assert.doesNotMatch(compactProfileSource, /createElement\("audio"\)|\.focus\(\)|\/sounds\//u);
   assert.doesNotMatch(compactProfileSource, /hasEnteredActionNavigation/u);
   assert.match(compactProfileSource, /useQuickAccessVisible\(\)/u);
   assert.match(compactProfileSource, /subscribeToDeckySteamCompactFocusRestore/u);
@@ -68,18 +68,38 @@ test("Steam compact profile matches the refined controller-first information hie
   assert.match(compactProfileSource, /requestDeckySteamGamepadFocusAfterMount\(target\)/u);
   assert.ok(compactProfileSource.includes("<DeckyGameArtwork compact src={artworkUrl} size={34} title={game.title} />"));
   assert.ok(compactProfileSource.includes("Steam and SteamHunters refreshed ${refreshTime}"));
-  assert.match(compactProfileSource, /recentAchievements\.map/u);
-  assert.match(compactProfileSource, /recentlyPlayedGames\.map/u);
+  assert.match(compactProfileSource, /visibleAchievements\.map/u);
+  assert.match(compactProfileSource, /visibleGames\.map/u);
+  const steamHuntersSection = compactProfileSource.indexOf('<SectionHeader title="SteamHunters Profile" />');
+  const activityCalendar = compactProfileSource.indexOf("<CompactActivityCalendar", steamHuntersSection);
   const recentActivityHeader = compactProfileSource.indexOf('<SectionHeader title="Recent Activity" />');
-  const recentActivityRows = compactProfileSource.indexOf('recentAchievements.map', recentActivityHeader);
+  const recentActivityRows = compactProfileSource.indexOf('visibleAchievements.map', recentActivityHeader);
   const recentActivityViewAll = compactProfileSource.indexOf('<ViewAllAction', recentActivityRows);
   const recentlyPlayedHeader = compactProfileSource.indexOf('<SectionHeader title="Recently Played" />');
-  const recentlyPlayedRows = compactProfileSource.indexOf('recentlyPlayedGames.map', recentlyPlayedHeader);
+  const recentlyPlayedRows = compactProfileSource.indexOf('visibleGames.map', recentlyPlayedHeader);
   const recentlyPlayedViewAll = compactProfileSource.indexOf('<ViewAllAction', recentlyPlayedRows);
+  assert.ok(steamHuntersSection >= 0 && steamHuntersSection < activityCalendar);
+  assert.ok(activityCalendar < recentActivityHeader);
   assert.ok(recentActivityHeader >= 0 && recentActivityHeader < recentActivityRows);
   assert.ok(recentActivityRows < recentActivityViewAll && recentActivityViewAll < recentlyPlayedHeader);
   assert.ok(recentlyPlayedHeader < recentlyPlayedRows && recentlyPlayedRows < recentlyPlayedViewAll);
 
+});
+
+test("Steam compact Activity calendar overrides configured list limits until its date is cleared", () => {
+  assert.match(compactProfileSource, /STEAM_COMPACT_ACTIVITY_CALENDAR_WEEKS/u);
+  assert.match(compactProfileSource, /buildSteamActivityStats\(activityEntries\)/u);
+  assert.match(compactProfileSource, /filterSteamActivityEntriesForDay\(activityEntries, selectedActivityDay\)/u);
+  assert.match(compactProfileSource, /buildSteamCompactActivityGamesForDay\(visibleAchievements, activityKnownGames\)/u);
+  assert.match(compactProfileSource, /selectedActivityDay === day \? undefined : day/u);
+  assert.match(compactProfileSource, /setDeckySteamCompactActivityDay\(nextDay\)/u);
+  assert.match(compactProfileSource, /data-steam-compact-activity-calendar-day="true"/u);
+  assert.match(compactProfileSource, /onGamepadDirection=\{handleCompactCalendarDirection\}/u);
+  assert.match(compactProfileSource, /data-steam-compact-profile-action/u);
+  assert.match(compactProfileSource, /data-steam-compact-recent-activity-count=\{visibleAchievements\.length\}/u);
+  assert.match(compactProfileSource, /data-steam-compact-recently-played-count=\{visibleGames\.length\}/u);
+  assert.match(dashboardSource, /activityEntries=\{steamActivityEntries \?\? recentAchievements\}/u);
+  assert.match(bootstrapSource, /loadDeckyCompactSteamActivityState/u);
 });
 
 test("Steam compact achievement details focus a child control instead of trapping QAM navigation on the page wrapper", () => {

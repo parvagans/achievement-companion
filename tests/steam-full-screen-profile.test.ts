@@ -572,7 +572,7 @@ test("steam full-screen profile uses the requested top-row and equal lower-row d
 });
 
 test("steam activity dashboard derives timeline metrics from timestamped unlock history without fabricating rarity", async () => {
-  const [activitySource, historySource, activityDataSource] = await Promise.all([
+  const [activitySource, historySource, activityDataSource, calendarModelSource] = await Promise.all([
     readFile(
       new URL("../src/platform/decky/decky-steam-full-screen-activity-dashboard.tsx", import.meta.url),
       "utf8",
@@ -585,16 +585,24 @@ test("steam activity dashboard derives timeline metrics from timestamped unlock 
       new URL("../src/platform/decky/decky-steam-activity-data.ts", import.meta.url),
       "utf8",
     ),
+    readFile(
+      new URL("../src/platform/decky/decky-steam-activity-calendar-model.ts", import.meta.url),
+      "utf8",
+    ),
   ]);
 
   assert.match(historySource, /snapshot\.providerId === STEAM_PROVIDER_ID[\s\S]*DeckySteamFullScreenActivityDashboard/u);
   assert.match(activitySource, /data-steam-full-screen-activity-dashboard/u);
   assert.match(activityDataSource, /getCurrentStreak[\s\S]*getLongestStreak/u);
-  assert.match(activitySource, /ACTIVITY CALENDAR[\s\S]*Last 12 weeks/u);
+  assert.match(activitySource, /selectedLabel[\s\S]*Last \$\{weeks\} weeks/u);
+  assert.match(calendarModelSource, /STEAM_ACTIVITY_CALENDAR_WEEK_OPTIONS = \[4, 6, 8, 10, 12\]/u);
+  assert.match(calendarModelSource, /nonzeroCounts[\s\S]*Math\.ceil\(nonzeroCounts\.length \* 0\.9\)/u);
   assert.match(activitySource, /Array\.from\(\{ length: 30 \}/u);
   assert.match(activitySource, /Last 30 days/u);
   assert.match(activitySource, /\["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"\]/u);
   assert.match(activitySource, /<span>Less<\/span>[\s\S]*<span>More<\/span>/u);
+  assert.match(activitySource, /aria-pressed=\{selected\}[\s\S]*data-steam-activity-calendar-day="true"/u);
+  assert.match(activitySource, /selectedCalendarDay[\s\S]*getLocalDayTimestamp\(timestamp\) === selectedCalendarDay/u);
   assert.match(activitySource, /gridTemplateRows: "repeat\(7, minmax\(0, 1fr\)\)"[\s\S]*height: "100%"[\s\S]*flex: "0 0 auto"/u);
   assert.doesNotMatch(activitySource, /aspectRatio: "1"/u);
   assert.doesNotMatch(activitySource, /Unlocks by day/u);
