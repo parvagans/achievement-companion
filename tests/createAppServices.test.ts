@@ -11962,6 +11962,7 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(bubbleSource, /PROGRESS_RING_STROKE_WIDTH = 7\.5/u);
   assert.match(bubbleSource, /data-ac-game-page-badge-gloss="true"/u);
   assert.match(bubbleSource, /radial-gradient\(120% 90% at 42% -24%/u);
+  assert.match(bubbleSource, /radial-gradient\(70% 58% at 44% 0%/u);
   assert.match(bubbleSource, /data-ac-game-page-badge-variant/u);
   assert.match(bubbleSource, /GAME_PAGE_ACHIEVEMENT_BADGE_FOCUS_CSS/u);
   assert.match(bubbleSource, /\.ac-game-page-achievement-badge:is\(\.gpfocus,\.gpfocuswithin,:focus,:focus-within\)/u);

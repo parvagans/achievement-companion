@@ -89,16 +89,16 @@ function getBadgeShellStyle(palette: DeckyGamePageAchievementBadgePalette, focus
     border: `2px solid ${palette.border}`,
     borderRadius: BADGE_HEIGHT / 2,
     background: [
-      "radial-gradient(120% 90% at 42% -24%, rgba(255,255,255,.24) 0%, rgba(255,255,255,.08) 34%, transparent 59%)",
-      "linear-gradient(180deg, rgba(255,255,255,.12) 0%, rgba(255,255,255,.025) 42%, rgba(0,0,0,.16) 100%)",
+      "radial-gradient(120% 90% at 42% -24%, rgba(255,255,255,.36) 0%, rgba(255,255,255,.13) 34%, transparent 60%)",
+      "linear-gradient(180deg, rgba(255,255,255,.18) 0%, rgba(255,255,255,.045) 43%, rgba(0,0,0,.18) 100%)",
       `linear-gradient(100deg, ${palette.surfaceDeep} 0%, ${palette.surface} 68%, ${palette.surfaceDeep} 100%)`,
     ].join(", "),
     // Keep the glow inside the rounded shell. Steam's focused compositing layer
     // clips exterior shadows to a rectangle, which makes a square halo appear
     // around an otherwise pill-shaped control on physical Deck hardware.
     boxShadow: focused
-      ? `inset 0 0 0 2px rgba(255,255,255,.98), inset 0 2px 2px rgba(255,255,255,.28), inset 0 -8px 15px rgba(0,0,0,.24), inset 0 0 22px ${palette.glow}`
-      : `inset 0 0 0 1px rgba(0,0,0,.72), inset 0 2px 2px rgba(255,255,255,.19), inset 0 -7px 14px rgba(0,0,0,.22), inset 0 0 17px ${palette.glow}`,
+      ? `inset 0 0 0 2px rgba(255,255,255,.98), inset 0 3px 3px rgba(255,255,255,.42), inset 0 -9px 16px rgba(0,0,0,.27), inset 0 0 22px ${palette.glow}`
+      : `inset 0 0 0 1px rgba(0,0,0,.72), inset 0 3px 3px rgba(255,255,255,.3), inset 0 -8px 15px rgba(0,0,0,.25), inset 0 0 17px ${palette.glow}`,
     color: "#f8fbff",
     fontFamily: '"Motiva Sans", Arial, sans-serif',
     pointerEvents: "none",
@@ -115,8 +115,9 @@ function getBadgeGlossOverlayStyle(): CSSProperties {
     inset: 2,
     borderRadius: BADGE_HEIGHT / 2,
     background: [
-      "linear-gradient(180deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,.05) 26%, transparent 50%)",
-      "linear-gradient(116deg, transparent 0%, transparent 17%, rgba(255,255,255,.13) 21%, transparent 27%, transparent 72%, rgba(255,255,255,.07) 78%, transparent 84%)",
+      "radial-gradient(70% 58% at 44% 0%, rgba(255,255,255,.42) 0%, rgba(255,255,255,.16) 37%, transparent 72%)",
+      "linear-gradient(180deg, rgba(255,255,255,.27) 0%, rgba(255,255,255,.09) 28%, transparent 52%)",
+      "linear-gradient(116deg, transparent 0%, transparent 15%, rgba(255,255,255,.24) 20%, transparent 27%, transparent 69%, rgba(255,255,255,.13) 77%, transparent 85%)",
     ].join(", "),
     pointerEvents: "none",
   };
@@ -142,10 +143,10 @@ function getPlatformMedallionStyle(palette: DeckyGamePageAchievementBadgePalette
     border: `2px solid ${palette.accentBright}`,
     borderRadius: "50%",
     background: [
-      "radial-gradient(circle at 35% 22%, rgba(255,255,255,.34) 0%, rgba(255,255,255,.1) 17%, transparent 38%)",
+      "radial-gradient(circle at 35% 20%, rgba(255,255,255,.52) 0%, rgba(255,255,255,.18) 18%, transparent 41%)",
       `radial-gradient(circle at 38% 30%, ${palette.surface} 0%, ${palette.surfaceDeep} 72%)`,
     ].join(", "),
-    boxShadow: `0 0 16px ${palette.glow}, inset 0 2px 2px rgba(255,255,255,.3), inset 0 -8px 12px rgba(0,0,0,.26), inset 0 0 13px ${palette.glow}`,
+    boxShadow: `0 0 16px ${palette.glow}, inset 0 3px 3px rgba(255,255,255,.46), inset 0 -9px 13px rgba(0,0,0,.29), inset 0 0 13px ${palette.glow}`,
   };
 }
 
@@ -250,7 +251,7 @@ function renderProgressRing(
           <stop offset="1" stopColor={palette.accentBright} stopOpacity="0.78" />
         </linearGradient>
         <radialGradient cx="36%" cy="27%" id={ringCenterGradientId} r="72%">
-          <stop offset="0" stopColor="rgba(255,255,255,.16)" />
+          <stop offset="0" stopColor="rgba(255,255,255,.3)" />
           <stop offset="0.42" stopColor="rgba(10,20,34,.78)" />
           <stop offset="1" stopColor="rgba(3,8,15,.92)" />
         </radialGradient>
@@ -269,7 +270,7 @@ function renderProgressRing(
         style={{ filter: `drop-shadow(0 0 4px ${palette.glow})` }}
         transform="rotate(-90 27 27)"
       />
-      <path d="M15.5 17.5a18 18 0 0 1 22-5.2" fill="none" stroke="rgba(255,255,255,.32)" strokeLinecap="round" strokeWidth="1.2" />
+      <path d="M15.5 17.5a18 18 0 0 1 22-5.2" fill="none" stroke="rgba(255,255,255,.54)" strokeLinecap="round" strokeWidth="1.35" />
       {completed ? (
         <path d="m18 27 6 6 13-14" fill="none" stroke={palette.accentBright} strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" />
       ) : null}
