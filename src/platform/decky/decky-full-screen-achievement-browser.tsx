@@ -1,4 +1,4 @@
-import { useRef, useState, type CSSProperties, type ComponentProps, type FocusEventHandler } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ComponentProps, type FocusEventHandler } from "react";
 import type { NormalizedAchievement } from "@core/domain";
 import {
   Field,
@@ -21,8 +21,10 @@ import type {
   SteamHuntersAchievementGroup,
 } from "../../providers/steamhunters";
 import { steamRecipes, steamTheme } from "./steam-theme";
+import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
 
 const ACHIEVEMENT_FILTERS = ["all", "unlocked", "locked"] as const;
+const STEAM_ACHIEVEMENT_RENDER_STEP = 36;
 const ACHIEVEMENT_MODE_FILTERS = ["all", "hardcore", "softcore"] as const;
 const ACHIEVEMENT_GROUP_FILTERS = ["all", "base-game", "dlc", "update"] as const;
 const ACHIEVEMENT_AVAILABILITY_FILTERS = [
@@ -268,19 +270,19 @@ function getAchievementFilterButtonLabelStyle(): CSSProperties {
 
 function getSteamAchievementFilterButtonStyle(selected: boolean, focused: boolean): CSSProperties {
   return {
-    ...steamRecipes.filter("fullscreen", selected),
+    ...steamRecipes.filterTab("fullscreen", selected),
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
     minWidth: 0,
-    minHeight: steamTheme.density.fullscreen.controlHeight,
-    padding: "8px 12px",
-    borderRadius: steamTheme.radius.medium,
+    minHeight: 34,
+    padding: "6px 10px",
+    borderRadius: 0,
     boxSizing: "border-box",
-    border: `1px solid ${focused ? steamTheme.focus.border : selected ? steamTheme.color.borderStrong : steamTheme.color.borderSubtle}`,
-    background: focused ? steamTheme.focus.background : selected ? steamTheme.surface.selected : steamTheme.surface.secondaryAction,
-    color: selected ? steamTheme.color.textPrimary : steamTheme.color.textSecondary,
+    border: `1px solid ${focused ? steamTheme.focus.border : "transparent"}`,
+    background: focused ? "rgba(21, 74, 107, 0.5)" : "transparent",
+    color: selected ? steamTheme.selection.compactText : steamTheme.color.textSecondary,
     fontSize: "0.9em",
     fontWeight: selected ? 800 : 700,
     lineHeight: 1.1,
@@ -289,7 +291,7 @@ function getSteamAchievementFilterButtonStyle(selected: boolean, focused: boolea
     cursor: "pointer",
     outline: focused ? `2px solid ${steamTheme.focus.border}` : "none",
     outlineOffset: 1,
-    boxShadow: focused ? steamTheme.focus.shadow : "none",
+    boxShadow: focused ? `${steamTheme.focus.shadow}${selected ? `, ${steamTheme.selection.compactUnderline}` : ""}` : selected ? steamTheme.selection.compactUnderline : "none",
   };
 }
 
@@ -299,6 +301,8 @@ function getSteamAchievementSelectButtonStyle(focused: boolean): CSSProperties {
     justifyContent: "space-between",
     gap: 8,
     paddingInline: 14,
+    borderRadius: steamTheme.radius.medium,
+    border: `1px solid ${focused ? steamTheme.focus.border : steamTheme.color.borderSubtle}`,
     background: focused
       ? "linear-gradient(180deg, rgba(21, 64, 91, 0.9), rgba(12, 34, 53, 0.88))"
       : "linear-gradient(180deg, rgba(18, 36, 51, 0.9), rgba(11, 25, 38, 0.88))",
@@ -568,6 +572,7 @@ export interface DeckyFullScreenAchievementBrowserProps {
   readonly achievements: readonly NormalizedAchievement[];
   readonly providerId: string | undefined;
   readonly filteredAchievementCount: number;
+  readonly initialRenderLimit?: number;
   readonly onAchievementFilterChange: (filter: AchievementFilter) => void;
   readonly onAchievementModeFilterChange: (filter: AchievementModeFilter) => void;
   readonly onAchievementGroupFilterChange: (filter: AchievementGroupFilter) => void;
@@ -583,7 +588,7 @@ export interface DeckyFullScreenAchievementBrowserProps {
 
 export function DeckyFullScreenAchievementBrowser({
   achievementFilter, achievementModeFilter, achievementGroupFilter, achievementAvailabilityFilter,
-  achievementSummary, allAchievements, achievements, providerId,
+  achievementSummary, allAchievements, achievements, providerId, initialRenderLimit,
   filteredAchievementCount, onAchievementFilterChange, onAchievementModeFilterChange,
   onAchievementGroupFilterChange, onAchievementAvailabilityFilterChange,
   onOpenAchievementDetail, onBack, onJumpToTop, onFocusAchievement, steamHuntersAchievementsBySteamAchievementId,
@@ -591,12 +596,30 @@ export function DeckyFullScreenAchievementBrowser({
 }: DeckyFullScreenAchievementBrowserProps): JSX.Element {
   const showAchievementModeFilter = shouldRenderAchievementModeFilter(providerId);
   const isSteamProvider = providerId === "steam";
+  const browserRef = useRef<HTMLDivElement>(null);
+  const [renderLimit, setRenderLimit] = useState(Math.max(STEAM_ACHIEVEMENT_RENDER_STEP, initialRenderLimit ?? 0));
+  const [revealedAchievementId, setRevealedAchievementId] = useState<string | undefined>(undefined);
+  const hasMountedFilters = useRef(false);
+  useEffect(() => {
+    if (!hasMountedFilters.current) { hasMountedFilters.current = true; return; }
+    setRenderLimit(STEAM_ACHIEVEMENT_RENDER_STEP);
+  }, [achievementFilter, achievementGroupFilter, achievementAvailabilityFilter]);
+  useLayoutEffect(() => {
+    if (revealedAchievementId === undefined) return;
+    const target = Array.from(browserRef.current?.querySelectorAll<HTMLElement>("[data-achievement-companion-steam-achievement-id]") ?? [])
+      .find((element) => element.dataset["achievementCompanionSteamAchievementId"] === revealedAchievementId);
+    if (target === undefined) return;
+    target.scrollIntoView({ block: "center", inline: "nearest" });
+    return requestDeckySteamGamepadFocusAfterMount(target);
+  }, [renderLimit, revealedAchievementId]);
+  const renderedAchievements = isSteamProvider ? achievements.slice(0, renderLimit) : achievements;
   const groupOptions = getAchievementGroupFilterOptions(allAchievements, steamHuntersAchievementGroupsBySteamAchievementId, steamHuntersAchievementGroups);
   const availabilityOptions = getAchievementAvailabilityFilterOptions(allAchievements, steamHuntersAchievementsBySteamAchievementId);
   const visibleGroupFilter = groupOptions.includes(achievementGroupFilter) ? achievementGroupFilter : "all";
   const visibleAvailabilityFilter = availabilityOptions.includes(achievementAvailabilityFilter) ? achievementAvailabilityFilter : "all";
   return (
     <Focusable
+      ref={browserRef}
       flow-children="vertical"
       navEntryPreferPosition={NavEntryPositionPreferences.FIRST}
       noFocusRing
@@ -681,7 +704,7 @@ export function DeckyFullScreenAchievementBrowser({
           tabIndex={-1}
           style={getAchievementRowsLayoutStyle()}
         >
-          {achievements.map((achievement) => (
+          {renderedAchievements.map((achievement) => (
             <PanelSectionRow key={achievement.achievementId}>
               <DeckyFullScreenAchievementRow
                 achievement={achievement}
@@ -693,6 +716,14 @@ export function DeckyFullScreenAchievementBrowser({
               />
             </PanelSectionRow>
           ))}
+          {isSteamProvider && renderedAchievements.length < achievements.length ? <Focusable
+            noFocusRing role="button" data-steam-achievements-show-more="true"
+            aria-label={`Show ${Math.min(STEAM_ACHIEVEMENT_RENDER_STEP, achievements.length - renderedAchievements.length)} more achievements`}
+            onActivate={() => { setRevealedAchievementId(achievements[renderLimit]?.achievementId); setRenderLimit((current) => current + STEAM_ACHIEVEMENT_RENDER_STEP); }}
+            onClick={() => { setRevealedAchievementId(achievements[renderLimit]?.achievementId); setRenderLimit((current) => current + STEAM_ACHIEVEMENT_RENDER_STEP); }}
+            onCancel={onBack}
+            style={{ ...steamRecipes.action("fullscreen"), display: "grid", placeItems: "center", width: "100%", borderRadius: steamTheme.radius.medium }}
+          >{`Show ${Math.min(STEAM_ACHIEVEMENT_RENDER_STEP, achievements.length - renderedAchievements.length)} more achievements`}</Focusable> : null}
         </Focusable>
       ) : (
         <PanelSectionRow>

@@ -1,12 +1,17 @@
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
+import { loadSteamStoreHeaderArtwork } from "./decky-steam-store-artwork";
 
 export interface DeckyGameArtworkProps {
   readonly src?: string;
+  readonly fallbackSrc?: string | undefined;
+  readonly steamAppId?: number;
   readonly title: string;
   readonly size: number;
   readonly width?: number;
   readonly height?: number;
   readonly compact?: boolean;
+  readonly fit?: "cover" | "contain";
+  readonly fluid?: boolean;
 }
 
 function getFallbackInitials(title: string): string {
@@ -65,20 +70,30 @@ function getArtworkFallbackStyle(): CSSProperties {
 
 export function DeckyGameArtwork({
   src,
+  fallbackSrc,
+  steamAppId,
   title,
   size,
   width = size,
   height = size,
   compact = false,
+  fit = "cover",
+  fluid = false,
 }: DeckyGameArtworkProps): JSX.Element | null {
+  const [failedSource, setFailedSource] = useState<string | undefined>(undefined);
   const [hasImageError, setHasImageError] = useState(false);
+  const [storeFallbackSrc, setStoreFallbackSrc] = useState<string | undefined>(undefined);
+  useEffect(() => { setFailedSource(undefined); setHasImageError(false); setStoreFallbackSrc(undefined); }, [src, fallbackSrc, steamAppId]);
 
-  if (src === undefined) {
+  if (src === undefined && fallbackSrc === undefined) {
     return null;
   }
 
+  const resolvedFallbackSrc = fallbackSrc ?? storeFallbackSrc;
+  const displayedSource = failedSource === src ? resolvedFallbackSrc : src ?? resolvedFallbackSrc;
+
   return (
-    <span aria-hidden="true" style={getArtworkFrameStyle(width, height, compact)}>
+    <span aria-hidden="true" style={{ ...getArtworkFrameStyle(width, height, compact), ...(fluid ? { width: "100%", height: "100%", minWidth: 0, flexShrink: 1 } : {}) }}>
       {hasImageError ? (
         <span style={getArtworkFallbackStyle()}>{getFallbackInitials(title)}</span>
       ) : (
@@ -86,11 +101,18 @@ export function DeckyGameArtwork({
           alt=""
           loading="lazy"
           referrerPolicy="no-referrer"
-          src={src}
+          src={displayedSource}
           onError={() => {
-            setHasImageError(true);
+            if (displayedSource === src && resolvedFallbackSrc !== undefined && resolvedFallbackSrc !== src) {
+              setFailedSource(src);
+            } else if (displayedSource === src && steamAppId !== undefined && storeFallbackSrc === undefined) {
+              void loadSteamStoreHeaderArtwork(steamAppId).then((url) => {
+                if (url !== undefined && url !== src) { setStoreFallbackSrc(url); setFailedSource(src); }
+                else setHasImageError(true);
+              });
+            } else setHasImageError(true);
           }}
-          style={getArtworkImageStyle()}
+          style={{ ...getArtworkImageStyle(), objectFit: fit }}
         />
       )}
     </span>

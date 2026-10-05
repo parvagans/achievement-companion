@@ -20,10 +20,11 @@ import {
   buildDeckySteamAchievementGroupSections,
   hasDeckySteamAchievementGroups,
   sortDeckySteamAchievementGroupAchievements,
-} from "../src/platform/decky/decky-steam-achievement-groups-section";
+} from "../src/platform/decky/decky-steam-achievement-groups-model";
 import {
   formatSteamHuntersCompletionDuration,
   formatSteamHuntersPercentage,
+  formatSteamHuntersPlayersUnlocked,
 } from "../src/platform/decky/decky-steam-hunters-presentation";
 
 function steamAchievement(achievementId: string, title = achievementId): NormalizedAchievement {
@@ -230,6 +231,11 @@ test("SteamHunters percentage presentation is concise", () => {
   assert.equal(formatSteamHuntersPercentage(12), "12%");
 });
 
+test("SteamHunters player ratio marks its rate-derived unlock count as approximate", () => {
+  assert.equal(formatSteamHuntersPlayersUnlocked(25, 200), "≈50 / 200");
+  assert.equal(formatSteamHuntersPlayersUnlocked(undefined, 200), "—");
+});
+
 test("SteamHunters completion durations render whole API minutes as hours and minutes", () => {
   assert.equal(formatSteamHuntersCompletionDuration(5843), "97h 23m");
   assert.equal(formatSteamHuntersCompletionDuration(1802), "30h 2m");
@@ -322,6 +328,25 @@ test("SteamHunters composition preserves Steam truth and enriches only exact mat
     { achievementApiNames: ["API_ONE"], dlcAppId: 123, dlcAppName: "Creeping Winter" },
   ]);
   assert.equal(composeSteamGameDetailWithSteamHunters(snapshot, undefined), snapshot);
+});
+
+test("SteamHunters fills only missing Steam achievement descriptions and provides base art", () => {
+  const snapshot = steamGameDetailSnapshot();
+  const described = { ...snapshot, achievements: [
+    { ...snapshot.achievements[0]!, description: "No description was returned for this achievement." },
+    { ...snapshot.achievements[1]!, description: "Steam description" },
+  ] };
+  const composed = composeSteamGameDetailWithSteamHunters(described, {
+    app: { appId: 1672970, tags: [] },
+    achievements: [
+      { apiName: "API_ONE", description: "SteamHunters description", obtainability: "obtainable" },
+      { apiName: "API_TWO", description: "Different description", obtainability: "obtainable" },
+    ],
+    groups: [{ achievementApiNames: ["API_ONE"], bannerUrl: "https://example.test/base.jpg" }],
+  });
+  assert.equal(composed.achievements[0]?.description, "SteamHunters description");
+  assert.equal(composed.achievements[1]?.description, "Steam description");
+  assert.equal(composed.steamHunters?.achievementGroups[0]?.bannerUrl, "https://example.test/base.jpg");
 });
 
 test("Steam achievement groups retain base, DLC, update, and ungrouped achievements", () => {

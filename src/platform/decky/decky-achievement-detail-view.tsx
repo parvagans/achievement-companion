@@ -16,6 +16,11 @@ import type {
   CompactAchievementTone,
 } from "./decky-compact-achievement-model";
 import { steamRecipes, steamTheme } from "./steam-theme";
+import { DeckySteamHuntersIcon } from "./decky-steam-icons";
+import calendarIconUrl from "./assets/calendar.svg";
+import clockIconUrl from "./assets/clock.svg";
+import usersIconUrl from "./assets/users.svg";
+import pieChartIconUrl from "./assets/pie-chart.svg";
 
 type DeckyGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
 
@@ -208,8 +213,8 @@ function getAchievementHeadingStyle(isFocused: boolean, isSteam = false): CSSPro
     margin: "-3px",
     padding: 3,
     borderRadius: 9,
-    border: isFocused ? isSteam ? `1px solid ${steamTheme.focus.border}` : "1px solid rgba(54, 185, 255, 0.2)" : "1px solid transparent",
-    boxShadow: isFocused ? isSteam ? steamTheme.focus.insetShadow : "inset 0 0 0 1px rgba(54, 185, 255, 0.07)" : "none",
+    border: isFocused ? "1px solid rgba(54, 185, 255, 0.2)" : "1px solid transparent",
+    boxShadow: isFocused ? "inset 0 0 0 1px rgba(54, 185, 255, 0.07)" : "none",
     transition: "border-color 120ms ease, box-shadow 120ms ease",
   };
 }
@@ -234,9 +239,13 @@ function getChevronStyle(): CSSProperties {
 }
 
 function DetailStat({ stat, fullWidth, isSteam = false }: { readonly stat: CompactAchievementDetailStat; readonly fullWidth: boolean; readonly isSteam?: boolean }): JSX.Element {
+  const iconUrl = stat.key === "date" ? calendarIconUrl : stat.key === "time" ? clockIconUrl : stat.key === "community-percentage" ? pieChartIconUrl : stat.key === "players" ? usersIconUrl : undefined;
   return (
     <div style={{ ...getStatStyle(isSteam), ...(fullWidth ? { gridColumn: "1 / -1" } : {}) }}>
-      <div style={getStatLabelStyle(isSteam)}>{stat.label}</div>
+      {isSteam ? <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+        {stat.key === "points" ? <DeckySteamHuntersIcon color={steamTheme.color.accent} size={15} /> : iconUrl !== undefined ? <img alt="" aria-hidden="true" src={iconUrl} style={{ width: 15, height: 15, filter: steamTheme.iconFilter.accent }} /> : null}
+        <div style={getStatLabelStyle(isSteam)}>{stat.label}</div>
+      </div> : <div style={getStatLabelStyle(isSteam)}>{stat.label}</div>}
       <div style={getStatValueStyle(isSteam)}>{stat.value}</div>
       {stat.secondary !== undefined ? <div style={getStatSecondaryStyle(isSteam)}>{stat.secondary}</div> : null}
     </div>
@@ -271,7 +280,7 @@ function DetailBlock({ block, isSteam = false }: { readonly block: CompactAchiev
       <div style={getSectionStyle()}>
         <div style={getSectionLabelStyle(isSteam)}>{block.title}</div>
         <div style={getStatsGridStyle(block.columns)}>
-          {block.stats.map((stat) => <DetailStat key={stat.key} stat={stat} fullWidth={false} isSteam={isSteam} />)}
+          {block.stats.map((stat) => <DetailStat key={stat.key} stat={stat} fullWidth={isSteam && stat.key === "players"} isSteam={isSteam} />)}
         </div>
       </div>
     );

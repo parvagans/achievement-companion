@@ -11,6 +11,7 @@ import {
 } from "react";
 import type { SteamHuntersProfile } from "../../providers/steamhunters";
 import { steamRecipes, steamTheme } from "./steam-theme";
+import { DeckySteamHuntersIcon } from "./decky-steam-icons";
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { findDeckyScrollableAncestor } from "./decky-scroll-viewport";
@@ -363,7 +364,7 @@ function getMetricStyle(): CSSProperties {
 }
 
 function getMetricTextStyle(): CSSProperties {
-  return { display: "flex", flexDirection: "column", gap: 2, minWidth: 0 };
+  return { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, minWidth: 0, textAlign: "center" };
 }
 
 function getMetricLabelStyle(): CSSProperties {
@@ -393,22 +394,29 @@ function getMetricValueStyle(): CSSProperties {
 }
 
 function SteamHuntersMetric({
+  icon,
   iconUrl,
   label,
   tone,
   value,
+  rankTrend,
 }: {
-  readonly iconUrl: string;
+  readonly icon?: ReactNode;
+  readonly iconUrl?: string;
   readonly label: string;
   readonly tone: SteamCompactIconTone;
   readonly value: string;
+  readonly rankTrend?: SteamHuntersProfile["globalPointsRankTrend"];
 }): JSX.Element {
   return (
     <div style={getMetricStyle()}>
-      <img alt="" src={iconUrl} style={getIconStyle(27, tone)} />
+      {icon ?? (iconUrl !== undefined ? <img alt="" src={iconUrl} style={getIconStyle(27, tone)} /> : null)}
       <div style={getMetricTextStyle()}>
         <div style={getMetricLabelStyle()}>{label}</div>
-        <div style={getMetricValueStyle()}>{value}</div>
+        <div style={getMetricValueStyle()}>
+          {rankTrend === "up" || rankTrend === "down" ? <span aria-label={rankTrend === "up" ? "Rank improved" : "Rank declined"} style={{ color: rankTrend === "up" ? "#43dd7f" : "#ff5d5d", marginRight: 3 }}>{rankTrend === "up" ? "↑" : "↓"}</span> : null}
+          {value}
+        </div>
       </div>
     </div>
   );
@@ -920,7 +928,7 @@ export function DeckySteamCompactProfile({
         <SectionHeader title="SteamHunters Profile" />
         <div style={getMetricsGridStyle()}>
           <SteamHuntersMetric
-            iconUrl={trophyIconUrl}
+            icon={<DeckySteamHuntersIcon color={steamTheme.color.accent} size={27} />}
             label="Points"
             tone="gold"
             value={formatCount(steamHuntersProfile?.points)}
@@ -930,6 +938,7 @@ export function DeckySteamCompactProfile({
             label="Points Rank"
             tone="blue"
             value={formatRank(steamHuntersProfile?.globalPointsRank)}
+            rankTrend={steamHuntersProfile?.globalPointsRankTrend}
           />
           <SteamHuntersMetric
             iconUrl={masteredIconUrl}

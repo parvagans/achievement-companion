@@ -317,6 +317,7 @@ export function DeckyFullScreenFooterOverlay({
   const anchorRef = useRef<HTMLSpanElement>(null);
   const onPreviousNavigationItemRef = useRef(onPreviousNavigationItem);
   const onNextNavigationItemRef = useRef(onNextNavigationItem);
+  const onHeightChangeRef = useRef(onHeightChange);
   const tabTransitionSoundRef = useRef<HTMLAudioElement | null>(null);
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [isOnScreenKeyboardOpen, setIsOnScreenKeyboardOpen] = useState(false);
@@ -325,7 +326,8 @@ export function DeckyFullScreenFooterOverlay({
   useLayoutEffect(() => {
     onPreviousNavigationItemRef.current = onPreviousNavigationItem;
     onNextNavigationItemRef.current = onNextNavigationItem;
-  }, [onNextNavigationItem, onPreviousNavigationItem]);
+    onHeightChangeRef.current = onHeightChange;
+  }, [onHeightChange, onNextNavigationItem, onPreviousNavigationItem]);
 
   useLayoutEffect(() => {
     // Use the visible Gaming Mode document, not SharedJSContext, just as the
@@ -368,8 +370,9 @@ export function DeckyFullScreenFooterOverlay({
         COMPACT_FOOTER_MINIMUM_HEIGHT_PX,
         measured.height - COMPACT_FOOTER_REDUCTION_PX,
       );
-      setLayout({ ...measured, height: compactHeight });
-      onHeightChange?.(compactHeight);
+      setLayout((current) => current.height === compactHeight && current.zIndex === measured.zIndex
+        ? current : { ...measured, height: compactHeight });
+      onHeightChangeRef.current?.(compactHeight);
     };
 
     updateLayout();
@@ -381,7 +384,7 @@ export function DeckyFullScreenFooterOverlay({
       ownerWindow.removeEventListener("resize", updateLayout);
       target.remove();
     };
-  }, [isActive, onHeightChange]);
+  }, [isActive]);
 
   useEffect(() => {
     if (!isActive) {
@@ -469,9 +472,9 @@ export function DeckyFullScreenFooterOverlay({
           <span style={getShoulderHintStyle()}>R1</span>
           <span style={getActionLegendStyle()}>
             <DeckyFullScreenFooterActionHint button="A" label="Select" />
-            {secondaryActionLabel !== undefined
-              ? <DeckyFullScreenFooterActionHint button="Y" label={secondaryActionLabel} />
-              : null}
+            <span style={{ visibility: secondaryActionLabel === undefined ? "hidden" : "visible" }}>
+              <DeckyFullScreenFooterActionHint button="Y" label={secondaryActionLabel ?? "Top"} />
+            </span>
             <DeckyFullScreenFooterActionHint button="B" label="Back" />
           </span>
         </div>,

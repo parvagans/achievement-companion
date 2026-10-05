@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 
 function getArtworkFrameStyle(compact: boolean, dense: boolean): CSSProperties {
   return {
@@ -51,6 +51,7 @@ function getArtworkFallbackStyle(): CSSProperties {
 export interface DeckySteamFullscreenGameArtworkProps {
   readonly src: string;
   readonly fallbackLabel: string;
+  readonly fallbackSrc?: string;
   readonly compact?: boolean;
   readonly dense?: boolean;
 }
@@ -58,10 +59,13 @@ export interface DeckySteamFullscreenGameArtworkProps {
 export function DeckySteamFullscreenGameArtwork({
   src,
   fallbackLabel,
+  fallbackSrc,
   compact = false,
   dense = false,
 }: DeckySteamFullscreenGameArtworkProps): JSX.Element {
   const [hasImageError, setHasImageError] = useState(false);
+  const [failedPrimary, setFailedPrimary] = useState(false);
+  useEffect(() => { setHasImageError(false); setFailedPrimary(false); }, [src, fallbackSrc]);
 
   return (
     <span aria-hidden="true" style={getArtworkFrameStyle(compact, dense)}>
@@ -72,9 +76,10 @@ export function DeckySteamFullscreenGameArtwork({
           alt=""
           loading="lazy"
           referrerPolicy="no-referrer"
-          src={src}
+          src={failedPrimary ? fallbackSrc ?? src : src}
           onError={() => {
-            setHasImageError(true);
+            if (!failedPrimary && fallbackSrc !== undefined && fallbackSrc !== src) setFailedPrimary(true);
+            else setHasImageError(true);
           }}
           style={getArtworkImageStyle()}
         />

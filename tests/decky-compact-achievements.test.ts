@@ -171,13 +171,14 @@ test("Steam detail exposes verified SteamHunters fields and omits unsupported se
   assert.equal(detail.game.providerId, "steam");
   assert.equal(detail.game.gameId, "2321470");
   assert.equal(detail.showLegacyActions, false);
+  assert.deepStrictEqual(detail.badges, []);
   const steamHuntersBlock = detail.blocks.find(
     (block) => block.kind === "stats" && block.title === "SteamHunters",
   );
   assert.ok(steamHuntersBlock?.kind === "stats");
   assert.deepStrictEqual(
     steamHuntersBlock.stats.map((stat) => [stat.label, stat.value]),
-    [["Points", "24"], ["Community", "35.3%"], ["Obtainability", "Obtainable"]],
+    [["Points", "24"], ["Community", "35.3%"], ["Players Unlocked", "—"]],
   );
 
   const source = readFileSync("src/platform/decky/decky-achievement-detail-view.tsx", "utf8");

@@ -27,7 +27,7 @@ export function DeckySteamExternalLinkIcon(props: DeckySteamIconProps = {}): JSX
 
 export function DeckySteamHuntersIcon(props: DeckySteamIconProps = {}): JSX.Element {
   const { size = 16, color = "currentColor" } = props;
-  return <SteamIconBase size={size} color={color}><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="2" /><path d="M12 3v3M12 18v3M3 12h3M18 12h3" /></SteamIconBase>;
+  return <SteamIconBase size={size} color={color}><circle cx="12" cy="12" r="7" /><path d="m12 8.5 1.08 2.19 2.42.35-1.75 1.7.41 2.4L12 14.01l-2.16 1.13.41-2.4-1.75-1.7 2.42-.35L12 8.5Z" /><path d="M12 3v3M12 18v3M3 12h3M18 12h3" /></SteamIconBase>;
 }
 
 export function DeckySteamDlcIcon(props: DeckySteamIconProps = {}): JSX.Element {

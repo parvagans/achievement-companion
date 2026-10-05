@@ -4,7 +4,8 @@ import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
 import { DeckySteamFullscreenGameArtwork } from "./decky-steam-fullscreen-game-artwork";
 import { getDeckyGameArtworkFallbackInitials } from "./decky-game-artwork-fallback";
-import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
+import { getSteamFullscreenGameArtworkUrl, getSteamHuntersBaseGameBannerUrl } from "./decky-steam-game-artwork";
+import { useSteamStoreHeaderArtwork } from "./decky-steam-store-artwork";
 import { DeckySteamProgressSummary } from "./decky-steam-progress-summary";
 import {
   DeckySteamHuntersCommunitySection,
@@ -186,19 +187,25 @@ function launchSteamGame(appId: number): void {
 function SteamGameIdentityPanel({
   game,
   refreshedAt,
+  steamHuntersEnrichment,
 }: {
   readonly game: SteamGame;
   readonly refreshedAt: number | undefined;
+  readonly steamHuntersEnrichment: SteamHuntersGameEnrichment | undefined;
 }): JSX.Element {
   const artworkUrl = getSteamFullscreenGameArtworkUrl(game);
+  const hunterBannerUrl = getSteamHuntersBaseGameBannerUrl(steamHuntersEnrichment);
+  const storeBannerUrl = useSteamStoreHeaderArtwork(game.appid);
+  const fallbackBannerUrl = hunterBannerUrl ?? storeBannerUrl;
   const lastPlayed = formatDate(game.lastPlayedAt);
   const refreshTime = formatGameRefreshTime(refreshedAt);
 
   return (
     <div style={getIdentityPanelStyle()}>
-      {artworkUrl !== undefined ? (
+      {artworkUrl !== undefined || fallbackBannerUrl !== undefined ? (
         <DeckySteamFullscreenGameArtwork
-          src={artworkUrl}
+          src={artworkUrl ?? fallbackBannerUrl!}
+          {...(artworkUrl !== undefined && fallbackBannerUrl !== undefined ? { fallbackSrc: fallbackBannerUrl } : {})}
           fallbackLabel={getDeckyGameArtworkFallbackInitials(game.title)}
           dense
         />
@@ -258,7 +265,7 @@ export function DeckySteamGameOverview({
   const hasCommunity = steamHunters?.hasCommunityStats === true;
   return (
     <div data-ac-steam-theme="fullscreen" style={getOverviewGridStyle()}>
-      <SteamGameIdentityPanel game={game} refreshedAt={refreshedAt} />
+      <SteamGameIdentityPanel game={game} refreshedAt={refreshedAt} steamHuntersEnrichment={steamHuntersEnrichment} />
       <div style={getDashboardStyle()}>
         <div style={getDashboardTopRowStyle(hasCommunity)}>
           <DeckySteamProgressSummary

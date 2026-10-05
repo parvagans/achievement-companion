@@ -63,7 +63,7 @@ import { findDeckyScrollableAncestor, TopAlignedScrollViewport } from "./decky-s
 import { useAsyncResourceState } from "./useAsyncResourceState";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
 import { getSteamHuntersGameEnrichment } from "../../providers/steamhunters";
-import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
+import { requestDeckySteamGamepadFocusAfterMount, takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import {
   consumeSteamGameSectionRestoration,
   readSteamGameSectionPageState,
@@ -693,6 +693,7 @@ export function DeckyFullScreenGamePage({
       return;
     }
 
+    let cancelFocus: (() => void) | undefined;
     const frame = ownerWindow.requestAnimationFrame(() => {
       const currentState = readSteamGameSectionPageState(providerId, gameId);
 
@@ -735,11 +736,11 @@ export function DeckyFullScreenGamePage({
         consumeSteamGameSectionRestoration(providerId, gameId);
       }
       if (target !== null && target !== undefined) {
-        takeDeckySteamGamepadFocus(target);
+        cancelFocus = requestDeckySteamGamepadFocusAfterMount(target);
         target.scrollIntoView({ block: "center", inline: "nearest" });
       }
     });
-    return () => ownerWindow.cancelAnimationFrame(frame);
+    return () => { ownerWindow.cancelAnimationFrame(frame); cancelFocus?.(); };
   }, [activeSteamSection, gameId, providerId, restorationFilteredAchievements, restorationIsSteamProvider, sectionRestoreNonce]);
 
   if (!isRenderableGameDetailState(state) || isWaitingForSteamHuntersEnrichment) {
@@ -784,6 +785,13 @@ export function DeckyFullScreenGamePage({
   const filteredAchievementCount = filteredAchievements.length;
   const completionPercent = getCompletionPercent(snapshot.game.summary);
   const achievements = filteredAchievements;
+  const rememberedAchievementId = isSteamProvider
+    ? readSteamGameSectionPageState(providerId ?? game.providerId, game.gameId).achievements.focusedId
+    : undefined;
+  const rememberedAchievementIndex = rememberedAchievementId === undefined
+    ? -1 : achievements.findIndex((achievement) => achievement.achievementId === rememberedAchievementId);
+  const initialAchievementRenderLimit = rememberedAchievementIndex < 0
+    ? 36 : Math.ceil((rememberedAchievementIndex + 1) / 36) * 36;
   const isCachedView = state.status === "stale";
   const snapshotSourceLabel = isCachedView ? "Cached snapshot" : "Live snapshot";
   const refreshTimestamp = state.lastUpdatedAt ?? snapshot.refreshedAt;
@@ -846,6 +854,7 @@ export function DeckyFullScreenGamePage({
                 achievements={achievements}
                 providerId={providerIdValue}
                 filteredAchievementCount={filteredAchievementCount}
+                {...(isSteamProvider ? { initialRenderLimit: initialAchievementRenderLimit } : {})}
                 onAchievementFilterChange={handleAchievementFilterChange}
                 onAchievementModeFilterChange={handleAchievementModeFilterChange}
                 onAchievementGroupFilterChange={handleAchievementGroupFilterChange}

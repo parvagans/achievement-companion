@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { ResourceState } from "@core/cache";
 import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
 import { Focusable } from "@decky/ui";
@@ -17,7 +17,7 @@ import {
   getUnlockRatePercent,
   shouldHideSteamAchievementDetailStats,
 } from "./decky-achievement-detail-helpers";
-import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
+import { getSteamFullscreenGameArtworkUrl, getSteamHuntersBaseGameBannerUrl } from "./decky-steam-game-artwork";
 import {
   DeckyFullScreenLoadingState,
   getDeckyFullScreenLoadingPageStyle,
@@ -30,7 +30,9 @@ import {
   type SteamHuntersAchievement,
 } from "../../providers/steamhunters";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
-import { formatSteamHuntersPercentage } from "./decky-steam-hunters-presentation";
+import { formatSteamHuntersPercentage, formatSteamHuntersPlayersUnlocked } from "./decky-steam-hunters-presentation";
+import { DeckySteamHuntersIcon } from "./decky-steam-icons";
+import { useSteamStoreHeaderArtwork } from "./decky-steam-store-artwork";
 import calendarIconUrl from "./assets/calendar.svg";
 import checkCircleIconUrl from "./assets/check-circle.svg";
 import starIconUrl from "./assets/star.svg";
@@ -345,23 +347,6 @@ function getArtworkFallbackInitials(title: string): string {
   return initials || "AC";
 }
 
-function getSteamHuntersObtainabilityLabel(
-  obtainability: SteamHuntersAchievement["obtainability"],
-): string {
-  switch (obtainability) {
-    case "broken-but-obtainable":
-      return "Broken but obtainable";
-    case "conditionally-obtainable":
-      return "Conditional";
-    case "unobtainable":
-      return "Unobtainable";
-    case "obtainable":
-      return "Obtainable";
-    default:
-      return "Unknown";
-  }
-}
-
 function isRenderableGameDetailState(
   state: ResourceState<GameDetailSnapshot>,
 ): state is ResourceState<GameDetailSnapshot> & { readonly data: GameDetailSnapshot } {
@@ -429,20 +414,24 @@ function DeckyFullScreenAchievementLoadingState({
   );
 }
 
-function GameArtwork({ src, title }: { readonly src: string | undefined; readonly title: string }): JSX.Element {
+function GameArtwork({ src, fallbackSrc, title }: { readonly src: string | undefined; readonly fallbackSrc?: string | undefined; readonly title: string }): JSX.Element {
   const [hasImageError, setHasImageError] = useState(false);
+  const [failedPrimary, setFailedPrimary] = useState(false);
+  useEffect(() => { setHasImageError(false); setFailedPrimary(false); }, [src, fallbackSrc]);
+  const displayedSource = failedPrimary ? fallbackSrc : src ?? fallbackSrc;
   return (
     <div style={getGameArtworkFrameStyle()}>
-      {src === undefined || hasImageError ? (
+      {displayedSource === undefined || hasImageError ? (
         <span style={getGameArtworkFallbackStyle()}>{getArtworkFallbackInitials(title)}</span>
       ) : (
         <img
           alt=""
           loading="lazy"
           referrerPolicy="no-referrer"
-          src={src}
+          src={displayedSource}
           onError={() => {
-            setHasImageError(true);
+            if (!failedPrimary && fallbackSrc !== undefined && fallbackSrc !== src) setFailedPrimary(true);
+            else setHasImageError(true);
           }}
           style={getGameArtworkStyle()}
         />
@@ -452,22 +441,28 @@ function GameArtwork({ src, title }: { readonly src: string | undefined; readonl
 }
 
 function AchievementMetricCard({
+  icon,
   iconUrl,
   iconTone = "blue",
   label,
   value,
   valueTone = "default",
+  centered = false,
+  fullWidth = false,
 }: {
-  readonly iconUrl: string;
+  readonly icon?: ReactNode;
+  readonly iconUrl?: string | undefined;
   readonly iconTone?: "blue" | "green" | "gold";
   readonly label: string;
   readonly value: string;
   readonly valueTone?: "default" | "success";
+  readonly centered?: boolean;
+  readonly fullWidth?: boolean;
 }): JSX.Element {
   return (
-    <div style={getMetricCardStyle()}>
-      <img alt="" aria-hidden="true" src={iconUrl} style={getMetricIconStyle(iconTone)} />
-      <div style={getMetricTextStyle()}>
+    <div style={{ ...getMetricCardStyle(), ...(fullWidth ? { gridColumn: "1 / -1" } : {}) }}>
+      {icon ?? (iconUrl !== undefined ? <img alt="" aria-hidden="true" src={iconUrl} style={getMetricIconStyle(iconTone)} /> : null)}
+      <div style={{ ...getMetricTextStyle(), ...(centered ? { alignItems: "center", textAlign: "center" } : {}) }}>
         <div style={getMetricLabelStyle()}>{label}</div>
         <div style={getMetricValueStyle(valueTone)}>{value}</div>
       </div>
@@ -481,12 +476,16 @@ function DeckyFullScreenAchievementContent({
   isSteamProvider,
   providerLabel,
   steamHuntersAchievement,
+  steamHuntersPlayersPlayed,
+  steamHuntersBannerUrl,
 }: {
   readonly achievement: NormalizedAchievement;
   readonly game: GameDetailSnapshot["game"];
   readonly isSteamProvider: boolean;
   readonly providerLabel: string;
   readonly steamHuntersAchievement: SteamHuntersAchievement | undefined;
+  readonly steamHuntersPlayersPlayed: number | undefined;
+  readonly steamHuntersBannerUrl: string | undefined;
 }): JSX.Element {
   const achievementStatus = buildAchievementStatus(achievement);
   const unlockTimestamp = achievement.hardcoreUnlockedAt ?? achievement.softcoreUnlockedAt ?? achievement.unlockedAt;
@@ -494,21 +493,21 @@ function DeckyFullScreenAchievementContent({
   const heroArtworkUrl = isSteamProvider
     ? getSteamFullscreenGameArtworkUrl(game)
     : game.boxArtImageUrl ?? game.coverImageUrl;
-  const communityHeading = isSteamProvider ? "SteamHunters" : providerLabel;
+  const storeBannerUrl = useSteamStoreHeaderArtwork(isSteamProvider ? game.appid : undefined);
+  const communityHeading = isSteamProvider ? "My SteamHunters" : providerLabel;
   const secondaryValues = isSteamProvider
     ? {
         points: steamHuntersAchievement?.points !== undefined ? formatCount(steamHuntersAchievement.points) : "—",
         unlockRate: steamHuntersAchievement?.localPercentage !== undefined
           ? formatSteamHuntersPercentage(steamHuntersAchievement.localPercentage)
-          : formatAchievementUnlockRatePercent(unlockRate),
-        obtainability: steamHuntersAchievement === undefined
-          ? "Unavailable"
-          : getSteamHuntersObtainabilityLabel(steamHuntersAchievement.obtainability),
+          : "—",
+        playersUnlocked: formatSteamHuntersPlayersUnlocked(steamHuntersAchievement?.localPercentage, steamHuntersPlayersPlayed),
       }
     : {
         points: achievement.points !== undefined ? formatCount(achievement.points) : "—",
         unlockRate: formatAchievementUnlockRatePercent(unlockRate),
         obtainability: achievement.isUnlocked ? "Unlocked" : "Locked",
+        playersUnlocked: "—",
       };
 
   return (
@@ -527,7 +526,7 @@ function DeckyFullScreenAchievementContent({
           <div style={getAchievementTextStyle()}>
             <div style={isSteamProvider ? { ...getGameTitleStyle(), ...steamRecipes.text("fullscreen", "metadata") } : getGameTitleStyle()}>{game.title}</div>
             <div style={isSteamProvider ? { ...getAchievementTitleStyle(), ...steamRecipes.text("fullscreen", "hero"), overflowWrap: "anywhere" } : getAchievementTitleStyle()}>{achievement.title}</div>
-            <div style={getMetaRowStyle()}>
+            {!isSteamProvider ? <div style={getMetaRowStyle()}>
               <span style={getMetaPillStyle()}>
                 {isSteamProvider ? <img alt="" src={steamIconUrl} style={getMetaIconStyle()} /> : null}
                 {providerLabel}
@@ -536,11 +535,11 @@ function DeckyFullScreenAchievementContent({
                 {achievement.isUnlocked ? <img alt="" src={checkCircleIconUrl} style={getMetaIconStyle("success")} /> : null}
                 {achievementStatus.value}
               </span>
-            </div>
+            </div> : null}
             <p style={getDescriptionStyle()}>{getAchievementDescriptionText(achievement.description)}</p>
           </div>
         </div>
-        <GameArtwork src={heroArtworkUrl} title={game.title} />
+        <GameArtwork src={heroArtworkUrl} fallbackSrc={steamHuntersBannerUrl ?? storeBannerUrl} title={game.title} />
       </div>
 
       <div style={getPrimaryStatsStyle()}>
@@ -559,10 +558,12 @@ function DeckyFullScreenAchievementContent({
       </div>
 
       <div style={getCommunityHeadingStyle()}>{communityHeading}</div>
-      <div style={getCommunityStatsStyle()}>
-        <AchievementMetricCard iconUrl={trophyIconUrl} iconTone="gold" label="Points" value={secondaryValues.points} />
-        <AchievementMetricCard iconUrl={usersIconUrl} label={communityHeading + " unlock rate"} value={secondaryValues.unlockRate} />
-        <AchievementMetricCard iconUrl={starIconUrl} iconTone="gold" label="Obtainability" value={secondaryValues.obtainability} />
+      <div style={isSteamProvider ? { ...getCommunityStatsStyle(), gridTemplateColumns: "repeat(2, minmax(0, 1fr))" } : getCommunityStatsStyle()}>
+        <AchievementMetricCard icon={isSteamProvider ? <DeckySteamHuntersIcon color={steamTheme.color.accent} size={31} /> : undefined} iconUrl={isSteamProvider ? undefined : trophyIconUrl} iconTone={isSteamProvider ? "blue" : "gold"} label="Points" value={secondaryValues.points} centered={isSteamProvider} />
+        <AchievementMetricCard iconUrl={usersIconUrl} label={isSteamProvider ? "Unlock rate" : communityHeading + " unlock rate"} value={secondaryValues.unlockRate} centered={isSteamProvider} />
+        {isSteamProvider
+          ? <AchievementMetricCard iconUrl={usersIconUrl} label="Players Unlocked" value={secondaryValues.playersUnlocked} centered fullWidth />
+          : <AchievementMetricCard iconUrl={starIconUrl} iconTone="gold" label="Obtainability" value={secondaryValues.obtainability ?? "—"} />}
       </div>
     </article>
   );
@@ -658,6 +659,8 @@ export function DeckyFullScreenAchievementPage({
         isSteamProvider={isSteamProvider}
         providerLabel={formatDeckyProviderLabel(resolvedProviderId)}
         steamHuntersAchievement={steamHuntersAchievement}
+        steamHuntersPlayersPlayed={getSteamHuntersGameEnrichment(snapshot)?.app.playersQualifiedCount}
+        steamHuntersBannerUrl={getSteamHuntersBaseGameBannerUrl(getSteamHuntersGameEnrichment(snapshot))}
       />
     </DeckyFullScreenAchievementInputSurface>
   );

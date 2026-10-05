@@ -71,12 +71,23 @@ export function composeSteamGameDetailWithSteamHunters(
     return snapshot;
   }
 
+  const achievementsBySteamAchievementId = buildAchievementEnrichment(snapshot, gameData);
+  const enrichedAchievements = snapshot.achievements.map((achievement) => {
+    const steamDescription = achievement.description?.trim();
+    const hunterDescription = achievementsBySteamAchievementId[achievement.achievementId]?.description;
+    return hunterDescription !== undefined &&
+      (steamDescription === undefined || steamDescription === "No description was returned for this achievement.")
+      ? { ...achievement, description: hunterDescription }
+      : achievement;
+  });
   return {
     ...snapshot,
+    achievements: enrichedAchievements.some((achievement, index) => achievement !== snapshot.achievements[index])
+      ? enrichedAchievements : snapshot.achievements,
     steamHunters: {
       source: "steamhunters",
       app: gameData.app,
-      achievementsBySteamAchievementId: buildAchievementEnrichment(snapshot, gameData),
+      achievementsBySteamAchievementId,
       achievementGroups: gameData.groups,
       achievementGroupsBySteamAchievementId: buildAchievementGroupEnrichment(gameData.groups),
     },

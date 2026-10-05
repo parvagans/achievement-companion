@@ -1,4 +1,5 @@
 import type { NormalizedGame, RecentlyPlayedGame } from "@core/domain";
+import { getSteamHuntersAchievementGroupKind, type SteamHuntersGameEnrichment } from "../../providers/steamhunters";
 
 const STEAM_STORE_ITEM_ASSETS_BASE_URL =
   "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps";
@@ -50,4 +51,8 @@ export function getSteamProfileGameIconUrl(
   game: Pick<RecentlyPlayedGame, "coverImageUrl" | "boxArtImageUrl">,
 ): string | undefined {
   return game.coverImageUrl ?? game.boxArtImageUrl;
+}
+
+export function getSteamHuntersBaseGameBannerUrl(enrichment: SteamHuntersGameEnrichment | undefined): string | undefined {
+  return enrichment?.achievementGroups.find((group) => getSteamHuntersAchievementGroupKind(group) === "base-game")?.bannerUrl;
 }

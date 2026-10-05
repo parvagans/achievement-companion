@@ -1,6 +1,5 @@
 import type { GameDetailSnapshot, NormalizedAchievement, NormalizedMetric, ProviderId } from "@core/domain";
-import type { SteamHuntersAchievement } from "../../providers/steamhunters/types";
-import { getSteamHuntersAchievementEnrichment } from "../../providers/steamhunters/compose-steam-game-detail";
+import { getSteamHuntersAchievementEnrichment, getSteamHuntersGameEnrichment } from "../../providers/steamhunters/compose-steam-game-detail";
 import {
   buildAchievementStatus,
   formatAchievementDetailUnlockRatePercent,
@@ -12,7 +11,7 @@ import {
   getAchievementDetailCounts,
   getMetricValue,
 } from "./decky-achievement-detail-helpers";
-import { formatSteamHuntersPercentage } from "./decky-steam-hunters-presentation";
+import { formatSteamHuntersPercentage, formatSteamHuntersPlayersUnlocked } from "./decky-steam-hunters-presentation";
 import { sortAchievementsForDisplay } from "./decky-game-detail-ordering";
 
 export type CompactAchievementFilter = "all" | "unlocked" | "locked";
@@ -143,23 +142,6 @@ function getRowTone(achievement: NormalizedAchievement): CompactAchievementTone 
   return "default";
 }
 
-function getSteamHuntersObtainabilityLabel(
-  obtainability: SteamHuntersAchievement["obtainability"],
-): string | undefined {
-  switch (obtainability) {
-    case "broken-but-obtainable":
-      return "Broken but obtainable";
-    case "conditionally-obtainable":
-      return "Conditional";
-    case "unobtainable":
-      return "Unobtainable";
-    case "obtainable":
-      return "Obtainable";
-    default:
-      return undefined;
-  }
-}
-
 function formatUnlockDate(epochMs: number): string {
   return new Date(epochMs).toLocaleDateString();
 }
@@ -279,21 +261,7 @@ export function buildSteamCompactAchievementDetailModel(
   }
 
   const steamHuntersAchievement = getSteamHuntersAchievementEnrichment(snapshot, achievementId);
-  const badges: CompactAchievementDetailBadge[] = [
-    { key: "provider", label: "Steam", tone: "default" },
-    {
-      key: "state",
-      label: achievement.isUnlocked ? "Unlocked" : "Locked",
-      tone: achievement.isUnlocked ? "success" : "default",
-    },
-  ];
-  if (steamHuntersAchievement?.points !== undefined) {
-    badges.push({
-      key: "points",
-      label: `${formatCount(steamHuntersAchievement.points)} pts`,
-      tone: "points",
-    });
-  }
+  const badges: CompactAchievementDetailBadge[] = [];
 
   const blocks: CompactAchievementDetailBlock[] = [];
   if (achievement.isUnlocked && achievement.unlockedAt !== undefined) {
@@ -320,14 +288,13 @@ export function buildSteamCompactAchievementDetailModel(
       value: formatSteamHuntersPercentage(steamHuntersAchievement.localPercentage),
     });
   }
-  const obtainability = steamHuntersAchievement === undefined
-    ? undefined
-    : getSteamHuntersObtainabilityLabel(steamHuntersAchievement.obtainability);
-  if (obtainability !== undefined) {
-    steamHuntersStats.push({ key: "obtainability", label: "Obtainability", value: obtainability });
-  }
+  if (steamHuntersAchievement !== undefined) steamHuntersStats.push({
+    key: "players",
+    label: "Players Unlocked",
+    value: formatSteamHuntersPlayersUnlocked(steamHuntersAchievement.localPercentage, getSteamHuntersGameEnrichment(snapshot)?.app.playersQualifiedCount),
+  });
   if (steamHuntersStats.length > 0) {
-    blocks.push({ kind: "stats", title: "SteamHunters", stats: steamHuntersStats, columns: 3 });
+    blocks.push({ kind: "stats", title: "SteamHunters", stats: steamHuntersStats, columns: 2 });
   }
 
   return {

@@ -58,6 +58,7 @@ import listIconUrl from "./assets/list.svg";
 import prohibitedIconUrl from "./assets/prohibited.svg";
 import searchIconUrl from "./assets/search.svg";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
+import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
 import {
   readDeckySteamGamesPageState,
   rememberDeckySteamGamesControls,
@@ -248,7 +249,7 @@ function getMetricCardStyle(): CSSProperties {
 }
 
 function getMetricValueStyle(): CSSProperties {
-  return { ...steamRecipes.text("fullscreen", "title"), fontSize: 16, fontWeight: 700, lineHeight: 1 };
+  return { ...steamRecipes.text("fullscreen", "title"), minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 16, fontWeight: 700, lineHeight: 1 };
 }
 
 function getMetricLabelStyle(): CSSProperties {
@@ -350,20 +351,11 @@ function getFilterGroupStyle(): CSSProperties {
 
 function getFilterButtonStyle(selected: boolean): CSSProperties {
   return {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+    ...steamRecipes.filterTab("fullscreen", selected),
     minWidth: 0,
     height: 28,
     padding: "0 7px",
-    border: `1px solid ${selected ? "#26bffc" : "rgba(71, 126, 162, 0.34)"}`,
-    borderRadius: 8,
     boxSizing: "border-box",
-    color: selected ? "#f5fbff" : "#b9c9d9",
-    background: selected
-      ? "linear-gradient(180deg, rgba(31, 127, 184, 0.56), rgba(16, 71, 106, 0.62))"
-      : "rgba(10, 29, 42, 0.88)",
-    boxShadow: selected ? "0 0 10px rgba(26, 180, 244, 0.22)" : "none",
     fontSize: 9,
     fontWeight: 800,
     lineHeight: 1,
@@ -402,6 +394,7 @@ function handleSteamGamesToolbarDirection(event: GamepadEvent): void {
 
   event.preventDefault();
   event.stopPropagation();
+  if (target !== source) playDeckySteamNavigationSound(source.ownerDocument);
 }
 
 function handleSteamGamesRowDirection(event: GamepadEvent): void {
@@ -435,6 +428,7 @@ function handleSteamGamesRowDirection(event: GamepadEvent): void {
   }
   event.preventDefault();
   event.stopPropagation();
+  if (target !== source) playDeckySteamNavigationSound(source.ownerDocument);
 }
 
 function handleSteamGamesShowMoreDirection(event: GamepadEvent): void {
@@ -459,6 +453,7 @@ function handleSteamGamesShowMoreDirection(event: GamepadEvent): void {
   }
   event.preventDefault();
   event.stopPropagation();
+  if (target !== source) playDeckySteamNavigationSound(source.ownerDocument);
 }
 
 function SteamGamesFilterButton({
@@ -703,6 +698,7 @@ function SteamGamesRow({
     >
       <DeckyGameArtwork
         compact
+        {...(game.appid !== undefined ? { steamAppId: game.appid } : {})}
         height={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT}
         size={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT}
         {...(artworkUrl !== undefined ? { src: artworkUrl } : {})}

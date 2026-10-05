@@ -38,10 +38,12 @@ test("Steam compact game overview uses the refined narrow-panel hierarchy and op
   assert.match(compactGameSource, /No DLC required/u);
   assert.match(compactGameSource, /conditions/u);
   assert.match(compactGameSource, /broken but obtainable/u);
-  assert.match(compactGameSource, /SteamHunters Stats/u);
-  assert.match(compactGameSource, /My Points/u);
+  assert.match(compactGameSource, /My SteamHunters Stats/u);
+  assert.match(compactGameSource, /Median 100%/u);
+  assert.match(compactGameSource, /Fastest 100%/u);
+  assert.match(compactGameSource, />Points<\/span>/u);
   assert.match(compactGameSource, /progressPoints\?\.earned/u);
-  assert.match(compactGameSource, /My Unlock %/u);
+  assert.match(compactGameSource, /Unlock %/u);
   assert.match(compactGameSource, /Duration/u);
   assert.match(compactGameSource, /getPersonalAchievementDuration/u);
   assert.match(compactGameSource, /Game Info/u);
