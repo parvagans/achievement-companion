@@ -1,9 +1,14 @@
+import {
+  ACTIVITY_CALENDAR_WEEK_OPTIONS,
+  type ActivityCalendarWeeks,
+} from "@core/settings";
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-export const STEAM_ACTIVITY_CALENDAR_WEEK_OPTIONS = [4, 6, 8, 10, 12] as const;
+export const STEAM_ACTIVITY_CALENDAR_WEEK_OPTIONS = ACTIVITY_CALENDAR_WEEK_OPTIONS;
 export const DEFAULT_STEAM_ACTIVITY_CALENDAR_WEEKS: SteamActivityCalendarWeeks = 12;
 
-export type SteamActivityCalendarWeeks = typeof STEAM_ACTIVITY_CALENDAR_WEEK_OPTIONS[number];
+export type SteamActivityCalendarWeeks = ActivityCalendarWeeks;
 export type SteamActivityCalendarIntensity = 0 | 1 | 2 | 3 | 4;
 
 export interface SteamActivityCalendarDay {

@@ -30,6 +30,7 @@ import { formatDeckyProviderLabel } from "./providers";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
 import { DeckySteamFullScreenActivityDashboard } from "./decky-steam-full-screen-activity-dashboard";
 import type { SteamActivityCalendarWeeks } from "./decky-steam-activity-calendar-model";
+import { useDeckySettings } from "./decky-settings";
 
 export interface DeckyFullScreenAchievementHistoryPageProps {
   readonly providerId: string | undefined;
@@ -682,6 +683,8 @@ export function DeckyFullScreenAchievementHistoryPage({
   onOpenSettings,
   onOpenAchievementDetail,
 }: DeckyFullScreenAchievementHistoryPageProps): JSX.Element {
+  const settings = useDeckySettings();
+  const effectiveActivityCalendarWeeks = activityCalendarWeeks ?? settings.steamFullscreenActivityCalendarWeeks;
   const loadSelectedAchievementHistory = useMemo(() => {
     if (providerId === undefined) {
       return () => Promise.resolve(initialDeckyAchievementHistoryState);
@@ -753,7 +756,7 @@ export function DeckyFullScreenAchievementHistoryPage({
     return (
       <DeckySteamFullScreenActivityDashboard
         snapshot={snapshot}
-        {...(activityCalendarWeeks !== undefined ? { calendarWeeks: activityCalendarWeeks } : {})}
+        calendarWeeks={effectiveActivityCalendarWeeks}
         isActive={isActive}
         showSteamProfileFooter={showSteamProfileFooter}
         onBack={onBack}

@@ -94,6 +94,14 @@ test("Steam compact Activity calendar overrides configured list limits until its
   assert.match(compactProfileSource, /selectedActivityDay === day \? undefined : day/u);
   assert.match(compactProfileSource, /setDeckySteamCompactActivityDay\(nextDay\)/u);
   assert.match(compactProfileSource, /data-steam-compact-activity-calendar-day="true"/u);
+  assert.match(compactProfileSource, /data-steam-compact-activity-calendar-active=\{active \? "true" : "false"\}/u);
+  assert.match(compactProfileSource, /aria-label=\{`Activity calendar, \$\{status\}\. Press A to use\.`\}/u);
+  assert.match(compactProfileSource, /const enterCalendar[\s\S]*setActive\(true\)/u);
+  assert.match(compactProfileSource, /const exitCalendar[\s\S]*setActive\(false\)/u);
+  assert.match(compactProfileSource, /onCancel=\{exitCalendar\}/u);
+  assert.match(compactProfileSource, /gridTemplateColumns: `18px repeat\(\$\{weeks\}, minmax\(0, 1fr\)\)`/u);
+  assert.match(compactProfileSource, /<SectionHeader title="Activity Calendar" \/>/u);
+  assert.match(compactProfileSource, /<span>Press<\/span>[\s\S]*>A<\/span>[\s\S]*<span>to use<\/span>/u);
   assert.match(compactProfileSource, /onGamepadDirection=\{handleCompactCalendarDirection\}/u);
   assert.match(compactProfileSource, /data-steam-compact-profile-action/u);
   assert.match(compactProfileSource, /data-steam-compact-recent-activity-count=\{visibleAchievements\.length\}/u);
@@ -182,6 +190,9 @@ test("Steam compact settings reuse the provider configuration and keep API crede
   assert.doesNotMatch(compactSettingsSource, /apiKeyDraft/u, "settings must not contain a second API-key field");
   assert.match(compactSettingsSource, /Recent Activity/u);
   assert.match(compactSettingsSource, /Recently Played/u);
+  assert.match(compactSettingsSource, /label="Activity Calendar"/u);
+  assert.match(compactSettingsSource, /options=\{ACTIVITY_CALENDAR_WEEK_OPTIONS\}/u);
+  assert.match(compactSettingsSource, /steamCompactActivityCalendarWeeks/u);
   assert.match(compactSettingsSource, /Show free games/u);
   assert.match(compactSettingsSource, /API Settings/u);
   assert.match(compactSettingsSource, /getCompactSettingLabelStyle/u);
@@ -189,6 +200,7 @@ test("Steam compact settings reuse the provider configuration and keep API crede
   assert.match(compactSettingsSource, /getToggleFieldWrapperStyle/u);
   assert.match(compactSettingsSource, /function SteamCompactCountPicker/u);
   assert.match(compactSettingsSource, /showContextMenu/u);
+  assert.match(compactSettingsSource, /requestDeckySteamGamepadFocusAfterMount\(triggerRef\.current\)/u);
   assert.match(compactSettingsSource, /<Menu label=\{label\} onCancel=\{closeMenu\}>/u);
   assert.match(compactSettingsSource, /<MenuItem/u);
   assert.match(compactSettingsSource, /\{ bModal: true, bMatchWidth: true \}/u);

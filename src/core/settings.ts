@@ -8,6 +8,9 @@ export const ACHIEVEMENT_COMPANION_COUNT_OPTIONS = [3, 5, 7, 10] as const;
 export type AchievementCompanionCount =
   (typeof ACHIEVEMENT_COMPANION_COUNT_OPTIONS)[number];
 
+export const ACTIVITY_CALENDAR_WEEK_OPTIONS = [4, 6, 8, 10, 12] as const;
+export type ActivityCalendarWeeks = (typeof ACTIVITY_CALENDAR_WEEK_OPTIONS)[number];
+
 export type CompletionProgressFilter = "all" | "unfinished" | "beaten" | "mastered";
 
 export const GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS = [
@@ -29,6 +32,8 @@ export interface AchievementCompanionSettings {
   readonly defaultCompletionProgressFilter: CompletionProgressFilter;
   readonly showGamePageAchievementBadge: boolean;
   readonly gamePageAchievementBadgePosition: GamePageAchievementBadgePosition;
+  readonly steamCompactActivityCalendarWeeks: ActivityCalendarWeeks;
+  readonly steamFullscreenActivityCalendarWeeks: ActivityCalendarWeeks;
 }
 
 export const DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS: AchievementCompanionSettings = {
@@ -38,6 +43,8 @@ export const DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS: AchievementCompanionSetting
   defaultCompletionProgressFilter: "all",
   showGamePageAchievementBadge: true,
   gamePageAchievementBadgePosition: "top-left",
+  steamCompactActivityCalendarWeeks: 4,
+  steamFullscreenActivityCalendarWeeks: 12,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -47,6 +54,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function normalizeCount(value: unknown, fallback: AchievementCompanionCount): AchievementCompanionCount {
   return ACHIEVEMENT_COMPANION_COUNT_OPTIONS.includes(value as AchievementCompanionCount)
     ? (value as AchievementCompanionCount)
+    : fallback;
+}
+
+function normalizeActivityCalendarWeeks(value: unknown, fallback: ActivityCalendarWeeks): ActivityCalendarWeeks {
+  return ACTIVITY_CALENDAR_WEEK_OPTIONS.includes(value as ActivityCalendarWeeks)
+    ? (value as ActivityCalendarWeeks)
     : fallback;
 }
 
@@ -99,6 +112,14 @@ export function normalizeAchievementCompanionSettings(
     gamePageAchievementBadgePosition: normalizeGamePageAchievementBadgePosition(
       value["gamePageAchievementBadgePosition"],
       DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.gamePageAchievementBadgePosition,
+    ),
+    steamCompactActivityCalendarWeeks: normalizeActivityCalendarWeeks(
+      value["steamCompactActivityCalendarWeeks"],
+      DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.steamCompactActivityCalendarWeeks,
+    ),
+    steamFullscreenActivityCalendarWeeks: normalizeActivityCalendarWeeks(
+      value["steamFullscreenActivityCalendarWeeks"],
+      DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.steamFullscreenActivityCalendarWeeks,
     ),
   };
 }

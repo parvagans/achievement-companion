@@ -595,7 +595,7 @@ test("steam activity dashboard derives timeline metrics from timestamped unlock 
   assert.match(activitySource, /data-steam-full-screen-activity-dashboard/u);
   assert.match(activityDataSource, /getCurrentStreak[\s\S]*getLongestStreak/u);
   assert.match(activitySource, /selectedLabel[\s\S]*Last \$\{weeks\} weeks/u);
-  assert.match(calendarModelSource, /STEAM_ACTIVITY_CALENDAR_WEEK_OPTIONS = \[4, 6, 8, 10, 12\]/u);
+  assert.match(calendarModelSource, /STEAM_ACTIVITY_CALENDAR_WEEK_OPTIONS = ACTIVITY_CALENDAR_WEEK_OPTIONS/u);
   assert.match(calendarModelSource, /nonzeroCounts[\s\S]*Math\.ceil\(nonzeroCounts\.length \* 0\.9\)/u);
   assert.match(activitySource, /Array\.from\(\{ length: 30 \}/u);
   assert.match(activitySource, /Last 30 days/u);
@@ -829,6 +829,12 @@ test("Steam settings are a Steam-only account screen with the expanded account a
   assert.doesNotMatch(source, /<Heading>PROVIDERS<\/Heading>|Game Scanning|Notifications/u);
   assert.match(source, /STEAM SETTINGS/u);
   assert.match(source, /title="Account"[\s\S]*SteamAccountFields/u);
+  assert.match(source, /title="Full-Screen Settings"[\s\S]*SteamActivityCalendarWeeksPicker/u);
+  assert.match(source, /if \(!expanded\) setAccountExpanded\(false\)/u);
+  assert.match(source, /if \(!expanded\) setFullscreenSettingsExpanded\(false\)/u);
+  assert.match(source, /ACTIVITY_CALENDAR_WEEK_OPTIONS\.map/u);
+  assert.match(source, /showContextMenu\([\s\S]*<Menu label="Activity Calendar weeks"/u);
+  assert.match(source, /steamFullscreenActivityCalendarWeeks/u);
   assert.doesNotMatch(source, /title="Display Preferences"|SteamDisplayPreferences|displayExpanded/u);
   assert.match(source, /accountExpanded.*useState\(true\)/u);
   assert.match(source, /STEAM_CREDENTIAL_HELPER_COPY/u);

@@ -12,6 +12,7 @@ import {
 } from "react";
 import type { SteamHuntersProfile } from "../../providers/steamhunters";
 import { steamRecipes, steamTheme } from "./steam-theme";
+import { useDeckySettings } from "./decky-settings";
 import { DeckySteamHuntersIcon } from "./decky-steam-icons";
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
 import { DeckyGameArtwork } from "./decky-game-artwork";
@@ -459,10 +460,10 @@ function CompactActivityCalendarDay({ day, count, intensity, current, selected, 
       onGamepadFocus={(event) => { setFocused(true); (event.currentTarget as HTMLElement).scrollIntoView({ block: "center", inline: "nearest" }); targetProps.onFocused(event.currentTarget as HTMLElement); }}
       onBlur={() => setFocused(false)}
       style={{
-        width: 22,
-        height: 22,
-        minWidth: 22,
-        minHeight: 22,
+        width: "100%",
+        height: "100%",
+        minWidth: 0,
+        minHeight: 0,
         padding: 0,
         border: selected ? `2px solid ${steamTheme.color.textPrimary}` : "2px solid transparent",
         borderRadius: 4,
@@ -812,47 +813,97 @@ function SectionHeader({ title }: { readonly title: string }): JSX.Element {
   );
 }
 
-function CompactActivityCalendar({ dayCounts, weeks, selectedDay, onSelectDay, onCancel, targetProps }: {
+function CompactActivityCalendar({ dayCounts, weeks, selectedDay, onSelectDay, onCancel, entryTargetProps, targetProps }: {
   readonly dayCounts: ReadonlyMap<number, number>;
   readonly weeks: SteamActivityCalendarWeeks;
   readonly selectedDay: number | undefined;
   readonly onSelectDay: (day: number) => void;
   readonly onCancel: () => void;
+  readonly entryTargetProps: CompactTargetProps;
   readonly targetProps: (day: number) => CompactTargetProps;
 }): JSX.Element {
+  const [active, setActive] = useState(false);
+  const [focused, setFocused] = useState(false);
+  const entryRef = useRef<HTMLDivElement | null>(null);
+  const activeDayRef = useRef<HTMLDivElement | null>(null);
+  const pendingFocus = useRef<"entry" | "day">();
   const model = useMemo(() => buildSteamActivityCalendarModel(dayCounts, weeks), [dayCounts, weeks]);
   const today = getSteamActivityLocalDayTimestamp(Date.now());
   const start = model.days[0]?.day ?? 0;
+  const focusDay = selectedDay !== undefined && model.days.some(({ day }) => day === selectedDay)
+    ? selectedDay
+    : today;
   const labels = ["M", "T", "W", "T", "F", "S", "S"];
   const status = selectedDay === undefined
     ? `Last ${weeks} weeks`
     : new Date(selectedDay).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
+  const enterCalendar = (): void => {
+    if (entryRef.current !== null) entryTargetProps.onActivated(entryRef.current);
+    pendingFocus.current = "day";
+    setActive(true);
+  };
+  const exitCalendar = (): void => {
+    pendingFocus.current = "entry";
+    setActive(false);
+  };
+  useLayoutEffect(() => {
+    const request = pendingFocus.current;
+    if (request === undefined) return;
+    pendingFocus.current = undefined;
+    return requestDeckySteamGamepadFocusAfterMount(request === "day" ? activeDayRef.current : entryRef.current);
+  }, [active, focusDay]);
   return (
-    <div
+    <Focusable
+      ref={(node) => {
+        entryRef.current = node;
+        entryTargetProps.elementRef?.(node);
+      }}
+      noFocusRing
+      role="button"
+      tabIndex={0}
+      aria-label={`Activity calendar, ${status}. Press A to use.`}
+      aria-expanded={active}
       data-steam-compact-activity-calendar
       data-steam-compact-activity-calendar-weeks={weeks}
-      style={{ ...steamRecipes.card("compact"), padding: 8, minWidth: 0 }}
+      data-steam-compact-activity-calendar-active={active ? "true" : "false"}
+      preferredFocus={entryTargetProps.preferredFocus}
+      onActivate={enterCalendar}
+      onClick={enterCalendar}
+      onCancel={active ? exitCalendar : onCancel}
+      onFocus={(event) => { setFocused(true); entryTargetProps.onFocused(event.currentTarget); }}
+      onGamepadFocus={(event) => { setFocused(true); entryTargetProps.onFocused(event.currentTarget as HTMLElement); }}
+      onBlur={() => setFocused(false)}
+      style={{
+        ...steamRecipes.card("compact"),
+        padding: 8,
+        minWidth: 0,
+        outline: "none",
+        ...(focused && !active ? { boxShadow: steamTheme.focus.compactShadow, borderColor: steamTheme.focus.border } : {}),
+      }}
     >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6 }}>
-        <span style={{ color: steamTheme.color.textPrimary, fontSize: 10, fontWeight: 800 }}>ACTIVITY CALENDAR</span>
+      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", minHeight: 11 }}>
         <span style={{ color: selectedDay === undefined ? steamTheme.color.textMuted : steamTheme.color.accent, fontSize: 9, fontWeight: selectedDay === undefined ? 600 : 800 }}>{status}</span>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: `18px repeat(${weeks}, 22px)`, gridTemplateRows: "repeat(7, 22px)", justifyContent: "center", gap: 3, marginTop: 7 }}>
+      <div style={{ display: "grid", gridTemplateColumns: `18px repeat(${weeks}, minmax(0, 1fr))`, gridTemplateRows: "repeat(7, minmax(0, 1fr))", width: "100%", height: 172, gap: 3, marginTop: 7 }}>
         {labels.map((label, row) => <span key={`${label}:${row}`} style={{ gridColumn: 1, gridRow: row + 1, alignSelf: "center", color: steamTheme.color.textMuted, fontSize: 8 }}>{label}</span>)}
         {model.days.map(({ day, count, intensity }) => {
           const offset = Math.floor((day - start) / 86_400_000);
+          const dayTargetProps = targetProps(day);
           return (
-            <div key={day} style={{ gridColumn: Math.floor(offset / 7) + 2, gridRow: offset % 7 + 1 }}>
-              {today !== undefined && day <= today ? <CompactActivityCalendarDay
+            <div key={day} style={{ gridColumn: Math.floor(offset / 7) + 2, gridRow: offset % 7 + 1, minWidth: 0, minHeight: 0 }}>
+              {active && today !== undefined && day <= today ? <CompactActivityCalendarDay
                 day={day}
                 count={count}
                 intensity={intensity}
                 current={day === today}
                 selected={day === selectedDay}
                 onSelect={() => onSelectDay(day)}
-                onCancel={onCancel}
-                targetProps={targetProps(day)}
-              /> : <span aria-hidden="true" style={{ display: "block", width: 22, height: 22, borderRadius: 4, background: COMPACT_ACTIVITY_CALENDAR_COLORS[0] }} />}
+                onCancel={exitCalendar}
+                targetProps={{
+                  ...dayTargetProps,
+                  ...(day === focusDay ? { elementRef: (node) => { activeDayRef.current = node; dayTargetProps.elementRef?.(node); } } : {}),
+                }}
+              /> : <span aria-hidden="true" style={{ display: "block", width: "100%", height: "100%", borderRadius: 4, background: COMPACT_ACTIVITY_CALENDAR_COLORS[intensity], ...(day === selectedDay ? { boxShadow: `inset 0 0 0 2px ${steamTheme.color.textPrimary}` } : {}) }} />}
             </div>
           );
         })}
@@ -862,7 +913,7 @@ function CompactActivityCalendar({ dayCounts, weeks, selectedDay, onSelectDay, o
         {([0, 1, 2, 3, 4] as const).map((level) => <span key={level} style={{ width: 10, height: 10, borderRadius: 2, background: COMPACT_ACTIVITY_CALENDAR_COLORS[level] }} />)}
         <span>More</span>
       </div>
-    </div>
+    </Focusable>
   );
 }
 
@@ -1022,7 +1073,7 @@ export function DeckySteamCompactProfile({
   recentAchievements,
   recentlyPlayedGames,
   refreshedAt,
-  activityCalendarWeeks = STEAM_COMPACT_ACTIVITY_CALENDAR_WEEKS,
+  activityCalendarWeeks,
   onOpenProfile,
   onOpenAchievementHistory,
   onOpenCompletionProgress,
@@ -1031,6 +1082,8 @@ export function DeckySteamCompactProfile({
   onOpenSettings,
   onCancel,
 }: DeckySteamCompactProfileProps): JSX.Element {
+  const settings = useDeckySettings();
+  const effectiveActivityCalendarWeeks = activityCalendarWeeks ?? settings.steamCompactActivityCalendarWeeks ?? STEAM_COMPACT_ACTIVITY_CALENDAR_WEEKS;
   const isQuickAccessVisible = useQuickAccessVisible();
   const restorationRequest = useSyncExternalStore(
     subscribeToDeckySteamCompactFocusRestore,
@@ -1115,13 +1168,13 @@ export function DeckySteamCompactProfile({
     if (selectedActivityDay === undefined) {
       return;
     }
-    const isVisible = buildSteamActivityCalendarModel(activityStats.dayCounts, activityCalendarWeeks)
+    const isVisible = buildSteamActivityCalendarModel(activityStats.dayCounts, effectiveActivityCalendarWeeks)
       .days.some(({ day }) => day === selectedActivityDay);
     if (!isVisible) {
       setSelectedActivityDay(undefined);
       setDeckySteamCompactActivityDay(undefined);
     }
-  }, [activityCalendarWeeks, activityStats.dayCounts, selectedActivityDay]);
+  }, [activityStats.dayCounts, effectiveActivityCalendarWeeks, selectedActivityDay]);
 
   return (
     <Focusable
@@ -1182,14 +1235,21 @@ export function DeckySteamCompactProfile({
       </section>
 
       <section style={getSectionStyle()}>
+        <SectionHeader title="Activity Calendar" />
         <CompactActivityCalendar
           dayCounts={activityStats.dayCounts}
-          weeks={activityCalendarWeeks}
+          weeks={effectiveActivityCalendarWeeks}
           selectedDay={selectedActivityDay}
           onSelectDay={selectActivityDay}
           onCancel={onCancel}
+          entryTargetProps={targetProps({ kind: "calendar-entry" })}
           targetProps={(day) => targetProps({ kind: "calendar", day })}
         />
+        <div style={{ display: "flex", alignItems: "center", gap: 4, minHeight: 15, color: steamTheme.color.textMuted, fontSize: 8.5, fontWeight: 700 }}>
+          <span>Press</span>
+          <span aria-hidden="true" style={{ display: "inline-grid", placeItems: "center", width: 14, height: 14, borderRadius: "50%", background: "rgba(255,255,255,.88)", color: steamTheme.surface.page, fontSize: 8, fontWeight: 900 }}>A</span>
+          <span>to use</span>
+        </div>
       </section>
 
       <section style={getSectionStyle()}>

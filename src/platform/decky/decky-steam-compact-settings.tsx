@@ -1,6 +1,8 @@
 import { Focusable, Menu, MenuItem, ToggleField, showContextMenu } from "@decky/ui";
 import {
+  ACTIVITY_CALENDAR_WEEK_OPTIONS,
   ACHIEVEMENT_COMPANION_COUNT_OPTIONS,
+  type ActivityCalendarWeeks,
   type AchievementCompanionCount,
 } from "@core/settings";
 import {
@@ -17,6 +19,8 @@ import {
 import { STEAM_PROVIDER_ID } from "../../providers/steam/config";
 import chevronRightIconUrl from "./assets/chevron-right.svg";
 import { beginDeckyCompactPopup } from "./decky-compact-popup-state";
+import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
+import { readDeckySettings, saveDeckySettings, useDeckySettings } from "./decky-settings";
 import { steamRecipes, steamTheme } from "./steam-theme";
 
 export interface DeckySteamCompactSettingsProps {
@@ -249,20 +253,22 @@ function SteamCompactSettingsAction({
   );
 }
 
-function SteamCompactCountPicker({
+function SteamCompactCountPicker<Value extends number>({
   description,
   id,
   label,
   onBack,
   onChange,
+  options,
   value,
 }: {
   readonly description: string;
   readonly id: string;
   readonly label: string;
   readonly onBack: () => void;
-  readonly onChange: (value: AchievementCompanionCount) => void;
-  readonly value: AchievementCompanionCount;
+  readonly onChange: (value: Value) => void;
+  readonly options: readonly Value[];
+  readonly value: Value;
 }): JSX.Element {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -276,6 +282,7 @@ function SteamCompactCountPicker({
     releasePopupRef.current?.();
     releasePopupRef.current = undefined;
     setIsMenuOpen(false);
+    requestDeckySteamGamepadFocusAfterMount(triggerRef.current);
   };
 
   const openMenu = (): void => {
@@ -287,7 +294,7 @@ function SteamCompactCountPicker({
     releasePopupRef.current = beginDeckyCompactPopup();
     menuRef.current = showContextMenu(
       <Menu label={label} onCancel={closeMenu}>
-        {ACHIEVEMENT_COMPANION_COUNT_OPTIONS.map((option) => (
+        {options.map((option) => (
           <MenuItem
             key={option}
             selected={value === option}
@@ -346,6 +353,7 @@ export function DeckySteamCompactSettings({
   onOpenApiSettings,
 }: DeckySteamCompactSettingsProps): JSX.Element {
   const config = useDeckySteamProviderConfig(STEAM_PROVIDER_ID);
+  const settings = useDeckySettings();
   const [recentAchievementsCount, setRecentAchievementsCount] = useState<AchievementCompanionCount>(
     config?.recentAchievementsCount ?? 5,
   );
@@ -355,6 +363,9 @@ export function DeckySteamCompactSettings({
   const [includePlayedFreeGames, setIncludePlayedFreeGames] = useState(
     config?.includePlayedFreeGames ?? false,
   );
+  const [activityCalendarWeeks, setActivityCalendarWeeks] = useState<ActivityCalendarWeeks>(
+    settings.steamCompactActivityCalendarWeeks,
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState<{ readonly message: string; readonly isError: boolean } | undefined>();
 
@@ -362,10 +373,12 @@ export function DeckySteamCompactSettings({
     setRecentAchievementsCount(config?.recentAchievementsCount ?? 5);
     setRecentlyPlayedCount(config?.recentlyPlayedCount ?? 5);
     setIncludePlayedFreeGames(config?.includePlayedFreeGames ?? false);
+    setActivityCalendarWeeks(settings.steamCompactActivityCalendarWeeks);
   }, [
     config?.includePlayedFreeGames,
     config?.recentAchievementsCount,
     config?.recentlyPlayedCount,
+    settings.steamCompactActivityCalendarWeeks,
   ]);
 
   const saveSettings = async (): Promise<void> => {
@@ -387,7 +400,14 @@ export function DeckySteamCompactSettings({
         },
         "",
       );
-      setStatus({ message: result.userMessage, isError: !result.saved });
+      const savedCalendarSettings = await saveDeckySettings({
+        ...readDeckySettings(),
+        steamCompactActivityCalendarWeeks: activityCalendarWeeks,
+      });
+      setStatus({
+        message: result.saved && savedCalendarSettings ? result.userMessage : "Unable to save all Steam display settings.",
+        isError: !result.saved || !savedCalendarSettings,
+      });
     } catch {
       setStatus({ message: "Unable to save Steam display settings right now.", isError: true });
     } finally {
@@ -423,6 +443,7 @@ export function DeckySteamCompactSettings({
             label="Recent Activity"
             onBack={onBack}
             onChange={setRecentAchievementsCount}
+            options={ACHIEVEMENT_COMPANION_COUNT_OPTIONS}
             value={recentAchievementsCount}
           />
           <SteamCompactCountPicker
@@ -431,7 +452,17 @@ export function DeckySteamCompactSettings({
             label="Recently Played"
             onBack={onBack}
             onChange={setRecentlyPlayedCount}
+            options={ACHIEVEMENT_COMPANION_COUNT_OPTIONS}
             value={recentlyPlayedCount}
+          />
+          <SteamCompactCountPicker
+            description="Weeks shown in the Activity Calendar."
+            id="activity-calendar-weeks"
+            label="Activity Calendar"
+            onBack={onBack}
+            onChange={setActivityCalendarWeeks}
+            options={ACTIVITY_CALENDAR_WEEK_OPTIONS}
+            value={activityCalendarWeeks}
           />
           <div style={getToggleFieldWrapperStyle()}>
             <ToggleField
