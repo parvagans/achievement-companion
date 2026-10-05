@@ -766,6 +766,8 @@ test("Steam full-screen tabs share one session while details retain route histor
   assert.match(sessionSource, /activeTab === "profile"[\s\S]*activeTab === "games"[\s\S]*activeTab === "activity"[\s\S]*activeTab === "settings"/u);
   assert.match(sessionSource, /isActive=\{activeTab === "activity"\}/u);
   assert.match(sessionSource, /showSteamProfileFooter=\{false\}[\s\S]*activeNavigationItemId=\{activeTab\}/u);
+  assert.match(sessionSource, /activeTab === "games" \|\| activeTab === "activity"[\s\S]*secondaryActionLabel: "Top"[\s\S]*jumpDeckySteamProfileTabToTop/u);
+  assert.match(footerSource, /DECKY_FULLSCREEN_FOOTER_TOP_BUTTON[\s\S]*onSecondaryActionRef\.current\(ownerWindow\.document\)/u);
   assert.equal(
     (sessionSource.match(/<DeckyFullScreenFooterOverlay/gu) ?? []).length,
     1,

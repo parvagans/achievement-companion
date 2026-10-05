@@ -59,6 +59,7 @@ import prohibitedIconUrl from "./assets/prohibited.svg";
 import searchIconUrl from "./assets/search.svg";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
+import { jumpDeckySteamProfileTabToTop } from "./decky-steam-profile-jump-top";
 import { getSteamCompactAchievementFilterStyle } from "./decky-steam-compact-action-styles";
 import {
   readDeckySteamGamesPageState,
@@ -993,6 +994,7 @@ export function DeckySteamFullScreenGamesDashboard({
 
         <Focusable
           aria-live="polite"
+          data-steam-games-list
           className={STEAM_GAMES_LIST_CLASS}
           flow-children="vertical"
           navEntryPreferPosition={NavEntryPositionPreferences.FIRST}
@@ -1055,6 +1057,8 @@ export function DeckySteamFullScreenGamesDashboard({
         activeNavigationItemId="games"
         ariaLabel="Steam profile navigation"
         navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
+        secondaryActionLabel="Top"
+        onSecondaryAction={(document) => { jumpDeckySteamProfileTabToTop(document, "games"); }}
         onNextNavigationItem={onOpenActivity}
         onPreviousNavigationItem={onOpenProfile}
       /> : null}

@@ -10,6 +10,7 @@ import {
 const COMPACT_FOOTER_REDUCTION_PX = 4;
 const COMPACT_FOOTER_MINIMUM_HEIGHT_PX = 40;
 const STEAM_TAB_TRANSITION_SOUND_URL = "/sounds/deck_ui_tab_transition_01.wav";
+const DECKY_FULLSCREEN_FOOTER_TOP_BUTTON = 4;
 const mountedFooterOverlayOwners: symbol[] = [];
 const DECKY_FULLSCREEN_ONSCREEN_KEYBOARD_OPEN_ATTRIBUTE = "data-achievement-companion-onscreen-keyboard-open";
 const yieldedDeckyFullscreenKeyboardCancelEvents = new WeakSet<Event>();
@@ -302,6 +303,7 @@ export function DeckyFullScreenFooterOverlay({
   onNextNavigationItem,
   onHeightChange,
   secondaryActionLabel,
+  onSecondaryAction,
   isActive = true,
 }: {
   readonly ariaLabel: string;
@@ -311,6 +313,7 @@ export function DeckyFullScreenFooterOverlay({
   readonly onNextNavigationItem: () => void;
   readonly onHeightChange?: (height: number) => void;
   readonly secondaryActionLabel?: string;
+  readonly onSecondaryAction?: (document: Document) => void;
   /** A retained full-screen tab must not own the footer or controller input. */
   readonly isActive?: boolean;
 }): JSX.Element {
@@ -318,6 +321,7 @@ export function DeckyFullScreenFooterOverlay({
   const onPreviousNavigationItemRef = useRef(onPreviousNavigationItem);
   const onNextNavigationItemRef = useRef(onNextNavigationItem);
   const onHeightChangeRef = useRef(onHeightChange);
+  const onSecondaryActionRef = useRef(onSecondaryAction);
   const tabTransitionSoundRef = useRef<HTMLAudioElement | null>(null);
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [isOnScreenKeyboardOpen, setIsOnScreenKeyboardOpen] = useState(false);
@@ -327,7 +331,8 @@ export function DeckyFullScreenFooterOverlay({
     onPreviousNavigationItemRef.current = onPreviousNavigationItem;
     onNextNavigationItemRef.current = onNextNavigationItem;
     onHeightChangeRef.current = onHeightChange;
-  }, [onHeightChange, onNextNavigationItem, onPreviousNavigationItem]);
+    onSecondaryActionRef.current = onSecondaryAction;
+  }, [onHeightChange, onNextNavigationItem, onPreviousNavigationItem, onSecondaryAction]);
 
   useLayoutEffect(() => {
     // Use the visible Gaming Mode document, not SharedJSContext, just as the
@@ -424,7 +429,15 @@ export function DeckyFullScreenFooterOverlay({
     const onButtonDown = (event: Event): void => {
       if (!isTopFooterOverlayOwner(owner)) return;
       if (isDeckyFullscreenOnScreenKeyboardOpen(ownerWindow.document)) return;
-      handleDeckyFullScreenFooterShoulderButtonDown(event as GamepadEvent, {
+      const gamepadEvent = event as GamepadEvent;
+      if (gamepadEvent.detail.button === DECKY_FULLSCREEN_FOOTER_TOP_BUTTON && onSecondaryActionRef.current !== undefined) {
+        gamepadEvent.preventDefault();
+        gamepadEvent.stopPropagation();
+        gamepadEvent.stopImmediatePropagation();
+        if (gamepadEvent.detail.is_repeat !== true) onSecondaryActionRef.current(ownerWindow.document);
+        return;
+      }
+      handleDeckyFullScreenFooterShoulderButtonDown(gamepadEvent, {
         onPrevious: () => {
           onPreviousNavigationItemRef.current();
           playSteamTabTransitionSound(tabTransitionSoundRef.current);

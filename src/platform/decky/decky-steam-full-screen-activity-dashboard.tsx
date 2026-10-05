@@ -35,6 +35,7 @@ import trophyIconUrl from "./assets/trophy-filled.svg";
 import unlockedLockIconUrl from "./assets/unlocked-lock.svg";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
+import { jumpDeckySteamProfileTabToTop } from "./decky-steam-profile-jump-top";
 import { getSteamCompactAchievementFilterStyle } from "./decky-steam-compact-action-styles";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import {
@@ -491,6 +492,7 @@ export function DeckySteamFullScreenActivityDashboard({
                 <span style={{ marginLeft: "auto", color: "#afc6d5", fontSize: 9 }}>Newest First</span>
               </Focusable>
               <Focusable
+                data-steam-activity-list
                 flow-children="vertical"
                 navEntryPreferPosition={NavEntryPositionPreferences.FIRST}
                 noFocusRing
@@ -533,6 +535,8 @@ export function DeckySteamFullScreenActivityDashboard({
         activeNavigationItemId="activity"
         ariaLabel="Steam profile navigation"
         navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
+        secondaryActionLabel="Top"
+        onSecondaryAction={(document) => { jumpDeckySteamProfileTabToTop(document, "activity"); }}
         onPreviousNavigationItem={onOpenGames}
         onNextNavigationItem={onOpenSettings}
       /> : null}

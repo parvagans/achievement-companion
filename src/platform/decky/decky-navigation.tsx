@@ -35,6 +35,7 @@ import { beginDeckySteamFullScreenRefreshSession } from "./decky-app-services";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
 import { resetDeckySteamActivityPageState } from "./decky-steam-full-screen-activity-state";
 import { resetDeckySteamGamesPageState } from "./decky-steam-full-screen-games-state";
+import { jumpDeckySteamProfileTabToTop } from "./decky-steam-profile-jump-top";
 import { requestDeckySteamCompactFocusRestore } from "./decky-steam-compact-focus-state";
 import {
   consumeNextFullScreenCompletionProgressFilter,
@@ -539,6 +540,12 @@ function DeckySteamFullScreenSession({
         activeNavigationItemId={activeTab}
         ariaLabel="Steam profile navigation"
         navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
+        {...(activeTab === "games" || activeTab === "activity"
+          ? {
+              secondaryActionLabel: "Top",
+              onSecondaryAction: (document: Document) => { jumpDeckySteamProfileTabToTop(document, activeTab); },
+            }
+          : {})}
         onPreviousNavigationItem={() => {
           selectTab(getAdjacentSteamFullScreenSessionTab(activeTab, "previous"));
         }}
