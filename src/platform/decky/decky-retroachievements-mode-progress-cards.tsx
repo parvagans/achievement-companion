@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import type { GameDetailSnapshot } from "@core/domain";
 import { formatModeProgressSummary } from "./decky-achievement-detail-helpers";
+import { raRecipes, raTheme } from "./ra-theme";
 
 type RetroAchievementsGame = GameDetailSnapshot["game"];
 type RetroAchievementsMode = "hardcore" | "softcore";
@@ -11,6 +12,7 @@ function formatCount(value: number): string {
 
 function getGridStyle(): CSSProperties {
   return {
+    ...raRecipes.card("fullscreen", true),
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
     gap: 10,
@@ -21,32 +23,20 @@ function getGridStyle(): CSSProperties {
 }
 
 function getCardStyle(mode: RetroAchievementsMode): CSSProperties {
-  const isHardcore = mode === "hardcore";
-
   return {
+    ...raRecipes.profileSection.card(mode),
     display: "flex",
     flexDirection: "column",
-    gap: 6,
+    gap: raTheme.space.xs,
     minWidth: 0,
-    boxSizing: "border-box",
-    padding: "11px 12px",
-    borderRadius: 16,
-    border: `1px solid ${isHardcore ? "rgba(214, 178, 74, 0.28)" : "rgba(214, 221, 232, 0.2)"}`,
-    borderLeftWidth: 4,
-    borderLeftStyle: "solid",
-    borderLeftColor: isHardcore ? "rgba(214, 178, 74, 0.8)" : "rgba(214, 221, 232, 0.72)",
-    background: isHardcore
-      ? "linear-gradient(180deg, rgba(214, 178, 74, 0.08), rgba(214, 178, 74, 0.03))"
-      : "linear-gradient(180deg, rgba(214, 221, 232, 0.07), rgba(214, 221, 232, 0.03))",
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 8px rgba(0, 0, 0, 0.14)",
   };
 }
 
 function getCardTitleStyle(mode: RetroAchievementsMode): CSSProperties {
   return {
-    color: mode === "hardcore" ? "rgba(232, 201, 102, 0.95)" : "rgba(220, 225, 233, 0.95)",
-    fontSize: "0.78em",
-    fontWeight: 800,
+    color: mode === "hardcore" ? raTheme.color.hardcore : raTheme.color.softcore,
+    ...raRecipes.text("fullscreen", "caption"),
+    fontWeight: raTheme.type.weight.strong,
     letterSpacing: "0.05em",
     lineHeight: 1.15,
     textTransform: "uppercase",
@@ -55,16 +45,15 @@ function getCardTitleStyle(mode: RetroAchievementsMode): CSSProperties {
 
 function getCardLineStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.86)",
-    fontSize: "0.84em",
+    color: raTheme.color.textPrimary,
+    ...raRecipes.text("fullscreen", "body"),
     lineHeight: 1.2,
   };
 }
 
 function getCardPointsStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.72)",
-    fontSize: "0.8em",
+    ...raRecipes.badge("points"),
     lineHeight: 1.2,
   };
 }

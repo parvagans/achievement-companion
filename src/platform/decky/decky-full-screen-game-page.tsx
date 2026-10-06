@@ -965,7 +965,7 @@ export function DeckyFullScreenGamePage({
       <TopAlignedScrollViewport
         scrollKey={`full-screen-game:${providerId ?? game.providerId}:${game.gameId}`}
       >
-        <div ref={sectionAnchorRef} style={getFullScreenPageFrameStyle()}>{pageSections}</div>
+        <div data-ac-ra-theme="fullscreen" ref={sectionAnchorRef} style={getFullScreenPageFrameStyle()}>{pageSections}</div>
       </TopAlignedScrollViewport>
     </ScrollPanel>
   );

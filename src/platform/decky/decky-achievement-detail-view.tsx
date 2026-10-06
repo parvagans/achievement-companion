@@ -16,6 +16,7 @@ import type {
   CompactAchievementTone,
 } from "./decky-compact-achievement-model";
 import { steamRecipes, steamTheme } from "./steam-theme";
+import { raRecipes, raTheme } from "./ra-theme";
 import { DeckySteamHuntersIcon } from "./decky-steam-icons";
 import calendarIconUrl from "./assets/calendar.svg";
 import clockIconUrl from "./assets/clock.svg";
@@ -37,13 +38,9 @@ function getStandaloneRootStyle(): CSSProperties {
 
 function getCardStyle(isSteam = false): CSSProperties {
   return {
-    ...(isSteam ? steamRecipes.card("compact", "raised") : {}),
+    ...(isSteam ? steamRecipes.card("compact", "raised") : raRecipes.card("compact", true)),
     display: "flex", flexDirection: "column", gap: 11, width: "100%", minWidth: 0,
-    padding: 12, boxSizing: "border-box", borderRadius: isSteam ? steamTheme.radius.large : 14,
-    ...(isSteam ? {} : {
-      border: "1px solid rgba(48, 152, 215, 0.22)",
-      background: "linear-gradient(180deg, rgba(8, 31, 47, 0.97), rgba(7, 24, 38, 0.97))",
-    }),
+    padding: 12, boxSizing: "border-box", borderRadius: isSteam ? steamTheme.radius.large : raTheme.radius.large,
     boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 2px 10px rgba(0, 0, 0, 0.2)",
   };
 }
@@ -62,16 +59,16 @@ function getTitleLineStyle(): CSSProperties {
 
 function getTitleStyle(isSteam = false): CSSProperties {
   return {
-    ...(isSteam ? steamRecipes.text("compact", "title") : {}),
-    color: isSteam ? steamTheme.color.textPrimary : "rgba(255, 255, 255, 0.99)", fontSize: isSteam ? steamTheme.type.compact.title : "0.9em", fontWeight: isSteam ? steamTheme.type.weight.strong : 850,
+    ...(isSteam ? steamRecipes.text("compact", "title") : raRecipes.text("compact", "title")),
+    color: isSteam ? steamTheme.color.textPrimary : raTheme.color.textPrimary, fontSize: isSteam ? steamTheme.type.compact.title : raTheme.type.compact.title, fontWeight: isSteam ? steamTheme.type.weight.strong : 850,
     lineHeight: 1.14, minWidth: 0, overflowWrap: "anywhere",
   };
 }
 
 function getDescriptionStyle(isSteam = false): CSSProperties {
   return {
-    ...(isSteam ? steamRecipes.text("compact", "body") : {}),
-    margin: 0, color: isSteam ? steamTheme.color.textSecondary : "rgba(190, 220, 243, 0.88)", fontSize: isSteam ? steamTheme.type.compact.body : "0.76em",
+    ...(isSteam ? steamRecipes.text("compact", "body") : raRecipes.text("compact", "body")),
+    margin: 0, color: isSteam ? steamTheme.color.textSecondary : raTheme.color.textSecondary, fontSize: isSteam ? steamTheme.type.compact.body : raTheme.type.compact.body,
     lineHeight: 1.32, whiteSpace: "pre-wrap",
   };
 }
@@ -88,15 +85,9 @@ function getBadgeStyle(tone: "default" | "success" | "points", isSteam = false):
   return {
     display: "inline-flex", alignItems: "center", justifyContent: "center", minHeight: 27,
     padding: "4px 9px", boxSizing: "border-box", borderRadius: 8,
-    border: `1px solid ${tone === "success"
-      ? "rgba(48, 224, 145, 0.34)"
-      : tone === "points" ? "rgba(245, 190, 54, 0.32)" : "rgba(86, 163, 218, 0.28)"}`,
-    background: tone === "success"
-      ? "rgba(20, 117, 77, 0.16)"
-      : tone === "points" ? "rgba(124, 89, 17, 0.15)" : "rgba(30, 79, 116, 0.18)",
-    color: tone === "success"
-      ? "rgba(69, 239, 154, 0.98)"
-      : tone === "points" ? "rgba(255, 211, 88, 0.98)" : "rgba(223, 239, 251, 0.94)",
+    border: `1px solid ${tone === "success" ? "rgba(48, 224, 145, 0.34)" : tone === "points" ? "rgba(245, 190, 54, 0.32)" : raTheme.color.borderSubtle}`,
+    background: tone === "success" ? raTheme.surface.success : tone === "points" ? "rgba(124, 89, 17, 0.15)" : raTheme.surface.interactive,
+    color: tone === "success" ? raTheme.color.success : tone === "points" ? raTheme.color.points : raTheme.color.textSecondary,
     fontSize: "0.69em", fontWeight: 750, lineHeight: 1,
   };
 }
@@ -108,27 +99,27 @@ function getSectionStyle(): CSSProperties {
 function getSectionLabelStyle(isSteam = false): CSSProperties {
   return {
     ...(isSteam ? steamRecipes.text("compact", "heading") : {}),
-    color: isSteam ? steamTheme.color.accent : "#66d6ff", fontSize: isSteam ? steamTheme.type.compact.metadata : "0.68em", fontWeight: isSteam ? steamTheme.type.weight.strong : 850, letterSpacing: "0.07em",
+    color: isSteam ? steamTheme.color.accent : raTheme.color.accent, fontSize: isSteam ? steamTheme.type.compact.metadata : raTheme.type.compact.metadata, fontWeight: isSteam ? steamTheme.type.weight.strong : 850, letterSpacing: "0.07em",
     lineHeight: 1.2, textTransform: "uppercase",
   };
 }
 
 function getStatusStyle(tone: CompactAchievementTone, isSteam = false): CSSProperties {
   const color = tone === "hardcore"
-    ? "rgba(252, 211, 77, 0.98)"
+    ? raTheme.color.hardcore
     : tone === "softcore"
-      ? "rgba(220, 225, 233, 0.96)"
-      : tone === "locked" ? "rgba(255, 255, 255, 0.68)" : "rgba(82, 242, 156, 0.98)";
+      ? raTheme.color.softcore
+      : tone === "locked" ? raTheme.color.locked : raTheme.color.unlocked;
   return {
     ...(isSteam ? steamRecipes.card("compact", "interactive") : {}),
     display: "flex", flexDirection: "column", gap: 3, padding: "9px 10px", borderRadius: 11,
-    ...(isSteam ? {} : { border: "1px solid rgba(255, 255, 255, 0.09)", background: "rgba(255, 255, 255, 0.035)" }),
+    ...(isSteam ? {} : { border: `1px solid ${raTheme.color.borderSubtle}`, background: raTheme.surface.interactive }),
     color: isSteam && tone === "locked" ? steamTheme.color.locked : color, fontSize: isSteam ? steamTheme.type.compact.body : "0.8em", fontWeight: isSteam ? steamTheme.type.weight.strong : 800, lineHeight: 1.2,
   };
 }
 
 function getStatusSecondaryStyle(isSteam = false): CSSProperties {
-  return { ...(isSteam ? steamRecipes.text("compact", "metadata") : {}), color: isSteam ? steamTheme.color.textSecondary : "rgba(255, 255, 255, 0.68)", fontSize: isSteam ? steamTheme.type.compact.metadata : "0.86em", fontWeight: 600 };
+  return { ...(isSteam ? steamRecipes.text("compact", "metadata") : raRecipes.text("compact", "metadata")), color: isSteam ? steamTheme.color.textSecondary : raTheme.color.textSecondary, fontSize: isSteam ? steamTheme.type.compact.metadata : raTheme.type.compact.metadata, fontWeight: 600 };
 }
 
 function getStatsGridStyle(columns: 2 | 3): CSSProperties {
@@ -139,32 +130,32 @@ function getStatsGridStyle(columns: 2 | 3): CSSProperties {
 
 function getStatStyle(isSteam = false): CSSProperties {
   return {
-    ...(isSteam ? steamRecipes.metricTile("compact") : {}),
+    ...(isSteam ? steamRecipes.metricTile("compact") : raRecipes.metric("compact")),
     display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2,
     minWidth: 0, minHeight: 48, padding: "7px 5px", boxSizing: "border-box", borderRadius: 10,
-    ...(isSteam ? {} : { border: "1px solid rgba(63, 142, 196, 0.17)", background: "rgba(10, 39, 58, 0.72)" }),
+    ...(isSteam ? {} : { border: `1px solid ${raTheme.color.borderSubtle}`, background: raTheme.surface.interactive }),
     textAlign: "center",
   };
 }
 
 function getStatLabelStyle(isSteam = false): CSSProperties {
   return {
-    ...(isSteam ? steamRecipes.text("compact", "metadata") : {}),
-    color: isSteam ? steamTheme.color.textSecondary : "rgba(164, 201, 229, 0.8)", fontSize: isSteam ? steamTheme.type.compact.caption : "0.57em", fontWeight: isSteam ? steamTheme.type.weight.medium : 750,
+    ...(isSteam ? steamRecipes.text("compact", "metadata") : raRecipes.text("compact", "caption")),
+    color: isSteam ? steamTheme.color.textSecondary : raTheme.color.textMuted, fontSize: isSteam ? steamTheme.type.compact.caption : raTheme.type.compact.caption, fontWeight: isSteam ? steamTheme.type.weight.medium : 750,
     letterSpacing: "0.04em", lineHeight: 1.15, textTransform: "uppercase",
   };
 }
 
-function getStatValueStyle(isSteam = false): CSSProperties {
+function getStatValueStyle(isSteam = false, metricKey?: string): CSSProperties {
   return {
-    ...(isSteam ? steamRecipes.text("compact", "metadata") : {}),
-    color: isSteam ? steamTheme.color.textPrimary : "rgba(255, 255, 255, 0.98)", fontSize: isSteam ? steamTheme.type.compact.metadata : "0.75em", fontWeight: isSteam ? steamTheme.type.weight.strong : 800,
+    ...(isSteam ? steamRecipes.text("compact", "metadata") : raRecipes.text("compact", "metadata")),
+    color: isSteam ? steamTheme.color.textPrimary : metricKey === "points" ? raTheme.color.points : metricKey === "retro-points" ? raTheme.color.retroPoints : raTheme.color.textPrimary, fontSize: isSteam ? steamTheme.type.compact.metadata : raTheme.type.compact.metadata, fontWeight: isSteam ? steamTheme.type.weight.strong : 800,
     lineHeight: 1.15, minWidth: 0, overflowWrap: "anywhere",
   };
 }
 
 function getStatSecondaryStyle(isSteam = false): CSSProperties {
-  return { ...(isSteam ? steamRecipes.text("compact", "metadata") : {}), color: isSteam ? steamTheme.color.textSecondary : "rgba(255, 255, 255, 0.66)", fontSize: isSteam ? steamTheme.type.compact.metadata : "0.62em", lineHeight: 1.2 };
+  return { ...(isSteam ? steamRecipes.text("compact", "metadata") : raRecipes.text("compact", "metadata")), color: isSteam ? steamTheme.color.textSecondary : raTheme.color.textMuted, fontSize: isSteam ? steamTheme.type.compact.metadata : raTheme.type.compact.metadata, lineHeight: 1.2 };
 }
 
 function getTimestampStyle(): CSSProperties {
@@ -172,18 +163,18 @@ function getTimestampStyle(): CSSProperties {
 }
 
 function getRarityTrackStyle(isSteam = false): CSSProperties {
-  return { ...(isSteam ? steamRecipes.progressTrack : {}), height: 6, borderRadius: 999, overflow: "hidden", ...(isSteam ? {} : { background: "rgba(255, 255, 255, 0.08)" }) };
+  return { ...(isSteam ? steamRecipes.progressTrack : raRecipes.progressTrack), height: 6, borderRadius: 999, overflow: "hidden" };
 }
 
 function getRarityFillStyle(percent: number, isSteam = false): CSSProperties {
   return {
     width: `${Math.max(0, Math.min(100, percent))}%`, height: "100%", borderRadius: 999,
-    background: isSteam ? steamRecipes.progressFill.completion : "linear-gradient(90deg, rgba(147, 197, 253, 0.92), rgba(96, 165, 250, 0.98))",
+    background: isSteam ? steamRecipes.progressFill.completion : raRecipes.progressFill.completion,
   };
 }
 
 function getRarityCaptionStyle(isSteam = false): CSSProperties {
-  return { ...(isSteam ? steamRecipes.text("compact", "metadata") : {}), color: isSteam ? steamTheme.color.textSecondary : "rgba(255, 255, 255, 0.76)", fontSize: isSteam ? steamTheme.type.compact.metadata : "0.72em", fontWeight: 700 };
+  return { ...(isSteam ? steamRecipes.text("compact", "metadata") : raRecipes.text("compact", "metadata")), color: isSteam ? steamTheme.color.textSecondary : raTheme.color.textSecondary, fontSize: isSteam ? steamTheme.type.compact.metadata : raTheme.type.compact.metadata, fontWeight: 700 };
 }
 
 function getGameRowStyle(isFocused: boolean, isSteam = false): CSSProperties {
@@ -193,15 +184,11 @@ function getGameRowStyle(isFocused: boolean, isSteam = false): CSSProperties {
     width: "100%", minWidth: 0, padding: "8px 9px", boxSizing: "border-box", borderRadius: 11,
     border: isSteam
       ? `1px solid ${isFocused ? steamTheme.focus.border : steamTheme.color.borderSubtle}`
-      : isFocused ? "1px solid rgba(54, 185, 255, 0.92)" : "1px solid rgba(63, 142, 196, 0.2)",
+      : `1px solid ${isFocused ? raTheme.focus.border : raTheme.color.borderSubtle}`,
     background: isSteam
       ? isFocused ? steamTheme.focus.background : steamTheme.surface.interactive
-      : isFocused
-      ? "linear-gradient(180deg, rgba(17, 91, 139, 0.78), rgba(8, 53, 82, 0.9))"
-      : "rgba(10, 39, 58, 0.78)",
-    boxShadow: isFocused && isSteam ? steamTheme.focus.shadow : isFocused
-      ? "0 0 0 1px rgba(54, 185, 255, 0.72), 0 0 13px rgba(54, 185, 255, 0.38), inset 0 1px 0 rgba(255, 255, 255, 0.1)"
-      : "none",
+      : isFocused ? raTheme.focus.background : raTheme.surface.interactive,
+    boxShadow: isFocused ? raTheme.focus.shadow : "none",
     transition: "background 120ms ease, border-color 120ms ease, box-shadow 120ms ease",
   };
 }
@@ -213,22 +200,22 @@ function getAchievementHeadingStyle(isFocused: boolean, isSteam = false): CSSPro
     margin: "-3px",
     padding: 3,
     borderRadius: 9,
-    border: isFocused ? "1px solid rgba(54, 185, 255, 0.2)" : "1px solid transparent",
-    boxShadow: isFocused ? "inset 0 0 0 1px rgba(54, 185, 255, 0.07)" : "none",
+    border: isFocused ? `1px solid ${raTheme.focus.border}` : "1px solid transparent",
+    boxShadow: isFocused ? raTheme.focus.insetShadow : "none",
     transition: "border-color 120ms ease, box-shadow 120ms ease",
   };
 }
 
 function getGameTitleStyle(isSteam = false): CSSProperties {
   return {
-    ...(isSteam ? steamRecipes.text("compact", "body") : {}),
-    color: isSteam ? steamTheme.color.textPrimary : "rgba(246, 251, 255, 0.96)", fontSize: isSteam ? steamTheme.type.compact.body : "0.72em", fontWeight: isSteam ? steamTheme.type.weight.strong : 750,
+    ...(isSteam ? steamRecipes.text("compact", "body") : raRecipes.text("compact", "body")),
+    color: isSteam ? steamTheme.color.textPrimary : raTheme.color.textPrimary, fontSize: isSteam ? steamTheme.type.compact.body : raTheme.type.compact.body, fontWeight: isSteam ? steamTheme.type.weight.strong : 750,
     lineHeight: 1.18, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
   };
 }
 
 function getGamePlatformStyle(isSteam = false): CSSProperties {
-  return { ...(isSteam ? steamRecipes.text("compact", "metadata") : {}), color: isSteam ? steamTheme.color.textSecondary : "rgba(166, 201, 228, 0.76)", fontSize: isSteam ? steamTheme.type.compact.metadata : "0.62em", lineHeight: 1.2 };
+  return { ...(isSteam ? steamRecipes.text("compact", "metadata") : raRecipes.text("compact", "metadata")), color: isSteam ? steamTheme.color.textSecondary : raTheme.color.textMuted, fontSize: isSteam ? steamTheme.type.compact.metadata : raTheme.type.compact.metadata, lineHeight: 1.2 };
 }
 
 function getChevronStyle(): CSSProperties {
@@ -246,7 +233,7 @@ function DetailStat({ stat, fullWidth, isSteam = false }: { readonly stat: Compa
         {stat.key === "points" ? <DeckySteamHuntersIcon color={steamTheme.color.accent} size={15} /> : iconUrl !== undefined ? <img alt="" aria-hidden="true" src={iconUrl} style={{ width: 15, height: 15, filter: steamTheme.iconFilter.accent }} /> : null}
         <div style={getStatLabelStyle(isSteam)}>{stat.label}</div>
       </div> : <div style={getStatLabelStyle(isSteam)}>{stat.label}</div>}
-      <div style={getStatValueStyle(isSteam)}>{stat.value}</div>
+      <div style={getStatValueStyle(isSteam, stat.key)}>{stat.value}</div>
       {stat.secondary !== undefined ? <div style={getStatSecondaryStyle(isSteam)}>{stat.secondary}</div> : null}
     </div>
   );
@@ -365,7 +352,7 @@ function AchievementDetailCard({
 
   const gameRow = <GameContextRow model={model} onBack={onBack} onOpen={onOpenCompactGame} />;
   return (
-    <div data-ac-steam-theme={isSteam ? "compact" : undefined} ref={rootRef} style={getCardStyle(isSteam)}>
+    <div data-ac-steam-theme={isSteam ? "compact" : undefined} data-ac-ra-theme={!isSteam ? "compact" : undefined} ref={rootRef} style={getCardStyle(isSteam)}>
       {model.gamePlacement === "before-achievement" ? gameRow : null}
       <Focusable
         aria-label={`Achievement ${model.title}`}

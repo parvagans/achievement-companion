@@ -17,7 +17,7 @@ export function DeckyRetroAchievementsSetDetails({
   }
 
   return (
-    <DeckyFullScreenGameSpotlightCard title="Set Details">
+    <DeckyFullScreenGameSpotlightCard title="Set Details" themeVariant="ra">
       <div style={getGridStyle()}>
         {details.map((detail) => (
           <DeckyFullScreenGameProgressStat key={detail.key} label={detail.label} value={detail.value} />

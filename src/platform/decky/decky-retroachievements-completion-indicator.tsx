@@ -1,6 +1,7 @@
 import type { CSSProperties, JSX } from "react";
 import type { NormalizedMetric } from "@core/domain";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
+import { raRecipes, raTheme } from "./ra-theme";
 
 export type RetroAchievementsCompletionIndicatorState =
   | "beaten-hardcore"
@@ -15,9 +16,6 @@ export interface RetroAchievementsCompletionBreakdownItem {
   readonly mode: "hardcore" | "softcore";
   readonly fullLabel: string;
 }
-
-const RETROACHIEVEMENTS_COMPLETION_SILVER = "rgba(214, 221, 232, 0.96)";
-const RETROACHIEVEMENTS_COMPLETION_GOLD = "rgba(232, 201, 102, 0.98)";
 
 function getMetricValue(
   metrics: readonly NormalizedMetric[] | undefined,
@@ -96,9 +94,6 @@ export function getRetroAchievementsCompletionIndicatorStyle(
 ): CSSProperties {
   const isGold = state.startsWith("mastered");
   const isHardcore = state.endsWith("hardcore");
-  const color = isGold
-    ? RETROACHIEVEMENTS_COMPLETION_GOLD
-    : RETROACHIEVEMENTS_COMPLETION_SILVER;
 
   return {
     display: "inline-block",
@@ -106,11 +101,7 @@ export function getRetroAchievementsCompletionIndicatorStyle(
     height: 12,
     flex: "0 0 auto",
     borderRadius: 999,
-    border: `2px solid ${color}`,
-    backgroundColor: isHardcore ? color : "transparent",
-    boxShadow: isHardcore
-      ? `0 0 10px ${color.replace(/0\.\d+\)$/, "0.32)")}`
-      : `inset 0 0 0 1px rgba(0, 0, 0, 0.34), 0 0 8px ${color.replace(/0\.\d+\)$/, "0.16)")}`,
+    ...raRecipes.completionIndicator(isGold ? "mastered" : "beaten", isHardcore),
     boxSizing: "border-box",
   };
 }
@@ -159,9 +150,9 @@ function getBreakdownContainerStyle(variant: "compact" | "full"): CSSProperties 
     gap: variant === "compact" ? "3px 8px" : "4px 12px",
     minWidth: 0,
     maxWidth: "100%",
-    color: "rgba(255, 255, 255, 0.72)",
-    fontSize: variant === "compact" ? "0.72em" : "0.78em",
-    fontWeight: 700,
+    color: raTheme.color.textSecondary,
+    ...raRecipes.text(variant === "compact" ? "compact" : "fullscreen", "metadata"),
+    fontWeight: raTheme.type.weight.medium,
     lineHeight: 1.15,
   };
 }

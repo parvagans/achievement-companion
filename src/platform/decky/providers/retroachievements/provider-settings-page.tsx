@@ -16,6 +16,7 @@ import { DeckyProviderSettingsActionRow } from "../../decky-provider-settings-ac
 import { DeckyRetroAchievementsCredentialsForm } from "./credentials-form";
 import { readDeckySettings, saveDeckySettings, useDeckySettings } from "../../decky-settings";
 import { TopAlignedScrollViewport } from "../../decky-scroll-viewport";
+import { raRecipes, raTheme } from "../../ra-theme";
 import {
   clearDeckyRetroAchievementsAccountState,
   useDeckyProviderConfig,
@@ -40,22 +41,19 @@ function getPageFrameStyle(inProviderSwitcher: boolean): CSSProperties {
 
 function getHeroCardStyle(): CSSProperties {
   return {
+    ...raRecipes.card("fullscreen"),
     display: "flex",
     flexDirection: "column",
     gap: 10,
     padding: 18,
-    borderRadius: 20,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    background:
-      "linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.03))",
   };
 }
 
 function getHeroKickerStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.58)",
-    fontSize: "0.72em",
-    fontWeight: 800,
+    ...raRecipes.text("fullscreen", "caption"),
+    color: raTheme.color.textMuted,
+    fontWeight: raTheme.type.weight.strong,
     letterSpacing: "0.1em",
     textTransform: "uppercase",
     lineHeight: 1.2,
@@ -64,9 +62,8 @@ function getHeroKickerStyle(): CSSProperties {
 
 function getHeroTitleStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.98)",
-    fontSize: "1.45em",
-    fontWeight: 800,
+    ...raRecipes.text("fullscreen", "hero"),
+    fontWeight: raTheme.type.weight.strong,
     lineHeight: 1.08,
     minWidth: 0,
     overflow: "hidden",
@@ -77,8 +74,8 @@ function getHeroTitleStyle(): CSSProperties {
 
 function getHeroSupportStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.72)",
-    fontSize: "0.92em",
+    ...raRecipes.text("fullscreen", "body"),
+    color: raTheme.color.textSecondary,
     lineHeight: 1.4,
     whiteSpace: "pre-wrap",
   };
@@ -94,8 +91,7 @@ function getSettingsSummaryStyle(): CSSProperties {
 
 function getSettingsSectionSupportStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.68)",
-    fontSize: "0.88em",
+    ...raRecipes.text("fullscreen", "metadata"),
     lineHeight: 1.35,
   };
 }
@@ -173,7 +169,7 @@ export function DeckyRetroAchievementsProviderSettingsPage({
 
   const content = (
       <TopAlignedScrollViewport scrollKey={`full-screen-provider-settings:${providerId}`}>
-        <div style={getPageFrameStyle(inProviderSwitcher)}>
+        <div data-ac-ra-theme="fullscreen" style={getPageFrameStyle(inProviderSwitcher)}>
           {!inProviderSwitcher ? <PanelSection title="Navigation">
             <DeckyFullscreenActionRow>
               <DeckyFullscreenActionButton

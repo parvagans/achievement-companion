@@ -40,6 +40,7 @@ import steamIconUrl from "./assets/steam.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
 import usersIconUrl from "./assets/users.svg";
 import { steamRecipes, steamTheme } from "./steam-theme";
+import { raTheme } from "./ra-theme";
 
 export interface DeckyFullScreenAchievementPageProps {
   readonly providerId: string | undefined;
@@ -58,9 +59,8 @@ function getPageStyle(): CSSProperties {
     padding: "clamp(18px, 3.5vh, 38px) clamp(20px, 4vw, 54px)",
     boxSizing: "border-box",
     overflow: "hidden",
-    color: "rgba(245, 250, 255, 0.98)",
-    background:
-      "radial-gradient(ellipse at 76% 18%, rgba(42, 116, 172, 0.18), transparent 39%), radial-gradient(circle at 16% 80%, rgba(23, 91, 148, 0.14), transparent 34%), linear-gradient(135deg, #06111b 0%, #091827 52%, #06101a 100%)",
+    color: raTheme.color.textPrimary,
+    background: raTheme.surface.page,
   };
 }
 
@@ -75,11 +75,10 @@ function getAchievementPanelStyle(): CSSProperties {
     padding: "14px clamp(16px, 2vw, 22px)",
     boxSizing: "border-box",
     overflow: "hidden",
-    border: "1px solid rgba(90, 176, 239, 0.44)",
-    borderLeft: "4px solid rgba(42, 173, 244, 0.96)",
-    borderRadius: 24,
-    background:
-      "linear-gradient(145deg, rgba(8, 30, 47, 0.97), rgba(5, 19, 31, 0.98) 58%, rgba(7, 24, 38, 0.98))",
+    border: `1px solid ${raTheme.color.borderStrong}`,
+    borderLeft: `4px solid ${raTheme.color.accentStrong}`,
+    borderRadius: raTheme.radius.panel,
+    background: raTheme.surface.raised,
     boxShadow: "inset 0 1px 0 rgba(196, 234, 255, 0.08), 0 18px 46px rgba(0, 0, 0, 0.26)",
   };
 }
@@ -104,7 +103,7 @@ function getAchievementIdentityStyle(): CSSProperties {
   };
 }
 
-function getBadgeFrameStyle(isUnlocked: boolean): CSSProperties {
+function getBadgeFrameStyle(isUnlocked: boolean, isSteam: boolean): CSSProperties {
   return {
     display: "flex",
     alignItems: "center",
@@ -113,18 +112,18 @@ function getBadgeFrameStyle(isUnlocked: boolean): CSSProperties {
     aspectRatio: "1",
     overflow: "hidden",
     borderRadius: 18,
-    border: isUnlocked ? "2px solid rgba(242, 190, 55, 0.94)" : "1px solid rgba(150, 174, 192, 0.28)",
-    background: "linear-gradient(145deg, rgba(17, 50, 73, 0.92), rgba(7, 24, 38, 0.96))",
+    border: isUnlocked ? "2px solid rgba(242, 190, 55, 0.94)" : isSteam ? "1px solid rgba(150, 174, 192, 0.28)" : `1px solid ${raTheme.color.borderSubtle}`,
+    background: isSteam ? "linear-gradient(145deg, rgba(17, 50, 73, 0.92), rgba(7, 24, 38, 0.96))" : raTheme.surface.raised,
     boxShadow: isUnlocked
       ? "inset 0 1px 0 rgba(255, 243, 190, 0.13), 0 0 22px rgba(240, 180, 36, 0.16)"
-      : "inset 0 1px 0 rgba(255, 255, 255, 0.06)",
+      : isSteam ? "inset 0 1px 0 rgba(255, 255, 255, 0.06)" : "inset 0 1px 0 rgba(255, 255, 255, 0.06)",
     filter: isUnlocked ? "none" : "grayscale(1) contrast(1.05) brightness(0.84)",
   };
 }
 
-function getBadgeFallbackStyle(): CSSProperties {
+function getBadgeFallbackStyle(isSteam: boolean): CSSProperties {
   return {
-    color: "rgba(181, 218, 245, 0.76)",
+    color: isSteam ? "rgba(181, 218, 245, 0.76)" : raTheme.color.textSecondary,
     fontSize: "1.4em",
     fontWeight: 800,
     letterSpacing: "0.09em",
@@ -142,7 +141,7 @@ function getAchievementTextStyle(): CSSProperties {
 
 function getGameTitleStyle(): CSSProperties {
   return {
-    color: "rgba(174, 207, 239, 0.92)",
+    color: raTheme.color.textSecondary,
     fontSize: "clamp(0.78rem, 1.45vw, 1rem)",
     fontWeight: 800,
     letterSpacing: "0.1em",
@@ -156,7 +155,7 @@ function getGameTitleStyle(): CSSProperties {
 
 function getAchievementTitleStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.99)",
+    color: raTheme.color.textPrimary,
     fontSize: "clamp(1.45rem, 3vw, 2.25rem)",
     fontWeight: 800,
     letterSpacing: "-0.02em",
@@ -184,9 +183,9 @@ function getMetaPillStyle(tone: "default" | "success" = "default"): CSSPropertie
     padding: "0 11px",
     boxSizing: "border-box",
     borderRadius: 999,
-    border: "1px solid " + (success ? "rgba(64, 231, 141, 0.36)" : "rgba(106, 179, 237, 0.24)"),
-    background: success ? "rgba(25, 154, 91, 0.13)" : "rgba(22, 73, 111, 0.24)",
-    color: success ? "rgba(86, 244, 159, 0.98)" : "rgba(190, 224, 250, 0.94)",
+    border: `1px solid ${success ? "rgba(64, 231, 141, 0.36)" : raTheme.color.borderSubtle}`,
+    background: success ? raTheme.surface.success : raTheme.surface.interactive,
+    color: success ? raTheme.color.success : raTheme.color.textSecondary,
     fontSize: "0.82em",
     fontWeight: 750,
     lineHeight: 1.1,
@@ -204,17 +203,17 @@ function getMetaIconStyle(tone: "default" | "success" = "default"): CSSPropertie
   };
 }
 
-function getDescriptionStyle(): CSSProperties {
+function getDescriptionStyle(isSteam: boolean): CSSProperties {
   return {
     margin: 0,
-    color: "rgba(188, 216, 242, 0.94)",
+    color: isSteam ? "rgba(188, 216, 242, 0.94)" : raTheme.color.textSecondary,
     fontSize: "clamp(0.92rem, 1.7vw, 1.16rem)",
     lineHeight: 1.38,
     whiteSpace: "pre-wrap",
   };
 }
 
-function getGameArtworkFrameStyle(): CSSProperties {
+function getGameArtworkFrameStyle(isSteam: boolean): CSSProperties {
   return {
     display: "flex",
     alignItems: "center",
@@ -223,8 +222,8 @@ function getGameArtworkFrameStyle(): CSSProperties {
     aspectRatio: "460 / 215",
     overflow: "hidden",
     borderRadius: 16,
-    border: "1px solid rgba(108, 174, 220, 0.28)",
-    background: "linear-gradient(145deg, rgba(12, 34, 51, 0.96), rgba(5, 17, 28, 0.96))",
+    border: isSteam ? "1px solid rgba(108, 174, 220, 0.28)" : `1px solid ${raTheme.color.borderSubtle}`,
+    background: isSteam ? "linear-gradient(145deg, rgba(12, 34, 51, 0.96), rgba(5, 17, 28, 0.96))" : raTheme.surface.card,
     boxShadow: "inset 0 1px 0 rgba(228, 244, 255, 0.06), 0 8px 22px rgba(0, 0, 0, 0.2)",
   };
 }
@@ -239,15 +238,15 @@ function getGameArtworkStyle(): CSSProperties {
   };
 }
 
-function getGameArtworkFallbackStyle(): CSSProperties {
+function getGameArtworkFallbackStyle(isSteam: boolean): CSSProperties {
   return {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     width: "100%",
     height: "100%",
-    background: "linear-gradient(145deg, rgba(27, 70, 99, 0.84), rgba(8, 24, 39, 0.98))",
-    color: "rgba(191, 221, 246, 0.88)",
+    background: isSteam ? "linear-gradient(145deg, rgba(27, 70, 99, 0.84), rgba(8, 24, 39, 0.98))" : raTheme.surface.raised,
+    color: isSteam ? "rgba(191, 221, 246, 0.88)" : raTheme.color.accent,
     fontSize: "1.15em",
     fontWeight: 800,
     letterSpacing: "0.08em",
@@ -262,10 +261,10 @@ function getPrimaryStatsStyle(): CSSProperties {
   };
 }
 
-function getCommunityHeadingStyle(): CSSProperties {
+function getCommunityHeadingStyle(isSteam: boolean): CSSProperties {
   return {
     margin: "2px 0 -2px",
-    color: "rgba(173, 208, 239, 0.92)",
+    color: isSteam ? "rgba(173, 208, 239, 0.92)" : raTheme.color.textSecondary,
     fontSize: "0.78em",
     fontWeight: 800,
     letterSpacing: "0.12em",
@@ -282,7 +281,7 @@ function getCommunityStatsStyle(): CSSProperties {
   };
 }
 
-function getMetricCardStyle(): CSSProperties {
+function getMetricCardStyle(isSteam: boolean): CSSProperties {
   return {
     display: "grid",
     gridTemplateColumns: "42px minmax(0, 1fr)",
@@ -292,8 +291,8 @@ function getMetricCardStyle(): CSSProperties {
     padding: "10px 14px",
     boxSizing: "border-box",
     borderRadius: 16,
-    border: "1px solid rgba(90, 157, 203, 0.2)",
-    background: "linear-gradient(145deg, rgba(11, 39, 59, 0.86), rgba(7, 26, 41, 0.9))",
+    border: isSteam ? "1px solid rgba(90, 157, 203, 0.2)" : `1px solid ${raTheme.color.borderSubtle}`,
+    background: isSteam ? "linear-gradient(145deg, rgba(11, 39, 59, 0.86), rgba(7, 26, 41, 0.9))" : raTheme.surface.card,
     boxShadow: "inset 0 1px 0 rgba(205, 235, 255, 0.045)",
     minWidth: 0,
   };
@@ -312,9 +311,9 @@ function getMetricTextStyle(): CSSProperties {
   return { display: "flex", flexDirection: "column", gap: 3, minWidth: 0 };
 }
 
-function getMetricLabelStyle(): CSSProperties {
+function getMetricLabelStyle(isSteam: boolean): CSSProperties {
   return {
-    color: "rgba(173, 207, 237, 0.78)",
+    color: isSteam ? "rgba(173, 207, 237, 0.78)" : raTheme.color.textSecondary,
     fontSize: "0.74em",
     fontWeight: 800,
     letterSpacing: "0.09em",
@@ -323,9 +322,9 @@ function getMetricLabelStyle(): CSSProperties {
   };
 }
 
-function getMetricValueStyle(tone: "default" | "success" = "default"): CSSProperties {
+function getMetricValueStyle(tone: "default" | "success" = "default", isSteam = false): CSSProperties {
   return {
-    color: tone === "success" ? "rgba(82, 242, 156, 0.99)" : "rgba(255, 255, 255, 0.98)",
+    color: tone === "success" ? (isSteam ? "rgba(82, 242, 156, 0.99)" : raTheme.color.success) : isSteam ? "rgba(255, 255, 255, 0.98)" : raTheme.color.textPrimary,
     fontSize: "clamp(1.05rem, 2vw, 1.42rem)",
     fontWeight: 800,
     lineHeight: 1.12,
@@ -385,7 +384,7 @@ function DeckyFullScreenAchievementInputSurface({
       noFocusRing
       preferredFocus={useNativeFocus}
       role="region"
-      {...(useNativeFocus ? { "data-ac-steam-theme": "fullscreen" } : {})}
+      {...(useNativeFocus ? { "data-ac-steam-theme": "fullscreen" } : { "data-ac-ra-theme": "fullscreen" })}
       style={useNativeFocus ? { ...surfaceStyle, color: steamTheme.color.textPrimary, background: steamTheme.surface.page } : surfaceStyle}
       tabIndex={0}
     >
@@ -414,15 +413,15 @@ function DeckyFullScreenAchievementLoadingState({
   );
 }
 
-function GameArtwork({ src, fallbackSrc, title }: { readonly src: string | undefined; readonly fallbackSrc?: string | undefined; readonly title: string }): JSX.Element {
+function GameArtwork({ src, fallbackSrc, title, isSteam }: { readonly src: string | undefined; readonly fallbackSrc?: string | undefined; readonly title: string; readonly isSteam: boolean }): JSX.Element {
   const [hasImageError, setHasImageError] = useState(false);
   const [failedPrimary, setFailedPrimary] = useState(false);
   useEffect(() => { setHasImageError(false); setFailedPrimary(false); }, [src, fallbackSrc]);
   const displayedSource = failedPrimary ? fallbackSrc : src ?? fallbackSrc;
   return (
-    <div style={getGameArtworkFrameStyle()}>
+    <div style={getGameArtworkFrameStyle(isSteam)}>
       {displayedSource === undefined || hasImageError ? (
-        <span style={getGameArtworkFallbackStyle()}>{getArtworkFallbackInitials(title)}</span>
+        <span style={getGameArtworkFallbackStyle(isSteam)}>{getArtworkFallbackInitials(title)}</span>
       ) : (
         <img
           alt=""
@@ -448,6 +447,7 @@ function AchievementMetricCard({
   value,
   valueTone = "default",
   centered = false,
+  isSteam = false,
   fullWidth = false,
 }: {
   readonly icon?: ReactNode;
@@ -457,14 +457,15 @@ function AchievementMetricCard({
   readonly value: string;
   readonly valueTone?: "default" | "success";
   readonly centered?: boolean;
+  readonly isSteam?: boolean;
   readonly fullWidth?: boolean;
 }): JSX.Element {
   return (
-    <div style={{ ...getMetricCardStyle(), ...(fullWidth ? { gridColumn: "1 / -1" } : {}) }}>
+    <div style={{ ...getMetricCardStyle(isSteam), ...(fullWidth ? { gridColumn: "1 / -1" } : {}) }}>
       {icon ?? (iconUrl !== undefined ? <img alt="" aria-hidden="true" src={iconUrl} style={getMetricIconStyle(iconTone)} /> : null)}
       <div style={{ ...getMetricTextStyle(), ...(centered ? { alignItems: "center", textAlign: "center" } : {}) }}>
-        <div style={getMetricLabelStyle()}>{label}</div>
-        <div style={getMetricValueStyle(valueTone)}>{value}</div>
+        <div style={getMetricLabelStyle(isSteam)}>{label}</div>
+        <div style={getMetricValueStyle(valueTone, isSteam)}>{value}</div>
       </div>
     </div>
   );
@@ -516,11 +517,11 @@ function DeckyFullScreenAchievementContent({
       : getAchievementPanelStyle()}>
       <div style={getHeroStyle()}>
         <div style={getAchievementIdentityStyle()}>
-          <div style={getBadgeFrameStyle(achievement.isUnlocked)}>
+          <div style={getBadgeFrameStyle(achievement.isUnlocked, isSteamProvider)}>
             {achievement.badgeImageUrl !== undefined ? (
               <DeckyGameArtwork compact src={achievement.badgeImageUrl} size={144} title={achievement.title} />
             ) : (
-              <span style={getBadgeFallbackStyle()}>{providerLabel}</span>
+              <span style={getBadgeFallbackStyle(isSteamProvider)}>{providerLabel}</span>
             )}
           </div>
           <div style={getAchievementTextStyle()}>
@@ -536,10 +537,10 @@ function DeckyFullScreenAchievementContent({
                 {achievementStatus.value}
               </span>
             </div> : null}
-            <p style={getDescriptionStyle()}>{getAchievementDescriptionText(achievement.description)}</p>
+            <p style={getDescriptionStyle(isSteamProvider)}>{getAchievementDescriptionText(achievement.description)}</p>
           </div>
         </div>
-        <GameArtwork src={heroArtworkUrl} fallbackSrc={steamHuntersBannerUrl ?? storeBannerUrl} title={game.title} />
+        <GameArtwork src={heroArtworkUrl} fallbackSrc={steamHuntersBannerUrl ?? storeBannerUrl} title={game.title} isSteam={isSteamProvider} />
       </div>
 
       <div style={getPrimaryStatsStyle()}>
@@ -549,20 +550,22 @@ function DeckyFullScreenAchievementContent({
           label="Status"
           value={achievementStatus.value}
           valueTone={achievement.isUnlocked ? "success" : "default"}
+          isSteam={isSteamProvider}
         />
         <AchievementMetricCard
           iconUrl={calendarIconUrl}
           label="Unlock date"
           value={unlockTimestamp !== undefined ? formatTimestamp(unlockTimestamp) : "Not unlocked"}
+          isSteam={isSteamProvider}
         />
       </div>
 
-      <div style={getCommunityHeadingStyle()}>{communityHeading}</div>
+      <div style={getCommunityHeadingStyle(isSteamProvider)}>{communityHeading}</div>
       <div style={isSteamProvider ? { ...getCommunityStatsStyle(), gridTemplateColumns: "repeat(2, minmax(0, 1fr))" } : getCommunityStatsStyle()}>
-        <AchievementMetricCard icon={isSteamProvider ? <DeckySteamHuntersIcon color={steamTheme.color.accent} size={31} /> : undefined} iconUrl={isSteamProvider ? undefined : trophyIconUrl} iconTone={isSteamProvider ? "blue" : "gold"} label="Points" value={secondaryValues.points} centered={isSteamProvider} />
-        <AchievementMetricCard iconUrl={usersIconUrl} label={isSteamProvider ? "Unlock rate" : communityHeading + " unlock rate"} value={secondaryValues.unlockRate} centered={isSteamProvider} />
+        <AchievementMetricCard icon={isSteamProvider ? <DeckySteamHuntersIcon color={steamTheme.color.accent} size={31} /> : undefined} iconUrl={isSteamProvider ? undefined : trophyIconUrl} iconTone={isSteamProvider ? "blue" : "gold"} label="Points" value={secondaryValues.points} centered={isSteamProvider} isSteam={isSteamProvider} />
+        <AchievementMetricCard iconUrl={usersIconUrl} label={isSteamProvider ? "Unlock rate" : communityHeading + " unlock rate"} value={secondaryValues.unlockRate} centered={isSteamProvider} isSteam={isSteamProvider} />
         {isSteamProvider
-          ? <AchievementMetricCard iconUrl={usersIconUrl} label="Players Unlocked" value={secondaryValues.playersUnlocked} centered fullWidth />
+          ? <AchievementMetricCard iconUrl={usersIconUrl} label="Players Unlocked" value={secondaryValues.playersUnlocked} centered fullWidth isSteam={isSteamProvider} />
           : <AchievementMetricCard iconUrl={starIconUrl} iconTone="gold" label="Obtainability" value={secondaryValues.obtainability ?? "—"} />}
       </div>
     </article>

@@ -1,8 +1,12 @@
 import type { CSSProperties, FocusEventHandler, ReactNode } from "react";
 import { Focusable, type FocusableProps } from "@decky/ui";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
+import { raRecipes, raTheme } from "./ra-theme";
 
-function getCardStyle(): CSSProperties {
+function getCardStyle(themeVariant: "default" | "ra"): CSSProperties {
+  if (themeVariant === "ra") {
+    return { ...raRecipes.card("fullscreen", true), display: "flex", flexDirection: "column", gap: 8, width: "100%", minWidth: 0, padding: 10 };
+  }
   return {
     display: "flex",
     flexDirection: "column",
@@ -18,9 +22,9 @@ function getCardStyle(): CSSProperties {
   };
 }
 
-function getHeaderStyle(alignment: "center" | "left"): CSSProperties {
+function getHeaderStyle(alignment: "center" | "left", themeVariant: "default" | "ra"): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.6)",
+    color: themeVariant === "ra" ? raTheme.color.accent : "rgba(255, 255, 255, 0.6)",
     fontSize: "0.8em",
     fontWeight: 800,
     letterSpacing: "0.12em",
@@ -41,6 +45,7 @@ export interface DeckyFullScreenGameSpotlightCardProps {
    * interactive action row opt out so Decky can route focus to the buttons.
    */
   readonly focusable?: boolean;
+  readonly themeVariant?: "default" | "ra";
 }
 
 export function DeckyFullScreenGameSpotlightFocusTarget({
@@ -89,11 +94,12 @@ export function DeckyFullScreenGameSpotlightCard({
   style,
   headerAlignment = "center",
   focusable = true,
+  themeVariant = "default",
   focusTargetId,
 }: DeckyFullScreenGameSpotlightCardProps): JSX.Element {
-  const cardStyle = { ...getCardStyle(), ...style };
+  const cardStyle = { ...getCardStyle(themeVariant), ...style };
   const content = <>
-    <div style={getHeaderStyle(headerAlignment)}>{title}</div>
+    <div style={getHeaderStyle(headerAlignment, themeVariant)}>{title}</div>
     {children}
   </>;
 

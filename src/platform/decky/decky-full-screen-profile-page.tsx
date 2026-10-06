@@ -50,6 +50,7 @@ import {
   type RetroAchievementsCompletionBreakdownItem,
 } from "./decky-retroachievements-completion-indicator";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
+import { raRecipes, raTheme } from "./ra-theme";
 
 import {
   getRetroAchievementsProfileAwardStatus,
@@ -180,14 +181,12 @@ function getSteamProfileFrameStyle(): CSSProperties {
 
 function getProfileCardStyle(): CSSProperties {
   return {
+    ...raRecipes.card("fullscreen", true),
     display: "flex",
     flexDirection: "column",
     gap: 14,
     padding: 18,
-    borderRadius: 20,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    background:
-      "linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.03))",
+    borderRadius: raTheme.radius.panel,
   };
 }
 
@@ -213,8 +212,8 @@ function getHeroTextStyle(): CSSProperties {
 
 function getHeroLabelStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.58)",
-    fontSize: "0.72em",
+    color: raTheme.color.textMuted,
+    fontSize: raTheme.type.fullscreen.caption,
     fontWeight: 800,
     letterSpacing: "0.1em",
     textTransform: "uppercase",
@@ -224,7 +223,7 @@ function getHeroLabelStyle(): CSSProperties {
 
 function getHeroNameStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.98)",
+    color: raTheme.color.textPrimary,
     fontSize: "1.35em",
     fontWeight: 800,
     lineHeight: 1.1,
@@ -237,7 +236,7 @@ function getHeroNameStyle(): CSSProperties {
 
 function getHeroSubtitleStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.72)",
+    color: raTheme.color.textSecondary,
     fontSize: "0.95em",
     lineHeight: 1.25,
     minWidth: 0,
@@ -263,7 +262,7 @@ function getHeroMottoStyle(): CSSProperties {
 
 function getHeroMottoLabelStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.58)",
+    color: raTheme.color.textMuted,
     fontSize: "0.68em",
     fontWeight: 800,
     letterSpacing: "0.1em",
@@ -338,6 +337,7 @@ function getAwardsProgressGridStyle(): CSSProperties {
 
 function getOverviewCardStyle(): CSSProperties {
   return {
+    ...raRecipes.card("fullscreen"),
     display: "flex",
     flexDirection: "column",
     height: "100%",
@@ -345,8 +345,6 @@ function getOverviewCardStyle(): CSSProperties {
     minWidth: 0,
     padding: 14,
     borderRadius: 18,
-    border: "1px solid rgba(255, 255, 255, 0.07)",
-    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.025))",
     boxSizing: "border-box",
   };
 }
@@ -363,7 +361,7 @@ function getOverviewCardHeaderStyle(): CSSProperties {
 
 function getOverviewCardTitleStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.94)",
+    color: raTheme.color.textPrimary,
     fontSize: "0.86em",
     fontWeight: 800,
     letterSpacing: "0.06em",
@@ -374,7 +372,7 @@ function getOverviewCardTitleStyle(): CSSProperties {
 
 function getOverviewCardMetaStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.56)",
+    color: raTheme.color.textMuted,
     fontSize: "0.72em",
     fontWeight: 700,
     lineHeight: 1.2,
@@ -392,14 +390,13 @@ function getPreviewRowsStyle(): CSSProperties {
 
 function getPreviewRowStyle(): CSSProperties {
   return {
+    ...raRecipes.card("fullscreen", true),
     display: "flex",
     alignItems: "center",
     gap: 9,
     minWidth: 0,
     padding: 8,
     borderRadius: 12,
-    border: "1px solid rgba(255, 255, 255, 0.055)",
-    backgroundColor: "rgba(255, 255, 255, 0.025)",
   };
 }
 
@@ -415,7 +412,7 @@ function getPreviewRowTextStyle(): CSSProperties {
 
 function getPreviewTitleStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.94)",
+    color: raTheme.color.textPrimary,
     fontSize: "0.9em",
     fontWeight: 750,
     lineHeight: 1.15,
@@ -427,7 +424,7 @@ function getPreviewTitleStyle(): CSSProperties {
 
 function getPreviewMetaStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.62)",
+    color: raTheme.color.textMuted,
     fontSize: "0.74em",
     lineHeight: 1.2,
     overflow: "hidden",
@@ -437,18 +434,13 @@ function getPreviewMetaStyle(): CSSProperties {
 }
 
 function getAwardPillStyle(status: "beaten" | "mastered"): CSSProperties {
-  const mastered = status === "mastered";
   return {
     flex: "0 0 auto",
     padding: "4px 7px",
     borderRadius: 999,
-    border: mastered
-      ? "1px solid rgba(232, 201, 102, 0.52)"
-      : "1px solid rgba(214, 221, 232, 0.42)",
-    backgroundColor: mastered
-      ? "rgba(214, 178, 74, 0.16)"
-      : "rgba(214, 221, 232, 0.1)",
-    color: mastered ? "rgba(242, 216, 127, 0.98)" : "rgba(230, 235, 242, 0.96)",
+    border: `1px solid ${raRecipes.gameAward[status].border}`,
+    backgroundColor: raRecipes.gameAward[status].surface,
+    color: raRecipes.gameAward[status].color,
     fontSize: "0.66em",
     fontWeight: 850,
     letterSpacing: "0.08em",
@@ -458,7 +450,7 @@ function getAwardPillStyle(status: "beaten" | "mastered"): CSSProperties {
 
 function getEmptyOverviewStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.58)",
+    color: raTheme.color.textMuted,
     fontSize: "0.82em",
     lineHeight: 1.35,
     padding: "8px 2px 2px",
@@ -1272,7 +1264,7 @@ export function DeckyFullScreenProfilePage({
   return (
     <ScrollPanel>
       <TopAlignedScrollViewport scrollKey={`full-screen-profile:${providerId ?? "missing"}`}>
-        <div style={getPageFrameStyle()}>
+        <div data-ac-ra-theme="fullscreen" style={getPageFrameStyle()}>
           <PanelSection title="Profile">
             <PanelSectionRow>
               <div style={getProfileCardStyle()}>

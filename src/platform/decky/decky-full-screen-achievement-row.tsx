@@ -15,6 +15,7 @@ import { formatSteamHuntersPercentage } from "./decky-steam-hunters-presentation
 import { DeckySteamAchievementStatusIcon } from "./decky-steam-achievement-status-icon";
 import type { SteamHuntersAchievement } from "../../providers/steamhunters";
 import { steamRecipes, steamTheme } from "./steam-theme";
+import { raTheme } from "./ra-theme";
 
 function formatTimestamp(epochMs: number): string {
   return new Date(epochMs).toLocaleString();
@@ -34,15 +35,15 @@ function getAchievementCardStyle(achievement: NormalizedAchievement): CSSPropert
   const isHardcore = achievement.isUnlocked && achievement.unlockMode === "hardcore";
   const isSoftcore = achievement.isUnlocked && achievement.unlockMode === "softcore";
   const accentColor = isHardcore
-    ? "rgba(214, 178, 74, 0.78)"
+    ? raTheme.color.hardcore
     : isSoftcore
-      ? "rgba(214, 221, 232, 0.72)"
-      : "rgba(255, 255, 255, 0.12)";
+      ? raTheme.color.softcore
+      : raTheme.color.borderSubtle;
   const accentBackground = isHardcore
-    ? "linear-gradient(180deg, rgba(214, 178, 74, 0.08), rgba(214, 178, 74, 0.03))"
+    ? raTheme.surface.hardcore
     : isSoftcore
-      ? "linear-gradient(180deg, rgba(214, 221, 232, 0.07), rgba(214, 221, 232, 0.03))"
-      : "rgba(255, 255, 255, 0.03)";
+      ? raTheme.surface.softcore
+      : raTheme.surface.locked;
 
   return {
     display: "grid",
@@ -51,7 +52,7 @@ function getAchievementCardStyle(achievement: NormalizedAchievement): CSSPropert
     minWidth: 0,
     boxSizing: "border-box",
     padding: "11px 12px",
-    borderRadius: 16,
+    borderRadius: raTheme.radius.large,
     border: `1px solid ${accentColor}`,
     borderLeftWidth: 4,
     borderLeftStyle: "solid",
@@ -72,7 +73,7 @@ function getAchievementRowTextStyle(): CSSProperties {
 
 function getAchievementRowTitleStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.96)",
+    color: raTheme.color.textPrimary,
     fontSize: "0.95em",
     fontWeight: 800,
     lineHeight: 1.2,
@@ -106,10 +107,10 @@ function getAchievementRowStatusStyle(achievement: NormalizedAchievement): CSSPr
 
   return {
     color: isHardcore
-      ? "rgba(232, 201, 102, 0.95)"
+      ? raTheme.color.hardcore
       : isSoftcore
-        ? "rgba(220, 225, 233, 0.95)"
-        : "rgba(255, 255, 255, 0.7)",
+        ? raTheme.color.softcore
+        : raTheme.color.textSecondary,
     fontSize: "0.8em",
     fontWeight: 800,
     lineHeight: 1.2,
@@ -118,7 +119,7 @@ function getAchievementRowStatusStyle(achievement: NormalizedAchievement): CSSPr
 
 function getAchievementRowDetailStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.72)",
+    color: raTheme.color.textSecondary,
     fontSize: "0.8em",
     lineHeight: 1.2,
   };
@@ -418,10 +419,10 @@ export function DeckyFullScreenAchievementRow({
       }}
       style={{
         ...(isSteamProvider ? getSteamAchievementCardStyle(achievement) : getAchievementCardStyle(achievement)),
-        outline: isFocused ? "2px solid rgba(69, 148, 255, 0.8)" : "none",
+        outline: isSteamProvider ? (isFocused ? "2px solid rgba(69, 148, 255, 0.8)" : "none") : (isFocused ? `2px solid ${raTheme.focus.border}` : "none"),
         outlineOffset: 1,
         ...(isFocused
-          ? { boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(69, 148, 255, 0.55), 0 4px 14px rgba(0, 0, 0, 0.22)" }
+          ? { boxShadow: isSteamProvider ? "inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(69, 148, 255, 0.55), 0 4px 14px rgba(0, 0, 0, 0.22)" : raTheme.focus.shadow }
           : {}),
       }}
       data-achievement-companion-steam-achievement-id={isSteamProvider ? achievement.achievementId : undefined}

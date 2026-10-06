@@ -137,7 +137,7 @@ export function DeckyRetroAchievementsGameSpotlight({
         <DeckyRetroAchievementsCommunityStats stats={game.communityStats} />
       </div>
       {showHardcoreModeCard || showSoftcoreModeCard ? (
-        <DeckyFullScreenGameSpotlightCard title="Mode Progress">
+        <DeckyFullScreenGameSpotlightCard title="Mode Progress" themeVariant="ra">
           <DeckyRetroAchievementsModeProgressCards
             game={game}
             hardcorePoints={hardcorePoints}

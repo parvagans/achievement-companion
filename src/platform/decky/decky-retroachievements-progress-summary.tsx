@@ -13,12 +13,11 @@ import {
 } from "./decky-full-screen-game-spotlight-card";
 import type { DeckyRetroAchievementsProgressSummaryData } from "./decky-retroachievements-progress-summary-data";
 import { formatDeckyRelativeTime } from "./decky-stat-helpers";
+import { raRecipes } from "./ra-theme";
 
 function getProgressSummaryStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.82)",
-    fontSize: "0.92em",
-    fontWeight: 700,
+    ...raRecipes.text("fullscreen", "body"),
     lineHeight: 1.25,
     width: "100%",
   };
@@ -52,7 +51,7 @@ export function DeckyRetroAchievementsProgressSummary({
   const lastUnlock = formatDeckyRelativeTime(progress.lastUnlockAt) ?? "None yet";
 
   return (
-    <DeckyFullScreenGameSpotlightCard title="Your Progress" style={getDeckyFullScreenGameSpotlightFillStyle()}>
+    <DeckyFullScreenGameSpotlightCard title="Your Progress" themeVariant="ra" style={getDeckyFullScreenGameSpotlightFillStyle()}>
       <div style={getProgressSummaryStyle()}>{formatProgressSummary(progress)}</div>
       <DeckyCompletionProgressBar percent={progress.completionPercent} showCaption={false} tone={completionTone} />
       <DeckyFullScreenGameProgressStatGrid>

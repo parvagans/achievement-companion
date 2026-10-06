@@ -1,5 +1,5 @@
 import { type CSSProperties, useEffect, useState } from "react";
-import { Field, PanelSectionRow } from "@decky/ui";
+import { PanelSectionRow } from "@decky/ui";
 import type { RetroAchievementsProviderConfig } from "../../../../providers/retroachievements";
 import type { RetroAchievementsCredentialSaveResult } from "./connection";
 import {
@@ -14,6 +14,7 @@ import {
   getRetroAchievementsApiKeyInputDescriptor,
   getRetroAchievementsCredentialsFieldSpecs,
 } from "./credentials-help";
+import { raRecipes, raTheme } from "../../ra-theme";
 
 export interface DeckyRetroAchievementsCredentialsFormProps {
   readonly config: RetroAchievementsProviderConfig | undefined;
@@ -48,13 +49,36 @@ function getCompactFormStyle(): CSSProperties {
 
 function getCompactCardStyle(): CSSProperties {
   return {
+    ...raRecipes.card("compact", true),
     display: "flex",
     flexDirection: "column",
     gap: 10,
-    padding: 16,
-    borderRadius: 18,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.03))",
+  };
+}
+
+function getFullscreenInfoCardStyle(): CSSProperties {
+  return {
+    ...raRecipes.card("fullscreen", true),
+    display: "flex",
+    flexDirection: "column",
+    gap: raTheme.space.xs,
+    padding: 12,
+  };
+}
+
+function getFullscreenInfoLabelStyle(): CSSProperties {
+  return { ...raRecipes.text("fullscreen", "title"), fontWeight: raTheme.type.weight.strong };
+}
+
+function getFullscreenInfoDescriptionStyle(): CSSProperties {
+  return raRecipes.text("fullscreen", "metadata");
+}
+
+function getCredentialInputStyle(): CSSProperties {
+  return {
+    ...raRecipes.inputFrame,
+    color: raTheme.color.textPrimary,
+    padding: "10px 12px",
     boxSizing: "border-box",
   };
 }
@@ -71,9 +95,9 @@ function getCompactCardHeaderStyle(): CSSProperties {
 
 function getCompactCardLabelStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.72)",
-    fontSize: "0.72em",
-    fontWeight: 800,
+    ...raRecipes.text("compact", "caption"),
+    color: raTheme.color.textSecondary,
+    fontWeight: raTheme.type.weight.strong,
     letterSpacing: "0.1em",
     lineHeight: 1.2,
     textTransform: "uppercase",
@@ -87,11 +111,12 @@ function getCompactCardStatusStyle(isConnected: boolean): CSSProperties {
     justifyContent: "center",
     padding: "2px 8px",
     borderRadius: 999,
-    border: isConnected ? "1px solid rgba(96, 165, 250, 0.38)" : "1px solid rgba(214, 158, 46, 0.48)",
-    background: isConnected ? "rgba(96, 165, 250, 0.12)" : "rgba(214, 158, 46, 0.12)",
-    color: isConnected ? "rgba(226, 236, 255, 0.98)" : "rgba(255, 244, 201, 0.98)",
-    fontSize: "11px",
-    fontWeight: 750,
+    ...raRecipes.badge(isConnected ? "default" : "warning"),
+    borderColor: isConnected ? raTheme.color.accent : raTheme.color.warning,
+    background: isConnected ? raTheme.surface.selected : raTheme.surface.warning,
+    color: isConnected ? raTheme.color.accent : raTheme.color.warning,
+    fontSize: raTheme.type.compact.caption,
+    fontWeight: raTheme.type.weight.strong,
     letterSpacing: "0.04em",
     lineHeight: 1.15,
     textTransform: "uppercase",
@@ -101,8 +126,7 @@ function getCompactCardStatusStyle(isConnected: boolean): CSSProperties {
 
 function getCompactCardTextStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.72)",
-    fontSize: "0.9em",
+    ...raRecipes.text("compact", "body"),
     lineHeight: 1.45,
     whiteSpace: "pre-wrap",
   };
@@ -110,14 +134,11 @@ function getCompactCardTextStyle(): CSSProperties {
 
 function getCompactFieldCardStyle(): CSSProperties {
   return {
+    ...raRecipes.card("compact"),
     display: "flex",
     flexDirection: "column",
     gap: 8,
     padding: 14,
-    borderRadius: 18,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
-    boxSizing: "border-box",
   };
 }
 
@@ -131,8 +152,7 @@ function getCompactActionStackStyle(): CSSProperties {
 
 function getCompactActionNoteStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.64)",
-    fontSize: "0.82em",
+    ...raRecipes.text("compact", "metadata"),
     lineHeight: 1.35,
   };
 }
@@ -248,6 +268,7 @@ export function DeckyRetroAchievementsCredentialsForm({
             label={fieldSpecs.username.label}
             description={usernameDescription}
             value={username}
+            style={getCredentialInputStyle()}
             onChange={(event) => {
               setUsername(event.currentTarget.value);
             }}
@@ -266,7 +287,7 @@ export function DeckyRetroAchievementsCredentialsForm({
             inputMode={apiKeyInputDescriptor.inputMode}
             spellCheck={apiKeyInputDescriptor.spellCheck}
             bIsPassword={apiKeyInputDescriptor.bIsPassword}
-            style={getDeckyCredentialTextFieldMaskStyle()}
+            style={{ ...getCredentialInputStyle(), ...getDeckyCredentialTextFieldMaskStyle() }}
             onChange={(event) => {
               setApiKeyDraft(event.currentTarget.value);
             }}
@@ -302,10 +323,16 @@ export function DeckyRetroAchievementsCredentialsForm({
   }
 
   return (
-    <div style={getFormStyle()}>
-      <Field bottomSeparator="none" label="Setup help" description={RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY} />
+    <div data-ac-ra-theme="fullscreen" style={getFormStyle()}>
+      <div style={getFullscreenInfoCardStyle()}>
+        <div style={getFullscreenInfoLabelStyle()}>Setup help</div>
+        <div style={getFullscreenInfoDescriptionStyle()}>{RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY}</div>
+      </div>
 
-      <Field bottomSeparator="none" label={statusLabel} description={statusCopy} />
+      <div style={getFullscreenInfoCardStyle()}>
+        <div style={getFullscreenInfoLabelStyle()}>{statusLabel}</div>
+        <div style={getFullscreenInfoDescriptionStyle()}>{statusCopy}</div>
+      </div>
 
       <PanelSectionRow>
         <DeckyCredentialTextField
@@ -313,6 +340,7 @@ export function DeckyRetroAchievementsCredentialsForm({
           label={fieldSpecs.username.label}
           description={usernameDescription}
           value={username}
+          style={getCredentialInputStyle()}
           onClick={(event) => { if (useSharedFullscreenFooter) markDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument); }}
           onChange={(event) => {
             setUsername(event.currentTarget.value);
@@ -332,7 +360,7 @@ export function DeckyRetroAchievementsCredentialsForm({
           inputMode={apiKeyInputDescriptor.inputMode}
           spellCheck={apiKeyInputDescriptor.spellCheck}
           bIsPassword={apiKeyInputDescriptor.bIsPassword}
-          style={getDeckyCredentialTextFieldMaskStyle()}
+          style={{ ...getCredentialInputStyle(), ...getDeckyCredentialTextFieldMaskStyle() }}
           onClick={(event) => { if (useSharedFullscreenFooter) markDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument); }}
           onChange={(event) => {
             setApiKeyDraft(event.currentTarget.value);

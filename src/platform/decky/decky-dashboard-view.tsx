@@ -47,6 +47,7 @@ import { getDeckyProviderIconSrc } from "./providers/provider-branding";
 import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
 import type { SteamHuntersProfile } from "../../providers/steamhunters";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
+import { raRecipes, raTheme } from "./ra-theme";
 import { STEAM_PROVIDER_ID } from "../../providers/steam/config";
 import {
   formatRetroAchievementsCompletionIndicatorLabel,
@@ -516,8 +517,9 @@ function getDashboardAchievementTone(recentUnlock: RecentUnlock): DashboardAchie
   return "default";
 }
 
-function getDashboardCompactCardStyle(bottomSpacing = 0): CSSProperties {
+function getDashboardCompactCardStyle(bottomSpacing = 0, isRa = false): CSSProperties {
   return {
+    ...(isRa ? raRecipes.card("compact", true) : {}),
     position: "relative",
     display: "flex",
     gap: 14,
@@ -525,15 +527,19 @@ function getDashboardCompactCardStyle(bottomSpacing = 0): CSSProperties {
     minWidth: 0,
     marginBottom: bottomSpacing,
     padding: "16px 16px 16px 20px",
-    borderRadius: 14,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.035)",
+    borderRadius: isRa ? raTheme.radius.medium : 14,
+    border: isRa ? `1px solid ${raTheme.color.borderSubtle}` : "1px solid rgba(255, 255, 255, 0.08)",
+    backgroundColor: isRa ? raTheme.surface.raised : "rgba(255, 255, 255, 0.035)",
     boxSizing: "border-box",
     overflow: "hidden",
   };
 }
 
-function getDashboardCompactCardAccentStyle(tone: DashboardAchievementTone): CSSProperties {
+function getDashboardCompactCardAccentStyle(tone: DashboardAchievementTone, isRa = false): CSSProperties {
+  if (isRa) {
+    const color = tone === "hardcore" ? raTheme.color.hardcore : tone === "softcore" ? raTheme.color.softcore : tone === "locked" ? raTheme.color.locked : raTheme.color.accent;
+    return { position: "absolute", left: 0, top: 14, bottom: 14, width: 4, borderRadius: 999, background: `linear-gradient(180deg, ${color}, transparent)` };
+  }
   const background =
     tone === "hardcore"
       ? "linear-gradient(180deg, rgba(232, 201, 102, 0.92), rgba(214, 178, 74, 0.55))"
@@ -554,7 +560,11 @@ function getDashboardCompactCardAccentStyle(tone: DashboardAchievementTone): CSS
   };
 }
 
-function getDashboardCompactArtworkFrameStyle(tone?: DashboardAchievementTone): CSSProperties {
+function getDashboardCompactArtworkFrameStyle(tone?: DashboardAchievementTone, isRa = false): CSSProperties {
+  if (isRa) {
+    const color = tone === "hardcore" ? raTheme.color.hardcore : tone === "softcore" ? raTheme.color.softcore : tone === "locked" ? raTheme.color.locked : raTheme.color.borderSubtle;
+    return { flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", width: 42, height: 42, padding: 3, borderRadius: raTheme.radius.medium, border: `1px solid ${color}`, backgroundColor: raTheme.surface.interactive, boxSizing: "border-box", overflow: "hidden" };
+  }
   const borderColor =
     tone === "hardcore"
       ? "rgba(232, 201, 102, 0.2)"
@@ -598,27 +608,27 @@ function getDashboardCompactTextColumnStyle(): CSSProperties {
   };
 }
 
-function getDashboardCompactTitleStyle(): CSSProperties {
+function getDashboardCompactTitleStyle(isRa = false): CSSProperties {
   return {
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    color: "rgba(255, 255, 255, 0.97)",
-    fontSize: "0.92em",
+    color: isRa ? raTheme.color.textPrimary : "rgba(255, 255, 255, 0.97)",
+    fontSize: isRa ? raTheme.type.compact.title : "0.92em",
     fontWeight: 700,
     lineHeight: 1.15,
   };
 }
 
-function getDashboardCompactGameTitleStyle(): CSSProperties {
+function getDashboardCompactGameTitleStyle(isRa = false): CSSProperties {
   return {
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    color: "rgba(255, 255, 255, 0.78)",
-    fontSize: "0.79em",
+    color: isRa ? raTheme.color.textSecondary : "rgba(255, 255, 255, 0.78)",
+    fontSize: isRa ? raTheme.type.compact.metadata : "0.79em",
     lineHeight: 1.15,
   };
 }
@@ -640,12 +650,12 @@ function getDashboardAchievementStatusStyle(tone: DashboardAchievementTone): CSS
     whiteSpace: "nowrap",
     color:
       tone === "hardcore"
-        ? "rgba(232, 201, 102, 0.96)"
+        ? raTheme.color.hardcore
         : tone === "softcore"
-          ? "rgba(220, 225, 233, 0.93)"
+          ? raTheme.color.softcore
           : tone === "locked"
-            ? "rgba(203, 213, 225, 0.62)"
-            : "rgba(125, 211, 252, 0.92)",
+            ? raTheme.color.locked
+            : raTheme.color.unlocked,
     fontSize: "0.77em",
     fontWeight: 700,
     lineHeight: 1.12,
@@ -658,7 +668,7 @@ function getDashboardCompactMetaLineStyle(): CSSProperties {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    color: "rgba(255, 255, 255, 0.64)",
+    color: raTheme.color.textMuted,
     fontSize: "0.75em",
     lineHeight: 1.12,
   };
@@ -700,10 +710,10 @@ function getDashboardCompactProgressStackStyle(): CSSProperties {
 
 function getDashboardMiniProgressTrackStyle(): CSSProperties {
   return {
+    ...raRecipes.progressTrack,
     height: 4,
     borderRadius: 999,
     overflow: "hidden",
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
     boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.05)",
   };
 }
@@ -715,10 +725,10 @@ function getDashboardMiniProgressFillStyle(percent: number, tone: DeckyCompletio
     borderRadius: 999,
     background:
       tone === "retroachievements-mastered"
-        ? "linear-gradient(90deg, rgba(214, 178, 74, 0.94), rgba(232, 201, 102, 0.98))"
+        ? raRecipes.progressFill.mastered
         : tone === "retroachievements-beaten"
-          ? "linear-gradient(90deg, rgba(188, 198, 211, 0.94), rgba(223, 230, 239, 0.98))"
-        : "linear-gradient(90deg, rgba(99, 179, 237, 0.92), rgba(125, 211, 252, 0.98))",
+          ? raRecipes.progressFill.beaten
+        : raRecipes.progressFill.completion,
   };
 }
 
@@ -1187,7 +1197,7 @@ function RecentAchievementRow({
       focusWithinClassName={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
       noFocusRing
       role="button"
-      style={getDashboardCompactCardStyle(bottomSpacing)}
+      style={getDashboardCompactCardStyle(bottomSpacing, true)}
       onCancel={onCancel}
       onActivate={() => {
         onOpenAchievementDetail({
@@ -1202,8 +1212,8 @@ function RecentAchievementRow({
         });
       }}
     >
-      <div aria-hidden="true" style={getDashboardCompactCardAccentStyle(tone)} />
-      <div style={getDashboardCompactArtworkFrameStyle(tone)}>
+      <div aria-hidden="true" style={getDashboardCompactCardAccentStyle(tone, true)} />
+      <div style={getDashboardCompactArtworkFrameStyle(tone, true)}>
         {recentUnlock.achievement.badgeImageUrl !== undefined ? (
           <DeckyGameArtwork
             compact
@@ -1212,12 +1222,12 @@ function RecentAchievementRow({
             title={recentUnlock.achievement.title}
           />
         ) : (
-          <span style={getDashboardCompactGameTitleStyle()}>{statusLabel.slice(0, 1)}</span>
+          <span style={getDashboardCompactGameTitleStyle(true)}>{statusLabel.slice(0, 1)}</span>
         )}
       </div>
       <div style={getDashboardCompactTextColumnStyle()}>
-        <div style={getDashboardCompactTitleStyle()}>{recentUnlock.achievement.title}</div>
-        <div style={getDashboardCompactGameTitleStyle()}>{recentUnlock.game.title}</div>
+        <div style={getDashboardCompactTitleStyle(true)}>{recentUnlock.achievement.title}</div>
+        <div style={getDashboardCompactGameTitleStyle(true)}>{recentUnlock.game.title}</div>
         <div style={getDashboardCompactMetaStackStyle()}>
           <div style={getDashboardAchievementStatusStyle(tone)}>{statusLabel}</div>
           {detailLine.length > 0 ? <div style={getDashboardCompactMetaLineStyle()}>{detailLine}</div> : null}
@@ -1303,7 +1313,7 @@ function RecentlyPlayedRow({
       focusWithinClassName={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
       noFocusRing
       role="button"
-      style={getDashboardCompactCardStyle(bottomSpacing)}
+      style={getDashboardCompactCardStyle(bottomSpacing, true)}
       onCancel={onCancel}
       onActivate={() => {
         onOpenGameDetail(game.providerId, game.gameId, game.title);
@@ -1312,16 +1322,16 @@ function RecentlyPlayedRow({
         onOpenGameDetail(game.providerId, game.gameId, game.title);
       }}
     >
-      <div aria-hidden="true" style={getDashboardCompactCardAccentStyle("default")} />
-      <div style={getDashboardCompactArtworkFrameStyle()}>
+      <div aria-hidden="true" style={getDashboardCompactCardAccentStyle("default", true)} />
+      <div style={getDashboardCompactArtworkFrameStyle(undefined, true)}>
         {game.coverImageUrl !== undefined ? (
           <DeckyGameArtwork compact src={game.coverImageUrl} size={34} title={game.title} />
         ) : (
-          <span style={getDashboardCompactGameTitleStyle()}>{(game.platformLabel ?? game.title).slice(0, 1)}</span>
+          <span style={getDashboardCompactGameTitleStyle(true)}>{(game.platformLabel ?? game.title).slice(0, 1)}</span>
         )}
       </div>
       <div style={getDashboardCompactTextColumnStyle()}>
-        <div style={getDashboardCompactTitleStyle()}>{game.title}</div>
+        <div style={getDashboardCompactTitleStyle(true)}>{game.title}</div>
         <DeckySystemPill
           label={game.platformLabel ?? "Unknown platform"}
           iconSize={14}
@@ -1485,7 +1495,7 @@ export function DeckyDashboardView({
   }
 
   return (
-    <>
+    <div data-ac-ra-theme={profile.providerId === RETROACHIEVEMENTS_PROVIDER_ID ? "compact" : undefined} style={{ display: "contents" }}>
       {profile.providerId === RETROACHIEVEMENTS_PROVIDER_ID && retroAchievementsConnectionState !== undefined && getRetroAchievementsConnectionBanner(retroAchievementsConnectionState) !== undefined ? (
         <PanelSection title={retroAchievementsConnectionState.status === "authentication-required" ? "Authentication required" : "RetroAchievements unavailable"}>
           <PanelSectionRow>
@@ -1718,6 +1728,6 @@ export function DeckyDashboardView({
           </PanelSectionRow>
         )}
       </PanelSection>
-    </>
+    </div>
   );
 }

@@ -1,9 +1,11 @@
 import { useState, type CSSProperties } from "react";
+import { raRecipes, raTheme } from "./ra-theme";
 
 function getArtworkFrameStyle(variant: "default" | "compact"): CSSProperties {
   const isCompact = variant === "compact";
 
   return {
+    ...raRecipes.artwork(isCompact ? "compact" : "fullscreen"),
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -13,11 +15,6 @@ function getArtworkFrameStyle(variant: "default" | "compact"): CSSProperties {
     height: isCompact ? 168 : 256,
     maxHeight: isCompact ? 180 : 256,
     padding: isCompact ? 10 : 14,
-    borderRadius: 18,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    background:
-      "radial-gradient(circle at top, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02) 52%, rgba(0, 0, 0, 0.18))",
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 4px 16px rgba(0, 0, 0, 0.2)",
     boxSizing: "border-box",
     flexShrink: 0,
     overflow: "hidden",
@@ -43,11 +40,10 @@ function getArtworkFallbackStyle(): CSSProperties {
     height: "100%",
     alignItems: "center",
     justifyContent: "center",
-    background:
-      "linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03))",
-    color: "rgba(255, 255, 255, 0.9)",
-    fontSize: "1em",
-    fontWeight: 700,
+    background: raTheme.surface.interactive,
+    color: raTheme.color.textPrimary,
+    ...raRecipes.text("fullscreen", "title"),
+    fontWeight: raTheme.type.weight.strong,
     letterSpacing: "0.06em",
   };
 }

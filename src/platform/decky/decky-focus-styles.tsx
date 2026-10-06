@@ -1,5 +1,6 @@
 import { type JSX } from "react";
 import { getSteamFocusStylesCss } from "./steam-theme";
+import { getRaFocusStylesCss } from "./ra-theme";
 
 export const DECKY_FOCUS_NAV_ROW_CLASS = "achievement-companion-focus-nav-row";
 export const DECKY_FOCUS_ACTION_ROW_CLASS = "achievement-companion-focus-action-row";
@@ -247,5 +248,5 @@ export function getDeckyFocusStylesCss(): string {
 }
 
 export function DeckyFocusStyles(): JSX.Element {
-  return <style>{getDeckyFocusStylesCss() + getSteamFocusStylesCss()}</style>;
+  return <style>{getDeckyFocusStylesCss() + getSteamFocusStylesCss() + getRaFocusStylesCss()}</style>;
 }

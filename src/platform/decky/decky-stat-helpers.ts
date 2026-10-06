@@ -12,6 +12,7 @@ import type { RetroAchievementsCompletionCollection } from "./decky-completion-p
 import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
 import { formatSteamXp, getSteamXpProgress } from "./steam-xp";
 import { formatDeckyNumericText } from "./decky-number-format";
+import { raRecipes } from "./ra-theme";
 
 function formatCount(value: number): string {
   return value.toLocaleString();
@@ -316,186 +317,19 @@ export function getRetroAchievementsProfileStatSections(args: {
 }
 
 export function getRetroAchievementsProfileSectionStyle(variant: ProfileStatSectionVariant): CSSProperties {
-  if (variant === "softcore") {
-    return {
-      display: "flex",
-      flexDirection: "column",
-      gap: 10,
-      padding: 12,
-      borderRadius: 16,
-      border: "1px solid rgba(255, 255, 255, 0.06)",
-      backgroundColor: "rgba(214, 221, 232, 0.03)",
-      boxShadow: "inset 4px 0 0 rgba(214, 221, 232, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.015)",
-      boxSizing: "border-box",
-    };
-  }
-
-  if (variant === "hardcore") {
-    return {
-      display: "flex",
-      flexDirection: "column",
-      gap: 10,
-      padding: 12,
-      borderRadius: 16,
-      border: "1px solid rgba(255, 255, 255, 0.06)",
-      backgroundColor: "rgba(214, 178, 74, 0.035)",
-      boxShadow: "inset 4px 0 0 rgba(214, 178, 74, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.015)",
-      boxSizing: "border-box",
-    };
-  }
-
-  if (variant === "retroachievements") {
-    return {
-      display: "flex",
-      flexDirection: "column",
-      gap: 10,
-      padding: 12,
-      borderRadius: 16,
-      border: "1px solid rgba(255, 255, 255, 0.06)",
-      backgroundColor: "rgba(82, 120, 220, 0.04)",
-      boxShadow: "inset 4px 0 0 rgba(91, 153, 255, 0.56), inset 0 0 0 1px rgba(255, 255, 255, 0.015)",
-      boxSizing: "border-box",
-    };
-  }
-
-  if (variant === "completion") {
-    return {
-      display: "flex",
-      flexDirection: "column",
-      gap: 10,
-      padding: 12,
-      borderRadius: 16,
-      border: "1px solid rgba(255, 255, 255, 0.06)",
-      backgroundColor: "rgba(60, 168, 192, 0.04)",
-      boxShadow: "inset 4px 0 0 rgba(91, 208, 220, 0.56), inset 0 0 0 1px rgba(255, 255, 255, 0.015)",
-      boxSizing: "border-box",
-    };
-  }
-
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 10,
-    padding: 12,
-    borderRadius: 16,
-    border: "1px solid rgba(255, 255, 255, 0.06)",
-    backgroundColor: "rgba(255, 255, 255, 0.02)",
-    boxSizing: "border-box",
-  };
+  return raRecipes.profileSection.card(variant);
 }
 
 export function getRetroAchievementsProfileSectionTitleStyle(
   variant: ProfileStatSectionVariant,
 ): CSSProperties {
-  if (variant === "softcore") {
-    return {
-      color: "rgba(220, 225, 233, 0.86)",
-      fontSize: "0.72em",
-      fontWeight: 800,
-      letterSpacing: "0.1em",
-      textTransform: "uppercase",
-      lineHeight: 1.2,
-    };
-  }
-
-  if (variant === "hardcore") {
-    return {
-      color: "rgba(232, 201, 102, 0.9)",
-      fontSize: "0.72em",
-      fontWeight: 800,
-      letterSpacing: "0.1em",
-      textTransform: "uppercase",
-      lineHeight: 1.2,
-    };
-  }
-
-  if (variant === "retroachievements") {
-    return {
-      color: "rgba(122, 178, 255, 0.92)",
-      fontSize: "0.72em",
-      fontWeight: 800,
-      letterSpacing: "0.1em",
-      textTransform: "uppercase",
-      lineHeight: 1.2,
-    };
-  }
-
-  if (variant === "completion") {
-    return {
-      color: "rgba(125, 225, 236, 0.92)",
-      fontSize: "0.72em",
-      fontWeight: 800,
-      letterSpacing: "0.1em",
-      textTransform: "uppercase",
-      lineHeight: 1.2,
-    };
-  }
-
-  return {
-    color: "rgba(255, 255, 255, 0.58)",
-    fontSize: "0.72em",
-    fontWeight: 800,
-    letterSpacing: "0.1em",
-    textTransform: "uppercase",
-    lineHeight: 1.2,
-  };
+  return raRecipes.profileSection.title(variant);
 }
 
 export function getRetroAchievementsProfileSectionAccentStyle(
   variant: ProfileStatSectionVariant,
 ): CSSProperties {
-  if (variant === "softcore") {
-    return {
-      position: "absolute",
-      inset: "10px auto 10px 0",
-      width: 4,
-      borderTopLeftRadius: 999,
-      borderBottomLeftRadius: 999,
-      background: "linear-gradient(180deg, rgba(214, 221, 232, 0.84), rgba(214, 221, 232, 0.42))",
-    };
-  }
-
-  if (variant === "hardcore") {
-    return {
-      position: "absolute",
-      inset: "10px auto 10px 0",
-      width: 4,
-      borderTopLeftRadius: 999,
-      borderBottomLeftRadius: 999,
-      background: "linear-gradient(180deg, rgba(232, 201, 102, 0.92), rgba(214, 178, 74, 0.56))",
-    };
-  }
-
-  if (variant === "retroachievements") {
-    return {
-      position: "absolute",
-      inset: "10px auto 10px 0",
-      width: 4,
-      borderTopLeftRadius: 999,
-      borderBottomLeftRadius: 999,
-      background: "linear-gradient(180deg, rgba(122, 178, 255, 0.92), rgba(91, 153, 255, 0.56))",
-    };
-  }
-
-  if (variant === "completion") {
-    return {
-      position: "absolute",
-      inset: "10px auto 10px 0",
-      width: 4,
-      borderTopLeftRadius: 999,
-      borderBottomLeftRadius: 999,
-      background: "linear-gradient(180deg, rgba(125, 225, 236, 0.9), rgba(91, 208, 220, 0.56))",
-    };
-  }
-
-  return {
-    position: "absolute",
-    inset: "10px auto 10px 0",
-    width: 4,
-    borderTopLeftRadius: 999,
-    borderBottomLeftRadius: 999,
-    background: "rgba(255, 255, 255, 0.08)",
-  };
+  return raRecipes.profileSection.accent(variant);
 }
 
 function flattenProfileStatSections(

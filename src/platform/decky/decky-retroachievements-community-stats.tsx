@@ -56,6 +56,7 @@ export function DeckyRetroAchievementsCommunityStats({
     <DeckyFullScreenGameSpotlightCard
       title="Community"
       focusable={false}
+      themeVariant="ra"
       style={getDeckyFullScreenGameSpotlightFillStyle()}
     >
       <DeckyFullScreenGameProgressStatGrid fillHeight>

@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, type CSSProperties, type JSX } from "react";
 import type { GameDetailSnapshot } from "@core/domain";
 import { steamRecipes, steamTheme } from "./steam-theme";
+import { raRecipes, raTheme } from "./ra-theme";
 
 type GameSummary = GameDetailSnapshot["game"]["summary"];
 export type DeckyCompletionProgressBarTone =
@@ -9,8 +10,7 @@ export type DeckyCompletionProgressBarTone =
   | "retroachievements-beaten";
 
 const FLAME_COMPLETION_THRESHOLD_PERCENT = 90;
-const DEFAULT_COMPLETION_BACKGROUND =
-  "linear-gradient(90deg, rgba(99, 179, 237, 0.92), rgba(125, 211, 252, 0.98))";
+const DEFAULT_COMPLETION_BACKGROUND = raRecipes.progressFill.completion;
 const FLAME_COMPLETION_BACKGROUND =
   "linear-gradient(90deg, rgba(245, 196, 66, 0.96), rgba(249, 115, 22, 0.98), rgba(239, 68, 68, 0.98))";
 
@@ -29,12 +29,11 @@ function getCompletionBarFrameStyle(compact: boolean): CSSProperties {
 
 function getCompletionBarTrackStyle(compact: boolean, captionPlacement: "above" | "below" | "inside", isSteam: boolean): CSSProperties {
   return {
-    ...(isSteam ? steamRecipes.progressTrack : {}),
+    ...(isSteam ? steamRecipes.progressTrack : raRecipes.progressTrack),
     position: "relative",
     height: captionPlacement === "inside" ? (compact ? 22 : 28) : compact ? 4 : 8,
     borderRadius: 999,
     overflow: "hidden",
-    backgroundColor: isSteam ? undefined : "rgba(255, 255, 255, 0.08)",
     boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.06)",
   };
 }
@@ -109,9 +108,9 @@ export function getCompletionBarFillStyle(
     borderRadius: 999,
     background:
       tone === "retroachievements-mastered"
-        ? "linear-gradient(90deg, rgba(214, 178, 74, 0.94), rgba(232, 201, 102, 0.98))"
+        ? raRecipes.progressFill.mastered
         : tone === "retroachievements-beaten"
-          ? "linear-gradient(90deg, rgba(188, 198, 211, 0.94), rgba(223, 230, 239, 0.98))"
+          ? raRecipes.progressFill.beaten
         : usesFlamePalette
           ? FLAME_COMPLETION_BACKGROUND
         : isSteam
@@ -130,8 +129,8 @@ export function getCompletionBarFillStyle(
 
 function getCompletionBarCaptionStyle(compact: boolean, isSteam: boolean): CSSProperties {
   return {
-    ...(isSteam ? steamRecipes.text(compact ? "compact" : "fullscreen", "metadata") : {}),
-    color: isSteam ? steamTheme.color.textSecondary : "rgba(255, 255, 255, 0.76)",
+    ...(isSteam ? steamRecipes.text(compact ? "compact" : "fullscreen", "metadata") : raRecipes.text(compact ? "compact" : "fullscreen", "metadata")),
+    color: isSteam ? steamTheme.color.textSecondary : raTheme.color.textSecondary,
     fontSize: isSteam ? steamTheme.type[compact ? "compact" : "fullscreen"].metadata : compact ? "12px" : "14px",
     fontWeight: 600,
     lineHeight: 1.2,
@@ -177,7 +176,7 @@ export function DeckyCompletionProgressBar({
   const resolvedCaption = caption ?? `${normalizedPercent}% complete`;
 
   return (
-    <div data-ac-steam-theme={isSteam ? (compact ? "compact" : "fullscreen") : undefined} style={getCompletionBarFrameStyle(compact)}>
+    <div data-ac-steam-theme={isSteam ? (compact ? "compact" : "fullscreen") : undefined} data-ac-ra-theme={!isSteam ? (compact ? "compact" : "fullscreen") : undefined} style={getCompletionBarFrameStyle(compact)}>
       {showCaption && captionPlacement === "above" ? (
         <div style={getCompletionBarCaptionStyle(compact, isSteam)}>{resolvedCaption}</div>
       ) : null}

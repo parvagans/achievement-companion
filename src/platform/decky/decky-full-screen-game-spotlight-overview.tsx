@@ -5,6 +5,7 @@ import {
   DeckyFullScreenGameSpotlightFocusTarget,
 } from "./decky-full-screen-game-spotlight-card";
 import { DeckySystemPill } from "./decky-system-pill";
+import { raTheme } from "./ra-theme";
 
 type DeckyFullScreenGameSpotlightOverviewLayout = "vertical" | "horizontal";
 
@@ -37,7 +38,7 @@ function getOverviewTextStyle(layout: DeckyFullScreenGameSpotlightOverviewLayout
 
 function getOverviewTitleStyle(layout: DeckyFullScreenGameSpotlightOverviewLayout): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.95)",
+    color: raTheme.color.textPrimary,
     fontSize: "1.18em",
     fontWeight: 800,
     lineHeight: 1.15,
@@ -59,9 +60,9 @@ function getInfoPillStyle(): CSSProperties {
     minHeight: 28,
     padding: "0 10px",
     borderRadius: 999,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.035)",
-    color: "rgba(255, 255, 255, 0.82)",
+    border: `1px solid ${raTheme.color.borderSubtle}`,
+    backgroundColor: raTheme.surface.interactive,
+    color: raTheme.color.textSecondary,
     fontSize: "0.82em",
     lineHeight: 1.2,
     whiteSpace: "nowrap",
@@ -130,6 +131,7 @@ export function DeckyFullScreenGameSpotlightOverview({
     <DeckyFullScreenGameSpotlightCard
       title="Game Overview"
       focusable={false}
+      themeVariant="ra"
       headerAlignment={layout === "horizontal" ? "left" : "center"}
     >
       {focusable ? (

@@ -7,6 +7,7 @@ import { DeckyCompactPillActionItem } from "../../decky-compact-pill-action-item
 import { DeckyRetroAchievementsCredentialsForm } from "./credentials-form";
 import { useDeckyProviderConfig, writeDeckyRetroAchievementsProviderConfig } from "./config";
 import { useDeckySettings } from "../../decky-settings";
+import { raRecipes, raTheme } from "../../ra-theme";
 
 export interface DeckyFirstRunSetupScreenProps {
   readonly providerId: ProviderId;
@@ -24,14 +25,11 @@ function getPageFrameStyle(): CSSProperties {
 
 function getHeroCardStyle(): CSSProperties {
   return {
+    ...raRecipes.card("fullscreen"),
     display: "flex",
     flexDirection: "column",
     gap: 12,
     padding: 18,
-    borderRadius: 20,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    background:
-      "linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.03))",
   };
 }
 
@@ -53,9 +51,9 @@ function getHeroIconFrameStyle(): CSSProperties {
     height: 32,
     flexShrink: 0,
     overflow: "hidden",
-    borderRadius: 10,
-    border: "1px solid rgba(255, 255, 255, 0.12)",
-    background: "rgba(255, 255, 255, 0.06)",
+    borderRadius: raTheme.radius.medium,
+    border: `1px solid ${raTheme.color.borderSubtle}`,
+    background: raTheme.surface.raised,
   };
 }
 
@@ -89,9 +87,9 @@ function getHeroActionRowStyle(): CSSProperties {
 
 function getHeroKickerStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.58)",
-    fontSize: "0.72em",
-    fontWeight: 800,
+    ...raRecipes.text("fullscreen", "caption"),
+    color: raTheme.color.textMuted,
+    fontWeight: raTheme.type.weight.strong,
     letterSpacing: "0.1em",
     textTransform: "uppercase",
     lineHeight: 1.2,
@@ -100,9 +98,8 @@ function getHeroKickerStyle(): CSSProperties {
 
 function getHeroTitleStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.98)",
-    fontSize: "1.45em",
-    fontWeight: 800,
+    ...raRecipes.text("fullscreen", "hero"),
+    fontWeight: raTheme.type.weight.strong,
     lineHeight: 1.08,
     minWidth: 0,
     overflow: "visible",
@@ -117,8 +114,8 @@ const RETROACHIEVEMENTS_SETUP_HELP_COPY =
 
 function getHeroSupportStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.72)",
-    fontSize: "0.92em",
+    ...raRecipes.text("fullscreen", "body"),
+    color: raTheme.color.textSecondary,
     lineHeight: 1.4,
     whiteSpace: "pre-wrap",
   };
@@ -141,7 +138,7 @@ export function DeckyRetroAchievementsSetupScreen({
   const providerLabel = getProviderLabel(providerId);
 
   return (
-    <div style={getPageFrameStyle()}>
+    <div data-ac-ra-theme="fullscreen" style={getPageFrameStyle()}>
       <PanelSection title="Provider">
         <PanelSectionRow>
           <div style={getHeroCardStyle()}>
