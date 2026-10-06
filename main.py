@@ -44,6 +44,8 @@ from backend.storage import build_corrupt_backup_path as _build_corrupt_backup_p
 from backend.storage import quarantine_corrupt_json_file as _quarantine_corrupt_json_file
 from backend.storage import read_json_file as _read_json_file
 from backend.storage import write_json_file as _write_json_file
+from backend.update import download_and_verify_update as _download_and_verify_update
+from backend.version import get_application_version as _get_application_version
 
 SETTINGS_PATH = Path(decky.DECKY_PLUGIN_SETTINGS_DIR)
 LOGS_PATH = Path(decky.DECKY_PLUGIN_LOG_DIR)
@@ -195,6 +197,16 @@ class Plugin:
 
   async def _uninstall(self) -> None:
     _log("info", "Achievement Companion backend uninstalled")
+
+  async def get_plugin_version(self) -> str:
+    return _get_application_version(_PLUGIN_DIR)
+
+  async def prepare_update_artifact(self, payload: dict[str, Any]) -> dict[str, str]:
+    return await asyncio.to_thread(
+      _download_and_verify_update,
+      payload,
+      ssl_context=_get_backend_http_ssl_context(),
+    )
 
   async def get_provider_configs(self) -> dict[str, Any]:
     retroachievements_config = _build_retroachievements_config_view(

@@ -12,6 +12,7 @@ export const ACTIVITY_CALENDAR_WEEK_OPTIONS = [4, 6, 8, 10, 12] as const;
 export type ActivityCalendarWeeks = (typeof ACTIVITY_CALENDAR_WEEK_OPTIONS)[number];
 
 export type CompletionProgressFilter = "all" | "unfinished" | "beaten" | "mastered";
+export type UpdateSourceKind = "production" | "local";
 
 export const GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS = [
   "top-left",
@@ -62,6 +63,11 @@ export interface AchievementCompanionSettings {
   readonly gamePageAchievementBadgeColors: GamePageAchievementBadgeColors;
   readonly steamCompactActivityCalendarWeeks: ActivityCalendarWeeks;
   readonly steamFullscreenActivityCalendarWeeks: ActivityCalendarWeeks;
+  readonly automaticUpdateChecks: boolean;
+  readonly updateSource: UpdateSourceKind;
+  readonly localUpdateManifestUrl: string;
+  readonly lastUpdateCheckedAt?: number;
+  readonly lastNotifiedUpdateVersion?: string;
 }
 
 export const DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS: AchievementCompanionSettings = {
@@ -74,6 +80,9 @@ export const DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS: AchievementCompanionSetting
   gamePageAchievementBadgeColors: DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS,
   steamCompactActivityCalendarWeeks: 4,
   steamFullscreenActivityCalendarWeeks: 12,
+  automaticUpdateChecks: true,
+  updateSource: "production",
+  localUpdateManifestUrl: "",
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -99,6 +108,18 @@ function normalizeCompletionProgressFilter(
   return value === "all" || value === "unfinished" || value === "beaten" || value === "mastered"
     ? value
     : fallback;
+}
+
+function normalizeUpdateSource(value: unknown): UpdateSourceKind {
+  return value === "local" ? "local" : "production";
+}
+
+function normalizeOptionalTimestamp(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
+}
+
+function normalizeOptionalString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : undefined;
 }
 
 function normalizeGamePageAchievementBadgePosition(
@@ -151,6 +172,9 @@ export function normalizeAchievementCompanionSettings(
     return DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS;
   }
 
+  const lastUpdateCheckedAt = normalizeOptionalTimestamp(value["lastUpdateCheckedAt"]);
+  const lastNotifiedUpdateVersion = normalizeOptionalString(value["lastNotifiedUpdateVersion"]);
+
   return {
     recentAchievementsCount: normalizeCount(
       value["recentAchievementsCount"],
@@ -187,6 +211,21 @@ export function normalizeAchievementCompanionSettings(
       value["steamFullscreenActivityCalendarWeeks"],
       DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.steamFullscreenActivityCalendarWeeks,
     ),
+    automaticUpdateChecks:
+      typeof value["automaticUpdateChecks"] === "boolean"
+        ? value["automaticUpdateChecks"]
+        : DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.automaticUpdateChecks,
+    updateSource: normalizeUpdateSource(value["updateSource"]),
+    localUpdateManifestUrl:
+      typeof value["localUpdateManifestUrl"] === "string"
+        ? value["localUpdateManifestUrl"].trim()
+        : DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.localUpdateManifestUrl,
+    ...(lastUpdateCheckedAt !== undefined
+      ? { lastUpdateCheckedAt }
+      : {}),
+    ...(lastNotifiedUpdateVersion !== undefined
+      ? { lastNotifiedUpdateVersion }
+      : {}),
   };
 }
 

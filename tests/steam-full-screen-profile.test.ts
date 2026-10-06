@@ -818,7 +818,7 @@ test("compact dashboard Profile navigation uses the native route before closing 
   );
 });
 
-test("Steam settings start with two visible collapsed sections and keep expansion exclusive", async () => {
+test("Steam settings start with three visible collapsed sections and keep expansion exclusive", async () => {
   const [source, footerSource] = await Promise.all([
     readFile(new URL("../src/platform/decky/decky-full-screen-settings-page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-full-screen-footer-overlay.tsx", import.meta.url), "utf8"),
@@ -828,11 +828,13 @@ test("Steam settings start with two visible collapsed sections and keep expansio
   assert.doesNotMatch(source, /RETROACHIEVEMENTS_PROVIDER_ID|RetroAchievements|clearRetroAchievementsAccount/u);
   assert.doesNotMatch(source, /<Heading>PROVIDERS<\/Heading>|Game Scanning|Notifications/u);
   assert.match(source, /STEAM SETTINGS/u);
-  assert.match(source, /SteamAccordionHeader title="Account"[\s\S]*SteamAccordionHeader title="Full-Screen Settings"/u);
+  assert.match(source, /SteamAccordionHeader title="Account"[\s\S]*SteamAccordionHeader title="Full-Screen Settings"[\s\S]*SteamAccordionHeader title="Updates"/u);
   assert.match(source, /accountExpanded \? <SteamAccordionContent><SteamAccountFields/u);
   assert.match(source, /fullscreenSettingsExpanded \? <SteamAccordionContent><SteamActivityCalendarWeeksPicker/u);
-  assert.match(source, /if \(!expanded\) setAccountExpanded\(false\)/u);
-  assert.match(source, /if \(!expanded\) setFullscreenSettingsExpanded\(false\)/u);
+  assert.match(source, /updatesExpanded \? <DeckyUpdateSettingsPanel/u);
+  assert.match(source, /if \(!expanded\) \{ setAccountExpanded\(false\); setUpdatesExpanded\(false\); \}/u);
+  assert.match(source, /if \(!expanded\) \{ setFullscreenSettingsExpanded\(false\); setUpdatesExpanded\(false\); \}/u);
+  assert.match(source, /if \(!expanded\) \{ setAccountExpanded\(false\); setFullscreenSettingsExpanded\(false\); \}/u);
   assert.match(source, /ACTIVITY_CALENDAR_WEEK_OPTIONS\.map/u);
   assert.match(source, /showContextMenu\([\s\S]*<Menu label="Activity Calendar weeks"/u);
   assert.match(source, /steamFullscreenActivityCalendarWeeks/u);
@@ -846,7 +848,8 @@ test("Steam settings start with two visible collapsed sections and keep expansio
   assert.match(source, /steamTheme\.iconFilter\.success : steamTheme\.iconFilter\.danger/u);
   assert.match(source, /description=\{undefined\}/u);
   assert.doesNotMatch(source, /description=\{fields\.(?:steamId64|language)\.description\}/u);
-  assert.doesNotMatch(source, /Connected to Steam|Test Connection|Check for Updates|Clear Cached Data|DeckyFullscreenActionButton/u);
+  assert.doesNotMatch(source, /Connected to Steam|Test Connection|Clear Cached Data|DeckyFullscreenActionButton/u);
+  assert.match(source, /playDeckySteamNavigationSound/u);
   assert.match(source, /writeValidatedDeckySteamProviderConfig/u);
   assert.match(source, /<Heading>DATA &amp; SYNC<\/Heading>/u);
   assert.match(source, /refreshDeckySteamHuntersProfileState/u);

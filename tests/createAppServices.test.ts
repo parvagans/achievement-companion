@@ -4133,7 +4133,7 @@ test("provider setup and settings true actions use compact focusable pills", () 
   );
 });
 
-test("v0.3.4 release metadata and Decky cleanup stay aligned", () => {
+test("canonical version metadata and Decky cleanup stay aligned", () => {
   const packageJson = JSON.parse(readFileSync("package.json", "utf8")) as {
     version?: string;
     scripts?: Record<string, string>;
@@ -4142,6 +4142,8 @@ test("v0.3.4 release metadata and Decky cleanup stay aligned", () => {
   const readmeSource = readFileSync("README.md", "utf8");
   const bootstrapSource = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
   const runtimeDebugSource = readFileSync("src/platform/decky/decky-runtime-debug.ts", "utf8");
+  const generatedVersionSource = readFileSync("src/generated/version.ts", "utf8");
+  const versionPropertiesSource = readFileSync("version.properties", "utf8");
   const compactPillSource = readFileSync(
     "src/platform/decky/decky-compact-pill-action-item.tsx",
     "utf8",
@@ -4169,14 +4171,16 @@ test("v0.3.4 release metadata and Decky cleanup stay aligned", () => {
   const releasePackageScriptSource = readFileSync("scripts/package_release.py", "utf8");
   const releaseCheckScriptSource = readFileSync("scripts/check_release_artifact.py", "utf8");
 
-  assert.equal(packageJson.version, "0.3.4");
-  assert.equal(pluginJson.version, "0.3.4");
-  assert.match(readmeSource, /Version 0\.3\.4/u);
-  assert.match(bootstrapSource, /const ACHIEVEMENT_COMPANION_VERSION = "0\.3\.4"/u);
-  assert.match(runtimeDebugSource, /0\.3\.4-runtime/u);
+  const canonicalVersion = versionPropertiesSource.match(/^version=(.+)$/mu)?.[1];
+  assert.equal(typeof canonicalVersion, "string");
+  assert.equal(packageJson.version, canonicalVersion);
+  assert.equal(pluginJson.version, canonicalVersion);
+  assert.match(readmeSource, /github\/package-json\/v\/parvagans\/achievement-companion/u);
+  assert.match(generatedVersionSource, new RegExp(`APP_VERSION = "${canonicalVersion}"`, "u"));
+  assert.match(runtimeDebugSource, /`\$\{APP_VERSION\}-runtime`/u);
   assert.doesNotMatch(bootstrapSource, /DIAGNOSTIC BUILD LOADED 2026-06-28/u);
   assert.doesNotMatch(
-    `${readmeSource}\n${bootstrapSource}\n${runtimeDebugSource}\n${JSON.stringify(packageJson)}\n${JSON.stringify(pluginJson)}`,
+    `${bootstrapSource}\n${runtimeDebugSource}\n${JSON.stringify(packageJson)}\n${JSON.stringify(pluginJson)}`,
     /0\.2\.9|v0\.2\.9|0\.2\.8|v0\.2\.8|0\.2\.10|v0\.2\.10/u,
   );
   assert.match(releasePackageScriptSource, /achievement-companion-v\{version\}\.zip/u);
@@ -4200,10 +4204,7 @@ test("v0.3.4 release metadata and Decky cleanup stay aligned", () => {
   assert.match(releaseCheckScriptSource, /py_modules\/backend\/steam_shortcuts\.py/u);
   assert.match(releaseCheckScriptSource, /FORBIDDEN_FRONTEND_MARKERS/u);
   assert.match(releaseCheckScriptSource, /verify_release_dist_bundles/u);
-  assert.equal(
-    packageJson.scripts?.build,
-    "node scripts/clean_decky_dist.mjs && node scripts/sync_decky_notices.mjs && rollup -c",
-  );
+  assert.match(packageJson.scripts?.build ?? "", /^node scripts\/version\/check-version\.mjs &&/u);
   assert.doesNotMatch(packageJson.scripts?.build ?? "", /python|clean_decky_dist\.py/iu);
   assert.match(packageJson.scripts?.build ?? "", /clean_decky_dist\.mjs/u);
   assert.match(packageJson.scripts?.build ?? "", /sync_decky_notices\.mjs/u);

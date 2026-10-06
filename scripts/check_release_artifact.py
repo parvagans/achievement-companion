@@ -29,6 +29,8 @@ EXPECTED_RELEASE_ARCHIVE_NAMES = {
   f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/provider_config.py",
   f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/storage.py",
   f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/tls.py",
+  f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/update.py",
+  f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/version.py",
   f"{PLUGIN_ARCHIVE_ROOT}/main.py",
   f"{PLUGIN_ARCHIVE_ROOT}/package.json",
   f"{PLUGIN_ARCHIVE_ROOT}/plugin.json",

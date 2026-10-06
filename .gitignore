@@ -10,6 +10,7 @@ defaults/THIRD_PARTY_NOTICES.md
 release/
 releases/
 *.zip
+.local-update/
 
 # Documentation output
 docs/

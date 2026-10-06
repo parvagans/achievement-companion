@@ -4,6 +4,7 @@ import {
 } from "./decky-game-page-achievement-route";
 import type { GamePageAchievementSummary } from "./decky-game-page-achievement-summary";
 import type { DeckyGamePageAchievementBadgeVariant } from "./decky-game-page-achievement-badge-presentation";
+import { APP_VERSION } from "../../generated/version";
 
 export type AchievementCompanionRuntimeDebugAccessMode =
   | "host-top-window"
@@ -131,7 +132,7 @@ export interface AchievementCompanionRuntimeDebugInstallOptions {
 
 export const ACHIEVEMENT_COMPANION_RUNTIME_DEBUG_GLOBAL_NAME =
   "__achievementCompanionRuntimeDebug";
-export const ACHIEVEMENT_COMPANION_RUNTIME_DEBUG_VERSION_MARKER = "0.3.4-runtime";
+export const ACHIEVEMENT_COMPANION_RUNTIME_DEBUG_VERSION_MARKER = `${APP_VERSION}-runtime`;
 export const ACHIEVEMENT_COMPANION_RUNTIME_DEBUG_BUNDLE_MARKER = "decky-game-page-bubble";
 export const ACHIEVEMENT_COMPANION_LAST_GAME_PAGE_BADGE_DEBUG_STORAGE_KEY =
   "achievement-companion:decky:last-game-page-badge-debug";

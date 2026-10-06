@@ -47,6 +47,8 @@ REQUIRED_RELATIVE_PATHS: tuple[Path, ...] = (
   Path("py_modules/backend/provider_config.py"),
   Path("py_modules/backend/diagnostics.py"),
   Path("py_modules/backend/steam_shortcuts.py"),
+  Path("py_modules/backend/update.py"),
+  Path("py_modules/backend/version.py"),
   Path("package.json"),
   Path("plugin.json"),
   Path("README.md"),

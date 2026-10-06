@@ -1,29 +1,35 @@
 {
   "name": "steam-deck-achievement-companion",
   "private": true,
-  "version": "0.4.0",
+  "version": "0.5.0",
   "author": "Adam <nullbit5@protonmail.com>",
   "license": "BSD-3-Clause",
   "type": "module",
   "scripts": {
-    "build": "node scripts/clean_decky_dist.mjs && node scripts/sync_decky_notices.mjs && rollup -c",
+    "version:sync": "node scripts/version/sync-version.mjs",
+    "version:check": "node scripts/version/check-version.mjs",
+    "build": "node scripts/version/check-version.mjs && node scripts/clean_decky_dist.mjs && node scripts/sync_decky_notices.mjs && rollup -c",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "package:release": "python scripts/package_release.py",
+    "package:release": "node scripts/version/check-version.mjs && python scripts/package_release.py",
     "check:release": "python scripts/check_release_artifact.py",
-    "test": "node --import tsx --test tests/createAppServices.test.ts tests/app-runtime.test.ts tests/app-runtime-nondecky.test.ts tests/decky-routing.test.ts tests/decky-compact-achievements.test.ts tests/decky-steam-compact-game.test.ts tests/decky-recent-achievement-history-selection.test.ts tests/decky-steam-compact-profile.test.ts tests/decky-steam-compact-achievement-presentation.test.ts tests/decky-steam-activity-calendar-model.test.ts tests/steam-activity-calendar-settings.test.ts tests/decky-steam-compact-activity-data.test.ts tests/decky-steam-compact-activity-state.test.ts tests/decky-steam-full-screen-activity-state.test.ts tests/deck-diagnostics.test.mjs tests/retroachievements-connection.test.ts tests/retroachievements-community-stats.test.ts tests/steam-connection.test.ts tests/steam-full-screen-profile.test.ts tests/steamhunters.test.ts tests/steam-game-section-state.test.ts tests/steam-game-detail-cache.test.ts tests/steam-game-footer-layout.test.ts tests/decky-number-format.test.ts && python -m unittest discover -s tests/python -p \"test_*.py\""
+    "update:test:prepare": "node scripts/update/prepare-local-update.mjs",
+    "update:test:serve": "node scripts/update/serve-local-update.mjs",
+    "test": "node --import tsx --test tests/createAppServices.test.ts tests/app-runtime.test.ts tests/app-runtime-nondecky.test.ts tests/decky-routing.test.ts tests/decky-compact-achievements.test.ts tests/decky-steam-compact-game.test.ts tests/decky-recent-achievement-history-selection.test.ts tests/decky-steam-compact-profile.test.ts tests/decky-steam-compact-achievement-presentation.test.ts tests/decky-steam-activity-calendar-model.test.ts tests/steam-activity-calendar-settings.test.ts tests/decky-steam-compact-activity-data.test.ts tests/decky-steam-compact-activity-state.test.ts tests/decky-steam-full-screen-activity-state.test.ts tests/deck-diagnostics.test.mjs tests/retroachievements-connection.test.ts tests/retroachievements-community-stats.test.ts tests/steam-connection.test.ts tests/steam-full-screen-profile.test.ts tests/steamhunters.test.ts tests/steam-game-section-state.test.ts tests/steam-game-detail-cache.test.ts tests/steam-game-footer-layout.test.ts tests/decky-number-format.test.ts tests/update-system.test.ts tests/versioning.test.ts && python -m unittest discover -s tests/python -p \"test_*.py\""
   },
   "dependencies": {
     "@decky/api": "^1.1.3",
     "@decky/ui": "4.12.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router": "^5.3.4"
+    "react-router": "^5.3.4",
+    "semver": "^7.7.3"
   },
   "devDependencies": {
     "@decky/rollup": "^1.0.2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@types/react-router": "5.1.20",
+    "@types/semver": "^7.7.1",
     "rollup": "^4.53.3",
     "tsx": "^4.20.6",
     "typescript": "^5.6.3"
