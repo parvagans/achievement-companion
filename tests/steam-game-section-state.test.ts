@@ -20,7 +20,7 @@ import {
   type DeckySteamGameSection,
 } from "../src/platform/decky/decky-steam-game-section-navigation";
 import { isDeckySteamFullscreenEnrichmentPending } from "../src/platform/decky/decky-steam-fullscreen-enrichment";
-import { isSteamHuntersSetFullyObtainable } from "../src/platform/decky/decky-steam-hunters-game-sections";
+import { isSteamHuntersSetFullyObtainable } from "../src/platform/decky/decky-steam-hunters-set-status";
 
 test("Steam section state preserves filters and stable achievement ids by game", () => {
   resetSteamGameSectionPageStatesForTests();
@@ -97,7 +97,7 @@ test("Steam overview title fitting is one-line measured sizing and set status ha
     overviewSource.indexOf("<DeckySteamHuntersSetDetailsSection") <
       overviewSource.indexOf("<DeckySteamHuntersCompletionHealthSection"),
   );
-  assert.match(statusSource, /getAchievementSetStatusPresentation/u);
+  assert.match(statusSource, /getSteamHuntersAchievementSetStatusPresentation/u);
   assert.doesNotMatch(statusSource, /<DeckyFullScreenGameProgressStatGrid columns=\{4\} gap=\{6\}>/u);
 });
 

@@ -185,8 +185,10 @@ test("full-screen RetroAchievements spotlight keeps the compact header, passive 
   assert.match(communitySource, /title="Community"[\s\S]*focusable=\{false\}[\s\S]*DeckyFullScreenGameProgressStatGrid fillHeight/u);
   assert.match(communitySource, /Players[\s\S]*Mastered[\s\S]*Median beat[\s\S]*Median mastery/u);
   assert.match(communitySource, /formatMasteryValue/u);
-  assert.match(progressStatSource, /gridTemplateColumns: "repeat\(2, minmax\(0, 1fr\)\)"/u);
+  assert.match(progressStatSource, /columns = 2/u);
+  assert.match(progressStatSource, /gridTemplateColumns: `repeat\(\$\{columns\}, minmax\(0, 1fr\)\)`/u);
   assert.match(progressStatSource, /gridTemplateRows: "repeat\(2, minmax\(0, 1fr\)\)"/u);
   assert.match(cardSource, /scrollDeckyFocusTargetIntoView[\s\S]*noFocusRing/u);
-  assert.match(actionSource, /focusClassName=\{DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS\}[\s\S]*tabIndex=\{disabled \? -1 : 0\}[\s\S]*onActivate=\{handleClick\}/u);
+  assert.match(actionSource, /focusClassName=.*DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS/u);
+  assert.match(actionSource, /tabIndex=\{disabled \? -1 : 0\}[\s\S]*onActivate=\{handleClick\}/u);
 });

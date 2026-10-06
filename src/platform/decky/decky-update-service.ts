@@ -46,6 +46,18 @@ const verifier: UpdateArtifactVerifier = {
   },
 };
 
+async function resolveDeckyInstalledVersion(): Promise<string> {
+  const installedVersion = await callDeckyBackendMethod<string>("get_plugin_version");
+  if (installedVersion !== APP_VERSION) {
+    console.debug("[Achievement Companion][Updater] Development deployment version mismatch", {
+      installedDeckyPackageVersion: installedVersion,
+      loadedFrontendBuildVersion: APP_VERSION,
+      developmentDeployment: true,
+    });
+  }
+  return installedVersion;
+}
+
 function resolveSource(): UpdateSource {
   const settings = readDeckySettings();
   if (
@@ -71,6 +83,7 @@ async function notifyAvailable(manifest: UpdateManifest, force: boolean): Promis
 
 export const deckyUpdateService = new UpdateService({
   installedVersion: APP_VERSION,
+  resolveInstalledVersion: resolveDeckyInstalledVersion,
   resolveSource,
   verifier,
   installer: new DeckyNativeInstaller(),

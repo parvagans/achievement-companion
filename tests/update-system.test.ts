@@ -92,6 +92,19 @@ test("older remote versions do not produce an update", async () => {
   assert.equal((await service.checkForUpdate()).status, "upToDate");
 });
 
+test("Decky's installed package version remains authoritative over a hot-deployed frontend build", async () => {
+  const service = new UpdateService({
+    installedVersion: "0.6.0",
+    resolveInstalledVersion: async () => "0.4.0",
+    resolveSource: () => ({ kind: "local", manifestUrl: "http://example.test", loadManifest: async () => ({ ...manifest, version: "0.5.0" }) }),
+    verifier: { verify: async () => { throw new Error("not expected"); } },
+    installer: new DeckyNativeInstaller(),
+  });
+  const state = await service.checkForUpdate();
+  assert.equal(state.status, "updateAvailable");
+  assert.equal(state.installedVersion, "0.4.0");
+});
+
 test("installer remains explicitly unsupported after successful verification", async () => {
   const service = new UpdateService({
     installedVersion: "0.8.3",

@@ -9,6 +9,7 @@ import type {
 
 export interface UpdateServiceDependencies {
   readonly installedVersion: string;
+  readonly resolveInstalledVersion?: () => Promise<string>;
   readonly resolveSource: () => UpdateSource;
   readonly verifier: UpdateArtifactVerifier;
   readonly installer: UpdateInstaller;
@@ -43,15 +44,18 @@ export class UpdateService {
   }
 
   async checkForUpdate(options: { readonly manual?: boolean } = {}): Promise<UpdateState> {
-    this.setState({ ...this.stateWithoutMessage(), status: "checking" });
+    let installedVersion = this.state.installedVersion;
+    this.setState({ ...this.stateWithoutMessage(), status: "checking", installedVersion });
     try {
+      installedVersion = await this.dependencies.resolveInstalledVersion?.() ?? this.dependencies.installedVersion;
+      this.setState({ ...this.stateWithoutMessage(), status: "checking", installedVersion });
       const manifest = await this.dependencies.resolveSource().loadManifest();
       const checkedAt = (this.dependencies.now ?? Date.now)();
       await this.dependencies.onChecked?.(checkedAt);
-      if (isNewerVersion(this.dependencies.installedVersion, manifest.version)) {
+      if (isNewerVersion(installedVersion, manifest.version)) {
         this.setState({
           status: "updateAvailable",
-          installedVersion: this.dependencies.installedVersion,
+          installedVersion,
           available: manifest,
           lastCheckedAt: checkedAt,
         });
@@ -59,7 +63,7 @@ export class UpdateService {
       } else {
         this.setState({
           status: "upToDate",
-          installedVersion: this.dependencies.installedVersion,
+          installedVersion,
           lastCheckedAt: checkedAt,
           message: "Achievement Companion is up to date.",
         });
@@ -77,7 +81,7 @@ export class UpdateService {
   async installAvailableUpdate(options: { readonly allowDevelopment?: boolean } = {}): Promise<UpdateState> {
     const manifest = this.state.available;
     if (manifest === undefined) return this.state;
-    if (isDevelopmentVersion(this.dependencies.installedVersion) && options.allowDevelopment !== true) {
+    if (isDevelopmentVersion(this.state.installedVersion) && options.allowDevelopment !== true) {
       this.setState({
         ...this.state,
         status: "unsupported",

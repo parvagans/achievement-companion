@@ -259,24 +259,22 @@ class BackendHttpTests(unittest.TestCase):
     def fake_opener(request, timeout=None, context=None):  # noqa: ANN001, ANN002, ANN003
       return FakeResponse(b'{"ok": true}')
 
-    async def invoke() -> dict[str, object]:
-      original_get_running_loop = backend_http.asyncio.get_running_loop
-      backend_http.asyncio.get_running_loop = lambda: FakeLoop([0.0, backend_http.SLOW_PROVIDER_REQUEST_LOG_THRESHOLD_MS / 1000 + 1.0])  # type: ignore[assignment]
-      try:
-        return backend_http.request_json(
-          provider_id="steam",
-          provider_label="Steam",
-          base_url="https://api.steampowered.com/",
-          path="IPlayerService/GetOwnedGames/v1/",
-          query=None,
-          auth_query={},
-          opener=fake_opener,
-          log=capture,
-        )
-      finally:
-        backend_http.asyncio.get_running_loop = original_get_running_loop  # type: ignore[assignment]
-
-    result = asyncio.run(invoke())
+    clock_values = iter([0.0, backend_http.SLOW_PROVIDER_REQUEST_LOG_THRESHOLD_MS / 1000 + 1.0])
+    original_elapsed_time_seconds = backend_http._elapsed_time_seconds
+    backend_http._elapsed_time_seconds = lambda: next(clock_values)  # type: ignore[assignment]
+    try:
+      result = backend_http.request_json(
+        provider_id="steam",
+        provider_label="Steam",
+        base_url="https://api.steampowered.com/",
+        path="IPlayerService/GetOwnedGames/v1/",
+        query=None,
+        auth_query={},
+        opener=fake_opener,
+        log=capture,
+      )
+    finally:
+      backend_http._elapsed_time_seconds = original_elapsed_time_seconds  # type: ignore[assignment]
     rendered = "\n".join(f"{level} {message} {fields}" for level, message, fields in capture.records)
     self.assertEqual(result, {"ok": True})
     self.assertIn("Slow provider request", rendered)

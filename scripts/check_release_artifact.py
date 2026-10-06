@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 import sys
 import zipfile
@@ -15,6 +16,9 @@ from package_release import (
   get_dist_runtime_file_paths,
   read_package_version,
 )
+
+sys.path.insert(0, str(ROOT_DIR / "py_modules"))
+from backend.update import verify_update_package  # noqa: E402
 
 EXPECTED_RELEASE_ARCHIVE_NAMES = {
   f"{PLUGIN_ARCHIVE_ROOT}/LICENSE",
@@ -316,6 +320,18 @@ def verify_release_dist_bundles(zip_path: Path) -> None:
       )
 
 
+def verify_release_zip_with_updater_backend(zip_path: Path) -> None:
+  checksum = hashlib.sha256(zip_path.read_bytes()).hexdigest()
+  version = read_package_version(ROOT_DIR)
+  try:
+    verified = verify_update_package(zip_path, version, checksum)
+  except RuntimeError as cause:
+    raise RuntimeError(f"Release artifact failed updater backend validation: {cause}") from cause
+
+  if verified["version"] != version:
+    raise RuntimeError("Release artifact updater validation returned a mismatched version.")
+
+
 def main(argv: list[str] | None = None) -> int:
   del argv
   zip_path = get_release_zip_path()
@@ -328,6 +344,7 @@ def main(argv: list[str] | None = None) -> int:
   verify_release_plugin_json(zip_path)
   verify_release_install_diagnostic(zip_path)
   verify_release_dist_bundles(zip_path)
+  verify_release_zip_with_updater_backend(zip_path)
   print(zip_path)
   return 0
 

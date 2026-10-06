@@ -5,7 +5,6 @@ import os
 import shutil
 import sys
 import zipfile
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
@@ -16,7 +15,8 @@ PLUGIN_DISPLAY_NAME = "Achievement Companion"
 PLUGIN_FRONTEND_ENTRY_RELATIVE_PATH = Path("dist/index.js")
 PLUGIN_BACKEND_ENTRY_RELATIVE_PATH = Path("main.py")
 INSTALL_DIAGNOSTIC_RELATIVE_PATH = Path("INSTALL_DIAGNOSTIC.txt")
-PACKAGE_RELEASE_COMMAND = "npm run package:release"
+DETERMINISTIC_ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
+PACKAGE_RELEASE_COMMAND = "pnpm package:release"
 EXPECTED_DECK_INSTALL_FOLDER = f"/home/deck/homebrew/plugins/{PLUGIN_ARCHIVE_ROOT}"
 REQUIRED_FRONTEND_MARKERS: tuple[str, ...] = (
   "AchievementCompanionGamePageBadge",
@@ -176,9 +176,7 @@ def _write_install_diagnostic_file(root_dir: Path, stage_dir: Path) -> None:
       + "."
     )
 
-  build_timestamp = datetime.now(timezone.utc).isoformat()
   diagnostic_lines = [
-    f"build_timestamp_utc: {build_timestamp}",
     f"version: {version}",
     f"plugin_id_or_folder: {PLUGIN_ARCHIVE_ROOT}",
     f"plugin_display_name: {plugin_name}",
@@ -302,9 +300,13 @@ def create_release_zip(
   if zip_path.exists():
     zip_path.unlink()
 
-  with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+  with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
     for file_path in sorted(path for path in stage_dir.rglob("*") if path.is_file()):
-      archive.write(file_path, arcname=f"{PLUGIN_ARCHIVE_ROOT}/{file_path.relative_to(stage_dir).as_posix()}")
+      archive_name = f"{PLUGIN_ARCHIVE_ROOT}/{file_path.relative_to(stage_dir).as_posix()}"
+      archive_entry = zipfile.ZipInfo(archive_name, date_time=DETERMINISTIC_ZIP_TIMESTAMP)
+      archive_entry.compress_type = zipfile.ZIP_DEFLATED
+      archive_entry.external_attr = 0o100644 << 16
+      archive.writestr(archive_entry, file_path.read_bytes(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
 
   return zip_path
 

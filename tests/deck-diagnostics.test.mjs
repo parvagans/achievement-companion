@@ -7,13 +7,13 @@ import { tunnelArgs, localWebSocketUrl, selectTarget, snapshotExpression } from 
 import { launchProcess, quoteRemote, redact, setHostNameOverride, sshOptions } from "../tools/deck/process.mjs";
 import { resolve } from "node:path";
 
-test("CLI accepts diagnostics only and bounds options", () => {
-  for (const command of ["deploy", "reload", "restart", "input", "eval"]) {
-    assert.throws(() => parseArgs([command]), /Unknown diagnostic/);
+test("CLI parses maintained commands and bounds numeric options", () => {
+  for (const command of ["doctor", "deploy", "reload", "input", "eval"]) {
+    assert.equal(parseArgs([command]).command, command);
   }
   assert.throws(() => parseArgs(["logs", "--lines", "1001"]));
-  assert.throws(() => parseArgs(["logs", "--source", "settings"]));
-  assert.throws(() => parseArgs(["cef", "snapshot", "--limit", "121"]));
+  assert.throws(() => parseArgs(["ready", "--timeout-ms", "999"]));
+  assert.throws(() => parseArgs(["input", "down", "--delay-ms", "5001"]));
   assert.equal(parseArgs(["logs", "--lines", "5"]).options.lines, 5);
   assert.equal(validateLines("1"), 1);
   assert.throws(() => validateLines("2;id"));
@@ -39,9 +39,9 @@ test("screenshot transfer is inbound and restricted to owned temporary PNGs", ()
 });
 
 test("CEF is localhost tunneled and selectors remain data", () => {
-  assert.ok(tunnelArgs(8765).includes("127.0.0.1:8765:127.0.0.1:8081"));
-  const target = { title: "QuickAccess_uid2", webSocketDebuggerUrl: "ws://localhost:8081/devtools/page/ABC" };
-  assert.equal(selectTarget([target]), target);
+  assert.ok(tunnelArgs(8765).includes("127.0.0.1:8765:127.0.0.1:8080"));
+  const target = { title: "QuickAccess_uid2", webSocketDebuggerUrl: "ws://localhost:8080/devtools/page/ABC" };
+  assert.equal(selectTarget([target], "QuickAccess"), target);
   assert.equal(localWebSocketUrl(target, 8765), "ws://127.0.0.1:8765/devtools/page/ABC");
   assert.throws(() => localWebSocketUrl({ webSocketDebuggerUrl: "ws://example.invalid:8081/devtools/page/ABC" }, 8765));
   const selector = 'button[data-test="quoted"]';

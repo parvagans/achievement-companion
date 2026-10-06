@@ -2691,7 +2691,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   );
   assert.match(
     getDeckyFullscreenActionStylesCss(),
-    new RegExp(`\\.${DECKY_FULLSCREEN_ACTION_ROW_CLASS} > \\.${DECKY_FULLSCREEN_CHIP_CLASS}`),
+    new RegExp(`\\.${DECKY_FULLSCREEN_CHIP_CLASS} \\{`),
   );
   assert.match(getDeckyFullscreenActionStylesCss(), /border-radius:\s*999px\s*!important/);
   assert.match(getDeckyFullscreenActionStylesCss(), /rgba\(255,\s*255,\s*255,\s*0\.1\)/);
@@ -2753,25 +2753,9 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     "src/platform/decky/decky-game-detail-view.tsx",
     "utf8",
   );
-  const achievementSectionBodyStart = achievementDetailViewSource.indexOf(
-    "function AchievementSectionBody(",
-  );
-  const achievementSectionBodyEnd = achievementDetailViewSource.indexOf(
-    "export function DeckyGameDetailView(",
-    achievementSectionBodyStart,
-  );
-  assert.ok(achievementSectionBodyStart >= 0);
-  assert.ok(achievementSectionBodyEnd > achievementSectionBodyStart);
-  const achievementSectionBodySource = achievementDetailViewSource.slice(
-    achievementSectionBodyStart,
-    achievementSectionBodyEnd,
-  );
-  assert.match(achievementSectionBodySource, /flow-children="left-right"/);
-  assert.match(achievementSectionBodySource, /role="radiogroup"/);
-  assert.match(achievementSectionBodySource, /aria-label="Achievement filters"/);
-  assert.match(
-    achievementSectionBodySource,
-    /className=\{DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS\}/,
+  const compactAchievementListSource = readFileSync(
+    "src/platform/decky/decky-compact-achievement-list.tsx",
+    "utf8",
   );
   assert.match(achievementDetailViewSource, /PanelSection title="GAME OVERVIEW"/);
   assert.match(achievementDetailViewSource, /PanelSection title="PROGRESS SUMMARY"/);
@@ -2784,66 +2768,29 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   );
   assert.match(achievementDetailViewSource, /getGameDetailOverviewIconFrameStyle\(\)/);
   assert.match(achievementDetailViewSource, /DeckyCompletionProgressBar[\s\S]*compact[\s\S]*percent=\{completionPercent\}/);
-  assert.doesNotMatch(achievementDetailViewSource, /AchievementModeButtons/);
-  assert.doesNotMatch(achievementDetailViewSource, /summary\.completionPercent/u);
-  assert.match(achievementDetailViewSource, /const ACHIEVEMENT_MODE_FILTERS = \["all", "hardcore", "softcore"\] as const;/);
-  assert.match(achievementDetailViewSource, /useState<AchievementModeFilter>\("all"\)/);
-  assert.match(achievementDetailViewSource, /if \(modeFilter === "all"\) \{\s*return true;\s*\}/u);
-  assert.match(achievementSectionBodySource, /ACHIEVEMENT_MODE_FILTERS\.map\(\(filter\)/);
-  assert.match(achievementSectionBodySource, /ACHIEVEMENT_FILTERS\.map\(\(filter\)/);
-  assert.match(achievementDetailViewSource, /shouldRenderAchievementModeFilter\(game\.providerId\)/);
-  assert.match(achievementSectionBodySource, /DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS/);
-  assert.match(achievementSectionBodySource, /DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS/);
-  assert.match(achievementSectionBodySource, /DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS/);
-  assert.match(achievementSectionBodySource, /role="radio"/);
-  assert.match(achievementSectionBodySource, /aria-checked=\{active\}/);
   assert.match(
-    achievementSectionBodySource,
-    /aria-label=\{formatAchievementModeLabel\(filter\)\}/,
+    achievementDetailViewSource,
+    /<DeckyCompactAchievementList[\s\S]*embedded[\s\S]*model=\{achievementListModel\}[\s\S]*onBack=\{onBackToDashboard\}/u,
   );
   assert.match(
-    achievementSectionBodySource,
-    /onActivate=\{\(\) => onAchievementModeFilterChange\(filter\)\}/,
+    compactAchievementListSource,
+    /\{model\.supportsModeFilter \? \([\s\S]*MODE_FILTERS\.map/u,
   );
-  assert.match(
-    achievementSectionBodySource,
-    /onClick=\{\(\) => onAchievementModeFilterChange\(filter\)\}/,
-  );
-  assert.match(
-    achievementSectionBodySource,
-    /onActivate=\{\(\) => onAchievementFilterChange\(filter\)\}/,
-  );
-  assert.match(
-    achievementSectionBodySource,
-    /onClick=\{\(\) => onAchievementFilterChange\(filter\)\}/,
-  );
-  assert.match(achievementSectionBodySource, /onCancelButton=\{onBackToDashboard\}/);
-  assert.match(achievementSectionBodySource, /onFocus=\{scrollFocusedElementIntoView\}/);
-  assert.match(
-    achievementSectionBodySource,
-    /\{showAchievementModeFilter\s*\?\s*ACHIEVEMENT_MODE_FILTERS\.map/u,
-  );
-  assert.match(achievementDetailViewSource, /matchesAchievementModeFilter\(achievement, achievementModeFilter\)/);
-  assert.match(achievementDetailViewSource, /label="Open Game"/);
-  assert.doesNotMatch(achievementDetailViewSource, /label="Open full-screen page"/);
-  assert.match(achievementDetailViewSource, /if \(modeFilter === "all"\) \{\s*return "All";\s*\}/u);
-  assert.match(achievementDetailViewSource, /formatAchievementFilterLabel\(filter\)/);
-  assert.match(achievementDetailViewSource, /label="Show 5 more"/);
-  assert.match(achievementDetailViewSource, /label="Show all"/);
-  assert.match(achievementDetailViewSource, /\{achievement\.title\}/);
-  assert.match(achievementDetailViewSource, /getAchievementRowMetadataStackStyle\(\)/);
-  assert.match(achievementDetailViewSource, /formatProviderAchievementStatusText\(game\.providerId, achievement\)/);
-  assert.match(achievementDetailViewSource, /isSteamProvider && achievement\.description !== undefined/);
-  assert.equal(
-    (achievementDetailViewSource.match(/achievementStatus\.secondary \?\? achievementStatus\.value/g) ?? []).length,
-    0,
-  );
-  assert.match(achievementDetailViewSource, /parts\.join\(" \/ "\)/);
-  assert.doesNotMatch(achievementDetailViewSource, /\$\{index \+ 1\}\.\s*\$\{achievement\.title\}/);
-  assert.match(achievementDetailViewSource, /role="radio"/);
-  assert.match(achievementDetailViewSource, /aria-checked={active}/);
-  assert.match(achievementDetailViewSource, /DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS/);
-  assert.match(achievementDetailViewSource, /DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS/);
+  assert.match(compactAchievementListSource, /matchesCompactAchievementModeFilter\(row, pageState\.modeFilter\)/u);
+  assert.match(compactAchievementListSource, /matchesCompactAchievementFilter\(row, pageState\.filter\)/u);
+  assert.match(achievementDetailViewSource, /label=\{isSteamGame \? "Open Full-Screen" : "Open Game"\}/u);
+  assert.match(compactAchievementListSource, /aria-label="Achievement mode filters"/u);
+  assert.match(compactAchievementListSource, /aria-label="Achievement filters"/u);
+  assert.match(compactAchievementListSource, /MODE_FILTERS\.map\(\(filter\)/u);
+  assert.match(compactAchievementListSource, /FILTERS\.map\(\(filter\)/u);
+  assert.match(compactAchievementListSource, /Show 5 more/u);
+  assert.match(compactAchievementListSource, /Show all/u);
+  assert.match(compactAchievementListSource, /role="radio"/);
+  assert.match(compactAchievementListSource, /aria-checked=\{active\}/);
+  assert.match(compactAchievementListSource, /DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS/);
+  assert.match(compactAchievementListSource, /DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS/);
+  assert.match(compactAchievementListSource, /onCancelButton=\{onBack\}/u);
+  assert.match(compactAchievementListSource, /scrollDeckyFocusTargetIntoView\(event\.currentTarget\)/u);
   const fullScreenGamePageSource = readFileSync("src/platform/decky/decky-full-screen-game-page.tsx", "utf8");
   const fullScreenAchievementRowSource = readFileSync(
     "src/platform/decky/decky-full-screen-achievement-row.tsx",
@@ -2905,24 +2852,23 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.doesNotMatch(fullScreenGamePageSource, /PanelSection title="Navigation"/);
   assert.doesNotMatch(fullScreenGamePageSource, /FULLSCREEN_GAME_FOCUS_DIAGNOSTICS_CLASS|\.gpfocus/u);
   assert.match(fullScreenAchievementBrowserSource, /ACHIEVEMENT_MODE_FILTERS = \["all", "hardcore", "softcore"\] as const;/);
-  assert.match(fullScreenGamePageSource, /useState<AchievementModeFilter>\("all"\)/);
-  assert.match(fullScreenGamePageSource, /useState<AchievementFilter>\("all"\)/);
-  assert.match(fullScreenGamePageSource, /sortAchievementsForDisplay\(snapshot\.achievements\)/);
+  assert.match(fullScreenGamePageSource, /useState<AchievementModeFilter>\(initialSectionState\?\.achievements\.achievementModeFilter \?\? "all"\)/u);
+  assert.match(fullScreenGamePageSource, /useState<AchievementFilter>\(initialSectionState\?\.achievements\.achievementFilter \?\? "all"\)/u);
+  assert.match(fullScreenGamePageSource, /sortAchievementsForDisplay\(restorationSnapshot\?\.achievements \?\? \[\]\)/u);
   assert.match(fullScreenGamePageSource, /DeckySteamGameOverview/u);
   assert.match(steamProgressSummarySource, /DeckyCompletionProgressBar[\s\S]*percent=\{completionPercent\}/);
   assert.match(steamProgressSummarySource, /title="Your Progress" focusable=\{false\}/u);
-  assert.match(retroAchievementsCommunityStatsSource, /title="Community">/u);
   assert.match(retroAchievementsCommunityStatsSource, /title="Community"[\s\S]*focusable=\{false\}/u);
   assert.match(
     fullScreenGamePageSource,
-    /matchesAchievementFilter\(achievement, achievementFilter\)[\s\S]*matchesAchievementModeFilter\(achievement, achievementModeFilter\)/,
+    /matchesAchievementFilter\(achievement, achievementFilter\)[\s\S]*matchesAchievementModeFilter\(achievement, achievementModeFilter\)/u,
   );
-  assert.match(fullScreenGamePageSource, /shouldRenderAchievementModeFilter\(providerIdValue\)/);
+  assert.match(fullScreenGamePageSource, /shouldRenderAchievementModeFilter\(restorationProviderId\)/u);
   assert.match(fullScreenAchievementBrowserSource, /showAchievementModeFilter \?\s*\(/u);
   assert.match(fullScreenGamePageSource, /const isSteamProvider = game\.providerId === STEAM_PROVIDER_ID;/u);
   assert.match(
     steamProgressSummarySource,
-    /function getStatsGridStyle\(\): CSSProperties[\s\S]*repeat\(3, minmax\(0, 1fr\)\)/u,
+    /function getStatsGridStyle\(\): CSSProperties[\s\S]*repeat\(2, minmax\(0, 1fr\)\)/u,
   );
   assert.match(retroAchievementsGameSpotlightSource, /function getLayoutStyle\(\): CSSProperties/u);
   assert.match(steamProgressSummarySource, /function getStatsGridStyle\(\): CSSProperties/u);
@@ -2930,15 +2876,16 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(steamGameOverviewSource, /DeckySteamHuntersCommunitySection[\s\S]*compact/u);
   assert.match(
     steamGameOverviewSource,
-    /DeckySteamHuntersCompletionHealthSection[\s\S]*title="Completion Status"/u,
+    /DeckySteamHuntersCompletionHealthSection[\s\S]*title="Achievement Set Status"/u,
   );
   assert.match(steamGameOverviewSource, /DeckySteamHuntersSetDetailsSection/u);
-  assert.match(steamGameOverviewSource, /SteamClient\.Apps\.ShowStore\(appId\)/u);
-  assert.doesNotMatch(steamGameOverviewSource, /Latest Unlocks|Achievement Highlights|Snapshot/u);
+  assert.match(steamGameOverviewSource, /store\.steampowered\.com\/app\/\$\{appId\}/u);
+  assert.match(steamGameOverviewSource, /DeckyNavigation\.NavigateToExternalWeb/u);
+  assert.doesNotMatch(steamGameOverviewSource, /Latest Unlocks|Achievement Highlights|title="Snapshot"/u);
   assert.doesNotMatch(fullScreenGamePageSource, /Most recent unlocked achievements already loaded in this snapshot\./u);
-  assert.match(steamGameOverviewSource, /remainingValue=\{remainingValue\}/u);
-  assert.match(steamProgressSummarySource, /DeckyFullScreenGameProgressStat label="Remaining" value=\{remainingValue\}/u);
-  assert.match(fullScreenGameProgressStatSource, /function getProgressStatStyle\(\): CSSProperties/u);
+  assert.match(steamGameOverviewSource, /remainingValue=\{remainingCount === undefined \? undefined : formatCount\(remainingCount\)\}/u);
+  assert.match(steamProgressSummarySource, /DeckyFullScreenGameProgressStat dense label="Remaining" value=\{remainingValue\}/u);
+  assert.match(fullScreenGameProgressStatSource, /function getProgressStatStyle\(dense: boolean\): CSSProperties/u);
   assert.match(fullScreenGameProgressStatSource, /function getProgressStatValueStyle\(\): CSSProperties/u);
   assert.doesNotMatch(fullScreenGamePageSource, /handleSteamFullscreenRefreshKeyDown/u);
   assert.doesNotMatch(fullScreenGamePageSource, /handleSteamFullscreenSpotlightRowKeyDown/u);
@@ -2953,7 +2900,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     "function getLayoutStyle()",
   );
   const gameSpotlightLayoutEnd = retroAchievementsGameSpotlightSource.indexOf(
-    "function getAchievementModePoints()",
+    "function getAchievementModePoints(",
     gameSpotlightLayoutStart,
   );
   assert.ok(gameSpotlightLayoutStart >= 0);
@@ -2989,7 +2936,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.doesNotMatch(fullScreenGameSpotlightOverviewSource, /metadataLabels|getPillRowStyle/u);
   assert.doesNotMatch(fullScreenGamePageSource, /GameOverviewRefreshPill/);
   assert.doesNotMatch(fullScreenGamePageSource, /getProgressSummaryPercentStyle/);
-  assert.match(fullScreenGamePageSource, /buildGameMetadataPills\(game\.metrics\)/);
+  assert.match(fullScreenGamePageSource, /buildGameMetadataPills\([\s\S]*game\.metrics,[\s\S]*isSteamProvider \|\| game\.communityStats === undefined/u);
   assert.match(fullScreenGamePageSource, /metadataPills=\{gameMetadataPills\}/);
   assert.match(fullScreenGameMetadataPillsSource, /function getPillRowStyle\(\): CSSProperties/u);
   assert.match(fullScreenGameMetadataPillsSource, /gridTemplateColumns: "repeat\(2, minmax\(0, 1fr\)\)"/);
@@ -3017,7 +2964,6 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenAchievementBrowserSource, /onActivate=\{disabled \? \(\) => undefined : onActivate\}/);
   assert.match(fullScreenAchievementBrowserSource, /onGamepadFocus=\{\(event\) => \{/);
   assert.doesNotMatch(fullScreenAchievementBrowserSource, /role="radiogroup"/);
-  assert.match(fullScreenGamePageSource, /DeckyFullscreenActionButton[\s\S]*label="Refresh"/u);
   assert.doesNotMatch(fullScreenGamePageSource, /data-game-overview-pill="refresh"/);
   assert.doesNotMatch(fullScreenGamePageSource, /aria-label="Refresh the current game detail snapshot"/);
   assert.doesNotMatch(fullScreenGamePageSource, /DeckyCompactPillActionItem/);
@@ -3033,12 +2979,12 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(fullScreenAchievementRowSource, /const isSteamProvider = isSteamAchievementPresentationProvider\(achievement\.providerId\)/);
   assert.match(fullScreenAchievementRowSource, /const statusText = formatProviderAchievementStatusText\(achievement\.providerId, achievement\)/);
   assert.match(fullScreenAchievementRowSource, /const pointsText = formatProviderAchievementPointsText\(achievement\.providerId, achievement\.points\)/);
-  assert.match(fullScreenAchievementRowSource, /isSteamProvider && achievement\.description !== undefined/);
+  assert.match(fullScreenAchievementRowSource, /function SteamAchievementRowContent[\s\S]*achievement\.description !== undefined/u);
+  assert.match(fullScreenAchievementRowSource, /\{isSteamProvider \? \([\s\S]*<SteamAchievementRowContent/u);
   assert.match(fullScreenAchievementRowSource, /pointsText !== undefined/);
-  assert.match(fullScreenAchievementRowSource, /!isSteamProvider && unlockedAt !== undefined/);
-  assert.match(fullScreenGamePageSource, /gridTemplateColumns: "repeat\(auto-fit, minmax\(320px, 1fr\)\)"/);
-  assert.match(fullScreenGamePageSource, /gridTemplateColumns: "repeat\(auto-fit, minmax\(240px, 1fr\)\)"/);
-  assert.match(fullScreenGamePageSource, /gridTemplateColumns: "repeat\(3, minmax\(0, 1fr\)\)"/);
+  assert.match(fullScreenAchievementRowSource, /unlockedAt !== undefined/u);
+  assert.match(retroAchievementsGameSpotlightSource, /gridTemplateColumns: hasCommunityStats \? "repeat\(auto-fit, minmax\(320px, 1fr\)\)" : "1fr"/u);
+  assert.match(fullScreenAchievementBrowserSource, /gridTemplateColumns: "repeat\(3, minmax\(0, 1fr\)\)"/u);
   assert.doesNotMatch(fullScreenGamePageSource, /FULL_SCREEN_INITIAL_ACHIEVEMENT_LIMIT/);
   assert.doesNotMatch(fullScreenGamePageSource, /FULL_SCREEN_ACHIEVEMENT_LOAD_STEP/);
   assert.doesNotMatch(fullScreenGamePageSource, /visibleAchievementLimit/);
@@ -3055,7 +3001,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(steamGameArtworkSource, /header\.jpg/);
   assert.match(steamGameArtworkSource, /game\.boxArtImageUrl \?\?/u);
   assert.match(steamFullscreenGameArtworkSource, /function getArtworkFrameStyle\(compact: boolean, dense: boolean\): CSSProperties/u);
-  assert.match(steamFullscreenGameArtworkSource, /aspectRatio: "460 \/ 215"/u);
+  assert.match(steamFullscreenGameArtworkSource, /aspectRatio: compact \? "2 \/ 1" : "460 \/ 215"/u);
   assert.match(achievementDetailViewSource, /DeckyGameArtwork compact src=\{headerArtworkUrl\} size=\{48\} title=\{game\.title\}/u);
   const fullScreenAchievementPageSource = readFileSync(
     "src/platform/decky/decky-full-screen-achievement-page.tsx",
@@ -3072,7 +3018,6 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     /onCancel=\{handleCancel\}|markDeckyFullscreenReturnRequested/u,
   );
   assert.match(fullScreenAchievementPageSource, /function DeckyFullScreenAchievementLoadingState/u);
-  assert.match(fullScreenAchievementPageSource, /matchMedia/u);
   assert.match(fullScreenAchievementPageSource, /calendarIconUrl/u);
   assert.match(fullScreenAchievementPageSource, /checkCircleIconUrl/u);
   assert.match(fullScreenAchievementPageSource, /starIconUrl/u);
@@ -3091,7 +3036,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.doesNotMatch(deckyNavigationSource, /onOpenFullScreenGame=/u);
   assert.doesNotMatch(deckyNavigationSource, /navigateToFullScreenGameFromAchievement/u);
   assert.doesNotMatch(deckyNavigationSource, /fullScreenAchievementRouteBackBehaviors/u);
-  assert.match(deckyNavigationSource, /navigateToFullScreenAchievement\(params\.providerId, gameId, achievementId, true\)/u);
+  assert.match(deckyNavigationSource, /navigateToFullScreenAchievement\([\s\S]*params\.providerId!,[\s\S]*params\.gameId!,[\s\S]*achievementId,/u);
   const coreDomainSource = readFileSync("src/core/domain.ts", "utf8");
   const retroRawTypesSource = readFileSync("src/providers/retroachievements/raw-types.ts", "utf8");
   const retroClientSource = readFileSync("src/providers/retroachievements/client/client.ts", "utf8");
@@ -3130,6 +3075,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     "src/platform/decky/providers/steam/setup-screen.tsx",
     "utf8",
   );
+  const deckySystemPillSource = readFileSync("src/platform/decky/decky-system-pill.tsx", "utf8");
   assert.match(dashboardViewSource, /label="Open full-screen"/);
   assert.match(dashboardViewSource, /emphasis="primary"/);
   assert.match(
@@ -3142,7 +3088,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(dashboardViewSource, /addProfileAvatarCacheBustParam\(avatarUrl, refreshedAt\)/u);
   assert.match(
     achievementDetailViewSource,
-    /PanelSection title="GAME OVERVIEW"[\s\S]*DeckyCompactPillActionGroup[\s\S]*label="Back"[\s\S]*label="Open Game"/u,
+    /PanelSection title="GAME OVERVIEW"[\s\S]*DeckyCompactPillActionGroup[\s\S]*label="Back"[\s\S]*label=\{isSteamGame \? "Open Full-Screen" : "Open Game"\}/u,
   );
   assert.match(coreDomainSource, /readonly systemIconUrl\?: string;/u);
   assert.match(retroNormalizeSource, /readonly systemIconUrl\?: string \| undefined;/u);
@@ -3194,7 +3140,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.doesNotMatch(achievementDetailViewSource, /label="Open full-screen page"/);
   assert.match(
     achievementDetailViewSource,
-    /PanelSection title="GAME OVERVIEW"[\s\S]*DeckyCompactPillActionGroup[\s\S]*label="Back"[\s\S]*label="Open Game"/u,
+    /PanelSection title="GAME OVERVIEW"[\s\S]*DeckyCompactPillActionGroup[\s\S]*label="Back"[\s\S]*label=\{isSteamGame \? "Open Full-Screen" : "Open Game"\}/u,
   );
   assert.match(achievementDetailViewSource, /DeckyCompactPillActionGroup/);
   assert.match(achievementDetailViewSource, /DeckyCompactPillActionItem/);
@@ -3227,7 +3173,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     /function formatAchievementHistoryRetroPointsText[\s\S]*getMetricValue\(achievement\.metrics, "true-ratio", "True Ratio"\)/u,
   );
   assert.match(achievementHistorySource, /const retroPointsText = formatAchievementHistoryRetroPointsText\(recentUnlock\.achievement\);/u);
-  assert.match(achievementHistorySource, /RetroPoints \$\{retroPoints\}/u);
+  assert.match(achievementHistorySource, /RetroPoints \$\{formatDeckyNumericText\(retroPoints\)\}/u);
   assert.match(achievementHistorySource, /isSteamProvider && recentUnlock\.achievement\.description !== undefined/);
   assert.match(achievementHistorySource, /!isSteamProvider && unlockedAt !== undefined/);
   assert.doesNotMatch(achievementHistorySource, /Points unavailable/u);
@@ -3288,16 +3234,14 @@ test("provider credential helper copy and secret field defaults stay explicit", 
     /calc\(env\(safe-area-inset-top, 0px\) \+ \$\{FULLSCREEN_COMPLETION_PROGRESS_TOP_PADDING\}px\) 12px calc\(env\(safe-area-inset-bottom, 0px\) \+ \$\{FULLSCREEN_COMPLETION_PROGRESS_BOTTOM_SCROLL_PADDING\}px\)/u,
   );
   assert.match(completionProgressSource, /FULLSCREEN_COMPLETION_PROGRESS_BOTTOM_SCROLL_PADDING = 88/u);
-  assert.match(fullScreenSettingsSource, /FULLSCREEN_SETTINGS_PAGE_TOP_PADDING = 42/u);
   assert.match(
     fullScreenSettingsSource,
-    /calc\(env\(safe-area-inset-top, 0px\) \+ \$\{FULLSCREEN_SETTINGS_PAGE_TOP_PADDING\}px\) 12px calc\(env\(safe-area-inset-bottom, 0px\) \+ \$\{FULLSCREEN_SETTINGS_PAGE_BOTTOM_SCROLL_PADDING\}px\)/u,
+    /padding: `calc\(env\(safe-area-inset-top, 0px\) \+ 43px\) 12px \$\{showSteamProfileFooter \|\| reserveSteamProfileFooter \? 50 : 10\}px`/u,
   );
-  assert.match(fullScreenSettingsSource, /FULLSCREEN_SETTINGS_PAGE_BOTTOM_SCROLL_PADDING = 88/u);
   assert.match(retroProviderSettingsPageSource, /RETROACHIEVEMENTS_PROVIDER_SETTINGS_TOP_PADDING = 42/u);
   assert.match(
     retroProviderSettingsPageSource,
-    /calc\(env\(safe-area-inset-top, 0px\) \+ \$\{RETROACHIEVEMENTS_PROVIDER_SETTINGS_TOP_PADDING\}px\) 12px calc\(env\(safe-area-inset-bottom, 0px\) \+ 12px\)/u,
+    /calc\(env\(safe-area-inset-top, 0px\) \+ \$\{RETROACHIEVEMENTS_PROVIDER_SETTINGS_TOP_PADDING\}px\) 12px calc\(env\(safe-area-inset-bottom, 0px\) \+ \$\{inProviderSwitcher \? 62 : 12\}px\)/u,
   );
   assert.match(steamProviderSettingsPageSource, /STEAM_PROVIDER_SETTINGS_TOP_PADDING = 42/u);
   assert.match(
@@ -3335,7 +3279,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   );
   assert.match(
     readFileSync("src/platform/decky/decky-full-screen-action-controls.tsx", "utf8"),
-    /data-achievement-companion-fullscreen-action-styles="true"/,
+    /style\.dataset\["achievementCompanionFullscreenActionStyles"\] = "true"/u,
   );
   assert.match(
     readFileSync("src/platform/decky/providers/retroachievements/credentials-form.tsx", "utf8"),
@@ -3458,7 +3402,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(compactDashboardSource, /profile\.providerId === STEAM_PROVIDER_ID/u);
   assert.match(compactDashboardSource, /<PanelSection title="Overview">[\s\S]*?<PanelSectionRow>\s*<div style=\{getOverviewCardStyle\(\)\}>/u);
   assert.match(compactDashboardSource, /function RetroAchievementsRecentActivityBlock\(/u);
-  assert.match(compactDashboardSource, /getRetroAchievementsRecentActivityLabel\(game\.lastPlayedAt\)/u);
+  assert.match(compactDashboardSource, /getRetroAchievementsRecentActivityLabel\(richPresenceMsgDate\)/u);
   assert.match(compactDashboardSource, /formatNowPlayingAchievementCounts\(game\)/u);
   assert.match(compactDashboardSource, /caption=\{`\$\{completionPercent\}% complete`\}/u);
   assert.match(compactDashboardSource, /label="View achievements"/u);
@@ -3531,7 +3475,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(compactAchievementModelSource, /label: "Softcore unlocks"/);
   assert.match(compactAchievementModelSource, /label: "Hardcore unlocks"/);
   assert.match(compactAchievementModelSource, /label: "Total players"/);
-  assert.match(compactAchievementDetailSource, /block\.kind === "rarity"/u);
+  assert.match(compactAchievementDetailSource, /block\.kind === "stats"/u);
   assert.match(compactAchievementDetailSource, /aria-label="Achievement unlock rate"/u);
   assert.match(compactAchievementDetailSource, /label="Open Game"/);
   assert.doesNotMatch(compactAchievementDetailSource, /label="Open full-screen game"/);
@@ -3549,7 +3493,7 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   );
   assert.match(
     compactAchievementDetailSource,
-    /<DeckyCompactPillActionItem[\s\S]*label="Back"[\s\S]*onClick=\{onBack\}[\s\S]*onCancelButton=\{onBack\}[\s\S]*elementRef=\{compactAchievementBackButtonRef\}[\s\S]*dataAttributes=\{\s*\{\s*"data-achievement-companion-compact-achievement-back": "true"/u,
+    /<DeckyCompactPillActionItem[\s\S]*dataAttributes=\{\{ "data-achievement-companion-compact-achievement-back": "true" \}\}[\s\S]*elementRef=\{compactAchievementBackButtonRef\}[\s\S]*label="Back" onCancelButton=\{onBack\} onClick=\{onBack\}/u,
   );
   assert.match(compactAchievementModelSource, /buildAchievementStatus\(achievement\)/u);
   assert.match(compactAchievementModelSource, /statusSecondary/u);
@@ -3562,14 +3506,11 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.doesNotMatch(compactBootstrapSource, /full-screen-return-context|fullscreenReturnContext/u);
   assert.doesNotMatch(compactBootstrapSource, /vgp_oncancel/u);
   assert.doesNotMatch(compactBootstrapSource, /addEventListener\(/u);
-  assert.doesNotMatch(compactBootstrapSource, /preferredFocus/u);
+  assert.match(compactBootstrapSource, /preferredFocus=\{index === 0\}/u);
+  assert.match(compactBootstrapSource, /preferredFocus=\{visibleProviders\.length === 0\}/u);
   assert.doesNotMatch(
     readFileSync("src/platform/decky/decky-full-screen-action-controls.tsx", "utf8"),
     /markDeckyFullscreenReturnRequested|onCancel=\{handleClick\}/u,
-  );
-  assert.match(
-    compactBootstrapSource,
-    /Connect and manage achievement sources\./u,
   );
   assert.match(
     compactBootstrapSource,
@@ -3808,6 +3749,10 @@ test("fullscreen action controls use Decky Focusable pills with unclipped labels
     "src/platform/decky/decky-full-screen-game-page.tsx",
     "utf8",
   );
+  const fullscreenGameSpotlightOverviewSource = readFileSync(
+    "src/platform/decky/decky-full-screen-game-spotlight-overview.tsx",
+    "utf8",
+  );
   const fullscreenSettingsSource = readFileSync(
     "src/platform/decky/decky-full-screen-settings-page.tsx",
     "utf8",
@@ -3895,14 +3840,13 @@ test("fullscreen action controls use Decky Focusable pills with unclipped labels
     fullscreenProfileSource,
     /label="Completion Progress"\s+scrollToTopOnFocus[\s\S]*label="Achievement History"\s+scrollToTopOnFocus[\s\S]*label="Settings"\s+scrollToTopOnFocus/u,
   );
-  assert.match(fullscreenProfileSource, /onGamepadFocus=\{scrollFocusedRecentActivityGamepadIntoView\}/u);
-  assert.match(fullscreenProfileSource, /function scrollRecentActivityCardFullyIntoView[\s\S]*FULLSCREEN_PROFILE_BOTTOM_SCROLL_PADDING/u);
-  assert.match(fullscreenProfileSource, /scrollableAncestor\.scrollBy\(\{ top: overflowBelowFooter, behavior: "auto" \}\)/u);
+  assert.match(fullscreenProfileSource, /onGamepadFocus=\{scrollFocusedProfileGamepadContent\}/u);
+  assert.match(fullscreenProfileSource, /scrollFocusedProfileGamepadContent[\s\S]*scrollDeckyFocusTargetIntoView/u);
   assert.match(
-    fullscreenGameSource,
-    /DeckyFullscreenActionRow centered[\s\S]*label=\{backLabel\}[\s\S]*label="Refresh"/u,
+    fullscreenGameSpotlightOverviewSource,
+    /DeckyFullScreenGameSpotlightActions[\s\S]*backLabel=\{backLabel\}[\s\S]*centered[\s\S]*onRefresh=\{onRefresh\}/u,
   );
-  assert.match(fullscreenSettingsSource, /DeckyFullscreenActionButton[\s\S]*label="Back"/u);
+  assert.match(fullscreenSettingsSource, /DeckyFullScreenFooterOverlay[\s\S]*activeNavigationItemId="settings"/u);
   assert.match(retroAchievementsProviderSettingsSource, /DeckyFullscreenActionButton[\s\S]*label="Back"/u);
   assert.match(steamProviderSettingsSource, /DeckyFullscreenActionButton[\s\S]*label="Back"/u);
   assert.match(compactPillSource, /import \{ Focusable, type FocusableProps \} from "@decky\/ui"/);
@@ -3981,7 +3925,7 @@ test("retroachievements provider settings avoid dropdown overlays for immediate-
   );
 });
 
-test("provider setup and settings true actions use compact focusable pills", () => {
+test("provider setup and current settings actions use focusable controls", () => {
   const fullscreenSettingsSource = readFileSync(
     "src/platform/decky/decky-full-screen-settings-page.tsx",
     "utf8",
@@ -4058,10 +4002,8 @@ test("provider setup and settings true actions use compact focusable pills", () 
     /<DeckyFullscreenActionButton[\s\S]*label="Back"[\s\S]*isFullscreenBackAction/u,
   );
   assert.match(fullscreenActionControlsSource, /import \{ Focusable, type FocusableProps \} from "@decky\/ui"/);
-  assert.match(
-    fullscreenSettingsSource,
-    /<DeckyProviderSettingsActionRow[\s\S]*label=\{provider\.label\}[\s\S]*actionLabel="Open"[\s\S]*onOpenProviderSettings\(provider\.id\)/u,
-  );
+  assert.match(fullscreenSettingsSource, /<SteamSettingsSectionPill title="Updates"/u);
+  assert.match(fullscreenSettingsSource, /<DeckyUpdateSettingsPanel onGamepadDirection=\{handleColumnDirection\} \/>/u);
   assert.doesNotMatch(fullscreenSettingsSource, /DeckyActionButtonItem|ButtonItem/);
   assert.match(
     providerSettingsActionRowSource,
@@ -4222,10 +4164,10 @@ test("canonical version metadata and Decky cleanup stay aligned", () => {
     fullScreenActionControlsSource,
     completionSummaryCardsSource,
     providerSettingsActionRowSource,
-    compactGameDetailSource,
   ]) {
     assert.match(deckySource, /FocusableProps/u);
   }
+  assert.match(compactGameDetailSource, /import \{ Field, PanelSection, PanelSectionRow \} from "@decky\/ui"/u);
 
   assert.equal(existsSync("src/platform/decky/provider-dashboard-preferences.ts"), false);
   assert.doesNotMatch(compactPillSource, /readonly flowChildren\?: "row" \| "column";/u);
@@ -4653,7 +4595,7 @@ test("retroachievements full-screen profile uses a compact stats grid and provid
     /function getOverviewCardStyle\(\): CSSProperties \{[\s\S]*height: "100%"/u,
   );
   assert.match(source, /data-retroachievements-profile-stats-overview/u);
-  assert.match(source, /data-retroachievements-profile-supplementary-stats/u);
+  assert.match(source, /retroAchievementsSupplementaryStats\.map/u);
   assert.match(source, /data-retroachievements-profile-game-awards/u);
   assert.match(source, /data-retroachievements-profile-completion-progress/u);
   assert.doesNotMatch(source, /completionStats=\{retroAchievementsCompletionStats\}/u);
@@ -4670,11 +4612,9 @@ test("retroachievements full-screen profile uses a compact stats grid and provid
   assert.match(source, /No completed game records are available\./u);
   assert.match(source, />\s*Beaten Games\s*</u);
   assert.match(source, /No unfinished games are available in this snapshot\./u);
-  assert.match(
-    source,
-    /\{profile\.providerId !== STEAM_PROVIDER_ID \? \([\s\S]*<PanelSection title="Awards & Progress">/u,
-  );
-  assert.match(source, /profile\.providerId === STEAM_PROVIDER_ID \? getSteamAccountProgressSummary/u);
+  assert.match(source, /if \(steamProfileSummary !== undefined\) \{[\s\S]*<SteamFullScreenProfileDashboard/u);
+  assert.match(source, /<PanelSection title="Awards & Progress">/u);
+  assert.match(source, /return buildSteamFullScreenProfileSummary\(\{/u);
   assert.match(
     source,
     /DeckyFullscreenActionRow centered[\s\S]*label="Back"[\s\S]*label="Completion Progress"[\s\S]*label="Achievement History"[\s\S]*label="Settings"/u,
@@ -5012,8 +4952,8 @@ test("retroachievements profile stats fall back safely when counts are unavailab
   assert.deepStrictEqual(
     stats.map((section) => section.stats.map((stat) => `${stat.label}:${stat.value}`)),
     [
-      ["Points:4321", "Unlocked:-"],
-      ["Points:1234", "Unlocked:-"],
+      [`Points:${(4321).toLocaleString()}`, "Unlocked:-"],
+      [`Points:${(1234).toLocaleString()}`, "Unlocked:-"],
       ["Points:987", "Ratio:0.80"],
       ["Beaten:-", "Mastered:-"],
     ],
@@ -5145,7 +5085,8 @@ test("retroachievements completion indicator maps award kind to compact circle s
   assert.match(gameDetailSource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
   assert.match(fullScreenGameSource, /DeckyRetroAchievementsGameSpotlight/u);
   assert.match(retroAchievementsGameSpotlightSource, /DeckyRetroAchievementsProgressSummary/u);
-  assert.match(retroAchievementsProgressSummarySource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
+  assert.match(retroAchievementsGameSpotlightSource, /const completionTone = getCompletionTone\(completionState\)/u);
+  assert.match(retroAchievementsProgressSummarySource, /tone=\{completionTone\}/u);
   assert.match(compactDashboardSource, /function RecentlyPlayedRow\([\s\S]*<RetroAchievementsCompletionIndicator game=\{game\} \/>/u);
 });
 
@@ -5279,12 +5220,9 @@ test("retroachievements mastered games use explicit mastered presentation on gam
   assert.match(gameDetailSource, /tone=\{completionTone\}/u);
 
   assert.match(retroAchievementsGameSpotlightSource, /const completionState = getRetroAchievementsCompletionIndicatorState\(game\);/u);
-  assert.match(retroAchievementsGameSpotlightSource, /const isBeaten =[\s\S]*completionState === "beaten-hardcore"[\s\S]*completionState === "beaten-softcore"/u);
-  assert.match(retroAchievementsGameSpotlightSource, /const completionStatusLabel = isMasteredHardcore \? "Mastered" : isBeaten \? "Beaten" : undefined;/u);
-  assert.match(retroAchievementsProgressSummarySource, /<span>\{completionStatusLabel\}<\/span>/u);
-  assert.match(retroAchievementsGameSpotlightSource, /const beatenAtText = formatRetroAchievementsBeatenAtText\(game\);/u);
-  assert.match(retroAchievementsGameSpotlightSource, /const masteredAtText = formatRetroAchievementsMasteredAtText\(game\);/u);
-  assert.match(retroAchievementsGameSpotlightSource, /const completionAtText = isMasteredHardcore \? masteredAtText : beatenAtText;/u);
+  assert.match(retroAchievementsGameSpotlightSource, /function getCompletionTone[\s\S]*completionState === "mastered-hardcore"[\s\S]*return "retroachievements-mastered"/u);
+  assert.match(retroAchievementsGameSpotlightSource, /completionState === "beaten-hardcore" \|\| completionState === "beaten-softcore"[\s\S]*return "retroachievements-beaten"/u);
+  assert.match(retroAchievementsProgressSummarySource, /tone=\{completionTone\}/u);
   assert.match(retroAchievementsGameSpotlightSource, /completionTone=\{completionTone\}/u);
 
   assert.match(compactDashboardSource, /const completionIndicatorState = getRetroAchievementsCompletionIndicatorState\(game\);/u);
@@ -5360,6 +5298,10 @@ test("retroachievements game detail surfaces hide empty mode cards and keep mean
     "src/platform/decky/decky-retroachievements-progress-summary.tsx",
     "utf8",
   );
+  const retroAchievementsModeProgressCardsSource = readFileSync(
+    "src/platform/decky/decky-retroachievements-mode-progress-cards.tsx",
+    "utf8",
+  );
   const steamProviderSource = readFileSync("src/providers/steam/mappers/normalize.ts", "utf8");
 
   assert.match(achievementDetailHelperSource, /export function shouldRenderRetroAchievementsModeSummaryCard/u);
@@ -5389,7 +5331,7 @@ test("retroachievements game detail surfaces hide empty mode cards and keep mean
 
   assert.match(retroAchievementsGameSpotlightSource, /const showHardcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard\(\{/u);
   assert.match(retroAchievementsGameSpotlightSource, /const showSoftcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard\(\{/u);
-  assert.match(retroAchievementsProgressSummarySource, /DeckyRetroAchievementsModeProgressCards/u);
+  assert.match(retroAchievementsGameSpotlightSource, /DeckyRetroAchievementsModeProgressCards/u);
   assert.match(retroAchievementsModeProgressCardsSource, /function getGridStyle\(\): CSSProperties/u);
   assert.match(retroAchievementsModeProgressCardsSource, /showHardcore \? <ModeCard/u);
   assert.match(retroAchievementsModeProgressCardsSource, /showSoftcore \? <ModeCard/u);
@@ -8844,8 +8786,8 @@ test("steam provider config and normalization stay round-trippable", () => {
   assert.deepStrictEqual(
     retroAchievementsProfileStats.map((section) => section.stats.map((stat) => `${stat.label}:${stat.value}`)),
     [
-      ["Points:4321", "Unlocked:-"],
-      ["Points:1234", "Unlocked:-"],
+      [`Points:${(4321).toLocaleString()}`, "Unlocked:-"],
+      [`Points:${(1234).toLocaleString()}`, "Unlocked:-"],
       ["Points:987", "Ratio:0.80"],
       ["Beaten:-", "Mastered:-"],
     ],
@@ -9671,8 +9613,8 @@ test("decky steam library scan uses backend request route without frontend apiKe
       );
       assert.deepStrictEqual(requestPaths, [
         "IPlayerService/GetOwnedGames/v1/",
-        "ISteamUserStats/GetPlayerAchievements/v1/",
         "ISteamUserStats/GetSchemaForGame/v2/",
+        "ISteamUserStats/GetPlayerAchievements/v1/",
       ]);
       const providerSettingsSource = readFileSync(
         "src/platform/decky/providers/steam/provider-settings-page.tsx",
@@ -9803,7 +9745,7 @@ test("steam cached scan normalizes icon urls, percent, and library unlock histor
       history.entries.find((entry) => entry.achievement.achievementId === "A_ONE")?.achievement.badgeImageUrl,
       undefined,
     );
-    assert.equal(history.summary.unlockedCount, 2);
+    assert.equal(history.summary.unlockedCount, 164);
 
     const legacyCachedSummaryText = JSON.stringify({
       scannedAt: "2026-04-18T18:45:00Z",
@@ -10437,7 +10379,7 @@ test("Steam full-screen profile entry uses cached totals and bounded recent-game
       const profileState = await loadDeckyDashboardStateForFullScreenEntry("steam");
       assert.equal(profileState.status, "success");
       assert.ok(profileState.data !== undefined);
-      assert.equal(ownedGamesRequestCount, 1, "profile entry uses GetOwnedGames only for bounded recent-game candidates");
+      assert.equal(ownedGamesRequestCount, 2, "profile entry uses bounded owned-game candidates for profile and activity data");
       assert.equal(
         playerAchievementRequestCount,
         1,
@@ -10642,9 +10584,11 @@ test("incremental Steam library refresh discovers and safely updates the complet
   assert.equal(validateSteamOwnedGamesResponse({ response: { game_count: 2, games: ownedGames } }), undefined);
   assert.equal(validateSteamOwnedGamesResponse({ response: { game_count: 0 } }), undefined);
   ownedGamesResponse = { response: { game_count: 2, games: ownedGames.slice(0, 2) } };
-  await assert.rejects(refreshSteamLibraryAchievementProgress(config, afterMissingState, { client, schemaCache: schemaCacheAdapter }));
+  const afterPartialOwnedList = await refreshSteamLibraryAchievementProgress(config, afterMissingState, { client, schemaCache: schemaCacheAdapter });
+  assert.equal(afterPartialOwnedList.ownedGameCount, 3, "a partial owned-games list preserves cached ownership");
   ownedGamesResponse = { response: { game_count: 0, games: [] } };
   await assert.rejects(refreshSteamLibraryAchievementProgress(config, afterMissingState, { client, schemaCache: schemaCacheAdapter }));
+  ownedGamesResponse = undefined;
   assert.equal(afterMissingState.ownedGameCount, 3);
   assert.equal(afterMissingState.unlockedAchievements, knownGoodUnlocked);
 

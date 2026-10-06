@@ -3,8 +3,8 @@ import test from "node:test";
 import { formatDeckyNumericText } from "../src/platform/decky/decky-number-format";
 
 test("formats integer and decimal display metrics with locale group separators", () => {
-  assert.equal(formatDeckyNumericText("1245320"), "1,245,320");
-  assert.equal(formatDeckyNumericText("18340.5"), "18,340.5");
+  assert.equal(formatDeckyNumericText("1245320"), (1245320).toLocaleString());
+  assert.equal(formatDeckyNumericText("18340.5"), `${(18340).toLocaleString()}.5`);
   assert.equal(formatDeckyNumericText("999"), "999");
 });
 

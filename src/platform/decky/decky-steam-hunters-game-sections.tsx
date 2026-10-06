@@ -2,6 +2,7 @@ import type { CSSProperties, JSX } from "react";
 import { DeckyFullScreenGameProgressStat, DeckyFullScreenGameProgressStatGrid } from "./decky-full-screen-game-progress-stat";
 import { DeckyFullScreenGameSpotlightCard } from "./decky-full-screen-game-spotlight-card";
 import type { DeckySteamHuntersGameViewModel } from "./decky-steam-hunters-view-model";
+import { isSteamHuntersSetFullyObtainable } from "./decky-steam-hunters-set-status";
 import { formatSteamHuntersCompletionDuration, formatSteamHuntersPercentage } from "./decky-steam-hunters-presentation";
 import { DeckySteamBrokenIcon, DeckySteamConditionalIcon, DeckySteamDlcIcon, DeckySteamUnobtainableIcon } from "./decky-steam-icons";
 
@@ -16,15 +17,6 @@ function DeckySteamFullyObtainableIcon(): JSX.Element {
       </g>
     </svg>
   );
-}
-
-export function isSteamHuntersSetFullyObtainable(
-  health: DeckySteamHuntersGameViewModel["completionHealth"],
-): boolean {
-  return health.hasPaidDlc === false &&
-    health.unobtainableCount === 0 &&
-    health.conditionalCount === 0 &&
-    health.brokenButObtainableCount === 0;
 }
 
 export function getSteamHuntersAchievementSetStatusSummary(
