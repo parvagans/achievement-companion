@@ -818,30 +818,47 @@ test("compact dashboard Profile navigation uses the native route before closing 
   );
 });
 
-test("Steam settings start with three visible collapsed sections and keep expansion exclusive", async () => {
-  const [source, footerSource] = await Promise.all([
+test("Steam settings use the shared Steam filter tabs and stay above the retained footer", async () => {
+  const [source, updateSource, footerSource, navigationSource] = await Promise.all([
     readFile(new URL("../src/platform/decky/decky-full-screen-settings-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-update-settings-panel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-full-screen-footer-overlay.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-navigation.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.doesNotMatch(source, /Cache Management|DATA &amp; STORAGE|openCacheManagement|Persistent cache payload/u);
   assert.doesNotMatch(source, /RETROACHIEVEMENTS_PROVIDER_ID|RetroAchievements|clearRetroAchievementsAccount/u);
   assert.doesNotMatch(source, /<Heading>PROVIDERS<\/Heading>|Game Scanning|Notifications/u);
-  assert.match(source, /STEAM SETTINGS/u);
-  assert.match(source, /SteamAccordionHeader title="Account"[\s\S]*SteamAccordionHeader title="Full-Screen Settings"[\s\S]*SteamAccordionHeader title="Updates"/u);
-  assert.match(source, /accountExpanded \? <SteamAccordionContent><SteamAccountFields/u);
-  assert.match(source, /fullscreenSettingsExpanded \? <SteamAccordionContent><SteamActivityCalendarWeeksPicker/u);
-  assert.match(source, /updatesExpanded \? <DeckyUpdateSettingsPanel/u);
-  assert.match(source, /if \(!expanded\) \{ setAccountExpanded\(false\); setUpdatesExpanded\(false\); \}/u);
-  assert.match(source, /if \(!expanded\) \{ setFullscreenSettingsExpanded\(false\); setUpdatesExpanded\(false\); \}/u);
-  assert.match(source, /if \(!expanded\) \{ setAccountExpanded\(false\); setFullscreenSettingsExpanded\(false\); \}/u);
+  assert.match(source, /<Heading>STEAM SETTINGS<\/Heading>/u);
+  assert.doesNotMatch(source, /AC_main_logo|Manage Steam account settings on this device/u);
+  assert.match(source, /type SteamSettingsSection = "account" \| "fullscreen" \| "updates"/u);
+  assert.match(source, /selectedSection, setSelectedSection\] = useState<SteamSettingsSection>\("account"\)/u);
+  assert.match(source, /flow-children="left-right"[\s\S]*data-settings-section-tabs="true"/u);
+  assert.match(source, /SteamSettingsSectionPill title="Account"[\s\S]*SteamSettingsSectionPill title="Full-Screen Settings"[\s\S]*SteamSettingsSectionPill title="Updates"/u);
+  assert.match(source, /DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS/u);
+  assert.match(source, /getSteamCompactAchievementFilterStyle\(selected, focused\)/u);
+  assert.match(source, /onFocus=\{\(\) => setFocused\(true\)\}[\s\S]*onGamepadFocus=\{\(\) => setFocused\(true\)\}[\s\S]*onBlur=\{\(\) => setFocused\(false\)\}/u);
+  assert.doesNotMatch(source, /DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS|DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS|DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS/u);
+  assert.match(source, /<Styles \/><DeckyFocusStyles \/>/u);
+  assert.match(source, /aria-pressed=\{selected\}[\s\S]*data-settings-section-pill="true"/u);
+  assert.match(source, /data-settings-section-content[\s\S]*flex: "1 1 auto"[\s\S]*overflow: "hidden"/u);
+  assert.match(source, /data-settings-column="left"[\s\S]*paddingBottom: steamTheme\.space\.sm[\s\S]*boxSizing: "border-box"/u);
+  assert.match(source, /data-settings-column="right"[\s\S]*paddingBottom: steamTheme\.space\.sm[\s\S]*boxSizing: "border-box"/u);
+  assert.match(source, /data-settings-danger-zone[\s\S]*flex: "1 1 auto"/u);
+  assert.match(source, /showSteamProfileFooter \|\| reserveSteamProfileFooter \? 50 : 10/u);
+  assert.match(navigationSource, /<DeckyFullScreenSettingsPage[\s\S]*reserveSteamProfileFooter[\s\S]*onOpenProviderSettings/u);
+  assert.match(source, /selectedSection === "account" \? <SteamSettingsContent><SteamAccountFields/u);
+  assert.match(source, /selectedSection === "fullscreen" \? <SteamSettingsContent><SteamActivityCalendarWeeksPicker/u);
+  assert.match(source, /selectedSection === "updates" \? <DeckyUpdateSettingsPanel/u);
+  assert.doesNotMatch(source, /SteamAccordionHeader|accountExpanded|fullscreenSettingsExpanded|updatesExpanded|aria-expanded=\{expanded\}/u);
   assert.match(source, /ACTIVITY_CALENDAR_WEEK_OPTIONS\.map/u);
   assert.match(source, /showContextMenu\([\s\S]*<Menu label="Activity Calendar weeks"/u);
   assert.match(source, /steamFullscreenActivityCalendarWeeks/u);
   assert.doesNotMatch(source, /title="Display Preferences"|SteamDisplayPreferences|displayExpanded/u);
-  assert.match(source, /accountExpanded.*useState\(false\)/u);
-  assert.match(source, /ac-settings-accordion-trigger[\s\S]*insetShadow/u);
-  assert.match(source, /STEAM_CREDENTIAL_HELPER_COPY/u);
+  assert.doesNotMatch(source, /ac-settings-section-pill|steamRecipes\.filter\("fullscreen", selected\)/u);
+  assert.match(source, /active\.matches\("\[data-settings-section-pill\]"\)[\s\S]*nextIndex/u);
+  assert.match(source, /SteamID64: steamid\.io · Web API key: steamcommunity\.com\/dev\/apikey\./u);
+  assert.doesNotMatch(source, /Weeks shown on the Activity tab/u);
   assert.match(source, /function CredentialStatusLabel/u);
   assert.match(source, /\^\\d\{17\}\$/u);
   assert.match(source, /\^\[0-9a-f\]\{32\}\$/u);
@@ -854,12 +871,17 @@ test("Steam settings start with three visible collapsed sections and keep expans
   assert.match(source, /<Heading>DATA &amp; SYNC<\/Heading>/u);
   assert.match(source, /refreshDeckySteamHuntersProfileState/u);
   assert.match(source, /runDeckySteamFullLibraryScan/u);
-  assert.match(source, /Last Full Scan/u);
-  assert.match(source, /Last Full Scan: \$\{fullScan\?\.date \?\? "Never"\}/u);
+  assert.match(source, /title=\{operation === "refreshing-library" \? "Running Full Library Scan…" : "Full Library Scan"\}/u);
+  assert.match(source, /metadata=\{operation === "refreshing-library" \? "Scanning…" : fullScan === undefined \? "Never" : `\$\{fullScan\.date\} · \$\{fullScan\.time\}`\}/u);
   assert.match(source, /Refresh Steam & SteamHunters/u);
-  assert.match(source, /Select to run a full library scan/u);
   assert.match(source, /success=\{fullScan !== undefined\} danger=\{fullScan === undefined\}/u);
+  assert.match(source, /title="Changelog"[\s\S]*title="GitHub"[\s\S]*title="Report Issue"/u);
   assert.doesNotMatch(source, /Cached Games|Refresh Steam Library/u);
+  assert.doesNotMatch(updateSource, />UPDATES<|Installed Version|Check at most once every 24 hours/u);
+  assert.match(updateSource, /Check once daily in the background\./u);
+  assert.match(updateSource, /overflow: "hidden", paddingBottom: steamTheme\.space\.sm/u);
+  assert.match(updateSource, /data-achievement-companion-update-variable-content[\s\S]*overflowY: "auto"/u);
+  assert.match(updateSource, /data-achievement-companion-update-actions[\s\S]*flex: "0 0 auto"/u);
   assert.match(source, /input:not\(\[disabled\]\)/u);
   assert.match(source, /active\.closest<HTMLElement>\("\[data-settings-column\]"\)[\s\S]*input:not\(\[disabled\]\)/u);
   assert.doesNotMatch(source, /SteamSettingsInput/u);

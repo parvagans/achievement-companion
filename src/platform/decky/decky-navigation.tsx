@@ -526,6 +526,7 @@ function DeckySteamFullScreenSession({
       {activeTab === "settings" ?
         <DeckyFullScreenSettingsPage
           isActive={activeTab === "settings"}
+          reserveSteamProfileFooter
           onOpenProviderSettings={(providerId) => {
             navigateToFullScreenProviderSettings(providerId);
           }}
