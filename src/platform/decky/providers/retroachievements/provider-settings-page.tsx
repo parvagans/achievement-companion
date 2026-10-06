@@ -1,4 +1,4 @@
-import { type CSSProperties } from "react";
+import { type CSSProperties, useLayoutEffect, useRef, useState } from "react";
 import { PanelSection, PanelSectionRow, ScrollPanel, ToggleField } from "@decky/ui";
 import {
   ACHIEVEMENT_COMPANION_COUNT_OPTIONS,
@@ -26,13 +26,14 @@ import {
 export interface DeckyFullScreenProviderSettingsPageProps {
   readonly providerId: string;
   readonly onBack: () => void;
+  readonly inProviderSwitcher?: boolean;
 }
 
 const RETROACHIEVEMENTS_PROVIDER_SETTINGS_TOP_PADDING = 42;
 
-function getPageFrameStyle(): CSSProperties {
+function getPageFrameStyle(inProviderSwitcher: boolean): CSSProperties {
   return {
-    padding: `calc(env(safe-area-inset-top, 0px) + ${RETROACHIEVEMENTS_PROVIDER_SETTINGS_TOP_PADDING}px) 12px calc(env(safe-area-inset-bottom, 0px) + 12px)`,
+    padding: `calc(env(safe-area-inset-top, 0px) + ${RETROACHIEVEMENTS_PROVIDER_SETTINGS_TOP_PADDING}px) 12px calc(env(safe-area-inset-bottom, 0px) + ${inProviderSwitcher ? 62 : 12}px)`,
     boxSizing: "border-box",
   };
 }
@@ -126,7 +127,15 @@ function getNextCompletionProgressFilter(current: CompletionProgressFilter): Com
 export function DeckyRetroAchievementsProviderSettingsPage({
   providerId,
   onBack,
+  inProviderSwitcher = false,
 }: DeckyFullScreenProviderSettingsPageProps): JSX.Element {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [viewportHeight, setViewportHeight] = useState<number>();
+  useLayoutEffect(() => {
+    if (!inProviderSwitcher) return;
+    const ownerWindow = scrollRef.current?.ownerDocument.defaultView;
+    if (ownerWindow !== undefined && ownerWindow !== null) setViewportHeight(ownerWindow.innerHeight - 50);
+  }, [inProviderSwitcher]);
   const providerConfig = useDeckyProviderConfig(RETROACHIEVEMENTS_PROVIDER_ID);
   const settings = useDeckySettings();
   const providerLabel =
@@ -162,11 +171,10 @@ export function DeckyRetroAchievementsProviderSettingsPage({
     settings.recentlyPlayedCount,
   );
 
-  return (
-    <ScrollPanel>
+  const content = (
       <TopAlignedScrollViewport scrollKey={`full-screen-provider-settings:${providerId}`}>
-        <div style={getPageFrameStyle()}>
-          <PanelSection title="Navigation">
+        <div style={getPageFrameStyle(inProviderSwitcher)}>
+          {!inProviderSwitcher ? <PanelSection title="Navigation">
             <DeckyFullscreenActionRow>
               <DeckyFullscreenActionButton
                 label="Back"
@@ -176,7 +184,7 @@ export function DeckyRetroAchievementsProviderSettingsPage({
                 }}
               />
             </DeckyFullscreenActionRow>
-          </PanelSection>
+          </PanelSection> : null}
 
           <PanelSection title="Provider">
             <PanelSectionRow>
@@ -196,6 +204,7 @@ export function DeckyRetroAchievementsProviderSettingsPage({
               statusLabel="Account status"
               saveLabel="Save provider settings"
               clearLabel="Sign out"
+              useSharedFullscreenFooter={inProviderSwitcher}
               onSave={(nextConfig, apiKeyDraft) =>
                 writeDeckyRetroAchievementsProviderConfig(
                   {
@@ -284,8 +293,10 @@ export function DeckyRetroAchievementsProviderSettingsPage({
           </PanelSection>
         </div>
       </TopAlignedScrollViewport>
-    </ScrollPanel>
   );
+  return inProviderSwitcher
+    ? <div ref={scrollRef} data-provider-settings-scroll="true" style={{ height: viewportHeight ?? "calc(100vh - 50px)", flexShrink: 0, overflowY: "auto", boxSizing: "border-box" }}>{content}</div>
+    : <ScrollPanel>{content}</ScrollPanel>;
 }
 
 export { DeckyRetroAchievementsProviderSettingsPage as DeckyFullScreenProviderSettingsPage };

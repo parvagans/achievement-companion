@@ -8,6 +8,7 @@ import {
 } from "../../decky-credential-text-field";
 import { DeckyCompactPillActionItem } from "../../decky-compact-pill-action-item";
 import { DeckyProviderSettingsActionGroup } from "../../decky-provider-settings-action-row";
+import { markDeckyFullscreenOnScreenKeyboardOpen } from "../../decky-full-screen-footer-overlay";
 import {
   RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY,
   getRetroAchievementsApiKeyInputDescriptor,
@@ -21,6 +22,7 @@ export interface DeckyRetroAchievementsCredentialsFormProps {
   readonly saveLabel: string;
   readonly clearLabel?: string;
   readonly compactSurface?: boolean;
+  readonly useSharedFullscreenFooter?: boolean;
   readonly onSave: (
     config: Omit<RetroAchievementsProviderConfig, "hasApiKey">,
     apiKeyDraft: string,
@@ -146,6 +148,7 @@ export function DeckyRetroAchievementsCredentialsForm({
   saveLabel,
   clearLabel,
   compactSurface = false,
+  useSharedFullscreenFooter = false,
   onSave,
   onClear,
 }: DeckyRetroAchievementsCredentialsFormProps): JSX.Element {
@@ -310,6 +313,7 @@ export function DeckyRetroAchievementsCredentialsForm({
           label={fieldSpecs.username.label}
           description={usernameDescription}
           value={username}
+          onClick={(event) => { if (useSharedFullscreenFooter) markDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument); }}
           onChange={(event) => {
             setUsername(event.currentTarget.value);
           }}
@@ -329,6 +333,7 @@ export function DeckyRetroAchievementsCredentialsForm({
           spellCheck={apiKeyInputDescriptor.spellCheck}
           bIsPassword={apiKeyInputDescriptor.bIsPassword}
           style={getDeckyCredentialTextFieldMaskStyle()}
+          onClick={(event) => { if (useSharedFullscreenFooter) markDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument); }}
           onChange={(event) => {
             setApiKeyDraft(event.currentTarget.value);
           }}

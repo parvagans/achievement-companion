@@ -913,6 +913,28 @@ test("full-screen text entry yields the first B to Steam, then returns normal Ba
   assert.equal(consumeDeckyFullscreenTransientCancel({} as Event, document), false);
 });
 
+test("QAM Provider Settings shares a two-provider footer without shrinking settings under the keyboard", async () => {
+  const [navigationSource, steamSource, retroSource, credentialsSource] = await Promise.all([
+    readFile(new URL("../src/platform/decky/decky-navigation.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-settings-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/providers/retroachievements/provider-settings-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/providers/retroachievements/credentials-form.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(navigationSource, /type ProviderSettingsTab = "retroachievements" \| "steam"/u);
+  assert.match(navigationSource, /id: "retroachievements", label: "RetroAchievements"[\s\S]*id: "steam", label: "Steam"/u);
+  assert.match(navigationSource, /activeProvider, setActiveProvider\] = useState<ProviderSettingsTab>\("steam"\)/u);
+  assert.match(navigationSource, /useDeckyFullscreenOnScreenKeyboardLifecycle\(keyboardAnchorRef\)/u);
+  assert.match(navigationSource, /reserveSteamProfileFooter[\s\S]*inProviderSwitcher[\s\S]*<DeckyFullScreenFooterOverlay/u);
+  assert.match(navigationSource, /activeNavigationItemId=\{activeProvider\}[\s\S]*onPreviousNavigationItem=\{\(\) => setActiveProvider\("retroachievements"\)\}[\s\S]*onNextNavigationItem=\{\(\) => setActiveProvider\("steam"\)\}/u);
+  assert.match(steamSource, /height: pageHeight \?\? "100vh", flexShrink: 0/u);
+  assert.match(retroSource, /!inProviderSwitcher \? <PanelSection title="Navigation">/u);
+  assert.match(retroSource, /inProviderSwitcher \? 62 : 12/u);
+  assert.match(retroSource, /data-provider-settings-scroll="true"[\s\S]*height: viewportHeight \?\? "calc\(100vh - 50px\)"[\s\S]*overflowY: "auto"/u);
+  assert.match(retroSource, /useSharedFullscreenFooter=\{inProviderSwitcher\}/u);
+  assert.match(credentialsSource, /useSharedFullscreenFooter\) markDeckyFullscreenOnScreenKeyboardOpen\(event\.currentTarget\.ownerDocument\)/u);
+});
+
 test("Games Search and Settings keep the footer on focus and yield it only to Steam keyboard ownership", async () => {
   const [gamesSource, settingsSource, footerSource] = await Promise.all([
     readFile(new URL("../src/platform/decky/decky-steam-full-screen-games-dashboard.tsx", import.meta.url), "utf8"),

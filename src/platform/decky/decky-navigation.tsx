@@ -1,5 +1,5 @@
 import { routerHook } from "@decky/api";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { NavigationPort, NavigationTarget } from "@core/platform";
 import {
   Navigation as DeckyNavigation,
@@ -13,10 +13,13 @@ import { DeckyFullScreenCompletionProgressPage } from "./decky-full-screen-compl
 import { DeckyFullScreenGamePage } from "./decky-full-screen-game-page";
 import { DeckyFullScreenSettingsPage } from "./decky-full-screen-settings-page";
 import { DeckyFullScreenProviderSettingsPage } from "./decky-full-screen-provider-settings-page";
+import { DeckyRetroAchievementsProviderSettingsPage } from "./providers/retroachievements";
 import {
   DeckyFullScreenFooterOverlay,
   STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS,
+  useDeckyFullscreenOnScreenKeyboardLifecycle,
 } from "./decky-full-screen-footer-overlay";
+import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { DeckyFullScreenTerminalBackBridge } from "./decky-full-screen-terminal-back";
 import {
   beginDeckyCompactOriginFullScreenSession,
@@ -84,6 +87,12 @@ interface FullScreenCompletionProgressRouteParams {
 interface FullScreenProviderSettingsRouteParams {
   readonly providerId?: string;
 }
+
+type ProviderSettingsTab = "retroachievements" | "steam";
+const PROVIDER_SETTINGS_FOOTER_NAVIGATION_ITEMS = [
+  { id: "retroachievements", label: "RetroAchievements" },
+  { id: "steam", label: "Steam" },
+] as const;
 
 let isSteamFullScreenSessionActive = false;
 let steamFullScreenSessionTab: SteamFullScreenSessionTab = "profile";
@@ -676,6 +685,21 @@ function DeckyFullScreenCompletionProgressRoute(): JSX.Element {
 }
 
 function DeckyFullScreenSettingsRoute(): JSX.Element {
+  const [activeProvider, setActiveProvider] = useState<ProviderSettingsTab>("steam");
+  const keyboardAnchorRef = useRef<HTMLSpanElement>(null);
+  const retroAchievementsRootRef = useRef<HTMLDivElement>(null);
+  useDeckyFullscreenOnScreenKeyboardLifecycle(keyboardAnchorRef);
+  useLayoutEffect(() => {
+    if (activeProvider !== "retroachievements") return;
+    const root = retroAchievementsRootRef.current;
+    const ownerWindow = root?.ownerDocument.defaultView;
+    if (root === null || ownerWindow === null || ownerWindow === undefined) return;
+    const frame = ownerWindow.requestAnimationFrame(() => {
+      const firstControl = root.querySelector<HTMLElement>("input, .Panel.Focusable[role='button']");
+      takeDeckySteamGamepadFocus(firstControl);
+    });
+    return () => ownerWindow.cancelAnimationFrame(frame);
+  }, [activeProvider]);
   const returnFromSettings = (): void => {
     navigateBackFromFullScreenRoot("settings");
   };
@@ -685,13 +709,22 @@ function DeckyFullScreenSettingsRoute(): JSX.Element {
       {isDeckyCompactOriginFullScreenSessionRoot("settings")
         ? <DeckyFullScreenTerminalBackBridge onBack={returnFromSettings} />
         : null}
-      <DeckyFullScreenSettingsPage
+      <span ref={keyboardAnchorRef} hidden aria-hidden="true" />
+      {activeProvider === "steam" ? <DeckyFullScreenSettingsPage
+        reserveSteamProfileFooter
         onOpenProviderSettings={(providerId) => {
           navigateToFullScreenProviderSettings(providerId);
         }}
         onOpenExternalUrl={(url) => {
           DeckyNavigation.NavigateToExternalWeb(url);
         }}
+      /> : <div ref={retroAchievementsRootRef} data-provider-settings-retroachievements="true"><DeckyRetroAchievementsProviderSettingsPage providerId="retroachievements" onBack={returnFromSettings} inProviderSwitcher /></div>}
+      <DeckyFullScreenFooterOverlay
+        ariaLabel="Provider settings navigation"
+        activeNavigationItemId={activeProvider}
+        navigationItems={PROVIDER_SETTINGS_FOOTER_NAVIGATION_ITEMS}
+        onPreviousNavigationItem={() => setActiveProvider("retroachievements")}
+        onNextNavigationItem={() => setActiveProvider("steam")}
       />
     </>
   );
