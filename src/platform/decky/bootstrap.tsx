@@ -105,8 +105,9 @@ import {
   STEAM_PROVIDER_ID,
   type SteamProviderConfig,
   createDeckySteamLibraryScanDependencies,
+  buildDeckySteamCompletionProgressSnapshotFromSummary,
   runAndCacheDeckySteamLibraryAchievementScan,
-  useDeckySteamLibraryAchievementScanOverview,
+  useDeckySteamLibraryAchievementScanSummary,
 } from "./providers/steam";
 import { resolveProviderDashboardPreferences } from "@core/provider-dashboard-preferences";
 import { DeckyFirstRunSetupScreen } from "./decky-first-run-setup-screen";
@@ -791,7 +792,7 @@ function DashboardScreen({
     () => resolveProviderDashboardPreferences(providerConfig, settings),
     [providerConfig, settings],
   );
-  const steamLibraryAchievementScanSummary = useDeckySteamLibraryAchievementScanOverview(providerId);
+  const steamLibraryAchievementScanSummary = useDeckySteamLibraryAchievementScanSummary(providerId);
   const dashboardIncludesPlayedFreeGames = providerId === STEAM_PROVIDER_ID
     ? (providerConfig as SteamProviderConfig | undefined)?.includePlayedFreeGames ?? false
     : false;
@@ -996,7 +997,14 @@ function DashboardScreen({
     <DeckyDashboardView
       state={visibleState}
       {...(providerId === STEAM_PROVIDER_ID && state.data !== undefined
-        ? { steamActivityKnownGames: state.data.recentlyPlayedGames }
+        ? {
+            steamActivityKnownGames: [
+              ...(steamLibraryAchievementScanSummary === undefined
+                ? []
+                : buildDeckySteamCompletionProgressSnapshotFromSummary(steamLibraryAchievementScanSummary).games),
+              ...state.data.recentlyPlayedGames,
+            ],
+          }
         : {})}
       {...(providerId === STEAM_PROVIDER_ID && steamActivityState.data !== undefined
         ? { steamActivityEntries: steamActivityState.data.entries }

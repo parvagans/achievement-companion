@@ -19,7 +19,11 @@ import {
 } from "./decky-retroachievements-compact-profile-model";
 import { buildRetroAchievementsActivityCalendarModel } from "./decky-retroachievements-activity-calendar-model";
 import { getDeckyActivityCalendarFocusDestination } from "./decky-activity-calendar-navigation";
-import { buildCompactActivityGamesForDay, filterCompactActivityEntriesForDay } from "./decky-compact-activity-model";
+import {
+  buildCompactActivityGamesForDay,
+  filterCompactActivityEntriesForDay,
+  formatCompactActivityDate,
+} from "./decky-compact-activity-model";
 import {
   getDeckyRetroAchievementsCompactFocusTargetKey,
   readDeckyRetroAchievementsCompactFocusTarget,
@@ -368,7 +372,7 @@ function ActivityCalendar({
       noFocusRing
       role="button"
       tabIndex={0}
-      aria-label={model === undefined ? "RetroAchievements activity calendar unavailable" : `Activity calendar, ${status}. Press A to use.`}
+      aria-label={model === undefined ? "RetroAchievements activity calendar unavailable" : `Activity calendar, ${status}. ${active ? "Press B to exit." : "Press A to use."}`}
       aria-expanded={active}
       data-ra-compact-activity-calendar="true"
       data-ra-compact-activity-calendar-active={active ? "true" : "false"}
@@ -378,11 +382,22 @@ function ActivityCalendar({
       onCancel={active ? exitCalendar : onCancel}
       onFocus={(event) => {
         setFocused(true);
-        if (event.target === event.currentTarget) { event.currentTarget.scrollIntoView({ block: "center", inline: "nearest" }); entryTargetProps.onFocused(event.currentTarget); }
+        if (event.target === event.currentTarget) {
+          if (active && activeDayRef.current !== null) {
+            requestDeckySteamGamepadFocusAfterMount(activeDayRef.current);
+            return;
+          }
+          event.currentTarget.scrollIntoView({ block: "center", inline: "nearest" });
+          entryTargetProps.onFocused(event.currentTarget);
+        }
       }}
       onGamepadFocus={(event) => {
         setFocused(true);
         const element = event.currentTarget as HTMLElement;
+        if (active && event.target === event.currentTarget && activeDayRef.current !== null) {
+          requestDeckySteamGamepadFocusAfterMount(activeDayRef.current);
+          return;
+        }
         element.scrollIntoView({ block: "center", inline: "nearest" });
         entryTargetProps.onFocused(element);
       }}
@@ -442,6 +457,7 @@ function ActivityCalendar({
         {([0, 1, 2, 3, 4] as const).map((level) => <span key={level} style={raRecipes.compactProfile.calendarLegendCell(level)} />)}
         <span>More</span>
       </div>
+      {active ? <div style={{ marginTop: 4, ...raRecipes.text("compact", "caption"), color: raTheme.color.textMuted, textAlign: "center" }}>Press B to exit</div> : null}
     </Focusable>
   );
 }
@@ -522,6 +538,7 @@ function RecentlyPlayedRow({
   game,
   mode,
   activityUnlockCount,
+  activityDateLabel,
   onActivate,
   onCancel,
   targetProps,
@@ -529,6 +546,7 @@ function RecentlyPlayedRow({
   readonly game: RecentlyPlayedGame;
   readonly mode: Parameters<typeof getRetroAchievementsPlayedGameProgress>[1];
   readonly activityUnlockCount?: number;
+  readonly activityDateLabel?: string;
   readonly onActivate: () => void;
   readonly onCancel: () => void;
   readonly targetProps: CompactFocusTargetProps;
@@ -536,7 +554,6 @@ function RecentlyPlayedRow({
   const [focused, setFocused] = useState(false);
   const summary = getRetroAchievementsPlayedGameProgress(game, mode);
   const progressLine = formatSummary(summary);
-  const percent = summary === undefined ? undefined : getCompletionPercent(summary);
   const lastPlayed = formatRelativeTime(game.lastPlayedAt);
   const award = getRetroAchievementsCompletionIndicatorState(game);
   const awardLabel = award === undefined ? undefined : formatRetroAchievementsCompletionIndicatorLabel(award);
@@ -545,7 +562,7 @@ function RecentlyPlayedRow({
   const activate = (): void => { if (elementRef.current !== null) targetProps.onActivated(elementRef.current); onActivate(); };
   const focus = (element: HTMLElement): void => { setFocused(true); element.scrollIntoView({ block: "center", inline: "nearest" }); targetProps.onFocused(element); };
   return (
-    <Focusable noFocusRing role="button" tabIndex={0} aria-label={`${game.title}${game.platformLabel ? `, ${game.platformLabel}` : ""}${progressLine ? `, ${progressLine}` : ""}${awardLabel ? `, ${awardLabel}` : ""}${activityUnlockCount !== undefined ? `, ${activityUnlockCount} unlocks on selected date` : ""}`} data-ra-profile-recent-game="true" ref={(node) => { elementRef.current = node; targetProps.elementRef?.(node); }} preferredFocus={targetProps.preferredFocus} onActivate={activate} onClick={activate} onCancel={onCancel} onFocus={(event) => focus(event.currentTarget)} onGamepadFocus={(event) => focus(event.currentTarget as HTMLElement)} onBlur={() => setFocused(false)} style={raRecipes.compactProfile.row(focused)}>
+    <Focusable noFocusRing role="button" tabIndex={0} aria-label={`${game.title}${game.platformLabel ? `, ${game.platformLabel}` : ""}${progressLine ? `, ${progressLine}` : ""}${awardLabel ? `, ${awardLabel}` : ""}${activityUnlockCount !== undefined && activityDateLabel !== undefined ? `, ${activityUnlockCount} unlock${activityUnlockCount === 1 ? "" : "s"} on ${activityDateLabel}` : ""}`} data-ra-profile-recent-game="true" ref={(node) => { elementRef.current = node; targetProps.elementRef?.(node); }} preferredFocus={targetProps.preferredFocus} onActivate={activate} onClick={activate} onCancel={onCancel} onFocus={(event) => focus(event.currentTarget)} onGamepadFocus={(event) => focus(event.currentTarget as HTMLElement)} onBlur={() => setFocused(false)} style={raRecipes.compactProfile.row(focused)}>
       <span style={raRecipes.compactProfile.rowArtwork}>
         {game.coverImageUrl || game.systemIconUrl ? <DeckyGameArtwork compact src={game.coverImageUrl ?? game.systemIconUrl!} size={32} title={game.title} /> : <span style={raRecipes.text("compact", "title")}>{getInitials(game.title)}</span>}
       </span>
@@ -554,10 +571,9 @@ function RecentlyPlayedRow({
         <span style={raRecipes.compactProfile.rowMeta}>{game.platformLabel ?? "RetroAchievements game"}</span>
         {awardLabel !== undefined ? <span style={raRecipes.badge(awardKind)}>{awardLabel}</span> : null}
         {progressLine !== undefined ? <span style={raRecipes.compactProfile.rowMeta}>{progressLine}</span> : null}
-        {activityUnlockCount !== undefined ? <span style={raRecipes.compactProfile.rowMeta}>{activityUnlockCount} unlock{activityUnlockCount === 1 ? "" : "s"} on selected date</span> : null}
+        {activityUnlockCount !== undefined && activityDateLabel !== undefined ? <span style={raRecipes.compactProfile.rowMeta}>{activityUnlockCount} unlock{activityUnlockCount === 1 ? "" : "s"} on {activityDateLabel}</span> : null}
       </span>
       <span style={raRecipes.compactProfile.rowTrailing}>
-        {percent !== undefined ? <span style={raRecipes.compactProfile.rowMeta}>{percent}%</span> : null}
         {lastPlayed !== undefined ? <span style={raRecipes.compactProfile.rowMeta}>{lastPlayed}</span> : null}
         <img alt="" src={chevronRightIconUrl} style={{ width: 15, height: 15, filter: raTheme.iconFilter.primary }} />
       </span>
@@ -621,15 +637,22 @@ export function DeckyRetroAchievementsCompactProfile({
       .slice().sort((left, right) => (right.unlockedAt ?? right.achievement.unlockedAt ?? 0) - (left.unlockedAt ?? left.achievement.unlockedAt ?? 0)),
   [modeFilteredActivity, selectedActivityDay]);
   const visibleActivity = selectedDateActivity ?? modeFilteredActivity.slice(0, 5);
+  const activityKnownGames = useMemo(
+    () => [...(profile.featuredGames ?? []), ...snapshot.recentlyPlayedGames],
+    [profile.featuredGames, snapshot.recentlyPlayedGames],
+  );
   const selectedDateGames = useMemo(() => selectedDateActivity === undefined
     ? undefined
-    : buildCompactActivityGamesForDay(selectedDateActivity, snapshot.recentlyPlayedGames),
-  [selectedDateActivity, snapshot.recentlyPlayedGames]);
+    : buildCompactActivityGamesForDay(selectedDateActivity, activityKnownGames),
+  [activityKnownGames, selectedDateActivity]);
   const recentlyPlayed = selectedDateGames?.map(({ game }) => game) ?? snapshot.recentlyPlayedGames.slice(0, 5);
   const activityUnlockCounts = useMemo(
     () => new Map(selectedDateGames?.map(({ game, unlockCount }) => [game.gameId, unlockCount]) ?? []),
     [selectedDateGames],
   );
+  const selectedActivityDateLabel = selectedActivityDay === undefined
+    ? undefined
+    : formatCompactActivityDate(selectedActivityDay);
   const overview = useMemo(
     () => getRetroAchievementsProfileOverviewMetrics(profile, settings.retroAchievementsAchievementMode),
     [profile, settings.retroAchievementsAchievementMode],
@@ -767,7 +790,7 @@ export function DeckyRetroAchievementsCompactProfile({
 
       <Section title="Recently Played">
         {recentlyPlayed.length > 0 ? recentlyPlayed.map((game) => (
-          <RecentlyPlayedRow key={game.gameId} game={game} mode={settings.retroAchievementsAchievementMode} {...(activityUnlockCounts.has(game.gameId) ? { activityUnlockCount: activityUnlockCounts.get(game.gameId)! } : {})} onActivate={() => onOpenGameDetail(game)} onCancel={onCancel} targetProps={targetProps({ kind: "game", gameId: game.gameId })} />
+          <RecentlyPlayedRow key={game.gameId} game={game} mode={settings.retroAchievementsAchievementMode} {...(activityUnlockCounts.has(game.gameId) ? { activityUnlockCount: activityUnlockCounts.get(game.gameId)!, ...(selectedActivityDateLabel !== undefined ? { activityDateLabel: selectedActivityDateLabel } : {}) } : {})} onActivate={() => onOpenGameDetail(game)} onCancel={onCancel} targetProps={targetProps({ kind: "game", gameId: game.gameId })} />
         )) : <div style={{ ...raRecipes.state("empty"), padding: 8, textAlign: "left" }}>No recently played games yet.</div>}
         <ViewAll label="games" onActivate={onOpenCompletionProgress} onCancel={onCancel} targetProps={targetProps({ kind: "games" })} />
       </Section>

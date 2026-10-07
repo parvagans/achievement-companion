@@ -1,6 +1,14 @@
 import type { RecentUnlock, RecentlyPlayedGame } from "@core/domain";
 import { getLocalActivityCalendarDayTimestamp } from "./decky-activity-calendar-model";
 
+export function formatCompactActivityDate(day: number): string {
+  return new Date(day).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 export function filterCompactActivityEntriesForDay(
   entries: readonly RecentUnlock[],
   day: number,

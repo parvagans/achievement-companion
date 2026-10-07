@@ -551,6 +551,8 @@ interface RetroAchievementsSelectableGameInput {
   readonly maxPossible?: number | string;
   readonly NumAwarded?: number | string;
   readonly numAwarded?: number | string;
+  readonly NumAwardedHardcore?: number | string;
+  readonly numAwardedHardcore?: number | string;
   readonly MostRecentAwardedDate?: string;
   readonly mostRecentAwardedDate?: string;
   readonly HighestAwardKind?: string;
@@ -565,6 +567,7 @@ function normalizeSelectableGame(
   raw: RetroAchievementsSelectableGameInput,
 ): NormalizedGame | undefined {
   const unlockedCount = pickNumber(raw.NumAwarded, raw.numAwarded) ?? 0;
+  const hardcoreUnlockedCount = pickNumber(raw.NumAwardedHardcore, raw.numAwardedHardcore);
   if (unlockedCount <= 0) {
     return undefined;
   }
@@ -578,6 +581,30 @@ function normalizeSelectableGame(
       ? { completionPercent: Math.round((unlockedCount / totalCount) * 100) }
       : {}),
   };
+  const boundedHardcoreCount = hardcoreUnlockedCount === undefined
+    ? undefined
+    : Math.min(hardcoreUnlockedCount, totalCount ?? hardcoreUnlockedCount);
+  const softcoreUnlockedCount = hardcoreUnlockedCount === undefined
+    ? undefined
+    : Math.max(0, unlockedCount - hardcoreUnlockedCount);
+  const hardcoreSummary: ProgressSummary | undefined = boundedHardcoreCount === undefined
+    ? undefined
+    : {
+        unlockedCount: boundedHardcoreCount,
+        ...(totalCount !== undefined ? { totalCount } : {}),
+        ...(totalCount !== undefined && totalCount > 0
+          ? { completionPercent: Math.round((boundedHardcoreCount / totalCount) * 100) }
+          : {}),
+      };
+  const softcoreSummary: ProgressSummary | undefined = softcoreUnlockedCount === undefined
+    ? undefined
+    : {
+        unlockedCount: softcoreUnlockedCount,
+        ...(totalCount !== undefined ? { totalCount } : {}),
+        ...(totalCount !== undefined && totalCount > 0
+          ? { completionPercent: Math.round((softcoreUnlockedCount / totalCount) * 100) }
+          : {}),
+      };
 
   const game = buildGameIdentity({
     gameId: raw.GameID ?? raw.gameId,
@@ -598,6 +625,8 @@ function normalizeSelectableGame(
     ...(parentGameId !== undefined ? { parentGameId } : {}),
     status: inferGameStatus(highestAwardKind, summary),
     summary,
+    ...(hardcoreSummary !== undefined ? { hardcoreSummary } : {}),
+    ...(softcoreSummary !== undefined ? { softcoreSummary } : {}),
     metrics: [
       {
         key: "unlocked-count",
@@ -639,7 +668,7 @@ function normalizeSelectableGame(
 export function normalizeRetroAchievementsSelectableGames(
   rawEntries: readonly RetroAchievementsSelectableGameInput[],
 ): readonly NormalizedGame[] {
-  return normalizeRetroAchievementsCompletionProgressGames(rawEntries).slice(0, 3);
+  return normalizeRetroAchievementsCompletionProgressGames(rawEntries);
 }
 
 export function normalizeRetroAchievementsCompletionProgressGames(
