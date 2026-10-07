@@ -7,6 +7,10 @@ export function createProviderDashboardCacheKey(providerId: ProviderId): string 
   return `${CACHE_NAMESPACE}:v${CACHE_VERSION}:${providerId}:dashboard`;
 }
 
+export function createProviderActivityCalendarCacheKey(providerId: ProviderId): string {
+  return `${CACHE_NAMESPACE}:v${CACHE_VERSION}:${providerId}:activity-calendar`;
+}
+
 export function createProviderCompletionProgressCacheKey(providerId: ProviderId): string {
   return `${CACHE_NAMESPACE}:v${CACHE_VERSION}:${providerId}:completion-progress`;
 }

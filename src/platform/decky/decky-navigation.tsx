@@ -89,6 +89,7 @@ interface FullScreenProviderSettingsRouteParams {
 }
 
 type ProviderSettingsTab = "retroachievements" | "steam";
+let nextFullScreenSettingsProvider: ProviderSettingsTab = "steam";
 const PROVIDER_SETTINGS_FOOTER_NAVIGATION_ITEMS = [
   { id: "retroachievements", label: "RetroAchievements" },
   { id: "steam", label: "Steam" },
@@ -610,6 +611,9 @@ function DeckyFullScreenProfileRoute(): JSX.Element {
         navigateToFullScreenAchievement(profileProviderId, gameId, achievementId);
       }}
       onOpenSettings={() => {
+        nextFullScreenSettingsProvider = providerId === "retroachievements"
+          ? "retroachievements"
+          : "steam";
         DeckyNavigation.Navigate(buildDeckyFullScreenSettingsRoute());
       }}
       onOpenCompletionProgress={(profileProviderId, initialFilter) => {
@@ -685,7 +689,11 @@ function DeckyFullScreenCompletionProgressRoute(): JSX.Element {
 }
 
 function DeckyFullScreenSettingsRoute(): JSX.Element {
-  const [activeProvider, setActiveProvider] = useState<ProviderSettingsTab>("steam");
+  const [activeProvider, setActiveProvider] = useState<ProviderSettingsTab>(() => {
+    const initialProvider = nextFullScreenSettingsProvider;
+    nextFullScreenSettingsProvider = "steam";
+    return initialProvider;
+  });
   const keyboardAnchorRef = useRef<HTMLSpanElement>(null);
   const retroAchievementsRootRef = useRef<HTMLDivElement>(null);
   useDeckyFullscreenOnScreenKeyboardLifecycle(keyboardAnchorRef);
@@ -837,6 +845,9 @@ export function createDeckyNavigationPort(): NavigationPort {
 
         const settingsRoute = buildFullScreenSettingsRoute(target);
         if (settingsRoute !== undefined) {
+          nextFullScreenSettingsProvider = target.providerId === "retroachievements"
+            ? "retroachievements"
+            : "steam";
           const sessionRoot = getDeckyFullScreenSessionRoot(target);
           if (sessionRoot !== undefined) {
             beginDeckyCompactFullScreenEntry(sessionRoot);

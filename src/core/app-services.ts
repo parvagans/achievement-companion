@@ -16,6 +16,7 @@ import type { DashboardRefreshProgressEvent } from "./services";
 import type { AppError } from "./errors";
 import {
   CACHE_VERSION,
+  createProviderActivityCalendarCacheKey,
   createProviderAchievementHistoryCacheKey,
   createProviderCompletionProgressCacheKey,
   createProviderDashboardCacheKey,
@@ -27,7 +28,7 @@ import type { AppServices } from "./services";
 import { redactFrontendLogText } from "./redaction";
 
 type ResourceCapability = "profileSummary" | "completionProgress" | "gameProgress" | "achievementHistory";
-type ResourceLabel = "dashboard" | "achievement history" | "completion progress" | "game detail";
+type ResourceLabel = "dashboard" | "activity calendar" | "achievement history" | "completion progress" | "game detail";
 
 export interface AppServiceBootstrapOptions {
   readonly providerRegistry: ProviderRegistry;
@@ -40,6 +41,8 @@ export interface AppServiceBootstrapOptions {
 const DASHBOARD_RECENT_ACHIEVEMENT_LIMIT = 10;
 // Assumption: recently played only needs enough entries to cover the user-configurable maximum.
 const DASHBOARD_RECENTLY_PLAYED_LIMIT = 10;
+// Covers eight complete Monday-aligned weeks, including the partial current week.
+const DASHBOARD_ACTIVITY_CALENDAR_LOOKBACK_MS = 64 * 24 * 60 * 60 * 1000;
 // Assumption: normalized dashboard snapshots stay fresh for 15 minutes in cache.
 const DASHBOARD_CACHE_TTL_MS = 15 * 60 * 1000;
 // Assumption: completion progress can use the same short-lived TTL as the dashboard snapshot.
@@ -118,6 +121,8 @@ function createUnsupportedError(
   const message =
     resourceLabel === "dashboard"
       ? "Dashboard data is not available for this provider yet."
+      : resourceLabel === "activity calendar"
+        ? "Activity calendar data is not available for this provider yet."
       : resourceLabel === "achievement history"
         ? "Achievement history data is not available for this provider yet."
       : resourceLabel === "completion progress"
@@ -218,6 +223,8 @@ function createRefreshError(
   const resourceName =
     resourceLabel === "dashboard"
       ? "dashboard data"
+      : resourceLabel === "activity calendar"
+        ? "activity calendar data"
       : resourceLabel === "achievement history"
         ? "achievement history data"
       : resourceLabel === "completion progress"
@@ -270,6 +277,10 @@ function createCacheKey(
   // Assumption: these cached snapshots are shell-neutral for now, so platform identity is excluded from the key.
   if (resourceLabel === "dashboard") {
     return createProviderDashboardCacheKey(providerId);
+  }
+
+  if (resourceLabel === "activity calendar") {
+    return createProviderActivityCalendarCacheKey(providerId);
   }
 
   if (resourceLabel === "completion progress") {
@@ -352,7 +363,6 @@ async function loadDashboardSnapshot(
     : Promise.resolve<readonly RecentUnlock[]>([]);
   const recentlyPlayedGamesPromise: Promise<readonly RecentlyPlayedGame[]> =
     loadStep("recent-games", () => provider.loadRecentlyPlayedGames(providerConfig, { count: recentlyPlayedLimit }));
-
   const [profile, recentAchievements, recentlyPlayedGames] = await Promise.all([
     loadStep("profile", () => provider.loadProfile(providerConfig)),
     recentAchievementsPromise,
@@ -372,6 +382,66 @@ async function loadDashboardSnapshot(
     featuredGames: profile.featuredGames ?? [],
     refreshedAt: Date.now(),
   };
+}
+
+async function refreshActivityCalendarUnlocks(args: {
+  readonly providerId: ProviderId;
+  readonly providerRegistry: ProviderRegistry;
+  readonly cacheStore: CacheStore;
+  readonly platform: PlatformServices;
+  readonly loadProviderConfig: (providerId: ProviderId) => Promise<unknown | undefined>;
+  readonly cacheKey: string;
+  readonly cachedState?: ResourceState<readonly RecentUnlock[]>;
+}): Promise<ResourceState<readonly RecentUnlock[]>> {
+  const provider = args.providerRegistry.get(args.providerId);
+  if (provider === undefined) {
+    const error = createUnsupportedProviderError(args.providerId, args.platform);
+    return args.cachedState !== undefined ? createCachedStateWithError(args.cachedState, error) : createErrorState(error);
+  }
+  if (provider.loadAchievementsEarnedBetween === undefined) {
+    const error: AppError = {
+      kind: "unsupported",
+      userMessage: "Activity calendar data is not available for this provider yet.",
+      retryable: false,
+      providerId: args.providerId,
+      capability: "achievementHistory",
+      debugMessage: `${args.platform.info.platformId}:${args.providerId} lacks date-range unlock history`,
+    };
+    return args.cachedState !== undefined ? createCachedStateWithError(args.cachedState, error) : createErrorState(error);
+  }
+
+  let providerConfig: unknown | undefined;
+  try {
+    providerConfig = await args.loadProviderConfig(args.providerId);
+  } catch (cause) {
+    const error = createRefreshError("activity calendar", args.providerId, cause);
+    return args.cachedState !== undefined ? createCachedStateWithError(args.cachedState, error) : createErrorState(error);
+  }
+  if (providerConfig === undefined) {
+    const error = createMissingConfigError(args.providerId);
+    return args.cachedState !== undefined ? createCachedStateWithError(args.cachedState, error) : createErrorState(error);
+  }
+
+  return runProviderRefreshExclusive(args.providerId, async () => {
+    try {
+      const now = Date.now();
+      const entries = await provider.loadAchievementsEarnedBetween!(providerConfig, {
+        fromEpochSeconds: Math.trunc((now - DASHBOARD_ACTIVITY_CALENDAR_LOOKBACK_MS) / 1000),
+        toEpochSeconds: Math.trunc(now / 1000),
+      });
+      await args.cacheStore.write<readonly RecentUnlock[]>({
+        key: args.cacheKey,
+        value: entries,
+        storedAt: now,
+        expiresAt: now + DASHBOARD_CACHE_TTL_MS,
+        version: CACHE_VERSION,
+      });
+      return createSuccessState(entries, now);
+    } catch (cause) {
+      const error = createRefreshError("activity calendar", args.providerId, cause);
+      return args.cachedState !== undefined ? createCachedStateWithError(args.cachedState, error) : createErrorState(error);
+    }
+  });
 }
 
 function deriveRecentlyPlayedGamesFromRecentUnlocks(
@@ -932,6 +1002,29 @@ export function createAppServices(options: AppServiceBootstrapOptions): AppServi
           cacheKey,
           ...(cacheRead.cachedState !== undefined ? { cachedState: cacheRead.cachedState } : {}),
           ...(requestOptions?.onProgress !== undefined ? { onProgress: requestOptions.onProgress } : {}),
+        });
+      },
+    },
+    activityCalendar: {
+      async loadActivityCalendarUnlocks(providerId, requestOptions) {
+        const cacheKey = createProviderActivityCalendarCacheKey(providerId);
+        const cacheRead = await readCachedStateSafely<readonly RecentUnlock[]>({
+          cacheStore: options.cacheStore,
+          cacheKey,
+          providerId,
+          resourceLabel: "activity calendar",
+          platform: options.platform,
+        });
+        if (cacheRead.error !== undefined) return createErrorState<readonly RecentUnlock[]>(cacheRead.error);
+        if (cacheRead.cachedState !== undefined && !requestOptions?.forceRefresh) return cacheRead.cachedState;
+        return refreshActivityCalendarUnlocks({
+          providerId,
+          providerRegistry: options.providerRegistry,
+          cacheStore: options.cacheStore,
+          platform: options.platform,
+          loadProviderConfig: options.loadProviderConfig,
+          cacheKey,
+          ...(cacheRead.cachedState !== undefined ? { cachedState: cacheRead.cachedState } : {}),
         });
       },
     },

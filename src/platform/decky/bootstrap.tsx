@@ -34,10 +34,12 @@ import { createDeckyNavigationPort } from "./decky-navigation";
 import {
   createDeckyPlatform,
   initialDeckyBootstrapState,
+  initialDeckyActivityCalendarState,
   initialDeckyAchievementHistoryState,
   initialDeckyGameDetailState,
   initialDeckySteamHuntersProfileState,
   loadDeckyDashboardState,
+  loadDeckyActivityCalendarState,
   loadDeckyAchievementHistoryState,
   loadDeckyGameDetailState,
   loadDeckySteamHuntersProfileState,
@@ -53,6 +55,7 @@ import {
   type DeckyCompactGameDestination,
 } from "./decky-compact-navigation";
 import { DeckyDashboardView } from "./decky-dashboard-view";
+import { useDeckyCompactDropdownPopupGuard } from "./decky-compact-dropdown-popup-guard";
 import { DeckyCompactLoadingState } from "./decky-compact-loading-state";
 import { DeckyGameDetailView } from "./decky-game-detail-view";
 import { DeckyFocusStyles } from "./decky-focus-styles";
@@ -64,7 +67,6 @@ import {
   readDeckyGamePageBadgeSettingsExpanded,
   writeDeckyGamePageBadgeSettingsExpanded,
 } from "./decky-provider-menu-session-state";
-import { beginDeckyCompactPopup } from "./decky-compact-popup-state";
 import {
   DeckyCompactPillActionGroup,
   DeckyCompactPillActionItem,
@@ -79,6 +81,7 @@ import {
 } from "./decky-compact-achievement-model";
 import { resolveDeckyCompactAchievementResource } from "./decky-compact-achievement-resource";
 import {
+  claimDeckyCompactRetroAchievementsDashboardRefresh,
   claimDeckyCompactSteamDashboardRefresh,
   loadDeckyCompactSteamDashboardState,
   loadDeckyCompactSteamActivityState,
@@ -111,6 +114,7 @@ import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { readDeckyGamepadNavigationTrees } from "./decky-gamepad-navigation";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { readDeckySteamCompactFocusScrollTop } from "./decky-steam-compact-focus-state";
+import { readDeckyRetroAchievementsCompactFocusScrollTop } from "./decky-retroachievements-compact-focus-state";
 import {
   createDeckyProviderInitialFocusAttempt,
   requestDeckyProviderInitialFocus,
@@ -504,41 +508,6 @@ function getGamePageBadgeDescriptionStyle(disabled = false): CSSProperties {
   };
 }
 
-function useDeckyCompactDropdownPopupGuard(): (showMenu: () => void) => void {
-  const isQuickAccessVisible = useQuickAccessVisible();
-  const releasePopupRef = useRef<(() => void) | undefined>(undefined);
-  const popupWasHiddenRef = useRef(false);
-
-  useEffect(() => {
-    if (releasePopupRef.current === undefined) {
-      return;
-    }
-
-    if (!isQuickAccessVisible) {
-      popupWasHiddenRef.current = true;
-      return;
-    }
-
-    if (popupWasHiddenRef.current) {
-      releasePopupRef.current();
-      releasePopupRef.current = undefined;
-      popupWasHiddenRef.current = false;
-    }
-  }, [isQuickAccessVisible]);
-
-  useEffect(() => () => {
-    releasePopupRef.current?.();
-    releasePopupRef.current = undefined;
-  }, []);
-
-  return useCallback((showMenu: () => void) => {
-    releasePopupRef.current?.();
-    popupWasHiddenRef.current = false;
-    releasePopupRef.current = beginDeckyCompactPopup();
-    showMenu();
-  }, []);
-}
-
 function GamePageBadgePositionDropdown({
   selectedPosition,
   disabled,
@@ -774,8 +743,11 @@ function DashboardScreen({
   onBackToProviders,
   onOpenSettings,
   isShowingSteamCompactSettings,
+  isShowingRetroAchievementsCompactSettings,
   onOpenSteamCompactSettings,
   onCloseSteamCompactSettings,
+  onOpenRetroAchievementsCompactSettings,
+  onCloseRetroAchievementsCompactSettings,
 }: {
   readonly providerId: ProviderId;
   readonly onOpenGameDetail: (providerId: ProviderId, gameId: string, gameTitle: string) => void;
@@ -786,8 +758,11 @@ function DashboardScreen({
   readonly onBackToProviders: () => void;
   readonly onOpenSettings: () => void;
   readonly isShowingSteamCompactSettings: boolean;
+  readonly isShowingRetroAchievementsCompactSettings: boolean;
   readonly onOpenSteamCompactSettings: () => void;
   readonly onCloseSteamCompactSettings: () => void;
+  readonly onOpenRetroAchievementsCompactSettings: () => void;
+  readonly onCloseRetroAchievementsCompactSettings: () => void;
 }): JSX.Element {
   const settings = useDeckySettings();
   const providerConfig = useDeckyProviderConfig(providerId);
@@ -801,14 +776,16 @@ function DashboardScreen({
   // A compact Steam visit mirrors the full-screen profile's fresh account
   // boundary. Cached dashboard data remains available to other surfaces, but
   // this view waits for the new bounded Steam and SteamHunters results.
-  const initialSteamRefresh = useRef<boolean | undefined>(undefined);
-  if (initialSteamRefresh.current === undefined) {
-    initialSteamRefresh.current = providerId === STEAM_PROVIDER_ID
+  const initialProviderRefresh = useRef<boolean | undefined>(undefined);
+  if (initialProviderRefresh.current === undefined) {
+    initialProviderRefresh.current = providerId === STEAM_PROVIDER_ID
       ? claimDeckyCompactSteamDashboardRefresh()
-      : false;
+      : providerId === "retroachievements"
+        ? claimDeckyCompactRetroAchievementsDashboardRefresh()
+        : false;
   }
-  const dashboardForceRefreshNextLoad = useRef(initialSteamRefresh.current);
-  const steamHuntersForceRefreshNextLoad = useRef(initialSteamRefresh.current);
+  const dashboardForceRefreshNextLoad = useRef(initialProviderRefresh.current);
+  const steamHuntersForceRefreshNextLoad = useRef(initialProviderRefresh.current);
   const previousQuickAccessVisible = useRef(quickAccessVisible);
   const dashboardPreferences = useMemo(
     () => resolveProviderDashboardPreferences(providerConfig, settings),
@@ -864,6 +841,18 @@ function DashboardScreen({
     ? readDeckyCompactSteamDashboardState() ?? initialDeckyBootstrapState
     : initialDeckyBootstrapState;
   const state = useAsyncResourceState(dashboardLoader, initialDashboardState);
+  const activityCalendarLoader = useMemo(
+    () => () => providerId === "retroachievements"
+      ? loadDeckyActivityCalendarState(providerId)
+      : Promise.resolve(initialDeckyActivityCalendarState),
+    [providerId],
+  );
+  const activityCalendarState = useAsyncResourceState(
+    activityCalendarLoader,
+    providerId === "retroachievements" && initialDashboardState.data?.activityCalendarUnlocks !== undefined
+      ? { ...initialDeckyActivityCalendarState, data: initialDashboardState.data.activityCalendarUnlocks }
+      : initialDeckyActivityCalendarState,
+  );
   const steamActivityLoader = useMemo(
     () => () => providerId === STEAM_PROVIDER_ID
       ? loadDeckyCompactSteamActivityState(() => loadDeckyAchievementHistoryState(providerId))
@@ -911,6 +900,11 @@ function DashboardScreen({
       steamHuntersProfileState.status === "idle" ||
       steamHuntersProfileState.status === "loading" ||
       steamHuntersProfileState.status === "refreshing");
+  const isRetroAchievementsCompactProfileLoading =
+    providerId === "retroachievements" &&
+    state.status !== "error" &&
+    (!isRenderableDashboardState(state) || state.isRefreshing === true);
+  const isCompactProfileLoading = isSteamCompactProfileLoading || isRetroAchievementsCompactProfileLoading;
   const dashboardReentryRefreshKey = `${providerId}:${state.status}:${state.data?.profile.providerId ?? "none"}:${state.error?.kind ?? "none"}:${state.error?.debugMessage ?? "none"}`;
   const lastDashboardReentryRefreshKey = useRef<string | undefined>(undefined);
 
@@ -998,7 +992,7 @@ function DashboardScreen({
             : "Scan full Steam library"
       : undefined;
 
-  return isRenderableDashboardState(visibleState) && !isSteamCompactProfileLoading ? (
+  return isRenderableDashboardState(visibleState) && !isCompactProfileLoading ? (
     <DeckyDashboardView
       state={visibleState}
       {...(providerId === STEAM_PROVIDER_ID && state.data !== undefined
@@ -1015,11 +1009,17 @@ function DashboardScreen({
       isShowingSteamCompactSettings={isShowingSteamCompactSettings}
       onOpenSteamCompactSettings={onOpenSteamCompactSettings}
       onCloseSteamCompactSettings={onCloseSteamCompactSettings}
+      isShowingRetroAchievementsCompactSettings={isShowingRetroAchievementsCompactSettings}
+      onOpenRetroAchievementsCompactSettings={onOpenRetroAchievementsCompactSettings}
+      onCloseRetroAchievementsCompactSettings={onCloseRetroAchievementsCompactSettings}
       onRefreshDashboard={() => {
         requestDashboardReload(true);
       }}
       {...(providerId === "retroachievements"
         ? {
+            ...((activityCalendarState.data ?? state.data?.activityCalendarUnlocks) !== undefined
+              ? { retroAchievementsActivityCalendarUnlocks: activityCalendarState.data ?? state.data?.activityCalendarUnlocks! }
+              : {}),
             retroAchievementsConnectionState,
             onUpdateRetroAchievementsCredentials: onOpenSettings,
           }
@@ -1049,6 +1049,13 @@ function DashboardScreen({
       isError={state.status === "error"}
       onCancel={onBackToProviders}
       title={state.status === "error" ? "Steam profile unavailable" : "Loading Steam profile..."}
+    />
+  ) : providerId === "retroachievements" ? (
+    <DeckyCompactLoadingState
+      description={state.error?.userMessage ?? "Fetching the latest RetroAchievements profile and unlock activity."}
+      isError={state.status === "error"}
+      onCancel={onBackToProviders}
+      title={state.status === "error" ? "RetroAchievements profile unavailable" : "Loading RetroAchievements profile..."}
     />
   ) : (
     <PlaceholderState
@@ -1678,11 +1685,15 @@ function DeckyBootstrapStateBridge(): JSX.Element {
             </TopAlignedScrollViewport>
           ) : (
             <TopAlignedScrollViewport
-              restoreAfterLayout={selectedProviderId === STEAM_PROVIDER_ID}
+              restoreAfterLayout={selectedProviderId === STEAM_PROVIDER_ID || selectedProviderId === "retroachievements"}
               restoreScrollTop={
-                selectedProviderId === STEAM_PROVIDER_ID && compactNavigation.kind === "provider-dashboard"
-                  ? readDeckySteamCompactFocusScrollTop()
-                  : undefined
+                compactNavigation.kind !== "provider-dashboard"
+                  ? undefined
+                  : selectedProviderId === STEAM_PROVIDER_ID
+                    ? readDeckySteamCompactFocusScrollTop()
+                    : selectedProviderId === "retroachievements"
+                      ? readDeckyRetroAchievementsCompactFocusScrollTop()
+                      : undefined
               }
               scrollKey="dashboard"
             >
@@ -1696,14 +1707,22 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                   void platform.navigation?.go({
                     view: "settings",
                     surface: "full-screen",
+                    providerId: selectedProviderId,
                   });
                 }}
-                isShowingSteamCompactSettings={compactNavigation.kind === "settings"}
+                isShowingSteamCompactSettings={compactNavigation.kind === "settings" && selectedProviderId === STEAM_PROVIDER_ID}
+                isShowingRetroAchievementsCompactSettings={compactNavigation.kind === "settings" && selectedProviderId === "retroachievements"}
                 onOpenSteamCompactSettings={() => {
                   setDeckyCompactNavigation({ kind: "settings", providerId: STEAM_PROVIDER_ID });
                 }}
                 onCloseSteamCompactSettings={() => {
                   setDeckyCompactNavigation({ kind: "provider-dashboard", providerId: STEAM_PROVIDER_ID });
+                }}
+                onOpenRetroAchievementsCompactSettings={() => {
+                  setDeckyCompactNavigation({ kind: "settings", providerId: "retroachievements" });
+                }}
+                onCloseRetroAchievementsCompactSettings={() => {
+                  setDeckyCompactNavigation({ kind: "provider-dashboard", providerId: "retroachievements" });
                 }}
                 onOpenGameDetail={(providerId, gameId, gameTitle) => {
                   setDeckyCompactNavigation({

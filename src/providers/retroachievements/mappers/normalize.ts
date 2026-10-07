@@ -270,7 +270,10 @@ interface RetroAchievementsProfileInput {
   readonly totalTruePoints?: number | string;
 }
 
-function normalizeProfileMetrics(raw: RetroAchievementsProfileInput): readonly NormalizedMetric[] {
+function normalizeProfileMetrics(
+  raw: RetroAchievementsProfileInput,
+  rawSummary?: RawRetroAchievementsSummaryResponse,
+): readonly NormalizedMetric[] {
   const totalPoints = pickNumber(raw.TotalPoints, raw.totalPoints);
   const totalSoftcorePoints = pickNumber(raw.TotalSoftcorePoints, raw.totalSoftcorePoints);
   const totalTruePoints = pickNumber(raw.TotalTruePoints, raw.totalTruePoints);
@@ -281,6 +284,13 @@ function normalizeProfileMetrics(raw: RetroAchievementsProfileInput): readonly N
   const lastGameId = pickIdentifier(raw.LastGameID, raw.lastGameId);
   const memberSince = pickString(raw.MemberSince, raw.memberSince);
   const richPresenceMsg = pickString(raw.RichPresenceMsg, raw.richPresenceMsg);
+  const siteRank = pickNumber(rawSummary?.Rank, rawSummary?.rank);
+  const casualRank = pickNumber(
+    rawSummary?.CasualRank,
+    rawSummary?.casualRank,
+    rawSummary?.SoftcoreRank,
+    rawSummary?.softcoreRank,
+  );
 
   return [
     ...(totalPoints !== undefined
@@ -316,6 +326,24 @@ function normalizeProfileMetrics(raw: RetroAchievementsProfileInput): readonly N
             key: "retro-ratio",
             label: "RetroRatio",
             value: retroRatio,
+          },
+        ]
+      : []),
+    ...(siteRank !== undefined && siteRank > 0
+      ? [
+          {
+            key: "site-rank",
+            label: "Site Rank",
+            value: String(siteRank),
+          },
+        ]
+      : []),
+    ...(casualRank !== undefined && casualRank > 0
+      ? [
+          {
+            key: "casual-rank",
+            label: "Casual Rank",
+            value: String(casualRank),
           },
         ]
       : []),
@@ -1059,7 +1087,7 @@ export function normalizeRetroAchievementsProfile(
         }
       : {}),
     metrics: [
-      ...normalizeProfileMetrics(raw),
+      ...normalizeProfileMetrics(raw, rawSummary),
       ...(gamesBeatenCount !== undefined
         ? [
             {
@@ -1126,6 +1154,8 @@ interface RetroAchievementsRecentlyPlayedGameInput {
   readonly numPossibleAchievements?: number | string;
   readonly NumAchieved?: number | string;
   readonly numAchieved?: number | string;
+  readonly NumAchievedHardcore?: number | string;
+  readonly numAchievedHardcore?: number | string;
   readonly LastPlayed?: string;
   readonly lastPlayed?: string;
   readonly HighestAwardKind?: string;
@@ -1142,6 +1172,7 @@ function normalizeRetroAchievementsRecentlyPlayedGame(
     coverImageUrl: raw.ImageIcon ?? raw.imageIcon,
   });
   const unlockedCount = pickNumber(raw.NumAchieved, raw.numAchieved) ?? 0;
+  const hardcoreUnlockedCount = pickNumber(raw.NumAchievedHardcore, raw.numAchievedHardcore);
   const totalCount = pickNumber(raw.AchievementsTotal, raw.achievementsTotal, raw.NumPossibleAchievements, raw.numPossibleAchievements);
   const lastPlayedAt = pickEpochMs(raw.LastPlayed, raw.lastPlayed);
   const highestAwardKind = pickString(raw.HighestAwardKind, raw.highestAwardKind);
@@ -1157,6 +1188,30 @@ function normalizeRetroAchievementsRecentlyPlayedGame(
       ? { completionPercent: Math.round((unlockedCount / totalCount) * 100) }
       : {}),
   };
+  const boundedHardcoreCount = hardcoreUnlockedCount === undefined
+    ? undefined
+    : Math.min(hardcoreUnlockedCount, totalCount ?? hardcoreUnlockedCount);
+  const softcoreUnlockedCount = hardcoreUnlockedCount === undefined
+    ? undefined
+    : Math.max(0, unlockedCount - hardcoreUnlockedCount);
+  const hardcoreSummary: ProgressSummary | undefined = boundedHardcoreCount !== undefined
+    ? {
+        unlockedCount: boundedHardcoreCount,
+        ...(totalCount !== undefined ? { totalCount } : {}),
+        ...(totalCount !== undefined && totalCount > 0
+          ? { completionPercent: Math.round((boundedHardcoreCount / totalCount) * 100) }
+          : {}),
+      }
+    : undefined;
+  const softcoreSummary: ProgressSummary | undefined = softcoreUnlockedCount !== undefined
+    ? {
+        unlockedCount: softcoreUnlockedCount,
+        ...(totalCount !== undefined ? { totalCount } : {}),
+        ...(totalCount !== undefined && totalCount > 0
+          ? { completionPercent: Math.round((softcoreUnlockedCount / totalCount) * 100) }
+          : {}),
+      }
+    : undefined;
 
   const { providerId, gameId, title, platformLabel, systemIconUrl, coverImageUrl } = game;
 
@@ -1168,6 +1223,8 @@ function normalizeRetroAchievementsRecentlyPlayedGame(
     ...(systemIconUrl !== undefined ? { systemIconUrl } : {}),
     ...(coverImageUrl !== undefined ? { coverImageUrl } : {}),
     summary,
+    ...(hardcoreSummary !== undefined ? { hardcoreSummary } : {}),
+    ...(softcoreSummary !== undefined ? { softcoreSummary } : {}),
     ...(highestAwardKind !== undefined
       ? {
           metrics: [

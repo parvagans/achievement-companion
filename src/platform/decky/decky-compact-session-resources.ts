@@ -13,6 +13,7 @@ const steamActivityStateByProvider = new Map<ProviderId, CachedState<Achievement
 const steamHuntersProfileStateById = new Map<string, CachedState<SteamHuntersProfile>>();
 let sessionGeneration = 0;
 let steamDashboardRefreshClaimed = false;
+let retroAchievementsDashboardRefreshClaimed = false;
 
 function isTerminal<T>(state: ResourceState<T>): boolean {
   return state.status === "success" || state.status === "stale" || state.status === "error";
@@ -87,6 +88,14 @@ export function claimDeckyCompactSteamDashboardRefresh(): boolean {
   return true;
 }
 
+export function claimDeckyCompactRetroAchievementsDashboardRefresh(): boolean {
+  if (retroAchievementsDashboardRefreshClaimed) {
+    return false;
+  }
+  retroAchievementsDashboardRefreshClaimed = true;
+  return true;
+}
+
 export function readDeckyCompactSteamActivityState(): ResourceState<AchievementHistorySnapshot> | undefined {
   return readState(steamActivityStateByProvider, "steam");
 }
@@ -114,6 +123,7 @@ export function loadDeckyCompactSteamHuntersProfileState(
 export function clearDeckyCompactSessionResources(): void {
   sessionGeneration += 1;
   steamDashboardRefreshClaimed = false;
+  retroAchievementsDashboardRefreshClaimed = false;
   steamGameStateById.clear();
   steamDashboardStateByProvider.clear();
   steamActivityStateByProvider.clear();

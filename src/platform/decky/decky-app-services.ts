@@ -255,6 +255,7 @@ function createIdleState<T>(): ResourceState<T> {
 }
 
 export const initialDeckyBootstrapState = createIdleState<DashboardSnapshot>();
+export const initialDeckyActivityCalendarState = createIdleState<readonly RecentUnlock[]>();
 export const initialDeckyAchievementHistoryState = createIdleState<AchievementHistorySnapshot>();
 export const initialDeckyCompletionProgressState = createIdleState<CompletionProgressSnapshot>();
 export const initialDeckyGameDetailState = createIdleState<GameDetailSnapshot>();
@@ -1266,6 +1267,15 @@ export async function loadDeckyCompletionProgressState(
   }
 
   return createDeckyAppServices(runtimeMode).completionProgress.loadCompletionProgress(providerId);
+}
+
+export async function loadDeckyActivityCalendarState(
+  providerId: ProviderId,
+  options?: { readonly forceRefresh?: boolean },
+): Promise<ResourceState<readonly RecentUnlock[]>> {
+  const runtimeMode = loadDeckyRuntimeMode();
+  if (runtimeMode === "empty") return initialDeckyActivityCalendarState;
+  return createDeckyAppServices(runtimeMode).activityCalendar.loadActivityCalendarUnlocks(providerId, options);
 }
 
 /**

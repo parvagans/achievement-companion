@@ -1,20 +1,28 @@
 import type { CSSProperties } from "react";
-import { steamTheme } from "./steam-theme";
+import {
+  achievementCompanionQamTheme as qamTheme,
+  getQamActivityCalendarLegendCellStyle,
+  getQamActivityCalendarLegendStyle,
+  getQamCompactFocusControlStyle,
+  getQamCompactFocusRingStyle,
+  getQamFocusStylesCss,
+  qamActivityCalendarColors,
+} from "./decky-qam-theme";
 
 /** RetroAchievements presentation roles. Keep provider meaning here; Steam owns steam-theme.ts. */
 export const raTheme = {
   color: {
-    background: steamTheme.color.background,
-    surface: steamTheme.color.surface,
-    surfaceRaised: steamTheme.color.surfaceRaised,
-    surfaceInteractive: steamTheme.color.surfaceInteractive,
-    textPrimary: steamTheme.color.textPrimary,
-    textSecondary: steamTheme.color.textSecondary,
-    textMuted: steamTheme.color.textMuted,
-    borderSubtle: steamTheme.color.borderSubtle,
-    borderStrong: steamTheme.color.borderStrong,
-    accent: steamTheme.color.accent,
-    accentStrong: steamTheme.color.accentStrong,
+    background: qamTheme.color.background,
+    surface: qamTheme.color.surface,
+    surfaceRaised: qamTheme.color.surfaceRaised,
+    surfaceInteractive: qamTheme.color.surfaceInteractive,
+    textPrimary: qamTheme.color.textPrimary,
+    textSecondary: qamTheme.color.textSecondary,
+    textMuted: qamTheme.color.textMuted,
+    borderSubtle: qamTheme.color.borderSubtle,
+    borderStrong: qamTheme.color.borderStrong,
+    accent: qamTheme.color.accent,
+    accentStrong: qamTheme.color.accentStrong,
     hardcore: "rgba(232, 201, 102, 0.96)",
     softcore: "rgba(220, 225, 233, 0.94)",
     mastered: "rgba(242, 216, 127, 0.98)",
@@ -23,9 +31,9 @@ export const raTheme = {
     locked: "rgba(185, 195, 207, 0.72)",
     points: "rgba(255, 211, 88, 0.98)",
     retroPoints: "rgba(102, 214, 255, 0.98)",
-    success: steamTheme.color.success,
-    warning: steamTheme.color.warning,
-    danger: steamTheme.color.danger,
+    success: qamTheme.color.success,
+    warning: qamTheme.color.warning,
+    danger: qamTheme.color.danger,
     rarity: {
       common: "rgba(82, 242, 156, 0.98)",
       uncommon: "rgba(102, 214, 255, 0.98)",
@@ -34,25 +42,25 @@ export const raTheme = {
     },
   },
   surface: {
-    page: steamTheme.surface.page,
-    card: steamTheme.surface.card,
-    raised: steamTheme.surface.raised,
-    interactive: steamTheme.surface.interactive,
-    selected: steamTheme.surface.selected,
+    page: qamTheme.surface.page,
+    card: qamTheme.surface.card,
+    raised: qamTheme.surface.raised,
+    interactive: qamTheme.surface.interactive,
+    selected: qamTheme.surface.selected,
     hardcore: "rgba(214, 178, 74, 0.12)",
     softcore: "rgba(214, 221, 232, 0.08)",
     locked: "rgba(255, 255, 255, 0.035)",
-    error: steamTheme.status.danger.surface,
-    success: steamTheme.status.success.surface,
+    error: qamTheme.status.danger.surface,
+    success: qamTheme.status.success.surface,
     warning: "rgba(214, 158, 46, 0.12)",
   },
   type: {
-    weight: steamTheme.type.weight,
-    compact: steamTheme.type.compact,
-    fullscreen: steamTheme.type.fullscreen,
+    weight: qamTheme.type.weight,
+    compact: qamTheme.type.compact,
+    fullscreen: qamTheme.type.fullscreen,
   },
-  space: steamTheme.space,
-  radius: steamTheme.radius,
+  space: qamTheme.space,
+  radius: qamTheme.radius,
   density: {
     compact: { cardPadding: 10, rowGap: 8, artwork: 40, metricMinHeight: 44 },
     fullscreen: { cardPadding: 16, rowGap: 14, artwork: 72, metricMinHeight: 54 },
@@ -65,12 +73,9 @@ export const raTheme = {
     success: "brightness(0) saturate(100%) invert(79%) sepia(79%) saturate(493%) hue-rotate(91deg) brightness(105%) contrast(94%)",
   },
   focus: {
-    border: steamTheme.focus.border,
-    background: steamTheme.focus.background,
-    shadow: steamTheme.focus.shadow,
-    insetShadow: steamTheme.focus.insetShadow,
+    ...qamTheme.focus,
   },
-  selection: { border: steamTheme.color.borderStrong, background: steamTheme.surface.selected },
+  selection: { border: qamTheme.color.borderStrong, background: qamTheme.surface.selected },
 } as const;
 
 type RaDensity = "compact" | "fullscreen";
@@ -103,9 +108,9 @@ export const raRecipes = {
       display: "flex",
       alignItems: "center",
       gap: raTheme.space.md,
-      borderColor: focused ? raTheme.focus.border : raTheme.color.borderSubtle,
-      background: focused ? raTheme.focus.background : raTheme.surface.interactive,
-      boxShadow: focused ? raTheme.focus.shadow : "none",
+      borderColor: focused ? raTheme.focus.compactBorder : raTheme.color.borderSubtle,
+      background: focused ? raTheme.focus.compactBackground : raTheme.surface.interactive,
+      boxShadow: focused ? raTheme.focus.compactShadow : "none",
       outline: "none",
     };
   },
@@ -130,14 +135,16 @@ export const raRecipes = {
       minWidth: 0,
       minHeight: compact ? (primary ? 38 : undefined) : 48,
       padding: compact ? (primary ? "8px 12px" : 8) : "12px 16px",
-      border: `1px solid ${focused ? steamTheme.focus.compactBorder : primary ? raTheme.color.borderStrong : raTheme.color.borderSubtle}`,
+      border: `1px solid ${primary ? raTheme.color.borderStrong : raTheme.color.borderSubtle}`,
       borderRadius: raTheme.radius[compact ? "medium" : "large"],
-      background: focused ? steamTheme.focus.compactBackground : primary ? steamTheme.surface.compactPrimaryAction : steamTheme.surface.compactRow,
-      boxShadow: focused ? steamTheme.focus.compactShadow : primary ? "inset 0 1px 0 rgba(125, 211, 252, 0.08), 0 4px 12px rgba(0, 0, 0, 0.16)" : "inset 0 1px 0 rgba(255, 255, 255, 0.025)",
+      background: primary ? qamTheme.surface.compactPrimaryAction : qamTheme.surface.compactRow,
+      boxShadow: primary ? "inset 0 1px 0 rgba(125, 211, 252, 0.08), 0 4px 12px rgba(0, 0, 0, 0.16)" : "inset 0 1px 0 rgba(255, 255, 255, 0.025)",
       color: raTheme.color.textPrimary,
       cursor: "pointer",
       outline: "none",
       boxSizing: "border-box",
+      transition: "background 120ms ease, border-color 120ms ease, box-shadow 120ms ease",
+      ...(focused ? getQamCompactFocusControlStyle() : {}),
     };
   },
   filter(selected: boolean, focused: boolean): CSSProperties {
@@ -154,8 +161,8 @@ export const raRecipes = {
       textAlign: "center",
       whiteSpace: "normal",
       overflowWrap: "anywhere",
-      color: selected ? steamTheme.selection.compactText : raTheme.color.textSecondary,
-      boxShadow: selected ? `${String(surface.boxShadow)}, ${steamTheme.selection.compactUnderline}` : surface.boxShadow,
+      color: selected ? qamTheme.selection.compactText : raTheme.color.textSecondary,
+      boxShadow: selected ? `${String(surface.boxShadow)}, ${qamTheme.selection.compactUnderline}` : surface.boxShadow,
     };
   },
   badge(kind: "default" | "hardcore" | "softcore" | "beaten" | "mastered" | "points" | "retroPoints" | "warning"): CSSProperties {
@@ -220,6 +227,190 @@ export const raRecipes = {
     beaten: { color: raTheme.color.beaten, border: "rgba(214, 221, 232, 0.42)", surface: "rgba(214, 221, 232, 0.1)" },
     mastered: { color: raTheme.color.mastered, border: "rgba(232, 201, 102, 0.52)", surface: "rgba(214, 178, 74, 0.16)" },
   },
+  compactProfile: {
+    root: {
+      display: "flex", flexDirection: "column", gap: 8, width: "100%", minWidth: 0,
+      padding: "0 16px 4px", boxSizing: "border-box", color: raTheme.color.textPrimary,
+      fontFamily: qamTheme.type.fontFamily,
+    } satisfies CSSProperties,
+    section: { display: "flex", flexDirection: "column", gap: 5, minWidth: 0 } satisfies CSSProperties,
+    sectionTitle: {
+      color: raTheme.color.accent, fontSize: raTheme.type.compact.heading, fontWeight: 850,
+      letterSpacing: "0.055em", lineHeight: 1, textTransform: "uppercase",
+    } satisfies CSSProperties,
+    profileCard: {
+      display: "flex", flexDirection: "column", gap: 8, padding: 9,
+      border: `1px solid ${raTheme.color.borderSubtle}`, borderRadius: raTheme.radius.medium,
+      background: raTheme.surface.raised, color: raTheme.color.textPrimary,
+      boxShadow: "inset 0 1px 0 rgba(125, 211, 252, 0.035)", boxSizing: "border-box",
+    } satisfies CSSProperties,
+    identity: { display: "flex", alignItems: "center", gap: 10, minWidth: 0 } satisfies CSSProperties,
+    avatarFrame: {
+      width: 54, height: 54, flex: "0 0 54px", display: "grid", placeItems: "center",
+      overflow: "hidden", padding: 2, border: `2px solid ${raTheme.color.borderStrong}`,
+      borderRadius: raTheme.radius.medium,
+      background: "linear-gradient(145deg, rgba(54, 185, 255, 0.2), rgba(5, 22, 34, 0.96))",
+      boxShadow: "0 0 12px rgba(54, 185, 255, 0.22)", boxSizing: "border-box",
+    } satisfies CSSProperties,
+    avatarFallback: {
+      display: "grid", placeItems: "center", width: "100%", height: "100%",
+      color: raTheme.color.textPrimary, fontSize: 18, fontWeight: 850,
+    } satisfies CSSProperties,
+    identityText: { display: "flex", flexDirection: "column", gap: 4, minWidth: 0 } satisfies CSSProperties,
+    profileName: {
+      minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+      color: raTheme.color.textPrimary, fontSize: 13, fontWeight: 800, lineHeight: 1.1,
+    } satisfies CSSProperties,
+    profileMeta: { color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.metadata, fontWeight: raTheme.type.weight.regular, lineHeight: 1.25 } satisfies CSSProperties,
+    gameActivityCard: {
+      display: "flex", flexDirection: "column", gap: 7, padding: 10, minWidth: 0,
+      border: `1px solid ${raTheme.color.borderSubtle}`, borderRadius: raTheme.radius.medium,
+      background: raTheme.surface.raised, boxSizing: "border-box",
+    } satisfies CSSProperties,
+    gameActivityStatus(inGame: boolean): CSSProperties {
+      return {
+        display: "flex", alignItems: "center", gap: 6,
+        color: inGame ? raTheme.color.success : raTheme.color.textSecondary,
+        fontSize: raTheme.type.compact.caption, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase",
+      };
+    },
+    gameActivityTitle: { color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.body, fontWeight: 750, lineHeight: 1.2 } satisfies CSSProperties,
+    gameActivityMeta: { color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.caption, fontWeight: 600, lineHeight: 1.2 } satisfies CSSProperties,
+    rankGrid(count: number): CSSProperties {
+      return { display: "grid", gridTemplateColumns: `repeat(${Math.min(2, Math.max(1, count))}, minmax(0, 1fr))`, gap: 8, minWidth: 0 };
+    },
+    rank: { display: "flex", flexDirection: "column", gap: 3, minWidth: 0 } satisfies CSSProperties,
+    rankLabel: {
+      color: raTheme.color.textMuted, fontSize: raTheme.type.compact.caption, fontWeight: 800, lineHeight: 1.3,
+      letterSpacing: "0.07em", textTransform: "uppercase",
+    } satisfies CSSProperties,
+    rankValue: { color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.title, fontWeight: 850, lineHeight: 1.05 } satisfies CSSProperties,
+    metricGrid(count: number): CSSProperties {
+      return { display: "grid", gridTemplateColumns: `repeat(${Math.min(2, Math.max(1, count))}, minmax(0, 1fr))`, gap: 5, minWidth: 0 };
+    },
+    metric(mode: "hardcore" | "softcore" | "shared", wide = false): CSSProperties {
+      const semantic = mode === "hardcore" ? raTheme.color.hardcore : mode === "softcore" ? raTheme.color.softcore : raTheme.color.accent;
+      return {
+        minHeight: 49, minWidth: 0, padding: "6px 8px", display: "flex", alignItems: "center", gap: raTheme.space.md,
+        gridColumn: wide ? "1 / -1" : undefined,
+        border: `1px solid ${mode === "shared" ? raTheme.color.borderSubtle : `${semantic}55`}`,
+        borderRadius: raTheme.radius.medium,
+        borderColor: mode === "shared" ? raTheme.color.borderSubtle : `${semantic}55`,
+        background: raTheme.surface.raised, boxSizing: "border-box",
+      };
+    },
+    metricText: { display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, minWidth: 0 } satisfies CSSProperties,
+    metricLabel(mode: "hardcore" | "softcore" | "shared"): CSSProperties {
+      return {
+        color: mode === "hardcore" ? raTheme.color.hardcore : mode === "softcore" ? raTheme.color.softcore : raTheme.color.accent,
+        fontSize: raTheme.type.compact.caption, fontWeight: 800, lineHeight: 1.12, letterSpacing: "0.035em", overflowWrap: "anywhere",
+      };
+    },
+    metricValue: { color: raTheme.color.textPrimary, fontSize: 14, fontWeight: 850, lineHeight: 1.05 } satisfies CSSProperties,
+    metricDetail: { color: raTheme.color.textSecondary, fontSize: 9, lineHeight: 1.1 } satisfies CSSProperties,
+    completionGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 5, minWidth: 0 } satisfies CSSProperties,
+    completionCard(kind: "beaten" | "mastered"): CSSProperties {
+      const color = kind === "beaten" ? raTheme.color.beaten : raTheme.color.mastered;
+      const border = kind === "beaten" ? "rgba(214, 221, 232, 0.42)" : "rgba(232, 201, 102, 0.52)";
+      return {
+        display: "flex", alignItems: "center", gap: 8, minWidth: 0, minHeight: 54, padding: "7px 8px",
+        border: `1px solid ${border}`, borderRadius: raTheme.radius.medium,
+        background: raTheme.surface.raised, color, boxSizing: "border-box",
+      };
+    },
+    completionLabel(kind: "beaten" | "mastered"): CSSProperties {
+      return { color: kind === "beaten" ? raTheme.color.beaten : raTheme.color.mastered, fontSize: raTheme.type.compact.caption, fontWeight: 850, letterSpacing: "0.05em", lineHeight: 1.3, textTransform: "uppercase" };
+    },
+    completionValue: { color: raTheme.color.textPrimary, fontSize: 17, fontWeight: 850, lineHeight: 1 } satisfies CSSProperties,
+    progressCard: { display: "flex", flexDirection: "column", gap: 7, padding: "8px 10px", border: `1px solid ${raTheme.color.borderSubtle}`, borderRadius: raTheme.radius.medium, background: raTheme.surface.raised } satisfies CSSProperties,
+    progressHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 } satisfies CSSProperties,
+    progressLabel: { color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.metadata, fontWeight: 650 } satisfies CSSProperties,
+    progressValue: { color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.metadata, fontWeight: 850 } satisfies CSSProperties,
+    calendar(focused: boolean): CSSProperties {
+      return {
+        display: "block", padding: 8, minWidth: 0, background: raTheme.surface.card,
+        border: `1px solid ${focused ? qamTheme.focus.border : raTheme.color.borderSubtle}`,
+        borderRadius: raTheme.radius.medium, boxSizing: "border-box", outline: "none",
+        ...getQamCompactFocusRingStyle(focused),
+      };
+    },
+    calendarGrid: { display: "grid", gridTemplateColumns: "18px repeat(8, minmax(0, 1fr))", gridTemplateRows: "repeat(7, minmax(0, 1fr))", width: "100%", height: 164, gap: 3, marginTop: 7 } satisfies CSSProperties,
+    calendarCell(intensity: 0 | 1 | 2 | 3 | 4, selected = false, focused = false): CSSProperties {
+      return {
+        display: "block", width: "100%", height: "100%", minWidth: 0, minHeight: 0,
+        padding: 0, border: selected ? `2px solid ${raTheme.color.textPrimary}` : "2px solid transparent",
+        borderRadius: 4, outline: "none", background: qamActivityCalendarColors[intensity], boxSizing: "border-box",
+        ...getQamCompactFocusRingStyle(focused),
+      };
+    },
+    calendarLegend: getQamActivityCalendarLegendStyle(),
+    calendarLegendCell(intensity: 0 | 1 | 2 | 3 | 4): CSSProperties {
+      return getQamActivityCalendarLegendCellStyle(intensity);
+    },
+    calendarHint: { display: "flex", alignItems: "center", gap: 4, minHeight: 15, color: raTheme.color.textMuted, fontSize: 8.5, fontWeight: 700 } satisfies CSSProperties,
+    calendarHintButton: { display: "inline-grid", placeItems: "center", width: 14, height: 14, borderRadius: "50%", background: raTheme.color.textPrimary, color: raTheme.surface.page, fontSize: 8, fontWeight: 900 } satisfies CSSProperties,
+    row(focused: boolean): CSSProperties {
+      return {
+        display: "grid", gridTemplateColumns: "auto minmax(0, 1fr) auto", alignItems: "center",
+        gap: 8, minHeight: 50, padding: "5px 7px", border: `1px solid ${raTheme.color.borderSubtle}`,
+        borderRadius: raTheme.radius.medium, background: raTheme.surface.interactive,
+        outline: "none", boxSizing: "border-box",
+        transition: "background 120ms ease, border-color 120ms ease, box-shadow 120ms ease",
+        ...(focused ? getQamCompactFocusControlStyle() : {}),
+      };
+    },
+    rowArtwork: {
+      width: 36, height: 36, flex: "0 0 36px", display: "grid", placeItems: "center", overflow: "hidden",
+      border: `1px solid ${raTheme.color.borderSubtle}`, borderRadius: raTheme.radius.small,
+      background: raTheme.surface.raised, boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04)", boxSizing: "border-box",
+    } satisfies CSSProperties,
+    rowText: { display: "flex", flexDirection: "column", gap: 3, minWidth: 0 } satisfies CSSProperties,
+    rowTitle: { color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.metadata, fontWeight: 800, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } satisfies CSSProperties,
+    rowMeta: { color: raTheme.color.textMuted, fontSize: 9, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } satisfies CSSProperties,
+    rowTrailing: { display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "center", gap: 4, minWidth: 0 } satisfies CSSProperties,
+    modeBadge(mode: "hardcore" | "softcore"): CSSProperties {
+      const color = mode === "hardcore" ? raTheme.color.hardcore : raTheme.color.softcore;
+      const surface = mode === "hardcore" ? raTheme.surface.hardcore : raTheme.surface.softcore;
+      return { display: "inline-flex", alignItems: "center", gap: 4, color, background: surface, border: `1px solid ${color}55`, borderRadius: raTheme.radius.pill, padding: "2px 6px", fontSize: 9, fontWeight: 800, lineHeight: 1.1 };
+    },
+    settingsIcon: {
+      display: "grid", placeItems: "center", width: 28, height: 28, flex: "0 0 28px",
+      border: `1px solid ${raTheme.color.borderSubtle}`, borderRadius: raTheme.radius.small,
+      background: raTheme.surface.interactive, color: raTheme.color.accent,
+    } satisfies CSSProperties,
+    footer: { color: raTheme.color.textMuted, fontSize: raTheme.type.compact.caption, textAlign: "center", padding: "6px 8px", lineHeight: 1.2 } satisfies CSSProperties,
+  },
+  compactSettings: {
+    root: {
+      display: "flex", flexDirection: "column", gap: 10, width: "100%", minWidth: 0,
+      padding: "0 16px 4px", boxSizing: "border-box", color: raTheme.color.textPrimary,
+      fontFamily: qamTheme.type.fontFamily,
+    } satisfies CSSProperties,
+    section: { display: "flex", flexDirection: "column", gap: 6, minWidth: 0 } satisfies CSSProperties,
+    sectionTitle: {
+      color: raTheme.color.accent, fontSize: raTheme.type.compact.heading, fontWeight: 850,
+      letterSpacing: "0.055em", lineHeight: 1, textTransform: "uppercase",
+    } satisfies CSSProperties,
+    action(isFocused: boolean): CSSProperties {
+      return {
+        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+        width: "100%", minWidth: 0, minHeight: 42, padding: "8px 12px",
+        border: `1px solid ${raTheme.color.borderSubtle}`,
+        borderRadius: raTheme.radius.small,
+        background: qamTheme.surface.compactPrimaryAction,
+        boxShadow: "inset 0 1px 0 rgba(125, 211, 252, 0.05), 0 4px 12px rgba(0, 0, 0, 0.14)",
+        boxSizing: "border-box", color: raTheme.color.textPrimary, outline: "none",
+        transition: "background 120ms ease, border-color 120ms ease, box-shadow 120ms ease",
+        ...(isFocused ? getQamCompactFocusControlStyle() : {}),
+      };
+    },
+    actionText: { display: "flex", flexDirection: "column", gap: 3, minWidth: 0 } satisfies CSSProperties,
+    actionTitle: { color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.body, fontWeight: 800, lineHeight: 1.1 } satisfies CSSProperties,
+    actionDescription: { color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.metadata, lineHeight: 1.2 } satisfies CSSProperties,
+    chevron: { width: 17, height: 17, flexShrink: 0, filter: raTheme.iconFilter.primary } satisfies CSSProperties,
+    dropdownLabel: { color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.body, fontWeight: 750, lineHeight: 1.2 } satisfies CSSProperties,
+    dropdownDescription: { color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.metadata, lineHeight: 1.25 } satisfies CSSProperties,
+  },
   profileSection: {
     card(variant: "softcore" | "hardcore" | "retroachievements" | "completion" | "default"): CSSProperties {
       const color = variant === "softcore" ? raTheme.color.softcore : variant === "hardcore" ? raTheme.color.hardcore : variant === "default" ? raTheme.color.borderSubtle : raTheme.color.accent;
@@ -244,13 +435,8 @@ export const raRecipes = {
 
 /** Scoped visual focus only. GamepadUI continues to own focus and navigation. */
 export function getRaFocusStylesCss(): string {
-  return `[data-ac-ra-theme] .achievement-companion-focus-nav-row.gpfocus,
-  [data-ac-ra-theme] .achievement-companion-focus-achievement-row.gpfocus,
-  [data-ac-ra-theme] .achievement-companion-focus-nav-row:focus-within,
-  [data-ac-ra-theme] .achievement-companion-focus-achievement-row:focus-within {
-    box-shadow: ${raTheme.focus.insetShadow};
-  }
-  [data-ac-ra-theme] .Panel.Focusable.gpfocus {
+  return `${getQamFocusStylesCss("data-ac-ra-theme")}
+  [data-ac-ra-theme="fullscreen"] .Panel.Focusable.gpfocus {
     border-color: ${raTheme.focus.border} !important;
     background: ${raTheme.focus.background} !important;
     box-shadow: ${raTheme.focus.shadow} !important;

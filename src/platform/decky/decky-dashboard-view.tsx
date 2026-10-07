@@ -41,6 +41,8 @@ import {
 } from "./decky-stat-helpers";
 import { getSteamCompactGameArtworkUrl } from "./decky-steam-game-artwork";
 import { DeckySteamCompactProfile } from "./decky-steam-compact-profile";
+import { DeckyRetroAchievementsCompactProfile } from "./decky-retroachievements-compact-profile";
+import { DeckyRetroAchievementsCompactSettings } from "./decky-retroachievements-compact-settings";
 import { DeckySteamCompactSettings } from "./decky-steam-compact-settings";
 import { formatDeckyProviderLabel } from "./providers";
 import { getDeckyProviderIconSrc } from "./providers/provider-branding";
@@ -82,9 +84,13 @@ export interface DeckyDashboardViewProps {
   readonly isShowingSteamCompactSettings: boolean;
   readonly onOpenSteamCompactSettings: () => void;
   readonly onCloseSteamCompactSettings: () => void;
+  readonly isShowingRetroAchievementsCompactSettings: boolean;
+  readonly onOpenRetroAchievementsCompactSettings: () => void;
+  readonly onCloseRetroAchievementsCompactSettings: () => void;
   readonly onRefreshDashboard: () => void;
   readonly steamHuntersProfile?: SteamHuntersProfile | undefined;
   readonly retroAchievementsConnectionState?: RetroAchievementsConnectionState;
+  readonly retroAchievementsActivityCalendarUnlocks?: readonly RecentUnlock[];
   readonly onUpdateRetroAchievementsCredentials?: () => void;
   readonly steamConnectionState?: SteamConnectionState;
   readonly onUpdateSteamCredentials?: () => void;
@@ -1381,9 +1387,13 @@ export function DeckyDashboardView({
   isShowingSteamCompactSettings,
   onOpenSteamCompactSettings,
   onCloseSteamCompactSettings,
+  isShowingRetroAchievementsCompactSettings,
+  onOpenRetroAchievementsCompactSettings,
+  onCloseRetroAchievementsCompactSettings,
   onRefreshDashboard,
   steamHuntersProfile,
   retroAchievementsConnectionState,
+  retroAchievementsActivityCalendarUnlocks,
   onUpdateRetroAchievementsCredentials,
   steamConnectionState,
   onUpdateSteamCredentials,
@@ -1491,6 +1501,34 @@ export function DeckyDashboardView({
           onCancel={onBackToProviders}
         />
       </>
+    );
+  }
+
+  if (profile.providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+    if (isShowingRetroAchievementsCompactSettings) {
+      return (
+        <DeckyRetroAchievementsCompactSettings
+          onBack={onCloseRetroAchievementsCompactSettings}
+          onOpenApiSettings={onOpenSettings}
+        />
+      );
+    }
+
+    return (
+      <DeckyRetroAchievementsCompactProfile
+        snapshot={snapshot}
+        {...(retroAchievementsActivityCalendarUnlocks !== undefined ? { activityCalendarUnlocks: retroAchievementsActivityCalendarUnlocks } : {})}
+        refreshedAt={refreshedAt}
+        {...(retroAchievementsConnectionState !== undefined ? { connectionState: retroAchievementsConnectionState } : {})}
+        onOpenProfile={() => onOpenProfile(profile.providerId)}
+        onOpenAchievementHistory={() => onOpenAchievementHistory(profile.providerId)}
+        onOpenCompletionProgress={() => onOpenCompletionProgress(profile.providerId)}
+        onOpenAchievementDetail={onOpenAchievementDetail}
+        onOpenGameDetail={(game) => onOpenGameDetail(game.providerId, game.gameId, game.title)}
+        onOpenSettings={onOpenRetroAchievementsCompactSettings}
+        {...(onUpdateRetroAchievementsCredentials !== undefined ? { onUpdateCredentials: onUpdateRetroAchievementsCredentials } : {})}
+        onCancel={onBackToProviders}
+      />
     );
   }
 

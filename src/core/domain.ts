@@ -121,6 +121,9 @@ export interface RecentlyPlayedGame {
   readonly coverImageUrl?: string;
   readonly boxArtImageUrl?: string;
   readonly summary: ProgressSummary;
+  /** Optional provider-specific progress by unlock mode (currently RetroAchievements). */
+  readonly hardcoreSummary?: ProgressSummary;
+  readonly softcoreSummary?: ProgressSummary;
   /** True only when recent-game achievement counts came from verified complete player state. */
   readonly achievementStateIsComplete?: boolean;
   readonly metrics?: readonly NormalizedMetric[];
@@ -195,6 +198,8 @@ export interface DashboardSnapshot {
   readonly recentAchievements: readonly RecentUnlock[];
   readonly recentlyPlayedGames: readonly RecentlyPlayedGame[];
   readonly recentUnlocks: readonly RecentUnlock[];
+  /** Optional unlock activity window for provider profile calendars. */
+  readonly activityCalendarUnlocks?: readonly RecentUnlock[];
   readonly featuredGames: readonly NormalizedGame[];
   readonly refreshedAt?: UnixEpochMs;
 }

@@ -12,6 +12,11 @@ import {
 } from "react";
 import type { SteamHuntersProfile } from "../../providers/steamhunters";
 import { steamRecipes, steamTheme } from "./steam-theme";
+import {
+  getQamActivityCalendarLegendCellStyle,
+  getQamActivityCalendarLegendStyle,
+  qamActivityCalendarColors,
+} from "./decky-qam-theme";
 import { useDeckySettings } from "./decky-settings";
 import { DeckySteamHuntersIcon } from "./decky-steam-icons";
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
@@ -41,6 +46,7 @@ import {
   type SteamActivityCalendarIntensity,
   type SteamActivityCalendarWeeks,
 } from "./decky-steam-activity-calendar-model";
+import { getDeckyActivityCalendarFocusDestination } from "./decky-activity-calendar-navigation";
 import {
   buildSteamCompactActivityGamesForDay,
   filterSteamActivityEntriesForDay,
@@ -381,13 +387,7 @@ function getMetricsGridStyle(): CSSProperties {
   };
 }
 
-const COMPACT_ACTIVITY_CALENDAR_COLORS: Record<SteamActivityCalendarIntensity, string> = {
-  0: "#1d3c51",
-  1: "#21546f",
-  2: "#267da9",
-  3: "#2fb9ef",
-  4: "#50d5ff",
-};
+const COMPACT_ACTIVITY_CALENDAR_COLORS: Record<SteamActivityCalendarIntensity, string> = qamActivityCalendarColors;
 
 function moveCompactCalendarFocus(event: GamepadEvent, target: HTMLElement | null | undefined): void {
   const source = event.currentTarget as HTMLElement;
@@ -402,23 +402,22 @@ function handleCompactCalendarDirection(event: GamepadEvent): void {
   const root = source.closest<HTMLElement>("[data-achievement-companion-steam-compact-profile]");
   const cells = Array.from(root?.querySelectorAll<HTMLElement>("[data-steam-compact-activity-calendar-day='true']") ?? []);
   const index = cells.indexOf(source);
-  const row = index % 7;
-  const column = Math.floor(index / 7);
-  const columns = Math.ceil(cells.length / 7);
   const button = event.detail.button;
-  let target: HTMLElement | null | undefined;
-  if (button === GamepadButton.DIR_UP) {
-    target = row > 0
-      ? cells[index - 1]
-      : root?.querySelector<HTMLElement>("[data-steam-compact-profile-action='true']") ?? source;
-  }
-  else if (button === GamepadButton.DIR_DOWN) {
-    target = row < 6
-      ? cells[index + 1] ?? source
-      : root?.querySelector<HTMLElement>("[data-steam-compact-recent-achievement='true']") ?? source;
-  } else if (button === GamepadButton.DIR_LEFT) target = column > 0 ? cells[index - 7] : source;
-  else if (button === GamepadButton.DIR_RIGHT) target = column < columns - 1 ? cells[index + 7] ?? source : source;
-  if (target !== undefined) moveCompactCalendarFocus(event, target);
+  const direction = button === GamepadButton.DIR_UP ? "up"
+    : button === GamepadButton.DIR_DOWN ? "down"
+      : button === GamepadButton.DIR_LEFT ? "left"
+        : button === GamepadButton.DIR_RIGHT ? "right"
+          : undefined;
+  if (direction === undefined) return;
+  const destination = getDeckyActivityCalendarFocusDestination(index, cells.length, direction);
+  const target = destination.kind === "cell"
+    ? cells[destination.index]
+    : destination.kind === "profile"
+      ? root?.querySelector<HTMLElement>("[data-steam-compact-profile-action='true']") ?? source
+      : destination.kind === "activity"
+        ? root?.querySelector<HTMLElement>("[data-steam-compact-recent-achievement='true']") ?? source
+        : source;
+  moveCompactCalendarFocus(event, target);
 }
 
 function CompactActivityCalendarDay({ day, count, intensity, current, selected, onSelect, onCancel, targetProps }: {
@@ -908,9 +907,9 @@ function CompactActivityCalendar({ dayCounts, weeks, selectedDay, onSelectDay, o
           );
         })}
       </div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4, marginTop: 7, color: steamTheme.color.textMuted, fontSize: 8 }}>
+      <div style={getQamActivityCalendarLegendStyle()}>
         <span>Less</span>
-        {([0, 1, 2, 3, 4] as const).map((level) => <span key={level} style={{ width: 10, height: 10, borderRadius: 2, background: COMPACT_ACTIVITY_CALENDAR_COLORS[level] }} />)}
+        {([0, 1, 2, 3, 4] as const).map((level) => <span key={level} style={getQamActivityCalendarLegendCellStyle(level)} />)}
         <span>More</span>
       </div>
     </Focusable>

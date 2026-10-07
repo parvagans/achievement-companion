@@ -572,7 +572,7 @@ test("steam full-screen profile uses the requested top-row and equal lower-row d
 });
 
 test("steam activity dashboard derives timeline metrics from timestamped unlock history without fabricating rarity", async () => {
-  const [activitySource, historySource, activityDataSource, calendarModelSource] = await Promise.all([
+  const [activitySource, historySource, activityDataSource, calendarModelSource, sharedCalendarModelSource] = await Promise.all([
     readFile(
       new URL("../src/platform/decky/decky-steam-full-screen-activity-dashboard.tsx", import.meta.url),
       "utf8",
@@ -589,6 +589,10 @@ test("steam activity dashboard derives timeline metrics from timestamped unlock 
       new URL("../src/platform/decky/decky-steam-activity-calendar-model.ts", import.meta.url),
       "utf8",
     ),
+    readFile(
+      new URL("../src/platform/decky/decky-activity-calendar-model.ts", import.meta.url),
+      "utf8",
+    ),
   ]);
 
   assert.match(historySource, /snapshot\.providerId === STEAM_PROVIDER_ID[\s\S]*DeckySteamFullScreenActivityDashboard/u);
@@ -596,7 +600,7 @@ test("steam activity dashboard derives timeline metrics from timestamped unlock 
   assert.match(activityDataSource, /getCurrentStreak[\s\S]*getLongestStreak/u);
   assert.match(activitySource, /selectedLabel[\s\S]*Last \$\{weeks\} weeks/u);
   assert.match(calendarModelSource, /STEAM_ACTIVITY_CALENDAR_WEEK_OPTIONS = ACTIVITY_CALENDAR_WEEK_OPTIONS/u);
-  assert.match(calendarModelSource, /nonzeroCounts[\s\S]*Math\.ceil\(nonzeroCounts\.length \* 0\.9\)/u);
+  assert.match(sharedCalendarModelSource, /nonzeroCounts[\s\S]*Math\.ceil\(nonzeroCounts\.length \* 0\.9\)/u);
   assert.match(activitySource, /Array\.from\(\{ length: 30 \}/u);
   assert.match(activitySource, /Last 30 days/u);
   assert.match(activitySource, /\["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"\]/u);
@@ -722,7 +726,9 @@ test("full-screen loading screens retain simple provider-specific loading states
   assert.match(loadingSource, /rgba\(218, 70, 241, 0\.28\)[\s\S]*rgba\(27, 161, 255, 0\.25\)[\s\S]*rgba\(0, 224, 239, 0\.16\)/u);
   assert.match(loadingSource, /\.\.\.getDeckyFullScreenLoadingPageStyle\(\)[\s\S]*useSteamTheme \?[\s\S]*\.\.\.getLoadingFrameStyle\(\)/u);
   assert.match(loadingSource, /!isError \|\| !useSteamTheme/u);
-  assert.match(appServicesSource, /const \[profile, recentAchievements, recentlyPlayedGames\] = await Promise\.all\(\[[\s\S]*loadStep\("profile"[\s\S]*recentAchievementsPromise,[\s\S]*recentlyPlayedGamesPromise/u);
+  assert.match(appServicesSource, /async function refreshActivityCalendarUnlocks/u);
+  assert.match(appServicesSource, /const \[profile, recentAchievements, recentlyPlayedGames\] = await Promise\.all/u);
+  assert.doesNotMatch(appServicesSource.slice(appServicesSource.indexOf("async function loadDashboardSnapshot"), appServicesSource.indexOf("function deriveRecentlyPlayedGamesFromRecentUnlocks")), /activityCalendarUnlocksPromise/u);
   assert.match(serviceTypesSource, /DashboardRefreshProgressStepId[\s\S]*recent-games[\s\S]*recent-achievements[\s\S]*finalize/u);
   assert.match(deckyServicesSource, /if \(activeRefresh !== undefined\)[\s\S]*subscribeToDeckyDashboardProgress\(providerId, options\.onProgress\)[\s\S]*return await activeRefresh/u);
   assert.match(deckyServicesSource, /onProgress: \(event\) => publishDeckyDashboardProgress\(providerId, event\)/u);
@@ -923,7 +929,8 @@ test("QAM Provider Settings shares a two-provider footer without shrinking setti
 
   assert.match(navigationSource, /type ProviderSettingsTab = "retroachievements" \| "steam"/u);
   assert.match(navigationSource, /id: "retroachievements", label: "RetroAchievements"[\s\S]*id: "steam", label: "Steam"/u);
-  assert.match(navigationSource, /activeProvider, setActiveProvider\] = useState<ProviderSettingsTab>\("steam"\)/u);
+  assert.match(navigationSource, /const initialProvider = nextFullScreenSettingsProvider[\s\S]*return initialProvider/u);
+  assert.match(navigationSource, /nextFullScreenSettingsProvider = target\.providerId === "retroachievements"[\s\S]*\? "retroachievements"[\s\S]*: "steam"/u);
   assert.match(navigationSource, /useDeckyFullscreenOnScreenKeyboardLifecycle\(keyboardAnchorRef\)/u);
   assert.match(navigationSource, /reserveSteamProfileFooter[\s\S]*inProviderSwitcher[\s\S]*<DeckyFullScreenFooterOverlay/u);
   assert.match(navigationSource, /activeNavigationItemId=\{activeProvider\}[\s\S]*onPreviousNavigationItem=\{\(\) => setActiveProvider\("retroachievements"\)\}[\s\S]*onNextNavigationItem=\{\(\) => setActiveProvider\("steam"\)\}/u);

@@ -33,6 +33,7 @@ import type {
   RawRetroAchievementsGameProgressResponse,
   RawRetroAchievementsGameProgressionResponse,
   RawRetroAchievementsRecentlyPlayedGameResponse,
+  RawRetroAchievementsSummaryResponse,
   RawRetroAchievementsSystemResponse,
 } from "./raw-types";
 import { normalizeRetroAchievementsGameCommunityStats } from "./community-stats";
@@ -71,6 +72,27 @@ interface RetroAchievementsProviderRuntime extends AchievementProvider<RetroAchi
 // range until every response is complete, so a long account history does not omit recent unlocks.
 const ACHIEVEMENTS_EARNED_BETWEEN_RESPONSE_LIMIT = 500;
 const GAME_COMMUNITY_STATS_TTL_MS = 60 * 60 * 1000;
+export const DEFAULT_RETROACHIEVEMENTS_PROFILE_SUMMARY_WAIT_MS = 5_000;
+
+/** The summary endpoint enriches the profile with rank and rich-presence data. */
+export async function loadOptionalRetroAchievementsProfileSummary(
+  load: (() => Promise<RawRetroAchievementsSummaryResponse>) | undefined,
+  waitMs = DEFAULT_RETROACHIEVEMENTS_PROFILE_SUMMARY_WAIT_MS,
+): Promise<RawRetroAchievementsSummaryResponse | undefined> {
+  if (load === undefined) return undefined;
+
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const summary = Promise.resolve().then(load).catch(() => undefined);
+  const deadline = new Promise<undefined>((resolve) => {
+    timeout = setTimeout(resolve, Math.max(0, waitMs));
+  });
+
+  try {
+    return await Promise.race([summary, deadline]);
+  } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
+  }
+}
 
 interface CachedGameCommunityStats {
   readonly value: GameCommunityStats | undefined;
@@ -466,7 +488,9 @@ export function createRetroAchievementsProvider(
       const [rawProfile, rawCompletionProgress, rawSummary] = await Promise.all([
         client.loadProfile(config),
         client.loadCompletionProgress(config),
-        client.loadSummary?.(config) ?? Promise.resolve(undefined),
+        loadOptionalRetroAchievementsProfileSummary(
+          client.loadSummary === undefined ? undefined : () => client.loadSummary!(config),
+        ),
       ]);
 
       const completionSummary = summarizeRetroAchievementsCompletionProgress(rawCompletionProgress);

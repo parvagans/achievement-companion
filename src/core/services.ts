@@ -5,6 +5,7 @@ import type {
   DashboardSnapshot,
   GameDetailSnapshot,
   ProviderId,
+  RecentUnlock,
 } from "./domain";
 
 export interface LoadRequestOptions {
@@ -31,6 +32,13 @@ export interface DashboardService {
   ): Promise<ResourceState<DashboardSnapshot>>;
 }
 
+export interface ActivityCalendarService {
+  loadActivityCalendarUnlocks(
+    providerId: ProviderId,
+    options?: LoadRequestOptions,
+  ): Promise<ResourceState<readonly RecentUnlock[]>>;
+}
+
 export interface GameDetailService {
   loadGameDetail(
     providerId: ProviderId,
@@ -55,6 +63,7 @@ export interface AchievementHistoryService {
 
 export interface AppServices {
   readonly dashboard: DashboardService;
+  readonly activityCalendar: ActivityCalendarService;
   readonly achievementHistory: AchievementHistoryService;
   readonly completionProgress: CompletionProgressService;
   readonly gameDetail: GameDetailService;

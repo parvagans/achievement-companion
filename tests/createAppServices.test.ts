@@ -28,6 +28,7 @@ import {
   getAchievementTypeBadgeDescriptor,
 } from "../src/platform/decky/decky-achievement-type-badge";
 import { getCompletionBarFillStyle } from "../src/platform/decky/decky-completion-progress-bar";
+import { raRecipes, raTheme } from "../src/platform/decky/ra-theme";
 import { createProviderRegistry } from "../src/core/provider-registry";
 import type { AchievementProvider } from "../src/core/ports";
 import type { KeyValueStore, PlatformServices } from "../src/core/platform";
@@ -294,6 +295,7 @@ import {
   createRetroAchievementsProvider,
   type RetroAchievementsClient,
 } from "../src/providers/retroachievements";
+import { loadOptionalRetroAchievementsProfileSummary } from "../src/providers/retroachievements/retroachievements.provider";
 import {
   DEFAULT_STEAM_PROVIDER_CONFIG,
   normalizeSteamProviderConfig,
@@ -2341,7 +2343,7 @@ test("decky provider barrel does not expose stale generic save or clear facades"
   );
 });
 
-test("provider credential helper copy and secret field defaults stay explicit", () => {
+test("provider setup, credential fields, and current compact profile routes stay explicit", () => {
   assert.match(RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY, /retroachievements\.org\/settings/i);
   assert.match(RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY, /RetroAchievements username/i);
   assert.doesNotMatch(RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY, /Show API key|Hide API key/i);
@@ -2922,8 +2924,8 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(retroAchievementsFullscreenGameArtworkSource, /objectPosition: "center center"/u);
   assert.doesNotMatch(retroAchievementsFullscreenGameArtworkSource, /getArtworkImageStyle\(\)[\s\S]*objectFit: "cover"/u);
   assert.match(fullScreenGameSpotlightOverviewSource, /function getOverviewLayoutStyle\(layout: DeckyFullScreenGameSpotlightOverviewLayout\): CSSProperties/u);
-  assert.match(fullScreenGameSpotlightCardSource, /function getCardStyle\(\): CSSProperties/u);
-  assert.match(fullScreenGameSpotlightCardSource, /function getHeaderStyle\(alignment: "center" \| "left"\): CSSProperties/u);
+  assert.match(fullScreenGameSpotlightCardSource, /function getCardStyle\(themeVariant: "default" \| "ra"\): CSSProperties/u);
+  assert.match(fullScreenGameSpotlightCardSource, /function getHeaderStyle\(alignment: "center" \| "left", themeVariant: "default" \| "ra"\): CSSProperties/u);
   assert.match(fullScreenGameSpotlightOverviewSource, /function getHeroStyle\(layout: DeckyFullScreenGameSpotlightOverviewLayout\): CSSProperties/u);
   assert.doesNotMatch(fullScreenGameSpotlightOverviewSource, /getHeroStyle\(layout\)[\s\S]*borderLeft/u);
   assert.doesNotMatch(retroAchievementsGameSpotlightSource, /layout="horizontal"[\s\S]*focusable/u);
@@ -3322,146 +3324,31 @@ test("provider credential helper copy and secret field defaults stay explicit", 
   assert.match(compactDashboardSource, /profile\.providerId === STEAM_PROVIDER_ID && steamLibraryScanAction !== undefined/u);
   assert.doesNotMatch(compactDashboardSource, /Library scan updated \$\{steamLibraryScanUpdatedLabel\}/u);
   assert.doesNotMatch(compactDashboardSource, /useDeckySteamLibraryAchievementScanSummary\(providerId\)/u);
-  const providerIdentitySectionStyleStart = compactDashboardSource.indexOf(
-    "function getProviderIdentitySectionStyle()",
-  );
-  const providerIdentitySectionStyleEnd = compactDashboardSource.indexOf(
-    "function getProviderIdentityIconFrameStyle()",
-    providerIdentitySectionStyleStart,
-  );
-  assert.ok(providerIdentitySectionStyleStart >= 0);
-  assert.ok(providerIdentitySectionStyleEnd > providerIdentitySectionStyleStart);
-  const providerIdentitySectionStyleSource = compactDashboardSource.slice(
-    providerIdentitySectionStyleStart,
-    providerIdentitySectionStyleEnd,
-  );
-  assert.match(providerIdentitySectionStyleSource, /alignItems: "center"/);
-  assert.match(providerIdentitySectionStyleSource, /padding: "2px 0 4px"/);
-  assert.match(providerIdentitySectionStyleSource, /marginBottom: 12/);
-  assert.match(providerIdentitySectionStyleSource, /width: "100%"/);
-  assert.match(compactDashboardSource, /<ProviderIdentityRow providerId=\{profile\.providerId\} \/>/u);
-  assert.match(compactDashboardSource, /function RecentAchievementRow\(/u);
-  assert.match(compactDashboardSource, /function RecentlyPlayedRow\(/u);
-  assert.match(compactDashboardSource, /function SteamRecentlyPlayedDescription\(/u);
-  assert.match(compactDashboardSource, /const secondaryLines = formatRecentlyPlayedSecondary\(game\);/u);
-  assert.match(
-    compactDashboardSource,
-    /<div style=\{getSteamRecentlyPlayedPrimaryStyle\(\)\}>\{formatRecentlyPlayedSummary\(game\)\}<\/div>/u,
-  );
-  assert.match(
-    compactDashboardSource,
-    /secondaryLines\.map\(\(line\) => \(\s*<div key=\{line\} style=\{getSteamRecentlyPlayedSecondaryStyle\(\)\}>/u,
-  );
-  const steamRecentlyPlayedPrimaryStyleStart = compactDashboardSource.indexOf(
-    "function getSteamRecentlyPlayedPrimaryStyle()",
-  );
-  const steamRecentlyPlayedSecondaryStyleStart = compactDashboardSource.indexOf(
-    "function getSteamRecentlyPlayedSecondaryStyle()",
-  );
-  const dashboardAchievementToneStart = compactDashboardSource.indexOf(
-    'type DashboardAchievementTone =',
-  );
-  assert.ok(steamRecentlyPlayedPrimaryStyleStart >= 0);
-  assert.ok(steamRecentlyPlayedSecondaryStyleStart > steamRecentlyPlayedPrimaryStyleStart);
-  assert.ok(dashboardAchievementToneStart > steamRecentlyPlayedSecondaryStyleStart);
-  const steamRecentlyPlayedPrimaryStyleSource = compactDashboardSource.slice(
-    steamRecentlyPlayedPrimaryStyleStart,
-    steamRecentlyPlayedSecondaryStyleStart,
-  );
-  const steamRecentlyPlayedSecondaryStyleSource = compactDashboardSource.slice(
-    steamRecentlyPlayedSecondaryStyleStart,
-    dashboardAchievementToneStart,
-  );
-  assert.match(steamRecentlyPlayedPrimaryStyleSource, /fontSize: "0\.84rem"/u);
-  assert.match(steamRecentlyPlayedPrimaryStyleSource, /lineHeight: 1\.18/u);
-  assert.match(steamRecentlyPlayedSecondaryStyleSource, /fontSize: "0\.78rem"/u);
-  assert.match(steamRecentlyPlayedSecondaryStyleSource, /lineHeight: 1\.16/u);
-  for (const styleSource of [
-    steamRecentlyPlayedPrimaryStyleSource,
-    steamRecentlyPlayedSecondaryStyleSource,
-  ]) {
-    assert.match(styleSource, /minWidth: 0/u);
-    assert.match(styleSource, /overflow: "hidden"/u);
-    assert.match(styleSource, /textOverflow: "ellipsis"/u);
-    assert.match(styleSource, /whiteSpace: "nowrap"/u);
-  }
-  assert.match(compactDashboardSource, /Past 2 weeks: \$\{formatSteamPlaytimeMinutes/u);
-  assert.match(compactDashboardSource, /Steam Deck: \$\{formatSteamPlaytimeMinutes/u);
-  assert.match(compactDashboardSource, /Total playtime: \$\{formatSteamPlaytimeMinutes/u);
-  assert.match(
-    compactDashboardSource,
-    /if \(when !== undefined\) \{\s*return \[`Last played \$\{when\}`, \.\.\.playtimeLines\];\s*\}/u,
-  );
-  assert.doesNotMatch(compactDashboardSource, /playtimeLines\.join\(" \| "\)/u);
-  assert.match(compactDashboardSource, /getDashboardAchievementTone\(recentUnlock\)/u);
-  assert.match(compactDashboardSource, /getDashboardCompactCardStyle\(bottomSpacing = 0\)/u);
-  assert.match(compactDashboardSource, /padding: "16px 16px 16px 20px"/u);
-  assert.match(compactDashboardSource, /gap: 14/u);
-  assert.match(compactDashboardSource, /marginBottom: bottomSpacing/u);
-  assert.match(compactDashboardSource, /boxSizing: "border-box"/u);
-  assert.match(compactDashboardSource, /profile\.providerId === STEAM_PROVIDER_ID/u);
-  assert.match(compactDashboardSource, /<PanelSection title="Overview">[\s\S]*?<PanelSectionRow>\s*<div style=\{getOverviewCardStyle\(\)\}>/u);
-  assert.match(compactDashboardSource, /function RetroAchievementsRecentActivityBlock\(/u);
-  assert.match(compactDashboardSource, /getRetroAchievementsRecentActivityLabel\(richPresenceMsgDate\)/u);
-  assert.match(compactDashboardSource, /formatNowPlayingAchievementCounts\(game\)/u);
-  assert.match(compactDashboardSource, /caption=\{`\$\{completionPercent\}% complete`\}/u);
-  assert.match(compactDashboardSource, /label="View achievements"/u);
-  assert.match(
-    compactDashboardSource,
-    /const recentActivityGame =\s*profile\.providerId === RETROACHIEVEMENTS_PROVIDER_ID \? recentlyPlayedGames\[0\] : undefined;/u,
-  );
-  const overviewProfileEntryIndex = compactDashboardSource.indexOf("<OverviewProfileEntry");
-  const recentActivityBlockIndex = compactDashboardSource.indexOf("<RetroAchievementsRecentActivityBlock");
-  const libraryCompletionIndex = compactDashboardSource.indexOf("Library completion");
-  assert.ok(overviewProfileEntryIndex >= 0);
-  assert.ok(recentActivityBlockIndex > overviewProfileEntryIndex);
-  assert.ok(libraryCompletionIndex > recentActivityBlockIndex);
-  assert.match(
-    compactDashboardSource,
-    /onOpenGameDetail\(game\.providerId, game\.gameId, game\.title\);/u,
-  );
-  assert.match(compactDashboardSource, /recentAchievements\.map\(\(recentUnlock, index\) => \(\s*<PanelSectionRow[\s\S]*?<RecentAchievementRow/u);
-  assert.match(compactDashboardSource, /recentlyPlayedGames\.map\(\(game, index\) => \(\s*<PanelSectionRow[\s\S]*?<RecentlyPlayedRow/u);
-  assert.match(compactDashboardSource, /if \(recentUnlock\.game\.providerId === STEAM_PROVIDER_ID\) \{[\s\S]*<Focusable[\s\S]*style=\{getDashboardCompactCardStyle\(bottomSpacing\)\}/u);
-  assert.match(compactDashboardSource, /if \(game\.providerId === STEAM_PROVIDER_ID\) \{[\s\S]*<Focusable[\s\S]*style=\{getDashboardCompactCardStyle\(bottomSpacing\)\}/u);
-  assert.match(
-    compactDashboardSource,
-    /bottomSpacing=\{index === recentAchievements\.length - 1 \? 0 : 12\}/u,
-  );
-  assert.match(
-    compactDashboardSource,
-    /bottomSpacing=\{index === recentlyPlayedGames\.length - 1 \? 0 : 12\}/u,
-  );
-  assert.match(compactDashboardSource, /getDashboardCompactCardAccentStyle\(tone\)/u);
-  assert.match(compactDashboardSource, /top: 14/u);
-  assert.match(compactDashboardSource, /bottom: 14/u);
-  assert.match(compactDashboardSource, /width: 42/u);
-  assert.match(compactDashboardSource, /height: 42/u);
-  assert.match(compactDashboardSource, /padding: 3/u);
-  assert.match(compactDashboardSource, /gap: 7/u);
-  assert.match(compactDashboardSource, /gap: 4/u);
-  assert.match(compactDashboardSource, /getDashboardAchievementStatusStyle\(tone\)/u);
-  assert.match(compactDashboardSource, /getSteamCompactGameArtworkUrl\(game\)/u);
-  assert.match(compactDashboardSource, /formatRecentlyPlayedProgressLine\(game\)/u);
-  assert.match(compactDashboardSource, /formatRecentlyPlayedLastPlayedText\(game\)/u);
-  assert.match(compactDashboardSource, /gap: 8/u);
-  assert.match(compactDashboardSource, /CompactDashboardProgressBar[\s\S]*percent=\{progressPercent\}/u);
-  assert.match(compactDashboardSource, /role="progressbar"/u);
-  assert.match(compactDashboardSource, /formatAchievementUnlockModeLabel\(recentUnlock\.achievement\)/u);
-  assert.match(compactDashboardSource, /if \(recentUnlock\.game\.providerId === STEAM_PROVIDER_ID\)/u);
-  assert.match(compactDashboardSource, /if \(game\.providerId === STEAM_PROVIDER_ID\)/u);
-  assert.match(compactDashboardSource, /<SteamRecentlyPlayedDescription game=\{game\} \/>/u);
-  assert.match(compactDashboardSource, /onCancel=\{onCancel\}/u);
-  assert.match(
-    compactDashboardSource,
-    /onActivate=\{\(\) => \{\s*onOpenGameDetail\(game\.providerId, game\.gameId, game\.title\);/u,
-  );
-  assert.doesNotMatch(compactDashboardSource, /data-dashboard-row-type=/u);
-  assert.doesNotMatch(compactDashboardSource, /data-dashboard-achievement-tone=/u);
-  assert.doesNotMatch(compactDashboardSource, /getDashboardCompactRowWrapperStyle/u);
-  assert.doesNotMatch(compactDashboardSource, /getDashboardCompactListStyle/u);
-  assert.match(compactDashboardSource, /onOpenAchievementDetail\(\{\s*game: recentUnlock\.game,\s*achievement: recentUnlock\.achievement,\s*\}\)/u);
-  assert.match(compactDashboardSource, /onOpenGameDetail\(game\.providerId, game\.gameId, game\.title\)/u);
+  const steamCompactProfileSource = readFileSync("src/platform/decky/decky-steam-compact-profile.tsx", "utf8");
+  const raCompactProfileSource = readFileSync("src/platform/decky/decky-retroachievements-compact-profile.tsx", "utf8");
+  assert.match(compactDashboardSource, /<DeckySteamCompactProfile[\s\S]*onOpenProfile=\{\(\) => onOpenProfile\(profile\.providerId\)\}/u);
+  assert.match(compactDashboardSource, /<DeckyRetroAchievementsCompactProfile[\s\S]*onOpenProfile=\{\(\) => onOpenProfile\(profile\.providerId\)\}/u);
+  assert.match(compactDashboardSource, /isShowingRetroAchievementsCompactSettings\)[\s\S]*<DeckyRetroAchievementsCompactSettings/u);
+  assert.match(steamCompactProfileSource, /export function DeckySteamCompactProfile/u);
+  assert.match(steamCompactProfileSource, /ariaLabel="Open Steam profile settings"[\s\S]*Steam Settings/u);
+  assert.match(steamCompactProfileSource, /<SectionHeader title="Activity Calendar" \/>[\s\S]*<CompactActivityCalendar/u);
+  assert.match(steamCompactProfileSource, /getQamActivityCalendarLegendStyle\(\)/u);
+  assert.match(steamCompactProfileSource, /getQamActivityCalendarLegendCellStyle\(level\)/u);
+  assert.match(steamCompactProfileSource, /<SectionHeader title="Recent Activity" \/>[\s\S]*<RecentAchievementItem/u);
+  assert.match(steamCompactProfileSource, /ariaLabel="View all recent Steam achievements"[\s\S]*onOpenAchievementHistory/u);
+  assert.match(steamCompactProfileSource, /<SectionHeader title="Recently Played" \/>[\s\S]*<RecentlyPlayedItem/u);
+  assert.match(steamCompactProfileSource, /ariaLabel="View all Steam games"[\s\S]*onOpenCompletionProgress/u);
+  assert.match(steamCompactProfileSource, /onActivate=\{\(\) => onOpenAchievementDetail\(recentUnlock\)\}/u);
+  assert.match(steamCompactProfileSource, /onActivate=\{\(\) => onOpenGameDetail\(game\)\}/u);
+  assert.match(raCompactProfileSource, /export function DeckyRetroAchievementsCompactProfile/u);
+  assert.match(raCompactProfileSource, /<CompactAction label="Open Profile Full-Screen"[\s\S]*onActivate=\{onOpenProfile\}/u);
+  assert.match(raCompactProfileSource, /<CurrentGameActivity[\s\S]*<Section title="RetroAchievements Overview">/u);
+  assert.match(raCompactProfileSource, /<Section title="Activity Calendar">[\s\S]*entryTargetProps=\{targetProps\(\{ kind: "calendar-entry" \}\)\}[\s\S]*targetProps=\{\(day\) => targetProps\(\{ kind: "calendar-day", day \}\)\}/u);
+  assert.match(raCompactProfileSource, /<Section title="Recent Activity">[\s\S]*<RecentAchievementRow[\s\S]*onOpenAchievementHistory/u);
+  assert.match(raCompactProfileSource, /<Section title="Recently Played">[\s\S]*<RecentlyPlayedRow[\s\S]*onOpenCompletionProgress/u);
+  assert.match(raCompactProfileSource, /<CompactAction label="RetroAchievements Settings"[\s\S]*onActivate=\{onOpenSettings\}/u);
+  assert.match(raCompactProfileSource, /raRecipes\.compactProfile\.footer/u);
+  assert.match(raCompactProfileSource, /refreshText = refreshedAt/u);
   const compactAchievementDetailSource = readFileSync("src/platform/decky/decky-achievement-detail-view.tsx", "utf8");
   const compactAchievementModelSource = readFileSync("src/platform/decky/decky-compact-achievement-model.ts", "utf8");
   assert.match(compactAchievementDetailSource, /PanelSection title=\{props\.model\.panelTitle\}/);
@@ -3710,14 +3597,15 @@ test("provider credential helper copy and secret field defaults stay explicit", 
 
 test("compact provider menu uses a session-retained focusable game-page badge settings disclosure", () => {
   const source = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
+  const popupGuardSource = readFileSync("src/platform/decky/decky-compact-dropdown-popup-guard.ts", "utf8");
 
   assert.match(
     source,
     /const \[gamePageBadgeSettingsExpanded, setGamePageBadgeSettingsExpanded\] = useState\(\s*readDeckyGamePageBadgeSettingsExpanded,\s*\)/u,
   );
   assert.match(source, /writeDeckyGamePageBadgeSettingsExpanded\(nextExpanded\)/u);
-  assert.match(source, /function useDeckyCompactDropdownPopupGuard\(\)/u);
-  assert.match(source, /releasePopupRef\.current = beginDeckyCompactPopup\(\)/u);
+  assert.match(popupGuardSource, /function useDeckyCompactDropdownPopupGuard\(\)/u);
+  assert.match(popupGuardSource, /releasePopupRef\.current = beginDeckyCompactPopup\(\)/u);
   assert.match(source, /onMenuWillOpen=\{openGuardedMenu\}/u);
   assert.match(source, /<GamePageBadgeSettingsDisclosure[\s\S]*expanded=\{gamePageBadgeSettingsExpanded\}/u);
   assert.match(source, /aria-expanded=\{expanded\}/u);
@@ -4048,7 +3936,7 @@ test("provider setup and current settings actions use focusable controls", () =>
 
   assert.match(
     retroAchievementsCredentialsSource,
-    /<DeckyCredentialTextField[\s\S]*style=\{getDeckyCredentialTextFieldMaskStyle\(\)\}/u,
+    /<DeckyCredentialTextField[\s\S]*bIsPassword=\{apiKeyInputDescriptor\.bIsPassword\}[\s\S]*style=\{\{\s*\.\.\.getCredentialInputStyle\(\),\s*\.\.\.getDeckyCredentialTextFieldMaskStyle\(\)\s*\}\}/u,
   );
   assert.match(
     steamCredentialsSource,
@@ -4275,6 +4163,16 @@ test("Decky publish image uses the current repository PNG asset", () => {
 
   const pngSignature = readFileSync(imagePath).subarray(0, 8);
   assert.deepEqual([...pngSignature], [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+});
+
+test("RetroAchievements profile summary is optional and bounded by a configurable wait", async () => {
+  const summary = { Rank: 12, CasualRank: 34 };
+  assert.equal(await loadOptionalRetroAchievementsProfileSummary(undefined, 1), undefined);
+  assert.equal(await loadOptionalRetroAchievementsProfileSummary(async () => summary, 20), summary);
+  assert.equal(await loadOptionalRetroAchievementsProfileSummary(async () => {
+    throw new Error("optional summary unavailable");
+  }, 20), undefined);
+  assert.equal(await loadOptionalRetroAchievementsProfileSummary(() => new Promise(() => undefined), 2), undefined);
 });
 
 test("retroachievements profile exposes points, games beaten, and retroratio metrics", async () => {
@@ -4852,26 +4750,20 @@ test("retroachievements profile section helpers apply distinct softcore and hard
   const retroAchievementsStyle = getRetroAchievementsProfileSectionStyle("retroachievements");
   const completionStyle = getRetroAchievementsProfileSectionStyle("completion");
 
-  assert.equal(softcoreStyle.border, "1px solid rgba(255, 255, 255, 0.06)");
-  assert.equal(softcoreStyle.backgroundColor, "rgba(214, 221, 232, 0.03)");
-  assert.equal(softcoreStyle.boxShadow, "inset 4px 0 0 rgba(214, 221, 232, 0.5), inset 0 0 0 1px rgba(255, 255, 255, 0.015)");
-  assert.equal(hardcoreStyle.border, "1px solid rgba(255, 255, 255, 0.06)");
-  assert.equal(hardcoreStyle.backgroundColor, "rgba(214, 178, 74, 0.035)");
-  assert.equal(hardcoreStyle.boxShadow, "inset 4px 0 0 rgba(214, 178, 74, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.015)");
-  assert.equal(retroAchievementsStyle.border, "1px solid rgba(255, 255, 255, 0.06)");
-  assert.equal(retroAchievementsStyle.backgroundColor, "rgba(82, 120, 220, 0.04)");
-  assert.equal(
-    retroAchievementsStyle.boxShadow,
-    "inset 4px 0 0 rgba(91, 153, 255, 0.56), inset 0 0 0 1px rgba(255, 255, 255, 0.015)",
-  );
-  assert.equal(completionStyle.border, "1px solid rgba(255, 255, 255, 0.06)");
-  assert.equal(completionStyle.backgroundColor, "rgba(60, 168, 192, 0.04)");
-  assert.equal(
-    completionStyle.boxShadow,
-    "inset 4px 0 0 rgba(91, 208, 220, 0.56), inset 0 0 0 1px rgba(255, 255, 255, 0.015)",
-  );
-  assert.equal(defaultStyle.border, "1px solid rgba(255, 255, 255, 0.06)");
-  assert.equal(defaultStyle.backgroundColor, "rgba(255, 255, 255, 0.02)");
+  assert.equal(softcoreStyle.border, `1px solid ${raTheme.color.borderSubtle}`);
+  assert.equal(softcoreStyle.borderLeft, `4px solid ${raTheme.color.softcore}`);
+  assert.equal(softcoreStyle.background, raTheme.surface.softcore);
+  assert.equal(hardcoreStyle.border, `1px solid ${raTheme.color.borderSubtle}`);
+  assert.equal(hardcoreStyle.borderLeft, `4px solid ${raTheme.color.hardcore}`);
+  assert.equal(hardcoreStyle.background, raTheme.surface.hardcore);
+  assert.notEqual(softcoreStyle.borderLeft, hardcoreStyle.borderLeft);
+  assert.notEqual(softcoreStyle.background, hardcoreStyle.background);
+  assert.equal(retroAchievementsStyle.borderLeft, `4px solid ${raTheme.color.accent}`);
+  assert.equal(retroAchievementsStyle.background, raTheme.surface.interactive);
+  assert.equal(completionStyle.borderLeft, `4px solid ${raTheme.color.accent}`);
+  assert.equal(completionStyle.background, raTheme.surface.interactive);
+  assert.equal(defaultStyle.borderLeft, `4px solid ${raTheme.color.borderSubtle}`);
+  assert.equal(defaultStyle.background, raTheme.surface.card);
   assert.equal(defaultStyle.boxShadow, undefined);
 
   const softcoreTitleStyle = getRetroAchievementsProfileSectionTitleStyle("softcore");
@@ -4880,11 +4772,11 @@ test("retroachievements profile section helpers apply distinct softcore and hard
   const completionTitleStyle = getRetroAchievementsProfileSectionTitleStyle("completion");
   const defaultTitleStyle = getRetroAchievementsProfileSectionTitleStyle("default");
 
-  assert.equal(softcoreTitleStyle.color, "rgba(220, 225, 233, 0.86)");
-  assert.equal(hardcoreTitleStyle.color, "rgba(232, 201, 102, 0.9)");
-  assert.equal(retroAchievementsTitleStyle.color, "rgba(122, 178, 255, 0.92)");
-  assert.equal(completionTitleStyle.color, "rgba(125, 225, 236, 0.92)");
-  assert.equal(defaultTitleStyle.color, "rgba(255, 255, 255, 0.58)");
+  assert.equal(softcoreTitleStyle.color, raTheme.color.softcore);
+  assert.equal(hardcoreTitleStyle.color, raTheme.color.hardcore);
+  assert.equal(retroAchievementsTitleStyle.color, raTheme.color.accent);
+  assert.equal(completionTitleStyle.color, raTheme.color.accent);
+  assert.equal(defaultTitleStyle.color, raTheme.color.textMuted);
 });
 
 test("retroachievements full-screen profile section accents mirror the grouped mode language", () => {
@@ -4896,25 +4788,25 @@ test("retroachievements full-screen profile section accents mirror the grouped m
 
   assert.equal(softcoreAccent.position, "absolute");
   assert.equal(softcoreAccent.width, 4);
-  assert.equal(softcoreAccent.background, "linear-gradient(180deg, rgba(214, 221, 232, 0.84), rgba(214, 221, 232, 0.42))");
+  assert.equal(softcoreAccent.background, `linear-gradient(180deg, ${raTheme.color.softcore}, transparent)`);
   assert.equal(hardcoreAccent.position, "absolute");
   assert.equal(hardcoreAccent.width, 4);
-  assert.equal(hardcoreAccent.background, "linear-gradient(180deg, rgba(232, 201, 102, 0.92), rgba(214, 178, 74, 0.56))");
+  assert.equal(hardcoreAccent.background, `linear-gradient(180deg, ${raTheme.color.hardcore}, transparent)`);
   assert.equal(retroAchievementsAccent.position, "absolute");
   assert.equal(retroAchievementsAccent.width, 4);
   assert.equal(
     retroAchievementsAccent.background,
-    "linear-gradient(180deg, rgba(122, 178, 255, 0.92), rgba(91, 153, 255, 0.56))",
+    `linear-gradient(180deg, ${raTheme.color.accent}, transparent)`,
   );
   assert.equal(completionAccent.position, "absolute");
   assert.equal(completionAccent.width, 4);
   assert.equal(
     completionAccent.background,
-    "linear-gradient(180deg, rgba(125, 225, 236, 0.9), rgba(91, 208, 220, 0.56))",
+    `linear-gradient(180deg, ${raTheme.color.accent}, transparent)`,
   );
   assert.equal(defaultAccent.position, "absolute");
   assert.equal(defaultAccent.width, 4);
-  assert.equal(defaultAccent.background, "rgba(255, 255, 255, 0.08)");
+  assert.equal(defaultAccent.background, `linear-gradient(180deg, ${raTheme.color.borderSubtle}, transparent)`);
 });
 
 test("retroachievements profile stats fall back safely when counts are unavailable", () => {
@@ -5056,8 +4948,8 @@ test("retroachievements completion indicator maps award kind to compact circle s
   assert.equal(formatRetroAchievementsCompletionIndicatorLabel("beaten-softcore"), "Beaten in softcore");
   assert.equal(formatRetroAchievementsCompletionIndicatorLabel("mastered-softcore"), "Mastered in softcore");
 
-  assert.equal(getRetroAchievementsCompletionIndicatorStyle("beaten-hardcore").backgroundColor, "rgba(214, 221, 232, 0.96)");
-  assert.equal(getRetroAchievementsCompletionIndicatorStyle("mastered-hardcore").backgroundColor, "rgba(232, 201, 102, 0.98)");
+  assert.equal(getRetroAchievementsCompletionIndicatorStyle("beaten-hardcore").backgroundColor, raTheme.color.beaten);
+  assert.equal(getRetroAchievementsCompletionIndicatorStyle("mastered-hardcore").backgroundColor, raTheme.color.mastered);
   assert.equal(getRetroAchievementsCompletionIndicatorStyle("beaten-softcore").backgroundColor, "transparent");
   assert.equal(getRetroAchievementsCompletionIndicatorStyle("mastered-softcore").backgroundColor, "transparent");
 
@@ -5203,8 +5095,10 @@ test("retroachievements mastered games use explicit mastered presentation on gam
     /type DeckyCompletionProgressBarTone =[\s\S]*"default"[\s\S]*"retroachievements-mastered"[\s\S]*"retroachievements-beaten"/u,
   );
   assert.match(progressBarSource, /data-completion-progress-tone=\{tone\}/u);
-  assert.match(progressBarSource, /rgba\(214, 178, 74, 0\.94\)[\s\S]*rgba\(232, 201, 102, 0\.98\)/u);
-  assert.match(progressBarSource, /rgba\(188, 198, 211, 0\.94\)[\s\S]*rgba\(223, 230, 239, 0\.98\)/u);
+  assert.match(progressBarSource, /tone === "retroachievements-mastered"[\s\S]*?raRecipes\.progressFill\.mastered/u);
+  assert.match(progressBarSource, /tone === "retroachievements-beaten"[\s\S]*?raRecipes\.progressFill\.beaten/u);
+  assert.equal(getCompletionBarFillStyle(100, "retroachievements-mastered", true).background, raRecipes.progressFill.mastered);
+  assert.equal(getCompletionBarFillStyle(100, "retroachievements-beaten", true).background, raRecipes.progressFill.beaten);
   assert.match(achievementDetailHelperSource, /export function formatRetroAchievementsBeatenAtText/u);
   assert.match(achievementDetailHelperSource, /Beaten on/u);
   assert.match(achievementDetailHelperSource, /export function formatRetroAchievementsMasteredAtText/u);
@@ -5238,8 +5132,7 @@ test("retroachievements mastered games use explicit mastered presentation on gam
 });
 
 test("animated default completion progress switches the whole fill to flame colors at 90 percent", () => {
-  const blueBackground =
-    "linear-gradient(90deg, rgba(99, 179, 237, 0.92), rgba(125, 211, 252, 0.98))";
+  const blueBackground = raRecipes.progressFill.completion;
   const flameBackground =
     "linear-gradient(90deg, rgba(245, 196, 66, 0.96), rgba(249, 115, 22, 0.98), rgba(239, 68, 68, 0.98))";
 
@@ -5249,7 +5142,7 @@ test("animated default completion progress switches the whole fill to flame colo
   assert.equal(getCompletionBarFillStyle(100, "default", false).background, blueBackground);
   assert.equal(
     getCompletionBarFillStyle(100, "retroachievements-mastered", true).background,
-    "linear-gradient(90deg, rgba(214, 178, 74, 0.94), rgba(232, 201, 102, 0.98))",
+    raRecipes.progressFill.mastered,
   );
 });
 

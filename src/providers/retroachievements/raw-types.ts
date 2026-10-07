@@ -302,9 +302,7 @@ export interface RawRetroAchievementsGameProgressResponse {
   readonly highestAwardDate?: string;
 }
 
-// Assumption: only the fields needed for rich-presence freshness are modeled here;
-// the rest of the (heavier) Summary payload is intentionally left untyped since we
-// only call this endpoint to get RichPresenceMsgDate, which GetUserProfile lacks.
+// This endpoint provides rich-presence freshness and the account's site rank.
 export interface RawRetroAchievementsSummaryResponse {
   readonly RichPresenceMsg?: string;
   readonly richPresenceMsg?: string;
@@ -312,6 +310,15 @@ export interface RawRetroAchievementsSummaryResponse {
   readonly richPresenceMsgDate?: string;
   readonly LastGameID?: number | string;
   readonly lastGameId?: number | string;
+  readonly Rank?: number | string | null;
+  readonly rank?: number | string | null;
+  /** Present on site payloads that include the separate casual global rank. */
+  readonly CasualRank?: number | string | null;
+  readonly casualRank?: number | string | null;
+  readonly SoftcoreRank?: number | string | null;
+  readonly softcoreRank?: number | string | null;
+  readonly TotalRanked?: number | string;
+  readonly totalRanked?: number | string;
 }
 
 /** The distribution maps an exact achievement-unlock count to its player count. */

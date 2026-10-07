@@ -13,6 +13,8 @@ export type ActivityCalendarWeeks = (typeof ACTIVITY_CALENDAR_WEEK_OPTIONS)[numb
 
 export type CompletionProgressFilter = "all" | "unfinished" | "beaten" | "mastered";
 export type UpdateSourceKind = "production" | "local";
+export type RetroAchievementsRankDisplay = "site" | "casual" | "both";
+export type RetroAchievementsAchievementMode = "hardcore" | "softcore" | "both";
 
 export const GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS = [
   "top-left",
@@ -63,6 +65,8 @@ export interface AchievementCompanionSettings {
   readonly gamePageAchievementBadgeColors: GamePageAchievementBadgeColors;
   readonly steamCompactActivityCalendarWeeks: ActivityCalendarWeeks;
   readonly steamFullscreenActivityCalendarWeeks: ActivityCalendarWeeks;
+  readonly retroAchievementsRankDisplay: RetroAchievementsRankDisplay;
+  readonly retroAchievementsAchievementMode: RetroAchievementsAchievementMode;
   readonly automaticUpdateChecks: boolean;
   readonly updateSource: UpdateSourceKind;
   readonly localUpdateManifestUrl: string;
@@ -80,6 +84,8 @@ export const DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS: AchievementCompanionSetting
   gamePageAchievementBadgeColors: DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS,
   steamCompactActivityCalendarWeeks: 4,
   steamFullscreenActivityCalendarWeeks: 12,
+  retroAchievementsRankDisplay: "site",
+  retroAchievementsAchievementMode: "both",
   automaticUpdateChecks: true,
   updateSource: "production",
   localUpdateManifestUrl: "",
@@ -112,6 +118,14 @@ function normalizeCompletionProgressFilter(
 
 function normalizeUpdateSource(value: unknown): UpdateSourceKind {
   return value === "local" ? "local" : "production";
+}
+
+function normalizeRetroAchievementsRankDisplay(value: unknown): RetroAchievementsRankDisplay {
+  return value === "casual" || value === "both" ? value : "site";
+}
+
+function normalizeRetroAchievementsAchievementMode(value: unknown): RetroAchievementsAchievementMode {
+  return value === "hardcore" || value === "softcore" ? value : "both";
 }
 
 function normalizeOptionalTimestamp(value: unknown): number | undefined {
@@ -210,6 +224,12 @@ export function normalizeAchievementCompanionSettings(
     steamFullscreenActivityCalendarWeeks: normalizeActivityCalendarWeeks(
       value["steamFullscreenActivityCalendarWeeks"],
       DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.steamFullscreenActivityCalendarWeeks,
+    ),
+    retroAchievementsRankDisplay: normalizeRetroAchievementsRankDisplay(
+      value["retroAchievementsRankDisplay"],
+    ),
+    retroAchievementsAchievementMode: normalizeRetroAchievementsAchievementMode(
+      value["retroAchievementsAchievementMode"],
     ),
     automaticUpdateChecks:
       typeof value["automaticUpdateChecks"] === "boolean"

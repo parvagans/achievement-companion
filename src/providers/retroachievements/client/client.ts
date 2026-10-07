@@ -171,8 +171,8 @@ export function createRetroAchievementsClient(
       });
     },
     async loadSummary(config) {
-      // g: 0, a: 0 — we only need RichPresenceMsgDate, not recent games/achievements,
-      // to keep this call as light as the (documented-slow) endpoint allows.
+      // g: 0, a: 0 keeps the rank and rich-presence summary request lightweight
+      // by excluding recent games and achievements.
       return transport.requestJson<RawRetroAchievementsSummaryResponse>({
         path: SUMMARY_PATH,
         query: {

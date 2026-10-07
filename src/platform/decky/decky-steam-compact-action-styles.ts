@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { steamRecipes, steamTheme } from "./steam-theme";
+import { getQamCompactFocusControlStyle } from "./decky-qam-theme";
 
 export type DeckySteamCompactActionTone = "primary" | "row";
 
@@ -19,20 +20,14 @@ export function getSteamCompactActionStyle(
     minWidth: 0,
     minHeight: isPrimary ? 38 : undefined,
     padding: isPrimary ? "8px 12px" : 0,
-    border: isFocused
-      ? `1px solid ${steamTheme.focus.compactBorder}`
-      : isPrimary
+    border: isPrimary
         ? `1px solid ${steamTheme.color.borderStrong}`
         : `1px solid ${steamTheme.color.borderSubtle}`,
     borderRadius: isPrimary ? steamTheme.radius.small : steamTheme.radius.medium,
-    background: isFocused
-      ? steamTheme.focus.compactBackground
-      : isPrimary
+    background: isPrimary
         ? steamTheme.surface.compactPrimaryAction
         : steamTheme.surface.compactRow,
-    boxShadow: isFocused
-      ? steamTheme.focus.compactShadow
-      : isPrimary
+    boxShadow: isPrimary
         ? "inset 0 1px 0 rgba(125, 211, 252, 0.08), 0 4px 12px rgba(0, 0, 0, 0.16)"
         : "inset 0 1px 0 rgba(255, 255, 255, 0.025)",
     boxSizing: "border-box",
@@ -40,6 +35,7 @@ export function getSteamCompactActionStyle(
     cursor: "pointer",
     outline: "none",
     transition: "background 120ms ease, border-color 120ms ease, box-shadow 120ms ease",
+    ...(isFocused ? getQamCompactFocusControlStyle() : {}),
   };
 }
 

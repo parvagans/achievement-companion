@@ -5,6 +5,8 @@ import { parseArgs } from "../tools/deck/cli.mjs";
 import { latestLog, screenshotRemotePath, screenshotFetchArgs, validateLines, isWithin } from "../tools/deck/diagnostics.mjs";
 import { tunnelArgs, localWebSocketUrl, selectTarget, snapshotExpression } from "../tools/deck/cef.mjs";
 import { launchProcess, quoteRemote, redact, setHostNameOverride, sshOptions } from "../tools/deck/process.mjs";
+import { SEMANTIC_TARGETS, matchSemanticTarget } from "../tools/deck/navigation.mjs";
+import { SCENARIOS } from "../tools/deck/scenarios.mjs";
 import { resolve } from "node:path";
 
 test("CLI parses maintained commands and bounds numeric options", () => {
@@ -77,4 +79,45 @@ test("user-supplied host override is one-off and does not weaken host-key checks
     setHostNameOverride(undefined);
   }
   assert.ok(sshOptions().every((option) => !option.startsWith("HostName=")));
+});
+
+test("Deck harness has provider-aware RetroAchievements QAM targets and scenarios", () => {
+  for (const target of [
+    "retroachievements-provider",
+    "ra-compact-profile",
+    "ra-compact-activity-calendar-entry",
+    "ra-compact-activity-calendar-focused",
+    "ra-compact-activity-calendar-selected",
+    "ra-compact-recent-achievement",
+    "ra-compact-recent-game",
+    "ra-compact-settings-api",
+    "ra-fullscreen-profile",
+    "ra-fullscreen-achievement-history",
+  ]) {
+    assert.ok(SEMANTIC_TARGETS[target], `missing semantic target ${target}`);
+  }
+  for (const scenario of [
+    "ra-compact",
+    "ra-compact-activity-calendar",
+    "ra-compact-selected-day",
+    "ra-compact-recent-activity",
+    "ra-compact-recently-played",
+    "ra-compact-settings",
+    "ra-fullscreen-profile",
+    "ra-view-all-achievements",
+  ]) {
+    assert.ok(SCENARIOS[scenario], `missing scenario ${scenario}`);
+  }
+
+  assert.equal(matchSemanticTarget({
+    route: "/routes/library/home",
+    focus: {
+      context: { raCompactProfile: true },
+      gpfocus: [{ visible: true, label: "Test Game, GBA", attributes: { "data-ra-profile-recent-game": "true" } }],
+    },
+  }, "ra-compact-recent-game"), true);
+  assert.equal(matchSemanticTarget({
+    route: "/routes/achievement-companion/full-screen/profile/retroachievements",
+    focus: { context: {}, gpfocus: [] },
+  }, "ra-fullscreen-profile"), true);
 });

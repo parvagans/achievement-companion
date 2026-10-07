@@ -238,10 +238,10 @@ test("Steam compact profile loads optional SteamHunters data and preserves compa
 });
 
 test("Steam compact entry waits for claimed fresh Steam and SteamHunters data before rendering the profile", () => {
-  assert.match(bootstrapSource, /initialSteamRefresh = useRef<boolean \| undefined>\(undefined\)/u);
+  assert.match(bootstrapSource, /initialProviderRefresh = useRef<boolean \| undefined>\(undefined\)/u);
   assert.match(bootstrapSource, /claimDeckyCompactSteamDashboardRefresh\(\)/u);
-  assert.match(bootstrapSource, /dashboardForceRefreshNextLoad = useRef\(initialSteamRefresh\.current\)/u);
-  assert.match(bootstrapSource, /steamHuntersForceRefreshNextLoad = useRef\(initialSteamRefresh\.current\)/u);
+  assert.match(bootstrapSource, /dashboardForceRefreshNextLoad = useRef\(initialProviderRefresh\.current\)/u);
+  assert.match(bootstrapSource, /steamHuntersForceRefreshNextLoad = useRef\(initialProviderRefresh\.current\)/u);
   assert.match(bootstrapSource, /refreshDeckySteamHuntersProfileState\(steamId\)/u);
   assert.match(bootstrapSource, /const isSteamCompactProfileLoading =/u);
   assert.match(
@@ -250,13 +250,13 @@ test("Steam compact entry waits for claimed fresh Steam and SteamHunters data be
   );
   assert.match(
     bootstrapSource,
-    /isRenderableDashboardState\(visibleState\) && !isSteamCompactProfileLoading[\s\S]*<DeckyDashboardView/u,
+    /isRenderableDashboardState\(visibleState\) && !isCompactProfileLoading[\s\S]*<DeckyDashboardView/u,
   );
   assert.match(bootstrapSource, /<DeckyCompactLoadingState[\s\S]*Loading Steam profile\.\.\./u);
   assert.match(bootstrapSource, /Fetching the latest Steam profile and SteamHunters data\./u);
   assert.match(
     bootstrapSource,
-    /<TopAlignedScrollViewport[\s\S]*restoreAfterLayout=\{selectedProviderId === STEAM_PROVIDER_ID\}[\s\S]*scrollKey="dashboard"/u,
+    /<TopAlignedScrollViewport[\s\S]*restoreAfterLayout=\{selectedProviderId === STEAM_PROVIDER_ID \|\| selectedProviderId === "retroachievements"\}[\s\S]*scrollKey="dashboard"/u,
   );
 
   assert.match(compactLoadingSource, /data-achievement-companion-compact-loading-state/u);

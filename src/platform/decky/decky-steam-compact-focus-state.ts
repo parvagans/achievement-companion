@@ -1,3 +1,4 @@
+
 export type DeckySteamCompactFocusTarget =
   | { readonly kind: "profile" }
   | { readonly kind: "calendar-entry" }
@@ -17,8 +18,6 @@ let focusState: DeckySteamCompactFocusState = {
   scrollTop: 0,
   target: { kind: "profile" },
 };
-let restorationRequestVersion = 0;
-const restorationRequestListeners = new Set<() => void>();
 
 export function getDeckySteamCompactFocusTargetKey(target: DeckySteamCompactFocusTarget): string {
   switch (target.kind) {
@@ -49,26 +48,28 @@ export function setDeckySteamCompactFocusTarget(
 }
 
 export function requestDeckySteamCompactFocusRestore(): void {
-  restorationRequestVersion += 1;
-  for (const listener of restorationRequestListeners) {
-    listener();
-  }
+  requestDeckyCompactFocusRestore();
 }
 
 export function readDeckySteamCompactFocusRestoreRequest(): number {
-  return restorationRequestVersion;
+  return readDeckyCompactFocusRestoreRequest();
 }
 
 export function subscribeToDeckySteamCompactFocusRestore(listener: () => void): () => void {
-  restorationRequestListeners.add(listener);
-  return () => restorationRequestListeners.delete(listener);
+  return subscribeToDeckyCompactFocusRestore(listener);
 }
 
 export function resetDeckySteamCompactFocusState(): void {
   focusState = { scrollTop: 0, target: { kind: "profile" } };
-  restorationRequestVersion = 0;
+  resetDeckyCompactFocusRestore();
 }
 
 export function resetDeckySteamCompactFocusTargetForTests(): void {
   resetDeckySteamCompactFocusState();
 }
+import {
+  readDeckyCompactFocusRestoreRequest,
+  requestDeckyCompactFocusRestore,
+  resetDeckyCompactFocusRestore,
+  subscribeToDeckyCompactFocusRestore,
+} from "./decky-compact-focus-restore";

@@ -2,9 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from
 import infoIconUrl from "./assets/info.svg";
 import { registerCompactProviderCancelCallback } from "./decky-full-screen-cancel-bridge";
 import { findDeckyScrollContainerAncestor } from "./decky-scroll-viewport";
-import { steamRecipes, steamTheme } from "./steam-theme";
-
-const COMPACT_LOADING_FONT_FAMILY = '"Motiva Sans", "Noto Sans", system-ui, sans-serif';
+import { achievementCompanionQamTheme } from "./decky-qam-theme";
 
 export interface DeckyCompactLoadingStateProps {
   readonly description: string;
@@ -14,7 +12,7 @@ export interface DeckyCompactLoadingStateProps {
   readonly steamTheme?: boolean;
 }
 
-function getLoadingSurfaceStyle(visibleHeight: number | undefined, isSteam: boolean, isError: boolean): CSSProperties {
+function getLoadingSurfaceStyle(visibleHeight: number | undefined, isError: boolean): CSSProperties {
   return {
     display: "flex",
     flexDirection: "column",
@@ -26,13 +24,11 @@ function getLoadingSurfaceStyle(visibleHeight: number | undefined, isSteam: bool
     minWidth: 0,
     padding: "18px 16px",
     boxSizing: "border-box",
-    ...(isSteam ? steamRecipes.state(isError ? "error" : "loading") : {}),
-    color: isSteam ? (isError ? steamTheme.color.danger : steamTheme.color.textPrimary) : "rgba(245, 250, 255, 0.98)",
-    fontFamily: isSteam ? steamTheme.type.fontFamily : COMPACT_LOADING_FONT_FAMILY,
+    color: isError ? achievementCompanionQamTheme.status.danger.text : achievementCompanionQamTheme.color.textPrimary,
+    fontFamily: achievementCompanionQamTheme.type.fontFamily,
     overscrollBehavior: "none",
     touchAction: "none",
-    background: isSteam ? steamTheme.surface.page :
-      "radial-gradient(ellipse at 86% 11%, rgba(218, 70, 241, 0.16), transparent 34%), radial-gradient(ellipse at 12% 84%, rgba(27, 161, 255, 0.16), transparent 44%), radial-gradient(ellipse at 50% 33%, rgba(0, 224, 239, 0.1), transparent 42%)",
+    background: achievementCompanionQamTheme.surface.page,
   };
 }
 
@@ -48,15 +44,15 @@ function getLoadingContentStyle(): CSSProperties {
   };
 }
 
-function getLoadingSpinnerStyle(isSteam: boolean): CSSProperties {
+function getLoadingSpinnerStyle(): CSSProperties {
   return {
     position: "relative",
-    width: isSteam ? 56 : 74,
-    height: isSteam ? 56 : 74,
+    width: 56,
+    height: 56,
     flexShrink: 0,
     borderRadius: "50%",
-    background: "rgba(7, 25, 40, 0.96)",
-    boxShadow: "0 0 22px rgba(25, 178, 241, 0.18), inset 0 0 0 1px rgba(151, 225, 255, 0.16)",
+    background: achievementCompanionQamTheme.loading.spinnerSurface,
+    boxShadow: `0 0 22px ${achievementCompanionQamTheme.loading.spinnerGlow}, inset 0 0 0 1px ${achievementCompanionQamTheme.loading.spinnerBorder}`,
   };
 }
 
@@ -65,8 +61,7 @@ function getLoadingSpinnerRingStyle(): CSSProperties {
     position: "absolute",
     inset: 0,
     borderRadius: "50%",
-    background:
-      "conic-gradient(from -24deg, #1cbcf1 0deg, #18a9e4 76deg, rgba(37, 85, 151, 0.84) 77deg, rgba(27, 58, 107, 0.76) 360deg)",
+    background: `conic-gradient(from -24deg, ${achievementCompanionQamTheme.color.accent} 0deg, ${achievementCompanionQamTheme.color.accentStrong} 76deg, rgba(37,85,151,.84) 77deg, rgba(27,58,107,.76) 360deg)`,
   };
 }
 
@@ -94,9 +89,9 @@ function getLoadingIconStyle(): CSSProperties {
 function getLoadingTitleStyle(): CSSProperties {
   return {
     margin: 0,
-    color: "rgba(247, 250, 255, 0.99)",
-    fontSize: "18px",
-    fontWeight: 800,
+    color: achievementCompanionQamTheme.color.textPrimary,
+    fontSize: `${achievementCompanionQamTheme.type.compact.heading}px`,
+    fontWeight: achievementCompanionQamTheme.type.weight.strong,
     letterSpacing: "-0.02em",
     lineHeight: 1.1,
   };
@@ -105,7 +100,7 @@ function getLoadingTitleStyle(): CSSProperties {
 function getPreparingTextStyle(): CSSProperties {
   return {
     margin: "-2px 0 0",
-    color: "#b8d8f3",
+    color: achievementCompanionQamTheme.color.textSecondary,
     fontSize: "12px",
     lineHeight: 1.25,
   };
@@ -120,10 +115,10 @@ function getLoadingInfoStyle(): CSSProperties {
     minHeight: 48,
     padding: "8px 12px 8px 38px",
     boxSizing: "border-box",
-    border: "1px solid rgba(72, 155, 222, 0.28)",
-    borderRadius: 10,
+    border: `1px solid ${achievementCompanionQamTheme.loading.infoBorder}`,
+    borderRadius: achievementCompanionQamTheme.radius.medium,
     textAlign: "left",
-    background: "linear-gradient(135deg, rgba(17, 37, 57, 0.9), rgba(12, 27, 43, 0.78))",
+    background: achievementCompanionQamTheme.loading.infoSurface,
   };
 }
 
@@ -140,7 +135,7 @@ function getLoadingInfoIconStyle(): CSSProperties {
 function getLoadingInfoTextStyle(): CSSProperties {
   return {
     margin: 0,
-    color: "rgba(188, 216, 242, 0.92)",
+    color: achievementCompanionQamTheme.color.textSecondary,
     fontSize: "12px",
     lineHeight: 1.3,
   };
@@ -234,17 +229,18 @@ export function DeckyCompactLoadingState({
       aria-live="polite"
       data-achievement-companion-compact-loading-state="true"
       data-ac-steam-theme={isSteam ? "compact" : undefined}
+      data-ac-ra-theme={!isSteam ? "compact" : undefined}
       ref={surfaceRef}
       role={isError ? "alert" : "status"}
-      style={getLoadingSurfaceStyle(visibleHeight, isSteam, isError)}
+    style={getLoadingSurfaceStyle(visibleHeight, isError)}
     >
       <div style={getLoadingContentStyle()}>
-        <div aria-hidden="true" style={getLoadingSpinnerStyle(isSteam)}>
+        <div aria-hidden="true" style={getLoadingSpinnerStyle()}>
           <div ref={spinnerRef} style={getLoadingSpinnerRingStyle()} />
           <div style={getLoadingIconWellStyle()}>
             <svg aria-hidden="true" viewBox="0 0 24 24" style={getLoadingIconStyle()}>
               <path
-                fill="#2bc3f2"
+                fill={achievementCompanionQamTheme.color.accent}
                 d="M6.2 3.5h11.6v3.9a5.8 5.8 0 0 1-4.3 5.6v2.1h2.2a1.1 1.1 0 0 1 0 2.2H8.3a1.1 1.1 0 0 1 0-2.2h2.2V13a5.8 5.8 0 0 1-4.3-5.6V3.5Zm-2.7 2h2v2.1a3.3 3.3 0 0 0 1.1 2.5A5.9 5.9 0 0 1 4 9.3a3.7 3.7 0 0 1-.5-1.8V5.5Zm15 0h2v2a3.7 3.7 0 0 1-.5 1.8 5.9 5.9 0 0 1-2.6.8 3.3 3.3 0 0 0 1.1-2.5V5.5Z"
               />
             </svg>
