@@ -29,6 +29,7 @@ import {
 } from "./decky-stat-helpers";
 import { getSteamCompactGameArtworkUrl } from "./decky-steam-game-artwork";
 import { getSteamCompactActionStyle, type DeckySteamCompactActionTone } from "./decky-steam-compact-action-styles";
+import { DeckyCompactPrimaryActionContent } from "./decky-compact-primary-action";
 import {
   getDeckySteamCompactFocusTargetKey,
   readDeckySteamCompactFocusRestoreRequest,
@@ -59,7 +60,6 @@ import {
   setDeckySteamCompactActivityDay,
 } from "./decky-steam-compact-activity-state";
 import chevronRightIconUrl from "./assets/chevron-right.svg";
-import externalLinkIconUrl from "./assets/external-link.svg";
 import masteredIconUrl from "./assets/mastered.svg";
 import rankPointsIconUrl from "./assets/rank-points.svg";
 import settingsIconUrl from "./assets/settings.svg";
@@ -363,20 +363,6 @@ function getProgressFillStyle(percent: number): CSSProperties {
 
 function getXpCaptionStyle(): CSSProperties {
   return { ...steamRecipes.text("compact", "caption"), color: steamTheme.color.textMuted, lineHeight: 1.2 };
-}
-
-function getPrimaryActionLabelStyle(): CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 9,
-    width: "100%",
-    minWidth: 0,
-    fontSize: 13,
-    fontWeight: 800,
-    lineHeight: 1,
-  };
 }
 
 function getMetricsGridStyle(): CSSProperties {
@@ -1219,10 +1205,7 @@ export function DeckySteamCompactProfile({
           scrollToTopOnFocus
           tone="primary"
         >
-          <span style={getPrimaryActionLabelStyle()}>
-            <img alt="" src={externalLinkIconUrl} style={getIconStyle(17)} />
-            <span>Open Profile Full-Screen</span>
-          </span>
+          <DeckyCompactPrimaryActionContent>Open Profile Full-Screen</DeckyCompactPrimaryActionContent>
         </DeckySteamCompactAction>
       </section>
 

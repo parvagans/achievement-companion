@@ -9,6 +9,7 @@ import {
   getQamPassiveCardFocusStyle,
   qamActivityCalendarColors,
 } from "./decky-qam-theme";
+import { getDeckyCompactPrimaryActionStyle } from "./decky-compact-primary-action";
 
 /** RetroAchievements presentation roles. Keep provider meaning here; Steam owns steam-theme.ts. */
 export const raTheme = {
@@ -125,6 +126,7 @@ export const raRecipes = {
     };
   },
   action(density: RaDensity, primary = false, focused = false): CSSProperties {
+    if (density === "compact" && primary) return getDeckyCompactPrimaryActionStyle(focused);
     const compact = density === "compact";
     return {
       ...this.card(density, true),

@@ -11,6 +11,7 @@ import { DeckyRetroAchievementsGameIcon } from "./decky-retroachievements-game-i
 import { formatProfileMemberSince } from "./decky-stat-helpers";
 import { useDeckySettings } from "./decky-settings";
 import { raRecipes, raTheme } from "./ra-theme";
+import { DeckyCompactPrimaryActionContent } from "./decky-compact-primary-action";
 import {
   filterRetroAchievementsUnlocksByMode,
   getRetroAchievementsPlayedGameProgress,
@@ -47,7 +48,6 @@ import { requestDeckySteamGamepadFocusAfterMount, takeDeckySteamGamepadFocus } f
 import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
 import { getLocalActivityCalendarDayTimestamp } from "./decky-activity-calendar-model";
 import chevronRightIconUrl from "./assets/chevron-right.svg";
-import externalLinkIconUrl from "./assets/external-link.svg";
 import masteredIconUrl from "./assets/mastered.svg";
 import pieChartIconUrl from "./assets/pie-chart.svg";
 import rankPointsIconUrl from "./assets/rank-points.svg";
@@ -766,9 +766,7 @@ export function DeckyRetroAchievementsCompactProfile({
       <Section title="Profile">
         <ProfileCard profile={profile} rankDisplay={settings.retroAchievementsRankDisplay} refreshedAt={refreshedAt} />
         <CompactAction label="Open Profile Full-Screen" primary preferredFocus onActivate={onOpenProfile} onCancel={onCancel} dataAttribute="profile" scrollToTopOnFocus targetProps={targetProps({ kind: "profile" })}>
-          <img alt="" src={externalLinkIconUrl} style={{ width: 16, height: 16, filter: raTheme.iconFilter.primary }} />
-          <span style={{ flex: "1 1 auto", fontSize: 13, fontWeight: 800, textAlign: "center" }}>Open Profile Full-Screen</span>
-          <img alt="" src={chevronRightIconUrl} style={{ width: 16, height: 16, filter: raTheme.iconFilter.primary }} />
+          <DeckyCompactPrimaryActionContent>Open Profile Full-Screen</DeckyCompactPrimaryActionContent>
         </CompactAction>
       </Section>
 
