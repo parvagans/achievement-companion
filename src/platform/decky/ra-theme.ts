@@ -228,6 +228,58 @@ export const raRecipes = {
     beaten: { color: raTheme.color.beaten, border: "rgba(230, 235, 242, 0.86)", surface: "rgba(230, 235, 242, 0.2)" },
     mastered: { color: raTheme.color.mastered, border: "rgba(242, 216, 127, 0.9)", surface: "rgba(242, 216, 127, 0.24)" },
   },
+  compactGame: {
+    root: { display: "flex", flexDirection: "column", gap: 8, width: "100%", minWidth: 0, padding: "0 16px 4px", boxSizing: "border-box", color: raTheme.color.textPrimary, fontFamily: qamTheme.type.fontFamily } satisfies CSSProperties,
+    hero(): CSSProperties { return { display: "flex", justifyContent: "center", width: "100%", height: 124, minWidth: 0, overflow: "hidden", padding: 0, background: "transparent", boxSizing: "border-box" }; },
+    title: { minWidth: 0, color: raTheme.color.textPrimary, fontSize: 16, fontWeight: 850, lineHeight: 1.16, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } satisfies CSSProperties,
+    provider: { display: "flex", alignItems: "center", justifyContent: "center", gap: 7, width: "100%", color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.body, fontWeight: 750, lineHeight: 1 } satisfies CSSProperties,
+    providerContent: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, minWidth: 0 } satisfies CSSProperties,
+    actionLabel: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", minWidth: 0, color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.body, fontWeight: 800, lineHeight: 1.15 } satisfies CSSProperties,
+    actionIcon: { width: 17, height: 17, filter: raTheme.iconFilter.primary } satisfies CSSProperties,
+    section(focused: boolean): CSSProperties { return { ...raRecipes.card("compact"), display: "flex", flexDirection: "column", gap: 6, width: "100%", minWidth: 0, padding: "9px 10px", ...getQamPassiveCardFocusStyle(focused), boxSizing: "border-box" }; },
+    sectionLabel: { color: raTheme.color.accent, fontSize: raTheme.type.compact.metadata, fontWeight: 850, letterSpacing: "0.055em", lineHeight: 1.1, textTransform: "uppercase" } satisfies CSSProperties,
+    progress: { display: "flex", alignItems: "center", gap: 6, color: raTheme.color.textPrimary, fontSize: 12, fontWeight: 800, lineHeight: 1.1 } satisfies CSSProperties,
+    metricGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 6, width: "100%" } satisfies CSSProperties,
+    metric(): CSSProperties { return { ...raRecipes.metric("compact"), display: "grid", gridTemplateColumns: "26px minmax(0, 1fr)", alignItems: "center", gap: 6, minWidth: 0, minHeight: 48, padding: "7px 8px", boxSizing: "border-box" }; },
+    statMetric(): CSSProperties { return { ...raRecipes.metric("compact"), display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, minWidth: 0, minHeight: 48, padding: "6px 4px", boxSizing: "border-box", textAlign: "center" }; },
+    statGrid: { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 5, width: "100%" } satisfies CSSProperties,
+    metricText: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2, minWidth: 0, textAlign: "center" } satisfies CSSProperties,
+    metricLabel: { color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.caption, fontWeight: 800, letterSpacing: "0.04em", lineHeight: 1.1, textTransform: "uppercase" } satisfies CSSProperties,
+    metricValue: { minWidth: 0, overflow: "hidden", color: raTheme.color.textPrimary, fontSize: 12, fontWeight: 800, lineHeight: 1.15, textOverflow: "ellipsis", whiteSpace: "nowrap" } satisfies CSSProperties,
+    metricSecondary: { color: raTheme.color.textMuted, fontSize: raTheme.type.compact.caption, lineHeight: 1.12 } satisfies CSSProperties,
+    mode(mode: "hardcore" | "softcore"): CSSProperties { return { display: "grid", gridTemplateColumns: "22px minmax(0, 1fr)", alignItems: "center", gap: 6, minWidth: 0, minHeight: 48, padding: "7px 8px", border: `1px solid ${raTheme.color.borderSubtle}`, borderLeft: `3px solid ${mode === "hardcore" ? raTheme.color.hardcore : raTheme.color.softcore}`, borderRadius: raTheme.radius.small, background: raTheme.surface.raised, boxSizing: "border-box" }; },
+    modeText: { display: "flex", flexDirection: "column", gap: 2, minWidth: 0 } satisfies CSSProperties,
+    modeLabel: { fontSize: raTheme.type.compact.caption, fontWeight: 800, lineHeight: 1, textTransform: "uppercase" } satisfies CSSProperties,
+    modeValue: { color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.body, fontWeight: 800, lineHeight: 1.12, whiteSpace: "nowrap" } satisfies CSSProperties,
+    status(kind: "beaten" | "mastered"): CSSProperties { return { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 48, border: `2px solid ${raRecipes.gameAward[kind].border}`, borderRadius: raTheme.radius.medium, background: raTheme.surface.raised, color: raRecipes.gameAward[kind].color, fontSize: raTheme.type.compact.body, fontWeight: 800 }; },
+    info: { display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "5px 10px", width: "100%", paddingTop: 2 } satisfies CSSProperties,
+    infoLabel: { color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.caption, lineHeight: 1.2 } satisfies CSSProperties,
+    infoValue: { minWidth: 0, overflow: "hidden", color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.caption, fontWeight: 700, lineHeight: 1.2, textAlign: "right", textOverflow: "ellipsis", whiteSpace: "nowrap" } satisfies CSSProperties,
+  },
+  compactAchievementRow(tone: "default" | "hardcore" | "softcore" | "locked", focused: boolean): CSSProperties {
+    const semanticColor = tone === "hardcore" ? raTheme.color.hardcore
+      : tone === "softcore" ? raTheme.color.softcore
+        : tone === "locked" ? raTheme.color.locked : raTheme.color.unlocked;
+    return {
+      ...raRecipes.card("compact", true),
+      borderColor: focused ? raTheme.focus.border : raTheme.color.borderSubtle,
+      borderLeft: `3px solid ${semanticColor}`,
+      background: raTheme.surface.raised,
+      boxShadow: focused ? raTheme.focus.shadow : "none",
+    };
+  },
+  compactAchievementRarity: {
+    root: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, width: 68, minWidth: 0 } satisfies CSSProperties,
+    track: { width: "100%", height: 3, overflow: "hidden", borderRadius: 999, background: "rgba(144, 184, 208, 0.28)" } satisfies CSSProperties,
+    fill(percent: number): CSSProperties { return { height: "100%", width: `${Math.max(0, Math.min(100, percent))}%`, borderRadius: 999, background: raTheme.color.accent }; },
+    label: { color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.caption, fontWeight: 700, lineHeight: 1, whiteSpace: "nowrap" } satisfies CSSProperties,
+  },
+  compactAchievementCommunity: {
+    track: { display: "flex", width: "calc(100% - 20px)", height: 5, marginTop: 3, overflow: "hidden", borderRadius: 999, background: "rgba(5, 12, 19, 0.82)" } satisfies CSSProperties,
+    segment(mode: "hardcore" | "softcore", percent: number): CSSProperties {
+      return { flex: `0 0 ${Math.max(0, Math.min(100, percent))}%`, height: "100%", background: mode === "hardcore" ? raTheme.color.hardcore : raTheme.color.softcore };
+    },
+  },
   compactProfile: {
     root: {
       display: "flex", flexDirection: "column", gap: 8, width: "100%", minWidth: 0,
@@ -497,5 +549,17 @@ export function getRaFocusStylesCss(): string {
   }
   [data-ac-ra-theme] .achievement-companion-achievement-filter-option:is(.achievement-companion-achievement-filter-option--focused,.gpfocus,.gpfocuswithin,:focus,:focus-within) {
     border-color: ${raTheme.focus.border}; box-shadow: ${raTheme.focus.shadow};
+  }
+  [data-ac-ra-theme="compact"] [data-ac-ra-achievement-tone="hardcore"] {
+    border-left-width: 3px !important;
+    border-left-color: ${raTheme.color.hardcore} !important;
+  }
+  [data-ac-ra-theme="compact"] [data-ac-ra-achievement-tone="softcore"] {
+    border-left-width: 3px !important;
+    border-left-color: ${raTheme.color.softcore} !important;
+  }
+  [data-ac-ra-theme="compact"] [data-ac-ra-achievement-tone="locked"] {
+    border-left-width: 3px !important;
+    border-left-color: ${raTheme.color.locked} !important;
   }`;
 }

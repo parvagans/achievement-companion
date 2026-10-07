@@ -17,6 +17,7 @@ import { registerCompactAchievementCancelCallback } from "./decky-full-screen-ca
 import { getSteamCompactAchievementFilterStyle } from "./decky-steam-compact-action-styles";
 import {
   getCompactAchievementFilterCounts,
+  getCompactAchievementLoadActions,
   matchesCompactAchievementFilter,
   matchesCompactAchievementModeFilter,
   type CompactAchievementFilter,
@@ -80,8 +81,8 @@ function getRowsStyle(): CSSProperties {
 function getRowStyle(row: CompactAchievementRowViewModel, isFocused: boolean, isSteam: boolean): CSSProperties {
   if (row.metadataPlacement === "rail") {
     return {
-      ...steamRecipes.card("compact", "raised"),
-      ...(isFocused ? { borderColor: steamTheme.color.borderStrong, boxShadow: steamTheme.focus.shadow } : {}),
+      ...(isSteam ? steamRecipes.card("compact", "raised") : raRecipes.compactAchievementRow(row.tone, isFocused)),
+      ...(isSteam && isFocused ? { borderColor: steamTheme.color.borderStrong, boxShadow: steamTheme.focus.shadow } : {}),
       display: "grid",
       gridTemplateColumns: "40px minmax(0, 1fr) minmax(42px, auto)",
       alignItems: "start",
@@ -209,12 +210,12 @@ function getSecondaryStyle(tone: CompactAchievementTone, isSteam: boolean): CSSP
   };
 }
 
-function getRailStyle(): CSSProperties {
+function getRailStyle(isSteam: boolean): CSSProperties {
   return {
     display: "flex",
     flexDirection: "column",
     alignItems: "flex-end",
-    gap: 5,
+    gap: isSteam ? 5 : 3,
     minWidth: 42,
   };
 }
@@ -236,21 +237,11 @@ function getLockedStateIndicatorStyle(): CSSProperties {
   };
 }
 
-function getSteamAchievementLoadActionStyle(focused: boolean): CSSProperties {
+function getRailMetadataStyle(isSteam: boolean): CSSProperties {
   return {
-    ...steamRecipes.action("compact"),
-    width: "100%",
-    justifyContent: "center",
-    padding: 8,
-    ...(focused ? { borderColor: steamTheme.color.borderStrong, boxShadow: steamTheme.focus.shadow } : {}),
-  };
-}
-
-function getRailMetadataStyle(): CSSProperties {
-  return {
-    ...steamRecipes.text("compact", "metadata"),
-    color: steamTheme.color.textPrimary,
-    fontSize: steamTheme.type.compact.metadata,
+    ...(isSteam ? steamRecipes.text("compact", "metadata") : raRecipes.text("compact", "metadata")),
+    color: isSteam ? steamTheme.color.textPrimary : raTheme.color.textPrimary,
+    fontSize: isSteam ? steamTheme.type.compact.metadata : raTheme.type.compact.metadata,
     fontWeight: 750,
     lineHeight: 1.1,
     whiteSpace: "nowrap",
@@ -325,11 +316,13 @@ function CompactAchievementRow({
   return (
     <Focusable
       data-achievement-companion-compact-achievement-id={model.achievementId}
+      data-ac-ra-achievement-tone={isSteam ? undefined : model.tone}
       aria-label={`${model.title}, ${model.statusText}`}
       className={model.metadataPlacement === "rail" ? undefined : DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
       noFocusRing
       onActivate={(event) => onOpen(event.currentTarget)}
       onBlur={() => setIsFocused(false)}
+      onGamepadBlur={() => setIsFocused(false)}
       onCancel={onBack}
       onClick={(event) => onOpen(event.currentTarget)}
       onFocus={handleFocus}
@@ -364,7 +357,10 @@ function CompactAchievementRow({
       </div>
 
       {model.metadataPlacement === "rail" ? (
-        <div style={getRailStyle()}>
+        <div style={getRailStyle(isSteam)}>
+          {!isSteam && model.isUnlocked && model.unlockMode !== undefined ? (
+            <span style={{ color: model.unlockMode === "hardcore" ? raTheme.color.hardcore : raTheme.color.softcore, fontSize: raTheme.type.compact.caption, fontWeight: 800, textTransform: "capitalize" }}>{model.unlockMode}</span>
+          ) : null}
           {model.stateIndicator !== undefined ? (
             <span aria-label={model.statusText} role="img" style={{ color: model.stateIndicator === "unlocked" ? steamRecipes.achievementState.unlocked.color : steamRecipes.achievementState.locked.color }}>
               {model.stateIndicator === "unlocked" ? (
@@ -376,9 +372,17 @@ function CompactAchievementRow({
               )}
             </span>
           ) : null}
-          {model.metadata.map((item) => (
-            <span key={item.key} style={getRailMetadataStyle()}>{item.value}</span>
-          ))}
+          {model.metadata.map((item) => {
+            const rarityPercent = !isSteam && item.key === "rarity" ? Number.parseFloat(item.value) : undefined;
+            return rarityPercent !== undefined && Number.isFinite(rarityPercent) ? (
+              <div key={item.key} style={raRecipes.compactAchievementRarity.root}>
+                <span aria-hidden="true" style={raRecipes.compactAchievementRarity.track}>
+                  <span style={{ ...raRecipes.compactAchievementRarity.fill(rarityPercent), display: "block" }} />
+                </span>
+                <span style={raRecipes.compactAchievementRarity.label}>{`${Math.round(rarityPercent)}% players`}</span>
+              </div>
+            ) : <span key={item.key} style={getRailMetadataStyle(isSteam)}>{item.value}</span>;
+          })}
         </div>
       ) : null}
     </Focusable>
@@ -398,7 +402,8 @@ export function DeckyCompactAchievementList({
   const pageStateRef = useRef(pageState);
   const restoreAchievementIdRef = useRef(pageState.focusedAchievementId);
   const [focusedControl, setFocusedControl] = useState<string | undefined>();
-  const refined = model.providerId === "steam";
+  const isSteam = model.providerId === "steam";
+  const refined = true;
   const counts = useMemo(() => getCompactAchievementFilterCounts(model.rows), [model.rows]);
   const filteredRows = useMemo(
     () => model.rows.filter((row) =>
@@ -407,20 +412,25 @@ export function DeckyCompactAchievementList({
     [model.rows, model.supportsModeFilter, pageState.filter, pageState.modeFilter],
   );
   const visibleRows = filteredRows.slice(0, pageState.visibleCount);
-  const canLoadMore = pageState.visibleCount < filteredRows.length;
-  const canShowAll = filteredRows.length > pageState.visibleCount + 5;
+  const { showFiveMore: canLoadMore, showAll: canShowAll } = getCompactAchievementLoadActions(pageState.visibleCount, filteredRows.length);
 
   useLayoutEffect(() => {
     const restoreAchievementId = restoreAchievementIdRef.current;
-    if (!focusRestorationReady || embedded || model.providerId !== "steam" || restoreAchievementId === undefined) {
+    if (!focusRestorationReady || embedded || restoreAchievementId === undefined) {
       return;
     }
 
     const target = rootRef.current?.querySelector<HTMLElement>(
       `[data-achievement-companion-compact-achievement-id='${restoreAchievementId}']`,
-    );
+    ) ?? rootRef.current?.querySelector<HTMLElement>("[data-ac-compact-filter-selected='true']");
     return requestDeckySteamGamepadFocusAfterMount(target);
   }, [embedded, focusRestorationReady, model.gameId, model.providerId]);
+
+  useLayoutEffect(() => {
+    if (embedded || !focusRestorationReady || restoreAchievementIdRef.current !== undefined || isSteam) return;
+    const target = rootRef.current?.querySelector<HTMLElement>("[data-ac-compact-filter-selected='true']");
+    return requestDeckySteamGamepadFocusAfterMount(target);
+  }, [embedded, focusRestorationReady, isSteam, model.gameId, model.providerId]);
 
   useLayoutEffect(() => {
     if (embedded) {
@@ -443,36 +453,28 @@ export function DeckyCompactAchievementList({
     commitPageState((current) => ({
       ...current,
       focusedAchievementId: achievementId,
-      scrollTop: model.providerId === "steam"
-        ? readSteamScrollTop(target, current.scrollTop)
-        : readScrollTop(target, current.scrollTop),
+      scrollTop: refined ? readSteamScrollTop(target, current.scrollTop) : readScrollTop(target, current.scrollTop),
     }));
   };
 
   return (
-      <section aria-label={`${model.gameTitle} achievements`} data-ac-steam-theme={refined ? "compact" : undefined} data-ac-ra-theme={!refined ? "compact" : undefined} ref={rootRef} style={getRootStyle(embedded)}>
-      {!embedded ? <h2 style={getHeadingStyle(refined)}>Achievements</h2> : null}
+      <section aria-label={`${model.gameTitle} achievements`} data-ac-ra-achievement-list={isSteam ? undefined : "true"} data-ac-steam-theme={isSteam ? "compact" : undefined} data-ac-ra-theme={!isSteam ? "compact" : undefined} ref={rootRef} style={getRootStyle(embedded)}>
+      {!embedded ? <h2 style={getHeadingStyle(isSteam)}>Achievements</h2> : null}
 
       {model.supportsModeFilter ? (
         <Focusable
           aria-label="Achievement mode filters"
-          className={DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS}
+          style={{ display: "flex", gap: 5, width: "100%", minWidth: 0 }}
           flow-children="left-right"
           role="radiogroup"
         >
           {MODE_FILTERS.map((filter) => {
             const active = pageState.modeFilter === filter;
-            const className = [
-              DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS,
-              active ? DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS : undefined,
-            ].filter((value): value is string => value !== undefined).join(" ");
             return (
               <Focusable
                 aria-checked={active}
                 aria-label={formatModeFilterLabel(filter)}
-                className={className}
-                focusClassName={DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS}
-                focusWithinClassName={DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS}
+                style={raRecipes.filter(active, focusedControl === `mode:${filter}`)}
                 key={filter}
                 noFocusRing
                 onActivate={() => commitPageState((current) => ({
@@ -490,7 +492,9 @@ export function DeckyCompactAchievementList({
                   focusedAchievementId: undefined,
                   scrollTop: 0,
                 }))}
-                onFocus={(event) => scrollDeckyFocusTargetIntoView(event.currentTarget)}
+                onFocus={(event) => { setFocusedControl(`mode:${filter}`); scrollDeckyFocusTargetIntoView(event.currentTarget); }}
+                onGamepadFocus={(event) => { setFocusedControl(`mode:${filter}`); scrollDeckyFocusTargetIntoView(event.currentTarget); }}
+                onBlur={() => setFocusedControl(undefined)}
                 role="radio"
               >
                 {formatModeFilterLabel(filter)}
@@ -516,6 +520,7 @@ export function DeckyCompactAchievementList({
           const label = formatFilterLabel(filter, counts);
           return (
             <Focusable
+              data-ac-compact-filter-selected={active ? "true" : undefined}
               aria-checked={active}
               aria-label={label}
               className={refined ? undefined : className}
@@ -550,7 +555,7 @@ export function DeckyCompactAchievementList({
               }}
               onBlur={() => setFocusedControl(undefined)}
               role="radio"
-              style={refined
+              style={isSteam
                 ? getSteamCompactAchievementFilterStyle(active, focusedControl === filter)
                 : raRecipes.filter(active, focusedControl === filter)}
             >
@@ -566,21 +571,21 @@ export function DeckyCompactAchievementList({
             <CompactAchievementRow
               key={row.achievementId}
               model={row}
-              isSteam={refined}
+              isSteam={isSteam}
               onBack={onBack}
               onFocusRow={rememberFocus}
               onOpen={(target) => {
                 commitPageState((current) => ({
                   ...current,
                   focusedAchievementId: row.achievementId,
-                  scrollTop: model.providerId === "steam"
+                  scrollTop: refined
                     ? readSteamScrollTop(target, current.scrollTop)
                     : current.scrollTop,
                 }));
                 onOpenAchievement(row.achievementId);
               }}
               preferredFocus={
-                (embedded || model.providerId !== "steam") &&
+                embedded &&
                 pageState.focusedAchievementId === row.achievementId
               }
             />
@@ -595,7 +600,7 @@ export function DeckyCompactAchievementList({
       )}
 
       {refined && (canLoadMore || canShowAll) ? (
-        <div style={{ display: "flex", gap: 6, minWidth: 0 }}>
+        <Focusable flow-children="left-right" tabIndex={-1} style={{ display: "flex", gap: 6, minWidth: 0 }}>
           {(["Show 5 more", "Show all"] as const).filter((label) => label === "Show 5 more" ? canLoadMore : canShowAll).map((label) => (
             <Focusable
               key={label} role="button" noFocusRing onCancelButton={onBack}
@@ -604,12 +609,10 @@ export function DeckyCompactAchievementList({
               onBlur={() => setFocusedControl(undefined)}
               onActivate={() => commitPageState((current) => ({ ...current, visibleCount: label === "Show all" ? filteredRows.length : Math.min(filteredRows.length, current.visibleCount + 5) }))}
               onClick={() => commitPageState((current) => ({ ...current, visibleCount: label === "Show all" ? filteredRows.length : Math.min(filteredRows.length, current.visibleCount + 5) }))}
-              style={model.providerId === "steam"
-                ? getSteamAchievementLoadActionStyle(focusedControl === label)
-                : { ...raRecipes.action("compact", false, focusedControl === label), padding: "8px", fontSize: 11 }}
+              style={{ ...raRecipes.action("compact", false, focusedControl === label), padding: "8px", fontSize: 11 }}
             >{label}</Focusable>
           ))}
-        </div>
+        </Focusable>
       ) : canLoadMore || canShowAll ? (
         <DeckyCompactPillActionGroup>
           {canLoadMore ? (

@@ -41,6 +41,26 @@ export function normalizeRetroAchievementsGameCommunityStats(args: {
     args.progression?.MedianTimeToBeatHardcore ?? args.progression?.medianTimeToBeatHardcore,
     args.progression?.TimesUsedInHardcoreBeatMedian ?? args.progression?.timesUsedInHardcoreBeatMedian,
   );
+  const beatenSamples = readNonNegativeInteger(
+    args.progression?.TimesUsedInBeatMedian ?? args.progression?.timesUsedInBeatMedian,
+  );
+  const beatenHardcoreSamples = readNonNegativeInteger(
+    args.progression?.TimesUsedInHardcoreBeatMedian ?? args.progression?.timesUsedInHardcoreBeatMedian,
+  );
+  const medianBeatSoftcoreSeconds = readPositiveDuration(
+    args.progression?.MedianTimeToBeat ?? args.progression?.medianTimeToBeat,
+    beatenSamples,
+  );
+  const completedSamples = readNonNegativeInteger(
+    args.progression?.TimesUsedInCompletionMedian ?? args.progression?.timesUsedInCompletionMedian,
+  );
+  const masteredSamples = readNonNegativeInteger(
+    args.progression?.TimesUsedInMasteryMedian ?? args.progression?.timesUsedInMasteryMedian,
+  );
+  const medianCompletionSeconds = readPositiveDuration(
+    args.progression?.MedianTimeToComplete ?? args.progression?.medianTimeToComplete,
+    completedSamples,
+  );
   const medianMasterySeconds = readPositiveDuration(
     args.progression?.MedianTimeToMaster ?? args.progression?.medianTimeToMaster,
     args.progression?.TimesUsedInMasteryMedian ?? args.progression?.timesUsedInMasteryMedian,
@@ -48,7 +68,9 @@ export function normalizeRetroAchievementsGameCommunityStats(args: {
 
   if (
     totalPlayers === undefined && masteredPlayers === undefined && medianBeatSeconds === undefined &&
-    medianMasterySeconds === undefined
+    medianMasterySeconds === undefined && medianBeatSoftcoreSeconds === undefined &&
+    medianCompletionSeconds === undefined && beatenSamples === undefined && beatenHardcoreSamples === undefined &&
+    completedSamples === undefined && masteredSamples === undefined
   ) {
     return undefined;
   }
@@ -58,6 +80,12 @@ export function normalizeRetroAchievementsGameCommunityStats(args: {
     ...(masteredPlayers !== undefined ? { masteredPlayers } : {}),
     ...(masteryPercent !== undefined ? { masteryPercent } : {}),
     ...(medianBeatSeconds !== undefined ? { medianBeatSeconds } : {}),
+    ...(medianBeatSoftcoreSeconds !== undefined ? { medianBeatSoftcoreSeconds } : {}),
+    ...(beatenSamples !== undefined ? { beatenSamples } : {}),
+    ...(beatenHardcoreSamples !== undefined ? { beatenHardcoreSamples } : {}),
+    ...(completedSamples !== undefined ? { completedSamples } : {}),
+    ...(masteredSamples !== undefined ? { masteredSamples } : {}),
+    ...(medianCompletionSeconds !== undefined ? { medianCompletionSeconds } : {}),
     ...(medianMasterySeconds !== undefined ? { medianMasterySeconds } : {}),
   };
 }

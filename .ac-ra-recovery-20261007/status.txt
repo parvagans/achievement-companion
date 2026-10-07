@@ -1,0 +1,16 @@
+ M src/core/domain.ts
+ M src/platform/decky/bootstrap.tsx
+ M src/platform/decky/decky-compact-achievement-list.tsx
+ M src/platform/decky/decky-compact-achievement-model.ts
+ M src/platform/decky/decky-game-detail-ordering.ts
+ M src/platform/decky/decky-game-detail-view.tsx
+ M src/platform/decky/ra-theme.ts
+ M src/providers/retroachievements/community-stats.ts
+ M src/providers/retroachievements/raw-types.ts
+ M tests/createAppServices.test.ts
+ M tests/decky-compact-achievements.test.ts
+ M tests/decky-steam-compact-game.test.ts
+ M tests/decky-steam-compact-profile.test.ts
+ M tests/retroachievements-community-stats.test.ts
+?? .ac-ra-recovery-20261007/
+?? src/platform/decky/decky-retroachievements-compact-game-overview.tsx

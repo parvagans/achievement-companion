@@ -22,6 +22,8 @@ import calendarIconUrl from "./assets/calendar.svg";
 import clockIconUrl from "./assets/clock.svg";
 import usersIconUrl from "./assets/users.svg";
 import pieChartIconUrl from "./assets/pie-chart.svg";
+import rankPointsIconUrl from "./assets/rank-points.svg";
+import trophyIconUrl from "./assets/trophy-filled.svg";
 
 type DeckyGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
 
@@ -193,7 +195,7 @@ function getGameRowStyle(isFocused: boolean, isSteam = false): CSSProperties {
   };
 }
 
-function getAchievementHeadingStyle(isFocused: boolean, isSteam = false): CSSProperties {
+function getAchievementHeadingStyle(isFocused: boolean, isSteam = false, tone?: "hardcore" | "softcore" | "locked"): CSSProperties {
   return {
     ...(isSteam ? steamRecipes.card("compact", "interactive") : {}),
     ...getRowStyle(),
@@ -203,6 +205,7 @@ function getAchievementHeadingStyle(isFocused: boolean, isSteam = false): CSSPro
     border: isFocused ? `1px solid ${raTheme.focus.border}` : "1px solid transparent",
     boxShadow: isFocused ? raTheme.focus.insetShadow : "none",
     transition: "border-color 120ms ease, box-shadow 120ms ease",
+    ...(!isSteam && tone !== undefined ? { borderLeft: `3px solid ${tone === "hardcore" ? raTheme.color.hardcore : tone === "softcore" ? raTheme.color.softcore : raTheme.color.locked}` } : {}),
   };
 }
 
@@ -226,15 +229,24 @@ function getChevronStyle(): CSSProperties {
 }
 
 function DetailStat({ stat, fullWidth, isSteam = false }: { readonly stat: CompactAchievementDetailStat; readonly fullWidth: boolean; readonly isSteam?: boolean }): JSX.Element {
-  const iconUrl = stat.key === "date" ? calendarIconUrl : stat.key === "time" ? clockIconUrl : stat.key === "community-percentage" ? pieChartIconUrl : stat.key === "players" ? usersIconUrl : undefined;
+  const iconUrl = stat.key === "date" ? calendarIconUrl : stat.key === "time" ? clockIconUrl : stat.key === "community-percentage" || stat.key === "rarity" ? pieChartIconUrl : stat.key === "players" || stat.key.endsWith("-unlocks") ? usersIconUrl : stat.key === "points" ? trophyIconUrl : stat.key === "retro-points" ? rankPointsIconUrl : undefined;
   return (
     <div style={{ ...getStatStyle(isSteam), ...(fullWidth ? { gridColumn: "1 / -1" } : {}) }}>
-      {isSteam ? <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-        {stat.key === "points" ? <DeckySteamHuntersIcon color={steamTheme.color.accent} size={15} /> : iconUrl !== undefined ? <img alt="" aria-hidden="true" src={iconUrl} style={{ width: 15, height: 15, filter: steamTheme.iconFilter.accent }} /> : null}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
+        {isSteam && stat.key === "points" ? <DeckySteamHuntersIcon color={steamTheme.color.accent} size={15} /> : iconUrl !== undefined ? <img alt="" aria-hidden="true" src={iconUrl} style={{ width: 15, height: 15, filter: isSteam ? steamTheme.iconFilter.accent : stat.key === "points" ? raTheme.iconFilter.hardcore : stat.key === "hardcore-unlocks" ? raTheme.iconFilter.hardcore : stat.key === "softcore-unlocks" ? raTheme.iconFilter.softcore : raTheme.iconFilter.primary }} /> : null}
         <div style={getStatLabelStyle(isSteam)}>{stat.label}</div>
-      </div> : <div style={getStatLabelStyle(isSteam)}>{stat.label}</div>}
+      </div>
       <div style={getStatValueStyle(isSteam, stat.key)}>{stat.value}</div>
       {stat.secondary !== undefined ? <div style={getStatSecondaryStyle(isSteam)}>{stat.secondary}</div> : null}
+      {!isSteam && stat.communityProgress !== undefined ? (
+        <div
+          aria-label={`Community unlocks: ${stat.communityProgress.hardcorePercent.toFixed(2)}% hardcore, ${stat.communityProgress.softcorePercent.toFixed(2)}% softcore`}
+          role="img" style={raRecipes.compactAchievementCommunity.track}
+        >
+          <span style={raRecipes.compactAchievementCommunity.segment("hardcore", stat.communityProgress.hardcorePercent)} />
+          <span style={raRecipes.compactAchievementCommunity.segment("softcore", stat.communityProgress.softcorePercent)} />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -267,7 +279,7 @@ function DetailBlock({ block, isSteam = false }: { readonly block: CompactAchiev
       <div style={getSectionStyle()}>
         <div style={getSectionLabelStyle(isSteam)}>{block.title}</div>
         <div style={getStatsGridStyle(block.columns)}>
-          {block.stats.map((stat) => <DetailStat key={stat.key} stat={stat} fullWidth={isSteam && stat.key === "players"} isSteam={isSteam} />)}
+          {block.stats.map((stat) => <DetailStat key={stat.key} stat={stat} fullWidth={stat.key === "players" || (!isSteam && stat.fullWidth === true)} isSteam={isSteam} />)}
         </div>
       </div>
     );
@@ -352,34 +364,37 @@ function AchievementDetailCard({
 
   const gameRow = <GameContextRow model={model} onBack={onBack} onOpen={onOpenCompactGame} />;
   return (
-    <div data-ac-steam-theme={isSteam ? "compact" : undefined} data-ac-ra-theme={!isSteam ? "compact" : undefined} ref={rootRef} style={getCardStyle(isSteam)}>
+    <div data-ac-ra-achievement-detail={isSteam ? undefined : "true"} data-ac-steam-theme={isSteam ? "compact" : undefined} data-ac-ra-theme={!isSteam ? "compact" : undefined} ref={rootRef} style={getCardStyle(isSteam)}>
       {model.gamePlacement === "before-achievement" ? gameRow : null}
       <Focusable
         aria-label={`Achievement ${model.title}`}
+        data-ac-ra-achievement-tone={isSteam ? undefined : model.isUnlocked ? model.unlockMode : "locked"}
         noFocusRing
         onActivate={() => {}}
         onFocus={(event) => {
           const generation = ++headingFocusGeneration.current;
           setAchievementHeadingFocused(true);
-          scrollDeckyFocusTargetToTop(event.currentTarget, () => headingFocusGeneration.current === generation);
+          if (isSteam) scrollDeckyFocusTargetToTop(event.currentTarget, () => headingFocusGeneration.current === generation);
+          else scrollDeckyFocusTargetIntoView(event.currentTarget);
         }}
         onGamepadFocus={((event) => {
           const generation = ++headingFocusGeneration.current;
           setAchievementHeadingFocused(true);
-          scrollDeckyFocusTargetToTop(event.currentTarget, () => headingFocusGeneration.current === generation);
+          if (isSteam) scrollDeckyFocusTargetToTop(event.currentTarget, () => headingFocusGeneration.current === generation);
+          else scrollDeckyFocusTargetIntoView(event.currentTarget);
         }) satisfies DeckyGamepadFocusHandler}
         onBlur={() => {
           headingFocusGeneration.current += 1;
           setAchievementHeadingFocused(false);
         }}
         role="group"
-        style={getAchievementHeadingStyle(achievementHeadingFocused, isSteam)}
+        style={getAchievementHeadingStyle(achievementHeadingFocused, isSteam, model.isUnlocked ? model.unlockMode : "locked")}
       >
-        {model.iconUrl !== undefined ? (isSteam ? (
-          <div style={{ display: "flex", flex: "0 0 auto", width: model.gamePlacement === "after-details" ? 54 : 40, height: model.gamePlacement === "after-details" ? 54 : 40, filter: model.isUnlocked ? steamRecipes.achievementState.unlocked.artworkFilter : steamRecipes.achievementState.locked.artworkFilter }}>
+        {model.iconUrl !== undefined ? (
+          <div style={{ display: "flex", flex: "0 0 auto", width: model.gamePlacement === "after-details" ? 54 : 40, height: model.gamePlacement === "after-details" ? 54 : 40, filter: isSteam ? model.isUnlocked ? steamRecipes.achievementState.unlocked.artworkFilter : steamRecipes.achievementState.locked.artworkFilter : model.isUnlocked ? raRecipes.achievementState.unlocked.artworkFilter : raRecipes.achievementState.locked.artworkFilter }}>
             <DeckyGameArtwork compact src={model.iconUrl} size={model.gamePlacement === "after-details" ? 54 : 40} title={model.title} />
           </div>
-        ) : <DeckyGameArtwork compact src={model.iconUrl} size={model.gamePlacement === "after-details" ? 54 : 40} title={model.title} />) : null}
+        ) : null}
         <div style={getTextBlockStyle()}>
           <div style={getTitleLineStyle()}>
             <span style={getTitleStyle(isSteam)}>{model.title}</span>

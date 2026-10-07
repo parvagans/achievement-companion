@@ -9,13 +9,17 @@ import {
   buildSteamCompactAchievementDetailModel,
   buildSteamCompactAchievementListModel,
   getCompactAchievementFilterCounts,
+  getCompactAchievementLoadActions,
   matchesCompactAchievementFilter,
+  matchesCompactAchievementModeFilter,
 } from "../src/platform/decky/decky-compact-achievement-model";
 import {
   readDeckyCompactAchievementPageState,
   resetDeckyCompactAchievementPageState,
   writeDeckyCompactAchievementPageState,
 } from "../src/platform/decky/decky-compact-achievement-page-state";
+import { buildRetroAchievementsCompactGamePresentation } from "../src/platform/decky/decky-retroachievements-compact-game-model";
+import { getRaFocusStylesCss, raRecipes, raTheme } from "../src/platform/decky/ra-theme";
 import {
   resolveDeckyCompactAchievementResource,
   type CompactAchievementResourceDependencies,
@@ -148,11 +152,15 @@ test("Steam and RA adapters normalize shared rows without leaking provider metad
   const raUnlocked = raModel.rows.find((row) => row.achievementId === "ACH_UNLOCKED");
   assert.ok(raUnlocked !== undefined);
   assert.equal(raModel.supportsModeFilter, true);
-  assert.equal(raModel.initialVisibleCount, 3);
-  assert.equal(raUnlocked.stateIndicator, undefined);
-  assert.equal(raUnlocked.metadataPlacement, "stack");
-  assert.ok(raUnlocked.metadata.some((item) => item.value.includes("24")));
-  assert.ok(raUnlocked.metadata.every((item) => !item.key.includes("community")));
+  assert.equal(raModel.initialVisibleCount, steamModel.initialVisibleCount);
+  assert.equal(raUnlocked.stateIndicator, "unlocked");
+  assert.equal(raUnlocked.metadataPlacement, "rail");
+  assert.equal(raUnlocked.description, "Kill the Dreadnought without taking any damage.");
+  assert.deepEqual(raUnlocked.metadata.map((item) => item.key), ["points", "rarity"]);
+  assert.equal(raModel.rows.find((row) => row.achievementId === "ACH_LOCKED")?.stateIndicator, "locked");
+  assert.equal(raRecipes.compactAchievementRarity.fill(39).width, "39%");
+  assert.equal(raRecipes.compactAchievementRarity.fill(150).width, "100%");
+  assert.equal(raRecipes.compactAchievementRarity.track.height, 3);
 });
 
 test("compact achievement filters derive counts and filter locally", () => {
@@ -161,6 +169,8 @@ test("compact achievement filters derive counts and filter locally", () => {
   assert.deepStrictEqual(rows.filter((row) => matchesCompactAchievementFilter(row, "all")).length, 2);
   assert.deepStrictEqual(rows.filter((row) => matchesCompactAchievementFilter(row, "unlocked")).length, 1);
   assert.deepStrictEqual(rows.filter((row) => matchesCompactAchievementFilter(row, "locked")).length, 1);
+  assert.deepEqual(getCompactAchievementLoadActions(12, 17), { showFiveMore: true, showAll: true });
+  assert.deepEqual(getCompactAchievementLoadActions(17, 17), { showFiveMore: false, showAll: false });
 });
 
 test("Steam detail exposes verified SteamHunters fields and omits unsupported sections", () => {
@@ -189,23 +199,114 @@ test("Steam detail exposes verified SteamHunters fields and omits unsupported se
   assert.equal((listSource.match(/role="img"/gu) ?? []).length, 1);
 });
 
-test("RA detail retains points, RetroPoints, rarity, counts, and legacy actions", () => {
+test("RA detail keeps verified RA data in the Steam compact hierarchy", () => {
   const detail = buildRetroAchievementsCompactAchievementDetailModel(
     createSnapshot("retroachievements"),
     "ACH_UNLOCKED",
   );
   assert.ok(detail !== undefined);
-  assert.equal(detail.showLegacyActions, true);
-  assert.equal(detail.gamePlacement, "before-achievement");
+  assert.equal(detail.showLegacyActions, false);
+  assert.equal(detail.gamePlacement, "after-details");
   assert.equal(detail.classification, "missable");
   const labels = detail.blocks.flatMap((block) =>
     block.kind === "stats" || block.kind === "rarity" ? block.stats.map((stat) => stat.label) : []);
   assert.ok(labels.includes("Points"));
   assert.ok(labels.includes("RetroPoints"));
-  assert.ok(labels.includes("Softcore unlocks"));
-  assert.ok(labels.includes("Hardcore unlocks"));
-  assert.ok(labels.includes("Total players"));
-  assert.ok(detail.blocks.some((block) => block.kind === "rarity"));
+  assert.ok(labels.includes("Softcore Unlocks"));
+  assert.ok(labels.includes("Hardcore Unlocks"));
+  assert.ok(labels.includes("Players Unlocked"));
+  assert.ok(labels.includes("Community"));
+  assert.equal(detail.blocks[0]?.kind, "timestamp");
+  assert.equal(detail.blocks[1]?.kind, "stats");
+});
+
+test("RA community split stays independent of mode preference and lone mode tiles fill the row", () => {
+  const snapshot = createSnapshot("retroachievements");
+  const expectedHardcore = 688 / 5253 * 100;
+  const expectedSoftcore = (1082 - 688) / 5253 * 100;
+  for (const preference of ["both", "hardcore", "softcore"] as const) {
+    const detail = buildRetroAchievementsCompactAchievementDetailModel(snapshot, "ACH_UNLOCKED", preference);
+    const block = detail?.blocks.find((item) => item.kind === "stats");
+    assert.ok(block?.kind === "stats");
+    const community = block.stats.find((item) => item.key === "rarity");
+    assert.equal(community?.fullWidth, true);
+    assert.equal(community?.value, "20.60%");
+    assert.ok(community?.communityProgress !== undefined);
+    assert.ok(Math.abs(community.communityProgress.hardcorePercent - expectedHardcore) < 0.001);
+    assert.ok(Math.abs(community.communityProgress.softcorePercent - expectedSoftcore) < 0.001);
+    const modes = block.stats.filter((item) => item.key.endsWith("-unlocks"));
+    assert.deepEqual(modes.map((item) => [item.key, item.fullWidth]), preference === "both"
+      ? [["hardcore-unlocks", false], ["softcore-unlocks", false]]
+      : [[`${preference}-unlocks`, true]]);
+  }
+  assert.equal(raRecipes.compactAchievementCommunity.segment("hardcore", 10).background, raTheme.color.hardcore);
+  assert.equal(raRecipes.compactAchievementCommunity.segment("softcore", 10).background, raTheme.color.softcore);
+});
+
+test("RA mode preference reclassifies unlocks without removing locked achievements", () => {
+  const base = createSnapshot("retroachievements");
+  const snapshot = {
+    ...base,
+    achievements: base.achievements.map((achievement, index) => index === 0 ? {
+      ...achievement,
+      hardcoreUnlockedAt: UNLOCKED_AT,
+      softcoreUnlockedAt: UNLOCKED_AT - 86_400_000,
+    } : achievement),
+  };
+  const both = buildRetroAchievementsCompactAchievementListModel(snapshot, "both");
+  const hardcore = buildRetroAchievementsCompactAchievementListModel(snapshot, "hardcore");
+  const softcore = buildRetroAchievementsCompactAchievementListModel(snapshot, "softcore");
+  assert.equal(both.supportsModeFilter, true);
+  assert.equal(hardcore.supportsModeFilter, false);
+  assert.equal(softcore.supportsModeFilter, false);
+  assert.deepEqual([both.rows.length, hardcore.rows.length, softcore.rows.length], [2, 2, 2]);
+  assert.equal(hardcore.rows.find((row) => row.achievementId === "ACH_UNLOCKED")?.tone, "hardcore");
+  assert.equal(softcore.rows.find((row) => row.achievementId === "ACH_UNLOCKED")?.tone, "softcore");
+  assert.equal(softcore.rows.find((row) => row.achievementId === "ACH_LOCKED")?.isUnlocked, false);
+  assert.deepEqual(getCompactAchievementFilterCounts(softcore.rows), { all: 2, unlocked: 1, locked: 1 });
+  assert.equal(softcore.rows.filter((row) => matchesCompactAchievementFilter(row, "locked")).length, 1);
+  assert.equal(both.rows.filter((row) => matchesCompactAchievementModeFilter(row, "softcore")).length, 1);
+
+  const gameHardcore = buildRetroAchievementsCompactGamePresentation(snapshot, "hardcore");
+  const gameSoftcore = buildRetroAchievementsCompactGamePresentation(snapshot, "softcore");
+  const gameBoth = buildRetroAchievementsCompactGamePresentation(snapshot, "both");
+  assert.deepEqual(gameHardcore.modes.map((item) => item.mode), ["hardcore"]);
+  assert.deepEqual(gameSoftcore.modes.map((item) => item.mode), ["softcore"]);
+  assert.deepEqual(gameBoth.modes.map((item) => item.mode), ["hardcore", "softcore"]);
+});
+
+test("RA detail follows selected mode for unlock state and timestamp", () => {
+  const base = createSnapshot("retroachievements");
+  const snapshot = {
+    ...base,
+    achievements: base.achievements.map((achievement, index) => index === 0 ? {
+      ...achievement,
+      hardcoreUnlockedAt: UNLOCKED_AT,
+    } : achievement),
+  };
+  const hardcore = buildRetroAchievementsCompactAchievementDetailModel(snapshot, "ACH_UNLOCKED", "hardcore");
+  const softcore = buildRetroAchievementsCompactAchievementDetailModel(snapshot, "ACH_UNLOCKED", "softcore");
+  assert.equal(hardcore?.isUnlocked, true);
+  assert.equal(hardcore?.unlockMode, "hardcore");
+  assert.equal(hardcore?.blocks[0]?.kind, "timestamp");
+  assert.equal(softcore?.isUnlocked, false);
+  assert.equal(softcore?.unlockMode, undefined);
+  assert.equal(softcore?.blocks.some((block) => block.kind === "timestamp"), false);
+  assert.equal(softcore?.blocks.some((block) => block.kind === "stats" && block.stats.some((stat) => stat.label === "Hardcore Unlocks")), false);
+});
+
+test("RA semantic achievement rails remain distinct under focus styling", () => {
+  const css = getRaFocusStylesCss();
+  for (const [tone, color] of [
+    ["hardcore", raTheme.color.hardcore],
+    ["softcore", raTheme.color.softcore],
+    ["locked", raTheme.color.locked],
+  ] as const) {
+    assert.ok(css.includes(`[data-ac-ra-achievement-tone="${tone}"]`));
+    assert.ok(css.includes("border-left-width: 3px !important"));
+    assert.ok(css.includes(`border-left-color: ${color} !important`));
+    assert.equal(raRecipes.compactAchievementRow(tone, true).borderLeft, `3px solid ${color}`);
+  }
 });
 
 test("Steam compact resolver waits for SteamHunters terminal success before resolving", async () => {
@@ -393,23 +494,27 @@ test("View Achievements checkpoints remain scoped to the selected game", () => {
     scrollTop: 88,
   });
 
-  const listSource = readFileSync("src/platform/decky/decky-compact-achievement-list.tsx", "utf8");
-  const bootstrapSource = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
-  assert.match(listSource, /data-achievement-companion-compact-achievement-id=\{model\.achievementId\}/u);
-  assert.match(listSource, /restoreAchievementIdRef = useRef\(pageState\.focusedAchievementId\)/u);
-  assert.match(listSource, /element\?\.ownerDocument\?\.defaultView\?\.HTMLElement/u);
-  assert.match(listSource, /model\.providerId === "steam"\s*\? readSteamScrollTop/u);
-  assert.match(
-    listSource,
-    /onOpen=\{\(target\) => \{[\s\S]*focusedAchievementId: row\.achievementId,[\s\S]*scrollTop: model\.providerId === "steam"[\s\S]*readSteamScrollTop\(target, current\.scrollTop\)/u,
-  );
-  assert.match(listSource, /requestDeckySteamGamepadFocusAfterMount\(target\)/u);
-  assert.match(listSource, /!focusRestorationReady \|\| embedded/u);
-  assert.match(listSource, /\(embedded \|\| model\.providerId !== "steam"\) &&/u);
-  assert.match(listSource, /\}, \[embedded, focusRestorationReady, model\.gameId, model\.providerId\]\);/u);
-  assert.match(bootstrapSource, /onRestoreAfterLayoutComplete=\{handleScrollRestoreComplete\}/u);
-  assert.match(bootstrapSource, /focusRestorationReady=\{focusRestorationReady\}/u);
-  assert.match(bootstrapSource, /restoreAfterLayout=\{destination\.providerId === STEAM_PROVIDER_ID\}/u);
+  writeDeckyCompactAchievementPageState("retroachievements", "game-a", {
+    filter: "locked",
+    modeFilter: "softcore",
+    visibleCount: 52,
+    focusedAchievementId: "achievement-47",
+    scrollTop: 1832,
+  });
+  assert.deepEqual(readDeckyCompactAchievementPageState("retroachievements", "game-a", 12), {
+    filter: "locked",
+    modeFilter: "softcore",
+    visibleCount: 52,
+    focusedAchievementId: "achievement-47",
+    scrollTop: 1832,
+  });
+  assert.deepEqual(readDeckyCompactAchievementPageState("retroachievements", "game-b", 12), {
+    filter: "all",
+    modeFilter: "all",
+    visibleCount: 12,
+    focusedAchievementId: undefined,
+    scrollTop: 0,
+  });
 });
 
 test("loading completion is render-owned and stale hook completion is ignored after unmount", () => {

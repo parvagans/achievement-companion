@@ -1,0 +1,1494 @@
+diff --git a/src/core/domain.ts b/src/core/domain.ts
+index b2a5ff8..c42e1cf 100644
+--- a/src/core/domain.ts
++++ b/src/core/domain.ts
+@@ -47,6 +47,12 @@ export interface GameCommunityStats {
+   readonly masteredPlayers?: number;
+   readonly masteryPercent?: number;
+   readonly medianBeatSeconds?: number;
++  readonly medianBeatSoftcoreSeconds?: number;
++  readonly beatenSamples?: number;
++  readonly beatenHardcoreSamples?: number;
++  readonly completedSamples?: number;
++  readonly masteredSamples?: number;
++  readonly medianCompletionSeconds?: number;
+   readonly medianMasterySeconds?: number;
+ }
+ 
+diff --git a/src/platform/decky/bootstrap.tsx b/src/platform/decky/bootstrap.tsx
+index 5624056..c3d3778 100644
+--- a/src/platform/decky/bootstrap.tsx
++++ b/src/platform/decky/bootstrap.tsx
+@@ -1109,6 +1109,7 @@ function GameDetailScreen({
+   readonly onRequestScrollReset: () => void;
+   readonly scrollResetNonce: number;
+ }): JSX.Element {
++  const achievementMode = useDeckySettings().retroAchievementsAchievementMode;
+   const loadSelectedGameDetail = useMemo(
+     () => () => game.providerId === STEAM_PROVIDER_ID
+       ? loadDeckyCompactSteamGameState(
+@@ -1122,18 +1123,14 @@ function GameDetailScreen({
+     ? readDeckyCompactSteamGameState(game.gameId) ?? initialDeckyGameDetailState
+     : initialDeckyGameDetailState;
+   const loader = useAsyncResourceState(loadSelectedGameDetail, initialGameDetailState);
+-  const restoredAchievementScrollTop = game.providerId === STEAM_PROVIDER_ID
+-    ? undefined
+-    : readDeckyCompactAchievementPageState(game.providerId, game.gameId, 3).scrollTop;
+-
+   return (
+     <TopAlignedScrollViewport
+-      restoreScrollTop={restoredAchievementScrollTop}
+       resetNonce={scrollResetNonce}
+       scrollKey={`game-detail:${game.providerId}:${game.gameId}`}
+     >
+       {isRenderableGameDetailState(loader) ? (
+         <DeckyGameDetailView
++          achievementMode={achievementMode}
+           onBackToDashboard={onBackToDashboard}
+           onOpenAchievementDetail={onOpenAchievementDetail}
+           onOpenFullScreenPage={
+@@ -1144,14 +1141,10 @@ function GameDetailScreen({
+                 }
+               : undefined
+           }
+-          onOpenCompactAchievements={
+-            game.providerId === STEAM_PROVIDER_ID
+-              ? () => {
+-                  onRequestScrollReset();
+-                  onOpenCompactAchievements(game);
+-                }
+-              : undefined
+-          }
++          onOpenCompactAchievements={() => {
++            onRequestScrollReset();
++            onOpenCompactAchievements(game);
++          }}
+           state={loader}
+         />
+       ) : game.providerId === STEAM_PROVIDER_ID ? (
+@@ -1163,11 +1156,11 @@ function GameDetailScreen({
+           title={loader.status === "error" ? "Steam game unavailable" : `Loading ${game.gameTitle}...`}
+         />
+       ) : (
+-        <PlaceholderState
+-          title={game.gameTitle}
+-          description="Loading game details from the selected provider."
+-          state={loader}
+-          footer={<span>Use Back to return to the dashboard while the detail view loads.</span>}
++        <DeckyCompactLoadingState
++          description={loader.error?.userMessage ?? "Fetching game details from RetroAchievements."}
++          isError={loader.status === "error"}
++          onCancel={onBackToDashboard}
++          title={loader.status === "error" ? "RetroAchievements game unavailable" : `Loading ${game.gameTitle}...`}
+         />
+       )}
+     </TopAlignedScrollViewport>
+@@ -1183,6 +1176,7 @@ function CompactAchievementListScreen({
+   readonly onBack: () => void;
+   readonly onOpenAchievement: (achievementId: string) => void;
+ }): JSX.Element {
++  const achievementMode = useDeckySettings().retroAchievementsAchievementMode;
+   const loadAchievementList = useMemo(
+     () => () => destination.providerId === STEAM_PROVIDER_ID
+       ? loadDeckyCompactSteamGameState(
+@@ -1197,21 +1191,21 @@ function CompactAchievementListScreen({
+     : initialDeckyGameDetailState;
+   const loader = useAsyncResourceState(loadAchievementList, initialGameDetailState);
+   const model = isRenderableGameDetailState(loader)
+-    ? buildCompactAchievementListModel(loader.data)
++    ? buildCompactAchievementListModel(loader.data, achievementMode)
+     : undefined;
+   const restoredPageState = readDeckyCompactAchievementPageState(
+     destination.providerId,
+     destination.gameId,
+     model?.initialVisibleCount ?? 12,
+   );
+-  const [isScrollRestored, setIsScrollRestored] = useState(destination.providerId !== STEAM_PROVIDER_ID);
++  const [isScrollRestored, setIsScrollRestored] = useState(false);
+   const handleScrollRestoreComplete = useCallback(() => setIsScrollRestored(true), []);
+   const focusRestorationReady = restoredPageState.scrollTop <= 0 || isScrollRestored;
+ 
+   return (
+     <TopAlignedScrollViewport
+       onRestoreAfterLayoutComplete={handleScrollRestoreComplete}
+-      restoreAfterLayout={destination.providerId === STEAM_PROVIDER_ID}
++      restoreAfterLayout
+       restoreScrollTop={restoredPageState.scrollTop}
+       scrollKey={`achievement-list:${destination.providerId}:${destination.gameId}`}
+     >
+@@ -1240,7 +1234,7 @@ function CompactAchievementListScreen({
+   );
+ }
+ 
+-function DeckySteamCompactAchievementDetailSurface({
++function DeckyCompactAchievementDetailSurface({
+   children,
+ }: {
+   readonly children: ReactNode;
+@@ -1284,6 +1278,7 @@ function CompactAchievementDetailScreen({
+   readonly onOpenCompactGame: () => void;
+   readonly onOpenFullScreenGame: () => void;
+ }): JSX.Element {
++  const achievementMode = useDeckySettings().retroAchievementsAchievementMode;
+   const loadAchievementGameDetail = useMemo(
+     () => () => destination.providerId === STEAM_PROVIDER_ID
+       ? loadDeckyCompactSteamGameState(
+@@ -1298,7 +1293,7 @@ function CompactAchievementDetailScreen({
+     : initialDeckyGameDetailState;
+   const loader = useAsyncResourceState(loadAchievementGameDetail, initialGameDetailState);
+   const model = isRenderableGameDetailState(loader)
+-    ? buildCompactAchievementDetailModel(loader.data, destination.achievementId)
++    ? buildCompactAchievementDetailModel(loader.data, destination.achievementId, achievementMode)
+     : undefined;
+ 
+   const detailContent = model === undefined ? undefined : (
+@@ -1318,11 +1313,9 @@ function CompactAchievementDetailScreen({
+       scrollKey={`achievement:${destination.providerId}:${destination.gameId}:${destination.achievementId}`}
+     >
+       {model !== undefined ? (
+-        destination.providerId === STEAM_PROVIDER_ID ? (
+-          <DeckySteamCompactAchievementDetailSurface>
+-            {detailContent}
+-          </DeckySteamCompactAchievementDetailSurface>
+-        ) : detailContent
++        <DeckyCompactAchievementDetailSurface>
++          {detailContent}
++        </DeckyCompactAchievementDetailSurface>
+       ) : (
+         <DeckyCompactLoadingState
+           steamTheme={destination.providerId === STEAM_PROVIDER_ID}
+diff --git a/src/platform/decky/decky-compact-achievement-list.tsx b/src/platform/decky/decky-compact-achievement-list.tsx
+index 0404f41..6303f8a 100644
+--- a/src/platform/decky/decky-compact-achievement-list.tsx
++++ b/src/platform/decky/decky-compact-achievement-list.tsx
+@@ -79,9 +79,11 @@ function getRowsStyle(): CSSProperties {
+ 
+ function getRowStyle(row: CompactAchievementRowViewModel, isFocused: boolean, isSteam: boolean): CSSProperties {
+   if (row.metadataPlacement === "rail") {
++    const modeColor = row.tone === "hardcore" ? raTheme.color.hardcore : row.tone === "softcore" ? raTheme.color.softcore : raTheme.color.borderSubtle;
+     return {
+-      ...steamRecipes.card("compact", "raised"),
+-      ...(isFocused ? { borderColor: steamTheme.color.borderStrong, boxShadow: steamTheme.focus.shadow } : {}),
++      ...(isSteam ? steamRecipes.card("compact", "raised") : raRecipes.card("compact", true)),
++      ...(!isSteam ? { borderLeft: `2px solid ${modeColor}` } : {}),
++      ...(isFocused ? { borderColor: isSteam ? steamTheme.color.borderStrong : raTheme.focus.border, boxShadow: isSteam ? steamTheme.focus.shadow : raTheme.focus.shadow } : {}),
+       display: "grid",
+       gridTemplateColumns: "40px minmax(0, 1fr) minmax(42px, auto)",
+       alignItems: "start",
+@@ -246,11 +248,11 @@ function getSteamAchievementLoadActionStyle(focused: boolean): CSSProperties {
+   };
+ }
+ 
+-function getRailMetadataStyle(): CSSProperties {
++function getRailMetadataStyle(isSteam: boolean): CSSProperties {
+   return {
+-    ...steamRecipes.text("compact", "metadata"),
+-    color: steamTheme.color.textPrimary,
+-    fontSize: steamTheme.type.compact.metadata,
++    ...(isSteam ? steamRecipes.text("compact", "metadata") : raRecipes.text("compact", "metadata")),
++    color: isSteam ? steamTheme.color.textPrimary : raTheme.color.textPrimary,
++    fontSize: isSteam ? steamTheme.type.compact.metadata : raTheme.type.compact.metadata,
+     fontWeight: 750,
+     lineHeight: 1.1,
+     whiteSpace: "nowrap",
+@@ -365,6 +367,9 @@ function CompactAchievementRow({
+ 
+       {model.metadataPlacement === "rail" ? (
+         <div style={getRailStyle()}>
++          {!isSteam && model.isUnlocked && model.unlockMode !== undefined ? (
++            <span style={{ color: model.unlockMode === "hardcore" ? raTheme.color.hardcore : raTheme.color.softcore, fontSize: 9, fontWeight: 800, textTransform: "capitalize" }}>{model.unlockMode}</span>
++          ) : null}
+           {model.stateIndicator !== undefined ? (
+             <span aria-label={model.statusText} role="img" style={{ color: model.stateIndicator === "unlocked" ? steamRecipes.achievementState.unlocked.color : steamRecipes.achievementState.locked.color }}>
+               {model.stateIndicator === "unlocked" ? (
+@@ -377,7 +382,7 @@ function CompactAchievementRow({
+             </span>
+           ) : null}
+           {model.metadata.map((item) => (
+-            <span key={item.key} style={getRailMetadataStyle()}>{item.value}</span>
++            <span key={item.key} style={getRailMetadataStyle(isSteam)}>{item.value}</span>
+           ))}
+         </div>
+       ) : null}
+@@ -398,7 +403,8 @@ export function DeckyCompactAchievementList({
+   const pageStateRef = useRef(pageState);
+   const restoreAchievementIdRef = useRef(pageState.focusedAchievementId);
+   const [focusedControl, setFocusedControl] = useState<string | undefined>();
+-  const refined = model.providerId === "steam";
++  const isSteam = model.providerId === "steam";
++  const refined = true;
+   const counts = useMemo(() => getCompactAchievementFilterCounts(model.rows), [model.rows]);
+   const filteredRows = useMemo(
+     () => model.rows.filter((row) =>
+@@ -412,13 +418,19 @@ export function DeckyCompactAchievementList({
+ 
+   useLayoutEffect(() => {
+     const restoreAchievementId = restoreAchievementIdRef.current;
+-    if (!focusRestorationReady || embedded || model.providerId !== "steam" || restoreAchievementId === undefined) {
++    if (!focusRestorationReady || embedded || restoreAchievementId === undefined) {
+       return;
+     }
+ 
+     const target = rootRef.current?.querySelector<HTMLElement>(
+       `[data-achievement-companion-compact-achievement-id='${restoreAchievementId}']`,
+-    );
++    ) ?? rootRef.current?.querySelector<HTMLElement>("[data-ac-compact-filter-selected='true']");
++    return requestDeckySteamGamepadFocusAfterMount(target);
++  }, [embedded, focusRestorationReady, model.gameId, model.providerId]);
++
++  useLayoutEffect(() => {
++    if (!focusRestorationReady || embedded || restoreAchievementIdRef.current !== undefined) return;
++    const target = rootRef.current?.querySelector<HTMLElement>("[data-ac-compact-filter-selected='true']");
+     return requestDeckySteamGamepadFocusAfterMount(target);
+   }, [embedded, focusRestorationReady, model.gameId, model.providerId]);
+ 
+@@ -443,15 +455,15 @@ export function DeckyCompactAchievementList({
+     commitPageState((current) => ({
+       ...current,
+       focusedAchievementId: achievementId,
+-      scrollTop: model.providerId === "steam"
++      scrollTop: refined
+         ? readSteamScrollTop(target, current.scrollTop)
+         : readScrollTop(target, current.scrollTop),
+     }));
+   };
+ 
+   return (
+-      <section aria-label={`${model.gameTitle} achievements`} data-ac-steam-theme={refined ? "compact" : undefined} data-ac-ra-theme={!refined ? "compact" : undefined} ref={rootRef} style={getRootStyle(embedded)}>
+-      {!embedded ? <h2 style={getHeadingStyle(refined)}>Achievements</h2> : null}
++      <section aria-label={`${model.gameTitle} achievements`} data-ac-steam-theme={isSteam ? "compact" : undefined} data-ac-ra-theme={!isSteam ? "compact" : undefined} ref={rootRef} style={getRootStyle(embedded)}>
++      {!embedded ? <h2 style={getHeadingStyle(isSteam)}>Achievements</h2> : null}
+ 
+       {model.supportsModeFilter ? (
+         <Focusable
+@@ -516,6 +528,7 @@ export function DeckyCompactAchievementList({
+           const label = formatFilterLabel(filter, counts);
+           return (
+             <Focusable
++              data-ac-compact-filter-selected={active ? "true" : undefined}
+               aria-checked={active}
+               aria-label={label}
+               className={refined ? undefined : className}
+@@ -550,7 +563,7 @@ export function DeckyCompactAchievementList({
+               }}
+               onBlur={() => setFocusedControl(undefined)}
+               role="radio"
+-              style={refined
++              style={isSteam
+                 ? getSteamCompactAchievementFilterStyle(active, focusedControl === filter)
+                 : raRecipes.filter(active, focusedControl === filter)}
+             >
+@@ -566,21 +579,21 @@ export function DeckyCompactAchievementList({
+             <CompactAchievementRow
+               key={row.achievementId}
+               model={row}
+-              isSteam={refined}
++              isSteam={isSteam}
+               onBack={onBack}
+               onFocusRow={rememberFocus}
+               onOpen={(target) => {
+                 commitPageState((current) => ({
+                   ...current,
+                   focusedAchievementId: row.achievementId,
+-                  scrollTop: model.providerId === "steam"
++                  scrollTop: refined
+                     ? readSteamScrollTop(target, current.scrollTop)
+                     : current.scrollTop,
+                 }));
+                 onOpenAchievement(row.achievementId);
+               }}
+               preferredFocus={
+-                (embedded || model.providerId !== "steam") &&
++                embedded &&
+                 pageState.focusedAchievementId === row.achievementId
+               }
+             />
+diff --git a/src/platform/decky/decky-compact-achievement-model.ts b/src/platform/decky/decky-compact-achievement-model.ts
+index 32b6c2c..f1e502d 100644
+--- a/src/platform/decky/decky-compact-achievement-model.ts
++++ b/src/platform/decky/decky-compact-achievement-model.ts
+@@ -1,4 +1,5 @@
+ import type { GameDetailSnapshot, NormalizedAchievement, NormalizedMetric, ProviderId } from "@core/domain";
++import type { RetroAchievementsAchievementMode } from "@core/settings";
+ import { getSteamHuntersAchievementEnrichment, getSteamHuntersGameEnrichment } from "../../providers/steamhunters/compose-steam-game-detail";
+ import {
+   buildAchievementStatus,
+@@ -6,9 +7,9 @@ import {
+   formatCount,
+   formatMetricValue,
+   formatProviderAchievementPointsText,
+-  formatProviderAchievementStatusText,
+   formatTimestamp,
+   getAchievementDetailCounts,
++  getAchievementSpotlightCounts,
+   getMetricValue,
+ } from "./decky-achievement-detail-helpers";
+ import { formatSteamHuntersPercentage, formatSteamHuntersPlayersUnlocked } from "./decky-steam-hunters-presentation";
+@@ -49,6 +50,8 @@ export interface CompactAchievementRowViewModel {
+   readonly classification?: NormalizedAchievement["classification"];
+   readonly isUnlocked: boolean;
+   readonly unlockMode?: NormalizedAchievement["unlockMode"];
++  readonly hardcoreUnlocked?: boolean;
++  readonly softcoreUnlocked?: boolean;
+   readonly statusText: string;
+   readonly timestampText?: string;
+   readonly stateIndicator?: CompactAchievementStateKind;
+@@ -215,29 +218,40 @@ export function buildSteamCompactAchievementListModel(
+ 
+ export function buildRetroAchievementsCompactAchievementListModel(
+   snapshot: GameDetailSnapshot,
++  selectedMode: RetroAchievementsAchievementMode = "both",
+ ): CompactAchievementListViewModel {
+   return {
+     providerId: snapshot.game.providerId,
+     gameId: snapshot.game.gameId,
+     gameTitle: snapshot.game.title,
+-    supportsModeFilter: true,
+-    initialVisibleCount: 3,
+-    rows: sortAchievementsForDisplay(snapshot.achievements).map((achievement) => {
++    supportsModeFilter: selectedMode === "both",
++    initialVisibleCount: 12,
++    rows: sortAchievementsForDisplay(snapshot.achievements, selectedMode).map((achievement) => {
++      const hardcoreUnlocked = achievement.hardcoreUnlockedAt !== undefined || (achievement.isUnlocked && achievement.unlockMode === "hardcore");
++      const softcoreUnlocked = achievement.softcoreUnlockedAt !== undefined || (achievement.isUnlocked && achievement.unlockMode === "softcore");
++      const isUnlocked = selectedMode === "hardcore" ? hardcoreUnlocked : selectedMode === "softcore" ? softcoreUnlocked : achievement.isUnlocked;
++      const unlockMode = selectedMode === "both" ? achievement.unlockMode : selectedMode;
+       const pointsText = formatProviderAchievementPointsText(snapshot.game.providerId, achievement.points);
++      const rarity = getAchievementSpotlightCounts(achievement.metrics, snapshot.game.metrics).unlockRatePercent;
++      const metadata: CompactAchievementMetadataItem[] = [];
++      if (pointsText !== undefined) metadata.push({ key: "points", value: pointsText });
++      if (rarity !== undefined) metadata.push({ key: "rarity", value: `${rarity.toFixed(1)}%` });
+       return {
+         achievementId: achievement.achievementId,
+         title: achievement.title,
++        ...(achievement.description !== undefined ? { description: achievement.description } : {}),
+         ...(achievement.badgeImageUrl !== undefined ? { iconUrl: achievement.badgeImageUrl } : {}),
+         ...(achievement.classification !== undefined ? { classification: achievement.classification } : {}),
+-        isUnlocked: achievement.isUnlocked,
+-        ...(achievement.unlockMode !== undefined ? { unlockMode: achievement.unlockMode } : {}),
+-        statusText: formatProviderAchievementStatusText(snapshot.game.providerId, achievement),
+-        ...(achievement.unlockedAt !== undefined
+-          ? { timestampText: `Unlocked ${formatTimestamp(achievement.unlockedAt)}` }
+-          : {}),
+-        metadata: pointsText === undefined ? [] : [{ key: "points", value: pointsText }],
+-        metadataPlacement: "stack",
+-        tone: getRowTone(achievement),
++        isUnlocked,
++        hardcoreUnlocked,
++        softcoreUnlocked,
++        ...(unlockMode !== undefined ? { unlockMode } : {}),
++        statusText: isUnlocked ? "Unlocked" : "Locked",
++        // The full unlock timestamp belongs on the detail page; QAM list rows stay compact.
++        metadata,
++        metadataPlacement: "rail",
++        stateIndicator: isUnlocked ? "unlocked" : "locked",
++        tone: !isUnlocked ? "locked" : unlockMode === "hardcore" ? "hardcore" : unlockMode === "softcore" ? "softcore" : "default",
+       };
+     }),
+   };
+@@ -245,10 +259,11 @@ export function buildRetroAchievementsCompactAchievementListModel(
+ 
+ export function buildCompactAchievementListModel(
+   snapshot: GameDetailSnapshot,
++  selectedMode: RetroAchievementsAchievementMode = "both",
+ ): CompactAchievementListViewModel {
+   return snapshot.game.providerId === "steam"
+     ? buildSteamCompactAchievementListModel(snapshot)
+-    : buildRetroAchievementsCompactAchievementListModel(snapshot);
++    : buildRetroAchievementsCompactAchievementListModel(snapshot, selectedMode);
+ }
+ 
+ export function buildSteamCompactAchievementDetailModel(
+@@ -315,6 +330,7 @@ export function buildSteamCompactAchievementDetailModel(
+ export function buildRetroAchievementsCompactAchievementDetailModel(
+   snapshot: GameDetailSnapshot,
+   achievementId: string,
++  selectedMode: RetroAchievementsAchievementMode = "both",
+ ): CompactAchievementDetailViewModel | undefined {
+   const achievement = findAchievement(snapshot, achievementId);
+   if (achievement === undefined) {
+@@ -322,15 +338,20 @@ export function buildRetroAchievementsCompactAchievementDetailModel(
+   }
+ 
+   const counts = getAchievementDetailCounts(achievement.metrics, snapshot.game.metrics);
+-  const status = buildAchievementStatus(achievement);
+-  const statusSecondary = achievement.isUnlocked && achievement.unlockedAt !== undefined
+-    ? `Unlocked ${formatTimestamp(achievement.unlockedAt)}`
++  const hardcoreUnlocked = achievement.hardcoreUnlockedAt !== undefined || (achievement.isUnlocked && achievement.unlockMode === "hardcore");
++  const softcoreUnlocked = achievement.softcoreUnlockedAt !== undefined || (achievement.isUnlocked && achievement.unlockMode === "softcore");
++  const isUnlocked = selectedMode === "hardcore" ? hardcoreUnlocked : selectedMode === "softcore" ? softcoreUnlocked : achievement.isUnlocked;
++  const status = selectedMode === "both" ? buildAchievementStatus(achievement) : { value: isUnlocked ? `Unlocked in ${selectedMode}` : `Locked in ${selectedMode}` };
++  const selectedUnlockedAt = selectedMode === "hardcore" ? achievement.hardcoreUnlockedAt
++    : selectedMode === "softcore" ? achievement.softcoreUnlockedAt : achievement.unlockedAt;
++  const statusSecondary = isUnlocked && selectedUnlockedAt !== undefined
++    ? `Unlocked ${formatTimestamp(selectedUnlockedAt)}`
+     : undefined;
+   const countStats: CompactAchievementDetailStat[] = [];
+-  if (counts.softcoreUnlockCount !== undefined) {
++  if (selectedMode !== "hardcore" && counts.softcoreUnlockCount !== undefined) {
+     countStats.push({ key: "softcore", label: "Softcore unlocks", value: formatCount(counts.softcoreUnlockCount) });
+   }
+-  if (counts.hardcoreUnlockCount !== undefined) {
++  if (selectedMode !== "softcore" && counts.hardcoreUnlockCount !== undefined) {
+     countStats.push({ key: "hardcore", label: "Hardcore unlocks", value: formatCount(counts.hardcoreUnlockCount) });
+   }
+   if (counts.totalPlayers !== undefined) {
+@@ -343,7 +364,7 @@ export function buildRetroAchievementsCompactAchievementDetailModel(
+       title: "Status",
+       value: status.value,
+       ...(statusSecondary !== undefined ? { secondary: statusSecondary } : {}),
+-      tone: getRowTone(achievement),
++      tone: !isUnlocked ? "locked" : selectedMode === "both" ? getRowTone(achievement) : selectedMode,
+     },
+     {
+       kind: "stats",
+@@ -374,23 +395,23 @@ export function buildRetroAchievementsCompactAchievementDetailModel(
+     description: achievement.description ?? "",
+     ...(achievement.badgeImageUrl !== undefined ? { iconUrl: achievement.badgeImageUrl } : {}),
+     ...(achievement.classification !== undefined ? { classification: achievement.classification } : {}),
+-    isUnlocked: achievement.isUnlocked,
++    isUnlocked,
+     badges: [],
+     blocks,
+     game: getGameModel(snapshot),
+-    gamePlacement: "before-achievement",
+-    showLegacyActions: true,
+-    panelTitle: "Achievement details",
++    gamePlacement: "after-details",
++    showLegacyActions: false,
+   };
+ }
+ 
+ export function buildCompactAchievementDetailModel(
+   snapshot: GameDetailSnapshot,
+   achievementId: string,
++  selectedMode: RetroAchievementsAchievementMode = "both",
+ ): CompactAchievementDetailViewModel | undefined {
+   return snapshot.game.providerId === "steam"
+     ? buildSteamCompactAchievementDetailModel(snapshot, achievementId)
+-    : buildRetroAchievementsCompactAchievementDetailModel(snapshot, achievementId);
++    : buildRetroAchievementsCompactAchievementDetailModel(snapshot, achievementId, selectedMode);
+ }
+ 
+ export function getCompactAchievementFilterCounts(
+@@ -419,5 +440,5 @@ export function matchesCompactAchievementModeFilter(
+   if (filter === "all" || !row.isUnlocked) {
+     return true;
+   }
+-  return filter === "hardcore" ? row.unlockMode !== "softcore" : row.unlockMode !== "hardcore";
++  return filter === "hardcore" ? row.hardcoreUnlocked === true : row.softcoreUnlocked === true;
+ }
+diff --git a/src/platform/decky/decky-game-detail-ordering.ts b/src/platform/decky/decky-game-detail-ordering.ts
+index af3f20e..b9d9861 100644
+--- a/src/platform/decky/decky-game-detail-ordering.ts
++++ b/src/platform/decky/decky-game-detail-ordering.ts
+@@ -1,21 +1,29 @@
+ import type { NormalizedAchievement } from "@core/domain";
++import type { RetroAchievementsAchievementMode } from "@core/settings";
+ 
+ export function sortAchievementsForDisplay(
+   achievements: readonly NormalizedAchievement[],
++  mode: RetroAchievementsAchievementMode = "both",
+ ): readonly NormalizedAchievement[] {
++  const unlocked = (achievement: NormalizedAchievement): boolean => mode === "both" ? achievement.isUnlocked
++    : mode === "hardcore"
++      ? achievement.hardcoreUnlockedAt !== undefined || (achievement.isUnlocked && achievement.unlockMode === "hardcore")
++      : achievement.softcoreUnlockedAt !== undefined || (achievement.isUnlocked && achievement.unlockMode === "softcore");
++  const unlockedAt = (achievement: NormalizedAchievement): number | undefined => mode === "both" ? achievement.unlockedAt
++    : mode === "hardcore" ? achievement.hardcoreUnlockedAt : achievement.softcoreUnlockedAt;
+   return achievements
+     .map((achievement, index) => ({
+       achievement,
+       index,
+     }))
+     .sort((left, right) => {
+-      if (left.achievement.isUnlocked !== right.achievement.isUnlocked) {
+-        return left.achievement.isUnlocked ? -1 : 1;
++      if (unlocked(left.achievement) !== unlocked(right.achievement)) {
++        return unlocked(left.achievement) ? -1 : 1;
+       }
+ 
+-      if (left.achievement.isUnlocked && right.achievement.isUnlocked) {
+-        const leftUnlockedAt = left.achievement.unlockedAt;
+-        const rightUnlockedAt = right.achievement.unlockedAt;
++      if (unlocked(left.achievement) && unlocked(right.achievement)) {
++        const leftUnlockedAt = unlockedAt(left.achievement);
++        const rightUnlockedAt = unlockedAt(right.achievement);
+ 
+         if (leftUnlockedAt !== undefined && rightUnlockedAt !== undefined && leftUnlockedAt !== rightUnlockedAt) {
+           return rightUnlockedAt - leftUnlockedAt;
+diff --git a/src/platform/decky/decky-game-detail-view.tsx b/src/platform/decky/decky-game-detail-view.tsx
+index 47f0287..948aa3e 100644
+--- a/src/platform/decky/decky-game-detail-view.tsx
++++ b/src/platform/decky/decky-game-detail-view.tsx
+@@ -1,495 +1,40 @@
+ import type { ResourceState } from "@core/cache";
+ import type { GameDetailSnapshot } from "@core/domain";
+-import { useCallback } from "react";
+-import { Field, PanelSection, PanelSectionRow } from "@decky/ui";
+-import type { CSSProperties } from "react";
+-import {
+-  DeckyCompletionProgressBar,
+-  getCompletionPercent,
+-  type DeckyCompletionProgressBarTone,
+-} from "./decky-completion-progress-bar";
+-import {
+-  formatRetroAchievementsCompletionIndicatorLabel,
+-  getRetroAchievementsCompletionIndicatorState,
+-  RetroAchievementsCompletionIndicator,
+-} from "./decky-retroachievements-completion-indicator";
+-import { DeckyGameArtwork } from "./decky-game-artwork";
+-import { DeckySystemPill } from "./decky-system-pill";
++import type { RetroAchievementsAchievementMode } from "@core/settings";
++import { DeckyRetroAchievementsCompactGameOverview } from "./decky-retroachievements-compact-game-overview";
+ import { DeckySteamCompactGameOverview } from "./decky-steam-compact-game-overview";
+-import { DeckyCompactPillActionGroup, DeckyCompactPillActionItem } from "./decky-compact-pill-action-item";
+-import { ensureCompactGameDetailCancelBridgeRegisteredForBackButtonElement } from "./decky-full-screen-cancel-bridge";
+-import {
+-  formatRetroAchievementsBeatenAtText,
+-  formatRetroAchievementsMasteredAtText,
+-  shouldRenderRetroAchievementsModeSummaryCard,
+-} from "./decky-achievement-detail-helpers";
+-import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
+-import { DeckyCompactAchievementList } from "./decky-compact-achievement-list";
+-import {
+-  buildCompactAchievementListModel,
+-  type CompactAchievementModeFilter,
+-} from "./decky-compact-achievement-model";
+-
+ 
+ export interface DeckyGameDetailViewProps {
+-  readonly state: ResourceState<GameDetailSnapshot> & {
+-    readonly data: GameDetailSnapshot;
+-  };
++  readonly state: ResourceState<GameDetailSnapshot> & { readonly data: GameDetailSnapshot };
++  readonly achievementMode?: RetroAchievementsAchievementMode;
+   readonly onBackToDashboard: () => void;
+   readonly onOpenFullScreenPage: (() => void) | undefined;
+   readonly onOpenCompactAchievements: (() => void) | undefined;
+   readonly onOpenAchievementDetail: (achievementId: string) => void;
+ }
+ 
+-function formatTimestamp(epochMs: number | undefined): string {
+-  if (epochMs === undefined) {
+-    return "Unknown";
+-  }
+-
+-  return new Date(epochMs).toLocaleString();
+-}
+-
+-function formatCount(value: number): string {
+-  return value.toLocaleString();
+-}
+-
+-function formatProgressSummary(snapshot: GameDetailSnapshot): string {
+-  const summary = snapshot.game.summary;
+-  const parts = [`${formatCount(summary.unlockedCount)} unlocked`];
+-
+-  if (summary.totalCount !== undefined) {
+-    parts.push(`${formatCount(summary.totalCount)} total`);
+-  }
+-
+-  return parts.join(" / ");
+-}
+-
+-function formatDataSourceLabel(isCachedView: boolean): string {
+-  return isCachedView ? "Cached snapshot" : "Live snapshot";
+-}
+-
+-function getAchievementModeProgressSummary(
+-  achievements: GameDetailSnapshot["achievements"],
+-  modeFilter: CompactAchievementModeFilter,
+-): {
+-  readonly unlockedCount: number;
+-  readonly points: number | undefined;
+-} {
+-  let unlockedCount = 0;
+-  let points = 0;
+-  let hasPoints = false;
+-
+-  for (const achievement of achievements) {
+-    if (!achievement.isUnlocked || achievement.unlockMode !== modeFilter) {
+-      continue;
+-    }
+-
+-    unlockedCount += 1;
+-    if (achievement.points !== undefined) {
+-      points += achievement.points;
+-      hasPoints = true;
+-    }
+-  }
+-
+-  return {
+-    unlockedCount,
+-    points: hasPoints ? points : undefined,
+-  };
+-}
+-
+-function getGameDetailSectionCardStyle(): CSSProperties {
+-  return {
+-    display: "flex",
+-    flexDirection: "column",
+-    gap: 12,
+-    width: "100%",
+-    minWidth: 0,
+-    boxSizing: "border-box",
+-    padding: 14,
+-    borderRadius: 18,
+-    border: "1px solid rgba(255, 255, 255, 0.08)",
+-    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.02))",
+-    boxShadow:
+-      "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 10px rgba(0, 0, 0, 0.18)",
+-  };
+-}
+-
+-function getGameDetailSystemPillStyle(): CSSProperties {
+-  return {
+-    alignSelf: "center",
+-    display: "inline-flex",
+-    alignItems: "center",
+-    justifyContent: "center",
+-    gap: 6,
+-    minWidth: 0,
+-    padding: "4px 10px",
+-    borderRadius: 999,
+-    border: "1px solid rgba(255, 255, 255, 0.08)",
+-    background: "rgba(255, 255, 255, 0.05)",
+-    color: "rgba(255, 255, 255, 0.74)",
+-    fontSize: "0.72em",
+-    fontWeight: 800,
+-    letterSpacing: "0.08em",
+-    textTransform: "uppercase",
+-  };
+-}
+-
+-function getGameDetailOverviewIconFrameStyle(): CSSProperties {
+-  return {
+-    display: "flex",
+-    alignItems: "center",
+-    justifyContent: "center",
+-    width: 72,
+-    height: 72,
+-    minWidth: 72,
+-    borderRadius: 18,
+-    border: "1px solid rgba(255, 255, 255, 0.08)",
+-    background: "rgba(255, 255, 255, 0.04)",
+-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+-  };
+-}
+-
+-function getGameDetailOverviewLayoutStyle(): CSSProperties {
+-  return {
+-    display: "flex",
+-    flexDirection: "column",
+-    alignItems: "center",
+-    gap: 10,
+-    textAlign: "center",
+-  };
+-}
+-
+-function getGameDetailOverviewTitleStyle(): CSSProperties {
+-  return {
+-    color: "rgba(255, 255, 255, 0.95)",
+-    fontSize: "1.18em",
+-    fontWeight: 800,
+-    lineHeight: 1.15,
+-    textAlign: "center",
+-  };
+-}
+-
+-function getGameDetailOverviewActionRowStyle(): CSSProperties {
+-  return {
+-    justifyContent: "center",
+-  };
+-}
+-
+-function getGameDetailSummaryLineStyle(): CSSProperties {
+-  return {
+-    color: "rgba(255, 255, 255, 0.82)",
+-    fontSize: "0.88em",
+-    fontWeight: 700,
+-    lineHeight: 1.25,
+-    textAlign: "center",
+-  };
+-}
+-
+-function getGameDetailCompletionStatusStyle(
+-  tone: DeckyCompletionProgressBarTone,
+-): CSSProperties {
+-  return {
+-    display: "inline-flex",
+-    alignItems: "center",
+-    alignSelf: "center",
+-    gap: 7,
+-    width: "fit-content",
+-    maxWidth: "100%",
+-    minHeight: 24,
+-    padding: "3px 9px",
+-    borderRadius: 999,
+-    border:
+-      tone === "retroachievements-mastered"
+-        ? "1px solid rgba(232, 201, 102, 0.42)"
+-        : "1px solid rgba(214, 221, 232, 0.32)",
+-    background:
+-      tone === "retroachievements-mastered"
+-        ? "linear-gradient(180deg, rgba(232, 201, 102, 0.13), rgba(214, 178, 74, 0.055))"
+-        : "linear-gradient(180deg, rgba(214, 221, 232, 0.13), rgba(188, 198, 211, 0.055))",
+-    color:
+-      tone === "retroachievements-mastered"
+-        ? "rgba(255, 239, 184, 0.96)"
+-        : "rgba(231, 237, 245, 0.96)",
+-    fontSize: "0.78em",
+-    fontWeight: 800,
+-    letterSpacing: "0.04em",
+-    lineHeight: 1,
+-    textTransform: "uppercase",
+-    boxSizing: "border-box",
+-  };
+-}
+-
+-function getGameDetailCompletionTimingStyle(
+-  tone: DeckyCompletionProgressBarTone,
+-): CSSProperties {
+-  return {
+-    alignSelf: "center",
+-    color:
+-      tone === "retroachievements-mastered"
+-        ? "rgba(255, 239, 184, 0.84)"
+-        : "rgba(221, 228, 236, 0.84)",
+-    fontSize: "0.78em",
+-    fontWeight: 700,
+-    lineHeight: 1.2,
+-    textAlign: "center",
+-  };
+-}
+-
+-function getModeProgressGridStyle(singleColumn: boolean): CSSProperties {
+-  return {
+-    display: "grid",
+-    gridTemplateColumns: singleColumn ? "minmax(0, 1fr)" : "repeat(2, minmax(0, 1fr))",
+-    gap: 10,
+-    alignItems: "stretch",
+-    minWidth: 0,
+-    width: "100%",
+-  };
+-}
+-
+-function getModeProgressCardStyle(mode: CompactAchievementModeFilter): CSSProperties {
+-  const isHardcore = mode === "hardcore";
+-
+-  return {
+-    display: "flex",
+-    flexDirection: "column",
+-    gap: 6,
+-    minWidth: 0,
+-    boxSizing: "border-box",
+-    padding: "11px 12px",
+-    borderRadius: 16,
+-    border: `1px solid ${isHardcore ? "rgba(214, 178, 74, 0.28)" : "rgba(214, 221, 232, 0.2)"}`,
+-    borderLeftWidth: 4,
+-    borderLeftStyle: "solid",
+-    borderLeftColor: isHardcore ? "rgba(214, 178, 74, 0.8)" : "rgba(214, 221, 232, 0.72)",
+-    background: isHardcore
+-      ? "linear-gradient(180deg, rgba(214, 178, 74, 0.08), rgba(214, 178, 74, 0.03))"
+-      : "linear-gradient(180deg, rgba(214, 221, 232, 0.07), rgba(214, 221, 232, 0.03))",
+-    boxShadow:
+-      "inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 8px rgba(0, 0, 0, 0.14)",
+-  };
+-}
+-
+-function getModeProgressCardTitleStyle(mode: CompactAchievementModeFilter): CSSProperties {
+-  const isHardcore = mode === "hardcore";
+-
+-  return {
+-    color: isHardcore ? "rgba(232, 201, 102, 0.95)" : "rgba(220, 225, 233, 0.95)",
+-    fontSize: "0.78em",
+-    fontWeight: 800,
+-    letterSpacing: "0.05em",
+-    lineHeight: 1.15,
+-    textTransform: "uppercase",
+-  };
+-}
+-
+-function getModeProgressCardLineStyle(): CSSProperties {
+-  return {
+-    color: "rgba(255, 255, 255, 0.86)",
+-    fontSize: "0.84em",
+-    lineHeight: 1.2,
+-  };
+-}
+-
+-function getModeProgressCardPointsStyle(): CSSProperties {
+-  return {
+-    color: "rgba(255, 255, 255, 0.72)",
+-    fontSize: "0.8em",
+-    lineHeight: 1.2,
+-  };
+-}
+-
+ export function DeckyGameDetailView({
+   state,
++  achievementMode = "both",
+   onBackToDashboard,
+   onOpenFullScreenPage,
+   onOpenCompactAchievements,
+   onOpenAchievementDetail,
+ }: DeckyGameDetailViewProps): JSX.Element {
+-  const compactGameDetailBackButtonRef = useCallback((node: HTMLDivElement | null) => {
+-    ensureCompactGameDetailCancelBridgeRegisteredForBackButtonElement(node);
+-  }, []);
+-  const snapshot = state.data;
+-  const game = snapshot.game;
+-  const isSteamGame = game.providerId === "steam";
+-  const headerArtworkUrl = game.coverImageUrl;
+-  const achievementListModel = buildCompactAchievementListModel(snapshot);
+-  const completionPercent = getCompletionPercent(snapshot.game.summary);
+-  const completionIndicatorState = getRetroAchievementsCompletionIndicatorState(game);
+-  const isBeaten =
+-    completionIndicatorState === "beaten-hardcore" || completionIndicatorState === "beaten-softcore";
+-  const isMasteredHardcore = completionIndicatorState === "mastered-hardcore";
+-  const completionStatusLabel = isMasteredHardcore ? "Mastered" : isBeaten ? "Beaten" : undefined;
+-  const completionStatusAriaLabel =
+-    completionIndicatorState !== undefined
+-      ? formatRetroAchievementsCompletionIndicatorLabel(completionIndicatorState)
+-      : undefined;
+-  const completionTone = isMasteredHardcore
+-    ? "retroachievements-mastered"
+-    : isBeaten
+-      ? "retroachievements-beaten"
+-      : "default";
+-  const masteredAtText = formatRetroAchievementsMasteredAtText(game);
+-  const beatenAtText = formatRetroAchievementsBeatenAtText(game);
+-  const completionAtText = isMasteredHardcore ? masteredAtText : beatenAtText;
+-  const softcoreModeProgress = getAchievementModeProgressSummary(snapshot.achievements, "softcore");
+-  const hardcoreModeProgress = getAchievementModeProgressSummary(snapshot.achievements, "hardcore");
+-  const showSoftcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard({
+-    game,
+-    mode: "softcore",
+-    summary: game.softcoreSummary,
+-    points: softcoreModeProgress.points,
+-  });
+-  const showHardcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard({
+-    game,
+-    mode: "hardcore",
+-    summary: game.hardcoreSummary,
+-    points: hardcoreModeProgress.points,
+-  });
+-  const visibleModeCardCount = Number(showSoftcoreModeCard) + Number(showHardcoreModeCard);
+-  const isCachedView = state.status === "stale";
+-  const refreshTimestamp = state.lastUpdatedAt ?? snapshot.refreshedAt;
+-
+-  if (isSteamGame) {
+-    return (
+-      <>
+-        <DeckySteamCompactGameOverview
+-          onBack={onBackToDashboard}
+-          onOpenFullScreen={onOpenFullScreenPage}
+-          onViewAchievements={onOpenCompactAchievements}
+-          snapshot={snapshot}
+-        />
+-      </>
+-    );
++  if (state.data.game.providerId === "steam") {
++    return <DeckySteamCompactGameOverview
++      snapshot={state.data}
++      onBack={onBackToDashboard}
++      onOpenFullScreen={onOpenFullScreenPage}
++      onViewAchievements={onOpenCompactAchievements}
++    />;
+   }
+-
+-  return (
+-    <>
+-      <PanelSection title="GAME OVERVIEW">
+-        <PanelSectionRow>
+-          <div style={getGameDetailSectionCardStyle()}>
+-            <div style={getGameDetailOverviewLayoutStyle()}>
+-              <DeckySystemPill
+-                label={game.platformLabel ?? "Unknown system"}
+-                iconSize={16}
+-                iconUrl={game.providerId === RETROACHIEVEMENTS_PROVIDER_ID ? game.systemIconUrl : undefined}
+-                style={getGameDetailSystemPillStyle()}
+-              />
+-              <div style={getGameDetailOverviewIconFrameStyle()}>
+-                {headerArtworkUrl !== undefined ? (
+-                  <DeckyGameArtwork compact src={headerArtworkUrl} size={48} title={game.title} />
+-                ) : null}
+-              </div>
+-              <div style={getGameDetailOverviewTitleStyle()}>{game.title}</div>
+-              <DeckyCompactPillActionGroup style={getGameDetailOverviewActionRowStyle()}>
+-                <DeckyCompactPillActionItem
+-                  label="Back"
+-                  onClick={onBackToDashboard}
+-                  onCancelButton={onBackToDashboard}
+-                  elementRef={compactGameDetailBackButtonRef}
+-                  dataAttributes={{
+-                    "data-achievement-companion-compact-game-detail-back": "true",
+-                  }}
+-                />
+-
+-                {onOpenFullScreenPage !== undefined ? (
+-                  <DeckyCompactPillActionItem
+-                    label={isSteamGame ? "Open Full-Screen" : "Open Game"}
+-                    onClick={onOpenFullScreenPage}
+-                    onCancelButton={onBackToDashboard}
+-                  />
+-                ) : null}
+-              </DeckyCompactPillActionGroup>
+-            </div>
+-          </div>
+-        </PanelSectionRow>
+-      </PanelSection>
+-
+-      <PanelSection title="PROGRESS SUMMARY">
+-        <PanelSectionRow>
+-          <div style={getGameDetailSectionCardStyle()}>
+-            <div style={getGameDetailSummaryLineStyle()}>{formatProgressSummary(snapshot)}</div>
+-            {completionStatusLabel !== undefined && completionStatusAriaLabel !== undefined ? (
+-              <div
+-                aria-label={completionStatusAriaLabel}
+-                style={getGameDetailCompletionStatusStyle(completionTone)}
+-                title={completionStatusAriaLabel}
+-              >
+-                <RetroAchievementsCompletionIndicator game={game} />
+-                <span>{completionStatusLabel}</span>
+-              </div>
+-            ) : (
+-              <RetroAchievementsCompletionIndicator game={game} />
+-            )}
+-            {completionAtText !== undefined && completionTone !== "default" ? (
+-              <div style={getGameDetailCompletionTimingStyle(completionTone)}>{completionAtText}</div>
+-            ) : null}
+-            {completionPercent !== undefined ? (
+-              <DeckyCompletionProgressBar
+-                compact
+-                percent={completionPercent}
+-                tone={completionTone}
+-              />
+-            ) : null}
+-            {showSoftcoreModeCard || showHardcoreModeCard ? (
+-            <div style={getModeProgressGridStyle(visibleModeCardCount === 1)}>
+-              {showSoftcoreModeCard ? (
+-                <div style={getModeProgressCardStyle("softcore")}>
+-                  <div style={getModeProgressCardTitleStyle("softcore")}>Softcore</div>
+-                  <div style={getModeProgressCardLineStyle()}>
+-                    {`${formatCount(softcoreModeProgress.unlockedCount)} unlocked`}
+-                  </div>
+-                  <div style={getModeProgressCardPointsStyle()}>
+-                    {softcoreModeProgress.points !== undefined
+-                      ? `${formatCount(softcoreModeProgress.points)} points`
+-                      : "Points unavailable"}
+-                  </div>
+-                </div>
+-              ) : null}
+-              {showHardcoreModeCard ? (
+-                <div style={getModeProgressCardStyle("hardcore")}>
+-                  <div style={getModeProgressCardTitleStyle("hardcore")}>Hardcore</div>
+-                  <div style={getModeProgressCardLineStyle()}>
+-                    {`${formatCount(hardcoreModeProgress.unlockedCount)} unlocked`}
+-                  </div>
+-                  <div style={getModeProgressCardPointsStyle()}>
+-                    {hardcoreModeProgress.points !== undefined
+-                      ? `${formatCount(hardcoreModeProgress.points)} points`
+-                      : "Points unavailable"}
+-                  </div>
+-                </div>
+-              ) : null}
+-            </div>
+-            ) : null}
+-          </div>
+-        </PanelSectionRow>
+-      </PanelSection>
+-
+-      <PanelSection title="ACHIEVEMENTS">
+-        <PanelSectionRow>
+-          <DeckyCompactAchievementList
+-            embedded
+-            model={achievementListModel}
+-            onBack={onBackToDashboard}
+-            onOpenAchievement={onOpenAchievementDetail}
+-          />
+-        </PanelSectionRow>
+-      </PanelSection>
+-
+-      <PanelSection title="Snapshot">
+-        <PanelSectionRow>
+-          <Field
+-            bottomSeparator="none"
+-            description={`${formatDataSourceLabel(isCachedView)} · ${formatTimestamp(refreshTimestamp)}`}
+-            label="Updated"
+-          />
+-        </PanelSectionRow>
+-
+-        {state.error ? (
+-          <PanelSectionRow>
+-            <Field bottomSeparator="none" description={state.error.userMessage} label="Snapshot note" />
+-          </PanelSectionRow>
+-        ) : null}
+-      </PanelSection>
+-    </>
+-  );
++  return <DeckyRetroAchievementsCompactGameOverview
++    snapshot={state.data}
++    achievementMode={achievementMode}
++    onBack={onBackToDashboard}
++    onOpenFullScreen={onOpenFullScreenPage}
++    onViewAchievements={onOpenCompactAchievements}
++    onOpenAchievement={onOpenAchievementDetail}
++  />;
+ }
+diff --git a/src/platform/decky/ra-theme.ts b/src/platform/decky/ra-theme.ts
+index 434eafe..51cdb00 100644
+--- a/src/platform/decky/ra-theme.ts
++++ b/src/platform/decky/ra-theme.ts
+@@ -228,6 +228,41 @@ export const raRecipes = {
+     beaten: { color: raTheme.color.beaten, border: "rgba(230, 235, 242, 0.86)", surface: "rgba(230, 235, 242, 0.2)" },
+     mastered: { color: raTheme.color.mastered, border: "rgba(242, 216, 127, 0.9)", surface: "rgba(242, 216, 127, 0.24)" },
+   },
++  compactGame: {
++    root: { display: "flex", flexDirection: "column", gap: 8, width: "100%", minWidth: 0, padding: "0 16px 4px", boxSizing: "border-box", color: raTheme.color.textPrimary, fontFamily: qamTheme.type.fontFamily } satisfies CSSProperties,
++    identity: { display: "flex", alignItems: "center", gap: 10, minWidth: 0, padding: "5px 0 2px" } satisfies CSSProperties,
++    identityText: { display: "flex", flexDirection: "column", gap: 6, minWidth: 0 } satisfies CSSProperties,
++    title: { color: raTheme.color.textPrimary, fontSize: 15, fontWeight: 800, lineHeight: 1.16, overflowWrap: "anywhere" } satisfies CSSProperties,
++    platform: { alignSelf: "flex-start", maxWidth: "100%", color: raTheme.color.textSecondary, border: `1px solid ${raTheme.color.borderSubtle}`, borderRadius: raTheme.radius.small, background: raTheme.surface.interactive, fontSize: 10, padding: "3px 6px" } satisfies CSSProperties,
++    actionLabel: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", minWidth: 0, fontWeight: 800, fontSize: 12 } satisfies CSSProperties,
++    actionIcon: { width: 17, height: 17, filter: raTheme.iconFilter.primary } satisfies CSSProperties,
++    passiveCard(focused: boolean): CSSProperties {
++      return { display: "flex", flexDirection: "column", gap: 7, minWidth: 0, padding: "9px 10px", border: `1px solid ${raTheme.color.borderSubtle}`, borderRadius: raTheme.radius.medium, background: raTheme.surface.card, outline: "none", boxSizing: "border-box", ...getQamPassiveCardFocusStyle(focused) };
++    },
++    heading: { color: raTheme.color.accent, fontSize: raTheme.type.compact.heading, fontWeight: 850, letterSpacing: "0.055em", lineHeight: 1.15, textTransform: "uppercase" } satisfies CSSProperties,
++    progressLine: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, fontSize: 11, color: raTheme.color.textPrimary } satisfies CSSProperties,
++    award(kind: "beaten" | "mastered"): CSSProperties {
++      const semantic = raRecipes.gameAward[kind];
++      return { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, minHeight: 58, border: `1px solid ${semantic.border}`, borderRadius: raTheme.radius.small, background: raTheme.surface.raised, color: semantic.color, fontSize: 15, textTransform: "uppercase" };
++    },
++    awardMode: { color: raTheme.color.textSecondary, fontSize: 10, fontWeight: 600, textTransform: "none", marginTop: 2 } satisfies CSSProperties,
++    statGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 5, minWidth: 0 } satisfies CSSProperties,
++    stat: { display: "flex", alignItems: "center", gap: raTheme.space.sm, minWidth: 0, minHeight: 49, padding: "6px 8px", border: `1px solid ${raTheme.color.borderSubtle}`, borderRadius: raTheme.radius.medium, background: raTheme.surface.raised, color: raTheme.color.textSecondary, boxSizing: "border-box" } satisfies CSSProperties,
++    statIcon: { width: 25, height: 25, flex: "0 0 25px" } satisfies CSSProperties,
++    statText: { display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, minWidth: 0 } satisfies CSSProperties,
++    statLabel: { fontSize: raTheme.type.compact.caption, fontWeight: 800, lineHeight: 1.12, letterSpacing: "0.035em", overflowWrap: "anywhere" } satisfies CSSProperties,
++    statValue: { color: raTheme.color.textPrimary, fontSize: 14, fontWeight: 850, lineHeight: 1.05 } satisfies CSSProperties,
++    modeGrid(count: number): CSSProperties { return { display: "grid", gridTemplateColumns: count === 1 ? "minmax(0, 1fr)" : "repeat(2, minmax(0, 1fr))", gap: 5 }; },
++    modeCard(mode: "hardcore" | "softcore"): CSSProperties {
++      const color = mode === "hardcore" ? raTheme.color.hardcore : raTheme.color.softcore;
++      return { display: "flex", alignItems: "center", gap: raTheme.space.sm, minWidth: 0, minHeight: 49, padding: "6px 8px", border: `1px solid ${color}`, borderRadius: raTheme.radius.medium, background: raTheme.surface.raised, color, fontSize: raTheme.type.compact.caption, textTransform: "capitalize", boxSizing: "border-box" };
++    },
++    modeValue: { color: raTheme.color.textPrimary, fontSize: 14, fontWeight: 850, lineHeight: 1.05 } satisfies CSSProperties,
++    recentSection: { display: "flex", flexDirection: "column", gap: 6, minWidth: 0 } satisfies CSSProperties,
++    recentRow: { minHeight: 44, padding: "4px 7px" } satisfies CSSProperties,
++    recentText: { display: "flex", flexDirection: "column", gap: 2, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11 } satisfies CSSProperties,
++    viewAll: { justifyContent: "center", minHeight: 34, fontSize: 11, fontWeight: 800, color: raTheme.color.accent } satisfies CSSProperties,
++  },
+   compactProfile: {
+     root: {
+       display: "flex", flexDirection: "column", gap: 8, width: "100%", minWidth: 0,
+diff --git a/src/providers/retroachievements/community-stats.ts b/src/providers/retroachievements/community-stats.ts
+index 4d27ba9..eccd72b 100644
+--- a/src/providers/retroachievements/community-stats.ts
++++ b/src/providers/retroachievements/community-stats.ts
+@@ -41,6 +41,26 @@ export function normalizeRetroAchievementsGameCommunityStats(args: {
+     args.progression?.MedianTimeToBeatHardcore ?? args.progression?.medianTimeToBeatHardcore,
+     args.progression?.TimesUsedInHardcoreBeatMedian ?? args.progression?.timesUsedInHardcoreBeatMedian,
+   );
++  const beatenSamples = readNonNegativeInteger(
++    args.progression?.TimesUsedInBeatMedian ?? args.progression?.timesUsedInBeatMedian,
++  );
++  const beatenHardcoreSamples = readNonNegativeInteger(
++    args.progression?.TimesUsedInHardcoreBeatMedian ?? args.progression?.timesUsedInHardcoreBeatMedian,
++  );
++  const medianBeatSoftcoreSeconds = readPositiveDuration(
++    args.progression?.MedianTimeToBeat ?? args.progression?.medianTimeToBeat,
++    beatenSamples,
++  );
++  const completedSamples = readNonNegativeInteger(
++    args.progression?.TimesUsedInCompletionMedian ?? args.progression?.timesUsedInCompletionMedian,
++  );
++  const masteredSamples = readNonNegativeInteger(
++    args.progression?.TimesUsedInMasteryMedian ?? args.progression?.timesUsedInMasteryMedian,
++  );
++  const medianCompletionSeconds = readPositiveDuration(
++    args.progression?.MedianTimeToComplete ?? args.progression?.medianTimeToComplete,
++    completedSamples,
++  );
+   const medianMasterySeconds = readPositiveDuration(
+     args.progression?.MedianTimeToMaster ?? args.progression?.medianTimeToMaster,
+     args.progression?.TimesUsedInMasteryMedian ?? args.progression?.timesUsedInMasteryMedian,
+@@ -48,7 +68,9 @@ export function normalizeRetroAchievementsGameCommunityStats(args: {
+ 
+   if (
+     totalPlayers === undefined && masteredPlayers === undefined && medianBeatSeconds === undefined &&
+-    medianMasterySeconds === undefined
++    medianMasterySeconds === undefined && medianBeatSoftcoreSeconds === undefined &&
++    medianCompletionSeconds === undefined && beatenSamples === undefined && beatenHardcoreSamples === undefined &&
++    completedSamples === undefined && masteredSamples === undefined
+   ) {
+     return undefined;
+   }
+@@ -58,6 +80,12 @@ export function normalizeRetroAchievementsGameCommunityStats(args: {
+     ...(masteredPlayers !== undefined ? { masteredPlayers } : {}),
+     ...(masteryPercent !== undefined ? { masteryPercent } : {}),
+     ...(medianBeatSeconds !== undefined ? { medianBeatSeconds } : {}),
++    ...(medianBeatSoftcoreSeconds !== undefined ? { medianBeatSoftcoreSeconds } : {}),
++    ...(beatenSamples !== undefined ? { beatenSamples } : {}),
++    ...(beatenHardcoreSamples !== undefined ? { beatenHardcoreSamples } : {}),
++    ...(completedSamples !== undefined ? { completedSamples } : {}),
++    ...(masteredSamples !== undefined ? { masteredSamples } : {}),
++    ...(medianCompletionSeconds !== undefined ? { medianCompletionSeconds } : {}),
+     ...(medianMasterySeconds !== undefined ? { medianMasterySeconds } : {}),
+   };
+ }
+diff --git a/src/providers/retroachievements/raw-types.ts b/src/providers/retroachievements/raw-types.ts
+index 5bf0a0e..6cec770 100644
+--- a/src/providers/retroachievements/raw-types.ts
++++ b/src/providers/retroachievements/raw-types.ts
+@@ -327,10 +327,18 @@ export type RawRetroAchievementsAchievementDistributionResponse = Readonly<Recor
+ export interface RawRetroAchievementsGameProgressionResponse {
+   readonly NumDistinctPlayers?: number | string;
+   readonly numDistinctPlayers?: number | string;
++  readonly TimesUsedInBeatMedian?: number | string;
++  readonly timesUsedInBeatMedian?: number | string;
+   readonly TimesUsedInHardcoreBeatMedian?: number | string;
+   readonly timesUsedInHardcoreBeatMedian?: number | string;
++  readonly MedianTimeToBeat?: number | string;
++  readonly medianTimeToBeat?: number | string;
+   readonly MedianTimeToBeatHardcore?: number | string;
+   readonly medianTimeToBeatHardcore?: number | string;
++  readonly TimesUsedInCompletionMedian?: number | string;
++  readonly timesUsedInCompletionMedian?: number | string;
++  readonly MedianTimeToComplete?: number | string;
++  readonly medianTimeToComplete?: number | string;
+   readonly TimesUsedInMasteryMedian?: number | string;
+   readonly timesUsedInMasteryMedian?: number | string;
+   readonly MedianTimeToMaster?: number | string;
+diff --git a/tests/createAppServices.test.ts b/tests/createAppServices.test.ts
+index 9a6d256..15bb852 100644
+--- a/tests/createAppServices.test.ts
++++ b/tests/createAppServices.test.ts
+@@ -2759,28 +2759,20 @@ test("provider setup, credential fields, and current compact profile routes stay
+     "src/platform/decky/decky-compact-achievement-list.tsx",
+     "utf8",
+   );
+-  assert.match(achievementDetailViewSource, /PanelSection title="GAME OVERVIEW"/);
+-  assert.match(achievementDetailViewSource, /PanelSection title="PROGRESS SUMMARY"/);
+-  assert.match(achievementDetailViewSource, /PanelSection title="ACHIEVEMENTS"/);
+-  assert.match(achievementDetailViewSource, /ensureCompactGameDetailCancelBridgeRegisteredForBackButtonElement/u);
+-  assert.match(achievementDetailViewSource, /data-achievement-companion-compact-game-detail-back/u);
+-  assert.match(
+-    achievementDetailViewSource,
+-    /<DeckyCompactPillActionItem[\s\S]*label="Back"[\s\S]*onClick=\{onBackToDashboard\}[\s\S]*onCancelButton=\{onBackToDashboard\}[\s\S]*elementRef=\{compactGameDetailBackButtonRef\}[\s\S]*dataAttributes=\{\s*\{\s*"data-achievement-companion-compact-game-detail-back": "true"/u,
+-  );
+-  assert.match(achievementDetailViewSource, /getGameDetailOverviewIconFrameStyle\(\)/);
+-  assert.match(achievementDetailViewSource, /DeckyCompletionProgressBar[\s\S]*compact[\s\S]*percent=\{completionPercent\}/);
+-  assert.match(
+-    achievementDetailViewSource,
+-    /<DeckyCompactAchievementList[\s\S]*embedded[\s\S]*model=\{achievementListModel\}[\s\S]*onBack=\{onBackToDashboard\}/u,
+-  );
++  const retroGameSource = readFileSync("src/platform/decky/decky-retroachievements-compact-game-overview.tsx", "utf8");
++  assert.match(achievementDetailViewSource, /DeckyRetroAchievementsCompactGameOverview/u);
++  assert.match(retroGameSource, /registerCompactGameDetailCancelCallback\(rootRef\.current, onBack\)/u);
++  assert.match(retroGameSource, /<SectionHeading>Progress Summary<\/SectionHeading>/u);
++  assert.match(retroGameSource, /<SectionHeading>Achievement Modes<\/SectionHeading>/u);
++  assert.match(retroGameSource, /onActivate=\{onViewAchievements\}/u);
++  assert.match(retroGameSource, /<DeckyCompletionProgressBar compact percent=\{completionPercent\} showCaption=\{false\}/u);
+   assert.match(
+     compactAchievementListSource,
+     /\{model\.supportsModeFilter \? \([\s\S]*MODE_FILTERS\.map/u,
+   );
+   assert.match(compactAchievementListSource, /matchesCompactAchievementModeFilter\(row, pageState\.modeFilter\)/u);
+   assert.match(compactAchievementListSource, /matchesCompactAchievementFilter\(row, pageState\.filter\)/u);
+-  assert.match(achievementDetailViewSource, /label=\{isSteamGame \? "Open Full-Screen" : "Open Game"\}/u);
++  assert.match(retroGameSource, /Open Full-Screen/u);
+   assert.match(compactAchievementListSource, /aria-label="Achievement mode filters"/u);
+   assert.match(compactAchievementListSource, /aria-label="Achievement filters"/u);
+   assert.match(compactAchievementListSource, /MODE_FILTERS\.map\(\(filter\)/u);
+@@ -3004,7 +2996,7 @@ test("provider setup, credential fields, and current compact profile routes stay
+   assert.match(steamGameArtworkSource, /game\.boxArtImageUrl \?\?/u);
+   assert.match(steamFullscreenGameArtworkSource, /function getArtworkFrameStyle\(compact: boolean, dense: boolean\): CSSProperties/u);
+   assert.match(steamFullscreenGameArtworkSource, /aspectRatio: compact \? "2 \/ 1" : "460 \/ 215"/u);
+-  assert.match(achievementDetailViewSource, /DeckyGameArtwork compact src=\{headerArtworkUrl\} size=\{48\} title=\{game\.title\}/u);
++  assert.match(retroGameSource, /DeckyGameArtwork compact src=\{game\.coverImageUrl\} size=\{64\} title=\{game\.title\}/u);
+   const fullScreenAchievementPageSource = readFileSync(
+     "src/platform/decky/decky-full-screen-achievement-page.tsx",
+     "utf8",
+@@ -3088,10 +3080,7 @@ test("provider setup, credential fields, and current compact profile routes stay
+   assert.match(dashboardViewSource, /data-achievement-companion-compact-provider-back/u);
+   assert.match(dashboardViewSource, /onOpenProfile\(profile\.providerId\)/);
+   assert.match(dashboardViewSource, /addProfileAvatarCacheBustParam\(avatarUrl, refreshedAt\)/u);
+-  assert.match(
+-    achievementDetailViewSource,
+-    /PanelSection title="GAME OVERVIEW"[\s\S]*DeckyCompactPillActionGroup[\s\S]*label="Back"[\s\S]*label=\{isSteamGame \? "Open Full-Screen" : "Open Game"\}/u,
+-  );
++  assert.match(achievementDetailViewSource, /DeckyRetroAchievementsCompactGameOverview/u);
+   assert.match(coreDomainSource, /readonly systemIconUrl\?: string;/u);
+   assert.match(retroNormalizeSource, /readonly systemIconUrl\?: string \| undefined;/u);
+   assert.match(retroRawTypesSource, /export interface RawRetroAchievementsSystemResponse/u);
+@@ -3140,16 +3129,13 @@ test("provider setup, credential fields, and current compact profile routes stay
+   assert.match(deckySystemPillSource, /textOverflow: "ellipsis"/u);
+   assert.doesNotMatch(achievementDetailViewSource, /PanelSection title="Navigation"/);
+   assert.doesNotMatch(achievementDetailViewSource, /label="Open full-screen page"/);
++  const retroCompactGameSource = readFileSync("src/platform/decky/decky-retroachievements-compact-game-overview.tsx", "utf8");
++  assert.match(retroCompactGameSource, /DeckySystemPill/u);
++  assert.match(retroCompactGameSource, /onActivate=\{onOpenFullScreen\}/u);
++  assert.match(retroCompactGameSource, /onActivate=\{onViewAchievements\}/u);
+   assert.match(
+-    achievementDetailViewSource,
+-    /PanelSection title="GAME OVERVIEW"[\s\S]*DeckyCompactPillActionGroup[\s\S]*label="Back"[\s\S]*label=\{isSteamGame \? "Open Full-Screen" : "Open Game"\}/u,
+-  );
+-  assert.match(achievementDetailViewSource, /DeckyCompactPillActionGroup/);
+-  assert.match(achievementDetailViewSource, /DeckyCompactPillActionItem/);
+-  assert.match(achievementDetailViewSource, /DeckySystemPill/u);
+-  assert.match(
+-    achievementDetailViewSource,
+-    /iconUrl=\{game\.providerId === RETROACHIEVEMENTS_PROVIDER_ID \? game\.systemIconUrl : undefined\}/u,
++    retroCompactGameSource,
++    /iconUrl=\{game\.systemIconUrl\}/u,
+   );
+   assert.match(fullScreenProfileSource, /addProfileAvatarCacheBustParam\(avatarUrl, refreshedAt\)/u);
+   assert.match(
+@@ -4055,7 +4041,7 @@ test("canonical version metadata and Decky cleanup stay aligned", () => {
+   ]) {
+     assert.match(deckySource, /FocusableProps/u);
+   }
+-  assert.match(compactGameDetailSource, /import \{ Field, PanelSection, PanelSectionRow \} from "@decky\/ui"/u);
++  assert.match(compactGameDetailSource, /DeckyRetroAchievementsCompactGameOverview/u);
+ 
+   assert.equal(existsSync("src/platform/decky/provider-dashboard-preferences.ts"), false);
+   assert.doesNotMatch(compactPillSource, /readonly flowChildren\?: "row" \| "column";/u);
+@@ -4959,6 +4945,7 @@ test("retroachievements completion indicator maps award kind to compact circle s
+   );
+   const compactDashboardSource = readFileSync("src/platform/decky/decky-dashboard-view.tsx", "utf8");
+   const gameDetailSource = readFileSync("src/platform/decky/decky-game-detail-view.tsx", "utf8");
++  const compactRaGameSource = readFileSync("src/platform/decky/decky-retroachievements-compact-game-overview.tsx", "utf8");
+   const fullScreenGameSource = readFileSync("src/platform/decky/decky-full-screen-game-page.tsx", "utf8");
+   const retroAchievementsGameSpotlightSource = readFileSync(
+     "src/platform/decky/decky-retroachievements-game-spotlight.tsx",
+@@ -4974,7 +4961,9 @@ test("retroachievements completion indicator maps award kind to compact circle s
+   );
+ 
+   assert.match(fullScreenCompletionProgressSource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
+-  assert.match(gameDetailSource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
++  assert.match(gameDetailSource, /DeckyRetroAchievementsCompactGameOverview/u);
++  assert.match(compactRaGameSource, /getRetroAchievementsCompletionIndicatorState\(game\)/u);
++  assert.match(compactRaGameSource, /DeckyGameStatusIcon kind=\{awardKind\}/u);
+   assert.match(fullScreenGameSource, /DeckyRetroAchievementsGameSpotlight/u);
+   assert.match(retroAchievementsGameSpotlightSource, /DeckyRetroAchievementsProgressSummary/u);
+   assert.match(retroAchievementsGameSpotlightSource, /const completionTone = getCompletionTone\(completionState\)/u);
+@@ -5080,6 +5069,7 @@ test("retroachievements mastered games use explicit mastered presentation on gam
+   const progressBarSource = readFileSync("src/platform/decky/decky-completion-progress-bar.tsx", "utf8");
+   const compactDashboardSource = readFileSync("src/platform/decky/decky-dashboard-view.tsx", "utf8");
+   const gameDetailSource = readFileSync("src/platform/decky/decky-game-detail-view.tsx", "utf8");
++  const compactRaGameSource = readFileSync("src/platform/decky/decky-retroachievements-compact-game-overview.tsx", "utf8");
+   const retroAchievementsGameSpotlightSource = readFileSync(
+     "src/platform/decky/decky-retroachievements-game-spotlight.tsx",
+     "utf8",
+@@ -5104,14 +5094,12 @@ test("retroachievements mastered games use explicit mastered presentation on gam
+   assert.match(achievementDetailHelperSource, /export function formatRetroAchievementsMasteredAtText/u);
+   assert.match(achievementDetailHelperSource, /Mastered on/u);
+ 
+-  assert.match(gameDetailSource, /const completionIndicatorState = getRetroAchievementsCompletionIndicatorState\(game\);/u);
+-  assert.match(gameDetailSource, /const isBeaten =[\s\S]*completionIndicatorState === "beaten-hardcore"[\s\S]*completionIndicatorState === "beaten-softcore"/u);
+-  assert.match(gameDetailSource, /const completionStatusLabel = isMasteredHardcore \? "Mastered" : isBeaten \? "Beaten" : undefined;/u);
+-  assert.match(gameDetailSource, /<span>\{completionStatusLabel\}<\/span>/u);
+-  assert.match(gameDetailSource, /const beatenAtText = formatRetroAchievementsBeatenAtText\(game\);/u);
+-  assert.match(gameDetailSource, /const masteredAtText = formatRetroAchievementsMasteredAtText\(game\);/u);
+-  assert.match(gameDetailSource, /const completionAtText = isMasteredHardcore \? masteredAtText : beatenAtText;/u);
+-  assert.match(gameDetailSource, /tone=\{completionTone\}/u);
++  assert.match(gameDetailSource, /DeckyRetroAchievementsCompactGameOverview/u);
++  assert.match(compactRaGameSource, /const status = getRetroAchievementsCompletionIndicatorState\(game\);/u);
++  assert.match(compactRaGameSource, /const awardKind = status\?\.startsWith\("mastered"\) === true \? "mastered" : "beaten";/u);
++  assert.match(compactRaGameSource, /formatRetroAchievementsMasteredAtText\(game\)/u);
++  assert.match(compactRaGameSource, /formatRetroAchievementsBeatenAtText\(game\)/u);
++  assert.match(compactRaGameSource, /DeckyGameStatusIcon kind=\{awardKind\}/u);
+ 
+   assert.match(retroAchievementsGameSpotlightSource, /const completionState = getRetroAchievementsCompletionIndicatorState\(game\);/u);
+   assert.match(retroAchievementsGameSpotlightSource, /function getCompletionTone[\s\S]*completionState === "mastered-hardcore"[\s\S]*return "retroachievements-mastered"/u);
+@@ -5177,12 +5165,13 @@ test("retroachievements fullscreen completion progress rows use explicit beaten
+   );
+ });
+ 
+-test("retroachievements game detail surfaces hide empty mode cards and keep meaningful mode cards", () => {
++test("retroachievements compact game mode cards follow the presentation setting", () => {
+   const achievementDetailHelperSource = readFileSync(
+     "src/platform/decky/decky-achievement-detail-helpers.ts",
+     "utf8",
+   );
+   const gameDetailSource = readFileSync("src/platform/decky/decky-game-detail-view.tsx", "utf8");
++  const compactRaGameSource = readFileSync("src/platform/decky/decky-retroachievements-compact-game-overview.tsx", "utf8");
+   const retroAchievementsGameSpotlightSource = readFileSync(
+     "src/platform/decky/decky-retroachievements-game-spotlight.tsx",
+     "utf8",
+@@ -5210,17 +5199,10 @@ test("retroachievements game detail surfaces hide empty mode cards and keep mean
+     /completionState === "beaten-softcore" \|\| completionState === "mastered-softcore"/u,
+   );
+ 
+-  assert.match(gameDetailSource, /const showSoftcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard\(\{/u);
+-  assert.match(gameDetailSource, /const showHardcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard\(\{/u);
+-  assert.match(gameDetailSource, /const visibleModeCardCount = Number\(showSoftcoreModeCard\) \+ Number\(showHardcoreModeCard\);/u);
+-  assert.match(gameDetailSource, /function getModeProgressGridStyle\(singleColumn: boolean\): CSSProperties/u);
+-  assert.match(gameDetailSource, /gridTemplateColumns: singleColumn \? "minmax\(0, 1fr\)" : "repeat\(2, minmax\(0, 1fr\)\)"/u);
+-  assert.match(gameDetailSource, /style=\{getModeProgressGridStyle\(visibleModeCardCount === 1\)\}/u);
+-  assert.match(gameDetailSource, /\{showSoftcoreModeCard \|\| showHardcoreModeCard \? \(/u);
+-  assert.match(gameDetailSource, /\{showSoftcoreModeCard \? \(/u);
+-  assert.match(gameDetailSource, /\{showHardcoreModeCard \? \(/u);
+-  assert.doesNotMatch(gameDetailSource, /\{game\.softcoreSummary !== undefined \? \(/u);
+-  assert.doesNotMatch(gameDetailSource, /\{game\.hardcoreSummary !== undefined \? \(/u);
++  assert.match(gameDetailSource, /achievementMode=\{achievementMode\}/u);
++  assert.match(compactRaGameSource, /achievementMode === "both" \? \(\["hardcore", "softcore"\] as const\) : \(\[achievementMode\] as const\)/u);
++  assert.match(compactRaGameSource, /raRecipes\.compactGame\.modeGrid\(visibleModes\.length\)/u);
++  assert.match(compactRaGameSource, /visibleModes\.map\(\(mode\) =>/u);
+ 
+   assert.match(retroAchievementsGameSpotlightSource, /const showHardcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard\(\{/u);
+   assert.match(retroAchievementsGameSpotlightSource, /const showSoftcoreModeCard = shouldRenderRetroAchievementsModeSummaryCard\(\{/u);
+diff --git a/tests/decky-compact-achievements.test.ts b/tests/decky-compact-achievements.test.ts
+index c485535..64fa586 100644
+--- a/tests/decky-compact-achievements.test.ts
++++ b/tests/decky-compact-achievements.test.ts
+@@ -10,6 +10,7 @@ import {
+   buildSteamCompactAchievementListModel,
+   getCompactAchievementFilterCounts,
+   matchesCompactAchievementFilter,
++  matchesCompactAchievementModeFilter,
+ } from "../src/platform/decky/decky-compact-achievement-model";
+ import {
+   readDeckyCompactAchievementPageState,
+@@ -148,9 +149,10 @@ test("Steam and RA adapters normalize shared rows without leaking provider metad
+   const raUnlocked = raModel.rows.find((row) => row.achievementId === "ACH_UNLOCKED");
+   assert.ok(raUnlocked !== undefined);
+   assert.equal(raModel.supportsModeFilter, true);
+-  assert.equal(raModel.initialVisibleCount, 3);
+-  assert.equal(raUnlocked.stateIndicator, undefined);
+-  assert.equal(raUnlocked.metadataPlacement, "stack");
++  assert.equal(raModel.initialVisibleCount, 12);
++  assert.equal(raUnlocked.stateIndicator, "unlocked");
++  assert.equal(raUnlocked.metadataPlacement, "rail");
++  assert.equal(raUnlocked.description, "Kill the Dreadnought without taking any damage.");
+   assert.ok(raUnlocked.metadata.some((item) => item.value.includes("24")));
+   assert.ok(raUnlocked.metadata.every((item) => !item.key.includes("community")));
+ });
+@@ -189,14 +191,14 @@ test("Steam detail exposes verified SteamHunters fields and omits unsupported se
+   assert.equal((listSource.match(/role="img"/gu) ?? []).length, 1);
+ });
+ 
+-test("RA detail retains points, RetroPoints, rarity, counts, and legacy actions", () => {
++test("RA detail retains provider data in the compact detail layout", () => {
+   const detail = buildRetroAchievementsCompactAchievementDetailModel(
+     createSnapshot("retroachievements"),
+     "ACH_UNLOCKED",
+   );
+   assert.ok(detail !== undefined);
+-  assert.equal(detail.showLegacyActions, true);
+-  assert.equal(detail.gamePlacement, "before-achievement");
++  assert.equal(detail.showLegacyActions, false);
++  assert.equal(detail.gamePlacement, "after-details");
+   assert.equal(detail.classification, "missable");
+   const labels = detail.blocks.flatMap((block) =>
+     block.kind === "stats" || block.kind === "rarity" ? block.stats.map((stat) => stat.label) : []);
+@@ -361,6 +363,23 @@ test("achievement-list destination and page state preserve deterministic return
+   }
+ });
+ 
++test("RA compact achievements honor Hardcore, Softcore, and Both settings", () => {
++  const snapshot = createSnapshot("retroachievements");
++  const hardcore = buildRetroAchievementsCompactAchievementListModel(snapshot, "hardcore");
++  const softcore = buildRetroAchievementsCompactAchievementListModel(snapshot, "softcore");
++  const both = buildRetroAchievementsCompactAchievementListModel(snapshot, "both");
++  assert.equal(hardcore.supportsModeFilter, false);
++  assert.equal(softcore.supportsModeFilter, false);
++  assert.equal(both.supportsModeFilter, true);
++  assert.equal(hardcore.rows[0]?.isUnlocked, true);
++  assert.equal(softcore.rows[0]?.isUnlocked, false);
++  assert.equal(matchesCompactAchievementModeFilter(both.rows[0]!, "hardcore"), true);
++  assert.equal(matchesCompactAchievementModeFilter(both.rows[0]!, "softcore"), false);
++  const softcoreDetail = buildRetroAchievementsCompactAchievementDetailModel(snapshot, "ACH_UNLOCKED", "softcore");
++  assert.equal(softcoreDetail?.isUnlocked, false);
++  assert.equal(softcoreDetail?.blocks[0]?.kind, "status");
++});
++
+ test("View Achievements checkpoints remain scoped to the selected game", () => {
+   resetDeckyCompactAchievementPageState();
+   writeDeckyCompactAchievementPageState("steam", "game-a", {
+@@ -398,18 +417,18 @@ test("View Achievements checkpoints remain scoped to the selected game", () => {
+   assert.match(listSource, /data-achievement-companion-compact-achievement-id=\{model\.achievementId\}/u);
+   assert.match(listSource, /restoreAchievementIdRef = useRef\(pageState\.focusedAchievementId\)/u);
+   assert.match(listSource, /element\?\.ownerDocument\?\.defaultView\?\.HTMLElement/u);
+-  assert.match(listSource, /model\.providerId === "steam"\s*\? readSteamScrollTop/u);
++  assert.match(listSource, /scrollTop: refined\s*\? readSteamScrollTop/u);
+   assert.match(
+     listSource,
+-    /onOpen=\{\(target\) => \{[\s\S]*focusedAchievementId: row\.achievementId,[\s\S]*scrollTop: model\.providerId === "steam"[\s\S]*readSteamScrollTop\(target, current\.scrollTop\)/u,
++    /onOpen=\{\(target\) => \{[\s\S]*focusedAchievementId: row\.achievementId,[\s\S]*scrollTop: refined[\s\S]*readSteamScrollTop\(target, current\.scrollTop\)/u,
+   );
+   assert.match(listSource, /requestDeckySteamGamepadFocusAfterMount\(target\)/u);
+   assert.match(listSource, /!focusRestorationReady \|\| embedded/u);
+-  assert.match(listSource, /\(embedded \|\| model\.providerId !== "steam"\) &&/u);
++  assert.match(listSource, /embedded &&[\s\S]*pageState\.focusedAchievementId === row\.achievementId/u);
+   assert.match(listSource, /\}, \[embedded, focusRestorationReady, model\.gameId, model\.providerId\]\);/u);
+   assert.match(bootstrapSource, /onRestoreAfterLayoutComplete=\{handleScrollRestoreComplete\}/u);
+   assert.match(bootstrapSource, /focusRestorationReady=\{focusRestorationReady\}/u);
+-  assert.match(bootstrapSource, /restoreAfterLayout=\{destination\.providerId === STEAM_PROVIDER_ID\}/u);
++  assert.match(bootstrapSource, /<TopAlignedScrollViewport[\s\S]*onRestoreAfterLayoutComplete=\{handleScrollRestoreComplete\}[\s\S]*restoreAfterLayout/u);
+ });
+ 
+ test("loading completion is render-owned and stale hook completion is ignored after unmount", () => {
+diff --git a/tests/decky-steam-compact-game.test.ts b/tests/decky-steam-compact-game.test.ts
+index a51504d..b771df0 100644
+--- a/tests/decky-steam-compact-game.test.ts
++++ b/tests/decky-steam-compact-game.test.ts
+@@ -53,9 +53,8 @@ test("Steam compact game overview uses the refined narrow-panel hierarchy and op
+   assert.doesNotMatch(compactGameSource, /<PanelSection title="GAME OVERVIEW"/u);
+ 
+   assert.match(gameDetailSource, /DeckySteamCompactGameOverview/u);
+-  assert.match(gameDetailSource, /if \(isSteamGame\) \{/u);
+-  const steamBranchStart = gameDetailSource.indexOf("if (isSteamGame) {");
+-  const retroBranchStart = gameDetailSource.indexOf("return (", steamBranchStart + 1);
++  const steamBranchStart = gameDetailSource.indexOf("<DeckySteamCompactGameOverview");
++  const retroBranchStart = gameDetailSource.indexOf("<DeckyRetroAchievementsCompactGameOverview", steamBranchStart + 1);
+   const steamBranchSource = gameDetailSource.slice(steamBranchStart, retroBranchStart);
+   assert.ok(steamBranchStart >= 0 && retroBranchStart > steamBranchStart);
+   assert.doesNotMatch(steamBranchSource, /<PanelSection title="ACHIEVEMENTS">/u);
+diff --git a/tests/decky-steam-compact-profile.test.ts b/tests/decky-steam-compact-profile.test.ts
+index a5668ab..1bcd31a 100644
+--- a/tests/decky-steam-compact-profile.test.ts
++++ b/tests/decky-steam-compact-profile.test.ts
+@@ -110,8 +110,8 @@ test("Steam compact Activity calendar overrides configured list limits until its
+   assert.match(bootstrapSource, /loadDeckyCompactSteamActivityState/u);
+ });
+ 
+-test("Steam compact achievement details focus a child control instead of trapping QAM navigation on the page wrapper", () => {
+-  const surfaceStart = bootstrapSource.indexOf("function DeckySteamCompactAchievementDetailSurface");
++test("compact achievement details focus a child control instead of trapping QAM navigation on the page wrapper", () => {
++  const surfaceStart = bootstrapSource.indexOf("function DeckyCompactAchievementDetailSurface");
+   const surfaceEnd = bootstrapSource.indexOf("function CompactAchievementDetailScreen", surfaceStart);
+   const surfaceSource = bootstrapSource.slice(surfaceStart, surfaceEnd);
+ 
+diff --git a/tests/retroachievements-community-stats.test.ts b/tests/retroachievements-community-stats.test.ts
+index 851d288..dbe3b22 100644
+--- a/tests/retroachievements-community-stats.test.ts
++++ b/tests/retroachievements-community-stats.test.ts
+@@ -51,8 +51,12 @@ test("community stats use authoritative distribution counts and never expose med
+     totalPlayers: 2_916,
+     distribution: { "12": 327 },
+     progression: {
++      TimesUsedInBeatMedian: 5_000,
++      MedianTimeToBeat: 42_000,
+       TimesUsedInHardcoreBeatMedian: 4_493,
+       MedianTimeToBeatHardcore: 30_840,
++      TimesUsedInCompletionMedian: 400,
++      MedianTimeToComplete: 55_000,
+       TimesUsedInMasteryMedian: 1_091,
+       MedianTimeToMaster: 63_720,
+     },
+@@ -63,6 +67,12 @@ test("community stats use authoritative distribution counts and never expose med
+     masteredPlayers: 327,
+     masteryPercent: 327 / 2_916 * 100,
+     medianBeatSeconds: 30_840,
++    medianBeatSoftcoreSeconds: 42_000,
++    beatenSamples: 5_000,
++    beatenHardcoreSamples: 4_493,
++    completedSamples: 400,
++    masteredSamples: 1_091,
++    medianCompletionSeconds: 55_000,
+     medianMasterySeconds: 63_720,
+   });
+   assert.equal((stats as Record<string, unknown>).beatenPlayers, undefined);

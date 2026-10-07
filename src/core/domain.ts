@@ -47,6 +47,12 @@ export interface GameCommunityStats {
   readonly masteredPlayers?: number;
   readonly masteryPercent?: number;
   readonly medianBeatSeconds?: number;
+  readonly medianBeatSoftcoreSeconds?: number;
+  readonly beatenSamples?: number;
+  readonly beatenHardcoreSamples?: number;
+  readonly completedSamples?: number;
+  readonly masteredSamples?: number;
+  readonly medianCompletionSeconds?: number;
   readonly medianMasterySeconds?: number;
 }
 

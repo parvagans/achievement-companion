@@ -51,8 +51,12 @@ test("community stats use authoritative distribution counts and never expose med
     totalPlayers: 2_916,
     distribution: { "12": 327 },
     progression: {
+      TimesUsedInBeatMedian: 5_000,
+      MedianTimeToBeat: 42_000,
       TimesUsedInHardcoreBeatMedian: 4_493,
       MedianTimeToBeatHardcore: 30_840,
+      TimesUsedInCompletionMedian: 400,
+      MedianTimeToComplete: 55_000,
       TimesUsedInMasteryMedian: 1_091,
       MedianTimeToMaster: 63_720,
     },
@@ -63,6 +67,12 @@ test("community stats use authoritative distribution counts and never expose med
     masteredPlayers: 327,
     masteryPercent: 327 / 2_916 * 100,
     medianBeatSeconds: 30_840,
+    medianBeatSoftcoreSeconds: 42_000,
+    beatenSamples: 5_000,
+    beatenHardcoreSamples: 4_493,
+    completedSamples: 400,
+    masteredSamples: 1_091,
+    medianCompletionSeconds: 55_000,
     medianMasterySeconds: 63_720,
   });
   assert.equal((stats as Record<string, unknown>).beatenPlayers, undefined);
