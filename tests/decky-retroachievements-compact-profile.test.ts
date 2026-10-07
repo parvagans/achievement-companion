@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import type {
   NormalizedProfile,
   RecentUnlock,
@@ -24,7 +26,8 @@ import {
 } from "../src/platform/decky/decky-qam-theme";
 import { getSteamCompactActionStyle } from "../src/platform/decky/decky-steam-compact-action-styles";
 import { steamTheme } from "../src/platform/decky/steam-theme";
-import { raRecipes } from "../src/platform/decky/ra-theme";
+import { getRaFocusStylesCss, raRecipes } from "../src/platform/decky/ra-theme";
+import { DeckyRetroAchievementsGameIcon, getRetroAchievementsGameIconAward } from "../src/platform/decky/decky-retroachievements-game-icon";
 import {
   filterRetroAchievementsUnlocksByMode,
   getRetroAchievementsPlayedGameProgress,
@@ -232,12 +235,12 @@ test("RA QAM loading, focus scrolling, and calendar controls follow Steam compac
   assert.equal(raRecipes.compactProfile.metric("hardcore").border, raRecipes.compactProfile.metric("shared").border);
   assert.equal(raRecipes.compactProfile.metricText.flexDirection, "column");
   assert.equal(raRecipes.compactProfile.completionCard("beaten").display, "flex");
-  assert.equal(raRecipes.compactProfile.recentGameArtwork("mastered").borderRadius, raRecipes.compactProfile.rowArtwork.borderRadius);
+  assert.equal(raRecipes.gameIcon.frame(40, "mastered").borderRadius, raRecipes.compactProfile.rowArtwork.borderRadius);
   assert.match(profileSource, /data-ra-profile-overview-focus="true"/u);
   assert.match(profileSource, /data-ra-profile-beaten-focus="true"/u);
-  assert.match(raThemeSource, /@keyframes ac-ra-award-orbit/u);
+  assert.match(raThemeSource, /@keyframes ac-ra-game-icon-tail/u);
   assert.match(statusIconSource, /kind === "mastered"/u);
-  assert.match(statusIconSource, /ac-game-status-checker-flag/u);
+  assert.match(statusIconSource, /<clipPath/u);
   assert.doesNotMatch(profileSource, /CompactAction label=\{`Refresh RetroAchievements/u);
   assert.match(loadingSource, /achievementCompanionQamTheme/u);
   assert.match(loadingSource, /data-ac-ra-theme=\{!isSteam \? "compact" : undefined\}/u);
@@ -252,6 +255,33 @@ test("Steam and RetroAchievements compact calendars share the same D-pad destina
 
   assert.match(steamSource, /getDeckyActivityCalendarFocusDestination\(index, cells\.length, direction\)/u);
   assert.match(raSource, /getDeckyActivityCalendarFocusDestination\(index, cells\.length, direction\)/u);
+});
+
+test("RA game icons derive one prestige state from the provider award at every size", () => {
+  const regular = { providerId: "retroachievements", title: "Regular", metrics: [] };
+  const beaten = { providerId: "retroachievements", title: "Beaten", metrics: [{ key: "highest-award-kind", label: "Award", value: "beaten-hardcore" }] };
+  const mastered = { providerId: "retroachievements", title: "Mastered", metrics: [{ key: "highest-award-kind", label: "Award", value: "mastered-hardcore" }] };
+  const mixed = { providerId: "retroachievements", title: "Mixed", metrics: [{ key: "highest-award-kind", label: "Award", value: "beaten-mastered-hardcore" }] };
+  assert.equal(getRetroAchievementsGameIconAward(regular), undefined);
+  assert.equal(getRetroAchievementsGameIconAward(beaten), "beaten");
+  assert.equal(getRetroAchievementsGameIconAward(mastered), "mastered");
+  assert.equal(getRetroAchievementsGameIconAward(mixed), "mastered");
+  assert.equal(getRetroAchievementsGameIconAward({ ...mastered, providerId: "steam" }), undefined);
+
+  for (const size of [34, 40, 56, 148]) {
+    for (const [game, award] of [[regular, "regular"], [beaten, "beaten"], [mastered, "mastered"]] as const) {
+      const markup = renderToStaticMarkup(createElement(DeckyRetroAchievementsGameIcon, { game, size, src: "/game.png" }));
+      assert.match(markup, new RegExp(`data-ac-ra-game-icon="${award}"`, "u"));
+      assert.match(markup, /src="\/game\.png"/u);
+      assert.equal(markup.includes("ac-ra-game-icon__sweep-tail"), award !== "regular");
+      assert.equal(markup.includes("ac-ra-game-icon__corner--top-right"), award !== "regular");
+    }
+  }
+  assert.ok(raRecipes.gameIcon.frameWidth(34, "beaten") < raRecipes.gameIcon.frameWidth(148, "beaten"));
+  assert.notEqual(raRecipes.gameIcon.frame(40, "beaten").boxShadow, raRecipes.gameIcon.frame(40, "mastered").boxShadow);
+  const css = getRaFocusStylesCss();
+  assert.match(css, /stroke-dasharray: 22 78; animation: ac-ra-game-icon-tail 5\.2s linear infinite/u);
+  assert.match(css, /prefers-reduced-motion: reduce[\s\S]*ac-ra-game-icon__sweep/u);
 });
 
 test("Steam and RetroAchievements compact controls share the same focus recipe and restrained calendar ring", () => {

@@ -129,6 +129,7 @@ export interface CompactAchievementDetailViewModel {
     readonly title: string;
     readonly platformLabel: string;
     readonly artworkUrl?: string;
+    readonly metrics?: readonly NormalizedMetric[];
   };
   readonly gamePlacement: "before-achievement" | "after-details";
   readonly showLegacyActions: boolean;
@@ -163,6 +164,7 @@ function getGameModel(snapshot: GameDetailSnapshot): CompactAchievementDetailVie
     title: snapshot.game.title,
     platformLabel: snapshot.game.platformLabel ?? (snapshot.game.providerId === "steam" ? "Steam" : "Unknown platform"),
     ...(snapshot.game.coverImageUrl !== undefined ? { artworkUrl: snapshot.game.coverImageUrl } : {}),
+    ...(snapshot.game.providerId === "retroachievements" ? { metrics: snapshot.game.metrics } : {}),
   };
 }
 

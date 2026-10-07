@@ -3,6 +3,7 @@ import { Focusable, PanelSection, PanelSectionRow, type FocusableProps } from "@
 import chevronRightIconUrl from "./assets/chevron-right.svg";
 import { DeckyAchievementTypeBadge } from "./decky-achievement-type-badge";
 import { DeckyGameArtwork } from "./decky-game-artwork";
+import { DeckyRetroAchievementsGameIcon } from "./decky-retroachievements-game-icon";
 import { DeckyCompactPillActionGroup, DeckyCompactPillActionItem } from "./decky-compact-pill-action-item";
 import {
   ensureCompactAchievementCancelBridgeRegisteredForBackButtonElement,
@@ -333,9 +334,9 @@ function GameContextRow({
         onBlur={() => setIsFocused(false)}
         role="button" style={getGameRowStyle(isFocused, isSteam)}
       >
-        {model.game.artworkUrl !== undefined ? (
-          <DeckyGameArtwork compact src={model.game.artworkUrl} size={36} title={model.game.title} />
-        ) : <span />}
+        {model.game.artworkUrl === undefined ? <span /> : isSteam
+          ? <DeckyGameArtwork compact src={model.game.artworkUrl} size={36} title={model.game.title} />
+          : <DeckyRetroAchievementsGameIcon game={model.game} src={model.game.artworkUrl} size={36} />}
         <div style={getTextBlockStyle()}>
           <div style={getGameTitleStyle(isSteam)}>{model.game.title}</div>
           <div style={getGamePlatformStyle(isSteam)}>{model.game.platformLabel}</div>

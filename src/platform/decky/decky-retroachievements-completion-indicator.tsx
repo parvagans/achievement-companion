@@ -43,16 +43,16 @@ export function getRetroAchievementsCompletionIndicatorState(
   const isHardcore = highestAwardKind.includes("hardcore");
   const isSoftcore = highestAwardKind.includes("softcore");
 
-  if (highestAwardKind.includes("beaten")) {
-    return isHardcore && !isSoftcore ? "beaten-hardcore" : "beaten-softcore";
-  }
-
   if (highestAwardKind.includes("mastered")) {
     return isSoftcore ? "mastered-softcore" : "mastered-hardcore";
   }
 
   if (highestAwardKind.includes("completed")) {
     return isHardcore && !isSoftcore ? "mastered-hardcore" : "mastered-softcore";
+  }
+
+  if (highestAwardKind.includes("beaten")) {
+    return isHardcore && !isSoftcore ? "beaten-hardcore" : "beaten-softcore";
   }
 
   return undefined;

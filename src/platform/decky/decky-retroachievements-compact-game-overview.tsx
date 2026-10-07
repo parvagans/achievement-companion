@@ -3,7 +3,7 @@ import type { RetroAchievementsAchievementMode } from "@core/settings";
 import { Focusable, type FocusableProps } from "@decky/ui";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { DeckyCompletionProgressBar, getCompletionPercent } from "./decky-completion-progress-bar";
-import { DeckyGameArtwork } from "./decky-game-artwork";
+import { DeckyRetroAchievementsGameIcon } from "./decky-retroachievements-game-icon";
 import { DeckyGameStatusIcon } from "./decky-game-status-icon";
 import { formatRetroAchievementsBeatenAtText, formatRetroAchievementsMasteredAtText } from "./decky-achievement-detail-helpers";
 import { DeckySteamCompactAction } from "./decky-steam-compact-profile";
@@ -131,8 +131,7 @@ export function DeckyRetroAchievementsCompactGameOverview({
   return (
     <section data-ac-ra-theme="compact" data-ac-ra-compact-game="true" ref={rootRef} style={raRecipes.compactGame.root}>
       <div style={raRecipes.compactGame.hero()}>
-        {game.coverImageUrl === undefined ? <div style={{ display: "grid", placeItems: "center", width: "100%", color: raTheme.color.accent, fontSize: 28, fontWeight: 850 }}>{game.title.slice(0, 2).toUpperCase()}</div>
-          : <DeckyGameArtwork compact src={game.coverImageUrl} fit="contain" fluid frameless height={124} size={124} title={game.title} width={264} />}
+        <DeckyRetroAchievementsGameIcon game={game} src={game.coverImageUrl} fit="contain" size={124} />
       </div>
       <GameTitle title={game.title} />
       <div style={raRecipes.compactGame.provider}>

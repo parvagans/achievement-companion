@@ -18,6 +18,7 @@ import {
   type DeckyCompletionProgressBarTone,
 } from "./decky-completion-progress-bar";
 import { DeckyGameArtwork } from "./decky-game-artwork";
+import { DeckyRetroAchievementsGameIcon } from "./decky-retroachievements-game-icon";
 import { DeckySystemPill } from "./decky-system-pill";
 import {
   DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS,
@@ -1330,11 +1331,7 @@ function RecentlyPlayedRow({
     >
       <div aria-hidden="true" style={getDashboardCompactCardAccentStyle("default", true)} />
       <div style={getDashboardCompactArtworkFrameStyle(undefined, true)}>
-        {game.coverImageUrl !== undefined ? (
-          <DeckyGameArtwork compact src={game.coverImageUrl} size={34} title={game.title} />
-        ) : (
-          <span style={getDashboardCompactGameTitleStyle(true)}>{(game.platformLabel ?? game.title).slice(0, 1)}</span>
-        )}
+        <DeckyRetroAchievementsGameIcon game={game} src={game.coverImageUrl} size={34} />
       </div>
       <div style={getDashboardCompactTextColumnStyle()}>
         <div style={getDashboardCompactTitleStyle(true)}>{game.title}</div>

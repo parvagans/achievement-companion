@@ -3,7 +3,6 @@ import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
 import type { DeckyCompletionProgressBarTone } from "./decky-completion-progress-bar";
 import { shouldRenderRetroAchievementsModeSummaryCard } from "./decky-achievement-detail-helpers";
 import { getRetroAchievementsCompletionIndicatorState } from "./decky-retroachievements-completion-indicator";
-import { getDeckyGameArtworkFallbackInitials } from "./decky-game-artwork-fallback";
 import { DeckyFullScreenGameSpotlightOverview } from "./decky-full-screen-game-spotlight-overview";
 import type { DeckyFullScreenGameMetadataPill } from "./decky-full-screen-game-metadata-pills";
 import { DeckyRetroAchievementsFullscreenGameArtwork } from "./decky-retroachievements-fullscreen-game-artwork";
@@ -114,15 +113,7 @@ export function DeckyRetroAchievementsGameSpotlight({
       <DeckyFullScreenGameSpotlightOverview
         title={game.title}
         layout="horizontal"
-        artwork={
-          artworkUrl !== undefined ? (
-            <DeckyRetroAchievementsFullscreenGameArtwork
-              src={artworkUrl}
-              fallbackLabel={getDeckyGameArtworkFallbackInitials(game.title)}
-              variant="compact"
-            />
-          ) : undefined
-        }
+        artwork={<DeckyRetroAchievementsFullscreenGameArtwork game={game} src={artworkUrl} variant="compact" />}
         backLabel={backLabel}
         onBack={onBack}
         onRefresh={onRefresh}

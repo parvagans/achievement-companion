@@ -7,6 +7,7 @@ import type { CompactAchievementTarget } from "./decky-compact-achievement-model
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
 import { DeckyCompletionProgressBar, getCompletionPercent } from "./decky-completion-progress-bar";
 import { DeckyGameArtwork } from "./decky-game-artwork";
+import { DeckyRetroAchievementsGameIcon } from "./decky-retroachievements-game-icon";
 import { formatProfileMemberSince } from "./decky-stat-helpers";
 import { useDeckySettings } from "./decky-settings";
 import { raRecipes, raTheme } from "./ra-theme";
@@ -621,9 +622,7 @@ function RecentlyPlayedRow({
   const focus = (element: HTMLElement): void => { setFocused(true); element.scrollIntoView({ block: "center", inline: "nearest" }); targetProps.onFocused(element); };
   return (
     <Focusable noFocusRing role="button" tabIndex={0} aria-label={`${game.title}${game.platformLabel ? `, ${game.platformLabel}` : ""}${progressLine ? `, ${progressLine}` : ""}${award !== undefined ? `, ${awardKind}` : ""}${activityUnlockCount !== undefined && activityDateLabel !== undefined ? `, ${activityUnlockCount} unlock${activityUnlockCount === 1 ? "" : "s"} on ${activityDateLabel}` : ""}`} data-ra-profile-recent-game="true" ref={(node) => { elementRef.current = node; targetProps.elementRef?.(node); }} preferredFocus={targetProps.preferredFocus} onActivate={activate} onClick={activate} onCancel={onCancel} onFocus={(event) => focus(event.currentTarget)} onGamepadFocus={(event) => focus(event.currentTarget as HTMLElement)} onBlur={() => setFocused(false)} style={raRecipes.compactProfile.row(focused)}>
-      <span className={award === undefined ? undefined : "ac-ra-recent-game-artwork--awarded"} data-ra-game-award={awardKind} style={raRecipes.compactProfile.recentGameArtwork(award === undefined ? undefined : awardKind)}>
-        {game.coverImageUrl || game.systemIconUrl ? <DeckyGameArtwork compact src={game.coverImageUrl ?? game.systemIconUrl!} size={32} title={game.title} /> : <span style={raRecipes.text("compact", "title")}>{getInitials(game.title)}</span>}
-      </span>
+      <DeckyRetroAchievementsGameIcon game={game} src={game.coverImageUrl ?? game.systemIconUrl} size={40} />
       <span style={raRecipes.compactProfile.rowText}>
         <span style={raRecipes.compactProfile.rowTitle}>{game.title}</span>
         <span style={raRecipes.compactProfile.rowMeta}>{game.platformLabel ?? "RetroAchievements game"}</span>

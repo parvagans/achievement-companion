@@ -225,8 +225,67 @@ export const raRecipes = {
     softcore: { color: raTheme.color.softcore, surface: raTheme.surface.softcore },
   },
   gameAward: {
-    beaten: { color: raTheme.color.beaten, border: "rgba(230, 235, 242, 0.86)", surface: "rgba(230, 235, 242, 0.2)" },
-    mastered: { color: raTheme.color.mastered, border: "rgba(242, 216, 127, 0.9)", surface: "rgba(242, 216, 127, 0.24)" },
+    beaten: {
+      color: raTheme.color.beaten, border: "rgba(230, 235, 242, 0.9)", surface: "rgba(230, 235, 242, 0.2)",
+      metalDark: "#4a5966", metalMid: "#a6b5c2", metalLight: "#f5f9ff",
+      innerHighlight: "rgba(238, 247, 255, 0.72)", bloom: "rgba(216, 236, 255, 0.58)",
+    },
+    mastered: {
+      color: raTheme.color.mastered, border: "rgba(242, 216, 127, 0.96)", surface: "rgba(242, 216, 127, 0.27)",
+      metalDark: "#6b4814", metalMid: "#d3a43f", metalLight: "#fff0b6",
+      innerHighlight: "rgba(255, 229, 151, 0.88)", bloom: "rgba(255, 207, 86, 0.78)",
+    },
+  },
+  gameIcon: {
+    frameWidth(size: number, kind: "beaten" | "mastered" | undefined): number {
+      if (kind === undefined) return 1;
+      if (size < 48) return kind === "mastered" ? 3 : 2.5;
+      if (size < 96) return kind === "mastered" ? 4 : 3;
+      return kind === "mastered" ? 5 : 4;
+    },
+    radius(size: number): number {
+      return size < 48 ? raTheme.radius.small : size < 96 ? raTheme.radius.medium : raTheme.radius.large;
+    },
+    frame(size: number, kind: "beaten" | "mastered" | undefined): CSSProperties {
+      const edge = this.frameWidth(size, kind);
+      const radius = this.radius(size);
+      const tone = kind === undefined ? undefined : raRecipes.gameAward[kind];
+      return {
+        position: "relative", isolation: "isolate", display: "inline-block",
+        width: size, height: size, flex: `0 0 ${size}px`, boxSizing: "border-box",
+        borderRadius: radius, overflow: "visible",
+        border: `1px solid ${tone?.metalDark ?? raTheme.color.borderSubtle}`,
+        background: tone === undefined ? raTheme.surface.raised :
+          `linear-gradient(135deg, ${tone.metalDark} 0%, ${tone.metalMid} 12%, ${tone.metalLight} 24%, ${tone.metalMid} 33%, ${tone.metalDark} 51%, ${tone.metalMid} 68%, ${tone.metalLight} 81%, ${tone.metalMid} 90%, ${tone.metalDark} 100%)`,
+        boxShadow: tone === undefined
+          ? "inset 0 1px 0 rgba(255, 255, 255, 0.04)"
+          : `0 0 0 1px ${tone.metalDark}, 0 0 ${kind === "mastered" ? 8 : 5}px ${tone.surface}, inset 0 1px 0 ${tone.innerHighlight}`,
+        "--ac-ra-game-icon-sweep-width": `${edge}px`,
+        "--ac-ra-game-icon-frame-width": `${edge}px`,
+        "--ac-ra-game-icon-sweep-color": tone?.metalLight,
+        "--ac-ra-game-icon-sweep-mid": tone?.metalMid,
+        "--ac-ra-game-icon-metal-dark": tone?.metalDark,
+        "--ac-ra-game-icon-bloom-color": tone?.bloom,
+        "--ac-ra-game-icon-bloom-radius": `${size < 48 ? 2 : size < 96 ? 3 : 5}px`,
+        "--ac-ra-game-icon-corner-size": `${size < 48 ? 5 : size < 96 ? 7 : 10}px`,
+        "--ac-ra-game-icon-corner-opacity": kind === "mastered" ? "0.95" : "0.72",
+      } as CSSProperties;
+    },
+    artwork(size: number, kind: "beaten" | "mastered" | undefined): CSSProperties {
+      const inset = kind === undefined ? 0 : this.frameWidth(size, kind);
+      return {
+        position: "absolute", zIndex: 1, inset, display: "block", overflow: "hidden",
+        borderRadius: Math.max(3, this.radius(size) - inset), background: raTheme.surface.raised,
+        ...(kind === undefined ? {} : { boxShadow: `0 0 0 1px ${raRecipes.gameAward[kind].innerHighlight}` }),
+      };
+    },
+    fallback(size: number): CSSProperties {
+      return {
+        display: "grid", placeItems: "center", width: "100%", height: "100%",
+        color: raTheme.color.textPrimary, fontSize: Math.max(10, Math.round(size * 0.28)),
+        fontWeight: raTheme.type.weight.strong,
+      };
+    },
   },
   compactGame: {
     root: { display: "flex", flexDirection: "column", gap: 8, width: "100%", minWidth: 0, padding: "0 16px 4px", boxSizing: "border-box", color: raTheme.color.textPrimary, fontFamily: qamTheme.type.fontFamily } satisfies CSSProperties,
@@ -443,22 +502,6 @@ export const raRecipes = {
       border: `1px solid ${raTheme.color.borderSubtle}`, borderRadius: raTheme.radius.small,
       background: raTheme.surface.raised, boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04)", boxSizing: "border-box",
     } satisfies CSSProperties,
-    recentGameArtwork(kind: "beaten" | "mastered" | undefined): CSSProperties {
-      return {
-        ...this.rowArtwork,
-        position: "relative",
-        isolation: "isolate",
-        width: 40, height: 40, flex: "0 0 40px",
-        overflow: "hidden",
-        border: kind === undefined ? this.rowArtwork.border : `2px solid ${raRecipes.gameAward[kind].border}`,
-        borderRadius: raTheme.radius.small,
-        boxShadow: kind === undefined ? this.rowArtwork.boxShadow : `0 0 10px ${raRecipes.gameAward[kind].surface}`,
-        ...(kind === undefined ? {} : {
-          "--ac-ra-award-track": raRecipes.gameAward[kind].border,
-          "--ac-ra-award-bead": raRecipes.gameAward[kind].color,
-        }),
-      };
-    },
     rowText: { display: "flex", flexDirection: "column", gap: 3, minWidth: 0 } satisfies CSSProperties,
     rowTitle: { color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.metadata, fontWeight: 800, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } satisfies CSSProperties,
     rowMeta: { color: raTheme.color.textMuted, fontSize: 9, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } satisfies CSSProperties,
@@ -531,33 +574,75 @@ export const raRecipes = {
 /** Scoped visual focus only. GamepadUI continues to own focus and navigation. */
 export function getRaFocusStylesCss(): string {
   return `${getQamFocusStylesCss("data-ac-ra-theme")}
-  @keyframes ac-ra-award-orbit {
-    to { transform: rotate(360deg); }
+  @keyframes ac-ra-game-icon-tail { from { stroke-dashoffset: 122; } to { stroke-dashoffset: 22; } }
+  @keyframes ac-ra-game-icon-body { from { stroke-dashoffset: 114; } to { stroke-dashoffset: 14; } }
+  @keyframes ac-ra-game-icon-front { from { stroke-dashoffset: 106; } to { stroke-dashoffset: 6; } }
+  @keyframes ac-ra-game-icon-head { from { stroke-dashoffset: 101.5; } to { stroke-dashoffset: 1.5; } }
+  @keyframes ac-ra-game-icon-corner-catch {
+    0%, 18%, 28%, 100% { opacity: 0; transform: scale(0.65); }
+    23% { opacity: var(--ac-ra-game-icon-corner-opacity); transform: scale(1); }
   }
-  [data-ac-ra-theme="compact"] .ac-ra-recent-game-artwork--awarded::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    background: conic-gradient(from 0deg, transparent 0deg 272deg, var(--ac-ra-award-track) 302deg, var(--ac-ra-award-bead) 338deg, transparent 360deg);
-    animation: ac-ra-award-orbit 2.8s linear infinite;
+  @keyframes ac-ra-game-icon-reveal {
+    0% { opacity: 0; background-position: 125% 0; filter: drop-shadow(0 0 0 transparent); }
+    16% { opacity: 0.48; }
+    46% { opacity: 1; filter: drop-shadow(0 0 8px var(--ac-ra-game-icon-bloom-color)); }
+    78% { opacity: 0.7; }
+    100% { opacity: 0; background-position: -125% 0; filter: drop-shadow(0 0 0 transparent); }
+  }
+  .ac-ra-game-icon__reveal {
+    position: absolute; z-index: 4; inset: 0; padding: var(--ac-ra-game-icon-frame-width);
+    border-radius: inherit; box-sizing: border-box; pointer-events: none;
+    background: linear-gradient(115deg,
+      transparent 19%, var(--ac-ra-game-icon-metal-dark) 31%,
+      var(--ac-ra-game-icon-sweep-mid) 42%, var(--ac-ra-game-icon-sweep-color) 50%,
+      var(--ac-ra-game-icon-sweep-mid) 58%, var(--ac-ra-game-icon-metal-dark) 69%, transparent 81%);
+    background-size: 260% 100%;
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    opacity: 0;
+    animation: ac-ra-game-icon-reveal 1.65s cubic-bezier(0.23, 0.5, 0.3, 1) 1 both;
+  }
+  .ac-ra-game-icon__sweep {
+    position: absolute; z-index: 2; inset: 0; width: 100%; height: 100%; overflow: visible;
     pointer-events: none;
+    filter: drop-shadow(0 0 var(--ac-ra-game-icon-bloom-radius) var(--ac-ra-game-icon-bloom-color));
   }
-  [data-ac-ra-theme="compact"] .ac-ra-recent-game-artwork--awarded::after {
-    content: "";
-    position: absolute;
-    inset: 3px;
-    border-radius: 6px;
-    background: ${raTheme.surface.raised};
-    pointer-events: none;
+  .ac-ra-game-icon__sweep rect {
+    fill: none; stroke-width: var(--ac-ra-game-icon-sweep-width);
+    stroke-linecap: butt;
   }
-  [data-ac-ra-theme="compact"] .ac-ra-recent-game-artwork--awarded > * {
-    position: relative;
-    z-index: 1;
+  .ac-ra-game-icon__sweep-tail {
+    stroke: var(--ac-ra-game-icon-sweep-mid); opacity: 0.3;
+    stroke-dasharray: 22 78; animation: ac-ra-game-icon-tail 5.2s linear infinite;
   }
+  .ac-ra-game-icon__sweep-body {
+    stroke: var(--ac-ra-game-icon-sweep-mid); opacity: 0.52;
+    stroke-dasharray: 14 86; animation: ac-ra-game-icon-body 5.2s linear infinite;
+  }
+  .ac-ra-game-icon__sweep-front {
+    stroke: var(--ac-ra-game-icon-sweep-color); opacity: 0.82;
+    stroke-dasharray: 6 94; animation: ac-ra-game-icon-front 5.2s linear infinite;
+  }
+  .ac-ra-game-icon__sweep-head {
+    stroke: var(--ac-ra-game-icon-sweep-color); opacity: 1; stroke-linecap: round;
+    stroke-dasharray: 1.5 98.5; animation: ac-ra-game-icon-head 5.2s linear infinite;
+  }
+  .ac-ra-game-icon__corner {
+    position: absolute; z-index: 3; width: var(--ac-ra-game-icon-corner-size); height: var(--ac-ra-game-icon-corner-size);
+    border-radius: 50%; pointer-events: none; opacity: 0;
+    background: radial-gradient(circle, var(--ac-ra-game-icon-sweep-color) 0%, var(--ac-ra-game-icon-bloom-color) 32%, transparent 72%);
+    box-shadow: 0 0 3px var(--ac-ra-game-icon-bloom-color);
+    animation: ac-ra-game-icon-corner-catch 5.2s linear infinite;
+  }
+  .ac-ra-game-icon__corner--top-right { top: -2px; right: -2px; }
+  .ac-ra-game-icon__corner--bottom-right { bottom: -2px; right: -2px; animation-delay: -3.9s; }
+  .ac-ra-game-icon__corner--bottom-left { bottom: -2px; left: -2px; animation-delay: -2.6s; }
+  .ac-ra-game-icon__corner--top-left { top: -2px; left: -2px; animation-delay: -1.3s; }
   @media (prefers-reduced-motion: reduce) {
-    [data-ac-ra-theme="compact"] .ac-ra-recent-game-artwork--awarded::before {
-      animation: none;
+    .ac-ra-game-icon__sweep, .ac-ra-game-icon__corner, .ac-ra-game-icon__reveal {
+      display: none;
     }
   }
   [data-ac-ra-theme="fullscreen"] .Panel.Focusable.gpfocus {

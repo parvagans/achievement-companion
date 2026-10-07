@@ -4,7 +4,9 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { beforeEach, test } from "node:test";
+import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { DeckyRetroAchievementsFullscreenGameArtwork } from "../src/platform/decky/decky-retroachievements-fullscreen-game-artwork";
 import type { CacheEntry, CacheStore, ResourceState } from "../src/core/cache";
 import {
   createProviderAchievementHistoryCacheKey,
@@ -2897,12 +2899,19 @@ test("provider setup, credential fields, and current compact profile routes stay
   assert.match(retroAchievementsProgressSummarySource, /label="Remaining"[\s\S]*label="Points earned"[\s\S]*label="Last unlock"/u);
   assert.match(retroAchievementsGameSpotlightSource, /buildDeckyRetroAchievementsProgressSummaryData/u);
   assert.match(retroAchievementsFullscreenGameArtworkSource, /function getArtworkFrameStyle\(variant: "default" \| "compact"\): CSSProperties/u);
-  assert.match(retroAchievementsFullscreenGameArtworkSource, /function getArtworkImageStyle\(\): CSSProperties/u);
   assert.match(retroAchievementsFullscreenGameArtworkSource, /height: isCompact \? 168 : 256/u);
   assert.match(retroAchievementsFullscreenGameArtworkSource, /maxHeight: isCompact \? 180 : 256/u);
-  assert.match(retroAchievementsFullscreenGameArtworkSource, /objectFit: "contain"/u);
-  assert.match(retroAchievementsFullscreenGameArtworkSource, /objectPosition: "center center"/u);
-  assert.doesNotMatch(retroAchievementsFullscreenGameArtworkSource, /getArtworkImageStyle\(\)[\s\S]*objectFit: "cover"/u);
+  const raGameArtworkMarkup = renderToStaticMarkup(createElement(DeckyRetroAchievementsFullscreenGameArtwork, {
+    game: {
+      providerId: "retroachievements", gameId: "1", title: "Mastered Game", status: "mastered",
+      summary: { unlockedCount: 1, totalCount: 1 },
+      metrics: [{ key: "highest-award-kind", label: "Award", value: "mastered-hardcore" }],
+    },
+    src: "/game.png", variant: "compact",
+  }));
+  assert.match(raGameArtworkMarkup, /data-ac-ra-game-icon="mastered"/u);
+  assert.match(raGameArtworkMarkup, /object-fit:contain/u);
+  assert.match(raGameArtworkMarkup, /ac-ra-game-icon__sweep-tail/u);
   assert.match(fullScreenGameSpotlightOverviewSource, /function getOverviewLayoutStyle\(layout: DeckyFullScreenGameSpotlightOverviewLayout\): CSSProperties/u);
   assert.match(fullScreenGameSpotlightCardSource, /function getCardStyle\(themeVariant: "default" \| "ra"\): CSSProperties/u);
   assert.match(fullScreenGameSpotlightCardSource, /function getHeaderStyle\(alignment: "center" \| "left", themeVariant: "default" \| "ra"\): CSSProperties/u);

@@ -23,6 +23,7 @@ import {
   subscribeDeckySteamFullScreenRefreshSession,
 } from "./decky-app-services";
 import { DeckyGameArtwork } from "./decky-game-artwork";
+import { DeckyRetroAchievementsGameIcon } from "./decky-retroachievements-game-icon";
 import {
   DeckyFullScreenLoadingState,
 } from "./decky-full-screen-loading-state";
@@ -615,24 +616,6 @@ function getRecentGamePresenceTextStyle(): CSSProperties {
   };
 }
 
-function getFallbackBadgeStyle(size: number): CSSProperties {
-  return {
-    width: size,
-    height: size,
-    flexShrink: 0,
-    borderRadius: 10,
-    border: "1px solid rgba(255, 255, 255, 0.12)",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "rgba(255, 255, 255, 0.9)",
-    fontSize: "0.78em",
-    fontWeight: 800,
-    letterSpacing: "0.06em",
-  };
-}
-
 function getProfileMetric({
   metrics,
   keys,
@@ -807,11 +790,7 @@ type RetroAchievementsProfileCompletionDataStatus = "loading" | "ready" | "unava
 
 function ProfilePreviewArtwork({ game }: { readonly game: NormalizedGame }): JSX.Element {
   const artworkUrl = game.coverImageUrl ?? game.boxArtImageUrl;
-  return artworkUrl !== undefined ? (
-    <DeckyGameArtwork compact src={artworkUrl} size={42} title={game.title} />
-  ) : (
-    <span style={getFallbackBadgeStyle(42)}>{getFallbackInitials(game.title)}</span>
-  );
+  return <DeckyRetroAchievementsGameIcon game={game} src={artworkUrl} size={42} />;
 }
 
 function RetroAchievementsGameAwardRow({ game }: { readonly game: NormalizedGame }): JSX.Element | null {
@@ -1008,11 +987,7 @@ function RecentGameCard({
     >
       <div style={getInfoCardTitleStyle()}>Most recently played</div>
       <div style={getRecentGameLayoutStyle()}>
-        {game.coverImageUrl !== undefined ? (
-          <DeckyGameArtwork compact src={game.coverImageUrl} size={56} title={game.title} />
-        ) : (
-          <span style={getFallbackBadgeStyle(56)}>{getFallbackInitials(game.title)}</span>
-        )}
+        <DeckyRetroAchievementsGameIcon game={game} src={game.coverImageUrl} size={56} />
 
         <div style={getRecentGameTextStyle()}>
           <div style={getRecentGameTitleStyle()}>{game.title}</div>

@@ -1,5 +1,7 @@
-import { useState, type CSSProperties } from "react";
-import { raRecipes, raTheme } from "./ra-theme";
+import type { CSSProperties } from "react";
+import type { NormalizedGame } from "@core/domain";
+import { DeckyRetroAchievementsGameIcon } from "./decky-retroachievements-game-icon";
+import { raRecipes } from "./ra-theme";
 
 function getArtworkFrameStyle(variant: "default" | "compact"): CSSProperties {
   const isCompact = variant === "compact";
@@ -21,62 +23,20 @@ function getArtworkFrameStyle(variant: "default" | "compact"): CSSProperties {
   };
 }
 
-function getArtworkImageStyle(): CSSProperties {
-  return {
-    display: "block",
-    width: "100%",
-    height: "100%",
-    maxWidth: "100%",
-    maxHeight: "100%",
-    objectFit: "contain",
-    objectPosition: "center center",
-  };
-}
-
-function getArtworkFallbackStyle(): CSSProperties {
-  return {
-    display: "flex",
-    width: "100%",
-    height: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-    background: raTheme.surface.interactive,
-    color: raTheme.color.textPrimary,
-    ...raRecipes.text("fullscreen", "title"),
-    fontWeight: raTheme.type.weight.strong,
-    letterSpacing: "0.06em",
-  };
-}
-
 export interface DeckyRetroAchievementsFullscreenGameArtworkProps {
-  readonly src: string;
-  readonly fallbackLabel: string;
+  readonly game: NormalizedGame;
+  readonly src?: string | undefined;
   readonly variant?: "default" | "compact";
 }
 
 export function DeckyRetroAchievementsFullscreenGameArtwork({
+  game,
   src,
-  fallbackLabel,
   variant = "default",
 }: DeckyRetroAchievementsFullscreenGameArtworkProps): JSX.Element {
-  const [hasImageError, setHasImageError] = useState(false);
-
   return (
     <span aria-hidden="true" style={getArtworkFrameStyle(variant)}>
-      {hasImageError ? (
-        <span style={getArtworkFallbackStyle()}>{fallbackLabel}</span>
-      ) : (
-        <img
-          alt=""
-          loading="lazy"
-          referrerPolicy="no-referrer"
-          src={src}
-          onError={() => {
-            setHasImageError(true);
-          }}
-          style={getArtworkImageStyle()}
-        />
-      )}
+      <DeckyRetroAchievementsGameIcon game={game} src={src} fit="contain" size={variant === "compact" ? 148 : 220} />
     </span>
   );
 }

@@ -10,6 +10,7 @@ import {
   type DeckyCompletionProgressBarTone,
 } from "./decky-completion-progress-bar";
 import { DeckyGameArtwork } from "./decky-game-artwork";
+import { DeckyRetroAchievementsGameIcon } from "./decky-retroachievements-game-icon";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
 import {
   DeckyFullScreenFooterOverlay,
@@ -441,9 +442,11 @@ function CompletionProgressGameRow({
       focusable
       highlightOnFocus
       icon={
-        game.coverImageUrl !== undefined ? (
-          <DeckyGameArtwork compact src={game.coverImageUrl} size={40} title={game.title} />
-        ) : undefined
+        providerId === STEAM_PROVIDER_ID
+          ? game.coverImageUrl !== undefined
+            ? <DeckyGameArtwork compact src={game.coverImageUrl} size={40} title={game.title} />
+            : undefined
+          : <DeckyRetroAchievementsGameIcon game={game} src={game.coverImageUrl} size={40} />
       }
       bottomSeparator="none"
       padding="compact"

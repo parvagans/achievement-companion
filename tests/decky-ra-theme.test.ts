@@ -35,6 +35,8 @@ test("RA points and completion passive focus matches Steam game information card
   assert.equal(raRecipes.compactProfile.focusableMetric(false).boxShadow, "none");
   for (const kind of ["beaten", "mastered"] as const) {
     assert.equal(raRecipes.compactProfile.completionCard(kind).border, `2px solid ${raRecipes.gameAward[kind].border}`);
-    assert.equal(raRecipes.compactProfile.recentGameArtwork(kind).border, `2px solid ${raRecipes.gameAward[kind].border}`);
+    assert.equal(raRecipes.gameIcon.frame(40, kind).border, `1px solid ${raRecipes.gameAward[kind].metalDark}`);
+    assert.match(String(raRecipes.gameIcon.frame(40, kind).background), /linear-gradient/u);
   }
+  assert.ok(raRecipes.gameIcon.frameWidth(40, "mastered") > raRecipes.gameIcon.frameWidth(40, "beaten"));
 });

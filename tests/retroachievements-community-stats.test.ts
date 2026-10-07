@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { DeckyRetroAchievementsFullscreenGameArtwork } from "../src/platform/decky/decky-retroachievements-fullscreen-game-artwork";
 import { buildRetroAchievementsCompletionCollection } from "../src/platform/decky/decky-completion-progress-grouping";
 import { formatRetroAchievementsCommunityDuration } from "../src/platform/decky/decky-retroachievements-community-stats-data";
 import { buildDeckyRetroAchievementsProgressSummaryData } from "../src/platform/decky/decky-retroachievements-progress-summary-data";
@@ -184,7 +187,10 @@ test("full-screen RetroAchievements spotlight keeps the compact header, passive 
     /DeckyFullScreenGameSpotlightCard[\s\S]*title="Game Overview"[\s\S]*focusable=\{false\}[\s\S]*DeckyFullScreenGameSpotlightActions[\s\S]*centered/u,
   );
   assert.match(artworkSource, /height: isCompact \? 168 : 256/u);
-  assert.match(artworkSource, /objectFit: "contain"/u);
+  const artworkMarkup = renderToStaticMarkup(createElement(DeckyRetroAchievementsFullscreenGameArtwork, {
+    game: game("1", "beaten"), src: "/game.png", variant: "compact",
+  }));
+  assert.match(artworkMarkup, /object-fit:contain/u);
   assert.match(progressSource, /DeckyFullScreenGameProgressStatGrid/u);
   assert.match(progressSource, /showCaption=\{false\}/u);
   assert.match(progressBarSource, /showCaption && captionPlacement === "below"/u);
