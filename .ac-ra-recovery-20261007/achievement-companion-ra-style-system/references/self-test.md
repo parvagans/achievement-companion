@@ -1,7 +1,0 @@
-# Self-test before declaring an RA style change complete
-
-1. Run `npm run typecheck`, `node --import tsx --test tests/*.test.ts tests/*.test.mjs`, the Python suite with the configured Python runtime, and `npm run build` in `D:\projects\steamProject`. Report failures rather than weakening tests.
-2. Check Hardcore, Softcore, and Both model outputs, including a game with a timestamp in only one mode. Confirm hidden mode cards reflow and achievement locked/unlocked state follows the selected mode.
-3. On the paired Deck, deploy the exact passing build with `node tools/deck/cli.mjs deploy --no-build`. Run the maintained RA scenarios in `--mode evidence` when claiming visual/controller success: `ra-compact-game`, `ra-game-view-achievements`, and `ra-game-achievement-detail-return`. Inspect the actual `.gpfocus`, current route, scrollTop, and screenshots. The early-row return scenario alone does not establish deep-scroll restoration.
-4. Check focused and unfocused Hardcore/Softcore borders with computed style; confirm game actions, passive stops, all relevant filters, Show more/Show all left-right navigation, detail game action, and B restoration. Run applicable Steam regression routes after changing shared components.
-5. If the Deck is unavailable or the user takes over visual testing, state exactly which physical checks remain pending. Update the Deck runbook only for routes and controller behavior actually verified on the device.

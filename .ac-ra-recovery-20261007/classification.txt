@@ -1,6 +1,0 @@
-Recovery baseline: 81c8c77 (HEAD on 2026-10-07).
-Saved: uncommitted.patch, copy of untracked RA compact game component, initial status.
-Retain for validation: src/core/domain.ts, src/providers/retroachievements/raw-types.ts, src/providers/retroachievements/community-stats.ts, tests/retroachievements-community-stats.test.ts. These represent RA Game Progression API fields and normalization, subject to verified semantics and actual use.
-Remove from working tree and rebuild against Steam structure: src/platform/decky/bootstrap.tsx, decky-compact-achievement-list.tsx, decky-compact-achievement-model.ts, decky-game-detail-ordering.ts, decky-game-detail-view.tsx, ra-theme.ts, untracked decky-retroachievements-compact-game-overview.tsx.
-Remove source-pattern approval tests and replace with behavioral contract tests: tests/createAppServices.test.ts, tests/decky-compact-achievements.test.ts, tests/decky-steam-compact-game.test.ts, tests/decky-steam-compact-profile.test.ts.
-Committed RA profile and Steam production at 81c8c77 remain unchanged.
