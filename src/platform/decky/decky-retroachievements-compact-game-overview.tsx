@@ -146,6 +146,22 @@ export function DeckyRetroAchievementsCompactGameOverview({
         <span style={raRecipes.compactGame.actionLabel}><img alt="" src={trophyIconUrl} style={raRecipes.compactGame.actionIcon} />View Achievements</span>
       </DeckySteamCompactAction> : null}
 
+      {status !== undefined ? <PassiveSection label="Completion Status">
+        <div style={raRecipes.compactGame.status(awardKind)}>
+          <span style={raRecipes.compactGame.statusWatermark}>
+            <DeckyGameStatusIcon kind={awardKind} size={112} color={raRecipes.gameAward[awardKind].color} accentColor={awardKind === "mastered" ? raTheme.color.hardcore : raTheme.color.accentStrong} />
+          </span>
+          <span style={raRecipes.compactGame.statusEmblem(awardKind)}>
+            <DeckyGameStatusIcon kind={awardKind} size={48} color={raRecipes.gameAward[awardKind].color} accentColor={awardKind === "mastered" ? raTheme.color.hardcore : raTheme.color.accentStrong} glow={awardKind === "mastered" ? "rgba(242, 216, 127, 0.42)" : "rgba(43, 195, 242, 0.42)"} />
+          </span>
+          <span style={raRecipes.compactGame.statusContent}>
+            <span style={raRecipes.compactGame.statusEyebrow}>Completion Status</span>
+            <strong style={raRecipes.compactGame.statusTitle(awardKind)}>{awardKind === "mastered" ? "Mastered" : "Beaten"}</strong>
+            {awardDate !== undefined ? <span style={raRecipes.compactGame.statusDate}>{awardDate}</span> : null}
+          </span>
+        </div>
+      </PassiveSection> : null}
+
       <PassiveSection label="Your Progress">
         <div style={raRecipes.compactGame.sectionLabel}>Your Progress</div>
         <div style={raRecipes.compactGame.progress}>
@@ -167,22 +183,6 @@ export function DeckyRetroAchievementsCompactGameOverview({
       {medians.length > 0 ? <PassiveSection label="Community Times">
         <div style={raRecipes.compactGame.sectionLabel}>Community Times</div>
         <div style={raRecipes.compactGame.metricGrid}>{medians.map((entry) => <Metric key={entry.key} icon={entry.icon} label={entry.label} value={entry.value} {...(entry.secondary === undefined ? {} : { secondary: entry.secondary })} tone={entry.tone} />)}</div>
-      </PassiveSection> : null}
-
-      {status !== undefined ? <PassiveSection label="Completion Status">
-        <div style={raRecipes.compactGame.status(awardKind)}>
-          <span style={raRecipes.compactGame.statusWatermark}>
-            <DeckyGameStatusIcon kind={awardKind} size={112} color={raRecipes.gameAward[awardKind].color} accentColor={awardKind === "mastered" ? raTheme.color.hardcore : raTheme.color.accentStrong} />
-          </span>
-          <span style={raRecipes.compactGame.statusEmblem(awardKind)}>
-            <DeckyGameStatusIcon kind={awardKind} size={48} color={raRecipes.gameAward[awardKind].color} accentColor={awardKind === "mastered" ? raTheme.color.hardcore : raTheme.color.accentStrong} glow={awardKind === "mastered" ? "rgba(242, 216, 127, 0.42)" : "rgba(43, 195, 242, 0.42)"} />
-          </span>
-          <span style={raRecipes.compactGame.statusContent}>
-            <span style={raRecipes.compactGame.statusEyebrow}>Completion Status</span>
-            <strong style={raRecipes.compactGame.statusTitle(awardKind)}>{awardKind === "mastered" ? "Mastered" : "Beaten"}</strong>
-            {awardDate !== undefined ? <span style={raRecipes.compactGame.statusDate}>{awardDate}</span> : null}
-          </span>
-        </div>
       </PassiveSection> : null}
 
       <PassiveSection label="My RetroAchievements Stats">
