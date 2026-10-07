@@ -95,7 +95,7 @@ test("Steam compact Activity calendar overrides configured list limits until its
   assert.match(compactProfileSource, /setDeckySteamCompactActivityDay\(nextDay\)/u);
   assert.match(compactProfileSource, /data-steam-compact-activity-calendar-day="true"/u);
   assert.match(compactProfileSource, /data-steam-compact-activity-calendar-active=\{active \? "true" : "false"\}/u);
-  assert.match(compactProfileSource, /aria-label=\{`Activity calendar, \$\{status\}\. Press A to use\.`\}/u);
+  assert.match(compactProfileSource, /aria-label=\{`Activity calendar, \$\{status\}\. \$\{active \? "Press B to exit\." : "Press A to use\."\}`\}/u);
   assert.match(compactProfileSource, /const enterCalendar[\s\S]*setActive\(true\)/u);
   assert.match(compactProfileSource, /const exitCalendar[\s\S]*setActive\(false\)/u);
   assert.match(compactProfileSource, /onCancel=\{exitCalendar\}/u);

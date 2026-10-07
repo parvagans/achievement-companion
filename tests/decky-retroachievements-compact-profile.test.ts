@@ -173,13 +173,14 @@ test("recently played mapper derives mode progress from RA's real achievement co
 });
 
 test("RA QAM loading, focus scrolling, and calendar controls follow Steam compact behavior", async () => {
-  const [profileSource, bootstrapSource, resourcesSource, raThemeSource, settingsSource, loadingSource] = await Promise.all([
+  const [profileSource, bootstrapSource, resourcesSource, raThemeSource, settingsSource, loadingSource, statusIconSource] = await Promise.all([
     readFile(new URL("../src/platform/decky/decky-retroachievements-compact-profile.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/bootstrap.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-compact-session-resources.ts", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/ra-theme.ts", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-retroachievements-compact-settings.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-compact-loading-state.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-game-status-icon.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(bootstrapSource, /isRetroAchievementsCompactProfileLoading[\s\S]*!isRenderableDashboardState\(state\) \|\| state\.isRefreshing === true/u);
@@ -196,7 +197,7 @@ test("RA QAM loading, focus scrolling, and calendar controls follow Steam compac
   assert.doesNotMatch(settingsSource, /useQuickAccessVisible|requestDeckySteamGamepadFocusAfterMount/u);
   assert.match(profileSource, /scrollIntoView\(\{ block: "center", inline: "nearest" \}\)/u);
   assert.match(profileSource, /dataAttribute="profile" scrollToTopOnFocus/u);
-  assert.match(profileSource, /aria-label=\{model === undefined \? "RetroAchievements activity calendar unavailable" : `Activity calendar, \$\{status\}\. Press A to use\.`\}/u);
+  assert.match(profileSource, /aria-label=\{model === undefined \? "RetroAchievements activity calendar unavailable" : `Activity calendar, \$\{status\}\. \$\{active \? "Press B to exit\." : "Press A to use\."\}`\}/u);
   assert.match(profileSource, /data-ra-activity-calendar-day="true"[\s\S]*onGamepadDirection=\{handleCalendarDirection\}/u);
   assert.match(profileSource, /data-ra-activity-calendar-current=\{day === today \? "true" : "false"\}/u);
   assert.match(profileSource, /data-ra-activity-calendar-focused=\{day === focusDay \? "true" : "false"\}/u);
@@ -205,7 +206,7 @@ test("RA QAM loading, focus scrolling, and calendar controls follow Steam compac
   assert.doesNotMatch(profileSource, /calendarCell\(intensity, isSelected, true\)/u);
   assert.match(profileSource, /onGamepadFocus=\{\(event\) => \{ const element = event\.currentTarget as HTMLElement; setFocusedCalendarDay\(day\); setLastFocusedDay\(day\)/u);
   assert.match(profileSource, /data-ra-profile-recent-game="true"/u);
-  assert.match(profileSource, /buildCompactActivityGamesForDay\(selectedDateActivity, snapshot\.recentlyPlayedGames\)/u);
+  assert.match(profileSource, /buildCompactActivityGamesForDay\(selectedDateActivity, activityKnownGames\)/u);
   assert.match(profileSource, /activityUnlockCount/u);
   assert.match(profileSource, /subscribeToDeckyCompactFocusRestore/u);
   assert.match(raThemeSource, /achievementCompanionQamTheme as qamTheme/u);
@@ -221,9 +222,22 @@ test("RA QAM loading, focus scrolling, and calendar controls follow Steam compac
   assert.match(profileSource, /<div style=\{raRecipes\.compactProfile\.footer\}>\{refreshText\}<\/div>/u);
   assert.match(profileSource, /sortRetroAchievementsUnlocksNewestFirst\([\s\S]*filterRetroAchievementsUnlocksByMode/u);
   assert.match(profileSource, /wide=\{isSingleModeOverview && metric\.mode !== undefined\}/u);
+  assert.match(profileSource, /metric\.key === "ratio" \? pieChartIconUrl/u);
+  assert.match(profileSource, /<DeckyGameStatusIcon kind=\{kind\} size=\{25\}/u);
+  assert.doesNotMatch(profileSource, /formatRetroAchievementsCompletionIndicatorLabel/u);
   assert.equal(raRecipes.compactProfile.metric("hardcore", true).gridColumn, "1 / -1");
   assert.equal(raRecipes.compactProfile.metric("softcore", true).gridColumn, "1 / -1");
   assert.equal(raRecipes.compactProfile.metric("shared").gridColumn, undefined);
+  assert.equal(raRecipes.compactProfile.metric("hardcore").display, "flex");
+  assert.equal(raRecipes.compactProfile.metric("hardcore").border, raRecipes.compactProfile.metric("shared").border);
+  assert.equal(raRecipes.compactProfile.metricText.flexDirection, "column");
+  assert.equal(raRecipes.compactProfile.completionCard("beaten").display, "flex");
+  assert.equal(raRecipes.compactProfile.recentGameArtwork("mastered").borderRadius, raRecipes.compactProfile.rowArtwork.borderRadius);
+  assert.match(profileSource, /data-ra-profile-overview-focus="true"/u);
+  assert.match(profileSource, /data-ra-profile-beaten-focus="true"/u);
+  assert.match(raThemeSource, /@keyframes ac-ra-award-orbit/u);
+  assert.match(statusIconSource, /kind === "mastered"/u);
+  assert.match(statusIconSource, /ac-game-status-checker-flag/u);
   assert.doesNotMatch(profileSource, /CompactAction label=\{`Refresh RetroAchievements/u);
   assert.match(loadingSource, /achievementCompanionQamTheme/u);
   assert.match(loadingSource, /data-ac-ra-theme=\{!isSteam \? "compact" : undefined\}/u);

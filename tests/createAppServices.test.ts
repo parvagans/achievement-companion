@@ -3313,8 +3313,8 @@ test("provider setup, credential fields, and current compact profile routes stay
   );
   const compactDashboardSource = readFileSync("src/platform/decky/decky-dashboard-view.tsx", "utf8");
   const compactBootstrapSource = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
-  assert.match(compactBootstrapSource, /useDeckySteamLibraryAchievementScanOverview\(providerId\)/u);
-  assert.doesNotMatch(compactBootstrapSource, /useDeckySteamLibraryAchievementScanSummary\(providerId\)/u);
+  assert.match(compactBootstrapSource, /useDeckySteamLibraryAchievementScanSummary\(providerId\)/u);
+  assert.doesNotMatch(compactBootstrapSource, /useDeckySteamLibraryAchievementScanOverview\(providerId\)/u);
   assert.match(compactBootstrapSource, /createDeckySteamLibraryScanDependencies\(\)/u);
   assert.match(compactBootstrapSource, /runAndCacheDeckySteamLibraryAchievementScan/);
   assert.match(compactBootstrapSource, /Scan full Steam library/u);
@@ -11662,11 +11662,15 @@ test("steam game page achievement badge uses the route-patched header path witho
     "src/platform/decky/decky-game-page-achievement-badge-theme.tsx",
     "utf8",
   );
+  const gameStatusIconSource = readFileSync(
+    "src/platform/decky/decky-game-status-icon.tsx",
+    "utf8",
+  );
   const badgePresentationSource = readFileSync(
     "src/platform/decky/decky-game-page-achievement-badge-presentation.ts",
     "utf8",
   );
-  const bubbleSource = `${routeBadgeSource}\n${badgeSource}\n${badgeThemeSource}\n${badgePresentationSource}`;
+  const bubbleSource = `${routeBadgeSource}\n${badgeSource}\n${badgeThemeSource}\n${gameStatusIconSource}\n${badgePresentationSource}`;
   const routeBadgeStyleFunctionSource =
     routeBadgeSource.match(
       /function getDeckyGamePageAchievementRouteBadgeStyle\([\s\S]*?\r?\n\}\r?\n\r?\nfunction /u,

@@ -38,10 +38,8 @@ import {
   readDeckyCompactFocusRestoreRequest,
   subscribeToDeckyCompactFocusRestore,
 } from "./decky-compact-focus-restore";
-import {
-  formatRetroAchievementsCompletionIndicatorLabel,
-  getRetroAchievementsCompletionIndicatorState,
-} from "./decky-retroachievements-completion-indicator";
+import { getRetroAchievementsCompletionIndicatorState } from "./decky-retroachievements-completion-indicator";
+import { DeckyGameStatusIcon } from "./decky-game-status-icon";
 import { getRetroAchievementsRecentActivityLabel } from "./decky-retroachievements-recent-activity";
 import { findDeckyScrollableAncestor } from "./decky-scroll-viewport";
 import { requestDeckySteamGamepadFocusAfterMount, takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
@@ -50,6 +48,7 @@ import { getLocalActivityCalendarDayTimestamp } from "./decky-activity-calendar-
 import chevronRightIconUrl from "./assets/chevron-right.svg";
 import externalLinkIconUrl from "./assets/external-link.svg";
 import masteredIconUrl from "./assets/mastered.svg";
+import pieChartIconUrl from "./assets/pie-chart.svg";
 import rankPointsIconUrl from "./assets/rank-points.svg";
 import settingsIconUrl from "./assets/settings.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
@@ -172,7 +171,7 @@ function CompactAction({
       {...(dataAttribute !== undefined ? { "data-ra-profile-action": dataAttribute } : {})}
       onActivate={activate}
       onClick={activate}
-      onCancel={onCancel}
+      {...(onCancel === undefined ? {} : { onCancel })}
       onFocus={(event) => { handleFocus(event.currentTarget); targetProps?.onFocused(event.currentTarget); }}
       onGamepadFocus={(event) => { const element = event.currentTarget as HTMLElement; handleFocus(element); targetProps?.onFocused(element); }}
       onBlur={() => { focusGeneration.current += 1; setFocused(false); }}
@@ -234,21 +233,53 @@ function ProfileCard({
 function OverviewMetric({
   metric,
   wide = false,
+  focusable = false,
+  onCancel,
+  targetProps,
 }: {
   readonly metric: ReturnType<typeof getRetroAchievementsProfileOverviewMetrics>[number];
   readonly wide?: boolean;
+  readonly focusable?: boolean;
+  readonly onCancel?: () => void;
+  readonly targetProps?: CompactFocusTargetProps;
 }): JSX.Element {
+  const [focused, setFocused] = useState(false);
   const mode = metric.mode ?? "shared";
-  const icon = metric.mode === "hardcore" ? trophyIconUrl : metric.mode === "softcore" ? masteredIconUrl : metric.key === "retro-points" ? rankPointsIconUrl : undefined;
-  return (
-    <div style={raRecipes.compactProfile.metric(mode, wide)}>
+  const icon = metric.mode === "hardcore" ? trophyIconUrl : metric.mode === "softcore" ? masteredIconUrl : metric.key === "retro-points" ? rankPointsIconUrl : metric.key === "ratio" ? pieChartIconUrl : undefined;
+  const content = (
+    <>
       {icon !== undefined ? <img alt="" src={icon} style={{ width: 27, height: 27, flex: "0 0 27px", filter: raTheme.iconFilter[mode === "hardcore" ? "hardcore" : mode === "softcore" ? "softcore" : "primary"] }} /> : null}
       <div style={raRecipes.compactProfile.metricText}>
         <span style={raRecipes.compactProfile.metricLabel(mode)}>{metric.label}</span>
         <span style={raRecipes.compactProfile.metricValue}>{metric.value}</span>
         {metric.detail !== undefined ? <span style={raRecipes.compactProfile.metricDetail}>{metric.detail}</span> : null}
       </div>
-    </div>
+    </>
+  );
+  if (!focusable) return <div style={raRecipes.compactProfile.metric(mode, wide)}>{content}</div>;
+  const focus = (element: HTMLElement): void => {
+    setFocused(true);
+    element.scrollIntoView({ block: "center", inline: "nearest" });
+    targetProps?.onFocused(element);
+  };
+  return (
+    <Focusable
+      noFocusRing
+      role="group"
+      tabIndex={0}
+      aria-label={`${metric.label}, ${metric.value}${metric.detail === undefined ? "" : `, ${metric.detail}`}`}
+      data-ra-profile-overview-focus="true"
+      ref={(node) => targetProps?.elementRef?.(node)}
+      preferredFocus={targetProps?.preferredFocus ?? false}
+      onActivate={() => {}}
+      {...(onCancel === undefined ? {} : { onCancel })}
+      onFocus={(event) => focus(event.currentTarget)}
+      onGamepadFocus={(event) => focus(event.currentTarget as HTMLElement)}
+      onBlur={() => setFocused(false)}
+      style={{ ...raRecipes.compactProfile.metric(mode, wide), ...raRecipes.compactProfile.focusableMetric(focused) }}
+    >
+      {content}
+    </Focusable>
   );
 }
 
@@ -256,21 +287,49 @@ function CompletionCard({
   kind,
   label,
   count,
-  icon,
+  onCancel,
+  targetProps,
 }: {
   readonly kind: "beaten" | "mastered";
   readonly label: string;
   readonly count: number | undefined;
-  readonly icon: string;
+  readonly onCancel?: () => void;
+  readonly targetProps?: CompactFocusTargetProps;
 }): JSX.Element {
-  return (
-    <div style={raRecipes.compactProfile.completionCard(kind)}>
-      <img alt="" src={icon} style={{ width: 25, height: 25, flex: "0 0 25px", filter: kind === "mastered" ? raTheme.iconFilter.hardcore : raTheme.iconFilter.muted }} />
-      <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+  const [focused, setFocused] = useState(false);
+  const content = (
+    <>
+      <DeckyGameStatusIcon kind={kind} size={25} color={kind === "mastered" ? raTheme.color.mastered : raTheme.color.beaten} accentColor={kind === "mastered" ? raTheme.color.hardcore : raTheme.color.textSecondary} />
+      <div style={raRecipes.compactProfile.completionText}>
         <span style={raRecipes.compactProfile.completionLabel(kind)}>{label}</span>
         <span style={raRecipes.compactProfile.completionValue}>{count?.toLocaleString() ?? "—"}</span>
       </div>
-    </div>
+    </>
+  );
+  if (kind === "mastered") return <div style={raRecipes.compactProfile.completionCard(kind)}>{content}</div>;
+  const focus = (element: HTMLElement): void => {
+    setFocused(true);
+    element.scrollIntoView({ block: "center", inline: "nearest" });
+    targetProps?.onFocused(element);
+  };
+  return (
+    <Focusable
+      noFocusRing
+      role="group"
+      tabIndex={0}
+      aria-label={`Beaten, ${count?.toLocaleString() ?? "unavailable"}`}
+      data-ra-profile-beaten-focus="true"
+      ref={(node) => targetProps?.elementRef?.(node)}
+      preferredFocus={targetProps?.preferredFocus ?? false}
+      onActivate={() => {}}
+      {...(onCancel === undefined ? {} : { onCancel })}
+      onFocus={(event) => focus(event.currentTarget)}
+      onGamepadFocus={(event) => focus(event.currentTarget as HTMLElement)}
+      onBlur={() => setFocused(false)}
+      style={{ ...raRecipes.compactProfile.completionCard(kind), ...raRecipes.compactProfile.focusableMetric(focused) }}
+    >
+      {content}
+    </Focusable>
   );
 }
 
@@ -556,20 +615,18 @@ function RecentlyPlayedRow({
   const progressLine = formatSummary(summary);
   const lastPlayed = formatRelativeTime(game.lastPlayedAt);
   const award = getRetroAchievementsCompletionIndicatorState(game);
-  const awardLabel = award === undefined ? undefined : formatRetroAchievementsCompletionIndicatorLabel(award);
   const awardKind = award?.startsWith("mastered") === true ? "mastered" : "beaten";
   const elementRef = useRef<HTMLDivElement | null>(null);
   const activate = (): void => { if (elementRef.current !== null) targetProps.onActivated(elementRef.current); onActivate(); };
   const focus = (element: HTMLElement): void => { setFocused(true); element.scrollIntoView({ block: "center", inline: "nearest" }); targetProps.onFocused(element); };
   return (
-    <Focusable noFocusRing role="button" tabIndex={0} aria-label={`${game.title}${game.platformLabel ? `, ${game.platformLabel}` : ""}${progressLine ? `, ${progressLine}` : ""}${awardLabel ? `, ${awardLabel}` : ""}${activityUnlockCount !== undefined && activityDateLabel !== undefined ? `, ${activityUnlockCount} unlock${activityUnlockCount === 1 ? "" : "s"} on ${activityDateLabel}` : ""}`} data-ra-profile-recent-game="true" ref={(node) => { elementRef.current = node; targetProps.elementRef?.(node); }} preferredFocus={targetProps.preferredFocus} onActivate={activate} onClick={activate} onCancel={onCancel} onFocus={(event) => focus(event.currentTarget)} onGamepadFocus={(event) => focus(event.currentTarget as HTMLElement)} onBlur={() => setFocused(false)} style={raRecipes.compactProfile.row(focused)}>
-      <span style={raRecipes.compactProfile.rowArtwork}>
+    <Focusable noFocusRing role="button" tabIndex={0} aria-label={`${game.title}${game.platformLabel ? `, ${game.platformLabel}` : ""}${progressLine ? `, ${progressLine}` : ""}${award !== undefined ? `, ${awardKind}` : ""}${activityUnlockCount !== undefined && activityDateLabel !== undefined ? `, ${activityUnlockCount} unlock${activityUnlockCount === 1 ? "" : "s"} on ${activityDateLabel}` : ""}`} data-ra-profile-recent-game="true" ref={(node) => { elementRef.current = node; targetProps.elementRef?.(node); }} preferredFocus={targetProps.preferredFocus} onActivate={activate} onClick={activate} onCancel={onCancel} onFocus={(event) => focus(event.currentTarget)} onGamepadFocus={(event) => focus(event.currentTarget as HTMLElement)} onBlur={() => setFocused(false)} style={raRecipes.compactProfile.row(focused)}>
+      <span className={award === undefined ? undefined : "ac-ra-recent-game-artwork--awarded"} data-ra-game-award={awardKind} style={raRecipes.compactProfile.recentGameArtwork(award === undefined ? undefined : awardKind)}>
         {game.coverImageUrl || game.systemIconUrl ? <DeckyGameArtwork compact src={game.coverImageUrl ?? game.systemIconUrl!} size={32} title={game.title} /> : <span style={raRecipes.text("compact", "title")}>{getInitials(game.title)}</span>}
       </span>
       <span style={raRecipes.compactProfile.rowText}>
         <span style={raRecipes.compactProfile.rowTitle}>{game.title}</span>
         <span style={raRecipes.compactProfile.rowMeta}>{game.platformLabel ?? "RetroAchievements game"}</span>
-        {awardLabel !== undefined ? <span style={raRecipes.badge(awardKind)}>{awardLabel}</span> : null}
         {progressLine !== undefined ? <span style={raRecipes.compactProfile.rowMeta}>{progressLine}</span> : null}
         {activityUnlockCount !== undefined && activityDateLabel !== undefined ? <span style={raRecipes.compactProfile.rowMeta}>{activityUnlockCount} unlock{activityUnlockCount === 1 ? "" : "s"} on {activityDateLabel}</span> : null}
       </span>
@@ -658,6 +715,7 @@ export function DeckyRetroAchievementsCompactProfile({
     [profile, settings.retroAchievementsAchievementMode],
   );
   const isSingleModeOverview = settings.retroAchievementsAchievementMode !== "both";
+  const firstModeMetricKey = overview.find((metric) => metric.mode !== undefined)?.key;
   const refreshText = refreshedAt === undefined ? "RetroAchievements refreshed" : `RetroAchievements refreshed ${new Date(refreshedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
   const connectionMessage = connectionState === undefined ? undefined : getRetroAchievementsConnectionBanner(connectionState);
   const beaten = getMetricNumber(profile, "games-beaten");
@@ -731,6 +789,9 @@ export function DeckyRetroAchievementsCompactProfile({
               key={metric.key}
               metric={metric}
               wide={isSingleModeOverview && metric.mode !== undefined}
+              focusable={metric.key === firstModeMetricKey}
+              onCancel={onCancel}
+              {...(metric.key === firstModeMetricKey ? { targetProps: targetProps({ kind: "overview" }) } : {})}
             />
           ))}
         </div>
@@ -738,8 +799,8 @@ export function DeckyRetroAchievementsCompactProfile({
 
       <Section title="Game Completion">
         <div style={raRecipes.compactProfile.completionGrid}>
-          <CompletionCard kind="beaten" label="Beaten" count={beaten} icon={trophyIconUrl} />
-          <CompletionCard kind="mastered" label="Mastered" count={mastered} icon={masteredIconUrl} />
+          <CompletionCard kind="beaten" label="Beaten" count={beaten} onCancel={onCancel} targetProps={targetProps({ kind: "beaten" })} />
+          <CompletionCard kind="mastered" label="Mastered" count={mastered} />
         </div>
         {completion !== undefined ? (
           <div style={raRecipes.compactProfile.progressCard}>

@@ -1,6 +1,8 @@
 export type DeckyRetroAchievementsCompactFocusTarget =
   | { readonly kind: "profile" }
   | { readonly kind: "current-game" }
+  | { readonly kind: "overview" }
+  | { readonly kind: "beaten" }
   | { readonly kind: "calendar-entry" }
   | { readonly kind: "calendar-day"; readonly day: number }
   | { readonly kind: "achievement"; readonly gameId: string; readonly achievementId: string }

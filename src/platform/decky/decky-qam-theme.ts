@@ -87,6 +87,11 @@ export function getQamCompactFocusRingStyle(focused: boolean): CSSProperties {
   return { boxShadow: focused ? achievementCompanionQamTheme.focus.compactShadow : "none" };
 }
 
+/** Quiet focus for informational cards that are controller stops but not actions. */
+export function getQamPassiveCardFocusStyle(focused: boolean): CSSProperties {
+  return { boxShadow: focused ? "inset 0 0 0 1px rgba(54, 185, 255, 0.09)" : "none" };
+}
+
 /** Shared row focus semantics, scoped to each provider's own theme root. */
 export function getQamFocusStylesCss(themeAttribute: "data-ac-steam-theme" | "data-ac-ra-theme"): string {
   const root = `[${themeAttribute}]`;

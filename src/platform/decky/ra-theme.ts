@@ -6,6 +6,7 @@ import {
   getQamCompactFocusControlStyle,
   getQamCompactFocusRingStyle,
   getQamFocusStylesCss,
+  getQamPassiveCardFocusStyle,
   qamActivityCalendarColors,
 } from "./decky-qam-theme";
 
@@ -224,8 +225,8 @@ export const raRecipes = {
     softcore: { color: raTheme.color.softcore, surface: raTheme.surface.softcore },
   },
   gameAward: {
-    beaten: { color: raTheme.color.beaten, border: "rgba(214, 221, 232, 0.42)", surface: "rgba(214, 221, 232, 0.1)" },
-    mastered: { color: raTheme.color.mastered, border: "rgba(232, 201, 102, 0.52)", surface: "rgba(214, 178, 74, 0.16)" },
+    beaten: { color: raTheme.color.beaten, border: "rgba(230, 235, 242, 0.86)", surface: "rgba(230, 235, 242, 0.2)" },
+    mastered: { color: raTheme.color.mastered, border: "rgba(242, 216, 127, 0.9)", surface: "rgba(242, 216, 127, 0.24)" },
   },
   compactProfile: {
     root: {
@@ -288,18 +289,22 @@ export const raRecipes = {
     metricGrid(count: number): CSSProperties {
       return { display: "grid", gridTemplateColumns: `repeat(${Math.min(2, Math.max(1, count))}, minmax(0, 1fr))`, gap: 5, minWidth: 0 };
     },
-    metric(mode: "hardcore" | "softcore" | "shared", wide = false): CSSProperties {
-      const semantic = mode === "hardcore" ? raTheme.color.hardcore : mode === "softcore" ? raTheme.color.softcore : raTheme.color.accent;
+    metric(_mode: "hardcore" | "softcore" | "shared", wide = false): CSSProperties {
       return {
         minHeight: 49, minWidth: 0, padding: "6px 8px", display: "flex", alignItems: "center", gap: raTheme.space.md,
         gridColumn: wide ? "1 / -1" : undefined,
-        border: `1px solid ${mode === "shared" ? raTheme.color.borderSubtle : `${semantic}55`}`,
+        border: `1px solid ${raTheme.color.borderSubtle}`,
         borderRadius: raTheme.radius.medium,
-        borderColor: mode === "shared" ? raTheme.color.borderSubtle : `${semantic}55`,
         background: raTheme.surface.raised, boxSizing: "border-box",
       };
     },
     metricText: { display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, minWidth: 0 } satisfies CSSProperties,
+    focusableMetric(focused: boolean): CSSProperties {
+      return {
+        outline: "none",
+        ...getQamPassiveCardFocusStyle(focused),
+      };
+    },
     metricLabel(mode: "hardcore" | "softcore" | "shared"): CSSProperties {
       return {
         color: mode === "hardcore" ? raTheme.color.hardcore : mode === "softcore" ? raTheme.color.softcore : raTheme.color.accent,
@@ -311,13 +316,14 @@ export const raRecipes = {
     completionGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 5, minWidth: 0 } satisfies CSSProperties,
     completionCard(kind: "beaten" | "mastered"): CSSProperties {
       const color = kind === "beaten" ? raTheme.color.beaten : raTheme.color.mastered;
-      const border = kind === "beaten" ? "rgba(214, 221, 232, 0.42)" : "rgba(232, 201, 102, 0.52)";
+      const border = raRecipes.gameAward[kind].border;
       return {
         display: "flex", alignItems: "center", gap: 8, minWidth: 0, minHeight: 54, padding: "7px 8px",
-        border: `1px solid ${border}`, borderRadius: raTheme.radius.medium,
+        border: `2px solid ${border}`, borderRadius: raTheme.radius.medium,
         background: raTheme.surface.raised, color, boxSizing: "border-box",
       };
     },
+    completionText: { display: "flex", flexDirection: "column", gap: 4, minWidth: 0 } satisfies CSSProperties,
     completionLabel(kind: "beaten" | "mastered"): CSSProperties {
       return { color: kind === "beaten" ? raTheme.color.beaten : raTheme.color.mastered, fontSize: raTheme.type.compact.caption, fontWeight: 850, letterSpacing: "0.05em", lineHeight: 1.3, textTransform: "uppercase" };
     },
@@ -364,6 +370,22 @@ export const raRecipes = {
       border: `1px solid ${raTheme.color.borderSubtle}`, borderRadius: raTheme.radius.small,
       background: raTheme.surface.raised, boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04)", boxSizing: "border-box",
     } satisfies CSSProperties,
+    recentGameArtwork(kind: "beaten" | "mastered" | undefined): CSSProperties {
+      return {
+        ...this.rowArtwork,
+        position: "relative",
+        isolation: "isolate",
+        width: 40, height: 40, flex: "0 0 40px",
+        overflow: "hidden",
+        border: kind === undefined ? this.rowArtwork.border : `2px solid ${raRecipes.gameAward[kind].border}`,
+        borderRadius: raTheme.radius.small,
+        boxShadow: kind === undefined ? this.rowArtwork.boxShadow : `0 0 10px ${raRecipes.gameAward[kind].surface}`,
+        ...(kind === undefined ? {} : {
+          "--ac-ra-award-track": raRecipes.gameAward[kind].border,
+          "--ac-ra-award-bead": raRecipes.gameAward[kind].color,
+        }),
+      };
+    },
     rowText: { display: "flex", flexDirection: "column", gap: 3, minWidth: 0 } satisfies CSSProperties,
     rowTitle: { color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.metadata, fontWeight: 800, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } satisfies CSSProperties,
     rowMeta: { color: raTheme.color.textMuted, fontSize: 9, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } satisfies CSSProperties,
@@ -436,6 +458,35 @@ export const raRecipes = {
 /** Scoped visual focus only. GamepadUI continues to own focus and navigation. */
 export function getRaFocusStylesCss(): string {
   return `${getQamFocusStylesCss("data-ac-ra-theme")}
+  @keyframes ac-ra-award-orbit {
+    to { transform: rotate(360deg); }
+  }
+  [data-ac-ra-theme="compact"] .ac-ra-recent-game-artwork--awarded::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: conic-gradient(from 0deg, transparent 0deg 272deg, var(--ac-ra-award-track) 302deg, var(--ac-ra-award-bead) 338deg, transparent 360deg);
+    animation: ac-ra-award-orbit 2.8s linear infinite;
+    pointer-events: none;
+  }
+  [data-ac-ra-theme="compact"] .ac-ra-recent-game-artwork--awarded::after {
+    content: "";
+    position: absolute;
+    inset: 3px;
+    border-radius: 6px;
+    background: ${raTheme.surface.raised};
+    pointer-events: none;
+  }
+  [data-ac-ra-theme="compact"] .ac-ra-recent-game-artwork--awarded > * {
+    position: relative;
+    z-index: 1;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-ac-ra-theme="compact"] .ac-ra-recent-game-artwork--awarded::before {
+      animation: none;
+    }
+  }
   [data-ac-ra-theme="fullscreen"] .Panel.Focusable.gpfocus {
     border-color: ${raTheme.focus.border} !important;
     background: ${raTheme.focus.background} !important;

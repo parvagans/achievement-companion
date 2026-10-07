@@ -4,8 +4,7 @@ import {
   type GamePageAchievementBadgeColors,
 } from "@core/settings";
 import steamIconUrl from "./assets/steam.svg";
-import crownIconUrl from "./assets/achievement-badge/crown.svg";
-import laurelIconUrl from "./assets/achievement-badge/laurel.svg";
+import { DeckyGameStatusIcon } from "./decky-game-status-icon";
 import { RETROACHIEVEMENTS_PROVIDER_ICON_SRC } from "./providers/retroachievements/icon";
 import type {
   DeckyGamePageAchievementBadgePresentation,
@@ -111,66 +110,19 @@ function getProviderIconStyle(provider: DeckyGamePageAchievementBadgeProvider): 
   };
 }
 
-function getMaskedStatusAssetStyle(
-  assetUrl: string,
-  color: string,
-  placement: Pick<CSSProperties, "width" | "height" | "top" | "left">,
-): CSSProperties {
-  const maskUrl = `url("${assetUrl}")`;
-
-  return {
-    position: "absolute",
-    ...placement,
-    backgroundColor: color,
-    maskImage: maskUrl,
-    maskPosition: "center",
-    maskRepeat: "no-repeat",
-    maskSize: "100% 100%",
-    WebkitMaskImage: maskUrl,
-    WebkitMaskPosition: "center",
-    WebkitMaskRepeat: "no-repeat",
-    WebkitMaskSize: "100% 100%",
-  };
-}
-
 function renderStatusIcon(
   variant: DeckyGamePageAchievementBadgeVariant,
   palette: DeckyGamePageAchievementBadgePalette,
 ): ReactNode {
-  const shared = {
-    color: palette.accent,
-    filter: `drop-shadow(0 0 5px ${palette.glow})`,
-  } satisfies CSSProperties;
-
   if (variant === "perfected" || variant === "mastered") {
-    return (
-      <span
-        data-ac-game-page-badge-status-icon="crown-laurel"
-        style={{ ...shared, position: "relative", display: "block", width: 48, height: 48 }}
-      >
-        <span style={getMaskedStatusAssetStyle(laurelIconUrl, palette.accent, { width: 48, height: 46, top: 1, left: 0 })} />
-        <span style={getMaskedStatusAssetStyle(crownIconUrl, palette.accentBright, { width: 27, height: 27, top: 10, left: 10.5 })} />
-      </span>
-    );
+    return <span data-ac-game-page-badge-status-icon="crown-laurel"><DeckyGameStatusIcon kind="mastered" size={48} color={palette.accent} accentColor={palette.accentBright} glow={palette.glow} /></span>;
   }
 
   if (variant === "beaten") {
-    return (
-      <svg data-ac-game-page-badge-status-icon="flag" height="48" viewBox="0 0 64 64" width="48" style={shared}>
-        <defs>
-          <clipPath id="ac-badge-checker-flag">
-            <path d="M20 10c10-5 20 7 34 0v29c-14 7-24-7-34 0V10Z" />
-          </clipPath>
-        </defs>
-        <path d="M17 57 21 7" stroke="currentColor" strokeLinecap="round" strokeWidth="4" />
-        <g clipPath="url(#ac-badge-checker-flag)">
-          <path d="M20 10c10-5 20 7 34 0v29c-14 7-24-7-34 0V10Z" fill={palette.accentBright} />
-          <path d="M20 10h9v9h-9zM38 10h9v9h-9zM29 19h9v9h-9zM47 19h9v9h-9zM20 28h9v9h-9zM38 28h9v9h-9zM29 37h9v9h-9zM47 37h9v9h-9z" fill="currentColor" />
-        </g>
-        <path d="M20 10c10-5 20 7 34 0v29c-14 7-24-7-34 0V10Z" fill="none" stroke="currentColor" strokeLinejoin="round" strokeWidth="2" />
-      </svg>
-    );
+    return <span data-ac-game-page-badge-status-icon="flag"><DeckyGameStatusIcon kind="beaten" size={48} color={palette.accent} accentColor={palette.accentBright} glow={palette.glow} /></span>;
   }
+
+  const shared = { color: palette.accent, filter: `drop-shadow(0 0 5px ${palette.glow})` } satisfies CSSProperties;
 
   return (
     <svg data-ac-game-page-badge-status-icon="bars" height="44" viewBox="0 0 54 54" width="44" style={shared}>

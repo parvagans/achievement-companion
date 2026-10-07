@@ -26,6 +26,7 @@ import starIconUrl from "./assets/star.svg";
 import steamDeckIconUrl from "./assets/steam-deck.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
 import { steamRecipes, steamTheme } from "./steam-theme";
+import { getQamPassiveCardFocusStyle } from "./decky-qam-theme";
 
 const MIN_TITLE_FONT_SIZE_PX = 12;
 
@@ -134,7 +135,7 @@ function getSectionCardStyle(isFocused: boolean): CSSProperties {
     width: "100%",
     minWidth: 0,
     padding: "9px 10px",
-    boxShadow: isFocused ? "inset 0 0 0 1px rgba(54, 185, 255, 0.09)" : "none",
+    ...getQamPassiveCardFocusStyle(isFocused),
     boxSizing: "border-box",
   };
 }
