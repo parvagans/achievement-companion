@@ -251,7 +251,28 @@ export const raRecipes = {
     modeText: { display: "flex", flexDirection: "column", gap: 2, minWidth: 0 } satisfies CSSProperties,
     modeLabel: { fontSize: raTheme.type.compact.caption, fontWeight: 800, lineHeight: 1, textTransform: "uppercase" } satisfies CSSProperties,
     modeValue: { color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.body, fontWeight: 800, lineHeight: 1.12, whiteSpace: "nowrap" } satisfies CSSProperties,
-    status(kind: "beaten" | "mastered"): CSSProperties { return { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 48, border: `2px solid ${raRecipes.gameAward[kind].border}`, borderRadius: raTheme.radius.medium, background: raTheme.surface.raised, color: raRecipes.gameAward[kind].color, fontSize: raTheme.type.compact.body, fontWeight: 800 }; },
+    status(kind: "beaten" | "mastered"): CSSProperties {
+      const mastered = kind === "mastered";
+      const accent = mastered ? raTheme.color.mastered : raTheme.color.accentStrong;
+      return {
+        position: "relative", isolation: "isolate", display: "grid", gridTemplateColumns: "62px minmax(0, 1fr)",
+        alignItems: "center", gap: 10, minWidth: 0, minHeight: 90, overflow: "hidden", padding: "9px 11px",
+        border: `2px solid ${accent}`, borderRadius: raTheme.radius.medium, boxSizing: "border-box",
+        background: mastered
+          ? "radial-gradient(circle at 11% 50%, rgba(242, 216, 127, 0.15), transparent 48%), linear-gradient(110deg, #071b29, #081824)"
+          : "radial-gradient(circle at 11% 50%, rgba(43, 195, 242, 0.17), transparent 48%), linear-gradient(110deg, #071b29, #081824)",
+        boxShadow: `0 0 12px ${mastered ? "rgba(242, 216, 127, 0.16)" : "rgba(43, 195, 242, 0.19)"}, inset 0 1px 0 rgba(255, 255, 255, 0.07)`,
+      };
+    },
+    statusEmblem(kind: "beaten" | "mastered"): CSSProperties {
+      const color = kind === "mastered" ? raTheme.color.mastered : raTheme.color.accentStrong;
+      return { position: "relative", zIndex: 1, display: "grid", placeItems: "center", width: 60, height: 60, flex: "0 0 60px", border: `2px solid ${color}`, borderRadius: "50%", background: "rgba(3, 13, 21, 0.68)", boxShadow: `0 0 11px ${kind === "mastered" ? "rgba(242, 216, 127, 0.37)" : "rgba(43, 195, 242, 0.38)"}`, boxSizing: "border-box" };
+    },
+    statusContent: { position: "relative", zIndex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: 3, minWidth: 0 } satisfies CSSProperties,
+    statusEyebrow: { color: raTheme.color.accent, fontSize: raTheme.type.compact.caption, fontWeight: 800, letterSpacing: "0.06em", lineHeight: 1.1, textTransform: "uppercase" } satisfies CSSProperties,
+    statusTitle(kind: "beaten" | "mastered"): CSSProperties { return { color: kind === "mastered" ? raTheme.color.mastered : raTheme.color.textPrimary, fontSize: 20, fontWeight: 850, lineHeight: 1.04 }; },
+    statusDate: { color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.metadata, lineHeight: 1.2, overflowWrap: "anywhere" } satisfies CSSProperties,
+    statusWatermark: { position: "absolute", zIndex: 0, top: -18, right: -8, opacity: 0.08, pointerEvents: "none" } satisfies CSSProperties,
     info: { display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "5px 10px", width: "100%", paddingTop: 2 } satisfies CSSProperties,
     infoLabel: { color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.caption, lineHeight: 1.2 } satisfies CSSProperties,
     infoValue: { minWidth: 0, overflow: "hidden", color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.caption, fontWeight: 700, lineHeight: 1.2, textAlign: "right", textOverflow: "ellipsis", whiteSpace: "nowrap" } satisfies CSSProperties,

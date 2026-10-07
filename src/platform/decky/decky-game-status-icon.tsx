@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useId, type CSSProperties } from "react";
 import crownIconUrl from "./assets/achievement-badge/crown.svg";
 import laurelIconUrl from "./assets/achievement-badge/laurel.svg";
 
@@ -39,6 +39,7 @@ export function DeckyGameStatusIcon({
   readonly accentColor?: string;
   readonly glow?: string;
 }): JSX.Element {
+  const checkerFlagId = useId().replace(/:/g, "");
   const style = glow === undefined ? { color } : { color, filter: `drop-shadow(0 0 ${Math.max(3, Math.round(size / 10))}px ${glow})` };
   if (kind === "mastered") {
     return (
@@ -52,12 +53,12 @@ export function DeckyGameStatusIcon({
   return (
     <svg aria-hidden="true" height={size} viewBox="0 0 64 64" width={size} style={style}>
       <defs>
-        <clipPath id="ac-game-status-checker-flag">
+        <clipPath id={checkerFlagId}>
           <path d="M20 10c10-5 20 7 34 0v29c-14 7-24-7-34 0V10Z" />
         </clipPath>
       </defs>
       <path d="M17 57 21 7" stroke="currentColor" strokeLinecap="round" strokeWidth="4" />
-      <g clipPath="url(#ac-game-status-checker-flag)">
+      <g clipPath={`url(#${checkerFlagId})`}>
         <path d="M20 10c10-5 20 7 34 0v29c-14 7-24-7-34 0V10Z" fill={accentColor} />
         <path d="M20 10h9v9h-9zM38 10h9v9h-9zM29 19h9v9h-9zM47 19h9v9h-9zM20 28h9v9h-9zM38 28h9v9h-9zM29 37h9v9h-9zM47 37h9v9h-9z" fill="currentColor" />
       </g>
