@@ -275,9 +275,9 @@ export const raRecipes = {
     label: { color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.caption, fontWeight: 700, lineHeight: 1, whiteSpace: "nowrap" } satisfies CSSProperties,
   },
   compactAchievementCommunity: {
-    track: { display: "flex", width: "calc(100% - 20px)", height: 5, marginTop: 3, overflow: "hidden", borderRadius: 999, background: "rgba(5, 12, 19, 0.82)" } satisfies CSSProperties,
+    track: { display: "flex", width: "calc(100% - 16px)", height: 10, marginTop: 5, overflow: "hidden", border: "1px solid rgba(144, 184, 208, 0.48)", borderRadius: 999, background: "rgba(2, 9, 15, 0.96)", boxShadow: "inset 0 1px 2px rgba(0, 0, 0, 0.55)", boxSizing: "border-box" } satisfies CSSProperties,
     segment(mode: "hardcore" | "softcore", percent: number): CSSProperties {
-      return { flex: `0 0 ${Math.max(0, Math.min(100, percent))}%`, height: "100%", background: mode === "hardcore" ? raTheme.color.hardcore : raTheme.color.softcore };
+      return { flex: `0 0 ${Math.max(0, Math.min(100, percent))}%`, height: "100%", background: mode === "hardcore" ? raTheme.color.hardcore : raTheme.color.softcore, boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.42)" };
     },
   },
   compactProfile: {
