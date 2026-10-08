@@ -94,8 +94,7 @@ const MemoizedDeckySteamHuntersCommunitySection = memo(DeckySteamHuntersCommunit
 export interface DeckyFullScreenGamePageProps {
   readonly providerId: string | undefined;
   readonly gameId: string | undefined;
-  readonly onOpenAchievementDetail: ((achievementId: string) => void) | undefined;
-  readonly onOpenSubsetGame: ((gameId: string) => void) | undefined;
+  readonly onOpenAchievementDetail: ((achievementId: string, gameId?: string) => void) | undefined;
   readonly onBack: () => void;
   readonly backFooter?: string;
 }
@@ -328,7 +327,6 @@ export function DeckyFullScreenGamePage({
   providerId,
   gameId,
   onOpenAchievementDetail,
-  onOpenSubsetGame,
   onBack,
   backFooter = "Use Back to return to the compact side panel.",
 }: DeckyFullScreenGamePageProps): JSX.Element {
@@ -346,6 +344,12 @@ export function DeckyFullScreenGamePage({
     isStale: false,
     isRefreshing: false,
   });
+  const [expandedRetroAchievementsSubsetIds, setExpandedRetroAchievementsSubsetIds] = useState<readonly string[]>(
+    initialSectionState?.subsets.expandedSubsetIds ?? [],
+  );
+  const [retroAchievementsSubsetDetailStates, setRetroAchievementsSubsetDetailStates] = useState<
+    Readonly<Record<string, ResourceState<GameDetailSnapshot>>>
+  >({});
   const [achievementFilter, setAchievementFilter] = useState<AchievementFilter>(initialSectionState?.achievements.achievementFilter ?? "all");
   const [achievementModeFilter, setAchievementModeFilter] = useState<AchievementModeFilter>(initialSectionState?.achievements.achievementModeFilter ?? "all");
   const [achievementGroupFilter, setAchievementGroupFilter] = useState<AchievementGroupFilter>(initialSectionState?.achievements.achievementGroupFilter ?? "all");
@@ -534,6 +538,15 @@ export function DeckyFullScreenGamePage({
   }, [displayedLoadedSnapshot]);
 
   useEffect(() => {
+    setExpandedRetroAchievementsSubsetIds(
+      providerId !== undefined && gameId !== undefined
+        ? readFullScreenGameSectionPageState(providerId, gameId).subsets.expandedSubsetIds
+        : [],
+    );
+    setRetroAchievementsSubsetDetailStates({});
+  }, [gameId, providerId]);
+
+  useEffect(() => {
     if (providerId === undefined || gameId === undefined || displayedLoadedSnapshot === undefined) {
       return;
     }
@@ -664,12 +677,12 @@ export function DeckyFullScreenGamePage({
       achievements: { ...current.achievements, focusedId: achievementId },
     }));
   }, [persistSteamSectionState]);
-  const handleOpenAchievementDetail = useCallback((achievementId: string): void => {
+  const handleOpenAchievementDetail = useCallback((achievementId: string, achievementGameId?: string): void => {
     if (providerId !== undefined && gameId !== undefined) {
       saveCurrentSectionScroll();
       requestFullScreenGameSectionRestoration(providerId, gameId);
     }
-    onOpenAchievementDetail?.(achievementId);
+    onOpenAchievementDetail?.(achievementId, achievementGameId);
   }, [gameId, onOpenAchievementDetail, providerId, saveCurrentSectionScroll]);
   const handleFocusAchievementGroup = useCallback((groupId: string): void => {
     persistSteamSectionState((current) => ({
@@ -697,17 +710,62 @@ export function DeckyFullScreenGamePage({
       subsets: { ...current.subsets, focusedSubsetId: subsetId },
     }));
   }, [persistSteamSectionState]);
-  const handleOpenSubset = useCallback((subsetId: string): void => {
+  const handleFocusSubsetAchievement = useCallback((subsetId: string, achievementId: string): void => {
+    persistSteamSectionState((current) => ({
+      ...current,
+      subsets: {
+        ...current.subsets,
+        focusedSubsetId: subsetId,
+        focusedAchievementId: achievementId,
+      },
+    }));
+  }, [persistSteamSectionState]);
+  const handleExpandedSubsetIdsChange = useCallback((subsetIds: readonly string[]): void => {
+    setExpandedRetroAchievementsSubsetIds(subsetIds);
+    persistSteamSectionState((current) => ({
+      ...current,
+      subsets: { ...current.subsets, expandedSubsetIds: subsetIds },
+    }));
+  }, [persistSteamSectionState]);
+  const handleLoadSubsetAchievements = useCallback((subsetId: string): void => {
+    const existing = retroAchievementsSubsetDetailStates[subsetId];
+    if (existing !== undefined && (existing.status === "loading" || existing.status === "success" || existing.status === "stale")) {
+      return;
+    }
+    setRetroAchievementsSubsetDetailStates((current) => ({
+      ...current,
+      [subsetId]: { status: "loading", isStale: false, isRefreshing: true },
+    }));
+    void loadDeckyGameDetailState(RETROACHIEVEMENTS_PROVIDER_ID, subsetId, { forceRefresh: false })
+      .then((nextState) => {
+        setRetroAchievementsSubsetDetailStates((current) => ({ ...current, [subsetId]: nextState }));
+      })
+      .catch(() => {
+        setRetroAchievementsSubsetDetailStates((current) => ({
+          ...current,
+          [subsetId]: { status: "error", isStale: false, isRefreshing: false },
+        }));
+      });
+  }, [retroAchievementsSubsetDetailStates]);
+  const handleOpenSubsetAchievementDetail = useCallback((subsetId: string, achievementId: string): void => {
     if (providerId !== undefined && gameId !== undefined) {
       saveCurrentSectionScroll("subsets");
       persistSteamSectionState((current) => ({
         ...current,
         activeSection: "subsets",
-        subsets: { ...current.subsets, focusedSubsetId: subsetId },
+        subsets: {
+          ...current.subsets,
+          focusedSubsetId: subsetId,
+          focusedAchievementId: achievementId,
+          expandedSubsetIds: current.subsets.expandedSubsetIds.includes(subsetId)
+            ? current.subsets.expandedSubsetIds
+            : [...current.subsets.expandedSubsetIds, subsetId],
+        },
       }));
     }
-    onOpenSubsetGame?.(subsetId);
-  }, [gameId, onOpenSubsetGame, persistSteamSectionState, providerId, saveCurrentSectionScroll]);
+    requestFullScreenGameSectionRestoration(providerId ?? RETROACHIEVEMENTS_PROVIDER_ID, gameId ?? subsetId);
+    onOpenAchievementDetail?.(achievementId, subsetId);
+  }, [gameId, onOpenAchievementDetail, persistSteamSectionState, providerId, saveCurrentSectionScroll]);
 
   useEffect(() => {
     persistSteamSectionState((current) => ({
@@ -735,6 +793,17 @@ export function DeckyFullScreenGamePage({
       },
     }));
   }, [expandedSteamAchievementGroupIds, restorationIsSteamProvider]);
+
+  useEffect(() => {
+    if (restorationIsSteamProvider) return;
+    persistSteamSectionState((current) => ({
+      ...current,
+      subsets: {
+        ...current.subsets,
+        expandedSubsetIds: expandedRetroAchievementsSubsetIds,
+      },
+    }));
+  }, [expandedRetroAchievementsSubsetIds, persistSteamSectionState, restorationIsSteamProvider]);
 
   useLayoutEffect(() => {
     if (restorationSnapshot === undefined || providerId === undefined || gameId === undefined) {
@@ -788,11 +857,16 @@ export function DeckyFullScreenGamePage({
         );
       } else if (activeSteamSection === "subsets") {
         const focusedSubsetId = currentState.subsets.focusedSubsetId;
-        target = focusedSubsetId === undefined
+        const focusedAchievementId = currentState.subsets.focusedAchievementId;
+        target = focusedAchievementId === undefined
           ? undefined
-          : activeSectionRoot?.querySelector<HTMLElement>(
-              `[data-achievement-companion-ra-subset-id='${focusedSubsetId}']`,
-            );
+          : Array.from(activeSectionRoot?.querySelectorAll<HTMLElement>("[data-achievement-companion-achievement-id]") ?? [])
+            .find((element) => element.dataset["achievementCompanionAchievementId"] === focusedAchievementId);
+        target = focusedSubsetId === undefined
+          ? target
+          : target ?? activeSectionRoot?.querySelector<HTMLElement>(
+            `[data-achievement-companion-ra-subset-id='${focusedSubsetId}']`,
+          );
         target ??= activeSectionRoot?.querySelector<HTMLElement>(
           "[data-achievement-companion-ra-subset-id]",
         );
@@ -984,10 +1058,16 @@ export function DeckyFullScreenGamePage({
               <PanelSection title="Subsets">
                 <PanelSectionRow>
                   <DeckyRetroAchievementsSubsetsSection
+                    achievementMode={settings.retroAchievementsAchievementMode}
+                    expandedSubsetIds={expandedRetroAchievementsSubsetIds}
                     subsets={relatedGamesState.data}
+                    subsetDetails={retroAchievementsSubsetDetailStates}
+                    onExpandedSubsetIdsChange={handleExpandedSubsetIdsChange}
+                    onLoadSubsetAchievements={handleLoadSubsetAchievements}
                     onBack={onBack}
                     onFocusSubset={handleFocusSubset}
-                    onOpenSubset={handleOpenSubset}
+                    onFocusSubsetAchievement={handleFocusSubsetAchievement}
+                    onOpenSubsetAchievementDetail={handleOpenSubsetAchievementDetail}
                   />
                 </PanelSectionRow>
               </PanelSection>

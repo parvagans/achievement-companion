@@ -26,7 +26,9 @@ export interface FullScreenGameAchievementGroupsSectionState extends FullScreenG
 }
 
 export interface FullScreenGameSubsetsSectionState extends FullScreenGameSectionState {
+  readonly expandedSubsetIds: readonly string[];
   readonly focusedSubsetId?: string;
+  readonly focusedAchievementId?: string;
 }
 
 export interface FullScreenGameSectionPageState {
@@ -52,7 +54,7 @@ const defaultPageState: FullScreenGameSectionPageState = {
     visibleAchievementIds: [],
   },
   "achievement-groups": { scrollTop: 0, expandedGroupIds: [] },
-  subsets: { scrollTop: 0 },
+  subsets: { scrollTop: 0, expandedSubsetIds: [] },
   community: defaultSectionState,
   restoreRequested: false,
 };

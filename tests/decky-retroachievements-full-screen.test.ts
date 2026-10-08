@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 import type { GameDetailSnapshot, NormalizedGame } from "../src/core/domain";
 import {
@@ -107,11 +108,18 @@ test("subset focus and scroll state are isolated per game and survive child retu
   updateFullScreenGameSectionPageState("retroachievements", "100", (current) => ({
     ...current,
     activeSection: "subsets",
-    subsets: { scrollTop: 480, focusedSubsetId: "101" },
+    subsets: {
+      scrollTop: 480,
+      expandedSubsetIds: ["101"],
+      focusedSubsetId: "101",
+      focusedAchievementId: "achievement-1",
+    },
   }));
   assert.deepEqual(readFullScreenGameSectionPageState("retroachievements", "100").subsets, {
     scrollTop: 480,
+    expandedSubsetIds: ["101"],
     focusedSubsetId: "101",
+    focusedAchievementId: "achievement-1",
   });
   assert.equal(readFullScreenGameSectionPageState("retroachievements", "101").activeSection, "overview");
 });
@@ -165,6 +173,24 @@ test("RA full-screen Games excludes subset rows; parent game pages own subset na
   };
   const visible = filterCompletionProgressGamesBySubsetVisibility([game, subset], false);
   assert.deepEqual(visible.map((entry) => entry.gameId), [game.gameId]);
+});
+
+test("RA Subsets mirrors Steam group expansion with square set art and child achievement rows", async () => {
+  const source = await readFile(
+    new URL("../src/platform/decky/decky-retroachievements-subsets-section.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /aria-expanded=\{isExpanded\}/u);
+  assert.match(source, /onActivate=\{\(\) => toggleSubset\(subset\.gameId\)\}/u);
+  assert.match(source, /projectRetroAchievementsFullScreenAchievements/u);
+  assert.match(source, /<DeckyFullScreenAchievementRow/u);
+  assert.match(source, /return subset\.coverImageUrl \?\? subset\.boxArtImageUrl/u);
+  assert.match(source, /title=\{subset\.title\}/u);
+  assert.match(source, /getSubsetCountStyle/u);
+  assert.match(source, /\{completionPercent\}%/u);
+  assert.match(source, /Loading subset achievements/u);
+  assert.match(source, /Subset achievements unavailable/u);
 });
 
 test("RA Community requires displayable real metrics and rejects sample-only or denominator-free rates", () => {

@@ -370,18 +370,13 @@ function DeckyFullScreenGameRoute(): JSX.Element {
         gameId={params.gameId}
         onOpenAchievementDetail={
           params.providerId !== undefined && params.gameId !== undefined
-            ? (achievementId) => {
+            ? (achievementId, achievementGameId = params.gameId!) => {
                 navigateToFullScreenAchievement(
                   params.providerId!,
-                  params.gameId!,
+                  achievementGameId,
                   achievementId,
                 );
               }
-            : undefined
-        }
-        onOpenSubsetGame={
-          params.providerId !== undefined
-            ? (subsetGameId) => navigateToFullScreenGame(params.providerId!, subsetGameId)
             : undefined
         }
         onBack={returnFromGamePage}
