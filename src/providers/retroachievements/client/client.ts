@@ -3,7 +3,9 @@ import type {
   RawRetroAchievementsCompletionProgressEntry,
   RawRetroAchievementsCompletionProgressResponse,
   RawRetroAchievementsGameListEntry,
+  RawRetroAchievementsGameExtendedResponse,
   RawRetroAchievementsGameProgressResponse,
+  RawRetroAchievementsUserProgressResponse,
   RawRetroAchievementsAchievementDistributionResponse,
   RawRetroAchievementsGameProgressionResponse,
   RawRetroAchievementsProfileResponse,
@@ -23,6 +25,14 @@ export interface RetroAchievementsClient {
     config: RetroAchievementsProviderConfig,
     consoleId: string,
   ): Promise<readonly RawRetroAchievementsGameListEntry[]>;
+  loadGameExtended?(
+    config: RetroAchievementsProviderConfig,
+    gameId: string,
+  ): Promise<RawRetroAchievementsGameExtendedResponse>;
+  loadUserProgress?(
+    config: RetroAchievementsProviderConfig,
+    gameIds: readonly string[],
+  ): Promise<RawRetroAchievementsUserProgressResponse>;
   loadProfile(config: RetroAchievementsProviderConfig): Promise<RawRetroAchievementsProfileResponse>;
   loadSummary?(
     config: RetroAchievementsProviderConfig,
@@ -68,6 +78,8 @@ const PROFILE_PATH = "API_GetUserProfile.php";
 const SUMMARY_PATH = "API_GetUserSummary.php";
 const SYSTEMS_PATH = "API_GetConsoleIDs.php";
 const GAME_LIST_PATH = "API_GetGameList.php";
+const GAME_EXTENDED_PATH = "API_GetGameExtended.php";
+const USER_PROGRESS_PATH = "API_GetUserProgress.php";
 const COMPLETION_PROGRESS_PATH = "API_GetUserCompletionProgress.php";
 const ACHIEVEMENTS_EARNED_BETWEEN_PATH = "API_GetAchievementsEarnedBetween.php";
 const RECENT_UNLOCKS_PATH = "API_GetUserRecentAchievements.php";
@@ -161,6 +173,20 @@ export function createRetroAchievementsClient(
           f: 1,
           h: 1,
         },
+      });
+    },
+
+    async loadGameExtended(config, gameId) {
+      return transport.requestJson<RawRetroAchievementsGameExtendedResponse>({
+        path: GAME_EXTENDED_PATH,
+        query: { ...toAuthQuery(config), i: gameId },
+      });
+    },
+
+    async loadUserProgress(config, gameIds) {
+      return transport.requestJson<RawRetroAchievementsUserProgressResponse>({
+        path: USER_PROGRESS_PATH,
+        query: { ...toAuthQuery(config), i: gameIds.join(",") },
       });
     },
 

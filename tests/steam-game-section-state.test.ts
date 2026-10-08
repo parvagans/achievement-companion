@@ -80,16 +80,18 @@ test("SteamHunters uses the fully obtainable state only when every restriction i
 });
 
 test("Steam overview title fitting is one-line measured sizing and set status has no legacy card grid", async () => {
-  const [overviewSource, statusSource] = await Promise.all([
+  const [overviewSource, sharedOverviewSource, statusSource] = await Promise.all([
     readFile(new URL("../src/platform/decky/decky-steam-game-overview.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-game-overview-layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-steam-hunters-game-sections.tsx", import.meta.url), "utf8"),
   ]);
 
-  assert.match(overviewSource, /MIN_GAME_TITLE_FONT_SIZE_PX = 15/u);
-  assert.match(overviewSource, /element\.scrollWidth <= element\.clientWidth/u);
-  assert.match(overviewSource, /whiteSpace: "nowrap"/u);
-  assert.match(overviewSource, /textOverflow: "ellipsis"/u);
-  assert.doesNotMatch(overviewSource, /WebkitLineClamp/u);
+  assert.match(sharedOverviewSource, /MIN_GAME_TITLE_FONT_SIZE_PX = 15/u);
+  assert.match(sharedOverviewSource, /element\.scrollWidth <= element\.clientWidth/u);
+  assert.match(sharedOverviewSource, /whiteSpace: "nowrap"/u);
+  assert.match(sharedOverviewSource, /textOverflow: "ellipsis"/u);
+  assert.doesNotMatch(sharedOverviewSource, /WebkitLineClamp/u);
+  assert.match(overviewSource, /DeckyFullScreenGameOverviewLayout/u);
   assert.match(overviewSource, /title="Achievement Set Status"/u);
   assert.match(overviewSource, /Game data refreshed \$\{refreshTime\}/u);
   assert.doesNotMatch(overviewSource, /releaseDate=\{releaseDate\}/u);
@@ -262,7 +264,7 @@ test("Steam game sections unmount inactive focus trees behind one stable footer 
   assert.doesNotMatch(source, /display: activeSteamSection/u);
   assert.match(source, /restorationOrderedAchievements = useMemo/u);
   assert.match(source, /loadedSnapshot === undefined \|\| isWaitingForSteamHuntersEnrichment/u);
-  assert.match(source, /forceRefresh: refreshNonce > 0 \|\| initialSectionState\?\.restoreRequested !== true/u);
+  assert.match(source, /forceRefresh: initialSectionState\?\.restoreRequested !== true/u);
   assert.match(source, /restorationSteamHuntersViewModel = useMemo/u);
   assert.match(source, /MemoizedDeckyFullScreenAchievementBrowser = memo/u);
   assert.match(source, /onAchievementFilterChange=\{handleAchievementFilterChange\}/u);
@@ -271,7 +273,7 @@ test("Steam game sections unmount inactive focus trees behind one stable footer 
   assert.match(source, /jumpSteamAchievementsToTop[\s\S]*data-achievement-companion-steam-filter-control/u);
   assert.match(source, /onJumpToTop=\{jumpSteamAchievementsToTop\}/u);
   assert.equal(
-    (source.match(/<DeckySteamGameSectionNavigation/gu) ?? []).length,
+    (source.match(/<DeckyFullScreenGameSectionNavigation/gu) ?? []).length,
     1,
     "the Steam game page must keep one stable global footer/input owner",
   );

@@ -141,12 +141,21 @@ def request_json(
       except Exception:
         response_body = ""
 
+      retry_after_ms: int | None = None
+      retry_after = cause.headers.get("Retry-After") if cause.headers is not None else None
+      if retry_after is not None:
+        try:
+          retry_after_ms = max(0, int(float(retry_after) * 1000))
+        except (TypeError, ValueError):
+          retry_after_ms = None
+
       return {
         "handledHttpError": True,
         "status": cause.code,
         "statusText": _redact_text(str(getattr(cause, "reason", ""))) if getattr(cause, "reason", None) else "",
         "message": _redact_text(response_body) if response_body != "" else f"HTTP {cause.code}",
         "durationMs": duration_ms,
+        **({"retryAfterMs": retry_after_ms} if retry_after_ms is not None else {}),
       }
 
     if log is not None:

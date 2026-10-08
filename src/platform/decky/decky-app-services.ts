@@ -10,6 +10,7 @@ import type {
   ProviderId,
   RecentlyPlayedGame,
   RecentUnlock,
+  RelatedGameSummary,
 } from "@core/domain";
 import type {
   AuthenticatedProviderTransportFactory,
@@ -1797,4 +1798,21 @@ export async function loadDeckyGameDetailState(
     ...state,
     data: patchedGameDetail,
   };
+}
+
+/** Loads optional RA parent-linked child games without changing the normal game-detail snapshot. */
+export async function loadDeckyRetroAchievementsRelatedGames(
+  game: NormalizedGame,
+  options?: { readonly forceRefresh?: boolean },
+): Promise<ResourceState<readonly RelatedGameSummary[]>> {
+  const runtimeMode: DeckyRuntimeMode = loadDeckyRuntimeMode();
+  if (runtimeMode === "empty" || game.providerId !== RETROACHIEVEMENTS_PROVIDER_ID) {
+    return createIdleState<readonly RelatedGameSummary[]>();
+  }
+
+  return createDeckyAppServices(runtimeMode).relatedGames.loadRelatedGames(
+    RETROACHIEVEMENTS_PROVIDER_ID,
+    game,
+    { forceRefresh: options?.forceRefresh ?? false },
+  );
 }

@@ -14,10 +14,17 @@ export class RetroAchievementsRequestError extends Error {
     message: string,
     public readonly statusCode?: number,
     public readonly category: "network" | "http" | "unknown" = "unknown",
+    public readonly retryAfterMs?: number,
   ) {
     super(message);
     this.name = "RetroAchievementsRequestError";
   }
+}
+
+function readRetryAfterMs(value: string | null): number | undefined {
+  if (value === null) return undefined;
+  const seconds = Number(value.trim());
+  return Number.isFinite(seconds) && seconds >= 0 ? Math.round(seconds * 1000) : undefined;
 }
 
 export interface FetchRetroAchievementsTransportOptions {
@@ -83,6 +90,7 @@ export function createFetchRetroAchievementsTransport(
           `RetroAchievements request failed with ${response.status} ${response.statusText}${detail}`,
           response.status,
           "http",
+          readRetryAfterMs(response.headers.get("Retry-After")),
         );
       }
 

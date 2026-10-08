@@ -2,6 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { GameDetailSnapshot, NormalizedGame } from "../src/core/domain";
 import {
+  buildFullScreenGameSections,
+  getAdjacentFullScreenGameSectionId,
+} from "../src/platform/decky/decky-full-screen-game-section-navigation";
+import {
+  readFullScreenGameSectionPageState,
+  resetFullScreenGameSectionPageStatesForTests,
+  updateFullScreenGameSectionPageState,
+} from "../src/platform/decky/decky-full-screen-game-section-state";
+import {
   getAdjacentProviderFullScreenSessionTab,
   getProviderFullScreenSessionTabs,
 } from "../src/platform/decky/decky-steam-full-screen-session-navigation";
@@ -14,6 +23,7 @@ import {
   matchesSteamGamesFilter,
   selectSteamGames,
 } from "../src/platform/decky/decky-steam-full-screen-games-data";
+import { filterCompletionProgressGamesBySubsetVisibility } from "../src/platform/decky/decky-completion-progress-grouping";
 
 const game: NormalizedGame = {
   providerId: "retroachievements",
@@ -73,6 +83,39 @@ test("provider visit tab order keeps Steam four-tab parity and RA's three-tab cy
   assert.equal(getAdjacentProviderFullScreenSessionTab(raTabs, "activity", "next"), "profile");
 });
 
+test("full-screen game tabs keep RA Subsets conditional and before Community", () => {
+  assert.deepEqual(
+    buildFullScreenGameSections({ provider: "retroachievements" }).map((section) => section.label),
+    ["Overview", "Achievements"],
+  );
+  const withBoth = buildFullScreenGameSections({
+    provider: "retroachievements",
+    hasSubsets: true,
+    hasCommunity: true,
+  });
+  assert.deepEqual(withBoth.map((section) => section.label), ["Overview", "Achievements", "Subsets", "Community"]);
+  assert.equal(getAdjacentFullScreenGameSectionId(withBoth, "community", "next"), "overview");
+  assert.equal(getAdjacentFullScreenGameSectionId(withBoth, "overview", "previous"), "community");
+  assert.deepEqual(
+    buildFullScreenGameSections({ provider: "steam", hasAchievementGroups: true, hasCommunity: true }).map((section) => section.label),
+    ["Overview", "Achievements", "DLC / Groups", "Community"],
+  );
+});
+
+test("subset focus and scroll state are isolated per game and survive child return", () => {
+  resetFullScreenGameSectionPageStatesForTests();
+  updateFullScreenGameSectionPageState("retroachievements", "100", (current) => ({
+    ...current,
+    activeSection: "subsets",
+    subsets: { scrollTop: 480, focusedSubsetId: "101" },
+  }));
+  assert.deepEqual(readFullScreenGameSectionPageState("retroachievements", "100").subsets, {
+    scrollTop: 480,
+    focusedSubsetId: "101",
+  });
+  assert.equal(readFullScreenGameSectionPageState("retroachievements", "101").activeSection, "overview");
+});
+
 test("RA full-screen achievement projection uses the selected mode and retains locked rows", () => {
   const hardcore = projectRetroAchievementsFullScreenAchievements(snapshot, "hardcore");
   const softcore = projectRetroAchievementsFullScreenAchievements(snapshot, "softcore");
@@ -112,6 +155,16 @@ test("RA Games uses award/status semantics and recent unlock ordering", () => {
       .map((entry) => entry.gameId),
     [game.gameId, beaten.gameId, mastered.gameId],
   );
+});
+
+test("RA full-screen Games excludes subset rows; parent game pages own subset navigation", () => {
+  const subset: NormalizedGame = {
+    ...game,
+    gameId: "subset",
+    title: "Mode Test [Subset - Bonus]",
+  };
+  const visible = filterCompletionProgressGamesBySubsetVisibility([game, subset], false);
+  assert.deepEqual(visible.map((entry) => entry.gameId), [game.gameId]);
 });
 
 test("RA Community requires displayable real metrics and rejects sample-only or denominator-free rates", () => {

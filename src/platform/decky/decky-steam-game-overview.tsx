@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import type { CSSProperties } from "react";
 import { Navigation as DeckyNavigation } from "@decky/ui";
 import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
@@ -18,10 +18,12 @@ import { DeckySteamExternalLinkIcon, DeckySteamHuntersIcon, DeckySteamPlayIcon }
 import type { SteamHuntersGameEnrichment } from "../../providers/steamhunters";
 import steamIconUrl from "./assets/steam.svg";
 import { steamRecipes, steamTheme } from "./steam-theme";
+import {
+  DeckyFullScreenGameOverviewLayout,
+  DeckyFullScreenGameTitle,
+} from "./decky-full-screen-game-overview-layout";
 
 type SteamGame = GameDetailSnapshot["game"];
-
-const MIN_GAME_TITLE_FONT_SIZE_PX = 15;
 
 function formatCount(value: number): string {
   return value.toLocaleString();
@@ -39,19 +41,6 @@ function formatGameRefreshTime(value: number | undefined): string | undefined {
   return new Date(value).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
 
-function getOverviewGridStyle(): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: "minmax(280px, 0.9fr) minmax(0, 1.8fr)",
-    gap: 12,
-    width: "100%",
-    height: "100%",
-    minHeight: 0,
-    minWidth: 0,
-    alignItems: "stretch",
-  };
-}
-
 function getIdentityPanelStyle(): CSSProperties {
   return {
     ...steamRecipes.card("fullscreen", "raised"),
@@ -66,19 +55,6 @@ function getIdentityPanelStyle(): CSSProperties {
   };
 }
 
-function getTitleStyle(fontSizePx: number | undefined): CSSProperties {
-  return {
-    color: steamTheme.color.textPrimary,
-    fontSize: fontSizePx === undefined ? "1.28em" : `${fontSizePx}px`,
-    fontWeight: 800,
-    lineHeight: 1.15,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  };
-}
-
 function getProviderStyle(): CSSProperties {
   return { ...steamRecipes.text("fullscreen", "body"), display: "inline-flex", alignItems: "center", gap: 6, color: steamTheme.color.textSecondary, fontWeight: 700 };
 }
@@ -87,42 +63,6 @@ function getSteamProviderIconStyle(): CSSProperties {
   return {
     filter: "invert(1)",
   };
-}
-
-function SteamGameTitle({ title }: { readonly title: string }): JSX.Element {
-  const titleRef = useRef<HTMLDivElement>(null);
-  const [fittedTitle, setFittedTitle] = useState<{
-    readonly title: string;
-    readonly fontSizePx: number;
-  } | undefined>(undefined);
-  const fontSizePx = fittedTitle?.title === title ? fittedTitle.fontSizePx : undefined;
-
-  useLayoutEffect(() => {
-    const element = titleRef.current;
-    const ownerWindow = element?.ownerDocument.defaultView;
-    if (element === null || ownerWindow === null || ownerWindow === undefined || element.clientWidth === 0) {
-      return;
-    }
-
-    const currentFontSizePx = Number.parseFloat(ownerWindow.getComputedStyle(element).fontSize);
-    if (!Number.isFinite(currentFontSizePx) || element.scrollWidth <= element.clientWidth) {
-      return;
-    }
-
-    const nextFontSizePx = Math.max(
-      MIN_GAME_TITLE_FONT_SIZE_PX,
-      Math.floor((currentFontSizePx * element.clientWidth / element.scrollWidth) * 10) / 10,
-    );
-    if (nextFontSizePx >= currentFontSizePx) {
-      return;
-    }
-
-    setFittedTitle((current) => current?.title === title && current.fontSizePx === nextFontSizePx
-      ? current
-      : { title, fontSizePx: nextFontSizePx });
-  }, [fontSizePx, title]);
-
-  return <div ref={titleRef} style={getTitleStyle(fontSizePx)}>{title}</div>;
 }
 
 function getMetadataStyle(): CSSProperties {
@@ -140,28 +80,6 @@ function getMetadataStyle(): CSSProperties {
 
 function getMetadataValueStyle(): CSSProperties {
   return { color: steamTheme.color.textPrimary, textAlign: "right", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
-}
-
-function getDashboardStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    height: "100%",
-    minHeight: 0,
-    minWidth: 0,
-  };
-}
-
-function getDashboardTopRowStyle(hasCommunity: boolean): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: hasCommunity ? "minmax(0, 1.6fr) minmax(250px, 1fr)" : "minmax(0, 1fr)",
-    flex: "1 1 auto",
-    gap: 8,
-    minHeight: 0,
-    minWidth: 0,
-  };
 }
 
 function openSteamStore(appId: number): void {
@@ -210,7 +128,7 @@ function SteamGameIdentityPanel({
           dense
         />
       ) : null}
-      <SteamGameTitle title={game.title} />
+      <DeckyFullScreenGameTitle color={steamTheme.color.textPrimary} title={game.title} />
       <div style={getProviderStyle()}><img alt="" height={16} src={steamIconUrl} style={getSteamProviderIconStyle()} width={16} />Steam</div>
       {game.appid !== undefined ? (
         <DeckyFullscreenActionRow>
@@ -264,10 +182,10 @@ export function DeckySteamGameOverview({
       : latest, undefined);
   const hasCommunity = steamHunters?.hasCommunityStats === true;
   return (
-    <div data-ac-steam-theme="fullscreen" style={getOverviewGridStyle()}>
-      <SteamGameIdentityPanel game={game} refreshedAt={refreshedAt} steamHuntersEnrichment={steamHuntersEnrichment} />
-      <div style={getDashboardStyle()}>
-        <div style={getDashboardTopRowStyle(hasCommunity)}>
+    <div data-ac-steam-theme="fullscreen" style={{ height: "100%" }}>
+      <DeckyFullScreenGameOverviewLayout
+        identity={<SteamGameIdentityPanel game={game} refreshedAt={refreshedAt} steamHuntersEnrichment={steamHuntersEnrichment} />}
+        progress={
           <DeckySteamProgressSummary
             completionPercent={completionPercent}
             fillHeight
@@ -276,15 +194,17 @@ export function DeckySteamGameOverview({
             remainingValue={remainingCount === undefined ? undefined : formatCount(remainingCount)}
             lastUnlockValue={formatDate(lastUnlock)}
           />
-          {hasCommunity && steamHunters !== undefined ? <DeckySteamHuntersCommunitySection model={steamHunters} compact fillHeight /> : null}
-        </div>
-        <DeckySteamHuntersSetDetailsSection
-          model={steamHunters}
-          totalAchievementCount={totalAchievementCount}
-          updatedLabel={updatedLabel}
-        />
-        {steamHunters !== undefined ? <DeckySteamHuntersCompletionHealthSection model={steamHunters} title="Achievement Set Status" /> : null}
-      </div>
+        }
+        community={hasCommunity && steamHunters !== undefined ? <DeckySteamHuntersCommunitySection model={steamHunters} compact fillHeight /> : undefined}
+        setDetails={
+          <DeckySteamHuntersSetDetailsSection
+            model={steamHunters}
+            totalAchievementCount={totalAchievementCount}
+            updatedLabel={updatedLabel}
+          />
+        }
+        setStatus={steamHunters !== undefined ? <DeckySteamHuntersCompletionHealthSection model={steamHunters} title="Achievement Set Status" /> : undefined}
+      />
     </div>
   );
 }

@@ -4904,7 +4904,13 @@ test("retroachievements completion indicator maps award kind to compact circle s
   );
 
   assert.match(fullScreenCompletionProgressSource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
-  assert.match(fullScreenGameSource, /DeckyRetroAchievementsGameSpotlight/u);
+  const retroAchievementsGameOverviewSource = readFileSync(
+    "src/platform/decky/decky-retroachievements-game-overview.tsx",
+    "utf8",
+  );
+  assert.match(fullScreenGameSource, /DeckyRetroAchievementsGameOverview/u);
+  assert.match(retroAchievementsGameOverviewSource, /DeckyFullScreenGameOverviewLayout/u);
+  assert.match(retroAchievementsGameOverviewSource, /DeckyRetroAchievementsProgressSummary/u);
   assert.match(retroAchievementsGameSpotlightSource, /DeckyRetroAchievementsProgressSummary/u);
   assert.match(retroAchievementsGameSpotlightSource, /const completionTone = getCompletionTone\(completionState\)/u);
   assert.match(retroAchievementsProgressSummarySource, /tone=\{completionTone\}/u);
@@ -10233,11 +10239,11 @@ test("Steam full-screen entry refreshes the bounded account snapshot and reuses 
       const profileState = await loadDeckyDashboardStateForFullScreenEntry("steam");
       assert.equal(profileState.status, "success");
       assert.ok(profileState.data !== undefined);
-      assert.equal(ownedGamesRequestCount, 2, "full-screen entry uses only the bounded profile/activity inputs");
+      assert.equal(ownedGamesRequestCount, 3, "full-screen entry uses only the bounded profile/activity inputs");
       assert.equal(
         playerAchievementRequestCount,
-        1,
-        "full-screen entry refreshes only the configured recent game's live state",
+        2,
+        "full-screen entry refreshes only the configured recent game's bounded live state",
       );
 
       const cachedEntryState = getDeckyDashboardStateForFullScreenEntryInitial("steam");

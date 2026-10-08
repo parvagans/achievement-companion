@@ -1223,6 +1223,9 @@ export function DeckyFullScreenProfilePage({
     const rawCompletion = isRenderableCompletionProgressState(completionProgressState)
       ? completionProgressState.data
       : undefined;
+    // RetroAchievements subsets are child sets, not games. They have their own
+    // parent-game Subsets tab and must never occupy the full-screen Games tab.
+    const showRetroAchievementsGamesSubsets = false;
     const completion = rawCompletion === undefined
       ? undefined
       : {
@@ -1230,11 +1233,11 @@ export function DeckyFullScreenProfilePage({
           summary: summarizeCompletionProgressSummaryBySubsetVisibility(
             rawCompletion.summary,
             rawCompletion.games,
-            deckySettings.showCompletionProgressSubsets,
+            showRetroAchievementsGamesSubsets,
           ),
           games: filterCompletionProgressGamesBySubsetVisibility(
             rawCompletion.games,
-            deckySettings.showCompletionProgressSubsets,
+            showRetroAchievementsGamesSubsets,
           ),
         };
     const model = buildRetroAchievementsFullScreenProfileModel({

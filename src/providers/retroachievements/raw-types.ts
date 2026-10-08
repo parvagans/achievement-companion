@@ -44,6 +44,37 @@ export interface RawRetroAchievementsGameListEntry {
   readonly hashes?: readonly string[];
 }
 
+/** Extended public game metadata used to verify parent/subset relationships. */
+export interface RawRetroAchievementsGameExtendedResponse {
+  readonly ID?: number | string;
+  readonly id?: number | string;
+  readonly Title?: string;
+  readonly title?: string;
+  readonly ConsoleID?: number | string;
+  readonly consoleId?: number | string;
+  readonly ConsoleName?: string;
+  readonly consoleName?: string;
+  readonly ParentGameID?: number | string | null;
+  readonly parentGameId?: number | string | null;
+  readonly ImageIcon?: string;
+  readonly imageIcon?: string;
+  readonly ImageBoxArt?: string;
+  readonly imageBoxArt?: string;
+  readonly NumAchievements?: number | string;
+  readonly numAchievements?: number | string;
+}
+
+export interface RawRetroAchievementsUserProgressEntry {
+  readonly NumPossibleAchievements?: number | string;
+  readonly numPossibleAchievements?: number | string;
+  readonly NumAchieved?: number | string;
+  readonly numAchieved?: number | string;
+  readonly NumAchievedHardcore?: number | string;
+  readonly numAchievedHardcore?: number | string;
+}
+
+export type RawRetroAchievementsUserProgressResponse = Readonly<Record<string, RawRetroAchievementsUserProgressEntry>>;
+
 // Assumption: the Profile endpoint only supplies identity/basic account metadata.
 export interface RawRetroAchievementsProfileResponse {
   readonly User?: string;

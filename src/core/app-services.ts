@@ -11,6 +11,7 @@ import type {
   ProviderId,
   RecentlyPlayedGame,
   RecentUnlock,
+  RelatedGameSummary,
 } from "./domain";
 import type { DashboardRefreshProgressEvent } from "./services";
 import type { AppError } from "./errors";
@@ -21,6 +22,7 @@ import {
   createProviderCompletionProgressCacheKey,
   createProviderDashboardCacheKey,
   createProviderGameDetailCacheKey,
+  createProviderRelatedGamesCacheKey,
 } from "./cache-keys";
 import type { AchievementProvider, ProviderRegistry } from "./ports";
 import type { PlatformServices } from "./platform";
@@ -28,7 +30,7 @@ import type { AppServices } from "./services";
 import { redactFrontendLogText } from "./redaction";
 
 type ResourceCapability = "profileSummary" | "completionProgress" | "gameProgress" | "achievementHistory";
-type ResourceLabel = "dashboard" | "activity calendar" | "achievement history" | "completion progress" | "game detail";
+type ResourceLabel = "dashboard" | "activity calendar" | "achievement history" | "completion progress" | "game detail" | "related games";
 
 export interface AppServiceBootstrapOptions {
   readonly providerRegistry: ProviderRegistry;
@@ -49,6 +51,7 @@ const DASHBOARD_CACHE_TTL_MS = 15 * 60 * 1000;
 const COMPLETION_PROGRESS_CACHE_TTL_MS = 15 * 60 * 1000;
 // Assumption: game detail snapshots can use the same short-lived TTL.
 const GAME_DETAIL_CACHE_TTL_MS = 15 * 60 * 1000;
+const RELATED_GAMES_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const providerRefreshQueues = new Map<ProviderId, Promise<void>>();
 
 function createErrorState<T>(error: AppError): ResourceState<T> {
@@ -127,7 +130,9 @@ function createUnsupportedError(
         ? "Achievement history data is not available for this provider yet."
       : resourceLabel === "completion progress"
         ? "Completion progress data is not available for this provider yet."
-        : "Game detail data is not available for this provider yet.";
+        : resourceLabel === "game detail"
+          ? "Game detail data is not available for this provider yet."
+          : "Related game data is not available for this provider yet.";
 
   return {
     kind: "unsupported",
@@ -229,7 +234,9 @@ function createRefreshError(
         ? "achievement history data"
       : resourceLabel === "completion progress"
         ? "completion progress data"
-        : "game detail data";
+        : resourceLabel === "game detail"
+          ? "game detail data"
+          : "related game data";
 
   if (cause instanceof SyntaxError) {
     return {
@@ -289,6 +296,11 @@ function createCacheKey(
 
   if (resourceLabel === "achievement history") {
     return createProviderAchievementHistoryCacheKey(providerId);
+  }
+
+  if (resourceLabel === "related games") {
+    if (gameId === undefined) throw new Error("Related game cache keys require a gameId.");
+    return createProviderRelatedGamesCacheKey(providerId, gameId);
   }
 
   if (gameId === undefined) {
@@ -979,6 +991,57 @@ async function refreshGameDetail(args: {
   });
 }
 
+async function refreshRelatedGames(args: {
+  readonly providerId: ProviderId;
+  readonly providerRegistry: ProviderRegistry;
+  readonly cacheStore: CacheStore;
+  readonly platform: PlatformServices;
+  readonly loadProviderConfig: (providerId: ProviderId) => Promise<unknown | undefined>;
+  readonly cacheKey: string;
+  readonly game: NormalizedGame;
+  readonly cachedState?: ResourceState<readonly RelatedGameSummary[]>;
+}): Promise<ResourceState<readonly RelatedGameSummary[]>> {
+  const provider = args.providerRegistry.get(args.providerId);
+  if (provider === undefined) {
+    const error = createUnsupportedProviderError(args.providerId, args.platform);
+    return args.cachedState !== undefined ? createCachedStateWithError(args.cachedState, error) : createErrorState(error);
+  }
+  if (provider.loadRelatedGames === undefined) {
+    const error = createUnsupportedError(args.providerId, "related games", "gameProgress", args.platform);
+    return args.cachedState !== undefined ? createCachedStateWithError(args.cachedState, error) : createErrorState(error);
+  }
+
+  let providerConfig: unknown | undefined;
+  try {
+    providerConfig = await args.loadProviderConfig(args.providerId);
+  } catch (cause) {
+    const error = createRefreshError("related games", args.providerId, cause);
+    return args.cachedState !== undefined ? createCachedStateWithError(args.cachedState, error) : createErrorState(error);
+  }
+  if (providerConfig === undefined) {
+    const error = createMissingConfigError(args.providerId);
+    return args.cachedState !== undefined ? createCachedStateWithError(args.cachedState, error) : createErrorState(error);
+  }
+
+  return runProviderRefreshExclusive(args.providerId, async () => {
+    try {
+      const relatedGames = await provider.loadRelatedGames!(providerConfig, args.game);
+      const now = Date.now();
+      await args.cacheStore.write<readonly RelatedGameSummary[]>({
+        key: args.cacheKey,
+        value: relatedGames,
+        storedAt: now,
+        expiresAt: now + RELATED_GAMES_CACHE_TTL_MS,
+        version: CACHE_VERSION,
+      });
+      return createSuccessState(relatedGames, now);
+    } catch (cause) {
+      const error = createRefreshError("related games", args.providerId, cause);
+      return args.cachedState !== undefined ? createCachedStateWithError(args.cachedState, error) : createErrorState(error);
+    }
+  });
+}
+
 export function createAppServices(options: AppServiceBootstrapOptions): AppServices {
   return {
     dashboard: {
@@ -1123,6 +1186,32 @@ export function createAppServices(options: AppServiceBootstrapOptions): AppServi
           loadProviderConfig: options.loadProviderConfig,
           cacheKey,
           gameId,
+          ...(cacheRead.cachedState !== undefined ? { cachedState: cacheRead.cachedState } : {}),
+        });
+      },
+    },
+    relatedGames: {
+      async loadRelatedGames(providerId, game, requestOptions) {
+        const cacheKey = createCacheKey(providerId, "related games", game.gameId);
+        const cacheRead = await readCachedStateSafely<readonly RelatedGameSummary[]>({
+          cacheStore: options.cacheStore,
+          cacheKey,
+          providerId,
+          resourceLabel: "related games",
+          platform: options.platform,
+        });
+        if (cacheRead.error !== undefined) return createErrorState<readonly RelatedGameSummary[]>(cacheRead.error);
+        if (cacheRead.cachedState !== undefined && !requestOptions?.forceRefresh && !cacheRead.cachedState.isStale) {
+          return cacheRead.cachedState;
+        }
+        return refreshRelatedGames({
+          providerId,
+          providerRegistry: options.providerRegistry,
+          cacheStore: options.cacheStore,
+          platform: options.platform,
+          loadProviderConfig: options.loadProviderConfig,
+          cacheKey,
+          game,
           ...(cacheRead.cachedState !== undefined ? { cachedState: cacheRead.cachedState } : {}),
         });
       },

@@ -545,6 +545,8 @@ interface RetroAchievementsSelectableGameInput {
   readonly title?: string;
   readonly ImageIcon?: string;
   readonly imageIcon?: string;
+  readonly ConsoleID?: number | string;
+  readonly consoleId?: number | string;
   readonly ConsoleName?: string;
   readonly consoleName?: string;
   readonly MaxPossible?: number | string;
@@ -609,6 +611,7 @@ function normalizeSelectableGame(
   const game = buildGameIdentity({
     gameId: raw.GameID ?? raw.gameId,
     gameTitle: raw.Title ?? raw.title,
+    platformId: raw.ConsoleID ?? raw.consoleId,
     platformLabel: raw.ConsoleName ?? raw.consoleName,
     coverImageUrl: raw.ImageIcon ?? raw.imageIcon,
   });
@@ -732,6 +735,7 @@ interface RetroAchievementsGameIdentityInput {
   readonly gameId?: string | number | undefined;
   readonly gameTitle?: string | undefined;
   readonly title?: string | undefined;
+  readonly platformId?: string | number | undefined;
   readonly platformLabel?: string | undefined;
   readonly systemIconUrl?: string | undefined;
   readonly coverImageUrl?: string | undefined;
@@ -742,10 +746,11 @@ function buildGameIdentity(
   raw: RetroAchievementsGameIdentityInput,
 ): Pick<
   NormalizedGame,
-  "providerId" | "gameId" | "title" | "platformLabel" | "systemIconUrl" | "coverImageUrl" | "boxArtImageUrl"
+  "providerId" | "gameId" | "title" | "platformId" | "platformLabel" | "systemIconUrl" | "coverImageUrl" | "boxArtImageUrl"
 > {
   const gameId = pickIdentifier(raw.gameId) ?? "unknown-game";
   const title = pickString(raw.gameTitle, raw.title) ?? "Unknown Game";
+  const platformId = pickIdentifier(raw.platformId);
   const platformLabel = pickString(raw.platformLabel);
   const systemIconUrl = pickString(raw.systemIconUrl);
   const coverImageUrl = pickString(raw.coverImageUrl);
@@ -755,6 +760,7 @@ function buildGameIdentity(
     providerId: RETROACHIEVEMENTS_PROVIDER_ID,
     gameId,
     title,
+    ...(platformId !== undefined ? { platformId } : {}),
     ...(platformLabel !== undefined ? { platformLabel } : {}),
     ...(systemIconUrl !== undefined ? { systemIconUrl: normalizeRetroAchievementsImageUrl(systemIconUrl) } : {}),
     ...(coverImageUrl !== undefined ? { coverImageUrl: normalizeRetroAchievementsImageUrl(coverImageUrl) } : {}),
@@ -1171,6 +1177,8 @@ export function normalizeRetroAchievementsRecentUnlocks(
 interface RetroAchievementsRecentlyPlayedGameInput {
   readonly GameID?: number | string;
   readonly gameId?: number | string;
+  readonly ConsoleID?: number | string;
+  readonly consoleId?: number | string;
   readonly ConsoleName?: string;
   readonly consoleName?: string;
   readonly Title?: string;
@@ -1197,6 +1205,7 @@ function normalizeRetroAchievementsRecentlyPlayedGame(
   const game = buildGameIdentity({
     gameId: raw.GameID ?? raw.gameId,
     gameTitle: raw.Title ?? raw.title,
+    platformId: raw.ConsoleID ?? raw.consoleId,
     platformLabel: raw.ConsoleName ?? raw.consoleName,
     coverImageUrl: raw.ImageIcon ?? raw.imageIcon,
   });
@@ -1357,6 +1366,7 @@ export function normalizeRetroAchievementsGameDetail(
     (achievement) => pickNumber(achievement.TrueRatio, achievement.trueRatio) !== undefined,
   );
   const lastUnlockAt = pickEpochMs(raw.HighestAwardDate, raw.highestAwardDate);
+  const parentGameId = pickIdentifier(raw.ParentGameID, raw.parentGameId);
 
   const summary: ProgressSummary = {
     unlockedCount,
@@ -1368,10 +1378,12 @@ export function normalizeRetroAchievementsGameDetail(
     ...buildGameIdentity({
       gameId,
       title,
+      platformId: raw.ConsoleID ?? raw.consoleId,
       platformLabel: consoleLabel,
       coverImageUrl,
       boxArtImageUrl,
     }),
+    ...(parentGameId !== undefined ? { parentGameId } : {}),
     status: inferGameStatus(highestAwardKind, summary),
     summary,
     ...(hardcoreUnlockedCount !== undefined

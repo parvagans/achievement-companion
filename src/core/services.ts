@@ -4,9 +4,11 @@ import type {
   CompletionProgressSnapshot,
   DashboardSnapshot,
   GameDetailSnapshot,
+  NormalizedGame,
   NormalizedProfile,
   ProviderId,
   RecentUnlock,
+  RelatedGameSummary,
 } from "./domain";
 
 export interface LoadRequestOptions {
@@ -53,6 +55,14 @@ export interface GameDetailService {
   ): Promise<ResourceState<GameDetailSnapshot>>;
 }
 
+export interface RelatedGamesService {
+  loadRelatedGames(
+    providerId: ProviderId,
+    game: NormalizedGame,
+    options?: LoadRequestOptions,
+  ): Promise<ResourceState<readonly RelatedGameSummary[]>>;
+}
+
 export interface CompletionProgressService {
   loadCompletionProgress(
     providerId: ProviderId,
@@ -73,4 +83,5 @@ export interface AppServices {
   readonly achievementHistory: AchievementHistoryService;
   readonly completionProgress: CompletionProgressService;
   readonly gameDetail: GameDetailService;
+  readonly relatedGames: RelatedGamesService;
 }

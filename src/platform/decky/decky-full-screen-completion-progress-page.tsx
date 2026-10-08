@@ -696,14 +696,16 @@ export function DeckyFullScreenCompletionProgressPage({
     const dashboardSnapshot = snapshot.providerId === RETROACHIEVEMENTS_PROVIDER_ID
       ? {
           ...snapshot,
+          // RA subsets are navigable from their confirmed parent game page;
+          // they are not standalone Games-tab entries.
           summary: summarizeCompletionProgressSummaryBySubsetVisibility(
             snapshot.summary,
             snapshot.games,
-            deckySettings.showCompletionProgressSubsets,
+            false,
           ),
           games: filterCompletionProgressGamesBySubsetVisibility(
             snapshot.games,
-            deckySettings.showCompletionProgressSubsets,
+            false,
           ),
         }
       : snapshot;

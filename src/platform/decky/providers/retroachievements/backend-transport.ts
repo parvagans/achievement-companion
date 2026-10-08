@@ -15,6 +15,7 @@ interface DeckyRetroAchievementsFailureEnvelope {
   readonly handledHttpError?: unknown;
   readonly status?: unknown;
   readonly message?: unknown;
+  readonly retryAfterMs?: unknown;
 }
 
 function isFailureEnvelope(value: unknown): value is DeckyRetroAchievementsFailureEnvelope {
@@ -36,6 +37,7 @@ export function createDeckyRetroAchievementsTransport(): RetroAchievementsTransp
           typeof failureEnvelope.message === "string" ? failureEnvelope.message : "RetroAchievements request failed.",
           statusCode,
           "http",
+          typeof failureEnvelope.retryAfterMs === "number" ? failureEnvelope.retryAfterMs : undefined,
         );
       }
       return response;

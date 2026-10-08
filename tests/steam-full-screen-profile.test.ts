@@ -442,7 +442,7 @@ test("provider full-screen routes load Profile, Games, and Activity once per vis
     /export function getDeckyAchievementHistoryStateForFullScreenEntryInitial[\s\S]*getDeckyProviderFullScreenDataSessionSnapshot\(providerId\)\?\.achievementHistory/u,
   );
   assert.match(historySource, /Refreshing your Steam account and loading achievement history\./u);
-  assert.match(gameSource, /forceRefresh: refreshNonce > 0 \|\| initialSectionState\?\.restoreRequested !== true/u);
+  assert.match(gameSource, /forceRefresh: initialSectionState\?\.restoreRequested !== true/u);
   assert.match(achievementSource, /loadDeckyGameDetailState\(providerId, gameId, \{ forceRefresh: false \}\)/u);
 });
 

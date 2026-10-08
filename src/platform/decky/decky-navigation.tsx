@@ -378,6 +378,11 @@ function DeckyFullScreenGameRoute(): JSX.Element {
               }
             : undefined
         }
+        onOpenSubsetGame={
+          params.providerId !== undefined
+            ? (subsetGameId) => navigateToFullScreenGame(params.providerId!, subsetGameId)
+            : undefined
+        }
         onBack={returnFromGamePage}
         providerId={params.providerId}
       />

@@ -5,6 +5,7 @@ import type {
   NormalizedProfile,
   ProviderCapabilities,
   ProviderId,
+  RelatedGameSummary,
   RecentlyPlayedGame,
   RecentUnlock,
 } from "./domain";
@@ -39,6 +40,10 @@ export interface AchievementProvider<Config = unknown> {
     },
   ): Promise<readonly RecentlyPlayedGame[]>;
   loadGameProgress(config: Config, gameId: string): Promise<GameDetailSnapshot>;
+  loadRelatedGames?(
+    config: Config,
+    game: NormalizedGame,
+  ): Promise<readonly RelatedGameSummary[]>;
 }
 
 export interface ProviderRegistry {

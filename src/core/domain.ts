@@ -93,6 +93,8 @@ export interface NormalizedGame {
   readonly appid?: number;
   readonly gameId: string;
   readonly title: string;
+  /** Provider-local platform/system identifier when the source exposes one. */
+  readonly platformId?: string;
   readonly platformLabel?: string;
   readonly systemIconUrl?: string;
   readonly coverImageUrl?: string;
@@ -115,6 +117,22 @@ export interface NormalizedGame {
   readonly ownershipStatus?: "owned" | "inactive";
   /** True only when the provider has verified a complete player achievement state. */
   readonly achievementStateIsComplete?: boolean;
+}
+
+/** Provider-owned related game metadata used by full-screen game navigation. */
+export interface RelatedGameSummary {
+  readonly providerId: ProviderId;
+  readonly gameId: string;
+  readonly title: string;
+  readonly platformId?: string;
+  readonly platformLabel?: string;
+  readonly systemIconUrl?: string;
+  readonly coverImageUrl?: string;
+  readonly boxArtImageUrl?: string;
+  readonly parentGameId?: string;
+  readonly totalAchievementCount?: number;
+  readonly progress?: ProgressSummary;
+  readonly hardcoreProgress?: ProgressSummary;
 }
 
 export interface RecentlyPlayedGame {
