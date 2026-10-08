@@ -709,7 +709,7 @@ test("Steam activity loading state owns the Activity footer and renders its trop
   ]);
 
   assert.match(historySource, /title=\{state\.status === "error"[\s\S]*activeNavigationItemId="activity"/u);
-  assert.match(historySource, /onPreviousNavigationItem=\{onOpenGames\}[\s\S]*onNextNavigationItem=\{isRa \? onOpenProfile \?\? onOpenGames : onOpenSettings\}/u);
+  assert.match(historySource, /onPreviousNavigationItem=\{onOpenGames\}[\s\S]*onNextNavigationItem=\{onOpenSettings\}/u);
   assert.match(loadingSource, /<svg aria-hidden="true" viewBox="0 0 24 24"[\s\S]*<path[\s\S]*fill="#2bc3f2"/u);
   assert.match(footerSource, /if \(!isTopFooterOverlayOwner\(owner\)\) return;/u);
 });
@@ -777,7 +777,9 @@ test("provider full-screen tabs share one session while details retain route his
   assert.match(navigationSource, /type ProviderFullScreenSessionTab,[\s\S]*decky-steam-full-screen-session-navigation/u);
   assert.match(sessionSource, /onOpenProfile=\{\(\) => selectTab\("profile"\)\}/u);
   assert.match(sessionSource, /onOpenActivity=\{\(\) => selectTab\("activity"\)\}/u);
-  assert.match(sessionSource, /if \(providerId === STEAM_PROVIDER_ID\) selectTab\("settings"\)/u);
+  assert.match(sessionSource, /providerId === STEAM_PROVIDER_ID \|\| providerId === RETROACHIEVEMENTS_PROVIDER_ID[\s\S]*selectTab\("settings"\)/u);
+  assert.match(sessionSource, /activeTab === "settings" && providerId === RETROACHIEVEMENTS_PROVIDER_ID[\s\S]*DeckyRetroAchievementsProviderSettingsPage/u);
+  assert.match(sessionSource, /retroAchievementsSettingsRootRef[\s\S]*takeDeckySteamGamepadFocus\(firstControl\)/u);
   assert.match(sessionSource, /onBack=\{exitSession\}/u);
   assert.match(sessionSource, /resetDeckyProviderFullScreenSessionState\(providerId\);[\s\S]*onBack\(\);/u);
   assert.match(

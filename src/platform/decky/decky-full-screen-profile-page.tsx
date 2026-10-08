@@ -1144,7 +1144,7 @@ export function DeckyFullScreenProfilePage({
             ariaLabel="RetroAchievements profile navigation"
             navigationItems={RETROACHIEVEMENTS_PROFILE_FOOTER_NAVIGATION_ITEMS}
             onNextNavigationItem={() => onOpenCompletionProgress(RETROACHIEVEMENTS_PROVIDER_ID)}
-            onPreviousNavigationItem={() => onOpenAchievementHistory(RETROACHIEVEMENTS_PROVIDER_ID)}
+            onPreviousNavigationItem={onOpenSettings}
           /> : null}
         </>
       );
@@ -1261,7 +1261,7 @@ export function DeckyFullScreenProfilePage({
           ariaLabel="RetroAchievements profile navigation"
           navigationItems={RETROACHIEVEMENTS_PROFILE_FOOTER_NAVIGATION_ITEMS}
           onNextNavigationItem={() => onOpenCompletionProgress(profile.providerId)}
-          onPreviousNavigationItem={() => onOpenAchievementHistory(profile.providerId)}
+          onPreviousNavigationItem={onOpenSettings}
         /> : null}
       </>
     );

@@ -723,7 +723,7 @@ export function DeckyFullScreenAchievementHistoryPage({
             ariaLabel={`${isRa ? "RetroAchievements" : "Steam"} profile navigation`}
             navigationItems={isRa ? RETROACHIEVEMENTS_PROFILE_FOOTER_NAVIGATION_ITEMS : STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
             onPreviousNavigationItem={onOpenGames}
-            onNextNavigationItem={isRa ? onOpenProfile ?? onOpenGames : onOpenSettings}
+            onNextNavigationItem={onOpenSettings}
           /> : null}
         </>
       );

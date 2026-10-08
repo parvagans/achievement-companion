@@ -12,6 +12,7 @@ export const RETROACHIEVEMENTS_FULL_SCREEN_SESSION_TAB_ORDER = [
   "profile",
   "games",
   "activity",
+  "settings",
 ] as const satisfies readonly ProviderFullScreenSessionTab[];
 
 export function getProviderFullScreenSessionTabs(providerId: string | undefined): readonly ProviderFullScreenSessionTab[] {

@@ -79,14 +79,15 @@ const snapshot: GameDetailSnapshot = {
   ],
 };
 
-test("provider visit tab order keeps Steam four-tab parity and RA's three-tab cycle", () => {
+test("provider visit tab order keeps Steam and RA four-tab cycles", () => {
   const steamTabs = getProviderFullScreenSessionTabs("steam");
   const raTabs = getProviderFullScreenSessionTabs("retroachievements");
 
   assert.deepEqual(steamTabs, ["profile", "games", "activity", "settings"]);
-  assert.deepEqual(raTabs, ["profile", "games", "activity"]);
-  assert.equal(getAdjacentProviderFullScreenSessionTab(raTabs, "profile", "previous"), "activity");
-  assert.equal(getAdjacentProviderFullScreenSessionTab(raTabs, "activity", "next"), "profile");
+  assert.deepEqual(raTabs, ["profile", "games", "activity", "settings"]);
+  assert.equal(getAdjacentProviderFullScreenSessionTab(raTabs, "profile", "previous"), "settings");
+  assert.equal(getAdjacentProviderFullScreenSessionTab(raTabs, "activity", "next"), "settings");
+  assert.equal(getAdjacentProviderFullScreenSessionTab(raTabs, "settings", "next"), "profile");
 });
 
 test("full-screen game tabs keep RA Subsets conditional and before Community", () => {
