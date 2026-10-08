@@ -646,8 +646,9 @@ async function loadAchievementHistorySnapshot(
   provider: AchievementProvider,
   providerConfig: unknown,
   providerId: ProviderId,
+  existingProfile?: NormalizedProfile,
 ): Promise<AchievementHistorySnapshot> {
-  const profile = await provider.loadProfile(providerConfig);
+  const profile = existingProfile ?? await provider.loadProfile(providerConfig);
   const memberSinceAt = getProfileMemberSinceAt(profile);
   const usedDateRange =
     provider.loadAchievementsEarnedBetween !== undefined && memberSinceAt !== undefined;
@@ -784,6 +785,7 @@ async function refreshAchievementHistory(args: {
   readonly loadProviderConfig: (providerId: ProviderId) => Promise<unknown | undefined>;
   readonly cacheKey: string;
   readonly cachedState?: ResourceState<AchievementHistorySnapshot>;
+  readonly profile?: NormalizedProfile;
 }): Promise<ResourceState<AchievementHistorySnapshot>> {
   const provider = args.providerRegistry.get(args.providerId);
   if (provider === undefined) {
@@ -812,7 +814,12 @@ async function refreshAchievementHistory(args: {
 
   return runProviderRefreshExclusive(args.providerId, async () => {
     try {
-      const snapshot = await loadAchievementHistorySnapshot(provider, providerConfig, args.providerId);
+      const snapshot = await loadAchievementHistorySnapshot(
+        provider,
+        providerConfig,
+        args.providerId,
+        args.profile,
+      );
       const now = Date.now();
 
       await args.cacheStore.write<AchievementHistorySnapshot>({
@@ -1054,6 +1061,7 @@ export function createAppServices(options: AppServiceBootstrapOptions): AppServi
           platform: options.platform,
           loadProviderConfig: options.loadProviderConfig,
           cacheKey,
+          ...(requestOptions?.profile !== undefined ? { profile: requestOptions.profile } : {}),
           ...(cacheRead.cachedState !== undefined ? { cachedState: cacheRead.cachedState } : {}),
         });
       },

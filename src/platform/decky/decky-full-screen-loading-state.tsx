@@ -183,6 +183,7 @@ export function DeckyFullScreenLoadingState({
       aria-busy={!isError}
       aria-label={title}
       aria-live="polite"
+      data-achievement-companion-full-screen-loading-state="true"
       role={isError ? "alert" : "status"}
       {...(useSteamTheme ? { "data-ac-steam-theme": "fullscreen" } : {})}
       style={{

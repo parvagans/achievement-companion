@@ -1,4 +1,4 @@
-import { useMemo, useSyncExternalStore, type ComponentProps, type CSSProperties, type FocusEventHandler } from "react";
+import { useMemo, type ComponentProps, type CSSProperties, type FocusEventHandler } from "react";
 import type { ResourceState } from "@core/cache";
 import type {
   CompletionProgressSnapshot,
@@ -13,14 +13,14 @@ import { DeckyCompletionProgressBar } from "./decky-completion-progress-bar";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
 import {
   initialDeckyBootstrapState,
-  getDeckySteamFullScreenRefreshSessionRevision,
+  getDeckyCompletionProgressStateForFullScreenEntryInitial,
   getDeckyDashboardStateForFullScreenEntryInitial,
+  getDeckySteamHuntersProfileStateForFullScreenEntryInitial,
   initialDeckyCompletionProgressState,
   initialDeckySteamHuntersProfileState,
-  loadDeckyCompletionProgressState,
+  loadDeckyCompletionProgressStateForFullScreenEntry,
   loadDeckyDashboardStateForFullScreenEntry,
-  loadDeckySteamHuntersProfileState,
-  subscribeDeckySteamFullScreenRefreshSession,
+  loadDeckySteamHuntersProfileStateForFullScreenEntry,
 } from "./decky-app-services";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DeckyRetroAchievementsGameIcon } from "./decky-retroachievements-game-icon";
@@ -1047,30 +1047,25 @@ export function DeckyFullScreenProfilePage({
   onOpenSettings,
 }: DeckyFullScreenProfilePageProps): JSX.Element {
   const deckySettings = useDeckySettings();
-  const steamFullScreenRefreshSessionRevision = useSyncExternalStore(
-    subscribeDeckySteamFullScreenRefreshSession,
-    getDeckySteamFullScreenRefreshSessionRevision,
-    getDeckySteamFullScreenRefreshSessionRevision,
-  );
   const loadSelectedProfile = useMemo(() => {
     if (providerId === undefined) {
       return () => Promise.resolve(initialDeckyBootstrapState);
     }
 
     return () => loadDeckyDashboardStateForFullScreenEntry(providerId);
-  }, [providerId, steamFullScreenRefreshSessionRevision]);
+  }, [providerId]);
   const initialProfileState = getDeckyDashboardStateForFullScreenEntryInitial(providerId);
   const state = useAsyncResourceState(loadSelectedProfile, initialProfileState);
   const loadSelectedCompletionProgress = useMemo(() => {
-    if (providerId !== RETROACHIEVEMENTS_PROVIDER_ID) {
+    if (providerId === undefined) {
       return () => Promise.resolve(initialDeckyCompletionProgressState);
     }
 
-    return () => loadDeckyCompletionProgressState(providerId);
+    return () => loadDeckyCompletionProgressStateForFullScreenEntry(providerId);
   }, [providerId]);
   const completionProgressState = useAsyncResourceState(
     loadSelectedCompletionProgress,
-    initialDeckyCompletionProgressState,
+    getDeckyCompletionProgressStateForFullScreenEntryInitial(providerId),
   );
   const hasRouteParameters = providerId !== undefined;
   const steamLibraryAchievementScanSummary = useDeckySteamLibraryAchievementScanSummary(providerId);
@@ -1078,15 +1073,15 @@ export function DeckyFullScreenProfilePage({
     ? state.data.profile.identity.accountId
     : undefined;
   const loadSteamHuntersProfile = useMemo(() => {
-    if (steamId === undefined) {
+    if (providerId !== STEAM_PROVIDER_ID) {
       return () => Promise.resolve(initialDeckySteamHuntersProfileState);
     }
 
-    return () => loadDeckySteamHuntersProfileState(steamId);
-  }, [steamId]);
+    return () => loadDeckySteamHuntersProfileStateForFullScreenEntry(providerId);
+  }, [providerId]);
   const steamHuntersProfileState = useAsyncResourceState(
     loadSteamHuntersProfile,
-    initialDeckySteamHuntersProfileState,
+    getDeckySteamHuntersProfileStateForFullScreenEntryInitial(providerId),
   );
   const steamHuntersProfile = steamHuntersProfileState.data?.steamId === steamId
     ? steamHuntersProfileState.data

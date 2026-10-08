@@ -29,8 +29,7 @@ import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import {
   getDeckyCompletionProgressStateForFullScreenEntryInitial,
   initialDeckyCompletionProgressState,
-  loadDeckyCompletionProgressState,
-  refreshDeckySteamDashboardOnFullScreenEntry,
+  loadDeckyCompletionProgressStateForFullScreenEntry,
 } from "./decky-app-services";
 import { useDeckySettings } from "./decky-settings";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
@@ -631,10 +630,7 @@ export function DeckyFullScreenCompletionProgressPage({
       return () => Promise.resolve(initialDeckyCompletionProgressState);
     }
 
-    return async () => {
-      await refreshDeckySteamDashboardOnFullScreenEntry(providerId);
-      return loadDeckyCompletionProgressState(providerId);
-    };
+    return () => loadDeckyCompletionProgressStateForFullScreenEntry(providerId);
   }, [providerId]);
   const initialState = getDeckyCompletionProgressStateForFullScreenEntryInitial(providerId);
   const state = useAsyncResourceState(loadSelectedCompletionProgress, initialState);

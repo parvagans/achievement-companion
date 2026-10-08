@@ -31,7 +31,6 @@ export function DeckyFullScreenTerminalBackBridge({
         return;
       }
 
-      handled = true;
       const cancelEvent = event as Event & {
         readonly preventDefault?: () => void;
         readonly stopPropagation?: () => void;
@@ -40,6 +39,14 @@ export function DeckyFullScreenTerminalBackBridge({
       cancelEvent.preventDefault?.();
       cancelEvent.stopPropagation?.();
       cancelEvent.stopImmediatePropagation?.();
+      const activeLoader = ownerWindow.document.querySelector(
+        '[data-achievement-companion-full-screen-loading-state="true"][aria-busy="true"]',
+      );
+      if (activeLoader !== null) {
+        return;
+      }
+
+      handled = true;
       onBackRef.current();
     };
 

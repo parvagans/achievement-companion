@@ -6,8 +6,7 @@ import { PlaceholderState } from "@ui/PlaceholderState";
 import {
   getDeckyAchievementHistoryStateForFullScreenEntryInitial,
   initialDeckyAchievementHistoryState,
-  loadDeckyAchievementHistoryState,
-  refreshDeckySteamDashboardOnFullScreenEntry,
+  loadDeckyAchievementHistoryStateForFullScreenEntry,
 } from "./decky-app-services";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
 import {
@@ -697,10 +696,7 @@ export function DeckyFullScreenAchievementHistoryPage({
       return () => Promise.resolve(initialDeckyAchievementHistoryState);
     }
 
-    return async () => {
-      await refreshDeckySteamDashboardOnFullScreenEntry(providerId);
-      return loadDeckyAchievementHistoryState(providerId);
-    };
+    return () => loadDeckyAchievementHistoryStateForFullScreenEntry(providerId);
   }, [providerId]);
   const initialState = getDeckyAchievementHistoryStateForFullScreenEntryInitial(providerId);
   const state = useAsyncResourceState(loadSelectedAchievementHistory, initialState);

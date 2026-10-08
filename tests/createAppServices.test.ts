@@ -55,9 +55,11 @@ import {
   applyDeckyRecentAchievementHistory,
   buildDeckyRecentAchievementHistory,
   getDeckyDashboardStateForFullScreenEntryInitial,
+  loadDeckyAchievementHistoryStateForFullScreenEntry,
   loadDeckyDashboardState,
   loadDeckyDashboardStateForFullScreenEntry,
   loadDeckyCompletionProgressState,
+  loadDeckyCompletionProgressStateForFullScreenEntry,
   deckyAuthenticatedProviderTransportFactory,
   mergeDeckySteamCompletionProgressWithDashboard,
   mergeDeckySteamLibraryScanRecentAchievements,
@@ -4426,7 +4428,7 @@ test("retroachievements full-screen profile uses a compact stats grid and provid
   assert.match(source, /data-retroachievements-profile-completion-progress/u);
   assert.doesNotMatch(source, /completionStats=\{retroAchievementsCompletionStats\}/u);
   assert.doesNotMatch(source, /function getAwardSummaryStyle/u);
-  assert.match(source, /loadDeckyCompletionProgressState\(providerId\)/u);
+  assert.match(source, /loadDeckyCompletionProgressStateForFullScreenEntry\(providerId\)/u);
   assert.match(source, /completionProgressState\.data\.games/u);
   assert.doesNotMatch(
     source,
@@ -6594,6 +6596,57 @@ test("achievement history service loads newest-first earned-between history and 
   assert.equal(counts.recentUnlocks, 0);
   assert.equal(writes.length, 1);
   assert.equal(writes[0]?.key, createProviderAchievementHistoryCacheKey(PROVIDER_ID));
+});
+
+test("achievement history reuses a full-screen session profile without loading it twice", async () => {
+  const sessionProfile = {
+    ...DASHBOARD_REFRESH_PROFILE,
+    metrics: [
+      ...DASHBOARD_REFRESH_PROFILE.metrics,
+      { key: "member-since", label: "Member Since", value: "2020-01-02 00:00:00" },
+    ],
+  };
+  const { appServices, counts } = createHarness({
+    providerFactory: () => ({
+      id: PROVIDER_ID,
+      capabilities: PROVIDER_CAPABILITIES,
+      async loadProfile() {
+        counts.profile += 1;
+        return sessionProfile;
+      },
+      async loadCompletionProgress() {
+        counts.completionProgress += 1;
+        return [];
+      },
+      async loadAchievementsEarnedBetween() {
+        counts.achievementsEarnedBetween += 1;
+        return [createRecentUnlockForGame("game-1", "Test Game", 1, 1_700_000_000_100)];
+      },
+      async loadRecentUnlocks() {
+        counts.recentUnlocks += 1;
+        return [];
+      },
+      async loadRecentlyPlayedGames() {
+        counts.recentlyPlayedGames += 1;
+        return [];
+      },
+      async loadGameProgress() {
+        counts.gameProgress += 1;
+        return createGameDetailSnapshot();
+      },
+    }),
+    providerConfig: { username: "alice", apiKey: "secret" },
+  });
+
+  const state = await appServices.achievementHistory.loadAchievementHistory(PROVIDER_ID, {
+    forceRefresh: true,
+    profile: sessionProfile,
+  });
+
+  assert.equal(state.status, "success");
+  assert.equal(state.data?.profile, sessionProfile);
+  assert.equal(counts.profile, 0);
+  assert.equal(counts.achievementsEarnedBetween, 1);
 });
 
 test("completion progress service exposes played, unfinished, beaten, and mastered counts", async () => {
@@ -10143,7 +10196,7 @@ test("Steam dashboard refresh keeps cached library totals when bounded recent de
   });
 });
 
-test("Steam full-screen profile entry uses cached totals and bounded recent-game requests, while explicit refresh updates the complete library", async () => {
+test("Steam full-screen entry refreshes the bounded account snapshot and complete library once", async () => {
   await withMockDeckyStorage(async () => {
     resetDeckyAppServicesForTests();
     const config = normalizeSteamProviderConfig({
@@ -10180,16 +10233,37 @@ test("Steam full-screen profile entry uses cached totals and bounded recent-game
       const profileState = await loadDeckyDashboardStateForFullScreenEntry("steam");
       assert.equal(profileState.status, "success");
       assert.ok(profileState.data !== undefined);
-      assert.equal(ownedGamesRequestCount, 2, "profile entry uses bounded owned-game candidates for profile and activity data");
+      assert.equal(
+        ownedGamesRequestCount,
+        4,
+        "the full-screen session loads the bounded profile/activity inputs and the complete library",
+      );
       assert.equal(
         playerAchievementRequestCount,
-        1,
-        "profile entry requests only the configured recent game's player state, not all 101 owned games",
+        ownedGames.length + 1,
+        "the full-screen session loads each owned game plus the configured recent game's live state",
       );
 
       const cachedEntryState = getDeckyDashboardStateForFullScreenEntryInitial("steam");
-      assert.equal(cachedEntryState.status, "stale");
+      assert.equal(cachedEntryState.status, "success");
       assert.equal(cachedEntryState.data?.profile.providerId, "steam");
+
+      const completedSessionRequestCounts = {
+        ownedGames: ownedGamesRequestCount,
+        playerAchievements: playerAchievementRequestCount,
+      };
+      const gamesState = await loadDeckyCompletionProgressStateForFullScreenEntry("steam");
+      const activityState = await loadDeckyAchievementHistoryStateForFullScreenEntry("steam");
+      assert.equal(gamesState.status, "success");
+      assert.equal(activityState.status, "success");
+      assert.deepEqual(
+        {
+          ownedGames: ownedGamesRequestCount,
+          playerAchievements: playerAchievementRequestCount,
+        },
+        completedSessionRequestCounts,
+        "switching to Games or Activity reuses the completed full-screen session without API calls",
+      );
 
       playerAchievementRequestCount = 0;
       ownedGamesRequestCount = 0;
@@ -10198,7 +10272,7 @@ test("Steam full-screen profile entry uses cached totals and bounded recent-game
       assert.equal(
         playerAchievementRequestCount,
         ownedGames.length,
-        "the explicit library refresh, not profile entry, refreshes every owned game's achievement state",
+        "a later explicit library refresh still refreshes every owned game's achievement state",
       );
     } finally {
       setDeckyBackendCallImplementationForTests(deckyBackendTestCallImplementation);

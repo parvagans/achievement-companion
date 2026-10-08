@@ -1,5 +1,5 @@
 import { routerHook } from "@decky/api";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { NavigationPort, NavigationTarget } from "@core/platform";
 import {
   Navigation as DeckyNavigation,
@@ -35,7 +35,12 @@ import {
   resetSteamGameSectionActiveSection,
   resetSteamGameSectionPageStates,
 } from "./decky-steam-game-section-state";
-import { beginDeckySteamFullScreenRefreshSession } from "./decky-app-services";
+import {
+  beginDeckyProviderFullScreenDataSession,
+  endDeckyProviderFullScreenDataSession,
+  getDeckyProviderFullScreenDataSessionRevision,
+  subscribeDeckyProviderFullScreenDataSession,
+} from "./decky-app-services";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
 import { resetDeckyActivityPageState } from "./decky-steam-full-screen-activity-state";
 import { resetDeckyGamesPageState } from "./decky-steam-full-screen-games-state";
@@ -234,10 +239,6 @@ export function openDeckyFullScreenGameFromLibraryGamePage(
   providerId: string,
   gameId: string,
 ): string | undefined {
-  if (providerId === STEAM_PROVIDER_ID) {
-    beginDeckySteamFullScreenRefreshSession(STEAM_PROVIDER_ID);
-  }
-
   const route = buildFullScreenGameRoute({
     view: "game",
     surface: "full-screen",
@@ -459,6 +460,11 @@ function DeckyProviderFullScreenSession({
   const [activeTab, setActiveTab] = useState<ProviderFullScreenSessionTab>(() => providerFullScreenSessionTab);
   const [gamesInitialFilter, setGamesInitialFilter] = useState<CompletionProgressSelectionFilter>("all");
   const [gamesViewRevision, setGamesViewRevision] = useState(0);
+  const dataSessionRevision = useSyncExternalStore(
+    subscribeDeckyProviderFullScreenDataSession,
+    getDeckyProviderFullScreenDataSessionRevision,
+    getDeckyProviderFullScreenDataSessionRevision,
+  );
 
   useEffect(() => {
     activeProviderFullScreenSessionId = providerId;
@@ -491,7 +497,10 @@ function DeckyProviderFullScreenSession({
   };
 
   const exitSession = (): void => {
-    if (providerId !== undefined) resetDeckyProviderFullScreenSessionState(providerId);
+    if (providerId !== undefined) {
+      endDeckyProviderFullScreenDataSession(providerId);
+      resetDeckyProviderFullScreenSessionState(providerId);
+    }
     onBack();
   };
 
@@ -499,6 +508,7 @@ function DeckyProviderFullScreenSession({
     <>
       {activeTab === "profile" ?
         <DeckyFullScreenProfilePage
+          key={`${providerId ?? "missing"}-profile-${dataSessionRevision}`}
           providerId={providerId}
           isActive={activeTab === "profile"}
           showSteamProfileFooter={false}
@@ -518,7 +528,7 @@ function DeckyProviderFullScreenSession({
       : null}
       {activeTab === "games" ?
         <DeckyFullScreenCompletionProgressPage
-          key={`${providerId ?? "missing"}-games-${gamesViewRevision}`}
+          key={`${providerId ?? "missing"}-games-${gamesViewRevision}-${dataSessionRevision}`}
           providerId={providerId}
           isActive={activeTab === "games"}
           showSteamProfileFooter={false}
@@ -535,6 +545,7 @@ function DeckyProviderFullScreenSession({
       : null}
       {activeTab === "activity" ?
         <DeckyFullScreenAchievementHistoryPage
+          key={`${providerId ?? "missing"}-activity-${dataSessionRevision}`}
           providerId={providerId}
           isActive={activeTab === "activity"}
           showSteamProfileFooter={false}
@@ -817,9 +828,7 @@ export function createDeckyNavigationPort(): NavigationPort {
           // The prior route tree has fully unmounted by the time a new visit is
           // launched, so stale cleanup cannot repopulate these session stores.
           resetDeckyProviderFullScreenSessionState(target.providerId);
-          if (target.providerId === STEAM_PROVIDER_ID) {
-            beginDeckySteamFullScreenRefreshSession(STEAM_PROVIDER_ID);
-          }
+          beginDeckyProviderFullScreenDataSession(target.providerId);
         }
 
         if (providerSessionTab !== undefined && target.providerId !== undefined) {

@@ -4,6 +4,7 @@ import type {
   CompletionProgressSnapshot,
   DashboardSnapshot,
   GameDetailSnapshot,
+  NormalizedProfile,
   ProviderId,
   RecentUnlock,
 } from "./domain";
@@ -11,6 +12,11 @@ import type {
 export interface LoadRequestOptions {
   readonly forceRefresh?: boolean;
   readonly onProgress?: (event: DashboardRefreshProgressEvent) => void;
+}
+
+export interface AchievementHistoryLoadRequestOptions extends LoadRequestOptions {
+  /** Reuse a profile already fetched by the owning data session. */
+  readonly profile?: NormalizedProfile;
 }
 
 export type DashboardRefreshProgressStepId =
@@ -57,7 +63,7 @@ export interface CompletionProgressService {
 export interface AchievementHistoryService {
   loadAchievementHistory(
     providerId: ProviderId,
-    options?: LoadRequestOptions,
+    options?: AchievementHistoryLoadRequestOptions,
   ): Promise<ResourceState<AchievementHistorySnapshot>>;
 }
 
