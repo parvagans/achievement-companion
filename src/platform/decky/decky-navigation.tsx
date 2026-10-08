@@ -58,6 +58,7 @@ import {
   type ProviderFullScreenSessionTab,
 } from "./decky-steam-full-screen-session-navigation";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
+import { DeckyFocusStyles } from "./decky-focus-styles";
 import { createDeckyRouteRegistration } from "./decky-route-registration";
 import {
   buildDeckyFullScreenAchievementHistoryRoute,
@@ -365,6 +366,7 @@ function DeckyFullScreenGameRoute(): JSX.Element {
 
   return (
     <>
+      <DeckyFocusStyles />
       {isDeckyCompactOriginFullScreenSessionRoot("game")
         ? <DeckyFullScreenTerminalBackBridge onBack={returnFromGamePage} />
         : null}
@@ -406,6 +408,7 @@ function DeckyFullScreenAchievementHistoryRoute(): JSX.Element {
 
   return (
     <>
+      <DeckyFocusStyles />
       {isDeckyCompactOriginFullScreenSessionRoot("achievement-history")
         ? <DeckyFullScreenTerminalBackBridge onBack={returnFromAchievementHistory} />
         : null}
@@ -532,6 +535,7 @@ function DeckyProviderFullScreenSession({
 
   return (
     <>
+      <DeckyFocusStyles />
       {activeTab === "profile" ?
         <DeckyFullScreenProfilePage
           key={`${providerId ?? "missing"}-profile-${dataSessionRevision}`}
@@ -716,6 +720,7 @@ function DeckyFullScreenCompletionProgressRoute(): JSX.Element {
 
   return (
     <>
+      <DeckyFocusStyles />
       {isDeckyCompactOriginFullScreenSessionRoot("completion-progress")
         ? <DeckyFullScreenTerminalBackBridge onBack={returnFromCompletionProgress} />
         : null}

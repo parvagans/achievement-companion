@@ -3033,7 +3033,7 @@ test("provider setup, credential fields, and current compact profile routes stay
   assert.doesNotMatch(deckyNavigationSource, /onOpenFullScreenGame=/u);
   assert.doesNotMatch(deckyNavigationSource, /navigateToFullScreenGameFromAchievement/u);
   assert.doesNotMatch(deckyNavigationSource, /fullScreenAchievementRouteBackBehaviors/u);
-  assert.match(deckyNavigationSource, /navigateToFullScreenAchievement\([\s\S]*params\.providerId!,[\s\S]*params\.gameId!,[\s\S]*achievementId,/u);
+  assert.match(deckyNavigationSource, /navigateToFullScreenAchievement\([\s\S]*params\.providerId!,[\s\S]*achievementGameId,[\s\S]*achievementId,/u);
   const coreDomainSource = readFileSync("src/core/domain.ts", "utf8");
   const retroRawTypesSource = readFileSync("src/providers/retroachievements/raw-types.ts", "utf8");
   const retroClientSource = readFileSync("src/providers/retroachievements/client/client.ts", "utf8");

@@ -284,7 +284,7 @@ test("RA game icons derive one prestige state from the provider award at every s
   assert.ok(raRecipes.gameIcon.frameWidth(34, "beaten") < raRecipes.gameIcon.frameWidth(148, "beaten"));
   assert.notEqual(raRecipes.gameIcon.frame(40, "beaten").boxShadow, raRecipes.gameIcon.frame(40, "mastered").boxShadow);
   const css = getRaFocusStylesCss();
-  assert.match(css, /stroke-dasharray: 22 78; animation: ac-ra-game-icon-tail 5\.2s linear infinite/u);
+  assert.match(css, /stroke-dasharray: 22 78; animation: ac-ra-game-icon-tail 2\.5s linear infinite/u);
   assert.match(css, /prefers-reduced-motion: reduce[\s\S]*ac-ra-game-icon__sweep/u);
 });
 

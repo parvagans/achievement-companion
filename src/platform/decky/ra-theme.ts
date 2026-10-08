@@ -80,6 +80,13 @@ export const raTheme = {
   selection: { border: qamTheme.color.borderStrong, background: qamTheme.surface.selected },
 } as const;
 
+/** Tuned against the RA game-icon prestige-frame visual reference. */
+export const RA_GAME_ICON_PRESTIGE_MOTION = {
+  circuitSeconds: 2.5,
+  glowMultiplier: 2.5,
+  sweepWidthMultiplier: 1.8,
+} as const;
+
 type RaDensity = "compact" | "fullscreen";
 type RaTextRole = "hero" | "heading" | "title" | "body" | "metadata" | "caption";
 
@@ -252,6 +259,8 @@ export const raRecipes = {
       const edge = this.frameWidth(size, kind);
       const radius = this.radius(size);
       const tone = kind === undefined ? undefined : raRecipes.gameAward[kind];
+      const baseFrameGlow = kind === "mastered" ? 8 : 5;
+      const baseBloomRadius = size < 48 ? 2 : size < 96 ? 3 : 5;
       return {
         position: "relative", isolation: "isolate", display: "inline-block",
         width: size, height: size, flex: `0 0 ${size}px`, boxSizing: "border-box",
@@ -261,14 +270,14 @@ export const raRecipes = {
           `linear-gradient(135deg, ${tone.metalDark} 0%, ${tone.metalMid} 12%, ${tone.metalLight} 24%, ${tone.metalMid} 33%, ${tone.metalDark} 51%, ${tone.metalMid} 68%, ${tone.metalLight} 81%, ${tone.metalMid} 90%, ${tone.metalDark} 100%)`,
         boxShadow: tone === undefined
           ? "inset 0 1px 0 rgba(255, 255, 255, 0.04)"
-          : `0 0 0 1px ${tone.metalDark}, 0 0 ${kind === "mastered" ? 8 : 5}px ${tone.surface}, inset 0 1px 0 ${tone.innerHighlight}`,
-        "--ac-ra-game-icon-sweep-width": `${edge}px`,
+          : `0 0 0 1px ${tone.metalDark}, 0 0 ${baseFrameGlow * RA_GAME_ICON_PRESTIGE_MOTION.glowMultiplier}px ${tone.surface}, inset 0 1px 0 ${tone.innerHighlight}`,
+        "--ac-ra-game-icon-sweep-width": `${edge * RA_GAME_ICON_PRESTIGE_MOTION.sweepWidthMultiplier}px`,
         "--ac-ra-game-icon-frame-width": `${edge}px`,
         "--ac-ra-game-icon-sweep-color": tone?.metalLight,
         "--ac-ra-game-icon-sweep-mid": tone?.metalMid,
         "--ac-ra-game-icon-metal-dark": tone?.metalDark,
         "--ac-ra-game-icon-bloom-color": tone?.bloom,
-        "--ac-ra-game-icon-bloom-radius": `${size < 48 ? 2 : size < 96 ? 3 : 5}px`,
+        "--ac-ra-game-icon-bloom-radius": `${baseBloomRadius * RA_GAME_ICON_PRESTIGE_MOTION.glowMultiplier}px`,
         "--ac-ra-game-icon-corner-size": `${size < 48 ? 5 : size < 96 ? 7 : 10}px`,
         "--ac-ra-game-icon-corner-opacity": kind === "mastered" ? "0.95" : "0.72",
       } as CSSProperties;
@@ -575,6 +584,10 @@ export const raRecipes = {
 
 /** Scoped visual focus only. GamepadUI continues to own focus and navigation. */
 export function getRaFocusStylesCss(): string {
+  const circuitDuration = `${RA_GAME_ICON_PRESTIGE_MOTION.circuitSeconds}s`;
+  const bottomRightDelay = `${-(RA_GAME_ICON_PRESTIGE_MOTION.circuitSeconds * 0.75)}s`;
+  const bottomLeftDelay = `${-(RA_GAME_ICON_PRESTIGE_MOTION.circuitSeconds * 0.5)}s`;
+  const topLeftDelay = `${-(RA_GAME_ICON_PRESTIGE_MOTION.circuitSeconds * 0.25)}s`;
   return `${getQamFocusStylesCss("data-ac-ra-theme")}
   @keyframes ac-ra-game-icon-tail { from { stroke-dashoffset: 122; } to { stroke-dashoffset: 22; } }
   @keyframes ac-ra-game-icon-body { from { stroke-dashoffset: 114; } to { stroke-dashoffset: 14; } }
@@ -617,31 +630,31 @@ export function getRaFocusStylesCss(): string {
   }
   .ac-ra-game-icon__sweep-tail {
     stroke: var(--ac-ra-game-icon-sweep-mid); opacity: 0.3;
-    stroke-dasharray: 22 78; animation: ac-ra-game-icon-tail 5.2s linear infinite;
+    stroke-dasharray: 22 78; animation: ac-ra-game-icon-tail ${circuitDuration} linear infinite;
   }
   .ac-ra-game-icon__sweep-body {
     stroke: var(--ac-ra-game-icon-sweep-mid); opacity: 0.52;
-    stroke-dasharray: 14 86; animation: ac-ra-game-icon-body 5.2s linear infinite;
+    stroke-dasharray: 14 86; animation: ac-ra-game-icon-body ${circuitDuration} linear infinite;
   }
   .ac-ra-game-icon__sweep-front {
     stroke: var(--ac-ra-game-icon-sweep-color); opacity: 0.82;
-    stroke-dasharray: 6 94; animation: ac-ra-game-icon-front 5.2s linear infinite;
+    stroke-dasharray: 6 94; animation: ac-ra-game-icon-front ${circuitDuration} linear infinite;
   }
   .ac-ra-game-icon__sweep-head {
     stroke: var(--ac-ra-game-icon-sweep-color); opacity: 1; stroke-linecap: round;
-    stroke-dasharray: 1.5 98.5; animation: ac-ra-game-icon-head 5.2s linear infinite;
+    stroke-dasharray: 1.5 98.5; animation: ac-ra-game-icon-head ${circuitDuration} linear infinite;
   }
   .ac-ra-game-icon__corner {
     position: absolute; z-index: 3; width: var(--ac-ra-game-icon-corner-size); height: var(--ac-ra-game-icon-corner-size);
     border-radius: 50%; pointer-events: none; opacity: 0;
     background: radial-gradient(circle, var(--ac-ra-game-icon-sweep-color) 0%, var(--ac-ra-game-icon-bloom-color) 32%, transparent 72%);
     box-shadow: 0 0 3px var(--ac-ra-game-icon-bloom-color);
-    animation: ac-ra-game-icon-corner-catch 5.2s linear infinite;
+    animation: ac-ra-game-icon-corner-catch ${circuitDuration} linear infinite;
   }
   .ac-ra-game-icon__corner--top-right { top: -2px; right: -2px; }
-  .ac-ra-game-icon__corner--bottom-right { bottom: -2px; right: -2px; animation-delay: -3.9s; }
-  .ac-ra-game-icon__corner--bottom-left { bottom: -2px; left: -2px; animation-delay: -2.6s; }
-  .ac-ra-game-icon__corner--top-left { top: -2px; left: -2px; animation-delay: -1.3s; }
+  .ac-ra-game-icon__corner--bottom-right { bottom: -2px; right: -2px; animation-delay: ${bottomRightDelay}; }
+  .ac-ra-game-icon__corner--bottom-left { bottom: -2px; left: -2px; animation-delay: ${bottomLeftDelay}; }
+  .ac-ra-game-icon__corner--top-left { top: -2px; left: -2px; animation-delay: ${topLeftDelay}; }
   @media (prefers-reduced-motion: reduce) {
     .ac-ra-game-icon__sweep, .ac-ra-game-icon__corner, .ac-ra-game-icon__reveal {
       display: none;

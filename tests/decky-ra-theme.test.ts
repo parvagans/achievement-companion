@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { raRecipes, raTheme } from "../src/platform/decky/ra-theme";
+import {
+  getRaFocusStylesCss,
+  RA_GAME_ICON_PRESTIGE_MOTION,
+  raRecipes,
+  raTheme,
+} from "../src/platform/decky/ra-theme";
 import { steamTheme } from "../src/platform/decky/steam-theme";
 import { getQamPassiveCardFocusStyle } from "../src/platform/decky/decky-qam-theme";
 
@@ -39,4 +44,23 @@ test("RA points and completion passive focus matches Steam game information card
     assert.match(String(raRecipes.gameIcon.frame(40, kind).background), /linear-gradient/u);
   }
   assert.ok(raRecipes.gameIcon.frameWidth(40, "mastered") > raRecipes.gameIcon.frameWidth(40, "beaten"));
+});
+
+test("RA beaten and mastered icons use the approved prestige motion settings", () => {
+  assert.deepEqual(RA_GAME_ICON_PRESTIGE_MOTION, {
+    circuitSeconds: 2.5,
+    glowMultiplier: 2.5,
+    sweepWidthMultiplier: 1.8,
+  });
+
+  const beaten = raRecipes.gameIcon.frame(40, "beaten");
+  const mastered = raRecipes.gameIcon.frame(40, "mastered");
+  assert.equal(beaten["--ac-ra-game-icon-sweep-width" as keyof typeof beaten], "4.5px");
+  assert.equal(beaten["--ac-ra-game-icon-bloom-radius" as keyof typeof beaten], "5px");
+  assert.match(String(beaten.boxShadow), /0 0 12\.5px/u);
+  assert.match(String(mastered.boxShadow), /0 0 20px/u);
+
+  const css = getRaFocusStylesCss();
+  assert.match(css, /animation: ac-ra-game-icon-tail 2\.5s linear infinite/u);
+  assert.match(css, /animation: ac-ra-game-icon-corner-catch 2\.5s linear infinite/u);
 });

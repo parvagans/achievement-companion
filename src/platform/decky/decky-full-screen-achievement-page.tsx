@@ -43,6 +43,7 @@ import { steamRecipes, steamTheme } from "./steam-theme";
 import { raTheme } from "./ra-theme";
 import { useDeckySettings } from "./decky-settings";
 import { projectRetroAchievementsFullScreenAchievements } from "./decky-retroachievements-full-screen-achievement-data";
+import { DeckyFocusStyles } from "./decky-focus-styles";
 
 export interface DeckyFullScreenAchievementPageProps {
   readonly providerId: string | undefined;
@@ -392,6 +393,7 @@ function DeckyFullScreenAchievementInputSurface({
       style={{ ...surfaceStyle, color: useSteamTheme ? steamTheme.color.textPrimary : raTheme.color.textPrimary, background: useSteamTheme ? steamTheme.surface.page : raTheme.surface.page }}
       tabIndex={0}
     >
+      <DeckyFocusStyles />
       {children}
     </Focusable>
   );
