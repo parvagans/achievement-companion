@@ -10196,7 +10196,7 @@ test("Steam dashboard refresh keeps cached library totals when bounded recent de
   });
 });
 
-test("Steam full-screen entry refreshes the bounded account snapshot and complete library once", async () => {
+test("Steam full-screen entry refreshes the bounded account snapshot and reuses the saved library", async () => {
   await withMockDeckyStorage(async () => {
     resetDeckyAppServicesForTests();
     const config = normalizeSteamProviderConfig({
@@ -10233,15 +10233,11 @@ test("Steam full-screen entry refreshes the bounded account snapshot and complet
       const profileState = await loadDeckyDashboardStateForFullScreenEntry("steam");
       assert.equal(profileState.status, "success");
       assert.ok(profileState.data !== undefined);
-      assert.equal(
-        ownedGamesRequestCount,
-        4,
-        "the full-screen session loads the bounded profile/activity inputs and the complete library",
-      );
+      assert.equal(ownedGamesRequestCount, 2, "full-screen entry uses only the bounded profile/activity inputs");
       assert.equal(
         playerAchievementRequestCount,
-        ownedGames.length + 1,
-        "the full-screen session loads each owned game plus the configured recent game's live state",
+        1,
+        "full-screen entry refreshes only the configured recent game's live state",
       );
 
       const cachedEntryState = getDeckyDashboardStateForFullScreenEntryInitial("steam");
@@ -10272,7 +10268,7 @@ test("Steam full-screen entry refreshes the bounded account snapshot and complet
       assert.equal(
         playerAchievementRequestCount,
         ownedGames.length,
-        "a later explicit library refresh still refreshes every owned game's achievement state",
+        "an explicit library refresh still updates every owned game's achievement state",
       );
     } finally {
       setDeckyBackendCallImplementationForTests(deckyBackendTestCallImplementation);

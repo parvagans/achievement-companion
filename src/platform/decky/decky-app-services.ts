@@ -1375,17 +1375,13 @@ function buildRetroAchievementsCompletionProgressFromDashboard(
 async function createDeckyProviderFullScreenDataSession(
   providerId: ProviderId,
 ): Promise<DeckyProviderFullScreenDataSession> {
-  // Steam's saved collection is refreshed alongside its bounded account data.
-  // RA's dashboard profile already fetches its complete game collection, so the
-  // Games snapshot is derived from that response instead of calling it again.
-  const steamLibraryRefresh = providerId === STEAM_PROVIDER_ID
-    ? refreshDeckySteamLibraryForExplicitRefresh()
-    : Promise.resolve(undefined);
+  // Steam's full library scan is a separate explicit operation. Full-screen
+  // entry refreshes the bounded account snapshot; Games reuses the saved scan
+  // and projects any newly played games into it.
   const dashboard = await loadDeckyDashboardState(providerId, {
     forceRefresh: true,
     skipRecentAchievementHistoryBackfill: true,
   });
-  await steamLibraryRefresh;
 
   const completionProgressPromise = Promise.resolve(
     buildRetroAchievementsCompletionProgressFromDashboard(dashboard),

@@ -405,7 +405,14 @@ test("provider full-screen routes load Profile, Games, and Activity once per vis
     servicesSource,
     /async function createDeckyProviderFullScreenDataSession[\s\S]*forceRefresh: true[\s\S]*completionProgressPromise[\s\S]*achievementHistoryPromise[\s\S]*Promise\.all/u,
   );
-  assert.match(servicesSource, /providerId === STEAM_PROVIDER_ID[\s\S]*refreshDeckySteamLibraryForExplicitRefresh\(\)/u);
+  assert.match(servicesSource, /Steam's full library scan is a separate explicit operation[\s\S]*loadDeckyDashboardState/u);
+  assert.doesNotMatch(
+    servicesSource.slice(
+      servicesSource.indexOf("async function createDeckyProviderFullScreenDataSession"),
+      servicesSource.indexOf("/** Starts a fresh provider-wide data session"),
+    ),
+    /refreshDeckySteamLibraryForExplicitRefresh|runDeckySteamFullLibraryScan/u,
+  );
   assert.match(servicesSource, /buildRetroAchievementsCompletionProgressFromDashboard\(dashboard\)/u);
   assert.match(servicesSource, /profile: dashboard\.data\.profile, dashboard/u);
   assert.match(navigationSource, /beginDeckyProviderFullScreenDataSession\(target\.providerId\)/u);
