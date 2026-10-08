@@ -526,4 +526,15 @@ test("loading completion is render-owned and stale hook completion is ignored af
   assert.match(asyncHookSource, /if \(!cancelled\)/u);
   assert.match(asyncHookSource, /cancelled = true/u);
   assert.match(bootstrapSource, /<DeckyCompactLoadingState[\s\S]*onCancel=\{onBack\}/u);
+  const compactLoadingSource = readFileSync("src/platform/decky/decky-compact-loading-state.tsx", "utf8");
+  assert.match(compactLoadingSource, /isError \? onCancel \?\? consumeCompactLoadingBack : consumeCompactLoadingBack/u);
+});
+
+test("provider dashboard switches start a fresh resource session and restore chooser focus", () => {
+  const bootstrapSource = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
+  assert.match(bootstrapSource, /const returnToProviderChooser = useCallback\(\(\) => \{[\s\S]*clearDeckyCompactSessionResources\(\);[\s\S]*returnFromDeckyCompactDestination\(compactNavigation\)/u);
+  assert.match(bootstrapSource, /returnToProviderChooser = useCallback[\s\S]*setProviderChooserFocusRequest\(\(request\) => request \+ 1\)/u);
+  assert.match(bootstrapSource, /const openProviderDashboard = useCallback\(\(providerId: ProviderId\) => \{[\s\S]*clearDeckyCompactSessionResources\(\);[\s\S]*setDeckyCompactNavigation\(\{ kind: "provider-dashboard", providerId \}\)/u);
+  assert.match(bootstrapSource, /<DashboardScreen[\s\S]*key=\{selectedProviderId\}[\s\S]*onBackToProviders=\{\(\) => \{[\s\S]*returnToProviderChooser\(\)/u);
+  assert.match(bootstrapSource, /selectedProviderId !== undefined \|\| providerChooserFocusRequest === 0 \|\| providerInitialFocusTargetRef\.current === null/u);
 });

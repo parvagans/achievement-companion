@@ -251,7 +251,9 @@ function DeckyFullScreenGameLoadingState({
       data-state={state.status}
       noFocusRing
       onActivate={() => {}}
-      onCancel={onBack}
+      // A full-screen loader is also a modal wait state. Do not let B abandon
+      // an active request; retain its usual Back behavior only for an error.
+      onCancel={copy.isError ? onBack : () => {}}
       role={copy.isError ? "alert" : "status"}
       style={getDeckyFullScreenLoadingPageStyle()}
       tabIndex={0}

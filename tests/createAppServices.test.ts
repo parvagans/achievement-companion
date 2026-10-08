@@ -3000,7 +3000,7 @@ test("provider setup, credential fields, and current compact profile routes stay
   const deckyNavigationSource = readFileSync("src/platform/decky/decky-navigation.tsx", "utf8");
   assert.match(fullScreenGamePageSource, /function DeckyFullScreenGameLoadingState/u);
   assert.match(fullScreenGamePageSource, /focusRef\.current\?\.focus\(\{ preventScroll: true \}\)/u);
-  assert.match(fullScreenGamePageSource, /<Focusable[\s\S]*onCancel=\{onBack\}[\s\S]*role=\{copy\.isError/u);
+  assert.match(fullScreenGamePageSource, /<Focusable[\s\S]*onCancel=\{copy\.isError \? onBack : \(\) => \{\}\}[\s\S]*role=\{copy\.isError/u);
   assert.match(fullScreenAchievementPageSource, /function DeckyFullScreenAchievementContent/u);
   assert.match(fullScreenAchievementPageSource, /function DeckyFullScreenAchievementInputSurface/u);
   assert.doesNotMatch(

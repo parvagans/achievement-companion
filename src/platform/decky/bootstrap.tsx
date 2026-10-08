@@ -83,6 +83,7 @@ import { resolveDeckyCompactAchievementResource } from "./decky-compact-achievem
 import {
   claimDeckyCompactRetroAchievementsDashboardRefresh,
   claimDeckyCompactSteamDashboardRefresh,
+  clearDeckyCompactSessionResources,
   loadDeckyCompactSteamDashboardState,
   loadDeckyCompactSteamActivityState,
   loadDeckyCompactSteamGameState,
@@ -1340,16 +1341,34 @@ function DeckyBootstrapStateBridge(): JSX.Element {
   const providerConfigs = useDeckyProviderConfigs();
   const settings = useDeckySettings();
   const compactNavigation = useDeckyCompactNavigation();
+  const [providerChooserFocusRequest, setProviderChooserFocusRequest] = useState(
+    () => shouldRequestDeckyProviderInitialFocus(compactNavigation) ? 1 : 0,
+  );
   const returnFromCompactDestination = useCallback(() => {
     returnFromDeckyCompactDestination(compactNavigation);
   }, [compactNavigation]);
+  const returnToProviderChooser = useCallback(() => {
+    // Back from a provider loader is a cancellation boundary. Invalidate its
+    // in-flight work before another provider can mount so a fast B -> provider
+    // handoff always starts the newly selected provider's own refresh.
+    clearDeckyCompactSessionResources();
+    returnFromDeckyCompactDestination(compactNavigation);
+    dispatchDeckyScrollReset("providers");
+    setProviderChooserFocusRequest((request) => request + 1);
+  }, [compactNavigation]);
+  const openProviderDashboard = useCallback((providerId: ProviderId) => {
+    // A chooser selection must never reuse a previous provider's transient
+    // loading state or cached promise, including when Back and A are batched
+    // by GamepadUI before React commits the chooser in between.
+    clearDeckyCompactSessionResources();
+    setDeckyCompactNavigation({ kind: "provider-dashboard", providerId });
+  }, []);
   const [detailScrollResetNonce, setDetailScrollResetNonce] = useState(0);
   const [providerListHasReceivedFocus, setProviderListHasReceivedFocus] = useState(false);
   const [gamePageBadgeSettingsExpanded, setGamePageBadgeSettingsExpanded] = useState(
     readDeckyGamePageBadgeSettingsExpanded,
   );
   const providerInitialFocusTargetRef = useRef<HTMLDivElement | null>(null);
-  const initialProviderFocusRequested = useRef(shouldRequestDeckyProviderInitialFocus(compactNavigation));
   const providerConfigsSignature = `${providerConfigs.retroAchievements?.username ?? ""}:${providerConfigs.retroAchievements?.hasApiKey ? 1 : 0}:${providerConfigs.steam?.steamId64 ?? ""}:${providerConfigs.steam?.hasApiKey ? 1 : 0}`;
   const enabledProviders = useMemo(() => getDeckyProviderOptions(providerConfigs), [providerConfigs]);
   const visibleProviders = useMemo(
@@ -1384,7 +1403,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
   }, []);
 
   useLayoutEffect(() => {
-    if (!initialProviderFocusRequested.current || providerInitialFocusTargetRef.current === null) {
+    if (selectedProviderId !== undefined || providerChooserFocusRequest === 0 || providerInitialFocusTargetRef.current === null) {
       return;
     }
 
@@ -1400,7 +1419,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
     return () => {
       attempt.cancel();
     };
-  }, []);
+  }, [providerChooserFocusRequest, selectedProviderId]);
 
   const openProviderFullScreenView = useCallback((
     providerId: string,
@@ -1592,7 +1611,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                               return;
                             }
 
-                            setDeckyCompactNavigation({ kind: "provider-dashboard", providerId: provider.id });
+                            openProviderDashboard(provider.id);
                           }}
                         />
                       ))}
@@ -1706,10 +1725,10 @@ function DeckyBootstrapStateBridge(): JSX.Element {
               scrollKey="dashboard"
             >
               <DashboardScreen
+                key={selectedProviderId}
                 providerId={selectedProviderId}
                 onBackToProviders={() => {
-                  returnFromCompactDestination();
-                  dispatchDeckyScrollReset("providers");
+                  returnToProviderChooser();
                 }}
                 onOpenSettings={() => {
                   void platform.navigation?.go({

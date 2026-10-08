@@ -269,7 +269,8 @@ test("Steam compact entry waits for claimed fresh Steam and SteamHunters data be
   assert.match(compactLoadingSource, /scrollContainer\.getBoundingClientRect\(\)\.bottom - surface\.getBoundingClientRect\(\)\.top/u);
   assert.match(compactLoadingSource, /ownerWindow\.requestAnimationFrame\(updateVisibleHeight\)/u);
   assert.match(compactLoadingSource, /ownerWindow\.cancelAnimationFrame\(updateFrame\)/u);
-  assert.match(compactLoadingSource, /registerCompactProviderCancelCallback\(surfaceRef\.current, onCancel\)/u);
+  assert.match(compactLoadingSource, /isError \? onCancel \?\? consumeCompactLoadingBack : consumeCompactLoadingBack/u);
+  assert.match(compactLoadingSource, /registerCompactProviderCancelCallback\([\s\S]*surfaceRef\.current,[\s\S]*isError \? onCancel/u);
   assert.match(compactLoadingSource, /padding: "18px 16px"/u);
   assert.match(compactLoadingSource, /spinner\?\.ownerDocument\.defaultView/u);
   assert.match(compactLoadingSource, /prefers-reduced-motion/u);

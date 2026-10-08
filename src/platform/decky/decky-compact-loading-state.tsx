@@ -7,10 +7,13 @@ import { achievementCompanionQamTheme } from "./decky-qam-theme";
 export interface DeckyCompactLoadingStateProps {
   readonly description: string;
   readonly isError: boolean;
+  /** Used only after loading fails; Back is intentionally unavailable while loading. */
   readonly onCancel?: (() => void) | undefined;
   readonly title: string;
   readonly steamTheme?: boolean;
 }
+
+const consumeCompactLoadingBack = (): void => undefined;
 
 function getLoadingSurfaceStyle(visibleHeight: number | undefined, isError: boolean): CSSProperties {
   return {
@@ -153,8 +156,14 @@ export function DeckyCompactLoadingState({
   const [visibleHeight, setVisibleHeight] = useState<number | undefined>(undefined);
 
   useLayoutEffect(
-    () => onCancel === undefined ? undefined : registerCompactProviderCancelCallback(surfaceRef.current, onCancel),
-    [onCancel],
+    // Loading is a modal wait state: consume B so it cannot abandon the
+    // request, expose stale state, or close QAM. Failed loads still offer the
+    // caller's normal Back path.
+    () => registerCompactProviderCancelCallback(
+      surfaceRef.current,
+      isError ? onCancel ?? consumeCompactLoadingBack : consumeCompactLoadingBack,
+    ),
+    [isError, onCancel],
   );
 
   useLayoutEffect(() => {
