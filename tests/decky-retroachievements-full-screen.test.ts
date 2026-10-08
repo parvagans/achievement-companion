@@ -25,6 +25,11 @@ import {
   selectSteamGames,
 } from "../src/platform/decky/decky-steam-full-screen-games-data";
 import { filterCompletionProgressGamesBySubsetVisibility } from "../src/platform/decky/decky-completion-progress-grouping";
+import {
+  cacheDeckyRetroAchievementsSubsetDetailState,
+  readDeckyRetroAchievementsSubsetDetailStates,
+  resetDeckyRetroAchievementsSubsetDetailCacheForTests,
+} from "../src/platform/decky/decky-retroachievements-subset-detail-cache";
 
 const game: NormalizedGame = {
   providerId: "retroachievements",
@@ -122,6 +127,29 @@ test("subset focus and scroll state are isolated per game and survive child retu
     focusedAchievementId: "achievement-1",
   });
   assert.equal(readFullScreenGameSectionPageState("retroachievements", "101").activeSection, "overview");
+});
+
+test("loaded RA subset achievements stay cached across child-detail return", () => {
+  resetDeckyRetroAchievementsSubsetDetailCacheForTests();
+  const loadedState = {
+    status: "success",
+    data: snapshot,
+    isStale: false,
+    isRefreshing: false,
+  } as const;
+
+  cacheDeckyRetroAchievementsSubsetDetailState("retroachievements", "14402", "subset-101", loadedState);
+
+  assert.equal(
+    readDeckyRetroAchievementsSubsetDetailStates("retroachievements", "14402")["subset-101"],
+    loadedState,
+  );
+  assert.deepEqual(
+    readDeckyRetroAchievementsSubsetDetailStates("retroachievements", "other-game"),
+    {},
+    "subset detail cache is isolated per parent game",
+  );
+  resetDeckyRetroAchievementsSubsetDetailCacheForTests();
 });
 
 test("RA full-screen achievement projection uses the selected mode and retains locked rows", () => {
