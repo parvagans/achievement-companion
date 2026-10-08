@@ -77,6 +77,7 @@ test("RetroAchievements presentation preferences migrate with useful defaults", 
   assert.equal(migrated.retroAchievementsRankDisplay, "site");
   assert.equal(migrated.retroAchievementsAchievementMode, "both");
   assert.equal(normalizeAchievementCompanionSettings({ retroAchievementsRankDisplay: "casual" }).retroAchievementsRankDisplay, "casual");
+  assert.equal(normalizeAchievementCompanionSettings({ retroAchievementsRankDisplay: "both" }).retroAchievementsRankDisplay, "site");
   assert.equal(normalizeAchievementCompanionSettings({ retroAchievementsAchievementMode: "softcore" }).retroAchievementsAchievementMode, "softcore");
   assert.equal(normalizeAchievementCompanionSettings({ retroAchievementsAchievementMode: "none" }).retroAchievementsAchievementMode, "both");
 });
@@ -85,17 +86,13 @@ test("profile rank display uses available ranks and reflows for each preference"
   const profile = createProfile();
   assert.deepEqual(getRetroAchievementsProfileRanks(profile, "site"), [{ kind: "site", label: "Site Rank", value: `#${Number(12345).toLocaleString()}` }]);
   assert.deepEqual(getRetroAchievementsProfileRanks(profile, "casual"), [{ kind: "casual", label: "Casual Rank", value: `#${Number(8421).toLocaleString()}` }]);
-  assert.deepEqual(getRetroAchievementsProfileRanks(profile, "both").map(({ kind }) => kind), ["site", "casual"]);
   assert.deepEqual(
-    getRetroAchievementsProfileRanks(createProfile(profile.metrics.filter(({ key }) => key !== "casual-rank")), "both"),
-    [
-      { kind: "site", label: "Site Rank", value: `#${Number(12345).toLocaleString()}` },
-      { kind: "casual", label: "Casual Rank", value: "Requires 250 points" },
-    ],
+    getRetroAchievementsProfileRanks(createProfile(profile.metrics.filter(({ key }) => key !== "casual-rank")), "casual"),
+    [{ kind: "casual", label: "Casual Rank", value: "Requires 250 points" }],
   );
   assert.deepEqual(
-    getRetroAchievementsProfileRanks(createProfile(profile.metrics.filter(({ key }) => !["casual-rank", "softcore-points"].includes(key))), "both").map(({ kind }) => kind),
-    ["site"],
+    getRetroAchievementsProfileRanks(createProfile(profile.metrics.filter(({ key }) => !["casual-rank", "softcore-points"].includes(key))), "casual"),
+    [],
   );
   assert.deepEqual(getRetroAchievementsProfileRanks(profile, "casual").slice(0, 1).map(({ value }) => value), [`#${Number(8421).toLocaleString()}`]);
 });
@@ -195,6 +192,13 @@ test("RA QAM loading, focus scrolling, and calendar controls follow Steam compac
   assert.match(bootstrapSource, /isShowingRetroAchievementsCompactSettings=\{isShowingRetroAchievementsCompactSettings\}/u);
   assert.doesNotMatch(bootstrapSource, /isShowingRetroAchievementsCompactSettings=\{providerId === "retroachievements" && isShowingSteamCompactSettings\}/u);
   assert.match(settingsSource, /<DropdownItem[\s\S]*menuLabel="Rank Display"[\s\S]*<DropdownItem[\s\S]*menuLabel="Achievement Mode"/u);
+  const rankOptionsSource = settingsSource.slice(
+    settingsSource.indexOf("const RANK_DISPLAY_OPTIONS"),
+    settingsSource.indexOf("const ACHIEVEMENT_MODE_OPTIONS"),
+  );
+  assert.match(rankOptionsSource, /data: "site"/u);
+  assert.match(rankOptionsSource, /data: "casual"/u);
+  assert.doesNotMatch(rankOptionsSource, /data: "both"/u);
   assert.match(settingsSource, /registerCompactProviderCancelCallback\(surfaceRef\.current, onBack\)/u);
   assert.match(settingsSource, /autoFocus[\s\S]*preferredFocus/u);
   assert.doesNotMatch(settingsSource, /useQuickAccessVisible|requestDeckySteamGamepadFocusAfterMount/u);

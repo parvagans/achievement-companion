@@ -13,7 +13,7 @@ export type ActivityCalendarWeeks = (typeof ACTIVITY_CALENDAR_WEEK_OPTIONS)[numb
 
 export type CompletionProgressFilter = "all" | "unfinished" | "beaten" | "mastered";
 export type UpdateSourceKind = "production" | "local";
-export type RetroAchievementsRankDisplay = "site" | "casual" | "both";
+export type RetroAchievementsRankDisplay = "site" | "casual";
 export type RetroAchievementsAchievementMode = "hardcore" | "softcore" | "both";
 
 export const GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS = [
@@ -121,7 +121,7 @@ function normalizeUpdateSource(value: unknown): UpdateSourceKind {
 }
 
 function normalizeRetroAchievementsRankDisplay(value: unknown): RetroAchievementsRankDisplay {
-  return value === "casual" || value === "both" ? value : "site";
+  return value === "casual" ? value : "site";
 }
 
 function normalizeRetroAchievementsAchievementMode(value: unknown): RetroAchievementsAchievementMode {

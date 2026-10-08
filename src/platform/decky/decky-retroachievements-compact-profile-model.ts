@@ -52,9 +52,6 @@ export function getRetroAchievementsProfileRanks(
   profile: RetroAchievementsProfile,
   preference: RetroAchievementsRankDisplay,
 ): readonly RetroAchievementsRankValue[] {
-  const requestedKinds: readonly RetroAchievementsRankValue["kind"][] = preference === "both"
-    ? ["site", "casual"]
-    : [preference];
   const candidates: Readonly<Record<RetroAchievementsRankValue["kind"], {
     readonly label: RetroAchievementsRankValue["label"];
     readonly value: string | undefined;
@@ -72,13 +69,11 @@ export function getRetroAchievementsProfileRanks(
     },
   };
 
-  return requestedKinds.flatMap((kind) => {
-    const rank = candidates[kind];
-    const value = formatNumeric(rank.value);
-    return value === undefined || value === "0"
-      ? []
-      : [{ kind, label: rank.label, value: /^Requires\s/u.test(value) ? value : `#${value}` }];
-  });
+  const rank = candidates[preference];
+  const value = formatNumeric(rank.value);
+  return value === undefined || value === "0"
+    ? []
+    : [{ kind: preference, label: rank.label, value: /^Requires\s/u.test(value) ? value : `#${value}` }];
 }
 
 export function sortRetroAchievementsUnlocksNewestFirst(

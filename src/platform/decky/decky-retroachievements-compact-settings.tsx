@@ -11,7 +11,6 @@ import externalLinkIconUrl from "./assets/external-link.svg";
 const RANK_DISPLAY_OPTIONS: DropdownOption[] = [
   { data: "site", label: "Site Rank" },
   { data: "casual", label: "Casual Rank" },
-  { data: "both", label: "Both" },
 ];
 
 const ACHIEVEMENT_MODE_OPTIONS: DropdownOption[] = [
@@ -86,7 +85,7 @@ export function DeckyRetroAchievementsCompactSettings({
             rgOptions={RANK_DISPLAY_OPTIONS}
             selectedOption={settings.retroAchievementsRankDisplay}
             onChange={({ data }) => {
-              if (data === "site" || data === "casual" || data === "both") saveRankDisplay(data);
+              if (data === "site" || data === "casual") saveRankDisplay(data);
             }}
           />
         </PanelSectionRow>
