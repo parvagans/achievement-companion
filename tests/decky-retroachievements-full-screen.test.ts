@@ -228,6 +228,7 @@ test("RA full-screen game keeps the loading gate up until subset discovery settl
   );
 
   assert.match(source, /isWaitingForRetroAchievementsSubsets/u);
+  assert.match(source, /activeSteamSection === "subsets"[\s\S]*relatedGamesState\.status === "idle"/u);
   assert.match(source, /relatedGamesState\.status === "idle" \|\| relatedGamesState\.status === "loading"/u);
   assert.match(source, /title: "Loading game subsets\.\.\."/u);
   assert.match(source, /isWaitingForSteamHuntersEnrichment \|\| isWaitingForRetroAchievementsSubsets/u);

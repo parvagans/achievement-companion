@@ -402,6 +402,7 @@ export function DeckyFullScreenGamePage({
     steamHuntersEnrichmentResult?.sourceSnapshot,
   );
   const isWaitingForRetroAchievementsSubsets = loadedSnapshot?.game.providerId === RETROACHIEVEMENTS_PROVIDER_ID
+    && activeSteamSection === "subsets"
     && (relatedGamesState.status === "idle" || relatedGamesState.status === "loading");
   const displayedLoadedSnapshot =
     steamHuntersEnrichmentResult !== undefined && steamHuntersEnrichmentResult.sourceSnapshot === loadedSnapshot

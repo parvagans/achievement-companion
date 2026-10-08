@@ -14,6 +14,7 @@ import {
   createProviderCompletionProgressCacheKey,
   createProviderDashboardCacheKey,
   createProviderGameDetailCacheKey,
+  createProviderRelatedGamesCacheKey,
 } from "../src/core/cache-keys";
 import { createAppServices } from "../src/core/app-services";
 import type {
@@ -24,6 +25,7 @@ import type {
   NormalizedGame,
   ProviderCapabilities,
   RecentlyPlayedGame,
+  RelatedGameSummary,
 } from "../src/core/domain";
 import {
   DeckyAchievementTypeBadge,
@@ -388,6 +390,8 @@ interface CallCounts {
   achievementsEarnedBetween: number;
   recentlyPlayedGames: number;
   gameProgress: number;
+  relatedGames: number;
+  relatedGameProgress: number;
 }
 
 function createMemoryCacheStore(
@@ -5981,6 +5985,8 @@ function createHarness(options: {
     achievementsEarnedBetween: 0,
     recentlyPlayedGames: 0,
     gameProgress: 0,
+    relatedGames: 0,
+    relatedGameProgress: 0,
   };
 
   const provider = options.providerFactory?.(counts) ?? createThrowingProvider(counts);
@@ -7794,6 +7800,93 @@ test("game detail cache hit returns cached state without calling refresh path", 
   assert.deepStrictEqual(state.data, cachedSnapshot);
   assert.equal(counts.config, 0);
   assert.equal(counts.gameProgress, 0);
+});
+
+test("fresh empty related-game cache skips subset discovery entirely", async () => {
+  const now = Date.now();
+  const rootGame = createGameDetailSnapshot().game;
+  const { appServices, counts } = createHarness({
+    cacheEntries: [
+      createCacheEntry(
+        createProviderRelatedGamesCacheKey(PROVIDER_ID, rootGame.gameId),
+        [],
+        now - 1_000,
+        now + 60_000,
+      ),
+    ],
+    providerFactory: (callCounts) => ({
+      ...createSuccessfulProvider(callCounts),
+      async loadRelatedGames() {
+        callCounts.relatedGames += 1;
+        throw new Error("relationship discovery should not run for a fresh empty result");
+      },
+      async loadRelatedGameProgress() {
+        callCounts.relatedGameProgress += 1;
+        throw new Error("progress refresh should not run when there are no subsets");
+      },
+    }),
+  });
+
+  const state = await appServices.relatedGames.loadRelatedGames(PROVIDER_ID, rootGame);
+
+  assert.equal(state.status, "success");
+  assert.deepStrictEqual(state.data, []);
+  assert.equal(counts.config, 0);
+  assert.equal(counts.relatedGames, 0);
+  assert.equal(counts.relatedGameProgress, 0);
+});
+
+test("fresh related-game cache refreshes only subset progress", async () => {
+  const now = Date.now();
+  const rootGame = createGameDetailSnapshot().game;
+  const relatedGame: RelatedGameSummary = {
+    providerId: PROVIDER_ID,
+    gameId: "subset-1",
+    title: "Test Game [Subset - Bonus]",
+    parentGameId: rootGame.gameId,
+    totalAchievementCount: 10,
+  };
+  const refreshedRelatedGame: RelatedGameSummary = {
+    ...relatedGame,
+    progress: {
+      unlockedCount: 2,
+      totalCount: 10,
+      completionPercent: 20,
+    },
+  };
+  const { appServices, counts, writes } = createHarness({
+    cacheEntries: [
+      createCacheEntry(
+        createProviderRelatedGamesCacheKey(PROVIDER_ID, rootGame.gameId),
+        [relatedGame],
+        now - 1_000,
+        now + 60_000,
+      ),
+    ],
+    providerConfig: { username: "alice", apiKey: "secret" },
+    providerFactory: (callCounts) => ({
+      ...createSuccessfulProvider(callCounts),
+      async loadRelatedGames() {
+        callCounts.relatedGames += 1;
+        throw new Error("relationship discovery should not rerun for a fresh result");
+      },
+      async loadRelatedGameProgress(_config, _game, cachedRelatedGames) {
+        callCounts.relatedGameProgress += 1;
+        assert.deepStrictEqual(cachedRelatedGames, [relatedGame]);
+        return [refreshedRelatedGame];
+      },
+    }),
+  });
+
+  const state = await appServices.relatedGames.loadRelatedGames(PROVIDER_ID, rootGame);
+
+  assert.equal(state.status, "success");
+  assert.deepStrictEqual(state.data, [refreshedRelatedGame]);
+  assert.equal(counts.config, 1);
+  assert.equal(counts.relatedGames, 0);
+  assert.equal(counts.relatedGameProgress, 1);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0]?.key, createProviderRelatedGamesCacheKey(PROVIDER_ID, rootGame.gameId));
 });
 
 test("game detail missing config returns auth error state", async () => {
