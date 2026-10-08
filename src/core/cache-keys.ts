@@ -26,3 +26,7 @@ export function createProviderGameDetailCacheKey(providerId: ProviderId, gameId:
 export function createProviderRelatedGamesCacheKey(providerId: ProviderId, gameId: string): string {
   return `${CACHE_NAMESPACE}:v${CACHE_VERSION}:${providerId}:related-games:${encodeURIComponent(gameId)}`;
 }
+
+export function createProviderRelatedGamesCachePrefix(providerId: ProviderId): string {
+  return `${CACHE_NAMESPACE}:v${CACHE_VERSION}:${providerId}:related-games:`;
+}

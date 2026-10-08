@@ -23,6 +23,7 @@ import {
   createProviderDashboardCacheKey,
   createProviderGameDetailCacheKey,
   createProviderRelatedGamesCacheKey,
+  createProviderRelatedGamesCachePrefix,
 } from "./cache-keys";
 import type { AchievementProvider, ProviderRegistry } from "./ports";
 import type { PlatformServices } from "./platform";
@@ -51,7 +52,10 @@ const DASHBOARD_CACHE_TTL_MS = 15 * 60 * 1000;
 const COMPLETION_PROGRESS_CACHE_TTL_MS = 15 * 60 * 1000;
 // Assumption: game detail snapshots can use the same short-lived TTL.
 const GAME_DETAIL_CACHE_TTL_MS = 15 * 60 * 1000;
-const RELATED_GAMES_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+// Related-game relationships are catalogue metadata and change far less often
+// than account progress. Keep the discovered index long-lived; the provider
+// refreshes progress independently whenever the page is opened.
+const RELATED_GAMES_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const providerRefreshQueues = new Map<ProviderId, Promise<void>>();
 
 function createErrorState<T>(error: AppError): ResourceState<T> {
@@ -1201,7 +1205,12 @@ export function createAppServices(options: AppServiceBootstrapOptions): AppServi
           platform: options.platform,
         });
         if (cacheRead.error !== undefined) return createErrorState<readonly RelatedGameSummary[]>(cacheRead.error);
-        if (cacheRead.cachedState !== undefined && !requestOptions?.forceRefresh && !cacheRead.cachedState.isStale) {
+        if (
+          cacheRead.cachedState !== undefined
+          && !requestOptions?.forceRefresh
+          && !cacheRead.cachedState.isStale
+          && options.providerRegistry.get(providerId)?.loadRelatedGames === undefined
+        ) {
           return cacheRead.cachedState;
         }
         return refreshRelatedGames({
@@ -1214,6 +1223,10 @@ export function createAppServices(options: AppServiceBootstrapOptions): AppServi
           game,
           ...(cacheRead.cachedState !== undefined ? { cachedState: cacheRead.cachedState } : {}),
         });
+      },
+      async clearRelatedGameIndex(providerId) {
+        await options.cacheStore.clear(createProviderRelatedGamesCachePrefix(providerId));
+        options.providerRegistry.get(providerId)?.clearRelatedGameIndex?.();
       },
     },
   };

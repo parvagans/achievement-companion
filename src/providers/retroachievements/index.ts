@@ -5,4 +5,13 @@ export {
   type FetchRetroAchievementsTransportOptions,
   type RetroAchievementsTransport,
 } from "./client/transport";
-export { createRetroAchievementsProvider } from "./retroachievements.provider";
+export {
+  createRetroAchievementsProvider,
+  isRetroAchievementsSubsetEntry,
+  type RetroAchievementsSubsetCatalogueEntry,
+  type RetroAchievementsSubsetCatalogueState,
+  type RetroAchievementsSubsetCandidateRecord,
+  type RetroAchievementsSubsetCandidateStatus,
+  type RetroAchievementsSubsetRelationshipIndexState,
+  type RetroAchievementsSubsetRelationshipIndexStore,
+} from "./retroachievements.provider";

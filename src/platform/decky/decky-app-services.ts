@@ -20,7 +20,12 @@ import type {
 } from "@core/platform";
 import { createAppRuntime } from "@core/app-runtime";
 import { createProviderRegistry } from "@core/provider-registry";
-import { createRetroAchievementsProvider } from "../../providers/retroachievements";
+import {
+  createRetroAchievementsProvider,
+  type RetroAchievementsSubsetCatalogueState,
+  type RetroAchievementsSubsetRelationshipIndexState,
+  type RetroAchievementsSubsetRelationshipIndexStore,
+} from "../../providers/retroachievements";
 import {
   clearSteamRecentGameSnapshotLoadCache,
   createSteamProvider,
@@ -35,7 +40,7 @@ import { createDeckySteamHuntersTransport } from "./providers/steamhunters/backe
 import { createMemoryCacheStore } from "./memory-cache";
 import { createDeckySettingsStore } from "./decky-settings";
 import { loadDeckyRuntimeMode, type DeckyRuntimeMode } from "./runtime-mode";
-import { readDeckyStorageText, removeDeckyStorageText, writeDeckyStorageText } from "./storage";
+import { readDeckyStorageText, removeDeckyStorageText, writeDeckyStorageText, writeDeckyStorageTextPreservingExisting } from "./storage";
 import {
   readDeckyDashboardSnapshotState,
   deckyDashboardSnapshotStore,
@@ -162,9 +167,99 @@ export const deckyAuthenticatedProviderTransportFactory: AuthenticatedProviderTr
   create: createDeckyAuthenticatedProviderTransport,
 };
 
+const DECKY_RETROACHIEVEMENTS_SUBSET_RELATIONSHIP_INDEX_STORAGE_KEY =
+  "achievement-companion:decky:retroachievements:subset-relationship-index:v1";
+
+interface StoredRetroAchievementsSubsetRelationshipIndex {
+  readonly version: 1;
+  readonly consoles: Readonly<Record<string, RetroAchievementsSubsetRelationshipIndexState>>;
+  readonly catalogues: Readonly<Record<string, RetroAchievementsSubsetCatalogueState>>;
+}
+
+const deckyRetroAchievementsSubsetRelationshipIndexStore: RetroAchievementsSubsetRelationshipIndexStore = {
+  async read(consoleId) {
+    const raw = readDeckyStorageText(DECKY_RETROACHIEVEMENTS_SUBSET_RELATIONSHIP_INDEX_STORAGE_KEY);
+    if (raw === undefined) return undefined;
+    try {
+      const parsed = JSON.parse(raw) as Partial<StoredRetroAchievementsSubsetRelationshipIndex>;
+      if (parsed.version !== 1 || parsed.consoles === null || typeof parsed.consoles !== "object") return undefined;
+      return parsed.consoles[consoleId];
+    } catch {
+      return undefined;
+    }
+  },
+  async readCatalogue(consoleId) {
+    const raw = readDeckyStorageText(DECKY_RETROACHIEVEMENTS_SUBSET_RELATIONSHIP_INDEX_STORAGE_KEY);
+    if (raw === undefined) return undefined;
+    try {
+      const parsed = JSON.parse(raw) as Partial<StoredRetroAchievementsSubsetRelationshipIndex>;
+      if (parsed.version !== 1 || parsed.catalogues === null || typeof parsed.catalogues !== "object") return undefined;
+      return parsed.catalogues[consoleId];
+    } catch {
+      return undefined;
+    }
+  },
+  async write(state) {
+    let stored: StoredRetroAchievementsSubsetRelationshipIndex = { version: 1, consoles: {}, catalogues: {} };
+    const raw = readDeckyStorageText(DECKY_RETROACHIEVEMENTS_SUBSET_RELATIONSHIP_INDEX_STORAGE_KEY);
+    if (raw !== undefined) {
+      try {
+        const parsed = JSON.parse(raw) as Partial<StoredRetroAchievementsSubsetRelationshipIndex>;
+        if (parsed.version === 1 && parsed.consoles !== null && typeof parsed.consoles === "object") {
+          stored = {
+            version: 1,
+            consoles: parsed.consoles,
+            catalogues: parsed.catalogues !== null && typeof parsed.catalogues === "object" ? parsed.catalogues : {},
+          };
+        }
+      } catch {
+        // Replace corrupt relationship-index storage with the next good write.
+      }
+    }
+    writeDeckyStorageTextPreservingExisting(
+      DECKY_RETROACHIEVEMENTS_SUBSET_RELATIONSHIP_INDEX_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        consoles: { ...stored.consoles, [state.consoleId]: state },
+        catalogues: stored.catalogues,
+      }),
+    );
+  },
+  async writeCatalogue(state) {
+    let stored: StoredRetroAchievementsSubsetRelationshipIndex = { version: 1, consoles: {}, catalogues: {} };
+    const raw = readDeckyStorageText(DECKY_RETROACHIEVEMENTS_SUBSET_RELATIONSHIP_INDEX_STORAGE_KEY);
+    if (raw !== undefined) {
+      try {
+        const parsed = JSON.parse(raw) as Partial<StoredRetroAchievementsSubsetRelationshipIndex>;
+        if (parsed.version === 1 && parsed.consoles !== null && typeof parsed.consoles === "object") {
+          stored = {
+            version: 1,
+            consoles: parsed.consoles,
+            catalogues: parsed.catalogues !== null && typeof parsed.catalogues === "object" ? parsed.catalogues : {},
+          };
+        }
+      } catch {
+        // Replace corrupt relationship-index storage with the next good write.
+      }
+    }
+    writeDeckyStorageTextPreservingExisting(
+      DECKY_RETROACHIEVEMENTS_SUBSET_RELATIONSHIP_INDEX_STORAGE_KEY,
+      JSON.stringify({
+        version: 1,
+        consoles: stored.consoles,
+        catalogues: { ...stored.catalogues, [state.consoleId]: state },
+      }),
+    );
+  },
+  async clear() {
+    removeDeckyStorageText(DECKY_RETROACHIEVEMENTS_SUBSET_RELATIONSHIP_INDEX_STORAGE_KEY);
+  },
+};
+
 const providerRegistry = createProviderRegistry([
   createRetroAchievementsProvider({
     transport: deckyAuthenticatedProviderTransportFactory.create(RETROACHIEVEMENTS_PROVIDER_ID),
+    subsetRelationshipIndexStore: deckyRetroAchievementsSubsetRelationshipIndexStore,
   }),
   createSteamProvider({
     transport: deckyAuthenticatedProviderTransportFactory.create(STEAM_PROVIDER_ID),
@@ -1814,5 +1909,14 @@ export async function loadDeckyRetroAchievementsRelatedGames(
     RETROACHIEVEMENTS_PROVIDER_ID,
     game,
     { forceRefresh: options?.forceRefresh ?? false },
+  );
+}
+
+/** Clears the cached RA relationship index; the next parent-game visit rebuilds it. */
+export async function clearDeckyRetroAchievementsRelatedGameIndex(): Promise<void> {
+  const runtimeMode: DeckyRuntimeMode = loadDeckyRuntimeMode();
+  if (runtimeMode === "empty") return;
+  await createDeckyAppServices(runtimeMode).relatedGames.clearRelatedGameIndex(
+    RETROACHIEVEMENTS_PROVIDER_ID,
   );
 }

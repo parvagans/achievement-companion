@@ -28,6 +28,7 @@ export interface DeckyFullScreenProviderSettingsPageProps {
   readonly providerId: string;
   readonly onBack: () => void;
   readonly inProviderSwitcher?: boolean;
+  readonly onRebuildSubsetIndex?: () => Promise<void> | void;
 }
 
 const RETROACHIEVEMENTS_PROVIDER_SETTINGS_TOP_PADDING = 42;
@@ -124,6 +125,7 @@ export function DeckyRetroAchievementsProviderSettingsPage({
   providerId,
   onBack,
   inProviderSwitcher = false,
+  onRebuildSubsetIndex,
 }: DeckyFullScreenProviderSettingsPageProps): JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [viewportHeight, setViewportHeight] = useState<number>();
@@ -134,6 +136,7 @@ export function DeckyRetroAchievementsProviderSettingsPage({
   }, [inProviderSwitcher]);
   const providerConfig = useDeckyProviderConfig(RETROACHIEVEMENTS_PROVIDER_ID);
   const settings = useDeckySettings();
+  const [subsetIndexOperation, setSubsetIndexOperation] = useState<"idle" | "refreshing" | "refreshed" | "error">("idle");
   const providerLabel =
     providerId === RETROACHIEVEMENTS_PROVIDER_ID ? "RetroAchievements" : providerId;
 
@@ -166,6 +169,17 @@ export function DeckyRetroAchievementsProviderSettingsPage({
     providerConfig?.recentlyPlayedCount,
     settings.recentlyPlayedCount,
   );
+
+  const rebuildSubsetIndex = async (): Promise<void> => {
+    if (onRebuildSubsetIndex === undefined || subsetIndexOperation === "refreshing") return;
+    setSubsetIndexOperation("refreshing");
+    try {
+      await onRebuildSubsetIndex();
+      setSubsetIndexOperation("refreshed");
+    } catch {
+      setSubsetIndexOperation("error");
+    }
+  };
 
   const content = (
       <TopAlignedScrollViewport scrollKey={`full-screen-provider-settings:${providerId}`}>
@@ -243,6 +257,22 @@ export function DeckyRetroAchievementsProviderSettingsPage({
                 };
                 void saveDeckySettings(nextSettings);
                 persistProviderCounts(nextSettings);
+              }}
+            />
+          </PanelSection>
+
+          <PanelSection title="Full-screen game data">
+            <DeckyProviderSettingsActionRow
+              label={subsetIndexOperation === "refreshing" ? "Preparing subset index rebuild" : "Rebuild subset index on next game open"}
+              description={subsetIndexOperation === "refreshed"
+                ? "The next parent game page will run a fresh verified scan."
+                : subsetIndexOperation === "error"
+                  ? "Unable to clear the saved subset index."
+                  : "Use this after RA adds or changes a subset relationship."}
+              actionLabel={subsetIndexOperation === "refreshing" ? "Working…" : "Rebuild"}
+              disabled={onRebuildSubsetIndex === undefined || subsetIndexOperation === "refreshing"}
+              onClick={() => {
+                void rebuildSubsetIndex();
               }}
             />
           </PanelSection>

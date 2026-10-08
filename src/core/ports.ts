@@ -44,6 +44,17 @@ export interface AchievementProvider<Config = unknown> {
     config: Config,
     game: NormalizedGame,
   ): Promise<readonly RelatedGameSummary[]>;
+  /**
+   * Refresh account-specific progress for an already discovered related-game
+   * index without re-discovering the relationships themselves.
+   */
+  loadRelatedGameProgress?(
+    config: Config,
+    game: NormalizedGame,
+    relatedGames: readonly RelatedGameSummary[],
+  ): Promise<readonly RelatedGameSummary[]>;
+  /** Drop provider-local relationship metadata so the next load rebuilds it. */
+  clearRelatedGameIndex?(): void;
 }
 
 export interface ProviderRegistry {

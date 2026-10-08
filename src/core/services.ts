@@ -61,6 +61,7 @@ export interface RelatedGamesService {
     game: NormalizedGame,
     options?: LoadRequestOptions,
   ): Promise<ResourceState<readonly RelatedGameSummary[]>>;
+  clearRelatedGameIndex(providerId: ProviderId): Promise<void>;
 }
 
 export interface CompletionProgressService {

@@ -37,6 +37,7 @@ import {
 } from "./decky-steam-game-section-state";
 import {
   beginDeckyProviderFullScreenDataSession,
+  clearDeckyRetroAchievementsRelatedGameIndex,
   endDeckyProviderFullScreenDataSession,
   getDeckyProviderFullScreenDataSessionRevision,
   subscribeDeckyProviderFullScreenDataSession,
@@ -760,7 +761,7 @@ function DeckyFullScreenSettingsRoute(): JSX.Element {
         onOpenExternalUrl={(url) => {
           DeckyNavigation.NavigateToExternalWeb(url);
         }}
-      /> : <div ref={retroAchievementsRootRef} data-provider-settings-retroachievements="true"><DeckyRetroAchievementsProviderSettingsPage providerId="retroachievements" onBack={returnFromSettings} inProviderSwitcher /></div>}
+        /> : <div ref={retroAchievementsRootRef} data-provider-settings-retroachievements="true"><DeckyRetroAchievementsProviderSettingsPage providerId="retroachievements" onBack={returnFromSettings} inProviderSwitcher onRebuildSubsetIndex={clearDeckyRetroAchievementsRelatedGameIndex} /></div>}
       <DeckyFullScreenFooterOverlay
         ariaLabel="Provider settings navigation"
         activeNavigationItemId={activeProvider}
