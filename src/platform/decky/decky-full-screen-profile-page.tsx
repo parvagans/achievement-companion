@@ -52,6 +52,9 @@ import {
 } from "./decky-retroachievements-completion-indicator";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 import { raRecipes, raTheme } from "./ra-theme";
+import { useDeckySettings } from "./decky-settings";
+import { buildRetroAchievementsFullScreenProfileModel } from "./decky-retroachievements-full-screen-profile-data";
+import { DeckyRetroAchievementsFullScreenProfileDashboard } from "./decky-retroachievements-full-screen-profile-dashboard";
 
 import {
   getRetroAchievementsProfileAwardStatus,
@@ -61,12 +64,17 @@ import {
   selectRetroAchievementsGameAwards,
   type RetroAchievementsGameAwardsSelection,
 } from "./decky-full-screen-profile-data";
-import { buildRetroAchievementsCompletionCollection } from "./decky-completion-progress-grouping";
+import {
+  buildRetroAchievementsCompletionCollection,
+  filterCompletionProgressGamesBySubsetVisibility,
+  summarizeCompletionProgressSummaryBySubsetVisibility,
+} from "./decky-completion-progress-grouping";
 import type { CompletionProgressSelectionFilter } from "./decky-completion-progress-summary-card-data";
 import { buildSteamFullScreenProfileSummary } from "./decky-steam-full-screen-profile-data";
 import { SteamFullScreenProfileDashboard } from "./decky-steam-full-screen-profile-dashboard";
 import {
   DeckyFullScreenFooterOverlay,
+  RETROACHIEVEMENTS_PROFILE_FOOTER_NAVIGATION_ITEMS,
   STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS,
 } from "./decky-full-screen-footer-overlay";
 
@@ -1038,6 +1046,7 @@ export function DeckyFullScreenProfilePage({
   onOpenGameDetail,
   onOpenSettings,
 }: DeckyFullScreenProfilePageProps): JSX.Element {
+  const deckySettings = useDeckySettings();
   const steamFullScreenRefreshSessionRevision = useSyncExternalStore(
     subscribeDeckySteamFullScreenRefreshSession,
     getDeckySteamFullScreenRefreshSessionRevision,
@@ -1126,17 +1135,35 @@ export function DeckyFullScreenProfilePage({
       );
     }
 
+    if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+      return (
+        <>
+          <DeckyFullScreenLoadingState
+            description={state.error?.userMessage ?? "Loading your RetroAchievements profile, progress, and recent activity."}
+            isError={state.status === "error"}
+            title={state.status === "error" ? "RetroAchievements profile unavailable" : "Loading RetroAchievements profile..."}
+          />
+          {showSteamProfileFooter ? <DeckyFullScreenFooterOverlay
+            isActive={isActive}
+            activeNavigationItemId="profile"
+            ariaLabel="RetroAchievements profile navigation"
+            navigationItems={RETROACHIEVEMENTS_PROFILE_FOOTER_NAVIGATION_ITEMS}
+            onNextNavigationItem={() => onOpenCompletionProgress(RETROACHIEVEMENTS_PROVIDER_ID)}
+            onPreviousNavigationItem={() => onOpenAchievementHistory(RETROACHIEVEMENTS_PROVIDER_ID)}
+          /> : null}
+        </>
+      );
+    }
+
     return (
       <ScrollPanel>
         <TopAlignedScrollViewport scrollKey={`full-screen-profile:${providerId ?? "missing"}`}>
           <div style={getPageFrameStyle()}>
             <PlaceholderState
               title="Full-screen profile page"
-              description={
-                hasRouteParameters
-                  ? "Loading the full-screen profile page from the existing dashboard snapshot."
-                  : "The full-screen profile page route is missing provider information."
-              }
+              description={hasRouteParameters
+                ? "Loading the full-screen profile page from the existing dashboard snapshot."
+                : "The full-screen profile page route is missing provider information."}
               state={state}
               footer={<span>Use Back to return to the compact dashboard.</span>}
             />
@@ -1192,6 +1219,51 @@ export function DeckyFullScreenProfilePage({
             onOpenCompletionProgress(profile.providerId);
           }}
           onPreviousNavigationItem={onOpenSettings}
+        /> : null}
+      </>
+    );
+  }
+
+  if (profile.providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+    const rawCompletion = isRenderableCompletionProgressState(completionProgressState)
+      ? completionProgressState.data
+      : undefined;
+    const completion = rawCompletion === undefined
+      ? undefined
+      : {
+          ...rawCompletion,
+          summary: summarizeCompletionProgressSummaryBySubsetVisibility(
+            rawCompletion.summary,
+            rawCompletion.games,
+            deckySettings.showCompletionProgressSubsets,
+          ),
+          games: filterCompletionProgressGamesBySubsetVisibility(
+            rawCompletion.games,
+            deckySettings.showCompletionProgressSubsets,
+          ),
+        };
+    const model = buildRetroAchievementsFullScreenProfileModel({
+      snapshot,
+      ...(completion !== undefined ? { completion } : {}),
+      settings: deckySettings,
+    });
+    return (
+      <>
+        <DeckyRetroAchievementsFullScreenProfileDashboard
+          model={model}
+          isActive={isActive}
+          onOpenAchievementHistory={() => onOpenAchievementHistory(profile.providerId)}
+          onOpenAchievementDetail={(gameId, achievementId) => onOpenAchievementDetail(profile.providerId, gameId, achievementId)}
+          onOpenCompletionProgress={() => onOpenCompletionProgress(profile.providerId)}
+          onOpenGameDetail={(gameId) => onOpenGameDetail(profile.providerId, gameId)}
+        />
+        {showSteamProfileFooter ? <DeckyFullScreenFooterOverlay
+          isActive={isActive}
+          activeNavigationItemId="profile"
+          ariaLabel="RetroAchievements profile navigation"
+          navigationItems={RETROACHIEVEMENTS_PROFILE_FOOTER_NAVIGATION_ITEMS}
+          onNextNavigationItem={() => onOpenCompletionProgress(profile.providerId)}
+          onPreviousNavigationItem={() => onOpenAchievementHistory(profile.providerId)}
         /> : null}
       </>
     );

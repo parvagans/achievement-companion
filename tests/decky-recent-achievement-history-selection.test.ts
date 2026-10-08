@@ -4,6 +4,7 @@ import type { RecentUnlock } from "../src/core/domain";
 import {
   createDeckyRecentAchievementCandidate,
   finalizeDeckyRecentAchievementCandidates,
+  getRecentUnlockIdentity,
   selectDeckyRecentAchievementGameCandidates,
 } from "../src/platform/decky/decky-recent-achievement-history-selection";
 
@@ -97,4 +98,44 @@ test("recent achievement game discovery chooses the most recent candidate for ea
     selected.map((candidate) => `${candidate.gameId}:${candidate.source}`),
     ["game-a:recently-played", "game-b:snapshot-recently-played"],
   );
+});
+
+test("RetroAchievements history keeps distinct Hardcore and Softcore awards", () => {
+  const hardcore: RecentUnlock = {
+    ...createRecentUnlock(1, 1_700_000_000_000),
+    achievement: {
+      ...createRecentUnlock(1, 1_700_000_000_000).achievement,
+      unlockMode: "hardcore",
+    },
+  };
+  const softcore: RecentUnlock = {
+    ...createRecentUnlock(1, 1_700_000_000_100),
+    achievement: {
+      ...createRecentUnlock(1, 1_700_000_000_100).achievement,
+      unlockMode: "softcore",
+    },
+  };
+
+  assert.notEqual(getRecentUnlockIdentity(hardcore), getRecentUnlockIdentity(softcore));
+  const selection = finalizeDeckyRecentAchievementCandidates([
+    createDeckyRecentAchievementCandidate(hardcore, "date-range"),
+    createDeckyRecentAchievementCandidate(softcore, "date-range"),
+  ]);
+  assert.equal(selection.selectedCandidates.length, 2);
+});
+
+test("Steam history retains its one-unlock identity", () => {
+  const original = createRecentUnlock(1, 1_700_000_000_000);
+  const first: RecentUnlock = {
+    ...original,
+    achievement: { ...original.achievement, providerId: "steam", unlockMode: "hardcore" },
+    game: { ...original.game, providerId: "steam" },
+  };
+  const second: RecentUnlock = {
+    ...first,
+    unlockedAt: 1_700_000_000_100,
+    achievement: { ...first.achievement, unlockedAt: 1_700_000_000_100, unlockMode: "softcore" },
+  };
+
+  assert.equal(getRecentUnlockIdentity(first), getRecentUnlockIdentity(second));
 });

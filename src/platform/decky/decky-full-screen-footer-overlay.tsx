@@ -132,6 +132,12 @@ export const STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS = [
   { id: "settings", label: "Settings" },
 ] as const satisfies readonly DeckyFullScreenFooterNavigationItem[];
 
+export const RETROACHIEVEMENTS_PROFILE_FOOTER_NAVIGATION_ITEMS = [
+  { id: "profile", label: "Profile" },
+  { id: "games", label: "Games" },
+  { id: "activity", label: "Activity" },
+] as const satisfies readonly DeckyFullScreenFooterNavigationItem[];
+
 interface DeckyFullScreenFooterNavigationActions {
   readonly onPrevious?: () => void;
   readonly onNext?: () => void;
@@ -304,6 +310,7 @@ export function DeckyFullScreenFooterOverlay({
   onHeightChange,
   secondaryActionLabel,
   onSecondaryAction,
+  playNavigationSound = true,
   isActive = true,
 }: {
   readonly ariaLabel: string;
@@ -314,6 +321,8 @@ export function DeckyFullScreenFooterOverlay({
   readonly onHeightChange?: (height: number) => void;
   readonly secondaryActionLabel?: string;
   readonly onSecondaryAction?: (document: Document) => void;
+  /** Provider-neutral opt-in for the native tab transition cue. */
+  readonly playNavigationSound?: boolean;
   /** A retained full-screen tab must not own the footer or controller input. */
   readonly isActive?: boolean;
 }): JSX.Element {
@@ -337,7 +346,7 @@ export function DeckyFullScreenFooterOverlay({
   useLayoutEffect(() => {
     // Use the visible Gaming Mode document, not SharedJSContext, just as the
     // Steam game-page section footer does.
-    if (!isActive || !ariaLabel.startsWith("Steam ")) {
+    if (!isActive || !playNavigationSound) {
       return;
     }
     const ownerDocument = anchorRef.current?.ownerDocument;
@@ -354,7 +363,7 @@ export function DeckyFullScreenFooterOverlay({
       sound.load();
       tabTransitionSoundRef.current = null;
     };
-  }, [ariaLabel, isActive]);
+  }, [isActive, playNavigationSound]);
 
   useLayoutEffect(() => {
     if (!isActive) {

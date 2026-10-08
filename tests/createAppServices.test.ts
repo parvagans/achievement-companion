@@ -2838,16 +2838,16 @@ test("provider setup, credential fields, and current compact profile routes stay
   assert.match(fullScreenAchievementBrowserSource, /ACHIEVEMENT_MODE_FILTERS = \["all", "hardcore", "softcore"\] as const;/);
   assert.match(fullScreenGamePageSource, /useState<AchievementModeFilter>\(initialSectionState\?\.achievements\.achievementModeFilter \?\? "all"\)/u);
   assert.match(fullScreenGamePageSource, /useState<AchievementFilter>\(initialSectionState\?\.achievements\.achievementFilter \?\? "all"\)/u);
-  assert.match(fullScreenGamePageSource, /sortAchievementsForDisplay\(restorationSnapshot\?\.achievements \?\? \[\]\)/u);
+  assert.match(fullScreenGamePageSource, /projectRetroAchievementsFullScreenAchievements\([\s\S]*settings\.retroAchievementsAchievementMode[\s\S]*sortAchievementsForDisplay\(restorationProjectedAchievements\)/u);
   assert.match(fullScreenGamePageSource, /DeckySteamGameOverview/u);
   assert.match(steamProgressSummarySource, /DeckyCompletionProgressBar[\s\S]*percent=\{completionPercent\}/);
   assert.match(steamProgressSummarySource, /title="Your Progress" focusable=\{false\}/u);
   assert.match(retroAchievementsCommunityStatsSource, /title="Community"[\s\S]*focusable=\{false\}/u);
   assert.match(
     fullScreenGamePageSource,
-    /matchesAchievementFilter\(achievement, achievementFilter\)[\s\S]*matchesAchievementModeFilter\(achievement, achievementModeFilter\)/u,
+    /matchesAchievementFilter\(achievement, achievementFilter\)[\s\S]*restorationShowModeFilter \? matchesAchievementModeFilter\(achievement, achievementModeFilter\) : true/u,
   );
-  assert.match(fullScreenGamePageSource, /shouldRenderAchievementModeFilter\(restorationProviderId\)/u);
+  assert.match(fullScreenGamePageSource, /settings\.retroAchievementsAchievementMode === "both"[\s\S]*hasDistinctRetroAchievementsModes\(restorationSnapshot\.achievements\)/u);
   assert.match(fullScreenAchievementBrowserSource, /showAchievementModeFilter \?\s*\(/u);
   assert.match(fullScreenGamePageSource, /const isSteamProvider = game\.providerId === STEAM_PROVIDER_ID;/u);
   assert.match(
@@ -2927,7 +2927,7 @@ test("provider setup, credential fields, and current compact profile routes stay
   assert.doesNotMatch(fullScreenGameSpotlightOverviewSource, /metadataLabels|getPillRowStyle/u);
   assert.doesNotMatch(fullScreenGamePageSource, /GameOverviewRefreshPill/);
   assert.doesNotMatch(fullScreenGamePageSource, /getProgressSummaryPercentStyle/);
-  assert.match(fullScreenGamePageSource, /buildGameMetadataPills\([\s\S]*game\.metrics,[\s\S]*isSteamProvider \|\| game\.communityStats === undefined/u);
+  assert.match(fullScreenGamePageSource, /buildGameMetadataPills\([\s\S]*game\.metrics,[\s\S]*isSteamProvider,[\s\S]*isSteamProvider/u);
   assert.match(fullScreenGamePageSource, /metadataPills=\{gameMetadataPills\}/);
   assert.match(fullScreenGameMetadataPillsSource, /function getPillRowStyle\(\): CSSProperties/u);
   assert.match(fullScreenGameMetadataPillsSource, /gridTemplateColumns: "repeat\(2, minmax\(0, 1fr\)\)"/);
@@ -3016,7 +3016,8 @@ test("provider setup, credential fields, and current compact profile routes stay
   assert.match(fullScreenAchievementPageSource, /getSteamFullscreenGameArtworkUrl/u);
   assert.match(fullScreenAchievementPageSource, /hardcoreUnlockedAt/u);
   assert.match(fullScreenAchievementPageSource, /getAchievementDescriptionText/u);
-  assert.match(fullScreenAchievementPageSource, /Obtainability/u);
+  assert.doesNotMatch(fullScreenAchievementPageSource, /Obtainability/u);
+  assert.match(fullScreenAchievementPageSource, /label="Points"[\s\S]*label="RetroPoints"[\s\S]*label="Players Unlocked"/u);
   assert.match(fullScreenAchievementPageSource, /<Focusable/u);
   assert.doesNotMatch(fullScreenAchievementPageSource, /DeckyFullscreenActionButton/u);
   assert.doesNotMatch(fullScreenAchievementPageSource, /onOpenFullScreenGame/u);
@@ -3194,9 +3195,8 @@ test("provider setup, credential fields, and current compact profile routes stay
   assert.match(fullScreenGamePageSource, /FULLSCREEN_GAME_TOP_PADDING = 42/u);
   assert.match(
     fullScreenGamePageSource,
-    /calc\(env\(safe-area-inset-top, 0px\) \+ \$\{FULLSCREEN_GAME_TOP_PADDING\}px\) 12px calc\(env\(safe-area-inset-bottom, 0px\) \+ \$\{FULLSCREEN_GAME_BOTTOM_SCROLL_PADDING\}px\)/u,
+    /paddingBottom: footerHeight[\s\S]*calc\(env\(safe-area-inset-top, 0px\) \+ \$\{FULLSCREEN_GAME_TOP_PADDING\}px\) 12px 0/u,
   );
-  assert.match(fullScreenGamePageSource, /FULLSCREEN_GAME_BOTTOM_SCROLL_PADDING = 88/u);
   assert.match(completionProgressSource, /FULLSCREEN_COMPLETION_PROGRESS_TOP_PADDING = 42/u);
   assert.match(
     completionProgressSource,

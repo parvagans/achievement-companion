@@ -488,7 +488,7 @@ test("compact navigation marks only the full-screen root it enters", () => {
   assert.match(navigationSource, /DeckyNavigation\.Navigate\(profileRoute\);[\s\S]*DeckyNavigation\.CloseSideMenus\(\);/u);
 });
 
-test("provider profile routing keeps Steam tabs local and routes non-Steam destinations", () => {
+test("provider profile routing keeps Steam and RA tabs local and routes other destinations", () => {
   const navigationSource = readFileSync(
     "src/platform/decky/decky-navigation.tsx",
     "utf8",
@@ -500,7 +500,7 @@ test("provider profile routing keeps Steam tabs local and routes non-Steam desti
 
   assert.match(
     navigationSource,
-    /providerId === STEAM_PROVIDER_ID[\s\S]*<DeckySteamFullScreenSession/u,
+    /providerId === STEAM_PROVIDER_ID \|\| providerId === RETROACHIEVEMENTS_PROVIDER_ID[\s\S]*<DeckyProviderFullScreenSession/u,
   );
   assert.match(
     navigationSource,

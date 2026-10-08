@@ -40,15 +40,26 @@ export function matchesSteamGamesFilter(
   game: NormalizedGame,
   filter: SteamGamesFilter,
 ): boolean {
+  const isRetroAchievements = game.providerId === "retroachievements";
   if (filter === "all") {
     return true;
   }
 
   if (filter === "played") {
-    return isSteamGamesPlayed(game);
+    return isRetroAchievements ? game.summary.unlockedCount > 0 : isSteamGamesPlayed(game);
   }
 
   if (filter === "unfinished") {
+    if (isRetroAchievements) {
+      return game.status === "in_progress" || (
+        game.summary.totalCount !== undefined &&
+        game.summary.unlockedCount > 0 &&
+        game.summary.unlockedCount < game.summary.totalCount &&
+        game.status !== "beaten" &&
+        game.status !== "completed" &&
+        game.status !== "mastered"
+      );
+    }
     return (
       game.scanStatus === "scanned" &&
       game.summary.totalCount !== undefined &&
@@ -58,7 +69,9 @@ export function matchesSteamGamesFilter(
   }
 
   if (filter === "beaten") {
-    return game.scanStatus !== undefined && game.scanStatus !== "scanned";
+    return isRetroAchievements
+      ? game.status === "beaten" || game.status === "completed"
+      : game.scanStatus !== undefined && game.scanStatus !== "scanned";
   }
 
   return game.status === "mastered";
@@ -116,8 +129,8 @@ export function selectSteamGames(args: {
       return percentDelta !== 0 ? percentDelta : left.title.localeCompare(right.title);
     }
 
-    const leftRecentAt = left.lastPlayedAt ?? Number.NEGATIVE_INFINITY;
-    const rightRecentAt = right.lastPlayedAt ?? Number.NEGATIVE_INFINITY;
+    const leftRecentAt = left.lastUnlockAt ?? left.lastPlayedAt ?? Number.NEGATIVE_INFINITY;
+    const rightRecentAt = right.lastUnlockAt ?? right.lastPlayedAt ?? Number.NEGATIVE_INFINITY;
     if (leftRecentAt !== rightRecentAt) {
       return rightRecentAt - leftRecentAt;
     }

@@ -6,7 +6,9 @@ import {
   type GamepadEvent,
 } from "@decky/ui";
 import type { AchievementHistorySnapshot, RecentUnlock } from "@core/domain";
+import type { RetroAchievementsAchievementMode } from "@core/settings";
 import {
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -15,9 +17,15 @@ import {
   type FocusEventHandler,
   type JSX,
   type RefCallback,
+  type RefObject,
 } from "react";
 import { DeckyGameArtwork } from "./decky-game-artwork";
-import { DeckyFullScreenFooterOverlay, STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS } from "./decky-full-screen-footer-overlay";
+import { DeckyRetroAchievementsGameIcon } from "./decky-retroachievements-game-icon";
+import {
+  DeckyFullScreenFooterOverlay,
+  RETROACHIEVEMENTS_PROFILE_FOOTER_NAVIGATION_ITEMS,
+  STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS,
+} from "./decky-full-screen-footer-overlay";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { buildSteamActivityStats, type SteamActivityStats } from "./decky-steam-activity-data";
@@ -45,13 +53,18 @@ import { jumpDeckySteamProfileTabToTop } from "./decky-steam-profile-jump-top";
 import { getSteamCompactAchievementFilterStyle } from "./decky-steam-compact-action-styles";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import {
-  readDeckySteamActivityPageState,
-  rememberDeckySteamActivityCalendarDay,
-  rememberDeckySteamActivityFilter,
-  rememberDeckySteamActivityFocusTarget,
-  rememberDeckySteamActivityRenderLimit,
+  readDeckyActivityPageState,
+  rememberDeckyActivityCalendarDay,
+  rememberDeckyActivityFilter,
+  rememberDeckyActivityFocusTarget,
+  rememberDeckyActivityRenderLimit,
+  rememberDeckyActivityScrollTop,
   type DeckySteamActivityFilter,
 } from "./decky-steam-full-screen-activity-state";
+import { useDeckySettings } from "./decky-settings";
+import { filterRetroAchievementsUnlocksByMode } from "./decky-retroachievements-compact-profile-model";
+import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
+import { raTheme } from "./ra-theme";
 
 type ActivityFilter = DeckySteamActivityFilter;
 type ActivityGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
@@ -352,26 +365,48 @@ function ActivityFilterButton({ label, selected, onClick, onBack }: {
   );
 }
 
-function AchievementActivityRow({ elementRef, entry, rowIndex, onOpenAchievementDetail, onBack, onRevealMore }: {
+function AchievementActivityRow({ elementRef, entry, rowIndex, providerId, listRef, onOpenAchievementDetail, onBack, onRevealMore }: {
   readonly elementRef?: RefCallback<HTMLDivElement> | undefined;
   readonly entry: RecentUnlock;
   readonly rowIndex: number;
+  readonly providerId: string;
+  readonly listRef: RefObject<HTMLDivElement | null>;
   readonly onOpenAchievementDetail: (gameId: string, achievementId: string) => void;
   readonly onBack: () => void;
   readonly onRevealMore: (lastRowIndex: number) => boolean;
 }): JSX.Element {
   const [focused, setFocused] = useState(false);
   const timestamp = getUnlockTime(entry);
-  const heroArtworkUrl = getSteamFullscreenGameArtworkUrlByGameId(entry.game.gameId, {
-    ...(entry.game.coverImageUrl !== undefined ? { coverImageUrl: entry.game.coverImageUrl } : {}),
-  });
+  const isRa = providerId === RETROACHIEVEMENTS_PROVIDER_ID;
+  const heroArtworkUrl = isRa
+    ? entry.game.coverImageUrl
+    : getSteamFullscreenGameArtworkUrlByGameId(entry.game.gameId, {
+        ...(entry.game.coverImageUrl !== undefined ? { coverImageUrl: entry.game.coverImageUrl } : {}),
+      });
   const onFocus: FocusEventHandler<HTMLElement> = (event) => { setFocused(true); scrollDeckyFocusTargetIntoView(event.currentTarget); };
   const onGamepadFocus: ActivityGamepadFocusHandler = (event) => { setFocused(true); scrollDeckyFocusTargetIntoView(event.currentTarget); };
+  const rememberFocus = (): void => {
+    rememberDeckyActivityFocusTarget(providerId, {
+      gameId: entry.game.gameId,
+      achievementId: entry.achievement.achievementId,
+      ...(entry.achievement.unlockMode !== undefined ? { unlockMode: entry.achievement.unlockMode } : {}),
+      ...(timestamp !== undefined ? { unlockedAt: timestamp } : {}),
+    });
+  };
+  const openAchievement = (): void => {
+    rememberFocus();
+    rememberDeckyActivityScrollTop(providerId, listRef.current?.scrollTop ?? 0);
+    onOpenAchievementDetail(entry.game.gameId, entry.achievement.achievementId);
+  };
   return (
-    <Focusable ref={elementRef} className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS} noFocusRing role="button" data-steam-activity-row="true" data-steam-activity-row-index={rowIndex} aria-label={`Open ${entry.achievement.title}`} onActivate={() => { rememberDeckySteamActivityFocusTarget({ gameId: entry.game.gameId, achievementId: entry.achievement.achievementId }); onOpenAchievementDetail(entry.game.gameId, entry.achievement.achievementId); }} onClick={() => { rememberDeckySteamActivityFocusTarget({ gameId: entry.game.gameId, achievementId: entry.achievement.achievementId }); onOpenAchievementDetail(entry.game.gameId, entry.achievement.achievementId); }} onCancel={onBack} onGamepadDirection={(event) => handleActivityRowDirection(event, onRevealMore)} onFocus={(event) => { rememberDeckySteamActivityFocusTarget({ gameId: entry.game.gameId, achievementId: entry.achievement.achievementId }); onFocus(event); }} onGamepadFocus={(event) => { rememberDeckySteamActivityFocusTarget({ gameId: entry.game.gameId, achievementId: entry.achievement.achievementId }); onGamepadFocus(event); }} onBlur={() => setFocused(false)} style={{ ...getCardStyle(), display: "grid", gridTemplateColumns: `${STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}px 48px minmax(0, 1fr) 128px 16px`, alignItems: "center", gap: 8, flex: `0 0 ${STEAM_FULLSCREEN_GAME_ROW_HEIGHT}px`, minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT, padding: "2px 7px 2px 3px", boxSizing: "border-box", ...(focused ? { outline: "none", background: "linear-gradient(135deg, rgba(20, 87, 123, 0.95), rgba(9, 39, 58, 0.95))", boxShadow: "inset 0 0 0 2px #3bc7ff, inset 0 0 18px rgba(25, 184, 255, 0.2)" } : {}) }}>
-      <DeckyGameArtwork compact height={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT} size={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT} width={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH} {...(/^\d+$/u.test(entry.game.gameId) ? { steamAppId: Number(entry.game.gameId) } : {})} {...(heroArtworkUrl !== undefined ? { src: heroArtworkUrl } : {})} title={entry.game.title} />
+    <Focusable ref={elementRef} className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS} noFocusRing role="button" data-steam-activity-row="true" data-steam-activity-row-index={rowIndex} aria-label={`Open ${entry.achievement.title}`} onActivate={openAchievement} onClick={openAchievement} onCancel={onBack} onGamepadDirection={(event) => handleActivityRowDirection(event, onRevealMore)} onFocus={(event) => { rememberFocus(); onFocus(event); }} onGamepadFocus={(event) => { rememberFocus(); onGamepadFocus(event); }} onBlur={() => setFocused(false)} style={{ ...getCardStyle(), display: "grid", gridTemplateColumns: `${STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}px 48px minmax(0, 1fr) 128px 16px`, alignItems: "center", gap: 8, flex: `0 0 ${STEAM_FULLSCREEN_GAME_ROW_HEIGHT}px`, minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT, padding: "2px 7px 2px 3px", boxSizing: "border-box", ...(focused ? { outline: "none", background: "linear-gradient(135deg, rgba(20, 87, 123, 0.95), rgba(9, 39, 58, 0.95))", boxShadow: "inset 0 0 0 2px #3bc7ff, inset 0 0 18px rgba(25, 184, 255, 0.2)" } : {}) }}>
+      {isRa ? <DeckyRetroAchievementsGameIcon
+        game={entry.game}
+        src={heroArtworkUrl}
+        size={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT}
+      /> : <DeckyGameArtwork compact height={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT} size={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT} width={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH} {...(/^\d+$/u.test(entry.game.gameId) ? { steamAppId: Number(entry.game.gameId) } : {})} {...(heroArtworkUrl !== undefined ? { src: heroArtworkUrl } : {})} title={entry.game.title} />}
       {entry.achievement.badgeImageUrl !== undefined ? <DeckyGameArtwork compact size={46} src={entry.achievement.badgeImageUrl} title={entry.achievement.title} /> : <span style={{ width: 46, height: 46, display: "grid", placeItems: "center", borderRadius: 7, background: "#18394d", color: "#dceefa", fontWeight: 800 }}>{entry.achievement.title.slice(0, 1)}</span>}
-      <div style={{ minWidth: 0 }}><div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13, fontWeight: 800 }}>{entry.achievement.title}</div><div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#b4cbdb", fontSize: 10 }}>{entry.achievement.description ?? entry.game.title}</div></div>
+      <div style={{ minWidth: 0 }}><div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13, fontWeight: 800 }}>{entry.achievement.title}</div><div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#b4cbdb", fontSize: 10 }}>{entry.achievement.description ?? entry.game.title}</div>{providerId === RETROACHIEVEMENTS_PROVIDER_ID && entry.achievement.unlockMode !== undefined ? <div style={{ color: entry.achievement.unlockMode === "hardcore" ? raTheme.color.hardcore : raTheme.color.softcore, fontSize: 9, fontWeight: 800 }}>{entry.achievement.unlockMode === "hardcore" ? "Hardcore" : "Softcore"}</div> : null}</div>
       <div style={{ borderLeft: "1px solid rgba(76, 148, 187, 0.22)", paddingLeft: 10, color: "#cce0ee", fontSize: 10, textAlign: "right" }}><div>Unlocked</div><div>{formatUnlockDate(timestamp)}</div></div>
       <span style={{ color: "#d9f1ff", fontSize: 27, lineHeight: 1 }}>›</span>
     </Focusable>
@@ -507,6 +542,7 @@ export function DeckySteamFullScreenActivityDashboard({
   onBack,
   onOpenAchievementDetail,
   onOpenGames,
+  onOpenProfile,
   onOpenSettings,
 }: {
   readonly snapshot: AchievementHistorySnapshot;
@@ -516,21 +552,57 @@ export function DeckySteamFullScreenActivityDashboard({
   readonly onBack: () => void;
   readonly onOpenAchievementDetail: (gameId: string, achievementId: string) => void;
   readonly onOpenGames: () => void;
+  readonly onOpenProfile?: () => void;
   readonly onOpenSettings: () => void;
 }): JSX.Element {
-  const initialPageState = useRef(readDeckySteamActivityPageState()).current;
+  const providerId = snapshot.providerId;
+  const isRa = providerId === RETROACHIEVEMENTS_PROVIDER_ID;
+  const settings = useDeckySettings();
+  const mode: RetroAchievementsAchievementMode = isRa
+    ? settings.retroAchievementsAchievementMode
+    : "both";
+  const hasCompleteHistory = !isRa || !snapshot.sourceLabel.toLocaleLowerCase().includes("preview");
+  const initialPageState = useRef(readDeckyActivityPageState(providerId)).current;
   const dashboardRef = useRef<HTMLElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const previousModeRef = useRef(mode);
   const restorationTargetRef = useRef<HTMLDivElement | null>(null);
   const pendingRevealedRowIndexRef = useRef<number | null>(null);
   const [filter, setFilter] = useState<ActivityFilter>(initialPageState.filter);
   const [selectedCalendarDay, setSelectedCalendarDay] = useState(initialPageState.selectedCalendarDay);
   const [renderLimit, setRenderLimit] = useState(initialPageState.renderLimit);
+  const modeEntries = useMemo(
+    () => isRa ? filterRetroAchievementsUnlocksByMode(snapshot.entries, mode) : snapshot.entries,
+    [isRa, mode, snapshot.entries],
+  );
   const entries = useMemo(
-    () => filterActivityEntries(snapshot.entries, filter, selectedCalendarDay),
-    [filter, selectedCalendarDay, snapshot.entries],
+    () => filterActivityEntries(modeEntries, filter, selectedCalendarDay),
+    [filter, modeEntries, selectedCalendarDay],
   );
   const renderedEntries = entries.slice(0, renderLimit);
-  const stats = useMemo(() => buildSteamActivityStats(snapshot.entries), [snapshot.entries]);
+  const stats = useMemo(() => buildSteamActivityStats(modeEntries), [modeEntries]);
+
+  useEffect(() => {
+    if (!hasCompleteHistory && filter !== "all" && filter !== "recent") {
+      setFilter("all");
+      rememberDeckyActivityFilter(providerId, "all", mode);
+    }
+  }, [filter, hasCompleteHistory, mode, providerId]);
+
+  useLayoutEffect(() => {
+    if (previousModeRef.current === mode) return;
+    previousModeRef.current = mode;
+    const dashboard = dashboardRef.current;
+    const ownerWindow = dashboard?.ownerDocument.defaultView;
+    if (!isActive || dashboard === null || dashboard === undefined || ownerWindow === null || ownerWindow === undefined) return;
+    const frame = ownerWindow.requestAnimationFrame(() => {
+      const target = restorationTargetRef.current
+        ?? dashboard.querySelector<HTMLElement>("[data-steam-activity-row='true']")
+        ?? dashboard.querySelector<HTMLElement>("[data-steam-activity-filter='true']");
+      if (target !== null) takeDeckySteamGamepadFocus(target);
+    });
+    return () => ownerWindow.cancelAnimationFrame(frame);
+  }, [isActive, mode, modeEntries]);
 
   useLayoutEffect(() => {
     if (selectedCalendarDay === undefined) return;
@@ -538,7 +610,7 @@ export function DeckySteamFullScreenActivityDashboard({
       .some(({ day }) => day === selectedCalendarDay);
     if (selectedDayIsVisible) return;
     setSelectedCalendarDay(undefined);
-    rememberDeckySteamActivityCalendarDay(undefined);
+    rememberDeckyActivityCalendarDay(providerId, undefined);
   }, [calendarWeeks, selectedCalendarDay, stats.dayCounts]);
 
   const selectFilter = (nextFilter: ActivityFilter): void => {
@@ -546,7 +618,7 @@ export function DeckySteamFullScreenActivityDashboard({
     setFilter(nextFilter);
     setSelectedCalendarDay(undefined);
     setRenderLimit(STEAM_ACTIVITY_INITIAL_RENDER_LIMIT);
-    rememberDeckySteamActivityFilter(nextFilter);
+    rememberDeckyActivityFilter(providerId, nextFilter, mode);
   };
 
   const selectCalendarDay = (day: number): void => {
@@ -555,7 +627,7 @@ export function DeckySteamFullScreenActivityDashboard({
     setFilter("all");
     setSelectedCalendarDay(nextDay);
     setRenderLimit(STEAM_ACTIVITY_INITIAL_RENDER_LIMIT);
-    rememberDeckySteamActivityCalendarDay(nextDay);
+    rememberDeckyActivityCalendarDay(providerId, nextDay);
   };
 
   const revealMore = (lastRowIndex?: number): boolean => {
@@ -563,7 +635,7 @@ export function DeckySteamFullScreenActivityDashboard({
     if (lastRowIndex !== undefined) pendingRevealedRowIndexRef.current = lastRowIndex + 1;
     setRenderLimit((current) => {
       const next = Math.min(entries.length, current + STEAM_ACTIVITY_RENDER_STEP);
-      rememberDeckySteamActivityRenderLimit(next);
+      rememberDeckyActivityRenderLimit(providerId, next);
       return next;
     });
     return true;
@@ -594,7 +666,11 @@ export function DeckySteamFullScreenActivityDashboard({
         ?? dashboard.querySelector<HTMLElement>("[role='button']");
       if (target !== null && !dashboard.contains(dashboard.ownerDocument.activeElement)) {
         takeDeckySteamGamepadFocus(target);
-        target.scrollIntoView({ block: "center", inline: "nearest" });
+        if (initialPageState.scrollTop > 0 && listRef.current !== null) {
+          listRef.current.scrollTop = initialPageState.scrollTop;
+        } else {
+          target.scrollIntoView({ block: "center", inline: "nearest" });
+        }
       }
     });
     return () => ownerWindow.cancelAnimationFrame(frame);
@@ -602,19 +678,29 @@ export function DeckySteamFullScreenActivityDashboard({
 
   return (
     <>
-      <main ref={dashboardRef} data-ac-steam-theme="fullscreen" data-steam-full-screen-activity-dashboard style={getPageStyle()}>
-        <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", margin: "0 0 5px 2px", lineHeight: 1.1 }}>
-          ACTIVITY
+      <main
+        ref={dashboardRef}
+        {...(isRa ? { "data-ac-ra-theme": "fullscreen" } : { "data-ac-steam-theme": "fullscreen" })}
+        data-steam-full-screen-activity-dashboard
+        style={{ ...getPageStyle(), ...(isRa ? { background: raTheme.surface.page, color: raTheme.color.textPrimary } : {}) }}
+      >
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", margin: "0 0 5px 2px", lineHeight: 1.1 }}>
+          <span>ACTIVITY</span>
+          {isRa ? <span style={{ color: raTheme.color.textMuted, fontSize: 9, fontWeight: 600, letterSpacing: 0 }}>{snapshot.sourceLabel}</span> : null}
         </div>
         <div style={{ display: "grid", gridTemplateRows: "auto minmax(0, 1fr)", gap: 6, height: "calc(100% - 19px)", minHeight: 0 }}>
           <div
             data-steam-activity-summary
-            style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr)) minmax(220px, 2.6fr)", gap: 6, minWidth: 0 }}
+            style={{ display: "grid", gridTemplateColumns: `${hasCompleteHistory ? "repeat(4" : "repeat(3"}, minmax(0, 1fr)) minmax(220px, 2.6fr)`, gap: 6, minWidth: 0 }}
           >
-            <ActivityMetricCard icon={trophyIconUrl} label="Total Unlocks" value={formatCount(snapshot.summary.unlockedCount)} />
+            <ActivityMetricCard
+              icon={trophyIconUrl}
+              label={isRa ? "Unlocks in view" : "Total Unlocks"}
+              value={formatCount(isRa ? modeEntries.length : snapshot.summary.unlockedCount)}
+            />
             <ActivityMetricCard icon={gamepadIconUrl} label="Games with Unlocks" value={formatCount(stats.gameCount)} />
             <ActivityMetricCard icon={unlockedLockIconUrl} label="This Month" value={formatCount(stats.thisMonthCount)} />
-            <ActivityMetricCard icon={streakIconUrl} label="Current Streak" value={`${stats.currentStreak} days`} iconTone="original" iconSize={36} />
+            {hasCompleteHistory ? <ActivityMetricCard icon={streakIconUrl} label="Current Streak" value={`${stats.currentStreak} days`} iconTone="original" iconSize={36} /> : null}
             <ActivityTrend stats={stats} />
           </div>
 
@@ -634,14 +720,15 @@ export function DeckySteamFullScreenActivityDashboard({
                 data-steam-activity-filter-row
                 style={{ display: "flex", gap: 5, alignItems: "center", minWidth: 0 }}
               >
-                <ActivityFilterButton label={`All Unlocks (${formatCount(snapshot.summary.unlockedCount)})`} selected={selectedCalendarDay === undefined && filter === "all"} onClick={() => selectFilter("all")} onBack={onBack} />
+                <ActivityFilterButton label={`All Unlocks (${formatCount(isRa ? modeEntries.length : snapshot.summary.unlockedCount)})`} selected={selectedCalendarDay === undefined && filter === "all"} onClick={() => selectFilter("all")} onBack={onBack} />
                 <ActivityFilterButton label="Recent (90 days)" selected={selectedCalendarDay === undefined && filter === "recent"} onClick={() => selectFilter("recent")} onBack={onBack} />
-                <ActivityFilterButton label="This Year" selected={selectedCalendarDay === undefined && filter === "year"} onClick={() => selectFilter("year")} onBack={onBack} />
-                <ActivityFilterButton label="This Month" selected={selectedCalendarDay === undefined && filter === "month"} onClick={() => selectFilter("month")} onBack={onBack} />
-                <ActivityFilterButton label="Current Streak" selected={selectedCalendarDay === undefined && filter === "streak"} onClick={() => selectFilter("streak")} onBack={onBack} />
+                {hasCompleteHistory ? <ActivityFilterButton label="This Year" selected={selectedCalendarDay === undefined && filter === "year"} onClick={() => selectFilter("year")} onBack={onBack} /> : null}
+                {hasCompleteHistory ? <ActivityFilterButton label="This Month" selected={selectedCalendarDay === undefined && filter === "month"} onClick={() => selectFilter("month")} onBack={onBack} /> : null}
+                {hasCompleteHistory ? <ActivityFilterButton label="Current Streak" selected={selectedCalendarDay === undefined && filter === "streak"} onClick={() => selectFilter("streak")} onBack={onBack} /> : null}
                 <span style={{ marginLeft: "auto", color: "#afc6d5", fontSize: 9 }}>Newest First</span>
               </Focusable>
               <Focusable
+                ref={listRef}
                 data-steam-activity-list
                 flow-children="vertical"
                 navEntryPreferPosition={NavEntryPositionPreferences.FIRST}
@@ -649,6 +736,7 @@ export function DeckySteamFullScreenActivityDashboard({
                 tabIndex={-1}
                 onScroll={(event) => {
                   const list = event.currentTarget;
+                  rememberDeckyActivityScrollTop(providerId, list.scrollTop);
                   if (list.scrollTop + list.clientHeight >= list.scrollHeight - STEAM_FULLSCREEN_GAME_ROW_HEIGHT) revealMore();
                 }}
                 style={{ display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", minHeight: 0, padding: "4px 5px 5px 4px", boxSizing: "border-box" }}
@@ -656,11 +744,15 @@ export function DeckySteamFullScreenActivityDashboard({
                 {entries.length > 0
                   ? renderedEntries.map((entry, rowIndex) => (
                     <AchievementActivityRow
-                      key={`${entry.game.gameId}:${entry.achievement.achievementId}:${getUnlockTime(entry) ?? "unknown"}`}
+                      key={`${entry.game.gameId}:${entry.achievement.achievementId}:${entry.achievement.unlockMode ?? "unknown"}:${getUnlockTime(entry) ?? "unknown"}`}
                       entry={entry}
+                      providerId={providerId}
+                      listRef={listRef}
                       elementRef={
                         initialPageState.focusTarget?.gameId === entry.game.gameId
                           && initialPageState.focusTarget.achievementId === entry.achievement.achievementId
+                          && (initialPageState.focusTarget.unlockMode === undefined || initialPageState.focusTarget.unlockMode === entry.achievement.unlockMode)
+                          && (initialPageState.focusTarget.unlockedAt === undefined || initialPageState.focusTarget.unlockedAt === getUnlockTime(entry))
                           ? (node) => { restorationTargetRef.current = node; }
                           : undefined
                       }
@@ -675,7 +767,7 @@ export function DeckySteamFullScreenActivityDashboard({
             </Focusable>
 
             <aside data-steam-activity-side-column style={{ display: "flex", flexDirection: "column", gap: 8, minHeight: 0, overflow: "hidden" }}>
-              <ActivityInsights stats={stats} />
+              {hasCompleteHistory ? <ActivityInsights stats={stats} /> : null}
               <ActivityCalendar
                 dayCounts={stats.dayCounts}
                 weeks={calendarWeeks}
@@ -689,12 +781,12 @@ export function DeckySteamFullScreenActivityDashboard({
       </main>
       {showSteamProfileFooter ? <DeckyFullScreenFooterOverlay
         activeNavigationItemId="activity"
-        ariaLabel="Steam profile navigation"
-        navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
+        ariaLabel={`${isRa ? "RetroAchievements" : "Steam"} profile navigation`}
+        navigationItems={isRa ? RETROACHIEVEMENTS_PROFILE_FOOTER_NAVIGATION_ITEMS : STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
         secondaryActionLabel="Top"
         onSecondaryAction={(document) => { jumpDeckySteamProfileTabToTop(document, "activity"); }}
         onPreviousNavigationItem={onOpenGames}
-        onNextNavigationItem={onOpenSettings}
+        onNextNavigationItem={isRa ? onOpenProfile ?? onOpenGames : onOpenSettings}
       /> : null}
     </>
   );

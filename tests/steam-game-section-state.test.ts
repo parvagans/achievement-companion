@@ -269,7 +269,7 @@ test("Steam game sections unmount inactive focus trees behind one stable footer 
   assert.match(source, /MemoizedDeckySteamAchievementGroupsSection/u);
   assert.match(source, /activeSectionRoot[\s\S]*activeSectionRoot\?\.querySelectorAll/u);
   assert.match(source, /jumpSteamAchievementsToTop[\s\S]*data-achievement-companion-steam-filter-control/u);
-  assert.match(source, /onJumpToTop: jumpSteamAchievementsToTop/u);
+  assert.match(source, /onJumpToTop=\{jumpSteamAchievementsToTop\}/u);
   assert.equal(
     (source.match(/<DeckySteamGameSectionNavigation/gu) ?? []).length,
     1,
@@ -305,7 +305,7 @@ test("Steam achievements and groups use nested GamepadUI focus primitives", asyn
   assert.match(browserSource, /onJumpToTop !== undefined \? \{ onJumpToTop \}/u);
   assert.match(rowSource, /onOptionsActionDescription: "Top"[\s\S]*onOptionsButton:[\s\S]*onJumpToTop\(\)/u);
   assert.match(browserSource, /onOptionsActionDescription: "Top"[\s\S]*onOptionsButton:[\s\S]*onJumpToTop\(\)/u);
-  assert.match(gamePageSource, /activeSteamSection === "achievements" \? \{ secondaryActionLabel: "Top" \} : \{\}/u);
+  assert.match(gamePageSource, /activeSteamSection === "achievements" \? \{ secondaryActionLabel: "Top", onSecondaryAction: jumpSteamAchievementsToTop \} : \{\}/u);
   assert.match(browserSource, /flow-children="vertical"/u);
 });
 

@@ -13,8 +13,8 @@ import {
   formatAchievementUnlockRatePercent,
   formatCount,
   formatTimestamp,
+  getAchievementDetailCounts,
   getAchievementDescriptionText,
-  getUnlockRatePercent,
   shouldHideSteamAchievementDetailStats,
 } from "./decky-achievement-detail-helpers";
 import { getSteamFullscreenGameArtworkUrl, getSteamHuntersBaseGameBannerUrl } from "./decky-steam-game-artwork";
@@ -41,6 +41,8 @@ import trophyIconUrl from "./assets/trophy-filled.svg";
 import usersIconUrl from "./assets/users.svg";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import { raTheme } from "./ra-theme";
+import { useDeckySettings } from "./decky-settings";
+import { projectRetroAchievementsFullScreenAchievements } from "./decky-retroachievements-full-screen-achievement-data";
 
 export interface DeckyFullScreenAchievementPageProps {
   readonly providerId: string | undefined;
@@ -356,10 +358,12 @@ function DeckyFullScreenAchievementInputSurface({
   children,
   surfaceStyle = getPageStyle(),
   useNativeFocus = false,
+  useSteamTheme = useNativeFocus,
 }: {
   readonly children: JSX.Element;
   readonly surfaceStyle?: CSSProperties;
   readonly useNativeFocus?: boolean;
+  readonly useSteamTheme?: boolean;
 }): JSX.Element {
   const surfaceRef = useRef<HTMLDivElement>(null);
 
@@ -384,8 +388,8 @@ function DeckyFullScreenAchievementInputSurface({
       noFocusRing
       preferredFocus={useNativeFocus}
       role="region"
-      {...(useNativeFocus ? { "data-ac-steam-theme": "fullscreen" } : { "data-ac-ra-theme": "fullscreen" })}
-      style={useNativeFocus ? { ...surfaceStyle, color: steamTheme.color.textPrimary, background: steamTheme.surface.page } : surfaceStyle}
+      {...(useSteamTheme ? { "data-ac-steam-theme": "fullscreen" } : { "data-ac-ra-theme": "fullscreen" })}
+      style={{ ...surfaceStyle, color: useSteamTheme ? steamTheme.color.textPrimary : raTheme.color.textPrimary, background: useSteamTheme ? steamTheme.surface.page : raTheme.surface.page }}
       tabIndex={0}
     >
       {children}
@@ -489,8 +493,12 @@ function DeckyFullScreenAchievementContent({
   readonly steamHuntersBannerUrl: string | undefined;
 }): JSX.Element {
   const achievementStatus = buildAchievementStatus(achievement);
-  const unlockTimestamp = achievement.hardcoreUnlockedAt ?? achievement.softcoreUnlockedAt ?? achievement.unlockedAt;
-  const unlockRate = getUnlockRatePercent(achievement);
+  const unlockTimestamp = achievement.unlockedAt
+    ?? (achievement.unlockMode === "hardcore" ? achievement.hardcoreUnlockedAt : achievement.softcoreUnlockedAt)
+    ?? achievement.hardcoreUnlockedAt
+    ?? achievement.softcoreUnlockedAt;
+  const detailCounts = getAchievementDetailCounts(achievement.metrics, game.metrics);
+  const retroPointsMetric = achievement.metrics.find((metric) => metric.key === "true-ratio")?.value;
   const heroArtworkUrl = isSteamProvider
     ? getSteamFullscreenGameArtworkUrl(game)
     : game.boxArtImageUrl ?? game.coverImageUrl;
@@ -505,10 +513,14 @@ function DeckyFullScreenAchievementContent({
         playersUnlocked: formatSteamHuntersPlayersUnlocked(steamHuntersAchievement?.localPercentage, steamHuntersPlayersPlayed),
       }
     : {
-        points: achievement.points !== undefined ? formatCount(achievement.points) : "—",
-        unlockRate: formatAchievementUnlockRatePercent(unlockRate),
-        obtainability: achievement.isUnlocked ? "Unlocked" : "Locked",
-        playersUnlocked: "—",
+        points: achievement.points !== undefined ? formatCount(achievement.points) : undefined,
+        retroPoints: retroPointsMetric,
+        unlockRate: detailCounts.unlockRatePercent !== undefined
+          ? formatAchievementUnlockRatePercent(detailCounts.unlockRatePercent)
+          : undefined,
+        playersUnlocked: detailCounts.totalUnlockCount !== undefined
+          ? formatCount(detailCounts.totalUnlockCount)
+          : undefined,
       };
 
   return (
@@ -562,11 +574,14 @@ function DeckyFullScreenAchievementContent({
 
       <div style={getCommunityHeadingStyle(isSteamProvider)}>{communityHeading}</div>
       <div style={isSteamProvider ? { ...getCommunityStatsStyle(), gridTemplateColumns: "repeat(2, minmax(0, 1fr))" } : getCommunityStatsStyle()}>
-        <AchievementMetricCard icon={isSteamProvider ? <DeckySteamHuntersIcon color={steamTheme.color.accent} size={31} /> : undefined} iconUrl={isSteamProvider ? undefined : trophyIconUrl} iconTone={isSteamProvider ? "blue" : "gold"} label="Points" value={secondaryValues.points} centered={isSteamProvider} isSteam={isSteamProvider} />
-        <AchievementMetricCard iconUrl={usersIconUrl} label={isSteamProvider ? "Unlock rate" : communityHeading + " unlock rate"} value={secondaryValues.unlockRate} centered={isSteamProvider} isSteam={isSteamProvider} />
+        {secondaryValues.points !== undefined ? <AchievementMetricCard icon={isSteamProvider ? <DeckySteamHuntersIcon color={steamTheme.color.accent} size={31} /> : undefined} iconUrl={isSteamProvider ? undefined : trophyIconUrl} iconTone={isSteamProvider ? "blue" : "gold"} label="Points" value={secondaryValues.points} centered={isSteamProvider} isSteam={isSteamProvider} /> : null}
+        {secondaryValues.unlockRate !== undefined ? <AchievementMetricCard iconUrl={usersIconUrl} label={isSteamProvider ? "Unlock rate" : communityHeading + " unlock rate"} value={secondaryValues.unlockRate} centered={isSteamProvider} isSteam={isSteamProvider} /> : null}
         {isSteamProvider
-          ? <AchievementMetricCard iconUrl={usersIconUrl} label="Players Unlocked" value={secondaryValues.playersUnlocked} centered fullWidth isSteam={isSteamProvider} />
-          : <AchievementMetricCard iconUrl={starIconUrl} iconTone="gold" label="Obtainability" value={secondaryValues.obtainability ?? "—"} />}
+          ? <AchievementMetricCard iconUrl={usersIconUrl} label="Players Unlocked" value={secondaryValues.playersUnlocked ?? "—"} centered fullWidth isSteam={isSteamProvider} />
+          : <>
+              {secondaryValues.retroPoints !== undefined ? <AchievementMetricCard iconUrl={starIconUrl} iconTone="gold" label="RetroPoints" value={secondaryValues.retroPoints} /> : null}
+              {secondaryValues.playersUnlocked !== undefined ? <AchievementMetricCard iconUrl={usersIconUrl} label="Players Unlocked" value={secondaryValues.playersUnlocked} /> : null}
+            </>}
       </div>
     </article>
   );
@@ -577,6 +592,7 @@ export function DeckyFullScreenAchievementPage({
   gameId,
   achievementId,
 }: DeckyFullScreenAchievementPageProps): JSX.Element {
+  const settings = useDeckySettings();
   const loadSelectedGameDetail = useMemo(() => {
     if (providerId === undefined || gameId === undefined) {
       return () => Promise.resolve(initialDeckyGameDetailState);
@@ -620,7 +636,8 @@ export function DeckyFullScreenAchievementPage({
     return (
       <DeckyFullScreenAchievementInputSurface
         surfaceStyle={getDeckyFullScreenLoadingPageStyle()}
-        useNativeFocus={providerId === STEAM_PROVIDER_ID}
+        useNativeFocus
+        useSteamTheme={providerId === STEAM_PROVIDER_ID}
       >
         <DeckyFullScreenAchievementLoadingState hasRouteParameters={hasRouteParameters} state={state} useSteamTheme={providerId === STEAM_PROVIDER_ID} />
       </DeckyFullScreenAchievementInputSurface>
@@ -632,16 +649,21 @@ export function DeckyFullScreenAchievementPage({
       ? backgroundEnrichment.enrichedSnapshot
       : state.data;
   const game = snapshot.game;
+  const projectedAchievements = projectRetroAchievementsFullScreenAchievements(
+    snapshot,
+    settings.retroAchievementsAchievementMode,
+  );
   const achievement =
     achievementId === undefined
       ? undefined
-      : snapshot.achievements.find((entry) => entry.achievementId === achievementId);
+      : projectedAchievements.find((entry) => entry.achievementId === achievementId);
 
   if (achievement === undefined) {
     return (
       <DeckyFullScreenAchievementInputSurface
         surfaceStyle={getDeckyFullScreenLoadingPageStyle()}
-        useNativeFocus={providerId === STEAM_PROVIDER_ID}
+        useNativeFocus
+        useSteamTheme={providerId === STEAM_PROVIDER_ID}
       >
         <DeckyFullScreenAchievementLoadingState hasRouteParameters={false} state={{ ...state, status: "error" }} useSteamTheme={providerId === STEAM_PROVIDER_ID} />
       </DeckyFullScreenAchievementInputSurface>
@@ -655,7 +677,7 @@ export function DeckyFullScreenAchievementPage({
     : undefined;
 
   return (
-    <DeckyFullScreenAchievementInputSurface useNativeFocus={isSteamProvider}>
+    <DeckyFullScreenAchievementInputSurface useNativeFocus useSteamTheme={isSteamProvider}>
       <DeckyFullScreenAchievementContent
         achievement={achievement}
         game={game}

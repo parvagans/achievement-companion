@@ -9,7 +9,7 @@ import {
   getQamPassiveCardFocusStyle,
   qamActivityCalendarColors,
 } from "./decky-qam-theme";
-import { getDeckyCompactPrimaryActionStyle } from "./decky-compact-primary-action";
+import { getDeckyCompactPrimaryActionStyle } from "./decky-compact-primary-action-style";
 
 /** RetroAchievements presentation roles. Keep provider meaning here; Steam owns steam-theme.ts. */
 export const raTheme = {

@@ -14,6 +14,7 @@ import { DeckyRetroAchievementsGameIcon } from "./decky-retroachievements-game-i
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
 import {
   DeckyFullScreenFooterOverlay,
+  RETROACHIEVEMENTS_PROFILE_FOOTER_NAVIGATION_ITEMS,
   STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS,
 } from "./decky-full-screen-footer-overlay";
 import {
@@ -36,6 +37,7 @@ import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
 import { formatDeckyProviderLabel } from "./providers";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
+import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 import {
   countCompletionProgressSubsetGames,
   buildRetroAchievementsCompletionCollection,
@@ -645,22 +647,27 @@ export function DeckyFullScreenCompletionProgressPage({
   }, [currentFilter, deckySettings.showCompletionProgressSubsets]);
 
   if (!isRenderableCompletionProgressState(state)) {
-    if (providerId === STEAM_PROVIDER_ID) {
+    if (providerId === STEAM_PROVIDER_ID || providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+      const isRa = providerId === RETROACHIEVEMENTS_PROVIDER_ID;
       return (
         <>
           <div style={getDeckyFullScreenLoadingPageStyle()}>
             <DeckyFullScreenLoadingState
-              useSteamTheme
-              description={state.error?.userMessage ?? "Refreshing your Steam account and loading your library achievement scan."}
+              {...(!isRa ? { useSteamTheme: true } : {})}
+              description={state.error?.userMessage ?? (isRa
+                ? "Loading your RetroAchievements progress collection."
+                : "Refreshing your Steam account and loading your library achievement scan.")}
               isError={state.status === "error"}
-              title={state.status === "error" ? "Steam games unavailable" : "Loading Steam games..."}
+              title={state.status === "error"
+                ? `${isRa ? "RetroAchievements" : "Steam"} games unavailable`
+                : `Loading ${isRa ? "RetroAchievements" : "Steam"} games...`}
             />
           </div>
           {showSteamProfileFooter ? <DeckyFullScreenFooterOverlay
             isActive={isActive}
             activeNavigationItemId="games"
-            ariaLabel="Steam profile navigation"
-            navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
+            ariaLabel={`${isRa ? "RetroAchievements" : "Steam"} profile navigation`}
+            navigationItems={isRa ? RETROACHIEVEMENTS_PROFILE_FOOTER_NAVIGATION_ITEMS : STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
             onNextNavigationItem={onOpenActivity}
             onPreviousNavigationItem={onOpenProfile}
           /> : null}
@@ -689,10 +696,24 @@ export function DeckyFullScreenCompletionProgressPage({
   }
 
   const snapshot = state.data;
-  if (snapshot.providerId === STEAM_PROVIDER_ID) {
+  if (snapshot.providerId === STEAM_PROVIDER_ID || snapshot.providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+    const dashboardSnapshot = snapshot.providerId === RETROACHIEVEMENTS_PROVIDER_ID
+      ? {
+          ...snapshot,
+          summary: summarizeCompletionProgressSummaryBySubsetVisibility(
+            snapshot.summary,
+            snapshot.games,
+            deckySettings.showCompletionProgressSubsets,
+          ),
+          games: filterCompletionProgressGamesBySubsetVisibility(
+            snapshot.games,
+            deckySettings.showCompletionProgressSubsets,
+          ),
+        }
+      : snapshot;
     return (
       <DeckySteamFullScreenGamesDashboard
-        snapshot={snapshot}
+        snapshot={dashboardSnapshot}
         isActive={isActive}
         initialFilter={currentFilter}
         showSteamProfileFooter={showSteamProfileFooter}

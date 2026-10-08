@@ -1,11 +1,18 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import "./decky-retroachievements-full-screen.test";
 import {
+  readDeckyGamesPageState,
   readDeckySteamGamesPageState,
+  rememberDeckyGamesControls,
+  rememberDeckyGamesFocus,
+  rememberDeckyGamesRenderLimit,
   rememberDeckySteamGamesControls,
   rememberDeckySteamGamesFocus,
   rememberDeckySteamGamesRenderLimit,
+  rememberDeckyGamesScrollTop,
+  resetDeckyGamesPageState,
   resetDeckySteamGamesPageState,
 } from "../src/platform/decky/decky-steam-full-screen-games-state";
 
@@ -14,12 +21,43 @@ test("Steam Games state preserves semantic child-route origin", () => {
   rememberDeckySteamGamesControls("unfinished", "rock", "title");
   rememberDeckySteamGamesRenderLimit(36);
   rememberDeckySteamGamesFocus("2321470");
+  rememberDeckyGamesScrollTop("steam", 420);
   assert.deepEqual(readDeckySteamGamesPageState(), {
     filter: "unfinished",
     focusGameId: "2321470",
     query: "rock",
     renderLimit: 36,
+    scrollTop: 420,
     sort: "title",
+    mode: "both",
+  });
+});
+
+test("provider Games state isolates RA mode, controls, focus, render limit, and real scroll offset", () => {
+  resetDeckyGamesPageState("retroachievements");
+  resetDeckySteamGamesPageState();
+  rememberDeckyGamesControls("retroachievements", "mastered", "mario", "completion", "hardcore");
+  rememberDeckyGamesRenderLimit("retroachievements", 48);
+  rememberDeckyGamesFocus("retroachievements", "14402");
+  rememberDeckyGamesScrollTop("retroachievements", 736);
+
+  assert.deepEqual(readDeckyGamesPageState("retroachievements"), {
+    filter: "mastered",
+    focusGameId: "14402",
+    query: "mario",
+    renderLimit: 48,
+    scrollTop: 736,
+    sort: "completion",
+    mode: "hardcore",
+  });
+  assert.deepEqual(readDeckySteamGamesPageState(), {
+    filter: "all",
+    focusGameId: undefined,
+    query: "",
+    renderLimit: 12,
+    scrollTop: 0,
+    sort: "recent",
+    mode: "both",
   });
 });
 

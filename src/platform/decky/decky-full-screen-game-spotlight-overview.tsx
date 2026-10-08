@@ -93,6 +93,7 @@ export interface DeckyFullScreenGameSpotlightOverviewProps {
   readonly platform: { readonly label: string; readonly iconUrl: string | undefined } | undefined;
   readonly layout?: DeckyFullScreenGameSpotlightOverviewLayout;
   readonly focusable?: boolean;
+  readonly showActions?: boolean;
 }
 
 export function DeckyFullScreenGameSpotlightOverview({
@@ -104,6 +105,7 @@ export function DeckyFullScreenGameSpotlightOverview({
   platform,
   layout = "vertical",
   focusable = false,
+  showActions = true,
 }: DeckyFullScreenGameSpotlightOverviewProps): JSX.Element {
   const identity = (
     <div style={getOverviewTextStyle(layout)}>
@@ -139,12 +141,12 @@ export function DeckyFullScreenGameSpotlightOverview({
           {overviewContent}
         </DeckyFullScreenGameSpotlightFocusTarget>
       ) : overviewContent}
-      <DeckyFullScreenGameSpotlightActions
+      {showActions ? <DeckyFullScreenGameSpotlightActions
         backLabel={backLabel}
         centered
         onBack={onBack}
         onRefresh={onRefresh}
-      />
+      /> : null}
     </DeckyFullScreenGameSpotlightCard>
   );
 }

@@ -425,6 +425,7 @@ export function DeckyFullScreenAchievementRow({
           ? { boxShadow: isSteamProvider ? "inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(69, 148, 255, 0.55), 0 4px 14px rgba(0, 0, 0, 0.22)" : raTheme.focus.shadow }
           : {}),
       }}
+      data-achievement-companion-achievement-id={achievement.achievementId}
       data-achievement-companion-steam-achievement-id={isSteamProvider ? achievement.achievementId : undefined}
     >
       {isSteamProvider ? (

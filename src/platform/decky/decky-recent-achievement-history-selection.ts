@@ -150,6 +150,21 @@ export function selectDeckyRecentAchievementGameCandidates(
 }
 
 export function getRecentUnlockIdentity(recentUnlock: RecentUnlock): string {
+  const baseIdentity = `${recentUnlock.achievement.providerId}:${recentUnlock.achievement.gameId}:${recentUnlock.achievement.achievementId}`;
+  if (recentUnlock.achievement.providerId !== "retroachievements") {
+    return baseIdentity;
+  }
+
+  // RetroAchievements can award the same achievement separately in Hardcore
+  // and Softcore.  Preserve both awards, and preserve repeated source events
+  // when their trusted timestamps differ. Steam intentionally keeps its
+  // historical one-unlock identity above.
+  const unlockMode = recentUnlock.achievement.unlockMode ?? "unknown";
+  const unlockedAt = getNormalizedRecentUnlockTimestamp(recentUnlock);
+  return `${baseIdentity}:${unlockMode}:${unlockedAt ?? "unknown"}`;
+}
+
+function getRecentUnlockBaseIdentity(recentUnlock: RecentUnlock): string {
   return `${recentUnlock.achievement.providerId}:${recentUnlock.achievement.gameId}:${recentUnlock.achievement.achievementId}`;
 }
 
@@ -283,15 +298,20 @@ export function selectDeckyRecentAchievementCandidates(
   candidates: readonly DeckyRecentAchievementCandidate[],
 ): readonly DeckyRecentAchievementCandidate[] {
   const seen = new Set<string>();
+  const seenBaseIdentities = new Set<string>();
   const deduped: DeckyRecentAchievementCandidate[] = [];
 
   for (const candidate of [...candidates].sort(compareDeckyRecentAchievementCandidates)) {
     const identity = getRecentUnlockIdentity(candidate.recentUnlock);
-    if (seen.has(identity)) {
+    const baseIdentity = getRecentUnlockBaseIdentity(candidate.recentUnlock);
+    const isAmbiguousRetroAchievementsFallback = candidate.recentUnlock.achievement.providerId === "retroachievements"
+      && (candidate.recentUnlock.achievement.unlockMode === undefined || candidate.normalizedUnlockAt === undefined);
+    if (seen.has(identity) || (isAmbiguousRetroAchievementsFallback && seenBaseIdentities.has(baseIdentity))) {
       continue;
     }
 
     seen.add(identity);
+    seenBaseIdentities.add(baseIdentity);
     deduped.push(candidate);
   }
 

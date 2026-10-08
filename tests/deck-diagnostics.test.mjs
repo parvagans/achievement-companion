@@ -92,6 +92,13 @@ test("Deck harness has provider-aware RetroAchievements QAM targets and scenario
     "ra-compact-recent-game",
     "ra-compact-settings-api",
     "ra-fullscreen-profile",
+    "ra-fullscreen-games",
+    "ra-fullscreen-games-search",
+    "ra-fullscreen-activity",
+    "ra-fullscreen-activity-filter",
+    "ra-fullscreen-activity-calendar",
+    "ra-fullscreen-game-achievement-row",
+    "ra-fullscreen-game-community",
     "ra-fullscreen-achievement-history",
   ]) {
     assert.ok(SEMANTIC_TARGETS[target], `missing semantic target ${target}`);
@@ -104,6 +111,11 @@ test("Deck harness has provider-aware RetroAchievements QAM targets and scenario
     "ra-compact-recently-played",
     "ra-compact-settings",
     "ra-fullscreen-profile",
+    "ra-fullscreen-games",
+    "ra-fullscreen-games-search",
+    "ra-fullscreen-activity",
+    "ra-fullscreen-activity-filter",
+    "ra-fullscreen-activity-calendar",
     "ra-view-all-achievements",
   ]) {
     assert.ok(SCENARIOS[scenario], `missing scenario ${scenario}`);
@@ -118,6 +130,6 @@ test("Deck harness has provider-aware RetroAchievements QAM targets and scenario
   }, "ra-compact-recent-game"), true);
   assert.equal(matchSemanticTarget({
     route: "/routes/achievement-companion/full-screen/profile/retroachievements",
-    focus: { context: {}, gpfocus: [] },
+    focus: { context: { fullScreenSection: "profile" }, gpfocus: [] },
   }, "ra-fullscreen-profile"), true);
 });

@@ -76,6 +76,8 @@ export interface DeckyRetroAchievementsGameSpotlightProps {
   readonly backLabel: string;
   readonly onBack: () => void;
   readonly onRefresh: () => void;
+  readonly showActions?: boolean;
+  readonly showCommunityStats?: boolean;
 }
 
 export function DeckyRetroAchievementsGameSpotlight({
@@ -85,6 +87,8 @@ export function DeckyRetroAchievementsGameSpotlight({
   backLabel,
   onBack,
   onRefresh,
+  showActions = true,
+  showCommunityStats = true,
 }: DeckyRetroAchievementsGameSpotlightProps): JSX.Element {
   const completionState = getRetroAchievementsCompletionIndicatorState(game);
   const completionTone = getCompletionTone(completionState);
@@ -117,15 +121,16 @@ export function DeckyRetroAchievementsGameSpotlight({
         backLabel={backLabel}
         onBack={onBack}
         onRefresh={onRefresh}
+        showActions={showActions}
         platform={{
           label: game.platformLabel ?? "Unknown system",
           iconUrl: game.systemIconUrl,
         }}
       />
 
-      <div style={getSummaryGridStyle(game.communityStats !== undefined)}>
+      <div style={getSummaryGridStyle(showCommunityStats && game.communityStats !== undefined)}>
         <DeckyRetroAchievementsProgressSummary completionTone={completionTone} progress={progress} />
-        <DeckyRetroAchievementsCommunityStats stats={game.communityStats} />
+        {showCommunityStats ? <DeckyRetroAchievementsCommunityStats stats={game.communityStats} /> : null}
       </div>
       {showHardcoreModeCard || showSoftcoreModeCard ? (
         <DeckyFullScreenGameSpotlightCard title="Mode Progress" themeVariant="ra">

@@ -1,14 +1,11 @@
-import type { GameDetailSnapshot, NormalizedAchievement, ProgressSummary } from "@core/domain";
+import type { GameDetailSnapshot, ProgressSummary } from "@core/domain";
 import type { RetroAchievementsAchievementMode } from "@core/settings";
 import { getRetroAchievementsCompletionIndicatorState } from "./decky-retroachievements-completion-indicator";
+import { isRetroAchievementsUnlockedInMode } from "./decky-retroachievements-unlock-mode";
+
+export { isRetroAchievementsUnlockedInMode } from "./decky-retroachievements-unlock-mode";
 
 type Mode = "hardcore" | "softcore";
-
-export function isRetroAchievementsUnlockedInMode(achievement: NormalizedAchievement, mode: Mode): boolean {
-  return mode === "hardcore"
-    ? achievement.hardcoreUnlockedAt !== undefined || (achievement.isUnlocked && achievement.unlockMode === "hardcore")
-    : achievement.softcoreUnlockedAt !== undefined || (achievement.isUnlocked && achievement.unlockMode === "softcore");
-}
 
 export function getRetroAchievementsModeSummary(snapshot: GameDetailSnapshot, mode: Mode): ProgressSummary {
   const supplied = mode === "hardcore" ? snapshot.game.hardcoreSummary : snapshot.game.softcoreSummary;

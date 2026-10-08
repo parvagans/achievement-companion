@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import { getQamCompactFocusControlStyle } from "./decky-qam-theme";
-import { getDeckyCompactPrimaryActionStyle } from "./decky-compact-primary-action";
+import { getDeckyCompactPrimaryActionStyle } from "./decky-compact-primary-action-style";
 
 export type DeckySteamCompactActionTone = "primary" | "row";
 

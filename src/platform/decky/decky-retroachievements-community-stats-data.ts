@@ -1,3 +1,24 @@
+import type { GameCommunityStats } from "@core/domain";
+
+export function hasDisplayableRetroAchievementsCommunityStats(stats: GameCommunityStats | undefined): boolean {
+  if (stats === undefined) return false;
+  const hasValidMasteryRate = stats.masteryPercent !== undefined
+    && Number.isFinite(stats.masteryPercent)
+    && stats.totalPlayers !== undefined
+    && Number.isFinite(stats.totalPlayers)
+    && stats.totalPlayers > 0
+    && stats.masteredPlayers !== undefined
+    && Number.isFinite(stats.masteredPlayers);
+  return [
+    stats.totalPlayers,
+    stats.masteredPlayers,
+    stats.medianBeatSeconds,
+    stats.medianBeatSoftcoreSeconds,
+    stats.medianCompletionSeconds,
+    stats.medianMasterySeconds,
+  ].some((value) => value !== undefined && Number.isFinite(value)) || hasValidMasteryRate;
+}
+
 export function formatRetroAchievementsCommunityDuration(seconds: number | undefined): string | undefined {
   if (seconds === undefined || !Number.isFinite(seconds) || seconds <= 0) {
     return undefined;

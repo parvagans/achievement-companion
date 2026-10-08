@@ -13,7 +13,11 @@ import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-f
 import {
   DeckyFullScreenLoadingState,
 } from "./decky-full-screen-loading-state";
-import { DeckyFullScreenFooterOverlay, STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS } from "./decky-full-screen-footer-overlay";
+import {
+  DeckyFullScreenFooterOverlay,
+  RETROACHIEVEMENTS_PROFILE_FOOTER_NAVIGATION_ITEMS,
+  STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS,
+} from "./decky-full-screen-footer-overlay";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
@@ -28,6 +32,7 @@ import {
 import { formatDeckyNumericText } from "./decky-number-format";
 import { formatDeckyProviderLabel } from "./providers";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
+import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 import { DeckySteamFullScreenActivityDashboard } from "./decky-steam-full-screen-activity-dashboard";
 import type { SteamActivityCalendarWeeks } from "./decky-steam-activity-calendar-model";
 import { useDeckySettings } from "./decky-settings";
@@ -39,6 +44,7 @@ export interface DeckyFullScreenAchievementHistoryPageProps {
   readonly showSteamProfileFooter?: boolean;
   readonly onBack: () => void;
   readonly onOpenGames: () => void;
+  readonly onOpenProfile?: () => void;
   readonly onOpenSettings: () => void;
   readonly onOpenAchievementDetail: (gameId: string, achievementId: string) => void;
 }
@@ -680,6 +686,7 @@ export function DeckyFullScreenAchievementHistoryPage({
   showSteamProfileFooter = true,
   onBack,
   onOpenGames,
+  onOpenProfile,
   onOpenSettings,
   onOpenAchievementDetail,
 }: DeckyFullScreenAchievementHistoryPageProps): JSX.Element {
@@ -700,22 +707,27 @@ export function DeckyFullScreenAchievementHistoryPage({
   const hasRouteParameters = providerId !== undefined;
 
   if (!isRenderableAchievementHistoryState(state)) {
-    if (providerId === STEAM_PROVIDER_ID) {
+    if (providerId === STEAM_PROVIDER_ID || providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+      const isRa = providerId === RETROACHIEVEMENTS_PROVIDER_ID;
       return (
         <>
           <DeckyFullScreenLoadingState
-            useSteamTheme
-            description={state.error?.userMessage ?? "Refreshing your Steam account and loading achievement history."}
+            {...(!isRa ? { useSteamTheme: true } : {})}
+            description={state.error?.userMessage ?? (isRa
+              ? "Loading your RetroAchievements unlock history."
+              : "Refreshing your Steam account and loading achievement history.")}
             isError={state.status === "error"}
-            title={state.status === "error" ? "Steam achievement history unavailable" : "Loading Steam achievement history..."}
+            title={state.status === "error"
+              ? `${isRa ? "RetroAchievements" : "Steam"} achievement history unavailable`
+              : `Loading ${isRa ? "RetroAchievements" : "Steam"} achievement history...`}
           />
           {showSteamProfileFooter ? <DeckyFullScreenFooterOverlay
             isActive={isActive}
             activeNavigationItemId="activity"
-            ariaLabel="Steam profile navigation"
-            navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
+            ariaLabel={`${isRa ? "RetroAchievements" : "Steam"} profile navigation`}
+            navigationItems={isRa ? RETROACHIEVEMENTS_PROFILE_FOOTER_NAVIGATION_ITEMS : STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS}
             onPreviousNavigationItem={onOpenGames}
-            onNextNavigationItem={onOpenSettings}
+            onNextNavigationItem={isRa ? onOpenProfile ?? onOpenGames : onOpenSettings}
           /> : null}
         </>
       );
@@ -752,7 +764,7 @@ export function DeckyFullScreenAchievementHistoryPage({
   const heroCountLabel = formatAchievementHistoryHeroCountLabel(snapshot.providerId, snapshotSourceLabel);
   const isLibraryUnlockHistory = isSteamProvider && snapshotSourceLabel.toLowerCase().includes("library unlock");
 
-  if (isSteamProvider) {
+  if (isSteamProvider || snapshot.providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
     return (
       <DeckySteamFullScreenActivityDashboard
         snapshot={snapshot}
@@ -762,6 +774,7 @@ export function DeckyFullScreenAchievementHistoryPage({
         onBack={onBack}
         onOpenAchievementDetail={onOpenAchievementDetail}
         onOpenGames={onOpenGames}
+        {...(onOpenProfile !== undefined ? { onOpenProfile } : {})}
         onOpenSettings={onOpenSettings}
       />
     );

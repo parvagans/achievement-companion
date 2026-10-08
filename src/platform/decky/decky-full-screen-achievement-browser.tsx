@@ -568,6 +568,7 @@ export interface DeckyFullScreenAchievementBrowserProps {
   readonly providerId: string | undefined;
   readonly filteredAchievementCount: number;
   readonly initialRenderLimit?: number;
+  readonly showAchievementModeFilter?: boolean;
   readonly onAchievementFilterChange: (filter: AchievementFilter) => void;
   readonly onAchievementModeFilterChange: (filter: AchievementModeFilter) => void;
   readonly onAchievementGroupFilterChange: (filter: AchievementGroupFilter) => void;
@@ -584,12 +585,14 @@ export interface DeckyFullScreenAchievementBrowserProps {
 export function DeckyFullScreenAchievementBrowser({
   achievementFilter, achievementModeFilter, achievementGroupFilter, achievementAvailabilityFilter,
   achievementSummary, allAchievements, achievements, providerId, initialRenderLimit,
+  showAchievementModeFilter: showAchievementModeFilterOverride,
   filteredAchievementCount, onAchievementFilterChange, onAchievementModeFilterChange,
   onAchievementGroupFilterChange, onAchievementAvailabilityFilterChange,
   onOpenAchievementDetail, onBack, onJumpToTop, onFocusAchievement, steamHuntersAchievementsBySteamAchievementId,
   steamHuntersAchievementGroupsBySteamAchievementId, steamHuntersAchievementGroups,
 }: DeckyFullScreenAchievementBrowserProps): JSX.Element {
-  const showAchievementModeFilter = shouldRenderAchievementModeFilter(providerId);
+  const showAchievementModeFilter = showAchievementModeFilterOverride
+    ?? shouldRenderAchievementModeFilter(providerId);
   const isSteamProvider = providerId === "steam";
   const browserRef = useRef<HTMLDivElement>(null);
   const [renderLimit, setRenderLimit] = useState(Math.max(STEAM_ACHIEVEMENT_RENDER_STEP, initialRenderLimit ?? 0));
@@ -601,13 +604,13 @@ export function DeckyFullScreenAchievementBrowser({
   }, [achievementFilter, achievementGroupFilter, achievementAvailabilityFilter]);
   useLayoutEffect(() => {
     if (revealedAchievementId === undefined) return;
-    const target = Array.from(browserRef.current?.querySelectorAll<HTMLElement>("[data-achievement-companion-steam-achievement-id]") ?? [])
-      .find((element) => element.dataset["achievementCompanionSteamAchievementId"] === revealedAchievementId);
+    const target = Array.from(browserRef.current?.querySelectorAll<HTMLElement>("[data-achievement-companion-achievement-id]") ?? [])
+      .find((element) => element.dataset["achievementCompanionAchievementId"] === revealedAchievementId);
     if (target === undefined) return;
     target.scrollIntoView({ block: "center", inline: "nearest" });
     return requestDeckySteamGamepadFocusAfterMount(target);
   }, [renderLimit, revealedAchievementId]);
-  const renderedAchievements = isSteamProvider ? achievements.slice(0, renderLimit) : achievements;
+  const renderedAchievements = achievements.slice(0, renderLimit);
   const groupOptions = getAchievementGroupFilterOptions(allAchievements, steamHuntersAchievementGroupsBySteamAchievementId, steamHuntersAchievementGroups);
   const availabilityOptions = getAchievementAvailabilityFilterOptions(allAchievements, steamHuntersAchievementsBySteamAchievementId);
   const visibleGroupFilter = groupOptions.includes(achievementGroupFilter) ? achievementGroupFilter : "all";
@@ -711,7 +714,7 @@ export function DeckyFullScreenAchievementBrowser({
               />
             </PanelSectionRow>
           ))}
-          {isSteamProvider && renderedAchievements.length < achievements.length ? <Focusable
+          {renderedAchievements.length < achievements.length ? <Focusable
             noFocusRing role="button" data-steam-achievements-show-more="true"
             aria-label={`Show ${Math.min(STEAM_ACHIEVEMENT_RENDER_STEP, achievements.length - renderedAchievements.length)} more achievements`}
             onActivate={() => { setRevealedAchievementId(achievements[renderLimit]?.achievementId); setRenderLimit((current) => current + STEAM_ACHIEVEMENT_RENDER_STEP); }}
