@@ -30,6 +30,7 @@ import {
   readDeckyRetroAchievementsSubsetDetailStates,
   resetDeckyRetroAchievementsSubsetDetailCacheForTests,
 } from "../src/platform/decky/decky-retroachievements-subset-detail-cache";
+import { getRetroAchievementsProfileSystems } from "../src/platform/decky/decky-retroachievements-full-screen-profile-data";
 
 const game: NormalizedGame = {
   providerId: "retroachievements",
@@ -202,6 +203,105 @@ test("RA full-screen Games excludes subset rows; parent game pages own subset na
   };
   const visible = filterCompletionProgressGamesBySubsetVisibility([game, subset], false);
   assert.deepEqual(visible.map((entry) => entry.gameId), [game.gameId]);
+});
+
+test("RA full-screen profile uses the single tall identity card with one external profile link", async () => {
+  const source = await readFile(
+    new URL("../src/platform/decky/decky-retroachievements-full-screen-profile-dashboard.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /gridTemplateColumns: "repeat\(6, minmax\(0, 1fr\)\)"/u);
+  assert.match(source, /gridTemplateAreas: '"profile profile systems systems systems systems"'/u);
+  assert.match(source, /data-ra-profile-systems/u);
+  assert.match(source, /Top systems by unlocked achievements/u);
+  assert.match(source, /system\.unlockedAchievements\.toLocaleString\(\)/u);
+  assert.match(source, /system\.completionPercent \?\? 0/u);
+  assert.match(source, /panelStyle\("profile"\)[\s\S]*label="View on RetroAchievements"/u);
+  assert.match(source, /onClick=\{\(\) => onOpenExternalUrl\(profileUrl\)\}/u);
+  assert.match(source, /formatProfileMemberSince\(model\.profile\.metrics, \{ month: "long" \}\)/u);
+  assert.match(source, /RA account/u);
+  assert.match(source, /Last sync • \$\{dayLabel\}, \$\{timeLabel\}/u);
+  assert.match(source, /gridColumn: "1 \/ span 2"/u);
+  assert.match(source, /ProfileStat label="Mastered Games"/u);
+  assert.match(source, /ProfileStat label="Beaten Games"/u);
+  assert.match(source, /ProfileStat label="Points Earned"/u);
+  assert.match(source, /ProfileStat label="RetroPoints"/u);
+  assert.match(source, /calendarIconUrl/u);
+  assert.match(source, /trophyIconUrl/u);
+  assert.doesNotMatch(source, /RETROACHIEVEMENTS PROFILE/u);
+  assert.doesNotMatch(source, /model\.profile\.motto/u);
+  assert.doesNotMatch(source, /RECENT ACTIVITY|RECENTLY PLAYED/u);
+  assert.doesNotMatch(source, /label="Settings"|label="Completion Progress"|label="Achievement History"/u);
+});
+
+test("RA full-screen profile systems aggregate unlocked achievements by console and keep the top three", () => {
+  const systems = getRetroAchievementsProfileSystems([
+    { ...game, gameId: "nes-1", platformId: "7", platformLabel: "NES", systemIconUrl: "nes.png", summary: { unlockedCount: 200, totalCount: 400 } },
+    { ...game, gameId: "nes-2", platformId: "7", platformLabel: "NES", summary: { unlockedCount: 112, totalCount: 200 } },
+    { ...game, gameId: "snes-1", platformId: "3", platformLabel: "SNES", systemIconUrl: "snes.png", summary: { unlockedCount: 428, totalCount: 900 } },
+    { ...game, gameId: "gba-1", platformId: "5", platformLabel: "Game Boy Advance", summary: { unlockedCount: 287, totalCount: 500 } },
+    { ...game, gameId: "ps2-1", platformId: "21", platformLabel: "PlayStation 2", summary: { unlockedCount: 999, totalCount: 1200 } },
+  ], 3);
+
+  assert.deepEqual(systems.map((system) => [system.title, system.unlockedAchievements]), [
+    ["PlayStation 2", 999],
+    ["SNES", 428],
+    ["NES", 312],
+  ]);
+  assert.equal(systems[2]?.iconUrl, "nes.png");
+  assert.equal(systems[2]?.completionPercent, 52);
+});
+
+test("RA full-screen profile exposes every system in a horizontal controller rail", async () => {
+  const source = await readFile(
+    new URL("../src/platform/decky/decky-retroachievements-full-screen-profile-dashboard.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /flow-children="left-right"[\s\S]*style=\{systemsRailStyle\(\)\}/u);
+  assert.match(source, /overflowX: "auto"/u);
+  assert.match(source, /new ownerWindow\.MutationObserver\(syncArrowVisibility\)/u);
+  assert.match(source, /card\.classList\.contains\("gpfocus"\)/u);
+  assert.match(source, /leftSystemsArrowRef\.current\.style\.visibility = cards\.length > 1 && focusedIndex > 0/u);
+  assert.match(source, /rightSystemsArrowRef\.current\.style\.visibility = cards\.length > 1 && focusedIndex < cards\.length - 1/u);
+  assert.match(source, /data-ra-profile-system-arrow="left"/u);
+  assert.match(source, /data-ra-profile-system-arrow="right"/u);
+  assert.match(source, /data-ra-profile-system=\{system\.systemId\}/u);
+  assert.match(source, /focusClassName="achievement-companion-ra-profile-system--focused"/u);
+  assert.match(source, /<DeckyFocusStyles \/>/u);
+  assert.match(source, /onGamepadFocus=\{\(event\) => focusCard\(event\.currentTarget\)\}/u);
+  assert.match(source, /scrollSystemCardIntoView\(target\)/u);
+  assert.match(source, /gridColumn: "1 \/ -1"[\s\S]*\{system\.title\}/u);
+  assert.match(source, /iconSize=\{44\}/u);
+  assert.match(source, /textOverflow: "ellipsis", whiteSpace: "nowrap"/u);
+  assert.match(source, /\.\.\.\(index === 0 \? \{ onGamepadDirection: handleBoundaryDirection \} : \{\}\)/u);
+  assert.match(source, /event\.detail\.button === GamepadButton\.DIR_LEFT/u);
+  assert.match(source, /event\.detail\.button === GamepadButton\.DIR_RIGHT/u);
+  assert.match(source, /data-ra-profile-external-action/u);
+  assert.match(source, /profileActionRef\.current\?\.querySelector<HTMLElement>\("\[role='button'\]"\)/u);
+  assert.match(source, /onExitLeft=\{index === 0 \? focusProfileAction : undefined\}/u);
+  assert.match(source, /onMoveRight=\{index === 0 && model\.systems\.length > 1 \? focusSecondSystem : undefined\}/u);
+  assert.match(source, /querySelectorAll<HTMLElement>\("\[data-ra-profile-system\]"\)\[1\]/u);
+  assert.doesNotMatch(source, /useState\(0\)/u);
+
+  const themeSource = await readFile(
+    new URL("../src/platform/decky/ra-theme.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(themeSource, /\.achievement-companion-ra-profile-system--focused/u);
+  assert.match(themeSource, /inset 0 0 0 2px rgba\(151, 211, 255, 0\.98\)/u);
+});
+
+test("RA profile system aggregation can return the complete sorted system rail", () => {
+  const systems = getRetroAchievementsProfileSystems([
+    { ...game, gameId: "nes", platformId: "7", platformLabel: "NES", summary: { unlockedCount: 20, totalCount: 40 } },
+    { ...game, gameId: "snes", platformId: "3", platformLabel: "SNES", summary: { unlockedCount: 30, totalCount: 60 } },
+    { ...game, gameId: "gba", platformId: "5", platformLabel: "Game Boy Advance", summary: { unlockedCount: 10, totalCount: 20 } },
+    { ...game, gameId: "ps2", platformId: "21", platformLabel: "PlayStation 2", summary: { unlockedCount: 40, totalCount: 80 } },
+  ]);
+
+  assert.deepEqual(systems.map((system) => system.title), ["PlayStation 2", "SNES", "NES", "Game Boy Advance"]);
 });
 
 test("RA Subsets mirrors Steam group expansion with square set art and child achievement rows", async () => {

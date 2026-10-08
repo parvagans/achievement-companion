@@ -548,6 +548,9 @@ function DeckyProviderFullScreenSession({
               selectTab("settings");
             }
           }}
+          onOpenExternalUrl={(url) => {
+            DeckyNavigation.NavigateToExternalWeb(url);
+          }}
           onOpenCompletionProgress={(_profileProviderId, initialFilter) => openGames(initialFilter)}
           onOpenGameDetail={(profileProviderId, gameId) => {
             navigateToFullScreenGame(profileProviderId, gameId);
@@ -682,6 +685,9 @@ function DeckyFullScreenProfileRoute(): JSX.Element {
           ? "retroachievements"
           : "steam";
         DeckyNavigation.Navigate(buildDeckyFullScreenSettingsRoute());
+      }}
+      onOpenExternalUrl={(url) => {
+        DeckyNavigation.NavigateToExternalWeb(url);
       }}
       onOpenCompletionProgress={(profileProviderId, initialFilter) => {
         markNextFullScreenCompletionProgressFilter(initialFilter);

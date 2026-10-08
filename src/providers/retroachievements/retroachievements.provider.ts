@@ -519,6 +519,17 @@ function enrichGameWithSystemIcon(
   };
 }
 
+function enrichGamesWithSystemIcons(
+  games: readonly NormalizedGame[],
+  systemIconUrlByConsoleId: ReadonlyMap<string, string>,
+): readonly NormalizedGame[] {
+  if (games.length === 0 || systemIconUrlByConsoleId.size === 0) {
+    return games;
+  }
+
+  return games.map((game) => enrichGameWithSystemIcon(game, game.platformId, systemIconUrlByConsoleId));
+}
+
 function enrichRecentlyPlayedGamesWithSystemIcons(
   games: readonly RecentlyPlayedGame[],
   rawGames: readonly RawRetroAchievementsRecentlyPlayedGameResponse[],
@@ -1007,16 +1018,20 @@ export function createRetroAchievementsProvider(
     capabilities: retroAchievementsCapabilities,
 
     async loadProfile(config) {
-      const [rawProfile, rawCompletionProgress, rawSummary] = await Promise.all([
+      const [rawProfile, rawCompletionProgress, rawSummary, systemIconUrlByConsoleId] = await Promise.all([
         client.loadProfile(config),
         client.loadCompletionProgress(config),
         loadOptionalRetroAchievementsProfileSummary(
           client.loadSummary === undefined ? undefined : () => client.loadSummary!(config),
         ),
+        loadSystemIconUrlByConsoleId(config),
       ]);
 
       const completionSummary = summarizeRetroAchievementsCompletionProgress(rawCompletionProgress);
-      const featuredGames = normalizeRetroAchievementsSelectableGames(rawCompletionProgress);
+      const featuredGames = enrichGamesWithSystemIcons(
+        normalizeRetroAchievementsSelectableGames(rawCompletionProgress),
+        systemIconUrlByConsoleId,
+      );
       const gamesBeatenCount = countRetroAchievementsGamesBeaten(rawCompletionProgress);
       const gamesMasteredCount = countRetroAchievementsGamesMastered(rawCompletionProgress);
       const achievementCounts = summarizeRetroAchievementsProfileAchievementCounts(rawCompletionProgress);
@@ -1038,7 +1053,11 @@ export function createRetroAchievementsProvider(
 
     async loadCompletionProgress(config) {
       const rawCompletionProgress = await client.loadCompletionProgress(config);
-      return normalizeRetroAchievementsCompletionProgressGames(rawCompletionProgress);
+      const systemIconUrlByConsoleId = await loadSystemIconUrlByConsoleId(config);
+      return enrichGamesWithSystemIcons(
+        normalizeRetroAchievementsCompletionProgressGames(rawCompletionProgress),
+        systemIconUrlByConsoleId,
+      );
     },
 
     async loadAchievementsEarnedBetween(config, options) {

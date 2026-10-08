@@ -91,6 +91,7 @@ export interface DeckyFullScreenProfilePageProps {
   readonly onOpenAchievementDetail: (providerId: string, gameId: string, achievementId: string) => void;
   readonly onOpenGameDetail: (providerId: string, gameId: string) => void;
   readonly onOpenSettings: () => void;
+  readonly onOpenExternalUrl: (url: string) => void;
 }
 
 function formatCount(value: number): string {
@@ -1045,6 +1046,7 @@ export function DeckyFullScreenProfilePage({
   onOpenAchievementDetail,
   onOpenGameDetail,
   onOpenSettings,
+  onOpenExternalUrl,
 }: DeckyFullScreenProfilePageProps): JSX.Element {
   const deckySettings = useDeckySettings();
   const loadSelectedProfile = useMemo(() => {
@@ -1250,10 +1252,8 @@ export function DeckyFullScreenProfilePage({
         <DeckyRetroAchievementsFullScreenProfileDashboard
           model={model}
           isActive={isActive}
-          onOpenAchievementHistory={() => onOpenAchievementHistory(profile.providerId)}
-          onOpenAchievementDetail={(gameId, achievementId) => onOpenAchievementDetail(profile.providerId, gameId, achievementId)}
-          onOpenCompletionProgress={() => onOpenCompletionProgress(profile.providerId)}
-          onOpenGameDetail={(gameId) => onOpenGameDetail(profile.providerId, gameId)}
+          onOpenExternalUrl={onOpenExternalUrl}
+          refreshedAt={refreshedAt}
         />
         {showSteamProfileFooter ? <DeckyFullScreenFooterOverlay
           isActive={isActive}

@@ -652,6 +652,11 @@ export function getRaFocusStylesCss(): string {
     background: ${raTheme.focus.background} !important;
     box-shadow: ${raTheme.focus.shadow} !important;
   }
+  [data-ac-ra-theme="fullscreen"] .achievement-companion-ra-profile-system--focused {
+    border-color: rgba(151, 211, 255, 0.98) !important;
+    background: ${raTheme.focus.compactBackground} !important;
+    box-shadow: inset 0 0 0 2px rgba(151, 211, 255, 0.98), inset 0 0 0 999px rgba(54, 185, 255, 0.08), 0 0 14px rgba(54, 185, 255, 0.42) !important;
+  }
   [data-ac-ra-theme] .achievement-companion-achievement-filter-option.achievement-companion-achievement-filter-option--selected {
     border-color: ${raTheme.selection.border}; background: ${raTheme.selection.background};
   }

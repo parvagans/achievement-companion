@@ -35,6 +35,7 @@ function getMetricValue(metrics: DashboardSnapshot["profile"]["metrics"], ...key
 
 export function formatProfileMemberSince(
   metrics: DashboardSnapshot["profile"]["metrics"],
+  options: { readonly month?: "short" | "long" } = {},
 ): string | undefined {
   const memberSince = getMetricValue(metrics, "member-since", "Member Since");
   if (memberSince === undefined) {
@@ -47,7 +48,7 @@ export function formatProfileMemberSince(
   }
 
   return new Date(parsedMemberSince).toLocaleDateString(undefined, {
-    month: "short",
+    month: options.month ?? "short",
     day: "numeric",
     year: "numeric",
   });
