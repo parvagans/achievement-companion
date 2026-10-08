@@ -191,6 +191,7 @@ function getFullScreenLoadingCopy(
   state: ResourceState<GameDetailSnapshot>,
   hasRouteParameters: boolean,
   backFooter: string,
+  isWaitingForRetroAchievementsSubsets: boolean,
 ): FullScreenLoadingCopy {
   if (!hasRouteParameters) {
     return {
@@ -210,6 +211,15 @@ function getFullScreenLoadingCopy(
     };
   }
 
+  if (isWaitingForRetroAchievementsSubsets) {
+    return {
+      title: "Loading game subsets...",
+      description: "Preparing the full-screen game page with its verified RetroAchievements subsets.",
+      infoText: "Resolving the available subsets before showing the game page.",
+      isError: false,
+    };
+  }
+
   return {
     title: "Loading game details...",
     description: "Loading the full-screen game page from the existing game-detail service.",
@@ -225,6 +235,7 @@ function DeckyFullScreenGameLoadingState({
   onBack,
   useNativeFocus,
   useSteamTheme,
+  isWaitingForRetroAchievementsSubsets = false,
 }: {
   readonly state: ResourceState<GameDetailSnapshot>;
   readonly hasRouteParameters: boolean;
@@ -232,9 +243,15 @@ function DeckyFullScreenGameLoadingState({
   readonly onBack: () => void;
   readonly useNativeFocus: boolean;
   readonly useSteamTheme: boolean;
+  readonly isWaitingForRetroAchievementsSubsets?: boolean;
 }): JSX.Element {
   const focusRef = useRef<HTMLDivElement>(null);
-  const copy = getFullScreenLoadingCopy(state, hasRouteParameters, backFooter);
+  const copy = getFullScreenLoadingCopy(
+    state,
+    hasRouteParameters,
+    backFooter,
+    isWaitingForRetroAchievementsSubsets,
+  );
 
   useLayoutEffect(() => {
     if (useNativeFocus) {
@@ -380,6 +397,8 @@ export function DeckyFullScreenGamePage({
     loadedSnapshot,
     steamHuntersEnrichmentResult?.sourceSnapshot,
   );
+  const isWaitingForRetroAchievementsSubsets = loadedSnapshot?.game.providerId === RETROACHIEVEMENTS_PROVIDER_ID
+    && (relatedGamesState.status === "idle" || relatedGamesState.status === "loading");
   const displayedLoadedSnapshot =
     steamHuntersEnrichmentResult !== undefined && steamHuntersEnrichmentResult.sourceSnapshot === loadedSnapshot
       ? steamHuntersEnrichmentResult.enrichedSnapshot
@@ -897,7 +916,7 @@ export function DeckyFullScreenGamePage({
     return () => { ownerWindow.cancelAnimationFrame(frame); cancelFocus?.(); };
   }, [activeSteamSection, gameId, providerId, restorationFilteredAchievements, restorationIsSteamProvider, restorationSnapshot, sectionRestoreNonce, visibleGameSections]);
 
-  if (!isRenderableGameDetailState(state) || isWaitingForSteamHuntersEnrichment) {
+  if (!isRenderableGameDetailState(state) || isWaitingForSteamHuntersEnrichment || isWaitingForRetroAchievementsSubsets) {
     return (
       <DeckyFullScreenGameLoadingState
         state={state}
@@ -906,6 +925,7 @@ export function DeckyFullScreenGamePage({
         onBack={onBack}
         useNativeFocus
         useSteamTheme={providerId === STEAM_PROVIDER_ID}
+        isWaitingForRetroAchievementsSubsets={isWaitingForRetroAchievementsSubsets}
       />
     );
   }

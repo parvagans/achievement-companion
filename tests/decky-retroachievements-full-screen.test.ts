@@ -193,6 +193,18 @@ test("RA Subsets mirrors Steam group expansion with square set art and child ach
   assert.match(source, /Subset achievements unavailable/u);
 });
 
+test("RA full-screen game keeps the loading gate up until subset discovery settles", async () => {
+  const source = await readFile(
+    new URL("../src/platform/decky/decky-full-screen-game-page.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(source, /isWaitingForRetroAchievementsSubsets/u);
+  assert.match(source, /relatedGamesState\.status === "idle" \|\| relatedGamesState\.status === "loading"/u);
+  assert.match(source, /title: "Loading game subsets\.\.\."/u);
+  assert.match(source, /isWaitingForSteamHuntersEnrichment \|\| isWaitingForRetroAchievementsSubsets/u);
+});
+
 test("RA Community requires displayable real metrics and rejects sample-only or denominator-free rates", () => {
   assert.equal(hasDisplayableRetroAchievementsCommunityStats(undefined), false);
   assert.equal(hasDisplayableRetroAchievementsCommunityStats({ beatenSamples: 20, masteredSamples: 4 }), false);
