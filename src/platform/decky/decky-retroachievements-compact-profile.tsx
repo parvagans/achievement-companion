@@ -22,6 +22,7 @@ import {
   sortRetroAchievementsUnlocksNewestFirst,
 } from "./decky-retroachievements-compact-profile-model";
 import { buildRetroAchievementsActivityCalendarModel } from "./decky-retroachievements-activity-calendar-model";
+import { DeckyRetroAchievementsRankTrendIndicator } from "./decky-ra-rank-trend-indicator";
 import { getDeckyActivityCalendarFocusDestination } from "./decky-activity-calendar-navigation";
 import {
   buildCompactActivityGamesForDay,
@@ -222,7 +223,7 @@ function ProfileCard({
           {ranks.map((rank) => (
             <div key={rank.kind} style={raRecipes.compactProfile.rank}>
               <span style={raRecipes.compactProfile.rankLabel}>{rank.label}</span>
-              <span style={raRecipes.compactProfile.rankValue}>{rank.value}</span>
+              <span style={raRecipes.compactProfile.rankValue}><DeckyRetroAchievementsRankTrendIndicator accountId={profile.identity.accountId} kind={rank.kind} />{rank.value}</span>
             </div>
           ))}
         </div>

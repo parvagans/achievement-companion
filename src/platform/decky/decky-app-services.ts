@@ -46,6 +46,7 @@ import {
   deckyDashboardSnapshotStore,
   writeDeckyDashboardSnapshot,
 } from "./decky-dashboard-snapshot-cache";
+import { updateDeckyRetroAchievementsRankTrends } from "./decky-retroachievements-rank-trend";
 import {
   readDeckySteamGameDetailState,
   writeDeckySteamGameDetail,
@@ -1301,6 +1302,12 @@ export async function loadDeckyDashboardState(
           providerConfig,
           snapshot: snapshotWithSteamScanAchievements,
         });
+    if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+      updateDeckyRetroAchievementsRankTrends(
+        dashboardSnapshot.profile,
+        readDeckyDashboardSnapshotState(providerId)?.data?.profile,
+      );
+    }
     writeDeckyDashboardSnapshot(dashboardSnapshot);
     publishDeckyDashboardProgress(providerId, { stepId: "finalize", status: "complete" });
 

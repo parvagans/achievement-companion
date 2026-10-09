@@ -11,6 +11,7 @@ import { DeckySystemIcon } from "./decky-system-pill";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { raRecipes, raTheme } from "./ra-theme";
 import { formatProfileMemberSince } from "./decky-stat-helpers";
+import { DeckyRetroAchievementsRankTrendIndicator } from "./decky-ra-rank-trend-indicator";
 
 type Model = ReturnType<typeof import("./decky-retroachievements-full-screen-profile-data").buildRetroAchievementsFullScreenProfileModel>;
 
@@ -356,7 +357,7 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
           <div style={{ height: 1, flexShrink: 0, backgroundColor: raTheme.color.borderSubtle }} />
           <div style={{ display: "flex", flexDirection: "column", gap: 7, width: "100%", minWidth: 0 }}>
             {memberSince !== undefined ? <ProfileFact iconUrl={calendarIconUrl}>{`Member since ${memberSince}`}</ProfileFact> : null}
-            {selectedRank !== undefined ? <ProfileFact iconUrl={trophyIconUrl} tone="gold">{`${selectedRank.label} ${selectedRank.value}`}</ProfileFact> : null}
+            {selectedRank !== undefined ? <ProfileFact iconUrl={trophyIconUrl} tone="gold"><DeckyRetroAchievementsRankTrendIndicator accountId={model.profile.identity.accountId} kind={selectedRank.kind} />{`${selectedRank.label} ${selectedRank.value}`}</ProfileFact> : null}
           </div>
           <div ref={profileActionRef} data-ra-profile-external-action>
             <DeckyFullscreenActionButton
