@@ -4,6 +4,8 @@ import { DeckyGameArtwork } from "./decky-game-artwork";
 import { getRetroAchievementsCompletionIndicatorState } from "./decky-retroachievements-completion-indicator";
 import { raRecipes } from "./ra-theme";
 
+export const DECKY_RA_FULLSCREEN_GAME_ICON_COLUMN_WIDTH = 64;
+
 type RetroAchievementsGameIconGame = Pick<NormalizedGame | RecentlyPlayedGame, "providerId" | "title" | "metrics">;
 
 export function getRetroAchievementsGameIconAward(

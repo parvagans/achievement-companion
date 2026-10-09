@@ -1118,6 +1118,10 @@ export function createRetroAchievementsProvider(
         : iconEnrichedSnapshot;
     },
 
+    async loadGamePlaytimeSeconds(config, gameId) {
+      return client.loadGamePlaytimeSeconds?.(config, gameId);
+    },
+
     async loadRelatedGames(config, game) {
       if (game.parentGameId !== undefined || game.platformId === undefined) {
         return [];

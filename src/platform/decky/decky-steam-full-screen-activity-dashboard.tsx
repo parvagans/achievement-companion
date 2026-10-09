@@ -20,7 +20,10 @@ import {
   type RefObject,
 } from "react";
 import { DeckyGameArtwork } from "./decky-game-artwork";
-import { DeckyRetroAchievementsGameIcon } from "./decky-retroachievements-game-icon";
+import {
+  DeckyRetroAchievementsGameIcon,
+  DECKY_RA_FULLSCREEN_GAME_ICON_COLUMN_WIDTH,
+} from "./decky-retroachievements-game-icon";
 import {
   DeckyFullScreenFooterOverlay,
   RETROACHIEVEMENTS_PROFILE_FOOTER_NAVIGATION_ITEMS,
@@ -399,7 +402,7 @@ function AchievementActivityRow({ elementRef, entry, rowIndex, providerId, listR
     onOpenAchievementDetail(entry.game.gameId, entry.achievement.achievementId);
   };
   return (
-    <Focusable ref={elementRef} className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS} noFocusRing role="button" data-steam-activity-row="true" data-steam-activity-row-index={rowIndex} aria-label={`Open ${entry.achievement.title}`} onActivate={openAchievement} onClick={openAchievement} onCancel={onBack} onGamepadDirection={(event) => handleActivityRowDirection(event, onRevealMore)} onFocus={(event) => { rememberFocus(); onFocus(event); }} onGamepadFocus={(event) => { rememberFocus(); onGamepadFocus(event); }} onBlur={() => setFocused(false)} style={{ ...getCardStyle(), display: "grid", gridTemplateColumns: `${STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}px 48px minmax(0, 1fr) 128px 16px`, alignItems: "center", gap: 8, flex: `0 0 ${STEAM_FULLSCREEN_GAME_ROW_HEIGHT}px`, minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT, padding: "2px 7px 2px 3px", boxSizing: "border-box", ...(focused ? { outline: "none", background: "linear-gradient(135deg, rgba(20, 87, 123, 0.95), rgba(9, 39, 58, 0.95))", boxShadow: "inset 0 0 0 2px #3bc7ff, inset 0 0 18px rgba(25, 184, 255, 0.2)" } : {}) }}>
+    <Focusable ref={elementRef} className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS} noFocusRing role="button" data-steam-activity-row="true" data-steam-activity-row-index={rowIndex} aria-label={`Open ${entry.achievement.title}`} onActivate={openAchievement} onClick={openAchievement} onCancel={onBack} onGamepadDirection={(event) => handleActivityRowDirection(event, onRevealMore)} onFocus={(event) => { rememberFocus(); onFocus(event); }} onGamepadFocus={(event) => { rememberFocus(); onGamepadFocus(event); }} onBlur={() => setFocused(false)} style={{ ...getCardStyle(), display: "grid", gridTemplateColumns: `${isRa ? DECKY_RA_FULLSCREEN_GAME_ICON_COLUMN_WIDTH : STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}px 48px minmax(0, 1fr) 128px 16px`, alignItems: "center", gap: 8, flex: `0 0 ${STEAM_FULLSCREEN_GAME_ROW_HEIGHT}px`, minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT, padding: "2px 7px 2px 3px", boxSizing: "border-box", ...(focused ? { outline: "none", background: "linear-gradient(135deg, rgba(20, 87, 123, 0.95), rgba(9, 39, 58, 0.95))", boxShadow: "inset 0 0 0 2px #3bc7ff, inset 0 0 18px rgba(25, 184, 255, 0.2)" } : {}) }}>
       {isRa ? <DeckyRetroAchievementsGameIcon
         game={entry.game}
         src={heroArtworkUrl}

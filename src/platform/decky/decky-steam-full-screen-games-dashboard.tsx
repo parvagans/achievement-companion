@@ -12,6 +12,7 @@ import {
   type GamepadEvent,
 } from "@decky/ui";
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -34,13 +35,22 @@ import {
 } from "./decky-full-screen-footer-overlay";
 import { registerDeckyFullscreenPopupCancel } from "./decky-full-screen-popup-state";
 import { DeckyGameArtwork } from "./decky-game-artwork";
-import { DeckyRetroAchievementsGameIcon } from "./decky-retroachievements-game-icon";
+import {
+  DeckyRetroAchievementsGameIcon,
+  DECKY_RA_FULLSCREEN_GAME_ICON_COLUMN_WIDTH,
+} from "./decky-retroachievements-game-icon";
+import { DeckySystemIcon } from "./decky-system-pill";
 import {
   formatRetroAchievementsCompletionIndicatorLabel,
   getRetroAchievementsCompletionIndicatorState,
 } from "./decky-retroachievements-completion-indicator";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
-import { formatSteamPlaytimeMinutes, getSteamCompletionProgressGameDetailId } from "./decky-stat-helpers";
+import {
+  formatRetroAchievementsPlaytimeSeconds,
+  formatSteamPlaytimeMinutes,
+  getSteamCompletionProgressGameDetailId,
+} from "./decky-stat-helpers";
+import { loadDeckyRetroAchievementsGamePlaytimeSeconds } from "./decky-app-services";
 import {
   getSteamFullscreenGameArtworkUrl,
   STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT,
@@ -631,11 +641,12 @@ function getGameListStyle(): CSSProperties {
   };
 }
 
-function getGameRowStyle(): CSSProperties {
+function getGameRowStyle(providerId: string): CSSProperties {
+  const isRa = providerId === RETROACHIEVEMENTS_PROVIDER_ID;
   return {
     ...steamRecipes.interactiveRow("fullscreen"),
     display: "grid",
-    gridTemplateColumns: `${STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}px minmax(165px, 1.55fr) minmax(145px, 1.45fr) 96px 116px 16px`,
+    gridTemplateColumns: `${isRa ? DECKY_RA_FULLSCREEN_GAME_ICON_COLUMN_WIDTH : STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}px minmax(165px, 1.55fr) minmax(145px, 1.45fr) ${isRa ? 126 : 96}px ${isRa ? 122 : 116}px 16px`,
     alignItems: "center",
     gap: 8,
     flex: `0 0 ${STEAM_FULLSCREEN_GAME_ROW_HEIGHT}px`,
@@ -667,14 +678,14 @@ function getSecondaryMetaStyle(): CSSProperties {
   return { ...steamRecipes.text("fullscreen", "caption"), fontSize: 9.5, lineHeight: 1, whiteSpace: "nowrap" };
 }
 
-function getMetadataCellStyle(): CSSProperties {
+function getMetadataCellStyle(isRa = false): CSSProperties {
   return {
     display: "grid",
-    gridTemplateColumns: "22px minmax(0, 1fr)",
+    gridTemplateColumns: `${isRa ? 24 : 22}px minmax(0, 1fr)`,
     alignItems: "center",
-    gap: 6,
+    gap: isRa ? 4 : 6,
     minWidth: 0,
-    paddingLeft: 8,
+    paddingLeft: isRa ? 6 : 8,
     borderLeft: "1px solid rgba(76, 148, 187, 0.22)",
     boxSizing: "border-box",
   };
@@ -714,6 +725,63 @@ function SteamGamesRow({
     : undefined;
   const artworkUrl = getSteamFullscreenGameArtworkUrl(game);
   const playtime = formatSteamPlaytimeMinutes(game.playtimeForeverMinutes) ?? "Not played";
+  const gameRowElementRef = useRef<HTMLDivElement | null>(null);
+  const setGameRowElementRef = useCallback((node: HTMLDivElement | null) => {
+    gameRowElementRef.current = node;
+    elementRef?.(node);
+  }, [elementRef]);
+  const [retroAchievementsPlaytime, setRetroAchievementsPlaytime] = useState<
+    { readonly status: "idle" | "loading" | "ready" | "unavailable"; readonly seconds?: number }
+  >(() => ({ status: providerId === RETROACHIEVEMENTS_PROVIDER_ID ? "loading" : "idle" }));
+  useEffect(() => {
+    if (providerId !== RETROACHIEVEMENTS_PROVIDER_ID) {
+      return;
+    }
+
+    let isCurrent = true;
+    const loadPlaytime = (): void => {
+      setRetroAchievementsPlaytime({ status: "loading" });
+      void loadDeckyRetroAchievementsGamePlaytimeSeconds(game.gameId)
+        .then((seconds) => {
+          if (isCurrent) {
+            setRetroAchievementsPlaytime(seconds === undefined
+              ? { status: "unavailable" }
+              : { status: "ready", seconds });
+          }
+        })
+        .catch(() => {
+          if (isCurrent) {
+            setRetroAchievementsPlaytime({ status: "unavailable" });
+          }
+        });
+    };
+
+    const row = gameRowElementRef.current;
+    const list = listRef.current;
+    const IntersectionObserverConstructor = row?.ownerDocument.defaultView?.IntersectionObserver;
+    if (row === null || IntersectionObserverConstructor === undefined) {
+      loadPlaytime();
+      return () => { isCurrent = false; };
+    }
+
+    const observer = new IntersectionObserverConstructor((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        observer.disconnect();
+        loadPlaytime();
+      }
+    }, { root: list, rootMargin: "120px 0px" });
+    observer.observe(row);
+
+    return () => {
+      isCurrent = false;
+      observer.disconnect();
+    };
+  }, [game.gameId, providerId, listRef]);
+  const retroAchievementsPlaytimeLabel = retroAchievementsPlaytime.status === "loading"
+    ? "Loading…"
+    : retroAchievementsPlaytime.status === "ready"
+      ? formatRetroAchievementsPlaytimeSeconds(retroAchievementsPlaytime.seconds) ?? "—"
+      : retroAchievementsPlaytime.status === "unavailable" ? "Unavailable" : "—";
   const openGame = (): void => {
     rememberDeckyGamesFocus(providerId, game.gameId);
     rememberDeckyGamesScrollTop(providerId, listRef.current?.scrollTop ?? 0);
@@ -725,7 +793,7 @@ function SteamGamesRow({
 
   return (
     <Focusable
-      ref={elementRef}
+      ref={setGameRowElementRef}
       className={STEAM_GAMES_FOCUS_CLASS}
       noFocusRing
       role="button"
@@ -736,7 +804,7 @@ function SteamGamesRow({
       onFocus={(event) => { rememberDeckyGamesFocus(providerId, game.gameId); scrollDeckyFocusTargetIntoView(event.currentTarget); }}
       onGamepadFocus={(event) => { rememberDeckyGamesFocus(providerId, game.gameId); scrollFocusedRow(event); }}
       onGamepadDirection={handleSteamGamesRowDirection}
-      style={getGameRowStyle()}
+      style={getGameRowStyle(providerId)}
       data-steam-games-row="true"
     >
       {providerId === RETROACHIEVEMENTS_PROVIDER_ID ? <DeckyRetroAchievementsGameIcon
@@ -794,17 +862,23 @@ function SteamGamesRow({
         </div>
       </div>
 
-      <div style={getMetadataCellStyle()}>
-        <IconAsset size={20} src={clockIconUrl} />
+      <div style={getMetadataCellStyle(providerId === RETROACHIEVEMENTS_PROVIDER_ID)}>
+        {providerId === RETROACHIEVEMENTS_PROVIDER_ID
+          ? game.systemIconUrl !== undefined
+            ? <DeckySystemIcon iconSize={22} iconUrl={game.systemIconUrl} />
+            : <IconAsset size={20} src={gamepadIconUrl} tone="light" />
+          : <IconAsset size={20} src={clockIconUrl} />}
         <div style={{ minWidth: 0 }}>
           <div style={{ ...getProgressMetaStyle(), overflow: "hidden", textOverflow: "ellipsis" }}>
-            {providerId === RETROACHIEVEMENTS_PROVIDER_ID ? game.platformLabel ?? "RetroAchievements" : playtime}
+            {providerId === RETROACHIEVEMENTS_PROVIDER_ID ? retroAchievementsPlaytimeLabel : playtime}
           </div>
-          <div style={getSecondaryMetaStyle()}>{providerId === RETROACHIEVEMENTS_PROVIDER_ID ? "Platform" : "Total Playtime"}</div>
+          <div style={{ ...getSecondaryMetaStyle(), ...(providerId === RETROACHIEVEMENTS_PROVIDER_ID ? { fontSize: 8.5 } : {}) }}>
+            {providerId === RETROACHIEVEMENTS_PROVIDER_ID ? "Total Time Played" : "Total Playtime"}
+          </div>
         </div>
       </div>
 
-      <div style={getMetadataCellStyle()}>
+      <div style={getMetadataCellStyle(providerId === RETROACHIEVEMENTS_PROVIDER_ID)}>
         <IconAsset size={20} src={calendarIconUrl} />
         <div style={{ minWidth: 0 }}>
           <div style={{ ...getProgressMetaStyle(), overflow: "hidden", textOverflow: "ellipsis" }}>

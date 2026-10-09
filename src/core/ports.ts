@@ -40,6 +40,8 @@ export interface AchievementProvider<Config = unknown> {
     },
   ): Promise<readonly RecentlyPlayedGame[]>;
   loadGameProgress(config: Config, gameId: string): Promise<GameDetailSnapshot>;
+  /** Optional lightweight per-game playtime lookup, in provider-native seconds. */
+  loadGamePlaytimeSeconds?(config: Config, gameId: string): Promise<number | undefined>;
   loadRelatedGames?(
     config: Config,
     game: NormalizedGame,

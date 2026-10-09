@@ -315,6 +315,86 @@ const deckyProviderFullScreenDataSessions = new Map<ProviderId, DeckyProviderFul
 const deckyProviderFullScreenCompactReturnRefreshSuppressions = new Set<ProviderId>();
 let deckyProviderFullScreenDataSessionRevision = 0;
 const deckyProviderFullScreenDataSessionListeners = new Set<() => void>();
+const DECKY_RETROACHIEVEMENTS_PLAYTIME_REQUEST_INTERVAL_MS = 300;
+const deckyRetroAchievementsGamePlaytimeCache = new Map<string, number | undefined>();
+const deckyRetroAchievementsGamePlaytimeRequests = new Map<string, Promise<number | undefined>>();
+let deckyRetroAchievementsGamePlaytimeSessionRevision = 0;
+let deckyRetroAchievementsGamePlaytimeQueue: Promise<void> = Promise.resolve();
+let deckyRetroAchievementsLastPlaytimeRequestStartedAt = 0;
+
+function resetDeckyRetroAchievementsGamePlaytimeSession(): void {
+  deckyRetroAchievementsGamePlaytimeSessionRevision += 1;
+  deckyRetroAchievementsGamePlaytimeCache.clear();
+  deckyRetroAchievementsGamePlaytimeRequests.clear();
+}
+
+/** Loads exact RA per-game playtime lazily, spaced to respect the API's rate limits. */
+export function loadDeckyRetroAchievementsGamePlaytimeSeconds(gameId: string): Promise<number | undefined> {
+  if (loadDeckyRuntimeMode() === "empty") {
+    return Promise.resolve(undefined);
+  }
+
+  const sessionRevision = deckyRetroAchievementsGamePlaytimeSessionRevision;
+  if (deckyRetroAchievementsGamePlaytimeCache.has(gameId)) {
+    return Promise.resolve(deckyRetroAchievementsGamePlaytimeCache.get(gameId));
+  }
+
+  const requestKey = `${sessionRevision}:${gameId}`;
+  const existingRequest = deckyRetroAchievementsGamePlaytimeRequests.get(requestKey);
+  if (existingRequest !== undefined) {
+    return existingRequest;
+  }
+
+  const queuedRequest = deckyRetroAchievementsGamePlaytimeQueue.then(async () => {
+    if (sessionRevision !== deckyRetroAchievementsGamePlaytimeSessionRevision) {
+      return undefined;
+    }
+
+    const provider = providerRegistry.get(RETROACHIEVEMENTS_PROVIDER_ID);
+    const providerConfig = await loadDeckyProviderConfig(RETROACHIEVEMENTS_PROVIDER_ID);
+    if (provider?.loadGamePlaytimeSeconds === undefined || providerConfig === undefined) {
+      return undefined;
+    }
+
+    const waitMs = Math.max(
+      0,
+      DECKY_RETROACHIEVEMENTS_PLAYTIME_REQUEST_INTERVAL_MS -
+        (Date.now() - deckyRetroAchievementsLastPlaytimeRequestStartedAt),
+    );
+    if (waitMs > 0) {
+      await new Promise<void>((resolve) => setTimeout(resolve, waitMs));
+    }
+    if (sessionRevision !== deckyRetroAchievementsGamePlaytimeSessionRevision) {
+      return undefined;
+    }
+
+    deckyRetroAchievementsLastPlaytimeRequestStartedAt = Date.now();
+    return provider.loadGamePlaytimeSeconds(providerConfig, gameId);
+  });
+  deckyRetroAchievementsGamePlaytimeQueue = queuedRequest.then(() => undefined, () => undefined);
+
+  let request: Promise<number | undefined>;
+  request = queuedRequest
+    .then((playtimeSeconds) => {
+      if (sessionRevision === deckyRetroAchievementsGamePlaytimeSessionRevision) {
+        deckyRetroAchievementsGamePlaytimeCache.set(gameId, playtimeSeconds);
+      }
+      return playtimeSeconds;
+    })
+    .catch(() => {
+      if (sessionRevision === deckyRetroAchievementsGamePlaytimeSessionRevision) {
+        deckyRetroAchievementsGamePlaytimeCache.set(gameId, undefined);
+      }
+      return undefined;
+    })
+    .finally(() => {
+      if (deckyRetroAchievementsGamePlaytimeRequests.get(requestKey) === request) {
+        deckyRetroAchievementsGamePlaytimeRequests.delete(requestKey);
+      }
+    });
+  deckyRetroAchievementsGamePlaytimeRequests.set(requestKey, request);
+  return request;
+}
 
 function getDeckyDashboardProgressChannel(providerId: ProviderId): DeckyDashboardProgressChannel {
   let channel = deckyDashboardProgressChannels.get(providerId);
@@ -1532,6 +1612,9 @@ async function createDeckyProviderFullScreenDataSession(
 export function startDeckyProviderProfileDataSession(providerId: ProviderId): void {
   deckyProviderFullScreenDataSessions.delete(providerId);
   deckyProviderFullScreenCompactReturnRefreshSuppressions.delete(providerId);
+  if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+    resetDeckyRetroAchievementsGamePlaytimeSession();
+  }
   if (providerId === STEAM_PROVIDER_ID) {
     deckySteamHuntersService.clearProfileCache();
   }

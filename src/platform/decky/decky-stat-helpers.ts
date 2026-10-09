@@ -103,6 +103,25 @@ export function formatSteamPlaytimeMinutes(minutes: number | undefined): string 
   return `${hours}h ${remainderMinutes}m`;
 }
 
+export function formatRetroAchievementsPlaytimeSeconds(seconds: number | undefined): string | undefined {
+  if (seconds === undefined || !Number.isFinite(seconds)) {
+    return undefined;
+  }
+
+  const normalizedSeconds = Math.max(0, Math.trunc(seconds));
+  if (normalizedSeconds < 60) {
+    return `${normalizedSeconds}s`;
+  }
+
+  const totalMinutes = Math.floor(normalizedSeconds / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const remainderMinutes = totalMinutes % 60;
+  if (hours === 0) {
+    return `${totalMinutes}m`;
+  }
+  return remainderMinutes === 0 ? `${hours}h` : `${hours}h ${remainderMinutes}m`;
+}
+
 export function getSteamCompletionProgressGameDetailId(
   game: Pick<NormalizedGame, "appid" | "gameId">,
 ): string {

@@ -64,6 +64,10 @@ export interface RetroAchievementsClient {
     config: RetroAchievementsProviderConfig,
     gameId: string,
   ): Promise<RawRetroAchievementsGameProgressResponse>;
+  loadGamePlaytimeSeconds?(
+    config: RetroAchievementsProviderConfig,
+    gameId: string,
+  ): Promise<number | undefined>;
   loadAchievementDistribution?(
     config: RetroAchievementsProviderConfig,
     gameId: string,
@@ -254,6 +258,27 @@ export function createRetroAchievementsClient(
           g: gameId,
         },
       });
+    },
+
+    async loadGamePlaytimeSeconds(config, gameId) {
+      const response = await transport.requestJson<RawRetroAchievementsGameProgressResponse>({
+        path: GAME_PROGRESS_PATH,
+        query: {
+          ...toAuthQuery(config),
+          // The row only needs UserTotalPlaytime; omit per-achievement award metadata.
+          a: 0,
+          g: gameId,
+        },
+      });
+      const rawPlaytime = response.UserTotalPlaytime ?? response.userTotalPlaytime;
+      const playtimeSeconds = typeof rawPlaytime === "number"
+        ? rawPlaytime
+        : typeof rawPlaytime === "string" && rawPlaytime.trim().length > 0
+          ? Number(rawPlaytime)
+          : undefined;
+      return playtimeSeconds !== undefined && Number.isFinite(playtimeSeconds) && playtimeSeconds >= 0
+        ? Math.trunc(playtimeSeconds)
+        : undefined;
     },
 
     async loadAchievementDistribution(config, gameId) {
