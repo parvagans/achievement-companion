@@ -502,7 +502,7 @@ function DeckyProviderFullScreenSession({
     }
 
     const frame = ownerWindow.requestAnimationFrame(() => {
-      const firstControl = root.querySelector<HTMLElement>("input, .Panel.Focusable[role='button']");
+      const firstControl = root.querySelector<HTMLElement>("[data-settings-section-pill], input, .Panel.Focusable[role='button']");
       takeDeckySteamGamepadFocus(firstControl);
     });
 
@@ -616,6 +616,7 @@ function DeckyProviderFullScreenSession({
             onBack={exitSession}
             inProviderSwitcher
             onRebuildSubsetIndex={clearDeckyRetroAchievementsRelatedGameIndex}
+            onOpenExternalUrl={(url) => DeckyNavigation.NavigateToExternalWeb(url)}
           />
         </div>
       : null}
@@ -781,7 +782,7 @@ function DeckyFullScreenSettingsRoute(): JSX.Element {
     const ownerWindow = root?.ownerDocument.defaultView;
     if (root === null || ownerWindow === null || ownerWindow === undefined) return;
     const frame = ownerWindow.requestAnimationFrame(() => {
-      const firstControl = root.querySelector<HTMLElement>("input, .Panel.Focusable[role='button']");
+      const firstControl = root.querySelector<HTMLElement>("[data-settings-section-pill], input, .Panel.Focusable[role='button']");
       takeDeckySteamGamepadFocus(firstControl);
     });
     return () => ownerWindow.cancelAnimationFrame(frame);
@@ -804,7 +805,7 @@ function DeckyFullScreenSettingsRoute(): JSX.Element {
         onOpenExternalUrl={(url) => {
           DeckyNavigation.NavigateToExternalWeb(url);
         }}
-        /> : <div ref={retroAchievementsRootRef} data-provider-settings-retroachievements="true"><DeckyRetroAchievementsProviderSettingsPage providerId="retroachievements" onBack={returnFromSettings} inProviderSwitcher onRebuildSubsetIndex={clearDeckyRetroAchievementsRelatedGameIndex} /></div>}
+        /> : <div ref={retroAchievementsRootRef} data-provider-settings-retroachievements="true"><DeckyRetroAchievementsProviderSettingsPage providerId="retroachievements" onBack={returnFromSettings} inProviderSwitcher onRebuildSubsetIndex={clearDeckyRetroAchievementsRelatedGameIndex} onOpenExternalUrl={(url) => DeckyNavigation.NavigateToExternalWeb(url)} /></div>}
       <DeckyFullScreenFooterOverlay
         ariaLabel="Provider settings navigation"
         activeNavigationItemId={activeProvider}
