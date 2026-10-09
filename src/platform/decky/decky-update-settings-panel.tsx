@@ -53,7 +53,7 @@ function UpdateAction({
       padding: "8px 12px",
       border: `1px solid ${steamTheme.color.borderStrong}`,
       borderRadius: steamTheme.radius.small,
-      background: steamTheme.surface.interactive,
+      background: steamTheme.surface.contentStat,
       color: steamTheme.color.textPrimary,
       fontSize: steamTheme.type.fullscreen.body,
       fontWeight: steamTheme.type.weight.strong,
@@ -128,7 +128,7 @@ export function DeckyUpdateSettingsPanel({ onGamepadDirection }: DeckyUpdateSett
       />
     </div>
     <div data-achievement-companion-update-variable-content style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto", scrollPadding: "5px 0", marginTop: 5 }}>
-      {developerMode ? <div style={{ padding: 7, border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.small, background: steamTheme.surface.interactive }}>
+      {developerMode ? <div style={{ padding: 7, border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.small, background: steamTheme.surface.contentStat }}>
         <div style={{ color: steamTheme.color.accent, fontSize: steamTheme.type.fullscreen.metadata, fontWeight: steamTheme.type.weight.strong }}>DEVELOPER UPDATES</div>
         <UpdateToggle
           label="Local update source"

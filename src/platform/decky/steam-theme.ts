@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { achievementCompanionQamTheme as qamTheme, getQamFocusStylesCss } from "./decky-qam-theme";
 
-/** Steam visual roles only. Shared components must opt in; RA retains its defaults. */
+/** Steam semantic roles layered on the provider-neutral visual system. */
 export const steamTheme = {
   color: {
     ...qamTheme.color,
@@ -40,12 +40,12 @@ export const steamRecipes = {
     return { fontFamily: steamTheme.type.fontFamily, fontSize: steamTheme.type[density][role], fontWeight: role === "hero" || role === "heading" || role === "title" ? 700 : 400, lineHeight: 1.3, color: role === "metadata" || role === "caption" ? steamTheme.color.textSecondary : steamTheme.color.textPrimary };
   },
   card(density: SteamDensity, variant: SteamSurface = "card"): CSSProperties {
-    return { background: steamTheme.surface[variant], border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.large, padding: steamTheme.density[density].cardPadding, color: steamTheme.color.textPrimary };
+    return { background: variant === "raised" ? steamTheme.surface.contentStat : steamTheme.surface.contentCard, border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.large, padding: steamTheme.density[density].cardPadding, color: steamTheme.color.textPrimary };
   },
   metricTile(density: SteamDensity): CSSProperties { return steamRecipes.card(density, "raised"); },
   interactiveRow(density: SteamDensity): CSSProperties { return { ...steamRecipes.card(density, "interactive"), display: "flex", alignItems: "center", gap: steamTheme.density[density].rowGap }; },
-  action(density: SteamDensity, primary = false): CSSProperties { return { ...steamRecipes.text(density, "body"), minHeight: steamTheme.density[density].controlHeight, padding: `0 ${steamTheme.space.md}px`, borderRadius: steamTheme.radius.pill, border: `1px solid ${primary ? steamTheme.color.borderStrong : steamTheme.color.borderSubtle}`, background: primary ? steamTheme.surface.primaryAction : steamTheme.surface.secondaryAction, fontWeight: 700 }; },
-  filter(density: SteamDensity, selected = false): CSSProperties { return { ...steamRecipes.action(density), background: selected ? steamTheme.surface.selected : steamTheme.surface.secondaryAction, borderColor: selected ? steamTheme.color.borderStrong : steamTheme.color.borderSubtle }; },
+  action(density: SteamDensity, primary = false): CSSProperties { return { ...steamRecipes.text(density, "body"), minHeight: steamTheme.density[density].controlHeight, padding: `0 ${steamTheme.space.md}px`, borderRadius: steamTheme.radius.pill, border: `1px solid ${primary ? steamTheme.color.borderStrong : steamTheme.color.borderSubtle}`, background: primary ? steamTheme.surface.primaryAction : steamTheme.surface.contentStat, fontWeight: 700 }; },
+  filter(density: SteamDensity, selected = false): CSSProperties { return { ...steamRecipes.action(density), background: selected ? steamTheme.surface.selectedContentCard : steamTheme.surface.contentCard, borderColor: selected ? steamTheme.color.borderStrong : steamTheme.color.borderSubtle }; },
   badge(color: string = steamTheme.color.accent): CSSProperties { return { color, border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.pill, padding: "2px 8px", fontSize: steamTheme.type.compact.caption, fontWeight: 600 }; },
   progressTrack: { background: "rgba(143,169,189,.18)", borderRadius: 999, overflow: "hidden" } satisfies CSSProperties,
   progressFill: { completion: "linear-gradient(90deg,#159ccb,#2bc3f2)", xp: "linear-gradient(90deg,#3a96df,#76c7ff)" },
@@ -68,9 +68,12 @@ export function getSteamFocusStylesCss(): string {
     background: ${steamTheme.focus.background} !important;
     box-shadow: ${steamTheme.focus.shadow} !important;
   }
+  [data-ac-steam-theme] .achievement-companion-provider-settings-action-row:is(.achievement-companion-provider-settings-action-row--focused,.gpfocus,.gpfocuswithin,:focus,:focus-within) {
+    background: ${steamTheme.surface.focusedContentCard} !important;
+  }
   [data-ac-steam-theme] .achievement-companion-achievement-filter-option.achievement-companion-achievement-filter-option--selected {
     border-color: ${steamTheme.color.borderStrong};
-    background: ${steamTheme.surface.selected};
+    background: ${steamTheme.surface.selectedContentCard};
   }
   [data-ac-steam-theme] .achievement-companion-achievement-filter-option:is(.achievement-companion-achievement-filter-option--focused,.gpfocus,.gpfocuswithin,:focus,:focus-within) {
     border-color: ${steamTheme.focus.border};
@@ -81,9 +84,10 @@ export function getSteamFocusStylesCss(): string {
 export function getSteamActionStylesCss(): string {
   const chip = '[data-ac-steam-theme] .achievement-companion-fullscreen-chip';
   const focused = ':is(.achievement-companion-fullscreen-chip--focused,.gpfocus,.gpfocuswithin,:focus,:focus-within)';
-  return `${chip} { background: ${steamTheme.surface.secondaryAction} !important; color: ${steamTheme.color.textPrimary} !important; }
-  ${chip}.achievement-companion-fullscreen-chip--selected { background: ${steamTheme.surface.selected} !important; }
+  return `${chip} { background: ${steamTheme.surface.contentStat} !important; color: ${steamTheme.color.textPrimary} !important; }
+  ${chip}.achievement-companion-fullscreen-chip--selected { background: ${steamTheme.surface.selectedContentStat} !important; }
   ${chip}.achievement-companion-fullscreen-chip-primary { background: ${steamTheme.surface.primaryAction} !important; }
-  ${chip}${focused} { border-color: ${steamTheme.focus.border} !important; background: ${steamTheme.focus.background} !important; box-shadow: ${steamTheme.focus.shadow} !important; }
+  ${chip}${focused} { border-color: ${steamTheme.focus.border} !important; background: ${steamTheme.surface.focusedContentStat} !important; box-shadow: ${steamTheme.focus.shadow} !important; }
+  ${chip}.achievement-companion-fullscreen-chip--selected${focused} { background: ${steamTheme.surface.focusedSelectedContentStat} !important; }
   ${chip}.achievement-companion-fullscreen-chip-primary${focused} { border-color: ${steamTheme.focus.primaryBorder} !important; background: ${steamTheme.focus.primaryBackground} !important; box-shadow: ${steamTheme.focus.primaryShadow} !important; }`;
 }

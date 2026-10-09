@@ -1,6 +1,7 @@
 import { useEffect, useRef, type CSSProperties } from "react";
 import infoIconUrl from "./assets/info.svg";
 import { steamRecipes, steamTheme } from "./steam-theme";
+import { achievementCompanionQamTheme as sharedTheme } from "./decky-qam-theme";
 
 const FULL_SCREEN_LOADING_FONT_FAMILY = '"Motiva Sans", "Noto Sans", system-ui, sans-serif';
 const FULL_SCREEN_LOADING_TITLE_FONT_SIZE = "clamp(1.25rem, 2.4vw, 2rem)";
@@ -28,8 +29,7 @@ export function getDeckyFullScreenLoadingPageStyle(): CSSProperties {
     overflow: "hidden",
     color: "rgba(245, 250, 255, 0.98)",
     fontFamily: FULL_SCREEN_LOADING_FONT_FAMILY,
-    background:
-      "radial-gradient(ellipse at 79% 13%, rgba(218, 70, 241, 0.28), transparent 37%), radial-gradient(ellipse at 20% 82%, rgba(27, 161, 255, 0.25), transparent 42%), radial-gradient(ellipse at 50% 34%, rgba(0, 224, 239, 0.16), transparent 40%), linear-gradient(135deg, #06111e 0%, #0a2855 48%, #251148 100%)",
+    background: sharedTheme.surface.page,
   };
 }
 
@@ -65,7 +65,7 @@ function getLoadingSpinnerStyle(): CSSProperties {
     width: "clamp(92px, 15vw, 132px)",
     height: "clamp(92px, 15vw, 132px)",
     borderRadius: "50%",
-    background: "rgba(7, 25, 40, 0.96)",
+    background: sharedTheme.surface.contentStat,
     boxShadow: "0 0 32px rgba(25, 178, 241, 0.2), inset 0 0 0 1px rgba(151, 225, 255, 0.16)",
   };
 }
@@ -88,7 +88,7 @@ function getLoadingIconWellStyle(): CSSProperties {
     position: "absolute",
     inset: 9,
     borderRadius: "50%",
-    background: "radial-gradient(circle at 40% 30%, #112b42, #07131f 72%)",
+    background: sharedTheme.surface.contentCard,
     boxShadow: "inset 0 0 0 1px rgba(115, 192, 239, 0.18)",
   };
 }
@@ -125,7 +125,7 @@ function getLoadingInfoStyle(): CSSProperties {
     border: "1px solid rgba(72, 155, 222, 0.28)",
     borderRadius: 12,
     textAlign: "center",
-    background: "linear-gradient(135deg, rgba(17, 37, 57, 0.9), rgba(12, 27, 43, 0.78))",
+    background: sharedTheme.surface.contentStat,
   };
 }
 
@@ -211,7 +211,7 @@ export function DeckyFullScreenLoadingState({
         </div>
         <h1 style={getLoadingTitleStyle()}>{title}</h1>
         {!isError || !useSteamTheme ? <p style={{ margin: "-5px 0 0", color: useSteamTheme ? steamTheme.color.textSecondary : "#b8d8f3", fontSize: FULL_SCREEN_LOADING_BODY_FONT_SIZE, lineHeight: 1.2 }}>Preparing your data. This may take a few moments.</p> : null}
-        <div style={useSteamTheme ? { ...getLoadingInfoStyle(), ...steamRecipes.card("fullscreen", "raised"), display: "flex", alignItems: "center", justifyContent: "center", minHeight: 42 } : getLoadingInfoStyle()}>
+        <div style={getLoadingInfoStyle()}>
           <img alt="" aria-hidden="true" src={infoIconUrl} style={getLoadingInfoIconStyle()} />
           <p style={getLoadingInfoTextStyle()}>{description}</p>
         </div>

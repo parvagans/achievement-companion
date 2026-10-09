@@ -1,13 +1,11 @@
 import type { CSSProperties, FocusEventHandler, ReactNode } from "react";
 import { Focusable, type FocusableProps } from "@decky/ui";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
-import { raRecipes, raTheme } from "./ra-theme";
+import { steamRecipes, steamTheme } from "./steam-theme";
 
-function getCardStyle(themeVariant: "default" | "ra"): CSSProperties {
-  if (themeVariant === "ra") {
-    return { ...raRecipes.card("fullscreen", true), display: "flex", flexDirection: "column", gap: 8, width: "100%", minWidth: 0, padding: 10 };
-  }
+function getCardStyle(): CSSProperties {
   return {
+    ...steamRecipes.card("fullscreen"),
     display: "flex",
     flexDirection: "column",
     gap: 8,
@@ -15,16 +13,13 @@ function getCardStyle(themeVariant: "default" | "ra"): CSSProperties {
     minWidth: 0,
     boxSizing: "border-box",
     padding: 10,
-    borderRadius: 18,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.02))",
     boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 10px rgba(0, 0, 0, 0.18)",
   };
 }
 
-function getHeaderStyle(alignment: "center" | "left", themeVariant: "default" | "ra"): CSSProperties {
+function getHeaderStyle(alignment: "center" | "left"): CSSProperties {
   return {
-    color: themeVariant === "ra" ? raTheme.color.accent : "rgba(255, 255, 255, 0.6)",
+    color: steamTheme.color.textSecondary,
     fontSize: "0.8em",
     fontWeight: 800,
     letterSpacing: "0.12em",
@@ -94,12 +89,11 @@ export function DeckyFullScreenGameSpotlightCard({
   style,
   headerAlignment = "center",
   focusable = true,
-  themeVariant = "default",
   focusTargetId,
 }: DeckyFullScreenGameSpotlightCardProps): JSX.Element {
-  const cardStyle = { ...getCardStyle(themeVariant), ...style };
+  const cardStyle = { ...getCardStyle(), ...style };
   const content = <>
-    <div style={getHeaderStyle(headerAlignment, themeVariant)}>{title}</div>
+    <div style={getHeaderStyle(headerAlignment)}>{title}</div>
     {children}
   </>;
 

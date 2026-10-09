@@ -52,7 +52,7 @@ function gridStyle(): CSSProperties {
 function panelStyle(area: string): CSSProperties {
   return {
     ...raRecipes.card("fullscreen", true),
-    background: raTheme.surface.gameOverviewCard,
+    background: raTheme.surface.contentCard,
     gridArea: area,
     display: "flex",
     flexDirection: "column",
@@ -69,7 +69,7 @@ function panelStyle(area: string): CSSProperties {
 function systemsPanelStyle(): CSSProperties {
   return {
     ...raRecipes.card("fullscreen", true),
-    background: raTheme.surface.gameOverviewCard,
+    background: raTheme.surface.contentCard,
     gridArea: "systems",
     alignSelf: "start",
     display: "flex",
@@ -141,7 +141,7 @@ function systemCardStyle(focused: boolean): CSSProperties {
     padding: "8px 10px",
     border: `1px solid ${raTheme.color.borderSubtle}`,
     borderRadius: raTheme.radius.medium,
-    background: focused ? raTheme.focus.compactBackground : raTheme.surface.gameOverviewStat,
+    background: focused ? raTheme.surface.focusedContentStat : raTheme.surface.contentStat,
     borderColor: focused ? raTheme.focus.compactBorder : raTheme.color.borderSubtle,
     boxShadow: focused ? raTheme.focus.compactShadow : "none",
     outline: "none",

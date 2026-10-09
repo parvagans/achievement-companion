@@ -36,6 +36,7 @@ import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements
 import { DeckySteamFullScreenActivityDashboard } from "./decky-steam-full-screen-activity-dashboard";
 import type { SteamActivityCalendarWeeks } from "./decky-steam-activity-calendar-model";
 import { useDeckySettings } from "./decky-settings";
+import { achievementCompanionQamTheme as sharedTheme } from "./decky-qam-theme";
 
 export interface DeckyFullScreenAchievementHistoryPageProps {
   readonly providerId: string | undefined;
@@ -107,8 +108,7 @@ function getHeroCardStyle(): CSSProperties {
     padding: 18,
     borderRadius: 20,
     border: "1px solid rgba(255, 255, 255, 0.08)",
-    background:
-      "linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.03))",
+    background: sharedTheme.surface.contentCard,
   };
 }
 
@@ -238,7 +238,7 @@ function getStatCardStyle(): CSSProperties {
     padding: "11px 12px",
     borderRadius: 14,
     border: "1px solid rgba(255, 255, 255, 0.06)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    background: sharedTheme.surface.contentStat,
     minWidth: 0,
     textAlign: "center",
   };
@@ -277,8 +277,7 @@ function getBrowserCardStyle(): CSSProperties {
     padding: 16,
     borderRadius: 18,
     border: "1px solid rgba(255, 255, 255, 0.08)",
-    background:
-      "linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.026))",
+    background: sharedTheme.surface.contentCard,
   };
 }
 
@@ -320,8 +319,7 @@ function getAchievementRowStyle(): CSSProperties {
     padding: "11px 12px",
     borderRadius: 16,
     border: "1px solid rgba(255, 255, 255, 0.08)",
-    background:
-      "linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.026))",
+    background: sharedTheme.surface.contentStat,
     boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 8px rgba(0, 0, 0, 0.15)",
   };
 }
@@ -557,10 +555,10 @@ function AchievementHistoryRow({
         ? "rgba(214, 221, 232, 0.72)"
         : "rgba(255, 255, 255, 0.12)",
     background: isHardcore
-      ? "linear-gradient(180deg, rgba(214, 178, 74, 0.08), rgba(214, 178, 74, 0.03))"
+      ? `linear-gradient(180deg, rgba(214, 178, 74, 0.08), rgba(214, 178, 74, 0.03)), ${sharedTheme.surface.contentStat}`
       : isSoftcore
-        ? "linear-gradient(180deg, rgba(214, 221, 232, 0.07), rgba(214, 221, 232, 0.03))"
-        : "rgba(255, 255, 255, 0.03)",
+        ? `linear-gradient(180deg, rgba(214, 221, 232, 0.07), rgba(214, 221, 232, 0.03)), ${sharedTheme.surface.contentStat}`
+        : sharedTheme.surface.contentStat,
     ...getAchievementHistoryRowFocusStyle(isFocused),
   };
 

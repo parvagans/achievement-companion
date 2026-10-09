@@ -68,7 +68,7 @@ export function DeckyRetroAchievementsCommunityStats({
         gap: 6,
         padding: 8,
         borderRadius: 14,
-        background: raTheme.surface.gameOverviewCard,
+        background: raTheme.surface.contentCard,
         height: "100%",
         justifyContent: "space-between",
       }}

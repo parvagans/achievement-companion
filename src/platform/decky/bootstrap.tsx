@@ -275,9 +275,7 @@ function getChooserProviderCardStyle(
           : "rgba(125, 190, 255, 0.7)"
         : "rgba(86, 137, 173, 0.24)"
     }`,
-    background: isFocused
-      ? "linear-gradient(135deg, rgba(7, 78, 129, 0.94), rgba(10, 40, 62, 0.98))"
-      : "linear-gradient(135deg, rgba(17, 38, 54, 0.98), rgba(11, 27, 39, 0.98))",
+    background: isFocused ? steamTheme.surface.focusedContentCard : steamTheme.surface.contentCard,
     boxShadow: isFocused
       ? tone === "setup"
         ? "0 0 0 1px rgba(245, 189, 82, 0.5), 0 0 14px rgba(245, 189, 82, 0.28)"
@@ -299,7 +297,7 @@ function getChooserProviderCardSettingsIconStyle(): CSSProperties {
     display: "grid",
     placeItems: "center",
     borderRadius: 10,
-    background: "rgba(102, 136, 160, 0.16)",
+    background: steamTheme.surface.contentStat,
     color: "rgba(187, 211, 229, 0.9)",
     fontSize: 24,
     lineHeight: 1,
@@ -342,7 +340,7 @@ function getChooserProviderCardIconFrameStyle(tone: ProviderLauncherTone): CSSPr
     overflow: "hidden",
     borderRadius: 10,
     border: `1px solid ${accentColor}`,
-    background: "rgba(255, 255, 255, 0.06)",
+    background: steamTheme.surface.contentStat,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -423,7 +421,7 @@ function getGamePageBadgeSettingsDisclosureStyle(
     padding: `0 ${steamTheme.space.md}px`,
     boxSizing: "border-box",
     color: steamTheme.color.textPrimary,
-    background: focused ? steamTheme.focus.compactBackground : steamTheme.surface.compactRow,
+    background: focused ? steamTheme.surface.focusedContentCard : steamTheme.surface.contentCard,
     border: `1px solid ${focused ? steamTheme.focus.compactBorder : steamTheme.color.borderSubtle}`,
     borderRadius: steamTheme.radius.medium,
     boxShadow: focused ? steamTheme.focus.compactShadow : "none",

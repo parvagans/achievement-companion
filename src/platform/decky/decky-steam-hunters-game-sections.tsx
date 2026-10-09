@@ -5,6 +5,7 @@ import type { DeckySteamHuntersGameViewModel } from "./decky-steam-hunters-view-
 import { isSteamHuntersSetFullyObtainable } from "./decky-steam-hunters-set-status";
 import { formatSteamHuntersCompletionDuration, formatSteamHuntersPercentage } from "./decky-steam-hunters-presentation";
 import { DeckySteamBrokenIcon, DeckySteamConditionalIcon, DeckySteamDlcIcon, DeckySteamUnobtainableIcon } from "./decky-steam-icons";
+import { steamTheme } from "./steam-theme";
 
 export const STEAM_HUNTERS_COMMUNITY_SECTION_FOCUS_TARGET = "steam-community-section";
 
@@ -123,7 +124,7 @@ function getCommunityInsightMetricStyle(): CSSProperties {
     padding: "10px 8px",
     borderRadius: 14,
     border: "1px solid rgba(68, 184, 255, 0.22)",
-    background: "linear-gradient(180deg, rgba(10, 40, 60, 0.72), rgba(6, 25, 40, 0.68))",
+    background: steamTheme.surface.contentStat,
     boxSizing: "border-box",
     textAlign: "center",
   };
@@ -186,7 +187,7 @@ function CommunityRarityDistribution({
       title={<span style={getCommunityInsightsTitleStyle()}>Achievement Rarity Distribution</span>}
       focusable={false}
       headerAlignment="left"
-      style={{ gap: 14, padding: 14, borderColor: "rgba(68, 184, 255, 0.2)" }}
+      style={{ gap: 14, padding: 14, borderColor: "rgba(68, 184, 255, 0.2)", background: steamTheme.surface.contentCard }}
     >
       <div aria-label="Achievement rarity distribution" style={getRarityBarStyle()}>
         {entries.map((entry) => (
@@ -262,7 +263,7 @@ export function DeckySteamHuntersCommunitySection({
           title={<span style={getCommunityInsightsTitleStyle()}>Community Insights (SteamHunters)</span>}
           focusable={sectionEntryFocusTarget}
           headerAlignment="left"
-          style={{ gap: 12, padding: 14, borderColor: "rgba(68, 184, 255, 0.2)" }}
+          style={{ gap: 12, padding: 14, borderColor: "rgba(68, 184, 255, 0.2)", background: steamTheme.surface.contentCard }}
           {...(sectionEntryFocusTarget ? { focusTargetId: STEAM_HUNTERS_COMMUNITY_SECTION_FOCUS_TARGET } : {})}
         >
           <div style={getCommunityInsightsGridStyle()}>
@@ -283,7 +284,7 @@ export function DeckySteamHuntersCommunitySection({
       {...(sectionEntryFocusTarget
         ? { focusTargetId: STEAM_HUNTERS_COMMUNITY_SECTION_FOCUS_TARGET }
         : {})}
-      {...(compact ? { style: getCompactDashboardCardStyle(fillHeight) } : {})}
+      style={{ ...(compact ? getCompactDashboardCardStyle(fillHeight) : {}), background: steamTheme.surface.contentCard }}
     >
       <DeckyFullScreenGameProgressStatGrid columns={2} gap={compact ? 6 : 8}>
         {summary.startedPlayers !== undefined ? (
@@ -332,7 +333,7 @@ export function DeckySteamHuntersCompletionHealthSection({
     <DeckyFullScreenGameSpotlightCard
       title={<SteamHuntersCardTitle title={title} />}
       focusable={false}
-      style={getCompactDashboardCardStyle()}
+      style={{ ...getCompactDashboardCardStyle(), background: steamTheme.surface.contentCard }}
     >
       <div style={getAchievementSetStatusContentStyle()}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: presentation.color, fontSize: "1.02em", fontWeight: 800 }}>
@@ -395,7 +396,7 @@ export function DeckySteamHuntersSetDetailsSection({
     <DeckyFullScreenGameSpotlightCard
       title={<SteamHuntersCardTitle title="Set Details" />}
       focusable={false}
-      style={getCompactDashboardCardStyle()}
+      style={{ ...getCompactDashboardCardStyle(), background: steamTheme.surface.contentCard }}
     >
       <DeckyFullScreenGameProgressStatGrid columns={values.length} gap={6}>
         {values}

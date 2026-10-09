@@ -260,6 +260,7 @@ function getIconStyle(size: number, tone: SteamCompactIconTone = "blue"): CSSPro
 function getProfileCardStyle(): CSSProperties {
   return {
     ...steamRecipes.card("compact", "raised"),
+    background: steamTheme.surface.contentCard,
     display: "flex",
     flexDirection: "column",
     gap: 7,

@@ -25,14 +25,14 @@ export function getSteamCompactActionStyle(
     padding: 0,
     border: `1px solid ${steamTheme.color.borderSubtle}`,
     borderRadius: steamTheme.radius.medium,
-    background: steamTheme.surface.compactRow,
+    background: steamTheme.surface.contentCard,
     boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.025)",
     boxSizing: "border-box",
     color: steamTheme.color.textPrimary,
     cursor: "pointer",
     outline: "none",
     transition: "background 120ms ease, border-color 120ms ease, box-shadow 120ms ease",
-    ...(isFocused ? getQamCompactFocusControlStyle() : {}),
+    ...(isFocused ? { ...getQamCompactFocusControlStyle(), background: steamTheme.surface.focusedContentCard } : {}),
   };
 }
 

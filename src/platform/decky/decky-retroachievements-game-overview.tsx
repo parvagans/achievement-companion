@@ -31,7 +31,7 @@ function getCompletionTone(
 function getIdentityStyle(): CSSProperties {
   return {
     ...steamRecipes.card("fullscreen", "raised"),
-    background: raTheme.surface.gameOverviewCard,
+    background: raTheme.surface.contentCard,
     display: "flex",
     flexDirection: "column",
     justifyContent: "flex-start",

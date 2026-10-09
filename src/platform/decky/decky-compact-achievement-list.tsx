@@ -83,6 +83,9 @@ function getRowStyle(row: CompactAchievementRowViewModel, isFocused: boolean, is
   if (row.metadataPlacement === "rail") {
     return {
       ...(isSteam ? steamRecipes.card("compact", "raised") : raRecipes.compactAchievementRow(row.tone, isFocused)),
+      background: isSteam
+        ? isFocused ? steamTheme.surface.focusedContentCard : steamTheme.surface.contentCard
+        : isFocused ? raTheme.surface.focusedContentCard : raTheme.surface.contentCard,
       ...(isSteam && isFocused ? { borderColor: steamTheme.color.borderStrong, boxShadow: steamTheme.focus.shadow } : {}),
       display: "grid",
       gridTemplateColumns: "40px minmax(0, 1fr) minmax(42px, auto)",
@@ -106,7 +109,7 @@ function getRowStyle(row: CompactAchievementRowViewModel, isFocused: boolean, is
         ? raTheme.surface.softcore
         : row.stateIndicator === "locked"
           ? raTheme.surface.locked
-          : raTheme.surface.raised;
+          : "rgba(0, 0, 0, 0)";
     return {
       ...raRecipes.card("compact", true),
       display: "grid",
@@ -117,7 +120,7 @@ function getRowStyle(row: CompactAchievementRowViewModel, isFocused: boolean, is
       padding: "9px 9px",
       border: `1px solid ${isFocused ? raTheme.focus.border : state?.color ?? raTheme.color.borderSubtle}`,
       borderLeftWidth: 3,
-      background: stateSurface,
+      background: `linear-gradient(180deg, ${stateSurface}, ${stateSurface}), ${isFocused ? raTheme.surface.focusedContentCard : raTheme.surface.contentCard}`,
       boxShadow: isFocused ? raTheme.focus.shadow : "inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 2px 8px rgba(0, 0, 0, 0.16)",
     };
   }
@@ -141,8 +144,8 @@ function getRowStyle(row: CompactAchievementRowViewModel, isFocused: boolean, is
     border: `1px solid ${accent}`,
     borderLeftWidth: 3,
     borderRadius: 12,
-    background: "linear-gradient(180deg, rgba(12, 36, 53, 0.96), rgba(9, 28, 43, 0.96))",
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 2px 8px rgba(0, 0, 0, 0.16)",
+    background: isFocused ? steamTheme.surface.focusedContentCard : steamTheme.surface.contentCard,
+    boxShadow: isFocused ? steamTheme.focus.shadow : "inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 2px 8px rgba(0, 0, 0, 0.16)",
   };
 }
 
@@ -257,7 +260,7 @@ function getEmptyStyle(isSteam: boolean): CSSProperties {
     fontSize: "0.78em",
     lineHeight: 1.25,
     textAlign: "center",
-    background: isSteam ? "rgba(255, 255, 255, 0.03)" : raTheme.surface.locked,
+    background: isSteam ? steamTheme.surface.contentStat : raTheme.surface.contentStat,
   };
 }
 

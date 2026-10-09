@@ -40,6 +40,7 @@ import usersIconUrl from "./assets/users.svg";
 import { DeckyRetroAchievementsPointsIcon } from "./decky-retroachievements-points-icon";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import { raTheme } from "./ra-theme";
+import { achievementCompanionQamTheme as sharedTheme } from "./decky-qam-theme";
 import { useDeckySettings } from "./decky-settings";
 import { projectRetroAchievementsFullScreenAchievements } from "./decky-retroachievements-full-screen-achievement-data";
 import { DeckyFocusStyles } from "./decky-focus-styles";
@@ -80,7 +81,7 @@ function getAchievementPanelStyle(): CSSProperties {
     border: `1px solid ${raTheme.color.borderStrong}`,
     borderLeft: `4px solid ${raTheme.color.accentStrong}`,
     borderRadius: raTheme.radius.panel,
-    background: raTheme.surface.raised,
+    background: sharedTheme.surface.contentCard,
     boxShadow: "inset 0 1px 0 rgba(196, 234, 255, 0.08), 0 18px 46px rgba(0, 0, 0, 0.26)",
   };
 }
@@ -115,7 +116,7 @@ function getBadgeFrameStyle(isUnlocked: boolean, isSteam: boolean): CSSPropertie
     overflow: "hidden",
     borderRadius: 18,
     border: isUnlocked ? "2px solid rgba(242, 190, 55, 0.94)" : isSteam ? "1px solid rgba(150, 174, 192, 0.28)" : `1px solid ${raTheme.color.borderSubtle}`,
-    background: isSteam ? "linear-gradient(145deg, rgba(17, 50, 73, 0.92), rgba(7, 24, 38, 0.96))" : raTheme.surface.raised,
+    background: sharedTheme.surface.contentStat,
     boxShadow: isUnlocked
       ? "inset 0 1px 0 rgba(255, 243, 190, 0.13), 0 0 22px rgba(240, 180, 36, 0.16)"
       : isSteam ? "inset 0 1px 0 rgba(255, 255, 255, 0.06)" : "inset 0 1px 0 rgba(255, 255, 255, 0.06)",
@@ -186,7 +187,7 @@ function getMetaPillStyle(tone: "default" | "success" = "default"): CSSPropertie
     boxSizing: "border-box",
     borderRadius: 999,
     border: `1px solid ${success ? "rgba(64, 231, 141, 0.36)" : raTheme.color.borderSubtle}`,
-    background: success ? raTheme.surface.success : raTheme.surface.interactive,
+    background: success ? raTheme.surface.success : sharedTheme.surface.contentStat,
     color: success ? raTheme.color.success : raTheme.color.textSecondary,
     fontSize: "0.82em",
     fontWeight: 750,
@@ -225,7 +226,7 @@ function getGameArtworkFrameStyle(isSteam: boolean): CSSProperties {
     overflow: "hidden",
     borderRadius: 16,
     border: isSteam ? "1px solid rgba(108, 174, 220, 0.28)" : `1px solid ${raTheme.color.borderSubtle}`,
-    background: isSteam ? "linear-gradient(145deg, rgba(12, 34, 51, 0.96), rgba(5, 17, 28, 0.96))" : raTheme.surface.card,
+    background: sharedTheme.surface.contentStat,
     boxShadow: "inset 0 1px 0 rgba(228, 244, 255, 0.06), 0 8px 22px rgba(0, 0, 0, 0.2)",
   };
 }
@@ -247,7 +248,7 @@ function getGameArtworkFallbackStyle(isSteam: boolean): CSSProperties {
     justifyContent: "center",
     width: "100%",
     height: "100%",
-    background: isSteam ? "linear-gradient(145deg, rgba(27, 70, 99, 0.84), rgba(8, 24, 39, 0.98))" : raTheme.surface.raised,
+    background: sharedTheme.surface.contentStat,
     color: isSteam ? "rgba(191, 221, 246, 0.88)" : raTheme.color.accent,
     fontSize: "1.15em",
     fontWeight: 800,
@@ -294,7 +295,7 @@ function getMetricCardStyle(isSteam: boolean): CSSProperties {
     boxSizing: "border-box",
     borderRadius: 16,
     border: isSteam ? "1px solid rgba(90, 157, 203, 0.2)" : `1px solid ${raTheme.color.borderSubtle}`,
-    background: isSteam ? "linear-gradient(145deg, rgba(11, 39, 59, 0.86), rgba(7, 26, 41, 0.9))" : raTheme.surface.card,
+    background: sharedTheme.surface.contentStat,
     boxShadow: "inset 0 1px 0 rgba(205, 235, 255, 0.045)",
     minWidth: 0,
   };
@@ -525,9 +526,7 @@ function DeckyFullScreenAchievementContent({
       };
 
   return (
-    <article aria-label={achievement.title + " achievement details"} style={isSteamProvider
-      ? { ...getAchievementPanelStyle(), ...steamRecipes.card("fullscreen", "raised"), borderLeft: "4px solid " + steamTheme.color.accent }
-      : getAchievementPanelStyle()}>
+    <article aria-label={achievement.title + " achievement details"} style={getAchievementPanelStyle()}>
       <div style={getHeroStyle()}>
         <div style={getAchievementIdentityStyle()}>
           <div style={getBadgeFrameStyle(achievement.isUnlocked, isSteamProvider)}>

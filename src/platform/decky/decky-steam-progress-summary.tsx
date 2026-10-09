@@ -2,7 +2,7 @@ import type { CSSProperties } from "react";
 import { DeckyCompletionProgressBar } from "./decky-completion-progress-bar";
 import { DeckyFullScreenGameProgressStat } from "./decky-full-screen-game-progress-stat";
 import { DeckyFullScreenGameSpotlightCard } from "./decky-full-screen-game-spotlight-card";
-import { steamRecipes } from "./steam-theme";
+import { steamRecipes, steamTheme } from "./steam-theme";
 
 function getStatsGridStyle(): CSSProperties {
   return {
@@ -27,6 +27,7 @@ export interface DeckySteamProgressSummaryProps {
 function getProgressCardStyle(fillHeight: boolean): CSSProperties {
   return {
     ...steamRecipes.card("fullscreen", "raised"),
+    background: steamTheme.surface.contentCard,
     gap: 6,
     padding: 8,
     ...(fillHeight ? { height: "100%", justifyContent: "space-between" } : {}),

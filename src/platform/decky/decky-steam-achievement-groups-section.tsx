@@ -17,6 +17,7 @@ import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
+import { steamTheme } from "./steam-theme";
 
 const STEAM_GROUP_NAVIGATION_SOUND_URL = "/sounds/deck_ui_navigation.wav";
 
@@ -35,8 +36,8 @@ function getGroupCardStyle(isFocused: boolean, isExpanded: boolean): CSSProperti
     borderRadius: 16,
     boxSizing: "border-box",
     background: isExpanded
-      ? "linear-gradient(180deg, rgba(12, 61, 95, 0.68), rgba(8, 31, 48, 0.78))"
-      : "linear-gradient(180deg, rgba(13, 38, 55, 0.84), rgba(7, 25, 37, 0.88))",
+      ? `linear-gradient(180deg, rgba(12, 61, 95, 0.2), rgba(8, 31, 48, 0.18)), ${isFocused ? steamTheme.surface.focusedContentCard : steamTheme.surface.contentCard}`
+      : isFocused ? steamTheme.surface.focusedContentCard : steamTheme.surface.contentCard,
     boxShadow: isFocused
       ? "0 0 0 2px rgba(0, 169, 255, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.1)"
       : "inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 10px rgba(0, 0, 0, 0.16)",

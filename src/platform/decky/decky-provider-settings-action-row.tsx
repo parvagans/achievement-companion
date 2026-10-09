@@ -12,6 +12,7 @@ import {
   DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS,
 } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
+import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 
 export interface DeckyProviderSettingsActionRowProps {
   readonly label: string;
@@ -49,8 +50,8 @@ function getRowStyle(disabled: boolean, focused: boolean): CSSProperties {
     minWidth: 0,
     padding: "12px 14px",
     borderRadius: 18,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.028))",
+    border: `1px solid ${qamTheme.color.borderSubtle}`,
+    background: qamTheme.surface.contentCard,
     boxSizing: "border-box",
     cursor: disabled ? "default" : "pointer",
     opacity: disabled ? 0.62 : 1,
@@ -58,11 +59,9 @@ function getRowStyle(disabled: boolean, focused: boolean): CSSProperties {
     scrollMarginBlock: 10,
     ...(focused
       ? {
-          borderColor: "rgba(105, 176, 255, 0.8)",
-          background:
-            "linear-gradient(180deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.048))",
-          boxShadow:
-            "0 0 0 2px rgba(73, 155, 255, 0.72), 0 0 18px rgba(39, 124, 226, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.14)",
+          borderColor: qamTheme.focus.border,
+          background: qamTheme.surface.focusedContentCard,
+          boxShadow: qamTheme.focus.shadow,
         }
       : {}),
   };
@@ -114,7 +113,7 @@ function getActionPillStyle(focused: boolean): CSSProperties {
     padding: "6px 10px",
     borderRadius: 999,
     border: "1px solid rgba(255, 255, 255, 0.14)",
-    background: "rgba(255, 255, 255, 0.055)",
+    background: qamTheme.surface.contentStat,
     color: "rgba(255, 255, 255, 0.9)",
     fontSize: "0.78em",
     fontWeight: 800,
@@ -128,9 +127,8 @@ function getActionPillStyle(focused: boolean): CSSProperties {
       "background 120ms ease, border-color 120ms ease, box-shadow 120ms ease, color 120ms ease",
     ...(focused
       ? {
-          borderColor: "rgba(105, 176, 255, 0.82)",
-          background:
-            "linear-gradient(180deg, rgba(74, 138, 204, 0.44), rgba(34, 79, 124, 0.36))",
+          borderColor: qamTheme.focus.border,
+          background: qamTheme.surface.focusedContentStat,
           color: "#fff",
           boxShadow:
             "0 0 0 1px rgba(73, 155, 255, 0.72), 0 0 12px rgba(39, 124, 226, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.14)",

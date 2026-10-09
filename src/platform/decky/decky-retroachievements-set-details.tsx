@@ -35,7 +35,7 @@ export function DeckyRetroAchievementsSetDetails({
     <DeckyFullScreenGameSpotlightCard
       title="Set Details"
       focusable={false}
-      style={{ gap: 6, padding: 8, borderRadius: 14, background: raTheme.surface.gameOverviewCard }}
+      style={{ gap: 6, padding: 8, borderRadius: 14, background: raTheme.surface.contentCard }}
     >
       <div style={getGridStyle()}>
         {details.map((detail) => {

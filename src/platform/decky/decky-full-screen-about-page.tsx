@@ -30,7 +30,7 @@ function AboutLink({ title, icon, url, onOpenExternalUrl, onGamepadDirection }: 
     onActivate={() => onOpenExternalUrl(url)}
     onClick={() => onOpenExternalUrl(url)}
     onGamepadDirection={onGamepadDirection}
-    style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 44, padding: "8px 12px", boxSizing: "border-box", border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.small, background: steamTheme.surface.interactive, color: steamTheme.color.textPrimary, fontSize: steamTheme.type.fullscreen.body, fontWeight: steamTheme.type.weight.strong }}
+    style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 44, padding: "8px 12px", boxSizing: "border-box", border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.small, background: steamTheme.surface.contentStat, color: steamTheme.color.textPrimary, fontSize: steamTheme.type.fullscreen.body, fontWeight: steamTheme.type.weight.strong }}
   >
     <img alt="" aria-hidden="true" src={icon} style={{ width: 17, height: 17, flexShrink: 0, filter: steamTheme.iconFilter.accent }} />
     <span style={{ flex: "1 1 auto" }}>{title}</span>
@@ -110,7 +110,7 @@ export function DeckyFullScreenAboutPage({ onOpenExternalUrl }: {
   };
   return <div ref={pageRef} className="ac-provider-about-page" data-ac-steam-theme="fullscreen" style={{ position: "relative", height: pageHeight ?? "100vh", flexShrink: 0, minHeight: 0, overflow: "hidden", padding: "calc(env(safe-area-inset-top, 0px) + 43px) 12px 50px", boxSizing: "border-box", color: steamTheme.color.textPrimary, background: steamTheme.surface.page }}>
     <DeckyFocusStyles />
-    <style>{`.ac-provider-about-page .ac-settings-action{outline:none!important}.ac-provider-about-page .ac-settings-action:not(.gpfocus):not(.gpfocuswithin):not(:focus):not(:focus-within){box-shadow:none!important}.ac-provider-about-page .ac-settings-action:is(.gpfocus,.gpfocuswithin,:focus,:focus-within){border-color:${steamTheme.focus.border}!important;box-shadow:${steamTheme.focus.shadow}!important;background:${steamTheme.focus.background}!important}`}</style>
+    <style>{`.ac-provider-about-page .ac-settings-action{outline:none!important}.ac-provider-about-page .ac-settings-action:not(.gpfocus):not(.gpfocuswithin):not(:focus):not(:focus-within){box-shadow:none!important}.ac-provider-about-page .ac-settings-action:is(.gpfocus,.gpfocuswithin,:focus,:focus-within){border-color:${steamTheme.focus.border}!important;box-shadow:${steamTheme.focus.shadow}!important;background:${steamTheme.surface.focusedContentStat}!important}`}</style>
     <div style={{ height: "100%", minHeight: 0, display: "flex", flexDirection: "column", gap: 6 }}>
       <div style={{ display: "flex", alignItems: "center", minHeight: 31, color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata, fontWeight: steamTheme.type.weight.strong, letterSpacing: ".1em" }}>ACHIEVEMENT COMPANION ABOUT</div>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12, flex: "1 1 auto", minHeight: 0 }}>

@@ -11,7 +11,7 @@ import {
 } from "./decky-qam-theme";
 import { getDeckyCompactPrimaryActionStyle } from "./decky-compact-primary-action-style";
 
-/** RetroAchievements presentation roles. Keep provider meaning here; Steam owns steam-theme.ts. */
+/** RetroAchievements semantic roles layered on the provider-neutral visual system. */
 export const raTheme = {
   color: {
     background: qamTheme.color.background,
@@ -47,8 +47,14 @@ export const raTheme = {
     page: qamTheme.surface.page,
     card: qamTheme.surface.card,
     raised: qamTheme.surface.raised,
-    gameOverviewCard: "radial-gradient(circle at 18% 50%, rgba(43, 195, 242, 0.13), transparent 54%), linear-gradient(110deg, #071b29, #081824)",
-    gameOverviewStat: "radial-gradient(circle at 18% 50%, rgba(43, 195, 242, 0.1), transparent 54%), linear-gradient(110deg, #0a2638, #071c2c)",
+    contentCard: qamTheme.surface.contentCard,
+    contentStat: qamTheme.surface.contentStat,
+    focusedContentCard: qamTheme.surface.focusedContentCard,
+    focusedContentStat: qamTheme.surface.focusedContentStat,
+    selectedContentCard: qamTheme.surface.selectedContentCard,
+    focusedSelectedContentCard: qamTheme.surface.focusedSelectedContentCard,
+    selectedContentStat: qamTheme.surface.selectedContentStat,
+    focusedSelectedContentStat: qamTheme.surface.focusedSelectedContentStat,
     interactive: qamTheme.surface.interactive,
     selected: qamTheme.surface.selected,
     hardcore: "rgba(214, 178, 74, 0.12)",
@@ -95,7 +101,7 @@ type RaTextRole = "hero" | "heading" | "title" | "body" | "metadata" | "caption"
 export const raRecipes = {
   text(density: RaDensity, role: RaTextRole): CSSProperties {
     return {
-      color: role === "hero" || role === "heading" ? raTheme.color.accent : role === "metadata" || role === "caption" ? raTheme.color.textMuted : raTheme.color.textPrimary,
+      color: role === "metadata" || role === "caption" ? raTheme.color.textMuted : raTheme.color.textPrimary,
       fontSize: raTheme.type[density][role],
       fontWeight: role === "hero" || role === "heading" || role === "title" ? raTheme.type.weight.strong : raTheme.type.weight.regular,
       lineHeight: role === "caption" ? 1.15 : 1.25,
@@ -106,7 +112,7 @@ export const raRecipes = {
       padding: raTheme.density[density].cardPadding,
       border: `1px solid ${raTheme.color.borderSubtle}`,
       borderRadius: raTheme.radius[density === "compact" ? "medium" : "large"],
-      background: raised ? raTheme.surface.raised : raTheme.surface.card,
+      background: raised ? raTheme.surface.contentStat : raTheme.surface.contentCard,
       boxSizing: "border-box",
     };
   },
@@ -120,7 +126,7 @@ export const raRecipes = {
       alignItems: "center",
       gap: raTheme.space.md,
       borderColor: focused ? raTheme.focus.compactBorder : raTheme.color.borderSubtle,
-      background: focused ? raTheme.focus.compactBackground : raTheme.surface.interactive,
+      background: focused ? raTheme.surface.focusedContentCard : raTheme.surface.contentCard,
       boxShadow: focused ? raTheme.focus.compactShadow : "none",
       outline: "none",
     };
@@ -149,14 +155,14 @@ export const raRecipes = {
       padding: compact ? (primary ? "8px 12px" : 8) : "12px 16px",
       border: `1px solid ${primary ? raTheme.color.borderStrong : raTheme.color.borderSubtle}`,
       borderRadius: raTheme.radius[compact ? "medium" : "large"],
-      background: primary ? qamTheme.surface.compactPrimaryAction : qamTheme.surface.compactRow,
+      background: primary ? qamTheme.surface.compactPrimaryAction : qamTheme.surface.contentStat,
       boxShadow: primary ? "inset 0 1px 0 rgba(125, 211, 252, 0.08), 0 4px 12px rgba(0, 0, 0, 0.16)" : "inset 0 1px 0 rgba(255, 255, 255, 0.025)",
       color: raTheme.color.textPrimary,
       cursor: "pointer",
       outline: "none",
       boxSizing: "border-box",
       transition: "background 120ms ease, border-color 120ms ease, box-shadow 120ms ease",
-      ...(focused ? getQamCompactFocusControlStyle() : {}),
+      ...(focused ? { ...getQamCompactFocusControlStyle(), background: primary ? qamTheme.focus.primaryBackground : qamTheme.surface.focusedContentStat } : {}),
     };
   },
   filter(selected: boolean, focused: boolean): CSSProperties {
@@ -319,7 +325,7 @@ export const raRecipes = {
     metricLabel: { color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.caption, fontWeight: 800, letterSpacing: "0.04em", lineHeight: 1.1, textTransform: "uppercase" } satisfies CSSProperties,
     metricValue: { minWidth: 0, overflow: "hidden", color: raTheme.color.textPrimary, fontSize: 12, fontWeight: 800, lineHeight: 1.15, textOverflow: "ellipsis", whiteSpace: "nowrap" } satisfies CSSProperties,
     metricSecondary: { color: raTheme.color.textMuted, fontSize: raTheme.type.compact.caption, lineHeight: 1.12 } satisfies CSSProperties,
-    mode(mode: "hardcore" | "softcore"): CSSProperties { return { display: "grid", gridTemplateColumns: "22px minmax(0, 1fr)", alignItems: "center", gap: 6, minWidth: 0, minHeight: 48, padding: "7px 8px", border: `1px solid ${raTheme.color.borderSubtle}`, borderLeft: `3px solid ${mode === "hardcore" ? raTheme.color.hardcore : raTheme.color.softcore}`, borderRadius: raTheme.radius.small, background: raTheme.surface.raised, boxSizing: "border-box" }; },
+    mode(mode: "hardcore" | "softcore"): CSSProperties { return { display: "grid", gridTemplateColumns: "22px minmax(0, 1fr)", alignItems: "center", gap: 6, minWidth: 0, minHeight: 48, padding: "7px 8px", border: `1px solid ${raTheme.color.borderSubtle}`, borderLeft: `3px solid ${mode === "hardcore" ? raTheme.color.hardcore : raTheme.color.softcore}`, borderRadius: raTheme.radius.small, background: raTheme.surface.contentStat, boxSizing: "border-box" }; },
     modeText: { display: "flex", flexDirection: "column", gap: 2, minWidth: 0 } satisfies CSSProperties,
     modeLabel: { fontSize: raTheme.type.compact.caption, fontWeight: 800, lineHeight: 1, textTransform: "uppercase" } satisfies CSSProperties,
     modeValue: { color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.body, fontWeight: 800, lineHeight: 1.12, whiteSpace: "nowrap" } satisfies CSSProperties,
@@ -354,7 +360,7 @@ export const raRecipes = {
       const base = kind === "in-progress"
         ? {
             border: `2px solid ${raTheme.color.accentStrong}`,
-            background: raTheme.surface.gameOverviewCard,
+            background: raTheme.surface.contentCard,
             boxShadow: "0 0 12px rgba(43, 195, 242, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.07)",
           }
         : raRecipes.compactGame.status(kind);
@@ -462,7 +468,7 @@ export const raRecipes = {
       ...raRecipes.card("compact", true),
       borderColor: focused ? raTheme.focus.border : raTheme.color.borderSubtle,
       borderLeft: `3px solid ${semanticColor}`,
-      background: raTheme.surface.raised,
+      background: focused ? raTheme.surface.focusedContentCard : raTheme.surface.contentCard,
       boxShadow: focused ? raTheme.focus.shadow : "none",
     };
   },
@@ -492,7 +498,7 @@ export const raRecipes = {
     profileCard: {
       display: "flex", flexDirection: "column", gap: 8, padding: 9,
       border: `1px solid ${raTheme.color.borderSubtle}`, borderRadius: raTheme.radius.medium,
-      background: raTheme.surface.raised, color: raTheme.color.textPrimary,
+      background: raTheme.surface.contentCard, color: raTheme.color.textPrimary,
       boxShadow: "inset 0 1px 0 rgba(125, 211, 252, 0.035)", boxSizing: "border-box",
     } satisfies CSSProperties,
     identity: { display: "flex", alignItems: "center", gap: 10, minWidth: 0 } satisfies CSSProperties,
@@ -516,7 +522,7 @@ export const raRecipes = {
     gameActivityCard: {
       display: "flex", flexDirection: "column", gap: 7, padding: 10, minWidth: 0,
       border: `1px solid ${raTheme.color.borderSubtle}`, borderRadius: raTheme.radius.medium,
-      background: raTheme.surface.raised, boxSizing: "border-box",
+      background: raTheme.surface.contentCard, boxSizing: "border-box",
     } satisfies CSSProperties,
     gameActivityStatus(inGame: boolean): CSSProperties {
       return {
@@ -545,7 +551,7 @@ export const raRecipes = {
         gridColumn: wide ? "1 / -1" : undefined,
         border: `1px solid ${raTheme.color.borderSubtle}`,
         borderRadius: raTheme.radius.medium,
-        background: raTheme.surface.raised, boxSizing: "border-box",
+        background: raTheme.surface.contentStat, boxSizing: "border-box",
       };
     },
     metricText: { display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, minWidth: 0 } satisfies CSSProperties,
@@ -570,7 +576,7 @@ export const raRecipes = {
       return {
         display: "flex", alignItems: "center", gap: 8, minWidth: 0, minHeight: 54, padding: "7px 8px",
         border: `2px solid ${border}`, borderRadius: raTheme.radius.medium,
-        background: raTheme.surface.raised, color, boxSizing: "border-box",
+        background: raTheme.surface.contentStat, color, boxSizing: "border-box",
       };
     },
     completionText: { display: "flex", flexDirection: "column", gap: 4, minWidth: 0 } satisfies CSSProperties,
@@ -578,13 +584,13 @@ export const raRecipes = {
       return { color: kind === "beaten" ? raTheme.color.beaten : raTheme.color.mastered, fontSize: raTheme.type.compact.caption, fontWeight: 850, letterSpacing: "0.05em", lineHeight: 1.3, textTransform: "uppercase" };
     },
     completionValue: { color: raTheme.color.textPrimary, fontSize: 17, fontWeight: 850, lineHeight: 1 } satisfies CSSProperties,
-    progressCard: { display: "flex", flexDirection: "column", gap: 7, padding: "8px 10px", border: `1px solid ${raTheme.color.borderSubtle}`, borderRadius: raTheme.radius.medium, background: raTheme.surface.raised } satisfies CSSProperties,
+    progressCard: { display: "flex", flexDirection: "column", gap: 7, padding: "8px 10px", border: `1px solid ${raTheme.color.borderSubtle}`, borderRadius: raTheme.radius.medium, background: raTheme.surface.contentCard } satisfies CSSProperties,
     progressHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 } satisfies CSSProperties,
     progressLabel: { color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.metadata, fontWeight: 650 } satisfies CSSProperties,
     progressValue: { color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.metadata, fontWeight: 850 } satisfies CSSProperties,
     calendar(focused: boolean): CSSProperties {
       return {
-        display: "block", padding: 8, minWidth: 0, background: raTheme.surface.card,
+        display: "block", padding: 8, minWidth: 0, background: raTheme.surface.contentCard,
         border: `1px solid ${focused ? qamTheme.focus.border : raTheme.color.borderSubtle}`,
         borderRadius: raTheme.radius.medium, boxSizing: "border-box", outline: "none",
         ...getQamCompactFocusRingStyle(focused),
@@ -609,10 +615,10 @@ export const raRecipes = {
       return {
         display: "grid", gridTemplateColumns: "auto minmax(0, 1fr) auto", alignItems: "center",
         gap: 8, minHeight: 50, padding: "5px 7px", border: `1px solid ${raTheme.color.borderSubtle}`,
-        borderRadius: raTheme.radius.medium, background: raTheme.surface.interactive,
+        borderRadius: raTheme.radius.medium, background: focused ? raTheme.surface.focusedContentCard : raTheme.surface.contentCard,
         outline: "none", boxSizing: "border-box",
         transition: "background 120ms ease, border-color 120ms ease, box-shadow 120ms ease",
-        ...(focused ? getQamCompactFocusControlStyle() : {}),
+        ...(focused ? { ...getQamCompactFocusControlStyle(), background: raTheme.surface.focusedContentCard } : {}),
       };
     },
     rowArtwork: {
@@ -670,8 +676,7 @@ export const raRecipes = {
   profileSection: {
     card(variant: "softcore" | "hardcore" | "retroachievements" | "completion" | "default"): CSSProperties {
       const color = variant === "softcore" ? raTheme.color.softcore : variant === "hardcore" ? raTheme.color.hardcore : variant === "default" ? raTheme.color.borderSubtle : raTheme.color.accent;
-      const surface = variant === "softcore" ? raTheme.surface.softcore : variant === "hardcore" ? raTheme.surface.hardcore : variant === "default" ? raTheme.surface.card : raTheme.surface.interactive;
-      return { ...raRecipes.card("fullscreen", true), gap: 10, padding: 12, borderLeft: `4px solid ${color}`, background: surface };
+      return { ...raRecipes.card("fullscreen", true), gap: 10, padding: 12, borderLeft: `4px solid ${color}` };
     },
     title(variant: "softcore" | "hardcore" | "retroachievements" | "completion" | "default"): CSSProperties {
       const color = variant === "softcore" ? raTheme.color.softcore : variant === "hardcore" ? raTheme.color.hardcore : variant === "default" ? raTheme.color.textMuted : raTheme.color.accent;
@@ -769,14 +774,14 @@ export function getRaFocusStylesCss(): string {
   }
   [data-ac-ra-theme="fullscreen"] .Panel.Focusable.gpfocus {
     border-color: ${raTheme.focus.border} !important;
-    background: ${raTheme.focus.background} !important;
+    background: ${raTheme.surface.focusedContentCard} !important;
     box-shadow: ${raTheme.focus.shadow} !important;
   }
   [data-ac-ra-theme="fullscreen"] .Panel.Focusable.gpfocus[data-ra-fullscreen-game-achievement-row="true"] {
-    background: linear-gradient(180deg, rgba(63, 149, 211, 0.26), rgba(31, 92, 141, 0.21)), ${raTheme.surface.gameOverviewCard} !important;
+    background: ${raTheme.surface.focusedContentCard} !important;
   }
   [data-ac-ra-theme="fullscreen"] .Panel.Focusable.gpfocus[data-steam-activity-row="true"] {
-    background: linear-gradient(180deg, rgba(63, 149, 211, 0.26), rgba(31, 92, 141, 0.21)), ${raTheme.surface.gameOverviewCard} !important;
+    background: ${raTheme.surface.focusedContentCard} !important;
   }
   [data-ac-ra-theme="fullscreen"] .Panel.Focusable.gpfocus[data-ra-fullscreen-game-achievement-row="true"][data-ra-fullscreen-game-achievement-tone="hardcore"] {
     border-left-color: ${raTheme.color.hardcore} !important;
@@ -789,15 +794,20 @@ export function getRaFocusStylesCss(): string {
   }
   /* A selected filter keeps its underline while the shared focus ring is added. */
   [data-ac-ra-theme="fullscreen"] .Panel.Focusable.gpfocus[data-achievement-companion-steam-filter-control="true"][aria-pressed="true"] {
+    background: ${raTheme.surface.focusedSelectedContentCard} !important;
+    box-shadow: ${raTheme.focus.shadow}, ${qamTheme.selection.compactUnderline} !important;
+  }
+  [data-ac-ra-theme="fullscreen"] .Panel.Focusable.gpfocus[data-achievement-companion-steam-filter-control="true"][data-achievement-filter-selected="true"] {
+    background: ${raTheme.surface.focusedSelectedContentCard} !important;
     box-shadow: ${raTheme.focus.shadow}, ${qamTheme.selection.compactUnderline} !important;
   }
   [data-ac-ra-theme="fullscreen"] .achievement-companion-ra-profile-system--focused {
     border-color: rgba(151, 211, 255, 0.98) !important;
-    background: linear-gradient(180deg, rgba(63, 149, 211, 0.26), rgba(31, 92, 141, 0.21)), ${raTheme.surface.gameOverviewStat} !important;
+    background: ${raTheme.surface.focusedContentStat} !important;
     box-shadow: inset 0 0 0 2px rgba(151, 211, 255, 0.98), inset 0 0 0 999px rgba(54, 185, 255, 0.08), 0 0 14px rgba(54, 185, 255, 0.42) !important;
   }
   [data-ac-ra-theme] .achievement-companion-achievement-filter-option.achievement-companion-achievement-filter-option--selected {
-    border-color: ${raTheme.selection.border}; background: ${raTheme.selection.background};
+    border-color: ${raTheme.selection.border}; background: ${raTheme.surface.selectedContentCard};
   }
   [data-ac-ra-theme] .achievement-companion-achievement-filter-option:is(.achievement-companion-achievement-filter-option--focused,.gpfocus,.gpfocuswithin,:focus,:focus-within) {
     border-color: ${raTheme.focus.border}; box-shadow: ${raTheme.focus.shadow};

@@ -43,8 +43,8 @@ function getSubsetCardStyle(isFocused: boolean, isExpanded: boolean): CSSPropert
     borderRadius: raTheme.radius.large,
     boxSizing: "border-box",
     background: isExpanded
-      ? `${raTheme.surface.selected}, ${raTheme.surface.gameOverviewCard}`
-      : raTheme.surface.gameOverviewCard,
+      ? `${raTheme.surface.selected}, ${raTheme.surface.contentCard}`
+      : raTheme.surface.contentCard,
     boxShadow: isFocused ? raTheme.focus.shadow : "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 8px rgba(0, 0, 0, 0.16)",
   };
 }
@@ -93,7 +93,7 @@ function getExpandedAchievementsStyle(): CSSProperties {
 function getExpandedStateStyle(kind: "loading" | "error"): CSSProperties {
   return {
     ...raRecipes.card("fullscreen"),
-    background: raTheme.surface.gameOverviewCard,
+    background: raTheme.surface.contentCard,
     padding: "14px 16px",
     color: kind === "error" ? raTheme.color.danger : raTheme.color.textSecondary,
     fontSize: raTheme.type.fullscreen.body,

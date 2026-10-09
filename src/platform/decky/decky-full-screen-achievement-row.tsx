@@ -60,7 +60,7 @@ function getAchievementCardStyle(achievement: NormalizedAchievement, gamePageGra
     borderLeftStyle: "solid",
     borderLeftColor: accentColor,
     background: gamePageGradient
-      ? `linear-gradient(180deg, ${accentBackground}, ${accentBackground}), ${raTheme.surface.gameOverviewCard}`
+      ? `linear-gradient(180deg, ${accentBackground}, ${accentBackground}), ${raTheme.surface.contentCard}`
       : accentBackground,
     boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 8px rgba(0, 0, 0, 0.15)",
   };
@@ -91,7 +91,7 @@ function getSteamShapedRetroAchievementCardStyle(achievement: NormalizedAchievem
     borderRadius: raTheme.radius.large,
     border: `1px solid ${raTheme.color.borderSubtle}`,
     borderLeft: `5px solid ${accentColor}`,
-    background: `linear-gradient(180deg, ${accentSurface}, ${accentSurface}), ${raTheme.surface.gameOverviewCard}`,
+    background: `linear-gradient(180deg, ${accentSurface}, ${accentSurface}), ${raTheme.surface.contentCard}`,
     boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 8px rgba(0, 0, 0, 0.16)",
     boxSizing: "border-box",
   };
@@ -158,7 +158,7 @@ function getSteamShapedRetroAchievementMetricStyle(): CSSProperties {
     padding: "0 14px",
     borderRadius: raTheme.radius.medium,
     border: `1px solid ${raTheme.color.borderSubtle}`,
-    background: raTheme.surface.gameOverviewStat,
+    background: raTheme.surface.contentStat,
     color: raTheme.color.textPrimary,
     fontSize: "0.94em",
     fontWeight: raTheme.type.weight.strong,
@@ -307,7 +307,7 @@ function getSteamAchievementCardStyle(achievement: NormalizedAchievement): CSSPr
     borderRadius: steamTheme.radius.large,
     border: `1px solid ${steamTheme.color.borderSubtle}`,
     borderLeft: `5px solid ${accentColor}`,
-    background: steamTheme.surface.raised,
+    background: steamTheme.surface.contentCard,
     boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 8px rgba(0, 0, 0, 0.16)",
     boxSizing: "border-box",
   };
@@ -392,7 +392,7 @@ function getSteamAchievementMetricStyle(): CSSProperties {
     padding: "0 14px",
     borderRadius: 12,
     border: "1px solid rgba(255, 255, 255, 0.1)",
-    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.035))",
+    background: steamTheme.surface.contentStat,
     color: "rgba(255, 255, 255, 0.96)",
     fontSize: "0.94em",
     fontWeight: 800,

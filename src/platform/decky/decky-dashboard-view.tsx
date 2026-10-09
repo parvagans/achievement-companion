@@ -60,6 +60,7 @@ import {
 } from "./decky-retroachievements-completion-indicator";
 import { getRetroAchievementsRecentActivityLabel } from "./decky-retroachievements-recent-activity";
 import { DeckyRetroAchievementsPointsIcon } from "./decky-retroachievements-points-icon";
+import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 
 type OverviewCompletionBreakdown = OverviewStatSection["stats"][number]["completionBreakdown"];
 
@@ -175,8 +176,8 @@ function getOverviewCardStyle(): CSSProperties {
     gap: 12,
     padding: 14,
     borderRadius: 18,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.04)",
+    border: `1px solid ${qamTheme.color.borderSubtle}`,
+    background: qamTheme.surface.contentCard,
     boxSizing: "border-box",
   };
 }
@@ -341,8 +342,8 @@ function getOverviewStatStyle(): CSSProperties {
     gap: 2,
     padding: "10px 11px",
     borderRadius: 12,
-    border: "1px solid rgba(255, 255, 255, 0.06)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    border: `1px solid ${qamTheme.color.borderSubtle}`,
+    background: qamTheme.surface.contentStat,
     minWidth: 0,
     textAlign: "center",
   };
@@ -421,8 +422,8 @@ function getOverviewProgressBlockStyle(): CSSProperties {
     gap: 8,
     padding: 12,
     borderRadius: 16,
-    border: "1px solid rgba(255, 255, 255, 0.06)",
-    backgroundColor: "rgba(255, 255, 255, 0.02)",
+    border: `1px solid ${qamTheme.color.borderSubtle}`,
+    background: qamTheme.surface.contentStat,
     boxSizing: "border-box",
   };
 }
@@ -534,8 +535,8 @@ function getDashboardCompactCardStyle(bottomSpacing = 0, isRa = false): CSSPrope
     marginBottom: bottomSpacing,
     padding: "16px 16px 16px 20px",
     borderRadius: isRa ? raTheme.radius.medium : 14,
-    border: isRa ? `1px solid ${raTheme.color.borderSubtle}` : "1px solid rgba(255, 255, 255, 0.08)",
-    backgroundColor: isRa ? raTheme.surface.raised : "rgba(255, 255, 255, 0.035)",
+    border: `1px solid ${qamTheme.color.borderSubtle}`,
+    background: qamTheme.surface.contentCard,
     boxSizing: "border-box",
     overflow: "hidden",
   };

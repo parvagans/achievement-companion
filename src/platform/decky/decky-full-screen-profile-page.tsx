@@ -264,7 +264,7 @@ function getHeroMottoStyle(): CSSProperties {
     padding: "10px 12px",
     borderRadius: 14,
     border: "1px solid rgba(255, 255, 255, 0.06)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    background: raTheme.surface.contentStat,
     boxSizing: "border-box",
     minWidth: 0,
   };
@@ -476,7 +476,7 @@ function getStatCardStyle(): CSSProperties {
     padding: "11px 12px",
     borderRadius: 14,
     border: "1px solid rgba(255, 255, 255, 0.06)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    background: raTheme.surface.contentStat,
     minWidth: 0,
     textAlign: "center",
   };
@@ -538,8 +538,7 @@ function getInfoCardStyle(): CSSProperties {
     padding: 14,
     borderRadius: 18,
     border: "1px solid rgba(255, 255, 255, 0.06)",
-    background:
-      "linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.025))",
+    background: raTheme.surface.contentCard,
   };
 }
 

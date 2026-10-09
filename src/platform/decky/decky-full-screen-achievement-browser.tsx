@@ -283,7 +283,9 @@ function getAchievementFilterButtonStyle(selected: boolean, focused: boolean, di
     padding: "8px 12px",
     borderRadius: raTheme.radius.medium,
     border: `1px solid ${focused ? raTheme.focus.border : selected ? raTheme.selection.border : raTheme.color.borderSubtle}`,
-    background: focused ? raTheme.focus.background : selected ? raTheme.selection.background : raTheme.surface.interactive,
+    background: selected
+      ? focused ? raTheme.surface.focusedSelectedContentCard : raTheme.surface.selectedContentCard
+      : focused ? raTheme.surface.focusedContentCard : raTheme.surface.contentCard,
     color: selected ? raTheme.color.accentStrong : raTheme.color.textSecondary,
     fontSize: "0.9em",
     fontWeight: selected ? raTheme.type.weight.strong : raTheme.type.weight.medium,
@@ -329,9 +331,7 @@ function getSteamAchievementSelectButtonStyle(focused: boolean): CSSProperties {
     paddingInline: 14,
     borderRadius: steamTheme.radius.medium,
     border: `1px solid ${focused ? steamTheme.focus.border : steamTheme.color.borderSubtle}`,
-    background: focused
-      ? "linear-gradient(180deg, rgba(21, 64, 91, 0.9), rgba(12, 34, 53, 0.88))"
-      : "linear-gradient(180deg, rgba(18, 36, 51, 0.9), rgba(11, 25, 38, 0.88))",
+    background: focused ? steamTheme.surface.focusedContentCard : steamTheme.surface.contentCard,
   };
 }
 
@@ -346,7 +346,7 @@ function getRaAchievementSelectButtonStyle(focused: boolean, disabled: boolean):
     gap: 8,
     borderRadius: raTheme.radius.medium,
     border: `1px solid ${focused ? raTheme.focus.border : raTheme.color.borderSubtle}`,
-    background: focused ? raTheme.focus.background : raTheme.surface.interactive,
+    background: focused ? raTheme.surface.focusedContentCard : raTheme.surface.contentCard,
     color: raTheme.color.textPrimary,
     opacity: disabled ? 0.5 : 1,
     cursor: disabled ? "default" : "pointer",
@@ -433,7 +433,9 @@ function getMissableSwitchStyle(selected: boolean, focused: boolean, disabled: b
     padding: "7px 12px",
     borderRadius: raTheme.radius.medium,
     border: `1px solid ${focused ? raTheme.focus.border : selected ? raTheme.selection.border : raTheme.color.borderSubtle}`,
-    background: focused ? raTheme.focus.background : selected ? raTheme.selection.background : raTheme.surface.interactive,
+    background: selected
+      ? focused ? raTheme.surface.focusedSelectedContentCard : raTheme.surface.selectedContentCard
+      : focused ? raTheme.surface.focusedContentCard : raTheme.surface.contentCard,
     color: selected ? raTheme.color.accentStrong : raTheme.color.textPrimary,
     fontSize: "0.9em",
     fontWeight: selected ? raTheme.type.weight.strong : raTheme.type.weight.medium,

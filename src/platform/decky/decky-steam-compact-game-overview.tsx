@@ -60,6 +60,7 @@ function getRootStyle(): CSSProperties {
 function getHeroStyle(): CSSProperties {
   return {
     ...steamRecipes.card("compact", "raised"),
+    background: steamTheme.surface.contentCard,
     display: "flex",
     width: "100%",
     height: 124,

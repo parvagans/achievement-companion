@@ -63,6 +63,7 @@ import {
   RetroAchievementsCompletionIndicator,
 } from "./decky-retroachievements-completion-indicator";
 import { DeckySteamFullScreenGamesDashboard } from "./decky-steam-full-screen-games-dashboard";
+import { achievementCompanionQamTheme as sharedTheme } from "./decky-qam-theme";
 
 const COMPLETION_PROGRESS_INITIAL_GAME_LIMIT = 12;
 const COMPLETION_PROGRESS_GAME_LOAD_STEP = 12;
@@ -113,8 +114,7 @@ function getHeroCardStyle(): CSSProperties {
     padding: 18,
     borderRadius: 20,
     border: "1px solid rgba(255, 255, 255, 0.08)",
-    background:
-      "linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.03))",
+    background: sharedTheme.surface.contentCard,
   };
 }
 
@@ -167,8 +167,7 @@ function getBrowserCardStyle(): CSSProperties {
     padding: 16,
     borderRadius: 18,
     border: "1px solid rgba(255, 255, 255, 0.08)",
-    background:
-      "linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.026))",
+    background: sharedTheme.surface.contentCard,
   };
 }
 
@@ -218,7 +217,7 @@ function getStatusPillStyle(): CSSProperties {
     padding: "0 9px",
     borderRadius: 999,
     border: "1px solid rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.035)",
+    background: sharedTheme.surface.contentStat,
     color: "rgba(255, 255, 255, 0.82)",
     fontSize: "0.78em",
     lineHeight: 1.2,
@@ -349,7 +348,7 @@ function getSortControlStyle(): CSSProperties {
     padding: 12,
     borderRadius: 16,
     border: "1px solid rgba(255, 255, 255, 0.075)",
-    background: "rgba(255, 255, 255, 0.025)",
+    background: sharedTheme.surface.contentCard,
   };
 }
 

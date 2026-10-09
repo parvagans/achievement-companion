@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
-import { raTheme } from "./ra-theme";
+import { steamTheme } from "./steam-theme";
 
-function getProgressStatStyle(dense: boolean, themeVariant: "default" | "ra"): CSSProperties {
+function getProgressStatStyle(dense: boolean): CSSProperties {
   return {
     display: "flex",
     flexDirection: "column",
@@ -11,9 +11,7 @@ function getProgressStatStyle(dense: boolean, themeVariant: "default" | "ra"): C
     padding: dense ? "5px 6px" : "7px 8px",
     borderRadius: 12,
     border: "1px solid rgba(255, 255, 255, 0.06)",
-    ...(themeVariant === "ra"
-      ? { background: raTheme.surface.gameOverviewStat }
-      : { backgroundColor: "rgba(255, 255, 255, 0.03)" }),
+    background: steamTheme.surface.contentStat,
     minWidth: 0,
     textAlign: "center",
   };
@@ -88,10 +86,9 @@ export function DeckyFullScreenGameProgressStat({
   value,
   dense = false,
   icon,
-  themeVariant = "default",
 }: DeckyFullScreenGameProgressStatProps): JSX.Element {
   return (
-    <div style={getProgressStatStyle(dense, themeVariant)}>
+    <div style={getProgressStatStyle(dense)}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, minWidth: 0 }}>
         {icon !== undefined ? <span style={{ display: "inline-flex", flexShrink: 0 }}>{icon}</span> : null}
         <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>

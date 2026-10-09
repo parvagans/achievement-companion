@@ -17,6 +17,7 @@ import {
   getSteamApiKeyInputDescriptor,
   getSteamCredentialsFieldSpecs,
 } from "./credentials-help";
+import { steamRecipes, steamTheme } from "../../steam-theme";
 
 export interface DeckySteamProviderCredentialsFormProps {
   readonly config: SteamProviderConfig | undefined;
@@ -50,13 +51,13 @@ function getCompactFormStyle(): CSSProperties {
 
 function getCompactCardStyle(): CSSProperties {
   return {
+    ...steamRecipes.card("compact", "raised"),
     display: "flex",
     flexDirection: "column",
     gap: 10,
     padding: 16,
     borderRadius: 18,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.03))",
+    border: `1px solid ${steamTheme.color.borderSubtle}`,
     boxSizing: "border-box",
   };
 }
@@ -112,13 +113,13 @@ function getCompactCardTextStyle(): CSSProperties {
 
 function getCompactFieldCardStyle(): CSSProperties {
   return {
+    ...steamRecipes.card("compact"),
     display: "flex",
     flexDirection: "column",
     gap: 8,
     padding: 14,
     borderRadius: 18,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    border: `1px solid ${steamTheme.color.borderSubtle}`,
     boxSizing: "border-box",
   };
 }

@@ -13,6 +13,7 @@ import {
   DECKY_FOCUS_PILL_CLASS,
 } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
+import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 
 export interface DeckyCompactPillActionItemProps {
   readonly iconSrc?: string | undefined;
@@ -51,10 +52,10 @@ function getPillStyle(
     maxWidth: "100%",
     padding: "8px 12px",
     borderRadius: 999,
-    border: `1px solid ${isPrimary ? "rgba(255, 255, 255, 0.16)" : "rgba(255, 255, 255, 0.08)"}`,
+    border: `1px solid ${isPrimary ? qamTheme.color.borderStrong : qamTheme.color.borderSubtle}`,
     background: isPrimary
-      ? "linear-gradient(180deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.045))"
-      : "rgba(255, 255, 255, 0.05)",
+      ? qamTheme.surface.compactPrimaryAction
+      : qamTheme.surface.contentStat,
     boxSizing: "border-box",
     color: isPrimary ? "rgba(255, 255, 255, 0.95)" : "rgba(255, 255, 255, 0.9)",
     fontSize: "13px",
@@ -71,21 +72,20 @@ function getPillStyle(
       : "none",
     ...(selected
       ? {
-          backgroundColor: "rgba(255, 255, 255, 0.14)",
-          color: "rgba(255, 255, 255, 0.97)",
-          boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.18)",
+          background: qamTheme.surface.selectedContentStat,
+          color: qamTheme.selection.compactText,
+          boxShadow: qamTheme.selection.compactUnderline,
         }
       : {}),
   };
 }
 
-function getFocusedPillStyle(): CSSProperties {
+function getFocusedPillStyle(selected: boolean): CSSProperties {
   return {
-    borderColor: "rgba(105, 176, 255, 0.8)",
-    background: "linear-gradient(180deg, rgba(74, 138, 204, 0.34), rgba(34, 79, 124, 0.3))",
-    color: "#fff",
-    boxShadow:
-      "0 0 0 2px rgba(73, 155, 255, 0.72), 0 0 18px rgba(39, 124, 226, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.14)",
+    borderColor: qamTheme.focus.border,
+    background: selected ? qamTheme.surface.focusedSelectedContentStat : qamTheme.surface.focusedContentStat,
+    color: selected ? qamTheme.selection.compactText : qamTheme.color.textPrimary,
+    boxShadow: selected ? `${qamTheme.focus.shadow}, ${qamTheme.selection.compactUnderline}` : qamTheme.focus.shadow,
   };
 }
 
@@ -131,7 +131,7 @@ function getPillStatusStyle(): CSSProperties {
     padding: "2px 8px",
     borderRadius: 999,
     border: "1px solid rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    background: qamTheme.surface.contentStat,
     color: "rgba(255, 255, 255, 0.72)",
     fontSize: "11px",
     fontWeight: 700,
@@ -151,7 +151,7 @@ function getPillIconFrameStyle(): CSSProperties {
     overflow: "hidden",
     borderRadius: 6,
     border: "1px solid rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
+    background: qamTheme.surface.contentStat,
   };
 }
 
@@ -204,6 +204,7 @@ export function DeckyCompactPillActionItem({
       focusWithinClassName={DECKY_FOCUS_PILL_ACTIVE_CLASS}
       noFocusRing
       role={role}
+      data-ac-selected={selected ? "true" : undefined}
       aria-label={ariaLabel ?? label}
       aria-checked={ariaChecked}
       aria-disabled={disabled}
@@ -225,7 +226,7 @@ export function DeckyCompactPillActionItem({
       }}
       style={{
         ...getPillStyle(selected, stretch, emphasis, disabled),
-        ...(isFocused ? getFocusedPillStyle() : {}),
+        ...(isFocused ? getFocusedPillStyle(selected) : {}),
         scrollMarginTop: 140
       }}
       {...(dataAttributes ?? {})}

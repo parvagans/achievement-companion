@@ -32,10 +32,10 @@ export function DeckyRetroAchievementsGameCommunitySection({ stats }: { readonly
       role="button"
       onActivate={() => {}}
       data-achievement-companion-focus-target={RETROACHIEVEMENTS_COMMUNITY_SECTION_FOCUS_TARGET}
-      style={{ ...raRecipes.card("fullscreen", true), background: raTheme.surface.gameOverviewCard, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, padding: 16 }}
+      style={{ ...raRecipes.card("fullscreen", true), background: raTheme.surface.contentCard, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, padding: 16 }}
     >
       {items.map((item) => (
-        <div key={item.label} style={{ ...raRecipes.metric("fullscreen"), background: raTheme.surface.gameOverviewStat, display: "flex", flexDirection: "column", justifyContent: "center", textAlign: "center", minHeight: 92 }}>
+        <div key={item.label} style={{ ...raRecipes.metric("fullscreen"), background: raTheme.surface.contentStat, display: "flex", flexDirection: "column", justifyContent: "center", textAlign: "center", minHeight: 92 }}>
           <div style={{ color: raTheme.color.textPrimary, fontSize: 22, fontWeight: 850 }}>{item.value}</div>
           <div style={{ color: raTheme.color.textSecondary, fontSize: 11 }}>{item.label}</div>
         </div>

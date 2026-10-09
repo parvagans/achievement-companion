@@ -121,7 +121,7 @@ function getLoadingInfoStyle(): CSSProperties {
     border: `1px solid ${achievementCompanionQamTheme.loading.infoBorder}`,
     borderRadius: achievementCompanionQamTheme.radius.medium,
     textAlign: "left",
-    background: achievementCompanionQamTheme.loading.infoSurface,
+    background: achievementCompanionQamTheme.surface.contentStat,
   };
 }
 

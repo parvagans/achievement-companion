@@ -6,6 +6,7 @@ import { DeckyCompactPillActionItem } from "../../decky-compact-pill-action-item
 import { DeckySteamProviderCredentialsForm } from "./credentials-form";
 import { useDeckySteamProviderConfig, writeValidatedDeckySteamProviderConfig } from "./config";
 import { STEAM_PROVIDER_ID } from "../../../../providers/steam";
+import { steamRecipes, steamTheme } from "../../steam-theme";
 
 export interface DeckySteamSetupScreenProps {
   readonly providerId: ProviderId;
@@ -23,14 +24,11 @@ function getPageFrameStyle(): CSSProperties {
 
 function getHeroCardStyle(): CSSProperties {
   return {
+    ...steamRecipes.card("fullscreen"),
     display: "flex",
     flexDirection: "column",
     gap: 12,
     padding: 18,
-    borderRadius: 20,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    background:
-      "linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.03))",
   };
 }
 
@@ -88,7 +86,7 @@ function getHeroActionRowStyle(): CSSProperties {
 
 function getHeroKickerStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.58)",
+    color: steamTheme.color.textMuted,
     fontSize: "0.72em",
     fontWeight: 800,
     letterSpacing: "0.1em",
@@ -99,8 +97,8 @@ function getHeroKickerStyle(): CSSProperties {
 
 function getHeroTitleStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.98)",
-    fontSize: "1.45em",
+    color: steamTheme.color.textPrimary,
+    fontSize: steamTheme.type.fullscreen.hero,
     fontWeight: 800,
     lineHeight: 1.08,
     minWidth: 0,
@@ -116,7 +114,7 @@ const STEAM_SETUP_HELP_COPY =
 
 function getHeroSupportStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.72)",
+    color: steamTheme.color.textSecondary,
     fontSize: "0.92em",
     lineHeight: 1.4,
     whiteSpace: "pre-wrap",

@@ -41,6 +41,7 @@ function getStandaloneRootStyle(): CSSProperties {
 function getCardStyle(isSteam = false): CSSProperties {
   return {
     ...(isSteam ? steamRecipes.card("compact", "raised") : raRecipes.card("compact", true)),
+    background: isSteam ? steamTheme.surface.contentCard : raTheme.surface.contentCard,
     display: "flex", flexDirection: "column", gap: 11, width: "100%", minWidth: 0,
     padding: 12, boxSizing: "border-box", borderRadius: isSteam ? steamTheme.radius.large : raTheme.radius.large,
     boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.045), 0 2px 10px rgba(0, 0, 0, 0.2)",
@@ -115,7 +116,7 @@ function getStatusStyle(tone: CompactAchievementTone, isSteam = false): CSSPrope
   return {
     ...(isSteam ? steamRecipes.card("compact", "interactive") : {}),
     display: "flex", flexDirection: "column", gap: 3, padding: "9px 10px", borderRadius: 11,
-    ...(isSteam ? {} : { border: `1px solid ${raTheme.color.borderSubtle}`, background: raTheme.surface.interactive }),
+    ...(isSteam ? { background: steamTheme.surface.contentStat } : { border: `1px solid ${raTheme.color.borderSubtle}`, background: raTheme.surface.contentStat }),
     color: isSteam && tone === "locked" ? steamTheme.color.locked : color, fontSize: isSteam ? steamTheme.type.compact.body : "0.8em", fontWeight: isSteam ? steamTheme.type.weight.strong : 800, lineHeight: 1.2,
   };
 }
@@ -135,7 +136,7 @@ function getStatStyle(isSteam = false): CSSProperties {
     ...(isSteam ? steamRecipes.metricTile("compact") : raRecipes.metric("compact")),
     display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2,
     minWidth: 0, minHeight: 48, padding: "7px 5px", boxSizing: "border-box", borderRadius: 10,
-    ...(isSteam ? {} : { border: `1px solid ${raTheme.color.borderSubtle}`, background: raTheme.surface.interactive }),
+    ...(isSteam ? { background: steamTheme.surface.contentStat } : { border: `1px solid ${raTheme.color.borderSubtle}`, background: raTheme.surface.contentStat }),
     textAlign: "center",
   };
 }
@@ -188,8 +189,8 @@ function getGameRowStyle(isFocused: boolean, isSteam = false): CSSProperties {
       ? `1px solid ${isFocused ? steamTheme.focus.border : steamTheme.color.borderSubtle}`
       : `1px solid ${isFocused ? raTheme.focus.border : raTheme.color.borderSubtle}`,
     background: isSteam
-      ? isFocused ? steamTheme.focus.background : steamTheme.surface.interactive
-      : isFocused ? raTheme.focus.background : raTheme.surface.interactive,
+      ? isFocused ? steamTheme.surface.focusedContentCard : steamTheme.surface.contentCard
+      : isFocused ? raTheme.surface.focusedContentCard : raTheme.surface.contentCard,
     boxShadow: isFocused ? raTheme.focus.shadow : "none",
     transition: "background 120ms ease, border-color 120ms ease, box-shadow 120ms ease",
   };
@@ -199,6 +200,9 @@ function getAchievementHeadingStyle(isFocused: boolean, isSteam = false, tone?: 
   return {
     ...(isSteam ? steamRecipes.card("compact", "interactive") : {}),
     ...getRowStyle(),
+    background: isSteam
+      ? isFocused ? steamTheme.surface.focusedContentStat : steamTheme.surface.contentStat
+      : isFocused ? raTheme.surface.focusedContentStat : raTheme.surface.contentStat,
     margin: "-3px",
     padding: 3,
     borderRadius: 9,

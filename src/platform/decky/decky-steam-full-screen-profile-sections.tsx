@@ -5,6 +5,7 @@ import { DeckyGameArtwork } from "./decky-game-artwork";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { formatDeckyRelativeTime, formatSteamPlaytimeMinutes } from "./decky-stat-helpers";
 import type { SteamFullScreenProfileSummary, SteamProfileGameSummary } from "./decky-steam-full-screen-profile-data";
+import { steamTheme } from "./steam-theme";
 
 function formatCount(value: number | undefined): string {
   return value !== undefined ? value.toLocaleString() : "-";
@@ -40,7 +41,7 @@ function getCardStyle(): CSSProperties {
     padding: 16,
     borderRadius: 18,
     border: "1px solid rgba(255, 255, 255, 0.075)",
-    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.025))",
+    background: steamTheme.surface.contentCard,
     boxSizing: "border-box",
   };
 }
@@ -85,7 +86,7 @@ function getStatTileStyle(): CSSProperties {
     padding: "10px 11px",
     borderRadius: 13,
     border: "1px solid rgba(255, 255, 255, 0.055)",
-    backgroundColor: "rgba(255, 255, 255, 0.028)",
+    background: steamTheme.surface.contentStat,
   };
 }
 

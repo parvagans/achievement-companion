@@ -169,25 +169,24 @@ function getPageStyle(): CSSProperties {
   };
 }
 
-function getCardStyle(isRa = false, nested = false): CSSProperties {
+function getCardStyle(nested = false): CSSProperties {
   return {
     ...steamRecipes.card("fullscreen"),
-    ...(isRa ? { background: nested ? raTheme.surface.gameOverviewStat : raTheme.surface.gameOverviewCard } : {}),
+    background: nested ? steamTheme.surface.contentStat : steamTheme.surface.contentCard,
     boxShadow: "inset 0 1px 0 rgba(164, 224, 255, 0.04)",
     minWidth: 0,
   };
 }
 
-function ActivityMetricCard({ icon, label, value, iconTone = "blue", iconSize = 24, isRa }: {
+function ActivityMetricCard({ icon, label, value, iconTone = "blue", iconSize = 24 }: {
   readonly icon: string;
   readonly label: string;
   readonly value: string;
   readonly iconTone?: "blue" | "gold" | "original";
   readonly iconSize?: number;
-  readonly isRa: boolean;
 }): JSX.Element {
   return (
-    <div style={{ ...getCardStyle(isRa), display: "grid", gridTemplateColumns: `${iconSize}px minmax(0, 1fr)`, alignItems: "center", gap: 8, padding: "8px 10px", minHeight: 54 }}>
+    <div style={{ ...getCardStyle(), display: "grid", gridTemplateColumns: `${iconSize}px minmax(0, 1fr)`, alignItems: "center", gap: 8, padding: "8px 10px", minHeight: 54 }}>
       <Icon src={icon} size={iconSize} tone={iconTone} />
       <div style={{ minWidth: 0, textAlign: "center" }}>
         <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.05 }}>{value}</div>
@@ -197,12 +196,12 @@ function ActivityMetricCard({ icon, label, value, iconTone = "blue", iconSize = 
   );
 }
 
-function ActivityTrend({ stats, isRa }: { readonly stats: SteamActivityStats; readonly isRa: boolean }): JSX.Element {
+function ActivityTrend({ stats }: { readonly stats: SteamActivityStats }): JSX.Element {
   const start = getLocalDayTimestamp(Date.now()) - 29 * DAY_MS;
   const counts = Array.from({ length: 30 }, (_, index) => stats.dayCounts.get(start + index * DAY_MS) ?? 0);
   const maximum = Math.max(1, ...counts);
   return (
-    <div style={{ ...getCardStyle(isRa), padding: "7px 10px", display: "grid", gridTemplateColumns: "minmax(92px,.7fr) minmax(0,1.6fr)", alignItems: "end", gap: 9 }}>
+    <div style={{ ...getCardStyle(), padding: "7px 10px", display: "grid", gridTemplateColumns: "minmax(92px,.7fr) minmax(0,1.6fr)", alignItems: "end", gap: 9 }}>
       <div>
         <div style={{ fontSize: 12, fontWeight: 700 }}>Recent Activity</div>
         <div style={{ color: "#9cb9ce", fontSize: 9, marginTop: 2 }}>Last 30 days</div>
@@ -215,17 +214,16 @@ function ActivityTrend({ stats, isRa }: { readonly stats: SteamActivityStats; re
   );
 }
 
-function ActivityInsightCard({ icon, title, value, detail, tone = "blue", iconSize = 17, isRa }: {
+function ActivityInsightCard({ icon, title, value, detail, tone = "blue", iconSize = 17 }: {
   readonly icon: string;
   readonly title: string;
   readonly value: string;
   readonly detail: string;
   readonly tone?: "blue" | "gold" | "original";
   readonly iconSize?: number;
-  readonly isRa: boolean;
 }): JSX.Element {
   return (
-    <div style={{ ...getCardStyle(isRa, true), display: "grid", gridTemplateColumns: "24px minmax(0, 1fr)", alignItems: "center", gap: 5, padding: "6px 6px", minHeight: 46, boxSizing: "border-box" }}>
+    <div style={{ ...getCardStyle(true), display: "grid", gridTemplateColumns: "24px minmax(0, 1fr)", alignItems: "center", gap: 5, padding: "6px 6px", minHeight: 46, boxSizing: "border-box" }}>
       <Icon src={icon} size={iconSize} tone={tone} />
       <div style={{ minWidth: 0 }}>
         <div style={{ color: "#a9c8da", fontSize: 8.5, lineHeight: 1.05 }}>{title}</div>
@@ -236,14 +234,14 @@ function ActivityInsightCard({ icon, title, value, detail, tone = "blue", iconSi
   );
 }
 
-function ActivityInsights({ stats, isRa }: { readonly stats: SteamActivityStats; readonly isRa: boolean }): JSX.Element {
+function ActivityInsights({ stats }: { readonly stats: SteamActivityStats }): JSX.Element {
   return (
-    <div data-steam-activity-insights style={{ ...getCardStyle(isRa), padding: 7 }}>
+    <div data-steam-activity-insights style={{ ...getCardStyle(), padding: 7 }}>
       <div style={{ fontSize: 9.5, fontWeight: 800 }}>ACTIVITY INSIGHTS</div>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 4, marginTop: 5 }}>
-        <ActivityInsightCard icon={streakIconUrl} title="Longest Streak" value={`${stats.longestStreak} days`} detail="Consecutive active days" tone="original" iconSize={24} isRa={isRa} />
-        <ActivityInsightCard icon={calendarIconUrl} title="Best Month" value={stats.bestMonth.value} detail={stats.bestMonth.detail} isRa={isRa} />
-        <ActivityInsightCard icon={clockIconUrl} title="Most Active Day" value={stats.mostActiveDay.value} detail={stats.mostActiveDay.detail} isRa={isRa} />
+        <ActivityInsightCard icon={streakIconUrl} title="Longest Streak" value={`${stats.longestStreak} days`} detail="Consecutive active days" tone="original" iconSize={24} />
+        <ActivityInsightCard icon={calendarIconUrl} title="Best Month" value={stats.bestMonth.value} detail={stats.bestMonth.detail} />
+        <ActivityInsightCard icon={clockIconUrl} title="Most Active Day" value={stats.mostActiveDay.value} detail={stats.mostActiveDay.detail} />
       </div>
     </div>
   );
@@ -405,7 +403,7 @@ function AchievementActivityRow({ elementRef, entry, rowIndex, providerId, listR
     onOpenAchievementDetail(entry.game.gameId, entry.achievement.achievementId);
   };
   return (
-    <Focusable ref={elementRef} className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS} noFocusRing role="button" data-steam-activity-row="true" data-steam-activity-row-index={rowIndex} aria-label={`Open ${entry.achievement.title}`} onActivate={openAchievement} onClick={openAchievement} onCancel={onBack} onGamepadDirection={(event) => handleActivityRowDirection(event, onRevealMore)} onFocus={(event) => { rememberFocus(); onFocus(event); }} onGamepadFocus={(event) => { rememberFocus(); onGamepadFocus(event); }} onBlur={() => setFocused(false)} style={{ ...getCardStyle(isRa), display: "grid", gridTemplateColumns: `${isRa ? DECKY_RA_FULLSCREEN_GAME_ICON_COLUMN_WIDTH : STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}px 48px minmax(0, 1fr) 128px 16px`, alignItems: "center", gap: 8, flex: `0 0 ${STEAM_FULLSCREEN_GAME_ROW_HEIGHT}px`, minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT, padding: "2px 7px 2px 3px", boxSizing: "border-box", ...(focused ? { outline: "none", background: isRa ? `linear-gradient(135deg, rgba(20, 87, 123, 0.52), rgba(9, 39, 58, 0.52)), ${raTheme.surface.gameOverviewCard}` : "linear-gradient(135deg, rgba(20, 87, 123, 0.95), rgba(9, 39, 58, 0.95))", boxShadow: "inset 0 0 0 2px #3bc7ff, inset 0 0 18px rgba(25, 184, 255, 0.2)" } : {}) }}>
+    <Focusable ref={elementRef} className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS} noFocusRing role="button" data-steam-activity-row="true" data-steam-activity-row-index={rowIndex} aria-label={`Open ${entry.achievement.title}`} onActivate={openAchievement} onClick={openAchievement} onCancel={onBack} onGamepadDirection={(event) => handleActivityRowDirection(event, onRevealMore)} onFocus={(event) => { rememberFocus(); onFocus(event); }} onGamepadFocus={(event) => { rememberFocus(); onGamepadFocus(event); }} onBlur={() => setFocused(false)} style={{ ...getCardStyle(), display: "grid", gridTemplateColumns: `${isRa ? DECKY_RA_FULLSCREEN_GAME_ICON_COLUMN_WIDTH : STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}px 48px minmax(0, 1fr) 128px 16px`, alignItems: "center", gap: 8, flex: `0 0 ${STEAM_FULLSCREEN_GAME_ROW_HEIGHT}px`, minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT, padding: "2px 7px 2px 3px", boxSizing: "border-box", ...(focused ? { outline: "none", background: steamTheme.surface.focusedContentCard, boxShadow: "inset 0 0 0 2px #3bc7ff, inset 0 0 18px rgba(25, 184, 255, 0.2)" } : {}) }}>
       {isRa ? <DeckyRetroAchievementsGameIcon
         game={entry.game}
         src={heroArtworkUrl}
@@ -476,13 +474,12 @@ function ActivityCalendarDay({ day, count, intensity, selected, current, onSelec
   );
 }
 
-function ActivityCalendar({ dayCounts, weeks, selectedDay, onSelectDay, onBack, isRa }: {
+function ActivityCalendar({ dayCounts, weeks, selectedDay, onSelectDay, onBack }: {
   readonly dayCounts: ReadonlyMap<number, number>;
   readonly weeks: SteamActivityCalendarWeeks;
   readonly selectedDay: number | undefined;
   readonly onSelectDay: (day: number) => void;
   readonly onBack: () => void;
-  readonly isRa: boolean;
 }): JSX.Element {
   const today = getLocalDayTimestamp(Date.now());
   const model = useMemo(() => buildSteamActivityCalendarModel(dayCounts, weeks), [dayCounts, weeks]);
@@ -492,7 +489,7 @@ function ActivityCalendar({ dayCounts, weeks, selectedDay, onSelectDay, onBack, 
     ? `Last ${weeks} weeks`
     : new Date(selectedDay).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
   return (
-    <div data-steam-activity-calendar-weeks={weeks} data-steam-activity-calendar-effective-maximum={model.effectiveMaximum} style={{ ...getCardStyle(isRa), padding: 7, display: "flex", flexDirection: "column", flex: "1 1 0", minHeight: 0 }}>
+    <div data-steam-activity-calendar-weeks={weeks} data-steam-activity-calendar-effective-maximum={model.effectiveMaximum} style={{ ...getCardStyle(), padding: 7, display: "flex", flexDirection: "column", flex: "1 1 0", minHeight: 0 }}>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontWeight: 800, flex: "0 0 auto" }}>
         <span>ACTIVITY CALENDAR</span>
         <span style={{ color: selectedDay === undefined ? "#a7c1d2" : "#dff7ff", fontWeight: selectedDay === undefined ? 500 : 800 }}>{selectedLabel}</span>
@@ -689,7 +686,7 @@ export function DeckySteamFullScreenActivityDashboard({
         ref={dashboardRef}
         {...(isRa ? { "data-ac-ra-theme": "fullscreen" } : { "data-ac-steam-theme": "fullscreen" })}
         data-steam-full-screen-activity-dashboard
-        style={{ ...getPageStyle(), ...(isRa ? { background: raTheme.surface.page, color: raTheme.color.textPrimary } : {}) }}
+        style={getPageStyle()}
       >
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", margin: "0 0 5px 2px", lineHeight: 1.1 }}>
           <span>ACTIVITY</span>
@@ -704,12 +701,11 @@ export function DeckySteamFullScreenActivityDashboard({
               icon={trophyIconUrl}
               label={isRa ? "Unlocks in view" : "Total Unlocks"}
               value={formatCount(isRa ? modeEntries.length : snapshot.summary.unlockedCount)}
-              isRa={isRa}
             />
-            <ActivityMetricCard icon={gamepadIconUrl} label="Games with Unlocks" value={formatCount(stats.gameCount)} isRa={isRa} />
-            <ActivityMetricCard icon={unlockedLockIconUrl} label="This Month" value={formatCount(stats.thisMonthCount)} isRa={isRa} />
-            {hasCompleteHistory ? <ActivityMetricCard icon={streakIconUrl} label="Current Streak" value={`${stats.currentStreak} days`} iconTone="original" iconSize={36} isRa={isRa} /> : null}
-            <ActivityTrend stats={stats} isRa={isRa} />
+            <ActivityMetricCard icon={gamepadIconUrl} label="Games with Unlocks" value={formatCount(stats.gameCount)} />
+            <ActivityMetricCard icon={unlockedLockIconUrl} label="This Month" value={formatCount(stats.thisMonthCount)} />
+            {hasCompleteHistory ? <ActivityMetricCard icon={streakIconUrl} label="Current Streak" value={`${stats.currentStreak} days`} iconTone="original" iconSize={36} /> : null}
+            <ActivityTrend stats={stats} />
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 3.25fr) minmax(250px, 1.05fr)", gap: 8, minHeight: 0 }}>
@@ -770,19 +766,18 @@ export function DeckySteamFullScreenActivityDashboard({
                       onRevealMore={(lastRowIndex) => revealMore(lastRowIndex)}
                     />
                   ))
-                  : <div style={{ ...getCardStyle(isRa), padding: 18, color: "#b5cbd9" }}>No timestamped unlocks match this filter.</div>}
+                  : <div style={{ ...getCardStyle(), padding: 18, color: "#b5cbd9" }}>No timestamped unlocks match this filter.</div>}
               </Focusable>
             </Focusable>
 
             <aside data-steam-activity-side-column style={{ display: "flex", flexDirection: "column", gap: 8, minHeight: 0, overflow: "hidden" }}>
-              {hasCompleteHistory ? <ActivityInsights stats={stats} isRa={isRa} /> : null}
+              {hasCompleteHistory ? <ActivityInsights stats={stats} /> : null}
               <ActivityCalendar
                 dayCounts={stats.dayCounts}
                 weeks={calendarWeeks}
                 selectedDay={selectedCalendarDay}
                 onSelectDay={selectCalendarDay}
                 onBack={onBack}
-                isRa={isRa}
               />
             </aside>
           </div>

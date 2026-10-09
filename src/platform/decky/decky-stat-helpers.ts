@@ -12,7 +12,7 @@ import type { RetroAchievementsCompletionCollection } from "./decky-completion-p
 import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
 import { formatSteamXp, getSteamXpProgress } from "./steam-xp";
 import { formatDeckyNumericText } from "./decky-number-format";
-import { raRecipes } from "./ra-theme";
+import { raRecipes, raTheme } from "./ra-theme";
 
 function formatCount(value: number): string {
   return value.toLocaleString();
@@ -337,7 +337,13 @@ export function getRetroAchievementsProfileStatSections(args: {
 }
 
 export function getRetroAchievementsProfileSectionStyle(variant: ProfileStatSectionVariant): CSSProperties {
-  return raRecipes.profileSection.card(variant);
+  const tint = variant === "hardcore" ? raTheme.surface.hardcore
+    : variant === "softcore" ? raTheme.surface.softcore
+      : "rgba(0, 0, 0, 0)";
+  return {
+    ...raRecipes.profileSection.card(variant),
+    background: `linear-gradient(180deg, ${tint}, ${tint}), ${raTheme.surface.contentCard}`,
+  };
 }
 
 export function getRetroAchievementsProfileSectionTitleStyle(

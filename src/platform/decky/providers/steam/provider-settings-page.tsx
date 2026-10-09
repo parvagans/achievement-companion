@@ -7,6 +7,7 @@ import {
   DeckyFullscreenActionRow,
 } from "../../decky-full-screen-action-controls";
 import { TopAlignedScrollViewport } from "../../decky-scroll-viewport";
+import { steamRecipes, steamTheme } from "../../steam-theme";
 import {
   clearDeckySteamAccountState,
   useDeckySteamLibraryAchievementScanSummary,
@@ -41,22 +42,19 @@ function getPageFrameStyle(): CSSProperties {
 
 function getHeroCardStyle(): CSSProperties {
   return {
+    ...steamRecipes.card("fullscreen"),
     display: "flex",
     flexDirection: "column",
     gap: 10,
     padding: 18,
-    borderRadius: 20,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    background:
-      "linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.03))",
   };
 }
 
 function getHeroKickerStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.58)",
-    fontSize: "0.72em",
-    fontWeight: 800,
+    ...steamRecipes.text("fullscreen", "caption"),
+    color: steamTheme.color.textMuted,
+    fontWeight: steamTheme.type.weight.strong,
     letterSpacing: "0.1em",
     textTransform: "uppercase",
     lineHeight: 1.2,
@@ -65,9 +63,8 @@ function getHeroKickerStyle(): CSSProperties {
 
 function getHeroTitleStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.98)",
-    fontSize: "1.45em",
-    fontWeight: 800,
+    ...steamRecipes.text("fullscreen", "hero"),
+    fontWeight: steamTheme.type.weight.strong,
     lineHeight: 1.08,
     minWidth: 0,
     overflow: "hidden",
@@ -78,8 +75,8 @@ function getHeroTitleStyle(): CSSProperties {
 
 function getHeroSupportStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.72)",
-    fontSize: "0.92em",
+    ...steamRecipes.text("fullscreen", "body"),
+    color: steamTheme.color.textSecondary,
     lineHeight: 1.4,
     whiteSpace: "pre-wrap",
   };
@@ -104,13 +101,12 @@ function getScanGridStyle(): CSSProperties {
 
 function getScanStatCardStyle(): CSSProperties {
   return {
+    ...steamRecipes.card("fullscreen", "raised"),
     display: "flex",
     flexDirection: "column",
     gap: 4,
     padding: 12,
     borderRadius: 16,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
     minWidth: 0,
   };
 }

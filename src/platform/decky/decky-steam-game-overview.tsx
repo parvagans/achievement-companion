@@ -44,6 +44,7 @@ function formatGameRefreshTime(value: number | undefined): string | undefined {
 function getIdentityPanelStyle(): CSSProperties {
   return {
     ...steamRecipes.card("fullscreen", "raised"),
+    background: steamTheme.surface.contentCard,
     display: "flex",
     flexDirection: "column",
     justifyContent: "space-between",

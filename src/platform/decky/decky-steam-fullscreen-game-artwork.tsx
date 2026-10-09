@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from "react";
+import { steamTheme } from "./steam-theme";
 
 function getArtworkFrameStyle(compact: boolean, dense: boolean): CSSProperties {
   return {
@@ -12,8 +13,7 @@ function getArtworkFrameStyle(compact: boolean, dense: boolean): CSSProperties {
     padding: compact ? 8 : dense ? 10 : 14,
     borderRadius: 18,
     border: "1px solid rgba(255, 255, 255, 0.08)",
-    background:
-      "radial-gradient(circle at top, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02) 52%, rgba(0, 0, 0, 0.18))",
+    background: steamTheme.surface.contentStat,
     boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 4px 16px rgba(0, 0, 0, 0.2)",
     boxSizing: "border-box",
     overflow: "hidden",
@@ -42,8 +42,7 @@ function getArtworkFallbackStyle(): CSSProperties {
     height: "100%",
     alignItems: "center",
     justifyContent: "center",
-    background:
-      "linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03))",
+    background: steamTheme.surface.contentCard,
     color: "rgba(255, 255, 255, 0.9)",
     fontSize: "1em",
     fontWeight: 700,

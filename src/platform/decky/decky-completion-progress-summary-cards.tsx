@@ -2,6 +2,7 @@ import { useState, type CSSProperties, type JSX, type FocusEventHandler } from "
 import { Focusable, type FocusableProps } from "@decky/ui";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
+import { achievementCompanionQamTheme as sharedTheme } from "./decky-qam-theme";
 import {
   formatCompletionProgressSelectionLabelForProvider,
   type CompletionProgressSelectionFilter,
@@ -43,20 +44,20 @@ function getCompletionProgressSummaryCardStyle({
     padding: "12px 12px 11px",
     borderRadius: 16,
     border: "1px solid rgba(255, 255, 255, 0.075)",
-    background: "rgba(255, 255, 255, 0.032)",
+    background: sharedTheme.surface.contentStat,
     boxShadow:
       "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 10px rgba(0, 0, 0, 0.16)",
     color: "rgba(255, 255, 255, 0.96)",
     textAlign: "center",
     userSelect: "none",
     transition:
-      "background-color 120ms ease, border-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease, transform 120ms ease",
+      "background 120ms ease, border-color 120ms ease, box-shadow 120ms ease, opacity 120ms ease, transform 120ms ease",
   };
 
   const selectedStyle: CSSProperties = selected
     ? {
         borderColor: "rgba(125, 190, 255, 0.72)",
-        background: "linear-gradient(180deg, rgba(96, 165, 250, 0.16), rgba(96, 165, 250, 0.08))",
+        background: `linear-gradient(180deg, rgba(96, 165, 250, 0.16), rgba(96, 165, 250, 0.08)), ${sharedTheme.surface.contentStat}`,
         boxShadow:
           "inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 0 1px rgba(96, 165, 250, 0.28)",
       }
@@ -66,13 +67,13 @@ function getCompletionProgressSummaryCardStyle({
     ? selected
       ? {
           borderColor: "rgba(125, 190, 255, 0.88)",
-          background: "linear-gradient(180deg, rgba(96, 165, 250, 0.24), rgba(96, 165, 250, 0.12))",
+          background: `linear-gradient(180deg, rgba(96, 165, 250, 0.24), rgba(96, 165, 250, 0.12)), ${sharedTheme.surface.focusedContentStat}`,
           boxShadow:
             "0 0 0 1px rgba(96, 165, 250, 0.82), inset 0 1px 0 rgba(255, 255, 255, 0.16), inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 4px 16px rgba(0, 0, 0, 0.26)",
         }
       : {
           borderColor: "rgba(96, 165, 250, 0.82)",
-          background: "linear-gradient(180deg, rgba(96, 165, 250, 0.2), rgba(96, 165, 250, 0.1))",
+          background: sharedTheme.surface.focusedContentStat,
           boxShadow:
             "0 0 0 1px rgba(96, 165, 250, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 4px 14px rgba(0, 0, 0, 0.24)",
         }

@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 
 export interface DeckyFullScreenGameMetadataPill {
   readonly key: string;
@@ -26,8 +27,8 @@ function getPillStyle(): CSSProperties {
     width: "100%",
     padding: "6px 10px",
     borderRadius: 999,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    backgroundColor: "rgba(255, 255, 255, 0.035)",
+    border: `1px solid ${qamTheme.color.borderSubtle}`,
+    background: qamTheme.surface.contentStat,
     color: "rgba(255, 255, 255, 0.82)",
     fontSize: "0.74em",
     fontWeight: 700,

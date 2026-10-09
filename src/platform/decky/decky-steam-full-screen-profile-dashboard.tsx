@@ -77,7 +77,13 @@ function SteamProfileDashboardFocusStyles(): JSX.Element {
 .${DASHBOARD_FOCUS_RING_CLASS}.gpfocuswithin,
 .${DASHBOARD_FOCUS_RING_CLASS}:focus,
 .${DASHBOARD_FOCUS_RING_CLASS}:focus-within,
-.${DASHBOARD_FOCUS_RING_ACTIVE_CLASS} {
+.${DASHBOARD_FOCUS_RING_CLASS}.${DASHBOARD_FOCUS_RING_ACTIVE_CLASS} {
+  outline: 2px solid ${steamTheme.focus.border} !important;
+  outline-offset: 1px !important;
+  box-shadow: ${steamTheme.focus.shadow} !important;
+  background: ${steamTheme.surface.focusedContentStat} !important;
+}
+.${DASHBOARD_FOCUS_RING_ACTIVE_CLASS}:not(.${DASHBOARD_FOCUS_RING_CLASS}) {
   outline: 2px solid ${steamTheme.focus.border} !important;
   outline-offset: 1px !important;
   box-shadow: ${steamTheme.focus.shadow} !important;
@@ -204,6 +210,7 @@ function getDashboardGridStyle(): CSSProperties {
 function getPanelStyle(gridArea: string): CSSProperties {
   return {
     ...steamRecipes.card("fullscreen", "raised"),
+    background: steamTheme.surface.contentCard,
     gridArea,
     display: "flex",
     flexDirection: "column",
@@ -530,7 +537,7 @@ function getMetricTileStyle(): CSSProperties {
     padding: "6px 8px",
     border: `1px solid ${steamTheme.color.borderSubtle}`,
     borderRadius: 11,
-    background: steamTheme.surface.raised,
+    background: steamTheme.surface.contentStat,
     boxSizing: "border-box",
   };
 }
@@ -736,7 +743,7 @@ function getListRowStyle(): CSSProperties {
     padding: 4,
     border: "1px solid rgba(66, 153, 198, 0.24)",
     borderRadius: 10,
-    backgroundColor: "rgba(10, 37, 53, 0.62)",
+    background: steamTheme.surface.contentStat,
     boxSizing: "border-box",
   };
 }

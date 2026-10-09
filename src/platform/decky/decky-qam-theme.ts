@@ -1,6 +1,11 @@
 import type { CSSProperties } from "react";
 
-/** Shared Achievement Companion QAM foundations used by every provider. */
+/** Shared Achievement Companion visual foundations for QAM and full-screen. */
+const contentCardGradient = "radial-gradient(circle at 18% 50%, rgba(43, 195, 242, 0.13), transparent 54%), linear-gradient(110deg, #071b29, #081824)";
+const contentStatGradient = "radial-gradient(circle at 18% 50%, rgba(43, 195, 242, 0.1), transparent 54%), linear-gradient(110deg, #0a2638, #071c2c)";
+const contentFocusOverlay = "linear-gradient(180deg, rgba(63, 149, 211, 0.26), rgba(31, 92, 141, 0.21))";
+const contentSelectionOverlay = "linear-gradient(180deg,rgba(74,138,204,.4),rgba(34,79,124,.34))";
+
 export const qamActivityCalendarColors = ["#1d3c51", "#21546f", "#267da9", "#2fb9ef", "#50d5ff"] as const;
 export type QamActivityCalendarIntensity = 0 | 1 | 2 | 3 | 4;
 
@@ -30,7 +35,15 @@ export const achievementCompanionQamTheme = {
     page: "linear-gradient(120deg,#06111a,#071724 55%,#06121c)",
     card: "rgba(7,27,41,.88)", raised: "linear-gradient(90deg,rgba(9,35,52,.95),rgba(7,29,44,.9))",
     interactive: "rgba(9,39,58,.72)",
-    selected: "linear-gradient(180deg,rgba(74,138,204,.4),rgba(34,79,124,.34))",
+    contentCard: contentCardGradient,
+    contentStat: contentStatGradient,
+    focusedContentCard: `${contentFocusOverlay}, ${contentCardGradient}`,
+    focusedContentStat: `${contentFocusOverlay}, ${contentStatGradient}`,
+    selectedContentCard: `${contentSelectionOverlay}, ${contentCardGradient}`,
+    focusedSelectedContentCard: `${contentFocusOverlay}, ${contentSelectionOverlay}, ${contentCardGradient}`,
+    selectedContentStat: `${contentSelectionOverlay}, ${contentStatGradient}`,
+    focusedSelectedContentStat: `${contentFocusOverlay}, ${contentSelectionOverlay}, ${contentStatGradient}`,
+    selected: contentSelectionOverlay,
     primaryAction: "linear-gradient(180deg,rgba(34,155,232,.82),rgba(15,91,162,.88))",
     secondaryAction: "linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,.045))",
     compactPrimaryAction: "linear-gradient(180deg,rgba(10,63,96,.82),rgba(7,43,67,.92))",

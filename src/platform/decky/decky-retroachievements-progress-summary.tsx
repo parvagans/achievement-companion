@@ -59,7 +59,7 @@ export function DeckyRetroAchievementsProgressSummary({
       focusable={false}
       style={{
         ...steamRecipes.card("fullscreen", "raised"),
-        background: raTheme.surface.gameOverviewCard,
+        background: raTheme.surface.contentCard,
         gap: 6,
         padding: 8,
         height: "100%",

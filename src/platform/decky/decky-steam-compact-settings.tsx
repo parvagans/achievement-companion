@@ -75,13 +75,13 @@ function getActionStyle(isFocused: boolean, emphasis: "primary" | "secondary"): 
     minWidth: 0,
     minHeight: 38,
     padding: "8px 12px",
-    ...(isFocused ? { border: `1px solid ${steamTheme.focus.border}` } : {}),
+    ...(isFocused ? { border: `1px solid ${isPrimary ? steamTheme.focus.primaryBorder : steamTheme.focus.border}` } : {}),
     borderRadius: steamTheme.radius.small,
     background: isFocused
-      ? steamTheme.focus.background
-      : isPrimary ? steamTheme.surface.primaryAction : steamTheme.surface.secondaryAction,
+      ? isPrimary ? steamTheme.focus.primaryBackground : steamTheme.surface.focusedContentCard
+      : isPrimary ? steamTheme.surface.primaryAction : steamTheme.surface.contentCard,
     boxShadow: isFocused
-      ? steamTheme.focus.shadow
+      ? isPrimary ? steamTheme.focus.primaryShadow : steamTheme.focus.shadow
       : "inset 0 1px 0 rgba(125, 211, 252, 0.05), 0 4px 12px rgba(0, 0, 0, 0.14)",
     boxSizing: "border-box",
     color: steamTheme.color.textPrimary,
@@ -136,6 +136,7 @@ function getChevronStyle(): CSSProperties {
 function getSettingsCardStyle(): CSSProperties {
   return {
     ...steamRecipes.card("compact", "raised"),
+    background: steamTheme.surface.contentCard,
     display: "flex",
     flexDirection: "column",
     overflow: "hidden",
@@ -155,10 +156,10 @@ function getCountPickerStyle(isFocused: boolean, isExpanded: boolean): CSSProper
     border: isFocused ? `1px solid ${steamTheme.color.borderStrong}` : "1px solid transparent",
     borderRadius: 7,
     background: isFocused
-      ? "rgba(18, 78, 113, 0.64)"
+      ? steamTheme.surface.focusedContentStat
       : isExpanded
-        ? "rgba(10, 58, 86, 0.58)"
-        : "transparent",
+        ? `${steamTheme.surface.selected}, ${steamTheme.surface.contentStat}`
+        : steamTheme.surface.contentStat,
     boxShadow: isFocused ? "inset 0 0 0 1px rgba(54, 185, 255, 0.48)" : "none",
     boxSizing: "border-box",
     color: steamTheme.color.textPrimary,
@@ -181,7 +182,7 @@ function getCountValueStyle(): CSSProperties {
     minHeight: 38,
     flex: "0 0 72px",
     borderRadius: 4,
-    background: "rgba(85, 111, 130, 0.55)",
+    background: steamTheme.surface.contentStat,
     color: steamTheme.color.textPrimary,
     fontSize: steamTheme.type.compact.heading,
     fontWeight: steamTheme.type.weight.medium,

@@ -3,11 +3,10 @@ import type { CSSProperties, ReactNode } from "react";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
 import { steamRecipes, steamTheme } from "./steam-theme";
-import { raTheme } from "./ra-theme";
 
 /** The same bounded card and scroll inset for both provider settings pages. */
-export function DeckySettingsSection({ children, themeVariant = "steam" }: { readonly children: ReactNode; readonly themeVariant?: "steam" | "ra" }): JSX.Element {
-  return <div data-settings-section-content style={{ ...steamRecipes.card("fullscreen"), ...(themeVariant === "ra" ? { background: raTheme.surface.gameOverviewCard } : {}), display: "flex", flex: "1 1 auto", flexDirection: "column", minHeight: 0, width: "100%", boxSizing: "border-box", overflow: "hidden", padding: "12px 16px" }}>{children}</div>;
+export function DeckySettingsSection({ children }: { readonly children: ReactNode; readonly themeVariant?: "steam" | "ra" }): JSX.Element {
+  return <div data-settings-section-content style={{ ...steamRecipes.card("fullscreen"), display: "flex", flex: "1 1 auto", flexDirection: "column", minHeight: 0, width: "100%", boxSizing: "border-box", overflow: "hidden", padding: "12px 16px" }}>{children}</div>;
 }
 
 export const settingsScrollStyle: CSSProperties = {

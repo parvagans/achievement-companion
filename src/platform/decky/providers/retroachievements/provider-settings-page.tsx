@@ -60,7 +60,7 @@ function getPageFrameStyle(inProviderSwitcher: boolean): CSSProperties {
 }
 
 function getHeroCardStyle(): CSSProperties {
-  return { ...raRecipes.card("fullscreen"), background: raTheme.surface.gameOverviewCard, display: "flex", flexDirection: "column", gap: 10, padding: 18 };
+  return { ...raRecipes.card("fullscreen"), background: raTheme.surface.contentCard, display: "flex", flexDirection: "column", gap: 10, padding: 18 };
 }
 
 function getHeroKickerStyle(): CSSProperties {
@@ -97,7 +97,7 @@ function SettingsStyles(): JSX.Element {
     if (document === undefined) return;
     const style = document.createElement("style");
     style.textContent = `.ac-ra-fullscreen-settings-page .ac-settings-action{outline:none!important}.ac-ra-fullscreen-settings-page .ac-settings-action:not(.gpfocus):not(.gpfocuswithin):not(:focus):not(:focus-within){box-shadow:none!important}.ac-ra-fullscreen-settings-page .ac-settings-action:is(.gpfocus,.gpfocuswithin,:focus,:focus-within){border-color:${steamTheme.focus.border}!important;box-shadow:${steamTheme.focus.shadow}!important;background:${steamTheme.focus.background}!important}.ac-ra-fullscreen-settings-page .ac-ra-settings-input,.ac-ra-fullscreen-settings-page .ac-steam-settings-input{min-height:0!important;margin:0!important}.ac-ra-fullscreen-settings-page .ac-ra-settings-input,.ac-ra-fullscreen-settings-page .ac-ra-settings-input *,.ac-ra-fullscreen-settings-page .ac-steam-settings-input,.ac-ra-fullscreen-settings-page .ac-steam-settings-input *{font-size:${steamTheme.type.fullscreen.body}px!important;line-height:1.2!important}.ac-ra-fullscreen-settings-page .ac-ra-settings-input [class*="DialogInput"],.ac-ra-fullscreen-settings-page .ac-steam-settings-input [class*="DialogInput"]{min-height:0!important;margin:0!important;padding-block:0!important}.ac-ra-fullscreen-settings-page .ac-ra-settings-input input,.ac-ra-fullscreen-settings-page .ac-steam-settings-input input{height:30px!important;min-height:30px!important;padding:3px 9px!important}.ac-ra-fullscreen-settings-page .ac-ra-settings-save{outline:none!important}.ac-ra-fullscreen-settings-page .ac-ra-settings-save.gpfocus,.ac-ra-fullscreen-settings-page .ac-ra-settings-save.gpfocuswithin,.ac-ra-fullscreen-settings-page .ac-ra-settings-save:focus,.ac-ra-fullscreen-settings-page .ac-ra-settings-save:focus-within{border-color:${steamTheme.focus.border}!important;box-shadow:${steamTheme.focus.shadow}!important;background:${steamTheme.focus.background}!important}.ac-ra-fullscreen-settings-page .ac-ra-settings-help-link{outline:none!important}.ac-ra-fullscreen-settings-page .ac-ra-settings-help-link:is(.gpfocus,.gpfocuswithin,:focus,:focus-within){outline:2px solid ${steamTheme.focus.border}!important;outline-offset:1px;background:${steamTheme.focus.background}!important;box-shadow:${steamTheme.focus.shadow}!important;color:${steamTheme.color.textPrimary}!important}`;
-    style.textContent += `.ac-ra-fullscreen-settings-page .ac-settings-action:is(.gpfocus,.gpfocuswithin,:focus,:focus-within){background:linear-gradient(180deg,rgba(63,149,211,.26),rgba(31,92,141,.21)),${raTheme.surface.gameOverviewStat}!important}`;
+    style.textContent += `.ac-ra-fullscreen-settings-page .ac-settings-action:is(.gpfocus,.gpfocuswithin,:focus,:focus-within){background:${raTheme.surface.focusedContentStat}!important}`;
     document.head.appendChild(style);
     return () => style.remove();
   }, []);
@@ -122,8 +122,8 @@ function SettingsActionRow({ title, subtitle, metadata, icon, disabled = false, 
   const borderColor = danger ? steamTheme.status.danger.border : success ? steamTheme.status.success.border : steamTheme.color.borderSubtle;
   const tone = danger ? steamTheme.status.danger.surface : success ? steamTheme.status.success.surface : undefined;
   const background = tone === undefined
-    ? raTheme.surface.gameOverviewStat
-    : `linear-gradient(180deg, ${tone}, ${tone}), ${raTheme.surface.gameOverviewStat}`;
+    ? raTheme.surface.contentStat
+    : `linear-gradient(180deg, ${tone}, ${tone}), ${raTheme.surface.contentStat}`;
   return <Focusable className="ac-settings-action" noFocusRing aria-label={title} aria-disabled={!interactive} tabIndex={interactive ? 0 : -1}
     {...(interactive ? { role: "button" as const, onActivate, onClick: onActivate, onGamepadDirection } : {})}
     style={{ display: "flex", alignItems: "center", gap: 10, minHeight: 44, padding: "8px 12px", boxSizing: "border-box", border: `1px solid ${borderColor}`, borderRadius: steamTheme.radius.small, background, color, opacity: disabled ? .56 : 1 }}>
@@ -224,7 +224,7 @@ export function DeckyRetroAchievementsProviderSettingsPage({ providerId, onBack,
 
   const refreshAction = getRetroAchievementsRefreshActionPresentation(refreshOperation);
   const subsetMessage = subsetIndexOperation === "refreshed" ? "The next base-game page will verify its subset links again." : subsetIndexOperation === "error" ? "Unable to prepare the subset recheck." : "Use this if a subset is missing or moved.";
-  const sideCardStyle: CSSProperties = { ...steamRecipes.card("fullscreen"), background: raTheme.surface.gameOverviewStat, padding: 14, boxSizing: "border-box" };
+  const sideCardStyle: CSSProperties = { ...steamRecipes.card("fullscreen"), background: raTheme.surface.contentStat, padding: 14, boxSizing: "border-box" };
   const onGamepadDirection = (event: GamepadEvent): void => handleColumnDirection(event);
   const saveCompactCalendarWeeks = (retroAchievementsCompactActivityCalendarWeeks: ActivityCalendarWeeks): void => updateSettings((current) => ({ ...current, retroAchievementsCompactActivityCalendarWeeks }));
   const saveFullscreenCalendarWeeks = (retroAchievementsFullscreenActivityCalendarWeeks: ActivityCalendarWeeks): void => updateSettings((current) => ({ ...current, retroAchievementsFullscreenActivityCalendarWeeks }));

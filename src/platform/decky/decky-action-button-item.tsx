@@ -1,5 +1,6 @@
 import { ButtonItem, type ButtonItemProps } from "@decky/ui";
 import type { CSSProperties, JSX, ReactNode } from "react";
+import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 
 type DeckyActionButtonItemProps = ButtonItemProps & {
   readonly childrenContainerWidth?: "min" | "max" | "fixed";
@@ -29,8 +30,8 @@ function getButtonCueStyle(): CSSProperties {
     width: 16,
     height: 16,
     borderRadius: 999,
-    backgroundColor: "rgba(255, 255, 255, 0.06)",
-    border: "1px solid rgba(255, 255, 255, 0.08)",
+    background: qamTheme.surface.contentStat,
+    border: `1px solid ${qamTheme.color.borderSubtle}`,
     flexShrink: 0,
   };
 }

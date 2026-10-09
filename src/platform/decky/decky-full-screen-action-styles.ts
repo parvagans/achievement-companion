@@ -8,6 +8,7 @@ import {
   DECKY_HEADER_SCROLL_MARGIN_TOP_PX,
 } from "./decky-focus-styles";
 import { getSteamActionStylesCss } from "./steam-theme";
+import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 
 export function getDeckyFullscreenActionStylesCss(): string {
   return `
@@ -39,7 +40,7 @@ export function getDeckyFullscreenActionStylesCss(): string {
   padding: 0 14px !important;
   border: 1px solid rgba(255, 255, 255, 0.16) !important;
   border-radius: 999px !important;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.045)) !important;
+  background: ${qamTheme.surface.contentStat} !important;
   color: rgba(255, 255, 255, 0.94) !important;
   box-sizing: border-box !important;
   font-size: 13px !important;
@@ -63,7 +64,7 @@ export function getDeckyFullscreenActionStylesCss(): string {
 
 .${DECKY_FULLSCREEN_CHIP_CLASS}.${DECKY_FULLSCREEN_CHIP_SELECTED_CLASS} {
   border-color: rgba(105, 176, 255, 0.82) !important;
-  background: linear-gradient(180deg, rgba(74, 138, 204, 0.4), rgba(34, 79, 124, 0.34)) !important;
+  background: ${qamTheme.surface.selectedContentStat} !important;
   color: rgba(255, 255, 255, 0.99) !important;
   box-shadow:
     0 0 0 1px rgba(73, 155, 255, 0.62),
@@ -106,13 +107,17 @@ export function getDeckyFullscreenActionStylesCss(): string {
 .${DECKY_FULLSCREEN_CHIP_CLASS}:focus-visible,
 .${DECKY_FULLSCREEN_CHIP_CLASS}:focus-within {
   border-color: rgba(105, 176, 255, 0.8) !important;
-  background: linear-gradient(180deg, rgba(74, 138, 204, 0.34), rgba(34, 79, 124, 0.3)) !important;
+  background: ${qamTheme.surface.focusedContentStat} !important;
   color: #fff !important;
   outline: none !important;
   box-shadow:
     0 0 0 2px rgba(73, 155, 255, 0.72),
     0 0 18px rgba(39, 124, 226, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+}
+
+.${DECKY_FULLSCREEN_CHIP_CLASS}.${DECKY_FULLSCREEN_CHIP_SELECTED_CLASS}:is(.${DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS},.gpfocus,.gpfocuswithin,:focus,:focus-visible,:focus-within) {
+  background: ${qamTheme.surface.focusedSelectedContentStat} !important;
 }
 
 /* Keep the primary action's blue treatment while making controller focus unmistakable. */
