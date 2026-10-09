@@ -312,6 +312,7 @@ interface DeckyProviderFullScreenDataSessionEntry {
 }
 
 const deckyProviderFullScreenDataSessions = new Map<ProviderId, DeckyProviderFullScreenDataSessionEntry>();
+const deckyProviderFullScreenCompactReturnRefreshSuppressions = new Set<ProviderId>();
 let deckyProviderFullScreenDataSessionRevision = 0;
 const deckyProviderFullScreenDataSessionListeners = new Set<() => void>();
 
@@ -400,6 +401,7 @@ export function resetDeckyAppServicesForTests(): void {
   deckyDashboardRefreshInFlightByProviderId.clear();
   deckyDashboardProgressChannels.clear();
   deckyProviderFullScreenDataSessions.clear();
+  deckyProviderFullScreenCompactReturnRefreshSuppressions.clear();
   deckyProviderFullScreenDataSessionRevision = 0;
   deckyProviderFullScreenDataSessionListeners.clear();
   deckySteamHuntersService.clearCache();
@@ -1478,9 +1480,8 @@ function buildRetroAchievementsCompletionProgressFromDashboard(
 async function createDeckyProviderFullScreenDataSession(
   providerId: ProviderId,
 ): Promise<DeckyProviderFullScreenDataSession> {
-  // Steam's full library scan is a separate explicit operation. Full-screen
-  // entry refreshes the bounded account snapshot; Games reuses the saved scan
-  // and projects any newly played games into it.
+  // One QAM profile visit prepares the dashboard, Games, Activity, and optional
+  // SteamHunters profile data. The full library scan remains its own operation.
   const dashboard = await loadDeckyDashboardState(providerId, {
     forceRefresh: true,
     skipRecentAchievementHistoryBackfill: true,
@@ -1502,21 +1503,65 @@ async function createDeckyProviderFullScreenDataSession(
     steamHuntersProfilePromise,
   ]);
 
-  return { dashboard, completionProgress, achievementHistory, steamHuntersProfile };
+  const dashboardWithRecentHistory =
+    dashboard.data !== undefined &&
+    achievementHistory.data !== undefined &&
+    achievementHistory.data.entries.length > 0
+      ? {
+          ...dashboard,
+          data: withDeckyRecentAchievements(
+            dashboard.data,
+            achievementHistory.data.entries.slice(0, DECKY_RECENT_ACHIEVEMENTS_LIMIT),
+          ),
+        }
+      : dashboard;
+
+  if (dashboardWithRecentHistory.status === "success" && dashboardWithRecentHistory.error === undefined) {
+    writeDeckyDashboardSnapshot(dashboardWithRecentHistory.data!);
+  }
+
+  return {
+    dashboard: dashboardWithRecentHistory,
+    completionProgress,
+    achievementHistory,
+    steamHuntersProfile,
+  };
 }
 
-/** Starts a fresh provider-wide data session for one full-screen visit. */
-export function beginDeckyProviderFullScreenDataSession(providerId: ProviderId): void {
+/** Starts one shared provider-profile load for QAM and its full-screen tabs. */
+export function startDeckyProviderProfileDataSession(providerId: ProviderId): void {
   deckyProviderFullScreenDataSessions.delete(providerId);
+  deckyProviderFullScreenCompactReturnRefreshSuppressions.delete(providerId);
   if (providerId === STEAM_PROVIDER_ID) {
     deckySteamHuntersService.clearProfileCache();
   }
   notifyDeckyProviderFullScreenDataSessionChanged();
 }
 
-/** Invalidates all visit data after terminal Back so the next entry refreshes. */
+/** Preserves a QAM-started data session when navigation enters full-screen. */
+export function beginDeckyProviderFullScreenDataSession(providerId: ProviderId): void {
+  if (deckyProviderFullScreenDataSessions.has(providerId)) {
+    return;
+  }
+  if (providerId === STEAM_PROVIDER_ID) {
+    deckySteamHuntersService.clearProfileCache();
+  }
+  notifyDeckyProviderFullScreenDataSessionChanged();
+}
+
+/** Keeps the loaded data for the compact profile returned to after full-screen. */
 export function endDeckyProviderFullScreenDataSession(providerId: ProviderId): void {
-  deckyProviderFullScreenDataSessions.delete(providerId);
+  deckyProviderFullScreenCompactReturnRefreshSuppressions.add(providerId);
+}
+
+export function consumeDeckyProviderFullScreenCompactReturnRefreshSuppression(
+  providerId: ProviderId,
+): boolean {
+  if (!deckyProviderFullScreenCompactReturnRefreshSuppressions.has(providerId)) {
+    return false;
+  }
+  deckyProviderFullScreenCompactReturnRefreshSuppressions.delete(providerId);
+  return true;
 }
 
 export function subscribeDeckyProviderFullScreenDataSession(listener: () => void): () => void {

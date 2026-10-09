@@ -38,12 +38,15 @@ import {
   initialDeckyAchievementHistoryState,
   initialDeckyGameDetailState,
   initialDeckySteamHuntersProfileState,
-  loadDeckyDashboardState,
   loadDeckyActivityCalendarState,
-  loadDeckyAchievementHistoryState,
+  getDeckyAchievementHistoryStateForFullScreenEntryInitial,
+  getDeckySteamHuntersProfileStateForFullScreenEntryInitial,
+  loadDeckyAchievementHistoryStateForFullScreenEntry,
+  loadDeckyDashboardStateForFullScreenEntry,
   loadDeckyGameDetailState,
-  loadDeckySteamHuntersProfileState,
-  refreshDeckySteamHuntersProfileState,
+  loadDeckySteamHuntersProfileStateForFullScreenEntry,
+  startDeckyProviderProfileDataSession,
+  consumeDeckyProviderFullScreenCompactReturnRefreshSuppression,
 } from "./decky-app-services";
 import { DeckyAchievementDetailView } from "./decky-achievement-detail-view";
 import {
@@ -85,13 +88,9 @@ import {
   claimDeckyCompactSteamDashboardRefresh,
   clearDeckyCompactSessionResources,
   loadDeckyCompactSteamDashboardState,
-  loadDeckyCompactSteamActivityState,
   loadDeckyCompactSteamGameState,
-  loadDeckyCompactSteamHuntersProfileState,
   readDeckyCompactSteamDashboardState,
-  readDeckyCompactSteamActivityState,
   readDeckyCompactSteamGameState,
-  readDeckyCompactSteamHuntersProfileState,
 } from "./decky-compact-session-resources";
 import {
   readDeckyCompactAchievementPageState,
@@ -711,15 +710,6 @@ function formatSteamLibraryScanUpdatedLabel(scannedAt: string | undefined): stri
 const platform = createDeckyPlatform(createDeckyNavigationPort());
 let lastDeckyDashboardSettingsSignature: string | undefined;
 
-function loadDashboardState(
-  providerId: ProviderId,
-  options?: {
-    readonly forceRefresh?: boolean;
-  },
-): Promise<ResourceState<DashboardSnapshot>> {
-  return loadDeckyDashboardState(providerId, options);
-}
-
 function loadGameDetailState(providerId: ProviderId, gameId: string): Promise<ResourceState<GameDetailSnapshot>> {
   return loadDeckyGameDetailState(providerId, gameId);
 }
@@ -784,7 +774,6 @@ function DashboardScreen({
         : false;
   }
   const dashboardForceRefreshNextLoad = useRef(initialProviderRefresh.current);
-  const steamHuntersForceRefreshNextLoad = useRef(initialProviderRefresh.current);
   const previousQuickAccessVisible = useRef(quickAccessVisible);
   const dashboardPreferences = useMemo(
     () => resolveProviderDashboardPreferences(providerConfig, settings),
@@ -829,7 +818,11 @@ function DashboardScreen({
       const forceRefresh = dashboardForceRefreshNextLoad.current;
       dashboardForceRefreshNextLoad.current = false;
 
-      const loader = () => loadDashboardState(providerId, { forceRefresh });
+      if (forceRefresh) {
+        startDeckyProviderProfileDataSession(providerId);
+      }
+
+      const loader = () => loadDeckyDashboardStateForFullScreenEntry(providerId);
       return providerId === STEAM_PROVIDER_ID
         ? loadDeckyCompactSteamDashboardState(loader, forceRefresh)
         : loader();
@@ -854,14 +847,14 @@ function DashboardScreen({
   );
   const steamActivityLoader = useMemo(
     () => () => providerId === STEAM_PROVIDER_ID
-      ? loadDeckyCompactSteamActivityState(() => loadDeckyAchievementHistoryState(providerId))
+      ? loadDeckyAchievementHistoryStateForFullScreenEntry(providerId)
       : Promise.resolve(initialDeckyAchievementHistoryState),
     [dashboardRefreshNonce, providerId],
   );
   const steamActivityState = useAsyncResourceState(
     steamActivityLoader,
     providerId === STEAM_PROVIDER_ID
-      ? readDeckyCompactSteamActivityState() ?? initialDeckyAchievementHistoryState
+      ? getDeckyAchievementHistoryStateForFullScreenEntryInitial(providerId)
       : initialDeckyAchievementHistoryState,
   );
   const steamId = providerId === STEAM_PROVIDER_ID
@@ -873,19 +866,14 @@ function DashboardScreen({
         return Promise.resolve(initialDeckySteamHuntersProfileState);
       }
 
-      const forceRefresh = steamHuntersForceRefreshNextLoad.current;
-      steamHuntersForceRefreshNextLoad.current = false;
-      const loader = () => forceRefresh
-        ? refreshDeckySteamHuntersProfileState(steamId)
-        : loadDeckySteamHuntersProfileState(steamId);
-      return loadDeckyCompactSteamHuntersProfileState(steamId, loader, forceRefresh);
+      return loadDeckySteamHuntersProfileStateForFullScreenEntry(STEAM_PROVIDER_ID);
     },
     [dashboardRefreshNonce, steamId],
   );
   const steamHuntersProfileState = useAsyncResourceState(
     steamHuntersProfileLoader,
     providerId === STEAM_PROVIDER_ID && steamId !== undefined
-      ? readDeckyCompactSteamHuntersProfileState(steamId) ?? initialDeckySteamHuntersProfileState
+      ? getDeckySteamHuntersProfileStateForFullScreenEntryInitial(providerId)
       : initialDeckySteamHuntersProfileState,
   );
   const steamHuntersProfile = steamHuntersProfileState.data?.steamId === steamId
@@ -923,6 +911,10 @@ function DashboardScreen({
     previousQuickAccessVisible.current = quickAccessVisible;
 
     if (!becameVisible) {
+      return;
+    }
+
+    if (consumeDeckyProviderFullScreenCompactReturnRefreshSuppression(providerId)) {
       return;
     }
 
@@ -966,7 +958,6 @@ function DashboardScreen({
       },
     };
   }, [dashboardPreferences.recentAchievementsCount, dashboardPreferences.recentlyPlayedCount, state]);
-
   const steamLibraryScanStatusLabel =
     providerId === STEAM_PROVIDER_ID
       ? steamLibraryScanState.status === "scanning"
