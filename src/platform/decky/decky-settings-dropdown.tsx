@@ -4,10 +4,11 @@ import caretDownIconUrl from "./assets/caret-down.svg";
 import { registerDeckyFullscreenPopupCancel } from "./decky-full-screen-popup-state";
 import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
 import { steamTheme } from "./steam-theme";
+import { raTheme } from "./ra-theme";
 
 /** The native modal selector used by both providers' full-screen settings. */
 export function DeckySettingsDropdown<T extends string | number>({
-  label, value, options, formatOption = String, disabled = false, onChange, onGamepadDirection,
+  label, value, options, formatOption = String, disabled = false, onChange, onGamepadDirection, themeVariant = "steam",
 }: {
   readonly label: string;
   readonly value: T;
@@ -16,6 +17,7 @@ export function DeckySettingsDropdown<T extends string | number>({
   readonly disabled?: boolean;
   readonly onChange: (value: T) => void;
   readonly onGamepadDirection: (event: GamepadEvent) => void;
+  readonly themeVariant?: "steam" | "ra";
 }): JSX.Element {
   const triggerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<ReturnType<typeof showContextMenu>>();
@@ -48,7 +50,7 @@ export function DeckySettingsDropdown<T extends string | number>({
     unregisterCancelRef.current = undefined;
   }, []);
   const valueLabel = formatOption(value);
-  return <Focusable ref={triggerRef} className="ac-settings-action" data-settings-dropdown={label} noFocusRing role="button" tabIndex={disabled ? -1 : 0} aria-disabled={disabled} aria-expanded={menuOpen} aria-label={`${label}: ${valueLabel}`} onActivate={openMenu} onClick={openMenu} onGamepadDirection={onGamepadDirection} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, minHeight: 44, padding: "8px 12px", boxSizing: "border-box", border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.small, background: steamTheme.surface.interactive, color: disabled ? steamTheme.color.textSecondary : steamTheme.color.textPrimary, opacity: disabled ? .65 : 1 }}>
+  return <Focusable ref={triggerRef} className="ac-settings-action" data-settings-dropdown={label} noFocusRing role="button" tabIndex={disabled ? -1 : 0} aria-disabled={disabled} aria-expanded={menuOpen} aria-label={`${label}: ${valueLabel}`} onActivate={openMenu} onClick={openMenu} onGamepadDirection={onGamepadDirection} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, minHeight: 44, padding: "8px 12px", boxSizing: "border-box", border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.small, background: themeVariant === "ra" ? raTheme.surface.gameOverviewStat : steamTheme.surface.interactive, color: disabled ? steamTheme.color.textSecondary : steamTheme.color.textPrimary, opacity: disabled ? .65 : 1 }}>
     <span style={{ minWidth: 0, fontSize: steamTheme.type.fullscreen.body, fontWeight: steamTheme.type.weight.strong }}>{label}</span>
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0, color: steamTheme.color.accent, fontSize: steamTheme.type.fullscreen.body, fontWeight: steamTheme.type.weight.strong }}><span>{valueLabel}</span><img alt="" src={caretDownIconUrl} style={{ width: 12, height: 12, objectFit: "contain", filter: steamTheme.iconFilter.accent, flexShrink: 0 }} /></span>
   </Focusable>;

@@ -775,6 +775,9 @@ export function getRaFocusStylesCss(): string {
   [data-ac-ra-theme="fullscreen"] .Panel.Focusable.gpfocus[data-ra-fullscreen-game-achievement-row="true"] {
     background: linear-gradient(180deg, rgba(63, 149, 211, 0.26), rgba(31, 92, 141, 0.21)), ${raTheme.surface.gameOverviewCard} !important;
   }
+  [data-ac-ra-theme="fullscreen"] .Panel.Focusable.gpfocus[data-steam-activity-row="true"] {
+    background: linear-gradient(180deg, rgba(63, 149, 211, 0.26), rgba(31, 92, 141, 0.21)), ${raTheme.surface.gameOverviewCard} !important;
+  }
   [data-ac-ra-theme="fullscreen"] .Panel.Focusable.gpfocus[data-ra-fullscreen-game-achievement-row="true"][data-ra-fullscreen-game-achievement-tone="hardcore"] {
     border-left-color: ${raTheme.color.hardcore} !important;
   }
@@ -790,7 +793,7 @@ export function getRaFocusStylesCss(): string {
   }
   [data-ac-ra-theme="fullscreen"] .achievement-companion-ra-profile-system--focused {
     border-color: rgba(151, 211, 255, 0.98) !important;
-    background: ${raTheme.focus.compactBackground} !important;
+    background: linear-gradient(180deg, rgba(63, 149, 211, 0.26), rgba(31, 92, 141, 0.21)), ${raTheme.surface.gameOverviewStat} !important;
     box-shadow: inset 0 0 0 2px rgba(151, 211, 255, 0.98), inset 0 0 0 999px rgba(54, 185, 255, 0.08), 0 0 14px rgba(54, 185, 255, 0.42) !important;
   }
   [data-ac-ra-theme] .achievement-companion-achievement-filter-option.achievement-companion-achievement-filter-option--selected {

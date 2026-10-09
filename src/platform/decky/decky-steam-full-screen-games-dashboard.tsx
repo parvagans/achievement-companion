@@ -201,6 +201,9 @@ function SteamGamesRouteStyles(): JSX.Element {
 .${STEAM_GAMES_LIST_CLASS}::-webkit-scrollbar {
   display: none;
 }
+[data-ac-ra-theme="fullscreen"] .Panel.Focusable.${STEAM_GAMES_FOCUS_CLASS}[data-ac-ra-profile-game-row="true"].gpfocus {
+  background: linear-gradient(180deg, rgba(63, 149, 211, 0.26), rgba(31, 92, 141, 0.21)), ${raTheme.surface.gameOverviewCard} !important;
+}
 `;
     ownerDocument.head.appendChild(style);
     return () => style.remove();
@@ -272,9 +275,10 @@ function getSummaryGridStyle(): CSSProperties {
   };
 }
 
-function getMetricCardStyle(): CSSProperties {
+function getMetricCardStyle(isRa = false): CSSProperties {
   return {
     ...steamRecipes.metricTile("fullscreen"),
+    ...(isRa ? { background: raTheme.surface.gameOverviewCard } : {}),
     display: "grid",
     gridTemplateColumns: "34px minmax(0, 1fr)",
     alignItems: "center",
@@ -304,15 +308,17 @@ function MetricCard({
   value,
   label,
   helper,
+  isRa = false,
 }: {
   readonly iconUrl: string;
   readonly iconTone?: SteamGamesIconTone;
   readonly value: string;
   readonly label: string;
   readonly helper?: string;
+  readonly isRa?: boolean;
 }): JSX.Element {
   return (
-    <div style={getMetricCardStyle()}>
+    <div style={getMetricCardStyle(isRa)}>
       <IconAsset size={27} src={iconUrl} tone={iconTone} />
       <div style={{ minWidth: 0 }}>
         <div style={getMetricValueStyle()}>{value}</div>
@@ -323,9 +329,9 @@ function MetricCard({
   );
 }
 
-function OverallProgressCard({ summary }: { readonly summary: SteamGamesDashboardSummary }): JSX.Element {
+function OverallProgressCard({ summary, isRa }: { readonly summary: SteamGamesDashboardSummary; readonly isRa: boolean }): JSX.Element {
   return (
-    <div style={{ ...getMetricCardStyle(), display: "flex", flexDirection: "column", alignItems: "stretch", gap: 6 }}>
+    <div style={{ ...getMetricCardStyle(isRa), display: "flex", flexDirection: "column", alignItems: "stretch", gap: 6 }}>
         <div style={{ ...steamRecipes.text("fullscreen", "metadata"), color: steamTheme.color.accent, fontSize: 10, fontWeight: 700, lineHeight: 1 }}>Completion Progress</div>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", gap: 8 }}>
         <div style={{ ...steamRecipes.progressTrack, height: 10 }}>
@@ -645,6 +651,7 @@ function getGameRowStyle(providerId: string): CSSProperties {
   const isRa = providerId === RETROACHIEVEMENTS_PROVIDER_ID;
   return {
     ...steamRecipes.interactiveRow("fullscreen"),
+    ...(isRa ? { background: raTheme.surface.gameOverviewCard } : {}),
     display: "grid",
     gridTemplateColumns: `${isRa ? DECKY_RA_FULLSCREEN_GAME_ICON_COLUMN_WIDTH : STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}px minmax(165px, 1.55fr) minmax(145px, 1.45fr) ${isRa ? 126 : 96}px ${isRa ? 122 : 116}px 16px`,
     alignItems: "center",
@@ -806,6 +813,7 @@ function SteamGamesRow({
       onGamepadDirection={handleSteamGamesRowDirection}
       style={getGameRowStyle(providerId)}
       data-steam-games-row="true"
+      {...(providerId === RETROACHIEVEMENTS_PROVIDER_ID ? { "data-ac-ra-profile-game-row": "true" } : {})}
     >
       {providerId === RETROACHIEVEMENTS_PROVIDER_ID ? <DeckyRetroAchievementsGameIcon
         game={game}
@@ -898,24 +906,28 @@ function SteamGamesSummaryCards({ summary, providerId }: { readonly summary: Ste
   return (
     <div style={getSummaryGridStyle()}>
       <MetricCard
+        isRa={isRa}
         helper={isRa ? "Progress collection" : "(Steam Library)"}
         iconUrl={gamepadIconUrl}
         label={isRa ? "Games with progress" : "Games Tracked"}
         value={formatCount(summary.trackedCount)}
       />
       <MetricCard
+        isRa={isRa}
         helper={formatPercent(getSteamGamesPercentage(summary.playedCount, summary.trackedCount))}
         iconUrl={barChartIconUrl}
         label="Played"
         value={formatCount(summary.playedCount)}
       />
       <MetricCard
+        isRa={isRa}
         helper={formatPercent(getSteamGamesPercentage(summary.unfinishedCount, summary.trackedCount))}
         iconUrl={listIconUrl}
         label={isRa ? "In Progress" : "Unfinished"}
         value={formatCount(summary.unfinishedCount)}
       />
       <MetricCard
+        isRa={isRa}
         helper={formatPercent(getSteamGamesPercentage(summary.skippedCount, summary.trackedCount))}
         iconTone="red"
         iconUrl={prohibitedIconUrl}
@@ -923,13 +935,14 @@ function SteamGamesSummaryCards({ summary, providerId }: { readonly summary: Ste
         value={formatCount(summary.skippedCount)}
       />
       <MetricCard
+        isRa={isRa}
         helper={formatPercent(getSteamGamesPercentage(summary.perfectedCount, summary.trackedCount))}
         iconTone="gold"
         iconUrl={crownIconUrl}
         label={isRa ? "Mastered" : "Perfected"}
         value={formatCount(summary.perfectedCount)}
       />
-      <OverallProgressCard summary={summary} />
+      <OverallProgressCard summary={summary} isRa={isRa} />
     </div>
   );
 }
@@ -1193,7 +1206,7 @@ export function DeckySteamFullScreenGamesDashboard({
                 border: "1px solid rgba(66, 124, 160, 0.28)",
                 borderRadius: 8,
                 color: "#a9bdcf",
-                background: "rgba(9, 29, 42, 0.82)",
+                background: isRa ? raTheme.surface.gameOverviewCard : "rgba(9, 29, 42, 0.82)",
                 fontSize: 11,
               }}
             >
