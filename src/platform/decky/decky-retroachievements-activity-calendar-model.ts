@@ -1,16 +1,17 @@
 import type { RecentUnlock } from "@core/domain";
-import type { RetroAchievementsAchievementMode } from "@core/settings";
+import type { ActivityCalendarWeeks, RetroAchievementsAchievementMode } from "@core/settings";
 import {
   buildActivityCalendarModel,
   getLocalActivityCalendarDayTimestamp,
   type ActivityCalendarModel,
 } from "./decky-activity-calendar-model";
 
-export const RETROACHIEVEMENTS_ACTIVITY_CALENDAR_WEEKS = 8;
+export const RETROACHIEVEMENTS_ACTIVITY_CALENDAR_WEEKS: ActivityCalendarWeeks = 8;
 
 export function buildRetroAchievementsActivityCalendarModel(args: {
   readonly entries: readonly RecentUnlock[];
   readonly achievementMode: RetroAchievementsAchievementMode;
+  readonly weeks?: ActivityCalendarWeeks;
   readonly now?: number;
 }): ActivityCalendarModel {
   const dayCounts = new Map<number, number>();
@@ -25,7 +26,7 @@ export function buildRetroAchievementsActivityCalendarModel(args: {
 
   return buildActivityCalendarModel(
     dayCounts,
-    RETROACHIEVEMENTS_ACTIVITY_CALENDAR_WEEKS,
+    args.weeks ?? RETROACHIEVEMENTS_ACTIVITY_CALENDAR_WEEKS,
     args.now,
   );
 }

@@ -690,7 +690,9 @@ export function DeckyFullScreenAchievementHistoryPage({
   onOpenAchievementDetail,
 }: DeckyFullScreenAchievementHistoryPageProps): JSX.Element {
   const settings = useDeckySettings();
-  const effectiveActivityCalendarWeeks = activityCalendarWeeks ?? settings.steamFullscreenActivityCalendarWeeks;
+  const effectiveActivityCalendarWeeks = activityCalendarWeeks ?? (providerId === RETROACHIEVEMENTS_PROVIDER_ID
+    ? settings.retroAchievementsFullscreenActivityCalendarWeeks
+    : settings.steamFullscreenActivityCalendarWeeks);
   const loadSelectedAchievementHistory = useMemo(() => {
     if (providerId === undefined) {
       return () => Promise.resolve(initialDeckyAchievementHistoryState);

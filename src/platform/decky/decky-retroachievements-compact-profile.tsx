@@ -10,6 +10,8 @@ import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DeckyRetroAchievementsGameIcon } from "./decky-retroachievements-game-icon";
 import { formatProfileMemberSince } from "./decky-stat-helpers";
 import { useDeckySettings } from "./decky-settings";
+import { useDeckyProviderConfig } from "./providers/retroachievements/config";
+import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 import { raRecipes, raTheme } from "./ra-theme";
 import { DeckyCompactPrimaryActionContent } from "./decky-compact-primary-action";
 import {
@@ -51,7 +53,6 @@ import chevronRightIconUrl from "./assets/chevron-right.svg";
 import masteredIconUrl from "./assets/mastered.svg";
 import pieChartIconUrl from "./assets/pie-chart.svg";
 import rankPointsIconUrl from "./assets/rank-points.svg";
-import settingsIconUrl from "./assets/settings.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
 
 export interface DeckyRetroAchievementsCompactProfileProps {
@@ -64,7 +65,6 @@ export interface DeckyRetroAchievementsCompactProfileProps {
   readonly onOpenCompletionProgress: () => void;
   readonly onOpenAchievementDetail: (target: CompactAchievementTarget) => void;
   readonly onOpenGameDetail: (game: RecentlyPlayedGame) => void;
-  readonly onOpenSettings: () => void;
   readonly onUpdateCredentials?: () => void;
   readonly onCancel: () => void;
 }
@@ -337,6 +337,7 @@ function CompletionCard({
 function ActivityCalendar({
   entries,
   mode,
+  weeks,
   selectedDay,
   onSelectDay,
   onCancel,
@@ -345,6 +346,7 @@ function ActivityCalendar({
 }: {
   readonly entries: readonly RecentUnlock[] | undefined;
   readonly mode: Parameters<typeof buildRetroAchievementsActivityCalendarModel>[0]["achievementMode"];
+  readonly weeks: NonNullable<Parameters<typeof buildRetroAchievementsActivityCalendarModel>[0]["weeks"]>;
   readonly selectedDay: number | undefined;
   readonly onSelectDay: (day: number) => void;
   readonly onCancel: () => void;
@@ -360,8 +362,8 @@ function ActivityCalendar({
   const dayElementRefs = useRef(new Map<number, HTMLDivElement>());
   const pendingFocus = useRef<"entry" | "day">();
   const model = useMemo(
-    () => entries === undefined ? undefined : buildRetroAchievementsActivityCalendarModel({ entries, achievementMode: mode }),
-    [entries, mode],
+    () => entries === undefined ? undefined : buildRetroAchievementsActivityCalendarModel({ entries, achievementMode: mode, weeks }),
+    [entries, mode, weeks],
   );
   const labels = ["M", "T", "W", "T", "F", "S", "S"];
   const today = getLocalActivityCalendarDayTimestamp(Date.now());
@@ -374,7 +376,7 @@ function ActivityCalendar({
   const selectedDateLabel = selectedDay === undefined
     ? undefined
     : new Date(selectedDay).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
-  const status = model === undefined ? "Activity data unavailable" : selectedDateLabel ?? "Last 8 weeks";
+  const status = model === undefined ? "Activity data unavailable" : selectedDateLabel ?? `Last ${weeks} weeks`;
   const enterCalendar = (): void => {
     if (model === undefined) return;
     if (entryRef.current !== null) entryTargetProps.onActivated(entryRef.current);
@@ -468,7 +470,7 @@ function ActivityCalendar({
         <span style={{ ...raRecipes.text("compact", "caption"), color: selectedDay === undefined ? raTheme.color.textMuted : raTheme.color.accent, fontWeight: selectedDay === undefined ? 600 : 800 }}>{status}</span>
       </div>
       {model !== undefined ? (
-        <div style={raRecipes.compactProfile.calendarGrid}>
+        <div style={raRecipes.compactProfile.calendarGrid(weeks)}>
           {labels.map((label, row) => <span key={`${label}:${row}`} style={{ gridColumn: 1, gridRow: row + 1, alignSelf: "center", ...raRecipes.text("compact", "caption"), color: raTheme.color.textMuted, fontSize: 8 }}>{label}</span>)}
           {model.days.map(({ day, count, intensity }) => {
             const dateLabel = new Date(day).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
@@ -663,12 +665,14 @@ export function DeckyRetroAchievementsCompactProfile({
   onOpenCompletionProgress,
   onOpenAchievementDetail,
   onOpenGameDetail,
-  onOpenSettings,
   onUpdateCredentials,
   onCancel,
 }: DeckyRetroAchievementsCompactProfileProps): JSX.Element {
   const profile = snapshot.profile;
   const settings = useDeckySettings();
+  const providerConfig = useDeckyProviderConfig(RETROACHIEVEMENTS_PROVIDER_ID);
+  const recentAchievementsCount = providerConfig?.recentAchievementsCount ?? settings.recentAchievementsCount;
+  const recentlyPlayedCount = providerConfig?.recentlyPlayedCount ?? settings.recentlyPlayedCount;
   const isQuickAccessVisible = useQuickAccessVisible();
   const restorationRequest = useSyncExternalStore(
     subscribeToDeckyCompactFocusRestore,
@@ -692,7 +696,7 @@ export function DeckyRetroAchievementsCompactProfile({
     : filterCompactActivityEntriesForDay(modeFilteredActivity, selectedActivityDay)
       .slice().sort((left, right) => (right.unlockedAt ?? right.achievement.unlockedAt ?? 0) - (left.unlockedAt ?? left.achievement.unlockedAt ?? 0)),
   [modeFilteredActivity, selectedActivityDay]);
-  const visibleActivity = selectedDateActivity ?? modeFilteredActivity.slice(0, 5);
+  const visibleActivity = selectedDateActivity ?? modeFilteredActivity.slice(0, recentAchievementsCount);
   const activityKnownGames = useMemo(
     () => [...(profile.featuredGames ?? []), ...snapshot.recentlyPlayedGames],
     [profile.featuredGames, snapshot.recentlyPlayedGames],
@@ -701,7 +705,7 @@ export function DeckyRetroAchievementsCompactProfile({
     ? undefined
     : buildCompactActivityGamesForDay(selectedDateActivity, activityKnownGames),
   [activityKnownGames, selectedDateActivity]);
-  const recentlyPlayed = selectedDateGames?.map(({ game }) => game) ?? snapshot.recentlyPlayedGames.slice(0, 5);
+  const recentlyPlayed = selectedDateGames?.map(({ game }) => game) ?? snapshot.recentlyPlayedGames.slice(0, recentlyPlayedCount);
   const activityUnlockCounts = useMemo(
     () => new Map(selectedDateGames?.map(({ game, unlockCount }) => [game.gameId, unlockCount]) ?? []),
     [selectedDateGames],
@@ -814,6 +818,7 @@ export function DeckyRetroAchievementsCompactProfile({
         <ActivityCalendar
           entries={activityCalendarUnlocks ?? snapshot.activityCalendarUnlocks}
           mode={settings.retroAchievementsAchievementMode}
+          weeks={settings.retroAchievementsCompactActivityCalendarWeeks}
           selectedDay={selectedActivityDay}
           onSelectDay={(day) => setSelectedActivityDay((current) => {
             const nextDay = current === day ? undefined : day;
@@ -852,14 +857,6 @@ export function DeckyRetroAchievementsCompactProfile({
         )) : <div style={{ ...raRecipes.state("empty"), padding: 8, textAlign: "left" }}>No recently played games yet.</div>}
         <ViewAll label="games" onActivate={onOpenCompletionProgress} onCancel={onCancel} targetProps={targetProps({ kind: "games" })} />
       </Section>
-
-      <div style={raRecipes.compactProfile.section}>
-        <CompactAction label="RetroAchievements Settings" onActivate={onOpenSettings} onCancel={onCancel} dataAttribute="settings" targetProps={targetProps({ kind: "settings" })}>
-          <span style={raRecipes.compactProfile.settingsIcon}><img alt="" src={settingsIconUrl} style={{ width: 17, height: 17, filter: raTheme.iconFilter.primary }} /></span>
-          <span style={{ flex: "1 1 auto", fontSize: 11, fontWeight: 800 }}>RetroAchievements Settings</span>
-          <img alt="" src={chevronRightIconUrl} style={{ width: 16, height: 16, filter: raTheme.iconFilter.primary }} />
-        </CompactAction>
-      </div>
 
       <div style={raRecipes.compactProfile.footer}>{refreshText}</div>
     </Focusable>

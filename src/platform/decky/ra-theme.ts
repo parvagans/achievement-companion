@@ -483,7 +483,7 @@ export const raRecipes = {
         ...getQamCompactFocusRingStyle(focused),
       };
     },
-    calendarGrid: { display: "grid", gridTemplateColumns: "18px repeat(8, minmax(0, 1fr))", gridTemplateRows: "repeat(7, minmax(0, 1fr))", width: "100%", height: 164, gap: 3, marginTop: 7 } satisfies CSSProperties,
+    calendarGrid(weeks: number): CSSProperties { return { display: "grid", gridTemplateColumns: `18px repeat(${weeks}, minmax(0, 1fr))`, gridTemplateRows: "repeat(7, minmax(0, 1fr))", width: "100%", height: 164, gap: 3, marginTop: 7 }; },
     calendarCell(intensity: 0 | 1 | 2 | 3 | 4, selected = false, focused = false): CSSProperties {
       return {
         display: "block", width: "100%", height: "100%", minWidth: 0, minHeight: 0,

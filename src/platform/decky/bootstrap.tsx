@@ -747,9 +747,7 @@ function DashboardScreen({
   onOpenSettings,
   isShowingSteamCompactSettings,
   isShowingRetroAchievementsCompactSettings,
-  onOpenSteamCompactSettings,
   onCloseSteamCompactSettings,
-  onOpenRetroAchievementsCompactSettings,
   onCloseRetroAchievementsCompactSettings,
 }: {
   readonly providerId: ProviderId;
@@ -762,9 +760,7 @@ function DashboardScreen({
   readonly onOpenSettings: () => void;
   readonly isShowingSteamCompactSettings: boolean;
   readonly isShowingRetroAchievementsCompactSettings: boolean;
-  readonly onOpenSteamCompactSettings: () => void;
   readonly onCloseSteamCompactSettings: () => void;
-  readonly onOpenRetroAchievementsCompactSettings: () => void;
   readonly onCloseRetroAchievementsCompactSettings: () => void;
 }): JSX.Element {
   const settings = useDeckySettings();
@@ -1017,10 +1013,8 @@ function DashboardScreen({
       onBackToProviders={onBackToProviders}
       onOpenSettings={onOpenSettings}
       isShowingSteamCompactSettings={isShowingSteamCompactSettings}
-      onOpenSteamCompactSettings={onOpenSteamCompactSettings}
       onCloseSteamCompactSettings={onCloseSteamCompactSettings}
       isShowingRetroAchievementsCompactSettings={isShowingRetroAchievementsCompactSettings}
-      onOpenRetroAchievementsCompactSettings={onOpenRetroAchievementsCompactSettings}
       onCloseRetroAchievementsCompactSettings={onCloseRetroAchievementsCompactSettings}
       onRefreshDashboard={() => {
         requestDashboardReload(true);
@@ -1739,14 +1733,8 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                 }}
                 isShowingSteamCompactSettings={compactNavigation.kind === "settings" && selectedProviderId === STEAM_PROVIDER_ID}
                 isShowingRetroAchievementsCompactSettings={compactNavigation.kind === "settings" && selectedProviderId === "retroachievements"}
-                onOpenSteamCompactSettings={() => {
-                  setDeckyCompactNavigation({ kind: "settings", providerId: STEAM_PROVIDER_ID });
-                }}
                 onCloseSteamCompactSettings={() => {
                   setDeckyCompactNavigation({ kind: "provider-dashboard", providerId: STEAM_PROVIDER_ID });
-                }}
-                onOpenRetroAchievementsCompactSettings={() => {
-                  setDeckyCompactNavigation({ kind: "settings", providerId: "retroachievements" });
                 }}
                 onCloseRetroAchievementsCompactSettings={() => {
                   setDeckyCompactNavigation({ kind: "provider-dashboard", providerId: "retroachievements" });

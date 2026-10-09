@@ -83,10 +83,8 @@ export interface DeckyDashboardViewProps {
   readonly onBackToProviders: () => void;
   readonly onOpenSettings: () => void;
   readonly isShowingSteamCompactSettings: boolean;
-  readonly onOpenSteamCompactSettings: () => void;
   readonly onCloseSteamCompactSettings: () => void;
   readonly isShowingRetroAchievementsCompactSettings: boolean;
-  readonly onOpenRetroAchievementsCompactSettings: () => void;
   readonly onCloseRetroAchievementsCompactSettings: () => void;
   readonly onRefreshDashboard: () => void;
   readonly steamHuntersProfile?: SteamHuntersProfile | undefined;
@@ -1382,10 +1380,8 @@ export function DeckyDashboardView({
   onBackToProviders,
   onOpenSettings,
   isShowingSteamCompactSettings,
-  onOpenSteamCompactSettings,
   onCloseSteamCompactSettings,
   isShowingRetroAchievementsCompactSettings,
-  onOpenRetroAchievementsCompactSettings,
   onCloseRetroAchievementsCompactSettings,
   onRefreshDashboard,
   steamHuntersProfile,
@@ -1494,7 +1490,6 @@ export function DeckyDashboardView({
           onOpenGameDetail={(game) => {
             onOpenGameDetail(game.providerId, game.gameId, game.title);
           }}
-          onOpenSettings={onOpenSteamCompactSettings}
           onCancel={onBackToProviders}
         />
       </>
@@ -1522,7 +1517,6 @@ export function DeckyDashboardView({
         onOpenCompletionProgress={() => onOpenCompletionProgress(profile.providerId)}
         onOpenAchievementDetail={onOpenAchievementDetail}
         onOpenGameDetail={(game) => onOpenGameDetail(game.providerId, game.gameId, game.title)}
-        onOpenSettings={onOpenRetroAchievementsCompactSettings}
         {...(onUpdateRetroAchievementsCredentials !== undefined ? { onUpdateCredentials: onUpdateRetroAchievementsCredentials } : {})}
         onCancel={onBackToProviders}
       />

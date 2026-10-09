@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties, type ComponentProps } from "react";
+import { useMemo, useState, type CSSProperties, type ComponentProps } from "react";
 import type { ResourceState } from "@core/cache";
 import type { CompletionProgressSnapshot, NormalizedGame } from "@core/domain";
 import { Field, PanelSection, PanelSectionRow, ScrollPanel } from "@decky/ui";
@@ -31,7 +31,6 @@ import {
   initialDeckyCompletionProgressState,
   loadDeckyCompletionProgressStateForFullScreenEntry,
 } from "./decky-app-services";
-import { useDeckySettings } from "./decky-settings";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
 import { formatDeckyProviderLabel } from "./providers";
@@ -616,11 +615,8 @@ export function DeckyFullScreenCompletionProgressPage({
   onOpenActivity,
   onOpenGameDetail,
 }: DeckyFullScreenCompletionProgressPageProps): JSX.Element {
-  const deckySettings = useDeckySettings();
   const [currentFilter, setCurrentFilter] = useState<CompletionProgressSelectionFilter>(
-    initialFilter ?? (
-      providerId === STEAM_PROVIDER_ID ? "all" : deckySettings.defaultCompletionProgressFilter
-    ),
+    initialFilter ?? "all",
   );
   const [visibleGameLimit, setVisibleGameLimit] = useState(COMPLETION_PROGRESS_INITIAL_GAME_LIMIT);
   const [isShowingAllGames, setIsShowingAllGames] = useState(false);
@@ -635,12 +631,6 @@ export function DeckyFullScreenCompletionProgressPage({
   const initialState = getDeckyCompletionProgressStateForFullScreenEntryInitial(providerId);
   const state = useAsyncResourceState(loadSelectedCompletionProgress, initialState);
   const hasRouteParameters = providerId !== undefined;
-
-  useEffect(() => {
-    if (!deckySettings.showCompletionProgressSubsets && currentFilter === "subsets") {
-      setCurrentFilter("all");
-    }
-  }, [currentFilter, deckySettings.showCompletionProgressSubsets]);
 
   if (!isRenderableCompletionProgressState(state)) {
     if (providerId === STEAM_PROVIDER_ID || providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
@@ -725,14 +715,14 @@ export function DeckyFullScreenCompletionProgressPage({
 
   const visibleGames = filterCompletionProgressGamesBySubsetVisibility(
     snapshot.games,
-    deckySettings.showCompletionProgressSubsets,
+    true,
   );
   const groupedGames = groupCompletionProgressGames(
     visibleGames,
-    deckySettings.showCompletionProgressSubsets,
+    true,
   );
   const filteredGroups = sortCompletionProgressGroups(groupedGames.filter((gameGroup) =>
-    matchesCompletionProgressFilter(gameGroup, currentFilter, deckySettings.showCompletionProgressSubsets),
+    matchesCompletionProgressFilter(gameGroup, currentFilter, true),
   ), sort);
   const filteredGroupCount = filteredGroups.length;
   const effectiveGameLimit = isShowingAllGames ? filteredGroupCount : visibleGameLimit;
@@ -751,7 +741,7 @@ export function DeckyFullScreenCompletionProgressPage({
   const displaySummary = summarizeCompletionProgressSummaryBySubsetVisibility(
     snapshot.summary,
     snapshot.games,
-    deckySettings.showCompletionProgressSubsets,
+    true,
   );
   const retroAchievementsCollection = snapshot.providerId === STEAM_PROVIDER_ID
     ? undefined
@@ -762,7 +752,7 @@ export function DeckyFullScreenCompletionProgressPage({
     subsetCount,
     providerId: snapshot.providerId,
     currentFilter,
-    showSubsets: deckySettings.showCompletionProgressSubsets,
+    showSubsets: true,
   });
 
   return (
@@ -826,7 +816,7 @@ export function DeckyFullScreenCompletionProgressPage({
             </PanelSectionRow>
             <CompletionProgressBrowser
               currentFilter={currentFilter}
-              showSubsets={deckySettings.showCompletionProgressSubsets}
+              showSubsets={true}
               summary={retroAchievementsCollection ?? displaySummary}
               visibleGroups={visibleGroups}
               filteredGroupCount={filteredGroupCount}

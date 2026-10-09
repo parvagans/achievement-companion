@@ -65,6 +65,8 @@ export interface AchievementCompanionSettings {
   readonly gamePageAchievementBadgeColors: GamePageAchievementBadgeColors;
   readonly steamCompactActivityCalendarWeeks: ActivityCalendarWeeks;
   readonly steamFullscreenActivityCalendarWeeks: ActivityCalendarWeeks;
+  readonly retroAchievementsCompactActivityCalendarWeeks: ActivityCalendarWeeks;
+  readonly retroAchievementsFullscreenActivityCalendarWeeks: ActivityCalendarWeeks;
   readonly retroAchievementsRankDisplay: RetroAchievementsRankDisplay;
   readonly retroAchievementsAchievementMode: RetroAchievementsAchievementMode;
   readonly automaticUpdateChecks: boolean;
@@ -84,6 +86,8 @@ export const DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS: AchievementCompanionSetting
   gamePageAchievementBadgeColors: DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS,
   steamCompactActivityCalendarWeeks: 4,
   steamFullscreenActivityCalendarWeeks: 12,
+  retroAchievementsCompactActivityCalendarWeeks: 8,
+  retroAchievementsFullscreenActivityCalendarWeeks: 12,
   retroAchievementsRankDisplay: "site",
   retroAchievementsAchievementMode: "both",
   automaticUpdateChecks: true,
@@ -224,6 +228,14 @@ export function normalizeAchievementCompanionSettings(
     steamFullscreenActivityCalendarWeeks: normalizeActivityCalendarWeeks(
       value["steamFullscreenActivityCalendarWeeks"],
       DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.steamFullscreenActivityCalendarWeeks,
+    ),
+    retroAchievementsCompactActivityCalendarWeeks: normalizeActivityCalendarWeeks(
+      value["retroAchievementsCompactActivityCalendarWeeks"],
+      DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.retroAchievementsCompactActivityCalendarWeeks,
+    ),
+    retroAchievementsFullscreenActivityCalendarWeeks: normalizeActivityCalendarWeeks(
+      value["retroAchievementsFullscreenActivityCalendarWeeks"],
+      DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.retroAchievementsFullscreenActivityCalendarWeeks,
     ),
     retroAchievementsRankDisplay: normalizeRetroAchievementsRankDisplay(
       value["retroAchievementsRankDisplay"],

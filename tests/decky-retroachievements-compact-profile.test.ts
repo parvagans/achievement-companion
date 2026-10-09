@@ -76,6 +76,11 @@ test("RetroAchievements presentation preferences migrate with useful defaults", 
   const migrated = normalizeAchievementCompanionSettings({});
   assert.equal(migrated.retroAchievementsRankDisplay, "site");
   assert.equal(migrated.retroAchievementsAchievementMode, "both");
+  assert.equal(migrated.retroAchievementsCompactActivityCalendarWeeks, 8);
+  assert.equal(migrated.retroAchievementsFullscreenActivityCalendarWeeks, 12);
+  assert.equal(normalizeAchievementCompanionSettings({ retroAchievementsCompactActivityCalendarWeeks: 6 }).retroAchievementsCompactActivityCalendarWeeks, 6);
+  assert.equal(normalizeAchievementCompanionSettings({ retroAchievementsFullscreenActivityCalendarWeeks: 10 }).retroAchievementsFullscreenActivityCalendarWeeks, 10);
+  assert.equal(normalizeAchievementCompanionSettings({ retroAchievementsCompactActivityCalendarWeeks: 5 }).retroAchievementsCompactActivityCalendarWeeks, 8);
   assert.equal(normalizeAchievementCompanionSettings({ retroAchievementsRankDisplay: "casual" }).retroAchievementsRankDisplay, "casual");
   assert.equal(normalizeAchievementCompanionSettings({ retroAchievementsRankDisplay: "both" }).retroAchievementsRankDisplay, "site");
   assert.equal(normalizeAchievementCompanionSettings({ retroAchievementsAchievementMode: "softcore" }).retroAchievementsAchievementMode, "softcore");
@@ -140,6 +145,9 @@ test("eight-week RA activity calendar counts real unlocks and filters by mode", 
   assert.equal(hardcore.days.find(({ day }) => day === Date.UTC(2026, 9, 5))?.count, 1);
   assert.equal(softcore.days.find(({ day }) => day === Date.UTC(2026, 9, 5))?.count, 1);
   assert.equal(both.days.find(({ day }) => day === Date.UTC(2026, 9, 5))?.count, 2);
+  assert.equal(buildRetroAchievementsActivityCalendarModel({ entries, achievementMode: "both", weeks: 4, now }).days.length, 28);
+  assert.equal(buildRetroAchievementsActivityCalendarModel({ entries, achievementMode: "both", weeks: 12, now }).days.length, 84);
+  assert.match(String(raRecipes.compactProfile.calendarGrid(12).gridTemplateColumns), /repeat\(12,/u);
 });
 
 test("profile normalizer retains the real site and casual rank fields when present", () => {

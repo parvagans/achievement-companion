@@ -31,6 +31,7 @@ import {
   resetDeckyRetroAchievementsSubsetDetailCacheForTests,
 } from "../src/platform/decky/decky-retroachievements-subset-detail-cache";
 import { getRetroAchievementsProfileSystems } from "../src/platform/decky/decky-retroachievements-full-screen-profile-data";
+import { getRetroAchievementsRefreshActionPresentation } from "../src/platform/decky/providers/retroachievements/settings-view-model";
 
 const game: NormalizedGame = {
   providerId: "retroachievements",
@@ -89,6 +90,88 @@ test("provider visit tab order keeps Steam and RA four-tab cycles", () => {
   assert.equal(getAdjacentProviderFullScreenSessionTab(raTabs, "profile", "previous"), "settings");
   assert.equal(getAdjacentProviderFullScreenSessionTab(raTabs, "activity", "next"), "settings");
   assert.equal(getAdjacentProviderFullScreenSessionTab(raTabs, "settings", "next"), "profile");
+});
+
+test("RetroAchievements refresh success is represented by a green action label, not a success caption", () => {
+  assert.deepEqual(getRetroAchievementsRefreshActionPresentation("idle"), {
+    title: "Refresh RetroAchievements",
+    success: false,
+    danger: false,
+  });
+  assert.deepEqual(getRetroAchievementsRefreshActionPresentation("refreshing"), {
+    title: "Refreshing RetroAchievements…",
+    success: false,
+    danger: false,
+  });
+  assert.deepEqual(getRetroAchievementsRefreshActionPresentation("refreshed"), {
+    title: "RetroAchievements refreshed",
+    success: true,
+    danger: false,
+  });
+  assert.deepEqual(getRetroAchievementsRefreshActionPresentation("error"), {
+    title: "Refresh failed — try again",
+    success: false,
+    danger: true,
+  });
+});
+
+test("full-screen provider settings share Steam geometry and keep About/Updates in the footer page", async () => {
+  const [raSource, steamSource, actionRowSource, sharedSectionSource] = await Promise.all([
+    readFile(new URL("../src/platform/decky/providers/retroachievements/provider-settings-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-settings-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-provider-settings-action-row.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-settings-section.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(raSource, /type RetroAchievementsSettingsSection = "account" \| "fullscreen" \| "compact" \| "data"/u);
+  assert.match(steamSource, /type SteamSettingsSection = "account" \| "fullscreen" \| "compact" \| "data"/u);
+  for (const source of [raSource, steamSource]) {
+    assert.match(source, /SettingsSectionPill title="Account"[\s\S]*SettingsSectionPill title="Full-Screen Settings"[\s\S]*SettingsSectionPill title="Compact Settings"[\s\S]*SettingsSectionPill title="Data"/u);
+    assert.doesNotMatch(source, /SettingsSectionPill title="Updates"|SettingsSectionPill title="About"/u);
+    assert.match(source, /data-settings-data-layout[\s\S]*data-settings-danger-zone/u);
+    assert.doesNotMatch(source, /data-settings-column="right"/u);
+    assert.doesNotMatch(source, /maxWidth: 560/u);
+    assert.match(source, /handleDeckySettingsDirection\(pageRef\.current, event\)/u);
+  }
+  assert.match(sharedSectionSource, /width: "100%", boxSizing: "border-box", overflow: "hidden"/u);
+  assert.match(sharedSectionSource, /button === GamepadButton\.DIR_DOWN[\s\S]*focus\(controls\[controlIndex \+ 1\]\)/u);
+  assert.match(sharedSectionSource, /button === GamepadButton\.DIR_UP[\s\S]*pill\.getAttribute\("aria-pressed"\) === "true"/u);
+  assert.match(raSource, /height: viewportHeight \?\? "100vh"[\s\S]*43px\) 12px 50px/u);
+  assert.match(raSource, /<DeckySettingsSection>/u);
+  assert.match(raSource, /getSteamCompactAchievementFilterStyle\(selected, focused\)/u);
+  assert.match(raSource, /className="ac-ra-fullscreen-settings-page" data-ac-steam-theme="fullscreen"/u);
+  assert.doesNotMatch(raSource, /className="ac-ra-fullscreen-settings-page" data-ac-ra-theme="fullscreen"/u);
+  assert.match(raSource, /selectedSection === "fullscreen"[\s\S]*DeckySettingsDropdown label="Activity Calendar" value=\{settings\.retroAchievementsFullscreenActivityCalendarWeeks\}/u);
+  assert.match(raSource, /selectedSection === "compact"[\s\S]*DeckySettingsDropdown label="Rank Display"[\s\S]*DeckySettingsDropdown label="Achievement Mode"[\s\S]*DeckySettingsDropdown label="Recent Activity"[\s\S]*DeckySettingsDropdown label="Recently Played"[\s\S]*DeckySettingsDropdown label="Activity Calendar" value=\{settings\.retroAchievementsCompactActivityCalendarWeeks\}/u);
+  assert.match(raSource, /onGamepadBlur=\{\(\) => setFocused\(false\)\}/u);
+  assert.match(actionRowSource, /onGamepadBlur=\{\(\) => \{\s*setIsFocused\(false\);\s*\}\}/u);
+});
+
+test("RA settings use Steam's native modal dropdown interaction and separate calendar values", async () => {
+  const [dropdownSource, historySource, compactSource] = await Promise.all([
+    readFile(new URL("../src/platform/decky/decky-settings-dropdown.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-achievement-history-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-retroachievements-compact-profile.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(dropdownSource, /showContextMenu\([\s\S]*<Menu label=\{label\} onCancel=\{closeMenu\}>[\s\S]*<MenuItem[\s\S]*bModal: true, bMatchWidth: true/u);
+  assert.match(dropdownSource, /registerDeckyFullscreenPopupCancel\(closeMenu\)/u);
+  assert.match(dropdownSource, /requestDeckySteamGamepadFocusAfterMount\(triggerRef\.current\)/u);
+  assert.match(historySource, /providerId === RETROACHIEVEMENTS_PROVIDER_ID[\s\S]*settings\.retroAchievementsFullscreenActivityCalendarWeeks[\s\S]*settings\.steamFullscreenActivityCalendarWeeks/u);
+  assert.match(compactSource, /weeks=\{settings\.retroAchievementsCompactActivityCalendarWeeks\}/u);
+});
+
+test("compact RA counts follow saved preferences and settings no longer hide subsets", async () => {
+  const [compactSource, settingsSource, completionSource, aboutSource] = await Promise.all([
+    readFile(new URL("../src/platform/decky/decky-retroachievements-compact-profile.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/providers/retroachievements/provider-settings-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-completion-progress-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-about-page.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(compactSource, /modeFilteredActivity\.slice\(0, recentAchievementsCount\)/u);
+  assert.match(compactSource, /snapshot\.recentlyPlayedGames\.slice\(0, recentlyPlayedCount\)/u);
+  assert.doesNotMatch(settingsSource, /label="Show subsets"|label="Default Completion Progress filter"/u);
+  assert.match(completionSource, /showSubsets=\{true\}/u);
+  assert.match(aboutSource, /AC_decky_compact_logo\.png/u);
 });
 
 test("full-screen game tabs keep RA Subsets conditional and before Community", () => {

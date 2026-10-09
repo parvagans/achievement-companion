@@ -81,6 +81,23 @@ test("user-supplied host override is one-off and does not weaken host-key checks
   assert.ok(sshOptions().every((option) => !option.startsWith("HostName=")));
 });
 
+test("Deck harness exposes the Steam full-screen Compact Settings tab", () => {
+  assert.deepEqual(SEMANTIC_TARGETS["steam-settings-compact"], {
+    labelPrefix: "Compact Settings, ",
+    attribute: ["data-settings-provider", "steam"],
+    context: { fullScreenSection: "settings" },
+  });
+  assert.deepEqual(SEMANTIC_TARGETS["provider-settings-ra-account"], {
+    label: "Account, selected",
+    attribute: ["data-settings-provider", "retroachievements"],
+    routeIncludes: "/achievement-companion/full-screen/settings",
+  });
+  assert.ok(SEMANTIC_TARGETS["ra-settings-about"]);
+  assert.ok(SEMANTIC_TARGETS["ra-settings-data"]);
+  assert.ok(SEMANTIC_TARGETS["steam-settings-about"]);
+  assert.ok(SEMANTIC_TARGETS["steam-settings-data"]);
+});
+
 test("Deck harness has provider-aware RetroAchievements QAM targets and scenarios", () => {
   for (const target of [
     "retroachievements-provider",
@@ -90,7 +107,7 @@ test("Deck harness has provider-aware RetroAchievements QAM targets and scenario
     "ra-compact-activity-calendar-selected",
     "ra-compact-recent-achievement",
     "ra-compact-recent-game",
-    "ra-compact-settings-api",
+    "ra-fullscreen-compact-settings-rank",
     "ra-fullscreen-profile",
     "ra-fullscreen-games",
     "ra-fullscreen-games-search",
@@ -109,7 +126,7 @@ test("Deck harness has provider-aware RetroAchievements QAM targets and scenario
     "ra-compact-selected-day",
     "ra-compact-recent-activity",
     "ra-compact-recently-played",
-    "ra-compact-settings",
+    "ra-fullscreen-compact-settings",
     "ra-fullscreen-profile",
     "ra-fullscreen-games",
     "ra-fullscreen-games-search",

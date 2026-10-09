@@ -193,6 +193,9 @@ export function DeckyProviderSettingsActionRow({
           setIsFocused(true);
           scrollFocusedGamepadElementIntoView(event);
         }}
+        onGamepadBlur={() => {
+          setIsFocused(false);
+        }}
         onBlur={() => {
           setIsFocused(false);
         }}

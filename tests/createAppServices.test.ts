@@ -2352,7 +2352,7 @@ test("decky provider barrel does not expose stale generic save or clear facades"
 });
 
 test("provider setup, credential fields, and current compact profile routes stay explicit", () => {
-  assert.match(RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY, /retroachievements\.org\/settings/i);
+  assert.match(RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY, /retroachievements\.org\/settings\?tab=applications/i);
   assert.match(RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY, /RetroAchievements username/i);
   assert.doesNotMatch(RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY, /Show API key|Hide API key/i);
   assert.match(STEAM_CREDENTIAL_HELPER_COPY, /steamid\.io/i);
@@ -3303,7 +3303,7 @@ test("provider setup, credential fields, and current compact profile routes stay
   assert.match(compactDashboardSource, /<DeckyRetroAchievementsCompactProfile[\s\S]*onOpenProfile=\{\(\) => onOpenProfile\(profile\.providerId\)\}/u);
   assert.match(compactDashboardSource, /isShowingRetroAchievementsCompactSettings\)[\s\S]*<DeckyRetroAchievementsCompactSettings/u);
   assert.match(steamCompactProfileSource, /export function DeckySteamCompactProfile/u);
-  assert.match(steamCompactProfileSource, /ariaLabel="Open Steam profile settings"[\s\S]*Steam Settings/u);
+  assert.doesNotMatch(steamCompactProfileSource, /ariaLabel="Open Steam profile settings"|onOpenSettings/u);
   assert.match(steamCompactProfileSource, /<SectionHeader title="Activity Calendar" \/>[\s\S]*<CompactActivityCalendar/u);
   assert.match(steamCompactProfileSource, /getQamActivityCalendarLegendStyle\(\)/u);
   assert.match(steamCompactProfileSource, /getQamActivityCalendarLegendCellStyle\(level\)/u);
@@ -3319,7 +3319,7 @@ test("provider setup, credential fields, and current compact profile routes stay
   assert.match(raCompactProfileSource, /<Section title="Activity Calendar">[\s\S]*entryTargetProps=\{targetProps\(\{ kind: "calendar-entry" \}\)\}[\s\S]*targetProps=\{\(day\) => targetProps\(\{ kind: "calendar-day", day \}\)\}/u);
   assert.match(raCompactProfileSource, /<Section title="Recent Activity">[\s\S]*<RecentAchievementRow[\s\S]*onOpenAchievementHistory/u);
   assert.match(raCompactProfileSource, /<Section title="Recently Played">[\s\S]*<RecentlyPlayedRow[\s\S]*onOpenCompletionProgress/u);
-  assert.match(raCompactProfileSource, /<CompactAction label="RetroAchievements Settings"[\s\S]*onActivate=\{onOpenSettings\}/u);
+  assert.doesNotMatch(raCompactProfileSource, /<CompactAction label="RetroAchievements Settings"|onOpenSettings/u);
   assert.match(raCompactProfileSource, /raRecipes\.compactProfile\.footer/u);
   assert.match(raCompactProfileSource, /refreshText = refreshedAt/u);
   assert.match(compactBootstrapSource, /useDeckyCompactNavigation\(\)/u);
@@ -3681,7 +3681,7 @@ test("fullscreen action controls use Decky Focusable pills with unclipped labels
   assert.match(actionButtonItemSource, /import \{ ButtonItem, type ButtonItemProps \} from "@decky\/ui"/);
 });
 
-test("retroachievements provider settings avoid dropdown overlays for immediate-persistence controls", () => {
+test("legacy provider forms retain their immediate-persistence controls outside the new full-screen dropdowns", () => {
   const retroAchievementsProviderSettingsSource = readFileSync(
     "src/platform/decky/providers/retroachievements/provider-settings-page.tsx",
     "utf8",
@@ -3701,32 +3701,22 @@ test("retroachievements provider settings avoid dropdown overlays for immediate-
 
   assert.match(
     retroAchievementsProviderSettingsSource,
-    /import \{ PanelSection, PanelSectionRow, ScrollPanel, ToggleField \} from "@decky\/ui"/u,
+    /import \{[^}]*PanelSection, PanelSectionRow, ScrollPanel[^}]*\} from "@decky\/ui"/u,
   );
-  assert.match(
-    retroAchievementsProviderSettingsSource,
-    /<ToggleField[\s\S]*label="Show subsets"[\s\S]*checked=\{settings\.showCompletionProgressSubsets\}[\s\S]*onChange=\{\(showCompletionProgressSubsets\) =>/u,
-  );
+  assert.doesNotMatch(retroAchievementsProviderSettingsSource, /label="Show subsets"/u);
   assert.match(
     retroAchievementsProviderSettingsSource,
     /import \{ DeckyProviderSettingsActionRow \} from "\.\.\/\.\.\/decky-provider-settings-action-row"/u,
   );
   assert.match(
     retroAchievementsProviderSettingsSource,
-    /<DeckyProviderSettingsActionRow[\s\S]*label="Recent Achievements count"[\s\S]*getNextCountOption\(currentSettings\.recentAchievementsCount\)[\s\S]*saveDeckySettings\(nextSettings\)[\s\S]*persistProviderCounts\(nextSettings\)/u,
+    /<DeckyProviderSettingsActionRow[\s\S]*label="Recent Achievements count"[\s\S]*getNextCountOption\(providerRecentAchievementsCount\)[\s\S]*persistProviderCounts\(\{ recentAchievementsCount \}\)/u,
   );
   assert.match(
     retroAchievementsProviderSettingsSource,
-    /<DeckyProviderSettingsActionRow[\s\S]*label="Recently Played count"[\s\S]*getNextCountOption\(currentSettings\.recentlyPlayedCount\)[\s\S]*saveDeckySettings\(nextSettings\)[\s\S]*persistProviderCounts\(nextSettings\)/u,
+    /<DeckyProviderSettingsActionRow[\s\S]*label="Recently Played count"[\s\S]*getNextCountOption\(providerRecentlyPlayedCount\)[\s\S]*persistProviderCounts\(\{ recentlyPlayedCount \}\)/u,
   );
-  assert.match(
-    retroAchievementsProviderSettingsSource,
-    /const filters: readonly CompletionProgressFilter\[\] = \["all", "unfinished", "beaten", "mastered"\]/u,
-  );
-  assert.match(
-    retroAchievementsProviderSettingsSource,
-    /<DeckyProviderSettingsActionRow[\s\S]*label="Default Completion Progress filter"[\s\S]*getNextCompletionProgressFilter\([\s\S]*current\.defaultCompletionProgressFilter/u,
-  );
+  assert.doesNotMatch(retroAchievementsProviderSettingsSource, /label="Default Completion Progress filter"/u);
   assert.doesNotMatch(
     retroAchievementsProviderSettingsSource,
     /DeckyActionButtonItem|DropdownItem|COUNT_DROPDOWN_OPTIONS|COMPLETION_PROGRESS_FILTER_DROPDOWN_OPTIONS/,
@@ -3751,6 +3741,10 @@ test("retroachievements provider settings avoid dropdown overlays for immediate-
 test("provider setup and current settings actions use focusable controls", () => {
   const fullscreenSettingsSource = readFileSync(
     "src/platform/decky/decky-full-screen-settings-page.tsx",
+    "utf8",
+  );
+  const fullscreenAboutSource = readFileSync(
+    "src/platform/decky/decky-full-screen-about-page.tsx",
     "utf8",
   );
   const providerSettingsActionRowSource = readFileSync(
@@ -3825,8 +3819,8 @@ test("provider setup and current settings actions use focusable controls", () =>
     /<DeckyFullscreenActionButton[\s\S]*label="Back"[\s\S]*isFullscreenBackAction/u,
   );
   assert.match(fullscreenActionControlsSource, /import \{ Focusable, type FocusableProps \} from "@decky\/ui"/);
-  assert.match(fullscreenSettingsSource, /<SteamSettingsSectionPill title="Updates"/u);
-  assert.match(fullscreenSettingsSource, /<DeckyUpdateSettingsPanel onGamepadDirection=\{handleColumnDirection\} \/>/u);
+  assert.doesNotMatch(fullscreenSettingsSource, /<SteamSettingsSectionPill title="Updates"/u);
+  assert.match(fullscreenAboutSource, /<DeckyUpdateSettingsPanel \/>/u);
   assert.doesNotMatch(fullscreenSettingsSource, /DeckyActionButtonItem|ButtonItem/);
   assert.match(
     providerSettingsActionRowSource,
@@ -3880,10 +3874,10 @@ test("provider setup and current settings actions use focusable controls", () =>
   assert.doesNotMatch(retroAchievementsProviderSettingsSource, /DropdownItem|\bDropdown\b/);
   assert.match(
     retroAchievementsProviderSettingsSource,
-    /<DeckyProviderSettingsActionRow[\s\S]*label="Recent Achievements count"[\s\S]*label="Recently Played count"[\s\S]*label="Default Completion Progress filter"/u,
+    /<DeckyProviderSettingsActionRow[\s\S]*label="Recent Achievements count"[\s\S]*label="Recently Played count"/u,
   );
   assert.doesNotMatch(retroAchievementsProviderSettingsSource, /DeckyActionButtonItem|ButtonItem/);
-  assert.match(retroAchievementsProviderSettingsSource, /<ToggleField[\s\S]*label="Show subsets"/u);
+  assert.doesNotMatch(retroAchievementsProviderSettingsSource, /<ToggleField[\s\S]*label="Show subsets"/u);
 
   assert.doesNotMatch(
     [

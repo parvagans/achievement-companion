@@ -8,8 +8,13 @@ export interface DeckyPasswordInputFieldDescriptor {
   readonly bIsPassword: boolean;
 }
 
+export const RETROACHIEVEMENTS_SETTINGS_URL = "https://retroachievements.org/settings?tab=applications";
+export const RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY_BEFORE_SETTINGS_LINK =
+  "Log in to RetroAchievements, open ";
+export const RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY_AFTER_SETTINGS_LINK =
+  ", scroll to Authentication, and copy your Web API Key. Use your RetroAchievements username for the username field.";
 export const RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY =
-  "Log in to RetroAchievements, open https://retroachievements.org/settings, scroll to Authentication, and copy your Web API Key. Use your RetroAchievements username for the username field.";
+  `${RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY_BEFORE_SETTINGS_LINK}${RETROACHIEVEMENTS_SETTINGS_URL}${RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY_AFTER_SETTINGS_LINK}`;
 
 export function getRetroAchievementsCredentialsFieldSpecs() {
   return {

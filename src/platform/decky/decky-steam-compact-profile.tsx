@@ -62,7 +62,6 @@ import {
 import chevronRightIconUrl from "./assets/chevron-right.svg";
 import masteredIconUrl from "./assets/mastered.svg";
 import rankPointsIconUrl from "./assets/rank-points.svg";
-import settingsIconUrl from "./assets/settings.svg";
 import starIconUrl from "./assets/star.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
 
@@ -90,7 +89,6 @@ export interface DeckySteamCompactProfileProps {
   readonly onOpenCompletionProgress: () => void;
   readonly onOpenAchievementDetail: (recentUnlock: RecentUnlock) => void;
   readonly onOpenGameDetail: (game: RecentlyPlayedGame) => void;
-  readonly onOpenSettings: () => void;
   readonly onCancel: () => void;
 }
 
@@ -628,22 +626,6 @@ function getPlaytimeStyle(): CSSProperties {
   };
 }
 
-function getSettingsIconFrameStyle(): CSSProperties {
-  return {
-    display: "grid",
-    placeItems: "center",
-    width: 28,
-    height: 28,
-    flex: "0 0 28px",
-    borderRadius: 7,
-    background: "rgba(73, 126, 158, 0.18)",
-  };
-}
-
-function getSettingsLabelStyle(): CSSProperties {
-  return { flex: "1 1 auto", minWidth: 0, fontSize: 11, fontWeight: 800 };
-}
-
 function formatCount(value: number | undefined): string {
   return value === undefined ? "—" : value.toLocaleString();
 }
@@ -1085,7 +1067,6 @@ export function DeckySteamCompactProfile({
   onOpenCompletionProgress,
   onOpenAchievementDetail,
   onOpenGameDetail,
-  onOpenSettings,
   onCancel,
 }: DeckySteamCompactProfileProps): JSX.Element {
   const settings = useDeckySettings();
@@ -1310,19 +1291,6 @@ export function DeckySteamCompactProfile({
         />
       </section>
 
-      <DeckySteamCompactAction
-        ariaLabel="Open Steam profile settings"
-        onActivate={onOpenSettings}
-        onCancel={onCancel}
-        {...targetProps({ kind: "settings" })}
-        style={{ minHeight: 40, padding: "5px 8px" }}
-      >
-        <span style={getSettingsIconFrameStyle()}>
-          <img alt="" src={settingsIconUrl} style={getIconStyle(18)} />
-        </span>
-        <span style={getSettingsLabelStyle()}>Steam Settings</span>
-        <img alt="" src={chevronRightIconUrl} style={getIconStyle(17)} />
-      </DeckySteamCompactAction>
       {refreshTime === undefined ? null : (
         <div style={getRefreshTimestampStyle()}>{`Steam and SteamHunters refreshed ${refreshTime}`}</div>
       )}

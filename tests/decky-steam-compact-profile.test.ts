@@ -40,7 +40,7 @@ test("Steam compact profile matches the refined controller-first information hie
   assert.match(compactProfileSource, /label="Completed Games"/u);
   assert.match(compactProfileSource, /title="Recent Activity"/u);
   assert.match(compactProfileSource, /title="Recently Played"/u);
-  assert.match(compactProfileSource, />Steam Settings</u);
+  assert.doesNotMatch(compactProfileSource, />Steam Settings</u);
 
   assert.match(compactProfileSource, /export function DeckySteamCompactAction/u);
   const compactActionStart = compactProfileSource.indexOf("export function DeckySteamCompactAction");
@@ -177,7 +177,7 @@ test("provider and Steam use explicit native entry scopes without changing Retro
 test("Steam compact settings reuse the provider configuration and keep API credentials full-screen", () => {
   assert.match(dashboardSource, /DeckySteamCompactSettings/u);
   assert.match(dashboardSource, /isShowingSteamCompactSettings/u);
-  assert.match(dashboardSource, /onOpenSettings=\{onOpenSteamCompactSettings\}/u);
+  assert.doesNotMatch(dashboardSource, /onOpenSettings=\{onOpenSteamCompactSettings\}/u);
   assert.match(dashboardSource, /onOpenApiSettings=\{onOpenSettings\}/u);
   assert.match(bootstrapSource, /includePlayedFreeGames/u);
   assert.match(compactSettingsSource, /data-achievement-companion-steam-compact-settings/u);
