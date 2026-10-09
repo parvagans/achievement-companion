@@ -776,11 +776,7 @@ function DeckyFullScreenSettingsRoute(): JSX.Element {
     nextFullScreenSettingsProvider = "retroachievements";
     return initialProvider;
   });
-  const [lastSelectedProvider, setLastSelectedProvider] = useState<ProviderSettingsTab>(() => activeProvider === "steam" ? "steam" : "retroachievements");
-  const selectFooterTab = (tab: ProviderSettingsFooterTab): void => {
-    if (tab !== "about") setLastSelectedProvider(tab);
-    setActiveProvider(tab);
-  };
+  const selectFooterTab = (tab: ProviderSettingsFooterTab): void => setActiveProvider(tab);
   const keyboardAnchorRef = useRef<HTMLSpanElement>(null);
   const retroAchievementsRootRef = useRef<HTMLDivElement>(null);
   useDeckyFullscreenOnScreenKeyboardLifecycle(keyboardAnchorRef);
@@ -805,7 +801,7 @@ function DeckyFullScreenSettingsRoute(): JSX.Element {
         ? <DeckyFullScreenTerminalBackBridge onBack={returnFromSettings} />
         : null}
       <span ref={keyboardAnchorRef} hidden aria-hidden="true" />
-      {activeProvider === "about" ? <DeckyFullScreenAboutPage providerId={lastSelectedProvider} onOpenExternalUrl={(url) => DeckyNavigation.NavigateToExternalWeb(url)} />
+      {activeProvider === "about" ? <DeckyFullScreenAboutPage onOpenExternalUrl={(url) => DeckyNavigation.NavigateToExternalWeb(url)} />
       : activeProvider === "steam" ? <DeckyFullScreenSettingsPage
         reserveSteamProfileFooter
         onOpenProviderSettings={(providerId) => {
