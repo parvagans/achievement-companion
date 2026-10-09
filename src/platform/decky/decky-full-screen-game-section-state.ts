@@ -3,6 +3,7 @@ import type {
   AchievementFilter,
   AchievementGroupFilter,
   AchievementModeFilter,
+  RetroAchievementsAchievementTypeFilter,
 } from "./decky-full-screen-achievement-browser";
 import type { DeckyFullScreenGameSectionId } from "./decky-full-screen-game-section-navigation";
 
@@ -16,6 +17,8 @@ export interface FullScreenGameAchievementSectionState extends FullScreenGameSec
   readonly achievementModeFilter: AchievementModeFilter;
   readonly achievementGroupFilter: AchievementGroupFilter;
   readonly achievementAvailabilityFilter: AchievementAvailabilityFilter;
+  readonly achievementTypeFilter: RetroAchievementsAchievementTypeFilter;
+  readonly achievementMissableOnly: boolean;
   readonly visibleAchievementIds: readonly string[];
 }
 
@@ -51,6 +54,8 @@ const defaultPageState: FullScreenGameSectionPageState = {
     achievementModeFilter: "all",
     achievementGroupFilter: "all",
     achievementAvailabilityFilter: "all",
+    achievementTypeFilter: "all",
+    achievementMissableOnly: false,
     visibleAchievementIds: [],
   },
   "achievement-groups": { scrollTop: 0, expandedGroupIds: [] },

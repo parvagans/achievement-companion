@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ComponentProps, type FocusEventHandler } from "react";
-import type { NormalizedAchievement } from "@core/domain";
+import type { NormalizedAchievement, NormalizedMetric } from "@core/domain";
 import {
   Field,
   Focusable,
@@ -23,6 +23,8 @@ import type {
 import { steamRecipes, steamTheme } from "./steam-theme";
 import { getSteamCompactAchievementFilterStyle } from "./decky-steam-compact-action-styles";
 import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
+import { getMetricValue } from "./decky-achievement-detail-helpers";
+import { raRecipes, raTheme } from "./ra-theme";
 
 const ACHIEVEMENT_FILTERS = ["all", "unlocked", "locked"] as const;
 const STEAM_ACHIEVEMENT_RENDER_STEP = 36;
@@ -37,11 +39,13 @@ const ACHIEVEMENT_AVAILABILITY_FILTERS = [
   "unknown",
 ] as const;
 const ACHIEVEMENT_GROUP_FILTER_PREFIX = "group:";
+const RETROACHIEVEMENTS_ACHIEVEMENT_TYPE_FILTERS = ["all", "regular", "progression", "win-condition"] as const;
 
 export type AchievementFilter = (typeof ACHIEVEMENT_FILTERS)[number];
 export type AchievementModeFilter = (typeof ACHIEVEMENT_MODE_FILTERS)[number];
 export type AchievementGroupFilter = (typeof ACHIEVEMENT_GROUP_FILTERS)[number] | `${typeof ACHIEVEMENT_GROUP_FILTER_PREFIX}${string}`;
 export type AchievementAvailabilityFilter = (typeof ACHIEVEMENT_AVAILABILITY_FILTERS)[number];
+export type RetroAchievementsAchievementTypeFilter = (typeof RETROACHIEVEMENTS_ACHIEVEMENT_TYPE_FILTERS)[number];
 
 export function matchesAchievementFilter(
   achievement: NormalizedAchievement,
@@ -119,6 +123,24 @@ export function matchesAchievementAvailabilityFilter(
   return steamHuntersAchievementsBySteamAchievementId?.[achievement.achievementId]?.obtainability === availabilityFilter;
 }
 
+export function matchesRetroAchievementsAchievementTypeFilter(
+  achievement: NormalizedAchievement,
+  typeFilter: RetroAchievementsAchievementTypeFilter,
+  missableOnly: boolean,
+): boolean {
+  if (missableOnly) {
+    return achievement.classification === "missable";
+  }
+  if (typeFilter === "all") {
+    return true;
+  }
+  if (typeFilter === "regular") {
+    const sourceType = getMetricValue(achievement.metrics, "type", "Type")?.trim();
+    return achievement.classification === undefined && (sourceType === undefined || sourceType.length === 0);
+  }
+  return achievement.classification === typeFilter;
+}
+
 export function getAchievementGroupFilterOptions(
   achievements: readonly NormalizedAchievement[],
   achievementGroupsBySteamAchievementId: Readonly<Record<string, SteamHuntersAchievementGroup>> | undefined,
@@ -186,6 +208,13 @@ function formatAchievementAvailabilityLabel(availabilityFilter: AchievementAvail
   return "Unknown";
 }
 
+function formatRetroAchievementsTypeFilterLabel(typeFilter: RetroAchievementsAchievementTypeFilter): string {
+  if (typeFilter === "win-condition") return "Win Condition";
+  if (typeFilter === "progression") return "Progression";
+  if (typeFilter === "regular") return "Regular";
+  return "All";
+}
+
 function formatAchievementVisibilitySummary(
   visibleCount: number,
   totalCount: number,
@@ -198,6 +227,24 @@ function formatAchievementVisibilitySummary(
 function formatAchievementFilterEmptyMessage(filter: AchievementFilter): string {
   if (filter === "all") return "No achievement entries were returned for this game.";
   return `No ${formatAchievementFilterLabel(filter).toLowerCase()} achievements match this filter.`;
+}
+
+function formatRetroAchievementsFilterEmptyMessage(
+  stateFilter: AchievementFilter,
+  typeFilter: RetroAchievementsAchievementTypeFilter,
+  missableOnly: boolean,
+): string {
+  const filters = [
+    stateFilter === "all" ? undefined : formatAchievementFilterLabel(stateFilter).toLowerCase(),
+    missableOnly
+      ? "missable"
+      : typeFilter === "all"
+        ? undefined
+        : formatRetroAchievementsTypeFilterLabel(typeFilter).toLowerCase(),
+  ].filter((value): value is string => value !== undefined);
+  return filters.length === 0
+    ? "No achievement entries were returned for this game."
+    : `No ${filters.join(" ")} achievements match these filters.`;
 }
 
 type FullScreenGamepadFocusHandler = NonNullable<ComponentProps<typeof Field>["onGamepadFocus"]>;
@@ -214,30 +261,6 @@ function getAchievementBrowserStackStyle(): CSSProperties {
   return { display: "flex", flexDirection: "column", gap: 12 };
 }
 
-function getAchievementBrowserCardStyle(): CSSProperties {
-  return {
-    display: "flex", flexDirection: "column", gap: 12, padding: 16, borderRadius: 18,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
-    background: "linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.026))",
-  };
-}
-
-function getAchievementBrowserHeaderStyle(): CSSProperties {
-  return { color: "rgba(255, 255, 255, 0.58)", fontSize: "0.72em", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", lineHeight: 1.2 };
-}
-
-function getAchievementBrowserSectionLabelStyle(): CSSProperties {
-  return { color: "rgba(255, 255, 255, 0.58)", fontSize: "0.72em", fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", lineHeight: 1.2 };
-}
-
-function getAchievementBrowserMetaStackStyle(): CSSProperties {
-  return { display: "flex", flexDirection: "column", gap: 4 };
-}
-
-function getAchievementFilterGridStyle(): CSSProperties {
-  return { display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, width: "100%" };
-}
-
 function getSteamAchievementFilterBarStyle(): CSSProperties {
   return {
     display: "grid",
@@ -250,18 +273,26 @@ function getSteamAchievementFilterBarStyle(): CSSProperties {
 
 function getAchievementFilterButtonStyle(selected: boolean, focused: boolean, disabled: boolean): CSSProperties {
   return {
-    display: "flex", alignItems: "center", justifyContent: "center", width: "100%", minWidth: 0,
-    minHeight: 36, padding: "8px 10px", borderRadius: 16, boxSizing: "border-box",
-    border: `1px solid ${focused ? "rgba(96, 165, 250, 0.82)" : selected ? "rgba(125, 190, 255, 0.72)" : "rgba(255, 255, 255, 0.08)"}`,
-    background: focused
-      ? selected ? "linear-gradient(180deg, rgba(96, 165, 250, 0.24), rgba(96, 165, 250, 0.12))" : "linear-gradient(180deg, rgba(96, 165, 250, 0.2), rgba(96, 165, 250, 0.1))"
-      : selected ? "linear-gradient(180deg, rgba(125, 190, 255, 0.18), rgba(255, 255, 255, 0.055))" : "linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.02))",
-    color: selected ? "rgba(255, 255, 255, 0.98)" : "rgba(255, 255, 255, 0.84)", fontSize: "0.84em", fontWeight: selected ? 700 : 600,
-    lineHeight: 1.1, textAlign: "center", whiteSpace: "nowrap", opacity: disabled ? 0.6 : 1,
-    cursor: disabled ? "default" : "pointer", outline: focused ? "2px solid rgba(96, 165, 250, 0.95)" : "none", outlineOffset: 1,
-    boxShadow: focused
-      ? selected ? "0 0 0 1px rgba(96, 165, 250, 0.82), inset 0 1px 0 rgba(255, 255, 255, 0.16), inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 4px 16px rgba(0, 0, 0, 0.26)" : "0 0 0 1px rgba(96, 165, 250, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 4px 14px rgba(0, 0, 0, 0.24)"
-      : selected ? "inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 2px 10px rgba(0, 0, 0, 0.18)" : "none",
+    ...raRecipes.action("fullscreen", false, focused),
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+    minWidth: 0,
+    minHeight: 42,
+    padding: "8px 12px",
+    borderRadius: raTheme.radius.medium,
+    border: `1px solid ${focused ? raTheme.focus.border : selected ? raTheme.selection.border : raTheme.color.borderSubtle}`,
+    background: focused ? raTheme.focus.background : selected ? raTheme.selection.background : raTheme.surface.interactive,
+    color: selected ? raTheme.color.accentStrong : raTheme.color.textSecondary,
+    fontSize: "0.9em",
+    fontWeight: selected ? raTheme.type.weight.strong : raTheme.type.weight.medium,
+    lineHeight: 1.1,
+    textAlign: "center",
+    whiteSpace: "nowrap",
+    opacity: disabled ? 0.55 : 1,
+    cursor: disabled ? "default" : "pointer",
+    boxShadow: selected ? "inset 0 -3px 0 rgba(54, 185, 255, 0.82)" : undefined,
   };
 }
 
@@ -304,6 +335,33 @@ function getSteamAchievementSelectButtonStyle(focused: boolean): CSSProperties {
   };
 }
 
+function getRaAchievementSelectButtonStyle(focused: boolean, disabled: boolean): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    width: "100%",
+    minWidth: 0,
+    minHeight: 42,
+    padding: "8px 12px",
+    gap: 8,
+    borderRadius: raTheme.radius.medium,
+    border: `1px solid ${focused ? raTheme.focus.border : raTheme.color.borderSubtle}`,
+    background: focused ? raTheme.focus.background : raTheme.surface.interactive,
+    color: raTheme.color.textPrimary,
+    opacity: disabled ? 0.5 : 1,
+    cursor: disabled ? "default" : "pointer",
+    boxSizing: "border-box",
+  };
+}
+
+function getRaAchievementSelectLabelStyle(): CSSProperties {
+  return { color: raTheme.color.textSecondary, flexShrink: 0, whiteSpace: "nowrap" };
+}
+
+function getRaAchievementSelectValueStyle(): CSSProperties {
+  return { color: raTheme.color.textPrimary, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+}
+
 function getSteamAchievementSelectLabelStyle(): CSSProperties {
   return { color: steamTheme.color.textSecondary, flexShrink: 0, whiteSpace: "nowrap" };
 }
@@ -320,6 +378,97 @@ function getSteamAchievementSelectChevronStyle(): CSSProperties {
     borderRight: "2px solid rgba(255, 255, 255, 0.9)",
     borderBottom: "2px solid rgba(255, 255, 255, 0.9)",
     transform: "rotate(45deg) translate(-2px, -2px)",
+  };
+}
+
+function getRaAchievementFilterBarStyle(): CSSProperties {
+  return {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(90px, 0.72fr)) minmax(190px, 1.2fr) minmax(160px, 0.82fr)",
+    gap: 8,
+    width: "100%",
+    minWidth: 0,
+    alignItems: "stretch",
+  };
+}
+
+function getRaAchievementFilterStackStyle(): CSSProperties {
+  return { display: "flex", flexDirection: "column", gap: 10, width: "100%", minWidth: 0 };
+}
+
+function getRaAchievementModeLabelStyle(): CSSProperties {
+  return {
+    color: raTheme.color.textMuted,
+    fontSize: "0.78em",
+    fontWeight: 800,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+  };
+}
+
+function getRaAchievementSummaryStyle(): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    columnGap: 16,
+    rowGap: 4,
+    padding: "0 4px",
+    color: raTheme.color.textSecondary,
+    fontSize: "0.82em",
+    lineHeight: 1.2,
+  };
+}
+
+function getMissableSwitchStyle(selected: boolean, focused: boolean, disabled: boolean): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    width: "100%",
+    minWidth: 0,
+    minHeight: 42,
+    padding: "7px 12px",
+    borderRadius: raTheme.radius.medium,
+    border: `1px solid ${focused ? raTheme.focus.border : selected ? raTheme.selection.border : raTheme.color.borderSubtle}`,
+    background: focused ? raTheme.focus.background : selected ? raTheme.selection.background : raTheme.surface.interactive,
+    color: selected ? raTheme.color.accentStrong : raTheme.color.textPrimary,
+    fontSize: "0.9em",
+    fontWeight: selected ? raTheme.type.weight.strong : raTheme.type.weight.medium,
+    opacity: disabled ? 0.5 : 1,
+    cursor: disabled ? "default" : "pointer",
+    boxSizing: "border-box",
+  };
+}
+
+function getMissableSwitchTrackStyle(selected: boolean): CSSProperties {
+  return {
+    position: "relative",
+    display: "inline-flex",
+    alignItems: "center",
+    flexShrink: 0,
+    width: 38,
+    height: 22,
+    borderRadius: 999,
+    background: selected ? raTheme.color.accentStrong : "rgba(143, 169, 189, 0.34)",
+    boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.16)",
+    transition: "background 120ms ease",
+  };
+}
+
+function getMissableSwitchKnobStyle(selected: boolean): CSSProperties {
+  return {
+    position: "absolute",
+    top: 3,
+    left: selected ? 19 : 3,
+    width: 16,
+    height: 16,
+    borderRadius: "50%",
+    background: "#f2f7fb",
+    boxShadow: "0 1px 4px rgba(0, 0, 0, 0.36)",
+    transition: "left 120ms ease",
   };
 }
 
@@ -395,6 +544,9 @@ function AchievementSelectButton({
   onChange,
   onCancel,
   nativeDropdown,
+  variant = "steam",
+  disabled = false,
+  dataFilterControl,
 }: {
   readonly label: string;
   readonly value: string;
@@ -403,6 +555,9 @@ function AchievementSelectButton({
   readonly onChange: (value: string) => void;
   readonly onCancel: () => void;
   readonly nativeDropdown?: boolean;
+  readonly variant?: "steam" | "ra";
+  readonly disabled?: boolean;
+  readonly dataFilterControl?: string;
 }): JSX.Element {
   const [isFocused, setIsFocused] = useState(false);
   const buttonRef = useRef<HTMLDivElement>(null);
@@ -419,7 +574,7 @@ function AchievementSelectButton({
       unregisterMenuCancelRef.current = undefined;
     };
     const openMenu = (): void => {
-      if (activeMenuRef.current !== undefined || buttonRef.current === null) return;
+      if (disabled || activeMenuRef.current !== undefined || buttonRef.current === null) return;
       const menu = showContextMenu(
         <Menu label={label} onCancel={closeMenu}>
           {options.map((option) => (
@@ -449,8 +604,10 @@ function AchievementSelectButton({
         noFocusRing
         role="button"
         aria-label={`${label}: ${formatValue(value)}`}
-        onActivate={openMenu}
-        onClick={openMenu}
+        aria-disabled={disabled}
+        tabIndex={disabled ? -1 : undefined}
+        onActivate={disabled ? () => undefined : openMenu}
+        onClick={disabled ? () => undefined : openMenu}
         onFocus={(event) => { setIsFocused(true); scrollFocusedElementIntoView(event); }}
         onGamepadFocus={(event) => { setIsFocused(true); scrollFocusedGamepadElementIntoView(event); }}
         onBlur={() => { setIsFocused(false); }}
@@ -458,11 +615,14 @@ function AchievementSelectButton({
           if (activeMenuRef.current !== undefined) closeMenu();
           else onCancel();
         }}
-        style={getSteamAchievementSelectButtonStyle(isFocused)}
+        style={variant === "ra"
+          ? getRaAchievementSelectButtonStyle(isFocused, disabled)
+          : { ...getSteamAchievementSelectButtonStyle(isFocused), opacity: disabled ? 0.5 : 1 }}
         data-achievement-companion-steam-filter-control="true"
+        data-ra-game-achievement-filter-control={dataFilterControl}
       >
-        <span style={getSteamAchievementSelectLabelStyle()}>{label}:</span>
-        <span style={getSteamAchievementSelectValueStyle()}>{formatValue(value)}</span>
+        <span style={variant === "ra" ? getRaAchievementSelectLabelStyle() : getSteamAchievementSelectLabelStyle()}>{label}:</span>
+        <span style={variant === "ra" ? getRaAchievementSelectValueStyle() : getSteamAchievementSelectValueStyle()}>{formatValue(value)}</span>
         <span aria-hidden="true" style={getSteamAchievementSelectChevronStyle()} />
       </Focusable>
     );
@@ -474,28 +634,25 @@ function AchievementSelectButton({
       noFocusRing
       role="button"
       aria-label={`${label}: ${formatValue(value)}`}
-      onActivate={() => { onChange(nextValue); }}
-      onClick={() => { onChange(nextValue); }}
+      aria-disabled={disabled}
+      tabIndex={disabled ? -1 : undefined}
+      onActivate={disabled ? () => undefined : () => { onChange(nextValue); }}
+      onClick={disabled ? () => undefined : () => { onChange(nextValue); }}
       onFocus={(event) => { setIsFocused(true); scrollFocusedElementIntoView(event); }}
       onGamepadFocus={(event) => { setIsFocused(true); scrollFocusedGamepadElementIntoView(event); }}
       onBlur={() => { setIsFocused(false); }}
       onCancel={onCancel}
-      style={getSteamAchievementSelectButtonStyle(isFocused)}
+      style={variant === "ra"
+        ? getRaAchievementSelectButtonStyle(isFocused, disabled)
+        : { ...getSteamAchievementSelectButtonStyle(isFocused), opacity: disabled ? 0.5 : 1 }}
       data-achievement-companion-steam-filter-control="true"
+      data-ra-game-achievement-filter-control={dataFilterControl}
     >
-      <span style={getSteamAchievementSelectLabelStyle()}>{label}:</span>
-      <span style={getSteamAchievementSelectValueStyle()}>{formatValue(value)}</span>
+      <span style={variant === "ra" ? getRaAchievementSelectLabelStyle() : getSteamAchievementSelectLabelStyle()}>{label}:</span>
+      <span style={variant === "ra" ? getRaAchievementSelectValueStyle() : getSteamAchievementSelectValueStyle()}>{formatValue(value)}</span>
       <span aria-hidden="true" style={getSteamAchievementSelectChevronStyle()} />
     </Focusable>
   );
-}
-
-function getAchievementBrowserSummaryStyle(): CSSProperties {
-  return { color: "rgba(255, 255, 255, 0.92)", fontSize: "0.94em", lineHeight: 1.35 };
-}
-
-function getAchievementBrowserMetaStyle(): CSSProperties {
-  return { color: "rgba(255, 255, 255, 0.68)", fontSize: "0.86em", lineHeight: 1.25 };
 }
 
 function getAchievementRowsLayoutStyle(): CSSProperties {
@@ -557,22 +714,152 @@ function SteamAchievementFilterBar({
   );
 }
 
+function MissableAchievementSwitch({
+  checked,
+  disabled,
+  onChange,
+  onCancel,
+}: {
+  readonly checked: boolean;
+  readonly disabled: boolean;
+  readonly onChange: (checked: boolean) => void;
+  readonly onCancel: () => void;
+}): JSX.Element {
+  const [isFocused, setIsFocused] = useState(false);
+  return (
+    <Focusable
+      className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
+      noFocusRing
+      role="switch"
+      aria-label="Missable only"
+      aria-checked={checked}
+      aria-disabled={disabled}
+      tabIndex={disabled ? -1 : undefined}
+      onActivate={disabled ? () => undefined : () => { onChange(!checked); }}
+      onClick={disabled ? () => undefined : () => { onChange(!checked); }}
+      onFocus={(event) => { setIsFocused(true); scrollFocusedElementIntoView(event); }}
+      onGamepadFocus={(event) => { setIsFocused(true); scrollFocusedGamepadElementIntoView(event); }}
+      onBlur={() => { setIsFocused(false); }}
+      onCancel={onCancel}
+      style={getMissableSwitchStyle(checked, isFocused, disabled)}
+      data-achievement-companion-steam-filter-control="true"
+      data-ra-game-achievement-filter-control="missable"
+      data-achievement-filter-selected={checked ? "true" : "false"}
+      data-achievement-filter-disabled={disabled ? "true" : "false"}
+    >
+      <span>Missable</span>
+      <span aria-hidden="true" style={getMissableSwitchTrackStyle(checked)}>
+        <span style={getMissableSwitchKnobStyle(checked)} />
+      </span>
+    </Focusable>
+  );
+}
+
+function RetroAchievementsFilterBar({
+  achievementFilter,
+  achievementModeFilter,
+  achievementTypeFilter,
+  achievementMissableOnly,
+  achievementSummary,
+  allAchievements,
+  visibleAchievementCount,
+  showAchievementModeFilter,
+  hasMissableAchievements,
+  onAchievementFilterChange,
+  onAchievementModeFilterChange,
+  onAchievementTypeFilterChange,
+  onAchievementMissableOnlyChange,
+  onBack,
+}: {
+  readonly achievementFilter: AchievementFilter;
+  readonly achievementModeFilter: AchievementModeFilter;
+  readonly achievementTypeFilter: RetroAchievementsAchievementTypeFilter;
+  readonly achievementMissableOnly: boolean;
+  readonly achievementSummary: string;
+  readonly allAchievements: readonly NormalizedAchievement[];
+  readonly visibleAchievementCount: number;
+  readonly showAchievementModeFilter: boolean;
+  readonly hasMissableAchievements: boolean;
+  readonly onAchievementFilterChange: (filter: AchievementFilter) => void;
+  readonly onAchievementModeFilterChange: (filter: AchievementModeFilter) => void;
+  readonly onAchievementTypeFilterChange: (filter: RetroAchievementsAchievementTypeFilter) => void;
+  readonly onAchievementMissableOnlyChange: (checked: boolean) => void;
+  readonly onBack: () => void;
+}): JSX.Element {
+  return (
+    <div style={getRaAchievementFilterStackStyle()}>
+      <Focusable flow-children="left-right" tabIndex={-1} style={getRaAchievementFilterBarStyle()}>
+        {ACHIEVEMENT_FILTERS.map((filter) => (
+          <AchievementFilterButton
+            key={filter}
+            label={formatAchievementFilterLabel(filter)}
+            selected={filter === achievementFilter}
+            onActivate={() => { onAchievementFilterChange(filter); }}
+            onCancel={onBack}
+          />
+        ))}
+        <AchievementSelectButton
+          label="Type"
+          value={achievementTypeFilter}
+          options={RETROACHIEVEMENTS_ACHIEVEMENT_TYPE_FILTERS}
+          formatValue={(value) => formatRetroAchievementsTypeFilterLabel(value as RetroAchievementsAchievementTypeFilter)}
+          onChange={(value) => { onAchievementTypeFilterChange(value as RetroAchievementsAchievementTypeFilter); }}
+          onCancel={onBack}
+          nativeDropdown
+          variant="ra"
+          dataFilterControl="type"
+        />
+        <MissableAchievementSwitch
+          checked={achievementMissableOnly}
+          disabled={!hasMissableAchievements}
+          onChange={onAchievementMissableOnlyChange}
+          onCancel={onBack}
+        />
+      </Focusable>
+      {showAchievementModeFilter ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+          <span style={getRaAchievementModeLabelStyle()}>Mode</span>
+          <Focusable flow-children="left-right" tabIndex={-1} style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(110px, 150px))", gap: 8, minWidth: 0 }}>
+            {ACHIEVEMENT_MODE_FILTERS.map((filter) => (
+              <AchievementFilterButton
+                key={`mode-${filter}`}
+                label={formatAchievementModeLabel(filter)}
+                selected={filter === achievementModeFilter}
+                onActivate={() => { onAchievementModeFilterChange(filter); }}
+                onCancel={onBack}
+              />
+            ))}
+          </Focusable>
+        </div>
+      ) : null}
+      <div style={getRaAchievementSummaryStyle()}>
+        <span>{achievementSummary}</span>
+        <span>{formatAchievementVisibilitySummary(visibleAchievementCount, allAchievements.length, achievementFilter)}</span>
+      </div>
+    </div>
+  );
+}
+
 export interface DeckyFullScreenAchievementBrowserProps {
   readonly achievementFilter: AchievementFilter;
   readonly achievementModeFilter: AchievementModeFilter;
   readonly achievementGroupFilter: AchievementGroupFilter;
   readonly achievementAvailabilityFilter: AchievementAvailabilityFilter;
+  readonly achievementTypeFilter: RetroAchievementsAchievementTypeFilter;
+  readonly achievementMissableOnly: boolean;
   readonly achievementSummary: string;
   readonly allAchievements: readonly NormalizedAchievement[];
   readonly achievements: readonly NormalizedAchievement[];
+  readonly gameMetrics: readonly NormalizedMetric[];
   readonly providerId: string | undefined;
-  readonly filteredAchievementCount: number;
   readonly initialRenderLimit?: number;
   readonly showAchievementModeFilter?: boolean;
   readonly onAchievementFilterChange: (filter: AchievementFilter) => void;
   readonly onAchievementModeFilterChange: (filter: AchievementModeFilter) => void;
   readonly onAchievementGroupFilterChange: (filter: AchievementGroupFilter) => void;
   readonly onAchievementAvailabilityFilterChange: (filter: AchievementAvailabilityFilter) => void;
+  readonly onAchievementTypeFilterChange: (filter: RetroAchievementsAchievementTypeFilter) => void;
+  readonly onAchievementMissableOnlyChange: (checked: boolean) => void;
   readonly onOpenAchievementDetail: ((achievementId: string) => void) | undefined;
   readonly onBack: () => void;
   readonly onJumpToTop?: () => void;
@@ -584,16 +871,19 @@ export interface DeckyFullScreenAchievementBrowserProps {
 
 export function DeckyFullScreenAchievementBrowser({
   achievementFilter, achievementModeFilter, achievementGroupFilter, achievementAvailabilityFilter,
-  achievementSummary, allAchievements, achievements, providerId, initialRenderLimit,
+  achievementTypeFilter, achievementMissableOnly, achievementSummary, allAchievements, achievements,
+  gameMetrics, providerId, initialRenderLimit,
   showAchievementModeFilter: showAchievementModeFilterOverride,
-  filteredAchievementCount, onAchievementFilterChange, onAchievementModeFilterChange,
+  onAchievementFilterChange, onAchievementModeFilterChange,
   onAchievementGroupFilterChange, onAchievementAvailabilityFilterChange,
+  onAchievementTypeFilterChange, onAchievementMissableOnlyChange,
   onOpenAchievementDetail, onBack, onJumpToTop, onFocusAchievement, steamHuntersAchievementsBySteamAchievementId,
   steamHuntersAchievementGroupsBySteamAchievementId, steamHuntersAchievementGroups,
 }: DeckyFullScreenAchievementBrowserProps): JSX.Element {
   const showAchievementModeFilter = showAchievementModeFilterOverride
     ?? shouldRenderAchievementModeFilter(providerId);
   const isSteamProvider = providerId === "steam";
+  const isRetroAchievementsProvider = providerId === "retroachievements";
   const browserRef = useRef<HTMLDivElement>(null);
   const [renderLimit, setRenderLimit] = useState(Math.max(STEAM_ACHIEVEMENT_RENDER_STEP, initialRenderLimit ?? 0));
   const [revealedAchievementId, setRevealedAchievementId] = useState<string | undefined>(undefined);
@@ -601,7 +891,7 @@ export function DeckyFullScreenAchievementBrowser({
   useEffect(() => {
     if (!hasMountedFilters.current) { hasMountedFilters.current = true; return; }
     setRenderLimit(STEAM_ACHIEVEMENT_RENDER_STEP);
-  }, [achievementFilter, achievementGroupFilter, achievementAvailabilityFilter]);
+  }, [achievementFilter, achievementGroupFilter, achievementAvailabilityFilter, achievementTypeFilter, achievementMissableOnly]);
   useLayoutEffect(() => {
     if (revealedAchievementId === undefined) return;
     const target = Array.from(browserRef.current?.querySelectorAll<HTMLElement>("[data-achievement-companion-achievement-id]") ?? [])
@@ -613,6 +903,8 @@ export function DeckyFullScreenAchievementBrowser({
   const renderedAchievements = achievements.slice(0, renderLimit);
   const groupOptions = getAchievementGroupFilterOptions(allAchievements, steamHuntersAchievementGroupsBySteamAchievementId, steamHuntersAchievementGroups);
   const availabilityOptions = getAchievementAvailabilityFilterOptions(allAchievements, steamHuntersAchievementsBySteamAchievementId);
+  const hasMissableAchievements = isRetroAchievementsProvider && allAchievements.some((achievement) => achievement.classification === "missable");
+  const visibleMissableOnly = hasMissableAchievements && achievementMissableOnly;
   const visibleGroupFilter = groupOptions.includes(achievementGroupFilter) ? achievementGroupFilter : "all";
   const visibleAvailabilityFilter = availabilityOptions.includes(achievementAvailabilityFilter) ? achievementAvailabilityFilter : "all";
   return (
@@ -648,45 +940,22 @@ export function DeckyFullScreenAchievementBrowser({
           onBack={onBack}
         />
       ) : (
-        <div style={getAchievementBrowserCardStyle()}>
-          <div style={getAchievementBrowserHeaderStyle()}>Filtered view</div>
-          <div style={getAchievementBrowserSummaryStyle()}>{achievementSummary}</div>
-          <div style={getAchievementBrowserMetaStyle()}>
-            {formatAchievementVisibilitySummary(achievements.length, filteredAchievementCount, achievementFilter)}
-          </div>
-          <div style={getAchievementBrowserMetaStackStyle()}>
-            {showAchievementModeFilter ? (
-              <>
-                <div style={getAchievementBrowserSectionLabelStyle()}>Mode / State</div>
-                <Focusable
-                  flow-children="left-right"
-                  tabIndex={-1}
-                  style={getAchievementFilterGridStyle()}
-                >
-                  {ACHIEVEMENT_MODE_FILTERS.map((filter) => (
-                    <AchievementFilterButton key={`mode-${filter}`} label={formatAchievementModeLabel(filter)} selected={filter === achievementModeFilter} onActivate={() => onAchievementModeFilterChange(filter)} onCancel={onBack} />
-                  ))}
-                  {ACHIEVEMENT_FILTERS.map((filter) => (
-                    <AchievementFilterButton key={`state-${filter}`} label={formatAchievementFilterLabel(filter)} selected={filter === achievementFilter} onActivate={() => onAchievementFilterChange(filter)} onCancel={onBack} />
-                  ))}
-                </Focusable>
-              </>
-            ) : (
-              <>
-                <div style={getAchievementBrowserSectionLabelStyle()}>State</div>
-                <Focusable
-                  flow-children="left-right"
-                  tabIndex={-1}
-                  style={getAchievementFilterGridStyle()}
-                >
-                  {ACHIEVEMENT_FILTERS.map((filter) => (
-                    <AchievementFilterButton key={filter} label={formatAchievementFilterLabel(filter)} selected={filter === achievementFilter} onActivate={() => onAchievementFilterChange(filter)} onCancel={onBack} />
-                  ))}
-                </Focusable>
-              </>
-            )}
-          </div>
-        </div>
+        <RetroAchievementsFilterBar
+          achievementFilter={achievementFilter}
+          achievementModeFilter={achievementModeFilter}
+          achievementTypeFilter={achievementTypeFilter}
+          achievementMissableOnly={visibleMissableOnly}
+          achievementSummary={achievementSummary}
+          allAchievements={allAchievements}
+          visibleAchievementCount={achievements.length}
+          showAchievementModeFilter={showAchievementModeFilter}
+          hasMissableAchievements={hasMissableAchievements}
+          onAchievementFilterChange={onAchievementFilterChange}
+          onAchievementModeFilterChange={onAchievementModeFilterChange}
+          onAchievementTypeFilterChange={onAchievementTypeFilterChange}
+          onAchievementMissableOnlyChange={onAchievementMissableOnlyChange}
+          onBack={onBack}
+        />
       )}
       {isSteamProvider ? (
         <div style={getSteamAchievementSelectedGroupStyle()}>
@@ -711,6 +980,8 @@ export function DeckyFullScreenAchievementBrowser({
                 {...(onJumpToTop !== undefined ? { onJumpToTop } : {})}
                 {...(onFocusAchievement !== undefined ? { onFocusAchievement } : {})}
                 steamHuntersAchievement={steamHuntersAchievementsBySteamAchievementId?.[achievement.achievementId]}
+                gameMetrics={gameMetrics}
+                retroAchievementsPresentation={isRetroAchievementsProvider ? "steam-shaped" : "default"}
               />
             </PanelSectionRow>
           ))}
@@ -725,7 +996,13 @@ export function DeckyFullScreenAchievementBrowser({
         </Focusable>
       ) : (
         <PanelSectionRow>
-          <Field bottomSeparator="none" description={formatAchievementFilterEmptyMessage(achievementFilter)} label="Achievements" />
+          <Field
+            bottomSeparator="none"
+            description={isRetroAchievementsProvider
+              ? formatRetroAchievementsFilterEmptyMessage(achievementFilter, achievementTypeFilter, visibleMissableOnly)
+              : formatAchievementFilterEmptyMessage(achievementFilter)}
+            label="Achievements"
+          />
         </PanelSectionRow>
       )}
     </Focusable>

@@ -665,6 +665,10 @@ export function getRaFocusStylesCss(): string {
     background: ${raTheme.focus.background} !important;
     box-shadow: ${raTheme.focus.shadow} !important;
   }
+  /* A selected filter keeps its underline while the shared focus ring is added. */
+  [data-ac-ra-theme="fullscreen"] .Panel.Focusable.gpfocus[data-achievement-companion-steam-filter-control="true"][aria-pressed="true"] {
+    box-shadow: ${raTheme.focus.shadow}, ${qamTheme.selection.compactUnderline} !important;
+  }
   [data-ac-ra-theme="fullscreen"] .achievement-companion-ra-profile-system--focused {
     border-color: rgba(151, 211, 255, 0.98) !important;
     background: ${raTheme.focus.compactBackground} !important;

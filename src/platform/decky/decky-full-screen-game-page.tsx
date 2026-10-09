@@ -26,10 +26,12 @@ import {
   matchesAchievementAvailabilityFilter,
   matchesAchievementGroupFilter,
   matchesAchievementModeFilter,
+  matchesRetroAchievementsAchievementTypeFilter,
   type AchievementAvailabilityFilter,
   type AchievementFilter,
   type AchievementGroupFilter,
   type AchievementModeFilter,
+  type RetroAchievementsAchievementTypeFilter,
 } from "./decky-full-screen-achievement-browser";
 import type { DeckyFullScreenGameMetadataPill } from "./decky-full-screen-game-metadata-pills";
 import { DeckyRetroAchievementsGameOverview } from "./decky-retroachievements-game-overview";
@@ -375,6 +377,8 @@ export function DeckyFullScreenGamePage({
   const [achievementModeFilter, setAchievementModeFilter] = useState<AchievementModeFilter>(initialSectionState?.achievements.achievementModeFilter ?? "all");
   const [achievementGroupFilter, setAchievementGroupFilter] = useState<AchievementGroupFilter>(initialSectionState?.achievements.achievementGroupFilter ?? "all");
   const [achievementAvailabilityFilter, setAchievementAvailabilityFilter] = useState<AchievementAvailabilityFilter>(initialSectionState?.achievements.achievementAvailabilityFilter ?? "all");
+  const [achievementTypeFilter, setAchievementTypeFilter] = useState<RetroAchievementsAchievementTypeFilter>(initialSectionState?.achievements.achievementTypeFilter ?? "all");
+  const [achievementMissableOnly, setAchievementMissableOnly] = useState<boolean>(initialSectionState?.achievements.achievementMissableOnly ?? false);
   const [expandedSteamAchievementGroupIds, setExpandedSteamAchievementGroupIds] = useState<readonly string[]>(
     initialSectionState?.["achievement-groups"].expandedGroupIds ?? [],
   );
@@ -627,6 +631,8 @@ export function DeckyFullScreenGamePage({
   const restorationAvailabilityFilter = restorationAvailabilityFilterOptions.includes(achievementAvailabilityFilter)
     ? achievementAvailabilityFilter
     : "all";
+  const restorationHasMissableAchievements = restorationOrderedAchievements.some((achievement) => achievement.classification === "missable");
+  const restorationMissableOnly = restorationHasMissableAchievements && achievementMissableOnly;
   const restorationShowModeFilter = restorationSnapshot?.game.providerId === RETROACHIEVEMENTS_PROVIDER_ID
     && settings.retroAchievementsAchievementMode === "both"
     && hasDistinctRetroAchievementsModes(restorationSnapshot.achievements);
@@ -635,25 +641,32 @@ export function DeckyFullScreenGamePage({
       ? []
       : restorationOrderedAchievements.filter((achievement) =>
       matchesAchievementFilter(achievement, achievementFilter) &&
-      matchesAchievementGroupFilter(
-        achievement,
-        restorationGroupFilter,
-        restorationSteamHuntersEnrichment?.achievementGroupsBySteamAchievementId,
-      ) &&
-      matchesAchievementAvailabilityFilter(
-        achievement,
-        restorationAvailabilityFilter,
-        restorationSteamHuntersEnrichment?.achievementsBySteamAchievementId,
-      ) &&
+      (restorationIsSteamProvider
+        ? matchesAchievementGroupFilter(
+            achievement,
+            restorationGroupFilter,
+            restorationSteamHuntersEnrichment?.achievementGroupsBySteamAchievementId,
+          ) &&
+          matchesAchievementAvailabilityFilter(
+            achievement,
+            restorationAvailabilityFilter,
+            restorationSteamHuntersEnrichment?.achievementsBySteamAchievementId,
+          )
+        : restorationSnapshot?.game.providerId === RETROACHIEVEMENTS_PROVIDER_ID
+          ? matchesRetroAchievementsAchievementTypeFilter(achievement, achievementTypeFilter, restorationMissableOnly)
+          : true) &&
       (restorationShowModeFilter ? matchesAchievementModeFilter(achievement, achievementModeFilter) : true),
       ),
     [
       achievementAvailabilityFilter,
       achievementFilter,
       achievementGroupFilter,
+      achievementMissableOnly,
       achievementModeFilter,
+      achievementTypeFilter,
       restorationAvailabilityFilter,
       restorationGroupFilter,
+      restorationMissableOnly,
       restorationIsSteamProvider,
       restorationOrderedAchievements,
       restorationShowModeFilter,
@@ -694,6 +707,14 @@ export function DeckyFullScreenGamePage({
   }, []);
   const handleAchievementAvailabilityFilterChange = useCallback((filter: AchievementAvailabilityFilter): void => {
     setAchievementAvailabilityFilter(filter);
+  }, []);
+  const handleAchievementTypeFilterChange = useCallback((filter: RetroAchievementsAchievementTypeFilter): void => {
+    setAchievementTypeFilter(filter);
+    setAchievementMissableOnly(false);
+  }, []);
+  const handleAchievementMissableOnlyChange = useCallback((checked: boolean): void => {
+    setAchievementMissableOnly(checked);
+    if (checked) setAchievementTypeFilter("all");
   }, []);
   const handleFocusAchievement = useCallback((achievementId: string): void => {
     persistSteamSectionState((current) => ({
@@ -802,10 +823,12 @@ export function DeckyFullScreenGamePage({
         achievementModeFilter,
         achievementGroupFilter,
         achievementAvailabilityFilter,
+        achievementTypeFilter,
+        achievementMissableOnly,
         visibleAchievementIds: restorationFilteredAchievements.map((achievement) => achievement.achievementId),
       },
     }));
-  }, [achievementAvailabilityFilter, achievementFilter, achievementGroupFilter, achievementModeFilter, restorationFilteredAchievements, restorationIsSteamProvider]);
+  }, [achievementAvailabilityFilter, achievementFilter, achievementGroupFilter, achievementMissableOnly, achievementModeFilter, achievementTypeFilter, restorationFilteredAchievements, restorationIsSteamProvider]);
 
   useEffect(() => {
     if (!restorationIsSteamProvider) {
@@ -964,7 +987,6 @@ export function DeckyFullScreenGamePage({
     ? achievementAvailabilityFilter
     : "all";
   const filteredAchievements = restorationFilteredAchievements;
-  const filteredAchievementCount = filteredAchievements.length;
   const completionPercent = getCompletionPercent(snapshot.game.summary);
   const achievements = filteredAchievements;
   const rememberedAchievementId = readFullScreenGameSectionPageState(
@@ -1028,17 +1050,21 @@ export function DeckyFullScreenGamePage({
                 achievementModeFilter={achievementModeFilter}
                 achievementGroupFilter={activeAchievementGroupFilter}
                 achievementAvailabilityFilter={activeAchievementAvailabilityFilter}
+                achievementTypeFilter={achievementTypeFilter}
+                achievementMissableOnly={restorationMissableOnly}
                 achievementSummary={achievementSummary}
                 allAchievements={orderedAchievements}
                 achievements={achievements}
+                gameMetrics={game.metrics}
                 providerId={providerIdValue}
-                filteredAchievementCount={filteredAchievementCount}
                 initialRenderLimit={initialAchievementRenderLimit}
                 showAchievementModeFilter={showRetroAchievementsModeFilter}
                 onAchievementFilterChange={handleAchievementFilterChange}
                 onAchievementModeFilterChange={handleAchievementModeFilterChange}
                 onAchievementGroupFilterChange={handleAchievementGroupFilterChange}
                 onAchievementAvailabilityFilterChange={handleAchievementAvailabilityFilterChange}
+                onAchievementTypeFilterChange={handleAchievementTypeFilterChange}
+                onAchievementMissableOnlyChange={handleAchievementMissableOnlyChange}
                 onFocusAchievement={handleFocusAchievement}
                 onOpenAchievementDetail={handleOpenAchievementDetail}
                 onBack={onBack}
