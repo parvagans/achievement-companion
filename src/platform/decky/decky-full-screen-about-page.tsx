@@ -75,8 +75,9 @@ export function DeckyFullScreenAboutPage({ onOpenExternalUrl }: {
       playDeckySteamNavigationSound(page.ownerDocument);
       return true;
     };
-    if (updateCard !== null && (button === GamepadButton.DIR_UP || button === GamepadButton.DIR_DOWN)) {
-      const controls = [...updateCard.querySelectorAll<HTMLElement>(".ac-settings-action[tabindex='0']")]
+    const verticalCard = aboutCard ?? updateCard;
+    if (verticalCard !== null && (button === GamepadButton.DIR_UP || button === GamepadButton.DIR_DOWN)) {
+      const controls = [...verticalCard.querySelectorAll<HTMLElement>(".ac-settings-action[tabindex='0']")]
         .filter((control) => control.getClientRects().length > 0 && control.getAttribute("aria-disabled") !== "true");
       const index = controls.indexOf(active);
       if (index >= 0) {
