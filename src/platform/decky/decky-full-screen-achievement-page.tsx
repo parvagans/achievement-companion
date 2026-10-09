@@ -35,10 +35,9 @@ import { DeckySteamHuntersIcon } from "./decky-steam-icons";
 import { useSteamStoreHeaderArtwork } from "./decky-steam-store-artwork";
 import calendarIconUrl from "./assets/calendar.svg";
 import checkCircleIconUrl from "./assets/check-circle.svg";
-import starIconUrl from "./assets/star.svg";
 import steamIconUrl from "./assets/steam.svg";
-import trophyIconUrl from "./assets/trophy-filled.svg";
 import usersIconUrl from "./assets/users.svg";
+import { DeckyRetroAchievementsPointsIcon } from "./decky-retroachievements-points-icon";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import { raTheme } from "./ra-theme";
 import { useDeckySettings } from "./decky-settings";
@@ -576,12 +575,12 @@ function DeckyFullScreenAchievementContent({
 
       <div style={getCommunityHeadingStyle(isSteamProvider)}>{communityHeading}</div>
       <div style={isSteamProvider ? { ...getCommunityStatsStyle(), gridTemplateColumns: "repeat(2, minmax(0, 1fr))" } : getCommunityStatsStyle()}>
-        {secondaryValues.points !== undefined ? <AchievementMetricCard icon={isSteamProvider ? <DeckySteamHuntersIcon color={steamTheme.color.accent} size={31} /> : undefined} iconUrl={isSteamProvider ? undefined : trophyIconUrl} iconTone={isSteamProvider ? "blue" : "gold"} label="Points" value={secondaryValues.points} centered={isSteamProvider} isSteam={isSteamProvider} /> : null}
+        {secondaryValues.points !== undefined ? <AchievementMetricCard icon={isSteamProvider ? <DeckySteamHuntersIcon color={steamTheme.color.accent} size={31} /> : <DeckyRetroAchievementsPointsIcon size={31} />} iconUrl={undefined} iconTone={isSteamProvider ? "blue" : "gold"} label="Points" value={secondaryValues.points} centered={isSteamProvider} isSteam={isSteamProvider} /> : null}
         {secondaryValues.unlockRate !== undefined ? <AchievementMetricCard iconUrl={usersIconUrl} label={isSteamProvider ? "Unlock rate" : communityHeading + " unlock rate"} value={secondaryValues.unlockRate} centered={isSteamProvider} isSteam={isSteamProvider} /> : null}
         {isSteamProvider
           ? <AchievementMetricCard iconUrl={usersIconUrl} label="Players Unlocked" value={secondaryValues.playersUnlocked ?? "—"} centered fullWidth isSteam={isSteamProvider} />
           : <>
-              {secondaryValues.retroPoints !== undefined ? <AchievementMetricCard iconUrl={starIconUrl} iconTone="gold" label="RetroPoints" value={secondaryValues.retroPoints} /> : null}
+              {secondaryValues.retroPoints !== undefined ? <AchievementMetricCard icon={<DeckyRetroAchievementsPointsIcon size={31} />} label="RetroPoints" value={secondaryValues.retroPoints} /> : null}
               {secondaryValues.playersUnlocked !== undefined ? <AchievementMetricCard iconUrl={usersIconUrl} label="Players Unlocked" value={secondaryValues.playersUnlocked} /> : null}
             </>}
       </div>

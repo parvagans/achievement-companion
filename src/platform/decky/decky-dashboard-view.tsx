@@ -59,6 +59,7 @@ import {
   RetroAchievementsCompletionIndicator,
 } from "./decky-retroachievements-completion-indicator";
 import { getRetroAchievementsRecentActivityLabel } from "./decky-retroachievements-recent-activity";
+import { DeckyRetroAchievementsPointsIcon } from "./decky-retroachievements-points-icon";
 
 type OverviewCompletionBreakdown = OverviewStatSection["stats"][number]["completionBreakdown"];
 
@@ -1193,7 +1194,7 @@ function RecentAchievementRow({
     recentUnlock.achievement.points !== undefined
       ? `${formatCount(recentUnlock.achievement.points)} pts`
       : undefined;
-  const detailLine = [pointsLine, timestampLine].filter((value): value is string => value !== undefined).join(" / ");
+  const hasDetailLine = pointsLine !== undefined || timestampLine !== undefined;
 
   return (
     <Focusable
@@ -1235,7 +1236,13 @@ function RecentAchievementRow({
         <div style={getDashboardCompactGameTitleStyle(true)}>{recentUnlock.game.title}</div>
         <div style={getDashboardCompactMetaStackStyle()}>
           <div style={getDashboardAchievementStatusStyle(tone)}>{statusLabel}</div>
-          {detailLine.length > 0 ? <div style={getDashboardCompactMetaLineStyle()}>{detailLine}</div> : null}
+          {hasDetailLine ? (
+            <div style={getDashboardCompactMetaLineStyle()}>
+              {pointsLine !== undefined ? <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>{recentUnlock.achievement.providerId === RETROACHIEVEMENTS_PROVIDER_ID ? <DeckyRetroAchievementsPointsIcon size={12} /> : null}{pointsLine}</span> : null}
+              {pointsLine !== undefined && timestampLine !== undefined ? " / " : null}
+              {timestampLine}
+            </div>
+          ) : null}
         </div>
       </div>
     </Focusable>

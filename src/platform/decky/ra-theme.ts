@@ -47,6 +47,8 @@ export const raTheme = {
     page: qamTheme.surface.page,
     card: qamTheme.surface.card,
     raised: qamTheme.surface.raised,
+    gameOverviewCard: "radial-gradient(circle at 18% 50%, rgba(43, 195, 242, 0.13), transparent 54%), linear-gradient(110deg, #071b29, #081824)",
+    gameOverviewStat: "radial-gradient(circle at 18% 50%, rgba(43, 195, 242, 0.1), transparent 54%), linear-gradient(110deg, #0a2638, #071c2c)",
     interactive: qamTheme.surface.interactive,
     selected: qamTheme.surface.selected,
     hardcore: "rgba(214, 178, 74, 0.12)",
@@ -346,6 +348,111 @@ export const raRecipes = {
     info: { display: "grid", gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)", gap: "5px 10px", width: "100%", paddingTop: 2 } satisfies CSSProperties,
     infoLabel: { color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.caption, lineHeight: 1.2 } satisfies CSSProperties,
     infoValue: { minWidth: 0, overflow: "hidden", color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.caption, fontWeight: 700, lineHeight: 1.2, textAlign: "right", textOverflow: "ellipsis", whiteSpace: "nowrap" } satisfies CSSProperties,
+  },
+  gameStatusBanner: {
+    root(kind: "in-progress" | "beaten" | "mastered"): CSSProperties {
+      const base = kind === "in-progress"
+        ? {
+            border: `2px solid ${raTheme.color.accentStrong}`,
+            background: raTheme.surface.gameOverviewCard,
+            boxShadow: "0 0 12px rgba(43, 195, 242, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.07)",
+          }
+        : raRecipes.compactGame.status(kind);
+      return {
+        ...base,
+        position: "relative",
+        isolation: "isolate",
+        display: "grid",
+        gridTemplateColumns: "minmax(0, 1.55fr) minmax(0, 1.15fr)",
+        alignItems: "stretch",
+        gap: 10,
+        width: "100%",
+        minWidth: 0,
+        minHeight: 113,
+        padding: "8px 11px 8px 21px",
+        borderRadius: raTheme.radius.large,
+        overflow: "hidden",
+        boxSizing: "border-box",
+      };
+    },
+    accent(kind: "in-progress" | "beaten" | "mastered"): CSSProperties {
+      const color = kind === "mastered" ? raTheme.color.mastered : raTheme.color.accentStrong;
+      return {
+        position: "absolute", top: 8, bottom: 8, left: 8, width: 4,
+        borderRadius: raTheme.radius.pill, background: color,
+        boxShadow: `0 0 10px ${kind === "mastered" ? "rgba(242, 216, 127, 0.45)" : "rgba(43, 195, 242, 0.45)"}`,
+        pointerEvents: "none",
+      };
+    },
+    main: {
+      position: "relative", zIndex: 1, display: "flex", flexDirection: "column", justifyContent: "center",
+      gap: 4, minWidth: 0,
+    } satisfies CSSProperties,
+    modeChip: {
+      display: "inline-flex", alignItems: "center", alignSelf: "flex-start", gap: 5,
+      minHeight: 20, padding: "2px 7px", border: `1px solid ${raTheme.color.accentStrong}`,
+      borderRadius: raTheme.radius.pill, background: "rgba(3, 22, 35, 0.78)",
+      color: raTheme.color.accentStrong, fontSize: 11, fontWeight: 800,
+      lineHeight: 1, textTransform: "uppercase", boxSizing: "border-box",
+    } satisfies CSSProperties,
+    progressTrack(kind: "in-progress" | "beaten" | "mastered"): CSSProperties {
+      return {
+        position: "relative", width: "100%", height: 20, overflow: "hidden",
+        border: `1px solid ${kind === "mastered" ? raTheme.color.mastered : raTheme.color.accentStrong}`,
+        borderRadius: raTheme.radius.pill, background: "rgba(2, 16, 27, 0.82)",
+        boxShadow: "inset 0 1px 3px rgba(0, 0, 0, 0.42)", boxSizing: "border-box",
+      };
+    },
+    progressFill(kind: "in-progress" | "beaten" | "mastered", percent: number): CSSProperties {
+      return {
+        display: "flex", alignItems: "center", justifyContent: "flex-end",
+        width: `${Math.max(0, Math.min(100, percent))}%`, height: "100%", minWidth: 0,
+        borderRadius: raTheme.radius.pill,
+        background: kind === "mastered" ? raRecipes.progressFill.mastered : raRecipes.progressFill.completion,
+        boxShadow: kind === "mastered" ? "0 0 10px rgba(242, 216, 127, 0.45)" : "0 0 10px rgba(43, 195, 242, 0.38)",
+      };
+    },
+    progressCaption: {
+      display: "inline-flex", alignItems: "center", justifyContent: "flex-end",
+      width: "100%", height: "100%", paddingRight: 7, boxSizing: "border-box",
+      color: raTheme.color.textPrimary, fontSize: 11, fontWeight: 800, lineHeight: 1,
+      textShadow: "0 1px 2px rgba(0, 0, 0, 0.65)", pointerEvents: "none",
+    } satisfies CSSProperties,
+    points: {
+      display: "inline-flex", alignItems: "center", alignSelf: "flex-start", gap: 5,
+      minHeight: 20, padding: "2px 7px", border: `1px solid ${raTheme.color.points}`,
+      borderRadius: raTheme.radius.pill, background: "rgba(3, 20, 31, 0.84)",
+      color: raTheme.color.points, fontSize: 11, fontWeight: 800, lineHeight: 1,
+      boxSizing: "border-box",
+    } satisfies CSSProperties,
+    statusPanel: {
+      position: "relative", display: "flex", alignItems: "center", justifyContent: "center",
+      gap: 7, minWidth: 0, paddingLeft: 9,
+      borderLeft: `1px solid ${raTheme.color.borderStrong}`, overflow: "hidden",
+    } satisfies CSSProperties,
+    statusText: {
+      position: "relative", zIndex: 1, display: "flex", flex: "1 1 auto",
+      flexDirection: "column", justifyContent: "center", gap: 3, minWidth: 0,
+    } satisfies CSSProperties,
+    eyebrow: {
+      color: raTheme.color.textSecondary, fontSize: 10, fontWeight: 800,
+      letterSpacing: "0.08em", lineHeight: 1.1, textTransform: "uppercase",
+    } satisfies CSSProperties,
+    remaining: {
+      color: raTheme.color.textPrimary, fontSize: 16, fontWeight: 750,
+      lineHeight: 1.16, overflowWrap: "anywhere",
+    } satisfies CSSProperties,
+    awardDate: {
+      color: raTheme.color.textSecondary, fontSize: 10,
+      lineHeight: 1.2, overflowWrap: "anywhere",
+    } satisfies CSSProperties,
+    neutralWatermark: {
+      position: "absolute", top: 23, right: -8, width: 126, height: 55,
+      opacity: 0.045, filter: raTheme.iconFilter.primary, pointerEvents: "none",
+    } satisfies CSSProperties,
+    awardWatermark: {
+      position: "absolute", top: -14, right: -10, opacity: 0.08, pointerEvents: "none",
+    } satisfies CSSProperties,
   },
   compactAchievementRow(tone: "default" | "hardcore" | "softcore" | "locked", focused: boolean): CSSProperties {
     const semanticColor = tone === "hardcore" ? raTheme.color.hardcore
@@ -664,6 +771,18 @@ export function getRaFocusStylesCss(): string {
     border-color: ${raTheme.focus.border} !important;
     background: ${raTheme.focus.background} !important;
     box-shadow: ${raTheme.focus.shadow} !important;
+  }
+  [data-ac-ra-theme="fullscreen"] .Panel.Focusable.gpfocus[data-ra-fullscreen-game-achievement-row="true"] {
+    background: linear-gradient(180deg, rgba(63, 149, 211, 0.26), rgba(31, 92, 141, 0.21)), ${raTheme.surface.gameOverviewCard} !important;
+  }
+  [data-ac-ra-theme="fullscreen"] .Panel.Focusable.gpfocus[data-ra-fullscreen-game-achievement-row="true"][data-ra-fullscreen-game-achievement-tone="hardcore"] {
+    border-left-color: ${raTheme.color.hardcore} !important;
+  }
+  [data-ac-ra-theme="fullscreen"] .Panel.Focusable.gpfocus[data-ra-fullscreen-game-achievement-row="true"][data-ra-fullscreen-game-achievement-tone="softcore"] {
+    border-left-color: ${raTheme.color.softcore} !important;
+  }
+  [data-ac-ra-theme="fullscreen"] .Panel.Focusable.gpfocus[data-ra-fullscreen-game-achievement-row="true"][data-ra-fullscreen-game-achievement-tone="locked"] {
+    border-left-color: ${raTheme.color.locked} !important;
   }
   /* A selected filter keeps its underline while the shared focus ring is added. */
   [data-ac-ra-theme="fullscreen"] .Panel.Focusable.gpfocus[data-achievement-companion-steam-filter-control="true"][aria-pressed="true"] {

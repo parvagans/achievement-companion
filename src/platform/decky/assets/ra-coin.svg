@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 24 24"
+  width="24"
+  height="24"
+  role="img"
+  aria-label="RA coin"
+  shape-rendering="geometricPrecision">
+
+  <!-- Edge-to-edge coin: no decorative padding -->
+  <circle cx="12" cy="12" r="11.35" fill="#FFC928"/>
+  <circle cx="12" cy="12" r="10.55" fill="none" stroke="#7D5A00" stroke-width="0.9"/>
+
+  <!-- Heavy custom RA monogram, optimized for ~16–22px display -->
+
+  <!-- R -->
+  <path fill="#111820" d="
+    M3.2 6.1
+    H8.9
+    C12.0 6.1 13.6 7.5 13.6 10.0
+    C13.6 11.7 12.7 12.9 11.2 13.5
+    L14.1 17.9
+    H10.7
+    L8.2 14.0
+    H6.4
+    V17.9
+    H3.2
+    Z
+
+    M6.4 8.7
+    V11.5
+    H8.8
+    C9.9 11.5 10.5 11.0 10.5 10.1
+    C10.5 9.2 9.9 8.7 8.8 8.7
+    Z"/>
+
+  <!-- A -->
+  <path fill="#111820" d="
+    M14.9 6.1
+    H18.3
+    L22.0 17.9
+    H18.7
+    L18.1 15.7
+    H14.8
+    L14.2 17.9
+    H11.1
+    Z
+
+    M16.5 9.5
+    L15.5 13.2
+    H17.5
+    Z"/>
+
+  <!-- Tiny highlight only; disappears gracefully at very small sizes -->
+  <path d="M5.7 5.2C7.2 3.9 9 3.3 10.7 3.1"
+        fill="none"
+        stroke="#FFF4A8"
+        stroke-width="1.15"
+        stroke-linecap="round"
+        opacity="0.9"/>
+</svg>

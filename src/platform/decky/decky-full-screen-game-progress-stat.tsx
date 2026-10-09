@@ -1,6 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
+import { raTheme } from "./ra-theme";
 
-function getProgressStatStyle(dense: boolean): CSSProperties {
+function getProgressStatStyle(dense: boolean, themeVariant: "default" | "ra"): CSSProperties {
   return {
     display: "flex",
     flexDirection: "column",
@@ -10,7 +11,9 @@ function getProgressStatStyle(dense: boolean): CSSProperties {
     padding: dense ? "5px 6px" : "7px 8px",
     borderRadius: 12,
     border: "1px solid rgba(255, 255, 255, 0.06)",
-    backgroundColor: "rgba(255, 255, 255, 0.03)",
+    ...(themeVariant === "ra"
+      ? { background: raTheme.surface.gameOverviewStat }
+      : { backgroundColor: "rgba(255, 255, 255, 0.03)" }),
     minWidth: 0,
     textAlign: "center",
   };
@@ -46,16 +49,17 @@ export interface DeckyFullScreenGameProgressStatProps {
   readonly value: string;
   readonly dense?: boolean;
   readonly icon?: ReactNode;
+  readonly themeVariant?: "default" | "ra";
 }
 
-function getProgressStatGridStyle(fillHeight: boolean, columns: number, gap: number): CSSProperties {
+function getProgressStatGridStyle(fillHeight: boolean, columns: number, rows: number, gap: number): CSSProperties {
   return {
     display: "grid",
     gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
     ...(fillHeight
       ? {
           flex: "1 1 auto",
-          gridTemplateRows: "repeat(2, minmax(0, 1fr))",
+          gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
           minHeight: 0,
         }
       : {}),
@@ -67,14 +71,16 @@ export function DeckyFullScreenGameProgressStatGrid({
   children,
   fillHeight = false,
   columns = 2,
+  rows = 2,
   gap = 8,
 }: {
   readonly children: ReactNode;
   readonly fillHeight?: boolean;
   readonly columns?: number;
+  readonly rows?: number;
   readonly gap?: number;
 }): JSX.Element {
-  return <div style={getProgressStatGridStyle(fillHeight, columns, gap)}>{children}</div>;
+  return <div style={getProgressStatGridStyle(fillHeight, columns, rows, gap)}>{children}</div>;
 }
 
 export function DeckyFullScreenGameProgressStat({
@@ -82,9 +88,10 @@ export function DeckyFullScreenGameProgressStat({
   value,
   dense = false,
   icon,
+  themeVariant = "default",
 }: DeckyFullScreenGameProgressStatProps): JSX.Element {
   return (
-    <div style={getProgressStatStyle(dense)}>
+    <div style={getProgressStatStyle(dense, themeVariant)}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, minWidth: 0 }}>
         {icon !== undefined ? <span style={{ display: "inline-flex", flexShrink: 0 }}>{icon}</span> : null}
         <div style={{ display: "flex", flexDirection: "column", gap: 1, minWidth: 0 }}>

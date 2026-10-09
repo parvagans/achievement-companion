@@ -1,4 +1,6 @@
 import type { CSSProperties } from "react";
+import checkCircleIconUrl from "./assets/check-circle.svg";
+import lockedLockIconUrl from "./assets/locked-lock.svg";
 import {
   DeckyCompletionProgressBar,
   type DeckyCompletionProgressBarTone,
@@ -9,17 +11,20 @@ import {
 } from "./decky-full-screen-game-progress-stat";
 import {
   DeckyFullScreenGameSpotlightCard,
-  getDeckyFullScreenGameSpotlightFillStyle,
 } from "./decky-full-screen-game-spotlight-card";
 import type { DeckyRetroAchievementsProgressSummaryData } from "./decky-retroachievements-progress-summary-data";
-import { formatDeckyRelativeTime } from "./decky-stat-helpers";
-import { raRecipes } from "./ra-theme";
+import { steamRecipes } from "./steam-theme";
+import { raTheme } from "./ra-theme";
 
 function getProgressSummaryStyle(): CSSProperties {
   return {
-    ...raRecipes.text("fullscreen", "body"),
-    lineHeight: 1.25,
-    width: "100%",
+    ...steamRecipes.text("fullscreen", "body"),
+    display: "flex",
+    alignItems: "baseline",
+    justifyContent: "center",
+    gap: 8,
+    fontWeight: 700,
+    textAlign: "center",
   };
 }
 
@@ -27,16 +32,16 @@ function formatCount(value: number): string {
   return value.toLocaleString();
 }
 
-function formatPoints(data: DeckyRetroAchievementsProgressSummaryData): string {
-  if (data.earnedPoints === undefined || data.totalPoints === undefined) {
-    return "Unavailable";
-  }
-
-  return `${formatCount(data.earnedPoints)} / ${formatCount(data.totalPoints)}`;
+function formatDate(value: number | undefined): string | undefined {
+  return value === undefined ? undefined : new Date(value).toLocaleDateString();
 }
 
 function formatProgressSummary(data: DeckyRetroAchievementsProgressSummaryData): string {
-  return `${formatCount(data.unlockedCount)} / ${formatCount(data.totalCount)} achievements · ${data.completionPercent}% complete`;
+  return `${formatCount(data.unlockedCount)} / ${formatCount(data.totalCount)} achievements`;
+}
+
+function getProgressIcon(src: string, filter: string): JSX.Element {
+  return <img alt="" aria-hidden="true" src={src} style={{ width: 15, height: 15, objectFit: "contain", filter }} />;
 }
 
 export interface DeckyRetroAchievementsProgressSummaryProps {
@@ -48,17 +53,36 @@ export function DeckyRetroAchievementsProgressSummary({
   progress,
   completionTone,
 }: DeckyRetroAchievementsProgressSummaryProps): JSX.Element {
-  const lastUnlock = formatDeckyRelativeTime(progress.lastUnlockAt) ?? "None yet";
-
   return (
-    <DeckyFullScreenGameSpotlightCard title="Your Progress" themeVariant="ra" style={getDeckyFullScreenGameSpotlightFillStyle()}>
+    <DeckyFullScreenGameSpotlightCard
+      title="Your Progress"
+      focusable={false}
+      style={{
+        ...steamRecipes.card("fullscreen", "raised"),
+        background: raTheme.surface.gameOverviewCard,
+        gap: 6,
+        padding: 8,
+        height: "100%",
+        justifyContent: "space-between",
+      }}
+    >
       <div style={getProgressSummaryStyle()}>{formatProgressSummary(progress)}</div>
-      <DeckyCompletionProgressBar percent={progress.completionPercent} showCaption={false} tone={completionTone} />
-      <DeckyFullScreenGameProgressStatGrid>
-        <DeckyFullScreenGameProgressStat label="Unlocked" value={formatCount(progress.unlockedCount)} />
-        <DeckyFullScreenGameProgressStat label="Remaining" value={formatCount(progress.remainingCount)} />
-        <DeckyFullScreenGameProgressStat label="Points earned" value={formatPoints(progress)} />
-        <DeckyFullScreenGameProgressStat label="Last unlock" value={lastUnlock} />
+      <DeckyCompletionProgressBar
+        percent={progress.completionPercent}
+        caption={`${progress.completionPercent}% complete`}
+        captionPlacement="inside"
+        tone={completionTone}
+        breathe
+        steamTheme
+      />
+      <DeckyFullScreenGameProgressStatGrid columns={2} gap={6}>
+        <DeckyFullScreenGameProgressStat dense themeVariant="ra" label="Unlocked" value={formatCount(progress.unlockedCount)} icon={getProgressIcon(checkCircleIconUrl, raTheme.iconFilter.success)} />
+        <DeckyFullScreenGameProgressStat dense themeVariant="ra" label="Remaining" value={formatCount(progress.remainingCount)} icon={getProgressIcon(lockedLockIconUrl, raTheme.iconFilter.primary)} />
+        {formatDate(progress.lastUnlockAt) !== undefined ? (
+          <div style={{ gridColumn: "1 / -1" }}>
+            <DeckyFullScreenGameProgressStat dense themeVariant="ra" label="Last unlock" value={formatDate(progress.lastUnlockAt)!} />
+          </div>
+        ) : null}
       </DeckyFullScreenGameProgressStatGrid>
     </DeckyFullScreenGameSpotlightCard>
   );

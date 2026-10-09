@@ -49,8 +49,27 @@ function getCompletionBarInsideCaptionStyle(compact: boolean): CSSProperties {
     fontSize: compact ? "11px" : "12px",
     fontWeight: 700,
     lineHeight: 1,
-    textShadow: "0 1px 2px rgba(0, 0, 0, 0.7)",
+    textShadow: "0 1px 2px rgba(0, 0, 0, 0.85), 0 0 3px rgba(0, 0, 0, 0.65)",
     pointerEvents: "none",
+  };
+}
+
+function getCompletionBarInsideCaptionBadgeStyle(tone: DeckyCompletionProgressBarTone): CSSProperties {
+  if (tone !== "retroachievements-mastered" && tone !== "retroachievements-beaten") {
+    return {};
+  }
+
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 18,
+    padding: "0 8px",
+    border: "1px solid rgba(224, 237, 247, 0.32)",
+    borderRadius: 999,
+    background: "rgba(5, 16, 26, 0.9)",
+    boxShadow: "0 1px 4px rgba(0, 0, 0, 0.42)",
+    textShadow: "none",
   };
 }
 
@@ -100,7 +119,14 @@ export function getCompletionBarFillStyle(
   const completionRatio = normalizedPercent / 100;
   const usesFlamePalette =
     tone === "default" && breathe && normalizedPercent >= FLAME_COMPLETION_THRESHOLD_PERCENT;
-  const glowHue = usesFlamePalette ? 24 : 198;
+  const glowAlpha = 0.2 + completionRatio * 0.35;
+  const glowColor = usesFlamePalette
+    ? `rgba(249, 115, 22, ${glowAlpha})`
+    : tone === "retroachievements-mastered"
+      ? `rgba(242, 216, 127, ${glowAlpha})`
+      : tone === "retroachievements-beaten"
+        ? `rgba(230, 235, 242, ${glowAlpha})`
+        : `rgba(54, 185, 255, ${glowAlpha})`;
 
   return {
     width: `${normalizedPercent}%`,
@@ -120,7 +146,7 @@ export function getCompletionBarFillStyle(
     ...(breathe
       ? {
         animation: "achievement-companion-progress-breathe 1.9s ease-in-out infinite",
-        ["--achievement-progress-glow" as string]: `hsl(${glowHue} 96% 60% / ${0.2 + completionRatio * 0.35})`,
+        ["--achievement-progress-glow" as string]: glowColor,
         ["--achievement-progress-intensity" as string]: (0.24 + completionRatio * 0.28).toFixed(2),
       }
       : {}),
@@ -197,7 +223,9 @@ export function DeckyCompletionProgressBar({
           style={getCompletionBarFillStyle(normalizedPercent, tone, breathe, isSteam)}
         />
         {showCaption && captionPlacement === "inside" ? (
-          <div style={getCompletionBarInsideCaptionStyle(compact)}>{resolvedCaption}</div>
+          <div style={getCompletionBarInsideCaptionStyle(compact)}>
+            <span style={getCompletionBarInsideCaptionBadgeStyle(tone)}>{resolvedCaption}</span>
+          </div>
         ) : null}
       </div>
 

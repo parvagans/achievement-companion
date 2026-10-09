@@ -53,8 +53,8 @@ import { getLocalActivityCalendarDayTimestamp } from "./decky-activity-calendar-
 import chevronRightIconUrl from "./assets/chevron-right.svg";
 import masteredIconUrl from "./assets/mastered.svg";
 import pieChartIconUrl from "./assets/pie-chart.svg";
-import rankPointsIconUrl from "./assets/rank-points.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
+import { RA_COIN_ICON_URL } from "./decky-retroachievements-points-icon";
 
 export interface DeckyRetroAchievementsCompactProfileProps {
   readonly snapshot: DashboardSnapshot;
@@ -247,10 +247,11 @@ function OverviewMetric({
 }): JSX.Element {
   const [focused, setFocused] = useState(false);
   const mode = metric.mode ?? "shared";
-  const icon = metric.mode === "hardcore" ? trophyIconUrl : metric.mode === "softcore" ? masteredIconUrl : metric.key === "retro-points" ? rankPointsIconUrl : metric.key === "ratio" ? pieChartIconUrl : undefined;
+  const isPointsMetric = metric.key.endsWith("points");
+  const icon = isPointsMetric ? RA_COIN_ICON_URL : metric.mode === "hardcore" ? trophyIconUrl : metric.mode === "softcore" ? masteredIconUrl : metric.key === "ratio" ? pieChartIconUrl : undefined;
   const content = (
     <>
-      {icon !== undefined ? <img alt="" src={icon} style={{ width: 27, height: 27, flex: "0 0 27px", filter: raTheme.iconFilter[mode === "hardcore" ? "hardcore" : mode === "softcore" ? "softcore" : "primary"] }} /> : null}
+      {icon !== undefined ? <img alt="" src={icon} style={{ width: 27, height: 27, flex: "0 0 27px", ...(isPointsMetric ? {} : { filter: raTheme.iconFilter[mode === "hardcore" ? "hardcore" : mode === "softcore" ? "softcore" : "primary"] }) }} /> : null}
       <div style={raRecipes.compactProfile.metricText}>
         <span style={raRecipes.compactProfile.metricLabel(mode)}>{metric.label}</span>
         <span style={raRecipes.compactProfile.metricValue}>{metric.value}</span>

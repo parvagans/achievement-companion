@@ -3,6 +3,7 @@ export type ProviderAccountId = string;
 export type UnixEpochMs = number;
 export type AchievementUnlockMode = "hardcore" | "softcore";
 export type AchievementClassification = "missable" | "progression" | "win-condition";
+export type ReleaseDateGranularity = "day" | "month" | "year";
 
 export function isAchievementClassification(value: unknown): value is AchievementClassification {
   return value === "missable" || value === "progression" || value === "win-condition";
@@ -96,6 +97,7 @@ export interface NormalizedGame {
   /** Provider-local platform/system identifier when the source exposes one. */
   readonly platformId?: string;
   readonly platformLabel?: string;
+  readonly releaseDateGranularity?: ReleaseDateGranularity;
   readonly systemIconUrl?: string;
   readonly coverImageUrl?: string;
   readonly boxArtImageUrl?: string;

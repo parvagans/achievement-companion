@@ -14,6 +14,7 @@ import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { formatSteamHuntersPercentage } from "./decky-steam-hunters-presentation";
 import { DeckySteamAchievementStatusIcon } from "./decky-steam-achievement-status-icon";
+import { DeckyRetroAchievementsPointsIcon } from "./decky-retroachievements-points-icon";
 import type { SteamHuntersAchievement } from "../../providers/steamhunters";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import { raRecipes, raTheme } from "./ra-theme";
@@ -32,7 +33,7 @@ function getAchievementBadgeFrameStyle(isUnlocked: boolean): CSSProperties {
   };
 }
 
-function getAchievementCardStyle(achievement: NormalizedAchievement): CSSProperties {
+function getAchievementCardStyle(achievement: NormalizedAchievement, gamePageGradient: boolean): CSSProperties {
   const isHardcore = achievement.isUnlocked && achievement.unlockMode === "hardcore";
   const isSoftcore = achievement.isUnlocked && achievement.unlockMode === "softcore";
   const accentColor = isHardcore
@@ -58,7 +59,9 @@ function getAchievementCardStyle(achievement: NormalizedAchievement): CSSPropert
     borderLeftWidth: 4,
     borderLeftStyle: "solid",
     borderLeftColor: accentColor,
-    background: accentBackground,
+    background: gamePageGradient
+      ? `linear-gradient(180deg, ${accentBackground}, ${accentBackground}), ${raTheme.surface.gameOverviewCard}`
+      : accentBackground,
     boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 2px 8px rgba(0, 0, 0, 0.15)",
   };
 }
@@ -88,7 +91,7 @@ function getSteamShapedRetroAchievementCardStyle(achievement: NormalizedAchievem
     borderRadius: raTheme.radius.large,
     border: `1px solid ${raTheme.color.borderSubtle}`,
     borderLeft: `5px solid ${accentColor}`,
-    background: `linear-gradient(180deg, ${accentSurface}, ${accentSurface}), ${raTheme.surface.raised}`,
+    background: `linear-gradient(180deg, ${accentSurface}, ${accentSurface}), ${raTheme.surface.gameOverviewCard}`,
     boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 8px rgba(0, 0, 0, 0.16)",
     boxSizing: "border-box",
   };
@@ -155,7 +158,7 @@ function getSteamShapedRetroAchievementMetricStyle(): CSSProperties {
     padding: "0 14px",
     borderRadius: raTheme.radius.medium,
     border: `1px solid ${raTheme.color.borderSubtle}`,
-    background: raTheme.surface.interactive,
+    background: raTheme.surface.gameOverviewStat,
     color: raTheme.color.textPrimary,
     fontSize: "0.94em",
     fontWeight: raTheme.type.weight.strong,
@@ -459,6 +462,7 @@ export interface DeckyFullScreenAchievementRowProps {
   readonly onFocusAchievement?: (achievementId: string) => void;
   readonly gameMetrics?: readonly NormalizedMetric[];
   readonly retroAchievementsPresentation?: "default" | "steam-shaped";
+  readonly gamePageGradient?: boolean;
 }
 
 function SteamAchievementRowContent({
@@ -541,7 +545,7 @@ function SteamShapedRetroAchievementRowContent({
       </span>
       {pointsText !== undefined || unlockRateText !== undefined ? (
         <span aria-label={metricLabels.join(", ")} style={getSteamShapedRetroAchievementMetricsStyle()}>
-          {pointsText !== undefined ? <span style={getSteamShapedRetroAchievementMetricStyle()}>{pointsText}</span> : null}
+          {pointsText !== undefined ? <span style={{ ...getSteamShapedRetroAchievementMetricStyle(), display: "inline-flex", alignItems: "center", gap: 4 }}><DeckyRetroAchievementsPointsIcon size={13} />{pointsText}</span> : null}
           {unlockRateText !== undefined ? <span style={getSteamShapedRetroAchievementMetricStyle()}>{unlockRateText}</span> : null}
         </span>
       ) : null}
@@ -567,10 +571,12 @@ export function DeckyFullScreenAchievementRow({
   onFocusAchievement,
   gameMetrics = [],
   retroAchievementsPresentation = "default",
+  gamePageGradient = false,
 }: DeckyFullScreenAchievementRowProps): JSX.Element {
   const [isFocused, setIsFocused] = useState(false);
   const isSteamProvider = isSteamAchievementPresentationProvider(achievement.providerId);
   const isSteamShapedRetroAchievement = !isSteamProvider && retroAchievementsPresentation === "steam-shaped";
+  const isRetroGamePageRow = !isSteamProvider && (isSteamShapedRetroAchievement || gamePageGradient);
   const statusText = formatProviderAchievementStatusText(achievement.providerId, achievement);
   const pointsText = formatProviderAchievementPointsText(achievement.providerId, achievement.points);
   const unlockedAt = achievement.unlockedAt;
@@ -620,7 +626,7 @@ export function DeckyFullScreenAchievementRow({
           ? getSteamAchievementCardStyle(achievement)
           : isSteamShapedRetroAchievement
             ? getSteamShapedRetroAchievementCardStyle(achievement)
-            : getAchievementCardStyle(achievement)),
+            : getAchievementCardStyle(achievement, gamePageGradient)),
         outline: isSteamProvider ? (isFocused ? "2px solid rgba(69, 148, 255, 0.8)" : "none") : (isFocused ? `2px solid ${raTheme.focus.border}` : "none"),
         outlineOffset: 1,
         ...(isFocused
@@ -629,7 +635,12 @@ export function DeckyFullScreenAchievementRow({
       }}
       data-achievement-companion-achievement-id={achievement.achievementId}
       data-achievement-companion-steam-achievement-id={isSteamProvider ? achievement.achievementId : undefined}
-      data-ra-fullscreen-game-achievement-row={isSteamShapedRetroAchievement ? "true" : undefined}
+      data-ra-fullscreen-game-achievement-row={isRetroGamePageRow ? "true" : undefined}
+      data-ra-fullscreen-game-achievement-tone={!isRetroGamePageRow ? undefined : achievement.isUnlocked && achievement.unlockMode === "hardcore"
+        ? "hardcore"
+        : achievement.isUnlocked && achievement.unlockMode === "softcore"
+          ? "softcore"
+          : "locked"}
     >
       {isSteamProvider ? (
         <SteamAchievementRowContent achievement={achievement} steamHuntersAchievement={steamHuntersAchievement} />
@@ -651,7 +662,7 @@ export function DeckyFullScreenAchievementRow({
             <span style={getAchievementRowMetadataStackStyle()}>
               <span style={getAchievementRowStatusStyle(achievement)}>{statusText}</span>
               {pointsText !== undefined ? (
-                <span style={getAchievementRowDetailStyle()}>{pointsText}</span>
+                <span style={{ ...getAchievementRowDetailStyle(), display: "inline-flex", alignItems: "center", gap: 4 }}><DeckyRetroAchievementsPointsIcon size={13} />{pointsText}</span>
               ) : null}
               {steamHuntersMetadata !== undefined ? (
                 <span style={getAchievementRowDetailStyle()}>{steamHuntersMetadata}</span>

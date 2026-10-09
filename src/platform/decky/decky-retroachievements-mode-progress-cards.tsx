@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import type { GameDetailSnapshot } from "@core/domain";
+import { DeckyRetroAchievementsPointsIcon } from "./decky-retroachievements-points-icon";
 import { formatModeProgressSummary } from "./decky-achievement-detail-helpers";
 import { raRecipes, raTheme } from "./ra-theme";
 
@@ -12,10 +13,9 @@ function formatCount(value: number): string {
 
 function getGridStyle(): CSSProperties {
   return {
-    ...raRecipes.card("fullscreen", true),
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-    gap: 10,
+    gap: 8,
     alignItems: "stretch",
     minWidth: 0,
     width: "100%",
@@ -27,7 +27,8 @@ function getCardStyle(mode: RetroAchievementsMode): CSSProperties {
     ...raRecipes.profileSection.card(mode),
     display: "flex",
     flexDirection: "column",
-    gap: raTheme.space.xs,
+    gap: 6,
+    padding: 8,
     minWidth: 0,
   };
 }
@@ -53,6 +54,10 @@ function getCardLineStyle(): CSSProperties {
 
 function getCardPointsStyle(): CSSProperties {
   return {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 5,
+    alignSelf: "flex-start",
     ...raRecipes.badge("points"),
     lineHeight: 1.2,
   };
@@ -74,7 +79,7 @@ function ModeCard({
     <div style={getCardStyle(mode)}>
       <div style={getCardTitleStyle(mode)}>{label}</div>
       <div style={getCardLineStyle()}>{formatModeProgressSummary(summary, label)}</div>
-      {points !== undefined ? <div style={getCardPointsStyle()}>{`Points ${formatCount(points)}`}</div> : null}
+      {points !== undefined ? <div style={getCardPointsStyle()}><DeckyRetroAchievementsPointsIcon size={13} />{`Points ${formatCount(points)}`}</div> : null}
     </div>
   );
 }

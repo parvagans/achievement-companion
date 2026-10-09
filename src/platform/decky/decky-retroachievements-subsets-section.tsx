@@ -42,7 +42,9 @@ function getSubsetCardStyle(isFocused: boolean, isExpanded: boolean): CSSPropert
     border: `1px solid ${isFocused ? raTheme.focus.border : raTheme.color.borderSubtle}`,
     borderRadius: raTheme.radius.large,
     boxSizing: "border-box",
-    background: isExpanded ? raTheme.surface.selected : raTheme.surface.interactive,
+    background: isExpanded
+      ? `${raTheme.surface.selected}, ${raTheme.surface.gameOverviewCard}`
+      : raTheme.surface.gameOverviewCard,
     boxShadow: isFocused ? raTheme.focus.shadow : "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 8px rgba(0, 0, 0, 0.16)",
   };
 }
@@ -91,6 +93,7 @@ function getExpandedAchievementsStyle(): CSSProperties {
 function getExpandedStateStyle(kind: "loading" | "error"): CSSProperties {
   return {
     ...raRecipes.card("fullscreen"),
+    background: raTheme.surface.gameOverviewCard,
     padding: "14px 16px",
     color: kind === "error" ? raTheme.color.danger : raTheme.color.textSecondary,
     fontSize: raTheme.type.fullscreen.body,
@@ -303,6 +306,7 @@ export function DeckyRetroAchievementsSubsetsSection({
                       onFocusAchievement={(achievementId) => onFocusSubsetAchievement(subset.gameId, achievementId)}
                       onOpenAchievementDetail={(achievementId) => onOpenSubsetAchievementDetail(subset.gameId, achievementId)}
                       steamHuntersAchievement={undefined}
+                      gamePageGradient
                     />
                   ))
                 )}

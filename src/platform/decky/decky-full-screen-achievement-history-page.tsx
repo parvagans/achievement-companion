@@ -18,6 +18,7 @@ import {
   STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS,
 } from "./decky-full-screen-footer-overlay";
 import { DeckyGameArtwork } from "./decky-game-artwork";
+import { DeckyRetroAchievementsPointsIcon } from "./decky-retroachievements-points-icon";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
@@ -608,10 +609,10 @@ function AchievementHistoryRow({
         <span style={getAchievementRowMetadataStackStyle()}>
           <span style={getAchievementHistoryStatusStyle(recentUnlock.achievement)}>{statusText}</span>
           {pointsText !== undefined ? (
-            <span style={getAchievementHistoryDetailStyle()}>{pointsText}</span>
+            <span style={getAchievementHistoryDetailStyle()}>{!isSteamProvider ? <><DeckyRetroAchievementsPointsIcon size={13} />{" "}</> : null}{pointsText}</span>
           ) : null}
           {retroPointsText !== undefined ? (
-            <span style={getAchievementHistoryDetailStyle()}>{retroPointsText}</span>
+            <span style={getAchievementHistoryDetailStyle()}><DeckyRetroAchievementsPointsIcon size={13} />{" "}{retroPointsText}</span>
           ) : null}
           {!isSteamProvider && unlockedAt !== undefined ? (
             <span style={getAchievementHistoryDetailStyle()}>{`Unlocked ${formatTimestamp(unlockedAt)}`}</span>

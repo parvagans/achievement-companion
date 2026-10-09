@@ -20,14 +20,17 @@ function getArtworkFrameStyle(compact: boolean, dense: boolean): CSSProperties {
   };
 }
 
-function getArtworkImageStyle(): CSSProperties {
+function getArtworkImageStyle(
+  fit: "cover" | "contain",
+  preserveSourceSize: boolean,
+): CSSProperties {
   return {
     display: "block",
-    width: "100%",
-    height: "100%",
+    width: preserveSourceSize ? "auto" : "100%",
+    height: preserveSourceSize ? "auto" : "100%",
     maxWidth: "100%",
     maxHeight: "100%",
-    objectFit: "cover",
+    objectFit: fit,
     objectPosition: "center center",
   };
 }
@@ -54,6 +57,10 @@ export interface DeckySteamFullscreenGameArtworkProps {
   readonly fallbackSrc?: string;
   readonly compact?: boolean;
   readonly dense?: boolean;
+  readonly imageFit?: "cover" | "contain";
+  readonly preserveSourceSize?: boolean;
+  readonly fallbackImageFit?: "cover" | "contain";
+  readonly preserveFallbackSourceSize?: boolean;
 }
 
 export function DeckySteamFullscreenGameArtwork({
@@ -62,6 +69,10 @@ export function DeckySteamFullscreenGameArtwork({
   fallbackSrc,
   compact = false,
   dense = false,
+  imageFit = "cover",
+  preserveSourceSize = false,
+  fallbackImageFit = imageFit,
+  preserveFallbackSourceSize = preserveSourceSize,
 }: DeckySteamFullscreenGameArtworkProps): JSX.Element {
   const [hasImageError, setHasImageError] = useState(false);
   const [failedPrimary, setFailedPrimary] = useState(false);
@@ -81,7 +92,10 @@ export function DeckySteamFullscreenGameArtwork({
             if (!failedPrimary && fallbackSrc !== undefined && fallbackSrc !== src) setFailedPrimary(true);
             else setHasImageError(true);
           }}
-          style={getArtworkImageStyle()}
+          style={getArtworkImageStyle(
+            failedPrimary ? fallbackImageFit : imageFit,
+            failedPrimary ? preserveFallbackSourceSize : preserveSourceSize,
+          )}
         />
       )}
     </span>

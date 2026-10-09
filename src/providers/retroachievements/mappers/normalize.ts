@@ -9,6 +9,7 @@ import type {
   ProgressSummary,
   RecentlyPlayedGame,
   RecentUnlock,
+  ReleaseDateGranularity,
 } from "@core/domain";
 import { RETROACHIEVEMENTS_PROVIDER_ID, type RetroAchievementsProviderConfig } from "../config";
 import type {
@@ -87,6 +88,13 @@ function pickNumber(...values: unknown[]): number | undefined {
   }
 
   return undefined;
+}
+
+function normalizeReleaseDateGranularity(value: unknown): ReleaseDateGranularity | undefined {
+  const normalized = coerceString(value)?.toLowerCase();
+  return normalized === "day" || normalized === "month" || normalized === "year"
+    ? normalized
+    : undefined;
 }
 
 function coerceBoolean(value: unknown): boolean | undefined {
@@ -1349,6 +1357,7 @@ export function normalizeRetroAchievementsGameDetail(
   const developer = pickString(raw.Developer, raw.developer);
   const genre = pickString(raw.Genre, raw.genre);
   const released = pickString(raw.Released, raw.released);
+  const releaseDateGranularity = normalizeReleaseDateGranularity(raw.ReleasedAtGranularity ?? raw.releasedAtGranularity);
   const guideUrl = pickString(raw.GuideURL, raw.guideUrl);
   const highestAwardKind = pickString(raw.HighestAwardKind, raw.highestAwardKind);
   const userTotalPlaytime = pickNumber(raw.UserTotalPlaytime, raw.userTotalPlaytime);
@@ -1383,6 +1392,7 @@ export function normalizeRetroAchievementsGameDetail(
       coverImageUrl,
       boxArtImageUrl,
     }),
+    ...(releaseDateGranularity !== undefined ? { releaseDateGranularity } : {}),
     ...(parentGameId !== undefined ? { parentGameId } : {}),
     status: inferGameStatus(highestAwardKind, summary),
     summary,

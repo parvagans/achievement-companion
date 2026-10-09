@@ -9,7 +9,7 @@ import {
   type CSSProperties,
 } from "react";
 import type { ResourceState } from "@core/cache";
-import type { GameDetailSnapshot, NormalizedAchievement, RelatedGameSummary } from "@core/domain";
+import type { GameDetailSnapshot, NormalizedAchievement, NormalizedGame, RelatedGameSummary } from "@core/domain";
 import { Focusable, PanelSection, PanelSectionRow } from "@decky/ui";
 import {
   initialDeckyGameDetailState,
@@ -117,6 +117,43 @@ function formatCount(value: number): string {
   return value.toLocaleString();
 }
 
+function formatGameReleaseDate(value: string, granularity: NormalizedGame["releaseDateGranularity"]): string {
+  const match = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?/u.exec(value.trim());
+  if (match === null) {
+    return value;
+  }
+
+  const year = match[1];
+  const month = match[2];
+  const day = match[3];
+  if (year === undefined) {
+    return value;
+  }
+
+  if (granularity === "year" || month === undefined) {
+    return year;
+  }
+
+  const monthNumber = Number(month);
+  if (granularity === "month" || day === undefined) {
+    return new Date(Number(year), monthNumber - 1, 1).toLocaleDateString(undefined, {
+      month: "long",
+      year: "numeric",
+    });
+  }
+
+  if (granularity === "day") {
+    return new Date(Number(year), monthNumber - 1, Number(day)).toLocaleDateString(undefined, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  }
+
+  // With unknown precision, show the API's date portion without implying a locale-adjusted exact date.
+  return `${year}-${month}-${day}`;
+}
+
 function getMetricValue(
   metrics: readonly { readonly key: string; readonly label: string; readonly value: string }[],
   key: string,
@@ -128,6 +165,8 @@ function buildGameMetadataPills(
   metrics: readonly { readonly key: string; readonly label: string; readonly value: string }[],
   includeTotalPlayers: boolean,
   includeReleased: boolean,
+  includeRetroAchievementsGameReleaseDate = false,
+  releaseDateGranularity?: NormalizedGame["releaseDateGranularity"],
 ): readonly DeckyFullScreenGameMetadataPill[] {
   const totalPlayers = getMetricValue(metrics, "total-players");
   const released = getMetricValue(metrics, "released");
@@ -144,12 +183,12 @@ function buildGameMetadataPills(
           },
         ]
       : []),
-    ...(includeReleased && released !== undefined
+    ...((includeReleased || includeRetroAchievementsGameReleaseDate) && released !== undefined
       ? [
           {
-            key: "released",
-            label: "Release date",
-            value: released,
+            key: "game-release-date",
+            label: includeRetroAchievementsGameReleaseDate ? "Game release date" : "Release date",
+            value: formatGameReleaseDate(released, releaseDateGranularity),
           },
         ]
       : []),
@@ -450,6 +489,9 @@ export function DeckyFullScreenGamePage({
   const saveCurrentSectionScroll = useCallback((
     section: DeckyFullScreenGameSectionId = activeSteamSectionRef.current,
   ): void => {
+    if (section === "overview" && providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+      return;
+    }
     const anchor = sectionAnchorRef.current;
     if (anchor === null) {
       return;
@@ -462,7 +504,7 @@ export function DeckyFullScreenGamePage({
         scrollTop,
       },
     }));
-  }, [persistSteamSectionState]);
+  }, [persistSteamSectionState, providerId]);
 
   const selectSteamSection = (nextSection: DeckyFullScreenGameSectionId): void => {
     const currentSection = activeSteamSectionRef.current;
@@ -584,6 +626,9 @@ export function DeckyFullScreenGamePage({
       return;
     }
     const onScroll = (): void => {
+      if (activeSteamSection === "overview" && providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+        return;
+      }
       if (readFullScreenGameSectionPageState(providerId, gameId).restoreRequested) {
         return;
       }
@@ -882,7 +927,9 @@ export function DeckyFullScreenGamePage({
       );
       let target: HTMLElement | null | undefined;
       if (activeSteamSection === "overview") {
-        target = activeSectionRoot?.querySelector<HTMLElement>("[role='button']");
+        target = restorationIsSteamProvider
+          ? activeSectionRoot?.querySelector<HTMLElement>("[role='button']")
+          : activeSectionRoot?.querySelector<HTMLElement>("[role='button'][aria-label='Open on RetroAchievements']");
       } else if (activeSteamSection === "achievements") {
         const targetId = selectFullScreenGameAchievementRestorationTarget({
           focusedAchievementId: currentState.achievements.focusedId,
@@ -1003,6 +1050,8 @@ export function DeckyFullScreenGamePage({
     game.metrics,
     isSteamProvider,
     isSteamProvider,
+    !isSteamProvider,
+    game.releaseDateGranularity,
   );
   const steamHuntersViewModel = restorationSteamHuntersViewModel;
   const steamAchievementGroupSections = restorationSteamAchievementGroupSections;
@@ -1033,8 +1082,8 @@ export function DeckyFullScreenGamePage({
           {!isSteamProvider && activeSteamSection === "overview" ? (
             <div data-steam-game-section="overview" style={getSteamOverviewSectionStyle()}>
               <DeckyRetroAchievementsGameOverview
-                game={game}
-                achievements={snapshot.achievements}
+                snapshot={snapshot}
+                achievementMode={settings.retroAchievementsAchievementMode}
                 metadataPills={gameMetadataPills}
                 refreshedAt={refreshTimestamp}
               />
@@ -1158,10 +1207,12 @@ export function DeckyFullScreenGamePage({
           <TopAlignedScrollViewport
             fillHeight={activeSteamSection === "overview"}
             restoreAfterLayout
-            restoreScrollTop={readFullScreenGameSectionPageState(
-              providerId ?? game.providerId,
-              game.gameId,
-            )[activeSteamSection].scrollTop}
+            restoreScrollTop={activeSteamSection === "overview" && !isSteamProvider
+              ? undefined
+              : readFullScreenGameSectionPageState(
+                providerId ?? game.providerId,
+                game.gameId,
+              )[activeSteamSection].scrollTop}
             scrollKey={`full-screen-game:${providerId ?? game.providerId}:${game.gameId}`}
           >
             <div ref={sectionAnchorRef} style={getSteamGameContentFrameStyle(activeSteamSection)}>{pageSections}</div>

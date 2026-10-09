@@ -33,6 +33,7 @@ import {
 } from "./decky-compact-achievement-page-state";
 import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
 import { DeckySteamAchievementStatusIcon } from "./decky-steam-achievement-status-icon";
+import { DeckyRetroAchievementsPointsIcon } from "./decky-retroachievements-points-icon";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import { raRecipes, raTheme } from "./ra-theme";
 
@@ -347,7 +348,9 @@ function CompactAchievementRow({
           <>
             <div style={getSecondaryStyle(model.tone, isSteam)}>{model.statusText}</div>
             {model.metadata.map((item) => (
-              <div key={item.key} style={getSecondaryStyle(model.tone, isSteam)}>{item.value}</div>
+              <div key={item.key} style={getSecondaryStyle(model.tone, isSteam)}>
+                {!isSteam && item.key === "points" ? <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><DeckyRetroAchievementsPointsIcon size={12} />{item.value}</span> : item.value}
+              </div>
             ))}
           </>
         ) : null}
@@ -381,7 +384,11 @@ function CompactAchievementRow({
                 </span>
                 <span style={raRecipes.compactAchievementRarity.label}>{`${Math.round(rarityPercent)}% players`}</span>
               </div>
-            ) : <span key={item.key} style={getRailMetadataStyle(isSteam)}>{item.value}</span>;
+            ) : (
+              <span key={item.key} style={getRailMetadataStyle(isSteam)}>
+                {!isSteam && item.key === "points" ? <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><DeckyRetroAchievementsPointsIcon size={12} />{item.value}</span> : item.value}
+              </span>
+            );
           })}
         </div>
       ) : null}

@@ -2,7 +2,7 @@ import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode }
 
 const MIN_GAME_TITLE_FONT_SIZE_PX = 15;
 
-function getTitleStyle(color: string, fontSizePx: number | undefined): CSSProperties {
+function getTitleStyle(color: string, fontSizePx: number | undefined, maxLines: number): CSSProperties {
   return {
     color,
     fontSize: fontSizePx === undefined ? "1.28em" : `${fontSizePx}px`,
@@ -11,7 +11,9 @@ function getTitleStyle(color: string, fontSizePx: number | undefined): CSSProper
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+    ...(maxLines > 1
+      ? { display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: maxLines, whiteSpace: "normal" }
+      : { whiteSpace: "nowrap" }),
   };
 }
 
@@ -19,9 +21,11 @@ function getTitleStyle(color: string, fontSizePx: number | undefined): CSSProper
 export function DeckyFullScreenGameTitle({
   color,
   title,
+  maxLines = 1,
 }: {
   readonly color: string;
   readonly title: string;
+  readonly maxLines?: number;
 }): JSX.Element {
   const titleRef = useRef<HTMLDivElement>(null);
   const [fittedTitle, setFittedTitle] = useState<{
@@ -33,7 +37,7 @@ export function DeckyFullScreenGameTitle({
   useLayoutEffect(() => {
     const element = titleRef.current;
     const ownerWindow = element?.ownerDocument.defaultView;
-    if (element === null || ownerWindow === null || ownerWindow === undefined || element.clientWidth === 0) {
+    if (maxLines > 1 || element === null || ownerWindow === null || ownerWindow === undefined || element.clientWidth === 0) {
       return;
     }
 
@@ -53,9 +57,9 @@ export function DeckyFullScreenGameTitle({
     setFittedTitle((current) => current?.title === title && current.fontSizePx === nextFontSizePx
       ? current
       : { title, fontSizePx: nextFontSizePx });
-  }, [fontSizePx, title]);
+  }, [fontSizePx, maxLines, title]);
 
-  return <div ref={titleRef} style={getTitleStyle(color, fontSizePx)}>{title}</div>;
+  return <div ref={titleRef} style={getTitleStyle(color, fontSizePx, maxLines)}>{title}</div>;
 }
 
 function getOverviewGridStyle(): CSSProperties {

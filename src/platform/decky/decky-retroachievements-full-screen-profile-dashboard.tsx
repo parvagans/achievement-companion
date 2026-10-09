@@ -4,6 +4,7 @@ import calendarIconUrl from "./assets/calendar.svg";
 import externalLinkIconUrl from "./assets/external-link.svg";
 import gamepadIconUrl from "./assets/gamepad.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
+import { DeckyRetroAchievementsPointsIcon } from "./decky-retroachievements-points-icon";
 import { DeckyFullscreenActionButton } from "./decky-full-screen-action-controls";
 import { DeckyFocusStyles } from "./decky-focus-styles";
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
@@ -267,10 +268,10 @@ function ProfileFact({ iconUrl, tone = "blue", children }: { readonly iconUrl: s
   );
 }
 
-function ProfileStat({ label, value }: { readonly label: string; readonly value: string }): JSX.Element {
+function ProfileStat({ label, value, icon }: { readonly label: string; readonly value: string; readonly icon?: JSX.Element }): JSX.Element {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, color: raTheme.color.textSecondary, fontSize: 14, lineHeight: 1.2 }}>
-      <span>{label}</span>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{icon}{label}</span>
       <span style={{ color: raTheme.color.textPrimary, fontWeight: 750, textAlign: "right" }}>{value}</span>
     </div>
   );
@@ -371,8 +372,8 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
           <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%", marginTop: "auto", paddingTop: 12, borderTop: `1px solid ${raTheme.color.borderSubtle}`, boxSizing: "border-box" }}>
             <ProfileStat label="Mastered Games" value={model.profileStats.mastered ?? "-"} />
             <ProfileStat label="Beaten Games" value={model.profileStats.beaten ?? "-"} />
-            <ProfileStat label="Points Earned" value={model.profileStats.hardcorePoints ?? "-"} />
-            <ProfileStat label="RetroPoints" value={model.profileStats.raPoints ?? "-"} />
+            <ProfileStat icon={<DeckyRetroAchievementsPointsIcon size={14} />} label="Points Earned" value={model.profileStats.hardcorePoints ?? "-"} />
+            <ProfileStat icon={<DeckyRetroAchievementsPointsIcon size={14} />} label="RetroPoints" value={model.profileStats.raPoints ?? "-"} />
           </div>
         </section>
         {model.systems.length > 0 ? (
