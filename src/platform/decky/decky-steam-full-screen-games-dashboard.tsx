@@ -386,8 +386,8 @@ function getSearchFieldStyle(): CSSProperties {
   };
 }
 
-function getFilterGroupStyle(): CSSProperties {
-  return { display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 5, minWidth: 0 };
+function getFilterGroupStyle(count: number): CSSProperties {
+  return { display: "grid", gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))`, gap: 5, minWidth: 0 };
 }
 
 function getFilterButtonStyle(selected: boolean): CSSProperties {
@@ -954,14 +954,19 @@ export function DeckySteamFullScreenGamesDashboard({
   const mode: RetroAchievementsAchievementMode = isRa
     ? deckySettings.retroAchievementsAchievementMode
     : "both";
-  const initialPageState = useRef(readDeckyGamesPageState(providerId)).current;
+  const shouldUseRequestedFilter = initialFilter !== undefined && initialFilter !== "all";
+  const [initialPageState] = useState(() => {
+    const saved = readDeckyGamesPageState(providerId);
+    return shouldUseRequestedFilter
+      ? { ...saved, focusGameId: undefined, query: "", renderLimit: STEAM_GAMES_INITIAL_RENDER_LIMIT, scrollTop: 0, sort: "recent" as const }
+      : saved;
+  });
   const dashboardRef = useRef<HTMLElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const searchControlRef = useRef<HTMLDivElement>(null);
   const restorationTargetRef = useRef<HTMLDivElement | null>(null);
   const appendedGameFocusTargetRef = useRef<HTMLDivElement | null>(null);
   const [appendedGameIdToFocus, setAppendedGameIdToFocus] = useState<string | undefined>(undefined);
-  const shouldUseRequestedFilter = initialFilter !== undefined && initialFilter !== "all";
   const [filter, setFilter] = useState<SteamGamesFilter>(() => shouldUseRequestedFilter
     ? normalizeInitialFilter(initialFilter)
     : initialPageState.filter);
@@ -992,6 +997,7 @@ export function DeckySteamFullScreenGamesDashboard({
     { filter: "all" as const, label: `${isRa ? "All" : "All Games"} (${formatCount(summary.trackedCount)})` },
     { filter: "played" as const, label: `Played (${formatCount(summary.playedCount)})` },
     { filter: "unfinished" as const, label: `${isRa ? "In Progress" : "Unfinished"} (${formatCount(summary.unfinishedCount)})` },
+    ...(isRa ? [{ filter: "completed" as const, label: `Completed (${formatCount(summary.skippedCount + summary.perfectedCount)})` }] : []),
     { filter: "mastered" as const, label: `${isRa ? "Mastered" : "Perfected"} (${formatCount(summary.perfectedCount)})` },
     { filter: "beaten" as const, label: `${isRa ? "Beaten" : "Skipped"} (${formatCount(summary.skippedCount)})` },
   ];
@@ -1125,7 +1131,7 @@ export function DeckySteamFullScreenGamesDashboard({
             navEntryPreferPosition={NavEntryPositionPreferences.PREFERRED_CHILD}
             noFocusRing
             tabIndex={-1}
-            style={getFilterGroupStyle()}
+            style={getFilterGroupStyle(filterButtons.length)}
           >
             {filterButtons.map((button) => (
               <SteamGamesFilterButton

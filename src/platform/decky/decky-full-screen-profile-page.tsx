@@ -1252,6 +1252,7 @@ export function DeckyFullScreenProfilePage({
           model={model}
           isActive={isActive}
           onOpenExternalUrl={onOpenExternalUrl}
+          onOpenCompletionProgress={(filter) => onOpenCompletionProgress(profile.providerId, filter)}
           refreshedAt={refreshedAt}
         />
         {showSteamProfileFooter ? <DeckyFullScreenFooterOverlay

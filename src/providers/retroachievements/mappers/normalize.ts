@@ -630,6 +630,7 @@ function normalizeSelectableGame(
     raw.HighestAwardDate,
     raw.highestAwardDate,
   );
+  const highestAwardAt = pickEpochMs(raw.HighestAwardDate, raw.highestAwardDate);
 
   return {
     ...game,
@@ -668,6 +669,15 @@ function normalizeSelectableGame(
               key: "highest-award-kind",
               label: "Highest Award",
               value: highestAwardKind,
+            },
+          ]
+        : []),
+      ...(highestAwardAt !== undefined
+        ? [
+            {
+              key: "highest-award-date",
+              label: "Highest Award Date",
+              value: String(highestAwardAt),
             },
           ]
         : []),

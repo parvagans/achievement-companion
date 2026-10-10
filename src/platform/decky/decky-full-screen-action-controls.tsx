@@ -1,4 +1,4 @@
-import { Focusable, type FocusableProps } from "@decky/ui";
+import { Focusable, type FocusableProps, type GamepadEvent } from "@decky/ui";
 import {
   useCallback,
   useLayoutEffect,
@@ -63,6 +63,7 @@ export interface DeckyFullscreenActionButtonProps {
   readonly contentAlign?: "center" | "left";
   readonly scrollToTopOnFocus?: boolean | undefined;
   readonly focusClassName?: string | undefined;
+  readonly onGamepadDirection?: ((event: GamepadEvent) => void) | undefined;
 }
 
 function getFullscreenActionRowStyle(centered: boolean): CSSProperties {
@@ -191,6 +192,7 @@ export function DeckyFullscreenActionButton({
   contentAlign = "center",
   scrollToTopOnFocus = false,
   focusClassName,
+  onGamepadDirection,
 }: DeckyFullscreenActionButtonProps): JSX.Element {
   const handleClick = useCallback(() => {
     if (disabled) {
@@ -216,6 +218,7 @@ export function DeckyFullscreenActionButton({
       tabIndex={disabled ? -1 : 0}
       onActivate={handleClick}
       onClick={handleClick}
+      {...(onGamepadDirection === undefined ? {} : { onGamepadDirection })}
       onFocus={shouldScrollToTopOnFocus ? scrollFullscreenBackButtonIntoView : scrollFocusedElementIntoView}
       onGamepadFocus={
         shouldScrollToTopOnFocus

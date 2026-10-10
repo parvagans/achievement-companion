@@ -52,8 +52,8 @@ import {
   CompletionProgressSummaryCardGrid,
   type CompletionProgressSelectionFilter,
 } from "./decky-completion-progress-summary-cards";
+import { formatCompletionProgressSelectionLabelForProvider } from "./decky-completion-progress-summary-card-data";
 import {
-  formatCompletionProgressFilterLabelForProvider,
   formatCompletionProgressStatusLabel,
   formatSteamPlaytimeMinutes,
   getSteamCompletionProgressGameDetailId,
@@ -287,6 +287,12 @@ function matchesCompletionProgressFilter(
     return gameGroup.representativeGame.status === "beaten";
   }
 
+  if (filter === "completed") {
+    return gameGroup.representativeGame.status === "beaten"
+      || gameGroup.representativeGame.status === "completed"
+      || gameGroup.representativeGame.status === "mastered";
+  }
+
   return gameGroup.representativeGame.status === "mastered";
 }
 
@@ -302,7 +308,7 @@ function formatCompletionProgressFilterEmptyMessage(
     return "Enable Show subsets to browse subset games.";
   }
 
-  return `No ${formatCompletionProgressFilterLabelForProvider(filter, providerId).toLowerCase()} games match this filter.`;
+  return `No ${formatCompletionProgressSelectionLabelForProvider(filter, providerId).toLowerCase()} games match this filter.`;
 }
 
 function formatCompletionProgressSubsetSummary(
@@ -365,7 +371,7 @@ function formatBrowserSelectionSummary(args: {
     return "Viewing all played games.";
   }
 
-  const label = formatCompletionProgressFilterLabelForProvider(
+  const label = formatCompletionProgressSelectionLabelForProvider(
     args.filter,
     args.providerId,
   );
@@ -373,6 +379,8 @@ function formatBrowserSelectionSummary(args: {
     ? args.summary.unfinishedCount
     : args.filter === "beaten"
       ? args.summary.beatenCount
+      : args.filter === "completed"
+        ? args.summary.beatenCount + args.summary.masteredCount
       : args.summary.masteredCount;
   return `${label} games: ${formatCount(count)}.`;
 }
