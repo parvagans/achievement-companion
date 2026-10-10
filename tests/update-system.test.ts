@@ -105,13 +105,35 @@ test("Decky's installed package version remains authoritative over a hot-deploye
   assert.equal(state.installedVersion, "0.4.0");
 });
 
-test("installer remains explicitly unsupported after successful verification", async () => {
+test("installer hands a verified local ZIP and checksum to Decky's update dialog", async () => {
+  const calls: { route: string; args: unknown[] }[] = [];
+  const installer = new DeckyNativeInstaller({
+    async call(route, ...args) { calls.push({ route, args }); },
+  });
   const service = new UpdateService({
     installedVersion: "0.8.3",
     resolveSource: () => ({ kind: "local", manifestUrl: "http://example.test", loadManifest: async () => manifest }),
-    verifier: { verify: async (value, onPhase) => { onPhase("downloading"); onPhase("verifying"); return { version: value.version, sha256: value.sha256, packageVersion: value.version, pluginVersion: value.version }; } },
-    installer: new DeckyNativeInstaller(),
+    verifier: { verify: async (value, onPhase) => { onPhase("downloading"); onPhase("verifying"); return { version: value.version, sha256: value.sha256, packageVersion: value.version, pluginVersion: value.version, fileUrl: "file:///tmp/verified-update.zip" }; } },
+    installer,
   });
   assert.equal((await service.checkForUpdate()).status, "updateAvailable");
-  assert.equal((await service.installAvailableUpdate()).status, "unsupported");
+  const result = await service.installAvailableUpdate();
+  assert.equal(result.status, "updateAvailable");
+  assert.match(result.message ?? "", /Confirm the update in Decky/u);
+  assert.deepEqual(calls, [{
+    route: "utilities/install_plugin",
+    args: ["file:///tmp/verified-update.zip", "Achievement Companion", "0.9.0", checksum, 2],
+  }]);
+});
+
+test("installer refuses a package that differs from the manifest", async () => {
+  const installer = new DeckyNativeInstaller({ call: async () => { throw new Error("must not install"); } });
+  const result = await installer.install(manifest, {
+    version: manifest.version,
+    sha256: "b".repeat(64),
+    packageVersion: manifest.version,
+    pluginVersion: manifest.version,
+    fileUrl: "file:///tmp/verified-update.zip",
+  });
+  assert.equal(result.status, "failed");
 });

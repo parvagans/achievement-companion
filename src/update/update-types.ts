@@ -36,6 +36,7 @@ export interface VerifiedUpdateArtifact {
   readonly sha256: string;
   readonly packageVersion: string;
   readonly pluginVersion: string;
+  readonly fileUrl: string;
 }
 
 export interface UpdateArtifactVerifier {
@@ -46,9 +47,8 @@ export interface UpdateArtifactVerifier {
 }
 
 export type UpdateInstallerResult =
-  | { readonly status: "supported" }
   | { readonly status: "unsupported"; readonly message: string }
-  | { readonly status: "installing" }
+  | { readonly status: "prompted" }
   | { readonly status: "complete" }
   | { readonly status: "failed"; readonly message: string };
 

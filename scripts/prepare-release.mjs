@@ -24,15 +24,7 @@ if (unexpectedArguments.length > 0) {
 }
 
 function run(command, argumentsToRun) {
-  const useWindowsPnpmShim = process.platform === "win32" && command === "pnpm";
-  if (useWindowsPnpmShim && argumentsToRun.some((argument) => !/^[A-Za-z0-9:._-]+$/u.test(argument))) {
-    throw new Error("Refusing to pass an unsafe argument to the Windows pnpm command shim.");
-  }
-  const executable = useWindowsPnpmShim ? (process.env.ComSpec || "cmd.exe") : command;
-  const resolvedArguments = useWindowsPnpmShim
-    ? ["/d", "/s", "/c", `pnpm ${argumentsToRun.join(" ")}`]
-    : argumentsToRun;
-  const result = spawnSync(executable, resolvedArguments, {
+  const result = spawnSync(command, argumentsToRun, {
     cwd: rootDir,
     stdio: "inherit",
     shell: false,
@@ -43,6 +35,10 @@ function run(command, argumentsToRun) {
   if (result.status !== 0) {
     throw new Error(`${command} ${argumentsToRun.join(" ")} failed.`);
   }
+}
+
+function runNode(script, ...argumentsToRun) {
+  run(process.execPath, [script, ...argumentsToRun]);
 }
 
 function resolvePython() {
@@ -97,10 +93,14 @@ function assertReleaseContract(version, zipPath, checksumPath, manifestPath) {
 }
 
 try {
-  run("pnpm", ["version:sync"]);
-  run("pnpm", ["version:check"]);
+  runNode("scripts/version/sync-version.mjs");
+  runNode("scripts/version/check-version.mjs");
   const releaseDir = resetReleaseDirectory();
-  if (!skipBuild) run("pnpm", ["build"]);
+  if (!skipBuild) {
+    runNode("scripts/clean_decky_dist.mjs");
+    runNode("scripts/sync_decky_notices.mjs");
+    runNode("node_modules/rollup/dist/bin/rollup", "-c");
+  }
 
   const python = resolvePython();
   run(python, ["scripts/package_release.py"]);

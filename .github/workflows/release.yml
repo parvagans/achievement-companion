@@ -1,0 +1,89 @@
+name: Publish release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Build and publish GitHub release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out the tagged source
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.4.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify tag matches the canonical version
+        shell: bash
+        run: |
+          version="$(sed -n 's/^version=//p' version.properties | tr -d '\r\n')"
+          if [[ "v${version}" != "${GITHUB_REF_NAME}" ]]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match version.properties (${version})." >&2
+            exit 1
+          fi
+          echo "RELEASE_VERSION=${version}" >> "${GITHUB_ENV}"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check versions and types
+        run: |
+          pnpm version:check
+          pnpm typecheck
+
+      - name: Test the updater and release contracts
+        run: node --import tsx --test tests/update-system.test.ts tests/versioning.test.ts
+
+      - name: Test the updater backend
+        run: python -m unittest discover -s tests/python -p "test_backend_update.py"
+
+      - name: Prepare verified release assets
+        run: pnpm release:prepare
+
+      - name: Publish the GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          archive="release/achievement-companion-v${RELEASE_VERSION}.zip"
+          checksum="${archive}.sha256"
+          manifest="release/update-manifest.json"
+
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" "${archive}" "${checksum}" "${manifest}" --clobber
+            gh release edit "${GITHUB_REF_NAME}" --title "Achievement Companion ${GITHUB_REF_NAME}" --latest
+          else
+            gh release create "${GITHUB_REF_NAME}" \
+              "${archive}" \
+              "${checksum}" \
+              "${manifest}" \
+              --verify-tag \
+              --title "Achievement Companion ${GITHUB_REF_NAME}" \
+              --generate-notes \
+              --latest
+          fi

@@ -139,6 +139,12 @@ On your Steam Deck:
 8. Restart your Steam Deck.
 9. Open Achievement Companion from Decky and enter your RetroAchievements and/or Steam provider credentials.
 
+## Updates
+
+After installing this release, open **Settings → About** in Achievement Companion to check for updates. Automatic Update Checks is on by default and checks the latest stable GitHub release about once a day while the plugin is running. When a newer version is available, a Decky notification opens the About tab.
+
+Select **Update** to download and verify the release ZIP, then confirm Decky Loader's update dialog. Decky installs the update and reloads the plugin. Installation always requires this confirmation; Automatic Update Checks controls notifications, not unattended installation. You can also select **Check for Updates** at any time.
+
 ## License And Notices
 
 - Achievement Companion is not affiliated with, endorsed by, sponsored by, or approved by RetroAchievements or Valve Corporation.
@@ -175,5 +181,6 @@ achievement-companion/
       steam_shortcuts.py
       storage.py
       tls.py
+      update.py
   README.md
   THIRD_PARTY_NOTICES.md

@@ -5,6 +5,7 @@ import json
 import re
 import ssl
 import tempfile
+from threading import Lock
 import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath
@@ -26,6 +27,9 @@ REQUIRED_PACKAGE_FILES = (
   f"{ARCHIVE_ROOT}/plugin.json",
   f"{ARCHIVE_ROOT}/py_modules/backend/__init__.py",
 )
+
+_prepared_artifacts: list[tempfile.TemporaryDirectory[str]] = []
+_prepared_artifacts_lock = Lock()
 
 
 class UpdateVerificationError(RuntimeError):
@@ -128,22 +132,69 @@ def download_and_verify_update(
     dir=str(temp_parent) if temp_parent is not None else None,
   ) as temp_dir:
     zip_path = Path(temp_dir) / "update.zip"
-    try:
-      with urlopen(request, timeout=30, context=ssl_context) as response, zip_path.open("wb") as destination:
-        content_length = response.headers.get("Content-Length")
-        if content_length is not None and int(content_length) > MAX_UPDATE_BYTES:
-          raise UpdateVerificationError("Update package exceeds the maximum allowed size.")
-        total = 0
-        while True:
-          chunk = response.read(1024 * 1024)
-          if not chunk:
-            break
-          total += len(chunk)
-          if total > MAX_UPDATE_BYTES:
-            raise UpdateVerificationError("Update package exceeds the maximum allowed size.")
-          destination.write(chunk)
-    except UpdateVerificationError:
-      raise
-    except Exception as cause:
-      raise UpdateVerificationError("Update package download failed.") from cause
+    _download_update(request, zip_path, ssl_context=ssl_context, urlopen=urlopen)
     return verify_update_package(zip_path, version, expected_sha256)
+
+
+def _download_update(
+  request: urllib.request.Request,
+  zip_path: Path,
+  *,
+  ssl_context: ssl.SSLContext,
+  urlopen: Callable[..., Any],
+) -> None:
+  try:
+    with urlopen(request, timeout=30, context=ssl_context) as response, zip_path.open("wb") as destination:
+      content_length = response.headers.get("Content-Length")
+      if content_length is not None and int(content_length) > MAX_UPDATE_BYTES:
+        raise UpdateVerificationError("Update package exceeds the maximum allowed size.")
+      total = 0
+      while True:
+        chunk = response.read(1024 * 1024)
+        if not chunk:
+          break
+        total += len(chunk)
+        if total > MAX_UPDATE_BYTES:
+          raise UpdateVerificationError("Update package exceeds the maximum allowed size.")
+        destination.write(chunk)
+  except UpdateVerificationError:
+    raise
+  except Exception as cause:
+    raise UpdateVerificationError("Update package download failed.") from cause
+
+
+def prepare_update_artifact(
+  payload: Mapping[str, Any],
+  *,
+  ssl_context: ssl.SSLContext,
+  urlopen: Callable[..., Any] = urllib.request.urlopen,
+  temp_parent: Path | None = None,
+) -> dict[str, str]:
+  version, download_url, expected_sha256 = validate_update_request(payload)
+  request = urllib.request.Request(
+    download_url,
+    headers={"Accept": "application/zip", "User-Agent": "Achievement-Companion-Updater"},
+  )
+  temporary_directory = tempfile.TemporaryDirectory(
+    prefix="achievement-companion-update-",
+    dir=str(temp_parent) if temp_parent is not None else None,
+  )
+  try:
+    zip_path = Path(temporary_directory.name) / "update.zip"
+    _download_update(request, zip_path, ssl_context=ssl_context, urlopen=urlopen)
+    result = verify_update_package(zip_path, version, expected_sha256)
+    result["fileUrl"] = zip_path.as_uri()
+    with _prepared_artifacts_lock:
+      _prepared_artifacts.append(temporary_directory)
+    return result
+  except BaseException:
+    temporary_directory.cleanup()
+    raise
+
+
+def cleanup_prepared_update_artifacts() -> None:
+  with _prepared_artifacts_lock:
+    directories = _prepared_artifacts[:]
+    _prepared_artifacts.clear()
+  for directory in directories:
+    directory.cleanup()

@@ -103,7 +103,13 @@ export class UpdateService {
       }
       this.setState({ ...this.stateWithoutMessage(), status: "installing" });
       const result = await this.dependencies.installer.install(manifest, artifact);
-      if (result.status === "complete") {
+      if (result.status === "prompted") {
+        this.setState({
+          ...this.state,
+          status: "updateAvailable",
+          message: "Confirm the update in Decky Loader. Decky will reload the plugin after installation.",
+        });
+      } else if (result.status === "complete") {
         this.setState({ ...this.state, status: "upToDate", message: "Update installed. Decky will reload the plugin." });
       } else if (result.status === "unsupported") {
         this.setState({ ...this.state, status: "unsupported", message: result.message });

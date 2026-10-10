@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import io
 import ssl
 import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from urllib.parse import urlparse, unquote
+from urllib.request import url2pathname
 
 import _test_support  # noqa: F401
 from backend import update
@@ -26,6 +29,38 @@ def build_package(path: Path, version: str = "0.9.0") -> str:
 
 
 class BackendUpdateTests(unittest.TestCase):
+  def test_prepared_package_is_retained_for_decky_and_cleaned_on_unload(self) -> None:
+    with tempfile.TemporaryDirectory(dir=TEMP_ROOT) as directory:
+      source = Path(directory) / "source.zip"
+      checksum = build_package(source)
+
+      class Response:
+        headers = {"Content-Length": str(source.stat().st_size)}
+
+        def __enter__(self):
+          self.stream = io.BytesIO(source.read_bytes())
+          return self
+
+        def __exit__(self, *_args):
+          self.stream.close()
+
+        def read(self, size: int) -> bytes:
+          return self.stream.read(size)
+
+      result = update.prepare_update_artifact(
+        {"version": "0.9.0", "downloadUrl": "https://example.test/update.zip", "sha256": checksum},
+        ssl_context=ssl.create_default_context(),
+        urlopen=lambda *_args, **_kwargs: Response(),
+        temp_parent=Path(directory),
+      )
+      prepared = Path(url2pathname(unquote(urlparse(result["fileUrl"]).path)))
+      try:
+        self.assertTrue(prepared.is_file())
+        self.assertEqual(prepared.read_bytes(), source.read_bytes())
+      finally:
+        update.cleanup_prepared_update_artifacts()
+      self.assertFalse(prepared.exists())
+
   def test_valid_package_is_verified(self) -> None:
     with tempfile.TemporaryDirectory(dir=TEMP_ROOT) as directory:
       path = Path(directory) / "update.zip"

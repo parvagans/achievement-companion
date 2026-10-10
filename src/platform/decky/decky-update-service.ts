@@ -28,6 +28,7 @@ const verifier: UpdateArtifactVerifier = {
       readonly sha256: string;
       readonly packageVersion: string;
       readonly pluginVersion: string;
+      readonly fileUrl: string;
     }>("prepare_update_artifact", {
       version: manifest.version,
       downloadUrl: manifest.downloadUrl,
@@ -39,6 +40,7 @@ const verifier: UpdateArtifactVerifier = {
       || result.packageVersion !== manifest.version
       || result.pluginVersion !== manifest.version
       || result.sha256 !== manifest.sha256
+      || !result.fileUrl.startsWith("file://")
     ) {
       throw new Error("Update verification failed. The downloaded package was not installed.");
     }
