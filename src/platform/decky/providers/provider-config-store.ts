@@ -14,6 +14,7 @@ import {
 import { readDeckyStorageText, removeDeckyStorageText } from "../storage";
 import { callDeckyBackendMethod } from "../decky-backend-bridge";
 import { clearDeckyDashboardSnapshot } from "../decky-dashboard-snapshot-cache";
+import { publishDeckyRaNativeAchievementInvalidation } from "../decky-ra-native-achievement-invalidation";
 
 const RETROACHIEVEMENTS_CONFIG_STORAGE_KEY = "achievement-companion:decky:retroachievements:config";
 const STEAM_CONFIG_STORAGE_KEY = "achievement-companion:decky:steam:config";
@@ -32,6 +33,7 @@ export const deckyProviderConfigStore: ProviderConfigStore<DeckyProviderConfigVa
   async save(providerId, config) {
     if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
       const retroConfig = config as RetroAchievementsProviderConfig;
+      const previousConfig = readDeckyProviderConfigs().retroAchievements;
       const savedConfig = await callDeckyBackendMethod<RetroAchievementsProviderConfig | undefined>(
         "save_retroachievements_credentials",
         {
@@ -46,6 +48,9 @@ export const deckyProviderConfigStore: ProviderConfigStore<DeckyProviderConfigVa
       );
       if (savedConfig !== undefined) {
         updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, savedConfig);
+        if (hasRetroAchievementsAccountIdentityChanged(previousConfig, savedConfig)) {
+          publishDeckyRaNativeAchievementInvalidation("account-changed");
+        }
       }
       return savedConfig;
     }
@@ -103,6 +108,13 @@ let deckyProviderConfigRevision = 0;
 let cachedDeckyProviderConfigs: DeckyProviderConfigs | undefined;
 let deckyProviderConfigsLoadPromise: Promise<DeckyProviderConfigs> | undefined;
 const deckyProviderConfigListeners = new Set<DeckyProviderConfigListener>();
+
+function hasRetroAchievementsAccountIdentityChanged(
+  previous: RetroAchievementsProviderConfig | undefined,
+  next: RetroAchievementsProviderConfig,
+): boolean {
+  return previous?.username !== next.username || previous?.hasApiKey !== next.hasApiKey;
+}
 
 function notifyDeckyProviderConfigsChanged(): void {
   deckyProviderConfigRevision += 1;
@@ -384,6 +396,7 @@ export async function saveDeckyRetroAchievementsCredentials(args: {
   readonly recentAchievementsCount?: RetroAchievementsProviderConfig["recentAchievementsCount"];
   readonly recentlyPlayedCount?: RetroAchievementsProviderConfig["recentlyPlayedCount"];
 }): Promise<RetroAchievementsProviderConfig | undefined> {
+  const previousConfig = readDeckyProviderConfigs().retroAchievements;
   const savedConfig = await callDeckyBackendMethod<RetroAchievementsProviderConfig | undefined>(
     "save_retroachievements_credentials",
     args,
@@ -391,6 +404,12 @@ export async function saveDeckyRetroAchievementsCredentials(args: {
 
   if (savedConfig !== undefined) {
     updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, savedConfig);
+    if (
+      args.apiKeyDraft.trim().length > 0 ||
+      hasRetroAchievementsAccountIdentityChanged(previousConfig, savedConfig)
+    ) {
+      publishDeckyRaNativeAchievementInvalidation("account-changed");
+    }
   }
 
   return savedConfig;
@@ -424,6 +443,7 @@ export async function clearDeckyRetroAchievementsAccountState(): Promise<boolean
   if (cleared) {
     clearDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID);
     clearDeckyDashboardSnapshot(RETROACHIEVEMENTS_PROVIDER_ID);
+    publishDeckyRaNativeAchievementInvalidation("account-changed");
   }
 
   return cleared;

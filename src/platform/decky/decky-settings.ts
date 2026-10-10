@@ -15,6 +15,7 @@ import {
   removeDeckyStorageText,
   writeDeckyStorageText,
 } from "./storage";
+import { publishDeckyRaNativeAchievementInvalidation } from "./decky-ra-native-achievement-invalidation";
 
 let deckySettingsRevision = 0;
 let cachedDeckySettingsText: string | undefined;
@@ -68,9 +69,13 @@ export function createDeckySettingsStore(): KeyValueStore {
         return;
       }
 
+      const previousMode = readDeckySettings().retroAchievementsAchievementMode;
       cachedDeckySettingsText = value;
       writeDeckyStorageText(ACHIEVEMENT_COMPANION_SETTINGS_STORAGE_KEY, value);
       notifyDeckySettingsChanged();
+      if (previousMode !== readDeckySettings().retroAchievementsAchievementMode) {
+        publishDeckyRaNativeAchievementInvalidation("achievement-mode-changed");
+      }
     },
 
     async delete(key: string): Promise<void> {
@@ -78,9 +83,13 @@ export function createDeckySettingsStore(): KeyValueStore {
         return;
       }
 
+      const previousMode = readDeckySettings().retroAchievementsAchievementMode;
       cachedDeckySettingsText = undefined;
       removeDeckyStorageText(ACHIEVEMENT_COMPANION_SETTINGS_STORAGE_KEY);
       notifyDeckySettingsChanged();
+      if (previousMode !== readDeckySettings().retroAchievementsAchievementMode) {
+        publishDeckyRaNativeAchievementInvalidation("achievement-mode-changed");
+      }
     },
   };
 }

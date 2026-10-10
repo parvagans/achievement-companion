@@ -6,6 +6,7 @@ import { removeDeckyCompactCancelBridges } from "@platform/decky/decky-full-scre
 import { resetDeckyCompactNavigation } from "@platform/decky/decky-compact-navigation";
 import { resetDeckyCompactAchievementPageState } from "@platform/decky/decky-compact-achievement-page-state";
 import { ensureDeckyGamePageAchievementRoutePatchRegistered } from "@platform/decky/decky-game-page-achievement-bubble";
+import { ensureDeckyNativeSteamAchievementsRegistered } from "@platform/decky/decky-native-steam-achievements";
 import {
   clearDeckyCompactOriginFullScreenSession,
   registerDeckyFullScreenRoutes,
@@ -52,6 +53,7 @@ export default definePlugin(() => {
   installAchievementCompanionRuntimeDebug();
   const removeDeckyGamePageAchievementRoutePatch =
     ensureDeckyGamePageAchievementRoutePatchRegistered();
+  const removeDeckyNativeSteamAchievements = ensureDeckyNativeSteamAchievementsRegistered();
   const removeDeckyFullScreenRoutes = registerDeckyFullScreenRoutes();
   const stopDeckyUpdateSystem = initializeDeckyUpdateSystem(() => {
     Navigation.Navigate(buildDeckyFullScreenSettingsRoute());
@@ -76,6 +78,7 @@ export default definePlugin(() => {
       resetDeckyCompactAchievementPageState();
       clearDeckyCompactOriginFullScreenSession();
       removeDeckyFullScreenRoutes();
+      removeDeckyNativeSteamAchievements();
       removeDeckyGamePageAchievementRoutePatch();
       removeAchievementCompanionRuntimeDebug();
     },

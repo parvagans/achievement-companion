@@ -369,6 +369,7 @@ const retroAchievementsShortcutRomHashInfoCacheByAppId = new Map<
     readonly result: DeckySteamShortcutRomHashInfo | undefined;
   }
 >();
+const retroAchievementsShortcutRomHashInfoGenerationByAppId = new Map<string, number>();
 let retroAchievementsSystemsCache:
   | {
       readonly storedAt: number;
@@ -1441,11 +1442,14 @@ async function loadDeckySteamShortcutRomHashInfoCached(
     return cachedEntry.result;
   }
 
+  const generation = retroAchievementsShortcutRomHashInfoGenerationByAppId.get(appId) ?? 0;
   const result = await loadDeckySteamShortcutRomHashInfo(appId);
-  retroAchievementsShortcutRomHashInfoCacheByAppId.set(appId, {
-    storedAt: Date.now(),
-    result,
-  });
+  if ((retroAchievementsShortcutRomHashInfoGenerationByAppId.get(appId) ?? 0) === generation) {
+    retroAchievementsShortcutRomHashInfoCacheByAppId.set(appId, {
+      storedAt: Date.now(),
+      result,
+    });
+  }
   return result;
 }
 
@@ -2971,10 +2975,12 @@ async function loadRetroAchievementsCompletionStatusEnrichment(
   retroAchievementsCompletionStatusEnrichmentInFlightByGameId.set(gameId, loadPromise);
   try {
     const result = await loadPromise;
-    retroAchievementsCompletionStatusEnrichmentCacheByGameId.set(gameId, {
-      storedAt: Date.now(),
-      result,
-    });
+    if (retroAchievementsCompletionStatusEnrichmentInFlightByGameId.get(gameId) === loadPromise) {
+      retroAchievementsCompletionStatusEnrichmentCacheByGameId.set(gameId, {
+        storedAt: Date.now(),
+        result,
+      });
+    }
     return result;
   } finally {
     if (retroAchievementsCompletionStatusEnrichmentInFlightByGameId.get(gameId) === loadPromise) {
@@ -3018,10 +3024,12 @@ export async function enrichDeckyGamePageAchievementSummaryCompletionStatus(
     ...summary,
     completionStatus: result.completionStatus,
   };
-  gamePageAchievementSummaryCache.set(summary.appId, {
-    storedAt: Date.now(),
-    summary: enrichedSummary,
-  });
+  if (gamePageAchievementSummaryCache.get(summary.appId)?.summary === summary) {
+    gamePageAchievementSummaryCache.set(summary.appId, {
+      storedAt: Date.now(),
+      summary: enrichedSummary,
+    });
+  }
   updateAchievementCompanionRaShortcutResolutionDebug({
     completionStatusEnrichmentAttempted: true,
     completionStatusEnrichmentStatus: "resolved",
@@ -3135,6 +3143,24 @@ export function clearDeckyGamePageAchievementSummaryCacheForTests(): void {
   retroAchievementsSystemsInFlight = undefined;
   retroAchievementsGameListCandidatesCacheByPlatform.clear();
   retroAchievementsGameListCandidatesInFlightByPlatform.clear();
+  retroAchievementsShortcutRomHashInfoCacheByAppId.clear();
+  retroAchievementsShortcutRomHashInfoGenerationByAppId.clear();
+}
+
+/** Drop a shortcut's cached resolution before a native achievement refresh or identity change. */
+export function invalidateDeckyGamePageAchievementSummaryCache(appId: string): void {
+  const priorSummary = gamePageAchievementSummaryCache.get(appId)?.summary;
+  if (priorSummary?.status === "ready" && priorSummary.provider === "retroachievements" && priorSummary.gameId !== undefined) {
+    retroAchievementsCompletionStatusEnrichmentCacheByGameId.delete(priorSummary.gameId);
+    retroAchievementsCompletionStatusEnrichmentInFlightByGameId.delete(priorSummary.gameId);
+  }
+  gamePageAchievementSummaryCache.delete(appId);
+  gamePageAchievementSummaryInFlight.delete(appId);
+  retroAchievementsShortcutRomHashInfoCacheByAppId.delete(appId);
+  retroAchievementsShortcutRomHashInfoGenerationByAppId.set(
+    appId,
+    (retroAchievementsShortcutRomHashInfoGenerationByAppId.get(appId) ?? 0) + 1,
+  );
 }
 
 export async function loadDeckyGamePageAchievementSummary(
@@ -3267,10 +3293,13 @@ export async function loadDeckyGamePageAchievementSummary(
 
   try {
     const summary = await loadPromise;
-    gamePageAchievementSummaryCache.set(appId, {
-      storedAt: Date.now(),
-      summary,
-    });
+    // An invalidated request may still finish; it must not repopulate the cache.
+    if (gamePageAchievementSummaryInFlight.get(appId) === loadPromise) {
+      gamePageAchievementSummaryCache.set(appId, {
+        storedAt: Date.now(),
+        summary,
+      });
+    }
     return summary;
   } finally {
     if (gamePageAchievementSummaryInFlight.get(appId) === loadPromise) {

@@ -80,6 +80,7 @@ import {
 import { reconcileSteamLibraryAchievementSummaryWithRecentGames } from "../../providers/steam/library-scan";
 import { normalizeSteamCompletionProgressGames } from "../../providers/steam/mappers/normalize";
 import { deckyDiagnosticLogger } from "./decky-diagnostic-logger";
+import { publishDeckyRaNativeAchievementInvalidation } from "./decky-ra-native-achievement-invalidation";
 import {
   getDeckySteamLibraryAchievementScanRevision,
   deckySteamLibraryScanStore,
@@ -1391,6 +1392,9 @@ export async function loadDeckyDashboardState(
       );
     }
     writeDeckyDashboardSnapshot(dashboardSnapshot);
+    if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+      publishDeckyRaNativeAchievementInvalidation("provider-refreshed");
+    }
     publishDeckyDashboardProgress(providerId, { stepId: "finalize", status: "complete" });
 
     if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {

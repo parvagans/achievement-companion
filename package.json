@@ -1,7 +1,7 @@
 {
   "name": "steam-deck-achievement-companion",
   "private": true,
-  "version": "0.11.4",
+  "version": "0.12.0",
   "author": "parvagans <nullbit5@protonmail.com>",
   "license": "BSD-3-Clause",
   "type": "module",
@@ -15,7 +15,7 @@
     "release:prepare": "node scripts/prepare-release.mjs",
     "update:test:prepare": "node scripts/update/prepare-local-update.mjs",
     "update:test:serve": "node scripts/update/serve-local-update.mjs",
-    "test": "node --import tsx --test tests/activity-calendar-service.test.ts tests/decky-retroachievements-compact-activity.test.ts tests/createAppServices.test.ts tests/app-runtime.test.ts tests/app-runtime-nondecky.test.ts tests/decky-routing.test.ts tests/decky-compact-achievements.test.ts tests/decky-steam-compact-game.test.ts tests/decky-recent-achievement-history-selection.test.ts tests/decky-steam-compact-profile.test.ts tests/decky-steam-compact-achievement-presentation.test.ts tests/decky-steam-activity-calendar-model.test.ts tests/decky-retroachievements-compact-profile.test.ts tests/steam-activity-calendar-settings.test.ts tests/decky-steam-compact-activity-data.test.ts tests/decky-steam-compact-activity-state.test.ts tests/decky-steam-full-screen-activity-state.test.ts tests/deck-diagnostics.test.mjs tests/retroachievements-connection.test.ts tests/retroachievements-community-stats.test.ts tests/retroachievements-subsets.test.ts tests/decky-retroachievements-full-screen.test.ts tests/steam-connection.test.ts tests/steam-full-screen-profile.test.ts tests/steamhunters.test.ts tests/steam-game-section-state.test.ts tests/steam-game-detail-cache.test.ts tests/steam-game-footer-layout.test.ts tests/decky-number-format.test.ts tests/update-system.test.ts tests/versioning.test.ts && python -m unittest discover -s tests/python -p \"test_*.py\""
+    "test": "node --import tsx --test tests/activity-calendar-service.test.ts tests/decky-retroachievements-compact-activity.test.ts tests/createAppServices.test.ts tests/decky-native-retroachievements-projection.test.ts tests/decky-native-steam-achievement-contract.test.ts tests/decky-native-steam-achievement-conversion.test.ts tests/decky-native-steam-achievements.test.ts tests/decky-ra-native-achievement-invalidation.test.ts tests/app-runtime.test.ts tests/app-runtime-nondecky.test.ts tests/decky-routing.test.ts tests/decky-compact-achievements.test.ts tests/decky-steam-compact-game.test.ts tests/decky-recent-achievement-history-selection.test.ts tests/decky-steam-compact-profile.test.ts tests/decky-steam-compact-achievement-presentation.test.ts tests/decky-steam-activity-calendar-model.test.ts tests/decky-retroachievements-compact-profile.test.ts tests/steam-activity-calendar-settings.test.ts tests/decky-steam-compact-activity-data.test.ts tests/decky-steam-compact-activity-state.test.ts tests/decky-steam-full-screen-activity-state.test.ts tests/deck-diagnostics.test.mjs tests/retroachievements-connection.test.ts tests/retroachievements-community-stats.test.ts tests/retroachievements-subsets.test.ts tests/decky-retroachievements-full-screen.test.ts tests/steam-connection.test.ts tests/steam-full-screen-profile.test.ts tests/steamhunters.test.ts tests/steam-game-section-state.test.ts tests/steam-game-detail-cache.test.ts tests/steam-game-footer-layout.test.ts tests/decky-number-format.test.ts tests/update-system.test.ts tests/versioning.test.ts && python -m unittest discover -s tests/python -p \"test_*.py\""
   },
   "dependencies": {
     "@decky/api": "^1.1.3",

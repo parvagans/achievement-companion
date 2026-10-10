@@ -155,6 +155,7 @@ import {
   enrichDeckyGamePageAchievementSummaryCompletionStatus,
   formatDeckyGamePageAchievementBadgeLoadingText,
   formatDeckyGamePageAchievementBadgeLabel,
+  invalidateDeckyGamePageAchievementSummaryCache,
   loadDeckyGamePageAchievementSummary,
   normalizeRetroAchievementsPlatformLabel,
   normalizeRetroAchievementsTitleMatchKey,
@@ -15062,6 +15063,66 @@ test("game page achievement summary resolves a RetroAchievements shortcut throug
     assert.equal(runtimeDebugState.lastRetroAchievementsResolutionSource, "ra-hash-game-detail");
     assert.equal(runtimeDebugState.lastRetroAchievementsResolutionReason, "ra-hash-match");
     assert.equal(runtimeDebugState.lastRetroAchievementsCandidateCount, 1);
+  });
+});
+
+test("game page mapping invalidation reloads a changed shortcut ROM hash", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice",
+      hasApiKey: true,
+      recentAchievementsCount: 5,
+      recentlyPlayedCount: 5,
+    });
+    const changedAppId = "2493414799";
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      [changedAppId]: { title: "My ROM", platformTag: "Nintendo 64" },
+    };
+    deckyBackendTestState.steam.shortcutRomHashByAppId = {
+      [changedAppId]: {
+        shortcutRomPathDetected: true,
+        romHashAttempted: true,
+        romHashStatus: "resolved",
+        romHashAlgorithm: "md5",
+        romHash: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+      },
+    };
+    deckyBackendTestState.retroAchievements.systems = [{ ID: 2, Name: "Nintendo 64" }];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "2": [
+        { GameID: 9001, Title: "First ROM", ConsoleID: 2, ConsoleName: "Nintendo 64", Hashes: ["aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"] },
+        { GameID: 9002, Title: "Second ROM", ConsoleID: 2, ConsoleName: "Nintendo 64", Hashes: ["bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"] },
+      ],
+    };
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      "9001": createRetroAchievementsGameProgressResponse({
+        gameId: "9001", title: "First ROM", consoleId: 2, consoleName: "Nintendo 64", unlockedCount: 1, totalCount: 3,
+      }),
+      "9002": createRetroAchievementsGameProgressResponse({
+        gameId: "9002", title: "Second ROM", consoleId: 2, consoleName: "Nintendo 64", unlockedCount: 2, totalCount: 3,
+      }),
+    };
+
+    const first = await loadDeckyGamePageAchievementSummary(changedAppId);
+    assert.equal(first.status, "ready");
+    if (first.status !== "ready") return;
+    assert.equal(first.gameId, "9001");
+
+    deckyBackendTestState.steam.shortcutRomHashByAppId = {
+      [changedAppId]: {
+        shortcutRomPathDetected: true,
+        romHashAttempted: true,
+        romHashStatus: "resolved",
+        romHashAlgorithm: "md5",
+        romHash: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+      },
+    };
+    invalidateDeckyGamePageAchievementSummaryCache(changedAppId);
+    const second = await loadDeckyGamePageAchievementSummary(changedAppId);
+    assert.equal(second.status, "ready");
+    if (second.status !== "ready") return;
+    assert.equal(second.gameId, "9002");
   });
 });
 
