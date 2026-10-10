@@ -8,8 +8,8 @@ import {
 } from "../../decky-credential-text-field";
 import { DeckyCompactPillActionItem } from "../../decky-compact-pill-action-item";
 import { DeckyProviderSettingsActionGroup } from "../../decky-provider-settings-action-row";
-import { markDeckyFullscreenOnScreenKeyboardOpen } from "../../decky-full-screen-footer-overlay";
-import { settingsSaveButtonStyle } from "../../decky-settings-section";
+import { clearDeckyFullscreenOnScreenKeyboardOpen, markDeckyFullscreenOnScreenKeyboardOpen } from "../../decky-full-screen-footer-overlay";
+import { getSettingsSaveButtonStyle } from "../../decky-settings-section";
 import { markDeckyProviderSettingsWebReturn } from "../../decky-provider-settings-web-return";
 import {
   RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY,
@@ -378,13 +378,13 @@ export function DeckyRetroAchievementsCredentialsForm({
     const saveMessageIsError = statusCopy.startsWith("Unable") || statusCopy.startsWith("Enter ");
     const showSaveMessage = statusCopy !== getStatusCopy(config);
     return <div data-ac-ra-theme="fullscreen" data-ra-fullscreen-account-form style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0, paddingBottom: 12 }}>
-      <div className="ac-ra-settings-input"><DeckyCredentialTextField label={<AccountCredentialStatusLabel label={fieldSpecs.username.label} configured={usernameConfigured} />} value={username} description={undefined} onClick={(event) => markDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument)} onChange={(event) => setUsername(event.currentTarget.value)} style={inputStyle} /></div>
-      <div className="ac-ra-settings-input"><DeckyCredentialTextField label={<AccountCredentialStatusLabel label={fieldSpecs.apiKey.label} configured={apiKeyConfigured} />} value={apiKeyDraft} {...apiKeyInputDescriptor} description={undefined} onClick={(event) => markDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument)} onChange={(event) => setApiKeyDraft(event.currentTarget.value)} style={{ ...inputStyle, ...getDeckyCredentialTextFieldMaskStyle() }} /></div>
+      <div className="ac-ra-settings-input"><DeckyCredentialTextField label={<AccountCredentialStatusLabel label={fieldSpecs.username.label} configured={usernameConfigured} />} value={username} description={undefined} onClick={(event) => markDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument)} onBlur={(event) => clearDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument)} onChange={(event) => setUsername(event.currentTarget.value)} style={inputStyle} /></div>
+      <div className="ac-ra-settings-input"><DeckyCredentialTextField label={<AccountCredentialStatusLabel label={fieldSpecs.apiKey.label} configured={apiKeyConfigured} />} value={apiKeyDraft} {...apiKeyInputDescriptor} description={undefined} onClick={(event) => markDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument)} onBlur={(event) => clearDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument)} onChange={(event) => setApiKeyDraft(event.currentTarget.value)} style={{ ...inputStyle, ...getDeckyCredentialTextFieldMaskStyle() }} /></div>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "8px 10px", border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.small, background: raTheme.surface.contentStat }}><img alt="" src={infoIconUrl} style={{ width: 19, height: 19, flex: "0 0 auto", objectFit: "contain", filter: steamTheme.iconFilter.accent }} /><div style={{ minWidth: 0 }}><div style={{ marginBottom: 4, color: steamTheme.color.textPrimary, fontSize: steamTheme.type.fullscreen.metadata, fontWeight: steamTheme.type.weight.strong }}>Account setup</div><FullscreenAccountSetupInstructions onOpenExternalUrl={onOpenExternalUrl} /></div></div>
-      <Focusable className="ac-ra-settings-save" noFocusRing role="button" aria-label={saving ? "Saving account settings" : saveLabel} aria-disabled={saving} tabIndex={saving ? -1 : 0} onActivate={() => { void handleSave(); }} onClick={() => { void handleSave(); }} {...(onGamepadDirection !== undefined ? { onGamepadDirection } : {})} style={{ ...settingsSaveButtonStyle, opacity: saving ? 0.56 : 1 }}>
+      <Focusable className="ac-ra-settings-save" data-ac-settings-tone={showSaveMessage && !saveMessageIsError ? "success" : undefined} noFocusRing role="button" aria-label={saving ? "Saving account settings" : saveLabel} aria-disabled={saving} tabIndex={saving ? -1 : 0} onFocus={(event) => clearDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument)} onGamepadFocus={(event) => clearDeckyFullscreenOnScreenKeyboardOpen((event.currentTarget as HTMLElement).ownerDocument)} onActivate={() => { void handleSave(); }} onClick={() => { void handleSave(); }} {...(onGamepadDirection !== undefined ? { onGamepadDirection } : {})} style={{ ...getSettingsSaveButtonStyle(showSaveMessage && !saveMessageIsError), opacity: saving ? 0.56 : 1 }}>
         {saving ? "Saving…" : saveLabel}
       </Focusable>
-      {showSaveMessage ? <div role="status" style={{ color: saveMessageIsError ? raTheme.color.danger : raTheme.color.success, fontSize: raTheme.type.fullscreen.caption, textAlign: "right" }}>{statusCopy}</div> : null}
+      {showSaveMessage && saveMessageIsError ? <div role="status" style={{ color: raTheme.color.danger, fontSize: raTheme.type.fullscreen.caption, textAlign: "right" }}>{statusCopy}</div> : null}
     </div>;
   }
 

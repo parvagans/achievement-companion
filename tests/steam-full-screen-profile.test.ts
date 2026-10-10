@@ -968,15 +968,22 @@ test("QAM Provider Settings uses RA, Steam, About footer tabs without shrinking 
 });
 
 test("Games Search and Settings keep the footer on focus and yield it only to Steam keyboard ownership", async () => {
-  const [gamesSource, settingsSource, footerSource] = await Promise.all([
+  const [gamesSource, settingsSource, footerSource, raCredentialsSource] = await Promise.all([
     readFile(new URL("../src/platform/decky/decky-steam-full-screen-games-dashboard.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-full-screen-settings-page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-full-screen-footer-overlay.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/providers/retroachievements/credentials-form.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(gamesSource, /useDeckyFullscreenOnScreenKeyboardLifecycle\(dashboardRef\)/u);
   assert.match(gamesSource, /Search your games[\s\S]*onClick=\{\(event\) => \{[\s\S]*markDeckyFullscreenOnScreenKeyboardOpen/u);
   assert.match(settingsSource, /useDeckyFullscreenOnScreenKeyboardLifecycle\(pageRef\)/u);
+  assert.match(settingsSource, /DeckyCredentialTextField[\s\S]*onBlur=\{\(event\) => clearDeckyFullscreenOnScreenKeyboardOpen/u);
+  assert.match(settingsSource, /data-ac-settings-tone=\{saveSucceeded \? "success" : undefined\}/u);
+  assert.match(settingsSource, /setAccountMessage\(isError \? \{ message, isError: true \} : undefined\)/u);
+  assert.match(raCredentialsSource, /DeckyCredentialTextField[\s\S]*onBlur=\{\(event\) => clearDeckyFullscreenOnScreenKeyboardOpen/u);
+  assert.match(raCredentialsSource, /data-ac-settings-tone=\{showSaveMessage && !saveMessageIsError \? "success" : undefined\}/u);
+  assert.match(raCredentialsSource, /showSaveMessage && saveMessageIsError \? <div role="status"/u);
   assert.match(footerSource, /RegisterForUserDismissKeyboardMessages/u);
   assert.doesNotMatch(footerSource, /isTextEntryFocused|!isTextEntryFocused/u);
   assert.match(footerSource, /isActive && !isOnScreenKeyboardOpen && portalTarget/u);

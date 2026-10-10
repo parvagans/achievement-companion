@@ -33,6 +33,17 @@ export const settingsSaveButtonStyle: CSSProperties = {
   scrollMarginBottom: 20,
 };
 
+export function getSettingsSaveButtonStyle(saved: boolean): CSSProperties {
+  return saved
+    ? {
+        ...settingsSaveButtonStyle,
+        borderColor: steamTheme.status.success.border,
+        background: steamTheme.status.success.surface,
+        color: steamTheme.status.success.text,
+      }
+    : settingsSaveButtonStyle;
+}
+
 export function SettingsSectionTriggerHints({ side }: { readonly side: "left" | "right" }): JSX.Element {
   return <span aria-hidden="true" style={{ flex: "0 0 auto", color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata, fontWeight: 700, whiteSpace: "nowrap" }}>{side === "left" ? "LT ◀" : "▶ RT"}</span>;
 }
