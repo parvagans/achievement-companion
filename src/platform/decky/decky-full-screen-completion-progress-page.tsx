@@ -646,6 +646,7 @@ export function DeckyFullScreenCompletionProgressPage({
         <>
           <div style={getDeckyFullScreenLoadingPageStyle()}>
             <DeckyFullScreenLoadingState
+              providerId={providerId}
               {...(!isRa ? { useSteamTheme: true } : {})}
               description={state.error?.userMessage ?? (isRa
                 ? "Loading your RetroAchievements progress collection."
@@ -674,6 +675,8 @@ export function DeckyFullScreenCompletionProgressPage({
           <div style={getPageFrameStyle()}>
             <PlaceholderState
               title="Full-screen completion progress"
+              providerId={providerId}
+              loadingBrandCompact={false}
               description={
                 hasRouteParameters
                   ? "Loading the full-screen completion progress page from the existing completion-progress service."

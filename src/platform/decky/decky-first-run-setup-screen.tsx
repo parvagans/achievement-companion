@@ -30,6 +30,7 @@ export function DeckyFirstRunSetupScreen({
     <PlaceholderState
       title="Achievement Companion"
       description={`No setup screen is available for ${formatDeckyProviderLabel(providerId)} yet.`}
+      providerId={providerId}
       state={{
         status: "error",
         isStale: false,

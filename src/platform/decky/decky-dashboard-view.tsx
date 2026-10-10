@@ -1407,6 +1407,7 @@ export function DeckyDashboardView({
       <PlaceholderState
         title="Achievement Companion"
         description="Loading your achievement dashboard."
+        providerId={state.data?.profile.providerId}
         state={state}
         footer={
           <div>

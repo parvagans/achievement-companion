@@ -1,11 +1,13 @@
 import type { ReactNode } from "react";
 import type { ResourceState } from "@core/cache";
-import trophyIconUrl from "../platform/decky/assets/trophy-filled.svg";
+import { DeckyLoadingBrandMark } from "../platform/decky/decky-loading-brand";
 
 export interface PlaceholderStateProps {
   readonly title: string;
   readonly description: string;
   readonly state: ResourceState<unknown>;
+  readonly providerId?: string | undefined;
+  readonly loadingBrandCompact?: boolean;
   readonly footer?: ReactNode;
 }
 
@@ -31,6 +33,8 @@ export function PlaceholderState({
   title,
   description,
   state,
+  providerId,
+  loadingBrandCompact = true,
   footer,
 }: PlaceholderStateProps): JSX.Element {
   const statusCopy = getStatusCopy(state);
@@ -45,7 +49,7 @@ export function PlaceholderState({
       data-state={state.status}
       role={state.status === "error" ? "alert" : "status"}
     >
-      {isLoading ? <img alt="" aria-hidden="true" src={trophyIconUrl} /> : null}
+      {isLoading ? <DeckyLoadingBrandMark compact={loadingBrandCompact} isLoading providerId={providerId} /> : null}
       <header>
         <p>{title}</p>
         <h1>{statusCopy}</h1>

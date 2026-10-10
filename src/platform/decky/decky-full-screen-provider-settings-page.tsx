@@ -25,6 +25,7 @@ export function DeckyFullScreenProviderSettingsPage({
     <PlaceholderState
       title="Achievement Companion"
       description={`No provider settings page is available for ${formatDeckyProviderLabel(providerId)} yet.`}
+      providerId={providerId}
       state={{
         status: "error",
         isStale: false,

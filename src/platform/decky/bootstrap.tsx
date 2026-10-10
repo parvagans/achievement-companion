@@ -1054,6 +1054,7 @@ function DashboardScreen({
     <PlaceholderState
       title="Achievement Companion"
       description="Loading your selected provider dashboard."
+      providerId={providerId}
       state={visibleState}
       footer={
         <div style={getChooserActionRowStyle()}>

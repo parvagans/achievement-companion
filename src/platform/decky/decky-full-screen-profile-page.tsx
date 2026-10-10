@@ -1113,6 +1113,7 @@ export function DeckyFullScreenProfilePage({
         <>
           <DeckyFullScreenLoadingState
             useSteamTheme
+            providerId={providerId}
             description={state.error?.userMessage ?? "Fetching the latest Steam profile and SteamHunters data."}
             isError={state.status === "error"}
             title={state.status === "error" ? "Steam profile unavailable" : "Loading Steam profile..."}
@@ -1135,6 +1136,7 @@ export function DeckyFullScreenProfilePage({
       return (
         <>
           <DeckyFullScreenLoadingState
+            providerId={providerId}
             description={state.error?.userMessage ?? "Loading your RetroAchievements profile, progress, and recent activity."}
             isError={state.status === "error"}
             title={state.status === "error" ? "RetroAchievements profile unavailable" : "Loading RetroAchievements profile..."}
@@ -1157,6 +1159,8 @@ export function DeckyFullScreenProfilePage({
           <div style={getPageFrameStyle()}>
             <PlaceholderState
               title="Full-screen profile page"
+              providerId={providerId}
+              loadingBrandCompact={false}
               description={hasRouteParameters
                 ? "Loading the full-screen profile page from the existing dashboard snapshot."
                 : "The full-screen profile page route is missing provider information."}

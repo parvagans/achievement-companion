@@ -401,10 +401,12 @@ function DeckyFullScreenAchievementInputSurface({
 
 function DeckyFullScreenAchievementLoadingState({
   hasRouteParameters,
+  providerId,
   state,
   useSteamTheme,
 }: {
   readonly hasRouteParameters: boolean;
+  readonly providerId: string | undefined;
   readonly state: ResourceState<GameDetailSnapshot>;
   readonly useSteamTheme: boolean;
 }): JSX.Element {
@@ -415,7 +417,7 @@ function DeckyFullScreenAchievementLoadingState({
     : state.error?.userMessage ?? "Fetching the latest achievement data and community details.";
 
   return (
-    <DeckyFullScreenLoadingState description={description} isError={isError} title={title} useSteamTheme={useSteamTheme} />
+    <DeckyFullScreenLoadingState description={description} isError={isError} title={title} providerId={providerId} useSteamTheme={useSteamTheme} />
   );
 }
 
@@ -639,7 +641,7 @@ export function DeckyFullScreenAchievementPage({
         useNativeFocus
         useSteamTheme={providerId === STEAM_PROVIDER_ID}
       >
-        <DeckyFullScreenAchievementLoadingState hasRouteParameters={hasRouteParameters} state={state} useSteamTheme={providerId === STEAM_PROVIDER_ID} />
+        <DeckyFullScreenAchievementLoadingState hasRouteParameters={hasRouteParameters} providerId={providerId} state={state} useSteamTheme={providerId === STEAM_PROVIDER_ID} />
       </DeckyFullScreenAchievementInputSurface>
     );
   }
@@ -665,7 +667,7 @@ export function DeckyFullScreenAchievementPage({
         useNativeFocus
         useSteamTheme={providerId === STEAM_PROVIDER_ID}
       >
-        <DeckyFullScreenAchievementLoadingState hasRouteParameters={false} state={{ ...state, status: "error" }} useSteamTheme={providerId === STEAM_PROVIDER_ID} />
+        <DeckyFullScreenAchievementLoadingState hasRouteParameters={false} providerId={providerId} state={{ ...state, status: "error" }} useSteamTheme={providerId === STEAM_PROVIDER_ID} />
       </DeckyFullScreenAchievementInputSurface>
     );
   }

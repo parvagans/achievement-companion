@@ -278,6 +278,7 @@ function DeckyFullScreenGameLoadingState({
   hasRouteParameters,
   backFooter,
   onBack,
+  providerId,
   useNativeFocus,
   useSteamTheme,
   isWaitingForRetroAchievementsSubsets = false,
@@ -286,6 +287,7 @@ function DeckyFullScreenGameLoadingState({
   readonly hasRouteParameters: boolean;
   readonly backFooter: string;
   readonly onBack: () => void;
+  readonly providerId: string | undefined;
   readonly useNativeFocus: boolean;
   readonly useSteamTheme: boolean;
   readonly isWaitingForRetroAchievementsSubsets?: boolean;
@@ -326,6 +328,7 @@ function DeckyFullScreenGameLoadingState({
         description={copy.infoText}
         isError={copy.isError}
         title={copy.title}
+        providerId={providerId}
         useSteamTheme={useSteamTheme}
       />
     </Focusable>
@@ -1008,6 +1011,7 @@ export function DeckyFullScreenGamePage({
         hasRouteParameters={hasRouteParameters}
         backFooter={backFooter}
         onBack={onBack}
+        providerId={providerId}
         useNativeFocus
         useSteamTheme={providerId === STEAM_PROVIDER_ID}
         isWaitingForRetroAchievementsSubsets={isWaitingForRetroAchievementsSubsets}

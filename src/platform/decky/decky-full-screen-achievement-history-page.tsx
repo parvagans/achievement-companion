@@ -709,6 +709,7 @@ export function DeckyFullScreenAchievementHistoryPage({
       return (
         <>
           <DeckyFullScreenLoadingState
+            providerId={providerId}
             {...(!isRa ? { useSteamTheme: true } : {})}
             description={state.error?.userMessage ?? (isRa
               ? "Loading your RetroAchievements unlock history."
@@ -736,6 +737,8 @@ export function DeckyFullScreenAchievementHistoryPage({
           <div style={getPageFrameStyle()}>
             <PlaceholderState
               title="Full-screen achievement history"
+              providerId={providerId}
+              loadingBrandCompact={false}
               description={
                 hasRouteParameters
                   ? "Loading the full-screen achievement history page from the existing history service."
