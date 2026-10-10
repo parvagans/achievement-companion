@@ -50,6 +50,12 @@ This is native Steam presentation, not an Achievement Companion page. It is also
 
 ![RetroAchievements and Steam full-screen profile dashboards](docs/screenshots/readme/fullscreen-providers.png)
 
+### RetroAchievements Games and Activity
+
+The full-screen Games view lets you search and filter your progress. Activity brings together recent unlocks, insights, and a calendar, with the controller footer available across both views.
+
+![RetroAchievements full-screen Games view with progress filters beside the Activity view with unlock history and calendar](docs/screenshots/readme/ra-fullscreen-games-activity.png)
+
 ### RetroAchievements game detail
 
 ![RetroAchievements full-screen game page with progress and completion detail](docs/screenshots/readme/ra-game-view.png)
