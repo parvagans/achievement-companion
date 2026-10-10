@@ -79,7 +79,7 @@ export function DeckyRetroAchievementsCompactSettings({
         <PanelSectionRow>
           <DropdownItem
             label={<span style={raRecipes.compactSettings.dropdownLabel}>Rank Display</span>}
-            description={<span style={raRecipes.compactSettings.dropdownDescription}>Choose which available RetroAchievements ranks appear in the QAM profile.</span>}
+            description={<span style={raRecipes.compactSettings.dropdownDescription}>Choose which available RetroAchievements rank appears in Compact and Full-Screen profiles.</span>}
             menuLabel="Rank Display"
             onMenuWillOpen={openGuardedMenu}
             rgOptions={RANK_DISPLAY_OPTIONS}
@@ -92,7 +92,7 @@ export function DeckyRetroAchievementsCompactSettings({
         <PanelSectionRow>
           <DropdownItem
             label={<span style={raRecipes.compactSettings.dropdownLabel}>Achievement Mode</span>}
-            description={<span style={raRecipes.compactSettings.dropdownDescription}>Show Hardcore, Softcore, or both in the QAM profile.</span>}
+            description={<span style={raRecipes.compactSettings.dropdownDescription}>Show Hardcore, Softcore, or both in Compact and Full-Screen profiles.</span>}
             menuLabel="Achievement Mode"
             onMenuWillOpen={openGuardedMenu}
             rgOptions={ACHIEVEMENT_MODE_OPTIONS}

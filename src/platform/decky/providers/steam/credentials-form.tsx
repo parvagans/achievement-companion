@@ -17,6 +17,7 @@ import {
   getSteamApiKeyInputDescriptor,
   getSteamCredentialsFieldSpecs,
 } from "./credentials-help";
+import { detectDeckyCurrentSteamId64 } from "./identity";
 import { steamRecipes, steamTheme } from "../../steam-theme";
 
 export interface DeckySteamProviderCredentialsFormProps {
@@ -179,6 +180,19 @@ export function DeckySteamProviderCredentialsForm({
     config?.includePlayedFreeGames ?? false,
   );
   const [statusCopy, setStatusCopy] = useState(getStatusCopy(config));
+  const [detectedSteamId64, setDetectedSteamId64] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    let isCurrent = true;
+    void detectDeckyCurrentSteamId64().then((steamId64Value) => {
+      if (!isCurrent) return;
+      setDetectedSteamId64(steamId64Value);
+      if (steamId64Value !== undefined && (config?.steamId64 ?? "").trim().length === 0) {
+        setSteamId64((current) => current.trim().length > 0 ? current : steamId64Value);
+      }
+    });
+    return () => { isCurrent = false; };
+  }, [config?.steamId64]);
 
   useEffect(() => {
     setSteamId64(config?.steamId64 ?? "");
@@ -252,7 +266,10 @@ export function DeckySteamProviderCredentialsForm({
 
   const hasSavedApiKey = config?.hasApiKey === true;
   const apiKeyInputDescriptor = getSteamApiKeyInputDescriptor(hasSavedApiKey);
-  const steamIdDescription = helperCopy ?? fieldSpecs.steamId64.description;
+  const isUsingDetectedSteamId = detectedSteamId64 !== undefined && steamId64.trim() === detectedSteamId64;
+  const steamIdDescription = isUsingDetectedSteamId
+    ? "Detected automatically from the Steam account signed in on this Deck."
+    : helperCopy ?? fieldSpecs.steamId64.description;
 
   if (compactSurface) {
     return (

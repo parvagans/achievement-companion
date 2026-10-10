@@ -9,13 +9,13 @@ export interface DeckyPasswordInputFieldDescriptor {
 }
 
 export const STEAM_CREDENTIAL_HELPER_COPY =
-  "Copy your Steam profile URL, for example https://steamcommunity.com/id/username, paste it into https://steamid.io/ to find your steamID64, then open https://steamcommunity.com/dev/apikey to create or copy your Steam Web API Key.";
+  "The SteamID64 is filled from the account signed in on this Deck when available. If detection is unavailable or you want another account, enter its SteamID64. Open https://steamcommunity.com/dev/apikey to create or copy your Steam Web API key.";
 
 export function getSteamCredentialsFieldSpecs() {
   return {
     steamId64: {
       label: "SteamID64",
-      description: "Enter the SteamID64 for the account you want to browse.",
+      description: "Filled from the account signed in on this Deck when available. Enter a different SteamID64 only if needed.",
       isPassword: false,
     },
     apiKey: {
@@ -80,7 +80,7 @@ export function buildSteamCredentialsFormModel(
 
   return {
     steamId64Value: steamId64Draft,
-    steamId64Description: "Enter the SteamID64 for the account you want to browse.",
+    steamId64Description: "Filled from the account signed in on this Deck when available. Enter a different SteamID64 only if needed.",
     apiKeyValue: apiKeyDraft,
     apiKeyIsPassword: true,
     apiKeyDescription: getSteamApiKeyDescription(hasSavedApiKey),

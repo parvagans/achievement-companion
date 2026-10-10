@@ -60,7 +60,7 @@ Connect your RetroAchievements account to browse your profile, recent unlocks, r
 
 ### Steam
 
-Connect your Steam Web API key and SteamID64 to view Steam achievement activity, recent games, profile progression, and full-library achievement totals from the Decky quick-access menu.
+Connect your Steam Web API key to view Steam achievement activity, recent games, profile progression, and full-library achievement totals from the Decky quick-access menu. The plugin detects the Steam account signed in on the Deck and keeps a SteamID64 field available for another account or as a fallback.
 
 - View Steam profile details, level, badges, and account progression where available.
 - See recently played Steam games.
@@ -116,7 +116,7 @@ Steam library scanning is manual because larger Steam libraries can take several
 - Steam Deck or compatible SteamOS device running Game Mode
 - Decky Loader
 - RetroAchievements account and API key for RetroAchievements features
-- Steam Web API key and SteamID64 for Steam provider features
+- Steam Web API key for Steam provider features; SteamID64 is detected from the signed-in Deck account when available
 - Non-Steam shortcut support depends on shortcut metadata created by tools such as Steam ROM Manager or EmuDeck
 
 ## Installation

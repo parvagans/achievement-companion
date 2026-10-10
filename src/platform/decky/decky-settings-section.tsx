@@ -1,5 +1,5 @@
 import { GamepadButton, type GamepadEvent } from "@decky/ui";
-import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useRef, type CSSProperties, type ReactNode, type RefObject } from "react";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
 import { steamRecipes, steamTheme } from "./steam-theme";
@@ -16,9 +16,9 @@ export const settingsScrollStyle: CSSProperties = {
 /** Compact account action; the scroll inset above keeps its focus ring in view. */
 export const settingsSaveButtonStyle: CSSProperties = {
   alignSelf: "flex-end",
-  minHeight: 30,
+  minHeight: 38,
   boxSizing: "border-box",
-  padding: "3px 9px",
+  padding: "7px 14px",
   borderRadius: steamTheme.radius.pill,
   border: "1px solid rgba(56,177,241,.55)",
   background: "rgba(11,80,121,.6)",
@@ -28,6 +28,40 @@ export const settingsSaveButtonStyle: CSSProperties = {
   lineHeight: 1.1,
   scrollMarginBottom: 20,
 };
+
+export function SettingsSectionTriggerHints({ side }: { readonly side: "left" | "right" }): JSX.Element {
+  return <span aria-hidden="true" style={{ flex: "0 0 auto", color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata, fontWeight: 700, whiteSpace: "nowrap" }}>{side === "left" ? "LT ◀" : "▶ RT"}</span>;
+}
+
+/** Keep trigger navigation scoped to the visible settings page and its focused controls. */
+export function useDeckySettingsSectionTriggers<T extends string>(pageRef: RefObject<HTMLElement | null>, sections: readonly T[], selected: T, onSelect: (section: T) => void): void {
+  const stateRef = useRef({ sections, selected, onSelect });
+  stateRef.current = { sections, selected, onSelect };
+  useEffect(() => {
+    const page = pageRef.current;
+    const document = page?.ownerDocument;
+    if (page === null || document === undefined) return;
+    const onButtonDown = (rawEvent: Event): void => {
+      const event = rawEvent as GamepadEvent;
+      const button = event.detail?.button;
+      if (button !== GamepadButton.TRIGGER_LEFT && button !== GamepadButton.TRIGGER_RIGHT) return;
+      if (page.getClientRects().length === 0 || page.querySelector(".gpfocus") === null) return;
+      event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
+      if (event.detail.is_repeat === true) return;
+      const { sections, selected, onSelect } = stateRef.current;
+      const index = sections.indexOf(selected);
+      const next = sections[index + (button === GamepadButton.TRIGGER_LEFT ? -1 : 1)];
+      if (next !== undefined) {
+        const target = page.querySelectorAll<HTMLElement>("[data-settings-section-pill]")[sections.indexOf(next)];
+        if (target !== undefined) takeDeckySteamGamepadFocus(target);
+        onSelect(next);
+        playDeckySteamNavigationSound(document);
+      }
+    };
+    document.addEventListener("vgp_onbuttondown", onButtonDown, true);
+    return () => document.removeEventListener("vgp_onbuttondown", onButtonDown, true);
+  }, [pageRef]);
+}
 
 // Native Decky credential inputs expose tabIndex through their DOM property,
 // but do not always render a tabindex attribute.

@@ -9,12 +9,15 @@ export interface DeckyPasswordInputFieldDescriptor {
 }
 
 export const RETROACHIEVEMENTS_SETTINGS_URL = "https://retroachievements.org/settings?tab=applications";
-export const RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY_BEFORE_SETTINGS_LINK =
-  "Log in to RetroAchievements, open ";
-export const RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY_AFTER_SETTINGS_LINK =
-  ", scroll to Authentication, and copy your Web API Key. Use your RetroAchievements username for the username field.";
-export const RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY =
-  `${RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY_BEFORE_SETTINGS_LINK}${RETROACHIEVEMENTS_SETTINGS_URL}${RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY_AFTER_SETTINGS_LINK}`;
+export const RETROACHIEVEMENTS_LOGIN_URL = "https://retroachievements.org/login";
+export const RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY = [
+  `1. Log into RetroAchievements: ${RETROACHIEVEMENTS_LOGIN_URL}`,
+  "2. Press B once you have successfully logged in.",
+  `3. Open ${RETROACHIEVEMENTS_SETTINGS_URL} and click your API key to copy it.`,
+  "4. Press B once the API key has been copied.",
+  "5. Enter your username and paste the API key into the API key field.",
+  "6. Select Save account settings.",
+].join("\n");
 
 export function getRetroAchievementsCredentialsFieldSpecs() {
   return {

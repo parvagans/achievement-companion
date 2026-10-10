@@ -21,10 +21,11 @@ import { getSteamCompactAchievementFilterStyle } from "../../decky-steam-compact
 import { loadDeckyDashboardState } from "../../decky-app-services";
 import { DeckyFocusStyles, DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "../../decky-focus-styles";
 import { takeDeckySteamGamepadFocus } from "../../decky-steam-gamepad-focus";
-import { DeckySettingsSection, handleDeckySettingsDirection, settingsScrollStyle } from "../../decky-settings-section";
+import { DeckySettingsSection, handleDeckySettingsDirection, SettingsSectionTriggerHints, settingsScrollStyle, useDeckySettingsSectionTriggers } from "../../decky-settings-section";
 import { DeckySettingsDropdown } from "../../decky-settings-dropdown";
 import { getRetroAchievementsRefreshActionPresentation } from "./settings-view-model";
 import usersIconUrl from "../../assets/users.svg";
+import rankAchievementsIconUrl from "../../assets/rank-achievements.svg";
 import calendarIconUrl from "../../assets/calendar.svg";
 import settingsIconUrl from "../../assets/settings.svg";
 import databaseIconUrl from "../../assets/database.svg";
@@ -48,7 +49,8 @@ export interface DeckyFullScreenProviderSettingsPageProps {
 }
 
 const RETROACHIEVEMENTS_PROVIDER_SETTINGS_TOP_PADDING = 42;
-type RetroAchievementsSettingsSection = "account" | "fullscreen" | "compact" | "data";
+type RetroAchievementsSettingsSection = "account" | "profile" | "fullscreen" | "compact" | "data";
+const RA_SETTINGS_SECTIONS: readonly RetroAchievementsSettingsSection[] = ["account", "profile", "fullscreen", "compact", "data"];
 const RA_RANK_OPTIONS: readonly RetroAchievementsRankDisplay[] = ["site", "casual"];
 const RA_ACHIEVEMENT_MODE_OPTIONS: readonly RetroAchievementsAchievementMode[] = ["hardcore", "softcore", "both"];
 
@@ -157,6 +159,7 @@ export function DeckyRetroAchievementsProviderSettingsPage({ providerId, onBack,
   const settings = useDeckySettings();
   const [subsetIndexOperation, setSubsetIndexOperation] = useState<"idle" | "refreshing" | "refreshed" | "error">("idle");
   const [selectedSection, setSelectedSection] = useState<RetroAchievementsSettingsSection>("account");
+  useDeckySettingsSectionTriggers(pageRef, RA_SETTINGS_SECTIONS, selectedSection, setSelectedSection);
   const [refreshOperation, setRefreshOperation] = useState<"idle" | "refreshing" | "refreshed" | "error">("idle");
   const [signOutArmed, setSignOutArmed] = useState(false);
   const [signOutOperation, setSignOutOperation] = useState<"idle" | "signing-out" | "signed-out" | "error">("idle");
@@ -233,27 +236,31 @@ export function DeckyRetroAchievementsProviderSettingsPage({ providerId, onBack,
     <SettingsStyles /><DeckyFocusStyles />
     <div style={{ height: "100%", minHeight: 0, display: "flex", flexDirection: "column", gap: 6 }}>
       <div style={{ display: "flex", alignItems: "center", minHeight: 31 }}><SettingsHeading>RETROACHIEVEMENTS SETTINGS</SettingsHeading></div>
-      <Focusable flow-children="left-right" noFocusRing tabIndex={-1} data-settings-section-tabs="true" style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, flex: "0 0 auto" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: "0 0 auto" }}><SettingsSectionTriggerHints side="left" /><Focusable flow-children="left-right" noFocusRing tabIndex={-1} data-settings-section-tabs="true" style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, flex: "1 1 auto" }}>
         <SettingsSectionPill title="Account" icon={usersIconUrl} selected={selectedSection === "account"} initialFocusRef={initialFocusRef} onSelect={() => setSelectedSection("account")} onGamepadDirection={onGamepadDirection} />
+        <SettingsSectionPill title="Profile Settings" icon={rankAchievementsIconUrl} selected={selectedSection === "profile"} onSelect={() => setSelectedSection("profile")} onGamepadDirection={onGamepadDirection} />
         <SettingsSectionPill title="Full-Screen Settings" icon={calendarIconUrl} selected={selectedSection === "fullscreen"} onSelect={() => setSelectedSection("fullscreen")} onGamepadDirection={onGamepadDirection} />
         <SettingsSectionPill title="Compact Settings" icon={settingsIconUrl} selected={selectedSection === "compact"} onSelect={() => setSelectedSection("compact")} onGamepadDirection={onGamepadDirection} />
         <SettingsSectionPill title="Data" icon={databaseIconUrl} selected={selectedSection === "data"} onSelect={() => setSelectedSection("data")} onGamepadDirection={onGamepadDirection} />
-      </Focusable>
-      {selectedSection === "account" ? <DeckySettingsSection themeVariant="ra"><div style={settingsScrollStyle}><DeckyRetroAchievementsCredentialsForm config={providerConfig} statusLabel="Account status" saveLabel="Save account settings" useSharedFullscreenFooter {...(onOpenExternalUrl !== undefined ? { onOpenExternalUrl } : {})} onSave={(nextConfig, apiKeyDraft) => writeDeckyRetroAchievementsProviderConfig({ ...nextConfig, recentAchievementsCount: providerConfig?.recentAchievementsCount ?? settings.recentAchievementsCount, recentlyPlayedCount: providerConfig?.recentlyPlayedCount ?? settings.recentlyPlayedCount }, apiKeyDraft)} /></div></DeckySettingsSection> : null}
+      </Focusable><SettingsSectionTriggerHints side="right" /></div>
+      {selectedSection === "account" ? <DeckySettingsSection themeVariant="ra"><div style={settingsScrollStyle}><DeckyRetroAchievementsCredentialsForm config={providerConfig} statusLabel="Account status" saveLabel="Save account settings" useSharedFullscreenFooter {...(onOpenExternalUrl !== undefined ? { onOpenExternalUrl } : {})} onGamepadDirection={onGamepadDirection} onSave={(nextConfig, apiKeyDraft) => writeDeckyRetroAchievementsProviderConfig({ ...nextConfig, recentAchievementsCount: providerConfig?.recentAchievementsCount ?? settings.recentAchievementsCount, recentlyPlayedCount: providerConfig?.recentlyPlayedCount ?? settings.recentlyPlayedCount }, apiKeyDraft)} /></div></DeckySettingsSection> : null}
+      {selectedSection === "profile" ? <DeckySettingsSection themeVariant="ra"><div style={{ ...settingsScrollStyle, display: "flex", flexDirection: "column", gap: 10 }}>
+        <SettingsHeading>PROFILE DISPLAY</SettingsHeading>
+        <div style={{ color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.body, lineHeight: 1.35 }}>These settings apply to RetroAchievements profiles in both Compact and Full-Screen views.</div>
+        <DeckySettingsDropdown themeVariant="ra" label="Rank Display" value={settings.retroAchievementsRankDisplay} options={RA_RANK_OPTIONS} formatOption={(rank) => rank === "site" ? "Site Rank" : "Casual Rank"} onChange={(retroAchievementsRankDisplay) => updateSettings((current) => ({ ...current, retroAchievementsRankDisplay }))} onGamepadDirection={onGamepadDirection} />
+        <DeckySettingsDropdown themeVariant="ra" label="Achievement Mode" value={settings.retroAchievementsAchievementMode} options={RA_ACHIEVEMENT_MODE_OPTIONS} formatOption={(mode) => mode === "hardcore" ? "Hardcore" : mode === "softcore" ? "Softcore" : "Both"} onChange={(retroAchievementsAchievementMode) => updateSettings((current) => ({ ...current, retroAchievementsAchievementMode }))} onGamepadDirection={onGamepadDirection} />
+      </div></DeckySettingsSection> : null}
       {selectedSection === "fullscreen" ? <DeckySettingsSection themeVariant="ra"><div style={{ ...settingsScrollStyle, display: "flex", flexDirection: "column", gap: 10 }}>
-        <DeckySettingsDropdown themeVariant="ra" label="Activity Calendar" value={settings.retroAchievementsFullscreenActivityCalendarWeeks} options={ACTIVITY_CALENDAR_WEEK_OPTIONS} formatOption={(weeks) => `${weeks} weeks`} onChange={saveFullscreenCalendarWeeks} onGamepadDirection={onGamepadDirection} />
+        <DeckySettingsDropdown themeVariant="ra" label="Activity Calendar" description="Choose how many weeks of achievement activity the full-screen calendar shows." value={settings.retroAchievementsFullscreenActivityCalendarWeeks} options={ACTIVITY_CALENDAR_WEEK_OPTIONS} formatOption={(weeks) => `${weeks} weeks`} onChange={saveFullscreenCalendarWeeks} onGamepadDirection={onGamepadDirection} />
         <SettingsHeading>SUBSET DISCOVERY CACHE</SettingsHeading>
         <div style={{ color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.body, lineHeight: 1.35 }}>Achievement Companion caches verified links between base games and their RA subsets. Use this after RetroAchievements adds or moves a subset.</div>
         <SettingsActionRow title={subsetIndexOperation === "refreshing" ? "Preparing subset recheck" : "Recheck subset links on next game open"} subtitle={subsetMessage} icon={refreshIconUrl} disabled={onRebuildSubsetIndex === undefined || subsetIndexOperation === "refreshing"} onGamepadDirection={onGamepadDirection} onActivate={() => { void rebuildSubsetIndex(); }} />
       </div></DeckySettingsSection> : null}
       {selectedSection === "compact" ? <DeckySettingsSection themeVariant="ra"><div style={{ ...settingsScrollStyle, display: "flex", flexDirection: "column", gap: 10 }}>
-        <SettingsHeading>COMPACT PROFILE</SettingsHeading>
-        <DeckySettingsDropdown themeVariant="ra" label="Rank Display" value={settings.retroAchievementsRankDisplay} options={RA_RANK_OPTIONS} formatOption={(rank) => rank === "site" ? "Site Rank" : "Casual Rank"} onChange={(retroAchievementsRankDisplay) => updateSettings((current) => ({ ...current, retroAchievementsRankDisplay }))} onGamepadDirection={onGamepadDirection} />
-        <DeckySettingsDropdown themeVariant="ra" label="Achievement Mode" value={settings.retroAchievementsAchievementMode} options={RA_ACHIEVEMENT_MODE_OPTIONS} formatOption={(mode) => mode === "hardcore" ? "Hardcore" : mode === "softcore" ? "Softcore" : "Both"} onChange={(retroAchievementsAchievementMode) => updateSettings((current) => ({ ...current, retroAchievementsAchievementMode }))} onGamepadDirection={onGamepadDirection} />
         <SettingsHeading>COMPACT PROFILE CONTENT</SettingsHeading>
-        <DeckySettingsDropdown themeVariant="ra" label="Recent Activity" value={providerRecentAchievementsCount} options={ACHIEVEMENT_COMPANION_COUNT_OPTIONS} onChange={(recentAchievementsCount) => { updateSettings((current) => ({ ...current, recentAchievementsCount })); persistProviderCounts({ recentAchievementsCount }); }} onGamepadDirection={onGamepadDirection} />
-        <DeckySettingsDropdown themeVariant="ra" label="Recently Played" value={providerRecentlyPlayedCount} options={ACHIEVEMENT_COMPANION_COUNT_OPTIONS} onChange={(recentlyPlayedCount) => { updateSettings((current) => ({ ...current, recentlyPlayedCount })); persistProviderCounts({ recentlyPlayedCount }); }} onGamepadDirection={onGamepadDirection} />
-        <DeckySettingsDropdown themeVariant="ra" label="Activity Calendar" value={settings.retroAchievementsCompactActivityCalendarWeeks} options={ACTIVITY_CALENDAR_WEEK_OPTIONS} formatOption={(weeks) => `${weeks} weeks`} onChange={saveCompactCalendarWeeks} onGamepadDirection={onGamepadDirection} />
+        <DeckySettingsDropdown themeVariant="ra" label="Recent Activity" description="Number of recent achievement unlocks shown on the compact profile." value={providerRecentAchievementsCount} options={ACHIEVEMENT_COMPANION_COUNT_OPTIONS} onChange={(recentAchievementsCount) => { updateSettings((current) => ({ ...current, recentAchievementsCount })); persistProviderCounts({ recentAchievementsCount }); }} onGamepadDirection={onGamepadDirection} />
+        <DeckySettingsDropdown themeVariant="ra" label="Recently Played" description="Number of recently played games shown on the compact profile." value={providerRecentlyPlayedCount} options={ACHIEVEMENT_COMPANION_COUNT_OPTIONS} onChange={(recentlyPlayedCount) => { updateSettings((current) => ({ ...current, recentlyPlayedCount })); persistProviderCounts({ recentlyPlayedCount }); }} onGamepadDirection={onGamepadDirection} />
+        <DeckySettingsDropdown themeVariant="ra" label="Activity Calendar" description="Choose how many weeks of achievement activity the compact calendar shows." value={settings.retroAchievementsCompactActivityCalendarWeeks} options={ACTIVITY_CALENDAR_WEEK_OPTIONS} formatOption={(weeks) => `${weeks} weeks`} onChange={saveCompactCalendarWeeks} onGamepadDirection={onGamepadDirection} />
       </div></DeckySettingsSection> : null}
       {selectedSection === "data" ? <DeckySettingsSection themeVariant="ra"><div data-settings-data-layout style={{ ...settingsScrollStyle, display: "flex", flexDirection: "column", gap: 14 }}><div style={sideCardStyle}><SettingsHeading>DATA &amp; SYNC</SettingsHeading><div style={{ marginTop: 10 }}><SettingsActionRow title={refreshAction.title} success={refreshAction.success} danger={refreshAction.danger} icon={refreshAction.success ? checkCircleIconUrl : refreshIconUrl} disabled={refreshOperation === "refreshing" || providerConfig?.hasApiKey !== true} onGamepadDirection={onGamepadDirection} onActivate={() => { void refreshRetroAchievements(); }} /></div></div><div data-settings-danger-zone style={sideCardStyle}><SettingsHeading>DANGEROUS ZONE</SettingsHeading><div style={{ marginTop: 10 }}><SettingsActionRow title={signOutOperation === "signing-out" ? "Signing out…" : signOutArmed ? "Press again to sign out" : "Sign Out of RetroAchievements"} subtitle={signOutOperation === "signed-out" ? "Signed out." : signOutOperation === "error" ? "Unable to sign out right now." : "Remove the saved account and cached data from this device."} icon={infoIconUrl} danger disabled={signOutOperation === "signing-out" || providerConfig === undefined} onGamepadDirection={onGamepadDirection} onActivate={() => { void signOut(); }} /></div></div></div></DeckySettingsSection> : null}
     </div>

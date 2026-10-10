@@ -9,11 +9,6 @@ import type { ProviderId } from "@core/domain";
  * rather than falling back to the provider chooser. Closing the active plugin
  * (not merely hiding QAM) ends the session and restores the provider chooser.
  */
-export interface DeckyCompactProviderSetupDestination {
-  readonly kind: "provider-setup";
-  readonly providerId: ProviderId;
-}
-
 export interface DeckyCompactProviderDashboardDestination {
   readonly kind: "provider-dashboard";
   readonly providerId: ProviderId;
@@ -61,7 +56,6 @@ export interface DeckyCompactSettingsDestination {
 
 export type DeckyCompactNavigationDestination =
   | { readonly kind: "provider-chooser" }
-  | DeckyCompactProviderSetupDestination
   | DeckyCompactProviderDashboardDestination
   | DeckyCompactGameDestination
   | DeckyCompactAchievementListDestination
@@ -100,7 +94,6 @@ export function getDeckyCompactParentDestination(
   switch (destination.kind) {
     case "provider-chooser":
       return undefined;
-    case "provider-setup":
     case "provider-dashboard":
       return providerChooser;
     case "settings":

@@ -2,7 +2,7 @@ import { Focusable, Menu, MenuItem, showContextMenu, type GamepadEvent } from "@
 import { ACHIEVEMENT_COMPANION_COUNT_OPTIONS, ACTIVITY_CALENDAR_WEEK_OPTIONS, type AchievementCompanionCount, type ActivityCalendarWeeks } from "@core/settings";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { STEAM_PROVIDER_ID, type SteamProviderConfig } from "../../providers/steam/config";
-import { loadDeckyDashboardState, refreshDeckySteamHuntersProfileState, runDeckySteamFullLibraryScan } from "./decky-app-services";
+import { loadDeckyDashboardState, refreshDeckySteamHuntersProfileState } from "./decky-app-services";
 import { DeckyCredentialTextField, getDeckyCredentialTextFieldMaskStyle } from "./decky-credential-text-field";
 import { clearDeckyDashboardSnapshot } from "./decky-dashboard-snapshot-cache";
 import { DeckyFullScreenFooterOverlay, markDeckyFullscreenOnScreenKeyboardOpen, STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS, useDeckyFullscreenOnScreenKeyboardLifecycle } from "./decky-full-screen-footer-overlay";
@@ -12,6 +12,8 @@ import { removeDeckyStorageTextsByPrefix } from "./storage";
 import { clearDeckySteamLibraryAchievementScanSummary, clearDeckySteamProviderConfig, readDeckySteamProviderConfig, useDeckySteamLibraryAchievementScanSummary, useDeckySteamProviderConfig } from "./providers/steam";
 import { writeValidatedDeckySteamProviderConfig } from "./providers/steam/config";
 import { getSteamApiKeyInputDescriptor, getSteamCredentialsFieldSpecs } from "./providers/steam/credentials-help";
+import { detectDeckyCurrentSteamId64 } from "./providers/steam/identity";
+import { getSteamApiLanguageLabel, isSteamApiLanguageCode, normalizeSteamApiLanguageCode, STEAM_API_LANGUAGES } from "./providers/steam/languages";
 import chevronRightIconUrl from "./assets/chevron-right.svg";
 import infoIconUrl from "./assets/info.svg";
 import refreshIconUrl from "./assets/refresh.svg";
@@ -26,13 +28,16 @@ import { steamTheme, steamRecipes } from "./steam-theme";
 import { requestDeckySteamGamepadFocusAfterMount, takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { DeckyFocusStyles, DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { getSteamCompactAchievementFilterStyle } from "./decky-steam-compact-action-styles";
-import { DeckySettingsSection, handleDeckySettingsDirection, settingsSaveButtonStyle, settingsScrollStyle } from "./decky-settings-section";
+import { DeckySettingsSection, handleDeckySettingsDirection, SettingsSectionTriggerHints, settingsSaveButtonStyle, settingsScrollStyle, useDeckySettingsSectionTriggers } from "./decky-settings-section";
+import { DeckySettingsDropdown } from "./decky-settings-dropdown";
 import { readDeckySettings, saveDeckySettings, useDeckySettings } from "./decky-settings";
+import { startSteamFullLibraryScan, useSteamFullLibraryScanState } from "./decky-steam-full-library-scan-state";
 
 const RECENT_CACHE_PREFIX = "achievement-companion:decky:recent-achievements";
 
-type OperationState = "idle" | "refreshing-steam" | "refreshing-library" | "steam-refreshed" | "library-refreshed" | "cleared" | "reset" | "error";
+type OperationState = "idle" | "refreshing-steam" | "steam-refreshed" | "cleared" | "reset" | "error";
 type SteamSettingsSection = "account" | "fullscreen" | "compact" | "data";
+const STEAM_SETTINGS_SECTIONS: readonly SteamSettingsSection[] = ["account", "fullscreen", "compact", "data"];
 
 export interface DeckyFullScreenSettingsPageProps {
   readonly isActive?: boolean;
@@ -56,6 +61,7 @@ function Styles(): JSX.Element {
     .ac-steam-settings-page .ac-steam-settings-input input{height:30px!important;min-height:30px!important;padding:3px 9px!important}`;
     style.textContent += `.ac-steam-settings-page .ac-settings-action[data-ac-settings-content-row="true"]:is(.gpfocus,.gpfocuswithin,:focus,:focus-within){background:${steamTheme.surface.focusedContentStat}!important}`;
     style.textContent += `.ac-steam-settings-page .ac-settings-action[data-ac-settings-tone="danger"]:is(.gpfocus,.gpfocuswithin,:focus,:focus-within){background:${steamTheme.status.danger.surface}!important}.ac-steam-settings-page .ac-settings-action[data-ac-settings-tone="success"]:is(.gpfocus,.gpfocuswithin,:focus,:focus-within){background:${steamTheme.status.success.surface}!important}`;
+    style.textContent += `.ac-steam-settings-page .ac-steam-settings-help-link{outline:none!important}.ac-steam-settings-page .ac-steam-settings-help-link:is(.gpfocus,.gpfocuswithin,:focus,:focus-within){outline:2px solid ${steamTheme.focus.border}!important;outline-offset:1px;background:${steamTheme.focus.background}!important;box-shadow:${steamTheme.focus.shadow}!important;color:${steamTheme.color.textPrimary}!important}`;
     document.head.appendChild(style);
     return () => style.remove();
   }, []);
@@ -148,7 +154,7 @@ function SteamActivityCalendarWeeksPicker({ value, onChange, onGamepadDirection 
     onGamepadDirection={onGamepadDirection}
     style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, minHeight: 44, padding: "8px 12px", boxSizing: "border-box", border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.small, background: steamTheme.surface.contentStat }}
   >
-    <span style={{ minWidth: 0, fontSize: steamTheme.type.fullscreen.body, fontWeight: steamTheme.type.weight.strong }}>Activity Calendar</span>
+    <span style={{ minWidth: 0 }}><span style={{ display: "block", fontSize: steamTheme.type.fullscreen.body, fontWeight: steamTheme.type.weight.strong }}>Activity Calendar</span><span style={{ display: "block", marginTop: 2, color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata, lineHeight: 1.2 }}>Choose how many weeks of achievement activity the calendar shows.</span></span>
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0, color: steamTheme.color.accent, fontSize: steamTheme.type.fullscreen.metadata, fontWeight: 800 }}><span>{`${value} weeks`}</span><img alt="" src={caretDownIconUrl} style={iconStyle(12)} /></span>
   </Focusable>;
 }
@@ -195,7 +201,7 @@ function SteamCompactCountPicker({ label, value, disabled = false, onChange, onG
     unregisterCancelRef.current = undefined;
   }, []);
   return <Focusable ref={triggerRef} className="ac-settings-action" data-ac-settings-content-row="true" noFocusRing role="button" tabIndex={disabled ? -1 : 0} aria-disabled={disabled} aria-expanded={menuOpen} aria-label={`${label}: ${value}`} onActivate={openMenu} onClick={openMenu} onGamepadDirection={onGamepadDirection} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, minHeight: 44, padding: "8px 12px", boxSizing: "border-box", border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.small, background: steamTheme.surface.contentStat, color: disabled ? steamTheme.color.textSecondary : steamTheme.color.textPrimary, opacity: disabled ? .65 : 1 }}>
-    <span style={{ minWidth: 0, fontSize: steamTheme.type.fullscreen.body, fontWeight: steamTheme.type.weight.strong }}>{label}</span>
+    <span style={{ minWidth: 0 }}><span style={{ display: "block", fontSize: steamTheme.type.fullscreen.body, fontWeight: steamTheme.type.weight.strong }}>{label}</span><span style={{ display: "block", marginTop: 2, color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata, lineHeight: 1.2 }}>{label === "Recent Activity" ? "Number of recent achievement unlocks shown on the compact profile." : "Number of recently played games shown on the compact profile."}</span></span>
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0, color: steamTheme.color.accent, fontSize: steamTheme.type.fullscreen.body, fontWeight: steamTheme.type.weight.strong }}><span>{value}</span><img alt="" src={caretDownIconUrl} style={iconStyle(12)} /></span>
   </Focusable>;
 }
@@ -245,28 +251,72 @@ function CredentialStatusLabel({ label, valid }: { readonly label: string; reado
   </span>;
 }
 
-function SteamAccountFields({ config, onSaved }: { readonly config: SteamProviderConfig | undefined; readonly onSaved: (message: string, isError: boolean) => void }): JSX.Element {
+function SteamAccountHelpLink({ href, label, ariaLabel, onOpenExternalUrl }: {
+  readonly href: string;
+  readonly label: string;
+  readonly ariaLabel: string;
+  readonly onOpenExternalUrl: (url: string) => void;
+}): JSX.Element {
+  return <Focusable className="ac-steam-settings-help-link" data-steam-settings-help-link={href} noFocusRing role="button" aria-label={ariaLabel} tabIndex={0} onActivate={() => onOpenExternalUrl(href)} onClick={() => onOpenExternalUrl(href)} style={{ display: "inline", verticalAlign: "baseline", padding: "0 2px", margin: "0 -2px", borderRadius: 3, border: "none", background: "transparent", color: steamTheme.color.accent, fontSize: "inherit", fontWeight: steamTheme.type.weight.medium, lineHeight: "inherit", textDecoration: "underline", whiteSpace: "nowrap" }}>{label}</Focusable>;
+}
+
+function SteamAccountSetupInstructions({ accountHelpCopy, onOpenExternalUrl }: {
+  readonly accountHelpCopy: string;
+  readonly onOpenExternalUrl: (url: string) => void;
+}): JSX.Element {
+  return <div style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "8px 10px", border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.small, background: steamTheme.surface.contentStat }}>
+    <img alt="" src={infoIconUrl} style={iconStyle(19)} />
+    <div style={{ minWidth: 0, color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata, lineHeight: 1.35 }}>
+      <div>{accountHelpCopy}</div>
+      <ol style={{ margin: "5px 0 0", paddingLeft: 20 }}>
+        <li>Log in to <SteamAccountHelpLink href="https://steamcommunity.com/login" label="Steam" ariaLabel="Open Steam login page" onOpenExternalUrl={onOpenExternalUrl} /> and press B.</li>
+        <li>Open <SteamAccountHelpLink href="https://steamcommunity.com/dev/apikey" label="Steam Web API key page" ariaLabel="Open Steam Web API key page" onOpenExternalUrl={onOpenExternalUrl} />, create or copy the key, then press B.</li>
+        <li>Paste the key in the Web API key field below, then select Save account settings.</li>
+      </ol>
+    </div>
+  </div>;
+}
+
+function SteamAccountFields({ config, onSaved, onOpenExternalUrl, onGamepadDirection }: { readonly config: SteamProviderConfig | undefined; readonly onSaved: (message: string, isError: boolean) => void; readonly onOpenExternalUrl: (url: string) => void; readonly onGamepadDirection: (event: GamepadEvent) => void }): JSX.Element {
   const fields = getSteamCredentialsFieldSpecs(); const apiKeyDescriptor = getSteamApiKeyInputDescriptor(config?.hasApiKey === true);
-  const [steamId64, setSteamId64] = useState(config?.steamId64 ?? ""); const [apiKeyDraft, setApiKeyDraft] = useState(""); const [language, setLanguage] = useState(config?.language ?? "english"); const [saving, setSaving] = useState(false);
-  useEffect(() => { setSteamId64(config?.steamId64 ?? ""); setApiKeyDraft(""); setLanguage(config?.language ?? "english"); }, [config?.hasApiKey, config?.language, config?.steamId64]);
+  const [steamId64, setSteamId64] = useState(config?.steamId64 ?? ""); const [apiKeyDraft, setApiKeyDraft] = useState(""); const [language, setLanguage] = useState(() => normalizeSteamApiLanguageCode(config?.language)); const [saving, setSaving] = useState(false);
+  const [detectedSteamId64, setDetectedSteamId64] = useState<string | undefined>(undefined);
+  useEffect(() => { setSteamId64(config?.steamId64 ?? ""); setApiKeyDraft(""); setLanguage(normalizeSteamApiLanguageCode(config?.language)); }, [config?.hasApiKey, config?.language, config?.steamId64]);
+  useEffect(() => {
+    let isCurrent = true;
+    void detectDeckyCurrentSteamId64().then((detectedSteamId64) => {
+      if (!isCurrent) return;
+      setDetectedSteamId64(detectedSteamId64);
+      if (detectedSteamId64 !== undefined && (config?.steamId64 ?? "").trim().length === 0) {
+        setSteamId64((current) => current.trim().length > 0 ? current : detectedSteamId64);
+      }
+    });
+    return () => { isCurrent = false; };
+  }, [config?.steamId64]);
   const save = async (): Promise<void> => { setSaving(true); try { const result = await writeValidatedDeckySteamProviderConfig({ steamId64, language, recentAchievementsCount: config?.recentAchievementsCount ?? 5, recentlyPlayedCount: config?.recentlyPlayedCount ?? 5, includePlayedFreeGames: config?.includePlayedFreeGames ?? false }, apiKeyDraft); onSaved(result.userMessage, !result.saved); } catch { onSaved("Unable to save Steam account settings.", true); } finally { setSaving(false); } };
   const inputStyle: CSSProperties = { width: "100%", minWidth: 0, boxSizing: "border-box" };
   const steamId64Valid = /^\d{17}$/u.test(steamId64.trim());
   const apiKeyValid = apiKeyDraft.trim().length === 0 ? config?.hasApiKey === true : /^[0-9a-f]{32}$/iu.test(apiKeyDraft.trim());
+  const accountHelpCopy = detectedSteamId64 === undefined
+    ? "SteamID64 is detected automatically when this Deck exposes the signed-in account. If detection is unavailable, enter the account's SteamID64."
+    : detectedSteamId64 === steamId64.trim()
+      ? "This SteamID64 matches the account signed in on this Deck. You only need a Web API key to finish Steam setup."
+      : "A different Steam account is signed in on this Deck; the SteamID64 above remains selected.";
   return <>
     <div className="ac-steam-settings-input"><DeckyCredentialTextField label={<CredentialStatusLabel label={fields.steamId64.label} valid={steamId64Valid} />} value={steamId64} onClick={(event) => markDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument)} onChange={(event) => setSteamId64(event.currentTarget.value)} style={inputStyle} /></div>
+    <SteamAccountSetupInstructions accountHelpCopy={accountHelpCopy} onOpenExternalUrl={onOpenExternalUrl} />
     <div className="ac-steam-settings-input"><DeckyCredentialTextField label={<CredentialStatusLabel label={fields.apiKey.label} valid={apiKeyValid} />} value={apiKeyDraft} {...apiKeyDescriptor} description={undefined} onClick={(event) => markDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument)} style={{ ...inputStyle, ...getDeckyCredentialTextFieldMaskStyle() }} onChange={(event) => setApiKeyDraft(event.currentTarget.value)} /></div>
-    <div className="ac-steam-settings-input"><DeckyCredentialTextField label={fields.language.label} value={language} onClick={(event) => markDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument)} onChange={(event) => setLanguage(event.currentTarget.value)} style={inputStyle} /></div>
-    <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 10px", border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.small, background: steamTheme.surface.contentStat }}><img alt="" src={infoIconUrl} style={iconStyle(19)} /><div style={{ minWidth: 0, color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata, lineHeight: 1.3 }}>SteamID64: steamid.io · Web API key: steamcommunity.com/dev/apikey.</div></div>
-    <Focusable className="ac-settings-action" noFocusRing role="button" aria-label="Save Steam account settings" aria-disabled={saving} tabIndex={saving ? -1 : 0} onActivate={() => { void save(); }} onClick={() => { void save(); }} style={settingsSaveButtonStyle}>{saving ? "Saving…" : "Save account settings"}</Focusable>
+    <DeckySettingsDropdown label={fields.language.label} value={language} options={STEAM_API_LANGUAGES.map(({ code }) => code)} formatOption={(code) => isSteamApiLanguageCode(code) ? getSteamApiLanguageLabel(code) : "English"} onChange={setLanguage} onGamepadDirection={onGamepadDirection} />
+    <Focusable className="ac-settings-action" noFocusRing role="button" aria-label="Save Steam account settings" aria-disabled={saving} tabIndex={saving ? -1 : 0} onActivate={() => { void save(); }} onClick={() => { void save(); }} onGamepadDirection={onGamepadDirection} style={{ ...settingsSaveButtonStyle, opacity: saving ? 0.56 : 1 }}>{saving ? "Saving…" : "Save account settings"}</Focusable>
   </>;
 }
 
-export function DeckyFullScreenSettingsPage({ isActive = true, onOpenActivity, onOpenProfile, showSteamProfileFooter = false, reserveSteamProfileFooter = false }: DeckyFullScreenSettingsPageProps): JSX.Element {
+export function DeckyFullScreenSettingsPage({ isActive = true, onOpenExternalUrl, onOpenActivity, onOpenProfile, showSteamProfileFooter = false, reserveSteamProfileFooter = false }: DeckyFullScreenSettingsPageProps): JSX.Element {
   const pageRef = useRef<HTMLDivElement>(null); const initialFocusRef = useRef<HTMLDivElement>(null);
   const [pageHeight, setPageHeight] = useState<number>();
   const settings = useDeckySettings();
   const [selectedSection, setSelectedSection] = useState<SteamSettingsSection>("account"); const [accountMessage, setAccountMessage] = useState<{ readonly message: string; readonly isError: boolean }>();
+  useDeckySettingsSectionTriggers(pageRef, STEAM_SETTINGS_SECTIONS, selectedSection, setSelectedSection);
   const handleColumnDirection = (event: GamepadEvent): void => handleDeckySettingsDirection(pageRef.current, event);
   useDeckyFullscreenOnScreenKeyboardLifecycle(pageRef);
   useLayoutEffect(() => {
@@ -275,12 +325,13 @@ export function DeckyFullScreenSettingsPage({ isActive = true, onOpenActivity, o
   }, []);
   const steamConfig = useDeckySteamProviderConfig(STEAM_PROVIDER_ID); const steamScan = useDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID);
   const [operation, setOperation] = useState<OperationState>("idle"); const [armedAction, setArmedAction] = useState<"reset">();
+  const libraryScanState = useSteamFullLibraryScanState();
   useLayoutEffect(() => { if (!isActive) return; const page = pageRef.current; const ownerWindow = page?.ownerDocument.defaultView; if (page === null || page === undefined || ownerWindow === null || ownerWindow === undefined) return; const frame = ownerWindow.requestAnimationFrame(() => { if (!page.contains(page.ownerDocument.activeElement)) takeDeckySteamGamepadFocus(initialFocusRef.current); }); return () => ownerWindow.cancelAnimationFrame(frame); }, [isActive]);
   const refreshSteamAndSteamHunters = async (): Promise<void> => { setOperation("refreshing-steam"); const steamId64 = steamConfig?.steamId64.trim(); try { const [dashboard] = await Promise.all([loadDeckyDashboardState(STEAM_PROVIDER_ID, { forceRefresh: true }), steamId64 === undefined || steamId64.length === 0 ? Promise.resolve(undefined) : refreshDeckySteamHuntersProfileState(steamId64).catch(() => undefined)]); setOperation(dashboard.data !== undefined && dashboard.error === undefined ? "steam-refreshed" : "error"); } catch { setOperation("error"); } };
-  const refreshLibrary = async (): Promise<void> => { setOperation("refreshing-library"); try { const summary = await runDeckySteamFullLibraryScan(); setOperation(summary !== undefined ? "library-refreshed" : "error"); } catch { setOperation("error"); } };
+  const refreshLibrary = (): void => { void startSteamFullLibraryScan(); };
   const clearCache = (): void => { clearDeckyDashboardSnapshot(STEAM_PROVIDER_ID); clearDeckySteamGameDetailCache(); clearDeckySteamLibraryAchievementScanSummary(); removeDeckyStorageTextsByPrefix(RECENT_CACHE_PREFIX); setArmedAction(undefined); setOperation("cleared"); };
   const resetSteamData = async (): Promise<void> => { clearCache(); const cleared = await clearDeckySteamProviderConfig(); setArmedAction(undefined); setOperation(cleared ? "reset" : "error"); };
-  const operationMessage = operation === "steam-refreshed" ? "Steam and SteamHunters refreshed" : operation === "library-refreshed" ? "Full Steam library scan completed" : operation === "cleared" ? "Steam cached data cleared" : operation === "reset" ? "Steam settings reset" : operation === "error" ? "The operation could not be completed" : undefined;
+  const operationMessage = operation === "steam-refreshed" ? "Steam and SteamHunters refreshed" : operation === "cleared" ? "Steam cached data cleared" : operation === "reset" ? "Steam settings reset" : operation === "error" ? "The operation could not be completed" : undefined;
   const steamConnected = steamConfig?.hasApiKey === true;
   const fullScanAt = steamScan?.scannedAt;
   const parsedFullScanAt = fullScanAt === undefined ? Number.NaN : Date.parse(fullScanAt);
@@ -290,15 +341,15 @@ export function DeckyFullScreenSettingsPage({ isActive = true, onOpenActivity, o
   };
   return <div ref={pageRef} className="ac-steam-settings-page" data-ac-steam-theme="fullscreen" style={{ position: "relative", height: pageHeight ?? "100vh", flexShrink: 0, minHeight: 0, overflow: "hidden", padding: `calc(env(safe-area-inset-top, 0px) + 43px) 12px ${showSteamProfileFooter || reserveSteamProfileFooter ? 50 : 10}px`, boxSizing: "border-box", color: steamTheme.color.textPrimary, background: steamTheme.surface.page }}><Styles /><DeckyFocusStyles /><div style={{ height: "100%", minHeight: 0, display: "flex", flexDirection: "column", gap: 6 }}>
     <div style={{ display: "flex", alignItems: "center", minHeight: 31 }}><Heading>STEAM SETTINGS</Heading></div>
-    <Focusable flow-children="left-right" noFocusRing tabIndex={-1} data-settings-section-tabs="true" style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, flex: "0 0 auto" }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: "0 0 auto" }}><SettingsSectionTriggerHints side="left" /><Focusable flow-children="left-right" noFocusRing tabIndex={-1} data-settings-section-tabs="true" style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, flex: "1 1 auto" }}>
       <SteamSettingsSectionPill title="Account" icon={usersIconUrl} selected={selectedSection === "account"} initialFocusRef={initialFocusRef} onSelect={() => setSelectedSection("account")} onGamepadDirection={handleColumnDirection} />
       <SteamSettingsSectionPill title="Full-Screen Settings" icon={calendarIconUrl} selected={selectedSection === "fullscreen"} onSelect={() => setSelectedSection("fullscreen")} onGamepadDirection={handleColumnDirection} />
       <SteamSettingsSectionPill title="Compact Settings" icon={settingsIconUrl} selected={selectedSection === "compact"} onSelect={() => setSelectedSection("compact")} onGamepadDirection={handleColumnDirection} />
       <SteamSettingsSectionPill title="Data" icon={databaseIconUrl} selected={selectedSection === "data"} onSelect={() => setSelectedSection("data")} onGamepadDirection={handleColumnDirection} />
-    </Focusable>
-    {selectedSection === "account" ? <SteamSettingsContent><div style={{ ...settingsScrollStyle, display: "flex", flexDirection: "column", gap: 10 }}><SteamAccountFields config={steamConfig} onSaved={(message, isError) => setAccountMessage({ message, isError })} />{accountMessage !== undefined ? <div style={{ color: accountMessage.isError ? steamTheme.color.danger : steamTheme.color.success, fontSize: steamTheme.type.fullscreen.metadata, textAlign: "right" }}>{accountMessage.message}</div> : null}</div></SteamSettingsContent> : null}
+    </Focusable><SettingsSectionTriggerHints side="right" /></div>
+    {selectedSection === "account" ? <SteamSettingsContent><div style={{ ...settingsScrollStyle, display: "flex", flexDirection: "column", gap: 10 }}><SteamAccountFields config={steamConfig} onSaved={(message, isError) => setAccountMessage({ message, isError })} onOpenExternalUrl={onOpenExternalUrl} onGamepadDirection={handleColumnDirection} />{accountMessage !== undefined ? <div style={{ color: accountMessage.isError ? steamTheme.color.danger : steamTheme.color.success, fontSize: steamTheme.type.fullscreen.metadata, textAlign: "right" }}>{accountMessage.message}</div> : null}</div></SteamSettingsContent> : null}
     {selectedSection === "fullscreen" ? <SteamSettingsContent><div style={{ width: "100%" }}><SteamActivityCalendarWeeksPicker value={settings.steamFullscreenActivityCalendarWeeks} onChange={updateFullscreenCalendarWeeks} onGamepadDirection={handleColumnDirection} /></div></SteamSettingsContent> : null}
     {selectedSection === "compact" ? <SteamCompactSettings config={steamConfig} activityCalendarWeeks={settings.steamCompactActivityCalendarWeeks} onActivityCalendarWeeksChange={(steamCompactActivityCalendarWeeks) => { void saveDeckySettings({ ...readDeckySettings(), steamCompactActivityCalendarWeeks }); }} onGamepadDirection={handleColumnDirection} /> : null}
-    {selectedSection === "data" ? <SteamSettingsContent><div data-settings-data-layout style={{ ...settingsScrollStyle, display: "flex", flexDirection: "column", gap: 14 }}><div style={{ ...cardStyle, padding: 14, boxSizing: "border-box" }}><Heading>DATA &amp; SYNC</Heading><div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}><ActionRow onGamepadDirection={handleColumnDirection} icon={refreshIconUrl} title={operation === "refreshing-steam" ? "Refreshing Steam & SteamHunters…" : "Refresh Steam & SteamHunters"} disabled={operation === "refreshing-steam" || operation === "refreshing-library" || !steamConnected} onActivate={() => { void refreshSteamAndSteamHunters(); }} /><ActionRow onGamepadDirection={handleColumnDirection} icon={refreshIconUrl} title={operation === "refreshing-library" ? "Running Full Library Scan…" : "Full Library Scan"} metadata={operation === "refreshing-library" ? "Scanning…" : fullScan === undefined ? "Never" : `${fullScan.date} · ${fullScan.time}`} success={fullScan !== undefined} danger={fullScan === undefined} disabled={operation === "refreshing-steam" || operation === "refreshing-library" || !steamConnected} onActivate={() => { void refreshLibrary(); }} /></div>{operationMessage !== undefined ? <div style={{ marginTop: 8, color: operation === "error" ? steamTheme.color.danger : steamTheme.color.success, fontSize: steamTheme.type.fullscreen.metadata, textAlign: "center" }}>{operationMessage}</div> : null}</div><div data-settings-danger-zone style={{ ...cardStyle, padding: 14, boxSizing: "border-box" }}><Heading>DANGEROUS ZONE</Heading><div style={{ marginTop: 10 }}><ActionRow onGamepadDirection={handleColumnDirection} danger icon={refreshIconUrl} title={armedAction === "reset" ? "Press again to reset Steam data" : "Reset Steam Data"} subtitle="Clear cache, local data, and Steam settings" onActivate={() => { if (armedAction === "reset") void resetSteamData(); else setArmedAction("reset"); }} /></div></div></div></SteamSettingsContent> : null}
+    {selectedSection === "data" ? <SteamSettingsContent><div data-settings-data-layout style={{ ...settingsScrollStyle, display: "flex", flexDirection: "column", gap: 14 }}><div style={{ ...cardStyle, padding: 14, boxSizing: "border-box" }}><Heading>DATA &amp; SYNC</Heading><div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}><ActionRow onGamepadDirection={handleColumnDirection} icon={refreshIconUrl} title={operation === "refreshing-steam" ? "Refreshing Steam & SteamHunters…" : "Refresh Steam & SteamHunters"} disabled={operation === "refreshing-steam" || libraryScanState === "scanning" || !steamConnected} onActivate={() => { void refreshSteamAndSteamHunters(); }} /><ActionRow onGamepadDirection={handleColumnDirection} icon={refreshIconUrl} title={libraryScanState === "scanning" ? "Running Full Library Scan…" : "Full Library Scan"} metadata={libraryScanState === "scanning" ? "Scanning…" : fullScan === undefined ? "Never" : `${fullScan.date} · ${fullScan.time}`} success={libraryScanState === "completed" || fullScan !== undefined} danger={libraryScanState === "error" || fullScan === undefined} disabled={operation === "refreshing-steam" || libraryScanState === "scanning" || !steamConnected} onActivate={refreshLibrary} /></div>{operationMessage !== undefined ? <div style={{ marginTop: 8, color: operation === "error" ? steamTheme.color.danger : steamTheme.color.success, fontSize: steamTheme.type.fullscreen.metadata, textAlign: "center" }}>{operationMessage}</div> : null}</div><div data-settings-danger-zone style={{ ...cardStyle, padding: 14, boxSizing: "border-box" }}><Heading>DANGEROUS ZONE</Heading><div style={{ marginTop: 10 }}><ActionRow onGamepadDirection={handleColumnDirection} danger icon={refreshIconUrl} title={armedAction === "reset" ? "Press again to reset Steam data" : "Reset Steam Data"} subtitle="Clear cache, local data, and Steam settings" onActivate={() => { if (armedAction === "reset") void resetSteamData(); else setArmedAction("reset"); }} /></div></div></div></SteamSettingsContent> : null}
   </div>{showSteamProfileFooter && onOpenActivity !== undefined && onOpenProfile !== undefined ? <DeckyFullScreenFooterOverlay isActive={isActive} activeNavigationItemId="settings" ariaLabel="Steam profile navigation" navigationItems={STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS} onPreviousNavigationItem={onOpenActivity} onNextNavigationItem={onOpenProfile} /> : null}</div>;
 }

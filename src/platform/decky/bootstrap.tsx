@@ -30,7 +30,7 @@ import {
 import type { ResourceState } from "@core/cache";
 import type { DashboardSnapshot, GameDetailSnapshot, ProviderId } from "@core/domain";
 import { PlaceholderState } from "@ui/PlaceholderState";
-import { createDeckyNavigationPort } from "./decky-navigation";
+import { createDeckyNavigationPort, openDeckyProviderSettingsFromQam } from "./decky-navigation";
 import {
   createDeckyPlatform,
   initialDeckyBootstrapState,
@@ -111,7 +111,6 @@ import {
   useDeckySteamLibraryAchievementScanSummary,
 } from "./providers/steam";
 import { resolveProviderDashboardPreferences } from "@core/provider-dashboard-preferences";
-import { DeckyFirstRunSetupScreen } from "./decky-first-run-setup-screen";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { readDeckyGamepadNavigationTrees } from "./decky-gamepad-navigation";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
@@ -1362,9 +1361,6 @@ function DeckyBootstrapStateBridge(): JSX.Element {
   const selectedProviderId = compactNavigation.kind === "provider-dashboard" || compactNavigation.kind === "settings"
     ? compactNavigation.providerId
     : undefined;
-  const setupProviderId = compactNavigation.kind === "provider-setup"
-    ? compactNavigation.providerId
-    : undefined;
   const selectedGame = compactNavigation.kind === "game" ? compactNavigation : undefined;
   const selectedAchievementList = compactNavigation.kind === "achievement-list" ? compactNavigation : undefined;
   const selectedAchievement = compactNavigation.kind === "achievement" ? compactNavigation : undefined;
@@ -1372,12 +1368,6 @@ function DeckyBootstrapStateBridge(): JSX.Element {
     selectedProviderId === "retroachievements"
       ? providerConfigs.retroAchievements
       : selectedProviderId === "steam"
-        ? providerConfigs.steam
-        : undefined;
-  const setupProviderConfig =
-    setupProviderId === "retroachievements"
-      ? providerConfigs.retroAchievements
-      : setupProviderId === "steam"
         ? providerConfigs.steam
         : undefined;
   const lastProviderConfigsSignature = useRef<string | undefined>(undefined);
@@ -1430,33 +1420,12 @@ function DeckyBootstrapStateBridge(): JSX.Element {
   }, [providerConfigsSignature]);
 
   useEffect(() => {
-    if (setupProviderId === undefined || setupProviderConfig === undefined) {
-      return;
-    }
-
-    setDeckyCompactNavigation({ kind: "provider-dashboard", providerId: setupProviderId });
-  }, [setupProviderConfig, setupProviderId]);
-
-  useEffect(() => {
     if (selectedProviderId === undefined || selectedProviderConfig !== undefined) {
       return;
     }
 
     setDeckyCompactNavigation({ kind: "provider-chooser" });
   }, [selectedProviderConfig, selectedProviderId]);
-
-  if (setupProviderId !== undefined) {
-    return (
-      <TopAlignedScrollViewport scrollKey="setup">
-        <DeckyFirstRunSetupScreen
-          providerId={setupProviderId}
-          onBackToProviders={() => {
-            returnFromCompactDestination();
-          }}
-        />
-      </TopAlignedScrollViewport>
-    );
-  }
 
   return (
     <>
@@ -1591,7 +1560,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                               (provider.id === "retroachievements" && providerConfigs.retroAchievements === undefined) ||
                               (provider.id === "steam" && providerConfigs.steam === undefined)
                             ) {
-                              setDeckyCompactNavigation({ kind: "provider-setup", providerId: provider.id });
+                              openDeckyProviderSettingsFromQam(provider.id);
                               return;
                             }
 

@@ -1,5 +1,5 @@
 import { type CSSProperties, useEffect, useState } from "react";
-import { Focusable, PanelSectionRow } from "@decky/ui";
+import { Focusable, PanelSectionRow, type GamepadEvent } from "@decky/ui";
 import type { RetroAchievementsProviderConfig } from "../../../../providers/retroachievements";
 import type { RetroAchievementsCredentialSaveResult } from "./connection";
 import {
@@ -12,8 +12,7 @@ import { markDeckyFullscreenOnScreenKeyboardOpen } from "../../decky-full-screen
 import { settingsSaveButtonStyle } from "../../decky-settings-section";
 import {
   RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY,
-  RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY_AFTER_SETTINGS_LINK,
-  RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY_BEFORE_SETTINGS_LINK,
+  RETROACHIEVEMENTS_LOGIN_URL,
   RETROACHIEVEMENTS_SETTINGS_URL,
   getRetroAchievementsApiKeyInputDescriptor,
   getRetroAchievementsCredentialsFieldSpecs,
@@ -33,6 +32,7 @@ export interface DeckyRetroAchievementsCredentialsFormProps {
   readonly compactSurface?: boolean;
   readonly useSharedFullscreenFooter?: boolean;
   readonly onOpenExternalUrl?: (url: string) => void;
+  readonly onGamepadDirection?: (event: GamepadEvent) => void;
   readonly onSave: (
     config: Omit<RetroAchievementsProviderConfig, "hasApiKey">,
     apiKeyDraft: string,
@@ -81,7 +81,7 @@ function getFullscreenInfoLabelStyle(): CSSProperties {
 }
 
 function getFullscreenInfoDescriptionStyle(): CSSProperties {
-  return raRecipes.text("fullscreen", "metadata");
+  return { ...raRecipes.text("fullscreen", "metadata"), whiteSpace: "pre-line", lineHeight: 1.4 };
 }
 
 function getCredentialInputStyle(): CSSProperties {
@@ -178,6 +178,30 @@ function AccountCredentialStatusLabel({ label, configured }: { readonly label: s
   </span>;
 }
 
+function AccountHelpLink({ href, label, onOpenExternalUrl }: {
+  readonly href: string;
+  readonly label: string;
+  readonly onOpenExternalUrl?: ((url: string) => void) | undefined;
+}): JSX.Element {
+  const ariaLabel = href === RETROACHIEVEMENTS_LOGIN_URL
+    ? "Open RetroAchievements login"
+    : "Open RetroAchievements applications settings to copy the API key";
+  return <Focusable className="ac-ra-settings-help-link" data-ra-settings-help-link="true" noFocusRing role="button" aria-label={ariaLabel} aria-disabled={onOpenExternalUrl === undefined} tabIndex={onOpenExternalUrl === undefined ? -1 : 0} onActivate={() => onOpenExternalUrl?.(href)} onClick={() => onOpenExternalUrl?.(href)} style={{ display: "inline", verticalAlign: "baseline", padding: "0 2px", margin: "0 -2px", borderRadius: 3, border: "none", background: "transparent", color: steamTheme.color.accent, fontSize: "inherit", fontWeight: steamTheme.type.weight.medium, lineHeight: "inherit", textDecoration: "underline", whiteSpace: "nowrap" }}>{label}</Focusable>;
+}
+
+function FullscreenAccountSetupInstructions({ onOpenExternalUrl }: {
+  readonly onOpenExternalUrl?: ((url: string) => void) | undefined;
+}): JSX.Element {
+  return <ol style={{ margin: 0, paddingLeft: 22, color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata, lineHeight: 1.4 }}>
+    <li>Log into <AccountHelpLink href={RETROACHIEVEMENTS_LOGIN_URL} label="RetroAchievements" onOpenExternalUrl={onOpenExternalUrl} />.</li>
+    <li>Press B once you have successfully logged in.</li>
+    <li>Open <AccountHelpLink href={RETROACHIEVEMENTS_SETTINGS_URL} label="Applications settings" onOpenExternalUrl={onOpenExternalUrl} /> and click your API key to copy it.</li>
+    <li>Press B once the API key has been copied.</li>
+    <li>Enter your username and paste the API key into the API key field.</li>
+    <li>Select Save account settings.</li>
+  </ol>;
+}
+
 export function DeckyRetroAchievementsCredentialsForm({
   config,
   statusLabel,
@@ -187,6 +211,7 @@ export function DeckyRetroAchievementsCredentialsForm({
   compactSurface = false,
   useSharedFullscreenFooter = false,
   onOpenExternalUrl,
+  onGamepadDirection,
   onSave,
   onClear,
 }: DeckyRetroAchievementsCredentialsFormProps): JSX.Element {
@@ -353,8 +378,8 @@ export function DeckyRetroAchievementsCredentialsForm({
     return <div data-ac-ra-theme="fullscreen" data-ra-fullscreen-account-form style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0, paddingBottom: 12 }}>
       <div className="ac-ra-settings-input"><DeckyCredentialTextField label={<AccountCredentialStatusLabel label={fieldSpecs.username.label} configured={usernameConfigured} />} value={username} description={undefined} onClick={(event) => markDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument)} onChange={(event) => setUsername(event.currentTarget.value)} style={inputStyle} /></div>
       <div className="ac-ra-settings-input"><DeckyCredentialTextField label={<AccountCredentialStatusLabel label={fieldSpecs.apiKey.label} configured={apiKeyConfigured} />} value={apiKeyDraft} {...apiKeyInputDescriptor} description={undefined} onClick={(event) => markDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument)} onChange={(event) => setApiKeyDraft(event.currentTarget.value)} style={{ ...inputStyle, ...getDeckyCredentialTextFieldMaskStyle() }} /></div>
-      <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 10px", border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.small, background: raTheme.surface.contentStat }}><img alt="" src={infoIconUrl} style={{ width: 19, height: 19, flex: "0 0 auto", objectFit: "contain", filter: steamTheme.iconFilter.accent }} /><div style={{ minWidth: 0, color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata, lineHeight: 1.3 }}>{RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY_BEFORE_SETTINGS_LINK}<Focusable className="ac-ra-settings-help-link" data-ra-settings-help-link="true" noFocusRing role="button" aria-label="Open RetroAchievements settings to find the Web API key" aria-disabled={onOpenExternalUrl === undefined} tabIndex={onOpenExternalUrl === undefined ? -1 : 0} onActivate={() => onOpenExternalUrl?.(RETROACHIEVEMENTS_SETTINGS_URL)} onClick={() => onOpenExternalUrl?.(RETROACHIEVEMENTS_SETTINGS_URL)} style={{ display: "inline", verticalAlign: "baseline", padding: "0 2px", margin: "0 -2px", borderRadius: 3, border: "none", background: "transparent", color: steamTheme.color.accent, fontSize: "inherit", fontWeight: steamTheme.type.weight.medium, lineHeight: "inherit", textDecoration: "underline", whiteSpace: "nowrap" }}>{RETROACHIEVEMENTS_SETTINGS_URL}</Focusable>{RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY_AFTER_SETTINGS_LINK}</div></div>
-      <Focusable className="ac-ra-settings-save" noFocusRing role="button" aria-label={saving ? "Saving account settings" : saveLabel} aria-disabled={saving} tabIndex={saving ? -1 : 0} onActivate={() => { void handleSave(); }} onClick={() => { void handleSave(); }} style={{ ...settingsSaveButtonStyle, opacity: saving ? 0.56 : 1 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "8px 10px", border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.small, background: raTheme.surface.contentStat }}><img alt="" src={infoIconUrl} style={{ width: 19, height: 19, flex: "0 0 auto", objectFit: "contain", filter: steamTheme.iconFilter.accent }} /><div style={{ minWidth: 0 }}><div style={{ marginBottom: 4, color: steamTheme.color.textPrimary, fontSize: steamTheme.type.fullscreen.metadata, fontWeight: steamTheme.type.weight.strong }}>Account setup</div><FullscreenAccountSetupInstructions onOpenExternalUrl={onOpenExternalUrl} /></div></div>
+      <Focusable className="ac-ra-settings-save" noFocusRing role="button" aria-label={saving ? "Saving account settings" : saveLabel} aria-disabled={saving} tabIndex={saving ? -1 : 0} onActivate={() => { void handleSave(); }} onClick={() => { void handleSave(); }} {...(onGamepadDirection !== undefined ? { onGamepadDirection } : {})} style={{ ...settingsSaveButtonStyle, opacity: saving ? 0.56 : 1 }}>
         {saving ? "Saving…" : saveLabel}
       </Focusable>
       {showSaveMessage ? <div role="status" style={{ color: saveMessageIsError ? raTheme.color.danger : raTheme.color.success, fontSize: raTheme.type.fullscreen.caption, textAlign: "right" }}>{statusCopy}</div> : null}

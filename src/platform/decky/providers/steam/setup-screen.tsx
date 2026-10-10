@@ -110,7 +110,7 @@ function getHeroTitleStyle(): CSSProperties {
 }
 
 const STEAM_SETUP_HELP_COPY =
-  "In Steam, use your SteamID64 and Web API Key. Keep your API key private and save it only on your own device.";
+  "The signed-in Steam account is detected automatically when available. If not, enter its SteamID64. Enter your Steam Web API key to connect, and keep the key private on this device.";
 
 function getHeroSupportStyle(): CSSProperties {
   return {

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any, Mapping
@@ -52,6 +53,50 @@ LOGS_PATH = Path(decky.DECKY_PLUGIN_LOG_DIR)
 CONFIG_PATH = SETTINGS_PATH / "provider-config.json"
 SECRETS_PATH = SETTINGS_PATH / "provider-secrets.json"
 STEAM_HUNTERS_REQUEST_TIMEOUT_SECONDS = 8
+_STEAM_USER_ENTRY_PATTERN = re.compile(
+  r'"(?P<steam_id64>\d{17})"\s*\{(?P<body>[^{}]*)\}',
+  re.DOTALL,
+)
+_MOST_RECENT_STEAM_USER_PATTERN = re.compile(
+  r'(?m)^\s*"MostRecent"\s+"1"\s*$',
+  re.IGNORECASE,
+)
+
+
+def _get_current_steam_id64(home: Path | None = None) -> str | None:
+  """Return the unambiguous Steam account ID saved by the local Steam client."""
+  resolved_home = home if home is not None else Path.home()
+  roots = (
+    resolved_home / ".local" / "share" / "Steam",
+    resolved_home / ".steam" / "steam",
+    resolved_home / ".steam" / "root",
+  )
+  entries: dict[str, bool] = {}
+  seen_paths: set[Path] = set()
+
+  for root in roots:
+    path = root / "config" / "loginusers.vdf"
+    resolved_path = path.resolve(strict=False)
+    if resolved_path in seen_paths or not resolved_path.is_file():
+      continue
+    seen_paths.add(resolved_path)
+
+    try:
+      text = resolved_path.read_text(encoding="utf-8-sig", errors="replace")
+    except OSError:
+      continue
+
+    for match in _STEAM_USER_ENTRY_PATTERN.finditer(text):
+      steam_id64 = match.group("steam_id64")
+      is_most_recent = _MOST_RECENT_STEAM_USER_PATTERN.search(match.group("body")) is not None
+      entries[steam_id64] = entries.get(steam_id64, False) or is_most_recent
+
+  most_recent_ids = [steam_id64 for steam_id64, is_most_recent in entries.items() if is_most_recent]
+  if len(most_recent_ids) == 1:
+    return most_recent_ids[0]
+  if len(entries) == 1:
+    return next(iter(entries))
+  return None
 
 
 _sanitize_backend_runtime_environment()
@@ -224,6 +269,9 @@ class Plugin:
     if steam_config is not None:
       result["steam"] = steam_config
     return result
+
+  async def get_current_steam_id64(self) -> dict[str, str | None]:
+    return {"steamId64": _get_current_steam_id64()}
 
   async def save_retroachievements_credentials(self, payload: dict[str, Any]) -> dict[str, Any] | None:
     username = _coerce_string(payload.get("username"))

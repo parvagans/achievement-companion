@@ -206,6 +206,14 @@ function beginDeckyCompactFullScreenEntry(rootRoute: DeckyFullScreenSessionRoot)
   beginDeckyCompactOriginFullScreenSession(rootRoute);
 }
 
+/** Missing-account provider cards enter the shared settings route on their own tab. */
+export function openDeckyProviderSettingsFromQam(providerId: ProviderSettingsTab): void {
+  nextFullScreenSettingsProvider = providerId;
+  beginDeckyCompactFullScreenEntry("settings");
+  DeckyNavigation.Navigate(buildDeckyFullScreenSettingsRoute());
+  DeckyNavigation.CloseSideMenus();
+}
+
 function navigateBackFromFullScreenRoot(rootRoute: DeckyFullScreenSessionRoot): void {
   deckyFullScreenTerminalReturn.handleRootBack(rootRoute);
 }
@@ -556,6 +564,7 @@ function DeckyProviderFullScreenSession({
             }
           }}
           onOpenExternalUrl={(url) => {
+            nextFullScreenSettingsProvider = "steam";
             DeckyNavigation.NavigateToExternalWeb(url);
           }}
           onOpenCompletionProgress={(_profileProviderId, initialFilter) => openGames(initialFilter)}
@@ -619,7 +628,7 @@ function DeckyProviderFullScreenSession({
             onBack={exitSession}
             inProviderSwitcher
             onRebuildSubsetIndex={clearDeckyRetroAchievementsRelatedGameIndex}
-            onOpenExternalUrl={(url) => DeckyNavigation.NavigateToExternalWeb(url)}
+            onOpenExternalUrl={(url) => { nextFullScreenSettingsProvider = "retroachievements"; DeckyNavigation.NavigateToExternalWeb(url); }}
           />
         </div>
       : null}
@@ -808,9 +817,10 @@ function DeckyFullScreenSettingsRoute(): JSX.Element {
           navigateToFullScreenProviderSettings(providerId);
         }}
         onOpenExternalUrl={(url) => {
+          nextFullScreenSettingsProvider = "steam";
           DeckyNavigation.NavigateToExternalWeb(url);
         }}
-        /> : <div ref={retroAchievementsRootRef} data-provider-settings-retroachievements="true"><DeckyRetroAchievementsProviderSettingsPage providerId="retroachievements" onBack={returnFromSettings} inProviderSwitcher onRebuildSubsetIndex={clearDeckyRetroAchievementsRelatedGameIndex} onOpenExternalUrl={(url) => DeckyNavigation.NavigateToExternalWeb(url)} /></div>}
+        /> : <div ref={retroAchievementsRootRef} data-provider-settings-retroachievements="true"><DeckyRetroAchievementsProviderSettingsPage providerId="retroachievements" onBack={returnFromSettings} inProviderSwitcher onRebuildSubsetIndex={clearDeckyRetroAchievementsRelatedGameIndex} onOpenExternalUrl={(url) => { nextFullScreenSettingsProvider = "retroachievements"; DeckyNavigation.NavigateToExternalWeb(url); }} /></div>}
       <DeckyFullScreenFooterOverlay
         ariaLabel="Provider settings navigation"
         activeNavigationItemId={activeProvider}

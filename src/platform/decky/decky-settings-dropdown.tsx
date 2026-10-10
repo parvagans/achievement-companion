@@ -7,9 +7,10 @@ import { steamTheme } from "./steam-theme";
 
 /** The native modal selector used by both providers' full-screen settings. */
 export function DeckySettingsDropdown<T extends string | number>({
-  label, value, options, formatOption = String, disabled = false, onChange, onGamepadDirection,
+  label, description, value, options, formatOption = String, disabled = false, onChange, onGamepadDirection,
 }: {
   readonly label: string;
+  readonly description?: string;
   readonly value: T;
   readonly options: readonly T[];
   readonly formatOption?: (option: T) => string;
@@ -50,7 +51,7 @@ export function DeckySettingsDropdown<T extends string | number>({
   }, []);
   const valueLabel = formatOption(value);
   return <Focusable ref={triggerRef} className="ac-settings-action" data-settings-dropdown={label} noFocusRing role="button" tabIndex={disabled ? -1 : 0} aria-disabled={disabled} aria-expanded={menuOpen} aria-label={`${label}: ${valueLabel}`} onActivate={openMenu} onClick={openMenu} onGamepadDirection={onGamepadDirection} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, minHeight: 44, padding: "8px 12px", boxSizing: "border-box", border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.small, background: steamTheme.surface.contentStat, color: disabled ? steamTheme.color.textSecondary : steamTheme.color.textPrimary, opacity: disabled ? .65 : 1 }}>
-    <span style={{ minWidth: 0, fontSize: steamTheme.type.fullscreen.body, fontWeight: steamTheme.type.weight.strong }}>{label}</span>
+    <span style={{ minWidth: 0 }}><span style={{ display: "block", fontSize: steamTheme.type.fullscreen.body, fontWeight: steamTheme.type.weight.strong }}>{label}</span>{description !== undefined ? <span style={{ display: "block", marginTop: 2, color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata, lineHeight: 1.2 }}>{description}</span> : null}</span>
     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0, color: steamTheme.color.accent, fontSize: steamTheme.type.fullscreen.body, fontWeight: steamTheme.type.weight.strong }}><span>{valueLabel}</span><img alt="" src={caretDownIconUrl} style={{ width: 12, height: 12, objectFit: "contain", filter: steamTheme.iconFilter.accent, flexShrink: 0 }} /></span>
   </Focusable>;
 }

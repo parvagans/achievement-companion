@@ -2356,7 +2356,7 @@ test("provider setup, credential fields, and current compact profile routes stay
   assert.match(RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY, /retroachievements\.org\/settings\?tab=applications/i);
   assert.match(RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY, /RetroAchievements username/i);
   assert.doesNotMatch(RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY, /Show API key|Hide API key/i);
-  assert.match(STEAM_CREDENTIAL_HELPER_COPY, /steamid\.io/i);
+  assert.match(STEAM_CREDENTIAL_HELPER_COPY, /filled from the account signed in on this Deck when available/i);
   assert.match(STEAM_CREDENTIAL_HELPER_COPY, /steamcommunity\.com\/dev\/apikey/i);
   assert.doesNotMatch(STEAM_CREDENTIAL_HELPER_COPY, /Show API key|Hide API key/i);
   assert.match(
@@ -2616,7 +2616,7 @@ test("provider setup, credential fields, and current compact profile routes stay
       new URL("../src/platform/decky/providers/steam/setup-screen.tsx", import.meta.url),
       "utf-8",
     ),
-    /In Steam, use your SteamID64 and Web API Key\. Keep your API key private and save it only on your own device\./u,
+    /The signed-in Steam account is detected automatically when available\. If not, enter its SteamID64\. Enter your Steam Web API key to connect, and keep the key private on this device\./u,
   );
   assert.match(
     readFileSync(
@@ -3436,7 +3436,7 @@ test("provider setup, credential fields, and current compact profile routes stay
   assert.deepStrictEqual(getSteamCredentialsFieldSpecs(), {
     steamId64: {
       label: "SteamID64",
-      description: "Enter the SteamID64 for the account you want to browse.",
+      description: "Filled from the account signed in on this Deck when available. Enter a different SteamID64 only if needed.",
       isPassword: false,
     },
     apiKey: {
@@ -3518,7 +3518,7 @@ test("provider setup, credential fields, and current compact profile routes stay
     ),
     {
       steamId64Value: "12345678901234567",
-      steamId64Description: "Enter the SteamID64 for the account you want to browse.",
+      steamId64Description: "Filled from the account signed in on this Deck when available. Enter a different SteamID64 only if needed.",
       apiKeyValue: "",
       apiKeyIsPassword: true,
       apiKeyDescription: "API key configured. Enter a new key to replace it.",
