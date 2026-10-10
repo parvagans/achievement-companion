@@ -16,6 +16,10 @@ export const settingsScrollStyle: CSSProperties = {
 /** Compact account action; the scroll inset above keeps its focus ring in view. */
 export const settingsSaveButtonStyle: CSSProperties = {
   alignSelf: "flex-end",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  textAlign: "center",
   minHeight: 38,
   boxSizing: "border-box",
   padding: "7px 14px",

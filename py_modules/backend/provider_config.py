@@ -36,12 +36,6 @@ def _normalize_optional_positive_count(value: Any) -> int | None:
   return None
 
 
-def _normalize_boolean(value: Any, fallback: bool) -> bool:
-  if isinstance(value, bool):
-    return value
-  return fallback
-
-
 def _normalize_has_api_key(_value: Any, secret_present: bool) -> bool:
   return secret_present
 
@@ -73,7 +67,10 @@ def load_provider_config(path: Path, provider_key: str, *, warn: WarningCallback
 def save_provider_config(path: Path, provider_key: str, config: dict[str, Any], *, warn: WarningCallback | None = None) -> None:
   store = load_provider_config_store(path, warn=warn)
   store["version"] = PLUGIN_CONFIG_VERSION
-  store[provider_key] = _sanitize_provider_config(config)
+  sanitized = _sanitize_provider_config(config)
+  if provider_key == "steam":
+    sanitized.pop("includePlayedFreeGames", None)
+  store[provider_key] = sanitized
   write_json_file(path, store)
 
 
@@ -129,7 +126,6 @@ def build_steam_config_view(store_value: dict[str, Any] | None, secret_present: 
   language = _coerce_string(store_value.get("language")) or "english"
   recent_achievements_count = _normalize_positive_count(store_value.get("recentAchievementsCount"), 5)
   recently_played_count = _normalize_positive_count(store_value.get("recentlyPlayedCount"), 5)
-  include_played_free_games = _normalize_boolean(store_value.get("includePlayedFreeGames"), False)
 
   return {
     "steamId64": steam_id64,
@@ -137,5 +133,4 @@ def build_steam_config_view(store_value: dict[str, Any] | None, secret_present: 
     "language": language,
     "recentAchievementsCount": recent_achievements_count,
     "recentlyPlayedCount": recently_played_count,
-    "includePlayedFreeGames": include_played_free_games,
   }

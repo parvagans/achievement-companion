@@ -395,8 +395,33 @@ export function DeckyFullScreenFooterOverlay({
     setPortalTarget(target);
     ownerWindow.addEventListener("resize", updateLayout);
 
+    // Steam can replace its native footer while an external browser page is
+    // active. Measure again after returning, once the native route has painted.
+    const pendingFrames = new Set<number>();
+    const scheduleLayoutAfterReturn = (): void => {
+      const first = ownerWindow.requestAnimationFrame(() => {
+        pendingFrames.delete(first);
+        const second = ownerWindow.requestAnimationFrame(() => {
+          pendingFrames.delete(second);
+          updateLayout();
+        });
+        pendingFrames.add(second);
+      });
+      pendingFrames.add(first);
+    };
+    ownerWindow.addEventListener("popstate", scheduleLayoutAfterReturn);
+    ownerWindow.addEventListener("focus", scheduleLayoutAfterReturn);
+    ownerWindow.addEventListener("pageshow", scheduleLayoutAfterReturn);
+    ownerDocument.addEventListener("visibilitychange", scheduleLayoutAfterReturn);
+    scheduleLayoutAfterReturn();
+
     return () => {
       ownerWindow.removeEventListener("resize", updateLayout);
+      ownerWindow.removeEventListener("popstate", scheduleLayoutAfterReturn);
+      ownerWindow.removeEventListener("focus", scheduleLayoutAfterReturn);
+      ownerWindow.removeEventListener("pageshow", scheduleLayoutAfterReturn);
+      ownerDocument.removeEventListener("visibilitychange", scheduleLayoutAfterReturn);
+      for (const frame of pendingFrames) ownerWindow.cancelAnimationFrame(frame);
       target.remove();
     };
   }, [isActive]);

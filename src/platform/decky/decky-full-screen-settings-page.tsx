@@ -32,6 +32,7 @@ import { DeckySettingsSection, handleDeckySettingsDirection, SettingsSectionTrig
 import { DeckySettingsDropdown } from "./decky-settings-dropdown";
 import { readDeckySettings, saveDeckySettings, useDeckySettings } from "./decky-settings";
 import { startSteamFullLibraryScan, useSteamFullLibraryScanState } from "./decky-steam-full-library-scan-state";
+import { isDeckyProviderSettingsWebReturnPending, markDeckyProviderSettingsWebReturn, useDeckyProviderSettingsWebReturnFocus } from "./decky-provider-settings-web-return";
 
 const RECENT_CACHE_PREFIX = "achievement-companion:decky:recent-achievements";
 
@@ -222,7 +223,6 @@ function SteamCompactSettings({ config, activityCalendarWeeks, onActivityCalenda
       language: current.language,
       recentAchievementsCount: changes.recentAchievementsCount ?? current.recentAchievementsCount,
       recentlyPlayedCount: changes.recentlyPlayedCount ?? current.recentlyPlayedCount,
-      includePlayedFreeGames: current.includePlayedFreeGames,
     }, "");
   };
   return <SteamSettingsContent><div style={{ ...settingsScrollStyle, display: "flex", flexDirection: "column", gap: 10 }}>
@@ -257,7 +257,8 @@ function SteamAccountHelpLink({ href, label, ariaLabel, onOpenExternalUrl }: {
   readonly ariaLabel: string;
   readonly onOpenExternalUrl: (url: string) => void;
 }): JSX.Element {
-  return <Focusable className="ac-steam-settings-help-link" data-steam-settings-help-link={href} noFocusRing role="button" aria-label={ariaLabel} tabIndex={0} onActivate={() => onOpenExternalUrl(href)} onClick={() => onOpenExternalUrl(href)} style={{ display: "inline", verticalAlign: "baseline", padding: "0 2px", margin: "0 -2px", borderRadius: 3, border: "none", background: "transparent", color: steamTheme.color.accent, fontSize: "inherit", fontWeight: steamTheme.type.weight.medium, lineHeight: "inherit", textDecoration: "underline", whiteSpace: "nowrap" }}>{label}</Focusable>;
+  const openHelp = (): void => { markDeckyProviderSettingsWebReturn("steam"); onOpenExternalUrl(href); };
+  return <Focusable className="ac-steam-settings-help-link" data-steam-settings-help-link={href} noFocusRing role="button" aria-label={ariaLabel} tabIndex={0} onActivate={openHelp} onClick={openHelp} style={{ display: "inline", verticalAlign: "baseline", padding: "0 2px", margin: "0 -2px", borderRadius: 3, border: "none", background: "transparent", color: steamTheme.color.accent, fontSize: "inherit", fontWeight: steamTheme.type.weight.medium, lineHeight: "inherit", textDecoration: "underline", whiteSpace: "nowrap" }}>{label}</Focusable>;
 }
 
 function SteamAccountSetupInstructions({ accountHelpCopy, onOpenExternalUrl }: {
@@ -293,7 +294,7 @@ function SteamAccountFields({ config, onSaved, onOpenExternalUrl, onGamepadDirec
     });
     return () => { isCurrent = false; };
   }, [config?.steamId64]);
-  const save = async (): Promise<void> => { setSaving(true); try { const result = await writeValidatedDeckySteamProviderConfig({ steamId64, language, recentAchievementsCount: config?.recentAchievementsCount ?? 5, recentlyPlayedCount: config?.recentlyPlayedCount ?? 5, includePlayedFreeGames: config?.includePlayedFreeGames ?? false }, apiKeyDraft); onSaved(result.userMessage, !result.saved); } catch { onSaved("Unable to save Steam account settings.", true); } finally { setSaving(false); } };
+  const save = async (): Promise<void> => { setSaving(true); try { const result = await writeValidatedDeckySteamProviderConfig({ steamId64, language, recentAchievementsCount: config?.recentAchievementsCount ?? 5, recentlyPlayedCount: config?.recentlyPlayedCount ?? 5 }, apiKeyDraft); onSaved(result.userMessage, !result.saved); } catch { onSaved("Unable to save Steam account settings.", true); } finally { setSaving(false); } };
   const inputStyle: CSSProperties = { width: "100%", minWidth: 0, boxSizing: "border-box" };
   const steamId64Valid = /^\d{17}$/u.test(steamId64.trim());
   const apiKeyValid = apiKeyDraft.trim().length === 0 ? config?.hasApiKey === true : /^[0-9a-f]{32}$/iu.test(apiKeyDraft.trim());
@@ -313,6 +314,8 @@ function SteamAccountFields({ config, onSaved, onOpenExternalUrl, onGamepadDirec
 
 export function DeckyFullScreenSettingsPage({ isActive = true, onOpenExternalUrl, onOpenActivity, onOpenProfile, showSteamProfileFooter = false, reserveSteamProfileFooter = false }: DeckyFullScreenSettingsPageProps): JSX.Element {
   const pageRef = useRef<HTMLDivElement>(null); const initialFocusRef = useRef<HTMLDivElement>(null);
+  const restoringFromWeb = isDeckyProviderSettingsWebReturnPending("steam");
+  useDeckyProviderSettingsWebReturnFocus(pageRef, "steam");
   const [pageHeight, setPageHeight] = useState<number>();
   const settings = useDeckySettings();
   const [selectedSection, setSelectedSection] = useState<SteamSettingsSection>("account"); const [accountMessage, setAccountMessage] = useState<{ readonly message: string; readonly isError: boolean }>();
@@ -326,7 +329,7 @@ export function DeckyFullScreenSettingsPage({ isActive = true, onOpenExternalUrl
   const steamConfig = useDeckySteamProviderConfig(STEAM_PROVIDER_ID); const steamScan = useDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID);
   const [operation, setOperation] = useState<OperationState>("idle"); const [armedAction, setArmedAction] = useState<"reset">();
   const libraryScanState = useSteamFullLibraryScanState();
-  useLayoutEffect(() => { if (!isActive) return; const page = pageRef.current; const ownerWindow = page?.ownerDocument.defaultView; if (page === null || page === undefined || ownerWindow === null || ownerWindow === undefined) return; const frame = ownerWindow.requestAnimationFrame(() => { if (!page.contains(page.ownerDocument.activeElement)) takeDeckySteamGamepadFocus(initialFocusRef.current); }); return () => ownerWindow.cancelAnimationFrame(frame); }, [isActive]);
+  useLayoutEffect(() => { if (!isActive || restoringFromWeb) return; const page = pageRef.current; const ownerWindow = page?.ownerDocument.defaultView; if (page === null || page === undefined || ownerWindow === null || ownerWindow === undefined) return; const frame = ownerWindow.requestAnimationFrame(() => { if (!page.contains(page.ownerDocument.activeElement)) takeDeckySteamGamepadFocus(initialFocusRef.current); }); return () => ownerWindow.cancelAnimationFrame(frame); }, [isActive, restoringFromWeb]);
   const refreshSteamAndSteamHunters = async (): Promise<void> => { setOperation("refreshing-steam"); const steamId64 = steamConfig?.steamId64.trim(); try { const [dashboard] = await Promise.all([loadDeckyDashboardState(STEAM_PROVIDER_ID, { forceRefresh: true }), steamId64 === undefined || steamId64.length === 0 ? Promise.resolve(undefined) : refreshDeckySteamHuntersProfileState(steamId64).catch(() => undefined)]); setOperation(dashboard.data !== undefined && dashboard.error === undefined ? "steam-refreshed" : "error"); } catch { setOperation("error"); } };
   const refreshLibrary = (): void => { void startSteamFullLibraryScan(); };
   const clearCache = (): void => { clearDeckyDashboardSnapshot(STEAM_PROVIDER_ID); clearDeckySteamGameDetailCache(); clearDeckySteamLibraryAchievementScanSummary(); removeDeckyStorageTextsByPrefix(RECENT_CACHE_PREFIX); setArmedAction(undefined); setOperation("cleared"); };

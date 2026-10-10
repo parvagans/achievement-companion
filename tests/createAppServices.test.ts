@@ -3729,8 +3729,9 @@ test("legacy provider forms retain their immediate-persistence controls outside 
   );
   assert.match(
     steamCredentialsFormSource,
-    /<DeckyProviderSettingsActionRow[\s\S]*label="Recent Achievements count"[\s\S]*<DeckyProviderSettingsActionRow[\s\S]*label="Recently Played count"[\s\S]*<DeckyProviderSettingsActionRow[\s\S]*label="Include played free games"/u,
+    /<DeckyProviderSettingsActionRow[\s\S]*label="Recent Achievements count"[\s\S]*<DeckyProviderSettingsActionRow[\s\S]*label="Recently Played count"/u,
   );
+  assert.doesNotMatch(steamCredentialsFormSource, /Include played free games/u);
   assert.doesNotMatch(steamCredentialsFormSource, /DropdownItem|\bDropdown\b/);
   assert.match(fullscreenActionControlsSource, /import \{ Focusable, type FocusableProps \} from "@decky\/ui"/);
   assert.doesNotMatch(

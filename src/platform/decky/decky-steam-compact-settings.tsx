@@ -1,4 +1,4 @@
-import { Focusable, Menu, MenuItem, ToggleField, showContextMenu } from "@decky/ui";
+import { Focusable, Menu, MenuItem, showContextMenu } from "@decky/ui";
 import {
   ACTIVITY_CALENDAR_WEEK_OPTIONS,
   ACHIEVEMENT_COMPANION_COUNT_OPTIONS,
@@ -200,10 +200,6 @@ function getCountValueChevronStyle(): CSSProperties {
   };
 }
 
-function getToggleFieldWrapperStyle(): CSSProperties {
-  return { padding: "0 12px" };
-}
-
 function SteamCompactSettingsAction({
   ariaLabel,
   children,
@@ -352,9 +348,6 @@ export function DeckySteamCompactSettings({
   const [recentlyPlayedCount, setRecentlyPlayedCount] = useState<AchievementCompanionCount>(
     config?.recentlyPlayedCount ?? 5,
   );
-  const [includePlayedFreeGames, setIncludePlayedFreeGames] = useState(
-    config?.includePlayedFreeGames ?? false,
-  );
   const [activityCalendarWeeks, setActivityCalendarWeeks] = useState<ActivityCalendarWeeks>(
     settings.steamCompactActivityCalendarWeeks,
   );
@@ -362,7 +355,6 @@ export function DeckySteamCompactSettings({
   const valuesRef = useRef({
     recentAchievementsCount: config?.recentAchievementsCount ?? 5,
     recentlyPlayedCount: config?.recentlyPlayedCount ?? 5,
-    includePlayedFreeGames: config?.includePlayedFreeGames ?? false,
     activityCalendarWeeks: settings.steamCompactActivityCalendarWeeks,
   });
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
@@ -371,15 +363,12 @@ export function DeckySteamCompactSettings({
     const nextValues = {
       recentAchievementsCount: config?.recentAchievementsCount ?? 5,
       recentlyPlayedCount: config?.recentlyPlayedCount ?? 5,
-      includePlayedFreeGames: config?.includePlayedFreeGames ?? false,
     };
     configRef.current = config;
     valuesRef.current = { ...valuesRef.current, ...nextValues };
     setRecentAchievementsCount(nextValues.recentAchievementsCount);
     setRecentlyPlayedCount(nextValues.recentlyPlayedCount);
-    setIncludePlayedFreeGames(nextValues.includePlayedFreeGames);
   }, [
-    config?.includePlayedFreeGames,
     config?.recentAchievementsCount,
     config?.recentlyPlayedCount,
   ]);
@@ -401,7 +390,6 @@ export function DeckySteamCompactSettings({
           language: currentConfig.language,
           recentAchievementsCount: values.recentAchievementsCount,
           recentlyPlayedCount: values.recentlyPlayedCount,
-          includePlayedFreeGames: values.includePlayedFreeGames,
         }, ""),
         saveDeckySettings({
           ...readDeckySettings(),
@@ -420,10 +408,6 @@ export function DeckySteamCompactSettings({
   const updateActivityCalendarWeeks = (value: ActivityCalendarWeeks): void => {
     setActivityCalendarWeeks(value); valuesRef.current.activityCalendarWeeks = value; persistSettings();
   };
-  const updateIncludePlayedFreeGames = (value: boolean): void => {
-    setIncludePlayedFreeGames(value); valuesRef.current.includePlayedFreeGames = value; persistSettings();
-  };
-
   return (
     <div data-ac-steam-theme="compact" data-achievement-companion-steam-compact-settings style={getRootStyle()}>
       <section style={getSectionStyle()}>
@@ -473,19 +457,6 @@ export function DeckySteamCompactSettings({
             options={ACTIVITY_CALENDAR_WEEK_OPTIONS}
             value={activityCalendarWeeks}
           />
-          <div style={getToggleFieldWrapperStyle()}>
-            <ToggleField
-              label={<span style={getCompactSettingLabelStyle()}>Show free games</span>}
-              description={
-                <span style={getCompactSettingDescriptionStyle()}>
-                  Include played free games in Recently Played.
-                </span>
-              }
-              checked={includePlayedFreeGames}
-              highlightOnFocus
-              onChange={updateIncludePlayedFreeGames}
-            />
-          </div>
         </div>
       </section>
 

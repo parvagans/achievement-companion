@@ -84,7 +84,7 @@ export const DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS: AchievementCompanionSetting
   showGamePageAchievementBadge: true,
   gamePageAchievementBadgePosition: "top-left",
   gamePageAchievementBadgeColors: DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS,
-  steamCompactActivityCalendarWeeks: 4,
+  steamCompactActivityCalendarWeeks: 8,
   steamFullscreenActivityCalendarWeeks: 12,
   retroAchievementsCompactActivityCalendarWeeks: 8,
   retroAchievementsFullscreenActivityCalendarWeeks: 12,

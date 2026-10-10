@@ -23,6 +23,7 @@ import { DeckyFocusStyles, DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "../../decky
 import { takeDeckySteamGamepadFocus } from "../../decky-steam-gamepad-focus";
 import { DeckySettingsSection, handleDeckySettingsDirection, SettingsSectionTriggerHints, settingsScrollStyle, useDeckySettingsSectionTriggers } from "../../decky-settings-section";
 import { DeckySettingsDropdown } from "../../decky-settings-dropdown";
+import { isDeckyProviderSettingsWebReturnPending, useDeckyProviderSettingsWebReturnFocus } from "../../decky-provider-settings-web-return";
 import { getRetroAchievementsRefreshActionPresentation } from "./settings-view-model";
 import usersIconUrl from "../../assets/users.svg";
 import rankAchievementsIconUrl from "../../assets/rank-achievements.svg";
@@ -154,6 +155,8 @@ function SettingsSectionPill({ title, icon, selected, initialFocusRef, onSelect,
 export function DeckyRetroAchievementsProviderSettingsPage({ providerId, onBack, inProviderSwitcher = false, onRebuildSubsetIndex, onOpenExternalUrl }: DeckyFullScreenProviderSettingsPageProps): JSX.Element {
   const pageRef = useRef<HTMLDivElement>(null);
   const initialFocusRef = useRef<HTMLDivElement>(null);
+  const restoringFromWeb = isDeckyProviderSettingsWebReturnPending("retroachievements");
+  useDeckyProviderSettingsWebReturnFocus(pageRef, "retroachievements");
   const [viewportHeight, setViewportHeight] = useState<number>();
   const providerConfig = useDeckyProviderConfig(RETROACHIEVEMENTS_PROVIDER_ID);
   const settings = useDeckySettings();
@@ -190,12 +193,12 @@ export function DeckyRetroAchievementsProviderSettingsPage({ providerId, onBack,
   const handleColumnDirection = (event: GamepadEvent): void => handleDeckySettingsDirection(pageRef.current, event);
 
   useLayoutEffect(() => {
-    if (!inProviderSwitcher) return;
+    if (!inProviderSwitcher || restoringFromWeb) return;
     const page = pageRef.current; const ownerWindow = page?.ownerDocument.defaultView;
     if (page === null || page === undefined || ownerWindow === null || ownerWindow === undefined) return;
     const frame = ownerWindow.requestAnimationFrame(() => { if (!page.contains(page.ownerDocument.activeElement)) takeDeckySteamGamepadFocus(initialFocusRef.current); });
     return () => ownerWindow.cancelAnimationFrame(frame);
-  }, [inProviderSwitcher]);
+  }, [inProviderSwitcher, restoringFromWeb]);
 
   const refreshRetroAchievements = async (): Promise<void> => {
     setRefreshOperation("refreshing");

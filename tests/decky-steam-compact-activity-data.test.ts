@@ -33,7 +33,7 @@ test("compact Steam activity filters every unlock from the selected local day", 
     unlock("2", "next", nextDay),
   ];
 
-  assert.equal(STEAM_COMPACT_ACTIVITY_CALENDAR_WEEKS, 4);
+  assert.equal(STEAM_COMPACT_ACTIVITY_CALENDAR_WEEKS, 8);
   assert.deepEqual(
     filterSteamActivityEntriesForDay(entries, getSteamActivityLocalDayTimestamp(selected))
       .map((entry) => entry.achievement.achievementId),

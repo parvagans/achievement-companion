@@ -152,10 +152,6 @@ function getNextCountOption(current: AchievementCompanionCount): AchievementComp
   ]!;
 }
 
-function getToggleCopy(value: boolean): string {
-  return value ? "Current: On" : "Current: Off";
-}
-
 export function DeckySteamProviderCredentialsForm({
   config,
   statusLabel,
@@ -175,9 +171,6 @@ export function DeckySteamProviderCredentialsForm({
   );
   const [recentlyPlayedCount, setRecentlyPlayedCount] = useState(
     config?.recentlyPlayedCount ?? 5,
-  );
-  const [includePlayedFreeGames, setIncludePlayedFreeGames] = useState(
-    config?.includePlayedFreeGames ?? false,
   );
   const [statusCopy, setStatusCopy] = useState(getStatusCopy(config));
   const [detectedSteamId64, setDetectedSteamId64] = useState<string | undefined>(undefined);
@@ -200,11 +193,9 @@ export function DeckySteamProviderCredentialsForm({
     setLanguage(config?.language ?? "english");
     setRecentAchievementsCount(config?.recentAchievementsCount ?? 5);
     setRecentlyPlayedCount(config?.recentlyPlayedCount ?? 5);
-    setIncludePlayedFreeGames(config?.includePlayedFreeGames ?? false);
     setStatusCopy(getStatusCopy(config));
   }, [
     config?.hasApiKey,
-    config?.includePlayedFreeGames,
     config?.language,
     config?.recentAchievementsCount,
     config?.recentlyPlayedCount,
@@ -237,7 +228,6 @@ export function DeckySteamProviderCredentialsForm({
           language: language.trim() || "english",
           recentAchievementsCount,
           recentlyPlayedCount,
-          includePlayedFreeGames,
         },
         apiKeyDraft,
       );
@@ -463,13 +453,6 @@ export function DeckySteamProviderCredentialsForm({
         }}
       />
 
-      <DeckyProviderSettingsActionRow
-        label="Include played free games"
-        description={getToggleCopy(includePlayedFreeGames)}
-        onClick={() => {
-          setIncludePlayedFreeGames((current) => !current);
-        }}
-      />
     </div>
   );
 }

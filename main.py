@@ -30,7 +30,6 @@ from backend.provider_config import PLUGIN_CONFIG_VERSION
 from backend.provider_config import load_provider_config as _provider_load_provider_config
 from backend.provider_config import load_provider_config_store as _provider_load_provider_config_store
 from backend.provider_config import save_provider_config as _provider_save_provider_config
-from backend.provider_config import _normalize_boolean as _normalize_boolean
 from backend.provider_config import _normalize_optional_positive_count as _normalize_optional_positive_count
 from backend.provider_config import _normalize_positive_count as _normalize_positive_count
 from backend.secrets import _load_secret_store as _provider_load_secret_store
@@ -324,7 +323,6 @@ class Plugin:
     language = _coerce_string(payload.get("language")) or "english"
     recent_achievements_count = _normalize_positive_count(payload.get("recentAchievementsCount"), 5)
     recently_played_count = _normalize_positive_count(payload.get("recentlyPlayedCount"), 5)
-    include_played_free_games = _normalize_boolean(payload.get("includePlayedFreeGames"), False)
 
     _save_secret_api_key("steam", api_key)
     config = {
@@ -333,7 +331,6 @@ class Plugin:
       "language": language,
       "recentAchievementsCount": recent_achievements_count,
       "recentlyPlayedCount": recently_played_count,
-      "includePlayedFreeGames": include_played_free_games,
     }
     _save_provider_config("steam", config)
     _log("info", "Saved Steam credentials", providerId="steam", status="saved", hasApiKey=True)

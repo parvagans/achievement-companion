@@ -427,7 +427,6 @@ class BackendRuntimeTests(unittest.TestCase):
             "language": "english",
             "recentAchievementsCount": 3,
             "recentlyPlayedCount": 4,
-            "includePlayedFreeGames": True,
           },
         ),
       )

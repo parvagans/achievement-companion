@@ -456,6 +456,7 @@ function GamePageBadgeSettingsDisclosure({
         scrollDeckyFocusTargetIntoView(event.currentTarget);
       }}
       onBlur={() => setFocused(false)}
+      onGamepadBlur={() => setFocused(false)}
       style={getGamePageBadgeSettingsDisclosureStyle(focused, expanded)}
     >
       <span
@@ -646,6 +647,9 @@ function ProviderLauncherCard({
       onBlur={() => {
         setIsFocused(false);
       }}
+      onGamepadBlur={() => {
+        setIsFocused(false);
+      }}
       style={getChooserProviderCardStyle(tone, isFocused)}
     >
       {iconSrc !== undefined ? (
@@ -777,12 +781,8 @@ function DashboardScreen({
     [providerConfig, settings],
   );
   const steamLibraryAchievementScanSummary = useDeckySteamLibraryAchievementScanSummary(providerId);
-  const dashboardIncludesPlayedFreeGames = providerId === STEAM_PROVIDER_ID
-    ? (providerConfig as SteamProviderConfig | undefined)?.includePlayedFreeGames ?? false
-    : false;
-  // Count settings are presentation slices over a maximum-size dashboard
-  // snapshot. Only settings that change membership require a provider reload.
-  const dashboardSettingsSignature = `${providerId}:${dashboardIncludesPlayedFreeGames}`;
+  // Count settings are presentation slices over a maximum-size dashboard snapshot.
+  const dashboardSettingsSignature = providerId;
   const requestDashboardReload = useCallback((forceRefresh: boolean) => {
     if (forceRefresh) {
       dashboardForceRefreshNextLoad.current = true;

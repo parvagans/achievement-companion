@@ -6,7 +6,7 @@ import {
   type CompactActivityGame,
 } from "./decky-compact-activity-model";
 
-export const STEAM_COMPACT_ACTIVITY_CALENDAR_WEEKS = 4 as const;
+export const STEAM_COMPACT_ACTIVITY_CALENDAR_WEEKS = 8 as const;
 
 export function getSteamActivityLocalDayTimestamp(timestamp: number): number {
   return getLocalActivityCalendarDayTimestamp(timestamp);

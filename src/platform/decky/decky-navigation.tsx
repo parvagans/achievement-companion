@@ -60,6 +60,7 @@ import {
 } from "./decky-steam-full-screen-session-navigation";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 import { DeckyFocusStyles } from "./decky-focus-styles";
+import { isDeckyProviderSettingsWebReturnPending } from "./decky-provider-settings-web-return";
 import { createDeckyRouteRegistration } from "./decky-route-registration";
 import {
   buildDeckyFullScreenAchievementHistoryRoute,
@@ -478,6 +479,7 @@ function DeckyProviderFullScreenSession({
 }): JSX.Element {
   const providerTabs = getProviderFullScreenSessionTabs(providerId);
   const [activeTab, setActiveTab] = useState<ProviderFullScreenSessionTab>(() => providerFullScreenSessionTab);
+  const restoringRaAccountFromWeb = isDeckyProviderSettingsWebReturnPending("retroachievements");
   const [gamesInitialFilter, setGamesInitialFilter] = useState<CompletionProgressSelectionFilter>("all");
   const [gamesViewRevision, setGamesViewRevision] = useState(0);
   const retroAchievementsSettingsRootRef = useRef<HTMLDivElement>(null);
@@ -502,7 +504,7 @@ function DeckyProviderFullScreenSession({
   }, [providerId]);
 
   useLayoutEffect(() => {
-    if (activeTab !== "settings" || providerId !== RETROACHIEVEMENTS_PROVIDER_ID) {
+    if (activeTab !== "settings" || providerId !== RETROACHIEVEMENTS_PROVIDER_ID || restoringRaAccountFromWeb) {
       return;
     }
 
@@ -518,7 +520,7 @@ function DeckyProviderFullScreenSession({
     });
 
     return () => ownerWindow.cancelAnimationFrame(frame);
-  }, [activeTab, providerId]);
+  }, [activeTab, providerId, restoringRaAccountFromWeb]);
 
   const selectTab = (tab: ProviderFullScreenSessionTab): void => {
     if (!providerTabs.includes(tab)) return;
@@ -785,12 +787,13 @@ function DeckyFullScreenSettingsRoute(): JSX.Element {
     nextFullScreenSettingsProvider = "retroachievements";
     return initialProvider;
   });
+  const restoringRaAccountFromWeb = isDeckyProviderSettingsWebReturnPending("retroachievements");
   const selectFooterTab = (tab: ProviderSettingsFooterTab): void => setActiveProvider(tab);
   const keyboardAnchorRef = useRef<HTMLSpanElement>(null);
   const retroAchievementsRootRef = useRef<HTMLDivElement>(null);
   useDeckyFullscreenOnScreenKeyboardLifecycle(keyboardAnchorRef);
   useLayoutEffect(() => {
-    if (activeProvider !== "retroachievements") return;
+    if (activeProvider !== "retroachievements" || restoringRaAccountFromWeb) return;
     const root = retroAchievementsRootRef.current;
     const ownerWindow = root?.ownerDocument.defaultView;
     if (root === null || ownerWindow === null || ownerWindow === undefined) return;
@@ -799,7 +802,7 @@ function DeckyFullScreenSettingsRoute(): JSX.Element {
       takeDeckySteamGamepadFocus(firstControl);
     });
     return () => ownerWindow.cancelAnimationFrame(frame);
-  }, [activeProvider]);
+  }, [activeProvider, restoringRaAccountFromWeb]);
   const returnFromSettings = (): void => {
     navigateBackFromFullScreenRoot("settings");
   };

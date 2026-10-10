@@ -359,7 +359,6 @@ export async function writeValidatedDeckySteamProviderConfig(
       language: config.language,
       recentAchievementsCount: config.recentAchievementsCount,
       recentlyPlayedCount: config.recentlyPlayedCount,
-      includePlayedFreeGames: config.includePlayedFreeGames,
       apiKeyDraft,
     });
     result = {

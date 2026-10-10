@@ -750,11 +750,6 @@ export function normalizeSteamProfile(args: {
             },
           ]
         : []),
-      {
-        key: "include-played-free-games",
-        label: "Include Played Free Games",
-        value: args.config.includePlayedFreeGames ? "Yes" : "No",
-      },
       ...(communityVisibilityState !== undefined
         ? [
             {

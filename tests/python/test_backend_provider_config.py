@@ -73,7 +73,6 @@ class BackendProviderConfigTests(unittest.TestCase):
         "language": "",
         "recentAchievementsCount": 3,
         "recentlyPlayedCount": 4,
-        "includePlayedFreeGames": True,
       },
       True,
     )
@@ -86,7 +85,6 @@ class BackendProviderConfigTests(unittest.TestCase):
         "language": "english",
         "recentAchievementsCount": 3,
         "recentlyPlayedCount": 4,
-        "includePlayedFreeGames": True,
       },
     )
 
@@ -119,7 +117,7 @@ class BackendProviderConfigTests(unittest.TestCase):
       self.assertEqual(saved["steam"]["language"], "english")
       self.assertEqual(saved["steam"]["recentAchievementsCount"], 5)
       self.assertEqual(saved["steam"]["recentlyPlayedCount"], 6)
-      self.assertEqual(saved["steam"]["includePlayedFreeGames"], False)
+      self.assertNotIn("includePlayedFreeGames", saved["steam"])
       self.assertNotIn("apiKey", saved["steam"])
       self.assertNotIn("apiKeyDraft", saved["steam"])
       self.assertNotIn("token", saved["steam"])

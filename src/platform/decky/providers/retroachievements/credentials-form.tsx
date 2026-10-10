@@ -10,6 +10,7 @@ import { DeckyCompactPillActionItem } from "../../decky-compact-pill-action-item
 import { DeckyProviderSettingsActionGroup } from "../../decky-provider-settings-action-row";
 import { markDeckyFullscreenOnScreenKeyboardOpen } from "../../decky-full-screen-footer-overlay";
 import { settingsSaveButtonStyle } from "../../decky-settings-section";
+import { markDeckyProviderSettingsWebReturn } from "../../decky-provider-settings-web-return";
 import {
   RETROACHIEVEMENTS_CREDENTIAL_HELPER_COPY,
   RETROACHIEVEMENTS_LOGIN_URL,
@@ -186,7 +187,8 @@ function AccountHelpLink({ href, label, onOpenExternalUrl }: {
   const ariaLabel = href === RETROACHIEVEMENTS_LOGIN_URL
     ? "Open RetroAchievements login"
     : "Open RetroAchievements applications settings to copy the API key";
-  return <Focusable className="ac-ra-settings-help-link" data-ra-settings-help-link="true" noFocusRing role="button" aria-label={ariaLabel} aria-disabled={onOpenExternalUrl === undefined} tabIndex={onOpenExternalUrl === undefined ? -1 : 0} onActivate={() => onOpenExternalUrl?.(href)} onClick={() => onOpenExternalUrl?.(href)} style={{ display: "inline", verticalAlign: "baseline", padding: "0 2px", margin: "0 -2px", borderRadius: 3, border: "none", background: "transparent", color: steamTheme.color.accent, fontSize: "inherit", fontWeight: steamTheme.type.weight.medium, lineHeight: "inherit", textDecoration: "underline", whiteSpace: "nowrap" }}>{label}</Focusable>;
+  const openHelp = (): void => { if (onOpenExternalUrl === undefined) return; markDeckyProviderSettingsWebReturn("retroachievements"); onOpenExternalUrl(href); };
+  return <Focusable className="ac-ra-settings-help-link" data-ra-settings-help-link="true" noFocusRing role="button" aria-label={ariaLabel} aria-disabled={onOpenExternalUrl === undefined} tabIndex={onOpenExternalUrl === undefined ? -1 : 0} onActivate={openHelp} onClick={openHelp} style={{ display: "inline", verticalAlign: "baseline", padding: "0 2px", margin: "0 -2px", borderRadius: 3, border: "none", background: "transparent", color: steamTheme.color.accent, fontSize: "inherit", fontWeight: steamTheme.type.weight.medium, lineHeight: "inherit", textDecoration: "underline", whiteSpace: "nowrap" }}>{label}</Focusable>;
 }
 
 function FullscreenAccountSetupInstructions({ onOpenExternalUrl }: {

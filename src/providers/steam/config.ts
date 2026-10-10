@@ -8,7 +8,6 @@ export interface SteamProviderConfig {
   readonly language: string;
   readonly recentAchievementsCount: AchievementCompanionCount;
   readonly recentlyPlayedCount: AchievementCompanionCount;
-  readonly includePlayedFreeGames: boolean;
 }
 
 export const DEFAULT_STEAM_PROVIDER_CONFIG: SteamProviderConfig = {
@@ -17,7 +16,6 @@ export const DEFAULT_STEAM_PROVIDER_CONFIG: SteamProviderConfig = {
   language: "english",
   recentAchievementsCount: 5,
   recentlyPlayedCount: 5,
-  includePlayedFreeGames: false,
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -79,10 +77,6 @@ export function normalizeSteamProviderConfig(value: unknown): SteamProviderConfi
       value["recentlyPlayedCount"],
       DEFAULT_STEAM_PROVIDER_CONFIG.recentlyPlayedCount,
     ),
-    includePlayedFreeGames: normalizeBoolean(
-      value["includePlayedFreeGames"],
-      DEFAULT_STEAM_PROVIDER_CONFIG.includePlayedFreeGames,
-    ),
   };
 }
 
@@ -105,6 +99,5 @@ export function serializeSteamProviderConfig(config: SteamProviderConfig): strin
     language: config.language.trim() || DEFAULT_STEAM_PROVIDER_CONFIG.language,
     recentAchievementsCount: config.recentAchievementsCount,
     recentlyPlayedCount: config.recentlyPlayedCount,
-    includePlayedFreeGames: config.includePlayedFreeGames,
   });
 }

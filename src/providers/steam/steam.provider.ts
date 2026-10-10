@@ -137,7 +137,6 @@ function getSteamRecentGameSnapshotLoadCacheKey(
   return [
     config.steamId64,
     config.language,
-    config.includePlayedFreeGames ? "1" : "0",
     String(count),
   ].join(":");
 }
@@ -148,7 +147,6 @@ function getSteamRecentGameSnapshotLoadCacheKeyPrefix(
   return [
     config.steamId64,
     config.language,
-    config.includePlayedFreeGames ? "1" : "0",
   ].join(":");
 }
 

@@ -64,7 +64,6 @@ export const deckyProviderConfigStore: ProviderConfigStore<DeckyProviderConfigVa
           language: steamConfig.language,
           recentAchievementsCount: steamConfig.recentAchievementsCount,
           recentlyPlayedCount: steamConfig.recentlyPlayedCount,
-          includePlayedFreeGames: steamConfig.includePlayedFreeGames,
         },
       );
       if (savedConfig !== undefined) {
@@ -99,7 +98,6 @@ interface LegacySteamConfigRecord {
   readonly language?: unknown;
   readonly recentAchievementsCount?: unknown;
   readonly recentlyPlayedCount?: unknown;
-  readonly includePlayedFreeGames?: unknown;
 }
 
 type DeckyProviderConfigListener = () => void;
@@ -273,7 +271,6 @@ async function migrateLegacySteamConfig(
       language,
       recentAchievementsCount: legacyConfig.recentAchievementsCount,
       recentlyPlayedCount: legacyConfig.recentlyPlayedCount,
-      includePlayedFreeGames: legacyConfig.includePlayedFreeGames,
     },
   );
 
@@ -421,7 +418,6 @@ export async function saveDeckySteamCredentials(args: {
   readonly language: string;
   readonly recentAchievementsCount: SteamProviderConfig["recentAchievementsCount"];
   readonly recentlyPlayedCount: SteamProviderConfig["recentlyPlayedCount"];
-  readonly includePlayedFreeGames: boolean;
 }): Promise<SteamProviderConfig | undefined> {
   const savedConfig = await callDeckyBackendMethod<SteamProviderConfig | undefined>(
     "save_steam_credentials",

@@ -124,7 +124,7 @@ export function createSteamClient(transport: SteamTransport): SteamClient {
         query: {
           ...toAuthQuery(config),
           include_appinfo: true,
-          include_played_free_games: config.includePlayedFreeGames,
+          include_played_free_games: false,
           format: "json",
         },
       });

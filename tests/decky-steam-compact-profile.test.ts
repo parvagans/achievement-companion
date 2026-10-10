@@ -179,7 +179,7 @@ test("Steam compact settings reuse the provider configuration and keep API crede
   assert.match(dashboardSource, /isShowingSteamCompactSettings/u);
   assert.doesNotMatch(dashboardSource, /onOpenSettings=\{onOpenSteamCompactSettings\}/u);
   assert.match(dashboardSource, /onOpenApiSettings=\{onOpenSettings\}/u);
-  assert.match(bootstrapSource, /includePlayedFreeGames/u);
+  assert.doesNotMatch(bootstrapSource, /includePlayedFreeGames/u);
   assert.match(compactSettingsSource, /data-achievement-companion-steam-compact-settings/u);
   assert.match(compactSettingsSource, /padding: "0 16px 4px"/u);
   assert.match(compactSettingsSource, /data-achievement-companion-steam-settings-initial-focus/u);
@@ -193,11 +193,11 @@ test("Steam compact settings reuse the provider configuration and keep API crede
   assert.match(compactSettingsSource, /label="Activity Calendar"/u);
   assert.match(compactSettingsSource, /options=\{ACTIVITY_CALENDAR_WEEK_OPTIONS\}/u);
   assert.match(compactSettingsSource, /steamCompactActivityCalendarWeeks/u);
-  assert.match(compactSettingsSource, /Show free games/u);
+  assert.doesNotMatch(compactSettingsSource, /Show free games/u);
   assert.match(compactSettingsSource, /API Settings/u);
   assert.match(compactSettingsSource, /getCompactSettingLabelStyle/u);
   assert.match(compactSettingsSource, /getCompactSettingDescriptionStyle/u);
-  assert.match(compactSettingsSource, /getToggleFieldWrapperStyle/u);
+  assert.doesNotMatch(compactSettingsSource, /getToggleFieldWrapperStyle/u);
   assert.match(compactSettingsSource, /const persistSettings = \(\): void =>/u);
   assert.match(compactSettingsSource, /saveQueueRef\.current = saveQueueRef\.current\.then/u);
   assert.match(compactSettingsSource, /onChange=\{updateRecentAchievementsCount\}/u);
