@@ -400,7 +400,11 @@ function getPersonalAchievementDuration(snapshot: GameDetailSnapshot): string {
 
 function SteamCompactGameTitle({ title }: { readonly title: string }): JSX.Element {
   const titleRef = useRef<HTMLDivElement>(null);
-  const [fontSizePx, setFontSizePx] = useState<number | undefined>(undefined);
+  const [fittedTitle, setFittedTitle] = useState<{
+    readonly title: string;
+    readonly fontSizePx: number;
+  } | undefined>(undefined);
+  const fontSizePx = fittedTitle?.title === title ? fittedTitle.fontSizePx : undefined;
 
   useLayoutEffect(() => {
     const element = titleRef.current;
@@ -410,10 +414,21 @@ function SteamCompactGameTitle({ title }: { readonly title: string }): JSX.Eleme
     }
 
     const currentSize = Number.parseFloat(ownerWindow.getComputedStyle(element).fontSize);
-    const nextSize = element.scrollWidth > element.clientWidth && Number.isFinite(currentSize)
-      ? Math.max(MIN_TITLE_FONT_SIZE_PX, Math.floor((currentSize * element.clientWidth / element.scrollWidth) * 10) / 10)
-      : undefined;
-    setFontSizePx((current) => current === nextSize ? current : nextSize);
+    if (!Number.isFinite(currentSize) || element.scrollWidth <= element.clientWidth) {
+      return;
+    }
+
+    const nextSize = Math.max(
+      MIN_TITLE_FONT_SIZE_PX,
+      Math.floor((currentSize * element.clientWidth / element.scrollWidth) * 10) / 10,
+    );
+    if (nextSize >= currentSize) {
+      return;
+    }
+
+    setFittedTitle((current) => current?.title === title && current.fontSizePx === nextSize
+      ? current
+      : { title, fontSizePx: nextSize });
   }, [fontSizePx, title]);
 
   return <div ref={titleRef} title={title} style={getTitleStyle(fontSizePx)}>{title}</div>;
