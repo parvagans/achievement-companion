@@ -981,7 +981,15 @@ export function DeckyFullScreenGamePage({
         consumeFullScreenGameSectionRestoration(providerId, gameId);
       }
       if (target !== null && target !== undefined) {
-        cancelFocus = requestDeckySteamGamepadFocusAfterMount(target);
+        if (shouldFocusInitialSection && activeSteamSection === "overview" && !restorationIsSteamProvider) {
+          // Match the RA profile's entry behavior: take native controller focus
+          // once the Overview controls are mounted so L1/R1 works immediately.
+          if (!anchor.contains(anchor.ownerDocument.activeElement)) {
+            takeDeckySteamGamepadFocus(target);
+          }
+        } else {
+          cancelFocus = requestDeckySteamGamepadFocusAfterMount(target);
+        }
         const savedScrollTop = currentState[activeSteamSection].scrollTop;
         target.scrollIntoView({ block: "center", inline: "nearest" });
         ownerWindow.requestAnimationFrame(() => {

@@ -53,6 +53,10 @@ const retroAchievementsCapabilities: ProviderCapabilities = {
   search: false,
 };
 
+const ACHIEVEMENT_HISTORY_TRANSIENT_RETRIES = 2;
+const ACHIEVEMENT_HISTORY_RETRY_BASE_DELAY_MS = 500;
+const ACHIEVEMENT_HISTORY_MAX_RETRY_DELAY_MS = 15_000;
+
 interface RetroAchievementsProviderDependencies {
   readonly client?: RetroAchievementsClient;
   readonly transport?: RetroAchievementsTransport;
@@ -329,16 +333,53 @@ function applySubsetProgress(
 async function loadAllAchievementsEarnedBetween(
   client: RetroAchievementsClient,
   config: RetroAchievementsProviderConfig,
+  sleep: (milliseconds: number) => Promise<void>,
   options: {
     readonly fromEpochSeconds: number;
     readonly toEpochSeconds: number;
     readonly limit?: number;
   },
 ): Promise<readonly RecentUnlock[]> {
-  const rawUnlocks = await client.loadAchievementsEarnedBetween(config, {
-    fromEpochSeconds: options.fromEpochSeconds,
-    toEpochSeconds: options.toEpochSeconds,
-  });
+  let rawUnlocks: Awaited<ReturnType<RetroAchievementsClient["loadAchievementsEarnedBetween"]>>;
+  let retries = 0;
+  while (true) {
+    try {
+      rawUnlocks = await client.loadAchievementsEarnedBetween(config, {
+        fromEpochSeconds: options.fromEpochSeconds,
+        toEpochSeconds: options.toEpochSeconds,
+      });
+      break;
+    } catch (error) {
+      const statusCode = readStatusCode(error);
+      const isTransientHttpFailure = statusCode === 408
+        || statusCode === 425
+        || statusCode === 429
+        || (statusCode !== undefined && statusCode >= 500 && statusCode <= 599);
+      const isTransientNetworkFailure = statusCode === undefined
+        && (error instanceof TypeError
+          || (error instanceof Error && /fetch|network|timed? ?out|connection/i.test(error.message)));
+      const isTransientResponseFailure = error instanceof SyntaxError;
+      if (
+        retries >= ACHIEVEMENT_HISTORY_TRANSIENT_RETRIES
+        || (!isTransientHttpFailure && !isTransientNetworkFailure && !isTransientResponseFailure)
+      ) {
+        throw error;
+      }
+
+      const requestedRetryAfterMs = readRetryAfterMs(error) ?? 0;
+      if (requestedRetryAfterMs > ACHIEVEMENT_HISTORY_MAX_RETRY_DELAY_MS) {
+        // Avoid retrying sooner than the API requested; a later profile entry
+        // can start a fresh history load after this rate-limit window.
+        throw error;
+      }
+      const delayMs = Math.max(
+        ACHIEVEMENT_HISTORY_RETRY_BASE_DELAY_MS * 2 ** retries,
+        requestedRetryAfterMs,
+      );
+      retries += 1;
+      await sleep(delayMs);
+    }
+  }
   const isSmallestRange = options.fromEpochSeconds >= options.toEpochSeconds;
 
   if (rawUnlocks.length < ACHIEVEMENTS_EARNED_BETWEEN_RESPONSE_LIMIT || isSmallestRange) {
@@ -348,7 +389,7 @@ async function loadAllAchievementsEarnedBetween(
   const midpoint = options.fromEpochSeconds + Math.floor(
     (options.toEpochSeconds - options.fromEpochSeconds) / 2,
   );
-  const newerUnlocks = await loadAllAchievementsEarnedBetween(client, config, {
+  const newerUnlocks = await loadAllAchievementsEarnedBetween(client, config, sleep, {
     fromEpochSeconds: midpoint + 1,
     toEpochSeconds: options.toEpochSeconds,
     ...(options.limit !== undefined ? { limit: options.limit } : {}),
@@ -361,7 +402,7 @@ async function loadAllAchievementsEarnedBetween(
     return newerUnlocks;
   }
 
-  const olderUnlocks = await loadAllAchievementsEarnedBetween(client, config, {
+  const olderUnlocks = await loadAllAchievementsEarnedBetween(client, config, sleep, {
     fromEpochSeconds: options.fromEpochSeconds,
     toEpochSeconds: midpoint,
     ...(remainingLimit !== undefined ? { limit: remainingLimit } : {}),
@@ -1064,6 +1105,7 @@ export function createRetroAchievementsProvider(
       return loadAllAchievementsEarnedBetween(
         client,
         config,
+        sleep,
         options,
       );
     },

@@ -210,7 +210,7 @@ export function DeckyFullScreenLoadingState({
           </div>
         </div>
         <h1 style={getLoadingTitleStyle()}>{title}</h1>
-        {!isError || !useSteamTheme ? <p style={{ margin: "-5px 0 0", color: useSteamTheme ? steamTheme.color.textSecondary : "#b8d8f3", fontSize: FULL_SCREEN_LOADING_BODY_FONT_SIZE, lineHeight: 1.2 }}>Preparing your data. This may take a few moments.</p> : null}
+        {!isError ? <p style={{ margin: "-5px 0 0", color: useSteamTheme ? steamTheme.color.textSecondary : "#b8d8f3", fontSize: FULL_SCREEN_LOADING_BODY_FONT_SIZE, lineHeight: 1.2 }}>Preparing your data. This may take a few moments.</p> : null}
         <div style={getLoadingInfoStyle()}>
           <img alt="" aria-hidden="true" src={infoIconUrl} style={getLoadingInfoIconStyle()} />
           <p style={getLoadingInfoTextStyle()}>{description}</p>
