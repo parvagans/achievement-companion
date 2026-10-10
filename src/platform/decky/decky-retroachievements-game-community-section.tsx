@@ -1,5 +1,5 @@
 import type { GameCommunityStats } from "@core/domain";
-import { Focusable } from "@decky/ui";
+import { DeckyFullScreenGameSpotlightFocusTarget } from "./decky-full-screen-game-spotlight-card";
 import {
   formatRetroAchievementsCommunityDuration,
   hasDisplayableRetroAchievementsCommunityStats,
@@ -27,11 +27,8 @@ export function DeckyRetroAchievementsGameCommunitySection({ stats }: { readonly
   ];
 
   return (
-    <Focusable
-      noFocusRing
-      role="button"
-      onActivate={() => {}}
-      data-achievement-companion-focus-target={RETROACHIEVEMENTS_COMMUNITY_SECTION_FOCUS_TARGET}
+    <DeckyFullScreenGameSpotlightFocusTarget
+      focusTargetId={RETROACHIEVEMENTS_COMMUNITY_SECTION_FOCUS_TARGET}
       style={{ ...raRecipes.card("fullscreen", true), background: raTheme.surface.contentCard, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, padding: 16 }}
     >
       {items.map((item) => (
@@ -40,6 +37,6 @@ export function DeckyRetroAchievementsGameCommunitySection({ stats }: { readonly
           <div style={{ color: raTheme.color.textSecondary, fontSize: 11 }}>{item.label}</div>
         </div>
       ))}
-    </Focusable>
+    </DeckyFullScreenGameSpotlightFocusTarget>
   );
 }

@@ -278,8 +278,6 @@ export function DeckySteamHuntersCommunitySection({
   return (
     <DeckyFullScreenGameSpotlightCard
       title={<SteamHuntersCardTitle title="Community" />}
-      // The standalone Community tab has no actions. Its card is therefore a
-      // deliberate section-entry anchor so shoulder navigation retains focus.
       focusable={sectionEntryFocusTarget}
       {...(sectionEntryFocusTarget
         ? { focusTargetId: STEAM_HUNTERS_COMMUNITY_SECTION_FOCUS_TARGET }
