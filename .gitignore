@@ -14,6 +14,28 @@ releases/
 
 # Documentation output
 docs/
+!docs/
+docs/*
+!docs/screenshots/
+docs/screenshots/*
+!docs/screenshots/SCREENSHOT_PLAN.md
+!docs/screenshots/readme/
+docs/screenshots/readme/*
+!docs/screenshots/readme/.gitkeep
+!docs/screenshots/readme/*.png
+!docs/screenshots/readme/*.jpg
+!docs/screenshots/readme/ra-fullscreen-games-activity.png
+!docs/screenshots/ra-forum/
+docs/screenshots/ra-forum/*
+!docs/screenshots/ra-forum/.gitkeep
+!docs/screenshots/ra-forum/*.png
+!docs/screenshots/ra-forum/*.jpg
+!docs/screenshots/ra-forum/ra-fullscreen-games-activity.png
+!docs/screenshots/generated/
+docs/screenshots/generated/*
+!docs/screenshots/generated/.gitkeep
+!docs/screenshots/generated/*.png
+!docs/screenshots/generated/*.jpg
 
 # Python cache/test artifacts
 __pycache__/
