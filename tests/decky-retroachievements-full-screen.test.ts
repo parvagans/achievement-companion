@@ -81,15 +81,35 @@ const snapshot: GameDetailSnapshot = {
   ],
 };
 
-test("provider visit tab order keeps Steam and RA four-tab cycles", () => {
+test("provider visit tab order adds Systems to the RA cycle only", () => {
   const steamTabs = getProviderFullScreenSessionTabs("steam");
   const raTabs = getProviderFullScreenSessionTabs("retroachievements");
 
   assert.deepEqual(steamTabs, ["profile", "games", "activity", "settings"]);
-  assert.deepEqual(raTabs, ["profile", "games", "activity", "settings"]);
+  assert.deepEqual(raTabs, ["profile", "games", "activity", "systems", "settings"]);
   assert.equal(getAdjacentProviderFullScreenSessionTab(raTabs, "profile", "previous"), "settings");
-  assert.equal(getAdjacentProviderFullScreenSessionTab(raTabs, "activity", "next"), "settings");
+  assert.equal(getAdjacentProviderFullScreenSessionTab(raTabs, "activity", "next"), "systems");
+  assert.equal(getAdjacentProviderFullScreenSessionTab(raTabs, "systems", "next"), "settings");
   assert.equal(getAdjacentProviderFullScreenSessionTab(raTabs, "settings", "next"), "profile");
+});
+
+test("RA retained navigation renders the centered Systems coming-soon screen", async () => {
+  const [navigationSource, footerSource, systemsSource, themeSource] = await Promise.all([
+    readFile(new URL("../src/platform/decky/decky-navigation.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-footer-overlay.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-retroachievements-systems-coming-soon.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/ra-theme.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(footerSource, /id: "activity", label: "Activity"[\s\S]*id: "systems", label: "Systems"[\s\S]*id: "settings", label: "Settings"/u);
+  assert.match(navigationSource, /activeTab === "systems" && providerId === RETROACHIEVEMENTS_PROVIDER_ID[\s\S]*DeckyRetroAchievementsSystemsComingSoon/u);
+  assert.match(systemsSource, /getDeckyFullScreenLoadingPageStyle/u);
+  assert.match(systemsSource, /DeckyLoadingBrandMark providerId="retroachievements"/u);
+  assert.match(systemsSource, /data-achievement-companion-focus-target="ra-systems-coming-soon"/u);
+  assert.match(systemsSource, /requestDeckySteamGamepadFocusAfterMount\(focusRef\.current\)/u);
+  assert.match(systemsSource, /autoFocus[\s\S]*noFocusRing[\s\S]*onActivate[\s\S]*preferredFocus/u);
+  assert.match(themeSource, /\.gpfocus:not\(\[data-achievement-companion-focus-target="ra-community-summary"\]\):not\(\[data-achievement-companion-focus-target="ra-systems-coming-soon"\]\)/u);
+  assert.match(systemsSource, />COMING SOON\.\.\.<\/h1>/u);
 });
 
 test("RetroAchievements refresh success is represented by a green action label, not a success caption", () => {

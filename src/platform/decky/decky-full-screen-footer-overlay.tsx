@@ -136,6 +136,7 @@ export const RETROACHIEVEMENTS_PROFILE_FOOTER_NAVIGATION_ITEMS = [
   { id: "profile", label: "Profile" },
   { id: "games", label: "Games" },
   { id: "activity", label: "Activity" },
+  { id: "systems", label: "Systems" },
   { id: "settings", label: "Settings" },
 ] as const satisfies readonly DeckyFullScreenFooterNavigationItem[];
 

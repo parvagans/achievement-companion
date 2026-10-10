@@ -772,7 +772,7 @@ export function getRaFocusStylesCss(): string {
       display: none;
     }
   }
-  [data-ac-ra-theme="fullscreen"] .Panel.Focusable.gpfocus:not([data-achievement-companion-focus-target="ra-community-summary"]) {
+  [data-ac-ra-theme="fullscreen"] .Panel.Focusable.gpfocus:not([data-achievement-companion-focus-target="ra-community-summary"]):not([data-achievement-companion-focus-target="ra-systems-coming-soon"]) {
     border-color: ${raTheme.focus.border} !important;
     background: ${raTheme.surface.focusedContentCard} !important;
     box-shadow: ${raTheme.focus.shadow} !important;

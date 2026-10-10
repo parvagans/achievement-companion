@@ -58,6 +58,7 @@ import {
   getProviderFullScreenSessionTabs,
   type ProviderFullScreenSessionTab,
 } from "./decky-steam-full-screen-session-navigation";
+import { DeckyRetroAchievementsSystemsComingSoon } from "./decky-retroachievements-systems-coming-soon";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 import { DeckyFocusStyles } from "./decky-focus-styles";
 import { isDeckyProviderSettingsWebReturnPending } from "./decky-provider-settings-web-return";
@@ -464,7 +465,7 @@ function DeckyFullScreenAchievementHistoryRoute(): JSX.Element {
 }
 
 /**
- * A provider's Profile, Games, Activity, and optional Settings are views within one
+ * A provider's Profile, Games, Activity, provider-specific tabs, and Settings are views within one
  * full-screen visit, not entries in the Decky route history. The session shell
  * stays mounted so a single Back press leaves the visit, while only the active
  * tab's GamepadUI tree is rendered. Game and achievement details still use real
@@ -478,7 +479,9 @@ function DeckyProviderFullScreenSession({
   readonly onBack: () => void;
 }): JSX.Element {
   const providerTabs = getProviderFullScreenSessionTabs(providerId);
-  const [activeTab, setActiveTab] = useState<ProviderFullScreenSessionTab>(() => providerFullScreenSessionTab);
+  const [activeTab, setActiveTab] = useState<ProviderFullScreenSessionTab>(() =>
+    providerTabs.includes(providerFullScreenSessionTab) ? providerFullScreenSessionTab : "profile"
+  );
   const restoringRaAccountFromWeb = isDeckyProviderSettingsWebReturnPending("retroachievements");
   const [gamesInitialFilter, setGamesInitialFilter] = useState<CompletionProgressSelectionFilter>("all");
   const [gamesViewRevision, setGamesViewRevision] = useState(0);
@@ -608,6 +611,9 @@ function DeckyProviderFullScreenSession({
             }
           }}
         />
+      : null}
+      {activeTab === "systems" && providerId === RETROACHIEVEMENTS_PROVIDER_ID ?
+        <DeckyRetroAchievementsSystemsComingSoon isActive={activeTab === "systems"} />
       : null}
       {activeTab === "settings" && providerId === STEAM_PROVIDER_ID ?
         <DeckyFullScreenSettingsPage
