@@ -33,7 +33,7 @@ test("Steam recipes share semantics with different physical density", () => {
   assert.notEqual(steamTheme.color.success, steamTheme.color.rewardGold);
   assert.equal(steamRecipes.achievementState.locked.artworkFilter, "grayscale(1)");
   const detachedRow = steamRecipes.interactiveRow;
-  assert.equal(detachedRow("compact").background, steamTheme.surface.interactive);
+  assert.equal(detachedRow("compact").background, steamTheme.surface.contentCard);
 });
 
 test("focus and selection stay distinct and Steam overrides require an owned root", () => {

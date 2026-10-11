@@ -6,6 +6,7 @@ import importlib.util
 import io
 import json
 import os
+import re
 import ssl
 import sys
 import tempfile
@@ -20,6 +21,7 @@ from pathlib import Path
 
 import _test_support  # noqa: F401
 import backend.http as backend_http
+import backend.secrets as backend_secrets
 import backend.tls as backend_tls
 
 
@@ -109,12 +111,109 @@ def write_malformed_text(path: Path, text: str) -> None:
 
 
 class BackendRuntimeTests(unittest.TestCase):
+  def setUp(self) -> None:
+    self._original_read_machine_id_text = backend_secrets._read_machine_id_text
+    backend_secrets._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[assignment]
+
+  def tearDown(self) -> None:
+    backend_secrets._read_machine_id_text = self._original_read_machine_id_text  # type: ignore[assignment]
+
+  def test_secret_record_fixture_uses_the_machine_id_reader(self) -> None:
+    self.assertEqual(backend_secrets._resolve_seed_text("unused-settings-path"), "test-machine-id")
+
+  def test_authenticated_endpoint_lists_cover_current_provider_clients(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      module = load_main_module(Path(temp_dir))
+
+    for provider, source_path, allowed_paths in (
+      (
+        "RetroAchievements",
+        ROOT_DIR / "src" / "providers" / "retroachievements" / "client" / "client.ts",
+        module.RETROACHIEVEMENTS_API_PATHS,
+      ),
+      (
+        "Steam",
+        ROOT_DIR / "src" / "providers" / "steam" / "client" / "client.ts",
+        module.STEAM_API_PATHS,
+      ),
+    ):
+      with self.subTest(provider=provider):
+        client_source = source_path.read_text(encoding="utf-8")
+        client_paths = set(re.findall(r'const [A-Z_]+_PATH = "([^"]+)";', client_source))
+        self.assertGreater(len(client_paths), 0)
+        self.assertEqual(client_paths, allowed_paths)
+
+  def test_authenticated_rpcs_reject_unlisted_paths_before_secret_lookup(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      module = load_main_module(Path(temp_dir))
+      module._load_secret_api_key = lambda _provider_id: self.fail("Secret was read for an invalid endpoint")  # type: ignore[attr-defined,assignment]
+      plugin = module.Plugin()
+
+      for method, path in (
+        (plugin.request_retroachievements_json, "https://example.invalid/capture"),
+        (plugin.request_retroachievements_json, "//example.invalid/capture"),
+        (plugin.request_retroachievements_json, "API_Unknown.php"),
+        (plugin.request_steam_json, "https://example.invalid/capture"),
+        (plugin.request_steam_json, "//example.invalid/capture"),
+        (plugin.request_steam_json, "ISteamUser/Unknown/v1/"),
+      ):
+        with self.subTest(path=path), self.assertRaisesRegex(RuntimeError, "allowed API endpoint"):
+          asyncio.run(method({"path": path}))
+
+  def test_blocking_provider_and_rom_calls_leave_event_loop_responsive(self) -> None:
+    scenarios = (
+      ("request_retroachievements_json", {"path": "API_GetUserProfile.php"}),
+      ("validate_retroachievements_credentials", {"username": "alice", "apiKey": "draft-key"}),
+      ("validate_steam_credentials", {"steamId64": "76561198000000000", "apiKey": "draft-key"}),
+      ("get_steam_shortcut_rom_hash", {"appId": "12345"}),
+    )
+    for method_name, payload in scenarios:
+      with self.subTest(method=method_name), tempfile.TemporaryDirectory() as temp_dir:
+        module = load_main_module(Path(temp_dir))
+        started = threading.Event()
+        release = threading.Event()
+
+        def blocking_request_json(**kwargs: object) -> dict[str, object]:
+          started.set()
+          if not release.wait(timeout=1):
+            raise TimeoutError("Provider mock was not released while the event loop ran.")
+          if kwargs.get("path") == "ISteamUser/GetPlayerSummaries/v2/":
+            return {"response": {"players": [{"steamid": "76561198000000000"}]}}
+          return {"ok": True}
+
+        def blocking_rom_hash(app_id: str) -> dict[str, str]:
+          started.set()
+          if not release.wait(timeout=1):
+            raise TimeoutError("ROM hash mock was not released while the event loop ran.")
+          return {"appId": app_id}
+
+        module._build_retroachievements_config_view = lambda _config, _has_key: {  # type: ignore[attr-defined,assignment]
+          "username": "alice",
+          "hasApiKey": True,
+        }
+        module._load_provider_config = lambda _provider_id: {}  # type: ignore[attr-defined,assignment]
+        module._load_secret_api_key = lambda _provider_id: "stored-key"  # type: ignore[attr-defined,assignment]
+        module._request_json = blocking_request_json  # type: ignore[attr-defined,assignment]
+        module._load_steam_shortcut_rom_hash = blocking_rom_hash  # type: ignore[attr-defined,assignment]
+
+        async def exercise() -> tuple[object, bool]:
+          task = asyncio.create_task(getattr(module.Plugin(), method_name)(payload))
+          try:
+            await asyncio.sleep(0.05)
+            responsive = started.is_set() and not task.done()
+          finally:
+            release.set()
+          return await asyncio.wait_for(task, timeout=1), responsive
+
+        result, responsive = asyncio.run(exercise())
+        self.assertTrue(responsive)
+        self.assertIsNotNone(result)
+
   def test_storage_paths_follow_temporary_root_and_valid_files_stay_quiet(self) -> None:
     with tempfile.TemporaryDirectory() as settings_root, tempfile.TemporaryDirectory() as logs_root:
       settings_dir = Path(settings_root) / "completely-different" / "settings"
       logs_dir = Path(logs_root) / "decky-exported-logs"
       module = load_main_module(settings_dir, logs_dir)
-      module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
 
       self.assertEqual(module.SETTINGS_PATH, settings_dir)  # type: ignore[attr-defined]
       self.assertEqual(module.LOGS_PATH, logs_dir)  # type: ignore[attr-defined]
@@ -160,7 +259,6 @@ class BackendRuntimeTests(unittest.TestCase):
   def test_legacy_secret_migrates_to_protected_record(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
       module = load_main_module(Path(temp_dir))
-      module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
       write_legacy_secret_record(module, "retroAchievements", "ra-secret")
 
       self.assertEqual(module._load_secret_api_key("retroAchievements"), "ra-secret")  # type: ignore[attr-defined]
@@ -178,7 +276,6 @@ class BackendRuntimeTests(unittest.TestCase):
   def test_new_secret_record_is_not_base64_json(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
       module = load_main_module(Path(temp_dir))
-      module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
 
       module._save_secret_api_key("steam", "steam-secret")  # type: ignore[attr-defined]
 
@@ -192,7 +289,6 @@ class BackendRuntimeTests(unittest.TestCase):
   def test_retroachievements_credentials_save_persists_counts(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
       module = load_main_module(Path(temp_dir))
-      module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
 
       plugin = module.Plugin()
       saved_config = asyncio.run(
@@ -412,7 +508,6 @@ class BackendRuntimeTests(unittest.TestCase):
   def test_save_after_corrupted_secret_recovery_writes_fresh_valid_secret_file(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
       module = load_main_module(Path(temp_dir))
-      module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
       write_malformed_text(
         module.SECRETS_PATH,  # type: ignore[attr-defined]
         '{"version":2,"steam":{"version":2,"scheme":"local-obfuscation-v1","salt":"oops"',
@@ -444,7 +539,6 @@ class BackendRuntimeTests(unittest.TestCase):
   def test_save_after_corrupted_config_recovery_writes_fresh_valid_config_file(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
       module = load_main_module(Path(temp_dir))
-      module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
       write_malformed_text(
         module.CONFIG_PATH,  # type: ignore[attr-defined]
         '{"version":1,"steam":{"steamId64":"123","hasApiKey":true',
@@ -475,7 +569,7 @@ class BackendRuntimeTests(unittest.TestCase):
       original_logger = FAKE_DECKY.logger
       capture_logger = CapturingDeckyLogger()
       FAKE_DECKY.logger = capture_logger
-      original_urlopen = backend_http.urlopen
+      original_build_opener = backend_http.build_opener
 
       def fake_urlopen(*args, **kwargs):  # noqa: ANN001, ANN002, ANN003
         raise urllib.error.HTTPError(
@@ -486,10 +580,9 @@ class BackendRuntimeTests(unittest.TestCase):
           fp=io.BytesIO(b"Access is denied."),
         )
 
-      backend_http.urlopen = fake_urlopen  # type: ignore[assignment]
+      backend_http.build_opener = lambda *handlers: types.SimpleNamespace(open=fake_urlopen)  # type: ignore[assignment]
       try:
         module = load_main_module(Path(temp_dir))
-        module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
 
         async def invoke_request() -> dict[str, object]:
           return module._request_json(  # type: ignore[attr-defined]
@@ -504,7 +597,7 @@ class BackendRuntimeTests(unittest.TestCase):
 
         handled_response = asyncio.run(invoke_request())
       finally:
-        backend_http.urlopen = original_urlopen  # type: ignore[assignment]
+        backend_http.build_opener = original_build_opener  # type: ignore[assignment]
         FAKE_DECKY.logger = original_logger
 
       rendered = "\n".join(message for _, message in capture_logger.records)
@@ -611,7 +704,7 @@ class BackendRuntimeTests(unittest.TestCase):
       original_logger = FAKE_DECKY.logger
       capture_logger = CapturingDeckyLogger()
       FAKE_DECKY.logger = capture_logger
-      original_urlopen = backend_http.urlopen
+      original_build_opener = backend_http.build_opener
       calls: list[tuple[str, int | None]] = []
 
       class FakeResponse:
@@ -627,15 +720,18 @@ class BackendRuntimeTests(unittest.TestCase):
         def read(self) -> bytes:
           return self._body
 
-      def fake_urlopen(request, timeout=None, context=None):  # noqa: ANN001, ANN002, ANN003
+      def fake_urlopen(request, timeout=None):  # noqa: ANN001, ANN002
         calls.append((request.full_url, timeout))
-        self.assertIsNotNone(context)
         return FakeResponse(b'{"ok": true, "count": 3}')
 
-      backend_http.urlopen = fake_urlopen  # type: ignore[assignment]
+      def fake_build_opener(*handlers: object) -> object:
+        self.assertTrue(any(isinstance(handler, urllib.request.HTTPSHandler) for handler in handlers))
+        self.assertTrue(any(isinstance(handler, backend_http._ProviderRedirectHandler) for handler in handlers))  # type: ignore[attr-defined]
+        return types.SimpleNamespace(open=fake_urlopen)
+
+      backend_http.build_opener = fake_build_opener  # type: ignore[assignment]
       try:
         module = load_main_module(Path(temp_dir))
-        module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
 
         async def invoke_request() -> dict[str, object]:
           return module._request_json(  # type: ignore[attr-defined]
@@ -649,7 +745,7 @@ class BackendRuntimeTests(unittest.TestCase):
 
         result = asyncio.run(invoke_request())
       finally:
-        backend_http.urlopen = original_urlopen  # type: ignore[assignment]
+        backend_http.build_opener = original_build_opener  # type: ignore[assignment]
         FAKE_DECKY.logger = original_logger
 
       rendered = "\n".join(message for _, message in capture_logger.records)
@@ -665,7 +761,7 @@ class BackendRuntimeTests(unittest.TestCase):
       original_logger = FAKE_DECKY.logger
       capture_logger = CapturingDeckyLogger()
       FAKE_DECKY.logger = capture_logger
-      original_urlopen = backend_http.urlopen
+      original_build_opener = backend_http.build_opener
 
       def fake_urlopen(*args, **kwargs):  # noqa: ANN001, ANN002, ANN003
         raise urllib.error.HTTPError(
@@ -676,10 +772,9 @@ class BackendRuntimeTests(unittest.TestCase):
           fp=io.BytesIO(b"Access is denied."),
         )
 
-      backend_http.urlopen = fake_urlopen  # type: ignore[assignment]
+      backend_http.build_opener = lambda *handlers: types.SimpleNamespace(open=fake_urlopen)  # type: ignore[assignment]
       try:
         module = load_main_module(Path(temp_dir))
-        module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
 
         async def invoke_request() -> None:
           with self.assertRaises(RuntimeError):
@@ -694,7 +789,7 @@ class BackendRuntimeTests(unittest.TestCase):
 
         asyncio.run(invoke_request())
       finally:
-        backend_http.urlopen = original_urlopen  # type: ignore[assignment]
+        backend_http.build_opener = original_build_opener  # type: ignore[assignment]
         FAKE_DECKY.logger = original_logger
 
       rendered = "\n".join(message for _, message in capture_logger.records)
@@ -709,7 +804,7 @@ class BackendRuntimeTests(unittest.TestCase):
       original_logger = FAKE_DECKY.logger
       capture_logger = CapturingDeckyLogger()
       FAKE_DECKY.logger = capture_logger
-      original_urlopen = backend_http.urlopen
+      original_build_opener = backend_http.build_opener
 
       class FakeResponse:
         def __enter__(self) -> "FakeResponse":
@@ -724,10 +819,9 @@ class BackendRuntimeTests(unittest.TestCase):
       def fake_urlopen(request, timeout=None, context=None):  # noqa: ANN001, ANN002, ANN003
         return FakeResponse()
 
-      backend_http.urlopen = fake_urlopen  # type: ignore[assignment]
+      backend_http.build_opener = lambda *handlers: types.SimpleNamespace(open=fake_urlopen)  # type: ignore[assignment]
       try:
         module = load_main_module(Path(temp_dir))
-        module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
 
         async def invoke_request() -> None:
           with self.assertRaises(RuntimeError):
@@ -742,7 +836,7 @@ class BackendRuntimeTests(unittest.TestCase):
 
         asyncio.run(invoke_request())
       finally:
-        backend_http.urlopen = original_urlopen  # type: ignore[assignment]
+        backend_http.build_opener = original_build_opener  # type: ignore[assignment]
         FAKE_DECKY.logger = original_logger
 
       rendered = "\n".join(message for _, message in capture_logger.records)
@@ -760,7 +854,6 @@ class BackendRuntimeTests(unittest.TestCase):
       FAKE_DECKY.logger = capture_logger
       try:
         module = load_main_module(Path(temp_dir), Path(logs_dir))
-        module._read_machine_id_text = lambda: "test-machine-id"  # type: ignore[attr-defined]
         plugin = module.Plugin()
         asyncio.run(plugin._main())
       finally:

@@ -13,8 +13,39 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  node-tests:
+    name: Frontend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.4.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test:node
+
+  python-tests:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: node scripts/run-tests.mjs --python-only
+
   publish:
     name: Build and publish GitHub release
+    needs: [node-tests, python-tests]
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -55,12 +86,6 @@ jobs:
         run: |
           pnpm version:check
           pnpm typecheck
-
-      - name: Test the updater and release contracts
-        run: node --import tsx --test tests/update-system.test.ts tests/versioning.test.ts
-
-      - name: Test the updater backend
-        run: python -m unittest discover -s tests/python -p "test_backend_update.py"
 
       - name: Prepare verified release assets
         run: pnpm release:prepare

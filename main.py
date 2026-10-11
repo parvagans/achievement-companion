@@ -28,11 +28,9 @@ from backend.provider_config import build_steam_config_view as _build_steam_conf
 from backend.provider_config import clear_provider_config as _provider_clear_provider_config
 from backend.provider_config import PLUGIN_CONFIG_VERSION
 from backend.provider_config import load_provider_config as _provider_load_provider_config
-from backend.provider_config import load_provider_config_store as _provider_load_provider_config_store
 from backend.provider_config import save_provider_config as _provider_save_provider_config
 from backend.provider_config import _normalize_optional_positive_count as _normalize_optional_positive_count
 from backend.provider_config import _normalize_positive_count as _normalize_positive_count
-from backend.secrets import _load_secret_store as _provider_load_secret_store
 from backend.secrets import clear_secret_api_key as _provider_clear_secret_api_key
 from backend.secrets import load_secret_api_key as _provider_load_secret_api_key
 from backend.secrets import save_secret_api_key as _provider_save_secret_api_key
@@ -53,6 +51,31 @@ LOGS_PATH = Path(decky.DECKY_PLUGIN_LOG_DIR)
 CONFIG_PATH = SETTINGS_PATH / "provider-config.json"
 SECRETS_PATH = SETTINGS_PATH / "provider-secrets.json"
 STEAM_HUNTERS_REQUEST_TIMEOUT_SECONDS = 8
+RETROACHIEVEMENTS_API_PATHS = frozenset({
+  "API_GetUserProfile.php",
+  "API_GetUserSummary.php",
+  "API_GetConsoleIDs.php",
+  "API_GetGameList.php",
+  "API_GetGameExtended.php",
+  "API_GetUserProgress.php",
+  "API_GetUserCompletionProgress.php",
+  "API_GetAchievementsEarnedBetween.php",
+  "API_GetUserRecentAchievements.php",
+  "API_GetUserRecentlyPlayedGames.php",
+  "API_GetGameInfoAndUserProgress.php",
+  "API_GetAchievementDistribution.php",
+  "API_GetGameProgression.php",
+})
+STEAM_API_PATHS = frozenset({
+  "ISteamUser/GetPlayerSummaries/v2/",
+  "IPlayerService/GetSteamLevel/v1/",
+  "IPlayerService/GetBadges/v1/",
+  "IPlayerService/GetOwnedGames/v1/",
+  "IPlayerService/GetRecentlyPlayedGames/v1/",
+  "ISteamUserStats/GetPlayerAchievements/v1/",
+  "ISteamUserStats/GetSchemaForGame/v2/",
+  "ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/",
+})
 _STEAM_USER_ENTRY_PATTERN = re.compile(
   r'"(?P<steam_id64>\d{17})"\s*\{(?P<body>[^{}]*)\}',
   re.DOTALL,
@@ -106,10 +129,6 @@ def _storage_warning(message: str, fields: Mapping[str, Any]) -> None:
   _log("warning", message, **dict(fields))
 
 
-def _load_provider_config_store() -> dict[str, Any]:
-  return _provider_load_provider_config_store(CONFIG_PATH, warn=_storage_warning)
-
-
 def _load_provider_config(provider_key: str) -> dict[str, Any] | None:
   return _provider_load_provider_config(CONFIG_PATH, provider_key, warn=_storage_warning)
 
@@ -120,10 +139,6 @@ def _save_provider_config(provider_key: str, config: dict[str, Any]) -> None:
 
 def _clear_provider_config(provider_key: str) -> None:
   _provider_clear_provider_config(CONFIG_PATH, provider_key, warn=_storage_warning)
-
-
-def _load_secret_store() -> dict[str, Any]:
-  return _provider_load_secret_store(SECRETS_PATH, warn=_storage_warning)
 
 
 def _load_secret_api_key(provider_key: str) -> str | None:
@@ -381,6 +396,8 @@ class Plugin:
     path = _coerce_string(payload.get("path"))
     if path is None:
       raise RuntimeError("RetroAchievements request requires a path.")
+    if path not in RETROACHIEVEMENTS_API_PATHS:
+      raise RuntimeError("RetroAchievements request requires an allowed API endpoint.")
 
     config = _build_retroachievements_config_view(
       _load_provider_config("retroAchievements"),
@@ -395,7 +412,8 @@ class Plugin:
 
     query = payload.get("query")
     query_mapping = query if isinstance(query, Mapping) else None
-    return _request_json(
+    return await asyncio.to_thread(
+      _request_json,
       provider_id="retroachievements",
       provider_label="RetroAchievements",
       base_url="https://retroachievements.org/API/",
@@ -416,7 +434,8 @@ class Plugin:
 
     try:
       # API_GetUserProfile is a small authenticated endpoint and does not persist draft credentials.
-      response = _request_json(
+      response = await asyncio.to_thread(
+        _request_json,
         provider_id="retroachievements",
         provider_label="RetroAchievements",
         base_url="https://retroachievements.org/API/",
@@ -452,6 +471,8 @@ class Plugin:
     path = _coerce_string(payload.get("path"))
     if path is None:
       raise RuntimeError("Steam request requires a path.")
+    if path not in STEAM_API_PATHS:
+      raise RuntimeError("Steam request requires an allowed API endpoint.")
 
     config = _build_steam_config_view(
       _load_provider_config("steam"),
@@ -537,7 +558,8 @@ class Plugin:
       return {"ok": False, "failure": {"category": "account"}}
 
     try:
-      response = _request_json(
+      response = await asyncio.to_thread(
+        _request_json,
         provider_id="steam",
         provider_label="Steam",
         base_url="https://api.steampowered.com/",
@@ -579,7 +601,7 @@ class Plugin:
     if app_id is None:
       return None
 
-    result = _load_steam_shortcut_rom_hash(app_id)
+    result = await asyncio.to_thread(_load_steam_shortcut_rom_hash, app_id)
     if result is None:
       return None
 

@@ -10,7 +10,7 @@ test("Steam game achievement return has one scroll-restoration owner", async () 
 
   assert.match(
     source,
-    /<TopAlignedScrollViewport[\s\S]*restoreAfterLayout[\s\S]*restoreScrollTop=\{readSteamGameSectionPageState/u,
+    /<TopAlignedScrollViewport[\s\S]*restoreAfterLayout[\s\S]*restoreScrollTop=\{activeSteamSection === "overview"[\s\S]*readFullScreenGameSectionPageState/u,
   );
   assert.match(
     source,
@@ -18,7 +18,7 @@ test("Steam game achievement return has one scroll-restoration owner", async () 
   );
   assert.match(
     source,
-    /const onScroll = \(\): void => \{\s*if \(readSteamGameSectionPageState\(providerId, gameId\)\.restoreRequested\) \{\s*return;/u,
+    /const onScroll = \(\): void => \{[\s\S]*if \(readFullScreenGameSectionPageState\(providerId, gameId\)\.restoreRequested\) \{\s*return;/u,
   );
   assert.doesNotMatch(
     source,

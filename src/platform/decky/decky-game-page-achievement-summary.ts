@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type {
   CompletionProgressSnapshot,
   DashboardSnapshot,
@@ -7,6 +7,8 @@ import type {
   RecentlyPlayedGame,
 } from "@core/domain";
 import { readDeckyDashboardSnapshotCacheEntry } from "./decky-dashboard-snapshot-cache";
+import { createDeckyGamePageSummaryRevisionStore } from "./decky-game-page-achievement-lifecycle";
+import { subscribeDeckyRaNativeAchievementInvalidation } from "./decky-ra-native-achievement-invalidation";
 import { stripCompletionProgressSubsetSuffix } from "./decky-completion-progress-grouping";
 import {
   loadDeckySteamShortcutMetadata,
@@ -21,6 +23,7 @@ import {
   readDeckySteamLibraryAchievementScanSummary,
 } from "./providers/steam/config";
 import { findSteamLibraryScanGameSummaryByAppId } from "./providers/steam/game-detail";
+import { readDeckyProviderConfigs, useDeckyProviderConfigs } from "./providers/provider-config-store";
 import {
   createRetroAchievementsClient,
   type RetroAchievementsClient,
@@ -340,6 +343,19 @@ type RetroAchievementsGameListCandidatesLoadResult =
 
 const gamePageAchievementSummaryCache = new Map<string, CachedGamePageAchievementSummaryEntry>();
 const gamePageAchievementSummaryInFlight = new Map<string, Promise<GamePageAchievementSummary>>();
+const gamePageAchievementSummaryRevisions = createDeckyGamePageSummaryRevisionStore();
+let observedSteamProviderConfig = readDeckyProviderConfigs().steam;
+
+export function subscribeDeckyGamePageAchievementSummaryRevision(
+  appId: string,
+  listener: () => void,
+): () => void {
+  return gamePageAchievementSummaryRevisions.subscribe(appId, listener);
+}
+
+export function readDeckyGamePageAchievementSummaryRevision(appId: string): number {
+  return gamePageAchievementSummaryRevisions.snapshot(appId);
+}
 const retroAchievementsCompletionStatusEnrichmentCacheByGameId = new Map<
   string,
   {
@@ -3161,11 +3177,40 @@ export function invalidateDeckyGamePageAchievementSummaryCache(appId: string): v
     appId,
     (retroAchievementsShortcutRomHashInfoGenerationByAppId.get(appId) ?? 0) + 1,
   );
+  gamePageAchievementSummaryRevisions.invalidate(appId);
 }
+
+function invalidateAllDeckyGamePageAchievementSummaryCaches(): void {
+  const appIds = new Set([
+    ...gamePageAchievementSummaryCache.keys(),
+    ...gamePageAchievementSummaryInFlight.keys(),
+    ...retroAchievementsShortcutRomHashInfoCacheByAppId.keys(),
+    ...gamePageAchievementSummaryRevisions.subscribedAppIds(),
+  ]);
+  for (const appId of appIds) {
+    invalidateDeckyGamePageAchievementSummaryCache(appId);
+  }
+  retroAchievementsCompletionStatusEnrichmentCacheByGameId.clear();
+  retroAchievementsCompletionStatusEnrichmentInFlightByGameId.clear();
+}
+
+function ensureSteamAccountSummaryCacheCurrent(): void {
+  const currentConfig = readDeckyProviderConfigs().steam;
+  if (observedSteamProviderConfig === currentConfig) {
+    return;
+  }
+  observedSteamProviderConfig = currentConfig;
+  invalidateAllDeckyGamePageAchievementSummaryCaches();
+}
+
+subscribeDeckyRaNativeAchievementInvalidation(() => {
+  invalidateAllDeckyGamePageAchievementSummaryCaches();
+});
 
 export async function loadDeckyGamePageAchievementSummary(
   appId: string,
 ): Promise<GamePageAchievementSummary> {
+  ensureSteamAccountSummaryCacheCurrent();
   const cachedEntry = gamePageAchievementSummaryCache.get(appId);
   if (
     cachedEntry !== undefined &&
@@ -3311,17 +3356,35 @@ export async function loadDeckyGamePageAchievementSummary(
 export function useGamePageAchievementSummary(
   appId: string | undefined,
 ): GamePageAchievementSummary | undefined {
+  const steamProviderConfig = useDeckyProviderConfigs().steam;
+  const subscribeToRevision = useCallback(
+    (listener: () => void) =>
+      appId === undefined
+        ? () => undefined
+        : subscribeDeckyGamePageAchievementSummaryRevision(appId, listener),
+    [appId],
+  );
+  const readRevision = useCallback(
+    () => appId === undefined ? 0 : readDeckyGamePageAchievementSummaryRevision(appId),
+    [appId],
+  );
+  const cacheRevision = useSyncExternalStore(subscribeToRevision, readRevision, readRevision);
   const [summary, setSummary] = useState<GamePageAchievementSummary | undefined>(undefined);
   const requestSequenceRef = useRef(0);
 
   useEffect(() => {
+    requestSequenceRef.current += 1;
+    const requestSequence = requestSequenceRef.current;
     if (appId === undefined) {
       setSummary(undefined);
       return;
     }
 
-    requestSequenceRef.current += 1;
-    const requestSequence = requestSequenceRef.current;
+    ensureSteamAccountSummaryCacheCurrent();
+    const requestRevision = readDeckyGamePageAchievementSummaryRevision(appId);
+    const isCurrent = () =>
+      requestSequenceRef.current === requestSequence &&
+      readDeckyGamePageAchievementSummaryRevision(appId) === requestRevision;
     const loadingSummary: GamePageAchievementSummary = {
       status: "loading",
       appId,
@@ -3331,7 +3394,7 @@ export function useGamePageAchievementSummary(
 
     void loadDeckyGamePageAchievementSummary(appId)
       .then(async (nextSummary) => {
-        if (requestSequenceRef.current !== requestSequence) {
+        if (!isCurrent()) {
           return;
         }
 
@@ -3352,7 +3415,7 @@ export function useGamePageAchievementSummary(
           nextSummary.status === "ready" && nextSummary.provider === "retroachievements"
             ? await enrichDeckyGamePageAchievementSummaryCompletionStatus(nextSummary)
             : nextSummary;
-        if (requestSequenceRef.current !== requestSequence) {
+        if (!isCurrent()) {
           return;
         }
 
@@ -3360,7 +3423,7 @@ export function useGamePageAchievementSummary(
         markAchievementCompanionGamePageAchievementSummaryFetchCompleted(presentationSummary);
       })
       .catch((error: unknown) => {
-        if (requestSequenceRef.current !== requestSequence) {
+        if (!isCurrent()) {
           return;
         }
 
@@ -3377,7 +3440,13 @@ export function useGamePageAchievementSummary(
         setSummary(errorSummary);
         markAchievementCompanionGamePageAchievementSummaryFetchCompleted(errorSummary);
       });
-  }, [appId]);
+
+    return () => {
+      if (requestSequenceRef.current === requestSequence) {
+        requestSequenceRef.current += 1;
+      }
+    };
+  }, [appId, cacheRevision, steamProviderConfig]);
 
   return useMemo(() => summary, [summary]);
 }

@@ -26,7 +26,7 @@ import {
 } from "../src/platform/decky/decky-qam-theme";
 import { getSteamCompactActionStyle } from "../src/platform/decky/decky-steam-compact-action-styles";
 import { steamTheme } from "../src/platform/decky/steam-theme";
-import { getRaFocusStylesCss, raRecipes } from "../src/platform/decky/ra-theme";
+import { getRaFocusStylesCss, raRecipes, raTheme } from "../src/platform/decky/ra-theme";
 import { DeckyRetroAchievementsGameIcon, getRetroAchievementsGameIconAward } from "../src/platform/decky/decky-retroachievements-game-icon";
 import {
   filterRetroAchievementsUnlocksByMode,
@@ -303,8 +303,8 @@ test("Steam and RetroAchievements compact controls share the same focus recipe a
   assert.equal(shared.border, `1px solid ${achievementCompanionQamTheme.focus.compactBorder}`);
   assert.equal(steam.border, shared.border);
   assert.equal(ra.border, shared.border);
-  assert.equal(steam.background, shared.background);
-  assert.equal(ra.background, shared.background);
+  assert.equal(steam.background, steamTheme.surface.focusedContentCard);
+  assert.equal(ra.background, raTheme.surface.focusedContentStat);
   assert.equal(steam.boxShadow, shared.boxShadow);
   assert.equal(ra.boxShadow, shared.boxShadow);
   assert.equal(steam.transition, shared.transition);

@@ -365,7 +365,7 @@ test("steam games route uses the fixed concept dashboard and shared profile foot
   assert.match(artworkSource, /STEAM_FULLSCREEN_GAME_ROW_HEIGHT = 70;/u);
   assert.match(dashboardSource, /minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT/u);
   assert.match(dashboardSource, /function getMetadataCellStyle[\s\S]*borderLeft: "1px solid rgba\(76, 148, 187, 0\.22\)"/u);
-  assert.equal((dashboardSource.match(/style=\{getMetadataCellStyle\(\)\}/gu) ?? []).length, 2);
+  assert.equal((dashboardSource.match(/style=\{getMetadataCellStyle\(providerId === RETROACHIEVEMENTS_PROVIDER_ID\)\}/gu) ?? []).length, 2);
   assert.match(dashboardSource, /<img\s+alt=""\s+aria-hidden="true"\s+src=\{src\}/u);
   assert.match(dashboardSource, /filter: STEAM_GAMES_ICON_FILTERS\[tone\]/u);
   assert.doesNotMatch(dashboardSource, /MaskImage|IconMask/u);
@@ -405,7 +405,7 @@ test("provider full-screen routes load Profile, Games, and Activity once per vis
     servicesSource,
     /async function createDeckyProviderFullScreenDataSession[\s\S]*forceRefresh: true[\s\S]*completionProgressPromise[\s\S]*achievementHistoryPromise[\s\S]*Promise\.all/u,
   );
-  assert.match(servicesSource, /Steam's full library scan is a separate explicit operation[\s\S]*loadDeckyDashboardState/u);
+  assert.match(servicesSource, /export async function runDeckySteamFullLibraryScan/u);
   assert.doesNotMatch(
     servicesSource.slice(
       servicesSource.indexOf("async function createDeckyProviderFullScreenDataSession"),
@@ -710,7 +710,7 @@ test("Steam activity loading state owns the Activity footer and renders its trop
 
   assert.match(historySource, /title=\{state\.status === "error"[\s\S]*activeNavigationItemId="activity"/u);
   assert.match(historySource, /onPreviousNavigationItem=\{onOpenGames\}[\s\S]*onNextNavigationItem=\{onOpenSettings\}/u);
-  assert.match(loadingSource, /<svg aria-hidden="true" viewBox="0 0 24 24"[\s\S]*<path[\s\S]*fill="#2bc3f2"/u);
+  assert.match(loadingSource, /<DeckyLoadingBrandMark isLoading=\{!isError\} providerId=\{loadingProviderId\} \/>/u);
   assert.match(footerSource, /if \(!isTopFooterOverlayOwner\(owner\)\) return;/u);
 });
 
@@ -734,9 +734,9 @@ test("full-screen loading screens retain simple provider-specific loading states
   assert.match(loadingSource, /FULL_SCREEN_LOADING_FONT_FAMILY/u);
   assert.match(loadingSource, /FULL_SCREEN_LOADING_TITLE_FONT_SIZE/u);
   assert.match(loadingSource, /loading frame below is the sole vertical-positioning authority[\s\S]*padding: 0/u);
-  assert.match(loadingSource, /rgba\(218, 70, 241, 0\.28\)[\s\S]*rgba\(27, 161, 255, 0\.25\)[\s\S]*rgba\(0, 224, 239, 0\.16\)/u);
-  assert.match(loadingSource, /\.\.\.getDeckyFullScreenLoadingPageStyle\(\)[\s\S]*useSteamTheme \?[\s\S]*\.\.\.getLoadingFrameStyle\(\)/u);
-  assert.match(loadingSource, /!isError \|\| !useSteamTheme/u);
+  assert.match(loadingSource, /background: DECKY_LOADING_PAGE_BACKGROUND/u);
+  assert.match(loadingSource, /getDeckyLoadingProviderId\(providerId\) \?\? \(useSteamTheme \? "steam" : undefined\)/u);
+  assert.match(loadingSource, /style=\{\{ \.\.\.getDeckyFullScreenLoadingPageStyle\(\), \.\.\.getLoadingFrameStyle\(\) \}\}/u);
   assert.match(loadingSource, /data-achievement-companion-full-screen-loading-state="true"/u);
   assert.match(terminalBackSource, /full-screen-loading-state="true"\]\[aria-busy="true"\][\s\S]*if \(activeLoader !== null\) \{[\s\S]*return;/u);
   assert.match(appServicesSource, /async function refreshActivityCalendarUnlocks/u);
@@ -876,7 +876,7 @@ test("Steam settings use four filter tabs and move About/Updates to the shared p
   assert.doesNotMatch(source, /label="Show free games"/u);
   assert.match(aboutSource, /<DeckyUpdateSettingsPanel/u);
   assert.match(aboutSource, /<AboutLink title="Changelog"[\s\S]*<AboutLink title="GitHub"[\s\S]*<AboutLink title="Report Issue"/u);
-  assert.match(aboutSource, /isRetroAchievements \? <AboutLink title="RetroAchievements"/u);
+  assert.doesNotMatch(aboutSource, /AboutLink title="RetroAchievements"/u);
   assert.doesNotMatch(footerSource, /\{ id: "about", label: "About" \}/u);
   assert.match(source, /selectedSection === "data" \? <SteamSettingsContent>[\s\S]*<Heading>DATA &amp; SYNC<\/Heading>[\s\S]*<Heading>DANGEROUS ZONE<\/Heading>/u);
   assert.doesNotMatch(source, /SteamAccordionHeader|accountExpanded|fullscreenSettingsExpanded|updatesExpanded|aria-expanded=\{expanded\}/u);
@@ -886,7 +886,7 @@ test("Steam settings use four filter tabs and move About/Updates to the shared p
   assert.doesNotMatch(source, /title="Display Preferences"|SteamDisplayPreferences|displayExpanded/u);
   assert.doesNotMatch(source, /ac-settings-section-pill|steamRecipes\.filter\("fullscreen", selected\)/u);
   assert.match(source, /handleDeckySettingsDirection\(pageRef\.current, event\)/u);
-  assert.match(source, /SteamID64: steamid\.io · Web API key: steamcommunity\.com\/dev\/apikey\./u);
+  assert.match(source, /SteamAccountHelpLink href="https:\/\/steamcommunity\.com\/dev\/apikey" label="Steam Web API key page"/u);
   assert.doesNotMatch(source, /Weeks shown on the Activity tab/u);
   assert.match(source, /function CredentialStatusLabel/u);
   assert.match(source, /\^\\d\{17\}\$/u);
@@ -899,11 +899,11 @@ test("Steam settings use four filter tabs and move About/Updates to the shared p
   assert.match(source, /writeValidatedDeckySteamProviderConfig/u);
   assert.match(source, /<Heading>DATA &amp; SYNC<\/Heading>/u);
   assert.match(source, /refreshDeckySteamHuntersProfileState/u);
-  assert.match(source, /runDeckySteamFullLibraryScan/u);
-  assert.match(source, /title=\{operation === "refreshing-library" \? "Running Full Library Scan…" : "Full Library Scan"\}/u);
-  assert.match(source, /metadata=\{operation === "refreshing-library" \? "Scanning…" : fullScan === undefined \? "Never" : `\$\{fullScan\.date\} · \$\{fullScan\.time\}`\}/u);
+  assert.match(source, /startSteamFullLibraryScan/u);
+  assert.match(source, /title=\{libraryScanState === "scanning" \? "Running Full Library Scan…" : "Full Library Scan"\}/u);
+  assert.match(source, /metadata=\{libraryScanState === "scanning" \? "Scanning…" : fullScan === undefined \? "Never" : `\$\{fullScan\.date\} · \$\{fullScan\.time\}`\}/u);
   assert.match(source, /Refresh Steam & SteamHunters/u);
-  assert.match(source, /success=\{fullScan !== undefined\} danger=\{fullScan === undefined\}/u);
+  assert.match(source, /success=\{libraryScanState === "completed" \|\| fullScan !== undefined\} danger=\{libraryScanState === "error" \|\| fullScan === undefined\}/u);
   assert.doesNotMatch(source, /Cached Games|Refresh Steam Library/u);
   assert.doesNotMatch(updateSource, />UPDATES<|Installed Version|Check at most once every 24 hours/u);
   assert.match(updateSource, /Check daily and when your Deck reconnects to the internet\./u);
@@ -956,13 +956,13 @@ test("QAM Provider Settings uses RA, Steam, About footer tabs without shrinking 
   assert.match(navigationSource, /nextFullScreenSettingsProvider = target\.providerId === STEAM_PROVIDER_ID[\s\S]*\? "steam"[\s\S]*: "retroachievements"/u);
   assert.match(navigationSource, /useDeckyFullscreenOnScreenKeyboardLifecycle\(keyboardAnchorRef\)/u);
   assert.match(navigationSource, /reserveSteamProfileFooter[\s\S]*inProviderSwitcher[\s\S]*<DeckyFullScreenFooterOverlay/u);
-  assert.match(navigationSource, /activeProvider === "about" \? <DeckyFullScreenAboutPage providerId=\{lastSelectedProvider\}/u);
+  assert.match(navigationSource, /activeProvider === "about" \? <DeckyFullScreenAboutPage onOpenExternalUrl=\{\(url\) => DeckyNavigation\.NavigateToExternalWeb\(url\)\} \/>/u);
   assert.match(navigationSource, /activeNavigationItemId=\{activeProvider\}[\s\S]*onPreviousNavigationItem=\{\(\) => selectFooterTab[\s\S]*onNextNavigationItem=\{\(\) => selectFooterTab/u);
   assert.match(steamSource, /height: pageHeight \?\? "100vh", flexShrink: 0/u);
   assert.match(retroSource, /!inProviderSwitcher \? <PanelSection title="Navigation">/u);
   assert.match(retroSource, /inProviderSwitcher \? 62 : 12/u);
   assert.match(retroSource, /height: viewportHeight \?\? "100vh"[\s\S]*overflow: "hidden"/u);
-  assert.match(retroSource, /<DeckySettingsSection><div style=\{settingsScrollStyle\}>/u);
+  assert.match(retroSource, /<DeckySettingsSection themeVariant="ra"><div style=\{settingsScrollStyle\}>/u);
   assert.match(retroSource, /useSharedFullscreenFooter=\{inProviderSwitcher\}/u);
   assert.match(credentialsSource, /useSharedFullscreenFooter\) markDeckyFullscreenOnScreenKeyboardOpen\(event\.currentTarget\.ownerDocument\)/u);
 });

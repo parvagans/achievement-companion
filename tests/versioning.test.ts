@@ -19,6 +19,18 @@ function createFixture(version = "1.2.3"): string {
   return root;
 }
 
+function setJsonVersion(root: string, filename: "package.json" | "plugin.json", version: string): void {
+  const path = resolve(root, filename);
+  const metadata = JSON.parse(readFileSync(path, "utf8")) as Record<string, unknown>;
+  writeFileSync(path, `${JSON.stringify({ ...metadata, version }, null, 2)}\n`);
+}
+
+function checkFixture(root: string, allowDeckyPackageSuffix = false): number | null {
+  return spawnSync(process.execPath, [checkScript, ...(allowDeckyPackageSuffix ? ["--allow-decky-package-suffix"] : [])], {
+    cwd: root,
+  }).status;
+}
+
 test("version synchronization updates only contractual outputs", () => {
   const root = createFixture();
   try {
@@ -41,6 +53,36 @@ test("version consistency fails on stale metadata and invalid SemVer", () => {
   } finally {
     rmSync(staleRoot, { recursive: true, force: true });
     rmSync(invalidRoot, { recursive: true, force: true });
+  }
+});
+
+test("Decky review build accepts only its package-only commit or revision suffix", () => {
+  const root = createFixture();
+  try {
+    assert.equal(spawnSync(process.execPath, [syncScript], { cwd: root }).status, 0);
+    for (const version of ["1.2.3-abcdef0", "1.2.3-3", "1.2.3-abcdef0-2", "1.2.3-0123456"]) {
+      setJsonVersion(root, "package.json", version);
+      assert.notEqual(checkFixture(root), 0, `ordinary release accepted ${version}`);
+      assert.equal(checkFixture(root, true), 0, `Decky review rejected ${version}`);
+    }
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("Decky review policy rejects unrelated or malformed version changes", () => {
+  const root = createFixture();
+  try {
+    assert.equal(spawnSync(process.execPath, [syncScript], { cwd: root }).status, 0);
+    for (const version of ["1.2.4-abcdef0", "1.2.3-abcdef", "1.2.3-other", "1.2.3-0", "1.2.3-abcdef0-extra"]) {
+      setJsonVersion(root, "package.json", version);
+      assert.notEqual(checkFixture(root, true), 0, `Decky review accepted ${version}`);
+    }
+    setJsonVersion(root, "package.json", "1.2.3-abcdef0");
+    setJsonVersion(root, "plugin.json", "1.2.4");
+    assert.notEqual(checkFixture(root, true), 0, "Decky review accepted changed plugin metadata");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
   }
 });
 

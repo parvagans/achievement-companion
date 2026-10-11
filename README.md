@@ -17,10 +17,6 @@ Achievement Companion brings RetroAchievements and Steam achievement tracking to
 
 [**Download the latest release**](https://github.com/parvagans/achievement-companion/releases/latest) · [Installation & setup](#installation) · [Report an issue](https://github.com/parvagans/achievement-companion/issues)
 
-[![Support development on Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20development-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white)](https://ko-fi.com/parvagans)
-
-Optional contributions help cover development costs and support ongoing maintenance. [**Support Achievement Companion on Ko-fi →**](https://ko-fi.com/parvagans)
-
 ![Achievement Companion's RetroAchievements overview in Steam Deck Game Mode](docs/screenshots/readme/achievement-companion-hero.png)
 
 ## Make every unlock part of the experience
@@ -138,6 +134,12 @@ Achievement Companion can check GitHub Releases automatically about once a day w
 ## Privacy
 
 Provider requests go to the services needed for the features you use: RetroAchievements, Steam, GitHub Releases for update checks, and SteamHunters. Achievement Companion does not require a separate project server. API keys are handled by Decky's backend instead of browser storage, and logs redact secret-like values. Local secret protection is not a defence against a compromised device, so rotate a key at its provider if you think the Deck itself is compromised.
+
+## AI-assisted development
+
+Achievement Companion has been developed with the assistance of AI tools, and AI continues to be used as part of the development workflow. This includes assistance with code generation and review, debugging, refactoring, documentation, research, and exploring potential solutions.
+
+AI-assisted contributions are reviewed, modified where necessary, and tested before being incorporated into the project. The overall design, development decisions, testing, maintenance, and direction of Achievement Companion remain my responsibility.
 
 ## Help and support
 

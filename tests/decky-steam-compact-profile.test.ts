@@ -107,7 +107,7 @@ test("Steam compact Activity calendar overrides configured list limits until its
   assert.match(compactProfileSource, /data-steam-compact-recent-activity-count=\{visibleAchievements\.length\}/u);
   assert.match(compactProfileSource, /data-steam-compact-recently-played-count=\{visibleGames\.length\}/u);
   assert.match(dashboardSource, /activityEntries=\{steamActivityEntries \?\? recentAchievements\}/u);
-  assert.match(bootstrapSource, /loadDeckyCompactSteamActivityState/u);
+  assert.match(bootstrapSource, /loadDeckyAchievementHistoryStateForFullScreenEntry\(providerId\)/u);
 });
 
 test("Steam compact achievement details focus a child control instead of trapping QAM navigation on the page wrapper", () => {
@@ -203,10 +203,9 @@ test("Steam compact settings reuse the provider configuration and keep API crede
   assert.match(compactSettingsSource, /onChange=\{updateRecentAchievementsCount\}/u);
   assert.match(compactSettingsSource, /onChange=\{updateRecentlyPlayedCount\}/u);
   assert.match(compactSettingsSource, /onChange=\{updateActivityCalendarWeeks\}/u);
-  assert.match(compactSettingsSource, /onChange=\{updateIncludePlayedFreeGames\}/u);
   assert.doesNotMatch(compactSettingsSource, /Save Settings|Back to Steam Profile|Saving\.\.\./u);
   assert.match(bootstrapSource, /recentlyPlayedGames: state\.data\.recentlyPlayedGames\.slice\(0, dashboardPreferences\.recentlyPlayedCount\)/u);
-  assert.match(bootstrapSource, /const dashboardSettingsSignature = `\$\{providerId\}:\$\{dashboardIncludesPlayedFreeGames\}`/u);
+  assert.match(bootstrapSource, /const dashboardSettingsSignature = providerId;/u);
   assert.doesNotMatch(bootstrapSource, /dashboardSettingsSignature = `[^`]*recentlyPlayedCount/u);
   assert.match(compactSettingsSource, /function SteamCompactCountPicker/u);
   assert.match(compactSettingsSource, /showContextMenu/u);
@@ -227,7 +226,7 @@ test("Steam compact profile loads optional SteamHunters data and preserves compa
   assert.match(dashboardSource, /onOpenAchievementHistory\(profile\.providerId\)/u);
   assert.match(dashboardSource, /onOpenCompletionProgress\(profile\.providerId\)/u);
 
-  assert.match(bootstrapSource, /loadDeckySteamHuntersProfileState\(steamId\)/u);
+  assert.match(bootstrapSource, /loadDeckySteamHuntersProfileStateForFullScreenEntry\(STEAM_PROVIDER_ID\)/u);
   assert.match(bootstrapSource, /useDeckyCompactNavigation\(\)/u);
   assert.match(bootstrapSource, /setDeckyCompactNavigation\(\{ kind: "provider-dashboard", providerId/u);
   assert.doesNotMatch(bootstrapSource, /preserveCompactSelectionForFullscreen|preserveCompactSelectionAfterFullscreen/u);
@@ -241,8 +240,8 @@ test("Steam compact entry waits for claimed fresh Steam and SteamHunters data be
   assert.match(bootstrapSource, /initialProviderRefresh = useRef<boolean \| undefined>\(undefined\)/u);
   assert.match(bootstrapSource, /claimDeckyCompactSteamDashboardRefresh\(\)/u);
   assert.match(bootstrapSource, /dashboardForceRefreshNextLoad = useRef\(initialProviderRefresh\.current\)/u);
-  assert.match(bootstrapSource, /steamHuntersForceRefreshNextLoad = useRef\(initialProviderRefresh\.current\)/u);
-  assert.match(bootstrapSource, /refreshDeckySteamHuntersProfileState\(steamId\)/u);
+  assert.match(bootstrapSource, /if \(forceRefresh\) \{\s*startDeckyProviderProfileDataSession\(providerId\)/u);
+  assert.match(bootstrapSource, /const steamHuntersProfileLoader = useMemo[\s\S]*loadDeckySteamHuntersProfileStateForFullScreenEntry\(STEAM_PROVIDER_ID\)/u);
   assert.match(bootstrapSource, /const isSteamCompactProfileLoading =/u);
   assert.match(
     bootstrapSource,
@@ -272,8 +271,7 @@ test("Steam compact entry waits for claimed fresh Steam and SteamHunters data be
   assert.match(compactLoadingSource, /isError \? onCancel \?\? consumeCompactLoadingBack : consumeCompactLoadingBack/u);
   assert.match(compactLoadingSource, /registerCompactProviderCancelCallback\([\s\S]*surfaceRef\.current,[\s\S]*isError \? onCancel/u);
   assert.match(compactLoadingSource, /padding: "18px 16px"/u);
-  assert.match(compactLoadingSource, /spinner\?\.ownerDocument\.defaultView/u);
-  assert.match(compactLoadingSource, /prefers-reduced-motion/u);
+  assert.match(compactLoadingSource, /DeckyLoadingBrandMark compact isLoading=\{!isError\}/u);
   assert.match(compactLoadingSource, /aria-busy=\{!isError\}/u);
   assert.doesNotMatch(compactLoadingSource, /actions|DeckyCompactPillAction/u);
   assert.match(bootstrapSource, /Loading Steam profile\.\.\.[\s\S]*onCancel=\{onBackToProviders\}|onCancel=\{onBackToProviders\}[\s\S]*Loading Steam profile\.\.\./u);

@@ -9,15 +9,16 @@ This file identifies third-party components relevant to Achievement Companion's 
 - Achievement Companion is not affiliated with, endorsed by, sponsored by, or approved by Valve Corporation.
 - Achievement Companion does not provide ROMs, BIOS files, game files, or copyrighted game content.
 
-## Bundled Decky Component
+## Bundled Frontend Components
 
-The generated Decky frontend bundle includes code from the following component:
+The generated Decky frontend bundle includes code from the following components:
 
 | Package | Version | License | Upstream |
 | --- | ---: | --- | --- |
 | `@decky/api` | `1.1.3` | GNU Lesser General Public License v2.1 (`LGPL-2.1`) | [SteamDeckHomebrew/loader-api v1.1.3](https://github.com/SteamDeckHomebrew/loader-api/tree/v1.1.3) |
+| `semver` | `7.8.5` | `ISC` | [npm/node-semver v7.8.5](https://github.com/npm/node-semver/tree/v7.8.5) |
 
-The upstream license is available at [loader-api v1.1.3 LICENSE](https://github.com/SteamDeckHomebrew/loader-api/blob/v1.1.3/LICENSE). The complete GNU Lesser General Public License v2.1 text is reproduced below for the bundled Decky API component.
+The upstream licenses are available at [loader-api v1.1.3 LICENSE](https://github.com/SteamDeckHomebrew/loader-api/blob/v1.1.3/LICENSE) and [node-semver v7.8.5 LICENSE](https://github.com/npm/node-semver/blob/v7.8.5/LICENSE). The complete applicable license texts are reproduced below.
 
 ## Host-Provided External Runtime Dependencies
 
@@ -25,7 +26,7 @@ These packages are declared runtime dependencies but are externalized from the g
 
 | Package | Version | License | Notes |
 | --- | ---: | --- | --- |
-| `@decky/ui` | `4.11.6` | `LGPL-2.1` | Decky UI runtime supplied by Decky Loader. |
+| `@decky/ui` | `4.12.1` | `LGPL-2.1` | Decky UI runtime supplied by Decky Loader. |
 | `react` | `18.3.1` | `MIT` | React runtime supplied by the Steam/Decky host. |
 | `react-dom` | `18.3.1` | `MIT` | React DOM runtime supplied by the Steam/Decky host. |
 
@@ -555,4 +556,26 @@ necessary.  Here is a sample; alter the names:
   Ty Coon, President of Vice
 
 That's all there is to it!
+```
+
+## semver ISC License
+
+The following text is reproduced verbatim from the `semver` v7.8.5 upstream `LICENSE` file.
+
+```text
+The ISC License
+
+Copyright (c) Isaac Z. Schlueter and Contributors
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR
+IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```

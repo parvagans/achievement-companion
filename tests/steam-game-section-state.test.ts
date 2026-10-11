@@ -16,9 +16,9 @@ import {
   handleDeckyFullScreenFooterShoulderButtonDown,
 } from "../src/platform/decky/decky-full-screen-footer-overlay";
 import {
-  getAdjacentSteamGameSectionId,
-  type DeckySteamGameSection,
-} from "../src/platform/decky/decky-steam-game-section-navigation";
+  getAdjacentFullScreenGameSectionId,
+  type DeckyFullScreenGameSection,
+} from "../src/platform/decky/decky-full-screen-game-section-navigation";
 import { isDeckySteamFullscreenEnrichmentPending } from "../src/platform/decky/decky-steam-fullscreen-enrichment";
 import { isSteamHuntersSetFullyObtainable } from "../src/platform/decky/decky-steam-hunters-set-status";
 
@@ -90,7 +90,8 @@ test("Steam overview title fitting is one-line measured sizing and set status ha
   assert.match(sharedOverviewSource, /element\.scrollWidth <= element\.clientWidth/u);
   assert.match(sharedOverviewSource, /whiteSpace: "nowrap"/u);
   assert.match(sharedOverviewSource, /textOverflow: "ellipsis"/u);
-  assert.doesNotMatch(sharedOverviewSource, /WebkitLineClamp/u);
+  assert.match(sharedOverviewSource, /maxLines = 1/u);
+  assert.match(sharedOverviewSource, /maxLines > 1[\s\S]*WebkitLineClamp: maxLines[\s\S]*whiteSpace: "normal"/u);
   assert.match(overviewSource, /DeckyFullScreenGameOverviewLayout/u);
   assert.match(overviewSource, /title="Achievement Set Status"/u);
   assert.match(overviewSource, /Game data refreshed \$\{refreshTime\}/u);
@@ -233,21 +234,21 @@ test("full-screen footer shoulder navigation ignores unrelated GamepadUI presses
 });
 
 test("Steam section navigation advances every rapid shoulder press from the latest target", () => {
-  const sections: readonly DeckySteamGameSection[] = [
+  const sections: readonly DeckyFullScreenGameSection[] = [
     { id: "overview", label: "Overview" },
     { id: "achievements", label: "Achievements" },
     { id: "achievement-groups", label: "DLC / Groups" },
     { id: "community", label: "Community" },
   ];
-  let activeSection: DeckySteamGameSection["id"] = "overview";
+  let activeSection: DeckyFullScreenGameSection["id"] = "overview";
 
-  activeSection = getAdjacentSteamGameSectionId(sections, activeSection, "next");
-  activeSection = getAdjacentSteamGameSectionId(sections, activeSection, "next");
-  activeSection = getAdjacentSteamGameSectionId(sections, activeSection, "next");
+  activeSection = getAdjacentFullScreenGameSectionId(sections, activeSection, "next");
+  activeSection = getAdjacentFullScreenGameSectionId(sections, activeSection, "next");
+  activeSection = getAdjacentFullScreenGameSectionId(sections, activeSection, "next");
 
   assert.equal(activeSection, "community");
-  assert.equal(getAdjacentSteamGameSectionId(sections, activeSection, "next"), "overview");
-  assert.equal(getAdjacentSteamGameSectionId(sections, activeSection, "previous"), "achievement-groups");
+  assert.equal(getAdjacentFullScreenGameSectionId(sections, activeSection, "next"), "overview");
+  assert.equal(getAdjacentFullScreenGameSectionId(sections, activeSection, "previous"), "achievement-groups");
 });
 
 test("Steam game sections unmount inactive focus trees behind one stable footer owner", async () => {

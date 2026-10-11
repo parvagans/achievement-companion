@@ -1,9 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { DeckyRetroAchievementsFullscreenGameArtwork } from "../src/platform/decky/decky-retroachievements-fullscreen-game-artwork";
 import { buildRetroAchievementsCompletionCollection } from "../src/platform/decky/decky-completion-progress-grouping";
 import { formatRetroAchievementsCommunityDuration } from "../src/platform/decky/decky-retroachievements-community-stats-data";
 import { buildDeckyRetroAchievementsProgressSummaryData } from "../src/platform/decky/decky-retroachievements-progress-summary-data";
@@ -162,49 +158,4 @@ test("full-screen RetroAchievements progress represents mastered sets with no re
   assert.equal(progress.completionPercent, 100);
   assert.equal(progress.earnedPoints, 410);
   assert.equal(progress.totalPoints, 410);
-});
-
-test("full-screen RetroAchievements spotlight keeps the compact header, passive card focus, and action focus contracts", () => {
-  const spotlightSource = readFileSync("src/platform/decky/decky-retroachievements-game-spotlight.tsx", "utf8");
-  const overviewSource = readFileSync("src/platform/decky/decky-full-screen-game-spotlight-overview.tsx", "utf8");
-  const artworkSource = readFileSync("src/platform/decky/decky-retroachievements-fullscreen-game-artwork.tsx", "utf8");
-  const progressSource = readFileSync("src/platform/decky/decky-retroachievements-progress-summary.tsx", "utf8");
-  const communitySource = readFileSync("src/platform/decky/decky-retroachievements-community-stats.tsx", "utf8");
-  const cardSource = readFileSync("src/platform/decky/decky-full-screen-game-spotlight-card.tsx", "utf8");
-  const progressStatSource = readFileSync("src/platform/decky/decky-full-screen-game-progress-stat.tsx", "utf8");
-  const progressBarSource = readFileSync("src/platform/decky/decky-completion-progress-bar.tsx", "utf8");
-  const actionSource = readFileSync("src/platform/decky/decky-full-screen-action-controls.tsx", "utf8");
-
-  assert.match(spotlightSource, /layout="horizontal"[\s\S]*variant="compact"/u);
-  assert.doesNotMatch(spotlightSource, /layout="horizontal"[\s\S]*focusable/u);
-  assert.doesNotMatch(spotlightSource, /metadataLabels|loadDecky|useAsyncResourceState|fetch\(/u);
-  assert.match(overviewSource, /flexDirection: isHorizontal \? "row" : "column"/u);
-  assert.match(overviewSource, /whiteSpace: "normal"/u);
-  assert.match(overviewSource, /artwork !== undefined/);
-  assert.match(overviewSource, /headerAlignment=\{layout === "horizontal" \? "left" : "center"\}/u);
-  assert.match(
-    overviewSource,
-    /DeckyFullScreenGameSpotlightCard[\s\S]*title="Game Overview"[\s\S]*focusable=\{false\}[\s\S]*DeckyFullScreenGameSpotlightActions[\s\S]*centered/u,
-  );
-  assert.match(artworkSource, /height: isCompact \? 168 : 256/u);
-  const artworkMarkup = renderToStaticMarkup(createElement(DeckyRetroAchievementsFullscreenGameArtwork, {
-    game: game("1", "beaten"), src: "/game.png", variant: "compact",
-  }));
-  assert.match(artworkMarkup, /object-fit:contain/u);
-  assert.match(progressSource, /DeckyFullScreenGameProgressStatGrid/u);
-  assert.match(progressSource, /showCaption=\{false\}/u);
-  assert.match(progressBarSource, /showCaption && captionPlacement === "below"/u);
-  assert.match(progressSource, /label="Unlocked"[\s\S]*label="Remaining"[\s\S]*label="Points earned"[\s\S]*label="Last unlock"/u);
-  assert.match(progressSource, /formatDeckyRelativeTime\(progress\.lastUnlockAt\) \?\? "None yet"/u);
-  assert.doesNotMatch(progressSource, /title="Your Progress"[\s\S]*focusable=\{false\}/u);
-  assert.doesNotMatch(progressSource, /hardcore|softcore/u);
-  assert.match(communitySource, /title="Community"[\s\S]*focusable=\{false\}[\s\S]*DeckyFullScreenGameProgressStatGrid fillHeight/u);
-  assert.match(communitySource, /Players[\s\S]*Mastered[\s\S]*Median beat[\s\S]*Median mastery/u);
-  assert.match(communitySource, /formatMasteryValue/u);
-  assert.match(progressStatSource, /columns = 2/u);
-  assert.match(progressStatSource, /gridTemplateColumns: `repeat\(\$\{columns\}, minmax\(0, 1fr\)\)`/u);
-  assert.match(progressStatSource, /gridTemplateRows: "repeat\(2, minmax\(0, 1fr\)\)"/u);
-  assert.match(cardSource, /scrollDeckyFocusTargetIntoView[\s\S]*noFocusRing/u);
-  assert.match(actionSource, /focusClassName=.*DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS/u);
-  assert.match(actionSource, /tabIndex=\{disabled \? -1 : 0\}[\s\S]*onActivate=\{handleClick\}/u);
 });

@@ -36,6 +36,10 @@ import {
 } from "./decky-game-page-achievement-badge-theme";
 import { resolveDeckyGamePageAchievementBadgePresentation } from "./decky-game-page-achievement-badge-presentation";
 import {
+  createDeckyGamePageRoutePatchLifetime,
+  shouldReleaseDeckyGamePageRoutePatchOnBadgeUnmount,
+} from "./decky-game-page-achievement-lifecycle";
+import {
   markAchievementCompanionGamePageBadgeActivated,
   markAchievementCompanionGamePageBadgeHidden,
   markAchievementCompanionGamePageBadgeStatus,
@@ -639,21 +643,29 @@ function useDeckyGamePageAchievementBadgeActivation(
   };
 }
 
-function createDeckyGamePageAchievementRouteBadgeElement(appId: string): JSX.Element {
+function createDeckyGamePageAchievementRouteBadgeElement(
+  appId: string,
+  onRouteUnmount: () => void,
+): JSX.Element {
   return (
     <DeckyGamePageAchievementRouteBadge
       key={ACHIEVEMENT_COMPANION_GAME_PAGE_ROUTE_BADGE_ELEMENT_KEY}
       appId={appId}
+      onRouteUnmount={onRouteUnmount}
     />
   );
 }
 
 export function DeckyGamePageAchievementRouteBadge({
   appId,
+  onRouteUnmount,
 }: {
   readonly appId: string;
+  readonly onRouteUnmount: () => void;
 }): JSX.Element | null {
   const settings = useDeckySettings();
+
+  useEffect(() => onRouteUnmount, [onRouteUnmount]);
 
   if (!settings.showGamePageAchievementBadge) {
     return null;
@@ -751,8 +763,7 @@ export function ensureDeckyGamePageAchievementRoutePatchRegistered(): () => void
     return deckyGamePageAchievementRoutePatchCleanup;
   }
 
-  const patchedRouteProps = new WeakSet<object>();
-  const renderFuncPatches: Array<{ readonly unpatch: () => void }> = [];
+  const routePatches = createDeckyGamePageRoutePatchLifetime<object>();
 
   const patchFn = (tree: unknown) => {
     const routeProps = findInReactTree(tree, (node) => !!node?.renderFunc);
@@ -765,9 +776,22 @@ export function ensureDeckyGamePageAchievementRoutePatchRegistered(): () => void
     if (
       typeof routeProps === "object" &&
       routeProps !== null &&
-      !patchedRouteProps.has(routeProps as object)
+      !routePatches.has(routeProps as object)
     ) {
-      const patchHandler = createReactTreePatcher(
+      routePatches.install(routeProps as object, (releaseRoutePatch) => {
+        let renderedAppId = routeAppId;
+        const releaseWhenRouteLeaves = () => {
+          if (
+            renderedAppId !== undefined &&
+            shouldReleaseDeckyGamePageRoutePatchOnBadgeUnmount(
+              renderedAppId,
+              readDeckyGamePageAchievementRouteState().detection,
+            )
+          ) {
+            releaseRoutePatch();
+          }
+        };
+        const patchHandler = createReactTreePatcher(
         [
           (node) =>
             findInReactTree(node, (entry) => !!entry?.props?.children?.props?.overview)?.props
@@ -793,20 +817,25 @@ export function ensureDeckyGamePageAchievementRoutePatchRegistered(): () => void
           if (currentAppId === undefined) {
             return ret;
           }
+          renderedAppId = currentAppId;
 
           const nextChildren = container.props.children.filter(
             (child) => !isAchievementCompanionRouteBadgeChild(child),
           );
-          nextChildren.splice(1, 0, createDeckyGamePageAchievementRouteBadgeElement(currentAppId));
+          nextChildren.splice(
+            1,
+            0,
+            createDeckyGamePageAchievementRouteBadgeElement(currentAppId, releaseWhenRouteLeaves),
+          );
           container.props.children = nextChildren;
           markAchievementCompanionGamePageRouteBadgeInserted(currentAppId);
           return ret;
         },
         "achievement-companion-game-page-badge-route",
-      );
+        );
 
-      renderFuncPatches.push(afterPatch(routeProps, "renderFunc", patchHandler));
-      patchedRouteProps.add(routeProps as object);
+        return afterPatch(routeProps, "renderFunc", patchHandler);
+      });
       markAchievementCompanionGamePageRouteBadgeRenderFuncPatched();
     }
 
@@ -820,10 +849,7 @@ export function ensureDeckyGamePageAchievementRoutePatchRegistered(): () => void
 
   deckyGamePageAchievementRoutePatchCleanup = () => {
     routerHook.removePatch(DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN, registeredPatch);
-    for (const renderFuncPatch of renderFuncPatches) {
-      renderFuncPatch.unpatch();
-    }
-    renderFuncPatches.length = 0;
+    routePatches.dispose();
     markAchievementCompanionGamePageRouteBadgePatchRemoved();
     deckyGamePageAchievementRoutePatchCleanup = undefined;
   };
