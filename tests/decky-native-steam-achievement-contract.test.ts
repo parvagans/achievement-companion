@@ -6,6 +6,7 @@ import {
   toNativeSteamGlobalAchievementResponse,
   toNativeSteamPersonalAchievementResponse,
   withNativeSteamAchievementsSection,
+  withNativeSteamRecentActivitySection,
 } from "../src/platform/decky/decky-native-steam-achievement-contract";
 import type { NativeSteamAchievements } from "../src/platform/decky/decky-native-steam-achievement-conversion";
 
@@ -49,6 +50,15 @@ test("native section is added only with a ready model and never mutates Steam's 
   assert.equal(projected.has("achievements"), true);
   assert.equal(original.has("achievements"), false);
   assert.notEqual(projected, original);
+});
+
+test("native Activity appears only for shortcut unlocks with a usable timestamp", () => {
+  const original = new Set(["nonsteam", "notes"]);
+  assert.equal(withNativeSteamRecentActivitySection(original, shortcut, appId, false), original);
+  assert.equal(withNativeSteamRecentActivitySection(original, steamGame, 620, true), original);
+  const projected = withNativeSteamRecentActivitySection(original, shortcut, appId, true) as Set<string>;
+  assert.deepEqual([...projected], ["nonsteam", "notes", "activity"]);
+  assert.deepEqual([...original], ["nonsteam", "notes"]);
 });
 
 test("native personal, global and progress views share one RA achievement model", () => {

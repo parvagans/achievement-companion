@@ -13,7 +13,7 @@
 
 Achievement Companion brings RetroAchievements and Steam achievement tracking to Steam Deck and compatible SteamOS devices through Decky Loader. Check your next unlock in Quick Access, explore your collection in full-screen dashboards, and see completion badges right on your library game pages.
 
-**RetroAchievements can even appear in Steam's own achievement interface** for supported non-Steam games—complete with artwork, descriptions, unlock status, and progress.
+**RetroAchievements can appear right on Steam's library game pages** for supported non-Steam games—in Your Stuff and now in Activity.
 
 [**Download the latest release**](https://github.com/parvagans/achievement-companion/releases/latest) · [Installation & setup](#installation) · [Report an issue](https://github.com/parvagans/achievement-companion/issues)
 
@@ -29,7 +29,7 @@ From the next achievement to your next mastered game, Achievement Companion keep
 
 | What you want to do | What Achievement Companion brings |
 | --- | --- |
-| **Bring retro achievements into your library** | RetroAchievements inside Steam's native Your Stuff / Achievements view for supported, confidently matched non-Steam shortcuts. |
+| **Bring retro achievements into your library** | RetroAchievements in Steam's native Your Stuff / Achievements and Activity tabs for supported, confidently matched non-Steam shortcuts. |
 | **See how far you've come** | Full-screen RetroAchievements and Steam dashboards with profile stats, searchable game lists, completion progress, and detailed game pages. |
 | **Find your next target** | Achievement details, RA subsets and classifications, plus Steam base-game, DLC, and update groups when SteamHunters data is available. |
 | **Explore your achievement history** | Activity dashboards, interactive calendars, and recent unlocks that let you revisit your progress. |
@@ -41,9 +41,14 @@ RetroAchievements and Steam each retain their own progression rules: RA Hardcore
 
 ## RetroAchievements inside Steam
 
-For a supported non-Steam shortcut that Achievement Companion can match to the right RetroAchievements game, its achievement artwork, names, descriptions, locked or unlocked state, and progress can appear in Steam's own Your Stuff / Achievements view. Unlock times and global unlock rates are shown where the RA data provides them.
+Your retro progress can live on the game's Steam library page, alongside the rest of your collection. For a non-Steam shortcut that Achievement Companion can confidently match to a RetroAchievements game:
 
-That puts your retro progress directly in the library interface you already use. Steam ROM Manager and EmuDeck shortcuts can be matched using platform and title metadata and, where supported, ROM hashes. Unsupported or ambiguous games stay unmatched.
+- **Your Stuff → Achievements** shows the RA achievement list with badge artwork, descriptions, locked and unlocked states, and progress. Unlock times and global unlock rates appear when RA provides them.
+- **Activity** shows your latest dated RA unlocks, newest first, with their unlock time and Hardcore or Softcore mode when known. Select a card to open that game's Achievement Companion page.
+
+Steam ROM Manager and EmuDeck shortcuts can be matched using platform and title metadata and, where supported, ROM hashes. Unsupported or ambiguous games stay unmatched.
+
+![RetroAchievements shown in Steam's native Your Stuff / Achievements interface](docs/screenshots/readme/ra-native-steam-activity.png)
 
 ![RetroAchievements shown in Steam's native Your Stuff / Achievements interface](docs/screenshots/readme/ra-native-steam-achievements.png)
 

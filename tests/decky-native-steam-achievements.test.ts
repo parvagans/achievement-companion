@@ -57,6 +57,14 @@ test("runtime adapter leaves Steam games untouched and fully unpatches on teardo
       onGameInfoToggle() {}
       forceUpdate() { this.forceUpdates += 1; }
     }
+    class ActivityFeed {
+      constructor(props) { this.props = props; }
+      render() { return "original-activity-" + this.props.appid; }
+      ShowMoreContent() {}
+      async OnPostStatusClicked() {}
+    }
+    function activityWrapper() { return { type: ActivityFeed }; }
+    activityWrapper.toString = () => "function fr(){AppDetailsActivitySectionDays;nDaysToDisplay}";
     const personalStore = {
       m_mapMyAchievements: new Map(),
       m_mapGlobalAchievements: new Map(),
@@ -85,10 +93,11 @@ test("runtime adapter leaves Steam games untouched and fully unpatches on teardo
       return box;
     };
     observable.map = () => new Map();
-    const exportsToFind = [LibraryPage, personalStore, observable];
+    const exportsToFind = [LibraryPage, activityWrapper, personalStore, observable];
     const findModuleExport = (predicate) => exportsToFind.find(predicate);
     const originalMethods = [
       [LibraryPage.prototype, "GetSections"],
+      [ActivityFeed.prototype, "render"],
       [personalStore, "GetMyAchievements"],
       [personalStore, "GetGlobalAchievements"],
       [detailsStore, "GetAchievements"],
@@ -138,6 +147,9 @@ test("runtime adapter leaves Steam games untouched and fully unpatches on teardo
       exports: {
         callOriginal,
         findModuleExport,
+        applyHookStubs() {},
+        removeHookStubs() {},
+        Focusable: () => null,
         afterPatch: (target, name, handler) => patch(target, name, handler, "after"),
         replacePatch: (target, name, handler) => patch(target, name, handler, "replace"),
       },
@@ -191,7 +203,12 @@ test("runtime adapter leaves Steam games untouched and fully unpatches on teardo
       await new Promise((resolve) => setImmediate(resolve));
       shortcutSections = shortcutPage.GetSections(shortcut, { unAppID: shortcutId });
     }
-    assert.deepEqual([...shortcutSections], ["notes", "achievements"]);
+    assert.deepEqual([...shortcutSections], ["notes", "achievements", "activity"]);
+    const activityContent = new ActivityFeed({ appid: shortcutId }).render();
+    assert.equal(activityContent.type.name, "DeckyNativeRetroAchievementsActivity");
+    assert.equal(activityContent.props.items[0].achievement.achievementId, "123");
+    assert.equal(new ActivityFeed({ appid: 620 }).render(), "original-activity-620");
+    assert.equal(new ActivityFeed({ appid: highSteamId }).render(), "original-activity-" + highSteamId);
     assert.equal(detailsStore.GetAchievements(shortcutId).vecHighlight[0].strID, "ra:123");
     assert.deepEqual(Object.keys(personalStore.GetMyAchievements(shortcutId).data.achieved), ["ra:123"]);
     assert.equal(progressCache.BGameHasAchievements(shortcutId), true);
@@ -200,6 +217,7 @@ test("runtime adapter leaves Steam games untouched and fully unpatches on teardo
     const revisionWritesBeforeRefresh = observableBoxes[0].writes;
     publishDeckyRaNativeAchievementInvalidation("provider-refreshed");
     assert.equal(observableBoxes[0].writes > revisionWritesBeforeRefresh, true);
+    assert.equal(new ActivityFeed({ appid: shortcutId }).render(), "original-activity-" + shortcutId);
 
     for (const failure of [
       { status: "unavailable", appId: String(shortcutId), reason: "detail-unavailable" },
@@ -214,7 +232,7 @@ test("runtime adapter leaves Steam games untouched and fully unpatches on teardo
       assert.deepEqual([...shortcutPage.GetSections(shortcut, { unAppID: shortcutId })], ["notes"]);
       assert.equal(projectionLoads.length, loadsBeforeRetry + 1);
       await new Promise((resolve) => setImmediate(resolve));
-      assert.deepEqual([...shortcutPage.GetSections(shortcut, { unAppID: shortcutId })], ["notes", "achievements"]);
+      assert.deepEqual([...shortcutPage.GetSections(shortcut, { unAppID: shortcutId })], ["notes", "achievements", "activity"]);
       publishDeckyRaNativeAchievementInvalidation("provider-refreshed");
     }
 
@@ -228,7 +246,7 @@ test("runtime adapter leaves Steam games untouched and fully unpatches on teardo
     assert.notEqual(detailsStore.GetAchievements(shortcutId)?.vecHighlight?.[0]?.strID, "ra:123");
     releaseNewPageLoad(projectionFor(shortcutId));
     await new Promise((resolve) => setImmediate(resolve));
-    assert.deepEqual([...newlyMountedPage.GetSections(shortcut, { unAppID: shortcutId })], ["notes", "achievements"]);
+    assert.deepEqual([...newlyMountedPage.GetSections(shortcut, { unAppID: shortcutId })], ["notes", "achievements", "activity"]);
 
     const updatesBeforeCleanup = newlyMountedPage.forceUpdates;
     cleanup();

@@ -29,6 +29,21 @@ export function withNativeSteamAchievementsSection(
   return next;
 }
 
+/** Shows Activity only when the verified shortcut has a dated RA unlock to display. */
+export function withNativeSteamRecentActivitySection(
+  sections: unknown,
+  overview: unknown,
+  appId: number,
+  hasRecentUnlocks: boolean,
+): unknown {
+  if (!isNativeSteamShortcutOverview(overview, appId) || !hasRecentUnlocks || !(sections instanceof Set)) {
+    return sections;
+  }
+  const next = new Set(sections);
+  next.add("activity");
+  return next;
+}
+
 export function toNativeSteamPersonalAchievementResponse(model: NativeSteamAchievements): {
   readonly data: {
     readonly achieved: Record<string, unknown>;
