@@ -48,9 +48,9 @@ Your retro progress can live on the game's Steam library page, alongside the res
 
 Steam ROM Manager and EmuDeck shortcuts can be matched using platform and title metadata and, where supported, ROM hashes. Unsupported or ambiguous games stay unmatched.
 
-![RetroAchievements shown in Steam's native Your Stuff / Achievements interface](docs/screenshots/readme/ra-native-steam-activity.png)
-
 ![RetroAchievements shown in Steam's native Your Stuff / Achievements interface](docs/screenshots/readme/ra-native-steam-achievements.png)
+
+![Recent RetroAchievements unlocks with dates in Steam's native Activity tab](docs/screenshots/readme/ra-native-steam-activity.png)
 
 ## See it in action
 
@@ -87,7 +87,7 @@ Follow your collection from the first unlock to mastery:
 - **Your preferred mode:** show Hardcore, Softcore, or both, with their progress kept distinct.
 - **Your current session:** fresh RetroAchievements Rich Presence identifies current-game activity.
 
-The full-screen **Systems** tab is a coming-soon placeholder in v0.14.1.
+The full-screen **Systems** tab is a coming-soon placeholder.
 
 ## Steam
 
@@ -135,7 +135,7 @@ For RetroAchievements, enter your username and the Web API key from RetroAchieve
 
 ## Updates
 
-Achievement Companion can check GitHub Releases automatically (about once a day while it is running) or on demand from **Settings → About**. It verifies a downloaded update before asking Decky to confirm installation; updates are not installed unattended.
+Achievement Companion can check GitHub Releases automatically about once a day while running and when your Deck reconnects to the internet, or on demand from **Settings → About**. It verifies a downloaded update before asking Decky to confirm installation; updates are not installed unattended.
 
 ## Privacy
 

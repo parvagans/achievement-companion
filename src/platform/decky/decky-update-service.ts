@@ -4,6 +4,7 @@ import { APP_VERSION } from "../../generated/version";
 import { DeckyNativeInstaller } from "../../update/installers/decky-native-installer";
 import { LocalUpdateSource, ProductionUpdateSource, type UpdateSource } from "../../update/update-source";
 import { UpdateService } from "../../update/update-service";
+import { AutomaticUpdateChecks, UPDATE_CHECK_INTERVAL_MS } from "../../update/automatic-update-checks";
 import { shouldNotifyUpdate } from "../../update/update-notification";
 import type { UpdateArtifactVerifier, UpdateManifest, UpdateState } from "../../update/update-types";
 import { callDeckyBackendMethod } from "./decky-backend-bridge";
@@ -13,12 +14,25 @@ import { showDeckyUpdateNotification } from "./decky-update-notification";
 
 export const PRODUCTION_UPDATE_MANIFEST_URL =
   "https://github.com/parvagans/achievement-companion/releases/latest/download/update-manifest.json";
-export const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1_000;
+export { UPDATE_CHECK_INTERVAL_MS };
 export const UPDATE_STARTUP_DELAY_MS = 30_000;
 
 let openUpdatesView: (() => void) | undefined;
-let startupTimer: ReturnType<typeof setTimeout> | undefined;
-let periodicTimer: ReturnType<typeof setInterval> | undefined;
+
+interface SteamConnectivityTest {
+  readonly eConnectivityTestResult: number;
+  readonly bChecking: boolean;
+}
+
+interface SteamNetworkRuntime {
+  readonly SteamClient?: {
+    readonly System?: {
+      readonly Network?: {
+        RegisterForConnectivityTestChanges(callback: (test: SteamConnectivityTest) => void): { unregister(): void };
+      };
+    };
+  };
+}
 
 const verifier: UpdateArtifactVerifier = {
   async verify(manifest, onPhase) {
@@ -93,27 +107,45 @@ export const deckyUpdateService = new UpdateService({
   notifyAvailable,
 });
 
-function shouldRunAutomaticCheck(now = Date.now()): boolean {
-  const settings = readDeckySettings();
-  return settings.automaticUpdateChecks
-    && settings.updateSource === "production"
-    && (settings.lastUpdateCheckedAt === undefined
-      || now - settings.lastUpdateCheckedAt >= UPDATE_CHECK_INTERVAL_MS);
-}
-
-function runAutomaticCheckIfDue(): void {
-  if (shouldRunAutomaticCheck()) void deckyUpdateService.checkForUpdate();
-}
-
 export function initializeDeckyUpdateSystem(onOpenUpdatesView: () => void): () => void {
   openUpdatesView = onOpenUpdatesView;
-  startupTimer = setTimeout(runAutomaticCheckIfDue, UPDATE_STARTUP_DELAY_MS);
-  periodicTimer = setInterval(runAutomaticCheckIfDue, 60 * 60 * 1_000);
+  const checks = new AutomaticUpdateChecks(
+    () => {
+      const settings = readDeckySettings();
+      const status = deckyUpdateService.getState().status;
+      return {
+        enabled: settings.automaticUpdateChecks,
+        productionSource: settings.updateSource === "production",
+        ...(settings.lastUpdateCheckedAt !== undefined ? { lastCheckedAt: settings.lastUpdateCheckedAt } : {}),
+        busy: status === "checking" || status === "downloading" || status === "verifying" || status === "installing",
+      };
+    },
+    () => deckyUpdateService.checkForUpdate(),
+  );
+  if (navigator.onLine === false) checks.observeBrowserOffline();
+  let connectivitySubscription: { unregister(): void } | undefined;
+  const onOnline = () => {
+    if (connectivitySubscription === undefined) checks.observeBrowserOnline();
+  };
+  const onOffline = () => checks.observeBrowserOffline();
+  window.addEventListener("online", onOnline);
+  window.addEventListener("offline", onOffline);
+  const network = (window as unknown as SteamNetworkRuntime).SteamClient?.System?.Network;
+  try {
+    connectivitySubscription = network?.RegisterForConnectivityTestChanges((test) => {
+      checks.observeSteamConnectivity(test.eConnectivityTestResult, test.bChecking);
+    });
+  } catch (error) {
+    console.debug("[Achievement Companion][Updater] Steam connectivity listener unavailable", error);
+  }
+  const startupTimer = setTimeout(() => checks.checkIfDue(), UPDATE_STARTUP_DELAY_MS);
+  const periodicTimer = setInterval(() => checks.checkIfDue(), 60 * 60 * 1_000);
   return () => {
-    if (startupTimer !== undefined) clearTimeout(startupTimer);
-    if (periodicTimer !== undefined) clearInterval(periodicTimer);
-    startupTimer = undefined;
-    periodicTimer = undefined;
+    clearTimeout(startupTimer);
+    clearInterval(periodicTimer);
+    connectivitySubscription?.unregister();
+    window.removeEventListener("online", onOnline);
+    window.removeEventListener("offline", onOffline);
     openUpdatesView = undefined;
   };
 }

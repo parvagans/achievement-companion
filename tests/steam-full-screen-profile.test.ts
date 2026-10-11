@@ -906,7 +906,7 @@ test("Steam settings use four filter tabs and move About/Updates to the shared p
   assert.match(source, /success=\{fullScan !== undefined\} danger=\{fullScan === undefined\}/u);
   assert.doesNotMatch(source, /Cached Games|Refresh Steam Library/u);
   assert.doesNotMatch(updateSource, />UPDATES<|Installed Version|Check at most once every 24 hours/u);
-  assert.match(updateSource, /Check once daily in the background\./u);
+  assert.match(updateSource, /Check daily and when your Deck reconnects to the internet\./u);
   assert.match(updateSource, /overflow: "hidden", paddingBottom: steamTheme\.space\.sm/u);
   assert.match(updateSource, /data-achievement-companion-update-variable-content[\s\S]*overflowY: "auto"/u);
   assert.match(updateSource, /data-achievement-companion-update-actions[\s\S]*flex: "0 0 auto"/u);

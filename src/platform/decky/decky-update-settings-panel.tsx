@@ -119,7 +119,7 @@ export function DeckyUpdateSettingsPanel({ onGamepadDirection }: DeckyUpdateSett
     <div style={{ marginTop: 5, borderRadius: steamTheme.radius.small, overflow: "hidden", flex: "0 0 auto" }}>
       <UpdateToggle
         label="Automatic Update Checks"
-        description="Check once daily in the background."
+        description="Check daily and when your Deck reconnects to the internet."
         checked={settings.automaticUpdateChecks}
         {...(onGamepadDirection !== undefined ? { onGamepadDirection } : {})}
         onChange={(automaticUpdateChecks) => {
