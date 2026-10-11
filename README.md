@@ -34,7 +34,7 @@ From the next achievement to your next mastered game, Achievement Companion keep
 | **Find your next target** | Achievement details, RA subsets and classifications, plus Steam base-game, DLC, and update groups when SteamHunters data is available. |
 | **Explore your achievement history** | Activity dashboards, interactive calendars, and recent unlocks that let you revisit your progress. |
 | **Show off each milestone** | Clickable library game-page badges for In Progress, Steam Perfected, and RA Beaten or Mastered, with configurable colors and placement. |
-| **Plan a Steam completion** | Optional SteamHunters insights into rarity, community completion times, DLC requirements, and achievement obtainability where available. |
+| **Plan a Steam completion** | SteamHunters insights into rarity, community completion times, DLC requirements, and achievement obtainability where available. |
 | **Keep up with new releases** | Built-in update checks and verified downloads, with installation confirmed through Decky. |
 
 RetroAchievements and Steam each retain their own progression rules: RA Hardcore and Softcore, Beaten and Mastered, and Steam Perfected all keep their meaning.
@@ -98,8 +98,6 @@ Explore your Steam achievement collection beyond an individual game's percentage
 - **Activity you can explore:** interactive unlock calendars, history, and insights such as streaks when enough history is available.
 - **Completion context from SteamHunters:** rarity, community completion statistics and times, DLC requirements, and unobtainable or conditional achievement information where available.
 
-SteamHunters enrichment is optional; the core Steam views work without it.
-
 ## Game-page achievement badge
 
 See a game's achievement status before you launch it. The clickable badge appears on supported library game pages and opens the corresponding Achievement Companion detail view.
@@ -139,7 +137,7 @@ Achievement Companion can check GitHub Releases automatically about once a day w
 
 ## Privacy
 
-Provider requests go to the services needed for the features you use: RetroAchievements, Steam, GitHub Releases for update checks, and SteamHunters only when its optional enrichment is used. Achievement Companion does not require a separate project server. API keys are handled by Decky's backend instead of browser storage, and logs redact secret-like values. Local secret protection is not a defence against a compromised device, so rotate a key at its provider if you think the Deck itself is compromised.
+Provider requests go to the services needed for the features you use: RetroAchievements, Steam, GitHub Releases for update checks, and SteamHunters. Achievement Companion does not require a separate project server. API keys are handled by Decky's backend instead of browser storage, and logs redact secret-like values. Local secret protection is not a defence against a compromised device, so rotate a key at its provider if you think the Deck itself is compromised.
 
 ## Help and support
 
