@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="src/platform/decky/assets/brand/AC_main_logo.png" alt="Achievement Companion" width="420">
+  <img src="docs/screenshots/readme/AC-banner_git.png" alt="Achievement Companion banner with Steam Deck achievement activity" width="100%">
 </p>
 
 # Achievement Companion
