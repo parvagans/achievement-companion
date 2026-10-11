@@ -1,13 +1,30 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import baseTest from "node:test";
 import { EventEmitter } from "node:events";
-import { parseArgs } from "../tools/deck/cli.mjs";
-import { latestLog, screenshotRemotePath, screenshotFetchArgs, validateLines, isWithin } from "../tools/deck/diagnostics.mjs";
-import { tunnelArgs, localWebSocketUrl, selectTarget, snapshotExpression } from "../tools/deck/cef.mjs";
-import { launchProcess, quoteRemote, redact, setHostNameOverride, sshOptions } from "../tools/deck/process.mjs";
-import { SEMANTIC_TARGETS, matchSemanticTarget } from "../tools/deck/navigation.mjs";
-import { SCENARIOS } from "../tools/deck/scenarios.mjs";
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
+
+const hasDeckHarness = existsSync(new URL("../tools/deck/cli.mjs", import.meta.url));
+const test = hasDeckHarness
+  ? baseTest
+  : (name, callback) => baseTest(name, { skip: "Local Deck harness is not present in this checkout." }, callback);
+const [
+  { parseArgs },
+  { latestLog, screenshotRemotePath, screenshotFetchArgs, validateLines, isWithin },
+  { tunnelArgs, localWebSocketUrl, selectTarget, snapshotExpression },
+  { launchProcess, quoteRemote, redact, setHostNameOverride, sshOptions },
+  { SEMANTIC_TARGETS, matchSemanticTarget },
+  { SCENARIOS },
+] = hasDeckHarness
+  ? await Promise.all([
+    import("../tools/deck/cli.mjs"),
+    import("../tools/deck/diagnostics.mjs"),
+    import("../tools/deck/cef.mjs"),
+    import("../tools/deck/process.mjs"),
+    import("../tools/deck/navigation.mjs"),
+    import("../tools/deck/scenarios.mjs"),
+  ])
+  : Array.from({ length: 6 }, () => ({}));
 
 test("CLI parses maintained commands and bounds numeric options", () => {
   for (const command of ["doctor", "deploy", "reload", "input", "eval"]) {

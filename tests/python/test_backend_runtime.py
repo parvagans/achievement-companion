@@ -7,6 +7,7 @@ import io
 import json
 import os
 import re
+import shutil
 import ssl
 import sys
 import tempfile
@@ -907,9 +908,18 @@ class BackendRuntimeTests(unittest.TestCase):
 
   def test_release_package_includes_main_py(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
+      source_dir = Path(temp_dir) / "source"
+      for relative_path in package_release.REQUIRED_RELATIVE_PATHS:
+        destination = source_dir / relative_path
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(ROOT_DIR / relative_path, destination)
+      bundle_path = source_dir / "dist" / "index.js"
+      bundle_path.parent.mkdir(parents=True, exist_ok=True)
+      bundle_path.write_text("AchievementCompanionGamePageBadge\n", encoding="utf-8")
+
       release_dir = Path(temp_dir) / "release"
       stage_dir = Path(temp_dir) / "stage" / "achievement-companion"
-      staged_dir = package_release.stage_release_package(root_dir=ROOT_DIR, stage_dir=stage_dir)
+      staged_dir = package_release.stage_release_package(root_dir=source_dir, stage_dir=stage_dir)
       self.assertTrue((staged_dir / "main.py").exists())
       self.assertTrue((staged_dir / "py_modules" / "backend" / "__init__.py").exists())
       self.assertTrue((staged_dir / "py_modules" / "backend" / "diagnostics.py").exists())
@@ -921,7 +931,7 @@ class BackendRuntimeTests(unittest.TestCase):
       self.assertTrue((staged_dir / "py_modules" / "backend" / "tls.py").exists())
 
       zip_path = package_release.create_release_zip(
-        root_dir=ROOT_DIR,
+        root_dir=source_dir,
         release_dir=release_dir,
         stage_dir=staged_dir,
       )

@@ -171,6 +171,11 @@ test("runtime adapter leaves Steam games untouched and fully unpatches on teardo
         disposeDeckyNativeRetroAchievementsProjection() { projectionDisposals += 1; },
       },
     });
+    mock.module(pathToFileURL(resolve("src/platform/decky/decky-native-retroachievements-activity.tsx")).href, {
+      exports: {
+        DeckyNativeRetroAchievementsActivity() { return null; },
+      },
+    });
 
     const { ensureDeckyNativeSteamAchievementsRegistered } = await import("./src/platform/decky/decky-native-steam-achievements.ts");
     const { publishDeckyRaNativeAchievementInvalidation } = await import("./src/platform/decky/decky-ra-native-achievement-invalidation.ts");
