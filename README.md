@@ -9,44 +9,49 @@
 ![RetroAchievements](https://img.shields.io/badge/RetroAchievements-supported-ef7d00)
 ![Steam achievements](https://img.shields.io/badge/Steam-achievements-171a21?logo=steam)
 
-Achievement Companion is a Decky Loader plugin for Steam Deck and compatible SteamOS devices in Game Mode. It brings RetroAchievements and Steam progress into the place you are already playing: Quick Access for a quick check, full-screen for a closer look, and selected native Steam screens for the moments when you would rather not open another app.
+**Your retro milestones. Your Steam completions. All in Game Mode.**
 
-RetroAchievements is the main focus; Steam achievements are here too. The result is more than a stats dashboard: RA achievements can appear inside Steam's own Your Stuff / Achievements view for supported, confidently matched non-Steam games.
+Achievement Companion brings RetroAchievements and Steam achievement tracking to Steam Deck and compatible SteamOS devices through Decky Loader. Check your next unlock in Quick Access, explore your collection in full-screen dashboards, and see completion badges right on your library game pages.
 
-[GitHub project](https://github.com/parvagans/achievement-companion) · [GitHub Releases](https://github.com/parvagans/achievement-companion/releases) · [Report an issue](https://github.com/parvagans/achievement-companion/issues)
+**RetroAchievements can even appear in Steam's own achievement interface** for supported non-Steam games—complete with artwork, descriptions, unlock status, and progress.
 
-No obligatory Trinkgeld — just the optional [beer-money jar on Ko-fi](https://ko-fi.com/parvagans) if you would like to support development.
+[**Download the latest release**](https://github.com/parvagans/achievement-companion/releases/latest) · [Installation & setup](#installation) · [Report an issue](https://github.com/parvagans/achievement-companion/issues)
 
-<a href="https://ko-fi.com/parvagans"><img src="docs/screenshots/generated/kofi-logo.png" alt="Support Achievement Companion on Ko-fi" height="42"></a>
+[![Support development on Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20development-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white)](https://ko-fi.com/parvagans)
+
+Optional contributions help cover development costs and support ongoing maintenance. [**Support Achievement Companion on Ko-fi →**](https://ko-fi.com/parvagans)
 
 ![Achievement Companion's RetroAchievements overview in Steam Deck Game Mode](docs/screenshots/readme/achievement-companion-hero.png)
 
-## Achievements without leaving Game Mode
+## Make every unlock part of the experience
 
-Open the Quick Access Menu (QAM) when you want a fast look at recent unlocks, profile progress, or the game you are playing. Open the full-screen views when you want to browse profiles, games, achievements, activity, history, and completion in more depth. Both are made for controller use, and you can move between them without leaving Game Mode.
+From the next achievement to your next mastered game, Achievement Companion keeps the details close to where you play. The Quick Access Menu (QAM) gives you a compact view during a session; full-screen profiles and game pages give your progress room to breathe. Both are built for controller navigation.
 
-## What it does
+| What you want to do | What Achievement Companion brings |
+| --- | --- |
+| **Bring retro achievements into your library** | RetroAchievements inside Steam's native Your Stuff / Achievements view for supported, confidently matched non-Steam shortcuts. |
+| **See how far you've come** | Full-screen RetroAchievements and Steam dashboards with profile stats, searchable game lists, completion progress, and detailed game pages. |
+| **Find your next target** | Achievement details, RA subsets and classifications, plus Steam base-game, DLC, and update groups when SteamHunters data is available. |
+| **Explore your achievement history** | Activity dashboards, interactive calendars, and recent unlocks that let you revisit your progress. |
+| **Show off each milestone** | Clickable library game-page badges for In Progress, Steam Perfected, and RA Beaten or Mastered, with configurable colors and placement. |
+| **Plan a Steam completion** | Optional SteamHunters insights into rarity, community completion times, DLC requirements, and achievement obtainability where available. |
+| **Keep up with new releases** | Built-in update checks and verified downloads, with installation confirmed through Decky. |
 
-- Puts RetroAchievements and Steam in one Decky plugin while keeping each provider's progress and rules distinct.
-- Brings RA achievements into Steam's native Your Stuff / Achievements view for supported, safely matched non-Steam shortcuts.
-- Adds a separate, clickable achievement-status badge to supported Steam game pages.
-- Covers RA profiles, games, achievement details, subsets, activity, history, and completion progress.
-- Shows RA Hardcore and Softcore progress, Site or Casual Rank, and Beaten or Mastered states where the data is available.
-- Uses fresh RetroAchievements Rich Presence to show when you are actually in a game, rather than guessing from your last-played game.
-- Includes Steam profiles, games, unlock history, completion views, manual library scans, and optional SteamHunters information.
-- Supports Steam ROM Manager and EmuDeck shortcut matching for supported RA games; uncertain matches stay hidden rather than showing the wrong set.
+RetroAchievements and Steam each retain their own progression rules: RA Hardcore and Softcore, Beaten and Mastered, and Steam Perfected all keep their meaning.
 
 ## RetroAchievements inside Steam
 
 For a supported non-Steam shortcut that Achievement Companion can match to the right RetroAchievements game, its achievement artwork, names, descriptions, locked or unlocked state, and progress can appear in Steam's own Your Stuff / Achievements view. Unlock times and global unlock rates are shown where the RA data provides them.
 
-This is native Steam presentation, not an Achievement Companion page. It is also separate from the small game-page status badge below. Matching is deliberately conservative: if the shortcut and RA game cannot be identified with confidence, Achievement Companion does not add the wrong achievements to Steam.
+That puts your retro progress directly in the library interface you already use. Steam ROM Manager and EmuDeck shortcuts can be matched using platform and title metadata and, where supported, ROM hashes. Unsupported or ambiguous games stay unmatched.
 
 ![RetroAchievements shown in Steam's native Your Stuff / Achievements interface](docs/screenshots/readme/ra-native-steam-achievements.png)
 
 ## See it in action
 
 ### RetroAchievements and Steam profiles
+
+Give both sides of your collection a full-screen home, with profile statistics, recent games, and completion progress.
 
 ![RetroAchievements and Steam full-screen profile dashboards](docs/screenshots/readme/fullscreen-providers.png)
 
@@ -58,6 +63,8 @@ The full-screen Games view lets you search and filter your progress. Activity br
 
 ### RetroAchievements game detail
 
+Explore a game's achievement set, Hardcore and Softcore progress, completion milestones, and supported subsets from one game page.
+
 ![RetroAchievements full-screen game page with progress and completion detail](docs/screenshots/readme/ra-game-view.png)
 
 ### Native game-page status badges
@@ -66,19 +73,31 @@ The full-screen Games view lets you search and filter your progress. Activity br
 
 ## RetroAchievements
 
-The RA views include profile progress, recent unlocks, activity and history, systems, games, and game and achievement details. Completion pages can be filtered to show unfinished, beaten, or mastered games. Achievement pages can show classifications such as Missable, Progression, and Win Condition, plus community and set details where available. Subsets can be explored from supported game pages.
+Follow your collection from the first unlock to mastery:
 
-Hardcore and Softcore progress are kept distinct, with a setting to show either mode or both. Profile rank can use Site Rank or Casual Rank. Rich Presence contributes current-game information only while its activity is fresh enough to be useful.
+- **Your profile at a glance:** progress, recent unlocks, Site or Casual Rank, and rank trend indicators.
+- **Your next completion:** search and filter games, review unfinished, beaten, or mastered games, and open detailed game dashboards.
+- **The details behind each unlock:** achievement artwork and descriptions, Missable, Progression, and Win Condition classifications, and community and set information where available.
+- **More sets to explore:** discover and expand subsets from supported game pages.
+- **Your preferred mode:** show Hardcore, Softcore, or both, with their progress kept distinct.
+- **Your current session:** fresh RetroAchievements Rich Presence identifies current-game activity.
 
-For supported Steam ROM Manager or EmuDeck shortcuts, matching can use platform and title information and, where supported, ROM hashes. The tools create the shortcuts; Achievement Companion reads their metadata to find a safe RA match. Unsupported or ambiguous games are left unmatched.
+The full-screen **Systems** tab is a coming-soon placeholder in v0.14.1.
 
 ## Steam
 
-The Steam provider includes profile progress, recently played games, achievements, game detail, activity, and completion views. A manual full-library scan can build broader cached totals for achievement-enabled games. Optional SteamHunters information can add context when it is available; the Steam views do not depend on it.
+Explore your Steam achievement collection beyond an individual game's percentage:
+
+- **Profile and library dashboards:** recently played games, achievement progress, completion views, and a manual full-library scan for broader cached totals.
+- **Detailed game pages:** achievement lists and individual unlock details, with base-game, DLC, and update groups when SteamHunters provides them.
+- **Activity you can explore:** interactive unlock calendars, history, and insights such as streaks when enough history is available.
+- **Completion context from SteamHunters:** rarity, community completion statistics and times, DLC requirements, and unobtainable or conditional achievement information where available.
+
+SteamHunters enrichment is optional; the core Steam views work without it.
 
 ## Game-page achievement badge
 
-This is separate from Steam's native Your Stuff / Achievements view. The small clickable badge appears on supported Steam game pages and opens the corresponding Achievement Companion detail view.
+See a game's achievement status before you launch it. The clickable badge appears on supported library game pages and opens the corresponding Achievement Companion detail view.
 
 - **In Progress** is available for supported Steam or RetroAchievements games.
 - **Perfected** is a Steam status; **Beaten** and **Mastered** are RetroAchievements statuses.
@@ -125,7 +144,13 @@ Achievement Companion is an independent community project, not affiliated with R
 
 ## Support Achievement Companion
 
-If it has made the Game Mode achievement loop nicer, you can leave a star on GitHub or send entirely optional [Trinkgeld / beer money through Ko-fi](https://ko-fi.com/parvagans). Feedback and bug reports are every bit as useful.
+Help support the next update. Contributions through Ko-fi help cover **development costs and ongoing maintenance** of Achievement Companion.
+
+[![Support development on Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20development-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white)](https://ko-fi.com/parvagans)
+
+[**Contribute to development on Ko-fi →**](https://ko-fi.com/parvagans)
+
+Financial support is entirely optional. Starring the [GitHub project](https://github.com/parvagans/achievement-companion), sharing feedback, and reporting bugs also help the project grow.
 
 ## License and notices
 
