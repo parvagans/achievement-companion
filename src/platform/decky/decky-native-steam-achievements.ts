@@ -419,7 +419,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
       if (projection === undefined) return callOriginal;
       const items = getNativeRetroAchievementsActivityItems(projection.achievements);
       if (items.length === 0) return callOriginal;
-      return createElement(DeckyNativeRetroAchievementsActivity, { items, raGameId: projection.raGameId });
+      return createElement(DeckyNativeRetroAchievementsActivity, { items, appId });
     }));
     activityPatched = true;
   }

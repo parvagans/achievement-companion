@@ -2,6 +2,10 @@ export const DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN = "/library/app/:appid";
 export const DECKY_GAME_PAGE_ACHIEVEMENT_URL_ROUTE_PREFIX = "/routes/library/app/";
 export const DECKY_GAME_PAGE_ACHIEVEMENT_LIBRARY_ROUTE_PREFIX = "/library/app/";
 
+export function buildDeckyNativeSteamAchievementsRoute(appId: number): string {
+  return `${DECKY_GAME_PAGE_ACHIEVEMENT_LIBRARY_ROUTE_PREFIX}${appId}/achievements/my/individual`;
+}
+
 export interface DeckyGamePageAchievementRouteDetectionState {
   readonly isGamePage: boolean;
   readonly appId: string | undefined;

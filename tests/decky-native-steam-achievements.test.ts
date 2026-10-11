@@ -150,6 +150,7 @@ test("runtime adapter leaves Steam games untouched and fully unpatches on teardo
         applyHookStubs() {},
         removeHookStubs() {},
         Focusable: () => null,
+        Navigation: { Navigate() {} },
         afterPatch: (target, name, handler) => patch(target, name, handler, "after"),
         replacePatch: (target, name, handler) => patch(target, name, handler, "replace"),
       },
@@ -206,6 +207,7 @@ test("runtime adapter leaves Steam games untouched and fully unpatches on teardo
     assert.deepEqual([...shortcutSections], ["notes", "achievements", "activity"]);
     const activityContent = new ActivityFeed({ appid: shortcutId }).render();
     assert.equal(activityContent.type.name, "DeckyNativeRetroAchievementsActivity");
+    assert.equal(activityContent.props.appId, shortcutId);
     assert.equal(activityContent.props.items[0].achievement.achievementId, "123");
     assert.equal(new ActivityFeed({ appid: 620 }).render(), "original-activity-620");
     assert.equal(new ActivityFeed({ appid: highSteamId }).render(), "original-activity-" + highSteamId);

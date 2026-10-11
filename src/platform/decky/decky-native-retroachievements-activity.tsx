@@ -1,7 +1,7 @@
-import { Focusable } from "@decky/ui";
+import { Focusable, Navigation } from "@decky/ui";
 import { useState, type CSSProperties, type JSX } from "react";
 import type { NativeRetroAchievementsActivityItem } from "./decky-native-retroachievements-activity-model";
-import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
+import { buildDeckyNativeSteamAchievementsRoute } from "./decky-game-page-achievement-route";
 
 const cardStyle: CSSProperties = {
   alignItems: "center",
@@ -16,21 +16,17 @@ const cardStyle: CSSProperties = {
   width: "100%",
 };
 
-function ActivityCard({ item, raGameId }: { readonly item: NativeRetroAchievementsActivityItem; readonly raGameId: string }): JSX.Element {
+function ActivityCard({ item, appId }: { readonly item: NativeRetroAchievementsActivityItem; readonly appId: number }): JSX.Element {
   const [focused, setFocused] = useState(false);
   const { achievement, unlockedAt } = item;
-  const openGame = (): void => {
-    void import("./decky-navigation").then(({ openDeckyFullScreenGameFromLibraryGamePage }) => {
-      openDeckyFullScreenGameFromLibraryGamePage(RETROACHIEVEMENTS_PROVIDER_ID, raGameId);
-    });
-  };
+  const openAchievements = (): void => Navigation.Navigate(buildDeckyNativeSteamAchievementsRoute(appId));
 
   return (
     <Focusable
       role="button"
       aria-label={`${achievement.title}, RetroAchievements achievement unlocked ${new Date(unlockedAt).toLocaleString()}`}
-      onActivate={openGame}
-      onClick={openGame}
+      onActivate={openAchievements}
+      onClick={openAchievements}
       onFocus={() => setFocused(true)}
       onGamepadFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
@@ -65,10 +61,10 @@ function ActivityCard({ item, raGameId }: { readonly item: NativeRetroAchievemen
 
 export function DeckyNativeRetroAchievementsActivity({
   items,
-  raGameId,
+  appId,
 }: {
   readonly items: readonly NativeRetroAchievementsActivityItem[];
-  readonly raGameId: string;
+  readonly appId: number;
 }): JSX.Element {
   return (
     <section data-achievement-companion-ra-activity="true" style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
@@ -76,7 +72,7 @@ export function DeckyNativeRetroAchievementsActivity({
         <span style={{ color: "#fff", fontSize: 16, fontWeight: 600, textTransform: "uppercase" }}>Activity</span>
         <span style={{ color: "#8f98a0", fontSize: 12 }}>Recent RetroAchievements</span>
       </div>
-      {items.map((item) => <ActivityCard key={item.achievement.achievementId} item={item} raGameId={raGameId} />)}
+      {items.map((item) => <ActivityCard key={item.achievement.achievementId} item={item} appId={appId} />)}
     </section>
   );
 }

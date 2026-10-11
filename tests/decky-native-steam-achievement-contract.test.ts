@@ -9,6 +9,11 @@ import {
   withNativeSteamRecentActivitySection,
 } from "../src/platform/decky/decky-native-steam-achievement-contract";
 import type { NativeSteamAchievements } from "../src/platform/decky/decky-native-steam-achievement-conversion";
+import { buildDeckyNativeSteamAchievementsRoute } from "../src/platform/decky/decky-game-page-achievement-route";
+
+test("Activity can open the shortcut's native Steam achievement list", () => {
+  assert.equal(buildDeckyNativeSteamAchievementsRoute(3058122499), "/library/app/3058122499/achievements/my/individual");
+});
 
 const appId = 2_590_000_000;
 const shortcut = { appid: appId, app_type: 1073741824 };
