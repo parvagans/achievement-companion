@@ -8795,7 +8795,7 @@ test("steam library achievement scan caches full library totals and survives per
     assert.equal(summaryCompletion.games.length, 5);
     assert.equal(summaryCompletion.summary.playedCount, 5);
     assert.equal(summaryCompletion.summary.unfinishedCount, 1);
-    assert.equal(summaryCompletion.summary.beatenCount, 3);
+    assert.equal(summaryCompletion.summary.beatenCount, 1);
     assert.equal(summaryCompletion.summary.masteredCount, 1);
     assert.equal(summaryCompletion.games[0]?.playtimeForeverMinutes, 10);
     assert.equal(summaryCompletion.games[0]?.lastPlayedAt, 1_700_000_010_000);
@@ -9874,7 +9874,7 @@ test("steam fullscreen completion prefers cached library scan games and labels p
     assert.equal(state.data?.games.length, 5);
     assert.equal(state.data?.summary.playedCount, 5);
     assert.equal(state.data?.summary.unfinishedCount, 1);
-    assert.equal(state.data?.summary.beatenCount, 3);
+    assert.equal(state.data?.summary.beatenCount, 1);
     assert.equal(state.data?.summary.masteredCount, 1);
     assert.equal(state.data?.games[0]?.playtimeForeverMinutes, 10);
     assert.equal(state.data?.games[0]?.lastPlayedAt, 1_700_000_010_000);
@@ -9882,7 +9882,7 @@ test("steam fullscreen completion prefers cached library scan games and labels p
     assert.equal(state.data?.games[3]?.scanStatus, "failed");
     assert.deepStrictEqual(
       formatCompletionProgressSummary(state.data?.summary ?? { playedCount: 0, unfinishedCount: 0, beatenCount: 0, masteredCount: 0 }, "steam"),
-      "5 Played | 1 Unfinished | 3 Skipped | 1 Perfect",
+      "5 Played | 1 Unfinished | 1 Skipped | 1 Perfect",
     );
     assert.equal(formatCompletionProgressStatusLabel("mastered", "steam"), "Perfect");
     assert.equal(formatCompletionProgressFilterLabelForProvider("mastered", "steam"), "Perfect");

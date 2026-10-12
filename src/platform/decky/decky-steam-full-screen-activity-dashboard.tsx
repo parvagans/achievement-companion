@@ -1,7 +1,10 @@
 import {
   Focusable,
   GamepadButton,
+  Menu,
+  MenuItem,
   NavEntryPositionPreferences,
+  showContextMenu,
   type FocusableProps,
   type GamepadEvent,
 } from "@decky/ui";
@@ -30,8 +33,10 @@ import {
   STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS,
 } from "./decky-full-screen-footer-overlay";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
+import { registerDeckyFullscreenPopupCancel } from "./decky-full-screen-popup-state";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { buildSteamActivityStats, type SteamActivityStats } from "./decky-steam-activity-data";
+import { buildActivityGameOptions, filterActivityEntriesByGame, type ActivityGameOption } from "./decky-steam-full-screen-activity-games";
 import {
   buildSteamActivityCalendarModel,
   DEFAULT_STEAM_ACTIVITY_CALENDAR_WEEKS,
@@ -45,12 +50,13 @@ import {
   STEAM_FULLSCREEN_GAME_ROW_HEIGHT,
 } from "./decky-steam-game-artwork";
 import calendarIconUrl from "./assets/calendar.svg";
+import caretDownIconUrl from "./assets/caret-down.svg";
 import clockIconUrl from "./assets/clock.svg";
 import gamepadIconUrl from "./assets/gamepad.svg";
 import streakIconUrl from "./assets/activity-flame.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
 import unlockedLockIconUrl from "./assets/unlocked-lock.svg";
-import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
+import { requestDeckySteamGamepadFocusAfterMount, takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
 import { jumpDeckySteamProfileTabToTop } from "./decky-steam-profile-jump-top";
 import { getSteamCompactAchievementFilterStyle } from "./decky-steam-compact-action-styles";
@@ -60,6 +66,7 @@ import {
   rememberDeckyActivityCalendarDay,
   rememberDeckyActivityFilter,
   rememberDeckyActivityFocusTarget,
+  rememberDeckyActivityGame,
   rememberDeckyActivityRenderLimit,
   rememberDeckyActivityScrollTop,
   type DeckySteamActivityFilter,
@@ -271,8 +278,21 @@ function handleActivityFilterDirection(event: GamepadEvent): void {
   const button = event.detail.button;
   const target = button === GamepadButton.DIR_LEFT ? filters[index - 1] ?? source
     : button === GamepadButton.DIR_RIGHT ? filters[index + 1]
+      ?? dashboard?.querySelector<HTMLElement>("[data-steam-activity-game-filter='true']")
       ?? dashboard?.querySelector<HTMLElement>("[data-steam-activity-calendar-current='true']")
       ?? source
+      : button === GamepadButton.DIR_DOWN ? dashboard?.querySelector<HTMLElement>("[data-steam-activity-row='true']") ?? source
+        : button === GamepadButton.DIR_UP ? source : undefined;
+  if (target !== undefined) moveActivityGamepadFocus(event, source, target);
+}
+
+function handleActivityGameDirection(event: GamepadEvent): void {
+  const source = event.currentTarget as HTMLElement;
+  const dashboard = source.closest<HTMLElement>("[data-steam-full-screen-activity-dashboard]");
+  const filters = Array.from(dashboard?.querySelectorAll<HTMLElement>("[data-steam-activity-filter='true']") ?? []);
+  const button = event.detail.button;
+  const target = button === GamepadButton.DIR_LEFT ? filters.at(-1) ?? source
+    : button === GamepadButton.DIR_RIGHT ? dashboard?.querySelector<HTMLElement>("[data-steam-activity-calendar-current='true']") ?? source
       : button === GamepadButton.DIR_DOWN ? dashboard?.querySelector<HTMLElement>("[data-steam-activity-row='true']") ?? source
         : button === GamepadButton.DIR_UP ? source : undefined;
   if (target !== undefined) moveActivityGamepadFocus(event, source, target);
@@ -297,7 +317,8 @@ function handleActivityCalendarDirection(event: GamepadEvent): void {
   } else if (button === GamepadButton.DIR_LEFT) {
     target = column > 0
       ? cells[index - 7]
-      : dashboard?.querySelector<HTMLElement>("[data-steam-activity-filter-selected='true']")
+      : dashboard?.querySelector<HTMLElement>("[data-steam-activity-game-filter='true']")
+        ?? dashboard?.querySelector<HTMLElement>("[data-steam-activity-filter-selected='true']")
         ?? dashboard?.querySelector<HTMLElement>("[data-steam-activity-filter='true']")
         ?? source;
   } else if (button === GamepadButton.DIR_RIGHT) {
@@ -319,6 +340,7 @@ function handleActivityRowDirection(event: GamepadEvent, onRevealMore: (lastRowI
   }
   const target = button === GamepadButton.DIR_UP
     ? rows[index - 1]
+      ?? dashboard?.querySelector<HTMLElement>("[data-steam-activity-game-filter-selected='true']")
       ?? dashboard?.querySelector<HTMLElement>("[data-steam-activity-filter-selected='true']")
       ?? dashboard?.querySelector<HTMLElement>("[data-steam-activity-filter='true']")
     : button === GamepadButton.DIR_DOWN
@@ -367,6 +389,83 @@ function ActivityFilterButton({ label, selected, onClick, onBack }: {
       {label}
     </Focusable>
   );
+}
+
+function ActivityGameFilter({ games, selectedGameId, onChange, onBack }: {
+  readonly games: readonly ActivityGameOption[];
+  readonly selectedGameId: string | undefined;
+  readonly onChange: (gameId: string | undefined) => void;
+  readonly onBack: () => void;
+}): JSX.Element {
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<ReturnType<typeof showContextMenu>>();
+  const unregisterCancelRef = useRef<() => void>();
+  const [focused, setFocused] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const selectedGame = games.find(({ gameId }) => gameId === selectedGameId);
+  const label = selectedGame?.title ?? "All Games";
+
+  const closeMenu = (restoreFocus = true): void => {
+    menuRef.current?.Hide();
+    menuRef.current = undefined;
+    unregisterCancelRef.current?.();
+    unregisterCancelRef.current = undefined;
+    setMenuOpen(false);
+    if (restoreFocus) requestDeckySteamGamepadFocusAfterMount(triggerRef.current);
+  };
+  const openMenu = (): void => {
+    if (menuRef.current !== undefined || triggerRef.current === null) return;
+    setMenuOpen(true);
+    menuRef.current = showContextMenu(
+      <Menu label="Filter by game" onCancel={() => closeMenu()}>
+        <MenuItem selected={selectedGameId === undefined} onClick={() => { onChange(undefined); closeMenu(); }}>All Games</MenuItem>
+        {games.map((game) => <MenuItem key={game.gameId} selected={selectedGameId === game.gameId} onClick={() => { onChange(game.gameId); closeMenu(); }}>{`${game.title} (${formatCount(game.unlockCount)})`}</MenuItem>)}
+      </Menu>,
+      triggerRef.current,
+      { bModal: true },
+    );
+    unregisterCancelRef.current = registerDeckyFullscreenPopupCancel(() => closeMenu());
+  };
+  useEffect(() => () => {
+    menuRef.current?.Hide();
+    unregisterCancelRef.current?.();
+  }, []);
+
+  return <Focusable
+    ref={triggerRef}
+    className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
+    noFocusRing
+    role="button"
+    aria-label={`Game: ${label}`}
+    aria-expanded={menuOpen}
+    data-steam-activity-game-filter="true"
+    data-steam-activity-game-filter-selected={selectedGameId === undefined ? "false" : "true"}
+    onActivate={openMenu}
+    onClick={openMenu}
+    onCancel={() => { if (menuRef.current !== undefined) closeMenu(); else onBack(); }}
+    onGamepadDirection={handleActivityGameDirection}
+    onFocus={() => setFocused(true)}
+    onGamepadFocus={() => setFocused(true)}
+    onBlur={() => setFocused(false)}
+    style={{
+      ...getSteamCompactAchievementFilterStyle(selectedGameId !== undefined, focused),
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "space-between",
+      gap: 6,
+      flex: "0 1 150px",
+      minWidth: 100,
+      minHeight: 28,
+      marginLeft: "auto",
+      padding: "4px 8px",
+      fontSize: 10,
+      fontWeight: 700,
+      overflow: "hidden",
+    }}
+  >
+    <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{label}</span>
+    <img src={caretDownIconUrl} alt="" aria-hidden="true" style={{ width: 10, height: 10, flexShrink: 0, filter: steamTheme.iconFilter.accent }} />
+  </Focusable>;
 }
 
 function AchievementActivityRow({ elementRef, entry, rowIndex, providerId, listRef, onOpenAchievementDetail, onBack, onRevealMore }: {
@@ -573,18 +672,28 @@ export function DeckySteamFullScreenActivityDashboard({
   const restorationTargetRef = useRef<HTMLDivElement | null>(null);
   const pendingRevealedRowIndexRef = useRef<number | null>(null);
   const [filter, setFilter] = useState<ActivityFilter>(initialPageState.filter);
+  const [selectedGameId, setSelectedGameId] = useState(initialPageState.selectedGameId);
   const [selectedCalendarDay, setSelectedCalendarDay] = useState(initialPageState.selectedCalendarDay);
   const [renderLimit, setRenderLimit] = useState(initialPageState.renderLimit);
   const modeEntries = useMemo(
     () => isRa ? filterRetroAchievementsUnlocksByMode(snapshot.entries, mode) : snapshot.entries,
     [isRa, mode, snapshot.entries],
   );
+  const gameOptions = useMemo(() => buildActivityGameOptions(modeEntries), [modeEntries]);
+  const selectedGame = gameOptions.find(({ gameId }) => gameId === selectedGameId);
+  const allUnlocksCount = selectedGame?.unlockCount ?? (isRa ? modeEntries.length : snapshot.summary.unlockedCount);
   const entries = useMemo(
-    () => filterActivityEntries(modeEntries, filter, selectedCalendarDay),
-    [filter, modeEntries, selectedCalendarDay],
+    () => filterActivityEntriesByGame(filterActivityEntries(modeEntries, filter, selectedCalendarDay), selectedGame?.gameId),
+    [filter, modeEntries, selectedCalendarDay, selectedGame?.gameId],
   );
   const renderedEntries = entries.slice(0, renderLimit);
   const stats = useMemo(() => buildSteamActivityStats(modeEntries), [modeEntries]);
+
+  useEffect(() => {
+    if (selectedGameId === undefined || selectedGame !== undefined || gameOptions.length === 0) return;
+    setSelectedGameId(undefined);
+    rememberDeckyActivityGame(providerId, undefined);
+  }, [gameOptions.length, providerId, selectedGame, selectedGameId]);
 
   useEffect(() => {
     if (!hasCompleteHistory && filter !== "all" && filter !== "recent") {
@@ -622,7 +731,16 @@ export function DeckySteamFullScreenActivityDashboard({
     setFilter(nextFilter);
     setSelectedCalendarDay(undefined);
     setRenderLimit(STEAM_ACTIVITY_INITIAL_RENDER_LIMIT);
+    if (listRef.current !== null) listRef.current.scrollTop = 0;
     rememberDeckyActivityFilter(providerId, nextFilter, mode);
+  };
+
+  const selectGame = (gameId: string | undefined): void => {
+    pendingRevealedRowIndexRef.current = null;
+    setSelectedGameId(gameId);
+    setRenderLimit(STEAM_ACTIVITY_INITIAL_RENDER_LIMIT);
+    if (listRef.current !== null) listRef.current.scrollTop = 0;
+    rememberDeckyActivityGame(providerId, gameId);
   };
 
   const selectCalendarDay = (day: number): void => {
@@ -631,6 +749,7 @@ export function DeckySteamFullScreenActivityDashboard({
     setFilter("all");
     setSelectedCalendarDay(nextDay);
     setRenderLimit(STEAM_ACTIVITY_INITIAL_RENDER_LIMIT);
+    if (listRef.current !== null) listRef.current.scrollTop = 0;
     rememberDeckyActivityCalendarDay(providerId, nextDay);
   };
 
@@ -688,11 +807,7 @@ export function DeckySteamFullScreenActivityDashboard({
         data-steam-full-screen-activity-dashboard
         style={getPageStyle()}
       >
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 12, fontWeight: 800, letterSpacing: "0.06em", margin: "0 0 5px 2px", lineHeight: 1.1 }}>
-          <span>ACTIVITY</span>
-          {isRa ? <span style={{ color: raTheme.color.textMuted, fontSize: 9, fontWeight: 600, letterSpacing: 0 }}>{snapshot.sourceLabel}</span> : null}
-        </div>
-        <div style={{ display: "grid", gridTemplateRows: "auto minmax(0, 1fr)", gap: 6, height: "calc(100% - 19px)", minHeight: 0 }}>
+        <div style={{ display: "grid", gridTemplateRows: "auto minmax(0, 1fr)", gap: 6, height: "100%", minHeight: 0 }}>
           <div
             data-steam-activity-summary
             style={{ display: "grid", gridTemplateColumns: `${hasCompleteHistory ? "repeat(4" : "repeat(3"}, minmax(0, 1fr)) minmax(220px, 2.6fr)`, gap: 6, minWidth: 0 }}
@@ -702,7 +817,7 @@ export function DeckySteamFullScreenActivityDashboard({
               label={isRa ? "Unlocks in view" : "Total Unlocks"}
               value={formatCount(isRa ? modeEntries.length : snapshot.summary.unlockedCount)}
             />
-            <ActivityMetricCard icon={gamepadIconUrl} label="Games with Unlocks" value={formatCount(stats.gameCount)} />
+            <ActivityMetricCard icon={gamepadIconUrl} label={isRa ? "Games in History" : "Games with Unlocks"} value={formatCount(stats.gameCount)} />
             <ActivityMetricCard icon={unlockedLockIconUrl} label="This Month" value={formatCount(stats.thisMonthCount)} />
             {hasCompleteHistory ? <ActivityMetricCard icon={streakIconUrl} label="Current Streak" value={`${stats.currentStreak} days`} iconTone="original" iconSize={36} /> : null}
             <ActivityTrend stats={stats} />
@@ -724,12 +839,12 @@ export function DeckySteamFullScreenActivityDashboard({
                 data-steam-activity-filter-row
                 style={{ display: "flex", gap: 5, alignItems: "center", minWidth: 0 }}
               >
-                <ActivityFilterButton label={`All Unlocks (${formatCount(isRa ? modeEntries.length : snapshot.summary.unlockedCount)})`} selected={selectedCalendarDay === undefined && filter === "all"} onClick={() => selectFilter("all")} onBack={onBack} />
+                <ActivityFilterButton label={`All Unlocks (${formatCount(allUnlocksCount)})`} selected={selectedCalendarDay === undefined && filter === "all"} onClick={() => selectFilter("all")} onBack={onBack} />
                 <ActivityFilterButton label="Recent (90 days)" selected={selectedCalendarDay === undefined && filter === "recent"} onClick={() => selectFilter("recent")} onBack={onBack} />
                 {hasCompleteHistory ? <ActivityFilterButton label="This Year" selected={selectedCalendarDay === undefined && filter === "year"} onClick={() => selectFilter("year")} onBack={onBack} /> : null}
                 {hasCompleteHistory ? <ActivityFilterButton label="This Month" selected={selectedCalendarDay === undefined && filter === "month"} onClick={() => selectFilter("month")} onBack={onBack} /> : null}
                 {hasCompleteHistory ? <ActivityFilterButton label="Current Streak" selected={selectedCalendarDay === undefined && filter === "streak"} onClick={() => selectFilter("streak")} onBack={onBack} /> : null}
-                <span style={{ marginLeft: "auto", color: "#afc6d5", fontSize: 9 }}>Newest First</span>
+                <ActivityGameFilter games={gameOptions} selectedGameId={selectedGame?.gameId} onChange={selectGame} onBack={onBack} />
               </Focusable>
               <Focusable
                 ref={listRef}
@@ -766,7 +881,7 @@ export function DeckySteamFullScreenActivityDashboard({
                       onRevealMore={(lastRowIndex) => revealMore(lastRowIndex)}
                     />
                   ))
-                  : <div style={{ ...getCardStyle(), padding: 18, color: "#b5cbd9" }}>No timestamped unlocks match this filter.</div>}
+                  : <div style={{ ...getCardStyle(), padding: 18, color: "#b5cbd9" }}>No unlocks match these filters.</div>}
               </Focusable>
             </Focusable>
 

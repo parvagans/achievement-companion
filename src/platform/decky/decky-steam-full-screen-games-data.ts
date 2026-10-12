@@ -33,7 +33,7 @@ export function isSteamGamesPlayed(game: NormalizedGame): boolean {
     (game.playtimeForeverMinutes ?? 0) > 0 ||
     (game.playtimeTwoWeeksMinutes ?? 0) > 0 ||
     (game.playtimeDeckForeverMinutes ?? 0) > 0 ||
-    game.hasAchievements === true
+    game.summary.unlockedCount > 0
   );
 }
 
@@ -72,7 +72,7 @@ export function matchesSteamGamesFilter(
   if (filter === "beaten") {
     return isRetroAchievements
       ? game.status === "beaten" || game.status === "completed"
-      : game.scanStatus !== undefined && game.scanStatus !== "scanned";
+      : game.scanStatus === "no-achievements";
   }
 
   if (filter === "completed") {
@@ -92,7 +92,7 @@ export function summarizeSteamGamesDashboard(
   const isRetroAchievements = snapshot.providerId === "retroachievements";
 
   for (const game of snapshot.games) {
-    if (game.summary.totalCount === undefined) {
+    if (game.summary.totalCount === undefined || (!isRetroAchievements && game.scanStatus !== "scanned")) {
       continue;
     }
 
@@ -102,18 +102,10 @@ export function summarizeSteamGamesDashboard(
 
   return {
     trackedCount: snapshot.games.length,
-    playedCount: isRetroAchievements
-      ? snapshot.games.filter((game) => matchesSteamGamesFilter(game, "played")).length
-      : snapshot.summary.playedCount,
-    unfinishedCount: isRetroAchievements
-      ? snapshot.games.filter((game) => matchesSteamGamesFilter(game, "unfinished")).length
-      : snapshot.summary.unfinishedCount,
-    skippedCount: isRetroAchievements
-      ? snapshot.games.filter((game) => matchesSteamGamesFilter(game, "beaten")).length
-      : snapshot.summary.beatenCount,
-    perfectedCount: isRetroAchievements
-      ? snapshot.games.filter((game) => matchesSteamGamesFilter(game, "mastered")).length
-      : snapshot.summary.masteredCount,
+    playedCount: snapshot.games.filter((game) => matchesSteamGamesFilter(game, "played")).length,
+    unfinishedCount: snapshot.games.filter((game) => matchesSteamGamesFilter(game, "unfinished")).length,
+    skippedCount: snapshot.games.filter((game) => matchesSteamGamesFilter(game, "beaten")).length,
+    perfectedCount: snapshot.games.filter((game) => matchesSteamGamesFilter(game, "mastered")).length,
     unlockedAchievements,
     totalAchievements,
     completionPercent: getSteamGamesPercentage(unlockedAchievements, totalAchievements),

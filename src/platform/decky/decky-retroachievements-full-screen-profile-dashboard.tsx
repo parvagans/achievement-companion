@@ -15,7 +15,7 @@ import { DeckySystemIcon } from "./decky-system-pill";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
 import { raRecipes, raTheme } from "./ra-theme";
-import { formatProfileMemberSince } from "./decky-stat-helpers";
+import { formatFullscreenLastSync, formatProfileMemberSince } from "./decky-stat-helpers";
 import { DeckyRetroAchievementsRankTrendIndicator } from "./decky-ra-rank-trend-indicator";
 import type { CompletionProgressSelectionFilter } from "./decky-completion-progress-summary-card-data";
 
@@ -39,16 +39,14 @@ function pageStyle(): CSSProperties {
   };
 }
 
-function gridStyle(hasRefreshTime: boolean): CSSProperties {
+function gridStyle(): CSSProperties {
   return {
     display: "grid",
     flex: "1 1 auto",
     overflow: "hidden",
     gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
-    gridTemplateRows: hasRefreshTime ? "minmax(0, 1fr) auto" : "minmax(0, 1fr)",
-    gridTemplateAreas: hasRefreshTime
-      ? '"profile profile dashboard dashboard dashboard dashboard" "sync sync dashboard dashboard dashboard dashboard"'
-      : '"profile profile dashboard dashboard dashboard dashboard"',
+    gridTemplateRows: "minmax(0, 1fr)",
+    gridTemplateAreas: '"profile profile dashboard dashboard dashboard dashboard"',
     alignItems: "stretch",
     gap: 6,
     width: "100%",
@@ -258,21 +256,6 @@ function SystemCard({
       </div>
     </Focusable>
   );
-}
-
-function formatRefreshTime(value: number | undefined): string | undefined {
-  if (value === undefined || !Number.isFinite(value)) return undefined;
-  const date = new Date(value);
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-  const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
-  const dayLabel = startOfDate === startOfToday
-    ? "Today"
-    : startOfDate === startOfToday - 86_400_000
-      ? "Yesterday"
-      : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  const timeLabel = date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
-  return `Last sync • ${dayLabel}, ${timeLabel}`;
 }
 
 function profileFactStyle(): CSSProperties {
@@ -654,7 +637,7 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
   }, [isActive, model.systems.length]);
 
   const memberSince = formatProfileMemberSince(model.profile.metrics, { month: "long" });
-  const refreshTime = formatRefreshTime(refreshedAt);
+  const refreshTime = formatFullscreenLastSync(refreshedAt);
   const selectedRank = model.ranks[0];
   const avatarUrl = addProfileAvatarCacheBustParam(model.profile.identity.avatarUrl, refreshedAt);
   const profileUrl = model.profile.identity.profileUrl
@@ -706,7 +689,7 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
   return (
     <main ref={rootRef} data-ac-ra-theme="fullscreen" data-ra-full-screen-profile-dashboard style={pageStyle()}>
       <DeckyFocusStyles />
-      <Focusable flow-children="left-right" noFocusRing tabIndex={-1} style={gridStyle(refreshTime !== undefined)}>
+      <Focusable flow-children="left-right" noFocusRing tabIndex={-1} style={gridStyle()}>
         <section style={panelStyle("profile")}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, minWidth: 0, textAlign: "center" }}>
             <div style={{ width: 144, height: 144, flex: "0 0 144px", display: "flex", alignItems: "center", justifyContent: "center", border: `3px solid ${raTheme.color.accent}`, borderRadius: 22, overflow: "hidden", background: "linear-gradient(145deg, rgba(54, 185, 255, 0.22), rgba(5, 22, 34, 0.96))", boxShadow: "0 0 18px rgba(54, 185, 255, 0.26)", boxSizing: "border-box" }}>
@@ -741,6 +724,9 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
             <ProfileStat label="Beaten Games" value={model.profileStats.beaten ?? "-"} />
             <ProfileStat icon={<DeckyRetroAchievementsPointsIcon size={14} />} label="Points Earned" value={model.profileStats.hardcorePoints ?? "-"} />
             <ProfileStat icon={<DeckyRetroAchievementsPointsIcon size={14} />} label="RetroPoints" value={model.profileStats.raPoints ?? "-"} />
+            {refreshTime !== undefined ? (
+              <div style={{ color: raTheme.color.textMuted, fontSize: 12, lineHeight: 1.2, textAlign: "left" }}>{refreshTime}</div>
+            ) : null}
           </div>
         </section>
         <Focusable flow-children="vertical" noFocusRing tabIndex={-1} style={rightColumnStyle(model.systems.length > 0)}>
@@ -798,9 +784,6 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
           />
           <RecentCompletionsPanel model={model} onOpenCompletionProgress={onOpenCompletionProgress} onMoveUp={focusSelectedProgressOrSystem} onMoveHorizontal={focusAdjacentCompletion} />
         </Focusable>
-        {refreshTime !== undefined ? (
-          <div style={{ gridArea: "sync", display: "flex", alignItems: "center", minWidth: 0, padding: "0 12px", boxSizing: "border-box", color: raTheme.color.textMuted, fontSize: 12, lineHeight: 1.2, textAlign: "left" }}>{refreshTime}</div>
-        ) : null}
       </Focusable>
     </main>
   );

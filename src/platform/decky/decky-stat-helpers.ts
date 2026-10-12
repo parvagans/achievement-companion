@@ -54,6 +54,23 @@ export function formatProfileMemberSince(
   });
 }
 
+export function formatFullscreenLastSync(value: number | undefined, now = Date.now()): string | undefined {
+  if (value === undefined || !Number.isFinite(value)) return undefined;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return undefined;
+  const today = new Date(now);
+  const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const startOfYesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1).getTime();
+  const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const dayLabel = startOfDate === startOfToday
+    ? "Today"
+    : startOfDate === startOfYesterday
+      ? "Yesterday"
+      : date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const timeLabel = date.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", hour12: false });
+  return `Last sync • ${dayLabel}, ${timeLabel}`;
+}
+
 export function formatDeckyRelativeTime(epochMs: number | undefined): string | undefined {
   if (epochMs === undefined) {
     return undefined;

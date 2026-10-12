@@ -35,6 +35,7 @@ import {
 } from "./decky-full-screen-footer-overlay";
 import { registerDeckyFullscreenPopupCancel } from "./decky-full-screen-popup-state";
 import { DeckyGameArtwork } from "./decky-game-artwork";
+import { DeckyGameStatusIcon } from "./decky-game-status-icon";
 import {
   DeckyRetroAchievementsGameIcon,
   DECKY_RA_FULLSCREEN_GAME_ICON_COLUMN_WIDTH,
@@ -254,22 +255,10 @@ function getPageStyle(): CSSProperties {
   };
 }
 
-function getSectionTitleStyle(): CSSProperties {
-  return {
-    marginBottom: 5,
-    color: "#a9b8c9",
-    fontSize: 12,
-    fontWeight: 850,
-    letterSpacing: "0.04em",
-    lineHeight: 1,
-    textTransform: "uppercase",
-  };
-}
-
-function getSummaryGridStyle(): CSSProperties {
+function getSummaryGridStyle(isRa: boolean): CSSProperties {
   return {
     display: "grid",
-    gridTemplateColumns: "repeat(5, minmax(0, 1fr)) minmax(230px, 2.2fr)",
+    gridTemplateColumns: `repeat(${isRa ? 4 : 5}, minmax(0, 1fr)) minmax(230px, 2.2fr)`,
     gap: 6,
     minWidth: 0,
   };
@@ -294,21 +283,23 @@ function getMetricValueStyle(): CSSProperties {
 }
 
 function getMetricLabelStyle(): CSSProperties {
-  return { ...steamRecipes.text("fullscreen", "caption"), color: steamTheme.color.accent, fontSize: 9, lineHeight: 1.2, marginTop: 4, whiteSpace: "nowrap" };
+  return { ...steamRecipes.text("fullscreen", "caption"), color: steamTheme.color.accent, fontSize: 9, lineHeight: 1.2, marginTop: 4, whiteSpace: "normal" };
 }
 
 function getMetricHelperStyle(): CSSProperties {
-  return { color: "#9fb2c5", fontSize: 8, lineHeight: 1.15, marginTop: 2, whiteSpace: "nowrap" };
+  return { color: "#9fb2c5", fontSize: 8, lineHeight: 1.15, marginTop: 2, whiteSpace: "normal" };
 }
 
 function MetricCard({
+  icon,
   iconUrl,
   iconTone = "blue",
   value,
   label,
   helper,
 }: {
-  readonly iconUrl: string;
+  readonly icon?: JSX.Element | undefined;
+  readonly iconUrl?: string | undefined;
   readonly iconTone?: SteamGamesIconTone;
   readonly value: string;
   readonly label: string;
@@ -316,7 +307,7 @@ function MetricCard({
 }): JSX.Element {
   return (
     <div style={getMetricCardStyle()}>
-      <IconAsset size={27} src={iconUrl} tone={iconTone} />
+      {icon ?? (iconUrl !== undefined ? <IconAsset size={27} src={iconUrl} tone={iconTone} /> : null)}
       <div style={{ minWidth: 0 }}>
         <div style={getMetricValueStyle()}>{value}</div>
         <div style={getMetricLabelStyle()}>{label}</div>
@@ -900,15 +891,16 @@ function SteamGamesRow({
 function SteamGamesSummaryCards({ summary, providerId }: { readonly summary: SteamGamesDashboardSummary; readonly providerId: string }): JSX.Element {
   const isRa = providerId === RETROACHIEVEMENTS_PROVIDER_ID;
   return (
-    <div style={getSummaryGridStyle()}>
+    <div style={getSummaryGridStyle(isRa)}>
+      {!isRa ? (
+        <MetricCard
+          iconUrl={gamepadIconUrl}
+          label="Games Tracked"
+          value={formatCount(summary.trackedCount)}
+        />
+      ) : null}
       <MetricCard
-        helper={isRa ? "Progress collection" : "(Steam Library)"}
-        iconUrl={gamepadIconUrl}
-        label={isRa ? "Games with progress" : "Games Tracked"}
-        value={formatCount(summary.trackedCount)}
-      />
-      <MetricCard
-        helper={formatPercent(getSteamGamesPercentage(summary.playedCount, summary.trackedCount))}
+        helper={isRa ? "Progress collection" : formatPercent(getSteamGamesPercentage(summary.playedCount, summary.trackedCount))}
         iconUrl={barChartIconUrl}
         label="Played"
         value={formatCount(summary.playedCount)}
@@ -922,8 +914,9 @@ function SteamGamesSummaryCards({ summary, providerId }: { readonly summary: Ste
       <MetricCard
         helper={formatPercent(getSteamGamesPercentage(summary.skippedCount, summary.trackedCount))}
         iconTone="red"
-        iconUrl={prohibitedIconUrl}
-        label={isRa ? "Beaten / Completed" : "Skipped"}
+        iconUrl={isRa ? undefined : prohibitedIconUrl}
+        icon={isRa ? <DeckyGameStatusIcon kind="beaten" size={27} color={raTheme.color.beaten} accentColor={raTheme.color.textSecondary} /> : undefined}
+        label={isRa ? "Beaten" : "Skipped"}
         value={formatCount(summary.skippedCount)}
       />
       <MetricCard
@@ -1080,7 +1073,6 @@ export function DeckySteamFullScreenGamesDashboard({
         style={getPageStyle()}
       >
         <SteamGamesRouteStyles />
-        <div style={getSectionTitleStyle()}>{isRa ? "Games with progress" : "Games"}</div>
         <SteamGamesSummaryCards summary={summary} providerId={providerId} />
 
         <Focusable

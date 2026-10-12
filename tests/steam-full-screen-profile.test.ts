@@ -14,6 +14,7 @@ import {
   markNextFullScreenCompletionProgressFilter,
 } from "../src/platform/decky/decky-full-screen-navigation-state";
 import { buildSteamFullScreenProfileSummary } from "../src/platform/decky/decky-steam-full-screen-profile-data";
+import { formatFullscreenLastSync } from "../src/platform/decky/decky-stat-helpers";
 import {
   matchesSteamGamesFilter,
   selectSteamGames,
@@ -162,6 +163,13 @@ function recentGame(gameId: string, lastPlayedAt: number): RecentlyPlayedGame {
   };
 }
 
+test("full-screen profiles use the same last-sync wording and local day", () => {
+  const now = new Date(2026, 9, 12, 20, 15).getTime();
+  assert.match(formatFullscreenLastSync(new Date(2026, 9, 12, 20, 10).getTime(), now) ?? "", /^Last sync • Today, /u);
+  assert.match(formatFullscreenLastSync(new Date(2026, 9, 11, 23, 55).getTime(), now) ?? "", /^Last sync • Yesterday, /u);
+  assert.equal(formatFullscreenLastSync(undefined, now), undefined);
+});
+
 test("steam full-screen profile summary derives account, library, playtime, and highlights from cached data", () => {
   const summary = buildSteamFullScreenProfileSummary({
     profile: createProfile(),
@@ -263,7 +271,7 @@ test("steam games dashboard preserves scan semantics across summary, filters, se
       status: "locked",
       summary: { unlockedCount: 0, totalCount: 20, completionPercent: 0 },
       metrics: [],
-      hasAchievements: false,
+      hasAchievements: true,
       scanStatus: "scanned",
     },
     {
@@ -283,7 +291,7 @@ test("steam games dashboard preserves scan semantics across summary, filters, se
       gameId: "failed",
       title: "Failed Scan",
       status: "locked",
-      summary: { unlockedCount: 0 },
+      summary: { unlockedCount: 0, totalCount: 7 },
       metrics: [],
       hasAchievements: false,
       scanStatus: "failed",
@@ -304,7 +312,7 @@ test("steam games dashboard preserves scan semantics across summary, filters, se
     trackedCount: 5,
     playedCount: 3,
     unfinishedCount: 2,
-    skippedCount: 2,
+    skippedCount: 1,
     perfectedCount: 1,
     unlockedAchievements: 40,
     totalAchievements: 80,
@@ -321,7 +329,6 @@ test("steam games dashboard preserves scan semantics across summary, filters, se
   ]);
   assert.deepEqual(games.filter((game) => matchesSteamGamesFilter(game, "beaten")).map((game) => game.gameId), [
     "skipped",
-    "failed",
   ]);
   assert.deepEqual(games.filter((game) => matchesSteamGamesFilter(game, "mastered")).map((game) => game.gameId), [
     "perfect",
@@ -334,6 +341,39 @@ test("steam games dashboard preserves scan semantics across summary, filters, se
     selectSteamGames({ games, filter: "all", query: "", sort: "recent" }).map((game) => game.gameId),
     ["unfinished-played", "skipped", "perfect", "failed", "unfinished-unplayed"],
   );
+});
+
+test("Steam counts an unlock without recorded playtime as played, but not an untouched achievement catalog", () => {
+  const libraryScan = createLibraryScan();
+  const profileSummary = buildSteamFullScreenProfileSummary({
+    profile: createProfile(),
+    recentlyPlayedGames: [],
+    libraryScan: {
+      ...libraryScan,
+      games: libraryScan.games.map((game) => game.gameId === "5"
+        ? { ...game, unlockedAchievements: 1 }
+        : game),
+    },
+  });
+  assert.equal(profileSummary.library.playedGames, 5);
+  assert.equal(profileSummary.library.inProgressGames, 3);
+
+  const snapshot: CompletionProgressSnapshot = {
+    providerId: "steam",
+    games: [{
+      providerId: "steam",
+      gameId: "unlock-only",
+      title: "Unlock Only",
+      status: "in_progress",
+      summary: { unlockedCount: 1, totalCount: 3 },
+      metrics: [],
+      hasAchievements: true,
+      scanStatus: "scanned",
+    }],
+    summary: { playedCount: 0, unfinishedCount: 0, beatenCount: 0, masteredCount: 0 },
+  };
+  assert.equal(summarizeSteamGamesDashboard(snapshot).playedCount, 1);
+  assert.equal(matchesSteamGamesFilter(snapshot.games[0]!, "played"), true);
 });
 
 test("steam games route uses the fixed concept dashboard and shared profile footer", async () => {
@@ -359,7 +399,7 @@ test("steam games route uses the fixed concept dashboard and shared profile foot
   assert.match(pageSource, /snapshot\.providerId === STEAM_PROVIDER_ID[\s\S]*<DeckySteamFullScreenGamesDashboard/u);
   assert.match(dashboardSource, /data-steam-full-screen-games-dashboard/u);
   assert.match(dashboardSource, /height: "100%"[\s\S]*overflow: "hidden"/u);
-  assert.match(dashboardSource, /repeat\(5, minmax\(0, 1fr\)\) minmax\(230px, 2\.2fr\)/u);
+  assert.match(dashboardSource, /gridTemplateColumns: `repeat\(\$\{isRa \? 4 : 5\}, minmax\(0, 1fr\)\) minmax\(230px, 2\.2fr\)`/u);
   assert.match(artworkSource, /STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH = 134;/u);
   assert.match(artworkSource, /STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT = 58;/u);
   assert.match(artworkSource, /STEAM_FULLSCREEN_GAME_ROW_HEIGHT = 70;/u);
@@ -640,7 +680,8 @@ test("steam activity dashboard derives timeline metrics from timestamped unlock 
   assert.doesNotMatch(activitySource, /emphasized|boxShadow: "0 0 17px/u);
   assert.match(activitySource, /recentThirtyDayCount/u);
   assert.doesNotMatch(activitySource, /ACTIVITY OVERVIEW/u);
-  assert.match(activitySource, /All Unlocks \(\$\{formatCount\(isRa \? modeEntries\.length : snapshot\.summary\.unlockedCount\)\}\)/u);
+  assert.match(activitySource, /allUnlocksCount = selectedGame\?\.unlockCount \?\? \(isRa \? modeEntries\.length : snapshot\.summary\.unlockedCount\)/u);
+  assert.match(activitySource, /All Unlocks \(\$\{formatCount\(allUnlocksCount\)\}\)/u);
   assert.match(activitySource, /data-steam-activity-filter-row[\s\S]*data-steam-activity-side-column/u);
   assert.match(activitySource, /flow-children="left-right"[\s\S]*flow-children="vertical"/u);
   assert.match(activitySource, /flow-children="vertical"[\s\S]*data-steam-activity-filter-row/u);

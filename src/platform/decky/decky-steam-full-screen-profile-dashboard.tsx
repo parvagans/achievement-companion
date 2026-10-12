@@ -15,7 +15,7 @@ import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
-import { formatDeckyRelativeTime, formatProfileMemberSince } from "./decky-stat-helpers";
+import { formatDeckyRelativeTime, formatFullscreenLastSync, formatProfileMemberSince } from "./decky-stat-helpers";
 import { DeckySteamHuntersIcon } from "./decky-steam-icons";
 import type {
   SteamFullScreenProfileSummary,
@@ -140,13 +140,6 @@ function createDashboardHorizontalFocusHandler(
 
 function formatCount(value: number | undefined): string {
   return value !== undefined ? value.toLocaleString() : "-";
-}
-
-function formatRefreshTime(value: number | undefined): string | undefined {
-  if (value === undefined || !Number.isFinite(value)) {
-    return undefined;
-  }
-  return new Date(value).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
 }
 
 function formatPercent(value: number | undefined): string {
@@ -441,7 +434,7 @@ function SteamProfileIdentityPanel({
 >): JSX.Element {
   const memberSince = formatProfileMemberSince(profile.metrics);
   const avatarUrl = addProfileAvatarCacheBustParam(profile.identity.avatarUrl, refreshedAt);
-  const refreshTime = formatRefreshTime(refreshedAt);
+  const refreshTime = formatFullscreenLastSync(refreshedAt);
 
   return (
     <DashboardPanel gridArea="profile">
@@ -475,7 +468,7 @@ function SteamProfileIdentityPanel({
           <ProfileFact iconUrl={starIconUrl}>{`${formatCount(profile.badgeCount)} badges`}</ProfileFact>
         ) : null}
       </div>
-      {refreshTime !== undefined ? <div style={{ marginTop: "auto", color: steamTheme.color.textMuted, fontSize: steamTheme.type.fullscreen.caption, textAlign: "center" }}>{`Steam / SteamHunters refreshed ${refreshTime}`}</div> : null}
+      {refreshTime !== undefined ? <div style={{ marginTop: "auto", color: steamTheme.color.textMuted, fontSize: steamTheme.type.fullscreen.caption, textAlign: "left" }}>{refreshTime}</div> : null}
     </DashboardPanel>
   );
 }

@@ -63,6 +63,10 @@ function hasRecordedPlaytime(game: Pick<SteamLibraryAchievementScanSummary["game
   ].some((minutes) => (normalizeMinutes(minutes) ?? 0) > 0);
 }
 
+function hasPlayedSteamGame(game: SteamLibraryAchievementScanSummary["games"][number]): boolean {
+  return hasRecordedPlaytime(game) || game.unlockedAchievements > 0;
+}
+
 function toSteamProfileGameSummary(
   game: SteamLibraryAchievementScanSummary["games"][number],
 ): SteamProfileGameSummary {
@@ -169,14 +173,14 @@ export function buildSteamFullScreenProfileSummary(args: {
 }): SteamFullScreenProfileSummary {
   const { profile, recentlyPlayedGames, libraryScan } = args;
   const xpProgress = getSteamXpProgress(profile.steamLevel, profile.playerXp);
-  const games = libraryScan?.games ?? [];
+  const games = libraryScan?.games.filter((game) => game.ownershipStatus !== "inactive") ?? [];
   const playedGames = libraryScan !== undefined
-    ? games.filter(hasRecordedPlaytime).length
+    ? games.filter(hasPlayedSteamGame).length
     : undefined;
   const ownedGames = libraryScan?.ownedGameCount ?? profile.ownedGameCount;
   const inProgressGames = libraryScan !== undefined
     ? games.filter((game) =>
-      hasRecordedPlaytime(game) &&
+      hasPlayedSteamGame(game) &&
       game.scanStatus === "scanned" &&
       game.hasAchievements &&
       game.totalAchievements > 0 &&

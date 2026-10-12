@@ -6,6 +6,7 @@ import {
   rememberDeckyActivityCalendarDay,
   rememberDeckyActivityFilter,
   rememberDeckyActivityFocusTarget,
+  rememberDeckyActivityGame,
   rememberDeckyActivityRenderLimit,
   rememberDeckySteamActivityCalendarDay,
   rememberDeckySteamActivityFilter,
@@ -27,6 +28,7 @@ test("Steam activity state preserves semantic child-route origin", () => {
     filter: "year",
     focusTarget: { gameId: "2321470", achievementId: "survivor-2" },
     renderLimit: 36,
+    selectedGameId: undefined,
     selectedCalendarDay: undefined,
     scrollTop: 640,
     mode: "both",
@@ -56,6 +58,7 @@ test("provider Activity state isolates RA mode-aware identity and real scroll of
       unlockedAt: 1_780_272_000_000,
     },
     renderLimit: 72,
+    selectedGameId: undefined,
     selectedCalendarDay: 1_780_272_000_000,
     scrollTop: 912,
     mode: "softcore",
@@ -73,6 +76,7 @@ test("Steam activity calendar selection replaces presets and survives achievemen
     filter: "all",
     focusTarget: { gameId: "1", achievementId: "dated" },
     renderLimit: 24,
+    selectedGameId: undefined,
     selectedCalendarDay: 1_780_272_000_000,
     scrollTop: 0,
     mode: "both",
@@ -80,4 +84,46 @@ test("Steam activity calendar selection replaces presets and survives achievemen
 
   rememberDeckySteamActivityFilter("recent");
   assert.equal(readDeckySteamActivityPageState().selectedCalendarDay, undefined);
+});
+
+test("Activity game selection is provider-specific and survives time-filter changes", () => {
+  resetDeckyActivityPageState("retroachievements");
+  resetDeckySteamActivityPageState();
+  rememberDeckyActivityCalendarDay("retroachievements", 1_780_272_000_000);
+  rememberDeckyActivityGame("retroachievements", "14402");
+  assert.equal(readDeckyActivityPageState("retroachievements").filter, "all");
+  assert.equal(readDeckyActivityPageState("retroachievements").selectedCalendarDay, 1_780_272_000_000);
+  rememberDeckyActivityFilter("retroachievements", "year", "hardcore");
+  assert.equal(readDeckyActivityPageState("retroachievements").selectedGameId, "14402");
+  assert.equal(readDeckyActivityPageState("retroachievements").filter, "year");
+  for (const filter of ["streak", "month", "recent"] as const) {
+    rememberDeckyActivityFilter("retroachievements", filter, "hardcore");
+    assert.equal(readDeckyActivityPageState("retroachievements").selectedGameId, "14402");
+    assert.equal(readDeckyActivityPageState("retroachievements").filter, filter);
+  }
+  assert.equal(readDeckySteamActivityPageState().selectedGameId, undefined);
+
+  rememberDeckyActivityFilter("steam", "month", "both");
+  rememberDeckyActivityGame("steam", "2321470");
+  assert.equal(readDeckySteamActivityPageState().filter, "month");
+  rememberDeckyActivityCalendarDay("steam", 1_780_272_000_000);
+  assert.equal(readDeckySteamActivityPageState().selectedGameId, "2321470");
+  rememberDeckyActivityGame("steam", undefined);
+  assert.equal(readDeckySteamActivityPageState().selectedGameId, undefined);
+  assert.equal(readDeckySteamActivityPageState().selectedCalendarDay, 1_780_272_000_000);
+
+  rememberDeckyActivityFilter("steam", "recent", "both");
+  rememberDeckyActivityGame("steam", "2321470");
+  assert.equal(readDeckySteamActivityPageState().filter, "recent");
+  assert.equal(readDeckySteamActivityPageState().selectedGameId, "2321470");
+  rememberDeckyActivityFilter("steam", "all", "both");
+  assert.equal(readDeckySteamActivityPageState().selectedGameId, "2321470");
+  assert.equal(readDeckySteamActivityPageState().filter, "all");
+  rememberDeckyActivityGame("steam", undefined);
+  assert.equal(readDeckySteamActivityPageState().selectedGameId, undefined);
+  assert.equal(readDeckySteamActivityPageState().filter, "all");
+
+  rememberDeckyActivityFilter("retroachievements", "all", "hardcore");
+  assert.equal(readDeckyActivityPageState("retroachievements").selectedGameId, "14402");
+  assert.equal(readDeckyActivityPageState("retroachievements").selectedCalendarDay, undefined);
 });

@@ -14,6 +14,7 @@ interface DeckySteamActivityPageState {
   readonly filter: DeckySteamActivityFilter;
   readonly focusTarget: DeckySteamActivityFocusTarget | undefined;
   readonly renderLimit: number;
+  readonly selectedGameId: string | undefined;
   readonly selectedCalendarDay: number | undefined;
   readonly scrollTop: number;
   readonly mode: RetroAchievementsAchievementMode;
@@ -23,6 +24,7 @@ const initialState: DeckySteamActivityPageState = {
   filter: "all",
   focusTarget: undefined,
   renderLimit: 24,
+  selectedGameId: undefined,
   selectedCalendarDay: undefined,
   scrollTop: 0,
   mode: "both",
@@ -39,12 +41,14 @@ export function rememberDeckyActivityFilter(
   filter: DeckySteamActivityFilter,
   mode: RetroAchievementsAchievementMode,
 ): void {
+  const current = readDeckyActivityPageState(providerId);
   pageStates.set(providerId, {
-    ...readDeckyActivityPageState(providerId),
+    ...current,
     filter,
     focusTarget: undefined,
     renderLimit: 24,
     selectedCalendarDay: undefined,
+    scrollTop: 0,
     mode,
   });
 }
@@ -57,6 +61,17 @@ export function rememberDeckyActivityCalendarDay(providerId: string, selectedCal
     focusTarget: undefined,
     renderLimit: 24,
     selectedCalendarDay,
+    scrollTop: 0,
+  });
+}
+
+export function rememberDeckyActivityGame(providerId: string, selectedGameId: string | undefined): void {
+  pageStates.set(providerId, {
+    ...readDeckyActivityPageState(providerId),
+    selectedGameId,
+    focusTarget: undefined,
+    renderLimit: 24,
+    scrollTop: 0,
   });
 }
 

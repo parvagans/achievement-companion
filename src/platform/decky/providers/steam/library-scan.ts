@@ -331,11 +331,11 @@ export function buildDeckySteamCompletionProgressSnapshotFromSummary(
       return true;
     }
 
-    return game.hasAchievements;
+    return game.unlockedAchievements > 0;
   }).length;
   const unfinishedCount = activeGames.filter((game) => game.scanStatus === "scanned" && game.totalAchievements > 0 && game.unlockedAchievements < game.totalAchievements).length;
   const perfectGames = activeGames.filter((game) => game.scanStatus === "scanned" && game.totalAchievements > 0 && game.unlockedAchievements >= game.totalAchievements).length;
-  const skippedOrFailedCount = activeGames.filter((game) => game.scanStatus !== "scanned").length;
+  const skippedCount = activeGames.filter((game) => game.scanStatus === "no-achievements").length;
 
   return {
     providerId: STEAM_PROVIDER_ID,
@@ -343,7 +343,7 @@ export function buildDeckySteamCompletionProgressSnapshotFromSummary(
     summary: {
       playedCount,
       unfinishedCount,
-      beatenCount: skippedOrFailedCount,
+      beatenCount: skippedCount,
       masteredCount: perfectGames,
     },
     refreshedAt: Date.parse(summary.scannedAt),

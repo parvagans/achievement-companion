@@ -317,7 +317,7 @@ test("RA full-screen profile uses the single tall identity card with one externa
   );
 
   assert.match(source, /gridTemplateColumns: "repeat\(6, minmax\(0, 1fr\)\)"/u);
-  assert.match(source, /gridTemplateAreas: hasRefreshTime[\s\S]*'"profile profile dashboard dashboard dashboard dashboard"'/u);
+  assert.match(source, /gridTemplateAreas: '"profile profile dashboard dashboard dashboard dashboard"'/u);
   assert.match(source, /function rightColumnStyle\(hasSystems: boolean\)[\s\S]*gridArea: "dashboard"/u);
   assert.match(source, /data-ra-profile-systems/u);
   assert.match(source, /Top systems by unlocked achievements/u);
@@ -327,7 +327,7 @@ test("RA full-screen profile uses the single tall identity card with one externa
   assert.match(source, /onClick=\{\(\) => onOpenExternalUrl\(profileUrl\)\}/u);
   assert.match(source, /formatProfileMemberSince\(model\.profile\.metrics, \{ month: "long" \}\)/u);
   assert.match(source, /RA account/u);
-  assert.match(source, /Last sync • \$\{dayLabel\}, \$\{timeLabel\}/u);
+  assert.match(source, /formatFullscreenLastSync\(refreshedAt\)/u);
   assert.match(source, /gridArea: area[\s\S]*<section style=\{panelStyle\("profile"\)\}>/u);
   assert.match(source, /ProfileStat label="Mastered Games"/u);
   assert.match(source, /ProfileStat label="Beaten Games"/u);
