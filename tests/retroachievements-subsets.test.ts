@@ -328,8 +328,10 @@ test("RA verified relationship index survives provider recreation", async () => 
   assert.equal(extendedCalls, 1, "a persisted complete index avoids re-verification after provider recreation");
 });
 
-test("RA subset verification paces live requests and retries rate limits", async () => {
+test("RA subset verification paces live requests and retries rate limits", async (context) => {
   const delays: number[] = [];
+  let now = 1_000;
+  context.mock.method(Date, "now", () => now);
   let extendedCalls = 0;
   const client = baseClient({
     async loadGameList() {
@@ -351,6 +353,7 @@ test("RA subset verification paces live requests and retries rate limits", async
     subsetVerificationRetryDelayMs: 17,
     sleep: async (milliseconds) => {
       delays.push(milliseconds);
+      now += milliseconds;
     },
   });
 
