@@ -498,13 +498,15 @@ function RecentCompletionRow({
   readonly onMoveUp: (event: GamepadEvent) => boolean;
   readonly onMoveHorizontal: (event: GamepadEvent, index: number, offset: number) => boolean;
 }): JSX.Element {
-  const { game, kind, awardedAt } = completion;
+  const { game, kind, awardedAt, dateKind } = completion;
   const statusColor = kind === "mastered"
     ? raTheme.color.mastered
     : kind === "completed"
       ? raTheme.color.softcore
       : raTheme.color.accentStrong;
-  const date = new Date(awardedAt).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+  const date = awardedAt === undefined
+    ? "Award date unavailable"
+    : `${dateKind === "unlock" ? "Last unlock · " : ""}${new Date(awardedAt).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}`;
   const statusLabel = kind === "mastered" ? "Mastered" : kind === "completed" ? "Completed" : "Beaten";
   const statusStyle: CSSProperties = kind === "completed"
     ? { ...raRecipes.card("compact", true), position: "relative", isolation: "isolate", border: `2px solid ${raTheme.color.softcore}`, background: raTheme.surface.contentCard }
@@ -532,7 +534,7 @@ function RecentCompletionRow({
           : { ...raRecipes.compactGame.statusEmblem(kind), width: 44, height: 44, flex: "0 0 44px" }}>
           {kind === "completed"
             ? <img alt="" src={gamepadIconUrl} style={{ width: 28, height: 28, filter: raTheme.iconFilter.softcore }} />
-            : <DeckyGameStatusIcon kind={kind} size={30} color={statusColor} accentColor={kind === "mastered" ? raTheme.color.hardcore : raTheme.color.accentStrong} />}
+            : <DeckyGameStatusIcon kind={kind} size={30} color={kind === "mastered" ? statusColor : raTheme.color.beatenFlagWhite} accentColor={kind === "mastered" ? raTheme.color.hardcore : raTheme.color.beatenFlagBlack} />}
         </span>
         <span style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, minWidth: 0 }}>
           <strong style={{ color: statusColor, fontSize: 12, lineHeight: 1.1 }}>{statusLabel}</strong>
@@ -571,8 +573,8 @@ function RecentCompletionsPanel({
       </div>
       <Focusable flow-children="left-right" noFocusRing tabIndex={-1} style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gridTemplateRows: "minmax(0, 1fr)", gap: 6, minHeight: 0, minWidth: 0 }}>
         {model.recentCompletions.length > 0
-          ? model.recentCompletions.map((completion, index) => (
-            <RecentCompletionRow key={`${completion.game.gameId}:${completion.awardedAt}`} completion={completion} index={index} total={model.completionAwardCounts[completion.kind]} onOpenCompletionProgress={onOpenCompletionProgress} onMoveUp={onMoveUp} onMoveHorizontal={onMoveHorizontal} />
+            ? model.recentCompletions.map((completion, index) => (
+              <RecentCompletionRow key={completion.game.gameId} completion={completion} index={index} total={model.completionAwardCounts[completion.kind]} onOpenCompletionProgress={onOpenCompletionProgress} onMoveUp={onMoveUp} onMoveHorizontal={onMoveHorizontal} />
           ))
           : <span style={{ display: "grid", gridColumn: "1 / -1", minHeight: 0, placeItems: "center", color: raTheme.color.textMuted, fontSize: 12, textAlign: "center" }}>No recent completed games available.</span>}
       </Focusable>
@@ -720,9 +722,9 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
             />
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%", marginTop: "auto", paddingTop: 12, borderTop: `1px solid ${raTheme.color.borderSubtle}`, boxSizing: "border-box" }}>
-            <ProfileStat label="Mastered Games" value={model.profileStats.mastered ?? "-"} />
-            <ProfileStat label="Beaten Games" value={model.profileStats.beaten ?? "-"} />
-            <ProfileStat icon={<DeckyRetroAchievementsPointsIcon size={14} />} label="Points Earned" value={model.profileStats.hardcorePoints ?? "-"} />
+            <ProfileStat icon={<DeckyGameStatusIcon kind="mastered" size={16} color={raTheme.color.mastered} accentColor={raTheme.color.hardcore} />} label="Mastered Games" value={model.modeAwardCounts.mastered.toLocaleString()} />
+            <ProfileStat icon={<DeckyGameStatusIcon kind="beaten" size={16} color={raTheme.color.beatenFlagWhite} accentColor={raTheme.color.beatenFlagBlack} />} label="Beaten Games" value={model.modeAwardCounts.beaten.toLocaleString()} />
+            <ProfileStat icon={<DeckyRetroAchievementsPointsIcon size={14} />} label={model.initialAchievementMode === "softcore" ? "Softcore Points" : "Points Earned"} value={(model.initialAchievementMode === "softcore" ? model.profileStats.softcorePoints : model.profileStats.hardcorePoints) ?? "-"} />
             <ProfileStat icon={<DeckyRetroAchievementsPointsIcon size={14} />} label="RetroPoints" value={model.profileStats.raPoints ?? "-"} />
             {refreshTime !== undefined ? (
               <div style={{ color: raTheme.color.textMuted, fontSize: 12, lineHeight: 1.2, textAlign: "left" }}>{refreshTime}</div>
@@ -743,7 +745,7 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
                 <img alt="" src={gamepadIconUrl} style={{ width: 24, height: 24, filter: raTheme.iconFilter.primary }} />
                 <div style={{ color: raTheme.color.textPrimary, fontSize: 17, fontWeight: 850, letterSpacing: "0.08em", lineHeight: 1.1 }}>SYSTEMS</div>
               </div>
-              <div style={{ color: raTheme.color.textSecondary, fontSize: 12, lineHeight: 1.2, textAlign: "right" }}>Top systems by unlocked achievements</div>
+              <div style={{ color: raTheme.color.textSecondary, fontSize: 12, lineHeight: 1.2, textAlign: "right" }}>Top systems by {model.initialAchievementMode} unlocks</div>
             </div>
             <div style={systemsRailViewportStyle()}>
               <span ref={leftSystemsArrowRef} aria-hidden="true" data-ra-profile-system-arrow="left" style={systemsRailArrowStyle(false)}>←</span>

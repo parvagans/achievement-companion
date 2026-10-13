@@ -9,6 +9,7 @@ import type {
   RetroAchievementsAchievementMode,
   RetroAchievementsRankDisplay,
 } from "@core/settings";
+import { getRetroAchievementsModeGameProgress } from "./decky-retroachievements-mode-progress";
 
 type RetroAchievementsProfile = DashboardSnapshot["profile"];
 
@@ -135,7 +136,5 @@ export function getRetroAchievementsPlayedGameProgress(
   game: RecentlyPlayedGame,
   preference: RetroAchievementsAchievementMode,
 ): ProgressSummary | undefined {
-  if (preference === "hardcore") return game.hardcoreSummary;
-  if (preference === "softcore") return game.softcoreSummary;
-  return game.summary;
+  return getRetroAchievementsModeGameProgress(game, preference);
 }

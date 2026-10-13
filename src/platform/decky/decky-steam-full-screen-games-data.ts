@@ -1,5 +1,8 @@
 import type { CompletionProgressSnapshot, NormalizedGame } from "@core/domain";
+import type { RetroAchievementsAchievementMode } from "@core/settings";
 import type { CompletionProgressSort } from "./decky-completion-progress-grouping";
+import { getRetroAchievementsCompletionIndicatorState } from "./decky-retroachievements-completion-indicator";
+import { getRetroAchievementsModeGameUnlockedCount } from "./decky-retroachievements-mode-progress";
 
 export type SteamGamesFilter =
   | "all"
@@ -40,6 +43,7 @@ export function isSteamGamesPlayed(game: NormalizedGame): boolean {
 export function matchesSteamGamesFilter(
   game: NormalizedGame,
   filter: SteamGamesFilter,
+  mode: RetroAchievementsAchievementMode = "both",
 ): boolean {
   const isRetroAchievements = game.providerId === "retroachievements";
   if (filter === "all") {
@@ -47,7 +51,17 @@ export function matchesSteamGamesFilter(
   }
 
   if (filter === "played") {
-    return isRetroAchievements ? game.summary.unlockedCount > 0 : isSteamGamesPlayed(game);
+    return isRetroAchievements ? (getRetroAchievementsModeGameUnlockedCount(game, mode) ?? 0) > 0 : isSteamGamesPlayed(game);
+  }
+
+  if (isRetroAchievements && mode !== "both") {
+    const unlocked = getRetroAchievementsModeGameUnlockedCount(game, mode) ?? 0;
+    const award = getRetroAchievementsCompletionIndicatorState(game);
+    const selectedAward = award?.endsWith(mode) === true ? award : undefined;
+    if (filter === "unfinished") return unlocked > 0 && selectedAward === undefined;
+    if (filter === "beaten") return selectedAward?.startsWith("beaten") === true;
+    if (filter === "completed") return selectedAward !== undefined;
+    return selectedAward === "mastered-hardcore";
   }
 
   if (filter === "unfinished") {
@@ -86,26 +100,30 @@ export function matchesSteamGamesFilter(
 
 export function summarizeSteamGamesDashboard(
   snapshot: CompletionProgressSnapshot,
+  mode: RetroAchievementsAchievementMode = "both",
+  achievementProgressGames: readonly NormalizedGame[] = snapshot.games,
 ): SteamGamesDashboardSummary {
   let unlockedAchievements = 0;
   let totalAchievements = 0;
   const isRetroAchievements = snapshot.providerId === "retroachievements";
 
-  for (const game of snapshot.games) {
+  for (const game of achievementProgressGames) {
     if (game.summary.totalCount === undefined || (!isRetroAchievements && game.scanStatus !== "scanned")) {
       continue;
     }
 
-    unlockedAchievements += game.summary.unlockedCount;
+    unlockedAchievements += isRetroAchievements
+      ? getRetroAchievementsModeGameUnlockedCount(game, mode) ?? 0
+      : game.summary.unlockedCount;
     totalAchievements += game.summary.totalCount;
   }
 
   return {
     trackedCount: snapshot.games.length,
-    playedCount: snapshot.games.filter((game) => matchesSteamGamesFilter(game, "played")).length,
-    unfinishedCount: snapshot.games.filter((game) => matchesSteamGamesFilter(game, "unfinished")).length,
-    skippedCount: snapshot.games.filter((game) => matchesSteamGamesFilter(game, "beaten")).length,
-    perfectedCount: snapshot.games.filter((game) => matchesSteamGamesFilter(game, "mastered")).length,
+    playedCount: snapshot.games.filter((game) => matchesSteamGamesFilter(game, "played", mode)).length,
+    unfinishedCount: snapshot.games.filter((game) => matchesSteamGamesFilter(game, "unfinished", mode)).length,
+    skippedCount: snapshot.games.filter((game) => matchesSteamGamesFilter(game, "beaten", mode)).length,
+    perfectedCount: snapshot.games.filter((game) => matchesSteamGamesFilter(game, "mastered", mode)).length,
     unlockedAchievements,
     totalAchievements,
     completionPercent: getSteamGamesPercentage(unlockedAchievements, totalAchievements),
@@ -117,10 +135,11 @@ export function selectSteamGames(args: {
   readonly filter: SteamGamesFilter;
   readonly query: string;
   readonly sort: CompletionProgressSort;
+  readonly mode?: RetroAchievementsAchievementMode;
 }): readonly NormalizedGame[] {
   const normalizedQuery = args.query.trim().toLocaleLowerCase();
   const games = args.games.filter((game) => {
-    if (!matchesSteamGamesFilter(game, args.filter)) {
+    if (!matchesSteamGamesFilter(game, args.filter, args.mode)) {
       return false;
     }
 
@@ -133,7 +152,14 @@ export function selectSteamGames(args: {
     }
 
     if (args.sort === "completion") {
-      const percentDelta = (right.summary.completionPercent ?? 0) - (left.summary.completionPercent ?? 0);
+      const percent = (game: NormalizedGame): number => {
+        const unlocked = game.providerId === "retroachievements"
+          ? getRetroAchievementsModeGameUnlockedCount(game, args.mode ?? "both")
+          : game.summary.unlockedCount;
+        const total = game.summary.totalCount;
+        return unlocked !== undefined && total !== undefined && total > 0 ? unlocked / total : 0;
+      };
+      const percentDelta = percent(right) - percent(left);
       return percentDelta !== 0 ? percentDelta : left.title.localeCompare(right.title);
     }
 

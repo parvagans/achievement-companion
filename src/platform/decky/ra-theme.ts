@@ -30,6 +30,8 @@ export const raTheme = {
     softcore: "rgba(220, 225, 233, 0.94)",
     mastered: "rgba(242, 216, 127, 0.98)",
     beaten: "rgba(230, 235, 242, 0.96)",
+    beatenFlagWhite: "#ffffff",
+    beatenFlagBlack: "#000000",
     unlocked: "rgba(102, 214, 255, 0.9)",
     locked: "rgba(185, 195, 207, 0.72)",
     points: "rgba(255, 211, 88, 0.98)",

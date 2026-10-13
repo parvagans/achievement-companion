@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import type { GameDetailSnapshot, NormalizedGame } from "../src/core/domain";
+import type { CompletionProgressSnapshot, DashboardSnapshot, GameDetailSnapshot, NormalizedGame } from "../src/core/domain";
+import { DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS } from "../src/core/settings";
 import {
   buildFullScreenGameSections,
   getAdjacentFullScreenGameSectionId,
@@ -23,6 +24,7 @@ import { hasDisplayableRetroAchievementsCommunityStats } from "../src/platform/d
 import {
   matchesSteamGamesFilter,
   selectSteamGames,
+  summarizeSteamGamesDashboard,
 } from "../src/platform/decky/decky-steam-full-screen-games-data";
 import { filterCompletionProgressGamesBySubsetVisibility } from "../src/platform/decky/decky-completion-progress-grouping";
 import {
@@ -30,7 +32,8 @@ import {
   readDeckyRetroAchievementsSubsetDetailStates,
   resetDeckyRetroAchievementsSubsetDetailCacheForTests,
 } from "../src/platform/decky/decky-retroachievements-subset-detail-cache";
-import { getRetroAchievementsProfileSystems } from "../src/platform/decky/decky-retroachievements-full-screen-profile-data";
+import { buildRetroAchievementsFullScreenProfileModel, getRetroAchievementsProfileSystems } from "../src/platform/decky/decky-retroachievements-full-screen-profile-data";
+import { buildRetroAchievementsSystemsOverview } from "../src/platform/decky/decky-retroachievements-systems-data";
 import { getRetroAchievementsRefreshActionPresentation } from "../src/platform/decky/providers/retroachievements/settings-view-model";
 
 const game: NormalizedGame = {
@@ -93,23 +96,158 @@ test("provider visit tab order adds Systems to the RA cycle only", () => {
   assert.equal(getAdjacentProviderFullScreenSessionTab(raTabs, "settings", "next"), "profile");
 });
 
-test("RA retained navigation renders the centered Systems coming-soon screen", async () => {
-  const [navigationSource, footerSource, systemsSource, themeSource] = await Promise.all([
-    readFile(new URL("../src/platform/decky/decky-navigation.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../src/platform/decky/decky-full-screen-footer-overlay.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../src/platform/decky/decky-retroachievements-systems-coming-soon.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../src/platform/decky/ra-theme.ts", import.meta.url), "utf8"),
-  ]);
+test("RA Systems overview uses profile totals and only attributed game systems for its breakdown", () => {
+  const profile = { summary: { unlockedCount: 975, totalCount: 5_789 } } as Parameters<typeof buildRetroAchievementsSystemsOverview>[0];
+  const games: NormalizedGame[] = [
+    { ...game, gameId: "nes", platformId: "7", platformLabel: "NES", summary: { unlockedCount: 6, totalCount: 10 }, metrics: [{ key: "highest-award-kind", label: "Award", value: "mastered-hardcore" }] },
+    { ...game, gameId: "snes", platformId: "3", platformLabel: "SNES", summary: { unlockedCount: 3, totalCount: 10 }, metrics: [{ key: "highest-award-kind", label: "Award", value: "beaten-hardcore" }] },
+    { ...game, gameId: "gba", platformId: "5", platformLabel: "Game Boy Advance", summary: { unlockedCount: 1, totalCount: 4 }, metrics: [] },
+    { ...game, gameId: "unplayed", platformId: "21", platformLabel: "PlayStation 2", summary: { unlockedCount: 0, totalCount: 5 }, metrics: [] },
+    { ...game, gameId: "unknown", summary: { unlockedCount: 20, totalCount: 30 }, metrics: [] },
+  ];
 
-  assert.match(footerSource, /id: "activity", label: "Activity"[\s\S]*id: "systems", label: "Systems"[\s\S]*id: "settings", label: "Settings"/u);
-  assert.match(navigationSource, /activeTab === "systems" && providerId === RETROACHIEVEMENTS_PROVIDER_ID[\s\S]*DeckyRetroAchievementsSystemsComingSoon/u);
-  assert.match(systemsSource, /getDeckyFullScreenLoadingPageStyle/u);
-  assert.match(systemsSource, /DeckyLoadingBrandMark providerId="retroachievements"/u);
-  assert.match(systemsSource, /data-achievement-companion-focus-target="ra-systems-coming-soon"/u);
-  assert.match(systemsSource, /requestDeckySteamGamepadFocusAfterMount\(focusRef\.current\)/u);
-  assert.match(systemsSource, /autoFocus[\s\S]*noFocusRing[\s\S]*onActivate[\s\S]*preferredFocus/u);
-  assert.match(themeSource, /\.gpfocus:not\(\[data-achievement-companion-focus-target="ra-community-summary"\]\):not\(\[data-achievement-companion-focus-target="ra-systems-coming-soon"\]\)/u);
-  assert.match(systemsSource, />COMING SOON\.\.\.<\/h1>/u);
+  const overview = buildRetroAchievementsSystemsOverview(profile, games);
+  assert.equal(overview.unlocked, 975);
+  assert.equal(overview.total, 5_789);
+  assert.equal(overview.completionPercent, 17);
+  assert.equal(overview.systems?.systemsWithUnlocks, 3);
+  assert.equal(overview.systems?.gamesWithUnlocks, 4);
+  assert.equal(overview.systems?.masteredGames, 1);
+  assert.equal(overview.systems?.beatenGames, 1);
+  assert.equal(overview.systems?.attributedUnlocks, 10);
+  assert.deepEqual(overview.systems?.breakdown.map((item) => [item.title, item.unlocked, item.sharePercent]), [
+    ["NES", 6, 60], ["SNES", 3, 30], ["Game Boy Advance", 1, 10],
+  ]);
+  assert.equal(overview.systems?.topSystem?.title, "NES");
+  assert.equal(buildRetroAchievementsSystemsOverview(profile, undefined).systems, undefined);
+});
+
+test("RA Systems award tiles count verified game awards, not consoles or softcore completions", () => {
+  const profile = { summary: { unlockedCount: 30, totalCount: 60 } } as Parameters<typeof buildRetroAchievementsSystemsOverview>[0];
+  const awardGame = (gameId: string, award: string): NormalizedGame => ({
+    ...game,
+    gameId,
+    platformId: "7",
+    platformLabel: "NES",
+    summary: { unlockedCount: 5, totalCount: 10 },
+    metrics: [{ key: "highest-award-kind", label: "Award", value: award }],
+  });
+  const overview = buildRetroAchievementsSystemsOverview(profile, [
+    awardGame("mastered-1", "mastered-hardcore"),
+    awardGame("mastered-2", "completed-hardcore"),
+    awardGame("beaten-1", "beaten-hardcore"),
+    awardGame("beaten-2", "beaten-softcore"),
+    awardGame("completed-softcore", "completed-softcore"),
+  ]);
+  assert.equal(overview.systems?.systemsWithUnlocks, 1);
+  assert.equal(overview.systems?.gamesWithUnlocks, 5);
+  assert.equal(overview.systems?.masteredGames, 2);
+  assert.equal(overview.systems?.beatenGames, 2);
+});
+
+test("RA Systems breakdown percentages add to 100 after rounding", () => {
+  const profile = { summary: { unlockedCount: 3, totalCount: 6 } } as Parameters<typeof buildRetroAchievementsSystemsOverview>[0];
+  const games = [1, 2, 3].map((id): NormalizedGame => ({
+    ...game, gameId: String(id), platformId: String(id), platformLabel: `System ${id}`,
+    summary: { unlockedCount: 1, totalCount: 2 },
+  }));
+  const shares = buildRetroAchievementsSystemsOverview(profile, games).systems?.breakdown.map((item) => item.sharePercent);
+  assert.deepEqual(shares, [34, 33, 33]);
+});
+
+test("RA Profile and Systems count subset achievements toward N64 without treating subsets as games", () => {
+  const profile = { summary: { unlockedCount: 256, totalCount: 500 }, metrics: [] } as Parameters<typeof buildRetroAchievementsSystemsOverview>[0];
+  const games: NormalizedGame[] = [
+    { ...game, gameId: "n64-parent", title: "N64 Game", platformId: "2", platformLabel: "Nintendo 64", systemIconUrl: "n64.png", summary: { unlockedCount: 253, totalCount: 400 } },
+    { ...game, gameId: "n64-subset", parentGameId: "n64-parent", title: "N64 Game [Subset - Bonus]", platformId: "2", platformLabel: "Nintendo 64", summary: { unlockedCount: 3, totalCount: 10 } },
+  ];
+  const snapshot = {
+    profile, featuredGames: games, recentAchievements: [], recentUnlocks: [], recentlyPlayedGames: [],
+  } as unknown as DashboardSnapshot;
+  const completion = { games, summary: { unfinishedCount: 2, beatenCount: 0, masteredCount: 0 } } as CompletionProgressSnapshot;
+  const profileModel = buildRetroAchievementsFullScreenProfileModel({
+    snapshot, completion, settings: DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS,
+  });
+  const systems = buildRetroAchievementsSystemsOverview(profile, games);
+
+  assert.equal(profileModel.systems[0]?.unlockedAchievements, 256);
+  assert.equal(systems.systems?.topSystem?.unlockedAchievements, 256);
+  assert.equal(systems.systems?.breakdown[0]?.unlocked, 256);
+  assert.equal(systems.systems?.gamesWithUnlocks, 1);
+  assert.equal(systems.systems?.attributedUnlocks, 256);
+  assert.equal(profileModel.completion.gamesWithProgress, 1);
+  assert.equal(buildRetroAchievementsFullScreenProfileModel({ snapshot, settings: DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS }).systems[0]?.unlockedAchievements, 256);
+});
+
+test("RA achievement mode keeps Profile, Systems, and Games counts aligned", () => {
+  const profile = {
+    summary: { unlockedCount: 7, totalCount: 12 },
+    hardcoreUnlockedCount: 4,
+    softcoreUnlockedCount: 3,
+    metrics: [],
+  } as unknown as DashboardSnapshot["profile"];
+  const games: NormalizedGame[] = [
+    { ...game, gameId: "n64", platformId: "2", platformLabel: "Nintendo 64", summary: { unlockedCount: 4, totalCount: 5 }, hardcoreSummary: { unlockedCount: 3, totalCount: 5 }, softcoreSummary: { unlockedCount: 1, totalCount: 5 }, metrics: [{ key: "highest-award-kind", label: "Award", value: "mastered-hardcore" }, { key: "highest-award-date", label: "Date", value: "100" }] },
+    { ...game, gameId: "subset", parentGameId: "n64", platformId: "2", platformLabel: "Nintendo 64", summary: { unlockedCount: 2, totalCount: 3 }, hardcoreSummary: { unlockedCount: 1, totalCount: 3 }, softcoreSummary: { unlockedCount: 1, totalCount: 3 }, metrics: [] },
+    { ...game, gameId: "nes", platformId: "7", platformLabel: "NES", summary: { unlockedCount: 1, totalCount: 4 }, hardcoreSummary: { unlockedCount: 0, totalCount: 4 }, softcoreSummary: { unlockedCount: 1, totalCount: 4 }, metrics: [{ key: "highest-award-kind", label: "Award", value: "beaten-softcore" }, { key: "highest-award-date", label: "Date", value: "200" }] },
+  ];
+  const dashboard = { profile, featuredGames: games, recentAchievements: [], recentUnlocks: [], recentlyPlayedGames: [] } as unknown as DashboardSnapshot;
+  const completion = { providerId: "retroachievements", games, summary: { unfinishedCount: 0, beatenCount: 1, masteredCount: 1 } } as CompletionProgressSnapshot;
+  const cases = [
+    { mode: "both", unlocked: 7, n64: 6, attributed: 7, played: 2, beaten: 1, mastered: 1 },
+    { mode: "hardcore", unlocked: 4, n64: 4, attributed: 4, played: 1, beaten: 0, mastered: 1 },
+    { mode: "softcore", unlocked: 3, n64: 2, attributed: 3, played: 2, beaten: 1, mastered: 0 },
+  ] as const;
+
+  for (const expected of cases) {
+    const settings = { ...DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS, retroAchievementsAchievementMode: expected.mode };
+    const profileModel = buildRetroAchievementsFullScreenProfileModel({ snapshot: dashboard, completion, settings });
+    const systems = buildRetroAchievementsSystemsOverview(profile, games, expected.mode);
+    const gamesSummary = summarizeSteamGamesDashboard({ ...completion, games: [games[0]!, games[2]!] }, expected.mode, games);
+    assert.equal(profileModel.progressByMode[expected.mode]?.unlockedCount, expected.unlocked);
+    assert.equal(systems.unlocked, expected.unlocked);
+    assert.equal(profileModel.systems[0]?.unlockedAchievements, expected.n64);
+    assert.equal(systems.systems?.topSystem?.unlockedAchievements, expected.n64);
+    assert.equal(systems.systems?.attributedUnlocks, expected.attributed);
+    assert.equal(systems.systems?.gamesWithUnlocks, expected.played);
+    assert.equal(profileModel.modeAwardCounts.beaten, expected.beaten);
+    assert.equal(profileModel.modeAwardCounts.mastered, expected.mastered);
+    assert.equal(systems.systems?.beatenGames, expected.beaten);
+    assert.equal(systems.systems?.masteredGames, expected.mastered);
+    assert.equal(gamesSummary.unlockedAchievements, expected.unlocked);
+    assert.equal(gamesSummary.totalAchievements, 12);
+    assert.equal(gamesSummary.playedCount, expected.played);
+  }
+
+  assert.equal(buildRetroAchievementsSystemsOverview({ ...profile, hardcoreUnlockedCount: undefined, softcoreUnlockedCount: undefined }, games, "hardcore").unlocked, undefined);
+  assert.deepEqual(getRetroAchievementsProfileSystems([{ ...games[0]!, hardcoreSummary: undefined, softcoreSummary: undefined }], "hardcore"), []);
+});
+
+test("RA Profile shows the latest game for each distinct completion award", () => {
+  const profile = { summary: { unlockedCount: 9, totalCount: 12 }, hardcoreUnlockedCount: 9, softcoreUnlockedCount: 0, metrics: [] } as unknown as DashboardSnapshot["profile"];
+  const awardedGame = (id: string, award: string, date: number): NormalizedGame => ({
+    ...game,
+    gameId: id,
+    lastUnlockAt: date > 0 ? date : 150,
+    hardcoreSummary: { unlockedCount: 1, totalCount: 3 },
+    softcoreSummary: { unlockedCount: 0, totalCount: 3 },
+    metrics: [{ key: "highest-award-kind", label: "Award", value: award }, { key: "highest-award-date", label: "Date", value: String(date) }],
+  });
+  const games = [
+    awardedGame("older-beaten", "beaten-hardcore", 100),
+    awardedGame("mastered", "mastered", 0),
+    awardedGame("newer-beaten", "beaten-hardcore", 300),
+  ];
+  const dashboard = { profile, featuredGames: games, recentAchievements: [], recentUnlocks: [], recentlyPlayedGames: [] } as unknown as DashboardSnapshot;
+  const settings = { ...DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS, retroAchievementsAchievementMode: "hardcore" as const };
+  const model = buildRetroAchievementsFullScreenProfileModel({ snapshot: dashboard, settings });
+
+  assert.deepEqual(model.recentCompletions.map(({ game: completedGame, kind }) => [completedGame.gameId, kind]), [
+    ["newer-beaten", "beaten"],
+    ["mastered", "mastered"],
+  ]);
+  assert.deepEqual(model.completionAwardCounts, { beaten: 2, completed: 0, mastered: 1 });
+  assert.equal(model.recentCompletions[1]?.dateKind, "unlock");
 });
 
 test("RetroAchievements refresh success is represented by a green action label, not a success caption", () => {
@@ -320,7 +458,7 @@ test("RA full-screen profile uses the single tall identity card with one externa
   assert.match(source, /gridTemplateAreas: '"profile profile dashboard dashboard dashboard dashboard"'/u);
   assert.match(source, /function rightColumnStyle\(hasSystems: boolean\)[\s\S]*gridArea: "dashboard"/u);
   assert.match(source, /data-ra-profile-systems/u);
-  assert.match(source, /Top systems by unlocked achievements/u);
+  assert.match(source, /Top systems by \{model\.initialAchievementMode\} unlocks/u);
   assert.match(source, /system\.unlockedAchievements\.toLocaleString\(\)/u);
   assert.match(source, /system\.completionPercent \?\? 0/u);
   assert.match(source, /panelStyle\("profile"\)[\s\S]*label="View on RetroAchievements"/u);
@@ -329,9 +467,12 @@ test("RA full-screen profile uses the single tall identity card with one externa
   assert.match(source, /RA account/u);
   assert.match(source, /formatFullscreenLastSync\(refreshedAt\)/u);
   assert.match(source, /gridArea: area[\s\S]*<section style=\{panelStyle\("profile"\)\}>/u);
-  assert.match(source, /ProfileStat label="Mastered Games"/u);
-  assert.match(source, /ProfileStat label="Beaten Games"/u);
-  assert.match(source, /ProfileStat icon=\{<DeckyRetroAchievementsPointsIcon size=\{14\} \/>\} label="Points Earned"/u);
+  assert.match(source, /ProfileStat icon=\{<DeckyGameStatusIcon kind="mastered"[^>]*\/>\} label="Mastered Games"/u);
+  assert.match(source, /ProfileStat icon=\{<DeckyGameStatusIcon kind="beaten"[^>]*\/>\} label="Beaten Games"/u);
+  assert.match(source, /ProfileStat icon=\{<DeckyRetroAchievementsPointsIcon size=\{14\} \/>\} label=\{model\.initialAchievementMode === "softcore" \? "Softcore Points" : "Points Earned"\}/u);
+  assert.match(source, /allowModeSelection=\{model\.initialAchievementMode === "both"\}/u);
+  assert.match(source, /total=\{model\.completionAwardCounts\[completion\.kind\]\}/u);
+  assert.match(source, /color=\{kind === "mastered" \? statusColor : raTheme\.color\.beatenFlagWhite\} accentColor=\{kind === "mastered" \? raTheme\.color\.hardcore : raTheme\.color\.beatenFlagBlack\}/u);
   assert.match(source, /ProfileStat icon=\{<DeckyRetroAchievementsPointsIcon size=\{14\} \/>\} label="RetroPoints"/u);
   assert.match(source, /calendarIconUrl/u);
   assert.match(source, /trophyIconUrl/u);
@@ -348,7 +489,7 @@ test("RA full-screen profile systems aggregate unlocked achievements by console 
     { ...game, gameId: "snes-1", platformId: "3", platformLabel: "SNES", systemIconUrl: "snes.png", summary: { unlockedCount: 428, totalCount: 900 } },
     { ...game, gameId: "gba-1", platformId: "5", platformLabel: "Game Boy Advance", summary: { unlockedCount: 287, totalCount: 500 } },
     { ...game, gameId: "ps2-1", platformId: "21", platformLabel: "PlayStation 2", summary: { unlockedCount: 999, totalCount: 1200 } },
-  ], 3);
+  ], "both", 3);
 
   assert.deepEqual(systems.map((system) => [system.title, system.unlockedAchievements]), [
     ["PlayStation 2", 999],

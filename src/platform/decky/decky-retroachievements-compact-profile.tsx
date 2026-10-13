@@ -44,6 +44,7 @@ import {
   subscribeToDeckyCompactFocusRestore,
 } from "./decky-compact-focus-restore";
 import { getRetroAchievementsCompletionIndicatorState } from "./decky-retroachievements-completion-indicator";
+import { getRetroAchievementsModeUnlockedCount } from "./decky-retroachievements-mode-progress";
 import { DeckyGameStatusIcon } from "./decky-game-status-icon";
 import { getRetroAchievementsRecentActivityLabel } from "./decky-retroachievements-recent-activity";
 import { findDeckyScrollableAncestor } from "./decky-scroll-viewport";
@@ -304,7 +305,7 @@ function CompletionCard({
   const [focused, setFocused] = useState(false);
   const content = (
     <>
-      <DeckyGameStatusIcon kind={kind} size={25} color={kind === "mastered" ? raTheme.color.mastered : raTheme.color.beaten} accentColor={kind === "mastered" ? raTheme.color.hardcore : raTheme.color.textSecondary} />
+      <DeckyGameStatusIcon kind={kind} size={25} color={kind === "mastered" ? raTheme.color.mastered : raTheme.color.beatenFlagWhite} accentColor={kind === "mastered" ? raTheme.color.hardcore : raTheme.color.beatenFlagBlack} />
       <div style={raRecipes.compactProfile.completionText}>
         <span style={raRecipes.compactProfile.completionLabel(kind)}>{label}</span>
         <span style={raRecipes.compactProfile.completionValue}>{count?.toLocaleString() ?? "—"}</span>
@@ -725,9 +726,19 @@ export function DeckyRetroAchievementsCompactProfile({
   const firstModeMetricKey = overview.find((metric) => metric.mode !== undefined)?.key;
   const refreshText = refreshedAt === undefined ? "RetroAchievements refreshed" : `RetroAchievements refreshed ${new Date(refreshedAt).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}`;
   const connectionMessage = connectionState === undefined ? undefined : getRetroAchievementsConnectionBanner(connectionState);
-  const beaten = getMetricNumber(profile, "games-beaten");
-  const mastered = profile.masteredCount;
-  const completion = profile.summary.completionPercent;
+  const achievementMode = settings.retroAchievementsAchievementMode;
+  const beaten = achievementMode === "hardcore"
+    ? profile.beatenHardcoreCount
+    : achievementMode === "softcore"
+      ? profile.beatenSoftcoreCount
+      : profile.beatenHardcoreCount !== undefined && profile.beatenSoftcoreCount !== undefined
+        ? profile.beatenHardcoreCount + profile.beatenSoftcoreCount
+        : getMetricNumber(profile, "games-beaten");
+  const mastered = achievementMode === "softcore" ? 0 : profile.masteredHardcoreCount ?? profile.masteredCount;
+  const modeUnlocked = getRetroAchievementsModeUnlockedCount(profile, achievementMode);
+  const completion = modeUnlocked !== undefined && profile.summary.totalCount !== undefined && profile.summary.totalCount > 0
+    ? Math.min(100, Math.round(modeUnlocked / profile.summary.totalCount * 100))
+    : undefined;
   const targetProps = (target: DeckyRetroAchievementsCompactFocusTarget): CompactFocusTargetProps => {
     const key = getDeckyRetroAchievementsCompactFocusTargetKey(target);
     return {

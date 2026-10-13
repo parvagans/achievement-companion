@@ -5,6 +5,7 @@ import {
 } from "@core/settings";
 import steamIconUrl from "./assets/steam.svg";
 import { DeckyGameStatusIcon } from "./decky-game-status-icon";
+import { raTheme } from "./ra-theme";
 import { RETROACHIEVEMENTS_PROVIDER_ICON_SRC } from "./providers/retroachievements/icon";
 import type {
   DeckyGamePageAchievementBadgePresentation,
@@ -113,13 +114,14 @@ function getProviderIconStyle(provider: DeckyGamePageAchievementBadgeProvider): 
 function renderStatusIcon(
   variant: DeckyGamePageAchievementBadgeVariant,
   palette: DeckyGamePageAchievementBadgePalette,
+  provider: DeckyGamePageAchievementBadgeProvider,
 ): ReactNode {
   if (variant === "perfected" || variant === "mastered") {
     return <span data-ac-game-page-badge-status-icon="crown-laurel"><DeckyGameStatusIcon kind="mastered" size={48} color={palette.accent} accentColor={palette.accentBright} glow={palette.glow} /></span>;
   }
 
   if (variant === "beaten") {
-    return <span data-ac-game-page-badge-status-icon="flag"><DeckyGameStatusIcon kind="beaten" size={48} color={palette.accent} accentColor={palette.accentBright} glow={palette.glow} /></span>;
+    return <span data-ac-game-page-badge-status-icon="flag"><DeckyGameStatusIcon kind="beaten" size={48} color={provider === "retroachievements" ? raTheme.color.beatenFlagWhite : palette.accent} accentColor={provider === "retroachievements" ? raTheme.color.beatenFlagBlack : palette.accentBright} glow={palette.glow} /></span>;
   }
 
   const shared = { color: palette.accent, filter: `drop-shadow(0 0 5px ${palette.glow})` } satisfies CSSProperties;
@@ -205,7 +207,7 @@ export function DeckyGamePageAchievementBadgeVisual({
       </span>
       <span style={getBadgeContentStyle({ width: 1, height: 48, marginLeft: 7, background: "rgba(255,255,255,.16)", boxShadow: `0 0 8px ${palette.glow}` })} />
       <span style={getBadgeContentStyle({ width: 52, flex: "0 0 52px", display: "grid", placeItems: "center" })}>
-        {renderStatusIcon(presentation.variant, palette)}
+        {renderStatusIcon(presentation.variant, palette, presentation.provider)}
       </span>
       <span style={getBadgeContentStyle({ minWidth: 0, flex: "1 1 auto", display: "flex", flexDirection: "column", justifyContent: "center", gap: 4, paddingLeft: 4 })}>
         <span style={{ color: "#ffffff", fontSize: presentation.variant === "loading" ? 12 : 13, fontWeight: 800, letterSpacing: "0.025em", lineHeight: 1, whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,.9)" }}>

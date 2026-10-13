@@ -148,10 +148,10 @@ export function DeckyRetroAchievementsCompactGameOverview({
       {status !== undefined ? <PassiveSection label="Completion Status">
         <div style={raRecipes.compactGame.status(awardKind)}>
           <span style={raRecipes.compactGame.statusWatermark}>
-            <DeckyGameStatusIcon kind={awardKind} size={112} color={raRecipes.gameAward[awardKind].color} accentColor={awardKind === "mastered" ? raTheme.color.hardcore : raTheme.color.accentStrong} />
+            <DeckyGameStatusIcon kind={awardKind} size={112} color={awardKind === "mastered" ? raRecipes.gameAward.mastered.color : raTheme.color.beatenFlagWhite} accentColor={awardKind === "mastered" ? raTheme.color.hardcore : raTheme.color.beatenFlagBlack} />
           </span>
           <span style={raRecipes.compactGame.statusEmblem(awardKind)}>
-            <DeckyGameStatusIcon kind={awardKind} size={48} color={raRecipes.gameAward[awardKind].color} accentColor={awardKind === "mastered" ? raTheme.color.hardcore : raTheme.color.accentStrong} glow={awardKind === "mastered" ? "rgba(242, 216, 127, 0.42)" : "rgba(43, 195, 242, 0.42)"} />
+            <DeckyGameStatusIcon kind={awardKind} size={48} color={awardKind === "mastered" ? raRecipes.gameAward.mastered.color : raTheme.color.beatenFlagWhite} accentColor={awardKind === "mastered" ? raTheme.color.hardcore : raTheme.color.beatenFlagBlack} glow={awardKind === "mastered" ? "rgba(242, 216, 127, 0.42)" : "rgba(255, 255, 255, 0.3)"} />
           </span>
           <span style={raRecipes.compactGame.statusContent}>
             <span style={raRecipes.compactGame.statusEyebrow}>Completion Status</span>

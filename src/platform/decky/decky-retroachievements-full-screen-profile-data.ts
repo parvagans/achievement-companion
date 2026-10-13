@@ -7,6 +7,8 @@ import {
   sortRetroAchievementsUnlocksNewestFirst,
 } from "./decky-retroachievements-compact-profile-model";
 import { getRetroAchievementsCompletionIndicatorState } from "./decky-retroachievements-completion-indicator";
+import { getRetroAchievementsModeGameUnlockedCount, getRetroAchievementsModeUnlockedCount } from "./decky-retroachievements-mode-progress";
+import { filterCompletionProgressGamesBySubsetVisibility } from "./decky-completion-progress-grouping";
 import { getRetroAchievementsProfileStatValues } from "./decky-stat-helpers";
 
 export interface RetroAchievementsProfileProgressSummary {
@@ -20,14 +22,15 @@ export interface RetroAchievementsProfileRecentCompletion {
   readonly game: NormalizedGame;
   readonly kind: "beaten" | "completed" | "mastered";
   readonly mode?: "hardcore" | "softcore";
-  readonly awardedAt: number;
+  readonly awardedAt?: number;
+  readonly dateKind: "award" | "unlock" | "unavailable";
 }
 
 function getCompletionAwardKind(game: NormalizedGame): RetroAchievementsProfileRecentCompletion["kind"] | undefined {
-  const rawKind = game.metrics.find((metric) => metric.key === "highest-award-kind")?.value.toLowerCase();
-  if (rawKind?.includes("completed") === true) return "completed";
-  if (rawKind?.includes("mastered") === true) return "mastered";
-  if (rawKind?.includes("beaten") === true) return "beaten";
+  const state = getRetroAchievementsCompletionIndicatorState(game);
+  if (state === "mastered-hardcore") return "mastered";
+  if (state === "mastered-softcore") return "completed";
+  if (state === "beaten-hardcore" || state === "beaten-softcore") return "beaten";
   return undefined;
 }
 
@@ -50,26 +53,42 @@ function buildProgressSummary(
   };
 }
 
-function getRecentCompletions(games: readonly NormalizedGame[]): readonly RetroAchievementsProfileRecentCompletion[] {
-  return games.flatMap((game): RetroAchievementsProfileRecentCompletion[] => {
-    const rawAwardKind = game.metrics.find((metric) => metric.key === "highest-award-kind")?.value.toLowerCase();
+function getRecentCompletions(
+  games: readonly NormalizedGame[],
+  mode: RetroAchievementsAchievementMode,
+): readonly RetroAchievementsProfileRecentCompletion[] {
+  const completions = games.flatMap((game): RetroAchievementsProfileRecentCompletion[] => {
+    const awardState = getRetroAchievementsCompletionIndicatorState(game);
     const kind = getCompletionAwardKind(game);
     if (kind === undefined) return [];
-    const mode = rawAwardKind?.includes("softcore") === true
+    const awardMode = awardState?.endsWith("softcore") === true
       ? "softcore"
-      : rawAwardKind?.includes("hardcore") === true
+      : awardState?.endsWith("hardcore") === true
         ? "hardcore"
         : undefined;
     const rawDate = game.metrics.find((metric) => metric.key === "highest-award-date")?.value;
-    const awardedAt = rawDate === undefined ? NaN : Number(rawDate);
-    if (!Number.isFinite(awardedAt) || awardedAt <= 0) return [];
+    const awardDate = rawDate === undefined ? undefined : Number(rawDate);
+    const hasAwardDate = awardDate !== undefined && Number.isFinite(awardDate) && awardDate > 0;
+    const lastUnlockAt = game.lastUnlockAt;
+    const hasUnlockDate = lastUnlockAt !== undefined && Number.isFinite(lastUnlockAt) && lastUnlockAt > 0;
     return [{
       game,
       kind,
-      ...(mode !== undefined ? { mode } : {}),
-      awardedAt,
+      ...(awardMode !== undefined ? { mode: awardMode } : {}),
+      ...(hasAwardDate ? { awardedAt: awardDate } : hasUnlockDate ? { awardedAt: lastUnlockAt } : {}),
+      dateKind: hasAwardDate ? "award" : hasUnlockDate ? "unlock" : "unavailable",
     }];
-  }).sort((left, right) => right.awardedAt - left.awardedAt).slice(0, 2);
+  }).filter((completion) => mode === "both" || completion.mode === mode)
+    .sort((left, right) => (right.awardedAt ?? 0) - (left.awardedAt ?? 0));
+  const selected: RetroAchievementsProfileRecentCompletion[] = [];
+  const seenKinds = new Set<RetroAchievementsProfileRecentCompletion["kind"]>();
+  for (const completion of completions) {
+    if (seenKinds.has(completion.kind)) continue;
+    selected.push(completion);
+    seenKinds.add(completion.kind);
+    if (selected.length === 2) break;
+  }
+  return selected;
 }
 
 export interface RetroAchievementsProfileSystemSummary {
@@ -79,6 +98,10 @@ export interface RetroAchievementsProfileSystemSummary {
   readonly unlockedAchievements: number;
   readonly totalAchievements?: number;
   readonly completionPercent?: number;
+}
+
+export function getRetroAchievementsBaseGames(games: readonly NormalizedGame[]): readonly NormalizedGame[] {
+  return filterCompletionProgressGamesBySubsetVisibility(games, false);
 }
 
 interface SystemAccumulator {
@@ -102,6 +125,7 @@ function getSystemKey(game: NormalizedGame): { readonly systemId: string; readon
 
 export function getRetroAchievementsProfileSystems(
   games: readonly NormalizedGame[],
+  mode: RetroAchievementsAchievementMode = "both",
   limit?: number,
 ): readonly RetroAchievementsProfileSystemSummary[] {
   const systems = new Map<string, SystemAccumulator>();
@@ -121,7 +145,9 @@ export function getRetroAchievementsProfileSystems(
     if (current.iconUrl === undefined && game.systemIconUrl !== undefined) {
       current.iconUrl = game.systemIconUrl;
     }
-    current.unlockedAchievements += Math.max(0, game.summary.unlockedCount);
+    const modeUnlockedCount = getRetroAchievementsModeGameUnlockedCount(game, mode);
+    if (modeUnlockedCount === undefined) return [];
+    current.unlockedAchievements += Math.max(0, modeUnlockedCount);
     if (game.summary.totalCount === undefined) {
       current.hasUnknownTotal = true;
     } else {
@@ -167,50 +193,53 @@ export function buildRetroAchievementsFullScreenProfileModel({
   readonly completion?: CompletionProgressSnapshot;
   readonly settings: AchievementCompanionSettings;
 }) {
-  const games = completion?.games ?? snapshot.featuredGames;
-  const systems = getRetroAchievementsProfileSystems(games);
+  const sourceGames = completion?.games ?? snapshot.featuredGames;
+  const games = getRetroAchievementsBaseGames(sourceGames);
+  const systems = getRetroAchievementsProfileSystems(sourceGames, settings.retroAchievementsAchievementMode);
   const recentUnlocks = sortRetroAchievementsUnlocksNewestFirst(
     snapshot.recentAchievements.length > 0 ? snapshot.recentAchievements : snapshot.recentUnlocks,
-  );
-  const awards = games.reduce((summary, game) => {
+  ).filter((entry) => settings.retroAchievementsAchievementMode === "both"
+    || entry.achievement.unlockMode === settings.retroAchievementsAchievementMode);
+  const modeGames = games.filter((game) => (getRetroAchievementsModeGameUnlockedCount(game, settings.retroAchievementsAchievementMode) ?? 0) > 0);
+  const completionAwardCounts = modeGames.reduce((counts, game) => {
     const award = getRetroAchievementsCompletionIndicatorState(game);
-    if (award?.startsWith("mastered")) summary.mastered += 1;
-    else if (award?.startsWith("beaten")) summary.beaten += 1;
-    return summary;
-  }, { beaten: 0, mastered: 0 });
-  const completionAwardCounts = games.reduce((counts, game) => {
+    if (settings.retroAchievementsAchievementMode !== "both" && !award?.endsWith(settings.retroAchievementsAchievementMode)) return counts;
     const kind = getCompletionAwardKind(game);
     if (kind !== undefined) counts[kind] += 1;
     return counts;
   }, { beaten: 0, completed: 0, mastered: 0 });
-
   return {
     profile: snapshot.profile,
     initialAchievementMode: settings.retroAchievementsAchievementMode,
     progressByMode: {
-      both: buildProgressSummary(snapshot.profile.summary.unlockedCount, snapshot.profile.summary.totalCount),
-      hardcore: buildProgressSummary(snapshot.profile.hardcoreUnlockedCount, snapshot.profile.summary.totalCount),
-      softcore: buildProgressSummary(snapshot.profile.softcoreUnlockedCount, snapshot.profile.summary.totalCount),
+      both: buildProgressSummary(getRetroAchievementsModeUnlockedCount(snapshot.profile, "both"), snapshot.profile.summary.totalCount),
+      hardcore: buildProgressSummary(getRetroAchievementsModeUnlockedCount(snapshot.profile, "hardcore"), snapshot.profile.summary.totalCount),
+      softcore: buildProgressSummary(getRetroAchievementsModeUnlockedCount(snapshot.profile, "softcore"), snapshot.profile.summary.totalCount),
     } satisfies Record<RetroAchievementsAchievementMode, RetroAchievementsProfileProgressSummary | undefined>,
     systems,
     ranks: getRetroAchievementsProfileRanks(snapshot.profile, settings.retroAchievementsRankDisplay),
     profileStats: getRetroAchievementsProfileStatValues({ profile: snapshot.profile }),
+    modeAwardCounts: { beaten: completionAwardCounts.beaten, mastered: completionAwardCounts.mastered },
     overviewMetrics: getRetroAchievementsProfileOverviewMetrics(
       snapshot.profile,
       settings.retroAchievementsAchievementMode,
     ),
     recentUnlocks: recentUnlocks.slice(0, 3),
-    recentCompletions: getRecentCompletions(games),
+    recentCompletions: getRecentCompletions(modeGames, settings.retroAchievementsAchievementMode),
     completionAwardCounts,
     recentGames: snapshot.recentlyPlayedGames.slice(0, 3).map((game) => ({
       game,
       progress: getRetroAchievementsPlayedGameProgress(game, settings.retroAchievementsAchievementMode),
     })),
     completion: {
-      gamesWithProgress: games.length,
-      inProgress: completion?.summary.unfinishedCount ?? games.filter((game) => game.status === "in_progress").length,
-      beaten: completion?.summary.beatenCount ?? awards.beaten,
-      mastered: completion?.summary.masteredCount ?? awards.mastered,
+      gamesWithProgress: modeGames.length,
+      inProgress: modeGames.filter((game) => {
+        const award = getRetroAchievementsCompletionIndicatorState(game);
+        return (settings.retroAchievementsAchievementMode !== "both" && award?.endsWith(settings.retroAchievementsAchievementMode) !== true)
+          || (settings.retroAchievementsAchievementMode === "both" && award === undefined);
+      }).length,
+      beaten: completionAwardCounts.beaten,
+      mastered: completionAwardCounts.mastered,
     },
   } as const;
 }

@@ -119,6 +119,7 @@ const STEAM_GAMES_SORT_OPTIONS: readonly {
 
 export interface DeckySteamFullScreenGamesDashboardProps {
   readonly snapshot: CompletionProgressSnapshot;
+  readonly achievementProgressGames?: readonly NormalizedGame[];
   readonly isActive?: boolean;
   readonly initialFilter?: CompletionProgressSelectionFilter;
   readonly showSteamProfileFooter?: boolean;
@@ -707,16 +708,17 @@ function SteamGamesRow({
   readonly mode: RetroAchievementsAchievementMode;
 }): JSX.Element {
   const displaySummary = providerId === RETROACHIEVEMENTS_PROVIDER_ID
-    ? getRetroAchievementsPlayedGameProgress(game, mode) ?? game.summary
+    ? getRetroAchievementsPlayedGameProgress(game, mode)
     : game.summary;
   const hardcoreProgressLabel = formatModeProgressLabel("Hardcore", game.hardcoreSummary);
   const softcoreProgressLabel = formatModeProgressLabel("Softcore", game.softcoreSummary);
-  const totalCount = displaySummary.totalCount;
-  const completionPercent = clampSteamGamesPercent(displaySummary.completionPercent ?? 0);
+  const totalCount = displaySummary?.totalCount ?? game.summary.totalCount;
+  const completionPercent = clampSteamGamesPercent(displaySummary?.completionPercent ?? 0);
   const isPerfected = game.status === "mastered";
   const raAward = providerId === RETROACHIEVEMENTS_PROVIDER_ID
     ? getRetroAchievementsCompletionIndicatorState(game)
     : undefined;
+  const visibleRaAward = mode === "both" || raAward?.endsWith(mode) === true ? raAward : undefined;
   const artworkUrl = getSteamFullscreenGameArtworkUrl(game);
   const playtime = formatSteamPlaytimeMinutes(game.playtimeForeverMinutes) ?? "Not played";
   const gameRowElementRef = useRef<HTMLDivElement | null>(null);
@@ -818,9 +820,9 @@ function SteamGamesRow({
 
       <div style={{ minWidth: 0 }}>
         <div style={getTitleStyle()}>{game.title}</div>
-        {raAward !== undefined ? (
-          <div style={{ ...getSecondaryMetaStyle(), color: raAward.startsWith("mastered") ? raTheme.color.mastered : raTheme.color.beaten }}>
-            {formatRetroAchievementsCompletionIndicatorLabel(raAward)}
+        {visibleRaAward !== undefined ? (
+          <div style={{ ...getSecondaryMetaStyle(), color: visibleRaAward.startsWith("mastered") ? raTheme.color.mastered : raTheme.color.accentStrong }}>
+            {formatRetroAchievementsCompletionIndicatorLabel(visibleRaAward)}
           </div>
         ) : null}
       </div>
@@ -828,7 +830,7 @@ function SteamGamesRow({
       <div style={{ display: "flex", flexDirection: "column", gap: 5, minWidth: 0 }}>
         <div style={getProgressMetaStyle()}>
           {totalCount !== undefined
-            ? `${formatCount(displaySummary.unlockedCount)} / ${formatCount(totalCount)} achievements`
+            ? `${displaySummary === undefined ? "—" : formatCount(displaySummary.unlockedCount)} / ${formatCount(totalCount)} achievements`
             : game.scanStatus === "failed"
               ? "Scan unavailable"
               : "No achievements"}
@@ -915,14 +917,15 @@ function SteamGamesSummaryCards({ summary, providerId }: { readonly summary: Ste
         helper={formatPercent(getSteamGamesPercentage(summary.skippedCount, summary.trackedCount))}
         iconTone="red"
         iconUrl={isRa ? undefined : prohibitedIconUrl}
-        icon={isRa ? <DeckyGameStatusIcon kind="beaten" size={27} color={raTheme.color.beaten} accentColor={raTheme.color.textSecondary} /> : undefined}
+        icon={isRa ? <DeckyGameStatusIcon kind="beaten" size={27} color={raTheme.color.beatenFlagWhite} accentColor={raTheme.color.beatenFlagBlack} /> : undefined}
         label={isRa ? "Beaten" : "Skipped"}
         value={formatCount(summary.skippedCount)}
       />
       <MetricCard
         helper={formatPercent(getSteamGamesPercentage(summary.perfectedCount, summary.trackedCount))}
         iconTone="gold"
-        iconUrl={crownIconUrl}
+        iconUrl={isRa ? undefined : crownIconUrl}
+        icon={isRa ? <DeckyGameStatusIcon kind="mastered" size={27} color={raTheme.color.mastered} accentColor={raTheme.color.hardcore} /> : undefined}
         label={isRa ? "Mastered" : "Perfected"}
         value={formatCount(summary.perfectedCount)}
       />
@@ -933,6 +936,7 @@ function SteamGamesSummaryCards({ summary, providerId }: { readonly summary: Ste
 
 export function DeckySteamFullScreenGamesDashboard({
   snapshot,
+  achievementProgressGames,
   isActive = true,
   initialFilter,
   showSteamProfileFooter = true,
@@ -969,10 +973,10 @@ export function DeckySteamFullScreenGamesDashboard({
     ? STEAM_GAMES_INITIAL_RENDER_LIMIT
     : initialPageState.renderLimit);
   const hasMountedControls = useRef(false);
-  const summary = useMemo(() => summarizeSteamGamesDashboard(snapshot), [snapshot]);
+  const summary = useMemo(() => summarizeSteamGamesDashboard(snapshot, mode, achievementProgressGames), [snapshot, mode, achievementProgressGames]);
   const visibleGames = useMemo(
-    () => selectSteamGames({ games: snapshot.games, filter, query, sort }),
-    [filter, query, snapshot.games, sort],
+    () => selectSteamGames({ games: snapshot.games, filter, query, sort, mode }),
+    [filter, mode, query, snapshot.games, sort],
   );
   const renderedGames = visibleGames.slice(0, renderLimit);
 

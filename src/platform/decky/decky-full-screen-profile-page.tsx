@@ -66,8 +66,6 @@ import {
 } from "./decky-full-screen-profile-data";
 import {
   buildRetroAchievementsCompletionCollection,
-  filterCompletionProgressGamesBySubsetVisibility,
-  summarizeCompletionProgressSummaryBySubsetVisibility,
 } from "./decky-completion-progress-grouping";
 import type { CompletionProgressSelectionFilter } from "./decky-completion-progress-summary-card-data";
 import { buildSteamFullScreenProfileSummary } from "./decky-steam-full-screen-profile-data";
@@ -1228,26 +1226,9 @@ export function DeckyFullScreenProfilePage({
     const rawCompletion = isRenderableCompletionProgressState(completionProgressState)
       ? completionProgressState.data
       : undefined;
-    // RetroAchievements subsets are child sets, not games. They have their own
-    // parent-game Subsets tab and must never occupy the full-screen Games tab.
-    const showRetroAchievementsGamesSubsets = false;
-    const completion = rawCompletion === undefined
-      ? undefined
-      : {
-          ...rawCompletion,
-          summary: summarizeCompletionProgressSummaryBySubsetVisibility(
-            rawCompletion.summary,
-            rawCompletion.games,
-            showRetroAchievementsGamesSubsets,
-          ),
-          games: filterCompletionProgressGamesBySubsetVisibility(
-            rawCompletion.games,
-            showRetroAchievementsGamesSubsets,
-          ),
-        };
     const model = buildRetroAchievementsFullScreenProfileModel({
       snapshot,
-      ...(completion !== undefined ? { completion } : {}),
+      ...(rawCompletion !== undefined ? { completion: rawCompletion } : {}),
       settings: deckySettings,
     });
     return (

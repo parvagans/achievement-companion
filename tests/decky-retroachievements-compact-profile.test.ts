@@ -124,7 +124,8 @@ test("recent activity and recently played progress follow the selected mode", ()
   assert.equal(getRetroAchievementsPlayedGameProgress(game, "hardcore")?.completionPercent, 60);
   assert.equal(getRetroAchievementsPlayedGameProgress(game, "softcore")?.completionPercent, 20);
   assert.equal(getRetroAchievementsPlayedGameProgress(game, "both")?.completionPercent, 80);
-  assert.equal(getRetroAchievementsPlayedGameProgress({ ...game, hardcoreSummary: undefined }, "hardcore"), undefined);
+  assert.equal(getRetroAchievementsPlayedGameProgress({ ...game, hardcoreSummary: undefined }, "hardcore")?.unlockedCount, 6);
+  assert.equal(getRetroAchievementsPlayedGameProgress({ ...game, hardcoreSummary: undefined, softcoreSummary: undefined }, "hardcore"), undefined);
 });
 
 test("recent activity is ordered newest first before the compact limit is applied", () => {
