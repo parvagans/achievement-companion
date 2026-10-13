@@ -881,6 +881,14 @@ export function registerDeckyFullScreenRoutes(): () => void {
   return fullScreenRouteRegistration.unregister;
 }
 
+export function closeDeckyFullScreenSettingsOnDismount(): void {
+  const settingsPath = buildDeckyFullScreenSettingsRoute();
+  const currentPath = window.location.pathname;
+  if (currentPath === settingsPath || currentPath === `/routes${settingsPath}`) {
+    DeckyNavigation.NavigateBack();
+  }
+}
+
 export function createDeckyNavigationPort(): NavigationPort {
   return {
     go(target) {

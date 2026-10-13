@@ -8,6 +8,7 @@ import { resetDeckyCompactAchievementPageState } from "@platform/decky/decky-com
 import { ensureDeckyGamePageAchievementRoutePatchRegistered } from "@platform/decky/decky-game-page-achievement-bubble";
 import { ensureDeckyNativeSteamAchievementsRegistered } from "@platform/decky/decky-native-steam-achievements";
 import {
+  closeDeckyFullScreenSettingsOnDismount,
   clearDeckyCompactOriginFullScreenSession,
   registerDeckyFullScreenRoutes,
 } from "@platform/decky/decky-navigation";
@@ -72,6 +73,7 @@ export default definePlugin(() => {
     content: <DeckyCompactSession><DeckyBootstrap /></DeckyCompactSession>,
     icon: <AchievementCompanionIcon />,
     onDismount() {
+      closeDeckyFullScreenSettingsOnDismount();
       stopDeckyUpdateSystem();
       removeDeckyCompactCancelBridges();
       resetDeckyCompactNavigation();
