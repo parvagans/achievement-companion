@@ -13,8 +13,10 @@ import {
 import type { SteamHuntersProfile } from "../../providers/steamhunters";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import {
+  achievementCompanionQamTheme as qamTheme,
   getQamActivityCalendarLegendCellStyle,
   getQamActivityCalendarLegendStyle,
+  getQamCompactProfileListCardStyle,
   qamActivityCalendarColors,
 } from "./decky-qam-theme";
 import { useDeckySettings } from "./decky-settings";
@@ -132,7 +134,7 @@ function getRootStyle(): CSSProperties {
   return {
     display: "flex",
     flexDirection: "column",
-    gap: 8,
+    gap: qamTheme.compactProfileSpacing.section,
     width: "100%",
     minWidth: 0,
     padding: "0 16px 4px",
@@ -146,7 +148,7 @@ function getSectionStyle(): CSSProperties {
   return {
     display: "flex",
     flexDirection: "column",
-    gap: 5,
+    gap: qamTheme.compactProfileSpacing.content,
     minWidth: 0,
   };
 }
@@ -263,8 +265,8 @@ function getProfileCardStyle(): CSSProperties {
     background: steamTheme.surface.contentCard,
     display: "flex",
     flexDirection: "column",
-    gap: 7,
-    padding: 9,
+    gap: qamTheme.compactProfileSpacing.content,
+    padding: qamTheme.compactProfileSpacing.cardPadding,
     boxSizing: "border-box",
     boxShadow: "inset 0 1px 0 rgba(125, 211, 252, 0.035)",
   };
@@ -368,7 +370,7 @@ function getMetricsGridStyle(): CSSProperties {
   return {
     display: "grid",
     gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: 5,
+    gap: qamTheme.compactProfileSpacing.item,
     minWidth: 0,
   };
 }
@@ -470,7 +472,7 @@ function getMetricStyle(): CSSProperties {
     gap: 7,
     minHeight: 49,
     minWidth: 0,
-    padding: "6px 8px",
+    padding: "8px 8px",
     boxSizing: "border-box",
   };
 }
@@ -535,7 +537,7 @@ function SteamHuntersMetric({
 }
 
 function getListStyle(): CSSProperties {
-  return { display: "flex", flexDirection: "column", gap: 4, minWidth: 0 };
+  return { display: "flex", flexDirection: "column", gap: qamTheme.compactProfileSpacing.item, minWidth: 0 };
 }
 
 function getListRowStyle(height: number): CSSProperties {
@@ -545,7 +547,7 @@ function getListRowStyle(height: number): CSSProperties {
     alignItems: "center",
     gap: 8,
     minHeight: height,
-    padding: "5px 7px",
+    padding: `${qamTheme.compactProfileSpacing.rowPaddingBlock}px 8px`,
     boxSizing: "border-box",
   };
 }
@@ -859,7 +861,7 @@ function CompactActivityCalendar({ dayCounts, weeks, selectedDay, onSelectDay, o
       onBlur={() => setFocused(false)}
       style={{
         ...steamRecipes.card("compact"),
-        padding: 8,
+        padding: qamTheme.compactProfileSpacing.listPadding,
         minWidth: 0,
         outline: "none",
         ...(focused && !active ? { boxShadow: steamTheme.focus.compactShadow, borderColor: steamTheme.focus.border } : {}),
@@ -928,7 +930,8 @@ function ViewAllAction({
       onCancel={onCancel}
       onFocused={onFocused}
       preferredFocus={preferredFocus}
-      style={{ minHeight: 30, padding: "5px 8px" }}
+      tone="nested"
+      style={{ minHeight: 38, padding: "8px 10px" }}
     >
       <span style={{ flex: "1 1 auto", color: "#69cfff", fontSize: 10, fontWeight: 800, textAlign: "center" }}>
         View All
@@ -965,6 +968,7 @@ function RecentAchievementItem({
       onCancel={onCancel}
       onFocused={onFocused}
       preferredFocus={preferredFocus}
+      tone="nested"
       style={getListRowStyle(46)}
     >
       <span style={getAchievementArtworkFrameStyle()}>
@@ -1025,6 +1029,7 @@ function RecentlyPlayedItem({
       onCancel={onCancel}
       onFocused={onFocused}
       preferredFocus={preferredFocus}
+      tone="nested"
       style={getListRowStyle(selectedDateActivity === undefined ? 50 : 62)}
     >
       {artworkUrl !== undefined ? (
@@ -1185,6 +1190,7 @@ export function DeckySteamCompactProfile({
           onCancel={onCancel}
           {...targetProps({ kind: "profile" })}
           scrollToTopOnFocus
+          style={{ minHeight: 42, padding: "10px 12px" }}
           tone="primary"
         >
           <DeckyCompactPrimaryActionContent>Open Profile Full-Screen</DeckyCompactPrimaryActionContent>
@@ -1242,54 +1248,58 @@ export function DeckySteamCompactProfile({
 
       <section style={getSectionStyle()}>
         <SectionHeader title="Recent Activity" />
-        <div data-steam-compact-recent-activity-count={visibleAchievements.length} style={getListStyle()}>
-          {visibleAchievements.length > 0 ? visibleAchievements.map((recentUnlock) => (
-            <RecentAchievementItem
-              key={`${recentUnlock.game.gameId}:${recentUnlock.achievement.achievementId}`}
-              recentUnlock={recentUnlock}
-              onActivate={() => onOpenAchievementDetail(recentUnlock)}
-              onCancel={onCancel}
-              {...targetProps({
-                kind: "achievement",
-                gameId: recentUnlock.game.gameId,
-                achievementId: recentUnlock.achievement.achievementId,
-              })}
-            />
-          )) : <EmptyListRow label={selectedActivityDay === undefined ? "No recent achievements yet." : "No achievements unlocked on this date."} />}
+        <div style={getQamCompactProfileListCardStyle()}>
+          <div data-steam-compact-recent-activity-count={visibleAchievements.length} style={getListStyle()}>
+            {visibleAchievements.length > 0 ? visibleAchievements.map((recentUnlock) => (
+              <RecentAchievementItem
+                key={`${recentUnlock.game.gameId}:${recentUnlock.achievement.achievementId}`}
+                recentUnlock={recentUnlock}
+                onActivate={() => onOpenAchievementDetail(recentUnlock)}
+                onCancel={onCancel}
+                {...targetProps({
+                  kind: "achievement",
+                  gameId: recentUnlock.game.gameId,
+                  achievementId: recentUnlock.achievement.achievementId,
+                })}
+              />
+            )) : <EmptyListRow label={selectedActivityDay === undefined ? "No recent achievements yet." : "No achievements unlocked on this date."} />}
+          </div>
+          <ViewAllAction
+            ariaLabel="View all recent Steam achievements"
+            onActivate={onOpenAchievementHistory}
+            onCancel={onCancel}
+            {...targetProps({ kind: "activity" })}
+          />
         </div>
-        <ViewAllAction
-          ariaLabel="View all recent Steam achievements"
-          onActivate={onOpenAchievementHistory}
-          onCancel={onCancel}
-          {...targetProps({ kind: "activity" })}
-        />
       </section>
 
       <section style={getSectionStyle()}>
         <SectionHeader title="Recently Played" />
-        <div data-steam-compact-recently-played-count={visibleGames.length} style={getListStyle()}>
-          {visibleGames.length > 0 ? visibleGames.map((game) => (
-            <RecentlyPlayedItem
-              key={game.gameId}
-              game={game}
-              {...(activityUnlockCounts.has(game.gameId)
-                ? {
-                    activityUnlockCount: activityUnlockCounts.get(game.gameId)!,
-                    ...(selectedActivityDateLabel !== undefined ? { activityDateLabel: selectedActivityDateLabel } : {}),
-                  }
-                : {})}
-              onActivate={() => onOpenGameDetail(game)}
-              onCancel={onCancel}
-              {...targetProps({ kind: "game", gameId: game.gameId })}
-            />
-          )) : <EmptyListRow label={selectedActivityDay === undefined ? "No recently played games yet." : "No games with achievements on this date."} />}
+        <div style={getQamCompactProfileListCardStyle()}>
+          <div data-steam-compact-recently-played-count={visibleGames.length} style={getListStyle()}>
+            {visibleGames.length > 0 ? visibleGames.map((game) => (
+              <RecentlyPlayedItem
+                key={game.gameId}
+                game={game}
+                {...(activityUnlockCounts.has(game.gameId)
+                  ? {
+                      activityUnlockCount: activityUnlockCounts.get(game.gameId)!,
+                      ...(selectedActivityDateLabel !== undefined ? { activityDateLabel: selectedActivityDateLabel } : {}),
+                    }
+                  : {})}
+                onActivate={() => onOpenGameDetail(game)}
+                onCancel={onCancel}
+                {...targetProps({ kind: "game", gameId: game.gameId })}
+              />
+            )) : <EmptyListRow label={selectedActivityDay === undefined ? "No recently played games yet." : "No games with achievements on this date."} />}
+          </div>
+          <ViewAllAction
+            ariaLabel="View all Steam games"
+            onActivate={onOpenCompletionProgress}
+            onCancel={onCancel}
+            {...targetProps({ kind: "games" })}
+          />
         </div>
-        <ViewAllAction
-          ariaLabel="View all Steam games"
-          onActivate={onOpenCompletionProgress}
-          onCancel={onCancel}
-          {...targetProps({ kind: "games" })}
-        />
       </section>
 
       {refreshTime === undefined ? null : (

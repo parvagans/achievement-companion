@@ -5,6 +5,7 @@ import {
   getQamActivityCalendarLegendStyle,
   getQamCompactFocusControlStyle,
   getQamCompactFocusRingStyle,
+  getQamCompactProfileListCardStyle,
   getQamFocusStylesCss,
   getQamPassiveCardFocusStyle,
   qamActivityCalendarColors,
@@ -486,18 +487,18 @@ export const raRecipes = {
   },
   compactProfile: {
     root: {
-      display: "flex", flexDirection: "column", gap: 8, width: "100%", minWidth: 0,
+      display: "flex", flexDirection: "column", gap: qamTheme.compactProfileSpacing.section, width: "100%", minWidth: 0,
       padding: "0 16px 4px", boxSizing: "border-box", color: raTheme.color.textPrimary,
       fontFamily: qamTheme.type.fontFamily,
     } satisfies CSSProperties,
-    section: { display: "flex", flexDirection: "column", gap: 5, minWidth: 0 } satisfies CSSProperties,
+    section: { display: "flex", flexDirection: "column", gap: qamTheme.compactProfileSpacing.content, minWidth: 0 } satisfies CSSProperties,
     sectionTitle: {
       color: raTheme.color.accent, fontSize: raTheme.type.compact.heading, fontWeight: 850,
       letterSpacing: "0.055em", lineHeight: 1, textTransform: "uppercase",
     } satisfies CSSProperties,
     profileCard: {
-      display: "flex", flexDirection: "column", gap: 8, padding: 9,
-      border: `1px solid ${raTheme.color.borderSubtle}`, borderRadius: raTheme.radius.medium,
+      display: "flex", flexDirection: "column", gap: qamTheme.compactProfileSpacing.content, padding: qamTheme.compactProfileSpacing.cardPadding,
+      border: `1px solid ${raTheme.color.borderSubtle}`, borderRadius: raTheme.radius.large,
       background: raTheme.surface.contentCard, color: raTheme.color.textPrimary,
       boxShadow: "inset 0 1px 0 rgba(125, 211, 252, 0.035)", boxSizing: "border-box",
     } satisfies CSSProperties,
@@ -520,7 +521,7 @@ export const raRecipes = {
     } satisfies CSSProperties,
     profileMeta: { color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.metadata, fontWeight: raTheme.type.weight.regular, lineHeight: 1.25 } satisfies CSSProperties,
     gameActivityCard: {
-      display: "flex", flexDirection: "column", gap: 7, padding: 10, minWidth: 0,
+      display: "flex", flexDirection: "column", gap: qamTheme.compactProfileSpacing.content, padding: qamTheme.compactProfileSpacing.cardPadding, minWidth: 0,
       border: `1px solid ${raTheme.color.borderSubtle}`, borderRadius: raTheme.radius.medium,
       background: raTheme.surface.contentCard, boxSizing: "border-box",
     } satisfies CSSProperties,
@@ -543,11 +544,11 @@ export const raRecipes = {
     } satisfies CSSProperties,
     rankValue: { color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.title, fontWeight: 850, lineHeight: 1.05 } satisfies CSSProperties,
     metricGrid(count: number): CSSProperties {
-      return { display: "grid", gridTemplateColumns: `repeat(${Math.min(2, Math.max(1, count))}, minmax(0, 1fr))`, gap: 5, minWidth: 0 };
+      return { display: "grid", gridTemplateColumns: `repeat(${Math.min(2, Math.max(1, count))}, minmax(0, 1fr))`, gap: qamTheme.compactProfileSpacing.item, minWidth: 0 };
     },
     metric(_mode: "hardcore" | "softcore" | "shared", wide = false): CSSProperties {
       return {
-        minHeight: 49, minWidth: 0, padding: "6px 8px", display: "flex", alignItems: "center", gap: raTheme.space.md,
+        minHeight: 49, minWidth: 0, padding: "8px 8px", display: "flex", alignItems: "center", gap: raTheme.space.md,
         gridColumn: wide ? "1 / -1" : undefined,
         border: `1px solid ${raTheme.color.borderSubtle}`,
         borderRadius: raTheme.radius.medium,
@@ -569,12 +570,12 @@ export const raRecipes = {
     },
     metricValue: { color: raTheme.color.textPrimary, fontSize: 14, fontWeight: 850, lineHeight: 1.05 } satisfies CSSProperties,
     metricDetail: { color: raTheme.color.textSecondary, fontSize: 9, lineHeight: 1.1 } satisfies CSSProperties,
-    completionGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 5, minWidth: 0 } satisfies CSSProperties,
+    completionGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: qamTheme.compactProfileSpacing.item, minWidth: 0 } satisfies CSSProperties,
     completionCard(kind: "beaten" | "mastered"): CSSProperties {
       const color = kind === "beaten" ? raTheme.color.beaten : raTheme.color.mastered;
       const border = raRecipes.gameAward[kind].border;
       return {
-        display: "flex", alignItems: "center", gap: 8, minWidth: 0, minHeight: 54, padding: "7px 8px",
+        display: "flex", alignItems: "center", gap: 8, minWidth: 0, minHeight: 54, padding: "8px 8px",
         border: `2px solid ${border}`, borderRadius: raTheme.radius.medium,
         background: raTheme.surface.contentStat, color, boxSizing: "border-box",
       };
@@ -584,13 +585,13 @@ export const raRecipes = {
       return { color: kind === "beaten" ? raTheme.color.beaten : raTheme.color.mastered, fontSize: raTheme.type.compact.caption, fontWeight: 850, letterSpacing: "0.05em", lineHeight: 1.3, textTransform: "uppercase" };
     },
     completionValue: { color: raTheme.color.textPrimary, fontSize: 17, fontWeight: 850, lineHeight: 1 } satisfies CSSProperties,
-    progressCard: { display: "flex", flexDirection: "column", gap: 7, padding: "8px 10px", border: `1px solid ${raTheme.color.borderSubtle}`, borderRadius: raTheme.radius.medium, background: raTheme.surface.contentCard } satisfies CSSProperties,
+    progressCard: { display: "flex", flexDirection: "column", gap: qamTheme.compactProfileSpacing.content, padding: qamTheme.compactProfileSpacing.cardPadding, border: `1px solid ${raTheme.color.borderSubtle}`, borderRadius: raTheme.radius.medium, background: raTheme.surface.contentCard } satisfies CSSProperties,
     progressHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 } satisfies CSSProperties,
     progressLabel: { color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.metadata, fontWeight: 650 } satisfies CSSProperties,
     progressValue: { color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.metadata, fontWeight: 850 } satisfies CSSProperties,
     calendar(focused: boolean): CSSProperties {
       return {
-        display: "block", padding: 8, minWidth: 0, background: raTheme.surface.contentCard,
+        display: "block", padding: qamTheme.compactProfileSpacing.listPadding, minWidth: 0, background: raTheme.surface.contentCard,
         border: `1px solid ${focused ? qamTheme.focus.border : raTheme.color.borderSubtle}`,
         borderRadius: raTheme.radius.medium, boxSizing: "border-box", outline: "none",
         ...getQamCompactFocusRingStyle(focused),
@@ -611,14 +612,16 @@ export const raRecipes = {
     },
     calendarHint: { display: "flex", alignItems: "center", gap: 4, minHeight: 15, color: raTheme.color.textMuted, fontSize: 8.5, fontWeight: 700 } satisfies CSSProperties,
     calendarHintButton: { display: "inline-grid", placeItems: "center", width: 14, height: 14, borderRadius: "50%", background: raTheme.color.textPrimary, color: raTheme.surface.page, fontSize: 8, fontWeight: 900 } satisfies CSSProperties,
+    listCard: getQamCompactProfileListCardStyle(),
+    listRows: { display: "flex", flexDirection: "column", gap: qamTheme.compactProfileSpacing.item, minWidth: 0 } satisfies CSSProperties,
     row(focused: boolean): CSSProperties {
       return {
         display: "grid", gridTemplateColumns: "auto minmax(0, 1fr) auto", alignItems: "center",
-        gap: 8, minHeight: 50, padding: "5px 7px", border: `1px solid ${raTheme.color.borderSubtle}`,
-        borderRadius: raTheme.radius.medium, background: focused ? raTheme.surface.focusedContentCard : raTheme.surface.contentCard,
+        gap: 8, minHeight: 50, padding: `${qamTheme.compactProfileSpacing.rowPaddingBlock}px 8px`, border: `1px solid ${raTheme.color.borderSubtle}`,
+        borderRadius: raTheme.radius.medium, background: focused ? raTheme.surface.focusedContentStat : raTheme.surface.contentStat,
         outline: "none", boxSizing: "border-box",
         transition: "background 120ms ease, border-color 120ms ease, box-shadow 120ms ease",
-        ...(focused ? { ...getQamCompactFocusControlStyle(), background: raTheme.surface.focusedContentCard } : {}),
+        ...(focused ? { ...getQamCompactFocusControlStyle(), background: raTheme.surface.focusedContentStat } : {}),
       };
     },
     rowArtwork: {

@@ -1,5 +1,5 @@
 import { Focusable, GamepadButton, NavEntryPositionPreferences, useQuickAccessVisible, type GamepadEvent } from "@decky/ui";
-import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode, type RefCallback } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type RefCallback } from "react";
 import type { DashboardSnapshot, RecentUnlock, RecentlyPlayedGame } from "@core/domain";
 import type { RetroAchievementsConnectionState } from "./providers/retroachievements/connection";
 import { getRetroAchievementsConnectionBanner } from "./providers/retroachievements/connection";
@@ -119,6 +119,7 @@ function CompactAction({
   onCancel,
   dataAttribute,
   scrollToTopOnFocus = false,
+  style,
   targetProps,
 }: {
   readonly label: string;
@@ -130,6 +131,7 @@ function CompactAction({
   readonly onCancel: () => void;
   readonly dataAttribute?: string;
   readonly scrollToTopOnFocus?: boolean;
+  readonly style?: CSSProperties;
   readonly targetProps?: CompactFocusTargetProps;
 }): JSX.Element {
   const [focused, setFocused] = useState(false);
@@ -177,7 +179,7 @@ function CompactAction({
       onFocus={(event) => { handleFocus(event.currentTarget); targetProps?.onFocused(event.currentTarget); }}
       onGamepadFocus={(event) => { const element = event.currentTarget as HTMLElement; handleFocus(element); targetProps?.onFocused(element); }}
       onBlur={() => { focusGeneration.current += 1; setFocused(false); }}
-      style={raRecipes.action("compact", primary, focused)}
+      style={{ ...raRecipes.action("compact", primary, focused), ...style }}
     >
       {children}
     </Focusable>
@@ -556,7 +558,7 @@ function CurrentGameActivity({
       <div style={raRecipes.compactProfile.gameActivityTitle}>{game.title}</div>
       {progressText !== undefined ? <div style={raRecipes.compactProfile.gameActivityMeta}>{progressText}</div> : null}
       {percent !== undefined ? <DeckyCompletionProgressBar compact percent={percent} caption={`${percent}% complete`} /> : null}
-      <CompactAction label={`View achievements for ${game.title}`} primary onActivate={() => onOpenGameDetail(game)} onCancel={onCancel} targetProps={targetProps}>
+      <CompactAction label={`View achievements for ${game.title}`} primary onActivate={() => onOpenGameDetail(game)} onCancel={onCancel} targetProps={targetProps} style={{ minHeight: 42, padding: "10px 12px" }}>
         <span style={{ flex: "1 1 auto", fontSize: 12, fontWeight: 800, textAlign: "center" }}>View achievements</span>
       </CompactAction>
     </div>
@@ -643,7 +645,7 @@ function RecentlyPlayedRow({
 
 function ViewAll({ label, onActivate, onCancel, dataAttribute, targetProps }: { readonly label: string; readonly onActivate: () => void; readonly onCancel: () => void; readonly dataAttribute?: string; readonly targetProps: CompactFocusTargetProps }): JSX.Element {
   return (
-    <CompactAction label={`View all ${label}`} onActivate={onActivate} onCancel={onCancel} targetProps={targetProps} {...(dataAttribute !== undefined ? { dataAttribute } : {})}>
+    <CompactAction label={`View all ${label}`} onActivate={onActivate} onCancel={onCancel} targetProps={targetProps} style={{ minHeight: 38, padding: "8px 10px" }} {...(dataAttribute !== undefined ? { dataAttribute } : {})}>
       <span style={{ flex: "1 1 auto", color: raTheme.color.accent, fontSize: 10, fontWeight: 800, textAlign: "center" }}>View All</span>
       <img alt="" src={chevronRightIconUrl} style={{ width: 15, height: 15, filter: raTheme.iconFilter.primary }} />
     </CompactAction>
@@ -771,7 +773,7 @@ export function DeckyRetroAchievementsCompactProfile({
 
       <Section title="Profile">
         <ProfileCard profile={profile} rankDisplay={settings.retroAchievementsRankDisplay} refreshedAt={refreshedAt} />
-        <CompactAction label="Open Profile Full-Screen" primary preferredFocus onActivate={onOpenProfile} onCancel={onCancel} dataAttribute="profile" scrollToTopOnFocus targetProps={targetProps({ kind: "profile" })}>
+        <CompactAction label="Open Profile Full-Screen" primary preferredFocus onActivate={onOpenProfile} onCancel={onCancel} dataAttribute="profile" scrollToTopOnFocus targetProps={targetProps({ kind: "profile" })} style={{ minHeight: 42, padding: "10px 12px" }}>
           <DeckyCompactPrimaryActionContent>Open Profile Full-Screen</DeckyCompactPrimaryActionContent>
         </CompactAction>
       </Section>
@@ -841,23 +843,31 @@ export function DeckyRetroAchievementsCompactProfile({
       </Section>
 
       <Section title="Recent Activity">
-        {visibleActivity.length > 0 ? visibleActivity.map((unlock) => (
-          <RecentAchievementRow
-            key={`${unlock.game.gameId}:${unlock.achievement.achievementId}`}
-            unlock={unlock}
-            onActivate={() => onOpenAchievementDetail({ game: unlock.game, achievement: unlock.achievement })}
-            onCancel={onCancel}
-            targetProps={targetProps({ kind: "achievement", gameId: unlock.game.gameId, achievementId: unlock.achievement.achievementId })}
-          />
-        )) : <div style={{ ...raRecipes.state("empty"), padding: 8, textAlign: "left" }}>No recent achievements yet.</div>}
-        <ViewAll label="achievements" onActivate={onOpenAchievementHistory} onCancel={onCancel} dataAttribute="recent-activity" targetProps={targetProps({ kind: "activity" })} />
+        <div style={raRecipes.compactProfile.listCard}>
+          <div style={raRecipes.compactProfile.listRows}>
+            {visibleActivity.length > 0 ? visibleActivity.map((unlock) => (
+              <RecentAchievementRow
+                key={`${unlock.game.gameId}:${unlock.achievement.achievementId}`}
+                unlock={unlock}
+                onActivate={() => onOpenAchievementDetail({ game: unlock.game, achievement: unlock.achievement })}
+                onCancel={onCancel}
+                targetProps={targetProps({ kind: "achievement", gameId: unlock.game.gameId, achievementId: unlock.achievement.achievementId })}
+              />
+            )) : <div style={{ ...raRecipes.state("empty"), padding: 8, textAlign: "left" }}>No recent achievements yet.</div>}
+          </div>
+          <ViewAll label="achievements" onActivate={onOpenAchievementHistory} onCancel={onCancel} dataAttribute="recent-activity" targetProps={targetProps({ kind: "activity" })} />
+        </div>
       </Section>
 
       <Section title="Recently Played">
-        {recentlyPlayed.length > 0 ? recentlyPlayed.map((game) => (
-          <RecentlyPlayedRow key={game.gameId} game={game} mode={settings.retroAchievementsAchievementMode} {...(activityUnlockCounts.has(game.gameId) ? { activityUnlockCount: activityUnlockCounts.get(game.gameId)!, ...(selectedActivityDateLabel !== undefined ? { activityDateLabel: selectedActivityDateLabel } : {}) } : {})} onActivate={() => onOpenGameDetail(game)} onCancel={onCancel} targetProps={targetProps({ kind: "game", gameId: game.gameId })} />
-        )) : <div style={{ ...raRecipes.state("empty"), padding: 8, textAlign: "left" }}>No recently played games yet.</div>}
-        <ViewAll label="games" onActivate={onOpenCompletionProgress} onCancel={onCancel} targetProps={targetProps({ kind: "games" })} />
+        <div style={raRecipes.compactProfile.listCard}>
+          <div style={raRecipes.compactProfile.listRows}>
+            {recentlyPlayed.length > 0 ? recentlyPlayed.map((game) => (
+              <RecentlyPlayedRow key={game.gameId} game={game} mode={settings.retroAchievementsAchievementMode} {...(activityUnlockCounts.has(game.gameId) ? { activityUnlockCount: activityUnlockCounts.get(game.gameId)!, ...(selectedActivityDateLabel !== undefined ? { activityDateLabel: selectedActivityDateLabel } : {}) } : {})} onActivate={() => onOpenGameDetail(game)} onCancel={onCancel} targetProps={targetProps({ kind: "game", gameId: game.gameId })} />
+            )) : <div style={{ ...raRecipes.state("empty"), padding: 8, textAlign: "left" }}>No recently played games yet.</div>}
+          </div>
+          <ViewAll label="games" onActivate={onOpenCompletionProgress} onCancel={onCancel} targetProps={targetProps({ kind: "games" })} />
+        </div>
       </Section>
 
       <div style={raRecipes.compactProfile.footer}>{refreshText}</div>

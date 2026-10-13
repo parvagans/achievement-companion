@@ -67,6 +67,14 @@ export const achievementCompanionQamTheme = {
     fontFamily: '"Motiva Sans", Arial, sans-serif',
   },
   space: { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 },
+  compactProfileSpacing: {
+    section: 16,
+    content: 10,
+    item: 8,
+    cardPadding: 12,
+    listPadding: 10,
+    rowPaddingBlock: 8,
+  },
   radius: { small: 8, medium: 10, large: 14, panel: 20, pill: 999 },
   focus: {
     border: "rgba(105,176,255,.8)", background: "linear-gradient(180deg,rgba(74,138,204,.34),rgba(34,79,124,.3))",
@@ -84,6 +92,22 @@ export const achievementCompanionQamTheme = {
     compactUnderline: "inset 0 -3px 0 rgba(54,185,255,.82)",
   },
 } as const;
+
+/** A single surface for each compact profile activity list and its final action. */
+export function getQamCompactProfileListCardStyle(): CSSProperties {
+  const theme = achievementCompanionQamTheme;
+  return {
+    display: "flex",
+    flexDirection: "column",
+    gap: theme.compactProfileSpacing.content,
+    minWidth: 0,
+    padding: theme.compactProfileSpacing.listPadding,
+    border: `1px solid ${theme.color.borderSubtle}`,
+    borderRadius: theme.radius.large,
+    background: theme.surface.contentCard,
+    boxSizing: "border-box",
+  };
+}
 
 /** The compact action focus state used by Steam and provider-specific QAM actions. */
 export function getQamCompactFocusControlStyle(): CSSProperties {

@@ -3,13 +3,14 @@ import { steamRecipes, steamTheme } from "./steam-theme";
 import { getQamCompactFocusControlStyle } from "./decky-qam-theme";
 import { getDeckyCompactPrimaryActionStyle } from "./decky-compact-primary-action-style";
 
-export type DeckySteamCompactActionTone = "primary" | "row";
+export type DeckySteamCompactActionTone = "primary" | "row" | "nested";
 
 export function getSteamCompactActionStyle(
   tone: DeckySteamCompactActionTone,
   isFocused: boolean,
 ): CSSProperties {
   const isPrimary = tone === "primary";
+  const isNested = tone === "nested";
 
   if (isPrimary) return getDeckyCompactPrimaryActionStyle(isFocused);
 
@@ -25,14 +26,14 @@ export function getSteamCompactActionStyle(
     padding: 0,
     border: `1px solid ${steamTheme.color.borderSubtle}`,
     borderRadius: steamTheme.radius.medium,
-    background: steamTheme.surface.contentCard,
+    background: isNested ? steamTheme.surface.contentStat : steamTheme.surface.contentCard,
     boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.025)",
     boxSizing: "border-box",
     color: steamTheme.color.textPrimary,
     cursor: "pointer",
     outline: "none",
     transition: "background 120ms ease, border-color 120ms ease, box-shadow 120ms ease",
-    ...(isFocused ? { ...getQamCompactFocusControlStyle(), background: steamTheme.surface.focusedContentCard } : {}),
+    ...(isFocused ? { ...getQamCompactFocusControlStyle(), background: isNested ? steamTheme.surface.focusedContentStat : steamTheme.surface.focusedContentCard } : {}),
   };
 }
 
