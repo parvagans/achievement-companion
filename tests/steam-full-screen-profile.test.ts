@@ -20,7 +20,7 @@ import {
   selectSteamGames,
   summarizeSteamGamesDashboard,
 } from "../src/platform/decky/decky-steam-full-screen-games-data";
-import { buildSteamActivityStats } from "../src/platform/decky/decky-steam-activity-data";
+import { buildRecentActivityTrend, buildSteamActivityStats } from "../src/platform/decky/decky-steam-activity-data";
 import { getAdjacentSteamFullScreenSessionTab } from "../src/platform/decky/decky-steam-full-screen-session-navigation";
 import {
   consumeDeckyFullscreenTransientCancel,
@@ -651,8 +651,6 @@ test("steam activity dashboard derives timeline metrics from timestamped unlock 
   assert.match(activitySource, /selectedLabel[\s\S]*Last \$\{weeks\} weeks/u);
   assert.match(calendarModelSource, /STEAM_ACTIVITY_CALENDAR_WEEK_OPTIONS = ACTIVITY_CALENDAR_WEEK_OPTIONS/u);
   assert.match(sharedCalendarModelSource, /nonzeroCounts[\s\S]*Math\.ceil\(nonzeroCounts\.length \* 0\.9\)/u);
-  assert.match(activitySource, /Array\.from\(\{ length: 30 \}/u);
-  assert.match(activitySource, /Last 30 days/u);
   assert.match(activitySource, /\["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"\]/u);
   assert.match(activitySource, /<span>Less<\/span>[\s\S]*<span>More<\/span>/u);
   assert.match(activitySource, /aria-pressed=\{selected\}[\s\S]*data-steam-activity-calendar-day="true"/u);
@@ -678,7 +676,7 @@ test("steam activity dashboard derives timeline metrics from timestamped unlock 
   assert.match(activitySource, /gridTemplateColumns: "24px minmax\(0, 1fr\)", alignItems: "center"/u);
   assert.match(activitySource, /fontSize: 11\.5, fontWeight: 800/u);
   assert.doesNotMatch(activitySource, /emphasized|boxShadow: "0 0 17px/u);
-  assert.match(activitySource, /recentThirtyDayCount/u);
+  assert.match(activitySource, /buildRecentActivityTrend\(stats\.dayCounts, interval\)/u);
   assert.doesNotMatch(activitySource, /ACTIVITY OVERVIEW/u);
   assert.match(activitySource, /allUnlocksCount = selectedGame\?\.unlockCount \?\? \(isRa \? modeEntries\.length : snapshot\.summary\.unlockedCount\)/u);
   assert.match(activitySource, /All Unlocks \(\$\{formatCount\(allUnlocksCount\)\}\)/u);
@@ -716,7 +714,7 @@ test("Steam activity insights rank timestamped unlock history and compare real 3
   assert.equal(stats.thisMonthCount, 5);
   assert.equal(stats.currentStreak, 4);
   assert.equal(stats.longestStreak, 4);
-  assert.equal(stats.recentThirtyDayCount, 5);
+  assert.equal(buildRecentActivityTrend(stats.dayCounts, "30d", now).total, 5);
   assert.match(stats.bestMonth.value, /2026/u);
   assert.equal(stats.bestMonth.detail, "5 unlocks");
   assert.equal(stats.mostActiveDay.detail, "2 unlocks");

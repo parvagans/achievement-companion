@@ -9,7 +9,7 @@ import {
   type GamepadEvent,
 } from "@decky/ui";
 import type { AchievementHistorySnapshot, RecentUnlock } from "@core/domain";
-import type { RetroAchievementsAchievementMode } from "@core/settings";
+import type { RecentActivityInterval, RetroAchievementsAchievementMode } from "@core/settings";
 import {
   useEffect,
   useLayoutEffect,
@@ -35,7 +35,7 @@ import {
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { registerDeckyFullscreenPopupCancel } from "./decky-full-screen-popup-state";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
-import { buildSteamActivityStats, type SteamActivityStats } from "./decky-steam-activity-data";
+import { buildRecentActivityTrend, buildSteamActivityStats, type SteamActivityStats } from "./decky-steam-activity-data";
 import { buildActivityGameOptions, filterActivityEntriesByGame, type ActivityGameOption } from "./decky-steam-full-screen-activity-games";
 import {
   buildSteamActivityCalendarModel,
@@ -203,19 +203,18 @@ function ActivityMetricCard({ icon, label, value, iconTone = "blue", iconSize = 
   );
 }
 
-function ActivityTrend({ stats }: { readonly stats: SteamActivityStats }): JSX.Element {
-  const start = getLocalDayTimestamp(Date.now()) - 29 * DAY_MS;
-  const counts = Array.from({ length: 30 }, (_, index) => stats.dayCounts.get(start + index * DAY_MS) ?? 0);
-  const maximum = Math.max(1, ...counts);
+function ActivityTrend({ stats, interval }: { readonly stats: SteamActivityStats; readonly interval: RecentActivityInterval }): JSX.Element {
+  const trend = buildRecentActivityTrend(stats.dayCounts, interval);
+  const maximum = Math.max(1, ...trend.bars.map(({ count }) => count));
   return (
     <div style={{ ...getCardStyle(), padding: "7px 10px", display: "grid", gridTemplateColumns: "minmax(92px,.7fr) minmax(0,1.6fr)", alignItems: "end", gap: 9 }}>
       <div>
         <div style={{ fontSize: 12, fontWeight: 700 }}>Recent Activity</div>
-        <div style={{ color: "#9cb9ce", fontSize: 9, marginTop: 2 }}>Last 30 days</div>
-        <div style={{ color: "#d8f3ff", fontSize: 9.5, fontWeight: 800, marginTop: 3 }}>{`${formatCount(stats.recentThirtyDayCount)} unlock${stats.recentThirtyDayCount === 1 ? "" : "s"}`}</div>
+        <div style={{ color: "#9cb9ce", fontSize: 9, marginTop: 2 }}>{trend.label}</div>
+        <div style={{ color: "#d8f3ff", fontSize: 9.5, fontWeight: 800, marginTop: 3 }}>{`${formatCount(trend.total)} unlock${trend.total === 1 ? "" : "s"}`}</div>
       </div>
       <div style={{ display: "flex", alignItems: "end", gap: 2, height: 34 }}>
-        {counts.map((count, index) => <span key={index} aria-label={`${count} unlocks`} style={{ display: "block", flex: "1 1 0", minWidth: 2, minHeight: 4, height: `${count === 0 ? 14 : Math.max(20, (count / maximum) * 100)}%`, borderRadius: 2, background: count > 0 ? "linear-gradient(#55d7ff, #1489c8)" : "#244258" }} />)}
+        {trend.bars.map(({ count, label }) => <span key={label} aria-label={`${label}: ${count} unlock${count === 1 ? "" : "s"}`} style={{ display: "block", flex: "1 1 0", minWidth: 2, minHeight: 4, height: `${count === 0 ? 14 : Math.max(20, (count / maximum) * 100)}%`, borderRadius: 2, background: count > 0 ? "linear-gradient(#55d7ff, #1489c8)" : "#244258" }} />)}
       </div>
     </div>
   );
@@ -688,6 +687,9 @@ export function DeckySteamFullScreenActivityDashboard({
   );
   const renderedEntries = entries.slice(0, renderLimit);
   const stats = useMemo(() => buildSteamActivityStats(modeEntries), [modeEntries]);
+  const recentActivityInterval = isRa
+    ? settings.retroAchievementsFullscreenRecentActivityInterval
+    : settings.steamFullscreenRecentActivityInterval;
 
   useEffect(() => {
     if (selectedGameId === undefined || selectedGame !== undefined || gameOptions.length === 0) return;
@@ -820,7 +822,7 @@ export function DeckySteamFullScreenActivityDashboard({
             <ActivityMetricCard icon={gamepadIconUrl} label={isRa ? "Games in History" : "Games with Unlocks"} value={formatCount(stats.gameCount)} />
             <ActivityMetricCard icon={unlockedLockIconUrl} label="This Month" value={formatCount(stats.thisMonthCount)} />
             {hasCompleteHistory ? <ActivityMetricCard icon={streakIconUrl} label="Current Streak" value={`${stats.currentStreak} days`} iconTone="original" iconSize={36} /> : null}
-            <ActivityTrend stats={stats} />
+            <ActivityTrend stats={stats} interval={recentActivityInterval} />
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 3.25fr) minmax(250px, 1.05fr)", gap: 8, minHeight: 0 }}>

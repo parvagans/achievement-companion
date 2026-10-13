@@ -3,9 +3,12 @@ import { Focusable, PanelSection, PanelSectionRow, ScrollPanel, type GamepadEven
 import {
   ACHIEVEMENT_COMPANION_COUNT_OPTIONS,
   ACTIVITY_CALENDAR_WEEK_OPTIONS,
+  RECENT_ACTIVITY_INTERVAL_OPTIONS,
+  formatRecentActivityInterval,
   type AchievementCompanionCount,
   type AchievementCompanionSettings,
   type ActivityCalendarWeeks,
+  type RecentActivityInterval,
   type RetroAchievementsAchievementMode,
   type RetroAchievementsRankDisplay,
 } from "@core/settings";
@@ -234,6 +237,7 @@ export function DeckyRetroAchievementsProviderSettingsPage({ providerId, onBack,
   const onGamepadDirection = (event: GamepadEvent): void => handleColumnDirection(event);
   const saveCompactCalendarWeeks = (retroAchievementsCompactActivityCalendarWeeks: ActivityCalendarWeeks): void => updateSettings((current) => ({ ...current, retroAchievementsCompactActivityCalendarWeeks }));
   const saveFullscreenCalendarWeeks = (retroAchievementsFullscreenActivityCalendarWeeks: ActivityCalendarWeeks): void => updateSettings((current) => ({ ...current, retroAchievementsFullscreenActivityCalendarWeeks }));
+  const saveRecentActivityInterval = (retroAchievementsFullscreenRecentActivityInterval: RecentActivityInterval): void => updateSettings((current) => ({ ...current, retroAchievementsFullscreenRecentActivityInterval }));
 
   return <div ref={pageRef} className="ac-ra-fullscreen-settings-page" data-ac-steam-theme="fullscreen" style={{ position: "relative", height: viewportHeight ?? "100vh", flexShrink: 0, minHeight: 0, overflow: "hidden", padding: "calc(env(safe-area-inset-top, 0px) + 43px) 12px 50px", boxSizing: "border-box", color: steamTheme.color.textPrimary, background: steamTheme.surface.page }}>
     <SettingsStyles /><DeckyFocusStyles />
@@ -255,6 +259,7 @@ export function DeckyRetroAchievementsProviderSettingsPage({ providerId, onBack,
       </div></DeckySettingsSection> : null}
       {selectedSection === "fullscreen" ? <DeckySettingsSection themeVariant="ra"><div style={{ ...settingsScrollStyle, display: "flex", flexDirection: "column", gap: 10 }}>
         <DeckySettingsDropdown themeVariant="ra" label="Activity Calendar" description="Choose how many weeks of achievement activity the full-screen calendar shows." value={settings.retroAchievementsFullscreenActivityCalendarWeeks} options={ACTIVITY_CALENDAR_WEEK_OPTIONS} formatOption={(weeks) => `${weeks} weeks`} onChange={saveFullscreenCalendarWeeks} onGamepadDirection={onGamepadDirection} />
+        <DeckySettingsDropdown themeVariant="ra" label="Recent Activity graph" description="Choose the time range and bar grouping for the full-screen Activity graph." value={settings.retroAchievementsFullscreenRecentActivityInterval} options={RECENT_ACTIVITY_INTERVAL_OPTIONS} formatOption={formatRecentActivityInterval} onChange={saveRecentActivityInterval} onGamepadDirection={onGamepadDirection} />
         <SettingsHeading>SUBSET DISCOVERY CACHE</SettingsHeading>
         <div style={{ color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.body, lineHeight: 1.35 }}>Achievement Companion caches verified links between base games and their RA subsets. Use this after RetroAchievements adds or moves a subset.</div>
         <SettingsActionRow title={subsetIndexOperation === "refreshing" ? "Preparing subset recheck" : "Recheck subset links on next game open"} subtitle={subsetMessage} icon={refreshIconUrl} disabled={onRebuildSubsetIndex === undefined || subsetIndexOperation === "refreshing"} onGamepadDirection={onGamepadDirection} onActivate={() => { void rebuildSubsetIndex(); }} />

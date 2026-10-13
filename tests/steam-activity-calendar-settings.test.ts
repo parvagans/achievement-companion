@@ -30,3 +30,19 @@ test("Steam calendar settings reject unsupported week totals", () => {
     DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.steamFullscreenActivityCalendarWeeks,
   );
 });
+
+test("full-screen Recent Activity intervals persist independently and reject unknown values", () => {
+  const selected = parseAchievementCompanionSettings(JSON.stringify({
+    steamFullscreenRecentActivityInterval: "14d",
+    retroAchievementsFullscreenRecentActivityInterval: "12w",
+  }));
+  assert.equal(selected.steamFullscreenRecentActivityInterval, "14d");
+  assert.equal(selected.retroAchievementsFullscreenRecentActivityInterval, "12w");
+
+  const invalid = parseAchievementCompanionSettings(JSON.stringify({
+    steamFullscreenRecentActivityInterval: "60d",
+    retroAchievementsFullscreenRecentActivityInterval: null,
+  }));
+  assert.equal(invalid.steamFullscreenRecentActivityInterval, "30d");
+  assert.equal(invalid.retroAchievementsFullscreenRecentActivityInterval, "30d");
+});

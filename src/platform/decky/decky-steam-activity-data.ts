@@ -1,4 +1,5 @@
 import type { RecentUnlock } from "@core/domain";
+import type { RecentActivityInterval } from "@core/settings";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -13,9 +14,14 @@ export interface SteamActivityStats {
   readonly currentStreak: number;
   readonly longestStreak: number;
   readonly dayCounts: ReadonlyMap<number, number>;
-  readonly recentThirtyDayCount: number;
   readonly bestMonth: ActivityInsightValue;
   readonly mostActiveDay: ActivityInsightValue;
+}
+
+export interface RecentActivityTrend {
+  readonly label: string;
+  readonly bars: readonly { readonly count: number; readonly label: string }[];
+  readonly total: number;
 }
 
 function getUnlockTime(entry: RecentUnlock): number | undefined {
@@ -82,8 +88,6 @@ export function buildSteamActivityStats(entries: readonly RecentUnlock[], now = 
   const nowDate = new Date(now);
   const thisMonthStart = new Date(nowDate.getFullYear(), nowDate.getMonth(), 1).getTime();
   const nextMonthStart = new Date(nowDate.getFullYear(), nowDate.getMonth() + 1, 1).getTime();
-  const today = getLocalDayTimestamp(now);
-  const recentStart = today - 29 * DAY_MS;
   const dayCounts = new Map<number, number>();
   const monthCounts = new Map<number, number>();
 
@@ -113,10 +117,6 @@ export function buildSteamActivityStats(entries: readonly RecentUnlock[], now = 
     currentStreak: getCurrentStreak(days, now),
     longestStreak: getLongestStreak(days),
     dayCounts,
-    recentThirtyDayCount: [...dayCounts.entries()].reduce(
-      (count, [day, unlockCount]) => day >= recentStart && day <= today ? count + unlockCount : count,
-      0,
-    ),
     bestMonth: bestMonth === undefined
       ? noTimestampedActivity()
       : {
@@ -129,5 +129,54 @@ export function buildSteamActivityStats(entries: readonly RecentUnlock[], now = 
           value: new Date(mostActiveDay[0]).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
           detail: formatUnlockCount(mostActiveDay[1]),
         },
+  };
+}
+
+export function buildRecentActivityTrend(
+  dayCounts: ReadonlyMap<number, number>,
+  interval: RecentActivityInterval,
+  now = Date.now(),
+): RecentActivityTrend {
+  const today = getLocalDayTimestamp(now);
+  const dateLabel = (day: number): string => new Date(day).toLocaleDateString(undefined, {
+    month: "short", day: "numeric", year: "numeric", timeZone: "UTC",
+  });
+  const countRange = (start: number, end: number): number => {
+    let count = 0;
+    for (const [day, value] of dayCounts) {
+      if (day >= start && day <= Math.min(end, today)) count += value;
+    }
+    return count;
+  };
+  const bars: { count: number; label: string }[] = [];
+
+  if (interval === "12m") {
+    const date = new Date(today);
+    for (let index = 11; index >= 0; index -= 1) {
+      const start = Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - index, 1);
+      const end = Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - index + 1, 1) - DAY_MS;
+      bars.push({
+        count: countRange(start, end),
+        label: new Date(start).toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" }),
+      });
+    }
+  } else {
+    const daysPerBar = interval === "12w" ? 7 : 1;
+    const barCount = interval === "7d" ? 7 : interval === "14d" ? 14 : interval === "30d" ? 30 : 12;
+    const firstDay = today - (barCount * daysPerBar - 1) * DAY_MS;
+    for (let index = 0; index < barCount; index += 1) {
+      const start = firstDay + index * daysPerBar * DAY_MS;
+      const end = start + (daysPerBar - 1) * DAY_MS;
+      bars.push({
+        count: countRange(start, end),
+        label: daysPerBar === 1 ? dateLabel(start) : `${dateLabel(start)} – ${dateLabel(end)}`,
+      });
+    }
+  }
+
+  return {
+    label: interval === "7d" ? "Last 7 days" : interval === "14d" ? "Last 14 days" : interval === "30d" ? "Last 30 days" : interval === "12w" ? "Last 12 weeks" : "Last 12 months",
+    bars,
+    total: bars.reduce((sum, bar) => sum + bar.count, 0),
   };
 }

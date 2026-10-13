@@ -11,6 +11,17 @@ export type AchievementCompanionCount =
 export const ACTIVITY_CALENDAR_WEEK_OPTIONS = [4, 6, 8, 10, 12] as const;
 export type ActivityCalendarWeeks = (typeof ACTIVITY_CALENDAR_WEEK_OPTIONS)[number];
 
+export const RECENT_ACTIVITY_INTERVAL_OPTIONS = ["7d", "14d", "30d", "12w", "12m"] as const;
+export type RecentActivityInterval = (typeof RECENT_ACTIVITY_INTERVAL_OPTIONS)[number];
+
+export function formatRecentActivityInterval(interval: RecentActivityInterval): string {
+  if (interval === "7d") return "7 days";
+  if (interval === "14d") return "14 days";
+  if (interval === "30d") return "30 days";
+  if (interval === "12w") return "12 weeks";
+  return "12 months";
+}
+
 export type CompletionProgressFilter = "all" | "unfinished" | "beaten" | "mastered";
 export type UpdateSourceKind = "production" | "local";
 export type RetroAchievementsRankDisplay = "site" | "casual";
@@ -65,8 +76,10 @@ export interface AchievementCompanionSettings {
   readonly gamePageAchievementBadgeColors: GamePageAchievementBadgeColors;
   readonly steamCompactActivityCalendarWeeks: ActivityCalendarWeeks;
   readonly steamFullscreenActivityCalendarWeeks: ActivityCalendarWeeks;
+  readonly steamFullscreenRecentActivityInterval: RecentActivityInterval;
   readonly retroAchievementsCompactActivityCalendarWeeks: ActivityCalendarWeeks;
   readonly retroAchievementsFullscreenActivityCalendarWeeks: ActivityCalendarWeeks;
+  readonly retroAchievementsFullscreenRecentActivityInterval: RecentActivityInterval;
   readonly retroAchievementsRankDisplay: RetroAchievementsRankDisplay;
   readonly retroAchievementsAchievementMode: RetroAchievementsAchievementMode;
   readonly automaticUpdateChecks: boolean;
@@ -86,8 +99,10 @@ export const DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS: AchievementCompanionSetting
   gamePageAchievementBadgeColors: DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS,
   steamCompactActivityCalendarWeeks: 8,
   steamFullscreenActivityCalendarWeeks: 12,
+  steamFullscreenRecentActivityInterval: "30d",
   retroAchievementsCompactActivityCalendarWeeks: 8,
   retroAchievementsFullscreenActivityCalendarWeeks: 12,
+  retroAchievementsFullscreenRecentActivityInterval: "30d",
   retroAchievementsRankDisplay: "site",
   retroAchievementsAchievementMode: "both",
   automaticUpdateChecks: true,
@@ -108,6 +123,12 @@ function normalizeCount(value: unknown, fallback: AchievementCompanionCount): Ac
 function normalizeActivityCalendarWeeks(value: unknown, fallback: ActivityCalendarWeeks): ActivityCalendarWeeks {
   return ACTIVITY_CALENDAR_WEEK_OPTIONS.includes(value as ActivityCalendarWeeks)
     ? (value as ActivityCalendarWeeks)
+    : fallback;
+}
+
+function normalizeRecentActivityInterval(value: unknown, fallback: RecentActivityInterval): RecentActivityInterval {
+  return RECENT_ACTIVITY_INTERVAL_OPTIONS.includes(value as RecentActivityInterval)
+    ? value as RecentActivityInterval
     : fallback;
 }
 
@@ -229,6 +250,10 @@ export function normalizeAchievementCompanionSettings(
       value["steamFullscreenActivityCalendarWeeks"],
       DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.steamFullscreenActivityCalendarWeeks,
     ),
+    steamFullscreenRecentActivityInterval: normalizeRecentActivityInterval(
+      value["steamFullscreenRecentActivityInterval"],
+      DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.steamFullscreenRecentActivityInterval,
+    ),
     retroAchievementsCompactActivityCalendarWeeks: normalizeActivityCalendarWeeks(
       value["retroAchievementsCompactActivityCalendarWeeks"],
       DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.retroAchievementsCompactActivityCalendarWeeks,
@@ -236,6 +261,10 @@ export function normalizeAchievementCompanionSettings(
     retroAchievementsFullscreenActivityCalendarWeeks: normalizeActivityCalendarWeeks(
       value["retroAchievementsFullscreenActivityCalendarWeeks"],
       DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.retroAchievementsFullscreenActivityCalendarWeeks,
+    ),
+    retroAchievementsFullscreenRecentActivityInterval: normalizeRecentActivityInterval(
+      value["retroAchievementsFullscreenRecentActivityInterval"],
+      DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.retroAchievementsFullscreenRecentActivityInterval,
     ),
     retroAchievementsRankDisplay: normalizeRetroAchievementsRankDisplay(
       value["retroAchievementsRankDisplay"],
