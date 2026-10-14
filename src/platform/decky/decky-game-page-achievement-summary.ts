@@ -44,7 +44,7 @@ import {
 
 const GAME_PAGE_ACHIEVEMENT_SUMMARY_CACHE_TTL_MS = 30 * 1000;
 
-export type RetroAchievementsCompletionStatus = "beaten" | "mastered";
+export type RetroAchievementsCompletionStatus = "beaten" | "mastered" | "in-progress";
 
 export type GamePageAchievementSummary =
   | {
@@ -2980,9 +2980,13 @@ async function loadRetroAchievementsCompletionStatusEnrichment(
         undefined,
         getRetroAchievementsHighestAwardKind(game),
       );
-      return completionStatus === undefined
-        ? { status: "unavailable" }
-        : { status: "resolved", completionStatus };
+      if (completionStatus !== undefined) {
+        return { status: "resolved", completionStatus };
+      }
+
+      return game.status === "in_progress" || game.status === "locked"
+        ? { status: "resolved", completionStatus: "in-progress" }
+        : { status: "unavailable" };
     } catch {
       return { status: "failed" };
     }
@@ -3011,10 +3015,13 @@ export async function enrichDeckyGamePageAchievementSummaryCompletionStatus(
   if (
     summary.status !== "ready" ||
     summary.provider !== "retroachievements" ||
-    summary.gameId === undefined ||
     summary.completionStatus !== undefined
   ) {
     return summary;
+  }
+
+  if (summary.gameId === undefined) {
+    return createUnavailableSummary(summary.appId, "ra-completion-status-game-id-unavailable");
   }
 
   updateAchievementCompanionRaShortcutResolutionDebug({
@@ -3033,7 +3040,7 @@ export async function enrichDeckyGamePageAchievementSummaryCompletionStatus(
       completionStatusEnrichmentGameId: summary.gameId,
       clearKeys: ["enrichedCompletionStatus"],
     });
-    return summary;
+    return createUnavailableSummary(summary.appId, "ra-completion-status-unresolved");
   }
 
   const enrichedSummary: GamePageAchievementSummary = {

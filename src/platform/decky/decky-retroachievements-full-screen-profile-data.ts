@@ -88,6 +88,9 @@ function getRecentCompletions(
     seenKinds.add(completion.kind);
     if (selected.length === 2) break;
   }
+  if (selected.length === 2 && seenKinds.has("beaten") && seenKinds.has("mastered")) {
+    return selected.sort((left, right) => left.kind === "beaten" ? -1 : right.kind === "beaten" ? 1 : 0);
+  }
   return selected;
 }
 

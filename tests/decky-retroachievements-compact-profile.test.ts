@@ -253,7 +253,9 @@ test("RA QAM loading, focus scrolling, and calendar controls follow Steam compac
   assert.match(profileSource, /data-ra-profile-beaten-focus="true"/u);
   assert.match(raThemeSource, /@keyframes ac-ra-game-icon-tail/u);
   assert.match(statusIconSource, /kind === "mastered"/u);
-  assert.match(statusIconSource, /<clipPath/u);
+  assert.match(statusIconSource, /assets\/achievement-badge\/crown-laurel\.svg/u);
+  assert.match(statusIconSource, /kind === "perfected"/u);
+  assert.match(statusIconSource, /assets\/flag\.svg/u);
   assert.doesNotMatch(profileSource, /CompactAction label=\{`Refresh RetroAchievements/u);
   assert.match(loadingSource, /achievementCompanionQamTheme/u);
   assert.match(loadingSource, /data-ac-ra-theme=\{!isSteam \? "compact" : undefined\}/u);

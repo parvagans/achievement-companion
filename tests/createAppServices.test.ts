@@ -11719,8 +11719,8 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(bubbleSource, /IN PROGRESS/u);
   assert.match(bubbleSource, /PLEASE WAIT\.\.\./u);
   assert.match(bubbleSource, /data-ac-game-page-badge-status-icon="crown-laurel"/u);
-  assert.match(bubbleSource, /assets\/achievement-badge\/crown\.svg/u);
-  assert.match(bubbleSource, /assets\/achievement-badge\/laurel\.svg/u);
+  assert.match(bubbleSource, /assets\/achievement-badge\/crown-laurel\.svg/u);
+  assert.doesNotMatch(bubbleSource, /assets\/achievement-badge\/(?:crown|laurel)\.svg/u);
   assert.match(bubbleSource, /data-ac-game-page-badge-status-icon="flag"/u);
   assert.match(bubbleSource, /data-ac-game-page-badge-status-icon="bars"/u);
   assert.match(bubbleSource, /assets\/steam\.svg/u);
@@ -12082,6 +12082,47 @@ test("game page achievement badge presentation follows the neon specification va
       statusLabel: "MASTERED",
       countLabel: "23 / 23",
       progress: 1,
+    },
+  );
+
+  assert.deepStrictEqual(
+    resolveDeckyGamePageAchievementBadgePresentation({
+      status: "ready",
+      provider: "retroachievements",
+      appId: "12a",
+      gameId: "9300",
+      earned: 10,
+      total: 10,
+      source: "snapshot",
+    }),
+    {
+      ariaLabel: "Achievement Companion, please wait",
+      provider: "retroachievements",
+      variant: "loading",
+      statusLabel: "PLEASE WAIT...",
+      countLabel: "-- / --",
+      progress: 0.18,
+    },
+  );
+
+  assert.deepStrictEqual(
+    resolveDeckyGamePageAchievementBadgePresentation({
+      status: "ready",
+      provider: "retroachievements",
+      appId: "12b",
+      gameId: "9302",
+      earned: 2,
+      total: 8,
+      source: "backend",
+      completionStatus: "in-progress",
+    }),
+    {
+      ariaLabel: "Open Achievement Companion details for app 12b, in progress, 2 / 8",
+      provider: "retroachievements",
+      variant: "in-progress",
+      statusLabel: "IN PROGRESS",
+      countLabel: "2 / 8",
+      progress: 0.25,
     },
   );
 
@@ -13582,12 +13623,11 @@ test("native RA completion status enrichment fails closed and never infers statu
     };
 
     const unavailableEnrichment = await enrichDeckyGamePageAchievementSummaryCompletionStatus(fullCountsSummary);
-    assert.strictEqual(unavailableEnrichment, fullCountsSummary);
-    assert.equal(unavailableEnrichment.status, "ready");
-    if (unavailableEnrichment.status !== "ready") {
-      return;
-    }
-    assert.equal(unavailableEnrichment.completionStatus, undefined);
+    assert.deepStrictEqual(unavailableEnrichment, {
+      status: "unavailable",
+      appId: fullCountsSummary.appId,
+      reason: "ra-completion-status-unresolved",
+    });
     assert.equal(
       getAchievementCompanionLastRaShortcutResolutionDebug()?.completionStatusEnrichmentStatus,
       "unavailable",
@@ -13602,11 +13642,48 @@ test("native RA completion status enrichment fails closed and never infers statu
       total: 8,
     };
     const failedEnrichment = await enrichDeckyGamePageAchievementSummaryCompletionStatus(failedSummary);
-    assert.strictEqual(failedEnrichment, failedSummary);
+    assert.deepStrictEqual(failedEnrichment, {
+      status: "unavailable",
+      appId: failedSummary.appId,
+      reason: "ra-completion-status-unresolved",
+    });
     assert.equal(
       getAchievementCompanionLastRaShortcutResolutionDebug()?.completionStatusEnrichmentStatus,
       "failed",
     );
+
+    assert.deepStrictEqual(
+      await enrichDeckyGamePageAchievementSummaryCompletionStatus({
+        ...fullCountsSummary,
+        appId: "2493414767",
+        gameId: undefined,
+      }),
+      {
+        status: "unavailable",
+        appId: "2493414767",
+        reason: "ra-completion-status-game-id-unavailable",
+      },
+    );
+
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      "9302": createRetroAchievementsGameProgressResponse({
+        gameId: "9302",
+        title: "Still Playing",
+        unlockedCount: 2,
+        totalCount: 8,
+      }),
+    };
+    const inProgressEnrichment = await enrichDeckyGamePageAchievementSummaryCompletionStatus({
+      ...fullCountsSummary,
+      appId: "2493414768",
+      gameId: "9302",
+      earned: 2,
+      total: 8,
+    });
+    assert.equal(inProgressEnrichment.status, "ready");
+    if (inProgressEnrichment.status === "ready") {
+      assert.equal(inProgressEnrichment.completionStatus, "in-progress");
+    }
   });
 });
 

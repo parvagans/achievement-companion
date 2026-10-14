@@ -40,6 +40,17 @@ export function resolveDeckyGamePageAchievementBadgePresentation(
     return undefined;
   }
 
+  if (summary.provider === "retroachievements" && summary.completionStatus === undefined) {
+    return {
+      ariaLabel: "Achievement Companion, please wait",
+      provider: "retroachievements",
+      variant: "loading",
+      statusLabel: "PLEASE WAIT...",
+      countLabel: "-- / --",
+      progress: 0.18,
+    };
+  }
+
   const provider = summary.provider;
   const progress = summary.total > 0 ? clampProgress(summary.earned / summary.total) : 0;
   const countLabel = `${String(summary.earned)} / ${String(summary.total)}`;

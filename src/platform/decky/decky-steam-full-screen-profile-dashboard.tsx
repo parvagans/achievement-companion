@@ -25,7 +25,7 @@ import type { SteamHuntersProfile } from "../../providers/steamhunters";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import calendarIconUrl from "./assets/calendar.svg";
-import crownIconUrl from "./assets/crown.svg";
+import crownIconUrl from "./assets/achievement-badge/crown-laurel.svg";
 import libraryIconUrl from "./assets/library.svg";
 import masteredIconUrl from "./assets/mastered.svg";
 import pieChartIconUrl from "./assets/pie-chart.svg";

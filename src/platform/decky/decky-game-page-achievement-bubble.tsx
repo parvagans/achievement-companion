@@ -160,7 +160,9 @@ function resolveDeckyGamePageAchievementBadgeCompletionStatus(
     return undefined;
   }
 
-  return summary.completionStatus;
+  return summary.completionStatus === "beaten" || summary.completionStatus === "mastered"
+    ? summary.completionStatus
+    : undefined;
 }
 
 function getDeckyGamePageAchievementRouteBadgeStyle(

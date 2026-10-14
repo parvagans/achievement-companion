@@ -154,7 +154,7 @@ export interface AchievementCompanionGamePageBadgePipelineDebugRecord {
   readonly summaryTitle?: string;
   readonly summaryEarned?: number;
   readonly summaryTotal?: number;
-  readonly summaryCompletionStatus?: "beaten" | "mastered";
+  readonly summaryCompletionStatus?: "beaten" | "mastered" | "in-progress";
   readonly summaryReason?: string;
   readonly placementAttempted: boolean;
   readonly placementSlot?: string;
@@ -210,7 +210,7 @@ export interface AchievementCompanionRaShortcutResolutionDebugRecord {
   readonly completionStatusEnrichmentStatus?: "idle" | "loading" | "resolved" | "unavailable" | "failed";
   readonly completionStatusEnrichmentSource?: "ra-game-detail";
   readonly completionStatusEnrichmentGameId?: string;
-  readonly enrichedCompletionStatus?: "beaten" | "mastered";
+  readonly enrichedCompletionStatus?: "beaten" | "mastered" | "in-progress";
   readonly hashResolverAttempted?: boolean;
   readonly hashResolverSkippedReason?: string;
   readonly shortcutRomPathDetected?: boolean;
@@ -933,7 +933,7 @@ export function markAchievementCompanionGamePageBadgeSystemIcon(args: {
 }
 
 export function markAchievementCompanionGamePageBadgeStatus(args: {
-  readonly summaryCompletionStatus: "beaten" | "mastered" | undefined;
+  readonly summaryCompletionStatus: "beaten" | "mastered" | "in-progress" | undefined;
   readonly badgeCompletionStatus: "beaten" | "mastered" | undefined;
   readonly badgeStatusVariant: DeckyGamePageAchievementBadgeVariant;
   readonly nativeBadgeStatusRendered: boolean;

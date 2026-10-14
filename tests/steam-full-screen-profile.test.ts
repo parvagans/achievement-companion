@@ -1044,3 +1044,17 @@ test("profile summary memo runs before the loading-state early return", async ()
     "all profile hooks must run before the loading-state early return",
   );
 });
+
+test("Steam Perfected glyphs use the combined crown-laurel asset", async () => {
+  const [statusIconSource, profileSource, gamesSource] = await Promise.all([
+    readFile(new URL("../src/platform/decky/decky-game-status-icon.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-steam-full-screen-profile-dashboard.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-steam-full-screen-games-dashboard.tsx", import.meta.url), "utf8"),
+  ]);
+
+  for (const source of [statusIconSource, profileSource, gamesSource]) {
+    assert.match(source, /assets\/achievement-badge\/crown-laurel\.svg/u);
+    assert.doesNotMatch(source, /assets\/achievement-badge\/(?:crown|laurel)\.svg|assets\/crown\.svg/u);
+  }
+  assert.match(statusIconSource, /kind === "mastered" \|\| kind === "perfected"/u);
+});

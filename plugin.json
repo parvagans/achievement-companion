@@ -1,8 +1,8 @@
 {
   "api_version": 1,
   "name": "Achievement Companion",
-  "version": "0.19.0",
-  "author": "parvagans <nullbit5@protonmail.com>",
+  "version": "0.19.1",
+  "author": "parvagans",
   "publish": {
     "tags": ["achievements", "retroachievements", "steam"],
     "description": "Decky plugin for Steam Deck Game Mode with provider-first achievement dashboards for RetroAchievements and Steam, backend-owned credentials, and controller-friendly browsing.",

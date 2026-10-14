@@ -71,7 +71,7 @@ import calendarIconUrl from "./assets/calendar.svg";
 import caretDownIconUrl from "./assets/caret-down.svg";
 import chevronRightIconUrl from "./assets/chevron-right.svg";
 import clockIconUrl from "./assets/clock.svg";
-import crownIconUrl from "./assets/crown.svg";
+import crownIconUrl from "./assets/achievement-badge/crown-laurel.svg";
 import gamepadIconUrl from "./assets/gamepad.svg";
 import listIconUrl from "./assets/list.svg";
 import prohibitedIconUrl from "./assets/prohibited.svg";

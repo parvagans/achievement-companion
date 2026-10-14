@@ -248,6 +248,18 @@ test("RA Profile shows the latest game for each distinct completion award", () =
   ]);
   assert.deepEqual(model.completionAwardCounts, { beaten: 2, completed: 0, mastered: 1 });
   assert.equal(model.recentCompletions[1]?.dateKind, "unlock");
+
+  const newerMasteredModel = buildRetroAchievementsFullScreenProfileModel({
+    snapshot: { ...dashboard, featuredGames: [awardedGame("beaten", "beaten-hardcore", 100), awardedGame("newest-mastered", "mastered", 400)] },
+    settings,
+  });
+  assert.deepEqual(newerMasteredModel.recentCompletions.map(({ kind }) => kind), ["beaten", "mastered"]);
+
+  const singleMasteredModel = buildRetroAchievementsFullScreenProfileModel({
+    snapshot: { ...dashboard, featuredGames: [awardedGame("only-mastered", "mastered", 400)] },
+    settings,
+  });
+  assert.deepEqual(singleMasteredModel.recentCompletions.map(({ kind }) => kind), ["mastered"]);
 });
 
 test("RetroAchievements refresh success is represented by a green action label, not a success caption", () => {
