@@ -17,6 +17,7 @@ import {
   getQamActivityCalendarLegendCellStyle,
   getQamActivityCalendarLegendStyle,
   getQamCompactProfileListCardStyle,
+  getQamPassiveCardFocusStyle,
   qamActivityCalendarColors,
 } from "./decky-qam-theme";
 import { useDeckySettings } from "./decky-settings";
@@ -514,6 +515,8 @@ function SteamHuntersMetric({
   tone,
   value,
   rankTrend,
+  onCancel,
+  targetProps,
 }: {
   readonly icon?: ReactNode;
   readonly iconUrl?: string;
@@ -521,9 +524,12 @@ function SteamHuntersMetric({
   readonly tone: SteamCompactIconTone;
   readonly value: string;
   readonly rankTrend?: SteamHuntersProfile["globalPointsRankTrend"];
+  readonly onCancel?: () => void;
+  readonly targetProps?: CompactTargetProps;
 }): JSX.Element {
-  return (
-    <div style={getMetricStyle()}>
+  const [focused, setFocused] = useState(false);
+  const content = (
+    <>
       {icon ?? (iconUrl !== undefined ? <img alt="" src={iconUrl} style={getIconStyle(27, tone)} /> : null)}
       <div style={getMetricTextStyle()}>
         <div style={getMetricLabelStyle()}>{label}</div>
@@ -532,7 +538,32 @@ function SteamHuntersMetric({
           {value}
         </div>
       </div>
-    </div>
+    </>
+  );
+  if (targetProps === undefined) return <div style={getMetricStyle()}>{content}</div>;
+  const focus = (element: HTMLElement): void => {
+    setFocused(true);
+    element.scrollIntoView({ block: "center", inline: "nearest" });
+    targetProps.onFocused(element);
+  };
+  return (
+    <Focusable
+      noFocusRing
+      role="group"
+      tabIndex={0}
+      aria-label={`${label}, ${value}`}
+      data-steam-compact-steamhunters-points="true"
+      ref={(node) => targetProps.elementRef?.(node)}
+      preferredFocus={targetProps.preferredFocus}
+      onActivate={() => {}}
+      {...(onCancel === undefined ? {} : { onCancel })}
+      onFocus={(event) => focus(event.currentTarget)}
+      onGamepadFocus={(event) => focus(event.currentTarget as HTMLElement)}
+      onBlur={() => setFocused(false)}
+      style={{ ...getMetricStyle(), outline: "none", ...getQamPassiveCardFocusStyle(focused) }}
+    >
+      {content}
+    </Focusable>
   );
 }
 
@@ -617,6 +648,10 @@ function getRowTrailingStyle(): CSSProperties {
   return { display: "flex", alignItems: "center", gap: 6, flexShrink: 0, minWidth: 0 };
 }
 
+function getLastPlayedStyle(): CSSProperties {
+  return { maxWidth: 78, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: steamTheme.color.textMuted, fontSize: 9, lineHeight: 1.1 };
+}
+
 function getPlaytimeStyle(): CSSProperties {
   return {
     maxWidth: 62,
@@ -675,27 +710,10 @@ function formatGameProgress(game: RecentlyPlayedGame): string {
     : `${count} · ${game.summary.completionPercent}%`;
 }
 
-function isToday(epochMs: number | undefined): boolean {
-  if (epochMs === undefined) {
-    return false;
-  }
-
-  const value = new Date(epochMs);
-  const today = new Date();
-  return value.getFullYear() === today.getFullYear()
-    && value.getMonth() === today.getMonth()
-    && value.getDate() === today.getDate();
-}
-
 function formatGamePlaytime(game: RecentlyPlayedGame): string | undefined {
-  const playtime = formatSteamPlaytimeMinutes(
+  return formatSteamPlaytimeMinutes(
     game.playtimeTwoWeeksMinutes ?? game.playtimeDeckForeverMinutes ?? game.playtimeForeverMinutes,
   );
-  if (playtime === undefined) {
-    return undefined;
-  }
-
-  return isToday(game.lastPlayedAt) ? `${playtime} today` : playtime;
 }
 
 function formatRefreshTime(epochMs: number | undefined): string | undefined {
@@ -1014,6 +1032,7 @@ function RecentlyPlayedItem({
   readonly preferredFocus?: boolean | undefined;
 }): JSX.Element {
   const artworkUrl = getSteamCompactGameArtworkUrl(game);
+  const lastPlayed = formatRelativeTime(game.lastPlayedAt);
   const playtime = activityUnlockCount === undefined ? formatGamePlaytime(game) : undefined;
   const progress = formatGameProgress(game);
   const selectedDateActivity = activityUnlockCount === undefined || activityDateLabel === undefined
@@ -1043,7 +1062,12 @@ function RecentlyPlayedItem({
         {selectedDateActivity !== undefined ? <span style={getRowMetaStyle()}>{selectedDateActivity}</span> : null}
       </span>
       <span style={getRowTrailingStyle()}>
-        {playtime !== undefined ? <span style={getPlaytimeStyle()}>{playtime}</span> : null}
+        {lastPlayed !== undefined || playtime !== undefined ? (
+          <span style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 3, minWidth: 0 }}>
+            {lastPlayed !== undefined ? <span style={getLastPlayedStyle()}>{lastPlayed}</span> : null}
+            {playtime !== undefined ? <span style={getPlaytimeStyle()}>{playtime}</span> : null}
+          </span>
+        ) : null}
         <img alt="" src={chevronRightIconUrl} style={getIconStyle(17)} />
       </span>
     </DeckySteamCompactAction>
@@ -1205,6 +1229,8 @@ export function DeckySteamCompactProfile({
             label="Points"
             tone="gold"
             value={formatCount(steamHuntersProfile?.points)}
+            onCancel={onCancel}
+            targetProps={targetProps({ kind: "steamhunters-points" })}
           />
           <SteamHuntersMetric
             iconUrl={rankPointsIconUrl}

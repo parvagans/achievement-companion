@@ -29,6 +29,7 @@ test("Steam compact focus state uses stable domain identity", () => {
 
 test("Steam compact non-row destinations have deterministic keys", () => {
   assert.equal(getDeckySteamCompactFocusTargetKey({ kind: "profile" }), "profile");
+  assert.equal(getDeckySteamCompactFocusTargetKey({ kind: "steamhunters-points" }), "steamhunters-points");
   assert.equal(getDeckySteamCompactFocusTargetKey({ kind: "activity" }), "activity");
   assert.equal(getDeckySteamCompactFocusTargetKey({ kind: "games" }), "games");
   assert.equal(getDeckySteamCompactFocusTargetKey({ kind: "settings" }), "settings");

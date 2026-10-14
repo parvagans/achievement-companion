@@ -86,6 +86,22 @@ test("Steam compact profile matches the refined controller-first information hie
 
 });
 
+test("SteamHunters Points centers as a passive focus stop and Recently Played shows recency", () => {
+  const metricStart = compactProfileSource.indexOf("function SteamHuntersMetric(");
+  const metricEnd = compactProfileSource.indexOf("function getListStyle", metricStart);
+  const metricSource = compactProfileSource.slice(metricStart, metricEnd);
+  assert.ok(metricStart >= 0 && metricEnd > metricStart);
+  assert.match(metricSource, /if \(targetProps === undefined\) return <div/u);
+  assert.match(metricSource, /<Focusable[\s\S]*noFocusRing[\s\S]*role="group"/u);
+  assert.match(metricSource, /scrollIntoView\(\{ block: "center", inline: "nearest" \}\)/u);
+  assert.match(metricSource, /getQamPassiveCardFocusStyle\(focused\)/u);
+  assert.match(compactProfileSource, /label="Points"[\s\S]*targetProps=\{targetProps\(\{ kind: "steamhunters-points" \}\)\}/u);
+  assert.match(compactProfileSource, /const lastPlayed = formatRelativeTime\(game\.lastPlayedAt\)/u);
+  assert.match(compactProfileSource, /getLastPlayedStyle\(\)\}>\{lastPlayed\}/u);
+  assert.match(compactProfileSource, /getPlaytimeStyle\(\)\}>\{playtime\}/u);
+  assert.doesNotMatch(compactProfileSource, /\$\{playtime\} today/u);
+});
+
 test("Steam compact Activity calendar overrides configured list limits until its date is cleared", () => {
   assert.match(compactProfileSource, /STEAM_COMPACT_ACTIVITY_CALENDAR_WEEKS/u);
   assert.match(compactProfileSource, /buildSteamActivityStats\(activityEntries\)/u);
