@@ -6,8 +6,9 @@ import {
   raRecipes,
   raTheme,
 } from "../src/platform/decky/ra-theme";
-import { steamTheme } from "../src/platform/decky/steam-theme";
-import { getQamPassiveCardFocusStyle } from "../src/platform/decky/decky-qam-theme";
+import { steamRecipes, steamTheme } from "../src/platform/decky/steam-theme";
+import { achievementCompanionQamTheme, getQamPassiveCardFocusStyle } from "../src/platform/decky/decky-qam-theme";
+import { getCompletionBarFillStyle } from "../src/platform/decky/decky-completion-progress-bar";
 
 test("RA shares Achievement Companion base surfaces and geometry with Steam", () => {
   assert.equal(raTheme.color.background, steamTheme.color.background);
@@ -24,6 +25,13 @@ test("RA semantic rewards and completion states remain distinct", () => {
   assert.notEqual(raRecipes.gameAward.beaten.color, raRecipes.gameAward.mastered.color);
   assert.notEqual(raTheme.color.hardcore, raTheme.color.softcore);
   assert.notEqual(raRecipes.achievementState.locked.color, raRecipes.achievementState.unlocked.color);
+});
+
+test("Steam and RA share a neutral progress track without merging completion fills", () => {
+  assert.equal(steamRecipes.progressTrack.background, achievementCompanionQamTheme.surface.progressTrack);
+  assert.equal(raRecipes.progressTrack.background, achievementCompanionQamTheme.surface.progressTrack);
+  assert.notEqual(getCompletionBarFillStyle(59, "retroachievements-beaten", true).background, steamRecipes.progressFill.completion);
+  assert.notEqual(getCompletionBarFillStyle(100, "retroachievements-mastered", true).background, getCompletionBarFillStyle(100, "default", true, true).background);
 });
 
 test("RA controller focus remains visually separate from selected filter state", () => {

@@ -47,7 +47,7 @@ export const steamRecipes = {
   action(density: SteamDensity, primary = false): CSSProperties { return { ...steamRecipes.text(density, "body"), minHeight: steamTheme.density[density].controlHeight, padding: `0 ${steamTheme.space.md}px`, borderRadius: steamTheme.radius.pill, border: `1px solid ${primary ? steamTheme.color.borderStrong : steamTheme.color.borderSubtle}`, background: primary ? steamTheme.surface.primaryAction : steamTheme.surface.contentStat, fontWeight: 700 }; },
   filter(density: SteamDensity, selected = false): CSSProperties { return { ...steamRecipes.action(density), background: selected ? steamTheme.surface.selectedContentCard : steamTheme.surface.contentCard, borderColor: selected ? steamTheme.color.borderStrong : steamTheme.color.borderSubtle }; },
   badge(color: string = steamTheme.color.accent): CSSProperties { return { color, border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.pill, padding: "2px 8px", fontSize: steamTheme.type.compact.caption, fontWeight: 600 }; },
-  progressTrack: { background: "rgba(143,169,189,.18)", borderRadius: 999, overflow: "hidden" } satisfies CSSProperties,
+  progressTrack: { background: qamTheme.surface.progressTrack, borderRadius: 999, overflow: "hidden" } satisfies CSSProperties,
   progressFill: { completion: "linear-gradient(90deg,#159ccb,#2bc3f2)", xp: "linear-gradient(90deg,#3a96df,#76c7ff)" },
   achievementState: {
     locked: { color: steamTheme.color.locked, artworkFilter: "grayscale(1)" },

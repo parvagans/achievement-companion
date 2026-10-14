@@ -1,5 +1,7 @@
 import type { NormalizedAchievement, ProgressSummary, UnixEpochMs } from "@core/domain";
+import type { RetroAchievementsAchievementMode } from "@core/settings";
 import { getCompletionPercent } from "./decky-completion-progress-bar";
+import { isRetroAchievementsUnlockedInMode } from "./decky-retroachievements-unlock-mode";
 
 export interface DeckyRetroAchievementsProgressSummaryData {
   readonly unlockedCount: number;
@@ -30,9 +32,11 @@ function getAchievementPoints(achievement: NormalizedAchievement): number | unde
 export function buildDeckyRetroAchievementsProgressSummaryData({
   summary,
   achievements,
+  achievementMode = "both",
 }: {
   readonly summary: ProgressSummary;
   readonly achievements: readonly NormalizedAchievement[];
+  readonly achievementMode?: RetroAchievementsAchievementMode;
 }): DeckyRetroAchievementsProgressSummaryData {
   const totalCount = normalizeCount(summary.totalCount, achievements.length);
   const unlockedCount = normalizeCount(summary.unlockedCount, 0);
@@ -43,21 +47,29 @@ export function buildDeckyRetroAchievementsProgressSummaryData({
 
   for (const achievement of achievements) {
     const points = getAchievementPoints(achievement);
+    const unlockedInMode = achievementMode === "both"
+      ? achievement.isUnlocked
+      : isRetroAchievementsUnlockedInMode(achievement, achievementMode);
+    const unlockedAt = achievementMode === "hardcore"
+      ? achievement.hardcoreUnlockedAt ?? (achievement.unlockMode === "hardcore" ? achievement.unlockedAt : undefined)
+      : achievementMode === "softcore"
+        ? achievement.softcoreUnlockedAt ?? (achievement.unlockMode === "softcore" ? achievement.unlockedAt : undefined)
+        : achievement.unlockedAt;
     if (points !== undefined) {
       totalPoints += points;
       hasPointData = true;
-      if (achievement.isUnlocked) {
+      if (unlockedInMode) {
         earnedPoints += points;
       }
     }
 
     if (
-      achievement.isUnlocked &&
-      achievement.unlockedAt !== undefined &&
-      Number.isFinite(achievement.unlockedAt) &&
-      (lastUnlockAt === undefined || achievement.unlockedAt > lastUnlockAt)
+      unlockedInMode &&
+      unlockedAt !== undefined &&
+      Number.isFinite(unlockedAt) &&
+      (lastUnlockAt === undefined || unlockedAt > lastUnlockAt)
     ) {
-      lastUnlockAt = achievement.unlockedAt;
+      lastUnlockAt = unlockedAt;
     }
   }
 

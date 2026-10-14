@@ -24,12 +24,16 @@ function achievement({
   points,
   unlockedAt,
   unlockMode,
+  hardcoreUnlockedAt,
+  softcoreUnlockedAt,
 }: {
   readonly id: string;
   readonly isUnlocked: boolean;
   readonly points?: number;
   readonly unlockedAt?: number;
   readonly unlockMode?: "hardcore" | "softcore";
+  readonly hardcoreUnlockedAt?: number;
+  readonly softcoreUnlockedAt?: number;
 }): NormalizedAchievement {
   return {
     providerId: "retroachievements",
@@ -41,6 +45,8 @@ function achievement({
     ...(points !== undefined ? { points } : {}),
     ...(unlockedAt !== undefined ? { unlockedAt } : {}),
     ...(unlockMode !== undefined ? { unlockMode } : {}),
+    ...(hardcoreUnlockedAt !== undefined ? { hardcoreUnlockedAt } : {}),
+    ...(softcoreUnlockedAt !== undefined ? { softcoreUnlockedAt } : {}),
   };
 }
 
@@ -126,6 +132,29 @@ test("full-screen RetroAchievements progress derives mode-neutral totals, points
     totalPoints: 400,
     lastUnlockAt: 1_700_000_020_000,
   });
+});
+
+test("full-screen RetroAchievements progress uses the selected mode for earned points and last unlock", () => {
+  const achievements = [
+    achievement({ id: "hardcore", isUnlocked: true, points: 5, unlockedAt: 100, hardcoreUnlockedAt: 100, unlockMode: "hardcore" }),
+    achievement({ id: "softcore", isUnlocked: true, points: 10, unlockedAt: 200, softcoreUnlockedAt: 200, unlockMode: "softcore" }),
+    achievement({ id: "locked", isUnlocked: false, points: 15 }),
+  ];
+  const hardcore = buildDeckyRetroAchievementsProgressSummaryData({
+    summary: { unlockedCount: 1, totalCount: 3, completionPercent: 33 },
+    achievements,
+    achievementMode: "hardcore",
+  });
+  const softcore = buildDeckyRetroAchievementsProgressSummaryData({
+    summary: { unlockedCount: 1, totalCount: 3, completionPercent: 33 },
+    achievements,
+    achievementMode: "softcore",
+  });
+  assert.equal(hardcore.earnedPoints, 5);
+  assert.equal(hardcore.totalPoints, 30);
+  assert.equal(hardcore.lastUnlockAt, 100);
+  assert.equal(softcore.earnedPoints, 10);
+  assert.equal(softcore.lastUnlockAt, 200);
 });
 
 test("full-screen RetroAchievements progress clamps malformed remaining counts and handles zero unlocks", () => {

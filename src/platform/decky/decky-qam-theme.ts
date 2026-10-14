@@ -37,6 +37,7 @@ export const achievementCompanionQamTheme = {
     interactive: "rgba(9,39,58,.72)",
     contentCard: contentCardGradient,
     contentStat: contentStatGradient,
+    progressTrack: "rgba(143, 169, 189, 0.18)",
     focusedContentCard: `${contentFocusOverlay}, ${contentCardGradient}`,
     focusedContentStat: `${contentFocusOverlay}, ${contentStatGradient}`,
     selectedContentCard: `${contentSelectionOverlay}, ${contentCardGradient}`,

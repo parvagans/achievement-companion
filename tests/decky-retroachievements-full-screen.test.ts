@@ -84,6 +84,18 @@ const snapshot: GameDetailSnapshot = {
   ],
 };
 
+test("RA full-screen game keeps one mode-aware progress bar and a status-only banner", async () => {
+  const [overview, banner] = await Promise.all([
+    readFile(new URL("../src/platform/decky/decky-retroachievements-game-overview.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-retroachievements-game-status-banner.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(overview, /summary: presentation\.summary/u);
+  assert.match(overview, /achievementMode,\s*\}\)/u);
+  assert.match(overview, /getCompletionTone\(presentation\.completionStatus\)/u);
+  assert.doesNotMatch(banner, /role="progressbar"|BannerProgressBar/u);
+  assert.match(banner, /DeckyGameStatusIcon/u);
+});
+
 test("provider visit tab order adds Systems to the RA cycle only", () => {
   const steamTabs = getProviderFullScreenSessionTabs("steam");
   const raTabs = getProviderFullScreenSessionTabs("retroachievements");

@@ -12,6 +12,7 @@ import { DeckyRetroAchievementsSetDetails } from "./decky-retroachievements-set-
 import { DeckyRetroAchievementsCommunityStats } from "./decky-retroachievements-community-stats";
 import { hasDisplayableRetroAchievementsCommunityStats } from "./decky-retroachievements-community-stats-data";
 import { getRetroAchievementsCompletionIndicatorState } from "./decky-retroachievements-completion-indicator";
+import { buildRetroAchievementsCompactGamePresentation } from "./decky-retroachievements-compact-game-model";
 import type { DeckyCompletionProgressBarTone } from "./decky-completion-progress-bar";
 import type { DeckyFullScreenGameMetadataPill } from "./decky-full-screen-game-metadata-pills";
 import { DeckyRetroAchievementsGameIcon } from "./decky-retroachievements-game-icon";
@@ -130,8 +131,13 @@ export function DeckyRetroAchievementsGameOverview({
   readonly refreshedAt: number | undefined;
 }): JSX.Element {
   const { game, achievements } = snapshot;
-  const progress = buildDeckyRetroAchievementsProgressSummaryData({ summary: game.summary, achievements });
-  const completionTone = getCompletionTone(getRetroAchievementsCompletionIndicatorState(game));
+  const presentation = buildRetroAchievementsCompactGamePresentation(snapshot, achievementMode);
+  const progress = buildDeckyRetroAchievementsProgressSummaryData({
+    summary: presentation.summary,
+    achievements,
+    achievementMode,
+  });
+  const completionTone = getCompletionTone(presentation.completionStatus);
 
   return (
     <div data-ac-steam-theme="fullscreen" style={{ height: "100%", fontFamily: steamTheme.type.fontFamily }}>

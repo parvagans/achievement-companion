@@ -234,7 +234,7 @@ export const raRecipes = {
         : `inset 0 0 0 1px rgba(0, 0, 0, 0.34), 0 0 8px ${state === "mastered" ? "rgba(242, 216, 127, 0.16)" : "rgba(230, 235, 242, 0.16)"}`,
     };
   },
-  progressTrack: { background: "rgba(185, 195, 207, 0.18)", borderRadius: 999, overflow: "hidden" } satisfies CSSProperties,
+  progressTrack: { background: qamTheme.surface.progressTrack, borderRadius: 999, overflow: "hidden" } satisfies CSSProperties,
   progressFill: {
     completion: `linear-gradient(90deg, ${raTheme.color.accentStrong}, ${raTheme.color.accent})`,
     xp: `linear-gradient(90deg, ${raTheme.color.retroPoints}, ${raTheme.color.accent})`,
@@ -406,29 +406,6 @@ export const raRecipes = {
       borderRadius: raTheme.radius.pill, background: "rgba(3, 22, 35, 0.78)",
       color: raTheme.color.accentStrong, fontSize: 11, fontWeight: 800,
       lineHeight: 1, textTransform: "uppercase", boxSizing: "border-box",
-    } satisfies CSSProperties,
-    progressTrack(kind: "in-progress" | "beaten" | "mastered"): CSSProperties {
-      return {
-        position: "relative", width: "100%", height: 20, overflow: "hidden",
-        border: `1px solid ${kind === "mastered" ? raTheme.color.mastered : raTheme.color.accentStrong}`,
-        borderRadius: raTheme.radius.pill, background: "rgba(2, 16, 27, 0.82)",
-        boxShadow: "inset 0 1px 3px rgba(0, 0, 0, 0.42)", boxSizing: "border-box",
-      };
-    },
-    progressFill(kind: "in-progress" | "beaten" | "mastered", percent: number): CSSProperties {
-      return {
-        display: "flex", alignItems: "center", justifyContent: "flex-end",
-        width: `${Math.max(0, Math.min(100, percent))}%`, height: "100%", minWidth: 0,
-        borderRadius: raTheme.radius.pill,
-        background: kind === "mastered" ? raRecipes.progressFill.mastered : raRecipes.progressFill.completion,
-        boxShadow: kind === "mastered" ? "0 0 10px rgba(242, 216, 127, 0.45)" : "0 0 10px rgba(43, 195, 242, 0.38)",
-      };
-    },
-    progressCaption: {
-      display: "inline-flex", alignItems: "center", justifyContent: "flex-end",
-      width: "100%", height: "100%", paddingRight: 7, boxSizing: "border-box",
-      color: raTheme.color.textPrimary, fontSize: 11, fontWeight: 800, lineHeight: 1,
-      textShadow: "0 1px 2px rgba(0, 0, 0, 0.65)", pointerEvents: "none",
     } satisfies CSSProperties,
     points: {
       display: "inline-flex", alignItems: "center", alignSelf: "flex-start", gap: 5,

@@ -1,8 +1,6 @@
-import type { CSSProperties } from "react";
 import type { GameDetailSnapshot } from "@core/domain";
 import type { RetroAchievementsAchievementMode } from "@core/settings";
 import steamDeckIconUrl from "./assets/steam-deck.svg";
-import { getCompletionPercent } from "./decky-completion-progress-bar";
 import { DeckyGameStatusIcon } from "./decky-game-status-icon";
 import { buildRetroAchievementsCompactGamePresentation } from "./decky-retroachievements-compact-game-model";
 import { DeckyRetroAchievementsPointsIcon } from "./decky-retroachievements-points-icon";
@@ -21,40 +19,6 @@ function ModeSkullIcon(): JSX.Element {
   );
 }
 
-function getSummaryStyle(): CSSProperties {
-  return {
-    color: raTheme.color.textPrimary,
-    fontSize: 13,
-    fontWeight: 600,
-    lineHeight: 1.1,
-    minWidth: 0,
-    whiteSpace: "nowrap",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-  };
-}
-
-function BannerProgressBar({ percent, kind }: { readonly percent: number; readonly kind: BannerKind }): JSX.Element {
-  const captionInsideFill = percent >= 25;
-  const caption = `${percent}%`;
-  return (
-    <div
-      aria-label="Mode achievement progress"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={percent}
-      aria-valuetext={`${caption} complete`}
-      role="progressbar"
-      style={raRecipes.gameStatusBanner.progressTrack(kind)}
-    >
-      <div style={raRecipes.gameStatusBanner.progressFill(kind, percent)}>
-        {captionInsideFill ? <span style={raRecipes.gameStatusBanner.progressCaption}>{caption}</span> : null}
-      </div>
-      {!captionInsideFill ? <span style={{ ...raRecipes.gameStatusBanner.progressCaption, position: "absolute", inset: 0, justifyContent: "center" }}>{caption}</span> : null}
-    </div>
-  );
-}
-
 export function DeckyRetroAchievementsGameStatusBanner({
   snapshot,
   achievementMode,
@@ -70,20 +34,14 @@ export function DeckyRetroAchievementsGameStatusBanner({
       ? "beaten"
       : "in-progress";
   const awardMode = awardState === undefined ? undefined : awardState.endsWith("hardcore") ? "Hardcore" : "Softcore";
-  const summary = presentation.summary;
-  const totalCount = Math.max(0, summary.totalCount ?? snapshot.achievements.length);
-  const unlockedCount = Math.max(0, summary.unlockedCount);
-  const remainingCount = Math.max(0, totalCount - unlockedCount);
-  const percent = Math.trunc(getCompletionPercent({ ...summary, totalCount }) ?? 0);
+  const totalCount = Math.max(0, presentation.summary.totalCount ?? snapshot.achievements.length);
+  const remainingCount = Math.max(0, totalCount - Math.max(0, presentation.summary.unlockedCount));
   const awardLabel = kind === "mastered" ? "Mastered" : "Beaten";
   // RA game progress maps HighestAwardDate to this field; it is the earned award date here.
   const awardTimestamp = awardState !== undefined && snapshot.game.lastUnlockAt !== undefined
     ? new Date(snapshot.game.lastUnlockAt)
     : undefined;
   const modeLabel = achievementMode === "both" ? "Both" : achievementMode === "hardcore" ? "Hardcore" : "Softcore";
-  const countLabel = kind === "in-progress"
-    ? `${unlockedCount.toLocaleString()} unlocked · ${totalCount.toLocaleString()} total · ${percent}% complete`
-    : `${unlockedCount.toLocaleString()} / ${totalCount.toLocaleString()} achievements`;
 
   return (
     <section
@@ -98,8 +56,6 @@ export function DeckyRetroAchievementsGameStatusBanner({
           {achievementMode === "hardcore" ? <ModeSkullIcon /> : null}
           <span>{modeLabel}</span>
         </span>
-        <div style={getSummaryStyle()}>{countLabel}</div>
-        <BannerProgressBar kind={kind} percent={percent} />
         {presentation.points !== undefined ? (
           <span style={raRecipes.gameStatusBanner.points}>
             <DeckyRetroAchievementsPointsIcon size={13} />
