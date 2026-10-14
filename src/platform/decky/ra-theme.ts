@@ -335,9 +335,10 @@ export const raRecipes = {
     modeText: { display: "flex", flexDirection: "column", gap: 2, minWidth: 0 } satisfies CSSProperties,
     modeLabel: { fontSize: raTheme.type.compact.caption, fontWeight: 800, lineHeight: 1, textTransform: "uppercase" } satisfies CSSProperties,
     modeValue: { color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.body, fontWeight: 800, lineHeight: 1.12, whiteSpace: "nowrap" } satisfies CSSProperties,
-    status(kind: "beaten" | "mastered"): CSSProperties {
+    status(kind: "beaten" | "mastered", surface: "profile" | "game" = "profile"): CSSProperties {
       const mastered = kind === "mastered";
-      const accent = mastered ? raTheme.color.mastered : raTheme.color.accentStrong;
+      const silverBeaten = kind === "beaten" && surface === "game";
+      const accent = mastered ? raTheme.color.mastered : silverBeaten ? raRecipes.gameAward.beaten.border : raTheme.color.accentStrong;
       return {
         position: "relative", isolation: "isolate", display: "grid", gridTemplateColumns: "62px minmax(0, 1fr)",
         alignItems: "center", gap: 10, minWidth: 0, minHeight: 90, overflow: "hidden", padding: "9px 11px",
@@ -345,12 +346,13 @@ export const raRecipes = {
         background: mastered
           ? "radial-gradient(circle at 11% 50%, rgba(242, 216, 127, 0.15), transparent 48%), linear-gradient(110deg, #071b29, #081824)"
           : "radial-gradient(circle at 11% 50%, rgba(43, 195, 242, 0.17), transparent 48%), linear-gradient(110deg, #071b29, #081824)",
-        boxShadow: `0 0 12px ${mastered ? "rgba(242, 216, 127, 0.16)" : "rgba(43, 195, 242, 0.19)"}, inset 0 1px 0 rgba(255, 255, 255, 0.07)`,
+        boxShadow: `0 0 12px ${mastered ? "rgba(242, 216, 127, 0.16)" : silverBeaten ? raRecipes.gameAward.beaten.surface : "rgba(43, 195, 242, 0.19)"}, inset 0 1px 0 rgba(255, 255, 255, 0.07)`,
       };
     },
-    statusEmblem(kind: "beaten" | "mastered"): CSSProperties {
-      const color = kind === "mastered" ? raTheme.color.mastered : raTheme.color.accentStrong;
-      return { position: "relative", zIndex: 1, display: "grid", placeItems: "center", width: 60, height: 60, flex: "0 0 60px", border: `2px solid ${color}`, borderRadius: "50%", background: "rgba(3, 13, 21, 0.68)", boxShadow: `0 0 11px ${kind === "mastered" ? "rgba(242, 216, 127, 0.37)" : "rgba(43, 195, 242, 0.38)"}`, boxSizing: "border-box" };
+    statusEmblem(kind: "beaten" | "mastered", surface: "profile" | "game" = "profile"): CSSProperties {
+      const silverBeaten = kind === "beaten" && surface === "game";
+      const color = kind === "mastered" ? raTheme.color.mastered : silverBeaten ? raRecipes.gameAward.beaten.border : raTheme.color.accentStrong;
+      return { position: "relative", zIndex: 1, display: "grid", placeItems: "center", width: 60, height: 60, flex: "0 0 60px", border: `2px solid ${color}`, borderRadius: "50%", background: "rgba(3, 13, 21, 0.68)", boxShadow: `0 0 11px ${kind === "mastered" ? "rgba(242, 216, 127, 0.37)" : silverBeaten ? raRecipes.gameAward.beaten.surface : "rgba(43, 195, 242, 0.38)"}`, boxSizing: "border-box" };
     },
     statusContent: { position: "relative", zIndex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: 3, minWidth: 0 } satisfies CSSProperties,
     statusEyebrow: { color: raTheme.color.accent, fontSize: raTheme.type.compact.caption, fontWeight: 800, letterSpacing: "0.06em", lineHeight: 1.1, textTransform: "uppercase" } satisfies CSSProperties,
@@ -369,7 +371,7 @@ export const raRecipes = {
             background: raTheme.surface.contentCard,
             boxShadow: "0 0 12px rgba(43, 195, 242, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.07)",
           }
-        : raRecipes.compactGame.status(kind);
+        : raRecipes.compactGame.status(kind, "game");
       return {
         ...base,
         position: "relative",
@@ -388,11 +390,11 @@ export const raRecipes = {
       };
     },
     accent(kind: "in-progress" | "beaten" | "mastered"): CSSProperties {
-      const color = kind === "mastered" ? raTheme.color.mastered : raTheme.color.accentStrong;
+      const color = kind === "mastered" ? raTheme.color.mastered : kind === "beaten" ? raRecipes.gameAward.beaten.border : raTheme.color.accentStrong;
       return {
         position: "absolute", top: 8, bottom: 8, left: 8, width: 4,
         borderRadius: raTheme.radius.pill, background: color,
-        boxShadow: `0 0 10px ${kind === "mastered" ? "rgba(242, 216, 127, 0.45)" : "rgba(43, 195, 242, 0.45)"}`,
+        boxShadow: `0 0 10px ${kind === "mastered" ? "rgba(242, 216, 127, 0.45)" : kind === "beaten" ? raRecipes.gameAward.beaten.surface : "rgba(43, 195, 242, 0.45)"}`,
         pointerEvents: "none",
       };
     },

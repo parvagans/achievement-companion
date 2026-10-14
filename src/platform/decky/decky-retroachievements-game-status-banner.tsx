@@ -77,7 +77,7 @@ export function DeckyRetroAchievementsGameStatusBanner({
             <span aria-hidden="true" style={raRecipes.gameStatusBanner.awardWatermark}>
               <DeckyGameStatusIcon kind={kind} size={96} color={kind === "mastered" ? raRecipes.gameAward.mastered.color : raTheme.color.beatenFlagWhite} accentColor={kind === "mastered" ? raTheme.color.hardcore : raTheme.color.beatenFlagBlack} />
             </span>
-            <span style={{ ...raRecipes.compactGame.statusEmblem(kind), width: 50, height: 50, flex: "0 0 50px" }}>
+            <span style={{ ...raRecipes.compactGame.statusEmblem(kind, "game"), width: 50, height: 50, flex: "0 0 50px" }}>
               <DeckyGameStatusIcon kind={kind} size={39} color={kind === "mastered" ? raRecipes.gameAward.mastered.color : raTheme.color.beatenFlagWhite} accentColor={kind === "mastered" ? raTheme.color.hardcore : raTheme.color.beatenFlagBlack} glow={kind === "mastered" ? "rgba(242, 216, 127, 0.42)" : "rgba(255, 255, 255, 0.3)"} />
             </span>
             <div style={raRecipes.gameStatusBanner.statusText}>
