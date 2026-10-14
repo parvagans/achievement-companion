@@ -632,7 +632,10 @@ async function enrichRecentlyPlayedGamesWithExplicitAwards(
 ): Promise<readonly RecentlyPlayedGame[]> {
   return Promise.all(
     games.map(async (game) => {
-      if (getMetricValue(game.metrics, "highest-award-kind") !== undefined) {
+      const recentAward = getMetricValue(game.metrics, "highest-award-kind")?.trim().toLowerCase();
+      if (recentAward !== undefined && (
+        recentAward.includes("beaten") || recentAward.includes("mastered") || recentAward.includes("completed")
+      )) {
         return game;
       }
 

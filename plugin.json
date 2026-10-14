@@ -1,7 +1,7 @@
 {
   "api_version": 1,
   "name": "Achievement Companion",
-  "version": "0.19.2",
+  "version": "0.19.3",
   "author": "parvagans",
   "publish": {
     "tags": ["achievements", "retroachievements", "steam"],

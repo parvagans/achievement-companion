@@ -7215,7 +7215,7 @@ test("retroachievements recently played games enrich explicit award state from b
         throw new Error("not used");
       },
       async loadRecentlyPlayedGames(_config, options) {
-        assert.equal(options?.count, 2);
+        assert.equal(options?.count, 3);
         return [
           {
             GameID: 100,
@@ -7233,6 +7233,15 @@ test("retroachievements recently played games enrich explicit award state from b
             AchievementsTotal: 20,
             NumAchieved: 10,
             HighestAwardKind: "beaten-hardcore",
+          },
+          {
+            GameID: 250,
+            Title: "Placeholder Award",
+            ConsoleName: "Nintendo 64",
+            LastPlayed: "2024-01-01 12:00:00",
+            AchievementsTotal: 96,
+            NumAchieved: 70,
+            HighestAwardKind: "played",
           },
           {
             GameID: 300,
@@ -7257,6 +7266,16 @@ test("retroachievements recently played games enrich explicit award state from b
           });
         }
 
+        if (gameId === "250") {
+          return createRetroAchievementsGameProgressResponse({
+            gameId,
+            title: "Placeholder Award",
+            highestAwardKind: "beaten-hardcore",
+            unlockedCount: 70,
+            totalCount: 96,
+          });
+        }
+
         throw new Error(`unexpected game progress call for ${gameId}`);
       },
     },
@@ -7267,15 +7286,17 @@ test("retroachievements recently played games enrich explicit award state from b
       username: "alice",
       apiKey: "secret",
     },
-    { count: 2 },
+    { count: 3 },
   );
 
-  assert.deepStrictEqual(games.map((game) => game.title), ["Mastered Missing Award", "Already Explicit"]);
-  assert.deepStrictEqual(gameProgressCalls, ["100"]);
+  assert.deepStrictEqual(games.map((game) => game.title), ["Mastered Missing Award", "Already Explicit", "Placeholder Award"]);
+  assert.deepStrictEqual(gameProgressCalls, ["100", "250"]);
   assert.equal(games[0]?.metrics?.find((metric) => metric.key === "highest-award-kind")?.value, "mastered");
   assert.equal(games[0]?.metrics?.find((metric) => metric.key === "highest-award-date")?.value, String(Date.parse("2024-04-23T21:28:49+00:00")));
   assert.equal(isRetroAchievementsMasteredHardcoreGame(games[0]!), true);
   assert.equal(games[1]?.metrics?.find((metric) => metric.key === "highest-award-kind")?.value, "beaten-hardcore");
+  assert.equal(games[2]?.metrics?.find((metric) => metric.key === "highest-award-kind")?.value, "beaten-hardcore");
+  assert.equal(isRetroAchievementsBeatenGame(games[2]!), true);
 });
 
 test("retroachievements recently played enrichment does not infer mastered from 100 percent and falls back safely", async () => {
