@@ -25,7 +25,7 @@ import {
   qamActivityCalendarColors,
 } from "../src/platform/decky/decky-qam-theme";
 import { getSteamCompactActionStyle } from "../src/platform/decky/decky-steam-compact-action-styles";
-import { steamTheme } from "../src/platform/decky/steam-theme";
+import { steamRecipes, steamTheme } from "../src/platform/decky/steam-theme";
 import { getRaFocusStylesCss, raRecipes, raTheme } from "../src/platform/decky/ra-theme";
 import { DeckyRetroAchievementsGameIcon, getRetroAchievementsGameIconAward } from "../src/platform/decky/decky-retroachievements-game-icon";
 import {
@@ -329,6 +329,24 @@ test("Steam and RetroAchievements compact controls share the same focus recipe a
     assert.equal(legendCell.background, dayCell.background);
     assert.equal(legendCell.boxShadow, undefined);
   }
+});
+
+test("generic RA text and cards use shared foundations without changing local Profile geometry", () => {
+  for (const density of ["compact", "fullscreen"] as const) {
+    for (const role of ["hero", "heading", "title", "body", "metadata", "caption"] as const) {
+      assert.deepEqual(raRecipes.text(density, role), steamRecipes.text(density, role));
+    }
+    assert.equal(raRecipes.card(density).borderRadius, steamRecipes.card(density).borderRadius);
+    assert.equal(raRecipes.raisedCard(density).borderRadius, steamRecipes.metricTile(density).borderRadius);
+  }
+  assert.equal(raRecipes.compactProfile.progressCard.borderRadius, raTheme.radius.medium);
+  assert.equal(raRecipes.artwork("compact").borderRadius, raTheme.radius.medium);
+});
+
+test("RA Profile hint and mode badges use valid semantic foreground and borders", () => {
+  assert.equal(raRecipes.compactProfile.calendarHintButton.color, raTheme.color.background);
+  assert.equal(raRecipes.compactProfile.modeBadge("hardcore").border, `1px solid ${raTheme.color.hardcoreSubtleBorder}`);
+  assert.equal(raRecipes.compactProfile.modeBadge("softcore").border, `1px solid ${raTheme.color.softcoreSubtleBorder}`);
 });
 
 test("compact calendar D-pad moves through weekdays and weeks, then exits at shared vertical boundaries", () => {

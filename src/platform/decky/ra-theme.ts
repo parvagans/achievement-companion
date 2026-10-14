@@ -28,6 +28,8 @@ export const raTheme = {
     accentStrong: qamTheme.color.accentStrong,
     hardcore: "rgba(232, 201, 102, 0.96)",
     softcore: "rgba(220, 225, 233, 0.94)",
+    hardcoreSubtleBorder: "rgba(232, 201, 102, 0.34)",
+    softcoreSubtleBorder: "rgba(220, 225, 233, 0.33)",
     mastered: "rgba(242, 216, 127, 0.98)",
     beaten: "rgba(230, 235, 242, 0.96)",
     beatenFlagWhite: "#ffffff",
@@ -104,17 +106,18 @@ type RaTextRole = "hero" | "heading" | "title" | "body" | "metadata" | "caption"
 export const raRecipes = {
   text(density: RaDensity, role: RaTextRole): CSSProperties {
     return {
-      color: role === "metadata" || role === "caption" ? raTheme.color.textMuted : raTheme.color.textPrimary,
+      fontFamily: qamTheme.type.fontFamily,
+      color: role === "metadata" || role === "caption" ? raTheme.color.textSecondary : raTheme.color.textPrimary,
       fontSize: raTheme.type[density][role],
       fontWeight: role === "hero" || role === "heading" || role === "title" ? raTheme.type.weight.strong : raTheme.type.weight.regular,
-      lineHeight: role === "caption" ? 1.15 : 1.25,
+      lineHeight: 1.3,
     };
   },
   card(density: RaDensity, raised = false): CSSProperties {
     return {
       padding: raTheme.density[density].cardPadding,
       border: `1px solid ${raTheme.color.borderSubtle}`,
-      borderRadius: raTheme.radius[density === "compact" ? "medium" : "large"],
+      borderRadius: raTheme.radius.large,
       background: raised ? raTheme.surface.contentStat : raTheme.surface.contentCard,
       boxSizing: "border-box",
     };
@@ -613,7 +616,7 @@ export const raRecipes = {
       return getQamActivityCalendarLegendCellStyle(intensity);
     },
     calendarHint: { display: "flex", alignItems: "center", gap: 4, minHeight: 15, color: raTheme.color.textMuted, fontSize: 8.5, fontWeight: 700 } satisfies CSSProperties,
-    calendarHintButton: { display: "inline-grid", placeItems: "center", width: 14, height: 14, borderRadius: "50%", background: raTheme.color.textPrimary, color: raTheme.surface.page, fontSize: 8, fontWeight: 900 } satisfies CSSProperties,
+    calendarHintButton: { display: "inline-grid", placeItems: "center", width: 14, height: 14, borderRadius: "50%", background: raTheme.color.textPrimary, color: raTheme.color.background, fontSize: 8, fontWeight: 900 } satisfies CSSProperties,
     listCard: getQamCompactProfileListCardStyle(),
     listRows: { display: "flex", flexDirection: "column", gap: qamTheme.compactProfileSpacing.item, minWidth: 0 } satisfies CSSProperties,
     row(focused: boolean): CSSProperties {
@@ -638,7 +641,8 @@ export const raRecipes = {
     modeBadge(mode: "hardcore" | "softcore"): CSSProperties {
       const color = mode === "hardcore" ? raTheme.color.hardcore : raTheme.color.softcore;
       const surface = mode === "hardcore" ? raTheme.surface.hardcore : raTheme.surface.softcore;
-      return { display: "inline-flex", alignItems: "center", gap: 4, color, background: surface, border: `1px solid ${color}55`, borderRadius: raTheme.radius.pill, padding: "2px 6px", fontSize: 9, fontWeight: 800, lineHeight: 1.1 };
+      const borderColor = mode === "hardcore" ? raTheme.color.hardcoreSubtleBorder : raTheme.color.softcoreSubtleBorder;
+      return { display: "inline-flex", alignItems: "center", gap: 4, color, background: surface, border: `1px solid ${borderColor}`, borderRadius: raTheme.radius.pill, padding: "2px 6px", fontSize: 9, fontWeight: 800, lineHeight: 1.1 };
     },
     settingsIcon: {
       display: "grid", placeItems: "center", width: 28, height: 28, flex: "0 0 28px",
