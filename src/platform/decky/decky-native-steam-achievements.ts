@@ -175,9 +175,9 @@ interface ActivePage {
 }
 
 const unavailableAchievementsResponse = { error: 2 };
-const nativeRaSpacingStyleKey = "achievement-companion-native-ra-spacing";
+const nativeAchievementSpacingStyleKey = "achievement-companion-native-achievement-spacing";
 // Steam's AllAchieved row needs medal clearance even if Activity CSS loads later.
-const nativeRaSpacingCss = "._2YS0EBJmY2Rvs07zZ90UIJ { padding-inline-start: 46px !important; }";
+const nativeAchievementSpacingCss = "._2YS0EBJmY2Rvs07zZ90UIJ { padding-inline-start: 46px !important; }";
 
 let registeredCleanup: (() => void) | undefined;
 
@@ -486,19 +486,19 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
             if (container?.props === undefined || !Array.isArray(children)) return ret;
             const appId = toAppId(window.location.pathname.match(/^\/(?:routes\/)?library\/app\/(\d+)/u)?.[1]);
             const withoutSpacing = children.filter((child) =>
-              (child as { key?: unknown } | null)?.key !== nativeRaSpacingStyleKey,
+              (child as { key?: unknown } | null)?.key !== nativeAchievementSpacingStyleKey,
             );
-            if (appId !== undefined && isShortcutAppId(runtime, appId)) {
+            if (appId !== undefined) {
               withoutSpacing.push(createElement("style", {
-                key: nativeRaSpacingStyleKey,
-                "data-achievement-companion-native-ra-spacing": "true",
-                children: nativeRaSpacingCss,
+                key: nativeAchievementSpacingStyleKey,
+                "data-achievement-companion-native-achievement-spacing": "true",
+                children: nativeAchievementSpacingCss,
               }));
             }
             container.props.children = withoutSpacing;
             return ret;
           },
-          nativeRaSpacingStyleKey,
+          nativeAchievementSpacingStyleKey,
         ));
         routeRenderOwner = routeProps;
       }

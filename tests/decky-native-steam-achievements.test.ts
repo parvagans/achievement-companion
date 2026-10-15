@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 
-test("runtime adapter leaves Steam games untouched and fully unpatches on teardown", () => {
+test("runtime adapter preserves Steam achievement data, fixes native summary spacing, and unpatches on teardown", () => {
   const script = String.raw`
     import assert from "node:assert/strict";
     import { mock } from "node:test";
@@ -220,10 +220,13 @@ test("runtime adapter leaves Steam games untouched and fully unpatches on teardo
     routeRecords[0].callback(routeProps);
     const raRouteChildren = routeProps.renderFunc().props.children;
     assert.equal(raRouteChildren.length, 1);
-    assert.equal(raRouteChildren[0].props["data-achievement-companion-native-ra-spacing"], "true");
+    assert.equal(raRouteChildren[0].props["data-achievement-companion-native-achievement-spacing"], "true");
     assert.match(raRouteChildren[0].props.children, /padding-inline-start: 46px !important/u);
     window.location.pathname = "/library/app/620";
-    assert.deepEqual(routeProps.renderFunc().props.children, []);
+    const steamRouteChildren = routeProps.renderFunc().props.children;
+    assert.equal(steamRouteChildren.length, 1);
+    assert.equal(steamRouteChildren[0].props["data-achievement-companion-native-achievement-spacing"], "true");
+    assert.equal(steamRouteChildren[0].props.children, raRouteChildren[0].props.children);
     window.location.pathname = "/library/app/" + shortcutId;
     const activityContent = new ActivityFeed({ appid: shortcutId }).render();
     assert.equal(activityContent.type.name, "DeckyNativeRetroAchievementsActivity");
