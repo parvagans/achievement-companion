@@ -4,182 +4,197 @@
 
 # Achievement Companion
 
-![Steam Deck / SteamOS Game Mode](https://img.shields.io/badge/Steam%20Deck-Game%20Mode-1b6ac9?logo=steamdeck&logoColor=white)
-![Decky Loader plugin](https://img.shields.io/badge/Decky%20Loader-plugin-7357ff)
-![RetroAchievements](https://img.shields.io/badge/RetroAchievements-supported-ef7d00)
-![Steam achievements](https://img.shields.io/badge/Steam-achievements-171a21?logo=steam)
-[![Support development on Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20development-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white)](https://ko-fi.com/parvagans)
+<p align="center">
+  <img src="https://img.shields.io/badge/Steam%20Deck-Game%20Mode-1b6ac9?logo=steamdeck&logoColor=white" alt="Steam Deck and SteamOS Game Mode">
+  <img src="https://img.shields.io/badge/Decky%20Loader-plugin-7357ff" alt="Decky Loader plugin">
+  <img src="https://img.shields.io/badge/RetroAchievements-supported-ef7d00" alt="RetroAchievements supported">
+  <img src="https://img.shields.io/badge/Steam-achievements-171a21?logo=steam" alt="Steam achievements">
+</p>
 
-**Your retro milestones. Your Steam completions. All in Game Mode.**
+<p align="center">
+  <a href="https://ko-fi.com/parvagans">
+    <img src="https://img.shields.io/badge/Ko--fi-Support%20development-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white" alt="Support Achievement Companion development on Ko-fi">
+  </a>
+</p>
 
-Achievement Companion brings RetroAchievements and Steam achievement tracking to Steam Deck and compatible SteamOS devices through Decky Loader. Check your next unlock in Quick Access, explore your collection in full-screen dashboards, and see completion badges right on your library game pages.
+<p align="center">
+  <strong>Your retro milestones. Your Steam completions. All in Game Mode.</strong>
+</p>
 
-**RetroAchievements can appear right on Steam's library game pages** for supported non-Steam games—in Your Stuff and now in Activity.
+<p align="center">
+  <a href="#installation"><strong>Install Achievement Companion</strong></a>
+  ·
+  <a href="https://github.com/parvagans/achievement-companion/releases/latest">Latest GitHub release</a>
+</p>
 
-[**Download the latest release**](https://github.com/parvagans/achievement-companion/releases/latest) · [Installation & setup](#installation) · [Report an issue](https://github.com/parvagans/achievement-companion/issues)
+Achievement Companion brings RetroAchievements and Steam achievement tracking to Steam Deck and compatible SteamOS devices through Decky Loader. Check your next unlock in Quick Access, explore your collection in full-screen dashboards, and see completion badges on library game pages.
 
-![Achievement Companion's RetroAchievements overview in Steam Deck Game Mode](docs/screenshots/readme/achievement-companion-hero.png)
+The project is undergoing active, rigorous development with frequent updates. If you find a problem or have an idea, please [open a GitHub issue](https://github.com/parvagans/achievement-companion/issues). Never include an API key in an issue.
 
-## Make every unlock part of the experience
+<p align="center">
+  <img src="docs/screenshots/readme/achievement-companion-hero.png" alt="Achievement Companion's RetroAchievements overview in Steam Deck Game Mode" width="100%">
+</p>
 
-From the next achievement to your next mastered game, Achievement Companion keeps the details close to where you play. The Quick Access Menu (QAM) gives you a compact view during a session; full-screen profiles and game pages give your progress room to breathe. Both are built for controller navigation.
+## Highlights
 
-| What you want to do | What Achievement Companion brings |
-| --- | --- |
-| **Bring retro achievements into your library** | RetroAchievements in Steam's native Your Stuff / Achievements and Activity tabs for supported, confidently matched non-Steam shortcuts. |
-| **See how far you've come** | Full-screen RetroAchievements and Steam dashboards with profile stats, searchable game lists, completion progress, and detailed game pages. |
-| **Find your next target** | Achievement details, RA subsets and classifications, plus Steam base-game, DLC, and update groups when SteamHunters data is available. |
-| **Explore your achievement history** | Activity dashboards, interactive calendars, and recent unlocks that let you revisit your progress. |
-| **Show off each milestone** | Clickable library game-page badges for In Progress, Steam Perfected, and RA Beaten or Mastered, with configurable colors and placement. |
-| **Plan a Steam completion** | SteamHunters insights into rarity, community completion times, DLC requirements, and achievement obtainability where available. |
-| **Keep up with new releases** | Built-in update checks and verified downloads, with installation confirmed through Decky. |
+- **Quick Access and full-screen views:** controller-friendly profiles, searchable game lists, completion progress, activity calendars, and achievement details.
+- **RetroAchievements inside Steam:** supported non-Steam games can show RetroAchievements in Steam's native Your Stuff and Activity views.
+- **Steam completion insights:** SteamHunters community data adds rarity, completion times, DLC requirements, achievement groups, and obtainability information where available.
+- **Optional SteamHunters personal data:** personal SteamHunters profile statistics can be disabled without turning off community statistics. If a profile is unavailable, Achievement Companion uses meaningful Steam library data where possible and otherwise hides the section.
+- **Library game-page badges:** see In Progress, Steam Perfected, or RetroAchievements Beaten and Mastered status before launching a game.
+- **Built-in updates:** verified downloads are presented through Decky for confirmation rather than installed unattended.
 
-RetroAchievements and Steam each retain their own progression rules: RA Hardcore and Softcore, Beaten and Mastered, and Steam Perfected all keep their meaning.
+RetroAchievements and Steam retain their own progression rules: RA Hardcore and Softcore, Beaten and Mastered, and Steam Perfected all keep their meaning.
 
 ## RetroAchievements inside Steam
 
-Your retro progress can live on the game's Steam library page, alongside the rest of your collection. For a non-Steam shortcut that Achievement Companion can confidently match to a RetroAchievements game:
+For a non-Steam shortcut that Achievement Companion can confidently match to a RetroAchievements game:
 
-- **Your Stuff → Achievements** shows the RA achievement list with badge artwork, descriptions, locked and unlocked states, and progress. Unlock times and global unlock rates appear when RA provides them.
-- **Activity** groups dated RA unlocks by day in Steam's native Activity layout. The newest day appears first; scrolling reveals older days without an arbitrary age or eight-achievement cutoff. Achievement tiles show their exact unlock time and Hardcore or Softcore mode in the tooltip and accessible label. Select a tile to open Steam's native Your Stuff achievements list for that game.
+- **Your Stuff → Achievements** shows badge artwork, descriptions, progress, locked and unlocked states, and unlock times or global rates when RetroAchievements provides them.
+- **Activity** groups dated unlocks by day in Steam's native layout. Tiles include the exact unlock time and Hardcore or Softcore mode, and open the native Your Stuff achievement list.
 
-Steam ROM Manager and EmuDeck shortcuts are identified by matching accepted RetroAchievements ROM hashes, rather than by their Steam shortcut names. Identification handles supported direct ROMs, ZIP archives, disc images, and GameCube/Wii formats including RVZ, WIA, GCZ, CISO, and WBFS. A ROM revision without a recognized hash stays unresolved instead of being matched by title. Identification diagnostics and loading states explain the process more clearly; unsupported or ambiguous games stay unmatched.
+Steam ROM Manager and EmuDeck shortcuts are identified through accepted RetroAchievements ROM hashes rather than shortcut names. Supported formats include direct ROMs, ZIP archives, disc images, and GameCube/Wii formats such as RVZ, WIA, GCZ, CISO, and WBFS. Unsupported, ambiguous, or unrecognized revisions remain unmatched instead of being guessed from their titles.
 
-![RetroAchievements shown in Steam's native Activity / Achievements interface](docs/screenshots/readme/ra-native-steam-activity.png)
-
-![RetroAchievements shown in Steam's native Your Stuff / Achievements interface](docs/screenshots/readme/ra-native-steam-achievements.png)
+<table>
+  <tr>
+    <th width="50%">Native Activity</th>
+    <th width="50%">Your Stuff / Achievements</th>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/readme/ra-native-steam-activity.png" alt="RetroAchievements shown in Steam's native Activity interface" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/ra-native-steam-achievements.png" alt="RetroAchievements shown in Steam's native Your Stuff Achievements interface" width="100%"></td>
+  </tr>
+</table>
 
 ## See it in action
 
-### RetroAchievements and Steam profiles
+### Provider profiles
 
-Give both sides of your collection a full-screen home, with profile statistics, recent games, and completion progress.
+<table>
+  <tr>
+    <th width="50%">RetroAchievements</th>
+    <th width="50%">Steam</th>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/readme/ra-fullscreen-profile.png" alt="RetroAchievements full-screen profile dashboard" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/steam-fullscreen-profile.png" alt="Steam full-screen profile dashboard" width="100%"></td>
+  </tr>
+</table>
 
-| RetroAchievements profile | Steam profile |
-| --- | --- |
-| ![RetroAchievements full-screen profile dashboard](docs/screenshots/readme/ra-fullscreen-profile.png) | ![Steam full-screen profile dashboard](docs/screenshots/readme/steam-fullscreen-profile.png) |
+### Games and Activity
 
-### Full-screen Games and Activity
-
-Each provider has searchable game lists and an Activity dashboard with unlock history and a calendar. Both views support controller navigation.
-
-| RetroAchievements Games | RetroAchievements Activity |
-| --- | --- |
-| ![RetroAchievements full-screen Games view](docs/screenshots/readme/ra-fullscreen-games.png) | ![RetroAchievements full-screen Activity view](docs/screenshots/readme/ra-fullscreen-activity.png) |
-
-| Steam Games | Steam Activity |
-| --- | --- |
-| ![Steam full-screen Games view](docs/screenshots/readme/steam-fullscreen-games.png) | ![Steam full-screen Activity view](docs/screenshots/readme/steam-fullscreen-activity.png) |
+<table>
+  <tr>
+    <th width="50%">RetroAchievements Games</th>
+    <th width="50%">RetroAchievements Activity</th>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/readme/ra-fullscreen-games.png" alt="RetroAchievements full-screen Games view" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/ra-fullscreen-activity.png" alt="RetroAchievements full-screen Activity view" width="100%"></td>
+  </tr>
+  <tr>
+    <th width="50%">Steam Games</th>
+    <th width="50%">Steam Activity</th>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/readme/steam-fullscreen-games.png" alt="Steam full-screen Games view" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/steam-fullscreen-activity.png" alt="Steam full-screen Activity view" width="100%"></td>
+  </tr>
+</table>
 
 ### Full-screen game pages
 
-The full-screen game pages bring each game's overview and achievement progress together. Steam pages also include DLC and community insights; RetroAchievements pages show Hardcore and Softcore progress and supported subsets.
+Steam game pages include achievements, DLC groups, and community insights. RetroAchievements game pages keep Hardcore and Softcore progress distinct and include supported subsets.
 
-**Steam**
-
-| Overview | Achievements |
-| --- | --- |
-| ![Steam full-screen game overview tab](docs/screenshots/readme/steam-fullscreen-game-overview-tab.png) | ![Steam full-screen game achievements tab](docs/screenshots/readme/steam-fullscreen-game-achievements-tab.png) |
-
-| DLC | Community |
-| --- | --- |
-| ![Steam full-screen game DLC tab](docs/screenshots/readme/steam-fullscreen-game-dlc-tab.png) | ![Steam full-screen game community tab](docs/screenshots/readme/steam-fullscreen-game-community-tab.png) |
-
-**RetroAchievements**
-
-| Overview | Achievements |
-| --- | --- |
-| ![RetroAchievements full-screen game overview tab](docs/screenshots/readme/ra-fullscreen-game-overview-tab.png) | ![RetroAchievements full-screen game achievements tab](docs/screenshots/readme/ra-fullscreen-game-achievements-tab.png) |
+<table>
+  <tr>
+    <th width="50%">Steam Overview</th>
+    <th width="50%">Steam Achievements</th>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/readme/steam-fullscreen-game-overview-tab.png" alt="Steam full-screen game overview tab" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/steam-fullscreen-game-achievements-tab.png" alt="Steam full-screen game achievements tab" width="100%"></td>
+  </tr>
+  <tr>
+    <th width="50%">Steam DLC</th>
+    <th width="50%">Steam Community</th>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/readme/steam-fullscreen-game-dlc-tab.png" alt="Steam full-screen game DLC tab" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/steam-fullscreen-game-community-tab.png" alt="Steam full-screen game community tab" width="100%"></td>
+  </tr>
+  <tr>
+    <th width="50%">RetroAchievements Overview</th>
+    <th width="50%">RetroAchievements Achievements</th>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/readme/ra-fullscreen-game-overview-tab.png" alt="RetroAchievements full-screen game overview tab" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/ra-fullscreen-game-achievements-tab.png" alt="RetroAchievements full-screen game achievements tab" width="100%"></td>
+  </tr>
+</table>
 
 ### Native game-page status badges
 
-![Steam Game Mode status badges: RetroAchievements In Progress, Beaten, Mastered, and Steam Perfected](docs/screenshots/readme/game-page-status-badges.png)
+The clickable badge opens the corresponding Achievement Companion detail view. It supports In Progress for both providers, Steam Perfected, and RetroAchievements Beaten or Mastered. You can disable it, choose among six positions, and set a color for each status. Unresolved non-Steam games do not receive a badge.
 
-## RetroAchievements
-
-Follow your collection from the first unlock to mastery:
-
-- **Your profile at a glance:** progress, recent unlocks, Site or Casual Rank, and rank trend indicators.
-- **Your next completion:** search and filter games, review unfinished, beaten, or mastered games, and open detailed game dashboards.
-- **The details behind each unlock:** achievement artwork and descriptions, Missable, Progression, and Win Condition classifications, and community and set information where available.
-- **More sets to explore:** discover and expand subsets from supported game pages.
-- **Your preferred mode:** show Hardcore, Softcore, or both, with their progress kept distinct.
-- **Your current session:** fresh RetroAchievements Rich Presence identifies current-game activity.
-- **Clearer game identification:** accepted ROM hashes identify supported files and containers; ROM revisions without a recognized hash remain unresolved. Diagnostics and loading states make identification easier to follow.
-
-The full-screen **Systems** tab is a coming-soon placeholder.
-
-## Steam
-
-Explore your Steam achievement collection beyond an individual game's percentage:
-
-- **Profile and library dashboards:** recently played games, achievement progress, completion views, and a manual full-library scan for broader cached totals.
-- **Detailed game pages:** achievement lists and individual unlock details, with base-game, DLC, and update groups when SteamHunters provides them.
-- **Activity you can explore:** interactive unlock calendars, history, and insights such as streaks when enough history is available.
-- **Completion context from SteamHunters:** rarity, community completion statistics and times, DLC requirements, and unobtainable or conditional achievement information where available.
-
-## Game-page achievement badge
-
-See a game's achievement status before you launch it. The clickable badge appears on supported library game pages and opens the corresponding Achievement Companion detail view.
-
-- **In Progress** is available for supported Steam or RetroAchievements games.
-- **Perfected** is a Steam status; **Beaten** and **Mastered** are RetroAchievements statuses.
-- The badge can be turned off, moved among six screen positions, and given a color choice for each status.
-
-Non-Steam matching stays cautious here too. If Achievement Companion cannot safely identify the game, it does not show a badge.
+<p align="center">
+  <img src="docs/screenshots/readme/game-page-status-badges.png" alt="Steam Game Mode status badges for RetroAchievements In Progress, Beaten, Mastered, and Steam Perfected" width="100%">
+</p>
 
 ## Requirements
 
 - Steam Deck, Steam Machine, or compatible SteamOS device running Game Mode.
 - [Decky Loader](https://decky.xyz/).
-- A RetroAchievements account and Web API key for RA features.
-- A Steam Web API key for Steam features; the signed-in Steam account is detected when possible, with SteamID64 available as a fallback.
+- A RetroAchievements account and Web API key for RetroAchievements features.
+- A Steam Web API key for Steam features. The signed-in account is detected when possible, with SteamID64 available as a fallback.
 
 ## Installation
 
-Until version 1.0.0, manual installation from GitHub Releases is the supported installation method. Decky Store installation is not offered.
+### Decky Extended Plugins
 
-1. Download the release ZIP from [GitHub Releases](https://github.com/parvagans/achievement-companion/releases).
+Achievement Companion is available from [Decky Extended Plugins](https://decky-extended-plugins.beallio.com/). If that source is already configured in your Decky Loader, find Achievement Companion there and install it through Decky.
+
+### Manual first-time installation
+
+If Decky Extended Plugins is not configured, install Achievement Companion manually the first time:
+
+1. Download the release ZIP from [GitHub Releases](https://github.com/parvagans/achievement-companion/releases/latest).
 2. In Game Mode, open Decky Loader settings and enable **Developer Mode** under **General → Other**.
-3. Open the **Developer** tab and choose **Browse for ZIP file** to select the downloaded ZIP, or **Install from URL** and enter the direct ZIP URL.
-4. Install the plugin, restart the Deck if needed, then open Achievement Companion from Decky.
+3. Open the **Developer** tab and choose **Browse for ZIP file** to select the downloaded ZIP, or choose **Install from URL** and enter the direct release ZIP URL.
+4. Install the plugin, restart the Deck if needed, and open Achievement Companion from Decky.
 5. Connect RetroAchievements and/or Steam from the provider setup screens.
 
-This README describes the current project. Check a release's notes to see which features are included in that ZIP.
-
-### Provider setup
-
-For RetroAchievements, enter your username and the Web API key from RetroAchievements **Settings → Authentication**. For Steam, enter a Web API key; if the signed-in account is not detected automatically, enter its SteamID64.
+For RetroAchievements, enter your username and the Web API key from **Settings → Authentication**. For Steam, enter a Web API key; if the signed-in account is not detected automatically, enter its SteamID64.
 
 ## Updates
 
-Achievement Companion can check GitHub Releases automatically about once a day while running and when your Deck reconnects to the internet, or on demand from **Settings → About**. It verifies a downloaded update before asking Decky to confirm installation; updates are not installed unattended.
+After first-time installation, automatic update checks run when the previous check is at least 24 hours old and when the Deck reconnects to the internet. You can also check on demand from **Settings → About**. Downloads are verified before Decky asks you to confirm installation; updates are never installed unattended.
 
 ## Privacy
 
-Provider requests go to the services needed for the features you use: RetroAchievements, Steam, GitHub Releases for update checks, and SteamHunters. Achievement Companion does not require a separate project server. API keys are handled by Decky's backend instead of browser storage, and logs redact secret-like values. Local secret protection is not a defence against a compromised device, so rotate a key at its provider if you think the Deck itself is compromised.
+Provider requests go directly to the services used by enabled features: RetroAchievements, Steam, GitHub Releases for update checks, and SteamHunters. Achievement Companion does not require a separate project server. API keys are handled by Decky's backend rather than browser storage, and logs redact secret-like values.
 
-## AI-assisted development
+SteamHunters personal profile data is optional and can be disabled under **Steam Settings → SteamHunters**. This does not disable SteamHunters community data used for game and achievement insights.
 
-Achievement Companion has been developed with the assistance of AI tools, and AI continues to be used as part of the development workflow. This includes assistance with code generation and review, debugging, refactoring, documentation, research, and exploring potential solutions.
+Local secret protection cannot protect against a compromised device. Rotate a key at its provider if you believe the Deck itself has been compromised.
 
-AI-assisted contributions are reviewed, modified where necessary, and tested before being incorporated into the project. The overall design, development decisions, testing, maintenance, and direction of Achievement Companion remain my responsibility.
+## Development
 
-## Help and support
+The project uses AI tools for code generation and review, debugging, refactoring, documentation, research, and solution exploration. AI-assisted contributions are reviewed, adjusted where necessary, and tested before being incorporated. Project design, maintenance, testing, and direction remain the maintainer's responsibility.
 
-If something looks wrong, [open a GitHub issue](https://github.com/parvagans/achievement-companion/issues) with the provider and page involved and enough detail to reproduce it. Never include an API key.
-
-Achievement Companion is an independent community project, not affiliated with RetroAchievements, Decky, Valve, or Steam. It does not provide games, ROMs, or BIOS files, unlock achievements, or modify games.
+Achievement Companion is an independent community project and is not affiliated with RetroAchievements, Decky, Valve, or Steam. It does not provide games, ROMs, or BIOS files, unlock achievements, or modify games.
 
 ## Support Achievement Companion
 
-Help support the next update. Contributions through Ko-fi help cover **development costs and ongoing maintenance** of Achievement Companion.
+Contributions through Ko-fi help cover development and maintenance. Financial support is optional; starring the [GitHub project](https://github.com/parvagans/achievement-companion), sharing feedback, and reporting bugs also help.
 
-[![Support development on Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20development-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white)](https://ko-fi.com/parvagans)
-
-[**Contribute to development on Ko-fi →**](https://ko-fi.com/parvagans)
-
-Financial support is entirely optional. Starring the [GitHub project](https://github.com/parvagans/achievement-companion), sharing feedback, and reporting bugs also help the project grow.
+<p align="center">
+  <a href="https://ko-fi.com/parvagans">
+    <img src="https://img.shields.io/badge/Ko--fi-Support%20development-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white" alt="Support Achievement Companion development on Ko-fi">
+  </a>
+  <br>
+  <a href="https://ko-fi.com/parvagans"><strong>Contribute to development on Ko-fi →</strong></a>
+</p>
 
 ## License and notices
 
