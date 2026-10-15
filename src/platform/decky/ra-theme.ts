@@ -352,7 +352,12 @@ export const raRecipes = {
     statusEmblem(kind: "beaten" | "mastered", surface: "profile" | "game" = "profile"): CSSProperties {
       const silverBeaten = kind === "beaten" && surface === "game";
       const color = kind === "mastered" ? raTheme.color.mastered : silverBeaten ? raRecipes.gameAward.beaten.border : raTheme.color.accentStrong;
-      return { position: "relative", zIndex: 1, display: "grid", placeItems: "center", width: 60, height: 60, flex: "0 0 60px", border: `2px solid ${color}`, borderRadius: "50%", background: "rgba(3, 13, 21, 0.68)", boxShadow: `0 0 11px ${kind === "mastered" ? "rgba(242, 216, 127, 0.37)" : silverBeaten ? raRecipes.gameAward.beaten.surface : "rgba(43, 195, 242, 0.38)"}`, boxSizing: "border-box" };
+      const background = surface === "profile"
+        ? kind === "mastered"
+          ? "radial-gradient(circle at 50% 42%, rgba(242, 216, 127, 0.30), rgba(68, 49, 20, 0.92) 78%)"
+          : "radial-gradient(circle at 50% 42%, rgba(178, 201, 215, 0.40), rgba(34, 53, 67, 0.96) 78%)"
+        : "rgba(3, 13, 21, 0.68)";
+      return { position: "relative", zIndex: 1, display: "grid", placeItems: "center", width: 60, height: 60, flex: "0 0 60px", border: `2px solid ${color}`, borderRadius: "50%", background, boxShadow: `0 0 11px ${kind === "mastered" ? "rgba(242, 216, 127, 0.37)" : silverBeaten ? raRecipes.gameAward.beaten.surface : "rgba(43, 195, 242, 0.38)"}`, boxSizing: "border-box" };
     },
     statusContent: { position: "relative", zIndex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: 3, minWidth: 0 } satisfies CSSProperties,
     statusEyebrow: { color: raTheme.color.accent, fontSize: raTheme.type.compact.caption, fontWeight: 800, letterSpacing: "0.06em", lineHeight: 1.1, textTransform: "uppercase" } satisfies CSSProperties,

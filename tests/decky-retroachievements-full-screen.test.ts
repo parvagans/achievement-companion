@@ -491,12 +491,11 @@ test("RA full-screen profile uses the single tall identity card with one externa
   assert.match(source, /RA account/u);
   assert.match(source, /formatFullscreenLastSync\(refreshedAt\)/u);
   assert.match(source, /gridArea: area[\s\S]*<section style=\{panelStyle\("profile"\)\}>/u);
-  assert.match(source, /ProfileStat icon=\{<DeckyGameStatusIcon kind="mastered"[^>]*\/>\} label="Mastered Games"/u);
-  assert.match(source, /ProfileStat icon=\{<DeckyGameStatusIcon kind="beaten"[^>]*\/>\} label="Beaten Games"/u);
+  assert.doesNotMatch(source, /label="(?:Mastered|Beaten) Games"/u);
   assert.match(source, /ProfileStat icon=\{<DeckyRetroAchievementsPointsIcon size=\{14\} \/>\} label=\{model\.initialAchievementMode === "softcore" \? "Softcore Points" : "Points Earned"\}/u);
   assert.match(source, /allowModeSelection=\{model\.initialAchievementMode === "both"\}/u);
   assert.match(source, /total=\{model\.completionAwardCounts\[completion\.kind\]\}/u);
-  assert.match(source, /color=\{kind === "mastered" \? statusColor : raTheme\.color\.beatenFlagWhite\} accentColor=\{kind === "mastered" \? raTheme\.color\.hardcore : raTheme\.color\.beatenFlagBlack\}/u);
+  assert.match(source, /<ProfileAwardIcon kind=\{kind\} \/>/u);
   assert.match(source, /ProfileStat icon=\{<DeckyRetroAchievementsPointsIcon size=\{14\} \/>\} label="RetroPoints"/u);
   assert.match(source, /calendarIconUrl/u);
   assert.match(source, /trophyIconUrl/u);

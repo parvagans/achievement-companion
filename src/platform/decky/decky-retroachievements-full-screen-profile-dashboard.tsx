@@ -297,6 +297,17 @@ function ProfileStat({ label, value, icon }: { readonly label: string; readonly 
   );
 }
 
+function ProfileAwardIcon({ kind }: { readonly kind: "beaten" | "mastered" }): JSX.Element {
+  const glyphSize = kind === "mastered" ? 38 : 34;
+  return (
+    <span style={{ ...raRecipes.compactGame.statusEmblem(kind), width: 44, height: 44, flex: "0 0 44px" }}>
+      <span style={{ display: "block", transform: kind === "mastered" ? "translateY(-3px)" : "translateX(-1px)" }}>
+        <DeckyGameStatusIcon kind={kind} size={glyphSize} color={kind === "mastered" ? raTheme.color.mastered : raTheme.color.beatenFlagWhite} />
+      </span>
+    </span>
+  );
+}
+
 type AchievementMode = "hardcore" | "softcore" | "both";
 
 function dashboardPanelStyle(): CSSProperties {
@@ -529,13 +540,9 @@ function RecentCompletionRow({
       data-ra-profile-recent-completion-row={game.gameId}
     >
       <div style={{ ...statusStyle, display: "grid", gridTemplateColumns: total === undefined ? "46px minmax(0, 1fr)" : "46px minmax(0, 1fr) 42px", gap: 7, minHeight: 0, height: "100%", padding: "5px 7px", borderRadius: raTheme.radius.small }}>
-        <span style={kind === "completed"
-          ? { position: "relative", zIndex: 1, display: "grid", placeItems: "center", width: 44, height: 44, border: `2px solid ${raTheme.color.softcore}`, borderRadius: "50%", background: raTheme.surface.softcore, boxSizing: "border-box" }
-          : { ...raRecipes.compactGame.statusEmblem(kind), width: 44, height: 44, flex: "0 0 44px" }}>
-          {kind === "completed"
-            ? <img alt="" src={gamepadIconUrl} style={{ width: 28, height: 28, filter: raTheme.iconFilter.softcore }} />
-            : <DeckyGameStatusIcon kind={kind} size={30} color={kind === "mastered" ? statusColor : raTheme.color.beatenFlagWhite} accentColor={kind === "mastered" ? raTheme.color.hardcore : raTheme.color.beatenFlagBlack} />}
-        </span>
+        {kind === "completed"
+          ? <span style={{ position: "relative", zIndex: 1, display: "grid", placeItems: "center", width: 44, height: 44, border: `2px solid ${raTheme.color.softcore}`, borderRadius: "50%", background: raTheme.surface.softcore, boxSizing: "border-box" }}><img alt="" src={gamepadIconUrl} style={{ width: 28, height: 28, filter: raTheme.iconFilter.softcore }} /></span>
+          : <ProfileAwardIcon kind={kind} />}
         <span style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, minWidth: 0 }}>
           <strong style={{ color: statusColor, fontSize: 12, lineHeight: 1.1 }}>{statusLabel}</strong>
           <span style={{ color: raTheme.color.textPrimary, fontSize: 11, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{game.title}</span>
@@ -722,8 +729,6 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
             />
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%", marginTop: "auto", paddingTop: 12, borderTop: `1px solid ${raTheme.color.borderSubtle}`, boxSizing: "border-box" }}>
-            <ProfileStat icon={<DeckyGameStatusIcon kind="mastered" size={16} color={raTheme.color.mastered} accentColor={raTheme.color.hardcore} />} label="Mastered Games" value={model.modeAwardCounts.mastered.toLocaleString()} />
-            <ProfileStat icon={<DeckyGameStatusIcon kind="beaten" size={16} color={raTheme.color.beatenFlagWhite} accentColor={raTheme.color.beatenFlagBlack} />} label="Beaten Games" value={model.modeAwardCounts.beaten.toLocaleString()} />
             <ProfileStat icon={<DeckyRetroAchievementsPointsIcon size={14} />} label={model.initialAchievementMode === "softcore" ? "Softcore Points" : "Points Earned"} value={(model.initialAchievementMode === "softcore" ? model.profileStats.softcorePoints : model.profileStats.hardcorePoints) ?? "-"} />
             <ProfileStat icon={<DeckyRetroAchievementsPointsIcon size={14} />} label="RetroPoints" value={model.profileStats.raPoints ?? "-"} />
             {refreshTime !== undefined ? (
