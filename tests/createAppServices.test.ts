@@ -152,6 +152,7 @@ import {
   invalidateDeckyGamePageAchievementSummaryCache,
   loadDeckyGamePageAchievementSummary,
   normalizeRetroAchievementsPlatformLabel,
+  selectDeckyGamePageAchievementSummaryForAppId,
 } from "../src/platform/decky/decky-game-page-achievement-summary";
 import { resolveDeckyGamePageAchievementBadgePresentation } from "../src/platform/decky/decky-game-page-achievement-badge-presentation";
 import {
@@ -12178,6 +12179,35 @@ test("game page achievement badge presentation follows the neon specification va
       reason: "no-achievements",
     }),
     undefined,
+  );
+});
+
+test("native game-page summaries fail to loading when the route app identity changes", () => {
+  const priorSummary = {
+    status: "ready" as const,
+    provider: "retroachievements" as const,
+    appId: "11",
+    gameId: "9300",
+    earned: 12,
+    total: 15,
+    source: "cache" as const,
+    completionStatus: "beaten" as const,
+  };
+
+  assert.equal(
+    selectDeckyGamePageAchievementSummaryForAppId(priorSummary, undefined),
+    undefined,
+  );
+  assert.equal(
+    selectDeckyGamePageAchievementSummaryForAppId(priorSummary, "11"),
+    priorSummary,
+  );
+  assert.deepStrictEqual(
+    selectDeckyGamePageAchievementSummaryForAppId(priorSummary, "12"),
+    {
+      status: "loading",
+      appId: "12",
+    },
   );
 });
 

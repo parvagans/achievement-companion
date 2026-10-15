@@ -2344,6 +2344,22 @@ export async function loadDeckyGamePageAchievementSummary(
   }
 }
 
+export function selectDeckyGamePageAchievementSummaryForAppId(
+  summary: GamePageAchievementSummary | undefined,
+  appId: string | undefined,
+): GamePageAchievementSummary | undefined {
+  if (appId === undefined) {
+    return undefined;
+  }
+
+  return summary?.appId === appId
+    ? summary
+    : {
+        status: "loading",
+        appId,
+      };
+}
+
 export function useGamePageAchievementSummary(
   appId: string | undefined,
 ): GamePageAchievementSummary | undefined {
@@ -2439,5 +2455,8 @@ export function useGamePageAchievementSummary(
     };
   }, [appId, cacheRevision, steamProviderConfig]);
 
-  return useMemo(() => summary, [summary]);
+  return useMemo(
+    () => selectDeckyGamePageAchievementSummaryForAppId(summary, appId),
+    [appId, summary],
+  );
 }
