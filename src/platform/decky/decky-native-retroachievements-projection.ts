@@ -74,7 +74,6 @@ function unavailable(
 function shortcutIdentity(metadata: DeckySteamShortcutMetadata): string {
   return JSON.stringify([
     metadata.appId,
-    metadata.title,
     metadata.platformTag,
     metadata.platformLabel,
     metadata.tags,

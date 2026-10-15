@@ -28,6 +28,11 @@ EXPECTED_RELEASE_ARCHIVE_NAMES = {
   f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/http.py",
   f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/diagnostics.py",
   f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/steam_shortcuts.py",
+  f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/ra_hash.py",
+  f"{PLUGIN_ARCHIVE_ROOT}/bin/ac-rhash",
+  f"{PLUGIN_ARCHIVE_ROOT}/licenses/rcheevos-MIT.txt",
+  f"{PLUGIN_ARCHIVE_ROOT}/licenses/nod-MIT.txt",
+  f"{PLUGIN_ARCHIVE_ROOT}/licenses/native-dependency-notices.md",
   f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/redaction.py",
   f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/secrets.py",
   f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/provider_config.py",
@@ -68,6 +73,9 @@ def get_expected_dist_archive_names(root_dir: Path = ROOT_DIR) -> set[str]:
 def verify_release_zip_payload(zip_path: Path) -> None:
   with zipfile.ZipFile(zip_path) as archive:
     names = set(archive.namelist())
+    helper = archive.getinfo(f"{PLUGIN_ARCHIVE_ROOT}/bin/ac-rhash")
+    if helper.create_system != 3 or (helper.external_attr >> 16) & 0o111 != 0o111:
+      raise RuntimeError("Packaged RA hashing helper is missing Unix executable permissions.")
 
   expected_names = EXPECTED_RELEASE_ARCHIVE_NAMES | get_expected_dist_archive_names()
   missing_names = sorted(expected_names - names)

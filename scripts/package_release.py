@@ -23,12 +23,9 @@ REQUIRED_FRONTEND_MARKERS: tuple[str, ...] = (
   "/routes/library/app",
   "formatDeckyGamePageAchievementBadgeLabel",
   "retroachievements",
-  "completion-progress-title-match",
-  "dashboard-identity-detail",
   "API_GetGameList.php",
-  "ra-api-game-detail",
-  "no-retroachievements-shortcut-mapping",
-  "ra-game-list-no-match",
+  "ra-hash-game-detail",
+  "hash-not-in-ra-catalogue",
 )
 FORBIDDEN_FRONTEND_MARKERS: tuple[str, ...] = (
   "createRoot",
@@ -47,6 +44,7 @@ REQUIRED_RELATIVE_PATHS: tuple[Path, ...] = (
   Path("py_modules/backend/provider_config.py"),
   Path("py_modules/backend/diagnostics.py"),
   Path("py_modules/backend/steam_shortcuts.py"),
+  Path("py_modules/backend/ra_hash.py"),
   Path("py_modules/backend/update.py"),
   Path("py_modules/backend/version.py"),
   Path("package.json"),
@@ -54,6 +52,10 @@ REQUIRED_RELATIVE_PATHS: tuple[Path, ...] = (
   Path("README.md"),
   Path("LICENSE"),
   Path("THIRD_PARTY_NOTICES.md"),
+  Path("bin/ac-rhash"),
+  Path("licenses/rcheevos-MIT.txt"),
+  Path("licenses/nod-MIT.txt"),
+  Path("licenses/native-dependency-notices.md"),
 )
 RELEASE_PACKAGE_JSON_ALLOWED_FIELDS: tuple[str, ...] = (
   "name",
@@ -87,6 +89,20 @@ def _copy_required_file(root_dir: Path, stage_dir: Path, relative_path: Path) ->
   source_path = root_dir / relative_path
   if not source_path.exists():
     raise FileNotFoundError(f"Required release file is missing: {relative_path.as_posix()}")
+  if relative_path == Path("bin/ac-rhash"):
+    binary = source_path.read_bytes()
+    if len(binary) < 64 or binary[:6] != b"\x7fELF\x02\x01" or int.from_bytes(binary[18:20], "little") != 62:
+      raise RuntimeError("Bundled RA hashing helper must be a Linux x86_64 ELF executable.")
+    program_header_offset = int.from_bytes(binary[32:40], "little")
+    program_header_size = int.from_bytes(binary[54:56], "little")
+    program_header_count = int.from_bytes(binary[56:58], "little")
+    if program_header_size < 4 or program_header_offset + program_header_size * program_header_count > len(binary):
+      raise RuntimeError("Bundled RA hashing helper has invalid ELF program headers.")
+    if any(
+      int.from_bytes(binary[program_header_offset + index * program_header_size:program_header_offset + index * program_header_size + 4], "little") == 3
+      for index in range(program_header_count)
+    ):
+      raise RuntimeError("Bundled RA hashing helper must be statically linked.")
 
   destination_path = stage_dir / relative_path
   destination_path.parent.mkdir(parents=True, exist_ok=True)
@@ -305,7 +321,8 @@ def create_release_zip(
       archive_name = f"{PLUGIN_ARCHIVE_ROOT}/{file_path.relative_to(stage_dir).as_posix()}"
       archive_entry = zipfile.ZipInfo(archive_name, date_time=DETERMINISTIC_ZIP_TIMESTAMP)
       archive_entry.compress_type = zipfile.ZIP_DEFLATED
-      archive_entry.external_attr = 0o100644 << 16
+      archive_entry.create_system = 3
+      archive_entry.external_attr = (0o100755 if file_path.relative_to(stage_dir) == Path("bin/ac-rhash") else 0o100644) << 16
       archive.writestr(archive_entry, file_path.read_bytes(), compress_type=zipfile.ZIP_DEFLATED, compresslevel=9)
 
   return zip_path

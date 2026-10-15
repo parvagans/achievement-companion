@@ -90,7 +90,7 @@ export interface AchievementCompanionRuntimeDebugState {
   readonly lastRetroAchievementsRaHashMatchedConsoleId: string | undefined;
   readonly lastRetroAchievementsRaHashMatchedConsoleName: string | undefined;
   readonly lastRetroAchievementsHashRejectedReason: string | undefined;
-  readonly lastRetroAchievementsFinalResolverSource: "hash" | "title" | "completion-progress" | "unavailable" | undefined;
+  readonly lastRetroAchievementsFinalResolverSource: "hash" | "unavailable" | undefined;
   readonly lastRetroAchievementsGameId: string | undefined;
   readonly lastRetroAchievementsTitle: string | undefined;
   readonly lastRetroAchievementsEarned: number | undefined;
@@ -173,30 +173,12 @@ export interface AchievementCompanionRaShortcutResolutionDebugRecord {
   readonly shortcutMetadataLoaded: boolean;
   readonly shortcutTitle?: string;
   readonly shortcutPlatform?: string;
+  readonly platformSource?: "platformTag" | "platformLabel" | "tags";
   readonly normalizedPlatform?: string;
   readonly steamSkippedBecauseShortcut: boolean;
   readonly resolverStage?: string;
-  readonly dashboardSummaryCandidateCount?: number;
-  readonly completionProgressCandidateCount?: number;
-  readonly completionProgressRelevantCandidates: readonly {
-    readonly id?: string;
-    readonly title?: string;
-    readonly console?: string;
-  }[];
-  readonly completionProgressAmbiguousCandidateTitles: readonly string[];
-  readonly dashboardIdentityCandidateCount?: number;
   readonly apiSystemsResolvedConsoleId?: string;
   readonly apiSystemsResolvedConsoleName?: string;
-  readonly apiGameListRequestConsoleId?: string;
-  readonly apiGameListCandidateCount?: number;
-  readonly apiGameListRelevantCandidates: readonly {
-    readonly id?: string;
-    readonly title?: string;
-    readonly console?: string;
-  }[];
-  readonly apiMatchedGameId?: string;
-  readonly apiMatchedTitle?: string;
-  readonly apiAmbiguousCandidateTitles: readonly string[];
   readonly detailLoadAttempted: boolean;
   readonly detailLoadStatus?: string;
   readonly detailLoadReason?: string;
@@ -215,18 +197,29 @@ export interface AchievementCompanionRaShortcutResolutionDebugRecord {
   readonly hashResolverSkippedReason?: string;
   readonly shortcutRomPathDetected?: boolean;
   readonly shortcutRomPathSource?: string;
+  readonly romCandidateCount?: number;
+  readonly candidateExtension?: string;
+  readonly archiveMemberExtension?: string;
+  readonly candidateResults?: readonly { readonly source: string; readonly extension: string; readonly status: string; readonly reason?: string; readonly memberExtension?: string; readonly mediaReader?: string; readonly mediaReaderStatus?: string }[];
+  readonly candidateRejections?: readonly { readonly source: string; readonly extension: string; readonly reason: string }[];
   readonly romHashAttempted?: boolean;
   readonly romHashStatus?: string;
   readonly romHashAlgorithm?: string;
   readonly romHashPrefix?: string;
   readonly raHashLookupAttempted?: boolean;
   readonly raHashLookupStatus?: string;
+  readonly catalogueSource?: "API_GetGameList";
+  readonly catalogueCacheStatus?: "fetched" | "hit" | "unavailable";
+  readonly catalogueEntryCount?: number;
+  readonly catalogueHashCount?: number;
+  readonly raHashCatalogueMatchCount?: number;
   readonly raHashMatchedGameId?: string;
   readonly raHashMatchedTitle?: string;
   readonly raHashMatchedConsoleId?: string;
   readonly raHashMatchedConsoleName?: string;
   readonly hashRejectedReason?: string;
-  readonly finalResolverSource?: "hash" | "title" | "completion-progress" | "unavailable";
+  readonly finalResolverSource?: "hash" | "unavailable";
+  readonly finalResolutionMethod?: "hash" | "unresolved";
   readonly finalStatus?: "mapped" | "unavailable" | "error";
   readonly finalReason?: string;
   readonly returnedSummaryProvider?: "steam" | "retroachievements";
@@ -333,7 +326,7 @@ let runtimeDebugLastRetroAchievementsRaHashMatchedTitle: string | undefined;
 let runtimeDebugLastRetroAchievementsRaHashMatchedConsoleId: string | undefined;
 let runtimeDebugLastRetroAchievementsRaHashMatchedConsoleName: string | undefined;
 let runtimeDebugLastRetroAchievementsHashRejectedReason: string | undefined;
-let runtimeDebugLastRetroAchievementsFinalResolverSource: "hash" | "title" | "completion-progress" | "unavailable" | undefined;
+let runtimeDebugLastRetroAchievementsFinalResolverSource: "hash" | "unavailable" | undefined;
 let runtimeDebugLastRetroAchievementsGameId: string | undefined;
 let runtimeDebugLastRetroAchievementsTitle: string | undefined;
 let runtimeDebugLastRetroAchievementsEarned: number | undefined;
@@ -370,10 +363,6 @@ let runtimeDebugLastRaShortcutResolutionDiagnostic: AchievementCompanionRaShortc
   timestamp: new Date().toISOString(),
   shortcutMetadataLoaded: false,
   steamSkippedBecauseShortcut: false,
-  completionProgressRelevantCandidates: [],
-  completionProgressAmbiguousCandidateTitles: [],
-  apiGameListRelevantCandidates: [],
-  apiAmbiguousCandidateTitles: [],
   detailLoadAttempted: false,
 };
 
@@ -483,12 +472,12 @@ export function updateAchievementCompanionRaShortcutResolutionDebug(
   const { clearKeys: updateClearKeys, ...updateWithoutClearKeys } = update;
   const nextDiagnostic = {
     ...runtimeDebugLastRaShortcutResolutionDiagnostic,
-    ...omitUndefinedObjectValues(updateWithoutClearKeys),
-    timestamp: new Date().toISOString(),
   } as Record<string, unknown>;
   for (const clearKey of updateClearKeys ?? options?.clearKeys ?? []) {
     delete nextDiagnostic[clearKey];
   }
+  Object.assign(nextDiagnostic, omitUndefinedObjectValues(updateWithoutClearKeys));
+  nextDiagnostic["timestamp"] = new Date().toISOString();
   runtimeDebugLastRaShortcutResolutionDiagnostic = omitUndefinedObjectValues(nextDiagnostic) as unknown as AchievementCompanionRaShortcutResolutionDebugRecord;
   writeAchievementCompanionRuntimeDebugStorage(
     ACHIEVEMENT_COMPANION_LAST_RA_SHORTCUT_RESOLUTION_DEBUG_STORAGE_KEY,
@@ -808,10 +797,6 @@ export function removeAchievementCompanionRuntimeDebug(): void {
     timestamp: new Date().toISOString(),
     shortcutMetadataLoaded: false,
     steamSkippedBecauseShortcut: false,
-    completionProgressRelevantCandidates: [],
-    completionProgressAmbiguousCandidateTitles: [],
-    apiGameListRelevantCandidates: [],
-    apiAmbiguousCandidateTitles: [],
     detailLoadAttempted: false,
   };
   runtimeDebugHostContext = undefined;
@@ -1163,7 +1148,7 @@ export function markAchievementCompanionRetroAchievementsShortcutResolution(args
   readonly raHashMatchedConsoleId?: string | undefined;
   readonly raHashMatchedConsoleName?: string | undefined;
   readonly hashRejectedReason?: string | undefined;
-  readonly finalResolverSource?: "hash" | "title" | "completion-progress" | "unavailable" | undefined;
+  readonly finalResolverSource?: "hash" | "unavailable" | undefined;
   readonly clearKeys?: readonly AchievementCompanionRaShortcutResolutionDebugClearKey[];
 }): void {
   runtimeDebugLastRetroAchievementsShortcutAppId = args.appId;
@@ -1244,12 +1229,10 @@ export function markAchievementCompanionRetroAchievementsShortcutResolution(args
     ...(args.normalizedPlatform !== undefined ? { normalizedPlatform: args.normalizedPlatform } : {}),
     finalStatus: args.status,
     finalReason: args.reason ?? args.error,
+    finalResolutionMethod: args.status === "mapped" ? "hash" : "unresolved",
     resolverStage: args.resolutionSource,
     ...(args.resolvedConsoleId !== undefined ? { apiSystemsResolvedConsoleId: args.resolvedConsoleId } : {}),
     ...(args.resolvedSystemName !== undefined ? { apiSystemsResolvedConsoleName: args.resolvedSystemName } : {}),
-    ...(args.candidateCount !== undefined ? { apiGameListCandidateCount: args.candidateCount } : {}),
-    ...(args.matchedGameId !== undefined ? { apiMatchedGameId: args.matchedGameId } : {}),
-    ...(args.matchedTitle !== undefined ? { apiMatchedTitle: args.matchedTitle } : {}),
     ...(args.hashResolverAttempted !== undefined ? { hashResolverAttempted: args.hashResolverAttempted } : {}),
     ...(args.hashResolverSkippedReason !== undefined
       ? { hashResolverSkippedReason: args.hashResolverSkippedReason }

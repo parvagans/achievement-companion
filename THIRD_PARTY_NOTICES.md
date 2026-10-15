@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-This file identifies third-party components relevant to Achievement Companion's source and distributed artifacts. It does not claim that the notices below, by themselves, establish complete license compliance.
+This file identifies third-party components relevant to Achievement Companion's source and distributed artifacts. The full notices for the statically linked native dependencies are packaged at `licenses/native-dependency-notices.md`.
 
 ## Branding / Trademark Notices
 
@@ -8,6 +8,37 @@ This file identifies third-party components relevant to Achievement Companion's 
 - Steam and the Steam logo are trademarks and/or registered trademarks of Valve Corporation in the U.S. and/or other countries.
 - Achievement Companion is not affiliated with, endorsed by, sponsored by, or approved by Valve Corporation.
 - Achievement Companion does not provide ROMs, BIOS files, game files, or copyrighted game content.
+
+## Bundled Native ROM Hashing
+
+`bin/ac-rhash` links RetroAchievements `rcheevos` v12.5.0 at commit
+`1433173220a7eaede6a9ed7a18e94117be1821e0` (MIT). The exact upstream
+license is included in the plugin at `licenses/rcheevos-MIT.txt`. The helper
+contains no Emuchievements implementation code.
+
+The helper also statically links `nod` / `nod-ffi` at commit
+`ebd80cac99b48a323200d84365e07a58cc27412d` under the MIT option of its
+MIT OR Apache-2.0 license. `nod` supplies random-access Nintendo optical disc
+reads for RVZ, WIA, GCZ, Nintendo CISO, and WBFS without a Dolphin runtime
+dependency. Its MIT license is included at `licenses/nod-MIT.txt`.
+
+The static `nod` build enables these vendored compression libraries. They
+are linked into `ac-rhash`; no compression command or shared library is
+required on the Steam Deck.
+
+| Library | Pinned wrapper | Native code license |
+| --- | --- | --- |
+| libbzip2 | `bzip2-sys` 0.1.13+1.0.8 | bzip2/libbzip2 license |
+| liblzma | `liblzma-sys` 0.4.6 | 0BSD/public domain (liblzma) |
+| zlib | `libz-sys` 1.1.28 | Zlib |
+| Zstandard | `zstd-sys` 2.0.16+zstd.1.5.7 | BSD-3-Clause |
+
+Versions come from `nod`'s pinned `Cargo.lock`. The Rust wrappers and other
+transitive crates use their own permissive licenses; the build does not enable
+`nod`'s optional OpenSSL, Python, or threading features.
+The packaged `licenses/native-dependency-notices.md` records the exact normal
+Cargo dependency graph and verbatim notices from the pinned crate sources,
+including the vendored native compression libraries.
 
 ## Bundled Frontend Components
 

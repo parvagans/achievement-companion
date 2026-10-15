@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import hashlib
+import os
 import shlex
-import zipfile
 from pathlib import Path
-from pathlib import PurePosixPath
 from typing import Any, Iterable, Mapping, Sequence
 
 
@@ -19,7 +17,9 @@ _BINARY_VDF_STRING = 0x01
 _BINARY_VDF_INTEGER = 0x02
 _BINARY_VDF_END = 0x08
 
-_ROM_FILE_EXTENSIONS = {
+# Discovery hints only. This is not a list of formats supported by rcheevos.
+# Existing regular files with other extensions are also considered below.
+_GAME_PATH_HINT_EXTENSIONS = {
   ".bin",
   ".chd",
   ".gb",
@@ -30,6 +30,7 @@ _ROM_FILE_EXTENSIONS = {
   ".img",
   ".iso",
   ".md",
+  ".nds",
   ".nes",
   ".n64",
   ".pbp",
@@ -39,12 +40,19 @@ _ROM_FILE_EXTENSIONS = {
   ".sms",
   ".v64",
   ".z64",
+  ".cue",
+  ".m3u",
+  ".zip",
+  ".7z",
+  ".rar",
 }
-
-# Cap ROM hashing so large disc images do not stall native badge resolution.
-# This keeps small homebrew/ROM shortcuts eligible for hash matching while
-# letting large PS2/ISO-style files fall through to title/completion matching.
-STEAM_SHORTCUT_ROM_HASH_MAX_BYTES = 512 * 1024 * 1024
+_NON_GAME_ARGUMENT_EXTENSIONS = {
+  ".appimage", ".bat", ".cfg", ".cmd", ".conf", ".desktop", ".dll",
+  ".exe", ".ini", ".json", ".log", ".pdf", ".py", ".sh", ".so",
+  ".txt", ".xml",
+}
+_MAX_COMMAND_TOKENS = 64
+_MAX_REJECTION_DIAGNOSTICS = 8
 
 
 def _coerce_app_id(value: str | int) -> int | None:
@@ -231,8 +239,7 @@ def load_steam_shortcut_metadata(
     if isinstance(app_name, str):
       matched_titles.append(app_name)
 
-  unique_titles = list(dict.fromkeys(matched_titles))
-  if len(unique_titles) != 1:
+  if len(matched_shortcuts) == 0:
     return None
 
   platform_tags: list[str] = []
@@ -253,8 +260,9 @@ def load_steam_shortcut_metadata(
 
   metadata: dict[str, Any] = {
     "appId": str(normalized_app_id),
-    "title": unique_titles[0],
   }
+  if matched_titles:
+    metadata["title"] = matched_titles[0]
   if platform_tag is not None:
     metadata["platformTag"] = platform_tag
     metadata["platformLabel"] = platform_tag
@@ -268,29 +276,27 @@ def load_steam_shortcut_metadata(
   return metadata
 
 
-def _is_ambiguous_rom_path(path: Path) -> bool:
-  return path.suffix.lower() in {".7z", ".rar", ".cue", ".m3u", ".pls"}
+def _command_path_token(token: str) -> str | None:
+  if token == "%command%":
+    return None
+  if token.startswith("-"):
+    # --game=/path/file is a file argument; --core=/path/core.so is rejected
+    # by the non-game filter below.
+    token = token.partition("=")[2]
+  return token if token not in {"", "%command%"} else None
 
 
-def _is_known_rom_file_path(path: Path) -> bool:
-  return path.suffix.lower() in _ROM_FILE_EXTENSIONS
+def _start_dir_path(shortcut: Mapping[str, Any]) -> Path | None:
+  value = _pick_shortcut_string(shortcut, "startdir", "StartDir")
+  if value is None:
+    return None
+  if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+    value = value[1:-1]
+  return Path(value).expanduser()
 
 
-def _is_zip_container_path(path: Path) -> bool:
-  return path.suffix.lower() == ".zip"
-
-
-def _looks_like_path_token(token: str) -> bool:
-  if token.startswith("-") or token == "%command%":
-    return False
-
-  return (
-    "/" in token
-    or "\\" in token
-    or token.startswith("~")
-    or (len(token) > 1 and token[1] == ":" and token[0].isalpha())
-    or Path(token).suffix != ""
-  )
+def _candidate_rejection(path: Path, source: str, reason: str) -> dict[str, str]:
+  return {"source": source, "extension": path.suffix.lower(), "reason": reason}
 
 
 def _resolve_shortcut_rom_path_from_command(
@@ -298,149 +304,83 @@ def _resolve_shortcut_rom_path_from_command(
   *,
   source: str,
   start_dir: Path | None,
-) -> tuple[Path | None, str | None, str | None, bool, bool]:
+) -> tuple[list[dict[str, Any]], list[dict[str, str]], bool]:
   if command_text is None:
-    return None, None, "rom-path-unavailable", False, False
+    return [], [], False
 
   try:
     tokens = shlex.split(command_text, posix=True)
   except ValueError:
     tokens = command_text.split()
 
-  selected_candidate: Path | None = None
-  saw_rom_candidate = False
-  saw_ambiguous_container = False
+  candidates: list[dict[str, Any]] = []
+  rejections: list[dict[str, str]] = []
+  saw_missing_hint = False
 
-  for token in tokens:
-    if not _looks_like_path_token(token):
+  for raw_token in tokens[:_MAX_COMMAND_TOKENS]:
+    token = _command_path_token(raw_token)
+    if token is None:
       continue
 
-    candidate = Path(token)
+    candidate = Path(token).expanduser()
     if not candidate.is_absolute():
       if start_dir is None:
         continue
       candidate = start_dir / candidate
 
-    if _is_ambiguous_rom_path(candidate):
-      saw_ambiguous_container = True
+    extension = candidate.suffix.lower()
+    if extension in _NON_GAME_ARGUMENT_EXTENSIONS or candidate.stem.lower() in {"bios", "firmware"} or any(
+      part.lower() in {"bios", "firmware"} for part in candidate.parts
+    ):
+      rejections.append(_candidate_rejection(candidate, source, "non-game-argument"))
       continue
 
-    if not (_is_known_rom_file_path(candidate) or _is_zip_container_path(candidate)):
-      continue
-
-    saw_rom_candidate = True
     if candidate.is_file():
-      selected_candidate = candidate
+      # Executable helper arguments are launch infrastructure, not game data.
+      # A recognized game suffix remains a hint for direct-ROM shortcuts.
+      if extension not in _GAME_PATH_HINT_EXTENSIONS and os.name != "nt" and os.access(candidate, os.X_OK):
+        rejections.append(_candidate_rejection(candidate, source, "launcher-executable"))
+        continue
+      candidates.append({"path": candidate.resolve(), "source": source, "extension": extension})
+    elif extension in _GAME_PATH_HINT_EXTENSIONS:
+      saw_missing_hint = True
+      rejections.append(_candidate_rejection(candidate, source, "file-unreadable"))
 
-  if selected_candidate is not None:
-    return selected_candidate, source, None, True, True
-
-  if saw_ambiguous_container:
-    return None, source, "rom-path-ambiguous-container", False, True
-
-  if saw_rom_candidate:
-    return None, source, "rom-file-unreadable", True, True
-
-  return None, None, "rom-path-unavailable", False, False
+  return candidates, rejections[:_MAX_REJECTION_DIAGNOSTICS], saw_missing_hint
 
 
 def _resolve_shortcut_rom_path(
   shortcut: Mapping[str, Any],
-) -> tuple[Path | None, str | None, str | None, bool, bool]:
-  start_dir_value = _pick_shortcut_string(shortcut, "startdir", "StartDir")
-  start_dir = Path(start_dir_value) if start_dir_value is not None else None
+) -> tuple[list[dict[str, Any]], list[dict[str, str]], str | None, bool]:
+  start_dir = _start_dir_path(shortcut)
 
   launch_options = _pick_shortcut_string(shortcut, "LaunchOptions", "launchoptions", "launchOptions")
-  launch_resolution = _resolve_shortcut_rom_path_from_command(
+  launch_candidates, launch_rejections, launch_missing = _resolve_shortcut_rom_path_from_command(
     launch_options,
     source="launchoptions",
     start_dir=start_dir,
   )
-  if launch_resolution[0] is not None or launch_resolution[2] == "rom-path-ambiguous-container":
-    return launch_resolution
-
   exe_value = _pick_shortcut_string(shortcut, "exe", "Exe")
-  exe_resolution = _resolve_shortcut_rom_path_from_command(
+  exe_candidates, exe_rejections, exe_missing = _resolve_shortcut_rom_path_from_command(
     exe_value,
     source="exe",
     start_dir=start_dir,
   )
-  if exe_resolution[0] is not None or exe_resolution[2] == "rom-path-ambiguous-container":
-    return exe_resolution
-
-  if launch_resolution[4]:
-    return launch_resolution
-  if exe_resolution[4]:
-    return exe_resolution
-
-  return None, None, "rom-path-unavailable", False, False
-
-
-def _hash_file_md5(path: Path) -> str:
-  digest = hashlib.md5()
-  with path.open("rb") as file_handle:
-    while True:
-      chunk = file_handle.read(1024 * 1024)
-      if not chunk:
-        break
-      digest.update(chunk)
-  return digest.hexdigest()
+  unique: dict[Path, dict[str, Any]] = {}
+  for candidate in (*launch_candidates, *exe_candidates):
+    unique.setdefault(candidate["path"], candidate)
+  candidates = list(unique.values())
+  rejections = (launch_rejections + exe_rejections)[:_MAX_REJECTION_DIAGNOSTICS]
+  if len(candidates) > 1:
+    return candidates, rejections, None, True
+  if candidates:
+    return candidates, rejections, None, True
+  if launch_missing or exe_missing:
+    return [], rejections, "rom-file-unreadable", True
+  return [], rejections, "rom-path-unavailable", False
 
 
-def _hash_zip_single_rom_md5(path: Path) -> tuple[str | None, str | None]:
-  try:
-    with zipfile.ZipFile(path) as archive:
-      supported_entries: list[zipfile.ZipInfo] = []
-      for zip_info in archive.infolist():
-        if zip_info.is_dir():
-          continue
-
-        entry_path = PurePosixPath(zip_info.filename)
-        if "__MACOSX" in entry_path.parts or entry_path.name.startswith("._"):
-          continue
-
-        entry_name_lower = entry_path.name.lower()
-        entry_parent_names_lower = {part.lower() for part in entry_path.parts[:-1]}
-        if (
-          entry_name_lower in {"readme", "manual", "changelog", "changes", "license", "copying", "info"}
-          or entry_name_lower.startswith("readme.")
-          or entry_name_lower.startswith("manual.")
-          or entry_name_lower.startswith("changelog.")
-          or entry_name_lower.startswith("license.")
-          or entry_name_lower.startswith("copying.")
-          or entry_name_lower.startswith("info.")
-          or entry_parent_names_lower.intersection({"doc", "docs", "documentation", "manual", "readme"})
-        ):
-          continue
-
-        if entry_path.suffix.lower() not in _ROM_FILE_EXTENSIONS:
-          continue
-
-        supported_entries.append(zip_info)
-
-      if len(supported_entries) == 0:
-        return None, "zip-no-supported-rom"
-
-      if len(supported_entries) > 1:
-        return None, "rom-path-ambiguous-container"
-
-      zip_info = supported_entries[0]
-      if zip_info.file_size > STEAM_SHORTCUT_ROM_HASH_MAX_BYTES:
-        return None, "rom-file-too-large"
-
-      digest = hashlib.md5()
-      with archive.open(zip_info, "r") as file_handle:
-        while True:
-          chunk = file_handle.read(1024 * 1024)
-          if not chunk:
-            break
-          digest.update(chunk)
-      return digest.hexdigest(), None
-  except (OSError, zipfile.BadZipFile):
-    return None, "rom-file-unreadable"
-
-
-def load_steam_shortcut_rom_hash(
+def load_steam_shortcut_rom_path(
   app_id: str | int,
   *,
   home: Path | None = None,
@@ -458,88 +398,19 @@ def load_steam_shortcut_rom_hash(
     return None
 
   shortcut = matched_shortcuts[0]
-  rom_path, rom_path_source, skip_reason, rom_path_attempted, shortcut_rom_path_detected = _resolve_shortcut_rom_path(shortcut)
-  if skip_reason == "rom-path-ambiguous-container":
-    return {
-      "appId": str(normalized_app_id),
-      "shortcutRomPathDetected": shortcut_rom_path_detected,
-      **({"shortcutRomPathSource": rom_path_source} if rom_path_source is not None else {}),
-      "romHashAttempted": False,
-      "romHashStatus": "skipped",
-      "hashResolverSkippedReason": skip_reason,
-    }
-  if rom_path is None:
-    return {
-      "appId": str(normalized_app_id),
-      "shortcutRomPathDetected": shortcut_rom_path_detected,
-      **({"shortcutRomPathSource": rom_path_source} if rom_path_source is not None else {}),
-      "romHashAttempted": rom_path_attempted,
-      "romHashStatus": "skipped",
-      **({"hashResolverSkippedReason": skip_reason} if skip_reason is not None else {}),
-    }
-
-  if rom_path.suffix.lower() == ".zip":
-    rom_hash, zip_skip_reason = _hash_zip_single_rom_md5(rom_path)
-    if rom_hash is None:
-      return {
-        "appId": str(normalized_app_id),
-        "shortcutRomPathDetected": True,
-        **({"shortcutRomPathSource": rom_path_source} if rom_path_source is not None else {}),
-        "romHashAttempted": True,
-        "romHashStatus": "skipped",
-        "hashResolverSkippedReason": zip_skip_reason,
-      }
-
-    return {
-      "appId": str(normalized_app_id),
-      "shortcutRomPathDetected": True,
-      **({"shortcutRomPathSource": rom_path_source} if rom_path_source is not None else {}),
-      "romHashAttempted": True,
-      "romHashStatus": "resolved",
-      "romHashAlgorithm": "md5",
-      "romHash": rom_hash,
-    }
-
-  try:
-    rom_file_size = rom_path.stat().st_size
-  except OSError:
-    return {
-      "appId": str(normalized_app_id),
-      "shortcutRomPathDetected": True,
-      **({"shortcutRomPathSource": rom_path_source} if rom_path_source is not None else {}),
-      "romHashAttempted": False,
-      "romHashStatus": "skipped",
-      "hashResolverSkippedReason": "rom-file-unreadable",
-    }
-
-  if rom_file_size > STEAM_SHORTCUT_ROM_HASH_MAX_BYTES:
-    return {
-      "appId": str(normalized_app_id),
-      "shortcutRomPathDetected": True,
-      **({"shortcutRomPathSource": rom_path_source} if rom_path_source is not None else {}),
-      "romHashAttempted": False,
-      "romHashStatus": "skipped",
-      "hashResolverSkippedReason": "rom-file-too-large",
-    }
-
-  try:
-    rom_hash = _hash_file_md5(rom_path)
-  except OSError:
-    return {
-      "appId": str(normalized_app_id),
-      "shortcutRomPathDetected": True,
-      **({"shortcutRomPathSource": rom_path_source} if rom_path_source is not None else {}),
-      "romHashAttempted": True,
-      "romHashStatus": "skipped",
-      "hashResolverSkippedReason": "rom-file-unreadable",
-    }
-
+  candidates, rejections, skip_reason, shortcut_rom_path_detected = _resolve_shortcut_rom_path(shortcut)
+  first_candidate = candidates[0] if candidates else None
+  rom_path = first_candidate["path"] if len(candidates) == 1 else None
+  rom_path_source = first_candidate["source"] if first_candidate is not None else (
+    next((rejection["source"] for rejection in rejections if rejection["reason"] == "file-unreadable"), None)
+  )
   return {
     "appId": str(normalized_app_id),
-    "shortcutRomPathDetected": True,
+    "shortcutRomPathDetected": shortcut_rom_path_detected,
     **({"shortcutRomPathSource": rom_path_source} if rom_path_source is not None else {}),
-    "romHashAttempted": True,
-    "romHashStatus": "resolved",
-    "romHashAlgorithm": "md5",
-    "romHash": rom_hash,
+    "romPath": rom_path,
+    "romCandidates": candidates,
+    "candidateCount": len(candidates),
+    "candidateRejections": rejections,
+    **({"reason": skip_reason} if skip_reason is not None else {}),
   }

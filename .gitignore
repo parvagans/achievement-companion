@@ -3,6 +3,8 @@ node_modules/
 
 # Build output
 dist/
+.tmp/
+bin/ac-rhash
 *.tsbuildinfo
 defaults/THIRD_PARTY_NOTICES.md
 

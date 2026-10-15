@@ -34,10 +34,8 @@ from backend.provider_config import _normalize_positive_count as _normalize_posi
 from backend.secrets import clear_secret_api_key as _provider_clear_secret_api_key
 from backend.secrets import load_secret_api_key as _provider_load_secret_api_key
 from backend.secrets import save_secret_api_key as _provider_save_secret_api_key
-from backend.steam_shortcuts import (
-  load_steam_shortcut_metadata as _load_steam_shortcut_metadata,
-  load_steam_shortcut_rom_hash as _load_steam_shortcut_rom_hash,
-)
+from backend.steam_shortcuts import load_steam_shortcut_metadata as _load_steam_shortcut_metadata
+from backend.ra_hash import load_steam_shortcut_rom_hash as _load_steam_shortcut_rom_hash
 from backend.storage import build_corrupt_backup_path as _build_corrupt_backup_path
 from backend.storage import quarantine_corrupt_json_file as _quarantine_corrupt_json_file
 from backend.storage import read_json_file as _read_json_file
@@ -601,7 +599,11 @@ class Plugin:
     if app_id is None:
       return None
 
-    result = await asyncio.to_thread(_load_steam_shortcut_rom_hash, app_id)
+    raw_console_id = payload.get("consoleId")
+    if isinstance(raw_console_id, bool) or not isinstance(raw_console_id, int) or not 1 <= raw_console_id <= 65535:
+      return None
+
+    result = await asyncio.to_thread(_load_steam_shortcut_rom_hash, app_id, raw_console_id)
     if result is None:
       return None
 

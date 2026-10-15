@@ -97,12 +97,19 @@ try {
   runNode("scripts/version/check-version.mjs");
   const releaseDir = resetReleaseDirectory();
   if (!skipBuild) {
+    if (process.platform !== "linux" || process.arch !== "x64") {
+      throw new Error("The bundled native helper must be built on Linux x64 before release packaging.");
+    }
+    run("bash", ["scripts/build-ra-hash.sh"]);
     runNode("scripts/clean_decky_dist.mjs");
     runNode("scripts/sync_decky_notices.mjs");
     runNode("node_modules/rollup/dist/bin/rollup", "-c");
   }
 
   const python = resolvePython();
+  if (process.platform === "linux" && process.arch === "x64") {
+    run(python, ["tests/native/test_ra_hash.py", "bin/ac-rhash"]);
+  }
   run(python, ["scripts/package_release.py"]);
   run(python, ["scripts/check_release_artifact.py"]);
 

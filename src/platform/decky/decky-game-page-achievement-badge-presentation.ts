@@ -11,7 +11,7 @@ export type DeckyGamePageAchievementBadgeProvider = "steam" | "retroachievements
 
 export interface DeckyGamePageAchievementBadgePresentation {
   readonly ariaLabel: string;
-  readonly provider: DeckyGamePageAchievementBadgeProvider;
+  readonly provider?: DeckyGamePageAchievementBadgeProvider;
   readonly variant: DeckyGamePageAchievementBadgeVariant;
   readonly statusLabel: "PERFECTED" | "BEATEN" | "MASTERED" | "IN PROGRESS" | "PLEASE WAIT...";
   readonly countLabel: string;
@@ -28,7 +28,7 @@ export function resolveDeckyGamePageAchievementBadgePresentation(
   if (summary === undefined || summary.status === "loading") {
     return {
       ariaLabel: "Achievement Companion, please wait",
-      provider: summary?.provider ?? "steam",
+      ...(summary?.provider !== undefined ? { provider: summary.provider } : {}),
       variant: "loading",
       statusLabel: "PLEASE WAIT...",
       countLabel: "-- / --",

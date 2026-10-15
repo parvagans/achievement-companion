@@ -714,11 +714,11 @@ function DeckyGamePageAchievementRouteBadgeEnabled({
     const iconUrl =
       presentation === undefined
         ? undefined
-        : resolveDeckyGamePageAchievementBadgeProviderIconUrl(presentation.provider);
+        : resolveDeckyGamePageAchievementBadgeProviderIconUrl(presentation.provider, presentation.variant);
     markAchievementCompanionGamePageBadgeSystemIcon({
       providerId: presentation?.provider,
-      platformLabel:
-        presentation?.provider === "retroachievements" ? "RetroAchievements" : "Steam",
+      platformLabel: presentation?.variant === "loading" ? undefined
+        : presentation?.provider === "retroachievements" ? "RetroAchievements" : "Steam",
       iconUrl,
       rendered: presentation !== undefined && iconUrl !== undefined,
     });

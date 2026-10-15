@@ -93,7 +93,7 @@ function getLoadingInfoIconStyle(): CSSProperties {
     left: 11,
     width: 18,
     height: 18,
-    filter: "brightness(0) saturate(100%) invert(75%) sepia(90%) saturate(1724%) hue-rotate(151deg) brightness(103%) contrast(104%)",
+    filter: "brightness(0) invert(1)",
   };
 }
 

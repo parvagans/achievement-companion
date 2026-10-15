@@ -170,7 +170,7 @@ test("loading, ambiguous, unavailable, error, and Steam summaries never publish 
   const summaries: GamePageAchievementSummary[] = [
     { status: "loading", appId },
     { status: "unavailable", appId, reason: "ambiguous-retroachievements-shortcut-mapping" },
-    { status: "unavailable", appId, reason: "no-retroachievements-shortcut-mapping" },
+    { status: "unavailable", appId, reason: "rom-path-unavailable" },
     { status: "error", appId, message: "network failure" },
     { status: "ready", appId, provider: "steam", earned: 4, total: 10, source: "backend" },
   ];
@@ -268,4 +268,18 @@ test("shortcut path changes invalidate mapping and a mid-request edit blocks pub
   pendingDetail.resolve(successState());
   assert.deepEqual(await request, { status: "unavailable", appId, reason: "stale-request" });
   assert.equal(race.loader.read(appId, "both"), undefined);
+});
+
+test("shortcut display-name changes preserve cached RA identity", async () => {
+  let currentShortcut = shortcut;
+  const { loader, calls } = createHarness({ async loadShortcutMetadata() { return currentShortcut; } });
+  const first = await loader.load(appId, "both");
+  assert.equal(first.status, "ready");
+  for (const title of ["Wrong Name", "abcdef", "Completely Unrelated Title", ""]) {
+    currentShortcut = { ...shortcut, title };
+    assert.strictEqual(await loader.load(appId, "both"), first);
+  }
+  assert.equal(calls.summary.length, 1);
+  assert.equal(calls.detail.length, 1);
+  assert.deepEqual(calls.invalidated, [appId]);
 });

@@ -166,7 +166,7 @@ class BackendRuntimeTests(unittest.TestCase):
       ("request_retroachievements_json", {"path": "API_GetUserProfile.php"}),
       ("validate_retroachievements_credentials", {"username": "alice", "apiKey": "draft-key"}),
       ("validate_steam_credentials", {"steamId64": "76561198000000000", "apiKey": "draft-key"}),
-      ("get_steam_shortcut_rom_hash", {"appId": "12345"}),
+      ("get_steam_shortcut_rom_hash", {"appId": "12345", "consoleId": 18}),
     )
     for method_name, payload in scenarios:
       with self.subTest(method=method_name), tempfile.TemporaryDirectory() as temp_dir:
@@ -182,7 +182,8 @@ class BackendRuntimeTests(unittest.TestCase):
             return {"response": {"players": [{"steamid": "76561198000000000"}]}}
           return {"ok": True}
 
-        def blocking_rom_hash(app_id: str) -> dict[str, str]:
+        def blocking_rom_hash(app_id: str, console_id: int) -> dict[str, str]:
+          self.assertEqual(console_id, 18)
           started.set()
           if not release.wait(timeout=1):
             raise TimeoutError("ROM hash mock was not released while the event loop ran.")
@@ -912,7 +913,15 @@ class BackendRuntimeTests(unittest.TestCase):
       for relative_path in package_release.REQUIRED_RELATIVE_PATHS:
         destination = source_dir / relative_path
         destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(ROOT_DIR / relative_path, destination)
+        if relative_path == Path("bin/ac-rhash"):
+          helper_header = bytearray(64)
+          helper_header[:6] = b"\x7fELF\x02\x01"
+          helper_header[18:20] = (62).to_bytes(2, "little")
+          helper_header[32:40] = (64).to_bytes(8, "little")
+          helper_header[54:56] = (56).to_bytes(2, "little")
+          destination.write_bytes(helper_header)
+        else:
+          shutil.copy2(ROOT_DIR / relative_path, destination)
       bundle_path = source_dir / "dist" / "index.js"
       bundle_path.parent.mkdir(parents=True, exist_ok=True)
       bundle_path.write_text("AchievementCompanionGamePageBadge\n", encoding="utf-8")
@@ -929,6 +938,9 @@ class BackendRuntimeTests(unittest.TestCase):
       self.assertTrue((staged_dir / "py_modules" / "backend" / "provider_config.py").exists())
       self.assertTrue((staged_dir / "py_modules" / "backend" / "http.py").exists())
       self.assertTrue((staged_dir / "py_modules" / "backend" / "tls.py").exists())
+      self.assertTrue((staged_dir / "py_modules" / "backend" / "ra_hash.py").exists())
+      self.assertTrue((staged_dir / "bin" / "ac-rhash").exists())
+      self.assertTrue((staged_dir / "licenses" / "rcheevos-MIT.txt").exists())
 
       zip_path = package_release.create_release_zip(
         root_dir=source_dir,
@@ -936,6 +948,9 @@ class BackendRuntimeTests(unittest.TestCase):
         stage_dir=staged_dir,
       )
       with zipfile.ZipFile(zip_path) as archive:
+        helper = archive.getinfo("achievement-companion/bin/ac-rhash")
+        self.assertEqual(helper.create_system, 3)
+        self.assertEqual((helper.external_attr >> 16) & 0o111, 0o111)
         self.assertIn("achievement-companion/main.py", set(archive.namelist()))
         self.assertIn("achievement-companion/py_modules/backend/__init__.py", set(archive.namelist()))
         self.assertIn("achievement-companion/py_modules/backend/diagnostics.py", set(archive.namelist()))

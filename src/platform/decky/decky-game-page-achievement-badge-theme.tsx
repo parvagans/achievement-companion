@@ -4,6 +4,7 @@ import {
   type GamePageAchievementBadgeColors,
 } from "@core/settings";
 import steamIconUrl from "./assets/steam.svg";
+import infoIconUrl from "./assets/info.svg";
 import { DeckyGameStatusIcon } from "./decky-game-status-icon";
 import { RETROACHIEVEMENTS_PROVIDER_ICON_SRC } from "./providers/retroachievements/icon";
 import type {
@@ -22,8 +23,10 @@ const PROGRESS_RING_STROKE_WIDTH = 7.5;
 
 
 export function resolveDeckyGamePageAchievementBadgeProviderIconUrl(
-  provider: DeckyGamePageAchievementBadgeProvider,
+  provider: DeckyGamePageAchievementBadgeProvider | undefined,
+  variant?: DeckyGamePageAchievementBadgeVariant,
 ): string {
+  if (variant === "loading" || provider === undefined) return infoIconUrl;
   return provider === "steam" ? steamIconUrl : RETROACHIEVEMENTS_PROVIDER_ICON_SRC;
 }
 
@@ -100,7 +103,7 @@ function getPlatformMedallionStyle(palette: DeckyGamePageAchievementBadgePalette
   };
 }
 
-function getProviderIconStyle(provider: DeckyGamePageAchievementBadgeProvider): CSSProperties {
+function getProviderIconStyle(provider: DeckyGamePageAchievementBadgeProvider | undefined): CSSProperties {
   return {
     display: "block",
     width: provider === "steam" ? 42 : 52,
@@ -191,7 +194,7 @@ export function DeckyGamePageAchievementBadgeVisual({
   readonly focused?: boolean | undefined;
 }): JSX.Element {
   const palette = resolveDeckyGamePageAchievementBadgePalette(presentation.variant, colors);
-  const providerIconUrl = resolveDeckyGamePageAchievementBadgeProviderIconUrl(presentation.provider);
+  const providerIconUrl = resolveDeckyGamePageAchievementBadgeProviderIconUrl(presentation.provider, presentation.variant);
 
   return (
     <span
