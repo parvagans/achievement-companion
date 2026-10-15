@@ -40,13 +40,11 @@ RetroAchievements and Steam each retain their own progression rules: RA Hardcore
 Your retro progress can live on the game's Steam library page, alongside the rest of your collection. For a non-Steam shortcut that Achievement Companion can confidently match to a RetroAchievements game:
 
 - **Your Stuff → Achievements** shows the RA achievement list with badge artwork, descriptions, locked and unlocked states, and progress. Unlock times and global unlock rates appear when RA provides them.
-- **Activity** shows your latest dated RA unlocks, newest first, with their unlock time and Hardcore or Softcore mode when known. Select a card to open Steam's native Your Stuff achievements list for that game.
+- **Activity** groups dated RA unlocks by day in Steam's native Activity layout. The newest day appears first; scrolling reveals older days without an arbitrary age or eight-achievement cutoff. Achievement tiles show their exact unlock time and Hardcore or Softcore mode in the tooltip and accessible label. Select a tile to open Steam's native Your Stuff achievements list for that game.
 
 Steam ROM Manager and EmuDeck shortcuts can be matched using platform and title metadata and, where supported, ROM hashes. Unsupported or ambiguous games stay unmatched.
 
 ![RetroAchievements shown in Steam's native Your Stuff / Achievements interface](docs/screenshots/readme/ra-native-steam-achievements.png)
-
-![Recent RetroAchievements unlocks with dates in Steam's native Activity tab](docs/screenshots/readme/ra-native-steam-activity.png)
 
 ## See it in action
 

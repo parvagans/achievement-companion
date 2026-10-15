@@ -23,7 +23,7 @@ import {
   withNativeSteamRecentActivitySection,
 } from "./decky-native-steam-achievement-contract";
 import { getNativeRetroAchievementsActivityItems } from "./decky-native-retroachievements-activity-model";
-import { DeckyNativeRetroAchievementsActivity } from "./decky-native-retroachievements-activity";
+import { DeckyNativeRetroAchievementsActivity, type NativeSteamActivityStyles } from "./decky-native-retroachievements-activity";
 import { subscribeDeckyRaNativeAchievementInvalidation } from "./decky-ra-native-achievement-invalidation";
 import { readDeckySettings } from "./decky-settings";
 
@@ -401,7 +401,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
         achievementSections,
         overview,
         appId,
-        getNativeRetroAchievementsActivityItems(projection.achievements, 1).length > 0,
+        getNativeRetroAchievementsActivityItems(projection.achievements).length > 0,
       );
     }));
     pagePatched = true;
@@ -411,6 +411,33 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     if (activityPatched) return;
     const feedClass = findSteamActivityFeedClass();
     if (feedClass === undefined) return;
+    const friendStore = findModuleExport((value: unknown) => {
+      if (typeof value !== "object" || value === null) return false;
+      const record = value as Record<string, unknown>;
+      return record["currentUserSteamID"] !== undefined && typeof record["GetFriendState"] === "function";
+    }) as {
+      currentUserSteamID?: unknown;
+      GetFriendState(id: unknown): {
+        persona?: { m_strPlayerName?: string; avatar_url?: string };
+      } | undefined;
+    } | undefined;
+    const activityStyles = findModuleExport((value: unknown) => {
+      if (typeof value !== "object" || value === null) return false;
+      const record = value as Record<string, unknown>;
+      return typeof record["AppActivityDay"] === "string"
+        && typeof record["EventHeadline"] === "string"
+        && typeof record["ActivityAchievementUnlocked"] === "string"
+        && typeof record["PrimaryAchievement"] === "string";
+    }) as NativeSteamActivityStyles | undefined;
+    const tileStyles = findModuleExport((value: unknown) => {
+      if (typeof value !== "object" || value === null) return false;
+      const record = value as Record<string, unknown>;
+      return typeof record["Featured"] === "string"
+        && typeof record["AchievementHoverContainer"] === "string"
+        && typeof record["TextSection"] === "string"
+        && typeof record["Achieved"] === "string";
+    }) as NativeSteamActivityStyles | undefined;
+    const styles = { ...activityStyles, ...tileStyles };
     patches.push(replacePatch(feedClass.prototype, "render", function (this: { props?: { appid?: number } }) {
       const appId = toAppId(this.props?.appid);
       const page = activePage;
@@ -419,7 +446,16 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
       if (projection === undefined) return callOriginal;
       const items = getNativeRetroAchievementsActivityItems(projection.achievements);
       if (items.length === 0) return callOriginal;
-      return createElement(DeckyNativeRetroAchievementsActivity, { items, appId });
+      const friend = friendStore?.currentUserSteamID === undefined
+        ? undefined
+        : friendStore.GetFriendState(friendStore.currentUserSteamID);
+      return createElement(DeckyNativeRetroAchievementsActivity, {
+        items,
+        appId,
+        actorName: friend?.persona?.m_strPlayerName,
+        actorAvatarUrl: friend?.persona?.avatar_url,
+        styles,
+      });
     }));
     activityPatched = true;
   }

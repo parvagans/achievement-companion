@@ -5,10 +5,14 @@ export interface NativeRetroAchievementsActivityItem {
   readonly unlockedAt: number;
 }
 
-/** The newest confirmed unlocks in the selected RA achievement mode. */
+export interface NativeRetroAchievementsActivityDay {
+  readonly dayKey: string;
+  readonly items: readonly NativeRetroAchievementsActivityItem[];
+}
+
+/** Every dated unlock in the selected RA achievement mode, newest first. */
 export function getNativeRetroAchievementsActivityItems(
   achievements: readonly NormalizedAchievement[],
-  limit = 8,
 ): readonly NativeRetroAchievementsActivityItem[] {
   const seen = new Set<string>();
   return achievements
@@ -22,6 +26,20 @@ export function getNativeRetroAchievementsActivityItems(
       seen.add(achievement.achievementId);
       return true;
     })
-    .slice(0, Math.max(0, limit))
     .map((achievement) => ({ achievement, unlockedAt: achievement.unlockedAt! }));
+}
+
+/** Group unlocks by the same local calendar dates shown on Steam's Activity page. */
+export function groupNativeRetroAchievementsActivityItems(
+  items: readonly NativeRetroAchievementsActivityItem[],
+): readonly NativeRetroAchievementsActivityDay[] {
+  const days = new Map<string, NativeRetroAchievementsActivityItem[]>();
+  for (const item of [...items].sort((left, right) => right.unlockedAt - left.unlockedAt)) {
+    const date = new Date(item.unlockedAt);
+    const dayKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+    const day = days.get(dayKey) ?? [];
+    day.push(item);
+    days.set(dayKey, day);
+  }
+  return [...days].map(([dayKey, dayItems]) => ({ dayKey, items: dayItems }));
 }
