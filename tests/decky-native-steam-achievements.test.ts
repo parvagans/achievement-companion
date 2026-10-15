@@ -146,6 +146,9 @@ test("runtime adapter leaves Steam games untouched and fully unpatches on teardo
     mock.module("@decky/ui", {
       exports: {
         callOriginal,
+        appDetailsClasses: { InnerContainer: "inner-container" },
+        createReactTreePatcher: (_selectors, callback) => callback,
+        findInReactTree: (node, predicate) => predicate(node) ? node : undefined,
         findModuleExport,
         applyHookStubs() {},
         removeHookStubs() {},
@@ -210,6 +213,18 @@ test("runtime adapter leaves Steam games untouched and fully unpatches on teardo
       shortcutSections = shortcutPage.GetSections(shortcut, { unAppID: shortcutId });
     }
     assert.deepEqual([...shortcutSections], ["notes", "achievements", "activity"]);
+    const routeProps = {
+      renderFunc() { return { props: { className: "inner-container", children: [] } }; },
+    };
+    const originalRouteRender = routeProps.renderFunc;
+    routeRecords[0].callback(routeProps);
+    const raRouteChildren = routeProps.renderFunc().props.children;
+    assert.equal(raRouteChildren.length, 1);
+    assert.equal(raRouteChildren[0].props["data-achievement-companion-native-ra-spacing"], "true");
+    assert.match(raRouteChildren[0].props.children, /padding-inline-start: 46px !important/u);
+    window.location.pathname = "/library/app/620";
+    assert.deepEqual(routeProps.renderFunc().props.children, []);
+    window.location.pathname = "/library/app/" + shortcutId;
     const activityContent = new ActivityFeed({ appid: shortcutId }).render();
     assert.equal(activityContent.type.name, "DeckyNativeRetroAchievementsActivity");
     assert.equal(activityContent.props.appId, shortcutId);
@@ -261,6 +276,7 @@ test("runtime adapter leaves Steam games untouched and fully unpatches on teardo
     assert.equal(lifetimeUnregisters, 1);
     assert.equal(newlyMountedPage.forceUpdates, updatesBeforeCleanup + 1);
     assert.equal(patchRecords.every((record) => record.unpatched), true);
+    assert.equal(routeProps.renderFunc, originalRouteRender);
     assert.equal(projectionDisposals, 1);
     assert.equal(projectionInvalidations.includes(undefined), true);
     for (const { target, name, original } of originalMethods) assert.equal(target[name], original);
@@ -276,7 +292,7 @@ test("runtime adapter leaves Steam games untouched and fully unpatches on teardo
     assert.equal(ensureDeckyNativeSteamAchievementsRegistered(), cleanupReloaded);
     assert.equal(routeRecords.length, 2);
     assert.equal(patchRecords.length, reloadedPatchCount);
-    assert.equal(reloadedPatchCount, initialPatchCount * 2);
+    assert.equal(reloadedPatchCount, initialPatchCount * 2 + 1);
     cleanupReloaded();
     assert.equal(routeRecords[1].removed, true);
     assert.equal(lifetimeUnregisters, 2);

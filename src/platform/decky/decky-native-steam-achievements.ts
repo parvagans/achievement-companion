@@ -1,5 +1,5 @@
 import { routerHook } from "@decky/api";
-import { afterPatch, applyHookStubs, callOriginal, findModuleExport, removeHookStubs, replacePatch, type Patch } from "@decky/ui";
+import { afterPatch, appDetailsClasses, applyHookStubs, callOriginal, createReactTreePatcher, findInReactTree, findModuleExport, removeHookStubs, replacePatch, type Patch } from "@decky/ui";
 import { createElement, type ReactElement } from "react";
 import type { RetroAchievementsAchievementMode } from "@core/settings";
 import { DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN } from "./decky-game-page-achievement-route";
@@ -175,6 +175,9 @@ interface ActivePage {
 }
 
 const unavailableAchievementsResponse = { error: 2 };
+const nativeRaSpacingStyleKey = "achievement-companion-native-ra-spacing";
+// Steam's AllAchieved row needs medal clearance even if Activity CSS loads later.
+const nativeRaSpacingCss = "._2YS0EBJmY2Rvs07zZ90UIJ { padding-inline-start: 46px !important; }";
 
 let registeredCleanup: (() => void) | undefined;
 
@@ -195,6 +198,8 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
   let personalPatched = false;
   let progressPatched = false;
   let activityPatched = false;
+  let routeRenderPatch: Patch | undefined;
+  let routeRenderOwner: object | undefined;
   let disposed = false;
 
   function revisionFor(appId: number): SteamObservableBox | undefined {
@@ -464,6 +469,40 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     installStorePatches();
     installPagePatch();
     installActivityPatch();
+    const routeProps = findInReactTree(tree, (node) => !!node?.renderFunc);
+    if (routeProps !== routeRenderOwner) {
+      routeRenderPatch?.unpatch();
+      routeRenderPatch = undefined;
+      routeRenderOwner = undefined;
+      if (typeof routeProps === "object" && routeProps !== null && typeof routeProps.renderFunc === "function") {
+        routeRenderPatch = afterPatch(routeProps, "renderFunc", createReactTreePatcher(
+          [(node) => findInReactTree(node, (entry) => !!entry?.props?.children?.props?.overview)?.props?.children],
+          (_args, ret) => {
+            const container = findInReactTree(ret, (entry) =>
+              Array.isArray(entry?.props?.children)
+              && entry?.props?.className?.includes(appDetailsClasses.InnerContainer),
+            ) as { props?: { children?: unknown[] } } | undefined;
+            const children = container?.props?.children;
+            if (container?.props === undefined || !Array.isArray(children)) return ret;
+            const appId = toAppId(window.location.pathname.match(/^\/(?:routes\/)?library\/app\/(\d+)/u)?.[1]);
+            const withoutSpacing = children.filter((child) =>
+              (child as { key?: unknown } | null)?.key !== nativeRaSpacingStyleKey,
+            );
+            if (appId !== undefined && isShortcutAppId(runtime, appId)) {
+              withoutSpacing.push(createElement("style", {
+                key: nativeRaSpacingStyleKey,
+                "data-achievement-companion-native-ra-spacing": "true",
+                children: nativeRaSpacingCss,
+              }));
+            }
+            container.props.children = withoutSpacing;
+            return ret;
+          },
+          nativeRaSpacingStyleKey,
+        ));
+        routeRenderOwner = routeProps;
+      }
+    }
     return tree as never;
   });
   installStorePatches();
@@ -498,6 +537,9 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     unsubscribeInvalidation();
     gameLifetimeHandle?.unregister();
     routerHook.removePatch(DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN, routePatch);
+    routeRenderPatch?.unpatch();
+    routeRenderPatch = undefined;
+    routeRenderOwner = undefined;
     invalidateDeckyNativeRetroAchievementsProjection();
     attempts.clear();
     shortcutIdentities.clear();
