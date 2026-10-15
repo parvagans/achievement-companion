@@ -1,0 +1,3 @@
+# Preserve fingerprinted SVG bytes across Windows and Linux checkouts.
+src/platform/decky/assets/*.svg -text
+src/platform/decky/assets/achievement-badge/*.svg -text

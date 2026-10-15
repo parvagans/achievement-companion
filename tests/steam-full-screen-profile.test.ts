@@ -787,11 +787,10 @@ test("full-screen loading screens retain simple provider-specific loading states
   assert.match(deckyServicesSource, /stepId: "steam-hunters", status: "failed"[\s\S]*status: "error"[\s\S]*isRefreshing: false/u);
 });
 
-test("shared compact and full-screen loading mark uses the neutral information icon while busy", async () => {
+test("shared compact and full-screen loading mark keeps the provider icon while busy", async () => {
   const source = await readFile(new URL("../src/platform/decky/decky-loading-brand.tsx", import.meta.url), "utf8");
-  assert.match(source, /import infoIconUrl from "\.\/assets\/info\.svg"/u);
-  assert.match(source, /const providerIconUrl = isLoading\s*\? infoIconUrl/u);
-  assert.match(source, /knownProvider === "steam"\s*\? steamIconUrl/u);
+  assert.doesNotMatch(source, /import infoIconUrl from "\.\/assets\/info\.svg"/u);
+  assert.match(source, /const providerIconUrl = knownProvider === "steam"\s*\? steamIconUrl/u);
   assert.match(source, /knownProvider === "retroachievements"\s*\? retroAchievementsIconUrl/u);
 });
 

@@ -2,7 +2,6 @@ import { useEffect, useRef, type CSSProperties } from "react";
 import retroAchievementsIconUrl from "./assets/retroachievements.svg";
 import steamIconUrl from "./assets/steam.svg";
 import steamDeckIconUrl from "./assets/steam-deck.svg";
-import infoIconUrl from "./assets/info.svg";
 
 export const DECKY_LOADING_COLORS = {
   cyan: "#08d5f5",
@@ -141,9 +140,7 @@ export function DeckyLoadingBrandMark({
     };
   }, [isLoading]);
 
-  const providerIconUrl = isLoading
-    ? infoIconUrl
-    : knownProvider === "steam"
+  const providerIconUrl = knownProvider === "steam"
     ? steamIconUrl
     : knownProvider === "retroachievements"
       ? retroAchievementsIconUrl

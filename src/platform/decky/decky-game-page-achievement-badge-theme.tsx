@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useRef, type CSSProperties, type ReactNode, type RefObject } from "react";
 import {
   DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS,
   type GamePageAchievementBadgeColors,
@@ -20,6 +20,8 @@ import {
 const BADGE_WIDTH = 292;
 const BADGE_HEIGHT = 74;
 const PROGRESS_RING_STROKE_WIDTH = 7.5;
+const PROGRESS_RING_RADIUS = 21;
+const PROGRESS_RING_CIRCUMFERENCE = 2 * Math.PI * PROGRESS_RING_RADIUS;
 
 
 export function resolveDeckyGamePageAchievementBadgeProviderIconUrl(
@@ -103,13 +105,16 @@ function getPlatformMedallionStyle(palette: DeckyGamePageAchievementBadgePalette
   };
 }
 
-function getProviderIconStyle(provider: DeckyGamePageAchievementBadgeProvider | undefined): CSSProperties {
+function getProviderIconStyle(
+  provider: DeckyGamePageAchievementBadgeProvider | undefined,
+  variant: DeckyGamePageAchievementBadgeVariant,
+): CSSProperties {
   return {
     display: "block",
     width: provider === "steam" ? 42 : 52,
     height: provider === "steam" ? 42 : 52,
     objectFit: "contain",
-    ...(provider === "steam" ? { filter: "brightness(0) invert(1)" } : {}),
+    ...(variant === "loading" || provider !== "retroachievements" ? { filter: "brightness(0) invert(1)" } : {}),
   };
 }
 
@@ -140,9 +145,10 @@ function renderStatusIcon(
 function renderProgressRing(
   presentation: DeckyGamePageAchievementBadgePresentation,
   palette: DeckyGamePageAchievementBadgePalette,
+  loadingRingRef: RefObject<SVGCircleElement>,
 ): ReactNode {
-  const radius = 21;
-  const circumference = 2 * Math.PI * radius;
+  const circumference = PROGRESS_RING_CIRCUMFERENCE;
+  const loading = presentation.variant === "loading";
   const dashOffset = circumference * (1 - presentation.progress);
   const completed = presentation.variant === "perfected" || presentation.variant === "mastered";
   const ringGradientId = `ac-game-page-badge-ring-${presentation.variant}`;
@@ -164,13 +170,15 @@ function renderProgressRing(
       </defs>
       <circle cx="27" cy="27" fill={`url(#${ringCenterGradientId})`} r="21" stroke={palette.track} strokeWidth={PROGRESS_RING_STROKE_WIDTH} />
       <circle
+        ref={loadingRingRef}
+        data-ac-game-page-badge-loading-ring={loading ? "true" : undefined}
         cx="27"
         cy="27"
         fill="none"
-        r={radius}
+        r={PROGRESS_RING_RADIUS}
         stroke={`url(#${ringGradientId})`}
-        strokeDasharray={circumference}
-        strokeDashoffset={dashOffset}
+        strokeDasharray={loading ? `${circumference * presentation.progress} ${circumference * (1 - presentation.progress)}` : circumference}
+        strokeDashoffset={loading ? 0 : dashOffset}
         strokeLinecap="butt"
         strokeWidth={PROGRESS_RING_STROKE_WIDTH}
         style={{ filter: `drop-shadow(0 0 4px ${palette.glow})` }}
@@ -193,6 +201,33 @@ export function DeckyGamePageAchievementBadgeVisual({
   readonly colors?: GamePageAchievementBadgeColors | undefined;
   readonly focused?: boolean | undefined;
 }): JSX.Element {
+  const loadingRingRef = useRef<SVGCircleElement>(null);
+  useEffect(() => {
+    if (presentation.variant !== "loading") return;
+    const ring = loadingRingRef.current;
+    const ownerWindow = ring?.ownerDocument.defaultView;
+    if (ring === null || ownerWindow === null || ownerWindow === undefined) return;
+
+    const reducedMotion = ownerWindow.matchMedia("(prefers-reduced-motion: reduce)");
+    let animation: Animation | undefined;
+    const updateAnimation = (): void => {
+      animation?.cancel();
+      animation = reducedMotion.matches
+        ? undefined
+        : ring.animate(
+          [{ strokeDashoffset: "0px" }, { strokeDashoffset: `${-PROGRESS_RING_CIRCUMFERENCE}px` }],
+          { duration: 1_650, easing: "linear", iterations: Infinity },
+        );
+    };
+
+    updateAnimation();
+    reducedMotion.addEventListener("change", updateAnimation);
+    return () => {
+      reducedMotion.removeEventListener("change", updateAnimation);
+      animation?.cancel();
+    };
+  }, [presentation.variant]);
+
   const palette = resolveDeckyGamePageAchievementBadgePalette(presentation.variant, colors);
   const providerIconUrl = resolveDeckyGamePageAchievementBadgeProviderIconUrl(presentation.provider, presentation.variant);
 
@@ -204,7 +239,7 @@ export function DeckyGamePageAchievementBadgeVisual({
     >
       <span data-ac-game-page-badge-gloss="true" style={getBadgeGlossOverlayStyle()} />
       <span style={getPlatformMedallionStyle(palette)}>
-        <img alt="" src={providerIconUrl} style={getProviderIconStyle(presentation.provider)} />
+        <img alt="" src={providerIconUrl} style={getProviderIconStyle(presentation.provider, presentation.variant)} />
       </span>
       <span style={getBadgeContentStyle({ width: 1, height: 48, marginLeft: 7, background: "rgba(255,255,255,.16)", boxShadow: `0 0 8px ${palette.glow}` })} />
       <span style={getBadgeContentStyle({ width: 52, flex: "0 0 52px", display: "grid", placeItems: "center" })}>
@@ -219,7 +254,7 @@ export function DeckyGamePageAchievementBadgeVisual({
         </span>
       </span>
       <span style={getBadgeContentStyle({ display: "grid", placeItems: "center", paddingRight: 7 })}>
-        {renderProgressRing(presentation, palette)}
+        {renderProgressRing(presentation, palette, loadingRingRef)}
       </span>
     </span>
   );

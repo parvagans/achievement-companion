@@ -11724,6 +11724,11 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(bubbleSource, /resolveDeckyGamePageAchievementBadgeProviderIconUrl/u);
   assert.match(badgeThemeSource, /import infoIconUrl from "\.\/assets\/info\.svg"/u);
   assert.match(badgeThemeSource, /variant === "loading" \|\| provider === undefined/u);
+  assert.match(badgeThemeSource, /variant === "loading" \|\| provider !== "retroachievements" \? \{ filter: "brightness\(0\) invert\(1\)" \}/u);
+  assert.match(badgeThemeSource, /getProviderIconStyle\(presentation\.provider, presentation\.variant\)/u);
+  assert.match(badgeThemeSource, /strokeDasharray=\{loading \? `\$\{circumference \* presentation\.progress\} \$\{circumference \* \(1 - presentation\.progress\)\}` : circumference\}/u);
+  assert.match(badgeThemeSource, /strokeDashoffset=\{loading \? 0 : dashOffset\}/u);
+  assert.match(badgeThemeSource, /if \(presentation\.variant !== "loading"\) return;[\s\S]*?prefers-reduced-motion: reduce[\s\S]*?ring\.animate\([\s\S]*?reducedMotion\.addEventListener\("change", updateAnimation\)/u);
   assert.match(routeBadgeSource, /resolveDeckyGamePageAchievementBadgeProviderIconUrl\(presentation\.provider, presentation\.variant\)/u);
   assert.match(bubbleSource, /resolveDeckyGamePageAchievementBadgeCompletionStatus/u);
   assert.match(bubbleSource, /markAchievementCompanionGamePageBadgeStatus/u);

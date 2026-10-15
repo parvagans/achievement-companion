@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 1800 780"
+     fill="none"
+     role="img"
+     aria-labelledby="title desc">
+  <title id="title">Steam Deck style handheld console</title>
+  <desc id="desc">Front-facing monochrome vector illustration of a handheld gaming console with screen, D-pad, dual sticks, trackpads, select/start buttons and ABXY buttons.</desc>
+
+  <rect x="45" y="48" width="1710" height="650" rx="155"
+        stroke="#000" stroke-width="28" fill="none"/>
+
+  <rect x="455" y="118" width="890" height="500" rx="42"
+        fill="#000"/>
+  <rect x="500" y="148" width="800" height="440" rx="18"
+        fill="white"/>
+
+  <rect x="220" y="88" width="74" height="32" rx="16" fill="#000"/>
+  <rect x="1506" y="88" width="74" height="32" rx="16" fill="#000"/>
+
+  <!-- D-pad: top aligned with the top of the Y button while
+       remaining clear of the select button and left analog stick. -->
+  <path d="M85 143h40v-42h42v42h40v44h-40v42h-42v-42h-40z"
+        fill="#000"/>
+
+  <circle cx="350" cy="190" r="86" fill="#000"/>
+  <circle cx="350" cy="190" r="58" fill="white"/>
+  <circle cx="350" cy="190" r="42" fill="#000"/>
+
+  <circle cx="1445" cy="190" r="86" fill="#000"/>
+  <circle cx="1445" cy="190" r="58" fill="white"/>
+  <circle cx="1445" cy="190" r="42" fill="#000"/>
+
+  <g font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="700"
+     text-anchor="middle" dominant-baseline="middle">
+    <circle cx="1640" cy="135" r="34" fill="#000"/><text x="1640" y="135" fill="white">Y</text>
+    <circle cx="1580" cy="195" r="34" fill="#000"/><text x="1580" y="195" fill="white">X</text>
+    <circle cx="1700" cy="195" r="34" fill="#000"/><text x="1700" y="195" fill="white">B</text>
+    <circle cx="1640" cy="255" r="34" fill="#000"/><text x="1640" y="255" fill="white">A</text>
+  </g>
+
+  <rect x="165" y="330" width="230" height="185" rx="42" fill="#000"/>
+  <rect x="1405" y="330" width="230" height="185" rx="42" fill="#000"/>
+
+  <rect x="280" y="535" width="64" height="34" rx="17" fill="#000"/>
+  <rect x="1456" y="535" width="64" height="34" rx="17" fill="#000"/>
+
+  <g fill="#000">
+    <rect x="260" y="585" width="34" height="22" rx="11"/>
+    <rect x="302" y="585" width="34" height="22" rx="11"/>
+    <rect x="344" y="585" width="34" height="22" rx="11"/>
+    <rect x="260" y="615" width="34" height="22" rx="11"/>
+    <rect x="302" y="615" width="34" height="22" rx="11"/>
+    <rect x="344" y="615" width="34" height="22" rx="11"/>
+
+    <rect x="1422" y="585" width="34" height="22" rx="11"/>
+    <rect x="1464" y="585" width="34" height="22" rx="11"/>
+    <rect x="1506" y="585" width="34" height="22" rx="11"/>
+    <rect x="1422" y="615" width="34" height="22" rx="11"/>
+    <rect x="1464" y="615" width="34" height="22" rx="11"/>
+    <rect x="1506" y="615" width="34" height="22" rx="11"/>
+  </g>
+</svg>
