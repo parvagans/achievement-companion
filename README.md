@@ -42,7 +42,9 @@ Your retro progress can live on the game's Steam library page, alongside the res
 - **Your Stuff → Achievements** shows the RA achievement list with badge artwork, descriptions, locked and unlocked states, and progress. Unlock times and global unlock rates appear when RA provides them.
 - **Activity** groups dated RA unlocks by day in Steam's native Activity layout. The newest day appears first; scrolling reveals older days without an arbitrary age or eight-achievement cutoff. Achievement tiles show their exact unlock time and Hardcore or Softcore mode in the tooltip and accessible label. Select a tile to open Steam's native Your Stuff achievements list for that game.
 
-Steam ROM Manager and EmuDeck shortcuts can be matched using platform and title metadata and, where supported, ROM hashes. Unsupported or ambiguous games stay unmatched.
+Steam ROM Manager and EmuDeck shortcuts are identified by matching accepted RetroAchievements ROM hashes, rather than by their Steam shortcut names. Identification handles supported direct ROMs, ZIP archives, disc images, and GameCube/Wii formats including RVZ, WIA, GCZ, CISO, and WBFS. A ROM revision without a recognized hash stays unresolved instead of being matched by title. Identification diagnostics and loading states explain the process more clearly; unsupported or ambiguous games stay unmatched.
+
+![RetroAchievements shown in Steam's native Activity / Achievements interface](docs/screenshots/readme/ra-native-steam-activity.png)
 
 ![RetroAchievements shown in Steam's native Your Stuff / Achievements interface](docs/screenshots/readme/ra-native-steam-achievements.png)
 
@@ -52,19 +54,41 @@ Steam ROM Manager and EmuDeck shortcuts can be matched using platform and title 
 
 Give both sides of your collection a full-screen home, with profile statistics, recent games, and completion progress.
 
-![RetroAchievements and Steam full-screen profile dashboards](docs/screenshots/readme/fullscreen-providers.png)
+| RetroAchievements profile | Steam profile |
+| --- | --- |
+| ![RetroAchievements full-screen profile dashboard](docs/screenshots/readme/ra-fullscreen-profile.png) | ![Steam full-screen profile dashboard](docs/screenshots/readme/steam-fullscreen-profile.png) |
 
-### RetroAchievements Games and Activity
+### Full-screen Games and Activity
 
-The full-screen Games view lets you search and filter your progress. Activity brings together recent unlocks, insights, and a calendar, with the controller footer available across both views.
+Each provider has searchable game lists and an Activity dashboard with unlock history and a calendar. Both views support controller navigation.
 
-![RetroAchievements full-screen Games view with progress filters beside the Activity view with unlock history and calendar](docs/screenshots/readme/ra-fullscreen-games-activity.png)
+| RetroAchievements Games | RetroAchievements Activity |
+| --- | --- |
+| ![RetroAchievements full-screen Games view](docs/screenshots/readme/ra-fullscreen-games.png) | ![RetroAchievements full-screen Activity view](docs/screenshots/readme/ra-fullscreen-activity.png) |
 
-### RetroAchievements game detail
+| Steam Games | Steam Activity |
+| --- | --- |
+| ![Steam full-screen Games view](docs/screenshots/readme/steam-fullscreen-games.png) | ![Steam full-screen Activity view](docs/screenshots/readme/steam-fullscreen-activity.png) |
 
-Explore a game's achievement set, Hardcore and Softcore progress, completion milestones, and supported subsets from one game page.
+### Full-screen game pages
 
-![RetroAchievements full-screen game page with progress and completion detail](docs/screenshots/readme/ra-game-view.png)
+The full-screen game pages bring each game's overview and achievement progress together. Steam pages also include DLC and community insights; RetroAchievements pages show Hardcore and Softcore progress and supported subsets.
+
+**Steam**
+
+| Overview | Achievements |
+| --- | --- |
+| ![Steam full-screen game overview tab](docs/screenshots/readme/steam-fullscreen-game-overview-tab.png) | ![Steam full-screen game achievements tab](docs/screenshots/readme/steam-fullscreen-game-achievements-tab.png) |
+
+| DLC | Community |
+| --- | --- |
+| ![Steam full-screen game DLC tab](docs/screenshots/readme/steam-fullscreen-game-dlc-tab.png) | ![Steam full-screen game community tab](docs/screenshots/readme/steam-fullscreen-game-community-tab.png) |
+
+**RetroAchievements**
+
+| Overview | Achievements |
+| --- | --- |
+| ![RetroAchievements full-screen game overview tab](docs/screenshots/readme/ra-fullscreen-game-overview-tab.png) | ![RetroAchievements full-screen game achievements tab](docs/screenshots/readme/ra-fullscreen-game-achievements-tab.png) |
 
 ### Native game-page status badges
 
@@ -80,6 +104,7 @@ Follow your collection from the first unlock to mastery:
 - **More sets to explore:** discover and expand subsets from supported game pages.
 - **Your preferred mode:** show Hardcore, Softcore, or both, with their progress kept distinct.
 - **Your current session:** fresh RetroAchievements Rich Presence identifies current-game activity.
+- **Clearer game identification:** accepted ROM hashes identify supported files and containers; ROM revisions without a recognized hash remain unresolved. Diagnostics and loading states make identification easier to follow.
 
 The full-screen **Systems** tab is a coming-soon placeholder.
 
