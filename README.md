@@ -8,6 +8,7 @@
 ![Decky Loader plugin](https://img.shields.io/badge/Decky%20Loader-plugin-7357ff)
 ![RetroAchievements](https://img.shields.io/badge/RetroAchievements-supported-ef7d00)
 ![Steam achievements](https://img.shields.io/badge/Steam-achievements-171a21?logo=steam)
+[![Support development on Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20development-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white)](https://ko-fi.com/parvagans)
 
 **Your retro milestones. Your Steam completions. All in Game Mode.**
 
