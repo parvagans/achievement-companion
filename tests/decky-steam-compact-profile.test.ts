@@ -22,6 +22,13 @@ const compactNavigationSource = readFileSync(
 );
 const indexSource = readFileSync("src/index.tsx", "utf8");
 
+test("Steam compact XP progress keeps unavailable distinct from zero", () => {
+  assert.match(compactProfileSource, /aria-valuenow=\{progress\.xpProgressPercent\}/u);
+  assert.match(compactProfileSource, /aria-valuetext=\{progress\.xpProgressPercent === undefined \? "XP unavailable" : undefined\}/u);
+  assert.match(compactProfileSource, /progress\.xpProgressPercent !== undefined \? <div style=\{getProgressFillStyle\(progress\.xpProgressPercent\)\} \/> : null/u);
+  assert.doesNotMatch(compactProfileSource, /xpProgressPercent \?\? 0/u);
+});
+
 test("Steam compact profile matches the refined controller-first information hierarchy", () => {
   assert.match(compactProfileSource, /data-achievement-companion-steam-compact-profile/u);
   assert.match(compactProfileSource, /width: "100%"/u);

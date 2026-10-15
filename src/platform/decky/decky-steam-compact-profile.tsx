@@ -786,11 +786,12 @@ function ProfileCard({
         aria-label="Steam level progress"
         aria-valuemax={100}
         aria-valuemin={0}
-        aria-valuenow={progress.xpProgressPercent ?? 0}
+        aria-valuenow={progress.xpProgressPercent}
+        aria-valuetext={progress.xpProgressPercent === undefined ? "XP unavailable" : undefined}
         role="progressbar"
         style={getProgressTrackStyle()}
       >
-        <div style={getProgressFillStyle(progress.xpProgressPercent ?? 0)} />
+        {progress.xpProgressPercent !== undefined ? <div style={getProgressFillStyle(progress.xpProgressPercent)} /> : null}
       </div>
       <div style={getXpCaptionStyle()}>{progress.xpProgressCaption}</div>
     </div>
