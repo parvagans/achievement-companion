@@ -1,3 +1,5 @@
+import type { RecentUnlock } from "@core/domain";
+
 export type DeckyRetroAchievementsCompactFocusTarget =
   | { readonly kind: "profile" }
   | { readonly kind: "current-game" }
@@ -5,7 +7,7 @@ export type DeckyRetroAchievementsCompactFocusTarget =
   | { readonly kind: "beaten" }
   | { readonly kind: "calendar-entry" }
   | { readonly kind: "calendar-day"; readonly day: number }
-  | { readonly kind: "achievement"; readonly gameId: string; readonly achievementId: string }
+  | { readonly kind: "achievement"; readonly gameId: string; readonly achievementId: string; readonly unlockMode?: "hardcore" | "softcore"; readonly unlockedAt?: number }
   | { readonly kind: "activity" }
   | { readonly kind: "game"; readonly gameId: string }
   | { readonly kind: "games" }
@@ -21,10 +23,23 @@ export function getDeckyRetroAchievementsCompactFocusTargetKey(
 ): string {
   switch (target.kind) {
     case "calendar-day": return `calendar-day:${target.day}`;
-    case "achievement": return `achievement:${target.gameId}:${target.achievementId}`;
+    case "achievement": return `achievement:${JSON.stringify([target.gameId, target.achievementId, target.unlockMode ?? null, target.unlockedAt ?? null])}`;
     case "game": return `game:${target.gameId}`;
     default: return target.kind;
   }
+}
+
+export function getDeckyRetroAchievementsCompactAchievementFocusTarget(
+  unlock: RecentUnlock,
+): DeckyRetroAchievementsCompactFocusTarget {
+  const unlockedAt = unlock.unlockedAt ?? unlock.achievement.unlockedAt;
+  return {
+    kind: "achievement",
+    gameId: unlock.game.gameId,
+    achievementId: unlock.achievement.achievementId,
+    ...(unlock.achievement.unlockMode !== undefined ? { unlockMode: unlock.achievement.unlockMode } : {}),
+    ...(unlockedAt !== undefined ? { unlockedAt } : {}),
+  };
 }
 
 export function readDeckyRetroAchievementsCompactFocusTarget(): DeckyRetroAchievementsCompactFocusTarget {

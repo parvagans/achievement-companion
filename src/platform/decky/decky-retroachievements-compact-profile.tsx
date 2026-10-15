@@ -30,6 +30,7 @@ import {
   formatCompactActivityDate,
 } from "./decky-compact-activity-model";
 import {
+  getDeckyRetroAchievementsCompactAchievementFocusTarget,
   getDeckyRetroAchievementsCompactFocusTargetKey,
   readDeckyRetroAchievementsCompactFocusTarget,
   setDeckyRetroAchievementsCompactFocusTarget,
@@ -821,7 +822,7 @@ export function DeckyRetroAchievementsCompactProfile({
         {completion !== undefined ? (
           <div style={raRecipes.compactProfile.progressCard}>
             <div style={raRecipes.compactProfile.progressHeader}>
-              <span style={raRecipes.compactProfile.progressLabel}>Library Completion</span>
+              <span style={raRecipes.compactProfile.progressLabel}>Achievement Completion</span>
               <span style={raRecipes.compactProfile.progressValue}>{completion}%</span>
             </div>
             <DeckyCompletionProgressBar compact percent={completion} />
@@ -856,15 +857,18 @@ export function DeckyRetroAchievementsCompactProfile({
       <Section title="Recent Activity">
         <div style={raRecipes.compactProfile.listCard}>
           <div style={raRecipes.compactProfile.listRows}>
-            {visibleActivity.length > 0 ? visibleActivity.map((unlock) => (
-              <RecentAchievementRow
-                key={`${unlock.game.gameId}:${unlock.achievement.achievementId}`}
-                unlock={unlock}
-                onActivate={() => onOpenAchievementDetail({ game: unlock.game, achievement: unlock.achievement })}
-                onCancel={onCancel}
-                targetProps={targetProps({ kind: "achievement", gameId: unlock.game.gameId, achievementId: unlock.achievement.achievementId })}
-              />
-            )) : <div style={{ ...raRecipes.state("empty"), padding: 8, textAlign: "left" }}>No recent achievements yet.</div>}
+            {visibleActivity.length > 0 ? visibleActivity.map((unlock) => {
+              const focusTarget = getDeckyRetroAchievementsCompactAchievementFocusTarget(unlock);
+              return (
+                <RecentAchievementRow
+                  key={getDeckyRetroAchievementsCompactFocusTargetKey(focusTarget)}
+                  unlock={unlock}
+                  onActivate={() => onOpenAchievementDetail({ game: unlock.game, achievement: unlock.achievement })}
+                  onCancel={onCancel}
+                  targetProps={targetProps(focusTarget)}
+                />
+              );
+            }) : <div style={{ ...raRecipes.state("empty"), padding: 8, textAlign: "left" }}>No recent achievements yet.</div>}
           </div>
           <ViewAll label="achievements" onActivate={onOpenAchievementHistory} onCancel={onCancel} dataAttribute="recent-activity" targetProps={targetProps({ kind: "activity" })} />
         </div>

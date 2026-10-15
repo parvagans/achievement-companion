@@ -35,6 +35,13 @@ import {
   getRetroAchievementsProfileRanks,
   sortRetroAchievementsUnlocksNewestFirst,
 } from "../src/platform/decky/decky-retroachievements-compact-profile-model";
+import {
+  getDeckyRetroAchievementsCompactAchievementFocusTarget,
+  getDeckyRetroAchievementsCompactFocusTargetKey,
+  readDeckyRetroAchievementsCompactFocusTarget,
+  resetDeckyRetroAchievementsCompactFocusState,
+  setDeckyRetroAchievementsCompactFocusTarget,
+} from "../src/platform/decky/decky-retroachievements-compact-focus-state";
 
 function createProfile(metrics = [
   { key: "site-rank", label: "Site Rank", value: "12345" },
@@ -132,6 +139,31 @@ test("recent activity is ordered newest first before the compact limit is applie
   const entries = [createUnlock("hardcore", 1), createUnlock("softcore", 3), createUnlock("hardcore", 2)];
   assert.deepEqual(sortRetroAchievementsUnlocksNewestFirst(entries).map(({ unlockedAt }) => unlockedAt), [3, 2, 1]);
   assert.deepEqual(entries.map(({ unlockedAt }) => unlockedAt), [1, 3, 2]);
+});
+
+test("recent activity focus identifies separate unlock events for the same achievement", () => {
+  const entries = [
+    createUnlock("hardcore", 100),
+    createUnlock("softcore", 200),
+    createUnlock("hardcore", 300),
+  ].map((entry) => ({
+    ...entry,
+    achievement: { ...entry.achievement, achievementId: "shared" },
+  }));
+  const visible = filterRetroAchievementsUnlocksByMode(entries, "both");
+  const targets = visible.map(getDeckyRetroAchievementsCompactAchievementFocusTarget);
+  const keys = targets.map(getDeckyRetroAchievementsCompactFocusTargetKey);
+  assert.equal(visible.length, 3);
+  assert.equal(new Set(keys).size, 3);
+  setDeckyRetroAchievementsCompactFocusTarget(targets[1]!, 1000);
+  assert.equal(getDeckyRetroAchievementsCompactFocusTargetKey(readDeckyRetroAchievementsCompactFocusTarget()), keys[1]);
+  resetDeckyRetroAchievementsCompactFocusState();
+});
+
+test("RA compact completion label describes achievements, not library ownership", async () => {
+  const source = await readFile(new URL("../src/platform/decky/decky-retroachievements-compact-profile.tsx", import.meta.url), "utf8");
+  assert.match(source, /<span style=\{raRecipes\.compactProfile\.progressLabel\}>Achievement Completion<\/span>/u);
+  assert.doesNotMatch(source, /Library Completion/u);
 });
 
 test("eight-week RA activity calendar counts real unlocks and filters by mode", () => {
