@@ -15,16 +15,18 @@ import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
-import { formatDeckyRelativeTime, formatFullscreenLastSync, formatProfileMemberSince } from "./decky-stat-helpers";
+import { formatDeckyRelativeTime, formatFullscreenLastSync, formatProfileMemberSince, formatSteamPlaytimeMinutes } from "./decky-stat-helpers";
 import { DeckySteamHuntersIcon } from "./decky-steam-icons";
 import type {
   SteamFullScreenProfileSummary,
   SteamProfileGameSummary,
 } from "./decky-steam-full-screen-profile-data";
-import type { SteamHuntersProfile } from "../../providers/steamhunters";
+import { hasMeaningfulSteamHuntersProfile, type SteamHuntersProfile } from "../../providers/steamhunters";
+import { useDeckySettings } from "./decky-settings";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import calendarIconUrl from "./assets/calendar.svg";
+import clockIconUrl from "./assets/clock.svg";
 import crownIconUrl from "./assets/achievement-badge/crown-laurel.svg";
 import libraryIconUrl from "./assets/library.svg";
 import masteredIconUrl from "./assets/mastered.svg";
@@ -33,6 +35,7 @@ import rankAchievementsIconUrl from "./assets/rank-achievements.svg";
 import rankCompletedGamesIconUrl from "./assets/rank-completed-games.svg";
 import rankPointsIconUrl from "./assets/rank-points.svg";
 import starIconUrl from "./assets/star.svg";
+import steamDeckIconUrl from "./assets/steam-deck.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
 import xpIconUrl from "./assets/xp.svg";
 
@@ -182,7 +185,7 @@ function getDashboardStyle(): CSSProperties {
   };
 }
 
-function getDashboardGridStyle(): CSSProperties {
+function getDashboardGridStyle(hasInsightsPanel: boolean): CSSProperties {
   return {
     display: "grid",
     // Constrain both dashboard rows to the frame above Steam's fixed footer.
@@ -192,7 +195,9 @@ function getDashboardGridStyle(): CSSProperties {
     // evenly, so activity and recently played meet at the center.
     gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
     gridTemplateRows: "minmax(210px, 0.5fr) minmax(174px, 1fr)",
-    gridTemplateAreas: '"profile profile progress progress insights insights" "activity activity activity recent recent recent"',
+    gridTemplateAreas: hasInsightsPanel
+      ? '"profile profile progress progress insights insights" "activity activity activity recent recent recent"'
+      : '"profile profile profile progress progress progress" "activity activity activity recent recent recent"',
     alignItems: "stretch",
     gap: 8,
     width: "100%",
@@ -611,16 +616,17 @@ function SteamProgressPanel({ summary }: { readonly summary: SteamFullScreenProf
   const total = summary.achievements.total;
   const unlocked = summary.achievements.unlocked;
   const completionPercent = summary.achievements.completionPercent;
+  const hasAchievementData = summary.achievements.scope === "library-scan" || summary.recentGames.length > 0;
 
   return (
     <DashboardPanel gridArea="progress" title="Your Progress (Steam)">
       <div style={getProgressHeroStyle()}>
         <div style={getProgressValueStyle()}>
-          {total !== undefined ? `${formatCount(unlocked)} / ${formatCount(total)}` : formatCount(unlocked)}
+          {!hasAchievementData ? "—" : total !== undefined ? `${formatCount(unlocked)} / ${formatCount(total)}` : formatCount(unlocked)}
         </div>
-        <div style={getProgressLabelStyle()}>achievements unlocked</div>
+        <div style={getProgressLabelStyle()}>{!hasAchievementData ? "Achievement data unavailable" : summary.achievements.scope === "library-scan" ? "achievements unlocked in scanned games" : "achievements unlocked in recent games"}</div>
       </div>
-      {completionPercent !== undefined ? (
+      {hasAchievementData && completionPercent !== undefined ? (
         <div style={getProgressBarRowStyle()}>
           <DeckyCompletionProgressBar breathe percent={completionPercent} showCaption={false} steamTheme />
           <span style={getProgressPercentStyle()}>{formatPercent(completionPercent)}</span>
@@ -704,6 +710,39 @@ function SteamInsightsPanel({ steamHuntersProfile }: {
             compactValue
             rankTrend={steamHuntersProfile?.globalCompletedGamesRankTrend}
           />
+        </div>
+      </div>
+    </DashboardPanel>
+  );
+}
+
+function SteamLibraryInsightsPanel({ library }: {
+  readonly library: SteamFullScreenProfileSummary["library"];
+}): JSX.Element {
+  return (
+    <DashboardPanel gridArea="insights" title="Steam Library">
+      <div style={getSteamInsightsMetricsStyle()}>
+        <div style={getMetricGridStyle()}>
+          {library.totalPlaytimeMinutes !== undefined ? <MetricTile
+            iconUrl={clockIconUrl}
+            label="Playtime"
+            value={formatSteamPlaytimeMinutes(library.totalPlaytimeMinutes) ?? "-"}
+          /> : null}
+          {library.steamDeckPlaytimeMinutes !== undefined ? <MetricTile
+            iconUrl={steamDeckIconUrl}
+            label="Steam Deck"
+            value={formatSteamPlaytimeMinutes(library.steamDeckPlaytimeMinutes) ?? "-"}
+          /> : null}
+          {library.lastTwoWeeksPlaytimeMinutes !== undefined ? <MetricTile
+            iconUrl={calendarIconUrl}
+            label="Last 2 weeks"
+            value={formatSteamPlaytimeMinutes(library.lastTwoWeeksPlaytimeMinutes) ?? "-"}
+          /> : null}
+          {library.unplayedGames !== undefined ? <MetricTile
+            iconUrl={libraryIconUrl}
+            label="Unplayed games"
+            value={formatCount(library.unplayedGames)}
+          /> : null}
         </div>
       </div>
     </DashboardPanel>
@@ -1071,6 +1110,23 @@ export function SteamFullScreenProfileDashboard({
   onOpenGameDetail,
   onOpenAchievementDetail,
 }: SteamFullScreenProfileDashboardProps): JSX.Element {
+  const settings = useDeckySettings();
+  const showSteamHuntersProfile = settings.steamHuntersPersonalDataEnabled
+    && hasMeaningfulSteamHuntersProfile(steamHuntersProfile)
+    && [
+      steamHuntersProfile?.points,
+      steamHuntersProfile?.globalPointsRank,
+      steamHuntersProfile?.averageGameCompletion,
+      steamHuntersProfile?.globalAchievementsRank,
+      steamHuntersProfile?.legendaryAchievements,
+      steamHuntersProfile?.globalCompletedGamesRank,
+    ].some((value) => value !== undefined && value > 0);
+  const library = summary.library;
+  const showSteamLibraryFallback = !showSteamHuntersProfile
+    && library.playedGames !== undefined
+    && [library.totalPlaytimeMinutes, library.steamDeckPlaytimeMinutes, library.lastTwoWeeksPlaytimeMinutes, library.unplayedGames]
+      .some((value) => value !== undefined && value > 0);
+  const hasInsightsPanel = showSteamHuntersProfile || showSteamLibraryFallback;
   const dashboardRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     if (!isActive) {
@@ -1104,13 +1160,14 @@ export function SteamFullScreenProfileDashboard({
   return (
     <div ref={dashboardRef} data-ac-steam-theme="fullscreen" data-steam-full-screen-profile-dashboard style={getDashboardStyle()}>
       <SteamProfileDashboardFocusStyles />
-      <Focusable flow-children="left-right" noFocusRing tabIndex={-1} style={getDashboardGridStyle()}>
+      <Focusable flow-children="left-right" noFocusRing tabIndex={-1} style={getDashboardGridStyle(hasInsightsPanel)}>
         <SteamProfileIdentityPanel
           profile={profile}
           refreshedAt={refreshedAt}
         />
         <SteamProgressPanel summary={summary} />
-        <SteamInsightsPanel steamHuntersProfile={steamHuntersProfile} />
+        {showSteamHuntersProfile ? <SteamInsightsPanel steamHuntersProfile={steamHuntersProfile} />
+          : showSteamLibraryFallback ? <SteamLibraryInsightsPanel library={library} /> : null}
         <SteamRecentActivityPanel
           recentUnlocks={recentUnlocks}
           recentGameCount={summary.recentGames.slice(0, 3).length}

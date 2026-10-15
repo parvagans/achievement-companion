@@ -306,7 +306,7 @@ test("full-screen provider settings share Steam geometry and keep About/Updates 
   ]);
 
   assert.match(raSource, /type RetroAchievementsSettingsSection = "account" \| "profile" \| "fullscreen" \| "compact" \| "data"/u);
-  assert.match(steamSource, /type SteamSettingsSection = "account" \| "fullscreen" \| "compact" \| "data"/u);
+  assert.match(steamSource, /type SteamSettingsSection = "account" \| "steamhunters" \| "fullscreen" \| "compact" \| "data"/u);
   assert.match(raSource, /SettingsSectionPill title="Account"[\s\S]*SettingsSectionPill title="Profile Settings"[\s\S]*SettingsSectionPill title="Full-Screen Settings"[\s\S]*SettingsSectionPill title="Compact Settings"[\s\S]*SettingsSectionPill title="Data"/u);
   assert.match(steamSource, /SettingsSectionPill title="Account"[\s\S]*SettingsSectionPill title="Full-Screen Settings"[\s\S]*SettingsSectionPill title="Compact Settings"[\s\S]*SettingsSectionPill title="Data"/u);
   for (const source of [raSource, steamSource]) {

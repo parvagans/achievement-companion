@@ -765,7 +765,8 @@ function DashboardScreen({
   });
   // A compact Steam visit mirrors the full-screen profile's fresh account
   // boundary. Cached dashboard data remains available to other surfaces, but
-  // this view waits for the new bounded Steam and SteamHunters results.
+  // this view waits for Steam and, when enabled, the personal SteamHunters
+  // lookup to settle before showing the profile.
   const initialProviderRefresh = useRef<boolean | undefined>(undefined);
   if (initialProviderRefresh.current === undefined) {
     initialProviderRefresh.current = providerId === STEAM_PROVIDER_ID
@@ -857,33 +858,37 @@ function DashboardScreen({
   const steamId = providerId === STEAM_PROVIDER_ID
     ? (providerConfig as SteamProviderConfig | undefined)?.steamId64.trim()
     : undefined;
+  const steamHuntersPersonalDataEnabled = settings.steamHuntersPersonalDataEnabled;
   const steamHuntersProfileLoader = useMemo(
     () => () => {
-      if (steamId === undefined || steamId.length === 0) {
-        return Promise.resolve(initialDeckySteamHuntersProfileState);
+      if (!steamHuntersPersonalDataEnabled || steamId === undefined || steamId.length === 0) {
+        return Promise.resolve(getDeckySteamHuntersProfileStateForFullScreenEntryInitial(undefined));
       }
 
       return loadDeckySteamHuntersProfileStateForFullScreenEntry(STEAM_PROVIDER_ID);
     },
-    [dashboardRefreshNonce, steamId],
+    [dashboardRefreshNonce, steamId, steamHuntersPersonalDataEnabled],
   );
+  const steamHuntersProfileInitialState = providerId === STEAM_PROVIDER_ID
+    ? getDeckySteamHuntersProfileStateForFullScreenEntryInitial(providerId)
+    : initialDeckySteamHuntersProfileState;
   const steamHuntersProfileState = useAsyncResourceState(
     steamHuntersProfileLoader,
-    providerId === STEAM_PROVIDER_ID && steamId !== undefined
-      ? getDeckySteamHuntersProfileStateForFullScreenEntryInitial(providerId)
-      : initialDeckySteamHuntersProfileState,
+    steamHuntersProfileInitialState,
   );
-  const steamHuntersProfile = steamHuntersProfileState.data?.steamId === steamId
+  const steamHuntersProfile = steamHuntersPersonalDataEnabled
+    && steamHuntersProfileInitialState.status !== "error"
+    && steamHuntersProfileState.data?.steamId === steamId
     ? steamHuntersProfileState.data
     : undefined;
   const isSteamCompactProfileLoading =
     providerId === STEAM_PROVIDER_ID &&
     state.status !== "error" &&
-    (!isRenderableDashboardState(state) ||
-      state.isRefreshing === true ||
-      steamHuntersProfileState.status === "idle" ||
-      steamHuntersProfileState.status === "loading" ||
-      steamHuntersProfileState.status === "refreshing");
+    (!isRenderableDashboardState(state) || state.isRefreshing === true ||
+      (steamHuntersPersonalDataEnabled && steamId !== undefined && steamId.length > 0 &&
+        (steamHuntersProfileInitialState.status === "loading" ||
+          steamHuntersProfileState.status === "idle" || steamHuntersProfileState.status === "loading" ||
+          steamHuntersProfileState.status === "refreshing" || steamHuntersProfileState.isRefreshing === true)));
   const isRetroAchievementsCompactProfileLoading =
     providerId === "retroachievements" &&
     state.status !== "error" &&
@@ -1037,7 +1042,9 @@ function DashboardScreen({
   ) : providerId === STEAM_PROVIDER_ID ? (
     <DeckyCompactLoadingState
       steamTheme
-      description={state.error?.userMessage ?? "Fetching the latest Steam profile and SteamHunters data."}
+      description={state.error?.userMessage ?? (steamHuntersPersonalDataEnabled
+        ? "Fetching the latest Steam profile and SteamHunters data."
+        : "Fetching the latest Steam profile data.")}
       isError={state.status === "error"}
       onCancel={onBackToProviders}
       title={state.status === "error" ? "Steam profile unavailable" : "Loading Steam profile..."}

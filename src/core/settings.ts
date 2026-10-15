@@ -77,6 +77,7 @@ export interface AchievementCompanionSettings {
   readonly steamCompactActivityCalendarWeeks: ActivityCalendarWeeks;
   readonly steamFullscreenActivityCalendarWeeks: ActivityCalendarWeeks;
   readonly steamFullscreenRecentActivityInterval: RecentActivityInterval;
+  readonly steamHuntersPersonalDataEnabled: boolean;
   readonly retroAchievementsCompactActivityCalendarWeeks: ActivityCalendarWeeks;
   readonly retroAchievementsFullscreenActivityCalendarWeeks: ActivityCalendarWeeks;
   readonly retroAchievementsFullscreenRecentActivityInterval: RecentActivityInterval;
@@ -100,6 +101,7 @@ export const DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS: AchievementCompanionSetting
   steamCompactActivityCalendarWeeks: 8,
   steamFullscreenActivityCalendarWeeks: 12,
   steamFullscreenRecentActivityInterval: "30d",
+  steamHuntersPersonalDataEnabled: true,
   retroAchievementsCompactActivityCalendarWeeks: 8,
   retroAchievementsFullscreenActivityCalendarWeeks: 12,
   retroAchievementsFullscreenRecentActivityInterval: "30d",
@@ -254,6 +256,10 @@ export function normalizeAchievementCompanionSettings(
       value["steamFullscreenRecentActivityInterval"],
       DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.steamFullscreenRecentActivityInterval,
     ),
+    steamHuntersPersonalDataEnabled:
+      typeof value["steamHuntersPersonalDataEnabled"] === "boolean"
+        ? value["steamHuntersPersonalDataEnabled"]
+        : DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.steamHuntersPersonalDataEnabled,
     retroAchievementsCompactActivityCalendarWeeks: normalizeActivityCalendarWeeks(
       value["retroAchievementsCompactActivityCalendarWeeks"],
       DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.retroAchievementsCompactActivityCalendarWeeks,

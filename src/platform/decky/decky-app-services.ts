@@ -38,7 +38,7 @@ import {
 } from "../../providers/steamhunters";
 import { createDeckySteamHuntersTransport } from "./providers/steamhunters/backend-transport";
 import { createMemoryCacheStore } from "./memory-cache";
-import { createDeckySettingsStore } from "./decky-settings";
+import { createDeckySettingsStore, isDeckySteamHuntersPersonalDataEnabled } from "./decky-settings";
 import { loadDeckyRuntimeMode, type DeckyRuntimeMode } from "./runtime-mode";
 import { readDeckyStorageText, removeDeckyStorageText, writeDeckyStorageText, writeDeckyStorageTextPreservingExisting } from "./storage";
 import {
@@ -313,6 +313,13 @@ interface DeckyProviderFullScreenDataSessionEntry {
 }
 
 const deckyProviderFullScreenDataSessions = new Map<ProviderId, DeckyProviderFullScreenDataSessionEntry>();
+interface DeckySteamHuntersProfileLoadEntry {
+  readonly steamId: string;
+  readonly promise: Promise<ResourceState<SteamHuntersProfile>>;
+  state?: ResourceState<SteamHuntersProfile>;
+  completedWhileDisabled?: boolean;
+}
+const deckySteamHuntersProfileLoadsByProviderId = new Map<ProviderId, DeckySteamHuntersProfileLoadEntry>();
 const deckyProviderFullScreenCompactReturnRefreshSuppressions = new Set<ProviderId>();
 let deckyProviderFullScreenDataSessionRevision = 0;
 const deckyProviderFullScreenDataSessionListeners = new Set<() => void>();
@@ -449,6 +456,16 @@ export const initialDeckyAchievementHistoryState = createIdleState<AchievementHi
 export const initialDeckyCompletionProgressState = createIdleState<CompletionProgressSnapshot>();
 export const initialDeckyGameDetailState = createIdleState<GameDetailSnapshot>();
 export const initialDeckySteamHuntersProfileState = createIdleState<SteamHuntersProfile>();
+const loadingDeckySteamHuntersProfileState: ResourceState<SteamHuntersProfile> = {
+  status: "loading",
+  isStale: false,
+  isRefreshing: false,
+};
+const unavailableDeckySteamHuntersProfileState: ResourceState<SteamHuntersProfile> = {
+  status: "success",
+  isStale: false,
+  isRefreshing: false,
+};
 
 export function createDeckyPlatform(navigation?: NavigationPort): PlatformServices {
   if (navigation === undefined) {
@@ -482,6 +499,7 @@ export function resetDeckyAppServicesForTests(): void {
   deckyDashboardRefreshInFlightByProviderId.clear();
   deckyDashboardProgressChannels.clear();
   deckyProviderFullScreenDataSessions.clear();
+  deckySteamHuntersProfileLoadsByProviderId.clear();
   deckyProviderFullScreenCompactReturnRefreshSuppressions.clear();
   deckyProviderFullScreenDataSessionRevision = 0;
   deckyProviderFullScreenDataSessionListeners.clear();
@@ -527,11 +545,18 @@ export async function loadDeckySteamHuntersProfileState(
   steamId: string,
   onProgress?: (event: Omit<DashboardRefreshProgressEvent, "stepId"> & { readonly stepId: "steam-hunters" }) => void,
 ): Promise<ResourceState<SteamHuntersProfile>> {
+  if (!isDeckySteamHuntersPersonalDataEnabled()) {
+    return unavailableDeckySteamHuntersProfileState;
+  }
+
   const startedAt = Date.now();
   onProgress?.({ stepId: "steam-hunters", status: "in-progress" });
   try {
     const profile = await deckySteamHuntersService.loadProfile(steamId);
     onProgress?.({ stepId: "steam-hunters", status: "complete", durationMs: Date.now() - startedAt });
+    if (!isDeckySteamHuntersPersonalDataEnabled()) {
+      return unavailableDeckySteamHuntersProfileState;
+    }
     return {
       status: "success",
       isStale: false,
@@ -540,6 +565,9 @@ export async function loadDeckySteamHuntersProfileState(
     };
   } catch (error) {
     onProgress?.({ stepId: "steam-hunters", status: "failed", durationMs: Date.now() - startedAt });
+    if (!isDeckySteamHuntersPersonalDataEnabled()) {
+      return unavailableDeckySteamHuntersProfileState;
+    }
     return {
       status: "error",
       error: {
@@ -558,8 +586,44 @@ export async function loadDeckySteamHuntersProfileState(
 export async function refreshDeckySteamHuntersProfileState(
   steamId: string,
 ): Promise<ResourceState<SteamHuntersProfile>> {
-  deckySteamHuntersService.clearCache();
-  return loadDeckySteamHuntersProfileState(steamId);
+  if (!isDeckySteamHuntersPersonalDataEnabled()) {
+    return unavailableDeckySteamHuntersProfileState;
+  }
+  deckySteamHuntersProfileLoadsByProviderId.delete(STEAM_PROVIDER_ID);
+  deckySteamHuntersService.clearProfileCache({ includeUnavailable: true });
+  return loadSharedDeckySteamHuntersProfileState(STEAM_PROVIDER_ID, steamId);
+}
+
+/** Shares the optional personal lookup across compact and full-screen profile entry. */
+function loadSharedDeckySteamHuntersProfileState(
+  providerId: ProviderId,
+  steamId: string,
+): Promise<ResourceState<SteamHuntersProfile>> {
+  if (!isDeckySteamHuntersPersonalDataEnabled()) {
+    return Promise.resolve(unavailableDeckySteamHuntersProfileState);
+  }
+
+  const existing = deckySteamHuntersProfileLoadsByProviderId.get(providerId);
+  if (existing?.steamId === steamId && existing.completedWhileDisabled !== true) {
+    return existing.promise;
+  }
+
+  let entry: DeckySteamHuntersProfileLoadEntry;
+  const promise = loadDeckySteamHuntersProfileState(steamId).then((state) => {
+    if (deckySteamHuntersProfileLoadsByProviderId.get(providerId) === entry) {
+      entry.state = state;
+      entry.completedWhileDisabled = !isDeckySteamHuntersPersonalDataEnabled();
+      const session = deckyProviderFullScreenDataSessions.get(providerId);
+      if (session?.snapshot !== undefined) {
+        session.snapshot = { ...session.snapshot, steamHuntersProfile: state };
+      }
+      notifyDeckyProviderFullScreenDataSessionChanged();
+    }
+    return state;
+  });
+  entry = { steamId, promise };
+  deckySteamHuntersProfileLoadsByProviderId.set(providerId, entry);
+  return promise;
 }
 
 function getDeckyRecentAchievementStorageKey(providerId: ProviderId, accountId: string): string {
@@ -1578,9 +1642,9 @@ async function createDeckyProviderFullScreenDataSession(
     forceRefresh: providerId === RETROACHIEVEMENTS_PROVIDER_ID,
     ...(dashboard.data !== undefined ? { profile: dashboard.data.profile, dashboard } : {}),
   });
-  const steamHuntersProfilePromise = providerId === STEAM_PROVIDER_ID && dashboard.data !== undefined
-    ? loadDeckySteamHuntersProfileState(dashboard.data.profile.identity.accountId)
-    : Promise.resolve(initialDeckySteamHuntersProfileState);
+  const steamHuntersProfilePromise = providerId === STEAM_PROVIDER_ID && dashboard.data !== undefined && isDeckySteamHuntersPersonalDataEnabled()
+    ? loadSharedDeckySteamHuntersProfileState(providerId, dashboard.data.profile.identity.accountId)
+    : Promise.resolve(unavailableDeckySteamHuntersProfileState);
   const [completionProgress, achievementHistory, steamHuntersProfile] = await Promise.all([
     completionProgressPromise,
     achievementHistoryPromise,
@@ -1608,13 +1672,16 @@ async function createDeckyProviderFullScreenDataSession(
     dashboard: dashboardWithRecentHistory,
     completionProgress,
     achievementHistory,
-    steamHuntersProfile,
+    steamHuntersProfile: isDeckySteamHuntersPersonalDataEnabled()
+      ? steamHuntersProfile
+      : unavailableDeckySteamHuntersProfileState,
   };
 }
 
 /** Starts one shared provider-profile load for QAM and its full-screen tabs. */
 export function startDeckyProviderProfileDataSession(providerId: ProviderId): void {
   deckyProviderFullScreenDataSessions.delete(providerId);
+  deckySteamHuntersProfileLoadsByProviderId.delete(providerId);
   deckyProviderFullScreenCompactReturnRefreshSuppressions.delete(providerId);
   if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
     resetDeckyRetroAchievementsGamePlaytimeSession();
@@ -1631,6 +1698,7 @@ export function beginDeckyProviderFullScreenDataSession(providerId: ProviderId):
     return;
   }
   if (providerId === STEAM_PROVIDER_ID) {
+    deckySteamHuntersProfileLoadsByProviderId.delete(providerId);
     deckySteamHuntersService.clearProfileCache();
   }
   notifyDeckyProviderFullScreenDataSessionChanged();
@@ -1713,13 +1781,41 @@ export function loadDeckyAchievementHistoryStateForFullScreenEntry(
 export function getDeckySteamHuntersProfileStateForFullScreenEntryInitial(
   providerId: ProviderId | undefined,
 ): ResourceState<SteamHuntersProfile> {
+  if (!isDeckySteamHuntersPersonalDataEnabled()) {
+    return unavailableDeckySteamHuntersProfileState;
+  }
+  if (providerId !== undefined) {
+    const profileLoad = deckySteamHuntersProfileLoadsByProviderId.get(providerId);
+    const session = getDeckyProviderFullScreenDataSessionSnapshot(providerId);
+    if (profileLoad !== undefined &&
+        (session?.dashboard.data === undefined || session.dashboard.data.profile.identity.accountId === profileLoad.steamId)) {
+      return profileLoad.completedWhileDisabled === true
+        ? loadingDeckySteamHuntersProfileState
+        : profileLoad.state ?? loadingDeckySteamHuntersProfileState;
+    }
+    if (session?.steamHuntersProfile === unavailableDeckySteamHuntersProfileState &&
+        session.dashboard.data !== undefined && providerId === STEAM_PROVIDER_ID) {
+      return loadingDeckySteamHuntersProfileState;
+    }
+  }
   return getDeckyProviderFullScreenDataSessionSnapshot(providerId)?.steamHuntersProfile ?? initialDeckySteamHuntersProfileState;
 }
 
 export function loadDeckySteamHuntersProfileStateForFullScreenEntry(
   providerId: ProviderId,
 ): Promise<ResourceState<SteamHuntersProfile>> {
-  return loadDeckyProviderFullScreenDataSession(providerId).then((session) => session.steamHuntersProfile);
+  if (!isDeckySteamHuntersPersonalDataEnabled()) {
+    return Promise.resolve(unavailableDeckySteamHuntersProfileState);
+  }
+  return loadDeckyProviderFullScreenDataSession(providerId).then((session) => {
+    if (!isDeckySteamHuntersPersonalDataEnabled()) {
+      return unavailableDeckySteamHuntersProfileState;
+    }
+    if (session.dashboard.data !== undefined && providerId === STEAM_PROVIDER_ID) {
+      return loadSharedDeckySteamHuntersProfileState(providerId, session.dashboard.data.profile.identity.accountId);
+    }
+    return unavailableDeckySteamHuntersProfileState;
+  });
 }
 
 /**

@@ -67,7 +67,7 @@ test("Steam compact profile matches the refined controller-first information hie
   assert.match(compactProfileSource, /!isQuickAccessVisible[\s\S]*handledRestorationRequest\.current === restorationRequest/u);
   assert.match(compactProfileSource, /requestDeckySteamGamepadFocusAfterMount\(target\)/u);
   assert.ok(compactProfileSource.includes("<DeckyGameArtwork compact src={artworkUrl} size={34} title={game.title} />"));
-  assert.ok(compactProfileSource.includes("Steam and SteamHunters refreshed ${refreshTime}"));
+  assert.ok(compactProfileSource.includes('showSteamHuntersProfile ? "Steam and SteamHunters" : "Steam"'));
   assert.match(compactProfileSource, /visibleAchievements\.map/u);
   assert.match(compactProfileSource, /visibleGames\.map/u);
   const steamHuntersSection = compactProfileSource.indexOf('<SectionHeader title="SteamHunters Profile" />');
@@ -87,7 +87,7 @@ test("Steam compact profile matches the refined controller-first information hie
 });
 
 test("SteamHunters Points centers as a passive focus stop and Recently Played shows recency", () => {
-  const metricStart = compactProfileSource.indexOf("function SteamHuntersMetric(");
+  const metricStart = compactProfileSource.indexOf("function SteamProfileMetric(");
   const metricEnd = compactProfileSource.indexOf("function getListStyle", metricStart);
   const metricSource = compactProfileSource.slice(metricStart, metricEnd);
   assert.ok(metricStart >= 0 && metricEnd > metricStart);
@@ -252,17 +252,19 @@ test("Steam compact profile loads optional SteamHunters data and preserves compa
   assert.match(bootstrapSource, /openProviderFullScreenView\(providerId, "completion-progress"\)/u);
 });
 
-test("Steam compact entry waits for claimed fresh Steam and SteamHunters data before rendering the profile", () => {
+test("Steam compact entry waits for enabled personal SteamHunters data before rendering", () => {
   assert.match(bootstrapSource, /initialProviderRefresh = useRef<boolean \| undefined>\(undefined\)/u);
   assert.match(bootstrapSource, /claimDeckyCompactSteamDashboardRefresh\(\)/u);
   assert.match(bootstrapSource, /dashboardForceRefreshNextLoad = useRef\(initialProviderRefresh\.current\)/u);
   assert.match(bootstrapSource, /if \(forceRefresh\) \{\s*startDeckyProviderProfileDataSession\(providerId\)/u);
   assert.match(bootstrapSource, /const steamHuntersProfileLoader = useMemo[\s\S]*loadDeckySteamHuntersProfileStateForFullScreenEntry\(STEAM_PROVIDER_ID\)/u);
   assert.match(bootstrapSource, /const isSteamCompactProfileLoading =/u);
-  assert.match(
-    bootstrapSource,
-    /isSteamCompactProfileLoading[\s\S]*steamHuntersProfileState\.status === "idle"[\s\S]*steamHuntersProfileState\.status === "loading"[\s\S]*steamHuntersProfileState\.status === "refreshing"/u,
+  const steamLoadingGate = bootstrapSource.slice(
+    bootstrapSource.indexOf("const isSteamCompactProfileLoading ="),
+    bootstrapSource.indexOf("const isRetroAchievementsCompactProfileLoading ="),
   );
+  assert.match(steamLoadingGate, /steamHuntersPersonalDataEnabled && steamId !== undefined/u);
+  assert.match(steamLoadingGate, /steamHuntersProfileState\.status === "loading"/u);
   assert.match(
     bootstrapSource,
     /isRenderableDashboardState\(visibleState\) && !isCompactProfileLoading[\s\S]*<DeckyDashboardView/u,
@@ -292,4 +294,13 @@ test("Steam compact entry waits for claimed fresh Steam and SteamHunters data be
   assert.doesNotMatch(compactLoadingSource, /actions|DeckyCompactPillAction/u);
   assert.match(bootstrapSource, /Loading Steam profile\.\.\.[\s\S]*onCancel=\{onBackToProviders\}|onCancel=\{onBackToProviders\}[\s\S]*Loading Steam profile\.\.\./u);
   assert.match(bootstrapSource, /Fetching the latest Steam game and SteamHunters data\.[\s\S]*onCancel=\{onBackToDashboard\}|onCancel=\{onBackToDashboard\}[\s\S]*Fetching the latest Steam game and SteamHunters data\./u);
+});
+
+test("Steam compact profile uses a validated Steam scan or omits the personal metrics section", () => {
+  assert.match(compactProfileSource, /settings\.steamHuntersPersonalDataEnabled\s*&& hasMeaningfulSteamHuntersProfile\(steamHuntersProfile\)/u);
+  assert.match(compactProfileSource, /steamLibraryAchievementScanSummary\.scannedGameCount > 0/u);
+  assert.match(compactProfileSource, /showSteamHuntersProfile \? <section[\s\S]*showSteamLibraryFallback \? <section/u);
+  assert.match(compactProfileSource, /<SectionHeader title="Steam Library Scan"/u);
+  assert.match(compactProfileSource, /showSteamLibraryFallback \? "steam-profile-metric" : "profile"/u);
+  assert.match(dashboardSource, /steamLibraryAchievementScanSummary !== undefined \? \{ steamLibraryAchievementScanSummary \} : \{\}/u);
 });

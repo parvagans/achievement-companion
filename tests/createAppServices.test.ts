@@ -2001,6 +2001,13 @@ test("achievement companion settings normalize invalid stored values", () => {
   );
 });
 
+test("SteamHunters personal data stays enabled for existing settings and can be disabled", () => {
+  assert.equal(DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.steamHuntersPersonalDataEnabled, true);
+  assert.equal(parseAchievementCompanionSettings(JSON.stringify({ recentAchievementsCount: 3 })).steamHuntersPersonalDataEnabled, true);
+  assert.equal(parseAchievementCompanionSettings(JSON.stringify({ steamHuntersPersonalDataEnabled: false })).steamHuntersPersonalDataEnabled, false);
+  assert.equal(parseAchievementCompanionSettings(JSON.stringify({ steamHuntersPersonalDataEnabled: "false" })).steamHuntersPersonalDataEnabled, true);
+});
+
 test("game page badge settings preserve valid preferences and reject invalid positions", () => {
   const validSettings = parseAchievementCompanionSettings(
     JSON.stringify({

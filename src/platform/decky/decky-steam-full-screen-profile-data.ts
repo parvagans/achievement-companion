@@ -26,6 +26,7 @@ export interface SteamFullScreenProfileSummary {
     readonly xpProgressPercent?: number;
   };
   readonly achievements: {
+    readonly scope: "library-scan" | "recent-games";
     readonly unlocked: number;
     readonly total?: number;
     readonly perfectGames?: number;
@@ -207,6 +208,7 @@ export function buildSteamFullScreenProfileSummary(args: {
       } : {}),
     },
     achievements: {
+      scope: libraryScan !== undefined ? "library-scan" : "recent-games",
       unlocked: libraryScan?.unlockedAchievements ?? profile.summary.unlockedCount,
       ...(libraryScan?.totalAchievements ?? profile.summary.totalCount) !== undefined
         ? { total: libraryScan?.totalAchievements ?? profile.summary.totalCount }

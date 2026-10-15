@@ -44,6 +44,11 @@ export function readDeckySettings(): AchievementCompanionSettings {
   return parseAchievementCompanionSettings(readDeckySettingsText());
 }
 
+/** Personal SteamHunters lookups are optional; shared game/community data is separate. */
+export function isDeckySteamHuntersPersonalDataEnabled(): boolean {
+  return readDeckySettings().steamHuntersPersonalDataEnabled;
+}
+
 export function useDeckySettings(): AchievementCompanionSettings {
   const revision = useSyncExternalStore(
     subscribeDeckySettings,

@@ -6,6 +6,7 @@ import {
   composeSteamGameDetailWithSteamHuntersWithinBudget,
   createSteamHuntersClient,
   createSteamHuntersService,
+  hasMeaningfulSteamHuntersProfile,
   matchSteamAchievements,
   normalizeSteamHuntersAchievement,
   normalizeSteamHuntersAchievementGroups,
@@ -174,6 +175,82 @@ test("SteamHunters profile normalization keeps only SteamHunters profile totals"
   assert.equal(normalizeSteamHuntersProfile({ points: "17,207" }), undefined);
   assert.deepEqual(normalizeSteamHuntersProfile({ epicAchievementCount: 15 }), { epicAchievements: 15 });
   assert.deepEqual(normalizeSteamHuntersProfile({ epicCount: 15 }), { epicAchievements: 15 });
+});
+
+test("SteamHunters treats a zero-only profile as unavailable personal data", async () => {
+  const normalized = normalizeSteamHuntersProfile({
+    points: 0,
+    achievementUnlockCount: 0,
+    completedGameCount: 0,
+    startedGameCount: 12,
+    appCount: 12,
+  });
+  assert.equal(hasMeaningfulSteamHuntersProfile(normalized === undefined ? undefined : {
+    steamId: "76561198000000000",
+    ...normalized,
+  }), false);
+
+  let profileCalls = 0;
+  const service = createSteamHuntersService({ client: {
+    loadApp: async () => ({}),
+    loadAchievements: async () => [],
+    loadGroups: async () => [],
+    loadProfile: async () => { profileCalls += 1; return {
+      points: 0,
+      achievementUnlockCount: 0,
+      completedGameCount: 0,
+      startedGameCount: 12,
+      appCount: 12,
+    }; },
+  } });
+  assert.equal(await service.loadProfile("76561198000000000"), undefined);
+  assert.equal(await service.loadProfile("76561198000000000"), undefined);
+  assert.equal(profileCalls, 1);
+});
+
+test("SteamHunters caches an unindexed profile separately from community game data", async () => {
+  let profileCalls = 0;
+  let appCalls = 0;
+  const service = createSteamHuntersService({ client: {
+    loadApp: async () => { appCalls += 1; return { appId: 42, achievementCount: 1 }; },
+    loadAchievements: async () => [{ apiName: "WIN", points: 100 }],
+    loadGroups: async () => ({ groups: [] }),
+    loadProfile: async () => {
+      profileCalls += 1;
+      throw new SteamHuntersRequestError("Not Found", "steam-users/76561198000000000", "http", 404);
+    },
+  } });
+
+  assert.equal(await service.loadProfile("76561198000000000"), undefined);
+  service.clearProfileCache(); // A new QAM profile session refreshes found profiles only.
+  assert.equal(await service.loadProfile("76561198000000000"), undefined);
+  assert.equal(profileCalls, 1);
+  assert.equal((await service.loadGameData(42))?.app.appId, 42);
+  assert.equal(appCalls, 1);
+
+  service.clearProfileCache({ includeUnavailable: true });
+  assert.equal(await service.loadProfile("76561198000000000"), undefined);
+  assert.equal(profileCalls, 2);
+  assert.equal((await service.loadGameData(42))?.app.appId, 42);
+  assert.equal(appCalls, 1);
+});
+
+test("SteamHunters leaves transient personal profile failures retryable", async () => {
+  let profileCalls = 0;
+  const service = createSteamHuntersService({ client: {
+    loadApp: async () => ({}),
+    loadAchievements: async () => [],
+    loadGroups: async () => [],
+    loadProfile: async () => {
+      profileCalls += 1;
+      if (profileCalls === 1) throw new Error("offline");
+      return { points: 25, achievementUnlockCount: 1 };
+    },
+  } });
+
+  await assert.rejects(() => service.loadProfile("76561198000000000"), /offline/u);
+  assert.equal((await service.loadProfile("76561198000000000"))?.points, 25);
+  assert.equal(profileCalls, 2);
 });
 
 test("SteamHunters normalization safely handles achievement fields and obtainability values", () => {

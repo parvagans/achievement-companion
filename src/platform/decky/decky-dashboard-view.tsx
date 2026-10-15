@@ -1482,6 +1482,7 @@ export function DeckyDashboardView({
           profile={profile}
           steamAccountProgress={steamAccountProgress}
           steamHuntersProfile={steamHuntersProfile}
+          {...(steamLibraryAchievementScanSummary !== undefined ? { steamLibraryAchievementScanSummary } : {})}
           activityEntries={steamActivityEntries ?? recentAchievements}
           activityKnownGames={steamActivityKnownGames ?? recentlyPlayedGames}
           recentAchievements={recentAchievements}

@@ -1,8 +1,13 @@
 import type { GameDetailSnapshot } from "@core/domain";
 import { Focusable, type FocusableProps } from "@decky/ui";
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type FocusEventHandler, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEventHandler, type ReactNode } from "react";
 import { DeckyCompletionProgressBar, getCompletionPercent } from "./decky-completion-progress-bar";
-import { loadDeckySteamHuntersEnrichedGameDetail } from "./decky-app-services";
+import {
+  getDeckyProviderFullScreenDataSessionRevision,
+  getDeckySteamHuntersProfileStateForFullScreenEntryInitial,
+  loadDeckySteamHuntersEnrichedGameDetail,
+  subscribeDeckyProviderFullScreenDataSession,
+} from "./decky-app-services";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { registerCompactGameDetailCancelCallback } from "./decky-full-screen-cancel-bridge";
 import { formatSteamPlaytimeMinutes } from "./decky-stat-helpers";
@@ -12,7 +17,8 @@ import {
 } from "./decky-steam-hunters-game-sections";
 import { buildDeckySteamHuntersGameViewModel } from "./decky-steam-hunters-view-model";
 import { getSteamFullscreenGameArtworkUrl, getSteamHuntersBaseGameBannerUrl } from "./decky-steam-game-artwork";
-import { getSteamHuntersGameEnrichment } from "../../providers/steamhunters";
+import { getSteamHuntersGameEnrichment, hasMeaningfulSteamHuntersProfile } from "../../providers/steamhunters";
+import { STEAM_PROVIDER_ID } from "../../providers/steam/config";
 import { formatSteamHuntersCompletionDuration } from "./decky-steam-hunters-presentation";
 import { DeckySteamHuntersIcon } from "./decky-steam-icons";
 import { useSteamStoreHeaderArtwork } from "./decky-steam-store-artwork";
@@ -27,6 +33,8 @@ import steamDeckIconUrl from "./assets/steam-deck.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import { getQamPassiveCardFocusStyle } from "./decky-qam-theme";
+import { useDeckySettings } from "./decky-settings";
+import { readDeckySteamProviderConfig } from "./providers/steam";
 
 const MIN_TITLE_FONT_SIZE_PX = 12;
 
@@ -260,10 +268,10 @@ function getMetricSecondaryStyle(): CSSProperties {
   };
 }
 
-function getSteamHuntersStatsStyle(): CSSProperties {
+function getSteamHuntersStatsStyle(columns = 3): CSSProperties {
   return {
     display: "grid",
-    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
     gap: 5,
     width: "100%",
   };
@@ -481,6 +489,7 @@ export function DeckySteamCompactGameOverview({
   readonly onOpenFullScreen: (() => void) | undefined;
   readonly onViewAchievements: (() => void) | undefined;
 }): JSX.Element {
+  const settings = useDeckySettings();
   const rootRef = useRef<HTMLElement>(null);
   const initialFocusTargetRef = useRef<HTMLDivElement | null>(null);
   const [enrichmentResult, setEnrichmentResult] = useState<{
@@ -503,6 +512,20 @@ export function DeckySteamCompactGameOverview({
     : getSteamHuntersAchievementSetStatusPresentation(steamHunters.completionHealth);
   const completionHealth = steamHunters?.completionHealth;
   const personalAchievementDuration = getPersonalAchievementDuration(displayedSnapshot);
+  useSyncExternalStore(
+    subscribeDeckyProviderFullScreenDataSession,
+    getDeckyProviderFullScreenDataSessionRevision,
+    getDeckyProviderFullScreenDataSessionRevision,
+  );
+  const steamHuntersProfileState = getDeckySteamHuntersProfileStateForFullScreenEntryInitial(STEAM_PROVIDER_ID);
+  const currentSteamId = readDeckySteamProviderConfig(STEAM_PROVIDER_ID)?.steamId64.trim();
+  const showSteamHuntersPoints = settings.steamHuntersPersonalDataEnabled
+    && steamHuntersProfileState.data?.steamId === currentSteamId
+    && hasMeaningfulSteamHuntersProfile(steamHuntersProfileState.data)
+    && steamHunters?.progressPoints?.earned !== undefined;
+  const showSteamUnlockPercent = completionPercent !== undefined;
+  const showSteamDuration = personalAchievementDuration !== "—";
+  const personalStatCount = Number(showSteamHuntersPoints) + Number(showSteamUnlockPercent) + Number(showSteamDuration);
   const artworkUrl = getSteamFullscreenGameArtworkUrl(game);
   const hunterBannerUrl = getSteamHuntersBaseGameBannerUrl(enrichment);
   const storeBannerUrl = useSteamStoreHeaderArtwork(game.appid);
@@ -641,26 +664,26 @@ export function DeckySteamCompactGameOverview({
         )}
       </CompactGameSectionFocusTarget>
 
-      <CompactGameSectionFocusTarget label="My SteamHunters Stats">
-        <div style={getSectionLabelStyle()}>My SteamHunters Stats</div>
-        <div style={getSteamHuntersStatsStyle()}>
-          <div style={getSteamHuntersStatStyle()}>
+      {personalStatCount > 0 ? <CompactGameSectionFocusTarget label={showSteamHuntersPoints ? "My SteamHunters Stats" : "My Steam Stats"}>
+        <div style={getSectionLabelStyle()}>{showSteamHuntersPoints ? "My SteamHunters Stats" : "My Steam Stats"}</div>
+        <div style={getSteamHuntersStatsStyle(personalStatCount)}>
+          {showSteamHuntersPoints ? <div style={getSteamHuntersStatStyle()}>
             <DeckySteamHuntersIcon color={steamTheme.color.accent} size={17} />
             <span style={getMetricLabelStyle()}>Points</span>
             <span style={getMetricValueStyle()}>{formatCount(steamHunters?.progressPoints?.earned)}</span>
-          </div>
-          <div style={getSteamHuntersStatStyle()}>
+          </div> : null}
+          {showSteamUnlockPercent ? <div style={getSteamHuntersStatStyle()}>
             <img alt="" aria-hidden="true" src={starIconUrl} style={{ width: 17, height: 17, filter: steamTheme.iconFilter.accent }} />
             <span style={getMetricLabelStyle()}>Unlock %</span>
-            <span style={getMetricValueStyle()}>{completionPercent === undefined ? "—" : `${completionPercent}%`}</span>
-          </div>
-          <div style={getSteamHuntersStatStyle()}>
+            <span style={getMetricValueStyle()}>{`${completionPercent}%`}</span>
+          </div> : null}
+          {showSteamDuration ? <div style={getSteamHuntersStatStyle()}>
             <img alt="" aria-hidden="true" src={calendarIconUrl} style={{ width: 17, height: 17, filter: steamTheme.iconFilter.accent }} />
             <span style={getMetricLabelStyle()}>Duration</span>
             <span style={getMetricValueStyle()}>{personalAchievementDuration}</span>
-          </div>
+          </div> : null}
         </div>
-      </CompactGameSectionFocusTarget>
+      </CompactGameSectionFocusTarget> : null}
 
       <CompactGameSectionFocusTarget label="Game Info">
         <div style={getSectionLabelStyle()}>Game Info</div>

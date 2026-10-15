@@ -17,7 +17,6 @@ import {
   getDeckyDashboardStateForFullScreenEntryInitial,
   getDeckySteamHuntersProfileStateForFullScreenEntryInitial,
   initialDeckyCompletionProgressState,
-  initialDeckySteamHuntersProfileState,
   loadDeckyCompletionProgressStateForFullScreenEntry,
   loadDeckyDashboardStateForFullScreenEntry,
   loadDeckySteamHuntersProfileStateForFullScreenEntry,
@@ -1071,18 +1070,22 @@ export function DeckyFullScreenProfilePage({
   const steamId = isRenderableDashboardState(state) && state.data.profile.providerId === STEAM_PROVIDER_ID
     ? state.data.profile.identity.accountId
     : undefined;
+  const steamHuntersPersonalDataEnabled = deckySettings.steamHuntersPersonalDataEnabled;
   const loadSteamHuntersProfile = useMemo(() => {
-    if (providerId !== STEAM_PROVIDER_ID) {
-      return () => Promise.resolve(initialDeckySteamHuntersProfileState);
+    if (providerId !== STEAM_PROVIDER_ID || !steamHuntersPersonalDataEnabled) {
+      return () => Promise.resolve(getDeckySteamHuntersProfileStateForFullScreenEntryInitial(providerId));
     }
 
     return () => loadDeckySteamHuntersProfileStateForFullScreenEntry(providerId);
-  }, [providerId]);
+  }, [providerId, steamHuntersPersonalDataEnabled]);
+  const steamHuntersProfileInitialState = getDeckySteamHuntersProfileStateForFullScreenEntryInitial(providerId);
   const steamHuntersProfileState = useAsyncResourceState(
     loadSteamHuntersProfile,
-    getDeckySteamHuntersProfileStateForFullScreenEntryInitial(providerId),
+    steamHuntersProfileInitialState,
   );
-  const steamHuntersProfile = steamHuntersProfileState.data?.steamId === steamId
+  const steamHuntersProfile = steamHuntersPersonalDataEnabled
+    && steamHuntersProfileInitialState.status !== "error"
+    && steamHuntersProfileState.data?.steamId === steamId
     ? steamHuntersProfileState.data
     : undefined;
   const steamProfileSummary = useMemo(() => {
@@ -1100,10 +1103,11 @@ export function DeckyFullScreenProfilePage({
   const isSteamProfileLoading =
     providerId === STEAM_PROVIDER_ID &&
     (state.status !== "error" &&
-      (!isRenderableDashboardState(state) ||
-        state.isRefreshing === true ||
-        steamHuntersProfileState.status === "idle" ||
-        steamHuntersProfileState.isRefreshing === true));
+      (!isRenderableDashboardState(state) || state.isRefreshing === true ||
+        (steamHuntersPersonalDataEnabled && steamId !== undefined &&
+          (steamHuntersProfileInitialState.status === "loading" ||
+            steamHuntersProfileState.status === "idle" || steamHuntersProfileState.status === "loading" ||
+            steamHuntersProfileState.status === "refreshing" || steamHuntersProfileState.isRefreshing === true))));
 
   if (isSteamProfileLoading || !isRenderableDashboardState(state)) {
     if (providerId === STEAM_PROVIDER_ID) {
@@ -1112,7 +1116,9 @@ export function DeckyFullScreenProfilePage({
           <DeckyFullScreenLoadingState
             useSteamTheme
             providerId={providerId}
-            description={state.error?.userMessage ?? "Fetching the latest Steam profile and SteamHunters data."}
+            description={state.error?.userMessage ?? (steamHuntersPersonalDataEnabled
+              ? "Fetching the latest Steam profile and SteamHunters data."
+              : "Fetching the latest Steam profile data.")}
             isError={state.status === "error"}
             title={state.status === "error" ? "Steam profile unavailable" : "Loading Steam profile..."}
           />

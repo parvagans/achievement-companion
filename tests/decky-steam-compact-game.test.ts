@@ -39,10 +39,15 @@ test("Steam compact game overview uses the refined narrow-panel hierarchy and op
   assert.match(compactGameSource, /conditions/u);
   assert.match(compactGameSource, /broken but obtainable/u);
   assert.match(compactGameSource, /My SteamHunters Stats/u);
+  assert.match(compactGameSource, /My Steam Stats/u);
   assert.match(compactGameSource, /Median 100%/u);
   assert.match(compactGameSource, /Fastest 100%/u);
   assert.match(compactGameSource, />Points<\/span>/u);
   assert.match(compactGameSource, /progressPoints\?\.earned/u);
+  assert.match(compactGameSource, /settings\.steamHuntersPersonalDataEnabled/u);
+  assert.match(compactGameSource, /hasMeaningfulSteamHuntersProfile\(steamHuntersProfileState\.data\)/u);
+  assert.match(compactGameSource, /getDeckySteamHuntersProfileStateForFullScreenEntryInitial\(STEAM_PROVIDER_ID\)/u);
+  assert.match(compactGameSource, /showSteamHuntersPoints \? <div/u);
   assert.match(compactGameSource, /Unlock %/u);
   assert.match(compactGameSource, /Duration/u);
   assert.match(compactGameSource, /getPersonalAchievementDuration/u);

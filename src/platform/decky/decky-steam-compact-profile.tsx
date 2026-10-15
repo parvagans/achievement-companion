@@ -10,7 +10,8 @@ import {
   type RefCallback,
   type ReactNode,
 } from "react";
-import type { SteamHuntersProfile } from "../../providers/steamhunters";
+import { hasMeaningfulSteamHuntersProfile, type SteamHuntersProfile } from "../../providers/steamhunters";
+import type { SteamLibraryAchievementScanOverview } from "./providers/steam";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import {
   achievementCompanionQamTheme as qamTheme,
@@ -81,6 +82,7 @@ export interface DeckySteamCompactProfileProps {
   readonly profile: DashboardSnapshot["profile"];
   readonly steamAccountProgress: SteamAccountProgressSummary;
   readonly steamHuntersProfile: SteamHuntersProfile | undefined;
+  readonly steamLibraryAchievementScanSummary?: SteamLibraryAchievementScanOverview;
   readonly activityEntries: readonly RecentUnlock[];
   readonly activityKnownGames: readonly RecentlyPlayedGame[];
   readonly recentAchievements: readonly RecentUnlock[];
@@ -508,7 +510,7 @@ function getMetricValueStyle(): CSSProperties {
   };
 }
 
-function SteamHuntersMetric({
+function SteamProfileMetric({
   icon,
   iconUrl,
   label,
@@ -552,7 +554,8 @@ function SteamHuntersMetric({
       role="group"
       tabIndex={0}
       aria-label={`${label}, ${value}`}
-      data-steam-compact-steamhunters-points="true"
+      data-steam-compact-steamhunters-points={label === "Points" ? "true" : undefined}
+      data-steam-compact-profile-metric="true"
       ref={(node) => targetProps.elementRef?.(node)}
       preferredFocus={targetProps.preferredFocus}
       onActivate={() => {}}
@@ -1086,6 +1089,7 @@ export function DeckySteamCompactProfile({
   profile,
   steamAccountProgress,
   steamHuntersProfile,
+  steamLibraryAchievementScanSummary,
   activityEntries,
   activityKnownGames,
   recentAchievements,
@@ -1100,6 +1104,20 @@ export function DeckySteamCompactProfile({
   onCancel,
 }: DeckySteamCompactProfileProps): JSX.Element {
   const settings = useDeckySettings();
+  const showSteamHuntersProfile = settings.steamHuntersPersonalDataEnabled
+    && hasMeaningfulSteamHuntersProfile(steamHuntersProfile)
+    && [
+      steamHuntersProfile?.points,
+      steamHuntersProfile?.globalPointsRank,
+      steamHuntersProfile?.legendaryAchievements,
+      steamHuntersProfile?.completedGames,
+    ].some((value) => value !== undefined && value > 0);
+  const scannedAchievements = steamLibraryAchievementScanSummary !== undefined
+    && steamLibraryAchievementScanSummary.scannedGameCount > 0
+    && steamLibraryAchievementScanSummary.gamesWithAchievements > 0
+    && steamLibraryAchievementScanSummary.totalAchievements > 0;
+  const hasOwnedGames = (steamLibraryAchievementScanSummary?.ownedGameCount ?? 0) > 0;
+  const showSteamLibraryFallback = !showSteamHuntersProfile && (scannedAchievements || hasOwnedGames);
   const effectiveActivityCalendarWeeks = activityCalendarWeeks ?? settings.steamCompactActivityCalendarWeeks ?? STEAM_COMPACT_ACTIVITY_CALENDAR_WEEKS;
   const isQuickAccessVisible = useQuickAccessVisible();
   const restorationRequest = useSyncExternalStore(
@@ -1108,7 +1126,12 @@ export function DeckySteamCompactProfile({
     readDeckySteamCompactFocusRestoreRequest,
   );
   const handledRestorationRequest = useRef(restorationRequest);
-  const restorationTarget = useRef(readDeckySteamCompactFocusTarget()).current;
+  const savedRestorationTarget = useRef(readDeckySteamCompactFocusTarget()).current;
+  const restorationTarget: DeckySteamCompactFocusTarget = savedRestorationTarget.kind === "steamhunters-points" && !showSteamHuntersProfile
+    ? { kind: showSteamLibraryFallback ? "steam-profile-metric" : "profile" }
+    : savedRestorationTarget.kind === "steam-profile-metric" && !showSteamLibraryFallback
+      ? { kind: showSteamHuntersProfile ? "steamhunters-points" : "profile" }
+      : savedRestorationTarget;
   const restorationKey = getDeckySteamCompactFocusTargetKey(restorationTarget);
   const restorationElementRef = useRef<HTMLDivElement | null>(null);
   const refreshTime = formatRefreshTime(refreshedAt);
@@ -1221,10 +1244,10 @@ export function DeckySteamCompactProfile({
         </DeckySteamCompactAction>
       </section>
 
-      <section style={getSectionStyle()}>
+      {showSteamHuntersProfile ? <section style={getSectionStyle()}>
         <SectionHeader title="SteamHunters Profile" />
         <div style={getMetricsGridStyle()}>
-          <SteamHuntersMetric
+          <SteamProfileMetric
             icon={<DeckySteamHuntersIcon color={steamTheme.color.accent} size={27} />}
             label="Points"
             tone="gold"
@@ -1232,27 +1255,51 @@ export function DeckySteamCompactProfile({
             onCancel={onCancel}
             targetProps={targetProps({ kind: "steamhunters-points" })}
           />
-          <SteamHuntersMetric
+          <SteamProfileMetric
             iconUrl={rankPointsIconUrl}
             label="Points Rank"
             tone="blue"
             value={formatRank(steamHuntersProfile?.globalPointsRank)}
             rankTrend={steamHuntersProfile?.globalPointsRankTrend}
           />
-          <SteamHuntersMetric
+          <SteamProfileMetric
             iconUrl={masteredIconUrl}
             label="Legendary Unlocks"
             tone="gold"
             value={formatCount(steamHuntersProfile?.legendaryAchievements)}
           />
-          <SteamHuntersMetric
+          <SteamProfileMetric
             iconUrl={starIconUrl}
             label="Completed Games"
             tone="gold"
             value={formatCount(steamHuntersProfile?.completedGames)}
           />
         </div>
-      </section>
+      </section> : showSteamLibraryFallback ? <section style={getSectionStyle()}>
+        <SectionHeader title="Steam Library Scan" />
+        <div style={getMetricsGridStyle()}>
+          {scannedAchievements ? <SteamProfileMetric
+            iconUrl={trophyIconUrl}
+            label="Achievements"
+            tone="blue"
+            value={`${formatCount(steamLibraryAchievementScanSummary?.unlockedAchievements)} / ${formatCount(steamLibraryAchievementScanSummary?.totalAchievements)}`}
+            onCancel={onCancel}
+            targetProps={targetProps({ kind: "steam-profile-metric" })}
+          /> : hasOwnedGames ? <SteamProfileMetric
+            iconUrl={starIconUrl}
+            label="Owned Games"
+            tone="blue"
+            value={formatCount(steamLibraryAchievementScanSummary?.ownedGameCount)}
+            onCancel={onCancel}
+            targetProps={targetProps({ kind: "steam-profile-metric" })}
+          /> : null}
+          {scannedAchievements ? <>
+            <SteamProfileMetric iconUrl={masteredIconUrl} label="Perfect Games" tone="gold" value={formatCount(steamLibraryAchievementScanSummary?.perfectGames)} />
+            <SteamProfileMetric iconUrl={trophyIconUrl} label="Completion" tone="blue" value={`${steamLibraryAchievementScanSummary!.completionPercent}%`} />
+          </> : null}
+          {scannedAchievements && hasOwnedGames ? <SteamProfileMetric iconUrl={starIconUrl} label="Owned Games" tone="blue" value={formatCount(steamLibraryAchievementScanSummary?.ownedGameCount)} /> : null}
+        </div>
+      </section> : null}
 
       <section style={getSectionStyle()}>
         <SectionHeader title="Activity Calendar" />
@@ -1329,7 +1376,7 @@ export function DeckySteamCompactProfile({
       </section>
 
       {refreshTime === undefined ? null : (
-        <div style={getRefreshTimestampStyle()}>{`Steam and SteamHunters refreshed ${refreshTime}`}</div>
+        <div style={getRefreshTimestampStyle()}>{`${showSteamHuntersProfile ? "Steam and SteamHunters" : "Steam"} refreshed ${refreshTime}`}</div>
       )}
     </Focusable>
   );

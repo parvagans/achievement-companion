@@ -507,7 +507,7 @@ function DeckyFullScreenAchievementContent({
     ? getSteamFullscreenGameArtworkUrl(game)
     : game.boxArtImageUrl ?? game.coverImageUrl;
   const storeBannerUrl = useSteamStoreHeaderArtwork(isSteamProvider ? game.appid : undefined);
-  const communityHeading = isSteamProvider ? "My SteamHunters" : providerLabel;
+  const communityHeading = isSteamProvider ? "SteamHunters Community" : providerLabel;
   const secondaryValues = isSteamProvider
     ? {
         points: steamHuntersAchievement?.points !== undefined ? formatCount(steamHuntersAchievement.points) : "—",

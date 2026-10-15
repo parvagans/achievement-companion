@@ -31,6 +31,7 @@ export {
   normalizeSteamHuntersObtainability,
 } from "./normalize";
 export { createSteamHuntersService, type CreateSteamHuntersServiceOptions, type SteamHuntersService } from "./service";
+export { hasMeaningfulSteamHuntersProfile } from "./profile-availability";
 export type {
   SteamHuntersAchievement,
   SteamHuntersAchievementGroup,

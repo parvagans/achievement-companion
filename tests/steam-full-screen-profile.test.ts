@@ -185,7 +185,7 @@ test("steam full-screen profile summary derives account, library, playtime, and 
     nextLevel: 30,
     xpProgressPercent: 31,
   });
-  assert.deepEqual(summary.achievements, { unlocked: 44, total: 100, perfectGames: 1, completionPercent: 44 });
+  assert.deepEqual(summary.achievements, { scope: "library-scan", unlocked: 44, total: 100, perfectGames: 1, completionPercent: 44 });
   assert.deepEqual(summary.library, {
     ownedGames: 6,
     playedGames: 4,
@@ -210,6 +210,7 @@ test("steam full-screen profile omits unavailable library decoration without inv
 
   assert.equal(summary.library.playedGames, undefined);
   assert.equal(summary.library.inProgressGames, undefined);
+  assert.equal(summary.achievements.scope, "recent-games");
   assert.equal(summary.achievements.total, 120);
   assert.equal(summary.achievements.perfectGames, undefined);
   assert.equal(summary.mostPlayedGame, undefined);
@@ -506,11 +507,9 @@ test("steam full-screen profile uses the requested top-row and equal lower-row d
   assert.match(steamProfileBranch, /getSteamProfileViewportStyle\(\)/u);
   assert.match(steamProfileBranch, /getSteamProfileFrameStyle\(\)/u);
   assert.doesNotMatch(steamProfileBranch, /<ScrollPanel>/u);
-  assert.ok(
-    dashboardSource.includes(
-      `gridTemplateAreas: '\"profile profile progress progress insights insights\" \"activity activity activity recent recent recent\"'`,
-    ),
-  );
+  assert.match(dashboardSource, /gridTemplateAreas: hasInsightsPanel/u);
+  assert.ok(dashboardSource.includes('"profile profile progress progress insights insights"'));
+  assert.ok(dashboardSource.includes('"profile profile profile progress progress progress"'));
   assert.match(
     dashboardSource,
     /gridTemplateColumns: "repeat\(6, minmax\(0, 1fr\)\)"/u,
@@ -582,7 +581,7 @@ test("steam full-screen profile uses the requested top-row and equal lower-row d
   );
   assert.match(
     dashboardSource,
-    /<Focusable flow-children="left-right" noFocusRing tabIndex=\{-1\} style=\{getDashboardGridStyle\(\)\}>/u,
+    /<Focusable flow-children="left-right" noFocusRing tabIndex=\{-1\} style=\{getDashboardGridStyle\(hasInsightsPanel\)\}>/u,
   );
   assert.match(dashboardSource, /createDashboardHorizontalFocusHandler\("ArrowRight", \{ panelId: "recent" \}\)/u);
   assert.match(dashboardSource, /createDashboardHorizontalFocusHandler\("ArrowLeft", \{ panelId: "activity" \}\)/u);
@@ -601,10 +600,14 @@ test("steam full-screen profile uses the requested top-row and equal lower-row d
   );
   assert.match(pageSource, /navigationItems=\{STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS\}/u);
   assert.match(pageSource, /activeNavigationItemId="profile"/u);
-  assert.match(pageSource, /steamHuntersProfileState\.status === "idle"/u);
-  assert.match(pageSource, /isSteamProfileLoading[\s\S]*state\.isRefreshing === true[\s\S]*steamHuntersProfileState\.status === "idle"/u);
+  const steamLoadingGate = pageSource.slice(pageSource.indexOf("const isSteamProfileLoading ="), pageSource.indexOf("if (isSteamProfileLoading"));
+  assert.match(steamLoadingGate, /steamHuntersPersonalDataEnabled && steamId !== undefined/u);
+  assert.match(steamLoadingGate, /steamHuntersProfileState\.status === "loading"/u);
   assert.match(pageSource, /<DeckyFullScreenLoadingState[\s\S]*title=\{state\.status === "error"/u);
   assert.match(pageSource, /Fetching the latest Steam profile and SteamHunters data\./u);
+  assert.match(dashboardSource, /settings\.steamHuntersPersonalDataEnabled\s*&& hasMeaningfulSteamHuntersProfile\(steamHuntersProfile\)/u);
+  assert.match(dashboardSource, /showSteamHuntersProfile \? <SteamInsightsPanel[\s\S]*showSteamLibraryFallback \? <SteamLibraryInsightsPanel/u);
+  assert.match(dashboardSource, /library\.playedGames !== undefined/u);
   assert.match(pageSource, /onNextNavigationItem=\{\(\) => \{\s*onOpenCompletionProgress\(profile\.providerId\);/u);
   assert.match(pageSource, /onPreviousNavigationItem=\{onOpenSettings\}/u);
   assert.doesNotMatch(dashboardSource, /aria-label="Profile navigation"/u);
@@ -880,7 +883,7 @@ test("compact dashboard Profile navigation uses the native route before closing 
   );
 });
 
-test("Steam settings use four filter tabs and move About/Updates to the shared provider footer", async () => {
+test("Steam settings use a SteamHunters tab and move About/Updates to the shared provider footer", async () => {
   const [source, updateSource, footerSource, navigationSource, aboutSource] = await Promise.all([
     readFile(new URL("../src/platform/decky/decky-full-screen-settings-page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-update-settings-panel.tsx", import.meta.url), "utf8"),
@@ -894,10 +897,10 @@ test("Steam settings use four filter tabs and move About/Updates to the shared p
   assert.doesNotMatch(source, /<Heading>PROVIDERS<\/Heading>|Game Scanning|Notifications/u);
   assert.match(source, /<Heading>STEAM SETTINGS<\/Heading>/u);
   assert.doesNotMatch(source, /AC_main_logo|Manage Steam account settings on this device/u);
-  assert.match(source, /type SteamSettingsSection = "account" \| "fullscreen" \| "compact" \| "data"/u);
-  assert.match(source, /selectedSection, setSelectedSection\] = useState<SteamSettingsSection>\("account"\)/u);
+  assert.match(source, /type SteamSettingsSection = "account" \| "steamhunters" \| "fullscreen" \| "compact" \| "data"/u);
+  assert.match(source, /selectedSection, setSelectedSection\] = useState<SteamSettingsSection>\(\(\) => steamHuntersWebReturnPending \? "steamhunters" : "account"\)/u);
   assert.match(source, /flow-children="left-right"[\s\S]*data-settings-section-tabs="true"/u);
-  assert.match(source, /SteamSettingsSectionPill title="Account"[\s\S]*SteamSettingsSectionPill title="Full-Screen Settings"[\s\S]*SteamSettingsSectionPill title="Compact Settings"[\s\S]*SteamSettingsSectionPill title="Data"/u);
+  assert.match(source, /SteamSettingsSectionPill title="Account"[\s\S]*SteamSettingsSectionPill title="SteamHunters"[\s\S]*SteamSettingsSectionPill title="Full-Screen Settings"[\s\S]*SteamSettingsSectionPill title="Compact Settings"[\s\S]*SteamSettingsSectionPill title="Data"/u);
   assert.doesNotMatch(source, /SteamSettingsSectionPill title="Updates"|SteamSettingsSectionPill title="About"/u);
   assert.match(source, /DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS/u);
   assert.match(source, /getSteamCompactAchievementFilterStyle\(selected, focused\)/u);
