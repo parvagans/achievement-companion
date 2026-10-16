@@ -5,7 +5,7 @@
   "author": "parvagans",
   "publish": {
     "tags": ["achievements", "retroachievements", "steam"],
-    "description": "Decky plugin for Steam Deck Game Mode with provider-first achievement dashboards for RetroAchievements and Steam, backend-owned credentials, and controller-friendly browsing.",
+    "description": "Bring RetroAchievements and Steam achievement progress directly into Game Mode, with unlock history, game stats, achievement tracking, and compact or full-screen controller-friendly views.",
     "image": "https://raw.githubusercontent.com/parvagans/achievement-companion/main/docs/screenshots/readme/AC-banner_git.png"
   },
   "flags": []
