@@ -12418,6 +12418,7 @@ test("decky retroachievements platform labels normalize common SRM and canonical
   assert.equal(normalizeRetroAchievementsPlatformLabel("Sega Dreamcast"), "Dreamcast");
   assert.equal(normalizeRetroAchievementsPlatformLabel("Sony PlayStation Portable"), "PlayStation Portable");
   assert.equal(normalizeRetroAchievementsPlatformLabel("Arcade"), "Arcade");
+  assert.equal(normalizeRetroAchievementsPlatformLabel("Arcade - FBNeo"), "Arcade");
   assert.equal(normalizeRetroAchievementsPlatformLabel("SNES/Super Famicom"), "SNES/Super Famicom");
   assert.equal(normalizeRetroAchievementsPlatformLabel("NES/Famicom"), "NES/Famicom");
   assert.equal(normalizeRetroAchievementsPlatformLabel("Game Boy"), "Game Boy");

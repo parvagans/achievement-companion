@@ -782,6 +782,7 @@ const RETROACHIEVEMENTS_PLATFORM_LABEL_ALIASES = new Map<string, string>([
   ["game watch", "Game & Watch"],
 
   ["mame", "Arcade"],
+  ["arcade fbneo", "Arcade"],
   ["dos pc", "DOS"],
   ["pc dos", "DOS"],
 
