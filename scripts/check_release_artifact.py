@@ -33,6 +33,7 @@ EXPECTED_RELEASE_ARCHIVE_NAMES = {
   f"{PLUGIN_ARCHIVE_ROOT}/licenses/rcheevos-MIT.txt",
   f"{PLUGIN_ARCHIVE_ROOT}/licenses/nod-MIT.txt",
   f"{PLUGIN_ARCHIVE_ROOT}/licenses/libchdr-BSD-3-Clause.txt",
+  f"{PLUGIN_ARCHIVE_ROOT}/licenses/lz4-BSD-2-Clause.txt",
   f"{PLUGIN_ARCHIVE_ROOT}/licenses/libchdr-dependency-notices.md",
   f"{PLUGIN_ARCHIVE_ROOT}/licenses/native-dependency-notices.md",
   f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/redaction.py",

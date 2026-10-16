@@ -56,6 +56,7 @@ REQUIRED_RELATIVE_PATHS: tuple[Path, ...] = (
   Path("licenses/rcheevos-MIT.txt"),
   Path("licenses/nod-MIT.txt"),
   Path("licenses/libchdr-BSD-3-Clause.txt"),
+  Path("licenses/lz4-BSD-2-Clause.txt"),
   Path("licenses/libchdr-dependency-notices.md"),
   Path("licenses/native-dependency-notices.md"),
 )

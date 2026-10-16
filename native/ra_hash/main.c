@@ -1,5 +1,6 @@
 #include "rc_hash.h"
 #include "media_reader.h"
+#include "playlist_reader.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -50,10 +51,32 @@ static int ext_is(const char* actual, const char* expected) {
   return *actual == '\0' && *expected == '\0';
 }
 
+static const char* media_reader_name(ac_media_status status, int playlist, const char* ext) {
+  if (playlist)
+    return "playlist";
+  if (status == AC_MEDIA_NINTENDO_DISC)
+    return "nintendo-disc";
+  if (status == AC_MEDIA_CHD)
+    return "chd";
+  if (status == AC_MEDIA_COMPRESSED_ISO)
+    return "compressed-iso";
+  if (ext_is(ext, "chd"))
+    return "chd";
+  if (ext_is(ext, "cso") || ext_is(ext, "zso"))
+    return "compressed-iso";
+  if (ext_is(ext, "rvz") || ext_is(ext, "wia") || ext_is(ext, "gcz") ||
+      ext_is(ext, "wbfs") || ext_is(ext, "tgc"))
+    return "nintendo-disc";
+  return "direct";
+}
+
 int main(int argc, char** argv) {
   char* end;
   long console_id;
   const char* ext;
+  const char* path;
+  char* playlist_entry = NULL;
+  int playlist = 0;
   char hash[33] = {0};
   rc_hash_iterator_t iterator;
   FILE* file;
@@ -70,59 +93,84 @@ int main(int argc, char** argv) {
     report("error", "invalid-console-id");
     return 2;
   }
-  ext = extension(argv[2]);
-  if (ext_is(ext, "rar") || ext_is(ext, "m3u")) {
-    report_media("unavailable", "container-reader-not-implemented",
-      ext_is(ext, "rar") ? "rar" : "playlist", "not-implemented");
+  path = argv[2];
+  ext = extension(path);
+  if (ext_is(ext, "rar")) {
+    report_media("unavailable", "container-reader-not-implemented", "rar", "not-implemented");
     return 0;
   }
-  if (ext_is(ext, "cso") || ext_is(ext, "zso")) {
-    report_media("unavailable", "compressed-iso-reader-not-implemented", "compressed-iso", "not-implemented");
-    return 0;
+  if (ext_is(ext, "m3u")) {
+    ac_playlist_status playlist_status = ac_playlist_resolve(path, &playlist_entry);
+    playlist = 1;
+    if (playlist_status != AC_PLAYLIST_READY) {
+      report_media(playlist_status == AC_PLAYLIST_UNREADABLE ? "error" : "unavailable",
+        playlist_status == AC_PLAYLIST_UNREADABLE ? "rom-unreadable" : "playlist-invalid",
+        "playlist", playlist_status == AC_PLAYLIST_UNREADABLE ? "unreadable" : "invalid");
+      return playlist_status == AC_PLAYLIST_UNREADABLE ? 1 : 0;
+    }
+    path = playlist_entry;
+    ext = extension(path);
+    if (ext_is(ext, "m3u")) {
+      free(playlist_entry);
+      report_media("unavailable", "playlist-invalid", "playlist", "invalid");
+      return 0;
+    }
+    if (ext_is(ext, "rar")) {
+      free(playlist_entry);
+      report_media("unavailable", "container-reader-not-implemented", "playlist", "not-implemented");
+      return 0;
+    }
   }
   if (ext_is(ext, "zip") || ext_is(ext, "7z")) {
     if (console_id != RC_CONSOLE_ARCADE && !(ext_is(ext, "zip") && console_id == RC_CONSOLE_MS_DOS)) {
-      report_media("unavailable", "unsupported-archive-console", "archive", "not-implemented");
+      report_media("unavailable", "unsupported-archive-console", playlist ? "playlist" : "archive", "not-implemented");
+      free(playlist_entry);
       return 0;
     }
   }
 
-  file = fopen(argv[2], "rb");
+  file = fopen(path, "rb");
   if (file == NULL) {
-    report_media("error", "rom-unreadable", "direct", "unreadable");
+    report_media("error", "rom-unreadable", playlist ? "playlist" : "direct", "unreadable");
+    free(playlist_entry);
     return 1;
   }
   if (fgetc(file) == EOF) {
     int read_error = ferror(file);
     report_media(read_error ? "error" : "unavailable", read_error ? "rom-unreadable" : "invalid-file",
-      "direct", read_error ? "unreadable" : "invalid");
+      playlist ? "playlist" : "direct", read_error ? "unreadable" : "invalid");
     fclose(file);
+    free(playlist_entry);
     return read_error ? 1 : 0;
   }
   fclose(file);
 
-  rc_hash_initialize_iterator(&iterator, argv[2], NULL, 0);
+  rc_hash_initialize_iterator(&iterator, path, NULL, 0);
   iterator.callbacks.error_message = on_hash_error;
-  media_status = ac_media_configure(&iterator, argv[2], (unsigned)console_id);
+  media_status = ac_media_configure(&iterator, path, (unsigned)console_id);
   if (media_status == AC_MEDIA_INVALID_CONTAINER) {
     rc_hash_destroy_iterator(&iterator);
-    report_media("unavailable", "container-reader-invalid", ext_is(ext, "chd") ? "chd" : "nintendo-disc", "invalid");
+    report_media("unavailable", "container-reader-invalid", media_reader_name(media_status, playlist, ext), "invalid");
+    free(playlist_entry);
     return 0;
   }
   generated = rc_hash_generate(hash, (uint32_t)console_id, &iterator);
   if (ac_media_read_failed()) {
     rc_hash_destroy_iterator(&iterator);
-    report_media("error", "container-read-failed", media_status == AC_MEDIA_CHD ? "chd" : "nintendo-disc", "read-failed");
+    report_media("error", "container-read-failed", media_reader_name(media_status, playlist, ext), "read-failed");
+    free(playlist_entry);
     return 1;
   }
   rc_hash_destroy_iterator(&iterator);
   if (!generated) {
     report_media("unavailable", hash_error_reason,
-      media_status == AC_MEDIA_NINTENDO_DISC ? "nintendo-disc" : media_status == AC_MEDIA_CHD ? "chd" : "direct",
+      media_reader_name(media_status, playlist, ext),
       media_status == AC_MEDIA_DIRECT ? "direct" : "ready");
+    free(playlist_entry);
     return 0;
   }
   printf("{\"status\":\"resolved\",\"hash\":\"%s\",\"consoleId\":%ld,\"method\":\"rcheevos\",\"mediaReader\":\"%s\",\"mediaReaderStatus\":\"ready\"}\n",
-    hash, console_id, media_status == AC_MEDIA_NINTENDO_DISC ? "nintendo-disc" : media_status == AC_MEDIA_CHD ? "chd" : "direct");
+    hash, console_id, media_reader_name(media_status, playlist, ext));
+  free(playlist_entry);
   return 0;
 }

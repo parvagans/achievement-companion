@@ -23,6 +23,11 @@ file-size cutoff without storing a large fixture. The same copyright-free PS2
 image is stored as `synthetic-ps2-cd.chd` and `synthetic-ps2-dvd.chd` using
 `tests/native/generate_chd_fixtures.py`; both CHDs must match the raw image's
 hash, and a renamed CHD proves content-based probing.
+The smoke test also generates a minimal PSP ISO9660 image plus CISO and ZISO
+representations at runtime with `generate_compressed_iso_fixtures.py`. The PSP
+and PS2 compressed images use aligned block padding and must match their raw ISO
+hashes; renamed copies prove content-based probing, and malformed headers must fail closed. Playlist vectors
+cover raw PS2 ISO, CHD, and GameCube/Wii RVZ first-disc resolution.
 The expected GameCube hash is `a52044325b45b9690b04ccaa876874af`; the
 expected Wii hash is `741e1d5e77c4fa126bc0dc8bb61d022d`. Both values were
 obtained independently from the raw images using pinned rcheevos.

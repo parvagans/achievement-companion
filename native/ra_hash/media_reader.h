@@ -7,6 +7,7 @@ typedef enum ac_media_status {
   AC_MEDIA_DIRECT,
   AC_MEDIA_NINTENDO_DISC,
   AC_MEDIA_CHD,
+  AC_MEDIA_COMPRESSED_ISO,
   AC_MEDIA_INVALID_CONTAINER
 } ac_media_status;
 

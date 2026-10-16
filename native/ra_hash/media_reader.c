@@ -1,6 +1,7 @@
 #include "media_reader.h"
 
 #include "chd_reader.h"
+#include "compressed_iso_reader.h"
 
 #include "nod.h"
 
@@ -58,6 +59,7 @@ static void media_close(void* handle) {
 
 ac_media_status ac_media_configure(rc_hash_iterator_t* iterator, const char* path, unsigned console_id) {
   ac_chd_probe_status chd_status;
+  ac_compressed_iso_probe_status compressed_iso_status;
   NodHandle* probe = NULL;
   read_failed = 0;
   chd_status = ac_chd_configure(iterator, path);
@@ -65,6 +67,14 @@ ac_media_status ac_media_configure(rc_hash_iterator_t* iterator, const char* pat
     return AC_MEDIA_CHD;
   if (chd_status == AC_CHD_INVALID || suffix_is(path, ".chd"))
     return AC_MEDIA_INVALID_CONTAINER;
+  if (console_id == RC_CONSOLE_PSP || console_id == RC_CONSOLE_PLAYSTATION_2) {
+    compressed_iso_status = ac_compressed_iso_configure(iterator, path);
+    if (compressed_iso_status == AC_COMPRESSED_ISO_READY)
+      return AC_MEDIA_COMPRESSED_ISO;
+    if (compressed_iso_status == AC_COMPRESSED_ISO_INVALID ||
+        suffix_is(path, ".cso") || suffix_is(path, ".zso"))
+      return AC_MEDIA_INVALID_CONTAINER;
+  }
   if (console_id != RC_CONSOLE_GAMECUBE && console_id != RC_CONSOLE_WII)
     return AC_MEDIA_DIRECT;
 
@@ -86,5 +96,5 @@ ac_media_status ac_media_configure(rc_hash_iterator_t* iterator, const char* pat
 }
 
 int ac_media_read_failed(void) {
-  return read_failed || ac_chd_read_failed();
+  return read_failed || ac_chd_read_failed() || ac_compressed_iso_read_failed();
 }

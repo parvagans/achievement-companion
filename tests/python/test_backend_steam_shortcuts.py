@@ -205,7 +205,7 @@ class SteamShortcutsTests(unittest.TestCase):
 
   def test_disc_and_archive_paths_are_discovered_without_hashing(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
-      for suffix in (".iso", ".cue", ".zip", ".7z", ".chd", ".pbp"):
+      for suffix in (".iso", ".gcm", ".cue", ".gdi", ".m3u", ".zip", ".7z", ".chd", ".pbp", ".cso", ".zso", ".rvz", ".wia", ".gcz", ".ciso", ".wbfs", ".wad"):
         rom_path = Path(temp_dir) / f"game{suffix}"
         rom_path.write_bytes(b"synthetic fixture")
         shortcut_path = Path(temp_dir) / "shortcuts.vdf"

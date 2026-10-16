@@ -1,6 +1,6 @@
 # Third-Party Notices
 
-This file identifies third-party components relevant to Achievement Companion's source and distributed artifacts. The full notices for the statically linked native dependencies are packaged at `licenses/native-dependency-notices.md`.
+This file identifies third-party components relevant to Achievement Companion's source and distributed artifacts. Applicable native license texts and generated dependency notices are packaged in `licenses/`.
 
 ## Branding / Trademark Notices
 
@@ -28,6 +28,10 @@ CD-track sectors and DVD logical bytes to rcheevos without extracting a disc
 image. Its license is included at `licenses/libchdr-BSD-3-Clause.txt`.
 Notices for libchdr's vendored miniz, Zstandard, LZMA SDK, and dr_flac codecs
 are included at `licenses/libchdr-dependency-notices.md`.
+
+The helper also compiles the LZ4 v1.10.0 library source at commit
+`ebb370ca83af193212df4dcbadcc5d87bc0de2f0` (BSD-2-Clause) for ZSO block
+decompression. Its license is included at `licenses/lz4-BSD-2-Clause.txt`.
 
 The static `nod` build enables these vendored compression libraries. They
 are linked into `ac-rhash`; no compression command or shared library is

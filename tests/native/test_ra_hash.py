@@ -11,6 +11,7 @@ import tempfile
 from pathlib import Path
 
 from generate_chd_fixtures import make_ps2_iso
+from generate_compressed_iso_fixtures import make_compressed_iso, make_psp_iso
 from generate_nintendo_disc_fixtures import make_gamecube, make_wii
 
 
@@ -98,20 +99,33 @@ with tempfile.TemporaryDirectory() as directory:
   archive = root / "archive.zip"
   archive.write_bytes(b"not a ZIP")
   assert invoke(18, archive) == {"status": "unavailable", "reason": "unsupported-archive-console", "mediaReader": "archive", "mediaReaderStatus": "not-implemented"}
-  for suffix in (".rar", ".m3u"):
+  for suffix in (".rar",):
     unsupported_path = root / f"unsupported{suffix}"
     unsupported_path.write_bytes(b"synthetic fixture")
     assert invoke(18, unsupported_path) == {
       "status": "unavailable", "reason": "container-reader-not-implemented",
-      "mediaReader": "rar" if suffix == ".rar" else "playlist", "mediaReaderStatus": "not-implemented",
+      "mediaReader": "rar", "mediaReaderStatus": "not-implemented",
     }
-  for suffix in (".cso", ".zso"):
-    unsupported_path = root / f"unsupported{suffix}"
-    unsupported_path.write_bytes(b"synthetic fixture")
-    assert invoke(38, unsupported_path) == {
-      "status": "unavailable", "reason": "compressed-iso-reader-not-implemented",
-      "mediaReader": "compressed-iso", "mediaReaderStatus": "not-implemented",
-    }
+  empty_playlist = root / "empty.m3u"
+  empty_playlist.write_text("#EXTM3U\n\n", encoding="utf-8")
+  assert invoke(21, empty_playlist) == {
+    "status": "unavailable", "reason": "playlist-invalid",
+    "mediaReader": "playlist", "mediaReaderStatus": "invalid",
+  }
+  missing_playlist = root / "missing.m3u"
+  missing_playlist.write_text("missing.iso\n", encoding="utf-8")
+  assert invoke(21, missing_playlist) == {
+    "status": "error", "reason": "rom-unreadable",
+    "mediaReader": "playlist", "mediaReaderStatus": "unreadable",
+  }
+  playlist_rar = root / "playlist.rar"
+  playlist_rar.write_bytes(b"synthetic fixture")
+  unsupported_playlist = root / "unsupported.m3u"
+  unsupported_playlist.write_text("playlist.rar\n", encoding="utf-8")
+  assert invoke(21, unsupported_playlist) == {
+    "status": "unavailable", "reason": "container-reader-not-implemented",
+    "mediaReader": "playlist", "mediaReaderStatus": "not-implemented",
+  }
   assert invoke(18, root / "missing.nds") == {"status": "error", "reason": "rom-unreadable", "mediaReader": "direct", "mediaReaderStatus": "unreadable"}
 
   expected_raw_hashes = {
@@ -134,6 +148,13 @@ with tempfile.TemporaryDirectory() as directory:
     renamed = root / f"synthetic-{label}.unknown"
     renamed.write_bytes((compressed / f"synthetic-{label}.rvz").read_bytes())
     assert invoke(console_id, renamed)["hash"] == reference["hash"], "Reader probing must not depend on file suffix"
+
+    playlist = root / f"synthetic-{label}.m3u"
+    playlist.write_text(f"#EXTM3U\n{compressed / f'synthetic-{label}.rvz'}\n", encoding="utf-8")
+    playlist_response = invoke(console_id, playlist)
+    assert playlist_response["status"] == "resolved", playlist_response
+    assert playlist_response["hash"] == reference["hash"], playlist_response
+    assert playlist_response["mediaReader"] == "playlist", playlist_response
 
     for format_name in (("ciso",) if label == "gc" else ("ciso", "wbfs")):
       container = root / f"synthetic-{label}.{format_name}"
@@ -175,6 +196,49 @@ with tempfile.TemporaryDirectory() as directory:
   invalid_rvz.write_bytes(b"invalid RVZ")
   assert invoke(16, invalid_rvz) == {
     "status": "unavailable", "reason": "container-reader-invalid", "mediaReader": "nintendo-disc", "mediaReaderStatus": "invalid",
+  }
+
+  ps2_playlist = root / "Synthetic PS2.m3u"
+  ps2_playlist.write_bytes(b"\xef\xbb\xbf#EXTM3U\r\n  \r\n\"Synthetic PS2.iso\"\r\nmissing.iso\r\n")
+  ps2_playlist_hash = invoke(21, ps2_playlist)
+  assert ps2_playlist_hash["status"] == "resolved", ps2_playlist_hash
+  assert ps2_playlist_hash["hash"] == ps2_hash["hash"], ps2_playlist_hash
+  assert ps2_playlist_hash["mediaReader"] == "playlist", ps2_playlist_hash
+
+  ps2_chd_playlist = root / "Synthetic PS2 CHD.m3u"
+  ps2_chd_playlist.write_text(f"{compressed / 'synthetic-ps2-cd.chd'}\n", encoding="utf-8")
+  ps2_chd_playlist_hash = invoke(21, ps2_chd_playlist)
+  assert ps2_chd_playlist_hash["hash"] == ps2_hash["hash"], ps2_chd_playlist_hash
+  assert ps2_chd_playlist_hash["mediaReader"] == "playlist", ps2_chd_playlist_hash
+
+  for suffix, zso in ((".cso", False), (".zso", True)):
+    compressed_ps2 = root / f"Synthetic PS2{suffix}"
+    make_compressed_iso(ps2, compressed_ps2, zso=zso, align=6 if zso else 4)
+    compressed_ps2_response = invoke(21, compressed_ps2)
+    assert compressed_ps2_response["status"] == "resolved", compressed_ps2_response
+    assert compressed_ps2_response["hash"] == ps2_hash["hash"], compressed_ps2_response
+    assert compressed_ps2_response["mediaReader"] == "compressed-iso", compressed_ps2_response
+
+  psp_iso = root / "Synthetic PSP.iso"
+  make_psp_iso(psp_iso)
+  psp_reference = invoke(41, psp_iso)
+  assert psp_reference["status"] == "resolved", psp_reference
+  for suffix, zso in ((".cso", False), (".zso", True)):
+    compressed_psp = root / f"Synthetic PSP{suffix}"
+    make_compressed_iso(psp_iso, compressed_psp, zso=zso, align=6 if zso else 4)
+    compressed_response = invoke(41, compressed_psp)
+    assert compressed_response["status"] == "resolved", compressed_response
+    assert compressed_response["hash"] == psp_reference["hash"], compressed_response
+    assert compressed_response["mediaReader"] == "compressed-iso", compressed_response
+    renamed_compressed = root / f"Synthetic PSP {suffix[1:]}.unknown"
+    renamed_compressed.write_bytes(compressed_psp.read_bytes())
+    assert invoke(41, renamed_compressed)["hash"] == psp_reference["hash"], "Compressed ISO probing must use content"
+
+  invalid_cso = root / "invalid.cso"
+  invalid_cso.write_bytes(b"CISO" + bytes(20))
+  assert invoke(41, invalid_cso) == {
+    "status": "unavailable", "reason": "container-reader-invalid",
+    "mediaReader": "compressed-iso", "mediaReaderStatus": "invalid",
   }
 
 print("Native rcheevos helper smoke tests passed.")

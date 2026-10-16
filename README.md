@@ -53,7 +53,7 @@ For a non-Steam shortcut that Achievement Companion can confidently match to a R
 - **Your Stuff → Achievements** shows badge artwork, descriptions, progress, locked and unlocked states, and unlock times or global rates when RetroAchievements provides them.
 - **Activity** groups dated unlocks by day in Steam's native layout. Tiles include the exact unlock time and Hardcore or Softcore mode, and open the native Your Stuff achievement list.
 
-Steam ROM Manager and EmuDeck shortcuts are identified through accepted RetroAchievements ROM hashes rather than shortcut names. Supported formats include direct ROMs, ZIP archives, raw disc images, CHD CD/DVD images, and GameCube/Wii formats such as RVZ, WIA, GCZ, CISO, and WBFS. CHDs are read directly without extracting a temporary ISO. Unsupported, ambiguous, or unrecognized revisions remain unmatched instead of being guessed from their titles.
+Steam ROM Manager and EmuDeck shortcuts are identified through accepted RetroAchievements ROM hashes rather than shortcut names. Supported formats include direct ROMs, ZIP archives, M3U playlists, raw disc images, PSP/PS2 CSO and ZSO images, CHD CD/DVD images, and GameCube/Wii formats such as RVZ, WIA, GCZ, Nintendo CISO, and WBFS. Compressed disc containers are read directly without extracting temporary ISO files. M3U follows RetroAchievements' first-disc identification policy and can point to supported raw, CHD, or Nintendo disc media. Unsupported, ambiguous, or unrecognized revisions remain unmatched instead of being guessed from their titles.
 
 <table>
   <tr>

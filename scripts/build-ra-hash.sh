@@ -5,6 +5,7 @@ root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 revision=1433173220a7eaede6a9ed7a18e94117be1821e0
 nod_revision=ebd80cac99b48a323200d84365e07a58cc27412d
 libchdr_revision=93d8c239ff0d4e8d7722985992649fce12d2463b
+lz4_revision=ebb370ca83af193212df4dcbadcc5d87bc0de2f0
 build_dir="$(mktemp -d)"
 trap 'rm -rf "$build_dir"' EXIT
 
@@ -26,6 +27,11 @@ git -C "$build_dir/libchdr" checkout --quiet "$libchdr_revision"
 test "$(git -C "$build_dir/libchdr" rev-parse HEAD)" = "$libchdr_revision"
 diff -q --strip-trailing-cr "$root/licenses/libchdr-BSD-3-Clause.txt" "$build_dir/libchdr/LICENSE.txt"
 
+git clone --quiet --depth 1 --branch v1.10.0 https://github.com/lz4/lz4.git "$build_dir/lz4"
+git -C "$build_dir/lz4" checkout --quiet "$lz4_revision"
+test "$(git -C "$build_dir/lz4" rev-parse HEAD)" = "$lz4_revision"
+diff -q --strip-trailing-cr "$root/licenses/lz4-BSD-2-Clause.txt" "$build_dir/lz4/lib/LICENSE"
+
 src="$build_dir/rcheevos/src"
 mkdir -p "$root/bin"
 "${CC:-cc}" -std=c11 -O2 -static -ffile-prefix-map="$build_dir"=. -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE \
@@ -37,12 +43,15 @@ mkdir -p "$root/bin"
   -I"$build_dir/libchdr/deps/miniz-3.1.1" \
   -I"$build_dir/libchdr/deps/zstd-1.5.7" \
   -I"$build_dir/libchdr" \
+  -I"$build_dir/lz4/lib" \
   "$root/native/ra_hash/main.c" "$root/native/ra_hash/media_reader.c" "$root/native/ra_hash/chd_reader.c" \
+  "$root/native/ra_hash/compressed_iso_reader.c" "$root/native/ra_hash/playlist_reader.c" \
   "$src/rc_compat.c" "$src/rc_util.c" \
   "$src/rhash/hash.c" "$src/rhash/hash_rom.c" "$src/rhash/hash_disc.c" \
   "$src/rhash/hash_zip.c" "$src/rhash/hash_encrypted.c" "$src/rhash/cdreader.c" \
   "$src/rhash/md5.c" "$src/rhash/aes.c" \
   "$build_dir/libchdr/unity.c" \
+  "$build_dir/lz4/lib/lz4.c" \
   "$build_dir/target/release/libnod.a" -ldl -lpthread -lm \
   -o "$root/bin/ac-rhash"
 chmod 755 "$root/bin/ac-rhash"
