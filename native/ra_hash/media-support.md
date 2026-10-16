@@ -1,7 +1,8 @@
 # RetroAchievements media support audit
 
-This audit is for the pinned `rcheevos` v12.5.0 and `nod` commit
-`ebd80cac99b48a323200d84365e07a58cc27412d`. Console IDs come from the
+This audit is for the pinned `rcheevos` v12.5.0, `nod` commit
+`ebd80cac99b48a323200d84365e07a58cc27412d`, and `libchdr` v0.3.0 commit
+`93d8c239ff0d4e8d7722985992649fce12d2463b`. Console IDs come from the
 existing RA systems mapping; the filename suffix never decides the RA hash.
 `SUPPORTED` means the packaged helper has a reader. `NOT_IMPLEMENTED` means
 the logical game can be hashable by RA, but this package has no validated
@@ -27,7 +28,7 @@ from its extension.
 | ZIP, one clear game member | Mapped non-Arcade systems | SUPPORTED | Python streams one member to a temporary file with its suffix, a 2 GiB extracted-size cap, and a 128-entry cap; rcheevos hashes the member. Diagnostics identify `zip-member`. Multiple plausible members are ambiguous. |
 | ZIP / 7z Arcade | Arcade | SUPPORTED | rcheevos archive-name hashing. MS-DOS ZIP uses its upstream content method. |
 | 7z outside Arcade / RAR | Cartridge and disc systems | NOT_IMPLEMENTED | Would require a bounded member reader and deterministic member selection; no generic archive hash is used. |
-| CHD | CD/DVD systems, including PS1, PS2, PSP, Dreamcast | NOT_IMPLEMENTED | `libchdr` v0.3.0 is BSD-3-Clause and suitable in principle; integration still requires CD track metadata and sector-mode translation or DVD logical reads in the rcheevos callbacks, plus equivalence fixtures. |
+| CHD | CD/DVD systems, including PS1, PS2, PSP, Dreamcast, Sega CD, and Saturn | SUPPORTED | Pinned `libchdr` exposes CD track metadata and sector payloads or 2048-byte DVD logical reads to rcheevos. Copyright-free PS2 CD-CHD and DVD-CHD fixtures must hash identically to their raw ISO source. |
 | PSP/PS2 CSO / ZSO | PSP, PS2 | NOT_IMPLEMENTED | These are compressed ISO block formats, distinct from Nintendo CISO. A bounded random-access block adapter is needed. |
 | M3U / multi-disc playlists | Multi-disc CD systems | NOT_IMPLEMENTED | A playlist is not itself the game hash. Choosing the active disc and invalidating dependent cache entries needs a separate policy. Individual CUE/GDI discs are supported. |
 | NKit 1 / NKit 2 | GameCube, Wii | UNVALIDATED | No synthetic equivalence fixture or validated reader path in this package; `nod` documents limited NKit 2 handling for WBFS. |
@@ -41,11 +42,14 @@ disc header, region, partition metadata, and selected partition data using
 the representation described by the disc header. The packaged test compares
 raw ISO hashes against RVZ/WIA/GCZ and other supported Nintendo containers,
 including encrypted Wii ISO against equivalent RVZ and WIA.
-The reader does not materialize a full ISO at runtime.
+The reader does not materialize a full ISO at runtime. CHD media is likewise
+read in place: content magic selects libchdr even when the suffix is renamed,
+CD tracks are translated to rcheevos sectors, and DVD-style CHDs expose their
+logical byte stream. Invalid `.chd` files fail as invalid containers.
 
 `rcheevos` exposes [custom file and CD readers](https://github.com/RetroAchievements/rcheevos/blob/v12.5.0/include/rc_hash.h), and its
 [game identification methods](https://docs.retroachievements.org/developer-docs/game-identification.html) define the console hash algorithms.
 `nod`'s [format list and C API](https://github.com/encounter/nod) document
-the Nintendo container reader. The proposed CHD dependency and its
+the Nintendo container reader. `libchdr` and its
 [BSD-3-Clause license](https://github.com/rtissera/libchdr/blob/v0.3.0/LICENSE.txt)
-were audited but are not bundled.
+are pinned and bundled into the native helper.

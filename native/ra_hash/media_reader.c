@@ -1,5 +1,7 @@
 #include "media_reader.h"
 
+#include "chd_reader.h"
+
 #include "nod.h"
 
 #include <ctype.h>
@@ -55,8 +57,14 @@ static void media_close(void* handle) {
 }
 
 ac_media_status ac_media_configure(rc_hash_iterator_t* iterator, const char* path, unsigned console_id) {
+  ac_chd_probe_status chd_status;
   NodHandle* probe = NULL;
   read_failed = 0;
+  chd_status = ac_chd_configure(iterator, path);
+  if (chd_status == AC_CHD_READY)
+    return AC_MEDIA_CHD;
+  if (chd_status == AC_CHD_INVALID || suffix_is(path, ".chd"))
+    return AC_MEDIA_INVALID_CONTAINER;
   if (console_id != RC_CONSOLE_GAMECUBE && console_id != RC_CONSOLE_WII)
     return AC_MEDIA_DIRECT;
 
@@ -78,5 +86,5 @@ ac_media_status ac_media_configure(rc_hash_iterator_t* iterator, const char* pat
 }
 
 int ac_media_read_failed(void) {
-  return read_failed;
+  return read_failed || ac_chd_read_failed();
 }

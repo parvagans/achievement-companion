@@ -55,6 +55,8 @@ REQUIRED_RELATIVE_PATHS: tuple[Path, ...] = (
   Path("bin/ac-rhash"),
   Path("licenses/rcheevos-MIT.txt"),
   Path("licenses/nod-MIT.txt"),
+  Path("licenses/libchdr-BSD-3-Clause.txt"),
+  Path("licenses/libchdr-dependency-notices.md"),
   Path("licenses/native-dependency-notices.md"),
 )
 RELEASE_PACKAGE_JSON_ALLOWED_FIELDS: tuple[str, ...] = (

@@ -22,6 +22,13 @@ MIT OR Apache-2.0 license. `nod` supplies random-access Nintendo optical disc
 reads for RVZ, WIA, GCZ, Nintendo CISO, and WBFS without a Dolphin runtime
 dependency. Its MIT license is included at `licenses/nod-MIT.txt`.
 
+The helper statically links `libchdr` v0.3.0 at commit
+`93d8c239ff0d4e8d7722985992649fce12d2463b` (BSD-3-Clause) to expose CHD
+CD-track sectors and DVD logical bytes to rcheevos without extracting a disc
+image. Its license is included at `licenses/libchdr-BSD-3-Clause.txt`.
+Notices for libchdr's vendored miniz, Zstandard, LZMA SDK, and dr_flac codecs
+are included at `licenses/libchdr-dependency-notices.md`.
+
 The static `nod` build enables these vendored compression libraries. They
 are linked into `ac-rhash`; no compression command or shared library is
 required on the Steam Deck.

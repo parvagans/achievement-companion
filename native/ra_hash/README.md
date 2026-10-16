@@ -12,10 +12,13 @@ The build uses upstream `rcheevos` v12.5.0, pinned to commit
 `1433173220a7eaede6a9ed7a18e94117be1821e0`, directly from its official
 repository. The build verifies the commit and MIT license against
 `licenses/rcheevos-MIT.txt`. No upstream source is duplicated in this repo.
-On Linux x86_64, run `bash scripts/build-ra-hash.sh`; it requires Git and a C99
+CHD access uses `libchdr` v0.3.0 at commit
+`93d8c239ff0d4e8d7722985992649fce12d2463b`; the build verifies its
+BSD-3-Clause license against `licenses/libchdr-BSD-3-Clause.txt`.
+On Linux x86_64, run `bash scripts/build-ra-hash.sh`; it requires Git and a C11
 compiler with static libc support. `release:prepare` runs this build and the
 synthetic native smoke test before packaging. The release ZIP includes
-`bin/ac-rhash` with Unix executable permissions and the MIT license. The
+`bin/ac-rhash` with Unix executable permissions and the applicable licenses. The
 helper is statically linked, so the installed Decky plugin needs no extra
 package, compiler, or runtime download. Building now also requires Rust 1.86+
 and Cargo for the pinned MIT/Apache-2.0 `nod` C library; the release bundles
@@ -36,13 +39,15 @@ GameCube and Wii images, `nod` offers random-access logical disc reads through
 the per-iterator rcheevos file callbacks. This covers validated RVZ, WIA, GCZ,
 Nintendo CISO, and WBFS without temporary ISO conversion or installed Dolphin.
 WiiWare WAD stays on rcheevos' distinct direct-file path. Other disc hashing
-uses upstream file and CD readers; Python does not read the image. Non-Arcade ZIPs with exactly one
+uses upstream file and CD readers; Python does not read the image. CHD files
+are probed by content, then streamed through libchdr: CD metadata is translated
+into rcheevos track/sector callbacks, while 2048-byte-unit DVD images use
+random-access logical reads. No temporary ISO or installed `chdman` is needed.
+Non-Arcade ZIPs with exactly one
 plausible game member are streamed to a size-bounded temporary file, then hashed by `rcheevos`
 for the resolved console. Ambiguous ZIPs are rejected. Arcade ZIP/7z and MS-DOS
-ZIP use upstream archive methods directly. Other 7z, RAR, CHD, and M3U playlists
-are reported unavailable. CHD needs a
-separate licensed reader wired into `rcheevos` CD callbacks; simply compiling
-`rcheevos` does not add CHD support. RetroAchievements Game IDs resolve only
+ZIP use upstream archive methods directly. Other 7z, RAR, and M3U playlists
+are reported unavailable. RetroAchievements Game IDs resolve only
 from an exact generated hash in the supported-hash catalogue. Unsupported media,
 unreadable paths, and valid unlisted hashes remain unresolved.
 

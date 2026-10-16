@@ -10,57 +10,11 @@ import sys
 import tempfile
 from pathlib import Path
 
+from generate_chd_fixtures import make_ps2_iso
 from generate_nintendo_disc_fixtures import make_gamecube, make_wii
 
 
 helper = Path(sys.argv[1]).resolve()
-
-
-def make_ps2_iso(path: Path, *, sparse_size: int | None = None) -> None:
-  """Write a minimal, copyright-free ISO9660 PS2 boot layout."""
-  sector_size = 2048
-  image = bytearray(64 * sector_size)
-  system_cnf = b"BOOT2 = cdrom0:\\SLUS_123.45;1\nVER = 1.00\n"
-  boot_elf = b"\x7fELF" + bytes((index * 13) % 256 for index in range(4092))
-
-  def record(extent: int, length: int, name: bytes, flags: int = 0) -> bytes:
-    size = 33 + len(name) + (0 if len(name) & 1 else 1)
-    entry = bytearray(size)
-    entry[0] = size
-    entry[2:6] = extent.to_bytes(4, "little")
-    entry[6:10] = extent.to_bytes(4, "big")
-    entry[10:14] = length.to_bytes(4, "little")
-    entry[14:18] = length.to_bytes(4, "big")
-    entry[25] = flags
-    entry[28:30] = (1).to_bytes(2, "little")
-    entry[30:32] = (1).to_bytes(2, "big")
-    entry[32] = len(name)
-    entry[33:33 + len(name)] = name
-    return bytes(entry)
-
-  pvd = 16 * sector_size
-  image[pvd] = 1
-  image[pvd + 1:pvd + 6] = b"CD001"
-  image[pvd + 6] = 1
-  image[pvd + 80:pvd + 84] = (64).to_bytes(4, "little")
-  image[pvd + 84:pvd + 88] = (64).to_bytes(4, "big")
-  image[pvd + 128:pvd + 130] = sector_size.to_bytes(2, "little")
-  image[pvd + 130:pvd + 132] = sector_size.to_bytes(2, "big")
-  image[pvd + 156:pvd + 190] = record(20, sector_size, b"\0", 2)
-  image[17 * sector_size:17 * sector_size + 7] = b"\xffCD001\x01"
-  directory = b"".join((
-    record(20, sector_size, b"\0", 2),
-    record(20, sector_size, b"\1", 2),
-    record(21, len(system_cnf), b"SYSTEM.CNF;1"),
-    record(22, len(boot_elf), b"SLUS_123.45;1"),
-  ))
-  image[20 * sector_size:20 * sector_size + len(directory)] = directory
-  image[21 * sector_size:21 * sector_size + len(system_cnf)] = system_cnf
-  image[22 * sector_size:22 * sector_size + len(boot_elf)] = boot_elf
-  path.write_bytes(image)
-  if sparse_size is not None:
-    with path.open("r+b") as output:
-      output.truncate(sparse_size)
 
 
 def invoke(console_id: int, path: Path) -> dict[str, object]:
@@ -86,6 +40,18 @@ with tempfile.TemporaryDirectory() as directory:
   make_ps2_iso(ps2)
   ps2_hash = invoke(21, ps2)
   assert ps2_hash["status"] == "resolved", ps2_hash
+  compressed = Path(__file__).resolve().parent / "fixtures"
+  for fixture_name in ("synthetic-ps2-cd.chd", "synthetic-ps2-dvd.chd"):
+    fixture = compressed / fixture_name
+    chd_hash = invoke(21, fixture)
+    assert chd_hash["status"] == "resolved", (fixture_name, chd_hash)
+    assert chd_hash["hash"] == ps2_hash["hash"], (fixture_name, ps2_hash, chd_hash)
+    assert chd_hash["mediaReader"] == "chd", chd_hash
+
+  renamed_chd = root / "Synthetic PS2 container.unknown"
+  renamed_chd.write_bytes((compressed / "synthetic-ps2-cd.chd").read_bytes())
+  assert invoke(21, renamed_chd)["hash"] == ps2_hash["hash"], "CHD probing must not depend on file suffix"
+
   large_ps2 = root / "Synthetic large PS2.iso"
   make_ps2_iso(large_ps2, sparse_size=4 * 1024 * 1024 * 1024 + 64 * 2048)
   assert invoke(21, large_ps2)["hash"] == ps2_hash["hash"], "large PS2 image must have no file-size cutoff"
@@ -128,7 +94,7 @@ with tempfile.TemporaryDirectory() as directory:
 
   unsupported = root / "disc.chd"
   unsupported.write_bytes(b"not a CHD")
-  assert invoke(21, unsupported) == {"status": "unavailable", "reason": "chd-reader-not-implemented", "mediaReader": "chd", "mediaReaderStatus": "not-implemented"}
+  assert invoke(21, unsupported) == {"status": "unavailable", "reason": "container-reader-invalid", "mediaReader": "chd", "mediaReaderStatus": "invalid"}
   archive = root / "archive.zip"
   archive.write_bytes(b"not a ZIP")
   assert invoke(18, archive) == {"status": "unavailable", "reason": "unsupported-archive-console", "mediaReader": "archive", "mediaReaderStatus": "not-implemented"}
@@ -148,7 +114,6 @@ with tempfile.TemporaryDirectory() as directory:
     }
   assert invoke(18, root / "missing.nds") == {"status": "error", "reason": "rom-unreadable", "mediaReader": "direct", "mediaReaderStatus": "unreadable"}
 
-  compressed = Path(__file__).resolve().parent / "fixtures"
   expected_raw_hashes = {
     "gc": "a52044325b45b9690b04ccaa876874af",
     "wii": "741e1d5e77c4fa126bc0dc8bb61d022d",

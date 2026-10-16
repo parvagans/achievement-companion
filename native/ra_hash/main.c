@@ -71,10 +71,6 @@ int main(int argc, char** argv) {
     return 2;
   }
   ext = extension(argv[2]);
-  if (ext_is(ext, "chd")) {
-    report_media("unavailable", "chd-reader-not-implemented", "chd", "not-implemented");
-    return 0;
-  }
   if (ext_is(ext, "rar") || ext_is(ext, "m3u")) {
     report_media("unavailable", "container-reader-not-implemented",
       ext_is(ext, "rar") ? "rar" : "playlist", "not-implemented");
@@ -110,23 +106,23 @@ int main(int argc, char** argv) {
   media_status = ac_media_configure(&iterator, argv[2], (unsigned)console_id);
   if (media_status == AC_MEDIA_INVALID_CONTAINER) {
     rc_hash_destroy_iterator(&iterator);
-    report_media("unavailable", "container-reader-invalid", "nintendo-disc", "invalid");
+    report_media("unavailable", "container-reader-invalid", ext_is(ext, "chd") ? "chd" : "nintendo-disc", "invalid");
     return 0;
   }
   generated = rc_hash_generate(hash, (uint32_t)console_id, &iterator);
   if (ac_media_read_failed()) {
     rc_hash_destroy_iterator(&iterator);
-    report_media("error", "container-read-failed", "nintendo-disc", "read-failed");
+    report_media("error", "container-read-failed", media_status == AC_MEDIA_CHD ? "chd" : "nintendo-disc", "read-failed");
     return 1;
   }
   rc_hash_destroy_iterator(&iterator);
   if (!generated) {
     report_media("unavailable", hash_error_reason,
-      media_status == AC_MEDIA_NINTENDO_DISC ? "nintendo-disc" : "direct",
-      media_status == AC_MEDIA_NINTENDO_DISC ? "ready" : "direct");
+      media_status == AC_MEDIA_NINTENDO_DISC ? "nintendo-disc" : media_status == AC_MEDIA_CHD ? "chd" : "direct",
+      media_status == AC_MEDIA_DIRECT ? "direct" : "ready");
     return 0;
   }
   printf("{\"status\":\"resolved\",\"hash\":\"%s\",\"consoleId\":%ld,\"method\":\"rcheevos\",\"mediaReader\":\"%s\",\"mediaReaderStatus\":\"ready\"}\n",
-    hash, console_id, media_status == AC_MEDIA_NINTENDO_DISC ? "nintendo-disc" : "direct");
+    hash, console_id, media_status == AC_MEDIA_NINTENDO_DISC ? "nintendo-disc" : media_status == AC_MEDIA_CHD ? "chd" : "direct");
   return 0;
 }

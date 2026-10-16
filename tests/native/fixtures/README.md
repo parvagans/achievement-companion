@@ -19,7 +19,10 @@ not a reference fixture.
 packaged `ac-rhash`, and compares the hashes against every compressed fixture.
 It also creates a minimal PS2 ISO9660 boot image in memory and compares its
 hash with a sparse image over 4 GiB, proving the direct-disc path has no
-file-size cutoff without storing a large fixture.
+file-size cutoff without storing a large fixture. The same copyright-free PS2
+image is stored as `synthetic-ps2-cd.chd` and `synthetic-ps2-dvd.chd` using
+`tests/native/generate_chd_fixtures.py`; both CHDs must match the raw image's
+hash, and a renamed CHD proves content-based probing.
 The expected GameCube hash is `a52044325b45b9690b04ccaa876874af`; the
 expected Wii hash is `741e1d5e77c4fa126bc0dc8bb61d022d`. Both values were
 obtained independently from the raw images using pinned rcheevos.
