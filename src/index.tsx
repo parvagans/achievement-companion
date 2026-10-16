@@ -1,5 +1,4 @@
 import { definePlugin } from "@decky/api";
-import { Navigation } from "@decky/ui";
 import { DeckyBootstrap } from "@platform/decky/bootstrap";
 import { DeckyCompactSession } from "@platform/decky/decky-compact-session";
 import { removeDeckyCompactCancelBridges } from "@platform/decky/decky-full-screen-cancel-bridge";
@@ -10,6 +9,7 @@ import { ensureDeckyNativeSteamAchievementsRegistered } from "@platform/decky/de
 import {
   closeDeckyFullScreenSettingsOnDismount,
   clearDeckyCompactOriginFullScreenSession,
+  openDeckyUpdatesFromNotification,
   registerDeckyFullScreenRoutes,
 } from "@platform/decky/decky-navigation";
 import {
@@ -17,7 +17,6 @@ import {
   removeAchievementCompanionRuntimeDebug,
 } from "@platform/decky/decky-runtime-debug";
 import compactBrandLogoUrl from "./platform/decky/assets/brand/AC_decky_compact_logo.png";
-import { buildDeckyFullScreenSettingsRoute } from "./platform/decky/decky-routes";
 import { initializeDeckyUpdateSystem } from "./platform/decky/decky-update-service";
 
 function AchievementCompanionIcon(): JSX.Element {
@@ -56,9 +55,7 @@ export default definePlugin(() => {
     ensureDeckyGamePageAchievementRoutePatchRegistered();
   const removeDeckyNativeSteamAchievements = ensureDeckyNativeSteamAchievementsRegistered();
   const removeDeckyFullScreenRoutes = registerDeckyFullScreenRoutes();
-  const stopDeckyUpdateSystem = initializeDeckyUpdateSystem(() => {
-    Navigation.Navigate(buildDeckyFullScreenSettingsRoute());
-  });
+  const stopDeckyUpdateSystem = initializeDeckyUpdateSystem(openDeckyUpdatesFromNotification);
 
   return {
     name: "Achievement Companion",

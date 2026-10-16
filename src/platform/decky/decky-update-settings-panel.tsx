@@ -8,6 +8,7 @@ import {
   useDeckyUpdateState,
   verifyAndInstallDeckyUpdate,
 } from "./decky-update-service";
+import { getDeckyUpdateStatusText } from "./decky-update-status-text";
 import { steamRecipes, steamTheme } from "./steam-theme";
 
 export interface DeckyUpdateSettingsPanelProps {
@@ -103,12 +104,7 @@ export function DeckyUpdateSettingsPanel({ onGamepadDirection }: DeckyUpdateSett
   const [localUrl, setLocalUrl] = useState(settings.localUpdateManifestUrl);
   useEffect(() => setLocalUrl(settings.localUpdateManifestUrl), [settings.localUpdateManifestUrl]);
   const busy = state.status === "checking" || state.status === "downloading" || state.status === "verifying" || state.status === "installing";
-  const statusText = state.status === "checking" ? "Checking…"
-    : state.status === "downloading" ? "Downloading…"
-    : state.status === "verifying" ? "Verifying…"
-    : state.status === "installing" ? "Installing…"
-    : state.status === "updateAvailable" ? `Update ${state.available?.version ?? ""} available`
-    : state.message;
+  const statusText = getDeckyUpdateStatusText(state);
 
   return <div style={{ ...cardStyle, display: "flex", flex: "1 1 auto", flexDirection: "column", minHeight: 0, overflow: "hidden", paddingBottom: steamTheme.space.sm }} data-achievement-companion-update-settings>
     <div style={{ display: "flex", alignItems: "center", gap: 6, color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata, whiteSpace: "nowrap" }}>

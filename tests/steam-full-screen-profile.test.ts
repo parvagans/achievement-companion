@@ -1000,12 +1000,15 @@ test("QAM Provider Settings uses RA, Steam, About footer tabs without shrinking 
   assert.match(navigationSource, /type ProviderSettingsTab = "retroachievements" \| "steam"/u);
   assert.match(navigationSource, /id: "retroachievements", label: "RetroAchievements"[\s\S]*id: "steam", label: "Steam"[\s\S]*id: "about", label: "About"/u);
   assert.match(navigationSource, /type ProviderSettingsFooterTab = ProviderSettingsTab \| "about"/u);
-  assert.match(navigationSource, /let nextFullScreenSettingsProvider: ProviderSettingsTab = "retroachievements"/u);
+  assert.match(navigationSource, /let nextFullScreenSettingsProvider: ProviderSettingsFooterTab = "retroachievements"/u);
   assert.match(navigationSource, /const initialProvider = nextFullScreenSettingsProvider[\s\S]*nextFullScreenSettingsProvider = "retroachievements"[\s\S]*return initialProvider/u);
   assert.match(navigationSource, /nextFullScreenSettingsProvider = target\.providerId === STEAM_PROVIDER_ID[\s\S]*\? "steam"[\s\S]*: "retroachievements"/u);
   assert.match(navigationSource, /useDeckyFullscreenOnScreenKeyboardLifecycle\(keyboardAnchorRef\)/u);
   assert.match(navigationSource, /reserveSteamProfileFooter[\s\S]*inProviderSwitcher[\s\S]*<DeckyFullScreenFooterOverlay/u);
-  assert.match(navigationSource, /activeProvider === "about" \? <DeckyFullScreenAboutPage onOpenExternalUrl=\{\(url\) => DeckyNavigation\.NavigateToExternalWeb\(url\)\} \/>/u);
+  assert.match(
+    navigationSource,
+    /activeProvider === "about" \? <DeckyFullScreenAboutPage onOpenExternalUrl=\{\(url\) => \{[\s\S]*nextFullScreenSettingsProvider = "about";[\s\S]*DeckyNavigation\.NavigateToExternalWeb\(url\);[\s\S]*\}\} \/>/u,
+  );
   assert.match(navigationSource, /activeNavigationItemId=\{activeProvider\}[\s\S]*onPreviousNavigationItem=\{\(\) => selectFooterTab[\s\S]*onNextNavigationItem=\{\(\) => selectFooterTab/u);
   assert.match(steamSource, /height: pageHeight \?\? "100vh", flexShrink: 0/u);
   assert.match(retroSource, /!inProviderSwitcher \? <PanelSection title="Navigation">/u);
@@ -1014,6 +1017,23 @@ test("QAM Provider Settings uses RA, Steam, About footer tabs without shrinking 
   assert.match(retroSource, /<DeckySettingsSection themeVariant="ra"><div style=\{settingsScrollStyle\}>/u);
   assert.match(retroSource, /useSharedFullscreenFooter=\{inProviderSwitcher\}/u);
   assert.match(credentialsSource, /useSharedFullscreenFooter\) markDeckyFullscreenOnScreenKeyboardOpen\(event\.currentTarget\.ownerDocument\)/u);
+});
+
+test("update notifications open the About tab of shared Provider Settings", async () => {
+  const [indexSource, navigationSource] = await Promise.all([
+    readFile(new URL("../src/index.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-navigation.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(indexSource, /initializeDeckyUpdateSystem\(openDeckyUpdatesFromNotification\)/u);
+  assert.match(
+    navigationSource,
+    /export function openDeckyUpdatesFromNotification\(\): void \{[\s\S]*if \(selectActiveFullScreenSettingsTab !== undefined\) \{[\s\S]*selectActiveFullScreenSettingsTab\("about"\);[\s\S]*return;[\s\S]*nextFullScreenSettingsProvider = "about";[\s\S]*DeckyNavigation\.Navigate\(buildDeckyFullScreenSettingsRoute\(\)\);/u,
+  );
+  assert.match(
+    navigationSource,
+    /selectActiveFullScreenSettingsTab = selectFooterTab;[\s\S]*selectActiveFullScreenSettingsTab = undefined;/u,
+  );
 });
 
 test("Games Search and Settings keep the footer on focus and yield it only to Steam keyboard ownership", async () => {

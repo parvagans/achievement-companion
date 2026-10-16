@@ -103,7 +103,8 @@ interface FullScreenProviderSettingsRouteParams {
 
 type ProviderSettingsTab = "retroachievements" | "steam";
 type ProviderSettingsFooterTab = ProviderSettingsTab | "about";
-let nextFullScreenSettingsProvider: ProviderSettingsTab = "retroachievements";
+let nextFullScreenSettingsProvider: ProviderSettingsFooterTab = "retroachievements";
+let selectActiveFullScreenSettingsTab: ((tab: ProviderSettingsFooterTab) => void) | undefined;
 const PROVIDER_SETTINGS_FOOTER_NAVIGATION_ITEMS = [
   { id: "retroachievements", label: "RetroAchievements" },
   { id: "steam", label: "Steam" },
@@ -214,6 +215,16 @@ export function openDeckyProviderSettingsFromQam(providerId: ProviderSettingsTab
   beginDeckyCompactFullScreenEntry("settings");
   DeckyNavigation.Navigate(buildDeckyFullScreenSettingsRoute());
   DeckyNavigation.CloseSideMenus();
+}
+
+/** Update notifications enter the shared settings route on its About tab. */
+export function openDeckyUpdatesFromNotification(): void {
+  if (selectActiveFullScreenSettingsTab !== undefined) {
+    selectActiveFullScreenSettingsTab("about");
+    return;
+  }
+  nextFullScreenSettingsProvider = "about";
+  DeckyNavigation.Navigate(buildDeckyFullScreenSettingsRoute());
 }
 
 function navigateBackFromFullScreenRoot(rootRoute: DeckyFullScreenSessionRoot): void {
@@ -798,6 +809,14 @@ function DeckyFullScreenSettingsRoute(): JSX.Element {
   const keyboardAnchorRef = useRef<HTMLSpanElement>(null);
   const retroAchievementsRootRef = useRef<HTMLDivElement>(null);
   useDeckyFullscreenOnScreenKeyboardLifecycle(keyboardAnchorRef);
+  useEffect(() => {
+    selectActiveFullScreenSettingsTab = selectFooterTab;
+    return () => {
+      if (selectActiveFullScreenSettingsTab === selectFooterTab) {
+        selectActiveFullScreenSettingsTab = undefined;
+      }
+    };
+  }, []);
   useLayoutEffect(() => {
     if (activeProvider !== "retroachievements" || restoringRaAccountFromWeb) return;
     const root = retroAchievementsRootRef.current;
@@ -819,7 +838,10 @@ function DeckyFullScreenSettingsRoute(): JSX.Element {
         ? <DeckyFullScreenTerminalBackBridge onBack={returnFromSettings} />
         : null}
       <span ref={keyboardAnchorRef} hidden aria-hidden="true" />
-      {activeProvider === "about" ? <DeckyFullScreenAboutPage onOpenExternalUrl={(url) => DeckyNavigation.NavigateToExternalWeb(url)} />
+      {activeProvider === "about" ? <DeckyFullScreenAboutPage onOpenExternalUrl={(url) => {
+        nextFullScreenSettingsProvider = "about";
+        DeckyNavigation.NavigateToExternalWeb(url);
+      }} />
       : activeProvider === "steam" ? <DeckyFullScreenSettingsPage
         reserveSteamProfileFooter
         onOpenProviderSettings={(providerId) => {
