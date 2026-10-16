@@ -1994,6 +1994,7 @@ test("achievement companion settings normalize invalid stored values", () => {
 
   assert.deepStrictEqual(settings, {
     ...DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS,
+    gamePageAchievementBadgeSize: "large",
     recentlyPlayedCount: 3,
   });
   assert.equal(
@@ -2010,9 +2011,19 @@ test("SteamHunters personal data stays enabled for existing settings and can be 
 });
 
 test("game page badge settings preserve valid preferences and reject invalid positions", () => {
+  assert.equal(DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.gamePageAchievementBadgeSize, "small");
+  assert.deepStrictEqual(DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS, {
+    perfected: "purple",
+    mastered: "gold",
+    beaten: "blue",
+    inProgress: "gray",
+  });
+  assert.equal(parseAchievementCompanionSettings(undefined).gamePageAchievementBadgeSize, "small");
+  assert.equal(parseAchievementCompanionSettings("{}").gamePageAchievementBadgeSize, "large");
   const validSettings = parseAchievementCompanionSettings(
     JSON.stringify({
       showGamePageAchievementBadge: false,
+      gamePageAchievementBadgeSize: "small",
       gamePageAchievementBadgePosition: "bottom-center",
       gamePageAchievementBadgeColors: {
         perfected: "gold",
@@ -2023,6 +2034,7 @@ test("game page badge settings preserve valid preferences and reject invalid pos
     }),
   );
   assert.equal(validSettings.showGamePageAchievementBadge, false);
+  assert.equal(validSettings.gamePageAchievementBadgeSize, "small");
   assert.equal(validSettings.gamePageAchievementBadgePosition, "bottom-center");
   assert.deepStrictEqual(validSettings.gamePageAchievementBadgeColors, {
     perfected: "gold",
@@ -2034,6 +2046,7 @@ test("game page badge settings preserve valid preferences and reject invalid pos
   const invalidPositionSettings = parseAchievementCompanionSettings(
     JSON.stringify({
       gamePageAchievementBadgePosition: "middle-left",
+      gamePageAchievementBadgeSize: "huge",
       gamePageAchievementBadgeColors: {
         perfected: "orange",
         mastered: "green",
@@ -2046,6 +2059,7 @@ test("game page badge settings preserve valid preferences and reject invalid pos
     invalidPositionSettings.gamePageAchievementBadgePosition,
     DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.gamePageAchievementBadgePosition,
   );
+  assert.equal(invalidPositionSettings.gamePageAchievementBadgeSize, "large");
   assert.deepStrictEqual(invalidPositionSettings.gamePageAchievementBadgeColors, {
     ...DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS,
     mastered: "green",
@@ -3486,6 +3500,13 @@ test("compact provider menu uses a session-retained focusable game-page badge se
     /function getGamePageBadgeLabelStyle\(disabled = false\)[\s\S]*steamTheme\.color\.textPrimary/u,
   );
   assert.match(source, /gamePageBadgeSettingsExpanded \? \([\s\S]*Show game page badge/u);
+  assert.match(
+    source,
+    /Show game page badge[\s\S]*<GamePageBadgeSizeDropdown[\s\S]*<GamePageBadgePositionDropdown/u,
+  );
+  assert.match(source, /GAME_PAGE_ACHIEVEMENT_BADGE_SIZE_DROPDOWN_OPTIONS/u);
+  assert.match(source, /selectedSize=\{settings\.gamePageAchievementBadgeSize\}/u);
+  assert.match(source, /<GamePageBadgeSizeDropdown[\s\S]*disabled=\{!settings\.showGamePageAchievementBadge\}/u);
   assert.match(source, /GAME_PAGE_ACHIEVEMENT_BADGE_COLOR_DROPDOWN_OPTIONS/u);
   assert.match(source, /label="Perfected color"/u);
   assert.match(source, /label="Mastered color"/u);
@@ -11733,7 +11754,7 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(badgeThemeSource, /import infoIconUrl from "\.\/assets\/info\.svg"/u);
   assert.match(badgeThemeSource, /variant === "loading" \|\| provider === undefined/u);
   assert.match(badgeThemeSource, /variant === "loading" \|\| provider !== "retroachievements" \? \{ filter: "brightness\(0\) invert\(1\)" \}/u);
-  assert.match(badgeThemeSource, /getProviderIconStyle\(presentation\.provider, presentation\.variant\)/u);
+  assert.match(badgeThemeSource, /getProviderIconStyle\(presentation\.provider, presentation\.variant, dimensions\)/u);
   assert.match(badgeThemeSource, /strokeDasharray=\{loading \? `\$\{circumference \* presentation\.progress\} \$\{circumference \* \(1 - presentation\.progress\)\}` : circumference\}/u);
   assert.match(badgeThemeSource, /strokeDashoffset=\{loading \? 0 : dashOffset\}/u);
   assert.match(badgeThemeSource, /if \(presentation\.variant !== "loading"\) return;[\s\S]*?prefers-reduced-motion: reduce[\s\S]*?ring\.animate\([\s\S]*?reducedMotion\.addEventListener\("change", updateAnimation\)/u);
@@ -11786,11 +11807,11 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(bubbleSource, /bottom-right/u);
   assert.match(bubbleSource, /top:\s*56/u);
   assert.doesNotMatch(bubbleSource, /<span style=\{getDeckyGamePageAchievementBadgeCountStyle\(\)\}>…<\/span>/u);
-  assert.match(bubbleSource, /DECKY_GAME_PAGE_ROUTE_BADGE_BOTTOM_TOP = 360/u);
+  assert.match(bubbleSource, /const maxTop = heroBottom - badgeHeight - DECKY_GAME_PAGE_ROUTE_BADGE_COLLISION_PADDING/u);
   assert.match(bubbleSource, /left:\s*32/u);
   assert.match(
     bubbleSource,
-    /position:\s*"absolute",\s*top:\s*slot\.top,\s*bottom:\s*slot\.bottom,\s*left:\s*slot\.left,\s*right:\s*slot\.right[\s\S]*background:\s*"transparent"[\s\S]*boxShadow:\s*"none"[\s\S]*zIndex:\s*1000/u,
+    /position:\s*"absolute",\s*top,\s*visibility:\s*heroMeasured \? "visible" : "hidden",\s*left:\s*slot\.left,\s*right:\s*slot\.right[\s\S]*background:\s*"transparent"[\s\S]*boxShadow:\s*"none"[\s\S]*zIndex:\s*1000/u,
   );
   assert.doesNotMatch(routeBadgeStyleFunctionSource, /getDeckyGamePageAchievementBadgeBaseStyle/u);
   assert.match(bubbleSource, /chooseDeckyGamePageAchievementRouteBadgePlacement/u);
@@ -11827,7 +11848,7 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(bubbleSource, /markAchievementCompanionGamePageBadgeActivated/u);
   assert.match(bubbleSource, /reportAchievementCompanionGamePageBadgeNavigationError/u);
   assert.match(bubbleSource, /if \(badgeLabel === undefined \|\| presentation === undefined\) \{\s*return null;\s*\}/u);
-  assert.match(routeBadgeStyleFunctionSource, /bottom:\s*slot\.bottom/u);
+  assert.match(routeBadgeStyleFunctionSource, /visibility: heroMeasured \? "visible" : "hidden"/u);
   assert.doesNotMatch(
     bubbleSource,
     /function getDeckyGamePageAchievementRouteBadgeStyle\([\s\S]*position:\s*"fixed"/u,
@@ -12213,7 +12234,7 @@ test("native game-page summaries fail to loading when the route app identity cha
 
 test("game page achievement badge color preferences preserve defaults and recolor complete variants", () => {
   assert.equal(resolveDeckyGamePageAchievementBadgeColor("perfected"), "purple");
-  assert.equal(resolveDeckyGamePageAchievementBadgeColor("mastered"), "green");
+  assert.equal(resolveDeckyGamePageAchievementBadgeColor("mastered"), "gold");
   assert.equal(resolveDeckyGamePageAchievementBadgeColor("beaten"), "blue");
   assert.equal(resolveDeckyGamePageAchievementBadgeColor("in-progress"), "gray");
   assert.equal(

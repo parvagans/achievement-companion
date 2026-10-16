@@ -39,6 +39,10 @@ export const GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS = [
 export type GamePageAchievementBadgePosition =
   (typeof GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS)[number];
 
+export const GAME_PAGE_ACHIEVEMENT_BADGE_SIZE_OPTIONS = ["small", "medium", "large"] as const;
+export type GamePageAchievementBadgeSize =
+  (typeof GAME_PAGE_ACHIEVEMENT_BADGE_SIZE_OPTIONS)[number];
+
 export const GAME_PAGE_ACHIEVEMENT_BADGE_COLOR_OPTIONS = [
   "purple",
   "blue",
@@ -61,7 +65,7 @@ export interface GamePageAchievementBadgeColors {
 
 export const DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS: GamePageAchievementBadgeColors = {
   perfected: "purple",
-  mastered: "green",
+  mastered: "gold",
   beaten: "blue",
   inProgress: "gray",
 };
@@ -72,6 +76,7 @@ export interface AchievementCompanionSettings {
   readonly showCompletionProgressSubsets: boolean;
   readonly defaultCompletionProgressFilter: CompletionProgressFilter;
   readonly showGamePageAchievementBadge: boolean;
+  readonly gamePageAchievementBadgeSize: GamePageAchievementBadgeSize;
   readonly gamePageAchievementBadgePosition: GamePageAchievementBadgePosition;
   readonly gamePageAchievementBadgeColors: GamePageAchievementBadgeColors;
   readonly steamCompactActivityCalendarWeeks: ActivityCalendarWeeks;
@@ -96,6 +101,7 @@ export const DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS: AchievementCompanionSetting
   showCompletionProgressSubsets: true,
   defaultCompletionProgressFilter: "all",
   showGamePageAchievementBadge: true,
+  gamePageAchievementBadgeSize: "small",
   gamePageAchievementBadgePosition: "top-left",
   gamePageAchievementBadgeColors: DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS,
   steamCompactActivityCalendarWeeks: 8,
@@ -172,6 +178,12 @@ function normalizeGamePageAchievementBadgePosition(
     : fallback;
 }
 
+function normalizeGamePageAchievementBadgeSize(value: unknown): GamePageAchievementBadgeSize {
+  return GAME_PAGE_ACHIEVEMENT_BADGE_SIZE_OPTIONS.includes(value as GamePageAchievementBadgeSize)
+    ? value as GamePageAchievementBadgeSize
+    : "large";
+}
+
 function normalizeGamePageAchievementBadgeColor(
   value: unknown,
   fallback: GamePageAchievementBadgeColor,
@@ -237,6 +249,8 @@ export function normalizeAchievementCompanionSettings(
       typeof value["showGamePageAchievementBadge"] === "boolean"
         ? value["showGamePageAchievementBadge"]
         : DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.showGamePageAchievementBadge,
+    // A saved record predating size must retain the original 292×74 badge.
+    gamePageAchievementBadgeSize: normalizeGamePageAchievementBadgeSize(value["gamePageAchievementBadgeSize"]),
     gamePageAchievementBadgePosition: normalizeGamePageAchievementBadgePosition(
       value["gamePageAchievementBadgePosition"],
       DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.gamePageAchievementBadgePosition,

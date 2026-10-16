@@ -1,6 +1,6 @@
 import { Focusable } from "@decky/ui";
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
-import type { GamePageAchievementBadgeColors } from "@core/settings";
+import type { GamePageAchievementBadgeColors, GamePageAchievementBadgeSize } from "@core/settings";
 import {
   markAchievementCompanionGamePageAchievementBadgeClicked,
   markAchievementCompanionGamePageAchievementBadgeRendered,
@@ -14,6 +14,7 @@ export interface DeckyGamePageAchievementBadgeProps {
   readonly appId?: string | undefined;
   readonly ariaLabel: string;
   readonly colors: GamePageAchievementBadgeColors;
+  readonly size: GamePageAchievementBadgeSize;
   readonly presentation: DeckyGamePageAchievementBadgePresentation;
   readonly marker: "route";
   readonly style: CSSProperties;
@@ -39,6 +40,7 @@ export function DeckyGamePageAchievementBadge({
   appId,
   ariaLabel,
   colors,
+  size,
   presentation,
   marker,
   style,
@@ -82,7 +84,7 @@ export function DeckyGamePageAchievementBadge({
       }}
     >
       <style>{GAME_PAGE_ACHIEVEMENT_BADGE_FOCUS_CSS}</style>
-      <DeckyGamePageAchievementBadgeVisual colors={colors} focused={focused} presentation={presentation} />
+      <DeckyGamePageAchievementBadgeVisual colors={colors} focused={focused} presentation={presentation} size={size} />
     </Focusable>
   );
 }

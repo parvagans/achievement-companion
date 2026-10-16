@@ -2,6 +2,7 @@ import { useEffect, useRef, type CSSProperties, type ReactNode, type RefObject }
 import {
   DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS,
   type GamePageAchievementBadgeColors,
+  type GamePageAchievementBadgeSize,
 } from "@core/settings";
 import steamIconUrl from "./assets/steam.svg";
 import infoIconUrl from "./assets/info.svg";
@@ -17,8 +18,27 @@ import {
   type DeckyGamePageAchievementBadgePalette,
 } from "./decky-game-page-achievement-badge-colors";
 
-const BADGE_WIDTH = 292;
-const BADGE_HEIGHT = 74;
+export const GAME_PAGE_BADGE_DIMENSIONS = {
+  small: {
+    width: 232, height: 58, medallion: 52, steamIcon: 32, providerIcon: 40,
+    divider: 38, dividerMargin: 5, statusSlot: 38, statusIcon: 34, barsIcon: 32,
+    textPadding: 3, textGap: 3, labelFont: 10, loadingFont: 10, countFont: 13,
+    ring: 42, ringPadding: 5,
+  },
+  medium: {
+    width: 264, height: 66, medallion: 60, steamIcon: 37, providerIcon: 46,
+    divider: 43, dividerMargin: 6, statusSlot: 45, statusIcon: 41, barsIcon: 38,
+    textPadding: 4, textGap: 3, labelFont: 12, loadingFont: 11, countFont: 15,
+    ring: 48, ringPadding: 6,
+  },
+  large: {
+    width: 292, height: 74, medallion: 68, steamIcon: 42, providerIcon: 52,
+    divider: 48, dividerMargin: 7, statusSlot: 52, statusIcon: 48, barsIcon: 44,
+    textPadding: 4, textGap: 4, labelFont: 13, loadingFont: 12, countFont: 17,
+    ring: 54, ringPadding: 7,
+  },
+} as const;
+type BadgeDimensions = typeof GAME_PAGE_BADGE_DIMENSIONS[GamePageAchievementBadgeSize];
 const PROGRESS_RING_STROKE_WIDTH = 7.5;
 const PROGRESS_RING_RADIUS = 21;
 const PROGRESS_RING_CIRCUMFERENCE = 2 * Math.PI * PROGRESS_RING_RADIUS;
@@ -32,17 +52,17 @@ export function resolveDeckyGamePageAchievementBadgeProviderIconUrl(
   return provider === "steam" ? steamIconUrl : RETROACHIEVEMENTS_PROVIDER_ICON_SRC;
 }
 
-function getBadgeShellStyle(palette: DeckyGamePageAchievementBadgePalette, focused: boolean): CSSProperties {
+function getBadgeShellStyle(palette: DeckyGamePageAchievementBadgePalette, focused: boolean, dimensions: BadgeDimensions): CSSProperties {
   return {
     position: "relative",
     display: "flex",
     alignItems: "center",
-    width: BADGE_WIDTH,
-    height: BADGE_HEIGHT,
+    width: dimensions.width,
+    height: dimensions.height,
     overflow: "hidden",
     boxSizing: "border-box",
     border: `2px solid ${palette.border}`,
-    borderRadius: BADGE_HEIGHT / 2,
+    borderRadius: dimensions.height / 2,
     background: [
       "radial-gradient(120% 90% at 42% -24%, rgba(255,255,255,.36) 0%, rgba(255,255,255,.13) 34%, transparent 60%)",
       "linear-gradient(180deg, rgba(255,255,255,.18) 0%, rgba(255,255,255,.045) 43%, rgba(0,0,0,.18) 100%)",
@@ -63,12 +83,12 @@ function getBadgeShellStyle(palette: DeckyGamePageAchievementBadgePalette, focus
   };
 }
 
-function getBadgeGlossOverlayStyle(): CSSProperties {
+function getBadgeGlossOverlayStyle(dimensions: BadgeDimensions): CSSProperties {
   return {
     position: "absolute",
     zIndex: 1,
     inset: 2,
-    borderRadius: BADGE_HEIGHT / 2,
+    borderRadius: dimensions.height / 2,
     background: [
       "radial-gradient(70% 58% at 44% 0%, rgba(255,255,255,.42) 0%, rgba(255,255,255,.16) 37%, transparent 72%)",
       "linear-gradient(180deg, rgba(255,255,255,.27) 0%, rgba(255,255,255,.09) 28%, transparent 52%)",
@@ -84,14 +104,14 @@ const getBadgeContentStyle = (style: CSSProperties): CSSProperties => ({
   ...style,
 });
 
-function getPlatformMedallionStyle(palette: DeckyGamePageAchievementBadgePalette): CSSProperties {
+function getPlatformMedallionStyle(palette: DeckyGamePageAchievementBadgePalette, dimensions: BadgeDimensions): CSSProperties {
   return {
     position: "relative",
     zIndex: 2,
-    width: 68,
-    height: 68,
+    width: dimensions.medallion,
+    height: dimensions.medallion,
     marginLeft: 1,
-    flex: "0 0 68px",
+    flex: `0 0 ${dimensions.medallion}px`,
     display: "grid",
     placeItems: "center",
     boxSizing: "border-box",
@@ -108,11 +128,12 @@ function getPlatformMedallionStyle(palette: DeckyGamePageAchievementBadgePalette
 function getProviderIconStyle(
   provider: DeckyGamePageAchievementBadgeProvider | undefined,
   variant: DeckyGamePageAchievementBadgeVariant,
+  dimensions: BadgeDimensions,
 ): CSSProperties {
   return {
     display: "block",
-    width: provider === "steam" ? 42 : 52,
-    height: provider === "steam" ? 42 : 52,
+    width: provider === "steam" ? dimensions.steamIcon : dimensions.providerIcon,
+    height: provider === "steam" ? dimensions.steamIcon : dimensions.providerIcon,
     objectFit: "contain",
     ...(variant === "loading" || provider !== "retroachievements" ? { filter: "brightness(0) invert(1)" } : {}),
   };
@@ -121,19 +142,20 @@ function getProviderIconStyle(
 function renderStatusIcon(
   variant: DeckyGamePageAchievementBadgeVariant,
   palette: DeckyGamePageAchievementBadgePalette,
+  dimensions: BadgeDimensions,
 ): ReactNode {
   if (variant === "perfected" || variant === "mastered") {
-    return <span data-ac-game-page-badge-status-icon="crown-laurel"><DeckyGameStatusIcon kind={variant} size={48} color={palette.accent} accentColor={palette.accentBright} glow={palette.glow} /></span>;
+    return <span data-ac-game-page-badge-status-icon="crown-laurel"><DeckyGameStatusIcon kind={variant} size={dimensions.statusIcon} color={palette.accent} accentColor={palette.accentBright} glow={palette.glow} /></span>;
   }
 
   if (variant === "beaten") {
-    return <span data-ac-game-page-badge-status-icon="flag"><DeckyGameStatusIcon kind="beaten" size={48} color={palette.accent} /></span>;
+    return <span data-ac-game-page-badge-status-icon="flag"><DeckyGameStatusIcon kind="beaten" size={dimensions.statusIcon} color={palette.accent} /></span>;
   }
 
   const shared = { color: palette.accent, filter: `drop-shadow(0 0 5px ${palette.glow})` } satisfies CSSProperties;
 
   return (
-    <svg data-ac-game-page-badge-status-icon="bars" height="44" viewBox="0 0 54 54" width="44" style={shared}>
+    <svg data-ac-game-page-badge-status-icon="bars" height={dimensions.barsIcon} viewBox="0 0 54 54" width={dimensions.barsIcon} style={shared}>
       <rect fill="currentColor" height="14" rx="1" width="8" x="5" y="35" />
       <rect fill="currentColor" height="24" rx="1" width="8" x="17" y="25" />
       <rect fill="currentColor" height="34" rx="1" width="8" x="29" y="15" />
@@ -146,6 +168,7 @@ function renderProgressRing(
   presentation: DeckyGamePageAchievementBadgePresentation,
   palette: DeckyGamePageAchievementBadgePalette,
   loadingRingRef: RefObject<SVGCircleElement>,
+  dimensions: BadgeDimensions,
 ): ReactNode {
   const circumference = PROGRESS_RING_CIRCUMFERENCE;
   const loading = presentation.variant === "loading";
@@ -155,7 +178,7 @@ function renderProgressRing(
   const ringCenterGradientId = `ac-game-page-badge-ring-center-${presentation.variant}`;
 
   return (
-    <svg aria-hidden="true" height="54" viewBox="0 0 54 54" width="54" style={{ flex: "0 0 54px", overflow: "visible" }}>
+    <svg aria-hidden="true" height={dimensions.ring} viewBox="0 0 54 54" width={dimensions.ring} style={{ flex: `0 0 ${dimensions.ring}px`, overflow: "visible" }}>
       <defs>
         <linearGradient id={ringGradientId} x1="0" x2="1" y1="0" y2="1">
           <stop offset="0" stopColor={palette.accentBright} />
@@ -196,10 +219,12 @@ export function DeckyGamePageAchievementBadgeVisual({
   presentation,
   colors = DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS,
   focused = false,
+  size = "large",
 }: {
   readonly presentation: DeckyGamePageAchievementBadgePresentation;
   readonly colors?: GamePageAchievementBadgeColors | undefined;
   readonly focused?: boolean | undefined;
+  readonly size?: GamePageAchievementBadgeSize | undefined;
 }): JSX.Element {
   const loadingRingRef = useRef<SVGCircleElement>(null);
   useEffect(() => {
@@ -229,32 +254,34 @@ export function DeckyGamePageAchievementBadgeVisual({
   }, [presentation.variant]);
 
   const palette = resolveDeckyGamePageAchievementBadgePalette(presentation.variant, colors);
+  const dimensions = GAME_PAGE_BADGE_DIMENSIONS[size];
   const providerIconUrl = resolveDeckyGamePageAchievementBadgeProviderIconUrl(presentation.provider, presentation.variant);
 
   return (
     <span
       aria-hidden="true"
       data-ac-game-page-badge-variant={presentation.variant}
-      style={getBadgeShellStyle(palette, focused)}
+      data-ac-game-page-badge-size={size}
+      style={getBadgeShellStyle(palette, focused, dimensions)}
     >
-      <span data-ac-game-page-badge-gloss="true" style={getBadgeGlossOverlayStyle()} />
-      <span style={getPlatformMedallionStyle(palette)}>
-        <img alt="" src={providerIconUrl} style={getProviderIconStyle(presentation.provider, presentation.variant)} />
+      <span data-ac-game-page-badge-gloss="true" style={getBadgeGlossOverlayStyle(dimensions)} />
+      <span style={getPlatformMedallionStyle(palette, dimensions)}>
+        <img alt="" src={providerIconUrl} style={getProviderIconStyle(presentation.provider, presentation.variant, dimensions)} />
       </span>
-      <span style={getBadgeContentStyle({ width: 1, height: 48, marginLeft: 7, background: "rgba(255,255,255,.16)", boxShadow: `0 0 8px ${palette.glow}` })} />
-      <span style={getBadgeContentStyle({ width: 52, flex: "0 0 52px", display: "grid", placeItems: "center" })}>
-        {renderStatusIcon(presentation.variant, palette)}
+      <span style={getBadgeContentStyle({ width: 1, height: dimensions.divider, marginLeft: dimensions.dividerMargin, background: "rgba(255,255,255,.16)", boxShadow: `0 0 8px ${palette.glow}` })} />
+      <span style={getBadgeContentStyle({ width: dimensions.statusSlot, flex: `0 0 ${dimensions.statusSlot}px`, display: "grid", placeItems: "center" })}>
+        {renderStatusIcon(presentation.variant, palette, dimensions)}
       </span>
-      <span style={getBadgeContentStyle({ minWidth: 0, flex: "1 1 auto", display: "flex", flexDirection: "column", justifyContent: "center", gap: 4, paddingLeft: 4 })}>
-        <span style={{ color: "#ffffff", fontSize: presentation.variant === "loading" ? 12 : 13, fontWeight: 800, letterSpacing: "0.025em", lineHeight: 1, whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,.9)" }}>
+      <span style={getBadgeContentStyle({ minWidth: 0, flex: "1 1 auto", display: "flex", flexDirection: "column", justifyContent: "center", gap: dimensions.textGap, paddingLeft: dimensions.textPadding })}>
+        <span style={{ color: "#ffffff", fontSize: presentation.variant === "loading" ? dimensions.loadingFont : dimensions.labelFont, fontWeight: 800, letterSpacing: "0.025em", lineHeight: 1, whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,.9)" }}>
           {presentation.statusLabel}
         </span>
-        <span style={{ color: "#dcecff", fontSize: 17, fontWeight: 700, letterSpacing: "0.01em", lineHeight: 1, whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,.9)" }}>
+        <span style={{ color: "#dcecff", fontSize: dimensions.countFont, fontWeight: 700, letterSpacing: "0.01em", lineHeight: 1, whiteSpace: "nowrap", textShadow: "0 1px 2px rgba(0,0,0,.9)" }}>
           {presentation.countLabel}
         </span>
       </span>
-      <span style={getBadgeContentStyle({ display: "grid", placeItems: "center", paddingRight: 7 })}>
-        {renderProgressRing(presentation, palette, loadingRingRef)}
+      <span style={getBadgeContentStyle({ display: "grid", placeItems: "center", paddingRight: dimensions.ringPadding })}>
+        {renderProgressRing(presentation, palette, loadingRingRef, dimensions)}
       </span>
     </span>
   );

@@ -23,9 +23,11 @@ import {
 import {
   GAME_PAGE_ACHIEVEMENT_BADGE_COLOR_OPTIONS,
   GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS,
+  GAME_PAGE_ACHIEVEMENT_BADGE_SIZE_OPTIONS,
   type GamePageAchievementBadgeColor,
   type GamePageAchievementBadgeColors,
   type GamePageAchievementBadgePosition,
+  type GamePageAchievementBadgeSize,
 } from "@core/settings";
 import type { ResourceState } from "@core/cache";
 import type { DashboardSnapshot, GameDetailSnapshot, ProviderId } from "@core/domain";
@@ -156,6 +158,12 @@ const GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_DROPDOWN_OPTIONS =
     label: GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_LABELS[position],
   }));
 
+const GAME_PAGE_ACHIEVEMENT_BADGE_SIZE_DROPDOWN_OPTIONS =
+  GAME_PAGE_ACHIEVEMENT_BADGE_SIZE_OPTIONS.map((size) => ({
+    data: size,
+    label: size.charAt(0).toUpperCase() + size.slice(1),
+  }));
+
 const GAME_PAGE_ACHIEVEMENT_BADGE_COLOR_LABELS: Readonly<
   Record<GamePageAchievementBadgeColor, string>
 > = {
@@ -201,6 +209,11 @@ function isGamePageAchievementBadgePosition(value: unknown): value is GamePageAc
     typeof value === "string" &&
     GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS.includes(value as GamePageAchievementBadgePosition)
   );
+}
+
+function isGamePageAchievementBadgeSize(value: unknown): value is GamePageAchievementBadgeSize {
+  return typeof value === "string" &&
+    GAME_PAGE_ACHIEVEMENT_BADGE_SIZE_OPTIONS.includes(value as GamePageAchievementBadgeSize);
 }
 
 function isGamePageAchievementBadgeColor(value: unknown): value is GamePageAchievementBadgeColor {
@@ -410,21 +423,8 @@ function getGamePageBadgeSettingsDisclosureStyle(
   expanded: boolean,
 ): CSSProperties {
   return {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: steamTheme.space.sm,
-    width: "100%",
-    minHeight: 44,
+    ...getChooserProviderCardStyle("connected", focused),
     marginBottom: expanded ? 6 : 0,
-    padding: `0 ${steamTheme.space.md}px`,
-    boxSizing: "border-box",
-    color: steamTheme.color.textPrimary,
-    background: focused ? steamTheme.surface.focusedContentCard : steamTheme.surface.contentCard,
-    border: `1px solid ${focused ? steamTheme.focus.compactBorder : steamTheme.color.borderSubtle}`,
-    borderRadius: steamTheme.radius.medium,
-    boxShadow: focused ? steamTheme.focus.compactShadow : "none",
-    cursor: "pointer",
   };
 }
 
@@ -459,26 +459,14 @@ function GamePageBadgeSettingsDisclosure({
       onGamepadBlur={() => setFocused(false)}
       style={getGamePageBadgeSettingsDisclosureStyle(focused, expanded)}
     >
-      <span
-        style={{
-          color: steamTheme.color.accent,
-          fontSize: steamTheme.type.compact.heading,
-          fontWeight: steamTheme.type.weight.strong,
-          letterSpacing: "0.055em",
-          lineHeight: 1,
-          textTransform: "uppercase",
-        }}
-      >
-        Game Page Badge
+      <span aria-hidden="true" style={getChooserProviderCardSettingsIconStyle()}>{"\u2699"}</span>
+      <span style={getChooserProviderCardBodyStyle()}>
+        <span style={getChooserProviderCardTitleStyle()}>Game Page Badge</span>
       </span>
       <span
         aria-hidden="true"
         style={{
-          flexShrink: 0,
-          color: steamTheme.color.accent,
-          fontSize: 24,
-          fontWeight: steamTheme.type.weight.strong,
-          lineHeight: 1,
+          ...getChooserProviderCardChevronStyle("connected"),
           transform: expanded ? "rotate(-90deg)" : "rotate(90deg)",
           transition: "transform 120ms ease",
         }}
@@ -486,6 +474,32 @@ function GamePageBadgeSettingsDisclosure({
         {"\u203a"}
       </span>
     </Focusable>
+  );
+}
+
+function GamePageBadgeSizeDropdown({
+  selectedSize,
+  disabled,
+  onChange,
+}: {
+  readonly selectedSize: GamePageAchievementBadgeSize;
+  readonly disabled: boolean;
+  readonly onChange: (size: GamePageAchievementBadgeSize) => void;
+}): JSX.Element {
+  const openGuardedMenu = useDeckyCompactDropdownPopupGuard();
+  return (
+    <DropdownItem
+      label={<span style={getGamePageBadgeLabelStyle(disabled)}>Badge size</span>}
+      description={<span style={getGamePageBadgeDescriptionStyle(disabled)}>Choose the badge size on game pages.</span>}
+      disabled={disabled}
+      menuLabel="Game Page Badge Size"
+      onMenuWillOpen={openGuardedMenu}
+      rgOptions={GAME_PAGE_ACHIEVEMENT_BADGE_SIZE_DROPDOWN_OPTIONS}
+      selectedOption={selectedSize}
+      onChange={(option) => {
+        if (isGamePageAchievementBadgeSize(option.data)) onChange(option.data);
+      }}
+    />
   );
 }
 
@@ -1625,6 +1639,17 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                           }}
                         />
                       </PanelSectionRow>
+
+                      <GamePageBadgeSizeDropdown
+                        selectedSize={settings.gamePageAchievementBadgeSize}
+                        disabled={!settings.showGamePageAchievementBadge}
+                        onChange={(gamePageAchievementBadgeSize) => {
+                          void saveDeckySettings({
+                            ...readDeckySettings(),
+                            gamePageAchievementBadgeSize,
+                          });
+                        }}
+                      />
 
                       <GamePageBadgePositionDropdown
                         selectedPosition={settings.gamePageAchievementBadgePosition}
