@@ -852,7 +852,7 @@ test("provider full-screen tabs share one session while details retain route his
     1,
     "the retained Steam session must have one stable global footer/input owner",
   );
-  assert.match(footerSource, /readonly isActive\?: boolean[\s\S]*if \(!isActive\)[\s\S]*isActive && !isOnScreenKeyboardOpen && portalTarget/u);
+  assert.match(footerSource, /readonly isActive\?: boolean[\s\S]*if \(!isActive \|\| isSteamFullScreenVideoOverlayVisible\)[\s\S]*isActive && !isSteamFullScreenVideoOverlayVisible && !isOnScreenKeyboardOpen && portalTarget/u);
   assert.match(gamesDashboardSource, /STEAM_GAMES_INITIAL_RENDER_LIMIT[\s\S]*visibleGames\.slice\(0, renderLimit\)[\s\S]*Show \$\{Math\.min\(STEAM_GAMES_RENDER_STEP/u);
   assert.match(activityDashboardSource, /STEAM_ACTIVITY_INITIAL_RENDER_LIMIT[\s\S]*entries\.slice\(0, renderLimit\)[\s\S]*onRevealMore/u);
   assert.doesNotMatch(activityDashboardSource, /data-steam-activity-show-more|Show \$\{Math\.min\(STEAM_ACTIVITY_RENDER_STEP/u);
@@ -1035,8 +1035,22 @@ test("Games Search and Settings keep the footer on focus and yield it only to St
   assert.match(raCredentialsSource, /showSaveMessage && saveMessageIsError \? <div role="status"/u);
   assert.match(footerSource, /RegisterForUserDismissKeyboardMessages/u);
   assert.doesNotMatch(footerSource, /isTextEntryFocused|!isTextEntryFocused/u);
-  assert.match(footerSource, /isActive && !isOnScreenKeyboardOpen && portalTarget/u);
+  assert.match(footerSource, /isActive && !isSteamFullScreenVideoOverlayVisible && !isOnScreenKeyboardOpen && portalTarget/u);
   assert.match(footerSource, /isDeckyFullscreenOnScreenKeyboardOpen\(ownerWindow\.document\)/u);
+});
+
+test("full-screen footer yields to Steam's suspend video overlay", async () => {
+  const footerSource = await readFile(
+    new URL("../src/platform/decky/decky-full-screen-footer-overlay.tsx", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(footerSource, /STEAM_FULL_SCREEN_VIDEO_OVERLAY_SELECTOR = "\.FullModalOverlay video"/u);
+  assert.match(footerSource, /MutationObserver\(updateSteamFullScreenVideoOverlayState\)[\s\S]*attributeFilter: \["class", "style"\]/u);
+  assert.match(footerSource, /overlayVisible && !targetIsHidden[\s\S]*target\.style\.setProperty\("display", "none", "important"\)/u);
+  assert.match(footerSource, /!overlayVisible && targetIsHidden[\s\S]*target\.style\.removeProperty\("display"\)[\s\S]*updateLayout\(\)/u);
+  assert.match(footerSource, /if \(!isActive \|\| isSteamFullScreenVideoOverlayVisible\)[\s\S]*vgp_onbuttondown/u);
+  assert.doesNotMatch(footerSource, /RegisterForOnSuspendRequest|RegisterForOnResumeFromSuspend|isSuspendPending|isDocumentSettled|addEventListener\("suspend"/u);
 });
 
 test("profile summary memo runs before the loading-state early return", async () => {

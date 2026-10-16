@@ -13,6 +13,7 @@ const STEAM_TAB_TRANSITION_SOUND_URL = "/sounds/deck_ui_tab_transition_01.wav";
 const DECKY_FULLSCREEN_FOOTER_TOP_BUTTON = 4;
 const mountedFooterOverlayOwners: symbol[] = [];
 const DECKY_FULLSCREEN_ONSCREEN_KEYBOARD_OPEN_ATTRIBUTE = "data-achievement-companion-onscreen-keyboard-open";
+const STEAM_FULL_SCREEN_VIDEO_OVERLAY_SELECTOR = ".FullModalOverlay video";
 const yieldedDeckyFullscreenKeyboardCancelEvents = new WeakSet<Event>();
 const deckyFullscreenKeyboardStateListeners = new WeakMap<Document, Set<() => void>>();
 
@@ -336,6 +337,7 @@ export function DeckyFullScreenFooterOverlay({
   const tabTransitionSoundRef = useRef<HTMLAudioElement | null>(null);
   const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
   const [isOnScreenKeyboardOpen, setIsOnScreenKeyboardOpen] = useState(false);
+  const [isSteamFullScreenVideoOverlayVisible, setIsSteamFullScreenVideoOverlayVisible] = useState(false);
   const [layout, setLayout] = useState({ height: STEAM_GAME_FOOTER_FALLBACK_HEIGHT_PX, zIndex: 20 });
 
   useLayoutEffect(() => {
@@ -399,7 +401,15 @@ export function DeckyFullScreenFooterOverlay({
     // Steam can replace its native footer while an external browser page is
     // active. Measure again after returning, once the native route has painted.
     const pendingFrames = new Set<number>();
+    const cancelPendingFrames = (): void => {
+      for (const frame of pendingFrames) ownerWindow.cancelAnimationFrame(frame);
+      pendingFrames.clear();
+    };
     const scheduleLayoutAfterReturn = (): void => {
+      cancelPendingFrames();
+      if (ownerDocument.visibilityState !== "visible") {
+        return;
+      }
       const first = ownerWindow.requestAnimationFrame(() => {
         pendingFrames.delete(first);
         const second = ownerWindow.requestAnimationFrame(() => {
@@ -410,6 +420,37 @@ export function DeckyFullScreenFooterOverlay({
       });
       pendingFrames.add(first);
     };
+
+    // Steam owns suspend/resume with a full-screen video modal. Because this
+    // portal is mounted directly under body, it otherwise renders above that
+    // modal. Hide synchronously when the native overlay appears and release
+    // controller ownership until Steam removes it.
+    const updateSteamFullScreenVideoOverlayState = (): void => {
+      const overlayVisible = [...ownerDocument.querySelectorAll<HTMLElement>(STEAM_FULL_SCREEN_VIDEO_OVERLAY_SELECTOR)]
+        .some((element) => {
+          const rect = element.getBoundingClientRect();
+          const style = ownerWindow.getComputedStyle(element);
+          return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+        });
+      const targetIsHidden = target.dataset["achievementCompanionSteamVideoOverlayHidden"] === "true";
+      if (overlayVisible && !targetIsHidden) {
+        target.style.setProperty("display", "none", "important");
+        target.dataset["achievementCompanionSteamVideoOverlayHidden"] = "true";
+      } else if (!overlayVisible && targetIsHidden) {
+        target.style.removeProperty("display");
+        delete target.dataset["achievementCompanionSteamVideoOverlayHidden"];
+        updateLayout();
+      }
+      setIsSteamFullScreenVideoOverlayVisible((current) => current === overlayVisible ? current : overlayVisible);
+    };
+    const steamOverlayObserver = new ownerWindow.MutationObserver(updateSteamFullScreenVideoOverlayState);
+    steamOverlayObserver.observe(ownerDocument.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class", "style"],
+    });
+    updateSteamFullScreenVideoOverlayState();
     ownerWindow.addEventListener("popstate", scheduleLayoutAfterReturn);
     ownerWindow.addEventListener("focus", scheduleLayoutAfterReturn);
     ownerWindow.addEventListener("pageshow", scheduleLayoutAfterReturn);
@@ -422,7 +463,8 @@ export function DeckyFullScreenFooterOverlay({
       ownerWindow.removeEventListener("focus", scheduleLayoutAfterReturn);
       ownerWindow.removeEventListener("pageshow", scheduleLayoutAfterReturn);
       ownerDocument.removeEventListener("visibilitychange", scheduleLayoutAfterReturn);
-      for (const frame of pendingFrames) ownerWindow.cancelAnimationFrame(frame);
+      steamOverlayObserver.disconnect();
+      cancelPendingFrames();
       target.remove();
     };
   }, [isActive]);
@@ -452,7 +494,7 @@ export function DeckyFullScreenFooterOverlay({
   }, [isActive]);
 
   useLayoutEffect(() => {
-    if (!isActive) {
+    if (!isActive || isSteamFullScreenVideoOverlayVisible) {
       return;
     }
     const ownerWindow = anchorRef.current?.ownerDocument.defaultView;
@@ -503,12 +545,12 @@ export function DeckyFullScreenFooterOverlay({
       ownerWindow.removeEventListener("vgp_oncancel", onCancel, true);
       releaseFooterOverlayOwner(owner);
     };
-  }, [isActive]);
+  }, [isActive, isSteamFullScreenVideoOverlayVisible]);
 
   return (
     <>
       <span ref={anchorRef} hidden aria-hidden="true" />
-      {isActive && !isOnScreenKeyboardOpen && portalTarget !== null ? createPortal(
+      {isActive && !isSteamFullScreenVideoOverlayVisible && !isOnScreenKeyboardOpen && portalTarget !== null ? createPortal(
         <div aria-label={ariaLabel} style={getFooterStyle(layout.height, layout.zIndex)}>
           <span style={getShoulderHintStyle()}>L1</span>
           <div style={getSectionTabsStyle()}>
