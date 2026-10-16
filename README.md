@@ -41,7 +41,7 @@ The project is undergoing active, rigorous development with frequent updates. If
 - **RetroAchievements inside Steam:** supported non-Steam games can show RetroAchievements in Steam's native Your Stuff and Activity views.
 - **Steam completion insights:** SteamHunters community data adds rarity, completion times, DLC requirements, achievement groups, and obtainability information where available.
 - **Optional SteamHunters personal data:** personal SteamHunters profile statistics can be disabled without turning off community statistics. If a profile is unavailable, Achievement Companion uses meaningful Steam library data where possible and otherwise hides the section.
-- **Library game-page badges:** see In Progress, Steam Perfected, or RetroAchievements Beaten and Mastered status before launching a game.
+- **Library game-page badges:** see In Progress, Steam Perfected, or RetroAchievements Beaten and Mastered status before launching a game, with configurable Small, Medium, and Large layouts.
 - **Built-in updates:** verified downloads are presented through Decky for confirmation rather than installed unattended.
 
 RetroAchievements and Steam retain their own progression rules: RA Hardcore and Softcore, Beaten and Mastered, and Steam Perfected all keep their meaning.
@@ -135,10 +135,10 @@ Steam game pages include achievements, DLC groups, and community insights. Retro
 
 ### Native game-page status badges
 
-The clickable badge opens the corresponding Achievement Companion detail view. It supports In Progress for both providers, Steam Perfected, and RetroAchievements Beaten or Mastered. You can disable it, choose among six positions, and set a color for each status. Unresolved non-Steam games do not receive a badge.
+The clickable badge opens the corresponding Achievement Companion detail view. It supports In Progress for both providers, Steam Perfected, and RetroAchievements Beaten or Mastered. Choose a Small, Medium, or Large layout, place it in any of six positions, or set a separate color for each status. Fresh installations use Small; settings saved before badge sizes were introduced retain the original Large layout. Default badge colors are Perfected Purple, Mastered Gold, Beaten Blue, and In Progress Gray. Unresolved non-Steam games do not receive a badge.
 
 <p align="center">
-  <img src="docs/screenshots/readme/game-page-status-badges.png" alt="Steam Game Mode status badges for RetroAchievements In Progress, Beaten, Mastered, and Steam Perfected" width="100%">
+  <img src="docs/screenshots/readme/game-page-status-badges.png" alt="Small, Medium, and Large Steam Game Mode badges for RetroAchievements Mastered, Beaten, and In Progress; Steam Perfected and In Progress; and loading" width="100%">
 </p>
 
 ## Requirements
