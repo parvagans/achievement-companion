@@ -66,7 +66,6 @@ const DECKY_GAME_PAGE_ROUTE_BADGE_MAX_OBSTACLE_HEIGHT = 120;
 const DECKY_GAME_PAGE_ROUTE_BADGE_MIN_OBSTACLE_WIDTH = 32;
 const DECKY_GAME_PAGE_ROUTE_BADGE_MIN_OBSTACLE_HEIGHT = 24;
 const DECKY_GAME_PAGE_ROUTE_BADGE_MAX_HERO_REGION_TOP = 460;
-const DECKY_GAME_PAGE_ROUTE_BADGE_BOTTOM_TOP = 360;
 
 let deckyGamePageAchievementRoutePatchCleanup: (() => void) | undefined;
 
@@ -90,7 +89,6 @@ type DeckyGamePageAchievementRouteBadgeSlotId = GamePageAchievementBadgePosition
 interface DeckyGamePageAchievementRouteBadgeCandidateSlot {
   readonly id: DeckyGamePageAchievementRouteBadgeSlotId;
   readonly top?: number | undefined;
-  readonly bottom?: number | undefined;
   readonly left?: number | undefined;
   readonly right?: number | undefined;
   readonly isCentered?: boolean | undefined;
@@ -98,6 +96,8 @@ interface DeckyGamePageAchievementRouteBadgeCandidateSlot {
 
 interface DeckyGamePageAchievementRouteBadgePlacementState {
   readonly slotId: DeckyGamePageAchievementRouteBadgeSlotId;
+  readonly top: number;
+  readonly heroMeasured: boolean;
   readonly collisionCount: number;
   readonly candidateCount: number;
   readonly fallbackUsed: boolean;
@@ -132,18 +132,15 @@ const DECKY_GAME_PAGE_ROUTE_BADGE_CANDIDATE_SLOTS: readonly DeckyGamePageAchieve
     },
     {
       id: "bottom-left",
-      top: DECKY_GAME_PAGE_ROUTE_BADGE_BOTTOM_TOP,
-      left: 32,
+      left: 20,
     },
     {
       id: "bottom-center",
-      top: DECKY_GAME_PAGE_ROUTE_BADGE_BOTTOM_TOP,
       isCentered: true,
     },
     {
       id: "bottom-right",
-      top: DECKY_GAME_PAGE_ROUTE_BADGE_BOTTOM_TOP,
-      right: 32,
+      right: 20,
     },
   ];
 
@@ -167,6 +164,8 @@ function resolveDeckyGamePageAchievementBadgeCompletionStatus(
 
 function getDeckyGamePageAchievementRouteBadgeStyle(
   slotId: DeckyGamePageAchievementRouteBadgeSlotId,
+  top: number,
+  heroMeasured: boolean,
 ): CSSProperties {
   const slot =
     DECKY_GAME_PAGE_ROUTE_BADGE_CANDIDATE_SLOTS.find((candidate) => candidate.id === slotId) ??
@@ -174,8 +173,8 @@ function getDeckyGamePageAchievementRouteBadgeStyle(
 
   return {
     position: "absolute",
-    top: slot.top,
-    bottom: slot.bottom,
+    top,
+    visibility: heroMeasured ? "visible" : "hidden",
     left: slot.left,
     right: slot.right,
     ...(slot.isCentered === true
@@ -203,6 +202,8 @@ function getDeckyGamePageAchievementRouteBadgePlacementDefault():
   DeckyGamePageAchievementRouteBadgePlacementState {
   return {
     slotId: "top-left",
+    top: 0,
+    heroMeasured: false,
     collisionCount: 0,
     candidateCount: DECKY_GAME_PAGE_ROUTE_BADGE_CANDIDATE_SLOTS.length,
     fallbackUsed: false,
@@ -348,17 +349,82 @@ function collectDeckyGamePageAchievementRouteBadgeObstacleRects(
 function resolveDeckyGamePageAchievementRouteBadgeContainer(
   badgeElement: HTMLElement,
 ): HTMLElement | null {
-  if (badgeElement.offsetParent instanceof HTMLElement) {
-    return badgeElement.offsetParent;
+  const offsetParent = badgeElement.offsetParent;
+  if (offsetParent !== null && offsetParent.nodeType === 1) {
+    return offsetParent as HTMLElement;
   }
 
   return badgeElement.parentElement;
+}
+
+function resolveDeckyGamePageAchievementRouteBadgeHeader(
+  badgeElement: HTMLElement,
+): HTMLElement | null {
+  const pageContainer = badgeElement.parentElement;
+  if (pageContainer === null) {
+    return null;
+  }
+
+  const headerElement =
+    Array.from(pageContainer.children).find(
+      (element) =>
+        typeof element.className === "string" &&
+        element.className.includes(appDetailsClasses.Header),
+    ) ?? pageContainer.firstElementChild;
+  return headerElement !== null && headerElement !== badgeElement && headerElement.nodeType === 1
+    ? (headerElement as HTMLElement)
+    : null;
+}
+
+function collectDeckyGamePageAchievementRouteBadgeHeroOverlayRects(
+  containerElement: HTMLElement,
+  badgeElement: HTMLElement,
+  headerElement: HTMLElement,
+  containerRect: DOMRect,
+  heroTop: number,
+  heroBottom: number,
+): DeckyGamePageAchievementRelativeRect[] {
+  const overlays: DeckyGamePageAchievementRelativeRect[] = [];
+  for (const element of containerElement.children) {
+    if (element === badgeElement || element === headerElement) {
+      continue;
+    }
+
+    const elementWindow = element.ownerDocument.defaultView;
+    if (elementWindow === null) {
+      continue;
+    }
+    const computedStyle = elementWindow.getComputedStyle(element);
+    if (
+      (computedStyle.position !== "absolute" && computedStyle.position !== "fixed") ||
+      computedStyle.display === "none" ||
+      computedStyle.visibility === "hidden"
+    ) {
+      continue;
+    }
+
+    const overlayRect = toDeckyGamePageAchievementRelativeRect(
+      element.getBoundingClientRect(),
+      containerRect,
+    );
+    if (
+      !isDeckyGamePageAchievementRelativeRectVisible(overlayRect) ||
+      overlayRect.bottom <= heroTop ||
+      overlayRect.top >= heroBottom
+    ) {
+      continue;
+    }
+    overlays.push(overlayRect);
+  }
+
+  return overlays;
 }
 
 function createDeckyGamePageAchievementRouteBadgeCandidateRect(
   slot: DeckyGamePageAchievementRouteBadgeCandidateSlot,
   containerRect: DOMRect,
   badgeRect: DOMRect,
+  top: number,
 ): DeckyGamePageAchievementRelativeRect {
   const width =
     badgeRect.width > 0 ? badgeRect.width : DECKY_GAME_PAGE_ROUTE_BADGE_DEFAULT_WIDTH;
@@ -369,13 +435,6 @@ function createDeckyGamePageAchievementRouteBadgeCandidateRect(
       ? Math.max((containerRect.width - width) / 2, DECKY_GAME_PAGE_ROUTE_BADGE_COLLISION_PADDING)
       : slot.left ??
         Math.max(containerRect.width - (slot.right ?? 0) - width, DECKY_GAME_PAGE_ROUTE_BADGE_COLLISION_PADDING);
-  const top =
-    slot.top ??
-    Math.max(
-      containerRect.height - (slot.bottom ?? 0) - height,
-      DECKY_GAME_PAGE_ROUTE_BADGE_COLLISION_PADDING,
-    );
-
   return {
     left,
     top,
@@ -400,25 +459,107 @@ function chooseDeckyGamePageAchievementRouteBadgePlacement(
   const selectedSlot =
     DECKY_GAME_PAGE_ROUTE_BADGE_CANDIDATE_SLOTS.find((slot) => slot.id === selectedPosition) ??
     getDeckyGamePageAchievementRouteBadgePrimarySlot();
+  const headerElement = resolveDeckyGamePageAchievementRouteBadgeHeader(badgeElement);
+  const headerRect = headerElement?.getBoundingClientRect();
+  const badgeWidth =
+    badgeRect.width > 0 ? badgeRect.width : DECKY_GAME_PAGE_ROUTE_BADGE_DEFAULT_WIDTH;
+  const badgeHeight =
+    badgeRect.height > 0 ? badgeRect.height : DECKY_GAME_PAGE_ROUTE_BADGE_DEFAULT_HEIGHT;
+  const heroMeasured =
+    headerRect !== undefined &&
+    headerRect.width >= badgeWidth + 2 * DECKY_GAME_PAGE_ROUTE_BADGE_COLLISION_PADDING &&
+    headerRect.height >= badgeHeight + 2 * DECKY_GAME_PAGE_ROUTE_BADGE_COLLISION_PADDING;
+  const heroTop = headerRect === undefined ? 0 : headerRect.top - containerRect.top;
+  const heroBottom = headerRect === undefined ? 0 : headerRect.bottom - containerRect.top;
+  const minTop = heroTop + DECKY_GAME_PAGE_ROUTE_BADGE_COLLISION_PADDING;
+  const maxTop = heroBottom - badgeHeight - DECKY_GAME_PAGE_ROUTE_BADGE_COLLISION_PADDING;
+  const preferredTop = heroMeasured
+    ? selectedSlot.top === undefined
+      ? maxTop
+      : Math.min(Math.max(heroTop + selectedSlot.top, minTop), maxTop)
+    : 0;
+  let top = preferredTop;
+  if (heroMeasured && headerElement !== null) {
+    const overlays = collectDeckyGamePageAchievementRouteBadgeHeroOverlayRects(
+      containerElement,
+      badgeElement,
+      headerElement,
+      containerRect,
+      heroTop,
+      heroBottom,
+    );
+    const preferredRect = createDeckyGamePageAchievementRouteBadgeCandidateRect(
+      selectedSlot,
+      containerRect,
+      badgeRect,
+      preferredTop,
+    );
+    const nearbyOverlays = overlays.filter(
+      (overlayRect) =>
+        preferredRect.left < overlayRect.right + DECKY_GAME_PAGE_ROUTE_BADGE_COLLISION_PADDING &&
+        preferredRect.right > overlayRect.left - DECKY_GAME_PAGE_ROUTE_BADGE_COLLISION_PADDING,
+    );
+    const candidateTops = [preferredTop];
+    for (const overlayRect of nearbyOverlays) {
+      candidateTops.push(
+        overlayRect.top - badgeHeight - DECKY_GAME_PAGE_ROUTE_BADGE_COLLISION_PADDING,
+        overlayRect.bottom + DECKY_GAME_PAGE_ROUTE_BADGE_COLLISION_PADDING,
+      );
+    }
+    const preferBottom = selectedSlot.top === undefined;
+    candidateTops.sort((first, second) =>
+      Math.abs(first - preferredTop) - Math.abs(second - preferredTop) ||
+      (preferBottom ? second - first : first - second),
+    );
+    const clearTop = candidateTops.find((candidateTop) => {
+      if (candidateTop < minTop || candidateTop > maxTop) {
+        return false;
+      }
+      const candidateRect = createDeckyGamePageAchievementRouteBadgeCandidateRect(
+        selectedSlot,
+        containerRect,
+        badgeRect,
+        candidateTop,
+      );
+      return nearbyOverlays.every(
+        (overlayRect) =>
+          !doDeckyGamePageAchievementRectsOverlap(
+            candidateRect,
+            overlayRect,
+            DECKY_GAME_PAGE_ROUTE_BADGE_COLLISION_PADDING,
+          ),
+      );
+    });
+    if (clearTop !== undefined) top = clearTop;
+  }
   const selectedRect = createDeckyGamePageAchievementRouteBadgeCandidateRect(
     selectedSlot,
     containerRect,
     badgeRect,
+    top,
   );
-  const collisionCount = obstacleRects.filter((obstacleRect) =>
-    doDeckyGamePageAchievementRectsOverlap(
-      selectedRect,
-      obstacleRect,
-      DECKY_GAME_PAGE_ROUTE_BADGE_COLLISION_PADDING,
-    ),
-  ).length;
+  const collisionCount = heroMeasured
+    ? obstacleRects.filter((obstacleRect) =>
+        doDeckyGamePageAchievementRectsOverlap(
+          selectedRect,
+          obstacleRect,
+          DECKY_GAME_PAGE_ROUTE_BADGE_COLLISION_PADDING,
+        ),
+      ).length
+    : 0;
 
   return {
     slotId: selectedSlot.id,
+    top,
+    heroMeasured,
     collisionCount,
     candidateCount: 1,
-    fallbackUsed: false,
-    rejectedReasons: collisionCount > 0 ? [`${selectedSlot.id}:collision-${collisionCount}`] : [],
+    fallbackUsed: !heroMeasured,
+    rejectedReasons: !heroMeasured
+      ? ["hero-unavailable"]
+      : collisionCount > 0
+        ? [`${selectedSlot.id}:collision-${collisionCount}`]
+        : [],
   };
 }
 
@@ -528,6 +669,8 @@ function useDeckyGamePageAchievementRouteBadgePlacement(): {
     setPlacement((previousPlacement) => {
       if (
         previousPlacement.slotId === nextPlacement.slotId &&
+        previousPlacement.top === nextPlacement.top &&
+        previousPlacement.heroMeasured === nextPlacement.heroMeasured &&
         previousPlacement.collisionCount === nextPlacement.collisionCount &&
         previousPlacement.candidateCount === nextPlacement.candidateCount &&
         previousPlacement.fallbackUsed === nextPlacement.fallbackUsed &&
@@ -576,12 +719,86 @@ function useDeckyGamePageAchievementRouteBadgePlacement(): {
       refreshPlacement();
     };
 
+    const resizeObserver =
+      typeof ResizeObserver === "undefined"
+        ? undefined
+        : new ResizeObserver(refreshPlacement);
+    let mutationObserver: MutationObserver | undefined;
+    const observedElements = new Set<Element>();
+    const observeCurrentLayout = () => {
+      const badgeElement = badgeElementRef.current;
+      const containerElement =
+        badgeElement === null
+          ? null
+          : resolveDeckyGamePageAchievementRouteBadgeContainer(badgeElement);
+      const headerElement =
+        badgeElement === null
+          ? null
+          : resolveDeckyGamePageAchievementRouteBadgeHeader(badgeElement);
+      const nextElements = new Set<Element>();
+      if (badgeElement !== null) nextElements.add(badgeElement);
+      if (containerElement !== null) nextElements.add(containerElement);
+      if (headerElement !== null) nextElements.add(headerElement);
+      if (containerElement !== null) {
+        for (const sibling of containerElement.children) {
+          if (sibling === badgeElement || sibling === headerElement) continue;
+          const siblingWindow = sibling.ownerDocument.defaultView;
+          if (siblingWindow === null) continue;
+          const position = siblingWindow.getComputedStyle(sibling).position;
+          if (position === "absolute" || position === "fixed") nextElements.add(sibling);
+        }
+      }
+
+      for (const element of observedElements) {
+        if (!nextElements.has(element)) {
+          resizeObserver?.unobserve(element);
+          observedElements.delete(element);
+        }
+      }
+      for (const element of nextElements) {
+        if (!observedElements.has(element)) {
+          resizeObserver?.observe(element);
+          observedElements.add(element);
+        }
+      }
+
+      mutationObserver?.disconnect();
+      if (containerElement !== null) {
+        mutationObserver?.observe(containerElement, { childList: true });
+      }
+      if (headerElement !== null) {
+        mutationObserver?.observe(headerElement, {
+          childList: true,
+          attributes: true,
+          attributeFilter: ["class"],
+        });
+      }
+      if (containerElement !== null) {
+        for (const sibling of containerElement.children) {
+          if (sibling === badgeElement || sibling === headerElement) continue;
+          mutationObserver?.observe(sibling, {
+            attributes: true,
+            attributeFilter: ["class", "style"],
+          });
+        }
+      }
+      refreshPlacement();
+    };
+
+    mutationObserver =
+      typeof MutationObserver === "undefined"
+        ? undefined
+        : new MutationObserver(observeCurrentLayout);
+    observeCurrentLayout();
+
     const routeWindows = getRouteListenerWindows();
     for (const routeWindow of routeWindows) {
       routeWindow.addEventListener("resize", handleResize);
     }
 
     return () => {
+      resizeObserver?.disconnect();
+      mutationObserver?.disconnect();
       for (const routeWindow of routeWindows) {
         routeWindow.removeEventListener("resize", handleResize);
       }
@@ -593,7 +810,11 @@ function useDeckyGamePageAchievementRouteBadgePlacement(): {
   }, [refreshPlacement]);
 
   return {
-    style: getDeckyGamePageAchievementRouteBadgeStyle(placement.slotId),
+    style: getDeckyGamePageAchievementRouteBadgeStyle(
+      placement.slotId,
+      placement.top,
+      placement.heroMeasured,
+    ),
     setBadgeElement,
   };
 }

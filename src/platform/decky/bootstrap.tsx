@@ -145,9 +145,9 @@ const COMPACT_GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS = [
   "top-left",
   "top-center",
   "top-right",
-  // "bottom-left",
-  // "bottom-center",
-  // "bottom-right",
+  "bottom-left",
+  "bottom-center",
+  "bottom-right",
 ] as const satisfies readonly GamePageAchievementBadgePosition[];
 
 const GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_DROPDOWN_OPTIONS =
