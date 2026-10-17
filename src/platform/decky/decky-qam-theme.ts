@@ -94,6 +94,77 @@ export const achievementCompanionQamTheme = {
   },
 } as const;
 
+export type AchievementCompanionAchievementRowDensity = "compact" | "fullscreen";
+
+/** Shared achievement-row structure; providers supply only semantic colors, icons, and sourced values. */
+export const achievementCompanionAchievementRowRecipes = {
+  surface(density: AchievementCompanionAchievementRowDensity, accentColor: string, focused = false): CSSProperties {
+    return {
+      border: `1px solid ${achievementCompanionQamTheme.color.borderSubtle}`,
+      borderLeft: `${density === "compact" ? 3 : 5}px solid ${accentColor}`,
+      borderLeftColor: accentColor,
+      background: focused ? achievementCompanionQamTheme.surface.focusedContentCard : achievementCompanionQamTheme.surface.contentCard,
+      boxShadow: focused
+        ? achievementCompanionQamTheme.focus.shadow
+        : "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 8px rgba(0, 0, 0, 0.16)",
+    };
+  },
+  rail(density: AchievementCompanionAchievementRowDensity): CSSProperties {
+    return {
+      display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "center",
+      gap: density === "compact" ? 3 : 5, minWidth: density === "compact" ? 42 : 150,
+      color: achievementCompanionQamTheme.color.textPrimary,
+    };
+  },
+  railHeader: { display: "inline-flex", alignItems: "center", justifyContent: "flex-end", gap: 8 } satisfies CSSProperties,
+  status(density: AchievementCompanionAchievementRowDensity, color: string): CSSProperties {
+    return {
+      color, fontSize: achievementCompanionQamTheme.type[density].caption,
+      fontWeight: 800, lineHeight: 1.1, whiteSpace: "nowrap",
+    };
+  },
+  points(density: AchievementCompanionAchievementRowDensity): CSSProperties {
+    return {
+      display: "inline-flex", alignItems: "center", gap: density === "compact" ? 4 : 5,
+      color: achievementCompanionQamTheme.color.textPrimary,
+      fontSize: achievementCompanionQamTheme.type[density].metadata,
+      fontWeight: 750, lineHeight: 1.1, whiteSpace: "nowrap",
+    };
+  },
+  rarity: {
+    root(density: AchievementCompanionAchievementRowDensity): CSSProperties {
+      return {
+        display: "flex", flexDirection: "column", alignItems: "flex-end",
+        gap: density === "compact" ? 2 : 3, width: density === "compact" ? 68 : 132, minWidth: 0,
+      };
+    },
+    track(density: AchievementCompanionAchievementRowDensity): CSSProperties {
+      return {
+        width: "100%", height: density === "compact" ? 3 : 4, overflow: "hidden",
+        borderRadius: 999, background: "rgba(144, 184, 208, 0.28)",
+      };
+    },
+    fill(percent: number): CSSProperties {
+      return {
+        height: "100%", width: `${Math.max(0, Math.min(100, percent))}%`,
+        borderRadius: 999, background: achievementCompanionQamTheme.color.accent,
+      };
+    },
+    label(density: AchievementCompanionAchievementRowDensity): CSSProperties {
+      return {
+        color: achievementCompanionQamTheme.color.textSecondary,
+        fontSize: achievementCompanionQamTheme.type[density].caption,
+        fontWeight: 700, lineHeight: 1, whiteSpace: "nowrap",
+      };
+    },
+  },
+  date: {
+    color: achievementCompanionQamTheme.color.textSecondary,
+    fontSize: achievementCompanionQamTheme.type.fullscreen.caption,
+    fontWeight: 600,
+  } satisfies CSSProperties,
+} as const;
+
 /** A single surface for each compact profile activity list and its final action. */
 export function getQamCompactProfileListCardStyle(): CSSProperties {
   const theme = achievementCompanionQamTheme;

@@ -5,7 +5,6 @@ import {
   getAchievementDetailCounts,
   formatProviderAchievementPointsText,
   formatProviderAchievementStatusText,
-  getMetricValue,
   isSteamAchievementPresentationProvider,
 } from "./decky-achievement-detail-helpers";
 import { DeckyAchievementTypeBadge } from "./decky-achievement-type-badge";
@@ -15,9 +14,12 @@ import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { formatSteamHuntersPercentage } from "./decky-steam-hunters-presentation";
 import { DeckySteamAchievementStatusIcon } from "./decky-steam-achievement-status-icon";
 import { DeckyRetroAchievementsPointsIcon } from "./decky-retroachievements-points-icon";
+import { DeckySteamHuntersIcon } from "./decky-steam-icons";
+import { getSteamAchievementCommunityPercent } from "./decky-achievement-row-presentation";
 import type { SteamHuntersAchievement } from "../../providers/steamhunters";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import { raRecipes, raTheme } from "./ra-theme";
+import { achievementCompanionAchievementRowRecipes } from "./decky-qam-theme";
 
 function formatTimestamp(epochMs: number): string {
   return new Date(epochMs).toLocaleString();
@@ -74,25 +76,16 @@ function getSteamShapedRetroAchievementCardStyle(achievement: NormalizedAchievem
     : isSoftcore
       ? raTheme.color.softcore
       : raTheme.color.locked;
-  const accentSurface = isHardcore
-    ? raTheme.surface.hardcore
-    : isSoftcore
-      ? raTheme.surface.softcore
-      : raTheme.surface.locked;
-
   return {
     display: "grid",
-    gridTemplateColumns: "auto minmax(0, 1fr) auto minmax(220px, 0.36fr)",
+    gridTemplateColumns: "auto minmax(0, 1fr) minmax(150px, auto)",
     gap: 16,
     alignItems: "center",
     minWidth: 0,
     minHeight: 88,
     padding: "10px 16px 10px 14px",
     borderRadius: raTheme.radius.large,
-    border: `1px solid ${raTheme.color.borderSubtle}`,
-    borderLeft: `5px solid ${accentColor}`,
-    background: `linear-gradient(180deg, ${accentSurface}, ${accentSurface}), ${raTheme.surface.contentCard}`,
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 8px rgba(0, 0, 0, 0.16)",
+    ...achievementCompanionAchievementRowRecipes.surface("fullscreen", accentColor),
     boxSizing: "border-box",
   };
 }
@@ -144,30 +137,7 @@ function getSteamShapedRetroAchievementDescriptionStyle(): CSSProperties {
   };
 }
 
-function getSteamShapedRetroAchievementMetricsStyle(): CSSProperties {
-  return { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, flexShrink: 0 };
-}
-
-function getSteamShapedRetroAchievementMetricStyle(): CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minWidth: 94,
-    minHeight: 44,
-    padding: "0 14px",
-    borderRadius: raTheme.radius.medium,
-    border: `1px solid ${raTheme.color.borderSubtle}`,
-    background: raTheme.surface.contentStat,
-    color: raTheme.color.textPrimary,
-    fontSize: "0.94em",
-    fontWeight: raTheme.type.weight.strong,
-    whiteSpace: "nowrap",
-    boxSizing: "border-box",
-  };
-}
-
-function getSteamShapedRetroAchievementStatusStyle(achievement: NormalizedAchievement): CSSProperties {
+function getSteamShapedRetroAchievementModeColor(achievement: NormalizedAchievement): string {
   const color = achievement.isUnlocked
     ? achievement.unlockMode === "hardcore"
       ? raTheme.color.hardcore
@@ -175,31 +145,7 @@ function getSteamShapedRetroAchievementStatusStyle(achievement: NormalizedAchiev
         ? raTheme.color.softcore
         : raTheme.color.unlocked
     : raTheme.color.locked;
-  return {
-    display: "grid",
-    gridTemplateColumns: "auto minmax(0, 1fr)",
-    columnGap: 9,
-    alignItems: "center",
-    minWidth: 0,
-    color,
-  };
-}
-
-function getSteamShapedRetroAchievementStatusTextStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 2,
-    minWidth: 0,
-    fontSize: "0.92em",
-    fontWeight: raTheme.type.weight.strong,
-    lineHeight: 1.15,
-    whiteSpace: "nowrap",
-  };
-}
-
-function getSteamShapedRetroAchievementStatusDateStyle(): CSSProperties {
-  return { color: raTheme.color.textSecondary, fontSize: "0.84em", fontWeight: raTheme.type.weight.medium };
+  return color;
 }
 
 function getAchievementRowTextStyle(): CSSProperties {
@@ -292,23 +238,19 @@ function getAchievementRowIconStyle(): CSSProperties {
 }
 
 function getSteamAchievementCardStyle(achievement: NormalizedAchievement): CSSProperties {
-  // The row rail marks earned points, while the status text marks completion.
-  const accentColor = achievement.isUnlocked ? steamTheme.color.rewardGold : steamTheme.color.locked;
+  const accentColor = achievement.isUnlocked ? steamTheme.color.unlocked : steamTheme.color.locked;
 
   return {
     ...steamRecipes.interactiveRow("fullscreen"),
     display: "grid",
-    gridTemplateColumns: "auto minmax(0, 1fr) auto minmax(150px, 0.24fr)",
+    gridTemplateColumns: "auto minmax(0, 1fr) minmax(150px, auto)",
     gap: 16,
     alignItems: "center",
     minWidth: 0,
     minHeight: 88,
     padding: "10px 16px 10px 14px",
     borderRadius: steamTheme.radius.large,
-    border: `1px solid ${steamTheme.color.borderSubtle}`,
-    borderLeft: `5px solid ${accentColor}`,
-    background: steamTheme.surface.contentCard,
-    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 8px rgba(0, 0, 0, 0.16)",
+    ...achievementCompanionAchievementRowRecipes.surface("fullscreen", accentColor),
     boxSizing: "border-box",
   };
 }
@@ -373,84 +315,55 @@ function getSteamAchievementDescriptionStyle(): CSSProperties {
   };
 }
 
-function getSteamAchievementMetricsStyle(): CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    flexShrink: 0,
-  };
-}
-
-function getSteamAchievementMetricStyle(): CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minWidth: 94,
-    minHeight: 44,
-    padding: "0 14px",
-    borderRadius: 12,
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-    background: steamTheme.surface.contentStat,
-    color: "rgba(255, 255, 255, 0.96)",
-    fontSize: "0.94em",
-    fontWeight: 800,
-    whiteSpace: "nowrap",
-    boxSizing: "border-box",
-  };
-}
-
-function getSteamAchievementStatusStyle(isUnlocked: boolean): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: "auto minmax(0, 1fr)",
-    columnGap: 9,
-    alignItems: "center",
-    minWidth: 0,
-    color: isUnlocked ? steamTheme.color.unlocked : steamTheme.color.locked,
-  };
-}
-
-function getSteamAchievementStatusTextStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 2,
-    minWidth: 0,
-    fontSize: "0.92em",
-    fontWeight: 800,
-    lineHeight: 1.15,
-    whiteSpace: "nowrap",
-  };
-}
-
-function getSteamAchievementStatusDateStyle(): CSSProperties {
-  return { color: "rgba(255, 255, 255, 0.82)", fontSize: "0.84em", fontWeight: 600 };
-}
-
-function formatSteamAchievementRarity(
-  achievement: NormalizedAchievement,
-  steamHuntersAchievement: SteamHuntersAchievement | undefined,
-): string {
-  if (steamHuntersAchievement?.localPercentage !== undefined) {
-    return formatSteamHuntersPercentage(steamHuntersAchievement.localPercentage);
-  }
-
-  const globalPercentage = Number(getMetricValue(achievement.metrics, "global-percent", "Global Unlock Rate"));
-  return Number.isFinite(globalPercentage) ? `${Number(globalPercentage.toFixed(1))}%` : "—";
-}
-
 function formatSteamAchievementPoints(
   achievement: NormalizedAchievement,
   steamHuntersAchievement: SteamHuntersAchievement | undefined,
-): string {
+): string | undefined {
   const points = steamHuntersAchievement?.points ?? achievement.points;
-  return points !== undefined ? `${points.toLocaleString()} pts` : "— pts";
+  return points !== undefined ? `${points.toLocaleString()} pts` : undefined;
 }
 
 function formatSteamAchievementUnlockDate(unlockedAt: number | undefined): string | undefined {
   return unlockedAt === undefined ? undefined : new Date(unlockedAt).toLocaleDateString();
+}
+
+function AchievementRowRail({
+  statusText,
+  statusColor,
+  isUnlocked,
+  pointsText,
+  pointsIcon,
+  rarityPercent,
+  unlockedDate,
+}: {
+  readonly statusText: string;
+  readonly statusColor: string;
+  readonly isUnlocked: boolean;
+  readonly pointsText?: string | undefined;
+  readonly pointsIcon?: JSX.Element | undefined;
+  readonly rarityPercent?: number | undefined;
+  readonly unlockedDate?: string | undefined;
+}): JSX.Element {
+  const labels = [statusText, pointsText, rarityPercent === undefined ? undefined : `${Math.round(rarityPercent)}% players`, unlockedDate]
+    .filter((value): value is string => value !== undefined);
+  return (
+    <span aria-label={labels.join(", ")} style={achievementCompanionAchievementRowRecipes.rail("fullscreen")}>
+      <span style={achievementCompanionAchievementRowRecipes.railHeader}>
+        <span style={achievementCompanionAchievementRowRecipes.status("fullscreen", statusColor)}>{statusText}</span>
+        <DeckySteamAchievementStatusIcon isUnlocked={isUnlocked} />
+      </span>
+      {pointsText !== undefined ? <span style={achievementCompanionAchievementRowRecipes.points("fullscreen")}>{pointsIcon}{pointsText}</span> : null}
+      {rarityPercent !== undefined ? (
+        <span style={achievementCompanionAchievementRowRecipes.rarity.root("fullscreen")}>
+          <span aria-hidden="true" style={achievementCompanionAchievementRowRecipes.rarity.track("fullscreen")}>
+            <span style={{ ...achievementCompanionAchievementRowRecipes.rarity.fill(rarityPercent), display: "block" }} />
+          </span>
+          <span style={achievementCompanionAchievementRowRecipes.rarity.label("fullscreen")}>{`${Math.round(rarityPercent)}% players`}</span>
+        </span>
+      ) : null}
+      {unlockedDate !== undefined ? <span style={achievementCompanionAchievementRowRecipes.date}>{unlockedDate}</span> : null}
+    </span>
+  );
 }
 
 export interface DeckyFullScreenAchievementRowProps {
@@ -472,6 +385,8 @@ function SteamAchievementRowContent({
   readonly achievement: NormalizedAchievement;
   readonly steamHuntersAchievement: SteamHuntersAchievement | undefined;
 }): JSX.Element {
+  const pointsText = formatSteamAchievementPoints(achievement, steamHuntersAchievement);
+  const rarityPercent = getSteamAchievementCommunityPercent(achievement, steamHuntersAchievement);
   const unlockedDate = formatSteamAchievementUnlockDate(achievement.unlockedAt);
 
   return (
@@ -489,19 +404,15 @@ function SteamAchievementRowContent({
           <span style={getSteamAchievementDescriptionStyle()}>{achievement.description}</span>
         ) : null}
       </span>
-      <span aria-label={`${formatSteamAchievementPoints(achievement, steamHuntersAchievement)}, ${formatSteamAchievementRarity(achievement, steamHuntersAchievement)} rarity`} style={getSteamAchievementMetricsStyle()}>
-        <span style={getSteamAchievementMetricStyle()}>{formatSteamAchievementPoints(achievement, steamHuntersAchievement)}</span>
-        <span style={getSteamAchievementMetricStyle()}>{formatSteamAchievementRarity(achievement, steamHuntersAchievement)}</span>
-      </span>
-      <span style={getSteamAchievementStatusStyle(achievement.isUnlocked)}>
-        <DeckySteamAchievementStatusIcon isUnlocked={achievement.isUnlocked} />
-        <span style={getSteamAchievementStatusTextStyle()}>
-          <span>{achievement.isUnlocked ? "Unlocked" : "Locked"}</span>
-          {achievement.isUnlocked && unlockedDate !== undefined ? (
-            <span style={getSteamAchievementStatusDateStyle()}>{unlockedDate}</span>
-          ) : null}
-        </span>
-      </span>
+      <AchievementRowRail
+        statusText={achievement.isUnlocked ? "Unlocked" : "Locked"}
+        statusColor={achievement.isUnlocked ? steamTheme.color.unlocked : steamTheme.color.locked}
+        isUnlocked={achievement.isUnlocked}
+        pointsText={pointsText}
+        pointsIcon={pointsText !== undefined ? <DeckySteamHuntersIcon color={steamTheme.color.accent} size={13} /> : undefined}
+        rarityPercent={rarityPercent}
+        unlockedDate={achievement.isUnlocked ? unlockedDate : undefined}
+      />
     </>
   );
 }
@@ -513,17 +424,18 @@ function SteamShapedRetroAchievementRowContent({
   readonly achievement: NormalizedAchievement;
   readonly gameMetrics: readonly NormalizedMetric[];
 }): JSX.Element {
-  const pointsText = achievement.points !== undefined ? `${achievement.points.toLocaleString()} pts` : undefined;
-  const counts = getAchievementDetailCounts(achievement.metrics, gameMetrics);
-  const unlockRateText = counts.unlockRatePercent !== undefined
-    ? `${counts.unlockRatePercent.toFixed(1)}%`
+  const pointsText = achievement.points !== undefined
+    ? formatProviderAchievementPointsText(achievement.providerId, achievement.points)
     : undefined;
+  const counts = getAchievementDetailCounts(achievement.metrics, gameMetrics);
+  const rarityPercent = counts.unlockRatePercent;
   const unlockedDate = achievement.isUnlocked && achievement.unlockedAt !== undefined
     ? formatTimestamp(achievement.unlockedAt)
     : undefined;
   const statusText = formatProviderAchievementStatusText(achievement.providerId, achievement);
-  const metricLabels = [pointsText, unlockRateText === undefined ? undefined : `${unlockRateText} unlock rate`]
-    .filter((value): value is string => value !== undefined);
+  const modeText = achievement.isUnlocked && achievement.unlockMode !== undefined
+    ? achievement.unlockMode === "hardcore" ? "Hardcore" : "Softcore"
+    : statusText;
 
   return (
     <>
@@ -543,21 +455,15 @@ function SteamShapedRetroAchievementRowContent({
           <span style={getSteamShapedRetroAchievementDescriptionStyle()}>{achievement.description}</span>
         ) : null}
       </span>
-      {pointsText !== undefined || unlockRateText !== undefined ? (
-        <span aria-label={metricLabels.join(", ")} style={getSteamShapedRetroAchievementMetricsStyle()}>
-          {pointsText !== undefined ? <span style={{ ...getSteamShapedRetroAchievementMetricStyle(), display: "inline-flex", alignItems: "center", gap: 4 }}><DeckyRetroAchievementsPointsIcon size={13} />{pointsText}</span> : null}
-          {unlockRateText !== undefined ? <span style={getSteamShapedRetroAchievementMetricStyle()}>{unlockRateText}</span> : null}
-        </span>
-      ) : null}
-      <span style={getSteamShapedRetroAchievementStatusStyle(achievement)}>
-        <DeckySteamAchievementStatusIcon isUnlocked={achievement.isUnlocked} />
-        <span style={getSteamShapedRetroAchievementStatusTextStyle()}>
-          <span>{statusText}</span>
-          {unlockedDate !== undefined ? (
-            <span style={getSteamShapedRetroAchievementStatusDateStyle()}>{unlockedDate}</span>
-          ) : null}
-        </span>
-      </span>
+      <AchievementRowRail
+        statusText={modeText}
+        statusColor={getSteamShapedRetroAchievementModeColor(achievement)}
+        isUnlocked={achievement.isUnlocked}
+        pointsText={pointsText}
+        pointsIcon={pointsText !== undefined ? <DeckyRetroAchievementsPointsIcon size={13} /> : undefined}
+        rarityPercent={rarityPercent}
+        unlockedDate={unlockedDate}
+      />
     </>
   );
 }

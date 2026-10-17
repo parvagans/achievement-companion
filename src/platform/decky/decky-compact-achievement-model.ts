@@ -13,6 +13,7 @@ import {
 import { formatSteamHuntersPercentage, formatSteamHuntersPlayersUnlocked } from "./decky-steam-hunters-presentation";
 import { sortAchievementsForDisplay } from "./decky-game-detail-ordering";
 import { isRetroAchievementsUnlockedInMode } from "./decky-retroachievements-compact-game-model";
+import { getSteamAchievementCommunityPercent } from "./decky-achievement-row-presentation";
 
 export type CompactAchievementFilter = "all" | "unlocked" | "locked";
 export type CompactAchievementModeFilter = "all" | "hardcore" | "softcore";
@@ -190,14 +191,15 @@ export function buildSteamCompactAchievementListModel(
     initialVisibleCount: 12,
     rows: sortAchievementsForDisplay(snapshot.achievements).map((achievement) => {
       const steamHuntersAchievement = getSteamHuntersAchievementEnrichment(snapshot, achievement.achievementId);
+      const communityPercent = getSteamAchievementCommunityPercent(achievement, steamHuntersAchievement);
       const metadata: CompactAchievementMetadataItem[] = [];
       if (steamHuntersAchievement?.points !== undefined) {
         metadata.push({ key: "points", value: `${formatCount(steamHuntersAchievement.points)} pts` });
       }
-      if (steamHuntersAchievement?.localPercentage !== undefined) {
+      if (communityPercent !== undefined) {
         metadata.push({
           key: "community-percentage",
-          value: formatSteamHuntersPercentage(steamHuntersAchievement.localPercentage),
+          value: formatSteamHuntersPercentage(communityPercent),
         });
       }
 

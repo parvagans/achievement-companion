@@ -593,6 +593,24 @@ test("RA Subsets mirrors Steam group expansion with square set art and child ach
   assert.match(source, /Subset achievements unavailable/u);
 });
 
+test("Steam and RA full-screen achievement rows share the neutral card and collective progress treatment", async () => {
+  const [rowSource, themeSource] = await Promise.all([
+    readFile(new URL("../src/platform/decky/decky-full-screen-achievement-row.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-qam-theme.ts", import.meta.url), "utf8"),
+  ]);
+
+  assert.equal((rowSource.match(/<AchievementRowRail/g) ?? []).length, 2);
+  assert.match(rowSource, /const accentColor = achievement\.isUnlocked \? steamTheme\.color\.unlocked : steamTheme\.color\.locked/u);
+  assert.doesNotMatch(rowSource, /achievement\.isUnlocked \? steamTheme\.color\.rewardGold/u);
+  assert.match(rowSource, /achievementCompanionAchievementRowRecipes\.surface\("fullscreen", accentColor\)/u);
+  assert.doesNotMatch(rowSource, /const accentSurface = isHardcore/u);
+  assert.match(rowSource, /const rarityPercent = counts\.unlockRatePercent/u);
+  assert.match(rowSource, /getSteamAchievementCommunityPercent\(achievement, steamHuntersAchievement\)/u);
+  assert.match(rowSource, /achievementCompanionAchievementRowRecipes\.rarity\.fill\(rarityPercent\)/u);
+  assert.match(rowSource, /`\$\{Math\.round\(rarityPercent\)\}% players`/u);
+  assert.match(themeSource, /achievementCompanionAchievementRowRecipes = \{[\s\S]*height: density === "compact" \? 3 : 4[\s\S]*background: achievementCompanionQamTheme\.color\.accent/u);
+});
+
 test("RA full-screen game keeps the loading gate up until subset discovery settles", async () => {
   const source = await readFile(
     new URL("../src/platform/decky/decky-full-screen-game-page.tsx", import.meta.url),

@@ -284,6 +284,8 @@ test("RA QAM loading, focus scrolling, and calendar controls follow Steam compac
   assert.equal(raRecipes.compactProfile.metricText.flexDirection, "column");
   assert.equal(raRecipes.compactProfile.completionCard("beaten").display, "flex");
   assert.equal(raRecipes.gameIcon.frame(40, "mastered").borderRadius, raRecipes.compactProfile.rowArtwork.borderRadius);
+  assert.equal(raRecipes.compactProfile.rowArtwork.width, raTheme.density.compact.artwork);
+  assert.match(profileSource, /badgeImageUrl\} size=\{raTheme\.density\.compact\.artwork\}/u);
   assert.match(profileSource, /data-ra-profile-overview-focus="true"/u);
   assert.match(profileSource, /data-ra-profile-beaten-focus="true"/u);
   assert.match(raThemeSource, /@keyframes ac-ra-game-icon-tail/u);

@@ -20,6 +20,9 @@ import {
 } from "../src/platform/decky/decky-compact-achievement-page-state";
 import { buildRetroAchievementsCompactGamePresentation } from "../src/platform/decky/decky-retroachievements-compact-game-model";
 import { getRaFocusStylesCss, raRecipes, raTheme } from "../src/platform/decky/ra-theme";
+import { steamTheme } from "../src/platform/decky/steam-theme";
+import { achievementCompanionAchievementRowRecipes } from "../src/platform/decky/decky-qam-theme";
+import { getSteamAchievementCommunityPercent } from "../src/platform/decky/decky-achievement-row-presentation";
 import {
   resolveDeckyCompactAchievementResource,
   type CompactAchievementResourceDependencies,
@@ -46,7 +49,7 @@ const fullScreenAchievementRowSource = readFileSync(
 
 test("Steam compact and full-screen achievement rows share the same locked status icon", () => {
   assert.match(compactAchievementListSource, /DeckySteamAchievementStatusIcon isUnlocked=\{false\} size=\{18\}/u);
-  assert.match(fullScreenAchievementRowSource, /DeckySteamAchievementStatusIcon isUnlocked=\{achievement\.isUnlocked\}/u);
+  assert.match(fullScreenAchievementRowSource, /DeckySteamAchievementStatusIcon isUnlocked=\{isUnlocked\}/u);
   assert.doesNotMatch(compactAchievementListSource, /prohibited\.svg/u);
 });
 
@@ -158,9 +161,29 @@ test("Steam and RA adapters normalize shared rows without leaking provider metad
   assert.equal(raUnlocked.description, "Kill the Dreadnought without taking any damage.");
   assert.deepEqual(raUnlocked.metadata.map((item) => item.key), ["points", "rarity"]);
   assert.equal(raModel.rows.find((row) => row.achievementId === "ACH_LOCKED")?.stateIndicator, "locked");
-  assert.equal(raRecipes.compactAchievementRarity.fill(39).width, "39%");
-  assert.equal(raRecipes.compactAchievementRarity.fill(150).width, "100%");
-  assert.equal(raRecipes.compactAchievementRarity.track.height, 3);
+  assert.equal(achievementCompanionAchievementRowRecipes.rarity.fill(39).width, "39%");
+  assert.equal(achievementCompanionAchievementRowRecipes.rarity.fill(150).width, "100%");
+  assert.equal(achievementCompanionAchievementRowRecipes.rarity.track("compact").height, 3);
+});
+
+test("Steam achievement rows use verified community rates and Steam-green earned rails", () => {
+  const achievement = createSnapshot("steam").achievements[0]!;
+  assert.equal(getSteamAchievementCommunityPercent(achievement, steamHuntersGameData.achievements[0]), 35.3);
+  assert.equal(getSteamAchievementCommunityPercent({ metrics: [{ key: "global-percent", label: "Global Unlock Rate", value: "17.8" }] }, undefined), 17.8);
+  assert.equal(getSteamAchievementCommunityPercent({ metrics: [] }, undefined), undefined);
+  assert.equal(
+    achievementCompanionAchievementRowRecipes.surface("compact", steamTheme.color.unlocked).borderLeft,
+    `3px solid ${steamTheme.color.unlocked}`,
+  );
+  assert.notEqual(steamTheme.color.unlocked, steamTheme.color.rewardGold);
+  assert.match(compactAchievementListSource, /item\.key === "rarity" \|\| item\.key === "community-percentage"/u);
+  assert.match(compactAchievementListSource, /<DeckySteamHuntersIcon color=\{steamTheme\.color\.accent\} size=\{12\}/u);
+});
+
+test("QAM achievement badges use the shared Recently Played artwork size", () => {
+  const source = readFileSync("src/platform/decky/decky-compact-achievement-list.tsx", "utf8");
+  assert.match(source, /size=\{raTheme\.density\.compact\.artwork\}/u);
+  assert.equal(raTheme.density.compact.artwork, 40);
 });
 
 test("compact achievement filters derive counts and filter locally", () => {
@@ -305,7 +328,7 @@ test("RA semantic achievement rails remain distinct under focus styling", () => 
     assert.ok(css.includes(`[data-ac-ra-achievement-tone="${tone}"]`));
     assert.ok(css.includes("border-left-width: 3px !important"));
     assert.ok(css.includes(`border-left-color: ${color} !important`));
-    assert.equal(raRecipes.compactAchievementRow(tone, true).borderLeft, `3px solid ${color}`);
+    assert.equal(achievementCompanionAchievementRowRecipes.surface("compact", color, true).borderLeft, `3px solid ${color}`);
   }
 });
 

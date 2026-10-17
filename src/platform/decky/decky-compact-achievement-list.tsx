@@ -34,6 +34,8 @@ import {
 import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
 import { DeckySteamAchievementStatusIcon } from "./decky-steam-achievement-status-icon";
 import { DeckyRetroAchievementsPointsIcon } from "./decky-retroachievements-points-icon";
+import { DeckySteamHuntersIcon } from "./decky-steam-icons";
+import { achievementCompanionAchievementRowRecipes } from "./decky-qam-theme";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import { raRecipes, raTheme } from "./ra-theme";
 
@@ -81,12 +83,14 @@ function getRowsStyle(): CSSProperties {
 
 function getRowStyle(row: CompactAchievementRowViewModel, isFocused: boolean, isSteam: boolean): CSSProperties {
   if (row.metadataPlacement === "rail") {
+    const accentColor = isSteam
+      ? row.stateIndicator === "unlocked" ? steamTheme.color.unlocked : steamTheme.color.locked
+      : row.tone === "hardcore" ? raTheme.color.hardcore
+        : row.tone === "softcore" ? raTheme.color.softcore
+          : row.tone === "locked" ? raTheme.color.locked : raTheme.color.unlocked;
     return {
-      ...(isSteam ? steamRecipes.card("compact", "raised") : raRecipes.compactAchievementRow(row.tone, isFocused)),
-      background: isSteam
-        ? isFocused ? steamTheme.surface.focusedContentCard : steamTheme.surface.contentCard
-        : isFocused ? raTheme.surface.focusedContentCard : raTheme.surface.contentCard,
-      ...(isSteam && isFocused ? { borderColor: steamTheme.color.borderStrong, boxShadow: steamTheme.focus.shadow } : {}),
+      ...(isSteam ? steamRecipes.card("compact", "raised") : raRecipes.card("compact", true)),
+      ...achievementCompanionAchievementRowRecipes.surface("compact", accentColor, isFocused),
       display: "grid",
       gridTemplateColumns: "40px minmax(0, 1fr) minmax(42px, auto)",
       alignItems: "start",
@@ -214,16 +218,6 @@ function getSecondaryStyle(tone: CompactAchievementTone, isSteam: boolean): CSSP
   };
 }
 
-function getRailStyle(isSteam: boolean): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "flex-end",
-    gap: isSteam ? 5 : 3,
-    minWidth: 42,
-  };
-}
-
 function getStateIndicatorStyle(): CSSProperties {
   return {
     width: 18,
@@ -337,7 +331,7 @@ function CompactAchievementRow({
     >
       <div style={getIconFrameStyle(model.isUnlocked, isSteam)}>
         {model.iconUrl !== undefined ? (
-          <DeckyGameArtwork compact src={model.iconUrl} size={38} title={model.title} />
+          <DeckyGameArtwork compact src={model.iconUrl} size={raTheme.density.compact.artwork} title={model.title} />
         ) : null}
       </div>
 
@@ -363,10 +357,15 @@ function CompactAchievementRow({
       </div>
 
       {model.metadataPlacement === "rail" ? (
-        <div style={getRailStyle(isSteam)}>
-          {!isSteam && model.isUnlocked && model.unlockMode !== undefined ? (
-            <span style={{ color: model.unlockMode === "hardcore" ? raTheme.color.hardcore : raTheme.color.softcore, fontSize: raTheme.type.compact.caption, fontWeight: 800, textTransform: "capitalize" }}>{model.unlockMode}</span>
-          ) : null}
+        <div style={achievementCompanionAchievementRowRecipes.rail("compact")}>
+          <span style={achievementCompanionAchievementRowRecipes.status("compact", isSteam
+            ? model.isUnlocked ? steamTheme.color.unlocked : steamTheme.color.locked
+            : model.unlockMode === "hardcore" ? raTheme.color.hardcore
+              : model.unlockMode === "softcore" ? raTheme.color.softcore : raTheme.color.locked)}>
+            {!isSteam && model.isUnlocked && model.unlockMode !== undefined
+              ? model.unlockMode === "hardcore" ? "Hardcore" : "Softcore"
+              : model.statusText}
+          </span>
           {model.stateIndicator !== undefined ? (
             <span aria-label={model.statusText} role="img" style={{ color: model.stateIndicator === "unlocked" ? steamRecipes.achievementState.unlocked.color : steamRecipes.achievementState.locked.color }}>
               {model.stateIndicator === "unlocked" ? (
@@ -379,17 +378,20 @@ function CompactAchievementRow({
             </span>
           ) : null}
           {model.metadata.map((item) => {
-            const rarityPercent = !isSteam && item.key === "rarity" ? Number.parseFloat(item.value) : undefined;
+            const rarityPercent = item.key === "rarity" || item.key === "community-percentage" ? Number.parseFloat(item.value) : undefined;
             return rarityPercent !== undefined && Number.isFinite(rarityPercent) ? (
-              <div key={item.key} style={raRecipes.compactAchievementRarity.root}>
-                <span aria-hidden="true" style={raRecipes.compactAchievementRarity.track}>
-                  <span style={{ ...raRecipes.compactAchievementRarity.fill(rarityPercent), display: "block" }} />
+              <div key={item.key} style={achievementCompanionAchievementRowRecipes.rarity.root("compact")}>
+                <span aria-hidden="true" style={achievementCompanionAchievementRowRecipes.rarity.track("compact")}>
+                  <span style={{ ...achievementCompanionAchievementRowRecipes.rarity.fill(rarityPercent), display: "block" }} />
                 </span>
-                <span style={raRecipes.compactAchievementRarity.label}>{`${Math.round(rarityPercent)}% players`}</span>
+                <span style={achievementCompanionAchievementRowRecipes.rarity.label("compact")}>{`${Math.round(rarityPercent)}% players`}</span>
               </div>
             ) : (
               <span key={item.key} style={getRailMetadataStyle(isSteam)}>
-                {!isSteam && item.key === "points" ? <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><DeckyRetroAchievementsPointsIcon size={12} />{item.value}</span> : item.value}
+                {item.key === "points" ? <span style={achievementCompanionAchievementRowRecipes.points("compact")}>
+                  {isSteam ? <DeckySteamHuntersIcon color={steamTheme.color.accent} size={12} /> : <DeckyRetroAchievementsPointsIcon size={12} />}
+                  {item.value}
+                </span> : item.value}
               </span>
             );
           })}

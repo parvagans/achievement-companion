@@ -450,24 +450,6 @@ export const raRecipes = {
       position: "absolute", top: -14, right: -10, opacity: 0.08, pointerEvents: "none",
     } satisfies CSSProperties,
   },
-  compactAchievementRow(tone: "default" | "hardcore" | "softcore" | "locked", focused: boolean): CSSProperties {
-    const semanticColor = tone === "hardcore" ? raTheme.color.hardcore
-      : tone === "softcore" ? raTheme.color.softcore
-        : tone === "locked" ? raTheme.color.locked : raTheme.color.unlocked;
-    return {
-      ...raRecipes.card("compact", true),
-      borderColor: focused ? raTheme.focus.border : raTheme.color.borderSubtle,
-      borderLeft: `3px solid ${semanticColor}`,
-      background: focused ? raTheme.surface.focusedContentCard : raTheme.surface.contentCard,
-      boxShadow: focused ? raTheme.focus.shadow : "none",
-    };
-  },
-  compactAchievementRarity: {
-    root: { display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2, width: 68, minWidth: 0 } satisfies CSSProperties,
-    track: { width: "100%", height: 3, overflow: "hidden", borderRadius: 999, background: "rgba(144, 184, 208, 0.28)" } satisfies CSSProperties,
-    fill(percent: number): CSSProperties { return { height: "100%", width: `${Math.max(0, Math.min(100, percent))}%`, borderRadius: 999, background: raTheme.color.accent }; },
-    label: { color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.caption, fontWeight: 700, lineHeight: 1, whiteSpace: "nowrap" } satisfies CSSProperties,
-  },
   compactAchievementCommunity: {
     track: { display: "flex", width: "calc(100% - 16px)", height: 10, marginTop: 5, overflow: "hidden", border: "1px solid rgba(144, 184, 208, 0.48)", borderRadius: 999, background: "rgba(2, 9, 15, 0.96)", boxShadow: "inset 0 1px 2px rgba(0, 0, 0, 0.55)", boxSizing: "border-box" } satisfies CSSProperties,
     segment(mode: "hardcore" | "softcore", percent: number): CSSProperties {
@@ -614,7 +596,7 @@ export const raRecipes = {
       };
     },
     rowArtwork: {
-      width: 36, height: 36, flex: "0 0 36px", display: "grid", placeItems: "center", overflow: "hidden",
+      width: 40, height: 40, flex: "0 0 40px", display: "grid", placeItems: "center", overflow: "hidden",
       border: `1px solid ${raTheme.color.borderSubtle}`, borderRadius: raTheme.radius.small,
       background: raTheme.surface.raised, boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04)", boxSizing: "border-box",
     } satisfies CSSProperties,

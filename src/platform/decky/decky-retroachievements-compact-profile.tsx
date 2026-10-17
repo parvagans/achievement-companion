@@ -587,7 +587,7 @@ function RecentAchievementRow({
   return (
     <Focusable noFocusRing role="button" tabIndex={0} aria-label={`${unlock.achievement.title}, ${unlock.game.title}${mode ? `, ${mode}` : ""}${timestamp ? `, ${timestamp}` : ""}`} data-ra-profile-recent-achievement="true" ref={(node) => { elementRef.current = node; targetProps.elementRef?.(node); }} preferredFocus={targetProps.preferredFocus} onActivate={activate} onClick={activate} onCancel={onCancel} onFocus={(event) => focus(event.currentTarget)} onGamepadFocus={(event) => focus(event.currentTarget as HTMLElement)} onBlur={() => setFocused(false)} style={raRecipes.compactProfile.row(focused)}>
       <span style={raRecipes.compactProfile.rowArtwork}>
-        {unlock.achievement.badgeImageUrl ? <DeckyGameArtwork compact src={unlock.achievement.badgeImageUrl} size={32} title={unlock.achievement.title} /> : <span style={raRecipes.text("compact", "title")}>{unlock.achievement.title.slice(0, 1)}</span>}
+        {unlock.achievement.badgeImageUrl ? <DeckyGameArtwork compact src={unlock.achievement.badgeImageUrl} size={raTheme.density.compact.artwork} title={unlock.achievement.title} /> : <span style={raRecipes.text("compact", "title")}>{unlock.achievement.title.slice(0, 1)}</span>}
       </span>
       <span style={raRecipes.compactProfile.rowText}>
         <span style={raRecipes.compactProfile.rowTitle}>{unlock.achievement.title}</span>
