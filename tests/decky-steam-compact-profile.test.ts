@@ -34,8 +34,8 @@ test("Steam compact profile matches the refined controller-first information hie
   assert.match(compactProfileSource, /width: "100%"/u);
   assert.match(compactProfileSource, /padding: "0 16px 4px"/u);
   assert.doesNotMatch(compactProfileSource, /width: 352/u);
-  assert.match(indexSource, /AC_decky_compact_logo\.png/u);
-  assert.doesNotMatch(indexSource, /AC_main_logo\.png/u);
+  assert.match(indexSource, /titleView:[\s\S]*>Achievement Companion<\/span>/u);
+  assert.doesNotMatch(indexSource, /AC_(?:decky_compact|main)_logo\.png/u);
 
   assert.match(compactProfileSource, /<SectionHeader title="Profile"/u);
   assert.match(compactProfileSource, /Open Profile Full-Screen/u);

@@ -5,7 +5,6 @@ import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
 import { DeckyUpdateSettingsPanel } from "./decky-update-settings-panel";
 import { steamRecipes, steamTheme } from "./steam-theme";
-import brandCompactLogoUrl from "./assets/brand/AC_decky_compact_logo.png";
 import chevronRightIconUrl from "./assets/chevron-right.svg";
 import externalLinkIconUrl from "./assets/external-link.svg";
 import infoIconUrl from "./assets/info.svg";
@@ -116,7 +115,7 @@ export function DeckyFullScreenAboutPage({ onOpenExternalUrl }: {
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12, flex: "1 1 auto", minHeight: 0 }}>
         <div data-ac-provider-about-card="true" style={{ ...steamRecipes.card("fullscreen"), padding: 16, display: "flex", flexDirection: "column", gap: 10, minHeight: 0 }}>
           <div style={{ color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata, fontWeight: steamTheme.type.weight.strong, letterSpacing: ".1em" }}>ABOUT</div>
-          <div style={{ display: "flex", alignItems: "center", padding: "4px 4px 8px" }}><img alt="" src={brandCompactLogoUrl} style={{ width: 160, height: 64, objectFit: "contain" }} /></div>
+          <div style={{ padding: "4px 4px 8px", color: steamTheme.color.textPrimary, fontFamily: steamTheme.type.fontFamily, fontSize: steamTheme.type.fullscreen.hero, fontWeight: steamTheme.type.weight.strong, lineHeight: 1.2 }}>Achievement Companion</div>
           <AboutLink title="Changelog" icon={externalLinkIconUrl} url={RELEASES_URL} onOpenExternalUrl={onOpenExternalUrl} onGamepadDirection={handleCardDirection} />
           <AboutLink title="GitHub" icon={externalLinkIconUrl} url={REPOSITORY_URL} onOpenExternalUrl={onOpenExternalUrl} onGamepadDirection={handleCardDirection} />
           <AboutLink title="Report Issue" icon={infoIconUrl} url={ISSUES_URL} onOpenExternalUrl={onOpenExternalUrl} onGamepadDirection={handleCardDirection} />

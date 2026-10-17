@@ -355,7 +355,8 @@ test("compact RA counts follow saved preferences and settings no longer hide sub
   assert.match(compactSource, /snapshot\.recentlyPlayedGames\.slice\(0, recentlyPlayedCount\)/u);
   assert.doesNotMatch(settingsSource, /label="Show subsets"|label="Default Completion Progress filter"/u);
   assert.match(completionSource, /showSubsets=\{true\}/u);
-  assert.match(aboutSource, /AC_decky_compact_logo\.png/u);
+  assert.match(aboutSource, /fontSize: steamTheme\.type\.fullscreen\.hero[\s\S]*>Achievement Companion<\/div>/u);
+  assert.doesNotMatch(aboutSource, /AC_decky_compact_logo\.png/u);
 });
 
 test("full-screen game tabs keep RA Subsets conditional and before Community", () => {

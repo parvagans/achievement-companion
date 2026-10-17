@@ -16,7 +16,7 @@ import {
   installAchievementCompanionRuntimeDebug,
   removeAchievementCompanionRuntimeDebug,
 } from "@platform/decky/decky-runtime-debug";
-import compactBrandLogoUrl from "./platform/decky/assets/brand/AC_decky_compact_logo.png";
+import { achievementCompanionQamTheme } from "@platform/decky/decky-qam-theme";
 import { initializeDeckyUpdateSystem } from "./platform/decky/decky-update-service";
 
 function AchievementCompanionIcon(): JSX.Element {
@@ -60,11 +60,15 @@ export default definePlugin(() => {
   return {
     name: "Achievement Companion",
     titleView: (
-      <img
-        alt="Achievement Companion"
-        src={compactBrandLogoUrl}
-        style={{ display: "block", width: 150, height: 48, objectFit: "contain" }}
-      />
+      <span style={{
+        display: "block",
+        color: achievementCompanionQamTheme.color.textPrimary,
+        fontFamily: achievementCompanionQamTheme.type.fontFamily,
+        fontSize: achievementCompanionQamTheme.type.compact.title,
+        fontWeight: achievementCompanionQamTheme.type.weight.strong,
+        lineHeight: 1.2,
+        whiteSpace: "nowrap",
+      }}>Achievement Companion</span>
     ),
     alwaysRender: true,
     content: <DeckyCompactSession><DeckyBootstrap /></DeckyCompactSession>,
