@@ -166,6 +166,19 @@ test("RA compact completion label describes achievements, not library ownership"
   assert.doesNotMatch(source, /Library Completion/u);
 });
 
+test("RA QAM current game shows provider artwork and fitting rich presence", async () => {
+  const [profileSource, themeSource] = await Promise.all([
+    readFile(new URL("../src/platform/decky/decky-retroachievements-compact-profile.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/ra-theme.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(profileSource, /metric\.key === "rich-presence" \|\| metric\.label === "Rich Presence"/u);
+  assert.match(profileSource, /<DeckyRetroAchievementsGameIcon game=\{game\} src=\{game\.coverImageUrl \?\? game\.systemIconUrl\} size=\{40\}/u);
+  assert.match(profileSource, /gameActivityPresence\}>\{richPresence\}/u);
+  assert.match(profileSource, /game\.platformLabel !== undefined/u);
+  assert.match(themeSource, /gameActivityIdentityRow:[\s\S]*gridTemplateColumns: "40px minmax\(0, 1fr\)"/u);
+  assert.match(themeSource, /gameActivityPresence:[\s\S]*WebkitLineClamp: 2/u);
+});
+
 test("eight-week RA activity calendar counts real unlocks and filters by mode", () => {
   const now = new Date(2026, 9, 6, 12).getTime();
   const yesterday = new Date(2026, 9, 5, 12).getTime();
@@ -214,7 +227,7 @@ test("recently played mapper derives mode progress from RA's real achievement co
 });
 
 test("RA QAM loading, focus scrolling, and calendar controls follow Steam compact behavior", async () => {
-  const [profileSource, bootstrapSource, resourcesSource, raThemeSource, settingsSource, loadingSource, statusIconSource] = await Promise.all([
+  const [profileSource, bootstrapSource, resourcesSource, raThemeSource, settingsSource, loadingSource, statusIconSource, recentAchievementRowSource] = await Promise.all([
     readFile(new URL("../src/platform/decky/decky-retroachievements-compact-profile.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/bootstrap.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-compact-session-resources.ts", import.meta.url), "utf8"),
@@ -222,6 +235,7 @@ test("RA QAM loading, focus scrolling, and calendar controls follow Steam compac
     readFile(new URL("../src/platform/decky/decky-retroachievements-compact-settings.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-compact-loading-state.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-game-status-icon.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-compact-recent-achievement-row.tsx", import.meta.url), "utf8"),
   ]);
 
   assert.match(bootstrapSource, /isRetroAchievementsCompactProfileLoading[\s\S]*!isRenderableDashboardState\(state\) \|\| state\.isRefreshing === true/u);
@@ -285,7 +299,7 @@ test("RA QAM loading, focus scrolling, and calendar controls follow Steam compac
   assert.equal(raRecipes.compactProfile.completionCard("beaten").display, "flex");
   assert.equal(raRecipes.gameIcon.frame(40, "mastered").borderRadius, raRecipes.compactProfile.rowArtwork.borderRadius);
   assert.equal(raRecipes.compactProfile.rowArtwork.width, raTheme.density.compact.artwork);
-  assert.match(profileSource, /badgeImageUrl\} size=\{raTheme\.density\.compact\.artwork\}/u);
+  assert.match(recentAchievementRowSource, /badgeImageUrl !== undefined[\s\S]*size=\{40\}/u);
   assert.match(profileSource, /data-ra-profile-overview-focus="true"/u);
   assert.match(profileSource, /data-ra-profile-beaten-focus="true"/u);
   assert.match(raThemeSource, /@keyframes ac-ra-game-icon-tail/u);

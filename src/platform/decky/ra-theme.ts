@@ -503,8 +503,17 @@ export const raRecipes = {
         fontSize: raTheme.type.compact.caption, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase",
       };
     },
+    gameActivityIdentityRow: {
+      display: "grid", gridTemplateColumns: "40px minmax(0, 1fr)", alignItems: "center", gap: 8, minWidth: 0,
+    } satisfies CSSProperties,
+    gameActivityIdentity: { display: "flex", flexDirection: "column", gap: 2, minWidth: 0 } satisfies CSSProperties,
     gameActivityTitle: { color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.body, fontWeight: 750, lineHeight: 1.2 } satisfies CSSProperties,
     gameActivityMeta: { color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.caption, fontWeight: 600, lineHeight: 1.2 } satisfies CSSProperties,
+    gameActivityPresence: {
+      color: raTheme.color.accent, fontSize: raTheme.type.compact.body, fontWeight: 650, lineHeight: 1.25,
+      minWidth: 0, overflow: "hidden", overflowWrap: "anywhere", display: "-webkit-box",
+      WebkitBoxOrient: "vertical", WebkitLineClamp: 2,
+    } satisfies CSSProperties,
     rankGrid(count: number): CSSProperties {
       return { display: "grid", gridTemplateColumns: `repeat(${Math.min(2, Math.max(1, count))}, minmax(0, 1fr))`, gap: 8, minWidth: 0 };
     },

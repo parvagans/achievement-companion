@@ -1,12 +1,13 @@
 import { Focusable, GamepadButton, NavEntryPositionPreferences, useQuickAccessVisible, type GamepadEvent } from "@decky/ui";
 import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type RefCallback } from "react";
-import type { DashboardSnapshot, RecentUnlock, RecentlyPlayedGame } from "@core/domain";
+import type { DashboardSnapshot, NormalizedMetric, RecentUnlock, RecentlyPlayedGame } from "@core/domain";
 import type { RetroAchievementsConnectionState } from "./providers/retroachievements/connection";
 import { getRetroAchievementsConnectionBanner } from "./providers/retroachievements/connection";
 import type { CompactAchievementTarget } from "./decky-compact-achievement-model";
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
 import { DeckyCompletionProgressBar, getCompletionPercent } from "./decky-completion-progress-bar";
 import { DeckyGameArtwork } from "./decky-game-artwork";
+import { DeckyCompactRecentAchievementRow } from "./decky-compact-recent-achievement-row";
 import { DeckyRetroAchievementsGameIcon } from "./decky-retroachievements-game-icon";
 import { formatProfileMemberSince } from "./decky-stat-helpers";
 import { useDeckySettings } from "./decky-settings";
@@ -532,6 +533,7 @@ function ActivityCalendar({
 
 function CurrentGameActivity({
   game,
+  richPresence,
   richPresenceMsgDate,
   mode,
   onOpenGameDetail,
@@ -539,6 +541,7 @@ function CurrentGameActivity({
   targetProps,
 }: {
   readonly game: RecentlyPlayedGame | undefined;
+  readonly richPresence: string | undefined;
   readonly richPresenceMsgDate: number | undefined;
   readonly mode: Parameters<typeof getRetroAchievementsPlayedGameProgress>[1];
   readonly onOpenGameDetail: (game: RecentlyPlayedGame) => void;
@@ -557,7 +560,14 @@ function CurrentGameActivity({
         {inGame ? <span aria-hidden="true" style={{ width: 8, height: 8, flex: "0 0 8px", borderRadius: "50%", background: raTheme.color.success }} /> : null}
         <span>{activity}:</span>
       </div>
-      <div style={raRecipes.compactProfile.gameActivityTitle}>{game.title}</div>
+      <div style={raRecipes.compactProfile.gameActivityIdentityRow}>
+        <DeckyRetroAchievementsGameIcon game={game} src={game.coverImageUrl ?? game.systemIconUrl} size={40} />
+        <div style={raRecipes.compactProfile.gameActivityIdentity}>
+          <div style={raRecipes.compactProfile.gameActivityTitle}>{game.title}</div>
+          {game.platformLabel !== undefined ? <div style={raRecipes.compactProfile.gameActivityMeta}>{game.platformLabel}</div> : null}
+        </div>
+      </div>
+      {richPresence !== undefined ? <div style={raRecipes.compactProfile.gameActivityPresence}>{richPresence}</div> : null}
       {progressText !== undefined ? <div style={raRecipes.compactProfile.gameActivityMeta}>{progressText}</div> : null}
       {percent !== undefined ? <DeckyCompletionProgressBar compact percent={percent} caption={`${percent}% complete`} /> : null}
       <CompactAction label={`View achievements for ${game.title}`} primary onActivate={() => onOpenGameDetail(game)} onCancel={onCancel} targetProps={targetProps} style={{ minHeight: 42, padding: "10px 12px" }}>
@@ -569,36 +579,30 @@ function CurrentGameActivity({
 
 function RecentAchievementRow({
   unlock,
+  gameMetrics,
   onActivate,
   onCancel,
   targetProps,
 }: {
   readonly unlock: RecentUnlock;
+  readonly gameMetrics?: readonly NormalizedMetric[] | undefined;
   readonly onActivate: () => void;
   readonly onCancel: () => void;
   readonly targetProps: CompactFocusTargetProps;
 }): JSX.Element {
-  const [focused, setFocused] = useState(false);
-  const mode = unlock.achievement.unlockMode;
-  const timestamp = formatRelativeTime(unlock.unlockedAt ?? unlock.achievement.unlockedAt);
-  const elementRef = useRef<HTMLDivElement | null>(null);
-  const activate = (): void => { if (elementRef.current !== null) targetProps.onActivated(elementRef.current); onActivate(); };
-  const focus = (element: HTMLElement): void => { setFocused(true); element.scrollIntoView({ block: "center", inline: "nearest" }); targetProps.onFocused(element); };
   return (
-    <Focusable noFocusRing role="button" tabIndex={0} aria-label={`${unlock.achievement.title}, ${unlock.game.title}${mode ? `, ${mode}` : ""}${timestamp ? `, ${timestamp}` : ""}`} data-ra-profile-recent-achievement="true" ref={(node) => { elementRef.current = node; targetProps.elementRef?.(node); }} preferredFocus={targetProps.preferredFocus} onActivate={activate} onClick={activate} onCancel={onCancel} onFocus={(event) => focus(event.currentTarget)} onGamepadFocus={(event) => focus(event.currentTarget as HTMLElement)} onBlur={() => setFocused(false)} style={raRecipes.compactProfile.row(focused)}>
-      <span style={raRecipes.compactProfile.rowArtwork}>
-        {unlock.achievement.badgeImageUrl ? <DeckyGameArtwork compact src={unlock.achievement.badgeImageUrl} size={raTheme.density.compact.artwork} title={unlock.achievement.title} /> : <span style={raRecipes.text("compact", "title")}>{unlock.achievement.title.slice(0, 1)}</span>}
-      </span>
-      <span style={raRecipes.compactProfile.rowText}>
-        <span style={raRecipes.compactProfile.rowTitle}>{unlock.achievement.title}</span>
-        <span style={raRecipes.compactProfile.rowMeta}>{unlock.game.title}</span>
-      </span>
-      <span style={raRecipes.compactProfile.rowTrailing}>
-        {mode !== undefined ? <span style={raRecipes.compactProfile.modeBadge(mode)}>{mode === "hardcore" ? "Hardcore" : "Softcore"}</span> : null}
-        {timestamp !== undefined ? <span style={raRecipes.compactProfile.rowMeta}>{timestamp}</span> : null}
-        <img alt="" src={chevronRightIconUrl} style={{ width: 15, height: 15, filter: raTheme.iconFilter.primary }} />
-      </span>
-    </Focusable>
+    <DeckyCompactRecentAchievementRow
+      dataAttributes={{ "data-ra-profile-recent-achievement": "true" }}
+      elementRef={targetProps.elementRef}
+      gameMetrics={gameMetrics}
+      unlock={unlock}
+      onActivate={onActivate}
+      onActivated={targetProps.onActivated}
+      onCancel={onCancel}
+      onFocused={targetProps.onFocused}
+      preferredFocus={targetProps.preferredFocus}
+      timestampText={formatRelativeTime(unlock.unlockedAt ?? unlock.achievement.unlockedAt)}
+    />
   );
 }
 
@@ -675,6 +679,7 @@ export function DeckyRetroAchievementsCompactProfile({
   onCancel,
 }: DeckyRetroAchievementsCompactProfileProps): JSX.Element {
   const profile = snapshot.profile;
+  const richPresence = profile.metrics.find((metric) => metric.key === "rich-presence" || metric.label === "Rich Presence")?.value.trim() || undefined;
   const settings = useDeckySettings();
   const providerConfig = useDeckyProviderConfig(RETROACHIEVEMENTS_PROVIDER_ID);
   const recentAchievementsCount = providerConfig?.recentAchievementsCount ?? settings.recentAchievementsCount;
@@ -706,6 +711,10 @@ export function DeckyRetroAchievementsCompactProfile({
   const activityKnownGames = useMemo(
     () => [...(profile.featuredGames ?? []), ...snapshot.recentlyPlayedGames],
     [profile.featuredGames, snapshot.recentlyPlayedGames],
+  );
+  const activityGameMetricsById = useMemo(
+    () => new Map(activityKnownGames.map((game) => [game.gameId, game.metrics ?? []] as const)),
+    [activityKnownGames],
   );
   const selectedDateGames = useMemo(() => selectedDateActivity === undefined
     ? undefined
@@ -792,6 +801,7 @@ export function DeckyRetroAchievementsCompactProfile({
 
       <CurrentGameActivity
         game={snapshot.recentlyPlayedGames[0]}
+        richPresence={richPresence}
         richPresenceMsgDate={profile.richPresenceMsgDate}
         mode={settings.retroAchievementsAchievementMode}
         onOpenGameDetail={onOpenGameDetail}
@@ -863,6 +873,7 @@ export function DeckyRetroAchievementsCompactProfile({
                 <RecentAchievementRow
                   key={getDeckyRetroAchievementsCompactFocusTargetKey(focusTarget)}
                   unlock={unlock}
+                  gameMetrics={activityGameMetricsById.get(unlock.game.gameId)}
                   onActivate={() => onOpenAchievementDetail({ game: unlock.game, achievement: unlock.achievement })}
                   onCancel={onCancel}
                   targetProps={targetProps(focusTarget)}

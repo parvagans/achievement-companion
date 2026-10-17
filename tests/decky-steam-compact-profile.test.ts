@@ -10,6 +10,14 @@ const compactSettingsSource = readFileSync(
   "src/platform/decky/decky-steam-compact-settings.tsx",
   "utf8",
 );
+const compactRecentAchievementRowSource = readFileSync(
+  "src/platform/decky/decky-compact-recent-achievement-row.tsx",
+  "utf8",
+);
+const raCompactProfileSource = readFileSync(
+  "src/platform/decky/decky-retroachievements-compact-profile.tsx",
+  "utf8",
+);
 const compactLoadingSource = readFileSync(
   "src/platform/decky/decky-compact-loading-state.tsx",
   "utf8",
@@ -27,6 +35,27 @@ test("Steam compact XP progress keeps unavailable distinct from zero", () => {
   assert.match(compactProfileSource, /aria-valuetext=\{progress\.xpProgressPercent === undefined \? "XP unavailable" : undefined\}/u);
   assert.match(compactProfileSource, /progress\.xpProgressPercent !== undefined \? <div style=\{getProgressFillStyle\(progress\.xpProgressPercent\)\} \/> : null/u);
   assert.doesNotMatch(compactProfileSource, /xpProgressPercent \?\? 0/u);
+});
+
+test("Steam and RA QAM Recent Activity share the achievement-row treatment", () => {
+  assert.match(compactProfileSource, /<DeckyCompactRecentAchievementRow/u);
+  assert.match(raCompactProfileSource, /<DeckyCompactRecentAchievementRow/u);
+  assert.match(compactRecentAchievementRowSource, /achievementCompanionAchievementRowRecipes\.surface\("compact", accentColor, focused\)/u);
+  assert.match(compactRecentAchievementRowSource, /gridTemplateColumns: "40px minmax\(0, 1fr\) minmax\(68px, auto\)"/u);
+  assert.match(compactRecentAchievementRowSource, /alignItems: "center"/u);
+  assert.match(compactRecentAchievementRowSource, /gap: 10/u);
+  assert.match(compactRecentAchievementRowSource, /size=\{40\}/u);
+  assert.match(compactRecentAchievementRowSource, /isSteam\s*\? steamTheme\.color\.unlocked/u);
+  assert.doesNotMatch(compactRecentAchievementRowSource, /rewardGold/u);
+  assert.match(compactRecentAchievementRowSource, /mode === "hardcore" \? raTheme\.color\.hardcore[\s\S]*mode === "softcore" \? raTheme\.color\.softcore : raTheme\.color\.unlocked/u);
+  assert.match(compactRecentAchievementRowSource, /loadDeckyGameDetailState/u);
+  assert.match(compactRecentAchievementRowSource, /loadDeckySteamHuntersGameData/u);
+  assert.match(compactRecentAchievementRowSource, /steamHuntersAchievement\?\.points/u);
+  assert.match(compactRecentAchievementRowSource, /getAchievementDetailCounts/u);
+  assert.match(compactRecentAchievementRowSource, /achievementCompanionAchievementRowRecipes\.rarity\.fill\(communityPercent\)/u);
+  assert.doesNotMatch(compactRecentAchievementRowSource, /DeckySteamAchievementStatusIcon/u);
+  assert.match(compactRecentAchievementRowSource, /DeckySteamHuntersIcon/u);
+  assert.match(compactRecentAchievementRowSource, /DeckyRetroAchievementsPointsIcon/u);
 });
 
 test("Steam compact profile matches the refined controller-first information hierarchy", () => {

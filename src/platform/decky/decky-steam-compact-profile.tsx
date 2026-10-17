@@ -1,5 +1,5 @@
 import { Focusable, GamepadButton, NavEntryPositionPreferences, useQuickAccessVisible, type GamepadEvent } from "@decky/ui";
-import type { DashboardSnapshot, RecentUnlock, RecentlyPlayedGame } from "@core/domain";
+import type { DashboardSnapshot, NormalizedMetric, RecentUnlock, RecentlyPlayedGame } from "@core/domain";
 import {
   useLayoutEffect,
   useMemo,
@@ -25,6 +25,7 @@ import { useDeckySettings } from "./decky-settings";
 import { DeckySteamHuntersIcon } from "./decky-steam-icons";
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
 import { DeckyGameArtwork } from "./decky-game-artwork";
+import { DeckyCompactRecentAchievementRow } from "./decky-compact-recent-achievement-row";
 import { findDeckyScrollableAncestor } from "./decky-scroll-viewport";
 import {
   formatProfileMemberSince,
@@ -586,21 +587,6 @@ function getListRowStyle(height: number): CSSProperties {
   };
 }
 
-function getAchievementArtworkFrameStyle(): CSSProperties {
-  return {
-    width: 34,
-    height: 34,
-    flexShrink: 0,
-    display: "grid",
-    placeItems: "center",
-    overflow: "hidden",
-    border: "1px solid rgba(255, 166, 39, 0.34)",
-    borderRadius: 6,
-    background: "rgba(6, 22, 33, 0.76)",
-    boxSizing: "border-box",
-  };
-}
-
 function getGameArtworkFallbackStyle(): CSSProperties {
   return {
     width: 34,
@@ -697,11 +683,6 @@ function formatRelativeTime(epochMs: number | undefined): string | undefined {
   }
 
   return formatValue(Math.max(1, Math.round(absoluteMs / 86_400_000)), "day");
-}
-
-function formatAchievementTime(recentUnlock: RecentUnlock): string {
-  const relativeTime = formatRelativeTime(recentUnlock.unlockedAt ?? recentUnlock.achievement.unlockedAt);
-  return relativeTime === undefined ? "Unlocked" : `Unlocked · ${relativeTime}`;
 }
 
 function formatGameProgress(game: RecentlyPlayedGame): string {
@@ -966,6 +947,7 @@ function ViewAllAction({
 function RecentAchievementItem({
   elementRef,
   recentUnlock,
+  gameMetrics,
   onActivate,
   onActivated,
   onCancel,
@@ -974,6 +956,7 @@ function RecentAchievementItem({
 }: {
   readonly elementRef?: RefCallback<HTMLDivElement> | undefined;
   readonly recentUnlock: RecentUnlock;
+  readonly gameMetrics?: readonly NormalizedMetric[] | undefined;
   readonly onActivate: () => void;
   readonly onActivated?: ((target: HTMLElement) => void) | undefined;
   readonly onCancel: () => void;
@@ -981,36 +964,18 @@ function RecentAchievementItem({
   readonly preferredFocus?: boolean | undefined;
 }): JSX.Element {
   return (
-    <DeckySteamCompactAction
-      ariaLabel={`Open ${recentUnlock.achievement.title}`}
+    <DeckyCompactRecentAchievementRow
       dataAttributes={{ "data-steam-compact-recent-achievement": "true" }}
       elementRef={elementRef}
+      gameMetrics={gameMetrics}
+      unlock={recentUnlock}
       onActivate={onActivate}
       onActivated={onActivated}
       onCancel={onCancel}
       onFocused={onFocused}
       preferredFocus={preferredFocus}
-      tone="nested"
-      style={getListRowStyle(46)}
-    >
-      <span style={getAchievementArtworkFrameStyle()}>
-        {recentUnlock.achievement.badgeImageUrl !== undefined ? (
-          <DeckyGameArtwork
-            compact
-            src={recentUnlock.achievement.badgeImageUrl}
-            size={32}
-            title={recentUnlock.achievement.title}
-          />
-        ) : (
-          <img alt="" src={trophyIconUrl} style={getIconStyle(21, "gold")} />
-        )}
-      </span>
-      <span style={getRowTextStyle()}>
-        <span style={getRowTitleStyle()}>{recentUnlock.achievement.title}</span>
-        <span style={getRowMetaStyle()}>{formatAchievementTime(recentUnlock)}</span>
-      </span>
-      <img alt="" src={chevronRightIconUrl} style={getIconStyle(17)} />
-    </DeckySteamCompactAction>
+      timestampText={formatRelativeTime(recentUnlock.unlockedAt ?? recentUnlock.achievement.unlockedAt)}
+    />
   );
 }
 
@@ -1151,6 +1116,10 @@ export function DeckySteamCompactProfile({
     [activityKnownGames, selectedActivityDay, visibleAchievements],
   );
   const visibleGames = filteredActivityGames?.map(({ game }) => game) ?? recentlyPlayedGames;
+  const activityGameMetricsById = useMemo(
+    () => new Map(activityKnownGames.map((game) => [game.gameId, game.metrics ?? []] as const)),
+    [activityKnownGames],
+  );
   const activityUnlockCounts = useMemo(
     () => new Map(filteredActivityGames?.map(({ game, unlockCount }) => [game.gameId, unlockCount]) ?? []),
     [filteredActivityGames],
@@ -1328,6 +1297,7 @@ export function DeckySteamCompactProfile({
               <RecentAchievementItem
                 key={`${recentUnlock.game.gameId}:${recentUnlock.achievement.achievementId}`}
                 recentUnlock={recentUnlock}
+                gameMetrics={activityGameMetricsById.get(recentUnlock.game.gameId)}
                 onActivate={() => onOpenAchievementDetail(recentUnlock)}
                 onCancel={onCancel}
                 {...targetProps({

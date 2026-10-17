@@ -183,6 +183,8 @@ test("Steam achievement rows use verified community rates and Steam-green earned
 test("QAM achievement badges use the shared Recently Played artwork size", () => {
   const source = readFileSync("src/platform/decky/decky-compact-achievement-list.tsx", "utf8");
   assert.match(source, /size=\{raTheme\.density\.compact\.artwork\}/u);
+  assert.match(source, /gridTemplateColumns: "40px minmax\(0, 1fr\) minmax\(42px, auto\)"[\s\S]*alignItems: "center"[\s\S]*gap: 10/u);
+  assert.match(source, /function getIconFrameStyle[\s\S]*alignItems: "center"[\s\S]*alignSelf: "center"[\s\S]*height: 40/u);
   assert.equal(raTheme.density.compact.artwork, 40);
 });
 

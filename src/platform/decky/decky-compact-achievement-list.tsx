@@ -93,7 +93,8 @@ function getRowStyle(row: CompactAchievementRowViewModel, isFocused: boolean, is
       ...achievementCompanionAchievementRowRecipes.surface("compact", accentColor, isFocused),
       display: "grid",
       gridTemplateColumns: "40px minmax(0, 1fr) minmax(42px, auto)",
-      alignItems: "start",
+      alignItems: "center",
+      gap: 10,
       padding: "9px",
     };
   }
@@ -156,10 +157,12 @@ function getRowStyle(row: CompactAchievementRowViewModel, isFocused: boolean, is
 function getIconFrameStyle(isUnlocked: boolean, isSteam: boolean): CSSProperties {
   return {
     display: "flex",
-    alignItems: "flex-start",
+    alignItems: "center",
+    alignSelf: "center",
     justifyContent: "center",
     width: 40,
     minWidth: 40,
+    height: 40,
     lineHeight: 0,
     opacity: isUnlocked ? 1 : 0.9,
     filter: isSteam
