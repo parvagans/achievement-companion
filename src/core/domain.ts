@@ -43,6 +43,14 @@ export interface ProgressSummary {
 }
 
 /** Provider-normalized, optional community enrichment for an individual game. */
+export interface GameCommunityMaster {
+  readonly rank?: number;
+  readonly username: string;
+  readonly userUlid?: string;
+  readonly avatarUrl?: string;
+  readonly masteredAt: string;
+}
+
 export interface GameCommunityStats {
   readonly totalPlayers?: number;
   readonly masteredPlayers?: number;
@@ -55,6 +63,7 @@ export interface GameCommunityStats {
   readonly masteredSamples?: number;
   readonly medianCompletionSeconds?: number;
   readonly medianMasterySeconds?: number;
+  readonly latestMasters?: readonly GameCommunityMaster[];
 }
 
 export interface NormalizedProfile {

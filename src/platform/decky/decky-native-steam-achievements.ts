@@ -1,6 +1,6 @@
 import { routerHook } from "@decky/api";
-import { afterPatch, appDetailsClasses, applyHookStubs, callOriginal, createReactTreePatcher, findInReactTree, findModuleExport, removeHookStubs, replacePatch, type Patch } from "@decky/ui";
-import { createElement, type ReactElement } from "react";
+import { afterPatch, appDetailsClasses, applyHookStubs, callOriginal, createModuleMapping, createReactTreePatcher, findInReactTree, findModuleByExport, findModuleExport, Navigation, removeHookStubs, replacePatch, type Patch } from "@decky/ui";
+import { createElement, useLayoutEffect, useRef, type ReactElement } from "react";
 import type { RetroAchievementsAchievementMode } from "@core/settings";
 import { DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN } from "./decky-game-page-achievement-route";
 import {
@@ -20,10 +20,13 @@ import {
   toNativeSteamGlobalAchievementResponse,
   toNativeSteamPersonalAchievementResponse,
   withNativeSteamAchievementsSection,
+  withNativeSteamCommunitySection,
   withNativeSteamRecentActivitySection,
 } from "./decky-native-steam-achievement-contract";
 import { getNativeRetroAchievementsActivityItems } from "./decky-native-retroachievements-activity-model";
 import { DeckyNativeRetroAchievementsActivity, type NativeSteamActivityStyles } from "./decky-native-retroachievements-activity";
+import { DeckyNativeRetroAchievementsCommunity, type NativeSteamCommunitySectionPrimitives } from "./decky-native-retroachievements-community";
+import { buildNativeRetroAchievementsCommunityModels } from "./decky-native-retroachievements-community-model";
 import { subscribeDeckyRaNativeAchievementInvalidation } from "./decky-ra-native-achievement-invalidation";
 import { readDeckySettings } from "./decky-settings";
 
@@ -64,6 +67,15 @@ interface SteamActivityFeedClass {
     render(): unknown;
     ShowMoreContent(): void;
     OnPostStatusClicked(value: string): Promise<void>;
+  };
+}
+
+interface SteamCommunityFeedClass {
+  readonly prototype: {
+    render(): unknown;
+    BindInnerContainer(value: unknown): void;
+    AutoLoadAdditionalContent(): void;
+    LoadAdditionalContent(): void;
   };
 }
 
@@ -138,6 +150,63 @@ function findSteamActivityFeedClass(): SteamActivityFeedClass | undefined {
   return undefined;
 }
 
+function findSteamCommunityFeedClass(): SteamCommunityFeedClass | undefined {
+  const wrapperModules = createModuleMapping((module: unknown) => {
+    if (typeof module !== "object" || module === null) return false;
+    return Object.values(module as Record<string, unknown>).some((value) => {
+      if (typeof value !== "function") return false;
+      const source = String(value);
+      return source.includes("useId()") && source.includes("labelId") && source.includes("..." );
+    });
+  });
+  for (const module of wrapperModules.values()) {
+    if (typeof module !== "object" || module === null) continue;
+    for (const value of Object.values(module as Record<string, unknown>)) {
+      if (typeof value !== "function") continue;
+      const source = String(value);
+      if (!source.includes("useId()") || !source.includes("labelId") || !source.includes("...")) continue;
+      try {
+        applyHookStubs({ useId: () => "achievement-companion-community" });
+        const feedClass = (value as (props: { appid: number }) => ReactElement)({ appid: 0 })?.type as SteamCommunityFeedClass | undefined;
+        if (typeof feedClass?.prototype?.render === "function"
+          && typeof feedClass.prototype.BindInnerContainer === "function"
+          && typeof feedClass.prototype.AutoLoadAdditionalContent === "function"
+          && typeof feedClass.prototype.LoadAdditionalContent === "function") {
+          return feedClass;
+        }
+      } catch {
+        // Continue through the other small useId wrappers until the Community feed class is found.
+      } finally {
+        removeHookStubs();
+      }
+    }
+  }
+  return undefined;
+}
+
+function findSteamCommunitySectionPrimitives(): NativeSteamCommunitySectionPrimitives | undefined {
+  const module = findModuleByExport((value: unknown) => {
+    if (typeof value !== "function") return false;
+    const source = String(value);
+    return source.includes("BodyGutter") && source.includes("spacing") && source.includes("children");
+  }) as Record<string, unknown> | undefined;
+  if (module === undefined) return undefined;
+  const exports = Object.values(module);
+  const Body = exports.find((value) => {
+    if (typeof value !== "function") return false;
+    const source = String(value);
+    return source.includes("BodyGutter") && source.includes("spacing") && source.includes("children");
+  });
+  const Section = exports.find((value) => {
+    if (typeof value !== "object" || value === null) return false;
+    const candidate = value as { readonly $$typeof?: unknown; readonly type?: unknown };
+    return candidate.$$typeof !== undefined && typeof candidate.type === "function";
+  });
+  return Body !== undefined && Section !== undefined
+    ? { Body, Section } as NativeSteamCommunitySectionPrimitives
+    : undefined;
+}
+
 function findSteamPersonalAchievementsStore(): SteamPersonalAchievementsStore | undefined {
   return findModuleExport((value: unknown) => {
     if (typeof value !== "object" || value === null) return false;
@@ -176,8 +245,33 @@ interface ActivePage {
 
 const unavailableAchievementsResponse = { error: 2 };
 const nativeAchievementSpacingStyleKey = "achievement-companion-native-achievement-spacing";
+const nativeGamePageBackBoundaryKey = "achievement-companion-native-game-page-back-boundary";
 // Steam's AllAchieved row needs medal clearance even if Activity CSS loads later.
 const nativeAchievementSpacingCss = "._2YS0EBJmY2Rvs07zZ90UIJ { padding-inline-start: 46px !important; }";
+
+function DeckyNativeGamePageBackBoundary(): ReactElement {
+  const anchorRef = useRef<HTMLSpanElement>(null);
+
+  useLayoutEffect(() => {
+    const ownerWindow = anchorRef.current?.ownerDocument.defaultView;
+    if (ownerWindow === undefined || ownerWindow === null) return;
+
+    const onCancel = (event: Event): void => {
+      const focused = ownerWindow.document.querySelector<HTMLElement>(".gpfocus");
+      const tab = focused?.matches('[role="tab"]') === true ? focused : focused?.closest('[role="tab"]');
+      if (tab === undefined || tab === null) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      Navigation.NavigateBack();
+    };
+
+    ownerWindow.addEventListener("vgp_oncancel", onCancel, true);
+    return () => { ownerWindow.removeEventListener("vgp_oncancel", onCancel, true); };
+  }, []);
+
+  return createElement("span", { ref: anchorRef, hidden: true, "aria-hidden": "true" });
+}
 
 let registeredCleanup: (() => void) | undefined;
 
@@ -191,6 +285,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
   const managedAppIds = new Set<number>();
   const unavailableAppIds = new Set<number>();
   const revisions = new Map<number, SteamObservableBox>();
+  const communityPrimitives = findSteamCommunitySectionPrimitives();
   let activePage: ActivePage | undefined;
   let observableFactory: SteamObservableFactory | undefined;
   let pagePatched = false;
@@ -198,6 +293,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
   let personalPatched = false;
   let progressPatched = false;
   let activityPatched = false;
+  let communityPatched = false;
   let routeRenderPatch: Patch | undefined;
   let routeRenderOwner: object | undefined;
   let disposed = false;
@@ -402,11 +498,23 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
         return originalSections;
       }
       const achievementSections = withNativeSteamAchievementsSection(originalSections, overview, appId, model);
-      return withNativeSteamRecentActivitySection(
+      const activitySections = withNativeSteamRecentActivitySection(
         achievementSections,
         overview,
         appId,
         getNativeRetroAchievementsActivityItems(projection.achievements).length > 0,
+      );
+      const communityModels = buildNativeRetroAchievementsCommunityModels({
+        stats: projection.communityStats,
+        ...(projection.achievementsAvailableSince !== undefined
+          ? { achievementsAvailableSince: projection.achievementsAvailableSince }
+          : {}),
+      });
+      return withNativeSteamCommunitySection(
+        activitySections,
+        overview,
+        appId,
+        communityPrimitives !== undefined && communityModels !== undefined,
       );
     }));
     pagePatched = true;
@@ -465,10 +573,36 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     activityPatched = true;
   }
 
+  function installCommunityPatch(): void {
+    if (communityPatched || communityPrimitives === undefined) return;
+    const feedClass = findSteamCommunityFeedClass();
+    if (feedClass === undefined) return;
+    patches.push(replacePatch(feedClass.prototype, "render", function (this: { props?: { appid?: number } }) {
+      const appId = toAppId(this.props?.appid);
+      const page = activePage;
+      if (appId === undefined || page?.appId !== appId || !page.verified || !isCurrentLibraryRootPage(appId)) return callOriginal;
+      const projection = getProjection(appId);
+      if (projection === undefined) return callOriginal;
+      const models = buildNativeRetroAchievementsCommunityModels({
+        stats: projection.communityStats,
+        ...(projection.achievementsAvailableSince !== undefined
+          ? { achievementsAvailableSince: projection.achievementsAvailableSince }
+          : {}),
+      });
+      if (models === undefined) return callOriginal;
+      return createElement(DeckyNativeRetroAchievementsCommunity, {
+        models,
+        primitives: communityPrimitives,
+      });
+    }));
+    communityPatched = true;
+  }
+
   const routePatch = routerHook.addPatch(DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN, (tree) => {
     installStorePatches();
     installPagePatch();
     installActivityPatch();
+    installCommunityPatch();
     const routeProps = findInReactTree(tree, (node) => !!node?.renderFunc);
     if (routeProps !== routeRenderOwner) {
       routeRenderPatch?.unpatch();
@@ -478,15 +612,17 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
         routeRenderPatch = afterPatch(routeProps, "renderFunc", createReactTreePatcher(
           [(node) => findInReactTree(node, (entry) => !!entry?.props?.children?.props?.overview)?.props?.children],
           (_args, ret) => {
+            const appId = toAppId(window.location.pathname.match(/^\/(?:routes\/)?library\/app\/(\d+)/u)?.[1]);
             const container = findInReactTree(ret, (entry) =>
               Array.isArray(entry?.props?.children)
               && entry?.props?.className?.includes(appDetailsClasses.InnerContainer),
             ) as { props?: { children?: unknown[] } } | undefined;
             const children = container?.props?.children;
             if (container?.props === undefined || !Array.isArray(children)) return ret;
-            const appId = toAppId(window.location.pathname.match(/^\/(?:routes\/)?library\/app\/(\d+)/u)?.[1]);
             const withoutSpacing = children.filter((child) =>
-              (child as { key?: unknown } | null)?.key !== nativeAchievementSpacingStyleKey,
+              ![nativeAchievementSpacingStyleKey, nativeGamePageBackBoundaryKey].includes(
+                String((child as { key?: unknown } | null)?.key),
+              ),
             );
             if (appId !== undefined) {
               withoutSpacing.push(createElement("style", {
@@ -494,6 +630,11 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
                 "data-achievement-companion-native-achievement-spacing": "true",
                 children: nativeAchievementSpacingCss,
               }));
+              if (activePage?.appId === appId && activePage.verified) {
+                withoutSpacing.push(createElement(DeckyNativeGamePageBackBoundary, {
+                  key: nativeGamePageBackBoundaryKey,
+                }));
+              }
             }
             container.props.children = withoutSpacing;
             return ret;
@@ -508,6 +649,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
   installStorePatches();
   installPagePatch();
   installActivityPatch();
+  installCommunityPatch();
   const unsubscribeInvalidation = subscribeDeckyRaNativeAchievementInvalidation(() => {
     invalidateDeckyNativeRetroAchievementsProjection();
     attempts.clear();

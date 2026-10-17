@@ -55,7 +55,10 @@ function detail(
       unlockedAt: 1_730_000_000_000,
       hardcoreUnlockedAt: 1_730_000_000_000,
       unlockMode: "hardcore",
-      metrics: [{ key: "unlocked-count", label: "Unlocked", value: "25" }],
+      metrics: [
+        { key: "unlocked-count", label: "Unlocked", value: "25" },
+        { key: "date-created", label: "Created", value: "2021-11-01 10:30:00" },
+      ],
     }),
     achievement("102", {
       title: "Softcore Clear",
@@ -64,7 +67,10 @@ function detail(
       softcoreUnlockedAt: 1_740_000_000_000,
       unlockMode: "softcore",
     }),
-    achievement("103", { title: "Locked" }),
+    achievement("103", {
+      title: "Locked",
+      metrics: [{ key: "date-created", label: "Created", value: "2020-08-15 00:00:00" }],
+    }),
   ],
 ): GameDetailSnapshot {
   return {
@@ -75,6 +81,15 @@ function detail(
       status: "in_progress",
       summary: { unlockedCount: 2, totalCount: achievements.length },
       metrics: [{ key: "total-players", label: "Players", value: "100" }],
+      communityStats: {
+        totalPlayers: 100,
+        masteredPlayers: 25,
+        masteryPercent: 25,
+        beatenHardcoreSamples: 42,
+        medianBeatSeconds: 13_800,
+        masteredSamples: 25,
+        medianMasterySeconds: 24_360,
+      },
     },
     achievements,
     refreshedAt: 1_750_000_000_000,
@@ -142,6 +157,8 @@ test("mapped detail preserves RA identities and mode-projected row state", async
   assert.equal(both.earned, 2);
   assert.equal(both.total, 3);
   assert.equal(both.totalPlayers, 100);
+  assert.deepEqual(both.communityStats, detail().game.communityStats);
+  assert.equal(both.achievementsAvailableSince, "2020-08-15");
   assert.deepEqual(both.achievements.map((row) => row.achievementId), ["101", "102", "103"]);
   assert.equal(both.achievements[0]?.title, "Hardcore Clear");
   assert.equal(both.achievements[0]?.description, "Description 101");

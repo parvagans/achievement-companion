@@ -63,6 +63,7 @@ RETROACHIEVEMENTS_API_PATHS = frozenset({
   "API_GetGameInfoAndUserProgress.php",
   "API_GetAchievementDistribution.php",
   "API_GetGameProgression.php",
+  "API_GetGameRankAndScore.php",
 })
 STEAM_API_PATHS = frozenset({
   "ISteamUser/GetPlayerSummaries/v2/",
@@ -417,12 +418,14 @@ class Plugin:
       base_url="https://retroachievements.org/API/",
       path=path,
       query=query_mapping,
-      auth_query={
-        "u": config["username"],
-        "y": secret,
-      },
+      auth_query=(
+        {"y": secret}
+        if path == "API_GetUserProfile.php"
+        else {"u": config["username"], "y": secret}
+      ),
       handled_http_statuses={401, 403, 404, 429},
     )
+
 
   async def validate_retroachievements_credentials(self, payload: dict[str, Any]) -> dict[str, Any]:
     username = _coerce_string(payload.get("username"))

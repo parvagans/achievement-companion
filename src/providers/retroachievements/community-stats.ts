@@ -1,6 +1,7 @@
-import type { GameCommunityStats } from "@core/domain";
+import type { GameCommunityMaster, GameCommunityStats } from "@core/domain";
 import type {
   RawRetroAchievementsAchievementDistributionResponse,
+  RawRetroAchievementsGameRankAndScoreEntry,
   RawRetroAchievementsGameProgressionResponse,
 } from "./raw-types";
 
@@ -15,6 +16,48 @@ function readPositiveDuration(value: unknown, sampleCount: unknown): number | un
   return duration !== undefined && duration > 0 && samples !== undefined && samples > 0 ? duration : undefined;
 }
 
+function readText(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function readUtcTimestamp(value: unknown): string | undefined {
+  const text = readText(value);
+  if (text === undefined) return undefined;
+  const timestamp = Date.parse(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/u.test(text)
+    ? `${text.replace(" ", "T")}Z`
+    : text);
+  return Number.isFinite(timestamp) ? new Date(timestamp).toISOString() : undefined;
+}
+
+/** Normalizes the official newest-first latest-masters response into display-safe rows. */
+export function normalizeRetroAchievementsLatestMasters(args: {
+  readonly entries: readonly RawRetroAchievementsGameRankAndScoreEntry[] | undefined;
+  readonly masteredPlayers: number | undefined;
+  readonly avatarUrlByUserIdentifier?: ReadonlyMap<string, string>;
+}): readonly GameCommunityMaster[] {
+  const masteredPlayers = readNonNegativeInteger(args.masteredPlayers);
+  return (args.entries ?? []).flatMap((entry, index): readonly GameCommunityMaster[] => {
+    const username = readText(entry.User ?? entry.user);
+    const userUlid = readText(entry.ULID ?? entry.ulid);
+    const masteredAt = readUtcTimestamp(entry.LastAward ?? entry.lastAward);
+    if (username === undefined || masteredAt === undefined) return [];
+    const avatarUrl = (userUlid === undefined ? undefined : args.avatarUrlByUserIdentifier?.get(userUlid))
+      ?? args.avatarUrlByUserIdentifier?.get(username);
+    const rank = masteredPlayers !== undefined && masteredPlayers > index
+      ? masteredPlayers - index
+      : undefined;
+    return [{
+      ...(rank !== undefined ? { rank } : {}),
+      username,
+      ...(userUlid !== undefined ? { userUlid } : {}),
+      ...(avatarUrl !== undefined ? { avatarUrl } : {}),
+      masteredAt,
+    }];
+  });
+}
+
 /**
  * Converts the two game-level RA responses into a small UI-safe model. The progression
  * `TimesUsed...Median` values only establish that a timing is sampled; they are not player totals.
@@ -24,6 +67,7 @@ export function normalizeRetroAchievementsGameCommunityStats(args: {
   readonly totalPlayers: number | undefined;
   readonly distribution: RawRetroAchievementsAchievementDistributionResponse | undefined;
   readonly progression: RawRetroAchievementsGameProgressionResponse | undefined;
+  readonly latestMasters?: readonly GameCommunityMaster[];
 }): GameCommunityStats | undefined {
   const masteredPlayers =
     args.totalAchievementCount !== undefined && args.totalAchievementCount > 0
@@ -70,7 +114,7 @@ export function normalizeRetroAchievementsGameCommunityStats(args: {
     totalPlayers === undefined && masteredPlayers === undefined && medianBeatSeconds === undefined &&
     medianMasterySeconds === undefined && medianBeatSoftcoreSeconds === undefined &&
     medianCompletionSeconds === undefined && beatenSamples === undefined && beatenHardcoreSamples === undefined &&
-    completedSamples === undefined && masteredSamples === undefined
+    completedSamples === undefined && masteredSamples === undefined && (args.latestMasters?.length ?? 0) === 0
   ) {
     return undefined;
   }
@@ -87,5 +131,8 @@ export function normalizeRetroAchievementsGameCommunityStats(args: {
     ...(masteredSamples !== undefined ? { masteredSamples } : {}),
     ...(medianCompletionSeconds !== undefined ? { medianCompletionSeconds } : {}),
     ...(medianMasterySeconds !== undefined ? { medianMasterySeconds } : {}),
+    ...(args.latestMasters !== undefined && args.latestMasters.length > 0
+      ? { latestMasters: args.latestMasters }
+      : {}),
   };
 }

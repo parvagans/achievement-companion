@@ -1,5 +1,5 @@
 import type { ResourceState } from "@core/cache";
-import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
+import type { GameCommunityStats, GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
 import type { RetroAchievementsAchievementMode } from "@core/settings";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 import {
@@ -8,6 +8,7 @@ import {
   type GamePageAchievementSummary,
 } from "./decky-game-page-achievement-summary";
 import { projectRetroAchievementsFullScreenAchievements } from "./decky-retroachievements-full-screen-achievement-data";
+import { getRetroAchievementsAvailabilityDate } from "./decky-native-retroachievements-community-model";
 import {
   loadDeckySteamShortcutMetadata,
   type DeckySteamShortcutMetadata,
@@ -23,6 +24,8 @@ export interface NativeRetroAchievementsProjection {
   readonly earned: number;
   readonly total: number;
   readonly totalPlayers?: number;
+  readonly communityStats?: GameCommunityStats;
+  readonly achievementsAvailableSince?: string;
   readonly refreshedAt?: number;
 }
 
@@ -116,6 +119,7 @@ function projectDetail(
   const totalPlayers = Number.isSafeInteger(parsedTotalPlayers) && parsedTotalPlayers > 0
     ? parsedTotalPlayers
     : undefined;
+  const achievementsAvailableSince = getRetroAchievementsAvailabilityDate(detail.achievements);
 
   return {
     status: "ready",
@@ -127,6 +131,8 @@ function projectDetail(
     earned: achievements.filter((achievement) => achievement.isUnlocked).length,
     total: achievements.length,
     ...(totalPlayers !== undefined ? { totalPlayers } : {}),
+    ...(detail.game.communityStats !== undefined ? { communityStats: detail.game.communityStats } : {}),
+    ...(achievementsAvailableSince !== undefined ? { achievementsAvailableSince } : {}),
     ...(detail.refreshedAt !== undefined ? { refreshedAt: detail.refreshedAt } : {}),
   };
 }

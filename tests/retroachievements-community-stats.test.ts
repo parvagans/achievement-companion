@@ -3,7 +3,9 @@ import test from "node:test";
 import { buildRetroAchievementsCompletionCollection } from "../src/platform/decky/decky-completion-progress-grouping";
 import { formatRetroAchievementsCommunityDuration } from "../src/platform/decky/decky-retroachievements-community-stats-data";
 import { buildDeckyRetroAchievementsProgressSummaryData } from "../src/platform/decky/decky-retroachievements-progress-summary-data";
-import { normalizeRetroAchievementsGameCommunityStats } from "../src/providers/retroachievements/community-stats";
+import { createRetroAchievementsClient } from "../src/providers/retroachievements/client/client";
+import { createRetroAchievementsProvider } from "../src/providers/retroachievements/retroachievements.provider";
+import { normalizeRetroAchievementsGameCommunityStats, normalizeRetroAchievementsLatestMasters } from "../src/providers/retroachievements/community-stats";
 import type { CompletionProgressSnapshot, NormalizedAchievement, NormalizedGame } from "../src/core/domain";
 
 function game(id: string, status: NormalizedGame["status"], parentGameId?: string): NormalizedGame {
@@ -95,6 +97,113 @@ test("missing community responses remain optional and cannot break a game view",
     }),
     undefined,
   );
+});
+
+test("latest masters preserve newest-first API order and count down from authoritative mastery total", () => {
+  const avatars = new Map([
+    ["01ABC", "https://media.retroachievements.org/UserPic/TempoBlues.png"],
+  ]);
+  const latestMasters = normalizeRetroAchievementsLatestMasters({
+    masteredPlayers: 689,
+    avatarUrlByUserIdentifier: avatars,
+    entries: [
+      { User: "TempoBlues", ULID: "01ABC", LastAward: "2026-10-14 12:00:00" },
+      { User: "LilacCodex", ULID: "01DEF", LastAward: "2026-10-13 08:30:00" },
+      { User: "invalid", ULID: "01BAD", LastAward: "not-a-date" },
+    ],
+  });
+  assert.deepEqual(latestMasters, [
+    {
+      rank: 689,
+      username: "TempoBlues",
+      userUlid: "01ABC",
+      avatarUrl: "https://media.retroachievements.org/UserPic/TempoBlues.png",
+      masteredAt: "2026-10-14T12:00:00.000Z",
+    },
+    {
+      rank: 688,
+      username: "LilacCodex",
+      userUlid: "01DEF",
+      masteredAt: "2026-10-13T08:30:00.000Z",
+    },
+  ]);
+});
+
+test("RA client requests latest masters and their documented profile avatars", async () => {
+  const requests: Array<{ readonly path: string; readonly query?: Record<string, unknown> }> = [];
+  const client = createRetroAchievementsClient({
+    async requestJson<T>(request) {
+      requests.push({ path: request.path, query: request.query as Record<string, unknown> });
+      return (request.path === "API_GetGameRankAndScore.php"
+        ? [{ User: "TempoBlues", ULID: "01ABC", LastAward: "2026-10-14 12:00:00" }]
+        : { User: "TempoBlues", ULID: "01ABC", UserPic: "/UserPic/TempoBlues.png" }) as T;
+    },
+  });
+  const config = { username: "alice", hasApiKey: true };
+  await client.loadLatestGameMasters?.(config, "1234");
+  await client.loadUserProfile?.(config, "01ABC");
+  assert.deepEqual(requests, [
+    { path: "API_GetGameRankAndScore.php", query: { g: "1234", t: 1 } },
+    { path: "API_GetUserProfile.php", query: { u: "01ABC" } },
+  ]);
+});
+
+test("RA provider enriches game community stats with ranked latest masters and profile avatars", async () => {
+  const profileIdentifiers: string[] = [];
+  const provider = createRetroAchievementsProvider({
+    client: {
+      async loadProfile() { throw new Error("not used"); },
+      async loadCompletionProgress() { return []; },
+      async loadAchievementsEarnedBetween() { return []; },
+      async loadRecentUnlocks() { return []; },
+      async loadRecentlyPlayedGames() { return []; },
+      async loadGameProgress() {
+        return {
+          ID: 1234,
+          Title: "Test Game",
+          ConsoleName: "NES",
+          NumAchievements: 2,
+          NumAwardedToUser: 0,
+          Achievements: {
+            "1": { ID: 1, Title: "One", Description: "One", Points: 5, BadgeName: "1" },
+            "2": { ID: 2, Title: "Two", Description: "Two", Points: 5, BadgeName: "2" },
+          },
+        };
+      },
+      async loadAchievementDistribution() { return { "2": 2 }; },
+      async loadGameProgression() { return { NumDistinctPlayers: 20 }; },
+      async loadLatestGameMasters() {
+        return [
+          { User: "TempoBlues", ULID: "01ABC", LastAward: "2026-10-14 12:00:00" },
+          { User: "LilacCodex", ULID: "01DEF", LastAward: "2026-10-13 08:30:00" },
+        ];
+      },
+      async loadUserProfile(_config, identifier) {
+        profileIdentifiers.push(identifier);
+        return identifier === "01ABC"
+          ? { User: "TempoBlues", ULID: "01ABC", UserPic: "/UserPic/TempoBlues.png" }
+          : { User: "LilacCodex", ULID: "01DEF", UserPic: "/UserPic/LilacCodex.png" };
+      },
+    },
+  });
+  const snapshot = await provider.loadGameProgress({ username: "alice", hasApiKey: true }, "1234");
+  assert.deepEqual(profileIdentifiers.sort(), ["01ABC", "01DEF"]);
+  assert.deepEqual(snapshot.game.communityStats?.latestMasters, [
+    {
+      rank: 2,
+      username: "TempoBlues",
+      userUlid: "01ABC",
+      avatarUrl: "https://i.retroachievements.org/UserPic/TempoBlues.png",
+      masteredAt: "2026-10-14T12:00:00.000Z",
+    },
+    {
+      rank: 1,
+      username: "LilacCodex",
+      userUlid: "01DEF",
+      avatarUrl: "https://i.retroachievements.org/UserPic/LilacCodex.png",
+      masteredAt: "2026-10-13T08:30:00.000Z",
+    },
+  ]);
 });
 
 test("profile and completion progress share the same normalized collection counts", () => {

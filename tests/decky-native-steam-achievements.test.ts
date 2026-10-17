@@ -65,6 +65,15 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
     }
     function activityWrapper() { return { type: ActivityFeed }; }
     activityWrapper.toString = () => "function fr(){AppDetailsActivitySectionDays;nDaysToDisplay}";
+    class CommunityFeed {
+      constructor(props) { this.props = props; }
+      render() { return "original-community-" + this.props.appid; }
+      BindInnerContainer() {}
+      AutoLoadAdditionalContent() {}
+      LoadAdditionalContent() {}
+    }
+    function communityWrapper() { return { type: CommunityFeed }; }
+    communityWrapper.toString = () => "function rt(ot){const ht=a.useId();return jsx(ut,{labelId:ht,...ot})}";
     const personalStore = {
       m_mapMyAchievements: new Map(),
       m_mapGlobalAchievements: new Map(),
@@ -93,11 +102,21 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
       return box;
     };
     observable.map = () => new Map();
+    function NativeCommunityBody() { return null; }
+    NativeCommunityBody.toString = () => "function I(){BodyGutter;spacing;children}";
+    const NativeCommunitySection = { $$typeof: Symbol.for("react.memo"), type() { return null; } };
+    const nativeCommunityModule = { body: NativeCommunityBody, section: NativeCommunitySection };
     const exportsToFind = [LibraryPage, activityWrapper, personalStore, observable];
     const findModuleExport = (predicate) => exportsToFind.find(predicate);
+    const findModuleByExport = (predicate) => predicate(NativeCommunityBody) ? nativeCommunityModule : undefined;
+    const createModuleMapping = (predicate) => {
+      const module = { communityWrapper };
+      return predicate(module) ? new Map([["community", module]]) : new Map();
+    };
     const originalMethods = [
       [LibraryPage.prototype, "GetSections"],
       [ActivityFeed.prototype, "render"],
+      [CommunityFeed.prototype, "render"],
       [personalStore, "GetMyAchievements"],
       [personalStore, "GetGlobalAchievements"],
       [detailsStore, "GetAchievements"],
@@ -119,6 +138,12 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
     const projectionFor = (appId) => ({
       status: "ready", appId: String(appId), raGameId: "456", title: "RA Game",
       mode: "both", achievements: [achievement], earned: 1, total: 1,
+      communityStats: {
+        totalPlayers: 100, masteredPlayers: 25, masteryPercent: 25,
+        beatenHardcoreSamples: 40, medianBeatSeconds: 3600, medianMasterySeconds: 7200,
+        latestMasters: [{ rank: 25, username: "TempoBlues", userUlid: "01ABC", masteredAt: "2026-10-14T12:00:00.000Z" }],
+      },
+      achievementsAvailableSince: "2020-01-01",
     });
     const projectionReads = [];
     const projectionLoads = [];
@@ -147,8 +172,10 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
       exports: {
         callOriginal,
         appDetailsClasses: { InnerContainer: "inner-container" },
+        createModuleMapping,
         createReactTreePatcher: (_selectors, callback) => callback,
         findInReactTree: (node, predicate) => predicate(node) ? node : undefined,
+        findModuleByExport,
         findModuleExport,
         applyHookStubs() {},
         removeHookStubs() {},
@@ -177,6 +204,11 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
     mock.module(pathToFileURL(resolve("src/platform/decky/decky-native-retroachievements-activity.tsx")).href, {
       exports: {
         DeckyNativeRetroAchievementsActivity() { return null; },
+      },
+    });
+    mock.module(pathToFileURL(resolve("src/platform/decky/decky-native-retroachievements-community.tsx")).href, {
+      exports: {
+        DeckyNativeRetroAchievementsCommunity() { return null; },
       },
     });
 
@@ -212,16 +244,18 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
       await new Promise((resolve) => setImmediate(resolve));
       shortcutSections = shortcutPage.GetSections(shortcut, { unAppID: shortcutId });
     }
-    assert.deepEqual([...shortcutSections], ["notes", "achievements", "activity"]);
+    assert.deepEqual([...shortcutSections], ["notes", "achievements", "activity", "community"]);
     const routeProps = {
       renderFunc() { return { props: { className: "inner-container", children: [] } }; },
     };
     const originalRouteRender = routeProps.renderFunc;
     routeRecords[0].callback(routeProps);
-    const raRouteChildren = routeProps.renderFunc().props.children;
-    assert.equal(raRouteChildren.length, 1);
+    const raRoute = routeProps.renderFunc();
+    const raRouteChildren = raRoute.props.children;
+    assert.equal(raRouteChildren.length, 2);
     assert.equal(raRouteChildren[0].props["data-achievement-companion-native-achievement-spacing"], "true");
     assert.match(raRouteChildren[0].props.children, /padding-inline-start: 46px !important/u);
+    assert.equal(raRouteChildren[1].type.name, "DeckyNativeGamePageBackBoundary");
     window.location.pathname = "/library/app/620";
     const steamRouteChildren = routeProps.renderFunc().props.children;
     assert.equal(steamRouteChildren.length, 1);
@@ -232,8 +266,17 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
     assert.equal(activityContent.type.name, "DeckyNativeRetroAchievementsActivity");
     assert.equal(activityContent.props.appId, shortcutId);
     assert.equal(activityContent.props.items[0].achievement.achievementId, "123");
+    const communityContent = new CommunityFeed({ appid: shortcutId }).render();
+    assert.equal(communityContent.type.name, "DeckyNativeRetroAchievementsCommunity");
+    assert.equal(communityContent.props.models.casual.modeLabel, "Casual");
+    assert.equal(communityContent.props.models.hardcore.modeLabel, "Hardcore");
+    assert.equal(communityContent.props.models.casual.rows[0].playerCount, 100);
+    assert.equal(communityContent.props.models.hardcore.rows[0].playerCount, 100);
+    assert.equal(communityContent.props.models.latestMasters[0].username, "TempoBlues");
     assert.equal(new ActivityFeed({ appid: 620 }).render(), "original-activity-620");
     assert.equal(new ActivityFeed({ appid: highSteamId }).render(), "original-activity-" + highSteamId);
+    assert.equal(new CommunityFeed({ appid: 620 }).render(), "original-community-620");
+    assert.equal(new CommunityFeed({ appid: highSteamId }).render(), "original-community-" + highSteamId);
     assert.equal(detailsStore.GetAchievements(shortcutId).vecHighlight[0].strID, "ra:123");
     assert.deepEqual(Object.keys(personalStore.GetMyAchievements(shortcutId).data.achieved), ["ra:123"]);
     assert.equal(progressCache.BGameHasAchievements(shortcutId), true);
@@ -257,7 +300,7 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
       assert.deepEqual([...shortcutPage.GetSections(shortcut, { unAppID: shortcutId })], ["notes"]);
       assert.equal(projectionLoads.length, loadsBeforeRetry + 1);
       await new Promise((resolve) => setImmediate(resolve));
-      assert.deepEqual([...shortcutPage.GetSections(shortcut, { unAppID: shortcutId })], ["notes", "achievements", "activity"]);
+      assert.deepEqual([...shortcutPage.GetSections(shortcut, { unAppID: shortcutId })], ["notes", "achievements", "activity", "community"]);
       publishDeckyRaNativeAchievementInvalidation("provider-refreshed");
     }
 
@@ -271,7 +314,7 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
     assert.notEqual(detailsStore.GetAchievements(shortcutId)?.vecHighlight?.[0]?.strID, "ra:123");
     releaseNewPageLoad(projectionFor(shortcutId));
     await new Promise((resolve) => setImmediate(resolve));
-    assert.deepEqual([...newlyMountedPage.GetSections(shortcut, { unAppID: shortcutId })], ["notes", "achievements", "activity"]);
+    assert.deepEqual([...newlyMountedPage.GetSections(shortcut, { unAppID: shortcutId })], ["notes", "achievements", "activity", "community"]);
 
     const updatesBeforeCleanup = newlyMountedPage.forceUpdates;
     cleanup();

@@ -111,6 +111,20 @@ export interface RawRetroAchievementsProfileResponse {
   readonly motto?: string;
 }
 
+/** Latest-masters entry returned by API_GetGameRankAndScore.php with t=1. */
+export interface RawRetroAchievementsGameRankAndScoreEntry {
+  readonly User?: string;
+  readonly user?: string;
+  readonly ULID?: string;
+  readonly ulid?: string;
+  readonly NumAchievements?: number | string;
+  readonly numAchievements?: number | string;
+  readonly TotalScore?: number | string;
+  readonly totalScore?: number | string;
+  readonly LastAward?: string;
+  readonly lastAward?: string;
+}
+
 // Assumption: completion progress returns one entry per game with completion counts for that game.
 export interface RawRetroAchievementsCompletionProgressEntry {
   readonly GameID?: number | string;

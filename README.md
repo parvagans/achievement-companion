@@ -34,7 +34,7 @@ The project is undergoing active, rigorous development with frequent updates. If
 ## Highlights
 
 - **Quick Access and full-screen views:** controller-friendly profiles, searchable game lists, completion progress, activity calendars, and achievement details.
-- **RetroAchievements inside Steam:** supported non-Steam games can show RetroAchievements in Steam's native Your Stuff and Activity views.
+- **RetroAchievements inside Steam:** supported non-Steam games can show RetroAchievements in Steam's native Activity, Your Stuff, and Community views.
 - **Steam completion insights:** SteamHunters community data adds rarity, completion times, DLC requirements, achievement groups, and obtainability information where available.
 - **Optional SteamHunters personal data:** personal SteamHunters profile statistics can be disabled without turning off community statistics. If a profile is unavailable, Achievement Companion uses meaningful Steam library data where possible and otherwise hides the section.
 - **Library game-page badges:** see In Progress, Steam Perfected, or RetroAchievements Beaten and Mastered status before launching a game, with configurable Small, Medium, and Large layouts.
@@ -48,17 +48,20 @@ For a non-Steam shortcut that Achievement Companion can confidently match to a R
 
 - **Your Stuff → Achievements** shows badge artwork, descriptions, progress, locked and unlocked states, and unlock times or global rates when RetroAchievements provides them.
 - **Activity** groups dated unlocks by day in Steam's native layout. Tiles include the exact unlock time and Hardcore or Softcore mode, and open the native Your Stuff achievement list.
+- **Community → Playtime Stats** shows RA community milestones and sampled median times using Steam's native game-page section layout. Its Casual/Hardcore control is independent of the saved achievement-mode setting: Hardcore shows Beat and Mastered statistics, while Casual shows Beat and Completed statistics. A matching-height **Latest Masters** list shows the ten most recent RA mastery entries, including profile artwork, ranks, and dates, in an independently scrollable right column. Rows stay on the game page instead of opening a browser. The RA v1 game-specific endpoint currently provides up to ten entries; additional entries require an accessible paginated endpoint. Unsupported values are omitted rather than estimated, and missing profile artwork falls back to initials without hiding the master.
 
 Steam ROM Manager and EmuDeck shortcuts are identified through accepted RetroAchievements ROM hashes rather than shortcut names. Supported formats include direct ROMs, ZIP archives, M3U playlists, raw disc images, PSP/PS2 CSO and ZSO images, CHD CD/DVD images, and GameCube/Wii formats such as RVZ, WIA, GCZ, Nintendo CISO, and WBFS. Compressed disc containers are read directly without extracting temporary ISO files. M3U follows RetroAchievements' first-disc identification policy and can point to supported raw, CHD, or Nintendo disc media. Unsupported, ambiguous, or unrecognized revisions remain unmatched instead of being guessed from their titles.
 
 <table>
   <tr>
-    <th width="50%">Native Activity</th>
-    <th width="50%">Your Stuff / Achievements</th>
+    <th width="33%">Native Activity</th>
+    <th width="33%">Your Stuff / Achievements</th>
+    <th width="34%">Community / Playtime Stats</th>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/screenshots/readme/ra-native-steam-activity.png" alt="RetroAchievements shown in Steam's native Activity interface" width="100%"></td>
-    <td width="50%"><img src="docs/screenshots/readme/ra-native-steam-achievements.png" alt="RetroAchievements shown in Steam's native Your Stuff Achievements interface" width="100%"></td>
+    <td width="33%"><img src="docs/screenshots/readme/ra-native-steam-activity.png" alt="RetroAchievements shown in Steam's native Activity interface" width="100%"></td>
+    <td width="33%"><img src="docs/screenshots/readme/ra-native-steam-achievements.png" alt="RetroAchievements shown in Steam's native Your Stuff Achievements interface" width="100%"></td>
+    <td width="34%"><img src="docs/screenshots/readme/ra-native-steam-community.png" alt="RetroAchievements Playtime Stats and Latest Masters shown in Steam's native Community interface" width="100%"></td>
   </tr>
 </table>
 

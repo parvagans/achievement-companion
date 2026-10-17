@@ -161,6 +161,52 @@ class BackendRuntimeTests(unittest.TestCase):
         with self.subTest(path=path), self.assertRaisesRegex(RuntimeError, "allowed API endpoint"):
           asyncio.run(method({"path": path}))
 
+  def test_retroachievements_target_user_is_not_overwritten_by_authentication(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      module = load_main_module(Path(temp_dir))
+      calls: list[dict[str, object]] = []
+      module._build_retroachievements_config_view = lambda _config, _has_key: {  # type: ignore[attr-defined,assignment]
+        "username": "signed-in-user",
+        "hasApiKey": True,
+      }
+      module._load_provider_config = lambda _provider_id: {}  # type: ignore[attr-defined,assignment]
+      module._load_secret_api_key = lambda _provider_id: "stored-key"  # type: ignore[attr-defined,assignment]
+      module._request_json = lambda **kwargs: calls.append(kwargs) or {"User": "target-user"}  # type: ignore[attr-defined,assignment]
+      original_to_thread = module.asyncio.to_thread  # type: ignore[attr-defined]
+
+      async def run_inline(function, *args, **kwargs):  # noqa: ANN001, ANN002, ANN003
+        return function(*args, **kwargs)
+
+      module.asyncio.to_thread = run_inline  # type: ignore[attr-defined,assignment]
+      try:
+        request = module.Plugin().request_retroachievements_json({
+          "path": "API_GetUserProfile.php",
+          "query": {"u": "target-user-ulid"},
+        })
+        try:
+          request.send(None)
+        except StopIteration as completed:
+          response = completed.value
+        else:
+          self.fail("Mocked RetroAchievements request unexpectedly suspended.")
+        signed_in_request = module.Plugin().request_retroachievements_json({
+          "path": "API_GetGameInfoAndUserProgress.php",
+          "query": {"i": 1234},
+        })
+        try:
+          signed_in_request.send(None)
+        except StopIteration:
+          pass
+        else:
+          self.fail("Mocked RetroAchievements request unexpectedly suspended.")
+      finally:
+        module.asyncio.to_thread = original_to_thread  # type: ignore[attr-defined,assignment]
+
+      self.assertEqual(response, {"User": "target-user"})
+      self.assertEqual(calls[0]["query"], {"u": "target-user-ulid"})
+      self.assertEqual(calls[0]["auth_query"], {"y": "stored-key"})
+      self.assertEqual(calls[1]["auth_query"], {"u": "signed-in-user", "y": "stored-key"})
+
   def test_blocking_provider_and_rom_calls_leave_event_loop_responsive(self) -> None:
     scenarios = (
       ("request_retroachievements_json", {"path": "API_GetUserProfile.php"}),

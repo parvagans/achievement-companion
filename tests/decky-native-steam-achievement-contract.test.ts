@@ -6,6 +6,7 @@ import {
   toNativeSteamGlobalAchievementResponse,
   toNativeSteamPersonalAchievementResponse,
   withNativeSteamAchievementsSection,
+  withNativeSteamCommunitySection,
   withNativeSteamRecentActivitySection,
 } from "../src/platform/decky/decky-native-steam-achievement-contract";
 import type { NativeSteamAchievements } from "../src/platform/decky/decky-native-steam-achievement-conversion";
@@ -63,6 +64,15 @@ test("native Activity appears only for shortcut unlocks with a usable timestamp"
   assert.equal(withNativeSteamRecentActivitySection(original, steamGame, 620, true), original);
   const projected = withNativeSteamRecentActivitySection(original, shortcut, appId, true) as Set<string>;
   assert.deepEqual([...projected], ["nonsteam", "notes", "activity"]);
+  assert.deepEqual([...original], ["nonsteam", "notes"]);
+});
+
+test("native Community appears only for a verified shortcut with authoritative RA stats", () => {
+  const original = new Set(["nonsteam", "notes"]);
+  assert.equal(withNativeSteamCommunitySection(original, shortcut, appId, false), original);
+  assert.equal(withNativeSteamCommunitySection(original, steamGame, 620, true), original);
+  const projected = withNativeSteamCommunitySection(original, shortcut, appId, true) as Set<string>;
+  assert.deepEqual([...projected], ["nonsteam", "notes", "community"]);
   assert.deepEqual([...original], ["nonsteam", "notes"]);
 });
 

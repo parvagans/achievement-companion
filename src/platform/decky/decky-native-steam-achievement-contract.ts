@@ -44,6 +44,21 @@ export function withNativeSteamRecentActivitySection(
   return next;
 }
 
+/** Shows Community only when the verified shortcut has authoritative RA playtime statistics. */
+export function withNativeSteamCommunitySection(
+  sections: unknown,
+  overview: unknown,
+  appId: number,
+  hasCommunityStats: boolean,
+): unknown {
+  if (!isNativeSteamShortcutOverview(overview, appId) || !hasCommunityStats || !(sections instanceof Set)) {
+    return sections;
+  }
+  const next = new Set(sections);
+  next.add("community");
+  return next;
+}
+
 export function toNativeSteamPersonalAchievementResponse(model: NativeSteamAchievements): {
   readonly data: {
     readonly achieved: Record<string, unknown>;

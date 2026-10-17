@@ -8,6 +8,7 @@ import type {
   RawRetroAchievementsUserProgressResponse,
   RawRetroAchievementsAchievementDistributionResponse,
   RawRetroAchievementsGameProgressionResponse,
+  RawRetroAchievementsGameRankAndScoreEntry,
   RawRetroAchievementsProfileResponse,
   RawRetroAchievementsSummaryResponse,
   RawRetroAchievementsRecentUnlockResponse,
@@ -34,6 +35,10 @@ export interface RetroAchievementsClient {
     gameIds: readonly string[],
   ): Promise<RawRetroAchievementsUserProgressResponse>;
   loadProfile(config: RetroAchievementsProviderConfig): Promise<RawRetroAchievementsProfileResponse>;
+  loadUserProfile?(
+    config: RetroAchievementsProviderConfig,
+    userIdentifier: string,
+  ): Promise<RawRetroAchievementsProfileResponse>;
   loadSummary?(
     config: RetroAchievementsProviderConfig,
   ): Promise<RawRetroAchievementsSummaryResponse>;
@@ -76,6 +81,10 @@ export interface RetroAchievementsClient {
     config: RetroAchievementsProviderConfig,
     gameId: string,
   ): Promise<RawRetroAchievementsGameProgressionResponse>;
+  loadLatestGameMasters?(
+    config: RetroAchievementsProviderConfig,
+    gameId: string,
+  ): Promise<readonly RawRetroAchievementsGameRankAndScoreEntry[]>;
 }
 
 const PROFILE_PATH = "API_GetUserProfile.php";
@@ -91,6 +100,7 @@ const RECENTLY_PLAYED_GAMES_PATH = "API_GetUserRecentlyPlayedGames.php";
 const GAME_PROGRESS_PATH = "API_GetGameInfoAndUserProgress.php";
 const ACHIEVEMENT_DISTRIBUTION_PATH = "API_GetAchievementDistribution.php";
 const GAME_PROGRESSION_PATH = "API_GetGameProgression.php";
+const GAME_RANK_AND_SCORE_PATH = "API_GetGameRankAndScore.php";
 // Assumption: 500 keeps the page count low while matching the documented maximum.
 const COMPLETION_PROGRESS_PAGE_SIZE = 500;
 // Assumption: a one-day recent-unlock window is a small but useful improvement over the default hour.
@@ -200,6 +210,12 @@ export function createRetroAchievementsClient(
         query: toAuthQuery(config),
       });
     },
+    async loadUserProfile(_config, userIdentifier) {
+      return transport.requestJson<RawRetroAchievementsProfileResponse>({
+        path: PROFILE_PATH,
+        query: { u: userIdentifier },
+      });
+    },
     async loadSummary(config) {
       // g: 0, a: 0 keeps the rank and rich-presence summary request lightweight
       // by excluding recent games and achievements.
@@ -292,6 +308,13 @@ export function createRetroAchievementsClient(
       return transport.requestJson<RawRetroAchievementsGameProgressionResponse>({
         path: GAME_PROGRESSION_PATH,
         query: { ...toAuthQuery(config), i: gameId, h: 1 },
+      });
+    },
+
+    async loadLatestGameMasters(_config, gameId) {
+      return transport.requestJson<readonly RawRetroAchievementsGameRankAndScoreEntry[]>({
+        path: GAME_RANK_AND_SCORE_PATH,
+        query: { g: gameId, t: 1 },
       });
     },
   };

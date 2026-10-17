@@ -34,6 +34,7 @@ import type {
   RawRetroAchievementsAchievementDistributionResponse,
   RawRetroAchievementsGameProgressResponse,
   RawRetroAchievementsGameProgressionResponse,
+  RawRetroAchievementsGameRankAndScoreEntry,
   RawRetroAchievementsGameExtendedResponse,
   RawRetroAchievementsGameListEntry,
   RawRetroAchievementsUserProgressEntry,
@@ -41,7 +42,7 @@ import type {
   RawRetroAchievementsSummaryResponse,
   RawRetroAchievementsSystemResponse,
 } from "./raw-types";
-import { normalizeRetroAchievementsGameCommunityStats } from "./community-stats";
+import { normalizeRetroAchievementsGameCommunityStats, normalizeRetroAchievementsLatestMasters } from "./community-stats";
 
 const retroAchievementsCapabilities: ProviderCapabilities = {
   requiresCredentials: true,
@@ -151,6 +152,7 @@ interface RetroAchievementsProviderRuntime extends AchievementProvider<RetroAchi
 // range until every response is complete, so a long account history does not omit recent unlocks.
 const ACHIEVEMENTS_EARNED_BETWEEN_RESPONSE_LIMIT = 500;
 const GAME_COMMUNITY_STATS_TTL_MS = 60 * 60 * 1000;
+const LATEST_MASTER_PROFILE_CONCURRENCY = 4;
 // Relationship metadata changes infrequently. The app-level cache persists the
 // discovered summaries, while this provider cache avoids rebuilding the same
 // console index during a long-running Decky session.
@@ -699,6 +701,7 @@ export function createRetroAchievementsProvider(
   let systemIconUrlByConsoleIdPromise: Promise<ReadonlyMap<string, string>> | undefined;
   const gameCommunityStatsCache = new Map<string, CachedGameCommunityStats>();
   const gameCommunityStatsLoads = new Map<string, Promise<GameCommunityStats | undefined>>();
+  const latestMasterAvatarCache = new Map<string, string | undefined>();
   const subsetRelationshipIndexStore = dependencies.subsetRelationshipIndexStore;
   const subsetCatalogueCache = new Map<string, RetroAchievementsSubsetCatalogueState>();
   const subsetCatalogueLoads = new Map<string, Promise<RetroAchievementsSubsetCatalogueState>>();
@@ -982,6 +985,48 @@ export function createRetroAchievementsProvider(
     return progressByGameId;
   }
 
+  async function loadLatestMasterAvatarUrls(
+    config: RetroAchievementsProviderConfig,
+    entries: readonly RawRetroAchievementsGameRankAndScoreEntry[],
+  ): Promise<ReadonlyMap<string, string>> {
+    const avatarUrlByUserIdentifier = new Map<string, string>();
+    if (client.loadUserProfile === undefined) return avatarUrlByUserIdentifier;
+    const candidates = entries.flatMap((entry) => {
+      const username = readText(entry.User ?? entry.user);
+      const userUlid = readText(entry.ULID ?? entry.ulid);
+      const identifier = userUlid ?? username;
+      return username === undefined || identifier === undefined ? [] : [{ username, userUlid, identifier }];
+    });
+
+    for (let offset = 0; offset < candidates.length; offset += LATEST_MASTER_PROFILE_CONCURRENCY) {
+      const batch = candidates.slice(offset, offset + LATEST_MASTER_PROFILE_CONCURRENCY);
+      await Promise.all(batch.map(async ({ username, userUlid, identifier }) => {
+        if (!latestMasterAvatarCache.has(identifier)) {
+          try {
+            const profile = await client.loadUserProfile!(config, identifier);
+            const profileUsername = readText(profile.User ?? profile.user);
+            const profileUlid = readText(profile.ULID ?? profile.ulid);
+            const identityMatches = userUlid !== undefined && profileUlid !== undefined
+              ? userUlid === profileUlid
+              : profileUsername?.toLocaleLowerCase() === username.toLocaleLowerCase();
+            const rawAvatar = identityMatches ? readText(profile.UserPic ?? profile.userPic) : undefined;
+            latestMasterAvatarCache.set(
+              identifier,
+              rawAvatar === undefined ? undefined : normalizeRetroAchievementsImageUrl(rawAvatar),
+            );
+          } catch {
+            latestMasterAvatarCache.set(identifier, undefined);
+          }
+        }
+        const avatarUrl = latestMasterAvatarCache.get(identifier);
+        if (avatarUrl === undefined) return;
+        avatarUrlByUserIdentifier.set(username, avatarUrl);
+        if (userUlid !== undefined) avatarUrlByUserIdentifier.set(userUlid, avatarUrl);
+      }));
+    }
+    return avatarUrlByUserIdentifier;
+  }
+
   async function loadGameCommunityStats(
     config: RetroAchievementsProviderConfig,
     snapshot: ReturnType<typeof normalizeRetroAchievementsGameDetail>,
@@ -998,17 +1043,37 @@ export function createRetroAchievementsProvider(
     }
 
     const load = (async () => {
-      const [distributionResult, progressionResult] = await Promise.allSettled([
+      const [distributionResult, progressionResult, latestMastersResult] = await Promise.allSettled([
         client.loadAchievementDistribution?.(config, gameId) ??
           Promise.resolve<RawRetroAchievementsAchievementDistributionResponse | undefined>(undefined),
         client.loadGameProgression?.(config, gameId) ??
           Promise.resolve<RawRetroAchievementsGameProgressionResponse | undefined>(undefined),
+        client.loadLatestGameMasters?.(config, gameId) ??
+          Promise.resolve<readonly RawRetroAchievementsGameRankAndScoreEntry[] | undefined>(undefined),
       ]);
+      const baseStats = normalizeRetroAchievementsGameCommunityStats({
+        totalAchievementCount: snapshot.game.summary.totalCount,
+        totalPlayers: getMetricNumber(snapshot.game.metrics, "total-players"),
+        distribution: distributionResult.status === "fulfilled" ? distributionResult.value : undefined,
+        progression: progressionResult.status === "fulfilled" ? progressionResult.value : undefined,
+      });
+      const latestMasterEntries = latestMastersResult.status === "fulfilled"
+        ? latestMastersResult.value
+        : undefined;
+      const avatarUrlByUserIdentifier = latestMasterEntries === undefined
+        ? undefined
+        : await loadLatestMasterAvatarUrls(config, latestMasterEntries);
+      const latestMasters = normalizeRetroAchievementsLatestMasters({
+        entries: latestMasterEntries,
+        masteredPlayers: baseStats?.masteredPlayers,
+        ...(avatarUrlByUserIdentifier !== undefined ? { avatarUrlByUserIdentifier } : {}),
+      });
       const stats = normalizeRetroAchievementsGameCommunityStats({
         totalAchievementCount: snapshot.game.summary.totalCount,
         totalPlayers: getMetricNumber(snapshot.game.metrics, "total-players"),
         distribution: distributionResult.status === "fulfilled" ? distributionResult.value : undefined,
         progression: progressionResult.status === "fulfilled" ? progressionResult.value : undefined,
+        latestMasters,
       });
       gameCommunityStatsCache.set(gameId, {
         value: stats,
