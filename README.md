@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="docs/screenshots/readme/AC-banner_git.png" alt="Achievement Companion banner with Steam Deck achievement activity" width="100%">
-</p>
-
 # Achievement Companion
 
 <p align="center">

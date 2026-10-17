@@ -6,7 +6,7 @@
   "publish": {
     "tags": ["achievements", "retroachievements", "steam"],
     "description": "Bring RetroAchievements and Steam achievement progress directly into Game Mode, with unlock history, game stats, achievement tracking, and compact or full-screen controller-friendly views.",
-    "image": "https://raw.githubusercontent.com/parvagans/achievement-companion/main/docs/screenshots/readme/AC-banner_git.png"
+    "image": "https://raw.githubusercontent.com/parvagans/achievement-companion/main/docs/screenshots/readme/ra-native-steam-achievements.png"
   },
   "flags": []
 }
