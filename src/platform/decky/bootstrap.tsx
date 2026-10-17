@@ -790,6 +790,7 @@ function DashboardScreen({
         : false;
   }
   const dashboardForceRefreshNextLoad = useRef(initialProviderRefresh.current);
+  const activityCalendarForceRefreshNextLoad = useRef(initialProviderRefresh.current);
   const previousQuickAccessVisible = useRef(quickAccessVisible);
   const dashboardPreferences = useMemo(
     () => resolveProviderDashboardPreferences(providerConfig, settings),
@@ -801,6 +802,7 @@ function DashboardScreen({
   const requestDashboardReload = useCallback((forceRefresh: boolean) => {
     if (forceRefresh) {
       dashboardForceRefreshNextLoad.current = true;
+      activityCalendarForceRefreshNextLoad.current = true;
     }
 
     setDashboardRefreshNonce((value) => value + 1);
@@ -846,10 +848,15 @@ function DashboardScreen({
     : initialDeckyBootstrapState;
   const state = useAsyncResourceState(dashboardLoader, initialDashboardState);
   const activityCalendarLoader = useMemo(
-    () => () => providerId === "retroachievements"
-      ? loadDeckyActivityCalendarState(providerId)
-      : Promise.resolve(initialDeckyActivityCalendarState),
-    [providerId],
+    () => () => {
+      const forceRefresh = activityCalendarForceRefreshNextLoad.current;
+      activityCalendarForceRefreshNextLoad.current = false;
+
+      return providerId === "retroachievements"
+        ? loadDeckyActivityCalendarState(providerId, { forceRefresh })
+        : Promise.resolve(initialDeckyActivityCalendarState);
+    },
+    [dashboardRefreshNonce, providerId],
   );
   const activityCalendarState = useAsyncResourceState(
     activityCalendarLoader,

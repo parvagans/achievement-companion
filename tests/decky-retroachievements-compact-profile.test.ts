@@ -226,6 +226,9 @@ test("RA QAM loading, focus scrolling, and calendar controls follow Steam compac
 
   assert.match(bootstrapSource, /isRetroAchievementsCompactProfileLoading[\s\S]*!isRenderableDashboardState\(state\) \|\| state\.isRefreshing === true/u);
   assert.match(bootstrapSource, /providerId === "retroachievements"[\s\S]*claimDeckyCompactRetroAchievementsDashboardRefresh\(\)/u);
+  assert.match(bootstrapSource, /const activityCalendarForceRefreshNextLoad = useRef\(initialProviderRefresh\.current\)/u);
+  assert.match(bootstrapSource, /if \(forceRefresh\) \{[\s\S]*dashboardForceRefreshNextLoad\.current = true;[\s\S]*activityCalendarForceRefreshNextLoad\.current = true;/u);
+  assert.match(bootstrapSource, /loadDeckyActivityCalendarState\(providerId, \{ forceRefresh \}\)[\s\S]*\[dashboardRefreshNonce, providerId\]/u);
   assert.match(resourcesSource, /export function claimDeckyCompactRetroAchievementsDashboardRefresh\(\)/u);
   assert.match(resourcesSource, /retroAchievementsDashboardRefreshClaimed = false/u);
   assert.match(bootstrapSource, /Loading RetroAchievements profile/u);
