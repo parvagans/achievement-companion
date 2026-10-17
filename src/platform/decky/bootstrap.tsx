@@ -243,6 +243,16 @@ function getChooserProviderListStyle(): CSSProperties {
   };
 }
 
+function getProviderMenuDividerStyle(): CSSProperties {
+  return {
+    width: "calc(100% - 24px)",
+    height: 1,
+    margin: "5px 12px",
+    flexShrink: 0,
+    background: steamTheme.color.borderSubtle,
+  };
+}
+
 function getChooserProviderLauncherTone(
   providerId: ProviderId | "settings",
   connected: boolean,
@@ -1611,22 +1621,28 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                           });
                         }}
                       />
+                      <div
+                        aria-orientation="horizontal"
+                        data-achievement-companion-provider-menu-divider="true"
+                        role="separator"
+                        style={getProviderMenuDividerStyle()}
+                      />
+                      <GamePageBadgeSettingsDisclosure
+                        expanded={gamePageBadgeSettingsExpanded}
+                        onToggle={() => {
+                          setGamePageBadgeSettingsExpanded((expanded) => {
+                            const nextExpanded = !expanded;
+                            writeDeckyGamePageBadgeSettingsExpanded(nextExpanded);
+                            return nextExpanded;
+                          });
+                        }}
+                      />
                     </Focusable>
                   </PanelSectionRow>
                 </PanelSection>
 
-                <PanelSection>
-                  <GamePageBadgeSettingsDisclosure
-                    expanded={gamePageBadgeSettingsExpanded}
-                    onToggle={() => {
-                      setGamePageBadgeSettingsExpanded((expanded) => {
-                        const nextExpanded = !expanded;
-                        writeDeckyGamePageBadgeSettingsExpanded(nextExpanded);
-                        return nextExpanded;
-                      });
-                    }}
-                  />
-                  {gamePageBadgeSettingsExpanded ? (
+                {gamePageBadgeSettingsExpanded ? (
+                  <PanelSection>
                     <>
                       <PanelSectionRow>
                         <ToggleField
@@ -1698,8 +1714,8 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                         onChange={(color) => saveGamePageAchievementBadgeColor("inProgress", color)}
                       />
                     </>
-                  ) : null}
-                </PanelSection>
+                  </PanelSection>
+                ) : null}
               </>
             </TopAlignedScrollViewport>
           ) : (

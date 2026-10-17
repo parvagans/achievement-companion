@@ -3492,6 +3492,11 @@ test("compact provider menu uses a session-retained focusable game-page badge se
   assert.match(popupGuardSource, /releasePopupRef\.current = beginDeckyCompactPopup\(\)/u);
   assert.match(source, /onMenuWillOpen=\{openGuardedMenu\}/u);
   assert.match(source, /<GamePageBadgeSettingsDisclosure[\s\S]*expanded=\{gamePageBadgeSettingsExpanded\}/u);
+  assert.match(
+    source,
+    /label="Provider Settings"[\s\S]*data-achievement-companion-provider-menu-divider="true"[\s\S]*<GamePageBadgeSettingsDisclosure[\s\S]*<\/Focusable>[\s\S]*<\/PanelSectionRow>/u,
+  );
+  assert.match(source, /function getProviderMenuDividerStyle\(\)[\s\S]*margin: "5px 12px"[\s\S]*steamTheme\.color\.borderSubtle/u);
   assert.match(source, /aria-expanded=\{expanded\}/u);
   assert.match(source, /aria-label=\{`Game Page Badge settings, \$\{expanded \? "expanded" : "collapsed"\}`\}/u);
   assert.match(source, /transform: expanded \? "rotate\(-90deg\)" : "rotate\(90deg\)"/u);
@@ -3513,6 +3518,15 @@ test("compact provider menu uses a session-retained focusable game-page badge se
   assert.match(source, /label="Beaten color"/u);
   assert.match(source, /label="In Progress color"/u);
   assert.match(source, /saveGamePageAchievementBadgeColor/u);
+});
+
+test("Decky plugin picker uses a white Achievement Companion trophy", () => {
+  const source = readFileSync("src/index.tsx", "utf8");
+
+  assert.match(source, /function AchievementCompanionIcon\(\)[\s\S]*color: "#ffffff"/u);
+  assert.match(source, /fill="currentColor"/u);
+  assert.match(source, /stroke="currentColor"/u);
+  assert.doesNotMatch(source, /#e6b020|#c49010/ui);
 });
 
 test("fullscreen action controls use Decky Focusable pills with unclipped labels", () => {
