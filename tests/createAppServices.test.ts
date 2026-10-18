@@ -3479,10 +3479,15 @@ test("provider setup, credential fields, and current compact profile routes stay
   assert.equal(resolveSteamApiKeyForSave(""), undefined);
 });
 
-test("compact provider menu uses a session-retained focusable game-page badge settings disclosure", () => {
+test("compact provider menu nests native theme and badge settings under a session-retained plugin disclosure", () => {
   const source = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
   const popupGuardSource = readFileSync("src/platform/decky/decky-compact-dropdown-popup-guard.ts", "utf8");
 
+  assert.match(
+    source,
+    /const \[pluginSettingsExpanded, setPluginSettingsExpanded\] = useState\(\s*readDeckyPluginSettingsExpanded,\s*\)/u,
+  );
+  assert.match(source, /writeDeckyPluginSettingsExpanded\(nextExpanded\)/u);
   assert.match(
     source,
     /const \[gamePageBadgeSettingsExpanded, setGamePageBadgeSettingsExpanded\] = useState\(\s*readDeckyGamePageBadgeSettingsExpanded,\s*\)/u,
@@ -3491,20 +3496,23 @@ test("compact provider menu uses a session-retained focusable game-page badge se
   assert.match(popupGuardSource, /function useDeckyCompactDropdownPopupGuard\(\)/u);
   assert.match(popupGuardSource, /releasePopupRef\.current = beginDeckyCompactPopup\(\)/u);
   assert.match(source, /onMenuWillOpen=\{openGuardedMenu\}/u);
-  assert.match(source, /<GamePageBadgeSettingsDisclosure[\s\S]*expanded=\{gamePageBadgeSettingsExpanded\}/u);
+  assert.match(source, /<PluginSettingsDisclosure[\s\S]*expanded=\{pluginSettingsExpanded\}/u);
   assert.match(
     source,
-    /label="Provider Settings"[\s\S]*data-achievement-companion-provider-menu-divider="true"[\s\S]*<GamePageBadgeSettingsDisclosure[\s\S]*<\/Focusable>[\s\S]*<\/PanelSectionRow>/u,
+    /label="Provider Settings"[\s\S]*data-achievement-companion-provider-menu-divider="true"[\s\S]*<PluginSettingsDisclosure[\s\S]*<\/Focusable>[\s\S]*<\/PanelSectionRow>/u,
   );
   assert.match(source, /function getProviderMenuDividerStyle\(\)[\s\S]*margin: "5px 12px"[\s\S]*steamTheme\.color\.borderSubtle/u);
   assert.match(source, /aria-expanded=\{expanded\}/u);
-  assert.match(source, /aria-label=\{`Game Page Badge settings, \$\{expanded \? "expanded" : "collapsed"\}`\}/u);
+  assert.match(source, /aria-label=\{`Plugin Settings, \$\{expanded \? "expanded" : "collapsed"\}`\}/u);
   assert.match(source, /transform: expanded \? "rotate\(-90deg\)" : "rotate\(90deg\)"/u);
+  assert.match(source, /<Field[\s\S]*label="Theme Settings"[\s\S]*<Field[\s\S]*label="Game Badge Settings"/u);
+  assert.match(source, /function getPluginSettingsContentCardStyle\(\)[\s\S]*steamRecipes\.card\("compact"\)/u);
+  assert.match(source, /data-achievement-companion-plugin-settings-card="true"/u);
   assert.match(
     source,
     /function getGamePageBadgeLabelStyle\(disabled = false\)[\s\S]*steamTheme\.color\.textPrimary/u,
   );
-  assert.match(source, /gamePageBadgeSettingsExpanded \? \([\s\S]*Show game page badge/u);
+  assert.match(source, /pluginSettingsExpanded \? \([\s\S]*gamePageBadgeSettingsExpanded \? \(<[\s\S]*Show game page badge/u);
   assert.match(
     source,
     /Show game page badge[\s\S]*<GamePageBadgeSizeDropdown[\s\S]*<GamePageBadgePositionDropdown/u,

@@ -40,6 +40,10 @@ import {
   useDeckyCompactNavigation,
 } from "../src/platform/decky/decky-compact-navigation";
 import {
+  readDeckyPluginSettingsExpanded,
+  writeDeckyPluginSettingsExpanded,
+  readDeckyThemeSettingsExpanded,
+  writeDeckyThemeSettingsExpanded,
   readDeckyGamePageBadgeSettingsExpanded,
   writeDeckyGamePageBadgeSettingsExpanded,
 } from "../src/platform/decky/decky-provider-menu-session-state";
@@ -339,6 +343,8 @@ test("plugin cleanup removes every compact cancel bridge listener", () => {
 test("closing QAM ends compact session state while a compact-origin full-screen handoff preserves it", () => {
   const changes: string[] = [];
   setDeckyCompactNavigation({ kind: "settings", providerId: "steam" });
+  writeDeckyPluginSettingsExpanded(true);
+  writeDeckyThemeSettingsExpanded(true);
   writeDeckyGamePageBadgeSettingsExpanded(true);
   writeDeckyCompactAchievementPageState("steam", "2321470", {
     filter: "locked",
@@ -357,6 +363,8 @@ test("closing QAM ends compact session state while a compact-origin full-screen 
 
   lifecycle.setVisible(false);
   assert.deepStrictEqual(readDeckyCompactNavigation(), { kind: "provider-chooser" });
+  assert.equal(readDeckyPluginSettingsExpanded(), false);
+  assert.equal(readDeckyThemeSettingsExpanded(), false);
   assert.equal(readDeckyGamePageBadgeSettingsExpanded(), false);
   assert.equal(readDeckyCompactAchievementPageState("steam", "2321470", 12).scrollTop, 0);
   lifecycle.setVisible(true);
@@ -367,6 +375,8 @@ test("closing QAM ends compact session state while a compact-origin full-screen 
   assert.deepStrictEqual(changes, ["cancel:false", "end", "cancel:true", "cancel:false", "end"]);
 
   setDeckyCompactNavigation({ kind: "settings", providerId: "steam" });
+  writeDeckyPluginSettingsExpanded(true);
+  writeDeckyThemeSettingsExpanded(true);
   writeDeckyGamePageBadgeSettingsExpanded(true);
   writeDeckyCompactAchievementPageState("steam", "2321470", {
     filter: "locked",
@@ -387,6 +397,8 @@ test("closing QAM ends compact session state while a compact-origin full-screen 
 
   preservedLifecycle.setVisible(false);
   assert.deepStrictEqual(readDeckyCompactNavigation(), { kind: "settings", providerId: "steam" });
+  assert.equal(readDeckyPluginSettingsExpanded(), true);
+  assert.equal(readDeckyThemeSettingsExpanded(), true);
   assert.equal(readDeckyGamePageBadgeSettingsExpanded(), true);
   assert.equal(readDeckyCompactAchievementPageState("steam", "2321470", 12).scrollTop, 734);
   preservedLifecycle.setVisible(true);
@@ -394,6 +406,8 @@ test("closing QAM ends compact session state while a compact-origin full-screen 
 
   assert.deepStrictEqual(preservedChanges, ["cancel:false", "cancel:true", "cancel:false", "end"]);
   assert.deepStrictEqual(readDeckyCompactNavigation(), { kind: "provider-chooser" });
+  assert.equal(readDeckyPluginSettingsExpanded(), false);
+  assert.equal(readDeckyThemeSettingsExpanded(), false);
   assert.equal(readDeckyGamePageBadgeSettingsExpanded(), false);
   assert.equal(readDeckyCompactAchievementPageState("steam", "2321470", 12).scrollTop, 0);
 });

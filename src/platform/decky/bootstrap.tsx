@@ -12,6 +12,7 @@ import {
 } from "react";
 import {
   DropdownItem,
+  Field,
   Focusable,
   NavEntryPositionPreferences,
   type FocusableProps,
@@ -69,6 +70,10 @@ import { useRetroAchievementsConnectionState } from "./providers/retroachievemen
 import { useSteamConnectionState } from "./providers/steam/connection";
 import { readDeckySettings, saveDeckySettings, useDeckySettings } from "./decky-settings";
 import {
+  readDeckyPluginSettingsExpanded,
+  writeDeckyPluginSettingsExpanded,
+  readDeckyThemeSettingsExpanded,
+  writeDeckyThemeSettingsExpanded,
   readDeckyGamePageBadgeSettingsExpanded,
   writeDeckyGamePageBadgeSettingsExpanded,
 } from "./decky-provider-menu-session-state";
@@ -123,7 +128,7 @@ import {
   requestDeckyProviderInitialFocus,
   shouldRequestDeckyProviderInitialFocus,
 } from "./decky-provider-initial-focus";
-import { steamTheme } from "./steam-theme";
+import { steamRecipes, steamTheme } from "./steam-theme";
 import { getDeckyGamePageAchievementBadgeColorPreview } from "./decky-game-page-achievement-badge-colors";
 interface SteamLibraryScanActionState {
   readonly status: "idle" | "scanning" | "success" | "error";
@@ -250,6 +255,19 @@ function getProviderMenuDividerStyle(): CSSProperties {
     margin: "5px 12px",
     flexShrink: 0,
     background: steamTheme.color.borderSubtle,
+  };
+}
+
+function getPluginSettingsContentCardStyle(): CSSProperties {
+  return {
+    ...steamRecipes.card("compact"),
+    // The native PanelSections have a gap; bridge it to join the disclosure and rows.
+    margin: `-${steamTheme.space.xl}px 0 ${steamTheme.space.md}px`,
+    borderTop: 0,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    overflow: "hidden",
+    boxSizing: "border-box",
   };
 }
 
@@ -420,25 +438,33 @@ function getChooserProviderCardStatusDotStyle(tone: ProviderLauncherTone): CSSPr
 
 function getChooserProviderCardChevronStyle(tone: ProviderLauncherTone): CSSProperties {
   return {
+    display: "grid",
+    placeItems: "center",
+    width: 28,
+    height: 28,
     flexShrink: 0,
     color: tone === "setup" ? "rgba(245, 197, 66, 0.92)" : "rgba(54, 185, 255, 0.94)",
-    fontSize: 28,
-    fontWeight: 400,
-    lineHeight: 1,
   };
 }
 
-function getGamePageBadgeSettingsDisclosureStyle(
+function ChooserProviderCardChevronGlyph(): JSX.Element {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="m9 5 7 7-7 7" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function getPluginSettingsDisclosureStyle(
   focused: boolean,
-  expanded: boolean,
 ): CSSProperties {
   return {
     ...getChooserProviderCardStyle("connected", focused),
-    marginBottom: expanded ? 6 : 0,
+    marginBottom: 0,
   };
 }
 
-function GamePageBadgeSettingsDisclosure({
+function PluginSettingsDisclosure({
   expanded,
   onToggle,
 }: {
@@ -453,8 +479,8 @@ function GamePageBadgeSettingsDisclosure({
       role="button"
       tabIndex={0}
       aria-expanded={expanded}
-      aria-label={`Game Page Badge settings, ${expanded ? "expanded" : "collapsed"}`}
-      data-achievement-companion-game-page-badge-settings-disclosure="true"
+      aria-label={`Plugin Settings, ${expanded ? "expanded" : "collapsed"}`}
+      data-achievement-companion-plugin-settings-disclosure="true"
       onActivate={onToggle}
       onClick={onToggle}
       onFocus={(event) => {
@@ -467,11 +493,11 @@ function GamePageBadgeSettingsDisclosure({
       }}
       onBlur={() => setFocused(false)}
       onGamepadBlur={() => setFocused(false)}
-      style={getGamePageBadgeSettingsDisclosureStyle(focused, expanded)}
+      style={getPluginSettingsDisclosureStyle(focused)}
     >
       <span aria-hidden="true" style={getChooserProviderCardSettingsIconStyle()}>{"\u2699"}</span>
       <span style={getChooserProviderCardBodyStyle()}>
-        <span style={getChooserProviderCardTitleStyle()}>Game Page Badge</span>
+        <span style={getChooserProviderCardTitleStyle()}>Plugin Settings</span>
       </span>
       <span
         aria-hidden="true"
@@ -481,7 +507,7 @@ function GamePageBadgeSettingsDisclosure({
           transition: "transform 120ms ease",
         }}
       >
-        {"\u203a"}
+        <ChooserProviderCardChevronGlyph />
       </span>
     </Focusable>
   );
@@ -692,7 +718,7 @@ function ProviderLauncherCard({
           </span>
         ) : null}
       </span>
-      <span aria-hidden="true" style={getChooserProviderCardChevronStyle(tone)}>{"\u203a"}</span>
+      <span aria-hidden="true" style={getChooserProviderCardChevronStyle(tone)}><ChooserProviderCardChevronGlyph /></span>
     </Focusable>
   );
 }
@@ -1386,6 +1412,12 @@ function DeckyBootstrapStateBridge(): JSX.Element {
   }, []);
   const [detailScrollResetNonce, setDetailScrollResetNonce] = useState(0);
   const [providerListHasReceivedFocus, setProviderListHasReceivedFocus] = useState(false);
+  const [pluginSettingsExpanded, setPluginSettingsExpanded] = useState(
+    readDeckyPluginSettingsExpanded,
+  );
+  const [themeSettingsExpanded, setThemeSettingsExpanded] = useState(
+    readDeckyThemeSettingsExpanded,
+  );
   const [gamePageBadgeSettingsExpanded, setGamePageBadgeSettingsExpanded] = useState(
     readDeckyGamePageBadgeSettingsExpanded,
   );
@@ -1627,12 +1659,12 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                         role="separator"
                         style={getProviderMenuDividerStyle()}
                       />
-                      <GamePageBadgeSettingsDisclosure
-                        expanded={gamePageBadgeSettingsExpanded}
+                      <PluginSettingsDisclosure
+                        expanded={pluginSettingsExpanded}
                         onToggle={() => {
-                          setGamePageBadgeSettingsExpanded((expanded) => {
+                          setPluginSettingsExpanded((expanded) => {
                             const nextExpanded = !expanded;
-                            writeDeckyGamePageBadgeSettingsExpanded(nextExpanded);
+                            writeDeckyPluginSettingsExpanded(nextExpanded);
                             return nextExpanded;
                           });
                         }}
@@ -1641,9 +1673,45 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                   </PanelSectionRow>
                 </PanelSection>
 
-                {gamePageBadgeSettingsExpanded ? (
+                {pluginSettingsExpanded ? (
                   <PanelSection>
-                    <>
+                    <div data-achievement-companion-plugin-settings-card="true" style={getPluginSettingsContentCardStyle()}>
+                      <PanelSectionRow>
+                        <Field
+                          label="Theme Settings"
+                          focusable
+                          highlightOnFocus
+                          onActivate={() => {
+                            setThemeSettingsExpanded((expanded) => {
+                              const nextExpanded = !expanded;
+                              writeDeckyThemeSettingsExpanded(nextExpanded);
+                              return nextExpanded;
+                            });
+                          }}
+                        >{themeSettingsExpanded ? "▴" : "▾"}</Field>
+                      </PanelSectionRow>
+                      {themeSettingsExpanded ? (
+                        <PanelSectionRow>
+                          <span style={getGamePageBadgeDescriptionStyle()}>
+                            Theme options will appear here when available.
+                          </span>
+                        </PanelSectionRow>
+                      ) : null}
+                      <PanelSectionRow>
+                        <Field
+                          label="Game Badge Settings"
+                          focusable
+                          highlightOnFocus
+                          onActivate={() => {
+                            setGamePageBadgeSettingsExpanded((expanded) => {
+                              const nextExpanded = !expanded;
+                              writeDeckyGamePageBadgeSettingsExpanded(nextExpanded);
+                              return nextExpanded;
+                            });
+                          }}
+                        >{gamePageBadgeSettingsExpanded ? "▴" : "▾"}</Field>
+                      </PanelSectionRow>
+                      {gamePageBadgeSettingsExpanded ? (<>
                       <PanelSectionRow>
                         <ToggleField
                           label={<span style={getGamePageBadgeLabelStyle()}>Show game page badge</span>}
@@ -1713,7 +1781,8 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                         disabled={!settings.showGamePageAchievementBadge}
                         onChange={(color) => saveGamePageAchievementBadgeColor("inProgress", color)}
                       />
-                    </>
+                      </>) : null}
+                    </div>
                   </PanelSection>
                 ) : null}
               </>
