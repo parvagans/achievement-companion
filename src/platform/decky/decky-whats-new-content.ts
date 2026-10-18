@@ -3,23 +3,25 @@ export const WHATS_NEW_SECTIONS = [
   {
     title: "Themes",
     items: [
-      "Choose from AC Blue (default), Carbon, Ember, Grove, Neon, Paper, and Velvet.",
-      "Theme colors now carry through Quick Access, full-screen views, controls, activity charts, and loading screens.",
+      "Choose from 15 themes, including Aurora, Rosewood, Solarized, and more.",
+      "Theme colors now carry through Quick Access, full-screen views, controls, charts, icons, footers, and loading screens.",
+      "Steam and RetroAchievements progression states retain their distinct meanings across every theme.",
     ],
   },
   {
     title: "Interface & navigation",
     items: [
-      "Plugin Settings is cleaner, with a joined card, wider theme selector, and aligned badge controls.",
-      "Quick Access activity cards are even in height, game titles are centered, and rank arrows persist.",
-      "RetroAchievements View Achievements now opens the game's Quick Access list directly.",
+      "Plugin Settings now uses expandable, joined sections with a wider theme selector and aligned badge controls.",
+      "Quick Access activity cards have consistent heights, game names are centered, and rank arrows persist across refreshes.",
+      "The View Achievements action for RetroAchievements recently played and currently playing games now opens that game's Quick Access achievement list.",
+      "What's New now fits within the Steam Deck viewport and supports controller scrolling.",
     ],
   },
   {
     title: "Steam game data",
     items: [
-      "Game pages keep cached SteamHunters details when an optional request fails or returns incomplete data.",
-      "A count mismatch is shown when cached SteamHunters data covers a different achievement set than Steam.",
+      "Steam game pages retain cached SteamHunters details when an optional request fails or returns incomplete data.",
+      "A mismatch notice appears when cached SteamHunters data covers a different achievement count from Steam's current set.",
     ],
   },
 ] as const;
