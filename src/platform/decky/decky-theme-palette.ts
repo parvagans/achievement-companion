@@ -393,12 +393,92 @@ export const AC_PAPER_THEME_VARIABLES = {
   "--ac-loading-provider-icon-filter": "brightness(0) invert(1) drop-shadow(0 0 4px rgba(229, 204, 160, 0.22))",
 } as const satisfies ThemeVariables;
 
+/** Burgundy and warm ivory chrome with muted rose focus; provider states remain semantic. */
+export const AC_VELVET_THEME_VARIABLES = {
+  ...AC_EMBER_THEME_VARIABLES,
+  "--ac-background": "#140b12",
+  "--ac-surface": "#21131d",
+  "--ac-surface-raised": "#321d2b",
+  "--ac-surface-interactive": "#442638",
+  "--ac-text-primary": "#fff1e9",
+  "--ac-text-secondary": "#e2c6cb",
+  "--ac-text-muted": "#bea2aa",
+  "--ac-accent": "#e3a6b6",
+  "--ac-accent-strong": "#f2c2cb",
+  "--ac-border-subtle": "rgba(193, 113, 142, 0.33)",
+  "--ac-border-strong": "rgba(232, 166, 188, 0.84)",
+  "--ac-primary-action-border": "rgba(232, 166, 188, 0.76)",
+  "--ac-page": "linear-gradient(120deg, #140b12, #291321 55%, #190c16)",
+  "--ac-card": "rgba(35, 19, 31, 0.94)",
+  "--ac-raised": "linear-gradient(90deg, #3b2031, #261622)",
+  "--ac-interactive": "rgba(68, 38, 56, 0.88)",
+  "--ac-content-card": "radial-gradient(circle at 15% 46%, rgba(229, 158, 184, 0.1), transparent 51%), linear-gradient(110deg, #281624, #361c2e)",
+  "--ac-content-stat": "linear-gradient(110deg, #361d2d, #442638)",
+  "--ac-progress-track": "rgba(197, 134, 159, 0.25)",
+  "--ac-progress-fill": "linear-gradient(90deg, #8e3d66, #e3a6b6)",
+  "--ac-xp-fill": "linear-gradient(90deg, #9c4c76, #f2c2cb)",
+  "--ac-focus-overlay": "linear-gradient(180deg, rgba(224, 136, 170, 0.24), rgba(151, 70, 112, 0.16))",
+  "--ac-selection-overlay": "linear-gradient(180deg, rgba(224, 136, 170, 0.29), rgba(128, 54, 96, 0.21))",
+  "--ac-primary-action": "linear-gradient(110deg, #743252, #9d4c72)",
+  "--ac-activity-trend-fill": "linear-gradient(180deg, #f2c2cb, #ae5b83)",
+  "--ac-activity-trend-empty": "#4b293e",
+  "--ac-compact-primary-action": "linear-gradient(110deg, #67304c, #442238)",
+  "--ac-compact-row": "linear-gradient(150deg, #391f30, #261622)",
+  "--ac-focus-border": "rgba(245, 194, 210, 0.96)",
+  "--ac-focus-background": "linear-gradient(180deg, rgba(218, 129, 164, 0.31), rgba(133, 55, 102, 0.22))",
+  "--ac-focus-shadow": "0 0 0 2px rgba(245, 194, 210, 0.9), 0 0 17px rgba(204, 103, 149, 0.35)",
+  "--ac-focus-inset-shadow": "inset 0 0 0 1px rgba(245, 194, 210, 0.82), inset 0 0 0 999px rgba(218, 129, 164, 0.09)",
+  "--ac-focus-primary-background": "linear-gradient(110deg, #8a3b60, #a95179)",
+  "--ac-focus-primary-border": "rgba(255, 213, 223, 0.98)",
+  "--ac-focus-primary-shadow": "0 0 0 3px rgba(255, 213, 223, 0.95), 0 0 20px rgba(204, 103, 149, 0.44)",
+  "--ac-focus-calendar-day-shadow": "inset 0 0 0 1px #ffcfdf, 0 0 6px rgba(224, 136, 170, 0.72)",
+  "--ac-focus-compact-border": "rgba(245, 194, 210, 0.96)",
+  "--ac-focus-compact-background": "linear-gradient(110deg, #864061, #5f2c4a)",
+  "--ac-focus-compact-shadow": "0 0 0 1px rgba(245, 194, 210, 0.86), 0 0 13px rgba(204, 103, 149, 0.38)",
+  "--ac-focus-passive-shadow": "inset 0 0 0 1px rgba(224, 136, 170, 0.24)",
+  "--ac-selection-text": "#f5c2d2",
+  "--ac-selection-underline": "inset 0 -3px 0 rgba(224, 136, 170, 0.9)",
+  "--ac-calendar-0": "#43263a",
+  "--ac-calendar-1": "#6c3654",
+  "--ac-calendar-2": "#9d4c72",
+  "--ac-calendar-3": "#cf7da0",
+  "--ac-calendar-4": "#f2c2cb",
+  "--ac-chooser-border": "rgba(193, 113, 142, 0.36)",
+  "--ac-chooser-focus-border": "rgba(245, 194, 210, 0.9)",
+  "--ac-chooser-focus-shadow": "0 0 0 1px rgba(245, 194, 210, 0.88), 0 0 15px rgba(204, 103, 149, 0.35)",
+  "--ac-chooser-chevron": "#e3a6b6",
+  "--ac-icon-filter": "brightness(0) saturate(100%) invert(79%) sepia(17%) saturate(577%) hue-rotate(295deg)",
+  "--ac-avatar-background": "linear-gradient(145deg, rgba(227, 166, 182, 0.22), #21131d)",
+  "--ac-avatar-glow": "0 0 18px rgba(227, 166, 182, 0.24)",
+  "--ac-accent-glow": "0 0 12px rgba(227, 166, 182, 0.22)",
+  "--ac-accent-text-glow": "0 0 22px rgba(227, 166, 182, 0.22)",
+  "--ac-primary-chip-shadow": "0 0 0 1px rgba(245, 194, 210, 0.55), 0 0 16px rgba(204, 103, 149, 0.25)",
+  "--ac-settings-save-border": "rgba(245, 194, 210, 0.68)",
+  "--ac-settings-save-background": "#67304c",
+  "--ac-footer-background": "linear-gradient(180deg, #281724, #120a10)",
+  "--ac-progress-glow-rgb": "227, 166, 182",
+  "--ac-loading-page": "radial-gradient(ellipse at 20% 8%, rgba(227, 166, 182, 0.12), transparent 42%), linear-gradient(145deg, #140b12, #291321 54%, #190c16)",
+  "--ac-loading-info-background": "linear-gradient(145deg, #361d2d, #21131d) padding-box, linear-gradient(112deg, #e3a6b694, #cf7da06e 54%, #f2c2cb7a) border-box",
+  "--ac-loading-info-shadow": "0 8px 26px rgba(0, 0, 0, 0.2), 0 0 24px rgba(227, 166, 182, 0.07)",
+  "--ac-loading-mark-background": "radial-gradient(circle at 36% 24%, #512c42, #140b12 73%)",
+  "--ac-loading-mark-shadow": "0 0 34px rgba(227, 166, 182, 0.2), inset 0 0 0 1px rgba(245, 194, 210, 0.18)",
+  "--ac-loading-ring": "conic-gradient(from -28deg, #f2c2cb 0deg, #e3a6b6 112deg, #cf7da0 214deg, #9d4c72 280deg, #4b293e 281deg, #4b293e 360deg)",
+  "--ac-loading-well": "radial-gradient(circle at 38% 24%, #46283b, #140b12 74%)",
+  "--ac-loading-well-border": "rgba(245, 194, 210, 0.2)",
+  "--ac-loading-deck-icon-filter": "brightness(0) saturate(100%) invert(79%) sepia(17%) saturate(577%) hue-rotate(295deg) drop-shadow(0 0 7px rgba(227, 166, 182, 0.32))",
+  "--ac-loading-badge-background": "linear-gradient(145deg, #46283b, #21131d)",
+  "--ac-loading-badge-border": "rgba(255, 213, 223, 0.62)",
+  "--ac-loading-badge-shadow": "0 0 0 2px rgba(227, 166, 182, 0.46), 0 0 15px rgba(204, 103, 149, 0.2)",
+  "--ac-loading-provider-icon-filter": "brightness(0) invert(1) drop-shadow(0 0 4px rgba(227, 166, 182, 0.22))",
+} as const satisfies ThemeVariables;
+
 const THEME_VARIABLES: Partial<Record<AchievementCompanionTheme, ThemeVariables>> = {
   "ac-neon": AC_NEON_THEME_VARIABLES,
   "ac-carbon": AC_CARBON_THEME_VARIABLES,
   "ac-ember": AC_EMBER_THEME_VARIABLES,
   "ac-grove": AC_GROVE_THEME_VARIABLES,
   "ac-paper": AC_PAPER_THEME_VARIABLES,
+  "ac-velvet": AC_VELVET_THEME_VARIABLES,
 };
 
 const themedDocuments = new Set<Document>();
@@ -406,6 +486,8 @@ const themedDocuments = new Set<Document>();
 export function applyAchievementCompanionTheme(ownerDocument: Document, theme: AchievementCompanionTheme): void {
   themedDocuments.add(ownerDocument);
   const rootStyle = ownerDocument.documentElement.style;
+  // Clear the retired light-theme text role during hot reloads.
+  rootStyle.removeProperty("--ac-foreground-rgb");
   for (const name of Object.keys(AC_NEON_THEME_VARIABLES)) rootStyle.removeProperty(name);
   for (const [name, value] of Object.entries(THEME_VARIABLES[theme] ?? {})) rootStyle.setProperty(name, value);
   ownerDocument.documentElement.dataset["acTheme"] = theme;
@@ -414,8 +496,9 @@ export function applyAchievementCompanionTheme(ownerDocument: Document, theme: A
 export function clearAchievementCompanionThemes(): void {
   for (const ownerDocument of themedDocuments) {
     const theme = ownerDocument.documentElement.dataset["acTheme"];
-    if (theme !== "ac-blue" && theme !== "ac-neon" && theme !== "ac-carbon" && theme !== "ac-ember" && theme !== "ac-grove" && theme !== "ac-paper") continue;
+    if (theme !== "ac-blue" && theme !== "ac-neon" && theme !== "ac-carbon" && theme !== "ac-ember" && theme !== "ac-glacier" && theme !== "ac-grove" && theme !== "ac-paper" && theme !== "ac-velvet") continue;
     for (const name of Object.keys(AC_NEON_THEME_VARIABLES)) ownerDocument.documentElement.style.removeProperty(name);
+    ownerDocument.documentElement.style.removeProperty("--ac-foreground-rgb");
     delete ownerDocument.documentElement.dataset["acTheme"];
   }
   themedDocuments.clear();

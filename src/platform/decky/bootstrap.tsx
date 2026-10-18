@@ -146,6 +146,7 @@ const ACHIEVEMENT_COMPANION_THEME_DROPDOWN_OPTIONS = [
   { data: "ac-grove", label: "AC Grove" },
   { data: "ac-neon", label: "AC Neon" },
   { data: "ac-paper", label: "AC Paper" },
+  { data: "ac-velvet", label: "AC Velvet" },
 ];
 
 const GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_LABELS: Readonly<
@@ -272,15 +273,24 @@ function getProviderMenuDividerStyle(): CSSProperties {
 function getPluginSettingsContentCardStyle(): CSSProperties {
   return {
     ...steamRecipes.card("compact"),
-    // The native PanelSections have a gap; bridge it to join the disclosure and rows.
-    margin: `-${steamTheme.space.xl}px 0 ${steamTheme.space.md}px`,
+    // Bridge the native PanelSection gap and overlap the disclosure's lower edge by one pixel.
+    margin: `-${steamTheme.space.xl + 1}px 0 ${steamTheme.space.md}px`,
     borderTop: 0,
+    borderColor: "var(--ac-chooser-border, rgba(86, 137, 173, 0.24))",
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
     overflow: "hidden",
     boxSizing: "border-box",
   };
 }
+
+const GAME_PAGE_BADGE_DROPDOWN_COLUMN_CSS = `
+[data-achievement-companion-plugin-settings-card] [data-ac-game-page-badge-dropdown] button[role="combobox"] {
+  width: 124px;
+  min-width: 124px;
+  max-width: 124px;
+  box-sizing: border-box;
+}`;
 
 function getChooserProviderLauncherTone(
   providerId: ProviderId | "settings",
@@ -468,10 +478,16 @@ function ChooserProviderCardChevronGlyph(): JSX.Element {
 
 function getPluginSettingsDisclosureStyle(
   focused: boolean,
+  expanded: boolean,
 ): CSSProperties {
+  const cardStyle = getChooserProviderCardStyle("connected", focused);
   return {
-    ...getChooserProviderCardStyle("connected", focused),
+    ...cardStyle,
     marginBottom: 0,
+    // Set both states explicitly so React restores the lower edge after collapse.
+    borderBottomWidth: expanded ? 0 : 1,
+    borderBottomLeftRadius: expanded ? 0 : cardStyle.borderRadius,
+    borderBottomRightRadius: expanded ? 0 : cardStyle.borderRadius,
   };
 }
 
@@ -504,7 +520,7 @@ function PluginSettingsDisclosure({
       }}
       onBlur={() => setFocused(false)}
       onGamepadBlur={() => setFocused(false)}
-      style={getPluginSettingsDisclosureStyle(focused)}
+      style={getPluginSettingsDisclosureStyle(focused, expanded)}
     >
       <span aria-hidden="true" style={getChooserProviderCardSettingsIconStyle()}>{"\u2699"}</span>
       <span style={getChooserProviderCardBodyStyle()}>
@@ -535,18 +551,20 @@ function GamePageBadgeSizeDropdown({
 }): JSX.Element {
   const openGuardedMenu = useDeckyCompactDropdownPopupGuard();
   return (
-    <DropdownItem
-      label={<span style={getGamePageBadgeLabelStyle(disabled)}>Badge size</span>}
-      description={<span style={getGamePageBadgeDescriptionStyle(disabled)}>Choose the badge size on game pages.</span>}
-      disabled={disabled}
-      menuLabel="Game Page Badge Size"
-      onMenuWillOpen={openGuardedMenu}
-      rgOptions={GAME_PAGE_ACHIEVEMENT_BADGE_SIZE_DROPDOWN_OPTIONS}
-      selectedOption={selectedSize}
-      onChange={(option) => {
-        if (isGamePageAchievementBadgeSize(option.data)) onChange(option.data);
-      }}
-    />
+    <div data-ac-game-page-badge-dropdown="true">
+      <DropdownItem
+        label={<span style={getGamePageBadgeLabelStyle(disabled)}>Badge size</span>}
+        description={<span style={getGamePageBadgeDescriptionStyle(disabled)}>Choose the badge size on game pages.</span>}
+        disabled={disabled}
+        menuLabel="Game Page Badge Size"
+        onMenuWillOpen={openGuardedMenu}
+        rgOptions={GAME_PAGE_ACHIEVEMENT_BADGE_SIZE_DROPDOWN_OPTIONS}
+        selectedOption={selectedSize}
+        onChange={(option) => {
+          if (isGamePageAchievementBadgeSize(option.data)) onChange(option.data);
+        }}
+      />
+    </div>
   );
 }
 
@@ -555,6 +573,7 @@ function ThemeDropdown({ selectedTheme }: { readonly selectedTheme: AchievementC
   return (
     <DropdownItem
       label={<span style={getGamePageBadgeLabelStyle()}>Theme</span>}
+      childrenContainerWidth="max"
       menuLabel="Achievement Companion Theme"
       onMenuWillOpen={openGuardedMenu}
       rgOptions={ACHIEVEMENT_COMPANION_THEME_DROPDOWN_OPTIONS}
@@ -598,24 +617,26 @@ function GamePageBadgePositionDropdown({
   const openGuardedMenu = useDeckyCompactDropdownPopupGuard();
 
   return (
-    <DropdownItem
-      label={<span style={getGamePageBadgeLabelStyle(disabled)}>Badge position</span>}
-      description={
-        <span style={getGamePageBadgeDescriptionStyle(disabled)}>
-          Choose where the game page badge is anchored.
-        </span>
-      }
-      disabled={disabled}
-      menuLabel="Game Page Badge Position"
-      onMenuWillOpen={openGuardedMenu}
-      rgOptions={GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_DROPDOWN_OPTIONS}
-      selectedOption={selectedPosition}
-      onChange={(option) => {
-        if (isGamePageAchievementBadgePosition(option.data)) {
-          onChange(option.data);
+    <div data-ac-game-page-badge-dropdown="true">
+      <DropdownItem
+        label={<span style={getGamePageBadgeLabelStyle(disabled)}>Badge position</span>}
+        description={
+          <span style={getGamePageBadgeDescriptionStyle(disabled)}>
+            Choose where the game page badge is anchored.
+          </span>
         }
-      }}
-    />
+        disabled={disabled}
+        menuLabel="Game Page Badge Position"
+        onMenuWillOpen={openGuardedMenu}
+        rgOptions={GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_DROPDOWN_OPTIONS}
+        selectedOption={selectedPosition}
+        onChange={(option) => {
+          if (isGamePageAchievementBadgePosition(option.data)) {
+            onChange(option.data);
+          }
+        }}
+      />
+    </div>
   );
 }
 
@@ -635,20 +656,22 @@ function GamePageBadgeColorDropdown({
   const openGuardedMenu = useDeckyCompactDropdownPopupGuard();
 
   return (
-    <DropdownItem
-      label={<span style={getGamePageBadgeLabelStyle(disabled)}>{label}</span>}
-      description={<span style={getGamePageBadgeDescriptionStyle(disabled)}>{description}</span>}
-      disabled={disabled}
-      menuLabel={`${label} Badge Color`}
-      onMenuWillOpen={openGuardedMenu}
-      rgOptions={GAME_PAGE_ACHIEVEMENT_BADGE_COLOR_DROPDOWN_OPTIONS}
-      selectedOption={selectedColor}
-      onChange={(option) => {
-        if (isGamePageAchievementBadgeColor(option.data)) {
-          onChange(option.data);
-        }
-      }}
-    />
+    <div data-ac-game-page-badge-dropdown="true">
+      <DropdownItem
+        label={<span style={getGamePageBadgeLabelStyle(disabled)}>{label}</span>}
+        description={<span style={getGamePageBadgeDescriptionStyle(disabled)}>{description}</span>}
+        disabled={disabled}
+        menuLabel={`${label} Badge Color`}
+        onMenuWillOpen={openGuardedMenu}
+        rgOptions={GAME_PAGE_ACHIEVEMENT_BADGE_COLOR_DROPDOWN_OPTIONS}
+        selectedOption={selectedColor}
+        onChange={(option) => {
+          if (isGamePageAchievementBadgeColor(option.data)) {
+            onChange(option.data);
+          }
+        }}
+      />
+    </div>
   );
 }
 
@@ -1711,6 +1734,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                 {pluginSettingsExpanded ? (
                   <PanelSection>
                     <div data-achievement-companion-plugin-settings-card="true" style={getPluginSettingsContentCardStyle()}>
+                      <style>{GAME_PAGE_BADGE_DROPDOWN_COLUMN_CSS}</style>
                       <PanelSectionRow>
                         <Field
                           label="Theme Settings"

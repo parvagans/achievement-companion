@@ -12,6 +12,7 @@ import {
   AC_GROVE_THEME_VARIABLES,
   AC_NEON_THEME_VARIABLES,
   AC_PAPER_THEME_VARIABLES,
+  AC_VELVET_THEME_VARIABLES,
   applyAchievementCompanionTheme,
   clearAchievementCompanionThemes,
 } from "../src/platform/decky/decky-theme-palette";
@@ -26,9 +27,9 @@ test("AC Neon uses the loading brand while provider semantics stay outside the s
 });
 
 test("alternate themes cover every shared role without redefining provider status colors", () => {
-  assert.deepEqual(ACHIEVEMENT_COMPANION_THEME_OPTIONS, ["ac-blue", "ac-carbon", "ac-ember", "ac-grove", "ac-neon", "ac-paper"]);
+  assert.deepEqual(ACHIEVEMENT_COMPANION_THEME_OPTIONS, ["ac-blue", "ac-carbon", "ac-ember", "ac-grove", "ac-neon", "ac-paper", "ac-velvet"]);
   const expectedKeys = Object.keys(AC_NEON_THEME_VARIABLES).sort();
-  for (const variables of [AC_CARBON_THEME_VARIABLES, AC_EMBER_THEME_VARIABLES, AC_GROVE_THEME_VARIABLES, AC_PAPER_THEME_VARIABLES]) {
+  for (const variables of [AC_CARBON_THEME_VARIABLES, AC_EMBER_THEME_VARIABLES, AC_GROVE_THEME_VARIABLES, AC_PAPER_THEME_VARIABLES, AC_VELVET_THEME_VARIABLES]) {
     assert.deepEqual(Object.keys(variables).sort(), expectedKeys);
     assert.equal(Object.hasOwn(variables, "--ac-hardcore"), false);
     assert.equal(Object.hasOwn(variables, "--ac-softcore"), false);
@@ -38,6 +39,7 @@ test("alternate themes cover every shared role without redefining provider statu
   assert.equal(AC_EMBER_THEME_VARIABLES["--ac-background"], "#120d0b");
   assert.equal(AC_GROVE_THEME_VARIABLES["--ac-background"], "#0b1511");
   assert.equal(AC_PAPER_THEME_VARIABLES["--ac-background"], "#15130f");
+  assert.equal(AC_VELVET_THEME_VARIABLES["--ac-background"], "#140b12");
   assert.match(achievementCompanionQamTheme.surface.progressFill, /--ac-progress-fill/u);
   assert.match(achievementCompanionQamTheme.surface.xpFill, /--ac-xp-fill/u);
 });
@@ -55,7 +57,9 @@ test("theme switching applies and removes only AC variables", () => {
     },
   } as unknown as Document;
 
+  values.set("--ac-foreground-rgb", "23, 43, 59");
   applyAchievementCompanionTheme(ownerDocument, "ac-neon");
+  assert.equal(values.has("--ac-foreground-rgb"), false);
   assert.equal(values.get("--ac-accent-strong"), DECKY_LOADING_COLORS.magenta);
   assert.equal(dataset["acTheme"], "ac-neon");
   applyAchievementCompanionTheme(ownerDocument, "ac-carbon");
@@ -72,6 +76,9 @@ test("theme switching applies and removes only AC variables", () => {
   applyAchievementCompanionTheme(ownerDocument, "ac-paper");
   assert.equal(values.get("--ac-loading-ring"), AC_PAPER_THEME_VARIABLES["--ac-loading-ring"]);
   assert.equal(dataset["acTheme"], "ac-paper");
+  applyAchievementCompanionTheme(ownerDocument, "ac-velvet");
+  assert.equal(values.get("--ac-accent"), AC_VELVET_THEME_VARIABLES["--ac-accent"]);
+  assert.equal(dataset["acTheme"], "ac-velvet");
   applyAchievementCompanionTheme(ownerDocument, "ac-blue");
   assert.equal(values.size, 0);
   assert.equal(dataset["acTheme"], "ac-blue");
@@ -122,7 +129,7 @@ test("ordinary icon, avatar, progress, footer, and loading chrome use centralize
   assert.match(compactLoading, /achievementCompanionQamTheme\.loading\.page/u);
   assert.notEqual(AC_CARBON_THEME_VARIABLES["--ac-loading-ring"], AC_NEON_THEME_VARIABLES["--ac-loading-ring"]);
   assert.notEqual(AC_EMBER_THEME_VARIABLES["--ac-loading-page"], AC_NEON_THEME_VARIABLES["--ac-loading-page"]);
-  for (const theme of [AC_CARBON_THEME_VARIABLES, AC_EMBER_THEME_VARIABLES, AC_GROVE_THEME_VARIABLES, AC_PAPER_THEME_VARIABLES]) {
+  for (const theme of [AC_CARBON_THEME_VARIABLES, AC_EMBER_THEME_VARIABLES, AC_GROVE_THEME_VARIABLES, AC_PAPER_THEME_VARIABLES, AC_VELVET_THEME_VARIABLES]) {
     assert.doesNotMatch(Object.values(theme).join(" "), /#(?:08d5f5|147bff|2bc3f2)|rgba\(54,\s*185,\s*255/u);
   }
 });
