@@ -131,6 +131,7 @@ import {
   shouldRequestDeckyProviderInitialFocus,
 } from "./decky-provider-initial-focus";
 import { steamRecipes, steamTheme } from "./steam-theme";
+import { openDeckyWhatsNewModal } from "./decky-whats-new-modal";
 import { getDeckyGamePageAchievementBadgeColorPreview } from "./decky-game-page-achievement-badge-colors";
 interface SteamLibraryScanActionState {
   readonly status: "idle" | "scanning" | "success" | "error";
@@ -293,10 +294,10 @@ const GAME_PAGE_BADGE_DROPDOWN_COLUMN_CSS = `
 }`;
 
 function getChooserProviderLauncherTone(
-  providerId: ProviderId | "settings",
+  providerId: ProviderId | "settings" | "news",
   connected: boolean,
 ): ProviderLauncherTone {
-  if (providerId === "settings") {
+  if (providerId === "settings" || providerId === "news") {
     return "neutral";
   }
 
@@ -711,7 +712,7 @@ function ProviderLauncherCard({
   preferredFocus = false,
   elementRef,
 }: {
-  readonly providerId: ProviderId | "settings";
+  readonly providerId: ProviderId | "settings" | "news";
   readonly iconSrc: string | undefined;
   readonly label: string;
   readonly connected?: boolean;
@@ -758,7 +759,15 @@ function ProviderLauncherCard({
           <img alt="" loading="lazy" src={iconSrc} style={getChooserProviderCardIconStyle()} />
         </span>
       ) : (
-        <span aria-hidden="true" style={getChooserProviderCardSettingsIconStyle()}>{"\u2699"}</span>
+        <span aria-hidden="true" style={getChooserProviderCardSettingsIconStyle()}>
+          {providerId === "news" ? (
+            <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <rect x="6" y="7" width="6" height="5" rx="0.5" />
+              <path d="M15 8h3M15 11h3M6 15h12M6 18h12" />
+            </svg>
+          ) : "\u2699"}
+        </span>
       )}
       <span style={getChooserProviderCardBodyStyle()}>
         <span style={getChooserProviderCardTitleStyle()}>{label}</span>
@@ -1840,6 +1849,20 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                     </div>
                   </PanelSection>
                 ) : null}
+                <div style={{ marginTop: -steamTheme.space.md }}>
+                  <PanelSection>
+                    <PanelSectionRow>
+                      <ProviderLauncherCard
+                        providerId="news"
+                        iconSrc={undefined}
+                        label="Whats New"
+                        ariaLabel="Open Whats New"
+                        onFocused={() => setProviderListHasReceivedFocus(true)}
+                        onClick={openDeckyWhatsNewModal}
+                      />
+                    </PanelSectionRow>
+                  </PanelSection>
+                </div>
               </>
             </TopAlignedScrollViewport>
           ) : (
