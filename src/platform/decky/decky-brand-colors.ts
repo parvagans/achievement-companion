@@ -1,4 +1,4 @@
-/** Existing loading-mark palette; AC Neon reuses these exact brand colors. */
+/** Default Blue loading-mark palette; alternate themes supply their own CSS variables. */
 export const DECKY_LOADING_COLORS = {
   cyan: "#08d5f5",
   blue: "#147bff",

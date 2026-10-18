@@ -79,7 +79,6 @@ export const AC_NEON_THEME_VARIABLES = {
   "--ac-loading-provider-icon-filter": "brightness(0) invert(1) drop-shadow(0 0 4px rgba(8, 213, 245, 0.2))",
 } as const;
 
-type ThemeVariables = Readonly<Record<keyof typeof AC_NEON_THEME_VARIABLES, string>>;
 
 /** Low-glare graphite chrome with a pale steel focus cue; provider status colors remain untouched. */
 export const AC_CARBON_THEME_VARIABLES = {
@@ -157,86 +156,186 @@ export const AC_CARBON_THEME_VARIABLES = {
   "--ac-loading-badge-border": "rgba(216, 235, 245, 0.62)",
   "--ac-loading-badge-shadow": "0 0 0 2px rgba(165, 192, 205, 0.46), 0 0 15px rgba(190, 215, 229, 0.18)",
   "--ac-loading-provider-icon-filter": "brightness(0) invert(1) drop-shadow(0 0 4px rgba(190, 215, 229, 0.2))",
-} as const satisfies ThemeVariables;
+} as const;
 
-/** Warm charcoal and coral chrome, deliberately separate from Hardcore gold and Steam earned green. */
-export const AC_EMBER_THEME_VARIABLES = {
-  "--ac-background": "#120d0b",
-  "--ac-surface": "#1b1311",
-  "--ac-surface-raised": "#291b18",
-  "--ac-surface-interactive": "#38231d",
-  "--ac-text-primary": "#fff4ef",
-  "--ac-text-secondary": "#e1c7bc",
-  "--ac-text-muted": "#c2a89d",
-  "--ac-accent": "#ff9a72",
-  "--ac-accent-strong": "#ff735f",
-  "--ac-border-subtle": "rgba(218, 141, 109, 0.31)",
-  "--ac-border-strong": "rgba(255, 143, 104, 0.82)",
-  "--ac-primary-action-border": "rgba(255, 151, 112, 0.76)",
-  "--ac-page": "linear-gradient(120deg, #120d0b, #211411 55%, #160e0c)",
-  "--ac-card": "rgba(31, 20, 17, 0.93)",
-  "--ac-raised": "linear-gradient(90deg, rgba(53, 34, 28, 0.96), rgba(34, 23, 20, 0.94))",
-  "--ac-interactive": "rgba(56, 35, 29, 0.84)",
-  "--ac-content-card": "radial-gradient(circle at 14% 46%, rgba(255, 146, 103, 0.1), transparent 50%), linear-gradient(110deg, #241713, #2d1b17)",
-  "--ac-content-stat": "radial-gradient(circle at 15% 50%, rgba(255, 166, 119, 0.1), transparent 50%), linear-gradient(110deg, #30201a, #39231e)",
-  "--ac-progress-track": "rgba(199, 143, 119, 0.24)",
-  "--ac-progress-fill": "linear-gradient(90deg, #ad4935, #ff9a72)",
-  "--ac-xp-fill": "linear-gradient(90deg, #b9573a, #ffb188)",
-  "--ac-focus-overlay": "linear-gradient(180deg, rgba(255, 120, 85, 0.23), rgba(195, 78, 55, 0.16))",
-  "--ac-selection-overlay": "linear-gradient(180deg, rgba(255, 154, 105, 0.26), rgba(169, 76, 50, 0.2))",
-  "--ac-primary-action": "linear-gradient(110deg, #9e442c, #b5503c)",
-  "--ac-activity-trend-fill": "linear-gradient(180deg, #ffb36f, #d96845)",
-  "--ac-activity-trend-empty": "#4a2a22",
-  "--ac-compact-primary-action": "linear-gradient(110deg, rgba(111, 48, 34, 0.93), rgba(72, 33, 26, 0.96))",
-  "--ac-compact-row": "linear-gradient(150deg, rgba(51, 30, 24, 0.94), rgba(37, 23, 20, 0.97))",
-  "--ac-focus-border": "rgba(255, 177, 138, 0.94)",
-  "--ac-focus-background": "linear-gradient(180deg, rgba(255, 126, 88, 0.29), rgba(171, 72, 49, 0.22))",
-  "--ac-focus-shadow": "0 0 0 2px rgba(255, 177, 138, 0.88), 0 0 17px rgba(255, 112, 79, 0.34), inset 0 1px 0 rgba(255,255,255,0.14)",
-  "--ac-focus-inset-shadow": "inset 0 0 0 1px rgba(255, 177, 138, 0.82), inset 0 0 0 999px rgba(255, 122, 84, 0.08)",
-  "--ac-focus-primary-background": "linear-gradient(110deg, #b14c35, #c25a3e)",
-  "--ac-focus-primary-border": "rgba(255, 193, 155, 0.98)",
-  "--ac-focus-primary-shadow": "0 0 0 3px rgba(255, 193, 155, 0.95), 0 0 20px rgba(255, 118, 78, 0.47), inset 0 1px 0 rgba(255,255,255,0.22)",
-  "--ac-focus-calendar-day-shadow": "inset 0 0 0 1px #ffd0ad, 0 0 6px rgba(255, 154, 108, 0.72)",
-  "--ac-focus-compact-border": "rgba(255, 177, 138, 0.96)",
-  "--ac-focus-compact-background": "linear-gradient(110deg, rgba(139, 60, 43, 0.9), rgba(89, 38, 30, 0.94))",
-  "--ac-focus-compact-shadow": "0 0 0 1px rgba(255, 177, 138, 0.84), 0 0 13px rgba(255, 112, 79, 0.41), inset 0 1px 0 rgba(255,255,255,0.11)",
-  "--ac-focus-passive-shadow": "inset 0 0 0 1px rgba(255, 154, 108, 0.22)",
-  "--ac-selection-text": "#ffc7a8",
-  "--ac-selection-underline": "inset 0 -3px 0 rgba(255, 154, 108, 0.9)",
-  "--ac-calendar-0": "#3a2420",
-  "--ac-calendar-1": "#67372b",
-  "--ac-calendar-2": "#a44f35",
-  "--ac-calendar-3": "#dc784b",
-  "--ac-calendar-4": "#ffb36f",
-  "--ac-chooser-border": "rgba(218, 141, 109, 0.35)",
-  "--ac-chooser-focus-border": "rgba(255, 177, 138, 0.9)",
-  "--ac-chooser-focus-shadow": "0 0 0 1px rgba(255, 177, 138, 0.88), 0 0 15px rgba(255, 112, 79, 0.36)",
-  "--ac-chooser-chevron": "#ff9a72",
-  "--ac-icon-filter": "brightness(0) saturate(100%) invert(80%) sepia(30%) saturate(1000%) hue-rotate(321deg) brightness(105%) contrast(101%)",
-  "--ac-avatar-background": "linear-gradient(145deg, rgba(255, 146, 103, 0.22), rgba(31, 20, 17, 0.96))",
-  "--ac-avatar-glow": "0 0 18px rgba(255, 146, 103, 0.24)",
-  "--ac-accent-glow": "0 0 12px rgba(255, 146, 103, 0.22)",
-  "--ac-accent-text-glow": "0 0 22px rgba(255, 146, 103, 0.23)",
-  "--ac-primary-chip-shadow": "0 0 0 1px rgba(255, 177, 138, 0.55), 0 0 16px rgba(255, 112, 79, 0.27), inset 0 1px 0 rgba(255, 255, 255, 0.2)",
-  "--ac-settings-save-border": "rgba(255, 177, 138, 0.68)",
-  "--ac-settings-save-background": "rgba(130, 57, 40, 0.75)",
-  "--ac-footer-background": "linear-gradient(180deg, #201411, #110c0a)",
-  "--ac-progress-glow-rgb": "255, 146, 103",
-  "--ac-loading-page": "radial-gradient(ellipse at 20% 8%, rgba(255, 146, 103, 0.12), transparent 42%), linear-gradient(145deg, #120d0b, #211411 54%, #160e0c)",
-  "--ac-loading-info-background": "linear-gradient(145deg, #30201a, #1b1311) padding-box, linear-gradient(112deg, #ff9a7294, #dc784b6e 54%, #ff735f7a) border-box",
-  "--ac-loading-info-shadow": "0 8px 26px rgba(0, 0, 0, 0.2), 0 0 24px rgba(255, 146, 103, 0.07)",
-  "--ac-loading-mark-background": "radial-gradient(circle at 36% 24%, #543027, #120d0b 73%)",
-  "--ac-loading-mark-shadow": "0 0 34px rgba(255, 146, 103, 0.2), inset 0 0 0 1px rgba(255, 177, 138, 0.18)",
-  "--ac-loading-ring": "conic-gradient(from -28deg, #ffb36f 0deg, #ff9a72 112deg, #dc784b 214deg, #ff735f 280deg, #4a2a22 281deg, #4a2a22 360deg)",
-  "--ac-loading-well": "radial-gradient(circle at 38% 24%, #49291f, #120d0b 74%)",
-  "--ac-loading-well-border": "rgba(255, 177, 138, 0.2)",
-  "--ac-loading-deck-icon-filter": "brightness(0) saturate(100%) invert(80%) sepia(30%) saturate(1000%) hue-rotate(321deg) brightness(105%) contrast(101%) drop-shadow(0 0 7px rgba(255, 146, 103, 0.32))",
-  "--ac-loading-badge-background": "linear-gradient(145deg, #4a2a22, #1b1311)",
-  "--ac-loading-badge-border": "rgba(255, 193, 155, 0.62)",
-  "--ac-loading-badge-shadow": "0 0 0 2px rgba(255, 146, 103, 0.46), 0 0 15px rgba(255, 112, 79, 0.2)",
-  "--ac-loading-provider-icon-filter": "brightness(0) invert(1) drop-shadow(0 0 4px rgba(255, 146, 103, 0.22))",
-} as const satisfies ThemeVariables;
+type ThemeVariables = Readonly<Record<keyof typeof AC_CARBON_THEME_VARIABLES, string>>;
 
+/** One palette drives shared chrome, focus, charts, icons, and loading screens. */
+interface ThemePaletteSpec {
+  readonly background: string;
+  readonly surface: string;
+  readonly raised: string;
+  readonly border: string;
+  readonly primary: string;
+  readonly secondary: string;
+  readonly text: string;
+  readonly muted: string;
+  readonly iconFilter: string;
+  readonly glow: number;
+  readonly progressEnd?: string;
+}
+
+function rgb(color: string): readonly [number, number, number] {
+  const value = color.slice(1);
+  return [
+    Number.parseInt(value.slice(0, 2), 16),
+    Number.parseInt(value.slice(2, 4), 16),
+    Number.parseInt(value.slice(4, 6), 16),
+  ];
+}
+
+function rgba(color: string, alpha: number): string {
+  return "rgba(" + [...rgb(color), Number(alpha.toFixed(3))].join(", ") + ")";
+}
+
+function mix(color: string, base: string, weight: number): string {
+  const foreground = rgb(color);
+  const background = rgb(base);
+  return "#" + foreground.map((channel, index) =>
+    Math.round(channel * weight + background[index]! * (1 - weight)).toString(16).padStart(2, "0"),
+  ).join("");
+}
+
+function linear(from: string, to: string, angle = 110): string {
+  return "linear-gradient(" + angle + "deg, " + from + ", " + to + ")";
+}
+
+function createPaletteTheme(spec: ThemePaletteSpec): ThemeVariables {
+  const { background, surface, raised, border, primary, secondary, text, muted, iconFilter, glow } = spec;
+  const [red, green, blue] = rgb(primary);
+  const accentGlow = glow > 0 ? "0 0 16px " + rgba(primary, glow) : "none";
+  const extraGlow = glow > 0 ? ", 0 0 18px " + rgba(primary, glow) : "";
+  const subtleGlow = glow > 0 ? ", 0 0 8px " + rgba(primary, glow * 0.7) : "";
+  const actionStart = mix(primary, raised, 0.58);
+  const actionEnd = mix(primary, surface, 0.42);
+  const contentGlow = rgba(primary, 0.06 + glow * 0.13);
+  return {
+    ...AC_CARBON_THEME_VARIABLES,
+    "--ac-background": background,
+    "--ac-surface": surface,
+    "--ac-surface-raised": raised,
+    "--ac-surface-interactive": raised,
+    "--ac-text-primary": text,
+    "--ac-text-secondary": muted,
+    "--ac-text-muted": muted,
+    "--ac-accent": primary,
+    "--ac-accent-strong": secondary,
+    "--ac-border-subtle": border,
+    "--ac-border-strong": primary,
+    "--ac-primary-action-border": primary,
+    "--ac-page": linear(background, surface, 120),
+    "--ac-card": rgba(surface, 0.94),
+    "--ac-raised": linear(raised, surface, 90),
+    "--ac-interactive": rgba(raised, 0.88),
+    "--ac-content-card": "radial-gradient(circle at 15% 45%, " + contentGlow + ", transparent 52%), " + linear(surface, raised),
+    "--ac-content-stat": "radial-gradient(circle at 15% 50%, " + rgba(primary, 0.06 + glow * 0.08) + ", transparent 50%), " + linear(raised, mix(raised, surface, 0.7)),
+    "--ac-progress-track": rgba(muted, 0.22),
+    "--ac-progress-fill": linear(primary, spec.progressEnd ?? secondary, 90),
+    "--ac-xp-fill": linear(secondary, primary, 90),
+    "--ac-focus-overlay": linear(rgba(primary, 0.23), rgba(secondary, 0.11), 180),
+    "--ac-selection-overlay": linear(rgba(primary, 0.29), rgba(primary, 0.16), 180),
+    "--ac-primary-action": linear(actionStart, actionEnd),
+    "--ac-activity-trend-fill": linear(secondary, primary, 180),
+    "--ac-activity-trend-empty": mix(raised, surface, 0.7),
+    "--ac-compact-primary-action": linear(mix(primary, raised, 0.23), raised),
+    "--ac-compact-row": linear(surface, mix(raised, surface, 0.7), 150),
+    "--ac-focus-border": primary,
+    "--ac-focus-background": linear(rgba(primary, 0.27), rgba(primary, 0.13), 180),
+    "--ac-focus-shadow": "0 0 0 2px " + rgba(primary, 0.86) + extraGlow + ", inset 0 1px 0 rgba(255, 255, 255, 0.12)",
+    "--ac-focus-inset-shadow": "inset 0 0 0 1px " + rgba(primary, 0.78) + ", inset 0 0 0 999px " + rgba(primary, 0.08),
+    "--ac-focus-primary-background": linear(mix(primary, raised, 0.7), actionStart),
+    "--ac-focus-primary-border": primary,
+    "--ac-focus-primary-shadow": "0 0 0 3px " + rgba(primary, 0.94) + extraGlow + ", inset 0 1px 0 rgba(255, 255, 255, 0.18)",
+    "--ac-focus-calendar-day-shadow": "inset 0 0 0 1px " + primary + subtleGlow,
+    "--ac-focus-compact-border": primary,
+    "--ac-focus-compact-background": linear(mix(primary, raised, 0.31), raised),
+    "--ac-focus-compact-shadow": "0 0 0 1px " + rgba(primary, 0.82) + subtleGlow,
+    "--ac-focus-passive-shadow": "inset 0 0 0 1px " + rgba(primary, 0.18),
+    "--ac-selection-text": primary,
+    "--ac-selection-underline": "inset 0 -3px 0 " + rgba(primary, 0.88),
+    "--ac-calendar-0": mix(raised, background, 0.62),
+    "--ac-calendar-1": mix(primary, raised, 0.22),
+    "--ac-calendar-2": mix(primary, raised, 0.46),
+    "--ac-calendar-3": mix(primary, raised, 0.72),
+    "--ac-calendar-4": primary,
+    "--ac-chooser-border": border,
+    "--ac-chooser-focus-border": primary,
+    "--ac-chooser-focus-shadow": "0 0 0 1px " + rgba(primary, 0.88) + extraGlow,
+    "--ac-chooser-chevron": primary,
+    "--ac-icon-filter": iconFilter,
+    "--ac-avatar-background": linear(rgba(primary, 0.22), background, 145),
+    "--ac-avatar-glow": accentGlow,
+    "--ac-accent-glow": accentGlow,
+    "--ac-accent-text-glow": glow > 0 ? "0 0 22px " + rgba(primary, glow * 0.65) : "none",
+    "--ac-primary-chip-shadow": "0 0 0 1px " + rgba(primary, 0.6) + extraGlow + ", inset 0 1px 0 rgba(255, 255, 255, 0.12)",
+    "--ac-settings-save-border": rgba(primary, 0.68),
+    "--ac-settings-save-background": rgba(mix(primary, raised, 0.3), 0.82),
+    "--ac-footer-background": linear(surface, background, 180),
+    "--ac-progress-glow-rgb": [red, green, blue].join(", "),
+    "--ac-loading-page": "radial-gradient(ellipse at 20% 8%, " + rgba(primary, 0.08 + glow * 0.09) + ", transparent 42%), " + linear(background, surface, 145),
+    "--ac-loading-info-background": linear(raised, surface, 145) + " padding-box, " + linear(rgba(primary, 0.58), rgba(secondary, 0.44)) + " border-box",
+    "--ac-loading-info-shadow": "0 8px 26px rgba(0, 0, 0, 0.2)" + extraGlow,
+    "--ac-loading-mark-background": "radial-gradient(circle at 36% 24%, " + raised + ", " + background + " 73%)",
+    "--ac-loading-mark-shadow": "inset 0 0 0 1px " + rgba(border, 0.7) + extraGlow,
+    "--ac-loading-ring": "conic-gradient(from -28deg, " + secondary + " 0deg, " + primary + " 112deg, " + mix(primary, secondary, 0.5) + " 214deg, " + mix(primary, raised, 0.55) + " 280deg, " + raised + " 281deg, " + raised + " 360deg)",
+    "--ac-loading-well": "radial-gradient(circle at 38% 24%, " + raised + ", " + background + " 74%)",
+    "--ac-loading-well-border": rgba(border, 0.75),
+    "--ac-loading-deck-icon-filter": iconFilter + (glow > 0 ? " drop-shadow(0 0 7px " + rgba(primary, glow) + ")" : ""),
+    "--ac-loading-badge-background": linear(raised, surface, 145),
+    "--ac-loading-badge-border": rgba(primary, 0.62),
+    "--ac-loading-badge-shadow": "0 0 0 2px " + rgba(primary, 0.42) + extraGlow,
+    "--ac-loading-provider-icon-filter": "brightness(0) invert(1)" + (glow > 0 ? " drop-shadow(0 0 4px " + rgba(primary, glow * 0.7) + ")" : ""),
+  };
+}
+
+/** Arcade is a distinct violet/pink palette; saved Neon selections keep the original palette. */
+export const AC_ARCADE_THEME_VARIABLES = createPaletteTheme({
+  background: "#100B20", surface: "#1D1434", raised: "#30234D", border: "#574474",
+  primary: "#FF4DCC", secondary: "#3DEBFF", text: "#F6F0FF", muted: "#BCAED0",
+  iconFilter: "brightness(0) saturate(100%) invert(61%) sepia(99%) saturate(2825%) hue-rotate(277deg) brightness(104%) contrast(102%)",
+  glow: 0.42,
+});
+
+/** Ember keeps its content panels charcoal, with restrained orange and amber emphasis. */
+export const AC_EMBER_THEME_VARIABLES = createPaletteTheme({
+  background: "#111315", surface: "#1D2023", raised: "#2C3032", border: "#414345",
+  primary: "#FF743D", secondary: "#FFC05A", text: "#F5F0EA", muted: "#B8B1A9",
+  iconFilter: "brightness(0) saturate(100%) invert(62%) sepia(81%) saturate(2225%) hue-rotate(331deg) brightness(102%) contrast(102%)",
+  glow: 0.12,
+});
+
+/** Near-black green with bright phosphor controls and a soft CRT-like focus glow. */
+export const AC_TERMINAL_THEME_VARIABLES = createPaletteTheme({
+  background: "#080D09", surface: "#111914", raised: "#1C2A1F", border: "#34523A",
+  primary: "#78EE8A", secondary: "#C0F77B", text: "#E4F5E5", muted: "#9DC7A4",
+  iconFilter: "brightness(0) saturate(100%) invert(85%) sepia(35%) saturate(826%) hue-rotate(66deg) brightness(100%) contrast(93%)",
+  glow: 0.18,
+});
+
+/** Refined graphite and champagne gold with almost no decorative glow. */
+export const AC_ONYX_THEME_VARIABLES = createPaletteTheme({
+  background: "#0D0D0F", surface: "#1A1A1D", raised: "#29282B", border: "#403A32",
+  primary: "#D9B66E", secondary: "#A88B58", text: "#F4F0E8", muted: "#B9AFA0",
+  iconFilter: "brightness(0) saturate(100%) invert(78%) sepia(25%) saturate(834%) hue-rotate(355deg) brightness(96%) contrast(87%)",
+  glow: 0,
+});
+
+/** Functional RA-inspired dark chrome: blue navigation, gold kept as a secondary accent. */
+export const AC_RA_CLASSIC_THEME_VARIABLES = createPaletteTheme({
+  background: "#151515", surface: "#222222", raised: "#313131", border: "#444444",
+  primary: "#58A6E7", secondary: "#DDB63E", text: "#F0F0EF", muted: "#B8B8B8",
+  iconFilter: "brightness(0) saturate(100%) invert(66%) sepia(30%) saturate(1368%) hue-rotate(172deg) brightness(96%) contrast(87%)",
+  glow: 0,
+  progressEnd: "#8AC4F1",
+});
+
+/** Slate-blue native-Steam-inspired chrome without added glow. */
+export const AC_STEAM_THEME_VARIABLES = createPaletteTheme({
+  background: "#171A21", surface: "#1B2838", raised: "#2A475E", border: "#3A5368",
+  primary: "#66C0F4", secondary: "#1A9FFF", text: "#E6F0F7", muted: "#A9BCCB",
+  iconFilter: "brightness(0) saturate(100%) invert(75%) sepia(39%) saturate(1037%) hue-rotate(169deg) brightness(101%) contrast(91%)",
+  glow: 0,
+});
 /** Deep evergreen chrome with moss and sage accents; provider status colors stay semantic. */
 export const AC_GROVE_THEME_VARIABLES = {
   "--ac-background": "#0b1511",
@@ -474,12 +573,19 @@ export const AC_VELVET_THEME_VARIABLES = {
 
 const THEME_VARIABLES: Partial<Record<AchievementCompanionTheme, ThemeVariables>> = {
   "ac-neon": AC_NEON_THEME_VARIABLES,
+  "ac-arcade": AC_ARCADE_THEME_VARIABLES,
   "ac-carbon": AC_CARBON_THEME_VARIABLES,
   "ac-ember": AC_EMBER_THEME_VARIABLES,
   "ac-grove": AC_GROVE_THEME_VARIABLES,
+  "ac-onyx": AC_ONYX_THEME_VARIABLES,
   "ac-paper": AC_PAPER_THEME_VARIABLES,
+  "ac-ra-classic": AC_RA_CLASSIC_THEME_VARIABLES,
+  "ac-steam": AC_STEAM_THEME_VARIABLES,
+  "ac-terminal": AC_TERMINAL_THEME_VARIABLES,
   "ac-velvet": AC_VELVET_THEME_VARIABLES,
 };
+
+const themedThemeIds = new Set<string>(["ac-blue", "ac-glacier", ...Object.keys(THEME_VARIABLES)]);
 
 const themedDocuments = new Set<Document>();
 
@@ -496,7 +602,7 @@ export function applyAchievementCompanionTheme(ownerDocument: Document, theme: A
 export function clearAchievementCompanionThemes(): void {
   for (const ownerDocument of themedDocuments) {
     const theme = ownerDocument.documentElement.dataset["acTheme"];
-    if (theme !== "ac-blue" && theme !== "ac-neon" && theme !== "ac-carbon" && theme !== "ac-ember" && theme !== "ac-glacier" && theme !== "ac-grove" && theme !== "ac-paper" && theme !== "ac-velvet") continue;
+    if (theme === undefined || !themedThemeIds.has(theme)) continue;
     for (const name of Object.keys(AC_NEON_THEME_VARIABLES)) ownerDocument.documentElement.style.removeProperty(name);
     ownerDocument.documentElement.style.removeProperty("--ac-foreground-rgb");
     delete ownerDocument.documentElement.dataset["acTheme"];

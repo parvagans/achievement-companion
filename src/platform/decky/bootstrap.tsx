@@ -141,13 +141,18 @@ interface SteamLibraryScanActionState {
 type ProviderLauncherTone = "connected" | "setup" | "neutral";
 
 const ACHIEVEMENT_COMPANION_THEME_DROPDOWN_OPTIONS = [
-  { data: "ac-blue", label: "AC Blue (Default)" },
-  { data: "ac-carbon", label: "AC Carbon" },
-  { data: "ac-ember", label: "AC Ember" },
-  { data: "ac-grove", label: "AC Grove" },
-  { data: "ac-neon", label: "AC Neon" },
-  { data: "ac-paper", label: "AC Paper" },
-  { data: "ac-velvet", label: "AC Velvet" },
+  { data: "ac-arcade", label: "Arcade" },
+  { data: "ac-blue", label: "Blue (Default)" },
+  { data: "ac-carbon", label: "Carbon" },
+  { data: "ac-ember", label: "Ember" },
+  { data: "ac-grove", label: "Grove" },
+  { data: "ac-neon", label: "Neon" },
+  { data: "ac-onyx", label: "Onyx" },
+  { data: "ac-paper", label: "Paper" },
+  { data: "ac-ra-classic", label: "RA Classic" },
+  { data: "ac-steam", label: "Steam" },
+  { data: "ac-terminal", label: "Terminal" },
+  { data: "ac-velvet", label: "Velvet" },
 ];
 
 const GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_LABELS: Readonly<

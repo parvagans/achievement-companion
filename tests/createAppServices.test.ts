@@ -2003,14 +2003,19 @@ test("achievement companion settings normalize invalid stored values", () => {
   );
 });
 
-test("theme settings default to AC Blue and persist all alternate palettes", () => {
+test("theme settings default to Blue, preserve Neon, and accept Arcade separately", () => {
   assert.equal(DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.theme, "ac-blue");
   assert.equal(parseAchievementCompanionSettings("{}").theme, "ac-blue");
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-neon"}').theme, "ac-neon");
+  assert.equal(parseAchievementCompanionSettings('{"theme":"ac-arcade"}').theme, "ac-arcade");
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-carbon"}').theme, "ac-carbon");
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-ember"}').theme, "ac-ember");
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-grove"}').theme, "ac-grove");
+  assert.equal(parseAchievementCompanionSettings('{"theme":"ac-onyx"}').theme, "ac-onyx");
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-paper"}').theme, "ac-paper");
+  assert.equal(parseAchievementCompanionSettings('{"theme":"ac-ra-classic"}').theme, "ac-ra-classic");
+  assert.equal(parseAchievementCompanionSettings('{"theme":"ac-steam"}').theme, "ac-steam");
+  assert.equal(parseAchievementCompanionSettings('{"theme":"ac-terminal"}').theme, "ac-terminal");
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-velvet"}').theme, "ac-velvet");
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-glacier"}').theme, "ac-blue");
   assert.equal(parseAchievementCompanionSettings('{"theme":"unknown"}').theme, "ac-blue");
@@ -3522,11 +3527,14 @@ test("compact provider menu nests native theme and badge settings under a sessio
   const themeDropdownSource = source.slice(source.indexOf("function ThemeDropdown"), source.indexOf("function getGamePageBadgeLabelStyle"));
   assert.doesNotMatch(themeDropdownSource, /description=/u);
   assert.match(themeDropdownSource, /childrenContainerWidth="max"/u);
-  assert.match(source, /\{ data: "ac-carbon", label: "AC Carbon" \}/u);
-  assert.match(source, /\{ data: "ac-ember", label: "AC Ember" \}/u);
-  assert.match(source, /\{ data: "ac-grove", label: "AC Grove" \}/u);
-  assert.match(source, /\{ data: "ac-paper", label: "AC Paper" \}/u);
-  assert.match(source, /\{ data: "ac-blue", label: "AC Blue \(Default\)" \}/u);
+  for (const [id, label] of [
+    ["ac-arcade", "Arcade"], ["ac-blue", "Blue (Default)"], ["ac-carbon", "Carbon"],
+    ["ac-ember", "Ember"], ["ac-grove", "Grove"], ["ac-neon", "Neon"], ["ac-onyx", "Onyx"],
+    ["ac-paper", "Paper"], ["ac-ra-classic", "RA Classic"], ["ac-steam", "Steam"],
+    ["ac-terminal", "Terminal"], ["ac-velvet", "Velvet"],
+  ]) {
+    assert.match(source, new RegExp(`\\{ data: "${id}", label: "${label.replace(/[()]/gu, "\\$&")}" \\}`, "u"));
+  }
   assert.match(source, /function getPluginSettingsContentCardStyle\(\)[\s\S]*steamRecipes\.card\("compact"\)/u);
   assert.match(source, /function getPluginSettingsDisclosureStyle\([\s\S]*expanded: boolean[\s\S]*borderBottomWidth: expanded \? 0 : 1[\s\S]*borderBottomLeftRadius: expanded \? 0 : cardStyle\.borderRadius[\s\S]*borderBottomRightRadius: expanded \? 0 : cardStyle\.borderRadius/u);
   assert.match(source, /getPluginSettingsDisclosureStyle\(focused, expanded\)/u);
