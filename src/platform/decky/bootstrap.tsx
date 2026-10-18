@@ -14,6 +14,7 @@ import {
   DropdownItem,
   Field,
   Focusable,
+  Navigation as DeckyNavigation,
   NavEntryPositionPreferences,
   type FocusableProps,
   PanelSection,
@@ -133,12 +134,17 @@ import {
 import { steamRecipes, steamTheme } from "./steam-theme";
 import { openDeckyWhatsNewModal } from "./decky-whats-new-modal";
 import { getDeckyGamePageAchievementBadgeColorPreview } from "./decky-game-page-achievement-badge-colors";
+import githubInvertocatWhiteUrl from "./assets/brand/github-invertocat-white.svg";
+import kofiSymbolUrl from "./assets/brand/kofi-symbol.svg";
 interface SteamLibraryScanActionState {
   readonly status: "idle" | "scanning" | "success" | "error";
   readonly message?: string;
 }
 
 type ProviderLauncherTone = "connected" | "setup" | "neutral";
+
+const ACHIEVEMENT_COMPANION_GITHUB_URL = "https://github.com/parvagans/achievement-companion";
+const ACHIEVEMENT_COMPANION_KOFI_URL = "https://ko-fi.com/parvagans";
 
 const ACHIEVEMENT_COMPANION_THEME_DROPDOWN_OPTIONS = [
   { data: "ac-arcade", label: "Arcade" },
@@ -784,6 +790,98 @@ function ProviderLauncherCard({
         ) : null}
       </span>
       <span aria-hidden="true" style={getChooserProviderCardChevronStyle(tone)}><ChooserProviderCardChevronGlyph /></span>
+    </Focusable>
+  );
+}
+
+function QamSupportAction({
+  label,
+  url,
+  iconSrc,
+  iconStyle,
+}: {
+  readonly label: string;
+  readonly url: string;
+  readonly iconSrc: string;
+  readonly iconStyle: CSSProperties;
+}): JSX.Element {
+  const [focused, setFocused] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const openExternalUrl = (): void => DeckyNavigation.NavigateToExternalWeb(url);
+
+  return (
+    <Focusable
+      data-ac-qam-support-action={label}
+      noFocusRing
+      role="link"
+      tabIndex={0}
+      aria-label={label}
+      onActivate={openExternalUrl}
+      onClick={openExternalUrl}
+      onFocus={(event) => {
+        setFocused(true);
+        scrollFocusedLauncherElementIntoView(event);
+      }}
+      onGamepadFocus={(event) => {
+        setFocused(true);
+        scrollFocusedLauncherGamepadElementIntoView(event);
+      }}
+      onBlur={() => setFocused(false)}
+      onGamepadBlur={() => setFocused(false)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        flex: "1 1 0",
+        minWidth: 0,
+        minHeight: 38,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: steamTheme.space.sm,
+        padding: "6px 10px",
+        boxSizing: "border-box",
+        border: `1px solid ${focused ? steamTheme.focus.border : hovered ? steamTheme.color.borderStrong : steamTheme.color.borderSubtle}`,
+        borderRadius: steamTheme.radius.pill,
+        background: focused
+          ? steamTheme.surface.focusedContentStat
+          : hovered ? steamTheme.surface.selectedContentStat : steamTheme.surface.contentStat,
+        boxShadow: focused ? steamTheme.focus.shadow : undefined,
+        color: steamTheme.color.textPrimary,
+        fontSize: steamTheme.type.compact.body,
+        fontWeight: steamTheme.type.weight.medium,
+        lineHeight: 1.15,
+        cursor: "pointer",
+      }}
+    >
+      <img alt="" aria-hidden="true" src={iconSrc} style={iconStyle} />
+      <span>{label}</span>
+    </Focusable>
+  );
+}
+
+function QamSupportActions(): JSX.Element {
+  return (
+    <Focusable
+      data-ac-qam-support-actions="true"
+      flow-children="left-right"
+      noFocusRing
+      tabIndex={-1}
+      role="group"
+      aria-label="Support Achievement Companion"
+      style={{ display: "flex", alignItems: "center", gap: steamTheme.space.sm, width: "100%", minWidth: 0 }}
+    >
+      <QamSupportAction
+        label="Star on GitHub"
+        url={ACHIEVEMENT_COMPANION_GITHUB_URL}
+        iconSrc={githubInvertocatWhiteUrl}
+        iconStyle={{ width: 19, height: 19, flexShrink: 0, objectFit: "contain" }}
+      />
+      <QamSupportAction
+        label="Support on Ko-fi"
+        url={ACHIEVEMENT_COMPANION_KOFI_URL}
+        iconSrc={kofiSymbolUrl}
+        iconStyle={{ width: 22, height: 18, flexShrink: 0, objectFit: "contain" }}
+      />
     </Focusable>
   );
 }
@@ -1857,14 +1955,20 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                 <div style={{ marginTop: -steamTheme.space.md }}>
                   <PanelSection>
                     <PanelSectionRow>
-                      <ProviderLauncherCard
-                        providerId="news"
-                        iconSrc={undefined}
-                        label="Whats New"
-                        ariaLabel="Open Whats New"
-                        onFocused={() => setProviderListHasReceivedFocus(true)}
-                        onClick={openDeckyWhatsNewModal}
-                      />
+                      <div
+                        data-ac-qam-news-support-stack="true"
+                        style={getChooserProviderListStyle()}
+                      >
+                        <ProviderLauncherCard
+                          providerId="news"
+                          iconSrc={undefined}
+                          label="Whats New"
+                          ariaLabel="Open Whats New"
+                          onFocused={() => setProviderListHasReceivedFocus(true)}
+                          onClick={openDeckyWhatsNewModal}
+                        />
+                        <QamSupportActions />
+                      </div>
                     </PanelSectionRow>
                   </PanelSection>
                 </div>

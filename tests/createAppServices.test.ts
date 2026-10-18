@@ -3541,6 +3541,16 @@ test("compact provider menu nests native theme and badge settings under a sessio
   assert.match(source, /data-achievement-companion-plugin-settings-card="true"/u);
   assert.match(
     source,
+    /data-ac-qam-news-support-stack="true"[\s\S]*style=\{getChooserProviderListStyle\(\)\}[\s\S]*label="Whats New"[\s\S]*<QamSupportActions \/>[\s\S]*<\/div>/u,
+  );
+  assert.match(source, /function getChooserProviderListStyle\(\)[\s\S]*gap: 10/u);
+  assert.match(source, /data-ac-qam-support-actions="true"[\s\S]*flow-children="left-right"/u);
+  assert.match(source, /label="Star on GitHub"[\s\S]*label="Support on Ko-fi"/u);
+  assert.match(source, /https:\/\/github\.com\/parvagans\/achievement-companion/u);
+  assert.match(source, /https:\/\/ko-fi\.com\/parvagans/u);
+  assert.match(source, /DeckyNavigation\.NavigateToExternalWeb\(url\)/u);
+  assert.match(
+    source,
     /function getGamePageBadgeLabelStyle\(disabled = false\)[\s\S]*steamTheme\.color\.textPrimary/u,
   );
   assert.match(source, /pluginSettingsExpanded \? \([\s\S]*gamePageBadgeSettingsExpanded \? \(<[\s\S]*Show game page badge/u);
