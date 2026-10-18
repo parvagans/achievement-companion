@@ -18,6 +18,7 @@ import type {
 } from "./decky-compact-achievement-model";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import { raRecipes, raTheme } from "./ra-theme";
+import { achievementCompanionQamTheme } from "./decky-qam-theme";
 import { DeckySteamHuntersIcon } from "./decky-steam-icons";
 import calendarIconUrl from "./assets/calendar.svg";
 import clockIconUrl from "./assets/clock.svg";
@@ -228,7 +229,7 @@ function getGamePlatformStyle(isSteam = false): CSSProperties {
 function getChevronStyle(): CSSProperties {
   return {
     width: 18, height: 18,
-    filter: "brightness(0) saturate(100%) invert(65%) sepia(90%) saturate(1150%) hue-rotate(161deg) brightness(101%) contrast(101%)",
+    filter: achievementCompanionQamTheme.decorative.iconFilter,
   };
 }
 

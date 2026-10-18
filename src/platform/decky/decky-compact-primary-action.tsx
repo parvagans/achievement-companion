@@ -11,7 +11,7 @@ export function DeckyCompactPrimaryActionContent({ children }: { readonly childr
     width: 16,
     height: 16,
     flex: "0 0 16px",
-    filter: "brightness(0) saturate(100%) invert(73%) sepia(60%) saturate(963%) hue-rotate(164deg) brightness(101%) contrast(95%)",
+    filter: qamTheme.decorative.iconFilter,
   };
   return (
     <span style={{ display: "grid", gridTemplateColumns: "16px minmax(0, 1fr) 16px", alignItems: "center", gap: 8, width: "100%", minWidth: 0 }}>

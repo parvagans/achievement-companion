@@ -47,6 +47,12 @@ const fullScreenAchievementRowSource = readFileSync(
   "utf8",
 );
 
+test("Steam and RA QAM game titles center within their game pages", () => {
+  const steamGameSource = readFileSync("src/platform/decky/decky-steam-compact-game-overview.tsx", "utf8");
+  assert.match(steamGameSource, /function getTitleStyle[\s\S]*?textAlign: "center"/u);
+  assert.equal(raRecipes.compactGame.title.textAlign, "center");
+});
+
 test("Steam compact and full-screen achievement rows share the same locked status icon", () => {
   assert.match(compactAchievementListSource, /DeckySteamAchievementStatusIcon isUnlocked=\{false\} size=\{18\}/u);
   assert.match(fullScreenAchievementRowSource, /DeckySteamAchievementStatusIcon isUnlocked=\{isUnlocked\}/u);
@@ -485,6 +491,55 @@ test("achievement-list destination and page state preserve deterministic return 
     returnFromDeckyCompactDestination(destination);
     assert.deepStrictEqual(readDeckyCompactNavigation(), getDeckyCompactParentDestination(destination));
   }
+});
+
+test("RA current-game View achievements opens the QAM list and returns to the dashboard", () => {
+  const profileSource = readFileSync("src/platform/decky/decky-retroachievements-compact-profile.tsx", "utf8");
+  const bootstrapSource = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
+  assert.ok(profileSource.includes('label={`View achievements for ${game.title}`} primary onActivate={() => onOpenGameAchievements(game)}'));
+  assert.match(bootstrapSource, /onOpenGameAchievements=\{\(providerId, gameId, gameTitle\) => \{[\s\S]*?kind: "achievement-list",[\s\S]*?parent: "provider-dashboard"/u);
+
+  resetDeckyCompactNavigationForTests();
+  const list = {
+    kind: "achievement-list" as const,
+    providerId: "retroachievements" as const,
+    gameId: "759",
+    gameTitle: "Test Game",
+    parent: "provider-dashboard" as const,
+  };
+  setDeckyCompactNavigation(list);
+  assert.deepEqual(getDeckyCompactParentDestination(list), {
+    kind: "provider-dashboard",
+    providerId: "retroachievements",
+  });
+
+  const achievement = {
+    kind: "achievement" as const,
+    providerId: "retroachievements" as const,
+    gameId: "759",
+    gameTitle: "Test Game",
+    achievementId: "123",
+    parent: "achievement-list" as const,
+    achievementListParent: "provider-dashboard" as const,
+  };
+  assert.deepEqual(getDeckyCompactParentDestination(achievement), list);
+  const game = {
+    kind: "game" as const,
+    providerId: "retroachievements" as const,
+    gameId: "759",
+    gameTitle: "Test Game",
+    returnToAchievement: {
+      achievementId: "123",
+      parent: "achievement-list" as const,
+      achievementListParent: "provider-dashboard" as const,
+    },
+  };
+  assert.deepEqual(getDeckyCompactParentDestination(game), achievement);
+  returnFromDeckyCompactDestination(list);
+  assert.deepEqual(readDeckyCompactNavigation(), {
+    kind: "provider-dashboard",
+    providerId: "retroachievements",
+  });
 });
 
 test("View Achievements checkpoints remain scoped to the selected game", () => {

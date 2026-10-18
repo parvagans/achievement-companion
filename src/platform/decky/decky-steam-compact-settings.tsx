@@ -160,7 +160,7 @@ function getCountPickerStyle(isFocused: boolean, isExpanded: boolean): CSSProper
       : isExpanded
         ? `${steamTheme.surface.selected}, ${steamTheme.surface.contentStat}`
         : steamTheme.surface.contentStat,
-    boxShadow: isFocused ? "inset 0 0 0 1px rgba(54, 185, 255, 0.48)" : "none",
+    boxShadow: isFocused ? steamTheme.focus.insetShadow : "none",
     boxSizing: "border-box",
     color: steamTheme.color.textPrimary,
     cursor: "pointer",

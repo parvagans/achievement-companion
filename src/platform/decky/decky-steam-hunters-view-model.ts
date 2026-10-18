@@ -37,6 +37,7 @@ export interface DeckySteamHuntersRarityDistribution {
 
 export interface DeckySteamHuntersGameViewModel {
   readonly enrichment: SteamHuntersGameEnrichment;
+  readonly achievementSetMismatch?: { readonly steamCount: number; readonly steamHuntersCount: number };
   readonly progressPoints?: DeckySteamHuntersProgressPoints;
   readonly completionHealth: DeckySteamHuntersCompletionHealth;
   readonly communitySummary?: DeckySteamHuntersCommunitySummary;
@@ -136,6 +137,7 @@ function buildRarityDistribution(args: {
 export function buildDeckySteamHuntersGameViewModel(args: {
   readonly achievements: readonly NormalizedAchievement[];
   readonly enrichment: SteamHuntersGameEnrichment | undefined;
+  readonly totalAchievementCount?: number | undefined;
 }): DeckySteamHuntersGameViewModel | undefined {
   const enrichment = args.enrichment;
   if (enrichment === undefined) {
@@ -152,11 +154,17 @@ export function buildDeckySteamHuntersGameViewModel(args: {
     : undefined;
   const progressPoints = buildProgressPoints({ achievements: args.achievements, enrichment, hasCompleteSet });
   const app = enrichment.app;
+  const steamCount = args.totalAchievementCount ?? args.achievements.length;
+  const achievementSetMismatch = app.achievementCount !== undefined &&
+    steamCount > 0 && app.achievementCount !== steamCount
+    ? { steamCount, steamHuntersCount: app.achievementCount }
+    : undefined;
   const communitySummary = buildCommunitySummary(app);
   const rarityDistribution = buildRarityDistribution({ achievements: matchedAchievements, hasCompleteSet });
 
   return {
     enrichment,
+    ...(achievementSetMismatch !== undefined ? { achievementSetMismatch } : {}),
     ...(progressPoints !== undefined ? { progressPoints } : {}),
     ...(communitySummary !== undefined ? { communitySummary } : {}),
     ...(rarityDistribution !== undefined ? { rarityDistribution } : {}),

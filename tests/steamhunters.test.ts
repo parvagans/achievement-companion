@@ -380,6 +380,19 @@ test("SteamHunters service deduplicates concurrent requests, caches metadata, an
     },
   });
   assert.equal(await unavailable.loadGameData(1672970), undefined);
+
+  const partial = createSteamHuntersService({
+    client: {
+      loadApp: async () => ({ appId: 1672970, achievementCount: 1 }),
+      loadAchievements: async () => [{ apiName: "API_ONE" }],
+      loadGroups: async () => { throw new Error("groups timed out"); },
+      loadProfile: async () => ({}),
+    },
+  });
+  const partialData = await partial.loadGameData(1672970);
+  assert.equal(partialData?.achievementsAvailable, true);
+  assert.equal(partialData?.groupsAvailable, false);
+  assert.deepEqual(partialData?.groups, []);
 });
 
 test("SteamHunters composition preserves Steam truth and enriches only exact matches", () => {
@@ -543,6 +556,12 @@ test("SteamHunters full-screen view model shows only complete-set points and hea
     veryRare: 1,
     total: 2,
   });
+  assert.equal(model?.achievementSetMismatch, undefined);
+  assert.deepEqual(buildDeckySteamHuntersGameViewModel({
+    achievements: snapshot.achievements,
+    enrichment: composed.steamHunters,
+    totalAchievementCount: 3,
+  })?.achievementSetMismatch, { steamCount: 3, steamHuntersCount: 2 });
 
   const partial = composeSteamGameDetailWithSteamHunters(snapshot, {
     app: { appId: 1672970, achievementCount: 2, points: 50, tags: [] },

@@ -11,6 +11,7 @@ import { useDeckySettings } from "./decky-settings";
 import { buildRetroAchievementsSystemsOverview } from "./decky-retroachievements-systems-data";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 import { raRecipes, raTheme } from "./ra-theme";
+import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 
 type Overview = ReturnType<typeof buildRetroAchievementsSystemsOverview>;
 
@@ -203,7 +204,7 @@ export function DeckyRetroAchievementsSystemsComingSoon({ isActive }: { readonly
         style={{ gridArea: "preview", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 18, minWidth: 0, minHeight: 0, outline: "none", textAlign: "center" }}
       >
         <DeckyLoadingBrandMark providerId="retroachievements" />
-        <h1 style={{ margin: 0, color: raTheme.color.textPrimary, fontSize: 28, fontWeight: 800, letterSpacing: "0.08em", lineHeight: 1.1, textShadow: "0 0 22px rgba(8, 213, 245, 0.24)" }}>MORE COMING SOON...</h1>
+        <h1 style={{ margin: 0, color: raTheme.color.textPrimary, fontSize: 28, fontWeight: 800, letterSpacing: "0.08em", lineHeight: 1.1, textShadow: qamTheme.decorative.accentTextGlow }}>MORE COMING SOON...</h1>
       </Focusable>
     </main>
   );

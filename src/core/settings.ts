@@ -26,7 +26,7 @@ export type CompletionProgressFilter = "all" | "unfinished" | "beaten" | "master
 export type UpdateSourceKind = "production" | "local";
 export type RetroAchievementsRankDisplay = "site" | "casual";
 export type RetroAchievementsAchievementMode = "hardcore" | "softcore" | "both";
-export const ACHIEVEMENT_COMPANION_THEME_OPTIONS = ["ac-blue", "ac-neon"] as const;
+export const ACHIEVEMENT_COMPANION_THEME_OPTIONS = ["ac-blue", "ac-carbon", "ac-ember", "ac-grove", "ac-neon", "ac-paper"] as const;
 export type AchievementCompanionTheme = (typeof ACHIEVEMENT_COMPANION_THEME_OPTIONS)[number];
 
 export const GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS = [
@@ -133,7 +133,9 @@ function normalizeCount(value: unknown, fallback: AchievementCompanionCount): Ac
 }
 
 function normalizeTheme(value: unknown): AchievementCompanionTheme {
-  return value === "ac-neon" ? "ac-neon" : "ac-blue";
+  return ACHIEVEMENT_COMPANION_THEME_OPTIONS.includes(value as AchievementCompanionTheme)
+    ? value as AchievementCompanionTheme
+    : "ac-blue";
 }
 
 function normalizeActivityCalendarWeeks(value: unknown, fallback: ActivityCalendarWeeks): ActivityCalendarWeeks {

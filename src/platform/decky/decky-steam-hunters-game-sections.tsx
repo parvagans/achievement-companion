@@ -123,7 +123,7 @@ function getCommunityInsightMetricStyle(): CSSProperties {
     minHeight: 84,
     padding: "10px 8px",
     borderRadius: 14,
-    border: "1px solid rgba(68, 184, 255, 0.22)",
+    border: `1px solid ${steamTheme.color.borderSubtle}`,
     background: steamTheme.surface.contentStat,
     boxSizing: "border-box",
     textAlign: "center",
@@ -131,7 +131,7 @@ function getCommunityInsightMetricStyle(): CSSProperties {
 }
 
 function getCommunityInsightLabelStyle(): CSSProperties {
-  return { color: "rgba(166, 211, 255, 0.96)", fontSize: "0.88em", fontWeight: 700, lineHeight: 1.15 };
+  return { color: steamTheme.color.accent, fontSize: "0.88em", fontWeight: 700, lineHeight: 1.15 };
 }
 
 function getCommunityInsightValueStyle(): CSSProperties {
@@ -177,7 +177,7 @@ function CommunityRarityDistribution({
 }): JSX.Element {
   const entries = [
     { key: "common", label: "Common", count: distribution.common, color: "#46ed91" },
-    { key: "uncommon", label: "Uncommon", count: distribution.uncommon, color: "#3ab7ff" },
+    { key: "uncommon", label: "Uncommon", count: distribution.uncommon, color: steamTheme.color.accent },
     { key: "rare", label: "Rare", count: distribution.rare, color: "#a855f7" },
     { key: "very-rare", label: "Very Rare", count: distribution.veryRare, color: "#f35bd5" },
   ];
@@ -187,7 +187,7 @@ function CommunityRarityDistribution({
       title={<span style={getCommunityInsightsTitleStyle()}>Achievement Rarity Distribution</span>}
       focusable={false}
       headerAlignment="left"
-      style={{ gap: 14, padding: 14, borderColor: "rgba(68, 184, 255, 0.2)", background: steamTheme.surface.contentCard }}
+      style={{ gap: 14, padding: 14, borderColor: steamTheme.color.borderSubtle, background: steamTheme.surface.contentCard }}
     >
       <div aria-label="Achievement rarity distribution" style={getRarityBarStyle()}>
         {entries.map((entry) => (
@@ -197,7 +197,7 @@ function CommunityRarityDistribution({
               style={{
                 flex: `${entry.count} 1 0`,
                 minWidth: 0,
-                background: `linear-gradient(90deg, ${entry.color}, ${entry.color}c7)`,
+                background: entry.key === "uncommon" ? steamTheme.surface.progressFill : `linear-gradient(90deg, ${entry.color}, ${entry.color}c7)`,
                 boxShadow: "inset -3px 0 0 rgba(5, 20, 35, 0.76)",
               }}
             />
@@ -246,6 +246,10 @@ export function DeckySteamHuntersCommunitySection({
   if (!model.hasCommunityStats || summary === undefined) {
     return null;
   }
+  const mismatch = model.achievementSetMismatch;
+  const cachedSetLabel = mismatch === undefined
+    ? undefined
+    : `Cached SteamHunters set: ${mismatch.steamHuntersCount} achievements; Steam now has ${mismatch.steamCount}.`;
 
   if (!compact) {
     const communityMetrics = [
@@ -263,9 +267,10 @@ export function DeckySteamHuntersCommunitySection({
           title={<span style={getCommunityInsightsTitleStyle()}>Community Insights (SteamHunters)</span>}
           focusable={sectionEntryFocusTarget}
           headerAlignment="left"
-          style={{ gap: 12, padding: 14, borderColor: "rgba(68, 184, 255, 0.2)", background: steamTheme.surface.contentCard }}
+          style={{ gap: 12, padding: 14, borderColor: steamTheme.color.borderSubtle, background: steamTheme.surface.contentCard }}
           {...(sectionEntryFocusTarget ? { focusTargetId: STEAM_HUNTERS_COMMUNITY_SECTION_FOCUS_TARGET } : {})}
         >
+          {cachedSetLabel !== undefined ? <div style={{ color: steamTheme.color.textSecondary, fontSize: "0.82em" }}>{cachedSetLabel}</div> : null}
           <div style={getCommunityInsightsGridStyle()}>
             {communityMetrics.map((metric) => <CommunityInsightMetric key={metric.label} {...metric} />)}
           </div>
@@ -277,7 +282,7 @@ export function DeckySteamHuntersCommunitySection({
 
   return (
     <DeckyFullScreenGameSpotlightCard
-      title={<SteamHuntersCardTitle title="Community" />}
+      title={<SteamHuntersCardTitle title={mismatch === undefined ? "Community" : "Community (cached set)"} />}
       focusable={sectionEntryFocusTarget}
       {...(sectionEntryFocusTarget
         ? { focusTargetId: STEAM_HUNTERS_COMMUNITY_SECTION_FOCUS_TARGET }

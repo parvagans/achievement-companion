@@ -24,6 +24,7 @@ import type {
 import { hasMeaningfulSteamHuntersProfile, type SteamHuntersProfile } from "../../providers/steamhunters";
 import { useDeckySettings } from "./decky-settings";
 import { steamRecipes, steamTheme } from "./steam-theme";
+import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import calendarIconUrl from "./assets/calendar.svg";
 import clockIconUrl from "./assets/clock.svg";
@@ -324,8 +325,8 @@ function getAvatarFrameStyle(): CSSProperties {
     border: `3px solid ${steamTheme.color.accent}`,
     borderRadius: 999,
     overflow: "hidden",
-    background: "linear-gradient(145deg, rgba(54, 185, 255, 0.22), rgba(5, 22, 34, 0.96))",
-    boxShadow: "0 0 18px rgba(54, 185, 255, 0.26)",
+    background: qamTheme.decorative.avatarBackground,
+    boxShadow: qamTheme.decorative.avatarGlow,
     boxSizing: "border-box",
   };
 }
@@ -674,7 +675,7 @@ function SteamInsightsPanel({ steamHuntersProfile }: {
       <div style={getSteamInsightsMetricsStyle()}>
         <div style={getMetricGridStyle()}>
           <StatusMetricTile
-            icon={<DeckySteamHuntersIcon color="#36b9ff" size={23} />}
+            icon={<DeckySteamHuntersIcon color={steamTheme.color.accent} size={23} />}
             label="Points"
             value={formatCount(steamHuntersProfile?.points)}
           />

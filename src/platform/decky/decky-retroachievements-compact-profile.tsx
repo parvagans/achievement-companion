@@ -70,6 +70,7 @@ export interface DeckyRetroAchievementsCompactProfileProps {
   readonly onOpenCompletionProgress: () => void;
   readonly onOpenAchievementDetail: (target: CompactAchievementTarget) => void;
   readonly onOpenGameDetail: (game: RecentlyPlayedGame) => void;
+  readonly onOpenGameAchievements: (game: RecentlyPlayedGame) => void;
   readonly onUpdateCredentials?: () => void;
   readonly onCancel: () => void;
 }
@@ -537,7 +538,7 @@ function CurrentGameActivity({
   richPresence,
   richPresenceMsgDate,
   mode,
-  onOpenGameDetail,
+  onOpenGameAchievements,
   onCancel,
   targetProps,
 }: {
@@ -545,7 +546,7 @@ function CurrentGameActivity({
   readonly richPresence: string | undefined;
   readonly richPresenceMsgDate: number | undefined;
   readonly mode: Parameters<typeof getRetroAchievementsPlayedGameProgress>[1];
-  readonly onOpenGameDetail: (game: RecentlyPlayedGame) => void;
+  readonly onOpenGameAchievements: (game: RecentlyPlayedGame) => void;
   readonly onCancel: () => void;
   readonly targetProps: CompactFocusTargetProps;
 }): JSX.Element | null {
@@ -571,7 +572,7 @@ function CurrentGameActivity({
       {richPresence !== undefined ? <div style={raRecipes.compactProfile.gameActivityPresence}>{richPresence}</div> : null}
       {progressText !== undefined ? <div style={raRecipes.compactProfile.gameActivityMeta}>{progressText}</div> : null}
       {percent !== undefined ? <DeckyCompletionProgressBar compact percent={percent} caption={`${percent}% complete`} /> : null}
-      <CompactAction label={`View achievements for ${game.title}`} primary onActivate={() => onOpenGameDetail(game)} onCancel={onCancel} targetProps={targetProps} style={{ minHeight: 42, padding: "10px 12px" }}>
+      <CompactAction label={`View achievements for ${game.title}`} primary onActivate={() => onOpenGameAchievements(game)} onCancel={onCancel} targetProps={targetProps} style={{ minHeight: 42, padding: "10px 12px" }}>
         <span style={{ flex: "1 1 auto", fontSize: 12, fontWeight: 800, textAlign: "center" }}>View achievements</span>
       </CompactAction>
     </div>
@@ -676,6 +677,7 @@ export function DeckyRetroAchievementsCompactProfile({
   onOpenCompletionProgress,
   onOpenAchievementDetail,
   onOpenGameDetail,
+  onOpenGameAchievements,
   onUpdateCredentials,
   onCancel,
 }: DeckyRetroAchievementsCompactProfileProps): JSX.Element {
@@ -805,7 +807,7 @@ export function DeckyRetroAchievementsCompactProfile({
         richPresence={richPresence}
         richPresenceMsgDate={profile.richPresenceMsgDate}
         mode={settings.retroAchievementsAchievementMode}
-        onOpenGameDetail={onOpenGameDetail}
+        onOpenGameAchievements={onOpenGameAchievements}
         onCancel={onCancel}
         targetProps={targetProps({ kind: "current-game" })}
       />

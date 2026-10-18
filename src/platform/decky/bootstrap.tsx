@@ -25,6 +25,7 @@ import {
   GAME_PAGE_ACHIEVEMENT_BADGE_COLOR_OPTIONS,
   GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS,
   GAME_PAGE_ACHIEVEMENT_BADGE_SIZE_OPTIONS,
+  ACHIEVEMENT_COMPANION_THEME_OPTIONS,
   type AchievementCompanionTheme,
   type GamePageAchievementBadgeColor,
   type GamePageAchievementBadgeColors,
@@ -139,8 +140,12 @@ interface SteamLibraryScanActionState {
 type ProviderLauncherTone = "connected" | "setup" | "neutral";
 
 const ACHIEVEMENT_COMPANION_THEME_DROPDOWN_OPTIONS = [
-  { data: "ac-blue", label: "AC Blue" },
+  { data: "ac-blue", label: "AC Blue (Default)" },
+  { data: "ac-carbon", label: "AC Carbon" },
+  { data: "ac-ember", label: "AC Ember" },
+  { data: "ac-grove", label: "AC Grove" },
   { data: "ac-neon", label: "AC Neon" },
+  { data: "ac-paper", label: "AC Paper" },
 ];
 
 const GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_LABELS: Readonly<
@@ -555,8 +560,8 @@ function ThemeDropdown({ selectedTheme }: { readonly selectedTheme: AchievementC
       rgOptions={ACHIEVEMENT_COMPANION_THEME_DROPDOWN_OPTIONS}
       selectedOption={selectedTheme}
       onChange={(option) => {
-        if (option.data !== "ac-blue" && option.data !== "ac-neon") return;
-        void saveDeckySettings({ ...readDeckySettings(), theme: option.data });
+        if (!ACHIEVEMENT_COMPANION_THEME_OPTIONS.includes(option.data as AchievementCompanionTheme)) return;
+        void saveDeckySettings({ ...readDeckySettings(), theme: option.data as AchievementCompanionTheme });
       }}
     />
   );
@@ -803,6 +808,7 @@ function isRenderableGameDetailState(
 function DashboardScreen({
   providerId,
   onOpenGameDetail,
+  onOpenGameAchievements,
   onOpenAchievementDetail,
   onOpenProfile,
   onOpenAchievementHistory,
@@ -816,6 +822,7 @@ function DashboardScreen({
 }: {
   readonly providerId: ProviderId;
   readonly onOpenGameDetail: (providerId: ProviderId, gameId: string, gameTitle: string) => void;
+  readonly onOpenGameAchievements: (providerId: ProviderId, gameId: string, gameTitle: string) => void;
   readonly onOpenAchievementDetail: (target: CompactAchievementTarget) => void;
   readonly onOpenProfile: (providerId: string) => void;
   readonly onOpenAchievementHistory: (providerId: string) => void;
@@ -1103,6 +1110,7 @@ function DashboardScreen({
         : {})}
       {...(providerId === "steam" ? { steamConnectionState, onUpdateSteamCredentials: onOpenSettings } : {})}
       onOpenGameDetail={onOpenGameDetail}
+      onOpenGameAchievements={onOpenGameAchievements}
       onOpenAchievementDetail={onOpenAchievementDetail}
       onOpenProfile={onOpenProfile}
       onOpenAchievementHistory={onOpenAchievementHistory}
@@ -1537,6 +1545,9 @@ function DeckyBootstrapStateBridge(): JSX.Element {
               returnToAchievement: {
                 achievementId: selectedAchievement.achievementId,
                 parent: selectedAchievement.parent,
+                ...(selectedAchievement.achievementListParent !== undefined
+                  ? { achievementListParent: selectedAchievement.achievementListParent }
+                  : {}),
               },
             });
           }}
@@ -1563,6 +1574,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
               gameTitle: selectedAchievementList.gameTitle,
               achievementId,
               parent: "achievement-list",
+              achievementListParent: selectedAchievementList.parent,
             });
           }}
         />
@@ -1847,6 +1859,19 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                     providerId,
                     gameId,
                     gameTitle,
+                  });
+                }}
+                onOpenGameAchievements={(providerId, gameId, gameTitle) => {
+                  writeDeckyCompactAchievementPageState(providerId, gameId, {
+                    filter: "all", modeFilter: "all", visibleCount: 12,
+                    focusedAchievementId: undefined, scrollTop: 0,
+                  });
+                  setDeckyCompactNavigation({
+                    kind: "achievement-list",
+                    providerId,
+                    gameId,
+                    gameTitle,
+                    parent: "provider-dashboard",
                   });
                 }}
                 onOpenAchievementDetail={(target) => {

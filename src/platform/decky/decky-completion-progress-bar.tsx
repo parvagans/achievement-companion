@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, type CSSProperties, type JSX } from "react";
 import type { GameDetailSnapshot } from "@core/domain";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import { raRecipes, raTheme } from "./ra-theme";
+import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 
 type GameSummary = GameDetailSnapshot["game"]["summary"];
 export type DeckyCompletionProgressBarTone =
@@ -126,7 +127,7 @@ export function getCompletionBarFillStyle(
       ? `rgba(242, 216, 127, ${glowAlpha})`
       : tone === "retroachievements-beaten"
         ? `rgba(230, 235, 242, ${glowAlpha})`
-        : `rgba(54, 185, 255, ${glowAlpha})`;
+        : `rgba(${qamTheme.decorative.progressGlowRgb}, ${glowAlpha})`;
 
   return {
     width: `${normalizedPercent}%`,

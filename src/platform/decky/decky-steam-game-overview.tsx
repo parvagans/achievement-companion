@@ -107,10 +107,12 @@ function SteamGameIdentityPanel({
   game,
   refreshedAt,
   steamHuntersEnrichment,
+  achievementSetMismatch,
 }: {
   readonly game: SteamGame;
   readonly refreshedAt: number | undefined;
   readonly steamHuntersEnrichment: SteamHuntersGameEnrichment | undefined;
+  readonly achievementSetMismatch?: { readonly steamCount: number; readonly steamHuntersCount: number } | undefined;
 }): JSX.Element {
   const artworkUrl = getSteamFullscreenGameArtworkUrl(game);
   const hunterBannerUrl = getSteamHuntersBaseGameBannerUrl(steamHuntersEnrichment);
@@ -152,6 +154,11 @@ function SteamGameIdentityPanel({
         {game.playtimeDeckForeverMinutes !== undefined ? <><span>Total Deck hours</span><span style={getMetadataValueStyle()}>{formatSteamPlaytimeMinutes(game.playtimeDeckForeverMinutes)}</span></> : null}
       </div>
       {refreshTime !== undefined ? <div style={{ marginTop: "auto", color: "#86a7bb", fontSize: "0.7em", textAlign: "center" }}>{`Game data refreshed ${refreshTime}`}</div> : null}
+      {achievementSetMismatch !== undefined ? (
+        <div style={{ color: steamTheme.color.textSecondary, fontSize: "0.68em", textAlign: "center" }}>
+          {`SteamHunters data is for ${achievementSetMismatch.steamHuntersCount} achievements; Steam has ${achievementSetMismatch.steamCount}.`}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -175,7 +182,7 @@ export function DeckySteamGameOverview({
   updatedLabel,
   refreshedAt,
 }: DeckySteamGameOverviewProps): JSX.Element {
-  const steamHunters = buildDeckySteamHuntersGameViewModel({ achievements, enrichment: steamHuntersEnrichment });
+  const steamHunters = buildDeckySteamHuntersGameViewModel({ achievements, enrichment: steamHuntersEnrichment, totalAchievementCount });
   const remainingCount = game.summary.totalCount === undefined ? undefined : Math.max(0, game.summary.totalCount - game.summary.unlockedCount);
   const lastUnlock = achievements.reduce<number | undefined>((latest, achievement) =>
     achievement.isUnlocked && achievement.unlockedAt !== undefined && (latest === undefined || achievement.unlockedAt > latest)
@@ -185,7 +192,7 @@ export function DeckySteamGameOverview({
   return (
     <div data-ac-steam-theme="fullscreen" style={{ height: "100%" }}>
       <DeckyFullScreenGameOverviewLayout
-        identity={<SteamGameIdentityPanel game={game} refreshedAt={refreshedAt} steamHuntersEnrichment={steamHuntersEnrichment} />}
+        identity={<SteamGameIdentityPanel game={game} refreshedAt={refreshedAt} steamHuntersEnrichment={steamHuntersEnrichment} achievementSetMismatch={steamHunters?.achievementSetMismatch} />}
         progress={
           <DeckySteamProgressSummary
             completionPercent={completionPercent}

@@ -16,6 +16,8 @@ export interface SteamHuntersGameEnrichment {
   /** Original SteamHunters group ordering, retained for the DLC/Groups view. */
   readonly achievementGroups: readonly SteamHuntersAchievementGroup[];
   readonly achievementGroupsBySteamAchievementId: Readonly<Record<string, SteamHuntersAchievementGroup>>;
+  readonly achievementsAvailable?: boolean;
+  readonly groupsAvailable?: boolean;
 }
 
 export type SteamHuntersEnrichedGameDetailSnapshot = GameDetailSnapshot & {
@@ -90,6 +92,8 @@ export function composeSteamGameDetailWithSteamHunters(
       achievementsBySteamAchievementId,
       achievementGroups: gameData.groups,
       achievementGroupsBySteamAchievementId: buildAchievementGroupEnrichment(gameData.groups),
+      ...(gameData.achievementsAvailable !== undefined ? { achievementsAvailable: gameData.achievementsAvailable } : {}),
+      ...(gameData.groupsAvailable !== undefined ? { groupsAvailable: gameData.groupsAvailable } : {}),
     },
   };
 }

@@ -57,6 +57,9 @@ export interface SteamHuntersGameData {
   readonly app: SteamHuntersApp;
   readonly achievements: readonly SteamHuntersAchievement[];
   readonly groups: readonly SteamHuntersAchievementGroup[];
+  /** Distinguish a failed optional endpoint from a valid empty result. */
+  readonly achievementsAvailable?: boolean;
+  readonly groupsAvailable?: boolean;
 }
 
 /**

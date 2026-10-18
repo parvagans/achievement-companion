@@ -37,13 +37,13 @@ export const raTheme = {
     unlocked: "rgba(102, 214, 255, 0.9)",
     locked: "rgba(185, 195, 207, 0.72)",
     points: "rgba(255, 211, 88, 0.98)",
-    retroPoints: "rgba(102, 214, 255, 0.98)",
+    retroPoints: qamTheme.color.accent,
     success: qamTheme.color.success,
     warning: qamTheme.color.warning,
     danger: qamTheme.color.danger,
     rarity: {
       common: "rgba(82, 242, 156, 0.98)",
-      uncommon: "rgba(102, 214, 255, 0.98)",
+      uncommon: qamTheme.color.accent,
       rare: "rgba(192, 132, 252, 0.98)",
       veryRare: "rgba(243, 91, 213, 0.98)",
     },
@@ -81,7 +81,7 @@ export const raTheme = {
     fullscreen: { cardPadding: 16, rowGap: 14, artwork: 72, metricMinHeight: 54 },
   },
   iconFilter: {
-    primary: "brightness(0) saturate(100%) invert(78%) sepia(42%) saturate(1326%) hue-rotate(166deg) brightness(102%) contrast(101%)",
+    primary: qamTheme.decorative.iconFilter,
     muted: "grayscale(1) opacity(0.72)",
     hardcore: "brightness(0) saturate(100%) invert(83%) sepia(35%) saturate(674%) hue-rotate(2deg) brightness(105%) contrast(95%)",
     softcore: "brightness(0) saturate(100%) invert(91%) sepia(7%) saturate(326%) hue-rotate(183deg) brightness(96%) contrast(92%)",
@@ -236,8 +236,8 @@ export const raRecipes = {
   },
   progressTrack: { background: qamTheme.surface.progressTrack, borderRadius: 999, overflow: "hidden" } satisfies CSSProperties,
   progressFill: {
-    completion: `linear-gradient(90deg, ${raTheme.color.accentStrong}, ${raTheme.color.accent})`,
-    xp: `linear-gradient(90deg, ${raTheme.color.retroPoints}, ${raTheme.color.accent})`,
+    completion: qamTheme.surface.progressFill,
+    xp: qamTheme.surface.xpFill,
     beaten: `linear-gradient(90deg, ${raTheme.color.beaten}, rgba(223, 230, 239, 0.98))`,
     mastered: `linear-gradient(90deg, ${raTheme.color.mastered}, rgba(232, 201, 102, 0.98))`,
   },
@@ -315,7 +315,7 @@ export const raRecipes = {
   compactGame: {
     root: { display: "flex", flexDirection: "column", gap: 8, width: "100%", minWidth: 0, padding: "0 16px 4px", boxSizing: "border-box", color: raTheme.color.textPrimary, fontFamily: qamTheme.type.fontFamily } satisfies CSSProperties,
     hero(): CSSProperties { return { display: "flex", justifyContent: "center", width: "100%", height: 124, minWidth: 0, overflow: "hidden", padding: 0, background: "transparent", boxSizing: "border-box" }; },
-    title: { minWidth: 0, color: raTheme.color.textPrimary, fontSize: 16, fontWeight: 850, lineHeight: 1.16, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } satisfies CSSProperties,
+    title: { minWidth: 0, color: raTheme.color.textPrimary, fontSize: 16, fontWeight: 850, lineHeight: 1.16, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } satisfies CSSProperties,
     provider: { display: "flex", alignItems: "center", justifyContent: "center", gap: 7, width: "100%", color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.body, fontWeight: 750, lineHeight: 1 } satisfies CSSProperties,
     providerContent: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, minWidth: 0 } satisfies CSSProperties,
     actionLabel: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", minWidth: 0, color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.body, fontWeight: 800, lineHeight: 1.15 } satisfies CSSProperties,
@@ -370,7 +370,7 @@ export const raRecipes = {
         ? {
             border: `2px solid ${raTheme.color.accentStrong}`,
             background: raTheme.surface.contentCard,
-            boxShadow: "0 0 12px rgba(43, 195, 242, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.07)",
+            boxShadow: `${qamTheme.decorative.accentGlow}, inset 0 1px 0 rgba(255, 255, 255, 0.07)`,
           }
         : raRecipes.compactGame.status(kind, "game");
       return {
@@ -395,7 +395,7 @@ export const raRecipes = {
       return {
         position: "absolute", top: 8, bottom: 8, left: 8, width: 4,
         borderRadius: raTheme.radius.pill, background: color,
-        boxShadow: `0 0 10px ${kind === "mastered" ? "rgba(242, 216, 127, 0.45)" : kind === "beaten" ? raRecipes.gameAward.beaten.surface : "rgba(43, 195, 242, 0.45)"}`,
+        boxShadow: kind === "mastered" ? "0 0 10px rgba(242, 216, 127, 0.45)" : kind === "beaten" ? `0 0 10px ${raRecipes.gameAward.beaten.surface}` : qamTheme.decorative.accentGlow,
         pointerEvents: "none",
       };
     },
@@ -474,8 +474,8 @@ export const raRecipes = {
       width: 54, height: 54, flex: "0 0 54px", display: "grid", placeItems: "center",
       overflow: "hidden", padding: 2, border: `2px solid ${raTheme.color.borderStrong}`,
       borderRadius: raTheme.radius.medium,
-      background: "linear-gradient(145deg, rgba(54, 185, 255, 0.2), rgba(5, 22, 34, 0.96))",
-      boxShadow: "0 0 12px rgba(54, 185, 255, 0.22)", boxSizing: "border-box",
+      background: qamTheme.decorative.avatarBackground,
+      boxShadow: qamTheme.decorative.accentGlow, boxSizing: "border-box",
     } satisfies CSSProperties,
     avatarFallback: {
       display: "grid", placeItems: "center", width: "100%", height: "100%",

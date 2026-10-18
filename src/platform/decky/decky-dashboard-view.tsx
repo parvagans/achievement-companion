@@ -78,6 +78,7 @@ export interface DeckyDashboardViewProps {
       }
     | undefined;
   readonly onOpenGameDetail: (providerId: string, gameId: string, gameTitle: string) => void;
+  readonly onOpenGameAchievements: (providerId: string, gameId: string, gameTitle: string) => void;
   readonly onOpenAchievementDetail: (target: CompactAchievementTarget) => void;
   readonly onOpenProfile: (providerId: string) => void;
   readonly onOpenAchievementHistory: (providerId: string) => void;
@@ -554,7 +555,7 @@ function getDashboardCompactCardAccentStyle(tone: DashboardAchievementTone, isRa
         ? "linear-gradient(180deg, rgba(214, 221, 232, 0.82), rgba(214, 221, 232, 0.42))"
         : tone === "locked"
           ? "linear-gradient(180deg, rgba(148, 163, 184, 0.56), rgba(148, 163, 184, 0.26))"
-          : "linear-gradient(180deg, rgba(125, 211, 252, 0.78), rgba(99, 179, 237, 0.42))";
+          : `linear-gradient(180deg, ${qamTheme.color.accent}, transparent)`;
 
   return {
     position: "absolute",
@@ -1381,6 +1382,7 @@ export function DeckyDashboardView({
   steamActivityKnownGames,
   steamLibraryScanAction,
   onOpenGameDetail,
+  onOpenGameAchievements,
   onOpenAchievementDetail,
   onOpenProfile,
   onOpenAchievementHistory,
@@ -1527,6 +1529,7 @@ export function DeckyDashboardView({
         onOpenCompletionProgress={() => onOpenCompletionProgress(profile.providerId)}
         onOpenAchievementDetail={onOpenAchievementDetail}
         onOpenGameDetail={(game) => onOpenGameDetail(game.providerId, game.gameId, game.title)}
+        onOpenGameAchievements={(game) => onOpenGameAchievements(game.providerId, game.gameId, game.title)}
         {...(onUpdateRetroAchievementsCredentials !== undefined ? { onUpdateCredentials: onUpdateRetroAchievementsCredentials } : {})}
         onCancel={onBackToProviders}
       />

@@ -59,13 +59,14 @@ export function updateDeckyRetroAchievementsRankTrends(
   }
 
   const ranks: Partial<Record<RetroAchievementsRankKind, number>> = { ...previousRanks };
-  const trends: Partial<Record<RetroAchievementsRankKind, RetroAchievementsRankTrend>> = {};
+  // A rank that has not moved since the last refresh retains its last known
+  // direction; an unchanged API response is not evidence that the trend ended.
+  const trends: Partial<Record<RetroAchievementsRankKind, RetroAchievementsRankTrend>> = {
+    ...(existing?.trends ?? {}),
+  };
   for (const kind of ["site", "casual"] as const) {
     const current = rankValue(profile, kind);
-    if (current === undefined) {
-      if (existing?.trends[kind] !== undefined) trends[kind] = existing.trends[kind];
-      continue;
-    }
+    if (current === undefined) continue;
     const previous = previousRanks[kind];
     if (previous !== undefined && current !== previous) trends[kind] = current < previous ? "up" : "down";
     ranks[kind] = current;

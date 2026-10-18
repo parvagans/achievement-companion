@@ -19,6 +19,7 @@ export type DeckyCompactAchievementParent = "provider-dashboard" | "game" | "ach
 export interface DeckyCompactAchievementReturnDestination {
   readonly achievementId: string;
   readonly parent: DeckyCompactAchievementParent;
+  readonly achievementListParent?: "game" | "provider-dashboard";
 }
 
 export interface DeckyCompactGameDestination {
@@ -37,7 +38,7 @@ export interface DeckyCompactAchievementListDestination {
   readonly gameId: string;
   /** Presentation metadata from the selected game; it is not a second data owner. */
   readonly gameTitle: string;
-  readonly parent: "game";
+  readonly parent: "game" | "provider-dashboard";
 }
 
 export interface DeckyCompactAchievementDestination {
@@ -47,6 +48,7 @@ export interface DeckyCompactAchievementDestination {
   readonly achievementId: string;
   readonly gameTitle: string;
   readonly parent: DeckyCompactAchievementParent;
+  readonly achievementListParent?: "game" | "provider-dashboard";
 }
 
 export interface DeckyCompactSettingsDestination {
@@ -107,16 +109,21 @@ export function getDeckyCompactParentDestination(
           gameTitle: destination.gameTitle,
           achievementId: destination.returnToAchievement.achievementId,
           parent: destination.returnToAchievement.parent,
+          ...(destination.returnToAchievement.achievementListParent !== undefined
+            ? { achievementListParent: destination.returnToAchievement.achievementListParent }
+            : {}),
         };
       }
       return { kind: "provider-dashboard", providerId: destination.providerId };
     case "achievement-list":
-      return {
-        kind: "game",
-        providerId: destination.providerId,
-        gameId: destination.gameId,
-        gameTitle: destination.gameTitle,
-      };
+      return destination.parent === "provider-dashboard"
+        ? { kind: "provider-dashboard", providerId: destination.providerId }
+        : {
+          kind: "game",
+          providerId: destination.providerId,
+          gameId: destination.gameId,
+          gameTitle: destination.gameTitle,
+        };
     case "achievement":
       if (destination.parent === "provider-dashboard") {
         return { kind: "provider-dashboard", providerId: destination.providerId };
@@ -127,7 +134,7 @@ export function getDeckyCompactParentDestination(
           providerId: destination.providerId,
           gameId: destination.gameId,
           gameTitle: destination.gameTitle,
-          parent: "game",
+          parent: destination.achievementListParent ?? "game",
         };
       }
       return {

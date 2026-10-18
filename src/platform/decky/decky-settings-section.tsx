@@ -3,6 +3,7 @@ import { useEffect, useRef, type CSSProperties, type ReactNode, type RefObject }
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
 import { steamRecipes, steamTheme } from "./steam-theme";
+import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 
 /** The same bounded card and scroll inset for both provider settings pages. */
 export function DeckySettingsSection({ children }: { readonly children: ReactNode; readonly themeVariant?: "steam" | "ra" }): JSX.Element {
@@ -24,8 +25,8 @@ export const settingsSaveButtonStyle: CSSProperties = {
   boxSizing: "border-box",
   padding: "7px 14px",
   borderRadius: steamTheme.radius.pill,
-  border: "1px solid rgba(56,177,241,.55)",
-  background: "rgba(11,80,121,.6)",
+  border: `1px solid ${qamTheme.decorative.settingsSaveBorder}`,
+  background: qamTheme.decorative.settingsSaveBackground,
   color: steamTheme.color.textPrimary,
   fontSize: steamTheme.type.fullscreen.metadata,
   fontWeight: steamTheme.type.weight.strong,

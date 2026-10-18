@@ -20,7 +20,7 @@ export const steamTheme = {
   },
   iconFilter: {
     primary: "brightness(0) invert(1)", muted: "brightness(0) saturate(100%) invert(72%) sepia(12%) saturate(486%) hue-rotate(164deg) brightness(91%) contrast(87%)",
-    accent: "brightness(0) saturate(100%) invert(63%) sepia(89%) saturate(1795%) hue-rotate(166deg) brightness(103%) contrast(103%)",
+    accent: qamTheme.decorative.iconFilter,
     reward: "brightness(0) saturate(100%) invert(84%) sepia(56%) saturate(731%) hue-rotate(343deg) brightness(103%) contrast(101%)",
     locked: "grayscale(1)",
     danger: "brightness(0) saturate(100%) invert(49%) sepia(92%) saturate(2856%) hue-rotate(324deg) brightness(102%) contrast(101%)",
@@ -48,7 +48,7 @@ export const steamRecipes = {
   filter(density: SteamDensity, selected = false): CSSProperties { return { ...steamRecipes.action(density), background: selected ? steamTheme.surface.selectedContentCard : steamTheme.surface.contentCard, borderColor: selected ? steamTheme.color.borderStrong : steamTheme.color.borderSubtle }; },
   badge(color: string = steamTheme.color.accent): CSSProperties { return { color, border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.pill, padding: "2px 8px", fontSize: steamTheme.type.compact.caption, fontWeight: 600 }; },
   progressTrack: { background: qamTheme.surface.progressTrack, borderRadius: 999, overflow: "hidden" } satisfies CSSProperties,
-  progressFill: { completion: "linear-gradient(90deg,#159ccb,#2bc3f2)", xp: "linear-gradient(90deg,#3a96df,#76c7ff)" },
+  progressFill: { completion: qamTheme.surface.progressFill, xp: qamTheme.surface.xpFill },
   achievementState: {
     locked: { color: steamTheme.color.locked, artworkFilter: "grayscale(1)" },
     unlocked: { color: steamTheme.color.unlocked, artworkFilter: "none" },

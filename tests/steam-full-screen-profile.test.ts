@@ -776,7 +776,7 @@ test("full-screen loading screens retain simple provider-specific loading states
   assert.match(loadingSource, /FULL_SCREEN_LOADING_FONT_FAMILY/u);
   assert.match(loadingSource, /FULL_SCREEN_LOADING_TITLE_FONT_SIZE/u);
   assert.match(loadingSource, /loading frame below is the sole vertical-positioning authority[\s\S]*padding: 0/u);
-  assert.match(loadingSource, /background: DECKY_LOADING_PAGE_BACKGROUND/u);
+  assert.match(loadingSource, /background: qamTheme\.loading\.page/u);
   assert.match(loadingSource, /getDeckyLoadingProviderId\(providerId\) \?\? \(useSteamTheme \? "steam" : undefined\)/u);
   assert.match(loadingSource, /style=\{\{ \.\.\.getDeckyFullScreenLoadingPageStyle\(\), \.\.\.getLoadingFrameStyle\(\) \}\}/u);
   assert.match(loadingSource, /data-achievement-companion-full-screen-loading-state="true"/u);

@@ -291,10 +291,10 @@ function getAvatarFrameStyle(): CSSProperties {
     placeItems: "center",
     overflow: "hidden",
     padding: 2,
-    border: "2px solid #22bfff",
+    border: `2px solid ${qamTheme.color.accent}`,
     borderRadius: 8,
-    background: "linear-gradient(145deg, rgba(54, 185, 255, 0.2), rgba(5, 22, 34, 0.96))",
-    boxShadow: "0 0 12px rgba(54, 185, 255, 0.22)",
+    background: qamTheme.decorative.avatarBackground,
+    boxShadow: qamTheme.decorative.accentGlow,
     boxSizing: "border-box",
   };
 }
@@ -346,7 +346,7 @@ function getLevelRowStyle(): CSSProperties {
 }
 
 function getXpValueStyle(): CSSProperties {
-  return { color: "#8ed7ff", fontWeight: 800 };
+  return { color: steamTheme.color.accent, fontWeight: 800 };
 }
 
 function getProgressTrackStyle(): CSSProperties {
@@ -594,10 +594,10 @@ function getGameArtworkFallbackStyle(): CSSProperties {
     display: "grid",
     placeItems: "center",
     flexShrink: 0,
-    border: "1px solid rgba(54, 142, 191, 0.2)",
+    border: `1px solid ${steamTheme.color.borderSubtle}`,
     borderRadius: 6,
-    background: "rgba(8, 37, 55, 0.86)",
-    color: "#86cfff",
+    background: steamTheme.surface.contentStat,
+    color: steamTheme.color.accent,
     fontSize: 8,
     fontWeight: 800,
     boxSizing: "border-box",
@@ -647,7 +647,7 @@ function getPlaytimeStyle(): CSSProperties {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    color: "#75bde4",
+    color: steamTheme.color.textSecondary,
     fontSize: 8.5,
     lineHeight: 1,
   };
@@ -715,7 +715,7 @@ function getRefreshTimestampStyle(): CSSProperties {
   return {
     width: "100%",
     paddingTop: 2,
-    color: "#779bb4",
+    color: steamTheme.color.textMuted,
     fontSize: 8.5,
     lineHeight: 1.1,
     textAlign: "center",
@@ -938,7 +938,7 @@ function ViewAllAction({
       tone="nested"
       style={{ minHeight: 38, padding: "8px 10px" }}
     >
-      <span style={{ flex: "1 1 auto", color: "#69cfff", fontSize: 10, fontWeight: 800, textAlign: "center" }}>
+      <span style={{ flex: "1 1 auto", color: qamTheme.selection.compactText, fontSize: 10, fontWeight: 800, textAlign: "center" }}>
         View All
       </span>
       <img alt="" src={chevronRightIconUrl} style={getIconStyle(15)} />

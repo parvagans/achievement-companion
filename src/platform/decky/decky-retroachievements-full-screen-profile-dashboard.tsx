@@ -15,6 +15,7 @@ import { DeckySystemIcon } from "./decky-system-pill";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
 import { raRecipes, raTheme } from "./ra-theme";
+import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 import { formatFullscreenLastSync, formatProfileMemberSince } from "./decky-stat-helpers";
 import { DeckyRetroAchievementsRankTrendIndicator } from "./decky-ra-rank-trend-indicator";
 import type { CompletionProgressSelectionFilter } from "./decky-completion-progress-summary-card-data";
@@ -701,7 +702,7 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
       <Focusable flow-children="left-right" noFocusRing tabIndex={-1} style={gridStyle()}>
         <section style={panelStyle("profile")}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, minWidth: 0, textAlign: "center" }}>
-            <div style={{ width: 144, height: 144, flex: "0 0 144px", display: "flex", alignItems: "center", justifyContent: "center", border: `3px solid ${raTheme.color.accent}`, borderRadius: 22, overflow: "hidden", background: "linear-gradient(145deg, rgba(54, 185, 255, 0.22), rgba(5, 22, 34, 0.96))", boxShadow: "0 0 18px rgba(54, 185, 255, 0.26)", boxSizing: "border-box" }}>
+            <div style={{ width: 144, height: 144, flex: "0 0 144px", display: "flex", alignItems: "center", justifyContent: "center", border: `3px solid ${raTheme.color.accent}`, borderRadius: 22, overflow: "hidden", background: qamTheme.decorative.avatarBackground, boxShadow: qamTheme.decorative.avatarGlow, boxSizing: "border-box" }}>
               {avatarUrl !== undefined
                 ? <img alt="" src={avatarUrl} style={{ width: 138, height: 138, objectFit: "cover" }} />
                 : <span style={{ color: raTheme.color.textPrimary, fontSize: "3em", fontWeight: 850, letterSpacing: "0.04em" }}>{model.profile.identity.displayName.slice(0, 2).toUpperCase()}</span>}

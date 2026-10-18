@@ -32,7 +32,7 @@ import starIconUrl from "./assets/star.svg";
 import steamDeckIconUrl from "./assets/steam-deck.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
 import { steamRecipes, steamTheme } from "./steam-theme";
-import { getQamPassiveCardFocusStyle } from "./decky-qam-theme";
+import { achievementCompanionQamTheme as qamTheme, getQamPassiveCardFocusStyle } from "./decky-qam-theme";
 import { useDeckySettings } from "./decky-settings";
 import { readDeckySteamProviderConfig } from "./providers/steam";
 
@@ -86,11 +86,11 @@ function getHeroFallbackStyle(): CSSProperties {
     width: "100%",
     height: "100%",
     placeItems: "center",
-    color: "rgba(186, 226, 252, 0.92)",
+    color: qamTheme.color.textPrimary,
     fontSize: 28,
     fontWeight: 850,
     letterSpacing: "0.08em",
-    background: "radial-gradient(circle at 25% 25%, rgba(31, 177, 240, 0.3), transparent 44%), linear-gradient(135deg, #0e3b59, #0a1926)",
+    background: qamTheme.surface.contentStat,
   };
 }
 
@@ -101,6 +101,7 @@ function getTitleStyle(fontSizePx: number | undefined): CSSProperties {
     fontSize: fontSizePx === undefined ? 16 : fontSizePx,
     fontWeight: 850,
     lineHeight: 1.16,
+    textAlign: "center",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",

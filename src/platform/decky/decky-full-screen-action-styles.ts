@@ -92,10 +92,7 @@ export function getDeckyFullscreenActionStylesCss(): string {
 .${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-primary {
   border-color: ${qamTheme.color.borderStrong} !important;
   background: ${qamTheme.surface.primaryAction} !important;
-  box-shadow:
-    0 0 0 1px rgba(74, 189, 255, 0.52),
-    0 0 16px rgba(42, 145, 230, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  box-shadow: ${qamTheme.decorative.primaryChipShadow} !important;
 }
 
 .${DECKY_FULLSCREEN_CHIP_CLASS}.${DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS},

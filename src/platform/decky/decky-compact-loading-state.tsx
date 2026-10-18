@@ -4,8 +4,6 @@ import { registerCompactProviderCancelCallback } from "./decky-full-screen-cance
 import { findDeckyScrollContainerAncestor } from "./decky-scroll-viewport";
 import { achievementCompanionQamTheme } from "./decky-qam-theme";
 import {
-  DECKY_LOADING_COLORS,
-  DECKY_LOADING_PAGE_BACKGROUND,
   DeckyLoadingBrandMark,
   getDeckyLoadingInfoCardStyle,
 } from "./decky-loading-brand";
@@ -37,7 +35,7 @@ function getLoadingSurfaceStyle(visibleHeight: number | undefined, isError: bool
     fontFamily: achievementCompanionQamTheme.type.fontFamily,
     overscrollBehavior: "none",
     touchAction: "none",
-    background: DECKY_LOADING_PAGE_BACKGROUND,
+    background: achievementCompanionQamTheme.loading.page,
   };
 }
 
@@ -56,7 +54,7 @@ function getLoadingContentStyle(): CSSProperties {
 function getLoadingTitleStyle(): CSSProperties {
   return {
     margin: 0,
-    color: DECKY_LOADING_COLORS.text,
+    color: achievementCompanionQamTheme.color.textPrimary,
     fontSize: `${achievementCompanionQamTheme.type.compact.heading}px`,
     fontWeight: achievementCompanionQamTheme.type.weight.strong,
     letterSpacing: "-0.02em",

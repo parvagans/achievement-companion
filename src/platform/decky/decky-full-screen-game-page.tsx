@@ -461,6 +461,7 @@ export function DeckyFullScreenGamePage({
   const loadedSteamHuntersViewModel = buildDeckySteamHuntersGameViewModel({
     achievements: displayedLoadedSnapshot?.achievements ?? [],
     enrichment: loadedSteamHunters,
+    totalAchievementCount: displayedLoadedSnapshot?.game.summary.totalCount,
   });
   const loadedSteamAchievementGroupSections = useMemo(
     () => buildDeckySteamAchievementGroupSections({
@@ -564,13 +565,15 @@ export function DeckyFullScreenGamePage({
     activeSteamSectionRef.current = activeSteamSection;
   }, [activeSteamSection]);
   useEffect(() => {
-    if (
-      loadedSnapshot === undefined ||
-      loadedSnapshot.game.providerId !== STEAM_PROVIDER_ID ||
-      getSteamHuntersGameEnrichment(loadedSnapshot) !== undefined
-    ) {
+    if (loadedSnapshot === undefined || loadedSnapshot.game.providerId !== STEAM_PROVIDER_ID) {
       return;
     }
+    const enrichment = getSteamHuntersGameEnrichment(loadedSnapshot);
+    const steamCount = loadedSnapshot.game.summary.totalCount ?? loadedSnapshot.achievements.length;
+    if (enrichment !== undefined && (
+      enrichment.app.achievementCount === undefined ||
+      enrichment.app.achievementCount === steamCount
+    )) return;
 
     let cancelled = false;
     void loadDeckySteamHuntersEnrichedGameDetail(loadedSnapshot)
@@ -733,9 +736,10 @@ export function DeckyFullScreenGamePage({
       ? buildDeckySteamHuntersGameViewModel({
           achievements: restorationOrderedAchievements,
           enrichment: restorationSteamHuntersEnrichment,
+          totalAchievementCount: restorationSnapshot?.game.summary.totalCount,
         })
       : undefined,
-    [restorationIsSteamProvider, restorationOrderedAchievements, restorationSteamHuntersEnrichment],
+    [restorationIsSteamProvider, restorationOrderedAchievements, restorationSteamHuntersEnrichment, restorationSnapshot?.game.summary.totalCount],
   );
   const restorationSteamAchievementGroupSections = useMemo(
     () => buildDeckySteamAchievementGroupSections({
@@ -1145,7 +1149,9 @@ export function DeckyFullScreenGamePage({
             <div
               data-steam-game-section="achievement-groups"
             >
-              <PanelSection title="DLC / Groups">
+              <PanelSection title={steamHuntersViewModel?.achievementSetMismatch === undefined
+                ? "DLC / Groups"
+                : `DLC / Groups (SteamHunters set: ${steamHuntersViewModel.achievementSetMismatch.steamHuntersCount} of ${steamHuntersViewModel.achievementSetMismatch.steamCount})`}>
                 <PanelSectionRow>
                   <MemoizedDeckySteamAchievementGroupsSection
                   sections={steamAchievementGroupSections}

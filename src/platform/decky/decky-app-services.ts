@@ -48,6 +48,8 @@ import {
 } from "./decky-dashboard-snapshot-cache";
 import { updateDeckyRetroAchievementsRankTrends } from "./decky-retroachievements-rank-trend";
 import {
+  preserveCachedSteamHuntersEnrichment,
+  readDeckySteamGameDetailCacheEntry,
   readDeckySteamGameDetailState,
   writeDeckySteamGameDetail,
 } from "./decky-steam-game-detail-cache";
@@ -522,11 +524,15 @@ export async function loadDeckySteamHuntersEnrichedGameDetail(
     snapshot,
     await deckySteamHuntersService.loadGameData(appId),
   );
-  if (enrichedSnapshot !== snapshot) {
-    writeDeckySteamGameDetail(enrichedSnapshot);
+  const preservedSnapshot = preserveCachedSteamHuntersEnrichment(
+    enrichedSnapshot,
+    readDeckySteamGameDetailCacheEntry(snapshot.game.gameId)?.snapshot,
+  );
+  if (preservedSnapshot !== snapshot) {
+    writeDeckySteamGameDetail(preservedSnapshot);
   }
 
-  return enrichedSnapshot;
+  return preservedSnapshot;
 }
 
 /**
@@ -2120,13 +2126,17 @@ export async function loadDeckyGameDetailState(
 
   // Persist only successful live data; a failed refresh must not replace a
   // last-known-good offline snapshot with partial or stale provider data.
+  const preservedGameDetail = preserveCachedSteamHuntersEnrichment(
+    patchedGameDetail,
+    cachedSteamGameDetailState?.data,
+  );
   if (state.status === "success" && state.error === undefined) {
-    writeDeckySteamGameDetail(patchedGameDetail);
+    writeDeckySteamGameDetail(preservedGameDetail);
   }
 
   return {
     ...state,
-    data: patchedGameDetail,
+    data: preservedGameDetail,
   };
 }
 

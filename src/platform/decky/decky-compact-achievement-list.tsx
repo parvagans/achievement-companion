@@ -134,7 +134,7 @@ function getRowStyle(row: CompactAchievementRowViewModel, isFocused: boolean, is
     : row.tone === "softcore"
       ? "rgba(214, 221, 232, 0.72)"
       : row.stateIndicator === "unlocked"
-        ? "rgba(34, 211, 238, 0.72)"
+        ? steamTheme.color.unlocked
         : row.stateIndicator === "locked"
           ? "rgba(248, 113, 113, 0.5)"
           : "rgba(255, 255, 255, 0.12)";

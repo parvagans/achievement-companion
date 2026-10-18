@@ -115,12 +115,18 @@ export function createSteamHuntersService(
             return undefined;
           }
 
-          const [achievements, groups] = await Promise.all([
-            loadAchievements(appId).catch(() => []),
+          const [achievementResult, groupResult] = await Promise.allSettled([
+            loadAchievements(appId),
             // Group metadata is optional; Steam achievements remain usable if this endpoint is unavailable.
-            loadGroups(appId).catch(() => []),
+            loadGroups(appId),
           ]);
-          return { app, achievements, groups };
+          return {
+            app,
+            achievements: achievementResult.status === "fulfilled" ? achievementResult.value : [],
+            groups: groupResult.status === "fulfilled" ? groupResult.value : [],
+            achievementsAvailable: achievementResult.status === "fulfilled",
+            groupsAvailable: groupResult.status === "fulfilled",
+          };
         } catch {
           // Missing games and transient network failures are normal optional-enrichment outcomes.
           return undefined;

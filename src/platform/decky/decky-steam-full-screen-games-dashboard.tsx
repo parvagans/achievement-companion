@@ -92,6 +92,7 @@ import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements
 import { raTheme } from "./ra-theme";
 import { getRetroAchievementsPlayedGameProgress } from "./decky-retroachievements-compact-profile-model";
 import { steamRecipes, steamTheme } from "./steam-theme";
+import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 
 const STEAM_GAMES_FOCUS_CLASS = "achievement-companion-steam-games-focus";
 const STEAM_GAMES_INITIAL_RENDER_LIMIT = 12;
@@ -848,7 +849,7 @@ function SteamGamesRow({
                 width: `${completionPercent}%`,
                 height: "100%",
                 borderRadius: 999,
-                background: "linear-gradient(90deg, #21b7ef, #2bcbff)",
+                background: qamTheme.surface.progressFill,
               }}
             />
           </div>

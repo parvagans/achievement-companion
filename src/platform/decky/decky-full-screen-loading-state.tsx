@@ -1,8 +1,7 @@
 import type { CSSProperties } from "react";
 import infoIconUrl from "./assets/info.svg";
+import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 import {
-  DECKY_LOADING_COLORS,
-  DECKY_LOADING_PAGE_BACKGROUND,
   DeckyLoadingBrandMark,
   getDeckyLoadingProviderId,
   getDeckyLoadingInfoCardStyle,
@@ -33,9 +32,9 @@ export function getDeckyFullScreenLoadingPageStyle(): CSSProperties {
     padding: 0,
     boxSizing: "border-box",
     overflow: "hidden",
-    color: "rgba(245, 250, 255, 0.98)",
+    color: qamTheme.color.textPrimary,
     fontFamily: FULL_SCREEN_LOADING_FONT_FAMILY,
-    background: DECKY_LOADING_PAGE_BACKGROUND,
+    background: qamTheme.loading.page,
   };
 }
 
@@ -68,7 +67,7 @@ function getLoadingContentStyle(): CSSProperties {
 function getLoadingTitleStyle(): CSSProperties {
   return {
     margin: 0,
-    color: DECKY_LOADING_COLORS.text,
+    color: qamTheme.color.textPrimary,
     fontSize: FULL_SCREEN_LOADING_TITLE_FONT_SIZE,
     fontWeight: 800,
     letterSpacing: "-0.02em",
@@ -102,7 +101,7 @@ function getLoadingInfoIconStyle(): CSSProperties {
 }
 
 function getLoadingInfoTextStyle(): CSSProperties {
-  return { margin: 0, color: DECKY_LOADING_COLORS.muted, fontSize: "clamp(0.78rem, 1.35vw, 1rem)", lineHeight: 1.25 };
+  return { margin: 0, color: qamTheme.color.textSecondary, fontSize: "clamp(0.78rem, 1.35vw, 1rem)", lineHeight: 1.25 };
 }
 
 export function DeckyFullScreenLoadingState({
@@ -128,7 +127,7 @@ export function DeckyFullScreenLoadingState({
         <DeckyLoadingBrandMark isLoading={!isError} providerId={loadingProviderId} />
         <h1 style={getLoadingTitleStyle()}>{title}</h1>
         {!isError ? (
-          <p style={{ margin: "-5px 0 0", color: DECKY_LOADING_COLORS.muted, fontSize: FULL_SCREEN_LOADING_BODY_FONT_SIZE, lineHeight: 1.2 }}>
+          <p style={{ margin: "-5px 0 0", color: qamTheme.color.textSecondary, fontSize: FULL_SCREEN_LOADING_BODY_FONT_SIZE, lineHeight: 1.2 }}>
             Preparing your data. This may take a few moments.
           </p>
         ) : null}

@@ -82,7 +82,7 @@ function getAchievementPanelStyle(): CSSProperties {
     borderLeft: `4px solid ${raTheme.color.accentStrong}`,
     borderRadius: raTheme.radius.panel,
     background: sharedTheme.surface.contentCard,
-    boxShadow: "inset 0 1px 0 rgba(196, 234, 255, 0.08), 0 18px 46px rgba(0, 0, 0, 0.26)",
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 18px 46px rgba(0, 0, 0, 0.26)",
   };
 }
 
@@ -126,7 +126,7 @@ function getBadgeFrameStyle(isUnlocked: boolean, isSteam: boolean): CSSPropertie
 
 function getBadgeFallbackStyle(isSteam: boolean): CSSProperties {
   return {
-    color: isSteam ? "rgba(181, 218, 245, 0.76)" : raTheme.color.textSecondary,
+    color: isSteam ? steamTheme.color.textSecondary : raTheme.color.textSecondary,
     fontSize: "1.4em",
     fontWeight: 800,
     letterSpacing: "0.09em",
@@ -202,14 +202,14 @@ function getMetaIconStyle(tone: "default" | "success" = "default"): CSSPropertie
     height: 18,
     filter: tone === "success"
       ? "brightness(0) saturate(100%) invert(79%) sepia(79%) saturate(493%) hue-rotate(91deg) brightness(105%) contrast(94%)"
-      : "brightness(0) saturate(100%) invert(86%) sepia(27%) saturate(584%) hue-rotate(166deg) brightness(100%) contrast(98%)",
+      : sharedTheme.decorative.iconFilter,
   };
 }
 
 function getDescriptionStyle(isSteam: boolean): CSSProperties {
   return {
     margin: 0,
-    color: isSteam ? "rgba(188, 216, 242, 0.94)" : raTheme.color.textSecondary,
+    color: isSteam ? steamTheme.color.textSecondary : raTheme.color.textSecondary,
     fontSize: "clamp(0.92rem, 1.7vw, 1.16rem)",
     lineHeight: 1.38,
     whiteSpace: "pre-wrap",
@@ -225,7 +225,7 @@ function getGameArtworkFrameStyle(isSteam: boolean): CSSProperties {
     aspectRatio: "460 / 215",
     overflow: "hidden",
     borderRadius: 16,
-    border: isSteam ? "1px solid rgba(108, 174, 220, 0.28)" : `1px solid ${raTheme.color.borderSubtle}`,
+    border: `1px solid ${isSteam ? steamTheme.color.borderSubtle : raTheme.color.borderSubtle}`,
     background: sharedTheme.surface.contentStat,
     boxShadow: "inset 0 1px 0 rgba(228, 244, 255, 0.06), 0 8px 22px rgba(0, 0, 0, 0.2)",
   };
@@ -249,7 +249,7 @@ function getGameArtworkFallbackStyle(isSteam: boolean): CSSProperties {
     width: "100%",
     height: "100%",
     background: sharedTheme.surface.contentStat,
-    color: isSteam ? "rgba(191, 221, 246, 0.88)" : raTheme.color.accent,
+    color: isSteam ? steamTheme.color.accent : raTheme.color.accent,
     fontSize: "1.15em",
     fontWeight: 800,
     letterSpacing: "0.08em",
@@ -267,7 +267,7 @@ function getPrimaryStatsStyle(): CSSProperties {
 function getCommunityHeadingStyle(isSteam: boolean): CSSProperties {
   return {
     margin: "2px 0 -2px",
-    color: isSteam ? "rgba(173, 208, 239, 0.92)" : raTheme.color.textSecondary,
+    color: isSteam ? steamTheme.color.textSecondary : raTheme.color.textSecondary,
     fontSize: "0.78em",
     fontWeight: 800,
     letterSpacing: "0.12em",
@@ -294,9 +294,9 @@ function getMetricCardStyle(isSteam: boolean): CSSProperties {
     padding: "10px 14px",
     boxSizing: "border-box",
     borderRadius: 16,
-    border: isSteam ? "1px solid rgba(90, 157, 203, 0.2)" : `1px solid ${raTheme.color.borderSubtle}`,
+    border: `1px solid ${isSteam ? steamTheme.color.borderSubtle : raTheme.color.borderSubtle}`,
     background: sharedTheme.surface.contentStat,
-    boxShadow: "inset 0 1px 0 rgba(205, 235, 255, 0.045)",
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.045)",
     minWidth: 0,
   };
 }
@@ -306,7 +306,7 @@ function getMetricIconStyle(tone: "blue" | "green" | "gold"): CSSProperties {
     ? "brightness(0) saturate(100%) invert(79%) sepia(79%) saturate(493%) hue-rotate(91deg) brightness(105%) contrast(94%)"
     : tone === "gold"
       ? "brightness(0) saturate(100%) invert(78%) sepia(63%) saturate(754%) hue-rotate(350deg) brightness(102%) contrast(92%)"
-      : "brightness(0) saturate(100%) invert(62%) sepia(84%) saturate(1250%) hue-rotate(165deg) brightness(101%) contrast(102%)";
+      : sharedTheme.decorative.iconFilter;
   return { width: 31, height: 31, justifySelf: "center", filter };
 }
 
@@ -316,7 +316,7 @@ function getMetricTextStyle(): CSSProperties {
 
 function getMetricLabelStyle(isSteam: boolean): CSSProperties {
   return {
-    color: isSteam ? "rgba(173, 207, 237, 0.78)" : raTheme.color.textSecondary,
+    color: isSteam ? steamTheme.color.textSecondary : raTheme.color.textSecondary,
     fontSize: "0.74em",
     fontWeight: 800,
     letterSpacing: "0.09em",
@@ -327,7 +327,7 @@ function getMetricLabelStyle(isSteam: boolean): CSSProperties {
 
 function getMetricValueStyle(tone: "default" | "success" = "default", isSteam = false): CSSProperties {
   return {
-    color: tone === "success" ? (isSteam ? "rgba(82, 242, 156, 0.99)" : raTheme.color.success) : isSteam ? "rgba(255, 255, 255, 0.98)" : raTheme.color.textPrimary,
+    color: tone === "success" ? (isSteam ? steamTheme.color.unlocked : raTheme.color.success) : isSteam ? steamTheme.color.textPrimary : raTheme.color.textPrimary,
     fontSize: "clamp(1.05rem, 2vw, 1.42rem)",
     fontWeight: 800,
     lineHeight: 1.12,

@@ -195,7 +195,7 @@ function getFooterStyle(height: number, zIndex: number): CSSProperties {
     minWidth: 0,
     boxSizing: "border-box",
     borderTop: `1px solid ${qamTheme.color.borderSubtle}`,
-    background: "linear-gradient(180deg, #09151f, #050e16)",
+    background: qamTheme.decorative.footerBackground,
     fontSize: 14,
     boxShadow: "0 -10px 28px rgba(0, 0, 0, 0.3)",
     position: "fixed",
