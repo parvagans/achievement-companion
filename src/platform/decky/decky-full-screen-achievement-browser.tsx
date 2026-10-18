@@ -25,6 +25,7 @@ import { getSteamCompactAchievementFilterStyle } from "./decky-steam-compact-act
 import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
 import { getMetricValue } from "./decky-achievement-detail-helpers";
 import { raRecipes, raTheme } from "./ra-theme";
+import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 
 const ACHIEVEMENT_FILTERS = ["all", "unlocked", "locked"] as const;
 const STEAM_ACHIEVEMENT_RENDER_STEP = 36;
@@ -294,7 +295,7 @@ function getAchievementFilterButtonStyle(selected: boolean, focused: boolean, di
     whiteSpace: "nowrap",
     opacity: disabled ? 0.55 : 1,
     cursor: disabled ? "default" : "pointer",
-    boxShadow: selected ? "inset 0 -3px 0 rgba(54, 185, 255, 0.82)" : undefined,
+    boxShadow: selected ? qamTheme.selection.compactUnderline : undefined,
   };
 }
 

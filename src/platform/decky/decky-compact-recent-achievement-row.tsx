@@ -40,6 +40,8 @@ function getRowStyle(isSteam: boolean, mode: RecentUnlock["achievement"]["unlock
     gap: 10,
     width: "100%",
     minWidth: 0,
+    // Reserve the two-line title slot so short and long unlocks share one QAM row height.
+    height: 88,
     padding: 9,
     borderRadius: qamTheme.radius.large,
     boxSizing: "border-box",

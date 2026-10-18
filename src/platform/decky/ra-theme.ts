@@ -337,27 +337,23 @@ export const raRecipes = {
     modeValue: { color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.body, fontWeight: 800, lineHeight: 1.12, whiteSpace: "nowrap" } satisfies CSSProperties,
     status(kind: "beaten" | "mastered", surface: "profile" | "game" = "profile"): CSSProperties {
       const mastered = kind === "mastered";
-      const silverBeaten = kind === "beaten" && surface === "game";
-      const accent = mastered ? raTheme.color.mastered : silverBeaten ? raRecipes.gameAward.beaten.border : raTheme.color.accentStrong;
+      const accent = mastered ? raTheme.color.mastered : surface === "game" ? raRecipes.gameAward.beaten.border : raTheme.color.beaten;
       return {
         position: "relative", isolation: "isolate", display: "grid", gridTemplateColumns: "62px minmax(0, 1fr)",
         alignItems: "center", gap: 10, minWidth: 0, minHeight: 90, overflow: "hidden", padding: "9px 11px",
         border: `2px solid ${accent}`, borderRadius: raTheme.radius.medium, boxSizing: "border-box",
-        background: mastered
-          ? "radial-gradient(circle at 11% 50%, rgba(242, 216, 127, 0.15), transparent 48%), linear-gradient(110deg, #071b29, #081824)"
-          : "radial-gradient(circle at 11% 50%, rgba(43, 195, 242, 0.17), transparent 48%), linear-gradient(110deg, #071b29, #081824)",
-        boxShadow: `0 0 12px ${mastered ? "rgba(242, 216, 127, 0.16)" : silverBeaten ? raRecipes.gameAward.beaten.surface : "rgba(43, 195, 242, 0.19)"}, inset 0 1px 0 rgba(255, 255, 255, 0.07)`,
+        background: `${mastered ? "radial-gradient(circle at 11% 50%, rgba(242, 216, 127, 0.15), transparent 48%)" : "radial-gradient(circle at 11% 50%, rgba(214, 221, 232, 0.12), transparent 48%)"}, ${raTheme.surface.contentCard}`,
+        boxShadow: `0 0 12px ${mastered ? "rgba(242, 216, 127, 0.16)" : raRecipes.gameAward.beaten.surface}, inset 0 1px 0 rgba(255, 255, 255, 0.07)`,
       };
     },
     statusEmblem(kind: "beaten" | "mastered", surface: "profile" | "game" = "profile"): CSSProperties {
-      const silverBeaten = kind === "beaten" && surface === "game";
-      const color = kind === "mastered" ? raTheme.color.mastered : silverBeaten ? raRecipes.gameAward.beaten.border : raTheme.color.accentStrong;
+      const color = kind === "mastered" ? raTheme.color.mastered : surface === "game" ? raRecipes.gameAward.beaten.border : raTheme.color.beaten;
       const background = surface === "profile"
         ? kind === "mastered"
           ? "radial-gradient(circle at 50% 42%, rgba(242, 216, 127, 0.30), rgba(68, 49, 20, 0.92) 78%)"
           : "radial-gradient(circle at 50% 42%, rgba(178, 201, 215, 0.40), rgba(34, 53, 67, 0.96) 78%)"
         : "rgba(3, 13, 21, 0.68)";
-      return { position: "relative", zIndex: 1, display: "grid", placeItems: "center", width: 60, height: 60, flex: "0 0 60px", border: `2px solid ${color}`, borderRadius: "50%", background, boxShadow: `0 0 11px ${kind === "mastered" ? "rgba(242, 216, 127, 0.37)" : silverBeaten ? raRecipes.gameAward.beaten.surface : "rgba(43, 195, 242, 0.38)"}`, boxSizing: "border-box" };
+      return { position: "relative", zIndex: 1, display: "grid", placeItems: "center", width: 60, height: 60, flex: "0 0 60px", border: `2px solid ${color}`, borderRadius: "50%", background, boxShadow: `0 0 11px ${kind === "mastered" ? "rgba(242, 216, 127, 0.37)" : raRecipes.gameAward.beaten.surface}`, boxSizing: "border-box" };
     },
     statusContent: { position: "relative", zIndex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: 3, minWidth: 0 } satisfies CSSProperties,
     statusEyebrow: { color: raTheme.color.accent, fontSize: raTheme.type.compact.caption, fontWeight: 800, letterSpacing: "0.06em", lineHeight: 1.1, textTransform: "uppercase" } satisfies CSSProperties,
@@ -581,7 +577,7 @@ export const raRecipes = {
     calendarCell(intensity: 0 | 1 | 2 | 3 | 4, selected = false, focused = false): CSSProperties {
       return {
         display: "block", width: "100%", height: "100%", minWidth: 0, minHeight: 0,
-        padding: 0, border: selected ? `2px solid ${raTheme.color.textPrimary}` : "2px solid transparent",
+        padding: 0, border: selected ? `2px solid ${qamTheme.selection.compactText}` : "2px solid transparent",
         borderRadius: 4, outline: "none", background: qamActivityCalendarColors[intensity], boxSizing: "border-box",
         ...getQamCompactFocusRingStyle(focused),
       };
@@ -756,7 +752,7 @@ export function getRaFocusStylesCss(): string {
       display: none;
     }
   }
-  [data-ac-ra-theme="fullscreen"] .Panel.Focusable.gpfocus:not([data-achievement-companion-focus-target="ra-community-summary"]):not([data-achievement-companion-focus-target="ra-systems-coming-soon"]) {
+  [data-ac-ra-theme="fullscreen"] .Panel.Focusable.gpfocus:not(.achievement-companion-fullscreen-chip):not([data-achievement-companion-focus-target="ra-community-summary"]):not([data-achievement-companion-focus-target="ra-systems-coming-soon"]) {
     border-color: ${raTheme.focus.border} !important;
     background: ${raTheme.surface.focusedContentCard} !important;
     box-shadow: ${raTheme.focus.shadow} !important;
@@ -786,9 +782,9 @@ export function getRaFocusStylesCss(): string {
     box-shadow: ${raTheme.focus.shadow}, ${qamTheme.selection.compactUnderline} !important;
   }
   [data-ac-ra-theme="fullscreen"] .achievement-companion-ra-profile-system--focused {
-    border-color: rgba(151, 211, 255, 0.98) !important;
+    border-color: ${raTheme.focus.border} !important;
     background: ${raTheme.surface.focusedContentStat} !important;
-    box-shadow: inset 0 0 0 2px rgba(151, 211, 255, 0.98), inset 0 0 0 999px rgba(54, 185, 255, 0.08), 0 0 14px rgba(54, 185, 255, 0.42) !important;
+    box-shadow: ${raTheme.focus.shadow} !important;
   }
   [data-ac-ra-theme] .achievement-companion-achievement-filter-option.achievement-companion-achievement-filter-option--selected {
     border-color: ${raTheme.selection.border}; background: ${raTheme.surface.selectedContentCard};

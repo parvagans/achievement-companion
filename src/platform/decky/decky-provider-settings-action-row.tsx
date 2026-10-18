@@ -130,8 +130,7 @@ function getActionPillStyle(focused: boolean): CSSProperties {
           borderColor: qamTheme.focus.border,
           background: qamTheme.surface.focusedContentStat,
           color: "#fff",
-          boxShadow:
-            "0 0 0 1px rgba(73, 155, 255, 0.72), 0 0 12px rgba(39, 124, 226, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.14)",
+          boxShadow: qamTheme.focus.shadow,
         }
       : {}),
   };

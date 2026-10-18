@@ -533,10 +533,10 @@ export function DeckyFullScreenAchievementRow({
           : isSteamShapedRetroAchievement
             ? getSteamShapedRetroAchievementCardStyle(achievement)
             : getAchievementCardStyle(achievement, gamePageGradient)),
-        outline: isSteamProvider ? (isFocused ? "2px solid rgba(69, 148, 255, 0.8)" : "none") : (isFocused ? `2px solid ${raTheme.focus.border}` : "none"),
+        outline: isFocused ? `2px solid ${isSteamProvider ? steamTheme.focus.border : raTheme.focus.border}` : "none",
         outlineOffset: 1,
         ...(isFocused
-          ? { boxShadow: isSteamProvider ? "inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 0 1px rgba(69, 148, 255, 0.55), 0 4px 14px rgba(0, 0, 0, 0.22)" : raTheme.focus.shadow }
+          ? { boxShadow: isSteamProvider ? steamTheme.focus.shadow : raTheme.focus.shadow }
           : {}),
       }}
       data-achievement-companion-achievement-id={achievement.achievementId}

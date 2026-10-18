@@ -1,7 +1,9 @@
-import { type JSX } from "react";
+import { useLayoutEffect, useRef, type JSX } from "react";
 import { getSteamFocusStylesCss } from "./steam-theme";
 import { getRaFocusStylesCss } from "./ra-theme";
 import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
+import { useDeckySettings } from "./decky-settings";
+import { applyAchievementCompanionTheme } from "./decky-theme-palette";
 
 export const DECKY_FOCUS_NAV_ROW_CLASS = "achievement-companion-focus-nav-row";
 export const DECKY_FOCUS_ACTION_ROW_CLASS = "achievement-companion-focus-action-row";
@@ -147,11 +149,8 @@ export function getDeckyFocusStylesCss(): string {
 .${DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS}:focus,
 .${DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS}:focus-within {
   background: ${qamTheme.surface.focusedContentCard} !important;
-  border-color: rgba(105, 176, 255, 0.8) !important;
-  box-shadow:
-    0 0 0 2px rgba(73, 155, 255, 0.72),
-    0 0 18px rgba(39, 124, 226, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+  border-color: ${qamTheme.focus.border} !important;
+  box-shadow: ${qamTheme.focus.shadow} !important;
   outline: none !important;
 }
 
@@ -160,13 +159,10 @@ export function getDeckyFocusStylesCss(): string {
 .${DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS}.gpfocuswithin .${DECKY_PROVIDER_SETTINGS_ACTION_PILL_CLASS},
 .${DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS}:focus .${DECKY_PROVIDER_SETTINGS_ACTION_PILL_CLASS},
 .${DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS}:focus-within .${DECKY_PROVIDER_SETTINGS_ACTION_PILL_CLASS} {
-  border-color: rgba(105, 176, 255, 0.82) !important;
-  background: linear-gradient(180deg, rgba(74, 138, 204, 0.44), rgba(34, 79, 124, 0.36)) !important;
+  border-color: ${qamTheme.focus.border} !important;
+  background: ${qamTheme.focus.background} !important;
   color: #fff !important;
-  box-shadow:
-    0 0 0 1px rgba(73, 155, 255, 0.72),
-    0 0 12px rgba(39, 124, 226, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+  box-shadow: ${qamTheme.focus.shadow} !important;
 }
 
 .${DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS}::before,
@@ -230,11 +226,8 @@ export function getDeckyFocusStylesCss(): string {
 .${DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS}:focus,
 .${DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS}:focus-within {
   background: ${qamTheme.surface.focusedContentStat};
-  border-color: rgba(125, 190, 255, 0.62);
-  box-shadow:
-    0 0 0 1px rgba(96, 165, 250, 0.55),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 2px 10px rgba(0, 0, 0, 0.24);
+  border-color: ${qamTheme.focus.border};
+  box-shadow: ${qamTheme.focus.shadow};
   color: rgba(255, 255, 255, 0.96);
   outline: none;
 }
@@ -245,18 +238,37 @@ export function getDeckyFocusStylesCss(): string {
 .${DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS}.${DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS}:focus,
 .${DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS}.${DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS}:focus-within {
   background: ${qamTheme.surface.focusedSelectedContentStat};
-  border-color: rgba(125, 190, 255, 0.7);
-  box-shadow:
-    0 0 0 1px rgba(96, 165, 250, 0.6),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 2px 12px rgba(0, 0, 0, 0.28),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  border-color: ${qamTheme.focus.border};
+  box-shadow: ${qamTheme.focus.shadow}, ${qamTheme.selection.compactUnderline};
   color: rgba(255, 255, 255, 0.98);
+}
+
+/* Day selection persists as a filter; only the current Decky focus receives a glow. */
+[data-ra-activity-calendar-day="true"]:is(.gpfocus,:focus-visible),
+[data-steam-compact-activity-calendar-day="true"]:is(.gpfocus,:focus-visible) {
+  box-shadow: ${qamTheme.focus.compactShadow} !important;
+}
+
+/* Steam can retain browser :focus after GamepadUI has moved .gpfocus elsewhere. */
+[data-ac-steam-theme="compact"] [data-steam-compact-activity-calendar][data-ac-calendar-visual-focus="false"] {
+  border-color: ${qamTheme.color.borderSubtle} !important;
+  box-shadow: none !important;
+  outline: none !important;
+}
+[data-ac-steam-theme="compact"] [data-steam-compact-activity-calendar][data-ac-calendar-visual-focus="true"] {
+  border-color: ${qamTheme.focus.border} !important;
+  box-shadow: ${qamTheme.focus.compactShadow} !important;
+  outline: none !important;
 }
 
 `; 
 }
 
 export function DeckyFocusStyles(): JSX.Element {
-  return <style>{getDeckyFocusStylesCss() + getSteamFocusStylesCss() + getRaFocusStylesCss()}</style>;
+  const styleRef = useRef<HTMLStyleElement>(null);
+  const theme = useDeckySettings().theme;
+  useLayoutEffect(() => {
+    if (styleRef.current !== null) applyAchievementCompanionTheme(styleRef.current.ownerDocument, theme);
+  }, [theme]);
+  return <style ref={styleRef}>{getDeckyFocusStylesCss() + getSteamFocusStylesCss() + getRaFocusStylesCss()}</style>;
 }

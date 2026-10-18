@@ -38,9 +38,12 @@ The project is undergoing active, rigorous development with frequent updates. If
 - **Steam completion insights:** SteamHunters community data adds rarity, completion times, DLC requirements, achievement groups, and obtainability information where available.
 - **Optional SteamHunters personal data:** personal SteamHunters profile statistics can be disabled without turning off community statistics. If a profile is unavailable, Achievement Companion uses meaningful Steam library data where possible and otherwise hides the section.
 - **Library game-page badges:** see In Progress, Steam Perfected, or RetroAchievements Beaten and Mastered status before launching a game, with configurable Small, Medium, and Large layouts.
+- **Two visual themes:** keep the original AC Blue look or choose AC Neon, based on the loading-screen logo colors, in **Quick Access → Plugin Settings → Theme Settings**.
 - **Built-in updates:** verified downloads are presented through Decky for confirmation rather than installed unattended.
 
 RetroAchievements and Steam retain their own progression rules: RA Hardcore and Softcore, Beaten and Mastered, and Steam Perfected all keep their meaning.
+
+The theme choice applies to shared Quick Access and full-screen surfaces, controls, focus states, activity charts, and calendars. RetroAchievements awards (including silver Beaten and gold Mastered), Steam unlock states, the separately configured game-page badge, and Steam's native game-page tabs keep their own semantics. AC Blue remains the default for existing installs.
 
 ## RetroAchievements inside Steam
 

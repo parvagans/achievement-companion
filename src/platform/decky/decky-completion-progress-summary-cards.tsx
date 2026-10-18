@@ -56,26 +56,23 @@ function getCompletionProgressSummaryCardStyle({
 
   const selectedStyle: CSSProperties = selected
     ? {
-        borderColor: "rgba(125, 190, 255, 0.72)",
-        background: `linear-gradient(180deg, rgba(96, 165, 250, 0.16), rgba(96, 165, 250, 0.08)), ${sharedTheme.surface.contentStat}`,
-        boxShadow:
-          "inset 0 1px 0 rgba(255, 255, 255, 0.1), inset 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 0 1px rgba(96, 165, 250, 0.28)",
+        borderColor: sharedTheme.color.borderStrong,
+        background: sharedTheme.surface.selectedContentStat,
+        boxShadow: sharedTheme.focus.insetShadow,
       }
     : {};
 
   const focusedStyle: CSSProperties = focused
     ? selected
       ? {
-          borderColor: "rgba(125, 190, 255, 0.88)",
-          background: `linear-gradient(180deg, rgba(96, 165, 250, 0.24), rgba(96, 165, 250, 0.12)), ${sharedTheme.surface.focusedContentStat}`,
-          boxShadow:
-            "0 0 0 1px rgba(96, 165, 250, 0.82), inset 0 1px 0 rgba(255, 255, 255, 0.16), inset 0 0 0 1px rgba(255, 255, 255, 0.1), 0 4px 16px rgba(0, 0, 0, 0.26)",
+          borderColor: sharedTheme.focus.border,
+          background: sharedTheme.surface.focusedSelectedContentStat,
+          boxShadow: sharedTheme.focus.shadow,
         }
       : {
-          borderColor: "rgba(96, 165, 250, 0.82)",
+          borderColor: sharedTheme.focus.border,
           background: sharedTheme.surface.focusedContentStat,
-          boxShadow:
-            "0 0 0 1px rgba(96, 165, 250, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 4px 14px rgba(0, 0, 0, 0.24)",
+          boxShadow: sharedTheme.focus.shadow,
         }
     : {};
 

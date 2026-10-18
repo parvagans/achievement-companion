@@ -34,6 +34,7 @@ import {
 } from "./decky-stat-helpers";
 import { getSteamCompactGameArtworkUrl } from "./decky-steam-game-artwork";
 import { getSteamCompactActionStyle, type DeckySteamCompactActionTone } from "./decky-steam-compact-action-styles";
+import { useDeckyVisualFocusState } from "./decky-visual-focus-state";
 import { DeckyCompactPrimaryActionContent } from "./decky-compact-primary-action";
 import {
   getDeckySteamCompactFocusTargetKey,
@@ -206,6 +207,7 @@ export function DeckySteamCompactAction({
 }): JSX.Element {
   const [isFocused, setIsFocused] = useState(false);
   const actionElementRef = useRef<HTMLDivElement | null>(null);
+  useDeckyVisualFocusState(actionElementRef, setIsFocused);
   const focusGeneration = useRef(0);
   const activate = (): void => {
     const target = actionElementRef.current;
@@ -422,7 +424,6 @@ function CompactActivityCalendarDay({ day, count, intensity, current, selected, 
   readonly onCancel: () => void;
   readonly targetProps: CompactTargetProps;
 }): JSX.Element {
-  const [focused, setFocused] = useState(false);
   const elementRef = useRef<HTMLDivElement | null>(null);
   const dateLabel = new Date(day).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
   const activate = (): void => {
@@ -447,20 +448,19 @@ function CompactActivityCalendarDay({ day, count, intensity, current, selected, 
       onClick={activate}
       onCancel={onCancel}
       onGamepadDirection={handleCompactCalendarDirection}
-      onFocus={(event) => { setFocused(true); event.currentTarget.scrollIntoView({ block: "center", inline: "nearest" }); targetProps.onFocused(event.currentTarget); }}
-      onGamepadFocus={(event) => { setFocused(true); (event.currentTarget as HTMLElement).scrollIntoView({ block: "center", inline: "nearest" }); targetProps.onFocused(event.currentTarget as HTMLElement); }}
-      onBlur={() => setFocused(false)}
+      onFocus={(event) => { event.currentTarget.scrollIntoView({ block: "center", inline: "nearest" }); targetProps.onFocused(event.currentTarget); }}
+      onGamepadFocus={(event) => { (event.currentTarget as HTMLElement).scrollIntoView({ block: "center", inline: "nearest" }); targetProps.onFocused(event.currentTarget as HTMLElement); }}
       style={{
         width: "100%",
         height: "100%",
         minWidth: 0,
         minHeight: 0,
         padding: 0,
-        border: selected ? `2px solid ${steamTheme.color.textPrimary}` : "2px solid transparent",
+        border: selected ? `2px solid ${steamTheme.selection.compactText}` : "2px solid transparent",
         borderRadius: 4,
         outline: "none",
         background: COMPACT_ACTIVITY_CALENDAR_COLORS[intensity],
-        boxShadow: focused ? steamTheme.focus.compactShadow : "none",
+        boxShadow: "none",
         boxSizing: "border-box",
       }}
     >{null}</Focusable>
@@ -799,6 +799,7 @@ function CompactActivityCalendar({ dayCounts, weeks, selectedDay, onSelectDay, o
   const [active, setActive] = useState(false);
   const [focused, setFocused] = useState(false);
   const entryRef = useRef<HTMLDivElement | null>(null);
+  useDeckyVisualFocusState(entryRef, setFocused);
   const activeDayRef = useRef<HTMLDivElement | null>(null);
   const pendingFocus = useRef<"entry" | "day">();
   const model = useMemo(() => buildSteamActivityCalendarModel(dayCounts, weeks), [dayCounts, weeks]);
@@ -840,6 +841,7 @@ function CompactActivityCalendar({ dayCounts, weeks, selectedDay, onSelectDay, o
       data-steam-compact-activity-calendar
       data-steam-compact-activity-calendar-weeks={weeks}
       data-steam-compact-activity-calendar-active={active ? "true" : "false"}
+      data-ac-calendar-visual-focus={focused && !active ? "true" : "false"}
       preferredFocus={entryTargetProps.preferredFocus}
       onActivate={enterCalendar}
       onClick={enterCalendar}
@@ -892,7 +894,7 @@ function CompactActivityCalendar({ dayCounts, weeks, selectedDay, onSelectDay, o
                   ...dayTargetProps,
                   ...(day === focusDay ? { elementRef: (node) => { activeDayRef.current = node; dayTargetProps.elementRef?.(node); } } : {}),
                 }}
-              /> : <span aria-hidden="true" style={{ display: "block", width: "100%", height: "100%", borderRadius: 4, background: COMPACT_ACTIVITY_CALENDAR_COLORS[intensity], ...(day === selectedDay ? { boxShadow: `inset 0 0 0 2px ${steamTheme.color.textPrimary}` } : {}) }} />}
+              /> : <span aria-hidden="true" style={{ display: "block", width: "100%", height: "100%", borderRadius: 4, background: COMPACT_ACTIVITY_CALENDAR_COLORS[intensity], ...(day === selectedDay ? { boxShadow: `inset 0 0 0 2px ${steamTheme.selection.compactText}` } : {}) }} />}
             </div>
           );
         })}

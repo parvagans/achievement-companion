@@ -28,15 +28,16 @@ test("RA semantic rewards and completion states remain distinct", () => {
   assert.notEqual(raRecipes.achievementState.locked.color, raRecipes.achievementState.unlocked.color);
 });
 
-test("RA Beaten Game outlines use silver while Profile retains cyan chrome", () => {
+test("RA Beaten stays silver on Game and Profile surfaces independent of AC theme", () => {
   const silver = `2px solid ${raRecipes.gameAward.beaten.border}`;
+  const profileSilver = `2px solid ${raTheme.color.beaten}`;
   const cyan = `2px solid ${raTheme.color.accentStrong}`;
   assert.equal(raRecipes.compactGame.status("beaten", "game").border, silver);
   assert.equal(raRecipes.compactGame.statusEmblem("beaten", "game").border, silver);
   assert.equal(raRecipes.gameStatusBanner.root("beaten").border, silver);
   assert.equal(raRecipes.gameStatusBanner.accent("beaten").background, raRecipes.gameAward.beaten.border);
-  assert.equal(raRecipes.compactGame.status("beaten").border, cyan);
-  assert.equal(raRecipes.compactGame.statusEmblem("beaten").border, cyan);
+  assert.equal(raRecipes.compactGame.status("beaten").border, profileSilver);
+  assert.equal(raRecipes.compactGame.statusEmblem("beaten").border, profileSilver);
   assert.equal(raRecipes.compactGame.status("mastered", "game").border, raRecipes.compactGame.status("mastered").border);
   assert.equal(raRecipes.gameStatusBanner.root("in-progress").border, cyan);
 

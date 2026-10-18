@@ -63,12 +63,10 @@ export function getDeckyFullscreenActionStylesCss(): string {
 }
 
 .${DECKY_FULLSCREEN_CHIP_CLASS}.${DECKY_FULLSCREEN_CHIP_SELECTED_CLASS} {
-  border-color: rgba(105, 176, 255, 0.82) !important;
+  border-color: ${qamTheme.focus.border} !important;
   background: ${qamTheme.surface.selectedContentStat} !important;
   color: rgba(255, 255, 255, 0.99) !important;
-  box-shadow:
-    0 0 0 1px rgba(73, 155, 255, 0.62),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+  box-shadow: ${qamTheme.focus.insetShadow} !important;
 }
 
 .${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-full-width {
@@ -92,8 +90,8 @@ export function getDeckyFullscreenActionStylesCss(): string {
 }
 
 .${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-primary {
-  border-color: rgba(83, 193, 255, 0.96) !important;
-  background: linear-gradient(180deg, rgba(34, 155, 232, 0.82), rgba(15, 91, 162, 0.88)) !important;
+  border-color: ${qamTheme.color.borderStrong} !important;
+  background: ${qamTheme.surface.primaryAction} !important;
   box-shadow:
     0 0 0 1px rgba(74, 189, 255, 0.52),
     0 0 16px rgba(42, 145, 230, 0.28),
@@ -106,33 +104,27 @@ export function getDeckyFullscreenActionStylesCss(): string {
 .${DECKY_FULLSCREEN_CHIP_CLASS}:focus,
 .${DECKY_FULLSCREEN_CHIP_CLASS}:focus-visible,
 .${DECKY_FULLSCREEN_CHIP_CLASS}:focus-within {
-  border-color: rgba(105, 176, 255, 0.8) !important;
+  border-color: ${qamTheme.focus.border} !important;
   background: ${qamTheme.surface.focusedContentStat} !important;
   color: #fff !important;
   outline: none !important;
-  box-shadow:
-    0 0 0 2px rgba(73, 155, 255, 0.72),
-    0 0 18px rgba(39, 124, 226, 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
+  box-shadow: ${qamTheme.focus.shadow} !important;
 }
 
 .${DECKY_FULLSCREEN_CHIP_CLASS}.${DECKY_FULLSCREEN_CHIP_SELECTED_CLASS}:is(.${DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS},.gpfocus,.gpfocuswithin,:focus,:focus-visible,:focus-within) {
   background: ${qamTheme.surface.focusedSelectedContentStat} !important;
 }
 
-/* Keep the primary action's blue treatment while making controller focus unmistakable. */
+/* The primary action keeps its theme color; focus is not a white Steam overlay. */
 .${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-primary.${DECKY_FULLSCREEN_CHIP_FOCUSED_CLASS},
 .${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-primary.gpfocus,
 .${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-primary.gpfocuswithin,
 .${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-primary:focus,
 .${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-primary:focus-visible,
 .${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-primary:focus-within {
-  border-color: rgba(255, 255, 255, 0.98) !important;
-  background: linear-gradient(180deg, rgba(34, 155, 232, 0.92), rgba(15, 91, 162, 0.96)) !important;
-  box-shadow:
-    0 0 0 3px rgba(255, 255, 255, 0.96),
-    0 0 20px rgba(42, 145, 230, 0.52),
-    inset 0 1px 0 rgba(255, 255, 255, 0.28) !important;
+  border-color: ${qamTheme.focus.primaryBorder} !important;
+  background: ${qamTheme.focus.primaryBackground} !important;
+  box-shadow: ${qamTheme.focus.primaryShadow} !important;
 }
 
 .${DECKY_FULLSCREEN_CHIP_CLASS} > span {

@@ -17,16 +17,26 @@ import {
   removeAchievementCompanionRuntimeDebug,
 } from "@platform/decky/decky-runtime-debug";
 import { achievementCompanionQamTheme } from "@platform/decky/decky-qam-theme";
+import { clearAchievementCompanionThemes } from "@platform/decky/decky-theme-palette";
 import { initializeDeckyUpdateSystem } from "./platform/decky/decky-update-service";
+
+const ACHIEVEMENT_COMPANION_PICKER_ICON_FOCUS_CSS = `
+button.gpfocus .achievement-companion-picker-icon,
+button:focus-visible .achievement-companion-picker-icon { color: #000 !important; }
+button.gpfocus .achievement-companion-picker-icon__star,
+button:focus-visible .achievement-companion-picker-icon__star { fill: #fff; }
+`;
 
 function AchievementCompanionIcon(): JSX.Element {
   return (
     <svg
       aria-hidden="true"
+      className="achievement-companion-picker-icon"
       viewBox="0 0 24 24"
       focusable="false"
       style={{ width: "1em", height: "1em", color: "#ffffff", verticalAlign: "-0.125em", overflow: "visible" }}
     >
+      <style>{ACHIEVEMENT_COMPANION_PICKER_ICON_FOCUS_CSS}</style>
       {/* Trophy body */}
       <path d="M5 2 Q4 9 6.5 13 Q8.5 17 12 18 Q15.5 17 17.5 13 Q20 9 19 2 Z" fill="currentColor"/>
 
@@ -44,7 +54,7 @@ function AchievementCompanionIcon(): JSX.Element {
       <circle cx="12" cy="9" r="3.5" fill="white" opacity="0.12"/>
 
       {/* Star */}
-      <path d="M12 5 L13 8 L16 8 L13.5 10 L14.5 13 L12 11 L9.5 13 L10.5 10 L8 8 L11 8 Z" fill={achievementCompanionQamTheme.color.background} opacity="0.94"/>
+      <path className="achievement-companion-picker-icon__star" d="M12 5 L13 8 L16 8 L13.5 10 L14.5 13 L12 11 L9.5 13 L10.5 10 L8 8 L11 8 Z" fill={achievementCompanionQamTheme.color.background} opacity="0.94"/>
     </svg>
   );
 }
@@ -74,6 +84,7 @@ export default definePlugin(() => {
     content: <DeckyCompactSession><DeckyBootstrap /></DeckyCompactSession>,
     icon: <AchievementCompanionIcon />,
     onDismount() {
+      clearAchievementCompanionThemes();
       closeDeckyFullScreenSettingsOnDismount();
       stopDeckyUpdateSystem();
       removeDeckyCompactCancelBridges();

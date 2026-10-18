@@ -2003,6 +2003,13 @@ test("achievement companion settings normalize invalid stored values", () => {
   );
 });
 
+test("theme settings default to AC Blue and persist AC Neon", () => {
+  assert.equal(DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.theme, "ac-blue");
+  assert.equal(parseAchievementCompanionSettings("{}").theme, "ac-blue");
+  assert.equal(parseAchievementCompanionSettings('{"theme":"ac-neon"}').theme, "ac-neon");
+  assert.equal(parseAchievementCompanionSettings('{"theme":"unknown"}').theme, "ac-blue");
+});
+
 test("SteamHunters personal data stays enabled for existing settings and can be disabled", () => {
   assert.equal(DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.steamHuntersPersonalDataEnabled, true);
   assert.equal(parseAchievementCompanionSettings(JSON.stringify({ recentAchievementsCount: 3 })).steamHuntersPersonalDataEnabled, true);
@@ -3506,6 +3513,8 @@ test("compact provider menu nests native theme and badge settings under a sessio
   assert.match(source, /aria-label=\{`Plugin Settings, \$\{expanded \? "expanded" : "collapsed"\}`\}/u);
   assert.match(source, /transform: expanded \? "rotate\(-90deg\)" : "rotate\(90deg\)"/u);
   assert.match(source, /<Field[\s\S]*label="Theme Settings"[\s\S]*<Field[\s\S]*label="Game Badge Settings"/u);
+  const themeDropdownSource = source.slice(source.indexOf("function ThemeDropdown"), source.indexOf("function getGamePageBadgeLabelStyle"));
+  assert.doesNotMatch(themeDropdownSource, /description=/u);
   assert.match(source, /function getPluginSettingsContentCardStyle\(\)[\s\S]*steamRecipes\.card\("compact"\)/u);
   assert.match(source, /data-achievement-companion-plugin-settings-card="true"/u);
   assert.match(
@@ -3528,10 +3537,12 @@ test("compact provider menu nests native theme and badge settings under a sessio
   assert.match(source, /saveGamePageAchievementBadgeColor/u);
 });
 
-test("Decky plugin picker uses a white Achievement Companion trophy", () => {
+test("Decky plugin picker uses a white trophy that turns black on native focus", () => {
   const source = readFileSync("src/index.tsx", "utf8");
 
   assert.match(source, /function AchievementCompanionIcon\(\)[\s\S]*color: "#ffffff"/u);
+  assert.match(source, /button\.gpfocus \.achievement-companion-picker-icon[\s\S]*color: #000 !important/u);
+  assert.match(source, /button\.gpfocus \.achievement-companion-picker-icon__star[\s\S]*fill: #fff/u);
   assert.match(source, /fill="currentColor"/u);
   assert.match(source, /stroke="currentColor"/u);
   assert.doesNotMatch(source, /#e6b020|#c49010/ui);
@@ -3598,8 +3609,8 @@ test("fullscreen action controls use Decky Focusable pills with unclipped labels
   assert.match(fullscreenActionControlsSource, /<span style=\{\{ whiteSpace: "nowrap" \}\}>\{label\}<\/span>/);
   assert.doesNotMatch(getDeckyFullscreenActionStylesCss(), /DialogButton|ButtonItem/);
   assert.match(getDeckyFullscreenActionStylesCss(), /border-radius:\s*999px\s*!important/);
-  assert.match(getDeckyFullscreenActionStylesCss(), /background:\s*linear-gradient/);
-  assert.match(getDeckyFullscreenActionStylesCss(), /0 0 18px rgba\(39, 124, 226, 0\.35\)/);
+  assert.match(getDeckyFullscreenActionStylesCss(), /background:\s*var\(--ac-primary-action/u);
+  assert.match(getDeckyFullscreenActionStylesCss(), /box-shadow:\s*var\(--ac-focus-shadow/u);
   assert.match(getDeckyFullscreenActionStylesCss(), /min-width:\s*max-content\s*!important/);
   assert.match(getDeckyFullscreenActionStylesCss(), /white-space:\s*nowrap\s*!important/);
   assert.doesNotMatch(getDeckyFullscreenActionStylesCss(), /text-overflow:\s*ellipsis/);
@@ -3823,7 +3834,7 @@ test("provider setup and current settings actions use focusable controls", () =>
   );
   assert.match(
     focusStylesSource,
-    /DECKY_PROVIDER_SETTINGS_ACTION_ROW_ACTIVE_CLASS[\s\S]*rgba\(73, 155, 255, 0\.72\)[\s\S]*DECKY_PROVIDER_SETTINGS_ACTION_PILL_CLASS/u,
+    /DECKY_PROVIDER_SETTINGS_ACTION_ROW_ACTIVE_CLASS[\s\S]*qamTheme\.focus\.shadow[\s\S]*DECKY_PROVIDER_SETTINGS_ACTION_PILL_CLASS/u,
   );
   assert.match(
     readFileSync("src/platform/decky/decky-compact-pill-action-item.tsx", "utf8"),
@@ -5689,8 +5700,8 @@ test("completion progress summary cards replace the old filter pill row and act 
   assert.equal(renderSource.includes('borderRadius: 16'), true);
   assert.equal(renderSource.includes('rgba(255, 255, 255, 0.075)'), true);
   assert.equal(renderSource.includes("background: sharedTheme.surface.contentStat"), true);
-  assert.equal(renderSource.includes('rgba(96, 165, 250, 0.16)'), true);
-  assert.equal(renderSource.includes('rgba(96, 165, 250, 0.24)'), true);
+  assert.equal(renderSource.includes("background: sharedTheme.surface.selectedContentStat"), true);
+  assert.equal(renderSource.includes("background: sharedTheme.surface.focusedSelectedContentStat"), true);
   assert.equal(renderSource.includes("<button"), false);
   assert.equal(renderSource.includes("Field"), false);
   assert.equal(renderSource.includes('from "./decky-completion-progress-summary-card-data"'), true);

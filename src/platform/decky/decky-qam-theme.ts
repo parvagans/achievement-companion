@@ -1,12 +1,17 @@
 import type { CSSProperties } from "react";
 
 /** Shared Achievement Companion visual foundations for QAM and full-screen. */
-const contentCardGradient = "radial-gradient(circle at 18% 50%, rgba(43, 195, 242, 0.13), transparent 54%), linear-gradient(110deg, #071b29, #081824)";
-const contentStatGradient = "radial-gradient(circle at 18% 50%, rgba(43, 195, 242, 0.1), transparent 54%), linear-gradient(110deg, #0a2638, #071c2c)";
-const contentFocusOverlay = "linear-gradient(180deg, rgba(63, 149, 211, 0.26), rgba(31, 92, 141, 0.21))";
-const contentSelectionOverlay = "linear-gradient(180deg,rgba(74,138,204,.4),rgba(34,79,124,.34))";
+const themeValue = (name: string, blue: string): string => `var(--ac-${name}, ${blue})`;
+const contentCardGradient = themeValue("content-card", "radial-gradient(circle at 18% 50%, rgba(43, 195, 242, 0.13), transparent 54%), linear-gradient(110deg, #071b29, #081824)");
+const contentStatGradient = themeValue("content-stat", "radial-gradient(circle at 18% 50%, rgba(43, 195, 242, 0.1), transparent 54%), linear-gradient(110deg, #0a2638, #071c2c)");
+const contentFocusOverlay = themeValue("focus-overlay", "linear-gradient(180deg, rgba(63, 149, 211, 0.26), rgba(31, 92, 141, 0.21))");
+const contentSelectionOverlay = themeValue("selection-overlay", "linear-gradient(180deg,rgba(74,138,204,.4),rgba(34,79,124,.34))");
 
-export const qamActivityCalendarColors = ["#1d3c51", "#21546f", "#267da9", "#2fb9ef", "#50d5ff"] as const;
+export const qamActivityCalendarColors = [
+  themeValue("calendar-0", "#1d3c51"), themeValue("calendar-1", "#21546f"),
+  themeValue("calendar-2", "#267da9"), themeValue("calendar-3", "#2fb9ef"),
+  themeValue("calendar-4", "#50d5ff"),
+] as const;
 export type QamActivityCalendarIntensity = 0 | 1 | 2 | 3 | 4;
 
 export function getQamActivityCalendarLegendStyle(): CSSProperties {
@@ -25,16 +30,17 @@ export function getQamActivityCalendarLegendCellStyle(intensity: QamActivityCale
 
 export const achievementCompanionQamTheme = {
   color: {
-    background: "#06111a", surface: "#071b29", surfaceRaised: "#092334",
-    surfaceInteractive: "#0b293d", textPrimary: "#f2f7fb", textSecondary: "#b7cad8",
-    textMuted: "#8fa9bd", accent: "#2bc3f2", accentStrong: "#25bfff",
-    borderSubtle: "rgba(68,151,204,.25)", borderStrong: "rgba(44,185,255,.75)",
+    background: themeValue("background", "#06111a"), surface: themeValue("surface", "#071b29"), surfaceRaised: themeValue("surface-raised", "#092334"),
+    surfaceInteractive: themeValue("surface-interactive", "#0b293d"), textPrimary: themeValue("text-primary", "#f2f7fb"), textSecondary: themeValue("text-secondary", "#b7cad8"),
+    textMuted: themeValue("text-muted", "#8fa9bd"), accent: themeValue("accent", "#2bc3f2"), accentStrong: themeValue("accent-strong", "#25bfff"),
+    borderSubtle: themeValue("border-subtle", "rgba(68,151,204,.25)"), borderStrong: themeValue("border-strong", "rgba(44,185,255,.75)"),
+    primaryActionBorder: themeValue("primary-action-border", "rgba(44,185,255,.75)"),
     success: "#72e0a8", warning: "#f5d276", danger: "#ff7182", locked: "#9ba8b4",
   },
   surface: {
-    page: "linear-gradient(120deg,#06111a,#071724 55%,#06121c)",
-    card: "rgba(7,27,41,.88)", raised: "linear-gradient(90deg,rgba(9,35,52,.95),rgba(7,29,44,.9))",
-    interactive: "rgba(9,39,58,.72)",
+    page: themeValue("page", "linear-gradient(120deg,#06111a,#071724 55%,#06121c)"),
+    card: themeValue("card", "rgba(7,27,41,.88)"), raised: themeValue("raised", "linear-gradient(90deg,rgba(9,35,52,.95),rgba(7,29,44,.9))"),
+    interactive: themeValue("interactive", "rgba(9,39,58,.72)"),
     contentCard: contentCardGradient,
     contentStat: contentStatGradient,
     progressTrack: "rgba(143, 169, 189, 0.18)",
@@ -45,10 +51,12 @@ export const achievementCompanionQamTheme = {
     selectedContentStat: `${contentSelectionOverlay}, ${contentStatGradient}`,
     focusedSelectedContentStat: `${contentFocusOverlay}, ${contentSelectionOverlay}, ${contentStatGradient}`,
     selected: contentSelectionOverlay,
-    primaryAction: "linear-gradient(180deg,rgba(34,155,232,.82),rgba(15,91,162,.88))",
+    primaryAction: themeValue("primary-action", "linear-gradient(180deg,rgba(34,155,232,.82),rgba(15,91,162,.88))"),
+    activityTrendFill: themeValue("activity-trend-fill", "linear-gradient(#55d7ff, #1489c8)"),
+    activityTrendEmpty: themeValue("activity-trend-empty", "#244258"),
     secondaryAction: "linear-gradient(180deg,rgba(255,255,255,.1),rgba(255,255,255,.045))",
-    compactPrimaryAction: "linear-gradient(180deg,rgba(10,63,96,.82),rgba(7,43,67,.92))",
-    compactRow: "linear-gradient(150deg,rgba(9,35,51,.88),rgba(7,27,41,.94))",
+    compactPrimaryAction: themeValue("compact-primary-action", "linear-gradient(180deg,rgba(10,63,96,.82),rgba(7,43,67,.92))"),
+    compactRow: themeValue("compact-row", "linear-gradient(150deg,rgba(9,35,51,.88),rgba(7,27,41,.94))"),
   },
   status: {
     danger: { text: "#ffc0c8", border: "rgba(255,67,91,.5)", surface: "linear-gradient(90deg,rgba(89,17,31,.56),rgba(57,15,27,.45))" },
@@ -78,19 +86,21 @@ export const achievementCompanionQamTheme = {
   },
   radius: { small: 8, medium: 10, large: 14, panel: 20, pill: 999 },
   focus: {
-    border: "rgba(105,176,255,.8)", background: "linear-gradient(180deg,rgba(74,138,204,.34),rgba(34,79,124,.3))",
-    shadow: "0 0 0 2px rgba(73,155,255,.72),0 0 18px rgba(39,124,226,.35),inset 0 1px 0 rgba(255,255,255,.14)",
-    insetShadow: "inset 0 0 0 1px rgba(125,190,255,.7),inset 0 0 0 999px rgba(73,155,255,.07)",
-    primaryBorder: "rgba(255,255,255,.98)",
-    primaryBackground: "linear-gradient(180deg,rgba(34,155,232,.92),rgba(15,91,162,.96))",
-    primaryShadow: "0 0 0 3px rgba(255,255,255,.96),0 0 20px rgba(42,145,230,.52),inset 0 1px 0 rgba(255,255,255,.28)",
-    compactBorder: "rgba(54,185,255,.92)",
-    compactBackground: "linear-gradient(180deg,rgba(17,91,139,.78),rgba(8,53,82,.9))",
-    compactShadow: "0 0 0 1px rgba(54,185,255,.72),0 0 13px rgba(54,185,255,.38),inset 0 1px 0 rgba(255,255,255,.1)",
+    border: themeValue("focus-border", "rgba(105,176,255,.8)"), background: themeValue("focus-background", "linear-gradient(180deg,rgba(74,138,204,.34),rgba(34,79,124,.3))"),
+    shadow: themeValue("focus-shadow", "0 0 0 2px rgba(73,155,255,.72),0 0 18px rgba(39,124,226,.35),inset 0 1px 0 rgba(255,255,255,.14)"),
+    insetShadow: themeValue("focus-inset-shadow", "inset 0 0 0 1px rgba(125,190,255,.7),inset 0 0 0 999px rgba(73,155,255,.07)"),
+    primaryBorder: themeValue("focus-primary-border", "rgba(83,193,255,.96)"),
+    primaryBackground: themeValue("focus-primary-background", "linear-gradient(180deg,rgba(34,155,232,.92),rgba(15,91,162,.96))"),
+    primaryShadow: themeValue("focus-primary-shadow", "0 0 0 3px rgba(83,193,255,.96),0 0 20px rgba(42,145,230,.52),inset 0 1px 0 rgba(255,255,255,.28)"),
+    calendarDayShadow: themeValue("focus-calendar-day-shadow", "inset 0 0 0 1px #a9e9ff,0 0 5px rgba(80,213,255,.7)"),
+    compactBorder: themeValue("focus-compact-border", "rgba(54,185,255,.92)"),
+    compactBackground: themeValue("focus-compact-background", "linear-gradient(180deg,rgba(17,91,139,.78),rgba(8,53,82,.9))"),
+    compactShadow: themeValue("focus-compact-shadow", "0 0 0 1px rgba(54,185,255,.72),0 0 13px rgba(54,185,255,.38),inset 0 1px 0 rgba(255,255,255,.1)"),
+    passiveShadow: themeValue("focus-passive-shadow", "inset 0 0 0 1px rgba(54,185,255,.09)"),
   },
   selection: {
-    compactText: "#69cfff",
-    compactUnderline: "inset 0 -3px 0 rgba(54,185,255,.82)",
+    compactText: themeValue("selection-text", "#69cfff"),
+    compactUnderline: themeValue("selection-underline", "inset 0 -3px 0 rgba(54,185,255,.82)"),
   },
 } as const;
 
@@ -198,7 +208,7 @@ export function getQamCompactFocusRingStyle(focused: boolean): CSSProperties {
 
 /** Quiet focus for informational cards that are controller stops but not actions. */
 export function getQamPassiveCardFocusStyle(focused: boolean): CSSProperties {
-  return { boxShadow: focused ? "inset 0 0 0 1px rgba(54, 185, 255, 0.09)" : "none" };
+  return { boxShadow: focused ? achievementCompanionQamTheme.focus.passiveShadow : "none" };
 }
 
 /** Shared row focus semantics, scoped to each provider's own theme root. */

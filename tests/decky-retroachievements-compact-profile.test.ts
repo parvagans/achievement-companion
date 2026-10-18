@@ -266,10 +266,10 @@ test("RA QAM loading, focus scrolling, and calendar controls follow Steam compac
   assert.match(profileSource, /data-ra-activity-calendar-day="true"[\s\S]*onGamepadDirection=\{handleCalendarDirection\}/u);
   assert.match(profileSource, /data-ra-activity-calendar-current=\{day === today \? "true" : "false"\}/u);
   assert.match(profileSource, /data-ra-activity-calendar-focused=\{day === focusDay \? "true" : "false"\}/u);
-  assert.match(profileSource, /calendarCell\(intensity, isSelected, focusedCalendarDay === day\)/u);
-  assert.match(profileSource, /onBlur=\{\(\) => setFocusedCalendarDay\(\(current\) => current === day \? undefined : current\)\}/u);
+  assert.match(profileSource, /calendarCell\(intensity, isSelected, false\)/u);
+  assert.doesNotMatch(profileSource, /setFocusedCalendarDay/u);
   assert.doesNotMatch(profileSource, /calendarCell\(intensity, isSelected, true\)/u);
-  assert.match(profileSource, /onGamepadFocus=\{\(event\) => \{ const element = event\.currentTarget as HTMLElement; setFocusedCalendarDay\(day\); setLastFocusedDay\(day\)/u);
+  assert.match(profileSource, /onGamepadFocus=\{\(event\) => \{ const element = event\.currentTarget as HTMLElement; setLastFocusedDay\(day\)/u);
   assert.match(profileSource, /data-ra-profile-recent-game="true"/u);
   assert.match(profileSource, /buildCompactActivityGamesForDay\(selectedDateActivity, activityKnownGames\)/u);
   assert.match(profileSource, /activityUnlockCount/u);

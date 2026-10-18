@@ -2,18 +2,9 @@ import { useEffect, useRef, type CSSProperties } from "react";
 import retroAchievementsIconUrl from "./assets/retroachievements.svg";
 import steamIconUrl from "./assets/steam.svg";
 import steamDeckIconUrl from "./assets/steam-deck.svg";
+import { DECKY_LOADING_COLORS } from "./decky-brand-colors";
 
-export const DECKY_LOADING_COLORS = {
-  cyan: "#08d5f5",
-  blue: "#147bff",
-  violet: "#713dff",
-  magenta: "#ef38d5",
-  navy: "#050d18",
-  text: "#f5f9ff",
-  muted: "#b8c9dc",
-} as const;
-
-export const DECKY_LOADING_PAGE_BACKGROUND = `radial-gradient(ellipse at 20% 8%, rgba(0, 206, 246, 0.12), transparent 42%), radial-gradient(ellipse at 84% 58%, rgba(190, 43, 221, 0.09), transparent 42%), linear-gradient(145deg, #030912 0%, #071321 54%, #0b1020 100%)`;
+export { DECKY_LOADING_COLORS, DECKY_LOADING_PAGE_BACKGROUND } from "./decky-brand-colors";
 
 export type DeckyLoadingProviderId = "steam" | "retroachievements";
 

@@ -561,7 +561,7 @@ test("RA full-screen profile exposes every system in a horizontal controller rai
     "utf8",
   );
   assert.match(themeSource, /\.achievement-companion-ra-profile-system--focused/u);
-  assert.match(themeSource, /inset 0 0 0 2px rgba\(151, 211, 255, 0\.98\)/u);
+  assert.match(themeSource, /box-shadow: \$\{raTheme\.focus\.shadow\} !important/u);
 });
 
 test("RA profile system aggregation can return the complete sorted system rail", () => {

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { createPortal } from "react-dom";
 import type { GamepadEvent } from "@decky/ui";
 import { consumeDeckyFullscreenPopupCancel } from "./decky-full-screen-popup-state";
+import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 import {
   measureSteamGameFooterLayout,
   STEAM_GAME_FOOTER_FALLBACK_HEIGHT_PX,
@@ -193,7 +194,7 @@ function getFooterStyle(height: number, zIndex: number): CSSProperties {
     padding: "3px 12px",
     minWidth: 0,
     boxSizing: "border-box",
-    borderTop: "1px solid rgba(125, 190, 255, 0.24)",
+    borderTop: `1px solid ${qamTheme.color.borderSubtle}`,
     background: "linear-gradient(180deg, #09151f, #050e16)",
     fontSize: 14,
     boxShadow: "0 -10px 28px rgba(0, 0, 0, 0.3)",
@@ -228,12 +229,12 @@ function getSectionTabStyle(active: boolean): CSSProperties {
     minHeight: 28,
     padding: "2px 8px",
     boxSizing: "border-box",
-    border: `1px solid ${active ? "rgba(105, 176, 255, 0.72)" : "rgba(255, 255, 255, 0.12)"}`,
+    border: `1px solid ${active ? qamTheme.focus.border : "rgba(255, 255, 255, 0.12)"}`,
     borderRadius: 999,
     background: active
-      ? "linear-gradient(180deg, rgba(74, 138, 204, 0.34), rgba(34, 79, 124, 0.3))"
+      ? qamTheme.focus.background
       : "rgba(255, 255, 255, 0.035)",
-    boxShadow: active ? "0 0 0 1px rgba(73, 155, 255, 0.32)" : "none",
+    boxShadow: active ? qamTheme.focus.insetShadow : "none",
     color: active ? "rgba(255, 255, 255, 0.98)" : "rgba(255, 255, 255, 0.68)",
     fontSize: 12,
     fontWeight: active ? 800 : 700,

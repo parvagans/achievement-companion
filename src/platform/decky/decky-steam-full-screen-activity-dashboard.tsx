@@ -61,6 +61,7 @@ import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
 import { jumpDeckySteamProfileTabToTop } from "./decky-steam-profile-jump-top";
 import { getSteamCompactAchievementFilterStyle } from "./decky-steam-compact-action-styles";
 import { steamRecipes, steamTheme } from "./steam-theme";
+import { qamActivityCalendarColors } from "./decky-qam-theme";
 import {
   readDeckyActivityPageState,
   rememberDeckyActivityCalendarDay,
@@ -180,7 +181,7 @@ function getCardStyle(nested = false): CSSProperties {
   return {
     ...steamRecipes.card("fullscreen"),
     background: nested ? steamTheme.surface.contentStat : steamTheme.surface.contentCard,
-    boxShadow: "inset 0 1px 0 rgba(164, 224, 255, 0.04)",
+    boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04)",
     minWidth: 0,
   };
 }
@@ -197,7 +198,7 @@ function ActivityMetricCard({ icon, label, value, iconTone = "blue", iconSize = 
       <Icon src={icon} size={iconSize} tone={iconTone} />
       <div style={{ minWidth: 0, textAlign: "center" }}>
         <div style={{ fontSize: 15, fontWeight: 800, lineHeight: 1.05 }}>{value}</div>
-        <div style={{ color: "#abc6da", fontSize: 9.5, lineHeight: 1.15 }}>{label}</div>
+        <div style={{ color: steamTheme.color.textSecondary, fontSize: 9.5, lineHeight: 1.15 }}>{label}</div>
       </div>
     </div>
   );
@@ -210,11 +211,11 @@ function ActivityTrend({ stats, interval }: { readonly stats: SteamActivityStats
     <div style={{ ...getCardStyle(), padding: "7px 10px", display: "grid", gridTemplateColumns: "minmax(92px,.7fr) minmax(0,1.6fr)", alignItems: "end", gap: 9 }}>
       <div>
         <div style={{ fontSize: 12, fontWeight: 700 }}>Recent Activity</div>
-        <div style={{ color: "#9cb9ce", fontSize: 9, marginTop: 2 }}>{trend.label}</div>
-        <div style={{ color: "#d8f3ff", fontSize: 9.5, fontWeight: 800, marginTop: 3 }}>{`${formatCount(trend.total)} unlock${trend.total === 1 ? "" : "s"}`}</div>
+        <div style={{ color: steamTheme.color.textMuted, fontSize: 9, marginTop: 2 }}>{trend.label}</div>
+        <div style={{ color: steamTheme.color.textPrimary, fontSize: 9.5, fontWeight: 800, marginTop: 3 }}>{`${formatCount(trend.total)} unlock${trend.total === 1 ? "" : "s"}`}</div>
       </div>
       <div style={{ display: "flex", alignItems: "end", gap: 2, height: 34 }}>
-        {trend.bars.map(({ count, label }) => <span key={label} aria-label={`${label}: ${count} unlock${count === 1 ? "" : "s"}`} style={{ display: "block", flex: "1 1 0", minWidth: 2, minHeight: 4, height: `${count === 0 ? 14 : Math.max(20, (count / maximum) * 100)}%`, borderRadius: 2, background: count > 0 ? "linear-gradient(#55d7ff, #1489c8)" : "#244258" }} />)}
+        {trend.bars.map(({ count, label }) => <span key={label} aria-label={`${label}: ${count} unlock${count === 1 ? "" : "s"}`} style={{ display: "block", flex: "1 1 0", minWidth: 2, minHeight: 4, height: `${count === 0 ? 14 : Math.max(20, (count / maximum) * 100)}%`, borderRadius: 2, background: count > 0 ? steamTheme.surface.activityTrendFill : steamTheme.surface.activityTrendEmpty }} />)}
       </div>
     </div>
   );
@@ -232,9 +233,9 @@ function ActivityInsightCard({ icon, title, value, detail, tone = "blue", iconSi
     <div style={{ ...getCardStyle(true), display: "grid", gridTemplateColumns: "24px minmax(0, 1fr)", alignItems: "center", gap: 5, padding: "6px 6px", minHeight: 46, boxSizing: "border-box" }}>
       <Icon src={icon} size={iconSize} tone={tone} />
       <div style={{ minWidth: 0 }}>
-        <div style={{ color: "#a9c8da", fontSize: 8.5, lineHeight: 1.05 }}>{title}</div>
-        <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#f0f9ff", fontSize: 11.5, fontWeight: 800, lineHeight: 1.15, marginTop: 1 }}>{value}</div>
-        <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#8fb0c4", fontSize: 8.5, lineHeight: 1.1, marginTop: 1 }}>{detail}</div>
+        <div style={{ color: steamTheme.color.textSecondary, fontSize: 8.5, lineHeight: 1.05 }}>{title}</div>
+        <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: steamTheme.color.textPrimary, fontSize: 11.5, fontWeight: 800, lineHeight: 1.15, marginTop: 1 }}>{value}</div>
+        <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: steamTheme.color.textMuted, fontSize: 8.5, lineHeight: 1.1, marginTop: 1 }}>{detail}</div>
       </div>
     </div>
   );
@@ -501,27 +502,21 @@ function AchievementActivityRow({ elementRef, entry, rowIndex, providerId, listR
     onOpenAchievementDetail(entry.game.gameId, entry.achievement.achievementId);
   };
   return (
-    <Focusable ref={elementRef} className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS} noFocusRing role="button" data-steam-activity-row="true" data-steam-activity-row-index={rowIndex} aria-label={`Open ${entry.achievement.title}`} onActivate={openAchievement} onClick={openAchievement} onCancel={onBack} onGamepadDirection={(event) => handleActivityRowDirection(event, onRevealMore)} onFocus={(event) => { rememberFocus(); onFocus(event); }} onGamepadFocus={(event) => { rememberFocus(); onGamepadFocus(event); }} onBlur={() => setFocused(false)} style={{ ...getCardStyle(), display: "grid", gridTemplateColumns: `${isRa ? DECKY_RA_FULLSCREEN_GAME_ICON_COLUMN_WIDTH : STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}px 48px minmax(0, 1fr) 128px 16px`, alignItems: "center", gap: 8, flex: `0 0 ${STEAM_FULLSCREEN_GAME_ROW_HEIGHT}px`, minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT, padding: "2px 7px 2px 3px", boxSizing: "border-box", ...(focused ? { outline: "none", background: steamTheme.surface.focusedContentCard, boxShadow: "inset 0 0 0 2px #3bc7ff, inset 0 0 18px rgba(25, 184, 255, 0.2)" } : {}) }}>
+    <Focusable ref={elementRef} className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS} noFocusRing role="button" data-steam-activity-row="true" data-steam-activity-row-index={rowIndex} aria-label={`Open ${entry.achievement.title}`} onActivate={openAchievement} onClick={openAchievement} onCancel={onBack} onGamepadDirection={(event) => handleActivityRowDirection(event, onRevealMore)} onFocus={(event) => { rememberFocus(); onFocus(event); }} onGamepadFocus={(event) => { rememberFocus(); onGamepadFocus(event); }} onBlur={() => setFocused(false)} style={{ ...getCardStyle(), display: "grid", gridTemplateColumns: `${isRa ? DECKY_RA_FULLSCREEN_GAME_ICON_COLUMN_WIDTH : STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}px 48px minmax(0, 1fr) 128px 16px`, alignItems: "center", gap: 8, flex: `0 0 ${STEAM_FULLSCREEN_GAME_ROW_HEIGHT}px`, minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT, padding: "2px 7px 2px 3px", boxSizing: "border-box", ...(focused ? { outline: "none", background: steamTheme.surface.focusedContentCard, boxShadow: steamTheme.focus.shadow } : {}) }}>
       {isRa ? <DeckyRetroAchievementsGameIcon
         game={entry.game}
         src={heroArtworkUrl}
         size={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT}
       /> : <DeckyGameArtwork compact height={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT} size={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT} width={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH} {...(/^\d+$/u.test(entry.game.gameId) ? { steamAppId: Number(entry.game.gameId) } : {})} {...(heroArtworkUrl !== undefined ? { src: heroArtworkUrl } : {})} title={entry.game.title} />}
-      {entry.achievement.badgeImageUrl !== undefined ? <DeckyGameArtwork compact size={46} src={entry.achievement.badgeImageUrl} title={entry.achievement.title} /> : <span style={{ width: 46, height: 46, display: "grid", placeItems: "center", borderRadius: 7, background: "#18394d", color: "#dceefa", fontWeight: 800 }}>{entry.achievement.title.slice(0, 1)}</span>}
-      <div style={{ minWidth: 0 }}><div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13, fontWeight: 800 }}>{entry.achievement.title}</div><div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "#b4cbdb", fontSize: 10 }}>{entry.achievement.description ?? entry.game.title}</div>{providerId === RETROACHIEVEMENTS_PROVIDER_ID && entry.achievement.unlockMode !== undefined ? <div style={{ color: entry.achievement.unlockMode === "hardcore" ? raTheme.color.hardcore : raTheme.color.softcore, fontSize: 9, fontWeight: 800 }}>{entry.achievement.unlockMode === "hardcore" ? "Hardcore" : "Softcore"}</div> : null}</div>
-      <div style={{ borderLeft: "1px solid rgba(76, 148, 187, 0.22)", paddingLeft: 10, color: "#cce0ee", fontSize: 10, textAlign: "right" }}><div>Unlocked</div><div>{formatUnlockDate(timestamp)}</div></div>
-      <span style={{ color: "#d9f1ff", fontSize: 27, lineHeight: 1 }}>›</span>
+      {entry.achievement.badgeImageUrl !== undefined ? <DeckyGameArtwork compact size={46} src={entry.achievement.badgeImageUrl} title={entry.achievement.title} /> : <span style={{ width: 46, height: 46, display: "grid", placeItems: "center", borderRadius: 7, background: steamTheme.color.surfaceRaised, color: steamTheme.color.textPrimary, fontWeight: 800 }}>{entry.achievement.title.slice(0, 1)}</span>}
+      <div style={{ minWidth: 0 }}><div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13, fontWeight: 800 }}>{entry.achievement.title}</div><div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: steamTheme.color.textSecondary, fontSize: 10 }}>{entry.achievement.description ?? entry.game.title}</div>{providerId === RETROACHIEVEMENTS_PROVIDER_ID && entry.achievement.unlockMode !== undefined ? <div style={{ color: entry.achievement.unlockMode === "hardcore" ? raTheme.color.hardcore : raTheme.color.softcore, fontSize: 9, fontWeight: 800 }}>{entry.achievement.unlockMode === "hardcore" ? "Hardcore" : "Softcore"}</div> : null}</div>
+      <div style={{ borderLeft: `1px solid ${steamTheme.color.borderSubtle}`, paddingLeft: 10, color: steamTheme.color.textSecondary, fontSize: 10, textAlign: "right" }}><div>Unlocked</div><div>{formatUnlockDate(timestamp)}</div></div>
+      <span style={{ color: steamTheme.color.textPrimary, fontSize: 27, lineHeight: 1 }}>›</span>
     </Focusable>
   );
 }
 
-const ACTIVITY_CALENDAR_COLORS: Record<SteamActivityCalendarIntensity, string> = {
-  0: "#1d3c51",
-  1: "#21546f",
-  2: "#267da9",
-  3: "#2fb9ef",
-  4: "#50d5ff",
-};
+const ACTIVITY_CALENDAR_COLORS: Record<SteamActivityCalendarIntensity, string> = qamActivityCalendarColors;
 
 function ActivityCalendarDay({ day, count, intensity, selected, current, onSelect, onBack }: {
   readonly day: number;
@@ -560,11 +555,11 @@ function ActivityCalendarDay({ day, count, intensity, selected, current, onSelec
         minHeight: 0,
         padding: 0,
         boxSizing: "border-box",
-        border: selected ? "1px solid #f2fbff" : "1px solid transparent",
+        border: selected ? `1px solid ${steamTheme.color.textPrimary}` : "1px solid transparent",
         borderRadius: 2,
         outline: "none",
         background: ACTIVITY_CALENDAR_COLORS[intensity],
-        boxShadow: focused ? "inset 0 0 0 1px #a9e9ff, 0 0 5px rgba(80, 213, 255, 0.7)" : "none",
+        boxShadow: focused ? steamTheme.focus.calendarDayShadow : "none",
       }}
     >
       {null}
@@ -590,11 +585,11 @@ function ActivityCalendar({ dayCounts, weeks, selectedDay, onSelectDay, onBack }
     <div data-steam-activity-calendar-weeks={weeks} data-steam-activity-calendar-effective-maximum={model.effectiveMaximum} style={{ ...getCardStyle(), padding: 7, display: "flex", flexDirection: "column", flex: "1 1 0", minHeight: 0 }}>
       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, fontWeight: 800, flex: "0 0 auto" }}>
         <span>ACTIVITY CALENDAR</span>
-        <span style={{ color: selectedDay === undefined ? "#a7c1d2" : "#dff7ff", fontWeight: selectedDay === undefined ? 500 : 800 }}>{selectedLabel}</span>
+        <span style={{ color: selectedDay === undefined ? steamTheme.color.textSecondary : steamTheme.color.textPrimary, fontWeight: selectedDay === undefined ? 500 : 800 }}>{selectedLabel}</span>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: `22px repeat(${weeks}, minmax(0, 1fr))`, gridTemplateRows: "repeat(7, minmax(0, 1fr))", gap: 2, marginTop: 6, alignItems: "stretch", flex: "1 1 0", minHeight: 0, overflow: "hidden" }}>
         {labels.map((label, row) => (
-          <span key={label} style={{ gridColumn: 1, gridRow: row + 1, color: "#b6cbd9", fontSize: 8 }}>{label}</span>
+          <span key={label} style={{ gridColumn: 1, gridRow: row + 1, color: steamTheme.color.textSecondary, fontSize: 8 }}>{label}</span>
         ))}
         {model.days.map(({ day, count, intensity }) => {
           const offset = Math.floor((day - start) / DAY_MS);
@@ -625,7 +620,7 @@ function ActivityCalendar({ dayCounts, weeks, selectedDay, onSelectDay, onBack }
           );
         })}
       </div>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, color: "#a9c1d1", fontSize: 8, marginTop: 6, flex: "0 0 auto" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, color: steamTheme.color.textSecondary, fontSize: 8, marginTop: 6, flex: "0 0 auto" }}>
         <span>Less</span>
         {([0, 1, 2, 3, 4] as const).map((level) => (
           <span key={level} style={{ width: 12, height: 12, borderRadius: 2, background: ACTIVITY_CALENDAR_COLORS[level] }} />
@@ -883,7 +878,7 @@ export function DeckySteamFullScreenActivityDashboard({
                       onRevealMore={(lastRowIndex) => revealMore(lastRowIndex)}
                     />
                   ))
-                  : <div style={{ ...getCardStyle(), padding: 18, color: "#b5cbd9" }}>No unlocks match these filters.</div>}
+                  : <div style={{ ...getCardStyle(), padding: 18, color: steamTheme.color.textSecondary }}>No unlocks match these filters.</div>}
               </Focusable>
             </Focusable>
 

@@ -12,7 +12,7 @@ export function getDeckyCompactPrimaryActionStyle(focused: boolean): CSSProperti
     minWidth: 0,
     minHeight: 38,
     padding: "8px 12px",
-    border: `1px solid ${qamTheme.color.borderStrong}`,
+    border: `1px solid ${qamTheme.color.primaryActionBorder}`,
     borderRadius: qamTheme.radius.medium,
     background: qamTheme.surface.compactPrimaryAction,
     boxShadow: "inset 0 1px 0 rgba(125, 211, 252, 0.08), 0 4px 12px rgba(0, 0, 0, 0.16)",

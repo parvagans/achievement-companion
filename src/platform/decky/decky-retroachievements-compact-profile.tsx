@@ -52,6 +52,7 @@ import { getRetroAchievementsRecentActivityLabel } from "./decky-retroachievemen
 import { findDeckyScrollableAncestor } from "./decky-scroll-viewport";
 import { requestDeckySteamGamepadFocusAfterMount, takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
+import { useDeckyVisualFocusState } from "./decky-visual-focus-state";
 import { getLocalActivityCalendarDayTimestamp } from "./decky-activity-calendar-model";
 import chevronRightIconUrl from "./assets/chevron-right.svg";
 import masteredIconUrl from "./assets/mastered.svg";
@@ -145,6 +146,7 @@ function CompactAction({
     onActivate();
   };
   const actionRef = useRef<HTMLDivElement | null>(null);
+  useDeckyVisualFocusState(actionRef, setFocused);
   const handleFocus = (element: HTMLElement): void => {
     const generation = ++focusGeneration.current;
     setFocused(true);
@@ -363,8 +365,8 @@ function ActivityCalendar({
   const [active, setActive] = useState(() => readDeckyRetroAchievementsCompactFocusTarget().kind === "calendar-day");
   const [focused, setFocused] = useState(false);
   const [lastFocusedDay, setLastFocusedDay] = useState<number>();
-  const [focusedCalendarDay, setFocusedCalendarDay] = useState<number>();
   const entryRef = useRef<HTMLDivElement | null>(null);
+  useDeckyVisualFocusState(entryRef, setFocused);
   const activeDayRef = useRef<HTMLDivElement | null>(null);
   const dayElementRefs = useRef(new Map<number, HTMLDivElement>());
   const pendingFocus = useRef<"entry" | "day">();
@@ -508,10 +510,9 @@ function ActivityCalendar({
                     onClick={() => { const props = targetProps(day); const element = dayElementRefs.current.get(day); if (element !== undefined) props.onActivated(element); onSelectDay(day); }}
                     onCancel={exitCalendar}
                     onGamepadDirection={handleCalendarDirection}
-                    onFocus={(event) => { const element = event.currentTarget; setFocusedCalendarDay(day); setLastFocusedDay(day); element.scrollIntoView({ block: "center", inline: "nearest" }); targetProps(day).onFocused(element); }}
-                    onGamepadFocus={(event) => { const element = event.currentTarget as HTMLElement; setFocusedCalendarDay(day); setLastFocusedDay(day); element.scrollIntoView({ block: "center", inline: "nearest" }); targetProps(day).onFocused(element); }}
-                    onBlur={() => setFocusedCalendarDay((current) => current === day ? undefined : current)}
-                    style={raRecipes.compactProfile.calendarCell(intensity, isSelected, focusedCalendarDay === day)}
+                    onFocus={(event) => { const element = event.currentTarget; setLastFocusedDay(day); element.scrollIntoView({ block: "center", inline: "nearest" }); targetProps(day).onFocused(element); }}
+                    onGamepadFocus={(event) => { const element = event.currentTarget as HTMLElement; setLastFocusedDay(day); element.scrollIntoView({ block: "center", inline: "nearest" }); targetProps(day).onFocused(element); }}
+                    style={raRecipes.compactProfile.calendarCell(intensity, isSelected, false)}
                   >{null}</Focusable>
                 ) : (
                   <span aria-hidden="true" title={`${dateLabel}: ${count} unlock${count === 1 ? "" : "s"}`} style={raRecipes.compactProfile.calendarCell(intensity, isSelected, false)} />

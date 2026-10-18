@@ -514,7 +514,7 @@ function RecentCompletionRow({
     ? raTheme.color.mastered
     : kind === "completed"
       ? raTheme.color.softcore
-      : raTheme.color.accentStrong;
+      : raTheme.color.beaten;
   const date = awardedAt === undefined
     ? "Award date unavailable"
     : `${dateKind === "unlock" ? "Last unlock · " : ""}${new Date(awardedAt).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}`;

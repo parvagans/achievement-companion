@@ -42,6 +42,8 @@ test("Steam and RA QAM Recent Activity share the achievement-row treatment", () 
   assert.match(raCompactProfileSource, /<DeckyCompactRecentAchievementRow/u);
   assert.match(compactRecentAchievementRowSource, /achievementCompanionAchievementRowRecipes\.surface\("compact", accentColor, focused\)/u);
   assert.match(compactRecentAchievementRowSource, /gridTemplateColumns: "40px minmax\(0, 1fr\) minmax\(68px, auto\)"/u);
+  assert.match(compactRecentAchievementRowSource, /height: 88,/u);
+  assert.match(compactRecentAchievementRowSource, /WebkitLineClamp: 2/u);
   assert.match(compactRecentAchievementRowSource, /alignItems: "center"/u);
   assert.match(compactRecentAchievementRowSource, /gap: 10/u);
   assert.match(compactRecentAchievementRowSource, /size=\{40\}/u);

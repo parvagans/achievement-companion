@@ -26,6 +26,8 @@ export type CompletionProgressFilter = "all" | "unfinished" | "beaten" | "master
 export type UpdateSourceKind = "production" | "local";
 export type RetroAchievementsRankDisplay = "site" | "casual";
 export type RetroAchievementsAchievementMode = "hardcore" | "softcore" | "both";
+export const ACHIEVEMENT_COMPANION_THEME_OPTIONS = ["ac-blue", "ac-neon"] as const;
+export type AchievementCompanionTheme = (typeof ACHIEVEMENT_COMPANION_THEME_OPTIONS)[number];
 
 export const GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS = [
   "top-left",
@@ -71,6 +73,7 @@ export const DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS: GamePageAchievementBadg
 };
 
 export interface AchievementCompanionSettings {
+  readonly theme: AchievementCompanionTheme;
   readonly recentAchievementsCount: AchievementCompanionCount;
   readonly recentlyPlayedCount: AchievementCompanionCount;
   readonly showCompletionProgressSubsets: boolean;
@@ -96,6 +99,7 @@ export interface AchievementCompanionSettings {
 }
 
 export const DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS: AchievementCompanionSettings = {
+  theme: "ac-blue",
   recentAchievementsCount: 5,
   recentlyPlayedCount: 5,
   showCompletionProgressSubsets: true,
@@ -126,6 +130,10 @@ function normalizeCount(value: unknown, fallback: AchievementCompanionCount): Ac
   return ACHIEVEMENT_COMPANION_COUNT_OPTIONS.includes(value as AchievementCompanionCount)
     ? (value as AchievementCompanionCount)
     : fallback;
+}
+
+function normalizeTheme(value: unknown): AchievementCompanionTheme {
+  return value === "ac-neon" ? "ac-neon" : "ac-blue";
 }
 
 function normalizeActivityCalendarWeeks(value: unknown, fallback: ActivityCalendarWeeks): ActivityCalendarWeeks {
@@ -229,6 +237,7 @@ export function normalizeAchievementCompanionSettings(
   const lastNotifiedUpdateVersion = normalizeOptionalString(value["lastNotifiedUpdateVersion"]);
 
   return {
+    theme: normalizeTheme(value["theme"]),
     recentAchievementsCount: normalizeCount(
       value["recentAchievementsCount"],
       DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.recentAchievementsCount,

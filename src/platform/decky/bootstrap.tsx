@@ -25,6 +25,7 @@ import {
   GAME_PAGE_ACHIEVEMENT_BADGE_COLOR_OPTIONS,
   GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS,
   GAME_PAGE_ACHIEVEMENT_BADGE_SIZE_OPTIONS,
+  type AchievementCompanionTheme,
   type GamePageAchievementBadgeColor,
   type GamePageAchievementBadgeColors,
   type GamePageAchievementBadgePosition,
@@ -136,6 +137,11 @@ interface SteamLibraryScanActionState {
 }
 
 type ProviderLauncherTone = "connected" | "setup" | "neutral";
+
+const ACHIEVEMENT_COMPANION_THEME_DROPDOWN_OPTIONS = [
+  { data: "ac-blue", label: "AC Blue" },
+  { data: "ac-neon", label: "AC Neon" },
+];
 
 const GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_LABELS: Readonly<
   Record<GamePageAchievementBadgePosition, string>
@@ -312,14 +318,14 @@ function getChooserProviderCardStyle(
       isFocused
         ? tone === "setup"
           ? "rgba(245, 189, 82, 0.72)"
-          : "rgba(125, 190, 255, 0.7)"
-        : "rgba(86, 137, 173, 0.24)"
+          : "var(--ac-chooser-focus-border, rgba(125, 190, 255, 0.7))"
+        : "var(--ac-chooser-border, rgba(86, 137, 173, 0.24))"
     }`,
     background: isFocused ? steamTheme.surface.focusedContentCard : steamTheme.surface.contentCard,
     boxShadow: isFocused
       ? tone === "setup"
         ? "0 0 0 1px rgba(245, 189, 82, 0.5), 0 0 14px rgba(245, 189, 82, 0.28)"
-        : "0 0 0 1px rgba(54, 185, 255, 0.8), 0 0 15px rgba(54, 185, 255, 0.45)"
+        : "var(--ac-chooser-focus-shadow, 0 0 0 1px rgba(54, 185, 255, 0.8), 0 0 15px rgba(54, 185, 255, 0.45))"
       : "inset 0 1px 0 rgba(255, 255, 255, 0.045)",
     boxSizing: "border-box",
     cursor: "pointer",
@@ -443,7 +449,7 @@ function getChooserProviderCardChevronStyle(tone: ProviderLauncherTone): CSSProp
     width: 28,
     height: 28,
     flexShrink: 0,
-    color: tone === "setup" ? "rgba(245, 197, 66, 0.92)" : "rgba(54, 185, 255, 0.94)",
+    color: tone === "setup" ? "rgba(245, 197, 66, 0.92)" : "var(--ac-chooser-chevron, rgba(54, 185, 255, 0.94))",
   };
 }
 
@@ -534,6 +540,23 @@ function GamePageBadgeSizeDropdown({
       selectedOption={selectedSize}
       onChange={(option) => {
         if (isGamePageAchievementBadgeSize(option.data)) onChange(option.data);
+      }}
+    />
+  );
+}
+
+function ThemeDropdown({ selectedTheme }: { readonly selectedTheme: AchievementCompanionTheme }): JSX.Element {
+  const openGuardedMenu = useDeckyCompactDropdownPopupGuard();
+  return (
+    <DropdownItem
+      label={<span style={getGamePageBadgeLabelStyle()}>Theme</span>}
+      menuLabel="Achievement Companion Theme"
+      onMenuWillOpen={openGuardedMenu}
+      rgOptions={ACHIEVEMENT_COMPANION_THEME_DROPDOWN_OPTIONS}
+      selectedOption={selectedTheme}
+      onChange={(option) => {
+        if (option.data !== "ac-blue" && option.data !== "ac-neon") return;
+        void saveDeckySettings({ ...readDeckySettings(), theme: option.data });
       }}
     />
   );
@@ -1691,11 +1714,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                         >{themeSettingsExpanded ? "▴" : "▾"}</Field>
                       </PanelSectionRow>
                       {themeSettingsExpanded ? (
-                        <PanelSectionRow>
-                          <span style={getGamePageBadgeDescriptionStyle()}>
-                            Theme options will appear here when available.
-                          </span>
-                        </PanelSectionRow>
+                        <ThemeDropdown selectedTheme={settings.theme} />
                       ) : null}
                       <PanelSectionRow>
                         <Field
