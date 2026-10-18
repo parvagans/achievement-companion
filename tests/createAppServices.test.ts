@@ -2003,17 +2003,22 @@ test("achievement companion settings normalize invalid stored values", () => {
   );
 });
 
-test("theme settings default to Blue, preserve Neon, and accept Arcade separately", () => {
+test("theme settings default to Blue, preserve Neon, and accept every alternate palette", () => {
   assert.equal(DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.theme, "ac-blue");
   assert.equal(parseAchievementCompanionSettings("{}").theme, "ac-blue");
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-neon"}').theme, "ac-neon");
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-arcade"}').theme, "ac-arcade");
+  assert.equal(parseAchievementCompanionSettings('{"theme":"ac-aurora"}').theme, "ac-aurora");
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-carbon"}').theme, "ac-carbon");
+  assert.equal(parseAchievementCompanionSettings('{"theme":"ac-dune"}').theme, "ac-dune");
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-ember"}').theme, "ac-ember");
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-grove"}').theme, "ac-grove");
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-onyx"}').theme, "ac-onyx");
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-paper"}').theme, "ac-paper");
+  assert.equal(parseAchievementCompanionSettings('{"theme":"ac-pocket-lcd"}').theme, "ac-pocket-lcd");
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-ra-classic"}').theme, "ac-ra-classic");
+  assert.equal(parseAchievementCompanionSettings('{"theme":"ac-rosewood"}').theme, "ac-rosewood");
+  assert.equal(parseAchievementCompanionSettings('{"theme":"ac-solarized"}').theme, "ac-solarized");
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-steam"}').theme, "ac-steam");
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-terminal"}').theme, "ac-terminal");
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-velvet"}').theme, "ac-velvet");
@@ -3528,20 +3533,24 @@ test("compact provider menu nests native theme and badge settings under a sessio
   assert.doesNotMatch(themeDropdownSource, /description=/u);
   assert.match(themeDropdownSource, /childrenContainerWidth="max"/u);
   for (const [id, label] of [
-    ["ac-arcade", "Arcade"], ["ac-blue", "Blue (Default)"], ["ac-carbon", "Carbon"],
-    ["ac-ember", "Ember"], ["ac-grove", "Grove"], ["ac-neon", "Neon"], ["ac-onyx", "Onyx"],
-    ["ac-paper", "Paper"], ["ac-ra-classic", "RA Classic"], ["ac-steam", "Steam"],
+    ["ac-arcade", "Arcade"], ["ac-aurora", "Aurora"], ["ac-blue", "Blue (Default)"],
+    ["ac-carbon", "Carbon"], ["ac-ember", "Ember"],
+    ["ac-grove", "Grove"], ["ac-neon", "Neon"], ["ac-onyx", "Onyx"],
+    ["ac-paper", "Paper"], ["ac-ra-classic", "RA Classic"],
+    ["ac-rosewood", "Rosewood"], ["ac-solarized", "Solarized"], ["ac-steam", "Steam"],
     ["ac-terminal", "Terminal"], ["ac-velvet", "Velvet"],
   ]) {
     assert.match(source, new RegExp(`\\{ data: "${id}", label: "${label.replace(/[()]/gu, "\\$&")}" \\}`, "u"));
   }
+  assert.match(source, /\/\/ \{ data: "ac-dune", label: "Dune" \}/u);
+  assert.match(source, /\/\/ \{ data: "ac-pocket-lcd", label: "Pocket LCD" \}/u);
   assert.match(source, /function getPluginSettingsContentCardStyle\(\)[\s\S]*steamRecipes\.card\("compact"\)/u);
   assert.match(source, /function getPluginSettingsDisclosureStyle\([\s\S]*expanded: boolean[\s\S]*borderBottomWidth: expanded \? 0 : 1[\s\S]*borderBottomLeftRadius: expanded \? 0 : cardStyle\.borderRadius[\s\S]*borderBottomRightRadius: expanded \? 0 : cardStyle\.borderRadius/u);
   assert.match(source, /getPluginSettingsDisclosureStyle\(focused, expanded\)/u);
   assert.match(source, /data-achievement-companion-plugin-settings-card="true"/u);
   assert.match(
     source,
-    /data-ac-qam-news-support-stack="true"[\s\S]*style=\{getChooserProviderListStyle\(\)\}[\s\S]*label="Whats New"[\s\S]*<QamSupportActions \/>[\s\S]*<\/div>/u,
+    /data-ac-qam-news-support-stack="true"[\s\S]*style=\{getChooserProviderListStyle\(\)\}[\s\S]*label="Whats New"[\s\S]*<QamSupportActions theme=\{settings\.theme\} \/>[\s\S]*<\/div>/u,
   );
   assert.match(source, /function getChooserProviderListStyle\(\)[\s\S]*gap: 10/u);
   assert.match(source, /data-ac-qam-support-actions="true"[\s\S]*flow-children="left-right"/u);

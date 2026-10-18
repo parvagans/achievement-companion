@@ -27,8 +27,9 @@ export type UpdateSourceKind = "production" | "local";
 export type RetroAchievementsRankDisplay = "site" | "casual";
 export type RetroAchievementsAchievementMode = "hardcore" | "softcore" | "both";
 export const ACHIEVEMENT_COMPANION_THEME_OPTIONS = [
-  "ac-arcade", "ac-blue", "ac-carbon", "ac-ember", "ac-grove", "ac-neon", "ac-onyx",
-  "ac-paper", "ac-ra-classic", "ac-steam", "ac-terminal", "ac-velvet",
+  "ac-arcade", "ac-aurora", "ac-blue", "ac-carbon", "ac-dune", "ac-ember", "ac-grove",
+  "ac-neon", "ac-onyx", "ac-paper", "ac-pocket-lcd", "ac-ra-classic", "ac-rosewood",
+  "ac-solarized", "ac-steam", "ac-terminal", "ac-velvet",
 ] as const;
 export type AchievementCompanionTheme = (typeof ACHIEVEMENT_COMPANION_THEME_OPTIONS)[number];
 

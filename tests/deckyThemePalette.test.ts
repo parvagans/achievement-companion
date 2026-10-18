@@ -8,17 +8,23 @@ import { raRecipes, raTheme } from "../src/platform/decky/ra-theme";
 import { steamTheme } from "../src/platform/decky/steam-theme";
 import {
   AC_ARCADE_THEME_VARIABLES,
+  AC_AURORA_THEME_VARIABLES,
   AC_CARBON_THEME_VARIABLES,
+  AC_DUNE_THEME_VARIABLES,
   AC_EMBER_THEME_VARIABLES,
   AC_GROVE_THEME_VARIABLES,
   AC_NEON_THEME_VARIABLES,
   AC_ONYX_THEME_VARIABLES,
   AC_PAPER_THEME_VARIABLES,
+  AC_POCKET_LCD_THEME_VARIABLES,
   AC_RA_CLASSIC_THEME_VARIABLES,
+  AC_ROSEWOOD_THEME_VARIABLES,
+  AC_SOLARIZED_THEME_VARIABLES,
   AC_STEAM_THEME_VARIABLES,
   AC_TERMINAL_THEME_VARIABLES,
   AC_VELVET_THEME_VARIABLES,
   applyAchievementCompanionTheme,
+  achievementCompanionThemeUsesDarkText,
   clearAchievementCompanionThemes,
 } from "../src/platform/decky/decky-theme-palette";
 
@@ -43,6 +49,11 @@ test("new palette roles match the requested eight-color theme specifications", (
     [AC_ONYX_THEME_VARIABLES, ["#0D0D0F", "#1A1A1D", "#29282B", "#403A32", "#D9B66E", "#A88B58", "#F4F0E8", "#B9AFA0"]],
     [AC_RA_CLASSIC_THEME_VARIABLES, ["#151515", "#222222", "#313131", "#444444", "#58A6E7", "#DDB63E", "#F0F0EF", "#B8B8B8"]],
     [AC_STEAM_THEME_VARIABLES, ["#171A21", "#1B2838", "#2A475E", "#3A5368", "#66C0F4", "#1A9FFF", "#E6F0F7", "#A9BCCB"]],
+    [AC_AURORA_THEME_VARIABLES, ["#0C1720", "#12242B", "#1B3540", "#31505B", "#52E0C4", "#AD91F3", "#EAF6F5", "#A3B9BC"]],
+    [AC_ROSEWOOD_THEME_VARIABLES, ["#1B1118", "#2C1B25", "#3A2532", "#644152", "#DE879F", "#C9A0AE", "#FFF1F4", "#C7A9B5"]],
+    [AC_DUNE_THEME_VARIABLES, ["#F7F0E2", "#EFE2CC", "#E4D2B5", "#BFA98B", "#986141", "#52736C", "#30271E", "#726253"]],
+    [AC_SOLARIZED_THEME_VARIABLES, ["#002B36", "#073642", "#155164", "#586E75", "#B58900", "#2AA198", "#EEE8D5", "#93A1A1"]],
+    [AC_POCKET_LCD_THEME_VARIABLES, ["#D7E2A5", "#BACB84", "#9FB66C", "#708252", "#405A3A", "#66763F", "#253421", "#526B48"]],
   ] as const;
   for (const [theme, colors] of specifications) {
     assert.deepEqual([
@@ -55,11 +66,12 @@ test("new palette roles match the requested eight-color theme specifications", (
 
 test("alternate themes cover every shared role without redefining provider status colors", () => {
   assert.deepEqual(ACHIEVEMENT_COMPANION_THEME_OPTIONS, [
-    "ac-arcade", "ac-blue", "ac-carbon", "ac-ember", "ac-grove", "ac-neon", "ac-onyx",
-    "ac-paper", "ac-ra-classic", "ac-steam", "ac-terminal", "ac-velvet",
+    "ac-arcade", "ac-aurora", "ac-blue", "ac-carbon", "ac-dune", "ac-ember", "ac-grove",
+    "ac-neon", "ac-onyx", "ac-paper", "ac-pocket-lcd", "ac-ra-classic", "ac-rosewood",
+    "ac-solarized", "ac-steam", "ac-terminal", "ac-velvet",
   ]);
   const expectedKeys = Object.keys(AC_NEON_THEME_VARIABLES).sort();
-  for (const variables of [AC_ARCADE_THEME_VARIABLES, AC_CARBON_THEME_VARIABLES, AC_EMBER_THEME_VARIABLES, AC_GROVE_THEME_VARIABLES, AC_ONYX_THEME_VARIABLES, AC_PAPER_THEME_VARIABLES, AC_RA_CLASSIC_THEME_VARIABLES, AC_STEAM_THEME_VARIABLES, AC_TERMINAL_THEME_VARIABLES, AC_VELVET_THEME_VARIABLES]) {
+  for (const variables of [AC_ARCADE_THEME_VARIABLES, AC_AURORA_THEME_VARIABLES, AC_CARBON_THEME_VARIABLES, AC_DUNE_THEME_VARIABLES, AC_EMBER_THEME_VARIABLES, AC_GROVE_THEME_VARIABLES, AC_ONYX_THEME_VARIABLES, AC_PAPER_THEME_VARIABLES, AC_POCKET_LCD_THEME_VARIABLES, AC_RA_CLASSIC_THEME_VARIABLES, AC_ROSEWOOD_THEME_VARIABLES, AC_SOLARIZED_THEME_VARIABLES, AC_STEAM_THEME_VARIABLES, AC_TERMINAL_THEME_VARIABLES, AC_VELVET_THEME_VARIABLES]) {
     assert.deepEqual(Object.keys(variables).sort(), expectedKeys);
     assert.equal(Object.hasOwn(variables, "--ac-hardcore"), false);
     assert.equal(Object.hasOwn(variables, "--ac-softcore"), false);
@@ -74,6 +86,10 @@ test("alternate themes cover every shared role without redefining provider statu
   assert.equal(AC_STEAM_THEME_VARIABLES["--ac-background"], "#171A21");
   assert.equal(AC_TERMINAL_THEME_VARIABLES["--ac-background"], "#080D09");
   assert.equal(AC_VELVET_THEME_VARIABLES["--ac-background"], "#140b12");
+  assert.equal(achievementCompanionThemeUsesDarkText("ac-dune"), true);
+  assert.equal(achievementCompanionThemeUsesDarkText("ac-pocket-lcd"), true);
+  assert.equal(achievementCompanionThemeUsesDarkText("ac-aurora"), false);
+  assert.equal(achievementCompanionThemeUsesDarkText("ac-blue"), false);
   assert.match(achievementCompanionQamTheme.surface.progressFill, /--ac-progress-fill/u);
   assert.match(achievementCompanionQamTheme.surface.xpFill, /--ac-xp-fill/u);
 });
@@ -111,8 +127,11 @@ test("theme switching applies and removes only AC variables", () => {
   assert.equal(values.get("--ac-accent"), AC_GROVE_THEME_VARIABLES["--ac-accent"]);
   assert.equal(dataset["acTheme"], "ac-grove");
   for (const [id, variables] of [
-    ["ac-onyx", AC_ONYX_THEME_VARIABLES], ["ac-ra-classic", AC_RA_CLASSIC_THEME_VARIABLES],
-    ["ac-steam", AC_STEAM_THEME_VARIABLES], ["ac-terminal", AC_TERMINAL_THEME_VARIABLES],
+    ["ac-aurora", AC_AURORA_THEME_VARIABLES], ["ac-dune", AC_DUNE_THEME_VARIABLES],
+    ["ac-onyx", AC_ONYX_THEME_VARIABLES], ["ac-pocket-lcd", AC_POCKET_LCD_THEME_VARIABLES],
+    ["ac-ra-classic", AC_RA_CLASSIC_THEME_VARIABLES], ["ac-rosewood", AC_ROSEWOOD_THEME_VARIABLES],
+    ["ac-solarized", AC_SOLARIZED_THEME_VARIABLES], ["ac-steam", AC_STEAM_THEME_VARIABLES],
+    ["ac-terminal", AC_TERMINAL_THEME_VARIABLES],
   ] as const) {
     applyAchievementCompanionTheme(ownerDocument, id);
     assert.equal(values.get("--ac-accent"), variables["--ac-accent"]);
@@ -176,7 +195,7 @@ test("ordinary icon, avatar, progress, footer, and loading chrome use centralize
   assert.match(compactLoading, /achievementCompanionQamTheme\.loading\.page/u);
   assert.notEqual(AC_CARBON_THEME_VARIABLES["--ac-loading-ring"], AC_NEON_THEME_VARIABLES["--ac-loading-ring"]);
   assert.notEqual(AC_EMBER_THEME_VARIABLES["--ac-loading-page"], AC_NEON_THEME_VARIABLES["--ac-loading-page"]);
-  for (const theme of [AC_ARCADE_THEME_VARIABLES, AC_CARBON_THEME_VARIABLES, AC_EMBER_THEME_VARIABLES, AC_GROVE_THEME_VARIABLES, AC_ONYX_THEME_VARIABLES, AC_PAPER_THEME_VARIABLES, AC_RA_CLASSIC_THEME_VARIABLES, AC_STEAM_THEME_VARIABLES, AC_TERMINAL_THEME_VARIABLES, AC_VELVET_THEME_VARIABLES]) {
+  for (const theme of [AC_ARCADE_THEME_VARIABLES, AC_AURORA_THEME_VARIABLES, AC_CARBON_THEME_VARIABLES, AC_DUNE_THEME_VARIABLES, AC_EMBER_THEME_VARIABLES, AC_GROVE_THEME_VARIABLES, AC_ONYX_THEME_VARIABLES, AC_PAPER_THEME_VARIABLES, AC_POCKET_LCD_THEME_VARIABLES, AC_RA_CLASSIC_THEME_VARIABLES, AC_ROSEWOOD_THEME_VARIABLES, AC_SOLARIZED_THEME_VARIABLES, AC_STEAM_THEME_VARIABLES, AC_TERMINAL_THEME_VARIABLES, AC_VELVET_THEME_VARIABLES]) {
     assert.doesNotMatch(Object.values(theme).join(" "), /#(?:08d5f5|147bff|2bc3f2)|rgba\(54,\s*185,\s*255/u);
   }
 });

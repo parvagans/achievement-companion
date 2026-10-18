@@ -38,7 +38,7 @@ The project is undergoing active, rigorous development with frequent updates. If
 - **Steam completion insights:** SteamHunters community data adds rarity, completion times, DLC requirements, achievement groups, and obtainability information where available.
 - **Optional SteamHunters personal data:** personal SteamHunters profile statistics can be disabled without turning off community statistics. If a profile is unavailable, Achievement Companion uses meaningful Steam library data where possible and otherwise hides the section.
 - **Library game-page badges:** see In Progress, Steam Perfected, or RetroAchievements Beaten and Mastered status before launching a game, with configurable Small, Medium, and Large layouts.
-- **Twelve visual themes:** choose Arcade, Blue (default), Carbon, Ember, Grove, Neon, Onyx, Paper, RA Classic, Steam, Terminal, or Velvet in **Quick Access → Plugin Settings → Theme Settings**. The selected palette also carries through shared icons, progress, focus, footer, and provider loading screens; achievement and award status colors keep their meaning.
+- **Fifteen visual themes:** choose Arcade, Aurora, Blue (default), Carbon, Ember, Grove, Neon, Onyx, Paper, RA Classic, Rosewood, Solarized, Steam, Terminal, or Velvet in **Quick Access → Plugin Settings → Theme Settings**. The selected palette also carries through shared icons, progress, focus, footer, and provider loading screens; achievement and award status colors keep their meaning.
 - **Built-in updates:** verified downloads are presented through Decky for confirmation rather than installed unattended.
 
 RetroAchievements and Steam retain their own progression rules: RA Hardcore and Softcore, Beaten and Mastered, and Steam Perfected all keep their meaning.

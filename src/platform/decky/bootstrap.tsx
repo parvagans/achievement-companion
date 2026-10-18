@@ -133,7 +133,9 @@ import {
 } from "./decky-provider-initial-focus";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import { openDeckyWhatsNewModal } from "./decky-whats-new-modal";
+import { achievementCompanionThemeUsesDarkText } from "./decky-theme-palette";
 import { getDeckyGamePageAchievementBadgeColorPreview } from "./decky-game-page-achievement-badge-colors";
+import githubInvertocatBlackUrl from "./assets/brand/github-invertocat-black.svg";
 import githubInvertocatWhiteUrl from "./assets/brand/github-invertocat-white.svg";
 import kofiSymbolUrl from "./assets/brand/kofi-symbol.svg";
 interface SteamLibraryScanActionState {
@@ -148,14 +150,20 @@ const ACHIEVEMENT_COMPANION_KOFI_URL = "https://ko-fi.com/parvagans";
 
 const ACHIEVEMENT_COMPANION_THEME_DROPDOWN_OPTIONS = [
   { data: "ac-arcade", label: "Arcade" },
+  { data: "ac-aurora", label: "Aurora" },
   { data: "ac-blue", label: "Blue (Default)" },
   { data: "ac-carbon", label: "Carbon" },
+  // Temporarily hidden; palette and saved-setting support remain available.
+  // { data: "ac-dune", label: "Dune" },
   { data: "ac-ember", label: "Ember" },
   { data: "ac-grove", label: "Grove" },
   { data: "ac-neon", label: "Neon" },
   { data: "ac-onyx", label: "Onyx" },
   { data: "ac-paper", label: "Paper" },
+  // { data: "ac-pocket-lcd", label: "Pocket LCD" },
   { data: "ac-ra-classic", label: "RA Classic" },
+  { data: "ac-rosewood", label: "Rosewood" },
+  { data: "ac-solarized", label: "Solarized" },
   { data: "ac-steam", label: "Steam" },
   { data: "ac-terminal", label: "Terminal" },
   { data: "ac-velvet", label: "Velvet" },
@@ -859,7 +867,10 @@ function QamSupportAction({
   );
 }
 
-function QamSupportActions(): JSX.Element {
+function QamSupportActions({ theme }: { readonly theme: AchievementCompanionTheme }): JSX.Element {
+  const githubIconUrl = achievementCompanionThemeUsesDarkText(theme)
+    ? githubInvertocatBlackUrl
+    : githubInvertocatWhiteUrl;
   return (
     <Focusable
       data-ac-qam-support-actions="true"
@@ -873,7 +884,7 @@ function QamSupportActions(): JSX.Element {
       <QamSupportAction
         label="Star on GitHub"
         url={ACHIEVEMENT_COMPANION_GITHUB_URL}
-        iconSrc={githubInvertocatWhiteUrl}
+        iconSrc={githubIconUrl}
         iconStyle={{ width: 19, height: 19, flexShrink: 0, objectFit: "contain" }}
       />
       <QamSupportAction
@@ -1967,7 +1978,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                           onFocused={() => setProviderListHasReceivedFocus(true)}
                           onClick={openDeckyWhatsNewModal}
                         />
-                        <QamSupportActions />
+                        <QamSupportActions theme={settings.theme} />
                       </div>
                     </PanelSectionRow>
                   </PanelSection>

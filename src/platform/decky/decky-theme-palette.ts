@@ -171,6 +171,7 @@ interface ThemePaletteSpec {
   readonly text: string;
   readonly muted: string;
   readonly iconFilter: string;
+  readonly providerIconFilter?: string;
   readonly glow: number;
   readonly progressEnd?: string;
 }
@@ -284,7 +285,7 @@ function createPaletteTheme(spec: ThemePaletteSpec): ThemeVariables {
     "--ac-loading-badge-background": linear(raised, surface, 145),
     "--ac-loading-badge-border": rgba(primary, 0.62),
     "--ac-loading-badge-shadow": "0 0 0 2px " + rgba(primary, 0.42) + extraGlow,
-    "--ac-loading-provider-icon-filter": "brightness(0) invert(1)" + (glow > 0 ? " drop-shadow(0 0 4px " + rgba(primary, glow * 0.7) + ")" : ""),
+    "--ac-loading-provider-icon-filter": (spec.providerIconFilter ?? "brightness(0) invert(1)") + (glow > 0 ? " drop-shadow(0 0 4px " + rgba(primary, glow * 0.7) + ")" : ""),
   };
 }
 
@@ -294,6 +295,23 @@ export const AC_ARCADE_THEME_VARIABLES = createPaletteTheme({
   primary: "#FF4DCC", secondary: "#3DEBFF", text: "#F6F0FF", muted: "#BCAED0",
   iconFilter: "brightness(0) saturate(100%) invert(61%) sepia(99%) saturate(2825%) hue-rotate(277deg) brightness(104%) contrast(102%)",
   glow: 0.42,
+});
+
+/** Midnight northern-lights chrome with mint-teal and restrained lavender accents. */
+export const AC_AURORA_THEME_VARIABLES = createPaletteTheme({
+  background: "#0C1720", surface: "#12242B", raised: "#1B3540", border: "#31505B",
+  primary: "#52E0C4", secondary: "#AD91F3", text: "#EAF6F5", muted: "#A3B9BC",
+  iconFilter: "brightness(0) saturate(100%) invert(85%) sepia(33%) saturate(927%) hue-rotate(111deg) brightness(92%) contrast(91%)",
+  glow: 0.12,
+});
+
+/** Warm sandstone and sage chrome with dark text for a distinct light theme. */
+export const AC_DUNE_THEME_VARIABLES = createPaletteTheme({
+  background: "#F7F0E2", surface: "#EFE2CC", raised: "#E4D2B5", border: "#BFA98B",
+  primary: "#986141", secondary: "#52736C", text: "#30271E", muted: "#726253",
+  iconFilter: "brightness(0) saturate(100%) invert(39%) sepia(28%) saturate(1000%) hue-rotate(341deg) brightness(91%) contrast(88%)",
+  providerIconFilter: "brightness(0) saturate(100%) invert(13%) sepia(13%) saturate(1005%) hue-rotate(348deg) brightness(94%) contrast(88%)",
+  glow: 0,
 });
 
 /** Ember keeps its content panels charcoal, with restrained orange and amber emphasis. */
@@ -320,6 +338,15 @@ export const AC_ONYX_THEME_VARIABLES = createPaletteTheme({
   glow: 0,
 });
 
+/** Olive monochrome handheld chrome with dark LCD text and controls. */
+export const AC_POCKET_LCD_THEME_VARIABLES = createPaletteTheme({
+  background: "#D7E2A5", surface: "#BACB84", raised: "#9FB66C", border: "#708252",
+  primary: "#405A3A", secondary: "#66763F", text: "#253421", muted: "#526B48",
+  iconFilter: "brightness(0) saturate(100%) invert(32%) sepia(17%) saturate(862%) hue-rotate(63deg) brightness(89%) contrast(86%)",
+  providerIconFilter: "brightness(0) saturate(100%) invert(18%) sepia(18%) saturate(882%) hue-rotate(63deg) brightness(89%) contrast(89%)",
+  glow: 0,
+});
+
 /** Functional RA-inspired dark chrome: blue navigation, gold kept as a secondary accent. */
 export const AC_RA_CLASSIC_THEME_VARIABLES = createPaletteTheme({
   background: "#151515", surface: "#222222", raised: "#313131", border: "#444444",
@@ -327,6 +354,22 @@ export const AC_RA_CLASSIC_THEME_VARIABLES = createPaletteTheme({
   iconFilter: "brightness(0) saturate(100%) invert(66%) sepia(30%) saturate(1368%) hue-rotate(172deg) brightness(96%) contrast(87%)",
   glow: 0,
   progressEnd: "#8AC4F1",
+});
+
+/** Sophisticated burgundy chrome with dusty rose and soft pink accents. */
+export const AC_ROSEWOOD_THEME_VARIABLES = createPaletteTheme({
+  background: "#1B1118", surface: "#2C1B25", raised: "#3A2532", border: "#644152",
+  primary: "#DE879F", secondary: "#C9A0AE", text: "#FFF1F4", muted: "#C7A9B5",
+  iconFilter: "brightness(0) saturate(100%) invert(68%) sepia(22%) saturate(1029%) hue-rotate(294deg) brightness(93%) contrast(87%)",
+  glow: 0.06,
+});
+
+/** Solarized-inspired blue-green chrome with mustard and subdued cyan accents. */
+export const AC_SOLARIZED_THEME_VARIABLES = createPaletteTheme({
+  background: "#002B36", surface: "#073642", raised: "#155164", border: "#586E75",
+  primary: "#B58900", secondary: "#2AA198", text: "#EEE8D5", muted: "#93A1A1",
+  iconFilter: "brightness(0) saturate(100%) invert(55%) sepia(65%) saturate(1634%) hue-rotate(13deg) brightness(91%) contrast(101%)",
+  glow: 0,
 });
 
 /** Slate-blue native-Steam-inspired chrome without added glow. */
@@ -574,16 +617,28 @@ export const AC_VELVET_THEME_VARIABLES = {
 const THEME_VARIABLES: Partial<Record<AchievementCompanionTheme, ThemeVariables>> = {
   "ac-neon": AC_NEON_THEME_VARIABLES,
   "ac-arcade": AC_ARCADE_THEME_VARIABLES,
+  "ac-aurora": AC_AURORA_THEME_VARIABLES,
   "ac-carbon": AC_CARBON_THEME_VARIABLES,
+  "ac-dune": AC_DUNE_THEME_VARIABLES,
   "ac-ember": AC_EMBER_THEME_VARIABLES,
   "ac-grove": AC_GROVE_THEME_VARIABLES,
   "ac-onyx": AC_ONYX_THEME_VARIABLES,
   "ac-paper": AC_PAPER_THEME_VARIABLES,
+  "ac-pocket-lcd": AC_POCKET_LCD_THEME_VARIABLES,
   "ac-ra-classic": AC_RA_CLASSIC_THEME_VARIABLES,
+  "ac-rosewood": AC_ROSEWOOD_THEME_VARIABLES,
+  "ac-solarized": AC_SOLARIZED_THEME_VARIABLES,
   "ac-steam": AC_STEAM_THEME_VARIABLES,
   "ac-terminal": AC_TERMINAL_THEME_VARIABLES,
   "ac-velvet": AC_VELVET_THEME_VARIABLES,
 };
+
+export function achievementCompanionThemeUsesDarkText(theme: AchievementCompanionTheme): boolean {
+  const text = THEME_VARIABLES[theme]?.["--ac-text-primary"];
+  if (text === undefined) return false;
+  const [red, green, blue] = rgb(text);
+  return (red * 0.2126 + green * 0.7152 + blue * 0.0722) / 255 < 0.5;
+}
 
 const themedThemeIds = new Set<string>(["ac-blue", "ac-glacier", ...Object.keys(THEME_VARIABLES)]);
 
