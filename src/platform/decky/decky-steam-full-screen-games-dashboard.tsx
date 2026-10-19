@@ -60,6 +60,7 @@ import {
 } from "./decky-steam-game-artwork";
 import {
   clampSteamGamesPercent,
+  formatSteamGamesActivityDate,
   getSteamGamesPercentage,
   selectSteamGames,
   summarizeSteamGamesDashboard,
@@ -150,18 +151,6 @@ function formatModeProgressLabel(
   return summary.totalCount === undefined
     ? `${label} ${formatCount(summary.unlockedCount)} unlocked`
     : `${label} ${formatCount(summary.unlockedCount)}/${formatCount(summary.totalCount)}`;
-}
-
-function formatLastPlayed(epochMs: number | undefined): string {
-  if (epochMs === undefined) {
-    return "Never";
-  }
-
-  return new Date(epochMs).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 }
 
 function normalizeInitialFilter(
@@ -325,21 +314,23 @@ function OverallProgressCard({ summary }: { readonly summary: SteamGamesDashboar
         <div style={{ ...steamRecipes.text("fullscreen", "metadata"), color: steamTheme.color.accent, fontSize: 10, fontWeight: 700, lineHeight: 1 }}>Completion Progress</div>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", gap: 8 }}>
         <div style={{ ...steamRecipes.progressTrack, height: 10 }}>
-          <div
+          {summary.completionPercent !== undefined ? <div
             style={{
               width: `${summary.completionPercent}%`,
               height: "100%",
               borderRadius: 999,
               background: steamRecipes.progressFill.completion,
             }}
-          />
+          /> : null}
         </div>
         <span style={{ ...steamRecipes.text("fullscreen", "body"), fontWeight: 700 }}>
-          {formatPercent(summary.completionPercent)}
+          {summary.completionPercent === undefined ? "—" : formatPercent(summary.completionPercent)}
         </span>
       </div>
       <div style={{ color: "#a7bdd2", fontSize: 9, lineHeight: 1 }}>
-        {`${formatCount(summary.unlockedAchievements)} / ${formatCount(summary.totalAchievements)} achievements unlocked`}
+        {summary.completionPercent === undefined
+          ? "Achievement totals unavailable"
+          : `${formatCount(summary.unlockedAchievements)} / ${formatCount(summary.totalAchievements)} achievements unlocked`}
       </div>
     </div>
   );
@@ -714,7 +705,11 @@ function SteamGamesRow({
   const hardcoreProgressLabel = formatModeProgressLabel("Hardcore", game.hardcoreSummary);
   const softcoreProgressLabel = formatModeProgressLabel("Softcore", game.softcoreSummary);
   const totalCount = displaySummary?.totalCount ?? game.summary.totalCount;
-  const completionPercent = clampSteamGamesPercent(displaySummary?.completionPercent ?? 0);
+  const completionPercent = displaySummary?.completionPercent !== undefined
+    ? clampSteamGamesPercent(displaySummary.completionPercent)
+    : displaySummary?.totalCount !== undefined && displaySummary.totalCount > 0
+      ? getSteamGamesPercentage(displaySummary.unlockedCount, displaySummary.totalCount)
+      : undefined;
   const isPerfected = game.status === "mastered";
   const raAward = providerId === RETROACHIEVEMENTS_PROVIDER_ID
     ? getRetroAchievementsCompletionIndicatorState(game)
@@ -832,9 +827,11 @@ function SteamGamesRow({
         <div style={getProgressMetaStyle()}>
           {totalCount !== undefined
             ? `${displaySummary === undefined ? "—" : formatCount(displaySummary.unlockedCount)} / ${formatCount(totalCount)} achievements`
+            : displaySummary !== undefined && displaySummary.unlockedCount > 0
+              ? `${formatCount(displaySummary.unlockedCount)} unlocked achievements`
             : game.scanStatus === "failed"
               ? "Scan unavailable"
-              : "No achievements"}
+              : game.scanStatus === "no-achievements" ? "No achievements" : "Achievement total unavailable"}
         </div>
         {providerId === RETROACHIEVEMENTS_PROVIDER_ID && mode === "both" ? (
           <div style={{ ...getSecondaryMetaStyle(), display: "flex", gap: 8 }}>
@@ -844,17 +841,17 @@ function SteamGamesRow({
         ) : null}
         <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", gap: 8 }}>
           <div style={getProgressTrackStyle()}>
-            <div
+            {completionPercent !== undefined ? <div
               style={{
                 width: `${completionPercent}%`,
                 height: "100%",
                 borderRadius: 999,
                 background: qamTheme.surface.progressFill,
               }}
-            />
+            /> : null}
           </div>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 3, minWidth: 36, color: "#f3f7fb", fontSize: 12, fontWeight: 900 }}>
-            {formatPercent(completionPercent)}
+            {completionPercent === undefined ? "—" : formatPercent(completionPercent)}
             {isPerfected ? <IconAsset size={14} src={crownIconUrl} tone="gold" /> : null}
           </span>
         </div>
@@ -880,7 +877,7 @@ function SteamGamesRow({
         <IconAsset size={20} src={calendarIconUrl} />
         <div style={{ minWidth: 0 }}>
           <div style={{ ...getProgressMetaStyle(), overflow: "hidden", textOverflow: "ellipsis" }}>
-            {formatLastPlayed(providerId === RETROACHIEVEMENTS_PROVIDER_ID ? game.lastUnlockAt ?? game.lastPlayedAt : game.lastPlayedAt)}
+            {formatSteamGamesActivityDate(game, providerId)}
           </div>
           <div style={getSecondaryMetaStyle()}>{providerId === RETROACHIEVEMENTS_PROVIDER_ID ? "Last Unlock" : "Last Played"}</div>
         </div>

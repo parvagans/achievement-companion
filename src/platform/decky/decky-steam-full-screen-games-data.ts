@@ -20,7 +20,7 @@ export interface SteamGamesDashboardSummary {
   readonly perfectedCount: number;
   readonly unlockedAchievements: number;
   readonly totalAchievements: number;
-  readonly completionPercent: number;
+  readonly completionPercent?: number;
 }
 
 export function clampSteamGamesPercent(value: number): number {
@@ -29,6 +29,20 @@ export function clampSteamGamesPercent(value: number): number {
 
 export function getSteamGamesPercentage(part: number, whole: number): number {
   return whole > 0 ? clampSteamGamesPercent((part / whole) * 100) : 0;
+}
+
+export function formatSteamGamesActivityDate(
+  game: Pick<NormalizedGame, "lastPlayedAt" | "lastUnlockAt">,
+  providerId: string,
+): string {
+  const isRetroAchievements = providerId === "retroachievements";
+  const epochMs = isRetroAchievements ? game.lastUnlockAt : game.lastPlayedAt;
+  if (epochMs === undefined) return isRetroAchievements ? "Unavailable" : "Never";
+  return new Date(epochMs).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 export function isSteamGamesPlayed(game: NormalizedGame): boolean {
@@ -106,8 +120,14 @@ export function summarizeSteamGamesDashboard(
   let unlockedAchievements = 0;
   let totalAchievements = 0;
   const isRetroAchievements = snapshot.providerId === "retroachievements";
+  let hasCompleteRetroAchievementsTotals = true;
 
   for (const game of achievementProgressGames) {
+    if (isRetroAchievements && (
+      game.summary.totalCount === undefined || game.summary.unlockedCount > game.summary.totalCount
+    )) {
+      hasCompleteRetroAchievementsTotals = false;
+    }
     if (game.summary.totalCount === undefined || (!isRetroAchievements && game.scanStatus !== "scanned")) {
       continue;
     }
@@ -126,7 +146,9 @@ export function summarizeSteamGamesDashboard(
     perfectedCount: snapshot.games.filter((game) => matchesSteamGamesFilter(game, "mastered", mode)).length,
     unlockedAchievements,
     totalAchievements,
-    completionPercent: getSteamGamesPercentage(unlockedAchievements, totalAchievements),
+    ...(hasCompleteRetroAchievementsTotals
+      ? { completionPercent: getSteamGamesPercentage(unlockedAchievements, totalAchievements) }
+      : {}),
   };
 }
 

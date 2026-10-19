@@ -22,6 +22,7 @@ import {
 } from "../src/platform/decky/decky-retroachievements-full-screen-achievement-data";
 import { hasDisplayableRetroAchievementsCommunityStats } from "../src/platform/decky/decky-retroachievements-community-stats-data";
 import {
+  formatSteamGamesActivityDate,
   matchesSteamGamesFilter,
   selectSteamGames,
   summarizeSteamGamesDashboard,
@@ -33,6 +34,7 @@ import {
   resetDeckyRetroAchievementsSubsetDetailCacheForTests,
 } from "../src/platform/decky/decky-retroachievements-subset-detail-cache";
 import { buildRetroAchievementsFullScreenProfileModel, getRetroAchievementsProfileSystems } from "../src/platform/decky/decky-retroachievements-full-screen-profile-data";
+import { getRetroAchievementsModeUnlockedCount } from "../src/platform/decky/decky-retroachievements-mode-progress";
 import { buildRetroAchievementsSystemsOverview } from "../src/platform/decky/decky-retroachievements-systems-data";
 import { getRetroAchievementsRefreshActionPresentation } from "../src/platform/decky/providers/retroachievements/settings-view-model";
 
@@ -47,6 +49,39 @@ const game: NormalizedGame = {
   lastUnlockAt: 300,
   metrics: [],
 };
+
+test("Games dates distinguish an unknown RA unlock date from no Steam playtime", () => {
+  const missingUnlockDate = { ...game, lastUnlockAt: undefined, lastPlayedAt: 1_700_000_000_000 };
+  assert.equal(formatSteamGamesActivityDate(missingUnlockDate, "retroachievements"), "Unavailable");
+  assert.notEqual(formatSteamGamesActivityDate(missingUnlockDate, "steam"), "Never");
+  assert.equal(formatSteamGamesActivityDate({ ...missingUnlockDate, lastPlayedAt: undefined }, "steam"), "Never");
+  assert.notEqual(formatSteamGamesActivityDate(game, "retroachievements"), "Unavailable");
+});
+
+test("a missing RA mode count stays unavailable even when the other mode is known", () => {
+  const profile = {
+    summary: { unlockedCount: 12, totalCount: 14 },
+    hardcoreUnlockedCount: 2,
+  } as DashboardSnapshot["profile"];
+  assert.equal(getRetroAchievementsModeUnlockedCount(profile, "softcore"), undefined);
+  assert.equal(getRetroAchievementsModeUnlockedCount(profile, "hardcore"), 2);
+  assert.equal(getRetroAchievementsModeUnlockedCount(profile, "both"), 12);
+});
+
+test("RA Games does not show an overall percentage from incomplete game totals", () => {
+  const unknownTotalGame: NormalizedGame = {
+    ...game,
+    gameId: "unknown-total",
+    summary: { unlockedCount: 1 },
+  };
+  const completion = {
+    providerId: "retroachievements",
+    games: [game, unknownTotalGame],
+  } as CompletionProgressSnapshot;
+  const summary = summarizeSteamGamesDashboard(completion);
+  assert.equal(summary.completionPercent, undefined);
+  assert.equal(summary.totalAchievements, 3);
+});
 
 const snapshot: GameDetailSnapshot = {
   game,

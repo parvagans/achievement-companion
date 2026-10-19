@@ -390,19 +390,27 @@ export function summarizeRetroAchievementsCompletionProgress(
 ): ProgressSummary {
   let unlockedCount = 0;
   let totalCount = 0;
+  let hasCompleteCounts = rawEntries.length > 0;
 
   for (const entry of rawEntries) {
-    unlockedCount += pickNumber(entry.NumAwarded, entry.numAwarded) ?? 0;
+    const awarded = pickNumber(entry.NumAwarded, entry.numAwarded);
+    if (awarded === undefined || awarded < 0) {
+      hasCompleteCounts = false;
+    } else {
+      unlockedCount += awarded;
+    }
 
     const maxPossible = pickNumber(entry.MaxPossible, entry.maxPossible);
-    if (maxPossible !== undefined && maxPossible > 0) {
+    if (maxPossible === undefined || maxPossible < 0 || (awarded !== undefined && awarded > maxPossible)) {
+      hasCompleteCounts = false;
+    } else {
       totalCount += maxPossible;
     }
   }
 
   return {
     unlockedCount,
-    ...(totalCount > 0
+    ...(hasCompleteCounts && totalCount > 0
       ? {
           totalCount,
           completionPercent: Math.round((unlockedCount / totalCount) * 100),
@@ -421,27 +429,29 @@ export function summarizeRetroAchievementsProfileAchievementCounts(
 ): RetroAchievementsProfileAchievementCounts {
   let totalUnlockedCount = 0;
   let hardcoreUnlockedCount = 0;
-  let sawTotalUnlockedCount = false;
-  let sawHardcoreUnlockedCount = false;
+  let hasCompleteTotalCounts = rawEntries.length > 0;
+  let hasCompleteHardcoreCounts = rawEntries.length > 0;
 
   for (const entry of rawEntries) {
     const unlockedCount = pickNumber(entry.NumAwarded, entry.numAwarded);
     const hardcoreCount = pickNumber(entry.NumAwardedHardcore, entry.numAwardedHardcore);
 
-    if (unlockedCount !== undefined) {
+    if (unlockedCount !== undefined && unlockedCount >= 0) {
       totalUnlockedCount += unlockedCount;
-      sawTotalUnlockedCount = true;
+    } else {
+      hasCompleteTotalCounts = false;
     }
 
-    if (hardcoreCount !== undefined) {
+    if (hardcoreCount !== undefined && hardcoreCount >= 0 && (unlockedCount === undefined || hardcoreCount <= unlockedCount)) {
       hardcoreUnlockedCount += hardcoreCount;
-      sawHardcoreUnlockedCount = true;
+    } else {
+      hasCompleteHardcoreCounts = false;
     }
   }
 
   return {
-    ...(sawHardcoreUnlockedCount ? { hardcoreUnlockedCount } : {}),
-    ...(sawTotalUnlockedCount && sawHardcoreUnlockedCount
+    ...(hasCompleteHardcoreCounts ? { hardcoreUnlockedCount } : {}),
+    ...(hasCompleteTotalCounts && hasCompleteHardcoreCounts
       ? { softcoreUnlockedCount: Math.max(0, totalUnlockedCount - hardcoreUnlockedCount) }
       : {}),
   };

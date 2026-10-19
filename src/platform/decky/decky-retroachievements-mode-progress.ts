@@ -17,9 +17,7 @@ export function getRetroAchievementsModeUnlockedCount(
 ): number | undefined {
   if (mode === "both") return count(profile.summary.unlockedCount);
   const selected = mode === "hardcore" ? profile.hardcoreUnlockedCount : profile.softcoreUnlockedCount;
-  if (selected !== undefined) return count(selected);
-  const other = mode === "hardcore" ? profile.softcoreUnlockedCount : profile.hardcoreUnlockedCount;
-  return other === undefined ? undefined : count(profile.summary.unlockedCount - other);
+  return selected === undefined ? undefined : count(selected);
 }
 
 export function getRetroAchievementsModeGameProgress(

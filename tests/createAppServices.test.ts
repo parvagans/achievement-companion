@@ -276,6 +276,8 @@ import {
   normalizeRetroAchievementsProfile,
   normalizeRetroAchievementsRecentUnlocks,
   normalizeRetroAchievementsRecentlyPlayedGames,
+  summarizeRetroAchievementsCompletionProgress,
+  summarizeRetroAchievementsProfileAchievementCounts,
 } from "../src/providers/retroachievements/mappers/normalize";
 import type {
   RawRetroAchievementsCompletionProgressEntry,
@@ -4123,6 +4125,33 @@ test("RetroAchievements profile summary is optional and bounded by a configurabl
   assert.equal(await loadOptionalRetroAchievementsProfileSummary(() => new Promise(() => undefined), 2), undefined);
 });
 
+test("RetroAchievements profile aggregates require complete denominators and mode counts", () => {
+  const incomplete = [
+    { NumAwarded: 10 },
+    { NumAwarded: 2, NumAwardedHardcore: 2, MaxPossible: 4 },
+  ] satisfies readonly RawRetroAchievementsCompletionProgressEntry[];
+  assert.deepEqual(summarizeRetroAchievementsCompletionProgress(incomplete), { unlockedCount: 12 });
+  assert.deepEqual(summarizeRetroAchievementsProfileAchievementCounts(incomplete), {});
+  assert.deepEqual(summarizeRetroAchievementsCompletionProgress([
+    { NumAwarded: 3, MaxPossible: 0 },
+    { NumAwarded: 2, MaxPossible: 4 },
+  ]), { unlockedCount: 5 });
+
+  const complete = [
+    { NumAwarded: 10, NumAwardedHardcore: 3, MaxPossible: 10 },
+    { NumAwarded: 2, NumAwardedHardcore: 2, MaxPossible: 4 },
+  ] satisfies readonly RawRetroAchievementsCompletionProgressEntry[];
+  assert.deepEqual(summarizeRetroAchievementsCompletionProgress(complete), {
+    unlockedCount: 12,
+    totalCount: 14,
+    completionPercent: 86,
+  });
+  assert.deepEqual(summarizeRetroAchievementsProfileAchievementCounts(complete), {
+    hardcoreUnlockedCount: 5,
+    softcoreUnlockedCount: 7,
+  });
+});
+
 test("retroachievements profile exposes points, games beaten, and retroratio metrics", async () => {
   const provider = createRetroAchievementsProvider({
     client: {
@@ -4187,6 +4216,8 @@ test("retroachievements profile exposes points, games beaten, and retroratio met
     apiKey: "secret",
   });
 
+  assert.equal(profile.hardcoreUnlockedCount, undefined);
+  assert.equal(profile.softcoreUnlockedCount, undefined);
   assert.equal(
     profile.metrics.find((metric) => metric.key === "total-points")?.value,
     "100",
@@ -4208,8 +4239,8 @@ test("retroachievements profile exposes points, games beaten, and retroratio met
       section.stats.map((stat) => `${stat.label}:${stat.value}`),
     ),
     [
-      ["Points:25", "Unlocked:6"],
-      ["Points:100", "Unlocked:4"],
+      ["Points:25", "Unlocked:-"],
+      ["Points:100", "Unlocked:-"],
       ["Points:250", "Ratio:2.50"],
       ["Beaten:2", "Mastered:0"],
     ],
