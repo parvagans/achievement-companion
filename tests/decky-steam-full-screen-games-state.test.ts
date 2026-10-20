@@ -11,6 +11,7 @@ import {
   rememberDeckySteamGamesFocus,
   rememberDeckySteamGamesRenderLimit,
   rememberDeckyGamesScrollTop,
+  rememberDeckyGamesSystem,
   resetDeckyGamesPageState,
   resetDeckySteamGamesPageState,
 } from "../src/platform/decky/decky-steam-full-screen-games-state";
@@ -29,6 +30,7 @@ test("Steam Games state preserves semantic child-route origin", () => {
     scrollTop: 420,
     sort: "title",
     mode: "both",
+    system: undefined,
   });
 });
 
@@ -48,6 +50,7 @@ test("provider Games state isolates RA mode, controls, focus, render limit, and 
     scrollTop: 736,
     sort: "completion",
     mode: "hardcore",
+    system: undefined,
   });
   assert.deepEqual(readDeckySteamGamesPageState(), {
     filter: "all",
@@ -57,7 +60,27 @@ test("provider Games state isolates RA mode, controls, focus, render limit, and 
     scrollTop: 0,
     sort: "recent",
     mode: "both",
+    system: undefined,
   });
+});
+
+test("RA system selection resets controls and survives game-detail restoration", () => {
+  resetDeckyGamesPageState("retroachievements");
+  rememberDeckyGamesControls("retroachievements", "mastered", "mario", "completion", "hardcore");
+  rememberDeckyGamesSystem("retroachievements", { systemId: "7", title: "NES/Famicom" });
+  rememberDeckyGamesFocus("retroachievements", "14402");
+  assert.deepEqual(readDeckyGamesPageState("retroachievements"), {
+    filter: "all",
+    focusGameId: "14402",
+    query: "",
+    renderLimit: 12,
+    scrollTop: 0,
+    sort: "recent",
+    mode: "hardcore",
+    system: { systemId: "7", title: "NES/Famicom" },
+  });
+  rememberDeckyGamesSystem("retroachievements", undefined);
+  assert.equal(readDeckyGamesPageState("retroachievements").system, undefined);
 });
 
 test("Steam Games moves native focus to the first appended row after Show more", async () => {

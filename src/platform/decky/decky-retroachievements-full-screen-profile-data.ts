@@ -116,7 +116,7 @@ interface SystemAccumulator {
   hasUnknownTotal: boolean;
 }
 
-function getSystemKey(game: NormalizedGame): { readonly systemId: string; readonly title: string } | undefined {
+export function getRetroAchievementsSystemKey(game: NormalizedGame): { readonly systemId: string; readonly title: string } | undefined {
   const title = game.platformLabel?.trim();
   if (title === undefined || title.length === 0) return undefined;
   const systemId = game.platformId?.trim();
@@ -124,6 +124,15 @@ function getSystemKey(game: NormalizedGame): { readonly systemId: string; readon
     systemId: systemId !== undefined && systemId.length > 0 ? systemId : `label:${title.toLowerCase()}`,
     title,
   };
+}
+
+export function filterRetroAchievementsGamesBySystem(
+  games: readonly NormalizedGame[],
+  systemId: string | undefined,
+): readonly NormalizedGame[] {
+  return systemId === undefined
+    ? games
+    : games.filter((game) => getRetroAchievementsSystemKey(game)?.systemId === systemId);
 }
 
 export function getRetroAchievementsProfileSystems(
@@ -134,7 +143,7 @@ export function getRetroAchievementsProfileSystems(
   const systems = new Map<string, SystemAccumulator>();
 
   for (const game of games) {
-    const key = getSystemKey(game);
+    const key = getRetroAchievementsSystemKey(game);
     if (key === undefined) continue;
 
     const current = systems.get(key.systemId) ?? {

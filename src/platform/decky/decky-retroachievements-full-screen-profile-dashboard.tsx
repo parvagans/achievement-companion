@@ -114,7 +114,7 @@ function systemsRailStyle(): CSSProperties {
     overflowX: "auto",
     overflowY: "hidden",
     scrollbarWidth: "none",
-    paddingBottom: 2,
+    padding: "4px 5px 5px",
     boxSizing: "border-box",
   };
 }
@@ -174,15 +174,13 @@ function systemCardStyle(focused: boolean): CSSProperties {
 function scrollSystemCardIntoView(target: HTMLElement): void {
   const rail = target.closest<HTMLElement>("[data-ra-profile-system-rail]");
   if (rail === null) return;
-
-  const left = target.offsetLeft;
-  const right = left + target.offsetWidth;
-  const visibleLeft = rail.scrollLeft;
-  const visibleRight = rail.scrollLeft + rail.clientWidth;
-  if (left < visibleLeft) {
-    rail.scrollLeft = Math.max(0, left);
-  } else if (right > visibleRight) {
-    rail.scrollLeft = right - rail.clientWidth;
+  const railBounds = rail.getBoundingClientRect();
+  const cardBounds = target.getBoundingClientRect();
+  const focusSpace = 5;
+  if (cardBounds.left < railBounds.left + focusSpace) {
+    rail.scrollLeft -= railBounds.left + focusSpace - cardBounds.left;
+  } else if (cardBounds.right > railBounds.right - focusSpace) {
+    rail.scrollLeft += cardBounds.right - (railBounds.right - focusSpace);
   }
 }
 
@@ -199,6 +197,7 @@ function SystemCard({
   system,
   index,
   onFocused,
+  onOpenSystem,
   onExitLeft,
   onMoveRight,
   onMoveDown,
@@ -206,6 +205,7 @@ function SystemCard({
   readonly system: Model["systems"][number];
   readonly index: number;
   readonly onFocused: (index: number, target: HTMLElement) => void;
+  readonly onOpenSystem: (system: { readonly systemId: string; readonly title: string }) => void;
   readonly onExitLeft: (() => boolean) | undefined;
   readonly onMoveRight: (() => boolean) | undefined;
   readonly onMoveDown: ((event: GamepadEvent) => boolean) | undefined;
@@ -235,8 +235,8 @@ function SystemCard({
       focusWithinClassName="achievement-companion-ra-profile-system--focused"
       aria-label={`${system.title}, ${system.unlockedAchievements.toLocaleString()} unlocked achievements`}
       data-ra-profile-system={system.systemId}
-      onActivate={() => {}}
-      onClick={() => {}}
+      onActivate={() => onOpenSystem(system)}
+      onClick={() => onOpenSystem(system)}
       onFocus={(event) => focusCard(event.currentTarget)}
       onGamepadFocus={(event) => focusCard(event.currentTarget)}
       {...(index === 0 ? { onGamepadDirection: handleBoundaryDirection } : {})}
@@ -595,12 +595,14 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
   isActive,
   onOpenExternalUrl,
   onOpenCompletionProgress,
+  onOpenSystem,
   refreshedAt,
 }: {
   readonly model: Model;
   readonly isActive: boolean;
   readonly onOpenExternalUrl: (url: string) => void;
   readonly onOpenCompletionProgress: (filter: CompletionProgressSelectionFilter) => void;
+  readonly onOpenSystem: (system: { readonly systemId: string; readonly title: string }) => void;
   readonly refreshedAt: number | undefined;
 }): JSX.Element {
   const rootRef = useRef<HTMLElement>(null);
@@ -770,6 +772,7 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
                     key={system.systemId}
                     index={index}
                     onFocused={handleSystemFocused}
+                    onOpenSystem={onOpenSystem}
                     onExitLeft={index === 0 ? focusProfileAction : undefined}
                     onMoveRight={index === 0 && model.systems.length > 1 ? focusSecondSystem : undefined}
                     onMoveDown={index === 0 ? focusProgressOrCompletion : undefined}

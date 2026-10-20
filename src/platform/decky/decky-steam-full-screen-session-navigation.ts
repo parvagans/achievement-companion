@@ -1,5 +1,5 @@
 export type SteamFullScreenSessionTab = "profile" | "games" | "activity" | "settings";
-export type ProviderFullScreenSessionTab = SteamFullScreenSessionTab | "systems";
+export type ProviderFullScreenSessionTab = SteamFullScreenSessionTab;
 
 const STEAM_FULL_SCREEN_SESSION_TAB_ORDER: readonly SteamFullScreenSessionTab[] = [
   "profile",
@@ -12,7 +12,6 @@ export const RETROACHIEVEMENTS_FULL_SCREEN_SESSION_TAB_ORDER = [
   "profile",
   "games",
   "activity",
-  "systems",
   "settings",
 ] as const satisfies readonly ProviderFullScreenSessionTab[];
 

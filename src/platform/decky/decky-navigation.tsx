@@ -45,7 +45,7 @@ import {
 } from "./decky-app-services";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
 import { resetDeckyActivityPageState } from "./decky-steam-full-screen-activity-state";
-import { resetDeckyGamesPageState } from "./decky-steam-full-screen-games-state";
+import { rememberDeckyGamesSystem, resetDeckyGamesPageState } from "./decky-steam-full-screen-games-state";
 import { jumpDeckySteamProfileTabToTop } from "./decky-steam-profile-jump-top";
 import { requestDeckySteamCompactFocusRestore } from "./decky-steam-compact-focus-state";
 import {
@@ -58,7 +58,6 @@ import {
   getProviderFullScreenSessionTabs,
   type ProviderFullScreenSessionTab,
 } from "./decky-steam-full-screen-session-navigation";
-import { DeckyRetroAchievementsSystemsComingSoon } from "./decky-retroachievements-systems-coming-soon";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 import { DeckyFocusStyles } from "./decky-focus-styles";
 import { isDeckyProviderSettingsWebReturnPending } from "./decky-provider-settings-web-return";
@@ -506,7 +505,7 @@ function DeckyProviderFullScreenSession({
   useEffect(() => {
     activeProviderFullScreenSessionId = providerId;
     const unsubscribe = subscribeToProviderFullScreenSession(() => {
-      setActiveTab(providerFullScreenSessionTab);
+      setActiveTab(providerTabs.includes(providerFullScreenSessionTab) ? providerFullScreenSessionTab : "profile");
     });
 
     return () => {
@@ -543,12 +542,23 @@ function DeckyProviderFullScreenSession({
   };
 
   const openGames = (initialFilter: CompletionProgressSelectionFilter = "all"): void => {
+    if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+      rememberDeckyGamesSystem(providerId, undefined);
+    }
     setGamesInitialFilter(initialFilter);
     // A non-default profile shortcut intentionally resets the Games view so
     // its requested filter wins over the module-level restoration state.
     if (initialFilter !== "all") {
       setGamesViewRevision((currentRevision) => currentRevision + 1);
     }
+    selectTab("games");
+  };
+
+  const openSystemGames = (system: { readonly systemId: string; readonly title: string }): void => {
+    if (providerId !== RETROACHIEVEMENTS_PROVIDER_ID) return;
+    rememberDeckyGamesSystem(providerId, system);
+    setGamesInitialFilter("all");
+    setGamesViewRevision((currentRevision) => currentRevision + 1);
     selectTab("games");
   };
 
@@ -584,6 +594,7 @@ function DeckyProviderFullScreenSession({
             DeckyNavigation.NavigateToExternalWeb(url);
           }}
           onOpenCompletionProgress={(_profileProviderId, initialFilter) => openGames(initialFilter)}
+          onOpenSystem={openSystemGames}
           onOpenGameDetail={(profileProviderId, gameId) => {
             navigateToFullScreenGame(profileProviderId, gameId);
           }}
@@ -622,9 +633,6 @@ function DeckyProviderFullScreenSession({
             }
           }}
         />
-      : null}
-      {activeTab === "systems" && providerId === RETROACHIEVEMENTS_PROVIDER_ID ?
-        <DeckyRetroAchievementsSystemsComingSoon isActive={activeTab === "systems"} />
       : null}
       {activeTab === "settings" && providerId === STEAM_PROVIDER_ID ?
         <DeckyFullScreenSettingsPage

@@ -10,6 +10,7 @@ export interface DeckySteamGamesPageState {
   readonly scrollTop: number;
   readonly sort: CompletionProgressSort;
   readonly mode: RetroAchievementsAchievementMode;
+  readonly system: { readonly systemId: string; readonly title: string } | undefined;
 }
 
 const initialState: DeckySteamGamesPageState = {
@@ -20,6 +21,7 @@ const initialState: DeckySteamGamesPageState = {
   scrollTop: 0,
   sort: "recent",
   mode: "both",
+  system: undefined,
 };
 
 const pageStates = new Map<string, DeckySteamGamesPageState>();
@@ -49,6 +51,22 @@ export function rememberDeckyGamesRenderLimit(providerId: string, renderLimit: n
 
 export function rememberDeckyGamesScrollTop(providerId: string, scrollTop: number): void {
   pageStates.set(providerId, { ...readDeckyGamesPageState(providerId), scrollTop: Math.max(0, scrollTop) });
+}
+
+export function rememberDeckyGamesSystem(
+  providerId: string,
+  system: DeckySteamGamesPageState["system"],
+): void {
+  pageStates.set(providerId, {
+    ...readDeckyGamesPageState(providerId),
+    filter: "all",
+    focusGameId: undefined,
+    query: "",
+    renderLimit: 12,
+    scrollTop: 0,
+    sort: "recent",
+    system,
+  });
 }
 
 export function resetDeckyGamesPageState(providerId: string): void {

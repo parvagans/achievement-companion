@@ -34,7 +34,7 @@ import {
   readDeckyRetroAchievementsSubsetDetailStates,
   resetDeckyRetroAchievementsSubsetDetailCacheForTests,
 } from "../src/platform/decky/decky-retroachievements-subset-detail-cache";
-import { buildRetroAchievementsFullScreenProfileModel, getRetroAchievementsProfileSystems } from "../src/platform/decky/decky-retroachievements-full-screen-profile-data";
+import { buildRetroAchievementsFullScreenProfileModel, filterRetroAchievementsGamesBySystem, getRetroAchievementsProfileSystems } from "../src/platform/decky/decky-retroachievements-full-screen-profile-data";
 import { getRetroAchievementsModeUnlockedCount } from "../src/platform/decky/decky-retroachievements-mode-progress";
 import { isRetroAchievementsUnlockedInMode } from "../src/platform/decky/decky-retroachievements-unlock-mode";
 import { buildRetroAchievementsSystemsOverview } from "../src/platform/decky/decky-retroachievements-systems-data";
@@ -170,15 +170,14 @@ test("RA full-screen game keeps one mode-aware progress bar and a status-only ba
   assert.match(banner, /DeckyGameStatusIcon/u);
 });
 
-test("provider visit tab order adds Systems to the RA cycle only", () => {
+test("provider visit tab order hides Systems from the RA cycle", () => {
   const steamTabs = getProviderFullScreenSessionTabs("steam");
   const raTabs = getProviderFullScreenSessionTabs("retroachievements");
 
   assert.deepEqual(steamTabs, ["profile", "games", "activity", "settings"]);
-  assert.deepEqual(raTabs, ["profile", "games", "activity", "systems", "settings"]);
+  assert.deepEqual(raTabs, ["profile", "games", "activity", "settings"]);
   assert.equal(getAdjacentProviderFullScreenSessionTab(raTabs, "profile", "previous"), "settings");
-  assert.equal(getAdjacentProviderFullScreenSessionTab(raTabs, "activity", "next"), "systems");
-  assert.equal(getAdjacentProviderFullScreenSessionTab(raTabs, "systems", "next"), "settings");
+  assert.equal(getAdjacentProviderFullScreenSessionTab(raTabs, "activity", "next"), "settings");
   assert.equal(getAdjacentProviderFullScreenSessionTab(raTabs, "settings", "next"), "profile");
 });
 
@@ -263,6 +262,18 @@ test("RA Profile and Systems count subset achievements toward N64 without treati
   assert.equal(systems.systems?.attributedUnlocks, 256);
   assert.equal(profileModel.completion.gamesWithProgress, 1);
   assert.equal(buildRetroAchievementsFullScreenProfileModel({ snapshot, settings: DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS }).systems[0]?.unlockedAchievements, 256);
+});
+
+test("Profile system keys filter Games and their achievement subsets consistently", () => {
+  const games: NormalizedGame[] = [
+    { ...game, gameId: "n64", platformId: "2", platformLabel: "Nintendo 64" },
+    { ...game, gameId: "n64-subset", parentGameId: "n64", platformId: "2", platformLabel: "Nintendo 64" },
+    { ...game, gameId: "nes", platformId: "7", platformLabel: "NES/Famicom" },
+  ];
+  const systemId = getRetroAchievementsProfileSystems(games)[0]?.systemId;
+  assert.equal(systemId, "2");
+  assert.deepEqual(filterRetroAchievementsGamesBySystem(games, systemId).map((entry) => entry.gameId), ["n64", "n64-subset"]);
+  assert.equal(filterRetroAchievementsGamesBySystem(games, undefined), games);
 });
 
 test("RA achievement mode keeps Profile, Systems, and Games counts aligned", () => {
@@ -638,6 +649,8 @@ test("RA full-screen profile exposes every system in a horizontal controller rai
   assert.match(source, /<DeckyFocusStyles \/>/u);
   assert.match(source, /onGamepadFocus=\{\(event\) => focusCard\(event\.currentTarget\)\}/u);
   assert.match(source, /scrollSystemCardIntoView\(target\)/u);
+  assert.match(source, /onActivate=\{\(\) => onOpenSystem\(system\)\}/u);
+  assert.match(source, /getBoundingClientRect\(\)/u);
   assert.match(source, /gridColumn: "1 \/ -1"[\s\S]*\{system\.title\}/u);
   assert.match(source, /iconSize=\{44\}/u);
   assert.match(source, /textOverflow: "ellipsis", whiteSpace: "nowrap"/u);

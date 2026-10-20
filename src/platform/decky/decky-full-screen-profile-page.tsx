@@ -84,6 +84,7 @@ export interface DeckyFullScreenProfilePageProps {
     providerId: string,
     initialFilter?: CompletionProgressSelectionFilter,
   ) => void;
+  readonly onOpenSystem?: (system: { readonly systemId: string; readonly title: string }) => void;
   readonly onOpenAchievementHistory: (providerId: string) => void;
   readonly onOpenAchievementDetail: (providerId: string, gameId: string, achievementId: string) => void;
   readonly onOpenGameDetail: (providerId: string, gameId: string) => void;
@@ -1038,6 +1039,7 @@ export function DeckyFullScreenProfilePage({
   showSteamProfileFooter = true,
   onBack,
   onOpenCompletionProgress,
+  onOpenSystem,
   onOpenAchievementHistory,
   onOpenAchievementDetail,
   onOpenGameDetail,
@@ -1244,6 +1246,7 @@ export function DeckyFullScreenProfilePage({
           isActive={isActive}
           onOpenExternalUrl={onOpenExternalUrl}
           onOpenCompletionProgress={(filter) => onOpenCompletionProgress(profile.providerId, filter)}
+          onOpenSystem={(system) => onOpenSystem?.(system)}
           refreshedAt={refreshedAt}
         />
         {showSteamProfileFooter ? <DeckyFullScreenFooterOverlay
