@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { DeckyCommunityRarityDistribution } from "./decky-community-rarity";
 import { DeckyFullScreenGameSpotlightCard } from "./decky-full-screen-game-spotlight-card";
-import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
+import { achievementCompanionQamTheme as qamTheme, qamActivityCalendarColors } from "./decky-qam-theme";
 
 function getCommunityInsightsTitleStyle(): CSSProperties {
   return {
@@ -90,10 +90,10 @@ export function DeckyCommunityRarityDistribution({
   readonly distribution: DeckyCommunityRarityDistribution;
 }): JSX.Element {
   const entries = [
-    { key: "common", label: "Common", count: distribution.common, color: "#46ed91" },
-    { key: "uncommon", label: "Uncommon", count: distribution.uncommon, color: qamTheme.color.accent },
-    { key: "rare", label: "Rare", count: distribution.rare, color: "#a855f7" },
-    { key: "very-rare", label: "Very Rare", count: distribution.veryRare, color: "#f35bd5" },
+    { key: "common", label: "Common", count: distribution.common, color: qamActivityCalendarColors[1] },
+    { key: "uncommon", label: "Uncommon", count: distribution.uncommon, color: qamActivityCalendarColors[2] },
+    { key: "rare", label: "Rare", count: distribution.rare, color: qamActivityCalendarColors[3] },
+    { key: "very-rare", label: "Very Rare", count: distribution.veryRare, color: qamActivityCalendarColors[4] },
   ];
 
   return (
@@ -105,7 +105,7 @@ export function DeckyCommunityRarityDistribution({
     >
       <div
         aria-label="Achievement rarity distribution"
-        style={{ display: "flex", height: 28, overflow: "hidden", borderRadius: 999, background: "rgba(255, 255, 255, 0.07)", boxShadow: "inset 0 0 0 1px rgba(255, 255, 255, 0.09)" }}
+        style={{ display: "flex", height: 28, overflow: "hidden", borderRadius: 999, background: qamTheme.surface.progressTrack, boxShadow: `inset 0 0 0 1px ${qamTheme.color.borderSubtle}` }}
       >
         {entries.map((entry) => (
           entry.count > 0 ? (
@@ -114,8 +114,8 @@ export function DeckyCommunityRarityDistribution({
               style={{
                 flex: `${entry.count} 1 0`,
                 minWidth: 0,
-                background: entry.key === "uncommon" ? qamTheme.surface.progressFill : `linear-gradient(90deg, ${entry.color}, ${entry.color}c7)`,
-                boxShadow: "inset -3px 0 0 rgba(5, 20, 35, 0.76)",
+                background: entry.color,
+                boxShadow: `inset -3px 0 0 ${qamTheme.color.background}`,
               }}
             />
           ) : null
@@ -127,10 +127,10 @@ export function DeckyCommunityRarityDistribution({
           return (
             <div key={entry.key} style={{ display: "flex", flexDirection: "column", gap: 5, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
-                <span aria-hidden="true" style={{ width: 14, height: 14, flexShrink: 0, borderRadius: "50%", background: entry.color, boxShadow: `0 0 10px ${entry.color}80` }} />
-                <span style={{ color: entry.color, fontSize: "0.92em", fontWeight: 800, lineHeight: 1.15 }}>{entry.label}</span>
+                <span aria-hidden="true" style={{ width: 14, height: 14, flexShrink: 0, borderRadius: "50%", background: entry.color }} />
+                <span style={{ color: qamTheme.color.textPrimary, fontSize: "0.92em", fontWeight: 800, lineHeight: 1.15 }}>{entry.label}</span>
               </div>
-              <div style={{ color: "rgba(255, 255, 255, 0.98)", fontSize: "0.92em", fontWeight: 800, lineHeight: 1.15 }}>{`${entry.count.toLocaleString()} (${Number(percentage.toFixed(1))}%)`}</div>
+              <div style={{ color: qamTheme.color.textPrimary, fontSize: "0.92em", fontWeight: 800, lineHeight: 1.15 }}>{`${entry.count.toLocaleString()} (${Number(percentage.toFixed(1))}%)`}</div>
             </div>
           );
         })}

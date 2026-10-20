@@ -200,18 +200,20 @@ test("ordinary icon, avatar, progress, footer, and loading chrome use centralize
   }
 });
 
-test("achievement details and community panels use palette accents rather than fixed cyan", () => {
+test("achievement details and community panels use the selected palette", () => {
   const primaryAction = readFileSync("src/platform/decky/decky-compact-primary-action.tsx", "utf8");
   const compactDetail = readFileSync("src/platform/decky/decky-achievement-detail-view.tsx", "utf8");
   const fullscreenDetail = readFileSync("src/platform/decky/decky-full-screen-achievement-page.tsx", "utf8");
   const steamProfile = readFileSync("src/platform/decky/decky-steam-compact-profile.tsx", "utf8");
-  const community = readFileSync("src/platform/decky/decky-steam-hunters-game-sections.tsx", "utf8");
+  const community = readFileSync("src/platform/decky/decky-full-screen-game-community-layout.tsx", "utf8");
 
   assert.match(primaryAction, /filter: qamTheme\.decorative\.iconFilter/u);
   assert.match(compactDetail, /filter: achievementCompanionQamTheme\.decorative\.iconFilter/u);
   assert.match(fullscreenDetail, /: sharedTheme\.decorative\.iconFilter/u);
   assert.match(steamProfile, /color: steamTheme\.color\.accent, fontWeight: 800/u);
-  assert.match(community, /color: steamTheme\.color\.accent/u);
+  assert.match(community, /qamActivityCalendarColors\[1\]/u);
+  assert.match(community, /qamActivityCalendarColors\[4\]/u);
+  assert.match(community, /color: qamTheme\.color\.textPrimary/u);
   assert.equal(raTheme.color.retroPoints, achievementCompanionQamTheme.color.accent);
 
   for (const source of [primaryAction, compactDetail, fullscreenDetail, steamProfile, community]) {
