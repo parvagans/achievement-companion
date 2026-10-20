@@ -1,42 +1,68 @@
-import type { GameCommunityStats } from "@core/domain";
-import { DeckyFullScreenGameSpotlightFocusTarget } from "./decky-full-screen-game-spotlight-card";
+import type { GameCommunityStats, GameDetailSnapshot } from "@core/domain";
 import {
-  formatRetroAchievementsCommunityDuration,
+  DeckyCommunityInsightMetric,
+  DeckyCommunityInsightsCard,
+  DeckyCommunityInsightsStack,
+  DeckyCommunityRarityDistribution,
+} from "./decky-full-screen-game-community-layout";
+import {
+  buildRetroAchievementsCommunityInsights,
+  buildRetroAchievementsCommunityRarityDistribution,
   hasDisplayableRetroAchievementsCommunityStats,
+  type RetroAchievementsCommunityInsight,
 } from "./decky-retroachievements-community-stats-data";
-import { raRecipes, raTheme } from "./ra-theme";
+import { raTheme } from "./ra-theme";
 
 export const RETROACHIEVEMENTS_COMMUNITY_SECTION_FOCUS_TARGET = "ra-community-summary";
 
 export { hasDisplayableRetroAchievementsCommunityStats };
 
-export function DeckyRetroAchievementsGameCommunitySection({ stats }: { readonly stats: GameCommunityStats }): JSX.Element {
-  const hasValidMasteryRate = stats.masteryPercent !== undefined
-    && Number.isFinite(stats.masteryPercent)
-    && stats.totalPlayers !== undefined
-    && stats.totalPlayers > 0
-    && stats.masteredPlayers !== undefined;
-  const items = [
-    ...(stats.totalPlayers !== undefined ? [{ label: "Players", value: stats.totalPlayers.toLocaleString() }] : []),
-    ...(stats.masteredPlayers !== undefined ? [{ label: "Mastered Players", value: stats.masteredPlayers.toLocaleString() }] : []),
-    ...(hasValidMasteryRate ? [{ label: "Mastery", value: `${stats.masteryPercent!.toFixed(stats.masteryPercent! < 10 ? 1 : 0)}%` }] : []),
-    ...(formatRetroAchievementsCommunityDuration(stats.medianBeatSeconds) !== undefined ? [{ label: "Median Beat · Hardcore", value: formatRetroAchievementsCommunityDuration(stats.medianBeatSeconds)! }] : []),
-    ...(formatRetroAchievementsCommunityDuration(stats.medianBeatSoftcoreSeconds) !== undefined ? [{ label: "Median Beat · Softcore", value: formatRetroAchievementsCommunityDuration(stats.medianBeatSoftcoreSeconds)! }] : []),
-    ...(formatRetroAchievementsCommunityDuration(stats.medianCompletionSeconds) !== undefined ? [{ label: "Median Completion", value: formatRetroAchievementsCommunityDuration(stats.medianCompletionSeconds)! }] : []),
-    ...(formatRetroAchievementsCommunityDuration(stats.medianMasterySeconds) !== undefined ? [{ label: "Median Mastery", value: formatRetroAchievementsCommunityDuration(stats.medianMasterySeconds)! }] : []),
+function BeatMedianValue({ insight }: { readonly insight: Extract<RetroAchievementsCommunityInsight, { kind: "beat" }> }): JSX.Element {
+  const medians = [
+    ...(insight.hardcore !== undefined ? [{ mode: "Hardcore", value: insight.hardcore }] : []),
+    ...(insight.softcore !== undefined ? [{ mode: "Softcore", value: insight.softcore }] : []),
   ];
-
   return (
-    <DeckyFullScreenGameSpotlightFocusTarget
-      focusTargetId={RETROACHIEVEMENTS_COMMUNITY_SECTION_FOCUS_TARGET}
-      style={{ ...raRecipes.card("fullscreen", true), background: raTheme.surface.contentCard, display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10, padding: 16 }}
-    >
-      {items.map((item) => (
-        <div key={item.label} style={{ ...raRecipes.metric("fullscreen"), background: raTheme.surface.contentStat, display: "flex", flexDirection: "column", justifyContent: "center", textAlign: "center", minHeight: 92 }}>
-          <div style={{ color: raTheme.color.textPrimary, fontSize: 22, fontWeight: 850 }}>{item.value}</div>
-          <div style={{ color: raTheme.color.textSecondary, fontSize: 11 }}>{item.label}</div>
+    <div style={{ display: "grid", gridTemplateColumns: `repeat(${medians.length}, minmax(0, 1fr))`, gap: 8, width: "100%" }}>
+      {medians.map(({ mode, value }) => (
+        <div key={mode} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 0 }}>
+          <span style={{ color: raTheme.color.textSecondary, fontSize: "0.5em", fontWeight: 700, lineHeight: 1 }}>{mode}</span>
+          <span style={{ fontSize: "0.72em", fontWeight: 800, lineHeight: 1.1, whiteSpace: "nowrap" }}>{value}</span>
         </div>
       ))}
-    </DeckyFullScreenGameSpotlightFocusTarget>
+    </div>
+  );
+}
+
+export function DeckyRetroAchievementsGameCommunitySection({
+  stats,
+  snapshot,
+}: {
+  readonly stats: GameCommunityStats;
+  readonly snapshot: GameDetailSnapshot;
+}): JSX.Element {
+  const insights = buildRetroAchievementsCommunityInsights(stats);
+  const rarityDistribution = buildRetroAchievementsCommunityRarityDistribution(snapshot);
+
+  return (
+    <DeckyCommunityInsightsStack>
+      <DeckyCommunityInsightsCard
+        title="Community Insights (RetroAchievements)"
+        focusable
+        focusTargetId={RETROACHIEVEMENTS_COMMUNITY_SECTION_FOCUS_TARGET}
+      >
+        {insights.map((insight) => (
+          insight.kind === "beat"
+            ? <DeckyCommunityInsightMetric
+                key={insight.label}
+                label={insight.label}
+                value={<BeatMedianValue insight={insight} />}
+                valueStyle={{ width: "100%", whiteSpace: "normal" }}
+              />
+            : <DeckyCommunityInsightMetric key={insight.label} label={insight.label} value={insight.value} />
+        ))}
+      </DeckyCommunityInsightsCard>
+      {rarityDistribution !== undefined ? <DeckyCommunityRarityDistribution distribution={rarityDistribution} /> : null}
+    </DeckyCommunityInsightsStack>
   );
 }

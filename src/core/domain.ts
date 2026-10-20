@@ -223,6 +223,8 @@ export interface RecentUnlock {
 export interface GameDetailSnapshot {
   readonly game: NormalizedGame;
   readonly achievements: readonly NormalizedAchievement[];
+  /** Provider-reported schema size, distinct from a fallback based on loaded rows. */
+  readonly reportedAchievementCount?: number;
   /** True only when player achievement state is verified complete against the game schema. */
   readonly achievementStateIsComplete?: boolean;
   readonly refreshedAt?: UnixEpochMs;

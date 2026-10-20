@@ -1,4 +1,5 @@
 import type { NormalizedAchievement } from "@core/domain";
+import { countDeckyCommunityRarityBands, type DeckyCommunityRarityDistribution } from "./decky-community-rarity";
 import type {
   SteamHuntersAchievement,
   SteamHuntersGameEnrichment,
@@ -27,13 +28,7 @@ export interface DeckySteamHuntersCommunitySummary {
   readonly totalPlayers?: number;
 }
 
-export interface DeckySteamHuntersRarityDistribution {
-  readonly common: number;
-  readonly uncommon: number;
-  readonly rare: number;
-  readonly veryRare: number;
-  readonly total: number;
-}
+export type DeckySteamHuntersRarityDistribution = DeckyCommunityRarityDistribution;
 
 export interface DeckySteamHuntersGameViewModel {
   readonly enrichment: SteamHuntersGameEnrichment;
@@ -119,19 +114,7 @@ function buildRarityDistribution(args: {
     return undefined;
   }
 
-  let common = 0;
-  let uncommon = 0;
-  let rare = 0;
-  let veryRare = 0;
-  for (const achievement of args.achievements) {
-    const percentage = achievement.localPercentage!;
-    if (percentage >= 50) common += 1;
-    else if (percentage >= 20) uncommon += 1;
-    else if (percentage >= 5) rare += 1;
-    else veryRare += 1;
-  }
-
-  return { common, uncommon, rare, veryRare, total: args.achievements.length };
+  return countDeckyCommunityRarityBands(args.achievements.map((achievement) => achievement.localPercentage!));
 }
 
 export function buildDeckySteamHuntersGameViewModel(args: {

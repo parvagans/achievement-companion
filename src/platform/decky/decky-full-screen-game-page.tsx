@@ -1210,7 +1210,7 @@ export function DeckyFullScreenGamePage({
             <div data-steam-game-section="community">
               <PanelSection title="Community">
                 <PanelSectionRow>
-                  <DeckyRetroAchievementsGameCommunitySection stats={game.communityStats} />
+                  <DeckyRetroAchievementsGameCommunitySection stats={game.communityStats} snapshot={snapshot} />
                 </PanelSectionRow>
               </PanelSection>
             </div>

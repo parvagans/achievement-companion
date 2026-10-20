@@ -1389,6 +1389,7 @@ test("retroachievements game progress normalizes achievement badge art", () => {
 
   const snapshot = normalizeRetroAchievementsGameDetail(rawGameProgress);
 
+  assert.equal(snapshot.reportedAchievementCount, 2);
   assert.equal(snapshot.game.hardcoreSummary?.unlockedCount, 1);
   assert.equal(snapshot.game.hardcoreSummary?.totalCount, 2);
   assert.equal(snapshot.game.hardcoreSummary?.completionPercent, 50);

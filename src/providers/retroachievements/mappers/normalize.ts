@@ -1358,7 +1358,8 @@ export function normalizeRetroAchievementsGameDetail(
     buildGameProgressAchievement(achievement, gameId),
   );
 
-  const totalCount = pickNumber(raw.NumAchievements, raw.numAchievements) ?? achievements.length;
+  const reportedAchievementCount = pickNumber(raw.NumAchievements, raw.numAchievements);
+  const totalCount = reportedAchievementCount ?? achievements.length;
   const unlockedCount =
     pickNumber(raw.NumAwardedToUser, raw.numAwardedToUser) ?? 
     achievements.filter((achievement) => achievement.isUnlocked).length;
@@ -1574,6 +1575,7 @@ export function normalizeRetroAchievementsGameDetail(
   return {
     game,
     achievements,
+    ...(reportedAchievementCount !== undefined ? { reportedAchievementCount } : {}),
     refreshedAt: Date.now(),
   };
 }

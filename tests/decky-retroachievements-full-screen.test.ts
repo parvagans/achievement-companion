@@ -20,7 +20,11 @@ import {
   hasDistinctRetroAchievementsModes,
   projectRetroAchievementsFullScreenAchievements,
 } from "../src/platform/decky/decky-retroachievements-full-screen-achievement-data";
-import { hasDisplayableRetroAchievementsCommunityStats } from "../src/platform/decky/decky-retroachievements-community-stats-data";
+import {
+  buildRetroAchievementsCommunityInsights,
+  buildRetroAchievementsCommunityRarityDistribution,
+  hasDisplayableRetroAchievementsCommunityStats,
+} from "../src/platform/decky/decky-retroachievements-community-stats-data";
 import {
   formatSteamGamesActivityDate,
   matchesSteamGamesFilter,
@@ -739,4 +743,48 @@ test("RA Community requires displayable real metrics and rejects sample-only or 
   assert.equal(hasDisplayableRetroAchievementsCommunityStats({ totalPlayers: 100 }), true);
   assert.equal(hasDisplayableRetroAchievementsCommunityStats({ totalPlayers: 100, masteredPlayers: 10, masteryPercent: 10 }), true);
   assert.equal(hasDisplayableRetroAchievementsCommunityStats({ medianMasterySeconds: 3_600 }), true);
+});
+
+test("RA Community combines Hardcore and Softcore beat medians into one of six insights", () => {
+  const insights = buildRetroAchievementsCommunityInsights({
+    totalPlayers: 2372,
+    masteredPlayers: 101,
+    masteryPercent: 4.3,
+    medianBeatSeconds: 20 * 3600 + 2 * 60,
+    medianBeatSoftcoreSeconds: 11 * 3600 + 17 * 60,
+    medianCompletionSeconds: 23 * 3600 + 31 * 60,
+    medianMasterySeconds: 28 * 3600,
+  });
+  assert.deepEqual(insights.map((insight) => insight.label), [
+    "Players", "Mastered Players", "Mastery", "Median Beat", "Median Completion", "Median Mastery",
+  ]);
+  assert.deepEqual(insights[3], { kind: "beat", label: "Median Beat", hardcore: "20h 2m", softcore: "11h 17m" });
+  assert.deepEqual(buildRetroAchievementsCommunityInsights({ medianBeatSoftcoreSeconds: 3600 }), [
+    { kind: "beat", label: "Median Beat", softcore: "1h" },
+  ]);
+});
+
+test("RA rarity uses all earned players and Steam's category boundaries", () => {
+  const achievements: GameDetailSnapshot["achievements"] = [50, 20, 5, 4, 0].map((earned, index) => ({
+    providerId: "retroachievements",
+    achievementId: String(index),
+    gameId: game.gameId,
+    title: `Achievement ${index}`,
+    isUnlocked: false,
+    metrics: [{ key: "unlocked-count", label: "Total Players", value: String(earned) }],
+  }));
+  const snapshot: GameDetailSnapshot = {
+    game: { ...game, summary: { unlockedCount: 0, totalCount: achievements.length }, metrics: [{ key: "total-players", label: "Total Players", value: "100" }] },
+    achievements,
+    reportedAchievementCount: achievements.length,
+  };
+  assert.deepEqual(buildRetroAchievementsCommunityRarityDistribution(snapshot), {
+    common: 1, uncommon: 1, rare: 1, veryRare: 2, total: 5,
+  });
+  assert.equal(buildRetroAchievementsCommunityRarityDistribution({ ...snapshot, reportedAchievementCount: undefined }), undefined);
+  assert.equal(buildRetroAchievementsCommunityRarityDistribution({ ...snapshot, reportedAchievementCount: 6 }), undefined);
+  assert.equal(buildRetroAchievementsCommunityRarityDistribution({ ...snapshot, achievements: achievements.slice(0, -1) }), undefined);
+  assert.equal(buildRetroAchievementsCommunityRarityDistribution({ ...snapshot, achievements: [...achievements.slice(0, -1), { ...achievements[4]!, metrics: [] }] }), undefined);
+  assert.equal(buildRetroAchievementsCommunityRarityDistribution({ ...snapshot, achievements: [...achievements.slice(0, -1), { ...achievements[4]!, metrics: [{ key: "unlocked-count", label: "Total Players", value: "101" }] }] }), undefined);
+  assert.equal(buildRetroAchievementsCommunityRarityDistribution({ ...snapshot, game: { ...snapshot.game, metrics: [] } }), undefined);
 });
