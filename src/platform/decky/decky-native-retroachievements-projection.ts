@@ -60,7 +60,7 @@ export interface NativeRetroAchievementsProjectionDependencies {
     raGameId: string,
     options: { readonly forceRefresh: boolean },
   ) => Promise<ResourceState<GameDetailSnapshot>>;
-  readonly invalidateSummary: (appId: string) => void;
+  readonly invalidateSummary: (appId: string, options?: { readonly preserveVisible?: boolean }) => void;
 }
 
 export interface NativeRetroAchievementsProjectionLoader {
@@ -175,13 +175,13 @@ export function createNativeRetroAchievementsProjectionLoader(
     return generations.get(appId) ?? 0;
   }
 
-  function invalidateOne(appId: string, invalidateMapping: boolean): void {
+  function invalidateOne(appId: string, invalidateMapping: boolean, preserveVisible = false): void {
     generations.set(appId, generation(appId) + 1);
     committed.delete(appId);
     inFlight.delete(appId);
     if (invalidateMapping) {
       needsFreshDetail.add(appId);
-      dependencies.invalidateSummary(appId);
+      dependencies.invalidateSummary(appId, preserveVisible ? { preserveVisible: true } : undefined);
     }
   }
 
@@ -203,7 +203,7 @@ export function createNativeRetroAchievementsProjectionLoader(
     }
     modes.set(appId, mode);
     if (options?.forceRefresh === true) {
-      invalidateOne(appId, true);
+      invalidateOne(appId, true, true);
     }
 
     const existing = inFlight.get(appId);
@@ -303,7 +303,7 @@ export function createNativeRetroAchievementsProjectionLoader(
       needsFreshDetail.delete(appId);
       if (options?.forceRefresh === true) {
         // Badge resolution may have read the previous detail while this request was loading.
-        dependencies.invalidateSummary(appId);
+        dependencies.invalidateSummary(appId, { preserveVisible: true });
       }
       return result;
     })();

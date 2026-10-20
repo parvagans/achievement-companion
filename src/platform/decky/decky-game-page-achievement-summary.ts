@@ -2167,7 +2167,10 @@ export function clearDeckyGamePageAchievementSummaryCacheForTests(): void {
 }
 
 /** Drop a shortcut's cached resolution before a native achievement refresh or identity change. */
-export function invalidateDeckyGamePageAchievementSummaryCache(appId: string): void {
+export function invalidateDeckyGamePageAchievementSummaryCache(
+  appId: string,
+  options?: { readonly preserveVisible?: boolean },
+): void {
   const priorSummary = gamePageAchievementSummaryCache.get(appId)?.summary;
   if (priorSummary?.status === "ready" && priorSummary.provider === "retroachievements" && priorSummary.gameId !== undefined) {
     retroAchievementsCompletionStatusEnrichmentCacheByGameId.delete(priorSummary.gameId);
@@ -2175,7 +2178,7 @@ export function invalidateDeckyGamePageAchievementSummaryCache(appId: string): v
   }
   gamePageAchievementSummaryCache.delete(appId);
   gamePageAchievementSummaryInFlight.delete(appId);
-  gamePageAchievementSummaryRevisions.invalidate(appId);
+  gamePageAchievementSummaryRevisions.invalidate(appId, options);
 }
 
 function invalidateAllDeckyGamePageAchievementSummaryCaches(): void {
@@ -2366,6 +2369,16 @@ export function selectDeckyGamePageAchievementSummaryForAppId(
       };
 }
 
+export function selectDeckyGamePageAchievementSummaryDuringLoad(
+  current: GamePageAchievementSummary | undefined,
+  loading: GamePageAchievementSummary,
+  preserveVisible: boolean,
+): GamePageAchievementSummary {
+  return preserveVisible && current?.appId === loading.appId && current.status === "ready"
+    ? current
+    : loading;
+}
+
 export function useGamePageAchievementSummary(
   appId: string | undefined,
 ): GamePageAchievementSummary | undefined {
@@ -2402,7 +2415,8 @@ export function useGamePageAchievementSummary(
       status: "loading",
       appId,
     };
-    setSummary(loadingSummary);
+    const preserveVisible = gamePageAchievementSummaryRevisions.preservesVisibleSummary(appId, requestRevision);
+    setSummary((current) => selectDeckyGamePageAchievementSummaryDuringLoad(current, loadingSummary, preserveVisible));
     markAchievementCompanionGamePageAchievementSummaryFetchStarted(appId);
 
     void loadDeckyGamePageAchievementSummary(appId)
@@ -2417,11 +2431,11 @@ export function useGamePageAchievementSummary(
           nextSummary.gameId !== undefined &&
           nextSummary.completionStatus === undefined
         ) {
-          setSummary({
-            status: "loading",
-            appId,
-            provider: "retroachievements",
-          });
+          setSummary((current) => selectDeckyGamePageAchievementSummaryDuringLoad(
+            current,
+            { status: "loading", appId, provider: "retroachievements" },
+            preserveVisible,
+          ));
         }
 
         const presentationSummary =

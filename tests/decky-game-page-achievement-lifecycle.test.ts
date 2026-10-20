@@ -9,6 +9,7 @@ import {
 import {
   invalidateDeckyGamePageAchievementSummaryCache,
   readDeckyGamePageAchievementSummaryRevision,
+  selectDeckyGamePageAchievementSummaryDuringLoad,
   subscribeDeckyGamePageAchievementSummaryRevision,
 } from "../src/platform/decky/decky-game-page-achievement-summary";
 import { publishDeckyRaNativeAchievementInvalidation } from "../src/platform/decky/decky-ra-native-achievement-invalidation";
@@ -78,6 +79,23 @@ test("summary revisions isolate apps and make an old request token stale", async
   unsubscribeA();
   unsubscribeB();
   assert.deepEqual(revisions.subscribedAppIds(), []);
+});
+
+test("page refresh retains a ready badge until replacement data arrives, but identity invalidation clears it", () => {
+  const revisions = createDeckyGamePageSummaryRevisionStore();
+  const unsubscribe = revisions.subscribe("42", () => undefined);
+  const ready = { status: "ready", appId: "42", provider: "retroachievements", earned: 2, total: 10, source: "backend" } as const;
+  const loading = { status: "loading", appId: "42" } as const;
+
+  revisions.invalidate("42", { preserveVisible: true });
+  assert.equal(revisions.preservesVisibleSummary("42", revisions.snapshot("42")), true);
+  assert.equal(selectDeckyGamePageAchievementSummaryDuringLoad(ready, loading, true), ready);
+  assert.equal(selectDeckyGamePageAchievementSummaryDuringLoad(ready, { ...loading, appId: "43" }, true).status, "loading");
+
+  revisions.invalidate("42");
+  assert.equal(revisions.preservesVisibleSummary("42", revisions.snapshot("42")), false);
+  assert.equal(selectDeckyGamePageAchievementSummaryDuringLoad(ready, loading, false), loading);
+  unsubscribe();
 });
 
 test("refresh, account change, and game-exit cache invalidation notify a mounted same-app badge", () => {

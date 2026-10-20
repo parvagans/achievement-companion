@@ -120,6 +120,7 @@ function createHarness(overrides: Partial<NativeRetroAchievementsProjectionDepen
     summary: [] as string[],
     detail: [] as { gameId: string; forceRefresh: boolean }[],
     invalidated: [] as string[],
+    invalidationOptions: [] as (boolean | undefined)[],
   };
   const dependencies: NativeRetroAchievementsProjectionDependencies = {
     async loadShortcutMetadata(id) {
@@ -134,8 +135,9 @@ function createHarness(overrides: Partial<NativeRetroAchievementsProjectionDepen
       calls.detail.push({ gameId, forceRefresh: options.forceRefresh });
       return successState();
     },
-    invalidateSummary(id) {
+    invalidateSummary(id, options) {
       calls.invalidated.push(id);
+      calls.invalidationOptions.push(options?.preserveVisible);
     },
     ...overrides,
   };
@@ -275,6 +277,7 @@ test("force refresh clears shared summary mapping cache and reloads detail", asy
   assert.equal(calls.summary.length, 1);
   assert.equal((await loader.load(appId, "both", { forceRefresh: true })).status, "ready");
   assert.deepEqual(calls.invalidated, [appId, appId, appId]);
+  assert.deepEqual(calls.invalidationOptions, [undefined, true, true]);
   assert.deepEqual(calls.detail.map((call) => call.forceRefresh), [false, true]);
   loader.invalidate(appId);
   assert.equal((await loader.load(appId, "both")).status, "ready");

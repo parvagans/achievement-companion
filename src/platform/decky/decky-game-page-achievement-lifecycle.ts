@@ -53,16 +53,19 @@ export function createDeckyGamePageRoutePatchLifetime<Owner extends object>() {
 
 /** A revision exists only while an app has a mounted subscriber. */
 export function createDeckyGamePageSummaryRevisionStore() {
-  const subscriptions = new Map<string, { revision: number; listeners: Set<() => void> }>();
+  const subscriptions = new Map<string, { revision: number; preserveVisibleRevision: number | undefined; listeners: Set<() => void> }>();
 
   return {
     snapshot(appId: string): number {
       return subscriptions.get(appId)?.revision ?? 0;
     },
+    preservesVisibleSummary(appId: string, revision: number): boolean {
+      return subscriptions.get(appId)?.preserveVisibleRevision === revision;
+    },
     subscribe(appId: string, listener: () => void): () => void {
       let subscription = subscriptions.get(appId);
       if (subscription === undefined) {
-        subscription = { revision: 0, listeners: new Set() };
+        subscription = { revision: 0, preserveVisibleRevision: undefined, listeners: new Set() };
         subscriptions.set(appId, subscription);
       }
       subscription.listeners.add(listener);
@@ -74,12 +77,13 @@ export function createDeckyGamePageSummaryRevisionStore() {
         }
       };
     },
-    invalidate(appId: string): void {
+    invalidate(appId: string, options?: { readonly preserveVisible?: boolean }): void {
       const subscription = subscriptions.get(appId);
       if (subscription === undefined) {
         return;
       }
       subscription.revision += 1;
+      subscription.preserveVisibleRevision = options?.preserveVisible === true ? subscription.revision : undefined;
       for (const listener of [...subscription.listeners]) {
         listener();
       }
