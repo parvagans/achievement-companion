@@ -1,27 +1,24 @@
 /** Bundled notes for the current update. Keep these in sync with the release notes. */
 export const WHATS_NEW_SECTIONS = [
   {
-    title: "Themes",
+    title: "Game pages",
     items: [
-      "Choose from 15 themes, including Aurora, Rosewood, Solarized, and more.",
-      "Theme colors now carry through Quick Access, full-screen views, controls, charts, icons, footers, and loading screens.",
-      "Steam and RetroAchievements progression states retain their distinct meanings across every theme.",
+      "RetroAchievements game pages now show original box art and game details in Steam’s Game Info tab, with collections kept below.",
+      "RetroAchievements game-page badges and details now refresh expired game data instead of disappearing.",
     ],
   },
   {
-    title: "Interface & navigation",
+    title: "RetroAchievements data",
     items: [
-      "Plugin Settings now uses expandable, joined sections with a wider theme selector and aligned badge controls.",
-      "Quick Access activity cards have consistent heights, game names are centered, and rank arrows persist across refreshes.",
-      "The View Achievements action for RetroAchievements recently played and currently playing games now opens that game's Quick Access achievement list.",
-      "What's New now fits within the Steam Deck viewport and supports controller scrolling.",
+      "RetroAchievements progress now handles incomplete achievement counts and missing unlock dates without showing misleading totals or dates.",
+      "Hardcore achievements now appear only as Hardcore unlocks, including those previously earned in Softcore.",
+      "Mode-specific game and system progress now stays unavailable when RetroAchievements does not provide reliable counts.",
     ],
   },
   {
-    title: "Steam game data",
+    title: "Quick Access",
     items: [
-      "Steam game pages retain cached SteamHunters details when an optional request fails or returns incomplete data.",
-      "A mismatch notice appears when cached SteamHunters data covers a different achievement count from Steam's current set.",
+      "Quick Access now identifies Achievement Companion correctly when its plugin entry is focused.",
     ],
   },
 ] as const;

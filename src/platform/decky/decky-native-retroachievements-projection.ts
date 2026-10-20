@@ -19,6 +19,13 @@ export interface NativeRetroAchievementsProjection {
   readonly appId: string;
   readonly raGameId: string;
   readonly title: string;
+  readonly boxArtImageUrl?: string;
+  readonly platformLabel?: string;
+  readonly releaseDate?: string;
+  readonly releaseDateGranularity?: GameDetailSnapshot["game"]["releaseDateGranularity"];
+  readonly developer?: string;
+  readonly publisher?: string;
+  readonly genre?: string;
   readonly mode: RetroAchievementsAchievementMode;
   readonly achievements: readonly NormalizedAchievement[];
   readonly earned: number;
@@ -120,12 +127,27 @@ function projectDetail(
     ? parsedTotalPlayers
     : undefined;
   const achievementsAvailableSince = getRetroAchievementsAvailabilityDate(detail.achievements);
+  const metric = (key: string): string | undefined => {
+    const value = detail.game.metrics.find((item) => item.key === key)?.value.trim();
+    return value || undefined;
+  };
+  const releaseDate = metric("released");
+  const developer = metric("developer");
+  const publisher = metric("publisher");
+  const genre = metric("genre");
 
   return {
     status: "ready",
     appId,
     raGameId,
     title: detail.game.title,
+    ...(detail.game.boxArtImageUrl ? { boxArtImageUrl: detail.game.boxArtImageUrl } : {}),
+    ...(detail.game.platformLabel ? { platformLabel: detail.game.platformLabel } : {}),
+    ...(releaseDate ? { releaseDate } : {}),
+    ...(detail.game.releaseDateGranularity ? { releaseDateGranularity: detail.game.releaseDateGranularity } : {}),
+    ...(developer ? { developer } : {}),
+    ...(publisher ? { publisher } : {}),
+    ...(genre ? { genre } : {}),
     mode,
     achievements,
     earned: achievements.filter((achievement) => achievement.isUnlocked).length,

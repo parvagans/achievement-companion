@@ -592,7 +592,10 @@ function normalizeSelectableGame(
     return undefined;
   }
 
-  const totalCount = pickNumber(raw.MaxPossible, raw.maxPossible);
+  const reportedTotalCount = pickNumber(raw.MaxPossible, raw.maxPossible);
+  const totalCount = reportedTotalCount !== undefined && reportedTotalCount >= unlockedCount
+    ? reportedTotalCount
+    : undefined;
   const highestAwardKind = pickString(raw.HighestAwardKind, raw.highestAwardKind);
   const summary: ProgressSummary = {
     unlockedCount,
@@ -601,12 +604,12 @@ function normalizeSelectableGame(
       ? { completionPercent: Math.round((unlockedCount / totalCount) * 100) }
       : {}),
   };
-  const boundedHardcoreCount = hardcoreUnlockedCount === undefined
+  const boundedHardcoreCount = hardcoreUnlockedCount === undefined || hardcoreUnlockedCount > unlockedCount
     ? undefined
     : Math.min(hardcoreUnlockedCount, totalCount ?? hardcoreUnlockedCount);
-  const softcoreUnlockedCount = hardcoreUnlockedCount === undefined
+  const softcoreUnlockedCount = boundedHardcoreCount === undefined
     ? undefined
-    : Math.max(0, unlockedCount - hardcoreUnlockedCount);
+    : Math.max(0, unlockedCount - boundedHardcoreCount);
   const hardcoreSummary: ProgressSummary | undefined = boundedHardcoreCount === undefined
     ? undefined
     : {
@@ -1239,7 +1242,10 @@ function normalizeRetroAchievementsRecentlyPlayedGame(
   });
   const unlockedCount = pickNumber(raw.NumAchieved, raw.numAchieved) ?? 0;
   const hardcoreUnlockedCount = pickNumber(raw.NumAchievedHardcore, raw.numAchievedHardcore);
-  const totalCount = pickNumber(raw.AchievementsTotal, raw.achievementsTotal, raw.NumPossibleAchievements, raw.numPossibleAchievements);
+  const reportedTotalCount = pickNumber(raw.AchievementsTotal, raw.achievementsTotal, raw.NumPossibleAchievements, raw.numPossibleAchievements);
+  const totalCount = reportedTotalCount !== undefined && reportedTotalCount >= unlockedCount
+    ? reportedTotalCount
+    : undefined;
   const lastPlayedAt = pickEpochMs(raw.LastPlayed, raw.lastPlayed);
   const highestAwardKind = pickString(raw.HighestAwardKind, raw.highestAwardKind);
 
@@ -1254,12 +1260,12 @@ function normalizeRetroAchievementsRecentlyPlayedGame(
       ? { completionPercent: Math.round((unlockedCount / totalCount) * 100) }
       : {}),
   };
-  const boundedHardcoreCount = hardcoreUnlockedCount === undefined
+  const boundedHardcoreCount = hardcoreUnlockedCount === undefined || hardcoreUnlockedCount > unlockedCount
     ? undefined
     : Math.min(hardcoreUnlockedCount, totalCount ?? hardcoreUnlockedCount);
-  const softcoreUnlockedCount = hardcoreUnlockedCount === undefined
+  const softcoreUnlockedCount = boundedHardcoreCount === undefined
     ? undefined
-    : Math.max(0, unlockedCount - hardcoreUnlockedCount);
+    : Math.max(0, unlockedCount - boundedHardcoreCount);
   const hardcoreSummary: ProgressSummary | undefined = boundedHardcoreCount !== undefined
     ? {
         unlockedCount: boundedHardcoreCount,

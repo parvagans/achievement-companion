@@ -2,7 +2,7 @@ import type { NormalizedGame, NormalizedProfile } from "@core/domain";
 import type { RetroAchievementsAchievementMode } from "@core/settings";
 import { getRetroAchievementsCompletionIndicatorState } from "./decky-retroachievements-completion-indicator";
 import { getRetroAchievementsBaseGames, getRetroAchievementsProfileSystems } from "./decky-retroachievements-full-screen-profile-data";
-import { getRetroAchievementsModeGameUnlockedCount, getRetroAchievementsModeUnlockedCount } from "./decky-retroachievements-mode-progress";
+import { getRetroAchievementsModeGameUnlockedCount, getRetroAchievementsModeUnlockedCount, hasUnavailableRetroAchievementsModeGameCounts } from "./decky-retroachievements-mode-progress";
 
 export interface RetroAchievementsSystemsBreakdownItem {
   readonly id: string;
@@ -40,6 +40,10 @@ export function buildRetroAchievementsSystemsOverview(
     ? Math.min(100, Math.round((unlocked / total) * 100))
     : undefined;
   if (games === undefined) {
+    return { mode, unlocked, total, completionPercent, systems: undefined } as const;
+  }
+
+  if (hasUnavailableRetroAchievementsModeGameCounts(games, mode)) {
     return { mode, unlocked, total, completionPercent, systems: undefined } as const;
   }
 

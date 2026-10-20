@@ -7,7 +7,7 @@ import {
   sortRetroAchievementsUnlocksNewestFirst,
 } from "./decky-retroachievements-compact-profile-model";
 import { getRetroAchievementsCompletionIndicatorState } from "./decky-retroachievements-completion-indicator";
-import { getRetroAchievementsModeGameUnlockedCount, getRetroAchievementsModeUnlockedCount } from "./decky-retroachievements-mode-progress";
+import { getRetroAchievementsModeGameUnlockedCount, getRetroAchievementsModeUnlockedCount, hasUnavailableRetroAchievementsModeGameCounts } from "./decky-retroachievements-mode-progress";
 import { filterCompletionProgressGamesBySubsetVisibility } from "./decky-completion-progress-grouping";
 import { getRetroAchievementsProfileStatValues } from "./decky-stat-helpers";
 
@@ -198,7 +198,10 @@ export function buildRetroAchievementsFullScreenProfileModel({
 }) {
   const sourceGames = completion?.games ?? snapshot.featuredGames;
   const games = getRetroAchievementsBaseGames(sourceGames);
-  const systems = getRetroAchievementsProfileSystems(sourceGames, settings.retroAchievementsAchievementMode);
+  const systemsUnavailable = hasUnavailableRetroAchievementsModeGameCounts(sourceGames, settings.retroAchievementsAchievementMode);
+  const systems = systemsUnavailable
+    ? []
+    : getRetroAchievementsProfileSystems(sourceGames, settings.retroAchievementsAchievementMode);
   const recentUnlocks = sortRetroAchievementsUnlocksNewestFirst(
     snapshot.recentAchievements.length > 0 ? snapshot.recentAchievements : snapshot.recentUnlocks,
   ).filter((entry) => settings.retroAchievementsAchievementMode === "both"
@@ -220,6 +223,7 @@ export function buildRetroAchievementsFullScreenProfileModel({
       softcore: buildProgressSummary(getRetroAchievementsModeUnlockedCount(snapshot.profile, "softcore"), snapshot.profile.summary.totalCount),
     } satisfies Record<RetroAchievementsAchievementMode, RetroAchievementsProfileProgressSummary | undefined>,
     systems,
+    systemsUnavailable,
     ranks: getRetroAchievementsProfileRanks(snapshot.profile, settings.retroAchievementsRankDisplay),
     profileStats: getRetroAchievementsProfileStatValues({ profile: snapshot.profile }),
     modeAwardCounts: { beaten: completionAwardCounts.beaten, mastered: completionAwardCounts.mastered },

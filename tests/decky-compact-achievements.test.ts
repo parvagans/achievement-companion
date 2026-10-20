@@ -274,7 +274,7 @@ test("RA community split stays independent of mode preference and lone mode tile
   assert.equal(raRecipes.compactAchievementCommunity.segment("softcore", 10).background, raTheme.color.softcore);
 });
 
-test("RA mode preference reclassifies unlocks without removing locked achievements", () => {
+test("RA mode preference keeps upgraded achievements only in Hardcore without removing locked rows", () => {
   const base = createSnapshot("retroachievements");
   const snapshot = {
     ...base,
@@ -292,11 +292,14 @@ test("RA mode preference reclassifies unlocks without removing locked achievemen
   assert.equal(softcore.supportsModeFilter, false);
   assert.deepEqual([both.rows.length, hardcore.rows.length, softcore.rows.length], [2, 2, 2]);
   assert.equal(hardcore.rows.find((row) => row.achievementId === "ACH_UNLOCKED")?.tone, "hardcore");
-  assert.equal(softcore.rows.find((row) => row.achievementId === "ACH_UNLOCKED")?.tone, "softcore");
+  assert.equal(softcore.rows.find((row) => row.achievementId === "ACH_UNLOCKED")?.tone, "locked");
   assert.equal(softcore.rows.find((row) => row.achievementId === "ACH_LOCKED")?.isUnlocked, false);
-  assert.deepEqual(getCompactAchievementFilterCounts(softcore.rows), { all: 2, unlocked: 1, locked: 1 });
-  assert.equal(softcore.rows.filter((row) => matchesCompactAchievementFilter(row, "locked")).length, 1);
-  assert.equal(both.rows.filter((row) => matchesCompactAchievementModeFilter(row, "softcore")).length, 1);
+  assert.deepEqual(getCompactAchievementFilterCounts(softcore.rows), { all: 2, unlocked: 0, locked: 2 });
+  assert.equal(softcore.rows.filter((row) => matchesCompactAchievementFilter(row, "locked")).length, 2);
+  assert.deepEqual(
+    both.rows.filter((row) => matchesCompactAchievementModeFilter(row, "softcore")).map((row) => row.achievementId),
+    ["ACH_LOCKED"],
+  );
 
   const gameHardcore = buildRetroAchievementsCompactGamePresentation(snapshot, "hardcore");
   const gameSoftcore = buildRetroAchievementsCompactGamePresentation(snapshot, "softcore");

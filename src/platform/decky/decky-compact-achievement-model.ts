@@ -236,7 +236,7 @@ export function buildRetroAchievementsCompactAchievementListModel(
       ...rest,
       isUnlocked,
       ...(isUnlocked ? { unlockMode: preference } : {}),
-      ...(unlockedAt !== undefined ? { unlockedAt } : {}),
+      ...(isUnlocked && unlockedAt !== undefined ? { unlockedAt } : {}),
     };
   });
   return {
@@ -352,7 +352,7 @@ export function buildRetroAchievementsCompactAchievementDetailModel(
   const isUnlocked = preference === "both" ? source.isUnlocked : isRetroAchievementsUnlockedInMode(source, preference);
   const unlockedAt = preference === "both" ? source.unlockedAt : preference === "hardcore" ? source.hardcoreUnlockedAt : source.softcoreUnlockedAt;
   const unlockMode = isUnlocked ? preference === "both" ? source.unlockMode : preference : undefined;
-  const achievement = { ...source, isUnlocked, unlockedAt, unlockMode };
+  const achievement = { ...source, isUnlocked, unlockedAt: isUnlocked ? unlockedAt : undefined, unlockMode };
   const counts = getAchievementDetailCounts(achievement.metrics, snapshot.game.metrics);
   const hardcoreCommunityUnlocks = counts.totalPlayers !== undefined && counts.totalUnlockCount !== undefined && counts.hardcoreUnlockCount !== undefined
     ? Math.max(0, Math.min(counts.hardcoreUnlockCount, counts.totalUnlockCount, counts.totalPlayers))

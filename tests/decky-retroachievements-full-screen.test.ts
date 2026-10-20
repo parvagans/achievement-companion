@@ -28,6 +28,7 @@ import {
   summarizeSteamGamesDashboard,
 } from "../src/platform/decky/decky-steam-full-screen-games-data";
 import { filterCompletionProgressGamesBySubsetVisibility } from "../src/platform/decky/decky-completion-progress-grouping";
+import { buildRetroAchievementsCompactAchievementListModel } from "../src/platform/decky/decky-compact-achievement-model";
 import {
   cacheDeckyRetroAchievementsSubsetDetailState,
   readDeckyRetroAchievementsSubsetDetailStates,
@@ -35,6 +36,7 @@ import {
 } from "../src/platform/decky/decky-retroachievements-subset-detail-cache";
 import { buildRetroAchievementsFullScreenProfileModel, getRetroAchievementsProfileSystems } from "../src/platform/decky/decky-retroachievements-full-screen-profile-data";
 import { getRetroAchievementsModeUnlockedCount } from "../src/platform/decky/decky-retroachievements-mode-progress";
+import { isRetroAchievementsUnlockedInMode } from "../src/platform/decky/decky-retroachievements-unlock-mode";
 import { buildRetroAchievementsSystemsOverview } from "../src/platform/decky/decky-retroachievements-systems-data";
 import { getRetroAchievementsRefreshActionPresentation } from "../src/platform/decky/providers/retroachievements/settings-view-model";
 
@@ -81,6 +83,43 @@ test("RA Games does not show an overall percentage from incomplete game totals",
   const summary = summarizeSteamGamesDashboard(completion);
   assert.equal(summary.completionPercent, undefined);
   assert.equal(summary.totalAchievements, 3);
+});
+
+test("RA mode dashboards leave progress unavailable when a game's mode split is missing", () => {
+  const missingModeGame: NormalizedGame = {
+    ...game,
+    gameId: "missing-mode",
+    platformId: "7",
+    platformLabel: "NES",
+    summary: { unlockedCount: 2, totalCount: 3 },
+    hardcoreSummary: undefined,
+    softcoreSummary: undefined,
+  };
+  const completion = {
+    providerId: "retroachievements",
+    games: [game, missingModeGame],
+  } as CompletionProgressSnapshot;
+  const profile = {
+    summary: { unlockedCount: 4, totalCount: 6 },
+    hardcoreUnlockedCount: 1,
+    metrics: [],
+  } as DashboardSnapshot["profile"];
+  const dashboard = {
+    profile,
+    featuredGames: completion.games,
+    recentAchievements: [],
+    recentUnlocks: [],
+    recentlyPlayedGames: [],
+  } as DashboardSnapshot;
+  const settings = { ...DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS, retroAchievementsAchievementMode: "hardcore" as const };
+  const profileModel = buildRetroAchievementsFullScreenProfileModel({ snapshot: dashboard, completion, settings });
+
+  assert.equal(summarizeSteamGamesDashboard(completion, "hardcore").completionPercent, undefined);
+  assert.equal(buildRetroAchievementsSystemsOverview(profile, completion.games, "hardcore").systems, undefined);
+  assert.equal(profileModel.systemsUnavailable, true);
+  assert.deepEqual(profileModel.systems, []);
+  assert.notEqual(summarizeSteamGamesDashboard(completion, "both").completionPercent, undefined);
+  assert.notEqual(buildRetroAchievementsSystemsOverview(profile, completion.games, "both").systems, undefined);
 });
 
 const snapshot: GameDetailSnapshot = {
@@ -470,6 +509,27 @@ test("RA full-screen achievement projection uses the selected mode and retains l
   assert.equal(hardcore.find((entry) => entry.achievementId === "locked")?.isUnlocked, false);
   assert.equal(both, snapshot.achievements);
   assert.equal(hasDistinctRetroAchievementsModes(snapshot.achievements), true);
+});
+
+test("a Softcore achievement upgraded to Hardcore belongs only to Hardcore", () => {
+  const upgraded = {
+    ...snapshot.achievements[0]!,
+    achievementId: "upgraded",
+    isUnlocked: true,
+    unlockMode: "hardcore" as const,
+    softcoreUnlockedAt: 100,
+    hardcoreUnlockedAt: 300,
+    unlockedAt: 300,
+  };
+  const upgradedSnapshot = { ...snapshot, achievements: [upgraded] };
+
+  assert.equal(isRetroAchievementsUnlockedInMode(upgraded, "hardcore"), true);
+  assert.equal(isRetroAchievementsUnlockedInMode(upgraded, "softcore"), false);
+  assert.equal(hasDistinctRetroAchievementsModes([upgraded]), false);
+  assert.equal(projectRetroAchievementsFullScreenAchievements(upgradedSnapshot, "hardcore")[0]?.unlockedAt, 300);
+  assert.equal(projectRetroAchievementsFullScreenAchievements(upgradedSnapshot, "softcore")[0]?.isUnlocked, false);
+  assert.equal(projectRetroAchievementsFullScreenAchievements(upgradedSnapshot, "softcore")[0]?.unlockedAt, undefined);
+  assert.equal(buildRetroAchievementsCompactAchievementListModel(upgradedSnapshot, "softcore").rows[0]?.isUnlocked, false);
 });
 
 test("RA Games uses award/status semantics and recent unlock ordering", () => {

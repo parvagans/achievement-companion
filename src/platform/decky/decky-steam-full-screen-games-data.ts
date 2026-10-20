@@ -2,7 +2,7 @@ import type { CompletionProgressSnapshot, NormalizedGame } from "@core/domain";
 import type { RetroAchievementsAchievementMode } from "@core/settings";
 import type { CompletionProgressSort } from "./decky-completion-progress-grouping";
 import { getRetroAchievementsCompletionIndicatorState } from "./decky-retroachievements-completion-indicator";
-import { getRetroAchievementsModeGameUnlockedCount } from "./decky-retroachievements-mode-progress";
+import { getRetroAchievementsModeGameUnlockedCount, hasUnavailableRetroAchievementsModeGameCounts } from "./decky-retroachievements-mode-progress";
 
 export type SteamGamesFilter =
   | "all"
@@ -120,7 +120,7 @@ export function summarizeSteamGamesDashboard(
   let unlockedAchievements = 0;
   let totalAchievements = 0;
   const isRetroAchievements = snapshot.providerId === "retroachievements";
-  let hasCompleteRetroAchievementsTotals = true;
+  let hasCompleteRetroAchievementsTotals = !isRetroAchievements || !hasUnavailableRetroAchievementsModeGameCounts(achievementProgressGames, mode);
 
   for (const game of achievementProgressGames) {
     if (isRetroAchievements && (

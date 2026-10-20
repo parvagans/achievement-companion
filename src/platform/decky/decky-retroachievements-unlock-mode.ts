@@ -6,7 +6,10 @@ export function isRetroAchievementsUnlockedInMode(
   achievement: NormalizedAchievement,
   mode: RetroAchievementsUnlockMode,
 ): boolean {
-  return mode === "hardcore"
-    ? achievement.hardcoreUnlockedAt !== undefined || (achievement.isUnlocked && achievement.unlockMode === "hardcore")
-    : achievement.softcoreUnlockedAt !== undefined || (achievement.isUnlocked && achievement.unlockMode === "softcore");
+  if (!achievement.isUnlocked) return false;
+  const currentMode = achievement.unlockMode
+    ?? (achievement.hardcoreUnlockedAt !== undefined
+      ? "hardcore"
+      : achievement.softcoreUnlockedAt !== undefined ? "softcore" : undefined);
+  return currentMode === mode;
 }

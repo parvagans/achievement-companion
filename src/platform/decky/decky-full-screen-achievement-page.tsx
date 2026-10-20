@@ -497,10 +497,12 @@ function DeckyFullScreenAchievementContent({
   readonly steamHuntersBannerUrl: string | undefined;
 }): JSX.Element {
   const achievementStatus = buildAchievementStatus(achievement);
-  const unlockTimestamp = achievement.unlockedAt
-    ?? (achievement.unlockMode === "hardcore" ? achievement.hardcoreUnlockedAt : achievement.softcoreUnlockedAt)
-    ?? achievement.hardcoreUnlockedAt
-    ?? achievement.softcoreUnlockedAt;
+  const unlockTimestamp = achievement.isUnlocked
+    ? achievement.unlockedAt
+      ?? (achievement.unlockMode === "hardcore" ? achievement.hardcoreUnlockedAt : achievement.softcoreUnlockedAt)
+      ?? achievement.hardcoreUnlockedAt
+      ?? achievement.softcoreUnlockedAt
+    : undefined;
   const detailCounts = getAchievementDetailCounts(achievement.metrics, game.metrics);
   const retroPointsMetric = achievement.metrics.find((metric) => metric.key === "true-ratio")?.value;
   const heroArtworkUrl = isSteamProvider

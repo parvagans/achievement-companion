@@ -26,6 +26,7 @@ import {
 import { getNativeRetroAchievementsActivityItems } from "./decky-native-retroachievements-activity-model";
 import { DeckyNativeRetroAchievementsActivity, type NativeSteamActivityStyles } from "./decky-native-retroachievements-activity";
 import { DeckyNativeRetroAchievementsCommunity, type NativeSteamCommunitySectionPrimitives } from "./decky-native-retroachievements-community";
+import { renderDeckyNativeRetroAchievementsGameInfo } from "./decky-native-retroachievements-game-info";
 import { buildNativeRetroAchievementsCommunityModels } from "./decky-native-retroachievements-community-model";
 import { subscribeDeckyRaNativeAchievementInvalidation } from "./decky-ra-native-achievement-invalidation";
 import { readDeckySettings } from "./decky-settings";
@@ -77,6 +78,27 @@ interface SteamCommunityFeedClass {
     AutoLoadAdditionalContent(): void;
     LoadAdditionalContent(): void;
   };
+}
+
+interface SteamReactFiber {
+  readonly type?: unknown;
+  readonly stateNode?: HTMLElement;
+  readonly child?: SteamReactFiber | null;
+  readonly sibling?: SteamReactFiber | null;
+}
+
+function findSteamFiber(
+  start: SteamReactFiber | null | undefined,
+  predicate: (fiber: SteamReactFiber) => boolean,
+): SteamReactFiber | undefined {
+  const visited = new Set<SteamReactFiber>();
+  const visit = (fiber: SteamReactFiber | null | undefined, depth: number): SteamReactFiber | undefined => {
+    if (fiber === undefined || fiber === null || depth > 100 || visited.has(fiber)) return undefined;
+    visited.add(fiber);
+    if (predicate(fiber)) return fiber;
+    return visit(fiber.child, depth + 1) ?? visit(fiber.sibling, depth);
+  };
+  return visit(start, 0);
 }
 
 interface SteamObservableBox {
@@ -294,6 +316,11 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
   let progressPatched = false;
   let activityPatched = false;
   let communityPatched = false;
+  let gameInfoMount: { readonly native: HTMLElement; readonly host: HTMLElement; readonly originalDisplay: string; projection: NativeRetroAchievementsProjection } | undefined;
+  let gameInfoSyncTimer: ReturnType<typeof setTimeout> | undefined;
+  let gameInfoSyncAttempts = 0;
+  let gameInfoObservedDocument: Document | undefined;
+  let gameInfoObserver: MutationObserver | undefined;
   let routeRenderPatch: Patch | undefined;
   let routeRenderOwner: object | undefined;
   let disposed = false;
@@ -344,7 +371,82 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
   function rerenderActivePage(appId: number): void {
     if (!disposed && activePage?.appId === appId && isCurrentLibraryRootPage(appId)) {
       activePage.instance.forceUpdate?.();
+      scheduleGameInfoSync();
     }
+  }
+
+  function clearGameInfoMount(): void {
+    const mount = gameInfoMount;
+    if (mount === undefined) return;
+    gameInfoMount = undefined;
+    mount.host.remove();
+    mount.native.style.display = mount.originalDisplay;
+  }
+
+  function syncGameInfo(): void {
+    if (disposed) return;
+    const page = activePage;
+    const appId = page?.appId;
+    const pageFiber = page?.instance as (SteamLibraryPageInstance & { readonly _reactInternals?: SteamReactFiber }) | undefined;
+    const pageHost = findSteamFiber(pageFiber?._reactInternals, (fiber) => fiber.stateNode?.nodeType === 1)?.stateNode;
+    const ownerDocument = pageHost?.ownerDocument;
+    if (ownerDocument !== undefined && ownerDocument !== gameInfoObservedDocument && ownerDocument.body !== null) {
+      gameInfoObserver?.disconnect();
+      gameInfoObservedDocument = ownerDocument;
+      gameInfoObserver = new MutationObserver(() => {
+        if (/\/tab\/GameInfo\/?$/u.test(window.location.pathname) || gameInfoMount !== undefined) scheduleGameInfoSync();
+      });
+      gameInfoObserver.observe(ownerDocument.body, { childList: true, subtree: true });
+    }
+    const projection = appId !== undefined && page?.verified === true && /\/tab\/GameInfo\/?$/u.test(window.location.pathname)
+      ? getProjection(appId)
+      : undefined;
+    if (projection === undefined) {
+      clearGameInfoMount();
+      return;
+    }
+    // The native cover component owns the non-Steam notice and portrait.
+    // Its siblings are Quick Links and Steam's collection section, which stay intact.
+    const gameInfoFiber = findSteamFiber(pageFiber?._reactInternals, (fiber) =>
+      typeof fiber.type === "function" && String(fiber.type).includes("GetCollectionListForAppID"),
+    );
+    const coverFiber = findSteamFiber(gameInfoFiber?.child, (fiber) =>
+      typeof fiber.type === "function"
+      && typeof (fiber.type as { readonly prototype?: { readonly setBoxHeight?: unknown } }).prototype?.setBoxHeight === "function",
+    );
+    const native = findSteamFiber(coverFiber?.child, (fiber) => fiber.stateNode?.nodeType === 1)?.stateNode;
+    if (native === undefined || native.parentElement === null) {
+      clearGameInfoMount();
+      if (gameInfoSyncAttempts < 20) {
+        gameInfoSyncAttempts += 1;
+        scheduleGameInfoSync();
+      }
+      return;
+    }
+    gameInfoSyncAttempts = 0;
+    if (gameInfoMount?.native === native && gameInfoMount.host.isConnected) {
+      if (gameInfoMount.projection !== projection) {
+        gameInfoMount.projection = projection;
+        renderDeckyNativeRetroAchievementsGameInfo(gameInfoMount.host, projection);
+      }
+      return;
+    }
+    clearGameInfoMount();
+    const host = native.ownerDocument.createElement("div");
+    host.dataset["achievementCompanionNativeGameInfoHost"] = "true";
+    native.parentElement.insertBefore(host, native);
+    const originalDisplay = native.style.display;
+    native.style.display = "none";
+    gameInfoMount = { native, host, originalDisplay, projection };
+    renderDeckyNativeRetroAchievementsGameInfo(host, projection);
+  }
+
+  function scheduleGameInfoSync(): void {
+    if (disposed || gameInfoSyncTimer !== undefined) return;
+    gameInfoSyncTimer = setTimeout(() => {
+      gameInfoSyncTimer = undefined;
+      syncGameInfo();
+    }, 80);
   }
 
   function loadForPage(appId: number): void {
@@ -603,6 +705,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     installPagePatch();
     installActivityPatch();
     installCommunityPatch();
+    scheduleGameInfoSync();
     const routeProps = findInReactTree(tree, (node) => !!node?.renderFunc);
     if (routeProps !== routeRenderOwner) {
       routeRenderPatch?.unpatch();
@@ -650,6 +753,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
   installPagePatch();
   installActivityPatch();
   installCommunityPatch();
+  scheduleGameInfoSync();
   const unsubscribeInvalidation = subscribeDeckyRaNativeAchievementInvalidation(() => {
     invalidateDeckyNativeRetroAchievementsProjection();
     attempts.clear();
@@ -687,6 +791,9 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     shortcutIdentities.clear();
     unavailableAppIds.clear();
     managedAppIds.clear();
+    gameInfoObserver?.disconnect();
+    if (gameInfoSyncTimer !== undefined) clearTimeout(gameInfoSyncTimer);
+    clearGameInfoMount();
     for (const patch of patches.reverse()) patch.unpatch();
     notifyAllRevisions();
     revisions.clear();

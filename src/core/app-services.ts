@@ -1228,7 +1228,7 @@ export function createAppServices(options: AppServiceBootstrapOptions): AppServi
           return createErrorState<GameDetailSnapshot>(cacheRead.error);
         }
 
-        if (cacheRead.cachedState !== undefined && !requestOptions?.forceRefresh) {
+        if (cacheRead.cachedState !== undefined && !cacheRead.cachedState.isStale && !requestOptions?.forceRefresh) {
           return cacheRead.cachedState;
         }
 

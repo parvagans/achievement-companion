@@ -47,3 +47,10 @@ export function getRetroAchievementsModeGameUnlockedCount(
   const progress = getRetroAchievementsModeGameProgress(game, mode);
   return progress === undefined ? undefined : count(progress.unlockedCount);
 }
+
+export function hasUnavailableRetroAchievementsModeGameCounts(
+  games: readonly ModeGameProgress[],
+  mode: RetroAchievementsAchievementMode,
+): boolean {
+  return mode !== "both" && games.some((game) => getRetroAchievementsModeGameUnlockedCount(game, mode) === undefined);
+}

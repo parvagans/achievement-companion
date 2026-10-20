@@ -20,12 +20,12 @@ export function projectRetroAchievementsFullScreenAchievements(
       ...rest,
       isUnlocked,
       ...(isUnlocked ? { unlockMode: preference } : {}),
-      ...(unlockedAt !== undefined ? { unlockedAt } : {}),
+      ...(isUnlocked && unlockedAt !== undefined ? { unlockedAt } : {}),
     };
   });
 }
 
 export function hasDistinctRetroAchievementsModes(achievements: readonly NormalizedAchievement[]): boolean {
-  return achievements.some((achievement) => achievement.hardcoreUnlockedAt !== undefined)
-    && achievements.some((achievement) => achievement.softcoreUnlockedAt !== undefined);
+  return achievements.some((achievement) => isRetroAchievementsUnlockedInMode(achievement, "hardcore"))
+    && achievements.some((achievement) => isRetroAchievementsUnlockedInMode(achievement, "softcore"));
 }

@@ -34,6 +34,11 @@ export const DECKY_FOOTER_SCROLL_MARGIN_BOTTOM_PX = 104;
 
 export function getDeckyFocusStylesCss(): string {
   return `
+button.gpfocus .achievement-companion-picker-icon,
+button:focus-visible .achievement-companion-picker-icon { color: #000 !important; }
+button.gpfocus .achievement-companion-picker-icon__star,
+button:focus-visible .achievement-companion-picker-icon__star { fill: #fff; }
+
 [data-ac-steam-theme="fullscreen"] .Panel.Focusable[tabindex] {
   scroll-margin-top: ${DECKY_HEADER_SCROLL_MARGIN_TOP_PX}px;
   scroll-margin-bottom: ${DECKY_FOOTER_SCROLL_MARGIN_BOTTOM_PX}px;

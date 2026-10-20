@@ -737,7 +737,7 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
             ) : null}
           </div>
         </section>
-        <Focusable flow-children="vertical" noFocusRing tabIndex={-1} style={rightColumnStyle(model.systems.length > 0)}>
+        <Focusable flow-children="vertical" noFocusRing tabIndex={-1} style={rightColumnStyle(model.systems.length > 0 || model.systemsUnavailable)}>
           {model.systems.length > 0 ? (
           <Focusable
             flow-children="vertical"
@@ -780,6 +780,11 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
               <span ref={rightSystemsArrowRef} aria-hidden="true" data-ra-profile-system-arrow="right" style={systemsRailArrowStyle(model.systems.length > 1)}>→</span>
             </div>
           </Focusable>
+          ) : model.systemsUnavailable ? (
+            <section data-ra-profile-systems style={systemsPanelStyle()}>
+              <div style={{ color: raTheme.color.textPrimary, fontSize: 17, fontWeight: 850, letterSpacing: "0.08em" }}>SYSTEMS</div>
+              <div style={{ color: raTheme.color.textSecondary, fontSize: 13 }}>System progress unavailable for the selected mode</div>
+            </section>
           ) : null}
           <AchievementProgressPanel
             model={model}

@@ -3582,10 +3582,12 @@ test("compact provider menu nests native theme and badge settings under a sessio
 
 test("Decky plugin picker uses a white trophy that turns black on native focus", () => {
   const source = readFileSync("src/index.tsx", "utf8");
+  const focusStyles = readFileSync("src/platform/decky/decky-focus-styles.tsx", "utf8");
 
   assert.match(source, /function AchievementCompanionIcon\(\)[\s\S]*color: "#ffffff"/u);
-  assert.match(source, /button\.gpfocus \.achievement-companion-picker-icon[\s\S]*color: #000 !important/u);
-  assert.match(source, /button\.gpfocus \.achievement-companion-picker-icon__star[\s\S]*fill: #fff/u);
+  assert.match(focusStyles, /button\.gpfocus \.achievement-companion-picker-icon[\s\S]*color: #000 !important/u);
+  assert.match(focusStyles, /button\.gpfocus \.achievement-companion-picker-icon__star[\s\S]*fill: #fff/u);
+  assert.doesNotMatch(source, /<style>/u);
   assert.match(source, /fill="currentColor"/u);
   assert.match(source, /stroke="currentColor"/u);
   assert.doesNotMatch(source, /#e6b020|#c49010/ui);
@@ -4150,6 +4152,35 @@ test("RetroAchievements profile aggregates require complete denominators and mod
     hardcoreUnlockedCount: 5,
     softcoreUnlockedCount: 7,
   });
+});
+
+test("RetroAchievements game cards reject impossible totals and mode counts", () => {
+  const [completionGame] = normalizeRetroAchievementsCompletionProgressGames([{
+    GameID: 101,
+    Title: "Inconsistent totals",
+    NumAwarded: 5,
+    NumAwardedHardcore: 6,
+    MaxPossible: 3,
+  }]);
+  assert.equal(completionGame?.summary.unlockedCount, 5);
+  assert.equal(completionGame?.summary.totalCount, undefined);
+  assert.equal(completionGame?.summary.completionPercent, undefined);
+  assert.equal(completionGame?.hardcoreSummary, undefined);
+  assert.equal(completionGame?.softcoreSummary, undefined);
+
+  const [recentGame] = normalizeRetroAchievementsRecentlyPlayedGames([{
+    GameID: 102,
+    Title: "Inconsistent recent game",
+    LastPlayed: "2024-01-01 00:00:00",
+    NumAchieved: 5,
+    NumAchievedHardcore: 6,
+    AchievementsTotal: 3,
+  }]);
+  assert.equal(recentGame?.summary.unlockedCount, 5);
+  assert.equal(recentGame?.summary.totalCount, undefined);
+  assert.equal(recentGame?.summary.completionPercent, undefined);
+  assert.equal(recentGame?.hardcoreSummary, undefined);
+  assert.equal(recentGame?.softcoreSummary, undefined);
 });
 
 test("retroachievements profile exposes points, games beaten, and retroratio metrics", async () => {
@@ -7930,6 +7961,27 @@ test("game detail stale cached data is preserved when refresh fails", async () =
   assert.match(state.error?.userMessage ?? "", /refresh game detail data/i);
   assert.equal(counts.config, 1);
   assert.equal(counts.gameProgress, 1);
+});
+
+test("game detail refreshes an expired cache entry without an explicit force refresh", async () => {
+  const now = Date.now();
+  const cachedSnapshot = createGameDetailSnapshot();
+  const cacheKey = createProviderGameDetailCacheKey(PROVIDER_ID, cachedSnapshot.game.gameId);
+  const { appServices, counts, writes } = createHarness({
+    cacheEntries: [createCacheEntry(cacheKey, cachedSnapshot, now - 60_000, now - 1)],
+    providerFactory: createSuccessfulProvider,
+    providerConfig: { username: "alice", apiKey: "secret" },
+  });
+
+  const state = await appServices.gameDetail.loadGameDetail(PROVIDER_ID, cachedSnapshot.game.gameId, {
+    forceRefresh: false,
+  });
+
+  assert.equal(state.status, "success");
+  assert.equal(state.isStale, false);
+  assert.equal(counts.gameProgress, 1);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0]?.key, cacheKey);
 });
 
 test("game detail successful refresh writes normalized snapshot to cache", async () => {
@@ -12875,6 +12927,50 @@ test("game page achievement summary resolves a RetroAchievements shortcut from i
     assert.equal(runtimeDebugState.lastRetroAchievementsResolutionSource, "ra-hash-game-detail");
     assert.equal(runtimeDebugState.lastRetroAchievementsResolutionReason, "ra-hash-match");
     assert.equal(runtimeDebugState.lastRetroAchievementsCandidateCount, 1);
+  });
+});
+
+test("game page badge retries a transient RetroAchievements detail failure before hiding", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice", hasApiKey: true, recentAchievementsCount: 5, recentlyPlayedCount: 5,
+    });
+    const appId = "2493414799";
+    const gameId = "9002";
+    const romHash = "abcdefabcdefabcdefabcdefabcdefab";
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      [appId]: { title: "Retry Game", platformTag: "Nintendo 64", tags: ["Nintendo 64"] },
+    };
+    deckyBackendTestState.steam.shortcutRomHashByAppId = {
+      [appId]: { shortcutRomPathDetected: true, romHashAttempted: true, romHashStatus: "resolved", romHashAlgorithm: "rcheevos", romHash },
+    };
+    deckyBackendTestState.retroAchievements.systems = [{ ID: 2, Name: "Nintendo 64" }];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "2": [{ GameID: 9002, Title: "Retry Game", ConsoleID: 2, Hashes: [romHash] }],
+    };
+    const response = createRetroAchievementsGameProgressResponse({
+      gameId, title: "Retry Game", consoleId: 2, consoleName: "Nintendo 64", unlockedCount: 1, totalCount: 3,
+    });
+    let failFirstRequest = true;
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = new Proxy({ [gameId]: response }, {
+      get(target, key) {
+        if (key === gameId && failFirstRequest) {
+          failFirstRequest = false;
+          throw new Error("Temporary RA detail failure");
+        }
+        return Reflect.get(target, key);
+      },
+    });
+
+    const summary = await loadDeckyGamePageAchievementSummary(appId);
+    assert.equal(summary.status, "ready");
+    if (summary.status === "ready") {
+      assert.equal(summary.gameId, gameId);
+      assert.equal(summary.earned, 1);
+      assert.equal(summary.total, 3);
+    }
+    assert.equal(deckyBackendTestState.retroAchievements.gameProgressRequestCount, 2);
   });
 });
 

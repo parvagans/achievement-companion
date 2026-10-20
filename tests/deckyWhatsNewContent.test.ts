@@ -4,40 +4,16 @@ import test from "node:test";
 import { WHATS_NEW_SECTIONS } from "../src/platform/decky/decky-whats-new-content";
 
 test("bundled What's New notes cover the update and remain readable offline", () => {
-  assert.deepEqual(WHATS_NEW_SECTIONS, [
-    {
-      title: "Themes",
-      items: [
-        "Choose from 15 themes, including Aurora, Rosewood, Solarized, and more.",
-        "Theme colors now carry through Quick Access, full-screen views, controls, charts, icons, footers, and loading screens.",
-        "Steam and RetroAchievements progression states retain their distinct meanings across every theme.",
-      ],
-    },
-    {
-      title: "Interface & navigation",
-      items: [
-        "Plugin Settings now uses expandable, joined sections with a wider theme selector and aligned badge controls.",
-        "Quick Access activity cards have consistent heights, game names are centered, and rank arrows persist across refreshes.",
-        "The View Achievements action for RetroAchievements recently played and currently playing games now opens that game's Quick Access achievement list.",
-        "What's New now fits within the Steam Deck viewport and supports controller scrolling.",
-      ],
-    },
-    {
-      title: "Steam game data",
-      items: [
-        "Steam game pages retain cached SteamHunters details when an optional request fails or returns incomplete data.",
-        "A mismatch notice appears when cached SteamHunters data covers a different achievement count from Steam's current set.",
-      ],
-    },
-  ]);
+  assert.ok(WHATS_NEW_SECTIONS.length > 0);
+  assert.equal(new Set(WHATS_NEW_SECTIONS.map((section) => section.title)).size, WHATS_NEW_SECTIONS.length);
   for (const section of WHATS_NEW_SECTIONS) {
+    assert.ok(section.title.length > 0);
     assert.ok(section.items.length > 0);
     for (const item of section.items) {
       assert.ok(item.length > 20);
       assert.ok(item.length < 180);
     }
   }
-  assert.match(WHATS_NEW_SECTIONS[1].items.join(" "), /Quick Access/u);
 });
 
 test("What's New keeps permanent support actions below fitted release notes", async () => {

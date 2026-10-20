@@ -78,9 +78,18 @@ function detail(
       providerId: "retroachievements",
       gameId: raGameId,
       title: "Example ROM",
+      boxArtImageUrl: "https://example.test/box-art.png",
+      platformLabel: "Super Nintendo Entertainment System",
+      releaseDateGranularity: "month",
       status: "in_progress",
       summary: { unlockedCount: 2, totalCount: achievements.length },
-      metrics: [{ key: "total-players", label: "Players", value: "100" }],
+      metrics: [
+        { key: "total-players", label: "Players", value: "100" },
+        { key: "released", label: "Released", value: "1993-06-01" },
+        { key: "developer", label: "Developer", value: "Example Studio" },
+        { key: "publisher", label: "Publisher", value: "Example Publisher" },
+        { key: "genre", label: "Genre", value: "Adventure" },
+      ],
       communityStats: {
         totalPlayers: 100,
         masteredPlayers: 25,
@@ -154,6 +163,13 @@ test("mapped detail preserves RA identities and mode-projected row state", async
   assert.equal(both.status, "ready");
   if (both.status !== "ready") return;
   assert.equal(both.raGameId, raGameId);
+  assert.equal(both.boxArtImageUrl, "https://example.test/box-art.png");
+  assert.equal(both.platformLabel, "Super Nintendo Entertainment System");
+  assert.equal(both.releaseDate, "1993-06-01");
+  assert.equal(both.releaseDateGranularity, "month");
+  assert.equal(both.developer, "Example Studio");
+  assert.equal(both.publisher, "Example Publisher");
+  assert.equal(both.genre, "Adventure");
   assert.equal(both.earned, 2);
   assert.equal(both.total, 3);
   assert.equal(both.totalPlayers, 100);

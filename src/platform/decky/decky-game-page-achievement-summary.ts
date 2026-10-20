@@ -1588,6 +1588,11 @@ async function attemptRetroAchievementsShortcutHashResolution(
     gameDetailState = await loadDeckyGameDetailStateLazy(RETROACHIEVEMENTS_PROVIDER_ID, matchingCandidate.gameId, {
       forceRefresh: false,
     });
+    if (gameDetailState.status !== "success" || gameDetailState.isStale) {
+      gameDetailState = await loadDeckyGameDetailStateLazy(RETROACHIEVEMENTS_PROVIDER_ID, matchingCandidate.gameId, {
+        forceRefresh: true,
+      });
+    }
   } catch {
     return {
       status: "skipped",
