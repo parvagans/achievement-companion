@@ -138,7 +138,7 @@ function systemsRailArrowStyle(visible: boolean): CSSProperties {
     height: 34,
     border: `1px solid ${raTheme.color.borderStrong}`,
     borderRadius: raTheme.radius.small,
-    background: "rgba(6, 27, 42, 0.94)",
+    background: raTheme.color.surface,
     color: raTheme.color.accent,
     fontSize: 20,
     fontWeight: 850,
