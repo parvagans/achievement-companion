@@ -274,11 +274,31 @@ test("force refresh clears shared summary mapping cache and reloads detail", asy
   assert.equal((await loader.load(appId, "both")).status, "ready");
   assert.equal(calls.summary.length, 1);
   assert.equal((await loader.load(appId, "both", { forceRefresh: true })).status, "ready");
-  assert.deepEqual(calls.invalidated, [appId, appId]);
+  assert.deepEqual(calls.invalidated, [appId, appId, appId]);
   assert.deepEqual(calls.detail.map((call) => call.forceRefresh), [false, true]);
   loader.invalidate(appId);
   assert.equal((await loader.load(appId, "both")).status, "ready");
   assert.deepEqual(calls.detail.map((call) => call.forceRefresh), [false, true, true]);
+});
+
+test("reopening a native RA page publishes fresh progress to its badge", async () => {
+  let latestDetail = detail();
+  const { loader, calls } = createHarness({
+    async loadDetail(gameId, options) {
+      calls.detail.push({ gameId, forceRefresh: options.forceRefresh });
+      return successState(latestDetail);
+    },
+  });
+  const first = await loader.load(appId, "both");
+  assert.equal(first.status, "ready");
+  if (first.status === "ready") assert.equal(first.earned, 2);
+
+  latestDetail = detail([...detail().achievements, achievement("104", { isUnlocked: true })]);
+  const reopened = await loader.load(appId, "both", { forceRefresh: true });
+  assert.equal(reopened.status, "ready");
+  if (reopened.status === "ready") assert.equal(reopened.earned, 3);
+  assert.deepEqual(calls.detail.map((call) => call.forceRefresh), [false, true]);
+  assert.deepEqual(calls.invalidated, [appId, appId, appId]);
 });
 
 test("shortcut path changes invalidate mapping and a mid-request edit blocks publication", async () => {

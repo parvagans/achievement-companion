@@ -301,6 +301,10 @@ export function createNativeRetroAchievementsProjectionLoader(
 
       committed.set(appId, result);
       needsFreshDetail.delete(appId);
+      if (options?.forceRefresh === true) {
+        // Badge resolution may have read the previous detail while this request was loading.
+        dependencies.invalidateSummary(appId);
+      }
       return result;
     })();
 

@@ -449,14 +449,18 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     }, 80);
   }
 
-  function loadForPage(appId: number): void {
+  function loadForPage(appId: number, forceRefresh = false): void {
     const mode = currentMode();
     if (attempts.get(appId)?.mode === mode) return;
     const attempt = { mode };
     attempts.set(appId, attempt);
     unavailableAppIds.delete(appId);
     const page = activePage?.appId === appId ? activePage : undefined;
-    void loadDeckyNativeRetroAchievementsProjection(String(appId), mode).then((result) => {
+    void loadDeckyNativeRetroAchievementsProjection(
+      String(appId),
+      mode,
+      forceRefresh ? { forceRefresh: true } : undefined,
+    ).then((result) => {
       if (disposed || currentMode() !== mode || attempts.get(appId) !== attempt) return;
       if (result.status === "ready" && result.appId === String(appId)) {
         managedAppIds.add(appId);
@@ -579,6 +583,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
       }
       shortcutIdentities.set(appId, identity);
       const mode = currentMode();
+      const newPageVisit = activePage?.appId !== appId || activePage.instance !== this;
       if (activePage?.appId !== appId || activePage.instance !== this || activePage.identity !== identity || activePage.mode !== mode) {
         attempts.delete(appId);
         unavailableAppIds.delete(appId);
@@ -587,7 +592,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
       if (!activePage.verified) {
         // The backend shortcut identity includes platform tags that are absent from app details.
         // Recheck it on each page mount before showing any previously committed projection.
-        loadForPage(appId);
+        loadForPage(appId, newPageVisit);
         return originalSections;
       }
       const projection = getProjection(appId);
