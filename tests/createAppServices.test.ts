@@ -3580,13 +3580,13 @@ test("compact provider menu nests native theme and badge settings under a sessio
   assert.match(source, /saveGamePageAchievementBadgeColor/u);
 });
 
-test("Decky plugin picker uses a white trophy that turns black on native focus", () => {
+test("Decky plugin picker trophy inherits native text color and keeps a cutout star", () => {
   const source = readFileSync("src/index.tsx", "utf8");
   const focusStyles = readFileSync("src/platform/decky/decky-focus-styles.tsx", "utf8");
 
-  assert.match(source, /function AchievementCompanionIcon\(\)[\s\S]*color: "#ffffff"/u);
-  assert.match(focusStyles, /button\.gpfocus \.achievement-companion-picker-icon[\s\S]*color: #000 !important/u);
-  assert.match(focusStyles, /button\.gpfocus \.achievement-companion-picker-icon__star[\s\S]*fill: #fff/u);
+  assert.match(source, /function AchievementCompanionIcon\(\)[\s\S]*fillRule="evenodd"/u);
+  assert.doesNotMatch(source, /achievement-companion-picker-icon__star|color: "#ffffff"/u);
+  assert.doesNotMatch(focusStyles, /achievement-companion-picker-icon/u);
   assert.doesNotMatch(source, /<style>/u);
   assert.match(source, /fill="currentColor"/u);
   assert.match(source, /stroke="currentColor"/u);

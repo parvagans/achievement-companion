@@ -27,10 +27,14 @@ function AchievementCompanionIcon(): JSX.Element {
       className="achievement-companion-picker-icon"
       viewBox="0 0 24 24"
       focusable="false"
-      style={{ width: "1em", height: "1em", color: "#ffffff", verticalAlign: "-0.125em", overflow: "visible" }}
+      style={{ width: "1em", height: "1em", verticalAlign: "-0.125em", overflow: "visible" }}
     >
-      {/* Trophy body */}
-      <path d="M5 2 Q4 9 6.5 13 Q8.5 17 12 18 Q15.5 17 17.5 13 Q20 9 19 2 Z" fill="currentColor"/>
+      {/* The star is a cutout, so the trophy follows Decky's native text color on focus. */}
+      <path
+        d="M5 2 Q4 9 6.5 13 Q8.5 17 12 18 Q15.5 17 17.5 13 Q20 9 19 2 Z M12 5 L13 8 L16 8 L13.5 10 L14.5 13 L12 11 L9.5 13 L10.5 10 L8 8 L11 8 Z"
+        fill="currentColor"
+        fillRule="evenodd"
+      />
 
       {/* Handles */}
       <path d="M5 4 Q1 4 1 9 Q1 13 5 13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -42,11 +46,6 @@ function AchievementCompanionIcon(): JSX.Element {
       {/* Base */}
       <path d="M7 21 Q12 23 17 21 L16.5 23 Q12 24.5 7.5 23 Z" fill="currentColor"/>
 
-      {/* Shine circle */}
-      <circle cx="12" cy="9" r="3.5" fill="white" opacity="0.12"/>
-
-      {/* Star */}
-      <path className="achievement-companion-picker-icon__star" d="M12 5 L13 8 L16 8 L13.5 10 L14.5 13 L12 11 L9.5 13 L10.5 10 L8 8 L11 8 Z" fill={achievementCompanionQamTheme.color.background} opacity="0.94"/>
     </svg>
   );
 }
