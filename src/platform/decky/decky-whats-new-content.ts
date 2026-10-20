@@ -18,7 +18,7 @@ export const WHATS_NEW_SECTIONS = [
   {
     title: "Quick Access",
     items: [
-      "Quick Access now identifies Achievement Companion correctly when its plugin entry is focused.",
+      "Achievement Companion’s trophy icon now stays visible when selected in Quick Access.",
     ],
   },
 ] as const;
