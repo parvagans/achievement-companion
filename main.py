@@ -42,6 +42,7 @@ from backend.storage import read_json_file as _read_json_file
 from backend.storage import write_json_file as _write_json_file
 from backend.update import cleanup_prepared_update_artifacts as _cleanup_prepared_update_artifacts
 from backend.update import prepare_update_artifact as _prepare_update_artifact
+from backend.update import fetch_update_manifest as _fetch_update_manifest
 from backend.version import get_application_version as _get_application_version
 
 SETTINGS_PATH = Path(decky.DECKY_PLUGIN_SETTINGS_DIR)
@@ -260,6 +261,12 @@ class Plugin:
 
   async def get_plugin_version(self) -> str:
     return _get_application_version(_PLUGIN_DIR)
+
+  async def fetch_update_manifest(self) -> dict[str, Any]:
+    return await asyncio.to_thread(
+      _fetch_update_manifest,
+      ssl_context=_get_backend_http_ssl_context(),
+    )
 
   async def prepare_update_artifact(self, payload: dict[str, Any]) -> dict[str, str]:
     return await asyncio.to_thread(

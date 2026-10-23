@@ -8,6 +8,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from urllib.error import HTTPError
 from urllib.parse import urlparse, unquote
 from urllib.request import url2pathname
 
@@ -29,6 +30,43 @@ def build_package(path: Path, version: str = "0.9.0") -> str:
 
 
 class BackendUpdateTests(unittest.TestCase):
+  def test_manifest_fetch_uses_backend_http_and_limits_response_size(self) -> None:
+    manifest = {"schema": 1, "version": "0.31.3", "channel": "stable", "downloadUrl": "https://example.test/update.zip", "sha256": "a" * 64}
+    payload = json.dumps(manifest).encode("utf-8")
+    requests = []
+
+    class Response:
+      def __init__(self, body: bytes) -> None:
+        self.stream = io.BytesIO(body)
+
+      def __enter__(self):
+        return self
+
+      def __exit__(self, *_args):
+        self.stream.close()
+
+      def read(self, size: int) -> bytes:
+        return self.stream.read(size)
+
+    def open_manifest(request, **_kwargs):
+      requests.append(request)
+      return Response(payload)
+
+    self.assertEqual(update.fetch_update_manifest(ssl_context=ssl.create_default_context(), urlopen=open_manifest), manifest)
+    self.assertEqual(requests[0].full_url, update.PRODUCTION_UPDATE_MANIFEST_URL)
+    with self.assertRaisesRegex(update.UpdateVerificationError, "maximum allowed size"):
+      update.fetch_update_manifest(
+        ssl_context=ssl.create_default_context(),
+        urlopen=lambda *_args, **_kwargs: Response(b" " * (update.MAX_MANIFEST_BYTES + 1)),
+      )
+
+  def test_manifest_fetch_reports_http_failure(self) -> None:
+    def fail(request, **_kwargs):
+      raise HTTPError(request.full_url, 404, "Not Found", {}, None)
+
+    with self.assertRaisesRegex(update.UpdateVerificationError, "HTTP 404"):
+      update.fetch_update_manifest(ssl_context=ssl.create_default_context(), urlopen=fail)
+
   def test_prepared_package_is_retained_for_decky_and_cleaned_on_unload(self) -> None:
     with tempfile.TemporaryDirectory(dir=TEMP_ROOT) as directory:
       source = Path(directory) / "source.zip"

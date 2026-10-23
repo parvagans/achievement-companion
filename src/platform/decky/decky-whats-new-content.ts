@@ -25,6 +25,7 @@ export const WHATS_NEW_SECTIONS = [
     items: [
       "Full-screen Settings are reorganized into service-specific groups for account, profile, activity, and data. General brings shared appearance, badge, updates, and help together.",
       "Setup guidance is tucked behind help controls, while themed rows, typography, and focus behavior make settings easier to read and navigate.",
+      "Fixed update checks failing with an HTTP 500 error on some Steam Decks.",
     ],
   },
   {

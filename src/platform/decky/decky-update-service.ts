@@ -2,7 +2,8 @@ import { fetchNoCors } from "@decky/api";
 import { useSyncExternalStore } from "react";
 import { APP_VERSION } from "../../generated/version";
 import { DeckyNativeInstaller } from "../../update/installers/decky-native-installer";
-import { LocalUpdateSource, ProductionUpdateSource, type UpdateSource } from "../../update/update-source";
+import { LocalUpdateSource, type UpdateSource } from "../../update/update-source";
+import { parseUpdateManifest } from "../../update/update-manifest";
 import { UpdateService } from "../../update/update-service";
 import { AutomaticUpdateChecks, UPDATE_CHECK_INTERVAL_MS } from "../../update/automatic-update-checks";
 import { shouldNotifyUpdate } from "../../update/update-notification";
@@ -83,7 +84,14 @@ function resolveSource(): UpdateSource {
   ) {
     return new LocalUpdateSource(settings.localUpdateManifestUrl, { fetch: fetchNoCors });
   }
-  return new ProductionUpdateSource(PRODUCTION_UPDATE_MANIFEST_URL, { fetch: fetchNoCors });
+  return {
+    kind: "production",
+    manifestUrl: PRODUCTION_UPDATE_MANIFEST_URL,
+    async loadManifest() {
+      const payload = await callDeckyBackendMethod<unknown>("fetch_update_manifest");
+      return parseUpdateManifest(payload, PRODUCTION_UPDATE_MANIFEST_URL);
+    },
+  };
 }
 
 async function persistCheckedAt(timestamp: number): Promise<void> {

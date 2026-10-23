@@ -7,12 +7,17 @@ import ssl
 import tempfile
 from threading import Lock
 import urllib.request
+from urllib.error import HTTPError
 import zipfile
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Mapping
 from urllib.parse import urlparse
 
 MAX_UPDATE_BYTES = 100 * 1024 * 1024
+MAX_MANIFEST_BYTES = 64 * 1024
+PRODUCTION_UPDATE_MANIFEST_URL = (
+  "https://github.com/parvagans/achievement-companion/releases/latest/download/update-manifest.json"
+)
 SEMVER_PATTERN = re.compile(
   r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
   r"(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\."
@@ -34,6 +39,33 @@ _prepared_artifacts_lock = Lock()
 
 class UpdateVerificationError(RuntimeError):
   pass
+
+
+def fetch_update_manifest(
+  *,
+  ssl_context: ssl.SSLContext,
+  urlopen: Callable[..., Any] = urllib.request.urlopen,
+) -> dict[str, Any]:
+  request = urllib.request.Request(
+    PRODUCTION_UPDATE_MANIFEST_URL,
+    headers={"Accept": "application/json", "User-Agent": "Achievement-Companion-Updater"},
+  )
+  try:
+    with urlopen(request, timeout=10, context=ssl_context) as response:
+      body = response.read(MAX_MANIFEST_BYTES + 1)
+  except HTTPError as cause:
+    raise UpdateVerificationError(f"Update manifest request failed with HTTP {cause.code}.") from cause
+  except Exception as cause:
+    raise UpdateVerificationError("Update manifest request failed.") from cause
+  if len(body) > MAX_MANIFEST_BYTES:
+    raise UpdateVerificationError("Update manifest exceeds the maximum allowed size.")
+  try:
+    manifest = json.loads(body.decode("utf-8"))
+  except (UnicodeDecodeError, ValueError) as cause:
+    raise UpdateVerificationError("Update manifest response is not valid JSON.") from cause
+  if not isinstance(manifest, dict):
+    raise UpdateVerificationError("Update manifest must be a JSON object.")
+  return manifest
 
 
 def _required_string(payload: Mapping[str, Any], key: str) -> str:
