@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import { createPortal } from "react-dom";
 import type { GamepadEvent } from "@decky/ui";
 import { consumeDeckyFullscreenPopupCancel } from "./decky-full-screen-popup-state";
+import { handleDeckyFullscreenSubviewButtonDown } from "./decky-full-screen-subview-navigation";
 import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 import {
   measureSteamGameFooterLayout,
@@ -195,6 +196,7 @@ function getFooterStyle(height: number, zIndex: number): CSSProperties {
     boxSizing: "border-box",
     borderTop: `1px solid ${qamTheme.color.borderSubtle}`,
     background: qamTheme.decorative.footerBackground,
+    fontFamily: qamTheme.type.fontFamily,
     fontSize: 14,
     boxShadow: "0 -10px 28px rgba(0, 0, 0, 0.3)",
     position: "fixed",
@@ -242,15 +244,28 @@ function getSectionTabStyle(active: boolean): CSSProperties {
   };
 }
 
+function getControllerHintStyle(): CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    flex: "0 0 auto",
+    boxSizing: "border-box",
+    border: `1px solid ${qamTheme.color.borderStrong}`,
+    background: qamTheme.surface.contentStat,
+    color: qamTheme.color.textPrimary,
+    fontWeight: qamTheme.type.weight.strong,
+    lineHeight: 1,
+  };
+}
+
 function getShoulderHintStyle(): CSSProperties {
   return {
-    flex: "0 0 auto",
-    padding: "3px 5px",
-    border: "1px solid rgba(255, 255, 255, 0.26)",
+    ...getControllerHintStyle(),
+    width: 24,
+    height: 24,
     borderRadius: 6,
-    color: "rgba(255, 255, 255, 0.9)",
-    fontSize: "0.76em",
-    fontWeight: 700,
+    fontSize: qamTheme.type.fullscreen.caption,
     whiteSpace: "nowrap",
   };
 }
@@ -265,39 +280,38 @@ function getActionLegendStyle(): CSSProperties {
   };
 }
 
-function getActionHintStyle(): CSSProperties {
+function getActionHintStyle(hidden: boolean): CSSProperties {
   return {
     display: "inline-flex",
     alignItems: "center",
+    height: 24,
     gap: 5,
-    color: "rgba(255, 255, 255, 0.86)",
-    fontSize: "0.76em",
-    fontWeight: 700,
+    color: qamTheme.color.textSecondary,
+    fontSize: qamTheme.type.fullscreen.caption,
+    fontWeight: qamTheme.type.weight.strong,
+    lineHeight: 1,
     whiteSpace: "nowrap",
+    visibility: hidden ? "hidden" : "visible",
   };
 }
 
 function getActionButtonHintStyle(): CSSProperties {
   return {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
+    ...getControllerHintStyle(),
     width: 18,
     height: 18,
     borderRadius: "50%",
-    background: "rgba(255, 255, 255, 0.9)",
-    color: "rgba(8, 18, 27, 1)",
-    fontSize: "0.8em",
-    fontWeight: 900,
+    fontSize: 10,
   };
 }
 
-function DeckyFullScreenFooterActionHint({ button, label }: {
+function DeckyFullScreenFooterActionHint({ button, label, hidden = false }: {
   readonly button: string;
   readonly label: string;
+  readonly hidden?: boolean;
 }): JSX.Element {
   return (
-    <span style={getActionHintStyle()}>
+    <span aria-hidden={hidden || undefined} style={getActionHintStyle(hidden)}>
       <span style={getActionButtonHintStyle()}>{button}</span>
       <span>{label}</span>
     </span>
@@ -508,6 +522,7 @@ export function DeckyFullScreenFooterOverlay({
       if (!isTopFooterOverlayOwner(owner)) return;
       if (isDeckyFullscreenOnScreenKeyboardOpen(ownerWindow.document)) return;
       const gamepadEvent = event as GamepadEvent;
+      if (handleDeckyFullscreenSubviewButtonDown(gamepadEvent, ownerWindow.document)) return;
       if (gamepadEvent.detail.button === DECKY_FULLSCREEN_FOOTER_TOP_BUTTON && onSecondaryActionRef.current !== undefined) {
         gamepadEvent.preventDefault();
         gamepadEvent.stopPropagation();
@@ -562,9 +577,7 @@ export function DeckyFullScreenFooterOverlay({
           </div>
           <span style={getShoulderHintStyle()}>R1</span>
           <span style={getActionLegendStyle()}>
-            <span style={{ visibility: secondaryActionLabel === undefined ? "hidden" : "visible" }}>
-              <DeckyFullScreenFooterActionHint button="Y" label={secondaryActionLabel ?? "Top"} />
-            </span>
+            <DeckyFullScreenFooterActionHint button="Y" label={secondaryActionLabel ?? "Top"} hidden={secondaryActionLabel === undefined} />
             <DeckyFullScreenFooterActionHint button="A" label="Select" />
             <DeckyFullScreenFooterActionHint button="B" label="Back" />
           </span>

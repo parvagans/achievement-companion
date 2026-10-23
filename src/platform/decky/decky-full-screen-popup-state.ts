@@ -1,5 +1,9 @@
 let activeDeckyFullscreenPopupCancel: (() => void) | undefined;
 
+export function isDeckyFullscreenPopupOpen(): boolean {
+  return activeDeckyFullscreenPopupCancel !== undefined;
+}
+
 export function registerDeckyFullscreenPopupCancel(handler: () => void): () => void {
   activeDeckyFullscreenPopupCancel = handler;
   return () => {

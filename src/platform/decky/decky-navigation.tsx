@@ -7,7 +7,7 @@ import {
   useParams,
 } from "@decky/ui";
 import { DeckyFullScreenProfilePage } from "./decky-full-screen-profile-page";
-import { DeckyFullScreenAchievementPage } from "./decky-full-screen-achievement-page";
+import { openDeckyAchievementDetailModal } from "./decky-achievement-detail-modal";
 import { DeckyFullScreenAchievementHistoryPage } from "./decky-full-screen-achievement-history-page";
 import { DeckyFullScreenCompletionProgressPage } from "./decky-full-screen-completion-progress-page";
 import { DeckyFullScreenGamePage } from "./decky-full-screen-game-page";
@@ -45,7 +45,7 @@ import {
 } from "./decky-app-services";
 import { STEAM_PROVIDER_ID } from "./providers/steam";
 import { resetDeckyActivityPageState } from "./decky-steam-full-screen-activity-state";
-import { rememberDeckyGamesSystem, resetDeckyGamesPageState } from "./decky-steam-full-screen-games-state";
+import { rememberDeckyGamesProfileShortcut, rememberDeckyGamesSystem, resetDeckyGamesPageState } from "./decky-steam-full-screen-games-state";
 import { jumpDeckySteamProfileTabToTop } from "./decky-steam-profile-jump-top";
 import { requestDeckySteamCompactFocusRestore } from "./decky-steam-compact-focus-state";
 import {
@@ -103,11 +103,12 @@ interface FullScreenProviderSettingsRouteParams {
 type ProviderSettingsTab = "retroachievements" | "steam";
 type ProviderSettingsFooterTab = ProviderSettingsTab | "about";
 let nextFullScreenSettingsProvider: ProviderSettingsFooterTab = "retroachievements";
+let restoreGeneralSettingsLinkProvider: ProviderSettingsTab | undefined;
 let selectActiveFullScreenSettingsTab: ((tab: ProviderSettingsFooterTab) => void) | undefined;
 const PROVIDER_SETTINGS_FOOTER_NAVIGATION_ITEMS = [
   { id: "retroachievements", label: "RetroAchievements" },
   { id: "steam", label: "Steam" },
-  { id: "about", label: "About" },
+  { id: "about", label: "General" },
 ] as const;
 
 let activeProviderFullScreenSessionId: string | undefined;
@@ -216,7 +217,7 @@ export function openDeckyProviderSettingsFromQam(providerId: ProviderSettingsTab
   DeckyNavigation.CloseSideMenus();
 }
 
-/** Update notifications enter the shared settings route on its About tab. */
+/** Update notifications enter the shared settings route on its General tab. */
 export function openDeckyUpdatesFromNotification(): void {
   if (selectActiveFullScreenSettingsTab !== undefined) {
     selectActiveFullScreenSettingsTab("about");
@@ -304,16 +305,7 @@ function navigateToFullScreenAchievement(
   gameId: string,
   achievementId: string,
 ): void {
-  const route = buildFullScreenAchievementRoute({
-    view: "achievement",
-    surface: "full-screen",
-    providerId,
-    gameId,
-    achievementId,
-  });
-  if (route !== undefined) {
-    DeckyNavigation.Navigate(route);
-  }
+  openDeckyAchievementDetailModal({ providerId, gameId, achievementId });
 }
 
 function buildFullScreenProfileRoute(target: NavigationTarget): string | undefined {
@@ -368,16 +360,15 @@ function navigateToFullScreenProviderSettings(providerId: string): void {
   DeckyNavigation.Navigate(buildFullScreenProviderSettingsRoute(providerId));
 }
 
-function DeckyFullScreenGameRoute(): JSX.Element {
-  const params = useParams<FullScreenGameRouteParams>();
+function DeckyFullScreenGameRouteContent({ providerId, gameId }: { readonly providerId: string | undefined; readonly gameId: string | undefined }): JSX.Element {
   const detailScrollKey =
-    params.providerId !== undefined && params.gameId !== undefined
-      ? `game-detail:${params.providerId}:${params.gameId}`
+    providerId !== undefined && gameId !== undefined
+      ? `game-detail:${providerId}:${gameId}`
       : undefined;
 
   const returnFromGamePage = (): void => {
-    if (params.providerId !== undefined && params.gameId !== undefined) {
-      resetSteamGameSectionActiveSection(params.providerId, params.gameId);
+    if (providerId !== undefined && gameId !== undefined) {
+      resetSteamGameSectionActiveSection(providerId, gameId);
     }
 
     if (detailScrollKey !== undefined) {
@@ -394,12 +385,12 @@ function DeckyFullScreenGameRoute(): JSX.Element {
         ? <DeckyFullScreenTerminalBackBridge onBack={returnFromGamePage} />
         : null}
       <DeckyFullScreenGamePage
-        gameId={params.gameId}
+        gameId={gameId}
         onOpenAchievementDetail={
-          params.providerId !== undefined && params.gameId !== undefined
-            ? (achievementId, achievementGameId = params.gameId!) => {
+          providerId !== undefined && gameId !== undefined
+            ? (achievementId, achievementGameId = gameId) => {
                 navigateToFullScreenAchievement(
-                  params.providerId!,
+                  providerId,
                   achievementGameId,
                   achievementId,
                 );
@@ -407,20 +398,54 @@ function DeckyFullScreenGameRoute(): JSX.Element {
             : undefined
         }
         onBack={returnFromGamePage}
-        providerId={params.providerId}
+        providerId={providerId}
       />
     </>
   );
 }
 
+function DeckyFullScreenGameRoute(): JSX.Element {
+  const params = useParams<FullScreenGameRouteParams>();
+  return <DeckyFullScreenGameRouteContent providerId={params.providerId} gameId={params.gameId} />;
+}
+
+const legacyAchievementRoutesToSkip = new Set<string>();
+
 function DeckyFullScreenAchievementRoute(): JSX.Element {
   const params = useParams<FullScreenAchievementRouteParams>();
+  const openedRouteRef = useRef<string | undefined>(undefined);
 
-  return <DeckyFullScreenAchievementPage
-    achievementId={params.achievementId}
-    gameId={params.gameId}
-    providerId={params.providerId}
-  />;
+  useEffect(() => {
+    if (params.providerId === undefined || params.gameId === undefined || params.achievementId === undefined) {
+      return;
+    }
+
+    const route = buildDeckyFullScreenAchievementRoute(params.providerId, params.gameId, params.achievementId);
+    if (legacyAchievementRoutesToSkip.delete(route)) {
+      DeckyNavigation.NavigateBack();
+      return;
+    }
+    if (openedRouteRef.current === route) {
+      return;
+    }
+    openedRouteRef.current = route;
+    let active = true;
+    openDeckyAchievementDetailModal({
+      providerId: params.providerId,
+      gameId: params.gameId,
+      achievementId: params.achievementId,
+      onClose: () => {
+        if (!active) return;
+        // Direct links have no mounted source. Keep the associated game as their
+        // return page; a later Back skips this legacy URL in native history.
+        legacyAchievementRoutesToSkip.add(route);
+        DeckyNavigation.Navigate(buildDeckyFullScreenGameRoute(params.providerId!, params.gameId!));
+      },
+    });
+    return () => { active = false; };
+  }, [params.achievementId, params.gameId, params.providerId]);
+
+  return <DeckyFullScreenGameRouteContent providerId={params.providerId} gameId={params.gameId} />;
 }
 
 function DeckyFullScreenAchievementHistoryRoute(): JSX.Element {
@@ -493,9 +518,9 @@ function DeckyProviderFullScreenSession({
     providerTabs.includes(providerFullScreenSessionTab) ? providerFullScreenSessionTab : "profile"
   );
   const restoringRaAccountFromWeb = isDeckyProviderSettingsWebReturnPending("retroachievements");
-  const [gamesInitialFilter, setGamesInitialFilter] = useState<CompletionProgressSelectionFilter>("all");
   const [gamesViewRevision, setGamesViewRevision] = useState(0);
   const retroAchievementsSettingsRootRef = useRef<HTMLDivElement>(null);
+  const steamSettingsRootRef = useRef<HTMLDivElement>(null);
   const dataSessionRevision = useSyncExternalStore(
     subscribeDeckyProviderFullScreenDataSession,
     getDeckyProviderFullScreenDataSessionRevision,
@@ -528,12 +553,26 @@ function DeckyProviderFullScreenSession({
     }
 
     const frame = ownerWindow.requestAnimationFrame(() => {
-      const firstControl = root.querySelector<HTMLElement>("[data-settings-section-pill], input, .Panel.Focusable[role='button']");
+      const firstControl = root.querySelector<HTMLElement>("input") ?? root.querySelector<HTMLElement>(".ac-settings-action[tabindex='0'], .Panel.Focusable[role='button']");
       takeDeckySteamGamepadFocus(firstControl);
     });
 
     return () => ownerWindow.cancelAnimationFrame(frame);
   }, [activeTab, providerId, restoringRaAccountFromWeb]);
+
+  useLayoutEffect(() => {
+    if (activeTab !== "settings" || restoreGeneralSettingsLinkProvider !== providerId) return;
+    const root = providerId === RETROACHIEVEMENTS_PROVIDER_ID
+      ? retroAchievementsSettingsRootRef.current
+      : steamSettingsRootRef.current;
+    const ownerWindow = root?.ownerDocument.defaultView;
+    if (root === null || ownerWindow === null || ownerWindow === undefined) return;
+    const frame = ownerWindow.requestAnimationFrame(() => {
+      const link = root.querySelector<HTMLElement>("[data-settings-general-link='true']");
+      if (takeDeckySteamGamepadFocus(link)) restoreGeneralSettingsLinkProvider = undefined;
+    });
+    return () => ownerWindow.cancelAnimationFrame(frame);
+  }, [activeTab, providerId]);
 
   const selectTab = (tab: ProviderFullScreenSessionTab): void => {
     if (!providerTabs.includes(tab)) return;
@@ -541,14 +580,11 @@ function DeckyProviderFullScreenSession({
     setActiveTab(tab);
   };
 
-  const openGames = (initialFilter: CompletionProgressSelectionFilter = "all"): void => {
-    if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
-      rememberDeckyGamesSystem(providerId, undefined);
-    }
-    setGamesInitialFilter(initialFilter);
-    // A non-default profile shortcut intentionally resets the Games view so
-    // its requested filter wins over the module-level restoration state.
-    if (initialFilter !== "all") {
+  const openGames = (initialFilter?: CompletionProgressSelectionFilter): void => {
+    if (initialFilter !== undefined && providerId !== undefined) {
+      // Apply Profile shortcuts once to the saved Games state. Later visits
+      // restore the user's current search, status, sort, system and scroll.
+      rememberDeckyGamesProfileShortcut(providerId, initialFilter === "subsets" ? "all" : initialFilter);
       setGamesViewRevision((currentRevision) => currentRevision + 1);
     }
     selectTab("games");
@@ -557,17 +593,24 @@ function DeckyProviderFullScreenSession({
   const openSystemGames = (system: { readonly systemId: string; readonly title: string }): void => {
     if (providerId !== RETROACHIEVEMENTS_PROVIDER_ID) return;
     rememberDeckyGamesSystem(providerId, system);
-    setGamesInitialFilter("all");
     setGamesViewRevision((currentRevision) => currentRevision + 1);
     selectTab("games");
   };
 
   const exitSession = (): void => {
+    restoreGeneralSettingsLinkProvider = undefined;
     if (providerId !== undefined) {
       endDeckyProviderFullScreenDataSession(providerId);
       resetDeckyProviderFullScreenSessionState(providerId);
     }
     onBack();
+  };
+
+  const openGeneralSettings = (): void => {
+    if (providerId !== STEAM_PROVIDER_ID && providerId !== RETROACHIEVEMENTS_PROVIDER_ID) return;
+    restoreGeneralSettingsLinkProvider = providerId;
+    nextFullScreenSettingsProvider = "about";
+    DeckyNavigation.Navigate(buildDeckyFullScreenSettingsRoute());
   };
 
   return (
@@ -606,7 +649,6 @@ function DeckyProviderFullScreenSession({
           providerId={providerId}
           isActive={activeTab === "games"}
           showSteamProfileFooter={false}
-          initialFilter={gamesInitialFilter}
           onBack={exitSession}
           onOpenProfile={() => selectTab("profile")}
           onOpenActivity={() => selectTab("activity")}
@@ -635,9 +677,11 @@ function DeckyProviderFullScreenSession({
         />
       : null}
       {activeTab === "settings" && providerId === STEAM_PROVIDER_ID ?
+        <div ref={steamSettingsRootRef}>
         <DeckyFullScreenSettingsPage
           isActive={activeTab === "settings"}
           reserveSteamProfileFooter
+          onOpenGeneralSettings={openGeneralSettings}
           onOpenProviderSettings={(providerId) => {
             navigateToFullScreenProviderSettings(providerId);
           }}
@@ -647,6 +691,7 @@ function DeckyProviderFullScreenSession({
           onOpenActivity={() => selectTab("activity")}
           onOpenProfile={() => selectTab("profile")}
         />
+        </div>
       : null}
       {activeTab === "settings" && providerId === RETROACHIEVEMENTS_PROVIDER_ID ?
         <div ref={retroAchievementsSettingsRootRef} data-provider-settings-retroachievements="true">
@@ -655,6 +700,7 @@ function DeckyProviderFullScreenSession({
             onBack={exitSession}
             inProviderSwitcher
             onRebuildSubsetIndex={clearDeckyRetroAchievementsRelatedGameIndex}
+            onOpenGeneralSettings={openGeneralSettings}
             onOpenExternalUrl={(url) => { nextFullScreenSettingsProvider = "retroachievements"; DeckyNavigation.NavigateToExternalWeb(url); }}
           />
         </div>
@@ -831,7 +877,7 @@ function DeckyFullScreenSettingsRoute(): JSX.Element {
     const ownerWindow = root?.ownerDocument.defaultView;
     if (root === null || ownerWindow === null || ownerWindow === undefined) return;
     const frame = ownerWindow.requestAnimationFrame(() => {
-      const firstControl = root.querySelector<HTMLElement>("[data-settings-section-pill], input, .Panel.Focusable[role='button']");
+      const firstControl = root.querySelector<HTMLElement>("input") ?? root.querySelector<HTMLElement>(".ac-settings-action[tabindex='0'], .Panel.Focusable[role='button']");
       takeDeckySteamGamepadFocus(firstControl);
     });
     return () => ownerWindow.cancelAnimationFrame(frame);
@@ -923,6 +969,12 @@ export function createDeckyNavigationPort(): NavigationPort {
   return {
     go(target) {
       if (target.surface === "full-screen") {
+        if (buildFullScreenAchievementRoute(target) !== undefined) {
+          // An achievement opened from QAM keeps that panel as its modal backdrop.
+          navigateToFullScreenAchievement(target.providerId!, target.gameId!, target.achievementId!);
+          return;
+        }
+
         const providerSessionTab = getProviderSessionTabForNavigationTarget(target);
         if (
           providerSessionTab !== undefined &&
@@ -967,12 +1019,6 @@ export function createDeckyNavigationPort(): NavigationPort {
             beginDeckyCompactFullScreenEntry(sessionRoot);
           }
           DeckyNavigation.Navigate(completionProgressRoute);
-          DeckyNavigation.CloseSideMenus();
-          return;
-        }
-
-        if (buildFullScreenAchievementRoute(target) !== undefined) {
-          navigateToFullScreenAchievement(target.providerId!, target.gameId!, target.achievementId!);
           DeckyNavigation.CloseSideMenus();
           return;
         }

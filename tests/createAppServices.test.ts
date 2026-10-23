@@ -1496,22 +1496,25 @@ test("compact and full-screen game rows share the achievement type badge", () =>
   assert.match(fullScreenSource, /getAchievementRowTitleLineStyle/u);
 });
 
-test("compact achievement details retain type badges while the full-screen page is static and B-only", () => {
+test("compact achievement details retain type badges while full-screen details use the native modal", () => {
   const compactSource = readFileSync("src/platform/decky/decky-achievement-detail-view.tsx", "utf8");
-  const fullScreenSource = readFileSync("src/platform/decky/decky-full-screen-achievement-page.tsx", "utf8");
+  const modalSource = readFileSync("src/platform/decky/decky-achievement-detail-modal.tsx", "utf8");
+  const shellSource = readFileSync("src/platform/decky/decky-standard-modal.tsx", "utf8");
 
   assert.match(compactSource, /getTitleLineStyle/u);
   assert.match(compactSource, /flexWrap: "wrap"/u);
   assert.match(compactSource, /overflowWrap: "anywhere"/u);
   assert.match(compactSource, /DeckyAchievementTypeBadge classification=\{model\.classification\}/u);
 
-  assert.match(fullScreenSource, /function DeckyFullScreenAchievementInputSurface/u);
-  assert.match(fullScreenSource, /surface\.focus\(\{ preventScroll: true \}\)/u);
-  assert.doesNotMatch(fullScreenSource, /onCancel=\{handleCancel\}|markDeckyFullscreenReturnRequested/u);
-  assert.match(fullScreenSource, /function DeckyFullScreenAchievementLoadingState/u);
-  assert.doesNotMatch(fullScreenSource, /DeckyAchievementTypeBadge/u);
-  assert.match(fullScreenSource, /<Focusable/u);
-  assert.doesNotMatch(fullScreenSource, /DeckyFullscreenActionButton/u);
+  assert.match(modalSource, /openDeckyStandardModal/u);
+  assert.match(modalSource, /textAlign: "center"/u);
+  assert.match(shellSource, /<ConfirmModal/u);
+  assert.match(shellSource, /bAlertDialog/u);
+  assert.match(shellSource, /bHideMainWindowForPopouts: false/u);
+  assert.match(shellSource, /registerDeckyFullscreenPopupCancel\(closeModal\)/u);
+  assert.doesNotMatch(modalSource, /GameArtwork|getSteamFullscreenGameArtworkUrl|ScrollPanel/u);
+  assert.match(modalSource, /height: ACHIEVEMENT_MODAL_CONTENT_HEIGHT_PX/u);
+  assert.match(modalSource, /aria-label="Achievement information" onGamepadDirection=\{handleIdentityScroll\}/u);
 });
 
 test("retroachievements recent unlocks normalize badge art urls", () => {
@@ -2979,41 +2982,25 @@ test("provider setup, credential fields, and current compact profile routes stay
   assert.match(steamGameArtworkSource, /game\.boxArtImageUrl \?\?/u);
   assert.match(steamFullscreenGameArtworkSource, /function getArtworkFrameStyle\(compact: boolean, dense: boolean\): CSSProperties/u);
   assert.match(steamFullscreenGameArtworkSource, /aspectRatio: compact \? "2 \/ 1" : "460 \/ 215"/u);
-  const fullScreenAchievementPageSource = readFileSync(
-    "src/platform/decky/decky-full-screen-achievement-page.tsx",
+  const achievementModalSource = readFileSync(
+    "src/platform/decky/decky-achievement-detail-modal.tsx",
     "utf8",
   );
   const deckyNavigationSource = readFileSync("src/platform/decky/decky-navigation.tsx", "utf8");
   assert.match(fullScreenGamePageSource, /function DeckyFullScreenGameLoadingState/u);
   assert.match(fullScreenGamePageSource, /focusRef\.current\?\.focus\(\{ preventScroll: true \}\)/u);
   assert.match(fullScreenGamePageSource, /<Focusable[\s\S]*onCancel=\{copy\.isError \? onBack : \(\) => \{\}\}[\s\S]*role=\{copy\.isError/u);
-  assert.match(fullScreenAchievementPageSource, /function DeckyFullScreenAchievementContent/u);
-  assert.match(fullScreenAchievementPageSource, /function DeckyFullScreenAchievementInputSurface/u);
-  assert.doesNotMatch(
-    fullScreenAchievementPageSource,
-    /onCancel=\{handleCancel\}|markDeckyFullscreenReturnRequested/u,
-  );
-  assert.match(fullScreenAchievementPageSource, /function DeckyFullScreenAchievementLoadingState/u);
-  assert.match(fullScreenAchievementPageSource, /calendarIconUrl/u);
-  assert.match(fullScreenAchievementPageSource, /checkCircleIconUrl/u);
-  assert.match(fullScreenAchievementPageSource, /DeckyRetroAchievementsPointsIcon/u);
-  assert.match(fullScreenAchievementPageSource, /usersIconUrl/u);
-  assert.match(fullScreenAchievementPageSource, /getSteamHuntersAchievementEnrichment/u);
-  assert.match(fullScreenAchievementPageSource, /getSteamFullscreenGameArtworkUrl/u);
-  assert.match(fullScreenAchievementPageSource, /hardcoreUnlockedAt/u);
-  assert.match(fullScreenAchievementPageSource, /getAchievementDescriptionText/u);
-  assert.doesNotMatch(fullScreenAchievementPageSource, /Obtainability/u);
-  assert.match(fullScreenAchievementPageSource, /label="Points"[\s\S]*label="RetroPoints"[\s\S]*label="Players Unlocked"/u);
-  assert.match(fullScreenAchievementPageSource, /<Focusable/u);
-  assert.doesNotMatch(fullScreenAchievementPageSource, /DeckyFullscreenActionButton/u);
-  assert.doesNotMatch(fullScreenAchievementPageSource, /onOpenFullScreenGame/u);
-  assert.doesNotMatch(fullScreenAchievementPageSource, /backLabel/u);
-  assert.doesNotMatch(fullScreenAchievementPageSource, /<ScrollPanel/u);
+  assert.match(achievementModalSource, /buildDeckyAchievementModalModel/u);
+  assert.match(achievementModalSource, /openDeckyAchievementDetailModal/u);
+  const achievementModalModelSource = readFileSync("src/platform/decky/decky-achievement-detail-modal-model.ts", "utf8");
+  assert.match(achievementModalModelSource, /getSteamHuntersAchievementEnrichment/u);
+  assert.match(achievementModalModelSource, /hardcoreUnlockedAt/u);
+  assert.match(achievementModalModelSource, /getAchievementDescriptionText/u);
+  assert.match(achievementModalSource, /Your Unlock/u);
+  assert.match(achievementModalSource, /Community/u);
+  assert.doesNotMatch(achievementModalSource, /GameArtwork|getSteamFullscreenGameArtworkUrl|ScrollPanel/u);
   assert.match(deckyNavigationSource, /function DeckyFullScreenAchievementRoute/u);
-  assert.doesNotMatch(deckyNavigationSource, /onOpenFullScreenGame=/u);
-  assert.doesNotMatch(deckyNavigationSource, /navigateToFullScreenGameFromAchievement/u);
-  assert.doesNotMatch(deckyNavigationSource, /fullScreenAchievementRouteBackBehaviors/u);
-  assert.match(deckyNavigationSource, /navigateToFullScreenAchievement\([\s\S]*params\.providerId!,[\s\S]*achievementGameId,[\s\S]*achievementId,/u);
+  assert.match(deckyNavigationSource, /openDeckyAchievementDetailModal/u);
   const coreDomainSource = readFileSync("src/core/domain.ts", "utf8");
   const retroRawTypesSource = readFileSync("src/providers/retroachievements/raw-types.ts", "utf8");
   const retroClientSource = readFileSync("src/providers/retroachievements/client/client.ts", "utf8");

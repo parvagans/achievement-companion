@@ -83,7 +83,9 @@ Steam ROM Manager and EmuDeck shortcuts are identified through accepted RetroAch
   </tr>
 </table>
 
-### Games and Activity
+### Games, Activity, and Analytics
+
+Both providers include Analytics alongside Activity; use LT/RT to switch between them.
 
 <table>
   <tr>
@@ -101,6 +103,15 @@ Steam ROM Manager and EmuDeck shortcuts are identified through accepted RetroAch
   <tr>
     <td width="50%"><img src="docs/screenshots/readme/steam-fullscreen-games.png" alt="Steam full-screen Games view" width="100%"></td>
     <td width="50%"><img src="docs/screenshots/readme/steam-fullscreen-activity.png" alt="Steam full-screen Activity view" width="100%"></td>
+
+  </tr>
+  <tr>
+    <th width="50%">RetroAchievements Analytics</th>
+    <th width="50%">Steam Analytics</th>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/readme/ra-fullscreen-analytics.png" alt="RetroAchievements full-screen Analytics view with unlock insights, trends, and calendar" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/steam-fullscreen-analytics.png" alt="Steam full-screen Analytics view with unlock insights, trends, and calendar" width="100%"></td>
   </tr>
 </table>
 

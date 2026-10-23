@@ -1,9 +1,7 @@
 import {
-  ConfirmModal,
   Focusable,
   GamepadButton,
   Navigation as DeckyNavigation,
-  showModal,
   type GamepadEvent,
 } from "@decky/ui";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
@@ -15,6 +13,7 @@ import { applyAchievementCompanionTheme } from "./decky-theme-palette";
 import { readDeckySettings } from "./decky-settings";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
+import { getDeckyStandardModalContentStyle, getDeckyStandardModalTabStyle, openDeckyStandardModal } from "./decky-standard-modal";
 import { WHATS_NEW_SECTIONS } from "./decky-whats-new-content";
 import { steamTheme } from "./steam-theme";
 
@@ -131,7 +130,7 @@ function WhatsNewContent({ onOpenExternalUrl }: {
         color: steamTheme.color.textPrimary,
         fontFamily: steamTheme.type.fontFamily,
         fontSize: steamTheme.type.fullscreen.body,
-        width: "min(100%, 780px)",
+        ...getDeckyStandardModalContentStyle(),
       }}
     >
       <style>{`
@@ -176,7 +175,7 @@ function WhatsNewContent({ onOpenExternalUrl }: {
             onBlur={() => setFocusedTab((current) => current === index ? undefined : current)}
             onGamepadBlur={() => setFocusedTab((current) => current === index ? undefined : current)}
             style={{
-              ...tabStyle,
+              ...getDeckyStandardModalTabStyle(),
               borderColor: focusedTab === index ? steamTheme.focus.border : steamTheme.color.borderSubtle,
               background: focusedTab === index
                 ? steamTheme.surface.focusedSelectedContentStat
@@ -262,20 +261,6 @@ function WhatsNewContent({ onOpenExternalUrl }: {
   );
 }
 
-const tabStyle: CSSProperties = {
-  flex: "1 1 0",
-  minWidth: 0,
-  minHeight: 38,
-  display: "grid",
-  placeItems: "center",
-  border: `1px solid ${steamTheme.color.borderSubtle}`,
-  borderRadius: steamTheme.radius.pill,
-  color: steamTheme.color.textPrimary,
-  fontSize: steamTheme.type.fullscreen.body,
-  fontWeight: steamTheme.type.weight.strong,
-  cursor: "pointer",
-};
-
 const noteRowStyle: CSSProperties = {
   display: "flex",
   alignItems: "flex-start",
@@ -328,32 +313,17 @@ const kofiIconStyle: CSSProperties = {
 };
 
 export function openDeckyWhatsNewModal(): void {
-  let modal: ReturnType<typeof showModal> | undefined;
-  let closed = false;
   let externalNavigationStarted = false;
-  const closeModal = (): void => {
-    if (closed) return;
-    closed = true;
-    modal?.Close();
-  };
-  const openExternalUrl = (url: string): void => {
-    if (externalNavigationStarted) return;
-    externalNavigationStarted = true;
-    closeModal();
-    DeckyNavigation.NavigateToExternalWeb(url);
-  };
-  modal = showModal(
-    <ConfirmModal
-      strTitle="Whats New"
-      strOKButtonText="Close"
-      bAlertDialog
-      closeModal={closeModal}
-      onOK={closeModal}
-      onCancel={closeModal}
-    >
-      <WhatsNewContent onOpenExternalUrl={openExternalUrl} />
-    </ConfirmModal>,
-    undefined,
-    { strTitle: "Whats New", bHideMainWindowForPopouts: false },
-  );
+  openDeckyStandardModal({
+    title: "Whats New",
+    renderContent: (closeModal) => {
+      const openExternalUrl = (url: string): void => {
+        if (externalNavigationStarted) return;
+        externalNavigationStarted = true;
+        closeModal();
+        DeckyNavigation.NavigateToExternalWeb(url);
+      };
+      return <WhatsNewContent onOpenExternalUrl={openExternalUrl} />;
+    },
+  });
 }

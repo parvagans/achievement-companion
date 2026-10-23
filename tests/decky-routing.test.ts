@@ -437,7 +437,18 @@ test("compact-to-full-screen navigation enters the route before closing QAM", ()
   }
 });
 
-test("full-screen hierarchy uses native Back without a parallel game stack", () => {
+test("achievement launch from QAM leaves its source panel open beneath the modal", () => {
+  const navigationSource = readFileSync("src/platform/decky/decky-navigation.tsx", "utf8");
+  const achievementBranch = navigationSource.slice(
+    navigationSource.indexOf('if (buildFullScreenAchievementRoute(target) !== undefined)'),
+    navigationSource.indexOf('const providerSessionTab = getProviderSessionTabForNavigationTarget(target)',
+      navigationSource.indexOf('if (buildFullScreenAchievementRoute(target) !== undefined)')),
+  );
+  assert.match(achievementBranch, /navigateToFullScreenAchievement\(target\.providerId!, target\.gameId!, target\.achievementId!\)/u);
+  assert.doesNotMatch(achievementBranch, /CloseSideMenus|DeckyNavigation\.Navigate\(/u);
+});
+
+test("achievement modal leaves the source route mounted and keeps native game Back", () => {
   const navigationSource = readFileSync(
     "src/platform/decky/decky-navigation.tsx",
     "utf8",
@@ -455,7 +466,9 @@ test("full-screen hierarchy uses native Back without a parallel game stack", () 
     navigationSource.indexOf("function DeckyFullScreenAchievementRoute"),
     navigationSource.indexOf("function DeckyFullScreenAchievementHistoryRoute"),
   );
-  assert.doesNotMatch(achievementRouteSource, /onBack|NavigateBack|vgp_oncancel/u);
+  assert.match(achievementRouteSource, /openDeckyAchievementDetailModal/u);
+  assert.match(achievementRouteSource, /DeckyFullScreenGameRouteContent/u);
+  assert.doesNotMatch(achievementRouteSource, /DeckyFullScreenAchievementPage|vgp_oncancel/u);
   assert.match(navigationSource, /function DeckyFullScreenGameRoute[\s\S]*DeckyNavigation\.NavigateBack\(\)/u);
   assert.doesNotMatch(stateSource, /fullScreenGameRouteBackBehaviors|achievementReturnTarget/u);
   assert.doesNotMatch(navigationSource, /window\.history|history\.back|pushState|replaceState/u);

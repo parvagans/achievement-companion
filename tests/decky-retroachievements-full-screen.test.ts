@@ -386,38 +386,36 @@ test("RetroAchievements refresh success is represented by a green action label, 
   });
 });
 
-test("full-screen provider settings share Steam geometry and keep About/Updates in the footer page", async () => {
-  const [raSource, steamSource, actionRowSource, sharedSectionSource] = await Promise.all([
+test("full-screen provider settings keep every control in one navigable pane", async () => {
+  const [raSource, steamSource, generalSource, appearanceSource, sharedSectionSource] = await Promise.all([
     readFile(new URL("../src/platform/decky/providers/retroachievements/provider-settings-page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-full-screen-settings-page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../src/platform/decky/decky-provider-settings-action-row.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-about-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-shared-appearance-settings.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-settings-section.tsx", import.meta.url), "utf8"),
   ]);
 
-  assert.match(raSource, /type RetroAchievementsSettingsSection = "account" \| "profile" \| "fullscreen" \| "compact" \| "data"/u);
-  assert.match(steamSource, /type SteamSettingsSection = "account" \| "steamhunters" \| "fullscreen" \| "compact" \| "data"/u);
-  assert.match(raSource, /SettingsSectionPill title="Account"[\s\S]*SettingsSectionPill title="Profile Settings"[\s\S]*SettingsSectionPill title="Full-Screen Settings"[\s\S]*SettingsSectionPill title="Compact Settings"[\s\S]*SettingsSectionPill title="Data"/u);
-  assert.match(steamSource, /SettingsSectionPill title="Account"[\s\S]*SettingsSectionPill title="Full-Screen Settings"[\s\S]*SettingsSectionPill title="Compact Settings"[\s\S]*SettingsSectionPill title="Data"/u);
   for (const source of [raSource, steamSource]) {
-    assert.doesNotMatch(source, /SettingsSectionPill title="Updates"|SettingsSectionPill title="About"/u);
-    assert.match(source, /data-settings-data-layout[\s\S]*data-settings-danger-zone/u);
-    assert.doesNotMatch(source, /data-settings-column="right"/u);
-    assert.doesNotMatch(source, /maxWidth: 560/u);
+    assert.doesNotMatch(source, /data-settings-section-tabs|useDeckySettingsSectionTriggers/u);
+    assert.match(source, /settingsScrollStyle/u);
     assert.match(source, /handleDeckySettingsDirection\(pageRef\.current, event\)/u);
   }
+  assert.match(raSource, /SettingsGroup title="ACCOUNT"[\s\S]*SettingsGroup title="PROFILE"[\s\S]*SettingsGroup title="ACTIVITY"[\s\S]*SettingsGroup title="DATA & SYNC"/u);
+  assert.match(raSource, /retroAchievementsRankDisplay[\s\S]*retroAchievementsAchievementMode[\s\S]*retroAchievementsFullscreenActivityCalendarWeeks[\s\S]*retroAchievementsCompactActivityCalendarWeeks/u);
+  assert.match(raSource, /Recheck subset links on next game open[\s\S]*Sign Out of RetroAchievements/u);
+  assert.match(steamSource, /aria-label="Steam account settings"[\s\S]*aria-label="SteamHunters settings"[\s\S]*aria-label="Steam activity settings"[\s\S]*aria-label="Steam data and sync"/u);
+  assert.match(steamSource, /steamFullscreenActivityCalendarWeeks[\s\S]*steamCompactActivityCalendarWeeks[\s\S]*Clear Cached Data[\s\S]*Reset Steam Data/u);
+  assert.match(generalSource, /DeckySharedAppearanceSettings[\s\S]*DeckyUpdateSettingsPanel[\s\S]*AboutLink title="Changelog"/u);
+  assert.match(appearanceSource, /gamePageAchievementBadgeSize[\s\S]*gamePageAchievementBadgePosition[\s\S]*gamePageAchievementBadgeColors/u);
   assert.match(sharedSectionSource, /width: "100%", boxSizing: "border-box", overflow: "hidden"/u);
-  assert.match(sharedSectionSource, /button === GamepadButton\.DIR_DOWN[\s\S]*focus\(controls\[controlIndex \+ 1\]\)/u);
-  assert.match(sharedSectionSource, /button === GamepadButton\.DIR_UP[\s\S]*pill\.getAttribute\("aria-pressed"\) === "true"/u);
+  assert.match(raSource, /<DeckySettingsSection themeVariant="ra"><div[\s\S]*<DeckySettingsGeneralLink onOpen=\{onOpenGeneralSettings\}/u);
+  assert.match(steamSource, /<SteamSettingsContent><div[\s\S]*<DeckySettingsGeneralLink onOpen=\{onOpenGeneralSettings\}/u);
+  assert.match(raSource, /fontFamily: steamTheme\.type\.fontFamily/u);
+  assert.match(steamSource, /fontFamily: steamTheme\.type\.fontFamily/u);
   assert.match(raSource, /height: viewportHeight \?\? "100vh"[\s\S]*43px\) 12px 50px/u);
   assert.match(raSource, /<DeckySettingsSection themeVariant="ra">/u);
-  assert.match(raSource, /getSteamCompactAchievementFilterStyle\(selected, focused\)/u);
   assert.match(raSource, /className="ac-ra-fullscreen-settings-page" data-ac-steam-theme="fullscreen"/u);
   assert.doesNotMatch(raSource, /className="ac-ra-fullscreen-settings-page" data-ac-ra-theme="fullscreen"/u);
-  assert.match(raSource, /selectedSection === "profile"[\s\S]*DeckySettingsDropdown themeVariant="ra" label="Rank Display"[\s\S]*DeckySettingsDropdown themeVariant="ra" label="Achievement Mode"/u);
-  assert.match(raSource, /selectedSection === "fullscreen"[\s\S]*DeckySettingsDropdown themeVariant="ra" label="Activity Calendar"[^\n]*value=\{settings\.retroAchievementsFullscreenActivityCalendarWeeks\}/u);
-  assert.match(raSource, /selectedSection === "compact"[\s\S]*DeckySettingsDropdown themeVariant="ra" label="Recent Activity"[\s\S]*DeckySettingsDropdown themeVariant="ra" label="Recently Played"[\s\S]*DeckySettingsDropdown themeVariant="ra" label="Activity Calendar"[^\n]*value=\{settings\.retroAchievementsCompactActivityCalendarWeeks\}/u);
-  assert.match(raSource, /onGamepadBlur=\{\(\) => setFocused\(false\)\}/u);
-  assert.match(actionRowSource, /onGamepadBlur=\{\(\) => \{\s*setIsFocused\(false\);\s*\}\}/u);
 });
 
 test("RA settings use Steam's native modal dropdown interaction and separate calendar values", async () => {
@@ -444,7 +442,7 @@ test("compact RA counts follow saved preferences and settings no longer hide sub
   assert.match(compactSource, /snapshot\.recentlyPlayedGames\.slice\(0, recentlyPlayedCount\)/u);
   assert.doesNotMatch(settingsSource, /label="Show subsets"|label="Default Completion Progress filter"/u);
   assert.match(completionSource, /showSubsets=\{true\}/u);
-  assert.match(aboutSource, /fontSize: steamTheme\.type\.fullscreen\.hero[\s\S]*>Achievement Companion<\/div>/u);
+  assert.match(aboutSource, /GENERAL SETTINGS[\s\S]*APPEARANCE · SHARED[\s\S]*HELP &amp; LINKS/u);
   assert.doesNotMatch(aboutSource, /AC_decky_compact_logo\.png/u);
 });
 
@@ -554,6 +552,7 @@ test("RA Games uses award/status semantics and recent unlock ordering", () => {
     title: "Mastered",
     status: "mastered",
     lastUnlockAt: 100,
+    metrics: [{ key: "highest-award-kind", label: "Highest Award", value: "mastered-hardcore" }],
   };
   const beaten: NormalizedGame = {
     ...game,
@@ -561,6 +560,7 @@ test("RA Games uses award/status semantics and recent unlock ordering", () => {
     title: "Beaten",
     status: "beaten",
     lastUnlockAt: 200,
+    metrics: [{ key: "highest-award-kind", label: "Highest Award", value: "beaten-hardcore" }],
   };
 
   assert.equal(matchesSteamGamesFilter(mastered, "mastered"), true);
@@ -583,39 +583,20 @@ test("RA full-screen Games excludes subset rows; parent game pages own subset na
   assert.deepEqual(visible.map((entry) => entry.gameId), [game.gameId]);
 });
 
-test("RA full-screen profile uses the single tall identity card with one external profile link", async () => {
-  const source = await readFile(
-    new URL("../src/platform/decky/decky-retroachievements-full-screen-profile-dashboard.tsx", import.meta.url),
-    "utf8",
-  );
-
-  assert.match(source, /gridTemplateColumns: "repeat\(6, minmax\(0, 1fr\)\)"/u);
-  assert.match(source, /gridTemplateAreas: '"profile profile dashboard dashboard dashboard dashboard"'/u);
-  assert.match(source, /function rightColumnStyle\(hasSystems: boolean\)[\s\S]*gridArea: "dashboard"/u);
-  assert.match(source, /data-ra-profile-systems/u);
-  assert.match(source, /Top systems by \{model\.initialAchievementMode\} unlocks/u);
-  assert.match(source, /system\.unlockedAchievements\.toLocaleString\(\)/u);
-  assert.match(source, /system\.completionPercent \?\? 0/u);
-  assert.match(source, /panelStyle\("profile"\)[\s\S]*label="View on RetroAchievements"/u);
-  assert.match(source, /onClick=\{\(\) => onOpenExternalUrl\(profileUrl\)\}/u);
-  assert.match(source, /formatProfileMemberSince\(model\.profile\.metrics, \{ month: "long" \}\)/u);
-  assert.match(source, /RA account/u);
-  assert.match(source, /formatFullscreenLastSync\(refreshedAt\)/u);
-  assert.match(source, /gridArea: area[\s\S]*<section style=\{panelStyle\("profile"\)\}>/u);
-  assert.doesNotMatch(source, /label="(?:Mastered|Beaten) Games"/u);
-  assert.match(source, /ProfileStat icon=\{<DeckyRetroAchievementsPointsIcon size=\{14\} \/>\} label=\{model\.initialAchievementMode === "softcore" \? "Softcore Points" : "Points Earned"\}/u);
+test("RA full-screen Profile keeps identity compact and uses saved-mode progress", async () => {
+  const source = await readFile(new URL("../src/platform/decky/decky-retroachievements-full-screen-profile-dashboard.tsx", import.meta.url), "utf8");
+  assert.match(source, /"profile profile profile profile profile profile"/u);
+  assert.match(source, /"progress progress" "systems completions"/u);
+  assert.match(source, /width: 70, height: 70/u);
+  assert.match(source, /data-ra-profile-avatar-link="true"/u);
+  assert.doesNotMatch(source, /label="View RA profile"/u);
+  assert.doesNotMatch(source, /Saved mode:/u);
   assert.match(source, /allowModeSelection=\{model\.initialAchievementMode === "both"\}/u);
-  assert.match(source, /total=\{model\.completionAwardCounts\[completion\.kind\]\}/u);
-  assert.match(source, /<ProfileAwardIcon kind=\{kind\} \/>/u);
-  assert.match(source, /ProfileStat icon=\{<DeckyRetroAchievementsPointsIcon size=\{14\} \/>\} label="RetroPoints"/u);
-  assert.match(source, /calendarIconUrl/u);
-  assert.match(source, /trophyIconUrl/u);
-  assert.doesNotMatch(source, /RETROACHIEVEMENTS PROFILE/u);
-  assert.doesNotMatch(source, /model\.profile\.motto/u);
-  assert.doesNotMatch(source, /RECENT ACTIVITY|RECENTLY PLAYED/u);
-  assert.doesNotMatch(source, /label="Settings"|label="Completion Progress"|label="Achievement History"/u);
+  assert.match(source, /<ModeChip mode="hardcore"[\s\S]*<ModeChip mode="softcore"[\s\S]*<ModeChip mode="both"/u);
+  assert.match(source, /<DeckyCompletionProgressBar percent=\{progress\.completionPercent\} showCaption=\{false\}/u);
+  assert.match(source, /const onOpen = \(\): void => onOpenCompletionProgress\(kind\)/u);
+  assert.match(source, /onClick=\{\(\) => onOpenExternalUrl\(profileUrl\)\}/u);
 });
-
 test("RA full-screen profile systems aggregate unlocked achievements by console and keep the top three", () => {
   const systems = getRetroAchievementsProfileSystems([
     { ...game, gameId: "nes-1", platformId: "7", platformLabel: "NES", systemIconUrl: "nes.png", summary: { unlockedCount: 200, totalCount: 400 } },
@@ -634,46 +615,25 @@ test("RA full-screen profile systems aggregate unlocked achievements by console 
   assert.equal(systems[2]?.completionPercent, 52);
 });
 
-test("RA full-screen profile exposes every system in a horizontal controller rail", async () => {
-  const source = await readFile(
-    new URL("../src/platform/decky/decky-retroachievements-full-screen-profile-dashboard.tsx", import.meta.url),
-    "utf8",
-  );
-
-  assert.match(source, /flow-children="left-right"[\s\S]*style=\{systemsRailStyle\(\)\}/u);
-  assert.match(source, /overflowX: "auto"/u);
-  assert.match(source, /new ownerWindow\.MutationObserver\(syncArrowVisibility\)/u);
-  assert.match(source, /card\.classList\.contains\("gpfocus"\)/u);
-  assert.match(source, /leftSystemsArrowRef\.current\.style\.visibility = cards\.length > 1 && focusedIndex > 0/u);
-  assert.match(source, /rightSystemsArrowRef\.current\.style\.visibility = cards\.length > 1 && focusedIndex < cards\.length - 1/u);
-  assert.match(source, /data-ra-profile-system-arrow="left"/u);
-  assert.match(source, /data-ra-profile-system-arrow="right"/u);
-  assert.match(source, /data-ra-profile-system=\{system\.systemId\}/u);
-  assert.match(source, /focusClassName="achievement-companion-ra-profile-system--focused"/u);
-  assert.match(source, /<DeckyFocusStyles \/>/u);
-  assert.match(source, /onGamepadFocus=\{\(event\) => focusCard\(event\.currentTarget\)\}/u);
-  assert.match(source, /scrollSystemCardIntoView\(target\)/u);
+test("RA Profile shows three compact system links into Games", async () => {
+  const source = await readFile(new URL("../src/platform/decky/decky-retroachievements-full-screen-profile-dashboard.tsx", import.meta.url), "utf8");
+  assert.match(source, /model\.systems\.slice\(0, 3\)\.map/u);
+  assert.match(source, /flow-children="vertical"[\s\S]*style=\{systemsRailStyle\(\)\}/u);
+  assert.match(source, /gridTemplateRows: "repeat\(3, minmax\(0, 1fr\)\)"/u);
   assert.match(source, /onActivate=\{\(\) => onOpenSystem\(system\)\}/u);
-  assert.match(source, /getBoundingClientRect\(\)/u);
-  assert.match(source, /gridColumn: "1 \/ -1"[\s\S]*\{system\.title\}/u);
-  assert.match(source, /iconSize=\{44\}/u);
-  assert.match(source, /textOverflow: "ellipsis", whiteSpace: "nowrap"/u);
-  assert.match(source, /\.\.\.\(index === 0 \? \{ onGamepadDirection: handleBoundaryDirection \} : \{\}\)/u);
-  assert.match(source, /event\.detail\.button === GamepadButton\.DIR_LEFT/u);
-  assert.match(source, /event\.detail\.button === GamepadButton\.DIR_RIGHT/u);
-  assert.match(source, /data-ra-profile-external-action/u);
-  assert.match(source, /profileActionRef\.current\?\.querySelector<HTMLElement>\("\[role='button'\]"\)/u);
-  assert.match(source, /onExitLeft=\{index === 0 \? focusProfileAction : undefined\}/u);
-  assert.match(source, /onMoveRight=\{index === 0 && model\.systems\.length > 1 \? focusSecondSystem : undefined\}/u);
-  assert.match(source, /querySelectorAll<HTMLElement>\("\[data-ra-profile-system\]"\)\[1\]/u);
-  assert.doesNotMatch(source, /useState\(0\)/u);
+  assert.match(source, /data-ra-profile-system=\{system\.systemId\}/u);
+  assert.match(source, /querySelector<HTMLElement>\("\[data-ra-profile-system\]"\)/u);
+});
 
-  const themeSource = await readFile(
-    new URL("../src/platform/decky/ra-theme.ts", import.meta.url),
-    "utf8",
-  );
-  assert.match(themeSource, /\.achievement-companion-ra-profile-system--focused/u);
-  assert.match(themeSource, /box-shadow: \$\{raTheme\.focus\.shadow\} !important/u);
+test("RA Profile navigates both card columns vertically and opens completion filters in Games", async () => {
+  const [dashboard, page] = await Promise.all([
+    readFile(new URL("../src/platform/decky/decky-retroachievements-full-screen-profile-dashboard.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-full-screen-profile-page.tsx", import.meta.url), "utf8"),
+  ]);
+  assert.match(dashboard, /const moveWithinSystems = [\s\S]*index \+ offset[\s\S]*focusAvatarLinkWithSound\(event\)/u);
+  assert.match(dashboard, /const moveWithinCompletions = [\s\S]*index \+ offset[\s\S]*focusAvatarLinkWithSound\(event\)/u);
+  assert.match(dashboard, /onOpenCompletionProgress\(kind\)/u);
+  assert.match(page, /onOpenCompletionProgress=\{\(filter\) => onOpenCompletionProgress\(profile\.providerId, filter\)\}/u);
 });
 
 test("RA profile system aggregation can return the complete sorted system rail", () => {

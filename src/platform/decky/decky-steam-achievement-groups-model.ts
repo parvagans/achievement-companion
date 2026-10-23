@@ -4,6 +4,7 @@ import {
   type SteamHuntersAchievementGroup,
   type SteamHuntersAchievementGroupKind,
 } from "../../providers/steamhunters";
+import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
 
 export interface DeckySteamAchievementGroupSection {
   readonly id: string;
@@ -12,6 +13,18 @@ export interface DeckySteamAchievementGroupSection {
   readonly bannerUrl?: string;
   readonly artworkAppId?: number;
   readonly achievements: readonly NormalizedAchievement[];
+}
+
+/** The SteamHunters groups API has no art for unlinked updates; use the parent game's banner. */
+export function getDeckySteamAchievementGroupArtworkUrl(
+  section: Pick<DeckySteamAchievementGroupSection, "kind" | "bannerUrl" | "artworkAppId">,
+  gameArtworkUrl: string | undefined,
+): string | undefined {
+  return section.bannerUrl
+    ?? (section.artworkAppId !== undefined
+      ? getSteamFullscreenGameArtworkUrl({ appid: section.artworkAppId })
+      : undefined)
+    ?? (section.kind === "base-game" || section.kind === "update" ? gameArtworkUrl : undefined);
 }
 
 function getGroupId(group: SteamHuntersAchievementGroup, index: number): string {

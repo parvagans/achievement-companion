@@ -712,7 +712,6 @@ export function DeckyFullScreenCompletionProgressPage({
     return (
       <DeckySteamFullScreenGamesDashboard
         snapshot={dashboardSnapshot}
-        {...(snapshot.providerId === RETROACHIEVEMENTS_PROVIDER_ID ? { achievementProgressGames: snapshot.games } : {})}
         isActive={isActive}
         initialFilter={currentFilter}
         showSteamProfileFooter={showSteamProfileFooter}

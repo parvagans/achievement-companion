@@ -161,7 +161,8 @@ test("Arcade focus, activity, and calendar colors flow through shared theme role
   assert.match(achievementCompanionQamTheme.surface.activityTrendFill, /--ac-activity-trend-fill/u);
   assert.match(achievementCompanionQamTheme.color.primaryActionBorder, /--ac-primary-action-border/u);
 
-  const activitySource = readFileSync("src/platform/decky/decky-steam-full-screen-activity-dashboard.tsx", "utf8");
+  const activitySource = readFileSync("src/platform/decky/decky-steam-full-screen-activity-dashboard.tsx", "utf8")
+    + readFileSync("src/platform/decky/decky-full-screen-activity-analytics.tsx", "utf8");
   const achievementRowSource = readFileSync("src/platform/decky/decky-full-screen-achievement-row.tsx", "utf8");
   const actionCssSource = readFileSync("src/platform/decky/decky-full-screen-action-styles.ts", "utf8");
   assert.match(activitySource, /ACTIVITY_CALENDAR_COLORS: Record<SteamActivityCalendarIntensity, string> = qamActivityCalendarColors/u);
@@ -203,13 +204,14 @@ test("ordinary icon, avatar, progress, footer, and loading chrome use centralize
 test("achievement details and community panels use the selected palette", () => {
   const primaryAction = readFileSync("src/platform/decky/decky-compact-primary-action.tsx", "utf8");
   const compactDetail = readFileSync("src/platform/decky/decky-achievement-detail-view.tsx", "utf8");
-  const fullscreenDetail = readFileSync("src/platform/decky/decky-full-screen-achievement-page.tsx", "utf8");
+  const fullscreenDetail = readFileSync("src/platform/decky/decky-achievement-detail-modal.tsx", "utf8");
   const steamProfile = readFileSync("src/platform/decky/decky-steam-compact-profile.tsx", "utf8");
   const community = readFileSync("src/platform/decky/decky-full-screen-game-community-layout.tsx", "utf8");
 
   assert.match(primaryAction, /filter: qamTheme\.decorative\.iconFilter/u);
   assert.match(compactDetail, /filter: achievementCompanionQamTheme\.decorative\.iconFilter/u);
-  assert.match(fullscreenDetail, /: sharedTheme\.decorative\.iconFilter/u);
+  assert.match(fullscreenDetail, /theme\.surface\.contentStat/u);
+  assert.match(fullscreenDetail, /theme\.color\.textPrimary/u);
   assert.match(steamProfile, /color: steamTheme\.color\.accent, fontWeight: 800/u);
   assert.match(community, /qamActivityCalendarColors\[1\]/u);
   assert.match(community, /qamActivityCalendarColors\[4\]/u);

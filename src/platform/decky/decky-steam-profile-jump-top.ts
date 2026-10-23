@@ -7,7 +7,9 @@ export function jumpDeckySteamProfileTabToTop(document: Document, tab: "games" |
     : "[data-steam-full-screen-activity-dashboard]");
   const target = root?.querySelector<HTMLElement>(tab === "games"
     ? "[data-steam-games-toolbar-control='search']"
-    : "[data-steam-activity-filter='true']");
+    : root.dataset["activitySubviewActive"] === "analytics"
+      ? "[data-activity-subview='analytics']"
+      : "[data-steam-activity-filter='true']");
   if (root === null || root === undefined || target === null || target === undefined) return false;
 
   const list = root.querySelector<HTMLElement>(tab === "games"

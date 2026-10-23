@@ -7,7 +7,11 @@ import {
 } from "@decky/ui";
 import type { NormalizedAchievement } from "@core/domain";
 import type { SteamHuntersAchievement } from "../../providers/steamhunters";
-import { sortDeckySteamAchievementGroupAchievements, type DeckySteamAchievementGroupSection } from "./decky-steam-achievement-groups-model";
+import {
+  getDeckySteamAchievementGroupArtworkUrl,
+  sortDeckySteamAchievementGroupAchievements,
+  type DeckySteamAchievementGroupSection,
+} from "./decky-steam-achievement-groups-model";
 export { buildDeckySteamAchievementGroupSections, hasDeckySteamAchievementGroups } from "./decky-steam-achievement-groups-model";
 export type { DeckySteamAchievementGroupSection } from "./decky-steam-achievement-groups-model";
 import { DeckyCompletionProgressBar } from "./decky-completion-progress-bar";
@@ -16,7 +20,6 @@ import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
-import { getSteamFullscreenGameArtworkUrl } from "./decky-steam-game-artwork";
 import { steamTheme } from "./steam-theme";
 
 const STEAM_GROUP_NAVIGATION_SOUND_URL = "/sounds/deck_ui_navigation.wav";
@@ -125,7 +128,6 @@ function getCompletionPercent(achievements: readonly NormalizedAchievement[]): n
 export function DeckySteamAchievementGroupsSection({
   sections,
   gameArtworkUrl,
-  updateArtworkUrl,
   steamHuntersAchievementsBySteamAchievementId,
   expandedGroupIds,
   onExpandedGroupIdsChange,
@@ -136,7 +138,6 @@ export function DeckySteamAchievementGroupsSection({
 }: {
   readonly sections: readonly DeckySteamAchievementGroupSection[];
   readonly gameArtworkUrl: string | undefined;
-  readonly updateArtworkUrl: string;
   readonly steamHuntersAchievementsBySteamAchievementId: Readonly<Record<string, SteamHuntersAchievement>>;
   readonly expandedGroupIds: readonly string[];
   readonly onExpandedGroupIdsChange: (groupIds: readonly string[]) => void;
@@ -220,13 +221,7 @@ export function DeckySteamAchievementGroupsSection({
         const groupAchievements = sortDeckySteamAchievementGroupAchievements(section.achievements);
         const unlockedCount = section.achievements.filter((achievement) => achievement.isUnlocked).length;
         const completionPercent = getCompletionPercent(section.achievements);
-        const artworkUrl = section.bannerUrl
-          ?? (section.artworkAppId !== undefined
-            ? getSteamFullscreenGameArtworkUrl({ appid: section.artworkAppId })
-            : undefined)
-          ?? (section.kind === "base-game"
-            ? gameArtworkUrl
-            : section.kind === "update" ? updateArtworkUrl : undefined);
+        const artworkUrl = getDeckySteamAchievementGroupArtworkUrl(section, gameArtworkUrl);
         return (
           <Focusable
             key={section.id}

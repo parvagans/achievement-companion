@@ -8,11 +8,9 @@ import {
   NavEntryPositionPreferences,
   TextField,
   showContextMenu,
-  type FocusableProps,
   type GamepadEvent,
 } from "@decky/ui";
 import {
-  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -21,13 +19,12 @@ import {
   type ComponentProps,
   type CSSProperties,
   type FC,
-  type RefObject,
   type RefCallback,
 } from "react";
 import type { CompletionProgressSelectionFilter } from "./decky-completion-progress-summary-card-data";
-import type { CompletionProgressSort } from "./decky-completion-progress-grouping";
 import {
   DeckyFullScreenFooterOverlay,
+  clearDeckyFullscreenOnScreenKeyboardOpen,
   markDeckyFullscreenOnScreenKeyboardOpen,
   RETROACHIEVEMENTS_PROFILE_FOOTER_NAVIGATION_ITEMS,
   STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS,
@@ -35,26 +32,20 @@ import {
 } from "./decky-full-screen-footer-overlay";
 import { registerDeckyFullscreenPopupCancel } from "./decky-full-screen-popup-state";
 import { DeckyGameArtwork } from "./decky-game-artwork";
-import { DeckyGameStatusIcon } from "./decky-game-status-icon";
 import {
   DeckyRetroAchievementsGameIcon,
   DECKY_RA_FULLSCREEN_GAME_ICON_COLUMN_WIDTH,
 } from "./decky-retroachievements-game-icon";
-import { DeckySystemIcon } from "./decky-system-pill";
 import { filterRetroAchievementsGamesBySystem, getRetroAchievementsSystemKey } from "./decky-retroachievements-full-screen-profile-data";
 import {
   formatRetroAchievementsCompletionIndicatorLabel,
   getRetroAchievementsCompletionIndicatorState,
 } from "./decky-retroachievements-completion-indicator";
-import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
+import { scrollDeckyFocusTargetIntoView, scrollDeckyFocusTargetToTop } from "./decky-focus-scroll";
+import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
+import { formatSteamPlaytimeMinutes, getSteamCompletionProgressGameDetailId } from "./decky-stat-helpers";
 import {
-  formatRetroAchievementsPlaytimeSeconds,
-  formatSteamPlaytimeMinutes,
-  getSteamCompletionProgressGameDetailId,
-} from "./decky-stat-helpers";
-import { loadDeckyRetroAchievementsGamePlaytimeSeconds } from "./decky-app-services";
-import {
-  getSteamFullscreenGameArtworkUrl,
+  getSteamHeroArtworkSources,
   STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT,
   STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH,
   STEAM_FULLSCREEN_GAME_ROW_HEIGHT,
@@ -64,19 +55,12 @@ import {
   formatSteamGamesActivityDate,
   getSteamGamesPercentage,
   selectSteamGames,
-  summarizeSteamGamesDashboard,
-  type SteamGamesDashboardSummary,
   type SteamGamesFilter,
+  type SteamGamesSort,
 } from "./decky-steam-full-screen-games-data";
-import barChartIconUrl from "./assets/bar-chart.svg";
-import calendarIconUrl from "./assets/calendar.svg";
 import caretDownIconUrl from "./assets/caret-down.svg";
 import chevronRightIconUrl from "./assets/chevron-right.svg";
-import clockIconUrl from "./assets/clock.svg";
 import crownIconUrl from "./assets/achievement-badge/crown-laurel.svg";
-import gamepadIconUrl from "./assets/gamepad.svg";
-import listIconUrl from "./assets/list.svg";
-import prohibitedIconUrl from "./assets/prohibited.svg";
 import searchIconUrl from "./assets/search.svg";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
@@ -86,13 +70,14 @@ import {
   readDeckyGamesPageState,
   rememberDeckyGamesControls,
   rememberDeckyGamesFocus,
+  rememberDeckyGamesProfileShortcut,
   rememberDeckyGamesRenderLimit,
   rememberDeckyGamesScrollTop,
-  rememberDeckyGamesSystem,
+  rememberDeckyGamesSystemFilter,
+  resetDeckyGamesPageState,
 } from "./decky-steam-full-screen-games-state";
 import { useDeckySettings } from "./decky-settings";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
-import { raTheme } from "./ra-theme";
 import { getRetroAchievementsPlayedGameProgress } from "./decky-retroachievements-compact-profile-model";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
@@ -106,24 +91,25 @@ const STEAM_GAMES_ICON_FILTERS = {
   blue: steamTheme.iconFilter.accent,
   gold: steamTheme.iconFilter.reward,
   light: steamTheme.iconFilter.primary,
-  red: steamTheme.iconFilter.danger,
 } as const;
 const SteamGamesSearchField = TextField as unknown as FC<
   ComponentProps<typeof TextField> & { readonly placeholder?: string }
 >;
 
-const STEAM_GAMES_SORT_OPTIONS: readonly {
-  readonly value: CompletionProgressSort;
-  readonly label: string;
-}[] = [
-  { value: "recent", label: "Most Recent" },
-  { value: "title", label: "Title" },
-  { value: "completion", label: "Completion %" },
+const STEAM_GAMES_SORT_OPTIONS: readonly { readonly value: SteamGamesSort; readonly label: string }[] = [
+  { value: "recent", label: "Last played" },
+  { value: "completion", label: "Highest completion" },
+  { value: "fewest_remaining", label: "Fewest remaining" },
+];
+
+const RA_GAMES_SORT_OPTIONS: readonly { readonly value: SteamGamesSort; readonly label: string }[] = [
+  { value: "recent", label: "Last unlock" },
+  { value: "completion", label: "Highest completion" },
+  { value: "fewest_remaining", label: "Fewest remaining" },
 ];
 
 export interface DeckySteamFullScreenGamesDashboardProps {
   readonly snapshot: CompletionProgressSnapshot;
-  readonly achievementProgressGames?: readonly NormalizedGame[];
   readonly isActive?: boolean;
   readonly initialFilter?: CompletionProgressSelectionFilter;
   readonly showSteamProfileFooter?: boolean;
@@ -133,8 +119,6 @@ export interface DeckySteamFullScreenGamesDashboardProps {
   readonly onOpenGameDetail: (gameId: string) => void;
 }
 
-type SteamGamesGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
-
 function formatCount(value: number): string {
   return value.toLocaleString();
 }
@@ -143,16 +127,6 @@ function formatPercent(value: number): string {
   return `${value.toLocaleString(undefined, {
     maximumFractionDigits: value > 0 && value < 1 ? 1 : 0,
   })}%`;
-}
-
-function formatModeProgressLabel(
-  label: "Hardcore" | "Softcore",
-  summary: NormalizedGame["summary"] | undefined,
-): string | undefined {
-  if (summary === undefined) return undefined;
-  return summary.totalCount === undefined
-    ? `${label} ${formatCount(summary.unlockedCount)} unlocked`
-    : `${label} ${formatCount(summary.unlockedCount)}/${formatCount(summary.totalCount)}`;
 }
 
 function normalizeInitialFilter(
@@ -180,9 +154,6 @@ function SteamGamesRouteStyles(): JSX.Element {
   outline: none !important;
   border-color: ${steamTheme.color.accentStrong} !important;
   box-shadow: ${steamTheme.focus.insetShadow} !important;
-}
-.${STEAM_GAMES_FOCUS_CLASS}[data-steam-games-filter].gpfocus[aria-pressed="true"] {
-  box-shadow: ${steamTheme.focus.insetShadow}, ${steamTheme.selection.compactUnderline} !important;
 }
 .${STEAM_GAMES_SEARCH_CLASS}:focus,
 .${STEAM_GAMES_SEARCH_CLASS}:focus-within {
@@ -248,147 +219,63 @@ function getPageStyle(): CSSProperties {
   };
 }
 
-function getSummaryGridStyle(isRa: boolean): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: `repeat(${isRa ? 4 : 5}, minmax(0, 1fr)) minmax(230px, 2.2fr)`,
-    gap: 6,
-    minWidth: 0,
-  };
-}
-
-function getMetricCardStyle(): CSSProperties {
-  return {
-    ...steamRecipes.metricTile("fullscreen"),
-    display: "grid",
-    gridTemplateColumns: "34px minmax(0, 1fr)",
-    alignItems: "center",
-    gap: 7,
-    minWidth: 0,
-    minHeight: 58,
-    padding: "7px 9px",
-    boxSizing: "border-box",
-  };
-}
-
-function getMetricValueStyle(): CSSProperties {
-  return { ...steamRecipes.text("fullscreen", "title"), minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 16, fontWeight: 700, lineHeight: 1 };
-}
-
-function getMetricLabelStyle(): CSSProperties {
-  return { ...steamRecipes.text("fullscreen", "caption"), color: steamTheme.color.accent, fontSize: 9, lineHeight: 1.2, marginTop: 4, whiteSpace: "normal" };
-}
-
-function getMetricHelperStyle(): CSSProperties {
-  return { color: "#9fb2c5", fontSize: 8, lineHeight: 1.15, marginTop: 2, whiteSpace: "normal" };
-}
-
-function MetricCard({
-  icon,
-  iconUrl,
-  iconTone = "blue",
-  value,
-  label,
-  helper,
-}: {
-  readonly icon?: JSX.Element | undefined;
-  readonly iconUrl?: string | undefined;
-  readonly iconTone?: SteamGamesIconTone;
-  readonly value: string;
-  readonly label: string;
-  readonly helper?: string;
-}): JSX.Element {
-  return (
-    <div style={getMetricCardStyle()}>
-      {icon ?? (iconUrl !== undefined ? <IconAsset size={27} src={iconUrl} tone={iconTone} /> : null)}
-      <div style={{ minWidth: 0 }}>
-        <div style={getMetricValueStyle()}>{value}</div>
-        <div style={getMetricLabelStyle()}>{label}</div>
-        {helper !== undefined ? <div style={getMetricHelperStyle()}>{helper}</div> : null}
-      </div>
-    </div>
-  );
-}
-
-function OverallProgressCard({ summary }: { readonly summary: SteamGamesDashboardSummary }): JSX.Element {
-  return (
-    <div style={{ ...getMetricCardStyle(), display: "flex", flexDirection: "column", alignItems: "stretch", gap: 6 }}>
-        <div style={{ ...steamRecipes.text("fullscreen", "metadata"), color: steamTheme.color.accent, fontSize: 10, fontWeight: 700, lineHeight: 1 }}>Completion Progress</div>
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", gap: 8 }}>
-        <div style={{ ...steamRecipes.progressTrack, height: 10 }}>
-          {summary.completionPercent !== undefined ? <div
-            style={{
-              width: `${summary.completionPercent}%`,
-              height: "100%",
-              borderRadius: 999,
-              background: steamRecipes.progressFill.completion,
-            }}
-          /> : null}
-        </div>
-        <span style={{ ...steamRecipes.text("fullscreen", "body"), fontWeight: 700 }}>
-          {summary.completionPercent === undefined ? "—" : formatPercent(summary.completionPercent)}
-        </span>
-      </div>
-      <div style={{ color: "#a7bdd2", fontSize: 9, lineHeight: 1 }}>
-        {summary.completionPercent === undefined
-          ? "Achievement totals unavailable"
-          : `${formatCount(summary.unlockedAchievements)} / ${formatCount(summary.totalAchievements)} achievements unlocked`}
-      </div>
-    </div>
-  );
-}
-
 function getToolbarStyle(isRa: boolean): CSSProperties {
   return {
     display: "grid",
-    gridTemplateColumns: "180px minmax(0, 1fr) auto",
-    alignItems: "center",
-    gap: 7,
+    gridTemplateColumns: isRa
+      ? "minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1fr) 104px 112px"
+      : "minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1.1fr) 104px 112px",
+    alignItems: "stretch",
+    gap: 8,
     minWidth: 0,
-    marginTop: 12,
-    ...(isRa ? { gridTemplateRows: "28px 28px" } : {}),
+    padding: "4px 5px 0",
+    boxSizing: "border-box",
+    gridTemplateRows: "40px",
   };
 }
 
 function getSearchWrapStyle(): CSSProperties {
-  return { position: "relative", minWidth: 0, height: 28 };
+  return { position: "relative", minWidth: 0, height: 40 };
 }
 
 function getSearchIconStyle(): CSSProperties {
-  return { position: "absolute", left: 10, top: 7, zIndex: 1, color: "#eef7ff", pointerEvents: "none" };
+  return { position: "absolute", left: 12, top: 12, zIndex: 1, color: steamTheme.color.textSecondary, pointerEvents: "none" };
 }
 
 function getSearchFieldStyle(): CSSProperties {
   return {
     width: "100%",
-    height: 28,
-    minHeight: 28,
-    padding: "0 10px 0 30px",
+    height: 40,
+    minHeight: 40,
+    padding: "0 12px 0 36px",
     boxSizing: "border-box",
-    border: "1px solid rgba(65, 132, 177, 0.32)",
+    border: `1px solid ${steamTheme.color.borderSubtle}`,
     borderRadius: 8,
-    color: "#eef5fb",
+    color: steamTheme.color.textPrimary,
     background: steamTheme.surface.contentStat,
-    fontSize: 10,
+    fontSize: 12,
   };
-}
-
-function getFilterGroupStyle(count: number): CSSProperties {
-  return { display: "grid", gridTemplateColumns: `repeat(${count}, minmax(0, 1fr))`, gap: 5, minWidth: 0 };
 }
 
 function getFilterButtonStyle(selected: boolean): CSSProperties {
   return {
     ...getSteamCompactAchievementFilterStyle(selected, false),
     minWidth: 0,
-    height: 28,
-    padding: "0 7px",
+    height: 40,
+    padding: "0 10px",
     boxSizing: "border-box",
-    fontSize: 9,
-    fontWeight: 800,
+    fontSize: 12,
+    fontWeight: 700,
     lineHeight: 1,
     whiteSpace: "nowrap",
   };
+}
+
+function getSteamGamesToolbarFocusTarget(control: HTMLElement | null | undefined): HTMLElement | null | undefined {
+  if (control?.dataset["steamGamesToolbarControl"] === "search") {
+    return control.querySelector<HTMLElement>("input") ?? control;
+  }
+  return control;
 }
 
 function handleSteamGamesToolbarDirection(event: GamepadEvent): void {
@@ -404,31 +291,18 @@ function handleSteamGamesToolbarDirection(event: GamepadEvent): void {
 
   const source = event.currentTarget as HTMLElement;
   const dashboard = source.closest<HTMLElement>("[data-steam-full-screen-games-dashboard]");
-  const isRa = dashboard?.hasAttribute("data-ac-ra-theme") === true;
-  const filterControls = Array.from(dashboard?.querySelectorAll<HTMLElement>("[data-steam-games-filter]") ?? []);
-  const topControls = Array.from(dashboard?.querySelectorAll<HTMLElement>(
-    "[data-steam-games-toolbar-control='search'], [data-steam-games-toolbar-control='system'], [data-steam-games-toolbar-control='sort']",
-  ) ?? []);
-  const isFilter = source.hasAttribute("data-steam-games-filter");
+  const controls = Array.from(dashboard?.querySelectorAll<HTMLElement>("[data-steam-games-toolbar-control]") ?? []);
+  const firstRow = dashboard?.querySelector<HTMLElement>("[data-steam-games-row='true']");
   let target: HTMLElement | null | undefined;
   if (button === GamepadButton.DIR_UP) {
-    const filterIndex = filterControls.indexOf(source);
-    target = isRa && isFilter && filterIndex >= 0
-      ? topControls[Math.min(topControls.length - 1, Math.floor(filterIndex * topControls.length / filterControls.length))] ?? source
-      : source;
+    target = source;
   } else if (button === GamepadButton.DIR_DOWN) {
-    const topIndex = topControls.indexOf(source);
-    target = isRa && !isFilter && topIndex >= 0 && filterControls.length > 0
-      ? filterControls[Math.round(topIndex * (filterControls.length - 1) / Math.max(1, topControls.length - 1))]
-      : dashboard?.querySelector<HTMLElement>("[data-steam-games-row='true']") ?? source;
+    target = firstRow ?? source;
   } else {
-    const controls = isRa
-      ? isFilter ? filterControls : topControls
-      : Array.from(dashboard?.querySelectorAll<HTMLElement>("[data-steam-games-toolbar-control]") ?? []);
     const sourceIndex = controls.indexOf(source);
-    target = controls[sourceIndex + (button === GamepadButton.DIR_LEFT ? -1 : 1)] ?? source;
+    target = sourceIndex >= 0 ? controls[sourceIndex + (button === GamepadButton.DIR_LEFT ? -1 : 1)] ?? source : source;
   }
-  if (!takeDeckySteamGamepadFocus(target)) {
+  if (!takeDeckySteamGamepadFocus(getSteamGamesToolbarFocusTarget(target)) && !takeDeckySteamGamepadFocus(target)) {
     return;
   }
 
@@ -458,76 +332,15 @@ function handleSteamGamesRowDirection(event: GamepadEvent): void {
       ? rows[sourceIndex - 1]
       : dashboard?.querySelector<HTMLElement>("[data-steam-games-toolbar-control='search']");
   } else if (button === GamepadButton.DIR_DOWN) {
-    target = rows[sourceIndex + 1]
-      ?? dashboard?.querySelector<HTMLElement>("[data-steam-games-show-more='true']")
-      ?? source;
+    target = rows[sourceIndex + 1] ?? source;
   }
 
-  if (!takeDeckySteamGamepadFocus(target)) {
+  if (!takeDeckySteamGamepadFocus(getSteamGamesToolbarFocusTarget(target)) && !takeDeckySteamGamepadFocus(target)) {
     return;
   }
   event.preventDefault();
   event.stopPropagation();
   if (target !== source) playDeckySteamNavigationSound(source.ownerDocument);
-}
-
-function handleSteamGamesShowMoreDirection(event: GamepadEvent): void {
-  const button = event.detail.button;
-  if (
-    button !== GamepadButton.DIR_UP &&
-    button !== GamepadButton.DIR_DOWN &&
-    button !== GamepadButton.DIR_LEFT &&
-    button !== GamepadButton.DIR_RIGHT
-  ) {
-    return;
-  }
-
-  const source = event.currentTarget as HTMLElement;
-  const rows = Array.from(
-    source.closest<HTMLElement>("[data-steam-full-screen-games-dashboard]")
-      ?.querySelectorAll<HTMLElement>("[data-steam-games-row='true']") ?? [],
-  );
-  const target = button === GamepadButton.DIR_UP ? rows[rows.length - 1] : source;
-  if (!takeDeckySteamGamepadFocus(target)) {
-    return;
-  }
-  event.preventDefault();
-  event.stopPropagation();
-  if (target !== source) playDeckySteamNavigationSound(source.ownerDocument);
-}
-
-function SteamGamesFilterButton({
-  label,
-  filter,
-  selected,
-  onSelect,
-  onBack,
-}: {
-  readonly label: string;
-  readonly filter: SteamGamesFilter;
-  readonly selected: boolean;
-  readonly onSelect: (filter: SteamGamesFilter) => void;
-  readonly onBack: () => void;
-}): JSX.Element {
-  return (
-    <Focusable
-      className={STEAM_GAMES_FOCUS_CLASS}
-      noFocusRing
-      role="button"
-      aria-label={label}
-      aria-pressed={selected}
-      data-steam-games-filter={filter}
-      preferredFocus={selected}
-      onActivate={() => { onSelect(filter); }}
-      onClick={() => { onSelect(filter); }}
-      onCancel={onBack}
-      onGamepadDirection={handleSteamGamesToolbarDirection}
-      data-steam-games-toolbar-control="true"
-      style={getFilterButtonStyle(selected)}
-    >
-      {label}
-    </Focusable>
-  );
 }
 
 function getSortButtonStyle(): CSSProperties {
@@ -535,34 +348,92 @@ function getSortButtonStyle(): CSSProperties {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 12,
-    width: 105,
-    height: 28,
-    padding: "0 9px",
-    border: "1px solid rgba(71, 126, 162, 0.34)",
+    gap: 8,
+    width: "100%",
+    minWidth: 0,
+    height: 40,
+    padding: "0 10px",
+    border: `1px solid ${steamTheme.color.borderSubtle}`,
     borderRadius: 8,
     boxSizing: "border-box",
-    color: "#edf6fd",
+    color: steamTheme.color.textPrimary,
     background: steamTheme.surface.contentStat,
-    fontSize: 9,
-    fontWeight: 800,
+    fontSize: 12,
+    fontWeight: 700,
     whiteSpace: "nowrap",
   };
 }
 
-function SteamGamesSortButton({
-  value,
-  onChange,
-  onBack,
-}: {
-  readonly value: CompletionProgressSort;
-  readonly onChange: (value: CompletionProgressSort) => void;
+function SteamGamesStatusButton({ value, isRa, onChange, onBack }: {
+  readonly value: SteamGamesFilter;
+  readonly isRa: boolean;
+  readonly onChange: (value: SteamGamesFilter) => void;
   readonly onBack: () => void;
 }): JSX.Element {
   const buttonRef = useRef<HTMLDivElement>(null);
   const activeMenuRef = useRef<ReturnType<typeof showContextMenu> | undefined>(undefined);
   const unregisterMenuCancelRef = useRef<(() => void) | undefined>(undefined);
-  const selectedLabel = STEAM_GAMES_SORT_OPTIONS.find((option) => option.value === value)?.label ?? "Most Recent";
+  const options: readonly { readonly value: SteamGamesFilter; readonly label: string }[] = [
+    { value: "all", label: "All games" },
+    { value: "played", label: "Played" },
+    { value: "remaining", label: "Achievements remaining" },
+    { value: "unfinished", label: isRa ? "In Progress" : "Unfinished" },
+    ...(isRa ? [
+      { value: "completed" as const, label: "Any award" },
+      { value: "beaten" as const, label: "Beaten" },
+      { value: "mastered" as const, label: "Mastered" },
+    ] : [
+      { value: "mastered" as const, label: "Perfected" },
+      { value: "beaten" as const, label: "No achievements" },
+    ]),
+  ];
+  const selectedLabel = options.find((option) => option.value === value)?.label ?? "All games";
+  const closeMenu = (): void => {
+    activeMenuRef.current?.Hide();
+    activeMenuRef.current = undefined;
+    unregisterMenuCancelRef.current?.();
+    unregisterMenuCancelRef.current = undefined;
+  };
+  const openMenu = (): void => {
+    if (activeMenuRef.current !== undefined || buttonRef.current === null) return;
+    activeMenuRef.current = showContextMenu(
+      <Menu label="Filter games by status" onCancel={closeMenu}>
+        {options.map((option) => <MenuItem key={option.value} selected={option.value === value}
+          onClick={() => { onChange(option.value); closeMenu(); }}>{option.label}</MenuItem>)}
+      </Menu>,
+      buttonRef.current,
+      { bModal: true, bMatchWidth: true },
+    );
+    unregisterMenuCancelRef.current = registerDeckyFullscreenPopupCancel(closeMenu);
+  };
+  useEffect(() => closeMenu, []);
+  return <Focusable ref={buttonRef} className={STEAM_GAMES_FOCUS_CLASS} noFocusRing role="button"
+    aria-label={`Status: ${selectedLabel}`} onActivate={openMenu} onClick={openMenu}
+    onGamepadDirection={handleSteamGamesToolbarDirection} data-steam-games-toolbar-control="status"
+    onCancel={() => { if (activeMenuRef.current !== undefined) closeMenu(); else onBack(); }}
+    style={getSortButtonStyle()}>
+    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{selectedLabel}</span>
+    <IconAsset size={12} src={caretDownIconUrl} tone="light" />
+  </Focusable>;
+}
+
+function SteamGamesSortButton({
+  value,
+  isRa,
+  onChange,
+  onBack,
+}: {
+  readonly value: SteamGamesSort;
+  readonly isRa: boolean;
+  readonly onChange: (value: SteamGamesSort) => void;
+  readonly onBack: () => void;
+}): JSX.Element {
+  const buttonRef = useRef<HTMLDivElement>(null);
+  const activeMenuRef = useRef<ReturnType<typeof showContextMenu> | undefined>(undefined);
+  const unregisterMenuCancelRef = useRef<(() => void) | undefined>(undefined);
+  const options = isRa ? RA_GAMES_SORT_OPTIONS : STEAM_GAMES_SORT_OPTIONS;
+  const selectedValue = value === "oldest" ? "recent" : value;
+  const selectedLabel = options.find((option) => option.value === selectedValue)?.label ?? (isRa ? "Last unlock" : "Last played");
 
   const closeMenu = (): void => {
     activeMenuRef.current?.Hide();
@@ -577,10 +448,10 @@ function SteamGamesSortButton({
 
     const menu = showContextMenu(
       <Menu label="Sort games" onCancel={closeMenu}>
-        {STEAM_GAMES_SORT_OPTIONS.map((option) => (
+        {options.map((option) => (
           <MenuItem
             key={option.value}
-            selected={option.value === value}
+            selected={option.value === selectedValue}
             onClick={() => {
               onChange(option.value);
               closeMenu();
@@ -600,14 +471,12 @@ function SteamGamesSortButton({
   useEffect(() => closeMenu, []);
 
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-      <span style={{ color: "#b8c8d8", fontSize: 9, whiteSpace: "nowrap" }}>Sort by</span>
       <Focusable
         ref={buttonRef}
         className={STEAM_GAMES_FOCUS_CLASS}
         noFocusRing
         role="button"
-        aria-label={`Sort by ${selectedLabel}`}
+        aria-label={`Sort: ${selectedLabel}`}
         onActivate={openMenu}
         onClick={openMenu}
         onGamepadDirection={handleSteamGamesToolbarDirection}
@@ -621,11 +490,50 @@ function SteamGamesSortButton({
         }}
         style={getSortButtonStyle()}
       >
-        <span>{selectedLabel}</span>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{selectedLabel}</span>
         <IconAsset size={12} src={caretDownIconUrl} tone="light" />
       </Focusable>
-    </div>
   );
+}
+
+function GamesSortToggle({ value, onChange, onBack }: {
+  readonly value: SteamGamesSort;
+  readonly onChange: (value: SteamGamesSort) => void;
+  readonly onBack: () => void;
+}): JSX.Element {
+  const [focused, setFocused] = useState(false);
+  const oldest = value === "oldest";
+  const toggle = (): void => onChange(value === "recent" ? "oldest" : "recent");
+  return <Focusable
+    className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
+    noFocusRing
+    role="button"
+    aria-label={oldest ? "Sort: oldest first. Select for newest first." : value === "recent"
+      ? "Sort: newest first. Select for oldest first."
+      : "Select to sort by newest activity."}
+    aria-pressed={oldest}
+    preferredFocus={oldest}
+    data-steam-games-toolbar-control="chronology"
+    onActivate={toggle}
+    onClick={toggle}
+    onCancel={onBack}
+    onGamepadDirection={handleSteamGamesToolbarDirection}
+    onFocus={() => setFocused(true)}
+    onGamepadFocus={() => setFocused(true)}
+    onBlur={() => setFocused(false)}
+    onGamepadBlur={() => setFocused(false)}
+    style={{
+      ...getSteamCompactAchievementFilterStyle(oldest, focused),
+      width: "100%",
+      minWidth: 0,
+      minHeight: 36,
+      boxSizing: "border-box",
+      padding: "7px 10px",
+      fontSize: 12,
+      fontWeight: 700,
+      whiteSpace: "nowrap",
+    }}
+  >{oldest ? "↑ Oldest" : "↓ Newest"}</Focusable>;
 }
 
 function RetroAchievementsSystemButton({
@@ -682,7 +590,7 @@ function RetroAchievementsSystemButton({
       onGamepadDirection={handleSteamGamesToolbarDirection}
       data-steam-games-toolbar-control="system"
       onCancel={() => { if (activeMenuRef.current !== undefined) closeMenu(); else onBack(); }}
-      style={{ ...getSortButtonStyle(), width: 188, maxWidth: "100%" }}
+      style={getSortButtonStyle()}
     >
       <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{selectedLabel}</span>
       <IconAsset size={12} src={caretDownIconUrl} tone="light" />
@@ -710,13 +618,14 @@ function getGameRowStyle(providerId: string): CSSProperties {
   return {
     ...steamRecipes.interactiveRow("fullscreen"),
     display: "grid",
-    gridTemplateColumns: `${isRa ? DECKY_RA_FULLSCREEN_GAME_ICON_COLUMN_WIDTH : STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}px minmax(165px, 1.55fr) minmax(145px, 1.45fr) ${isRa ? 126 : 96}px ${isRa ? 122 : 116}px 16px`,
+    gridTemplateColumns: `${isRa ? DECKY_RA_FULLSCREEN_GAME_ICON_COLUMN_WIDTH : STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}px minmax(0, 1fr) minmax(155px, 0.55fr) 16px`,
     alignItems: "center",
-    gap: 8,
+    gap: 12,
     flex: `0 0 ${STEAM_FULLSCREEN_GAME_ROW_HEIGHT}px`,
     minWidth: 0,
     minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT,
-    padding: "2px 7px 2px 3px",
+    scrollMarginBlock: 0,
+    padding: "2px 10px 2px 3px",
     boxSizing: "border-box",
   };
 }
@@ -726,33 +635,21 @@ function getTitleStyle(): CSSProperties {
     minWidth: 0,
     overflow: "hidden",
     color: steamTheme.color.textPrimary,
-    fontSize: 12,
-    fontWeight: 850,
-    lineHeight: 1.15,
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+    fontSize: 14,
+    fontWeight: 800,
+    lineHeight: 1.2,
+    display: "-webkit-box",
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: 2,
   };
 }
 
 function getProgressMetaStyle(): CSSProperties {
-  return { ...steamRecipes.text("fullscreen", "metadata"), color: steamTheme.color.textPrimary, fontSize: 10, fontWeight: 600, lineHeight: 1, whiteSpace: "nowrap" };
+  return { ...steamRecipes.text("fullscreen", "metadata"), minWidth: 0, color: steamTheme.color.textPrimary, fontSize: 12, fontWeight: 700, lineHeight: 1.2, whiteSpace: "nowrap" };
 }
 
 function getSecondaryMetaStyle(): CSSProperties {
-  return { ...steamRecipes.text("fullscreen", "caption"), fontSize: 9.5, lineHeight: 1, whiteSpace: "nowrap" };
-}
-
-function getMetadataCellStyle(isRa = false): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: `${isRa ? 24 : 22}px minmax(0, 1fr)`,
-    alignItems: "center",
-    gap: isRa ? 4 : 6,
-    minWidth: 0,
-    paddingLeft: isRa ? 6 : 8,
-    borderLeft: "1px solid rgba(76, 148, 187, 0.22)",
-    boxSizing: "border-box",
-  };
+  return { ...steamRecipes.text("fullscreen", "caption"), color: steamTheme.color.textSecondary, fontSize: 11, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
 }
 
 function getProgressTrackStyle(): CSSProperties {
@@ -767,102 +664,75 @@ function SteamGamesRow({
   providerId,
   listRef,
   mode,
+  rowIndex,
+  showSystemName,
+  onRevealMore,
 }: {
   readonly elementRef?: RefCallback<HTMLDivElement> | undefined;
   readonly game: NormalizedGame;
   readonly onOpenGameDetail: (gameId: string) => void;
   readonly onBack: () => void;
   readonly providerId: string;
-  readonly listRef: RefObject<HTMLDivElement | null>;
+  readonly listRef: { readonly current: HTMLDivElement | null };
   readonly mode: RetroAchievementsAchievementMode;
+  readonly rowIndex: number;
+  readonly showSystemName: boolean;
+  readonly onRevealMore?: () => boolean;
 }): JSX.Element {
-  const displaySummary = providerId === RETROACHIEVEMENTS_PROVIDER_ID
+  const isRa = providerId === RETROACHIEVEMENTS_PROVIDER_ID;
+  const displaySummary = isRa
     ? getRetroAchievementsPlayedGameProgress(game, mode)
     : game.summary;
-  const hardcoreProgressLabel = formatModeProgressLabel("Hardcore", game.hardcoreSummary);
-  const softcoreProgressLabel = formatModeProgressLabel("Softcore", game.softcoreSummary);
   const totalCount = displaySummary?.totalCount ?? game.summary.totalCount;
-  const completionPercent = displaySummary?.completionPercent !== undefined
+  const hasVerifiedProgress = isRa || game.scanStatus === "scanned";
+  const completionPercent = hasVerifiedProgress && totalCount !== undefined && totalCount > 0 && displaySummary?.completionPercent !== undefined
     ? clampSteamGamesPercent(displaySummary.completionPercent)
-    : displaySummary?.totalCount !== undefined && displaySummary.totalCount > 0
+    : hasVerifiedProgress && displaySummary?.totalCount !== undefined && displaySummary.totalCount > 0
       ? getSteamGamesPercentage(displaySummary.unlockedCount, displaySummary.totalCount)
       : undefined;
-  const isPerfected = game.status === "mastered";
-  const raAward = providerId === RETROACHIEVEMENTS_PROVIDER_ID
-    ? getRetroAchievementsCompletionIndicatorState(game)
-    : undefined;
+  const progressLabel = !isRa && game.scanStatus === "failed" ? "Scan unavailable"
+    : !isRa && game.scanStatus === "no-achievements" ? "No achievements"
+    : !hasVerifiedProgress ? "Progress unavailable"
+    : totalCount !== undefined && totalCount > 0
+      ? displaySummary === undefined ? "Progress unavailable" : `${formatCount(displaySummary.unlockedCount)} / ${formatCount(totalCount)} achievements`
+      : totalCount === 0 ? "No achievements"
+      : displaySummary !== undefined && displaySummary.unlockedCount > 0
+        ? `${formatCount(displaySummary.unlockedCount)} unlocked achievements`
+        : "Achievement total unavailable";
+  const isPerfected = !isRa && game.status === "mastered";
+  const raAward = isRa ? getRetroAchievementsCompletionIndicatorState(game) : undefined;
   const visibleRaAward = mode === "both" || raAward?.endsWith(mode) === true ? raAward : undefined;
-  const artworkUrl = getSteamFullscreenGameArtworkUrl(game);
-  const playtime = formatSteamPlaytimeMinutes(game.playtimeForeverMinutes) ?? "Not played";
-  const gameRowElementRef = useRef<HTMLDivElement | null>(null);
-  const setGameRowElementRef = useCallback((node: HTMLDivElement | null) => {
-    gameRowElementRef.current = node;
-    elementRef?.(node);
-  }, [elementRef]);
-  const [retroAchievementsPlaytime, setRetroAchievementsPlaytime] = useState<
-    { readonly status: "idle" | "loading" | "ready" | "unavailable"; readonly seconds?: number }
-  >(() => ({ status: providerId === RETROACHIEVEMENTS_PROVIDER_ID ? "loading" : "idle" }));
-  useEffect(() => {
-    if (providerId !== RETROACHIEVEMENTS_PROVIDER_ID) {
-      return;
-    }
-
-    let isCurrent = true;
-    const loadPlaytime = (): void => {
-      setRetroAchievementsPlaytime({ status: "loading" });
-      void loadDeckyRetroAchievementsGamePlaytimeSeconds(game.gameId)
-        .then((seconds) => {
-          if (isCurrent) {
-            setRetroAchievementsPlaytime(seconds === undefined
-              ? { status: "unavailable" }
-              : { status: "ready", seconds });
-          }
-        })
-        .catch(() => {
-          if (isCurrent) {
-            setRetroAchievementsPlaytime({ status: "unavailable" });
-          }
-        });
-    };
-
-    const row = gameRowElementRef.current;
-    const list = listRef.current;
-    const IntersectionObserverConstructor = row?.ownerDocument.defaultView?.IntersectionObserver;
-    if (row === null || IntersectionObserverConstructor === undefined) {
-      loadPlaytime();
-      return () => { isCurrent = false; };
-    }
-
-    const observer = new IntersectionObserverConstructor((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) {
-        observer.disconnect();
-        loadPlaytime();
-      }
-    }, { root: list, rootMargin: "120px 0px" });
-    observer.observe(row);
-
-    return () => {
-      isCurrent = false;
-      observer.disconnect();
-    };
-  }, [game.gameId, providerId, listRef]);
-  const retroAchievementsPlaytimeLabel = retroAchievementsPlaytime.status === "loading"
-    ? "Loading…"
-    : retroAchievementsPlaytime.status === "ready"
-      ? formatRetroAchievementsPlaytimeSeconds(retroAchievementsPlaytime.seconds) ?? "—"
-      : retroAchievementsPlaytime.status === "unavailable" ? "Unavailable" : "—";
+  const artwork = getSteamHeroArtworkSources(game);
+  const systemName = isRa && showSystemName ? getRetroAchievementsSystemKey(game)?.title ?? game.platformLabel : undefined;
+  const awardLabel = visibleRaAward === undefined ? undefined : formatRetroAchievementsCompletionIndicatorLabel(visibleRaAward);
+  const playtime = isRa ? undefined : formatSteamPlaytimeMinutes(game.playtimeForeverMinutes);
+  const context = isRa
+    ? [systemName, awardLabel ?? (game.lastUnlockAt === undefined ? undefined : `Last unlock ${formatSteamGamesActivityDate(game, providerId)}`)]
+      .filter((value): value is string => value !== undefined).join(" · ")
+    : [playtime === undefined ? undefined : `${playtime} played`, game.lastPlayedAt === undefined
+      ? undefined : `Last played ${formatSteamGamesActivityDate(game, providerId)}`]
+      .filter((value): value is string => value !== undefined).join(" · ");
   const openGame = (): void => {
     rememberDeckyGamesFocus(providerId, game.gameId);
     rememberDeckyGamesScrollTop(providerId, listRef.current?.scrollTop ?? 0);
     onOpenGameDetail(providerId === RETROACHIEVEMENTS_PROVIDER_ID ? game.gameId : getSteamCompletionProgressGameDetailId(game));
   };
-  const scrollFocusedRow: SteamGamesGamepadFocusHandler = (event) => {
-    scrollDeckyFocusTargetIntoView(event.currentTarget);
+  const focusGeneration = useRef(0);
+  const rowRef = useRef<HTMLDivElement | null>(null);
+  const scrollFocusedRow = (element: HTMLElement): void => {
+    const generation = ++focusGeneration.current;
+    const isStillFocused = (): boolean => focusGeneration.current === generation;
+    if (rowIndex === 0 && listRef.current !== null) {
+      scrollDeckyFocusTargetToTop(rowRef.current ?? element, isStillFocused, listRef.current);
+      rememberDeckyGamesScrollTop(providerId, 0);
+    } else {
+      scrollDeckyFocusTargetIntoView(rowRef.current ?? element, listRef.current, isStillFocused);
+    }
   };
 
   return (
     <Focusable
-      ref={setGameRowElementRef}
+      ref={(node) => { rowRef.current = node; elementRef?.(node); }}
       className={STEAM_GAMES_FOCUS_CLASS}
       noFocusRing
       role="button"
@@ -870,11 +740,21 @@ function SteamGamesRow({
       onActivate={openGame}
       onClick={openGame}
       onCancel={onBack}
-      onFocus={(event) => { rememberDeckyGamesFocus(providerId, game.gameId); scrollDeckyFocusTargetIntoView(event.currentTarget); }}
-      onGamepadFocus={(event) => { rememberDeckyGamesFocus(providerId, game.gameId); scrollFocusedRow(event); }}
-      onGamepadDirection={handleSteamGamesRowDirection}
+      onFocus={(event) => { rememberDeckyGamesFocus(providerId, game.gameId); scrollFocusedRow(event.currentTarget); }}
+      onGamepadFocus={(event) => { rememberDeckyGamesFocus(providerId, game.gameId); scrollFocusedRow(event.currentTarget as HTMLElement); }}
+      onBlur={() => { focusGeneration.current += 1; }}
+      onGamepadBlur={() => { focusGeneration.current += 1; }}
+      onGamepadDirection={(event) => {
+        if (event.detail.button === GamepadButton.DIR_DOWN && onRevealMore?.()) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
+        handleSteamGamesRowDirection(event);
+      }}
       style={getGameRowStyle(providerId)}
       data-steam-games-row="true"
+      data-steam-games-row-index={rowIndex}
       {...(providerId === RETROACHIEVEMENTS_PROVIDER_ID ? { "data-ac-ra-profile-game-row": "true" } : {})}
     >
       {providerId === RETROACHIEVEMENTS_PROVIDER_ID ? <DeckyRetroAchievementsGameIcon
@@ -884,80 +764,29 @@ function SteamGamesRow({
       /> : <DeckyGameArtwork
         compact
         {...(game.appid !== undefined ? { steamAppId: game.appid } : {})}
+        {...(artwork.fallbackSrc !== undefined ? { fallbackSrc: artwork.fallbackSrc } : {})}
         height={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT}
         size={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT}
-        {...(artworkUrl !== undefined ? { src: artworkUrl } : {})}
+        {...(artwork.src !== undefined ? { src: artwork.src } : {})}
         title={game.title}
         width={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}
       />}
 
       <div style={{ minWidth: 0 }}>
         <div style={getTitleStyle()}>{game.title}</div>
-        {visibleRaAward !== undefined ? (
-          <div style={{ ...getSecondaryMetaStyle(), color: visibleRaAward.startsWith("mastered") ? raTheme.color.mastered : raTheme.color.accentStrong }}>
-            {formatRetroAchievementsCompletionIndicatorLabel(visibleRaAward)}
-          </div>
-        ) : null}
+        {context.length > 0 ? <div style={getSecondaryMetaStyle()}>{context}</div> : null}
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 5, minWidth: 0 }}>
-        <div style={getProgressMetaStyle()}>
-          {totalCount !== undefined
-            ? `${displaySummary === undefined ? "—" : formatCount(displaySummary.unlockedCount)} / ${formatCount(totalCount)} achievements`
-            : displaySummary !== undefined && displaySummary.unlockedCount > 0
-              ? `${formatCount(displaySummary.unlockedCount)} unlocked achievements`
-            : game.scanStatus === "failed"
-              ? "Scan unavailable"
-              : game.scanStatus === "no-achievements" ? "No achievements" : "Achievement total unavailable"}
+      <div style={{ display: "flex", flexDirection: "column", gap: 7, minWidth: 0 }}>
+        <div style={{ ...getProgressMetaStyle(), display: "flex", justifyContent: "space-between", gap: 6 }}>
+          <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{progressLabel}</span>
+          {completionPercent !== undefined ? <span style={{ display: "inline-flex", alignItems: "center", gap: 3, color: steamTheme.color.textPrimary, flex: "0 0 auto" }}>
+            {formatPercent(completionPercent)}{isPerfected ? <IconAsset size={13} src={crownIconUrl} tone="gold" /> : null}
+          </span> : null}
         </div>
-        {providerId === RETROACHIEVEMENTS_PROVIDER_ID && mode === "both" ? (
-          <div style={{ ...getSecondaryMetaStyle(), display: "flex", gap: 8 }}>
-            {hardcoreProgressLabel !== undefined ? <span>{hardcoreProgressLabel}</span> : null}
-            {softcoreProgressLabel !== undefined ? <span>{softcoreProgressLabel}</span> : null}
-          </div>
-        ) : null}
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "center", gap: 8 }}>
-          <div style={getProgressTrackStyle()}>
-            {completionPercent !== undefined ? <div
-              style={{
-                width: `${completionPercent}%`,
-                height: "100%",
-                borderRadius: 999,
-                background: qamTheme.surface.progressFill,
-              }}
-            /> : null}
-          </div>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 3, minWidth: 36, color: "#f3f7fb", fontSize: 12, fontWeight: 900 }}>
-            {completionPercent === undefined ? "—" : formatPercent(completionPercent)}
-            {isPerfected ? <IconAsset size={14} src={crownIconUrl} tone="gold" /> : null}
-          </span>
-        </div>
-      </div>
-
-      <div style={getMetadataCellStyle(providerId === RETROACHIEVEMENTS_PROVIDER_ID)}>
-        {providerId === RETROACHIEVEMENTS_PROVIDER_ID
-          ? game.systemIconUrl !== undefined
-            ? <DeckySystemIcon iconSize={22} iconUrl={game.systemIconUrl} />
-            : <IconAsset size={20} src={gamepadIconUrl} tone="light" />
-          : <IconAsset size={20} src={clockIconUrl} />}
-        <div style={{ minWidth: 0 }}>
-          <div style={{ ...getProgressMetaStyle(), overflow: "hidden", textOverflow: "ellipsis" }}>
-            {providerId === RETROACHIEVEMENTS_PROVIDER_ID ? retroAchievementsPlaytimeLabel : playtime}
-          </div>
-          <div style={{ ...getSecondaryMetaStyle(), ...(providerId === RETROACHIEVEMENTS_PROVIDER_ID ? { fontSize: 8.5 } : {}) }}>
-            {providerId === RETROACHIEVEMENTS_PROVIDER_ID ? "Total Time Played" : "Total Playtime"}
-          </div>
-        </div>
-      </div>
-
-      <div style={getMetadataCellStyle(providerId === RETROACHIEVEMENTS_PROVIDER_ID)}>
-        <IconAsset size={20} src={calendarIconUrl} />
-        <div style={{ minWidth: 0 }}>
-          <div style={{ ...getProgressMetaStyle(), overflow: "hidden", textOverflow: "ellipsis" }}>
-            {formatSteamGamesActivityDate(game, providerId)}
-          </div>
-          <div style={getSecondaryMetaStyle()}>{providerId === RETROACHIEVEMENTS_PROVIDER_ID ? "Last Unlock" : "Last Played"}</div>
-        </div>
+        {completionPercent !== undefined ? <div style={getProgressTrackStyle()}>
+          <div style={{ width: `${completionPercent}%`, height: "100%", borderRadius: 999, background: qamTheme.surface.progressFill }} />
+        </div> : null}
       </div>
 
       <IconAsset size={17} src={chevronRightIconUrl} tone="light" />
@@ -965,53 +794,8 @@ function SteamGamesRow({
   );
 }
 
-function SteamGamesSummaryCards({ summary, providerId }: { readonly summary: SteamGamesDashboardSummary; readonly providerId: string }): JSX.Element {
-  const isRa = providerId === RETROACHIEVEMENTS_PROVIDER_ID;
-  return (
-    <div style={getSummaryGridStyle(isRa)}>
-      {!isRa ? (
-        <MetricCard
-          iconUrl={gamepadIconUrl}
-          label="Games Tracked"
-          value={formatCount(summary.trackedCount)}
-        />
-      ) : null}
-      <MetricCard
-        helper={isRa ? "Progress collection" : formatPercent(getSteamGamesPercentage(summary.playedCount, summary.trackedCount))}
-        iconUrl={barChartIconUrl}
-        label="Played"
-        value={formatCount(summary.playedCount)}
-      />
-      <MetricCard
-        helper={formatPercent(getSteamGamesPercentage(summary.unfinishedCount, summary.trackedCount))}
-        iconUrl={listIconUrl}
-        label={isRa ? "In Progress" : "Unfinished"}
-        value={formatCount(summary.unfinishedCount)}
-      />
-      <MetricCard
-        helper={formatPercent(getSteamGamesPercentage(summary.skippedCount, summary.trackedCount))}
-        iconTone="red"
-        iconUrl={isRa ? undefined : prohibitedIconUrl}
-        icon={isRa ? <DeckyGameStatusIcon kind="beaten" size={27} color={raTheme.color.beatenFlagWhite} accentColor={raTheme.color.beatenFlagBlack} /> : undefined}
-        label={isRa ? "Beaten" : "Skipped"}
-        value={formatCount(summary.skippedCount)}
-      />
-      <MetricCard
-        helper={formatPercent(getSteamGamesPercentage(summary.perfectedCount, summary.trackedCount))}
-        iconTone="gold"
-        iconUrl={isRa ? undefined : crownIconUrl}
-        icon={isRa ? <DeckyGameStatusIcon kind="mastered" size={27} color={raTheme.color.mastered} accentColor={raTheme.color.hardcore} /> : undefined}
-        label={isRa ? "Mastered" : "Perfected"}
-        value={formatCount(summary.perfectedCount)}
-      />
-      <OverallProgressCard summary={summary} />
-    </div>
-  );
-}
-
 export function DeckySteamFullScreenGamesDashboard({
   snapshot,
-  achievementProgressGames,
   isActive = true,
   initialFilter,
   showSteamProfileFooter = true,
@@ -1028,10 +812,10 @@ export function DeckySteamFullScreenGamesDashboard({
     : "both";
   const shouldUseRequestedFilter = initialFilter !== undefined && initialFilter !== "all";
   const [initialPageState] = useState(() => {
-    const saved = readDeckyGamesPageState(providerId);
-    return shouldUseRequestedFilter
-      ? { ...saved, focusGameId: undefined, query: "", renderLimit: STEAM_GAMES_INITIAL_RENDER_LIMIT, scrollTop: 0, sort: "recent" as const }
-      : saved;
+    if (shouldUseRequestedFilter) {
+      rememberDeckyGamesProfileShortcut(providerId, normalizeInitialFilter(initialFilter));
+    }
+    return readDeckyGamesPageState(providerId);
   });
   const dashboardRef = useRef<HTMLElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -1039,15 +823,11 @@ export function DeckySteamFullScreenGamesDashboard({
   const restorationTargetRef = useRef<HTMLDivElement | null>(null);
   const appendedGameFocusTargetRef = useRef<HTMLDivElement | null>(null);
   const [appendedGameIdToFocus, setAppendedGameIdToFocus] = useState<string | undefined>(undefined);
-  const [filter, setFilter] = useState<SteamGamesFilter>(() => shouldUseRequestedFilter
-    ? normalizeInitialFilter(initialFilter)
-    : initialPageState.filter);
+  const [filter, setFilter] = useState<SteamGamesFilter>(initialPageState.filter);
   const [query, setQuery] = useState(initialPageState.query);
-  const [sort, setSort] = useState<CompletionProgressSort>(initialPageState.sort);
+  const [sort, setSort] = useState<SteamGamesSort>(initialPageState.sort);
   const [selectedSystemId, setSelectedSystemId] = useState<string | undefined>(isRa ? initialPageState.system?.systemId : undefined);
-  const [renderLimit, setRenderLimit] = useState(shouldUseRequestedFilter
-    ? STEAM_GAMES_INITIAL_RENDER_LIMIT
-    : initialPageState.renderLimit);
+  const [renderLimit, setRenderLimit] = useState(initialPageState.renderLimit);
   const hasMountedControls = useRef(false);
   const systems = useMemo(() => {
     const unique = new Map<string, { readonly systemId: string; readonly title: string }>();
@@ -1058,15 +838,6 @@ export function DeckySteamFullScreenGamesDashboard({
     return [...unique.values()].sort((left, right) => left.title.localeCompare(right.title));
   }, [isRa, snapshot.games]);
   const scopedGames = useMemo(() => filterRetroAchievementsGamesBySystem(snapshot.games, selectedSystemId), [selectedSystemId, snapshot.games]);
-  const scopedAchievementProgressGames = useMemo(() => achievementProgressGames === undefined
-    ? undefined
-    : filterRetroAchievementsGamesBySystem(achievementProgressGames, selectedSystemId),
-  [achievementProgressGames, selectedSystemId]);
-  const scopedSnapshot = useMemo(() => ({ ...snapshot, games: scopedGames }), [snapshot, scopedGames]);
-  const summary = useMemo(
-    () => summarizeSteamGamesDashboard(scopedSnapshot, mode, scopedAchievementProgressGames),
-    [scopedSnapshot, mode, scopedAchievementProgressGames],
-  );
   const visibleGames = useMemo(
     () => selectSteamGames({ games: scopedGames, filter, query, sort, mode }),
     [filter, mode, query, scopedGames, sort],
@@ -1082,15 +853,9 @@ export function DeckySteamFullScreenGamesDashboard({
     }
     setRenderLimit(STEAM_GAMES_INITIAL_RENDER_LIMIT);
     rememberDeckyGamesControls(providerId, filter, query, sort, mode);
+    if (listRef.current !== null) listRef.current.scrollTop = 0;
   }, [filter, mode, providerId, query, sort]);
-  const filterButtons = [
-    { filter: "all" as const, label: `${isRa ? "All" : "All Games"} (${formatCount(summary.trackedCount)})` },
-    { filter: "played" as const, label: `Played (${formatCount(summary.playedCount)})` },
-    { filter: "unfinished" as const, label: `${isRa ? "In Progress" : "Unfinished"} (${formatCount(summary.unfinishedCount)})` },
-    ...(isRa ? [{ filter: "completed" as const, label: `Completed (${formatCount(summary.skippedCount + summary.perfectedCount)})` }] : []),
-    { filter: "mastered" as const, label: `${isRa ? "Mastered" : "Perfected"} (${formatCount(summary.perfectedCount)})` },
-    { filter: "beaten" as const, label: `${isRa ? "Beaten" : "Skipped"} (${formatCount(summary.skippedCount)})` },
-  ];
+  const hasActiveFilters = filter !== "all" || query.trim().length > 0 || sort !== "recent" || selectedSystemId !== undefined;
 
   useLayoutEffect(() => {
     if (!isActive) {
@@ -1115,7 +880,9 @@ export function DeckySteamFullScreenGamesDashboard({
 
       if (!dashboard.contains(dashboard.ownerDocument.activeElement)) {
         takeDeckySteamGamepadFocus(initialFocusTarget);
-        if (initialPageState.scrollTop > 0 && listRef.current !== null) {
+        if (initialFocusTarget.dataset["steamGamesRowIndex"] === "0" && listRef.current !== null) {
+          listRef.current.scrollTop = 0;
+        } else if (initialPageState.scrollTop > 0 && listRef.current !== null) {
           listRef.current.scrollTop = initialPageState.scrollTop;
         } else {
           initialFocusTarget.scrollIntoView({ block: "center", inline: "nearest" });
@@ -1130,42 +897,42 @@ export function DeckySteamFullScreenGamesDashboard({
       return;
     }
 
-    // Expanding the page replaces the focused "Show more" action. Hand native
-    // GamepadUI focus to the first appended row while that action still exists
-    // in the previous controller tree, rather than leaving its focus offscreen.
+    // Down on the final row expands the list, so hand GamepadUI focus to the
+    // first appended row after React commits it.
     const target = appendedGameFocusTargetRef.current;
     takeDeckySteamGamepadFocus(target);
-    scrollDeckyFocusTargetIntoView(target);
+    scrollDeckyFocusTargetIntoView(target, listRef.current, () => target.isConnected &&
+      (target.ownerDocument.activeElement === target || target.classList.contains("gpfocus")));
     setAppendedGameIdToFocus(undefined);
   }, [appendedGameIdToFocus, renderedGames]);
 
-  const showMoreGames = (): void => {
+  const revealMoreGames = (focusAppendedRow: boolean): boolean => {
+    if (renderedGames.length >= visibleGames.length) return false;
     const firstAppendedGame = visibleGames[renderedGames.length];
-    if (firstAppendedGame !== undefined) {
+    if (focusAppendedRow && firstAppendedGame !== undefined) {
       setAppendedGameIdToFocus(firstAppendedGame.gameId);
     }
     setRenderLimit((current) => {
-      const next = current + STEAM_GAMES_RENDER_STEP;
+      const next = Math.min(visibleGames.length, current + STEAM_GAMES_RENDER_STEP);
       rememberDeckyGamesRenderLimit(providerId, next);
       return next;
     });
-  };
-  const activateSearch = (): void => {
-    const input = searchControlRef.current?.querySelector<HTMLInputElement>("input");
-    if (input === null || input === undefined) {
-      return;
-    }
-
-    markDeckyFullscreenOnScreenKeyboardOpen(input.ownerDocument);
-    input.focus();
-    input.click();
+    return true;
   };
   const selectSystem = (system: { readonly systemId: string; readonly title: string } | undefined): void => {
-    rememberDeckyGamesSystem(providerId, system);
+    rememberDeckyGamesSystemFilter(providerId, system);
     setSelectedSystemId(system?.systemId);
-    setFilter("all");
+    setRenderLimit(STEAM_GAMES_INITIAL_RENDER_LIMIT);
+    if (listRef.current !== null) listRef.current.scrollTop = 0;
+  };
+  const clearFilters = (): void => {
+    if (!hasActiveFilters) return;
+    resetDeckyGamesPageState(providerId);
+    rememberDeckyGamesControls(providerId, "all", "", "recent", mode);
     setQuery("");
+    setFilter("all");
     setSort("recent");
+    setSelectedSystemId(undefined);
     setRenderLimit(STEAM_GAMES_INITIAL_RENDER_LIMIT);
     if (listRef.current !== null) listRef.current.scrollTop = 0;
   };
@@ -1179,7 +946,6 @@ export function DeckySteamFullScreenGamesDashboard({
         style={getPageStyle()}
       >
         <SteamGamesRouteStyles />
-        <SteamGamesSummaryCards summary={summary} providerId={providerId} />
 
         <Focusable
           flow-children="vertical"
@@ -1198,10 +964,9 @@ export function DeckySteamFullScreenGamesDashboard({
           <Focusable
             ref={searchControlRef}
             className={STEAM_GAMES_FOCUS_CLASS}
+            flow-children="vertical"
             noFocusRing
-            role="button"
-            aria-label="Search your games"
-            onActivate={activateSearch}
+            tabIndex={-1}
             onCancel={onBack}
             onGamepadDirection={handleSteamGamesToolbarDirection}
             data-steam-games-toolbar-control="search"
@@ -1214,41 +979,33 @@ export function DeckySteamFullScreenGamesDashboard({
               aria-label="Search your games"
               className={STEAM_GAMES_SEARCH_CLASS}
               placeholder="Search your games…"
-              tabIndex={-1}
               value={query}
               onClick={(event) => {
                 markDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument);
               }}
+              onBlur={(event) => clearDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument)}
               onChange={(event) => { setQuery(event.currentTarget.value); }}
               style={getSearchFieldStyle()}
             />
           </Focusable>
 
-          {isRa ? <div style={{ gridColumn: 2, gridRow: 1, minWidth: 0 }}><RetroAchievementsSystemButton systems={systems} selectedSystemId={selectedSystemId} onChange={selectSystem} onBack={onBack} /></div> : null}
-
-          {isRa ? <div style={{ gridColumn: 3, gridRow: 1 }}><SteamGamesSortButton value={sort} onBack={onBack} onChange={setSort} /></div> : null}
-
-          <Focusable
-            flow-children="left-right"
-            navEntryPreferPosition={NavEntryPositionPreferences.PREFERRED_CHILD}
-            noFocusRing
-            tabIndex={-1}
-            style={{ ...getFilterGroupStyle(filterButtons.length), ...(isRa ? { gridColumn: "1 / -1", gridRow: 2 } : {}) }}
-          >
-            {filterButtons.map((button) => (
-              <SteamGamesFilterButton
-                key={button.filter}
-                filter={button.filter}
-                label={button.label}
-                selected={filter === button.filter}
-                onBack={onBack}
-                onSelect={setFilter}
-              />
-            ))}
+          <SteamGamesStatusButton value={filter} isRa={isRa} onBack={onBack} onChange={setFilter} />
+          {isRa ? <RetroAchievementsSystemButton systems={systems} selectedSystemId={selectedSystemId} onChange={selectSystem} onBack={onBack} /> : null}
+          <SteamGamesSortButton value={sort} isRa={isRa} onBack={onBack} onChange={setSort} />
+          <GamesSortToggle value={sort} onChange={setSort} onBack={onBack} />
+          <Focusable className={STEAM_GAMES_FOCUS_CLASS} noFocusRing role="button"
+            aria-label="Clear Games filters" aria-disabled={!hasActiveFilters}
+            onActivate={clearFilters} onClick={clearFilters} onCancel={onBack}
+            onGamepadDirection={handleSteamGamesToolbarDirection}
+            data-steam-games-toolbar-control="clear"
+            style={{ ...getFilterButtonStyle(false), opacity: hasActiveFilters ? 1 : 0.5 }}>
+            Clear Filters
           </Focusable>
-
-          {!isRa ? <SteamGamesSortButton value={sort} onBack={onBack} onChange={setSort} /> : null}
         </Focusable>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 5px 0", color: steamTheme.color.textSecondary, fontSize: 11, lineHeight: 1.2 }}>
+          <span aria-live="polite">{formatCount(visibleGames.length)} of {formatCount(snapshot.games.length)} games</span>
+        </div>
 
         <Focusable
           ref={listRef}
@@ -1259,11 +1016,15 @@ export function DeckySteamFullScreenGamesDashboard({
           navEntryPreferPosition={NavEntryPositionPreferences.FIRST}
           noFocusRing
           tabIndex={-1}
-          onScroll={(event) => { rememberDeckyGamesScrollTop(providerId, event.currentTarget.scrollTop); }}
+          onScroll={(event) => {
+            const list = event.currentTarget;
+            rememberDeckyGamesScrollTop(providerId, list.scrollTop);
+            if (list.scrollTop + list.clientHeight >= list.scrollHeight - STEAM_FULLSCREEN_GAME_ROW_HEIGHT) revealMoreGames(false);
+          }}
           style={getGameListStyle()}
         >
           {visibleGames.length > 0 ? <>
-            {renderedGames.map((game) => (
+            {renderedGames.map((game, rowIndex) => (
             <SteamGamesRow
               key={game.gameId}
               elementRef={initialPageState.focusGameId === game.gameId || appendedGameIdToFocus === game.gameId
@@ -1276,24 +1037,14 @@ export function DeckySteamFullScreenGamesDashboard({
               providerId={providerId}
               listRef={listRef}
               mode={mode}
+              rowIndex={rowIndex}
+              showSystemName={selectedSystemId === undefined}
+              {...(rowIndex === renderedGames.length - 1 && renderedGames.length < visibleGames.length
+                ? { onRevealMore: () => revealMoreGames(true) } : {})}
               onBack={onBack}
               onOpenGameDetail={onOpenGameDetail}
             />
             ))}
-            {renderedGames.length < visibleGames.length ? <Focusable
-              className={STEAM_GAMES_FOCUS_CLASS}
-              noFocusRing
-              role="button"
-              aria-label={`Show ${Math.min(STEAM_GAMES_RENDER_STEP, visibleGames.length - renderedGames.length)} more games`}
-              onActivate={showMoreGames}
-              onClick={showMoreGames}
-              onCancel={onBack}
-              onGamepadDirection={handleSteamGamesShowMoreDirection}
-              data-steam-games-show-more="true"
-              style={{ ...getFilterButtonStyle(false), width: "100%", minHeight: 34 }}
-            >
-              {`Show ${Math.min(STEAM_GAMES_RENDER_STEP, visibleGames.length - renderedGames.length)} more`}
-            </Focusable> : null}
           </> : (
             <div
               style={{
@@ -1302,14 +1053,14 @@ export function DeckySteamFullScreenGamesDashboard({
                 alignItems: "center",
                 justifyContent: "center",
                 minHeight: 90,
-                border: "1px solid rgba(66, 124, 160, 0.28)",
+                border: `1px solid ${steamTheme.color.borderSubtle}`,
                 borderRadius: 8,
-                color: "#a9bdcf",
+                color: steamTheme.color.textSecondary,
                 background: steamTheme.surface.contentCard,
-                fontSize: 11,
+                fontSize: 12,
               }}
             >
-              No games match the current search and filter.
+              {snapshot.games.length === 0 ? "No games available." : "No games match the current filters."}
             </div>
           )}
         </Focusable>

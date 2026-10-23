@@ -47,6 +47,29 @@ export function getSteamFullscreenGameArtworkUrl(
   );
 }
 
+export function getSteamHeroArtworkSources(
+  game: Pick<NormalizedGame, "appid" | "coverImageUrl" | "boxArtImageUrl">,
+  options: { readonly storeHeaderUrl?: string; readonly steamHuntersBannerUrl?: string } = {},
+): { readonly src?: string; readonly fallbackSrc?: string } {
+  const libraryHeroUrl = game.appid !== undefined && Number.isSafeInteger(game.appid) && game.appid > 0
+    ? buildSteamStoreArtworkUrl(game.appid, "library_hero.jpg")
+    : undefined;
+  const legacyHeaderUrl = getSteamFullscreenGameArtworkUrl(game);
+  const candidates = [
+    legacyHeaderUrl,
+    options.storeHeaderUrl,
+    libraryHeroUrl,
+    options.steamHuntersBannerUrl,
+    game.boxArtImageUrl,
+    game.coverImageUrl,
+  ].filter((url): url is string => typeof url === "string" && url.length > 0);
+  const unique = [...new Set(candidates)];
+  return {
+    ...(unique[0] !== undefined ? { src: unique[0] } : {}),
+    ...(unique[1] !== undefined ? { fallbackSrc: unique[1] } : {}),
+  };
+}
+
 export function getSteamProfileGameIconUrl(
   game: Pick<RecentlyPlayedGame, "coverImageUrl" | "boxArtImageUrl">,
 ): string | undefined {

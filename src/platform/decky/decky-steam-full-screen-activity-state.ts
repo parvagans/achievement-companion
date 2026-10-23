@@ -1,7 +1,16 @@
 import type { AchievementUnlockMode } from "@core/domain";
 import type { RetroAchievementsAchievementMode } from "@core/settings";
+import { activityCalendarPeriod } from "./decky-full-screen-activity-model";
 
-export type DeckySteamActivityFilter = "all" | "recent" | "year" | "month" | "streak";
+export type DeckySteamActivityFilter = "all" | "recent" | "week" | "year" | "month" | "streak";
+export type ActivitySubview = "activity" | "analytics";
+export interface ActivitySelectedPeriod {
+  readonly startDay: number;
+  readonly endDayExclusive: number;
+  readonly label: string;
+  readonly source: "calendar" | "trend";
+  readonly interval: "day" | "week" | "month";
+}
 
 export interface DeckySteamActivityFocusTarget {
   readonly achievementId: string;
@@ -10,14 +19,18 @@ export interface DeckySteamActivityFocusTarget {
   readonly unlockedAt?: number;
 }
 
-interface DeckySteamActivityPageState {
+export interface DeckySteamActivityPageState {
   readonly filter: DeckySteamActivityFilter;
   readonly focusTarget: DeckySteamActivityFocusTarget | undefined;
   readonly renderLimit: number;
   readonly selectedGameId: string | undefined;
-  readonly selectedCalendarDay: number | undefined;
+  readonly selectedPeriod: ActivitySelectedPeriod | undefined;
   readonly scrollTop: number;
   readonly mode: RetroAchievementsAchievementMode;
+  readonly subview: ActivitySubview;
+  readonly sort: "desc" | "asc";
+  readonly analyticsScrollTop: number;
+  readonly analyticsFocusKey: string | undefined;
 }
 
 const initialState: DeckySteamActivityPageState = {
@@ -25,12 +38,58 @@ const initialState: DeckySteamActivityPageState = {
   focusTarget: undefined,
   renderLimit: 24,
   selectedGameId: undefined,
-  selectedCalendarDay: undefined,
+  selectedPeriod: undefined,
   scrollTop: 0,
   mode: "both",
+  subview: "activity",
+  sort: "desc",
+  analyticsScrollTop: 0,
+  analyticsFocusKey: undefined,
 };
 
 const pageStates = new Map<string, DeckySteamActivityPageState>();
+const listeners = new Set<() => void>();
+
+export function subscribeDeckyActivityPageState(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => { listeners.delete(listener); };
+}
+
+function save(providerId: string, state: DeckySteamActivityPageState): void {
+  pageStates.set(providerId, state);
+  listeners.forEach((listener) => listener());
+}
+
+const resetResults = { focusTarget: undefined, renderLimit: 24, scrollTop: 0, analyticsScrollTop: 0, analyticsFocusKey: undefined };
+
+export function hasActivityTemporaryFilters(state: DeckySteamActivityPageState): boolean {
+  return state.filter !== "all" || state.selectedGameId !== undefined || state.selectedPeriod !== undefined;
+}
+
+export function clearDeckyActivityFilters(providerId: string): void {
+  save(providerId, { ...readDeckyActivityPageState(providerId), ...resetResults, filter: "all", selectedPeriod: undefined, selectedGameId: undefined });
+}
+
+export function rememberDeckyActivitySubview(providerId: string, subview: ActivitySubview): void {
+  save(providerId, { ...readDeckyActivityPageState(providerId), subview });
+}
+
+export function rememberDeckyActivityPeriod(providerId: string, selectedPeriod: ActivitySelectedPeriod): void {
+  save(providerId, { ...readDeckyActivityPageState(providerId), ...resetResults, filter: "all", selectedPeriod, subview: "activity" });
+}
+
+export function rememberDeckyActivityMode(providerId: string, mode: RetroAchievementsAchievementMode): void {
+  save(providerId, { ...readDeckyActivityPageState(providerId), ...resetResults, mode });
+}
+
+export function rememberDeckyActivitySort(providerId: string, sort: "asc" | "desc"): void {
+  save(providerId, { ...readDeckyActivityPageState(providerId), ...resetResults, sort });
+}
+
+export function rememberDeckyActivityAnalyticsFocus(providerId: string, analyticsFocusKey: string): void {
+  const current = readDeckyActivityPageState(providerId);
+  if (current.analyticsFocusKey !== analyticsFocusKey) save(providerId, { ...current, analyticsFocusKey });
+}
 
 export function readDeckyActivityPageState(providerId: string): DeckySteamActivityPageState {
   return pageStates.get(providerId) ?? initialState;
@@ -39,56 +98,50 @@ export function readDeckyActivityPageState(providerId: string): DeckySteamActivi
 export function rememberDeckyActivityFilter(
   providerId: string,
   filter: DeckySteamActivityFilter,
-  mode: RetroAchievementsAchievementMode,
+  mode = readDeckyActivityPageState(providerId).mode,
 ): void {
   const current = readDeckyActivityPageState(providerId);
-  pageStates.set(providerId, {
+  save(providerId, {
     ...current,
+    ...resetResults,
     filter,
-    focusTarget: undefined,
-    renderLimit: 24,
-    selectedCalendarDay: undefined,
-    scrollTop: 0,
+    selectedPeriod: undefined,
     mode,
   });
 }
 
 export function rememberDeckyActivityCalendarDay(providerId: string, selectedCalendarDay: number | undefined): void {
-  const current = readDeckyActivityPageState(providerId);
-  pageStates.set(providerId, {
-    ...current,
-    filter: selectedCalendarDay === undefined ? current.filter : "all",
-    focusTarget: undefined,
-    renderLimit: 24,
-    selectedCalendarDay,
-    scrollTop: 0,
-  });
+  if (selectedCalendarDay !== undefined) rememberDeckyActivityPeriod(providerId, activityCalendarPeriod(selectedCalendarDay));
+  else save(providerId, { ...readDeckyActivityPageState(providerId), ...resetResults, selectedPeriod: undefined });
 }
 
 export function rememberDeckyActivityGame(providerId: string, selectedGameId: string | undefined): void {
-  pageStates.set(providerId, {
+  save(providerId, {
     ...readDeckyActivityPageState(providerId),
+    ...resetResults,
     selectedGameId,
-    focusTarget: undefined,
-    renderLimit: 24,
-    scrollTop: 0,
   });
 }
 
 export function rememberDeckyActivityRenderLimit(providerId: string, renderLimit: number): void {
-  pageStates.set(providerId, { ...readDeckyActivityPageState(providerId), renderLimit });
+  save(providerId, { ...readDeckyActivityPageState(providerId), renderLimit });
 }
 
 export function rememberDeckyActivityFocusTarget(providerId: string, focusTarget: DeckySteamActivityFocusTarget): void {
-  pageStates.set(providerId, { ...readDeckyActivityPageState(providerId), focusTarget });
+  const current = readDeckyActivityPageState(providerId);
+  if (JSON.stringify(current.focusTarget) !== JSON.stringify(focusTarget)) save(providerId, { ...current, focusTarget });
 }
 
-export function rememberDeckyActivityScrollTop(providerId: string, scrollTop: number): void {
-  pageStates.set(providerId, { ...readDeckyActivityPageState(providerId), scrollTop: Math.max(0, scrollTop) });
+export function rememberDeckyActivityScrollTop(providerId: string, scrollTop: number, subview: ActivitySubview = "activity"): void {
+  const current = readDeckyActivityPageState(providerId);
+  const key = subview === "activity" ? "scrollTop" : "analyticsScrollTop";
+  const value = Math.max(0, scrollTop);
+  if (current[key] !== value) save(providerId, { ...current, [key]: value });
 }
 
 export function resetDeckyActivityPageState(providerId: string): void {
   pageStates.delete(providerId);
+  listeners.forEach((listener) => listener());
 }
 
 export function readDeckySteamActivityPageState(): DeckySteamActivityPageState {

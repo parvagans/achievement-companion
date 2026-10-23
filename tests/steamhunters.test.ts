@@ -17,8 +17,10 @@ import {
   type SteamHuntersClient,
 } from "../src/providers/steamhunters";
 import { buildDeckySteamHuntersGameViewModel } from "../src/platform/decky/decky-steam-hunters-view-model";
+import { getSteamFullscreenGameArtworkUrl } from "../src/platform/decky/decky-steam-game-artwork";
 import {
   buildDeckySteamAchievementGroupSections,
+  getDeckySteamAchievementGroupArtworkUrl,
   hasDeckySteamAchievementGroups,
   sortDeckySteamAchievementGroupAchievements,
 } from "../src/platform/decky/decky-steam-achievement-groups-model";
@@ -468,6 +470,16 @@ test("Steam achievement groups retain base, DLC, update, and ungrouped achieveme
   ]);
   assert.equal(hasDeckySteamAchievementGroups(sections), true);
   assert.equal(hasDeckySteamAchievementGroups(buildDeckySteamAchievementGroupSections({ achievements, groups: [] })), false);
+});
+
+test("Steam Update groups use the parent's banner when SteamHunters supplies no group art", () => {
+  const parentBanner = getSteamFullscreenGameArtworkUrl({ appid: 1672970 });
+  assert.equal(parentBanner, "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1672970/header.jpg");
+  assert.equal(getDeckySteamAchievementGroupArtworkUrl({ kind: "update" }, parentBanner), parentBanner);
+  assert.equal(getDeckySteamAchievementGroupArtworkUrl({ kind: "update", bannerUrl: "https://example.test/update.jpg" }, parentBanner), "https://example.test/update.jpg");
+  assert.equal(getDeckySteamAchievementGroupArtworkUrl({ kind: "dlc", artworkAppId: 1672984 }, parentBanner), "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1672984/header.jpg");
+  assert.equal(getDeckySteamAchievementGroupArtworkUrl({ kind: "dlc", artworkAppId: 1672984, bannerUrl: "https://example.test/dlc.jpg" }, parentBanner), "https://example.test/dlc.jpg");
+  assert.equal(getDeckySteamAchievementGroupArtworkUrl({ kind: "dlc" }, parentBanner), undefined);
 });
 
 test("Steam achievement group lists put the newest unlocked achievements first", () => {

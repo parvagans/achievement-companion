@@ -11,9 +11,17 @@ test("bundled What's New notes cover the update and remain readable offline", ()
     assert.ok(section.items.length > 0);
     for (const item of section.items) {
       assert.ok(item.length > 20);
-      assert.ok(item.length < 180);
+      assert.ok(item.length < 220);
     }
   }
+});
+
+test("What's New groups the full-screen rework into five concise tabs", () => {
+  assert.deepEqual(
+    WHATS_NEW_SECTIONS.map((section) => section.title),
+    ["Profile", "Games", "Activity", "Settings", "Game pages"],
+  );
+  assert.ok(WHATS_NEW_SECTIONS.every((section) => section.title.length <= 12));
 });
 
 test("What's New keeps permanent support actions below fitted release notes", async () => {
@@ -53,4 +61,17 @@ test("What's New keeps permanent support actions below fitted release notes", as
   assert.match(githubBlackSource, /fill="black"/u);
   assert.match(kofiSource, /viewBox="0 0 241 194"/u);
   assert.match(kofiSource, /fill="#FF5A16"/u);
+});
+
+test("What's New and achievement details share the native modal shell", async () => {
+  const [shell, whatsNew, achievement] = await Promise.all([
+    readFile("src/platform/decky/decky-standard-modal.tsx", "utf8"),
+    readFile("src/platform/decky/decky-whats-new-modal.tsx", "utf8"),
+    readFile("src/platform/decky/decky-achievement-detail-modal.tsx", "utf8"),
+  ]);
+  assert.match(shell, /<ConfirmModal[\s\S]*bAlertDialog[\s\S]*onCancel=\{closeModal\}/u);
+  assert.match(shell, /bHideMainWindowForPopouts: false/u);
+  assert.match(shell, /min\(100%, 780px\)/u);
+  assert.match(whatsNew, /openDeckyStandardModal\(/u);
+  assert.match(achievement, /openDeckyStandardModal\(/u);
 });

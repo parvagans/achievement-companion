@@ -1,4 +1,5 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { loadBlankSteamHeaderStatus } from "./decky-steam-header-placeholder";
 import { loadSteamStoreHeaderArtwork } from "./decky-steam-store-artwork";
 
 export interface DeckyGameArtworkProps {
@@ -82,21 +83,32 @@ export function DeckyGameArtwork({
   fluid = false,
   frameless = false,
 }: DeckyGameArtworkProps): JSX.Element | null {
-  const [failedSource, setFailedSource] = useState<string | undefined>(undefined);
-  const [hasImageError, setHasImageError] = useState(false);
+  const [failedSources, setFailedSources] = useState<ReadonlySet<string>>(() => new Set());
   const [storeFallbackSrc, setStoreFallbackSrc] = useState<string | undefined>(undefined);
-  useEffect(() => { setFailedSource(undefined); setHasImageError(false); setStoreFallbackSrc(undefined); }, [src, fallbackSrc, steamAppId]);
+  const latestSrc = useRef(src);
+  latestSrc.current = src;
+  useEffect(() => { setFailedSources(new Set()); setStoreFallbackSrc(undefined); }, [src, steamAppId]);
 
-  if (src === undefined && fallbackSrc === undefined) {
+  useEffect(() => {
+    if (src !== undefined || fallbackSrc !== undefined || steamAppId === undefined) return;
+    let active = true;
+    void loadSteamStoreHeaderArtwork(steamAppId).then((url) => {
+      if (active) setStoreFallbackSrc(url);
+    });
+    return () => { active = false; };
+  }, [src, fallbackSrc, steamAppId]);
+
+  if (src === undefined && fallbackSrc === undefined && steamAppId === undefined) {
     return null;
   }
 
-  const resolvedFallbackSrc = fallbackSrc ?? storeFallbackSrc;
-  const displayedSource = failedSource === src ? resolvedFallbackSrc : src ?? resolvedFallbackSrc;
+  const candidates = [src, fallbackSrc, storeFallbackSrc]
+    .filter((candidate): candidate is string => candidate !== undefined);
+  const displayedSource = candidates.find((candidate) => !failedSources.has(candidate));
 
   return (
     <span aria-hidden="true" style={{ ...getArtworkFrameStyle(width, height, compact), ...(fluid ? { width: "100%", height: "100%", minWidth: 0, flexShrink: 1 } : {}), ...(frameless ? { border: "none", borderRadius: 0 } : {}) }}>
-      {hasImageError ? (
+      {displayedSource === undefined ? (
         <span style={getArtworkFallbackStyle()}>{getFallbackInitials(title)}</span>
       ) : (
         <img
@@ -104,15 +116,26 @@ export function DeckyGameArtwork({
           loading="lazy"
           referrerPolicy="no-referrer"
           src={displayedSource}
+          onLoad={() => {
+            if (displayedSource !== src) return;
+            void loadBlankSteamHeaderStatus(displayedSource).then((isBlank) => {
+              if (!isBlank || latestSrc.current !== displayedSource) return;
+              setFailedSources((current) => new Set([...current, displayedSource]));
+              if (fallbackSrc === undefined && steamAppId !== undefined) {
+                void loadSteamStoreHeaderArtwork(steamAppId).then((url) => {
+                  if (url !== undefined) setStoreFallbackSrc(url);
+                });
+              }
+            });
+          }}
           onError={() => {
-            if (displayedSource === src && resolvedFallbackSrc !== undefined && resolvedFallbackSrc !== src) {
-              setFailedSource(src);
-            } else if (displayedSource === src && steamAppId !== undefined && storeFallbackSrc === undefined) {
+            setFailedSources((current) => new Set([...current, displayedSource]));
+            if (steamAppId !== undefined && storeFallbackSrc === undefined
+              && !candidates.some((candidate) => candidate !== displayedSource && !failedSources.has(candidate))) {
               void loadSteamStoreHeaderArtwork(steamAppId).then((url) => {
-                if (url !== undefined && url !== src) { setStoreFallbackSrc(url); setFailedSource(src); }
-                else setHasImageError(true);
+                if (url !== undefined) setStoreFallbackSrc(url);
               });
-            } else setHasImageError(true);
+            }
           }}
           style={{ ...getArtworkImageStyle(), objectFit: fit }}
         />

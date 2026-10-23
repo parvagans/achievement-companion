@@ -1,5 +1,4 @@
-import type { CompletionProgressSort } from "./decky-completion-progress-grouping";
-import type { SteamGamesFilter } from "./decky-steam-full-screen-games-data";
+import type { SteamGamesFilter, SteamGamesSort } from "./decky-steam-full-screen-games-data";
 import type { RetroAchievementsAchievementMode } from "@core/settings";
 
 export interface DeckySteamGamesPageState {
@@ -8,7 +7,7 @@ export interface DeckySteamGamesPageState {
   readonly query: string;
   readonly renderLimit: number;
   readonly scrollTop: number;
-  readonly sort: CompletionProgressSort;
+  readonly sort: SteamGamesSort;
   readonly mode: RetroAchievementsAchievementMode;
   readonly system: { readonly systemId: string; readonly title: string } | undefined;
 }
@@ -34,11 +33,28 @@ export function rememberDeckyGamesControls(
   providerId: string,
   filter: SteamGamesFilter,
   query: string,
-  sort: CompletionProgressSort,
+  sort: SteamGamesSort,
   mode: RetroAchievementsAchievementMode,
 ): void {
   const current = readDeckyGamesPageState(providerId);
-  pageStates.set(providerId, { ...current, filter, focusGameId: undefined, query, renderLimit: 12, sort, mode });
+  pageStates.set(providerId, { ...current, filter, focusGameId: undefined, query, renderLimit: 12, scrollTop: 0, sort, mode });
+}
+
+/** A Profile shortcut starts a fresh Games view; subsequent tab visits read the saved controls. */
+export function rememberDeckyGamesProfileShortcut(
+  providerId: string,
+  filter: SteamGamesFilter,
+): void {
+  pageStates.set(providerId, {
+    ...readDeckyGamesPageState(providerId),
+    filter,
+    focusGameId: undefined,
+    query: "",
+    renderLimit: 12,
+    scrollTop: 0,
+    sort: "recent",
+    system: undefined,
+  });
 }
 
 export function rememberDeckyGamesFocus(providerId: string, gameId: string): void {
@@ -69,6 +85,20 @@ export function rememberDeckyGamesSystem(
   });
 }
 
+/** Local system selection composes with the current search, status and sort. */
+export function rememberDeckyGamesSystemFilter(
+  providerId: string,
+  system: DeckySteamGamesPageState["system"],
+): void {
+  pageStates.set(providerId, {
+    ...readDeckyGamesPageState(providerId),
+    focusGameId: undefined,
+    renderLimit: 12,
+    scrollTop: 0,
+    system,
+  });
+}
+
 export function resetDeckyGamesPageState(providerId: string): void {
   pageStates.delete(providerId);
 }
@@ -80,7 +110,7 @@ export function readDeckySteamGamesPageState(): DeckySteamGamesPageState {
 export function rememberDeckySteamGamesControls(
   filter: SteamGamesFilter,
   query: string,
-  sort: CompletionProgressSort,
+  sort: SteamGamesSort,
 ): void {
   rememberDeckyGamesControls("steam", filter, query, sort, "both");
 }

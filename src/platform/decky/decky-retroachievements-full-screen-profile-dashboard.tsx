@@ -2,13 +2,11 @@ import { Focusable, GamepadButton, NavEntryPositionPreferences, type GamepadEven
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import barChartIconUrl from "./assets/bar-chart.svg";
 import calendarIconUrl from "./assets/calendar.svg";
-import externalLinkIconUrl from "./assets/external-link.svg";
 import gamepadIconUrl from "./assets/gamepad.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
 import { DeckyRetroAchievementsPointsIcon } from "./decky-retroachievements-points-icon";
 import { DeckyGameStatusIcon } from "./decky-game-status-icon";
 import { DeckyCompletionProgressBar } from "./decky-completion-progress-bar";
-import { DeckyFullscreenActionButton } from "./decky-full-screen-action-controls";
 import { DeckyFocusStyles } from "./decky-focus-styles";
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
 import { DeckySystemIcon } from "./decky-system-pill";
@@ -18,7 +16,6 @@ import { raRecipes, raTheme } from "./ra-theme";
 import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 import { formatFullscreenLastSync, formatProfileMemberSince } from "./decky-stat-helpers";
 import { DeckyRetroAchievementsRankTrendIndicator } from "./decky-ra-rank-trend-indicator";
-import type { CompletionProgressSelectionFilter } from "./decky-completion-progress-summary-card-data";
 
 type Model = ReturnType<typeof import("./decky-retroachievements-full-screen-profile-data").buildRetroAchievementsFullScreenProfileModel>;
 
@@ -46,8 +43,8 @@ function gridStyle(): CSSProperties {
     flex: "1 1 auto",
     overflow: "hidden",
     gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
-    gridTemplateRows: "minmax(0, 1fr)",
-    gridTemplateAreas: '"profile profile dashboard dashboard dashboard dashboard"',
+    gridTemplateRows: "minmax(86px, auto) minmax(0, 1fr)",
+    gridTemplateAreas: '"profile profile profile profile profile profile" "dashboard dashboard dashboard dashboard dashboard dashboard"',
     alignItems: "stretch",
     gap: 6,
     width: "100%",
@@ -60,9 +57,9 @@ function rightColumnStyle(hasSystems: boolean): CSSProperties {
   return {
     gridArea: "dashboard",
     display: "grid",
-    gridTemplateRows: hasSystems
-      ? "minmax(0, 1fr) minmax(0, 0.75fr) 150px"
-      : "minmax(0, 1fr) 150px",
+    gridTemplateColumns: hasSystems ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)",
+    gridTemplateRows: "minmax(100px, auto) minmax(0, 1fr)",
+    gridTemplateAreas: hasSystems ? '"progress progress" "systems completions"' : '"progress" "completions"',
     gap: 6,
     minWidth: 0,
     minHeight: 0,
@@ -78,11 +75,12 @@ function panelStyle(area: string): CSSProperties {
     gridArea: area,
     display: "flex",
     flexDirection: "column",
+    ...(area === "profile" ? { flexDirection: "row" as const, alignItems: "center" } : {}),
     gap: 6,
     minWidth: 0,
     minHeight: 0,
     height: "100%",
-    padding: 12,
+    padding: area === "profile" ? 10 : 12,
     boxSizing: "border-box",
     overflow: "hidden",
   };
@@ -92,6 +90,7 @@ function systemsPanelStyle(): CSSProperties {
   return {
     ...raRecipes.card("fullscreen", true),
     background: raTheme.surface.contentCard,
+    gridArea: "systems",
     display: "flex",
     flexDirection: "column",
     gap: 8,
@@ -106,12 +105,14 @@ function systemsPanelStyle(): CSSProperties {
 
 function systemsRailStyle(): CSSProperties {
   return {
-    display: "flex",
-    flex: "0 0 auto",
+    display: "grid",
+    gridTemplateRows: "repeat(3, minmax(0, 1fr))",
     gap: 8,
     minWidth: 0,
+    minHeight: 0,
     width: "100%",
-    overflowX: "auto",
+    height: "100%",
+    overflowX: "hidden",
     overflowY: "hidden",
     scrollbarWidth: "none",
     padding: "4px 5px 5px",
@@ -122,17 +123,19 @@ function systemsRailStyle(): CSSProperties {
 function systemsRailViewportStyle(): CSSProperties {
   return {
     display: "grid",
-    gridTemplateColumns: "28px minmax(0, 1fr) 28px",
-    alignItems: "center",
+    gridTemplateColumns: "minmax(0, 1fr)",
+    alignItems: "stretch",
     columnGap: 4,
+    flex: "1 1 auto",
     minWidth: 0,
+    minHeight: 0,
     width: "100%",
   };
 }
 
 function systemsRailArrowStyle(visible: boolean): CSSProperties {
   return {
-    display: "grid",
+    display: "none",
     placeItems: "center",
     width: 28,
     height: 34,
@@ -152,15 +155,14 @@ function systemsRailArrowStyle(visible: boolean): CSSProperties {
 function systemCardStyle(focused: boolean): CSSProperties {
   return {
     display: "grid",
-    gridTemplateColumns: "48px minmax(0, 1fr)",
-    gridTemplateRows: "auto minmax(0, 1fr) auto",
+    gridTemplateColumns: "46px minmax(0, 1fr) auto",
+    gridTemplateRows: "minmax(0, 1fr)",
     alignItems: "center",
     columnGap: 10,
-    rowGap: 8,
-    flex: "0 0 calc((100% - 16px) / 3)",
+    rowGap: 0,
     minWidth: 0,
-    minHeight: 100,
-    padding: "8px 10px",
+    minHeight: 0,
+    padding: "6px 10px",
     border: `1px solid ${raTheme.color.borderSubtle}`,
     borderRadius: raTheme.radius.medium,
     background: focused ? raTheme.surface.focusedContentStat : raTheme.surface.contentStat,
@@ -200,25 +202,26 @@ function SystemCard({
   onOpenSystem,
   onExitLeft,
   onMoveRight,
-  onMoveDown,
+  onMoveVertical,
 }: {
   readonly system: Model["systems"][number];
   readonly index: number;
   readonly onFocused: (index: number, target: HTMLElement) => void;
   readonly onOpenSystem: (system: { readonly systemId: string; readonly title: string }) => void;
   readonly onExitLeft: (() => boolean) | undefined;
-  readonly onMoveRight: (() => boolean) | undefined;
-  readonly onMoveDown: ((event: GamepadEvent) => boolean) | undefined;
+  readonly onMoveRight: ((event: GamepadEvent, index: number) => boolean) | undefined;
+  readonly onMoveVertical: (event: GamepadEvent, index: number, offset: number) => boolean;
 }): JSX.Element {
   const focusCard = (target: EventTarget | null): void => {
     if (target instanceof HTMLElement) onFocused(index, target);
   };
   const handleBoundaryDirection = (event: GamepadEvent): void => {
-    if (event.detail.button === GamepadButton.DIR_DOWN && onMoveDown?.(event) === true) return;
+    if (event.detail.button === GamepadButton.DIR_UP && onMoveVertical(event, index, -1)) return;
+    if (event.detail.button === GamepadButton.DIR_DOWN && onMoveVertical(event, index, 1)) return;
     const moved = event.detail.button === GamepadButton.DIR_LEFT
       ? onExitLeft?.()
       : event.detail.button === GamepadButton.DIR_RIGHT
-        ? onMoveRight?.()
+        ? onMoveRight?.(event, index)
         : false;
     if (moved !== true) return;
     event.preventDefault();
@@ -239,22 +242,19 @@ function SystemCard({
       onClick={() => onOpenSystem(system)}
       onFocus={(event) => focusCard(event.currentTarget)}
       onGamepadFocus={(event) => focusCard(event.currentTarget)}
-      {...(index === 0 ? { onGamepadDirection: handleBoundaryDirection } : {})}
+      onGamepadDirection={handleBoundaryDirection}
       style={systemCardStyle(false)}
     >
-      <div style={{ gridColumn: "1 / -1", minWidth: 0, color: raTheme.color.textSecondary, fontSize: 12, fontWeight: 700, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{system.title}</div>
-      <div style={{ width: 48, height: 40, display: "grid", placeItems: "center", minWidth: 0, minHeight: 0 }}>
+      <div style={{ width: 42, height: 38, display: "grid", placeItems: "center", minWidth: 0, minHeight: 0 }}>
         {system.iconUrl !== undefined
-          ? <DeckySystemIcon iconSize={44} iconUrl={system.iconUrl} />
-          : <img alt="" src={gamepadIconUrl} style={{ width: 32, height: 32, filter: raTheme.iconFilter.primary }} />}
+          ? <DeckySystemIcon iconSize={36} iconUrl={system.iconUrl} />
+          : <img alt="" src={gamepadIconUrl} style={{ width: 28, height: 28, filter: raTheme.iconFilter.primary }} />}
       </div>
       <div style={{ minWidth: 0, overflow: "hidden" }}>
-        <div style={{ color: raTheme.color.textPrimary, fontSize: 22, fontWeight: 850, lineHeight: 1.05 }}>{system.unlockedAchievements.toLocaleString()}</div>
-        <div style={{ color: raTheme.color.textMuted, fontSize: 10, lineHeight: 1.1 }}>unlocked achievements</div>
+        <div style={{ color: raTheme.color.textPrimary, fontSize: 13, fontWeight: 750, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{system.title}</div>
+        <div style={{ color: raTheme.color.textMuted, fontSize: 11, lineHeight: 1.1 }}>{system.unlockedAchievements.toLocaleString()} unlocked achievements</div>
       </div>
-      <div style={{ gridColumn: "1 / -1", height: 8, overflow: "hidden", borderRadius: 999, background: "rgba(76, 125, 157, 0.28)" }}>
-        <div style={{ width: `${system.completionPercent ?? 0}%`, height: "100%", borderRadius: 999, background: `linear-gradient(90deg, ${raTheme.color.accentStrong}, ${raTheme.color.accent})` }} />
-      </div>
+      <span aria-hidden="true" style={{ color: raTheme.color.accent, fontSize: 18 }}>›</span>
     </Focusable>
   );
 }
@@ -291,8 +291,8 @@ function ProfileFact({ iconUrl, tone = "blue", children }: { readonly iconUrl: s
 
 function ProfileStat({ label, value, icon }: { readonly label: string; readonly value: string; readonly icon?: JSX.Element }): JSX.Element {
   return (
-    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, color: raTheme.color.textSecondary, fontSize: 14, lineHeight: 1.2 }}>
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{icon}{label}</span>
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, color: raTheme.color.textSecondary, fontSize: "0.77em", lineHeight: 1.2, whiteSpace: "nowrap" }}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>{icon}{label}</span>
       <span style={{ color: raTheme.color.textPrimary, fontWeight: 750, textAlign: "right" }}>{value}</span>
     </div>
   );
@@ -314,6 +314,7 @@ type AchievementMode = "hardcore" | "softcore" | "both";
 function dashboardPanelStyle(): CSSProperties {
   return {
     ...raRecipes.card("fullscreen", true),
+    gridArea: "progress",
     display: "flex",
     flexDirection: "column",
     gap: 7,
@@ -373,7 +374,7 @@ function ModeChip({
   readonly mode: AchievementMode;
   readonly selected: boolean;
   readonly onSelect: (mode: AchievementMode) => void;
-  readonly onMoveUp: (event: GamepadEvent) => boolean;
+  readonly onMoveUp: ((event: GamepadEvent) => boolean) | undefined;
   readonly onMoveDown: (event: GamepadEvent) => boolean;
   readonly onMoveHorizontal: (event: GamepadEvent, mode: AchievementMode, offset: number) => boolean;
 }): JSX.Element {
@@ -391,7 +392,7 @@ function ModeChip({
       onActivate={() => onSelect(mode)}
       onClick={() => onSelect(mode)}
       onGamepadDirection={(event) => {
-        if (event.detail.button === GamepadButton.DIR_UP) onMoveUp(event);
+        if (event.detail.button === GamepadButton.DIR_UP) onMoveUp?.(event);
         if (event.detail.button === GamepadButton.DIR_DOWN) onMoveDown(event);
         if (event.detail.button === GamepadButton.DIR_LEFT) onMoveHorizontal(event, mode, -1);
         if (event.detail.button === GamepadButton.DIR_RIGHT) onMoveHorizontal(event, mode, 1);
@@ -440,7 +441,7 @@ function AchievementProgressPanel({
     ? "Achievement progress unavailable for this mode"
     : progress.totalCount === undefined
       ? `${progress.unlockedCount.toLocaleString()} achievements unlocked`
-      : `${progress.unlockedCount.toLocaleString()} unlocked · ${progress.totalCount.toLocaleString()} total${progress.completionPercent === undefined ? "" : ` · ${progress.completionPercent}% complete`}`;
+      : `${progress.unlockedCount.toLocaleString()} / ${progress.totalCount.toLocaleString()} achievements unlocked`;
   return (
     <section data-ra-profile-achievement-progress style={dashboardPanelStyle()}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, minWidth: 0 }}>
@@ -458,9 +459,12 @@ function AchievementProgressPanel({
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 14, alignItems: "center", flex: "1 1 auto", minWidth: 0, minHeight: 0 }}>
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 8, minWidth: 0 }}>
-          <div style={{ color: raTheme.color.textPrimary, fontSize: 14, fontWeight: 600, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{summary}</div>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, minWidth: 0 }}>
+            <span style={{ color: raTheme.color.textPrimary, fontSize: 14, fontWeight: 600, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{summary}</span>
+            {progress?.completionPercent !== undefined ? <strong style={{ color: raTheme.color.textPrimary, fontSize: 20, lineHeight: 1, whiteSpace: "nowrap" }}>{progress.completionPercent}%</strong> : null}
+          </div>
           {progress !== undefined && progress.completionPercent !== undefined ? (
-            <DeckyCompletionProgressBar percent={progress.completionPercent} captionPlacement="inside" showCaption />
+            <DeckyCompletionProgressBar percent={progress.completionPercent} showCaption={false} />
           ) : null}
         </div>
         {progress !== undefined && progress.remainingCount !== undefined ? (
@@ -477,6 +481,7 @@ function AchievementProgressPanel({
 function recentPanelStyle(): CSSProperties {
   return {
     ...dashboardPanelStyle(),
+    gridArea: "completions",
     display: "grid",
     gridTemplateRows: "auto minmax(0, 1fr)",
     gap: 4,
@@ -498,17 +503,15 @@ function recentPanelHeaderStyle(): CSSProperties {
 function RecentCompletionRow({
   completion,
   index,
-  total,
   onOpenCompletionProgress,
-  onMoveUp,
-  onMoveHorizontal,
+  onMoveVertical,
+  onMoveLeft,
 }: {
   readonly completion: Model["recentCompletions"][number];
   readonly index: number;
-  readonly total: number | undefined;
-  readonly onOpenCompletionProgress: (filter: "beaten" | "mastered") => void;
-  readonly onMoveUp: (event: GamepadEvent) => boolean;
-  readonly onMoveHorizontal: (event: GamepadEvent, index: number, offset: number) => boolean;
+  readonly onOpenCompletionProgress: (filter: "beaten" | "mastered" | "completed") => void;
+  readonly onMoveVertical: (event: GamepadEvent, index: number, offset: number) => boolean;
+  readonly onMoveLeft: (event: GamepadEvent, index: number) => boolean;
 }): JSX.Element {
   const { game, kind, awardedAt, dateKind } = completion;
   const statusColor = kind === "mastered"
@@ -523,38 +526,34 @@ function RecentCompletionRow({
   const statusStyle: CSSProperties = kind === "completed"
     ? { ...raRecipes.card("compact", true), position: "relative", isolation: "isolate", border: `2px solid ${raTheme.color.softcore}`, background: raTheme.surface.contentCard }
     : raRecipes.compactGame.status(kind);
-  const onOpen = (): void => onOpenCompletionProgress(kind === "mastered" ? "mastered" : "beaten");
+  const onOpen = (): void => onOpenCompletionProgress(kind);
   return (
     <Focusable
       noFocusRing
       role="button"
       tabIndex={0}
-      aria-label={`Open ${statusLabel.toLowerCase()} game ${game.title}`}
+      aria-label={`Show ${statusLabel.toLowerCase()} games`}
       onActivate={onOpen}
       onClick={onOpen}
       onGamepadDirection={(event) => {
-        if (event.detail.button === GamepadButton.DIR_UP) onMoveUp(event);
-        if (event.detail.button === GamepadButton.DIR_LEFT) onMoveHorizontal(event, index, -1);
-        if (event.detail.button === GamepadButton.DIR_RIGHT) onMoveHorizontal(event, index, 1);
+        if (event.detail.button === GamepadButton.DIR_UP) onMoveVertical(event, index, -1);
+        if (event.detail.button === GamepadButton.DIR_DOWN) onMoveVertical(event, index, 1);
+        if (event.detail.button === GamepadButton.DIR_LEFT) onMoveLeft(event, index);
       }}
-      style={{ display: "block", alignSelf: "center", height: 78, maxHeight: "100%", minWidth: 0, minHeight: 0, border: 0, borderRadius: raTheme.radius.medium, background: "transparent", boxSizing: "border-box" }}
+      style={{ display: "block", alignSelf: "stretch", height: "100%", minWidth: 0, minHeight: 0, border: 0, borderRadius: raTheme.radius.medium, background: "transparent", boxSizing: "border-box" }}
       data-ra-profile-recent-completion-row={game.gameId}
     >
-      <div style={{ ...statusStyle, display: "grid", gridTemplateColumns: total === undefined ? "46px minmax(0, 1fr)" : "46px minmax(0, 1fr) 42px", gap: 7, minHeight: 0, height: "100%", padding: "5px 7px", borderRadius: raTheme.radius.small }}>
+      <div style={{ ...statusStyle, display: "grid", gridTemplateColumns: "54px minmax(0, 1fr) 18px", alignItems: "center", gap: 9, minHeight: 0, height: "100%", padding: "9px 12px", borderRadius: raTheme.radius.small }}>
+        {kind !== "completed" ? <span aria-hidden="true" style={{ ...raRecipes.compactGame.statusWatermark, top: "50%", right: 26, transform: "translateY(-50%)", opacity: 0.07 }}><DeckyGameStatusIcon kind={kind} size={94} color={statusColor} /></span> : null}
         {kind === "completed"
           ? <span style={{ position: "relative", zIndex: 1, display: "grid", placeItems: "center", width: 44, height: 44, border: `2px solid ${raTheme.color.softcore}`, borderRadius: "50%", background: raTheme.surface.softcore, boxSizing: "border-box" }}><img alt="" src={gamepadIconUrl} style={{ width: 28, height: 28, filter: raTheme.iconFilter.softcore }} /></span>
           : <ProfileAwardIcon kind={kind} />}
-        <span style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 2, minWidth: 0 }}>
-          <strong style={{ color: statusColor, fontSize: 12, lineHeight: 1.1 }}>{statusLabel}</strong>
-          <span style={{ color: raTheme.color.textPrimary, fontSize: 11, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{game.title}</span>
-          <span style={{ color: raTheme.color.textSecondary, fontSize: 10, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{date}</span>
+        <span style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", justifyContent: "center", gap: 4, minWidth: 0 }}>
+          <strong style={{ color: statusColor, fontSize: 14, lineHeight: 1.1 }}>{statusLabel}</strong>
+          <span style={{ color: raTheme.color.textPrimary, fontSize: 13, fontWeight: 700, lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{game.title}</span>
+          <span style={{ color: raTheme.color.textSecondary, fontSize: 11, lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{date}</span>
         </span>
-        {total !== undefined ? (
-          <span style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", alignSelf: "center", minWidth: 0, padding: "4px 1px", borderRadius: raTheme.radius.small, background: raTheme.surface.contentStat }}>
-            <strong style={{ color: statusColor, fontSize: 17, lineHeight: 1.1 }}>{total.toLocaleString()}</strong>
-            <span style={{ color: raTheme.color.textSecondary, fontSize: 9, lineHeight: 1 }}>total</span>
-          </span>
-        ) : null}
+        <span aria-hidden="true" style={{ position: "relative", zIndex: 1, color: statusColor, fontSize: 22, lineHeight: 1, justifySelf: "end" }}>›</span>
       </div>
     </Focusable>
   );
@@ -563,13 +562,13 @@ function RecentCompletionRow({
 function RecentCompletionsPanel({
   model,
   onOpenCompletionProgress,
-  onMoveUp,
-  onMoveHorizontal,
+  onMoveVertical,
+  onMoveLeft,
 }: {
   readonly model: Model;
-  readonly onOpenCompletionProgress: (filter: CompletionProgressSelectionFilter) => void;
-  readonly onMoveUp: (event: GamepadEvent) => boolean;
-  readonly onMoveHorizontal: (event: GamepadEvent, index: number, offset: number) => boolean;
+  readonly onOpenCompletionProgress: (filter: "beaten" | "mastered" | "completed") => void;
+  readonly onMoveVertical: (event: GamepadEvent, index: number, offset: number) => boolean;
+  readonly onMoveLeft: (event: GamepadEvent, index: number) => boolean;
 }): JSX.Element {
   return (
     <section data-ra-profile-recent-completions style={recentPanelStyle()}>
@@ -579,10 +578,10 @@ function RecentCompletionsPanel({
           <span>Recent Completions</span>
         </div>
       </div>
-      <Focusable flow-children="left-right" noFocusRing tabIndex={-1} style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gridTemplateRows: "minmax(0, 1fr)", gap: 6, minHeight: 0, minWidth: 0 }}>
+      <Focusable flow-children="vertical" noFocusRing tabIndex={-1} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gridTemplateRows: "repeat(2, minmax(0, 1fr))", gap: 6, minHeight: 0, minWidth: 0 }}>
         {model.recentCompletions.length > 0
             ? model.recentCompletions.map((completion, index) => (
-              <RecentCompletionRow key={completion.game.gameId} completion={completion} index={index} total={model.completionAwardCounts[completion.kind]} onOpenCompletionProgress={onOpenCompletionProgress} onMoveUp={onMoveUp} onMoveHorizontal={onMoveHorizontal} />
+              <RecentCompletionRow key={completion.game.gameId} completion={completion} index={index} onOpenCompletionProgress={onOpenCompletionProgress} onMoveVertical={onMoveVertical} onMoveLeft={onMoveLeft} />
           ))
           : <span style={{ display: "grid", gridColumn: "1 / -1", minHeight: 0, placeItems: "center", color: raTheme.color.textMuted, fontSize: 12, textAlign: "center" }}>No recent completed games available.</span>}
       </Focusable>
@@ -601,12 +600,12 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
   readonly model: Model;
   readonly isActive: boolean;
   readonly onOpenExternalUrl: (url: string) => void;
-  readonly onOpenCompletionProgress: (filter: CompletionProgressSelectionFilter) => void;
+  readonly onOpenCompletionProgress: (filter: "beaten" | "mastered" | "completed") => void;
   readonly onOpenSystem: (system: { readonly systemId: string; readonly title: string }) => void;
   readonly refreshedAt: number | undefined;
 }): JSX.Element {
   const rootRef = useRef<HTMLElement>(null);
-  const profileActionRef = useRef<HTMLDivElement>(null);
+  const avatarLinkRef = useRef<HTMLDivElement>(null);
   const systemsRailRef = useRef<HTMLDivElement>(null);
   const leftSystemsArrowRef = useRef<HTMLSpanElement>(null);
   const rightSystemsArrowRef = useRef<HTMLSpanElement>(null);
@@ -622,7 +621,9 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
     const ownerWindow = root?.ownerDocument.defaultView;
     if (root === null || root === undefined || ownerWindow === null || ownerWindow === undefined) return;
     const frame = ownerWindow.requestAnimationFrame(() => {
-      const target = profileActionRef.current?.querySelector<HTMLElement>("[role='button']");
+      const target = root.querySelector<HTMLElement>("[data-ra-profile-system]")
+        ?? root.querySelector<HTMLElement>("[data-ra-profile-recent-completion-row]")
+        ?? avatarLinkRef.current;
       if (target !== undefined && target !== null && !root.contains(root.ownerDocument.activeElement)) takeDeckySteamGamepadFocus(target);
     });
     return () => ownerWindow.cancelAnimationFrame(frame);
@@ -654,12 +655,8 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
   const avatarUrl = addProfileAvatarCacheBustParam(model.profile.identity.avatarUrl, refreshedAt);
   const profileUrl = model.profile.identity.profileUrl
     ?? `https://retroachievements.org/user/${encodeURIComponent(model.profile.identity.displayName)}`;
-  const focusProfileAction = (): boolean => takeDeckySteamGamepadFocus(
-    profileActionRef.current?.querySelector<HTMLElement>("[role='button']"),
-  );
-  const focusSecondSystem = (): boolean => takeDeckySteamGamepadFocus(
-    rootRef.current?.querySelectorAll<HTMLElement>("[data-ra-profile-system]")[1],
-  );
+  const focusAvatarLink = (): boolean => takeDeckySteamGamepadFocus(avatarLinkRef.current);
+  const focusAvatarLinkWithSound = (event: GamepadEvent): boolean => moveProfileFocus(event, avatarLinkRef.current);
   const focusFirstSystem = (event: GamepadEvent): boolean => moveProfileFocus(
     event,
     rootRef.current?.querySelector<HTMLElement>("[data-ra-profile-system]"),
@@ -668,23 +665,18 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
     event,
     rootRef.current?.querySelector<HTMLElement>("[data-ra-profile-recent-completion-row]"),
   );
-  const focusProgressOrCompletion = (event: GamepadEvent): boolean => moveProfileFocus(
-    event,
-    rootRef.current?.querySelector<HTMLElement>("[data-ra-profile-mode-chip]")
-      ?? rootRef.current?.querySelector<HTMLElement>("[data-ra-profile-recent-completion-row]"),
-  );
-  const focusSystemOrAction = (event: GamepadEvent): boolean => moveProfileFocus(
-    event,
-    rootRef.current?.querySelector<HTMLElement>("[data-ra-profile-system]")
-      ?? profileActionRef.current?.querySelector<HTMLElement>("[role='button']"),
-  );
-  const focusSelectedProgressOrSystem = (event: GamepadEvent): boolean => moveProfileFocus(
-    event,
-    rootRef.current?.querySelector<HTMLElement>("[data-ra-profile-mode-chip][data-achievement-filter-selected='true']")
-      ?? rootRef.current?.querySelector<HTMLElement>("[data-ra-profile-mode-chip]")
-      ?? rootRef.current?.querySelector<HTMLElement>("[data-ra-profile-system]")
-      ?? profileActionRef.current?.querySelector<HTMLElement>("[role='button']"),
-  );
+  const moveWithinSystems = (event: GamepadEvent, index: number, offset: number): boolean => {
+    const target = rootRef.current?.querySelectorAll<HTMLElement>("[data-ra-profile-system]")[index + offset];
+    return target !== undefined
+      ? moveProfileFocus(event, target)
+      : index === 0 && offset < 0 && focusAvatarLinkWithSound(event);
+  };
+  const moveWithinCompletions = (event: GamepadEvent, index: number, offset: number): boolean => {
+    const target = rootRef.current?.querySelectorAll<HTMLElement>("[data-ra-profile-recent-completion-row]")[index + offset];
+    return target !== undefined
+      ? moveProfileFocus(event, target)
+      : index === 0 && offset < 0 && focusAvatarLinkWithSound(event);
+  };
   const focusAdjacentModeChip = (event: GamepadEvent, mode: AchievementMode, offset: number): boolean => {
     const modes: readonly AchievementMode[] = ["hardcore", "softcore", "both"];
     const targetMode = modes[modes.indexOf(mode) + offset];
@@ -693,9 +685,16 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
       rootRef.current?.querySelector<HTMLElement>(`[data-ra-profile-mode-chip='${targetMode}']`),
     );
   };
-  const focusAdjacentCompletion = (event: GamepadEvent, index: number, offset: number): boolean => moveProfileFocus(
+  const focusSystemBesideCompletion = (event: GamepadEvent, index: number): boolean => moveProfileFocus(
     event,
-    rootRef.current?.querySelectorAll<HTMLElement>("[data-ra-profile-recent-completion-row]")[index + offset],
+    rootRef.current?.querySelectorAll<HTMLElement>("[data-ra-profile-system]")[index]
+      ?? rootRef.current?.querySelector<HTMLElement>("[data-ra-profile-system]")
+      ?? avatarLinkRef.current,
+  );
+  const focusCompletionBesideSystem = (event: GamepadEvent, index: number): boolean => moveProfileFocus(
+    event,
+    rootRef.current?.querySelectorAll<HTMLElement>("[data-ra-profile-recent-completion-row]")[Math.min(index, 1)]
+      ?? rootRef.current?.querySelector<HTMLElement>("[data-ra-profile-recent-completion-row]"),
   );
   const handleSystemFocused = (_index: number, target: HTMLElement): void => scrollSystemCardIntoView(target);
   return (
@@ -703,40 +702,43 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
       <DeckyFocusStyles />
       <Focusable flow-children="left-right" noFocusRing tabIndex={-1} style={gridStyle()}>
         <section style={panelStyle("profile")}>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, minWidth: 0, textAlign: "center" }}>
-            <div style={{ width: 144, height: 144, flex: "0 0 144px", display: "flex", alignItems: "center", justifyContent: "center", border: `3px solid ${raTheme.color.accent}`, borderRadius: 22, overflow: "hidden", background: qamTheme.decorative.avatarBackground, boxShadow: qamTheme.decorative.avatarGlow, boxSizing: "border-box" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0, flex: "0 1 auto" }}>
+            <Focusable
+              ref={avatarLinkRef}
+              noFocusRing
+              role="button"
+              tabIndex={0}
+              focusClassName="achievement-companion-ra-profile-avatar--focused"
+              focusWithinClassName="achievement-companion-ra-profile-avatar--focused"
+              data-ra-profile-avatar-link="true"
+              aria-label={`View ${model.profile.identity.displayName} on RetroAchievements`}
+              title="View RetroAchievements profile"
+              onActivate={() => onOpenExternalUrl(profileUrl)}
+              onClick={() => onOpenExternalUrl(profileUrl)}
+              onGamepadDirection={(event) => {
+                if (event.detail.button === GamepadButton.DIR_RIGHT || event.detail.button === GamepadButton.DIR_DOWN) {
+                  if (!focusFirstSystem(event)) focusFirstCompletion(event);
+                }
+              }}
+              style={{ width: 70, height: 70, flex: "0 0 70px", display: "flex", alignItems: "center", justifyContent: "center", border: `3px solid ${raTheme.color.accent}`, borderRadius: 14, overflow: "hidden", background: qamTheme.decorative.avatarBackground, boxShadow: qamTheme.decorative.avatarGlow, boxSizing: "border-box", cursor: "pointer" }}
+            >
               {avatarUrl !== undefined
-                ? <img alt="" src={avatarUrl} style={{ width: 138, height: 138, objectFit: "cover" }} />
-                : <span style={{ color: raTheme.color.textPrimary, fontSize: "3em", fontWeight: 850, letterSpacing: "0.04em" }}>{model.profile.identity.displayName.slice(0, 2).toUpperCase()}</span>}
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 0 }}>
-              <div style={{ fontSize: "clamp(1.35rem, 2.2vw, 1.9rem)", fontWeight: 850, lineHeight: 1.08, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{model.profile.identity.displayName}</div>
+                ? <img alt="" src={avatarUrl} style={{ width: 66, height: 66, objectFit: "cover" }} />
+                : <span style={{ color: raTheme.color.textPrimary, fontSize: "1.5em", fontWeight: 850 }}>{model.profile.identity.displayName.slice(0, 2).toUpperCase()}</span>}
+            </Focusable>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+              <div style={{ fontSize: "clamp(1.05rem, 1.55vw, 1.35rem)", fontWeight: 850, lineHeight: 1.08, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{model.profile.identity.displayName}</div>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 6, color: raTheme.color.accent, fontSize: "0.82em", fontWeight: 700 }}><span aria-hidden="true" style={{ width: 9, height: 9, flexShrink: 0, borderRadius: 999, backgroundColor: "#20e889", boxShadow: "0 0 10px rgba(32, 232, 137, 0.46)" }} />RA account</div>
             </div>
           </div>
-          <div style={{ height: 1, flexShrink: 0, backgroundColor: raTheme.color.borderSubtle }} />
-          <div style={{ display: "flex", flexDirection: "column", gap: 7, width: "100%", minWidth: 0 }}>
+          <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: "4px 16px", flex: "1 1 auto", minWidth: 0 }}>
             {memberSince !== undefined ? <ProfileFact iconUrl={calendarIconUrl}>{`Member since ${memberSince}`}</ProfileFact> : null}
             {selectedRank !== undefined ? <ProfileFact iconUrl={trophyIconUrl} tone="gold"><DeckyRetroAchievementsRankTrendIndicator accountId={model.profile.identity.accountId} kind={selectedRank.kind} />{`${selectedRank.label} ${selectedRank.value}`}</ProfileFact> : null}
           </div>
-          <div ref={profileActionRef} data-ra-profile-external-action>
-            <DeckyFullscreenActionButton
-              fullWidth
-              contentAlign="left"
-              icon={<img alt="" src={externalLinkIconUrl} style={{ width: 17, height: 17, filter: raTheme.iconFilter.primary }} />}
-              label="View on RetroAchievements"
-              onGamepadDirection={(event) => {
-                if (event.detail.button === GamepadButton.DIR_RIGHT) focusFirstSystem(event);
-              }}
-              onClick={() => onOpenExternalUrl(profileUrl)}
-            />
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%", marginTop: "auto", paddingTop: 12, borderTop: `1px solid ${raTheme.color.borderSubtle}`, boxSizing: "border-box" }}>
-            <ProfileStat icon={<DeckyRetroAchievementsPointsIcon size={14} />} label={model.initialAchievementMode === "softcore" ? "Softcore Points" : "Points Earned"} value={(model.initialAchievementMode === "softcore" ? model.profileStats.softcorePoints : model.profileStats.hardcorePoints) ?? "-"} />
-            <ProfileStat icon={<DeckyRetroAchievementsPointsIcon size={14} />} label="RetroPoints" value={model.profileStats.raPoints ?? "-"} />
-            {refreshTime !== undefined ? (
-              <div style={{ color: raTheme.color.textMuted, fontSize: 12, lineHeight: 1.2, textAlign: "left" }}>{refreshTime}</div>
-            ) : null}
+          <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 5, flex: "0 0 auto", minWidth: 0 }}>
+            <ProfileStat icon={<DeckyRetroAchievementsPointsIcon size={13} />} label={model.initialAchievementMode === "softcore" ? "Softcore Points" : "Points Earned"} value={(model.initialAchievementMode === "softcore" ? model.profileStats.softcorePoints : model.profileStats.hardcorePoints) ?? "-"} />
+            <ProfileStat icon={<DeckyRetroAchievementsPointsIcon size={13} />} label="RetroPoints" value={model.profileStats.raPoints ?? "-"} />
+            {refreshTime !== undefined ? <div style={{ color: raTheme.color.textMuted, fontSize: raTheme.type.fullscreen.caption, whiteSpace: "nowrap", textAlign: "right" }}>{refreshTime}</div> : null}
           </div>
         </section>
         <Focusable flow-children="vertical" noFocusRing tabIndex={-1} style={rightColumnStyle(model.systems.length > 0 || model.systemsUnavailable)}>
@@ -753,13 +755,12 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
                 <img alt="" src={gamepadIconUrl} style={{ width: 24, height: 24, filter: raTheme.iconFilter.primary }} />
                 <div style={{ color: raTheme.color.textPrimary, fontSize: 17, fontWeight: 850, letterSpacing: "0.08em", lineHeight: 1.1 }}>SYSTEMS</div>
               </div>
-              <div style={{ color: raTheme.color.textSecondary, fontSize: 12, lineHeight: 1.2, textAlign: "right" }}>Top systems by {model.initialAchievementMode} unlocks</div>
             </div>
             <div style={systemsRailViewportStyle()}>
               <span ref={leftSystemsArrowRef} aria-hidden="true" data-ra-profile-system-arrow="left" style={systemsRailArrowStyle(false)}>←</span>
               <Focusable
                 ref={systemsRailRef}
-                flow-children="left-right"
+                flow-children="vertical"
                 navEntryPreferPosition={NavEntryPositionPreferences.FIRST}
                 noFocusRing
                 tabIndex={-1}
@@ -767,15 +768,15 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
                 aria-label="Systems"
                 data-ra-profile-system-rail
               >
-                {model.systems.map((system, index) => (
+                {model.systems.slice(0, 3).map((system, index) => (
                   <SystemCard
                     key={system.systemId}
                     index={index}
                     onFocused={handleSystemFocused}
                     onOpenSystem={onOpenSystem}
-                    onExitLeft={index === 0 ? focusProfileAction : undefined}
-                    onMoveRight={index === 0 && model.systems.length > 1 ? focusSecondSystem : undefined}
-                    onMoveDown={index === 0 ? focusProgressOrCompletion : undefined}
+                    onExitLeft={index === 0 ? focusAvatarLink : undefined}
+                    onMoveRight={focusCompletionBesideSystem}
+                    onMoveVertical={moveWithinSystems}
                     system={system}
                   />
                 ))}
@@ -794,11 +795,11 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
             mode={achievementMode}
             onSelectMode={setAchievementMode}
             allowModeSelection={model.initialAchievementMode === "both"}
-            onMoveUp={focusSystemOrAction}
+            onMoveUp={focusAvatarLinkWithSound}
             onMoveDown={focusFirstCompletion}
             onMoveHorizontal={focusAdjacentModeChip}
           />
-          <RecentCompletionsPanel model={model} onOpenCompletionProgress={onOpenCompletionProgress} onMoveUp={focusSelectedProgressOrSystem} onMoveHorizontal={focusAdjacentCompletion} />
+          <RecentCompletionsPanel model={model} onOpenCompletionProgress={onOpenCompletionProgress} onMoveVertical={moveWithinCompletions} onMoveLeft={focusSystemBesideCompletion} />
         </Focusable>
       </Focusable>
     </main>

@@ -312,9 +312,9 @@ test("Steam achievements and groups use nested GamepadUI focus primitives", asyn
   assert.match(browserSource, /flow-children="vertical"/u);
 });
 
-test("full-screen achievement child route reuses the loaded game snapshot", async () => {
+test("achievement modal reuses the loaded game snapshot", async () => {
   const source = await readFile(
-    new URL("../src/platform/decky/decky-full-screen-achievement-page.tsx", import.meta.url),
+    new URL("../src/platform/decky/decky-achievement-detail-modal.tsx", import.meta.url),
     "utf8",
   );
 

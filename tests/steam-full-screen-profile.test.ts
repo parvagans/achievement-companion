@@ -14,6 +14,7 @@ import {
   markNextFullScreenCompletionProgressFilter,
 } from "../src/platform/decky/decky-full-screen-navigation-state";
 import { buildSteamFullScreenProfileSummary } from "../src/platform/decky/decky-steam-full-screen-profile-data";
+import { getSteamHeroArtworkSources } from "../src/platform/decky/decky-steam-game-artwork";
 import { formatFullscreenLastSync } from "../src/platform/decky/decky-stat-helpers";
 import {
   matchesSteamGamesFilter,
@@ -43,6 +44,20 @@ function createUnlock(gameId: string, gameTitle: string, unlockedAt?: number): R
     ...(unlockedAt !== undefined ? { unlockedAt } : {}),
   };
 }
+
+test("Steam hero selection preserves the original header and provides alternate art only as fallback", () => {
+  const header = "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/42/header.jpg";
+  const libraryHero = "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/42/library_hero.jpg";
+  assert.deepEqual(getSteamHeroArtworkSources({ appid: 42 }), { src: header, fallbackSrc: libraryHero });
+  assert.deepEqual(getSteamHeroArtworkSources({ appid: 42 }, { storeHeaderUrl: "https://example.com/hashed.jpg" }), {
+    src: header,
+    fallbackSrc: "https://example.com/hashed.jpg",
+  });
+  assert.deepEqual(getSteamHeroArtworkSources({ appid: 42 }, { steamHuntersBannerUrl: "https://example.com/hunter.jpg" }), {
+    src: header,
+    fallbackSrc: libraryHero,
+  });
+});
 
 function createProfile(): NormalizedProfile {
   return {
@@ -377,7 +392,7 @@ test("Steam counts an unlock without recorded playtime as played, but not an unt
   assert.equal(matchesSteamGamesFilter(snapshot.games[0]!, "played"), true);
 });
 
-test("steam games route uses the fixed concept dashboard and shared profile footer", async () => {
+test("Steam and RA Games use a single toolbar and list with the shared profile footer", async () => {
   const [pageSource, dashboardSource, footerSource, artworkSource] = await Promise.all([
     readFile(
       new URL("../src/platform/decky/decky-full-screen-completion-progress-page.tsx", import.meta.url),
@@ -400,22 +415,37 @@ test("steam games route uses the fixed concept dashboard and shared profile foot
   assert.match(pageSource, /snapshot\.providerId === STEAM_PROVIDER_ID[\s\S]*<DeckySteamFullScreenGamesDashboard/u);
   assert.match(dashboardSource, /data-steam-full-screen-games-dashboard/u);
   assert.match(dashboardSource, /height: "100%"[\s\S]*overflow: "hidden"/u);
-  assert.match(dashboardSource, /gridTemplateColumns: `repeat\(\$\{isRa \? 4 : 5\}, minmax\(0, 1fr\)\) minmax\(230px, 2\.2fr\)`/u);
+  assert.doesNotMatch(dashboardSource, /SteamGamesSummaryCards|OverallProgressCard|function MetricCard/u);
+  assert.match(dashboardSource, /<SteamGamesStatusButton/u);
+  assert.match(dashboardSource, /<SteamGamesSortButton/u);
+  assert.match(dashboardSource, /<GamesSortToggle/u);
+  assert.match(dashboardSource, /aria-label="Clear Games filters"/u);
+  assert.match(dashboardSource, /↓ Newest/u);
+  assert.match(dashboardSource, /↑ Oldest/u);
+  assert.doesNotMatch(dashboardSource, /Title A[-–]Z|Achievement mode:|<h1[^>]*>Games<\/h1>/u);
+  assert.match(dashboardSource, /value: "recent", label: "Last played"/u);
+  assert.match(dashboardSource, /value: "recent", label: "Last unlock"/u);
+  assert.match(dashboardSource, /value: "completion", label: "Highest completion"/u);
+  assert.match(dashboardSource, /value: "fewest_remaining", label: "Fewest remaining"/u);
+  assert.match(dashboardSource, /<RetroAchievementsSystemButton/u);
+  assert.match(dashboardSource, /formatCount\(visibleGames\.length\)[\s\S]*formatCount\(snapshot\.games\.length\)/u);
   assert.match(artworkSource, /STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH = 134;/u);
   assert.match(artworkSource, /STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT = 58;/u);
   assert.match(artworkSource, /STEAM_FULLSCREEN_GAME_ROW_HEIGHT = 70;/u);
   assert.match(dashboardSource, /minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT/u);
-  assert.match(dashboardSource, /function getMetadataCellStyle[\s\S]*borderLeft: "1px solid rgba\(76, 148, 187, 0\.22\)"/u);
-  assert.equal((dashboardSource.match(/style=\{getMetadataCellStyle\(providerId === RETROACHIEVEMENTS_PROVIDER_ID\)\}/gu) ?? []).length, 2);
+  assert.match(dashboardSource, /context\.length > 0[\s\S]*getSecondaryMetaStyle\(\)[\s\S]*\{context\}/u);
+  assert.doesNotMatch(dashboardSource, /getMetadataCellStyle|Total Time Played|Total Playtime/u);
   assert.match(dashboardSource, /<img\s+alt=""\s+aria-hidden="true"\s+src=\{src\}/u);
   assert.match(dashboardSource, /filter: STEAM_GAMES_ICON_FILTERS\[tone\]/u);
   assert.doesNotMatch(dashboardSource, /MaskImage|IconMask/u);
   assert.doesNotMatch(dashboardSource, /checkCircleIconUrl|steamIconUrl|getPillStyle/u);
-  assert.match(dashboardSource, /isRa \? "All" : "All Games"/u);
-  assert.match(dashboardSource, /Played \(\$\{formatCount\(summary\.playedCount\)\}\)/u);
+  assert.match(dashboardSource, /value: "all", label: "All games"/u);
+  assert.match(dashboardSource, /value: "played", label: "Played"/u);
   assert.match(dashboardSource, /isRa \? "In Progress" : "Unfinished"/u);
-  assert.match(dashboardSource, /isRa \? "Mastered" : "Perfected"/u);
-  assert.match(dashboardSource, /isRa \? "Beaten" : "Skipped"/u);
+  assert.match(dashboardSource, /value: "completed" as const, label: "Any award"/u);
+  assert.match(dashboardSource, /value: "mastered" as const, label: "Mastered"/u);
+  assert.match(dashboardSource, /value: "mastered" as const, label: "Perfected"/u);
+  assert.match(dashboardSource, /value: "beaten" as const, label: "No achievements"/u);
   assert.match(dashboardSource, /<DeckyFullScreenFooterOverlay/u);
   assert.match(dashboardSource, /navigationItems=\{isRa \? RETROACHIEVEMENTS_PROFILE_FOOTER_NAVIGATION_ITEMS : STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS\}/u);
   assert.match(dashboardSource, /activeNavigationItemId="games"/u);
@@ -438,7 +468,7 @@ test("provider full-screen routes load Profile, Games, and Activity once per vis
     readFile(new URL("../src/platform/decky/decky-full-screen-completion-progress-page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-full-screen-achievement-history-page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-full-screen-game-page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../src/platform/decky/decky-full-screen-achievement-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-achievement-detail-modal.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-full-screen-loading-state.tsx", import.meta.url), "utf8"),
   ]);
 
@@ -487,214 +517,48 @@ test("provider full-screen routes load Profile, Games, and Activity once per vis
   assert.match(achievementSource, /loadDeckyGameDetailState\(providerId, gameId, \{ forceRefresh: false \}\)/u);
 });
 
-test("steam full-screen profile uses the requested top-row and equal lower-row dashboard layout", async () => {
-  const [pageSource, dashboardSource] = await Promise.all([
-    readFile(
-      new URL("../src/platform/decky/decky-full-screen-profile-page.tsx", import.meta.url),
-      "utf8",
-    ),
-    readFile(
-      new URL("../src/platform/decky/decky-steam-full-screen-profile-dashboard.tsx", import.meta.url),
-      "utf8",
-    ),
+test("steam full-screen Profile is a compact launchpad with working destinations", async () => {
+  const [page, dashboard] = await Promise.all([
+    readFile(new URL("../src/platform/decky/decky-full-screen-profile-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-steam-full-screen-profile-dashboard.tsx", import.meta.url), "utf8"),
   ]);
-
-  assert.match(pageSource, /if \(steamProfileSummary !== undefined\) \{[\s\S]*<SteamFullScreenProfileDashboard/u);
-  const steamProfileBranch = pageSource.slice(
-    pageSource.indexOf("if (steamProfileSummary !== undefined)"),
-    pageSource.indexOf("const retroAchievementsCompletionCollection"),
-  );
-  assert.match(steamProfileBranch, /getSteamProfileViewportStyle\(\)/u);
-  assert.match(steamProfileBranch, /getSteamProfileFrameStyle\(\)/u);
-  assert.doesNotMatch(steamProfileBranch, /<ScrollPanel>/u);
-  assert.match(dashboardSource, /gridTemplateAreas: hasInsightsPanel/u);
-  assert.ok(dashboardSource.includes('"profile profile progress progress insights insights"'));
-  assert.ok(dashboardSource.includes('"profile profile profile progress progress progress"'));
-  assert.match(
-    dashboardSource,
-    /gridTemplateColumns: "repeat\(6, minmax\(0, 1fr\)\)"/u,
-  );
-  assert.match(
-    dashboardSource,
-    /gridTemplateRows: "minmax\(210px, 0\.5fr\) minmax\(174px, 1fr\)"/u,
-  );
-  const dashboardGridSource = dashboardSource.slice(
-    dashboardSource.indexOf("function getDashboardGridStyle"),
-    dashboardSource.indexOf("function getPanelStyle"),
-  );
-  assert.match(dashboardGridSource, /flex: "1 1 auto"/u);
-  assert.match(dashboardGridSource, /minHeight: 0/u);
-  assert.match(dashboardSource, /data-steam-full-screen-profile-dashboard/u);
-  assert.match(dashboardSource, /title="Your Progress \(Steam\)"/u);
-  assert.match(dashboardSource, /title="SteamHunters Profile"/u);
-  assert.match(dashboardSource, /label="Points"/u);
-  assert.match(dashboardSource, /iconUrl=\{rankPointsIconUrl\}[\s\S]*label="Points"/u);
-  assert.match(dashboardSource, /label="Avg\. completion"/u);
-  assert.match(dashboardSource, /iconUrl=\{rankAchievementsIconUrl\}[\s\S]*label="Achievements"/u);
-  assert.match(dashboardSource, /iconUrl=\{rankCompletedGamesIconUrl\}[\s\S]*label="Completed games"/u);
-  assert.match(dashboardSource, /Rank improved/u);
-  assert.match(dashboardSource, /Rank declined/u);
-  assert.match(dashboardSource, /label="Legendary unlocks"/u);
-  assert.doesNotMatch(dashboardSource, /label="Tracked games"/u);
-  assert.doesNotMatch(dashboardSource, /label="Started games"|label="Epic unlocks"/u);
-  assert.doesNotMatch(dashboardSource, /label="Unrestricted points"/u);
-  assert.doesNotMatch(dashboardSource, /label="Obtainable completion"/u);
-  assert.match(dashboardSource, /label="Owned"/u);
-  assert.match(dashboardSource, /label="Played"/u);
-  assert.match(dashboardSource, /label="In progress"/u);
-  assert.match(dashboardSource, /label="Perfected"/u);
-  assert.match(dashboardSource, /function formatSteamHuntersPercent/u);
-  assert.match(dashboardSource, /maximumFractionDigits: 1/u);
-  assert.match(dashboardSource, /value=\{formatSteamHuntersPercent\(steamHuntersProfile\?\.averageGameCompletion\)\}/u);
-  assert.match(dashboardSource, /fontSize: "clamp\(1\.18rem, 2\.2vw, 1\.78rem\)"/u);
-  assert.match(dashboardSource, /fontSize: "0\.53em"/u);
-  assert.match(dashboardSource, /overflowWrap: "anywhere"/u);
-  assert.doesNotMatch(
-    dashboardSource.slice(
-      dashboardSource.indexOf("function getMetricLabelStyle"),
-      dashboardSource.indexOf("function getMetricValueStyle"),
-    ),
-    /textOverflow: "ellipsis"|whiteSpace: "nowrap"/u,
-  );
-  assert.match(dashboardSource, /function getSteamInsightsMetricsStyle/u);
-  assert.match(dashboardSource, /title="Recent Activity"/u);
-  assert.match(dashboardSource, /title="Recently Played"/u);
-  assert.match(
-    dashboardSource,
-    /title="Recent Activity"[\s\S]*focusClassName=\{DASHBOARD_FOCUS_RING_ACTIVE_CLASS\}[\s\S]*label="View All"[\s\S]*onClick=\{onOpenAchievementHistory\}/u,
-  );
-  assert.match(
-    dashboardSource,
-    /title="Recently Played"[\s\S]*focusClassName=\{DASHBOARD_FOCUS_RING_ACTIVE_CLASS\}[\s\S]*label="View All"[\s\S]*onClick=\{onOpenCompletionProgress\}/u,
-  );
-  assert.match(
-    dashboardSource,
-    /<Focusable\s+flow-children="left-right"\s+noFocusRing[\s\S]*tabIndex=\{-1\}[\s\S]*style=\{getPanelHeaderStyle\(\)\}/u,
-  );
-  assert.match(
-    dashboardSource,
-    /GamepadUI dispatches route shoulder[\s\S]*takeDeckySteamGamepadFocus\(initialFocusTarget\)/u,
-  );
-  assert.match(
-    dashboardSource,
-    /data-steam-profile-panel='activity'[\s\S]*data-steam-profile-panel-header[\s\S]*\[role='button'\]/u,
-  );
-  assert.match(
-    dashboardSource,
-    /<Focusable flow-children="left-right" noFocusRing tabIndex=\{-1\} style=\{getDashboardGridStyle\(hasInsightsPanel\)\}>/u,
-  );
-  assert.match(dashboardSource, /createDashboardHorizontalFocusHandler\("ArrowRight", \{ panelId: "recent" \}\)/u);
-  assert.match(dashboardSource, /createDashboardHorizontalFocusHandler\("ArrowLeft", \{ panelId: "activity" \}\)/u);
-  assert.match(dashboardSource, /data-steam-profile-row-index/u);
-  assert.match(dashboardSource, /function SteamProfileDashboardFocusStyles\(\)/u);
-  assert.match(dashboardSource, /outline: 2px solid \$\{steamTheme\.focus\.border\} !important/u);
-  assert.match(dashboardSource, /<DashboardFocusableList>/u);
-  assert.match(dashboardSource, /function getListArtworkSlotStyle\(\)/u);
-  assert.match(dashboardSource, /const DASHBOARD_LIST_ARTWORK_SIZE = 40/u);
-  assert.match(dashboardSource, /flex: `0 0 \$\{DASHBOARD_LIST_ARTWORK_SIZE\}px`/u);
-  assert.doesNotMatch(dashboardSource, /label="View Steam Profile"|label="Provider Settings"/u);
-  assert.doesNotMatch(dashboardSource, /Connected providers|label="Steam" state="Connected"|label="SteamHunters" state="Enrichment"/u);
-  assert.doesNotMatch(
-    dashboardSource,
-    /Across all tracked games|SteamHunters totals, separate from your Steam library|Latest 3 achievement unlocks|Your latest Steam games/u,
-  );
-  assert.match(pageSource, /navigationItems=\{STEAM_PROFILE_FOOTER_NAVIGATION_ITEMS\}/u);
-  assert.match(pageSource, /activeNavigationItemId="profile"/u);
-  const steamLoadingGate = pageSource.slice(pageSource.indexOf("const isSteamProfileLoading ="), pageSource.indexOf("if (isSteamProfileLoading"));
-  assert.match(steamLoadingGate, /steamHuntersPersonalDataEnabled && steamId !== undefined/u);
-  assert.match(steamLoadingGate, /steamHuntersProfileState\.status === "loading"/u);
-  assert.match(pageSource, /<DeckyFullScreenLoadingState[\s\S]*title=\{state\.status === "error"/u);
-  assert.match(pageSource, /Fetching the latest Steam profile and SteamHunters data\./u);
-  assert.match(dashboardSource, /settings\.steamHuntersPersonalDataEnabled\s*&& hasMeaningfulSteamHuntersProfile\(steamHuntersProfile\)/u);
-  assert.match(dashboardSource, /showSteamHuntersProfile \? <SteamInsightsPanel[\s\S]*showSteamLibraryFallback \? <SteamLibraryInsightsPanel/u);
-  assert.match(dashboardSource, /library\.playedGames !== undefined/u);
-  assert.match(pageSource, /onNextNavigationItem=\{\(\) => \{\s*onOpenCompletionProgress\(profile\.providerId\);/u);
-  assert.match(pageSource, /onPreviousNavigationItem=\{onOpenSettings\}/u);
-  assert.doesNotMatch(dashboardSource, /aria-label="Profile navigation"/u);
-  assert.doesNotMatch(dashboardSource, /label="Profile" selected/u);
-  assert.match(dashboardSource, /<DeckyCompletionProgressBar breathe percent=\{completionPercent\}/u);
-  assert.match(
-    dashboardSource,
-    /<DashboardArtwork\s+height=\{DASHBOARD_LIST_ARTWORK_SIZE\}\s+src=\{game\.artworkUrl\}\s+title=\{game\.title\}\s+width=\{DASHBOARD_LIST_ARTWORK_SIZE\}/u,
-  );
-  assert.match(dashboardSource, /recentUnlocks\.slice\(0, 3\)/u);
-  assert.doesNotMatch(
-    dashboardSource,
-    /label="Steam level"|value="Enabled"/u,
-  );
+  assert.match(dashboard, /"profile profile profile profile profile profile"/u);
+  assert.match(dashboard, /"progress progress progress insights insights insights"/u);
+  assert.match(dashboard, /"activity activity activity recent recent recent"/u);
+  assert.match(dashboard, /recentUnlocks\.slice\(0, 2\)/u);
+  assert.match(dashboard, /summary\.recentGames\.slice\(0, 2\)/u);
+  assert.match(dashboard, /title="Latest Unlocks"[\s\S]*label="Open Activity"/u);
+  assert.match(dashboard, /title="Continue Playing"[\s\S]*label="See Played Games"/u);
+  assert.match(dashboard, /onOpenAchievementDetail\(recentUnlock\.game\.gameId, recentUnlock\.achievement\.achievementId\)/u);
+  assert.match(dashboard, /onOpenGameDetail\(game\.gameId\)/u);
+  assert.match(page, /onOpenRecentlyPlayedGames=\{\(\) => \{\s*onOpenCompletionProgress\(profile\.providerId, "played"\);/u);
+  assert.match(dashboard, /takeDeckySteamGamepadFocus\(initialFocusTarget\)/u);
 });
-
-test("steam activity dashboard derives timeline metrics from timestamped unlock history without fabricating rarity", async () => {
-  const [activitySource, historySource, activityDataSource, calendarModelSource, sharedCalendarModelSource] = await Promise.all([
-    readFile(
-      new URL("../src/platform/decky/decky-steam-full-screen-activity-dashboard.tsx", import.meta.url),
-      "utf8",
-    ),
-    readFile(
-      new URL("../src/platform/decky/decky-full-screen-achievement-history-page.tsx", import.meta.url),
-      "utf8",
-    ),
-    readFile(
-      new URL("../src/platform/decky/decky-steam-activity-data.ts", import.meta.url),
-      "utf8",
-    ),
-    readFile(
-      new URL("../src/platform/decky/decky-steam-activity-calendar-model.ts", import.meta.url),
-      "utf8",
-    ),
-    readFile(
-      new URL("../src/platform/decky/decky-activity-calendar-model.ts", import.meta.url),
-      "utf8",
-    ),
+test("steam activity dashboard shares filtered Activity and Analytics without changing native rows or footer tabs", async () => {
+  const read = (name: string) => readFile(new URL(`../src/platform/decky/${name}`, import.meta.url), "utf8");
+  const [dashboard, analytics, controls, model, history] = await Promise.all([
+    read("decky-steam-full-screen-activity-dashboard.tsx"), read("decky-full-screen-activity-analytics.tsx"),
+    read("decky-full-screen-activity-controls.tsx"), read("decky-full-screen-activity-model.ts"), read("decky-full-screen-achievement-history-page.tsx"),
   ]);
-
-  assert.match(historySource, /isSteamProvider \|\| snapshot\.providerId === RETROACHIEVEMENTS_PROVIDER_ID[\s\S]*DeckySteamFullScreenActivityDashboard/u);
-  assert.match(activitySource, /data-steam-full-screen-activity-dashboard/u);
-  assert.match(activityDataSource, /getCurrentStreak[\s\S]*getLongestStreak/u);
-  assert.match(activitySource, /selectedLabel[\s\S]*Last \$\{weeks\} weeks/u);
-  assert.match(calendarModelSource, /STEAM_ACTIVITY_CALENDAR_WEEK_OPTIONS = ACTIVITY_CALENDAR_WEEK_OPTIONS/u);
-  assert.match(sharedCalendarModelSource, /nonzeroCounts[\s\S]*Math\.ceil\(nonzeroCounts\.length \* 0\.9\)/u);
-  assert.match(activitySource, /\["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"\]/u);
-  assert.match(activitySource, /<span>Less<\/span>[\s\S]*<span>More<\/span>/u);
-  assert.match(activitySource, /aria-pressed=\{selected\}[\s\S]*data-steam-activity-calendar-day="true"/u);
-  assert.match(activitySource, /selectedCalendarDay[\s\S]*getLocalDayTimestamp\(timestamp\) === selectedCalendarDay/u);
-  assert.match(activitySource, /gridTemplateRows: "repeat\(7, minmax\(0, 1fr\)\)"[\s\S]*height: "100%"[\s\S]*flex: "0 0 auto"/u);
-  assert.doesNotMatch(activitySource, /aspectRatio: "1"/u);
-  assert.doesNotMatch(activitySource, /Unlocks by day/u);
-  assert.match(activitySource, /getSteamFullscreenGameArtworkUrlByGameId\(entry\.game\.gameId/u);
-  assert.match(activitySource, /ACTIVITY_TOP_PADDING_PX = 43/u);
-  assert.match(activitySource, /minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT[\s\S]*height=\{STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT\}[\s\S]*width=\{STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH\}/u);
-  assert.match(activitySource, /getSteamCompactAchievementFilterStyle\(selected, focused\)[\s\S]*width: "auto"/u);
-  assert.match(activitySource, /data-steam-activity-summary[\s\S]*<ActivityTrend stats=\{stats\}/u);
-  assert.match(activitySource, /label=\{isRa \? "Unlocks in view" : "Total Unlocks"\}/u);
-  assert.match(activitySource, /ACTIVITY INSIGHTS/u);
-  assert.match(activitySource, /Longest Streak[\s\S]*Best Month[\s\S]*Most Active Day/u);
-  assert.doesNotMatch(activitySource, /Most Active Game/u);
-  assert.doesNotMatch(activityDataSource, /mostActiveGame/u);
-  assert.match(activitySource, /streakIconUrl[\s\S]*activity-flame\.svg/u);
-  assert.match(activitySource, /label="Current Streak"[\s\S]*iconTone="original"/u);
-  assert.match(activitySource, /icon=\{unlockedLockIconUrl\} label="This Month"/u);
-  assert.match(activitySource, /gridTemplateColumns: "minmax\(0, 1fr\)", gap: 4, marginTop: 5/u);
-  assert.match(activitySource, /label="Current Streak"[\s\S]*iconSize=\{36\}/u);
-  assert.match(activitySource, /gridTemplateColumns: "24px minmax\(0, 1fr\)", alignItems: "center"/u);
-  assert.match(activitySource, /fontSize: 11\.5, fontWeight: 800/u);
-  assert.doesNotMatch(activitySource, /emphasized|boxShadow: "0 0 17px/u);
-  assert.match(activitySource, /buildRecentActivityTrend\(stats\.dayCounts, interval\)/u);
-  assert.doesNotMatch(activitySource, /ACTIVITY OVERVIEW/u);
-  assert.match(activitySource, /allUnlocksCount = selectedGame\?\.unlockCount \?\? \(isRa \? modeEntries\.length : snapshot\.summary\.unlockedCount\)/u);
-  assert.match(activitySource, /All Unlocks \(\$\{formatCount\(allUnlocksCount\)\}\)/u);
-  assert.match(activitySource, /data-steam-activity-filter-row[\s\S]*data-steam-activity-side-column/u);
-  assert.match(activitySource, /flow-children="left-right"[\s\S]*flow-children="vertical"/u);
-  assert.match(activitySource, /flow-children="vertical"[\s\S]*data-steam-activity-filter-row/u);
-  assert.match(activitySource, /navEntryPreferPosition=\{NavEntryPositionPreferences\.PREFERRED_CHILD\}/u);
-  assert.match(activitySource, /preferredFocus=\{selected\}/u);
-  assert.match(activitySource, /takeDeckySteamGamepadFocus\(target\)/u);
-  assert.match(activitySource, /GamepadButton\.DIR_DOWN[\s\S]*data-steam-activity-row/u);
-  assert.match(activitySource, /GamepadButton\.DIR_UP[\s\S]*data-steam-activity-filter-selected/u);
-  assert.doesNotMatch(activitySource, /createActivityFilterKeyDownHandler|onKeyDown=/u);
-  assert.match(activitySource, /onPreviousNavigationItem=\{onOpenGames\}[\s\S]*onNextNavigationItem=\{isRa \? onOpenProfile \?\? onOpenGames : onOpenSettings\}/u);
-  assert.doesNotMatch(activitySource, /Steam library history|RecentGames|RECENT GAMES WITH UNLOCKS/u);
-  assert.doesNotMatch(activitySource, /rarity|Rare|Common|Very Rare/u);
+  assert.match(history, /isSteamProvider \|\| snapshot\.providerId === RETROACHIEVEMENTS_PROVIDER_ID[\s\S]*DeckySteamFullScreenActivityDashboard/u);
+  assert.match(dashboard, /useSyncExternalStore\(subscribeDeckyActivityPageState/u);
+  assert.match(dashboard, /label="Activity" subview="activity"[\s\S]*label="Analytics" subview="analytics"/u);
+  assert.match(dashboard, /data-activity-date-group=\{group\.key\}/u);
+  assert.match(dashboard, /minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT/u);
+  assert.match(dashboard, /getSteamFullscreenGameArtworkUrlByGameId\(entry\.game\.gameId/u);
+  assert.match(dashboard, /rowIndex=\{rowIndex\}[\s\S]*onOpenAchievementDetail=\{onOpenAchievementDetail\}/u);
+  assert.match(dashboard, /<ActivityAnalytics stats=\{stats\} unlockCount=\{effectiveEntries\.length\}/u);
+  assert.match(model, /stats: buildSteamActivityStats\(effectiveEntries, now\)/u);
+  assert.match(analytics, /data-steam-activity-summary/u);
+  assert.match(analytics, /title="Current Streak"[\s\S]*title="Longest Streak"[\s\S]*title="Best Month"[\s\S]*title="Most Active Day"/u);
+  assert.match(analytics, /onSelectPeriod\(\{ startDay: bar\.startDay, endDayExclusive: bar\.endDayExclusive/u);
+  assert.match(analytics, /qamActivityCalendarColors/u);
+  assert.match(analytics, /Selected Date \/ Period/u);
+  assert.match(controls, /showContextMenu[\s\S]*registerDeckyFullscreenPopupCancel/u);
+  assert.match(controls, /aria-disabled=\{disabled\}[\s\S]*if \(!disabled\) onClick\(\)/u);
+  assert.match(dashboard, /activeNavigationItemId="activity"/u);
+  assert.doesNotMatch(dashboard, /data-steam-activity-side-column|selectedDayIsVisible/u);
+  assert.doesNotMatch(dashboard + analytics, /Most Active Game|onKeyDown=|rarity/u);
 });
 
 test("Steam activity insights rank timestamped unlock history and compare real 30-day windows", () => {
@@ -853,8 +717,10 @@ test("provider full-screen tabs share one session while details retain route his
     "the retained Steam session must have one stable global footer/input owner",
   );
   assert.match(footerSource, /readonly isActive\?: boolean[\s\S]*if \(!isActive \|\| isSteamFullScreenVideoOverlayVisible\)[\s\S]*isActive && !isSteamFullScreenVideoOverlayVisible && !isOnScreenKeyboardOpen && portalTarget/u);
-  assert.match(gamesDashboardSource, /STEAM_GAMES_INITIAL_RENDER_LIMIT[\s\S]*visibleGames\.slice\(0, renderLimit\)[\s\S]*Show \$\{Math\.min\(STEAM_GAMES_RENDER_STEP/u);
-  assert.match(activityDashboardSource, /STEAM_ACTIVITY_INITIAL_RENDER_LIMIT[\s\S]*entries\.slice\(0, renderLimit\)[\s\S]*onRevealMore/u);
+  assert.match(gamesDashboardSource, /STEAM_GAMES_INITIAL_RENDER_LIMIT[\s\S]*visibleGames\.slice\(0, renderLimit\)[\s\S]*const revealMoreGames[\s\S]*current \+ STEAM_GAMES_RENDER_STEP/u);
+  assert.match(gamesDashboardSource, /onRevealMore: \(\) => revealMoreGames\(true\)/u);
+  assert.doesNotMatch(gamesDashboardSource, /data-steam-games-show-more|Show \$\{Math\.min\(STEAM_GAMES_RENDER_STEP/u);
+  assert.match(activityDashboardSource, /STEAM_ACTIVITY_RENDER_STEP[\s\S]*pageActivityGroups\(allGroups, renderLimit\)[\s\S]*onRevealMore/u);
   assert.doesNotMatch(activityDashboardSource, /data-steam-activity-show-more|Show \$\{Math\.min\(STEAM_ACTIVITY_RENDER_STEP/u);
 
   const navigationPortStart = navigationSource.indexOf("export function createDeckyNavigationPort");
@@ -883,91 +749,52 @@ test("compact dashboard Profile navigation uses the native route before closing 
   );
 });
 
-test("Steam settings use a SteamHunters tab and move About/Updates to the shared provider footer", async () => {
-  const [source, updateSource, footerSource, navigationSource, aboutSource] = await Promise.all([
+test("Steam settings keep account, activity, and data controls in one scroll pane", async () => {
+  const [source, updateSource, footerSource, navigationSource, generalSource, appearanceSource, controlsSource] = await Promise.all([
     readFile(new URL("../src/platform/decky/decky-full-screen-settings-page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-update-settings-panel.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-full-screen-footer-overlay.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-navigation.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-full-screen-about-page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-shared-appearance-settings.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-settings-controls.tsx", import.meta.url), "utf8"),
   ]);
 
-  assert.doesNotMatch(source, /Cache Management|DATA &amp; STORAGE|openCacheManagement|Persistent cache payload/u);
-  assert.doesNotMatch(source, /RETROACHIEVEMENTS_PROVIDER_ID|RetroAchievements|clearRetroAchievementsAccount/u);
-  assert.doesNotMatch(source, /<Heading>PROVIDERS<\/Heading>|Game Scanning|Notifications/u);
   assert.match(source, /<Heading>STEAM SETTINGS<\/Heading>/u);
-  assert.doesNotMatch(source, /AC_main_logo|Manage Steam account settings on this device/u);
-  assert.match(source, /type SteamSettingsSection = "account" \| "steamhunters" \| "fullscreen" \| "compact" \| "data"/u);
-  assert.match(source, /selectedSection, setSelectedSection\] = useState<SteamSettingsSection>\(\(\) => steamHuntersWebReturnPending \? "steamhunters" : "account"\)/u);
-  assert.match(source, /flow-children="left-right"[\s\S]*data-settings-section-tabs="true"/u);
-  assert.match(source, /SteamSettingsSectionPill title="Account"[\s\S]*SteamSettingsSectionPill title="SteamHunters"[\s\S]*SteamSettingsSectionPill title="Full-Screen Settings"[\s\S]*SteamSettingsSectionPill title="Compact Settings"[\s\S]*SteamSettingsSectionPill title="Data"/u);
-  assert.doesNotMatch(source, /SteamSettingsSectionPill title="Updates"|SteamSettingsSectionPill title="About"/u);
-  assert.match(source, /DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS/u);
-  assert.match(source, /getSteamCompactAchievementFilterStyle\(selected, focused\)/u);
-  assert.match(source, /onFocus=\{\(\) => setFocused\(true\)\}[\s\S]*onGamepadFocus=\{\(\) => setFocused\(true\)\}[\s\S]*onBlur=\{\(\) => setFocused\(false\)\}/u);
-  assert.doesNotMatch(source, /DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS|DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS|DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS/u);
-  assert.match(source, /<Styles \/><DeckyFocusStyles \/>/u);
-  assert.match(source, /aria-pressed=\{selected\}[\s\S]*data-settings-section-pill="true"/u);
-  assert.match(source, /return <DeckySettingsSection>\{children\}<\/DeckySettingsSection>/u);
-  assert.doesNotMatch(source, /data-settings-column="left"|data-settings-column="right"/u);
-  assert.match(source, /settingsScrollStyle/u);
-  assert.doesNotMatch(source, /maxWidth: 560/u);
-  assert.match(source, /handleDeckySettingsDirection\(pageRef\.current, event\)/u);
-  assert.match(source, /data-settings-data-layout[\s\S]*data-settings-danger-zone/u);
-  assert.match(source, /showSteamProfileFooter \|\| reserveSteamProfileFooter \? 50 : 10/u);
-  assert.match(navigationSource, /<DeckyFullScreenSettingsPage[\s\S]*reserveSteamProfileFooter[\s\S]*onOpenProviderSettings/u);
-  assert.match(source, /selectedSection === "account" \? <SteamSettingsContent><div[\s\S]*<SteamAccountFields/u);
-  assert.match(source, /selectedSection === "fullscreen" \? <SteamSettingsContent><div[\s\S]*<SteamActivityCalendarWeeksPicker/u);
-  assert.match(source, /selectedSection === "compact" \? <SteamCompactSettings/u);
-  assert.match(source, /function SteamCompactSettings/u);
-  assert.match(source, /ACHIEVEMENT_COMPANION_COUNT_OPTIONS\.map/u);
-  assert.match(source, /steamCompactActivityCalendarWeeks/u);
-  assert.doesNotMatch(source, /label="Show free games"/u);
-  assert.match(aboutSource, /<DeckyUpdateSettingsPanel/u);
-  assert.match(aboutSource, /<AboutLink title="Changelog"[\s\S]*<AboutLink title="GitHub"[\s\S]*<AboutLink title="Report Issue"/u);
-  assert.doesNotMatch(aboutSource, /AboutLink title="RetroAchievements"/u);
-  assert.doesNotMatch(footerSource, /\{ id: "about", label: "About" \}/u);
-  assert.match(source, /selectedSection === "data" \? <SteamSettingsContent>[\s\S]*<Heading>DATA &amp; SYNC<\/Heading>[\s\S]*<Heading>DANGEROUS ZONE<\/Heading>/u);
-  assert.doesNotMatch(source, /SteamAccordionHeader|accountExpanded|fullscreenSettingsExpanded|updatesExpanded|aria-expanded=\{expanded\}/u);
-  assert.match(source, /ACTIVITY_CALENDAR_WEEK_OPTIONS\.map/u);
-  assert.match(source, /showContextMenu\([\s\S]*<Menu label="Activity Calendar weeks"/u);
-  assert.match(source, /steamFullscreenActivityCalendarWeeks/u);
-  assert.doesNotMatch(source, /title="Display Preferences"|SteamDisplayPreferences|displayExpanded/u);
-  assert.doesNotMatch(source, /ac-settings-section-pill|steamRecipes\.filter\("fullscreen", selected\)/u);
-  assert.match(source, /handleDeckySettingsDirection\(pageRef\.current, event\)/u);
-  assert.match(source, /SteamAccountHelpLink href="https:\/\/steamcommunity\.com\/dev\/apikey" label="Steam Web API key page"/u);
-  assert.doesNotMatch(source, /Weeks shown on the Activity tab/u);
-  assert.match(source, /function CredentialStatusLabel/u);
-  assert.match(source, /\^\\d\{17\}\$/u);
-  assert.match(source, /\^\[0-9a-f\]\{32\}\$/u);
-  assert.match(source, /steamTheme\.iconFilter\.success : steamTheme\.iconFilter\.danger/u);
-  assert.match(source, /description=\{undefined\}/u);
-  assert.doesNotMatch(source, /description=\{fields\.(?:steamId64|language)\.description\}/u);
-  assert.doesNotMatch(source, /Connected to Steam|Test Connection|Clear Cached Data|DeckyFullscreenActionButton/u);
-  assert.match(source, /DeckySettingsSection/u);
+  assert.doesNotMatch(source, /data-settings-section-tabs|useDeckySettingsSectionTriggers/u);
+  assert.match(source, /aria-label="Steam account settings"[\s\S]*aria-label="SteamHunters settings"[\s\S]*aria-label="Steam activity settings"[\s\S]*aria-label="Steam data and sync"/u);
+  assert.match(source, /<SteamAccountFields[\s\S]*<SteamHuntersPersonalDataToggle[\s\S]*<SteamCompactSettings/u);
+  assert.match(source, /steamFullscreenActivityCalendarWeeks[\s\S]*steamCompactActivityCalendarWeeks/u);
+  assert.match(source, /Clear Cached Data[\s\S]*Reset Steam Data/u);
+  assert.match(source, /const RECENT_CACHE_PREFIX = "achievement-companion:decky:recent-achievements:steam:"/u);
+  assert.match(source, /connected && accountMismatch/u);
+  assert.match(source, /const dataOperationBusy = operation === "refreshing-steam" \|\| operation === "resetting" \|\| libraryScanState === "scanning"/u);
+  assert.match(source, /subtitle="Clear cache, local data, and Steam settings" disabled=\{dataOperationBusy\}/u);
   assert.match(source, /writeValidatedDeckySteamProviderConfig/u);
-  assert.match(source, /<Heading>DATA &amp; SYNC<\/Heading>/u);
-  assert.match(source, /refreshDeckySteamHuntersProfileState/u);
   assert.match(source, /startSteamFullLibraryScan/u);
-  assert.match(source, /title=\{libraryScanState === "scanning" \? "Running Full Library Scan…" : "Full Library Scan"\}/u);
-  assert.match(source, /metadata=\{libraryScanState === "scanning" \? "Scanning…" : fullScan === undefined \? "Never" : `\$\{fullScan\.date\} · \$\{fullScan\.time\}`\}/u);
-  assert.match(source, /Refresh Steam & SteamHunters/u);
-  assert.match(source, /success=\{libraryScanState === "completed" \|\| fullScan !== undefined\} danger=\{libraryScanState === "error" \|\| fullScan === undefined\}/u);
-  assert.doesNotMatch(source, /Cached Games|Refresh Steam Library/u);
-  assert.doesNotMatch(updateSource, />UPDATES<|Installed Version|Check at most once every 24 hours/u);
-  assert.match(updateSource, /Check daily and when your Deck reconnects to the internet\./u);
-  assert.match(updateSource, /overflow: "hidden", paddingBottom: steamTheme\.space\.sm/u);
-  assert.match(updateSource, /data-achievement-companion-update-variable-content[\s\S]*overflowY: "auto"/u);
-  assert.match(updateSource, /data-achievement-companion-update-actions[\s\S]*flex: "0 0 auto"/u);
-  assert.doesNotMatch(source, /active\.closest<HTMLElement>\("\[data-settings-column\]"\)|vgp_onbuttondown/u);
-  assert.doesNotMatch(source, /SteamSettingsInput/u);
-  assert.match(source, /DeckyCredentialTextField[\s\S]*onClick=.*markDeckyFullscreenOnScreenKeyboardOpen/u);
-  assert.match(source, /handleDeckySettingsDirection\(pageRef\.current, event\)/u);
+  assert.match(source, /refreshDeckySteamHuntersProfileState/u);
+  assert.match(source, /steamHuntersWebReturnPending[\s\S]*steamHuntersOpenRef/u);
+  assert.match(source, /DeckyCredentialTextField[\s\S]*markDeckyFullscreenOnScreenKeyboardOpen/u);
   assert.match(source, /useDeckyFullscreenOnScreenKeyboardLifecycle\(pageRef\)/u);
+  assert.match(source, /handleDeckySettingsDirection\(pageRef\.current, event\)/u);
+  assert.match(source, /showSteamProfileFooter \|\| reserveSteamProfileFooter \? 50 : 10/u);
+  assert.match(navigationSource, /<DeckyFullScreenSettingsPage[\s\S]*reserveSteamProfileFooter/u);
+  assert.match(navigationSource, /const openGeneralSettings = \(\): void => \{[\s\S]*nextFullScreenSettingsProvider = "about";[\s\S]*DeckyNavigation\.Navigate\(buildDeckyFullScreenSettingsRoute\(\)\)/u);
+  assert.match(navigationSource, /onOpenGeneralSettings=\{openGeneralSettings\}/u);
+  assert.match(source, /<DeckySettingsGeneralLink onOpen=\{onOpenGeneralSettings\}/u);
+  assert.match(controlsSource, /data-settings-general-link="true"/u);
+  assert.match(controlsSource, /<Toggle value=\{checked\} onChange=\{onChange\}/u);
+  assert.doesNotMatch(source, /ToggleField/u);
+  assert.doesNotMatch(updateSource, /ToggleField/u);
+  assert.doesNotMatch(appearanceSource, /ToggleField/u);
+
+  assert.match(navigationSource, /id: "about", label: "General"/u);
+  assert.match(generalSource, /DeckySharedAppearanceSettings[\s\S]*DeckyUpdateSettingsPanel[\s\S]*AboutLink title="Changelog"/u);
+  assert.match(generalSource, /addEventListener\("popstate", restore\)[\s\S]*addEventListener\("visibilitychange", restore\)/u);
+  assert.match(appearanceSource, /showGamePageAchievementBadge[\s\S]*gamePageAchievementBadgeSize[\s\S]*gamePageAchievementBadgePosition/u);
+  assert.match(updateSource, /automaticUpdateChecks[\s\S]*Check for Updates[\s\S]*DEVELOPER UPDATES/u);
   assert.match(footerSource, /consumeDeckyFullscreenTransientCancel\(event, ownerWindow\.document\)/u);
   assert.match(footerSource, /consumeDeckyFullscreenOnScreenKeyboardCancel\(document\)/u);
-  assert.match(footerSource, /cancel deliberately remains unconsumed/u);
-  assert.match(source, /title=\{armedAction === "reset" \? "Press again to reset Steam data"/u);
 });
 
 test("full-screen text entry yields the first B to Steam, then returns normal Back ownership", () => {
@@ -989,7 +816,7 @@ test("full-screen text entry yields the first B to Steam, then returns normal Ba
   assert.equal(consumeDeckyFullscreenTransientCancel({} as Event, document), false);
 });
 
-test("QAM Provider Settings uses RA, Steam, About footer tabs without shrinking settings under the keyboard", async () => {
+test("QAM Provider Settings uses RA, Steam, General footer tabs without shrinking settings under the keyboard", async () => {
   const [navigationSource, steamSource, retroSource, credentialsSource] = await Promise.all([
     readFile(new URL("../src/platform/decky/decky-navigation.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-full-screen-settings-page.tsx", import.meta.url), "utf8"),
@@ -998,7 +825,7 @@ test("QAM Provider Settings uses RA, Steam, About footer tabs without shrinking 
   ]);
 
   assert.match(navigationSource, /type ProviderSettingsTab = "retroachievements" \| "steam"/u);
-  assert.match(navigationSource, /id: "retroachievements", label: "RetroAchievements"[\s\S]*id: "steam", label: "Steam"[\s\S]*id: "about", label: "About"/u);
+  assert.match(navigationSource, /id: "retroachievements", label: "RetroAchievements"[\s\S]*id: "steam", label: "Steam"[\s\S]*id: "about", label: "General"/u);
   assert.match(navigationSource, /type ProviderSettingsFooterTab = ProviderSettingsTab \| "about"/u);
   assert.match(navigationSource, /let nextFullScreenSettingsProvider: ProviderSettingsFooterTab = "retroachievements"/u);
   assert.match(navigationSource, /const initialProvider = nextFullScreenSettingsProvider[\s\S]*nextFullScreenSettingsProvider = "retroachievements"[\s\S]*return initialProvider/u);
@@ -1014,12 +841,12 @@ test("QAM Provider Settings uses RA, Steam, About footer tabs without shrinking 
   assert.match(retroSource, /!inProviderSwitcher \? <PanelSection title="Navigation">/u);
   assert.match(retroSource, /inProviderSwitcher \? 62 : 12/u);
   assert.match(retroSource, /height: viewportHeight \?\? "100vh"[\s\S]*overflow: "hidden"/u);
-  assert.match(retroSource, /<DeckySettingsSection themeVariant="ra"><div style=\{settingsScrollStyle\}>/u);
+  assert.match(retroSource, /<DeckySettingsSection themeVariant="ra"><div style=\{\{ \.\.\.settingsScrollStyle, display: "flex", flexDirection: "column" \}\}>/u);
   assert.match(retroSource, /useSharedFullscreenFooter=\{inProviderSwitcher\}/u);
   assert.match(credentialsSource, /useSharedFullscreenFooter\) markDeckyFullscreenOnScreenKeyboardOpen\(event\.currentTarget\.ownerDocument\)/u);
 });
 
-test("update notifications open the About tab of shared Provider Settings", async () => {
+test("update notifications open the General tab of shared Provider Settings", async () => {
   const [indexSource, navigationSource] = await Promise.all([
     readFile(new URL("../src/index.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-navigation.tsx", import.meta.url), "utf8"),
@@ -1096,9 +923,10 @@ test("Steam Perfected glyphs use the combined crown-laurel asset", async () => {
     readFile(new URL("../src/platform/decky/decky-steam-full-screen-games-dashboard.tsx", import.meta.url), "utf8"),
   ]);
 
-  for (const source of [statusIconSource, profileSource, gamesSource]) {
+  for (const source of [statusIconSource, gamesSource]) {
     assert.match(source, /assets\/achievement-badge\/crown-laurel\.svg/u);
     assert.doesNotMatch(source, /assets\/achievement-badge\/(?:crown|laurel)\.svg|assets\/crown\.svg/u);
   }
+  assert.match(profileSource, /perfected/u);
   assert.match(statusIconSource, /kind === "mastered" \|\| kind === "perfected"/u);
 });

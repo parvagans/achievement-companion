@@ -1207,8 +1207,8 @@ export function DeckyFullScreenProfilePage({
               onOpenAchievementHistory={() => {
                 onOpenAchievementHistory(profile.providerId);
               }}
-              onOpenCompletionProgress={() => {
-                onOpenCompletionProgress(profile.providerId);
+              onOpenRecentlyPlayedGames={() => {
+                onOpenCompletionProgress(profile.providerId, "played");
               }}
               onOpenGameDetail={(gameId) => {
                 onOpenGameDetail(profile.providerId, gameId);

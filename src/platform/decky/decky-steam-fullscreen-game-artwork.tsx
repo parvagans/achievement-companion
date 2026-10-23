@@ -1,4 +1,5 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { loadBlankSteamHeaderStatus } from "./decky-steam-header-placeholder";
 import { steamTheme } from "./steam-theme";
 
 function getArtworkFrameStyle(compact: boolean, dense: boolean): CSSProperties {
@@ -75,7 +76,10 @@ export function DeckySteamFullscreenGameArtwork({
 }: DeckySteamFullscreenGameArtworkProps): JSX.Element {
   const [hasImageError, setHasImageError] = useState(false);
   const [failedPrimary, setFailedPrimary] = useState(false);
-  useEffect(() => { setHasImageError(false); setFailedPrimary(false); }, [src, fallbackSrc]);
+  const latestSrc = useRef(src);
+  latestSrc.current = src;
+  useEffect(() => { setHasImageError(false); setFailedPrimary(false); }, [src]);
+  useEffect(() => { if (fallbackSrc !== undefined) setHasImageError(false); }, [fallbackSrc]);
 
   return (
     <span aria-hidden="true" style={getArtworkFrameStyle(compact, dense)}>
@@ -87,6 +91,12 @@ export function DeckySteamFullscreenGameArtwork({
           loading="lazy"
           referrerPolicy="no-referrer"
           src={failedPrimary ? fallbackSrc ?? src : src}
+          onLoad={() => {
+            if (failedPrimary || fallbackSrc === undefined) return;
+            void loadBlankSteamHeaderStatus(src).then((isBlank) => {
+              if (isBlank && latestSrc.current === src) setFailedPrimary(true);
+            });
+          }}
           onError={() => {
             if (!failedPrimary && fallbackSrc !== undefined && fallbackSrc !== src) setFailedPrimary(true);
             else setHasImageError(true);

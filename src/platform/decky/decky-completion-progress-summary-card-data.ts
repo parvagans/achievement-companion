@@ -2,7 +2,7 @@ import type { CompletionProgressSnapshot } from "@core/domain";
 import { formatCompletionProgressFilterLabel, type CompletionProgressFilter } from "@core/settings";
 import { STEAM_PROVIDER_ID } from "../../providers/steam";
 
-export type CompletionProgressSelectionFilter = CompletionProgressFilter | "subsets" | "completed";
+export type CompletionProgressSelectionFilter = CompletionProgressFilter | "subsets" | "completed" | "played";
 
 function formatCount(value: number): string {
   return value.toLocaleString();
@@ -18,6 +18,10 @@ export function formatCompletionProgressSelectionLabelForProvider(
 
   if (filter === "completed") {
     return "Completed";
+  }
+
+  if (filter === "played") {
+    return "Played";
   }
 
   if (providerId === STEAM_PROVIDER_ID) {

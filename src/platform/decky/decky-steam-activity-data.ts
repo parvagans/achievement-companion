@@ -1,5 +1,6 @@
 import type { RecentUnlock } from "@core/domain";
 import type { RecentActivityInterval } from "@core/settings";
+import { getLocalActivityCalendarDayTimestamp as getLocalDayTimestamp } from "./decky-activity-calendar-model";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -18,20 +19,23 @@ export interface SteamActivityStats {
   readonly mostActiveDay: ActivityInsightValue;
 }
 
+export interface RecentActivityBar {
+  readonly count: number;
+  readonly label: string;
+  readonly startDay: number;
+  readonly endDayExclusive: number;
+  readonly interval: "day" | "week" | "month";
+}
+
 export interface RecentActivityTrend {
   readonly label: string;
-  readonly bars: readonly { readonly count: number; readonly label: string }[];
+  readonly bars: readonly RecentActivityBar[];
   readonly total: number;
 }
 
-function getUnlockTime(entry: RecentUnlock): number | undefined {
+export function getActivityUnlockTime(entry: RecentUnlock): number | undefined {
   const timestamp = entry.unlockedAt ?? entry.achievement.unlockedAt;
-  return timestamp !== undefined && Number.isFinite(timestamp) ? timestamp : undefined;
-}
-
-function getLocalDayTimestamp(timestamp: number): number {
-  const date = new Date(timestamp);
-  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate());
+  return timestamp !== undefined && Number.isFinite(timestamp) && Number.isFinite(new Date(timestamp).getTime()) ? timestamp : undefined;
 }
 
 function getLongestStreak(days: readonly number[]): number {
@@ -92,7 +96,7 @@ export function buildSteamActivityStats(entries: readonly RecentUnlock[], now = 
   const monthCounts = new Map<number, number>();
 
   for (const entry of entries) {
-    const timestamp = getUnlockTime(entry);
+    const timestamp = getActivityUnlockTime(entry);
     if (timestamp === undefined) {
       continue;
     }
@@ -111,7 +115,7 @@ export function buildSteamActivityStats(entries: readonly RecentUnlock[], now = 
   return {
     gameCount: unlockedGameIds.size,
     thisMonthCount: entries.filter((entry) => {
-      const timestamp = getUnlockTime(entry);
+      const timestamp = getActivityUnlockTime(entry);
       return timestamp !== undefined && timestamp >= thisMonthStart && timestamp < nextMonthStart;
     }).length,
     currentStreak: getCurrentStreak(days, now),
@@ -126,7 +130,7 @@ export function buildSteamActivityStats(entries: readonly RecentUnlock[], now = 
     mostActiveDay: mostActiveDay === undefined
       ? noTimestampedActivity()
       : {
-          value: new Date(mostActiveDay[0]).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
+          value: new Date(mostActiveDay[0]).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }),
           detail: formatUnlockCount(mostActiveDay[1]),
         },
   };
@@ -148,7 +152,7 @@ export function buildRecentActivityTrend(
     }
     return count;
   };
-  const bars: { count: number; label: string }[] = [];
+  const bars: RecentActivityBar[] = [];
 
   if (interval === "12m") {
     const date = new Date(today);
@@ -156,6 +160,9 @@ export function buildRecentActivityTrend(
       const start = Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - index, 1);
       const end = Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - index + 1, 1) - DAY_MS;
       bars.push({
+        startDay: start,
+        endDayExclusive: end + DAY_MS,
+        interval: "month",
         count: countRange(start, end),
         label: new Date(start).toLocaleDateString(undefined, { month: "long", year: "numeric", timeZone: "UTC" }),
       });
@@ -168,6 +175,9 @@ export function buildRecentActivityTrend(
       const start = firstDay + index * daysPerBar * DAY_MS;
       const end = start + (daysPerBar - 1) * DAY_MS;
       bars.push({
+        startDay: start,
+        endDayExclusive: end + DAY_MS,
+        interval: daysPerBar === 1 ? "day" : "week",
         count: countRange(start, end),
         label: daysPerBar === 1 ? dateLabel(start) : `${dateLabel(start)} – ${dateLabel(end)}`,
       });

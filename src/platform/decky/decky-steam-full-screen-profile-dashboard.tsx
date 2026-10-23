@@ -12,6 +12,7 @@ import {
 import { DeckyCompletionProgressBar } from "./decky-completion-progress-bar";
 import { DeckyFullscreenActionButton } from "./decky-full-screen-action-controls";
 import { DeckyGameArtwork } from "./decky-game-artwork";
+import { getSteamFullscreenGameArtworkUrlByGameId } from "./decky-steam-game-artwork";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
@@ -28,7 +29,6 @@ import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import calendarIconUrl from "./assets/calendar.svg";
 import clockIconUrl from "./assets/clock.svg";
-import crownIconUrl from "./assets/achievement-badge/crown-laurel.svg";
 import libraryIconUrl from "./assets/library.svg";
 import masteredIconUrl from "./assets/mastered.svg";
 import pieChartIconUrl from "./assets/pie-chart.svg";
@@ -37,8 +37,8 @@ import rankCompletedGamesIconUrl from "./assets/rank-completed-games.svg";
 import rankPointsIconUrl from "./assets/rank-points.svg";
 import starIconUrl from "./assets/star.svg";
 import steamDeckIconUrl from "./assets/steam-deck.svg";
-import trophyIconUrl from "./assets/trophy-filled.svg";
 import xpIconUrl from "./assets/xp.svg";
+import { openDeckyStandardModal } from "./decky-standard-modal";
 
 export interface SteamFullScreenProfileDashboardProps {
   readonly profile: NormalizedProfile;
@@ -47,7 +47,7 @@ export interface SteamFullScreenProfileDashboardProps {
   readonly steamHuntersProfile: SteamHuntersProfile | undefined;
   readonly recentUnlocks: readonly RecentUnlock[];
   readonly refreshedAt: number | undefined;
-  readonly onOpenCompletionProgress: () => void;
+  readonly onOpenRecentlyPlayedGames: () => void;
   readonly onOpenAchievementHistory: () => void;
   readonly onOpenGameDetail: (gameId: string) => void;
   readonly onOpenAchievementDetail: (gameId: string, achievementId: string) => void;
@@ -160,6 +160,7 @@ function formatGlobalRank(value: number | undefined): string {
   return value !== undefined ? `#${value.toLocaleString()}` : "-";
 }
 
+
 function getFallbackInitials(title: string): string {
   const initials = title
     .trim()
@@ -189,16 +190,15 @@ function getDashboardStyle(): CSSProperties {
 function getDashboardGridStyle(hasInsightsPanel: boolean): CSSProperties {
   return {
     display: "grid",
-    // Constrain both dashboard rows to the frame above Steam's fixed footer.
+    // Constrain all three dashboard rows to the frame above Steam's fixed footer.
     flex: "1 1 auto",
     minHeight: 0,
-    // The upper row has three panels. The lower row divides the same viewport
-    // evenly, so activity and recently played meet at the center.
+    // Identity spans the top; progress and destinations share the space below.
     gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
-    gridTemplateRows: "minmax(210px, 0.5fr) minmax(174px, 1fr)",
+    gridTemplateRows: "minmax(78px, auto) minmax(108px, auto) minmax(0, 1fr)",
     gridTemplateAreas: hasInsightsPanel
-      ? '"profile profile progress progress insights insights" "activity activity activity recent recent recent"'
-      : '"profile profile profile progress progress progress" "activity activity activity recent recent recent"',
+      ? '"profile profile profile profile profile profile" "progress progress progress insights insights insights" "activity activity activity recent recent recent"'
+      : '"profile profile profile profile profile profile" "progress progress progress progress progress progress" "activity activity activity recent recent recent"',
     alignItems: "stretch",
     gap: 8,
     width: "100%",
@@ -213,6 +213,7 @@ function getPanelStyle(gridArea: string): CSSProperties {
     gridArea,
     display: "flex",
     flexDirection: "column",
+    ...(gridArea === "profile" ? { flexDirection: "row" as const, alignItems: "center" } : {}),
     gap: 6,
     minWidth: 0,
     height: "100%",
@@ -393,9 +394,6 @@ function getMottoStyle(): CSSProperties {
   };
 }
 
-function getDividerStyle(): CSSProperties {
-  return { height: 1, flexShrink: 0, backgroundColor: steamTheme.color.borderSubtle };
-}
 
 function getProfileFactsStyle(): CSSProperties {
   return { display: "flex", flexDirection: "column", gap: 5, minWidth: 0 };
@@ -444,7 +442,7 @@ function SteamProfileIdentityPanel({
 
   return (
     <DashboardPanel gridArea="profile">
-      <div style={getAvatarIdentityStyle()}>
+      <div style={{ ...getAvatarIdentityStyle(), flex: "0 1 auto" }}>
         <div style={getAvatarFrameStyle()}>
           {avatarUrl !== undefined ? (
             <DeckyGameArtwork src={avatarUrl} size={66} title={profile.identity.displayName} />
@@ -462,8 +460,7 @@ function SteamProfileIdentityPanel({
         </div>
       </div>
 
-      <div style={getDividerStyle()} />
-      <div style={getProfileFactsStyle()}>
+      <div style={{ ...getProfileFactsStyle(), flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: "4px 16px", flex: "1 1 auto", justifyContent: "center" }}>
         {memberSince !== undefined ? (
           <ProfileFact iconUrl={calendarIconUrl}>{`Member since ${memberSince}`}</ProfileFact>
         ) : null}
@@ -474,7 +471,7 @@ function SteamProfileIdentityPanel({
           <ProfileFact iconUrl={starIconUrl}>{`${formatCount(profile.badgeCount)} badges`}</ProfileFact>
         ) : null}
       </div>
-      {refreshTime !== undefined ? <div style={{ marginTop: "auto", color: steamTheme.color.textMuted, fontSize: steamTheme.type.fullscreen.caption, textAlign: "left" }}>{refreshTime}</div> : null}
+      {refreshTime !== undefined ? <div style={{ color: steamTheme.color.textMuted, fontSize: steamTheme.type.fullscreen.caption, whiteSpace: "nowrap", alignSelf: "center" }}>{refreshTime}</div> : null}
     </DashboardPanel>
   );
 }
@@ -620,7 +617,7 @@ function SteamProgressPanel({ summary }: { readonly summary: SteamFullScreenProf
   const hasAchievementData = summary.achievements.scope === "library-scan" || summary.recentGames.length > 0;
 
   return (
-    <DashboardPanel gridArea="progress" title="Your Progress (Steam)">
+    <DashboardPanel gridArea="progress" title="Your Progress">
       <div style={getProgressHeroStyle()}>
         <div style={getProgressValueStyle()}>
           {!hasAchievementData ? "—" : total !== undefined ? `${formatCount(unlocked)} / ${formatCount(total)}` : formatCount(unlocked)}
@@ -633,11 +630,9 @@ function SteamProgressPanel({ summary }: { readonly summary: SteamFullScreenProf
           <span style={getProgressPercentStyle()}>{formatPercent(completionPercent)}</span>
         </div>
       ) : null}
-      <div style={getMetricGridStyle()}>
-        <MetricTile iconUrl={libraryIconUrl} label="Owned" value={formatCount(summary.library.ownedGames)} />
-        <MetricTile iconUrl={trophyIconUrl} label="Played" value={formatCount(summary.library.playedGames)} />
-        <MetricTile iconUrl={pieChartIconUrl} label="In progress" value={formatCount(summary.library.inProgressGames)} />
-        <MetricTile iconUrl={crownIconUrl} label="Perfected" tone="gold" value={formatCount(summary.achievements.perfectGames)} />
+      <div style={{ display: "flex", justifyContent: "space-around", gap: 12, color: steamTheme.color.textSecondary, fontSize: "0.78em" }}>
+        <span>{formatCount(summary.library.inProgressGames)} in progress</span>
+        <span>{formatCount(summary.achievements.perfectGames)} perfected</span>
       </div>
     </DashboardPanel>
   );
@@ -670,21 +665,22 @@ function StatusMetricTile({ icon, label, value }: {
 function SteamInsightsPanel({ steamHuntersProfile }: {
   readonly steamHuntersProfile: SteamHuntersProfile | undefined;
 }): JSX.Element {
+  const openDetails = (): void => openDeckyStandardModal({
+    title: "SteamHunters Details",
+    renderContent: () => <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8, padding: 12, minWidth: 0 }}>
+      <MetricTile iconUrl={rankPointsIconUrl} label="Points rank" value={formatGlobalRank(steamHuntersProfile?.globalPointsRank)} compactValue rankTrend={steamHuntersProfile?.globalPointsRankTrend} />
+      <MetricTile iconUrl={rankAchievementsIconUrl} label="Achievements rank" value={formatGlobalRank(steamHuntersProfile?.globalAchievementsRank)} compactValue rankTrend={steamHuntersProfile?.globalAchievementsRankTrend} />
+      <MetricTile iconUrl={rankCompletedGamesIconUrl} label="Completed games rank" value={formatGlobalRank(steamHuntersProfile?.globalCompletedGamesRank)} compactValue rankTrend={steamHuntersProfile?.globalCompletedGamesRankTrend} />
+    </div>,
+  });
   return (
-    <DashboardPanel gridArea="insights" title="SteamHunters Profile">
+    <DashboardPanel gridArea="insights" title="SteamHunters" action={<DeckyFullscreenActionButton compact label="Details" onClick={openDetails} />}>
       <div style={getSteamInsightsMetricsStyle()}>
-        <div style={getMetricGridStyle()}>
+        <div style={getMetricGridStyle(3)}>
           <StatusMetricTile
             icon={<DeckySteamHuntersIcon color={steamTheme.color.accent} size={23} />}
             label="Points"
             value={formatCount(steamHuntersProfile?.points)}
-          />
-          <MetricTile
-            iconUrl={rankPointsIconUrl}
-            label="Points"
-            value={formatGlobalRank(steamHuntersProfile?.globalPointsRank)}
-            compactValue
-            rankTrend={steamHuntersProfile?.globalPointsRankTrend}
           />
           <MetricTile
             iconUrl={pieChartIconUrl}
@@ -692,24 +688,10 @@ function SteamInsightsPanel({ steamHuntersProfile }: {
             value={formatSteamHuntersPercent(steamHuntersProfile?.averageGameCompletion)}
           />
           <MetricTile
-            iconUrl={rankAchievementsIconUrl}
-            label="Achievements"
-            value={formatGlobalRank(steamHuntersProfile?.globalAchievementsRank)}
-            compactValue
-            rankTrend={steamHuntersProfile?.globalAchievementsRankTrend}
-          />
-          <MetricTile
             iconUrl={masteredIconUrl}
             label="Legendary unlocks"
             tone="gold"
             value={formatCount(steamHuntersProfile?.legendaryAchievements)}
-          />
-          <MetricTile
-            iconUrl={rankCompletedGamesIconUrl}
-            label="Completed games"
-            value={formatGlobalRank(steamHuntersProfile?.globalCompletedGamesRank)}
-            compactValue
-            rankTrend={steamHuntersProfile?.globalCompletedGamesRankTrend}
           />
         </div>
       </div>
@@ -859,13 +841,19 @@ function DashboardArtwork({
   title,
   width,
   height,
+  gameId,
 }: {
   readonly src: string | undefined;
   readonly title: string;
   readonly width: number;
   readonly height: number;
+  readonly gameId?: string;
 }): JSX.Element {
-  if (src === undefined) {
+  const steamAppId = gameId !== undefined && /^\d+$/u.test(gameId) ? Number(gameId) : undefined;
+  const storeHeaderUrl = gameId !== undefined
+    ? getSteamFullscreenGameArtworkUrlByGameId(gameId, {})
+    : undefined;
+  if (src === undefined && storeHeaderUrl === undefined) {
     return (
       <span aria-hidden="true" style={getMissingArtworkStyle(width, height)}>
         {getFallbackInitials(title)}
@@ -876,9 +864,11 @@ function DashboardArtwork({
   return (
     <DeckyGameArtwork
       compact
+      {...(storeHeaderUrl !== undefined ? { fallbackSrc: storeHeaderUrl } : {})}
       height={height}
       size={height}
-      src={src}
+      {...(src !== undefined ? { src } : {})}
+      {...(steamAppId !== undefined && Number.isSafeInteger(steamAppId) && steamAppId > 0 ? { steamAppId } : {})}
       title={title}
       width={width}
     />
@@ -942,19 +932,19 @@ function SteamRecentActivityPanel({
   SteamFullScreenProfileDashboardProps,
   "recentUnlocks" | "onOpenAchievementHistory" | "onOpenAchievementDetail"
 > & { readonly recentGameCount: number }): JSX.Element {
-  const visibleUnlocks = recentUnlocks.slice(0, 3);
+  const visibleUnlocks = recentUnlocks.slice(0, 2);
   const recentHeaderFocusHandler = createDashboardHorizontalFocusHandler("ArrowRight", { panelId: "recent" });
   return (
     <DashboardPanel
       gridArea="activity"
       panelId="activity"
-      title="Recent Activity"
+      title="Latest Unlocks"
       onHeaderKeyDownCapture={recentHeaderFocusHandler}
       action={(
         <DeckyFullscreenActionButton
           compact
           focusClassName={DASHBOARD_FOCUS_RING_ACTIVE_CLASS}
-          label="View All"
+          label="Open Activity"
           onClick={onOpenAchievementHistory}
         />
       )}
@@ -1034,6 +1024,7 @@ function SteamRecentGameRow({ game, focusRowIndex, onOpenGameDetail, onKeyDownCa
       <div style={getListArtworkSlotStyle()}>
         <DashboardArtwork
           height={DASHBOARD_LIST_ARTWORK_SIZE}
+          gameId={game.gameId}
           src={game.artworkUrl}
           title={game.title}
           width={DASHBOARD_LIST_ARTWORK_SIZE}
@@ -1054,24 +1045,24 @@ function SteamRecentGameRow({ game, focusRowIndex, onOpenGameDetail, onKeyDownCa
   );
 }
 
-function SteamRecentlyPlayedPanel({ summary, recentUnlockCount, onOpenCompletionProgress, onOpenGameDetail }: Pick<
+function SteamRecentlyPlayedPanel({ summary, recentUnlockCount, onOpenRecentlyPlayedGames, onOpenGameDetail }: Pick<
   SteamFullScreenProfileDashboardProps,
-  "summary" | "onOpenCompletionProgress" | "onOpenGameDetail"
+  "summary" | "onOpenRecentlyPlayedGames" | "onOpenGameDetail"
 > & { readonly recentUnlockCount: number }): JSX.Element {
-  const visibleGames = summary.recentGames.slice(0, 3);
+  const visibleGames = summary.recentGames.slice(0, 2);
   const recentHeaderFocusHandler = createDashboardHorizontalFocusHandler("ArrowLeft", { panelId: "activity" });
   return (
     <DashboardPanel
       gridArea="recent"
       panelId="recent"
-      title="Recently Played"
+      title="Continue Playing"
       onHeaderKeyDownCapture={recentHeaderFocusHandler}
       action={(
         <DeckyFullscreenActionButton
           compact
           focusClassName={DASHBOARD_FOCUS_RING_ACTIVE_CLASS}
-          label="View All"
-          onClick={onOpenCompletionProgress}
+          label="See Played Games"
+          onClick={onOpenRecentlyPlayedGames}
         />
       )}
     >
@@ -1106,7 +1097,7 @@ export function SteamFullScreenProfileDashboard({
   steamHuntersProfile,
   recentUnlocks,
   refreshedAt,
-  onOpenCompletionProgress,
+  onOpenRecentlyPlayedGames,
   onOpenAchievementHistory,
   onOpenGameDetail,
   onOpenAchievementDetail,
@@ -1171,14 +1162,14 @@ export function SteamFullScreenProfileDashboard({
           : showSteamLibraryFallback ? <SteamLibraryInsightsPanel library={library} /> : null}
         <SteamRecentActivityPanel
           recentUnlocks={recentUnlocks}
-          recentGameCount={summary.recentGames.slice(0, 3).length}
+          recentGameCount={summary.recentGames.slice(0, 2).length}
           onOpenAchievementHistory={onOpenAchievementHistory}
           onOpenAchievementDetail={onOpenAchievementDetail}
         />
         <SteamRecentlyPlayedPanel
           summary={summary}
-          recentUnlockCount={recentUnlocks.slice(0, 3).length}
-          onOpenCompletionProgress={onOpenCompletionProgress}
+          recentUnlockCount={recentUnlocks.slice(0, 2).length}
+          onOpenRecentlyPlayedGames={onOpenRecentlyPlayedGames}
           onOpenGameDetail={onOpenGameDetail}
         />
       </Focusable>

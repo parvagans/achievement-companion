@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { activityCalendarPeriod } from "../src/platform/decky/decky-full-screen-activity-model";
 import {
   readDeckyActivityPageState,
   readDeckySteamActivityPageState,
@@ -29,9 +30,10 @@ test("Steam activity state preserves semantic child-route origin", () => {
     focusTarget: { gameId: "2321470", achievementId: "survivor-2" },
     renderLimit: 36,
     selectedGameId: undefined,
-    selectedCalendarDay: undefined,
+    selectedPeriod: undefined,
     scrollTop: 640,
     mode: "both",
+    subview: "activity", sort: "desc", analyticsScrollTop: 0, analyticsFocusKey: undefined,
   });
 });
 
@@ -59,9 +61,10 @@ test("provider Activity state isolates RA mode-aware identity and real scroll of
     },
     renderLimit: 72,
     selectedGameId: undefined,
-    selectedCalendarDay: 1_780_272_000_000,
+    selectedPeriod: activityCalendarPeriod(1_780_272_000_000),
     scrollTop: 912,
     mode: "softcore",
+    subview: "activity", sort: "desc", analyticsScrollTop: 0, analyticsFocusKey: undefined,
   });
   assert.equal(readDeckySteamActivityPageState().focusTarget, undefined);
 });
@@ -77,13 +80,14 @@ test("Steam activity calendar selection replaces presets and survives achievemen
     focusTarget: { gameId: "1", achievementId: "dated" },
     renderLimit: 24,
     selectedGameId: undefined,
-    selectedCalendarDay: 1_780_272_000_000,
+    selectedPeriod: activityCalendarPeriod(1_780_272_000_000),
     scrollTop: 0,
     mode: "both",
+    subview: "activity", sort: "desc", analyticsScrollTop: 0, analyticsFocusKey: undefined,
   });
 
   rememberDeckySteamActivityFilter("recent");
-  assert.equal(readDeckySteamActivityPageState().selectedCalendarDay, undefined);
+  assert.equal(readDeckySteamActivityPageState().selectedPeriod?.startDay, undefined);
 });
 
 test("Activity game selection is provider-specific and survives time-filter changes", () => {
@@ -92,7 +96,7 @@ test("Activity game selection is provider-specific and survives time-filter chan
   rememberDeckyActivityCalendarDay("retroachievements", 1_780_272_000_000);
   rememberDeckyActivityGame("retroachievements", "14402");
   assert.equal(readDeckyActivityPageState("retroachievements").filter, "all");
-  assert.equal(readDeckyActivityPageState("retroachievements").selectedCalendarDay, 1_780_272_000_000);
+  assert.equal(readDeckyActivityPageState("retroachievements").selectedPeriod?.startDay, 1_780_272_000_000);
   rememberDeckyActivityFilter("retroachievements", "year", "hardcore");
   assert.equal(readDeckyActivityPageState("retroachievements").selectedGameId, "14402");
   assert.equal(readDeckyActivityPageState("retroachievements").filter, "year");
@@ -110,7 +114,7 @@ test("Activity game selection is provider-specific and survives time-filter chan
   assert.equal(readDeckySteamActivityPageState().selectedGameId, "2321470");
   rememberDeckyActivityGame("steam", undefined);
   assert.equal(readDeckySteamActivityPageState().selectedGameId, undefined);
-  assert.equal(readDeckySteamActivityPageState().selectedCalendarDay, 1_780_272_000_000);
+  assert.equal(readDeckySteamActivityPageState().selectedPeriod?.startDay, 1_780_272_000_000);
 
   rememberDeckyActivityFilter("steam", "recent", "both");
   rememberDeckyActivityGame("steam", "2321470");
@@ -125,5 +129,5 @@ test("Activity game selection is provider-specific and survives time-filter chan
 
   rememberDeckyActivityFilter("retroachievements", "all", "hardcore");
   assert.equal(readDeckyActivityPageState("retroachievements").selectedGameId, "14402");
-  assert.equal(readDeckyActivityPageState("retroachievements").selectedCalendarDay, undefined);
+  assert.equal(readDeckyActivityPageState("retroachievements").selectedPeriod?.startDay, undefined);
 });

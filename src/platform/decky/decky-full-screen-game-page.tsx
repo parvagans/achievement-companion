@@ -80,7 +80,6 @@ import {
   selectFullScreenGameAchievementRestorationTarget,
   updateFullScreenGameSectionPageState,
 } from "./decky-full-screen-game-section-state";
-import updateArtworkUrl from "./assets/providers/steam/update.png";
 import { useDeckySettings } from "./decky-settings";
 import {
   hasDistinctRetroAchievementsModes,
@@ -1156,7 +1155,6 @@ export function DeckyFullScreenGamePage({
                   <MemoizedDeckySteamAchievementGroupsSection
                   sections={steamAchievementGroupSections}
                   gameArtworkUrl={getSteamFullscreenGameArtworkUrl(game)}
-                  updateArtworkUrl={updateArtworkUrl}
                   steamHuntersAchievementsBySteamAchievementId={steamHuntersEnrichment.achievementsBySteamAchievementId}
                   expandedGroupIds={expandedSteamAchievementGroupIds}
                   onExpandedGroupIdsChange={setExpandedSteamAchievementGroupIds}

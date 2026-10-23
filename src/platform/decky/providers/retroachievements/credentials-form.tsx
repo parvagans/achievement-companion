@@ -179,28 +179,27 @@ function AccountCredentialStatusLabel({ label, configured }: { readonly label: s
   </span>;
 }
 
-function AccountHelpLink({ href, label, onOpenExternalUrl }: {
+function AccountHelpLink({ href, label, onOpenExternalUrl, onGamepadDirection }: {
   readonly href: string;
   readonly label: string;
   readonly onOpenExternalUrl?: ((url: string) => void) | undefined;
+  readonly onGamepadDirection?: ((event: GamepadEvent) => void) | undefined;
 }): JSX.Element {
   const ariaLabel = href === RETROACHIEVEMENTS_LOGIN_URL
     ? "Open RetroAchievements login"
     : "Open RetroAchievements applications settings to copy the API key";
   const openHelp = (): void => { if (onOpenExternalUrl === undefined) return; markDeckyProviderSettingsWebReturn("retroachievements"); onOpenExternalUrl(href); };
-  return <Focusable className="ac-ra-settings-help-link" data-ra-settings-help-link="true" noFocusRing role="button" aria-label={ariaLabel} aria-disabled={onOpenExternalUrl === undefined} tabIndex={onOpenExternalUrl === undefined ? -1 : 0} onActivate={openHelp} onClick={openHelp} style={{ display: "inline", verticalAlign: "baseline", padding: "0 2px", margin: "0 -2px", borderRadius: 3, border: "none", background: "transparent", color: steamTheme.color.accent, fontSize: "inherit", fontWeight: steamTheme.type.weight.medium, lineHeight: "inherit", textDecoration: "underline", whiteSpace: "nowrap" }}>{label}</Focusable>;
+  return <Focusable className="ac-ra-settings-help-link" data-ra-settings-help-link="true" noFocusRing role="button" aria-label={ariaLabel} aria-disabled={onOpenExternalUrl === undefined} tabIndex={onOpenExternalUrl === undefined ? -1 : 0} onActivate={openHelp} onClick={openHelp} {...(onGamepadDirection !== undefined ? { onGamepadDirection } : {})} style={{ display: "inline", verticalAlign: "baseline", padding: "0 2px", margin: "0 -2px", borderRadius: 3, border: "none", background: "transparent", color: steamTheme.color.accent, fontSize: "inherit", fontWeight: steamTheme.type.weight.medium, lineHeight: "inherit", textDecoration: "underline", whiteSpace: "nowrap" }}>{label}</Focusable>;
 }
 
-function FullscreenAccountSetupInstructions({ onOpenExternalUrl }: {
+function FullscreenAccountSetupInstructions({ onOpenExternalUrl, onGamepadDirection }: {
   readonly onOpenExternalUrl?: ((url: string) => void) | undefined;
+  readonly onGamepadDirection?: ((event: GamepadEvent) => void) | undefined;
 }): JSX.Element {
   return <ol style={{ margin: 0, paddingLeft: 22, color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata, lineHeight: 1.4 }}>
-    <li>Log into <AccountHelpLink href={RETROACHIEVEMENTS_LOGIN_URL} label="RetroAchievements" onOpenExternalUrl={onOpenExternalUrl} />.</li>
-    <li>Press B once you have successfully logged in.</li>
-    <li>Open <AccountHelpLink href={RETROACHIEVEMENTS_SETTINGS_URL} label="Applications settings" onOpenExternalUrl={onOpenExternalUrl} /> and click your API key to copy it.</li>
-    <li>Press B once the API key has been copied.</li>
-    <li>Enter your username and paste the API key into the API key field.</li>
-    <li>Select Save account settings.</li>
+    <li>Log in to <AccountHelpLink href={RETROACHIEVEMENTS_LOGIN_URL} label="RetroAchievements" onOpenExternalUrl={onOpenExternalUrl} onGamepadDirection={onGamepadDirection} />, then press B to return.</li>
+    <li>Open <AccountHelpLink href={RETROACHIEVEMENTS_SETTINGS_URL} label="Applications settings" onOpenExternalUrl={onOpenExternalUrl} onGamepadDirection={onGamepadDirection} />, copy your API key, then press B.</li>
+    <li>Enter your username and API key above, then save account settings.</li>
   </ol>;
 }
 
@@ -222,11 +221,13 @@ export function DeckyRetroAchievementsCredentialsForm({
   const [apiKeyDraft, setApiKeyDraft] = useState("");
   const [statusCopy, setStatusCopy] = useState(getStatusCopy(config));
   const [saving, setSaving] = useState(false);
+  const [setupHelpExpanded, setSetupHelpExpanded] = useState(false);
 
   useEffect(() => {
     setUsername(config?.username ?? "");
     setApiKeyDraft("");
     setStatusCopy(getStatusCopy(config));
+    setSetupHelpExpanded(false);
   }, [config?.hasApiKey, config?.username]);
 
   async function handleSave(): Promise<void> {
@@ -377,10 +378,11 @@ export function DeckyRetroAchievementsCredentialsForm({
     const inputStyle: CSSProperties = { width: "100%", minWidth: 0, boxSizing: "border-box" };
     const saveMessageIsError = statusCopy.startsWith("Unable") || statusCopy.startsWith("Enter ");
     const showSaveMessage = statusCopy !== getStatusCopy(config);
-    return <div data-ac-ra-theme="fullscreen" data-ra-fullscreen-account-form style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0, paddingBottom: 12 }}>
+    return <div data-ac-ra-theme="fullscreen" data-ra-fullscreen-account-form style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
       <div className="ac-ra-settings-input"><DeckyCredentialTextField label={<AccountCredentialStatusLabel label={fieldSpecs.username.label} configured={usernameConfigured} />} value={username} description={undefined} onClick={(event) => markDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument)} onBlur={(event) => clearDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument)} onChange={(event) => setUsername(event.currentTarget.value)} style={inputStyle} /></div>
       <div className="ac-ra-settings-input"><DeckyCredentialTextField label={<AccountCredentialStatusLabel label={fieldSpecs.apiKey.label} configured={apiKeyConfigured} />} value={apiKeyDraft} {...apiKeyInputDescriptor} description={undefined} onClick={(event) => markDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument)} onBlur={(event) => clearDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument)} onChange={(event) => setApiKeyDraft(event.currentTarget.value)} style={{ ...inputStyle, ...getDeckyCredentialTextFieldMaskStyle() }} /></div>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "8px 10px", border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.small, background: raTheme.surface.contentStat }}><img alt="" src={infoIconUrl} style={{ width: 19, height: 19, flex: "0 0 auto", objectFit: "contain", filter: steamTheme.iconFilter.accent }} /><div style={{ minWidth: 0 }}><div style={{ marginBottom: 4, color: steamTheme.color.textPrimary, fontSize: steamTheme.type.fullscreen.metadata, fontWeight: steamTheme.type.weight.strong }}>Account setup</div><FullscreenAccountSetupInstructions onOpenExternalUrl={onOpenExternalUrl} /></div></div>
+      {hasSavedApiKey ? <Focusable className="ac-settings-action" noFocusRing role="button" tabIndex={0} aria-label="Setup help" aria-expanded={setupHelpExpanded} onActivate={() => setSetupHelpExpanded((expanded) => !expanded)} onClick={() => setSetupHelpExpanded((expanded) => !expanded)} {...(onGamepadDirection !== undefined ? { onGamepadDirection } : {})} style={{ display: "flex", alignItems: "center", gap: 9, minHeight: 44, padding: "8px 10px", boxSizing: "border-box", border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.small, background: raTheme.surface.contentStat, color: steamTheme.color.textPrimary, fontSize: steamTheme.type.fullscreen.metadata, fontWeight: steamTheme.type.weight.strong }}><img alt="" src={infoIconUrl} style={{ width: 17, height: 17, objectFit: "contain", filter: steamTheme.iconFilter.accent }} />Setup help<span aria-hidden="true" style={{ marginLeft: "auto", color: steamTheme.color.accent }}>{setupHelpExpanded ? "−" : "+"}</span></Focusable> : null}
+      {!hasSavedApiKey || setupHelpExpanded ? <div style={{ display: "flex", alignItems: "flex-start", gap: 9, padding: "4px 2px" }}><img alt="" src={infoIconUrl} style={{ width: 19, height: 19, flex: "0 0 auto", objectFit: "contain", filter: steamTheme.iconFilter.accent }} /><div style={{ minWidth: 0 }}><FullscreenAccountSetupInstructions onOpenExternalUrl={onOpenExternalUrl} onGamepadDirection={onGamepadDirection} /></div></div> : null}
       <Focusable className="ac-ra-settings-save" data-ac-settings-tone={showSaveMessage && !saveMessageIsError ? "success" : undefined} noFocusRing role="button" aria-label={saving ? "Saving account settings" : saveLabel} aria-disabled={saving} tabIndex={saving ? -1 : 0} onFocus={(event) => clearDeckyFullscreenOnScreenKeyboardOpen(event.currentTarget.ownerDocument)} onGamepadFocus={(event) => clearDeckyFullscreenOnScreenKeyboardOpen((event.currentTarget as HTMLElement).ownerDocument)} onActivate={() => { void handleSave(); }} onClick={() => { void handleSave(); }} {...(onGamepadDirection !== undefined ? { onGamepadDirection } : {})} style={{ ...getSettingsSaveButtonStyle(showSaveMessage && !saveMessageIsError), opacity: saving ? 0.56 : 1 }}>
         {saving ? "Saving…" : saveLabel}
       </Focusable>

@@ -4,7 +4,7 @@ import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
 import { DeckyFullscreenActionButton, DeckyFullscreenActionRow } from "./decky-full-screen-action-controls";
 import { DeckySteamFullscreenGameArtwork } from "./decky-steam-fullscreen-game-artwork";
 import { getDeckyGameArtworkFallbackInitials } from "./decky-game-artwork-fallback";
-import { getSteamFullscreenGameArtworkUrl, getSteamHuntersBaseGameBannerUrl } from "./decky-steam-game-artwork";
+import { getSteamHeroArtworkSources, getSteamHuntersBaseGameBannerUrl } from "./decky-steam-game-artwork";
 import { useSteamStoreHeaderArtwork } from "./decky-steam-store-artwork";
 import { DeckySteamProgressSummary } from "./decky-steam-progress-summary";
 import {
@@ -114,19 +114,21 @@ function SteamGameIdentityPanel({
   readonly steamHuntersEnrichment: SteamHuntersGameEnrichment | undefined;
   readonly achievementSetMismatch?: { readonly steamCount: number; readonly steamHuntersCount: number } | undefined;
 }): JSX.Element {
-  const artworkUrl = getSteamFullscreenGameArtworkUrl(game);
   const hunterBannerUrl = getSteamHuntersBaseGameBannerUrl(steamHuntersEnrichment);
   const storeBannerUrl = useSteamStoreHeaderArtwork(game.appid);
-  const fallbackBannerUrl = hunterBannerUrl ?? storeBannerUrl;
+  const artwork = getSteamHeroArtworkSources(game, {
+    ...(storeBannerUrl !== undefined ? { storeHeaderUrl: storeBannerUrl } : {}),
+    ...(hunterBannerUrl !== undefined ? { steamHuntersBannerUrl: hunterBannerUrl } : {}),
+  });
   const lastPlayed = formatDate(game.lastPlayedAt);
   const refreshTime = formatGameRefreshTime(refreshedAt);
 
   return (
     <div style={getIdentityPanelStyle()}>
-      {artworkUrl !== undefined || fallbackBannerUrl !== undefined ? (
+      {artwork.src !== undefined ? (
         <DeckySteamFullscreenGameArtwork
-          src={artworkUrl ?? fallbackBannerUrl!}
-          {...(artworkUrl !== undefined && fallbackBannerUrl !== undefined ? { fallbackSrc: fallbackBannerUrl } : {})}
+          src={artwork.src}
+          {...(artwork.fallbackSrc !== undefined ? { fallbackSrc: artwork.fallbackSrc } : {})}
           fallbackLabel={getDeckyGameArtworkFallbackInitials(game.title)}
           dense
         />
