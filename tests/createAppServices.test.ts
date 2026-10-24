@@ -1514,7 +1514,7 @@ test("compact achievement details retain type badges while full-screen details u
   assert.match(shellSource, /registerDeckyFullscreenPopupCancel\(closeModal\)/u);
   assert.doesNotMatch(modalSource, /GameArtwork|getSteamFullscreenGameArtworkUrl|ScrollPanel/u);
   assert.match(modalSource, /height: ACHIEVEMENT_MODAL_CONTENT_HEIGHT_PX/u);
-  assert.match(modalSource, /aria-label="Achievement information" onGamepadDirection=\{handleIdentityScroll\}/u);
+  assert.doesNotMatch(modalSource, /handleIdentityScroll|overflowY: "auto"/u);
 });
 
 test("retroachievements recent unlocks normalize badge art urls", () => {

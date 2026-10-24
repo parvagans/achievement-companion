@@ -18,6 +18,7 @@ export const WHATS_NEW_SECTIONS = [
     items: [
       "Full-screen Activity gives unlock history and Analytics clearer, separate views. Switch with LT/RT, filter unlocks, and browse trends, streaks, and calendar days.",
       "Selecting a chart bar or calendar day narrows history to that period. Achievement details for both services use consistent Your Unlock and Community layouts.",
+      "Reworked the full-screen achievement popup modal for Steam and RetroAchievements.",
     ],
   },
   {

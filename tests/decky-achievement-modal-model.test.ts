@@ -49,14 +49,18 @@ test("RA achievement modal separates personal dates and sourced community counts
   assert.equal(model.gameTitle, "Sample Game");
   assert.equal(model.artworkUrl, "/badge.png");
   assert.equal(model.status, "Hardcore unlocked");
-  assert.deepEqual(model.yourUnlockMetrics.map(({ label, tone }) => ({ label, tone })), [
-    { label: "Hardcore unlock", tone: "hardcore" }, { label: "Softcore unlock", tone: "softcore" },
+  assert.equal(model.unlockHeading, "Unlocked · Hardcore");
+  assert.deepEqual(model.yourUnlockMetrics, [
+    { label: "Date", value: new Date(1000).toLocaleDateString(), icon: "date" },
+    { label: "Time", value: new Date(1000).toLocaleTimeString(), icon: "time" },
   ]);
   assert.deepEqual(model.metadata, [{ label: "Type", value: "Missable" }, { label: "Author", value: "Creator" }]);
   assert.deepEqual(model.communityMetrics, [
-    { label: "Points", value: "5" }, { label: "RetroPoints", value: "12" },
-    { label: "Players unlocked", value: "25 / 100 (25.00%)" },
-    { label: "Unlock modes", value: "10 Hardcore · 15 Softcore-only" },
+    { label: "Points", value: "5", icon: "points", valueTone: "points" }, { label: "RetroPoints", value: "12", icon: "points", valueTone: "retro-points" },
+    { label: "Community", value: "25.00%", icon: "community", progress: { percent: 25, hardcorePercent: 10 } },
+    { label: "Players unlocked", value: "25", icon: "players" },
+    { label: "Hardcore unlocks", value: "10", icon: "players", tone: "hardcore" },
+    { label: "Softcore-only", value: "15", icon: "players", tone: "softcore" },
   ]);
 });
 
@@ -74,12 +78,17 @@ test("Steam achievement modal distinguishes SteamHunters qualified and Steam glo
   const model = buildDeckyAchievementModalModel(enriched, "achievement", "both");
   assert.ok(model);
   assert.equal(model.status, "Unlocked");
-  assert.deepEqual(model.yourUnlockMetrics, [{ label: "Unlocked", value: new Date(1000).toLocaleString(), tone: "positive" }]);
+  assert.equal(model.unlockHeading, "Unlocked");
+  assert.deepEqual(model.yourUnlockMetrics, [
+    { label: "Date", value: new Date(1000).toLocaleDateString(), icon: "date" },
+    { label: "Time", value: new Date(1000).toLocaleTimeString(), icon: "time" },
+  ]);
   assert.deepEqual(model.metadata, [{ label: "Group", value: "Extra Content" }]);
   assert.deepEqual(model.communityMetrics, [
-    { label: "SteamHunters points", value: "30" },
-    { label: "SteamHunters qualified players", value: "25 / 100 (25%)" },
-    { label: "Steam global unlock rate", value: "42.3%" },
+    { label: "Points", value: "30", icon: "steam-hunters" },
+    { label: "Community", value: "25%", icon: "community" },
+    { label: "Players unlocked", value: "25 / 100", icon: "players" },
+    { label: "Steam global", value: "42.3%", icon: "community" },
     { label: "Obtainability", value: "Conditionally Obtainable", tone: "warning" },
   ]);
 });
@@ -90,49 +99,69 @@ test("achievement modal omits unavailable community values and honors RA mode", 
   const model = buildDeckyAchievementModalModel(bare, "achievement", "softcore");
   assert.ok(model);
   assert.equal(model.status, "Softcore unlocked");
-  assert.deepEqual(model.yourUnlockMetrics.map(({ label }) => label), ["Softcore unlock"]);
+  assert.equal(model.unlockHeading, "Unlocked · Softcore");
+  assert.deepEqual(model.yourUnlockMetrics.map(({ label }) => label), ["Date", "Time"]);
   assert.deepEqual(model.metadata, []);
   assert.deepEqual(model.communityMetrics, []);
   assert.equal(buildDeckyAchievementModalModel(bare, "missing", "both"), undefined);
 });
 
-test("RA modal combines identical Hardcore and Softcore dates", () => {
+test("RA identical mode dates describe the earned Hardcore unlock once", () => {
   const base = snapshot("retroachievements");
   const sameDate = { ...base, achievements: [{ ...base.achievements[0]!, softcoreUnlockedAt: 1000 }] } as GameDetailSnapshot;
   const model = buildDeckyAchievementModalModel(sameDate, "achievement", "both");
   assert.ok(model);
-  assert.deepEqual(model.yourUnlockMetrics, [{ label: "Hardcore + Softcore", value: new Date(1000).toLocaleString(), tone: "hardcore" }]);
+  assert.equal(model.unlockHeading, "Unlocked · Hardcore");
+  assert.deepEqual(model.yourUnlockMetrics, [
+    { label: "Date", value: new Date(1000).toLocaleDateString(), icon: "date" },
+    { label: "Time", value: new Date(1000).toLocaleTimeString(), icon: "time" },
+  ]);
 });
 
 test("Steam locked and missing-date states do not imply a successful dated unlock", () => {
   const locked = buildDeckyAchievementModalModel(withAchievement(snapshot("steam"), { isUnlocked: false }), "achievement", "both")!;
-  assert.deepEqual(locked.yourUnlockMetrics, [{ label: "Your unlock", value: "Locked", tone: "muted" }]);
+  assert.equal(locked.unlockHeading, "Locked");
+  assert.deepEqual(locked.yourUnlockMetrics, [{ label: "Your unlock", value: "Not yet unlocked", tone: "muted" }]);
   const undated = buildDeckyAchievementModalModel(withAchievement(snapshot("steam"), { unlockedAt: undefined }), "achievement", "both")!;
-  assert.deepEqual(undated.yourUnlockMetrics, [{ label: "Unlocked", value: "Date not recorded", tone: "positive" }]);
+  assert.equal(undated.unlockHeading, "Unlocked");
+  assert.deepEqual(undated.yourUnlockMetrics, [{ label: "Your unlock", value: "Date not recorded", tone: "muted" }]);
+  const invalidDate = buildDeckyAchievementModalModel(withAchievement(snapshot("steam"), { unlockedAt: NaN }), "achievement", "both")!;
+  assert.deepEqual(invalidDate.yourUnlockMetrics, undated.yourUnlockMetrics);
 });
 
-test("RA distinguishes an actual other-mode date from the selected mode's locked state", () => {
+test("RA does not reuse a Softcore timestamp for a locked Hardcore selection", () => {
   const softcoreOnly = withAchievement(snapshot("retroachievements"), { hardcoreUnlockedAt: undefined, unlockMode: "softcore" });
   const model = buildDeckyAchievementModalModel(softcoreOnly, "achievement", "hardcore")!;
   assert.equal(model.isUnlocked, false);
-  assert.deepEqual(model.yourUnlockMetrics, [
-    { label: "Softcore unlock", value: new Date(2000).toLocaleString(), tone: "softcore" },
-    { label: "Hardcore unlock", value: "Locked", tone: "muted" },
-  ]);
+  assert.equal(model.unlockHeading, "Locked · Hardcore");
+  assert.deepEqual(model.yourUnlockMetrics, [{ label: "Your unlock", value: "Not yet unlocked", tone: "muted" }]);
+  const both = buildDeckyAchievementModalModel(softcoreOnly, "achievement", "both")!;
+  assert.equal(both.unlockHeading, "Unlocked · Softcore");
+  assert.equal(both.yourUnlockMetrics[1]?.value, new Date(2000).toLocaleTimeString());
 });
 
-test("RA retains both recorded mode dates without adding a contradictory locked entry", () => {
+test("RA selects the actual Softcore date when both modes were earned separately", () => {
   const model = buildDeckyAchievementModalModel(snapshot("retroachievements"), "achievement", "softcore")!;
   assert.equal(model.isUnlocked, true);
   assert.equal(model.status, "Softcore unlocked");
-  assert.deepEqual(model.yourUnlockMetrics.map(({ label }) => label), ["Hardcore unlock", "Softcore unlock"]);
-  assert.equal(model.yourUnlockMetrics.some(({ value }) => value === "Locked"), false);
+  assert.equal(model.unlockHeading, "Unlocked · Softcore");
+  assert.equal(model.yourUnlockMetrics[1]?.value, new Date(2000).toLocaleTimeString());
 });
 
 test("RA legacy unlocks use their generic date when mode dates are absent", () => {
   const legacy = withAchievement(snapshot("retroachievements"), { hardcoreUnlockedAt: undefined, softcoreUnlockedAt: undefined });
   const model = buildDeckyAchievementModalModel(legacy, "achievement", "hardcore")!;
-  assert.deepEqual(model.yourUnlockMetrics, [{ label: "Hardcore unlocked", value: new Date(1000).toLocaleString(), tone: "hardcore" }]);
+  assert.equal(model.unlockHeading, "Unlocked · Hardcore");
+  assert.equal(model.yourUnlockMetrics[1]?.value, new Date(1000).toLocaleTimeString());
+});
+
+test("RA undated and locked achievements never fabricate a timestamp or mode", () => {
+  for (const isUnlocked of [true, false]) {
+    const base = withAchievement(snapshot("retroachievements"), { isUnlocked, unlockMode: undefined, unlockedAt: undefined, hardcoreUnlockedAt: undefined, softcoreUnlockedAt: undefined });
+    const model = buildDeckyAchievementModalModel(base, "achievement", "both")!;
+    assert.equal(model.unlockHeading, isUnlocked ? "Unlocked" : "Locked");
+    assert.deepEqual(model.yourUnlockMetrics, [{ label: "Your unlock", value: isUnlocked ? "Date not recorded" : "Not yet unlocked", tone: "muted" }]);
+  }
 });
 
 test("Steam omits routine obtainability and base-game metadata but keeps exceptional restrictions", () => {
@@ -155,9 +184,10 @@ test("RA combines only available validated mode counts and retains sourced zero"
     { key: "hardcore-unlocked-count", label: "Hardcore Unlocks", value: "0" },
   ];
   const model = buildDeckyAchievementModalModel(withAchievement(base, { metrics: counts }), "achievement", "both")!;
-  assert.deepEqual(model.communityMetrics.find(({ label }) => label === "Players unlocked"), { label: "Players unlocked", value: "0 / 100 (0.00%)" });
-  assert.deepEqual(model.communityMetrics.find(({ label }) => label === "Unlock modes"), { label: "Unlock modes", value: "0 Hardcore" });
-  assert.equal(model.communityMetrics.some(({ value }) => value.includes("Softcore")), false);
+  assert.deepEqual(model.communityMetrics.find(({ label }) => label === "Community")?.progress, { percent: 0, hardcorePercent: 0 });
+  assert.equal(model.communityMetrics.find(({ label }) => label === "Players unlocked")?.value, "0");
+  assert.equal(model.communityMetrics.find(({ label }) => label === "Hardcore unlocks")?.value, "0");
+  assert.equal(model.communityMetrics.some(({ label }) => label.includes("Softcore")), false);
 });
 
 test("RA invalid counts and denominators do not become fabricated players or percentages", () => {
@@ -172,16 +202,42 @@ test("RA invalid counts and denominators do not become fabricated players or per
   for (const denominator of ["0", "-1", "1.5", "10"]) {
     const badDenominator = { ...base, game: { ...base.game, metrics: [{ key: "total-players", label: "Total Players", value: denominator }] } };
     const current = buildDeckyAchievementModalModel(badDenominator, "achievement", "both")!;
-    assert.deepEqual(current.communityMetrics.find(({ label }) => label === "Players unlocked"), { label: "Players unlocked", value: "25" });
+    assert.deepEqual(current.communityMetrics.find(({ label }) => label === "Players unlocked"), { label: "Players unlocked", value: "25", icon: "players" });
+    assert.equal(current.communityMetrics.some(({ label }) => label === "Community"), false);
   }
 });
 
 test("Steam community rates reject invalid percentages and keep distinct populations at equal rates", () => {
   const equalRates = withAchievement(snapshot("steam"), { metrics: [{ key: "global-percent", label: "Global Unlock Rate", value: "25" }] });
   const model = buildDeckyAchievementModalModel(withSteamHunters(equalRates), "achievement", "both")!;
-  assert.equal(model.communityMetrics.some(({ label }) => label === "SteamHunters qualified players"), true);
-  assert.equal(model.communityMetrics.some(({ label }) => label === "Steam global unlock rate"), true);
+  assert.equal(model.communityMetrics.some(({ label }) => label === "Players unlocked"), true);
+  assert.equal(model.communityMetrics.some(({ label }) => label === "Steam global"), true);
   const invalid = withAchievement(snapshot("steam"), { metrics: [{ key: "global-percent", label: "Global Unlock Rate", value: "101" }] });
   const invalidModel = buildDeckyAchievementModalModel(withSteamHunters(invalid, { localPercentage: -1 }), "achievement", "both")!;
-  assert.deepEqual(invalidModel.communityMetrics.map(({ label }) => label), ["SteamHunters points"]);
+  assert.deepEqual(invalidModel.communityMetrics.map(({ label }) => label), ["Points"]);
+});
+
+test("Steam modal mirrors compact SteamHunters metrics without mixing in the global population", () => {
+  const base = withAchievement(snapshot("steam"), { metrics: [] });
+  const model = buildDeckyAchievementModalModel(withSteamHunters(base, { localPercentage: 58, points: 7 }), "achievement", "both")!;
+  assert.equal(model.communityTitle, "SteamHunters");
+  assert.deepEqual(model.communityMetrics, [
+    { label: "Points", value: "7", icon: "steam-hunters" },
+    { label: "Community", value: "58%", icon: "community" },
+    { label: "Players unlocked", value: "58 / 100", icon: "players" },
+  ]);
+  const steamOnly = buildDeckyAchievementModalModel(snapshot("steam"), "achievement", "both")!;
+  assert.equal(steamOnly.communityTitle, "Steam");
+  assert.deepEqual(steamOnly.communityMetrics, [{ label: "Steam global", value: "42.3%", icon: "community" }]);
+});
+
+test("Steam missing qualified-player denominators preserve known rates without inventing counts", () => {
+  const base = withSteamHunters(snapshot("steam"), { localPercentage: 0, points: 0 });
+  for (const denominator of [undefined, 0, -1, 1.5]) {
+    const missing = { ...base, steamHunters: { ...base.steamHunters!, app: { ...base.steamHunters!.app, playersQualifiedCount: denominator } } } as GameDetailSnapshot;
+    const model = buildDeckyAchievementModalModel(missing, "achievement", "both")!;
+    assert.equal(model.communityMetrics.find(({ label }) => label === "Community")?.value, "0%");
+    assert.equal(model.communityMetrics.find(({ label }) => label === "Points")?.value, "0");
+    assert.equal(model.communityMetrics.some(({ label }) => label === "Players unlocked"), false);
+  }
 });

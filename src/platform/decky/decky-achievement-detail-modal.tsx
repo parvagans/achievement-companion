@@ -1,4 +1,4 @@
-import { Focusable, GamepadButton, type GamepadEvent } from "@decky/ui";
+import { Focusable } from "@decky/ui";
 import type { GameDetailSnapshot } from "@core/domain";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { initialDeckyGameDetailState, loadDeckyGameDetailState, loadDeckySteamHuntersEnrichedGameDetail } from "./decky-app-services";
@@ -7,9 +7,15 @@ import { getDeckyStandardModalContentStyle, getDeckyStandardModalTabStyle, openD
 import { applyAchievementCompanionTheme } from "./decky-theme-palette";
 import { readDeckySettings } from "./decky-settings";
 import { achievementCompanionQamTheme as theme, getQamPassiveCardFocusStyle } from "./decky-qam-theme";
-import { raTheme } from "./ra-theme";
+import { raRecipes, raTheme } from "./ra-theme";
 import { getSteamHuntersGameEnrichment } from "../../providers/steamhunters";
 import { useAsyncResourceState } from "./useAsyncResourceState";
+import calendarIconUrl from "./assets/calendar.svg";
+import clockIconUrl from "./assets/clock.svg";
+import usersIconUrl from "./assets/users.svg";
+import pieChartIconUrl from "./assets/pie-chart.svg";
+import { RA_COIN_ICON_URL } from "./decky-retroachievements-points-icon";
+import { DeckySteamHuntersIcon } from "./decky-steam-icons";
 
 const metricStyle: CSSProperties = {
   display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 3, minWidth: 0,
@@ -39,17 +45,23 @@ function getMetricColor(tone: DeckyAchievementModalMetric["tone"]): string {
   return theme.color.textSecondary;
 }
 
-/** Long descriptions stay readable inside the fixed identity area. */
-function handleIdentityScroll(event: GamepadEvent): void {
-  const direction = event.detail.button;
-  if (direction !== GamepadButton.DIR_UP && direction !== GamepadButton.DIR_DOWN) return;
-  const viewport = event.currentTarget as HTMLElement;
-  const maximum = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
-  const next = Math.max(0, Math.min(maximum, viewport.scrollTop + (direction === GamepadButton.DIR_UP ? -36 : 36)));
-  if (Math.abs(next - viewport.scrollTop) < 1) return;
-  viewport.scrollTop = next;
-  event.preventDefault();
-  event.stopPropagation();
+function MetricIcon({ metric }: { readonly metric: DeckyAchievementModalMetric }): JSX.Element | null {
+  if (metric.icon === undefined) return null;
+  if (metric.icon === "points") return <img src={RA_COIN_ICON_URL} alt="" style={{ width: 14, height: 14 }} />;
+  if (metric.icon === "steam-hunters") return <DeckySteamHuntersIcon size={14} color={theme.color.accent} />;
+  const url = metric.icon === "date" ? calendarIconUrl : metric.icon === "time" ? clockIconUrl : metric.icon === "community" ? pieChartIconUrl : usersIconUrl;
+  return <span aria-hidden="true" style={{ width: 14, height: 14, flexShrink: 0, background: metric.tone ? getMetricColor(metric.tone) : theme.color.accent,
+    WebkitMask: `url("${url}") center / contain no-repeat`, mask: `url("${url}") center / contain no-repeat` }} />;
+}
+
+function CommunityProgress({ progress }: { readonly progress: NonNullable<DeckyAchievementModalMetric["progress"]> }): JSX.Element {
+  return <div role="progressbar" aria-label="Community unlock rate" aria-valuenow={progress.percent} aria-valuemin={0} aria-valuemax={100}
+    style={{ width: "100%", height: 4, flexShrink: 0, display: "flex", overflow: "hidden", borderRadius: theme.radius.pill, background: theme.surface.progressTrack }}>
+    {progress.hardcorePercent !== undefined ? <>
+      <span style={raRecipes.compactAchievementCommunity.segment("hardcore", progress.hardcorePercent)} />
+      <span style={raRecipes.compactAchievementCommunity.segment("softcore", progress.percent - progress.hardcorePercent)} />
+    </> : <div style={{ width: `${progress.percent}%`, background: theme.surface.progressFill }} />}
+  </div>;
 }
 
 function AchievementModalContent({ providerId, gameId, achievementId }: {
@@ -86,11 +98,14 @@ function AchievementModalContent({ providerId, gameId, achievementId }: {
   const model = currentSnapshot === undefined ? undefined : buildDeckyAchievementModalModel(currentSnapshot, achievementId, readDeckySettings().retroAchievementsAchievementMode);
   const metrics = activeTab === "your-unlock" ? model?.yourUnlockMetrics : model?.communityMetrics;
   const tabs = [{ id: "your-unlock", label: "Your Unlock" }, { id: "community", label: "Community" }] as const;
+  const boundedLine: CSSProperties = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+  const showSteamCommunityHeading = model?.isSteamProvider && activeTab === "community" && (metrics?.length ?? 0) > 0;
+  const denseSteamCommunity = showSteamCommunityHeading && (metrics?.length ?? 0) > 3;
 
   return <div ref={rootRef} data-achievement-companion-achievement-modal="true" style={{
     ...getDeckyStandardModalContentStyle(), color: theme.color.textPrimary,
     fontFamily: theme.type.fontFamily, fontSize: theme.type.fullscreen.body,
-    display: "grid", gridTemplateRows: "72px 40px minmax(0, 1fr)", gap: 8, minWidth: 0, minHeight: 0,
+    display: "grid", gridTemplateRows: "88px 32px minmax(0, 1fr)", gap: 8, minWidth: 0, minHeight: 0,
     height: ACHIEVEMENT_MODAL_CONTENT_HEIGHT_PX, boxSizing: "border-box",
   }}>
     {model === undefined ? <div role="status" style={{ gridRow: "1 / -1", display: "grid", placeItems: "center", padding: 20, color: theme.color.textSecondary }}>
@@ -100,15 +115,15 @@ function AchievementModalContent({ providerId, gameId, achievementId }: {
         <div style={{ width: 72, height: 72, boxSizing: "border-box", borderRadius: 10, overflow: "hidden", background: theme.surface.contentStat, border: `1px solid ${theme.color.borderSubtle}` }}>
           {model.artworkUrl !== undefined ? <img src={model.artworkUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} /> : null}
         </div>
-        <Focusable noFocusRing tabIndex={0} aria-label="Achievement information" onGamepadDirection={handleIdentityScroll}
+        <Focusable noFocusRing tabIndex={0} aria-label="Achievement information"
           onFocus={() => setIdentityFocused(true)} onGamepadFocus={() => setIdentityFocused(true)}
           onBlur={() => setIdentityFocused(false)} onGamepadBlur={() => setIdentityFocused(false)}
-          style={{ ...getQamPassiveCardFocusStyle(identityFocused), height: "100%", minWidth: 0, minHeight: 0, overflowY: "auto", overflowX: "hidden", overscrollBehavior: "contain", padding: "1px 3px", boxSizing: "border-box", borderRadius: theme.radius.small }}>
+          style={{ ...getQamPassiveCardFocusStyle(identityFocused), height: "100%", minWidth: 0, minHeight: 0, overflow: "hidden", padding: "1px 3px", boxSizing: "border-box", borderRadius: theme.radius.small }}>
           <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 3, minHeight: "100%" }}>
-            <div style={{ color: theme.color.textSecondary, fontSize: theme.type.fullscreen.caption, lineHeight: 1.2, fontWeight: 700 }}>{model.gameTitle}</div>
-            <div style={{ fontSize: theme.type.fullscreen.title, fontWeight: 800, lineHeight: 1.12, overflowWrap: "anywhere" }}>{model.title}</div>
-            <div style={{ color: theme.color.textSecondary, fontSize: theme.type.fullscreen.metadata, lineHeight: 1.25, overflowWrap: "anywhere" }}>{model.description}</div>
-            {model.metadata.length > 0 ? <div style={{ display: "flex", flexWrap: "wrap", columnGap: 12, rowGap: 2, color: theme.color.textMuted, fontSize: theme.type.fullscreen.caption, lineHeight: 1.2 }}>
+            <div title={model.gameTitle} style={{ color: theme.color.textSecondary, fontSize: theme.type.fullscreen.caption, lineHeight: 1.2, fontWeight: 700, ...boundedLine }}>{model.gameTitle}</div>
+            <div title={model.title} style={{ fontSize: theme.type.fullscreen.title, fontWeight: 800, lineHeight: 1.12, overflowWrap: "anywhere", ...boundedLine }}>{model.title}</div>
+            <div title={model.description} style={{ color: theme.color.textSecondary, fontSize: theme.type.fullscreen.metadata, lineHeight: 1.25, overflowWrap: "anywhere", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{model.description}</div>
+            {model.metadata.length > 0 ? <div style={{ display: "flex", flexWrap: "nowrap", columnGap: 12, rowGap: 2, color: theme.color.textMuted, fontSize: theme.type.fullscreen.caption, lineHeight: 1.2, ...boundedLine }}>
               {model.metadata.map((metric) => <span key={metric.label} style={{ overflowWrap: "anywhere" }}>{metric.label}: {metric.value}</span>)}
             </div> : null}
           </div>
@@ -125,11 +140,15 @@ function AchievementModalContent({ providerId, gameId, achievementId }: {
           {tab.label}
         </Focusable>)}
       </Focusable>
-      <div role="tabpanel" aria-label={activeTab === "your-unlock" ? "Your Unlock" : model.communityTitle} style={{ display: "grid", gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gridTemplateRows: (metrics?.length ?? 0) > 3 ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)", gap: 8, minWidth: 0, minHeight: 0 }}>
-        {metrics?.length ? metrics.map((metric, index) => <div key={metric.label} style={{ ...metricStyle, gridColumn: `span ${getMetricSpan(metrics.length, index)}` }}>
-          <div style={{ color: getMetricColor(metric.tone), fontSize: theme.type.fullscreen.caption, lineHeight: 1.2, fontWeight: 700 }}>{metric.label}</div>
-          <div style={{ color: metric.tone === "muted" ? theme.color.textSecondary : theme.color.textPrimary, fontSize: activeTab === "your-unlock" ? theme.type.fullscreen.title : theme.type.fullscreen.body, fontWeight: 800, overflowWrap: "anywhere", lineHeight: 1.15 }}>{metric.value}</div>
+      <div role="tabpanel" aria-label={activeTab === "your-unlock" ? "Your Unlock" : model.communityTitle} style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0, minHeight: 0 }}>
+        {activeTab === "your-unlock" || showSteamCommunityHeading ? <div style={{ color: activeTab === "community" || model.isUnlocked ? theme.color.accent : theme.color.textMuted, fontSize: theme.type.fullscreen.caption, lineHeight: 1.2, fontWeight: 800, letterSpacing: "0.07em", textTransform: "uppercase" }}>{activeTab === "your-unlock" ? model.unlockHeading : model.communityTitle}</div> : null}
+        <div style={{ display: "grid", flex: 1, gridTemplateColumns: "repeat(6, minmax(0, 1fr))", gridTemplateRows: (metrics?.length ?? 0) > 3 ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)", gap: 8, minWidth: 0, minHeight: 0 }}>
+        {metrics?.length ? metrics.map((metric, index) => <div key={metric.label} style={{ ...metricStyle, padding: denseSteamCommunity ? "2px 9px" : "4px 9px", gap: denseSteamCommunity ? 2 : 3, gridColumn: `span ${getMetricSpan(metrics.length, index)}` }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5, color: metric.tone === "warning" || metric.tone === "danger" ? getMetricColor(metric.tone) : theme.color.textMuted, fontSize: theme.type.fullscreen.caption, lineHeight: 1.2, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.04em" }}><MetricIcon metric={metric} />{metric.label}</div>
+          <div style={{ color: metric.valueTone === "points" ? raTheme.color.points : metric.valueTone === "retro-points" ? raTheme.color.retroPoints : metric.tone === "muted" ? theme.color.textSecondary : theme.color.textPrimary, fontSize: activeTab === "your-unlock" ? theme.type.fullscreen.title : theme.type.fullscreen.body, fontWeight: 800, overflowWrap: "anywhere", lineHeight: 1.15 }}>{metric.value}</div>
+          {metric.progress !== undefined ? <CommunityProgress progress={metric.progress} /> : null}
         </div>) : <div style={{ ...metricStyle, gridColumn: "1 / -1", color: theme.color.textSecondary }}>{activeTab === "your-unlock" ? "No unlock date recorded." : "No community data available."}</div>}
+        </div>
       </div>
     </>}
   </div>;

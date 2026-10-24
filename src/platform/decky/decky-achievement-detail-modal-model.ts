@@ -1,6 +1,6 @@
 import type { GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
 import type { RetroAchievementsAchievementMode } from "@core/settings";
-import { buildAchievementStatus, formatCount, formatTimestamp, getAchievementDescriptionText, getMetricValue, parseMetricNumber } from "./decky-achievement-detail-helpers";
+import { buildAchievementStatus, formatCount, getAchievementDescriptionText, getMetricValue, parseMetricNumber } from "./decky-achievement-detail-helpers";
 import { projectRetroAchievementsFullScreenAchievements } from "./decky-retroachievements-full-screen-achievement-data";
 import { getSteamHuntersAchievementEnrichment, getSteamHuntersGameEnrichment } from "../../providers/steamhunters";
 import { formatSteamHuntersPercentage, formatSteamHuntersPlayersUnlocked } from "./decky-steam-hunters-presentation";
@@ -8,6 +8,9 @@ export interface DeckyAchievementModalMetric {
   readonly label: string;
   readonly value: string;
   readonly tone?: "positive" | "hardcore" | "softcore" | "muted" | "warning" | "danger";
+  readonly icon?: "date" | "time" | "points" | "steam-hunters" | "community" | "players";
+  readonly valueTone?: "points" | "retro-points";
+  readonly progress?: { readonly percent: number; readonly hardcorePercent?: number };
 }
 
 export interface DeckyAchievementModalModel {
@@ -18,6 +21,7 @@ export interface DeckyAchievementModalModel {
   readonly isUnlocked: boolean;
   readonly isSteamProvider: boolean;
   readonly status: string;
+  readonly unlockHeading?: string;
   readonly metadata: readonly DeckyAchievementModalMetric[];
   readonly yourUnlockMetrics: readonly DeckyAchievementModalMetric[];
   readonly communityTitle: string;
@@ -40,6 +44,17 @@ function countMetric(achievement: NormalizedAchievement, key: string): number | 
 
 function validPercentage(value: number | undefined): number | undefined {
   return value !== undefined && Number.isFinite(value) && value >= 0 && value <= 100 ? value : undefined;
+}
+
+function addUnlockDateMetrics(metrics: DeckyAchievementModalMetric[], isUnlocked: boolean, timestamp: number | undefined): void {
+  if (isUnlocked && timestamp !== undefined && Number.isFinite(new Date(timestamp).getTime())) {
+    metrics.push(
+      { label: "Date", value: new Date(timestamp).toLocaleDateString(), icon: "date" },
+      { label: "Time", value: new Date(timestamp).toLocaleTimeString(), icon: "time" },
+    );
+  } else {
+    addMetric(metrics, "Your unlock", isUnlocked ? "Date not recorded" : "Not yet unlocked", "muted");
+  }
 }
 
 function meaningfulGroupName(name: string | undefined, gameTitle: string): string | undefined {
@@ -71,26 +86,23 @@ export function buildDeckyAchievementModalModel(
   const yourUnlockMetrics: DeckyAchievementModalMetric[] = [];
   const metadata: DeckyAchievementModalMetric[] = [];
   const status = buildAchievementStatus(achievement).value;
+  let unlockHeading: string | undefined;
   if (isSteamProvider) {
-    addMetric(yourUnlockMetrics, achievement.isUnlocked ? "Unlocked" : "Your unlock",
-      achievement.isUnlocked ? achievement.unlockedAt !== undefined ? formatTimestamp(achievement.unlockedAt) : "Date not recorded" : "Locked",
-      achievement.isUnlocked ? "positive" : "muted");
+    unlockHeading = achievement.isUnlocked ? "Unlocked" : "Locked";
+    addUnlockDateMetrics(yourUnlockMetrics, achievement.isUnlocked, achievement.unlockedAt);
   } else {
-    if (achievement.hardcoreUnlockedAt !== undefined && achievement.hardcoreUnlockedAt === achievement.softcoreUnlockedAt) {
-      addMetric(yourUnlockMetrics, "Hardcore + Softcore", formatTimestamp(achievement.hardcoreUnlockedAt), "hardcore");
-    } else {
-      if (achievement.hardcoreUnlockedAt !== undefined) addMetric(yourUnlockMetrics, "Hardcore unlock", formatTimestamp(achievement.hardcoreUnlockedAt), "hardcore");
-      if (achievement.softcoreUnlockedAt !== undefined) addMetric(yourUnlockMetrics, "Softcore unlock", formatTimestamp(achievement.softcoreUnlockedAt), "softcore");
-    }
-    const selectedModeDate = mode === "hardcore" ? achievement.hardcoreUnlockedAt : mode === "softcore" ? achievement.softcoreUnlockedAt : undefined;
-    if (yourUnlockMetrics.length === 0) {
-      const recordedDate = achievement.unlockedAt ?? snapshot.achievements.find((entry) => entry.achievementId === achievementId)?.unlockedAt;
-      addMetric(yourUnlockMetrics, achievement.isUnlocked ? status : mode === "both" ? "Your unlock" : `${mode === "hardcore" ? "Hardcore" : "Softcore"} unlock`,
-        achievement.isUnlocked ? recordedDate !== undefined ? formatTimestamp(recordedDate) : "Date not recorded" : "Locked",
-        achievement.isUnlocked ? achievement.unlockMode ?? "positive" : "muted");
-    } else if (mode !== "both" && selectedModeDate === undefined && !achievement.isUnlocked) {
-      addMetric(yourUnlockMetrics, `${mode === "hardcore" ? "Hardcore" : "Softcore"} unlock`, "Locked", "muted");
-    }
+    // In Both, Hardcore takes precedence: RA also records its timestamp in the
+    // Softcore field. That is one earned unlock, not two different modes.
+    const earnedMode = achievement.unlockMode ?? (achievement.hardcoreUnlockedAt !== undefined ? "hardcore"
+      : achievement.softcoreUnlockedAt !== undefined ? "softcore" : undefined);
+    unlockHeading = achievement.isUnlocked
+      ? `Unlocked${earnedMode === undefined ? "" : ` · ${earnedMode === "hardcore" ? "Hardcore" : "Softcore"}`}`
+      : `Locked${mode === "both" ? "" : ` · ${mode === "hardcore" ? "Hardcore" : "Softcore"}`}`;
+    const source = snapshot.achievements.find((entry) => entry.achievementId === achievementId)!;
+    const recordedDate = earnedMode === "hardcore" ? achievement.hardcoreUnlockedAt
+      : earnedMode === "softcore" ? achievement.softcoreUnlockedAt : undefined;
+    const timestamp = recordedDate ?? achievement.unlockedAt ?? (source.unlockMode === earnedMode ? source.unlockedAt : undefined);
+    addUnlockDateMetrics(yourUnlockMetrics, achievement.isUnlocked, timestamp);
     if (achievement.classification !== undefined) {
       addMetric(metadata, "Type", achievement.classification === "win-condition" ? "Win Condition" : achievement.classification === "missable" ? "Missable" : "Progression");
     }
@@ -98,42 +110,46 @@ export function buildDeckyAchievementModalModel(
   }
 
   const communityMetrics: DeckyAchievementModalMetric[] = [];
+  let communityTitle = "RetroAchievements";
   if (isSteamProvider) {
     const enrichment = getSteamHuntersGameEnrichment(snapshot);
     const hunter = getSteamHuntersAchievementEnrichment(snapshot, achievementId);
-    addMetric(communityMetrics, "SteamHunters points", hunter?.points);
+    if (hunter?.points !== undefined) communityMetrics.push({ label: "Points", value: formatCount(hunter.points), icon: "steam-hunters" });
     const qualifiedRate = validPercentage(hunter?.localPercentage);
     const qualifiedPlayers = validCount(enrichment?.app.playersQualifiedCount);
-    if (qualifiedRate !== undefined && qualifiedPlayers !== undefined && qualifiedPlayers > 0) {
-      addMetric(communityMetrics, "SteamHunters qualified players", `${formatSteamHuntersPlayersUnlocked(qualifiedRate, qualifiedPlayers)} (${formatSteamHuntersPercentage(qualifiedRate)})`);
-    } else if (qualifiedRate !== undefined) {
-      addMetric(communityMetrics, "SteamHunters qualified-player rate", formatSteamHuntersPercentage(qualifiedRate));
+    if (qualifiedRate !== undefined) {
+      communityMetrics.push({ label: "Community", value: formatSteamHuntersPercentage(qualifiedRate), icon: "community" });
+      if (qualifiedPlayers !== undefined && qualifiedPlayers > 0) {
+        communityMetrics.push({ label: "Players unlocked", value: formatSteamHuntersPlayersUnlocked(qualifiedRate, qualifiedPlayers), icon: "players" });
+      }
     }
     const globalPercent = validPercentage(parseMetricNumber(achievement.metrics, "global-percent"));
-    if (globalPercent !== undefined) addMetric(communityMetrics, "Steam global unlock rate", formatSteamHuntersPercentage(globalPercent));
+    // Keep Steam's global population explicitly separate from the qualified
+    // SteamHunters population, even when their percentages happen to match.
+    if (globalPercent !== undefined) communityMetrics.push({ label: "Steam global", value: formatSteamHuntersPercentage(globalPercent), icon: "community" });
     if (hunter?.obtainability !== undefined && hunter.obtainability !== "unknown" && hunter.obtainability !== "obtainable") {
       addMetric(communityMetrics, "Obtainability", hunter.obtainability.split("-").map((word) => word[0]?.toUpperCase() + word.slice(1)).join(" "), hunter.obtainability === "unobtainable" ? "danger" : "warning");
     }
+    const hasHuntersMetrics = communityMetrics.some((metric) => metric.label !== "Steam global");
+    communityTitle = hasHuntersMetrics ? globalPercent !== undefined ? "SteamHunters · Steam" : "SteamHunters" : "Steam";
     const group = enrichment?.achievementGroupsBySteamAchievementId[achievementId];
     addMetric(metadata, group?.dlcAppName !== undefined ? "DLC" : "Group", meaningfulGroupName(group?.dlcAppName ?? group?.name, snapshot.game.title));
   } else {
     const totalUnlockCount = countMetric(achievement, "unlocked-count");
     const totalPlayers = validCount(parseMetricNumber(snapshot.game.metrics, "total-players", "Total Players"));
-    addMetric(communityMetrics, "Points", achievement.points);
-    addMetric(communityMetrics, "RetroPoints", getMetricValue(achievement.metrics, "true-ratio"));
-    if (totalUnlockCount !== undefined) {
-      const rate = totalPlayers !== undefined && totalPlayers > 0 ? validPercentage(totalUnlockCount / totalPlayers * 100) : undefined;
-      addMetric(communityMetrics, "Players unlocked", rate !== undefined && totalPlayers !== undefined
-        ? `${formatCount(totalUnlockCount)} / ${formatCount(totalPlayers)} (${rate.toFixed(2)}%)`
-        : totalUnlockCount);
-    }
+    if (achievement.points !== undefined) communityMetrics.push({ label: "Points", value: formatCount(achievement.points), icon: "points", valueTone: "points" });
+    const retroPoints = getMetricValue(achievement.metrics, "true-ratio");
+    if (retroPoints !== undefined) communityMetrics.push({ label: "RetroPoints", value: retroPoints, icon: "points", valueTone: "retro-points" });
     const hardcore = countMetric(achievement, "hardcore-unlocked-count");
     const softcoreOnly = countMetric(achievement, "softcore-unlocked-count");
-    const modeCounts = [
-      hardcore !== undefined && (totalUnlockCount === undefined || hardcore <= totalUnlockCount) ? `${formatCount(hardcore)} Hardcore` : undefined,
-      softcoreOnly !== undefined && (totalUnlockCount === undefined || softcoreOnly <= totalUnlockCount) ? `${formatCount(softcoreOnly)} Softcore-only` : undefined,
-    ].filter((value): value is string => value !== undefined);
-    if (modeCounts.length > 0) addMetric(communityMetrics, "Unlock modes", modeCounts.join(" · "));
+    if (totalUnlockCount !== undefined) {
+      const rate = totalPlayers !== undefined && totalPlayers > 0 ? validPercentage(totalUnlockCount / totalPlayers * 100) : undefined;
+      if (rate !== undefined) communityMetrics.push({ label: "Community", value: `${rate.toFixed(2)}%`, icon: "community",
+        progress: { percent: rate, ...(hardcore !== undefined && hardcore <= totalUnlockCount ? { hardcorePercent: hardcore / totalPlayers! * 100 } : {}) } });
+      communityMetrics.push({ label: "Players unlocked", value: formatCount(totalUnlockCount), icon: "players" });
+    }
+    if (hardcore !== undefined && (totalUnlockCount === undefined || hardcore <= totalUnlockCount)) communityMetrics.push({ label: "Hardcore unlocks", value: formatCount(hardcore), icon: "players", tone: "hardcore" });
+    if (softcoreOnly !== undefined && (totalUnlockCount === undefined || softcoreOnly <= totalUnlockCount)) communityMetrics.push({ label: "Softcore-only", value: formatCount(softcoreOnly), icon: "players", tone: "softcore" });
   }
 
   return {
@@ -144,9 +160,10 @@ export function buildDeckyAchievementModalModel(
     isUnlocked: achievement.isUnlocked,
     isSteamProvider,
     status,
+    ...(unlockHeading !== undefined ? { unlockHeading } : {}),
     metadata,
     yourUnlockMetrics,
-    communityTitle: isSteamProvider ? "SteamHunters and Steam" : "RetroAchievements",
+    communityTitle,
     communityMetrics,
   };
 }
