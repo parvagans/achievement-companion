@@ -1,6 +1,15 @@
 let pluginSettingsExpanded = false;
 let themeSettingsExpanded = false;
 let gamePageBadgeSettingsExpanded = false;
+let updatesExpanded = false;
+
+export function readDeckyUpdatesExpanded(): boolean {
+  return updatesExpanded;
+}
+
+export function writeDeckyUpdatesExpanded(expanded: boolean): void {
+  updatesExpanded = expanded;
+}
 
 export function readDeckyPluginSettingsExpanded(): boolean {
   return pluginSettingsExpanded;
@@ -29,6 +38,7 @@ export function writeDeckyGamePageBadgeSettingsExpanded(expanded: boolean): void
 
 /** A genuinely new compact session starts with optional settings collapsed. */
 export function resetDeckyProviderMenuSessionState(): void {
+  updatesExpanded = false;
   pluginSettingsExpanded = false;
   themeSettingsExpanded = false;
   gamePageBadgeSettingsExpanded = false;

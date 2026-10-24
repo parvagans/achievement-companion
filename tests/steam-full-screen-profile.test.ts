@@ -785,7 +785,7 @@ test("Steam settings keep account, activity, and data controls in one scroll pan
   assert.match(controlsSource, /data-settings-general-link="true"/u);
   assert.match(controlsSource, /<Toggle value=\{checked\} onChange=\{onChange\}/u);
   assert.doesNotMatch(source, /ToggleField/u);
-  assert.doesNotMatch(updateSource, /ToggleField/u);
+  assert.match(updateSource, /if \(compact\) return <ToggleField[\s\S]*return <DeckySettingsToggleRow/u);
   assert.doesNotMatch(appearanceSource, /ToggleField/u);
 
   assert.match(navigationSource, /id: "about", label: "General"/u);

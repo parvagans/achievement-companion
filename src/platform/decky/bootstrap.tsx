@@ -79,6 +79,8 @@ import {
   writeDeckyThemeSettingsExpanded,
   readDeckyGamePageBadgeSettingsExpanded,
   writeDeckyGamePageBadgeSettingsExpanded,
+  readDeckyUpdatesExpanded,
+  writeDeckyUpdatesExpanded,
 } from "./decky-provider-menu-session-state";
 import {
   DeckyCompactPillActionGroup,
@@ -133,6 +135,7 @@ import {
 } from "./decky-provider-initial-focus";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import { openDeckyWhatsNewModal } from "./decky-whats-new-modal";
+import { DeckyUpdateSettingsPanel } from "./decky-update-settings-panel";
 import { achievementCompanionThemeUsesDarkText } from "./decky-theme-palette";
 import { getDeckyGamePageAchievementBadgeColorPreview } from "./decky-game-page-achievement-badge-colors";
 import githubInvertocatBlackUrl from "./assets/brand/github-invertocat-black.svg";
@@ -514,9 +517,11 @@ function getPluginSettingsDisclosureStyle(
 function PluginSettingsDisclosure({
   expanded,
   onToggle,
+  label = "Plugin Settings",
 }: {
   readonly expanded: boolean;
   readonly onToggle: () => void;
+  readonly label?: "Plugin Settings" | "Updates";
 }): JSX.Element {
   const [focused, setFocused] = useState(false);
 
@@ -526,8 +531,9 @@ function PluginSettingsDisclosure({
       role="button"
       tabIndex={0}
       aria-expanded={expanded}
-      aria-label={`Plugin Settings, ${expanded ? "expanded" : "collapsed"}`}
-      data-achievement-companion-plugin-settings-disclosure="true"
+      aria-label={`${label}, ${expanded ? "expanded" : "collapsed"}`}
+      data-achievement-companion-plugin-settings-disclosure={label === "Plugin Settings" ? "true" : undefined}
+      data-achievement-companion-updates-disclosure={label === "Updates" ? "true" : undefined}
       onActivate={onToggle}
       onClick={onToggle}
       onFocus={(event) => {
@@ -542,9 +548,11 @@ function PluginSettingsDisclosure({
       onGamepadBlur={() => setFocused(false)}
       style={getPluginSettingsDisclosureStyle(focused, expanded)}
     >
-      <span aria-hidden="true" style={getChooserProviderCardSettingsIconStyle()}>{"\u2699"}</span>
+      <span aria-hidden="true" style={getChooserProviderCardSettingsIconStyle()}>
+        {label === "Updates" ? <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4" /></svg> : "\u2699"}
+      </span>
       <span style={getChooserProviderCardBodyStyle()}>
-        <span style={getChooserProviderCardTitleStyle()}>Plugin Settings</span>
+        <span style={getChooserProviderCardTitleStyle()}>{label}</span>
       </span>
       <span
         aria-hidden="true"
@@ -804,11 +812,13 @@ function ProviderLauncherCard({
 
 function QamSupportAction({
   label,
+  lines,
   url,
   iconSrc,
   iconStyle,
 }: {
   readonly label: string;
+  readonly lines: readonly [string, string];
   readonly url: string;
   readonly iconSrc: string;
   readonly iconStyle: CSSProperties;
@@ -842,10 +852,11 @@ function QamSupportAction({
         flex: "1 1 0",
         minWidth: 0,
         minHeight: 38,
-        display: "flex",
+        display: "grid",
+        gridTemplateColumns: "22px minmax(0, 1fr)",
         alignItems: "center",
         justifyContent: "center",
-        gap: steamTheme.space.sm,
+        gap: 6,
         padding: "6px 10px",
         boxSizing: "border-box",
         border: `1px solid ${focused ? steamTheme.focus.border : hovered ? steamTheme.color.borderStrong : steamTheme.color.borderSubtle}`,
@@ -861,8 +872,10 @@ function QamSupportAction({
         cursor: "pointer",
       }}
     >
-      <img alt="" aria-hidden="true" src={iconSrc} style={iconStyle} />
-      <span>{label}</span>
+      <img alt="" aria-hidden="true" src={iconSrc} style={{ ...iconStyle, justifySelf: "center" }} />
+      <span style={{ minWidth: 0, textAlign: "center", display: "flex", flexDirection: "column", justifyContent: "center", lineHeight: 1.2 }}>
+        {lines.map((line) => <span key={line} style={{ whiteSpace: "nowrap" }}>{line}</span>)}
+      </span>
     </Focusable>
   );
 }
@@ -883,12 +896,14 @@ function QamSupportActions({ theme }: { readonly theme: AchievementCompanionThem
     >
       <QamSupportAction
         label="Star on GitHub"
+        lines={["Star on", "GitHub"]}
         url={ACHIEVEMENT_COMPANION_GITHUB_URL}
         iconSrc={githubIconUrl}
         iconStyle={{ width: 19, height: 19, flexShrink: 0, objectFit: "contain" }}
       />
       <QamSupportAction
         label="Support on Ko-fi"
+        lines={["Support on", "Ko-fi"]}
         url={ACHIEVEMENT_COMPANION_KOFI_URL}
         iconSrc={kofiSymbolUrl}
         iconStyle={{ width: 22, height: 18, flexShrink: 0, objectFit: "contain" }}
@@ -1592,6 +1607,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
   const [pluginSettingsExpanded, setPluginSettingsExpanded] = useState(
     readDeckyPluginSettingsExpanded,
   );
+  const [updatesExpanded, setUpdatesExpanded] = useState(readDeckyUpdatesExpanded);
   const [themeSettingsExpanded, setThemeSettingsExpanded] = useState(
     readDeckyThemeSettingsExpanded,
   );
@@ -1978,6 +1994,19 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                           onFocused={() => setProviderListHasReceivedFocus(true)}
                           onClick={openDeckyWhatsNewModal}
                         />
+                        <div data-ac-qam-updates="true" style={{ width: "100%", minWidth: 0 }}>
+                          <PluginSettingsDisclosure
+                            label="Updates"
+                            expanded={updatesExpanded}
+                            onToggle={() => setUpdatesExpanded((expanded) => {
+                              writeDeckyUpdatesExpanded(!expanded);
+                              return !expanded;
+                            })}
+                          />
+                          {updatesExpanded ? <div style={{ ...getPluginSettingsContentCardStyle(), margin: 0 }}>
+                            <DeckyUpdateSettingsPanel compact />
+                          </div> : null}
+                        </div>
                         <QamSupportActions theme={settings.theme} />
                       </div>
                     </PanelSectionRow>

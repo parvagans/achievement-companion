@@ -3516,7 +3516,8 @@ test("compact provider menu nests native theme and badge settings under a sessio
   );
   assert.match(source, /function getProviderMenuDividerStyle\(\)[\s\S]*margin: "5px 12px"[\s\S]*steamTheme\.color\.borderSubtle/u);
   assert.match(source, /aria-expanded=\{expanded\}/u);
-  assert.match(source, /aria-label=\{`Plugin Settings, \$\{expanded \? "expanded" : "collapsed"\}`\}/u);
+  assert.match(source, /label = "Plugin Settings"/u);
+  assert.match(source, /aria-label=\{`\$\{label\}, \$\{expanded \? "expanded" : "collapsed"\}`\}/u);
   assert.match(source, /transform: expanded \? "rotate\(-90deg\)" : "rotate\(90deg\)"/u);
   assert.match(source, /<Field[\s\S]*label="Theme Settings"[\s\S]*<Field[\s\S]*label="Game Badge Settings"/u);
   const themeDropdownSource = source.slice(source.indexOf("function ThemeDropdown"), source.indexOf("function getGamePageBadgeLabelStyle"));

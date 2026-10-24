@@ -1,4 +1,4 @@
-import { Focusable, TextField, type GamepadEvent } from "@decky/ui";
+import { Focusable, TextField, ToggleField, type GamepadEvent } from "@decky/ui";
 import { useEffect, useState, type CSSProperties } from "react";
 import { APP_VERSION } from "../../generated/version";
 import { readDeckySettings, saveDeckySettings, useDeckySettings } from "./decky-settings";
@@ -11,9 +11,12 @@ import {
 import { getDeckyUpdateStatusText } from "./decky-update-status-text";
 import { DeckySettingsToggleRow } from "./decky-settings-controls";
 import { steamRecipes, steamTheme } from "./steam-theme";
+import { DeckyCompactPillActionItem } from "./decky-compact-pill-action-item";
+import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 
 export interface DeckyUpdateSettingsPanelProps {
   readonly onGamepadDirection?: (event: GamepadEvent) => void;
+  readonly compact?: boolean;
 }
 
 const cardStyle: CSSProperties = { ...steamRecipes.card("fullscreen"), padding: 14 };
@@ -33,12 +36,15 @@ function UpdateAction({
   label,
   onActivate,
   onGamepadDirection,
+  compact = false,
 }: {
   readonly disabled?: boolean;
   readonly label: string;
   readonly onActivate: () => void;
   readonly onGamepadDirection?: (event: GamepadEvent) => void;
+  readonly compact?: boolean;
 }): JSX.Element {
+  if (compact) return <DeckyCompactPillActionItem label={label} disabled={disabled} onClick={onActivate} stretch />;
   return <Focusable
     className="ac-settings-action"
     noFocusRing
@@ -71,17 +77,24 @@ function UpdateToggle({
   label,
   onChange,
   onGamepadDirection,
+  compact = false,
 }: {
   readonly checked: boolean;
   readonly description: string;
   readonly label: string;
   readonly onChange: (checked: boolean) => void;
   readonly onGamepadDirection?: (event: GamepadEvent) => void;
+  readonly compact?: boolean;
 }): JSX.Element {
+  if (compact) return <ToggleField
+    label={<span style={{ color: steamTheme.color.textPrimary, fontSize: steamTheme.type.compact.body, fontWeight: steamTheme.type.weight.strong }}>{label}</span>}
+    description={<span style={{ color: steamTheme.color.textSecondary, fontSize: steamTheme.type.compact.metadata }}>{description}</span>}
+    checked={checked} onChange={onChange}
+  />;
   return <DeckySettingsToggleRow label={label} description={description} checked={checked} onChange={onChange} {...(onGamepadDirection !== undefined ? { onGamepadDirection } : {})} />;
 }
 
-export function DeckyUpdateSettingsPanel({ onGamepadDirection }: DeckyUpdateSettingsPanelProps): JSX.Element {
+export function DeckyUpdateSettingsPanel({ onGamepadDirection, compact = false }: DeckyUpdateSettingsPanelProps): JSX.Element {
   const settings = useDeckySettings();
   const state = useDeckyUpdateState();
   const developerMode = isDeckyDeveloperUpdateModeEnabled();
@@ -89,17 +102,21 @@ export function DeckyUpdateSettingsPanel({ onGamepadDirection }: DeckyUpdateSett
   useEffect(() => setLocalUrl(settings.localUpdateManifestUrl), [settings.localUpdateManifestUrl]);
   const busy = state.status === "checking" || state.status === "downloading" || state.status === "verifying" || state.status === "installing";
   const statusText = getDeckyUpdateStatusText(state);
+  const metadataSize = compact ? steamTheme.type.compact.metadata : steamTheme.type.fullscreen.metadata;
 
-  return <section style={{ ...cardStyle, display: "flex", flex: "0 0 auto", flexDirection: "column", gap: 9, minWidth: 0 }} data-achievement-companion-update-settings>
+  return <section
+    onFocusCapture={compact ? (event) => scrollDeckyFocusTargetIntoView(event.target as HTMLElement) : undefined}
+    style={{ ...(compact ? { padding: 0, color: steamTheme.color.textPrimary } : cardStyle), display: "flex", flex: "0 0 auto", flexDirection: "column", gap: 9, minWidth: 0 }} data-achievement-companion-update-settings>
     <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: "3px 12px" }}>
-      <div style={{ color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata, fontWeight: steamTheme.type.weight.strong, letterSpacing: ".1em" }}>UPDATES</div>
-      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata }}>
+      {!compact ? <div style={{ color: steamTheme.color.textSecondary, fontSize: metadataSize, fontWeight: steamTheme.type.weight.strong, letterSpacing: ".1em" }}>UPDATES</div> : null}
+      <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 6, color: steamTheme.color.textSecondary, fontSize: metadataSize }}>
         <span style={{ color: steamTheme.color.textPrimary, fontWeight: steamTheme.type.weight.strong }}>v{APP_VERSION}</span>
         <span aria-hidden="true">·</span><span>{developerMode && settings.updateSource === "local" ? "Local feed" : "Stable"}</span>
         <span aria-hidden="true">·</span><span>Last checked {formatLastChecked(state.lastCheckedAt ?? settings.lastUpdateCheckedAt)}</span>
       </div>
     </div>
     <UpdateToggle
+      compact={compact}
       label="Automatic Update Checks"
       description="Check daily and when your Deck reconnects to the internet."
       checked={settings.automaticUpdateChecks}
@@ -110,16 +127,16 @@ export function DeckyUpdateSettingsPanel({ onGamepadDirection }: DeckyUpdateSett
     />
     <div data-achievement-companion-update-variable-content style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {state.available !== undefined && (state.status === "updateAvailable" || state.status === "unsupported" || state.status === "error") ? <div style={{ padding: 9, border: `1px solid ${steamTheme.status.success.border}`, borderRadius: steamTheme.radius.small, background: steamTheme.status.success.surface }}>
-        <div style={{ color: steamTheme.color.success, fontSize: steamTheme.type.fullscreen.metadata, fontWeight: steamTheme.type.weight.strong }}>UPDATE AVAILABLE · {state.available.version}</div>
-        {state.available.releaseNotes !== undefined ? <div style={{ marginTop: 3, color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata, lineHeight: 1.3 }}>{state.available.releaseNotes}</div> : null}
+        <div style={{ color: steamTheme.color.success, fontSize: metadataSize, fontWeight: steamTheme.type.weight.strong }}>UPDATE AVAILABLE · {state.available.version}</div>
+        {state.available.releaseNotes !== undefined ? <div style={{ marginTop: 3, color: steamTheme.color.textSecondary, fontSize: metadataSize, lineHeight: 1.3, overflowWrap: "anywhere" }}>{state.available.releaseNotes}</div> : null}
       </div> : null}
-      {statusText !== undefined ? <div role="status" style={{ color: state.status === "error" ? steamTheme.color.danger : state.status === "unsupported" ? steamTheme.color.warning : steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata, lineHeight: 1.3 }}>{statusText}</div> : null}
+      {statusText !== undefined ? <div role="status" style={{ color: state.status === "error" ? steamTheme.color.danger : state.status === "unsupported" ? steamTheme.color.warning : steamTheme.color.textSecondary, fontSize: metadataSize, lineHeight: 1.3, overflowWrap: "anywhere" }}>{statusText}</div> : null}
     </div>
     <div data-achievement-companion-update-actions style={{ display: "grid", gridTemplateColumns: "1fr", gap: 6 }}>
-      <UpdateAction disabled={busy} label={state.status === "checking" ? "Checking…" : "Check for Updates"} {...(onGamepadDirection !== undefined ? { onGamepadDirection } : {})} onActivate={() => { void checkForDeckyUpdateManually(); }} />
-      {state.available !== undefined ? <UpdateAction disabled={busy} label={state.status === "downloading" ? "Downloading…" : state.status === "verifying" ? "Verifying…" : state.status === "installing" ? "Installing…" : "Update"} {...(onGamepadDirection !== undefined ? { onGamepadDirection } : {})} onActivate={() => { void verifyAndInstallDeckyUpdate(); }} /> : null}
+      <UpdateAction compact={compact} disabled={busy} label={state.status === "checking" ? "Checking…" : "Check for Updates"} {...(onGamepadDirection !== undefined ? { onGamepadDirection } : {})} onActivate={() => { void checkForDeckyUpdateManually(); }} />
+      {state.available !== undefined ? <UpdateAction compact={compact} disabled={busy} label={state.status === "downloading" ? "Downloading…" : state.status === "verifying" ? "Verifying…" : state.status === "installing" ? "Installing…" : "Update"} {...(onGamepadDirection !== undefined ? { onGamepadDirection } : {})} onActivate={() => { void verifyAndInstallDeckyUpdate(); }} /> : null}
     </div>
-    {developerMode ? <div style={{ display: "flex", flexDirection: "column", gap: 7, paddingTop: 10, borderTop: `1px solid ${steamTheme.color.borderSubtle}` }}>
+    {developerMode && !compact ? <div style={{ display: "flex", flexDirection: "column", gap: 7, paddingTop: 10, borderTop: `1px solid ${steamTheme.color.borderSubtle}` }}>
       <div style={{ color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata, fontWeight: steamTheme.type.weight.strong, letterSpacing: ".1em" }}>DEVELOPER UPDATES</div>
       <UpdateToggle
         label="Local update source"
