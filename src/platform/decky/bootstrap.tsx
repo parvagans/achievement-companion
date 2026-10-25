@@ -57,7 +57,9 @@ import {
   consumeDeckyProviderFullScreenCompactReturnRefreshSuppression,
 } from "./decky-app-services";
 import { DeckyAchievementDetailView } from "./decky-achievement-detail-view";
+import { openDeckyAchievementDetailModal } from "./decky-achievement-detail-modal";
 import {
+  buildDeckyCompactAchievementModalGameDestination,
   setDeckyCompactNavigation,
   useDeckyCompactNavigation,
   returnFromDeckyCompactDestination,
@@ -65,6 +67,7 @@ import {
   type DeckyCompactAchievementListDestination,
   type DeckyCompactGameDestination,
 } from "./decky-compact-navigation";
+import { requestDeckyCompactFocusRestore } from "./decky-compact-focus-restore";
 import { DeckyDashboardView } from "./decky-dashboard-view";
 import { useDeckyCompactDropdownPopupGuard } from "./decky-compact-dropdown-popup-guard";
 import { DeckyCompactLoadingState } from "./decky-compact-loading-state";
@@ -1643,6 +1646,29 @@ function DeckyBootstrapStateBridge(): JSX.Element {
     clearDeckyCompactSessionResources();
     setDeckyCompactNavigation({ kind: "provider-dashboard", providerId });
   }, []);
+  const openCompactAchievementModal = useCallback((target: {
+    readonly providerId: ProviderId;
+    readonly gameId: string;
+    readonly gameTitle: string;
+    readonly achievementId: string;
+  }) => {
+    const origin = compactNavigation;
+    openDeckyAchievementDetailModal({
+      providerId: target.providerId,
+      gameId: target.gameId,
+      achievementId: target.achievementId,
+      compactContext: {
+        onDismiss: requestDeckyCompactFocusRestore,
+        onViewGame: () => {
+          if (origin.kind === "game" && origin.providerId === target.providerId && origin.gameId === target.gameId) {
+            requestDeckyCompactFocusRestore();
+            return;
+          }
+          setDeckyCompactNavigation(buildDeckyCompactAchievementModalGameDestination(origin, target));
+        },
+      },
+    });
+  }, [compactNavigation]);
   const [detailScrollResetNonce, setDetailScrollResetNonce] = useState(0);
   const [providerListHasReceivedFocus, setProviderListHasReceivedFocus] = useState(false);
   const [pluginSettingsExpanded, setPluginSettingsExpanded] = useState(
@@ -1770,14 +1796,11 @@ function DeckyBootstrapStateBridge(): JSX.Element {
             returnFromCompactDestination();
           }}
           onOpenAchievement={(achievementId) => {
-            setDeckyCompactNavigation({
-              kind: "achievement",
+            openCompactAchievementModal({
               providerId: selectedAchievementList.providerId,
               gameId: selectedAchievementList.gameId,
               gameTitle: selectedAchievementList.gameTitle,
               achievementId,
-              parent: "achievement-list",
-              achievementListParent: selectedAchievementList.parent,
             });
           }}
         />
@@ -1813,13 +1836,11 @@ function DeckyBootstrapStateBridge(): JSX.Element {
               returnFromCompactDestination();
             }}
             onOpenAchievementDetail={(achievementId) => {
-              setDeckyCompactNavigation({
-                kind: "achievement",
+              openCompactAchievementModal({
                 providerId: selectedGame.providerId,
                 gameId: selectedGame.gameId,
                 achievementId,
                 gameTitle: selectedGame.gameTitle,
-                parent: "game",
               });
             }}
             onRequestScrollReset={() => {
@@ -2125,13 +2146,11 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                   });
                 }}
                 onOpenAchievementDetail={(target) => {
-                  setDeckyCompactNavigation({
-                    kind: "achievement",
+                  openCompactAchievementModal({
                     providerId: target.game.providerId,
                     gameId: target.game.gameId,
                     achievementId: target.achievement.achievementId,
                     gameTitle: target.game.title,
-                    parent: "provider-dashboard",
                   });
                 }}
                 onOpenProfile={(providerId) => {

@@ -1,9 +1,8 @@
-import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type FocusEventHandler } from "react";
-import { Focusable, type FocusableProps } from "@decky/ui";
+import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEventHandler } from "react";
+import { Focusable, useQuickAccessVisible, type FocusableProps } from "@decky/ui";
 import checkCircleIconUrl from "./assets/check-circle.svg";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DeckyAchievementTypeBadge } from "./decky-achievement-type-badge";
-import { DeckyCompactPillActionGroup, DeckyCompactPillActionItem } from "./decky-compact-pill-action-item";
 import {
   DECKY_ACHIEVEMENT_FILTER_GROUP_CLASS,
   DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS,
@@ -17,7 +16,6 @@ import { registerCompactAchievementCancelCallback } from "./decky-full-screen-ca
 import { getSteamCompactAchievementFilterStyle } from "./decky-steam-compact-action-styles";
 import {
   getCompactAchievementFilterCounts,
-  getCompactAchievementLoadActions,
   matchesCompactAchievementFilter,
   matchesCompactAchievementModeFilter,
   type CompactAchievementFilter,
@@ -32,6 +30,10 @@ import {
   type DeckyCompactAchievementPageState,
 } from "./decky-compact-achievement-page-state";
 import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
+import {
+  readDeckyCompactFocusRestoreRequest,
+  subscribeToDeckyCompactFocusRestore,
+} from "./decky-compact-focus-restore";
 import { DeckySteamAchievementStatusIcon } from "./decky-steam-achievement-status-icon";
 import { DeckyRetroAchievementsPointsIcon } from "./decky-retroachievements-points-icon";
 import { DeckySteamHuntersIcon } from "./decky-steam-icons";
@@ -412,8 +414,17 @@ export function DeckyCompactAchievementList({
   onOpenAchievement,
 }: DeckyCompactAchievementListProps): JSX.Element {
   const rootRef = useRef<HTMLElement>(null);
-  const [pageState, setPageState] = useState<DeckyCompactAchievementPageState>(() =>
-    readDeckyCompactAchievementPageState(model.providerId, model.gameId, model.initialVisibleCount));
+  const isQuickAccessVisible = useQuickAccessVisible();
+  const restorationRequest = useSyncExternalStore(
+    subscribeToDeckyCompactFocusRestore,
+    readDeckyCompactFocusRestoreRequest,
+    readDeckyCompactFocusRestoreRequest,
+  );
+  const handledRestorationRequest = useRef(restorationRequest);
+  const [pageState, setPageState] = useState<DeckyCompactAchievementPageState>(() => ({
+    ...readDeckyCompactAchievementPageState(model.providerId, model.gameId, model.initialVisibleCount),
+    visibleCount: model.rows.length,
+  }));
   const pageStateRef = useRef(pageState);
   const restoreAchievementIdRef = useRef(pageState.focusedAchievementId);
   const [focusedControl, setFocusedControl] = useState<string | undefined>();
@@ -426,8 +437,7 @@ export function DeckyCompactAchievementList({
       (!model.supportsModeFilter || matchesCompactAchievementModeFilter(row, pageState.modeFilter))),
     [model.rows, model.supportsModeFilter, pageState.filter, pageState.modeFilter],
   );
-  const visibleRows = filteredRows.slice(0, pageState.visibleCount);
-  const { showFiveMore: canLoadMore, showAll: canShowAll } = getCompactAchievementLoadActions(pageState.visibleCount, filteredRows.length);
+  const visibleRows = filteredRows;
 
   useLayoutEffect(() => {
     const restoreAchievementId = restoreAchievementIdRef.current;
@@ -446,6 +456,26 @@ export function DeckyCompactAchievementList({
     const target = rootRef.current?.querySelector<HTMLElement>("[data-ac-compact-filter-selected='true']");
     return requestDeckySteamGamepadFocusAfterMount(target);
   }, [embedded, focusRestorationReady, isSteam, model.gameId, model.providerId]);
+
+  useLayoutEffect(() => {
+    if (
+      embedded
+      || !focusRestorationReady
+      || !isQuickAccessVisible
+      || handledRestorationRequest.current === restorationRequest
+    ) {
+      return;
+    }
+    handledRestorationRequest.current = restorationRequest;
+    const focusedAchievementId = pageStateRef.current.focusedAchievementId;
+    const target = focusedAchievementId === undefined
+      ? undefined
+      : rootRef.current?.querySelector<HTMLElement>(
+        `[data-achievement-companion-compact-achievement-id='${focusedAchievementId}']`,
+      );
+    const fallback = rootRef.current?.querySelector<HTMLElement>("[data-ac-compact-filter-selected='true']");
+    return requestDeckySteamGamepadFocusAfterMount(target ?? fallback);
+  }, [embedded, focusRestorationReady, isQuickAccessVisible, restorationRequest]);
 
   useLayoutEffect(() => {
     if (embedded) {
@@ -495,7 +525,7 @@ export function DeckyCompactAchievementList({
                 onActivate={() => commitPageState((current) => ({
                   ...current,
                   modeFilter: filter,
-                  visibleCount: model.initialVisibleCount,
+                  visibleCount: model.rows.length,
                   focusedAchievementId: undefined,
                   scrollTop: 0,
                 }))}
@@ -503,7 +533,7 @@ export function DeckyCompactAchievementList({
                 onClick={() => commitPageState((current) => ({
                   ...current,
                   modeFilter: filter,
-                  visibleCount: model.initialVisibleCount,
+                  visibleCount: model.rows.length,
                   focusedAchievementId: undefined,
                   scrollTop: 0,
                 }))}
@@ -548,7 +578,7 @@ export function DeckyCompactAchievementList({
               onActivate={() => commitPageState((current) => ({
                 ...current,
                 filter,
-                visibleCount: model.initialVisibleCount,
+                visibleCount: model.rows.length,
                 focusedAchievementId: undefined,
                 scrollTop: 0,
               }))}
@@ -556,7 +586,7 @@ export function DeckyCompactAchievementList({
               onClick={() => commitPageState((current) => ({
                 ...current,
                 filter,
-                visibleCount: model.initialVisibleCount,
+                visibleCount: model.rows.length,
                 focusedAchievementId: undefined,
                 scrollTop: 0,
               }))}
@@ -613,42 +643,6 @@ export function DeckyCompactAchievementList({
             : `No ${pageState.filter} achievements match this filter.`}
         </div>
       )}
-
-      {refined && (canLoadMore || canShowAll) ? (
-        <Focusable flow-children="left-right" tabIndex={-1} style={{ display: "flex", gap: 6, minWidth: 0 }}>
-          {(["Show 5 more", "Show all"] as const).filter((label) => label === "Show 5 more" ? canLoadMore : canShowAll).map((label) => (
-            <Focusable
-              key={label} role="button" noFocusRing onCancelButton={onBack}
-              onFocus={(event) => { setFocusedControl(label); scrollDeckyFocusTargetIntoView(event.currentTarget); }}
-              onGamepadFocus={(event) => { setFocusedControl(label); scrollDeckyFocusTargetIntoView(event.currentTarget); }}
-              onBlur={() => setFocusedControl(undefined)}
-              onActivate={() => commitPageState((current) => ({ ...current, visibleCount: label === "Show all" ? filteredRows.length : Math.min(filteredRows.length, current.visibleCount + 5) }))}
-              onClick={() => commitPageState((current) => ({ ...current, visibleCount: label === "Show all" ? filteredRows.length : Math.min(filteredRows.length, current.visibleCount + 5) }))}
-              style={{ ...raRecipes.action("compact", false, focusedControl === label), padding: "8px", fontSize: 11 }}
-            >{label}</Focusable>
-          ))}
-        </Focusable>
-      ) : canLoadMore || canShowAll ? (
-        <DeckyCompactPillActionGroup>
-          {canLoadMore ? (
-            <DeckyCompactPillActionItem
-              label="Show 5 more"
-              onCancelButton={onBack}
-              onClick={() => commitPageState((current) => ({
-                ...current,
-                visibleCount: Math.min(filteredRows.length, current.visibleCount + 5),
-              }))}
-            />
-          ) : null}
-          {canShowAll ? (
-            <DeckyCompactPillActionItem
-              label="Show all"
-              onCancelButton={onBack}
-              onClick={() => commitPageState((current) => ({ ...current, visibleCount: filteredRows.length }))}
-            />
-          ) : null}
-        </DeckyCompactPillActionGroup>
-      ) : null}
     </section>
   );
 }

@@ -28,6 +28,7 @@ import {
   type CompactAchievementResourceDependencies,
 } from "../src/platform/decky/decky-compact-achievement-resource";
 import {
+  buildDeckyCompactAchievementModalGameDestination,
   readDeckyCompactNavigation,
   resetDeckyCompactNavigationForTests,
   setDeckyCompactNavigation,
@@ -476,8 +477,9 @@ test("achievement-list destination and page state preserve deterministic return 
   const compactNavigationSource = readFileSync("src/platform/decky/decky-compact-navigation.ts", "utf8");
   assert.match(bootstrapSource, /returnFromDeckyCompactDestination\(compactNavigation\)/u);
   assert.match(compactNavigationSource, /if \(compactNavigation !== destination\)[\s\S]*getDeckyCompactParentDestination\(destination\)/u);
-  assert.match(bootstrapSource, /parent: "achievement-list"/u);
-  assert.match(bootstrapSource, /onOpenCompactGame=\{\(\) => \{[\s\S]*kind: "game"/u);
+  assert.match(bootstrapSource, /openDeckyAchievementDetailModal\([\s\S]*compactContext:/u);
+  assert.match(bootstrapSource, /onOpenAchievement=\{\(achievementId\) => \{[\s\S]*openCompactAchievementModal/u);
+  assert.match(compactNavigationSource, /returnToAchievementList/u);
   assert.match(bootstrapSource, /parent: "provider-dashboard"/u);
 
   const destination = readDeckyCompactNavigation();
@@ -494,6 +496,7 @@ test("achievement-list destination and page state preserve deterministic return 
     returnFromDeckyCompactDestination(destination);
     assert.deepStrictEqual(readDeckyCompactNavigation(), getDeckyCompactParentDestination(destination));
   }
+
 });
 
 test("RA current-game View achievements opens the QAM list and returns to the dashboard", () => {
@@ -512,6 +515,29 @@ test("RA current-game View achievements opens the QAM list and returns to the da
   };
   setDeckyCompactNavigation(list);
   assert.deepEqual(getDeckyCompactParentDestination(list), {
+    kind: "provider-dashboard",
+    providerId: "retroachievements",
+  });
+
+  const gameFromModal = buildDeckyCompactAchievementModalGameDestination(list, {
+    providerId: "retroachievements",
+    gameId: "759",
+    gameTitle: "Test Game",
+  });
+  assert.deepEqual(gameFromModal, {
+    kind: "game",
+    providerId: "retroachievements",
+    gameId: "759",
+    gameTitle: "Test Game",
+    returnToAchievementList: { parent: "provider-dashboard" },
+  });
+  assert.deepEqual(getDeckyCompactParentDestination(gameFromModal), list);
+  const dashboardGame = buildDeckyCompactAchievementModalGameDestination(
+    { kind: "provider-dashboard", providerId: "retroachievements" },
+    { providerId: "retroachievements", gameId: "759", gameTitle: "Test Game" },
+  );
+  assert.equal(dashboardGame.returnToAchievementList, undefined);
+  assert.deepEqual(getDeckyCompactParentDestination(dashboardGame), {
     kind: "provider-dashboard",
     providerId: "retroachievements",
   });

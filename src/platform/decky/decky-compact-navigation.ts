@@ -30,6 +30,10 @@ export interface DeckyCompactGameDestination {
   readonly gameTitle: string;
   /** Preserve the originating achievement detail when its game context is opened. */
   readonly returnToAchievement?: DeckyCompactAchievementReturnDestination;
+  /** Preserve the originating achievement list when View Game is used from a modal. */
+  readonly returnToAchievementList?: {
+    readonly parent: "game" | "provider-dashboard";
+  };
 }
 
 export interface DeckyCompactAchievementListDestination {
@@ -63,6 +67,26 @@ export type DeckyCompactNavigationDestination =
   | DeckyCompactAchievementListDestination
   | DeckyCompactAchievementDestination
   | DeckyCompactSettingsDestination;
+
+export function buildDeckyCompactAchievementModalGameDestination(
+  origin: DeckyCompactNavigationDestination,
+  target: {
+    readonly providerId: ProviderId;
+    readonly gameId: string;
+    readonly gameTitle: string;
+  },
+): DeckyCompactGameDestination {
+  const returnToAchievementList = origin.kind === "achievement-list"
+    && origin.providerId === target.providerId
+    && origin.gameId === target.gameId
+    ? { parent: origin.parent }
+    : undefined;
+  return {
+    kind: "game",
+    ...target,
+    ...(returnToAchievementList !== undefined ? { returnToAchievementList } : {}),
+  };
+}
 
 const providerChooser: DeckyCompactNavigationDestination = { kind: "provider-chooser" };
 let compactNavigation: DeckyCompactNavigationDestination = providerChooser;
@@ -112,6 +136,15 @@ export function getDeckyCompactParentDestination(
           ...(destination.returnToAchievement.achievementListParent !== undefined
             ? { achievementListParent: destination.returnToAchievement.achievementListParent }
             : {}),
+        };
+      }
+      if (destination.returnToAchievementList !== undefined) {
+        return {
+          kind: "achievement-list",
+          providerId: destination.providerId,
+          gameId: destination.gameId,
+          gameTitle: destination.gameTitle,
+          parent: destination.returnToAchievementList.parent,
         };
       }
       return { kind: "provider-dashboard", providerId: destination.providerId };

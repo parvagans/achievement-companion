@@ -1094,14 +1094,14 @@ export function DeckySteamCompactProfile({
     readDeckySteamCompactFocusRestoreRequest,
   );
   const handledRestorationRequest = useRef(restorationRequest);
-  const savedRestorationTarget = useRef(readDeckySteamCompactFocusTarget()).current;
-  const restorationTarget: DeckySteamCompactFocusTarget = savedRestorationTarget.kind === "steamhunters-points" && !showSteamHuntersProfile
+  const currentRestorationTarget = readDeckySteamCompactFocusTarget();
+  const restorationTarget: DeckySteamCompactFocusTarget = currentRestorationTarget.kind === "steamhunters-points" && !showSteamHuntersProfile
     ? { kind: showSteamLibraryFallback ? "steam-profile-metric" : "profile" }
-    : savedRestorationTarget.kind === "steam-profile-metric" && !showSteamLibraryFallback
+    : currentRestorationTarget.kind === "steam-profile-metric" && !showSteamLibraryFallback
       ? { kind: showSteamHuntersProfile ? "steamhunters-points" : "profile" }
-      : savedRestorationTarget;
+      : currentRestorationTarget;
   const restorationKey = getDeckySteamCompactFocusTargetKey(restorationTarget);
-  const restorationElementRef = useRef<HTMLDivElement | null>(null);
+  const focusTargetsRef = useRef(new Map<string, HTMLDivElement>());
   const refreshTime = formatRefreshTime(refreshedAt);
   const [selectedActivityDay, setSelectedActivityDay] = useState(readDeckySteamCompactActivityDay);
   const activityStats = useMemo(() => buildSteamActivityStats(activityEntries), [activityEntries]);
@@ -1142,9 +1142,10 @@ export function DeckySteamCompactProfile({
   } => {
     const key = getDeckySteamCompactFocusTargetKey(target);
     return {
-      ...(key === restorationKey
-        ? { elementRef: (node) => { restorationElementRef.current = node; } }
-        : {}),
+      elementRef: (node) => {
+        if (node === null) focusTargetsRef.current.delete(key);
+        else focusTargetsRef.current.set(key, node);
+      },
       onActivated: (element) => {
         const scrollTop = findDeckyScrollableAncestor(element)?.scrollTop ?? 0;
         setDeckySteamCompactFocusTarget(target, scrollTop);
@@ -1161,7 +1162,7 @@ export function DeckySteamCompactProfile({
     if (!isQuickAccessVisible) {
       return;
     }
-    return requestDeckySteamGamepadFocusAfterMount(restorationElementRef.current);
+    return requestDeckySteamGamepadFocusAfterMount(focusTargetsRef.current.get(restorationKey));
   }, [isQuickAccessVisible, restorationKey]);
 
   useLayoutEffect(() => {
@@ -1172,8 +1173,10 @@ export function DeckySteamCompactProfile({
       return;
     }
     handledRestorationRequest.current = restorationRequest;
-    const target = restorationElementRef.current;
-    if (target === null) {
+    const latestRestorationKey = getDeckySteamCompactFocusTargetKey(readDeckySteamCompactFocusTarget());
+    const target = focusTargetsRef.current.get(latestRestorationKey)
+      ?? focusTargetsRef.current.get(restorationKey);
+    if (target === undefined) {
       return;
     }
     return requestDeckySteamGamepadFocusAfterMount(target);

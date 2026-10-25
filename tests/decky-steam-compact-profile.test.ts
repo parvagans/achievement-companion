@@ -101,7 +101,15 @@ test("Steam compact profile matches the refined controller-first information hie
   assert.match(compactProfileSource, /useQuickAccessVisible\(\)/u);
   assert.match(compactProfileSource, /subscribeToDeckySteamCompactFocusRestore/u);
   assert.match(compactProfileSource, /handledRestorationRequest\.current === restorationRequest/u);
-  assert.match(compactProfileSource, /restorationElementRef\.current/u);
+  assert.match(compactProfileSource, /focusTargetsRef = useRef\(new Map<string, HTMLDivElement>\(\)\)/u);
+  assert.match(compactProfileSource, /focusTargetsRef\.current\.get\(latestRestorationKey\)/u);
+  assert.match(raCompactProfileSource, /focusTargetsRef\.current\.get\(latestRestorationKey\)/u);
+  assert.match(compactProfileSource, /const currentRestorationTarget = readDeckySteamCompactFocusTarget\(\);/u);
+  assert.doesNotMatch(compactProfileSource, /useRef\(readDeckySteamCompactFocusTarget\(\)\)\.current/u);
+  assert.doesNotMatch(
+    raCompactProfileSource,
+    /<CompactAction label="Open Profile Full-Screen" primary preferredFocus/u,
+  );
   assert.match(compactProfileSource, /!isQuickAccessVisible[\s\S]*handledRestorationRequest\.current === restorationRequest/u);
   assert.match(compactProfileSource, /requestDeckySteamGamepadFocusAfterMount\(target\)/u);
   assert.ok(compactProfileSource.includes("<DeckyGameArtwork compact src={artworkUrl} size={34} title={game.title} />"));

@@ -40,6 +40,11 @@ import {
   useDeckyCompactNavigation,
 } from "../src/platform/decky/decky-compact-navigation";
 import {
+  beginDeckyCompactPopup,
+  hasActiveDeckyCompactPopup,
+  resetDeckyCompactPopupStateForTests,
+} from "../src/platform/decky/decky-compact-popup-state";
+import {
   readDeckyPluginSettingsExpanded,
   writeDeckyPluginSettingsExpanded,
   readDeckyThemeSettingsExpanded,
@@ -97,6 +102,7 @@ function createTerminalReturnHarness(): {
 test.afterEach(() => {
   clearDeckyFullScreenSession();
   resetDeckyCompactNavigationForTests();
+  resetDeckyCompactPopupStateForTests();
 });
 
 test("compact RetroAchievements profile terminal Back pops first, then reopens Decky QAM", () => {
@@ -417,6 +423,27 @@ test("closing QAM ends compact session state while a compact-origin full-screen 
   assert.equal(readDeckyThemeSettingsExpanded(), false);
   assert.equal(readDeckyGamePageBadgeSettingsExpanded(), false);
   assert.equal(readDeckyCompactAchievementPageState("steam", "2321470", 12).scrollTop, 0);
+});
+
+test("compact modal popup tracking preserves the session and releases exactly once", () => {
+  const changes: string[] = [];
+  const releasePopup = beginDeckyCompactPopup();
+  assert.equal(hasActiveDeckyCompactPopup(), true);
+  const lifecycle = createDeckyCompactSessionLifecycle({
+    setCancelEnabled: (enabled) => changes.push(`cancel:${enabled}`),
+    endSession: () => changes.push("end"),
+    shouldPreserveHiddenSession: hasActiveDeckyCompactPopup,
+  });
+
+  lifecycle.setVisible(false);
+  assert.deepEqual(changes, ["cancel:false"]);
+  releasePopup();
+  releasePopup();
+  assert.equal(hasActiveDeckyCompactPopup(), false);
+  lifecycle.setVisible(true);
+  lifecycle.setVisible(false);
+  assert.deepEqual(changes, ["cancel:false", "cancel:true", "cancel:false", "end"]);
+  lifecycle.end();
 });
 
 test("compact-to-full-screen navigation enters the route before closing QAM", () => {

@@ -1507,7 +1507,7 @@ test("compact and full-screen game rows share the achievement type badge", () =>
   assert.match(fullScreenSource, /getAchievementRowTitleLineStyle/u);
 });
 
-test("compact achievement details retain type badges while full-screen details use the native modal", () => {
+test("legacy compact achievement details remain available while the shared modal exposes complete text", () => {
   const compactSource = readFileSync("src/platform/decky/decky-achievement-detail-view.tsx", "utf8");
   const modalSource = readFileSync("src/platform/decky/decky-achievement-detail-modal.tsx", "utf8");
   const shellSource = readFileSync("src/platform/decky/decky-standard-modal.tsx", "utf8");
@@ -1524,8 +1524,18 @@ test("compact achievement details retain type badges while full-screen details u
   assert.match(shellSource, /bHideMainWindowForPopouts: false/u);
   assert.match(shellSource, /registerDeckyFullscreenPopupCancel\(closeModal\)/u);
   assert.doesNotMatch(modalSource, /GameArtwork|getSteamFullscreenGameArtworkUrl|ScrollPanel/u);
-  assert.match(modalSource, /height: ACHIEVEMENT_MODAL_CONTENT_HEIGHT_PX/u);
-  assert.doesNotMatch(modalSource, /handleIdentityScroll|overflowY: "auto"/u);
+  assert.match(modalSource, /identityExpanded \? ACHIEVEMENT_MODAL_EXPANDED_CONTENT_HEIGHT_PX : ACHIEVEMENT_MODAL_CONTENT_HEIGHT_PX/u);
+  assert.match(modalSource, /handleIdentityScroll/u);
+  assert.match(modalSource, /overflowY: identityExpanded \? "auto" : "hidden"/u);
+  assert.match(modalSource, /whiteSpace: "pre-wrap"/u);
+  assert.match(modalSource, />\s*View Game\s*</u);
+  assert.match(modalSource, /aria-label="Achievement details and actions" flow-children="left-right"/u);
+  assert.match(modalSource, /gridTemplateColumns: `repeat\(\$\{onViewGame === undefined \? 2 : 3\}, minmax\(0, 1fr\)\)`/u);
+  assert.match(modalSource, /requestDeckySteamGamepadFocusAfterMount\(initialActionRef\.current\)/u);
+  assert.match(modalSource, /ref=\{index === 0 \? initialActionRef : undefined\}/u);
+  assert.doesNotMatch(modalSource, /<div role="tablist"/u);
+  assert.doesNotMatch(modalSource, /flex: "0 0 auto", minWidth: 92/u);
+  assert.match(shellSource, /preserveCompactSession \? beginDeckyCompactPopup\(\) : undefined/u);
 });
 
 test("retroachievements recent unlocks normalize badge art urls", () => {
@@ -2857,8 +2867,9 @@ test("provider setup, credential fields, and current compact profile routes stay
   assert.match(compactAchievementListSource, /aria-label="Achievement filters"/u);
   assert.match(compactAchievementListSource, /MODE_FILTERS\.map\(\(filter\)/u);
   assert.match(compactAchievementListSource, /FILTERS\.map\(\(filter\)/u);
-  assert.match(compactAchievementListSource, /Show 5 more/u);
-  assert.match(compactAchievementListSource, /Show all/u);
+  assert.match(compactAchievementListSource, /const visibleRows = filteredRows;/u);
+  assert.doesNotMatch(compactAchievementListSource, /Show 5 more/u);
+  assert.doesNotMatch(compactAchievementListSource, /Show all/u);
   assert.match(compactAchievementListSource, /role="radio"/);
   assert.match(compactAchievementListSource, /aria-checked=\{active\}/);
   assert.match(compactAchievementListSource, /DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS/);

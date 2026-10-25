@@ -694,9 +694,10 @@ export function DeckyRetroAchievementsCompactProfile({
     readDeckyCompactFocusRestoreRequest,
   );
   const handledRestorationRequest = useRef(restorationRequest);
-  const restorationTarget = useRef(readDeckyRetroAchievementsCompactFocusTarget()).current;
-  const restorationKey = getDeckyRetroAchievementsCompactFocusTargetKey(restorationTarget);
-  const restorationElementRef = useRef<HTMLDivElement | null>(null);
+  const restorationKey = getDeckyRetroAchievementsCompactFocusTargetKey(
+    readDeckyRetroAchievementsCompactFocusTarget(),
+  );
+  const focusTargetsRef = useRef(new Map<string, HTMLDivElement>());
   const [selectedActivityDay, setSelectedActivityDay] = useState(readDeckyRetroAchievementsCompactActivityDay);
   const activityEntries = activityCalendarUnlocks ?? snapshot.activityCalendarUnlocks ?? snapshot.recentAchievements;
   const modeFilteredActivity = useMemo(() => sortRetroAchievementsUnlocksNewestFirst(
@@ -755,28 +756,39 @@ export function DeckyRetroAchievementsCompactProfile({
   const targetProps = (target: DeckyRetroAchievementsCompactFocusTarget): CompactFocusTargetProps => {
     const key = getDeckyRetroAchievementsCompactFocusTargetKey(target);
     return {
-      ...(key === restorationKey
-        ? { elementRef: (node) => { restorationElementRef.current = node; } }
-        : {}),
-      onActivated: (element) => setDeckyRetroAchievementsCompactFocusTarget(
-        target,
-        findDeckyScrollableAncestor(element)?.scrollTop ?? 0,
-      ),
-      onFocused: (element) => setDeckyRetroAchievementsCompactFocusTarget(
-        target,
-        findDeckyScrollableAncestor(element)?.scrollTop ?? 0,
-      ),
+      elementRef: (node) => {
+        if (node === null) focusTargetsRef.current.delete(key);
+        else focusTargetsRef.current.set(key, node);
+      },
+      onActivated: (element) => {
+        setDeckyRetroAchievementsCompactFocusTarget(
+          target,
+          findDeckyScrollableAncestor(element)?.scrollTop ?? 0,
+        );
+      },
+      onFocused: (element) => {
+        setDeckyRetroAchievementsCompactFocusTarget(
+          target,
+          findDeckyScrollableAncestor(element)?.scrollTop ?? 0,
+        );
+      },
       preferredFocus: key === restorationKey,
     };
   };
   useLayoutEffect(() => {
     if (!isQuickAccessVisible) return;
-    return requestDeckySteamGamepadFocusAfterMount(restorationElementRef.current);
+    return requestDeckySteamGamepadFocusAfterMount(focusTargetsRef.current.get(restorationKey));
   }, [isQuickAccessVisible, restorationKey]);
   useLayoutEffect(() => {
     if (!isQuickAccessVisible || handledRestorationRequest.current === restorationRequest) return;
     handledRestorationRequest.current = restorationRequest;
-    return requestDeckySteamGamepadFocusAfterMount(restorationElementRef.current);
+    const latestRestorationKey = getDeckyRetroAchievementsCompactFocusTargetKey(
+      readDeckyRetroAchievementsCompactFocusTarget(),
+    );
+    return requestDeckySteamGamepadFocusAfterMount(
+      focusTargetsRef.current.get(latestRestorationKey)
+        ?? focusTargetsRef.current.get(restorationKey),
+    );
   }, [isQuickAccessVisible, restorationRequest]);
   return (
     <Focusable
@@ -797,7 +809,7 @@ export function DeckyRetroAchievementsCompactProfile({
 
       <Section title="Profile">
         <ProfileCard profile={profile} rankDisplay={settings.retroAchievementsRankDisplay} refreshedAt={refreshedAt} />
-        <CompactAction label="Open Profile Full-Screen" primary preferredFocus onActivate={onOpenProfile} onCancel={onCancel} dataAttribute="profile" scrollToTopOnFocus targetProps={targetProps({ kind: "profile" })} style={{ minHeight: 42, padding: "10px 12px" }}>
+        <CompactAction label="Open Profile Full-Screen" primary onActivate={onOpenProfile} onCancel={onCancel} dataAttribute="profile" scrollToTopOnFocus targetProps={targetProps({ kind: "profile" })} style={{ minHeight: 42, padding: "10px 12px" }}>
           <DeckyCompactPrimaryActionContent>Open Profile Full-Screen</DeckyCompactPrimaryActionContent>
         </CompactAction>
       </Section>

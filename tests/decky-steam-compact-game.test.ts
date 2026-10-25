@@ -67,7 +67,8 @@ test("Steam compact game overview uses the refined narrow-panel hierarchy and op
   assert.match(gameDetailSource, /onViewAchievements=\{onOpenCompactAchievements\}/u);
   assert.match(bootstrapSource, /kind: "achievement-list"/u);
   assert.match(bootstrapSource, /<CompactAchievementListScreen/u);
-  assert.match(bootstrapSource, /parent: "achievement-list"/u);
+  assert.match(bootstrapSource, /openCompactAchievementModal/u);
+  assert.match(bootstrapSource, /function CompactAchievementDetailScreen/u);
   assert.match(bootstrapSource, /<DeckyCompactLoadingState[\s\S]*Fetching the latest Steam game and SteamHunters data\./u);
   assert.match(steamHuntersSectionsSource, /export function getSteamHuntersAchievementSetStatusPresentation/u);
   assert.match(steamHuntersSectionsSource, /export function getSteamHuntersAchievementSetStatusSummary/u);
