@@ -37,4 +37,11 @@ export const WHATS_NEW_SECTIONS = [
       "The game footer reserves fixed X, Y, A, and B positions, so contextual Hide, Show, and Top actions never move the tabs or other controller hints.",
     ],
   },
+  {
+    title: "Game Page Badges",
+    items: [
+      "Choose between the existing Classic game-page badge and a new compact Minimal style with monochrome artwork, three sizes, six positions, and a subtle loading animation.",
+      "Switching styles preserves your Classic colors, while controller navigation can move horizontally between neighboring game-page badges without replacing Steam's normal Up and Down movement.",
+    ],
+  },
 ] as const;

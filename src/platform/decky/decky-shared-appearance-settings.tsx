@@ -5,6 +5,7 @@ import {
   GAME_PAGE_ACHIEVEMENT_BADGE_COLOR_OPTIONS,
   GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS,
   GAME_PAGE_ACHIEVEMENT_BADGE_SIZE_OPTIONS,
+  GAME_PAGE_ACHIEVEMENT_BADGE_STYLE_OPTIONS,
   type AchievementCompanionTheme,
   type GamePageAchievementBadgeColor,
   type GamePageAchievementBadgeColors,
@@ -58,9 +59,10 @@ export function DeckySharedAppearanceSettings({ onGamepadDirection }: {
       <span>Badge appearance</span><span style={{ color: steamTheme.color.accent }}>{badgeDetailsOpen ? "▴" : "▾"}</span>
     </Focusable>
     {badgeDetailsOpen && settings.showGamePageAchievementBadge ? <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingLeft: 10, borderLeft: `2px solid ${steamTheme.color.borderSubtle}` }}>
+      <DeckySettingsDropdown label="Badge style" value={settings.gamePageAchievementBadgeStyle} options={GAME_PAGE_ACHIEVEMENT_BADGE_STYLE_OPTIONS} formatOption={titleCase} disabled={!settings.showGamePageAchievementBadge} onChange={(gamePageAchievementBadgeStyle) => { void saveDeckySettings({ ...readDeckySettings(), gamePageAchievementBadgeStyle }); }} onGamepadDirection={onGamepadDirection} />
       <DeckySettingsDropdown label="Badge size" value={settings.gamePageAchievementBadgeSize} options={GAME_PAGE_ACHIEVEMENT_BADGE_SIZE_OPTIONS} formatOption={titleCase} disabled={!settings.showGamePageAchievementBadge} onChange={(gamePageAchievementBadgeSize) => { void saveDeckySettings({ ...readDeckySettings(), gamePageAchievementBadgeSize }); }} onGamepadDirection={onGamepadDirection} />
       <DeckySettingsDropdown label="Badge position" value={settings.gamePageAchievementBadgePosition} options={GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS} formatOption={(position) => POSITION_LABELS[position]} disabled={!settings.showGamePageAchievementBadge} onChange={(gamePageAchievementBadgePosition) => { void saveDeckySettings({ ...readDeckySettings(), gamePageAchievementBadgePosition }); }} onGamepadDirection={onGamepadDirection} />
-      {(["perfected", "mastered", "beaten", "inProgress"] as const).map((status) => <DeckySettingsDropdown key={status} label={`${status === "inProgress" ? "In Progress" : titleCase(status)} color`} value={settings.gamePageAchievementBadgeColors[status]} options={GAME_PAGE_ACHIEVEMENT_BADGE_COLOR_OPTIONS} formatOption={titleCase} disabled={!settings.showGamePageAchievementBadge} onChange={(color) => updateBadgeColor(status, color)} onGamepadDirection={onGamepadDirection} />)}
+      {settings.gamePageAchievementBadgeStyle === "classic" ? (["perfected", "mastered", "beaten", "inProgress"] as const).map((status) => <DeckySettingsDropdown key={status} label={`${status === "inProgress" ? "In Progress" : titleCase(status)} color`} value={settings.gamePageAchievementBadgeColors[status]} options={GAME_PAGE_ACHIEVEMENT_BADGE_COLOR_OPTIONS} formatOption={titleCase} disabled={!settings.showGamePageAchievementBadge} onChange={(color) => updateBadgeColor(status, color)} onGamepadDirection={onGamepadDirection} />) : null}
     </div> : null}
   </div>;
 }

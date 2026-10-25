@@ -1,2 +1,2 @@
 // GENERATED FILE — DO NOT EDIT
-export const APP_VERSION = "0.36.5" as const;
+export const APP_VERSION = "0.37.0" as const;

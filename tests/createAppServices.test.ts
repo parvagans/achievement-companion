@@ -46,6 +46,7 @@ import {
   ACHIEVEMENT_COMPANION_SETTINGS_STORAGE_KEY,
   DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS,
   DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS,
+  GAME_PAGE_ACHIEVEMENT_BADGE_STYLE_OPTIONS,
   parseAchievementCompanionSettings,
   serializeAchievementCompanionSettings,
 } from "../src/core/settings";
@@ -155,6 +156,11 @@ import {
   selectDeckyGamePageAchievementSummaryForAppId,
 } from "../src/platform/decky/decky-game-page-achievement-summary";
 import { resolveDeckyGamePageAchievementBadgePresentation } from "../src/platform/decky/decky-game-page-achievement-badge-presentation";
+import {
+  MINIMAL_GAME_PAGE_BADGE_DIMENSIONS,
+  resolveMinimalGamePageBadgeStatusIcon,
+} from "../src/platform/decky/decky-game-page-achievement-badge-minimal-model";
+import { selectDeckyGamePageAchievementBadgeHorizontalFocusTarget } from "../src/platform/decky/decky-game-page-achievement-badge-focus";
 import {
   resolveDeckyGamePageAchievementBadgeColor,
   resolveDeckyGamePageAchievementBadgePalette,
@@ -2045,6 +2051,8 @@ test("SteamHunters personal data stays enabled for existing settings and can be 
 });
 
 test("game page badge settings preserve valid preferences and reject invalid positions", () => {
+  assert.deepStrictEqual(GAME_PAGE_ACHIEVEMENT_BADGE_STYLE_OPTIONS, ["classic", "minimal"]);
+  assert.equal(DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.gamePageAchievementBadgeStyle, "classic");
   assert.equal(DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.gamePageAchievementBadgeSize, "small");
   assert.deepStrictEqual(DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS, {
     perfected: "purple",
@@ -2053,10 +2061,13 @@ test("game page badge settings preserve valid preferences and reject invalid pos
     inProgress: "gray",
   });
   assert.equal(parseAchievementCompanionSettings(undefined).gamePageAchievementBadgeSize, "small");
+  assert.equal(parseAchievementCompanionSettings(undefined).gamePageAchievementBadgeStyle, "classic");
   assert.equal(parseAchievementCompanionSettings("{}").gamePageAchievementBadgeSize, "large");
+  assert.equal(parseAchievementCompanionSettings("{}").gamePageAchievementBadgeStyle, "classic");
   const validSettings = parseAchievementCompanionSettings(
     JSON.stringify({
       showGamePageAchievementBadge: false,
+      gamePageAchievementBadgeStyle: "minimal",
       gamePageAchievementBadgeSize: "small",
       gamePageAchievementBadgePosition: "bottom-center",
       gamePageAchievementBadgeColors: {
@@ -2068,6 +2079,7 @@ test("game page badge settings preserve valid preferences and reject invalid pos
     }),
   );
   assert.equal(validSettings.showGamePageAchievementBadge, false);
+  assert.equal(validSettings.gamePageAchievementBadgeStyle, "minimal");
   assert.equal(validSettings.gamePageAchievementBadgeSize, "small");
   assert.equal(validSettings.gamePageAchievementBadgePosition, "bottom-center");
   assert.deepStrictEqual(validSettings.gamePageAchievementBadgeColors, {
@@ -2076,10 +2088,19 @@ test("game page badge settings preserve valid preferences and reject invalid pos
     beaten: "red",
     inProgress: "purple",
   });
+  const persistedSettings = parseAchievementCompanionSettings(
+    serializeAchievementCompanionSettings(validSettings),
+  );
+  assert.equal(persistedSettings.gamePageAchievementBadgeStyle, "minimal");
+  assert.deepStrictEqual(
+    persistedSettings.gamePageAchievementBadgeColors,
+    validSettings.gamePageAchievementBadgeColors,
+  );
 
   const invalidPositionSettings = parseAchievementCompanionSettings(
     JSON.stringify({
       gamePageAchievementBadgePosition: "middle-left",
+      gamePageAchievementBadgeStyle: "metallic",
       gamePageAchievementBadgeSize: "huge",
       gamePageAchievementBadgeColors: {
         perfected: "orange",
@@ -2093,6 +2114,7 @@ test("game page badge settings preserve valid preferences and reject invalid pos
     invalidPositionSettings.gamePageAchievementBadgePosition,
     DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.gamePageAchievementBadgePosition,
   );
+  assert.equal(invalidPositionSettings.gamePageAchievementBadgeStyle, "classic");
   assert.equal(invalidPositionSettings.gamePageAchievementBadgeSize, "large");
   assert.deepStrictEqual(invalidPositionSettings.gamePageAchievementBadgeColors, {
     ...DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS,
@@ -3559,8 +3581,10 @@ test("compact provider menu nests native theme and badge settings under a sessio
   assert.match(source, /pluginSettingsExpanded \? \([\s\S]*gamePageBadgeSettingsExpanded \? \(<[\s\S]*Show game page badge/u);
   assert.match(
     source,
-    /Show game page badge[\s\S]*<GamePageBadgeSizeDropdown[\s\S]*<GamePageBadgePositionDropdown/u,
+    /Show game page badge[\s\S]*<GamePageBadgeStyleDropdown[\s\S]*<GamePageBadgeSizeDropdown[\s\S]*<GamePageBadgePositionDropdown/u,
   );
+  assert.match(source, /GAME_PAGE_ACHIEVEMENT_BADGE_STYLE_DROPDOWN_OPTIONS/u);
+  assert.match(source, /selectedStyle=\{settings\.gamePageAchievementBadgeStyle\}/u);
   assert.match(source, /GAME_PAGE_ACHIEVEMENT_BADGE_SIZE_DROPDOWN_OPTIONS/u);
   assert.match(source, /selectedSize=\{settings\.gamePageAchievementBadgeSize\}/u);
   assert.match(source, /<GamePageBadgeSizeDropdown[\s\S]*disabled=\{!settings\.showGamePageAchievementBadge\}/u);
@@ -3570,6 +3594,7 @@ test("compact provider menu nests native theme and badge settings under a sessio
   assert.match(source, /label="Beaten color"/u);
   assert.match(source, /label="In Progress color"/u);
   assert.match(source, /saveGamePageAchievementBadgeColor/u);
+  assert.match(source, /settings\.gamePageAchievementBadgeStyle === "classic" \? \(<>/u);
 });
 
 test("Decky plugin picker trophy inherits native text color and keeps a cutout star", () => {
@@ -11758,6 +11783,18 @@ test("steam game page achievement badge uses the route-patched header path witho
     "src/platform/decky/decky-game-page-achievement-badge-theme.tsx",
     "utf8",
   );
+  const minimalBadgeSource = readFileSync(
+    "src/platform/decky/decky-game-page-achievement-badge-minimal.tsx",
+    "utf8",
+  );
+  const minimalBadgeModelSource = readFileSync(
+    "src/platform/decky/decky-game-page-achievement-badge-minimal-model.ts",
+    "utf8",
+  );
+  const badgeFocusSource = readFileSync(
+    "src/platform/decky/decky-game-page-achievement-badge-focus.ts",
+    "utf8",
+  );
   const gameStatusIconSource = readFileSync(
     "src/platform/decky/decky-game-status-icon.tsx",
     "utf8",
@@ -11766,7 +11803,7 @@ test("steam game page achievement badge uses the route-patched header path witho
     "src/platform/decky/decky-game-page-achievement-badge-presentation.ts",
     "utf8",
   );
-  const bubbleSource = `${routeBadgeSource}\n${badgeSource}\n${badgeThemeSource}\n${gameStatusIconSource}\n${badgePresentationSource}`;
+  const bubbleSource = `${routeBadgeSource}\n${badgeSource}\n${badgeThemeSource}\n${minimalBadgeSource}\n${minimalBadgeModelSource}\n${badgeFocusSource}\n${gameStatusIconSource}\n${badgePresentationSource}`;
   const routeBadgeStyleFunctionSource =
     routeBadgeSource.match(
       /function getDeckyGamePageAchievementRouteBadgeStyle\([\s\S]*?\r?\n\}\r?\n\r?\nfunction /u,
@@ -11898,6 +11935,33 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.doesNotMatch(bubbleSource, /AchievementCompanionGamePageBadgeGlobalComponent/u);
   assert.match(bubbleSource, /AchievementCompanionGamePageBadge/u);
   assert.match(bubbleSource, /DeckyGamePageAchievementBadgeVisual/u);
+  assert.match(badgeSource, /badgeStyle === "minimal"/u);
+  assert.match(badgeSource, /DeckyGamePageAchievementBadgeMinimal/u);
+  assert.match(badgeSource, /onButtonDown=\{handleDeckyGamePageAchievementBadgeButtonDown\}/u);
+  assert.doesNotMatch(badgeSource, /onGamepadDirection=/u);
+  assert.match(badgeSource, /GamepadButton\.DIR_LEFT/u);
+  assert.match(badgeSource, /GamepadButton\.DIR_RIGHT/u);
+  assert.match(badgeSource, /takeDeckySteamGamepadFocus\(target\)/u);
+  assert.match(badgeFocusSource, /container\.children/u);
+  assert.doesNotMatch(badgeFocusSource, /plugin(?:Id|Name)|Decky Recorder|MetaDeck/ui);
+  assert.match(minimalBadgeSource, /data-ac-game-page-badge-style="minimal"/u);
+  assert.match(minimalBadgeSource, /rgba\(15,20,27,\.90\)/u);
+  assert.match(minimalBadgeSource, /rgba\(23,29,37,\.95\)/u);
+  assert.match(minimalBadgeSource, /rgba\(190,190,190,\.32\)/u);
+  assert.match(minimalBadgeSource, /rgba\(235,235,235,\.62\)/u);
+  assert.match(minimalBadgeSource, /filter: "grayscale\(1\) brightness\(0\) invert\(1\)"/u);
+  assert.match(minimalBadgeSource, /presentation\.countLabel\.replace\(\/\\s\/gu, ""\)/u);
+  assert.match(minimalBadgeSource, /data-ac-game-page-badge-loading-label/u);
+  assert.match(minimalBadgeSource, /if \(presentation\.variant !== "loading"\) return;/u);
+  assert.match(minimalBadgeSource, /prefers-reduced-motion: reduce/u);
+  assert.match(minimalBadgeSource, /label\.animate\([\s\S]*opacity: 0\.55[\s\S]*duration: 1_800[\s\S]*easing: "ease-in-out"/u);
+  assert.match(minimalBadgeSource, /reducedMotion\.removeEventListener\("change", updateAnimation\)[\s\S]*animation\?\.cancel\(\)/u);
+  assert.doesNotMatch(minimalBadgeSource, /gradient|boxShadow|textShadow|drop-shadow/u);
+  assert.doesNotMatch(minimalBadgeSource, /statusSlot|progressRing|data-ac-game-page-badge-status-icon="bars"/u);
+  assert.doesNotMatch(minimalBadgeSource, /focused \?[^\r\n]*scale/u);
+  assert.match(minimalBadgeModelSource, /small: \{ width: 168, height: 32, font: 10, providerIcon: 15, statusIcon: 17/u);
+  assert.match(minimalBadgeModelSource, /medium: \{ width: 188, height: 38, font: 11, providerIcon: 18, statusIcon: 20/u);
+  assert.match(minimalBadgeModelSource, /large: \{ width: 208, height: 44, font: 12, providerIcon: 21, statusIcon: 23/u);
   assert.match(bubbleSource, /resolveDeckyGamePageAchievementBadgePresentation/u);
   assert.match(bubbleSource, /resolveDeckyGamePageAchievementBadgeProviderIconUrl/u);
   assert.match(badgeThemeSource, /import infoIconUrl from "\.\/assets\/info\.svg"/u);
@@ -11964,6 +12028,8 @@ test("steam game page achievement badge uses the route-patched header path witho
   );
   assert.doesNotMatch(routeBadgeStyleFunctionSource, /getDeckyGamePageAchievementBadgeBaseStyle/u);
   assert.match(bubbleSource, /chooseDeckyGamePageAchievementRouteBadgePlacement/u);
+  assert.match(routeBadgeSource, /MINIMAL_GAME_PAGE_BADGE_DIMENSIONS\[size\]/u);
+  assert.match(routeBadgeSource, /\[selectedPosition, selectedSize, selectedStyle\]/u);
   assert.match(bubbleSource, /collectDeckyGamePageAchievementRouteBadgeObstacleRects/u);
   assert.match(bubbleSource, /resolveDeckyGamePageAchievementRouteBadgeContainer/u);
   assert.match(bubbleSource, /DECKY_GAME_PAGE_ROUTE_BADGE_COLLISION_PADDING = 12/u);
@@ -12349,6 +12415,60 @@ test("game page achievement badge presentation follows the neon specification va
       reason: "no-achievements",
     }),
     undefined,
+  );
+});
+
+test("minimal game-page badge model covers all states at all three approved sizes", () => {
+  assert.deepStrictEqual(MINIMAL_GAME_PAGE_BADGE_DIMENSIONS, {
+    small: { width: 168, height: 32, font: 10, providerIcon: 15, statusIcon: 17, gap: 5, padding: 8 },
+    medium: { width: 188, height: 38, font: 11, providerIcon: 18, statusIcon: 20, gap: 6, padding: 9 },
+    large: { width: 208, height: 44, font: 12, providerIcon: 21, statusIcon: 23, gap: 7, padding: 11 },
+  });
+
+  const states = [
+    ["mastered", "crown-laurel"],
+    ["beaten", "flag"],
+    ["in-progress", undefined],
+    ["perfected", "crown-laurel"],
+    ["in-progress", undefined],
+    ["loading", undefined],
+  ] as const;
+  let checkedVariants = 0;
+  for (const size of ["small", "medium", "large"] as const) {
+    assert.equal(MINIMAL_GAME_PAGE_BADGE_DIMENSIONS[size].width > 0, true);
+    for (const [variant, expectedIcon] of states) {
+      assert.equal(resolveMinimalGamePageBadgeStatusIcon(variant), expectedIcon);
+      checkedVariants += 1;
+    }
+  }
+  assert.equal(checkedVariants, 18);
+});
+
+test("game-page badge horizontal focus chooses the nearest sibling in the requested direction", () => {
+  const source = { left: 200, top: 60, right: 300, bottom: 100 };
+  const candidates = [
+    { target: "far-left", rect: { left: 20, top: 50, right: 100, bottom: 90 } },
+    { target: "near-left", rect: { left: 105, top: 62, right: 185, bottom: 102 } },
+    { target: "near-right", rect: { left: 315, top: 65, right: 395, bottom: 105 } },
+    { target: "far-right", rect: { left: 430, top: 48, right: 510, bottom: 88 } },
+    { target: "vertical-only", rect: { left: 210, top: 140, right: 290, bottom: 180 } },
+  ];
+
+  assert.equal(
+    selectDeckyGamePageAchievementBadgeHorizontalFocusTarget(source, candidates, "left"),
+    "near-left",
+  );
+  assert.equal(
+    selectDeckyGamePageAchievementBadgeHorizontalFocusTarget(source, candidates, "right"),
+    "near-right",
+  );
+  assert.equal(
+    selectDeckyGamePageAchievementBadgeHorizontalFocusTarget(
+      source,
+      [{ target: "vertical-only", rect: { left: 210, top: 140, right: 290, bottom: 180 } }],
+      "right",
+    ),
+    "vertical-only",
   );
 });
 

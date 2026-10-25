@@ -1,6 +1,10 @@
-import { Focusable } from "@decky/ui";
+import { Focusable, GamepadButton, type GamepadEvent } from "@decky/ui";
 import { useCallback, useEffect, useState, type CSSProperties } from "react";
-import type { GamePageAchievementBadgeColors, GamePageAchievementBadgeSize } from "@core/settings";
+import type {
+  GamePageAchievementBadgeColors,
+  GamePageAchievementBadgeSize,
+  GamePageAchievementBadgeStyle,
+} from "@core/settings";
 import {
   markAchievementCompanionGamePageAchievementBadgeClicked,
   markAchievementCompanionGamePageAchievementBadgeRendered,
@@ -8,11 +12,16 @@ import {
 import {
   DeckyGamePageAchievementBadgeVisual,
 } from "./decky-game-page-achievement-badge-theme";
+import { DeckyGamePageAchievementBadgeMinimal } from "./decky-game-page-achievement-badge-minimal";
 import type { DeckyGamePageAchievementBadgePresentation } from "./decky-game-page-achievement-badge-presentation";
+import { findDeckyGamePageAchievementBadgeHorizontalFocusTarget } from "./decky-game-page-achievement-badge-focus";
+import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
+import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
 
 export interface DeckyGamePageAchievementBadgeProps {
   readonly appId?: string | undefined;
   readonly ariaLabel: string;
+  readonly badgeStyle: GamePageAchievementBadgeStyle;
   readonly colors: GamePageAchievementBadgeColors;
   readonly size: GamePageAchievementBadgeSize;
   readonly presentation: DeckyGamePageAchievementBadgePresentation;
@@ -36,9 +45,27 @@ const GAME_PAGE_ACHIEVEMENT_BADGE_FOCUS_CSS = `
   display: none !important;
 }`;
 
+function handleDeckyGamePageAchievementBadgeButtonDown(event: GamepadEvent): void {
+  const direction = event.detail.button === GamepadButton.DIR_LEFT
+    ? "left"
+    : event.detail.button === GamepadButton.DIR_RIGHT
+      ? "right"
+      : undefined;
+  if (direction === undefined) return;
+
+  const source = event.currentTarget as HTMLElement;
+  const target = findDeckyGamePageAchievementBadgeHorizontalFocusTarget(source, direction);
+  if (target === undefined || !takeDeckySteamGamepadFocus(target)) return;
+
+  event.preventDefault();
+  event.stopPropagation();
+  playDeckySteamNavigationSound(source.ownerDocument);
+}
+
 export function DeckyGamePageAchievementBadge({
   appId,
   ariaLabel,
+  badgeStyle,
   colors,
   size,
   presentation,
@@ -74,8 +101,11 @@ export function DeckyGamePageAchievementBadge({
       tabIndex={0}
       onActivate={activateBadge}
       onBlur={() => setFocused(false)}
+      onButtonDown={handleDeckyGamePageAchievementBadgeButtonDown}
       onClick={activateBadge}
       onFocus={() => setFocused(true)}
+      onGamepadBlur={() => setFocused(false)}
+      onGamepadFocus={() => setFocused(true)}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
@@ -84,7 +114,20 @@ export function DeckyGamePageAchievementBadge({
       }}
     >
       <style>{GAME_PAGE_ACHIEVEMENT_BADGE_FOCUS_CSS}</style>
-      <DeckyGamePageAchievementBadgeVisual colors={colors} focused={focused} presentation={presentation} size={size} />
+      {badgeStyle === "minimal" ? (
+        <DeckyGamePageAchievementBadgeMinimal
+          focused={focused}
+          presentation={presentation}
+          size={size}
+        />
+      ) : (
+        <DeckyGamePageAchievementBadgeVisual
+          colors={colors}
+          focused={focused}
+          presentation={presentation}
+          size={size}
+        />
+      )}
     </Focusable>
   );
 }

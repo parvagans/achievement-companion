@@ -49,6 +49,10 @@ export const GAME_PAGE_ACHIEVEMENT_BADGE_SIZE_OPTIONS = ["small", "medium", "lar
 export type GamePageAchievementBadgeSize =
   (typeof GAME_PAGE_ACHIEVEMENT_BADGE_SIZE_OPTIONS)[number];
 
+export const GAME_PAGE_ACHIEVEMENT_BADGE_STYLE_OPTIONS = ["classic", "minimal"] as const;
+export type GamePageAchievementBadgeStyle =
+  (typeof GAME_PAGE_ACHIEVEMENT_BADGE_STYLE_OPTIONS)[number];
+
 export const GAME_PAGE_ACHIEVEMENT_BADGE_COLOR_OPTIONS = [
   "purple",
   "blue",
@@ -83,6 +87,7 @@ export interface AchievementCompanionSettings {
   readonly showCompletionProgressSubsets: boolean;
   readonly defaultCompletionProgressFilter: CompletionProgressFilter;
   readonly showGamePageAchievementBadge: boolean;
+  readonly gamePageAchievementBadgeStyle: GamePageAchievementBadgeStyle;
   readonly gamePageAchievementBadgeSize: GamePageAchievementBadgeSize;
   readonly gamePageAchievementBadgePosition: GamePageAchievementBadgePosition;
   readonly gamePageAchievementBadgeColors: GamePageAchievementBadgeColors;
@@ -109,6 +114,7 @@ export const DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS: AchievementCompanionSetting
   showCompletionProgressSubsets: true,
   defaultCompletionProgressFilter: "all",
   showGamePageAchievementBadge: true,
+  gamePageAchievementBadgeStyle: "classic",
   gamePageAchievementBadgeSize: "small",
   gamePageAchievementBadgePosition: "top-left",
   gamePageAchievementBadgeColors: DEFAULT_GAME_PAGE_ACHIEVEMENT_BADGE_COLORS,
@@ -198,6 +204,12 @@ function normalizeGamePageAchievementBadgeSize(value: unknown): GamePageAchievem
     : "large";
 }
 
+function normalizeGamePageAchievementBadgeStyle(value: unknown): GamePageAchievementBadgeStyle {
+  return GAME_PAGE_ACHIEVEMENT_BADGE_STYLE_OPTIONS.includes(value as GamePageAchievementBadgeStyle)
+    ? value as GamePageAchievementBadgeStyle
+    : "classic";
+}
+
 function normalizeGamePageAchievementBadgeColor(
   value: unknown,
   fallback: GamePageAchievementBadgeColor,
@@ -264,6 +276,9 @@ export function normalizeAchievementCompanionSettings(
       typeof value["showGamePageAchievementBadge"] === "boolean"
         ? value["showGamePageAchievementBadge"]
         : DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.showGamePageAchievementBadge,
+    gamePageAchievementBadgeStyle: normalizeGamePageAchievementBadgeStyle(
+      value["gamePageAchievementBadgeStyle"],
+    ),
     // A saved record predating size must retain the original 292×74 badge.
     gamePageAchievementBadgeSize: normalizeGamePageAchievementBadgeSize(value["gamePageAchievementBadgeSize"]),
     gamePageAchievementBadgePosition: normalizeGamePageAchievementBadgePosition(

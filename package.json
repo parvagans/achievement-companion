@@ -1,7 +1,7 @@
 {
   "name": "steam-deck-achievement-companion",
   "private": true,
-  "version": "0.36.5",
+  "version": "0.37.0",
   "author": "parvagans",
   "license": "BSD-3-Clause",
   "type": "module",

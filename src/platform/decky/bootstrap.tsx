@@ -26,12 +26,14 @@ import {
   GAME_PAGE_ACHIEVEMENT_BADGE_COLOR_OPTIONS,
   GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS,
   GAME_PAGE_ACHIEVEMENT_BADGE_SIZE_OPTIONS,
+  GAME_PAGE_ACHIEVEMENT_BADGE_STYLE_OPTIONS,
   ACHIEVEMENT_COMPANION_THEME_OPTIONS,
   type AchievementCompanionTheme,
   type GamePageAchievementBadgeColor,
   type GamePageAchievementBadgeColors,
   type GamePageAchievementBadgePosition,
   type GamePageAchievementBadgeSize,
+  type GamePageAchievementBadgeStyle,
 } from "@core/settings";
 import type { ResourceState } from "@core/cache";
 import type { DashboardSnapshot, GameDetailSnapshot, ProviderId } from "@core/domain";
@@ -204,6 +206,12 @@ const GAME_PAGE_ACHIEVEMENT_BADGE_SIZE_DROPDOWN_OPTIONS =
     label: size.charAt(0).toUpperCase() + size.slice(1),
   }));
 
+const GAME_PAGE_ACHIEVEMENT_BADGE_STYLE_DROPDOWN_OPTIONS =
+  GAME_PAGE_ACHIEVEMENT_BADGE_STYLE_OPTIONS.map((style) => ({
+    data: style,
+    label: style.charAt(0).toUpperCase() + style.slice(1),
+  }));
+
 const GAME_PAGE_ACHIEVEMENT_BADGE_COLOR_LABELS: Readonly<
   Record<GamePageAchievementBadgeColor, string>
 > = {
@@ -254,6 +262,11 @@ function isGamePageAchievementBadgePosition(value: unknown): value is GamePageAc
 function isGamePageAchievementBadgeSize(value: unknown): value is GamePageAchievementBadgeSize {
   return typeof value === "string" &&
     GAME_PAGE_ACHIEVEMENT_BADGE_SIZE_OPTIONS.includes(value as GamePageAchievementBadgeSize);
+}
+
+function isGamePageAchievementBadgeStyle(value: unknown): value is GamePageAchievementBadgeStyle {
+  return typeof value === "string" &&
+    GAME_PAGE_ACHIEVEMENT_BADGE_STYLE_OPTIONS.includes(value as GamePageAchievementBadgeStyle);
 }
 
 function isGamePageAchievementBadgeColor(value: unknown): value is GamePageAchievementBadgeColor {
@@ -565,6 +578,34 @@ function PluginSettingsDisclosure({
         <ChooserProviderCardChevronGlyph />
       </span>
     </Focusable>
+  );
+}
+
+function GamePageBadgeStyleDropdown({
+  selectedStyle,
+  disabled,
+  onChange,
+}: {
+  readonly selectedStyle: GamePageAchievementBadgeStyle;
+  readonly disabled: boolean;
+  readonly onChange: (style: GamePageAchievementBadgeStyle) => void;
+}): JSX.Element {
+  const openGuardedMenu = useDeckyCompactDropdownPopupGuard();
+  return (
+    <div data-ac-game-page-badge-dropdown="true">
+      <DropdownItem
+        label={<span style={getGamePageBadgeLabelStyle(disabled)}>Badge style</span>}
+        description={<span style={getGamePageBadgeDescriptionStyle(disabled)}>Choose the badge appearance on game pages.</span>}
+        disabled={disabled}
+        menuLabel="Game Page Badge Style"
+        onMenuWillOpen={openGuardedMenu}
+        rgOptions={GAME_PAGE_ACHIEVEMENT_BADGE_STYLE_DROPDOWN_OPTIONS}
+        selectedOption={selectedStyle}
+        onChange={(option) => {
+          if (isGamePageAchievementBadgeStyle(option.data)) onChange(option.data);
+        }}
+      />
+    </div>
   );
 }
 
@@ -1925,6 +1966,17 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                         />
                       </PanelSectionRow>
 
+                      <GamePageBadgeStyleDropdown
+                        selectedStyle={settings.gamePageAchievementBadgeStyle}
+                        disabled={!settings.showGamePageAchievementBadge}
+                        onChange={(gamePageAchievementBadgeStyle) => {
+                          void saveDeckySettings({
+                            ...readDeckySettings(),
+                            gamePageAchievementBadgeStyle,
+                          });
+                        }}
+                      />
+
                       <GamePageBadgeSizeDropdown
                         selectedSize={settings.gamePageAchievementBadgeSize}
                         disabled={!settings.showGamePageAchievementBadge}
@@ -1947,6 +1999,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                         }}
                       />
 
+                      {settings.gamePageAchievementBadgeStyle === "classic" ? (<>
                       <GamePageBadgeColorDropdown
                         label="Perfected color"
                         description="Color used for completed Steam achievement sets."
@@ -1975,6 +2028,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                         disabled={!settings.showGamePageAchievementBadge}
                         onChange={(color) => saveGamePageAchievementBadgeColor("inProgress", color)}
                       />
+                      </>) : null}
                       </>) : null}
                     </div>
                   </PanelSection>

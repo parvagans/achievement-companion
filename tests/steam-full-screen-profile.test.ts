@@ -791,7 +791,8 @@ test("Steam settings keep account, activity, and data controls in one scroll pan
   assert.match(navigationSource, /id: "about", label: "General"/u);
   assert.match(generalSource, /DeckySharedAppearanceSettings[\s\S]*DeckyUpdateSettingsPanel[\s\S]*AboutLink title="Changelog"/u);
   assert.match(generalSource, /addEventListener\("popstate", restore\)[\s\S]*addEventListener\("visibilitychange", restore\)/u);
-  assert.match(appearanceSource, /showGamePageAchievementBadge[\s\S]*gamePageAchievementBadgeSize[\s\S]*gamePageAchievementBadgePosition/u);
+  assert.match(appearanceSource, /showGamePageAchievementBadge[\s\S]*gamePageAchievementBadgeStyle[\s\S]*gamePageAchievementBadgeSize[\s\S]*gamePageAchievementBadgePosition/u);
+  assert.match(appearanceSource, /gamePageAchievementBadgeStyle === "classic"/u);
   assert.match(updateSource, /automaticUpdateChecks[\s\S]*Check for Updates[\s\S]*DEVELOPER UPDATES/u);
   assert.match(footerSource, /consumeDeckyFullscreenTransientCancel\(event, ownerWindow\.document\)/u);
   assert.match(footerSource, /consumeDeckyFullscreenOnScreenKeyboardCancel\(document\)/u);

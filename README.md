@@ -39,7 +39,7 @@ The project is undergoing active, rigorous development with frequent updates. If
 - **RetroAchievements inside Steam:** supported non-Steam games can show RetroAchievements in Steam's native Activity, Your Stuff, and Community views.
 - **Steam completion insights:** SteamHunters community data adds rarity, completion times, DLC requirements, achievement groups, and obtainability information where available.
 - **Optional SteamHunters personal data:** personal SteamHunters profile statistics can be disabled without turning off community statistics. If a profile is unavailable, Achievement Companion uses meaningful Steam library data where possible and otherwise hides the section.
-- **Library game-page badges:** see In Progress, Steam Perfected, or RetroAchievements Beaten and Mastered status before launching a game, with configurable Small, Medium, and Large layouts.
+- **Library game-page badges:** choose the colorful Classic design or a compact monochrome Minimal design to see In Progress, Steam Perfected, or RetroAchievements Beaten and Mastered status before launching a game. Both styles support Small, Medium, and Large layouts and six positions.
 - **Fifteen visual themes:** choose Arcade, Aurora, Blue (default), Carbon, Ember, Grove, Neon, Onyx, Paper, RA Classic, Rosewood, Solarized, Steam, Terminal, or Velvet in **Quick Access → Plugin Settings → Theme Settings**. The selected palette also carries through shared icons, progress, focus, footer, and provider loading screens; achievement and award status colors keep their meaning.
 - **Built-in updates:** verified downloads are presented through Decky for confirmation rather than installed unattended.
 
@@ -175,10 +175,18 @@ Game-page controls stay consistent: A selects or opens details, X hides a focuse
 
 ### Native game-page status badges
 
-The clickable badge opens the corresponding Achievement Companion detail view. It supports In Progress for both providers, Steam Perfected, and RetroAchievements Beaten or Mastered. Choose a Small, Medium, or Large layout, place it in any of six positions, or set a separate color for each status. Fresh installations use Small; settings saved before badge sizes were introduced retain the original Large layout. Default badge colors are Perfected Purple, Mastered Gold, Beaten Blue, and In Progress Gray. Unresolved non-Steam games do not receive a badge.
+The clickable badge opens the corresponding Achievement Companion detail view. It supports In Progress for both providers, Steam Perfected, and RetroAchievements Beaten or Mastered. Choose the colorful **Classic** style or the compact, monochrome **Minimal** style, then select Small, Medium, or Large and place it in any of six positions. Both styles retain controller focus and activation, with horizontal navigation between neighboring game-page badges while Steam's normal Up and Down movement remains available.
+
+Classic preserves the existing metallic presentation and separate color setting for each status. Its defaults are Perfected Purple, Mastered Gold, Beaten Blue, and In Progress Gray. Minimal uses a semi-transparent charcoal surface, neutral border, monochrome provider and status artwork, and a restrained breathing label while loading. Switching styles preserves the saved Classic colors. Fresh installations use Classic and Small; settings saved before badge sizes were introduced retain the original Large layout. Unresolved non-Steam games do not receive a badge.
 
 <p align="center">
+  <strong>Classic</strong><br>
   <img src="docs/screenshots/readme/game-page-status-badges.png" alt="Small, Medium, and Large Steam Game Mode badges for RetroAchievements Mastered, Beaten, and In Progress; Steam Perfected and In Progress; and loading" width="100%">
+</p>
+
+<p align="center">
+  <strong>Minimal</strong><br>
+  <img src="docs/screenshots/readme/game-page-status-badges-minimal.png" alt="Small, Medium, and Large monochrome Minimal game-page badges for RetroAchievements Mastered, Beaten, and In Progress; Steam Perfected and In Progress; and loading" width="100%">
 </p>
 
 ## Requirements

@@ -16,7 +16,11 @@ import {
   type JSX,
 } from "react";
 import { DeckyGamePageAchievementBadge } from "./decky-game-page-achievement-badge";
-import { type GamePageAchievementBadgePosition, type GamePageAchievementBadgeSize } from "@core/settings";
+import {
+  type GamePageAchievementBadgePosition,
+  type GamePageAchievementBadgeSize,
+  type GamePageAchievementBadgeStyle,
+} from "@core/settings";
 import { useDeckySettings } from "./decky-settings";
 import {
   DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN,
@@ -35,6 +39,7 @@ import {
   GAME_PAGE_BADGE_DIMENSIONS,
   resolveDeckyGamePageAchievementBadgeProviderIconUrl,
 } from "./decky-game-page-achievement-badge-theme";
+import { MINIMAL_GAME_PAGE_BADGE_DIMENSIONS } from "./decky-game-page-achievement-badge-minimal-model";
 import { resolveDeckyGamePageAchievementBadgePresentation } from "./decky-game-page-achievement-badge-presentation";
 import {
   createDeckyGamePageRoutePatchLifetime,
@@ -425,11 +430,15 @@ function createDeckyGamePageAchievementRouteBadgeCandidateRect(
   badgeRect: DOMRect,
   top: number,
   size: GamePageAchievementBadgeSize,
+  badgeStyle: GamePageAchievementBadgeStyle,
 ): DeckyGamePageAchievementRelativeRect {
+  const fallbackDimensions = badgeStyle === "minimal"
+    ? MINIMAL_GAME_PAGE_BADGE_DIMENSIONS[size]
+    : GAME_PAGE_BADGE_DIMENSIONS[size];
   const width =
-    badgeRect.width > 0 ? badgeRect.width : GAME_PAGE_BADGE_DIMENSIONS[size].width;
+    badgeRect.width > 0 ? badgeRect.width : fallbackDimensions.width;
   const height =
-    badgeRect.height > 0 ? badgeRect.height : GAME_PAGE_BADGE_DIMENSIONS[size].height;
+    badgeRect.height > 0 ? badgeRect.height : fallbackDimensions.height;
   const left =
     slot.isCentered === true
       ? Math.max((containerRect.width - width) / 2, DECKY_GAME_PAGE_ROUTE_BADGE_COLLISION_PADDING)
@@ -450,6 +459,7 @@ function chooseDeckyGamePageAchievementRouteBadgePlacement(
   badgeElement: HTMLElement,
   selectedPosition: GamePageAchievementBadgePosition,
   size: GamePageAchievementBadgeSize,
+  badgeStyle: GamePageAchievementBadgeStyle,
 ): DeckyGamePageAchievementRouteBadgePlacementState {
   const containerRect = containerElement.getBoundingClientRect();
   const badgeRect = badgeElement.getBoundingClientRect();
@@ -462,10 +472,13 @@ function chooseDeckyGamePageAchievementRouteBadgePlacement(
     getDeckyGamePageAchievementRouteBadgePrimarySlot();
   const headerElement = resolveDeckyGamePageAchievementRouteBadgeHeader(badgeElement);
   const headerRect = headerElement?.getBoundingClientRect();
+  const fallbackDimensions = badgeStyle === "minimal"
+    ? MINIMAL_GAME_PAGE_BADGE_DIMENSIONS[size]
+    : GAME_PAGE_BADGE_DIMENSIONS[size];
   const badgeWidth =
-    badgeRect.width > 0 ? badgeRect.width : GAME_PAGE_BADGE_DIMENSIONS[size].width;
+    badgeRect.width > 0 ? badgeRect.width : fallbackDimensions.width;
   const badgeHeight =
-    badgeRect.height > 0 ? badgeRect.height : GAME_PAGE_BADGE_DIMENSIONS[size].height;
+    badgeRect.height > 0 ? badgeRect.height : fallbackDimensions.height;
   const heroMeasured =
     headerRect !== undefined &&
     headerRect.width >= badgeWidth + 2 * DECKY_GAME_PAGE_ROUTE_BADGE_COLLISION_PADDING &&
@@ -495,6 +508,7 @@ function chooseDeckyGamePageAchievementRouteBadgePlacement(
       badgeRect,
       preferredTop,
       size,
+      badgeStyle,
     );
     const nearbyOverlays = overlays.filter(
       (overlayRect) =>
@@ -523,6 +537,7 @@ function chooseDeckyGamePageAchievementRouteBadgePlacement(
         badgeRect,
         candidateTop,
         size,
+        badgeStyle,
       );
       return nearbyOverlays.every(
         (overlayRect) =>
@@ -541,6 +556,7 @@ function chooseDeckyGamePageAchievementRouteBadgePlacement(
     badgeRect,
     top,
     size,
+    badgeStyle,
   );
   const collisionCount = heroMeasured
     ? obstacleRects.filter((obstacleRect) =>
@@ -648,6 +664,7 @@ function useDeckyGamePageAchievementRouteBadgePlacement(): {
   const settings = useDeckySettings();
   const selectedPosition = settings.gamePageAchievementBadgePosition;
   const selectedSize = settings.gamePageAchievementBadgeSize;
+  const selectedStyle = settings.gamePageAchievementBadgeStyle;
   const badgeElementRef = useRef<HTMLDivElement | null>(null);
   const animationFrameRef = useRef<number | undefined>(undefined);
   const [placement, setPlacement] = useState<DeckyGamePageAchievementRouteBadgePlacementState>(
@@ -670,6 +687,7 @@ function useDeckyGamePageAchievementRouteBadgePlacement(): {
       badgeElement,
       selectedPosition,
       selectedSize,
+      selectedStyle,
     );
 
     setPlacement((previousPlacement) => {
@@ -695,7 +713,7 @@ function useDeckyGamePageAchievementRouteBadgePlacement(): {
       nextPlacement.fallbackUsed,
       nextPlacement.rejectedReasons,
     );
-  }, [selectedPosition, selectedSize]);
+  }, [selectedPosition, selectedSize, selectedStyle]);
 
   const setBadgeElement = useCallback(
     (element: HTMLDivElement | null) => {
@@ -976,6 +994,7 @@ function DeckyGamePageAchievementRouteBadgeEnabled({
     <DeckyGamePageAchievementBadge
       appId={appId}
       ariaLabel={presentation.ariaLabel}
+      badgeStyle={settings.gamePageAchievementBadgeStyle}
       colors={settings.gamePageAchievementBadgeColors}
       size={settings.gamePageAchievementBadgeSize}
       elementRef={setBadgeElement}

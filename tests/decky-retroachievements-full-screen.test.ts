@@ -408,7 +408,8 @@ test("full-screen provider settings keep every control in one navigable pane", a
   assert.match(steamSource, /aria-label="Steam account settings"[\s\S]*aria-label="SteamHunters settings"[\s\S]*aria-label="Steam activity settings"[\s\S]*aria-label="Steam data and sync"/u);
   assert.match(steamSource, /steamFullscreenActivityCalendarWeeks[\s\S]*steamCompactActivityCalendarWeeks[\s\S]*Clear Cached Data[\s\S]*Reset Steam Data/u);
   assert.match(generalSource, /DeckySharedAppearanceSettings[\s\S]*DeckyUpdateSettingsPanel[\s\S]*AboutLink title="Changelog"/u);
-  assert.match(appearanceSource, /gamePageAchievementBadgeSize[\s\S]*gamePageAchievementBadgePosition[\s\S]*gamePageAchievementBadgeColors/u);
+  assert.match(appearanceSource, /gamePageAchievementBadgeStyle[\s\S]*gamePageAchievementBadgeSize[\s\S]*gamePageAchievementBadgePosition[\s\S]*gamePageAchievementBadgeColors/u);
+  assert.match(appearanceSource, /gamePageAchievementBadgeStyle === "classic"/u);
   assert.match(sharedSectionSource, /width: "100%", boxSizing: "border-box", overflow: "hidden"/u);
   assert.match(raSource, /<DeckySettingsSection themeVariant="ra"><div[\s\S]*<DeckySettingsGeneralLink onOpen=\{onOpenGeneralSettings\}/u);
   assert.match(steamSource, /<SteamSettingsContent><div[\s\S]*<DeckySettingsGeneralLink onOpen=\{onOpenGeneralSettings\}/u);
