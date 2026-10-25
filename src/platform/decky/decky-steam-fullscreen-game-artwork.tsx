@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { loadBlankSteamHeaderStatus } from "./decky-steam-header-placeholder";
 import { steamTheme } from "./steam-theme";
 
-function getArtworkFrameStyle(compact: boolean, dense: boolean): CSSProperties {
-  return {
+export function getDeckySteamFullscreenArtworkFrameStyle(compact: boolean, dense: boolean, overview = false): CSSProperties {
+  const base: CSSProperties = {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
@@ -19,9 +19,19 @@ function getArtworkFrameStyle(compact: boolean, dense: boolean): CSSProperties {
     boxSizing: "border-box",
     overflow: "hidden",
   };
+  return overview ? {
+    ...base,
+    height: 64,
+    maxHeight: 64,
+    padding: 0,
+    borderRadius: steamTheme.radius.medium,
+    border: "none",
+    background: "transparent",
+    boxShadow: "none",
+  } : base;
 }
 
-function getArtworkImageStyle(
+export function getDeckySteamFullscreenArtworkImageStyle(
   fit: "cover" | "contain",
   preserveSourceSize: boolean,
 ): CSSProperties {
@@ -57,6 +67,7 @@ export interface DeckySteamFullscreenGameArtworkProps {
   readonly fallbackSrc?: string;
   readonly compact?: boolean;
   readonly dense?: boolean;
+  readonly overview?: boolean;
   readonly imageFit?: "cover" | "contain";
   readonly preserveSourceSize?: boolean;
   readonly fallbackImageFit?: "cover" | "contain";
@@ -69,6 +80,7 @@ export function DeckySteamFullscreenGameArtwork({
   fallbackSrc,
   compact = false,
   dense = false,
+  overview = false,
   imageFit = "cover",
   preserveSourceSize = false,
   fallbackImageFit = imageFit,
@@ -82,7 +94,7 @@ export function DeckySteamFullscreenGameArtwork({
   useEffect(() => { if (fallbackSrc !== undefined) setHasImageError(false); }, [fallbackSrc]);
 
   return (
-    <span aria-hidden="true" style={getArtworkFrameStyle(compact, dense)}>
+    <span data-ac-steam-overview-artwork={overview ? "fill" : undefined} aria-hidden="true" style={getDeckySteamFullscreenArtworkFrameStyle(compact, dense, overview)}>
       {hasImageError ? (
         <span style={getArtworkFallbackStyle()}>{fallbackLabel}</span>
       ) : (
@@ -101,7 +113,7 @@ export function DeckySteamFullscreenGameArtwork({
             if (!failedPrimary && fallbackSrc !== undefined && fallbackSrc !== src) setFailedPrimary(true);
             else setHasImageError(true);
           }}
-          style={getArtworkImageStyle(
+          style={getDeckySteamFullscreenArtworkImageStyle(
             failedPrimary ? fallbackImageFit : imageFit,
             failedPrimary ? preserveFallbackSourceSize : preserveSourceSize,
           )}

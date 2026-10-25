@@ -79,7 +79,7 @@ test("SteamHunters uses the fully obtainable state only when every restriction i
   assert.equal(isSteamHuntersSetFullyObtainable({}), false);
 });
 
-test("Steam overview title fitting is one-line measured sizing and set status has no legacy card grid", async () => {
+test("Steam overview title fitting is measured and provider status remains in the structured strip", async () => {
   const [overviewSource, sharedOverviewSource, statusSource] = await Promise.all([
     readFile(new URL("../src/platform/decky/decky-steam-game-overview.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-full-screen-game-overview-layout.tsx", import.meta.url), "utf8"),
@@ -93,13 +93,11 @@ test("Steam overview title fitting is one-line measured sizing and set status ha
   assert.match(sharedOverviewSource, /maxLines = 1/u);
   assert.match(sharedOverviewSource, /maxLines > 1[\s\S]*WebkitLineClamp: maxLines[\s\S]*whiteSpace: "normal"/u);
   assert.match(overviewSource, /DeckyFullScreenGameOverviewLayout/u);
-  assert.match(overviewSource, /title="Achievement Set Status"/u);
-  assert.match(overviewSource, /Game data refreshed \$\{refreshTime\}/u);
+  assert.match(overviewSource, /label: "Obtainability"/u);
+  assert.match(overviewSource, /buildDeckySteamGameInfoRows/u);
+  assert.match(overviewSource, /lastRefreshed/u);
   assert.doesNotMatch(overviewSource, /releaseDate=\{releaseDate\}/u);
-  assert.ok(
-    overviewSource.indexOf("<DeckySteamHuntersSetDetailsSection") <
-      overviewSource.indexOf("<DeckySteamHuntersCompletionHealthSection"),
-  );
+  assert.match(overviewSource, /openDeckyOverviewDetails/u);
   assert.match(statusSource, /getSteamHuntersAchievementSetStatusPresentation/u);
   assert.doesNotMatch(statusSource, /<DeckyFullScreenGameProgressStatGrid columns=\{4\} gap=\{6\}>/u);
 });

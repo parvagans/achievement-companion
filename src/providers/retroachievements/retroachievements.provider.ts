@@ -655,12 +655,12 @@ async function enrichRecentlyPlayedGamesWithExplicitAwards(
                 },
               ]
             : []),
-          ...(normalizedGameDetail.game.lastUnlockAt !== undefined
+          ...(getMetricValue(normalizedGameDetail.game.metrics, "highest-award-date") !== undefined
             ? [
                 {
                   key: "highest-award-date",
                   label: "Highest Award Date",
-                  value: String(normalizedGameDetail.game.lastUnlockAt),
+                  value: getMetricValue(normalizedGameDetail.game.metrics, "highest-award-date")!,
                 },
               ]
             : []),

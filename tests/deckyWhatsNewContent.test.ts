@@ -16,12 +16,19 @@ test("bundled What's New notes cover the update and remain readable offline", ()
   }
 });
 
-test("What's New groups the full-screen rework into five concise tabs", () => {
+test("What's New groups the full-screen game overhaul into five concise tabs", () => {
   assert.deepEqual(
     WHATS_NEW_SECTIONS.map((section) => section.title),
-    ["Profile", "Games", "Activity", "Settings", "Game pages"],
+    ["Overview", "Up Next", "RA Goals", "Insights", "Controls"],
   );
   assert.ok(WHATS_NEW_SECTIONS.every((section) => section.title.length <= 12));
+
+  const releaseCopy = WHATS_NEW_SECTIONS.flatMap((section) => section.items).join(" ");
+  assert.match(releaseCopy, /non-scrolling Deck dashboard/u);
+  assert.match(releaseCopy, /three achievements/u);
+  assert.match(releaseCopy, /Choose Beat or Master/u);
+  assert.match(releaseCopy, /SteamHunters obtainability/u);
+  assert.match(releaseCopy, /fixed X, Y, A, and B positions/u);
 });
 
 test("What's New keeps permanent support actions below fitted release notes", async () => {

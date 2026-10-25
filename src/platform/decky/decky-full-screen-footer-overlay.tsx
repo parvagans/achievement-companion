@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import type { GamepadEvent } from "@decky/ui";
-import { consumeDeckyFullscreenPopupCancel } from "./decky-full-screen-popup-state";
+import { consumeDeckyFullscreenPopupCancel, isDeckyFullscreenPopupOpen } from "./decky-full-screen-popup-state";
 import { handleDeckyFullscreenSubviewButtonDown } from "./decky-full-screen-subview-navigation";
 import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 import {
@@ -280,6 +280,40 @@ function getActionLegendStyle(): CSSProperties {
   };
 }
 
+const DECKY_FULLSCREEN_GAME_FOOTER_ACTION_SLOT_WIDTHS = {
+  x: 54,
+  y: 60,
+  a: 64,
+  b: 54,
+} as const;
+const DECKY_FULLSCREEN_GAME_FOOTER_ACTION_SLOT_GAP_PX = 8;
+const DECKY_FULLSCREEN_GAME_FOOTER_ACTION_LEGEND_WIDTH_PX =
+  Object.values(DECKY_FULLSCREEN_GAME_FOOTER_ACTION_SLOT_WIDTHS).reduce((total, width) => total + width, 0)
+  + (DECKY_FULLSCREEN_GAME_FOOTER_ACTION_SLOT_GAP_PX * 3);
+
+function getStableActionLegendStyle(): CSSProperties {
+  return {
+    display: "grid",
+    gridTemplateColumns: Object.values(DECKY_FULLSCREEN_GAME_FOOTER_ACTION_SLOT_WIDTHS)
+      .map((width) => `${width}px`)
+      .join(" "),
+    alignItems: "center",
+    columnGap: DECKY_FULLSCREEN_GAME_FOOTER_ACTION_SLOT_GAP_PX,
+    flex: `0 0 ${DECKY_FULLSCREEN_GAME_FOOTER_ACTION_LEGEND_WIDTH_PX}px`,
+    width: DECKY_FULLSCREEN_GAME_FOOTER_ACTION_LEGEND_WIDTH_PX,
+    minWidth: DECKY_FULLSCREEN_GAME_FOOTER_ACTION_LEGEND_WIDTH_PX,
+  };
+}
+
+function getStableActionSlotStyle(): CSSProperties {
+  return {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    minWidth: 0,
+  };
+}
+
 function getActionHintStyle(hidden: boolean): CSSProperties {
   return {
     display: "inline-flex",
@@ -318,6 +352,48 @@ function DeckyFullScreenFooterActionHint({ button, label, hidden = false }: {
   );
 }
 
+/**
+ * The fixed-slot variant is opt-in for full-screen game pages. Empty X/Y
+ * slots remain in the grid without exposing a visible or focusable control.
+ */
+export function DeckyFullScreenFooterActionLegend({
+  contextualXActionLabel,
+  secondaryActionLabel,
+  stableActionSlots = false,
+}: {
+  readonly contextualXActionLabel?: string;
+  readonly secondaryActionLabel?: string;
+  readonly stableActionSlots?: boolean;
+}): JSX.Element {
+  if (!stableActionSlots) {
+    return (
+      <span style={getActionLegendStyle()}>
+        {contextualXActionLabel !== undefined ? <DeckyFullScreenFooterActionHint button="X" label={contextualXActionLabel} /> : null}
+        <DeckyFullScreenFooterActionHint button="Y" label={secondaryActionLabel ?? "Top"} hidden={secondaryActionLabel === undefined} />
+        <DeckyFullScreenFooterActionHint button="A" label="Select" />
+        <DeckyFullScreenFooterActionHint button="B" label="Back" />
+      </span>
+    );
+  }
+
+  return (
+    <span data-achievement-companion-stable-action-slots="true" style={getStableActionLegendStyle()}>
+      <span data-achievement-companion-footer-action-slot="x" style={getStableActionSlotStyle()}>
+        {contextualXActionLabel !== undefined ? <DeckyFullScreenFooterActionHint button="X" label={contextualXActionLabel} /> : null}
+      </span>
+      <span data-achievement-companion-footer-action-slot="y" style={getStableActionSlotStyle()}>
+        {secondaryActionLabel !== undefined ? <DeckyFullScreenFooterActionHint button="Y" label={secondaryActionLabel} /> : null}
+      </span>
+      <span data-achievement-companion-footer-action-slot="a" style={getStableActionSlotStyle()}>
+        <DeckyFullScreenFooterActionHint button="A" label="Select" />
+      </span>
+      <span data-achievement-companion-footer-action-slot="b" style={getStableActionSlotStyle()}>
+        <DeckyFullScreenFooterActionHint button="B" label="Back" />
+      </span>
+    </span>
+  );
+}
+
 export function DeckyFullScreenFooterOverlay({
   ariaLabel,
   activeNavigationItemId,
@@ -327,6 +403,8 @@ export function DeckyFullScreenFooterOverlay({
   onHeightChange,
   secondaryActionLabel,
   onSecondaryAction,
+  contextualXActionLabel,
+  stableActionSlots = false,
   playNavigationSound = true,
   isActive = true,
 }: {
@@ -338,6 +416,10 @@ export function DeckyFullScreenFooterOverlay({
   readonly onHeightChange?: (height: number) => void;
   readonly secondaryActionLabel?: string;
   readonly onSecondaryAction?: (document: Document) => void;
+  /** Legend only: X remains owned by the focused native control. */
+  readonly contextualXActionLabel?: string;
+  /** Full-screen game pages reserve fixed X/Y/A/B positions. */
+  readonly stableActionSlots?: boolean;
   /** Provider-neutral opt-in for the native tab transition cue. */
   readonly playNavigationSound?: boolean;
   /** A retained full-screen tab must not own the footer or controller input. */
@@ -521,6 +603,7 @@ export function DeckyFullScreenFooterOverlay({
     const onButtonDown = (event: Event): void => {
       if (!isTopFooterOverlayOwner(owner)) return;
       if (isDeckyFullscreenOnScreenKeyboardOpen(ownerWindow.document)) return;
+      if (isDeckyFullscreenPopupOpen()) return;
       const gamepadEvent = event as GamepadEvent;
       if (handleDeckyFullscreenSubviewButtonDown(gamepadEvent, ownerWindow.document)) return;
       if (gamepadEvent.detail.button === DECKY_FULLSCREEN_FOOTER_TOP_BUTTON && onSecondaryActionRef.current !== undefined) {
@@ -576,11 +659,11 @@ export function DeckyFullScreenFooterOverlay({
             ))}
           </div>
           <span style={getShoulderHintStyle()}>R1</span>
-          <span style={getActionLegendStyle()}>
-            <DeckyFullScreenFooterActionHint button="Y" label={secondaryActionLabel ?? "Top"} hidden={secondaryActionLabel === undefined} />
-            <DeckyFullScreenFooterActionHint button="A" label="Select" />
-            <DeckyFullScreenFooterActionHint button="B" label="Back" />
-          </span>
+          <DeckyFullScreenFooterActionLegend
+            {...(contextualXActionLabel !== undefined ? { contextualXActionLabel } : {})}
+            {...(secondaryActionLabel !== undefined ? { secondaryActionLabel } : {})}
+            stableActionSlots={stableActionSlots}
+          />
         </div>,
         portalTarget,
       ) : null}

@@ -28,10 +28,12 @@ export function openDeckyStandardModal({
   title,
   renderContent,
   onClose,
+  viewportSafe = false,
 }: {
   readonly title: string;
   readonly renderContent: (closeModal: () => void) => ReactNode;
   readonly onClose?: () => void;
+  readonly viewportSafe?: boolean;
 }): void {
   let modal: ReturnType<typeof showModal> | undefined;
   let unregisterPopupCancel: (() => void) | undefined;
@@ -55,7 +57,11 @@ export function openDeckyStandardModal({
       {renderContent(closeModal)}
     </ConfirmModal>,
     undefined,
-    { strTitle: title, bHideMainWindowForPopouts: false },
+    {
+      strTitle: title,
+      bHideMainWindowForPopouts: false,
+      ...(viewportSafe ? { bNeverPopOut: true, popupWidth: 720, popupHeight: 420 } : {}),
+    },
   );
   if (!closed) unregisterPopupCancel = registerDeckyFullscreenPopupCancel(closeModal);
 }

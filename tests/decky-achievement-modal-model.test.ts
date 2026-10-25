@@ -51,8 +51,7 @@ test("RA achievement modal separates personal dates and sourced community counts
   assert.equal(model.status, "Hardcore unlocked");
   assert.equal(model.unlockHeading, "Unlocked · Hardcore");
   assert.deepEqual(model.yourUnlockMetrics, [
-    { label: "Date", value: new Date(1000).toLocaleDateString(), icon: "date" },
-    { label: "Time", value: new Date(1000).toLocaleTimeString(), icon: "time" },
+    { label: "Unlocked on", value: new Date(1000).toLocaleString(), icon: "date" },
   ]);
   assert.deepEqual(model.metadata, [{ label: "Type", value: "Missable" }, { label: "Author", value: "Creator" }]);
   assert.deepEqual(model.communityMetrics, [
@@ -80,8 +79,7 @@ test("Steam achievement modal distinguishes SteamHunters qualified and Steam glo
   assert.equal(model.status, "Unlocked");
   assert.equal(model.unlockHeading, "Unlocked");
   assert.deepEqual(model.yourUnlockMetrics, [
-    { label: "Date", value: new Date(1000).toLocaleDateString(), icon: "date" },
-    { label: "Time", value: new Date(1000).toLocaleTimeString(), icon: "time" },
+    { label: "Unlocked on", value: new Date(1000).toLocaleString(), icon: "date" },
   ]);
   assert.deepEqual(model.metadata, [{ label: "Group", value: "Extra Content" }]);
   assert.deepEqual(model.communityMetrics, [
@@ -100,7 +98,7 @@ test("achievement modal omits unavailable community values and honors RA mode", 
   assert.ok(model);
   assert.equal(model.status, "Softcore unlocked");
   assert.equal(model.unlockHeading, "Unlocked · Softcore");
-  assert.deepEqual(model.yourUnlockMetrics.map(({ label }) => label), ["Date", "Time"]);
+  assert.deepEqual(model.yourUnlockMetrics.map(({ label }) => label), ["Unlocked on"]);
   assert.deepEqual(model.metadata, []);
   assert.deepEqual(model.communityMetrics, []);
   assert.equal(buildDeckyAchievementModalModel(bare, "missing", "both"), undefined);
@@ -113,8 +111,7 @@ test("RA identical mode dates describe the earned Hardcore unlock once", () => {
   assert.ok(model);
   assert.equal(model.unlockHeading, "Unlocked · Hardcore");
   assert.deepEqual(model.yourUnlockMetrics, [
-    { label: "Date", value: new Date(1000).toLocaleDateString(), icon: "date" },
-    { label: "Time", value: new Date(1000).toLocaleTimeString(), icon: "time" },
+    { label: "Unlocked on", value: new Date(1000).toLocaleString(), icon: "date" },
   ]);
 });
 
@@ -137,7 +134,7 @@ test("RA does not reuse a Softcore timestamp for a locked Hardcore selection", (
   assert.deepEqual(model.yourUnlockMetrics, [{ label: "Your unlock", value: "Not yet unlocked", tone: "muted" }]);
   const both = buildDeckyAchievementModalModel(softcoreOnly, "achievement", "both")!;
   assert.equal(both.unlockHeading, "Unlocked · Softcore");
-  assert.equal(both.yourUnlockMetrics[1]?.value, new Date(2000).toLocaleTimeString());
+  assert.equal(both.yourUnlockMetrics[0]?.value, new Date(2000).toLocaleString());
 });
 
 test("RA selects the actual Softcore date when both modes were earned separately", () => {
@@ -145,14 +142,14 @@ test("RA selects the actual Softcore date when both modes were earned separately
   assert.equal(model.isUnlocked, true);
   assert.equal(model.status, "Softcore unlocked");
   assert.equal(model.unlockHeading, "Unlocked · Softcore");
-  assert.equal(model.yourUnlockMetrics[1]?.value, new Date(2000).toLocaleTimeString());
+  assert.equal(model.yourUnlockMetrics[0]?.value, new Date(2000).toLocaleString());
 });
 
 test("RA legacy unlocks use their generic date when mode dates are absent", () => {
   const legacy = withAchievement(snapshot("retroachievements"), { hardcoreUnlockedAt: undefined, softcoreUnlockedAt: undefined });
   const model = buildDeckyAchievementModalModel(legacy, "achievement", "hardcore")!;
   assert.equal(model.unlockHeading, "Unlocked · Hardcore");
-  assert.equal(model.yourUnlockMetrics[1]?.value, new Date(1000).toLocaleTimeString());
+  assert.equal(model.yourUnlockMetrics[0]?.value, new Date(1000).toLocaleString());
 });
 
 test("RA undated and locked achievements never fabricate a timestamp or mode", () => {

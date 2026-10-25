@@ -25,6 +25,7 @@ export interface DeckyRetroAchievementsGameIconProps {
   readonly size: number;
   readonly fit?: "cover" | "contain";
   readonly style?: CSSProperties;
+  readonly prominent?: boolean;
 }
 
 /** The only game-icon prestige frame. Focus stays on the parent row/card. */
@@ -34,9 +35,10 @@ export function DeckyRetroAchievementsGameIcon({
   size,
   fit = "cover",
   style,
+  prominent: prominentOverride = false,
 }: DeckyRetroAchievementsGameIconProps): JSX.Element {
   const award = getRetroAchievementsGameIconAward(game);
-  const prominent = award !== undefined && size >= 96;
+  const prominent = award !== undefined && (prominentOverride || size >= 96);
   const frameWidth = raRecipes.gameIcon.frameWidth(size, award);
   const sweepInset = frameWidth / 2 + 1;
   const sweepRadius = Math.max(2, raRecipes.gameIcon.radius(size) - sweepInset);

@@ -33,12 +33,13 @@ export function DeckyGameStatusIcon({
   glow,
 }: {
   readonly kind: DeckyGameStatusIconKind;
-  readonly size: number;
+  readonly size: number | string;
   readonly color: string;
   readonly accentColor?: string;
   readonly glow?: string;
 }): JSX.Element {
-  const style = glow === undefined ? { color } : { color, filter: `drop-shadow(0 0 ${Math.max(3, Math.round(size / 10))}px ${glow})` };
+  const glowSize = typeof size === "number" ? Math.max(3, Math.round(size / 10)) : 12;
+  const style = glow === undefined ? { color } : { color, filter: `drop-shadow(0 0 ${glowSize}px ${glow})` };
   if (kind === "mastered" || kind === "perfected") {
     return (
       <span aria-hidden="true" style={{ ...style, position: "relative", display: "block", width: size, height: size }}>
@@ -47,5 +48,5 @@ export function DeckyGameStatusIcon({
     );
   }
 
-  return <img alt="" aria-hidden="true" src={beatenFlagIconUrl} width={size} height={size} style={{ display: "block", width: size, height: size, objectFit: "contain", filter: "drop-shadow(0 0 1px rgba(255,255,255,.95))" }} />;
+  return <img alt="" aria-hidden="true" src={beatenFlagIconUrl} {...(typeof size === "number" ? { width: size, height: size } : {})} style={{ display: "block", width: size, height: size, objectFit: "contain", filter: "drop-shadow(0 0 1px rgba(255,255,255,.95))" }} />;
 }

@@ -48,10 +48,7 @@ function validPercentage(value: number | undefined): number | undefined {
 
 function addUnlockDateMetrics(metrics: DeckyAchievementModalMetric[], isUnlocked: boolean, timestamp: number | undefined): void {
   if (isUnlocked && timestamp !== undefined && Number.isFinite(new Date(timestamp).getTime())) {
-    metrics.push(
-      { label: "Date", value: new Date(timestamp).toLocaleDateString(), icon: "date" },
-      { label: "Time", value: new Date(timestamp).toLocaleTimeString(), icon: "time" },
-    );
+    metrics.push({ label: "Unlocked on", value: new Date(timestamp).toLocaleString(), icon: "date" });
   } else {
     addMetric(metrics, "Your unlock", isUnlocked ? "Date not recorded" : "Not yet unlocked", "muted");
   }

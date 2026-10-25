@@ -34,6 +34,8 @@ The project is undergoing active, rigorous development with frequent updates. If
 ## Highlights
 
 - **Quick Access and full-screen views:** controller-friendly profiles, searchable game lists, completion progress, activity calendars, and achievement details.
+- **Purpose-built full-screen game pages:** a non-scrolling Overview combines personal progress, the latest unlock, up to three goal-aware Up Next recommendations, compact provider metrics, Game Info, and distinct Beaten, Mastered, or Perfected milestone showcases.
+- **Controller-first navigation:** switch game sections with L1/R1, use contextual X/Y actions without moving the footer, and move through hierarchical Actions and Manage Suggestions menus while focus and return context are preserved.
 - **RetroAchievements inside Steam:** supported non-Steam games can show RetroAchievements in Steam's native Activity, Your Stuff, and Community views.
 - **Steam completion insights:** SteamHunters community data adds rarity, completion times, DLC requirements, achievement groups, and obtainability information where available.
 - **Optional SteamHunters personal data:** personal SteamHunters profile statistics can be disabled without turning off community statistics. If a profile is unavailable, Achievement Companion uses meaningful Steam library data where possible and otherwise hides the section.
@@ -41,7 +43,7 @@ The project is undergoing active, rigorous development with frequent updates. If
 - **Fifteen visual themes:** choose Arcade, Aurora, Blue (default), Carbon, Ember, Grove, Neon, Onyx, Paper, RA Classic, Rosewood, Solarized, Steam, Terminal, or Velvet in **Quick Access → Plugin Settings → Theme Settings**. The selected palette also carries through shared icons, progress, focus, footer, and provider loading screens; achievement and award status colors keep their meaning.
 - **Built-in updates:** verified downloads are presented through Decky for confirmation rather than installed unattended.
 
-RetroAchievements and Steam retain their own progression rules: RA Hardcore and Softcore, Beaten and Mastered, and Steam Perfected all keep their meaning.
+RetroAchievements and Steam retain their own progression rules: RA Hardcore and Softcore, Beaten and Mastered, and Steam Perfected all keep their meaning. The selected RA Beat or Master goal guides recommendations and completed-goal presentation; it never rewrites the recorded accomplishment.
 
 The theme choice applies to shared Quick Access and full-screen surfaces, controls, focus states, activity charts, and calendars. RetroAchievements awards (including silver Beaten and gold Mastered), Steam unlock states, the separately configured game-page badge, and Steam's native game-page tabs keep their own semantics. Blue remains the default for existing installs; saved Neon selections retain the original Neon palette while Arcade is a separate choice.
 
@@ -52,19 +54,26 @@ For a non-Steam shortcut that Achievement Companion can confidently match to a R
 - **Your Stuff → Achievements** shows badge artwork, descriptions, progress, locked and unlocked states, and unlock times or global rates when RetroAchievements provides them.
 - **Activity** groups dated unlocks by day in Steam's native layout. Tiles include the exact unlock time and Hardcore or Softcore mode, and open the native Your Stuff achievement list.
 - **Community → Playtime Stats** shows RA community milestones and sampled median times using Steam's native game-page section layout. Its Casual/Hardcore control is independent of the saved achievement-mode setting: Hardcore shows Beat and Mastered statistics, while Casual shows Beat and Completed statistics. A matching-height **Latest Masters** list shows the ten most recent RA mastery entries, including profile artwork, ranks, and dates, in an independently scrollable right column. Rows stay on the game page instead of opening a browser. The RA v1 game-specific endpoint currently provides up to ten entries; additional entries require an accessible paginated endpoint. Unsupported values are omitted rather than estimated, and missing profile artwork falls back to initials without hiding the master.
+- **Game Info** adds a native metadata view with the matched game's cover, system, release date, developer, publisher, genre, and achievement availability when those fields are provided.
 
 Steam ROM Manager and EmuDeck shortcuts are identified through accepted RetroAchievements ROM hashes rather than shortcut names. Supported formats include direct ROMs, ZIP archives, M3U playlists, raw disc images, PSP/PS2 CSO and ZSO images, CHD CD/DVD images, and GameCube/Wii formats such as RVZ, WIA, GCZ, Nintendo CISO, and WBFS. Compressed disc containers are read directly without extracting temporary ISO files. M3U follows RetroAchievements' first-disc identification policy and can point to supported raw, CHD, or Nintendo disc media. Unsupported, ambiguous, or unrecognized revisions remain unmatched instead of being guessed from their titles.
 
 <table>
   <tr>
-    <th width="33%">Native Activity</th>
-    <th width="33%">Your Stuff / Achievements</th>
-    <th width="34%">Community / Playtime Stats</th>
+    <th width="50%">Native Activity</th>
+    <th width="50%">Your Stuff / Achievements</th>
   </tr>
   <tr>
-    <td width="33%"><img src="docs/screenshots/readme/ra-native-steam-activity.png" alt="RetroAchievements shown in Steam's native Activity interface" width="100%"></td>
-    <td width="33%"><img src="docs/screenshots/readme/ra-native-steam-achievements.png" alt="RetroAchievements shown in Steam's native Your Stuff Achievements interface" width="100%"></td>
-    <td width="34%"><img src="docs/screenshots/readme/ra-native-steam-community.png" alt="RetroAchievements Playtime Stats and Latest Masters shown in Steam's native Community interface" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/ra-native-steam-activity.png" alt="RetroAchievements shown in Steam's native Activity interface" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/ra-native-steam-achievements.png" alt="RetroAchievements shown in Steam's native Your Stuff Achievements interface" width="100%"></td>
+  </tr>
+  <tr>
+    <th width="50%">Community / Playtime Stats</th>
+    <th width="50%">Game Info</th>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/readme/ra-native-steam-community.png" alt="RetroAchievements Playtime Stats and Latest Masters shown in Steam's native Community interface" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/ra-native-steam-gameinfo.png" alt="RetroAchievements cover art and metadata shown in Steam's native Game Info interface" width="100%"></td>
   </tr>
 </table>
 
@@ -117,7 +126,11 @@ Both providers include Analytics alongside Activity; use LT/RT to switch between
 
 ### Full-screen game pages
 
-Steam game pages include achievements, DLC groups, and community insights. RetroAchievements game pages keep Hardcore and Softcore progress distinct and include supported subsets.
+The fixed-height Overview is designed for Steam Deck rather than a scrolling dashboard. Personal Progress gives the current accomplishment, completion, remaining achievements, earned points, and latest unlock. The companion panel shows three compact Up Next recommendations while an objective remains, or a flag/crown milestone showcase when Beat, Master, or Perfected is complete. Structured provider strips keep SteamHunters obtainability and community data or RetroAchievements population and points visible without clipped summary text.
+
+RetroAchievements keeps Hardcore and Softcore distinct and shows the selected Beat or Master goal beside Actions. Beat prioritizes real Progression and Win Condition classifications; Master continues toward the remaining set. Steam adds SteamHunters achievement groups, DLC and obtainability filters, and community completion insights. Manage Suggestions and Actions use compact nested menus, and closing details or Game Info returns to the originating menu and focused item.
+
+Game-page controls stay consistent: A selects or opens details, X hides a focused Up Next suggestion, Y reveals it in Achievements, Y on Achievements returns to the top, L1/R1 changes sections, and B follows the current menu/modal context before leaving the page. Dedicated X/Y footer slots remain reserved when an action is unavailable, so the tabs, shoulder hints, A Select, and B Back do not shift as focus changes.
 
 <table>
   <tr>
@@ -125,24 +138,38 @@ Steam game pages include achievements, DLC groups, and community insights. Retro
     <th width="50%">Steam Achievements</th>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/screenshots/readme/steam-fullscreen-game-overview-tab.png" alt="Steam full-screen game overview tab" width="100%"></td>
-    <td width="50%"><img src="docs/screenshots/readme/steam-fullscreen-game-achievements-tab.png" alt="Steam full-screen game achievements tab" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/steam-fullscreen-game-overview-tab.png" alt="Steam full-screen Overview with Personal Progress, three Up Next achievements, SteamHunters metrics, and fixed X and Y footer actions" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/steam-fullscreen-game-achievements-tab.png" alt="Steam full-screen Achievements with group and availability filters, rarity data, and Y Top in the fixed footer" width="100%"></td>
   </tr>
   <tr>
-    <th width="50%">Steam DLC</th>
-    <th width="50%">Steam Community</th>
+    <th width="50%">Steam DLC / Groups</th>
+    <th width="50%">SteamHunters Community</th>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/screenshots/readme/steam-fullscreen-game-dlc-tab.png" alt="Steam full-screen game DLC tab" width="100%"></td>
-    <td width="50%"><img src="docs/screenshots/readme/steam-fullscreen-game-community-tab.png" alt="Steam full-screen game community tab" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/steam-fullscreen-game-dlc-tab.png" alt="Steam full-screen DLC and achievement groups with completion progress" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/steam-fullscreen-game-community-tab.png" alt="SteamHunters community completion metrics and achievement rarity distribution" width="100%"></td>
   </tr>
   <tr>
-    <th width="50%">RetroAchievements Overview</th>
+    <th width="50%">RetroAchievements Goal: Beat</th>
+    <th width="50%">RetroAchievements Goal: Master</th>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/readme/ra-fullscreen-game-overview-goal-beat.png" alt="RetroAchievements full-screen Overview with Goal Beat and three classified progression recommendations" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/ra-fullscreen-game-overview-goal-master.png" alt="RetroAchievements full-screen Overview with Goal Master and three remaining-set recommendations" width="100%"></td>
+  </tr>
+  <tr>
+    <th width="50%">RetroAchievements Mastered</th>
     <th width="50%">RetroAchievements Achievements</th>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/screenshots/readme/ra-fullscreen-game-overview-tab.png" alt="RetroAchievements full-screen game overview tab" width="100%"></td>
-    <td width="50%"><img src="docs/screenshots/readme/ra-fullscreen-game-achievements-tab.png" alt="RetroAchievements full-screen game achievements tab" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/ra-fullscreen-game-overview-tab.png" alt="RetroAchievements Mastered milestone showcase with crown and laurel watermark, recorded Hardcore award, and latest unlock" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/ra-fullscreen-game-achievements-tab.png" alt="RetroAchievements full-screen Achievements with type and missable filters, Hardcore status, points, and community rarity" width="100%"></td>
+  </tr>
+  <tr>
+    <th colspan="2">RetroAchievements Community</th>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="docs/screenshots/readme/ra-fullscreen-game-community-tab.png" alt="RetroAchievements community player, mastery, median completion, and achievement rarity insights" width="50%"></td>
   </tr>
 </table>
 

@@ -28,6 +28,7 @@ import { DeckySettingsDropdown } from "../../decky-settings-dropdown";
 import { DeckySettingsGeneralLink } from "../../decky-settings-controls";
 import { isDeckyProviderSettingsWebReturnPending, useDeckyProviderSettingsWebReturnFocus } from "../../decky-provider-settings-web-return";
 import { getRetroAchievementsRefreshActionPresentation } from "./settings-view-model";
+import { useDeckyGameOverviewPreferences } from "../../decky-game-overview-preferences";
 import refreshIconUrl from "../../assets/refresh.svg";
 import infoIconUrl from "../../assets/info.svg";
 import checkCircleIconUrl from "../../assets/check-circle.svg";
@@ -156,6 +157,7 @@ export function DeckyRetroAchievementsProviderSettingsPage({ providerId, onBack,
   const [viewportHeight, setViewportHeight] = useState<number>();
   const providerConfig = useDeckyProviderConfig(RETROACHIEVEMENTS_PROVIDER_ID);
   const settings = useDeckySettings();
+  const overviewPreferences = useDeckyGameOverviewPreferences(RETROACHIEVEMENTS_PROVIDER_ID, "");
   const [subsetIndexOperation, setSubsetIndexOperation] = useState<"idle" | "refreshing" | "refreshed" | "error">("idle");
   const [refreshOperation, setRefreshOperation] = useState<"idle" | "refreshing" | "refreshed" | "error">("idle");
   const [signOutArmed, setSignOutArmed] = useState(false);
@@ -249,6 +251,9 @@ export function DeckyRetroAchievementsProviderSettingsPage({ providerId, onBack,
           <div style={{ color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata, lineHeight: 1.3 }}>Applies to compact and full-screen RetroAchievements profiles.</div>
         <DeckySettingsDropdown themeVariant="ra" label="Rank Display" value={settings.retroAchievementsRankDisplay} options={RA_RANK_OPTIONS} formatOption={(rank) => rank === "site" ? "Site Rank" : "Casual Rank"} onChange={(retroAchievementsRankDisplay) => updateSettings((current) => ({ ...current, retroAchievementsRankDisplay }))} onGamepadDirection={onGamepadDirection} />
         <DeckySettingsDropdown themeVariant="ra" label="Achievement Mode" value={settings.retroAchievementsAchievementMode} options={RA_ACHIEVEMENT_MODE_OPTIONS} formatOption={(mode) => mode === "hardcore" ? "Hardcore" : mode === "softcore" ? "Softcore" : "Both"} onChange={(retroAchievementsAchievementMode) => updateSettings((current) => ({ ...current, retroAchievementsAchievementMode }))} onGamepadDirection={onGamepadDirection} />
+        </SettingsGroup>
+        <SettingsGroup title="FULL-SCREEN GAMES">
+          <DeckySettingsDropdown themeVariant="ra" label="Default game goal" description="Beat prioritizes progression and win conditions. Master considers the full set. Override this for any game in its Overview Actions menu; recorded awards stay unchanged." value={overviewPreferences.globalRetroAchievementsGoal} options={["beat", "master"] as const} formatOption={(goal) => goal === "beat" ? "Beat" : "Master"} onChange={overviewPreferences.setGlobalRetroAchievementsGoal} onGamepadDirection={onGamepadDirection} />
         </SettingsGroup>
         <SettingsGroup title="ACTIVITY">
           <SettingsHeading>FULL-SCREEN</SettingsHeading>

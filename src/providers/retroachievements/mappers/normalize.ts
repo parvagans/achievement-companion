@@ -1401,7 +1401,11 @@ export function normalizeRetroAchievementsGameDetail(
   const hasAchievementRetroPoints = sortedAchievements.some(
     (achievement) => pickNumber(achievement.TrueRatio, achievement.trueRatio) !== undefined,
   );
-  const lastUnlockAt = pickEpochMs(raw.HighestAwardDate, raw.highestAwardDate);
+  const highestAwardAt = pickEpochMs(raw.HighestAwardDate, raw.highestAwardDate);
+  const lastUnlockAt = achievements.reduce<number | undefined>((latest, achievement) => {
+    const unlockedAt = achievement.unlockedAt;
+    return unlockedAt !== undefined && (latest === undefined || unlockedAt > latest) ? unlockedAt : latest;
+  }, undefined);
   const parentGameId = pickIdentifier(raw.ParentGameID, raw.parentGameId);
 
   const summary: ProgressSummary = {
@@ -1551,6 +1555,15 @@ export function normalizeRetroAchievementsGameDetail(
               key: "highest-award-kind",
               label: "Highest Award",
               value: highestAwardKind,
+            },
+          ]
+        : []),
+      ...(highestAwardAt !== undefined
+        ? [
+            {
+              key: "highest-award-date",
+              label: "Highest Award Date",
+              value: String(highestAwardAt),
             },
           ]
         : []),

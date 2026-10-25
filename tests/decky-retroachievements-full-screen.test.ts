@@ -162,14 +162,16 @@ const snapshot: GameDetailSnapshot = {
   ],
 };
 
-test("RA full-screen game keeps one mode-aware progress bar and a status-only banner", async () => {
+test("RA full-screen game keeps mode-aware progress beneath the recorded milestone", async () => {
   const [overview, banner] = await Promise.all([
     readFile(new URL("../src/platform/decky/decky-retroachievements-game-overview.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/platform/decky/decky-retroachievements-game-status-banner.tsx", import.meta.url), "utf8"),
   ]);
   assert.match(overview, /summary: presentation\.summary/u);
-  assert.match(overview, /achievementMode,\s*\}\)/u);
-  assert.match(overview, /getCompletionTone\(presentation\.completionStatus\)/u);
+  assert.match(overview, /achievements, achievementMode \}/u);
+  assert.match(overview, /const award = presentation\.completionStatus/u);
+  assert.match(overview, /headline = mastered \? "MASTERED" : beaten \? "BEATEN"/u);
+  assert.match(overview, /DeckyOverviewProgress headline=\{headline\}/u);
   assert.doesNotMatch(banner, /role="progressbar"|BannerProgressBar/u);
   assert.match(banner, /DeckyGameStatusIcon/u);
 });

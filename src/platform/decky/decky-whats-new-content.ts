@@ -1,41 +1,40 @@
 /** Bundled notes for the current update. Keep these in sync with the release notes. */
 export const WHATS_NEW_SECTIONS = [
   {
-    title: "Profile",
+    title: "Overview",
     items: [
-      "Steam Profile is reorganized around account details, progress, SteamHunters highlights, Latest Unlocks, and Continue Playing, with clearer routes to Activity and Games.",
-      "RetroAchievements Profile groups account details, progress, systems, and completions. The avatar opens your profile, while systems and completion awards filter Games. The separate Systems tab stays hidden during rework.",
+      "Steam and RetroAchievements game pages now use a non-scrolling Deck dashboard with clearer game identity, personal progress, latest unlock, and provider details.",
+      "Beaten, Mastered, and Perfected games receive dedicated milestone showcases using the established flag or crown artwork and verified dates when available.",
+      "Steam hero artwork fills its frame more naturally, while RetroAchievements prestige effects and your selected theme remain intact.",
     ],
   },
   {
-    title: "Games",
+    title: "Up Next",
     items: [
-      "Steam and RetroAchievements Games are easier to browse with a single search and filter toolbar, clearer game rows, and Newest/Oldest ordering. RetroAchievements system filtering sits alongside the other controls.",
+      "Up Next recommends three achievements using progression and available provider data, with community rarity and RetroAchievements classifications where supported.",
+      "Open a recommendation's details, jump to it in Achievements, or hide it. Manage Suggestions can restore individual choices or every hidden suggestion.",
     ],
   },
   {
-    title: "Activity",
+    title: "RA Goals",
     items: [
-      "Full-screen Activity gives unlock history and Analytics clearer, separate views. Switch with LT/RT, filter unlocks, and browse trends, streaks, and calendar days.",
-      "Selecting a chart bar or calendar day narrows history to that period. Achievement details for both services use consistent Your Unlock and Community layouts.",
-      "Reworked the full-screen achievement popup modal for Steam and RetroAchievements.",
+      "Choose Beat or Master as the global objective, then override individual games when needed. The current mode and goal stay visible beside Actions.",
+      "Recommendations follow the selected objective without changing recorded Beaten or Mastered status, with full Hardcore and Softcore support.",
     ],
   },
   {
-    title: "Settings",
+    title: "Insights",
     items: [
-      "Full-screen Settings are reorganized into service-specific groups for account, profile, activity, and data. General brings shared appearance, badge, updates, and help together.",
-      "Setup guidance is tucked behind help controls, while themed rows, typography, and focus behavior make settings easier to read and navigate.",
-      "Fixed update checks failing with an HTTP 500 error on some Steam Decks.",
+      "Structured provider panels make SteamHunters obtainability, points, completion rates, and RetroAchievements population and mastery data easier to scan.",
+      "Compact Game Info dialogs focus on essential metadata, while Community keeps the complete provider statistics and rarity distribution available.",
     ],
   },
   {
-    title: "Game pages",
+    title: "Controls",
     items: [
-      "RetroAchievements game-page badges and details now refresh when you reopen a game page, including newly earned achievements.",
-      "RetroAchievements game-page badges now stay visible while their data refreshes, without flashing a loading state.",
-      "RetroAchievements game Community now matches Steam's insights layout. Hardcore and Softcore beat times share one card, with a new achievement rarity distribution.",
-      "Steam and RetroAchievements Community rarity charts now use the selected theme's colors for their bars, legend, and track.",
+      "Controller focus and directional navigation are improved across headers, achievement lists, menus, and dialogs.",
+      "Actions and Manage Suggestions now use compact nested menus. Closing details or Game Info returns one level and restores your previous focus.",
+      "The game footer reserves fixed X, Y, A, and B positions, so contextual Hide, Show, and Top actions never move the tabs or other controller hints.",
     ],
   },
 ] as const;

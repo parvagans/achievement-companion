@@ -1417,7 +1417,12 @@ test("retroachievements game progress normalizes achievement badge art", () => {
     snapshot.achievements[0]?.metrics.find((metric) => metric.key === "softcore-unlocked-count")?.value,
     "150",
   );
-  assert.equal(snapshot.game.lastUnlockAt, Date.parse("2024-04-23T21:28:49+00:00"));
+  assert.equal(snapshot.game.lastUnlockAt, Date.parse("2022-09-01T22:56:38Z"));
+  assert.equal(
+    snapshot.game.metrics.find((metric) => metric.key === "highest-award-date")?.value,
+    String(Date.parse("2024-04-23T21:28:49+00:00")),
+    "the provider award timestamp remains distinct from the latest achievement unlock",
+  );
   assert.equal(
     snapshot.game.coverImageUrl,
     "https://i.retroachievements.org/Images/026368.png",
@@ -2873,7 +2878,7 @@ test("provider setup, credential fields, and current compact profile routes stay
   );
   assert.match(fullScreenGamePageSource, /PanelSection title="Achievements"/);
   assert.doesNotMatch(fullScreenGamePageSource, /PanelSection title="Navigation"/);
-  assert.doesNotMatch(fullScreenGamePageSource, /FULLSCREEN_GAME_FOCUS_DIAGNOSTICS_CLASS|\.gpfocus/u);
+  assert.doesNotMatch(fullScreenGamePageSource, /FULLSCREEN_GAME_FOCUS_DIAGNOSTICS_CLASS/u);
   assert.match(fullScreenAchievementBrowserSource, /ACHIEVEMENT_MODE_FILTERS = \["all", "hardcore", "softcore"\] as const;/);
   assert.match(fullScreenGamePageSource, /useState<AchievementModeFilter>\(initialSectionState\?\.achievements\.achievementModeFilter \?\? "all"\)/u);
   assert.match(fullScreenGamePageSource, /useState<AchievementFilter>\(initialSectionState\?\.achievements\.achievementFilter \?\? "all"\)/u);
@@ -2894,18 +2899,15 @@ test("provider setup, credential fields, and current compact profile routes stay
     /function getStatsGridStyle\(\): CSSProperties[\s\S]*repeat\(2, minmax\(0, 1fr\)\)/u,
   );
   assert.match(steamProgressSummarySource, /function getStatsGridStyle\(\): CSSProperties/u);
-  assert.match(steamGameOverviewSource, /DeckySteamProgressSummary/u);
-  assert.match(steamGameOverviewSource, /DeckySteamHuntersCommunitySection[\s\S]*compact/u);
-  assert.match(
-    steamGameOverviewSource,
-    /DeckySteamHuntersCompletionHealthSection[\s\S]*title="Achievement Set Status"/u,
-  );
-  assert.match(steamGameOverviewSource, /DeckySteamHuntersSetDetailsSection/u);
+  assert.match(steamGameOverviewSource, /DeckyOverviewProgress/u);
+  assert.match(steamGameOverviewSource, /DeckyOverviewSupporting title="SteamHunters"/u);
+  assert.match(steamGameOverviewSource, /getSteamHuntersAchievementSetStatusPresentation/u);
+  assert.match(steamGameOverviewSource, /buildDeckySteamGameInfoRows/u);
   assert.match(steamGameOverviewSource, /store\.steampowered\.com\/app\/\$\{appId\}/u);
   assert.match(steamGameOverviewSource, /DeckyNavigation\.NavigateToExternalWeb/u);
   assert.doesNotMatch(steamGameOverviewSource, /Latest Unlocks|Achievement Highlights|title="Snapshot"/u);
   assert.doesNotMatch(fullScreenGamePageSource, /Most recent unlocked achievements already loaded in this snapshot\./u);
-  assert.match(steamGameOverviewSource, /remainingValue=\{remainingCount === undefined \? undefined : formatCount\(remainingCount\)\}/u);
+  assert.match(steamGameOverviewSource, /remaining=\{Math\.max\(0, totalAchievementCount - game\.summary\.unlockedCount\)\}/u);
   assert.match(steamProgressSummarySource, /DeckyFullScreenGameProgressStat dense label="Remaining" value=\{remainingValue\}/u);
   assert.match(fullScreenGameProgressStatSource, /function getProgressStatStyle\(dense: boolean\): CSSProperties/u);
   assert.match(fullScreenGameProgressStatSource, /function getProgressStatValueStyle\(\): CSSProperties/u);
@@ -2980,8 +2982,9 @@ test("provider setup, credential fields, and current compact profile routes stay
   assert.match(steamGameArtworkSource, /getSteamFullscreenGameArtworkUrl/);
   assert.match(steamGameArtworkSource, /header\.jpg/);
   assert.match(steamGameArtworkSource, /game\.boxArtImageUrl \?\?/u);
-  assert.match(steamFullscreenGameArtworkSource, /function getArtworkFrameStyle\(compact: boolean, dense: boolean\): CSSProperties/u);
+  assert.match(steamFullscreenGameArtworkSource, /export function getDeckySteamFullscreenArtworkFrameStyle\(compact: boolean, dense: boolean, overview = false\): CSSProperties/u);
   assert.match(steamFullscreenGameArtworkSource, /aspectRatio: compact \? "2 \/ 1" : "460 \/ 215"/u);
+  assert.match(steamFullscreenGameArtworkSource, /overview \? \{[\s\S]*padding: 0,[\s\S]*background: "transparent"/u);
   const achievementModalSource = readFileSync(
     "src/platform/decky/decky-achievement-detail-modal.tsx",
     "utf8",

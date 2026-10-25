@@ -62,11 +62,18 @@ export function DeckyFullScreenGameTitle({
   return <div ref={titleRef} style={getTitleStyle(color, fontSizePx, maxLines)}>{title}</div>;
 }
 
-function getOverviewGridStyle(): CSSProperties {
+export function getDeckyOverviewGridRows(height: number): { readonly identity: number; readonly dashboard: number; readonly supporting: number } {
+  const identity = Math.max(82, Math.min(92, height * .2));
+  const supporting = Math.max(66, Math.min(72, height * .16));
+  return { identity, dashboard: Math.max(0, height - identity - supporting - 12), supporting };
+}
+
+function getOverviewGridStyle(height: number): CSSProperties {
+  const rows = getDeckyOverviewGridRows(height);
   return {
     display: "grid",
-    gridTemplateColumns: "minmax(280px, 0.9fr) minmax(0, 1.8fr)",
-    gap: 12,
+    gridTemplateRows: `${rows.identity}px minmax(0, 1fr) ${rows.supporting}px`,
+    gap: 6,
     width: "100%",
     height: "100%",
     minHeight: 0,
@@ -75,22 +82,14 @@ function getOverviewGridStyle(): CSSProperties {
   };
 }
 
-function getDashboardStyle(): CSSProperties {
-  return {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    height: "100%",
-    minHeight: 0,
-    minWidth: 0,
-  };
+export function getDeckyOverviewDashboardColumns(completed: boolean): string {
+  return completed ? "minmax(0, 9fr) minmax(0, 11fr)" : "minmax(0, 2fr) minmax(0, 3fr)";
 }
 
-function getDashboardTopRowStyle(hasCommunity: boolean): CSSProperties {
+function getDashboardStyle(completed: boolean): CSSProperties {
   return {
     display: "grid",
-    gridTemplateColumns: hasCommunity ? "minmax(0, 1.6fr) minmax(250px, 1fr)" : "minmax(0, 1fr)",
-    flex: "1 1 auto",
+    gridTemplateColumns: getDeckyOverviewDashboardColumns(completed),
     gap: 8,
     minHeight: 0,
     minWidth: 0,
@@ -100,9 +99,9 @@ function getDashboardTopRowStyle(hasCommunity: boolean): CSSProperties {
 export interface DeckyFullScreenGameOverviewLayoutProps {
   readonly identity: ReactNode;
   readonly progress: ReactNode;
-  readonly community?: ReactNode;
-  readonly setDetails?: ReactNode;
-  readonly setStatus?: ReactNode;
+  readonly companion: ReactNode;
+  readonly supporting: ReactNode;
+  readonly completed?: boolean;
 }
 
 /**
@@ -113,21 +112,29 @@ export interface DeckyFullScreenGameOverviewLayoutProps {
 export function DeckyFullScreenGameOverviewLayout({
   identity,
   progress,
-  community,
-  setDetails,
-  setStatus,
+  companion,
+  supporting,
+  completed = false,
 }: DeckyFullScreenGameOverviewLayoutProps): JSX.Element {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [height, setHeight] = useState(425);
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (root === null) return;
+    const update = (): void => { if (root.clientHeight > 0) setHeight(root.clientHeight); };
+    update();
+    const observer = new (root.ownerDocument.defaultView?.ResizeObserver ?? ResizeObserver)(update);
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, []);
   return (
-    <div style={getOverviewGridStyle()}>
+    <div ref={rootRef} data-ac-game-overview-layout="true" style={getOverviewGridStyle(height)}>
       {identity}
-      <div style={getDashboardStyle()}>
-        <div style={getDashboardTopRowStyle(community !== undefined)}>
-          {progress}
-          {community}
-        </div>
-        {setDetails}
-        {setStatus}
+      <div data-ac-overview-dashboard-state={completed ? "completed" : "in-progress"} style={getDashboardStyle(completed)}>
+        {progress}
+        {companion}
       </div>
+      {supporting}
     </div>
   );
 }
