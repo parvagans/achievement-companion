@@ -1,5 +1,6 @@
 import type { SteamGamesFilter, SteamGamesSort } from "./decky-steam-full-screen-games-data";
 import type { RetroAchievementsAchievementMode } from "@core/settings";
+import type { AchievementBrowserDisplayMode } from "./decky-achievement-browser-options";
 
 export interface DeckySteamGamesPageState {
   readonly filter: SteamGamesFilter;
@@ -10,6 +11,7 @@ export interface DeckySteamGamesPageState {
   readonly sort: SteamGamesSort;
   readonly mode: RetroAchievementsAchievementMode;
   readonly system: { readonly systemId: string; readonly title: string } | undefined;
+  readonly displayMode: AchievementBrowserDisplayMode;
 }
 
 const initialState: DeckySteamGamesPageState = {
@@ -21,6 +23,7 @@ const initialState: DeckySteamGamesPageState = {
   sort: "recent",
   mode: "both",
   system: undefined,
+  displayMode: "detailed",
 };
 
 const pageStates = new Map<string, DeckySteamGamesPageState>();
@@ -35,9 +38,10 @@ export function rememberDeckyGamesControls(
   query: string,
   sort: SteamGamesSort,
   mode: RetroAchievementsAchievementMode,
+  displayMode?: AchievementBrowserDisplayMode,
 ): void {
   const current = readDeckyGamesPageState(providerId);
-  pageStates.set(providerId, { ...current, filter, focusGameId: undefined, query, renderLimit: 12, scrollTop: 0, sort, mode });
+  pageStates.set(providerId, { ...current, filter, focusGameId: undefined, query, renderLimit: 12, scrollTop: 0, sort, mode, displayMode: displayMode ?? current.displayMode });
 }
 
 /** A Profile shortcut starts a fresh Games view; subsequent tab visits read the saved controls. */
@@ -67,6 +71,10 @@ export function rememberDeckyGamesRenderLimit(providerId: string, renderLimit: n
 
 export function rememberDeckyGamesScrollTop(providerId: string, scrollTop: number): void {
   pageStates.set(providerId, { ...readDeckyGamesPageState(providerId), scrollTop: Math.max(0, scrollTop) });
+}
+
+export function rememberDeckyGamesDisplayMode(providerId: string, displayMode: AchievementBrowserDisplayMode): void {
+  pageStates.set(providerId, { ...readDeckyGamesPageState(providerId), displayMode });
 }
 
 export function rememberDeckyGamesSystem(

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEventHandler } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEventHandler } from "react";
 import { Focusable, useQuickAccessVisible, type FocusableProps } from "@decky/ui";
 import checkCircleIconUrl from "./assets/check-circle.svg";
 import { DeckyGameArtwork } from "./decky-game-artwork";
@@ -16,19 +16,28 @@ import { registerCompactAchievementCancelCallback } from "./decky-full-screen-ca
 import { getSteamCompactAchievementFilterStyle } from "./decky-steam-compact-action-styles";
 import {
   getCompactAchievementFilterCounts,
+  getSupportedCompactAchievementSorts,
   matchesCompactAchievementFilter,
   matchesCompactAchievementModeFilter,
+  matchesCompactAchievementSearch,
+  normalizeCompactAchievementSearchText,
+  sortCompactAchievementRows,
+  type CompactAchievementDisplayMode,
   type CompactAchievementFilter,
   type CompactAchievementListViewModel,
   type CompactAchievementModeFilter,
   type CompactAchievementRowViewModel,
+  type CompactAchievementSort,
   type CompactAchievementTone,
 } from "./decky-compact-achievement-model";
 import {
+  clearDeckyCompactAchievementRevealRequest,
+  readDeckyCompactAchievementRevealRequest,
   readDeckyCompactAchievementPageState,
   writeDeckyCompactAchievementPageState,
   type DeckyCompactAchievementPageState,
 } from "./decky-compact-achievement-page-state";
+import { DeckyCompactAchievementBrowserControls } from "./decky-compact-achievement-browser-controls";
 import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
 import {
   readDeckyCompactFocusRestoreRequest,
@@ -37,7 +46,11 @@ import {
 import { DeckySteamAchievementStatusIcon } from "./decky-steam-achievement-status-icon";
 import { DeckyRetroAchievementsPointsIcon } from "./decky-retroachievements-points-icon";
 import { DeckySteamHuntersIcon } from "./decky-steam-icons";
-import { achievementCompanionAchievementRowRecipes } from "./decky-qam-theme";
+import {
+  achievementCompanionAchievementRowRecipes,
+  achievementCompanionQamTheme as qamTheme,
+  getQamCompactFocusControlStyle,
+} from "./decky-qam-theme";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import { raRecipes, raTheme } from "./ra-theme";
 
@@ -79,11 +92,32 @@ function getHeadingStyle(isSteam: boolean): CSSProperties {
   };
 }
 
+function getGameTitleStyle(isSteam: boolean): CSSProperties {
+  return {
+    ...(isSteam ? steamRecipes.text("compact", "metadata") : raRecipes.text("compact", "metadata")),
+    marginTop: -6,
+    color: isSteam ? steamTheme.color.textSecondary : raTheme.color.textSecondary,
+    fontSize: isSteam ? steamTheme.type.compact.metadata : raTheme.type.compact.metadata,
+    lineHeight: 1.2,
+    minWidth: 0,
+    overflow: "hidden",
+    display: "-webkit-box",
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: 2,
+  };
+}
+
 function getRowsStyle(): CSSProperties {
   return { display: "flex", flexDirection: "column", gap: 8, minWidth: 0 };
 }
 
-function getRowStyle(row: CompactAchievementRowViewModel, isFocused: boolean, isSteam: boolean): CSSProperties {
+function getRowStyle(
+  row: CompactAchievementRowViewModel,
+  isFocused: boolean,
+  isSteam: boolean,
+  displayMode: CompactAchievementDisplayMode,
+): CSSProperties {
+  const compact = displayMode === "compact";
   if (row.metadataPlacement === "rail") {
     const accentColor = isSteam
       ? row.stateIndicator === "unlocked" ? steamTheme.color.unlocked : steamTheme.color.locked
@@ -97,7 +131,9 @@ function getRowStyle(row: CompactAchievementRowViewModel, isFocused: boolean, is
       gridTemplateColumns: "40px minmax(0, 1fr) minmax(42px, auto)",
       alignItems: "center",
       gap: 10,
-      padding: "9px",
+      minHeight: compact ? 58 : undefined,
+      padding: compact ? "7px 9px" : "9px",
+      boxSizing: "border-box",
     };
   }
   if (!isSteam) {
@@ -124,7 +160,8 @@ function getRowStyle(row: CompactAchievementRowViewModel, isFocused: boolean, is
       gap: raTheme.space.sm,
       width: "100%",
       minWidth: 0,
-      padding: "9px 9px",
+      minHeight: compact ? 58 : undefined,
+      padding: compact ? "7px 9px" : "9px 9px",
       border: `1px solid ${isFocused ? raTheme.focus.border : state?.color ?? raTheme.color.borderSubtle}`,
       borderLeftWidth: 3,
       background: `linear-gradient(180deg, ${stateSurface}, ${stateSurface}), ${isFocused ? raTheme.surface.focusedContentCard : raTheme.surface.contentCard}`,
@@ -146,7 +183,8 @@ function getRowStyle(row: CompactAchievementRowViewModel, isFocused: boolean, is
     gap: 8,
     width: "100%",
     minWidth: 0,
-    padding: "9px 9px",
+    minHeight: compact ? 58 : undefined,
+    padding: compact ? "7px 9px" : "9px 9px",
     boxSizing: "border-box",
     border: `1px solid ${accent}`,
     borderLeftWidth: 3,
@@ -263,6 +301,37 @@ function getEmptyStyle(isSteam: boolean): CSSProperties {
   };
 }
 
+function getSearchSummaryStyle(isSteam: boolean): CSSProperties {
+  return {
+    ...(isSteam ? steamRecipes.text("compact", "metadata") : raRecipes.text("compact", "metadata")),
+    color: isSteam ? steamTheme.color.textSecondary : raTheme.color.textSecondary,
+    fontSize: isSteam ? steamTheme.type.compact.metadata : raTheme.type.compact.metadata,
+    lineHeight: 1.2,
+    minHeight: 13,
+  };
+}
+
+function getClearSearchStyle(focused: boolean): CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    alignSelf: "center",
+    minHeight: 34,
+    padding: "0 12px",
+    border: `1px solid ${qamTheme.color.borderSubtle}`,
+    borderRadius: qamTheme.radius.small,
+    color: qamTheme.color.textPrimary,
+    background: qamTheme.surface.contentStat,
+    fontFamily: qamTheme.type.fontFamily,
+    fontSize: qamTheme.type.compact.metadata,
+    fontWeight: qamTheme.type.weight.strong,
+    ...(focused
+      ? { ...getQamCompactFocusControlStyle(), background: qamTheme.surface.focusedContentStat }
+      : {}),
+  };
+}
+
 function formatFilterLabel(
   filter: CompactAchievementFilter,
   counts: Readonly<Record<CompactAchievementFilter, number>>,
@@ -289,7 +358,34 @@ function readSteamScrollTop(target: EventTarget | null, fallback: number): numbe
     : fallback;
 }
 
+function CompactClearSearchAction({
+  onBack,
+  onClear,
+}: {
+  readonly onBack: () => void;
+  readonly onClear: () => void;
+}): JSX.Element {
+  const [focused, setFocused] = useState(false);
+  return (
+    <Focusable
+      aria-label="Clear achievement search"
+      noFocusRing
+      onActivate={onClear}
+      onCancel={onBack}
+      onClick={onClear}
+      onFocus={() => setFocused(true)}
+      onGamepadFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      role="button"
+      style={getClearSearchStyle(focused)}
+    >
+      Clear Search
+    </Focusable>
+  );
+}
+
 function CompactAchievementRow({
+  displayMode,
   model,
   isSteam,
   onBack,
@@ -297,6 +393,7 @@ function CompactAchievementRow({
   onOpen,
   preferredFocus,
 }: {
+  readonly displayMode: CompactAchievementDisplayMode;
   readonly model: CompactAchievementRowViewModel;
   readonly isSteam: boolean;
   readonly onBack: () => void;
@@ -332,7 +429,7 @@ function CompactAchievementRow({
       onGamepadFocus={handleGamepadFocus}
       preferredFocus={preferredFocus}
       role="button"
-      style={getRowStyle(model, isFocused, isSteam)}
+      style={getRowStyle(model, isFocused, isSteam, displayMode)}
     >
       <div style={getIconFrameStyle(model.isUnlocked, isSteam)}>
         {model.iconUrl !== undefined ? (
@@ -345,7 +442,7 @@ function CompactAchievementRow({
           <span style={getTitleStyle(isSteam)}>{model.title}</span>
           <DeckyAchievementTypeBadge classification={model.classification} />
         </div>
-        {model.description !== undefined ? <div style={getDescriptionStyle(isSteam)}>{model.description}</div> : null}
+        {displayMode === "detailed" && model.description !== undefined ? <div style={getDescriptionStyle(isSteam)}>{model.description}</div> : null}
         {model.metadataPlacement === "stack" ? (
           <>
             <div style={getSecondaryStyle(model.tone, isSteam)}>{model.statusText}</div>
@@ -356,7 +453,7 @@ function CompactAchievementRow({
             ))}
           </>
         ) : null}
-        {model.timestampText !== undefined ? (
+        {displayMode === "detailed" && model.timestampText !== undefined ? (
           <div style={getSecondaryStyle(model.tone, isSteam)}>{model.timestampText}</div>
         ) : null}
       </div>
@@ -425,19 +522,94 @@ export function DeckyCompactAchievementList({
     ...readDeckyCompactAchievementPageState(model.providerId, model.gameId, model.initialVisibleCount),
     visibleCount: model.rows.length,
   }));
+  const revealRequestRef = useRef(readDeckyCompactAchievementRevealRequest(model.providerId, model.gameId));
   const pageStateRef = useRef(pageState);
-  const restoreAchievementIdRef = useRef(pageState.focusedAchievementId);
+  const restoreAchievementIdRef = useRef(
+    revealRequestRef.current?.achievementId ?? pageState.focusedAchievementId,
+  );
   const [focusedControl, setFocusedControl] = useState<string | undefined>();
   const isSteam = model.providerId === "steam";
   const refined = true;
-  const counts = useMemo(() => getCompactAchievementFilterCounts(model.rows), [model.rows]);
-  const filteredRows = useMemo(
-    () => model.rows.filter((row) =>
-      matchesCompactAchievementFilter(row, pageState.filter) &&
-      (!model.supportsModeFilter || matchesCompactAchievementModeFilter(row, pageState.modeFilter))),
-    [model.rows, model.supportsModeFilter, pageState.filter, pageState.modeFilter],
+  const revealTarget = revealRequestRef.current === undefined
+    ? undefined
+    : model.rows.find((row) => row.achievementId === revealRequestRef.current?.achievementId);
+  const [revealOverrideActive, setRevealOverrideActive] = useState(() => {
+    if (revealTarget === undefined) return false;
+    return !(
+      matchesCompactAchievementFilter(revealTarget, pageState.filter)
+      && (!model.supportsModeFilter || matchesCompactAchievementModeFilter(revealTarget, pageState.modeFilter))
+      && matchesCompactAchievementSearch(revealTarget, pageState.searchQuery)
+    );
+  });
+  const normalizedQuery = useMemo(
+    () => normalizeCompactAchievementSearchText(pageState.searchQuery),
+    [pageState.searchQuery],
   );
-  const visibleRows = filteredRows;
+  const modeScopedRows = useMemo(
+    () => model.rows.filter((row) =>
+      !model.supportsModeFilter || matchesCompactAchievementModeFilter(row, pageState.modeFilter)),
+    [model.rows, model.supportsModeFilter, pageState.modeFilter],
+  );
+  const counts = useMemo(() => getCompactAchievementFilterCounts(modeScopedRows), [modeScopedRows]);
+  const filteredRows = useMemo(
+    () => modeScopedRows.filter((row) =>
+      matchesCompactAchievementFilter(row, pageState.filter)
+      && matchesCompactAchievementSearch(row, pageState.searchQuery)),
+    [modeScopedRows, pageState.filter, pageState.searchQuery],
+  );
+  const supportedSorts = useMemo(
+    () => getSupportedCompactAchievementSorts(modeScopedRows, pageState.modeFilter),
+    [modeScopedRows, pageState.modeFilter],
+  );
+  const activeSort: CompactAchievementSort = supportedSorts.includes(pageState.sort)
+    ? pageState.sort
+    : "default";
+  const sortedRows = useMemo(
+    () => sortCompactAchievementRows(filteredRows, activeSort, pageState.modeFilter),
+    [activeSort, filteredRows, pageState.modeFilter],
+  );
+  const visibleRows = revealOverrideActive && revealTarget !== undefined ? [revealTarget] : sortedRows;
+
+  const commitPageState = useCallback((
+    update: (current: DeckyCompactAchievementPageState) => DeckyCompactAchievementPageState,
+  ): void => {
+    // Persist before opening details can unmount the list in the same React batch.
+    const next = update(pageStateRef.current);
+    pageStateRef.current = next;
+    writeDeckyCompactAchievementPageState(model.providerId, model.gameId, next);
+    setPageState(next);
+  }, [model.gameId, model.providerId]);
+
+  const dismissRevealRequest = useCallback((): void => {
+    const request = revealRequestRef.current;
+    if (request === undefined) return;
+    clearDeckyCompactAchievementRevealRequest(model.providerId, model.gameId, request.requestId);
+    revealRequestRef.current = undefined;
+    setRevealOverrideActive(false);
+  }, [model.gameId, model.providerId]);
+
+  const handleBack = useCallback((): void => {
+    dismissRevealRequest();
+    onBack();
+  }, [dismissRevealRequest, onBack]);
+
+  const rememberFocus = useCallback((target: EventTarget | null, achievementId: string): void => {
+    restoreAchievementIdRef.current = achievementId;
+    if (revealRequestRef.current?.achievementId === achievementId) return;
+    dismissRevealRequest();
+    commitPageState((current) => ({
+      ...current,
+      focusedAchievementId: achievementId,
+      scrollTop: refined ? readSteamScrollTop(target, current.scrollTop) : readScrollTop(target, current.scrollTop),
+    }));
+  }, [commitPageState, dismissRevealRequest, refined]);
+
+  useLayoutEffect(() => {
+    if (pageState.sort === activeSort) return;
+    commitPageState((current) => current.sort === activeSort
+      ? current
+      : { ...current, sort: activeSort });
+  }, [activeSort, commitPageState, pageState.sort]);
 
   useLayoutEffect(() => {
     const restoreAchievementId = restoreAchievementIdRef.current;
@@ -467,7 +639,8 @@ export function DeckyCompactAchievementList({
       return;
     }
     handledRestorationRequest.current = restorationRequest;
-    const focusedAchievementId = pageStateRef.current.focusedAchievementId;
+    const focusedAchievementId = revealRequestRef.current?.achievementId
+      ?? pageStateRef.current.focusedAchievementId;
     const target = focusedAchievementId === undefined
       ? undefined
       : rootRef.current?.querySelector<HTMLElement>(
@@ -481,30 +654,13 @@ export function DeckyCompactAchievementList({
     if (embedded) {
       return;
     }
-    return registerCompactAchievementCancelCallback(rootRef.current, onBack);
-  }, [embedded, onBack]);
-
-  const commitPageState = (
-    update: (current: DeckyCompactAchievementPageState) => DeckyCompactAchievementPageState,
-  ): void => {
-    // Persist before opening details can unmount the list in the same React batch.
-    const next = update(pageStateRef.current);
-    pageStateRef.current = next;
-    writeDeckyCompactAchievementPageState(model.providerId, model.gameId, next);
-    setPageState(next);
-  };
-
-  const rememberFocus = (target: EventTarget | null, achievementId: string): void => {
-    commitPageState((current) => ({
-      ...current,
-      focusedAchievementId: achievementId,
-      scrollTop: refined ? readSteamScrollTop(target, current.scrollTop) : readScrollTop(target, current.scrollTop),
-    }));
-  };
+    return registerCompactAchievementCancelCallback(rootRef.current, handleBack);
+  }, [embedded, handleBack]);
 
   return (
       <section aria-label={`${model.gameTitle} achievements`} data-ac-ra-achievement-list={isSteam ? undefined : "true"} data-ac-steam-theme={isSteam ? "compact" : undefined} data-ac-ra-theme={!isSteam ? "compact" : undefined} ref={rootRef} style={getRootStyle(embedded)}>
       {!embedded ? <h2 style={getHeadingStyle(isSteam)}>Achievements</h2> : null}
+      {!embedded ? <div aria-label={`Game: ${model.gameTitle}`} title={model.gameTitle} style={getGameTitleStyle(isSteam)}>{model.gameTitle}</div> : null}
 
       {model.supportsModeFilter ? (
         <Focusable
@@ -522,23 +678,29 @@ export function DeckyCompactAchievementList({
                 style={raRecipes.filter(active, focusedControl === `mode:${filter}`)}
                 key={filter}
                 noFocusRing
-                onActivate={() => commitPageState((current) => ({
-                  ...current,
-                  modeFilter: filter,
-                  visibleCount: model.rows.length,
-                  focusedAchievementId: undefined,
-                  scrollTop: 0,
-                }))}
-                onCancelButton={onBack}
-                onClick={() => commitPageState((current) => ({
-                  ...current,
-                  modeFilter: filter,
-                  visibleCount: model.rows.length,
-                  focusedAchievementId: undefined,
-                  scrollTop: 0,
-                }))}
-                onFocus={(event) => { setFocusedControl(`mode:${filter}`); scrollDeckyFocusTargetIntoView(event.currentTarget); }}
-                onGamepadFocus={(event) => { setFocusedControl(`mode:${filter}`); scrollDeckyFocusTargetIntoView(event.currentTarget); }}
+                 onActivate={() => {
+                   dismissRevealRequest();
+                   commitPageState((current) => ({
+                     ...current,
+                     modeFilter: filter,
+                     visibleCount: model.rows.length,
+                     focusedAchievementId: undefined,
+                     scrollTop: 0,
+                   }));
+                 }}
+                 onCancelButton={handleBack}
+                 onClick={() => {
+                   dismissRevealRequest();
+                   commitPageState((current) => ({
+                     ...current,
+                     modeFilter: filter,
+                     visibleCount: model.rows.length,
+                     focusedAchievementId: undefined,
+                     scrollTop: 0,
+                   }));
+                 }}
+                 onFocus={(event) => { dismissRevealRequest(); setFocusedControl(`mode:${filter}`); scrollDeckyFocusTargetIntoView(event.currentTarget); }}
+                 onGamepadFocus={(event) => { dismissRevealRequest(); setFocusedControl(`mode:${filter}`); scrollDeckyFocusTargetIntoView(event.currentTarget); }}
                 onBlur={() => setFocusedControl(undefined)}
                 role="radio"
               >
@@ -575,26 +737,34 @@ export function DeckyCompactAchievementList({
               })}
               key={filter}
               noFocusRing
-              onActivate={() => commitPageState((current) => ({
-                ...current,
-                filter,
-                visibleCount: model.rows.length,
-                focusedAchievementId: undefined,
-                scrollTop: 0,
-              }))}
-              onCancelButton={onBack}
-              onClick={() => commitPageState((current) => ({
-                ...current,
-                filter,
-                visibleCount: model.rows.length,
-                focusedAchievementId: undefined,
-                scrollTop: 0,
-              }))}
+              onActivate={() => {
+                dismissRevealRequest();
+                commitPageState((current) => ({
+                  ...current,
+                  filter,
+                  visibleCount: model.rows.length,
+                  focusedAchievementId: undefined,
+                  scrollTop: 0,
+                }));
+              }}
+              onCancelButton={handleBack}
+              onClick={() => {
+                dismissRevealRequest();
+                commitPageState((current) => ({
+                  ...current,
+                  filter,
+                  visibleCount: model.rows.length,
+                  focusedAchievementId: undefined,
+                  scrollTop: 0,
+                }));
+              }}
               onFocus={(event) => {
+                dismissRevealRequest();
                 setFocusedControl(filter);
                 scrollDeckyFocusTargetIntoView(event.currentTarget);
               }}
               onGamepadFocus={(event) => {
+                dismissRevealRequest();
                 setFocusedControl(filter);
                 scrollDeckyFocusTargetIntoView(event.currentTarget);
               }}
@@ -610,35 +780,93 @@ export function DeckyCompactAchievementList({
         })}
       </Focusable>
 
+      <DeckyCompactAchievementBrowserControls
+        displayMode={pageState.displayMode}
+        onBack={handleBack}
+        onChangeDisplayMode={(displayMode) => commitPageState((current) => ({
+          ...current,
+          displayMode,
+        }))}
+        onChangeQuery={(searchQuery) => {
+          dismissRevealRequest();
+          commitPageState((current) => ({
+            ...current,
+            searchQuery,
+            focusedAchievementId: undefined,
+            scrollTop: 0,
+          }));
+        }}
+        onChangeSort={(sort) => commitPageState((current) => ({
+          ...current,
+          sort,
+        }))}
+        onControlFocus={dismissRevealRequest}
+        query={pageState.searchQuery}
+        sort={activeSort}
+        supportedSorts={supportedSorts}
+      />
+
+      {revealOverrideActive && revealTarget !== undefined ? (
+        <div aria-live="polite" style={getSearchSummaryStyle(isSteam)}>Showing selected achievement</div>
+      ) : normalizedQuery.length > 0 ? (
+        <div aria-live="polite" style={getSearchSummaryStyle(isSteam)}>
+          {`${visibleRows.length.toLocaleString()} matching ${visibleRows.length === 1 ? "achievement" : "achievements"}`}
+        </div>
+      ) : null}
+
       {visibleRows.length > 0 ? (
         <div style={getRowsStyle()}>
           {visibleRows.map((row) => (
             <CompactAchievementRow
+              displayMode={pageState.displayMode}
               key={row.achievementId}
               model={row}
               isSteam={isSteam}
-              onBack={onBack}
+              onBack={handleBack}
               onFocusRow={rememberFocus}
               onOpen={(target) => {
-                commitPageState((current) => ({
-                  ...current,
-                  focusedAchievementId: row.achievementId,
-                  scrollTop: refined
-                    ? readSteamScrollTop(target, current.scrollTop)
-                    : current.scrollTop,
-                }));
+                restoreAchievementIdRef.current = row.achievementId;
+                if (revealRequestRef.current?.achievementId !== row.achievementId) {
+                  dismissRevealRequest();
+                  commitPageState((current) => ({
+                    ...current,
+                    focusedAchievementId: row.achievementId,
+                    scrollTop: refined
+                      ? readSteamScrollTop(target, current.scrollTop)
+                      : current.scrollTop,
+                  }));
+                }
                 onOpenAchievement(row.achievementId);
               }}
               preferredFocus={
                 embedded &&
-                pageState.focusedAchievementId === row.achievementId
+                (revealRequestRef.current?.achievementId ?? pageState.focusedAchievementId) === row.achievementId
               }
             />
           ))}
         </div>
       ) : (
-        <div style={getEmptyStyle(refined)}>
-          {pageState.filter === "all"
+        <div style={{ ...getEmptyStyle(isSteam), display: "flex", flexDirection: "column", gap: 10 }}>
+          {normalizedQuery.length > 0 ? (
+            <>
+              <span>No achievements match your search.</span>
+              <CompactClearSearchAction
+                onBack={handleBack}
+                onClear={() => {
+                  dismissRevealRequest();
+                  commitPageState((current) => ({
+                    ...current,
+                    searchQuery: "",
+                    focusedAchievementId: undefined,
+                    scrollTop: 0,
+                  }));
+                  requestDeckySteamGamepadFocusAfterMount(
+                    rootRef.current?.querySelector<HTMLElement>("[data-ac-compact-achievement-search] input"),
+                  );
+                }}
+              />
+            </>
+          ) : pageState.filter === "all"
             ? "No achievements were returned for this game."
             : `No ${pageState.filter} achievements match this filter.`}
         </div>

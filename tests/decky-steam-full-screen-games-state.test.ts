@@ -14,6 +14,7 @@ import {
   rememberDeckyGamesScrollTop,
   rememberDeckyGamesSystem,
   rememberDeckyGamesSystemFilter,
+  rememberDeckyGamesDisplayMode,
   resetDeckyGamesPageState,
   resetDeckySteamGamesPageState,
 } from "../src/platform/decky/decky-steam-full-screen-games-state";
@@ -33,6 +34,7 @@ test("Steam Games state preserves semantic child-route origin", () => {
     sort: "title",
     mode: "both",
     system: undefined,
+    displayMode: "detailed",
   });
 });
 
@@ -53,6 +55,7 @@ test("provider Games state isolates RA mode, controls, focus, render limit, and 
     sort: "completion",
     mode: "hardcore",
     system: undefined,
+    displayMode: "detailed",
   });
   assert.deepEqual(readDeckySteamGamesPageState(), {
     filter: "all",
@@ -63,6 +66,7 @@ test("provider Games state isolates RA mode, controls, focus, render limit, and 
     sort: "recent",
     mode: "both",
     system: undefined,
+    displayMode: "detailed",
   });
 });
 
@@ -80,6 +84,7 @@ test("RA system selection resets controls and survives game-detail restoration",
     sort: "recent",
     mode: "hardcore",
     system: { systemId: "7", title: "NES/Famicom" },
+    displayMode: "detailed",
   });
   rememberDeckyGamesSystem("retroachievements", undefined);
   assert.equal(readDeckyGamesPageState("retroachievements").system, undefined);
@@ -102,6 +107,7 @@ test("RA local system filtering preserves search, status and sort while resettin
     sort: "fewest_remaining",
     mode: "hardcore",
     system: { systemId: "7", title: "NES/Famicom" },
+    displayMode: "detailed",
   });
 
   rememberDeckyGamesSystemFilter("retroachievements", undefined);
@@ -124,6 +130,16 @@ test("Games remembers the oldest-first toggle for each provider independently", 
   assert.equal(readDeckyGamesPageState("steam").sort, "oldest");
 });
 
+test("Games display density is provider-scoped and survives control changes", () => {
+  resetDeckySteamGamesPageState();
+  resetDeckyGamesPageState("retroachievements");
+  rememberDeckyGamesDisplayMode("steam", "compact");
+  rememberDeckyGamesControls("steam", "unfinished", "portal", "title_desc", "both");
+  assert.equal(readDeckySteamGamesPageState().displayMode, "compact");
+  assert.equal(readDeckySteamGamesPageState().sort, "title_desc");
+  assert.equal(readDeckyGamesPageState("retroachievements").displayMode, "detailed");
+});
+
 test("Profile Games shortcut is saved immediately and later visits retain Games refinements", () => {
   resetDeckySteamGamesPageState();
   rememberDeckySteamGamesControls("unfinished", "old search", "title");
@@ -140,6 +156,7 @@ test("Profile Games shortcut is saved immediately and later visits retain Games 
     sort: "recent",
     mode: "both",
     system: undefined,
+    displayMode: "detailed",
   });
 
   rememberDeckySteamGamesControls("remaining", "craft", "fewest_remaining");
@@ -190,7 +207,7 @@ test("Steam Games reveals batches on Down or scrolling and transfers native focu
   assert.match(source, /onBlur=\{\(\) => \{ focusGeneration\.current \+= 1; \}\}[\s\S]*onGamepadBlur=\{\(\) => \{ focusGeneration\.current \+= 1; \}\}/u);
   assert.match(source, /GamepadButton\.DIR_DOWN && onRevealMore\?\.\(\)[\s\S]*event\.preventDefault\(\)[\s\S]*event\.stopPropagation\(\)/u);
   assert.match(source, /rowIndex === renderedGames\.length - 1[\s\S]*onRevealMore: \(\) => revealMoreGames\(true\)/u);
-  assert.match(source, /list\.scrollTop \+ list\.clientHeight >= list\.scrollHeight - STEAM_FULLSCREEN_GAME_ROW_HEIGHT\) revealMoreGames\(false\)/u);
+  assert.match(source, /list\.scrollTop \+ list\.clientHeight >= list\.scrollHeight - \(displayMode === "compact" \? STEAM_GAMES_COMPACT_ROW_HEIGHT : STEAM_FULLSCREEN_GAME_ROW_HEIGHT\)\) revealMoreGames\(false\)/u);
   assert.doesNotMatch(source, /data-steam-games-show-more|handleSteamGamesShowMoreDirection|Show \$\{Math\.min\(STEAM_GAMES_RENDER_STEP/u);
   assert.match(source, /handleSteamGamesToolbarDirection[\s\S]*GamepadButton\.DIR_LEFT[\s\S]*GamepadButton\.DIR_RIGHT/u);
   assert.match(source, /data-steam-games-toolbar-control[\s\S]*sourceIndex[\s\S]*takeDeckySteamGamepadFocus\(target\)/u);
@@ -211,7 +228,10 @@ test("Steam Games composes search, filters, and rows through GamepadUI focus pri
   assert.match(source, /navEntryPreferPosition=\{NavEntryPositionPreferences\.FIRST\}/u);
   assert.match(source, /<SteamGamesStatusButton/u);
   assert.match(source, /<SteamGamesSortButton/u);
-  assert.match(source, /<GamesSortToggle/u);
+  assert.doesNotMatch(source, /<GamesSortToggle/u);
+  assert.match(source, /<MenuGroup label="SORT BY">/u);
+  assert.match(source, /<MenuGroup label="DISPLAY">/u);
+  assert.match(source, /Sort &amp; View/u);
   assert.match(source, /aria-label="Clear Games filters"/u);
   assert.match(source, /<RetroAchievementsSystemButton/u);
   assert.match(source, /data-steam-games-toolbar-control="system"/u);

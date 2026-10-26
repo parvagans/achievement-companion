@@ -233,7 +233,8 @@ test("Steam detail exposes verified SteamHunters fields and omits unsupported se
   const listSource = readFileSync("src/platform/decky/decky-compact-achievement-list.tsx", "utf8");
   assert.equal((source.match(/<p style=\{getDescriptionStyle\(isSteam\)\}>/gu) ?? []).length, 1);
   assert.doesNotMatch(source, /View on Steam|View on SteamHunters|No tips available|Tips \(SteamHunters\)|title="Links"/u);
-  assert.doesNotMatch(listSource, /Search achievements|type="search"|searchQuery/u);
+  assert.match(listSource, /DeckyCompactAchievementBrowserControls/u);
+  assert.match(listSource, /searchQuery/u);
   assert.equal((listSource.match(/role="img"/gu) ?? []).length, 1);
 });
 
@@ -477,6 +478,9 @@ test("achievement-list destination and page state preserve deterministic return 
   assert.deepStrictEqual(readDeckyCompactAchievementPageState("steam", "2321470", 12), {
     filter: "locked",
     modeFilter: "all",
+    searchQuery: "",
+    sort: "default",
+    displayMode: "detailed",
     visibleCount: 52,
     focusedAchievementId: "ACH_47",
     scrollTop: 734,
@@ -514,7 +518,8 @@ test("QAM Up Next achievements opens the compact list and returns to the dashboa
   const bootstrapSource = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
   assert.match(profileSource, /onOpenAchievements=\{onOpenGameAchievements\}/u);
   assert.match(cardSource, /onOpenAchievements\(currentGame, suggestion\?\.achievement\.achievementId\)/u);
-  assert.match(bootstrapSource, /onOpenGameAchievements=\{\(providerId, gameId, gameTitle, achievementId\) => \{[\s\S]*?focusedAchievementId: achievementId[\s\S]*?kind: "achievement-list",[\s\S]*?parent: "provider-dashboard"/u);
+  assert.match(bootstrapSource, /onOpenGameAchievements=\{\(providerId, gameId, gameTitle, achievementId\) => \{[\s\S]*?requestDeckyCompactAchievementReveal\(providerId, gameId, achievementId\)[\s\S]*?kind: "achievement-list",[\s\S]*?parent: "provider-dashboard"/u);
+  assert.doesNotMatch(bootstrapSource, /onOpenGameAchievements=\{\(providerId, gameId, gameTitle, achievementId\) => \{[\s\S]*?writeDeckyCompactAchievementPageState/u);
 
   resetDeckyCompactNavigationForTests();
   const list = {
@@ -602,6 +607,9 @@ test("View Achievements checkpoints remain scoped to the selected game", () => {
   assert.deepEqual(readDeckyCompactAchievementPageState("steam", "game-a", 12), {
     filter: "locked",
     modeFilter: "all",
+    searchQuery: "",
+    sort: "default",
+    displayMode: "detailed",
     visibleCount: 40,
     focusedAchievementId: "achievement-a",
     scrollTop: 612,
@@ -609,6 +617,9 @@ test("View Achievements checkpoints remain scoped to the selected game", () => {
   assert.deepEqual(readDeckyCompactAchievementPageState("steam", "game-b", 12), {
     filter: "unlocked",
     modeFilter: "all",
+    searchQuery: "",
+    sort: "default",
+    displayMode: "detailed",
     visibleCount: 12,
     focusedAchievementId: "achievement-b",
     scrollTop: 88,
@@ -624,6 +635,9 @@ test("View Achievements checkpoints remain scoped to the selected game", () => {
   assert.deepEqual(readDeckyCompactAchievementPageState("retroachievements", "game-a", 12), {
     filter: "locked",
     modeFilter: "softcore",
+    searchQuery: "",
+    sort: "default",
+    displayMode: "detailed",
     visibleCount: 52,
     focusedAchievementId: "achievement-47",
     scrollTop: 1832,
@@ -631,6 +645,9 @@ test("View Achievements checkpoints remain scoped to the selected game", () => {
   assert.deepEqual(readDeckyCompactAchievementPageState("retroachievements", "game-b", 12), {
     filter: "all",
     modeFilter: "all",
+    searchQuery: "",
+    sort: "default",
+    displayMode: "detailed",
     visibleCount: 12,
     focusedAchievementId: undefined,
     scrollTop: 0,

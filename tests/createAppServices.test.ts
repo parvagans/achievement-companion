@@ -2867,14 +2867,16 @@ test("provider setup, credential fields, and current compact profile routes stay
   assert.match(compactAchievementListSource, /aria-label="Achievement filters"/u);
   assert.match(compactAchievementListSource, /MODE_FILTERS\.map\(\(filter\)/u);
   assert.match(compactAchievementListSource, /FILTERS\.map\(\(filter\)/u);
-  assert.match(compactAchievementListSource, /const visibleRows = filteredRows;/u);
+  assert.match(compactAchievementListSource, /const sortedRows = useMemo\([\s\S]*sortCompactAchievementRows/u);
+  assert.match(compactAchievementListSource, /const visibleRows = revealOverrideActive[\s\S]*sortedRows/u);
+  assert.match(compactAchievementListSource, /<DeckyCompactAchievementBrowserControls/u);
   assert.doesNotMatch(compactAchievementListSource, /Show 5 more/u);
   assert.doesNotMatch(compactAchievementListSource, /Show all/u);
   assert.match(compactAchievementListSource, /role="radio"/);
   assert.match(compactAchievementListSource, /aria-checked=\{active\}/);
   assert.match(compactAchievementListSource, /DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS/);
   assert.match(compactAchievementListSource, /DECKY_ACHIEVEMENT_FILTER_OPTION_FOCUSED_CLASS/);
-  assert.match(compactAchievementListSource, /onCancelButton=\{onBack\}/u);
+  assert.match(compactAchievementListSource, /onCancelButton=\{handleBack\}/u);
   assert.match(compactAchievementListSource, /scrollDeckyFocusTargetIntoView\(event\.currentTarget\)/u);
   const fullScreenGamePageSource = readFileSync("src/platform/decky/decky-full-screen-game-page.tsx", "utf8");
   const fullScreenAchievementRowSource = readFileSync(

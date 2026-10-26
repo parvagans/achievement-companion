@@ -24,6 +24,7 @@ import { achievementCompanionAchievementRowRecipes, achievementCompanionQamTheme
 // Full-screen lists reserve room for their filters and native footer. Artwork
 // stays large enough to identify while a two-line description sets row height.
 const FULLSCREEN_ACHIEVEMENT_ARTWORK_SIZE = 48;
+const FULLSCREEN_COMPACT_ACHIEVEMENT_ARTWORK_SIZE = 40;
 
 function formatTimestamp(epochMs: number): string {
   return new Date(epochMs).toLocaleString();
@@ -72,7 +73,7 @@ function getAchievementCardStyle(achievement: NormalizedAchievement, gamePageGra
   };
 }
 
-function getSteamShapedRetroAchievementCardStyle(achievement: NormalizedAchievement): CSSProperties {
+function getSteamShapedRetroAchievementCardStyle(achievement: NormalizedAchievement, compact: boolean): CSSProperties {
   const isHardcore = achievement.isUnlocked && achievement.unlockMode === "hardcore";
   const isSoftcore = achievement.isUnlocked && achievement.unlockMode === "softcore";
   const accentColor = isHardcore
@@ -86,21 +87,22 @@ function getSteamShapedRetroAchievementCardStyle(achievement: NormalizedAchievem
     gap: achievementCompanionQamTheme.space.md,
     alignItems: "center",
     minWidth: 0,
-    minHeight: 66,
-    padding: "8px 12px",
+    minHeight: compact ? 52 : 66,
+    padding: compact ? "5px 10px" : "8px 12px",
     borderRadius: raTheme.radius.large,
     ...achievementCompanionAchievementRowRecipes.surface("fullscreen", accentColor),
     boxSizing: "border-box",
   };
 }
 
-function getSteamShapedRetroAchievementBadgeFrameStyle(isUnlocked: boolean): CSSProperties {
+function getSteamShapedRetroAchievementBadgeFrameStyle(isUnlocked: boolean, compact = false): CSSProperties {
+  const size = compact ? FULLSCREEN_COMPACT_ACHIEVEMENT_ARTWORK_SIZE : FULLSCREEN_ACHIEVEMENT_ARTWORK_SIZE;
   return {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    width: FULLSCREEN_ACHIEVEMENT_ARTWORK_SIZE,
-    height: FULLSCREEN_ACHIEVEMENT_ARTWORK_SIZE,
+    width: size,
+    height: size,
     flexShrink: 0,
     overflow: "hidden",
     borderRadius: raTheme.radius.medium,
@@ -239,7 +241,7 @@ function getAchievementRowIconStyle(): CSSProperties {
   };
 }
 
-function getSteamAchievementCardStyle(achievement: NormalizedAchievement): CSSProperties {
+function getSteamAchievementCardStyle(achievement: NormalizedAchievement, compact: boolean): CSSProperties {
   const accentColor = achievement.isUnlocked ? steamTheme.color.unlocked : steamTheme.color.locked;
 
   return {
@@ -249,21 +251,22 @@ function getSteamAchievementCardStyle(achievement: NormalizedAchievement): CSSPr
     gap: achievementCompanionQamTheme.space.md,
     alignItems: "center",
     minWidth: 0,
-    minHeight: 66,
-    padding: "8px 12px",
+    minHeight: compact ? 52 : 66,
+    padding: compact ? "5px 10px" : "8px 12px",
     borderRadius: steamTheme.radius.large,
     ...achievementCompanionAchievementRowRecipes.surface("fullscreen", accentColor),
     boxSizing: "border-box",
   };
 }
 
-function getSteamAchievementBadgeFrameStyle(isUnlocked: boolean): CSSProperties {
+function getSteamAchievementBadgeFrameStyle(isUnlocked: boolean, compact = false): CSSProperties {
+  const size = compact ? FULLSCREEN_COMPACT_ACHIEVEMENT_ARTWORK_SIZE : FULLSCREEN_ACHIEVEMENT_ARTWORK_SIZE;
   return {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    width: FULLSCREEN_ACHIEVEMENT_ARTWORK_SIZE,
-    height: FULLSCREEN_ACHIEVEMENT_ARTWORK_SIZE,
+    width: size,
+    height: size,
     flexShrink: 0,
     overflow: "hidden",
     borderRadius: steamTheme.radius.medium,
@@ -376,14 +379,17 @@ export interface DeckyFullScreenAchievementRowProps {
   readonly gameMetrics?: readonly NormalizedMetric[];
   readonly retroAchievementsPresentation?: "default" | "steam-shaped";
   readonly gamePageGradient?: boolean;
+  readonly displayMode?: "detailed" | "compact";
 }
 
 function SteamAchievementRowContent({
   achievement,
   steamHuntersAchievement,
+  compact,
 }: {
   readonly achievement: NormalizedAchievement;
   readonly steamHuntersAchievement: SteamHuntersAchievement | undefined;
+  readonly compact: boolean;
 }): JSX.Element {
   const pointsText = formatSteamAchievementPoints(achievement, steamHuntersAchievement);
   const rarityPercent = getSteamAchievementCommunityPercent(achievement, steamHuntersAchievement);
@@ -395,16 +401,19 @@ function SteamAchievementRowContent({
 
   return (
     <>
-      <span style={getSteamAchievementBadgeFrameStyle(achievement.isUnlocked)}>
+      <span style={getSteamAchievementBadgeFrameStyle(achievement.isUnlocked, compact)}>
         {achievement.badgeImageUrl !== undefined ? (
-          <DeckyGameArtwork compact src={achievement.badgeImageUrl} size={FULLSCREEN_ACHIEVEMENT_ARTWORK_SIZE} title={achievement.title} />
+          <DeckyGameArtwork compact src={achievement.badgeImageUrl} size={compact ? FULLSCREEN_COMPACT_ACHIEVEMENT_ARTWORK_SIZE : FULLSCREEN_ACHIEVEMENT_ARTWORK_SIZE} title={achievement.title} />
         ) : (
           <span style={getSteamAchievementBadgeFallbackStyle()}>?</span>
         )}
       </span>
       <span style={getSteamAchievementTextStyle()}>
-        <span title={achievement.title} style={getSteamAchievementTitleStyle()}>{achievement.title}</span>
-        {achievement.description !== undefined ? (
+        <span title={achievement.title} style={{
+          ...getSteamAchievementTitleStyle(),
+          ...(compact ? { whiteSpace: "normal", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2 } : {}),
+        }}>{achievement.title}</span>
+        {!compact && achievement.description !== undefined ? (
           <span style={getSteamAchievementDescriptionStyle()}>{achievement.description}</span>
         ) : null}
         {restriction !== undefined ? <span style={{ ...steamRecipes.text("fullscreen", "caption"), color: availability === "unobtainable" ? achievementCompanionQamTheme.color.danger : achievementCompanionQamTheme.color.warning }}>{restriction}</span> : null}
@@ -416,7 +425,7 @@ function SteamAchievementRowContent({
         pointsText={pointsText}
         pointsIcon={pointsText !== undefined ? <DeckySteamHuntersIcon color={steamTheme.color.accent} size={13} /> : undefined}
         rarityPercent={rarityPercent}
-        unlockedDate={achievement.isUnlocked ? unlockedDate : undefined}
+        unlockedDate={!compact && achievement.isUnlocked ? unlockedDate : undefined}
       />
     </>
   );
@@ -425,9 +434,11 @@ function SteamAchievementRowContent({
 function SteamShapedRetroAchievementRowContent({
   achievement,
   gameMetrics,
+  compact,
 }: {
   readonly achievement: NormalizedAchievement;
   readonly gameMetrics: readonly NormalizedMetric[];
+  readonly compact: boolean;
 }): JSX.Element {
   const pointsText = achievement.points !== undefined
     ? formatProviderAchievementPointsText(achievement.providerId, achievement.points)
@@ -444,19 +455,23 @@ function SteamShapedRetroAchievementRowContent({
 
   return (
     <>
-      <span style={getSteamShapedRetroAchievementBadgeFrameStyle(achievement.isUnlocked)}>
+      <span style={getSteamShapedRetroAchievementBadgeFrameStyle(achievement.isUnlocked, compact)}>
         {achievement.badgeImageUrl !== undefined ? (
-          <DeckyGameArtwork compact src={achievement.badgeImageUrl} size={FULLSCREEN_ACHIEVEMENT_ARTWORK_SIZE} title={achievement.title} />
+          <DeckyGameArtwork compact src={achievement.badgeImageUrl} size={compact ? FULLSCREEN_COMPACT_ACHIEVEMENT_ARTWORK_SIZE : FULLSCREEN_ACHIEVEMENT_ARTWORK_SIZE} title={achievement.title} />
         ) : (
           <span style={getSteamAchievementBadgeFallbackStyle()}>?</span>
         )}
       </span>
       <span style={getSteamShapedRetroAchievementTextStyle()}>
         <span style={{ ...getAchievementRowTitleLineStyle(), flexWrap: "nowrap" }}>
-          <span title={achievement.title} style={{ ...getSteamShapedRetroAchievementTitleStyle(), flex: "1 1 auto" }}>{achievement.title}</span>
+          <span title={achievement.title} style={{
+            ...getSteamShapedRetroAchievementTitleStyle(),
+            flex: "1 1 auto",
+            ...(compact ? { whiteSpace: "normal", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2 } : {}),
+          }}>{achievement.title}</span>
           <DeckyAchievementTypeBadge classification={achievement.classification} />
         </span>
-        {achievement.description !== undefined ? (
+        {!compact && achievement.description !== undefined ? (
           <span style={getSteamShapedRetroAchievementDescriptionStyle()}>{achievement.description}</span>
         ) : null}
       </span>
@@ -467,7 +482,7 @@ function SteamShapedRetroAchievementRowContent({
         pointsText={pointsText}
         pointsIcon={pointsText !== undefined ? <DeckyRetroAchievementsPointsIcon size={13} /> : undefined}
         rarityPercent={rarityPercent}
-        unlockedDate={unlockedDate}
+        unlockedDate={compact ? undefined : unlockedDate}
       />
     </>
   );
@@ -483,11 +498,13 @@ export function DeckyFullScreenAchievementRow({
   gameMetrics = [],
   retroAchievementsPresentation = "default",
   gamePageGradient = false,
+  displayMode = "detailed",
 }: DeckyFullScreenAchievementRowProps): JSX.Element {
   const [isFocused, setIsFocused] = useState(false);
   const isSteamProvider = isSteamAchievementPresentationProvider(achievement.providerId);
   const isSteamShapedRetroAchievement = !isSteamProvider && retroAchievementsPresentation === "steam-shaped";
   const isRetroGamePageRow = !isSteamProvider && (isSteamShapedRetroAchievement || gamePageGradient);
+  const compact = displayMode === "compact";
   const statusText = formatProviderAchievementStatusText(achievement.providerId, achievement);
   const pointsText = formatProviderAchievementPointsText(achievement.providerId, achievement.points);
   const unlockedAt = achievement.unlockedAt;
@@ -534,9 +551,9 @@ export function DeckyFullScreenAchievementRow({
       }}
       style={{
         ...(isSteamProvider
-          ? getSteamAchievementCardStyle(achievement)
+          ? getSteamAchievementCardStyle(achievement, compact)
           : isSteamShapedRetroAchievement
-            ? getSteamShapedRetroAchievementCardStyle(achievement)
+            ? getSteamShapedRetroAchievementCardStyle(achievement, compact)
             : getAchievementCardStyle(achievement, gamePageGradient)),
         outline: isFocused ? `2px solid ${isSteamProvider ? steamTheme.focus.border : raTheme.focus.border}` : "none",
         outlineOffset: 1,
@@ -554,9 +571,9 @@ export function DeckyFullScreenAchievementRow({
           : "locked"}
     >
       {isSteamProvider ? (
-        <SteamAchievementRowContent achievement={achievement} steamHuntersAchievement={steamHuntersAchievement} />
+        <SteamAchievementRowContent achievement={achievement} steamHuntersAchievement={steamHuntersAchievement} compact={compact} />
       ) : isSteamShapedRetroAchievement ? (
-        <SteamShapedRetroAchievementRowContent achievement={achievement} gameMetrics={gameMetrics} />
+        <SteamShapedRetroAchievementRowContent achievement={achievement} gameMetrics={gameMetrics} compact={compact} />
       ) : (
         <>
           <span style={getAchievementRowIconStyle()}>

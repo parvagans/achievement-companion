@@ -34,6 +34,9 @@ test("Steam section state preserves filters and stable achievement ids by game",
       achievementFilter: "locked",
       achievementGroupFilter: "missable",
       achievementAvailabilityFilter: "unobtainable",
+      query: "portal",
+      sort: "rarity-asc",
+      displayMode: "compact",
       visibleAchievementIds: ["API_36", "API_37", "API_38"],
     },
     "achievement-groups": {
@@ -51,6 +54,9 @@ test("Steam section state preserves filters and stable achievement ids by game",
   assert.equal(state.achievements.achievementFilter, "locked");
   assert.equal(state.achievements.achievementGroupFilter, "missable");
   assert.equal(state.achievements.achievementAvailabilityFilter, "unobtainable");
+  assert.equal(state.achievements.query, "portal");
+  assert.equal(state.achievements.sort, "rarity-asc");
+  assert.equal(state.achievements.displayMode, "compact");
   assert.equal(state["achievement-groups"].scrollTop, 320);
   assert.deepEqual(state["achievement-groups"].expandedGroupIds, ["base-game", "dlc:123:1"]);
   assert.equal(state["achievement-groups"].focusedGroupId, "dlc:123:1");

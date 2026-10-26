@@ -14,9 +14,17 @@ import { formatSteamHuntersPercentage, formatSteamHuntersPlayersUnlocked } from 
 import { sortAchievementsForDisplay } from "./decky-game-detail-ordering";
 import { isRetroAchievementsUnlockedInMode } from "./decky-retroachievements-compact-game-model";
 import { getSteamAchievementCommunityPercent } from "./decky-achievement-row-presentation";
+import {
+  getSupportedAchievementBrowserSorts,
+  sortAchievementBrowserItems,
+  type AchievementBrowserDisplayMode,
+  type AchievementBrowserSort,
+} from "./decky-achievement-browser-options";
 
 export type CompactAchievementFilter = "all" | "unlocked" | "locked";
 export type CompactAchievementModeFilter = "all" | "hardcore" | "softcore";
+export type CompactAchievementSort = AchievementBrowserSort;
+export type CompactAchievementDisplayMode = AchievementBrowserDisplayMode;
 export type CompactAchievementStateKind = "unlocked" | "locked";
 export type CompactAchievementTone = "default" | "hardcore" | "softcore" | "locked";
 
@@ -52,6 +60,14 @@ export interface CompactAchievementRowViewModel {
   readonly unlockMode?: NormalizedAchievement["unlockMode"];
   readonly statusText: string;
   readonly timestampText?: string;
+  /** Pre-normalized title/description used by the in-memory QAM search. */
+  readonly searchText: string;
+  /** Raw sortable values. Missing provider metadata remains undefined. */
+  readonly rarityPercent?: number;
+  readonly pointsValue?: number;
+  readonly unlockedAt?: number;
+  readonly hardcoreUnlockedAt?: number;
+  readonly softcoreUnlockedAt?: number;
   readonly stateIndicator?: CompactAchievementStateKind;
   readonly metadata: readonly CompactAchievementMetadataItem[];
   readonly metadataPlacement: "rail" | "stack";
@@ -150,6 +166,23 @@ function getRowTone(achievement: NormalizedAchievement): CompactAchievementTone 
   return "default";
 }
 
+function getFiniteNumber(value: number | undefined): number | undefined {
+  return value !== undefined && Number.isFinite(value) ? value : undefined;
+}
+
+export function normalizeCompactAchievementSearchText(value: string): string {
+  return value.normalize("NFKC").trim().replace(/\s+/gu, " ").toLowerCase();
+}
+
+function buildCompactAchievementSearchText(
+  title: string,
+  description: string | undefined,
+): string {
+  return normalizeCompactAchievementSearchText(
+    description === undefined ? title : `${title}\n${description}`,
+  );
+}
+
 function formatUnlockDate(epochMs: number): string {
   return new Date(epochMs).toLocaleDateString();
 }
@@ -192,6 +225,8 @@ export function buildSteamCompactAchievementListModel(
     rows: sortAchievementsForDisplay(snapshot.achievements).map((achievement) => {
       const steamHuntersAchievement = getSteamHuntersAchievementEnrichment(snapshot, achievement.achievementId);
       const communityPercent = getSteamAchievementCommunityPercent(achievement, steamHuntersAchievement);
+      const rarityPercent = getFiniteNumber(communityPercent);
+      const pointsValue = getFiniteNumber(steamHuntersAchievement?.points);
       const metadata: CompactAchievementMetadataItem[] = [];
       if (steamHuntersAchievement?.points !== undefined) {
         metadata.push({ key: "points", value: `${formatCount(steamHuntersAchievement.points)} pts` });
@@ -213,6 +248,16 @@ export function buildSteamCompactAchievementListModel(
         statusText: achievement.isUnlocked ? "Unlocked" : "Locked",
         ...(achievement.isUnlocked && achievement.unlockedAt !== undefined
           ? { timestampText: `Unlocked ${formatTimestamp(achievement.unlockedAt)}` }
+          : {}),
+        searchText: buildCompactAchievementSearchText(achievement.title, achievement.description),
+        ...(rarityPercent !== undefined
+          ? { rarityPercent }
+          : {}),
+        ...(pointsValue !== undefined
+          ? { pointsValue }
+          : {}),
+        ...(getFiniteNumber(achievement.unlockedAt) !== undefined
+          ? { unlockedAt: achievement.unlockedAt }
           : {}),
         stateIndicator: achievement.isUnlocked ? "unlocked" : "locked",
         metadata,
@@ -248,6 +293,8 @@ export function buildRetroAchievementsCompactAchievementListModel(
     rows: sortAchievementsForDisplay(projected).map((achievement) => {
       const pointsText = formatProviderAchievementPointsText(snapshot.game.providerId, achievement.points);
       const counts = getAchievementDetailCounts(achievement.metrics, snapshot.game.metrics);
+      const rarityPercent = getFiniteNumber(counts.unlockRatePercent);
+      const pointsValue = getFiniteNumber(achievement.points);
       const metadata = [
         ...(pointsText === undefined ? [] : [{ key: "points", value: pointsText }]),
         ...(counts.unlockRatePercent === undefined ? [] : [{ key: "rarity", value: `${counts.unlockRatePercent.toFixed(1)}%` }]),
@@ -261,6 +308,22 @@ export function buildRetroAchievementsCompactAchievementListModel(
         isUnlocked: achievement.isUnlocked,
         ...(achievement.unlockMode !== undefined ? { unlockMode: achievement.unlockMode } : {}),
         statusText: formatProviderAchievementStatusText(snapshot.game.providerId, achievement),
+        searchText: buildCompactAchievementSearchText(achievement.title, achievement.description),
+        ...(rarityPercent !== undefined
+          ? { rarityPercent }
+          : {}),
+        ...(pointsValue !== undefined
+          ? { pointsValue }
+          : {}),
+        ...(getFiniteNumber(achievement.unlockedAt) !== undefined
+          ? { unlockedAt: achievement.unlockedAt }
+          : {}),
+        ...(getFiniteNumber(achievement.hardcoreUnlockedAt) !== undefined
+          ? { hardcoreUnlockedAt: achievement.hardcoreUnlockedAt }
+          : {}),
+        ...(getFiniteNumber(achievement.softcoreUnlockedAt) !== undefined
+          ? { softcoreUnlockedAt: achievement.softcoreUnlockedAt }
+          : {}),
         stateIndicator: achievement.isUnlocked ? "unlocked" : "locked",
         metadata,
         metadataPlacement: "rail",
@@ -431,6 +494,62 @@ export function matchesCompactAchievementModeFilter(
     return true;
   }
   return filter === "hardcore" ? row.unlockMode !== "softcore" : row.unlockMode !== "hardcore";
+}
+
+export function matchesCompactAchievementSearch(
+  row: CompactAchievementRowViewModel,
+  query: string,
+): boolean {
+  const normalizedQuery = normalizeCompactAchievementSearchText(query);
+  return normalizedQuery.length === 0 || row.searchText.includes(normalizedQuery);
+}
+
+export function getCompactAchievementUnlockTimestamp(
+  row: CompactAchievementRowViewModel,
+  modeFilter: CompactAchievementModeFilter = "all",
+): number | undefined {
+  if (modeFilter === "hardcore") {
+    return row.hardcoreUnlockedAt
+      ?? (row.unlockMode === "hardcore" ? row.unlockedAt : undefined);
+  }
+  if (modeFilter === "softcore") {
+    return row.softcoreUnlockedAt
+      ?? (row.unlockMode === "softcore" ? row.unlockedAt : undefined);
+  }
+  const candidates = [row.unlockedAt, row.hardcoreUnlockedAt, row.softcoreUnlockedAt]
+    .filter((value): value is number => value !== undefined && Number.isFinite(value));
+  return candidates.length > 0 ? Math.max(...candidates) : undefined;
+}
+
+export function getSupportedCompactAchievementSorts(
+  rows: readonly CompactAchievementRowViewModel[],
+  modeFilter: CompactAchievementModeFilter = "all",
+): readonly CompactAchievementSort[] {
+  return getSupportedAchievementBrowserSorts(rows, (row) => {
+    const unlockedAt = getCompactAchievementUnlockTimestamp(row, modeFilter);
+    return {
+    title: row.title,
+    ...(row.rarityPercent !== undefined ? { rarityPercent: row.rarityPercent } : {}),
+    ...(row.pointsValue !== undefined ? { pointsValue: row.pointsValue } : {}),
+    ...(unlockedAt !== undefined ? { unlockedAt } : {}),
+    };
+  });
+}
+
+export function sortCompactAchievementRows(
+  rows: readonly CompactAchievementRowViewModel[],
+  sort: CompactAchievementSort,
+  modeFilter: CompactAchievementModeFilter = "all",
+): readonly CompactAchievementRowViewModel[] {
+  return sortAchievementBrowserItems(rows, sort, (row) => {
+    const unlockedAt = getCompactAchievementUnlockTimestamp(row, modeFilter);
+    return {
+    title: row.title,
+    ...(row.rarityPercent !== undefined ? { rarityPercent: row.rarityPercent } : {}),
+    ...(row.pointsValue !== undefined ? { pointsValue: row.pointsValue } : {}),
+    ...(unlockedAt !== undefined ? { unlockedAt } : {}),
+    };
+  });
 }
 
 export function getCompactAchievementLoadActions(visibleCount: number, totalCount: number): Readonly<{ showFiveMore: boolean; showAll: boolean }> {

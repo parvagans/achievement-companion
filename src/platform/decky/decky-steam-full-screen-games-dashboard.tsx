@@ -4,7 +4,9 @@ import {
   Focusable,
   GamepadButton,
   Menu,
+  MenuGroup,
   MenuItem,
+  MenuSeparator,
   NavEntryPositionPreferences,
   TextField,
   showContextMenu,
@@ -42,7 +44,6 @@ import {
   getRetroAchievementsCompletionIndicatorState,
 } from "./decky-retroachievements-completion-indicator";
 import { scrollDeckyFocusTargetIntoView, scrollDeckyFocusTargetToTop } from "./decky-focus-scroll";
-import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { formatSteamPlaytimeMinutes, getSteamCompletionProgressGameDetailId } from "./decky-stat-helpers";
 import {
   getSteamHeroArtworkSources,
@@ -62,7 +63,7 @@ import caretDownIconUrl from "./assets/caret-down.svg";
 import chevronRightIconUrl from "./assets/chevron-right.svg";
 import crownIconUrl from "./assets/achievement-badge/crown-laurel.svg";
 import searchIconUrl from "./assets/search.svg";
-import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
+import { requestDeckySteamGamepadFocusAfterMount, takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
 import { jumpDeckySteamProfileTabToTop } from "./decky-steam-profile-jump-top";
 import { getSteamCompactAchievementFilterStyle } from "./decky-steam-compact-action-styles";
@@ -73,9 +74,14 @@ import {
   rememberDeckyGamesProfileShortcut,
   rememberDeckyGamesRenderLimit,
   rememberDeckyGamesScrollTop,
+  rememberDeckyGamesDisplayMode,
   rememberDeckyGamesSystemFilter,
-  resetDeckyGamesPageState,
 } from "./decky-steam-full-screen-games-state";
+import {
+  ACHIEVEMENT_BROWSER_DISPLAY_OPTIONS,
+  formatAchievementBrowserDisplayLabel,
+  type AchievementBrowserDisplayMode,
+} from "./decky-achievement-browser-options";
 import { useDeckySettings } from "./decky-settings";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 import { getRetroAchievementsPlayedGameProgress } from "./decky-retroachievements-compact-profile-model";
@@ -87,6 +93,9 @@ const STEAM_GAMES_INITIAL_RENDER_LIMIT = 12;
 const STEAM_GAMES_RENDER_STEP = 12;
 const STEAM_GAMES_SEARCH_CLASS = "achievement-companion-steam-games-search";
 const STEAM_GAMES_LIST_CLASS = "achievement-companion-steam-games-list";
+const STEAM_GAMES_COMPACT_ROW_HEIGHT = 52;
+const STEAM_GAMES_COMPACT_ARTWORK_HEIGHT = 42;
+const STEAM_GAMES_COMPACT_ARTWORK_WIDTH = 98;
 const STEAM_GAMES_ICON_FILTERS = {
   blue: steamTheme.iconFilter.accent,
   gold: steamTheme.iconFilter.reward,
@@ -97,15 +106,21 @@ const SteamGamesSearchField = TextField as unknown as FC<
 >;
 
 const STEAM_GAMES_SORT_OPTIONS: readonly { readonly value: SteamGamesSort; readonly label: string }[] = [
-  { value: "recent", label: "Last played" },
-  { value: "completion", label: "Highest completion" },
-  { value: "fewest_remaining", label: "Fewest remaining" },
+  { value: "recent", label: "Last Played — Newest First" },
+  { value: "oldest", label: "Last Played — Oldest First" },
+  { value: "completion", label: "Highest Completion" },
+  { value: "fewest_remaining", label: "Fewest Achievements Remaining" },
+  { value: "title", label: "Name — A to Z" },
+  { value: "title_desc", label: "Name — Z to A" },
 ];
 
 const RA_GAMES_SORT_OPTIONS: readonly { readonly value: SteamGamesSort; readonly label: string }[] = [
-  { value: "recent", label: "Last unlock" },
-  { value: "completion", label: "Highest completion" },
-  { value: "fewest_remaining", label: "Fewest remaining" },
+  { value: "recent", label: "Last Unlock — Newest First" },
+  { value: "oldest", label: "Last Unlock — Oldest First" },
+  { value: "completion", label: "Highest Completion" },
+  { value: "fewest_remaining", label: "Fewest Achievements Remaining" },
+  { value: "title", label: "Name — A to Z" },
+  { value: "title_desc", label: "Name — Z to A" },
 ];
 
 export interface DeckySteamFullScreenGamesDashboardProps {
@@ -223,8 +238,8 @@ function getToolbarStyle(isRa: boolean): CSSProperties {
   return {
     display: "grid",
     gridTemplateColumns: isRa
-      ? "minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1.1fr) minmax(0, 1fr) 104px 112px"
-      : "minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1.1fr) 104px 112px",
+      ? "minmax(0, 1.7fr) minmax(0, 1fr) minmax(0, 1.1fr) minmax(170px, 1.15fr) 112px"
+      : "minmax(0, 2.2fr) minmax(0, 1fr) minmax(180px, 1.2fr) 112px",
     alignItems: "stretch",
     gap: 8,
     minWidth: 0,
@@ -419,27 +434,31 @@ function SteamGamesStatusButton({ value, isRa, onChange, onBack }: {
 
 function SteamGamesSortButton({
   value,
+  displayMode,
   isRa,
   onChange,
+  onDisplayModeChange,
   onBack,
 }: {
   readonly value: SteamGamesSort;
+  readonly displayMode: AchievementBrowserDisplayMode;
   readonly isRa: boolean;
   readonly onChange: (value: SteamGamesSort) => void;
+  readonly onDisplayModeChange: (value: AchievementBrowserDisplayMode) => void;
   readonly onBack: () => void;
 }): JSX.Element {
   const buttonRef = useRef<HTMLDivElement>(null);
   const activeMenuRef = useRef<ReturnType<typeof showContextMenu> | undefined>(undefined);
   const unregisterMenuCancelRef = useRef<(() => void) | undefined>(undefined);
   const options = isRa ? RA_GAMES_SORT_OPTIONS : STEAM_GAMES_SORT_OPTIONS;
-  const selectedValue = value === "oldest" ? "recent" : value;
-  const selectedLabel = options.find((option) => option.value === selectedValue)?.label ?? (isRa ? "Last unlock" : "Last played");
+  const selectedLabel = options.find((option) => option.value === value)?.label ?? (isRa ? "Last Unlock — Newest First" : "Last Played — Newest First");
 
   const closeMenu = (): void => {
     activeMenuRef.current?.Hide();
     activeMenuRef.current = undefined;
     unregisterMenuCancelRef.current?.();
     unregisterMenuCancelRef.current = undefined;
+    requestDeckySteamGamepadFocusAfterMount(buttonRef.current);
   };
   const openMenu = (): void => {
     if (activeMenuRef.current !== undefined || buttonRef.current === null) {
@@ -447,22 +466,25 @@ function SteamGamesSortButton({
     }
 
     const menu = showContextMenu(
-      <Menu label="Sort games" onCancel={closeMenu}>
-        {options.map((option) => (
-          <MenuItem
-            key={option.value}
-            selected={option.value === selectedValue}
-            onClick={() => {
-              onChange(option.value);
-              closeMenu();
-            }}
-          >
-            {option.label}
-          </MenuItem>
-        ))}
+      <Menu label="Sort and view games" onCancel={closeMenu}>
+        <MenuGroup label="SORT BY">
+          {options.map((option) => (
+            <MenuItem key={option.value} selected={option.value === value} onClick={() => { onChange(option.value); closeMenu(); }}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </MenuGroup>
+        <MenuSeparator />
+        <MenuGroup label="DISPLAY">
+          {ACHIEVEMENT_BROWSER_DISPLAY_OPTIONS.map((option) => (
+            <MenuItem key={option.value} selected={option.value === displayMode} onClick={() => { onDisplayModeChange(option.value); closeMenu(); }}>
+              {option.label}
+            </MenuItem>
+          ))}
+        </MenuGroup>
       </Menu>,
       buttonRef.current,
-      { bModal: true, bMatchWidth: true },
+      { bModal: true, bFitToWindow: true, bShiftToFitWindow: true },
     );
     activeMenuRef.current = menu;
     unregisterMenuCancelRef.current = registerDeckyFullscreenPopupCancel(closeMenu);
@@ -476,7 +498,7 @@ function SteamGamesSortButton({
         className={STEAM_GAMES_FOCUS_CLASS}
         noFocusRing
         role="button"
-        aria-label={`Sort: ${selectedLabel}`}
+        aria-label={`Sort & View. Sort: ${selectedLabel}. Display: ${formatAchievementBrowserDisplayLabel(displayMode)}.`}
         onActivate={openMenu}
         onClick={openMenu}
         onGamepadDirection={handleSteamGamesToolbarDirection}
@@ -490,50 +512,10 @@ function SteamGamesSortButton({
         }}
         style={getSortButtonStyle()}
       >
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{selectedLabel}</span>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>Sort &amp; View</span>
         <IconAsset size={12} src={caretDownIconUrl} tone="light" />
       </Focusable>
   );
-}
-
-function GamesSortToggle({ value, onChange, onBack }: {
-  readonly value: SteamGamesSort;
-  readonly onChange: (value: SteamGamesSort) => void;
-  readonly onBack: () => void;
-}): JSX.Element {
-  const [focused, setFocused] = useState(false);
-  const oldest = value === "oldest";
-  const toggle = (): void => onChange(value === "recent" ? "oldest" : "recent");
-  return <Focusable
-    className={DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}
-    noFocusRing
-    role="button"
-    aria-label={oldest ? "Sort: oldest first. Select for newest first." : value === "recent"
-      ? "Sort: newest first. Select for oldest first."
-      : "Select to sort by newest activity."}
-    aria-pressed={oldest}
-    preferredFocus={oldest}
-    data-steam-games-toolbar-control="chronology"
-    onActivate={toggle}
-    onClick={toggle}
-    onCancel={onBack}
-    onGamepadDirection={handleSteamGamesToolbarDirection}
-    onFocus={() => setFocused(true)}
-    onGamepadFocus={() => setFocused(true)}
-    onBlur={() => setFocused(false)}
-    onGamepadBlur={() => setFocused(false)}
-    style={{
-      ...getSteamCompactAchievementFilterStyle(oldest, focused),
-      width: "100%",
-      minWidth: 0,
-      minHeight: 36,
-      boxSizing: "border-box",
-      padding: "7px 10px",
-      fontSize: 12,
-      fontWeight: 700,
-      whiteSpace: "nowrap",
-    }}
-  >{oldest ? "↑ Oldest" : "↓ Newest"}</Focusable>;
 }
 
 function RetroAchievementsSystemButton({
@@ -613,17 +595,20 @@ function getGameListStyle(): CSSProperties {
   };
 }
 
-function getGameRowStyle(providerId: string): CSSProperties {
+function getGameRowStyle(providerId: string, displayMode: AchievementBrowserDisplayMode): CSSProperties {
   const isRa = providerId === RETROACHIEVEMENTS_PROVIDER_ID;
+  const compact = displayMode === "compact";
   return {
     ...steamRecipes.interactiveRow("fullscreen"),
     display: "grid",
-    gridTemplateColumns: `${isRa ? DECKY_RA_FULLSCREEN_GAME_ICON_COLUMN_WIDTH : STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}px minmax(0, 1fr) minmax(155px, 0.55fr) 16px`,
+    gridTemplateColumns: `${compact
+      ? isRa ? STEAM_GAMES_COMPACT_ARTWORK_HEIGHT : STEAM_GAMES_COMPACT_ARTWORK_WIDTH
+      : isRa ? DECKY_RA_FULLSCREEN_GAME_ICON_COLUMN_WIDTH : STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}px minmax(0, 1fr) minmax(155px, 0.55fr) 16px`,
     alignItems: "center",
     gap: 12,
-    flex: `0 0 ${STEAM_FULLSCREEN_GAME_ROW_HEIGHT}px`,
+    flex: `0 0 ${compact ? STEAM_GAMES_COMPACT_ROW_HEIGHT : STEAM_FULLSCREEN_GAME_ROW_HEIGHT}px`,
     minWidth: 0,
-    minHeight: STEAM_FULLSCREEN_GAME_ROW_HEIGHT,
+    minHeight: compact ? STEAM_GAMES_COMPACT_ROW_HEIGHT : STEAM_FULLSCREEN_GAME_ROW_HEIGHT,
     scrollMarginBlock: 0,
     padding: "2px 10px 2px 3px",
     boxSizing: "border-box",
@@ -665,6 +650,7 @@ function SteamGamesRow({
   listRef,
   mode,
   rowIndex,
+  displayMode,
   showSystemName,
   onRevealMore,
 }: {
@@ -676,9 +662,11 @@ function SteamGamesRow({
   readonly listRef: { readonly current: HTMLDivElement | null };
   readonly mode: RetroAchievementsAchievementMode;
   readonly rowIndex: number;
+  readonly displayMode: AchievementBrowserDisplayMode;
   readonly showSystemName: boolean;
   readonly onRevealMore?: () => boolean;
 }): JSX.Element {
+  const compact = displayMode === "compact";
   const isRa = providerId === RETROACHIEVEMENTS_PROVIDER_ID;
   const displaySummary = isRa
     ? getRetroAchievementsPlayedGameProgress(game, mode)
@@ -752,7 +740,7 @@ function SteamGamesRow({
         }
         handleSteamGamesRowDirection(event);
       }}
-      style={getGameRowStyle(providerId)}
+      style={getGameRowStyle(providerId, displayMode)}
       data-steam-games-row="true"
       data-steam-games-row-index={rowIndex}
       {...(providerId === RETROACHIEVEMENTS_PROVIDER_ID ? { "data-ac-ra-profile-game-row": "true" } : {})}
@@ -760,21 +748,21 @@ function SteamGamesRow({
       {providerId === RETROACHIEVEMENTS_PROVIDER_ID ? <DeckyRetroAchievementsGameIcon
         game={game}
         src={game.coverImageUrl}
-        size={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT}
+        size={compact ? STEAM_GAMES_COMPACT_ARTWORK_HEIGHT : STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT}
       /> : <DeckyGameArtwork
         compact
         {...(game.appid !== undefined ? { steamAppId: game.appid } : {})}
         {...(artwork.fallbackSrc !== undefined ? { fallbackSrc: artwork.fallbackSrc } : {})}
-        height={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT}
-        size={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT}
+        height={compact ? STEAM_GAMES_COMPACT_ARTWORK_HEIGHT : STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT}
+        size={compact ? STEAM_GAMES_COMPACT_ARTWORK_HEIGHT : STEAM_FULLSCREEN_GAME_ROW_ARTWORK_HEIGHT}
         {...(artwork.src !== undefined ? { src: artwork.src } : {})}
         title={game.title}
-        width={STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}
+        width={compact ? STEAM_GAMES_COMPACT_ARTWORK_WIDTH : STEAM_FULLSCREEN_GAME_ROW_ARTWORK_WIDTH}
       />}
 
       <div style={{ minWidth: 0 }}>
         <div style={getTitleStyle()}>{game.title}</div>
-        {context.length > 0 ? <div style={getSecondaryMetaStyle()}>{context}</div> : null}
+        {context.length > 0 ? <div style={getSecondaryMetaStyle()}>{compact ? context.split(" · ")[0] : context}</div> : null}
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 7, minWidth: 0 }}>
@@ -784,7 +772,7 @@ function SteamGamesRow({
             {formatPercent(completionPercent)}{isPerfected ? <IconAsset size={13} src={crownIconUrl} tone="gold" /> : null}
           </span> : null}
         </div>
-        {completionPercent !== undefined ? <div style={getProgressTrackStyle()}>
+        {!compact && completionPercent !== undefined ? <div style={getProgressTrackStyle()}>
           <div style={{ width: `${completionPercent}%`, height: "100%", borderRadius: 999, background: qamTheme.surface.progressFill }} />
         </div> : null}
       </div>
@@ -826,6 +814,7 @@ export function DeckySteamFullScreenGamesDashboard({
   const [filter, setFilter] = useState<SteamGamesFilter>(initialPageState.filter);
   const [query, setQuery] = useState(initialPageState.query);
   const [sort, setSort] = useState<SteamGamesSort>(initialPageState.sort);
+  const [displayMode, setDisplayMode] = useState<AchievementBrowserDisplayMode>(initialPageState.displayMode);
   const [selectedSystemId, setSelectedSystemId] = useState<string | undefined>(isRa ? initialPageState.system?.systemId : undefined);
   const [renderLimit, setRenderLimit] = useState(initialPageState.renderLimit);
   const hasMountedControls = useRef(false);
@@ -852,9 +841,12 @@ export function DeckySteamFullScreenGamesDashboard({
       return;
     }
     setRenderLimit(STEAM_GAMES_INITIAL_RENDER_LIMIT);
-    rememberDeckyGamesControls(providerId, filter, query, sort, mode);
+    rememberDeckyGamesControls(providerId, filter, query, sort, mode, displayMode);
     if (listRef.current !== null) listRef.current.scrollTop = 0;
   }, [filter, mode, providerId, query, sort]);
+  useEffect(() => {
+    rememberDeckyGamesDisplayMode(providerId, displayMode);
+  }, [displayMode, providerId]);
   const hasActiveFilters = filter !== "all" || query.trim().length > 0 || sort !== "recent" || selectedSystemId !== undefined;
 
   useLayoutEffect(() => {
@@ -927,8 +919,8 @@ export function DeckySteamFullScreenGamesDashboard({
   };
   const clearFilters = (): void => {
     if (!hasActiveFilters) return;
-    resetDeckyGamesPageState(providerId);
-    rememberDeckyGamesControls(providerId, "all", "", "recent", mode);
+    rememberDeckyGamesControls(providerId, "all", "", "recent", mode, displayMode);
+    rememberDeckyGamesSystemFilter(providerId, undefined);
     setQuery("");
     setFilter("all");
     setSort("recent");
@@ -991,8 +983,7 @@ export function DeckySteamFullScreenGamesDashboard({
 
           <SteamGamesStatusButton value={filter} isRa={isRa} onBack={onBack} onChange={setFilter} />
           {isRa ? <RetroAchievementsSystemButton systems={systems} selectedSystemId={selectedSystemId} onChange={selectSystem} onBack={onBack} /> : null}
-          <SteamGamesSortButton value={sort} isRa={isRa} onBack={onBack} onChange={setSort} />
-          <GamesSortToggle value={sort} onChange={setSort} onBack={onBack} />
+          <SteamGamesSortButton value={sort} displayMode={displayMode} isRa={isRa} onBack={onBack} onChange={setSort} onDisplayModeChange={setDisplayMode} />
           <Focusable className={STEAM_GAMES_FOCUS_CLASS} noFocusRing role="button"
             aria-label="Clear Games filters" aria-disabled={!hasActiveFilters}
             onActivate={clearFilters} onClick={clearFilters} onCancel={onBack}
@@ -1019,7 +1010,7 @@ export function DeckySteamFullScreenGamesDashboard({
           onScroll={(event) => {
             const list = event.currentTarget;
             rememberDeckyGamesScrollTop(providerId, list.scrollTop);
-            if (list.scrollTop + list.clientHeight >= list.scrollHeight - STEAM_FULLSCREEN_GAME_ROW_HEIGHT) revealMoreGames(false);
+            if (list.scrollTop + list.clientHeight >= list.scrollHeight - (displayMode === "compact" ? STEAM_GAMES_COMPACT_ROW_HEIGHT : STEAM_FULLSCREEN_GAME_ROW_HEIGHT)) revealMoreGames(false);
           }}
           style={getGameListStyle()}
         >
@@ -1038,6 +1029,7 @@ export function DeckySteamFullScreenGamesDashboard({
               listRef={listRef}
               mode={mode}
               rowIndex={rowIndex}
+              displayMode={displayMode}
               showSystemName={selectedSystemId === undefined}
               {...(rowIndex === renderedGames.length - 1 && renderedGames.length < visibleGames.length
                 ? { onRevealMore: () => revealMoreGames(true) } : {})}

@@ -13,7 +13,7 @@ export type SteamGamesFilter =
   | "beaten"
   | "mastered";
 
-export type SteamGamesSort = CompletionProgressSort | "fewest_remaining" | "oldest";
+export type SteamGamesSort = CompletionProgressSort | "fewest_remaining" | "oldest" | "title_desc";
 
 export interface SteamGamesDashboardSummary {
   readonly trackedCount: number;
@@ -198,8 +198,10 @@ export function selectSteamGames(args: {
   });
 
   return [...games].sort((left, right) => {
-    if (args.sort === "title") {
-      return left.title.localeCompare(right.title);
+    if (args.sort === "title" || args.sort === "title_desc") {
+      return args.sort === "title_desc"
+        ? right.title.localeCompare(left.title)
+        : left.title.localeCompare(right.title);
     }
 
     if (args.sort === "completion" || args.sort === "fewest_remaining") {

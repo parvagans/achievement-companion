@@ -113,9 +113,10 @@ import {
   readDeckyCompactSteamGameState,
 } from "./decky-compact-session-resources";
 import {
+  clearDeckyCompactAchievementRevealRequest,
   readDeckyCompactAchievementPageState,
+  requestDeckyCompactAchievementReveal,
   resetDeckyCompactAchievementPageState,
-  writeDeckyCompactAchievementPageState,
 } from "./decky-compact-achievement-page-state";
 import {
   getDeckyProviderOptions,
@@ -1484,6 +1485,10 @@ function CompactAchievementListScreen({
   );
   const [isScrollRestored, setIsScrollRestored] = useState(false);
   const handleScrollRestoreComplete = useCallback(() => setIsScrollRestored(true), []);
+  const handleBack = useCallback(() => {
+    clearDeckyCompactAchievementRevealRequest(destination.providerId, destination.gameId);
+    onBack();
+  }, [destination.gameId, destination.providerId, onBack]);
   const focusRestorationReady = restoredPageState.scrollTop <= 0 || isScrollRestored;
 
   return (
@@ -1498,7 +1503,7 @@ function CompactAchievementListScreen({
           embedded={false}
           focusRestorationReady={focusRestorationReady}
           model={model}
-          onBack={onBack}
+          onBack={handleBack}
           onOpenAchievement={onOpenAchievement}
         />
       ) : (
@@ -1510,7 +1515,7 @@ function CompactAchievementListScreen({
               : "Fetching achievements from RetroAchievements."
           )}
           isError={loader.status === "error"}
-          onCancel={onBack}
+          onCancel={handleBack}
           title={loader.status === "error" ? "Achievements unavailable" : `Loading ${destination.gameTitle} achievements...`}
         />
       )}
@@ -1836,10 +1841,11 @@ function DeckyBootstrapStateBridge(): JSX.Element {
               });
             }}
             onOpenCompactAchievements={(game, achievementId) => {
-              writeDeckyCompactAchievementPageState(game.providerId, game.gameId, {
-                filter: "all", modeFilter: "all", visibleCount: Number.MAX_SAFE_INTEGER,
-                focusedAchievementId: achievementId, scrollTop: 0,
-              });
+              if (achievementId === undefined) {
+                clearDeckyCompactAchievementRevealRequest(game.providerId, game.gameId);
+              } else {
+                requestDeckyCompactAchievementReveal(game.providerId, game.gameId, achievementId);
+              }
               setDeckyCompactNavigation({
                 kind: "achievement-list",
                 providerId: game.providerId,
@@ -2150,10 +2156,11 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                   });
                 }}
                 onOpenGameAchievements={(providerId, gameId, gameTitle, achievementId) => {
-                  writeDeckyCompactAchievementPageState(providerId, gameId, {
-                    filter: "all", modeFilter: "all", visibleCount: Number.MAX_SAFE_INTEGER,
-                    focusedAchievementId: achievementId, scrollTop: 0,
-                  });
+                  if (achievementId === undefined) {
+                    clearDeckyCompactAchievementRevealRequest(providerId, gameId);
+                  } else {
+                    requestDeckyCompactAchievementReveal(providerId, gameId, achievementId);
+                  }
                   setDeckyCompactNavigation({
                     kind: "achievement-list",
                     providerId,

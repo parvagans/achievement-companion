@@ -27,6 +27,10 @@ import { getAchievementGroupFilterValue } from "./decky-full-screen-achievement-
 export { matchesAchievementFilter, matchesAchievementModeFilter, matchesAchievementGroupFilter, matchesAchievementAvailabilityFilter, matchesRetroAchievementsAchievementTypeFilter, getAchievementGroupFilterValue } from "./decky-full-screen-achievement-filters";
 import { raRecipes, raTheme } from "./ra-theme";
 import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
+import { DeckyFullScreenAchievementBrowserControls } from "./decky-full-screen-achievement-browser-controls";
+import { getSupportedFullScreenAchievementSorts } from "./decky-full-screen-achievement-browser-model";
+import type { AchievementBrowserDisplayMode, AchievementBrowserSort } from "./decky-achievement-browser-options";
+import { useDeckyFullscreenOnScreenKeyboardLifecycle } from "./decky-full-screen-footer-overlay";
 
 const ACHIEVEMENT_FILTERS = ["all", "unlocked", "locked"] as const;
 const STEAM_ACHIEVEMENT_RENDER_STEP = 36;
@@ -176,6 +180,47 @@ const scrollFocusedElementIntoView: FocusEventHandler<HTMLElement> = (event) => 
 
 function getAchievementBrowserStackStyle(): CSSProperties {
   return { display: "flex", flexDirection: "column", gap: 12 };
+}
+
+function FullScreenClearSearchAction({
+  isSteam,
+  onBack,
+  onClear,
+}: {
+  readonly isSteam: boolean;
+  readonly onBack: () => void;
+  readonly onClear: () => void;
+}): JSX.Element {
+  const [focused, setFocused] = useState(false);
+  const theme = isSteam ? steamTheme : raTheme;
+  const recipes = isSteam ? steamRecipes : raRecipes;
+  return (
+    <Focusable
+      aria-label="Clear achievement search"
+      noFocusRing
+      onActivate={onClear}
+      onCancel={onBack}
+      onClick={onClear}
+      onFocus={() => setFocused(true)}
+      onGamepadFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      role="button"
+      style={{
+        ...recipes.action("fullscreen", false, focused),
+        alignItems: "center",
+        alignSelf: "flex-start",
+        display: "flex",
+        justifyContent: "center",
+        minHeight: 40,
+        padding: "8px 18px",
+        borderRadius: theme.radius.medium,
+        fontSize: 14,
+        fontWeight: 700,
+      }}
+    >
+      Clear Search
+    </Focusable>
+  );
 }
 
 function getSteamAchievementFilterBarStyle(): CSSProperties {
@@ -772,6 +817,9 @@ export interface DeckyFullScreenAchievementBrowserProps {
   readonly gameMetrics: readonly NormalizedMetric[];
   readonly providerId: string | undefined;
   readonly initialRenderLimit?: number;
+  readonly query: string;
+  readonly sort: AchievementBrowserSort;
+  readonly displayMode: AchievementBrowserDisplayMode;
   readonly showAchievementModeFilter?: boolean;
   readonly onAchievementFilterChange: (filter: AchievementFilter) => void;
   readonly onAchievementModeFilterChange: (filter: AchievementModeFilter) => void;
@@ -779,6 +827,9 @@ export interface DeckyFullScreenAchievementBrowserProps {
   readonly onAchievementAvailabilityFilterChange: (filter: AchievementAvailabilityFilter) => void;
   readonly onAchievementTypeFilterChange: (filter: RetroAchievementsAchievementTypeFilter) => void;
   readonly onAchievementMissableOnlyChange: (checked: boolean) => void;
+  readonly onQueryChange: (query: string) => void;
+  readonly onSortChange: (sort: AchievementBrowserSort) => void;
+  readonly onDisplayModeChange: (displayMode: AchievementBrowserDisplayMode) => void;
   readonly onOpenAchievementDetail: ((achievementId: string) => void) | undefined;
   readonly onBack: () => void;
   readonly onJumpToTop?: () => void;
@@ -791,11 +842,11 @@ export interface DeckyFullScreenAchievementBrowserProps {
 export function DeckyFullScreenAchievementBrowser({
   achievementFilter, achievementModeFilter, achievementGroupFilter, achievementAvailabilityFilter,
   achievementTypeFilter, achievementMissableOnly, achievementSummary, allAchievements, achievements,
-  gameMetrics, providerId, initialRenderLimit,
+  gameMetrics, providerId, initialRenderLimit, query, sort, displayMode,
   showAchievementModeFilter: showAchievementModeFilterOverride,
   onAchievementFilterChange, onAchievementModeFilterChange,
   onAchievementGroupFilterChange, onAchievementAvailabilityFilterChange,
-  onAchievementTypeFilterChange, onAchievementMissableOnlyChange,
+  onAchievementTypeFilterChange, onAchievementMissableOnlyChange, onQueryChange, onSortChange, onDisplayModeChange,
   onOpenAchievementDetail, onBack, onJumpToTop, onFocusAchievement, steamHuntersAchievementsBySteamAchievementId,
   steamHuntersAchievementGroupsBySteamAchievementId, steamHuntersAchievementGroups,
 }: DeckyFullScreenAchievementBrowserProps): JSX.Element {
@@ -804,13 +855,14 @@ export function DeckyFullScreenAchievementBrowser({
   const isSteamProvider = providerId === "steam";
   const isRetroAchievementsProvider = providerId === "retroachievements";
   const browserRef = useRef<HTMLDivElement>(null);
+  useDeckyFullscreenOnScreenKeyboardLifecycle(browserRef);
   const [renderLimit, setRenderLimit] = useState(Math.max(STEAM_ACHIEVEMENT_RENDER_STEP, initialRenderLimit ?? 0));
   const [revealedAchievementId, setRevealedAchievementId] = useState<string | undefined>(undefined);
   const hasMountedFilters = useRef(false);
   useEffect(() => {
     if (!hasMountedFilters.current) { hasMountedFilters.current = true; return; }
     setRenderLimit(STEAM_ACHIEVEMENT_RENDER_STEP);
-  }, [achievementFilter, achievementGroupFilter, achievementAvailabilityFilter, achievementTypeFilter, achievementMissableOnly]);
+  }, [achievementFilter, achievementGroupFilter, achievementAvailabilityFilter, achievementTypeFilter, achievementMissableOnly, query, sort]);
   useLayoutEffect(() => {
     if (revealedAchievementId === undefined) return;
     const target = Array.from(browserRef.current?.querySelectorAll<HTMLElement>("[data-achievement-companion-achievement-id]") ?? [])
@@ -826,6 +878,12 @@ export function DeckyFullScreenAchievementBrowser({
   const visibleMissableOnly = hasMissableAchievements && achievementMissableOnly;
   const visibleGroupFilter = groupOptions.includes(achievementGroupFilter) ? achievementGroupFilter : "all";
   const visibleAvailabilityFilter = availabilityOptions.includes(achievementAvailabilityFilter) ? achievementAvailabilityFilter : "all";
+  const supportedSorts = getSupportedFullScreenAchievementSorts(
+    allAchievements,
+    gameMetrics,
+    achievementModeFilter,
+    steamHuntersAchievementsBySteamAchievementId,
+  );
   return (
     <Focusable
       ref={browserRef}
@@ -882,6 +940,22 @@ export function DeckyFullScreenAchievementBrowser({
           <span style={getSteamAchievementSelectedGroupValueStyle()}>{formatAchievementGroupLabel(visibleGroupFilter)}</span>
         </div>
       ) : null}
+      <DeckyFullScreenAchievementBrowserControls
+        displayMode={displayMode}
+        isSteam={isSteamProvider}
+        onBack={onBack}
+        onChangeDisplayMode={onDisplayModeChange}
+        onChangeQuery={onQueryChange}
+        onChangeSort={onSortChange}
+        query={query}
+        sort={sort}
+        supportedSorts={supportedSorts}
+      />
+      {query.trim().length > 0 ? (
+        <div aria-live="polite" style={{ padding: "0 4px", color: isSteamProvider ? steamTheme.color.textSecondary : raTheme.color.textSecondary, fontSize: 13 }}>
+          {formatCount(achievements.length)} matching achievement{achievements.length === 1 ? "" : "s"}
+        </div>
+      ) : null}
       {achievements.length > 0 ? (
         <Focusable
           flow-children="vertical"
@@ -901,6 +975,7 @@ export function DeckyFullScreenAchievementBrowser({
                 steamHuntersAchievement={steamHuntersAchievementsBySteamAchievementId?.[achievement.achievementId]}
                 gameMetrics={gameMetrics}
                 retroAchievementsPresentation={isRetroAchievementsProvider ? "steam-shaped" : "default"}
+                displayMode={displayMode}
               />
             </PanelSectionRow>
           ))}
@@ -915,13 +990,29 @@ export function DeckyFullScreenAchievementBrowser({
         </Focusable>
       ) : (
         <PanelSectionRow>
-          <Field
-            bottomSeparator="none"
-            description={isRetroAchievementsProvider
-              ? formatRetroAchievementsFilterEmptyMessage(achievementFilter, achievementTypeFilter, visibleMissableOnly)
-              : formatAchievementFilterEmptyMessage(achievementFilter)}
-            label="Achievements"
-          />
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, width: "100%" }}>
+            <Field
+              bottomSeparator="none"
+              description={query.trim().length > 0
+                ? "No achievements match your search."
+                : isRetroAchievementsProvider
+                ? formatRetroAchievementsFilterEmptyMessage(achievementFilter, achievementTypeFilter, visibleMissableOnly)
+                : formatAchievementFilterEmptyMessage(achievementFilter)}
+              label="Achievements"
+            />
+            {query.trim().length > 0 ? (
+              <FullScreenClearSearchAction
+                isSteam={isSteamProvider}
+                onBack={onBack}
+                onClear={() => {
+                  onQueryChange("");
+                  requestDeckySteamGamepadFocusAfterMount(
+                    browserRef.current?.querySelector<HTMLElement>("[aria-label='Search achievements']"),
+                  );
+                }}
+              />
+            ) : null}
+          </div>
         </PanelSectionRow>
       )}
     </Focusable>
