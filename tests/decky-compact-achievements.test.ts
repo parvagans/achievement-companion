@@ -499,11 +499,13 @@ test("achievement-list destination and page state preserve deterministic return 
 
 });
 
-test("RA current-game View achievements opens the QAM list and returns to the dashboard", () => {
+test("QAM Up Next achievements opens the compact list and returns to the dashboard", () => {
   const profileSource = readFileSync("src/platform/decky/decky-retroachievements-compact-profile.tsx", "utf8");
+  const cardSource = readFileSync("src/platform/decky/decky-compact-up-next-card.tsx", "utf8");
   const bootstrapSource = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
-  assert.ok(profileSource.includes('label={`View achievements for ${game.title}`} primary onActivate={() => onOpenGameAchievements(game)}'));
-  assert.match(bootstrapSource, /onOpenGameAchievements=\{\(providerId, gameId, gameTitle\) => \{[\s\S]*?kind: "achievement-list",[\s\S]*?parent: "provider-dashboard"/u);
+  assert.match(profileSource, /onOpenAchievements=\{onOpenGameAchievements\}/u);
+  assert.match(cardSource, /onOpenAchievements\(currentGame, suggestion\?\.achievement\.achievementId\)/u);
+  assert.match(bootstrapSource, /onOpenGameAchievements=\{\(providerId, gameId, gameTitle, achievementId\) => \{[\s\S]*?focusedAchievementId: achievementId[\s\S]*?kind: "achievement-list",[\s\S]*?parent: "provider-dashboard"/u);
 
   resetDeckyCompactNavigationForTests();
   const list = {

@@ -1,5 +1,5 @@
 import { Focusable, GamepadButton, NavEntryPositionPreferences, useQuickAccessVisible, type GamepadEvent } from "@decky/ui";
-import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type RefCallback } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type RefCallback } from "react";
 import type { DashboardSnapshot, NormalizedMetric, RecentUnlock, RecentlyPlayedGame } from "@core/domain";
 import type { RetroAchievementsConnectionState } from "./providers/retroachievements/connection";
 import { getRetroAchievementsConnectionBanner } from "./providers/retroachievements/connection";
@@ -48,12 +48,19 @@ import {
 import { getRetroAchievementsCompletionIndicatorState } from "./decky-retroachievements-completion-indicator";
 import { getRetroAchievementsModeUnlockedCount } from "./decky-retroachievements-mode-progress";
 import { DeckyGameStatusIcon } from "./decky-game-status-icon";
-import { getRetroAchievementsRecentActivityLabel } from "./decky-retroachievements-recent-activity";
 import { findDeckyScrollableAncestor } from "./decky-scroll-viewport";
 import { requestDeckySteamGamepadFocusAfterMount, takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
 import { useDeckyVisualFocusState } from "./decky-visual-focus-state";
 import { getLocalActivityCalendarDayTimestamp } from "./decky-activity-calendar-model";
+import { DeckyCompactUpNextCard } from "./decky-compact-up-next-card";
+import { loadDeckyGameDetailState } from "./decky-app-services";
+import { loadDeckyCompactGameState, readDeckyCompactGameState } from "./decky-compact-session-resources";
+import {
+  findRetroAchievementsActiveGame,
+  getRetroAchievementsActiveGameId,
+  prependRetroAchievementsActiveGame,
+} from "./decky-retroachievements-current-game";
 import chevronRightIconUrl from "./assets/chevron-right.svg";
 import masteredIconUrl from "./assets/mastered.svg";
 import pieChartIconUrl from "./assets/pie-chart.svg";
@@ -62,6 +69,7 @@ import { RA_COIN_ICON_URL } from "./decky-retroachievements-points-icon";
 
 export interface DeckyRetroAchievementsCompactProfileProps {
   readonly snapshot: DashboardSnapshot;
+  readonly upNextCandidateGames?: readonly RecentlyPlayedGame[];
   readonly activityCalendarUnlocks?: readonly RecentUnlock[];
   readonly refreshedAt: number | undefined;
   readonly connectionState?: RetroAchievementsConnectionState;
@@ -70,7 +78,7 @@ export interface DeckyRetroAchievementsCompactProfileProps {
   readonly onOpenCompletionProgress: () => void;
   readonly onOpenAchievementDetail: (target: CompactAchievementTarget) => void;
   readonly onOpenGameDetail: (game: RecentlyPlayedGame) => void;
-  readonly onOpenGameAchievements: (game: RecentlyPlayedGame) => void;
+  readonly onOpenGameAchievements: (game: RecentlyPlayedGame, achievementId?: string) => void;
   readonly onUpdateCredentials?: () => void;
   readonly onCancel: () => void;
 }
@@ -105,13 +113,6 @@ function formatSummary(summary: RecentlyPlayedGame["summary"] | undefined): stri
     : `${summary.unlockedCount.toLocaleString()} unlocked`;
   const percent = getCompletionPercent(summary);
   return percent === undefined ? progress : `${progress} · ${percent}%`;
-}
-
-function formatAchievementCounts(summary: RecentlyPlayedGame["summary"] | undefined): string | undefined {
-  if (summary === undefined) return undefined;
-  return summary.totalCount !== undefined
-    ? `${summary.unlockedCount.toLocaleString()} / ${summary.totalCount.toLocaleString()} achievements`
-    : `${summary.unlockedCount.toLocaleString()} achievements`;
 }
 
 function CompactAction({
@@ -533,52 +534,6 @@ function ActivityCalendar({
   );
 }
 
-function CurrentGameActivity({
-  game,
-  richPresence,
-  richPresenceMsgDate,
-  mode,
-  onOpenGameAchievements,
-  onCancel,
-  targetProps,
-}: {
-  readonly game: RecentlyPlayedGame | undefined;
-  readonly richPresence: string | undefined;
-  readonly richPresenceMsgDate: number | undefined;
-  readonly mode: Parameters<typeof getRetroAchievementsPlayedGameProgress>[1];
-  readonly onOpenGameAchievements: (game: RecentlyPlayedGame) => void;
-  readonly onCancel: () => void;
-  readonly targetProps: CompactFocusTargetProps;
-}): JSX.Element | null {
-  if (game === undefined) return null;
-  const activity = getRetroAchievementsRecentActivityLabel(richPresenceMsgDate);
-  const inGame = activity === "In game";
-  const progress = getRetroAchievementsPlayedGameProgress(game, mode);
-  const progressText = formatAchievementCounts(progress);
-  const percent = progress === undefined ? undefined : getCompletionPercent(progress);
-  return (
-    <div style={raRecipes.compactProfile.gameActivityCard}>
-      <div style={raRecipes.compactProfile.gameActivityStatus(inGame)}>
-        {inGame ? <span aria-hidden="true" style={{ width: 8, height: 8, flex: "0 0 8px", borderRadius: "50%", background: raTheme.color.success }} /> : null}
-        <span>{activity}:</span>
-      </div>
-      <div style={raRecipes.compactProfile.gameActivityIdentityRow}>
-        <DeckyRetroAchievementsGameIcon game={game} src={game.coverImageUrl ?? game.systemIconUrl} size={40} />
-        <div style={raRecipes.compactProfile.gameActivityIdentity}>
-          <div style={raRecipes.compactProfile.gameActivityTitle}>{game.title}</div>
-          {game.platformLabel !== undefined ? <div style={raRecipes.compactProfile.gameActivityMeta}>{game.platformLabel}</div> : null}
-        </div>
-      </div>
-      {richPresence !== undefined ? <div style={raRecipes.compactProfile.gameActivityPresence}>{richPresence}</div> : null}
-      {progressText !== undefined ? <div style={raRecipes.compactProfile.gameActivityMeta}>{progressText}</div> : null}
-      {percent !== undefined ? <DeckyCompletionProgressBar compact percent={percent} caption={`${percent}% complete`} /> : null}
-      <CompactAction label={`View achievements for ${game.title}`} primary onActivate={() => onOpenGameAchievements(game)} onCancel={onCancel} targetProps={targetProps} style={{ minHeight: 42, padding: "10px 12px" }}>
-        <span style={{ flex: "1 1 auto", fontSize: 12, fontWeight: 800, textAlign: "center" }}>View achievements</span>
-      </CompactAction>
-    </div>
-  );
-}
-
 function RecentAchievementRow({
   unlock,
   gameMetrics,
@@ -669,6 +624,7 @@ function getMetricNumber(profile: DashboardSnapshot["profile"], key: string): nu
 
 export function DeckyRetroAchievementsCompactProfile({
   snapshot,
+  upNextCandidateGames,
   activityCalendarUnlocks,
   refreshedAt,
   connectionState,
@@ -682,7 +638,48 @@ export function DeckyRetroAchievementsCompactProfile({
   onCancel,
 }: DeckyRetroAchievementsCompactProfileProps): JSX.Element {
   const profile = snapshot.profile;
-  const richPresence = profile.metrics.find((metric) => metric.key === "rich-presence" || metric.label === "Rich Presence")?.value.trim() || undefined;
+  const upNextGames = upNextCandidateGames ?? snapshot.recentlyPlayedGames;
+  const activeGameId = getRetroAchievementsActiveGameId(profile);
+  const knownActiveGame = useMemo(() => findRetroAchievementsActiveGame(
+    activeGameId,
+    upNextGames,
+    snapshot.recentlyPlayedGames,
+    snapshot.featuredGames,
+    profile.featuredGames,
+  ), [activeGameId, profile.featuredGames, snapshot.featuredGames, snapshot.recentlyPlayedGames, upNextGames]);
+  const [lookedUpActiveGame, setLookedUpActiveGame] = useState<RecentlyPlayedGame | undefined>();
+  useEffect(() => {
+    if (activeGameId === undefined || knownActiveGame !== undefined) {
+      setLookedUpActiveGame(undefined);
+      return;
+    }
+
+    let active = true;
+    const accept = (game: RecentlyPlayedGame | undefined): void => {
+      if (active && game?.gameId === activeGameId) {
+        setLookedUpActiveGame(game);
+      }
+    };
+    const cached = readDeckyCompactGameState(RETROACHIEVEMENTS_PROVIDER_ID, activeGameId);
+    if (cached?.data?.game.gameId === activeGameId) {
+      accept(cached.data.game);
+      return () => { active = false; };
+    }
+
+    setLookedUpActiveGame(undefined);
+    void loadDeckyCompactGameState(
+      RETROACHIEVEMENTS_PROVIDER_ID,
+      activeGameId,
+      () => loadDeckyGameDetailState(RETROACHIEVEMENTS_PROVIDER_ID, activeGameId, { forceRefresh: false }),
+    ).then((state) => accept(state.data?.game)).catch(() => undefined);
+    return () => { active = false; };
+  }, [activeGameId, knownActiveGame]);
+  const activeGame = knownActiveGame
+    ?? (lookedUpActiveGame?.gameId === activeGameId ? lookedUpActiveGame : undefined);
+  const displayedUpNextGames = useMemo(
+    () => prependRetroAchievementsActiveGame(upNextGames, activeGame),
+    [activeGame, upNextGames],
+  );
   const settings = useDeckySettings();
   const providerConfig = useDeckyProviderConfig(RETROACHIEVEMENTS_PROVIDER_ID);
   const recentAchievementsCount = providerConfig?.recentAchievementsCount ?? settings.recentAchievementsCount;
@@ -757,8 +754,13 @@ export function DeckyRetroAchievementsCompactProfile({
     const key = getDeckyRetroAchievementsCompactFocusTargetKey(target);
     return {
       elementRef: (node) => {
-        if (node === null) focusTargetsRef.current.delete(key);
-        else focusTargetsRef.current.set(key, node);
+        if (node !== null) {
+          const previousNode = focusTargetsRef.current.get(key);
+          focusTargetsRef.current.set(key, node);
+          if (previousNode !== node && isQuickAccessVisible && key === restorationKey) {
+            requestDeckySteamGamepadFocusAfterMount(node, 12);
+          }
+        }
       },
       onActivated: (element) => {
         setDeckyRetroAchievementsCompactFocusTarget(
@@ -777,7 +779,7 @@ export function DeckyRetroAchievementsCompactProfile({
   };
   useLayoutEffect(() => {
     if (!isQuickAccessVisible) return;
-    return requestDeckySteamGamepadFocusAfterMount(focusTargetsRef.current.get(restorationKey));
+    return requestDeckySteamGamepadFocusAfterMount(focusTargetsRef.current.get(restorationKey), 12);
   }, [isQuickAccessVisible, restorationKey]);
   useLayoutEffect(() => {
     if (!isQuickAccessVisible || handledRestorationRequest.current === restorationRequest) return;
@@ -785,10 +787,9 @@ export function DeckyRetroAchievementsCompactProfile({
     const latestRestorationKey = getDeckyRetroAchievementsCompactFocusTargetKey(
       readDeckyRetroAchievementsCompactFocusTarget(),
     );
-    return requestDeckySteamGamepadFocusAfterMount(
-      focusTargetsRef.current.get(latestRestorationKey)
-        ?? focusTargetsRef.current.get(restorationKey),
-    );
+    const target = focusTargetsRef.current.get(latestRestorationKey)
+      ?? focusTargetsRef.current.get(restorationKey);
+    return requestDeckySteamGamepadFocusAfterMount(target, 12);
   }, [isQuickAccessVisible, restorationRequest]);
   return (
     <Focusable
@@ -814,14 +815,15 @@ export function DeckyRetroAchievementsCompactProfile({
         </CompactAction>
       </Section>
 
-      <CurrentGameActivity
-        game={snapshot.recentlyPlayedGames[0]}
-        richPresence={richPresence}
-        richPresenceMsgDate={profile.richPresenceMsgDate}
-        mode={settings.retroAchievementsAchievementMode}
-        onOpenGameAchievements={onOpenGameAchievements}
+      <DeckyCompactUpNextCard
+        providerId={RETROACHIEVEMENTS_PROVIDER_ID}
+        games={displayedUpNextGames}
+        {...(activeGame !== undefined ? { activeGameId: activeGame.gameId } : {})}
+        achievementMode={settings.retroAchievementsAchievementMode}
+        onOpenAchievementDetail={onOpenAchievementDetail}
+        onOpenAchievements={onOpenGameAchievements}
         onCancel={onCancel}
-        targetProps={targetProps({ kind: "current-game" })}
+        getFocusTargetProps={(control, gameId) => targetProps({ kind: "up-next", control, gameId })}
       />
 
       <Section title="RetroAchievements Overview">

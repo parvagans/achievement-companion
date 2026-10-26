@@ -5,6 +5,7 @@ import type { GameOverviewSuggestion } from "./decky-game-overview-recommendatio
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DeckyFullscreenActionButton } from "./decky-full-screen-action-controls";
 import { registerDeckyFullscreenPopupCancel } from "./decky-full-screen-popup-state";
+import { beginDeckyCompactPopup } from "./decky-compact-popup-state";
 import { requestDeckySteamGamepadFocusAfterMount, takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { openDeckyStandardModal } from "./decky-standard-modal";
 import { DeckyCompletionProgressBar, type DeckyCompletionProgressBarTone } from "./decky-completion-progress-bar";
@@ -61,118 +62,209 @@ function findScrollableMenuAncestor(element: HTMLElement): HTMLElement | undefin
   return undefined;
 }
 
-/** Native menu and native return focus, shared by Actions, goals, and suggestions. */
-export function DeckyOverviewMenuButton({ label, items, compact = false }: {
-  readonly label: string; readonly items: readonly DeckyOverviewMenuItem[]; readonly compact?: boolean;
+function DeckyOverviewMenuPopup({ rootLabel, getItems, trigger, initialPath, initialFocusKey, frameState, onClose, onRestoreAfterClose, onUnmount }: {
+  readonly rootLabel: string;
+  readonly getItems: () => readonly DeckyOverviewMenuItem[];
+  readonly trigger: HTMLElement;
+  readonly initialPath: readonly string[];
+  readonly initialFocusKey?: string;
+  readonly frameState: Map<string, { readonly focusKey?: string; readonly scrollTop?: number }>;
+  readonly onClose: (restoreTrigger: boolean) => void;
+  readonly onRestoreAfterClose: (path: readonly string[], focusKey?: string) => void;
+  readonly onUnmount: () => void;
 }): JSX.Element {
-  const triggerRef = useRef<HTMLDivElement>(null);
-  const menuRef = useRef<ReturnType<typeof showContextMenu>>();
-  const unregisterRef = useRef<() => void>();
-  const itemsRef = useRef(items);
-  itemsRef.current = items;
-  const pathRef = useRef<readonly string[]>([]);
-  const frameStateRef = useRef(new Map<string, { readonly focusKey?: string; readonly scrollTop?: number }>());
-  const openFrameRef = useRef<(path: readonly string[], focusKey?: string) => void>(() => undefined);
-  const [focused, setFocused] = useState(false);
-  const hideMenu = (restoreFocus = false): void => {
-    menuRef.current?.Hide(); menuRef.current = undefined;
-    unregisterRef.current?.(); unregisterRef.current = undefined;
-    if (restoreFocus && triggerRef.current !== null) requestDeckySteamGamepadFocusAfterMount(triggerRef.current);
-  };
+  const initialFrame = resolveDeckyOverviewMenuFrame(rootLabel, getItems(), initialPath)
+    ?? resolveDeckyOverviewMenuFrame(rootLabel, getItems(), []);
+  const [path, setPath] = useState<readonly string[]>(initialFrame?.path ?? []);
+  const [revision, setRevision] = useState(0);
+  const pathRef = useRef(path);
+  const pendingFocusKeyRef = useRef(initialFocusKey);
+  const cancelInFlightRef = useRef(false);
+  const cancelRef = useRef<() => void>(() => undefined);
+  pathRef.current = path;
+  const frame = resolveDeckyOverviewMenuFrame(rootLabel, getItems(), path)
+    ?? resolveDeckyOverviewMenuFrame(rootLabel, getItems(), []);
 
   const captureFrameState = (): void => {
-    const trigger = triggerRef.current;
-    if (trigger === null) return;
     const markers = Array.from(trigger.ownerDocument.querySelectorAll<HTMLElement>("[data-ac-overview-menu-item]"));
     const marker = markers.find((candidate) => candidate.closest(".gpfocus") !== null);
     if (marker === undefined) return;
     const scrollable = findScrollableMenuAncestor(marker);
-    frameStateRef.current.set(frameKey(pathRef.current), {
+    frameState.set(frameKey(pathRef.current), {
       ...(marker.dataset["acOverviewMenuItem"] ? { focusKey: marker.dataset["acOverviewMenuItem"] } : {}),
       ...(scrollable !== undefined ? { scrollTop: scrollable.scrollTop } : {}),
     });
   };
 
-  const restoreFrame = (path: readonly string[], focusKey?: string): void => {
-    const trigger = triggerRef.current;
-    if (trigger === null) return;
-    scheduleInDocument(trigger, () => openFrameRef.current(path, focusKey));
+  const moveToFrame = (requestedPath: readonly string[], requestedFocusKey?: string): void => {
+    captureFrameState();
+    const nextFrame = resolveDeckyOverviewMenuFrame(rootLabel, getItems(), requestedPath)
+      ?? resolveDeckyOverviewMenuFrame(rootLabel, getItems(), []);
+    if (nextFrame === undefined) return;
+    const saved = frameState.get(frameKey(nextFrame.path));
+    pendingFocusKeyRef.current = requestedFocusKey ?? saved?.focusKey;
+    pathRef.current = nextFrame.path;
+    setPath(nextFrame.path);
+    setRevision((value) => value + 1);
   };
 
-  openFrameRef.current = (requestedPath, requestedFocusKey) => {
+  const navigationFor = (currentPath: readonly string[], currentFocusKey?: string): DeckyOverviewMenuNavigation => ({
+    restoreCurrent: (nextFocusKey) => moveToFrame(currentPath, nextFocusKey ?? currentFocusKey),
+    restoreParent: (nextFocusKey) => moveToFrame(
+      getDeckyOverviewMenuParentPath(currentPath) ?? [],
+      nextFocusKey ?? getDeckyOverviewMenuParentFocusKey(currentPath),
+    ),
+  });
+
+  const handleCancel = (): void => {
+    if (cancelInFlightRef.current) return;
+    cancelInFlightRef.current = true;
+    const parentPath = getDeckyOverviewMenuParentPath(pathRef.current);
+    if (parentPath === undefined) {
+      captureFrameState();
+      onClose(true);
+      return;
+    }
+    moveToFrame(parentPath, getDeckyOverviewMenuParentFocusKey(pathRef.current));
+    scheduleInDocument(trigger, () => { cancelInFlightRef.current = false; });
+  };
+  cancelRef.current = handleCancel;
+
+  useEffect(() => {
+    const unregister = registerDeckyFullscreenPopupCancel(() => cancelRef.current());
+    return () => {
+      unregister();
+      onUnmount();
+    };
+  }, []);
+  useEffect(() => {
+    const saved = frameState.get(frameKey(path));
+    const focusKey = pendingFocusKeyRef.current ?? saved?.focusKey;
+    pendingFocusKeyRef.current = undefined;
+    scheduleInDocument(trigger, () => {
+      const markers = Array.from(trigger.ownerDocument.querySelectorAll<HTMLElement>("[data-ac-overview-menu-item]"));
+      const marker = markers.find((candidate) => candidate.dataset["acOverviewMenuItem"] === focusKey);
+      const target = marker?.closest<HTMLElement>(".Focusable, [tabindex]") ?? marker?.parentElement;
+      if (target === undefined || target === null) return;
+      if (saved?.scrollTop !== undefined) {
+        const scrollable = findScrollableMenuAncestor(target);
+        if (scrollable !== undefined) scrollable.scrollTop = saved.scrollTop;
+      }
+      requestDeckySteamGamepadFocusAfterMount(target);
+    });
+  }, [frameState, path, revision, trigger]);
+
+  if (frame === undefined) return <Menu label={rootLabel} onCancel={handleCancel} />;
+  const focusKey = frameState.get(frameKey(frame.path))?.focusKey;
+  const navigation = navigationFor(frame.path, focusKey);
+  return <Menu label={frame.label} onCancel={handleCancel}>
+    {frame.items.map((item) => {
+      const keepsPopupOpen = item.items !== undefined || item.keepMenuOpenOnSelect === true;
+      const rememberItem = (): void => {
+        frameState.set(frameKey(frame.path), { ...frameState.get(frameKey(frame.path)), focusKey: item.key });
+      };
+      return <MenuItem key={item.key} selected={item.selected ?? false} bInteractableItem={keepsPopupOpen}
+      {...(item.tone !== undefined ? { tone: item.tone } : {})}
+      onSelected={rememberItem}
+      {...(item.items === undefined ? {} : { onMoveRight: () => { rememberItem(); moveToFrame([...frame.path, item.key]); } })}
+      onClick={() => {
+        rememberItem();
+        if (item.items !== undefined) {
+          moveToFrame([...frame.path, item.key]);
+          return;
+        }
+        if (item.keepMenuOpenOnSelect === true) {
+          item.onSelect?.(navigation);
+          scheduleInDocument(trigger, () => setRevision((value) => value + 1));
+          return;
+        }
+        captureFrameState();
+        onClose(false);
+        takeDeckySteamGamepadFocus(trigger);
+        item.onSelect?.({
+          restoreCurrent: (nextFocusKey) => onRestoreAfterClose(frame.path, nextFocusKey ?? focusKey),
+          restoreParent: (nextFocusKey) => onRestoreAfterClose(
+            getDeckyOverviewMenuParentPath(frame.path) ?? [],
+            nextFocusKey ?? getDeckyOverviewMenuParentFocusKey(frame.path),
+          ),
+        });
+      }}><span data-ac-overview-menu-item={item.key}>{item.label}{item.items !== undefined ? <span aria-hidden="true"> ›</span> : null}</span></MenuItem>;
+    })}
+  </Menu>;
+}
+
+/** Native menu and native return focus, shared by Actions, goals, and suggestions. */
+export function DeckyOverviewMenuButton({ label, displayLabel, items, compact = false, preserveCompactSession = false, preferredFocus = false, elementRef, onActivated, onFocused, onCancel, minHeight }: {
+  readonly label: string; readonly items: readonly DeckyOverviewMenuItem[]; readonly compact?: boolean;
+  readonly displayLabel?: ReactNode;
+  readonly preserveCompactSession?: boolean;
+  readonly preferredFocus?: boolean;
+  readonly elementRef?: (element: HTMLDivElement | null) => void;
+  readonly onActivated?: (element: HTMLElement) => void;
+  readonly onFocused?: (element: HTMLElement) => void;
+  readonly onCancel?: () => void;
+  readonly minHeight?: number;
+}): JSX.Element {
+  const triggerRef = useRef<HTMLDivElement | null>(null);
+  const menuRef = useRef<ReturnType<typeof showContextMenu>>();
+  const releaseCompactPopupRef = useRef<() => void>();
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  const frameStateRef = useRef(new Map<string, { readonly focusKey?: string; readonly scrollTop?: number }>());
+  const openMenuAtRef = useRef<(path: readonly string[], focusKey?: string) => void>(() => undefined);
+  const [focused, setFocused] = useState(false);
+  const handlePopupUnmount = (): void => {
+    menuRef.current = undefined;
+    releaseCompactPopupRef.current?.(); releaseCompactPopupRef.current = undefined;
+  };
+  const hideMenu = (restoreFocus = false): void => {
+    const menu = menuRef.current;
+    menuRef.current = undefined;
+    menu?.Hide();
+    releaseCompactPopupRef.current?.(); releaseCompactPopupRef.current = undefined;
+    if (restoreFocus && triggerRef.current !== null) requestDeckySteamGamepadFocusAfterMount(triggerRef.current);
+  };
+
+  const restoreMenu = (path: readonly string[], focusKey?: string): void => {
+    const trigger = triggerRef.current;
+    if (trigger === null || menuRef.current !== undefined) return;
+    if (preserveCompactSession && releaseCompactPopupRef.current === undefined) releaseCompactPopupRef.current = beginDeckyCompactPopup();
+    scheduleInDocument(trigger, () => openMenuAtRef.current(path, focusKey));
+  };
+
+  openMenuAtRef.current = (requestedPath, requestedFocusKey) => {
     const trigger = triggerRef.current;
     if (trigger === null || menuRef.current !== undefined) return;
     const frame = resolveDeckyOverviewMenuFrame(label, itemsRef.current, requestedPath)
       ?? resolveDeckyOverviewMenuFrame(label, itemsRef.current, []);
     if (frame === undefined) return;
-    pathRef.current = frame.path;
     const saved = frameStateRef.current.get(frameKey(frame.path));
     const focusKey = requestedFocusKey ?? saved?.focusKey;
-    const navigation: DeckyOverviewMenuNavigation = {
-      restoreCurrent: (nextFocusKey) => restoreFrame(frame.path, nextFocusKey ?? focusKey),
-      restoreParent: (nextFocusKey) => restoreFrame(getDeckyOverviewMenuParentPath(frame.path) ?? [], nextFocusKey ?? getDeckyOverviewMenuParentFocusKey(frame.path)),
-    };
-    let frameClosed = false;
-    const closeFrame = (restoreTrigger: boolean): boolean => {
-      if (frameClosed) return false;
-      frameClosed = true;
-      captureFrameState();
-      hideMenu(restoreTrigger);
-      return true;
-    };
     menuRef.current = showContextMenu(
-      <Menu label={frame.label} onCancel={() => {
-        const parentPath = getDeckyOverviewMenuParentPath(frame.path);
-        const parentFocusKey = getDeckyOverviewMenuParentFocusKey(frame.path);
-        if (closeFrame(parentPath === undefined) && parentPath !== undefined) restoreFrame(parentPath, parentFocusKey);
-      }}>
-        {frame.items.map((item) => <MenuItem key={item.key} selected={item.selected ?? false}
-          {...(item.tone !== undefined ? { tone: item.tone } : {})}
-          onSelected={() => frameStateRef.current.set(frameKey(frame.path), { ...frameStateRef.current.get(frameKey(frame.path)), focusKey: item.key })}
-          {...(item.items === undefined ? {} : { onMoveRight: () => {
-            closeFrame(false);
-            restoreFrame([...frame.path, item.key]);
-          } })}
-          onClick={() => {
-            closeFrame(false);
-            if (item.items !== undefined) {
-              restoreFrame([...frame.path, item.key]);
-              return;
-            }
-            takeDeckySteamGamepadFocus(trigger);
-            item.onSelect?.(navigation);
-          }}><span data-ac-overview-menu-item={item.key}>{item.label}{item.items !== undefined ? <span aria-hidden="true"> ›</span> : null}</span></MenuItem>)}
-      </Menu>, trigger, { bModal: true, bFitToWindow: true, bShiftToFitWindow: true },
+      <DeckyOverviewMenuPopup rootLabel={label} getItems={() => itemsRef.current} trigger={trigger}
+        initialPath={frame.path} {...(focusKey !== undefined ? { initialFocusKey: focusKey } : {})}
+        frameState={frameStateRef.current} onClose={hideMenu} onRestoreAfterClose={restoreMenu} onUnmount={handlePopupUnmount} />,
+      trigger, { bModal: true, bFitToWindow: true, bShiftToFitWindow: true },
     );
-    unregisterRef.current = registerDeckyFullscreenPopupCancel(() => {
-      const parentPath = getDeckyOverviewMenuParentPath(frame.path);
-      const parentFocusKey = getDeckyOverviewMenuParentFocusKey(frame.path);
-      if (closeFrame(parentPath === undefined) && parentPath !== undefined) restoreFrame(parentPath, parentFocusKey);
-    });
-    scheduleInDocument(trigger, () => {
-      const markers = Array.from(trigger.ownerDocument.querySelectorAll<HTMLElement>("[data-ac-overview-menu-item]"));
-      const marker = markers.find((candidate) => candidate.dataset["acOverviewMenuItem"] === focusKey);
-      const target = marker?.closest<HTMLElement>(".Focusable, [tabindex]") ?? marker?.parentElement;
-      if (target !== undefined && target !== null) {
-        if (saved?.scrollTop !== undefined) {
-          const scrollable = findScrollableMenuAncestor(target);
-          if (scrollable !== undefined) scrollable.scrollTop = saved.scrollTop;
-        }
-        requestDeckySteamGamepadFocusAfterMount(target);
-      }
-    });
   };
   const openMenu = (): void => {
     if (triggerRef.current === null || menuRef.current !== undefined) return;
-    openFrameRef.current([], frameStateRef.current.get("")?.focusKey);
+    onActivated?.(triggerRef.current);
+    if (preserveCompactSession) releaseCompactPopupRef.current = beginDeckyCompactPopup();
+    try {
+      openMenuAtRef.current([], frameStateRef.current.get("")?.focusKey);
+    } catch (error) {
+      releaseCompactPopupRef.current?.(); releaseCompactPopupRef.current = undefined;
+      throw error;
+    }
   };
-  useEffect(() => () => { menuRef.current?.Hide(); unregisterRef.current?.(); }, []);
-  return <Focusable ref={triggerRef} role="button" aria-label={label} noFocusRing onActivate={openMenu} onClick={openMenu}
-    onGamepadFocus={() => setFocused(true)} onGamepadBlur={() => setFocused(false)}
-    style={{ ...steamRecipes.action("fullscreen"), minHeight: compact ? 28 : 34, padding: "0 10px", flexShrink: 0,
+  useEffect(() => () => { menuRef.current?.Hide(); releaseCompactPopupRef.current?.(); }, []);
+  return <Focusable ref={(node) => { triggerRef.current = node; elementRef?.(node); }} role="button" aria-label={label} noFocusRing preferredFocus={preferredFocus} onActivate={openMenu} onClick={openMenu} {...(onCancel !== undefined ? { onCancel } : {})}
+    onGamepadFocus={() => { setFocused(true); if (triggerRef.current !== null) onFocused?.(triggerRef.current); }} onGamepadBlur={() => setFocused(false)}
+    style={{ ...steamRecipes.action("fullscreen"), minHeight: minHeight ?? (compact ? 28 : 34), padding: "0 10px", flexShrink: 0,
       fontSize: steamTheme.type.fullscreen[compact ? "metadata" : "body"], display: "flex", alignItems: "center", justifyContent: "center",
       ...(focused ? { background: steamTheme.surface.focusedContentStat, boxShadow: steamTheme.focus.shadow } : {}) }}>
-    {label} <span aria-hidden="true" style={{ marginLeft: 6 }}>▾</span>
+    {displayLabel ?? <>{label} <span aria-hidden="true" style={{ marginLeft: 6 }}>▾</span></>}
   </Focusable>;
 }
 

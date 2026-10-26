@@ -192,6 +192,16 @@ export function returnFromDeckyCompactDestination(
   }
 }
 
+export function shouldRequestDeckyCompactDashboardFocusRestore(
+  previous: DeckyCompactNavigationDestination,
+  current: DeckyCompactNavigationDestination,
+): boolean {
+  return previous.kind === "achievement-list"
+    && previous.parent === "provider-dashboard"
+    && current.kind === "provider-dashboard"
+    && previous.providerId === current.providerId;
+}
+
 export function useDeckyCompactNavigation(): DeckyCompactNavigationDestination {
   return useSyncExternalStore(
     (listener) => {

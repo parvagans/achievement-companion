@@ -268,6 +268,8 @@ interface RetroAchievementsProfileInput {
   readonly memberSince?: string;
   readonly RichPresenceMsg?: string;
   readonly richPresenceMsg?: string;
+  readonly RichPresenceMsgDate?: string;
+  readonly richPresenceMsgDate?: string;
   readonly LastGameID?: number | string;
   readonly lastGameId?: number | string;
   readonly TotalPoints?: number | string;
@@ -289,9 +291,19 @@ function normalizeProfileMetrics(
     totalPoints !== undefined && totalPoints > 0 && totalTruePoints !== undefined
       ? (totalTruePoints / totalPoints).toFixed(2)
       : undefined;
-  const lastGameId = pickIdentifier(raw.LastGameID, raw.lastGameId);
+  const lastGameId = pickIdentifier(
+    rawSummary?.LastGameID,
+    rawSummary?.lastGameId,
+    raw.LastGameID,
+    raw.lastGameId,
+  );
   const memberSince = pickString(raw.MemberSince, raw.memberSince);
-  const richPresenceMsg = pickString(raw.RichPresenceMsg, raw.richPresenceMsg);
+  const richPresenceMsg = pickString(
+    rawSummary?.RichPresenceMsg,
+    rawSummary?.richPresenceMsg,
+    raw.RichPresenceMsg,
+    raw.richPresenceMsg,
+  );
   const siteRank = pickNumber(rawSummary?.Rank, rawSummary?.rank);
   const casualRank = pickNumber(
     rawSummary?.CasualRank,
@@ -1128,9 +1140,20 @@ export function normalizeRetroAchievementsProfile(
     ...(avatarUrl !== undefined ? { avatarUrl } : {}),
   };
 
-  const richPresenceMsgDate = parseRetroAchievementsUtcDateMs(
+  const summaryRichPresenceMsgDate = parseRetroAchievementsUtcDateMs(
     pickString(rawSummary?.RichPresenceMsgDate, rawSummary?.richPresenceMsgDate),
   );
+  const profileRichPresenceMsgDate = parseRetroAchievementsUtcDateMs(
+    pickString(raw.RichPresenceMsgDate, raw.richPresenceMsgDate),
+  );
+  const richPresenceMsgDate = summaryRichPresenceMsgDate ?? profileRichPresenceMsgDate;
+  // The summary endpoint is the freshest source for both halves of the Rich
+  // Presence identity. Keep its timestamp and game ID paired; if the summary
+  // supplies a timestamp without an ID, do not borrow the older profile ID.
+  // Fall back to the profile pair only when the summary has no usable date.
+  const richPresenceGameId = summaryRichPresenceMsgDate !== undefined
+    ? pickIdentifier(rawSummary?.LastGameID, rawSummary?.lastGameId)
+    : pickIdentifier(raw.LastGameID, raw.lastGameId);
 
   return {
     providerId: RETROACHIEVEMENTS_PROVIDER_ID,
@@ -1143,6 +1166,7 @@ export function normalizeRetroAchievementsProfile(
       ? { softcoreUnlockedCount: achievementCounts.softcoreUnlockedCount }
       : {}),
     ...(gamesMasteredCount !== undefined ? { masteredCount: gamesMasteredCount } : {}),
+    ...(richPresenceGameId !== undefined ? { richPresenceGameId } : {}),
     ...(richPresenceMsgDate !== undefined ? { richPresenceMsgDate } : {}),
     ...(completionAwardCounts !== undefined
       ? {

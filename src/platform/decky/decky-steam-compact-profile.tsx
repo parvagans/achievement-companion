@@ -70,6 +70,8 @@ import masteredIconUrl from "./assets/mastered.svg";
 import rankPointsIconUrl from "./assets/rank-points.svg";
 import starIconUrl from "./assets/star.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
+import { DeckyCompactUpNextCard } from "./decky-compact-up-next-card";
+import type { CompactAchievementTarget } from "./decky-compact-achievement-model";
 
 export type { DeckySteamCompactActionTone } from "./decky-steam-compact-action-styles";
 type SteamCompactIconTone = "blue" | "gold" | "purple";
@@ -89,13 +91,15 @@ export interface DeckySteamCompactProfileProps {
   readonly activityKnownGames: readonly RecentlyPlayedGame[];
   readonly recentAchievements: readonly RecentUnlock[];
   readonly recentlyPlayedGames: readonly RecentlyPlayedGame[];
+  readonly upNextCandidateGames?: readonly RecentlyPlayedGame[];
   readonly refreshedAt: number | undefined;
   readonly activityCalendarWeeks?: SteamActivityCalendarWeeks;
   readonly onOpenProfile: () => void;
   readonly onOpenAchievementHistory: () => void;
   readonly onOpenCompletionProgress: () => void;
-  readonly onOpenAchievementDetail: (recentUnlock: RecentUnlock) => void;
+  readonly onOpenAchievementDetail: (target: CompactAchievementTarget) => void;
   readonly onOpenGameDetail: (game: RecentlyPlayedGame) => void;
+  readonly onOpenGameAchievements: (game: RecentlyPlayedGame, achievementId?: string) => void;
   readonly onCancel: () => void;
 }
 
@@ -1062,6 +1066,7 @@ export function DeckySteamCompactProfile({
   activityKnownGames,
   recentAchievements,
   recentlyPlayedGames,
+  upNextCandidateGames,
   refreshedAt,
   activityCalendarWeeks,
   onOpenProfile,
@@ -1069,6 +1074,7 @@ export function DeckySteamCompactProfile({
   onOpenCompletionProgress,
   onOpenAchievementDetail,
   onOpenGameDetail,
+  onOpenGameAchievements,
   onCancel,
 }: DeckySteamCompactProfileProps): JSX.Element {
   const settings = useDeckySettings();
@@ -1143,8 +1149,13 @@ export function DeckySteamCompactProfile({
     const key = getDeckySteamCompactFocusTargetKey(target);
     return {
       elementRef: (node) => {
-        if (node === null) focusTargetsRef.current.delete(key);
-        else focusTargetsRef.current.set(key, node);
+        if (node !== null) {
+          const previousNode = focusTargetsRef.current.get(key);
+          focusTargetsRef.current.set(key, node);
+          if (previousNode !== node && isQuickAccessVisible && key === restorationKey) {
+            requestDeckySteamGamepadFocusAfterMount(node, 12);
+          }
+        }
       },
       onActivated: (element) => {
         const scrollTop = findDeckyScrollableAncestor(element)?.scrollTop ?? 0;
@@ -1162,7 +1173,7 @@ export function DeckySteamCompactProfile({
     if (!isQuickAccessVisible) {
       return;
     }
-    return requestDeckySteamGamepadFocusAfterMount(focusTargetsRef.current.get(restorationKey));
+    return requestDeckySteamGamepadFocusAfterMount(focusTargetsRef.current.get(restorationKey), 12);
   }, [isQuickAccessVisible, restorationKey]);
 
   useLayoutEffect(() => {
@@ -1179,7 +1190,7 @@ export function DeckySteamCompactProfile({
     if (target === undefined) {
       return;
     }
-    return requestDeckySteamGamepadFocusAfterMount(target);
+    return requestDeckySteamGamepadFocusAfterMount(target, 12);
   }, [isQuickAccessVisible, restorationRequest]);
 
   useLayoutEffect(() => {
@@ -1218,6 +1229,16 @@ export function DeckySteamCompactProfile({
           <DeckyCompactPrimaryActionContent>Open Profile Full-Screen</DeckyCompactPrimaryActionContent>
         </DeckySteamCompactAction>
       </section>
+
+      <DeckyCompactUpNextCard
+        providerId="steam"
+        games={upNextCandidateGames ?? recentlyPlayedGames}
+        achievementMode={settings.retroAchievementsAchievementMode}
+        onOpenAchievementDetail={onOpenAchievementDetail}
+        onOpenAchievements={onOpenGameAchievements}
+        onCancel={onCancel}
+        getFocusTargetProps={(control, gameId) => targetProps({ kind: "up-next", control, gameId })}
+      />
 
       {showSteamHuntersProfile ? <section style={getSectionStyle()}>
         <SectionHeader title="SteamHunters Profile" />
@@ -1303,7 +1324,7 @@ export function DeckySteamCompactProfile({
                 key={`${recentUnlock.game.gameId}:${recentUnlock.achievement.achievementId}`}
                 recentUnlock={recentUnlock}
                 gameMetrics={activityGameMetricsById.get(recentUnlock.game.gameId)}
-                onActivate={() => onOpenAchievementDetail(recentUnlock)}
+                onActivate={() => onOpenAchievementDetail({ game: recentUnlock.game, achievement: recentUnlock.achievement })}
                 onCancel={onCancel}
                 {...targetProps({
                   kind: "achievement",

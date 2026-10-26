@@ -2,7 +2,7 @@ import type { RecentUnlock } from "@core/domain";
 
 export type DeckyRetroAchievementsCompactFocusTarget =
   | { readonly kind: "profile" }
-  | { readonly kind: "current-game" }
+  | { readonly kind: "up-next"; readonly control: "recommendation" | "achievements" | "options"; readonly gameId: string }
   | { readonly kind: "overview" }
   | { readonly kind: "beaten" }
   | { readonly kind: "calendar-entry" }
@@ -25,6 +25,7 @@ export function getDeckyRetroAchievementsCompactFocusTargetKey(
     case "calendar-day": return `calendar-day:${target.day}`;
     case "achievement": return `achievement:${JSON.stringify([target.gameId, target.achievementId, target.unlockMode ?? null, target.unlockedAt ?? null])}`;
     case "game": return `game:${target.gameId}`;
+    case "up-next": return `up-next:${target.control}:${target.gameId}`;
     default: return target.kind;
   }
 }

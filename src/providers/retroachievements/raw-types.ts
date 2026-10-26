@@ -87,6 +87,8 @@ export interface RawRetroAchievementsProfileResponse {
   readonly memberSince?: string;
   readonly RichPresenceMsg?: string;
   readonly richPresenceMsg?: string;
+  readonly RichPresenceMsgDate?: string;
+  readonly richPresenceMsgDate?: string;
   readonly LastGameID?: number | string;
   readonly lastGameId?: number | string;
   readonly ContribCount?: number | string;

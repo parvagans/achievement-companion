@@ -61,6 +61,7 @@ import { openDeckyAchievementDetailModal } from "./decky-achievement-detail-moda
 import {
   buildDeckyCompactAchievementModalGameDestination,
   setDeckyCompactNavigation,
+  shouldRequestDeckyCompactDashboardFocusRestore,
   useDeckyCompactNavigation,
   returnFromDeckyCompactDestination,
   type DeckyCompactAchievementDestination,
@@ -104,9 +105,11 @@ import {
   claimDeckyCompactRetroAchievementsDashboardRefresh,
   claimDeckyCompactSteamDashboardRefresh,
   clearDeckyCompactSessionResources,
-  loadDeckyCompactSteamDashboardState,
+  loadDeckyCompactDashboardState,
+  loadDeckyCompactGameState,
   loadDeckyCompactSteamGameState,
-  readDeckyCompactSteamDashboardState,
+  readDeckyCompactDashboardState,
+  readDeckyCompactGameState,
   readDeckyCompactSteamGameState,
 } from "./decky-compact-session-resources";
 import {
@@ -1027,7 +1030,7 @@ function DashboardScreen({
 }: {
   readonly providerId: ProviderId;
   readonly onOpenGameDetail: (providerId: ProviderId, gameId: string, gameTitle: string) => void;
-  readonly onOpenGameAchievements: (providerId: ProviderId, gameId: string, gameTitle: string) => void;
+  readonly onOpenGameAchievements: (providerId: ProviderId, gameId: string, gameTitle: string, achievementId?: string) => void;
   readonly onOpenAchievementDetail: (target: CompactAchievementTarget) => void;
   readonly onOpenProfile: (providerId: string) => void;
   readonly onOpenAchievementHistory: (providerId: string) => void;
@@ -1108,15 +1111,11 @@ function DashboardScreen({
       }
 
       const loader = () => loadDeckyDashboardStateForFullScreenEntry(providerId);
-      return providerId === STEAM_PROVIDER_ID
-        ? loadDeckyCompactSteamDashboardState(loader, forceRefresh)
-        : loader();
+      return loadDeckyCompactDashboardState(providerId, loader, forceRefresh);
     },
     [dashboardRefreshNonce, providerId],
   );
-  const initialDashboardState = providerId === STEAM_PROVIDER_ID
-    ? readDeckyCompactSteamDashboardState() ?? initialDeckyBootstrapState
-    : initialDeckyBootstrapState;
+  const initialDashboardState = readDeckyCompactDashboardState(providerId) ?? initialDeckyBootstrapState;
   const state = useAsyncResourceState(dashboardLoader, initialDashboardState);
   const activityCalendarLoader = useMemo(
     () => () => {
@@ -1219,7 +1218,7 @@ function DashboardScreen({
   }, [quickAccessVisible, requestDashboardReload, state]);
 
   useEffect(() => {
-    if (providerId === STEAM_PROVIDER_ID && readDeckyCompactSteamDashboardState() !== undefined) {
+    if (readDeckyCompactDashboardState(providerId) !== undefined) {
       lastDashboardReentryRefreshKey.current = undefined;
       return;
     }
@@ -1279,6 +1278,7 @@ function DashboardScreen({
   return isRenderableDashboardState(visibleState) && !isCompactProfileLoading ? (
     <DeckyDashboardView
       state={visibleState}
+      {...(state.data !== undefined ? { upNextCandidateGames: state.data.recentlyPlayedGames } : {})}
       {...(providerId === STEAM_PROVIDER_ID && state.data !== undefined
         ? {
             steamActivityKnownGames: [
@@ -1401,12 +1401,16 @@ function GameDetailScreen({
         game.gameId,
         () => resolveDeckyCompactAchievementResource(game.providerId, game.gameId),
       )
-      : loadGameDetailState(game.providerId, game.gameId),
+      : loadDeckyCompactGameState(
+        game.providerId,
+        game.gameId,
+        () => loadGameDetailState(game.providerId, game.gameId),
+      ),
     [game.gameId, game.providerId],
   );
   const initialGameDetailState = game.providerId === STEAM_PROVIDER_ID
     ? readDeckyCompactSteamGameState(game.gameId) ?? initialDeckyGameDetailState
-    : initialDeckyGameDetailState;
+    : readDeckyCompactGameState(game.providerId, game.gameId) ?? initialDeckyGameDetailState;
   const loader = useAsyncResourceState(loadSelectedGameDetail, initialGameDetailState);
   return (
     <TopAlignedScrollViewport
@@ -1468,12 +1472,16 @@ function CompactAchievementListScreen({
         destination.gameId,
         () => resolveDeckyCompactAchievementResource(destination.providerId, destination.gameId),
       )
-      : resolveDeckyCompactAchievementResource(destination.providerId, destination.gameId),
+      : loadDeckyCompactGameState(
+        destination.providerId,
+        destination.gameId,
+        () => resolveDeckyCompactAchievementResource(destination.providerId, destination.gameId),
+      ),
     [destination.gameId, destination.providerId],
   );
   const initialGameDetailState = destination.providerId === STEAM_PROVIDER_ID
     ? readDeckyCompactSteamGameState(destination.gameId) ?? initialDeckyGameDetailState
-    : initialDeckyGameDetailState;
+    : readDeckyCompactGameState(destination.providerId, destination.gameId) ?? initialDeckyGameDetailState;
   const loader = useAsyncResourceState(loadAchievementList, initialGameDetailState);
   const model = isRenderableGameDetailState(loader)
     ? buildCompactAchievementListModel(loader.data, achievementMode)
@@ -1570,12 +1578,16 @@ function CompactAchievementDetailScreen({
         destination.gameId,
         () => resolveDeckyCompactAchievementResource(destination.providerId, destination.gameId),
       )
-      : resolveDeckyCompactAchievementResource(destination.providerId, destination.gameId),
+      : loadDeckyCompactGameState(
+        destination.providerId,
+        destination.gameId,
+        () => resolveDeckyCompactAchievementResource(destination.providerId, destination.gameId),
+      ),
     [destination.gameId, destination.providerId],
   );
   const initialGameDetailState = destination.providerId === STEAM_PROVIDER_ID
     ? readDeckyCompactSteamGameState(destination.gameId) ?? initialDeckyGameDetailState
-    : initialDeckyGameDetailState;
+    : readDeckyCompactGameState(destination.providerId, destination.gameId) ?? initialDeckyGameDetailState;
   const loader = useAsyncResourceState(loadAchievementGameDetail, initialGameDetailState);
   const model = isRenderableGameDetailState(loader)
     ? buildCompactAchievementDetailModel(loader.data, destination.achievementId, achievementMode)
@@ -1624,9 +1636,17 @@ function DeckyBootstrapStateBridge(): JSX.Element {
   const providerConfigs = useDeckyProviderConfigs();
   const settings = useDeckySettings();
   const compactNavigation = useDeckyCompactNavigation();
+  const previousCompactNavigation = useRef(compactNavigation);
   const [providerChooserFocusRequest, setProviderChooserFocusRequest] = useState(
     () => shouldRequestDeckyProviderInitialFocus(compactNavigation) ? 1 : 0,
   );
+  useLayoutEffect(() => {
+    const previous = previousCompactNavigation.current;
+    previousCompactNavigation.current = compactNavigation;
+    if (shouldRequestDeckyCompactDashboardFocusRestore(previous, compactNavigation)) {
+      requestDeckyCompactFocusRestore();
+    }
+  }, [compactNavigation]);
   const returnFromCompactDestination = useCallback(() => {
     returnFromDeckyCompactDestination(compactNavigation);
   }, [compactNavigation]);
@@ -2132,10 +2152,10 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                     gameTitle,
                   });
                 }}
-                onOpenGameAchievements={(providerId, gameId, gameTitle) => {
+                onOpenGameAchievements={(providerId, gameId, gameTitle, achievementId) => {
                   writeDeckyCompactAchievementPageState(providerId, gameId, {
-                    filter: "all", modeFilter: "all", visibleCount: 12,
-                    focusedAchievementId: undefined, scrollTop: 0,
+                    filter: "all", modeFilter: "all", visibleCount: Number.MAX_SAFE_INTEGER,
+                    focusedAchievementId: achievementId, scrollTop: 0,
                   });
                   setDeckyCompactNavigation({
                     kind: "achievement-list",

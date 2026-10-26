@@ -3309,11 +3309,11 @@ test("provider setup, credential fields, and current compact profile routes stay
   assert.match(steamCompactProfileSource, /ariaLabel="View all recent Steam achievements"[\s\S]*onOpenAchievementHistory/u);
   assert.match(steamCompactProfileSource, /<SectionHeader title="Recently Played" \/>[\s\S]*<RecentlyPlayedItem/u);
   assert.match(steamCompactProfileSource, /ariaLabel="View all Steam games"[\s\S]*onOpenCompletionProgress/u);
-  assert.match(steamCompactProfileSource, /onActivate=\{\(\) => onOpenAchievementDetail\(recentUnlock\)\}/u);
+  assert.match(steamCompactProfileSource, /onActivate=\{\(\) => onOpenAchievementDetail\(\{ game: recentUnlock\.game, achievement: recentUnlock\.achievement \}\)\}/u);
   assert.match(steamCompactProfileSource, /onActivate=\{\(\) => onOpenGameDetail\(game\)\}/u);
   assert.match(raCompactProfileSource, /export function DeckyRetroAchievementsCompactProfile/u);
   assert.match(raCompactProfileSource, /<CompactAction label="Open Profile Full-Screen"[\s\S]*onActivate=\{onOpenProfile\}/u);
-  assert.match(raCompactProfileSource, /<CurrentGameActivity[\s\S]*<Section title="RetroAchievements Overview">/u);
+  assert.match(raCompactProfileSource, /<DeckyCompactUpNextCard[\s\S]*<Section title="RetroAchievements Overview">/u);
   assert.match(raCompactProfileSource, /<Section title="Activity Calendar">[\s\S]*entryTargetProps=\{targetProps\(\{ kind: "calendar-entry" \}\)\}[\s\S]*targetProps=\{\(day\) => targetProps\(\{ kind: "calendar-day", day \}\)\}/u);
   assert.match(raCompactProfileSource, /<Section title="Recent Activity">[\s\S]*<RecentAchievementRow[\s\S]*onOpenAchievementHistory/u);
   assert.match(raCompactProfileSource, /<Section title="Recently Played">[\s\S]*<RecentlyPlayedRow[\s\S]*onOpenCompletionProgress/u);
@@ -4153,6 +4153,54 @@ test("RetroAchievements profile summary is optional and bounded by a configurabl
     throw new Error("optional summary unavailable");
   }, 20), undefined);
   assert.equal(await loadOptionalRetroAchievementsProfileSummary(() => new Promise(() => undefined), 2), undefined);
+});
+
+test("RetroAchievements summary owns the Rich Presence game identity when profile data disagrees", () => {
+  const profile = normalizeRetroAchievementsProfile(
+    {
+      User: "Retro User",
+      LastGameID: 111,
+      RichPresenceMsg: "Old profile activity",
+    },
+    { unlockedCount: 0 },
+    { username: "retro-user", apiKey: "secret" },
+    [],
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    {
+      LastGameID: 222,
+      RichPresenceMsg: "Latest summary activity",
+      RichPresenceMsgDate: "2026-10-26 08:30:00",
+    },
+  );
+
+  assert.equal(profile.richPresenceGameId, "222");
+  assert.equal(profile.richPresenceMsgDate, Date.UTC(2026, 9, 26, 8, 30, 0));
+  assert.equal(profile.metrics.find(({ key }) => key === "last-game-id")?.value, "222");
+  assert.equal(profile.metrics.find(({ key }) => key === "rich-presence")?.value, "Latest summary activity");
+
+  const fallback = normalizeRetroAchievementsProfile(
+    { User: "Retro User", LastGameID: 111, RichPresenceMsgDate: "2026-10-26 08:20:00" },
+    { unlockedCount: 0 },
+    { username: "retro-user", apiKey: "secret" },
+  );
+  assert.equal(fallback.richPresenceGameId, "111");
+  assert.equal(fallback.richPresenceMsgDate, Date.UTC(2026, 9, 26, 8, 20, 0));
+
+  const unpairedSummary = normalizeRetroAchievementsProfile(
+    { User: "Retro User", LastGameID: 111 },
+    { unlockedCount: 0 },
+    { username: "retro-user", apiKey: "secret" },
+    [],
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    { RichPresenceMsgDate: "2026-10-26 08:30:00" },
+  );
+  assert.equal(unpairedSummary.richPresenceGameId, undefined);
 });
 
 test("RetroAchievements profile aggregates require complete denominators and mode counts", () => {

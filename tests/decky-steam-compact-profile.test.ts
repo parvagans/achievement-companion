@@ -111,7 +111,9 @@ test("Steam compact profile matches the refined controller-first information hie
     /<CompactAction label="Open Profile Full-Screen" primary preferredFocus/u,
   );
   assert.match(compactProfileSource, /!isQuickAccessVisible[\s\S]*handledRestorationRequest\.current === restorationRequest/u);
-  assert.match(compactProfileSource, /requestDeckySteamGamepadFocusAfterMount\(target\)/u);
+  assert.match(compactProfileSource, /previousNode !== node && isQuickAccessVisible && key === restorationKey/u);
+  assert.match(compactProfileSource, /requestDeckySteamGamepadFocusAfterMount\(node, 12\)/u);
+  assert.match(compactProfileSource, /requestDeckySteamGamepadFocusAfterMount\(target, 12\)/u);
   assert.ok(compactProfileSource.includes("<DeckyGameArtwork compact src={artworkUrl} size={34} title={game.title} />"));
   assert.ok(compactProfileSource.includes('showSteamHuntersProfile ? "Steam and SteamHunters" : "Steam"'));
   assert.match(compactProfileSource, /visibleAchievements\.map/u);

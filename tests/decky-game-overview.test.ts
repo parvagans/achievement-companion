@@ -262,7 +262,11 @@ test("Overview focus groups, popup guard, and modal callbacks retain native navi
   const modal = readFileSync("src/platform/decky/decky-standard-modal.tsx", "utf8");
   assert.match(shared, /flow-children="left-right"[\s\S]*label="Game Info"[\s\S]*label="Community"/u);
   assert.match(steam, /flow-children="left-right"[\s\S]*label="Play Game"[\s\S]*label="Actions"/u);
-  assert.match(shared, /let frameClosed = false;[\s\S]*if \(frameClosed\) return false;/u);
+  assert.match(shared, /function DeckyOverviewMenuPopup/u);
+  assert.match(shared, /bInteractableItem=\{keepsPopupOpen\}/u);
+  assert.match(shared, /onUnmount\(\);[\s\S]*menuRef\.current = undefined;/u);
+  assert.match(shared, /keepMenuOpenOnSelect === true[\s\S]*setRevision/u);
+  assert.doesNotMatch(shared, /closeFrame\(false, true\)[\s\S]*restoreFrame/u);
   assert.match(shared, /registerDeckyFullscreenPopupCancel/u);
   assert.match(modal, /closeModal=\{closeModal\}[\s\S]*onOK=\{closeModal\}[\s\S]*onCancel=\{closeModal\}/u);
   assert.match(modal, /bNeverPopOut: true/u);

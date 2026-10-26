@@ -59,6 +59,7 @@ import {
   RetroAchievementsCompletionIndicator,
 } from "./decky-retroachievements-completion-indicator";
 import { getRetroAchievementsRecentActivityLabel } from "./decky-retroachievements-recent-activity";
+import { findRetroAchievementsActiveGame, getRetroAchievementsActiveGameId } from "./decky-retroachievements-current-game";
 import { DeckyRetroAchievementsPointsIcon } from "./decky-retroachievements-points-icon";
 import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 
@@ -69,6 +70,7 @@ export interface DeckyDashboardViewProps {
   readonly steamLibraryAchievementScanSummary?: SteamLibraryAchievementScanOverview;
   readonly steamActivityEntries?: readonly RecentUnlock[];
   readonly steamActivityKnownGames?: readonly RecentlyPlayedGame[];
+  readonly upNextCandidateGames?: readonly RecentlyPlayedGame[];
   readonly steamLibraryScanAction?:
     | {
         readonly label: string;
@@ -78,7 +80,7 @@ export interface DeckyDashboardViewProps {
       }
     | undefined;
   readonly onOpenGameDetail: (providerId: string, gameId: string, gameTitle: string) => void;
-  readonly onOpenGameAchievements: (providerId: string, gameId: string, gameTitle: string) => void;
+  readonly onOpenGameAchievements: (providerId: string, gameId: string, gameTitle: string, achievementId?: string) => void;
   readonly onOpenAchievementDetail: (target: CompactAchievementTarget) => void;
   readonly onOpenProfile: (providerId: string) => void;
   readonly onOpenAchievementHistory: (providerId: string) => void;
@@ -1380,6 +1382,7 @@ export function DeckyDashboardView({
   steamLibraryAchievementScanSummary,
   steamActivityEntries,
   steamActivityKnownGames,
+  upNextCandidateGames,
   steamLibraryScanAction,
   onOpenGameDetail,
   onOpenGameAchievements,
@@ -1460,8 +1463,9 @@ export function DeckyDashboardView({
     profile.providerId === "steam" && steamLibraryAchievementScanSummary !== undefined
       ? steamLibraryAchievementScanSummary.completionPercent
       : profile.summary.completionPercent;
-  const recentActivityGame =
-    profile.providerId === RETROACHIEVEMENTS_PROVIDER_ID ? recentlyPlayedGames[0] : undefined;
+  const recentActivityGame = profile.providerId === RETROACHIEVEMENTS_PROVIDER_ID
+    ? findRetroAchievementsActiveGame(getRetroAchievementsActiveGameId(profile), recentlyPlayedGames)
+    : undefined;
 
   if (profile.providerId === STEAM_PROVIDER_ID && steamAccountProgress !== undefined) {
     if (isShowingSteamCompactSettings) {
@@ -1489,18 +1493,17 @@ export function DeckyDashboardView({
           activityKnownGames={steamActivityKnownGames ?? recentlyPlayedGames}
           recentAchievements={recentAchievements}
           recentlyPlayedGames={recentlyPlayedGames}
+          {...(upNextCandidateGames !== undefined ? { upNextCandidateGames } : {})}
           refreshedAt={refreshedAt}
           onOpenProfile={() => onOpenProfile(profile.providerId)}
           onOpenAchievementHistory={() => onOpenAchievementHistory(profile.providerId)}
           onOpenCompletionProgress={() => onOpenCompletionProgress(profile.providerId)}
-          onOpenAchievementDetail={(recentUnlock) => {
-            onOpenAchievementDetail({
-              game: recentUnlock.game,
-              achievement: recentUnlock.achievement,
-            });
-          }}
+          onOpenAchievementDetail={onOpenAchievementDetail}
           onOpenGameDetail={(game) => {
             onOpenGameDetail(game.providerId, game.gameId, game.title);
+          }}
+          onOpenGameAchievements={(game, achievementId) => {
+            onOpenGameAchievements(game.providerId, game.gameId, game.title, achievementId);
           }}
           onCancel={onBackToProviders}
         />
@@ -1521,6 +1524,7 @@ export function DeckyDashboardView({
     return (
       <DeckyRetroAchievementsCompactProfile
         snapshot={snapshot}
+        {...(upNextCandidateGames !== undefined ? { upNextCandidateGames } : {})}
         {...(retroAchievementsActivityCalendarUnlocks !== undefined ? { activityCalendarUnlocks: retroAchievementsActivityCalendarUnlocks } : {})}
         refreshedAt={refreshedAt}
         {...(retroAchievementsConnectionState !== undefined ? { connectionState: retroAchievementsConnectionState } : {})}
@@ -1529,7 +1533,7 @@ export function DeckyDashboardView({
         onOpenCompletionProgress={() => onOpenCompletionProgress(profile.providerId)}
         onOpenAchievementDetail={onOpenAchievementDetail}
         onOpenGameDetail={(game) => onOpenGameDetail(game.providerId, game.gameId, game.title)}
-        onOpenGameAchievements={(game) => onOpenGameAchievements(game.providerId, game.gameId, game.title)}
+        onOpenGameAchievements={(game, achievementId) => onOpenGameAchievements(game.providerId, game.gameId, game.title, achievementId)}
         {...(onUpdateRetroAchievementsCredentials !== undefined ? { onUpdateCredentials: onUpdateRetroAchievementsCredentials } : {})}
         onCancel={onBackToProviders}
       />

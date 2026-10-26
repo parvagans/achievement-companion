@@ -7,8 +7,8 @@ interface CachedState<T> {
   readonly state?: ResourceState<T>;
 }
 
-const steamGameStateById = new Map<string, CachedState<GameDetailSnapshot>>();
-const steamDashboardStateByProvider = new Map<ProviderId, CachedState<DashboardSnapshot>>();
+const gameStateByProviderAndId = new Map<string, CachedState<GameDetailSnapshot>>();
+const dashboardStateByProvider = new Map<ProviderId, CachedState<DashboardSnapshot>>();
 const steamActivityStateByProvider = new Map<ProviderId, CachedState<AchievementHistorySnapshot>>();
 const steamHuntersProfileStateById = new Map<string, CachedState<SteamHuntersProfile>>();
 let sessionGeneration = 0;
@@ -59,25 +59,68 @@ function readState<T>(cache: Map<string, CachedState<T>>, key: string): Resource
 }
 
 export function readDeckyCompactSteamGameState(gameId: string): ResourceState<GameDetailSnapshot> | undefined {
-  return readState(steamGameStateById, gameId);
+  return readDeckyCompactGameState("steam", gameId);
 }
 
 export function loadDeckyCompactSteamGameState(
   gameId: string,
   loader: () => Promise<ResourceState<GameDetailSnapshot>>,
 ): Promise<ResourceState<GameDetailSnapshot>> {
-  return loadOnce(steamGameStateById, gameId, loader);
+  return loadDeckyCompactGameState("steam", gameId, loader);
+}
+
+function compactGameKey(providerId: ProviderId, gameId: string): string {
+  return JSON.stringify([providerId, gameId]);
+}
+
+export function readDeckyCompactGameState(
+  providerId: ProviderId,
+  gameId: string,
+): ResourceState<GameDetailSnapshot> | undefined {
+  return readState(gameStateByProviderAndId, compactGameKey(providerId, gameId));
+}
+
+export function loadDeckyCompactGameState(
+  providerId: ProviderId,
+  gameId: string,
+  loader: () => Promise<ResourceState<GameDetailSnapshot>>,
+): Promise<ResourceState<GameDetailSnapshot>> {
+  return loadOnce(gameStateByProviderAndId, compactGameKey(providerId, gameId), loader);
+}
+
+export function writeDeckyCompactGameState(
+  providerId: ProviderId,
+  gameId: string,
+  state: ResourceState<GameDetailSnapshot>,
+): void {
+  if (isTerminal(state)) {
+    gameStateByProviderAndId.set(compactGameKey(providerId, gameId), { state });
+  }
 }
 
 export function readDeckyCompactSteamDashboardState(): ResourceState<DashboardSnapshot> | undefined {
-  return readState(steamDashboardStateByProvider, "steam");
+  return readDeckyCompactDashboardState("steam");
 }
 
 export function loadDeckyCompactSteamDashboardState(
   loader: () => Promise<ResourceState<DashboardSnapshot>>,
   forceRefresh = false,
 ): Promise<ResourceState<DashboardSnapshot>> {
-  return loadOnce(steamDashboardStateByProvider, "steam", loader, forceRefresh);
+  return loadDeckyCompactDashboardState("steam", loader, forceRefresh);
+}
+
+export function readDeckyCompactDashboardState(
+  providerId: ProviderId,
+): ResourceState<DashboardSnapshot> | undefined {
+  return readState(dashboardStateByProvider, providerId);
+}
+
+export function loadDeckyCompactDashboardState(
+  providerId: ProviderId,
+  loader: () => Promise<ResourceState<DashboardSnapshot>>,
+  forceRefresh = false,
+): Promise<ResourceState<DashboardSnapshot>> {
+  return loadOnce(dashboardStateByProvider, providerId, loader, forceRefresh);
 }
 
 export function claimDeckyCompactSteamDashboardRefresh(): boolean {
@@ -124,8 +167,8 @@ export function clearDeckyCompactSessionResources(): void {
   sessionGeneration += 1;
   steamDashboardRefreshClaimed = false;
   retroAchievementsDashboardRefreshClaimed = false;
-  steamGameStateById.clear();
-  steamDashboardStateByProvider.clear();
+  gameStateByProviderAndId.clear();
+  dashboardStateByProvider.clear();
   steamActivityStateByProvider.clear();
   steamHuntersProfileStateById.clear();
 }

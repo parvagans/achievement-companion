@@ -12,5 +12,7 @@ test("Steam focus handoff activates the owning native GamepadUI context and tree
   assert.match(source, /owningTree\.Activate\?\.\(true\)/u);
   assert.match(source, /node\.BTakeFocus\?\.\(\) === true/u);
   assert.doesNotMatch(source, /\.focus\(|\.click\(|setTimeout/u);
-  assert.match(source, /attempts < 3/u);
+  assert.match(source, /maxAttempts = 3/u);
+  assert.match(source, /attempts < maxAttempts/u);
+  assert.match(source, /cancelled \|\| !target\.isConnected/u);
 });

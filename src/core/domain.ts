@@ -86,6 +86,8 @@ export interface NormalizedProfile {
   readonly motto?: string;
   readonly featuredGames?: readonly NormalizedGame[];
   readonly refreshedAt?: UnixEpochMs;
+  /** Game identity associated with the provider's latest Rich Presence update. */
+  readonly richPresenceGameId?: string;
   readonly richPresenceMsgDate?: UnixEpochMs;
 }
 

@@ -166,17 +166,23 @@ test("RA compact completion label describes achievements, not library ownership"
   assert.doesNotMatch(source, /Library Completion/u);
 });
 
-test("RA QAM current game shows provider artwork and fitting rich presence", async () => {
-  const [profileSource, themeSource] = await Promise.all([
+test("RA QAM current game uses explicit fresh game identity without presenting Rich Presence", async () => {
+  const [profileSource, cardSource] = await Promise.all([
     readFile(new URL("../src/platform/decky/decky-retroachievements-compact-profile.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../src/platform/decky/ra-theme.ts", import.meta.url), "utf8"),
+    readFile(new URL("../src/platform/decky/decky-compact-up-next-card.tsx", import.meta.url), "utf8"),
   ]);
-  assert.match(profileSource, /metric\.key === "rich-presence" \|\| metric\.label === "Rich Presence"/u);
-  assert.match(profileSource, /<DeckyRetroAchievementsGameIcon game=\{game\} src=\{game\.coverImageUrl \?\? game\.systemIconUrl\} size=\{40\}/u);
-  assert.match(profileSource, /gameActivityPresence\}>\{richPresence\}/u);
-  assert.match(profileSource, /game\.platformLabel !== undefined/u);
-  assert.match(themeSource, /gameActivityIdentityRow:[\s\S]*gridTemplateColumns: "40px minmax\(0, 1fr\)"/u);
-  assert.match(themeSource, /gameActivityPresence:[\s\S]*WebkitLineClamp: 2/u);
+  assert.match(profileSource, /const activeGameId = getRetroAchievementsActiveGameId\(profile\)/u);
+  assert.match(profileSource, /findRetroAchievementsActiveGame\(/u);
+  assert.match(profileSource, /snapshot\.featuredGames,[\s\S]*profile\.featuredGames/u);
+  assert.match(profileSource, /loadDeckyCompactGameState\([\s\S]*loadDeckyGameDetailState/u);
+  assert.match(profileSource, /lookedUpActiveGame\?\.gameId === activeGameId/u);
+  assert.match(profileSource, /games=\{displayedUpNextGames\}/u);
+  assert.match(profileSource, /activeGameId: activeGame\.gameId/u);
+  assert.match(profileSource, /<DeckyCompactUpNextCard/u);
+  assert.match(cardSource, /displayedGame\.coverImageUrl \?\? displayedGame\.boxArtImageUrl \?\? displayedGame\.systemIconUrl/u);
+  assert.doesNotMatch(cardSource, /richPresence/u);
+  assert.doesNotMatch(profileSource, /richPresence=|\{ richPresence \}/u);
+  assert.match(cardSource, /displayedGame\.platformLabel/u);
 });
 
 test("eight-week RA activity calendar counts real unlocks and filters by mode", () => {

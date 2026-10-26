@@ -103,12 +103,13 @@ export function takeDeckySteamGamepadFocus(target: HTMLElement | null | undefine
 }
 
 /**
- * Wait at most three render frames for GamepadUI to register a newly mounted
+ * Wait a bounded number of render frames for GamepadUI to register a newly mounted
  * Steam-owned focus target. Each attempt uses the native navigation node and
  * stops as soon as GamepadUI accepts focus.
  */
 export function requestDeckySteamGamepadFocusAfterMount(
   target: HTMLElement | null | undefined,
+  maxAttempts = 3,
 ): () => void {
   const ownerWindow = target?.ownerDocument.defaultView;
   if (target === null || target === undefined || ownerWindow === null || ownerWindow === undefined) {
@@ -121,11 +122,12 @@ export function requestDeckySteamGamepadFocusAfterMount(
   const requestFocus = (): void => {
     frame = ownerWindow.requestAnimationFrame(() => {
       frame = undefined;
-      if (cancelled) {
+      if (cancelled || !target.isConnected) {
         return;
       }
       attempts += 1;
-      if (!takeDeckySteamGamepadFocus(target) && attempts < 3) {
+      const focused = takeDeckySteamGamepadFocus(target);
+      if (!focused && attempts < maxAttempts) {
         requestFocus();
       }
     });

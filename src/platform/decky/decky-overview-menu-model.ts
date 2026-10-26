@@ -10,6 +10,8 @@ export interface DeckyOverviewMenuItem {
   readonly label: string;
   readonly onSelect?: (navigation: DeckyOverviewMenuNavigation) => void;
   readonly items?: readonly DeckyOverviewMenuItem[];
+  /** Apply this item without dismissing the native menu, then navigate within the same popup. */
+  readonly keepMenuOpenOnSelect?: boolean;
   readonly selected?: boolean;
   readonly tone?: "positive" | "emphasis" | "destructive";
 }
@@ -69,7 +71,7 @@ export function buildDeckyManageSuggestionsMenuItems(actions: DeckyGameOverviewA
       items: [
         { key: "details", label: "View Details", onSelect: (navigation: DeckyOverviewMenuNavigation) => actions.onOpenAchievement(achievement.achievementId, () => navigation.restoreCurrent("details")) },
         { key: "show", label: "Show in Achievements", onSelect: () => actions.onJumpToAchievement(achievement.achievementId) },
-        { key: "hide", label: "Hide Suggestion", tone: "destructive" as const, onSelect: (navigation: DeckyOverviewMenuNavigation) => {
+        { key: "hide", label: "Hide Suggestion", tone: "destructive" as const, keepMenuOpenOnSelect: true, onSelect: (navigation: DeckyOverviewMenuNavigation) => {
           actions.onDismissSuggestion(achievement.achievementId);
           navigation.restoreParent(adjacent === undefined ? "hidden" : `visible:${adjacent.achievementId}`);
         } },
@@ -82,7 +84,7 @@ export function buildDeckyManageSuggestionsMenuItems(actions: DeckyGameOverviewA
       key: `hidden:${achievement.achievementId}`,
       label: achievement.title,
       items: [
-        { key: "restore", label: "Restore Suggestion", tone: "positive", onSelect: (navigation) => {
+        { key: "restore", label: "Restore Suggestion", tone: "positive", keepMenuOpenOnSelect: true, onSelect: (navigation) => {
           actions.onRestoreSuggestion(achievement.achievementId);
           navigation.restoreParent(adjacent === undefined ? undefined : `hidden:${adjacent.achievementId}`);
         } },
@@ -94,35 +96,44 @@ export function buildDeckyManageSuggestionsMenuItems(actions: DeckyGameOverviewA
   return [
     ...visible,
     ...(hiddenItems.length > 0 ? [{ key: "hidden", label: `Hidden Suggestions (${hiddenItems.length})`, items: hiddenItems }] : []),
-    ...(hiddenItems.length > 0 ? [{ key: "restore-all", label: "Restore All Hidden", tone: "positive" as const, onSelect: (navigation: DeckyOverviewMenuNavigation) => {
+    ...(hiddenItems.length > 0 ? [{ key: "restore-all", label: "Restore All Hidden", tone: "positive" as const, keepMenuOpenOnSelect: true, onSelect: (navigation: DeckyOverviewMenuNavigation) => {
       actions.onRestoreAllSuggestions();
       navigation.restoreCurrent(visible[0]?.key);
     } }] : []),
   ];
 }
 
-export function buildRetroAchievementsOverviewActionItems(args: {
+export interface RetroAchievementsGoalSettingsMenuArgs {
   readonly globalGoal: RetroAchievementsGameGoal;
   readonly gameGoalOverride?: RetroAchievementsGameGoal;
-  readonly onOpenExternal: () => void;
-  readonly onOpenGameInfo: (navigation: DeckyOverviewMenuNavigation) => void;
   readonly onSetGlobalGoal: (goal: RetroAchievementsGameGoal) => void;
   readonly onSetGameGoalOverride: (goal: RetroAchievementsGameGoal | undefined) => void;
-}): readonly DeckyOverviewMenuItem[] {
+}
+
+export function buildRetroAchievementsGoalSettingsMenuItem(
+  args: RetroAchievementsGoalSettingsMenuArgs,
+): DeckyOverviewMenuItem {
   const effectiveGameGoal = args.gameGoalOverride ?? args.globalGoal;
+  return { key: "goal-settings", label: "Goal Settings", items: [
+      { key: "this-game", label: `This Game · ${effectiveGameGoal === "beat" ? "Beat" : "Master"}`, items: [
+        { key: "use-global", label: `Use Global Default (${args.globalGoal === "beat" ? "Beat" : "Master"})`, selected: args.gameGoalOverride === undefined, keepMenuOpenOnSelect: true, onSelect: (navigation) => { args.onSetGameGoalOverride(undefined); navigation.restoreParent("this-game"); } },
+        { key: "beat", label: "Beat", selected: args.gameGoalOverride === "beat", keepMenuOpenOnSelect: true, onSelect: (navigation) => { args.onSetGameGoalOverride("beat"); navigation.restoreParent("this-game"); } },
+        { key: "master", label: "Master", selected: args.gameGoalOverride === "master", keepMenuOpenOnSelect: true, onSelect: (navigation) => { args.onSetGameGoalOverride("master"); navigation.restoreParent("this-game"); } },
+      ] },
+      { key: "global-default", label: `Global Default · ${args.globalGoal === "beat" ? "Beat" : "Master"}`, items: [
+        { key: "beat", label: "Beat", selected: args.globalGoal === "beat", keepMenuOpenOnSelect: true, onSelect: (navigation) => { args.onSetGlobalGoal("beat"); navigation.restoreParent("global-default"); } },
+        { key: "master", label: "Master", selected: args.globalGoal === "master", keepMenuOpenOnSelect: true, onSelect: (navigation) => { args.onSetGlobalGoal("master"); navigation.restoreParent("global-default"); } },
+      ] },
+    ] };
+}
+
+export function buildRetroAchievementsOverviewActionItems(args: RetroAchievementsGoalSettingsMenuArgs & {
+  readonly onOpenExternal: () => void;
+  readonly onOpenGameInfo: (navigation: DeckyOverviewMenuNavigation) => void;
+}): readonly DeckyOverviewMenuItem[] {
   return [
     { key: "open-ra", label: "Open on RetroAchievements", onSelect: args.onOpenExternal },
     { key: "game-info", label: "Game Info", onSelect: args.onOpenGameInfo },
-    { key: "goal-settings", label: "Goal Settings", items: [
-      { key: "this-game", label: `This Game · ${effectiveGameGoal === "beat" ? "Beat" : "Master"}`, items: [
-        { key: "use-global", label: `Use Global Default (${args.globalGoal === "beat" ? "Beat" : "Master"})`, selected: args.gameGoalOverride === undefined, onSelect: (navigation) => { args.onSetGameGoalOverride(undefined); navigation.restoreParent("this-game"); } },
-        { key: "beat", label: "Beat", selected: args.gameGoalOverride === "beat", onSelect: (navigation) => { args.onSetGameGoalOverride("beat"); navigation.restoreParent("this-game"); } },
-        { key: "master", label: "Master", selected: args.gameGoalOverride === "master", onSelect: (navigation) => { args.onSetGameGoalOverride("master"); navigation.restoreParent("this-game"); } },
-      ] },
-      { key: "global-default", label: `Global Default · ${args.globalGoal === "beat" ? "Beat" : "Master"}`, items: [
-        { key: "beat", label: "Beat", selected: args.globalGoal === "beat", onSelect: (navigation) => { args.onSetGlobalGoal("beat"); navigation.restoreParent("global-default"); } },
-        { key: "master", label: "Master", selected: args.globalGoal === "master", onSelect: (navigation) => { args.onSetGlobalGoal("master"); navigation.restoreParent("global-default"); } },
-      ] },
-    ] },
+    buildRetroAchievementsGoalSettingsMenuItem(args),
   ];
 }
