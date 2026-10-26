@@ -3312,8 +3312,12 @@ test("provider setup, credential fields, and current compact profile routes stay
   assert.match(steamCompactProfileSource, /onActivate=\{\(\) => onOpenAchievementDetail\(\{ game: recentUnlock\.game, achievement: recentUnlock\.achievement \}\)\}/u);
   assert.match(steamCompactProfileSource, /onActivate=\{\(\) => onOpenGameDetail\(game\)\}/u);
   assert.match(raCompactProfileSource, /export function DeckyRetroAchievementsCompactProfile/u);
-  assert.match(raCompactProfileSource, /<CompactAction label="Open Profile Full-Screen"[\s\S]*onActivate=\{onOpenProfile\}/u);
-  assert.match(raCompactProfileSource, /<DeckyCompactUpNextCard[\s\S]*<Section title="RetroAchievements Overview">/u);
+  assert.match(
+    raCompactProfileSource,
+    /<ProfileCard[\s\S]*onActivate=\{onOpenProfile\}[\s\S]*targetProps=\{targetProps\(\{ kind: "profile" \}\)\}/u,
+  );
+  assert.doesNotMatch(raCompactProfileSource, />Open Profile Full-Screen</u);
+  assert.match(raCompactProfileSource, /<DeckyCompactUpNextCard[\s\S]*<Section title="RA Overview">/u);
   assert.match(raCompactProfileSource, /<Section title="Activity Calendar">[\s\S]*entryTargetProps=\{targetProps\(\{ kind: "calendar-entry" \}\)\}[\s\S]*targetProps=\{\(day\) => targetProps\(\{ kind: "calendar-day", day \}\)\}/u);
   assert.match(raCompactProfileSource, /<Section title="Recent Activity">[\s\S]*<RecentAchievementRow[\s\S]*onOpenAchievementHistory/u);
   assert.match(raCompactProfileSource, /<Section title="Recently Played">[\s\S]*<RecentlyPlayedRow[\s\S]*onOpenCompletionProgress/u);

@@ -24,20 +24,22 @@ function loadOnce<T>(
   key: string,
   loader: () => Promise<ResourceState<T>>,
   forceRefresh = false,
+  shouldCacheState: (state: ResourceState<T>) => boolean = isTerminal,
 ): Promise<ResourceState<T>> {
   const existing = cache.get(key);
+  // Forced retries still join equivalent work already in flight.
+  if (existing?.promise !== undefined) {
+    return existing.promise;
+  }
   if (!forceRefresh && existing?.state !== undefined) {
     return Promise.resolve(existing.state);
-  }
-  if (!forceRefresh && existing?.promise !== undefined) {
-    return existing.promise;
   }
 
   const generation = sessionGeneration;
   let promise: Promise<ResourceState<T>>;
   promise = Promise.resolve().then(loader).then((state) => {
     if (generation === sessionGeneration && cache.get(key)?.promise === promise) {
-      if (isTerminal(state)) {
+      if (shouldCacheState(state)) {
         cache.set(key, { state });
       } else {
         cache.delete(key);
@@ -84,8 +86,15 @@ export function loadDeckyCompactGameState(
   providerId: ProviderId,
   gameId: string,
   loader: () => Promise<ResourceState<GameDetailSnapshot>>,
+  forceRefresh = false,
 ): Promise<ResourceState<GameDetailSnapshot>> {
-  return loadOnce(gameStateByProviderAndId, compactGameKey(providerId, gameId), loader);
+  return loadOnce(
+    gameStateByProviderAndId,
+    compactGameKey(providerId, gameId),
+    loader,
+    forceRefresh,
+    (state) => isTerminal(state) && state.data !== undefined,
+  );
 }
 
 export function writeDeckyCompactGameState(
@@ -93,7 +102,7 @@ export function writeDeckyCompactGameState(
   gameId: string,
   state: ResourceState<GameDetailSnapshot>,
 ): void {
-  if (isTerminal(state)) {
+  if (isTerminal(state) && state.data !== undefined) {
     gameStateByProviderAndId.set(compactGameKey(providerId, gameId), { state });
   }
 }

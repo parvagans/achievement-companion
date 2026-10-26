@@ -17,7 +17,15 @@ import {
 } from "../src/platform/decky/decky-compact-session-resources";
 import { getDeckyRetroAchievementsCompactFocusTargetKey } from "../src/platform/decky/decky-retroachievements-compact-focus-state";
 import { getDeckySteamCompactFocusTargetKey } from "../src/platform/decky/decky-steam-compact-focus-state";
-import { shouldRequestDeckyCompactDashboardFocusRestore } from "../src/platform/decky/decky-compact-navigation";
+import {
+  shouldRequestDeckyCompactDashboardFocusRestore,
+  shouldRequestDeckyCompactGameFocusRestore,
+} from "../src/platform/decky/decky-compact-navigation";
+import {
+  readDeckyCompactGameOverviewState,
+  resetDeckyCompactGameOverviewState,
+  writeDeckyCompactGameOverviewState,
+} from "../src/platform/decky/decky-compact-game-overview-state";
 import {
   findRetroAchievementsActiveGame,
   getRetroAchievementsActiveGameId,
@@ -134,7 +142,11 @@ test("RA current-game identity is fresh, explicit, and independent of recent-gam
 
 test("shared Up Next model distinguishes recommendations, hidden suggestions, empty sets, and completion", () => {
   const source = snapshot([achievement("first"), achievement("second")]);
-  assert.equal(buildDeckyCompactUpNextModel({ snapshot: source, hiddenAchievementIds: [], goal: "master", achievementMode: "both" }).outcome.kind, "suggestion");
+  const featured = buildDeckyCompactUpNextModel({ snapshot: source, hiddenAchievementIds: [], goal: "master", achievementMode: "both" });
+  assert.equal(featured.outcome.kind, "suggestion");
+  assert.deepEqual(featured.suggestions.map(({ achievement }) => achievement.achievementId), ["first"]);
+  const expanded = buildDeckyCompactUpNextModel({ snapshot: source, hiddenAchievementIds: [], goal: "master", achievementMode: "both", limit: 3 });
+  assert.deepEqual(expanded.suggestions.map(({ achievement }) => achievement.achievementId), ["first", "second"]);
   const hidden = buildDeckyCompactUpNextModel({ snapshot: source, hiddenAchievementIds: ["first", "second"], goal: "master", achievementMode: "both" });
   assert.equal(hidden.outcome.kind, "all-hidden");
   assert.deepEqual(hidden.hiddenAchievements.map(({ achievementId }) => achievementId), ["first", "second"]);
@@ -161,6 +173,32 @@ test("compact game resources deduplicate per provider and are cleared with the Q
   assert.equal(readDeckyCompactGameState("retroachievements", "1"), undefined);
   clearDeckyCompactSessionResources();
   assert.equal(readDeckyCompactGameState("steam", "1"), undefined);
+});
+
+test("compact game resources do not pin fatal errors and forced retries join in-flight work", async () => {
+  clearDeckyCompactSessionResources();
+  let calls = 0;
+  const fatalLoader = async () => {
+    calls += 1;
+    return { status: "error" as const, error: { kind: "network" as const, userMessage: "Offline", retryable: true }, isStale: false, isRefreshing: false };
+  };
+  await loadDeckyCompactGameState("retroachievements", "2", fatalLoader);
+  assert.equal(readDeckyCompactGameState("retroachievements", "2"), undefined);
+
+  type SuccessState = { status: "success"; data: GameDetailSnapshot; isStale: false; isRefreshing: false };
+  let resolveRetry!: (state: SuccessState) => void;
+  const successLoader = async () => {
+    calls += 1;
+    return await new Promise<SuccessState>((resolve) => { resolveRetry = resolve; });
+  };
+  const first = loadDeckyCompactGameState("retroachievements", "2", successLoader, true);
+  const second = loadDeckyCompactGameState("retroachievements", "2", successLoader, true);
+  await Promise.resolve();
+  resolveRetry({ status: "success", data: snapshot([achievement("recovered")], "retroachievements"), isStale: false, isRefreshing: false });
+  await Promise.all([first, second]);
+  assert.equal(calls, 2);
+  assert.equal(readDeckyCompactGameState("retroachievements", "2")?.status, "success");
+  clearDeckyCompactSessionResources();
 });
 
 test("compact dashboard resources retain both providers across child-route Back", async () => {
@@ -209,6 +247,33 @@ test("returning from an Up Next achievement list requests dashboard focus restor
     { kind: "achievement-list", providerId: "steam", gameId: "10", gameTitle: "Game", parent: "game" },
     { kind: "game", providerId: "steam", gameId: "10", gameTitle: "Game" },
   ), false);
+  assert.equal(shouldRequestDeckyCompactGameFocusRestore(
+    { kind: "achievement-list", providerId: "steam", gameId: "10", gameTitle: "Game", parent: "game" },
+    { kind: "game", providerId: "steam", gameId: "10", gameTitle: "Game" },
+  ), true);
+  assert.equal(shouldRequestDeckyCompactGameFocusRestore(
+    { kind: "achievement-list", providerId: "steam", gameId: "10", gameTitle: "Game", parent: "game" },
+    { kind: "game", providerId: "steam", gameId: "11", gameTitle: "Other" },
+  ), false);
+});
+
+test("compact Game Overview state preserves expansion, focus, and scroll per game until session cleanup", () => {
+  resetDeckyCompactGameOverviewState();
+  writeDeckyCompactGameOverviewState("steam", "10", {
+    expanded: true,
+    focusTarget: { kind: "recommendation", achievementId: "second", index: 1 },
+    scrollTop: 312,
+  });
+
+  assert.deepEqual(readDeckyCompactGameOverviewState("steam", "10"), {
+    expanded: true,
+    focusTarget: { kind: "recommendation", achievementId: "second", index: 1 },
+    scrollTop: 312,
+  });
+  assert.deepEqual(readDeckyCompactGameOverviewState("retroachievements", "10"), { expanded: false });
+
+  resetDeckyCompactGameOverviewState();
+  assert.deepEqual(readDeckyCompactGameOverviewState("steam", "10"), { expanded: false });
 });
 
 test("shared QAM card is theme-token driven and exposes controller, touch, and menu actions", () => {
@@ -230,6 +295,31 @@ test("shared QAM card is theme-token driven and exposes controller, touch, and m
   assert.match(source, /Restore All Suggestions/u);
   assert.match(source, /Skip Current Suggestion/u);
   assert.match(source, /preserveCompactSession/u);
+});
+
+test("QAM Game Overview shares one token-driven expandable recommendation surface across providers", () => {
+  const source = readFileSync("src/platform/decky/decky-compact-game-overview-up-next.tsx", "utf8");
+  const actions = readFileSync("src/platform/decky/decky-compact-game-overview-actions.tsx", "utf8");
+  const retro = readFileSync("src/platform/decky/decky-retroachievements-compact-game-overview.tsx", "utf8");
+  const steam = readFileSync("src/platform/decky/decky-steam-compact-game-overview.tsx", "utf8");
+
+  assert.doesNotMatch(source, /#[0-9a-f]{3,8}|rgba?\(|\bcyan\b|\bgreen\b/iu);
+  assert.match(source, /limit: 3/u);
+  assert.match(source, /Show More Suggestions/u);
+  assert.match(source, /Show Less/u);
+  assert.match(source, /useDeckyVisualFocusState\(expandRef, setExpandFocused\)/u);
+  assert.match(source, /expandFocused \? getQamCompactFocusControlStyle\(\) : \{\}/u);
+  assert.match(source, /onSecondaryActionDescription: "Skip"/u);
+  assert.match(source, /onOptionsActionDescription: "List"/u);
+  assert.match(source, /preserveCompactSession/u);
+  assert.match(source, /BEAT GOAL COMPLETE/u);
+  assert.match(source, /MASTER GOAL COMPLETE/u);
+  assert.match(source, /PERFECTED/u);
+  assert.match(actions, /Game Info/u);
+  assert.match(actions, /Open Full-Screen/u);
+  assert.match(actions, /preferredFocus=\{readDeckyCompactGameOverviewState[\s\S]*scrollToTopOnFocus/u);
+  assert.match(retro, /<DeckyCompactGameOverviewUpNext/u);
+  assert.match(steam, /<DeckyCompactGameOverviewUpNext/u);
 });
 
 test("shared QAM card gives game titles the full header width and keeps provider-neutral progress geometry", () => {

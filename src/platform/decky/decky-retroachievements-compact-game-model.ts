@@ -7,6 +7,17 @@ export { isRetroAchievementsUnlockedInMode } from "./decky-retroachievements-unl
 
 type Mode = "hardcore" | "softcore";
 
+export function shouldCollapseRetroAchievementsModeProgress(
+  summary: ProgressSummary,
+  modes: readonly { readonly summary: ProgressSummary }[],
+): boolean {
+  if (modes.length !== 1) return false;
+  const modeSummary = modes[0]?.summary;
+  return modeSummary !== undefined
+    && modeSummary.unlockedCount === summary.unlockedCount
+    && modeSummary.totalCount === summary.totalCount;
+}
+
 export function getRetroAchievementsModeSummary(snapshot: GameDetailSnapshot, mode: Mode): ProgressSummary {
   const supplied = mode === "hardcore" ? snapshot.game.hardcoreSummary : snapshot.game.softcoreSummary;
   if (supplied !== undefined) return supplied;

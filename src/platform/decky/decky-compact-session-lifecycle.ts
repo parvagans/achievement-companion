@@ -10,6 +10,7 @@ import {
   removeDeckyCompactCancelBridges,
   setDeckyCompactCancelBridgesEnabled,
 } from "./decky-full-screen-cancel-bridge";
+import { resetDeckyCompactGameOverviewState } from "./decky-compact-game-overview-state";
 
 interface DeckyCompactSessionLifecycleDependencies {
   readonly setCancelEnabled: (enabled: boolean) => void;
@@ -28,6 +29,7 @@ export function endDeckyCompactSession(): void {
   resetDeckySteamCompactActivityState();
   resetDeckyRetroAchievementsCompactFocusState();
   resetDeckyRetroAchievementsCompactActivityState();
+  resetDeckyCompactGameOverviewState();
   clearDeckyCompactSessionResources();
 }
 

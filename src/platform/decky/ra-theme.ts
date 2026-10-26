@@ -314,10 +314,11 @@ export const raRecipes = {
   },
   compactGame: {
     root: { display: "flex", flexDirection: "column", gap: 8, width: "100%", minWidth: 0, padding: "0 16px 4px", boxSizing: "border-box", color: raTheme.color.textPrimary, fontFamily: qamTheme.type.fontFamily } satisfies CSSProperties,
-    hero(): CSSProperties { return { display: "flex", justifyContent: "center", width: "100%", height: 124, minWidth: 0, overflow: "hidden", padding: 0, background: "transparent", boxSizing: "border-box" }; },
-    title: { minWidth: 0, color: raTheme.color.textPrimary, fontSize: 16, fontWeight: 850, lineHeight: 1.16, textAlign: "center", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } satisfies CSSProperties,
-    provider: { display: "flex", alignItems: "center", justifyContent: "center", gap: 7, width: "100%", color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.body, fontWeight: 750, lineHeight: 1 } satisfies CSSProperties,
-    providerContent: { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, minWidth: 0 } satisfies CSSProperties,
+    identity: { display: "grid", gridTemplateColumns: "92px minmax(0, 1fr)", alignItems: "center", gap: 11, width: "100%", minWidth: 0, minHeight: 92, boxSizing: "border-box" } satisfies CSSProperties,
+    identityText: { display: "flex", flexDirection: "column", alignItems: "flex-start", justifyContent: "center", gap: 7, minWidth: 0 } satisfies CSSProperties,
+    title: { minWidth: 0, color: raTheme.color.textPrimary, fontSize: 16, fontWeight: 850, lineHeight: 1.16, textAlign: "left", overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflowWrap: "anywhere" } satisfies CSSProperties,
+    provider: { display: "flex", alignItems: "center", justifyContent: "flex-start", gap: 7, maxWidth: "100%", minWidth: 0, color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.body, fontWeight: 750, lineHeight: 1 } satisfies CSSProperties,
+    providerContent: { display: "inline-flex", alignItems: "center", justifyContent: "flex-start", gap: 7, maxWidth: "100%", minWidth: 0 } satisfies CSSProperties,
     actionLabel: { display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%", minWidth: 0, color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.body, fontWeight: 800, lineHeight: 1.15 } satisfies CSSProperties,
     actionIcon: { width: 17, height: 17, filter: raTheme.iconFilter.primary } satisfies CSSProperties,
     section(focused: boolean): CSSProperties { return { ...raRecipes.card("compact"), display: "flex", flexDirection: "column", gap: 6, width: "100%", minWidth: 0, padding: "9px 10px", ...getQamPassiveCardFocusStyle(focused), boxSizing: "border-box" }; },
@@ -335,6 +336,7 @@ export const raRecipes = {
     modeText: { display: "flex", flexDirection: "column", gap: 2, minWidth: 0 } satisfies CSSProperties,
     modeLabel: { fontSize: raTheme.type.compact.caption, fontWeight: 800, lineHeight: 1, textTransform: "uppercase" } satisfies CSSProperties,
     modeValue: { color: raTheme.color.textPrimary, fontSize: raTheme.type.compact.body, fontWeight: 800, lineHeight: 1.12, whiteSpace: "nowrap" } satisfies CSSProperties,
+    modeIndicator(mode: "hardcore" | "softcore"): CSSProperties { return { alignSelf: "flex-start", display: "inline-flex", alignItems: "center", minHeight: 20, padding: "0 7px", border: `1px solid ${raTheme.color.borderSubtle}`, borderRadius: raTheme.radius.small, background: raTheme.surface.contentStat, color: mode === "hardcore" ? raTheme.color.hardcore : raTheme.color.softcore, fontSize: raTheme.type.compact.caption, fontWeight: 800, lineHeight: 1, textTransform: "uppercase", boxSizing: "border-box" }; },
     status(kind: "beaten" | "mastered", surface: "profile" | "game" = "profile"): CSSProperties {
       const mastered = kind === "mastered";
       const accent = mastered ? raTheme.color.mastered : surface === "game" ? raRecipes.gameAward.beaten.border : raTheme.color.beaten;
@@ -544,7 +546,7 @@ export const raRecipes = {
         fontSize: raTheme.type.compact.caption, fontWeight: 800, lineHeight: 1.12, letterSpacing: "0.035em", overflowWrap: "anywhere",
       };
     },
-    metricValue: { color: raTheme.color.textPrimary, fontSize: 14, fontWeight: 850, lineHeight: 1.05 } satisfies CSSProperties,
+    metricValue: { color: raTheme.color.textPrimary, fontSize: 12, fontWeight: 800, lineHeight: 1.1 } satisfies CSSProperties,
     metricDetail: { color: raTheme.color.textSecondary, fontSize: 9, lineHeight: 1.1 } satisfies CSSProperties,
     completionGrid: { display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: qamTheme.compactProfileSpacing.item, minWidth: 0 } satisfies CSSProperties,
     completionCard(kind: "beaten" | "mastered"): CSSProperties {
@@ -560,7 +562,7 @@ export const raRecipes = {
     completionLabel(kind: "beaten" | "mastered"): CSSProperties {
       return { color: kind === "beaten" ? raTheme.color.beaten : raTheme.color.mastered, fontSize: raTheme.type.compact.caption, fontWeight: 850, letterSpacing: "0.05em", lineHeight: 1.3, textTransform: "uppercase" };
     },
-    completionValue: { color: raTheme.color.textPrimary, fontSize: 17, fontWeight: 850, lineHeight: 1 } satisfies CSSProperties,
+    completionValue: { color: raTheme.color.textPrimary, fontSize: 12, fontWeight: 800, lineHeight: 1.1 } satisfies CSSProperties,
     progressCard: { display: "flex", flexDirection: "column", gap: qamTheme.compactProfileSpacing.content, padding: qamTheme.compactProfileSpacing.cardPadding, border: `1px solid ${raTheme.color.borderSubtle}`, borderRadius: raTheme.radius.medium, background: raTheme.surface.contentCard } satisfies CSSProperties,
     progressHeader: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 } satisfies CSSProperties,
     progressLabel: { color: raTheme.color.textSecondary, fontSize: raTheme.type.compact.metadata, fontWeight: 650 } satisfies CSSProperties,

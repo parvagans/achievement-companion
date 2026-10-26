@@ -212,7 +212,7 @@ test("achievement details and community panels use the selected palette", () => 
   assert.match(compactDetail, /filter: achievementCompanionQamTheme\.decorative\.iconFilter/u);
   assert.match(fullscreenDetail, /theme\.surface\.contentStat/u);
   assert.match(fullscreenDetail, /theme\.color\.textPrimary/u);
-  assert.match(steamProfile, /color: steamTheme\.color\.accent, fontWeight: 800/u);
+  assert.match(steamProfile, /color: steamTheme\.color\.accent/u);
   assert.match(community, /qamActivityCalendarColors\[1\]/u);
   assert.match(community, /qamActivityCalendarColors\[4\]/u);
   assert.match(community, /color: qamTheme\.color\.textPrimary/u);

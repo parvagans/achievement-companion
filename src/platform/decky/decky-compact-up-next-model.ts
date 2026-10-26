@@ -20,6 +20,7 @@ export type DeckyCompactUpNextOutcome =
 export interface DeckyCompactUpNextModel {
   readonly snapshot: GameDetailSnapshot;
   readonly outcome: DeckyCompactUpNextOutcome;
+  readonly suggestions: readonly GameOverviewSuggestion[];
   readonly hiddenAchievements: readonly NormalizedAchievement[];
 }
 
@@ -79,6 +80,7 @@ export function buildDeckyCompactUpNextModel(args: {
   readonly hiddenAchievementIds: readonly string[];
   readonly goal: RetroAchievementsGameGoal;
   readonly achievementMode: RetroAchievementsAchievementMode;
+  readonly limit?: number;
 }): DeckyCompactUpNextModel {
   const achievements = projectRetroAchievementsFullScreenAchievements(args.snapshot, args.achievementMode);
   const snapshot = achievements === args.snapshot.achievements
@@ -91,7 +93,7 @@ export function buildDeckyCompactUpNextModel(args: {
     snapshot,
     goal: args.goal,
     achievementMode: args.achievementMode,
-    limit: 1,
+    limit: Math.max(1, Math.trunc(args.limit ?? 1)),
     ...(steamHunters !== undefined ? { steamHunters } : {}),
   };
   const allSuggestions = selectGameOverviewSuggestions(selection);
@@ -111,5 +113,5 @@ export function buildDeckyCompactUpNextModel(args: {
       : allSuggestions.length > 0
         ? { kind: "all-hidden" }
         : { kind: "empty" };
-  return { snapshot, outcome, hiddenAchievements };
+  return { snapshot, outcome, suggestions: visibleSuggestions, hiddenAchievements };
 }

@@ -9,8 +9,8 @@ export interface DeckyGameDetailViewProps {
   readonly achievementMode: RetroAchievementsAchievementMode;
   readonly onBackToDashboard: () => void;
   readonly onOpenFullScreenPage: (() => void) | undefined;
-  readonly onOpenCompactAchievements: (() => void) | undefined;
-  readonly onOpenAchievementDetail: (achievementId: string) => void;
+  readonly onOpenCompactAchievements: ((achievementId?: string) => void) | undefined;
+  readonly onOpenAchievementDetail: (achievementId: string, onClose?: () => void) => void;
 }
 
 export function DeckyGameDetailView({
@@ -19,6 +19,7 @@ export function DeckyGameDetailView({
   onBackToDashboard,
   onOpenFullScreenPage,
   onOpenCompactAchievements,
+  onOpenAchievementDetail,
 }: DeckyGameDetailViewProps): JSX.Element {
   const isSteamGame = state.data.game.providerId === "steam";
   if (isSteamGame) {
@@ -26,6 +27,7 @@ export function DeckyGameDetailView({
       <DeckySteamCompactGameOverview
       onBack={onBackToDashboard}
       onOpenFullScreen={onOpenFullScreenPage}
+      onOpenAchievementDetail={onOpenAchievementDetail}
       onViewAchievements={onOpenCompactAchievements}
       snapshot={state.data}
       />
@@ -37,6 +39,7 @@ export function DeckyGameDetailView({
       achievementMode={achievementMode}
       onBack={onBackToDashboard}
       onOpenFullScreen={onOpenFullScreenPage}
+      onOpenAchievementDetail={onOpenAchievementDetail}
       onViewAchievements={onOpenCompactAchievements}
       snapshot={state.data}
     />

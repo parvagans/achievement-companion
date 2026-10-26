@@ -1,7 +1,7 @@
 import type { GameDetailSnapshot } from "@core/domain";
 import { Focusable, type FocusableProps } from "@decky/ui";
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type FocusEventHandler, type ReactNode } from "react";
-import { DeckyCompletionProgressBar, getCompletionPercent } from "./decky-completion-progress-bar";
+import { getCompletionPercent } from "./decky-completion-progress-bar";
 import {
   getDeckyProviderFullScreenDataSessionRevision,
   getDeckySteamHuntersProfileStateForFullScreenEntryInitial,
@@ -11,7 +11,6 @@ import {
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { registerCompactGameDetailCancelCallback } from "./decky-full-screen-cancel-bridge";
 import { formatSteamPlaytimeMinutes } from "./decky-stat-helpers";
-import { DeckySteamCompactAction } from "./decky-steam-compact-profile";
 import {
   getSteamHuntersAchievementSetStatusPresentation,
 } from "./decky-steam-hunters-game-sections";
@@ -23,32 +22,24 @@ import { formatSteamHuntersCompletionDuration } from "./decky-steam-hunters-pres
 import { DeckySteamHuntersIcon } from "./decky-steam-icons";
 import { useSteamStoreHeaderArtwork } from "./decky-steam-store-artwork";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
-import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
 import calendarIconUrl from "./assets/calendar.svg";
 import clockIconUrl from "./assets/clock.svg";
-import externalLinkIconUrl from "./assets/external-link.svg";
-import steamIconUrl from "./assets/steam.svg";
 import starIconUrl from "./assets/star.svg";
 import steamDeckIconUrl from "./assets/steam-deck.svg";
-import trophyIconUrl from "./assets/trophy-filled.svg";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import { achievementCompanionQamTheme as qamTheme, getQamPassiveCardFocusStyle } from "./decky-qam-theme";
 import { useDeckySettings } from "./decky-settings";
 import { readDeckySteamProviderConfig } from "./providers/steam";
+import { DeckyCompactGameOverviewActions } from "./decky-compact-game-overview-actions";
+import { DeckyCompactGameOverviewUpNext } from "./decky-compact-game-overview-up-next";
+import { openDeckyOverviewDetails } from "./decky-full-screen-game-overview-content";
+import { buildDeckySteamGameInfoRows, formatDeckyOverviewDate, formatDeckyOverviewDateTime } from "./decky-overview-format";
+import { DeckyResponsiveGameTitle } from "./decky-responsive-game-title";
 
-const MIN_TITLE_FONT_SIZE_PX = 12;
+const COMPACT_STEAM_BANNER_HEIGHT_PX = 108;
 
 function formatCount(value: number | undefined): string {
   return value === undefined ? "—" : value.toLocaleString();
-}
-
-function formatReleaseDate(value: string | undefined): string {
-  if (value === undefined) {
-    return "—";
-  }
-
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed) ? new Date(parsed).toLocaleDateString() : value;
 }
 
 function getRootStyle(): CSSProperties {
@@ -71,7 +62,7 @@ function getHeroStyle(): CSSProperties {
     background: steamTheme.surface.contentCard,
     display: "flex",
     width: "100%",
-    height: 124,
+    height: COMPACT_STEAM_BANNER_HEIGHT_PX,
     minWidth: 0,
     overflow: "hidden",
     padding: 0,
@@ -94,45 +85,17 @@ function getHeroFallbackStyle(): CSSProperties {
   };
 }
 
-function getTitleStyle(fontSizePx: number | undefined): CSSProperties {
+function getTitleStyle(): CSSProperties {
   return {
     minWidth: 0,
     color: "rgba(247, 251, 255, 0.99)",
-    fontSize: fontSizePx === undefined ? 16 : fontSizePx,
+    fontSize: 18,
     fontWeight: 850,
     lineHeight: 1.16,
     textAlign: "center",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-  };
-}
-
-function getProviderStyle(): CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    gap: 5,
-    ...steamRecipes.text("compact", "metadata"),
-    color: steamTheme.color.textSecondary,
-    fontSize: steamTheme.type.compact.metadata,
-    fontWeight: 750,
-    lineHeight: 1,
-  };
-}
-
-function getPrimaryActionLabelStyle(): CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    width: "100%",
-    minWidth: 0,
-    color: "#f2f6fb",
-    fontSize: 13,
-    fontWeight: 800,
-    lineHeight: 1.15,
   };
 }
 
@@ -193,18 +156,6 @@ function getSectionLabelStyle(): CSSProperties {
     letterSpacing: "0.055em",
     lineHeight: 1.1,
     textTransform: "uppercase",
-  };
-}
-
-function getProgressSummaryStyle(): CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    color: "rgba(242, 248, 255, 0.98)",
-    fontSize: 12,
-    fontWeight: 800,
-    lineHeight: 1.1,
   };
 }
 
@@ -318,46 +269,6 @@ function getSetStatusDetailRowStyle(): CSSProperties {
   };
 }
 
-function getGameInfoStyle(): CSSProperties {
-  return {
-    display: "grid",
-    gridTemplateColumns: "minmax(0, 1fr) minmax(0, 1fr)",
-    gap: "5px 10px",
-    width: "100%",
-    paddingTop: 2,
-  };
-}
-
-function getGameInfoRowStyle(): CSSProperties {
-  return {
-    display: "contents",
-  };
-}
-
-function getGameInfoLabelStyle(): CSSProperties {
-  return {
-    ...steamRecipes.text("compact", "metadata"),
-    color: steamTheme.color.textSecondary,
-    fontSize: 10,
-    lineHeight: 1.2,
-  };
-}
-
-function getGameInfoValueStyle(): CSSProperties {
-  return {
-    minWidth: 0,
-    overflow: "hidden",
-    ...steamRecipes.text("compact", "metadata"),
-    color: steamTheme.color.textPrimary,
-    fontSize: 10,
-    fontWeight: 700,
-    lineHeight: 1.2,
-    textAlign: "right",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  };
-}
-
 function getInitials(title: string): string {
   return title
     .trim()
@@ -408,39 +319,7 @@ function getPersonalAchievementDuration(snapshot: GameDetailSnapshot): string {
 }
 
 function SteamCompactGameTitle({ title }: { readonly title: string }): JSX.Element {
-  const titleRef = useRef<HTMLDivElement>(null);
-  const [fittedTitle, setFittedTitle] = useState<{
-    readonly title: string;
-    readonly fontSizePx: number;
-  } | undefined>(undefined);
-  const fontSizePx = fittedTitle?.title === title ? fittedTitle.fontSizePx : undefined;
-
-  useLayoutEffect(() => {
-    const element = titleRef.current;
-    const ownerWindow = element?.ownerDocument.defaultView;
-    if (element === null || ownerWindow === null || ownerWindow === undefined || element.clientWidth === 0) {
-      return;
-    }
-
-    const currentSize = Number.parseFloat(ownerWindow.getComputedStyle(element).fontSize);
-    if (!Number.isFinite(currentSize) || element.scrollWidth <= element.clientWidth) {
-      return;
-    }
-
-    const nextSize = Math.max(
-      MIN_TITLE_FONT_SIZE_PX,
-      Math.floor((currentSize * element.clientWidth / element.scrollWidth) * 10) / 10,
-    );
-    if (nextSize >= currentSize) {
-      return;
-    }
-
-    setFittedTitle((current) => current?.title === title && current.fontSizePx === nextSize
-      ? current
-      : { title, fontSizePx: nextSize });
-  }, [fontSizePx, title]);
-
-  return <div ref={titleRef} title={title} style={getTitleStyle(fontSizePx)}>{title}</div>;
+  return <DeckyResponsiveGameTitle title={title} preferredFontSize={18} minimumFontSize={14} style={getTitleStyle()} />;
 }
 
 function SnapshotMetric({
@@ -470,29 +349,21 @@ function SnapshotMetric({
   );
 }
 
-function GameInfoRow({ label, value }: { readonly label: string; readonly value: string }): JSX.Element {
-  return (
-    <div style={getGameInfoRowStyle()}>
-      <span style={getGameInfoLabelStyle()}>{label}</span>
-      <span style={getGameInfoValueStyle()}>{value}</span>
-    </div>
-  );
-}
-
 export function DeckySteamCompactGameOverview({
   snapshot,
   onBack,
   onOpenFullScreen,
   onViewAchievements,
+  onOpenAchievementDetail,
 }: {
   readonly snapshot: GameDetailSnapshot;
   readonly onBack: () => void;
   readonly onOpenFullScreen: (() => void) | undefined;
-  readonly onViewAchievements: (() => void) | undefined;
+  readonly onViewAchievements: ((achievementId?: string) => void) | undefined;
+  readonly onOpenAchievementDetail: (achievementId: string, onClose?: () => void) => void;
 }): JSX.Element {
   const settings = useDeckySettings();
   const rootRef = useRef<HTMLElement>(null);
-  const initialFocusTargetRef = useRef<HTMLDivElement | null>(null);
   const [enrichmentResult, setEnrichmentResult] = useState<{
     readonly sourceSnapshot: GameDetailSnapshot;
     readonly enrichedSnapshot: GameDetailSnapshot;
@@ -530,12 +401,20 @@ export function DeckySteamCompactGameOverview({
   const artworkUrl = getSteamFullscreenGameArtworkUrl(game);
   const hunterBannerUrl = getSteamHuntersBaseGameBannerUrl(enrichment);
   const storeBannerUrl = useSteamStoreHeaderArtwork(game.appid);
+  const rawReleaseDate = steamHunters?.enrichment.app.releaseDate ?? game.metrics.find((metric) => metric.key === "released")?.value;
+  const lastRefreshed = displayedSnapshot.refreshedAt === undefined ? undefined : formatDeckyOverviewDateTime(displayedSnapshot.refreshedAt);
+  const steamPlaytime = formatSteamPlaytimeMinutes(game.playtimeForeverMinutes);
+  const deckPlaytime = formatSteamPlaytimeMinutes(game.playtimeDeckForeverMinutes);
+  const openGameInfo = (onClose: () => void): void => openDeckyOverviewDetails(game.title, buildDeckySteamGameInfoRows({
+    appId: String(game.appid ?? game.gameId),
+    ...(rawReleaseDate !== undefined ? { releaseDate: formatDeckyOverviewDate(rawReleaseDate, game.releaseDateGranularity) } : {}),
+    ...(steamPlaytime !== undefined ? { steamPlaytime } : {}),
+    ...(deckPlaytime !== undefined ? { deckPlaytime } : {}),
+    ...(steamHunters?.enrichment.app.points !== undefined ? { setPoints: steamHunters.enrichment.app.points.toLocaleString() } : {}),
+    ...(lastRefreshed !== undefined ? { lastRefreshed } : {}),
+  }), undefined, onClose, { preserveCompactSession: true });
 
   useLayoutEffect(() => registerCompactGameDetailCancelCallback(rootRef.current, onBack), [onBack]);
-  useLayoutEffect(
-    () => requestDeckySteamGamepadFocusAfterMount(initialFocusTargetRef.current),
-    [],
-  );
 
   useEffect(() => {
     if (getSteamHuntersGameEnrichment(snapshot) !== undefined) {
@@ -566,55 +445,15 @@ export function DeckySteamCompactGameOverview({
         {artworkUrl === undefined && hunterBannerUrl === undefined && storeBannerUrl === undefined ? (
           <div aria-hidden="true" style={getHeroFallbackStyle()}>{getInitials(game.title)}</div>
         ) : (
-          <DeckyGameArtwork compact fallbackSrc={hunterBannerUrl ?? storeBannerUrl} fit="cover" fluid frameless height={124} size={124} {...(artworkUrl !== undefined ? { src: artworkUrl } : {})} title={game.title} width={264} />
+          <DeckyGameArtwork compact fallbackSrc={hunterBannerUrl ?? storeBannerUrl} fit="cover" fluid frameless height={COMPACT_STEAM_BANNER_HEIGHT_PX} size={COMPACT_STEAM_BANNER_HEIGHT_PX} {...(artworkUrl !== undefined ? { src: artworkUrl } : {})} title={game.title} width={264} />
         )}
       </div>
 
       <SteamCompactGameTitle title={game.title} />
-      <div style={getProviderStyle()}>
-        <img alt="" aria-hidden="true" height={14} src={steamIconUrl} style={{ filter: "invert(1)" }} width={14} />
-        <span>Steam</span>
-      </div>
 
-      {onOpenFullScreen !== undefined ? (
-        <DeckySteamCompactAction
-          ariaLabel="Open game full-screen"
-          elementRef={(node) => { initialFocusTargetRef.current = node; }}
-          onActivate={onOpenFullScreen}
-          onCancel={onBack}
-          preferredFocus
-          scrollToTopOnFocus
-          tone="primary"
-        >
-          <span style={getPrimaryActionLabelStyle()}>
-            <img alt="" aria-hidden="true" src={externalLinkIconUrl} style={{ width: 17, height: 17, filter: steamTheme.iconFilter.accent }} />
-            <span>Open Full-Screen</span>
-          </span>
-        </DeckySteamCompactAction>
-      ) : null}
+      {onViewAchievements !== undefined ? <DeckyCompactGameOverviewActions providerId={game.providerId} gameId={game.gameId} onCancel={onBack} onOpenAchievements={() => onViewAchievements()} onOpenFullScreen={onOpenFullScreen} onOpenGameInfo={openGameInfo} /> : null}
 
-      {onViewAchievements !== undefined ? (
-        <DeckySteamCompactAction
-          ariaLabel="View game achievements full-screen"
-          onActivate={onViewAchievements}
-          onCancel={onBack}
-          tone="primary"
-        >
-          <span style={getPrimaryActionLabelStyle()}>
-            <img alt="" aria-hidden="true" src={trophyIconUrl} style={{ width: 17, height: 17, filter: steamTheme.iconFilter.accent }} />
-            <span>View Achievements</span>
-          </span>
-        </DeckySteamCompactAction>
-      ) : null}
-
-      <CompactGameSectionFocusTarget label="Your Progress">
-        <div style={getSectionLabelStyle()}>Your Progress</div>
-        <div style={getProgressSummaryStyle()}>
-          <img alt="" aria-hidden="true" src={trophyIconUrl} style={{ width: 17, height: 17, filter: steamTheme.iconFilter.accent }} />
-          <span>{`${formatCount(game.summary.unlockedCount)} / ${formatCount(game.summary.totalCount)} achievements`}</span>
-        </div>
-        {completionPercent !== undefined ? <DeckyCompletionProgressBar compact percent={completionPercent} steamTheme /> : null}
-      </CompactGameSectionFocusTarget>
+      <DeckyCompactGameOverviewUpNext snapshot={displayedSnapshot} summary={game.summary} achievementMode="both" steamProgress onCancel={onBack} onOpenAchievementDetail={onOpenAchievementDetail} onOpenAchievements={(achievementId) => onViewAchievements?.(achievementId)} />
 
       <CompactGameSectionFocusTarget label="Play Time and Steam Deck">
         <div style={getSnapshotGridStyle()}>
@@ -686,15 +525,6 @@ export function DeckySteamCompactGameOverview({
         </div>
       </CompactGameSectionFocusTarget> : null}
 
-      <CompactGameSectionFocusTarget label="Game Info">
-        <div style={getSectionLabelStyle()}>Game Info</div>
-        <div style={getGameInfoStyle()}>
-          <GameInfoRow label="App ID" value={game.appid?.toString() ?? "—"} />
-          <GameInfoRow label="Release date" value={formatReleaseDate(steamHunters?.enrichment.app.releaseDate)} />
-          <GameInfoRow label="Total Steam hours" value={formatSteamPlaytimeMinutes(game.playtimeForeverMinutes) ?? "—"} />
-          <GameInfoRow label="Total Deck hours" value={formatSteamPlaytimeMinutes(game.playtimeDeckForeverMinutes) ?? "—"} />
-        </div>
-      </CompactGameSectionFocusTarget>
     </section>
   );
 }

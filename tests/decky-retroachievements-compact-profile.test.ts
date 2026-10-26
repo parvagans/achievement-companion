@@ -25,6 +25,7 @@ import {
   qamActivityCalendarColors,
 } from "../src/platform/decky/decky-qam-theme";
 import { getSteamCompactActionStyle } from "../src/platform/decky/decky-steam-compact-action-styles";
+import { getDeckyCompactPrimaryActionStyle } from "../src/platform/decky/decky-compact-primary-action-style";
 import { steamRecipes, steamTheme } from "../src/platform/decky/steam-theme";
 import { getRaFocusStylesCss, raRecipes, raTheme } from "../src/platform/decky/ra-theme";
 import { DeckyRetroAchievementsGameIcon, getRetroAchievementsGameIconAward } from "../src/platform/decky/decky-retroachievements-game-icon";
@@ -267,7 +268,8 @@ test("RA QAM loading, focus scrolling, and calendar controls follow Steam compac
   assert.match(settingsSource, /autoFocus[\s\S]*preferredFocus/u);
   assert.doesNotMatch(settingsSource, /useQuickAccessVisible|requestDeckySteamGamepadFocusAfterMount/u);
   assert.match(profileSource, /scrollIntoView\(\{ block: "center", inline: "nearest" \}\)/u);
-  assert.match(profileSource, /dataAttribute="profile" scrollToTopOnFocus/u);
+  assert.match(profileSource, /<ProfileCard[\s\S]*onActivate=\{onOpenProfile\}[\s\S]*targetProps=\{targetProps\(\{ kind: "profile" \}\)\}/u);
+  assert.match(profileSource, /scrollDeckyFocusTargetToTop/u);
   assert.match(profileSource, /aria-label=\{model === undefined \? "RetroAchievements activity calendar unavailable" : `Activity calendar, \$\{status\}\. \$\{active \? "Press B to exit\." : "Press A to use\."\}`\}/u);
   assert.match(profileSource, /data-ra-activity-calendar-day="true"[\s\S]*onGamepadDirection=\{handleCalendarDirection\}/u);
   assert.match(profileSource, /data-ra-activity-calendar-current=\{day === today \? "true" : "false"\}/u);
@@ -386,6 +388,14 @@ test("Steam and RetroAchievements compact controls share the same focus recipe a
     assert.equal(legendCell.background, dayCell.background);
     assert.equal(legendCell.boxShadow, undefined);
   }
+});
+
+test("compact primary actions use the standard compact focus ring", () => {
+  const focused = getDeckyCompactPrimaryActionStyle(true);
+  const shared = getQamCompactFocusControlStyle();
+  assert.equal(focused.border, shared.border);
+  assert.equal(focused.background, shared.background);
+  assert.equal(focused.boxShadow, shared.boxShadow);
 });
 
 test("generic RA text and cards use shared foundations without changing local Profile geometry", () => {

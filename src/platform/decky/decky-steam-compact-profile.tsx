@@ -17,6 +17,7 @@ import {
   achievementCompanionQamTheme as qamTheme,
   getQamActivityCalendarLegendCellStyle,
   getQamActivityCalendarLegendStyle,
+  getQamCompactFocusControlStyle,
   getQamCompactProfileListCardStyle,
   getQamPassiveCardFocusStyle,
   qamActivityCalendarColors,
@@ -28,14 +29,11 @@ import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DeckyCompactRecentAchievementRow } from "./decky-compact-recent-achievement-row";
 import { findDeckyScrollableAncestor } from "./decky-scroll-viewport";
 import {
-  formatProfileMemberSince,
   formatSteamPlaytimeMinutes,
-  type SteamAccountProgressSummary,
 } from "./decky-stat-helpers";
 import { getSteamCompactGameArtworkUrl } from "./decky-steam-game-artwork";
 import { getSteamCompactActionStyle, type DeckySteamCompactActionTone } from "./decky-steam-compact-action-styles";
 import { useDeckyVisualFocusState } from "./decky-visual-focus-state";
-import { DeckyCompactPrimaryActionContent } from "./decky-compact-primary-action";
 import {
   getDeckySteamCompactFocusTargetKey,
   readDeckySteamCompactFocusRestoreRequest,
@@ -70,6 +68,7 @@ import masteredIconUrl from "./assets/mastered.svg";
 import rankPointsIconUrl from "./assets/rank-points.svg";
 import starIconUrl from "./assets/star.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
+import externalLinkIconUrl from "./assets/external-link.svg";
 import { DeckyCompactUpNextCard } from "./decky-compact-up-next-card";
 import type { CompactAchievementTarget } from "./decky-compact-achievement-model";
 
@@ -84,7 +83,6 @@ interface CompactTargetProps {
 
 export interface DeckySteamCompactProfileProps {
   readonly profile: DashboardSnapshot["profile"];
-  readonly steamAccountProgress: SteamAccountProgressSummary;
   readonly steamHuntersProfile: SteamHuntersProfile | undefined;
   readonly steamLibraryAchievementScanSummary?: SteamLibraryAchievementScanOverview;
   readonly activityEntries: readonly RecentUnlock[];
@@ -269,16 +267,19 @@ function getIconStyle(size: number, tone: SteamCompactIconTone = "blue"): CSSPro
   };
 }
 
-function getProfileCardStyle(): CSSProperties {
+function getProfileCardStyle(focused: boolean): CSSProperties {
   return {
     ...steamRecipes.card("compact", "raised"),
     background: steamTheme.surface.contentCard,
-    display: "flex",
-    flexDirection: "column",
+    display: "grid",
+    gridTemplateColumns: "minmax(0, 1fr) 18px",
+    alignItems: "center",
     gap: qamTheme.compactProfileSpacing.content,
     padding: qamTheme.compactProfileSpacing.cardPadding,
     boxSizing: "border-box",
     boxShadow: "inset 0 1px 0 rgba(125, 211, 252, 0.035)",
+    outline: "none",
+    ...(focused ? getQamCompactFocusControlStyle() : {}),
   };
 }
 
@@ -330,50 +331,6 @@ function getProfileNameStyle(): CSSProperties {
     fontWeight: 800,
     lineHeight: 1.1,
   };
-}
-
-function getProfileMetaStyle(): CSSProperties {
-  return { ...steamRecipes.text("compact", "metadata"), color: steamTheme.color.textSecondary, lineHeight: 1.25 };
-}
-
-function getLevelRowStyle(): CSSProperties {
-  return {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-    color: "#f2f6fb",
-    fontSize: 11,
-    fontWeight: 800,
-    lineHeight: 1,
-  };
-}
-
-function getXpValueStyle(): CSSProperties {
-  return { color: steamTheme.color.accent, fontWeight: 800 };
-}
-
-function getProgressTrackStyle(): CSSProperties {
-  return {
-    ...steamRecipes.progressTrack,
-    height: 7,
-    overflow: "hidden",
-    borderRadius: 999,
-    boxShadow: "inset 0 0 0 1px rgba(125, 211, 252, 0.05)",
-  };
-}
-
-function getProgressFillStyle(percent: number): CSSProperties {
-  return {
-    width: `${Math.max(0, Math.min(100, percent))}%`,
-    height: "100%",
-    borderRadius: 999,
-    background: steamRecipes.progressFill.xp,
-  };
-}
-
-function getXpCaptionStyle(): CSSProperties {
-  return { ...steamRecipes.text("compact", "caption"), color: steamTheme.color.textMuted, lineHeight: 1.2 };
 }
 
 function getMetricsGridStyle(): CSSProperties {
@@ -509,9 +466,9 @@ function getMetricValueStyle(): CSSProperties {
     whiteSpace: "nowrap",
     ...steamRecipes.text("compact", "title"),
     color: steamTheme.color.textPrimary,
-    fontSize: 14,
-    fontWeight: 850,
-    lineHeight: 1.05,
+    fontSize: 12,
+    fontWeight: 800,
+    lineHeight: 1.1,
   };
 }
 
@@ -738,16 +695,47 @@ function getInitials(value: string): string {
 
 function ProfileCard({
   profile,
-  progress,
   refreshedAt,
+  onActivate,
+  onCancel,
+  targetProps,
 }: Pick<DeckySteamCompactProfileProps, "profile" | "refreshedAt"> & {
-  readonly progress: SteamAccountProgressSummary;
+  readonly onActivate: () => void;
+  readonly onCancel: () => void;
+  readonly targetProps: CompactTargetProps;
 }): JSX.Element {
   const avatarUrl = addProfileAvatarCacheBustParam(profile.identity.avatarUrl, refreshedAt);
-  const memberSince = formatProfileMemberSince(profile.metrics);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [focused, setFocused] = useState(false);
+  const focusGeneration = useRef(0);
+  useDeckyVisualFocusState(cardRef, setFocused);
+  const activate = (): void => {
+    if (cardRef.current !== null) targetProps.onActivated(cardRef.current);
+    onActivate();
+  };
+  const focus = (element: HTMLElement): void => {
+    const generation = ++focusGeneration.current;
+    setFocused(true);
+    scrollFocusedCompactAction(element, true, () => focusGeneration.current === generation);
+    targetProps.onFocused(element);
+  };
 
   return (
-    <div style={getProfileCardStyle()}>
+    <Focusable
+      noFocusRing
+      role="button"
+      tabIndex={0}
+      aria-label="Open Steam profile full-screen"
+      preferredFocus={targetProps.preferredFocus}
+      ref={(node) => { cardRef.current = node; targetProps.elementRef?.(node); }}
+      onActivate={activate}
+      onClick={activate}
+      onCancel={onCancel}
+      onFocus={(event) => focus(event.currentTarget)}
+      onGamepadFocus={(event) => focus(event.currentTarget as HTMLElement)}
+      onBlur={() => { focusGeneration.current += 1; setFocused(false); }}
+      style={getProfileCardStyle(focused)}
+    >
       <div style={getIdentityStyle()}>
         <div style={getAvatarFrameStyle()}>
           {avatarUrl !== undefined ? (
@@ -758,28 +746,10 @@ function ProfileCard({
         </div>
         <div style={getIdentityTextStyle()}>
           <div style={getProfileNameStyle()}>{profile.identity.displayName}</div>
-          <div style={getProfileMetaStyle()}>
-            {memberSince === undefined ? "Member since unknown" : `Member since ${memberSince}`}
-          </div>
         </div>
       </div>
-      <div style={getLevelRowStyle()}>
-        <span>{`Level ${progress.steamLevelValue}`}</span>
-        <span style={getXpValueStyle()}>{progress.badgesSecondary ?? "XP unavailable"}</span>
-      </div>
-      <div
-        aria-label="Steam level progress"
-        aria-valuemax={100}
-        aria-valuemin={0}
-        aria-valuenow={progress.xpProgressPercent}
-        aria-valuetext={progress.xpProgressPercent === undefined ? "XP unavailable" : undefined}
-        role="progressbar"
-        style={getProgressTrackStyle()}
-      >
-        {progress.xpProgressPercent !== undefined ? <div style={getProgressFillStyle(progress.xpProgressPercent)} /> : null}
-      </div>
-      <div style={getXpCaptionStyle()}>{progress.xpProgressCaption}</div>
-    </div>
+      <img alt="" aria-hidden="true" src={externalLinkIconUrl} style={{ width: 18, height: 18, filter: qamTheme.decorative.iconFilter }} />
+    </Focusable>
   );
 }
 
@@ -1026,8 +996,8 @@ function RecentlyPlayedItem({
       tone="nested"
       style={getListRowStyle(selectedDateActivity === undefined ? 50 : 62)}
     >
-      {artworkUrl !== undefined ? (
-        <DeckyGameArtwork compact src={artworkUrl} size={34} title={game.title} />
+      {artworkUrl !== undefined || game.appid !== undefined ? (
+        <DeckyGameArtwork compact {...(artworkUrl !== undefined ? { src: artworkUrl } : {})} {...(game.appid !== undefined ? { steamAppId: game.appid } : {})} size={34} title={game.title} />
       ) : (
         <span style={getGameArtworkFallbackStyle()}>{getInitials(game.title)}</span>
       )}
@@ -1059,7 +1029,6 @@ function EmptyListRow({ label }: { readonly label: string }): JSX.Element {
 
 export function DeckySteamCompactProfile({
   profile,
-  steamAccountProgress,
   steamHuntersProfile,
   steamLibraryAchievementScanSummary,
   activityEntries,
@@ -1215,19 +1184,7 @@ export function DeckySteamCompactProfile({
     >
       <section style={getSectionStyle()}>
         <SectionHeader title="Profile" />
-        <ProfileCard profile={profile} progress={steamAccountProgress} refreshedAt={refreshedAt} />
-        <DeckySteamCompactAction
-          ariaLabel="Open Steam profile full-screen"
-          dataAttributes={{ "data-steam-compact-profile-action": "true" }}
-          onActivate={onOpenProfile}
-          onCancel={onCancel}
-          {...targetProps({ kind: "profile" })}
-          scrollToTopOnFocus
-          style={{ minHeight: 42, padding: "10px 12px" }}
-          tone="primary"
-        >
-          <DeckyCompactPrimaryActionContent>Open Profile Full-Screen</DeckyCompactPrimaryActionContent>
-        </DeckySteamCompactAction>
+        <ProfileCard profile={profile} refreshedAt={refreshedAt} onActivate={onOpenProfile} onCancel={onCancel} targetProps={targetProps({ kind: "profile" })} />
       </section>
 
       <DeckyCompactUpNextCard

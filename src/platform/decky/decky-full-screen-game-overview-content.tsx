@@ -7,12 +7,13 @@ import { DeckyFullscreenActionButton } from "./decky-full-screen-action-controls
 import { registerDeckyFullscreenPopupCancel } from "./decky-full-screen-popup-state";
 import { beginDeckyCompactPopup } from "./decky-compact-popup-state";
 import { requestDeckySteamGamepadFocusAfterMount, takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
+import { scrollDeckyFocusTargetToTop } from "./decky-focus-scroll";
 import { openDeckyStandardModal } from "./decky-standard-modal";
 import { DeckyCompletionProgressBar, type DeckyCompletionProgressBarTone } from "./decky-completion-progress-bar";
 import { DeckyAchievementTypeBadge } from "./decky-achievement-type-badge";
 import { DeckyGameStatusIcon, type DeckyGameStatusIconKind } from "./decky-game-status-icon";
 import { dedupeDeckyOverviewDetailRows, formatDeckyOverviewDateTime, type DeckyOverviewDetailRow } from "./decky-overview-format";
-import { achievementCompanionAchievementRowRecipes } from "./decky-qam-theme";
+import { achievementCompanionAchievementRowRecipes, getQamCompactFocusControlStyle } from "./decky-qam-theme";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import {
   getDeckyOverviewMenuParentFocusKey,
@@ -194,7 +195,7 @@ function DeckyOverviewMenuPopup({ rootLabel, getItems, trigger, initialPath, ini
 }
 
 /** Native menu and native return focus, shared by Actions, goals, and suggestions. */
-export function DeckyOverviewMenuButton({ label, displayLabel, items, compact = false, preserveCompactSession = false, preferredFocus = false, elementRef, onActivated, onFocused, onCancel, minHeight }: {
+export function DeckyOverviewMenuButton({ label, displayLabel, items, compact = false, preserveCompactSession = false, preferredFocus = false, elementRef, onActivated, onFocused, onCancel, minHeight, scrollToTopOnFocus = false }: {
   readonly label: string; readonly items: readonly DeckyOverviewMenuItem[]; readonly compact?: boolean;
   readonly displayLabel?: ReactNode;
   readonly preserveCompactSession?: boolean;
@@ -204,6 +205,7 @@ export function DeckyOverviewMenuButton({ label, displayLabel, items, compact = 
   readonly onFocused?: (element: HTMLElement) => void;
   readonly onCancel?: () => void;
   readonly minHeight?: number;
+  readonly scrollToTopOnFocus?: boolean;
 }): JSX.Element {
   const triggerRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<ReturnType<typeof showContextMenu>>();
@@ -213,6 +215,7 @@ export function DeckyOverviewMenuButton({ label, displayLabel, items, compact = 
   const frameStateRef = useRef(new Map<string, { readonly focusKey?: string; readonly scrollTop?: number }>());
   const openMenuAtRef = useRef<(path: readonly string[], focusKey?: string) => void>(() => undefined);
   const [focused, setFocused] = useState(false);
+  const focusGeneration = useRef(0);
   const handlePopupUnmount = (): void => {
     menuRef.current = undefined;
     releaseCompactPopupRef.current?.(); releaseCompactPopupRef.current = undefined;
@@ -259,21 +262,44 @@ export function DeckyOverviewMenuButton({ label, displayLabel, items, compact = 
     }
   };
   useEffect(() => () => { menuRef.current?.Hide(); releaseCompactPopupRef.current?.(); }, []);
+  const focus = (): void => {
+    const target = triggerRef.current;
+    if (target === null) return;
+    const generation = ++focusGeneration.current;
+    setFocused(true);
+    if (scrollToTopOnFocus) {
+      scrollDeckyFocusTargetToTop(target, () => focusGeneration.current === generation);
+    }
+    onFocused?.(target);
+  };
+  const blur = (): void => {
+    focusGeneration.current += 1;
+    setFocused(false);
+  };
   return <Focusable ref={(node) => { triggerRef.current = node; elementRef?.(node); }} role="button" aria-label={label} noFocusRing preferredFocus={preferredFocus} onActivate={openMenu} onClick={openMenu} {...(onCancel !== undefined ? { onCancel } : {})}
-    onGamepadFocus={() => { setFocused(true); if (triggerRef.current !== null) onFocused?.(triggerRef.current); }} onGamepadBlur={() => setFocused(false)}
+    onFocus={focus} onGamepadFocus={focus} onBlur={blur} onGamepadBlur={blur}
     style={{ ...steamRecipes.action("fullscreen"), minHeight: minHeight ?? (compact ? 28 : 34), padding: "0 10px", flexShrink: 0,
       fontSize: steamTheme.type.fullscreen[compact ? "metadata" : "body"], display: "flex", alignItems: "center", justifyContent: "center",
-      ...(focused ? { background: steamTheme.surface.focusedContentStat, boxShadow: steamTheme.focus.shadow } : {}) }}>
+      ...(focused ? compact
+        ? { ...getQamCompactFocusControlStyle(), background: steamTheme.surface.focusedContentStat }
+        : { background: steamTheme.surface.focusedContentStat, boxShadow: steamTheme.focus.shadow }
+        : {}) }}>
     {displayLabel ?? <>{label} <span aria-hidden="true" style={{ marginLeft: 6 }}>▾</span></>}
   </Focusable>;
 }
 
-export function openDeckyOverviewDetails(title: string, rows: readonly DeckyOverviewDetailRow[], extra?: ReactNode, onClose?: () => void): void {
+export function openDeckyOverviewDetails(
+  title: string,
+  rows: readonly DeckyOverviewDetailRow[],
+  extra?: ReactNode,
+  onClose?: () => void,
+  options: { readonly preserveCompactSession?: boolean } = {},
+): void {
   const uniqueRows = dedupeDeckyOverviewDetailRows(rows);
-  openDeckyStandardModal({ title, viewportSafe: true, renderContent: () => <div
+  openDeckyStandardModal({ title, viewportSafe: true, preserveCompactSession: options.preserveCompactSession === true, renderContent: () => <div
     data-ac-game-info-grid="true"
     style={{ maxHeight: "min(228px, calc(100vh - 300px))", overflowY: "auto", overscrollBehavior: "contain", padding: 3, display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gridAutoRows: "minmax(52px, auto)", gap: 6 }}>
-    {uniqueRows.slice(0, 6).map((row, index) => <div key={`${row.key ?? row.label}-${index}`} style={{ ...steamRecipes.card("fullscreen", "raised"), padding: "6px 9px", display: "flex", minWidth: 0, minHeight: 52, boxSizing: "border-box", flexDirection: "column", justifyContent: "space-between", gap: 2 }}>
+    {uniqueRows.map((row, index) => <div key={`${row.key ?? row.label}-${index}`} style={{ ...steamRecipes.card("fullscreen", "raised"), padding: "6px 9px", display: "flex", minWidth: 0, minHeight: 52, boxSizing: "border-box", flexDirection: "column", justifyContent: "space-between", gap: 2 }}>
       <span style={overviewMetadataStyle}>{row.label}</span><span style={{ ...steamRecipes.text("fullscreen", "body"), textAlign: "right", overflowWrap: "anywhere" }}>{row.value}</span>
     </div>)}{extra}
   </div>, ...(onClose !== undefined ? { onClose } : {}) });

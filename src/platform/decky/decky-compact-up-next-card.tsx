@@ -28,6 +28,22 @@ import {
   shouldAdvanceDeckyCompactUpNextCandidate,
 } from "./decky-compact-up-next-model";
 
+const AUTOMATIC_RETRY_DELAY_MS = 1_800;
+
+function unavailableState(cause?: unknown): ResourceState<GameDetailSnapshot> {
+  return {
+    status: "error",
+    error: {
+      kind: "unknown",
+      userMessage: "Recommendations unavailable.",
+      retryable: true,
+      ...(cause === undefined ? {} : { cause }),
+    },
+    isStale: false,
+    isRefreshing: false,
+  };
+}
+
 export type DeckyCompactUpNextControl = "recommendation" | "achievements" | "options";
 
 export interface DeckyCompactUpNextFocusTargetProps {
@@ -111,6 +127,9 @@ export function DeckyCompactUpNextCard({
   const currentGame = candidates[Math.min(candidateIndex, Math.max(0, candidates.length - 1))];
   const [state, setState] = useState<ResourceState<GameDetailSnapshot>>({ status: "idle", isStale: false, isRefreshing: false });
   const [loadedGameKey, setLoadedGameKey] = useState("");
+  const [loadRevision, setLoadRevision] = useState(0);
+  const forceRefreshGameKeyRef = useRef<string>();
+  const automaticallyRetriedGameKeysRef = useRef(new Set<string>());
   const recommendationRef = useRef<HTMLDivElement | null>(null);
   const [recommendationFocused, setRecommendationFocused] = useState(false);
   useDeckyVisualFocusState(recommendationRef, setRecommendationFocused);
@@ -122,14 +141,35 @@ export function DeckyCompactUpNextCard({
     let active = true;
     const gameKey = JSON.stringify([providerId, currentGame.gameId]);
     const cached = readDeckyCompactGameState(providerId, currentGame.gameId);
+    const forceRefresh = forceRefreshGameKeyRef.current === gameKey;
     setLoadedGameKey(gameKey);
-    setState(cached ?? { status: "loading", isStale: false, isRefreshing: false });
-    if (cached !== undefined) return () => { active = false; };
-    void loadDeckyCompactGameState(providerId, currentGame.gameId, () => loadDeckyGameDetailState(providerId, currentGame.gameId, { forceRefresh: false }))
-      .then((next) => { if (active) setState(next); })
-      .catch((cause: unknown) => { if (active) setState({ status: "error", error: { kind: "unknown", userMessage: "Recommendations are currently unavailable.", retryable: true, cause }, isStale: false, isRefreshing: false }); });
+    if (!forceRefresh && cached !== undefined) {
+      console.debug("[Achievement Companion][QAM Up Next] cache hit", { providerId, gameId: currentGame.gameId, resource: "recommendation-game-detail", cacheStatus: cached.status });
+      setState(cached);
+      return () => { active = false; };
+    }
+    setState(cached?.data !== undefined
+      ? { ...cached, isRefreshing: true }
+      : { status: "loading", isStale: false, isRefreshing: false });
+    console.debug("[Achievement Companion][QAM Up Next] load", { providerId, gameId: currentGame.gameId, resource: "recommendation-game-detail", cacheStatus: cached?.status ?? "miss", retry: forceRefresh });
+    void loadDeckyCompactGameState(
+      providerId,
+      currentGame.gameId,
+      () => loadDeckyGameDetailState(providerId, currentGame.gameId, { forceRefresh }),
+      forceRefresh,
+    )
+      .then((next) => {
+        if (forceRefreshGameKeyRef.current === gameKey) forceRefreshGameKeyRef.current = undefined;
+        console.debug("[Achievement Companion][QAM Up Next] load settled", { providerId, gameId: currentGame.gameId, resource: "recommendation-game-detail", status: next.status, failureKind: next.error?.kind });
+        if (active) setState(next);
+      })
+      .catch((cause: unknown) => {
+        if (forceRefreshGameKeyRef.current === gameKey) forceRefreshGameKeyRef.current = undefined;
+        console.warn("[Achievement Companion][QAM Up Next] load failed", { providerId, gameId: currentGame.gameId, resource: "recommendation-game-detail", failureKind: "unknown" });
+        if (active) setState(unavailableState(cause));
+      });
     return () => { active = false; };
-  }, [currentGame?.gameId, providerId]);
+  }, [currentGame?.gameId, loadRevision, providerId]);
 
   const currentGameKey = currentGame === undefined ? "" : JSON.stringify([providerId, currentGame.gameId]);
   const effectiveState: ResourceState<GameDetailSnapshot> = loadedGameKey === currentGameKey
@@ -154,6 +194,31 @@ export function DeckyCompactUpNextCard({
     if (shouldAdvance) setCandidateIndex((index) => Math.min(index + 1, candidates.length - 1));
   }, [candidates.length, shouldAdvance]);
 
+  const retryRecommendation = (): void => {
+    if (currentGame === undefined) return;
+    const gameKey = JSON.stringify([providerId, currentGame.gameId]);
+    forceRefreshGameKeyRef.current = gameKey;
+    console.debug("[Achievement Companion][QAM Up Next] retry requested", { providerId, gameId: currentGame.gameId, resource: "recommendation-game-detail" });
+    setLoadRevision((revision) => revision + 1);
+  };
+
+  useEffect(() => {
+    if (
+      currentGame === undefined
+      || shouldAdvance
+      || effectiveState.status !== "error"
+      || effectiveState.data !== undefined
+      || effectiveState.error?.retryable === false
+      || automaticallyRetriedGameKeysRef.current.has(currentGameKey)
+    ) {
+      return;
+    }
+    automaticallyRetriedGameKeysRef.current.add(currentGameKey);
+    const ownerWindow = recommendationRef.current?.ownerDocument.defaultView ?? window;
+    const timer = ownerWindow.setTimeout(retryRecommendation, AUTOMATIC_RETRY_DELAY_MS);
+    return () => ownerWindow.clearTimeout(timer);
+  }, [currentGame?.gameId, currentGameKey, effectiveState, providerId, shouldAdvance]);
+
   useEffect(() => {
     if (providerId !== "steam" || model?.outcome.kind !== "suggestion" || getSteamHuntersGameEnrichment(model.snapshot) !== undefined) return;
     let active = true;
@@ -176,6 +241,7 @@ export function DeckyCompactUpNextCard({
   const isCurrentGame = activeGameId !== undefined && currentGame.gameId === activeGameId;
   const sectionTitle = providerId === "retroachievements" && isCurrentGame ? "CURRENT GAME" : "CONTINUE PLAYING";
   const suggestion = model?.outcome.kind === "suggestion" ? model.outcome.suggestion : undefined;
+  const recommendationsUnavailable = effectiveState.status === "error" && effectiveState.data === undefined;
   const recommendationLabel = providerId === "retroachievements"
     ? `UP NEXT · ${preferences.retroAchievementsGoal.toUpperCase()}`
     : "UP NEXT";
@@ -193,7 +259,8 @@ export function DeckyCompactUpNextCard({
   };
   const activateRecommendation = (): void => {
     if (recommendationRef.current !== null) recommendationTargetProps.onActivated(recommendationRef.current);
-    if (model?.outcome.kind === "all-hidden") preferences.restoreAllSuggestions();
+    if (recommendationsUnavailable) retryRecommendation();
+    else if (model?.outcome.kind === "all-hidden") preferences.restoreAllSuggestions();
     else if (suggestion !== undefined) openDetails();
   };
   const skip = (): void => {
@@ -217,7 +284,7 @@ export function DeckyCompactUpNextCard({
   const artworkUrl = displayedGame.coverImageUrl ?? displayedGame.boxArtImageUrl ?? displayedGame.systemIconUrl;
   const loading = effectiveState.status === "idle" || effectiveState.status === "loading" || shouldAdvance;
   const statusText = loading ? undefined : effectiveState.status === "error" && effectiveState.data === undefined
-    ? "Recommendations are currently unavailable."
+    ? "Recommendations unavailable"
     : model?.outcome.kind === "completed"
       ? providerId === "steam" ? "Perfected" : `${preferences.retroAchievementsGoal === "beat" ? "Beat" : "Master"} goal complete`
       : model?.outcome.kind === "all-hidden" ? "All suggestions hidden"
@@ -241,7 +308,7 @@ export function DeckyCompactUpNextCard({
         </div>
         {completionPercent !== undefined ? <div aria-label={`${completionPercent}% complete`} style={{ width: "100%", height: 4, overflow: "hidden", borderRadius: theme.radius.pill, background: theme.surface.progressTrack }}><span style={{ display: "block", width: `${completionPercent}%`, height: "100%", background: theme.surface.progressFill }} /></div> : null}
       </div>
-      <Focusable noFocusRing role="button" tabIndex={0} aria-label={suggestion === undefined ? statusText ?? "Loading recommendation" : `${suggestion.achievement.title}. ${suggestion.achievement.description ?? ""}`}
+      <Focusable noFocusRing role="button" tabIndex={0} aria-label={recommendationsUnavailable ? "Recommendations unavailable. Retry" : suggestion === undefined ? statusText ?? "Loading recommendation" : `${suggestion.achievement.title}. ${suggestion.achievement.description ?? ""}`}
         preferredFocus={recommendationTargetProps.preferredFocus} ref={(node) => { recommendationRef.current = node; recommendationTargetProps.elementRef?.(node); }}
         onActivate={activateRecommendation} onClick={activateRecommendation} onCancel={onCancel}
         {...(suggestion === undefined || !recommendationFocused ? {} : {
@@ -270,7 +337,7 @@ export function DeckyCompactUpNextCard({
         {suggestion?.achievement.badgeImageUrl ? <DeckyGameArtwork compact size={48} title={suggestion.achievement.title} src={suggestion.achievement.badgeImageUrl} /> : null}
         {loading ? <div aria-label="Loading Up Next" style={{ display: "flex", flexDirection: "column", gap: 7 }}><span style={{ width: 62, height: 7, borderRadius: theme.radius.pill, background: theme.surface.progressTrack }} /><span style={{ width: "72%", height: 12, borderRadius: 4, background: theme.surface.interactive }} /><span style={{ width: "92%", height: 9, borderRadius: 4, background: theme.surface.progressTrack }} /></div>
           : suggestion !== undefined ? <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}><span style={{ color: theme.color.accent, fontSize: 10, fontWeight: 800, letterSpacing: "0.055em" }}>{recommendationLabel}</span><strong title={suggestion.achievement.title} style={{ ...lineClamp(2), fontSize: 13, lineHeight: 1.08 }}>{suggestion.achievement.title}</strong>{suggestion.achievement.description ? <span title={suggestion.achievement.description} style={{ ...lineClamp(2), color: theme.color.textSecondary, fontSize: 10.5, lineHeight: 1.16 }}>{suggestion.achievement.description}</span> : null}</div>
-            : <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 4, minWidth: 0 }}><strong style={{ fontSize: 12.5 }}>{statusText}</strong>{model?.outcome.kind === "all-hidden" ? <span style={{ color: theme.color.textMuted, fontSize: 10 }}>A Restore Suggestions</span> : null}</div>}
+            : <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 4, minWidth: 0 }}><strong style={{ fontSize: 12.5 }}>{statusText}</strong>{recommendationsUnavailable ? <span style={{ color: theme.color.accent, fontSize: 10, fontWeight: 800 }}>Retry</span> : model?.outcome.kind === "all-hidden" ? <span style={{ color: theme.color.textMuted, fontSize: 10 }}>A Restore Suggestions</span> : null}</div>}
       </Focusable>
       <Focusable flow-children="left-right" noFocusRing tabIndex={-1} style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 48px", gap: 7, minWidth: 0 }}>
         <SecondaryAction label={`View achievements for ${currentGame.title}`} onActivate={openAchievements} onCancel={onCancel} targetProps={getFocusTargetProps("achievements", currentGame.gameId)}>Achievements</SecondaryAction>

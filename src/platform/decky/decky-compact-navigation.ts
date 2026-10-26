@@ -202,6 +202,17 @@ export function shouldRequestDeckyCompactDashboardFocusRestore(
     && previous.providerId === current.providerId;
 }
 
+export function shouldRequestDeckyCompactGameFocusRestore(
+  previous: DeckyCompactNavigationDestination,
+  current: DeckyCompactNavigationDestination,
+): boolean {
+  return previous.kind === "achievement-list"
+    && previous.parent === "game"
+    && current.kind === "game"
+    && previous.providerId === current.providerId
+    && previous.gameId === current.gameId;
+}
+
 export function useDeckyCompactNavigation(): DeckyCompactNavigationDestination {
   return useSyncExternalStore(
     (listener) => {

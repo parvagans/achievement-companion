@@ -18,7 +18,7 @@ import {
   resetDeckyCompactAchievementPageState,
   writeDeckyCompactAchievementPageState,
 } from "../src/platform/decky/decky-compact-achievement-page-state";
-import { buildRetroAchievementsCompactGamePresentation } from "../src/platform/decky/decky-retroachievements-compact-game-model";
+import { buildRetroAchievementsCompactGamePresentation, shouldCollapseRetroAchievementsModeProgress } from "../src/platform/decky/decky-retroachievements-compact-game-model";
 import { getRaFocusStylesCss, raRecipes, raTheme } from "../src/platform/decky/ra-theme";
 import { steamTheme } from "../src/platform/decky/steam-theme";
 import { achievementCompanionAchievementRowRecipes } from "../src/platform/decky/decky-qam-theme";
@@ -48,10 +48,16 @@ const fullScreenAchievementRowSource = readFileSync(
   "utf8",
 );
 
-test("Steam and RA QAM game titles center within their game pages", () => {
+test("QAM game titles follow their provider artwork geometry", () => {
   const steamGameSource = readFileSync("src/platform/decky/decky-steam-compact-game-overview.tsx", "utf8");
+  const retroGameSource = readFileSync("src/platform/decky/decky-retroachievements-compact-game-overview.tsx", "utf8");
   assert.match(steamGameSource, /function getTitleStyle[\s\S]*?textAlign: "center"/u);
-  assert.equal(raRecipes.compactGame.title.textAlign, "center");
+  assert.equal(raRecipes.compactGame.identity.gridTemplateColumns, "92px minmax(0, 1fr)");
+  assert.equal(raRecipes.compactGame.title.textAlign, "left");
+  assert.equal(raRecipes.compactGame.title.WebkitLineClamp, 2);
+  assert.match(retroGameSource, /<DeckyRetroAchievementsGameIcon[\s\S]*?size=\{92\}/u);
+  assert.ok(retroGameSource.indexOf("<DeckyCompactGameOverviewUpNext") < retroGameSource.indexOf("<PassiveSection label=\"Completion Status\""));
+  assert.ok(retroGameSource.indexOf("<PassiveSection label=\"My RetroAchievements Stats\"") < retroGameSource.indexOf("<PassiveSection label=\"Community Times\""));
 });
 
 test("Steam compact and full-screen achievement rows share the same locked status icon", () => {
@@ -308,6 +314,9 @@ test("RA mode preference keeps upgraded achievements only in Hardcore without re
   assert.deepEqual(gameHardcore.modes.map((item) => item.mode), ["hardcore"]);
   assert.deepEqual(gameSoftcore.modes.map((item) => item.mode), ["softcore"]);
   assert.deepEqual(gameBoth.modes.map((item) => item.mode), ["hardcore", "softcore"]);
+  assert.equal(shouldCollapseRetroAchievementsModeProgress(gameHardcore.summary, gameHardcore.modes), true);
+  assert.equal(shouldCollapseRetroAchievementsModeProgress(gameBoth.summary, gameBoth.modes), false);
+  assert.equal(shouldCollapseRetroAchievementsModeProgress(gameHardcore.summary, [{ summary: { ...gameHardcore.summary, unlockedCount: gameHardcore.summary.unlockedCount + 1 } }]), false);
 });
 
 test("RA detail follows selected mode for unlock state and timestamp", () => {

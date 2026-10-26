@@ -9,21 +9,17 @@ import { DeckyCompletionProgressBar, getCompletionPercent } from "./decky-comple
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DeckyCompactRecentAchievementRow } from "./decky-compact-recent-achievement-row";
 import { DeckyRetroAchievementsGameIcon } from "./decky-retroachievements-game-icon";
-import { formatProfileMemberSince } from "./decky-stat-helpers";
 import { useDeckySettings } from "./decky-settings";
 import { useDeckyProviderConfig } from "./providers/retroachievements/config";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 import { raRecipes, raTheme } from "./ra-theme";
-import { DeckyCompactPrimaryActionContent } from "./decky-compact-primary-action";
 import {
   filterRetroAchievementsUnlocksByMode,
   getRetroAchievementsPlayedGameProgress,
   getRetroAchievementsProfileOverviewMetrics,
-  getRetroAchievementsProfileRanks,
   sortRetroAchievementsUnlocksNewestFirst,
 } from "./decky-retroachievements-compact-profile-model";
 import { buildRetroAchievementsActivityCalendarModel } from "./decky-retroachievements-activity-calendar-model";
-import { DeckyRetroAchievementsRankTrendIndicator } from "./decky-ra-rank-trend-indicator";
 import { getDeckyActivityCalendarFocusDestination } from "./decky-activity-calendar-navigation";
 import {
   buildCompactActivityGamesForDay,
@@ -49,6 +45,8 @@ import { getRetroAchievementsCompletionIndicatorState } from "./decky-retroachie
 import { getRetroAchievementsModeUnlockedCount } from "./decky-retroachievements-mode-progress";
 import { DeckyGameStatusIcon } from "./decky-game-status-icon";
 import { findDeckyScrollableAncestor } from "./decky-scroll-viewport";
+import { scrollDeckyFocusTargetToTop } from "./decky-focus-scroll";
+import { getQamCompactFocusControlStyle } from "./decky-qam-theme";
 import { requestDeckySteamGamepadFocusAfterMount, takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
 import { useDeckyVisualFocusState } from "./decky-visual-focus-state";
@@ -65,6 +63,7 @@ import chevronRightIconUrl from "./assets/chevron-right.svg";
 import masteredIconUrl from "./assets/mastered.svg";
 import pieChartIconUrl from "./assets/pie-chart.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
+import externalLinkIconUrl from "./assets/external-link.svg";
 import { RA_COIN_ICON_URL } from "./decky-retroachievements-points-icon";
 
 export interface DeckyRetroAchievementsCompactProfileProps {
@@ -204,18 +203,55 @@ function Section({ title, children }: { readonly title: string; readonly childre
 
 function ProfileCard({
   profile,
-  rankDisplay,
   refreshedAt,
+  onActivate,
+  onCancel,
+  targetProps,
 }: {
   readonly profile: DashboardSnapshot["profile"];
-  readonly rankDisplay: Parameters<typeof getRetroAchievementsProfileRanks>[1];
   readonly refreshedAt: number | undefined;
+  readonly onActivate: () => void;
+  readonly onCancel: () => void;
+  readonly targetProps: CompactFocusTargetProps;
 }): JSX.Element {
   const avatarUrl = addProfileAvatarCacheBustParam(profile.identity.avatarUrl, refreshedAt);
-  const memberSince = formatProfileMemberSince(profile.metrics);
-  const ranks = getRetroAchievementsProfileRanks(profile, rankDisplay);
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [focused, setFocused] = useState(false);
+  const focusGeneration = useRef(0);
+  useDeckyVisualFocusState(cardRef, setFocused);
+  const activate = (): void => {
+    if (cardRef.current !== null) targetProps.onActivated(cardRef.current);
+    onActivate();
+  };
+  const focus = (element: HTMLElement): void => {
+    const generation = ++focusGeneration.current;
+    setFocused(true);
+    scrollDeckyFocusTargetToTop(element, () => focusGeneration.current === generation);
+    targetProps.onFocused(element);
+  };
   return (
-    <div style={raRecipes.compactProfile.profileCard}>
+    <Focusable
+      noFocusRing
+      role="button"
+      tabIndex={0}
+      aria-label="Open RetroAchievements profile full-screen"
+      preferredFocus={targetProps.preferredFocus}
+      ref={(node) => { cardRef.current = node; targetProps.elementRef?.(node); }}
+      onActivate={activate}
+      onClick={activate}
+      onCancel={onCancel}
+      onFocus={(event) => focus(event.currentTarget)}
+      onGamepadFocus={(event) => focus(event.currentTarget as HTMLElement)}
+      onBlur={() => { focusGeneration.current += 1; setFocused(false); }}
+      style={{
+        ...raRecipes.compactProfile.profileCard,
+        display: "grid",
+        gridTemplateColumns: "minmax(0, 1fr) 18px",
+        alignItems: "center",
+        outline: "none",
+        ...(focused ? getQamCompactFocusControlStyle() : {}),
+      }}
+    >
       <div style={raRecipes.compactProfile.identity}>
         <div style={raRecipes.compactProfile.avatarFrame}>
           {avatarUrl !== undefined
@@ -224,20 +260,10 @@ function ProfileCard({
         </div>
         <div style={raRecipes.compactProfile.identityText}>
           <div style={raRecipes.compactProfile.profileName}>{profile.identity.displayName}</div>
-          <div style={raRecipes.compactProfile.profileMeta}>{memberSince === undefined ? "Member since unknown" : `Member since ${memberSince}`}</div>
         </div>
       </div>
-      {ranks.length > 0 ? (
-        <div style={raRecipes.compactProfile.rankGrid(ranks.length)}>
-          {ranks.map((rank) => (
-            <div key={rank.kind} style={raRecipes.compactProfile.rank}>
-              <span style={raRecipes.compactProfile.rankLabel}>{rank.label}</span>
-              <span style={raRecipes.compactProfile.rankValue}><DeckyRetroAchievementsRankTrendIndicator accountId={profile.identity.accountId} kind={rank.kind} />{rank.value}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </div>
+      <img alt="" aria-hidden="true" src={externalLinkIconUrl} style={{ width: 18, height: 18, filter: raTheme.iconFilter.primary }} />
+    </Focusable>
   );
 }
 
@@ -809,10 +835,7 @@ export function DeckyRetroAchievementsCompactProfile({
       ) : null}
 
       <Section title="Profile">
-        <ProfileCard profile={profile} rankDisplay={settings.retroAchievementsRankDisplay} refreshedAt={refreshedAt} />
-        <CompactAction label="Open Profile Full-Screen" primary onActivate={onOpenProfile} onCancel={onCancel} dataAttribute="profile" scrollToTopOnFocus targetProps={targetProps({ kind: "profile" })} style={{ minHeight: 42, padding: "10px 12px" }}>
-          <DeckyCompactPrimaryActionContent>Open Profile Full-Screen</DeckyCompactPrimaryActionContent>
-        </CompactAction>
+        <ProfileCard profile={profile} refreshedAt={refreshedAt} onActivate={onOpenProfile} onCancel={onCancel} targetProps={targetProps({ kind: "profile" })} />
       </Section>
 
       <DeckyCompactUpNextCard
@@ -826,7 +849,7 @@ export function DeckyRetroAchievementsCompactProfile({
         getFocusTargetProps={(control, gameId) => targetProps({ kind: "up-next", control, gameId })}
       />
 
-      <Section title="RetroAchievements Overview">
+      <Section title="RA Overview">
         <div style={raRecipes.compactProfile.metricGrid(overview.length)}>
           {overview.map((metric) => (
             <OverviewMetric

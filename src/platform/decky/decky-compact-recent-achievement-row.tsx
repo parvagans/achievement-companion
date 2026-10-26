@@ -71,7 +71,7 @@ const mainStyle: CSSProperties = {
 
 const titleStyle: CSSProperties = {
   color: qamTheme.color.textPrimary,
-  fontSize: qamTheme.type.compact.title,
+  fontSize: 11,
   fontWeight: 800,
   lineHeight: 1.17,
   minWidth: 0,
@@ -83,7 +83,7 @@ const titleStyle: CSSProperties = {
 
 const metadataStyle: CSSProperties = {
   color: qamTheme.color.textSecondary,
-  fontSize: qamTheme.type.compact.metadata,
+  fontSize: 9,
   fontWeight: 600,
   lineHeight: 1.18,
   minWidth: 0,

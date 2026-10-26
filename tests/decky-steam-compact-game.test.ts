@@ -13,6 +13,14 @@ const compactGameSource = readFileSync(
 );
 const gameDetailSource = readFileSync("src/platform/decky/decky-game-detail-view.tsx", "utf8");
 const bootstrapSource = readFileSync("src/platform/decky/bootstrap.tsx", "utf8");
+const compactOverviewActionsSource = readFileSync(
+  "src/platform/decky/decky-compact-game-overview-actions.tsx",
+  "utf8",
+);
+const compactOverviewUpNextSource = readFileSync(
+  "src/platform/decky/decky-compact-game-overview-up-next.tsx",
+  "utf8",
+);
 const steamHuntersSectionsSource = readFileSync(
   "src/platform/decky/decky-steam-hunters-game-sections.tsx",
   "utf8",
@@ -20,15 +28,25 @@ const steamHuntersSectionsSource = readFileSync(
 
 test("Steam compact game overview uses the refined narrow-panel hierarchy and optional SteamHunters enrichment", () => {
   assert.match(compactGameSource, /padding: "0 16px 4px"/u);
-  assert.match(compactGameSource, /height: 124/u);
-  assert.match(compactGameSource, /MIN_TITLE_FONT_SIZE_PX = 12/u);
+  assert.match(compactGameSource, /COMPACT_STEAM_BANNER_HEIGHT_PX = 108/u);
+  assert.match(compactGameSource, /height=\{COMPACT_STEAM_BANNER_HEIGHT_PX\}/u);
   assert.match(compactGameSource, /function SteamCompactGameTitle/u);
+  assert.match(compactGameSource, /DeckyResponsiveGameTitle[\s\S]*preferredFontSize=\{18\}[\s\S]*minimumFontSize=\{14\}/u);
+  assert.doesNotMatch(compactGameSource, /<span>Steam<\/span>/u);
   assert.match(compactGameSource, /useLayoutEffect/u);
-  assert.match(compactGameSource, /Open Full-Screen/u);
-  assert.match(compactGameSource, /View Achievements/u);
-  assert.match(compactGameSource, /DeckySteamCompactAction/u);
-  assert.match(compactGameSource, /requestDeckySteamGamepadFocusAfterMount\(initialFocusTargetRef\.current\)/u);
-  assert.match(compactGameSource, /Your Progress/u);
+  assert.match(compactGameSource, /DeckyCompactGameOverviewActions/u);
+  assert.match(compactGameSource, /DeckyCompactGameOverviewUpNext/u);
+  assert.match(compactOverviewActionsSource, /Open Full-Screen/u);
+  assert.match(compactOverviewActionsSource, /Achievements/u);
+  assert.match(compactOverviewActionsSource, /DeckySteamCompactAction/u);
+  assert.match(compactOverviewActionsSource, /requestDeckySteamGamepadFocusAfterMount\(target\)/u);
+  assert.match(compactOverviewUpNextSource, /Your Progress/u);
+  assert.match(compactOverviewUpNextSource, /limit: 3/u);
+  assert.match(compactOverviewUpNextSource, /Show More Suggestions/u);
+  assert.match(compactOverviewUpNextSource, /Show Less/u);
+  assert.match(compactOverviewUpNextSource, /showCaption=\{false\}/u);
+  assert.match(compactOverviewUpNextSource, /onSecondaryActionDescription: "Skip"/u);
+  assert.match(compactOverviewUpNextSource, /onOptionsActionDescription: "List"/u);
   assert.match(compactGameSource, /Play Time/u);
   assert.match(compactGameSource, /Steam Deck/u);
   assert.match(compactGameSource, /steamDeckIconUrl/u);
@@ -51,7 +69,9 @@ test("Steam compact game overview uses the refined narrow-panel hierarchy and op
   assert.match(compactGameSource, /Unlock %/u);
   assert.match(compactGameSource, /Duration/u);
   assert.match(compactGameSource, /getPersonalAchievementDuration/u);
-  assert.match(compactGameSource, /Game Info/u);
+  assert.match(compactOverviewActionsSource, /Game Info/u);
+  assert.match(compactGameSource, /openDeckyOverviewDetails/u);
+  assert.doesNotMatch(compactGameSource, /<CompactGameSectionFocusTarget label="Game Info">/u);
   assert.match(compactGameSource, /loadDeckySteamHuntersEnrichedGameDetail\(snapshot\)/u);
   assert.match(compactGameSource, /getSteamHuntersAchievementSetStatusPresentation/u);
   assert.match(compactGameSource, /registerCompactGameDetailCancelCallback/u);

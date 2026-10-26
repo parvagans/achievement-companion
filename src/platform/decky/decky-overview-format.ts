@@ -21,6 +21,8 @@ export interface DeckyRetroAchievementsGameInfoFields {
   readonly releaseDate?: string;
   readonly lastSync?: string;
   readonly totalSetPoints?: string;
+  readonly playerCount?: string;
+  readonly completionAward?: string;
   readonly awardDate?: string;
 }
 
@@ -44,8 +46,10 @@ export function buildDeckyRetroAchievementsGameInfoRows(fields: DeckyRetroAchiev
     { key: "release-date", label: "Release Date", value: fields.releaseDate },
     { key: "last-sync", label: "Last Sync", value: fields.lastSync },
     { key: "total-set-points", label: "Total Set Points", value: fields.totalSetPoints },
+    { key: "players", label: "Players", value: fields.playerCount },
+    { key: "completion-award", label: "Completion Award", value: fields.completionAward },
     { key: "award-date", label: "Award Date", value: fields.awardDate },
-  ]).slice(0, 6);
+  ]);
 }
 
 function normalizeDetailSemantic(value: string): string {

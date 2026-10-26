@@ -30,11 +30,9 @@ const compactNavigationSource = readFileSync(
 );
 const indexSource = readFileSync("src/index.tsx", "utf8");
 
-test("Steam compact XP progress keeps unavailable distinct from zero", () => {
-  assert.match(compactProfileSource, /aria-valuenow=\{progress\.xpProgressPercent\}/u);
-  assert.match(compactProfileSource, /aria-valuetext=\{progress\.xpProgressPercent === undefined \? "XP unavailable" : undefined\}/u);
-  assert.match(compactProfileSource, /progress\.xpProgressPercent !== undefined \? <div style=\{getProgressFillStyle\(progress\.xpProgressPercent\)\} \/> : null/u);
-  assert.doesNotMatch(compactProfileSource, /xpProgressPercent \?\? 0/u);
+test("Steam compact profile omits account level and member-since details", () => {
+  assert.doesNotMatch(compactProfileSource, /xpProgressPercent|Steam level progress|Member since/u);
+  assert.doesNotMatch(compactProfileSource, /steamAccountProgress/u);
 });
 
 test("Steam and RA QAM Recent Activity share the achievement-row treatment", () => {
@@ -69,7 +67,8 @@ test("Steam compact profile matches the refined controller-first information hie
   assert.doesNotMatch(indexSource, /AC_(?:decky_compact|main)_logo\.png/u);
 
   assert.match(compactProfileSource, /<SectionHeader title="Profile"/u);
-  assert.match(compactProfileSource, /Open Profile Full-Screen/u);
+  assert.match(compactProfileSource, /aria-label="Open Steam profile full-screen"/u);
+  assert.doesNotMatch(compactProfileSource, />Open Profile Full-Screen</u);
   assert.match(compactProfileSource, /title="SteamHunters Profile"/u);
   assert.match(compactProfileSource, /label="Points"/u);
   assert.match(compactProfileSource, /label="Points Rank"/u);
@@ -114,7 +113,7 @@ test("Steam compact profile matches the refined controller-first information hie
   assert.match(compactProfileSource, /previousNode !== node && isQuickAccessVisible && key === restorationKey/u);
   assert.match(compactProfileSource, /requestDeckySteamGamepadFocusAfterMount\(node, 12\)/u);
   assert.match(compactProfileSource, /requestDeckySteamGamepadFocusAfterMount\(target, 12\)/u);
-  assert.ok(compactProfileSource.includes("<DeckyGameArtwork compact src={artworkUrl} size={34} title={game.title} />"));
+  assert.match(compactProfileSource, /DeckyGameArtwork compact[\s\S]*steamAppId: game\.appid[\s\S]*size=\{34\}[\s\S]*title=\{game\.title\}/u);
   assert.ok(compactProfileSource.includes('showSteamHuntersProfile ? "Steam and SteamHunters" : "Steam"'));
   assert.match(compactProfileSource, /visibleAchievements\.map/u);
   assert.match(compactProfileSource, /visibleGames\.map/u);
@@ -227,7 +226,7 @@ test("provider and Steam use explicit native entry scopes without changing Retro
   assert.match(steamActionSource, /preferredFocus=\{preferredFocus\}/u);
   assert.match(
     compactProfileSource,
-    /ariaLabel="Open Steam profile full-screen"[\s\S]*\.\.\.targetProps\(\{ kind: "profile" \}\)/u,
+    /<ProfileCard[\s\S]*onActivate=\{onOpenProfile\}[\s\S]*targetProps=\{targetProps\(\{ kind: "profile" \}\)\}/u,
   );
   assert.match(compactProfileSource, /preferredFocus: key === restorationKey/u);
 
