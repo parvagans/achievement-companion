@@ -27,12 +27,14 @@ export function getDeckyStandardModalTabStyle(): CSSProperties {
 
 export function openDeckyStandardModal({
   title,
+  renderTitle,
   renderContent,
   onClose,
   viewportSafe = false,
   preserveCompactSession = false,
 }: {
   readonly title: string;
+  readonly renderTitle?: (closeModal: () => void) => ReactNode;
   readonly renderContent: (closeModal: () => void) => ReactNode;
   readonly onClose?: () => void;
   readonly viewportSafe?: boolean;
@@ -54,7 +56,7 @@ export function openDeckyStandardModal({
   try {
     modal = showModal(
       <ConfirmModal
-        strTitle={title}
+        strTitle={renderTitle?.(closeModal) ?? title}
         strOKButtonText="Close"
         bAlertDialog
         closeModal={closeModal}

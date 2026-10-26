@@ -932,30 +932,41 @@ function QamSupportActions({ theme }: { readonly theme: AchievementCompanionThem
     ? githubInvertocatBlackUrl
     : githubInvertocatWhiteUrl;
   return (
-    <Focusable
-      data-ac-qam-support-actions="true"
-      flow-children="left-right"
-      noFocusRing
-      tabIndex={-1}
-      role="group"
-      aria-label="Support Achievement Companion"
-      style={{ display: "flex", alignItems: "center", gap: steamTheme.space.sm, width: "100%", minWidth: 0 }}
-    >
-      <QamSupportAction
-        label="Star on GitHub"
-        lines={["Star on", "GitHub"]}
-        url={ACHIEVEMENT_COMPANION_GITHUB_URL}
-        iconSrc={githubIconUrl}
-        iconStyle={{ width: 19, height: 19, flexShrink: 0, objectFit: "contain" }}
+    <div data-ac-qam-support-section="true" style={{ display: "flex", flexDirection: "column", gap: steamTheme.space.sm, width: "100%", minWidth: 0 }}>
+      <div
+        aria-orientation="horizontal"
+        data-ac-qam-support-divider="true"
+        role="separator"
+        style={getProviderMenuDividerStyle()}
       />
-      <QamSupportAction
-        label="Support on Ko-fi"
-        lines={["Support on", "Ko-fi"]}
-        url={ACHIEVEMENT_COMPANION_KOFI_URL}
-        iconSrc={kofiSymbolUrl}
-        iconStyle={{ width: 22, height: 18, flexShrink: 0, objectFit: "contain" }}
-      />
-    </Focusable>
+      <div style={{ color: steamTheme.color.textSecondary, fontSize: steamTheme.type.compact.metadata, fontWeight: steamTheme.type.weight.medium, lineHeight: 1.2, textAlign: "center" }}>
+        Enjoying Achievement Companion?
+      </div>
+      <Focusable
+        data-ac-qam-support-actions="true"
+        flow-children="left-right"
+        noFocusRing
+        tabIndex={-1}
+        role="group"
+        aria-label="Support Achievement Companion"
+        style={{ display: "flex", alignItems: "center", gap: steamTheme.space.sm, width: "100%", minWidth: 0 }}
+      >
+        <QamSupportAction
+          label="Star on GitHub"
+          lines={["Star on", "GitHub"]}
+          url={ACHIEVEMENT_COMPANION_GITHUB_URL}
+          iconSrc={githubIconUrl}
+          iconStyle={{ width: 19, height: 19, flexShrink: 0, objectFit: "contain" }}
+        />
+        <QamSupportAction
+          label="Support on Ko-fi"
+          lines={["Support on", "Ko-fi"]}
+          url={ACHIEVEMENT_COMPANION_KOFI_URL}
+          iconSrc={kofiSymbolUrl}
+          iconStyle={{ width: 22, height: 18, flexShrink: 0, objectFit: "contain" }}
+        />
+      </Focusable>
+    </div>
   );
 }
 

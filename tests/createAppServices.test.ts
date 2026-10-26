@@ -3585,6 +3585,7 @@ test("compact provider menu nests native theme and badge settings under a sessio
   );
   assert.match(source, /function getChooserProviderListStyle\(\)[\s\S]*gap: 10/u);
   assert.match(source, /data-ac-qam-support-actions="true"[\s\S]*flow-children="left-right"/u);
+  assert.match(source, /data-ac-qam-support-divider="true"[\s\S]*style=\{getProviderMenuDividerStyle\(\)\}[\s\S]*Enjoying Achievement Companion\?/u);
   assert.match(source, /label="Star on GitHub"[\s\S]*label="Support on Ko-fi"/u);
   assert.match(source, /https:\/\/github\.com\/parvagans\/achievement-companion/u);
   assert.match(source, /https:\/\/ko-fi\.com\/parvagans/u);
