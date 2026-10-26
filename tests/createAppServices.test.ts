@@ -13075,7 +13075,7 @@ test("game page achievement summary resolves a RetroAchievements shortcut from i
 
     assert.equal(summary.provider, "retroachievements");
     assert.equal(summary.gameId, "9001");
-    assert.equal(summary.title, "~Homebrew~ Pyoro 64");
+    assert.equal(summary.title, "Pyoro 64");
     assert.equal(summary.earned, 16);
     assert.equal(summary.total, 33);
     assert.equal(summary.completionStatus, "beaten");
@@ -13440,7 +13440,7 @@ test("game page achievement summary preserves mastered completion status for a h
 
     assert.equal(summary.provider, "retroachievements");
     assert.equal(summary.gameId, "9200");
-    assert.equal(summary.title, "~Homebrew~ Minicraft PSP");
+    assert.equal(summary.title, "Minicraft PSP");
     assert.equal(summary.earned, 57);
     assert.equal(summary.total, 57);
     assert.equal(summary.completionStatus, "mastered");

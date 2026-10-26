@@ -42,6 +42,14 @@ function pickString(...values: unknown[]): string | undefined {
   return undefined;
 }
 
+const RETROACHIEVEMENTS_CATALOG_TITLE_PREFIX = /^(?:~(?:Homebrew|Unlicensed|Prototype)~\s*)+/iu;
+
+export function formatRetroAchievementsGameTitle(title: string): string {
+  const normalized = title.trim();
+  const displayTitle = normalized.replace(RETROACHIEVEMENTS_CATALOG_TITLE_PREFIX, "").trim();
+  return displayTitle.length > 0 ? displayTitle : normalized;
+}
+
 function coerceIdentifier(value: unknown): string | undefined {
   if (typeof value === "string") {
     const trimmed = value.trim();
@@ -792,7 +800,7 @@ function buildGameIdentity(
   "providerId" | "gameId" | "title" | "platformId" | "platformLabel" | "systemIconUrl" | "coverImageUrl" | "boxArtImageUrl"
 > {
   const gameId = pickIdentifier(raw.gameId) ?? "unknown-game";
-  const title = pickString(raw.gameTitle, raw.title) ?? "Unknown Game";
+  const title = formatRetroAchievementsGameTitle(pickString(raw.gameTitle, raw.title) ?? "Unknown Game");
   const platformId = pickIdentifier(raw.platformId);
   const platformLabel = pickString(raw.platformLabel);
   const systemIconUrl = pickString(raw.systemIconUrl);

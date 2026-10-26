@@ -31,7 +31,7 @@ test("Steam compact game overview uses the refined narrow-panel hierarchy and op
   assert.match(compactGameSource, /COMPACT_STEAM_BANNER_HEIGHT_PX = 108/u);
   assert.match(compactGameSource, /height=\{COMPACT_STEAM_BANNER_HEIGHT_PX\}/u);
   assert.match(compactGameSource, /function SteamCompactGameTitle/u);
-  assert.match(compactGameSource, /DeckyResponsiveGameTitle[\s\S]*preferredFontSize=\{18\}[\s\S]*minimumFontSize=\{14\}/u);
+  assert.match(compactGameSource, /DeckyResponsiveGameTitle[\s\S]*preferredFontSize=\{16\}[\s\S]*minimumFontSize=\{14\}/u);
   assert.doesNotMatch(compactGameSource, /<span>Steam<\/span>/u);
   assert.match(compactGameSource, /useLayoutEffect/u);
   assert.match(compactGameSource, /DeckyCompactGameOverviewActions/u);

@@ -98,7 +98,7 @@ export const achievementCompanionQamTheme = {
     infoSurface: "linear-gradient(135deg,rgba(17,37,57,.9),rgba(12,27,43,.78))",
   },
   type: {
-    compact: { hero: 24, heading: 16, title: 14, body: 13, metadata: 11, caption: 10 },
+    compact: { hero: 24, heading: 14, title: 14, body: 13, metadata: 11, caption: 10 },
     fullscreen: { hero: 28, heading: 20, title: 16, body: 14, metadata: 12, caption: 11 },
     weight: { regular: 400, medium: 600, strong: 700 },
     fontFamily: '"Motiva Sans", Arial, sans-serif',

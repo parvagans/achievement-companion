@@ -41,6 +41,12 @@ test("saved Neon retains its original branded palette while Arcade is separate",
   assert.equal(Object.hasOwn(AC_NEON_THEME_VARIABLES, "--ac-hardcore"), false);
 });
 
+test("compact QAM typography uses the approved heading scale", () => {
+  assert.equal(achievementCompanionQamTheme.type.compact.heading, 14);
+  assert.equal(steamTheme.type.compact.heading, 14);
+  assert.equal(raTheme.type.compact.heading, 14);
+});
+
 test("new palette roles match the requested eight-color theme specifications", () => {
   const specifications = [
     [AC_EMBER_THEME_VARIABLES, ["#111315", "#1D2023", "#2C3032", "#414345", "#FF743D", "#FFC05A", "#F5F0EA", "#B8B1A9"]],

@@ -89,7 +89,7 @@ function getTitleStyle(): CSSProperties {
   return {
     minWidth: 0,
     color: "rgba(247, 251, 255, 0.99)",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 850,
     lineHeight: 1.16,
     textAlign: "center",
@@ -319,7 +319,7 @@ function getPersonalAchievementDuration(snapshot: GameDetailSnapshot): string {
 }
 
 function SteamCompactGameTitle({ title }: { readonly title: string }): JSX.Element {
-  return <DeckyResponsiveGameTitle title={title} preferredFontSize={18} minimumFontSize={14} style={getTitleStyle()} />;
+  return <DeckyResponsiveGameTitle title={title} preferredFontSize={16} minimumFontSize={14} style={getTitleStyle()} />;
 }
 
 function SnapshotMetric({
