@@ -151,6 +151,7 @@ export function DeckyFullScreenAboutPage({ onOpenExternalUrl }: {
           <AboutLink title="Changelog" icon={externalLinkIconUrl} url={RELEASES_URL} onOpenExternalUrl={onOpenExternalUrl} onGamepadDirection={handleCardDirection} />
           <AboutLink title="GitHub" icon={externalLinkIconUrl} url={REPOSITORY_URL} onOpenExternalUrl={onOpenExternalUrl} onGamepadDirection={handleCardDirection} />
           <AboutLink title="Report Issue" icon={infoIconUrl} url={ISSUES_URL} onOpenExternalUrl={onOpenExternalUrl} onGamepadDirection={handleCardDirection} />
+          <div style={{ padding: "4px 2px 0", color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata }}>Contact · achievement-companion@proton.me</div>
         </div>
       </div>
     </div>

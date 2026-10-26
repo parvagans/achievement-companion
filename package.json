@@ -2,7 +2,7 @@
   "name": "steam-deck-achievement-companion",
   "private": true,
   "version": "0.38.0",
-  "author": "parvagans",
+  "author": "parvagans <achievement-companion@proton.me>",
   "license": "BSD-3-Clause",
   "type": "module",
   "scripts": {

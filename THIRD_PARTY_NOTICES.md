@@ -7,6 +7,9 @@ This file identifies third-party components relevant to Achievement Companion's 
 - RetroAchievements is used for identification of the supported provider only. Achievement Companion is not affiliated with, endorsed by, sponsored by, or approved by RetroAchievements.
 - Steam and the Steam logo are trademarks and/or registered trademarks of Valve Corporation in the U.S. and/or other countries.
 - Achievement Companion is not affiliated with, endorsed by, sponsored by, or approved by Valve Corporation.
+- The Steam provider icon uses an icon from [Streamline](https://streamlinehq.com/). Streamline attribution remains visible in the icon source and project README.
+- GitHub's Invertocat artwork comes from the official [GitHub Logo Brand Toolkit](https://brand.github.com/foundations/logo) and is used only for the project's GitHub action.
+- Ko-fi's symbol comes from the official [Ko-fi Brand Assets](https://more.ko-fi.com/brand-assets) and is used only for the project's support action.
 - Achievement Companion does not provide ROMs, BIOS files, game files, or copyrighted game content.
 
 ## Bundled Native ROM Hashing

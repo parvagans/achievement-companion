@@ -21,31 +21,69 @@
   <a href="#installation"><strong>Install Achievement Companion</strong></a>
   ·
   <a href="https://github.com/parvagans/achievement-companion/releases/latest">Latest GitHub release</a>
+  ·
+  <a href="mailto:achievement-companion@proton.me">Contact</a>
 </p>
 
 Achievement Companion brings RetroAchievements and Steam achievement tracking to Steam Deck and compatible SteamOS devices through Decky Loader. Check your next unlock in Quick Access, explore your collection in full-screen dashboards, and see completion badges on library game pages.
 
-The project is undergoing active, rigorous development with frequent updates. If you find a problem or have an idea, please [open a GitHub issue](https://github.com/parvagans/achievement-companion/issues). Never include an API key in an issue.
+The project is under active development with frequent updates. If you find a problem or have an idea, please [open a GitHub issue](https://github.com/parvagans/achievement-companion/issues). Never include an API key in an issue.
 
 <p align="center">
-  <img src="docs/screenshots/readme/achievement-companion-hero.png" alt="Achievement Companion's RetroAchievements overview in Steam Deck Game Mode" width="100%">
+  <img src="docs/screenshots/readme/achievement-companion-hero.png" alt="Achievement Companion QAM showing the RetroAchievements current game and a focused Master goal recommendation" width="100%">
 </p>
+
+## Explore Achievement Companion
+
+- [Highlights](#highlights) — the main capabilities at a glance.
+- [Quick Access Menu](#quick-access-menu) — Up Next recommendations, shared achievement details, and compact browsing.
+- [RetroAchievements inside Steam](#retroachievements-inside-steam) — native Activity, Your Stuff, Community, and Game Info integration.
+- [Full-screen game pages](#full-screen-game-pages) — progress, recommendations, achievement browsing, and community insights.
+- [Game-page status badges](#native-game-page-status-badges) — Classic and Minimal badge styles.
+- [Installation](#installation) and [Updates](#updates) — first-time setup and verified update delivery.
+- [Support Achievement Companion](#support-achievement-companion) — enjoying Achievement Companion? Star the project, support development, or get in touch.
+- [Privacy](#privacy), [Development](#development), and [Credits](#credits-and-acknowledgements) — data handling, project practices, and upstream acknowledgements.
 
 ## Highlights
 
-- **Quick Access and full-screen views:** controller-friendly profiles, searchable game lists, completion progress, activity calendars, and achievement details.
-- **Purpose-built full-screen game pages:** a non-scrolling Overview combines personal progress, the latest unlock, up to three goal-aware Up Next recommendations, compact provider metrics, Game Info, and distinct Beaten, Mastered, or Perfected milestone showcases.
+- **[Quick Access and full-screen views](#quick-access-menu):** controller-friendly profiles, searchable game lists, completion progress, activity calendars, and achievement details.
+- **[Purpose-built full-screen game pages](#full-screen-game-pages):** a non-scrolling Overview combines personal progress, the latest unlock, up to three goal-aware Up Next recommendations, compact provider metrics, Game Info, and distinct Beaten, Mastered, or Perfected milestone showcases.
 - **Controller-first navigation:** switch game sections with L1/R1, use contextual X/Y actions without moving the footer, and move through hierarchical Actions and Manage Suggestions menus while focus and return context are preserved.
-- **RetroAchievements inside Steam:** supported non-Steam games can show RetroAchievements in Steam's native Activity, Your Stuff, and Community views.
+- **[RetroAchievements inside Steam](#retroachievements-inside-steam):** supported non-Steam games can show RetroAchievements in Steam's native Activity, Your Stuff, and Community views.
 - **Steam completion insights:** SteamHunters community data adds rarity, completion times, DLC requirements, achievement groups, and obtainability information where available.
 - **Optional SteamHunters personal data:** personal SteamHunters profile statistics can be disabled without turning off community statistics. If a profile is unavailable, Achievement Companion uses meaningful Steam library data where possible and otherwise hides the section.
-- **Library game-page badges:** choose the colorful Classic design or a compact monochrome Minimal design to see In Progress, Steam Perfected, or RetroAchievements Beaten and Mastered status before launching a game. Both styles support Small, Medium, and Large layouts and six positions.
+- **[Library game-page badges](#native-game-page-status-badges):** choose the colorful Classic design or a compact monochrome Minimal design to see In Progress, Steam Perfected, or RetroAchievements Beaten and Mastered status before launching a game. Both styles support Small, Medium, and Large layouts and six positions.
 - **Fifteen visual themes:** choose Arcade, Aurora, Blue (default), Carbon, Ember, Grove, Neon, Onyx, Paper, RA Classic, Rosewood, Solarized, Steam, Terminal, or Velvet in **Quick Access → Plugin Settings → Theme Settings**. The selected palette also carries through shared icons, progress, focus, footer, and provider loading screens; achievement and award status colors keep their meaning.
-- **Built-in updates:** verified downloads are presented through Decky for confirmation rather than installed unattended.
+- **[Built-in updates](#updates):** verified downloads are presented through Decky for confirmation rather than installed unattended.
 
 RetroAchievements and Steam retain their own progression rules: RA Hardcore and Softcore, Beaten and Mastered, and Steam Perfected all keep their meaning. The selected RA Beat or Master goal guides recommendations and completed-goal presentation; it never rewrites the recorded accomplishment.
 
 The theme choice applies to shared Quick Access and full-screen surfaces, controls, focus states, activity charts, and calendars. RetroAchievements awards (including silver Beaten and gold Mastered), Steam unlock states, the separately configured game-page badge, and Steam's native game-page tabs keep their own semantics. Blue remains the default for existing installs; saved Neon selections retain the original Neon palette while Arcade is a separate choice.
+
+## Quick Access Menu
+
+Both provider dashboards show a theme-aware **Continue Playing** or **Current Game** card with one Up Next recommendation. From the card, open achievement details, skip the recommendation, or browse the game's achievements. RetroAchievements follows the selected global or per-game Beat or Master goal, while Steam prioritizes unfinished recent games with eligible achievements.
+
+Open a game in QAM to see its progress and up to three expandable recommendations. **Achievements** opens the complete compact browser; **Actions** provides Game Info, suggestion and goal management, and full-screen access.
+
+Search achievement titles and descriptions, apply provider-specific filters, sort results, or switch between Detailed and Compact rows. Achievement details open over the current screen, and closing them restores the query, filters, sorting, display mode, focused row, and scroll position.
+
+<table>
+  <tr>
+    <th width="50%">Beat goal</th>
+    <th width="50%">Master goal</th>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/readme/qam-up-next-goal-beat.png" alt="RetroAchievements QAM Current Game card with a focused Beat goal recommendation" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/qam-up-next-goal-master.png" alt="RetroAchievements QAM Current Game card with a focused Master goal recommendation" width="100%"></td>
+  </tr>
+  <tr>
+    <th colspan="2">Achievement browser</th>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><img src="docs/screenshots/readme/qam-achievement-browser.png" alt="Achievement Companion QAM achievement browser with Search and Sort & View controls" width="50%"></td>
+  </tr>
+</table>
 
 ## RetroAchievements inside Steam
 
@@ -94,7 +132,7 @@ Steam ROM Manager and EmuDeck shortcuts are identified through accepted RetroAch
 
 ### Games, Activity, and Analytics
 
-Both providers include Analytics alongside Activity; use LT/RT to switch between them.
+Both providers include Analytics alongside Activity; use LT/RT to switch between them. The Games view combines its existing search and filters with **Sort & View** and Detailed or Compact layouts.
 
 <table>
   <tr>
@@ -129,6 +167,8 @@ Both providers include Analytics alongside Activity; use LT/RT to switch between
 The fixed-height Overview is designed for Steam Deck rather than a scrolling dashboard. Personal Progress gives the current accomplishment, completion, remaining achievements, earned points, and latest unlock. The companion panel shows three compact Up Next recommendations while an objective remains, or a flag/crown milestone showcase when Beat, Master, or Perfected is complete. Structured provider strips keep SteamHunters obtainability and community data or RetroAchievements population and points visible without clipped summary text.
 
 RetroAchievements keeps Hardcore and Softcore distinct and shows the selected Beat or Master goal beside Actions. Beat prioritizes real Progression and Win Condition classifications; Master continues toward the remaining set. Steam adds SteamHunters achievement groups, DLC and obtainability filters, and community completion insights. Manage Suggestions and Actions use compact nested menus, and closing details or Game Info returns to the originating menu and focused item.
+
+The full-screen Achievements section keeps every provider-specific filter and adds title/description search plus the same **Sort & View** interaction used in QAM. Detailed remains the default, Compact shows more achievements at once, and returning from details or another game section restores the active filters, query, sorting, display mode, focus, and scroll position.
 
 Game-page controls stay consistent: A selects or opens details, X hides a focused Up Next suggestion, Y reveals it in Achievements, Y on Achievements returns to the top, L1/R1 changes sections, and B follows the current menu/modal context before leaving the page. Dedicated X/Y footer slots remain reserved when an action is unavailable, so the tabs, shoulder hints, A Select, and B Back do not shift as focus changes.
 
@@ -234,15 +274,32 @@ Achievement Companion is an independent community project and is not affiliated 
 
 ## Support Achievement Companion
 
-Contributions through Ko-fi help cover development and maintenance. Financial support is optional; starring the [GitHub project](https://github.com/parvagans/achievement-companion), sharing feedback, and reporting bugs also help.
+**Enjoying Achievement Companion?** Star the [GitHub project](https://github.com/parvagans/achievement-companion), share feedback, or report a bug. If you would like to contribute financially, Ko-fi support helps cover ongoing development and maintenance.
+
+For private questions or matters that do not belong in the public issue tracker, contact [achievement-companion@proton.me](mailto:achievement-companion@proton.me). Never send provider API keys or other secrets by email.
 
 <p align="center">
+  <a href="https://github.com/parvagans/achievement-companion">
+    <img src="https://img.shields.io/badge/GitHub-Star%20the%20project-181717?style=for-the-badge&logo=github&logoColor=white" alt="Star Achievement Companion on GitHub">
+  </a>
   <a href="https://ko-fi.com/parvagans">
     <img src="https://img.shields.io/badge/Ko--fi-Support%20development-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white" alt="Support Achievement Companion development on Ko-fi">
   </a>
-  <br>
-  <a href="https://ko-fi.com/parvagans"><strong>Contribute to development on Ko-fi →</strong></a>
 </p>
+
+## Credits and acknowledgements
+
+Achievement Companion builds on and integrates with the work of these projects and services:
+
+- [Decky Loader](https://decky.xyz/) and the [`@decky/ui` toolkit](https://github.com/SteamDeckHomebrew/decky-frontend-lib) provide the plugin host and native Game Mode controls.
+- [RetroAchievements](https://retroachievements.org/) provides retro achievement data, while [rcheevos](https://github.com/RetroAchievements/rcheevos) supplies the console-specific hashing used to identify compatible ROMs.
+- [nod](https://github.com/encounter/nod) reads Nintendo disc containers, [libchdr](https://github.com/rtissera/libchdr) handles CHD media, and [LZ4](https://github.com/lz4/lz4) handles ZSO decompression. Exact versions and licenses are documented in [Third-Party Notices](THIRD_PARTY_NOTICES.md).
+- [Steam](https://store.steampowered.com/) and the [Steam Web API](https://steamcommunity.com/dev) provide Steam identity, library, playtime, and achievement data.
+- [SteamHunters](https://steamhunters.com/) provides optional community and personal completion insights.
+- [Decky Extended Plugins](https://decky-extended-plugins.beallio.com/) provides a community distribution channel for Achievement Companion.
+- GitHub and Ko-fi support actions use their official brand assets; the Steam provider uses an icon from [Streamline](https://streamlinehq.com/).
+
+For complete dependency licenses, bundled native-code notices, and trademark information, see [Third-Party Notices](THIRD_PARTY_NOTICES.md).
 
 ## License and notices
 
