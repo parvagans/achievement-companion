@@ -42,7 +42,7 @@ function pickString(...values: unknown[]): string | undefined {
   return undefined;
 }
 
-const RETROACHIEVEMENTS_CATALOG_TITLE_PREFIX = /^(?:~(?:Homebrew|Unlicensed|Prototype)~\s*)+/iu;
+const RETROACHIEVEMENTS_CATALOG_TITLE_PREFIX = /^(?:~(?:Homebrew|Unlicensed|Prototype|Demo|Hack)~\s*)+/iu;
 
 export function formatRetroAchievementsGameTitle(title: string): string {
   const normalized = title.trim();

@@ -10,7 +10,10 @@ test("RetroAchievements game titles omit catalog classification prefixes", () =>
   assert.equal(formatRetroAchievementsGameTitle("~Homebrew~ Portal 64"), "Portal 64");
   assert.equal(formatRetroAchievementsGameTitle("~Unlicensed~ Plants vs. Zombies"), "Plants vs. Zombies");
   assert.equal(formatRetroAchievementsGameTitle("~Prototype~ Demo Game"), "Demo Game");
+  assert.equal(formatRetroAchievementsGameTitle("~Demo~ Sample Game"), "Sample Game");
+  assert.equal(formatRetroAchievementsGameTitle("~Hack~ Modified Game"), "Modified Game");
   assert.equal(formatRetroAchievementsGameTitle("  ~homebrew~   Pyoro 64  "), "Pyoro 64");
+  assert.equal(formatRetroAchievementsGameTitle("~Demo~ ~Hack~ Layered Game"), "Layered Game");
   assert.equal(formatRetroAchievementsGameTitle("Licensed Game"), "Licensed Game");
 });
 
