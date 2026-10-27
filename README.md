@@ -35,8 +35,8 @@ Achievement Companion is an independent community project, not affiliated with o
 
 ## Highlights
 
-- **[Find your next unlock](#quick-access-menu):** see a focused suggestion in Quick Access or up to three goal-aware recommendations on a full-screen game page.
-- **[Stay in Game Mode](#retroachievements-inside-steam):** view RetroAchievements in Steam's Activity, Your Stuff, Community, and Game Info sections for supported non-Steam games.
+- **[Find your next unlock](#quick-access-menu):** see a focused suggestion in Quick Access or up to three recommendations on full-screen pages and matched RetroAchievements shortcuts in Steam.
+- **[Stay in Game Mode](#retroachievements-inside-steam):** view RetroAchievements in Steam's Activity, Up Next, Your Stuff, Community, and Game Info sections for supported non-Steam games.
 - **[Explore both collections](#screenshots):** use controller-friendly profiles, searchable games and achievements, progress views, activity calendars, and achievement details.
 - **Understand Steam completions:** SteamHunters adds community rarity, completion times, DLC requirements, achievement groups, and obtainability data where available. Personal SteamHunters profile data is optional.
 - **[See milestones in your library](#native-game-page-status-badges):** choose Classic or Minimal badges for In Progress, Steam Perfected, and RetroAchievements Beaten or Mastered status.
@@ -97,8 +97,9 @@ Open a game for up to three recommendations and a complete achievement browser. 
 
 For a non-Steam shortcut that Achievement Companion can confidently match to a RetroAchievements game:
 
-- **Your Stuff → Achievements** shows badge artwork, descriptions, progress, locked and unlocked states, and unlock times or global rates when RetroAchievements provides them.
-- **Activity** groups dated unlocks by day in Steam's native layout. Tiles include the exact unlock time and Hardcore or Softcore mode, and open the native Your Stuff achievement list.
+- **Activity** groups dated unlocks by day in Steam's native layout. Tiles include the exact unlock time and Hardcore or Softcore mode; selecting one finds that achievement in the native Your Stuff list.
+- **Up Next** shows game progress and up to three Beat or Master recommendations. Use Goal Settings to change the game's goal. Win Condition, Progression, and Missable labels identify relevant suggestions. Selecting one finds its exact row in the native achievement list; completed goals show a completion message.
+- **Your Stuff → Achievements** shows badge artwork, descriptions, progress, locked and unlocked states, and unlock times or global rates when RetroAchievements provides them. Win Condition, Progression, and Missable labels also appear in the full native list.
 - **Community → Playtime Stats** shows RA community milestones and sampled median times in Steam's game-page layout. Its Casual/Hardcore control is separate from your saved achievement mode: Hardcore shows Beat and Mastered statistics; Casual shows Beat and Completed statistics. **Latest Masters** shows up to ten recent mastery entries with artwork, ranks, and dates. Unavailable values are omitted, and missing profile artwork falls back to initials.
 - **Game Info** adds a native metadata view with the matched game's cover, system, release date, developer, publisher, genre, and achievement availability when those fields are provided.
 
@@ -112,6 +113,14 @@ For a non-Steam shortcut that Achievement Companion can confidently match to a R
   <tr>
     <td width="50%"><img src="docs/screenshots/readme/ra-native-steam-activity.png" alt="RetroAchievements shown in Steam's native Activity interface" width="100%"></td>
     <td width="50%"><img src="docs/screenshots/readme/ra-native-steam-achievements.png" alt="RetroAchievements shown in Steam's native Your Stuff Achievements interface" width="100%"></td>
+  </tr>
+  <tr>
+    <th width="50%">Up Next / Beat goal</th>
+    <th width="50%">Up Next / Master goal</th>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/readme/ra-native-steam-up-next_beat-goal.png" alt="RetroAchievements Up Next in Steam with a Beat goal and Win Condition recommendation for StarCraft 64" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/ra-native-steam-up-next_master-goal.png" alt="RetroAchievements Up Next in Steam with a Master goal and Missable recommendations for The Legend of Zelda: Ocarina of Time" width="100%"></td>
   </tr>
   <tr>
     <th width="50%">Community / Playtime Stats</th>
