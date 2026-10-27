@@ -39,6 +39,27 @@ export function getAchievementTypeBadgeDescriptor(
   return BADGE_DESCRIPTORS[classification];
 }
 
+/** Native Steam projections use a colored text label rather than a card pill. */
+export function getNativeAchievementTypeLabelStyle(classification: unknown): CSSProperties | undefined {
+  const descriptor = getAchievementTypeBadgeDescriptor(classification);
+  if (descriptor === undefined) return undefined;
+  return {
+    color: descriptor.color,
+    fontSize: "12px",
+    fontWeight: 700,
+    letterSpacing: "0.045em",
+    lineHeight: "20px",
+    textTransform: "uppercase",
+    whiteSpace: "nowrap",
+  };
+}
+
+export function DeckyNativeAchievementTypeLabel({ classification }: { readonly classification: unknown }): JSX.Element | null {
+  const descriptor = getAchievementTypeBadgeDescriptor(classification);
+  if (descriptor === undefined) return null;
+  return <span style={getNativeAchievementTypeLabelStyle(classification)}>{descriptor.label}</span>;
+}
+
 function getAchievementTypeBadgeStyle(
   descriptor: AchievementTypeBadgeDescriptor,
 ): CSSProperties {

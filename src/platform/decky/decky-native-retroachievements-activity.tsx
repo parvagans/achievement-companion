@@ -5,6 +5,7 @@ import {
   type NativeRetroAchievementsActivityItem,
 } from "./decky-native-retroachievements-activity-model";
 import { buildDeckyNativeSteamAchievementsRoute } from "./decky-game-page-achievement-route";
+import { focusNativeAchievementAfterNavigation } from "./decky-native-achievement-jump";
 
 const MAX_EVENT_ACHIEVEMENTS = 7;
 const visibleDaysByApp = new Map<number, number>();
@@ -59,7 +60,12 @@ function ActivityAchievement({
   readonly styles: NativeSteamActivityStyles | undefined;
 }): JSX.Element {
   const [focused, setFocused] = useState(false);
-  const open = (): void => Navigation.Navigate(buildDeckyNativeSteamAchievementsRoute(appId));
+  const tileRef = useRef<HTMLElement | null>(null);
+  const open = (): void => {
+    const document = tileRef.current?.ownerDocument;
+    if (document !== undefined) focusNativeAchievementAfterNavigation(document, item.achievement.achievementId);
+    Navigation.Navigate(buildDeckyNativeSteamAchievementsRoute(appId));
+  };
   const details = unlockLabel(item);
   const onFocused = (element: HTMLElement): void => {
     setFocused(true);
@@ -67,6 +73,7 @@ function ActivityAchievement({
   };
   return (
     <Focusable
+      ref={(element) => { tileRef.current = element; }}
       className={[styles?.PrimaryAchievement, styles?.Achieved, styles?.Featured].filter(Boolean).join(" ")}
       role="link"
       aria-label={item.achievement.title + ", " + details + ". View achievements"}

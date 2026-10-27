@@ -34,6 +34,10 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
         if (kind === "after") {
           return handler.call(this, args, original.apply(this, args));
         }
+        if (kind === "before") {
+          handler.call(this, args);
+          return original.apply(this, args);
+        }
         const replacement = handler.call(this, args);
         return replacement === callOriginal ? original.apply(this, args) : replacement;
       };
@@ -74,6 +78,7 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
     }
     function communityWrapper() { return { type: CommunityFeed }; }
     communityWrapper.toString = () => "function rt(ot){const ht=a.useId();return jsx(ut,{labelId:ht,...ot})}";
+    const tabsPrimitive = { type(props) { return props; } };
     const personalStore = {
       m_mapMyAchievements: new Map(),
       m_mapGlobalAchievements: new Map(),
@@ -137,7 +142,7 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
     };
     const projectionFor = (appId) => ({
       status: "ready", appId: String(appId), raGameId: "456", title: "RA Game",
-      mode: "both", achievements: [achievement], earned: 1, total: 1,
+      mode: "both", achievements: [achievement], earned: 1, total: 1, detailSnapshot: {},
       communityStats: {
         totalPlayers: 100, masteredPlayers: 25, masteryPercent: 25,
         beatenHardcoreSamples: 40, medianBeatSeconds: 3600, medianMasterySeconds: 7200,
@@ -182,7 +187,9 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
         Focusable: () => null,
         Navigation: { Navigate() {} },
         afterPatch: (target, name, handler) => patch(target, name, handler, "after"),
+        beforePatch: (target, name, handler) => patch(target, name, handler, "before"),
         replacePatch: (target, name, handler) => patch(target, name, handler, "replace"),
+        Tabs: tabsPrimitive,
       },
     });
     mock.module(pathToFileURL(resolve("src/platform/decky/decky-native-retroachievements-projection.ts")).href, {
@@ -209,6 +216,17 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
     mock.module(pathToFileURL(resolve("src/platform/decky/decky-native-retroachievements-community.tsx")).href, {
       exports: {
         DeckyNativeRetroAchievementsCommunity() { return null; },
+      },
+    });
+    mock.module(pathToFileURL(resolve("src/platform/decky/decky-native-up-next.tsx")).href, {
+      exports: {
+        DeckyNativeUpNext() { return null; },
+        NATIVE_UP_NEXT_TAB_ID: "AchievementCompanionUpNext",
+        withNativeUpNextTab(tabs, content) {
+          const activityIndex = tabs.findIndex((tab) => tab.id === "WhatsNew");
+          return activityIndex < 0 || !tabs.some((tab) => tab.id === "YourStuff")
+            ? tabs : [...tabs.slice(0, activityIndex + 1), { id: "AchievementCompanionUpNext", title: "Up Next", content }, ...tabs.slice(activityIndex + 1)];
+        },
       },
     });
 
@@ -247,6 +265,17 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
     }
     assert.deepEqual([...shortcutSections], ["notes", "achievements", "activity", "community"]);
     assert.equal(projectionLoads.length, 1);
+    const originalTabs = [{ id: "WhatsNew", title: "Activity" }, { id: "YourStuff", title: "Your Stuff" }];
+    const nativeSelections = [];
+    const nativeTabProps = { tabs: originalTabs, activeTab: "WhatsNew", onShowTab: (id) => nativeSelections.push(id) };
+    const insertedTabs = tabsPrimitive.type(nativeTabProps);
+    assert.deepEqual(insertedTabs.tabs.map((tab) => tab.id), ["WhatsNew", "AchievementCompanionUpNext", "YourStuff"]);
+    insertedTabs.onShowTab("AchievementCompanionUpNext");
+    assert.deepEqual(nativeSelections, []);
+    assert.equal(tabsPrimitive.type(nativeTabProps).activeTab, "AchievementCompanionUpNext");
+    tabsPrimitive.type(nativeTabProps).onShowTab("YourStuff");
+    assert.deepEqual(nativeSelections, ["YourStuff"]);
+    assert.equal(tabsPrimitive.type({ ...nativeTabProps, activeTab: "YourStuff" }).activeTab, "YourStuff");
     const routeProps = {
       renderFunc() { return { props: { className: "inner-container", children: [] } }; },
     };

@@ -1,5 +1,5 @@
 import { routerHook } from "@decky/api";
-import { afterPatch, appDetailsClasses, applyHookStubs, callOriginal, createModuleMapping, createReactTreePatcher, findInReactTree, findModuleByExport, findModuleExport, Navigation, removeHookStubs, replacePatch, type Patch } from "@decky/ui";
+import { afterPatch, appDetailsClasses, applyHookStubs, beforePatch, callOriginal, createModuleMapping, createReactTreePatcher, findInReactTree, findModuleByExport, findModuleExport, Navigation, removeHookStubs, replacePatch, Tabs, type Patch } from "@decky/ui";
 import { createElement, useLayoutEffect, useRef, type ReactElement } from "react";
 import type { RetroAchievementsAchievementMode } from "@core/settings";
 import { DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN } from "./decky-game-page-achievement-route";
@@ -30,6 +30,9 @@ import { renderDeckyNativeRetroAchievementsGameInfo } from "./decky-native-retro
 import { buildNativeRetroAchievementsCommunityModels } from "./decky-native-retroachievements-community-model";
 import { subscribeDeckyRaNativeAchievementInvalidation } from "./decky-ra-native-achievement-invalidation";
 import { readDeckySettings } from "./decky-settings";
+import { DeckyNativeUpNext, NATIVE_UP_NEXT_TAB_ID, withNativeUpNextTab } from "./decky-native-up-next";
+import { cancelNativeAchievementJump } from "./decky-native-achievement-jump";
+import { observeNativeAchievementClassifications } from "./decky-native-achievement-classifications";
 
 interface SteamAppOverview {
   readonly appid?: number;
@@ -246,6 +249,11 @@ function isCurrentLibraryRootPage(appId: number): boolean {
   return match?.[1] === String(appId);
 }
 
+function isCurrentLibraryAchievementListPage(appId: number): boolean {
+  const match = window.location.pathname.match(/^\/(?:routes\/)?library\/app\/(\d+)\/achievements\/my\/individual\/?$/u);
+  return match?.[1] === String(appId);
+}
+
 function identityValues(value: unknown): readonly string[] {
   if (typeof value !== "object" || value === null || typeof (value as Iterable<unknown>)[Symbol.iterator] !== "function") {
     return [];
@@ -263,6 +271,8 @@ interface ActivePage {
   readonly identity: string;
   readonly mode: RetroAchievementsAchievementMode;
   verified: boolean;
+  upNextSelected?: boolean;
+  nativeTabOnUpNextSelect?: string | undefined;
 }
 
 const unavailableAchievementsResponse = { error: 2 };
@@ -316,11 +326,13 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
   let progressPatched = false;
   let activityPatched = false;
   let communityPatched = false;
+  let upNextPatched = false;
   let gameInfoMount: { readonly native: HTMLElement; readonly host: HTMLElement; readonly originalDisplay: string; projection: NativeRetroAchievementsProjection } | undefined;
   let gameInfoSyncTimer: ReturnType<typeof setTimeout> | undefined;
   let gameInfoSyncAttempts = 0;
   let gameInfoObservedDocument: Document | undefined;
   let gameInfoObserver: MutationObserver | undefined;
+  let stopNativeAchievementClassifications: (() => void) | undefined;
   let routeRenderPatch: Patch | undefined;
   let routeRenderOwner: object | undefined;
   let disposed = false;
@@ -392,11 +404,17 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     const ownerDocument = pageHost?.ownerDocument;
     if (ownerDocument !== undefined && ownerDocument !== gameInfoObservedDocument && ownerDocument.body !== null) {
       gameInfoObserver?.disconnect();
+      stopNativeAchievementClassifications?.();
       gameInfoObservedDocument = ownerDocument;
       gameInfoObserver = new MutationObserver(() => {
         if (/\/tab\/GameInfo\/?$/u.test(window.location.pathname) || gameInfoMount !== undefined) scheduleGameInfoSync();
       });
       gameInfoObserver.observe(ownerDocument.body, { childList: true, subtree: true });
+      stopNativeAchievementClassifications = observeNativeAchievementClassifications(ownerDocument, () => {
+        const currentPage = activePage;
+        return currentPage?.verified === true && isCurrentLibraryAchievementListPage(currentPage.appId)
+          ? getProjection(currentPage.appId)?.achievements : undefined;
+      });
     }
     const projection = appId !== undefined && page?.verified === true && /\/tab\/GameInfo\/?$/u.test(window.location.pathname)
       ? getProjection(appId)
@@ -627,6 +645,53 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     pagePatched = true;
   }
 
+  function installUpNextPatch(): void {
+    if (upNextPatched) return;
+    // Decky's Tabs export is Steam's native tab component. This patch changes
+    // its props only for verified RA shortcuts and is removed on unload.
+    patches.push(beforePatch(Tabs, "type", (args) => {
+      const props = args[0] as {
+        readonly tabs?: readonly { readonly id: string; readonly title: string }[];
+        readonly activeTab?: string;
+        readonly onShowTab?: (tabId: string) => void;
+      } | undefined;
+      const page = activePage;
+      if (!page?.verified || !isCurrentLibraryRootPage(page.appId) || !Array.isArray(props?.tabs)) return;
+      const projection = getProjection(page.appId);
+      if (projection === undefined || projection.detailSnapshot === undefined) return;
+      const tabs = withNativeUpNextTab(
+        props.tabs,
+        createElement(DeckyNativeUpNext, { projection }),
+      );
+      if (tabs !== props.tabs) {
+        if (page.upNextSelected && page.nativeTabOnUpNextSelect !== props.activeTab) {
+          page.upNextSelected = false;
+        }
+        // Steam's route hook has no registered destination for this injected
+        // tab. Keep the underlying route on its current valid native tab,
+        // while the native Tabs control selects Up Next locally. Sending its ID
+        // into Steam's route hook leaves selection and route out of sync.
+        args[0] = {
+          ...props,
+          tabs,
+          ...(page.upNextSelected ? { activeTab: NATIVE_UP_NEXT_TAB_ID } : {}),
+          onShowTab: (tabId: string) => {
+            if (tabId === NATIVE_UP_NEXT_TAB_ID) {
+              page.upNextSelected = true;
+              page.nativeTabOnUpNextSelect = props.activeTab;
+            } else {
+              page.upNextSelected = false;
+              page.nativeTabOnUpNextSelect = undefined;
+              props.onShowTab?.(tabId);
+            }
+            rerenderActivePage(page.appId);
+          },
+        };
+      }
+    }));
+    upNextPatched = true;
+  }
+
   function installActivityPatch(): void {
     if (activityPatched) return;
     const feedClass = findSteamActivityFeedClass();
@@ -708,6 +773,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
   const routePatch = routerHook.addPatch(DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN, (tree) => {
     installStorePatches();
     installPagePatch();
+    installUpNextPatch();
     installActivityPatch();
     installCommunityPatch();
     scheduleGameInfoSync();
@@ -756,6 +822,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
   });
   installStorePatches();
   installPagePatch();
+  installUpNextPatch();
   installActivityPatch();
   installCommunityPatch();
   scheduleGameInfoSync();
@@ -791,6 +858,8 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     routeRenderPatch?.unpatch();
     routeRenderPatch = undefined;
     routeRenderOwner = undefined;
+    cancelNativeAchievementJump();
+    stopNativeAchievementClassifications?.();
     invalidateDeckyNativeRetroAchievementsProjection();
     attempts.clear();
     shortcutIdentities.clear();

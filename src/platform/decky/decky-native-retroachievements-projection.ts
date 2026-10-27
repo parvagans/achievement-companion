@@ -28,6 +28,8 @@ export interface NativeRetroAchievementsProjection {
   readonly genre?: string;
   readonly mode: RetroAchievementsAchievementMode;
   readonly achievements: readonly NormalizedAchievement[];
+  /** Cached provider detail for native game-page recommendations. */
+  readonly detailSnapshot?: GameDetailSnapshot;
   readonly earned: number;
   readonly total: number;
   readonly totalPlayers?: number;
@@ -150,6 +152,7 @@ function projectDetail(
     ...(genre ? { genre } : {}),
     mode,
     achievements,
+    detailSnapshot: { ...detail, achievements },
     earned: achievements.filter((achievement) => achievement.isUnlocked).length,
     total: achievements.length,
     ...(totalPlayers !== undefined ? { totalPlayers } : {}),

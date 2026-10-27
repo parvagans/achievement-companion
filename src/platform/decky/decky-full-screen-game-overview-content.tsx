@@ -1,4 +1,4 @@
-import { Focusable, Menu, MenuItem, showContextMenu } from "@decky/ui";
+import { DialogButton, Focusable, Menu, MenuItem, showContextMenu } from "@decky/ui";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { NormalizedAchievement } from "@core/domain";
 import type { GameOverviewSuggestion } from "./decky-game-overview-recommendations";
@@ -195,8 +195,9 @@ function DeckyOverviewMenuPopup({ rootLabel, getItems, trigger, initialPath, ini
 }
 
 /** Native menu and native return focus, shared by Actions, goals, and suggestions. */
-export function DeckyOverviewMenuButton({ label, displayLabel, items, compact = false, preserveCompactSession = false, preferredFocus = false, elementRef, onActivated, onFocused, onCancel, minHeight, scrollToTopOnFocus = false }: {
+export function DeckyOverviewMenuButton({ label, displayLabel, items, compact = false, deckyDialogButton = false, preserveCompactSession = false, preferredFocus = false, elementRef, onActivated, onFocused, onCancel, minHeight, scrollToTopOnFocus = false }: {
   readonly label: string; readonly items: readonly DeckyOverviewMenuItem[]; readonly compact?: boolean;
+  readonly deckyDialogButton?: boolean;
   readonly displayLabel?: ReactNode;
   readonly preserveCompactSession?: boolean;
   readonly preferredFocus?: boolean;
@@ -276,6 +277,10 @@ export function DeckyOverviewMenuButton({ label, displayLabel, items, compact = 
     focusGeneration.current += 1;
     setFocused(false);
   };
+  if (deckyDialogButton) return <DialogButton ref={(node) => { triggerRef.current = node; elementRef?.(node); }} onClick={openMenu}
+    style={{ flex: "0 0 160px", fontSize: 15, height: 40, minWidth: 160, padding: "0 12px", width: 160 }}>
+    {displayLabel ?? label}
+  </DialogButton>;
   return <Focusable ref={(node) => { triggerRef.current = node; elementRef?.(node); }} role="button" aria-label={label} noFocusRing preferredFocus={preferredFocus} onActivate={openMenu} onClick={openMenu} {...(onCancel !== undefined ? { onCancel } : {})}
     onFocus={focus} onGamepadFocus={focus} onBlur={blur} onGamepadBlur={blur}
     style={{ ...steamRecipes.action("fullscreen"), minHeight: minHeight ?? (compact ? 28 : 34), padding: "0 10px", flexShrink: 0,
