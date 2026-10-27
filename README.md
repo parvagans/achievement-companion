@@ -8,65 +8,73 @@
 </p>
 
 <p align="center">
-  <a href="https://ko-fi.com/parvagans">
-    <img src="https://img.shields.io/badge/Ko--fi-Support%20development-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white" alt="Support Achievement Companion development on Ko-fi">
-  </a>
-</p>
-
-<p align="center">
   <strong>Your retro milestones. Your Steam completions. All in Game Mode.</strong>
 </p>
 
 <p align="center">
-  <a href="#installation"><strong>Install Achievement Companion</strong></a>
+  <a href="#installation"><strong>Install</strong></a>
   ·
-  <a href="https://github.com/parvagans/achievement-companion/releases/latest">Latest GitHub release</a>
+  <a href="https://github.com/parvagans/achievement-companion/releases/latest">Latest release</a>
   ·
-  <a href="mailto:achievement-companion@proton.me">Contact</a>
+  <a href="#screenshots">See the plugin</a>
 </p>
 
-Achievement Companion brings RetroAchievements and Steam achievement tracking to Steam Deck and compatible SteamOS devices through Decky Loader. Check your next unlock in Quick Access, explore your collection in full-screen dashboards, and see completion badges on library game pages.
-
-The project is under active development with frequent updates. If you find a problem or have an idea, please [open a GitHub issue](https://github.com/parvagans/achievement-companion/issues). Never include an API key in an issue.
+**Know what to unlock next without leaving Game Mode.** Achievement Companion brings RetroAchievements and Steam progress to Steam Deck and compatible SteamOS devices through Decky Loader. See your next goal in Quick Access, browse your collection with a controller, and spot progress and completion badges on library game pages.
 
 <p align="center">
-  <img src="docs/screenshots/readme/achievement-companion-hero.png" alt="Achievement Companion QAM showing the RetroAchievements current game and a focused Master goal recommendation" width="100%">
+  <img src="docs/screenshots/readme/achievement-companion-hero.png" alt="Achievement Companion Quick Access view showing the RetroAchievements current game and a focused Master goal recommendation" width="520">
 </p>
 
-## Explore Achievement Companion
+## Start here
 
-- [Highlights](#highlights) — the main capabilities at a glance.
-- [Quick Access Menu](#quick-access-menu) — Up Next recommendations, shared achievement details, and compact browsing.
-- [RetroAchievements inside Steam](#retroachievements-inside-steam) — native Activity, Your Stuff, Community, and Game Info integration.
-- [Full-screen game pages](#full-screen-game-pages) — progress, recommendations, achievement browsing, and community insights.
-- [Game-page status badges](#native-game-page-status-badges) — Classic and Minimal badge styles.
-- [Installation](#installation) and [Updates](#updates) — first-time setup and verified update delivery.
-- [Support Achievement Companion](#support-achievement-companion) — enjoying Achievement Companion? Star the project, support development, or get in touch.
-- [Privacy](#privacy), [Development](#development), and [Credits](#credits-and-acknowledgements) — data handling, project practices, and upstream acknowledgements.
+1. [Install Achievement Companion](#installation) through Decky Extended Plugins or from the latest GitHub release.
+2. Open it in Game Mode and connect RetroAchievements, Steam, or both. Each provider you enable needs its own API key; see [Requirements](#requirements).
+3. Check **Current Game** or **Continue Playing** in Quick Access for your next goal, or open a full-screen game page to explore your progress.
+
+Achievement Companion is an independent community project, not affiliated with or endorsed by Valve, RetroAchievements, or Decky Loader. See [Third-Party Notices](THIRD_PARTY_NOTICES.md) for licenses and trademark information.
 
 ## Highlights
 
-- **[Quick Access and full-screen views](#quick-access-menu):** controller-friendly profiles, searchable game lists, completion progress, activity calendars, and achievement details.
-- **[Purpose-built full-screen game pages](#full-screen-game-pages):** a non-scrolling Overview combines personal progress, the latest unlock, up to three goal-aware Up Next recommendations, compact provider metrics, Game Info, and distinct Beaten, Mastered, or Perfected milestone showcases.
-- **Controller-first navigation:** switch game sections with L1/R1, use contextual X/Y actions without moving the footer, and move through hierarchical Actions and Manage Suggestions menus while focus and return context are preserved.
-- **[RetroAchievements inside Steam](#retroachievements-inside-steam):** supported non-Steam games can show RetroAchievements in Steam's native Activity, Your Stuff, and Community views.
-- **Steam completion insights:** SteamHunters community data adds rarity, completion times, DLC requirements, achievement groups, and obtainability information where available.
-- **Optional SteamHunters personal data:** personal SteamHunters profile statistics can be disabled without turning off community statistics. If a profile is unavailable, Achievement Companion uses meaningful Steam library data where possible and otherwise hides the section.
-- **[Library game-page badges](#native-game-page-status-badges):** choose the colorful Classic design or a compact monochrome Minimal design to see In Progress, Steam Perfected, or RetroAchievements Beaten and Mastered status before launching a game. Both styles support Small, Medium, and Large layouts and six positions.
-- **Fifteen visual themes:** choose Arcade, Aurora, Blue (default), Carbon, Ember, Grove, Neon, Onyx, Paper, RA Classic, Rosewood, Solarized, Steam, Terminal, or Velvet in **Quick Access → Plugin Settings → Theme Settings**. The selected palette also carries through shared icons, progress, focus, footer, and provider loading screens; achievement and award status colors keep their meaning.
-- **[Built-in updates](#updates):** verified downloads are presented through Decky for confirmation rather than installed unattended.
+- **[Find your next unlock](#quick-access-menu):** see a focused suggestion in Quick Access or up to three goal-aware recommendations on a full-screen game page.
+- **[Stay in Game Mode](#retroachievements-inside-steam):** view RetroAchievements in Steam's Activity, Your Stuff, Community, and Game Info sections for supported non-Steam games.
+- **[Explore both collections](#screenshots):** use controller-friendly profiles, searchable games and achievements, progress views, activity calendars, and achievement details.
+- **Understand Steam completions:** SteamHunters adds community rarity, completion times, DLC requirements, achievement groups, and obtainability data where available. Personal SteamHunters profile data is optional.
+- **[See milestones in your library](#native-game-page-status-badges):** choose Classic or Minimal badges for In Progress, Steam Perfected, and RetroAchievements Beaten or Mastered status.
+- **Make it yours:** choose from 15 themes in **Quick Access → Plugin Settings → Theme Settings**; progress and award colors keep their meaning across themes.
 
-RetroAchievements and Steam retain their own progression rules: RA Hardcore and Softcore, Beaten and Mastered, and Steam Perfected all keep their meaning. The selected RA Beat or Master goal guides recommendations and completed-goal presentation; it never rewrites the recorded accomplishment.
+RetroAchievements and Steam keep their own progression rules. Choosing a RetroAchievements Beat or Master goal changes recommendations and presentation, not the recorded accomplishment.
 
-The theme choice applies to shared Quick Access and full-screen surfaces, controls, focus states, activity charts, and calendars. RetroAchievements awards (including silver Beaten and gold Mastered), Steam unlock states, the separately configured game-page badge, and Steam's native game-page tabs keep their own semantics. Blue remains the default for existing installs; saved Neon selections retain the original Neon palette while Arcade is a separate choice.
+**Explore:** [Quick Access](#quick-access-menu) · [RetroAchievements inside Steam](#retroachievements-inside-steam) · [Full-screen game pages](#full-screen-game-pages) · [Game-page badges](#native-game-page-status-badges) · [Privacy](#privacy) · [Credits](#credits-and-acknowledgements)
+
+## Requirements
+
+- A Steam Deck, Steam Machine, or compatible SteamOS device running Game Mode, with [Decky Loader](https://decky.xyz/) installed.
+- **For RetroAchievements features:** a RetroAchievements account and Web API key.
+- **For Steam features:** a Steam Web API key. Achievement Companion detects the signed-in account when possible; SteamID64 is available as a fallback.
+
+## Installation
+
+### Decky Extended Plugins
+
+If [Decky Extended Plugins](https://decky-extended-plugins.beallio.com/) is already configured in Decky Loader, find Achievement Companion there and install it through Decky.
+
+### Manual first-time installation
+
+If Decky Extended Plugins is not configured, install Achievement Companion manually the first time:
+
+1. Download the release ZIP from [GitHub Releases](https://github.com/parvagans/achievement-companion/releases/latest).
+2. In Game Mode, open Decky Loader settings and enable **Developer Mode** under **General → Other**.
+3. Open the **Developer** tab and choose **Browse for ZIP file** to select the downloaded ZIP, or choose **Install from URL** and enter the direct release ZIP URL.
+4. Install the plugin, restart the Deck if needed, and open Achievement Companion from Decky.
+5. Connect your chosen provider or providers from the setup screens.
+
+For RetroAchievements, enter your username and the Web API key from **Settings → Authentication**. For Steam, enter a Web API key; if the signed-in account is not detected automatically, enter its SteamID64.
 
 ## Quick Access Menu
 
-Both provider dashboards show a theme-aware **Continue Playing** or **Current Game** card with one Up Next recommendation. From the card, open achievement details, skip the recommendation, or browse the game's achievements. RetroAchievements follows the selected global or per-game Beat or Master goal, while Steam prioritizes unfinished recent games with eligible achievements.
+Quick Access shows a **Current Game** or **Continue Playing** card for each connected provider, with progress and one Up Next recommendation. Open its details, skip it, or browse the game's achievements. RetroAchievements suggestions follow the selected global or per-game Beat or Master goal; Steam prioritizes unfinished recent games with eligible achievements.
 
-Open a game in QAM to see its progress and up to three expandable recommendations. **Achievements** opens the complete compact browser; **Actions** provides Game Info, suggestion and goal management, and full-screen access.
-
-Search achievement titles and descriptions, apply provider-specific filters, sort results, or switch between Detailed and Compact rows. Achievement details open over the current screen, and closing them restores the query, filters, sorting, display mode, focused row, and scroll position.
+Open a game for up to three recommendations and a complete achievement browser. Search titles and descriptions, filter and sort results, or choose Detailed or Compact rows. **Actions** opens Game Info, goal and suggestion controls, and the full-screen page. After viewing achievement details, you return where you left off.
 
 <table>
   <tr>
@@ -91,10 +99,10 @@ For a non-Steam shortcut that Achievement Companion can confidently match to a R
 
 - **Your Stuff → Achievements** shows badge artwork, descriptions, progress, locked and unlocked states, and unlock times or global rates when RetroAchievements provides them.
 - **Activity** groups dated unlocks by day in Steam's native layout. Tiles include the exact unlock time and Hardcore or Softcore mode, and open the native Your Stuff achievement list.
-- **Community → Playtime Stats** shows RA community milestones and sampled median times using Steam's native game-page section layout. Its Casual/Hardcore control is independent of the saved achievement-mode setting: Hardcore shows Beat and Mastered statistics, while Casual shows Beat and Completed statistics. A matching-height **Latest Masters** list shows the ten most recent RA mastery entries, including profile artwork, ranks, and dates, in an independently scrollable right column. Rows stay on the game page instead of opening a browser. The RA v1 game-specific endpoint currently provides up to ten entries; additional entries require an accessible paginated endpoint. Unsupported values are omitted rather than estimated, and missing profile artwork falls back to initials without hiding the master.
+- **Community → Playtime Stats** shows RA community milestones and sampled median times in Steam's game-page layout. Its Casual/Hardcore control is separate from your saved achievement mode: Hardcore shows Beat and Mastered statistics; Casual shows Beat and Completed statistics. **Latest Masters** shows up to ten recent mastery entries with artwork, ranks, and dates. Unavailable values are omitted, and missing profile artwork falls back to initials.
 - **Game Info** adds a native metadata view with the matched game's cover, system, release date, developer, publisher, genre, and achievement availability when those fields are provided.
 
-Steam ROM Manager and EmuDeck shortcuts are identified through accepted RetroAchievements ROM hashes rather than shortcut names. Supported formats include direct ROMs, ZIP archives, M3U playlists, raw disc images, PSP/PS2 CSO and ZSO images, CHD CD/DVD images, and GameCube/Wii formats such as RVZ, WIA, GCZ, Nintendo CISO, and WBFS. Compressed disc containers are read directly without extracting temporary ISO files. M3U follows RetroAchievements' first-disc identification policy and can point to supported raw, CHD, or Nintendo disc media. Unsupported, ambiguous, or unrecognized revisions remain unmatched instead of being guessed from their titles.
+**ROM matching:** Steam ROM Manager and EmuDeck shortcuts are matched by accepted RetroAchievements ROM hashes, not shortcut names. Supported media include direct ROMs, ZIP archives, M3U playlists, raw disc images, PSP/PS2 CSO and ZSO, CHD CD/DVD, and GameCube/Wii RVZ, WIA, GCZ, Nintendo CISO, and WBFS. Compressed disc containers are read without extracting temporary ISO files. M3U follows RetroAchievements' first-disc identification policy; ambiguous or unrecognized revisions remain unmatched rather than being guessed from their titles.
 
 <table>
   <tr>
@@ -115,7 +123,7 @@ Steam ROM Manager and EmuDeck shortcuts are identified through accepted RetroAch
   </tr>
 </table>
 
-## See it in action
+## Screenshots
 
 ### Provider profiles
 
@@ -162,15 +170,15 @@ Both providers include Analytics alongside Activity; use LT/RT to switch between
   </tr>
 </table>
 
-### Full-screen game pages
+## Full-screen game pages
 
-The fixed-height Overview is designed for Steam Deck rather than a scrolling dashboard. Personal Progress gives the current accomplishment, completion, remaining achievements, earned points, and latest unlock. The companion panel shows three compact Up Next recommendations while an objective remains, or a flag/crown milestone showcase when Beat, Master, or Perfected is complete. Structured provider strips keep SteamHunters obtainability and community data or RetroAchievements population and points visible without clipped summary text.
+The Overview puts personal progress, the latest unlock, provider metrics, and up to three Up Next recommendations on one screen. Once a goal is complete, the recommendations give way to a Beaten, Mastered, or Perfected milestone showcase.
 
-RetroAchievements keeps Hardcore and Softcore distinct and shows the selected Beat or Master goal beside Actions. Beat prioritizes real Progression and Win Condition classifications; Master continues toward the remaining set. Steam adds SteamHunters achievement groups, DLC and obtainability filters, and community completion insights. Manage Suggestions and Actions use compact nested menus, and closing details or Game Info returns to the originating menu and focused item.
+RetroAchievements keeps Hardcore and Softcore distinct. Its Beat goal favors Progression and Win Condition achievements; Master works toward the remaining set. Steam adds SteamHunters groups, DLC and obtainability filters, and community completion insights. Returning from details or Game Info takes you back to the originating menu and focused item.
 
-The full-screen Achievements section keeps every provider-specific filter and adds title/description search plus the same **Sort & View** interaction used in QAM. Detailed remains the default, Compact shows more achievements at once, and returning from details or another game section restores the active filters, query, sorting, display mode, focus, and scroll position.
+The Achievements section adds title and description search to each provider's filters. Use **Sort & View** to switch between Detailed and Compact rows; returning from details or another section restores your filters, query, sorting, display mode, focus, and scroll position.
 
-Game-page controls stay consistent: A selects or opens details, X hides a focused Up Next suggestion, Y reveals it in Achievements, Y on Achievements returns to the top, L1/R1 changes sections, and B follows the current menu/modal context before leaving the page. Dedicated X/Y footer slots remain reserved when an action is unavailable, so the tabs, shoulder hints, A Select, and B Back do not shift as focus changes.
+Controls stay consistent: A selects, L1/R1 changes sections, and B follows the current menu or dialog before leaving the page. X hides a focused Up Next suggestion; Y finds it in Achievements or returns to the top of that list. Footer positions stay stable when an action is unavailable.
 
 <table>
   <tr>
@@ -213,11 +221,11 @@ Game-page controls stay consistent: A selects or opens details, X hides a focuse
   </tr>
 </table>
 
-### Native game-page status badges
+## Native game-page status badges
 
-The clickable badge opens the corresponding Achievement Companion detail view. It supports In Progress for both providers, Steam Perfected, and RetroAchievements Beaten or Mastered. Choose the colorful **Classic** style or the compact, monochrome **Minimal** style, then select Small, Medium, or Large and place it in any of six positions. Both styles retain controller focus and activation, with horizontal navigation between neighboring game-page badges while Steam's normal Up and Down movement remains available.
+Library game-page badges show In Progress for either provider, Steam Perfected, or RetroAchievements Beaten and Mastered status. Select a badge to open its Achievement Companion details. Choose the colorful **Classic** or monochrome **Minimal** style, then select Small, Medium, or Large and one of six positions. Both styles support controller focus and activation alongside Steam's normal game-page navigation.
 
-Classic preserves the existing metallic presentation and separate color setting for each status. Its defaults are Perfected Purple, Mastered Gold, Beaten Blue, and In Progress Gray. Minimal uses a semi-transparent charcoal surface, neutral border, monochrome provider and status artwork, and a restrained breathing label while loading. Switching styles preserves the saved Classic colors. Fresh installations use Classic and Small; settings saved before badge sizes were introduced retain the original Large layout. Unresolved non-Steam games do not receive a badge.
+Classic has separate colors for each status: Perfected Purple, Mastered Gold, Beaten Blue, and In Progress Gray by default. Minimal uses a charcoal surface and monochrome artwork. Switching styles keeps your Classic color choices. New installations use Classic and Small; settings saved before badge sizes were introduced retain the original Large layout. Unmatched non-Steam games do not receive a badge.
 
 <p align="center">
   <strong>Classic</strong><br>
@@ -229,31 +237,6 @@ Classic preserves the existing metallic presentation and separate color setting 
   <img src="docs/screenshots/readme/game-page-status-badges-minimal.png" alt="Small, Medium, and Large monochrome Minimal game-page badges for RetroAchievements Mastered, Beaten, and In Progress; Steam Perfected and In Progress; and loading" width="100%">
 </p>
 
-## Requirements
-
-- Steam Deck, Steam Machine, or compatible SteamOS device running Game Mode.
-- [Decky Loader](https://decky.xyz/).
-- A RetroAchievements account and Web API key for RetroAchievements features.
-- A Steam Web API key for Steam features. The signed-in account is detected when possible, with SteamID64 available as a fallback.
-
-## Installation
-
-### Decky Extended Plugins
-
-Achievement Companion is available from [Decky Extended Plugins](https://decky-extended-plugins.beallio.com/). If that source is already configured in your Decky Loader, find Achievement Companion there and install it through Decky.
-
-### Manual first-time installation
-
-If Decky Extended Plugins is not configured, install Achievement Companion manually the first time:
-
-1. Download the release ZIP from [GitHub Releases](https://github.com/parvagans/achievement-companion/releases/latest).
-2. In Game Mode, open Decky Loader settings and enable **Developer Mode** under **General → Other**.
-3. Open the **Developer** tab and choose **Browse for ZIP file** to select the downloaded ZIP, or choose **Install from URL** and enter the direct release ZIP URL.
-4. Install the plugin, restart the Deck if needed, and open Achievement Companion from Decky.
-5. Connect RetroAchievements and/or Steam from the provider setup screens.
-
-For RetroAchievements, enter your username and the Web API key from **Settings → Authentication**. For Steam, enter a Web API key; if the signed-in account is not detected automatically, enter its SteamID64.
-
 ## Updates
 
 After first-time installation, automatic update checks run when the previous check is at least 24 hours old and when the Deck reconnects to the internet. You can also check on demand from **Settings → About**. Downloads are verified before Decky asks you to confirm installation; updates are never installed unattended.
@@ -264,17 +247,19 @@ Provider requests go directly to the services used by enabled features: RetroAch
 
 SteamHunters personal profile data is optional and can be disabled under **Steam Settings → SteamHunters**. This does not disable SteamHunters community data used for game and achievement insights.
 
+If a personal SteamHunters profile is unavailable, Achievement Companion uses meaningful Steam library data where possible and otherwise hides that section.
+
 Local secret protection cannot protect against a compromised device. Rotate a key at its provider if you believe the Deck itself has been compromised.
 
-## Development
+## About the project
 
-The project uses AI tools for code generation and review, debugging, refactoring, documentation, research, and solution exploration. AI-assisted contributions are reviewed, adjusted where necessary, and tested before being incorporated. Project design, maintenance, testing, and direction remain the maintainer's responsibility.
+The maintainer uses AI tools for code generation and review, debugging, refactoring, documentation, and research. AI-assisted contributions are reviewed, adjusted where needed, and tested before being incorporated. Project design, maintenance, testing, and direction remain the maintainer's responsibility.
 
-Achievement Companion is an independent community project and is not affiliated with RetroAchievements, Decky, Valve, or Steam. It does not provide games, ROMs, or BIOS files, unlock achievements, or modify games.
+Achievement Companion does not provide games, ROMs, or BIOS files, unlock achievements, or modify games.
 
 ## Support Achievement Companion
 
-**Enjoying Achievement Companion?** Star the [GitHub project](https://github.com/parvagans/achievement-companion), share feedback, or report a bug. If you would like to contribute financially, Ko-fi support helps cover ongoing development and maintenance.
+If Achievement Companion is useful, star the [GitHub project](https://github.com/parvagans/achievement-companion), share feedback, or [open an issue](https://github.com/parvagans/achievement-companion/issues) to report a bug or suggest an improvement. Never include an API key in a public issue. If you would like to contribute financially, Ko-fi support helps cover ongoing development and maintenance.
 
 For private questions or matters that do not belong in the public issue tracker, contact [achievement-companion@proton.me](mailto:achievement-companion@proton.me). Never send provider API keys or other secrets by email.
 
