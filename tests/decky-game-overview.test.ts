@@ -153,6 +153,21 @@ test("Manage Suggestions is hierarchical and restores the originating achievemen
   assert.equal(restoredKey, "details");
 });
 
+test("native suggestion management jumps to Steam achievements without offering the shared details modal", () => {
+  const calls: string[] = [];
+  const items = buildDeckyManageSuggestionsMenuItems(menuActions({
+    onOpenAchievement: () => calls.push("details"),
+    onJumpToAchievement: (id) => calls.push(`jump:${id}`),
+  }), "achievements");
+  const visible = resolveDeckyOverviewMenuFrame("Manage Suggestions", items, ["visible:a"]);
+  const hidden = resolveDeckyOverviewMenuFrame("Manage Suggestions", items, ["hidden", "hidden:hidden"]);
+  assert.deepEqual(visible?.items.map((item) => item.label), ["Show in Achievements", "Hide Suggestion"]);
+  assert.deepEqual(hidden?.items.map((item) => item.label), ["Restore Suggestion", "Show in Achievements"]);
+  visible?.items[0]?.onSelect?.({ restoreCurrent: () => undefined, restoreParent: () => undefined });
+  hidden?.items[1]?.onSelect?.({ restoreCurrent: () => undefined, restoreParent: () => undefined });
+  assert.deepEqual(calls, ["jump:a", "jump:hidden"]);
+});
+
 test("Manage Suggestions dismissal and hidden restoration choose a surviving adjacent item", () => {
   const calls: string[] = [];
   const items = buildDeckyManageSuggestionsMenuItems(menuActions({

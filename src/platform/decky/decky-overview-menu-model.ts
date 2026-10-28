@@ -62,14 +62,17 @@ export interface DeckyGameOverviewActions {
 }
 
 
-export function buildDeckyManageSuggestionsMenuItems(actions: DeckyGameOverviewActions): readonly DeckyOverviewMenuItem[] {
+export function buildDeckyManageSuggestionsMenuItems(
+  actions: DeckyGameOverviewActions,
+  detailsAction: "modal" | "achievements" = "modal",
+): readonly DeckyOverviewMenuItem[] {
   const visible = actions.suggestions.map(({ achievement }, index) => {
     const adjacent = actions.suggestions[index + 1]?.achievement ?? actions.suggestions[index - 1]?.achievement;
     return {
       key: `visible:${achievement.achievementId}`,
       label: achievement.title,
       items: [
-        { key: "details", label: "View Details", onSelect: (navigation: DeckyOverviewMenuNavigation) => actions.onOpenAchievement(achievement.achievementId, () => navigation.restoreCurrent("details")) },
+        ...(detailsAction === "modal" ? [{ key: "details", label: "View Details", onSelect: (navigation: DeckyOverviewMenuNavigation) => actions.onOpenAchievement(achievement.achievementId, () => navigation.restoreCurrent("details")) }] : []),
         { key: "show", label: "Show in Achievements", onSelect: () => actions.onJumpToAchievement(achievement.achievementId) },
         { key: "hide", label: "Hide Suggestion", tone: "destructive" as const, keepMenuOpenOnSelect: true, onSelect: (navigation: DeckyOverviewMenuNavigation) => {
           actions.onDismissSuggestion(achievement.achievementId);
@@ -88,7 +91,7 @@ export function buildDeckyManageSuggestionsMenuItems(actions: DeckyGameOverviewA
           actions.onRestoreSuggestion(achievement.achievementId);
           navigation.restoreParent(adjacent === undefined ? undefined : `hidden:${adjacent.achievementId}`);
         } },
-        { key: "details", label: "View Details", onSelect: (navigation) => actions.onOpenAchievement(achievement.achievementId, () => navigation.restoreCurrent("details")) },
+        ...(detailsAction === "modal" ? [{ key: "details", label: "View Details", onSelect: (navigation: DeckyOverviewMenuNavigation) => actions.onOpenAchievement(achievement.achievementId, () => navigation.restoreCurrent("details")) }] : []),
         { key: "show", label: "Show in Achievements", onSelect: () => actions.onJumpToAchievement(achievement.achievementId) },
       ],
     };
