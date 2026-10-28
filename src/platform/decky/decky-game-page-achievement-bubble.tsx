@@ -35,6 +35,7 @@ import {
   useGamePageAchievementSummary,
 } from "./decky-game-page-achievement-summary";
 import { openDeckyFullScreenGameFromLibraryGamePage } from "./decky-navigation";
+import { deckyDiagnosticLogger } from "./decky-diagnostic-logger";
 import {
   GAME_PAGE_BADGE_DIMENSIONS,
   resolveDeckyGamePageAchievementBadgeProviderIconUrl,
@@ -867,6 +868,7 @@ function useDeckyGamePageAchievementBadgeActivation(
     }
 
     try {
+      void deckyDiagnosticLogger.record({ event: "badge_opened", providerId: navigationTarget.providerId, entryPoint: "native-game-page", ...(appId !== undefined ? { appId } : {}), gameId: navigationTarget.gameId });
       const route = openDeckyFullScreenGameFromLibraryGamePage(
         navigationTarget.providerId,
         navigationTarget.gameId,

@@ -9,6 +9,15 @@ import {
 import { defaultDeckySettings, saveDeckySettings } from "../src/platform/decky/decky-settings";
 
 test("disabled personal SteamHunters data skips profile lookup and refresh", async () => {
+  const previousStorage = globalThis.localStorage;
+  const values = new Map<string, string>();
+  globalThis.localStorage = {
+    get length() { return values.size; }, clear: () => values.clear(),
+    getItem: (key: string) => values.get(key) ?? null,
+    key: (index: number) => [...values.keys()][index] ?? null,
+    removeItem: (key: string) => { values.delete(key); },
+    setItem: (key: string, value: string) => { values.set(key, value); },
+  } as Storage;
   await saveDeckySettings({ ...defaultDeckySettings, steamHuntersPersonalDataEnabled: false });
   try {
     const steamId = "76561198000000000";
@@ -26,5 +35,6 @@ test("disabled personal SteamHunters data skips profile lookup and refresh", asy
   } finally {
     await saveDeckySettings(defaultDeckySettings);
     resetDeckyAppServicesForTests();
+    globalThis.localStorage = previousStorage;
   }
 });

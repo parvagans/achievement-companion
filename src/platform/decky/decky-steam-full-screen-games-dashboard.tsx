@@ -13,6 +13,8 @@ import {
   type GamepadEvent,
 } from "@decky/ui";
 import {
+  memo,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -707,6 +709,10 @@ function SteamGamesRow({
   };
   const focusGeneration = useRef(0);
   const rowRef = useRef<HTMLDivElement | null>(null);
+  const setRowRef = useCallback((node: HTMLDivElement | null) => {
+    rowRef.current = node;
+    elementRef?.(node);
+  }, [elementRef]);
   const scrollFocusedRow = (element: HTMLElement): void => {
     const generation = ++focusGeneration.current;
     const isStillFocused = (): boolean => focusGeneration.current === generation;
@@ -720,7 +726,7 @@ function SteamGamesRow({
 
   return (
     <Focusable
-      ref={(node) => { rowRef.current = node; elementRef?.(node); }}
+      ref={setRowRef}
       className={STEAM_GAMES_FOCUS_CLASS}
       noFocusRing
       role="button"
@@ -782,6 +788,8 @@ function SteamGamesRow({
   );
 }
 
+const MemoizedSteamGamesRow = memo(SteamGamesRow);
+
 export function DeckySteamFullScreenGamesDashboard({
   snapshot,
   isActive = true,
@@ -831,7 +839,17 @@ export function DeckySteamFullScreenGamesDashboard({
     () => selectSteamGames({ games: scopedGames, filter, query, sort, mode }),
     [filter, mode, query, scopedGames, sort],
   );
-  const renderedGames = visibleGames.slice(0, renderLimit);
+  const renderedGames = useMemo(() => visibleGames.slice(0, renderLimit), [visibleGames, renderLimit]);
+  const latestNavigation = useRef({ onBack, onOpenGameDetail });
+  latestNavigation.current = { onBack, onOpenGameDetail };
+  const openGameDetail = useCallback((gameId: string) => latestNavigation.current.onOpenGameDetail(gameId), []);
+  const goBack = useCallback(() => latestNavigation.current.onBack(), []);
+  const setRestorationTarget = useCallback((node: HTMLDivElement | null) => { restorationTargetRef.current = node; }, []);
+  const setAppendedTarget = useCallback((node: HTMLDivElement | null) => { appendedGameFocusTargetRef.current = node; }, []);
+  const setBothTargets = useCallback((node: HTMLDivElement | null) => {
+    restorationTargetRef.current = node;
+    appendedGameFocusTargetRef.current = node;
+  }, []);
 
   useDeckyFullscreenOnScreenKeyboardLifecycle(dashboardRef);
 
@@ -898,7 +916,7 @@ export function DeckySteamFullScreenGamesDashboard({
     setAppendedGameIdToFocus(undefined);
   }, [appendedGameIdToFocus, renderedGames]);
 
-  const revealMoreGames = (focusAppendedRow: boolean): boolean => {
+  const revealMoreGames = useCallback((focusAppendedRow: boolean): boolean => {
     if (renderedGames.length >= visibleGames.length) return false;
     const firstAppendedGame = visibleGames[renderedGames.length];
     if (focusAppendedRow && firstAppendedGame !== undefined) {
@@ -910,7 +928,8 @@ export function DeckySteamFullScreenGamesDashboard({
       return next;
     });
     return true;
-  };
+  }, [providerId, renderedGames.length, visibleGames]);
+  const revealMoreWithFocus = useCallback(() => revealMoreGames(true), [revealMoreGames]);
   const selectSystem = (system: { readonly systemId: string; readonly title: string } | undefined): void => {
     rememberDeckyGamesSystemFilter(providerId, system);
     setSelectedSystemId(system?.systemId);
@@ -1016,14 +1035,11 @@ export function DeckySteamFullScreenGamesDashboard({
         >
           {visibleGames.length > 0 ? <>
             {renderedGames.map((game, rowIndex) => (
-            <SteamGamesRow
+            <MemoizedSteamGamesRow
               key={game.gameId}
-              elementRef={initialPageState.focusGameId === game.gameId || appendedGameIdToFocus === game.gameId
-                ? (node) => {
-                    if (initialPageState.focusGameId === game.gameId) restorationTargetRef.current = node;
-                    if (appendedGameIdToFocus === game.gameId) appendedGameFocusTargetRef.current = node;
-                  }
-                : undefined}
+              elementRef={initialPageState.focusGameId === game.gameId
+                ? appendedGameIdToFocus === game.gameId ? setBothTargets : setRestorationTarget
+                : appendedGameIdToFocus === game.gameId ? setAppendedTarget : undefined}
               game={game}
               providerId={providerId}
               listRef={listRef}
@@ -1032,9 +1048,9 @@ export function DeckySteamFullScreenGamesDashboard({
               displayMode={displayMode}
               showSystemName={selectedSystemId === undefined}
               {...(rowIndex === renderedGames.length - 1 && renderedGames.length < visibleGames.length
-                ? { onRevealMore: () => revealMoreGames(true) } : {})}
-              onBack={onBack}
-              onOpenGameDetail={onOpenGameDetail}
+                ? { onRevealMore: revealMoreWithFocus } : {})}
+              onBack={goBack}
+              onOpenGameDetail={openGameDetail}
             />
             ))}
           </> : (

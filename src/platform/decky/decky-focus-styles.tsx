@@ -4,6 +4,7 @@ import { getRaFocusStylesCss } from "./ra-theme";
 import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 import { useDeckySettings } from "./decky-settings";
 import { applyAchievementCompanionTheme } from "./decky-theme-palette";
+import { retainDeckyDocumentStyles } from "./decky-document-styles";
 
 export const DECKY_FOCUS_NAV_ROW_CLASS = "achievement-companion-focus-nav-row";
 export const DECKY_FOCUS_ACTION_ROW_CLASS = "achievement-companion-focus-action-row";
@@ -40,18 +41,14 @@ export function getDeckyFocusStylesCss(): string {
 }
 .${DECKY_FOCUS_NAV_ROW_CLASS}:focus-visible,
 .${DECKY_FOCUS_NAV_ROW_CLASS}:focus-within {
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.16),
-    inset 0 0 0 999px rgba(255, 255, 255, 0.03);
+  box-shadow: ${qamTheme.focus.insetShadow};
   border-radius: 12px;
 }
 
 .${DECKY_FOCUS_ACTION_ROW_CLASS}:focus-visible,
 .${DECKY_FOCUS_ACTION_ROW_CLASS}:focus-within {
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.22),
-    inset 0 0 0 999px rgba(255, 255, 255, 0.035);
-  background-color: rgba(255, 255, 255, 0.055);
+  box-shadow: ${qamTheme.focus.insetShadow};
+  background: ${qamTheme.surface.focusedContentStat};
   border-radius: 999px;
 }
 
@@ -60,7 +57,7 @@ export function getDeckyFocusStylesCss(): string {
   width: 100%;
   overflow: hidden;
   border-radius: 999px;
-  background-color: rgba(255, 255, 255, 0.02);
+  background: ${qamTheme.surface.contentStat};
 }
 
 .${DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS} {
@@ -77,11 +74,8 @@ export function getDeckyFocusStylesCss(): string {
 
 .${DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}:focus-visible,
 .${DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS}:focus-within {
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.32),
-    inset 0 0 0 999px rgba(255, 255, 255, 0.07),
-    0 0 0 1px rgba(0, 0, 0, 0.14);
-  background-color: rgba(255, 255, 255, 0.05);
+  box-shadow: ${qamTheme.focus.insetShadow};
+  background: ${qamTheme.surface.focusedContentStat};
 }
 
 .achievement-companion-focus-pill[role="button"],
@@ -89,9 +83,7 @@ export function getDeckyFocusStylesCss(): string {
   background: ${qamTheme.surface.contentStat} !important;
   border: 1px solid ${qamTheme.color.borderSubtle} !important;
   border-radius: 999px !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 2px 10px rgba(0, 0, 0, 0.22) !important;
+  box-shadow: none !important;
   color: ${qamTheme.color.textPrimary} !important;
   transform: none !important;
   transition:
@@ -161,7 +153,7 @@ export function getDeckyFocusStylesCss(): string {
 .${DECKY_PROVIDER_SETTINGS_ACTION_ROW_CLASS}:focus-within .${DECKY_PROVIDER_SETTINGS_ACTION_PILL_CLASS} {
   border-color: ${qamTheme.focus.border} !important;
   background: ${qamTheme.focus.background} !important;
-  color: #fff !important;
+  color: ${qamTheme.color.textPrimary} !important;
   box-shadow: ${qamTheme.focus.shadow} !important;
 }
 
@@ -178,7 +170,7 @@ export function getDeckyFocusStylesCss(): string {
   width: 100%;
   padding: 4px;
   border-radius: 18px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
+  border: 1px solid ${qamTheme.color.borderSubtle};
   background: ${qamTheme.surface.contentCard};
   box-sizing: border-box;
 }
@@ -191,7 +183,7 @@ export function getDeckyFocusStylesCss(): string {
   border: 1px solid transparent;
   border-radius: 999px;
   background: ${qamTheme.surface.contentStat};
-  color: rgba(255, 255, 255, 0.78);
+  color: ${qamTheme.color.textSecondary};
   box-shadow: none;
   box-sizing: border-box;
   cursor: pointer;
@@ -214,9 +206,9 @@ export function getDeckyFocusStylesCss(): string {
 
 .${DECKY_ACHIEVEMENT_FILTER_OPTION_CLASS}.${DECKY_ACHIEVEMENT_FILTER_OPTION_SELECTED_CLASS} {
   background: ${qamTheme.surface.selectedContentStat};
-  border-color: rgba(255, 255, 255, 0.18);
-  color: rgba(255, 255, 255, 0.98);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  border-color: ${qamTheme.color.borderStrong};
+  color: ${qamTheme.color.textPrimary};
+  box-shadow: ${qamTheme.selection.compactUnderline};
   font-weight: 700;
 }
 
@@ -228,7 +220,7 @@ export function getDeckyFocusStylesCss(): string {
   background: ${qamTheme.surface.focusedContentStat};
   border-color: ${qamTheme.focus.border};
   box-shadow: ${qamTheme.focus.shadow};
-  color: rgba(255, 255, 255, 0.96);
+  color: ${qamTheme.color.textPrimary};
   outline: none;
 }
 
@@ -240,7 +232,7 @@ export function getDeckyFocusStylesCss(): string {
   background: ${qamTheme.surface.focusedSelectedContentStat};
   border-color: ${qamTheme.focus.border};
   box-shadow: ${qamTheme.focus.shadow}, ${qamTheme.selection.compactUnderline};
-  color: rgba(255, 255, 255, 0.98);
+  color: ${qamTheme.color.textPrimary};
 }
 
 /* Day selection persists as a filter; only the current Decky focus receives a glow. */
@@ -265,10 +257,15 @@ export function getDeckyFocusStylesCss(): string {
 }
 
 export function DeckyFocusStyles(): JSX.Element {
-  const styleRef = useRef<HTMLStyleElement>(null);
+  const anchorRef = useRef<HTMLSpanElement>(null);
   const theme = useDeckySettings().theme;
   useLayoutEffect(() => {
-    if (styleRef.current !== null) applyAchievementCompanionTheme(styleRef.current.ownerDocument, theme);
+    if (anchorRef.current !== null) applyAchievementCompanionTheme(anchorRef.current.ownerDocument, theme);
   }, [theme]);
-  return <style ref={styleRef}>{getDeckyFocusStylesCss() + getSteamFocusStylesCss() + getRaFocusStylesCss()}</style>;
+  useLayoutEffect(() => {
+    const ownerDocument = anchorRef.current?.ownerDocument;
+    if (ownerDocument === undefined) return;
+    return retainDeckyDocumentStyles(ownerDocument, "focus", getDeckyFocusStylesCss() + getSteamFocusStylesCss() + getRaFocusStylesCss());
+  }, []);
+  return <span ref={anchorRef} hidden aria-hidden="true" />;
 }

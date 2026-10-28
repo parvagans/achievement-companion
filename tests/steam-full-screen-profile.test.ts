@@ -650,7 +650,7 @@ test("full-screen loading screens retain simple provider-specific loading states
   assert.doesNotMatch(appServicesSource.slice(appServicesSource.indexOf("async function loadDashboardSnapshot"), appServicesSource.indexOf("function deriveRecentlyPlayedGamesFromRecentUnlocks")), /activityCalendarUnlocksPromise/u);
   assert.match(serviceTypesSource, /DashboardRefreshProgressStepId[\s\S]*recent-games[\s\S]*recent-achievements[\s\S]*finalize/u);
   assert.match(deckyServicesSource, /if \(activeRefresh !== undefined\)[\s\S]*subscribeToDeckyDashboardProgress\(providerId, options\.onProgress\)[\s\S]*return await activeRefresh/u);
-  assert.match(deckyServicesSource, /onProgress: \(event\) => publishDeckyDashboardProgress\(providerId, event\)/u);
+  assert.match(deckyServicesSource, /onProgress: \(event\) => \{ if \(isCurrentAccount\(\)\) publishDeckyDashboardProgress\(providerId, event\); \}/u);
   assert.match(deckyServicesSource, /stepId: "steam-hunters", status: "failed"[\s\S]*status: "error"[\s\S]*isRefreshing: false/u);
 });
 
@@ -718,7 +718,7 @@ test("provider full-screen tabs share one session while details retain route his
   );
   assert.match(footerSource, /readonly isActive\?: boolean[\s\S]*if \(!isActive \|\| isSteamFullScreenVideoOverlayVisible\)[\s\S]*isActive && !isSteamFullScreenVideoOverlayVisible && !isOnScreenKeyboardOpen && portalTarget/u);
   assert.match(gamesDashboardSource, /STEAM_GAMES_INITIAL_RENDER_LIMIT[\s\S]*visibleGames\.slice\(0, renderLimit\)[\s\S]*const revealMoreGames[\s\S]*current \+ STEAM_GAMES_RENDER_STEP/u);
-  assert.match(gamesDashboardSource, /onRevealMore: \(\) => revealMoreGames\(true\)/u);
+  assert.match(gamesDashboardSource, /const revealMoreWithFocus = useCallback\(\(\) => revealMoreGames\(true\)[\s\S]*onRevealMore: revealMoreWithFocus/u);
   assert.doesNotMatch(gamesDashboardSource, /data-steam-games-show-more|Show \$\{Math\.min\(STEAM_GAMES_RENDER_STEP/u);
   assert.match(activityDashboardSource, /STEAM_ACTIVITY_RENDER_STEP[\s\S]*pageActivityGroups\(allGroups, renderLimit\)[\s\S]*onRevealMore/u);
   assert.doesNotMatch(activityDashboardSource, /data-steam-activity-show-more|Show \$\{Math\.min\(STEAM_ACTIVITY_RENDER_STEP/u);

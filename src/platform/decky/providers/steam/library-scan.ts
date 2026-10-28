@@ -1,3 +1,4 @@
+import { getDeckyAccountRevision, subscribeDeckyAccountRevision } from "../../decky-account-revision";
 import { STEAM_PROVIDER_ID, type SteamProviderConfig } from "../../../../providers/steam";
 import type { CompletionProgressSnapshot, NormalizedGame } from "@core/domain";
 import { createSteamClient } from "../../../../providers/steam";
@@ -118,13 +119,14 @@ export function createDeckySteamLibraryScanDependencies(): NonNullable<Parameter
   };
 }
 
-function createDeckySteamSchemaCache(steamId64: string): SteamLibraryAchievementSchemaCache {
+function createDeckySteamSchemaCache(steamId64: string, accountRevision: number): SteamLibraryAchievementSchemaCache {
   return {
     read(appId) {
       return readDeckySteamAchievementSchemaCache(steamId64, appId);
     },
     write(appId, achievements) {
-      writeDeckySteamAchievementSchemaCache(steamId64, appId, achievements);
+      if (accountRevision === getDeckyAccountRevision(STEAM_PROVIDER_ID))
+        writeDeckySteamAchievementSchemaCache(steamId64, appId, achievements);
     },
   };
 }
@@ -147,7 +149,7 @@ function getDeckySteamLibraryScanDependencies(
   const defaults = dependencies ?? createDeckySteamLibraryScanDependencies();
   return {
     ...defaults,
-    schemaCache: defaults.schemaCache ?? createDeckySteamSchemaCache(config.steamId64),
+    schemaCache: defaults.schemaCache ?? createDeckySteamSchemaCache(config.steamId64, getDeckyAccountRevision(STEAM_PROVIDER_ID)),
   };
 }
 
@@ -155,12 +157,15 @@ export async function runAndCacheDeckySteamLibraryAchievementScan(
   config: SteamProviderConfig,
   dependencies?: Parameters<typeof scanSteamLibraryAchievements>[1],
 ): Promise<SteamLibraryAchievementScanSummary> {
-  const active = activeDeckySteamLibraryAchievementScans.get(config.steamId64);
+  const accountRevision = getDeckyAccountRevision(STEAM_PROVIDER_ID);
+  const requestKey = `${accountRevision}:${config.steamId64}`;
+  const active = activeDeckySteamLibraryAchievementScans.get(requestKey);
   if (active !== undefined) {
     return active;
   }
 
   const scanPromise = runSteamLibrarySummaryUpdate(async () => {
+    if (accountRevision !== getDeckyAccountRevision(STEAM_PROVIDER_ID)) throw new Error("Account settings changed during Steam scan.");
     const expectedRevision = getDeckySteamLibraryAchievementScanRevision();
     const previousSummary = getPreviousSummaryForSteamAccount(
       readDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID),
@@ -173,18 +178,19 @@ export async function runAndCacheDeckySteamLibraryAchievementScan(
         ...(previousSummary !== undefined ? { previousSummary } : {}),
       },
     );
+    if (accountRevision !== getDeckyAccountRevision(STEAM_PROVIDER_ID)) throw new Error("Account settings changed during Steam scan.");
     if (writeDeckySteamLibraryAchievementScanSummaryIfRevisionMatches(expectedRevision, summary)) {
       return summary;
     }
     return readDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID) ?? summary;
   });
 
-  activeDeckySteamLibraryAchievementScans.set(config.steamId64, scanPromise);
+  activeDeckySteamLibraryAchievementScans.set(requestKey, scanPromise);
   try {
     return await scanPromise;
   } finally {
-    if (activeDeckySteamLibraryAchievementScans.get(config.steamId64) === scanPromise) {
-      activeDeckySteamLibraryAchievementScans.delete(config.steamId64);
+    if (activeDeckySteamLibraryAchievementScans.get(requestKey) === scanPromise) {
+      activeDeckySteamLibraryAchievementScans.delete(requestKey);
     }
   }
 }
@@ -193,12 +199,15 @@ export async function refreshAndCacheDeckySteamLibraryAchievementProgress(
   config: SteamProviderConfig,
   dependencies?: Parameters<typeof refreshSteamLibraryAchievementProgress>[2],
 ): Promise<SteamLibraryAchievementScanSummary | undefined> {
-  const active = activeDeckySteamLibraryAchievementRefreshes.get(config.steamId64);
+  const accountRevision = getDeckyAccountRevision(STEAM_PROVIDER_ID);
+  const requestKey = `${accountRevision}:${config.steamId64}`;
+  const active = activeDeckySteamLibraryAchievementRefreshes.get(requestKey);
   if (active !== undefined) {
     return active;
   }
 
   const refreshPromise = runSteamLibrarySummaryUpdate(async () => {
+    if (accountRevision !== getDeckyAccountRevision(STEAM_PROVIDER_ID)) throw new Error("Account settings changed during Steam scan.");
     const expectedRevision = getDeckySteamLibraryAchievementScanRevision();
     const previousSummary = getPreviousSummaryForSteamAccount(
       readDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID),
@@ -210,24 +219,27 @@ export async function refreshAndCacheDeckySteamLibraryAchievementProgress(
         previousSummary,
         getDeckySteamLibraryScanDependencies(config, dependencies),
       );
+      if (accountRevision !== getDeckyAccountRevision(STEAM_PROVIDER_ID)) return undefined;
       if (writeDeckySteamLibraryAchievementScanSummaryIfRevisionMatches(expectedRevision, summary)) {
         return summary;
       }
-      return readDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID);
+      return accountRevision === getDeckyAccountRevision(STEAM_PROVIDER_ID)
+        ? readDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID) : undefined;
     } catch (cause) {
       logDeckySteamLibraryScan("warn", "Steam library refresh retained cached data", {
         error: cause instanceof Error ? cause.message : String(cause),
       });
-      return readDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID);
+      return accountRevision === getDeckyAccountRevision(STEAM_PROVIDER_ID)
+        ? readDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID) : undefined;
     }
   });
 
-  activeDeckySteamLibraryAchievementRefreshes.set(config.steamId64, refreshPromise);
+  activeDeckySteamLibraryAchievementRefreshes.set(requestKey, refreshPromise);
   try {
     return await refreshPromise;
   } finally {
-    if (activeDeckySteamLibraryAchievementRefreshes.get(config.steamId64) === refreshPromise) {
-      activeDeckySteamLibraryAchievementRefreshes.delete(config.steamId64);
+    if (activeDeckySteamLibraryAchievementRefreshes.get(requestKey) === refreshPromise) {
+      activeDeckySteamLibraryAchievementRefreshes.delete(requestKey);
     }
   }
 }
@@ -349,3 +361,11 @@ export function buildDeckySteamCompletionProgressSnapshotFromSummary(
     refreshedAt: Date.parse(summary.scannedAt),
   };
 }
+
+subscribeDeckyAccountRevision((providerId) => {
+  if (providerId === STEAM_PROVIDER_ID) {
+    activeDeckySteamLibraryAchievementScans.clear();
+    activeDeckySteamLibraryAchievementRefreshes.clear();
+    steamLibrarySummaryUpdateQueue = Promise.resolve();
+  }
+});

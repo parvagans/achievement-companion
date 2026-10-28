@@ -107,7 +107,7 @@ function getHeroCardStyle(): CSSProperties {
     gap: 14,
     padding: 18,
     borderRadius: 20,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
+    border: `1px solid ${sharedTheme.color.borderSubtle}`,
     background: sharedTheme.surface.contentCard,
   };
 }
@@ -145,13 +145,13 @@ function getProfileAvatarFrameStyle(): CSSProperties {
     flexShrink: 0,
     overflow: "hidden",
     borderRadius: 16,
-    border: "1px solid rgba(255, 255, 255, 0.12)",
+    border: `1px solid ${sharedTheme.color.borderSubtle}`,
     background:
-      "linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.04))",
+      sharedTheme.decorative.avatarBackground,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    color: "rgba(255, 255, 255, 0.9)",
+    color: sharedTheme.color.textPrimary,
     fontSize: "0.9em",
     fontWeight: 800,
     letterSpacing: "0.06em",
@@ -188,7 +188,7 @@ function getHeroTextStyle(): CSSProperties {
 
 function getHeroLabelStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.58)",
+    color: sharedTheme.color.textMuted,
     fontSize: "0.72em",
     fontWeight: 800,
     letterSpacing: "0.1em",
@@ -199,7 +199,7 @@ function getHeroLabelStyle(): CSSProperties {
 
 function getHeroTitleStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.98)",
+    color: sharedTheme.color.textPrimary,
     fontSize: "1.45em",
     fontWeight: 800,
     lineHeight: 1.08,
@@ -215,7 +215,7 @@ function getHeroSupportStyle(): CSSProperties {
     display: "flex",
     flexDirection: "column",
     gap: 4,
-    color: "rgba(255, 255, 255, 0.72)",
+    color: sharedTheme.color.textSecondary,
     fontSize: "0.92em",
     lineHeight: 1.35,
   };
@@ -237,7 +237,7 @@ function getStatCardStyle(): CSSProperties {
     gap: 3,
     padding: "11px 12px",
     borderRadius: 14,
-    border: "1px solid rgba(255, 255, 255, 0.06)",
+    border: `1px solid ${sharedTheme.color.borderSubtle}`,
     background: sharedTheme.surface.contentStat,
     minWidth: 0,
     textAlign: "center",
@@ -246,7 +246,7 @@ function getStatCardStyle(): CSSProperties {
 
 function getStatLabelStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.62)",
+    color: sharedTheme.color.textMuted,
     fontSize: "0.72em",
     fontWeight: 700,
     letterSpacing: "0.08em",
@@ -257,7 +257,7 @@ function getStatLabelStyle(): CSSProperties {
 
 function getStatValueStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.98)",
+    color: sharedTheme.color.textPrimary,
     fontSize: "0.98em",
     fontWeight: 700,
     lineHeight: 1.2,
@@ -276,14 +276,14 @@ function getBrowserCardStyle(): CSSProperties {
     gap: 12,
     padding: 16,
     borderRadius: 18,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
+    border: `1px solid ${sharedTheme.color.borderSubtle}`,
     background: sharedTheme.surface.contentCard,
   };
 }
 
 function getBrowserTitleStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.58)",
+    color: sharedTheme.color.textMuted,
     fontSize: "0.72em",
     fontWeight: 800,
     letterSpacing: "0.1em",
@@ -294,7 +294,7 @@ function getBrowserTitleStyle(): CSSProperties {
 
 function getBrowserSummaryStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.92)",
+    color: sharedTheme.color.textPrimary,
     fontSize: "0.94em",
     lineHeight: 1.35,
   };
@@ -302,7 +302,7 @@ function getBrowserSummaryStyle(): CSSProperties {
 
 function getBrowserMetaStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.68)",
+    color: sharedTheme.color.textSecondary,
     fontSize: "0.86em",
     lineHeight: 1.25,
   };
@@ -318,7 +318,7 @@ function getAchievementRowStyle(): CSSProperties {
     boxSizing: "border-box",
     padding: "11px 12px",
     borderRadius: 16,
-    border: "1px solid rgba(255, 255, 255, 0.08)",
+    border: `1px solid ${sharedTheme.color.borderSubtle}`,
     background: sharedTheme.surface.contentStat,
     boxShadow: "inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 2px 8px rgba(0, 0, 0, 0.15)",
   };
@@ -336,7 +336,7 @@ function getAchievementRowTextStyle(): CSSProperties {
 
 function getAchievementRowTitleStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.98)",
+    color: sharedTheme.color.textPrimary,
     fontSize: "1.05em",
     fontWeight: 800,
     lineHeight: 1.12,
@@ -349,7 +349,7 @@ function getAchievementRowTitleStyle(): CSSProperties {
 
 function getAchievementRowGameStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.76)",
+    color: sharedTheme.color.textSecondary,
     fontSize: "0.84em",
     lineHeight: 1.25,
     overflow: "hidden",
@@ -376,7 +376,7 @@ function getAchievementHistoryStatusStyle(achievement: Pick<RecentUnlock["achiev
       ? "rgba(232, 201, 102, 0.95)"
       : isSoftcore
         ? "rgba(220, 225, 233, 0.95)"
-        : "rgba(255, 255, 255, 0.72)",
+        : sharedTheme.color.textSecondary,
     fontSize: "0.8em",
     fontWeight: 800,
     lineHeight: 1.2,
@@ -385,7 +385,7 @@ function getAchievementHistoryStatusStyle(achievement: Pick<RecentUnlock["achiev
 
 function getAchievementHistoryDetailStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.72)",
+    color: sharedTheme.color.textSecondary,
     fontSize: "0.8em",
     lineHeight: 1.2,
   };
@@ -415,12 +415,12 @@ function getFallbackBadgeStyle(size: number): CSSProperties {
     height: size,
     flexShrink: 0,
     borderRadius: 10,
-    border: "1px solid rgba(255, 255, 255, 0.12)",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
+    border: `1px solid ${sharedTheme.color.borderSubtle}`,
+    backgroundColor: sharedTheme.color.borderSubtle,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    color: "rgba(255, 255, 255, 0.9)",
+    color: sharedTheme.color.textPrimary,
     fontSize: "0.78em",
     fontWeight: 800,
     letterSpacing: "0.06em",
@@ -544,14 +544,14 @@ function AchievementHistoryRow({
       ? "rgba(214, 178, 74, 0.28)"
       : isSoftcore
         ? "rgba(214, 221, 232, 0.2)"
-        : "rgba(255, 255, 255, 0.12)",
+        : sharedTheme.color.borderSubtle,
     borderLeftWidth: 4,
     borderLeftStyle: "solid",
     borderLeftColor: isHardcore
       ? "rgba(214, 178, 74, 0.8)"
       : isSoftcore
         ? "rgba(214, 221, 232, 0.72)"
-        : "rgba(255, 255, 255, 0.12)",
+        : sharedTheme.color.borderSubtle,
     background: isHardcore
       ? `linear-gradient(180deg, rgba(214, 178, 74, 0.08), rgba(214, 178, 74, 0.03)), ${sharedTheme.surface.contentStat}`
       : isSoftcore

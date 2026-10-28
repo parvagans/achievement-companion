@@ -1,3 +1,4 @@
+import { subscribeDeckyAccountRevision } from "./decky-account-revision";
 import type { ResourceState } from "@core/cache";
 import type { GameDetailSnapshot } from "@core/domain";
 import { STEAM_PROVIDER_ID } from "../../providers/steam/config";
@@ -152,3 +153,5 @@ export function writeDeckySteamGameDetail(snapshot: GameDetailSnapshot): boolean
 export function clearDeckySteamGameDetailCache(): boolean {
   return removeDeckyStorageTextsByPrefix(DECKY_STEAM_GAME_DETAIL_STORAGE_KEY_PREFIX);
 }
+
+subscribeDeckyAccountRevision((providerId) => { providerId === STEAM_PROVIDER_ID && clearDeckySteamGameDetailCache(); });

@@ -90,17 +90,17 @@ export class UpdateService {
       return this.state;
     }
     try {
-      const artifact = await this.dependencies.verifier.verify(manifest, (phase) => {
-        this.setState({ ...this.stateWithoutMessage(), status: phase });
-      });
       if (!this.dependencies.installer.supported) {
         this.setState({
           ...this.state,
           status: "unsupported",
-          message: "This Decky Loader version does not expose a supported plugin-install API. The package was downloaded and verified but not installed.",
+          message: "This Decky Loader version does not expose a supported plugin-install API.",
         });
         return this.state;
       }
+      const artifact = await this.dependencies.verifier.verify(manifest, (phase) => {
+        this.setState({ ...this.stateWithoutMessage(), status: phase });
+      });
       this.setState({ ...this.stateWithoutMessage(), status: "installing" });
       const result = await this.dependencies.installer.install(manifest, artifact);
       if (result.status === "prompted") {

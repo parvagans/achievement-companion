@@ -1,3 +1,4 @@
+import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 import { useMemo, type ComponentProps, type CSSProperties, type FocusEventHandler } from "react";
 import type { ResourceState } from "@core/cache";
 import type {
@@ -261,7 +262,7 @@ function getHeroMottoStyle(): CSSProperties {
     gap: 4,
     padding: "10px 12px",
     borderRadius: 14,
-    border: "1px solid rgba(255, 255, 255, 0.06)",
+    border: `1px solid ${raTheme.color.borderSubtle}`,
     background: raTheme.surface.contentStat,
     boxSizing: "border-box",
     minWidth: 0,
@@ -281,7 +282,7 @@ function getHeroMottoLabelStyle(): CSSProperties {
 
 function getHeroMottoTextStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.86)",
+    color: raTheme.color.textPrimary,
     fontSize: "0.94em",
     lineHeight: 1.45,
     whiteSpace: "pre-wrap",
@@ -294,13 +295,13 @@ function getAvatarFallbackStyle(size: number): CSSProperties {
     height: size,
     flexShrink: 0,
     borderRadius: 18,
-    border: "1px solid rgba(255, 255, 255, 0.12)",
+    border: `1px solid ${raTheme.color.borderSubtle}`,
     background:
-      "linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03))",
+      qamTheme.decorative.avatarBackground,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    color: "rgba(255, 255, 255, 0.92)",
+    color: raTheme.color.textPrimary,
     fontSize: "1em",
     fontWeight: 800,
     letterSpacing: "0.06em",
@@ -473,7 +474,7 @@ function getStatCardStyle(): CSSProperties {
     gap: 3,
     padding: "11px 12px",
     borderRadius: 14,
-    border: "1px solid rgba(255, 255, 255, 0.06)",
+    border: `1px solid ${raTheme.color.borderSubtle}`,
     background: raTheme.surface.contentStat,
     minWidth: 0,
     textAlign: "center",
@@ -482,7 +483,7 @@ function getStatCardStyle(): CSSProperties {
 
 function getStatLabelStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.62)",
+    color: raTheme.color.textMuted,
     fontSize: "0.72em",
     fontWeight: 700,
     letterSpacing: "0.08em",
@@ -493,7 +494,7 @@ function getStatLabelStyle(): CSSProperties {
 
 function getStatValueStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.98)",
+    color: raTheme.color.textPrimary,
     fontSize: "0.98em",
     fontWeight: 700,
     lineHeight: 1.2,
@@ -507,7 +508,7 @@ function getStatValueStyle(): CSSProperties {
 
 function getStatSecondaryStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.72)",
+    color: raTheme.color.textSecondary,
     fontSize: "0.82em",
     lineHeight: 1.2,
     minWidth: 0,
@@ -520,7 +521,7 @@ function getStatSecondaryStyle(): CSSProperties {
 
 function getStatActionLabelStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.68)",
+    color: raTheme.color.textSecondary,
     fontSize: "0.74em",
     fontWeight: 700,
     letterSpacing: "0.05em",
@@ -535,14 +536,14 @@ function getInfoCardStyle(): CSSProperties {
     gap: 10,
     padding: 14,
     borderRadius: 18,
-    border: "1px solid rgba(255, 255, 255, 0.06)",
+    border: `1px solid ${raTheme.color.borderSubtle}`,
     background: raTheme.surface.contentCard,
   };
 }
 
 function getInfoCardTitleStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.62)",
+    color: raTheme.color.textMuted,
     fontSize: "0.72em",
     fontWeight: 700,
     letterSpacing: "0.08em",
@@ -553,7 +554,7 @@ function getInfoCardTitleStyle(): CSSProperties {
 
 function getInfoCardTextStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.92)",
+    color: raTheme.color.textPrimary,
     fontSize: "0.94em",
     lineHeight: 1.35,
     whiteSpace: "pre-wrap",
@@ -580,7 +581,7 @@ function getRecentGameTextStyle(): CSSProperties {
 
 function getRecentGameTitleStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.98)",
+    color: raTheme.color.textPrimary,
     fontSize: "1em",
     fontWeight: 800,
     lineHeight: 1.15,
@@ -593,7 +594,7 @@ function getRecentGameTitleStyle(): CSSProperties {
 
 function getRecentGameMetaStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.72)",
+    color: raTheme.color.textSecondary,
     fontSize: "0.86em",
     lineHeight: 1.2,
     minWidth: 0,
@@ -609,13 +610,13 @@ function getRecentGamePresenceStyle(): CSSProperties {
     flexDirection: "column",
     gap: 4,
     paddingTop: 10,
-    borderTop: "1px solid rgba(255, 255, 255, 0.06)",
+    borderTop: `1px solid ${raTheme.color.borderSubtle}`,
   };
 }
 
 function getRecentGamePresenceTextStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.82)",
+    color: raTheme.color.textPrimary,
     fontSize: "0.88em",
     lineHeight: 1.35,
     whiteSpace: "pre-wrap",
@@ -666,7 +667,7 @@ function getProfileCompletionBreakdownStyle(): CSSProperties {
     justifyContent: "center",
     gap: 6,
     maxWidth: "100%",
-    color: "rgba(255, 255, 255, 0.72)",
+    color: raTheme.color.textSecondary,
     fontSize: "0.76em",
     fontWeight: 700,
     lineHeight: 1.15,

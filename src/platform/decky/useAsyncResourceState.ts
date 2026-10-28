@@ -1,6 +1,19 @@
 import { useEffect, useState } from "react";
 import type { ResourceState } from "@core/cache";
 
+export async function loadAsyncResourceState<T>(loader: AsyncResourceLoader<T>): Promise<ResourceState<T>> {
+  try {
+    return await loader();
+  } catch {
+    return {
+      status: "error",
+      error: { kind: "unknown", userMessage: "Unable to load this content. Please try again.", retryable: true },
+      isStale: false,
+      isRefreshing: false,
+    };
+  }
+}
+
 export type AsyncResourceLoader<T> = () => Promise<ResourceState<T>>;
 
 export function useAsyncResourceState<T>(
@@ -12,8 +25,7 @@ export function useAsyncResourceState<T>(
   useEffect(() => {
     let cancelled = false;
 
-    void Promise.resolve()
-      .then(loader)
+    void loadAsyncResourceState(loader)
       .then((nextState) => {
         if (!cancelled) {
           setState((currentState) => {

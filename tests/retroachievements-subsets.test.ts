@@ -555,3 +555,49 @@ test("RA client uses the documented catalogue, extended metadata, and batched pr
     { path: "API_GetUserProgress.php", query: { u: "alice", i: "10,11" } },
   ]);
 });
+
+test("RA subset verification checkpoints 100 candidates in at most twelve index writes", async () => {
+  const writes: RetroAchievementsSubsetRelationshipIndexState[] = [];
+  const candidates = Array.from({ length: 100 }, (_, index) => listEntry(String(index + 2000), `Set ${index} [Subset]`, "1"));
+  const provider = createRetroAchievementsProvider({
+    client: baseClient({
+      async loadGameList() { return candidates; },
+      async loadGameExtended(_config, id) { return extended(id, `Set ${id} [Subset]`, "1", "100"); },
+    }),
+    subsetRelationshipIndexStore: {
+      async read() { return undefined; },
+      async write(state) { writes.push(state); },
+      async clear() {},
+    },
+  });
+  assert.equal((await provider.loadRelatedGames!(config, game("100", "1"))).length, 100);
+  assert.ok(writes.length <= 12);
+  assert.equal(writes[0]?.candidates.filter((candidate) => candidate.status === "unresolved").length, 100);
+  assert.equal(writes[1]?.candidates.filter((candidate) => candidate.status === "verified-parent").length, 10);
+  assert.equal(writes.at(-1)?.complete, true);
+  assert.equal(writes.at(-1)?.lastKnownGoodCandidates?.length, 100);
+});
+
+test("RA subset failure persists the partial checkpoint and resumes only the failed candidate onward", async () => {
+  const { store, states } = createRelationshipIndexStore();
+  let fail = true;
+  const calls: string[] = [];
+  const client = baseClient({
+    async loadGameList() {
+      return Array.from({ length: 25 }, (_, index) => listEntry(String(index + 3000), `Set ${index} [Subset]`, "1"));
+    },
+    async loadGameExtended(_config, id) {
+      calls.push(id);
+      if (id === "3014" && fail) throw new Error("offline");
+      return extended(id, `Set ${id} [Subset]`, "1", "100");
+    },
+  });
+  await assert.rejects(createRetroAchievementsProvider({ client, subsetRelationshipIndexStore: store }).loadRelatedGames!(config, game("100", "1")), /offline/);
+  const interrupted = states.get("1")!;
+  assert.equal(interrupted.candidates.filter((candidate) => candidate.status === "verified-parent").length, 14);
+  assert.equal(interrupted.candidates[14]?.status, "retry-later");
+  fail = false;
+  calls.length = 0;
+  assert.equal((await createRetroAchievementsProvider({ client, subsetRelationshipIndexStore: store }).loadRelatedGames!(config, game("100", "1"))).length, 25);
+  assert.deepEqual(calls, Array.from({ length: 11 }, (_, index) => String(index + 3014)));
+});

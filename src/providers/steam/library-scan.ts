@@ -519,8 +519,9 @@ function sanitizeSteamLoadFailureMessage(cause: unknown): string {
   return "Unknown Steam library scan error.";
 }
 
-function logSteamLibraryScan(message: string, extra?: unknown): void {
-  console.warn("[Achievement Companion] steam library scan", {
+function logSteamLibraryScan(message: string, extra?: unknown, level: "info" | "warn" = "info"): void {
+  const log = level === "warn" ? console.warn : console.info;
+  log("[Achievement Companion] steam library scan", {
     providerId: STEAM_PROVIDER_ID,
     message,
     ...(typeof extra === "object" && extra !== null ? extra : {}),
@@ -615,8 +616,6 @@ async function updateSteamLibraryAchievementSummary(
     }
 
     const gameResults = await mapWithConcurrency(validOwnedGames, concurrencyLimit, async (game) => {
-    stats.scannedGameCount += 1;
-
     let gameResult:
       | {
           readonly gameSummary: SteamLibraryGameProgressSummary;
@@ -795,14 +794,12 @@ async function updateSteamLibraryAchievementSummary(
               lastAchievementRefreshAt: refreshedAt,
               lastAchievementRefreshError: sanitizeSteamLoadFailureMessage(cause),
             }),
-        unlockedSummaries: previousGame === undefined
-          ? []
-          : (dependencies.previousSummary?.unlockedAchievementsList ?? []).filter(
-              (unlock) => unlock.gameId === previousGame.gameId,
-            ),
+        // Failed and absent games keep their prior history in preservedUnlocks below.
+        unlockedSummaries: [],
       } as const;
     }
 
+    stats.scannedGameCount += 1;
     const now = Date.now();
     const progressSignature = `${ownedGameCount}:${stats.scannedGameCount}:${stats.skippedGameCount}:${stats.failedGameCount}`;
     const isFinalProgress = stats.scannedGameCount === ownedGameCount;
@@ -940,7 +937,7 @@ async function updateSteamLibraryAchievementSummary(
   } catch (cause) {
     logger?.failed?.({
       durationMs: Date.now() - startedAtMs,
-      ownedGameCount: 0,
+      ownedGameCount,
       scannedGameCount: stats.scannedGameCount,
       skippedGameCount: stats.skippedGameCount,
       failedGameCount: stats.failedGameCount,
@@ -959,7 +956,7 @@ function logSteamLoadFailureMessage(
     appId: game.appId,
     title: game.title,
     message: sanitizeSteamLoadFailureMessage(cause),
-  });
+  }, "warn");
 }
 
 function logSteamSchemaLoadFailureMessage(
@@ -970,7 +967,7 @@ function logSteamSchemaLoadFailureMessage(
     appId: game.appId,
     title: game.title,
     message: sanitizeSteamLoadFailureMessage(cause),
-  });
+  }, "warn");
 }
 
 function compareSteamLibraryRecentUnlocks(left: RecentUnlock, right: RecentUnlock): number {

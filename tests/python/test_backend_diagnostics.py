@@ -42,6 +42,31 @@ class BackendDiagnosticsTests(unittest.TestCase):
   def test_unknown_event_returns_none(self) -> None:
     self.assertIsNone(diagnostics.sanitize_diagnostic_event({"event": "something_else"}))
 
+  def test_resource_refresh_event_keeps_only_safe_context(self) -> None:
+    result = diagnostics.sanitize_diagnostic_event({
+      "event": "resource_refresh_failed",
+      "providerId": "retroachievements",
+      "resource": "badge-summary",
+      "entryPoint": "native-game-page",
+      "appId": "123",
+      "forceRefresh": True,
+      "durationMs": 55,
+      "errorKind": "TimeoutError",
+      "apiKey": "secret",
+    })
+    self.assertIsNotNone(result)
+    assert result is not None
+    self.assertEqual(result["message"], "Resource refresh failed")
+    self.assertEqual(result["fields"], {
+      "providerId": "retroachievements",
+      "resource": "badge-summary",
+      "entryPoint": "native-game-page",
+      "appId": "123",
+      "forceRefresh": True,
+      "durationMs": 55,
+      "errorKind": "TimeoutError",
+    })
+
 
 if __name__ == "__main__":
   unittest.main()

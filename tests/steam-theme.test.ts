@@ -3,13 +3,17 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import { getDeckyFullscreenActionStylesCss } from "../src/platform/decky/decky-full-screen-action-styles";
 import { getDeckyFocusStylesCss } from "../src/platform/decky/decky-focus-styles";
+import { getDeckySettingsStylesCss } from "../src/platform/decky/decky-settings-styles";
 import { getSteamActionStylesCss, steamRecipes, steamTheme } from "../src/platform/decky/steam-theme";
 import { getCompletionBarFillStyle } from "../src/platform/decky/decky-completion-progress-bar";
 
 test("Settings input overrides cannot reach another retained route", () => {
   const source = readFileSync("src/platform/decky/decky-full-screen-settings-page.tsx", "utf8");
-  assert.match(source, /\.ac-steam-settings-page \.ac-steam-settings-input input\{/u);
-  assert.doesNotMatch(source, /(?:^|[;}])\s*input\{height:/u);
+  const css = getDeckySettingsStylesCss();
+  assert.match(css, /\.ac-steam-settings-page/u);
+  assert.match(css, /\.ac-steam-settings-input/u);
+  assert.match(css, /input\{height:30px/u);
+  assert.doesNotMatch(css, /(?:^|[;}])\s*input\{height:/u);
   assert.match(source, /className="ac-steam-settings-page" data-ac-steam-theme="fullscreen"/u);
 });
 

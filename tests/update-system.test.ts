@@ -137,3 +137,16 @@ test("installer refuses a package that differs from the manifest", async () => {
   });
   assert.equal(result.status, "failed");
 });
+
+test("unsupported installers never download or verify an update", async () => {
+  let verificationCalls = 0;
+  const service = new UpdateService({
+    installedVersion: "0.8.3",
+    resolveSource: () => ({ kind: "local", manifestUrl: "http://example.test", loadManifest: async () => manifest }),
+    verifier: { verify: async () => { verificationCalls += 1; throw new Error("must not download"); } },
+    installer: { supported: false, install: async () => { throw new Error("must not install"); } },
+  });
+  await service.checkForUpdate();
+  assert.equal((await service.installAvailableUpdate()).status, "unsupported");
+  assert.equal(verificationCalls, 0);
+});

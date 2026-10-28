@@ -11,6 +11,7 @@ export const steamTheme = {
     ...qamTheme.surface,
   },
   status: qamTheme.status,
+  decorative: qamTheme.decorative,
   type: qamTheme.type,
   space: qamTheme.space,
   radius: qamTheme.radius,

@@ -2895,18 +2895,6 @@ test("provider setup, credential fields, and current compact profile routes stay
     "src/platform/decky/decky-full-screen-game-progress-stat.tsx",
     "utf8",
   );
-  const retroAchievementsProgressSummarySource = readFileSync(
-    "src/platform/decky/decky-retroachievements-progress-summary.tsx",
-    "utf8",
-  );
-  const retroAchievementsCommunityStatsSource = readFileSync(
-    "src/platform/decky/decky-retroachievements-community-stats.tsx",
-    "utf8",
-  );
-  const steamProgressSummarySource = readFileSync(
-    "src/platform/decky/decky-steam-progress-summary.tsx",
-    "utf8",
-  );
   const steamGameOverviewSource = readFileSync(
     "src/platform/decky/decky-steam-game-overview.tsx",
     "utf8",
@@ -2919,9 +2907,6 @@ test("provider setup, credential fields, and current compact profile routes stay
   assert.match(fullScreenGamePageSource, /useState<AchievementFilter>\(initialSectionState\?\.achievements\.achievementFilter \?\? "all"\)/u);
   assert.match(fullScreenGamePageSource, /projectRetroAchievementsFullScreenAchievements\([\s\S]*settings\.retroAchievementsAchievementMode[\s\S]*sortAchievementsForDisplay\(restorationProjectedAchievements\)/u);
   assert.match(fullScreenGamePageSource, /DeckySteamGameOverview/u);
-  assert.match(steamProgressSummarySource, /DeckyCompletionProgressBar[\s\S]*percent=\{completionPercent\}/);
-  assert.match(steamProgressSummarySource, /title="Your Progress" focusable=\{false\}/u);
-  assert.match(retroAchievementsCommunityStatsSource, /title="Community"[\s\S]*focusable=\{false\}/u);
   assert.match(
     fullScreenGamePageSource,
     /matchesAchievementFilter\(achievement, achievementFilter\)[\s\S]*restorationShowModeFilter \? matchesAchievementModeFilter\(achievement, achievementModeFilter\) : true/u,
@@ -2929,11 +2914,6 @@ test("provider setup, credential fields, and current compact profile routes stay
   assert.match(fullScreenGamePageSource, /settings\.retroAchievementsAchievementMode === "both"[\s\S]*hasDistinctRetroAchievementsModes\(restorationSnapshot\.achievements\)/u);
   assert.match(fullScreenAchievementBrowserSource, /showAchievementModeFilter \?\s*\(/u);
   assert.match(fullScreenGamePageSource, /const isSteamProvider = game\.providerId === STEAM_PROVIDER_ID;/u);
-  assert.match(
-    steamProgressSummarySource,
-    /function getStatsGridStyle\(\): CSSProperties[\s\S]*repeat\(2, minmax\(0, 1fr\)\)/u,
-  );
-  assert.match(steamProgressSummarySource, /function getStatsGridStyle\(\): CSSProperties/u);
   assert.match(steamGameOverviewSource, /DeckyOverviewProgress/u);
   assert.match(steamGameOverviewSource, /DeckyOverviewSupporting title="SteamHunters"/u);
   assert.match(steamGameOverviewSource, /getSteamHuntersAchievementSetStatusPresentation/u);
@@ -2943,16 +2923,12 @@ test("provider setup, credential fields, and current compact profile routes stay
   assert.doesNotMatch(steamGameOverviewSource, /Latest Unlocks|Achievement Highlights|title="Snapshot"/u);
   assert.doesNotMatch(fullScreenGamePageSource, /Most recent unlocked achievements already loaded in this snapshot\./u);
   assert.match(steamGameOverviewSource, /remaining=\{Math\.max\(0, totalAchievementCount - game\.summary\.unlockedCount\)\}/u);
-  assert.match(steamProgressSummarySource, /DeckyFullScreenGameProgressStat dense label="Remaining" value=\{remainingValue\}/u);
   assert.match(fullScreenGameProgressStatSource, /function getProgressStatStyle\(dense: boolean\): CSSProperties/u);
   assert.match(fullScreenGameProgressStatSource, /function getProgressStatValueStyle\(\): CSSProperties/u);
   assert.doesNotMatch(fullScreenGamePageSource, /handleSteamFullscreenRefreshKeyDown/u);
   assert.doesNotMatch(fullScreenGamePageSource, /handleSteamFullscreenSpotlightRowKeyDown/u);
   assert.doesNotMatch(fullScreenGamePageSource, /data-achievement-companion-steam-fullscreen-refresh="true"/u);
   assert.doesNotMatch(fullScreenGamePageSource, /data-achievement-companion-steam-spotlight-row="true"/u);
-  assert.match(retroAchievementsProgressSummarySource, /function getProgressSummaryStyle\(\): CSSProperties/u);
-  assert.match(retroAchievementsProgressSummarySource, /label="Unlocked"[\s\S]*label="Remaining"[\s\S]*label="Last unlock"/u);
-  assert.match(retroAchievementsProgressSummarySource, /DeckyFullScreenGameProgressStatGrid/u);
   assert.doesNotMatch(fullScreenGamePageSource, /heroMetaPills|formatDeckyProviderLabel/u);
   assert.doesNotMatch(steamGameOverviewSource, /metadataLabels/u);
   assert.doesNotMatch(fullScreenGamePageSource, /GameOverviewRefreshPill/);
@@ -5053,10 +5029,6 @@ test("retroachievements completion indicator maps award kind to compact circle s
   const compactDashboardSource = readFileSync("src/platform/decky/decky-dashboard-view.tsx", "utf8");
   const gameDetailSource = readFileSync("src/platform/decky/decky-game-detail-view.tsx", "utf8");
   const fullScreenGameSource = readFileSync("src/platform/decky/decky-full-screen-game-page.tsx", "utf8");
-  const retroAchievementsProgressSummarySource = readFileSync(
-    "src/platform/decky/decky-retroachievements-progress-summary.tsx",
-    "utf8",
-  );
 
   assert.match(fullScreenCompletionProgressSource, /RetroAchievementsCompletionIndicator game=\{game\}/u);
   const retroAchievementsGameOverviewSource = readFileSync(
@@ -5066,7 +5038,6 @@ test("retroachievements completion indicator maps award kind to compact circle s
   assert.match(fullScreenGameSource, /DeckyRetroAchievementsGameOverview/u);
   assert.match(retroAchievementsGameOverviewSource, /DeckyFullScreenGameOverviewLayout/u);
   assert.match(retroAchievementsGameOverviewSource, /DeckyRetroAchievementsProgressSummary/u);
-  assert.match(retroAchievementsProgressSummarySource, /tone=\{completionTone\}/u);
   assert.match(compactDashboardSource, /function RecentlyPlayedRow\([\s\S]*<RetroAchievementsCompletionIndicator game=\{game\} \/>/u);
 });
 
@@ -5167,10 +5138,6 @@ test("retroachievements mastered games use explicit mastered presentation on gam
   );
   const progressBarSource = readFileSync("src/platform/decky/decky-completion-progress-bar.tsx", "utf8");
   const compactDashboardSource = readFileSync("src/platform/decky/decky-dashboard-view.tsx", "utf8");
-  const retroAchievementsProgressSummarySource = readFileSync(
-    "src/platform/decky/decky-retroachievements-progress-summary.tsx",
-    "utf8",
-  );
   const steamProviderSource = readFileSync("src/providers/steam/mappers/normalize.ts", "utf8");
 
   assert.match(
@@ -5188,7 +5155,6 @@ test("retroachievements mastered games use explicit mastered presentation on gam
   assert.match(achievementDetailHelperSource, /Mastered on/u);
 
 
-  assert.match(retroAchievementsProgressSummarySource, /tone=\{completionTone\}/u);
 
   assert.match(compactDashboardSource, /const completionIndicatorState = getRetroAchievementsCompletionIndicatorState\(game\);/u);
   assert.match(compactDashboardSource, /const isBeaten =[\s\S]*completionIndicatorState === "beaten-hardcore"[\s\S]*completionIndicatorState === "beaten-softcore"/u);
@@ -6121,6 +6087,26 @@ test("dashboard cache hit returns cached state without calling refresh path", as
   assert.equal(counts.profile, 0);
   assert.equal(counts.recentUnlocks, 0);
   assert.equal(counts.recentlyPlayedGames, 0);
+});
+
+test("a provider HTTP 429 is a retryable rate limit and keeps cached dashboard data", async () => {
+  const now = Date.now();
+  const cachedSnapshot = createDashboardSnapshot();
+  const { appServices } = createHarness({
+    providerConfig: { username: "alice" },
+    cacheEntries: [createCacheEntry(createProviderDashboardCacheKey(PROVIDER_ID), cachedSnapshot, now - 1_000, now + 60_000)],
+    providerFactory: (counts) => ({
+      ...createSuccessfulProvider(counts),
+      async loadProfile() {
+        throw Object.assign(new Error("HTTP 429"), { statusCode: 429, retryAfterMs: 30_000 });
+      },
+    }),
+  });
+  const state = await appServices.dashboard.loadDashboard(PROVIDER_ID, { forceRefresh: true });
+  assert.equal(state.error?.kind, "rate_limit");
+  assert.equal(state.error?.retryable, true);
+  assert.equal(state.error?.kind === "rate_limit" && state.error.retryAfterMs, 30_000);
+  assert.deepEqual(state.data, cachedSnapshot);
 });
 
 test("decky dashboard snapshot cache returns cached state immediately without backend refresh", async () => {
@@ -13152,6 +13138,51 @@ test("game page badge retries a transient RetroAchievements detail failure befor
   });
 });
 
+test("a new native RA game-page visit bypasses the badge summary and game-detail caches", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice", hasApiKey: true, recentAchievementsCount: 5, recentlyPlayedCount: 5,
+    });
+    const appId = "2493414801";
+    const gameId = "9003";
+    const romHash = "abcdefabcdefabcdefabcdefabcdefac";
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      [appId]: { title: "Fresh Visit Game", platformTag: "Nintendo 64", tags: ["Nintendo 64"] },
+    };
+    deckyBackendTestState.steam.shortcutRomHashByAppId = {
+      [appId]: { shortcutRomPathDetected: true, romHashAttempted: true, romHashStatus: "resolved", romHashAlgorithm: "rcheevos", romHash },
+    };
+    deckyBackendTestState.retroAchievements.systems = [{ ID: 2, Name: "Nintendo 64" }];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "2": [{ GameID: 9003, Title: "Fresh Visit Game", ConsoleID: 2, Hashes: [romHash] }],
+    };
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      [gameId]: createRetroAchievementsGameProgressResponse({
+        gameId, title: "Fresh Visit Game", consoleId: 2, consoleName: "Nintendo 64", unlockedCount: 1, totalCount: 3,
+      }),
+    };
+
+    const first = await loadDeckyGamePageAchievementSummary(appId);
+    assert.equal(first.status, "ready");
+    assert.equal(deckyBackendTestState.retroAchievements.gameProgressRequestCount, 1);
+
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      [gameId]: createRetroAchievementsGameProgressResponse({
+        gameId, title: "Fresh Visit Game", consoleId: 2, consoleName: "Nintendo 64", unlockedCount: 2, totalCount: 3,
+      }),
+    };
+    const cached = await loadDeckyGamePageAchievementSummary(appId);
+    assert.equal(cached.status, "ready");
+    assert.equal(deckyBackendTestState.retroAchievements.gameProgressRequestCount, 1);
+
+    const reopened = await loadDeckyGamePageAchievementSummary(appId, { freshRetroAchievements: true });
+    assert.equal(reopened.status, "ready");
+    if (reopened.status === "ready") assert.equal(reopened.earned, 2);
+    assert.equal(deckyBackendTestState.retroAchievements.gameProgressRequestCount, 2);
+  });
+});
+
 test("direct-ROM identity is invariant under four unrelated Steam shortcut names", async () => {
   await withMockDeckyStorage(async () => {
     resetDeckyAppServicesForTests();
@@ -14462,4 +14493,80 @@ test("decky seam adapters satisfy the new core contracts", () => {
   assert.equal(typeof steamLibraryScanStore.readOverview, "function");
   assert.equal(typeof steamLibraryScanStore.writeSummary, "function");
   assert.equal(typeof steamLibraryScanStore.clear, "function");
+});
+
+function steamLibraryRegressionClient(overrides: Partial<SteamClient>): SteamClient {
+  return {
+    async loadOwnedGames() { return { response: { game_count: 1, games: [{ appid: 1, name: "One" }] } }; },
+    async loadPlayerAchievements() {
+      return { playerstats: { success: true, achievements: [{ apiname: "WIN", achieved: 1, unlocktime: 1_700_000_000 }] } };
+    },
+    async loadSchemaForGame() { return { game: { availableGameStats: { achievements: [{ name: "WIN" }] } } }; },
+    async loadPlayerSummaries() { throw new Error("unused"); },
+    async loadSteamLevel() { throw new Error("unused"); },
+    async loadBadges() { throw new Error("unused"); },
+    async loadRecentlyPlayedGames() { throw new Error("unused"); },
+    async loadGlobalAchievementPercentagesForApp() { throw new Error("unused"); },
+    ...overrides,
+  };
+}
+
+test("Steam consecutive failed game scans preserve each unlock once and a later success replaces it", async () => {
+  const config = normalizeSteamProviderConfig({ steamId64: "12345678901234567", hasApiKey: true });
+  const client = steamLibraryRegressionClient({});
+  const original = await scanSteamLibraryAchievements(config, { client });
+  const failedClient = steamLibraryRegressionClient({ async loadPlayerAchievements() { throw new Error("offline"); } });
+  const first = await refreshSteamLibraryAchievementProgress(config, original, { client: failedClient });
+  const second = await refreshSteamLibraryAchievementProgress(config, first, { client: failedClient });
+  assert.equal(first.unlockedAchievementsList?.length, 1);
+  assert.equal(second.unlockedAchievementsList?.length, 1);
+  assert.deepEqual(second.unlockedAchievementsList, original.unlockedAchievementsList);
+  assert.equal(second.unlockedAchievements, original.unlockedAchievements);
+  const recovered = await refreshSteamLibraryAchievementProgress(config, second, {
+    client: steamLibraryRegressionClient({
+      async loadPlayerAchievements() {
+        return { playerstats: { success: true, achievements: [{ apiname: "WIN", achieved: 1, unlocktime: 1_800_000_000 }] } };
+      },
+    }),
+  });
+  assert.equal(recovered.unlockedAchievementsList?.length, 1);
+  assert.equal(recovered.unlockedAchievementsList?.[0]?.unlockedAt, new Date(1_800_000_000_000).toISOString());
+});
+
+test("Steam scan final progress waits for all game work to finish", async () => {
+  const config = normalizeSteamProviderConfig({ steamId64: "12345678901234567", hasApiKey: true });
+  const pending = createDeferredPromise<void>();
+  const progress: number[] = [];
+  const scan = scanSteamLibraryAchievements(config, {
+    concurrencyLimit: 2,
+    client: steamLibraryRegressionClient({
+      async loadOwnedGames() { return { response: { game_count: 2, games: [{ appid: 1 }, { appid: 2 }] } }; },
+      async loadPlayerAchievements(_config, appId) {
+        if (appId === 2) await pending.promise;
+        return { playerstats: { success: true, achievements: [{ apiname: "WIN", achieved: 1, unlocktime: 1_700_000_000 }] } };
+      },
+    }),
+    logger: { progress(fields) { progress.push(fields.scannedGameCount); } },
+  });
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  const prematureProgress = [...progress];
+  pending.resolve();
+  await scan;
+  assert.deepEqual(prematureProgress, []);
+  assert.deepEqual(progress, [2]);
+});
+
+test("Steam scan failure diagnostics retain the discovered owned-game count", async () => {
+  const failures: Array<{ readonly ownedGameCount: number; readonly scannedGameCount: number }> = [];
+  await assert.rejects(scanSteamLibraryAchievements(
+    normalizeSteamProviderConfig({ steamId64: "12345678901234567", hasApiKey: true }),
+    {
+      client: steamLibraryRegressionClient({}),
+      schemaCache: { read() { throw new Error("cache unavailable"); }, write() {} },
+      logger: { failed(fields) { failures.push(fields); } },
+    },
+  ), /cache unavailable/);
+  assert.equal(failures.length, 1);
+  assert.equal(failures[0]?.ownedGameCount, 1);
+  assert.equal(failures[0]?.scannedGameCount, 0);
 });

@@ -1,3 +1,4 @@
+import { DeckySettingsStyles } from "./decky-settings-styles";
 import { Focusable, Menu, MenuItem, showContextMenu, type GamepadEvent } from "@decky/ui";
 import { ACHIEVEMENT_COMPANION_COUNT_OPTIONS, ACTIVITY_CALENDAR_WEEK_OPTIONS, RECENT_ACTIVITY_INTERVAL_OPTIONS, formatRecentActivityInterval, type AchievementCompanionCount, type ActivityCalendarWeeks, type RecentActivityInterval } from "@core/settings";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode, type Ref } from "react";
@@ -50,22 +51,6 @@ export interface DeckyFullScreenSettingsPageProps {
   readonly reserveSteamProfileFooter?: boolean;
 }
 
-function Styles(): JSX.Element {
-  const anchorRef = useRef<HTMLSpanElement>(null);
-  useLayoutEffect(() => {
-    const document = anchorRef.current?.ownerDocument;
-    if (document === undefined) return;
-    const style = document.createElement("style");
-    style.textContent = `.ac-steam-settings-page .ac-settings-action{outline:none!important}.ac-steam-settings-page .ac-settings-action:not(.gpfocus):not(.gpfocuswithin):not(:focus):not(:focus-within){box-shadow:none!important}.ac-steam-settings-page .ac-settings-action:is(.gpfocus,.gpfocuswithin,:focus,:focus-within){border-color:${steamTheme.focus.border}!important;box-shadow:${steamTheme.focus.shadow}!important;background:${steamTheme.focus.background}!important}.ac-steam-settings-input{min-height:0!important;margin:0!important}.ac-steam-settings-input,.ac-steam-settings-input *{font-size:${steamTheme.type.fullscreen.body}px!important;line-height:1.2!important}.ac-steam-settings-input [class*="DialogInput"]{min-height:0!important;margin:0!important;padding-block:0!important}
-    .ac-steam-settings-page .ac-steam-settings-input input{height:30px!important;min-height:30px!important;padding:3px 9px!important}`;
-    style.textContent += `.ac-steam-settings-page .ac-settings-action[data-ac-settings-content-row="true"]:is(.gpfocus,.gpfocuswithin,:focus,:focus-within){background:${steamTheme.surface.focusedContentStat}!important}`;
-    style.textContent += `.ac-steam-settings-page .ac-settings-action[data-ac-settings-tone="danger"]:is(.gpfocus,.gpfocuswithin,:focus,:focus-within){background:${steamTheme.status.danger.surface}!important}.ac-steam-settings-page .ac-settings-action[data-ac-settings-tone="success"]:is(.gpfocus,.gpfocuswithin,:focus,:focus-within){background:${steamTheme.status.success.surface}!important}`;
-    style.textContent += `.ac-steam-settings-page .ac-steam-settings-help-link{outline:none!important}.ac-steam-settings-page .ac-steam-settings-help-link:is(.gpfocus,.gpfocuswithin,:focus,:focus-within){outline:2px solid ${steamTheme.focus.border}!important;outline-offset:1px;background:${steamTheme.focus.background}!important;box-shadow:${steamTheme.focus.shadow}!important;color:${steamTheme.color.textPrimary}!important}`;
-    document.head.appendChild(style);
-    return () => style.remove();
-  }, []);
-  return <span ref={anchorRef} hidden aria-hidden="true" />;
-}
 
 const iconStyle = (size = 22): CSSProperties => ({ width: size, height: size, objectFit: "contain", filter: steamTheme.iconFilter.accent, flexShrink: 0 });
 function Heading({ children }: { readonly children: ReactNode }): JSX.Element {
@@ -411,7 +396,7 @@ export function DeckyFullScreenSettingsPage({ isActive = true, onOpenExternalUrl
   const updateRecentActivityInterval = (steamFullscreenRecentActivityInterval: RecentActivityInterval): void => {
     void saveDeckySettings({ ...readDeckySettings(), steamFullscreenRecentActivityInterval });
   };
-  return <div ref={pageRef} className="ac-steam-settings-page" data-ac-steam-theme="fullscreen" style={{ position: "relative", height: pageHeight ?? "100vh", flexShrink: 0, minHeight: 0, overflow: "hidden", padding: `calc(env(safe-area-inset-top, 0px) + 43px) 12px ${showSteamProfileFooter || reserveSteamProfileFooter ? 50 : 10}px`, boxSizing: "border-box", color: steamTheme.color.textPrimary, background: steamTheme.surface.page, fontFamily: steamTheme.type.fontFamily }}><Styles /><DeckyFocusStyles /><div style={{ height: "100%", minHeight: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+  return <div ref={pageRef} className="ac-steam-settings-page" data-ac-steam-theme="fullscreen" style={{ position: "relative", height: pageHeight ?? "100vh", flexShrink: 0, minHeight: 0, overflow: "hidden", padding: `calc(env(safe-area-inset-top, 0px) + 43px) 12px ${showSteamProfileFooter || reserveSteamProfileFooter ? 50 : 10}px`, boxSizing: "border-box", color: steamTheme.color.textPrimary, background: steamTheme.surface.page, fontFamily: steamTheme.type.fontFamily }}><DeckySettingsStyles /><DeckyFocusStyles /><div style={{ height: "100%", minHeight: 0, display: "flex", flexDirection: "column", gap: 6 }}>
     <div style={{ display: "flex", alignItems: "center", minHeight: 31 }}><Heading>STEAM SETTINGS</Heading></div>
     <SteamSettingsContent><div style={{ ...settingsScrollStyle, display: "flex", flexDirection: "column", gap: 14 }}>
       {onOpenGeneralSettings !== undefined ? <div style={{ display: "flex", justifyContent: "flex-end", padding: "4px 4px 0" }}><DeckySettingsGeneralLink onOpen={onOpenGeneralSettings} onGamepadDirection={handleColumnDirection} /></div> : null}

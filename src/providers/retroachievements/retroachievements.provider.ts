@@ -9,6 +9,7 @@ import type {
   ProgressSummary,
 } from "@core/domain";
 import type { AchievementProvider } from "@core/ports";
+import { readBoundedCache, writeBoundedCache } from "../../core/bounded-cache";
 import { RETROACHIEVEMENTS_PROVIDER_ID, type RetroAchievementsProviderConfig } from "./config";
 import { createRetroAchievementsClient, type RetroAchievementsClient } from "./client/client";
 import {
@@ -72,6 +73,7 @@ interface RetroAchievementsProviderDependencies {
   readonly subsetVerificationMaxRateLimitRetries?: number;
   /** Injectable timer used by catalogue pacing/backoff tests. */
   readonly sleep?: (milliseconds: number) => Promise<void>;
+  readonly now?: () => number;
 }
 
 export type RetroAchievementsSubsetCandidateStatus =
@@ -153,6 +155,10 @@ interface RetroAchievementsProviderRuntime extends AchievementProvider<RetroAchi
 const ACHIEVEMENTS_EARNED_BETWEEN_RESPONSE_LIMIT = 500;
 const GAME_COMMUNITY_STATS_TTL_MS = 60 * 60 * 1000;
 const LATEST_MASTER_PROFILE_CONCURRENCY = 4;
+const MAX_GAME_COMMUNITY_CACHE_ENTRIES = 200;
+const MAX_LATEST_MASTER_AVATAR_CACHE_ENTRIES = 200;
+const LATEST_MASTER_AVATAR_RETRY_MS = 5 * 60 * 1000;
+const SUBSET_CHECKPOINT_CANDIDATE_COUNT = 10;
 // Relationship metadata changes infrequently. The app-level cache persists the
 // discovered summaries, while this provider cache avoids rebuilding the same
 // console index during a long-running Decky session.
@@ -684,6 +690,7 @@ export function createRetroAchievementsProvider(
   dependencies: RetroAchievementsProviderDependencies = {},
 ): AchievementProvider<RetroAchievementsProviderConfig> {
   const client = resolveClient(dependencies);
+  const now = dependencies.now ?? Date.now;
   const subsetVerificationIntervalMs = Math.max(
     0,
     dependencies.subsetVerificationIntervalMs
@@ -701,7 +708,7 @@ export function createRetroAchievementsProvider(
   let systemIconUrlByConsoleIdPromise: Promise<ReadonlyMap<string, string>> | undefined;
   const gameCommunityStatsCache = new Map<string, CachedGameCommunityStats>();
   const gameCommunityStatsLoads = new Map<string, Promise<GameCommunityStats | undefined>>();
-  const latestMasterAvatarCache = new Map<string, string | undefined>();
+  const latestMasterAvatarCache = new Map<string, { readonly value: string | undefined; readonly expiresAt: number }>();
   const subsetRelationshipIndexStore = dependencies.subsetRelationshipIndexStore;
   const subsetCatalogueCache = new Map<string, RetroAchievementsSubsetCatalogueState>();
   const subsetCatalogueLoads = new Map<string, Promise<RetroAchievementsSubsetCatalogueState>>();
@@ -883,8 +890,24 @@ export function createRetroAchievementsProvider(
       let state = mergeSubsetCandidates(existing, platformId, catalogue.candidates);
       state = { ...state, catalogueFetchedAt: catalogue.fetchedAt };
       await writeSubsetRelationshipIndex(state);
+      const candidates = [...state.candidates];
+      let uncheckpointedCount = 0;
+      const checkpoint = async (complete: boolean): Promise<void> => {
+        // Copy only at a checkpoint so persisted snapshots never change under the store.
+        state = { ...state, candidates: [...candidates], complete };
+        if (complete) {
+          state = {
+            ...state,
+            lastKnownGoodCandidates: state.candidates,
+            lastKnownGoodCatalogueFetchedAt: state.catalogueFetchedAt,
+          };
+        }
+        await writeSubsetRelationshipIndex(state);
+        uncheckpointedCount = 0;
+      };
 
-      for (const candidate of state.candidates) {
+      for (let index = 0; index < candidates.length; index += 1) {
+        const candidate = candidates[index]!;
         if (candidate.status === "verified-parent" || candidate.status === "verified-no-parent") continue;
         try {
           const extended = await enqueueSubsetVerification(() => loadSubsetVerificationMetadata(config, candidate.gameId));
@@ -901,40 +924,24 @@ export function createRetroAchievementsProvider(
             extended,
           );
           if (normalized === undefined) throw new Error(`RetroAchievements subset candidate ${candidate.gameId} is incomplete.`);
-          state = {
-            ...state,
-            candidates: state.candidates.map((entry) => entry.gameId !== candidate.gameId
-              ? entry
-              : {
-                  ...entry,
-                  status: normalized.parentGameId === undefined ? "verified-no-parent" : "verified-parent",
-                  ...(normalized.parentGameId !== undefined ? { parentGameId: normalized.parentGameId } : {}),
-                  ...(normalized.platformLabel !== undefined ? { platformLabel: normalized.platformLabel } : {}),
-                  ...(normalized.coverImageUrl !== undefined ? { coverImageUrl: normalized.coverImageUrl } : {}),
-                  ...(normalized.boxArtImageUrl !== undefined ? { boxArtImageUrl: normalized.boxArtImageUrl } : {}),
-                  ...(normalized.totalAchievementCount !== undefined ? { totalAchievementCount: normalized.totalAchievementCount } : {}),
-                }),
-            complete: false,
+          candidates[index] = {
+            ...candidate,
+            status: normalized.parentGameId === undefined ? "verified-no-parent" : "verified-parent",
+            ...(normalized.parentGameId !== undefined ? { parentGameId: normalized.parentGameId } : {}),
+            ...(normalized.platformLabel !== undefined ? { platformLabel: normalized.platformLabel } : {}),
+            ...(normalized.coverImageUrl !== undefined ? { coverImageUrl: normalized.coverImageUrl } : {}),
+            ...(normalized.boxArtImageUrl !== undefined ? { boxArtImageUrl: normalized.boxArtImageUrl } : {}),
+            ...(normalized.totalAchievementCount !== undefined ? { totalAchievementCount: normalized.totalAchievementCount } : {}),
           };
-          state = { ...state, complete: state.candidates.every((entry) => entry.status === "verified-parent" || entry.status === "verified-no-parent") };
-          if (state.complete) {
-            state = {
-              ...state,
-              lastKnownGoodCandidates: state.candidates,
-              lastKnownGoodCatalogueFetchedAt: state.catalogueFetchedAt,
-            };
-          }
-          await writeSubsetRelationshipIndex(state);
         } catch (error) {
-          state = {
-            ...state,
-            candidates: state.candidates.map((entry) => entry.gameId === candidate.gameId ? { ...entry, status: "retry-later" } : entry),
-            complete: false,
-          };
-          await writeSubsetRelationshipIndex(state);
+          candidates[index] = { ...candidate, status: "retry-later" };
+          await checkpoint(false);
           throw error;
         }
+        uncheckpointedCount += 1;
+        if (uncheckpointedCount >= SUBSET_CHECKPOINT_CANDIDATE_COUNT) await checkpoint(false);
       }
+      await checkpoint(true);
       return state;
     })();
 
@@ -988,9 +995,10 @@ export function createRetroAchievementsProvider(
   async function loadLatestMasterAvatarUrls(
     config: RetroAchievementsProviderConfig,
     entries: readonly RawRetroAchievementsGameRankAndScoreEntry[],
-  ): Promise<ReadonlyMap<string, string>> {
+  ): Promise<{ readonly avatarUrlByUserIdentifier: ReadonlyMap<string, string>; readonly retryAt: number }> {
     const avatarUrlByUserIdentifier = new Map<string, string>();
-    if (client.loadUserProfile === undefined) return avatarUrlByUserIdentifier;
+    let retryAt = Number.POSITIVE_INFINITY;
+    if (client.loadUserProfile === undefined) return { avatarUrlByUserIdentifier, retryAt };
     const candidates = entries.flatMap((entry) => {
       const username = readText(entry.User ?? entry.user);
       const userUlid = readText(entry.ULID ?? entry.ulid);
@@ -1001,7 +1009,9 @@ export function createRetroAchievementsProvider(
     for (let offset = 0; offset < candidates.length; offset += LATEST_MASTER_PROFILE_CONCURRENCY) {
       const batch = candidates.slice(offset, offset + LATEST_MASTER_PROFILE_CONCURRENCY);
       await Promise.all(batch.map(async ({ username, userUlid, identifier }) => {
-        if (!latestMasterAvatarCache.has(identifier)) {
+        let cached = readBoundedCache(latestMasterAvatarCache, identifier, now(), MAX_LATEST_MASTER_AVATAR_CACHE_ENTRIES);
+        if (cached === undefined) {
+          let avatarUrl: string | undefined;
           try {
             const profile = await client.loadUserProfile!(config, identifier);
             const profileUsername = readText(profile.User ?? profile.user);
@@ -1010,21 +1020,24 @@ export function createRetroAchievementsProvider(
               ? userUlid === profileUlid
               : profileUsername?.toLocaleLowerCase() === username.toLocaleLowerCase();
             const rawAvatar = identityMatches ? readText(profile.UserPic ?? profile.userPic) : undefined;
-            latestMasterAvatarCache.set(
-              identifier,
-              rawAvatar === undefined ? undefined : normalizeRetroAchievementsImageUrl(rawAvatar),
-            );
+            avatarUrl = rawAvatar === undefined ? undefined : normalizeRetroAchievementsImageUrl(rawAvatar);
           } catch {
-            latestMasterAvatarCache.set(identifier, undefined);
+            // Optional avatars may fail independently and retry after a short cooldown.
           }
+          cached = {
+            value: avatarUrl,
+            expiresAt: avatarUrl === undefined ? now() + LATEST_MASTER_AVATAR_RETRY_MS : Number.POSITIVE_INFINITY,
+          };
+          writeBoundedCache(latestMasterAvatarCache, identifier, cached, now(), MAX_LATEST_MASTER_AVATAR_CACHE_ENTRIES);
         }
-        const avatarUrl = latestMasterAvatarCache.get(identifier);
+        retryAt = Math.min(retryAt, cached.expiresAt);
+        const avatarUrl = cached.value;
         if (avatarUrl === undefined) return;
         avatarUrlByUserIdentifier.set(username, avatarUrl);
         if (userUlid !== undefined) avatarUrlByUserIdentifier.set(userUlid, avatarUrl);
       }));
     }
-    return avatarUrlByUserIdentifier;
+    return { avatarUrlByUserIdentifier, retryAt };
   }
 
   async function loadGameCommunityStats(
@@ -1032,8 +1045,8 @@ export function createRetroAchievementsProvider(
     snapshot: ReturnType<typeof normalizeRetroAchievementsGameDetail>,
   ): Promise<GameCommunityStats | undefined> {
     const gameId = snapshot.game.gameId;
-    const cached = gameCommunityStatsCache.get(gameId);
-    if (cached !== undefined && cached.expiresAt > Date.now()) {
+    const cached = readBoundedCache(gameCommunityStatsCache, gameId, now(), MAX_GAME_COMMUNITY_CACHE_ENTRIES);
+    if (cached !== undefined) {
       return cached.value;
     }
 
@@ -1060,13 +1073,13 @@ export function createRetroAchievementsProvider(
       const latestMasterEntries = latestMastersResult.status === "fulfilled"
         ? latestMastersResult.value
         : undefined;
-      const avatarUrlByUserIdentifier = latestMasterEntries === undefined
+      const avatars = latestMasterEntries === undefined
         ? undefined
         : await loadLatestMasterAvatarUrls(config, latestMasterEntries);
       const latestMasters = normalizeRetroAchievementsLatestMasters({
         entries: latestMasterEntries,
         masteredPlayers: baseStats?.masteredPlayers,
-        ...(avatarUrlByUserIdentifier !== undefined ? { avatarUrlByUserIdentifier } : {}),
+        ...(avatars !== undefined ? { avatarUrlByUserIdentifier: avatars.avatarUrlByUserIdentifier } : {}),
       });
       const stats = normalizeRetroAchievementsGameCommunityStats({
         totalAchievementCount: snapshot.game.summary.totalCount,
@@ -1075,10 +1088,11 @@ export function createRetroAchievementsProvider(
         progression: progressionResult.status === "fulfilled" ? progressionResult.value : undefined,
         latestMasters,
       });
-      gameCommunityStatsCache.set(gameId, {
+      writeBoundedCache(gameCommunityStatsCache, gameId, {
         value: stats,
-        expiresAt: Date.now() + GAME_COMMUNITY_STATS_TTL_MS,
-      });
+        // Let failed avatar lookups retry even while the surrounding stats are fresh.
+        expiresAt: Math.min(now() + GAME_COMMUNITY_STATS_TTL_MS, avatars?.retryAt ?? Number.POSITIVE_INFINITY),
+      }, now(), MAX_GAME_COMMUNITY_CACHE_ENTRIES);
       return stats;
     })();
 

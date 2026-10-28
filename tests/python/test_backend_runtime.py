@@ -19,6 +19,7 @@ import urllib.request
 import uuid
 import zipfile
 from pathlib import Path
+from unittest.mock import patch
 
 import _test_support  # noqa: F401
 import backend.http as backend_http
@@ -257,6 +258,67 @@ class BackendRuntimeTests(unittest.TestCase):
         self.assertTrue(responsive)
         self.assertIsNotNone(result)
 
+  def test_authenticated_requests_load_and_derive_each_secret_once_off_event_loop(self) -> None:
+    for provider_key, method_name, path in (
+      ("retroAchievements", "request_retroachievements_json", "API_GetUserProfile.php"),
+      ("steam", "request_steam_json", "IPlayerService/GetOwnedGames/v1/"),
+    ):
+      with self.subTest(provider=provider_key), tempfile.TemporaryDirectory() as temp_dir:
+        module = load_main_module(Path(temp_dir))
+        module._save_secret_api_key(provider_key, "stored-test-key")
+        module._load_provider_config = lambda _key: {"username": "alice", "steamId64": "76561198000000000", "hasApiKey": True}
+        module._request_json = lambda **_kwargs: {"ok": True}
+        main_thread = threading.get_ident()
+        derivation_threads: list[int] = []
+        original_derive = backend_secrets._derive_secret_record_key
+
+        def derive(*args, **kwargs):
+          derivation_threads.append(threading.get_ident())
+          return original_derive(*args, **kwargs)
+
+        with patch.object(backend_secrets, "_load_secret_store", wraps=backend_secrets._load_secret_store) as reads, patch.object(
+          backend_secrets, "_derive_secret_record_key", side_effect=derive,
+        ):
+          response = asyncio.run(getattr(module.Plugin(), method_name)({"path": path}))
+        self.assertEqual(response, {"ok": True})
+        self.assertEqual(reads.call_count, 1)
+        self.assertEqual(len(derivation_threads), 1)
+        self.assertNotEqual(derivation_threads[0], main_thread)
+
+  def test_credentials_and_shortcut_metadata_leave_event_loop_responsive(self) -> None:
+    for method_name, payload in (
+      ("request_retroachievements_json", {"path": "API_GetUserProfile.php"}),
+      ("request_steam_json", {"path": "IPlayerService/GetOwnedGames/v1/"}),
+      ("get_steam_shortcut_metadata", {"appId": "12345"}),
+    ):
+      with self.subTest(method=method_name), tempfile.TemporaryDirectory() as temp_dir:
+        module = load_main_module(Path(temp_dir))
+        started, release = threading.Event(), threading.Event()
+
+        def blocking_load(_value):
+          started.set()
+          if not release.wait(timeout=1):
+            raise TimeoutError("The event loop could not release the blocking load.")
+          return {"appId": "12345"} if method_name == "get_steam_shortcut_metadata" else "stored-test-key"
+
+        module._load_provider_config = lambda _key: {"username": "alice", "steamId64": "76561198000000000", "hasApiKey": True}
+        module._load_secret_api_key = blocking_load
+        module._load_steam_shortcut_metadata = blocking_load
+        module._request_json = lambda **_kwargs: {"ok": True}
+
+        async def exercise():
+          request = asyncio.create_task(getattr(module.Plugin(), method_name)(payload))
+          try:
+            await asyncio.sleep(0.05)
+            responsive = started.is_set() and not request.done()
+          finally:
+            release.set()
+          return await asyncio.wait_for(request, timeout=1), responsive
+
+        response, responsive = asyncio.run(exercise())
+        self.assertTrue(responsive)
+        self.assertIsNotNone(response)
+
   def test_storage_paths_follow_temporary_root_and_valid_files_stay_quiet(self) -> None:
     with tempfile.TemporaryDirectory() as settings_root, tempfile.TemporaryDirectory() as logs_root:
       settings_dir = Path(settings_root) / "completely-different" / "settings"
@@ -419,6 +481,34 @@ class BackendRuntimeTests(unittest.TestCase):
       self.assertNotIn("key=abc123", rendered)
       self.assertNotIn("y=def456", rendered)
       self.assertIn("[redacted]", rendered)
+
+  def test_backend_log_file_contains_general_and_refresh_events_with_rotation(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      root = Path(temp_dir)
+      module = load_main_module(root / "settings", root / "logs")
+      module.LOGS_PATH.mkdir(parents=True)
+      module.LOG_FILE_MAX_BYTES = 280
+
+      module._log("info", "Backend ready", apiKey="private-value")
+      module._record_diagnostic_event({
+        "event": "resource_refresh_completed",
+        "providerId": "retroachievements",
+        "resource": "game-detail",
+        "entryPoint": "native-game-page",
+        "gameId": "12345",
+        "forceRefresh": True,
+        "durationMs": 42,
+        "source": "live",
+        "apiKey": "must-not-appear",
+      })
+
+      log_text = "\n".join(path.read_text(encoding="utf-8") for path in module.LOGS_PATH.glob("achievement-companion.log*"))
+      self.assertIn("Backend ready", log_text)
+      self.assertIn("Resource refresh completed", log_text)
+      self.assertIn('"entryPoint":"native-game-page"', log_text)
+      self.assertNotIn("private-value", log_text)
+      self.assertNotIn("must-not-appear", log_text)
+      self.assertTrue((module.LOGS_PATH / "achievement-companion.log.1").is_file())
 
   def test_backend_diagnostic_event_redacts_secret_like_fields_and_urls(self) -> None:
     with tempfile.TemporaryDirectory() as temp_dir:

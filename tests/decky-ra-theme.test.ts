@@ -42,11 +42,9 @@ test("RA Beaten stays silver on Game and Profile surfaces independent of AC them
   assert.equal(raRecipes.gameStatusBanner.root("in-progress").border, cyan);
 
   const compactGame = readFileSync("src/platform/decky/decky-retroachievements-compact-game-overview.tsx", "utf8");
-  const fullGameBanner = readFileSync("src/platform/decky/decky-retroachievements-game-status-banner.tsx", "utf8");
   const fullProfile = readFileSync("src/platform/decky/decky-retroachievements-full-screen-profile-dashboard.tsx", "utf8");
   assert.match(compactGame, /compactGame\.status\(awardKind, "game"\)/u);
   assert.match(compactGame, /compactGame\.statusEmblem\(awardKind, "game"\)/u);
-  assert.match(fullGameBanner, /compactGame\.statusEmblem\(kind, "game"\)/u);
   assert.match(fullProfile, /compactGame\.status\(kind\)/u);
   assert.match(fullProfile, /compactGame\.statusEmblem\(kind\)/u);
 });

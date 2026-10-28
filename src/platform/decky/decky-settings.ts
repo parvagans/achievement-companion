@@ -12,8 +12,8 @@ import {
 } from "@core/settings";
 import {
   readDeckyStorageText,
-  removeDeckyStorageText,
-  writeDeckyStorageText,
+  removeDeckyStorageTextPreservingExisting,
+  writeDeckyStorageTextPreservingExisting,
 } from "./storage";
 import { publishDeckyRaNativeAchievementInvalidation } from "./decky-ra-native-achievement-invalidation";
 
@@ -75,8 +75,10 @@ export function createDeckySettingsStore(): KeyValueStore {
       }
 
       const previousMode = readDeckySettings().retroAchievementsAchievementMode;
+      if (!writeDeckyStorageTextPreservingExisting(ACHIEVEMENT_COMPANION_SETTINGS_STORAGE_KEY, value)) {
+        throw new Error("Unable to save settings in the preferred storage.");
+      }
       cachedDeckySettingsText = value;
-      writeDeckyStorageText(ACHIEVEMENT_COMPANION_SETTINGS_STORAGE_KEY, value);
       notifyDeckySettingsChanged();
       if (previousMode !== readDeckySettings().retroAchievementsAchievementMode) {
         publishDeckyRaNativeAchievementInvalidation("achievement-mode-changed");
@@ -89,8 +91,10 @@ export function createDeckySettingsStore(): KeyValueStore {
       }
 
       const previousMode = readDeckySettings().retroAchievementsAchievementMode;
+      if (!removeDeckyStorageTextPreservingExisting(ACHIEVEMENT_COMPANION_SETTINGS_STORAGE_KEY)) {
+        throw new Error("Unable to clear settings in the preferred storage.");
+      }
       cachedDeckySettingsText = undefined;
-      removeDeckyStorageText(ACHIEVEMENT_COMPANION_SETTINGS_STORAGE_KEY);
       notifyDeckySettingsChanged();
       if (previousMode !== readDeckySettings().retroAchievementsAchievementMode) {
         publishDeckyRaNativeAchievementInvalidation("achievement-mode-changed");
@@ -112,8 +116,6 @@ export async function saveDeckySettings(
     createDeckySettingsStore(),
     settings,
   );
-  cachedDeckySettingsText = serializeAchievementCompanionSettings(settings);
-  notifyDeckySettingsChanged();
   return wroteSettings;
 }
 

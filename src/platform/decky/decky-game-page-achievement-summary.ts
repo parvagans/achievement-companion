@@ -27,6 +27,7 @@ import { normalizeRetroAchievementsImageUrl } from "../../providers/retroachieve
 import type { RawRetroAchievementsSystemResponse } from "../../providers/retroachievements/raw-types";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
 import { STEAM_PROVIDER_ID } from "../../providers/steam";
+import { deckyDiagnosticLogger } from "./decky-diagnostic-logger";
 import {
   markAchievementCompanionGamePageAchievementSummaryFetchCompleted,
   markAchievementCompanionGamePageAchievementSummaryFetchStarted,
@@ -327,10 +328,11 @@ async function loadDeckyGameDetailStateLazy(
   gameId: string,
   options?: {
     readonly forceRefresh?: boolean;
+    readonly entryPoint?: string;
   },
 ) {
   const { loadDeckyGameDetailState } = await import("./decky-app-services");
-  return loadDeckyGameDetailState(providerId, gameId, options);
+  return loadDeckyGameDetailState(providerId, gameId, { ...options, entryPoint: "native-game-page" });
 }
 
 function parsePositiveAppId(value: string | undefined): number | undefined {
@@ -1318,6 +1320,7 @@ async function buildRetroAchievementsReadySummary(
 async function attemptRetroAchievementsShortcutHashResolution(
   appId: string,
   shortcutMetadata: DeckySteamShortcutMetadata | undefined,
+  forceFreshDetail = false,
 ): Promise<RetroAchievementsShortcutHashAttempt> {
   updateAchievementCompanionRaShortcutResolutionDebug({
     appId,
@@ -1586,9 +1589,9 @@ async function attemptRetroAchievementsShortcutHashResolution(
   let gameDetailState: Awaited<ReturnType<typeof loadDeckyGameDetailStateLazy>>;
   try {
     gameDetailState = await loadDeckyGameDetailStateLazy(RETROACHIEVEMENTS_PROVIDER_ID, matchingCandidate.gameId, {
-      forceRefresh: false,
+      forceRefresh: forceFreshDetail,
     });
-    if (gameDetailState.status !== "success" || gameDetailState.isStale) {
+    if (!forceFreshDetail && (gameDetailState.status !== "success" || gameDetailState.isStale)) {
       gameDetailState = await loadDeckyGameDetailStateLazy(RETROACHIEVEMENTS_PROVIDER_ID, matchingCandidate.gameId, {
         forceRefresh: true,
       });
@@ -1680,6 +1683,7 @@ async function resolveSummaryFromRetroAchievementsShortcut(
   shortcutMetadataOverride?: DeckySteamShortcutMetadata,
   options?: {
     readonly steamSkippedBecauseShortcut?: boolean;
+    readonly freshRetroAchievements?: boolean;
   },
 ): Promise<RetroAchievementsShortcutResolution> {
   const staleResultDebugFieldsToClear: readonly (
@@ -1794,7 +1798,11 @@ async function resolveSummaryFromRetroAchievementsShortcut(
       });
     };
 
-    const hashResolution = await attemptRetroAchievementsShortcutHashResolution(appId, shortcutMetadata);
+    const hashResolution = await attemptRetroAchievementsShortcutHashResolution(
+      appId,
+      shortcutMetadata,
+      options?.freshRetroAchievements === true,
+    );
     const resolvedHashResolutionSkipReason =
       hashResolution.status === "skipped"
         ? hashResolution.hashResolverSkippedReason ?? hashResolution.reason
@@ -2209,11 +2217,45 @@ subscribeDeckyRaNativeAchievementInvalidation(() => {
 
 export async function loadDeckyGamePageAchievementSummary(
   appId: string,
+  options?: { readonly freshRetroAchievements?: boolean },
+): Promise<GamePageAchievementSummary> {
+  const startedAt = Date.now();
+  const context = { resource: "badge-summary", entryPoint: "native-game-page", appId, forceRefresh: options?.freshRetroAchievements === true };
+  const cachedEntry = gamePageAchievementSummaryCache.get(appId);
+  const fromCache = cachedEntry !== undefined &&
+    !(options?.freshRetroAchievements === true &&
+      (cachedEntry.summary.status !== "ready" || cachedEntry.summary.provider !== STEAM_PROVIDER_ID)) &&
+    Date.now() - cachedEntry.storedAt <= GAME_PAGE_ACHIEVEMENT_SUMMARY_CACHE_TTL_MS;
+  void deckyDiagnosticLogger.record({ event: "resource_refresh_started", ...context });
+  try {
+    const summary = await loadDeckyGamePageAchievementSummaryImpl(appId, options);
+    void deckyDiagnosticLogger.record({
+      event: summary.status === "error" ? "resource_refresh_failed" : "resource_refresh_completed",
+      ...context,
+      ...(summary.status === "ready" ? { providerId: summary.provider } : {}),
+      durationMs: Date.now() - startedAt,
+      source: fromCache ? "cache" : "unknown",
+      ...(summary.status === "error" ? { errorKind: "summary-error" } : {}),
+    });
+    return summary;
+  } catch (cause) {
+    void deckyDiagnosticLogger.record({ event: "resource_refresh_failed", ...context,
+      durationMs: Date.now() - startedAt, source: "unknown",
+      errorKind: cause instanceof Error ? cause.name : "unknown" });
+    throw cause;
+  }
+}
+
+async function loadDeckyGamePageAchievementSummaryImpl(
+  appId: string,
+  options?: { readonly freshRetroAchievements?: boolean },
 ): Promise<GamePageAchievementSummary> {
   ensureSteamAccountSummaryCacheCurrent();
   const cachedEntry = gamePageAchievementSummaryCache.get(appId);
   if (
     cachedEntry !== undefined &&
+    !(options?.freshRetroAchievements === true &&
+      (cachedEntry.summary.status !== "ready" || cachedEntry.summary.provider !== STEAM_PROVIDER_ID)) &&
     Date.now() - cachedEntry.storedAt <= GAME_PAGE_ACHIEVEMENT_SUMMARY_CACHE_TTL_MS
   ) {
     return cachedEntry.summary;
@@ -2245,6 +2287,7 @@ export async function loadDeckyGamePageAchievementSummary(
         shortcutMetadata,
         {
           steamSkippedBecauseShortcut: true,
+          freshRetroAchievements: options?.freshRetroAchievements === true,
         },
       );
       if (retroAchievementsShortcutResolution.status === "mapped") {
@@ -2301,7 +2344,11 @@ export async function loadDeckyGamePageAchievementSummary(
       steamUnavailableSummary = steamDetailSummary;
     }
 
-    const retroAchievementsShortcutResolution = await resolveSummaryFromRetroAchievementsShortcut(appId);
+    const retroAchievementsShortcutResolution = await resolveSummaryFromRetroAchievementsShortcut(
+      appId,
+      undefined,
+      { freshRetroAchievements: options?.freshRetroAchievements === true },
+    );
     if (retroAchievementsShortcutResolution.status === "mapped") {
       const readySummary = await buildRetroAchievementsReadySummary(
         appId,
@@ -2397,14 +2444,19 @@ export function useGamePageAchievementSummary(
   const cacheRevision = useSyncExternalStore(subscribeToRevision, readRevision, readRevision);
   const [summary, setSummary] = useState<GamePageAchievementSummary | undefined>(undefined);
   const requestSequenceRef = useRef(0);
+  const enteredAppIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     requestSequenceRef.current += 1;
     const requestSequence = requestSequenceRef.current;
     if (appId === undefined) {
+      enteredAppIdRef.current = undefined;
       setSummary(undefined);
       return;
     }
+
+    const freshRetroAchievements = enteredAppIdRef.current !== appId;
+    enteredAppIdRef.current = appId;
 
     ensureSteamAccountSummaryCacheCurrent();
     const requestRevision = readDeckyGamePageAchievementSummaryRevision(appId);
@@ -2419,7 +2471,7 @@ export function useGamePageAchievementSummary(
     setSummary((current) => selectDeckyGamePageAchievementSummaryDuringLoad(current, loadingSummary, preserveVisible));
     markAchievementCompanionGamePageAchievementSummaryFetchStarted(appId);
 
-    void loadDeckyGamePageAchievementSummary(appId)
+    void loadDeckyGamePageAchievementSummary(appId, { freshRetroAchievements })
       .then(async (nextSummary) => {
         if (!isCurrent()) {
           return;

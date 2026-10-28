@@ -1,3 +1,4 @@
+import { DeckySettingsStyles } from "../../decky-settings-styles";
 import { type CSSProperties, type ReactNode, useLayoutEffect, useRef, useState } from "react";
 import { Focusable, PanelSection, PanelSectionRow, ScrollPanel, type GamepadEvent } from "@decky/ui";
 import {
@@ -106,19 +107,6 @@ function SettingsGroup({ title, status, children, first = false }: {
   </section>;
 }
 
-function SettingsStyles(): JSX.Element {
-  const anchorRef = useRef<HTMLSpanElement>(null);
-  useLayoutEffect(() => {
-    const document = anchorRef.current?.ownerDocument;
-    if (document === undefined) return;
-    const style = document.createElement("style");
-    style.textContent = `.ac-ra-fullscreen-settings-page .ac-settings-action{outline:none!important}.ac-ra-fullscreen-settings-page .ac-settings-action:not(.gpfocus):not(.gpfocuswithin):not(:focus):not(:focus-within){box-shadow:none!important}.ac-ra-fullscreen-settings-page .ac-settings-action:is(.gpfocus,.gpfocuswithin,:focus,:focus-within){border-color:${steamTheme.focus.border}!important;box-shadow:${steamTheme.focus.shadow}!important;background:${steamTheme.focus.background}!important}.ac-ra-fullscreen-settings-page .ac-ra-settings-input,.ac-ra-fullscreen-settings-page .ac-steam-settings-input{min-height:0!important;margin:0!important}.ac-ra-fullscreen-settings-page .ac-ra-settings-input,.ac-ra-fullscreen-settings-page .ac-ra-settings-input *,.ac-ra-fullscreen-settings-page .ac-steam-settings-input,.ac-ra-fullscreen-settings-page .ac-steam-settings-input *{font-size:${steamTheme.type.fullscreen.body}px!important;line-height:1.2!important}.ac-ra-fullscreen-settings-page .ac-ra-settings-input [class*="DialogInput"],.ac-ra-fullscreen-settings-page .ac-steam-settings-input [class*="DialogInput"]{min-height:0!important;margin:0!important;padding-block:0!important}.ac-ra-fullscreen-settings-page .ac-ra-settings-input input,.ac-ra-fullscreen-settings-page .ac-steam-settings-input input{height:30px!important;min-height:30px!important;padding:3px 9px!important}.ac-ra-fullscreen-settings-page .ac-ra-settings-save{outline:none!important}.ac-ra-fullscreen-settings-page .ac-ra-settings-save.gpfocus,.ac-ra-fullscreen-settings-page .ac-ra-settings-save.gpfocuswithin,.ac-ra-fullscreen-settings-page .ac-ra-settings-save:focus,.ac-ra-fullscreen-settings-page .ac-ra-settings-save:focus-within{border-color:${steamTheme.focus.border}!important;box-shadow:${steamTheme.focus.shadow}!important;background:${steamTheme.focus.background}!important}.ac-ra-fullscreen-settings-page .ac-ra-settings-help-link{outline:none!important}.ac-ra-fullscreen-settings-page .ac-ra-settings-help-link:is(.gpfocus,.gpfocuswithin,:focus,:focus-within){outline:2px solid ${steamTheme.focus.border}!important;outline-offset:1px;background:${steamTheme.focus.background}!important;box-shadow:${steamTheme.focus.shadow}!important;color:${steamTheme.color.textPrimary}!important}`;
-    style.textContent += `.ac-ra-fullscreen-settings-page .ac-settings-action:is(.gpfocus,.gpfocuswithin,:focus,:focus-within){background:${raTheme.surface.focusedContentStat}!important}.ac-ra-fullscreen-settings-page .ac-ra-settings-save[data-ac-settings-tone="success"]:is(.gpfocus,.gpfocuswithin,:focus,:focus-within){border-color:${steamTheme.status.success.border}!important;background:${steamTheme.status.success.surface}!important;color:${steamTheme.status.success.text}!important}`;
-    document.head.appendChild(style);
-    return () => style.remove();
-  }, []);
-  return <span ref={anchorRef} hidden aria-hidden="true" />;
-}
 
 function SettingsActionRow({ title, subtitle, metadata, icon, disabled = false, danger = false, success = false, onActivate, onGamepadDirection }: {
   readonly title: string;
@@ -239,7 +227,7 @@ export function DeckyRetroAchievementsProviderSettingsPage({ providerId, onBack,
     : providerConfig?.username.trim().length ? "API key needed" : "Not configured";
 
   return <div ref={pageRef} className="ac-ra-fullscreen-settings-page" data-ac-steam-theme="fullscreen" style={{ position: "relative", height: viewportHeight ?? "100vh", flexShrink: 0, minHeight: 0, overflow: "hidden", padding: "calc(env(safe-area-inset-top, 0px) + 43px) 12px 50px", boxSizing: "border-box", color: steamTheme.color.textPrimary, background: steamTheme.surface.page, fontFamily: steamTheme.type.fontFamily }}>
-    <SettingsStyles /><DeckyFocusStyles />
+    <DeckySettingsStyles /><DeckyFocusStyles />
     <div style={{ height: "100%", minHeight: 0, display: "flex", flexDirection: "column", gap: 6 }}>
       <div style={{ display: "flex", alignItems: "center", minHeight: 31 }}><SettingsHeading>RETROACHIEVEMENTS SETTINGS</SettingsHeading></div>
       <DeckySettingsSection themeVariant="ra"><div style={{ ...settingsScrollStyle, display: "flex", flexDirection: "column" }}>

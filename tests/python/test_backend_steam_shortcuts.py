@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import os
 from pathlib import Path
+from unittest.mock import patch
 
 import _test_support  # noqa: F401
+import backend.steam_shortcuts as steam_shortcuts
 from backend.steam_shortcuts import (
   load_steam_shortcut_metadata,
   load_steam_shortcut_rom_path,
@@ -132,6 +135,42 @@ def _build_shortcuts_vdf_with_exe(exe: str, *, launch_options: str | None = None
 
 
 class SteamShortcutsTests(unittest.TestCase):
+  def test_unchanged_files_parse_once_and_changed_or_removed_files_are_invalidated(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      shortcut_path = Path(temp_dir) / "shortcuts.vdf"
+      shortcut_path.write_bytes(_build_shortcuts_vdf_with_command_fields(app_name="First"))
+      with patch.object(steam_shortcuts, "parse_steam_shortcuts_vdf", wraps=parse_steam_shortcuts_vdf) as parse:
+        self.assertEqual(load_steam_shortcut_metadata("2493414760", shortcuts_files=[shortcut_path])["title"], "First")
+        self.assertEqual(load_steam_shortcut_metadata("2493414760", shortcuts_files=[shortcut_path])["title"], "First")
+        self.assertEqual(parse.call_count, 1)
+        previous_stat = shortcut_path.stat()
+        shortcut_path.write_bytes(_build_shortcuts_vdf_with_command_fields(app_name="Other"))
+        os.utime(shortcut_path, ns=(previous_stat.st_atime_ns, previous_stat.st_mtime_ns + 1_000_000))
+        self.assertEqual(load_steam_shortcut_metadata("2493414760", shortcuts_files=[shortcut_path])["title"], "Other")
+        self.assertEqual(parse.call_count, 2)
+        shortcut_path.unlink()
+        self.assertIsNone(load_steam_shortcut_metadata("2493414760", shortcuts_files=[shortcut_path]))
+        shortcut_path.write_bytes(_build_shortcuts_vdf_with_command_fields(app_name="Again"))
+        os.utime(shortcut_path, ns=(previous_stat.st_atime_ns, previous_stat.st_mtime_ns + 1_000_000))
+        self.assertEqual(load_steam_shortcut_metadata("2493414760", shortcuts_files=[shortcut_path])["title"], "Again")
+        self.assertEqual(parse.call_count, 3)
+        # Size alone must invalidate a file even if its modification time is preserved.
+        shortcut_path.write_bytes(_build_shortcuts_vdf_with_command_fields(app_name="A longer title"))
+        os.utime(shortcut_path, ns=(previous_stat.st_atime_ns, previous_stat.st_mtime_ns + 1_000_000))
+        self.assertEqual(load_steam_shortcut_metadata("2493414760", shortcuts_files=[shortcut_path])["title"], "A longer title")
+        self.assertEqual(parse.call_count, 4)
+
+  def test_removed_discovered_files_are_evicted_without_reusing_stale_metadata(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      home = Path(temp_dir)
+      shortcut_path = home / ".local/share/Steam/userdata/123/config/shortcuts.vdf"
+      shortcut_path.parent.mkdir(parents=True)
+      shortcut_path.write_bytes(_build_shortcuts_vdf())
+      self.assertIsNotNone(load_steam_shortcut_metadata("2217040867", home=home))
+      shortcut_path.unlink()
+      self.assertIsNone(load_steam_shortcut_metadata("2217040867", home=home))
+      self.assertNotIn(shortcut_path.resolve(), steam_shortcuts._shortcuts_cache)
+
   def test_parse_steam_shortcuts_vdf_reads_unsigned_shortcut_app_ids(self) -> None:
     shortcuts = parse_steam_shortcuts_vdf(_build_shortcuts_vdf())
 

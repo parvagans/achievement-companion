@@ -1,3 +1,4 @@
+import { createAccountScopedServices } from "./account-scoped-services";
 ﻿import type { CacheEntry, CacheStore, ResourceState } from "./cache";
 import type {
   AchievementHistorySnapshot,
@@ -37,6 +38,7 @@ export interface AppServiceBootstrapOptions {
   readonly providerRegistry: ProviderRegistry;
   readonly platform: PlatformServices;
   readonly cacheStore: CacheStore;
+  readonly getProviderAccountRevision?: (providerId: ProviderId) => number;
   readonly loadProviderConfig: (providerId: ProviderId) => Promise<unknown | undefined>;
 }
 
@@ -56,7 +58,7 @@ const GAME_DETAIL_CACHE_TTL_MS = 15 * 60 * 1000;
 // than account progress. Keep the discovered index long-lived; the provider
 // refreshes progress independently whenever the page is opened.
 const RELATED_GAMES_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const providerRefreshQueues = new Map<ProviderId, Promise<void>>();
+const refreshQueuesByCache = new WeakMap<CacheStore, Map<ProviderId, Promise<void>>>();
 
 function createErrorState<T>(error: AppError): ResourceState<T> {
   return {
@@ -102,7 +104,13 @@ function createCachedStateWithError<T>(
 async function runProviderRefreshExclusive<T>(
   providerId: ProviderId,
   task: () => Promise<T>,
+  cacheStore: CacheStore,
 ): Promise<T> {
+  let providerRefreshQueues = refreshQueuesByCache.get(cacheStore);
+  if (providerRefreshQueues === undefined) {
+    providerRefreshQueues = new Map();
+    refreshQueuesByCache.set(cacheStore, providerRefreshQueues);
+  }
   const previousQueue = providerRefreshQueues.get(providerId) ?? Promise.resolve();
   let releaseCurrentQueue: (() => void) | undefined;
   const currentQueue = new Promise<void>((resolve) => {
@@ -227,6 +235,21 @@ function createRefreshError(
 
   if (isAppError(cause)) {
     return cause;
+  }
+
+  if (typeof cause === "object" && cause !== null && "statusCode" in cause && cause.statusCode === 429) {
+    const retryAfterMs = "retryAfterMs" in cause && typeof cause.retryAfterMs === "number"
+      ? cause.retryAfterMs
+      : undefined;
+    return {
+      kind: "rate_limit",
+      userMessage: "The provider is temporarily limiting requests. Please try again later.",
+      retryable: true,
+      providerId,
+      ...(retryAfterMs !== undefined ? { retryAfterMs } : {}),
+      debugMessage: "Provider returned HTTP 429.",
+      cause,
+    };
   }
 
   const resourceName =
@@ -457,7 +480,7 @@ async function refreshActivityCalendarUnlocks(args: {
       const error = createRefreshError("activity calendar", args.providerId, cause);
       return args.cachedState !== undefined ? createCachedStateWithError(args.cachedState, error) : createErrorState(error);
     }
-  });
+  }, args.cacheStore);
 }
 
 function deriveRecentlyPlayedGamesFromRecentUnlocks(
@@ -790,7 +813,7 @@ async function refreshDashboard(args: {
         ? createCachedStateWithError(args.cachedState, error)
         : createErrorState(error);
     }
-  });
+  }, args.cacheStore);
 }
 
 async function refreshAchievementHistory(args: {
@@ -853,7 +876,7 @@ async function refreshAchievementHistory(args: {
         ? createCachedStateWithError(args.cachedState, error)
         : createErrorState(error);
     }
-  });
+  }, args.cacheStore);
 }
 
 async function refreshCompletionProgress(args: {
@@ -922,7 +945,7 @@ async function refreshCompletionProgress(args: {
         ? createCachedStateWithError(args.cachedState, error)
         : createErrorState(error);
     }
-  });
+  }, args.cacheStore);
 }
 
 async function refreshGameDetail(args: {
@@ -992,7 +1015,7 @@ async function refreshGameDetail(args: {
         ? createCachedStateWithError(args.cachedState, error)
         : createErrorState(error);
     }
-  });
+  }, args.cacheStore);
 }
 
 async function refreshRelatedGames(args: {
@@ -1027,7 +1050,7 @@ async function refreshRelatedGames(args: {
     return args.cachedState !== undefined ? createCachedStateWithError(args.cachedState, error) : createErrorState(error);
   }
 
-  return runProviderRefreshExclusive(args.providerId, async () => {
+  return (async () => {
     try {
       const relatedGames = await provider.loadRelatedGames!(providerConfig, args.game);
       const now = Date.now();
@@ -1043,7 +1066,7 @@ async function refreshRelatedGames(args: {
       const error = createRefreshError("related games", args.providerId, cause);
       return args.cachedState !== undefined ? createCachedStateWithError(args.cachedState, error) : createErrorState(error);
     }
-  });
+  })();
 }
 
 async function refreshRelatedGameProgress(args: {
@@ -1073,7 +1096,7 @@ async function refreshRelatedGameProgress(args: {
     return createCachedStateWithError(args.cachedState, error);
   }
 
-  return runProviderRefreshExclusive(args.providerId, async () => {
+  return (async () => {
     try {
       const relatedGames = await provider.loadRelatedGameProgress!(
         providerConfig,
@@ -1093,11 +1116,18 @@ async function refreshRelatedGameProgress(args: {
       const error = createRefreshError("related games", args.providerId, cause);
       return createCachedStateWithError(args.cachedState, error);
     }
-  });
+  })();
 }
 
 export function createAppServices(options: AppServiceBootstrapOptions): AppServices {
-  return {
+  return options.getProviderAccountRevision === undefined
+    ? createUnscopedAppServices(options)
+    : createAccountScopedServices(options, createUnscopedAppServices);
+}
+
+function createUnscopedAppServices(options: AppServiceBootstrapOptions): AppServices {
+  const relatedRequests = new Map<string, Promise<ResourceState<readonly RelatedGameSummary[]>>>();
+  const services: AppServices = {
     dashboard: {
       async loadDashboard(providerId, requestOptions) {
         const cacheKey = createProviderDashboardCacheKey(providerId);
@@ -1291,5 +1321,18 @@ export function createAppServices(options: AppServiceBootstrapOptions): AppServi
       },
     },
   };
+  const loadRelatedGames = services.relatedGames.loadRelatedGames.bind(services.relatedGames);
+  return { ...services, relatedGames: { ...services.relatedGames,
+    loadRelatedGames(providerId, game, requestOptions) {
+      const key = JSON.stringify([providerId, game.gameId, game.title, requestOptions?.forceRefresh === true]);
+      const existing = relatedRequests.get(key);
+      if (existing !== undefined) return existing;
+      const promise = loadRelatedGames(providerId, game, requestOptions).finally(() => {
+        if (relatedRequests.get(key) === promise) relatedRequests.delete(key);
+      });
+      relatedRequests.set(key, promise);
+      return promise;
+    },
+  } };
 }
 

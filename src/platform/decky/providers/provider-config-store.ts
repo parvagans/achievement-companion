@@ -1,3 +1,4 @@
+import { advanceDeckyAccountRevision } from "../decky-account-revision";
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { ProviderId } from "@core/domain";
 import type { ProviderConfigStore } from "@core/platform";
@@ -47,6 +48,7 @@ export const deckyProviderConfigStore: ProviderConfigStore<DeckyProviderConfigVa
         },
       );
       if (savedConfig !== undefined) {
+        advanceDeckyAccountRevision(RETROACHIEVEMENTS_PROVIDER_ID);
         updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, savedConfig);
         if (hasRetroAchievementsAccountIdentityChanged(previousConfig, savedConfig)) {
           publishDeckyRaNativeAchievementInvalidation("account-changed");
@@ -67,6 +69,7 @@ export const deckyProviderConfigStore: ProviderConfigStore<DeckyProviderConfigVa
         },
       );
       if (savedConfig !== undefined) {
+        advanceDeckyAccountRevision(STEAM_PROVIDER_ID);
         updateDeckyProviderConfigCache(STEAM_PROVIDER_ID, savedConfig);
       }
       return savedConfig;
@@ -287,7 +290,8 @@ async function loadDeckyProviderConfigsFromBackend(): Promise<DeckyProviderConfi
     return deckyProviderConfigsLoadPromise;
   }
 
-  deckyProviderConfigsLoadPromise = (async () => {
+  const expectedRevision = deckyProviderConfigRevision;
+  const promise = (async () => {
     const backendConfigs = coerceDeckyProviderConfigs(
       await callDeckyBackendMethod<unknown>("get_provider_configs"),
     );
@@ -300,13 +304,14 @@ async function loadDeckyProviderConfigsFromBackend(): Promise<DeckyProviderConfi
       ...(steam !== undefined ? { steam } : {}),
     };
 
+    if (expectedRevision !== deckyProviderConfigRevision) return readDeckyProviderConfigs();
     cacheDeckyProviderConfigs(nextConfigs);
     return nextConfigs;
   })().finally(() => {
-    deckyProviderConfigsLoadPromise = undefined;
+    if (deckyProviderConfigsLoadPromise === promise) deckyProviderConfigsLoadPromise = undefined;
   });
-
-  return deckyProviderConfigsLoadPromise;
+  deckyProviderConfigsLoadPromise = promise;
+  return promise;
 }
 
 export async function loadDeckyProviderConfigs(): Promise<DeckyProviderConfigs> {
@@ -400,6 +405,7 @@ export async function saveDeckyRetroAchievementsCredentials(args: {
   );
 
   if (savedConfig !== undefined) {
+    advanceDeckyAccountRevision(RETROACHIEVEMENTS_PROVIDER_ID);
     updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, savedConfig);
     if (
       args.apiKeyDraft.trim().length > 0 ||
@@ -425,6 +431,7 @@ export async function saveDeckySteamCredentials(args: {
   );
 
   if (savedConfig !== undefined) {
+    advanceDeckyAccountRevision(STEAM_PROVIDER_ID);
     updateDeckyProviderConfigCache(STEAM_PROVIDER_ID, savedConfig);
   }
 
@@ -437,6 +444,7 @@ export async function clearDeckyRetroAchievementsAccountState(): Promise<boolean
   });
 
   if (cleared) {
+    advanceDeckyAccountRevision(RETROACHIEVEMENTS_PROVIDER_ID);
     clearDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID);
     clearDeckyDashboardSnapshot(RETROACHIEVEMENTS_PROVIDER_ID);
     publishDeckyRaNativeAchievementInvalidation("account-changed");
@@ -451,6 +459,7 @@ export async function clearDeckySteamAccountState(): Promise<boolean> {
   });
 
   if (cleared) {
+    advanceDeckyAccountRevision(STEAM_PROVIDER_ID);
     clearDeckyProviderConfigCache(STEAM_PROVIDER_ID);
     clearDeckyDashboardSnapshot(STEAM_PROVIDER_ID);
   }

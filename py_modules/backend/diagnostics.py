@@ -7,6 +7,11 @@ DIAGNOSTIC_EVENT_MESSAGES = {
   "dashboard_refresh_started": "Dashboard refresh started",
   "dashboard_refresh_completed": "Dashboard refresh completed",
   "dashboard_refresh_failed": "Dashboard refresh failed",
+  "provider_opened": "Provider opened",
+  "badge_opened": "Badge opened",
+  "resource_refresh_started": "Resource refresh started",
+  "resource_refresh_completed": "Resource refresh completed",
+  "resource_refresh_failed": "Resource refresh failed",
   "steam_library_scan_started": "Steam library scan started",
   "steam_library_scan_progress": "Steam library scan progress",
   "steam_library_scan_completed": "Steam library scan completed",
@@ -17,6 +22,11 @@ DIAGNOSTIC_EVENT_ALLOWED_FIELDS = {
   "dashboard_refresh_started": ("providerId", "mode"),
   "dashboard_refresh_completed": ("providerId", "mode", "durationMs", "source"),
   "dashboard_refresh_failed": ("providerId", "mode", "durationMs", "errorKind"),
+  "provider_opened": ("providerId", "entryPoint"),
+  "badge_opened": ("providerId", "entryPoint", "appId", "gameId"),
+  "resource_refresh_started": ("providerId", "resource", "entryPoint", "appId", "gameId", "forceRefresh"),
+  "resource_refresh_completed": ("providerId", "resource", "entryPoint", "appId", "gameId", "forceRefresh", "durationMs", "source"),
+  "resource_refresh_failed": ("providerId", "resource", "entryPoint", "appId", "gameId", "forceRefresh", "durationMs", "source", "errorKind"),
   "steam_library_scan_started": ("providerId", "ownedGameCount"),
   "steam_library_scan_progress": ("providerId", "ownedGameCount", "scannedGameCount", "skippedGameCount", "failedGameCount"),
   "steam_library_scan_completed": (
@@ -56,7 +66,8 @@ _DIAGNOSTIC_NUMERIC_FIELDS = {
   "unlockedAchievements",
 }
 
-_DIAGNOSTIC_STRING_FIELDS = {"errorKind", "mode", "providerId", "source"}
+_DIAGNOSTIC_STRING_FIELDS = {"appId", "entryPoint", "errorKind", "gameId", "mode", "providerId", "resource", "source"}
+_DIAGNOSTIC_BOOLEAN_FIELDS = {"forceRefresh"}
 
 
 def _coerce_positive_int(value: Any) -> int | None:
@@ -95,7 +106,11 @@ def sanitize_diagnostic_event(payload: Mapping[str, Any]) -> dict[str, Any] | No
     if field_name in _DIAGNOSTIC_STRING_FIELDS:
       coerced_value = _coerce_string(raw_value)
       if coerced_value is not None:
-        fields[field_name] = coerced_value
+        fields[field_name] = coerced_value[:64]
+      continue
+
+    if field_name in _DIAGNOSTIC_BOOLEAN_FIELDS and isinstance(raw_value, bool):
+      fields[field_name] = raw_value
 
   return {
     "event": event,

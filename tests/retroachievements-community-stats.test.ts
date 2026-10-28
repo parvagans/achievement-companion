@@ -3,7 +3,7 @@ import test from "node:test";
 import { buildRetroAchievementsCompletionCollection } from "../src/platform/decky/decky-completion-progress-grouping";
 import { formatRetroAchievementsCommunityDuration } from "../src/platform/decky/decky-retroachievements-community-stats-data";
 import { buildDeckyRetroAchievementsProgressSummaryData } from "../src/platform/decky/decky-retroachievements-progress-summary-data";
-import { createRetroAchievementsClient } from "../src/providers/retroachievements/client/client";
+import { createRetroAchievementsClient, type RetroAchievementsClient } from "../src/providers/retroachievements/client/client";
 import { createRetroAchievementsProvider } from "../src/providers/retroachievements/retroachievements.provider";
 import { normalizeRetroAchievementsGameCommunityStats, normalizeRetroAchievementsLatestMasters } from "../src/providers/retroachievements/community-stats";
 import type { CompletionProgressSnapshot, NormalizedAchievement, NormalizedGame } from "../src/core/domain";
@@ -204,6 +204,86 @@ test("RA provider enriches game community stats with ranked latest masters and p
       masteredAt: "2026-10-13T08:30:00.000Z",
     },
   ]);
+});
+
+function communityCacheClient(overrides: Partial<RetroAchievementsClient>): RetroAchievementsClient {
+  return {
+    async loadProfile() { return {}; },
+    async loadCompletionProgress() { return []; },
+    async loadAchievementsEarnedBetween() { return []; },
+    async loadRecentUnlocks() { return []; },
+    async loadRecentlyPlayedGames() { return []; },
+    async loadGameProgress(_config, id) {
+      return {
+        ID: id, Title: `Game ${id}`, NumAchievements: 1, NumAwardedToUser: 0,
+        Achievements: { "1": { ID: 1, Title: "One", Description: "One", Points: 5, BadgeName: "1" } },
+      };
+    },
+    ...overrides,
+  };
+}
+
+test("RA community stats evict the oldest of 201 games and expire with an injected clock", async () => {
+  let clock = 0;
+  let loads = 0;
+  const provider = createRetroAchievementsProvider({
+    now: () => clock,
+    client: communityCacheClient({
+      async loadAchievementDistribution() { loads += 1; return { "1": 1 }; },
+    }),
+  });
+  const config = { username: "alice", hasApiKey: true };
+  for (let id = 1; id <= 201; id += 1) await provider.loadGameProgress(config, String(id));
+  await provider.loadGameProgress(config, "201");
+  assert.equal(loads, 201);
+  await provider.loadGameProgress(config, "1");
+  assert.equal(loads, 202);
+  clock = 60 * 60 * 1000;
+  await provider.loadGameProgress(config, "201");
+  assert.equal(loads, 203);
+});
+
+test("RA failed Latest Masters avatars retry after five minutes even for a cached game", async () => {
+  let clock = 0;
+  let loads = 0;
+  const provider = createRetroAchievementsProvider({
+    now: () => clock,
+    client: communityCacheClient({
+      async loadLatestGameMasters() { return [{ User: "Alice", LastAward: "2026-10-14 12:00:00" }]; },
+      async loadUserProfile() {
+        loads += 1;
+        if (loads === 1) throw new Error("offline");
+        return { User: "Alice", UserPic: "/UserPic/Alice.png" };
+      },
+    }),
+  });
+  const config = { username: "alice", hasApiKey: true };
+  assert.equal((await provider.loadGameProgress(config, "1")).game.communityStats?.latestMasters?.[0]?.avatarUrl, undefined);
+  clock = 5 * 60 * 1000 - 1;
+  await provider.loadGameProgress(config, "1");
+  assert.equal(loads, 1);
+  clock += 1;
+  assert.equal((await provider.loadGameProgress(config, "1")).game.communityStats?.latestMasters?.[0]?.avatarUrl, "https://i.retroachievements.org/UserPic/Alice.png");
+  assert.equal(loads, 2);
+});
+
+test("RA Latest Masters retains at most 200 avatar lookups", async () => {
+  let loads = 0;
+  const provider = createRetroAchievementsProvider({
+    client: communityCacheClient({
+      async loadLatestGameMasters(_config, id) {
+        return [{ User: `User${id}`, LastAward: "2026-10-14 12:00:00" }];
+      },
+      async loadUserProfile(_config, identifier) {
+        loads += 1;
+        return { User: identifier, UserPic: `/UserPic/${identifier}.png` };
+      },
+    }),
+  });
+  const config = { username: "alice", hasApiKey: true };
+  for (let id = 1; id <= 201; id += 1) await provider.loadGameProgress(config, String(id));
+  await provider.loadGameProgress(config, "1");
+  assert.equal(loads, 202, "the first game's stats and avatar were both evicted");
 });
 
 test("profile and completion progress share the same normalized collection counts", () => {

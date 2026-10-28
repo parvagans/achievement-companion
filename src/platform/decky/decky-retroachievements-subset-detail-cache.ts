@@ -1,3 +1,4 @@
+import { subscribeDeckyAccountRevision } from "./decky-account-revision";
 import type { ResourceState } from "@core/cache";
 import type { GameDetailSnapshot } from "@core/domain";
 
@@ -36,3 +37,5 @@ export function cacheDeckyRetroAchievementsSubsetDetailState(
 export function resetDeckyRetroAchievementsSubsetDetailCacheForTests(): void {
   subsetDetailStatesByParent.clear();
 }
+
+subscribeDeckyAccountRevision((_providerId) => { subsetDetailStatesByParent.clear(); });

@@ -199,7 +199,7 @@ def request_json(
         "handledHttpError": True,
         "status": cause.code,
         "statusText": _redact_text(str(getattr(cause, "reason", ""))) if getattr(cause, "reason", None) else "",
-        "message": _redact_text(response_body) if response_body != "" else f"HTTP {cause.code}",
+        "message": f"HTTP {cause.code}: request limit reached" if cause.code == 429 else (_redact_text(response_body) if response_body != "" else f"HTTP {cause.code}"),
         "durationMs": duration_ms,
         **({"retryAfterMs": retry_after_ms} if retry_after_ms is not None else {}),
       }

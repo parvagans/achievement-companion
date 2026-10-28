@@ -332,6 +332,31 @@ class BackendHttpTests(unittest.TestCase):
     self.assertNotIn("secret", rendered)
     self.assertNotIn("warning", rendered)
 
+  def test_rate_limit_html_is_replaced_by_a_safe_message(self) -> None:
+    def fake_opener(request, timeout=None, context=None):  # noqa: ANN001, ANN002, ANN003
+      raise urllib.error.HTTPError(
+        url=request.full_url,
+        code=429,
+        msg="Too Many Requests",
+        hdrs={"Retry-After": "60"},
+        fp=io.BytesIO(b"<html><body>secret apiKey=private</body></html>"),
+      )
+
+    result = backend_http.request_json(
+      provider_id="retroachievements",
+      provider_label="RetroAchievements",
+      base_url="https://retroachievements.org/API/",
+      path="API_GetUserProfile.php",
+      query=None,
+      auth_query={},
+      handled_http_statuses={429},
+      opener=fake_opener,
+    )
+    self.assertEqual(result["status"], 429)
+    self.assertEqual(result["message"], "HTTP 429: request limit reached")
+    self.assertEqual(result["retryAfterMs"], 60_000)
+    self.assertNotIn("secret", str(result))
+
   def test_request_json_logs_slow_requests(self) -> None:
     capture = CapturingLogger()
 

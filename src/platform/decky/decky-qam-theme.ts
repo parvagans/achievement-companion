@@ -66,6 +66,10 @@ export const achievementCompanionQamTheme = {
     success: { text: "#a9e9c6", border: "rgba(49,226,142,.55)", surface: "rgba(10,57,43,.48)" },
   },
   decorative: {
+    chooserBorder: themeValue("chooser-border", "rgba(86, 137, 173, 0.24)"),
+    chooserFocusBorder: themeValue("chooser-focus-border", "rgba(125, 190, 255, 0.7)"),
+    chooserFocusShadow: themeValue("chooser-focus-shadow", "0 0 0 1px rgba(54, 185, 255, 0.8), 0 0 15px rgba(54, 185, 255, 0.45)"),
+    chooserChevron: themeValue("chooser-chevron", "rgba(54, 185, 255, 0.94)"),
     iconFilter: themeValue("icon-filter", "brightness(0) saturate(100%) invert(78%) sepia(42%) saturate(1326%) hue-rotate(166deg) brightness(102%) contrast(101%)"),
     avatarBackground: themeValue("avatar-background", "linear-gradient(145deg, rgba(54, 185, 255, 0.2), rgba(5, 22, 34, 0.96))"),
     avatarGlow: themeValue("avatar-glow", "0 0 18px rgba(54, 185, 255, 0.26)"),

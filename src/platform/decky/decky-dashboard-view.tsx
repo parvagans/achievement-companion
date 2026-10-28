@@ -202,13 +202,13 @@ function getProfileAvatarFrameStyle(): CSSProperties {
     flexShrink: 0,
     overflow: "hidden",
     borderRadius: 10,
-    border: "1px solid rgba(255, 255, 255, 0.12)",
+    border: `1px solid ${qamTheme.color.borderSubtle}`,
     background:
-      "linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03))",
+      qamTheme.decorative.avatarBackground,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    color: "rgba(255, 255, 255, 0.9)",
+    color: qamTheme.color.textPrimary,
     fontSize: "0.9em",
     fontWeight: 700,
     letterSpacing: "0.06em",
@@ -238,7 +238,7 @@ function getProfileNameStyle(): CSSProperties {
 
 function getProfileMetaStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.72)",
+    color: qamTheme.color.textSecondary,
     fontSize: "0.86em",
     lineHeight: 1.2,
   };
@@ -273,13 +273,13 @@ function getProviderIdentityIconFrameStyle(): CSSProperties {
     flexShrink: 0,
     overflow: "hidden",
     borderRadius: 8,
-    border: "1px solid rgba(255, 255, 255, 0.12)",
+    border: `1px solid ${qamTheme.color.borderSubtle}`,
     background:
-      "linear-gradient(160deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.03))",
+      qamTheme.decorative.avatarBackground,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    color: "rgba(255, 255, 255, 0.9)",
+    color: qamTheme.color.textPrimary,
     fontSize: "0.82em",
     fontWeight: 750,
     letterSpacing: "0.06em",
@@ -307,7 +307,7 @@ function getProviderIdentityTextStyle(): CSSProperties {
 
 function getProviderIdentityEyebrowStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.58)",
+    color: qamTheme.color.textMuted,
     fontSize: "0.68em",
     fontWeight: 700,
     letterSpacing: "0.08em",
@@ -318,7 +318,7 @@ function getProviderIdentityEyebrowStyle(): CSSProperties {
 
 function getProviderIdentityLabelStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.96)",
+    color: qamTheme.color.textPrimary,
     fontSize: "1.02em",
     fontWeight: 750,
     lineHeight: 1.15,
@@ -354,7 +354,7 @@ function getOverviewStatStyle(): CSSProperties {
 
 function getOverviewStatLabelStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.62)",
+    color: qamTheme.color.textMuted,
     fontSize: "0.72em",
     fontWeight: 700,
     letterSpacing: "0.06em",
@@ -365,7 +365,7 @@ function getOverviewStatLabelStyle(): CSSProperties {
 
 function getOverviewStatValueStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.96)",
+    color: qamTheme.color.textPrimary,
     fontSize: "1.02em",
     fontWeight: 750,
     lineHeight: 1.2,
@@ -378,7 +378,7 @@ function getOverviewStatValueStyle(): CSSProperties {
 
 function getOverviewStatDetailStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.68)",
+    color: qamTheme.color.textSecondary,
     fontSize: "0.78em",
     lineHeight: 1.16,
     minWidth: 0,
@@ -433,7 +433,7 @@ function getOverviewProgressBlockStyle(): CSSProperties {
 
 function getOverviewProgressTitleStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.62)",
+    color: qamTheme.color.textMuted,
     fontSize: "0.72em",
     fontWeight: 700,
     letterSpacing: "0.08em",
@@ -444,7 +444,7 @@ function getOverviewProgressTitleStyle(): CSSProperties {
 
 function getOverviewProgressSubtitleStyle(): CSSProperties {
   return {
-    color: "rgba(255, 255, 255, 0.82)",
+    color: qamTheme.color.textPrimary,
     fontSize: "0.9em",
     lineHeight: 1.25,
   };
@@ -465,7 +465,7 @@ function getCompactItemPrimaryStyle(): CSSProperties {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    color: "rgba(255, 255, 255, 0.95)",
+    color: qamTheme.color.textPrimary,
     fontSize: "0.95em",
     fontWeight: 600,
     lineHeight: 1.18,
@@ -478,7 +478,7 @@ function getCompactItemSecondaryStyle(): CSSProperties {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    color: "rgba(255, 255, 255, 0.68)",
+    color: qamTheme.color.textSecondary,
     fontSize: "0.82em",
     lineHeight: 1.16,
   };
@@ -490,7 +490,7 @@ function getSteamRecentlyPlayedPrimaryStyle(): CSSProperties {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    color: "rgba(255, 255, 255, 0.95)",
+    color: qamTheme.color.textPrimary,
     fontSize: "0.84rem",
     fontWeight: 600,
     lineHeight: 1.18,
@@ -503,7 +503,7 @@ function getSteamRecentlyPlayedSecondaryStyle(): CSSProperties {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    color: "rgba(255, 255, 255, 0.72)",
+    color: qamTheme.color.textSecondary,
     fontSize: "0.78rem",
     lineHeight: 1.16,
   };
@@ -582,7 +582,7 @@ function getDashboardCompactArtworkFrameStyle(tone?: DashboardAchievementTone, i
         ? "rgba(214, 221, 232, 0.18)"
         : tone === "locked"
           ? "rgba(148, 163, 184, 0.16)"
-          : "rgba(255, 255, 255, 0.1)";
+          : qamTheme.color.borderSubtle;
   const backgroundColor =
     tone === "hardcore"
       ? "rgba(214, 178, 74, 0.08)"
@@ -590,7 +590,7 @@ function getDashboardCompactArtworkFrameStyle(tone?: DashboardAchievementTone, i
         ? "rgba(214, 221, 232, 0.06)"
         : tone === "locked"
           ? "rgba(148, 163, 184, 0.05)"
-          : "rgba(255, 255, 255, 0.04)";
+          : qamTheme.color.borderSubtle;
 
   return {
     flexShrink: 0,
@@ -624,7 +624,7 @@ function getDashboardCompactTitleStyle(isRa = false): CSSProperties {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    color: isRa ? raTheme.color.textPrimary : "rgba(255, 255, 255, 0.97)",
+    color: isRa ? raTheme.color.textPrimary : qamTheme.color.textPrimary,
     fontSize: isRa ? raTheme.type.compact.title : "0.92em",
     fontWeight: 700,
     lineHeight: 1.15,
@@ -637,7 +637,7 @@ function getDashboardCompactGameTitleStyle(isRa = false): CSSProperties {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    color: isRa ? raTheme.color.textSecondary : "rgba(255, 255, 255, 0.78)",
+    color: isRa ? raTheme.color.textSecondary : qamTheme.color.textSecondary,
     fontSize: isRa ? raTheme.type.compact.metadata : "0.79em",
     lineHeight: 1.15,
   };
@@ -696,9 +696,9 @@ function getDashboardSystemPillStyle(): CSSProperties {
     minWidth: 0,
     padding: "0 8px",
     borderRadius: 999,
-    border: "1px solid rgba(255, 255, 255, 0.1)",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-    color: "rgba(255, 255, 255, 0.8)",
+    border: `1px solid ${qamTheme.color.borderSubtle}`,
+    backgroundColor: qamTheme.color.borderSubtle,
+    color: qamTheme.color.textPrimary,
     fontSize: "0.68em",
     fontWeight: 700,
     letterSpacing: "0.06em",

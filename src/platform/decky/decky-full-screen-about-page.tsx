@@ -1,3 +1,4 @@
+import { DeckySettingsStyles } from "./decky-settings-styles";
 import { Focusable, GamepadButton, type GamepadEvent } from "@decky/ui";
 import { useLayoutEffect, useRef, useState } from "react";
 import { DeckyFocusStyles } from "./decky-focus-styles";
@@ -133,7 +134,7 @@ export function DeckyFullScreenAboutPage({ onOpenExternalUrl }: {
   };
   return <div ref={pageRef} className="ac-provider-about-page" data-ac-steam-theme="fullscreen" style={{ position: "relative", height: pageHeight ?? "100vh", flexShrink: 0, minHeight: 0, overflow: "hidden", padding: "calc(env(safe-area-inset-top, 0px) + 43px) 12px 50px", boxSizing: "border-box", color: steamTheme.color.textPrimary, background: steamTheme.surface.page, fontFamily: steamTheme.type.fontFamily }}>
     <DeckyFocusStyles />
-    <style>{`.ac-provider-about-page :is([data-ac-general-appearance-card],[data-ac-provider-about-card],[data-achievement-companion-update-settings]) .ac-settings-action{outline:none!important}.ac-provider-about-page :is([data-ac-general-appearance-card],[data-ac-provider-about-card],[data-achievement-companion-update-settings]) .ac-settings-action:not(.gpfocus):not(.gpfocuswithin):not(:focus):not(:focus-within){box-shadow:none!important}.ac-provider-about-page :is([data-ac-general-appearance-card],[data-ac-provider-about-card],[data-achievement-companion-update-settings]) .ac-settings-action:is(.gpfocus,.gpfocuswithin,:focus,:focus-within){border-color:${steamTheme.focus.border}!important;box-shadow:${steamTheme.focus.shadow}!important;background:${steamTheme.surface.focusedContentStat}!important}`}</style>
+    <DeckySettingsStyles />
     <div style={{ height: "100%", minHeight: 0, display: "flex", flexDirection: "column", gap: 6 }}>
       <div style={{ display: "flex", alignItems: "center", minHeight: 31, color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata, fontWeight: steamTheme.type.weight.strong, letterSpacing: ".1em" }}>GENERAL SETTINGS</div>
       <div data-settings-general-sections="true" onFocusCapture={(event) => {

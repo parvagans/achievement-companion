@@ -1,3 +1,4 @@
+import { subscribeDeckyAccountRevision } from "../../decky-account-revision";
 import { useMemo, useSyncExternalStore } from "react";
 import type { SteamLibraryScanStore } from "@core/platform";
 import {
@@ -618,3 +619,10 @@ export const useDeckySteamProviderConfig = useDeckyProviderConfig;
 export const loadDeckySteamProviderConfig = loadDeckyProviderConfig;
 
 export { updateDeckyProviderConfigCache };
+
+subscribeDeckyAccountRevision((providerId) => {
+  if (providerId === STEAM_PROVIDER_ID) {
+    clearDeckySteamLibraryAchievementScanSummary();
+    clearDeckySteamAchievementSchemaCache();
+  }
+});

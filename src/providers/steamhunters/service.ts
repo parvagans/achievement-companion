@@ -7,6 +7,7 @@ import {
 } from "./normalize";
 import type { SteamHuntersGameData, SteamHuntersProfile } from "./types";
 import { hasMeaningfulSteamHuntersProfile } from "./profile-availability";
+import { readBoundedCache, writeBoundedCache } from "../../core/bounded-cache";
 
 interface CacheEntry<T> {
   readonly value: T;
@@ -28,6 +29,7 @@ export interface CreateSteamHuntersServiceOptions {
 
 const DEFAULT_CACHE_TTL_MS = 6 * 60 * 60 * 1_000;
 const MAX_UNAVAILABLE_PROFILE_CACHE_TTL_MS = 2 * 60 * 1_000;
+const MAX_GAME_CACHE_ENTRIES = 200;
 
 function validAppId(appId: number): boolean {
   return Number.isSafeInteger(appId) && appId > 0;
@@ -61,7 +63,7 @@ export function createSteamHuntersService(
   const pendingProfileLoads = new Map<string, Promise<SteamHuntersProfile | undefined>>();
 
   async function loadApp(appId: number): Promise<SteamHuntersGameData["app"] | undefined> {
-    const cached = readFresh(appCache, appId, now());
+    const cached = readBoundedCache(appCache, appId, now(), MAX_GAME_CACHE_ENTRIES)?.value;
     if (cached !== undefined) {
       return cached;
     }
@@ -71,29 +73,29 @@ export function createSteamHuntersService(
       return undefined;
     }
 
-    appCache.set(appId, { value: normalized, expiresAt: now() + cacheTtlMs });
+    writeBoundedCache(appCache, appId, { value: normalized, expiresAt: now() + cacheTtlMs }, now(), MAX_GAME_CACHE_ENTRIES);
     return normalized;
   }
 
   async function loadAchievements(appId: number): Promise<SteamHuntersGameData["achievements"]> {
-    const cached = readFresh(achievementCache, appId, now());
+    const cached = readBoundedCache(achievementCache, appId, now(), MAX_GAME_CACHE_ENTRIES)?.value;
     if (cached !== undefined) {
       return cached;
     }
 
     const normalized = normalizeSteamHuntersAchievements(await client.loadAchievements(appId));
-    achievementCache.set(appId, { value: normalized, expiresAt: now() + cacheTtlMs });
+    writeBoundedCache(achievementCache, appId, { value: normalized, expiresAt: now() + cacheTtlMs }, now(), MAX_GAME_CACHE_ENTRIES);
     return normalized;
   }
 
   async function loadGroups(appId: number): Promise<SteamHuntersGameData["groups"]> {
-    const cached = readFresh(groupCache, appId, now());
+    const cached = readBoundedCache(groupCache, appId, now(), MAX_GAME_CACHE_ENTRIES)?.value;
     if (cached !== undefined) {
       return cached;
     }
 
     const normalized = normalizeSteamHuntersAchievementGroups(await client.loadGroups(appId));
-    groupCache.set(appId, { value: normalized, expiresAt: now() + cacheTtlMs });
+    writeBoundedCache(groupCache, appId, { value: normalized, expiresAt: now() + cacheTtlMs }, now(), MAX_GAME_CACHE_ENTRIES);
     return normalized;
   }
 

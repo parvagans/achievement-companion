@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { pruneBoundedCache, readBoundedCache, writeBoundedCache } from "../src/core/bounded-cache";
 import test from "node:test";
 import type { GameDetailSnapshot, NormalizedAchievement } from "../src/core/domain";
 import {
@@ -420,6 +421,45 @@ test("SteamHunters composition preserves Steam truth and enriches only exact mat
     { achievementApiNames: ["API_ONE"], dlcAppId: 123, dlcAppName: "Creeping Winter" },
   ]);
   assert.equal(composeSteamGameDetailWithSteamHunters(snapshot, undefined), snapshot);
+});
+
+test("bounded caches prune all expired entries before enforcing their LRU limit", () => {
+  const cache = new Map<number, { value: number; expiresAt: number }>();
+  for (let id = 0; id < 200; id += 1) {
+    writeBoundedCache(cache, id, { value: id, expiresAt: id < 100 ? 10 : 20 }, 0, 200);
+  }
+  assert.equal(readBoundedCache(cache, 150, 10, 200)?.value, 150);
+  assert.equal(cache.size, 100);
+  for (let id = 200; id <= 300; id += 1) {
+    writeBoundedCache(cache, id, { value: id, expiresAt: 20 }, 10, 200);
+    assert.ok(cache.size <= 200);
+  }
+  assert.equal(cache.has(100), false);
+  assert.equal(cache.has(150), true);
+  pruneBoundedCache(cache, 20, 200);
+  assert.equal(cache.size, 0);
+});
+
+test("SteamHunters per-game caches retain at most 200 entries and reload expired metadata", async () => {
+  let clock = 0;
+  const calls = { app: 0, achievements: 0, groups: 0 };
+  const service = createSteamHuntersService({
+    now: () => clock,
+    cacheTtlMs: 100,
+    client: {
+      async loadApp(appId) { calls.app += 1; return { appId }; },
+      async loadAchievements() { calls.achievements += 1; return []; },
+      async loadGroups() { calls.groups += 1; return []; },
+    },
+  });
+  for (let id = 1; id <= 201; id += 1) await service.loadGameData(id);
+  await service.loadGameData(201);
+  assert.deepEqual(calls, { app: 201, achievements: 201, groups: 201 });
+  await service.loadGameData(1);
+  assert.deepEqual(calls, { app: 202, achievements: 202, groups: 202 });
+  clock = 100;
+  await service.loadGameData(201);
+  assert.deepEqual(calls, { app: 203, achievements: 203, groups: 203 });
 });
 
 test("SteamHunters fills only missing Steam achievement descriptions and provides base art", () => {

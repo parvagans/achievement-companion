@@ -61,7 +61,7 @@ export function writeDeckyStorageText(storageKey: string, value: string): boolea
  * than falling back to a lower-priority store that reads could shadow.
  */
 export function writeDeckyStorageTextPreservingExisting(storageKey: string, value: string): boolean {
-  const storage = getAvailableStorages()[0];
+  const storage = getPreferredReadableStorage(storageKey);
   if (storage === undefined) {
     return false;
   }
@@ -72,6 +72,26 @@ export function writeDeckyStorageTextPreservingExisting(storageKey: string, valu
   } catch {
     return false;
   }
+}
+
+function getPreferredReadableStorage(storageKey: string): Storage | undefined {
+  return getAvailableStorages().find((storage) => {
+    try { storage.getItem(storageKey); return true; } catch { return false; }
+  });
+}
+
+/** The readable primary store is authoritative, even if a fallback is writable. */
+export function removeDeckyStorageTextPreservingExisting(storageKey: string): boolean {
+  const preferred = getPreferredReadableStorage(storageKey);
+  if (preferred === undefined) return false;
+  try { preferred.removeItem(storageKey); } catch { return false; }
+  // Remove fallback copies so a subsequent read cannot resurrect the old setting.
+  for (const storage of getAvailableStorages()) {
+    if (storage !== preferred) {
+      try { storage.removeItem(storageKey); } catch { /* Best-effort mirror cleanup. */ }
+    }
+  }
+  return true;
 }
 
 export function removeDeckyStorageText(storageKey: string): boolean {

@@ -206,7 +206,7 @@ test("Steam Games reveals batches on Down or scrolling and transfers native focu
   assert.match(source, /scrollDeckyFocusTargetIntoView\(rowRef\.current \?\? element, listRef\.current, isStillFocused\)/u);
   assert.match(source, /onBlur=\{\(\) => \{ focusGeneration\.current \+= 1; \}\}[\s\S]*onGamepadBlur=\{\(\) => \{ focusGeneration\.current \+= 1; \}\}/u);
   assert.match(source, /GamepadButton\.DIR_DOWN && onRevealMore\?\.\(\)[\s\S]*event\.preventDefault\(\)[\s\S]*event\.stopPropagation\(\)/u);
-  assert.match(source, /rowIndex === renderedGames\.length - 1[\s\S]*onRevealMore: \(\) => revealMoreGames\(true\)/u);
+  assert.match(source, /rowIndex === renderedGames\.length - 1[\s\S]*onRevealMore: revealMoreWithFocus/u);
   assert.match(source, /list\.scrollTop \+ list\.clientHeight >= list\.scrollHeight - \(displayMode === "compact" \? STEAM_GAMES_COMPACT_ROW_HEIGHT : STEAM_FULLSCREEN_GAME_ROW_HEIGHT\)\) revealMoreGames\(false\)/u);
   assert.doesNotMatch(source, /data-steam-games-show-more|handleSteamGamesShowMoreDirection|Show \$\{Math\.min\(STEAM_GAMES_RENDER_STEP/u);
   assert.match(source, /handleSteamGamesToolbarDirection[\s\S]*GamepadButton\.DIR_LEFT[\s\S]*GamepadButton\.DIR_RIGHT/u);

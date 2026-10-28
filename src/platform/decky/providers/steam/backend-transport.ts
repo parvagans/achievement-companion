@@ -1,3 +1,4 @@
+import { getDeckyAccountRevision } from "../../decky-account-revision";
 import { callDeckyBackendMethod } from "../../decky-backend-bridge";
 import type { SteamTransport, SteamTransportRequest } from "../../../../providers/steam/client/transport";
 import { SteamRequestError } from "../../../../providers/steam/client/transport";
@@ -15,12 +16,14 @@ function isFailureEnvelope(value: unknown): value is DeckySteamFailureEnvelope {
 export function createDeckySteamTransport(): SteamTransport {
   return {
     async requestJson<T>({ path, query, init, handledHttpStatuses }: SteamTransportRequest): Promise<T> {
+      const revision = getDeckyAccountRevision("steam");
       const response = await callDeckyBackendMethod<T>("request_steam_json", {
         path,
         ...(query !== undefined ? { query } : {}),
         ...(handledHttpStatuses !== undefined ? { handledHttpStatuses } : {}),
         ...(init !== undefined ? { init } : {}),
       } satisfies DeckySteamRequest);
+      if (revision !== getDeckyAccountRevision("steam")) throw new Error("Account settings changed during the request.");
       const failureEnvelope = response as unknown;
       if (isFailureEnvelope(failureEnvelope)) {
         throw new SteamRequestError(typeof failureEnvelope.message === "string" ? failureEnvelope.message : "Steam request failed.", path, typeof failureEnvelope.status === "number" ? failureEnvelope.status : undefined, "http");

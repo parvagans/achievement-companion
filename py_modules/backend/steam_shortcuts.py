@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import os
 import shlex
+from hashlib import sha256
 from pathlib import Path
+from threading import RLock
 from typing import Any, Iterable, Mapping, Sequence
 
 
@@ -64,6 +66,49 @@ _NON_GAME_ARGUMENT_EXTENSIONS = {
 _MAX_COMMAND_TOKENS = 64
 _MAX_REJECTION_DIAGNOSTICS = 8
 
+# Parsed data only: metadata and ROM lookups share the same file snapshot. The
+# lock coalesces cold loads from concurrent worker threads.
+_shortcuts_cache: dict[Path, tuple[int, int, bytes, dict[int, list[Mapping[str, Any]]]]] = {}
+_shortcuts_cache_lock = RLock()
+
+
+def _load_shortcuts_by_app_id(path: Path) -> dict[int, list[Mapping[str, Any]]]:
+  with _shortcuts_cache_lock:
+    try:
+      file_stat = path.stat()
+      cached = _shortcuts_cache.get(path)
+      # Filesystems can report the same timestamp for rapid, same-size rewrites.
+      # Confirm the bytes before reusing a parsed snapshot.
+      contents = path.read_bytes()
+      digest = sha256(contents).digest()
+      if cached is not None and cached[:3] == (file_stat.st_mtime_ns, file_stat.st_size, digest):
+        return cached[3]
+      # Discard a previous snapshot before reading so malformed replacements
+      # cannot expose shortcuts from a no-longer-valid file.
+      _shortcuts_cache.pop(path, None)
+      shortcuts = parse_steam_shortcuts_vdf(contents)
+      by_app_id: dict[int, list[Mapping[str, Any]]] = {}
+      for shortcut in shortcuts.values():
+        app_id = shortcut.get("appid")
+        if isinstance(app_id, int):
+          by_app_id.setdefault(app_id, []).append(shortcut)
+      _shortcuts_cache[path] = (file_stat.st_mtime_ns, file_stat.st_size, digest, by_app_id)
+      return by_app_id
+    except (OSError, ValueError):
+      _shortcuts_cache.pop(path, None)
+      return {}
+
+
+def _evict_removed_shortcuts_files() -> None:
+  with _shortcuts_cache_lock:
+    for path in tuple(_shortcuts_cache):
+      try:
+        present = path.is_file()
+      except OSError:
+        present = False
+      if not present:
+        _shortcuts_cache.pop(path, None)
+
 
 def _coerce_app_id(value: str | int) -> int | None:
   if isinstance(value, bool):
@@ -124,22 +169,13 @@ def _collect_matching_shortcuts(
   if normalized_app_id is None:
     return None, []
 
-  paths_to_scan = shortcuts_files or tuple(iter_steam_shortcuts_files(home=home))
+  paths_to_scan = shortcuts_files if shortcuts_files is not None else tuple(iter_steam_shortcuts_files(home=home))
+  _evict_removed_shortcuts_files()
   matched_shortcuts: list[Mapping[str, Any]] = []
 
   for shortcuts_path in paths_to_scan:
-    try:
-      shortcuts = parse_steam_shortcuts_vdf(shortcuts_path.read_bytes())
-    except OSError:
-      continue
-    except ValueError:
-      continue
-
-    for shortcut in shortcuts.values():
-      shortcut_app_id = shortcut.get("appid")
-      if shortcut_app_id != normalized_app_id:
-        continue
-      matched_shortcuts.append(shortcut)
+    shortcuts = _load_shortcuts_by_app_id(shortcuts_path.resolve(strict=False))
+    matched_shortcuts.extend(shortcuts.get(normalized_app_id, ()))
 
   return normalized_app_id, matched_shortcuts
 

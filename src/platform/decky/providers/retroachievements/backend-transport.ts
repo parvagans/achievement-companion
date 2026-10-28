@@ -1,3 +1,4 @@
+import { getDeckyAccountRevision } from "../../decky-account-revision";
 import { callDeckyBackendMethod } from "../../decky-backend-bridge";
 import type {
   RetroAchievementsTransport,
@@ -25,11 +26,13 @@ function isFailureEnvelope(value: unknown): value is DeckyRetroAchievementsFailu
 export function createDeckyRetroAchievementsTransport(): RetroAchievementsTransport {
   return {
     async requestJson<T>({ path, query, init }: RetroAchievementsTransportRequest): Promise<T> {
+      const revision = getDeckyAccountRevision("retroachievements");
       const response = await callDeckyBackendMethod<T>("request_retroachievements_json", {
         path,
         ...(query !== undefined ? { query } : {}),
         ...(init !== undefined ? { init } : {}),
       } satisfies DeckyRetroAchievementsRequest);
+      if (revision !== getDeckyAccountRevision("retroachievements")) throw new Error("Account settings changed during the request.");
       const failureEnvelope = response as unknown;
       if (isFailureEnvelope(failureEnvelope)) {
         const statusCode = typeof failureEnvelope.status === "number" ? failureEnvelope.status : undefined;

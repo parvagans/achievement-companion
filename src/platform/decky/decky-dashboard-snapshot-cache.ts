@@ -1,3 +1,4 @@
+import { subscribeDeckyAccountRevision } from "./decky-account-revision";
 import type { ResourceState } from "@core/cache";
 import type { DashboardSnapshot, ProviderId } from "@core/domain";
 import type { DashboardSnapshotStore } from "@core/platform";
@@ -108,3 +109,5 @@ export function writeDeckyDashboardSnapshot(snapshot: DashboardSnapshot): boolea
 export function clearDeckyDashboardSnapshot(providerId: ProviderId): boolean {
   return removeDeckyStorageText(getDashboardSnapshotStorageKey(providerId));
 }
+
+subscribeDeckyAccountRevision((providerId) => { clearDeckyDashboardSnapshot(providerId); });

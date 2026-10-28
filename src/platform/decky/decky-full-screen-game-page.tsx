@@ -447,6 +447,7 @@ export function DeckyFullScreenGamePage({
 
     return () => loadDeckyGameDetailState(providerId, gameId, {
       forceRefresh: initialSectionState?.restoreRequested !== true,
+      entryPoint: "full-screen-game",
     });
   }, [gameId, initialSectionState?.restoreRequested, providerId]);
   const state = useAsyncResourceState(loadSelectedGameDetail, initialDeckyGameDetailState);

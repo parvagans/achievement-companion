@@ -38,6 +38,7 @@ import type { ResourceState } from "@core/cache";
 import type { DashboardSnapshot, GameDetailSnapshot, ProviderId } from "@core/domain";
 import { PlaceholderState } from "@ui/PlaceholderState";
 import { createDeckyNavigationPort, openDeckyProviderSettingsFromQam } from "./decky-navigation";
+import { deckyDiagnosticLogger } from "./decky-diagnostic-logger";
 import {
   createDeckyPlatform,
   initialDeckyBootstrapState,
@@ -319,7 +320,7 @@ function getPluginSettingsContentCardStyle(): CSSProperties {
     // Bridge the native PanelSection gap and overlap the disclosure's lower edge by one pixel.
     margin: `-${steamTheme.space.xl + 1}px 0 ${steamTheme.space.md}px`,
     borderTop: 0,
-    borderColor: "var(--ac-chooser-border, rgba(86, 137, 173, 0.24))",
+    borderColor: steamTheme.decorative.chooserBorder,
     borderTopLeftRadius: 0,
     borderTopRightRadius: 0,
     overflow: "hidden",
@@ -376,18 +377,18 @@ function getChooserProviderCardStyle(
       isFocused
         ? tone === "setup"
           ? "rgba(245, 189, 82, 0.72)"
-          : "var(--ac-chooser-focus-border, rgba(125, 190, 255, 0.7))"
-        : "var(--ac-chooser-border, rgba(86, 137, 173, 0.24))"
+          : steamTheme.decorative.chooserFocusBorder
+        : steamTheme.decorative.chooserBorder
     }`,
     background: isFocused ? steamTheme.surface.focusedContentCard : steamTheme.surface.contentCard,
     boxShadow: isFocused
       ? tone === "setup"
         ? "0 0 0 1px rgba(245, 189, 82, 0.5), 0 0 14px rgba(245, 189, 82, 0.28)"
-        : "var(--ac-chooser-focus-shadow, 0 0 0 1px rgba(54, 185, 255, 0.8), 0 0 15px rgba(54, 185, 255, 0.45))"
-      : "inset 0 1px 0 rgba(255, 255, 255, 0.045)",
+        : steamTheme.decorative.chooserFocusShadow
+      : "none",
     boxSizing: "border-box",
     cursor: "pointer",
-    color: "rgba(255, 255, 255, 0.96)",
+    color: steamTheme.color.textPrimary,
     transition:
       "background 120ms ease, border-color 120ms ease, box-shadow 120ms ease, color 120ms ease, transform 120ms ease",
   };
@@ -402,7 +403,7 @@ function getChooserProviderCardSettingsIconStyle(): CSSProperties {
     placeItems: "center",
     borderRadius: 10,
     background: steamTheme.surface.contentStat,
-    color: "rgba(187, 211, 229, 0.9)",
+    color: steamTheme.color.textSecondary,
     fontSize: 24,
     lineHeight: 1,
   };
@@ -432,10 +433,10 @@ function getChooserProviderCardDetailsStyle(): CSSProperties {
 function getChooserProviderCardIconFrameStyle(tone: ProviderLauncherTone): CSSProperties {
   const accentColor =
     tone === "connected"
-      ? "rgba(116, 176, 255, 0.24)"
+      ? steamTheme.color.borderSubtle
       : tone === "setup"
         ? "rgba(214, 158, 46, 0.24)"
-        : "rgba(255, 255, 255, 0.18)";
+        : steamTheme.color.borderSubtle;
 
   return {
     width: 40,
@@ -482,7 +483,7 @@ function getChooserProviderCardStatusStyle(tone: ProviderLauncherTone): CSSPrope
     alignItems: "center",
     gap: 6,
     color: isConfigured ? "rgba(194, 239, 210, 0.94)" : "rgba(255, 225, 159, 0.96)",
-    fontSize: "0.70em",
+    fontSize: steamTheme.type.compact.metadata,
     fontWeight: 600,
     lineHeight: 1.15,
     whiteSpace: "nowrap",
@@ -507,7 +508,7 @@ function getChooserProviderCardChevronStyle(tone: ProviderLauncherTone): CSSProp
     width: 28,
     height: 28,
     flexShrink: 0,
-    color: tone === "setup" ? "rgba(245, 197, 66, 0.92)" : "var(--ac-chooser-chevron, rgba(54, 185, 255, 0.94))",
+    color: tone === "setup" ? "rgba(245, 197, 66, 0.92)" : steamTheme.decorative.chooserChevron,
   };
 }
 
@@ -1010,7 +1011,7 @@ const platform = createDeckyPlatform(createDeckyNavigationPort());
 let lastDeckyDashboardSettingsSignature: string | undefined;
 
 function loadGameDetailState(providerId: ProviderId, gameId: string): Promise<ResourceState<GameDetailSnapshot>> {
-  return loadDeckyGameDetailState(providerId, gameId);
+  return loadDeckyGameDetailState(providerId, gameId, { entryPoint: "qam-game" });
 }
 
 function isRenderableDashboardState(
@@ -1659,6 +1660,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
     setProviderChooserFocusRequest((request) => request + 1);
   }, [compactNavigation]);
   const openProviderDashboard = useCallback((providerId: ProviderId) => {
+    void deckyDiagnosticLogger.record({ event: "provider_opened", providerId, entryPoint: "qam" });
     // A chooser selection must never reuse a previous provider's transient
     // loading state or cached promise, including when Back and A are batched
     // by GamepadUI before React commits the chooser in between.

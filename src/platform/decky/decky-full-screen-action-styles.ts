@@ -38,13 +38,14 @@ export function getDeckyFullscreenActionStylesCss(): string {
   scroll-margin-bottom: ${DECKY_FOOTER_SCROLL_MARGIN_BOTTOM_PX}px;
   min-height: 40px !important;
   padding: 0 14px !important;
-  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border: 1px solid ${qamTheme.color.borderSubtle} !important;
   border-radius: 999px !important;
   background: ${qamTheme.surface.contentStat} !important;
-  color: rgba(255, 255, 255, 0.94) !important;
+  color: ${qamTheme.color.textPrimary} !important;
   box-sizing: border-box !important;
-  font-size: 13px !important;
-  font-weight: 700 !important;
+  font-family: ${qamTheme.type.fontFamily};
+  font-size: ${qamTheme.type.compact.body}px !important;
+  font-weight: ${qamTheme.type.weight.strong} !important;
   line-height: 1.15 !important;
   letter-spacing: 0.01em !important;
   user-select: none !important;
@@ -52,9 +53,7 @@ export function getDeckyFullscreenActionStylesCss(): string {
   overflow: visible !important;
   text-overflow: clip !important;
   outline: none !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 2px 10px rgba(0, 0, 0, 0.22) !important;
+  box-shadow: none !important;
   transition:
     background 120ms ease,
     border-color 120ms ease,
@@ -65,7 +64,7 @@ export function getDeckyFullscreenActionStylesCss(): string {
 .${DECKY_FULLSCREEN_CHIP_CLASS}.${DECKY_FULLSCREEN_CHIP_SELECTED_CLASS} {
   border-color: ${qamTheme.focus.border} !important;
   background: ${qamTheme.surface.selectedContentStat} !important;
-  color: rgba(255, 255, 255, 0.99) !important;
+  color: ${qamTheme.color.textPrimary} !important;
   box-shadow: ${qamTheme.focus.insetShadow} !important;
 }
 
@@ -79,14 +78,14 @@ export function getDeckyFullscreenActionStylesCss(): string {
 .${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-overview-action {
   justify-content: flex-start !important;
   padding: 0 16px !important;
-  font-size: 14px !important;
+  font-size: ${qamTheme.type.fullscreen.body}px !important;
 }
 
 /* The Steam section footer shares the native footer's narrow CSS-pixel height. */
 .${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-compact {
   min-height: 32px !important;
   padding: 0 10px !important;
-  font-size: 12px !important;
+  font-size: ${qamTheme.type.fullscreen.metadata}px !important;
 }
 
 .${DECKY_FULLSCREEN_CHIP_CLASS}.achievement-companion-fullscreen-chip-primary {
@@ -103,7 +102,7 @@ export function getDeckyFullscreenActionStylesCss(): string {
 .${DECKY_FULLSCREEN_CHIP_CLASS}:focus-within {
   border-color: ${qamTheme.focus.border} !important;
   background: ${qamTheme.surface.focusedContentStat} !important;
-  color: #fff !important;
+  color: ${qamTheme.color.textPrimary} !important;
   outline: none !important;
   box-shadow: ${qamTheme.focus.shadow} !important;
 }

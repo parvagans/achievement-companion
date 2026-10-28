@@ -68,6 +68,7 @@ export function getAchievementGroupFilterOptions(
   achievementGroups?: readonly SteamHuntersAchievementGroup[],
 ): readonly AchievementGroupFilter[] {
   const groups = achievementGroups ?? Object.values(achievementGroupsBySteamAchievementId ?? {});
+  const achievementIds = new Set(achievements.map((achievement) => achievement.achievementId));
   const availableFilters = new Set<AchievementGroupFilter>();
   const hasBaseGameAchievements = achievements.some((achievement) => {
     const group = achievementGroupsBySteamAchievementId?.[achievement.achievementId];
@@ -77,7 +78,7 @@ export function getAchievementGroupFilterOptions(
 
   for (const group of groups) {
     const hasAchievements = group.achievementApiNames.some((achievementId) =>
-      achievements.some((achievement) => achievement.achievementId === achievementId),
+      achievementIds.has(achievementId),
     );
     if (hasAchievements) availableFilters.add(getAchievementGroupFilterValue(group));
   }

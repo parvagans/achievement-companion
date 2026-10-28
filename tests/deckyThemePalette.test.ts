@@ -6,6 +6,48 @@ import { DECKY_LOADING_COLORS, DECKY_LOADING_PAGE_BACKGROUND } from "../src/plat
 import { achievementCompanionQamTheme } from "../src/platform/decky/decky-qam-theme";
 import { raRecipes, raTheme } from "../src/platform/decky/ra-theme";
 import { steamTheme } from "../src/platform/decky/steam-theme";
+import { retainDeckyDocumentStyles } from "../src/platform/decky/decky-document-styles";
+import { getDeckySettingsStylesCss } from "../src/platform/decky/decky-settings-styles";
+import { getDeckyFullscreenActionStylesCss } from "../src/platform/decky/decky-full-screen-action-styles";
+
+test("retained styles have one owner-counted sheet per document and clean up on last release", () => {
+  const makeDocument = () => {
+    const children: unknown[] = [];
+    const document = {
+      head: { appendChild: (style: unknown) => children.push(style) },
+      createElement: () => {
+        const style = { dataset: {}, textContent: "", remove: () => children.splice(children.indexOf(style), 1) };
+        return style;
+      },
+    } as unknown as Document;
+    return { document, children };
+  };
+  const first = makeDocument();
+  const second = makeDocument();
+  const releaseA = retainDeckyDocumentStyles(first.document, "focus", "focus-css");
+  const releaseB = retainDeckyDocumentStyles(first.document, "focus", "focus-css");
+  const releaseC = retainDeckyDocumentStyles(second.document, "focus", "focus-css");
+  assert.equal(first.children.length, 1);
+  assert.equal(second.children.length, 1);
+  releaseA();
+  releaseA();
+  assert.equal(first.children.length, 1);
+  releaseB();
+  assert.equal(first.children.length, 0);
+  assert.equal(second.children.length, 1);
+  releaseC();
+  assert.equal(second.children.length, 0);
+});
+
+test("settings selectors stay route scoped and chips use palette text in every state", () => {
+  for (const rule of getDeckySettingsStylesCss().trim().split("\n")) {
+    assert.ok(rule.startsWith(":is(.ac-steam-settings-page,.ac-ra-fullscreen-settings-page,.ac-provider-about-page)"));
+  }
+  const css = getDeckyFullscreenActionStylesCss();
+  const chips = css.slice(0, css.indexOf("[data-ac-steam-theme]"));
+  assert.match(chips, /color: var\(--ac-text-primary/u);
+  assert.doesNotMatch(chips, /color: (?:#fff|rgba\(255)/u);
+});
 import {
   AC_ARCADE_THEME_VARIABLES,
   AC_AURORA_THEME_VARIABLES,
@@ -208,13 +250,11 @@ test("ordinary icon, avatar, progress, footer, and loading chrome use centralize
 });
 
 test("achievement details and community panels use the selected palette", () => {
-  const primaryAction = readFileSync("src/platform/decky/decky-compact-primary-action.tsx", "utf8");
   const compactDetail = readFileSync("src/platform/decky/decky-achievement-detail-view.tsx", "utf8");
   const fullscreenDetail = readFileSync("src/platform/decky/decky-achievement-detail-modal.tsx", "utf8");
   const steamProfile = readFileSync("src/platform/decky/decky-steam-compact-profile.tsx", "utf8");
   const community = readFileSync("src/platform/decky/decky-full-screen-game-community-layout.tsx", "utf8");
 
-  assert.match(primaryAction, /filter: qamTheme\.decorative\.iconFilter/u);
   assert.match(compactDetail, /filter: achievementCompanionQamTheme\.decorative\.iconFilter/u);
   assert.match(fullscreenDetail, /theme\.surface\.contentStat/u);
   assert.match(fullscreenDetail, /theme\.color\.textPrimary/u);
@@ -224,7 +264,7 @@ test("achievement details and community panels use the selected palette", () => 
   assert.match(community, /color: qamTheme\.color\.textPrimary/u);
   assert.equal(raTheme.color.retroPoints, achievementCompanionQamTheme.color.accent);
 
-  for (const source of [primaryAction, compactDetail, fullscreenDetail, steamProfile, community]) {
+  for (const source of [compactDetail, fullscreenDetail, steamProfile, community]) {
     assert.doesNotMatch(source, /#(?:3ab7ff|69cfff|8ed7ff)|hue-rotate\(16[0-9]deg\)/iu);
   }
 });

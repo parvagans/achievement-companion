@@ -4,6 +4,8 @@ import asyncio
 import json
 import re
 import sys
+import threading
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -47,6 +49,11 @@ from backend.version import get_application_version as _get_application_version
 
 SETTINGS_PATH = Path(decky.DECKY_PLUGIN_SETTINGS_DIR)
 LOGS_PATH = Path(decky.DECKY_PLUGIN_LOG_DIR)
+LOG_FILE_PATH = LOGS_PATH / "achievement-companion.log"
+LOG_FILE_MAX_BYTES = 2 * 1024 * 1024
+LOG_FILE_BACKUPS = 3
+_LOG_FILE_LOCK = threading.Lock()
+_log_file_failure_reported = False
 CONFIG_PATH = SETTINGS_PATH / "provider-config.json"
 SECRETS_PATH = SETTINGS_PATH / "provider-secrets.json"
 STEAM_HUNTERS_REQUEST_TIMEOUT_SECONDS = 8
@@ -181,12 +188,34 @@ def _record_diagnostic_event(payload: Mapping[str, Any]) -> bool:
 
 
 def _log(level: str, message: str, **fields: Any) -> None:
+  global _log_file_failure_reported
   message = _redact_text(message)
   payload = json.dumps(_redact_value(fields), ensure_ascii=False, separators=(",", ":")) if fields else ""
+  rendered = f"{message} {payload}" if payload else message
   if payload:
     getattr(decky.logger, level)("%s %s", message, payload)
   else:
     getattr(decky.logger, level)(message)
+
+  if not LOGS_PATH.is_dir():
+    return
+  try:
+    timestamp = datetime.now().astimezone().strftime("%Y-%m-%d %H:%M:%S,%f%z")
+    line = f"[{timestamp}][{level.upper()}]: {rendered}\n"
+    with _LOG_FILE_LOCK:
+      if LOG_FILE_PATH.is_file() and LOG_FILE_PATH.stat().st_size + len(line.encode("utf-8")) > LOG_FILE_MAX_BYTES:
+        for index in range(LOG_FILE_BACKUPS, 1, -1):
+          older = LOG_FILE_PATH.with_name(f"{LOG_FILE_PATH.name}.{index - 1}")
+          newer = LOG_FILE_PATH.with_name(f"{LOG_FILE_PATH.name}.{index}")
+          if older.is_file():
+            older.replace(newer)
+        LOG_FILE_PATH.replace(LOG_FILE_PATH.with_name(f"{LOG_FILE_PATH.name}.1"))
+      with LOG_FILE_PATH.open("a", encoding="utf-8") as log_file:
+        log_file.write(line)
+  except OSError as error:
+    if not _log_file_failure_reported:
+      _log_file_failure_reported = True
+      decky.logger.warning("Achievement Companion file logging unavailable: %s", type(error).__name__)
 
 
 def _resolve_api_key(payload: Mapping[str, Any], provider_key: str) -> str | None:
@@ -405,14 +434,15 @@ class Plugin:
     if path not in RETROACHIEVEMENTS_API_PATHS:
       raise RuntimeError("RetroAchievements request requires an allowed API endpoint.")
 
-    config = _build_retroachievements_config_view(
-      _load_provider_config("retroAchievements"),
-      _load_secret_api_key("retroAchievements") is not None,
-    )
+    def load_credentials() -> tuple[dict[str, Any] | None, str | None]:
+      secret = _load_secret_api_key("retroAchievements")
+      config = _build_retroachievements_config_view(_load_provider_config("retroAchievements"), secret is not None)
+      return config, secret
+
+    config, secret = await asyncio.to_thread(load_credentials)
     if config is None or config.get("hasApiKey") is not True:
       raise RuntimeError("RetroAchievements credentials are missing.")
 
-    secret = _load_secret_api_key("retroAchievements")
     if secret is None:
       raise RuntimeError("RetroAchievements API key is missing.")
 
@@ -482,14 +512,15 @@ class Plugin:
     if path not in STEAM_API_PATHS:
       raise RuntimeError("Steam request requires an allowed API endpoint.")
 
-    config = _build_steam_config_view(
-      _load_provider_config("steam"),
-      _load_secret_api_key("steam") is not None,
-    )
+    def load_credentials() -> tuple[dict[str, Any] | None, str | None]:
+      secret = _load_secret_api_key("steam")
+      config = _build_steam_config_view(_load_provider_config("steam"), secret is not None)
+      return config, secret
+
+    config, secret = await asyncio.to_thread(load_credentials)
     if config is None or config.get("hasApiKey") is not True:
       raise RuntimeError("Steam credentials are missing.")
 
-    secret = _load_secret_api_key("steam")
     if secret is None:
       raise RuntimeError("Steam Web API key is missing.")
 
@@ -594,7 +625,7 @@ class Plugin:
     if app_id is None:
       return None
 
-    metadata = _load_steam_shortcut_metadata(app_id)
+    metadata = await asyncio.to_thread(_load_steam_shortcut_metadata, app_id)
     if metadata is None:
       return None
 
