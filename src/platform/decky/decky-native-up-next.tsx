@@ -1,3 +1,6 @@
+import { createUpNextPinAction } from "./decky-up-next-pin-action";
+import { DeckyUpNextPinIcon } from "./decky-up-next-pin-icon";
+import { useDeckyUpNextSnapshot } from "./decky-up-next-snapshot";
 import { Focusable, Navigation, type GamepadEvent } from "@decky/ui";
 import { useLayoutEffect, useMemo, useRef, useState, type JSX } from "react";
 import type { NativeRetroAchievementsProjection } from "./decky-native-retroachievements-projection";
@@ -44,7 +47,7 @@ const styles = `
 .ac-native-up-next__grid { display:grid; gap:12px; grid-template-columns:repeat(3,minmax(0,1fr)); }
 .ac-native-up-next__item.Panel { align-items:flex-start; background:rgba(172,178,201,.1); border:1px solid rgba(255,255,255,.12); border-radius:5px; color:#dcdedf; display:flex; gap:12px; min-height:116px; min-width:0; padding:14px; transform:none !important; }
 .ac-native-up-next__item.Panel.gpfocus { background:rgba(172,178,201,.23); border-color:#dcdedf; box-shadow:inset 0 0 0 1px #dcdedf; }
-.ac-native-up-next__badge { background:#232932; border-radius:4px; flex:0 0 64px; height:64px; object-fit:contain; width:64px; }
+.ac-native-up-next__badge { background:#232932; border-radius:0; flex:0 0 64px; height:64px; object-fit:contain; width:64px; }
 .ac-native-up-next__copy { flex:1 1 auto; min-width:0; }
 .ac-native-up-next__title-row { align-items:flex-start; display:flex; gap:8px; justify-content:space-between; min-width:0; }
 .ac-native-up-next__name { display:-webkit-box; flex:1 1 auto; font-size:16px; font-weight:600; line-height:1.25; min-width:0; overflow:hidden; -webkit-box-orient:vertical; -webkit-line-clamp:2; }
@@ -83,14 +86,15 @@ export function DeckyNativeUpNext({ projection }: { readonly projection: NativeR
     }
   }, []);
   const preferences = useDeckyGameOverviewPreferences("retroachievements", projection.raGameId);
-  const snapshot = projection.detailSnapshot;
+  const snapshot = useDeckyUpNextSnapshot(projection.detailSnapshot);
   const completed = snapshot !== undefined && isGameOverviewGoalComplete(snapshot, preferences.retroAchievementsGoal, projection.mode);
   const suggestions = useMemo(() => snapshot === undefined ? [] : selectGameOverviewSuggestions({
     snapshot,
     goal: preferences.retroAchievementsGoal,
     achievementMode: projection.mode,
     hiddenAchievementIds: preferences.hiddenAchievementIds,
-  }), [snapshot, preferences.retroAchievementsGoal, preferences.hiddenAchievementIds, projection.mode]);
+    pinnedAchievement: preferences.pinnedAchievement,
+  }), [snapshot, preferences.retroAchievementsGoal, preferences.hiddenAchievementIds, preferences.pinnedAchievement, projection.mode]);
   const hiddenAchievements = useMemo(() => {
     const hiddenIds = new Set(preferences.hiddenAchievementIds);
     return snapshot?.achievements.filter((achievement) => !achievement.isUnlocked && hiddenIds.has(achievement.achievementId)) ?? [];
@@ -106,6 +110,7 @@ export function DeckyNativeUpNext({ projection }: { readonly projection: NativeR
     pendingSkipFocusRef.current = undefined;
     const target = (pendingId === null ? undefined : suggestionRefs.current.get(pendingId))
       ?? suggestionsMenuRef.current ?? browseRef.current;
+    if (target?.matches(".gpfocus")) return;
     return requestDeckySteamGamepadFocusAfterMount(target);
   }, [suggestions]);
   const percent = projection.total > 0 ? Math.round(projection.earned / projection.total * 100) : 0;
@@ -123,10 +128,16 @@ export function DeckyNativeUpNext({ projection }: { readonly projection: NativeR
     }
     if (!preferences.hideSuggestion(achievementId)) pendingSkipFocusRef.current = undefined;
   };
+  const togglePin = (id: string): void => {
+    if (suggestionRefs.current.get(id)?.matches(".gpfocus")) pendingSkipFocusRef.current = id;
+    preferences.togglePinnedAchievement(id, projection.mode);
+  };
   const currentSuggestion = suggestions.find(({ achievement }) => achievement.achievementId === lastFocusedSuggestionIdRef.current)
     ?? suggestions[0];
   const menuActions: DeckyGameOverviewActions = {
     suggestions,
+    achievementMode: projection.mode,
+    onTogglePin: (id) => preferences.togglePinnedAchievement(id, projection.mode),
     hiddenSuggestions: hiddenAchievements,
     onOpenAchievement: browseAchievement,
     onJumpToAchievement: browseAchievement,
@@ -158,8 +169,10 @@ export function DeckyNativeUpNext({ projection }: { readonly projection: NativeR
     <div className="ac-native-up-next__bar"><div className="ac-native-up-next__bar-fill" style={{ width: `${percent}%` }} /></div>
     <div className="ac-native-up-next__heading">{completed ? `${preferences.retroAchievementsGoal} goal complete` : `Up Next · ${preferences.retroAchievementsGoal}`}</div>
     {suggestions.length > 0 ? <div className="ac-native-up-next__grid">
-      {suggestions.map(({ achievement }) => <Focusable
-        key={achievement.achievementId}
+      {suggestions.map((suggestion) => {
+        const { achievement } = suggestion;
+        const pinAction = createUpNextPinAction(suggestion, projection.mode, preferences.canPin ? togglePin : undefined);
+        return <Focusable key={achievement.achievementId}
         ref={(element) => { if (element === null) suggestionRefs.current.delete(achievement.achievementId); else suggestionRefs.current.set(achievement.achievementId, element); }}
         className="ac-native-up-next__item"
         data-ac-native-up-next-id={achievement.achievementId}
@@ -167,6 +180,7 @@ export function DeckyNativeUpNext({ projection }: { readonly projection: NativeR
         aria-label={`Show ${achievement.title} in Steam achievements${getAchievementTypeBadgeDescriptor(achievement.classification) ? `, ${getAchievementTypeBadgeDescriptor(achievement.classification)?.label}` : ""}`}
         onOKActionDescription="Achievements"
         {...(focusedSuggestionId === achievement.achievementId ? {
+          ...(pinAction === undefined ? {} : { onOptionsActionDescription: pinAction.label, onOptionsButton: pinAction.onOptionsButton }),
           onSecondaryActionDescription: "Skip",
           onSecondaryButton: (event: GamepadEvent) => {
             event.preventDefault();
@@ -182,8 +196,8 @@ export function DeckyNativeUpNext({ projection }: { readonly projection: NativeR
         onClick={() => browseAchievement(achievement.achievementId)}
       >
         {achievement.badgeImageUrl ? <img className="ac-native-up-next__badge" src={achievement.badgeImageUrl} alt="" /> : <span className="ac-native-up-next__badge" aria-hidden="true" />}
-        <span className="ac-native-up-next__copy"><span className="ac-native-up-next__title-row"><span className="ac-native-up-next__name">{achievement.title}</span>{getAchievementTypeBadgeDescriptor(achievement.classification) ? <span className="ac-native-up-next__classification"><DeckyNativeAchievementTypeLabel classification={achievement.classification} /></span> : null}</span><span className="ac-native-up-next__description">{achievement.description}</span></span>
-      </Focusable>)}
+        <span className="ac-native-up-next__copy"><span className="ac-native-up-next__title-row">{suggestion.pinned ? <DeckyUpNextPinIcon /> : null}<span className="ac-native-up-next__name">{achievement.title}</span>{getAchievementTypeBadgeDescriptor(achievement.classification) ? <span className="ac-native-up-next__classification"><DeckyNativeAchievementTypeLabel classification={achievement.classification} /></span> : null}</span><span className="ac-native-up-next__description">{achievement.description}</span></span>
+      </Focusable>; })}
     </div> : <div className="ac-native-up-next__empty">{completed ? `Your ${preferences.retroAchievementsGoal} goal is complete.` : projection.total === projection.earned ? "All achievements unlocked." : allSuggestions.length > 0 ? "All suggestions hidden. Restore them from Suggestions." : "No eligible suggestions are available."}</div>}
     <Focusable ref={(element) => { browseRef.current = element; }} className="ac-native-up-next__browse" role="link" onOKActionDescription="Achievements" onActivate={browse} onClick={browse}>View all achievements</Focusable>
   </div>;

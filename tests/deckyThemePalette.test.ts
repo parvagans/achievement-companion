@@ -54,7 +54,9 @@ import {
   AC_CARBON_THEME_VARIABLES,
   AC_DUNE_THEME_VARIABLES,
   AC_EMBER_THEME_VARIABLES,
+  AC_GALAXY_THEME_VARIABLES,
   AC_GROVE_THEME_VARIABLES,
+  AC_HALLOWEEN_THEME_VARIABLES,
   AC_NEON_THEME_VARIABLES,
   AC_ONYX_THEME_VARIABLES,
   AC_PAPER_THEME_VARIABLES,
@@ -114,12 +116,12 @@ test("new palette roles match the requested eight-color theme specifications", (
 
 test("alternate themes cover every shared role without redefining provider status colors", () => {
   assert.deepEqual(ACHIEVEMENT_COMPANION_THEME_OPTIONS, [
-    "ac-arcade", "ac-aurora", "ac-blue", "ac-carbon", "ac-dune", "ac-ember", "ac-grove",
-    "ac-neon", "ac-onyx", "ac-paper", "ac-pocket-lcd", "ac-ra-classic", "ac-rosewood",
+    "ac-arcade", "ac-aurora", "ac-blue", "ac-carbon", "ac-dune", "ac-ember", "ac-galaxy", "ac-grove",
+    "ac-halloween", "ac-neon", "ac-onyx", "ac-paper", "ac-pocket-lcd", "ac-ra-classic", "ac-rosewood",
     "ac-solarized", "ac-steam", "ac-terminal", "ac-velvet",
   ]);
   const expectedKeys = Object.keys(AC_NEON_THEME_VARIABLES).sort();
-  for (const variables of [AC_ARCADE_THEME_VARIABLES, AC_AURORA_THEME_VARIABLES, AC_CARBON_THEME_VARIABLES, AC_DUNE_THEME_VARIABLES, AC_EMBER_THEME_VARIABLES, AC_GROVE_THEME_VARIABLES, AC_ONYX_THEME_VARIABLES, AC_PAPER_THEME_VARIABLES, AC_POCKET_LCD_THEME_VARIABLES, AC_RA_CLASSIC_THEME_VARIABLES, AC_ROSEWOOD_THEME_VARIABLES, AC_SOLARIZED_THEME_VARIABLES, AC_STEAM_THEME_VARIABLES, AC_TERMINAL_THEME_VARIABLES, AC_VELVET_THEME_VARIABLES]) {
+  for (const variables of [AC_ARCADE_THEME_VARIABLES, AC_AURORA_THEME_VARIABLES, AC_CARBON_THEME_VARIABLES, AC_DUNE_THEME_VARIABLES, AC_EMBER_THEME_VARIABLES, AC_GALAXY_THEME_VARIABLES, AC_GROVE_THEME_VARIABLES, AC_HALLOWEEN_THEME_VARIABLES, AC_ONYX_THEME_VARIABLES, AC_PAPER_THEME_VARIABLES, AC_POCKET_LCD_THEME_VARIABLES, AC_RA_CLASSIC_THEME_VARIABLES, AC_ROSEWOOD_THEME_VARIABLES, AC_SOLARIZED_THEME_VARIABLES, AC_STEAM_THEME_VARIABLES, AC_TERMINAL_THEME_VARIABLES, AC_VELVET_THEME_VARIABLES]) {
     assert.deepEqual(Object.keys(variables).sort(), expectedKeys);
     assert.equal(Object.hasOwn(variables, "--ac-hardcore"), false);
     assert.equal(Object.hasOwn(variables, "--ac-softcore"), false);
@@ -128,6 +130,8 @@ test("alternate themes cover every shared role without redefining provider statu
   assert.equal(AC_CARBON_THEME_VARIABLES["--ac-background"], "#08090b");
   assert.equal(AC_EMBER_THEME_VARIABLES["--ac-background"], "#111315");
   assert.equal(AC_GROVE_THEME_VARIABLES["--ac-background"], "#0b1511");
+  assert.equal(AC_GALAXY_THEME_VARIABLES["--ac-background"], "#080B1C");
+  assert.equal(AC_HALLOWEEN_THEME_VARIABLES["--ac-background"], "#0D0914");
   assert.equal(AC_ONYX_THEME_VARIABLES["--ac-background"], "#0D0D0F");
   assert.equal(AC_PAPER_THEME_VARIABLES["--ac-background"], "#15130f");
   assert.equal(AC_RA_CLASSIC_THEME_VARIABLES["--ac-background"], "#151515");
@@ -174,6 +178,13 @@ test("theme switching applies and removes only AC variables", () => {
   applyAchievementCompanionTheme(ownerDocument, "ac-grove");
   assert.equal(values.get("--ac-accent"), AC_GROVE_THEME_VARIABLES["--ac-accent"]);
   assert.equal(dataset["acTheme"], "ac-grove");
+  applyAchievementCompanionTheme(ownerDocument, "ac-halloween");
+  assert.equal(values.get("--ac-page"), AC_HALLOWEEN_THEME_VARIABLES["--ac-page"]);
+  applyAchievementCompanionTheme(ownerDocument, "ac-galaxy");
+  assert.equal(values.get("--ac-page"), AC_GALAXY_THEME_VARIABLES["--ac-page"]);
+  assert.equal(values.get("--ac-accent"), AC_GALAXY_THEME_VARIABLES["--ac-accent"]);
+  assert.equal(values.size, Object.keys(AC_NEON_THEME_VARIABLES).length);
+  assert.equal(dataset["acTheme"], "ac-galaxy");
   for (const [id, variables] of [
     ["ac-aurora", AC_AURORA_THEME_VARIABLES], ["ac-dune", AC_DUNE_THEME_VARIABLES],
     ["ac-onyx", AC_ONYX_THEME_VARIABLES], ["ac-pocket-lcd", AC_POCKET_LCD_THEME_VARIABLES],
@@ -199,6 +210,26 @@ test("theme switching applies and removes only AC variables", () => {
   clearAchievementCompanionThemes();
   assert.equal(values.size, 0);
   assert.equal(dataset["acTheme"], undefined);
+});
+
+test("Halloween and Galaxy retain readable text and distinct focus over raised surfaces", () => {
+  const luminance = (hex: string): number => {
+    const channels = [1, 3, 5].map((start) => Number.parseInt(hex.slice(start, start + 2), 16) / 255);
+    const linear = channels.map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
+    return linear[0]! * 0.2126 + linear[1]! * 0.7152 + linear[2]! * 0.0722;
+  };
+  const contrast = (a: string, b: string): number => {
+    const values = [luminance(a), luminance(b)].sort((left, right) => right - left);
+    return (values[0]! + 0.05) / (values[1]! + 0.05);
+  };
+  for (const theme of [AC_HALLOWEEN_THEME_VARIABLES, AC_GALAXY_THEME_VARIABLES]) {
+    assert.ok(contrast(theme["--ac-text-primary"], theme["--ac-surface-raised"]) >= 7);
+    assert.ok(contrast(theme["--ac-text-muted"], theme["--ac-surface-raised"]) >= 4.5);
+    assert.ok(contrast(theme["--ac-focus-border"], theme["--ac-surface-raised"]) >= 4.5);
+    assert.notEqual(theme["--ac-focus-shadow"], theme["--ac-card"]);
+  }
+  assert.notEqual(AC_HALLOWEEN_THEME_VARIABLES["--ac-page"], AC_ARCADE_THEME_VARIABLES["--ac-page"]);
+  assert.notEqual(AC_GALAXY_THEME_VARIABLES["--ac-page"], AC_NEON_THEME_VARIABLES["--ac-page"]);
 });
 
 test("Arcade focus, activity, and calendar colors flow through shared theme roles", () => {

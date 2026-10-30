@@ -358,10 +358,12 @@ function DeckyFullScreenFooterActionHint({ button, label, hidden = false }: {
  */
 export function DeckyFullScreenFooterActionLegend({
   contextualXActionLabel,
+  primaryActionLabel,
   secondaryActionLabel,
   stableActionSlots = false,
 }: {
   readonly contextualXActionLabel?: string;
+  readonly primaryActionLabel?: string;
   readonly secondaryActionLabel?: string;
   readonly stableActionSlots?: boolean;
 }): JSX.Element {
@@ -370,7 +372,7 @@ export function DeckyFullScreenFooterActionLegend({
       <span style={getActionLegendStyle()}>
         {contextualXActionLabel !== undefined ? <DeckyFullScreenFooterActionHint button="X" label={contextualXActionLabel} /> : null}
         <DeckyFullScreenFooterActionHint button="Y" label={secondaryActionLabel ?? "Top"} hidden={secondaryActionLabel === undefined} />
-        <DeckyFullScreenFooterActionHint button="A" label="Select" />
+        <DeckyFullScreenFooterActionHint button="A" label={primaryActionLabel ?? "Select"} />
         <DeckyFullScreenFooterActionHint button="B" label="Back" />
       </span>
     );
@@ -385,7 +387,7 @@ export function DeckyFullScreenFooterActionLegend({
         {secondaryActionLabel !== undefined ? <DeckyFullScreenFooterActionHint button="Y" label={secondaryActionLabel} /> : null}
       </span>
       <span data-achievement-companion-footer-action-slot="a" style={getStableActionSlotStyle()}>
-        <DeckyFullScreenFooterActionHint button="A" label="Select" />
+        <DeckyFullScreenFooterActionHint button="A" label={primaryActionLabel ?? "Select"} />
       </span>
       <span data-achievement-companion-footer-action-slot="b" style={getStableActionSlotStyle()}>
         <DeckyFullScreenFooterActionHint button="B" label="Back" />
@@ -404,6 +406,7 @@ export function DeckyFullScreenFooterOverlay({
   secondaryActionLabel,
   onSecondaryAction,
   contextualXActionLabel,
+  primaryActionLabel,
   stableActionSlots = false,
   playNavigationSound = true,
   isActive = true,
@@ -418,6 +421,7 @@ export function DeckyFullScreenFooterOverlay({
   readonly onSecondaryAction?: (document: Document) => void;
   /** Legend only: X remains owned by the focused native control. */
   readonly contextualXActionLabel?: string;
+  readonly primaryActionLabel?: string;
   /** Full-screen game pages reserve fixed X/Y/A/B positions. */
   readonly stableActionSlots?: boolean;
   /** Provider-neutral opt-in for the native tab transition cue. */
@@ -661,6 +665,7 @@ export function DeckyFullScreenFooterOverlay({
           <span style={getShoulderHintStyle()}>R1</span>
           <DeckyFullScreenFooterActionLegend
             {...(contextualXActionLabel !== undefined ? { contextualXActionLabel } : {})}
+            {...(primaryActionLabel !== undefined ? { primaryActionLabel } : {})}
             {...(secondaryActionLabel !== undefined ? { secondaryActionLabel } : {})}
             stableActionSlots={stableActionSlots}
           />

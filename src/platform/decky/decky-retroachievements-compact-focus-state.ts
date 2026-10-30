@@ -2,7 +2,7 @@ import type { RecentUnlock } from "@core/domain";
 
 export type DeckyRetroAchievementsCompactFocusTarget =
   | { readonly kind: "profile" }
-  | { readonly kind: "up-next"; readonly control: "recommendation" | "achievements" | "options"; readonly gameId: string }
+  | { readonly kind: "up-next"; readonly control: "recommendation" | "achievements" | "pin" | "options"; readonly gameId: string }
   | { readonly kind: "overview" }
   | { readonly kind: "beaten" }
   | { readonly kind: "calendar-entry" }

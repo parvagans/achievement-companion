@@ -333,8 +333,7 @@ test("shared QAM card gives game titles the full header width and keeps provider
   assert.match(source, /width: "100%", height: 4/u);
   assert.doesNotMatch(source, /richPresence/u);
   assert.match(source, /providerId === "steam" \? "Steam" : "RetroAchievements"/u);
-  assert.match(source, /`UP NEXT · \$\{preferences\.retroAchievementsGoal\.toUpperCase\(\)\}`/u);
-  assert.match(source, /: "UP NEXT"/u);
+  assert.match(source, /resolveDeckyUpNextLabel\(suggestion, providerId, preferences\.retroAchievementsGoal\)/u);
   assert.match(source, /suggestion === undefined \|\| !recommendationFocused \? \{\} : \{/u);
   assert.match(source, /loadedGameKey === currentGameKey/u);
   assert.match(source, /return \(\) => \{ active = false; \}/u);

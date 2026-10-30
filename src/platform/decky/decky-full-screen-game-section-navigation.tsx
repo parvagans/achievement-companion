@@ -56,6 +56,7 @@ export function DeckyFullScreenGameSectionNavigation({
   secondaryActionLabel,
   onSecondaryAction,
   contextualXActionLabel,
+  primaryActionLabel,
   ariaLabel = "Game sections",
 }: {
   readonly activeSection: DeckyFullScreenGameSectionId;
@@ -66,6 +67,7 @@ export function DeckyFullScreenGameSectionNavigation({
   readonly secondaryActionLabel?: string;
   readonly onSecondaryAction?: (document: Document) => void;
   readonly contextualXActionLabel?: string;
+  readonly primaryActionLabel?: string;
   readonly ariaLabel?: string;
 }): JSX.Element {
   return (
@@ -79,6 +81,7 @@ export function DeckyFullScreenGameSectionNavigation({
       {...(secondaryActionLabel !== undefined ? { secondaryActionLabel } : {})}
       {...(onSecondaryAction !== undefined ? { onSecondaryAction } : {})}
       {...(contextualXActionLabel !== undefined ? { contextualXActionLabel } : {})}
+            {...(primaryActionLabel !== undefined ? { primaryActionLabel } : {})}
       stableActionSlots
     />
   );

@@ -1,9 +1,13 @@
-import { Focusable, type GamepadEvent } from "@decky/ui";
+import { resolveDeckyUpNextLabel } from "./decky-up-next-label";
+import { createUpNextPinAction, type UpNextPinAction } from "./decky-up-next-pin-action";
+import { DeckyUpNextPinButton } from "./decky-up-next-pin-button";
+import { useDeckyUpNextSnapshot } from "./decky-up-next-snapshot";
+import { Focusable, NavEntryPositionPreferences, type GamepadEvent } from "@decky/ui";
 import type { GameDetailSnapshot, NormalizedAchievement, ProgressSummary } from "@core/domain";
 import type { RetroAchievementsAchievementMode } from "@core/settings";
 import { useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode } from "react";
 import { DeckyCompletionProgressBar, getCompletionPercent } from "./decky-completion-progress-bar";
-import { DeckyGameArtwork } from "./decky-game-artwork";
+import { DeckyAchievementArtwork } from "./decky-achievement-artwork";
 import { buildDeckyCompactUpNextModel } from "./decky-compact-up-next-model";
 import {
   checkpointDeckyCompactGameOverview,
@@ -38,12 +42,13 @@ function initials(title: string): string {
 function AchievementArtwork({ achievement, compact }: { readonly achievement: NormalizedAchievement; readonly compact: boolean }): JSX.Element {
   const size = compact ? 38 : 48;
   return achievement.badgeImageUrl !== undefined
-    ? <DeckyGameArtwork compact size={size} src={achievement.badgeImageUrl} title={achievement.title} />
+    ? <DeckyAchievementArtwork size={size} src={achievement.badgeImageUrl} />
     : <span aria-hidden="true" style={{ width: size, height: size, flex: `0 0 ${size}px`, display: "grid", placeItems: "center", borderRadius: theme.radius.small, border: `1px solid ${theme.color.borderSubtle}`, background: theme.surface.contentStat, color: theme.color.textMuted, fontSize: compact ? 10 : 12, fontWeight: 800 }}>{initials(achievement.title)}</span>;
 }
 
 function RecommendationRow({
   achievement,
+  pinAction,
   compact,
   index,
   preferredFocus,
@@ -55,6 +60,7 @@ function RecommendationRow({
   elementRef,
 }: {
   readonly achievement: NormalizedAchievement;
+  readonly pinAction: UpNextPinAction | undefined;
   readonly compact: boolean;
   readonly index: number;
   readonly preferredFocus: boolean;
@@ -69,7 +75,7 @@ function RecommendationRow({
   const [focused, setFocused] = useState(false);
   useDeckyVisualFocusState(ref, setFocused);
   const activate = (): void => { if (ref.current !== null) onActivate(ref.current); };
-  return <Focusable
+  return <Focusable flow-children="left-right" noFocusRing tabIndex={-1} navEntryPreferPosition={NavEntryPositionPreferences.FIRST} style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 32px", gap: 6, alignItems: "center" }}> <Focusable
     aria-label={`${achievement.title}. ${achievement.description ?? ""}`}
     data-ac-game-overview-suggestion={achievement.achievementId}
     noFocusRing
@@ -104,7 +110,7 @@ function RecommendationRow({
       <strong title={achievement.title} style={{ ...lineClamp(compact ? 1 : 2), color: theme.color.textPrimary, fontSize: compact ? 11 : 13, fontWeight: 800, lineHeight: 1.12 }}>{achievement.title}</strong>
       {achievement.description !== undefined ? <span title={achievement.description} style={{ ...lineClamp(compact ? 1 : 2), color: theme.color.textSecondary, fontSize: compact ? 9.5 : 10.5, lineHeight: 1.18 }}>{achievement.description}</span> : null}
     </span>
-  </Focusable>;
+  </Focusable><DeckyUpNextPinButton action={pinAction} onCancel={onCancel} /></Focusable>;
 }
 
 function StatusFocusTarget({ label, actionLabel, children, onCancel, onActivate }: { readonly label: string; readonly actionLabel?: string; readonly children: ReactNode; readonly onCancel: () => void; readonly onActivate?: () => void }): JSX.Element {
@@ -147,13 +153,15 @@ export function DeckyCompactGameOverviewUpNext({
     saved.focusTarget?.kind === "recommendation" ? saved.focusTarget.achievementId : undefined,
   );
   const preferences = useDeckyGameOverviewPreferences(providerId, gameId);
+  const upNextSnapshot = useDeckyUpNextSnapshot(snapshot) ?? snapshot;
   const model = useMemo(() => buildDeckyCompactUpNextModel({
-    snapshot,
+    snapshot: upNextSnapshot,
     hiddenAchievementIds: preferences.hiddenAchievementIds,
+    pinnedAchievement: preferences.pinnedAchievement,
     goal: preferences.retroAchievementsGoal,
     achievementMode,
     limit: 3,
-  }), [achievementMode, preferences.hiddenAchievementIds, preferences.retroAchievementsGoal, snapshot]);
+  }), [achievementMode, preferences.hiddenAchievementIds, preferences.pinnedAchievement, preferences.retroAchievementsGoal, upNextSnapshot]);
   const suggestions = model.suggestions;
   const recommendationRefs = useRef(new Map<string, HTMLDivElement>());
   const expandRef = useRef<HTMLDivElement | null>(null);
@@ -162,7 +170,7 @@ export function DeckyCompactGameOverviewUpNext({
   const optionsRef = useRef<HTMLDivElement | null>(null);
   const restoreRequest = useSyncExternalStore(subscribeToDeckyCompactFocusRestore, readDeckyCompactFocusRestoreRequest, readDeckyCompactFocusRestoreRequest);
   const completionPercent = getCompletionPercent(summary);
-  const recommendationLabel = providerId === "retroachievements" ? `UP NEXT · ${preferences.retroAchievementsGoal.toUpperCase()}` : "UP NEXT";
+  const recommendationLabel = resolveDeckyUpNextLabel(suggestions[0], providerId, preferences.retroAchievementsGoal);
 
   const checkpoint = (target: DeckyCompactGameOverviewFocusTarget, element: HTMLElement): void => {
     setFocusTarget(target);
@@ -230,6 +238,8 @@ export function DeckyCompactGameOverviewUpNext({
       const element = recommendationRefs.current.get(achievementId) ?? optionsRef.current;
       if (element !== undefined && element !== null) openAchievements(achievementId, element);
     },
+    achievementMode: achievementMode,
+    onTogglePin: (id) => preferences.togglePinnedAchievement(id, achievementMode),
     onDismissSuggestion: preferences.hideSuggestion,
     onRestoreSuggestion: preferences.restoreSuggestion,
     onRestoreAllSuggestions: preferences.restoreAllSuggestions,
@@ -271,6 +281,7 @@ export function DeckyCompactGameOverviewUpNext({
         {suggestions.map((suggestion, index) => index === 0 || expanded ? <RecommendationRow
           key={suggestion.achievement.achievementId}
           achievement={suggestion.achievement}
+          pinAction={createUpNextPinAction(suggestion, achievementMode, preferences.canPin ? (id) => { preferences.togglePinnedAchievement(id, achievementMode); } : undefined)}
           compact={index > 0}
           elementRef={(element) => { if (element === null) recommendationRefs.current.delete(suggestion.achievement.achievementId); else recommendationRefs.current.set(suggestion.achievement.achievementId, element); }}
           index={index}

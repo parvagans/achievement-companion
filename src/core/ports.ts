@@ -39,7 +39,7 @@ export interface AchievementProvider<Config = unknown> {
       readonly offset?: number;
     },
   ): Promise<readonly RecentlyPlayedGame[]>;
-  loadGameProgress(config: Config, gameId: string, options?: { readonly forceRefresh?: boolean }): Promise<GameDetailSnapshot>;
+  loadGameProgress(config: Config, gameId: string, options?: { readonly forceRefresh?: boolean; readonly recommendationOnly?: boolean }): Promise<GameDetailSnapshot>;
   /** Optional lightweight per-game playtime lookup, in provider-native seconds. */
   loadGamePlaytimeSeconds?(config: Config, gameId: string): Promise<number | undefined>;
   loadRelatedGames?(

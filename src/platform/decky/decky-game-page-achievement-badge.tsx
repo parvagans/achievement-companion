@@ -17,6 +17,8 @@ import type { DeckyGamePageAchievementBadgePresentation } from "./decky-game-pag
 import { findDeckyGamePageAchievementBadgeHorizontalFocusTarget } from "./decky-game-page-achievement-badge-focus";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
+import { DeckyNativeUpNextPreview } from "./decky-native-up-next-preview";
+import type { NativeUpNextIdentity } from "./decky-native-up-next-preview-model";
 
 export interface DeckyGamePageAchievementBadgeProps {
   readonly appId?: string | undefined;
@@ -30,6 +32,7 @@ export interface DeckyGamePageAchievementBadgeProps {
   readonly routeUrl: string | undefined;
   readonly elementRef?: ((element: HTMLDivElement | null) => void) | undefined;
   readonly onActivate?: (() => void) | undefined;
+  readonly upNextIdentity?: NativeUpNextIdentity | undefined;
 }
 
 const GAME_PAGE_ACHIEVEMENT_BADGE_FOCUS_CSS = `
@@ -43,7 +46,8 @@ const GAME_PAGE_ACHIEVEMENT_BADGE_FOCUS_CSS = `
 .ac-game-page-achievement-badge::before,
 .ac-game-page-achievement-badge::after {
   display: none !important;
-}`;
+}
+`;
 
 function handleDeckyGamePageAchievementBadgeButtonDown(event: GamepadEvent): void {
   const direction = event.detail.button === GamepadButton.DIR_LEFT
@@ -74,8 +78,12 @@ export function DeckyGamePageAchievementBadge({
   routeUrl,
   elementRef,
   onActivate,
+  upNextIdentity,
 }: DeckyGamePageAchievementBadgeProps): JSX.Element {
   const [focused, setFocused] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [badge, setBadge] = useState<HTMLDivElement | null>(null);
+  const setElement = useCallback((element: HTMLDivElement | null) => { setBadge(element); elementRef?.(element); }, [elementRef]);
 
   useEffect(() => {
     markAchievementCompanionGamePageAchievementBadgeRendered(routeUrl, appId);
@@ -94,7 +102,7 @@ export function DeckyGamePageAchievementBadge({
       aria-label={ariaLabel}
       className="ac-game-page-achievement-badge"
       data-achievement-companion-game-page-badge={marker}
-      ref={elementRef}
+      ref={setElement}
       role="button"
       noFocusRing
       style={style}
@@ -106,6 +114,8 @@ export function DeckyGamePageAchievementBadge({
       onFocus={() => setFocused(true)}
       onGamepadBlur={() => setFocused(false)}
       onGamepadFocus={() => setFocused(true)}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
@@ -128,6 +138,7 @@ export function DeckyGamePageAchievementBadge({
           size={size}
         />
       )}
+      {badge !== null && upNextIdentity !== undefined && appId !== undefined ? <DeckyNativeUpNextPreview key={`${appId}:${upNextIdentity.providerId}:${upNextIdentity.gameId}`} identity={upNextIdentity} appId={appId} badge={badge} focused={focused} hovered={hovered} /> : null}
     </Focusable>
   );
 }

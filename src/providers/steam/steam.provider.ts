@@ -575,7 +575,7 @@ export function createSteamProvider(
       );
     },
 
-    async loadGameProgress(config, gameId) {
+    async loadGameProgress(config, gameId, options) {
       const normalizedAppId = parseAppId(Number(gameId));
       if (normalizedAppId === undefined) {
         throw new Error("Steam app ID must be a positive number.");
@@ -583,6 +583,7 @@ export function createSteamProvider(
 
       const cachedRecentGameSnapshot = await getCachedSteamRecentGameSnapshot(config, normalizedAppId);
       if (cachedRecentGameSnapshot?.detail !== undefined) {
+        if (options?.recommendationOnly) return cachedRecentGameSnapshot.detail;
         return composeSteamGameDetailWithSteamHuntersWithinBudget({
           snapshot: cachedRecentGameSnapshot.detail,
           service: steamHuntersService,
@@ -606,6 +607,7 @@ export function createSteamProvider(
         appId: normalizedAppId,
         ...(rawGame !== undefined ? { rawGame } : {}),
       });
+      if (options?.recommendationOnly) return snapshot;
       return composeSteamGameDetailWithSteamHuntersWithinBudget({
         snapshot,
         service: steamHuntersService,

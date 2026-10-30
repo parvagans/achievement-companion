@@ -1,3 +1,4 @@
+import { NATIVE_BADGE_SURFACE } from "./decky-native-badge-surface";
 import { useEffect, useRef, type CSSProperties, type ReactNode } from "react";
 import type { GamePageAchievementBadgeSize } from "@core/settings";
 import crownLaurelIconUrl from "./assets/achievement-badge/crown-laurel.svg";
@@ -22,11 +23,11 @@ function getMinimalBadgeShellStyle(
     padding: `0 ${String(dimensions.padding)}px`,
     gap: dimensions.gap,
     boxSizing: "border-box",
-    border: `1px solid ${focused ? "rgba(235,235,235,.62)" : "rgba(190,190,190,.32)"}`,
-    borderRadius: 8,
-    background: focused ? "rgba(23,29,37,.95)" : "rgba(15,20,27,.90)",
-    color: "#f5f5f5",
-    fontFamily: '"Motiva Sans", Arial, sans-serif',
+    border: `1px solid ${focused ? NATIVE_BADGE_SURFACE.focusedBorder : NATIVE_BADGE_SURFACE.border}`,
+    borderRadius: NATIVE_BADGE_SURFACE.radius,
+    background: focused ? NATIVE_BADGE_SURFACE.focusedBackground : NATIVE_BADGE_SURFACE.background,
+    color: NATIVE_BADGE_SURFACE.color,
+    fontFamily: NATIVE_BADGE_SURFACE.fontFamily,
     fontSize: dimensions.font,
     lineHeight: 1,
     fontWeight: 600,

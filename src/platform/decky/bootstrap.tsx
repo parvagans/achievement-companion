@@ -26,6 +26,8 @@ import {
   GAME_PAGE_ACHIEVEMENT_BADGE_POSITION_OPTIONS,
   GAME_PAGE_ACHIEVEMENT_BADGE_SIZE_OPTIONS,
   GAME_PAGE_ACHIEVEMENT_BADGE_STYLE_OPTIONS,
+  GAME_PAGE_UP_NEXT_PREVIEW_OPTIONS,
+  type GamePageUpNextPreview,
   ACHIEVEMENT_COMPANION_THEME_OPTIONS,
   type AchievementCompanionTheme,
   type GamePageAchievementBadgeColor,
@@ -170,7 +172,9 @@ const ACHIEVEMENT_COMPANION_THEME_DROPDOWN_OPTIONS = [
   // Temporarily hidden; palette and saved-setting support remain available.
   // { data: "ac-dune", label: "Dune" },
   { data: "ac-ember", label: "Ember" },
+  { data: "ac-galaxy", label: "Galaxy" },
   { data: "ac-grove", label: "Grove" },
+  { data: "ac-halloween", label: "Halloween" },
   { data: "ac-neon", label: "Neon" },
   { data: "ac-onyx", label: "Onyx" },
   { data: "ac-paper", label: "Paper" },
@@ -588,6 +592,19 @@ function PluginSettingsDisclosure({
       </span>
     </Focusable>
   );
+}
+
+function GamePageUpNextDisplayDropdown({ mode, disabled, setting, label }: {
+  readonly mode: GamePageUpNextPreview; readonly disabled: boolean;
+  readonly setting: "gamePageUpNextPreview" | "gamePageUpNextDescription"; readonly label: string;
+}): JSX.Element {
+  const openGuardedMenu = useDeckyCompactDropdownPopupGuard();
+  return <div data-ac-game-page-badge-dropdown="true"><DropdownItem
+    label={<span style={getGamePageBadgeLabelStyle(disabled)}>{label}</span>}
+    disabled={disabled} selectedOption={mode} menuLabel={label} onMenuWillOpen={openGuardedMenu}
+    rgOptions={GAME_PAGE_UP_NEXT_PREVIEW_OPTIONS.map((data) => ({ data, label: data === "focus" ? "On Focus" : data === "always" ? "Always Show" : "Hidden" }))}
+    onChange={(option) => { if (GAME_PAGE_UP_NEXT_PREVIEW_OPTIONS.includes(option.data as GamePageUpNextPreview)) void saveDeckySettings({ ...readDeckySettings(), [setting]: option.data as GamePageUpNextPreview }); }}
+  /></div>;
 }
 
 function GamePageBadgeStyleDropdown({
@@ -2011,6 +2028,9 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                           }}
                         />
                       </PanelSectionRow>
+
+                      <GamePageUpNextDisplayDropdown label="Up Next Preview" setting="gamePageUpNextPreview" mode={settings.gamePageUpNextPreview} disabled={!settings.showGamePageAchievementBadge} />
+                      <GamePageUpNextDisplayDropdown label="Achievement Description" setting="gamePageUpNextDescription" mode={settings.gamePageUpNextDescription} disabled={!settings.showGamePageAchievementBadge} />
 
                       <GamePageBadgeStyleDropdown
                         selectedStyle={settings.gamePageAchievementBadgeStyle}

@@ -1,3 +1,4 @@
+import { useDeckyUpNextSnapshot } from "./decky-up-next-snapshot";
 import { DeckyFullScreenGameSpotlightFocusTarget } from "./decky-full-screen-game-spotlight-card";
 import {
   memo,
@@ -408,6 +409,7 @@ export function DeckyFullScreenGamePage({
 }: DeckyFullScreenGamePageProps): JSX.Element {
   const settings = useDeckySettings();
   const overviewPreferences = useDeckyGameOverviewPreferences(providerId ?? "", gameId ?? "");
+  const [focusedPinId, setFocusedPinId] = useState<string | null>(null);
   const [focusedSuggestionId, setFocusedSuggestionId] = useState<string | null>(null);
   const pendingAchievementJumpRef = useRef<string>();
   const [temporaryAchievementTargetId, setTemporaryAchievementTargetId] = useState<string | undefined>();
@@ -552,6 +554,7 @@ export function DeckyFullScreenGamePage({
     activeSteamSectionRef.current = nextSection;
     if (nextSection !== "achievements") setTemporaryAchievementTargetId(undefined);
     setFocusedSuggestionId(null);
+    setFocusedPinId(null);
     setActiveSteamSection(nextSection);
     setSectionRestoreNonce((current) => current + 1);
   };
@@ -727,9 +730,11 @@ export function DeckyFullScreenGamePage({
   const overviewSnapshot = useMemo(() => restorationSnapshot === undefined ? undefined : {
     ...restorationSnapshot, achievements: restorationProjectedAchievements,
   }, [restorationSnapshot, restorationProjectedAchievements]);
-  const overviewSuggestions = useMemo(() => overviewSnapshot === undefined ? [] : selectGameOverviewSuggestions({
-    snapshot: overviewSnapshot,
+  const upNextSnapshot = useDeckyUpNextSnapshot(overviewSnapshot);
+  const overviewSuggestions = useMemo(() => upNextSnapshot === undefined ? [] : selectGameOverviewSuggestions({
+    snapshot: upNextSnapshot,
     hiddenAchievementIds: overviewPreferences.hiddenAchievementIds,
+    pinnedAchievement: overviewPreferences.pinnedAchievement,
     goal: overviewPreferences.retroAchievementsGoal,
     achievementMode: settings.retroAchievementsAchievementMode,
     ...(restorationSteamHuntersEnrichment !== undefined ? { steamHunters: {
@@ -737,7 +742,7 @@ export function DeckyFullScreenGamePage({
       achievements: Object.values(restorationSteamHuntersEnrichment.achievementsBySteamAchievementId),
       groups: restorationSteamHuntersEnrichment.achievementGroups,
     } } : {}),
-  }), [overviewSnapshot, overviewPreferences.hiddenAchievementIds, overviewPreferences.retroAchievementsGoal, settings.retroAchievementsAchievementMode, restorationSteamHuntersEnrichment]);
+  }), [upNextSnapshot, overviewPreferences.hiddenAchievementIds, overviewPreferences.pinnedAchievement, overviewPreferences.retroAchievementsGoal, settings.retroAchievementsAchievementMode, restorationSteamHuntersEnrichment]);
   useLayoutEffect(() => {
     const index = dismissedSuggestionIndexRef.current;
     if (index === undefined || activeSteamSection !== "overview") return;
@@ -1222,9 +1227,13 @@ export function DeckyFullScreenGamePage({
     && hasDistinctRetroAchievementsModes(snapshot.achievements);
 
   const overviewActions: DeckyGameOverviewActions = {
+    goal: overviewPreferences.retroAchievementsGoal,
+    onFocusedPinChange: setFocusedPinId,
     suggestions: overviewSuggestions,
     hiddenSuggestions: restorationProjectedAchievements.filter((achievement) => overviewPreferences.hiddenAchievementIds.includes(achievement.achievementId)),
-    goalComplete: isGameOverviewGoalComplete(snapshot, overviewPreferences.retroAchievementsGoal, settings.retroAchievementsAchievementMode),
+    achievementMode: settings.retroAchievementsAchievementMode,
+    onTogglePin: (id) => overviewPreferences.togglePinnedAchievement(id, settings.retroAchievementsAchievementMode),
+    goalComplete: !overviewSuggestions[0]?.pinned && isGameOverviewGoalComplete(snapshot, overviewPreferences.retroAchievementsGoal, settings.retroAchievementsAchievementMode),
     onOpenAchievement: (achievementId, returnToOrigin) => {
       openDeckyAchievementDetailModal({ providerId: providerIdValue, gameId: game.gameId, achievementId, onClose: () => {
         if (returnToOrigin !== undefined) {
@@ -1445,6 +1454,7 @@ export function DeckyFullScreenGamePage({
             selectAdjacentSteamSection("next");
           }}
           onHeightChange={setSteamFooterHeight}
+          {...(activeSteamSection === "overview" && focusedPinId !== null ? { primaryActionLabel: overviewPreferences.pinnedAchievement?.achievementId === focusedPinId ? "Unpin" : "Pin" } : {})}
           {...(activeSteamSection === "achievements" ? { secondaryActionLabel: "Top", onSecondaryAction: jumpSteamAchievementsToTop } : {})}
           {...(activeSteamSection === "overview" && focusedSuggestionId !== null ? {
             secondaryActionLabel: "Show", contextualXActionLabel: "Hide",

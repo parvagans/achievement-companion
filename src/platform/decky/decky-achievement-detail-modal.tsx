@@ -6,6 +6,9 @@ import { buildDeckyAchievementModalModel, type DeckyAchievementModalMetric } fro
 import { getDeckyStandardModalContentStyle, getDeckyStandardModalTabStyle, openDeckyStandardModal } from "./decky-standard-modal";
 import { applyAchievementCompanionTheme } from "./decky-theme-palette";
 import { readDeckySettings } from "./decky-settings";
+import { useDeckyGameOverviewPreferences } from "./decky-game-overview-preferences";
+import { isAchievementCompleteForPin } from "./decky-game-overview-recommendations";
+import { DeckyOverviewMenuButton } from "./decky-full-screen-game-overview-content";
 import { achievementCompanionQamTheme as theme, getQamPassiveCardFocusStyle } from "./decky-qam-theme";
 import { raRecipes, raTheme } from "./ra-theme";
 import { getSteamHuntersGameEnrichment } from "../../providers/steamhunters";
@@ -75,6 +78,7 @@ function AchievementModalContent({ providerId, gameId, achievementId, onViewGame
   readonly onViewGame?: (() => void) | undefined;
 }): JSX.Element {
   const rootRef = useRef<HTMLDivElement>(null);
+  const preferences = useDeckyGameOverviewPreferences(providerId, gameId);
   const identityContentRef = useRef<HTMLDivElement>(null);
   const initialActionRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<"your-unlock" | "community">("your-unlock");
@@ -106,6 +110,10 @@ function AchievementModalContent({ providerId, gameId, achievementId, onViewGame
 
   const currentSnapshot = enrichment !== undefined && enrichment.source === snapshot ? enrichment.enriched : snapshot;
   const model = currentSnapshot === undefined ? undefined : buildDeckyAchievementModalModel(currentSnapshot, achievementId, readDeckySettings().retroAchievementsAchievementMode);
+  const isPinned = preferences.pinnedAchievement?.achievementId === achievementId;
+  const selectedAchievement = currentSnapshot?.achievements.find((achievement) => achievement.achievementId === achievementId);
+  const canPin = preferences.canPin && selectedAchievement !== undefined && !isAchievementCompleteForPin(selectedAchievement, readDeckySettings().retroAchievementsAchievementMode);
+  const pinItems = isPinned || canPin ? [{ key: "pin", label: isPinned ? "Remove from Up Next" : "Set as Up Next", onSelect: () => preferences.togglePinnedAchievement(achievementId, readDeckySettings().retroAchievementsAchievementMode) }] : [];
   const metrics = activeTab === "your-unlock" ? model?.yourUnlockMetrics : model?.communityMetrics;
   const tabs = [{ id: "your-unlock", label: "Your Unlock" }, { id: "community", label: "Community" }] as const;
   const boundedLine: CSSProperties = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
@@ -185,7 +193,7 @@ function AchievementModalContent({ providerId, gameId, achievementId, onViewGame
           {identityHasOverflow || identityExpanded ? <span aria-hidden="true" style={{ position: "absolute", right: 5, bottom: 2, color: theme.color.textMuted, fontSize: theme.type.fullscreen.caption, fontWeight: 700, lineHeight: 1 }}>{identityExpanded ? "A  Collapse · ↑↓ Scroll" : "A  Expand details"}</span> : null}
         </Focusable>
       </div>
-      <Focusable aria-label="Achievement details and actions" flow-children="left-right" noFocusRing style={{ display: "grid", gridTemplateColumns: `repeat(${onViewGame === undefined ? 2 : 3}, minmax(0, 1fr))`, gap: 8, minWidth: 0, minHeight: 0 }}>
+      <Focusable aria-label="Achievement details and actions" flow-children="left-right" noFocusRing style={{ display: "grid", gridTemplateColumns: `repeat(${(onViewGame === undefined ? 2 : 3) + (pinItems.length > 0 ? 1 : 0)}, minmax(0, 1fr))`, gap: 8, minWidth: 0, minHeight: 0 }}>
           {tabs.map((tab, index) => <Focusable key={tab.id} role="tab" aria-label={tab.label} aria-selected={activeTab === tab.id} preferredFocus={index === 0} noFocusRing tabIndex={0}
             ref={index === 0 ? initialActionRef : undefined}
             onActivate={() => setActiveTab(tab.id)} onClick={() => setActiveTab(tab.id)}
@@ -203,6 +211,7 @@ function AchievementModalContent({ providerId, gameId, achievementId, onViewGame
           style={{ ...getDeckyStandardModalTabStyle(), width: "100%", height: "100%", minHeight: 0, padding: "0 12px", boxSizing: "border-box", background: viewGameFocused ? theme.surface.focusedContentStat : theme.surface.contentStat, borderColor: viewGameFocused ? theme.focus.border : theme.color.borderSubtle, boxShadow: viewGameFocused ? theme.focus.shadow : undefined }}>
           View Game
         </Focusable> : null}
+        {pinItems.length > 0 ? <DeckyOverviewMenuButton label="Up Next" items={pinItems} compact minHeight={32} preserveCompactSession /> : null}
       </Focusable>
       <div role="tabpanel" aria-label={activeTab === "your-unlock" ? "Your Unlock" : model.communityTitle} style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0, minHeight: 0 }}>
         {activeTab === "your-unlock" || showSteamCommunityHeading ? <div style={{ color: activeTab === "community" || model.isUnlocked ? theme.color.accent : theme.color.textMuted, fontSize: theme.type.fullscreen.caption, lineHeight: 1.2, fontWeight: 800, letterSpacing: "0.07em", textTransform: "uppercase" }}>{activeTab === "your-unlock" ? model.unlockHeading : model.communityTitle}</div> : null}

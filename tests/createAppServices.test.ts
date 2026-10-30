@@ -1550,7 +1550,8 @@ test("legacy compact achievement details remain available while the shared modal
   assert.match(modalSource, /whiteSpace: "pre-wrap"/u);
   assert.match(modalSource, />\s*View Game\s*</u);
   assert.match(modalSource, /aria-label="Achievement details and actions" flow-children="left-right"/u);
-  assert.match(modalSource, /gridTemplateColumns: `repeat\(\$\{onViewGame === undefined \? 2 : 3\}, minmax\(0, 1fr\)\)`/u);
+  assert.match(modalSource, /gridTemplateColumns: `repeat\(\$\{\(onViewGame === undefined \? 2 : 3\) \+ \(pinItems\.length > 0 \? 1 : 0\)\}, minmax\(0, 1fr\)\)`/u);
+  assert.match(modalSource, /pinItems\.length > 0 \? <DeckyOverviewMenuButton label="Up Next"/u);
   assert.match(modalSource, /requestDeckySteamGamepadFocusAfterMount\(initialActionRef\.current\)/u);
   assert.match(modalSource, /ref=\{index === 0 \? initialActionRef : undefined\}/u);
   assert.doesNotMatch(modalSource, /<div role="tablist"/u);
@@ -2059,6 +2060,11 @@ test("theme settings default to Blue, preserve Neon, and accept every alternate 
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-carbon"}').theme, "ac-carbon");
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-dune"}').theme, "ac-dune");
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-ember"}').theme, "ac-ember");
+  for (const theme of ["ac-galaxy", "ac-halloween"] as const) {
+    const parsed = parseAchievementCompanionSettings(JSON.stringify({ theme }));
+    assert.equal(parsed.theme, theme);
+    assert.equal(parseAchievementCompanionSettings(serializeAchievementCompanionSettings(parsed)).theme, theme);
+  }
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-grove"}').theme, "ac-grove");
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-onyx"}').theme, "ac-onyx");
   assert.equal(parseAchievementCompanionSettings('{"theme":"ac-paper"}').theme, "ac-paper");
@@ -3563,8 +3569,8 @@ test("compact provider menu nests native theme and badge settings under a sessio
   assert.match(themeDropdownSource, /childrenContainerWidth="max"/u);
   for (const [id, label] of [
     ["ac-arcade", "Arcade"], ["ac-aurora", "Aurora"], ["ac-blue", "Blue (Default)"],
-    ["ac-carbon", "Carbon"], ["ac-ember", "Ember"],
-    ["ac-grove", "Grove"], ["ac-neon", "Neon"], ["ac-onyx", "Onyx"],
+    ["ac-carbon", "Carbon"], ["ac-ember", "Ember"], ["ac-galaxy", "Galaxy"],
+    ["ac-grove", "Grove"], ["ac-halloween", "Halloween"], ["ac-neon", "Neon"], ["ac-onyx", "Onyx"],
     ["ac-paper", "Paper"], ["ac-ra-classic", "RA Classic"],
     ["ac-rosewood", "Rosewood"], ["ac-solarized", "Solarized"], ["ac-steam", "Steam"],
     ["ac-terminal", "Terminal"], ["ac-velvet", "Velvet"],
@@ -12069,10 +12075,11 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(badgeFocusSource, /container\.children/u);
   assert.doesNotMatch(badgeFocusSource, /plugin(?:Id|Name)|Decky Recorder|MetaDeck/ui);
   assert.match(minimalBadgeSource, /data-ac-game-page-badge-style="minimal"/u);
-  assert.match(minimalBadgeSource, /rgba\(15,20,27,\.90\)/u);
-  assert.match(minimalBadgeSource, /rgba\(23,29,37,\.95\)/u);
-  assert.match(minimalBadgeSource, /rgba\(190,190,190,\.32\)/u);
-  assert.match(minimalBadgeSource, /rgba\(235,235,235,\.62\)/u);
+  assert.match(readFileSync("src/platform/decky/decky-native-badge-surface.ts", "utf8"), /rgba\(15,20,27,\.90\)/u);
+  assert.match(readFileSync("src/platform/decky/decky-native-badge-surface.ts", "utf8"), /rgba\(23,29,37,\.95\)/u);
+  assert.match(readFileSync("src/platform/decky/decky-native-badge-surface.ts", "utf8"), /rgba\(190,190,190,\.32\)/u);
+  assert.match(readFileSync("src/platform/decky/decky-native-badge-surface.ts", "utf8"), /rgba\(235,235,235,\.62\)/u);
+  assert.match(minimalBadgeSource, /NATIVE_BADGE_SURFACE\.background/u);
   assert.match(minimalBadgeSource, /filter: "grayscale\(1\) brightness\(0\) invert\(1\)"/u);
   assert.match(minimalBadgeSource, /presentation\.countLabel\.replace\(\/\\s\/gu, ""\)/u);
   assert.match(minimalBadgeSource, /data-ac-game-page-badge-loading-label/u);

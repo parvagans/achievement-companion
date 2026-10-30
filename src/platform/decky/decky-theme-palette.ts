@@ -297,6 +297,68 @@ export const AC_ARCADE_THEME_VARIABLES = createPaletteTheme({
   glow: 0.42,
 });
 
+/** Haunted Midnight keeps the decorative fog behind deep plum cards and readable orange focus. */
+export const AC_HALLOWEEN_THEME_VARIABLES = {
+  ...createPaletteTheme({
+    background: "#0D0914", surface: "#1B1125", raised: "#2A1934", border: "#583448",
+    primary: "#FF792E", secondary: "#8DD9BA", text: "#F5EDE5", muted: "#B9AABE",
+    iconFilter: "brightness(0) saturate(100%) invert(60%) sepia(85%) saturate(1744%) hue-rotate(339deg) brightness(103%) contrast(102%)",
+    glow: 0.16,
+    progressEnd: "#FF9C43",
+  }),
+  "--ac-page": "radial-gradient(ellipse at 78% 7%, rgba(216, 195, 206, 0.11), transparent 30%), radial-gradient(ellipse at 45% 105%, rgba(113, 69, 122, 0.19), transparent 47%), radial-gradient(ellipse at 8% 76%, rgba(164, 67, 86, 0.11), transparent 38%), radial-gradient(ellipse at 54% 43%, transparent 35%, rgba(5, 3, 10, 0.42) 100%), linear-gradient(125deg, #0D0914, #211127 55%, #100A18)",
+  "--ac-card": "rgba(27, 17, 37, 0.96)",
+  "--ac-raised": "linear-gradient(105deg, #302039, #211429)",
+  "--ac-content-card": "radial-gradient(ellipse at 100% 0%, rgba(255, 121, 46, 0.085), transparent 43%), radial-gradient(ellipse at 0% 100%, rgba(164, 67, 86, 0.095), transparent 45%), linear-gradient(112deg, #21142B, #2B1933)",
+  "--ac-content-stat": "radial-gradient(ellipse at 0% 70%, rgba(141, 217, 186, 0.055), transparent 50%), linear-gradient(110deg, #2C1B35, #332038)",
+  "--ac-compact-row": "linear-gradient(150deg, #24162D, #2C1931)",
+  "--ac-primary-action": "linear-gradient(110deg, #A44628, #B95A2A)",
+  "--ac-focus-background": "linear-gradient(180deg, rgba(255, 121, 46, 0.26), rgba(135, 52, 33, 0.14))",
+  "--ac-focus-shadow": "0 0 0 2px rgba(255, 145, 63, 0.95), 0 0 13px rgba(255, 121, 46, 0.28)",
+  "--ac-focus-primary-background": "linear-gradient(110deg, #A94A28, #D76B2A)",
+  "--ac-focus-primary-shadow": "0 0 0 3px rgba(255, 157, 77, 0.98), 0 0 16px rgba(255, 121, 46, 0.34)",
+  "--ac-focus-compact-shadow": "0 0 0 2px rgba(255, 145, 63, 0.88), 0 0 10px rgba(255, 121, 46, 0.2)",
+  "--ac-progress-fill": "linear-gradient(90deg, #B34E22, #FF922F)",
+  "--ac-xp-fill": "linear-gradient(90deg, #387E6C, #8DD9BA)",
+  "--ac-activity-trend-fill": "linear-gradient(180deg, #FFAE60, #A44356)",
+  "--ac-calendar-0": "#2A1C31", "--ac-calendar-1": "#5B302D", "--ac-calendar-2": "#8F3D27", "--ac-calendar-3": "#C65525", "--ac-calendar-4": "#FF792E",
+  "--ac-loading-page": "radial-gradient(ellipse at 79% 12%, rgba(245, 222, 200, 0.12), transparent 29%), radial-gradient(ellipse at 26% 96%, rgba(117, 65, 124, 0.22), transparent 48%), linear-gradient(145deg, #0D0914, #211127 55%, #100A18)",
+  "--ac-loading-info-background": "linear-gradient(145deg, #2A1934, #1B1125) padding-box, linear-gradient(112deg, rgba(255, 121, 46, 0.53), rgba(141, 217, 186, 0.3)) border-box",
+  "--ac-loading-mark-shadow": "0 0 20px rgba(255, 121, 46, 0.2), inset 0 0 0 1px rgba(255, 159, 80, 0.23)",
+  "--ac-loading-ring": "conic-gradient(from -28deg, #8DD9BA 0deg, #FF9C43 95deg, #FF792E 167deg, #713B6A 266deg, #2A1934 267deg, #2A1934 360deg)",
+} as const satisfies ThemeVariables;
+
+/** Cosmic Expanse combines sparse static starlight with deep nebula lighting. */
+export const AC_GALAXY_THEME_VARIABLES = {
+  ...createPaletteTheme({
+    background: "#080B1C", surface: "#11182E", raised: "#1C2443", border: "#34416B",
+    primary: "#8FAAFF", secondary: "#D39BFF", text: "#E8F2FF", muted: "#AAB7D4",
+    iconFilter: "brightness(0) saturate(100%) invert(74%) sepia(27%) saturate(1400%) hue-rotate(189deg) brightness(103%) contrast(102%)",
+    glow: 0.16,
+    progressEnd: "#9EBBFF",
+  }),
+  "--ac-page": "radial-gradient(circle at 13% 19%, rgba(225, 237, 255, 0.38) 0 1px, transparent 2px), radial-gradient(circle at 76% 11%, rgba(225, 237, 255, 0.25) 0 1px, transparent 2px), radial-gradient(circle at 89% 62%, rgba(225, 237, 255, 0.24) 0 1px, transparent 2px), radial-gradient(circle at 37% 81%, rgba(225, 237, 255, 0.2) 0 1px, transparent 2px), radial-gradient(ellipse at 8% 8%, rgba(86, 53, 140, 0.35), transparent 46%), radial-gradient(ellipse at 76% 47%, rgba(52, 86, 156, 0.27), transparent 52%), radial-gradient(ellipse at 95% 88%, rgba(173, 91, 175, 0.13), transparent 41%), radial-gradient(ellipse at 25% 100%, rgba(101, 217, 232, 0.075), transparent 41%), linear-gradient(125deg, #080B1C, #101830 56%, #090C1D)",
+  "--ac-card": "rgba(17, 24, 46, 0.96)",
+  "--ac-raised": "linear-gradient(105deg, #202B4D, #151D36)",
+  "--ac-content-card": "radial-gradient(ellipse at 95% 0%, rgba(143, 170, 255, 0.105), transparent 44%), radial-gradient(ellipse at 0% 100%, rgba(86, 53, 140, 0.13), transparent 48%), linear-gradient(112deg, #151D37, #20294A)",
+  "--ac-content-stat": "radial-gradient(ellipse at 8% 40%, rgba(101, 217, 232, 0.055), transparent 49%), linear-gradient(110deg, #202A49, #263050)",
+  "--ac-compact-row": "linear-gradient(150deg, #18213C, #202846)",
+  "--ac-primary-action": "linear-gradient(110deg, #3B5FA6, #654C9E)",
+  "--ac-focus-background": "linear-gradient(180deg, rgba(143, 170, 255, 0.27), rgba(96, 76, 158, 0.15))",
+  "--ac-focus-shadow": "0 0 0 2px rgba(174, 195, 255, 0.96), 0 0 15px rgba(149, 123, 238, 0.28)",
+  "--ac-focus-primary-background": "linear-gradient(110deg, #4C6FBA, #7057AF)",
+  "--ac-focus-primary-shadow": "0 0 0 3px rgba(184, 202, 255, 0.98), 0 0 17px rgba(149, 123, 238, 0.36)",
+  "--ac-focus-compact-shadow": "0 0 0 2px rgba(174, 195, 255, 0.9), 0 0 11px rgba(149, 123, 238, 0.22)",
+  "--ac-progress-fill": "linear-gradient(90deg, #3D5DAB, #9EBBFF)",
+  "--ac-xp-fill": "linear-gradient(90deg, #6347A0, #BE86D4)",
+  "--ac-activity-trend-fill": "linear-gradient(180deg, #B7C7FF, #7356AD)",
+  "--ac-calendar-0": "#1B2543", "--ac-calendar-1": "#334274", "--ac-calendar-2": "#5366A8", "--ac-calendar-3": "#758DDA", "--ac-calendar-4": "#A8BCFF",
+  "--ac-loading-page": "radial-gradient(ellipse at 15% 12%, rgba(86, 53, 140, 0.32), transparent 47%), radial-gradient(ellipse at 78% 66%, rgba(62, 94, 165, 0.27), transparent 50%), radial-gradient(ellipse at 94% 95%, rgba(173, 91, 175, 0.11), transparent 38%), linear-gradient(145deg, #080B1C, #121A33 56%, #090C1D)",
+  "--ac-loading-info-background": "linear-gradient(145deg, #202A49, #11182E) padding-box, linear-gradient(112deg, rgba(143, 170, 255, 0.52), rgba(211, 155, 255, 0.33)) border-box",
+  "--ac-loading-mark-shadow": "0 0 22px rgba(143, 170, 255, 0.22), inset 0 0 0 1px rgba(184, 202, 255, 0.2)",
+  "--ac-loading-ring": "conic-gradient(from -28deg, #8FAAFF 0deg, #D39BFF 112deg, #AD5BAF 200deg, #65D9E8 275deg, #1C2443 276deg, #1C2443 360deg)",
+} as const satisfies ThemeVariables;
+
 /** Midnight northern-lights chrome with mint-teal and restrained lavender accents. */
 export const AC_AURORA_THEME_VARIABLES = createPaletteTheme({
   background: "#0C1720", surface: "#12242B", raised: "#1B3540", border: "#31505B",
@@ -617,6 +679,8 @@ export const AC_VELVET_THEME_VARIABLES = {
 const THEME_VARIABLES: Partial<Record<AchievementCompanionTheme, ThemeVariables>> = {
   "ac-neon": AC_NEON_THEME_VARIABLES,
   "ac-arcade": AC_ARCADE_THEME_VARIABLES,
+  "ac-galaxy": AC_GALAXY_THEME_VARIABLES,
+  "ac-halloween": AC_HALLOWEEN_THEME_VARIABLES,
   "ac-aurora": AC_AURORA_THEME_VARIABLES,
   "ac-carbon": AC_CARBON_THEME_VARIABLES,
   "ac-dune": AC_DUNE_THEME_VARIABLES,
@@ -644,13 +708,18 @@ const themedThemeIds = new Set<string>(["ac-blue", "ac-glacier", ...Object.keys(
 
 const themedDocuments = new Set<Document>();
 
+/** Scope shared chrome to an owned native-page element without theming Steam's document. */
+export function getAchievementCompanionThemeVariables(theme: AchievementCompanionTheme): Readonly<Record<string, string>> {
+  return THEME_VARIABLES[theme] ?? {};
+}
+
 export function applyAchievementCompanionTheme(ownerDocument: Document, theme: AchievementCompanionTheme): void {
   themedDocuments.add(ownerDocument);
   const rootStyle = ownerDocument.documentElement.style;
   // Clear the retired light-theme text role during hot reloads.
   rootStyle.removeProperty("--ac-foreground-rgb");
   for (const name of Object.keys(AC_NEON_THEME_VARIABLES)) rootStyle.removeProperty(name);
-  for (const [name, value] of Object.entries(THEME_VARIABLES[theme] ?? {})) rootStyle.setProperty(name, value);
+  for (const [name, value] of Object.entries(getAchievementCompanionThemeVariables(theme))) rootStyle.setProperty(name, value);
   ownerDocument.documentElement.dataset["acTheme"] = theme;
 }
 

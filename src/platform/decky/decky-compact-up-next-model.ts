@@ -1,5 +1,6 @@
 import type { GameDetailSnapshot, NormalizedAchievement, RecentlyPlayedGame } from "@core/domain";
 import type { RetroAchievementsAchievementMode } from "@core/settings";
+import type { PinnedAchievement } from "./decky-game-overview-preferences";
 import { getSteamHuntersGameEnrichment } from "../../providers/steamhunters";
 import { projectRetroAchievementsFullScreenAchievements } from "./decky-retroachievements-full-screen-achievement-data";
 import {
@@ -76,6 +77,7 @@ function getSteamHuntersSelectionData(snapshot: GameDetailSnapshot) {
 }
 
 export function buildDeckyCompactUpNextModel(args: {
+  readonly pinnedAchievement?: PinnedAchievement | undefined;
   readonly snapshot: GameDetailSnapshot;
   readonly hiddenAchievementIds: readonly string[];
   readonly goal: RetroAchievementsGameGoal;
@@ -91,6 +93,7 @@ export function buildDeckyCompactUpNextModel(args: {
     : undefined;
   const selection = {
     snapshot,
+    pinnedAchievement: args.pinnedAchievement,
     goal: args.goal,
     achievementMode: args.achievementMode,
     limit: Math.max(1, Math.trunc(args.limit ?? 1)),
@@ -106,11 +109,9 @@ export function buildDeckyCompactUpNextModel(args: {
     !achievement.isUnlocked && hidden.has(achievement.achievementId),
   );
   const completed = isGameOverviewGoalComplete(snapshot, args.goal, args.achievementMode);
-  const outcome: DeckyCompactUpNextOutcome = completed
-    ? { kind: "completed" }
-    : visibleSuggestions[0] !== undefined
+  const outcome: DeckyCompactUpNextOutcome = visibleSuggestions[0] !== undefined
       ? { kind: "suggestion", suggestion: visibleSuggestions[0] }
-      : allSuggestions.length > 0
+      : completed ? { kind: "completed" } : allSuggestions.length > 0
         ? { kind: "all-hidden" }
         : { kind: "empty" };
   return { snapshot, outcome, suggestions: visibleSuggestions, hiddenAchievements };

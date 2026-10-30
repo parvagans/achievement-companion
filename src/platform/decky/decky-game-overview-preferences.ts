@@ -1,4 +1,9 @@
 import { useMemo, useSyncExternalStore } from "react";
+import type { GameDetailSnapshot } from "@core/domain";
+import type { RetroAchievementsAchievementMode } from "@core/settings";
+import { useDeckyProviderConfigs, readDeckyProviderConfigs } from "./providers/provider-config-store";
+import { isPinnedAchievementComplete } from "./decky-game-overview-recommendations";
+import { subscribeDeckyGameDetailPublication } from "./decky-game-detail-publication";
 import type { RetroAchievementsGameGoal } from "./decky-game-overview-recommendations";
 
 export const GAME_OVERVIEW_PREFERENCES_STORAGE_KEY = "achievement-companion:game-overview:v1";
@@ -8,6 +13,28 @@ export interface GameOverviewPreferences {
   readonly globalRetroAchievementsGoal: RetroAchievementsGameGoal;
   readonly retroAchievementsGameGoals: Readonly<Record<string, RetroAchievementsGameGoal>>;
   readonly hiddenSuggestions: Readonly<Record<string, readonly string[]>>;
+  readonly pinnedAchievements: Readonly<Record<string, PinnedAchievement>>;
+}
+
+export interface PinnedAchievement {
+  readonly achievementId: string;
+  /** Fixed at selection time; changing the display mode never changes this goal. */
+  readonly completionMode: RetroAchievementsAchievementMode;
+}
+
+export interface PinnedAchievementScope {
+  readonly providerId: string;
+  readonly gameId: string;
+  readonly accountId: string;
+}
+
+function validScope(scope: PinnedAchievementScope): boolean {
+  return (scope.providerId === "steam" || scope.providerId === "retroachievements")
+    && /^[1-9]\d*$/.test(scope.gameId) && scope.accountId.trim().length > 0;
+}
+
+export function pinnedAchievementPreferenceKey(scope: PinnedAchievementScope): string {
+  return JSON.stringify([scope.providerId, scope.gameId, scope.accountId]);
 }
 
 export interface GameOverviewPreferenceStorage {
@@ -33,6 +60,19 @@ export function parseGameOverviewPreferences(text: string | null | undefined): G
   const source = record(value) && value["version"] === 1 ? value : {};
   const retroAchievementsGameGoals: Record<string, RetroAchievementsGameGoal> = {};
   const hiddenSuggestions: Record<string, readonly string[]> = {};
+  const pinnedAchievements: Record<string, PinnedAchievement> = {};
+  if (record(source["pinnedAchievements"])) {
+    for (const [key, pin] of Object.entries(source["pinnedAchievements"])) {
+      let tuple: unknown;
+      try { tuple = JSON.parse(key); } catch { continue; }
+      if (!Array.isArray(tuple) || tuple.length !== 3 || !tuple.every((item) => typeof item === "string")) continue;
+      if (!validScope({ providerId: tuple[0]!, gameId: tuple[1]!, accountId: tuple[2]! })) continue;
+      if (record(pin) && typeof pin["achievementId"] === "string" && pin["achievementId"].trim()
+        && ["hardcore", "softcore", "both"].includes(String(pin["completionMode"]))) {
+        pinnedAchievements[key] = { achievementId: pin["achievementId"], completionMode: pin["completionMode"] as RetroAchievementsAchievementMode };
+      }
+    }
+  }
   if (record(source["retroAchievementsGameGoals"])) {
     for (const [key, goal] of Object.entries(source["retroAchievementsGameGoals"])) {
       if (key !== "__proto__" && isGoal(goal)) retroAchievementsGameGoals[key] = goal;
@@ -52,6 +92,7 @@ export function parseGameOverviewPreferences(text: string | null | undefined): G
     globalRetroAchievementsGoal: isGoal(source["globalRetroAchievementsGoal"]) ? source["globalRetroAchievementsGoal"] : "master",
     retroAchievementsGameGoals,
     hiddenSuggestions,
+    pinnedAchievements,
   };
 }
 
@@ -71,12 +112,38 @@ export function createGameOverviewPreferencesStore(storage: GameOverviewPreferen
   };
   return {
     read,
-    hideSuggestion(providerId: string, gameId: string, achievementId: string): boolean {
+    readPinnedAchievement(scope: PinnedAchievementScope): PinnedAchievement | undefined {
+      return validScope(scope) ? read().pinnedAchievements[pinnedAchievementPreferenceKey(scope)] : undefined;
+    },
+    pinAchievement(scope: PinnedAchievementScope, achievementId: string, completionMode: RetroAchievementsAchievementMode = "both"): boolean {
+      if (!validScope(scope) || !achievementId.trim() || !["hardcore", "softcore", "both"].includes(completionMode)) return false;
+      const key = pinnedAchievementPreferenceKey(scope);
+      const hiddenKey = gameOverviewPreferenceKey(scope.providerId, scope.gameId);
+      return update((current) => ({ ...current,
+        pinnedAchievements: { ...current.pinnedAchievements, [key]: { achievementId, completionMode } },
+        hiddenSuggestions: { ...current.hiddenSuggestions, [hiddenKey]: (current.hiddenSuggestions[hiddenKey] ?? []).filter((id) => id !== achievementId) },
+      }));
+    },
+    unpinAchievement(scope: PinnedAchievementScope, expectedId?: string): boolean {
+      if (!validScope(scope)) return false;
+      return update((current) => {
+        const key = pinnedAchievementPreferenceKey(scope);
+        if (expectedId !== undefined && current.pinnedAchievements[key]?.achievementId !== expectedId) return current;
+        const { [key]: _pin, ...pinnedAchievements } = current.pinnedAchievements;
+        return { ...current, pinnedAchievements };
+      });
+    },
+    hideSuggestion(providerId: string, gameId: string, achievementId: string, accountId?: string): boolean {
       if (!achievementId) return false;
       const key = gameOverviewPreferenceKey(providerId, gameId);
-      return update((current) => ({ ...current, hiddenSuggestions: {
+      return update((current) => {
+        const pinKey = accountId === undefined ? undefined : pinnedAchievementPreferenceKey({ providerId, gameId, accountId });
+        const pinnedAchievements = { ...current.pinnedAchievements };
+        if (pinKey !== undefined && pinnedAchievements[pinKey]?.achievementId === achievementId) delete pinnedAchievements[pinKey];
+        return { ...current, pinnedAchievements, hiddenSuggestions: {
         ...current.hiddenSuggestions, [key]: [...new Set([...(current.hiddenSuggestions[key] ?? []), achievementId])],
-      } }));
+        } };
+      });
     },
     restoreSuggestion(providerId: string, gameId: string, achievementId: string): boolean {
       const key = gameOverviewPreferenceKey(providerId, gameId);
@@ -130,6 +197,9 @@ function getStore() {
 }
 
 export function useDeckyGameOverviewPreferences(providerId: string, gameId: string) {
+  const configs = useDeckyProviderConfigs();
+  const accountId = providerId === "steam" ? configs.steam?.steamId64 : configs.retroAchievements?.username.toLowerCase();
+  const scope = { providerId, gameId, accountId: accountId ?? "" };
   const currentRevision = useSyncExternalStore(subscribe, () => revision, () => revision);
   const current = useMemo(() => getStore().read(), [currentRevision]);
   const override = Object.prototype.hasOwnProperty.call(current.retroAchievementsGameGoals, gameId)
@@ -140,14 +210,49 @@ export function useDeckyGameOverviewPreferences(providerId: string, gameId: stri
     return persisted;
   };
   return {
+    pinnedAchievement: current.pinnedAchievements[pinnedAchievementPreferenceKey(scope)],
+    canPin: validScope(scope),
+    pinAchievement: (id: string, mode: RetroAchievementsAchievementMode = "both") => mutate((store) => store.pinAchievement(scope, id, mode)),
+    unpinAchievement: () => mutate((store) => store.unpinAchievement(scope)),
+    togglePinnedAchievement: (id: string, mode: RetroAchievementsAchievementMode = "both") => mutate((store) =>
+      store.readPinnedAchievement(scope)?.achievementId === id
+        ? store.unpinAchievement(scope, id) : store.pinAchievement(scope, id, mode)),
     hiddenAchievementIds: current.hiddenSuggestions[gameOverviewPreferenceKey(providerId, gameId)] ?? EMPTY_HIDDEN_IDS,
     globalRetroAchievementsGoal: current.globalRetroAchievementsGoal,
     retroAchievementsGoalOverride: override,
     retroAchievementsGoal: override ?? current.globalRetroAchievementsGoal,
-    hideSuggestion: (id: string) => mutate((store) => store.hideSuggestion(providerId, gameId, id)),
+    hideSuggestion: (id: string) => mutate((store) => store.hideSuggestion(providerId, gameId, id, scope.accountId)),
     restoreSuggestion: (id: string) => mutate((store) => store.restoreSuggestion(providerId, gameId, id)),
     restoreAllSuggestions: () => mutate((store) => store.restoreAllSuggestions(providerId, gameId)),
     setGlobalRetroAchievementsGoal: (goal: RetroAchievementsGameGoal) => mutate((store) => store.setGlobalRetroAchievementsGoal(goal)),
     setRetroAchievementsGameGoal: (goal: RetroAchievementsGameGoal | undefined) => mutate((store) => store.setRetroAchievementsGameGoal(gameId, goal)),
   };
 }
+
+export const subscribeToPinnedAchievementChanges = subscribe;
+export function readPinnedAchievement(scope: PinnedAchievementScope): PinnedAchievement | undefined {
+  return getStore().readPinnedAchievement(scope);
+}
+export function pinAchievement(scope: PinnedAchievementScope, id: string, mode: RetroAchievementsAchievementMode = "both"): boolean {
+  const saved = getStore().pinAchievement(scope, id, mode);
+  if (saved) notify();
+  return saved;
+}
+export function unpinAchievement(scope: PinnedAchievementScope, expectedId?: string): boolean {
+  const saved = getStore().unpinAchievement(scope, expectedId);
+  if (saved) notify();
+  return saved;
+}
+
+/** Called only for current-account canonical progress, never optional enrichment. */
+export function retireCompletedPinnedAchievement(snapshot: GameDetailSnapshot): void {
+  const configs = readDeckyProviderConfigs();
+  const providerId = snapshot.game.providerId;
+  const accountId = providerId === "steam" ? configs.steam?.steamId64 : configs.retroAchievements?.username.toLowerCase();
+  if (accountId === undefined || (providerId === "steam" ? snapshot.achievementStateIsComplete !== true : snapshot.canonicalSourceRevision === undefined)) return;
+  const scope = { providerId, gameId: snapshot.game.gameId, accountId };
+  const pin = readPinnedAchievement(scope);
+  if (pin !== undefined && isPinnedAchievementComplete(snapshot, pin)) unpinAchievement(scope, pin.achievementId);
+}
+
+subscribeDeckyGameDetailPublication(retireCompletedPinnedAchievement);

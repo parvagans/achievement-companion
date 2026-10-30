@@ -1,3 +1,4 @@
+import { nativeUpNextIdentity } from "./decky-native-up-next-preview-model";
 import { routerHook } from "@decky/api";
 import {
   afterPatch,
@@ -996,6 +997,7 @@ function DeckyGamePageAchievementRouteBadgeEnabled({
     <DeckyGamePageAchievementBadge
       appId={appId}
       ariaLabel={presentation.ariaLabel}
+      upNextIdentity={nativeUpNextIdentity(summary, appId)}
       badgeStyle={settings.gamePageAchievementBadgeStyle}
       colors={settings.gamePageAchievementBadgeColors}
       size={settings.gamePageAchievementBadgeSize}

@@ -1,4 +1,7 @@
-import { DialogButton, Focusable, Menu, MenuItem, showContextMenu } from "@decky/ui";
+import { DeckyAchievementArtwork } from "./decky-achievement-artwork";
+import { createUpNextPinAction } from "./decky-up-next-pin-action";
+import { DeckyUpNextPinButton } from "./decky-up-next-pin-button";
+import { DialogButton, Focusable, NavEntryPositionPreferences, Menu, MenuItem, showContextMenu } from "@decky/ui";
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import type { NormalizedAchievement } from "@core/domain";
 import type { GameOverviewSuggestion } from "./decky-game-overview-recommendations";
@@ -349,24 +352,25 @@ export function DeckyOverviewProgress({ headline, detail, percent, unlocked, tot
 function SuggestionRow({ suggestion, actions }: { readonly suggestion: GameOverviewSuggestion; readonly actions: DeckyGameOverviewActions }): JSX.Element {
   const [focused, setFocused] = useState(false);
   const achievement = suggestion.achievement;
+  const pinAction = createUpNextPinAction(suggestion, actions.achievementMode ?? "both", actions.onTogglePin);
   const subtitle = suggestion.warning ?? suggestion.availabilityLabel ?? suggestion.groupLabel;
   const focus = (): void => { setFocused(true); actions.onFocusedSuggestionChange(achievement.achievementId); };
   const blur = (): void => { setFocused(false); actions.onFocusedSuggestionChange(null); };
-  return <Focusable noFocusRing role="button" data-ac-up-next-id={achievement.achievementId} aria-label={`${achievement.title}. ${achievement.description ?? ""}${subtitle ? `. ${subtitle}` : ""}`}
+  return <Focusable flow-children="left-right" noFocusRing tabIndex={-1} navEntryPreferPosition={NavEntryPositionPreferences.FIRST} style={{ display: "grid", gridTemplateColumns: pinAction ? "minmax(0,1fr) auto" : "minmax(0,1fr)", alignItems: "center", gap: 6, minHeight: 0 }}><Focusable noFocusRing role="button" data-ac-up-next-id={achievement.achievementId} aria-label={`${achievement.title}. ${achievement.description ?? ""}${subtitle ? `. ${subtitle}` : ""}`}
     onActivate={() => actions.onOpenAchievement(achievement.achievementId)} onClick={() => actions.onOpenAchievement(achievement.achievementId)}
     onOptionsActionDescription="Show in Achievements" onSecondaryActionDescription="Hide suggestion"
     onOptionsButton={(event) => { event.preventDefault(); event.stopPropagation(); if (!event.detail.is_repeat) actions.onJumpToAchievement(achievement.achievementId); }}
     onSecondaryButton={(event) => { event.preventDefault(); event.stopPropagation(); if (!event.detail.is_repeat) actions.onDismissSuggestion(achievement.achievementId); }}
     onGamepadFocus={focus} onGamepadBlur={blur} onFocus={focus} onBlur={blur}
     style={{ ...achievementCompanionAchievementRowRecipes.surface("compact", steamTheme.color.locked, focused), borderRadius: steamTheme.radius.medium,
-      display: "grid", gridTemplateColumns: "36px minmax(0, 1fr) 88px", alignItems: "center", gap: 8, minHeight: 0, padding: "4px 8px", boxSizing: "border-box" }}>
-    <DeckyGameArtwork size={36} compact title={achievement.title} {...(achievement.badgeImageUrl ? { src: achievement.badgeImageUrl } : {})} />
-    <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+      display: "grid", gridTemplateColumns: "36px minmax(0, 1fr) 88px", alignItems: "center", alignSelf: "stretch", gap: 8, minHeight: 0, padding: "4px 8px", boxSizing: "border-box" }}>
+    {achievement.badgeImageUrl ? <DeckyAchievementArtwork size={36} src={achievement.badgeImageUrl} /> : <span />}
+    <div style={{ minWidth: 0, minHeight: 0, maxHeight: "100%", overflow: "hidden", display: "flex", flexDirection: "column", gap: 2 }}>
       <div style={{ minWidth: 0, display: "flex", alignItems: "center", gap: 5 }}>
         <strong title={achievement.title} style={{ ...steamRecipes.text("fullscreen", "body"), fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{achievement.title}</strong>
         <DeckyAchievementTypeBadge classification={achievement.classification} />
       </div>
-      {achievement.description ? <span title={achievement.description} style={{ ...overviewMetadataStyle, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", lineHeight: 1.15 }}>{achievement.description}</span> : null}
+      {achievement.description ? <span data-ac-up-next-row-description title={achievement.description} style={{ ...overviewMetadataStyle, minHeight: 0, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", whiteSpace: "pre-wrap", overflowWrap: "anywhere", lineHeight: 1.15 }}>{achievement.description}</span> : null}
       <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, fontSize: steamTheme.type.fullscreen.caption, color: suggestion.warning || suggestion.availabilityLabel ? steamTheme.color.warning : steamTheme.color.textSecondary }}>
         {subtitle ? <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{subtitle}</span> : null}
       </div>
@@ -374,12 +378,13 @@ function SuggestionRow({ suggestion, actions }: { readonly suggestion: GameOverv
     <div data-ac-up-next-rarity="true" style={{ alignSelf: "stretch", display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "stretch", gap: 4, minWidth: 0 }}>
       {suggestion.rarityPercent !== undefined ? <><span style={{ ...overviewMetadataStyle, textAlign: "right", whiteSpace: "nowrap" }}>{Math.round(suggestion.rarityPercent)}% players</span><span aria-hidden="true" style={{ width: "100%", height: 3, background: steamTheme.surface.progressTrack, borderRadius: 3, overflow: "hidden" }}><span style={{ display: "block", width: `${suggestion.rarityPercent}%`, height: "100%", background: steamTheme.surface.progressFill }} /></span></> : null}
     </div>
-  </Focusable>;
+  </Focusable><DeckyUpNextPinButton action={pinAction} onFocusedChange={(focused) => actions.onFocusedPinChange?.(focused ? achievement.achievementId : null)} /></Focusable>;
 }
 
 export function DeckyOverviewCompanion({ actions, completed, history, goalLabel }: {
   readonly actions?: DeckyGameOverviewActions; readonly completed: boolean; readonly history: ReactNode; readonly goalLabel?: string;
 }): JSX.Element {
+  if (actions?.suggestions[0]?.pinned) completed = false;
   const menuItems = actions === undefined ? [] : buildDeckyManageSuggestionsMenuItems(actions);
   const suggestions = completed ? [] : actions?.suggestions ?? [];
   return <section aria-label={completed ? "Milestone history" : "Up Next"} style={{ ...overviewPanelStyle, gap: 6 }}>
@@ -387,7 +392,7 @@ export function DeckyOverviewCompanion({ actions, completed, history, goalLabel 
       <strong style={steamRecipes.text("fullscreen", "title")}>{completed ? "Your milestone" : "Up Next"}</strong>
       {menuItems.length > 0 ? <DeckyOverviewMenuButton label="Manage Suggestions" items={menuItems} compact /> : null}
     </div>
-    {suggestions.length > 0 && actions !== undefined ? <Focusable flow-children="column" noFocusRing tabIndex={-1} style={{ display: "grid", gridTemplateRows: `repeat(${suggestions.length}, minmax(0, 1fr))`, gap: 6, minHeight: 0, flex: "1 1 auto" }}>
+    {suggestions.length > 0 && actions !== undefined ? <Focusable flow-children="column" noFocusRing tabIndex={-1} style={{ display: "grid", gridTemplateRows: suggestions.length === 3 ? "repeat(3, minmax(0, 1fr))" : `repeat(${suggestions.length}, max-content)`, alignContent: "start", gap: 8, minHeight: 0, flex: "1 1 auto" }}>
       {suggestions.map((suggestion) => <SuggestionRow key={suggestion.achievement.achievementId} suggestion={suggestion} actions={actions} />)}
     </Focusable> : <div style={{ minHeight: 0, flex: "1 1 auto", display: "flex", flexDirection: "column", justifyContent: "center", gap: 8 }}>
       {!completed ? <div style={steamRecipes.text("fullscreen", "body")}>{actions?.hiddenSuggestions.length ? "Suggestions hidden. Restore them in Manage Suggestions." : `No eligible suggestions${goalLabel ? ` for ${goalLabel}` : ""} right now.`}</div> : null}

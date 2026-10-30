@@ -796,8 +796,9 @@ async function loadGameDetailSnapshot(
   providerConfig: unknown,
   gameId: string,
   forceRefresh = false,
+  recommendationOnly = false,
 ): Promise<GameDetailSnapshot> {
-  return provider.loadGameProgress(providerConfig, gameId, { forceRefresh });
+  return provider.loadGameProgress(providerConfig, gameId, { forceRefresh, ...(recommendationOnly ? { recommendationOnly } : {}) });
 }
 
 async function refreshDashboard(args: {
@@ -1031,6 +1032,7 @@ async function refreshGameDetail(args: {
   readonly cacheKey: string;
   readonly gameId: string;
   readonly forceRefresh?: boolean;
+  readonly recommendationOnly?: boolean;
   readonly cachedState?: ResourceState<GameDetailSnapshot>;
 }): Promise<ResourceState<GameDetailSnapshot>> {
   const provider = args.providerRegistry.get(args.providerId);
@@ -1072,7 +1074,7 @@ async function refreshGameDetail(args: {
 
   return runProviderRefreshExclusive(args.providerId, async () => {
     try {
-      const snapshot = await loadGameDetailSnapshot(provider, providerConfig, args.gameId, args.forceRefresh);
+      const snapshot = await loadGameDetailSnapshot(provider, providerConfig, args.gameId, args.forceRefresh, args.recommendationOnly);
       const now = Date.now();
 
       await args.cacheStore.write<GameDetailSnapshot>({
@@ -1346,6 +1348,7 @@ function createUnscopedAppServices(options: AppServiceBootstrapOptions): AppServ
           cacheKey,
           gameId,
           ...(requestOptions?.forceRefresh !== undefined ? { forceRefresh: requestOptions.forceRefresh } : {}),
+          ...(requestOptions?.recommendationOnly !== undefined ? { recommendationOnly: requestOptions.recommendationOnly } : {}),
           ...(cacheRead.cachedState !== undefined ? { cachedState: cacheRead.cachedState } : {}),
         });
       },

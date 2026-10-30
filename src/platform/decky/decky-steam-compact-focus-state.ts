@@ -3,7 +3,7 @@ export type DeckySteamCompactFocusTarget =
   | { readonly kind: "profile" }
   | { readonly kind: "steamhunters-points" }
   | { readonly kind: "steam-profile-metric" }
-  | { readonly kind: "up-next"; readonly control: "recommendation" | "achievements" | "options"; readonly gameId: string }
+  | { readonly kind: "up-next"; readonly control: "recommendation" | "achievements" | "pin" | "options"; readonly gameId: string }
   | { readonly kind: "calendar-entry" }
   | { readonly kind: "calendar"; readonly day: number }
   | { readonly kind: "achievement"; readonly gameId: string; readonly achievementId: string }

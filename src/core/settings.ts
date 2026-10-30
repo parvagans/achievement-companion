@@ -26,9 +26,11 @@ export type CompletionProgressFilter = "all" | "unfinished" | "beaten" | "master
 export type UpdateSourceKind = "production" | "local";
 export type RetroAchievementsRankDisplay = "site" | "casual";
 export type RetroAchievementsAchievementMode = "hardcore" | "softcore" | "both";
+export const GAME_PAGE_UP_NEXT_PREVIEW_OPTIONS = ["focus", "always", "hidden"] as const;
+export type GamePageUpNextPreview = (typeof GAME_PAGE_UP_NEXT_PREVIEW_OPTIONS)[number];
 export const ACHIEVEMENT_COMPANION_THEME_OPTIONS = [
-  "ac-arcade", "ac-aurora", "ac-blue", "ac-carbon", "ac-dune", "ac-ember", "ac-grove",
-  "ac-neon", "ac-onyx", "ac-paper", "ac-pocket-lcd", "ac-ra-classic", "ac-rosewood",
+  "ac-arcade", "ac-aurora", "ac-blue", "ac-carbon", "ac-dune", "ac-ember", "ac-galaxy", "ac-grove",
+  "ac-halloween", "ac-neon", "ac-onyx", "ac-paper", "ac-pocket-lcd", "ac-ra-classic", "ac-rosewood",
   "ac-solarized", "ac-steam", "ac-terminal", "ac-velvet",
 ] as const;
 export type AchievementCompanionTheme = (typeof ACHIEVEMENT_COMPANION_THEME_OPTIONS)[number];
@@ -87,6 +89,8 @@ export interface AchievementCompanionSettings {
   readonly showCompletionProgressSubsets: boolean;
   readonly defaultCompletionProgressFilter: CompletionProgressFilter;
   readonly showGamePageAchievementBadge: boolean;
+  readonly gamePageUpNextPreview: GamePageUpNextPreview;
+  readonly gamePageUpNextDescription: GamePageUpNextPreview;
   readonly gamePageAchievementBadgeStyle: GamePageAchievementBadgeStyle;
   readonly gamePageAchievementBadgeSize: GamePageAchievementBadgeSize;
   readonly gamePageAchievementBadgePosition: GamePageAchievementBadgePosition;
@@ -114,6 +118,8 @@ export const DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS: AchievementCompanionSetting
   showCompletionProgressSubsets: true,
   defaultCompletionProgressFilter: "all",
   showGamePageAchievementBadge: true,
+  gamePageUpNextPreview: "focus",
+  gamePageUpNextDescription: "focus",
   gamePageAchievementBadgeStyle: "classic",
   gamePageAchievementBadgeSize: "small",
   gamePageAchievementBadgePosition: "top-left",
@@ -279,6 +285,10 @@ export function normalizeAchievementCompanionSettings(
     gamePageAchievementBadgeStyle: normalizeGamePageAchievementBadgeStyle(
       value["gamePageAchievementBadgeStyle"],
     ),
+    gamePageUpNextPreview: GAME_PAGE_UP_NEXT_PREVIEW_OPTIONS.includes(value["gamePageUpNextPreview"] as GamePageUpNextPreview)
+      ? value["gamePageUpNextPreview"] as GamePageUpNextPreview : "focus",
+    gamePageUpNextDescription: GAME_PAGE_UP_NEXT_PREVIEW_OPTIONS.includes(value["gamePageUpNextDescription"] as GamePageUpNextPreview)
+      ? value["gamePageUpNextDescription"] as GamePageUpNextPreview : "focus",
     // A saved record predating size must retain the original 292×74 badge.
     gamePageAchievementBadgeSize: normalizeGamePageAchievementBadgeSize(value["gamePageAchievementBadgeSize"]),
     gamePageAchievementBadgePosition: normalizeGamePageAchievementBadgePosition(

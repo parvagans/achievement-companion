@@ -1,4 +1,5 @@
 import { getDeckyRetroAchievementsProfileResourceRevision } from "./providers/retroachievements/backend-transport";
+import { publishDeckyGameDetail } from "./decky-game-detail-publication";
 import { redactFrontendLogText } from "@core/redaction";
 import { createDeckyDashboardRefreshCoordinator } from "./decky-dashboard-refresh-coordinator";
 import { callDeckyBackendMethod } from "./decky-backend-bridge";
@@ -85,7 +86,7 @@ import {
 import { loadDeckyProviderConfig } from "./providers";
 import { RETROACHIEVEMENTS_PROVIDER_ID, type RetroAchievementsProviderConfig } from "../../providers/retroachievements";
 import { STEAM_PROVIDER_ID, type SteamProviderConfig } from "../../providers/steam";
-import { createDeckyRetroAchievementsTransport, getDeckyRetroAchievementsDataCoordinator, invalidateDeckyRetroAchievementsGameResource, resetDeckyRetroAchievementsTransportForTests, ensureDeckyRetroAchievementsHistoryResource, isDeckyRetroAchievementsResourceFresh, isDeckyRetroAchievementsGameResourceFresh } from "./providers/retroachievements/backend-transport";
+import { createDeckyRetroAchievementsTransport, getDeckyRetroAchievementsDataCoordinator, getDeckyRetroAchievementsGameResourceRevision, invalidateDeckyRetroAchievementsGameResource, resetDeckyRetroAchievementsTransportForTests, ensureDeckyRetroAchievementsHistoryResource, isDeckyRetroAchievementsResourceFresh, isDeckyRetroAchievementsGameResourceFresh } from "./providers/retroachievements/backend-transport";
 import {
   markRetroAchievementsAuthenticatedSuccess,
   markRetroAchievementsCachedDashboardRestored,
@@ -2382,6 +2383,18 @@ async function loadDeckyGameDetailStateImpl(
   gameId: string,
   options?: { readonly forceRefresh?: boolean; readonly recommendationOnly?: boolean },
 ): Promise<ResourceState<GameDetailSnapshot>> {
+  const revision = getDeckyAccountRevision(providerId);
+  const state = await loadDeckyGameDetailStateRaw(providerId, gameId, options);
+  if (revision === getDeckyAccountRevision(providerId) && state.status === "success" && state.data !== undefined
+    && (providerId !== RETROACHIEVEMENTS_PROVIDER_ID || state.data.canonicalSourceRevision === getDeckyRetroAchievementsGameResourceRevision(gameId))) publishDeckyGameDetail(state.data);
+  return state;
+}
+
+async function loadDeckyGameDetailStateRaw(
+  providerId: ProviderId,
+  gameId: string,
+  options?: { readonly forceRefresh?: boolean; readonly recommendationOnly?: boolean },
+): Promise<ResourceState<GameDetailSnapshot>> {
   const accountRevision = getDeckyAccountRevision(providerId);
   const isCurrentAccount = () => accountRevision === getDeckyAccountRevision(providerId);
   const runtimeMode: DeckyRuntimeMode = loadDeckyRuntimeMode();
@@ -2454,6 +2467,7 @@ async function loadDeckyGameDetailStateImpl(
     gameId,
     {
       forceRefresh: options?.forceRefresh ?? true,
+      ...(options?.recommendationOnly === true ? { recommendationOnly: true } : {}),
     },
   );
 

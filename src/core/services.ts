@@ -51,7 +51,7 @@ export interface GameDetailService {
   loadGameDetail(
     providerId: ProviderId,
     gameId: string,
-    options?: LoadRequestOptions,
+    options?: LoadRequestOptions & { readonly recommendationOnly?: boolean },
   ): Promise<ResourceState<GameDetailSnapshot>>;
 }
 
