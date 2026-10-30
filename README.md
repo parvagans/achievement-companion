@@ -35,11 +35,11 @@ Achievement Companion is an independent community project, not affiliated with o
 
 ## Highlights
 
-- **[Find your next unlock](#quick-access-menu):** see a focused suggestion in Quick Access or up to three recommendations on full-screen pages and matched RetroAchievements shortcuts in Steam.
+- **[Choose your next unlock](#quick-access-menu):** pin a Steam or RetroAchievements target, or follow automatic suggestions in Quick Access, full-screen Overview, and matched RetroAchievements shortcuts in Steam.
 - **[Stay in Game Mode](#retroachievements-inside-steam):** view RetroAchievements in Steam's Activity, Up Next, Your Stuff, Community, and Game Info sections for supported non-Steam games.
 - **[Explore both collections](#screenshots):** use controller-friendly profiles, searchable games and achievements, progress views, activity calendars, and achievement details.
 - **Understand Steam completions:** SteamHunters adds community rarity, completion times, DLC requirements, achievement groups, and obtainability data where available. Personal SteamHunters profile data is optional.
-- **[See milestones in your library](#native-game-page-status-badges):** choose Classic or Minimal badges for In Progress, Steam Perfected, and RetroAchievements Beaten or Mastered status.
+- **[See progress and your next target in your library](#native-game-page-status-badges):** choose Classic or Minimal status badges and an optional Up Next preview on native game pages.
 - **Make it yours:** choose from 15 themes in **Quick Access → Plugin Settings → Theme Settings**; progress and award colors keep their meaning across themes.
 
 RetroAchievements and Steam keep their own progression rules. Choosing a RetroAchievements Beat or Master goal changes recommendations and presentation, not the recorded accomplishment.
@@ -72,7 +72,9 @@ For RetroAchievements, enter your username and the Web API key from **Settings �
 
 ## Quick Access Menu
 
-Quick Access shows a **Current Game** or **Continue Playing** card for each connected provider, with progress and one Up Next recommendation. Open its details, skip it, or browse the game's achievements. RetroAchievements suggestions follow the selected global or per-game Beat or Master goal; Steam prioritizes unfinished recent games with eligible achievements.
+Quick Access shows a **Current Game** or **Continue Playing** card for each connected provider, with progress and one Up Next recommendation. Open its details, skip it, or browse the game's achievements. Automatic RetroAchievements suggestions follow the selected global or per-game Beat or Master goal; Steam prioritizes unfinished recent games with eligible achievements.
+
+Use the adjacent **thumbtack** to pin or unpin a recommendation. A filled thumbtack marks your manual target, which takes priority over automatic suggestions without changing your Beat/Master goal. Pins are saved separately for each account and game and shared across Quick Access, full-screen Overview, and supported native Steam views. Removing or completing a pin restores automatic selection; RetroAchievements pins respect the completion mode selected when pinned. **Set as Up Next** and **Remove from Up Next** also remain available in the existing suggestion and achievement-detail menus.
 
 Open a game for up to three recommendations and a complete achievement browser. Search titles and descriptions, filter and sort results, or choose Detailed or Compact rows. **Actions** opens Game Info, goal and suggestion controls, and the full-screen page. After viewing achievement details, you return where you left off.
 
@@ -98,7 +100,7 @@ Open a game for up to three recommendations and a complete achievement browser. 
 For a non-Steam shortcut that Achievement Companion can confidently match to a RetroAchievements game:
 
 - **Activity** groups dated unlocks by day in Steam's native layout. Tiles include the exact unlock time and Hardcore or Softcore mode; selecting one finds that achievement in the native Your Stuff list.
-- **Up Next** shows game progress and up to three Beat or Master recommendations. Change the goal in Goal Settings, press X to skip a focused suggestion, or use Suggestions to restore hidden ones individually or all at once. Hidden choices sync with QAM and full-screen. Win Condition, Progression, and Missable labels clarify recommendations. Selecting a card finds its row in the native achievement list; completed goals show a completion message.
+- **Up Next** shows game progress and up to three recommendations, with your pinned target first. Press **Y Pin/Unpin** on a focused card to choose or remove a manual target; the native footer shows the action and a filled thumbtack marks the pinned achievement. **X Skip** hides a suggestion, and selecting a card finds it in the native achievement list. Change Beat/Master goals in Goal Settings or restore hidden suggestions individually or all at once in Suggestions. Pins and hidden choices sync with QAM and full-screen. Win Condition, Progression, and Missable labels clarify recommendations; completed goals show a completion message unless an unfinished manual pin remains active.
 - **Your Stuff → Achievements** shows badge artwork, descriptions, progress, locked and unlocked states, and unlock times or global rates when RetroAchievements provides them. Win Condition, Progression, and Missable labels also appear in the full native list.
 - **Community → Playtime Stats** shows RA community milestones and sampled median times in Steam's game-page layout. Its Casual/Hardcore control is separate from your saved achievement mode: Hardcore shows Beat and Mastered statistics; Casual shows Beat and Completed statistics. **Latest Masters** shows up to ten recent mastery entries with artwork, ranks, and dates. Unavailable values are omitted, and missing profile artwork falls back to initials.
 - **Game Info** adds a native metadata view with the matched game's cover, system, release date, developer, publisher, genre, and achievement availability when those fields are provided.
@@ -181,7 +183,9 @@ Both providers include Analytics alongside Activity; use LT/RT to switch between
 
 ## Full-screen game pages
 
-The Overview puts personal progress, the latest unlock, provider metrics, and up to three Up Next recommendations on one screen. Once a goal is complete, the recommendations give way to a Beaten, Mastered, or Perfected milestone showcase.
+The Overview puts personal progress, the latest unlock, provider metrics, and up to three Up Next recommendations on one screen. The three achievement cards share equal height and consistent spacing; descriptions use two-line summaries, with complete text available in achievement details. Without an active manual pin, a completed goal replaces recommendations with a Beaten, Mastered, or Perfected milestone showcase.
+
+Pin or unpin a recommendation with its adjacent **thumbtack**. The filled icon identifies the active manual target without repeating pinned or goal labels inside the card. Your target stays shared with Quick Access and supported native Steam views, and choosing one preserves the game's Beat/Master goal.
 
 RetroAchievements keeps Hardcore and Softcore distinct. Its Beat goal favors Progression and Win Condition achievements; Master works toward the remaining set. Steam adds SteamHunters groups, DLC and obtainability filters, and community completion insights. Returning from details or Game Info takes you back to the originating menu and focused item.
 
@@ -189,7 +193,7 @@ The Achievements section adds title and description search to each provider's fi
 
 Eligible RetroAchievements games offer Community before optional statistics load. Missing provider medians remain omitted; the page does not invent values to fill its layout. Subsets appears only when at least one parent-child relationship has been verified, and saved discovery checkpoints allow unfinished verification to continue.
 
-Controls stay consistent: A selects, L1/R1 changes sections, and B follows the current menu or dialog before leaving the page. X hides a focused Up Next suggestion; Y finds it in Achievements or returns to the top of that list. Footer positions stay stable when an action is unavailable.
+Controls stay consistent: A selects, L1/R1 changes sections, and B follows the current menu or dialog before leaving the page. Move Right from an Up Next achievement to its thumbtack and Left to return; A on the thumbtack pins or unpins without leaving Overview. X hides a focused Up Next suggestion; Y finds it in Achievements or returns to the top of that list. Footer positions stay stable when an action is unavailable.
 
 <table>
   <tr>
@@ -247,6 +251,25 @@ Classic has separate colors for each status: Perfected Purple, Mastered Gold, Be
   <strong>Minimal</strong><br>
   <img src="docs/screenshots/readme/game-page-status-badges-minimal.png" alt="Small, Medium, and Large monochrome Minimal game-page badges for RetroAchievements Mastered, Beaten, and In Progress; Steam Perfected and In Progress; and loading" width="100%">
 </p>
+
+### Up Next preview
+
+Show your current Steam or matched RetroAchievements target beside the native badge. The preview follows the badge's position and width, uses a neutral Minimal-style surface with either badge style, and includes achievement artwork, a title, and a small thumbtack for a manual pin. Selecting the badge still opens the matching Achievement Companion game page.
+
+In **Badge appearance**, set **Up Next Preview** to **On Focus** (the default), **Always Show**, or **Hidden**. On Focus shows the preview while the badge has controller focus or mouse hover; Always Show keeps it with the native game page; Hidden leaves the badge available without a preview.
+
+The separate **Achievement Description** setting uses the same three options and also defaults to **On Focus**. Show the available description on focus, whenever the preview is visible, or never. This controls only the description: a Hidden preview stays hidden regardless of the description setting. If a complete description cannot fit safely, the preview falls back to its compact title/artwork presentation; full text remains available in achievement details.
+
+<table>
+  <tr>
+    <th width="50%">Classic badge with Up Next</th>
+    <th width="50%">Minimal badge with Up Next</th>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/readme/native-page-up-next-achievement.png" alt="Classic RetroAchievements Beaten badge with an Up Next preview showing Chapter 2 - Speedrun and its description" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/native-page-up-next-achievement-minimal.png" alt="Minimal RetroAchievements Beaten badge with an Up Next preview showing Chapter 2 - Speedrun and its description" width="100%"></td>
+  </tr>
+</table>
 
 ## RetroAchievements data synchronization
 
