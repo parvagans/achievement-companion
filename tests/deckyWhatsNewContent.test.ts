@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { createElement, createRef } from "react";
 import { WHATS_NEW_SECTIONS } from "../src/platform/decky/decky-whats-new-content";
+import { steamTheme } from "../src/platform/decky/steam-theme";
+import { components } from "./helpers/decky-component-declarations";
 
 test("bundled What's New notes cover the update and remain readable offline", () => {
   assert.ok(WHATS_NEW_SECTIONS.length > 0);
@@ -16,22 +19,128 @@ test("bundled What's New notes cover the update and remain readable offline", ()
   }
 });
 
-test("What's New starts the 0.38.2 cycle with reliability and session outcomes", () => {
+test("What's New covers 0.39.1 while retaining the 0.39.0 highlights and earlier Up Next introduction", () => {
   assert.deepEqual(
     WHATS_NEW_SECTIONS.map((section) => section.title),
-    ["Overview", "Current Game", "Community", "Subsets", "Controls"],
+    ["Overview", "Up Next", "Pinned", "Game Page Badges", "Halloween"],
   );
   assert.ok(WHATS_NEW_SECTIONS.every((section) => section.title.length <= 16));
 
   const releaseCopy = WHATS_NEW_SECTIONS.flatMap((section) => section.items).join(" ");
-  assert.match(releaseCopy, /saved progress/u);
-  assert.match(releaseCopy, /Provider cooldowns/u);
-  assert.match(releaseCopy, /emulator ROM switches/u);
-  assert.match(releaseCopy, /Continue Playing/u);
-  assert.match(releaseCopy, /before statistics load/u);
-  assert.match(releaseCopy, /verified subsets/u);
-  assert.match(releaseCopy, /long Quick Access game titles/u);
-  assert.doesNotMatch(releaseCopy, /compact Minimal style|Choose Beat or Master|non-scrolling Deck dashboard/u);
+  assert.deepEqual(WHATS_NEW_SECTIONS.find((section) => section.title === "Up Next")?.items.slice(0, 2), [
+    "Up Next recommends three achievements using progression and available provider data, with community rarity and RetroAchievements classifications where supported.",
+    "Open a recommendation's details, jump to it in Achievements, or hide it. Manage Suggestions can restore individual choices or every hidden suggestion.",
+  ]);
+  assert.match(releaseCopy, /thumbtack controls/u);
+  assert.match(releaseCopy, /Y Pin\/Unpin/u);
+  assert.match(releaseCopy, /separate for each account and game/u);
+  assert.match(releaseCopy, /Removing or completing a pin/u);
+  assert.match(releaseCopy, /without changing your Beat\/Master goals/u);
+  assert.match(releaseCopy, /Hardcore\/Softcore/u);
+  assert.match(releaseCopy, /both settings default to On Focus/u);
+  assert.match(releaseCopy, /three equal-height recommendation cards/u);
+  assert.match(releaseCopy, /two-line description summaries/u);
+  assert.match(releaseCopy, /Happy Halloween/u);
+  assert.match(releaseCopy, /orange accents, deep purple surfaces, and mint highlights/u);
+  assert.match(releaseCopy, /Down again at the bottom to reach Close/u);
+  assert.doesNotMatch(releaseCopy, /Provider cooldowns|emulator ROM switches|verified subsets/u);
+});
+
+test("actual What's New tab handlers scroll first, then hand off to native Close from every subject", async () => {
+  const notes = { scrollTop: 0, scrollHeight: 320, clientHeight: 160 };
+  const document = {};
+  const targets = new Map<string, object>();
+  const content = { ownerDocument: document, querySelector: (selector: string) => targets.get(selector) ?? null };
+  let refIndex = 0, closeFocuses = 0, sounds = 0, closeAvailable = true;
+  const refs = [content, notes, null];
+  const focusedTargets: unknown[] = [];
+  const { WhatsNewContent } = await components("decky-whats-new-modal.tsx", ["WhatsNewContent", "consumeDirection", "focusAndConsume"], {
+    createElement, Focusable: "native-focusable", WHATS_NEW_SECTIONS, APP_VERSION: "0.39.1", steamTheme,
+    NOTES_VIEWPORT_HEIGHT_PX: 160, NOTES_SCROLL_STEP_PX: 48, versionStyle: {}, noteRowStyle: {},
+    useRef: () => ({ current: refs[refIndex++] }), useState: (initial: unknown) => [initial, () => {}],
+    useEffect: () => {}, useLayoutEffect: () => {}, getDeckyStandardModalContentStyle: () => ({}), getDeckyStandardModalTabStyle: () => ({}),
+    GamepadButton: { DIR_UP: 9, DIR_DOWN: 10, DIR_LEFT: 11, DIR_RIGHT: 12 },
+    takeDeckySteamGamepadFocus: (target: unknown) => { focusedTargets.push(target); return true; },
+    playDeckySteamNavigationSound: () => { sounds++; },
+  });
+  const tree = WhatsNewContent({ focusCloseButton: () => { closeFocuses++; return closeAvailable; } });
+  const tabs: any[] = [];
+  function visit(node: any): void {
+    if (Array.isArray(node)) { node.forEach(visit); return; }
+    if (node === null || typeof node !== "object") return;
+    if (node.props?.["data-ac-whats-new-tab"] !== undefined) tabs.push(node);
+    visit(node.props?.children);
+  }
+  visit(tree);
+  assert.equal(tabs.length, WHATS_NEW_SECTIONS.length);
+  function press(tab: any, button: number): number {
+    let consumed = 0;
+    tab.props.onGamepadDirection({ detail: { button }, preventDefault: () => { consumed++; }, stopPropagation: () => { consumed++; }, stopImmediatePropagation: () => { consumed++; } });
+    return consumed;
+  }
+  for (const tab of tabs) {
+    notes.scrollTop = 0;
+    const before = closeFocuses;
+    assert.equal(press(tab, 10), 3);
+    assert.equal(notes.scrollTop, 48);
+    assert.equal(closeFocuses, before, "scrolling does not move controller focus");
+    while (notes.scrollTop < 160) assert.equal(press(tab, 10), 3);
+    assert.equal(press(tab, 10), 3);
+    assert.equal(closeFocuses, before + 1, "one Down at the bottom requests native Close once");
+    assert.equal(press(tab, 9), 3);
+    assert.equal(notes.scrollTop, 112, "Up still scrolls back through notes");
+  }
+  notes.scrollHeight = notes.clientHeight;
+  notes.scrollTop = 0;
+  const before = closeFocuses;
+  assert.equal(press(tabs[0], 10), 3);
+  assert.equal(closeFocuses, before + 1, "short notes reach Close with one Down");
+  closeAvailable = false;
+  const previousSounds = sounds;
+  assert.equal(press(tabs[0], 10), 0, "failed focus leaves Steam's default navigation available");
+  assert.equal(sounds, previousSounds);
+  assert.equal(press(tabs[0], 2), 0, "Back remains owned by the native modal");
+  const nextTab = {};
+  targets.set('[data-ac-whats-new-tab="1"]', nextTab);
+  assert.equal(press(tabs[0], 12), 3);
+  assert.equal(focusedTargets.at(-1), nextTab, "Left/Right still uses the existing subject handler");
+});
+
+test("standard modal exposes its existing native Close action without adding another focus target", async () => {
+  let shown: any, focusClose: (() => boolean) | undefined, closes = 0, unregisters = 0;
+  const targets: unknown[] = [];
+  const { openDeckyStandardModal } = await components("decky-standard-modal.tsx", ["openDeckyStandardModal"], {
+    createElement, createRef, ConfirmModal: "native-confirm",
+    takeDeckySteamGamepadFocus: (target: unknown) => { targets.push(target); return target !== undefined; },
+    showModal: (element: unknown) => { shown = element; return { Close: () => { closes++; } }; },
+    registerDeckyFullscreenPopupCancel: () => () => { unregisters++; },
+  });
+  openDeckyStandardModal({ title: "Whats New", renderContent: (_close: unknown, focus: () => boolean) => { focusClose = focus; return "notes"; } });
+  assert.equal(shown.type, "native-confirm");
+  assert.equal(shown.props.children, "notes", "no new content wrapper or focus owner");
+  const label = shown.props.strOKButtonText;
+  assert.equal(label.type, "span");
+  assert.equal(label.props.children, "Close");
+  assert.equal(label.props.tabIndex, undefined);
+  assert.equal(focusClose?.(), false, "unmounted action cannot take focus");
+  const nativeButton = {};
+  label.ref.current = { closest: (selector: string) => { assert.equal(selector, "button, [role='button'], [tabindex]"); return nativeButton; } };
+  assert.equal(focusClose?.(), true);
+  assert.equal(targets.at(-1), nativeButton);
+  assert.equal(closes, 0, "moving focus never activates Close");
+  assert.equal(shown.props.onOK, shown.props.onCancel);
+  shown.props.onOK(); shown.props.onCancel();
+  assert.equal(closes, 1); assert.equal(unregisters, 1);
+});
+
+test("What's New wires the native Close focus handoff through the shared shell", async () => {
+  let options: any;
+  const { openDeckyWhatsNewModal } = await components("decky-whats-new-modal.tsx", ["openDeckyWhatsNewModal"], {
+    createElement, WhatsNewTitle: "title", WhatsNewContent: "content", openDeckyStandardModal: (value: unknown) => { options = value; },
+  });
+  openDeckyWhatsNewModal();
+  const focusClose = () => true;
+  assert.equal(options.renderContent(() => {}, focusClose).props.focusCloseButton, focusClose);
 });
 
 test("What's New places QAM-sized support actions beside the modal title and expands fitted release notes", async () => {

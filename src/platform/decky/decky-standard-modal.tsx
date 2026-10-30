@@ -1,8 +1,9 @@
 import { ConfirmModal, showModal } from "@decky/ui";
-import type { CSSProperties, ReactNode } from "react";
+import { createRef, type CSSProperties, type ReactNode } from "react";
 import { steamTheme } from "./steam-theme";
 import { registerDeckyFullscreenPopupCancel } from "./decky-full-screen-popup-state";
 import { beginDeckyCompactPopup } from "./decky-compact-popup-state";
+import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 
 /** The native dialog shell used by Achievement Companion's focused detail modals. */
 export function getDeckyStandardModalContentStyle(): CSSProperties {
@@ -35,7 +36,7 @@ export function openDeckyStandardModal({
 }: {
   readonly title: string;
   readonly renderTitle?: (closeModal: () => void) => ReactNode;
-  readonly renderContent: (closeModal: () => void) => ReactNode;
+  readonly renderContent: (closeModal: () => void, focusCloseButton: () => boolean) => ReactNode;
   readonly onClose?: () => void;
   readonly viewportSafe?: boolean;
   readonly preserveCompactSession?: boolean;
@@ -44,6 +45,12 @@ export function openDeckyStandardModal({
   let unregisterPopupCancel: (() => void) | undefined;
   let releaseCompactPopup = preserveCompactSession ? beginDeckyCompactPopup() : undefined;
   let closed = false;
+  const closeLabelRef = createRef<HTMLSpanElement>();
+  const focusCloseButton = (): boolean => {
+    // Resolve only the native action containing our own label, never another dialog.
+    const button = closeLabelRef.current?.closest<HTMLElement>("button, [role='button'], [tabindex]");
+    return takeDeckySteamGamepadFocus(button);
+  };
   const closeModal = (): void => {
     if (closed) return;
     closed = true;
@@ -57,13 +64,13 @@ export function openDeckyStandardModal({
     modal = showModal(
       <ConfirmModal
         strTitle={renderTitle?.(closeModal) ?? title}
-        strOKButtonText="Close"
+        strOKButtonText={<span ref={closeLabelRef}>Close</span>}
         bAlertDialog
         closeModal={closeModal}
         onOK={closeModal}
         onCancel={closeModal}
       >
-        {renderContent(closeModal)}
+        {renderContent(closeModal, focusCloseButton)}
       </ConfirmModal>,
       undefined,
       {

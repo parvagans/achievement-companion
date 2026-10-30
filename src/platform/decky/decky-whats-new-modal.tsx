@@ -159,7 +159,7 @@ function WhatsNewTitle({ onOpenExternalUrl }: {
   );
 }
 
-function WhatsNewContent(): JSX.Element {
+function WhatsNewContent({ focusCloseButton }: { readonly focusCloseButton: () => boolean }): JSX.Element {
   const contentRef = useRef<HTMLDivElement>(null);
   const notesRef = useRef<HTMLDivElement>(null);
   const initialTabRef = useRef<HTMLDivElement>(null);
@@ -208,7 +208,13 @@ function WhatsNewContent(): JSX.Element {
       return;
     }
 
-    if (movingDown) return;
+    if (movingDown) {
+      if (focusCloseButton()) {
+        consumeDirection(event);
+        playDeckySteamNavigationSound(content.ownerDocument);
+      }
+      return;
+    }
     const source = content.querySelector<HTMLElement>(`[data-ac-whats-new-tab="${index}"]`);
     const supportActions = [...content.ownerDocument.querySelectorAll<HTMLElement>("[data-ac-whats-new-support-action]")];
     if (source === null || supportActions.length === 0) return;
@@ -398,6 +404,6 @@ export function openDeckyWhatsNewModal(): void {
       };
       return <WhatsNewTitle onOpenExternalUrl={openExternalUrl} />;
     },
-    renderContent: () => <WhatsNewContent />,
+    renderContent: (_closeModal, focusCloseButton) => <WhatsNewContent focusCloseButton={focusCloseButton} />,
   });
 }
