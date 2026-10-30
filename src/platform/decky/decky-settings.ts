@@ -8,6 +8,7 @@ import {
   parseAchievementCompanionSettings,
   saveAchievementCompanionSettings,
   serializeAchievementCompanionSettings,
+  withDefaultAppearanceSettings,
   type AchievementCompanionSettings,
 } from "@core/settings";
 import {
@@ -117,6 +118,16 @@ export async function saveDeckySettings(
     settings,
   );
   return wroteSettings;
+}
+
+/** Read at confirmation time; keep unrelated and unknown persisted fields verbatim. */
+export async function resetDeckyAppearanceSettings(): Promise<boolean> {
+  let current: unknown;
+  try { current = JSON.parse(readDeckyStorageText(ACHIEVEMENT_COMPANION_SETTINGS_STORAGE_KEY) ?? readDeckySettingsText() ?? "{}"); } catch { current = {}; }
+  try {
+    await createDeckySettingsStore().write(ACHIEVEMENT_COMPANION_SETTINGS_STORAGE_KEY, JSON.stringify(withDefaultAppearanceSettings(current)));
+    return true;
+  } catch { return false; }
 }
 
 export const defaultDeckySettings = DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS;

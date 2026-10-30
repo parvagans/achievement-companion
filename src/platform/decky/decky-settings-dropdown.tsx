@@ -4,10 +4,11 @@ import caretDownIconUrl from "./assets/caret-down.svg";
 import { registerDeckyFullscreenPopupCancel } from "./decky-full-screen-popup-state";
 import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
 import { steamTheme } from "./steam-theme";
+import { getAppearanceSettingsRowStyle } from "./decky-appearance-settings-layout";
 
 /** The native modal selector used by both providers' full-screen settings. */
 export function DeckySettingsDropdown<T extends string | number>({
-  label, description, value, options, formatOption = String, disabled = false, onChange, onGamepadDirection,
+  label, description, value, options, formatOption = String, disabled = false, onChange, onGamepadDirection, appearance = false,
 }: {
   readonly label: string;
   readonly description?: string;
@@ -18,6 +19,7 @@ export function DeckySettingsDropdown<T extends string | number>({
   readonly onChange: (value: T) => void;
   readonly onGamepadDirection: (event: GamepadEvent) => void;
   readonly themeVariant?: "steam" | "ra";
+  readonly appearance?: boolean;
 }): JSX.Element {
   const triggerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<ReturnType<typeof showContextMenu>>();
@@ -50,8 +52,8 @@ export function DeckySettingsDropdown<T extends string | number>({
     unregisterCancelRef.current = undefined;
   }, []);
   const valueLabel = formatOption(value);
-  return <Focusable ref={triggerRef} className="ac-settings-action" data-settings-dropdown={label} noFocusRing role="button" tabIndex={disabled ? -1 : 0} aria-disabled={disabled} aria-expanded={menuOpen} aria-label={`${label}: ${valueLabel}`} onActivate={openMenu} onClick={openMenu} onGamepadDirection={onGamepadDirection} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, minHeight: 44, padding: "8px 12px", boxSizing: "border-box", border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.small, background: steamTheme.surface.contentStat, color: disabled ? steamTheme.color.textSecondary : steamTheme.color.textPrimary, opacity: disabled ? .65 : 1 }}>
+  return <Focusable ref={triggerRef} className="ac-settings-action" data-settings-dropdown={label} noFocusRing role="button" tabIndex={disabled ? -1 : 0} aria-disabled={disabled} aria-expanded={menuOpen} aria-label={`${label}: ${valueLabel}`} onActivate={openMenu} onClick={openMenu} onGamepadDirection={onGamepadDirection} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, minHeight: 44, padding: "8px 12px", boxSizing: "border-box", border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.small, background: steamTheme.surface.contentStat, color: disabled ? steamTheme.color.textSecondary : steamTheme.color.textPrimary, opacity: disabled ? .65 : 1, ...(appearance ? getAppearanceSettingsRowStyle() : {}) }}>
     <span style={{ minWidth: 0 }}><span style={{ display: "block", fontSize: steamTheme.type.fullscreen.body, fontWeight: steamTheme.type.weight.strong }}>{label}</span>{description !== undefined ? <span style={{ display: "block", marginTop: 2, color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata, lineHeight: 1.2 }}>{description}</span> : null}</span>
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0, color: steamTheme.color.accent, fontSize: steamTheme.type.fullscreen.body, fontWeight: steamTheme.type.weight.strong }}><span>{valueLabel}</span><img alt="" src={caretDownIconUrl} style={{ width: 12, height: 12, objectFit: "contain", filter: steamTheme.iconFilter.accent, flexShrink: 0 }} /></span>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0, color: steamTheme.color.accent, fontSize: steamTheme.type.fullscreen.body, fontWeight: steamTheme.type.weight.strong, ...(appearance ? { justifyContent: "flex-end", minWidth: 0 } : {}) }}><span style={appearance ? { whiteSpace: "normal", overflowWrap: "anywhere" } : undefined}>{valueLabel}</span><img alt="" src={caretDownIconUrl} style={{ width: 12, height: 12, objectFit: "contain", filter: steamTheme.iconFilter.accent, flexShrink: 0 }} /></span>
   </Focusable>;
 }

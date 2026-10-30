@@ -134,7 +134,7 @@ test("three actual fullscreen rows omit source labels and keep their native focu
 
 test("both existing appearance surfaces expose the reactive description setting directly after preview", async () => {
   const [shared, bootstrap, preview] = await Promise.all(["decky-shared-appearance-settings.tsx", "bootstrap.tsx", "decky-native-up-next-preview.tsx"].map((file) => readFile(new URL(`../src/platform/decky/${file}`, import.meta.url), "utf8")));
-  assert.match(shared, /label="Up Next Preview"[^\n]+\n\s*<DeckySettingsDropdown label="Achievement Description" value=\{settings.gamePageUpNextDescription\}/);
+  assert.match(shared, /label="Up Next Preview"[^\n]+\n\s*<DeckySettingsDropdown appearance label="Achievement Description"[^\n]+value=\{settings.gamePageUpNextDescription\}/);
   assert.match(bootstrap, /label="Up Next Preview"[^\n]+\n\s*<GamePageUpNextDisplayDropdown label="Achievement Description" setting="gamePageUpNextDescription"/);
   assert.match(preview, /nativeUpNextPresentation\(settings.gamePageUpNextDescription, focused, hovered\)/);
   assert.match(preview, /\[active, presentation, target\?\.achievement, badge,/);

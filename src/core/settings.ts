@@ -138,6 +138,24 @@ export const DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS: AchievementCompanionSetting
   localUpdateManifestUrl: "",
 };
 
+export const APPEARANCE_SETTING_KEYS = [
+  "theme", "showGamePageAchievementBadge", "gamePageAchievementBadgeStyle",
+  "gamePageAchievementBadgeSize", "gamePageAchievementBadgePosition",
+  "gamePageUpNextPreview", "gamePageUpNextDescription", "gamePageAchievementBadgeColors",
+] as const satisfies readonly (keyof AchievementCompanionSettings)[];
+
+/** Patch only appearance fields, including records written by a compatible newer version. */
+export function withDefaultAppearanceSettings(value: unknown): Record<string, unknown> {
+  const current = isRecord(value) ? value : {};
+  const next = { ...current };
+  for (const key of APPEARANCE_SETTING_KEYS) next[key] = DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS[key];
+  next["gamePageAchievementBadgeColors"] = {
+    ...(isRecord(current["gamePageAchievementBadgeColors"]) ? current["gamePageAchievementBadgeColors"] : {}),
+    ...DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS.gamePageAchievementBadgeColors,
+  };
+  return next;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }

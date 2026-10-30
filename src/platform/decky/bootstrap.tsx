@@ -82,6 +82,8 @@ import { shouldRefreshDashboardOnEntry } from "./dashboard-refresh";
 import { useRetroAchievementsConnectionState } from "./providers/retroachievements/connection";
 import { useSteamConnectionState } from "./providers/steam/connection";
 import { readDeckySettings, saveDeckySettings, useDeckySettings } from "./decky-settings";
+import { DeckyAppearanceSettingsRow, DeckyAppearanceSettingsRowsStyle, renderAppearanceDropdownValue } from "./decky-appearance-settings-row";
+import { DeckyResetAppearanceButton } from "./decky-reset-appearance-button";
 import {
   readDeckyPluginSettingsExpanded,
   writeDeckyPluginSettingsExpanded,
@@ -333,13 +335,7 @@ function getPluginSettingsContentCardStyle(): CSSProperties {
   };
 }
 
-const GAME_PAGE_BADGE_DROPDOWN_COLUMN_CSS = `
-[data-achievement-companion-plugin-settings-card] [data-ac-game-page-badge-dropdown] button[role="combobox"] {
-  width: 124px;
-  min-width: 124px;
-  max-width: 124px;
-  box-sizing: border-box;
-}`;
+
 
 function getChooserProviderLauncherTone(
   providerId: ProviderId | "settings" | "news",
@@ -599,12 +595,14 @@ function GamePageUpNextDisplayDropdown({ mode, disabled, setting, label }: {
   readonly setting: "gamePageUpNextPreview" | "gamePageUpNextDescription"; readonly label: string;
 }): JSX.Element {
   const openGuardedMenu = useDeckyCompactDropdownPopupGuard();
-  return <div data-ac-game-page-badge-dropdown="true"><DropdownItem
+  return <DeckyAppearanceSettingsRow><DropdownItem
+      renderButtonValue={renderAppearanceDropdownValue} layout="inline" bottomSeparator="none" childrenContainerWidth="max"
     label={<span style={getGamePageBadgeLabelStyle(disabled)}>{label}</span>}
+    description={<span style={getGamePageBadgeDescriptionStyle(disabled)}>{setting === "gamePageUpNextPreview" ? "When to show your next target." : "When to show the requirement."}</span>}
     disabled={disabled} selectedOption={mode} menuLabel={label} onMenuWillOpen={openGuardedMenu}
     rgOptions={GAME_PAGE_UP_NEXT_PREVIEW_OPTIONS.map((data) => ({ data, label: data === "focus" ? "On Focus" : data === "always" ? "Always Show" : "Hidden" }))}
     onChange={(option) => { if (GAME_PAGE_UP_NEXT_PREVIEW_OPTIONS.includes(option.data as GamePageUpNextPreview)) void saveDeckySettings({ ...readDeckySettings(), [setting]: option.data as GamePageUpNextPreview }); }}
-  /></div>;
+  /></DeckyAppearanceSettingsRow>;
 }
 
 function GamePageBadgeStyleDropdown({
@@ -618,10 +616,10 @@ function GamePageBadgeStyleDropdown({
 }): JSX.Element {
   const openGuardedMenu = useDeckyCompactDropdownPopupGuard();
   return (
-    <div data-ac-game-page-badge-dropdown="true">
+    <DeckyAppearanceSettingsRow>
       <DropdownItem
+      renderButtonValue={renderAppearanceDropdownValue} layout="inline" bottomSeparator="none" childrenContainerWidth="max"
         label={<span style={getGamePageBadgeLabelStyle(disabled)}>Badge style</span>}
-        description={<span style={getGamePageBadgeDescriptionStyle(disabled)}>Choose the badge appearance on game pages.</span>}
         disabled={disabled}
         menuLabel="Game Page Badge Style"
         onMenuWillOpen={openGuardedMenu}
@@ -631,7 +629,7 @@ function GamePageBadgeStyleDropdown({
           if (isGamePageAchievementBadgeStyle(option.data)) onChange(option.data);
         }}
       />
-    </div>
+    </DeckyAppearanceSettingsRow>
   );
 }
 
@@ -646,10 +644,10 @@ function GamePageBadgeSizeDropdown({
 }): JSX.Element {
   const openGuardedMenu = useDeckyCompactDropdownPopupGuard();
   return (
-    <div data-ac-game-page-badge-dropdown="true">
+    <DeckyAppearanceSettingsRow>
       <DropdownItem
+      renderButtonValue={renderAppearanceDropdownValue} layout="inline" bottomSeparator="none" childrenContainerWidth="max"
         label={<span style={getGamePageBadgeLabelStyle(disabled)}>Badge size</span>}
-        description={<span style={getGamePageBadgeDescriptionStyle(disabled)}>Choose the badge size on game pages.</span>}
         disabled={disabled}
         menuLabel="Game Page Badge Size"
         onMenuWillOpen={openGuardedMenu}
@@ -659,16 +657,16 @@ function GamePageBadgeSizeDropdown({
           if (isGamePageAchievementBadgeSize(option.data)) onChange(option.data);
         }}
       />
-    </div>
+    </DeckyAppearanceSettingsRow>
   );
 }
 
 function ThemeDropdown({ selectedTheme }: { readonly selectedTheme: AchievementCompanionTheme }): JSX.Element {
   const openGuardedMenu = useDeckyCompactDropdownPopupGuard();
   return (
-    <DropdownItem
+    <DeckyAppearanceSettingsRow><DropdownItem
+      renderButtonValue={renderAppearanceDropdownValue} layout="inline" bottomSeparator="none" childrenContainerWidth="max"
       label={<span style={getGamePageBadgeLabelStyle()}>Theme</span>}
-      childrenContainerWidth="max"
       menuLabel="Achievement Companion Theme"
       onMenuWillOpen={openGuardedMenu}
       rgOptions={ACHIEVEMENT_COMPANION_THEME_DROPDOWN_OPTIONS}
@@ -677,7 +675,7 @@ function ThemeDropdown({ selectedTheme }: { readonly selectedTheme: AchievementC
         if (!ACHIEVEMENT_COMPANION_THEME_OPTIONS.includes(option.data as AchievementCompanionTheme)) return;
         void saveDeckySettings({ ...readDeckySettings(), theme: option.data as AchievementCompanionTheme });
       }}
-    />
+    /></DeckyAppearanceSettingsRow>
   );
 }
 
@@ -712,14 +710,10 @@ function GamePageBadgePositionDropdown({
   const openGuardedMenu = useDeckyCompactDropdownPopupGuard();
 
   return (
-    <div data-ac-game-page-badge-dropdown="true">
+    <DeckyAppearanceSettingsRow>
       <DropdownItem
+      renderButtonValue={renderAppearanceDropdownValue} layout="inline" bottomSeparator="none" childrenContainerWidth="max"
         label={<span style={getGamePageBadgeLabelStyle(disabled)}>Badge position</span>}
-        description={
-          <span style={getGamePageBadgeDescriptionStyle(disabled)}>
-            Choose where the game page badge is anchored.
-          </span>
-        }
         disabled={disabled}
         menuLabel="Game Page Badge Position"
         onMenuWillOpen={openGuardedMenu}
@@ -731,7 +725,7 @@ function GamePageBadgePositionDropdown({
           }
         }}
       />
-    </div>
+    </DeckyAppearanceSettingsRow>
   );
 }
 
@@ -751,8 +745,9 @@ function GamePageBadgeColorDropdown({
   const openGuardedMenu = useDeckyCompactDropdownPopupGuard();
 
   return (
-    <div data-ac-game-page-badge-dropdown="true">
+    <DeckyAppearanceSettingsRow>
       <DropdownItem
+      renderButtonValue={renderAppearanceDropdownValue} layout="inline" bottomSeparator="none" childrenContainerWidth="max"
         label={<span style={getGamePageBadgeLabelStyle(disabled)}>{label}</span>}
         description={<span style={getGamePageBadgeDescriptionStyle(disabled)}>{description}</span>}
         disabled={disabled}
@@ -766,7 +761,7 @@ function GamePageBadgeColorDropdown({
           }
         }}
       />
-    </div>
+    </DeckyAppearanceSettingsRow>
   );
 }
 
@@ -1977,7 +1972,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                 {pluginSettingsExpanded ? (
                   <PanelSection>
                     <div data-achievement-companion-plugin-settings-card="true" style={getPluginSettingsContentCardStyle()}>
-                      <style>{GAME_PAGE_BADGE_DROPDOWN_COLUMN_CSS}</style>
+                      <DeckyAppearanceSettingsRowsStyle />
                       <PanelSectionRow>
                         <Field
                           label="Theme Settings"
@@ -2011,11 +2006,11 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                       </PanelSectionRow>
                       {gamePageBadgeSettingsExpanded ? (<>
                       <PanelSectionRow>
-                        <ToggleField
+                        <DeckyAppearanceSettingsRow><ToggleField childrenContainerWidth="max" bottomSeparator="none"
                           label={<span style={getGamePageBadgeLabelStyle()}>Show game page badge</span>}
                           description={
                             <span style={getGamePageBadgeDescriptionStyle()}>
-                              Show achievement progress on Steam and non-Steam game pages.
+                              Progress on game pages.
                             </span>
                           }
                           checked={settings.showGamePageAchievementBadge}
@@ -2026,7 +2021,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                               showGamePageAchievementBadge,
                             });
                           }}
-                        />
+                        /></DeckyAppearanceSettingsRow>
                       </PanelSectionRow>
 
                       <GamePageUpNextDisplayDropdown label="Up Next Preview" setting="gamePageUpNextPreview" mode={settings.gamePageUpNextPreview} disabled={!settings.showGamePageAchievementBadge} />
@@ -2096,6 +2091,7 @@ function DeckyBootstrapStateBridge(): JSX.Element {
                       />
                       </>) : null}
                       </>) : null}
+                      <DeckyResetAppearanceButton compact />
                     </div>
                   </PanelSection>
                 ) : null}

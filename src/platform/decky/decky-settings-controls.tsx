@@ -1,14 +1,16 @@
 import { Focusable, Toggle, type GamepadEvent } from "@decky/ui";
 import chevronRightIconUrl from "./assets/chevron-right.svg";
 import { steamTheme } from "./steam-theme";
+import { getAppearanceSettingsRowStyle } from "./decky-appearance-settings-layout";
 
 /** Full-screen settings own the row chrome; Decky still owns the switch itself. */
-export function DeckySettingsToggleRow({ label, description, checked, onChange, onGamepadDirection }: {
+export function DeckySettingsToggleRow({ label, description, checked, onChange, onGamepadDirection, appearance = false }: {
   readonly label: string;
   readonly description: string;
   readonly checked: boolean;
   readonly onChange: (checked: boolean) => void;
   readonly onGamepadDirection?: (event: GamepadEvent) => void;
+  readonly appearance?: boolean;
 }): JSX.Element {
   const toggle = (): void => onChange(!checked);
   return <Focusable
@@ -22,13 +24,13 @@ export function DeckySettingsToggleRow({ label, description, checked, onChange, 
     onActivate={(event) => { if (event.target === event.currentTarget) toggle(); }}
     onClick={toggle}
     {...(onGamepadDirection !== undefined ? { onGamepadDirection } : {})}
-    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 62, padding: "10px 12px", boxSizing: "border-box", border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.small, background: steamTheme.surface.contentStat, color: steamTheme.color.textPrimary, fontFamily: steamTheme.type.fontFamily, scrollMargin: "12px 4px 24px" }}
+    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, minHeight: 62, padding: "10px 12px", boxSizing: "border-box", border: `1px solid ${steamTheme.color.borderSubtle}`, borderRadius: steamTheme.radius.small, background: steamTheme.surface.contentStat, color: steamTheme.color.textPrimary, fontFamily: steamTheme.type.fontFamily, scrollMargin: "12px 4px 24px", ...(appearance ? getAppearanceSettingsRowStyle() : {}) }}
   >
     <span style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0, flex: "1 1 auto" }}>
       <span style={{ fontSize: steamTheme.type.fullscreen.body, fontWeight: steamTheme.type.weight.strong, lineHeight: 1.3 }}>{label}</span>
       <span style={{ color: steamTheme.color.textSecondary, fontSize: steamTheme.type.fullscreen.metadata, fontWeight: steamTheme.type.weight.regular, lineHeight: 1.3 }}>{description}</span>
     </span>
-    <span data-ac-settings-toggle-control="true" onClick={(event) => event.stopPropagation()} style={{ flex: "0 0 auto", display: "inline-flex", alignItems: "center" }}>
+    <span data-ac-settings-toggle-control="true" onClick={(event) => event.stopPropagation()} style={{ flex: "0 0 auto", display: "inline-flex", alignItems: "center", ...(appearance ? { justifyContent: "flex-end" } : {}) }}>
       <Toggle value={checked} onChange={onChange} />
     </span>
   </Focusable>;

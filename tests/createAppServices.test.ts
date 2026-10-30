@@ -3567,6 +3567,7 @@ test("compact provider menu nests native theme and badge settings under a sessio
   const themeDropdownSource = source.slice(source.indexOf("function ThemeDropdown"), source.indexOf("function getGamePageBadgeLabelStyle"));
   assert.doesNotMatch(themeDropdownSource, /description=/u);
   assert.match(themeDropdownSource, /childrenContainerWidth="max"/u);
+  assert.match(themeDropdownSource, /DeckyAppearanceSettingsRow/u);
   for (const [id, label] of [
     ["ac-arcade", "Arcade"], ["ac-aurora", "Aurora"], ["ac-blue", "Blue (Default)"],
     ["ac-carbon", "Carbon"], ["ac-ember", "Ember"], ["ac-galaxy", "Galaxy"],
