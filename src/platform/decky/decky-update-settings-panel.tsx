@@ -13,6 +13,7 @@ import { DeckySettingsToggleRow } from "./decky-settings-controls";
 import { steamRecipes, steamTheme } from "./steam-theme";
 import { DeckyCompactPillActionItem } from "./decky-compact-pill-action-item";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
+import { DeckyRaSyncDiagnostics } from "./decky-ra-sync-diagnostics";
 
 export interface DeckyUpdateSettingsPanelProps {
   readonly onGamepadDirection?: (event: GamepadEvent) => void;
@@ -159,5 +160,6 @@ export function DeckyUpdateSettingsPanel({ onGamepadDirection, compact = false }
         }} />
       </div> : null}
     </div> : null}
+    {developerMode && !compact ? <DeckyRaSyncDiagnostics /> : null}
   </section>;
 }

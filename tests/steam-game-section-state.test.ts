@@ -269,7 +269,7 @@ test("Steam game sections unmount inactive focus trees behind one stable footer 
   assert.doesNotMatch(source, /display: activeSteamSection/u);
   assert.match(source, /restorationOrderedAchievements = useMemo/u);
   assert.match(source, /loadedSnapshot === undefined \|\| isWaitingForSteamHuntersEnrichment/u);
-  assert.match(source, /forceRefresh: initialSectionState\?\.restoreRequested !== true/u);
+  assert.match(source, /forceRefresh: providerId !== RETROACHIEVEMENTS_PROVIDER_ID\s*&& initialSectionState\?\.restoreRequested !== true/u);
   assert.match(source, /restorationSteamHuntersViewModel = useMemo/u);
   assert.match(source, /MemoizedDeckyFullScreenAchievementBrowser = memo/u);
   assert.match(source, /onAchievementFilterChange=\{handleAchievementFilterChange\}/u);

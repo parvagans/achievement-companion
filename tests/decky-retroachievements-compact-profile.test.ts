@@ -175,7 +175,7 @@ test("RA QAM current game uses explicit fresh game identity without presenting R
   assert.match(profileSource, /const activeGameId = getRetroAchievementsActiveGameId\(profile\)/u);
   assert.match(profileSource, /findRetroAchievementsActiveGame\(/u);
   assert.match(profileSource, /snapshot\.featuredGames,[\s\S]*profile\.featuredGames/u);
-  assert.match(profileSource, /loadDeckyCompactGameState\([\s\S]*loadDeckyGameDetailState/u);
+  assert.match(profileSource, /loadDeckyCompactRecommendationGameState\([\s\S]*loadDeckyGameDetailState/u);
   assert.match(profileSource, /lookedUpActiveGame\?\.gameId === activeGameId/u);
   assert.match(profileSource, /games=\{displayedUpNextGames\}/u);
   assert.match(profileSource, /activeGameId: activeGame\.gameId/u);
@@ -249,7 +249,8 @@ test("RA QAM loading, focus scrolling, and calendar controls follow Steam compac
   assert.match(bootstrapSource, /providerId === "retroachievements"[\s\S]*claimDeckyCompactRetroAchievementsDashboardRefresh\(\)/u);
   assert.match(bootstrapSource, /const activityCalendarForceRefreshNextLoad = useRef\(initialProviderRefresh\.current\)/u);
   assert.match(bootstrapSource, /if \(forceRefresh\) \{[\s\S]*dashboardForceRefreshNextLoad\.current = true;[\s\S]*activityCalendarForceRefreshNextLoad\.current = true;/u);
-  assert.match(bootstrapSource, /loadDeckyActivityCalendarState\(providerId, \{ forceRefresh \}\)[\s\S]*\[dashboardRefreshNonce, providerId\]/u);
+  assert.doesNotMatch(bootstrapSource, /loadDeckyActivityCalendarState\(providerId, \{ forceRefresh \}\)/u);
+  assert.match(bootstrapSource, /calendar data is hydrated from verified history during profile entry/u);
   assert.match(resourcesSource, /export function claimDeckyCompactRetroAchievementsDashboardRefresh\(\)/u);
   assert.match(resourcesSource, /retroAchievementsDashboardRefreshClaimed = false/u);
   assert.match(bootstrapSource, /Loading RetroAchievements profile/u);

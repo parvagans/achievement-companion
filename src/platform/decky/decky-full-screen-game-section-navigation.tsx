@@ -30,7 +30,8 @@ export function buildFullScreenGameSections({
     ...(provider === "retroachievements" && hasSubsets === true
       ? [{ id: "subsets" as const, label: "Subsets" }]
       : []),
-    ...(hasCommunity === true ? [{ id: "community" as const, label: "Community" }] : []),
+    // RA supports this feature independently of optional statistics readiness.
+    ...(provider === "retroachievements" || hasCommunity === true ? [{ id: "community" as const, label: "Community" }] : []),
   ];
 }
 

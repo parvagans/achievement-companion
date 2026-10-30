@@ -1,9 +1,9 @@
 import { Focusable } from "@decky/ui";
-import type { GameDetailSnapshot, NormalizedMetric, RecentUnlock } from "@core/domain";
+import type { GameDetailSnapshot, RecentUnlock } from "@core/domain";
 import { useEffect, useRef, useState, type CSSProperties, type RefCallback } from "react";
 import type { SteamHuntersGameData } from "../../providers/steamhunters";
 import { loadDeckyGameDetailState, loadDeckySteamHuntersGameData } from "./decky-app-services";
-import { getAchievementDetailCounts, formatProviderAchievementPointsText } from "./decky-achievement-detail-helpers";
+import { formatProviderAchievementPointsText } from "./decky-achievement-detail-helpers";
 import { getSteamAchievementCommunityPercent } from "./decky-achievement-row-presentation";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { achievementCompanionAchievementRowRecipes, achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
@@ -14,7 +14,6 @@ import { steamTheme } from "./steam-theme";
 
 export interface DeckyCompactRecentAchievementRowProps {
   readonly unlock: RecentUnlock;
-  readonly gameMetrics?: readonly NormalizedMetric[] | undefined;
   readonly timestampText?: string | undefined;
   readonly onActivate: () => void;
   readonly onActivated?: ((target: HTMLElement) => void) | undefined;
@@ -24,8 +23,6 @@ export interface DeckyCompactRecentAchievementRowProps {
   readonly preferredFocus?: boolean | undefined;
   readonly dataAttributes?: Readonly<Record<string, string>>;
 }
-
-const EMPTY_GAME_METRICS: readonly NormalizedMetric[] = [];
 
 function getRowStyle(isSteam: boolean, mode: RecentUnlock["achievement"]["unlockMode"], focused: boolean): CSSProperties {
   const accentColor = isSteam
@@ -111,38 +108,30 @@ function getSteamHuntersAchievement(
 
 export function resolveCompactRecentAchievementMetadata(
   unlock: RecentUnlock,
-  gameMetrics: readonly NormalizedMetric[],
   gameDetail: GameDetailSnapshot | undefined,
   steamHuntersGameData: SteamHuntersGameData | undefined,
 ): RecentAchievementMetadata {
+  // RA's recent-unlock feed supplies points, but not the player counts needed
+  // for a community percentage. Do not fetch every game's detail for QAM rows.
+  if (unlock.game.providerId !== "steam") {
+    return unlock.achievement.points === undefined ? {} : { points: unlock.achievement.points };
+  }
   const detailedAchievement = gameDetail?.achievements.find(
     (achievement) => achievement.achievementId === unlock.achievement.achievementId,
   );
   const achievement = detailedAchievement ?? unlock.achievement;
-  if (unlock.game.providerId === "steam") {
-    const steamHuntersAchievement = getSteamHuntersAchievement(unlock, steamHuntersGameData);
-    const communityPercent = getSteamAchievementCommunityPercent(achievement, steamHuntersAchievement);
-    return {
-      ...(steamHuntersAchievement?.points !== undefined
-        ? { points: steamHuntersAchievement.points }
-        : achievement.points !== undefined ? { points: achievement.points } : {}),
-      ...(communityPercent !== undefined ? { communityPercent } : {}),
-    };
-  }
-
-  const communityPercent = getAchievementDetailCounts(
-    achievement.metrics,
-    gameDetail?.game.metrics ?? gameMetrics,
-  ).unlockRatePercent;
+  const steamHuntersAchievement = getSteamHuntersAchievement(unlock, steamHuntersGameData);
+  const communityPercent = getSteamAchievementCommunityPercent(achievement, steamHuntersAchievement);
   return {
-    ...(achievement.points !== undefined ? { points: achievement.points } : {}),
+    ...(steamHuntersAchievement?.points !== undefined
+      ? { points: steamHuntersAchievement.points }
+      : achievement.points !== undefined ? { points: achievement.points } : {}),
     ...(communityPercent !== undefined ? { communityPercent } : {}),
   };
 }
 
 async function loadCompactRecentAchievementMetadata(
   unlock: RecentUnlock,
-  gameMetrics: readonly NormalizedMetric[],
 ): Promise<RecentAchievementMetadata> {
   const detailPromise = loadDeckyGameDetailState(unlock.game.providerId, unlock.game.gameId, { forceRefresh: false });
   const appId = Number(unlock.game.gameId);
@@ -152,7 +141,6 @@ async function loadCompactRecentAchievementMetadata(
   const [detailResult, steamHuntersResult] = await Promise.allSettled([detailPromise, steamHuntersPromise] as const);
   return resolveCompactRecentAchievementMetadata(
     unlock,
-    gameMetrics,
     detailResult.status === "fulfilled" ? detailResult.value.data : undefined,
     steamHuntersResult.status === "fulfilled" ? steamHuntersResult.value : undefined,
   );
@@ -160,7 +148,6 @@ async function loadCompactRecentAchievementMetadata(
 
 export function DeckyCompactRecentAchievementRow({
   unlock,
-  gameMetrics: providedGameMetrics,
   timestampText,
   onActivate,
   onActivated,
@@ -170,7 +157,6 @@ export function DeckyCompactRecentAchievementRow({
   preferredFocus = false,
   dataAttributes,
 }: DeckyCompactRecentAchievementRowProps): JSX.Element {
-  const gameMetrics = providedGameMetrics ?? EMPTY_GAME_METRICS;
   const [focused, setFocused] = useState(false);
   const rowRef = useRef<HTMLDivElement | null>(null);
   const isSteam = unlock.game.providerId === "steam";
@@ -180,7 +166,7 @@ export function DeckyCompactRecentAchievementRow({
     ? steamTheme.color.unlocked
     : mode === "hardcore" ? raTheme.color.hardcore
       : mode === "softcore" ? raTheme.color.softcore : raTheme.color.unlocked;
-  const baseMetadata = resolveCompactRecentAchievementMetadata(unlock, gameMetrics, undefined, undefined);
+  const baseMetadata = resolveCompactRecentAchievementMetadata(unlock, undefined, undefined);
   const metadataKey = `${unlock.game.providerId}:${unlock.game.gameId}:${unlock.achievement.achievementId}`;
   const [loadedMetadata, setLoadedMetadata] = useState<{ readonly key: string; readonly value: RecentAchievementMetadata }>();
   const effectiveMetadata = loadedMetadata?.key === metadataKey ? loadedMetadata.value : baseMetadata;
@@ -189,13 +175,13 @@ export function DeckyCompactRecentAchievementRow({
     : formatProviderAchievementPointsText(unlock.game.providerId, effectiveMetadata.points);
   const communityPercent = effectiveMetadata.communityPercent;
   useEffect(() => {
-    if (baseMetadata.points !== undefined && baseMetadata.communityPercent !== undefined) return undefined;
+    if (!isSteam || (baseMetadata.points !== undefined && baseMetadata.communityPercent !== undefined)) return undefined;
     let cancelled = false;
-    void loadCompactRecentAchievementMetadata(unlock, gameMetrics).then((value) => {
+    void loadCompactRecentAchievementMetadata(unlock).then((value) => {
       if (!cancelled) setLoadedMetadata({ key: metadataKey, value });
     });
     return () => { cancelled = true; };
-  }, [baseMetadata.communityPercent, baseMetadata.points, gameMetrics, metadataKey, unlock]);
+  }, [baseMetadata.communityPercent, baseMetadata.points, isSteam, metadataKey, unlock]);
   const activate = (): void => {
     if (rowRef.current !== null) onActivated?.(rowRef.current);
     onActivate();

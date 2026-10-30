@@ -43,6 +43,8 @@ import { getRetroAchievementsModeUnlockedCount } from "../src/platform/decky/dec
 import { isRetroAchievementsUnlockedInMode } from "../src/platform/decky/decky-retroachievements-unlock-mode";
 import { buildRetroAchievementsSystemsOverview } from "../src/platform/decky/decky-retroachievements-systems-data";
 import { getRetroAchievementsRefreshActionPresentation } from "../src/platform/decky/providers/retroachievements/settings-view-model";
+import { setDeckyBackendCallImplementationForTests } from "../src/platform/decky/decky-backend-bridge";
+import { createDeckyRetroAchievementsTransport, resetDeckyRetroAchievementsTransportForTests } from "../src/platform/decky/providers/retroachievements/backend-transport";
 
 const game: NormalizedGame = {
   providerId: "retroachievements",
@@ -447,7 +449,7 @@ test("compact RA counts follow saved preferences and settings no longer hide sub
 test("full-screen game tabs keep RA Subsets conditional and before Community", () => {
   assert.deepEqual(
     buildFullScreenGameSections({ provider: "retroachievements" }).map((section) => section.label),
-    ["Overview", "Achievements"],
+    ["Overview", "Achievements", "Community"],
   );
   const withBoth = buildFullScreenGameSections({
     provider: "retroachievements",
@@ -484,8 +486,12 @@ test("subset focus and scroll state are isolated per game and survive child retu
   assert.equal(readFullScreenGameSectionPageState("retroachievements", "101").activeSection, "overview");
 });
 
-test("loaded RA subset achievements stay cached across child-detail return", () => {
+test("loaded RA subset achievements stay cached while their canonical record is fresh", async () => {
   resetDeckyRetroAchievementsSubsetDetailCacheForTests();
+  setDeckyBackendCallImplementationForTests(async (method) => method === "record_diagnostic_event" ? true : {
+    raResource: 1, resourceKey: "subset", payload: {}, cacheState: "live", fetchedAt: Date.now(), freshUntil: Date.now() + 900000,
+  });
+  await createDeckyRetroAchievementsTransport().requestJson({ path: "API_GetGameInfoAndUserProgress.php", query: { g: "subset-101", a: 1 } });
   const loadedState = {
     status: "success",
     data: snapshot,
@@ -505,6 +511,8 @@ test("loaded RA subset achievements stay cached across child-detail return", () 
     "subset detail cache is isolated per parent game",
   );
   resetDeckyRetroAchievementsSubsetDetailCacheForTests();
+  resetDeckyRetroAchievementsTransportForTests();
+  setDeckyBackendCallImplementationForTests(undefined);
 });
 
 test("RA full-screen achievement projection uses the selected mode and retains locked rows", () => {

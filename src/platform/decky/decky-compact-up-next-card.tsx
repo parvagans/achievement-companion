@@ -1,3 +1,4 @@
+import { DeckyRetroAchievementsActiveGameDot } from "./decky-retroachievements-active-game-dot";
 import { Focusable, type GamepadEvent } from "@decky/ui";
 import type { ResourceState } from "@core/cache";
 import type { GameDetailSnapshot, RecentlyPlayedGame } from "@core/domain";
@@ -19,7 +20,9 @@ import { getRetroAchievementsModeGameProgress } from "./decky-retroachievements-
 import { useDeckyVisualFocusState } from "./decky-visual-focus-state";
 import {
   loadDeckyCompactGameState,
+  loadDeckyCompactRecommendationGameState,
   readDeckyCompactGameState,
+  readDeckyCompactRecommendationGameState,
   writeDeckyCompactGameState,
 } from "./decky-compact-session-resources";
 import {
@@ -140,7 +143,8 @@ export function DeckyCompactUpNextCard({
     if (currentGame === undefined) return;
     let active = true;
     const gameKey = JSON.stringify([providerId, currentGame.gameId]);
-    const cached = readDeckyCompactGameState(providerId, currentGame.gameId);
+    const cached = readDeckyCompactGameState(providerId, currentGame.gameId)
+      ?? (providerId === "retroachievements" ? readDeckyCompactRecommendationGameState(currentGame.gameId) : undefined);
     const forceRefresh = forceRefreshGameKeyRef.current === gameKey;
     setLoadedGameKey(gameKey);
     if (!forceRefresh && cached !== undefined) {
@@ -152,12 +156,18 @@ export function DeckyCompactUpNextCard({
       ? { ...cached, isRefreshing: true }
       : { status: "loading", isStale: false, isRefreshing: false });
     console.debug("[Achievement Companion][QAM Up Next] load", { providerId, gameId: currentGame.gameId, resource: "recommendation-game-detail", cacheStatus: cached?.status ?? "miss", retry: forceRefresh });
-    void loadDeckyCompactGameState(
-      providerId,
-      currentGame.gameId,
-      () => loadDeckyGameDetailState(providerId, currentGame.gameId, { forceRefresh }),
-      forceRefresh,
-    )
+    void (providerId === "retroachievements"
+      ? loadDeckyCompactRecommendationGameState(
+          currentGame.gameId,
+          () => loadDeckyGameDetailState(providerId, currentGame.gameId, { forceRefresh, recommendationOnly: true, entryPoint: "qam-up-next" }),
+          forceRefresh,
+        )
+      : loadDeckyCompactGameState(
+          providerId,
+          currentGame.gameId,
+          () => loadDeckyGameDetailState(providerId, currentGame.gameId, { forceRefresh }),
+          forceRefresh,
+        ))
       .then((next) => {
         if (forceRefreshGameKeyRef.current === gameKey) forceRefreshGameKeyRef.current = undefined;
         console.debug("[Achievement Companion][QAM Up Next] load settled", { providerId, gameId: currentGame.gameId, resource: "recommendation-game-detail", status: next.status, failureKind: next.error?.kind });
@@ -205,10 +215,12 @@ export function DeckyCompactUpNextCard({
   useEffect(() => {
     if (
       currentGame === undefined
+      || providerId === "retroachievements"
       || shouldAdvance
       || effectiveState.status !== "error"
       || effectiveState.data !== undefined
       || effectiveState.error?.retryable === false
+      || effectiveState.error?.kind === "rate_limit"
       || automaticallyRetriedGameKeysRef.current.has(currentGameKey)
     ) {
       return;
@@ -284,14 +296,14 @@ export function DeckyCompactUpNextCard({
   const artworkUrl = displayedGame.coverImageUrl ?? displayedGame.boxArtImageUrl ?? displayedGame.systemIconUrl;
   const loading = effectiveState.status === "idle" || effectiveState.status === "loading" || shouldAdvance;
   const statusText = loading ? undefined : effectiveState.status === "error" && effectiveState.data === undefined
-    ? "Recommendations unavailable"
+    ? effectiveState.error?.userMessage ?? "Recommendations unavailable"
     : model?.outcome.kind === "completed"
       ? providerId === "steam" ? "Perfected" : `${preferences.retroAchievementsGoal === "beat" ? "Beat" : "Master"} goal complete`
       : model?.outcome.kind === "all-hidden" ? "All suggestions hidden"
         : model?.outcome.kind === "empty" ? "No eligible recommendations right now." : undefined;
 
   return <section data-ac-compact-up-next={providerId} style={{ display: "flex", flexDirection: "column", gap: theme.compactProfileSpacing.content, minWidth: 0 }}>
-    <div style={{ color: theme.color.accent, fontSize: theme.type.compact.heading, fontWeight: 850, letterSpacing: "0.055em", lineHeight: 1, textTransform: "uppercase" }}>{sectionTitle}</div>
+    <div style={{ color: theme.color.accent, fontSize: theme.type.compact.heading, fontWeight: 850, letterSpacing: "0.055em", lineHeight: 1, textTransform: "uppercase" }}>{providerId === "retroachievements" && isCurrentGame ? <DeckyRetroAchievementsActiveGameDot /> : null}{sectionTitle}</div>
     <div style={{ width: "100%", minWidth: 0, padding: 10, display: "flex", flexDirection: "column", gap: 8, boxSizing: "border-box", borderRadius: theme.radius.medium,
       border: `1px solid ${theme.color.borderSubtle}`, background: theme.surface.contentCard, color: theme.color.textPrimary }}>
       <div style={{ display: "grid", gridTemplateColumns: "46px minmax(0, 1fr)", alignItems: "center", gap: 9, minWidth: 0 }}>

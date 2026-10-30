@@ -1,7 +1,17 @@
+import { setSourceProvenance } from "../../../core/source-provenance";
+const canonicalSources = new WeakMap<object, string>();
+export function markRetroAchievementsSource(value: unknown, revision: string | undefined): void {
+  if (value !== null && typeof value === "object" && revision !== undefined) { canonicalSources.set(value, revision); setSourceProvenance(value, [revision]); }
+}
+export function readRetroAchievementsSource(value: object): string | undefined { return canonicalSources.get(value); }
+
 export interface RetroAchievementsTransportRequest {
   readonly path: string;
   readonly query?: Record<string, string | number | boolean | undefined>;
   readonly init?: RequestInit;
+  readonly refreshIntent?: "policy" | "explicit";
+  readonly activeViewing?: boolean;
+  readonly entryPoint?: string;
 }
 
 export interface RetroAchievementsTransport {

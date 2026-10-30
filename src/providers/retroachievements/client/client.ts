@@ -1,3 +1,4 @@
+import { inheritSourceProvenance } from "../../../core/source-provenance";
 import type { RetroAchievementsProviderConfig } from "../config";
 import type {
   RawRetroAchievementsCompletionProgressEntry,
@@ -68,6 +69,7 @@ export interface RetroAchievementsClient {
   loadGameProgress(
     config: RetroAchievementsProviderConfig,
     gameId: string,
+    options?: { readonly forceRefresh?: boolean; readonly activeViewing?: boolean },
   ): Promise<RawRetroAchievementsGameProgressResponse>;
   loadGamePlaytimeSeconds?(
     config: RetroAchievementsProviderConfig,
@@ -139,6 +141,7 @@ async function loadAllCompletionProgressEntries(
 
     const pageEntries = readCompletionProgressResults(response);
     entries.push(...pageEntries);
+    inheritSourceProvenance(entries, entries, response);
 
     if (pageEntries.length === 0) {
       break;
@@ -265,9 +268,11 @@ export function createRetroAchievementsClient(
       });
     },
 
-    async loadGameProgress(config, gameId) {
+    async loadGameProgress(config, gameId, options) {
       return transport.requestJson<RawRetroAchievementsGameProgressResponse>({
         path: GAME_PROGRESS_PATH,
+        refreshIntent: options?.forceRefresh === true ? "explicit" : "policy",
+        activeViewing: options?.activeViewing === true,
         query: {
           ...toAuthQuery(config),
           a: 1,
@@ -279,10 +284,11 @@ export function createRetroAchievementsClient(
     async loadGamePlaytimeSeconds(config, gameId) {
       const response = await transport.requestJson<RawRetroAchievementsGameProgressResponse>({
         path: GAME_PROGRESS_PATH,
+        entryPoint: "game-playtime",
         query: {
           ...toAuthQuery(config),
-          // The row only needs UserTotalPlaytime; omit per-achievement award metadata.
-          a: 0,
+          // Reuse the canonical game-progress variant used by every game surface.
+          a: 1,
           g: gameId,
         },
       });

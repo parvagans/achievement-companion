@@ -8,6 +8,7 @@ import {
   invalidateDeckyNativeRetroAchievementsProjection,
   loadDeckyNativeRetroAchievementsProjection,
   readDeckyNativeRetroAchievementsProjection,
+  verifyNativeProjectionLaunch,
   type NativeRetroAchievementsProjection,
 } from "./decky-native-retroachievements-projection";
 import {
@@ -25,10 +26,15 @@ import {
 } from "./decky-native-steam-achievement-contract";
 import { getNativeRetroAchievementsActivityItems } from "./decky-native-retroachievements-activity-model";
 import { DeckyNativeRetroAchievementsActivity, type NativeSteamActivityStyles } from "./decky-native-retroachievements-activity";
-import { DeckyNativeRetroAchievementsCommunity, type NativeSteamCommunitySectionPrimitives } from "./decky-native-retroachievements-community";
+import type { NativeSteamCommunitySectionPrimitives } from "./decky-native-retroachievements-community";
+import { DeckyRetroAchievementsCommunityResource } from "./decky-retroachievements-community-resource";
 import { renderDeckyNativeRetroAchievementsGameInfo } from "./decky-native-retroachievements-game-info";
-import { buildNativeRetroAchievementsCommunityModels } from "./decky-native-retroachievements-community-model";
 import { subscribeDeckyRaNativeAchievementInvalidation } from "./decky-ra-native-achievement-invalidation";
+import { invalidateDeckyRaShortcutHashMatch } from "./decky-ra-shortcut-hash-cache";
+import { invalidateDeckyRetroAchievementsMasteredGameDetail } from "./decky-retroachievements-mastered-detail-cache";
+import { invalidateDeckyRetroAchievementsGameProgress } from "./decky-app-services";
+import { getDeckyAccountRevision } from "./decky-account-revision";
+import { corroborateDeckyRaPresenceLaunch, notifyDeckyRaPresenceLifecycle, stopDeckyRaPresence } from "./decky-retroachievements-presence";
 import { readDeckySettings } from "./decky-settings";
 import { DeckyNativeUpNext, NATIVE_UP_NEXT_TAB_ID, withNativeUpNextTab } from "./decky-native-up-next";
 import { cancelNativeAchievementJump } from "./decky-native-achievement-jump";
@@ -467,7 +473,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     }, 80);
   }
 
-  function loadForPage(appId: number, forceRefresh = false): void {
+  function loadForPage(appId: number, revalidateOnEntry = false): void {
     const mode = currentMode();
     if (attempts.get(appId)?.mode === mode) return;
     const attempt = { mode };
@@ -477,7 +483,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     void loadDeckyNativeRetroAchievementsProjection(
       String(appId),
       mode,
-      forceRefresh ? { forceRefresh: true } : undefined,
+      revalidateOnEntry ? { revalidateOnEntry: true } : undefined,
     ).then((result) => {
       if (disposed || currentMode() !== mode || attempts.get(appId) !== attempt) return;
       if (result.status === "ready" && result.appId === String(appId)) {
@@ -594,6 +600,9 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
       ]);
       const previousIdentity = shortcutIdentities.get(appId);
       if (previousIdentity !== undefined && previousIdentity !== identity) {
+        invalidateDeckyRaShortcutHashMatch(String(appId));
+        const previousGameId = readDeckyNativeRetroAchievementsProjection(String(appId), currentMode())?.raGameId;
+        if (previousGameId !== undefined) invalidateDeckyRetroAchievementsMasteredGameDetail(previousGameId);
         invalidateDeckyNativeRetroAchievementsProjection(String(appId));
         attempts.delete(appId);
         unavailableAppIds.delete(appId);
@@ -629,17 +638,11 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
         appId,
         getNativeRetroAchievementsActivityItems(projection.achievements).length > 0,
       );
-      const communityModels = buildNativeRetroAchievementsCommunityModels({
-        stats: projection.communityStats,
-        ...(projection.achievementsAvailableSince !== undefined
-          ? { achievementsAvailableSince: projection.achievementsAvailableSince }
-          : {}),
-      });
       return withNativeSteamCommunitySection(
         activitySections,
         overview,
         appId,
-        communityPrimitives !== undefined && communityModels !== undefined,
+        communityPrimitives !== undefined && projection.detailSnapshot !== undefined,
       );
     }));
     pagePatched = true;
@@ -755,16 +758,11 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
       if (appId === undefined || page?.appId !== appId || !page.verified || !isCurrentLibraryRootPage(appId)) return callOriginal;
       const projection = getProjection(appId);
       if (projection === undefined) return callOriginal;
-      const models = buildNativeRetroAchievementsCommunityModels({
-        stats: projection.communityStats,
-        ...(projection.achievementsAvailableSince !== undefined
-          ? { achievementsAvailableSince: projection.achievementsAvailableSince }
-          : {}),
-      });
-      if (models === undefined) return callOriginal;
-      return createElement(DeckyNativeRetroAchievementsCommunity, {
-        models,
+       if (projection.detailSnapshot === undefined) return callOriginal;
+       return createElement(DeckyRetroAchievementsCommunityResource, {
+         snapshot: projection.detailSnapshot,
         primitives: communityPrimitives,
+         ...(projection.achievementsAvailableSince !== undefined ? { achievementsAvailableSince: projection.achievementsAvailableSince } : {}),
       });
     }));
     communityPatched = true;
@@ -826,7 +824,8 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
   installActivityPatch();
   installCommunityPatch();
   scheduleGameInfoSync();
-  const unsubscribeInvalidation = subscribeDeckyRaNativeAchievementInvalidation(() => {
+  const unsubscribeInvalidation = subscribeDeckyRaNativeAchievementInvalidation((event) => {
+    if (event.reason === "provider-refreshed") return;
     invalidateDeckyNativeRetroAchievementsProjection();
     attempts.clear();
     shortcutIdentities.clear();
@@ -837,10 +836,29 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
       rerenderActivePage(activePage.appId);
     }
   });
+  const gameLifetimeStates = new Map<number, boolean>();
+  const launchTokens = new Map<number, object>();
   const gameLifetimeHandle = runtime.SteamClient?.GameSessions?.RegisterForAppLifetimeNotifications((event) => {
     const appId = toAppId(event.unAppID);
-    if (appId === undefined || event.bRunning !== false || !isShortcutAppId(runtime, appId)) return;
-    invalidateDeckyNativeRetroAchievementsProjection(String(appId));
+    if (appId === undefined || typeof event.bRunning !== "boolean") return;
+    const emulator = /\b(?:retroarch|emulationstation|pcsx2|duckstation|dolphin|rpcs3|ppsspp|melonDS|mupen|ares|mednafen)\b/iu
+      .test(runtime.appStore?.GetAppOverviewByAppID(appId)?.display_name ?? "");
+    if (!isShortcutAppId(runtime, appId) && !emulator) return;
+    if (gameLifetimeStates.get(appId) === event.bRunning) return;
+    gameLifetimeStates.set(appId, event.bRunning);
+    const projection = readDeckyNativeRetroAchievementsProjection(String(appId), currentMode());
+    const token = {}; launchTokens.set(appId, token);
+    const account = getDeckyAccountRevision("retroachievements");
+    notifyDeckyRaPresenceLifecycle(String(appId), event.bRunning, undefined, emulator ? "emulator" : "unknown");
+    if (event.bRunning) void verifyNativeProjectionLaunch(projection).then(gameId => {
+      if (gameId !== undefined && !disposed && launchTokens.get(appId) === token &&
+          account === getDeckyAccountRevision("retroachievements")) corroborateDeckyRaPresenceLaunch(String(appId), gameId);
+    }).catch(() => undefined);
+    if (projection?.raGameId !== undefined) invalidateDeckyRetroAchievementsGameProgress(projection.raGameId);
+    if (projection?.detailSnapshot?.game.status !== "mastered" && projection?.raGameId !== undefined) {
+      invalidateDeckyRetroAchievementsMasteredGameDetail(projection.raGameId);
+    }
+    invalidateDeckyNativeRetroAchievementsProjection(String(appId), { refreshIncompleteOnly: true });
     attempts.delete(appId);
     unavailableAppIds.delete(appId);
     if (activePage?.appId === appId) activePage.verified = false;
@@ -854,6 +872,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     if (registeredCleanup === cleanup) registeredCleanup = undefined;
     unsubscribeInvalidation();
     gameLifetimeHandle?.unregister();
+    stopDeckyRaPresence();
     routerHook.removePatch(DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN, routePatch);
     routeRenderPatch?.unpatch();
     routeRenderPatch = undefined;

@@ -37,9 +37,11 @@ function BeatMedianValue({ insight }: { readonly insight: Extract<RetroAchieveme
 export function DeckyRetroAchievementsGameCommunitySection({
   stats,
   snapshot,
+  focusable = true,
 }: {
   readonly stats: GameCommunityStats;
   readonly snapshot: GameDetailSnapshot;
+  readonly focusable?: boolean;
 }): JSX.Element {
   const insights = buildRetroAchievementsCommunityInsights(stats);
   const rarityDistribution = buildRetroAchievementsCommunityRarityDistribution(snapshot);
@@ -48,7 +50,7 @@ export function DeckyRetroAchievementsGameCommunitySection({
     <DeckyCommunityInsightsStack>
       <DeckyCommunityInsightsCard
         title="Community Insights (RetroAchievements)"
-        focusable
+        focusable={focusable}
         focusTargetId={RETROACHIEVEMENTS_COMMUNITY_SECTION_FOCUS_TARGET}
       >
         {insights.map((insight) => (

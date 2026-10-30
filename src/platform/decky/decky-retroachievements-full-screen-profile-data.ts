@@ -1,4 +1,5 @@
 import type { CompletionProgressSnapshot, DashboardSnapshot, NormalizedGame } from "@core/domain";
+import { findRetroAchievementsActiveGame, getRetroAchievementsActiveGameId, prependRetroAchievementsActiveGame } from "./decky-retroachievements-current-game";
 import type { AchievementCompanionSettings, RetroAchievementsAchievementMode } from "@core/settings";
 import {
   getRetroAchievementsPlayedGameProgress,
@@ -206,6 +207,9 @@ export function buildRetroAchievementsFullScreenProfileModel({
   readonly settings: AchievementCompanionSettings;
 }) {
   const sourceGames = completion?.games ?? snapshot.featuredGames;
+  const activeGameId = getRetroAchievementsActiveGameId(snapshot.profile);
+  const activeGame = findRetroAchievementsActiveGame(activeGameId, snapshot.currentGame === undefined ? [] : [snapshot.currentGame],
+    snapshot.recentlyPlayedGames, sourceGames, snapshot.profile.featuredGames);
   const games = getRetroAchievementsBaseGames(sourceGames);
   const systemsUnavailable = hasUnavailableRetroAchievementsModeGameCounts(sourceGames, settings.retroAchievementsAchievementMode);
   const systems = systemsUnavailable
@@ -243,7 +247,9 @@ export function buildRetroAchievementsFullScreenProfileModel({
     recentUnlocks: recentUnlocks.slice(0, 3),
     recentCompletions: getRecentCompletions(modeGames, settings.retroAchievementsAchievementMode),
     completionAwardCounts,
-    recentGames: snapshot.recentlyPlayedGames.slice(0, 3).map((game) => ({
+    activeGameId,
+    currentGame: activeGame,
+    recentGames: prependRetroAchievementsActiveGame(snapshot.recentlyPlayedGames, activeGame).slice(0, 3).map((game) => ({
       game,
       progress: getRetroAchievementsPlayedGameProgress(game, settings.retroAchievementsAchievementMode),
     })),

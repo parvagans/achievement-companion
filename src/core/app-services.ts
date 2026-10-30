@@ -1,3 +1,4 @@
+import { readSourceProvenance } from "./source-provenance";
 import { createAccountScopedServices } from "./account-scoped-services";
 ﻿import type { CacheEntry, CacheStore, ResourceState } from "./cache";
 import type {
@@ -58,6 +59,10 @@ const GAME_DETAIL_CACHE_TTL_MS = 15 * 60 * 1000;
 // than account progress. Keep the discovered index long-lived; the provider
 // refreshes progress independently whenever the page is opened.
 const RELATED_GAMES_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+// Include a short overlap when extending RetroAchievements history. It covers
+// awards posted near the previous request boundary without replaying all years.
+const RETROACHIEVEMENTS_HISTORY_REFRESH_OVERLAP_SECONDS = 5 * 60;
+const RETROACHIEVEMENTS_HISTORY_FULL_RECONCILIATION_MS = 7 * 24 * 60 * 60 * 1000;
 const refreshQueuesByCache = new WeakMap<CacheStore, Map<ProviderId, Promise<void>>>();
 
 function createErrorState<T>(error: AppError): ResourceState<T> {
@@ -414,6 +419,10 @@ async function loadDashboardSnapshot(
       : deriveRecentlyPlayedGamesFromRecentUnlocks(recentAchievements);
 
   return {
+    ...(profile.providerId === "retroachievements" ? { canonicalSourceRevision: JSON.stringify([...new Set([
+      ...readSourceProvenance(profile), ...readSourceProvenance(recentAchievements),
+      ...readSourceProvenance(recentlyPlayedGames),
+    ])].sort()) } : {}),
     profile,
     recentAchievements,
     recentUnlocks: recentAchievements,
@@ -647,6 +656,30 @@ function sortRecentUnlocks(entries: readonly RecentUnlock[]): readonly RecentUnl
   return [...entries].sort(compareRecentUnlocksDescending);
 }
 
+function mergeRetroAchievementsHistoryEntries(
+  recentEntries: readonly RecentUnlock[],
+  previousEntries: readonly RecentUnlock[],
+): readonly RecentUnlock[] {
+  const seen = new Set<string>();
+  const merged: RecentUnlock[] = [];
+  // Prefer current metadata for events returned again in the overlap. The same
+  // achievement can have separate softcore and hardcore awards, and repeated
+  // source events with different timestamps must remain distinct.
+  for (const entry of [...recentEntries, ...previousEntries]) {
+    const key = JSON.stringify([
+      entry.achievement.providerId,
+      entry.achievement.gameId,
+      entry.achievement.achievementId,
+      entry.achievement.unlockMode ?? "unknown",
+      getRecentUnlockTimestamp(entry) ?? "unknown",
+    ]);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(entry);
+  }
+  return sortRecentUnlocks(merged);
+}
+
 function summarizeAchievementHistoryEntries(entries: readonly RecentUnlock[]): {
   readonly unlockedCount: number;
   readonly newestUnlockedAt?: number;
@@ -686,6 +719,7 @@ async function loadAchievementHistorySnapshot(
   providerConfig: unknown,
   providerId: ProviderId,
   existingProfile?: NormalizedProfile,
+  previousSnapshot?: AchievementHistorySnapshot,
 ): Promise<AchievementHistorySnapshot> {
   const profile = existingProfile ?? await provider.loadProfile(providerConfig);
   const memberSinceAt = getProfileMemberSinceAt(profile);
@@ -693,11 +727,48 @@ async function loadAchievementHistorySnapshot(
     provider.loadAchievementsEarnedBetween !== undefined && memberSinceAt !== undefined;
 
   let entries: readonly RecentUnlock[];
+  let historyFetchedThroughAt: number | undefined;
+  let fullHistoryFetchedAt: number | undefined;
   if (usedDateRange) {
-    entries = await provider.loadAchievementsEarnedBetween!(providerConfig, {
-      fromEpochSeconds: Math.trunc(memberSinceAt / 1000),
-      toEpochSeconds: Math.trunc(Date.now() / 1000),
+    const memberSinceEpochSeconds = Math.trunc(memberSinceAt / 1000);
+    const toEpochSeconds = Math.trunc(Date.now() / 1000);
+    const previousHistoryIsComplete = providerId === "retroachievements"
+      && previousSnapshot?.providerId === providerId
+      && previousSnapshot.profile.identity.accountId === profile.identity.accountId
+      && getProfileMemberSinceAt(previousSnapshot.profile) === memberSinceAt
+      && previousSnapshot.sourceLabel.startsWith("Member since ")
+      && typeof previousSnapshot.refreshedAt === "number"
+      && Number.isFinite(previousSnapshot.refreshedAt)
+      && previousSnapshot.refreshedAt >= memberSinceAt
+      && previousSnapshot.refreshedAt <= Date.now();
+    const shouldReconcileAll = providerId === "retroachievements" && (
+      !previousHistoryIsComplete
+      || previousSnapshot.fullHistoryFetchedAt === undefined
+      || !Number.isFinite(previousSnapshot.fullHistoryFetchedAt)
+      || previousSnapshot.fullHistoryFetchedAt > Date.now()
+      || Date.now() - previousSnapshot.fullHistoryFetchedAt >= RETROACHIEVEMENTS_HISTORY_FULL_RECONCILIATION_MS
+    );
+    const fromEpochSeconds = previousHistoryIsComplete && !shouldReconcileAll
+      ? Math.max(
+          memberSinceEpochSeconds,
+          Math.trunc(previousSnapshot.refreshedAt! / 1000) - RETROACHIEVEMENTS_HISTORY_REFRESH_OVERLAP_SECONDS,
+        )
+      : memberSinceEpochSeconds;
+    const fetchedEntries = await provider.loadAchievementsEarnedBetween!(providerConfig, {
+      fromEpochSeconds,
+      toEpochSeconds,
     });
+    entries = previousHistoryIsComplete && !shouldReconcileAll
+      ? mergeRetroAchievementsHistoryEntries(fetchedEntries, previousSnapshot.entries)
+      : fetchedEntries;
+    // This is the last second included by the API request, not the time the
+    // response finished. A later refresh must cover anything awarded meanwhile.
+    if (providerId === "retroachievements") {
+      historyFetchedThroughAt = toEpochSeconds * 1000;
+      fullHistoryFetchedAt = shouldReconcileAll
+        ? historyFetchedThroughAt
+        : previousSnapshot?.fullHistoryFetchedAt;
+    }
   } else {
     entries = provider.loadRecentUnlocks !== undefined
       ? await provider.loadRecentUnlocks(providerConfig, { limit: 100 })
@@ -715,7 +786,8 @@ async function loadAchievementHistorySnapshot(
       usedDateRange,
       ...(memberSinceAt !== undefined ? { memberSinceAt } : {}),
     }),
-    refreshedAt: Date.now(),
+    refreshedAt: historyFetchedThroughAt ?? Date.now(),
+    ...(fullHistoryFetchedAt !== undefined ? { fullHistoryFetchedAt } : {}),
   };
 }
 
@@ -723,8 +795,9 @@ async function loadGameDetailSnapshot(
   provider: AchievementProvider,
   providerConfig: unknown,
   gameId: string,
+  forceRefresh = false,
 ): Promise<GameDetailSnapshot> {
-  return provider.loadGameProgress(providerConfig, gameId);
+  return provider.loadGameProgress(providerConfig, gameId, { forceRefresh });
 }
 
 async function refreshDashboard(args: {
@@ -858,6 +931,7 @@ async function refreshAchievementHistory(args: {
         providerConfig,
         args.providerId,
         args.profile,
+        args.cachedState?.data,
       );
       const now = Date.now();
 
@@ -956,6 +1030,7 @@ async function refreshGameDetail(args: {
   readonly loadProviderConfig: (providerId: ProviderId) => Promise<unknown | undefined>;
   readonly cacheKey: string;
   readonly gameId: string;
+  readonly forceRefresh?: boolean;
   readonly cachedState?: ResourceState<GameDetailSnapshot>;
 }): Promise<ResourceState<GameDetailSnapshot>> {
   const provider = args.providerRegistry.get(args.providerId);
@@ -997,7 +1072,7 @@ async function refreshGameDetail(args: {
 
   return runProviderRefreshExclusive(args.providerId, async () => {
     try {
-      const snapshot = await loadGameDetailSnapshot(provider, providerConfig, args.gameId);
+      const snapshot = await loadGameDetailSnapshot(provider, providerConfig, args.gameId, args.forceRefresh);
       const now = Date.now();
 
       await args.cacheStore.write<GameDetailSnapshot>({
@@ -1270,6 +1345,7 @@ function createUnscopedAppServices(options: AppServiceBootstrapOptions): AppServ
           loadProviderConfig: options.loadProviderConfig,
           cacheKey,
           gameId,
+          ...(requestOptions?.forceRefresh !== undefined ? { forceRefresh: requestOptions.forceRefresh } : {}),
           ...(cacheRead.cachedState !== undefined ? { cachedState: cacheRead.cachedState } : {}),
         });
       },

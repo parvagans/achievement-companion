@@ -7,6 +7,7 @@ export interface DeckySteamShortcutMetadata {
   readonly platformLabel?: string;
   readonly tags?: readonly string[];
   readonly exe?: string;
+  readonly launchOptions?: string;
   readonly startDir?: string;
 }
 
@@ -58,6 +59,7 @@ function normalizeShortcutMetadata(value: unknown): DeckySteamShortcutMetadata |
 
   return {
     appId,
+    ...(typeof record["launchOptions"] === "string" ? { launchOptions: record["launchOptions"] } : {}),
     ...(title !== "" ? { title } : {}),
     ...(platformTag !== undefined ? { platformTag } : {}),
     ...(platformLabel !== undefined ? { platformLabel } : {}),

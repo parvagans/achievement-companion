@@ -90,6 +90,8 @@ def load_main_module(settings_dir: Path, logs_dir: Path | None = None) -> types.
   module = importlib.util.module_from_spec(spec)
   sys.modules[module_name] = module
   spec.loader.exec_module(module)
+  scheduler_factory = module.RaScheduler
+  module.RaScheduler = lambda **kwargs: scheduler_factory(**{"jitter": lambda: 0, **kwargs})
   return module
 
 
@@ -119,6 +121,19 @@ class BackendRuntimeTests(unittest.TestCase):
 
   def tearDown(self) -> None:
     backend_secrets._read_machine_id_text = self._original_read_machine_id_text  # type: ignore[assignment]
+
+  def test_unload_cleans_other_services_after_coordinator_failure(self):
+    with tempfile.TemporaryDirectory() as root:
+      module=load_main_module(Path(root));plugin=module.Plugin();calls=[]
+      class Service:
+        def __init__(self,name):self.name=name
+        async def close(self):
+          calls.append(self.name)
+          if self.name=="resources":raise OSError("durability failure")
+      plugin._ra_resources=Service("resources");plugin._ra_history=Service("history");plugin._ra_requests=Service("scheduler")
+      with patch.object(module,"_cleanup_prepared_update_artifacts",lambda:calls.append("artifacts")):
+        with self.assertRaises(OSError):asyncio.run(plugin._unload())
+      self.assertEqual(calls,["resources","history","scheduler","artifacts"])
 
   def test_secret_record_fixture_uses_the_machine_id_reader(self) -> None:
     self.assertEqual(backend_secrets._resolve_seed_text("unused-settings-path"), "test-machine-id")
@@ -184,22 +199,12 @@ class BackendRuntimeTests(unittest.TestCase):
           "path": "API_GetUserProfile.php",
           "query": {"u": "target-user-ulid"},
         })
-        try:
-          request.send(None)
-        except StopIteration as completed:
-          response = completed.value
-        else:
-          self.fail("Mocked RetroAchievements request unexpectedly suspended.")
+        response = asyncio.run(request)
         signed_in_request = module.Plugin().request_retroachievements_json({
           "path": "API_GetGameInfoAndUserProgress.php",
           "query": {"i": 1234},
         })
-        try:
-          signed_in_request.send(None)
-        except StopIteration:
-          pass
-        else:
-          self.fail("Mocked RetroAchievements request unexpectedly suspended.")
+        asyncio.run(signed_in_request)
       finally:
         module.asyncio.to_thread = original_to_thread  # type: ignore[attr-defined,assignment]
 
@@ -207,6 +212,24 @@ class BackendRuntimeTests(unittest.TestCase):
       self.assertEqual(calls[0]["query"], {"u": "target-user-ulid"})
       self.assertEqual(calls[0]["auth_query"], {"y": "stored-key"})
       self.assertEqual(calls[1]["auth_query"], {"u": "signed-in-user", "y": "stored-key"})
+
+  def test_observed_sessions_survive_restart_and_reject_old_account_writes(self) -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+      module = load_main_module(Path(temp_dir))
+      username = "alice"
+      module._load_provider_config = lambda _provider_id: {"username": username}
+      module._load_secret_api_key = lambda _provider_id: "stored-key"
+      plugin = module.Plugin()
+      initial = asyncio.run(plugin.read_retroachievements_observed_sessions({}))
+      rows = [{"gameId": "42", "observedAt": 1700000000000, "heartbeatAt": 1699999999000, "endedAt": 1700000001000}]
+      self.assertTrue(asyncio.run(plugin.write_retroachievements_observed_sessions({"scope": initial["scope"], "sessions": rows})))
+      self.assertEqual(asyncio.run(module.Plugin().read_retroachievements_observed_sessions({}))["sessions"], rows)
+      username = "bob"
+      self.assertEqual(asyncio.run(plugin.read_retroachievements_observed_sessions({}))["sessions"], [])
+      self.assertFalse(asyncio.run(plugin.write_retroachievements_observed_sessions({"scope": initial["scope"], "sessions": rows})))
+      username = "alice"
+      self.assertEqual(asyncio.run(plugin.read_retroachievements_observed_sessions({}))["sessions"], rows)
+      self.assertFalse(asyncio.run(plugin.write_retroachievements_observed_sessions({"scope": initial["scope"], "sessions": rows * 13})))
 
   def test_blocking_provider_and_rom_calls_leave_event_loop_responsive(self) -> None:
     scenarios = (
@@ -267,7 +290,8 @@ class BackendRuntimeTests(unittest.TestCase):
         module = load_main_module(Path(temp_dir))
         module._save_secret_api_key(provider_key, "stored-test-key")
         module._load_provider_config = lambda _key: {"username": "alice", "steamId64": "76561198000000000", "hasApiKey": True}
-        module._request_json = lambda **_kwargs: {"ok": True}
+        expected_response = {"User": "alice"} if provider_key == "retroAchievements" else {"ok": True}
+        module._request_json = lambda **_kwargs: expected_response
         main_thread = threading.get_ident()
         derivation_threads: list[int] = []
         original_derive = backend_secrets._derive_secret_record_key
@@ -280,7 +304,7 @@ class BackendRuntimeTests(unittest.TestCase):
           backend_secrets, "_derive_secret_record_key", side_effect=derive,
         ):
           response = asyncio.run(getattr(module.Plugin(), method_name)({"path": path}))
-        self.assertEqual(response, {"ok": True})
+        self.assertEqual(response, expected_response)
         self.assertEqual(reads.call_count, 1)
         self.assertEqual(len(derivation_threads), 1)
         self.assertNotEqual(derivation_threads[0], main_thread)

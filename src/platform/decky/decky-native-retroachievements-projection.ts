@@ -2,6 +2,7 @@ import type { ResourceState } from "@core/cache";
 import type { GameCommunityStats, GameDetailSnapshot, NormalizedAchievement } from "@core/domain";
 import type { RetroAchievementsAchievementMode } from "@core/settings";
 import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
+import { getDeckyRetroAchievementsGameResourceRevision, isDeckyRetroAchievementsGameResourceFresh } from "./providers/retroachievements/backend-transport";
 import {
   invalidateDeckyGamePageAchievementSummaryCache,
   loadDeckyGamePageAchievementSummary,
@@ -36,6 +37,8 @@ export interface NativeRetroAchievementsProjection {
   readonly communityStats?: GameCommunityStats;
   readonly achievementsAvailableSince?: string;
   readonly refreshedAt?: number;
+  readonly sourceRevision?: string | undefined;
+  readonly shortcutIdentity?: string;
 }
 
 export type NativeRetroAchievementsProjectionResult =
@@ -57,22 +60,27 @@ export type NativeRetroAchievementsProjectionResult =
 
 export interface NativeRetroAchievementsProjectionDependencies {
   readonly loadShortcutMetadata: (appId: string) => Promise<DeckySteamShortcutMetadata | undefined>;
-  readonly loadSummary: (appId: string) => Promise<GamePageAchievementSummary>;
+  readonly loadSummary: (
+    appId: string,
+    options?: { readonly freshRetroAchievements?: boolean },
+  ) => Promise<GamePageAchievementSummary>;
   readonly loadDetail: (
     raGameId: string,
     options: { readonly forceRefresh: boolean },
   ) => Promise<ResourceState<GameDetailSnapshot>>;
   readonly invalidateSummary: (appId: string, options?: { readonly preserveVisible?: boolean }) => void;
+  readonly detailRevision?: (raGameId: string) => string | undefined;
+  readonly isDetailFresh?: (raGameId: string) => boolean;
 }
 
 export interface NativeRetroAchievementsProjectionLoader {
   load(
     appId: string,
     mode: RetroAchievementsAchievementMode,
-    options?: { readonly forceRefresh?: boolean },
+    options?: { readonly forceRefresh?: boolean; readonly revalidateOnEntry?: boolean },
   ): Promise<NativeRetroAchievementsProjectionResult>;
   read(appId: string, mode: RetroAchievementsAchievementMode): NativeRetroAchievementsProjection | undefined;
-  invalidate(appId?: string): void;
+  invalidate(appId?: string, options?: { readonly refreshIncompleteOnly?: boolean }): void;
   dispose(): void;
 }
 
@@ -83,7 +91,7 @@ function unavailable(
   return { status: "unavailable", appId, reason };
 }
 
-function shortcutIdentity(metadata: DeckySteamShortcutMetadata): string {
+export function shortcutIdentity(metadata: DeckySteamShortcutMetadata): string {
   return JSON.stringify([
     metadata.appId,
     metadata.platformTag,
@@ -91,7 +99,14 @@ function shortcutIdentity(metadata: DeckySteamShortcutMetadata): string {
     metadata.tags,
     metadata.exe,
     metadata.startDir,
+    metadata.launchOptions ?? "",
   ]);
+}
+
+function hasVerifiedMastery(detail: GameDetailSnapshot | undefined): boolean {
+  if (detail?.game.status !== "mastered") return false;
+  const award = detail.game.metrics.find((metric) => metric.key === "highest-award-kind")?.value;
+  return award?.trim().toLowerCase().includes("mastered") === true;
 }
 
 function projectDetail(
@@ -178,12 +193,18 @@ export function createNativeRetroAchievementsProjectionLoader(
     return generations.get(appId) ?? 0;
   }
 
-  function invalidateOne(appId: string, invalidateMapping: boolean, preserveVisible = false): void {
+  function invalidateOne(
+    appId: string,
+    invalidateMapping: boolean,
+    preserveVisible = false,
+    forceNextDetail = true,
+  ): void {
     generations.set(appId, generation(appId) + 1);
     committed.delete(appId);
     inFlight.delete(appId);
     if (invalidateMapping) {
-      needsFreshDetail.add(appId);
+      if (forceNextDetail) needsFreshDetail.add(appId);
+      else needsFreshDetail.delete(appId);
       dependencies.invalidateSummary(appId, preserveVisible ? { preserveVisible: true } : undefined);
     }
   }
@@ -195,7 +216,7 @@ export function createNativeRetroAchievementsProjectionLoader(
   async function load(
     appId: string,
     mode: RetroAchievementsAchievementMode,
-    options?: { readonly forceRefresh?: boolean },
+    options?: { readonly forceRefresh?: boolean; readonly revalidateOnEntry?: boolean },
   ): Promise<NativeRetroAchievementsProjectionResult> {
     if (disposed) {
       return unavailable(appId, "disposed");
@@ -233,23 +254,29 @@ export function createNativeRetroAchievementsProjectionLoader(
       }
 
       const identity = shortcutIdentity(metadata);
-      if (!identities.has(appId) && options?.forceRefresh !== true) {
-        // The badge's older appId-only cache cannot prove it belongs to this shortcut path.
-        dependencies.invalidateSummary(appId);
-      } else if (identities.has(appId) && identities.get(appId) !== identity) {
+      let revalidateSummary = !identities.has(appId) || options?.forceRefresh === true ||
+        options?.revalidateOnEntry === true;
+      if (identities.has(appId) && identities.get(appId) !== identity) {
         invalidateOne(appId, true);
         requestGeneration = generation(appId);
+        revalidateSummary = true;
       }
       identities.set(appId, identity);
 
       const cached = committed.get(appId);
       if (cached !== undefined && cached.mode === mode) {
-        return cached;
+        if (options?.forceRefresh !== true && cached.sourceRevision === dependencies.detailRevision?.(cached.raGameId) &&
+            (dependencies.isDetailFresh?.(cached.raGameId) ?? (options?.revalidateOnEntry !== true))) {
+          return cached;
+        }
       }
 
       let summary: GamePageAchievementSummary;
       try {
-        summary = await dependencies.loadSummary(appId);
+        summary = await dependencies.loadSummary(
+          appId,
+          revalidateSummary ? { freshRetroAchievements: true } : undefined,
+        );
       } catch {
         return unavailable(appId, "resolution-error");
       }
@@ -269,7 +296,7 @@ export function createNativeRetroAchievementsProjectionLoader(
       let detailState: ResourceState<GameDetailSnapshot>;
       try {
         detailState = await dependencies.loadDetail(summary.gameId, {
-          forceRefresh: options?.forceRefresh === true || needsFreshDetail.has(appId),
+          forceRefresh: options?.forceRefresh === true,
         });
       } catch {
         return unavailable(appId, "detail-error");
@@ -277,11 +304,12 @@ export function createNativeRetroAchievementsProjectionLoader(
       if (!isCurrent(appId, mode, requestGeneration)) {
         return unavailable(appId, "stale-request");
       }
-      if (detailState.status !== "success" || detailState.isStale || detailState.data === undefined) {
+      if ((detailState.status !== "success" && detailState.status !== "stale") || detailState.data === undefined) {
         return unavailable(appId, "detail-unavailable");
       }
 
-      const result = projectDetail(appId, summary.gameId, mode, detailState.data);
+      const projected = projectDetail(appId, summary.gameId, mode, detailState.data);
+      const result = projected.status === "ready" ? { ...projected, shortcutIdentity: identity, sourceRevision: detailState.data.canonicalSourceRevision ?? dependencies.detailRevision?.(summary.gameId) } : projected;
       if (result.status !== "ready") {
         return result;
       }
@@ -326,9 +354,12 @@ export function createNativeRetroAchievementsProjectionLoader(
     return !disposed && value?.mode === mode ? value : undefined;
   }
 
-  function invalidate(appId?: string): void {
+  function invalidate(appId?: string, options?: { readonly refreshIncompleteOnly?: boolean }): void {
     if (appId !== undefined) {
-      invalidateOne(appId, true);
+      const current = committed.get(appId);
+      const forceNextDetail = options?.refreshIncompleteOnly !== true ||
+        !hasVerifiedMastery(current?.detailSnapshot);
+      invalidateOne(appId, true, false, forceNextDetail);
       return;
     }
     const appIds = new Set([...generations.keys(), ...modes.keys(), ...identities.keys(), ...committed.keys(), ...inFlight.keys()]);
@@ -352,6 +383,10 @@ export function createNativeRetroAchievementsProjectionLoader(
 }
 
 const deckyDependencies: NativeRetroAchievementsProjectionDependencies = {
+  detailRevision: getDeckyRetroAchievementsGameResourceRevision,
+  isDetailFresh(raGameId) {
+    return isDeckyRetroAchievementsGameResourceFresh(raGameId);
+  },
   loadShortcutMetadata: loadDeckySteamShortcutMetadata,
   loadSummary: loadDeckyGamePageAchievementSummary,
   async loadDetail(raGameId, options) {
@@ -366,7 +401,7 @@ let deckyNativeRetroAchievementsProjectionLoader = createNativeRetroAchievements
 export function loadDeckyNativeRetroAchievementsProjection(
   appId: string,
   mode: RetroAchievementsAchievementMode,
-  options?: { readonly forceRefresh?: boolean },
+  options?: { readonly forceRefresh?: boolean; readonly revalidateOnEntry?: boolean },
 ): Promise<NativeRetroAchievementsProjectionResult> {
   return deckyNativeRetroAchievementsProjectionLoader.load(appId, mode, options);
 }
@@ -378,11 +413,21 @@ export function readDeckyNativeRetroAchievementsProjection(
   return deckyNativeRetroAchievementsProjectionLoader.read(appId, mode);
 }
 
-export function invalidateDeckyNativeRetroAchievementsProjection(appId?: string): void {
-  deckyNativeRetroAchievementsProjectionLoader.invalidate(appId);
+export function invalidateDeckyNativeRetroAchievementsProjection(
+  appId?: string,
+  options?: { readonly refreshIncompleteOnly?: boolean },
+): void {
+  deckyNativeRetroAchievementsProjectionLoader.invalidate(appId, options);
 }
 
 export function disposeDeckyNativeRetroAchievementsProjection(): void {
   deckyNativeRetroAchievementsProjectionLoader.dispose();
   deckyNativeRetroAchievementsProjectionLoader = createNativeRetroAchievementsProjectionLoader(deckyDependencies);
+}
+
+/** A presentation alone cannot authorize a new process session. No provider request. */
+export async function verifyNativeProjectionLaunch(projection: NativeRetroAchievementsProjection | undefined): Promise<string | undefined> {
+  if (projection?.shortcutIdentity === undefined) return undefined;
+  const metadata = await loadDeckySteamShortcutMetadata(projection.appId);
+  return metadata?.exe && shortcutIdentity(metadata) === projection.shortcutIdentity ? projection.raGameId : undefined;
 }

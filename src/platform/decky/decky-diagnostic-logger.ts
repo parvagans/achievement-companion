@@ -3,6 +3,7 @@ import type { ResourceState } from "@core/cache";
 import { callDeckyBackendMethod } from "./decky-backend-bridge";
 
 export type DeckyDiagnosticEvent =
+  | "cache_hit" | "resource_published" | "request_joined"
   | "dashboard_refresh_started"
   | "dashboard_refresh_completed"
   | "dashboard_refresh_failed"
@@ -37,6 +38,8 @@ export interface DeckyDiagnosticEventPayload {
   readonly unlockedAchievements?: number;
   readonly perfectGames?: number;
   readonly completionPercent?: number;
+  readonly subscribers?: number;
+  readonly correlationId?: string;
 }
 
 export async function recordDeckyDiagnosticEvent(
@@ -73,7 +76,7 @@ export async function logDeckyResourceRefresh<T>(
   void deckyDiagnosticLogger.record({ event: "resource_refresh_started", ...context });
   try {
     const state = await load();
-    const failed = state.status === "error" || state.status === "stale" || state.error !== undefined;
+    const failed = state.data === undefined && (state.status === "error" || state.error !== undefined);
     void deckyDiagnosticLogger.record({
       event: failed ? "resource_refresh_failed" : "resource_refresh_completed",
       ...context,

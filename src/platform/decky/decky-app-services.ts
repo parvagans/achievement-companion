@@ -1,5 +1,11 @@
+import { getDeckyRetroAchievementsProfileResourceRevision } from "./providers/retroachievements/backend-transport";
 import { redactFrontendLogText } from "@core/redaction";
 import { createDeckyDashboardRefreshCoordinator } from "./decky-dashboard-refresh-coordinator";
+import { callDeckyBackendMethod } from "./decky-backend-bridge";
+import { isDeckyDeveloperUpdateModeEnabled } from "./decky-update-developer-mode";
+import { classifyDeckyRetroAchievementsFailure } from "./decky-retroachievements-resource-error";
+import { deckyRaPresence } from "./decky-retroachievements-presence";
+import { projectRaPresence, type PresenceTrigger } from "./retroachievements-presence-coordinator";
 import { createDeckyFullScreenSessionCoordinator } from "./decky-full-screen-session-coordinator";
 import { getDeckyAccountRevision, subscribeDeckyAccountRevision, createDeckyAccountChangedState } from "./decky-account-revision";
 import type { ResourceState } from "@core/cache";
@@ -42,6 +48,17 @@ import {
 } from "../../providers/steamhunters";
 import { createDeckySteamHuntersTransport } from "./providers/steamhunters/backend-transport";
 import { createMemoryCacheStore } from "./memory-cache";
+import { readLegacyDeckyRetroAchievementsHistory } from "./decky-retroachievements-history-cache";
+import {
+  invalidateDeckyCompactRetroAchievementsGameState,
+  loadDeckyCompactRecommendationGameState,
+  readDeckyCompactGameLastKnownGoodState,
+  readDeckyCompactGameState,
+} from "./decky-compact-session-resources";
+import { getRetroAchievementsActiveGameId } from "./decky-retroachievements-current-game";
+import { RA_FOREGROUND_WAIT_MS } from "./retroachievements-data-coordinator";
+import { normalizeRetroAchievementsRecentUnlocks } from "../../providers/retroachievements/mappers/normalize";
+import type { RawRetroAchievementsRecentUnlockResponse } from "../../providers/retroachievements/raw-types";
 import { createDeckySettingsStore, isDeckySteamHuntersPersonalDataEnabled } from "./decky-settings";
 import { loadDeckyRuntimeMode, type DeckyRuntimeMode } from "./runtime-mode";
 import { readDeckyStorageText, removeDeckyStorageText, writeDeckyStorageText, writeDeckyStorageTextPreservingExisting } from "./storage";
@@ -50,6 +67,10 @@ import {
   deckyDashboardSnapshotStore,
   writeDeckyDashboardSnapshot,
 } from "./decky-dashboard-snapshot-cache";
+import {
+  invalidateDeckyRetroAchievementsMasteredGameDetail,
+  readDeckyRetroAchievementsMasteredGameDetail,
+} from "./decky-retroachievements-mastered-detail-cache";
 import { updateDeckyRetroAchievementsRankTrends } from "./decky-retroachievements-rank-trend";
 import {
   preserveCachedSteamHuntersEnrichment,
@@ -62,9 +83,9 @@ import {
   type DeckySmokeTestCacheMode,
 } from "./smoke-test-cache";
 import { loadDeckyProviderConfig } from "./providers";
-import { RETROACHIEVEMENTS_PROVIDER_ID } from "../../providers/retroachievements";
+import { RETROACHIEVEMENTS_PROVIDER_ID, type RetroAchievementsProviderConfig } from "../../providers/retroachievements";
 import { STEAM_PROVIDER_ID, type SteamProviderConfig } from "../../providers/steam";
-import { createDeckyRetroAchievementsTransport } from "./providers/retroachievements/backend-transport";
+import { createDeckyRetroAchievementsTransport, getDeckyRetroAchievementsDataCoordinator, invalidateDeckyRetroAchievementsGameResource, resetDeckyRetroAchievementsTransportForTests, ensureDeckyRetroAchievementsHistoryResource, isDeckyRetroAchievementsResourceFresh, isDeckyRetroAchievementsGameResourceFresh } from "./providers/retroachievements/backend-transport";
 import {
   markRetroAchievementsAuthenticatedSuccess,
   markRetroAchievementsCachedDashboardRestored,
@@ -76,7 +97,7 @@ import {
   markSteamCachedDashboardRestored,
   markSteamRefreshFailure,
 } from "./providers/steam/connection";
-import { deckyProviderConfigStore } from "./providers/provider-config-store";
+import { deckyProviderConfigStore, readDeckyProviderConfigs } from "./providers/provider-config-store";
 import {
   buildDeckySteamAchievementHistorySnapshotFromSummary,
   buildDeckySteamCompletionProgressSnapshotFromSummary,
@@ -86,7 +107,6 @@ import {
 import { reconcileSteamLibraryAchievementSummaryWithRecentGames } from "../../providers/steam/library-scan";
 import { normalizeSteamCompletionProgressGames } from "../../providers/steam/mappers/normalize";
 import { deckyDiagnosticLogger, logDeckyResourceRefresh } from "./decky-diagnostic-logger";
-import { publishDeckyRaNativeAchievementInvalidation } from "./decky-ra-native-achievement-invalidation";
 import {
   getDeckySteamLibraryAchievementScanRevision,
   deckySteamLibraryScanStore,
@@ -224,7 +244,7 @@ const deckyRetroAchievementsSubsetRelationshipIndexStore: RetroAchievementsSubse
         // Replace corrupt relationship-index storage with the next good write.
       }
     }
-    writeDeckyStorageTextPreservingExisting(
+    const saved = writeDeckyStorageTextPreservingExisting(
       DECKY_RETROACHIEVEMENTS_SUBSET_RELATIONSHIP_INDEX_STORAGE_KEY,
       JSON.stringify({
         version: 1,
@@ -232,6 +252,7 @@ const deckyRetroAchievementsSubsetRelationshipIndexStore: RetroAchievementsSubse
         catalogues: stored.catalogues,
       }),
     );
+    if (!saved) throw new Error("Subset checkpoint could not be saved.");
   },
   async writeCatalogue(state) {
     let stored: StoredRetroAchievementsSubsetRelationshipIndex = { version: 1, consoles: {}, catalogues: {} };
@@ -264,11 +285,18 @@ const deckyRetroAchievementsSubsetRelationshipIndexStore: RetroAchievementsSubse
   },
 };
 
+const retroAchievementsProvider = createRetroAchievementsProvider({
+  transport: deckyAuthenticatedProviderTransportFactory.create(RETROACHIEVEMENTS_PROVIDER_ID),
+  subsetRelationshipIndexStore: deckyRetroAchievementsSubsetRelationshipIndexStore,
+  isResourceFresh: isDeckyRetroAchievementsResourceFresh,
+  resourceFreshUntil: (path, query) => getDeckyRetroAchievementsDataCoordinator().getResource({ path, query })?.freshUntil,
+  subsetDiagnostic(event, fields) {
+    if (event === "subset_candidate" && !isDeckyDeveloperUpdateModeEnabled()) return;
+    void callDeckyBackendMethod("record_diagnostic_event", { event, providerId: RETROACHIEVEMENTS_PROVIDER_ID, ...fields }).catch(() => undefined);
+  },
+});
 const providerRegistry = createProviderRegistry([
-  createRetroAchievementsProvider({
-    transport: deckyAuthenticatedProviderTransportFactory.create(RETROACHIEVEMENTS_PROVIDER_ID),
-    subsetRelationshipIndexStore: deckyRetroAchievementsSubsetRelationshipIndexStore,
-  }),
+  retroAchievementsProvider,
   createSteamProvider({
     transport: deckyAuthenticatedProviderTransportFactory.create(STEAM_PROVIDER_ID),
     steamHuntersService: deckySteamHuntersService,
@@ -315,29 +343,21 @@ interface DeckySteamHuntersProfileLoadEntry {
 }
 const deckySteamHuntersProfileLoadsByProviderId = new Map<ProviderId, DeckySteamHuntersProfileLoadEntry>();
 const deckyProviderFullScreenCompactReturnRefreshSuppressions = new Set<ProviderId>();
-const DECKY_RETROACHIEVEMENTS_PLAYTIME_REQUEST_INTERVAL_MS = 300;
-const deckyRetroAchievementsGamePlaytimeCache = new Map<string, number | undefined>();
 const deckyRetroAchievementsGamePlaytimeRequests = new Map<string, Promise<number | undefined>>();
 let deckyRetroAchievementsGamePlaytimeSessionRevision = 0;
-let deckyRetroAchievementsGamePlaytimeQueue: Promise<void> = Promise.resolve();
-let deckyRetroAchievementsLastPlaytimeRequestStartedAt = 0;
 
 function resetDeckyRetroAchievementsGamePlaytimeSession(): void {
   deckyRetroAchievementsGamePlaytimeSessionRevision += 1;
-  deckyRetroAchievementsGamePlaytimeCache.clear();
   deckyRetroAchievementsGamePlaytimeRequests.clear();
 }
 
-/** Loads exact RA per-game playtime lazily, spaced to respect the API's rate limits. */
+/** Loads exact playtime from the same scheduled game record as the achievement page. */
 export function loadDeckyRetroAchievementsGamePlaytimeSeconds(gameId: string): Promise<number | undefined> {
   if (loadDeckyRuntimeMode() === "empty") {
     return Promise.resolve(undefined);
   }
 
   const sessionRevision = deckyRetroAchievementsGamePlaytimeSessionRevision;
-  if (deckyRetroAchievementsGamePlaytimeCache.has(gameId)) {
-    return Promise.resolve(deckyRetroAchievementsGamePlaytimeCache.get(gameId));
-  }
 
   const requestKey = `${sessionRevision}:${gameId}`;
   const existingRequest = deckyRetroAchievementsGamePlaytimeRequests.get(requestKey);
@@ -345,7 +365,7 @@ export function loadDeckyRetroAchievementsGamePlaytimeSeconds(gameId: string): P
     return existingRequest;
   }
 
-  const queuedRequest = deckyRetroAchievementsGamePlaytimeQueue.then(async () => {
+  const queuedRequest = Promise.resolve().then(async () => {
     if (sessionRevision !== deckyRetroAchievementsGamePlaytimeSessionRevision) {
       return undefined;
     }
@@ -356,37 +376,19 @@ export function loadDeckyRetroAchievementsGamePlaytimeSeconds(gameId: string): P
       return undefined;
     }
 
-    const waitMs = Math.max(
-      0,
-      DECKY_RETROACHIEVEMENTS_PLAYTIME_REQUEST_INTERVAL_MS -
-        (Date.now() - deckyRetroAchievementsLastPlaytimeRequestStartedAt),
-    );
-    if (waitMs > 0) {
-      await new Promise<void>((resolve) => setTimeout(resolve, waitMs));
-    }
     if (sessionRevision !== deckyRetroAchievementsGamePlaytimeSessionRevision) {
       return undefined;
     }
 
-    deckyRetroAchievementsLastPlaytimeRequestStartedAt = Date.now();
     return provider.loadGamePlaytimeSeconds(providerConfig, gameId);
   });
-  deckyRetroAchievementsGamePlaytimeQueue = queuedRequest.then(() => undefined, () => undefined);
 
   let request: Promise<number | undefined>;
   request = queuedRequest
     .then((playtimeSeconds) => {
-      if (sessionRevision === deckyRetroAchievementsGamePlaytimeSessionRevision) {
-        deckyRetroAchievementsGamePlaytimeCache.set(gameId, playtimeSeconds);
-      }
-      return playtimeSeconds;
+      return sessionRevision === deckyRetroAchievementsGamePlaytimeSessionRevision ? playtimeSeconds : undefined;
     })
-    .catch(() => {
-      if (sessionRevision === deckyRetroAchievementsGamePlaytimeSessionRevision) {
-        deckyRetroAchievementsGamePlaytimeCache.set(gameId, undefined);
-      }
-      return undefined;
-    })
+    .catch(() => undefined)
     .finally(() => {
       if (deckyRetroAchievementsGamePlaytimeRequests.get(requestKey) === request) {
         deckyRetroAchievementsGamePlaytimeRequests.delete(requestKey);
@@ -457,6 +459,8 @@ function createDeckyAppServices(runtimeMode: DeckySmokeTestCacheMode | "live") {
 }
 
 export function resetDeckyAppServicesForTests(): void {
+  deckyRaPresence.reset();
+  resetDeckyRetroAchievementsTransportForTests();
   liveDeckyAppRuntime = undefined;
   deckyDashboardRefreshCoordinator.reset();
   deckyFullScreenSessionCoordinator.reset();
@@ -1296,7 +1300,7 @@ export async function loadDeckyDashboardState(
     clearSteamRecentGameSnapshotLoadCache();
   }
 
-  if (runtimeMode === "live" && !options?.forceRefresh) {
+  if (runtimeMode === "live" && providerId !== RETROACHIEVEMENTS_PROVIDER_ID && !options?.forceRefresh) {
     const cachedDashboardState = readDeckyDashboardSnapshotState(providerId);
     if (cachedDashboardState !== undefined) {
       if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
@@ -1340,8 +1344,24 @@ export async function loadDeckyDashboardState(
     mode: options?.forceRefresh ? "manual" : "initial",
   });
   const refreshPromise = (async () => {
+    if (providerId === RETROACHIEVEMENTS_PROVIDER_ID && runtimeMode === "live" && options?.forceRefresh) {
+      const config = await loadDeckyProviderConfig(providerId);
+      if (config !== undefined && "username" in config) {
+        const u = config.username;
+        const coordinator = getDeckyRetroAchievementsDataCoordinator();
+        await Promise.allSettled([
+          { path: "API_GetUserProfile.php", query: { u } },
+          { path: "API_GetUserSummary.php", query: { u, a: 0, g: 0 } },
+          { path: "API_GetUserRecentAchievements.php", query: { u, m: 1440 } },
+          { path: "API_GetUserRecentlyPlayedGames.php", query: { u, c: 10 } },
+          { path: "API_GetUserCompletionProgress.php", query: { u, c: 500, o: 0 } },
+        ].map((request) => coordinator.refreshResource(request, { revision: accountRevision, entryPoint: "profile-manual-refresh" })));
+      }
+      if (!isCurrentAccount()) return createDeckyAccountChangedState<DashboardSnapshot>(providerId);
+    }
     const dashboardRefreshPromise = createDeckyAppServices(runtimeMode).dashboard.loadDashboard(providerId, {
       ...options,
+      ...(providerId === RETROACHIEVEMENTS_PROVIDER_ID ? { forceRefresh: true } : {}),
       onProgress: (event) => { if (isCurrentAccount()) publishDeckyDashboardProgress(providerId, event); },
     });
     const state = await dashboardRefreshPromise;
@@ -1367,6 +1387,14 @@ export async function loadDeckyDashboardState(
         durationMs: Date.now() - dashboardRefreshStartedAt,
         errorKind: state.error?.kind ?? "unknown",
       });
+      if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+        const saved = readDeckyDashboardSnapshotState(providerId);
+        const config = await loadDeckyProviderConfig(providerId);
+        if (isCurrentAccount() && saved?.data !== undefined && config !== undefined && "username" in config &&
+            saved.data.profile.identity.displayName.toLocaleLowerCase() === config.username.toLocaleLowerCase()) {
+          return { ...saved, ...(state.error !== undefined ? { error: state.error } : {}) };
+        }
+      }
       return state;
     }
 
@@ -1397,6 +1425,21 @@ export async function loadDeckyDashboardState(
       : undefined;
     const providerConfig = runtimeMode === "live" ? await loadDeckyProviderConfig(providerId) : undefined;
     if (!isCurrentAccount()) return createDeckyAccountChangedState<DashboardSnapshot>(providerId);
+    const raUsername = providerId === RETROACHIEVEMENTS_PROVIDER_ID && providerConfig !== undefined && "username" in providerConfig
+      ? providerConfig.username : undefined;
+    const raResources = raUsername === undefined ? [] : [
+      { path: "API_GetUserProfile.php", query: { u: raUsername } },
+      { path: "API_GetUserSummary.php", query: { u: raUsername, a: 0, g: 0 } },
+      { path: "API_GetUserRecentAchievements.php", query: { u: raUsername, m: 1440 } },
+      { path: "API_GetUserRecentlyPlayedGames.php", query: { u: raUsername, c: 10 } },
+      { path: "API_GetUserCompletionProgress.php", query: { u: raUsername, c: 500, o: 0 } },
+    ].map((request) => getDeckyRetroAchievementsDataCoordinator().getResource(request));
+    const raDegraded = raResources.some((resource) => resource?.cacheState === "stale");
+    const raFailure = raDegraded ? classifyDeckyRetroAchievementsFailure(raResources.find((resource) => resource?.error !== undefined)?.error, true) : undefined;
+    if (raFailure !== undefined) markRetroAchievementsRefreshFailure(raFailure, { isShowingCachedData: true });
+    const raRefreshedAt = raResources[0]?.fetchedAt;
+    const refreshSource = providerId === RETROACHIEVEMENTS_PROVIDER_ID &&
+      !raResources.some((resource) => resource?.cacheState === "live" && resource.fetchedAt >= dashboardRefreshStartedAt) ? "cache" : "live";
     // The dashboard/profile path deliberately uses the last-known-good library
     // summary. Refreshing every owned game's player state belongs to explicit
     // refresh, so failed or incomplete recent-game data cannot lower totals.
@@ -1421,7 +1464,7 @@ export async function loadDeckyDashboardState(
       state.data,
       reconciledSteamLibraryScanSummary,
     );
-    const dashboardSnapshot = options?.skipRecentAchievementHistoryBackfill === true
+    let dashboardSnapshot = providerId === RETROACHIEVEMENTS_PROVIDER_ID || options?.skipRecentAchievementHistoryBackfill === true
       ? snapshotWithSteamScanAchievements
       : await buildDeckyRecentAchievementHistory({
           provider,
@@ -1429,19 +1472,19 @@ export async function loadDeckyDashboardState(
           snapshot: snapshotWithSteamScanAchievements,
         });
     if (!isCurrentAccount()) return createDeckyAccountChangedState<DashboardSnapshot>(providerId);
+    if (raRefreshedAt !== undefined) dashboardSnapshot = { ...dashboardSnapshot, refreshedAt: raRefreshedAt,
+      profile: { ...dashboardSnapshot.profile, refreshedAt: raRefreshedAt } };
     if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
       updateDeckyRetroAchievementsRankTrends(
         dashboardSnapshot.profile,
         readDeckyDashboardSnapshotState(providerId)?.data?.profile,
       );
     }
-    writeDeckyDashboardSnapshot(dashboardSnapshot);
-    if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
-      publishDeckyRaNativeAchievementInvalidation("provider-refreshed");
-    }
+    stampDashboardSources(dashboardSnapshot);
+    if (!raDegraded) writeDeckyDashboardSnapshot(dashboardSnapshot);
     publishDeckyDashboardProgress(providerId, { stepId: "finalize", status: "complete" });
 
-    if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+    if (providerId === RETROACHIEVEMENTS_PROVIDER_ID && !raDegraded) {
       markRetroAchievementsAuthenticatedSuccess(state.lastUpdatedAt ?? Date.now());
     }
     if (providerId === STEAM_PROVIDER_ID) {
@@ -1453,20 +1496,23 @@ export async function loadDeckyDashboardState(
         providerId,
         mode: options?.forceRefresh ? "manual" : "initial",
         durationMs: Date.now() - dashboardRefreshStartedAt,
-        source: "live",
+        source: refreshSource,
       });
       void deckyDiagnosticLogger.record({
         event: "dashboard_refresh_completed",
         providerId,
         mode: options?.forceRefresh ? "manual" : "initial",
         durationMs: Date.now() - dashboardRefreshStartedAt,
-        source: "live",
+        source: refreshSource,
       });
     }
 
     return {
       ...state,
       data: dashboardSnapshot,
+      ...(raRefreshedAt !== undefined ? { lastUpdatedAt: raRefreshedAt } : {}),
+      ...(raDegraded ? { status: "stale" as const, isStale: true,
+        ...(raFailure !== undefined ? { error: raFailure } : {}) } : {}),
     };
   })();
 
@@ -1541,6 +1587,20 @@ export async function loadDeckyActivityCalendarState(
 ): Promise<ResourceState<readonly RecentUnlock[]>> {
   const runtimeMode = loadDeckyRuntimeMode();
   if (runtimeMode === "empty") return initialDeckyActivityCalendarState;
+  if (runtimeMode === "live" && providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const revision = getDeckyAccountRevision(providerId);
+    try {
+      const saved = await Promise.race([
+        callDeckyBackendMethod<{ entries: readonly RawRetroAchievementsRecentUnlockResponse[]; lastSuccessAt?: number } | null>("read_retroachievements_calendar", {}),
+        new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), 500); }),
+      ]);
+      if (revision !== getDeckyAccountRevision(providerId) || saved === null) return initialDeckyActivityCalendarState;
+      return { status: "stale", data: normalizeRetroAchievementsRecentUnlocks(saved.entries), isStale: true, isRefreshing: false,
+        ...(saved.lastSuccessAt !== undefined ? { lastUpdatedAt: saved.lastSuccessAt * 1000 } : {}) };
+    } catch { return initialDeckyActivityCalendarState; }
+    finally { if (timer !== undefined) clearTimeout(timer); }
+  }
   return logDeckyResourceRefresh({ providerId, resource: "activity-calendar", entryPoint: "profile", forceRefresh: options?.forceRefresh === true },
     () => createDeckyAppServices(runtimeMode).activityCalendar.loadActivityCalendarUnlocks(providerId, options));
 }
@@ -1639,29 +1699,63 @@ async function createDeckyProviderFullScreenDataSession(
   };
   // One QAM profile visit prepares the dashboard, Games, Activity, and optional
   // SteamHunters profile data. The full library scan remains its own operation.
-  const dashboard = await loadDeckyDashboardState(providerId, {
-    forceRefresh: true,
+  const calendarPromise = providerId === RETROACHIEVEMENTS_PROVIDER_ID
+    ? loadDeckyActivityCalendarState(providerId) : Promise.resolve(initialDeckyActivityCalendarState);
+  let dashboard: ResourceState<DashboardSnapshot> = await loadDeckyDashboardState(providerId, {
+    forceRefresh: providerId !== RETROACHIEVEMENTS_PROVIDER_ID,
     skipRecentAchievementHistoryBackfill: true,
   });
 
   assertCurrentAccount();
+  // Start the compact suggestion alongside the remaining profile work. It needs
+  // one game's achievement schema, which the account profile does not contain.
+  const recommendationGameId = providerId === RETROACHIEVEMENTS_PROVIDER_ID && dashboard.data !== undefined
+    ? getRetroAchievementsActiveGameId(dashboard.data.profile)
+      ?? dashboard.data.recentlyPlayedGames[0]?.gameId
+    : undefined;
+  const recommendationPromise = recommendationGameId !== undefined &&
+    readDeckyCompactGameState(providerId, recommendationGameId) === undefined
+    ? loadDeckyCompactRecommendationGameState(
+        recommendationGameId,
+        () => loadDeckyGameDetailState(providerId, recommendationGameId, {
+          forceRefresh: false,
+          recommendationOnly: true,
+          entryPoint: "profile-up-next-prefetch",
+        }),
+      ).catch(() => undefined)
+    : Promise.resolve(undefined);
   const completionProgressPromise = Promise.resolve(
     buildRetroAchievementsCompletionProgressFromDashboard(dashboard),
   ).then((derivedState) => derivedState ?? loadDeckyCompletionProgressState(providerId));
-  const achievementHistoryPromise = loadDeckyAchievementHistoryState(providerId, {
-    forceRefresh: providerId === RETROACHIEVEMENTS_PROVIDER_ID,
-    ...(dashboard.data !== undefined ? { profile: dashboard.data.profile, dashboard } : {}),
-  });
+  // Profile entry has recent activity, not a complete lifetime-history claim.
+  // Historical import belongs to the explicit Activity/history entry.
+  const achievementHistoryPromise: Promise<ResourceState<AchievementHistorySnapshot>> =
+    providerId === RETROACHIEVEMENTS_PROVIDER_ID && dashboard.data !== undefined
+      ? Promise.resolve({ status: dashboard.status === "stale" ? "stale" : "success",
+          data: { providerId, profile: dashboard.data.profile, entries: dashboard.data.recentUnlocks,
+            summary: { unlockedCount: dashboard.data.recentUnlocks.length }, sourceLabel: "Recent achievement preview",
+            ...(dashboard.data.refreshedAt !== undefined ? { refreshedAt: dashboard.data.refreshedAt } : {}),
+          }, isStale: dashboard.isStale, isRefreshing: false,
+          ...(dashboard.lastUpdatedAt !== undefined ? { lastUpdatedAt: dashboard.lastUpdatedAt } : {}),
+        })
+      : loadDeckyAchievementHistoryState(providerId, {
+          ...(dashboard.data !== undefined ? { profile: dashboard.data.profile, dashboard } : {}),
+        });
   const steamHuntersProfilePromise = providerId === STEAM_PROVIDER_ID && dashboard.data !== undefined && isDeckySteamHuntersPersonalDataEnabled()
     ? loadSharedDeckySteamHuntersProfileState(providerId, dashboard.data.profile.identity.accountId)
     : Promise.resolve(unavailableDeckySteamHuntersProfileState);
-  const [completionProgress, achievementHistory, steamHuntersProfile] = await Promise.all([
+  const [completionProgress, achievementHistory, steamHuntersProfile, calendar] = await Promise.all([
     completionProgressPromise,
     achievementHistoryPromise,
     steamHuntersProfilePromise,
+    calendarPromise,
+    recommendationPromise,
   ]);
 
   assertCurrentAccount();
+  if (dashboard.data !== undefined && calendar.data !== undefined) {
+    dashboard = { ...dashboard, data: { ...dashboard.data, activityCalendarUnlocks: calendar.data } };
+  }
   const dashboardWithRecentHistory =
     dashboard.data !== undefined &&
     achievementHistory.data !== undefined &&
@@ -1676,6 +1770,7 @@ async function createDeckyProviderFullScreenDataSession(
       : dashboard;
 
   if (dashboardWithRecentHistory.status === "success" && dashboardWithRecentHistory.error === undefined) {
+    stampDashboardSources(dashboardWithRecentHistory.data!);
     writeDeckyDashboardSnapshot(dashboardWithRecentHistory.data!);
   }
 
@@ -1702,8 +1797,47 @@ export function startDeckyProviderProfileDataSession(providerId: ProviderId): vo
   }
 }
 
+const dashboardSourceRevisions = new WeakMap<DashboardSnapshot, string | undefined>();
+function stampDashboardSources(snapshot: DashboardSnapshot): void {
+  const config = readDeckyProviderConfigs().retroAchievements;
+  if (snapshot.profile.providerId === RETROACHIEVEMENTS_PROVIDER_ID && config !== undefined)
+    dashboardSourceRevisions.set(snapshot, snapshot.canonicalSourceRevision);
+}
+/** A retained presentation is reusable only while all required canonical records are fresh. */
+function isDeckyRetroAchievementsDashboardFresh(): boolean {
+  const session = getDeckyProviderFullScreenDataSessionSnapshot(RETROACHIEVEMENTS_PROVIDER_ID);
+  const config = readDeckyProviderConfigs().retroAchievements;
+  if (session?.dashboard.data === undefined || config === undefined) return false;
+  const u = config.username;
+  if (dashboardSourceRevisions.get(session.dashboard.data) !== getDeckyRetroAchievementsProfileResourceRevision(u)) return false;
+  const requests = [
+    { path: "API_GetUserProfile.php", query: { u } },
+    { path: "API_GetUserRecentAchievements.php", query: { u, m: 1440 } },
+    { path: "API_GetUserRecentlyPlayedGames.php", query: { u, c: 10 } },
+    { path: "API_GetUserCompletionProgress.php", query: { u, c: 500, o: 0 } },
+  ];
+  const coordinator = getDeckyRetroAchievementsDataCoordinator();
+  return requests.every((request) => {
+    const resource = coordinator.getResource(request);
+    return resource !== undefined && resource.cacheState !== "stale" &&
+      resource.fetchedAt <= Date.now() && Date.now() < resource.freshUntil;
+  });
+}
+
+export function isDeckyRetroAchievementsProfileFresh(): boolean {
+  if (!isDeckyRetroAchievementsDashboardFresh() || !deckyRaPresence.fresh()) return false;
+  const snapshot = getDeckyProviderFullScreenDataSessionSnapshot(RETROACHIEVEMENTS_PROVIDER_ID)?.dashboard.data;
+  if (snapshot === undefined) return false;
+  const presented = deckyRaPresence.project(snapshot);
+  const gameId = getRetroAchievementsActiveGameId(presented.profile) ?? deckyRaPresence.preferredGameId(presented);
+  return gameId === undefined || isDeckyRetroAchievementsGameResourceFresh(gameId);
+}
+
 /** Preserves a QAM-started data session when navigation enters full-screen. */
 export function beginDeckyProviderFullScreenDataSession(providerId: ProviderId): void {
+  if (providerId === RETROACHIEVEMENTS_PROVIDER_ID && !isDeckyRetroAchievementsDashboardFresh()) {
+    deckyFullScreenSessionCoordinator.invalidate(providerId);
+  }
   if (deckyFullScreenSessionCoordinator.has(providerId)) {
     return;
   }
@@ -1747,14 +1881,62 @@ function getDeckyProviderFullScreenDataSessionSnapshot(providerId: ProviderId | 
 
 export function loadDeckyDashboardStateForFullScreenEntry(
   providerId: ProviderId,
+  presenceTrigger: PresenceTrigger = "full-screen-entry",
 ): Promise<ResourceState<DashboardSnapshot>> {
-  return loadDeckyProviderFullScreenDataSession(providerId).then((session) => session.dashboard);
+  if (providerId === RETROACHIEVEMENTS_PROVIDER_ID && getDeckyProviderFullScreenDataSessionSnapshot(providerId) !== undefined &&
+      !isDeckyRetroAchievementsDashboardFresh()) deckyFullScreenSessionCoordinator.invalidate(providerId);
+  const entry = loadDeckyProviderFullScreenDataSession(providerId).then(async (session) => {
+    if (providerId !== RETROACHIEVEMENTS_PROVIDER_ID || session.dashboard.data === undefined) return session.dashboard;
+    const revision = getDeckyAccountRevision(providerId);
+    await deckyRaPresence.ensure(presenceTrigger);
+    if (revision !== getDeckyAccountRevision(providerId)) return createDeckyAccountChangedState<DashboardSnapshot>(providerId);
+    let data = deckyRaPresence.project(session.dashboard.data);
+    const activeGameId = getRetroAchievementsActiveGameId(data.profile);
+    const gameId = activeGameId ?? deckyRaPresence.preferredGameId(data);
+    if (gameId !== undefined) {
+      const gameState = await loadDeckyCompactRecommendationGameState(gameId,
+        () => loadDeckyGameDetailState(providerId, gameId, { forceRefresh: false, recommendationOnly: true, entryPoint: "presence-entry-current-game" }));
+      if (revision !== getDeckyAccountRevision(providerId)) return createDeckyAccountChangedState<DashboardSnapshot>(providerId);
+      if (gameState.data !== undefined && gameState.data.game.gameId === gameId) {
+        deckyRaPresence.rememberGame(gameState.data.game);
+        data = deckyRaPresence.project(session.dashboard.data);
+        if (activeGameId !== undefined && activeGameId === gameId) data = { ...data, currentGame: gameState.data.game };
+      }
+    }
+    return { ...session.dashboard, data };
+  });
+  if (providerId !== RETROACHIEVEMENTS_PROVIDER_ID) return entry;
+  const revision = getDeckyAccountRevision(providerId);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<ResourceState<DashboardSnapshot>>((resolve) => {
+    timer = setTimeout(() => {
+      if (revision !== getDeckyAccountRevision(providerId)) {
+        resolve(createDeckyAccountChangedState(providerId));
+        return;
+      }
+      const config = readDeckyProviderConfigs().retroAchievements;
+      const saved = readDeckyDashboardSnapshotState(providerId);
+      if (config !== undefined && "username" in config && saved?.data !== undefined &&
+          saved.data.profile.identity.displayName.toLocaleLowerCase() === config.username.toLocaleLowerCase()) {
+        resolve({ ...saved, error: { kind: "network", providerId, retryable: true,
+          userMessage: "Showing saved RetroAchievements data. Live loading did not finish in time." } });
+      } else {
+        resolve({ status: "error", isStale: false, isRefreshing: false,
+          error: { kind: "network", providerId, retryable: true,
+            userMessage: "RetroAchievements is temporarily unavailable. Try again later." } });
+      }
+    }, RA_FOREGROUND_WAIT_MS);
+  });
+  return Promise.race([entry, deadline]).finally(() => { if (timer !== undefined) clearTimeout(timer); });
 }
 
 export function getDeckyDashboardStateForFullScreenEntryInitial(
   providerId: ProviderId | undefined,
 ): ResourceState<DashboardSnapshot> {
-  return getDeckyProviderFullScreenDataSessionSnapshot(providerId)?.dashboard ?? initialDeckyBootstrapState;
+  if (providerId === RETROACHIEVEMENTS_PROVIDER_ID && !isDeckyRetroAchievementsProfileFresh()) return initialDeckyBootstrapState;
+  const state = getDeckyProviderFullScreenDataSessionSnapshot(providerId)?.dashboard ?? initialDeckyBootstrapState;
+  return providerId === RETROACHIEVEMENTS_PROVIDER_ID && state.data !== undefined
+    ? { ...state, data: deckyRaPresence.project(state.data) } : state;
 }
 
 export function loadDeckyCompletionProgressStateForFullScreenEntry(
@@ -1766,7 +1948,12 @@ export function loadDeckyCompletionProgressStateForFullScreenEntry(
 export function loadDeckyAchievementHistoryStateForFullScreenEntry(
   providerId: ProviderId,
 ): Promise<ResourceState<AchievementHistorySnapshot>> {
-  return loadDeckyProviderFullScreenDataSession(providerId).then((session) => session.achievementHistory);
+  return loadDeckyProviderFullScreenDataSession(providerId).then((session) =>
+    providerId === RETROACHIEVEMENTS_PROVIDER_ID
+      ? loadDeckyAchievementHistoryState(providerId, {
+          ...(session.dashboard.data !== undefined ? { profile: session.dashboard.data.profile, dashboard: session.dashboard } : {}),
+        })
+      : session.achievementHistory);
 }
 
 export function getDeckySteamHuntersProfileStateForFullScreenEntryInitial(
@@ -1975,6 +2162,46 @@ async function loadDeckyAchievementHistoryStateImpl(
     return initialDeckyAchievementHistoryState;
   }
 
+  if (runtimeMode === "live" && providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const savedConfig = readDeckyProviderConfigs().retroAchievements;
+    const savedProfile = options?.profile ?? options?.dashboard?.data?.profile ?? readDeckyDashboardSnapshotState(providerId)?.data?.profile;
+    const legacy = savedConfig === undefined ? undefined : readLegacyDeckyRetroAchievementsHistory(savedConfig.username);
+    const legacyFallback: ResourceState<AchievementHistorySnapshot> | undefined = legacy !== undefined && savedProfile !== undefined &&
+      savedProfile.identity.accountId === legacy.profile.identity.accountId ? {
+        status: "stale", data: { ...legacy,
+          sourceLabel: legacy.refreshedAt === undefined ? "Saved history import" :
+            `${legacy.sourceLabel.split("->")[0]!.trim()} -> ${new Date(legacy.refreshedAt).toLocaleDateString()}` },
+        ...(legacy.refreshedAt !== undefined ? { lastUpdatedAt: legacy.refreshedAt } : {}), isStale: true, isRefreshing: false,
+        error: { kind: "network", providerId, retryable: true, userMessage: "Showing saved history while the canonical import is unavailable." },
+      } : undefined;
+    try {
+      const dashboard = options?.dashboard ?? await loadDeckyDashboardStateForFullScreenEntry(providerId);
+      const profile = options?.profile ?? dashboard.data?.profile;
+      if (profile === undefined) return { status: "error", isStale: false, isRefreshing: false,
+        error: { kind: "auth", providerId, retryable: false, userMessage: "Open your RetroAchievements profile before importing history." } };
+      const response = await Promise.race([
+        ensureDeckyRetroAchievementsHistoryResource<{
+          history?: { entries: readonly RawRetroAchievementsRecentUnlockResponse[]; memberSince: number; through: number; lastSuccessAt: number; complete: boolean };
+          partial?: boolean; error?: { status?: number; category?: string }; status?: number;
+        }>().then((resource) => ({ ...resource.payload,
+          ...(resource.cacheState === "stale" && resource.payload.error === undefined
+            ? { error: { category: "saved_fallback" } } : {}),
+        })),
+        new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("History entry deadline")), RA_FOREGROUND_WAIT_MS); }),
+      ]);
+      if (!isCurrentAccount()) return createDeckyAccountChangedState(providerId);
+      const checkpoint = response.history;
+      if (checkpoint === undefined || !Array.isArray(checkpoint.entries)) return legacyFallback !== undefined
+        ? { ...legacyFallback, error: classifyDeckyRetroAchievementsFailure(response, true) }
+        : { status: "error", isStale: false, isRefreshing: false, error: classifyDeckyRetroAchievementsFailure(response) };
+      return presentDeckyRaHistory({ ...response, history: checkpoint }, profile, dashboard.data);
+    } catch (cause) {
+      return legacyFallback !== undefined ? { ...legacyFallback, error: classifyDeckyRetroAchievementsFailure(cause, true) }
+        : { status: "error", isStale: false, isRefreshing: false, error: classifyDeckyRetroAchievementsFailure(cause) };
+    } finally { if (timer !== undefined) clearTimeout(timer); }
+  }
+
   if (providerId === STEAM_PROVIDER_ID) {
     const cachedSteamLibraryScanSummary = readDeckySteamLibraryAchievementScanSummary(providerId);
     if (
@@ -2047,9 +2274,38 @@ async function loadDeckyAchievementHistoryStateImpl(
   };
 }
 
+type DeckyRaHistoryResponse = { history: { entries: readonly RawRetroAchievementsRecentUnlockResponse[]; memberSince: number; through: number; lastSuccessAt: number; complete: boolean }; partial?: boolean; error?: unknown };
+function presentDeckyRaHistory(response: DeckyRaHistoryResponse, profile: NormalizedProfile, dashboard?: DashboardSnapshot): ResourceState<AchievementHistorySnapshot> {
+  const providerId = RETROACHIEVEMENTS_PROVIDER_ID;
+  const checkpoint = response.history;
+  const entries = [...normalizeRetroAchievementsRecentUnlocks(checkpoint.entries)].sort((a, b) =>
+        (getNormalizedRecentUnlockTimestamp(b) ?? 0) - (getNormalizedRecentUnlockTimestamp(a) ?? 0));
+      const partial = response.partial === true || !checkpoint.complete;
+      const history: AchievementHistorySnapshot = { providerId, profile, entries,
+        summary: { unlockedCount: entries.length }, refreshedAt: checkpoint.lastSuccessAt * 1000,
+        sourceLabel: partial
+          ? `Partial history import — verified through ${new Date(checkpoint.through * 1000).toLocaleDateString()}`
+          : `Member since ${new Date(checkpoint.memberSince * 1000).toLocaleDateString()} -> ${new Date(checkpoint.through * 1000).toLocaleDateString()}`,
+      };
+      const data = mergeDeckyAchievementHistoryWithDashboardRecent(history, dashboard);
+      return { status: response.error === undefined ? "success" : "stale", data,
+        lastUpdatedAt: checkpoint.lastSuccessAt * 1000, isStale: response.error !== undefined, isRefreshing: false,
+        ...(response.error !== undefined ? { error: classifyDeckyRetroAchievementsFailure(response.error, true) } : {}),
+      };
+}
+
 export function getDeckyAchievementHistoryStateForFullScreenEntryInitial(
   providerId: ProviderId | undefined,
 ): ResourceState<AchievementHistorySnapshot> {
+  if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+    const resource = getDeckyRetroAchievementsDataCoordinator().getResource<DeckyRaHistoryResponse>({ path: "history-checkpoint" });
+    const dashboard = readDeckyDashboardSnapshotState(providerId)?.data;
+    if (resource?.payload.history !== undefined && dashboard !== undefined && resource.cacheState !== "stale" &&
+        resource.freshUntil > Date.now() && resource.fetchedAt <= Date.now()) {
+      return presentDeckyRaHistory(resource.payload, dashboard.profile, dashboard);
+    }
+    return initialDeckyAchievementHistoryState;
+  }
   return getDeckyProviderFullScreenDataSessionSnapshot(providerId)?.achievementHistory ??
     initialDeckyAchievementHistoryState;
 }
@@ -2066,22 +2322,65 @@ function describeDeckyRecentAchievementTimestampSources(
   };
 }
 
+/** Optional Community work starts only when its section is entered. Core rows remain frozen. */
+export async function loadDeckyRetroAchievementsCommunityDetail(
+  snapshot: GameDetailSnapshot,
+): Promise<ResourceState<GameDetailSnapshot>> {
+  const providerId = RETROACHIEVEMENTS_PROVIDER_ID;
+  const revision = getDeckyAccountRevision(providerId);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const config = await loadDeckyProviderConfig(providerId);
+    if (config === undefined || !("username" in config)) throw new Error("Missing RetroAchievements account.");
+    const stats = await Promise.race([
+      retroAchievementsProvider.loadCommunityStats(config, snapshot),
+      new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error("Community deadline")), RA_FOREGROUND_WAIT_MS); }),
+    ]);
+    if (revision !== getDeckyAccountRevision(providerId)) return createDeckyAccountChangedState(providerId);
+    return { status: "success", data: { ...snapshot, game: { ...snapshot.game,
+      ...(stats !== undefined ? { communityStats: stats } : {}),
+    } }, isStale: false, isRefreshing: false };
+  } catch {
+    return { status: "error", error: { kind: "network", providerId, retryable: true,
+      userMessage: "Community data is temporarily unavailable. Try again later." }, isStale: false, isRefreshing: false };
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
 export async function loadDeckyGameDetailState(
   providerId: ProviderId,
   gameId: string,
   options?: {
     readonly forceRefresh?: boolean;
     readonly entryPoint?: string;
+    readonly recommendationOnly?: boolean;
   },
 ): Promise<ResourceState<GameDetailSnapshot>> {
-  return logDeckyResourceRefresh({ providerId, resource: "game-detail", entryPoint: options?.entryPoint ?? "game-page", gameId, forceRefresh: options?.forceRefresh ?? true },
-    () => loadDeckyGameDetailStateImpl(providerId, gameId, options));
+  return logDeckyResourceRefresh({ providerId, resource: "game-detail", entryPoint: options?.entryPoint ?? "game-page", gameId, forceRefresh: options?.forceRefresh ?? providerId !== RETROACHIEVEMENTS_PROVIDER_ID },
+    async () => {
+      if (providerId !== RETROACHIEVEMENTS_PROVIDER_ID) return loadDeckyGameDetailStateImpl(providerId, gameId, options);
+      const revision = getDeckyAccountRevision(providerId);
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try { return await Promise.race([loadDeckyGameDetailStateImpl(providerId, gameId, options),
+        new Promise<ResourceState<GameDetailSnapshot>>((resolve) => {
+          timer = setTimeout(() => {
+            if (revision !== getDeckyAccountRevision(providerId)) { resolve(createDeckyAccountChangedState(providerId)); return; }
+            const saved = readDeckyCompactGameLastKnownGoodState(providerId, gameId);
+            const error = { kind: "network" as const, providerId, retryable: true,
+              userMessage: "RetroAchievements loading did not finish in time. Try again later." };
+            resolve(saved?.data !== undefined ? { ...saved, status: "stale", isStale: true, isRefreshing: false, error }
+              : { status: "error", isStale: false, isRefreshing: false, error });
+          }, RA_FOREGROUND_WAIT_MS);
+        }),
+      ]); } finally { if (timer !== undefined) clearTimeout(timer); }
+    });
 }
 
 async function loadDeckyGameDetailStateImpl(
   providerId: ProviderId,
   gameId: string,
-  options?: { readonly forceRefresh?: boolean },
+  options?: { readonly forceRefresh?: boolean; readonly recommendationOnly?: boolean },
 ): Promise<ResourceState<GameDetailSnapshot>> {
   const accountRevision = getDeckyAccountRevision(providerId);
   const isCurrentAccount = () => accountRevision === getDeckyAccountRevision(providerId);
@@ -2089,6 +2388,61 @@ async function loadDeckyGameDetailStateImpl(
 
   if (runtimeMode === "empty") {
     return initialDeckyGameDetailState;
+  }
+
+  const retroAchievementsConfig = runtimeMode === "live" && providerId === RETROACHIEVEMENTS_PROVIDER_ID
+    ? await loadDeckyProviderConfig(providerId)
+    : undefined;
+  if (!isCurrentAccount()) return createDeckyAccountChangedState<GameDetailSnapshot>(providerId);
+  const retroAchievementsUsername = retroAchievementsConfig !== undefined && "username" in retroAchievementsConfig
+    ? retroAchievementsConfig.username
+    : undefined;
+  if (runtimeMode === "live" && providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+    if (retroAchievementsConfig === undefined) {
+      return { status: "error", error: { kind: "auth", userMessage: "RetroAchievements credentials are required.", retryable: false, providerId }, isStale: false, isRefreshing: false };
+    }
+    try {
+      const snapshot = await retroAchievementsProvider.loadGameProgressForRecommendations(
+        retroAchievementsConfig as RetroAchievementsProviderConfig,
+        gameId,
+        { forceRefresh: options?.forceRefresh === true,
+          activeViewing: (() => {
+            const saved = readDeckyDashboardSnapshotState(providerId)?.data;
+            return saved !== undefined && getRetroAchievementsActiveGameId(projectRaPresence(saved, deckyRaPresence.read()).profile) === gameId;
+          })(),
+        },
+      );
+      if (!isCurrentAccount()) return createDeckyAccountChangedState<GameDetailSnapshot>(providerId);
+      if (snapshot.game.status !== "mastered") invalidateDeckyRetroAchievementsMasteredGameDetail(gameId);
+      const resource = getDeckyRetroAchievementsDataCoordinator().getResource({
+        path: "API_GetGameInfoAndUserProgress.php", query: { g: gameId, a: 1 },
+      });
+      const refreshedAt = resource?.fetchedAt ?? snapshot.refreshedAt ?? Date.now();
+      const stale = resource?.cacheState === "stale";
+      return { status: stale ? "stale" : "success", data: { ...snapshot, refreshedAt }, lastUpdatedAt: refreshedAt,
+        isStale: stale, isRefreshing: false,
+        ...(stale ? { error: classifyDeckyRetroAchievementsFailure(resource?.error, true) } : {}),
+      };
+    } catch (cause) {
+      if (!isCurrentAccount()) return createDeckyAccountChangedState<GameDetailSnapshot>(providerId);
+      const statusCode = typeof cause === "object" && cause !== null && "statusCode" in cause
+        ? cause.statusCode
+        : undefined;
+      const legacy = retroAchievementsUsername === undefined ? undefined
+        : readDeckyRetroAchievementsMasteredGameDetail(retroAchievementsUsername, gameId);
+      if (legacy?.data !== undefined) return { ...legacy, status: "stale", isStale: true,
+        error: classifyDeckyRetroAchievementsFailure(cause, true) };
+      if (statusCode === 429) {
+        const retryAfterMs = "retryAfterMs" in (cause as object) && typeof (cause as { retryAfterMs?: unknown }).retryAfterMs === "number"
+          ? (cause as { retryAfterMs: number }).retryAfterMs
+          : undefined;
+        return { status: "error", error: { kind: "rate_limit", userMessage: "RetroAchievements is temporarily rate limited. Try again later.", retryable: true, providerId, ...(retryAfterMs !== undefined ? { retryAfterMs } : {}) }, isStale: false, isRefreshing: false };
+      }
+      if (statusCode === 401 || statusCode === 403) return { status: "error", error: {
+        kind: "auth", userMessage: "Check your RetroAchievements credentials in Account settings.", retryable: false, providerId,
+      }, isStale: false, isRefreshing: false };
+      return { status: "error", error: { kind: "unknown", userMessage: "RetroAchievements game data is temporarily unavailable.", retryable: true, providerId, cause }, isStale: false, isRefreshing: false };
+    }
   }
 
   const cachedSteamGameDetailState = runtimeMode === "live" && providerId === STEAM_PROVIDER_ID
@@ -2104,6 +2458,9 @@ async function loadDeckyGameDetailStateImpl(
   );
 
   if (!isCurrentAccount()) return createDeckyAccountChangedState<GameDetailSnapshot>(providerId);
+  if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
+    return state;
+  }
   if (providerId !== STEAM_PROVIDER_ID) {
     return state;
   }
@@ -2156,9 +2513,13 @@ async function loadDeckyGameDetailStateImpl(
 }
 
 /** Loads optional RA parent-linked child games without changing the normal game-detail snapshot. */
+export const readDeckyRetroAchievementsVerifiedSubsets = (game: NormalizedGame) => retroAchievementsProvider.readVerifiedRelatedGames(game);
+export const subscribeDeckyRetroAchievementsSubsetRelationships = (listener: () => void) => retroAchievementsProvider.subscribeSubsetRelationships(listener);
+export const readDeckyRetroAchievementsSubsetDiscoveryStatus = (consoleId: string) => retroAchievementsProvider.getSubsetDiscoveryStatus(consoleId);
+
 export async function loadDeckyRetroAchievementsRelatedGames(
   game: NormalizedGame,
-  options?: { readonly forceRefresh?: boolean },
+  options?: { readonly forceRefresh?: boolean; readonly continueDiscovery?: boolean },
 ): Promise<ResourceState<readonly RelatedGameSummary[]>> {
   const runtimeMode: DeckyRuntimeMode = loadDeckyRuntimeMode();
   if (runtimeMode === "empty" || game.providerId !== RETROACHIEVEMENTS_PROVIDER_ID) {
@@ -2166,11 +2527,33 @@ export async function loadDeckyRetroAchievementsRelatedGames(
   }
 
   return logDeckyResourceRefresh({ providerId: RETROACHIEVEMENTS_PROVIDER_ID, resource: "related-games", entryPoint: "full-screen-game", gameId: game.gameId, forceRefresh: options?.forceRefresh === true },
-    () => createDeckyAppServices(runtimeMode).relatedGames.loadRelatedGames(
+    async () => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        const operation = options?.continueDiscovery === true ? (async () => {
+          const config = await loadDeckyProviderConfig(RETROACHIEVEMENTS_PROVIDER_ID);
+          if (config === undefined || !("username" in config) || game.platformId === undefined) throw new Error("Missing subset identity.");
+          await retroAchievementsProvider.resumeSubsetDiscovery(config, game.platformId);
+          const children = await retroAchievementsProvider.readVerifiedRelatedGames(game);
+          const data = await retroAchievementsProvider.loadRelatedGameProgress(config, game, children);
+          return { status: "success" as const, data, isStale: false, isRefreshing: false };
+        })() : createDeckyAppServices(runtimeMode).relatedGames.loadRelatedGames(
       RETROACHIEVEMENTS_PROVIDER_ID,
       game,
-      { forceRefresh: options?.forceRefresh ?? false },
-    ));
+      { forceRefresh: runtimeMode === "live" || options?.forceRefresh === true },
+      );
+        const state = await Promise.race([operation, new Promise<ResourceState<readonly RelatedGameSummary[]>>((resolve) => {
+        timer = setTimeout(() => resolve({ status: "error", isStale: false, isRefreshing: false,
+          error: { kind: "network", providerId: RETROACHIEVEMENTS_PROVIDER_ID, retryable: true,
+            userMessage: "Subset discovery has not finished. Retry to resume its saved checkpoint." } }), RA_FOREGROUND_WAIT_MS);
+      })]);
+        const discovery = game.platformId === undefined ? undefined : retroAchievementsProvider.getSubsetDiscoveryStatus(game.platformId);
+        if (state.data !== undefined && discovery?.complete === false) return { ...state, status: "stale" as const, isStale: true,
+          error: { kind: "network" as const, providerId: RETROACHIEVEMENTS_PROVIDER_ID, retryable: true,
+            userMessage: `Console catalogue: ${discovery.verified}/${discovery.total} verified.` } };
+        return state;
+      } finally { if (timer !== undefined) clearTimeout(timer); }
+    });
 }
 
 /** Clears the cached RA relationship index; the next parent-game visit rebuilds it. */
@@ -2182,8 +2565,16 @@ export async function clearDeckyRetroAchievementsRelatedGameIndex(): Promise<voi
   );
 }
 
+/** Recheck a played game before showing another locked recommendation. */
+export function invalidateDeckyRetroAchievementsGameProgress(gameId: string): void {
+  invalidateDeckyRetroAchievementsGameResource(gameId);
+  retroAchievementsProvider.invalidateGameProgressCache(gameId);
+  invalidateDeckyCompactRetroAchievementsGameState(gameId);
+}
+
 subscribeDeckyAccountRevision((providerId) => {
   deckyDashboardRefreshCoordinator.invalidate(providerId);
   startDeckyProviderProfileDataSession(providerId);
   if (providerId === STEAM_PROVIDER_ID) clearSteamRecentGameSnapshotLoadCache();
+  if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) retroAchievementsProvider.invalidateGameProgressCache();
 });

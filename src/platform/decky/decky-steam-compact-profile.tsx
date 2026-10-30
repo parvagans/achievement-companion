@@ -1,5 +1,5 @@
 import { Focusable, GamepadButton, NavEntryPositionPreferences, useQuickAccessVisible, type GamepadEvent } from "@decky/ui";
-import type { DashboardSnapshot, NormalizedMetric, RecentUnlock, RecentlyPlayedGame } from "@core/domain";
+import type { DashboardSnapshot, RecentUnlock, RecentlyPlayedGame } from "@core/domain";
 import {
   useLayoutEffect,
   useMemo,
@@ -923,7 +923,6 @@ function ViewAllAction({
 function RecentAchievementItem({
   elementRef,
   recentUnlock,
-  gameMetrics,
   onActivate,
   onActivated,
   onCancel,
@@ -932,7 +931,6 @@ function RecentAchievementItem({
 }: {
   readonly elementRef?: RefCallback<HTMLDivElement> | undefined;
   readonly recentUnlock: RecentUnlock;
-  readonly gameMetrics?: readonly NormalizedMetric[] | undefined;
   readonly onActivate: () => void;
   readonly onActivated?: ((target: HTMLElement) => void) | undefined;
   readonly onCancel: () => void;
@@ -943,7 +941,6 @@ function RecentAchievementItem({
     <DeckyCompactRecentAchievementRow
       dataAttributes={{ "data-steam-compact-recent-achievement": "true" }}
       elementRef={elementRef}
-      gameMetrics={gameMetrics}
       unlock={recentUnlock}
       onActivate={onActivate}
       onActivated={onActivated}
@@ -1093,10 +1090,6 @@ export function DeckySteamCompactProfile({
     [activityKnownGames, selectedActivityDay, visibleAchievements],
   );
   const visibleGames = filteredActivityGames?.map(({ game }) => game) ?? recentlyPlayedGames;
-  const activityGameMetricsById = useMemo(
-    () => new Map(activityKnownGames.map((game) => [game.gameId, game.metrics ?? []] as const)),
-    [activityKnownGames],
-  );
   const activityUnlockCounts = useMemo(
     () => new Map(filteredActivityGames?.map(({ game, unlockCount }) => [game.gameId, unlockCount]) ?? []),
     [filteredActivityGames],
@@ -1280,7 +1273,6 @@ export function DeckySteamCompactProfile({
               <RecentAchievementItem
                 key={`${recentUnlock.game.gameId}:${recentUnlock.achievement.achievementId}`}
                 recentUnlock={recentUnlock}
-                gameMetrics={activityGameMetricsById.get(recentUnlock.game.gameId)}
                 onActivate={() => onOpenAchievementDetail({ game: recentUnlock.game, achievement: recentUnlock.achievement })}
                 onCancel={onCancel}
                 {...targetProps({

@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+import math
+from email.utils import parsedate_to_datetime
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 from urllib.error import HTTPError, URLError
@@ -19,6 +21,24 @@ BACKEND_HTTP_USER_AGENT = "Achievement Companion Decky Plugin"
 LogCallback = Callable[..., None]
 Opener = Callable[..., Any]
 SslContextProvider = Callable[[], Any]
+
+
+def parse_retry_after_ms(value: str | None, now: float | None = None) -> int | None:
+  if value is None:
+    return None
+  try:
+    seconds = float(value)
+    if math.isfinite(seconds) and seconds >= 0:
+      return int(seconds * 1000)
+    return None
+  except (TypeError, ValueError, OverflowError):
+    try:
+      date = parsedate_to_datetime(value)
+      if date.tzinfo is None:
+        return None
+      return max(0, int((date.timestamp() - (time.time() if now is None else now)) * 1000))
+    except (TypeError, ValueError, OverflowError):
+      return None
 
 
 def _https_origin(url: str) -> tuple[str, int]:
@@ -51,18 +71,19 @@ def _resolve_provider_url(base_url: str, path: str) -> str:
 
 
 class _ProviderRedirectHandler(HTTPRedirectHandler):
-  def __init__(self, base_url: str, request_path: str, *, authenticated: bool) -> None:
+  def __init__(self, base_url: str, request_path: str, *, authenticated: bool, block_redirects: bool = False) -> None:
     self._base_origin = _https_origin(base_url)
     self._base_path = urlsplit(base_url).path
     self._request_path = urlsplit(request_path).path
     self._authenticated = authenticated
+    self._block_redirects = block_redirects
 
   def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
     target = urljoin(req.full_url, newurl)
     parsed = urlsplit(target)
     try:
       if (
-        _https_origin(target) != self._base_origin
+        self._block_redirects or _https_origin(target) != self._base_origin
         or not parsed.path.startswith(self._base_path)
         or (self._authenticated and parsed.path != self._request_path)
       ):
@@ -156,7 +177,7 @@ def request_json(
 
   ssl_context = get_ssl_context() if get_ssl_context is not None else None
   if opener is None:
-    redirect_handler = _ProviderRedirectHandler(base_url, request_url, authenticated=bool(auth_query))
+    redirect_handler = _ProviderRedirectHandler(base_url, request_url, authenticated=bool(auth_query), block_redirects=provider_id == "retroachievements")
     safe_opener = build_opener(redirect_handler, HTTPSHandler(context=ssl_context))
     request_opener = lambda request, timeout, context: safe_opener.open(request, timeout=timeout)
   else:
@@ -187,13 +208,8 @@ def request_json(
       except Exception:
         response_body = ""
 
-      retry_after_ms: int | None = None
       retry_after = cause.headers.get("Retry-After") if cause.headers is not None else None
-      if retry_after is not None:
-        try:
-          retry_after_ms = max(0, int(float(retry_after) * 1000))
-        except (TypeError, ValueError):
-          retry_after_ms = None
+      retry_after_ms = parse_retry_after_ms(retry_after)
 
       return {
         "handledHttpError": True,

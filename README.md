@@ -44,7 +44,7 @@ Achievement Companion is an independent community project, not affiliated with o
 
 RetroAchievements and Steam keep their own progression rules. Choosing a RetroAchievements Beat or Master goal changes recommendations and presentation, not the recorded accomplishment.
 
-**Explore:** [Quick Access](#quick-access-menu) · [RetroAchievements inside Steam](#retroachievements-inside-steam) · [Full-screen game pages](#full-screen-game-pages) · [Game-page badges](#native-game-page-status-badges) · [Privacy](#privacy) · [Credits](#credits-and-acknowledgements)
+**Explore:** [Data synchronization](#retroachievements-data-synchronization) · [Quick Access](#quick-access-menu) · [RetroAchievements inside Steam](#retroachievements-inside-steam) · [Full-screen game pages](#full-screen-game-pages) · [Game-page badges](#native-game-page-status-badges) · [Privacy](#privacy) · [Credits](#credits-and-acknowledgements)
 
 ## Requirements
 
@@ -187,6 +187,8 @@ RetroAchievements keeps Hardcore and Softcore distinct. Its Beat goal favors Pro
 
 The Achievements section adds title and description search to each provider's filters. Use **Sort & View** to switch between Detailed and Compact rows; returning from details or another section restores your filters, query, sorting, display mode, focus, and scroll position.
 
+Eligible RetroAchievements games offer Community before optional statistics load. Missing provider medians remain omitted; the page does not invent values to fill its layout. Subsets appears only when at least one parent-child relationship has been verified, and saved discovery checkpoints allow unfinished verification to continue.
+
 Controls stay consistent: A selects, L1/R1 changes sections, and B follows the current menu or dialog before leaving the page. X hides a focused Up Next suggestion; Y finds it in Achievements or returns to the top of that list. Footer positions stay stable when an action is unavailable.
 
 <table>
@@ -246,13 +248,26 @@ Classic has separate colors for each status: Perfected Purple, Mastered Gold, Be
   <img src="docs/screenshots/readme/game-page-status-badges-minimal.png" alt="Small, Medium, and Large monochrome Minimal game-page badges for RetroAchievements Mastered, Beaten, and In Progress; Steam Perfected and In Progress; and loading" width="100%">
 </p>
 
+## RetroAchievements data synchronization
+
+Quick Access, full-screen pages, matched Steam badges, and native Steam integrations share canonical RetroAchievements resources. The Decky backend persists validated responses in a local SQLite cache and applies resource-specific freshness policies. Concurrent consumers share requests through one scheduler, which paces dispatch, bounds retries, and honors provider cooldowns, including manual Retry. Freshness windows are application policy, not a claim about RetroAchievements API quotas.
+
+- **Targeted refreshes:** profile data, game progress, Community statistics, catalogues, and Rich Presence have independent lifetimes. Opening a game does not fetch Community statistics just to decide whether its tab exists, and profile entry does not import lifetime achievement history.
+- **Current Game and Continue Playing:** Rich Presence uses a separate 45-second freshness window, launch/exit notifications, and bounded visible-session checks. Current shortcut identity and corroborated session evidence govern local exit handling; later ROM transitions take precedence over initial launch mapping. Recently observed sessions remain Continue Playing candidates until authoritative recent-play records catch up. RetroAchievements does not identify the originating device, so presence is account activity rather than a guaranteed local-device signal.
+- **Consistent presentations:** derived pages retain the canonical revisions used to build them. Re-entry rebuilds obsolete presentations from fresh local resources; open achievement lists remain stable. Targeted presence and Community updates reach mounted consumers without replacing the whole profile or resetting navigation.
+- **Durable history and subsets:** achievement-history imports are bounded, resumable, and incremental, with distinct Hardcore/Softcore events and atomic checkpoints. Subset discovery persists verification checkpoints, retains established relationships through incomplete responses, and exposes Subsets only when verified children exist.
+- **Loading and recovery:** required revalidation uses the branded loading presentation with a bounded foreground wait. Valid cached content remains usable after provider failures. Community keeps a native focus anchor across loading and ready states, and displays only statistics supported by available provider evidence.
+- **Account and operation ownership:** account-scoped identities, exact content provenance, publication ownership, and durable invalidation fences prevent obsolete responses or delayed database reads from replacing newer canonical data. Cancelled consumers do not abandon authorized durability work; graceful shutdown drains owned invalidations.
+
+The local cache survives plugin restarts. Profile, recent-play, progress, and history data remain revalidatable: resets, set revisions, and later provider activity can change them. Sync diagnostics expose storage health, request activity, cooldowns, and targeted recovery without requiring a cache wipe. See [RetroAchievements data reliability](docs/retroachievements-data-reliability.md) for resource policies, limits, and implementation details.
+
 ## Updates
 
 After first-time installation, automatic update checks run when the previous check is at least 24 hours old and when the Deck reconnects to the internet. You can also check on demand from **Settings → About**. Downloads are verified before Decky asks you to confirm installation; updates are never installed unattended.
 
 ## Privacy
 
-Provider requests go directly to the services used by enabled features: RetroAchievements, Steam, GitHub Releases for update checks, and SteamHunters. Achievement Companion does not require a separate project server. API keys are handled by Decky's backend rather than browser storage, and logs redact secret-like values.
+Provider requests go directly to the services used by enabled features: RetroAchievements, Steam, GitHub Releases for update checks, and SteamHunters. Achievement Companion does not require a separate project server. API keys are handled by Decky's backend rather than browser storage, and logs redact secret-like values. Validated RetroAchievements responses, achievement history, and synchronization checkpoints are stored locally; account resources are isolated by credential scope, and cache identities do not contain API keys.
 
 SteamHunters personal profile data is optional and can be disabled under **Steam Settings → SteamHunters**. This does not disable SteamHunters community data used for game and achievement insights.
 

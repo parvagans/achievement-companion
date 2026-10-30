@@ -1,3 +1,4 @@
+import { readRetroAchievementsSource } from "../client/transport";
 import type {
   AchievementClassification,
   GameDetailSnapshot,
@@ -1154,12 +1155,13 @@ export function normalizeRetroAchievementsProfile(
   const profileRichPresenceMsgDate = parseRetroAchievementsUtcDateMs(
     pickString(raw.RichPresenceMsgDate, raw.richPresenceMsgDate),
   );
-  const richPresenceMsgDate = summaryRichPresenceMsgDate ?? profileRichPresenceMsgDate;
+  const hasSummaryPresence = rawSummary !== undefined && ("RichPresenceMsgDate" in rawSummary || "richPresenceMsgDate" in rawSummary);
+  const richPresenceMsgDate = hasSummaryPresence ? summaryRichPresenceMsgDate : profileRichPresenceMsgDate;
   // The summary endpoint is the freshest source for both halves of the Rich
   // Presence identity. Keep its timestamp and game ID paired; if the summary
   // supplies a timestamp without an ID, do not borrow the older profile ID.
   // Fall back to the profile pair only when the summary has no usable date.
-  const richPresenceGameId = summaryRichPresenceMsgDate !== undefined
+  const richPresenceGameId = hasSummaryPresence
     ? pickIdentifier(rawSummary?.LastGameID, rawSummary?.lastGameId)
     : pickIdentifier(raw.LastGameID, raw.lastGameId);
 
@@ -1621,6 +1623,7 @@ export function normalizeRetroAchievementsGameDetail(
     game,
     achievements,
     ...(reportedAchievementCount !== undefined ? { reportedAchievementCount } : {}),
+    ...(readRetroAchievementsSource(raw) === undefined ? {} : { canonicalSourceRevision: readRetroAchievementsSource(raw)! }),
     refreshedAt: Date.now(),
   };
 }

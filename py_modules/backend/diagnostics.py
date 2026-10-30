@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from typing import Any, Mapping
+import math
 
 
 DIAGNOSTIC_EVENT_MESSAGES = {
+  "cache_hit": "cache_hit",
+  "resource_published": "resource_published",
+  "request_joined": "request_joined",
   "dashboard_refresh_started": "Dashboard refresh started",
   "dashboard_refresh_completed": "Dashboard refresh completed",
   "dashboard_refresh_failed": "Dashboard refresh failed",
@@ -19,6 +23,9 @@ DIAGNOSTIC_EVENT_MESSAGES = {
 }
 
 DIAGNOSTIC_EVENT_ALLOWED_FIELDS = {
+  "cache_hit": ("providerId", "resource", "entryPoint", "source", "correlationId"),
+  "resource_published": ("providerId", "resource", "entryPoint", "subscribers", "correlationId"),
+  "request_joined": ("providerId", "resource", "entryPoint", "correlationId"),
   "dashboard_refresh_started": ("providerId", "mode"),
   "dashboard_refresh_completed": ("providerId", "mode", "durationMs", "source"),
   "dashboard_refresh_failed": ("providerId", "mode", "durationMs", "errorKind"),
@@ -54,6 +61,7 @@ DIAGNOSTIC_EVENT_ALLOWED_FIELDS = {
 }
 
 _DIAGNOSTIC_NUMERIC_FIELDS = {
+  "subscribers",
   "completionPercent",
   "durationMs",
   "failedGameCount",
@@ -66,15 +74,31 @@ _DIAGNOSTIC_NUMERIC_FIELDS = {
   "unlockedAchievements",
 }
 
-_DIAGNOSTIC_STRING_FIELDS = {"appId", "entryPoint", "errorKind", "gameId", "mode", "providerId", "resource", "source"}
+_DIAGNOSTIC_STRING_FIELDS = {"appId", "entryPoint", "errorKind", "gameId", "mode", "providerId", "resource", "source", "correlationId"}
 _DIAGNOSTIC_BOOLEAN_FIELDS = {"forceRefresh"}
+
+_PRESENCE_FIELDS = ("providerId", "correlationId", "trigger", "ageMs", "lastSuccessAt", "fresh", "cooldown", "duplicate",
+                    "durationMs", "status", "gameId", "validActivityDate", "activeGameChanged", "subscribers", "presentationUpdated", "failed")
+for _presence_event in ("presence_evaluated", "presence_skipped", "presence_joined", "presence_validated", "presence_published", "presence_failed"):
+  DIAGNOSTIC_EVENT_MESSAGES[_presence_event] = _presence_event
+  DIAGNOSTIC_EVENT_ALLOWED_FIELDS[_presence_event] = _PRESENCE_FIELDS
+_DIAGNOSTIC_STRING_FIELDS.add("trigger")
+_DIAGNOSTIC_NUMERIC_FIELDS.update(("ageMs", "lastSuccessAt", "status"))
+_DIAGNOSTIC_BOOLEAN_FIELDS.update(("fresh", "cooldown", "duplicate", "validActivityDate", "activeGameChanged", "presentationUpdated", "failed"))
+
+for _subset_event in ("subset_candidate", "subset_checkpoint", "subset_discovery_started", "subset_discovery_joined"):
+  DIAGNOSTIC_EVENT_MESSAGES[_subset_event] = _subset_event
+  DIAGNOSTIC_EVENT_ALLOWED_FIELDS[_subset_event] = ("providerId", "consoleId", "gameId", "previousStatus", "candidateStatus", "attempt", "outcome", "normalization", "retryEligible", "retryAt", "checkpointSaved", "verified", "total", "remaining", "complete")
+_DIAGNOSTIC_STRING_FIELDS.update(("consoleId", "previousStatus", "candidateStatus", "outcome", "normalization"))
+_DIAGNOSTIC_NUMERIC_FIELDS.update(("attempt", "retryAt", "verified", "total", "remaining"))
+_DIAGNOSTIC_BOOLEAN_FIELDS.update(("retryEligible", "checkpointSaved", "complete"))
 
 
 def _coerce_positive_int(value: Any) -> int | None:
   if isinstance(value, bool):
     return None
 
-  if isinstance(value, (int, float)) and value >= 0:
+  if isinstance(value, (int, float)) and math.isfinite(value) and value >= 0:
     return int(value)
 
   return None

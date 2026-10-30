@@ -1,3 +1,4 @@
+import { DeckyRetroAchievementsActiveGameDot } from "./decky-retroachievements-active-game-dot";
 import { Focusable, GamepadButton, NavEntryPositionPreferences, type GamepadEvent } from "@decky/ui";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import barChartIconUrl from "./assets/bar-chart.svg";
@@ -702,7 +703,7 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
       <DeckyFocusStyles />
       <Focusable flow-children="left-right" noFocusRing tabIndex={-1} style={gridStyle()}>
         <section style={panelStyle("profile")}>
-          <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 0, flex: "0 1 auto" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9, minWidth: 190, flex: "0 0 auto", maxWidth: "32%" }}>
             <Focusable
               ref={avatarLinkRef}
               noFocusRing
@@ -727,13 +728,16 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
                 : <span style={{ color: raTheme.color.textPrimary, fontSize: "1.5em", fontWeight: 850 }}>{model.profile.identity.displayName.slice(0, 2).toUpperCase()}</span>}
             </Focusable>
             <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-              <div style={{ fontSize: "clamp(1.05rem, 1.55vw, 1.35rem)", fontWeight: 850, lineHeight: 1.08, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{model.profile.identity.displayName}</div>
+              <div style={{ fontSize: "clamp(1.05rem, 1.55vw, 1.35rem)", fontWeight: 850, lineHeight: 1.08, overflowWrap: "anywhere", whiteSpace: "normal" }}>{model.profile.identity.displayName}</div>
               <div style={{ display: "inline-flex", alignItems: "center", gap: 6, color: raTheme.color.accent, fontSize: "0.82em", fontWeight: 700 }}><span aria-hidden="true" style={{ width: 9, height: 9, flexShrink: 0, borderRadius: 999, backgroundColor: "#20e889", boxShadow: "0 0 10px rgba(32, 232, 137, 0.46)" }} />RA account</div>
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "center", gap: "4px 16px", flex: "1 1 auto", minWidth: 0 }}>
             {memberSince !== undefined ? <ProfileFact iconUrl={calendarIconUrl}>{`Member since ${memberSince}`}</ProfileFact> : null}
             {selectedRank !== undefined ? <ProfileFact iconUrl={trophyIconUrl} tone="gold"><DeckyRetroAchievementsRankTrendIndicator accountId={model.profile.identity.accountId} kind={selectedRank.kind} />{`${selectedRank.label} ${selectedRank.value}`}</ProfileFact> : null}
+            {model.currentGame !== undefined || model.recentGames[0] !== undefined ? <span data-ra-profile-presence role="status">
+              <ProfileFact iconUrl={gamepadIconUrl}>{model.currentGame !== undefined ? <DeckyRetroAchievementsActiveGameDot /> : null}{`${model.currentGame !== undefined ? "Current Game" : "Continue Playing"} · ${(model.currentGame ?? model.recentGames[0]?.game)?.title}`}</ProfileFact>
+            </span> : null}
           </div>
           <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 5, flex: "0 0 auto", minWidth: 0 }}>
             <ProfileStat icon={<DeckyRetroAchievementsPointsIcon size={13} />} label={model.initialAchievementMode === "softcore" ? "Softcore Points" : "Points Earned"} value={(model.initialAchievementMode === "softcore" ? model.profileStats.softcorePoints : model.profileStats.hardcorePoints) ?? "-"} />

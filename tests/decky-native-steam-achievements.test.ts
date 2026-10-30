@@ -194,12 +194,13 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
     });
     mock.module(pathToFileURL(resolve("src/platform/decky/decky-native-retroachievements-projection.ts")).href, {
       exports: {
+        async verifyNativeProjectionLaunch() { return undefined; },
         readDeckyNativeRetroAchievementsProjection(appId, mode) {
           projectionReads.push([appId, mode]);
           return projectionFor(appId);
         },
         async loadDeckyNativeRetroAchievementsProjection(appId, mode, options) {
-          projectionLoads.push({ appId, mode, forceRefresh: options?.forceRefresh === true });
+          projectionLoads.push({ appId, mode, forceRefresh: options?.forceRefresh === true, revalidateOnEntry: options?.revalidateOnEntry === true });
           const next = queuedProjectionLoads.shift();
           if (next instanceof Error) throw next;
           return typeof next === "function" ? next(appId) : next ?? projectionFor(appId);
@@ -213,9 +214,9 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
         DeckyNativeRetroAchievementsActivity() { return null; },
       },
     });
-    mock.module(pathToFileURL(resolve("src/platform/decky/decky-native-retroachievements-community.tsx")).href, {
+    mock.module(pathToFileURL(resolve("src/platform/decky/decky-retroachievements-community-resource.tsx")).href, {
       exports: {
-        DeckyNativeRetroAchievementsCommunity() { return null; },
+        DeckyRetroAchievementsCommunityResource() { return null; },
       },
     });
     mock.module(pathToFileURL(resolve("src/platform/decky/decky-native-up-next.tsx")).href, {
@@ -258,7 +259,7 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
     const shortcutPage = new LibraryPage();
     window.location.pathname = "/library/app/" + shortcutId;
     let shortcutSections = shortcutPage.GetSections(shortcut, { unAppID: shortcutId });
-    assert.deepEqual(projectionLoads[0], { appId: String(shortcutId), mode: "both", forceRefresh: true });
+    assert.deepEqual(projectionLoads[0], { appId: String(shortcutId), mode: "both", forceRefresh: false, revalidateOnEntry: true });
     if (!shortcutSections.has("achievements")) {
       await new Promise((resolve) => setImmediate(resolve));
       shortcutSections = shortcutPage.GetSections(shortcut, { unAppID: shortcutId });
@@ -298,12 +299,10 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
     assert.equal(activityContent.props.appId, shortcutId);
     assert.equal(activityContent.props.items[0].achievement.achievementId, "123");
     const communityContent = new CommunityFeed({ appid: shortcutId }).render();
-    assert.equal(communityContent.type.name, "DeckyNativeRetroAchievementsCommunity");
-    assert.equal(communityContent.props.models.casual.modeLabel, "Casual");
-    assert.equal(communityContent.props.models.hardcore.modeLabel, "Hardcore");
-    assert.equal(communityContent.props.models.casual.rows[0].playerCount, 100);
-    assert.equal(communityContent.props.models.hardcore.rows[0].playerCount, 100);
-    assert.equal(communityContent.props.models.latestMasters[0].username, "TempoBlues");
+    assert.equal(communityContent.type.name, "DeckyRetroAchievementsCommunityResource");
+    assert.deepEqual(communityContent.props.snapshot, projectionFor(shortcutId).detailSnapshot);
+    assert.equal(communityContent.props.achievementsAvailableSince, "2020-01-01");
+    assert.ok(communityContent.props.primitives.Section);
     assert.equal(new ActivityFeed({ appid: 620 }).render(), "original-activity-620");
     assert.equal(new ActivityFeed({ appid: highSteamId }).render(), "original-activity-" + highSteamId);
     assert.equal(new CommunityFeed({ appid: 620 }).render(), "original-community-620");
@@ -315,6 +314,9 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
     assert.equal(observableBoxes[0].reads > 0, true);
     const revisionWritesBeforeRefresh = observableBoxes[0].writes;
     publishDeckyRaNativeAchievementInvalidation("provider-refreshed");
+    assert.equal(observableBoxes[0].writes, revisionWritesBeforeRefresh);
+    assert.equal(new ActivityFeed({ appid: shortcutId }).render().type.name, "DeckyNativeRetroAchievementsActivity");
+    publishDeckyRaNativeAchievementInvalidation("account-changed");
     assert.equal(observableBoxes[0].writes > revisionWritesBeforeRefresh, true);
     assert.equal(new ActivityFeed({ appid: shortcutId }).render(), "original-activity-" + shortcutId);
 
@@ -333,7 +335,7 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
       assert.equal(projectionLoads.at(-1).forceRefresh, false);
       await new Promise((resolve) => setImmediate(resolve));
       assert.deepEqual([...shortcutPage.GetSections(shortcut, { unAppID: shortcutId })], ["notes", "achievements", "activity", "community"]);
-      publishDeckyRaNativeAchievementInvalidation("provider-refreshed");
+      publishDeckyRaNativeAchievementInvalidation("account-changed");
     }
 
     let releaseNewPageLoad;
@@ -342,7 +344,7 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
     const loadsBeforeNewPage = projectionLoads.length;
     assert.deepEqual([...newlyMountedPage.GetSections(shortcut, { unAppID: shortcutId })], ["notes"]);
     assert.equal(projectionLoads.length, loadsBeforeNewPage + 1);
-    assert.deepEqual(projectionLoads.at(-1), { appId: String(shortcutId), mode: "both", forceRefresh: true });
+    assert.deepEqual(projectionLoads.at(-1), { appId: String(shortcutId), mode: "both", forceRefresh: false, revalidateOnEntry: true });
     assert.equal(typeof releaseNewPageLoad, "function");
     assert.notEqual(detailsStore.GetAchievements(shortcutId)?.vecHighlight?.[0]?.strID, "ra:123");
     releaseNewPageLoad(projectionFor(shortcutId));

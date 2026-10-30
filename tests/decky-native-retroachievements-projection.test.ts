@@ -114,6 +114,25 @@ function successState(snapshot = detail()): ResourceState<GameDetailSnapshot> {
   };
 }
 
+function masteredDetail(): GameDetailSnapshot {
+  const snapshot = detail(detail().achievements.map((item) => ({
+    ...item,
+    isUnlocked: true,
+    hardcoreUnlockedAt: item.hardcoreUnlockedAt ?? 1_750_000_000_000,
+    unlockMode: "hardcore" as const,
+  })));
+  return {
+    ...snapshot,
+    refreshedAt: Date.now(),
+    game: {
+      ...snapshot.game,
+      status: "mastered",
+      summary: { unlockedCount: snapshot.achievements.length, totalCount: snapshot.achievements.length },
+      metrics: [...snapshot.game.metrics, { key: "highest-award-kind", label: "Award", value: "mastered" }],
+    },
+  };
+}
+
 function createHarness(overrides: Partial<NativeRetroAchievementsProjectionDependencies> = {}) {
   const calls = {
     metadata: [] as string[],
@@ -218,10 +237,9 @@ test("loading, ambiguous, unavailable, error, and Steam summaries never publish 
   }
 });
 
-test("failed, stale, empty, and invalid detail never create a false zero-achievement game", async () => {
+test("failed, empty, and invalid detail never create a false zero-achievement game", async () => {
   const states: ResourceState<GameDetailSnapshot>[] = [
     { status: "error", isStale: false, isRefreshing: false },
-    { status: "stale", data: detail(), isStale: true, isRefreshing: false },
     successState(detail([])),
     successState(detail([achievement("101"), achievement("101")])),
     successState({ ...detail(), game: { ...detail().game, gameId: "other" } }),
@@ -232,6 +250,15 @@ test("failed, stale, empty, and invalid detail never create a false zero-achieve
     assert.equal(result.status, "unavailable");
     assert.equal(loader.read(appId, "both"), undefined);
   }
+});
+
+test("verified stale detail remains usable during a provider failure", async () => {
+  const { loader } = createHarness({ async loadDetail() {
+    return { status: "stale", data: detail(), isStale: true, isRefreshing: false };
+  } });
+  const result = await loader.load(appId, "both");
+  assert.equal(result.status, "ready");
+  if (result.status === "ready") assert.equal(result.earned, 2);
 });
 
 test("per-app cache prevents late game A data from appearing under game B", async () => {
@@ -276,15 +303,15 @@ test("force refresh clears shared summary mapping cache and reloads detail", asy
   assert.equal((await loader.load(appId, "both")).status, "ready");
   assert.equal(calls.summary.length, 1);
   assert.equal((await loader.load(appId, "both", { forceRefresh: true })).status, "ready");
-  assert.deepEqual(calls.invalidated, [appId, appId, appId]);
-  assert.deepEqual(calls.invalidationOptions, [undefined, true, true]);
+  assert.deepEqual(calls.invalidated, [appId, appId]);
+  assert.deepEqual(calls.invalidationOptions, [true, true]);
   assert.deepEqual(calls.detail.map((call) => call.forceRefresh), [false, true]);
   loader.invalidate(appId);
   assert.equal((await loader.load(appId, "both")).status, "ready");
-  assert.deepEqual(calls.detail.map((call) => call.forceRefresh), [false, true, true]);
+  assert.deepEqual(calls.detail.map((call) => call.forceRefresh), [false, true, false]);
 });
 
-test("reopening a native RA page publishes fresh progress to its badge", async () => {
+test("explicitly refreshing a native RA page publishes fresh progress to its badge", async () => {
   let latestDetail = detail();
   const { loader, calls } = createHarness({
     async loadDetail(gameId, options) {
@@ -301,7 +328,54 @@ test("reopening a native RA page publishes fresh progress to its badge", async (
   assert.equal(reopened.status, "ready");
   if (reopened.status === "ready") assert.equal(reopened.earned, 3);
   assert.deepEqual(calls.detail.map((call) => call.forceRefresh), [false, true]);
-  assert.deepEqual(calls.invalidated, [appId, appId, appId]);
+  assert.deepEqual(calls.invalidated, [appId, appId]);
+});
+
+test("verified mastery survives native page re-entry and game exit, but explicit refresh reconciles it", async () => {
+  const { loader, calls } = createHarness({
+    isDetailFresh: () => true,
+    async loadDetail(gameId, options) {
+      calls.detail.push({ gameId, forceRefresh: options.forceRefresh });
+      return successState(masteredDetail());
+    },
+  });
+  assert.equal((await loader.load(appId, "both")).status, "ready");
+  assert.equal((await loader.load(appId, "both", { revalidateOnEntry: true })).status, "ready");
+  assert.deepEqual(calls.detail.map((call) => call.forceRefresh), [false]);
+  assert.ok(calls.metadata.length > 2, "the shortcut identity is still checked on re-entry");
+
+  loader.invalidate(appId, { refreshIncompleteOnly: true });
+  assert.equal((await loader.load(appId, "both", { revalidateOnEntry: true })).status, "ready");
+  assert.deepEqual(calls.detail.map((call) => call.forceRefresh), [false, false]);
+
+  assert.equal((await loader.load(appId, "both", { forceRefresh: true })).status, "ready");
+  assert.deepEqual(calls.detail.map((call) => call.forceRefresh), [false, false, true]);
+});
+
+test("a completed softcore award still refreshes native progress on re-entry", async () => {
+  const completed = detail();
+  const oldDetail: GameDetailSnapshot = {
+    ...completed,
+    game: {
+      ...completed.game,
+      status: "completed",
+      metrics: [...completed.game.metrics, { key: "highest-award-kind", label: "Award", value: "completed" }],
+    },
+  };
+  const newDetail = detail([...completed.achievements, achievement("104", { isUnlocked: true })]);
+  let cached = oldDetail;
+  const { loader, calls } = createHarness({
+    async loadDetail(gameId, options) {
+      calls.detail.push({ gameId, forceRefresh: options.forceRefresh });
+      if (calls.detail.length > 1) cached = newDetail;
+      return successState(cached);
+    },
+  });
+  assert.equal((await loader.load(appId, "both")).status, "ready");
+  const reopened = await loader.load(appId, "both", { revalidateOnEntry: true });
+  assert.equal(reopened.status, "ready");
+  if (reopened.status === "ready") assert.equal(reopened.earned, 3);
+  assert.deepEqual(calls.detail.map((call) => call.forceRefresh), [false, false]);
 });
 
 test("shortcut path changes invalidate mapping and a mid-request edit blocks publication", async () => {
@@ -310,7 +384,7 @@ test("shortcut path changes invalidate mapping and a mid-request edit blocks pub
   assert.equal((await loader.load(appId, "both")).status, "ready");
   currentShortcut = { ...shortcut, exe: '"/different/rom"' };
   assert.equal((await loader.load(appId, "both")).status, "ready");
-  assert.deepEqual(calls.invalidated, [appId, appId]);
+  assert.deepEqual(calls.invalidated, [appId]);
 
   const pendingDetail = deferred<ResourceState<GameDetailSnapshot>>();
   const race = createHarness({
@@ -337,5 +411,16 @@ test("shortcut display-name changes preserve cached RA identity", async () => {
   }
   assert.equal(calls.summary.length, 1);
   assert.equal(calls.detail.length, 1);
-  assert.deepEqual(calls.invalidated, [appId]);
+  assert.deepEqual(calls.invalidated, []);
+});
+
+test("native re-entry rebuilds an old projection from the newer canonical revision without changing the opened object", async () => {
+  let revision="one", loads=0;
+  const h=createHarness({isDetailFresh:()=>true,detailRevision:()=>revision,async loadDetail(){loads++;const value=detail();return successState({...value,game:{...value.game,summary:{...value.game.summary,unlockedCount:loads}},canonicalSourceRevision:revision})}});
+  const a=await h.loader.load(appId,"both"); revision="two";
+  const b=await h.loader.load(appId,"both",{revalidateOnEntry:true});
+  assert.notEqual(a,b); assert.equal(loads,2);
+  assert.equal(a.status==="ready"?a.detailSnapshot?.game.summary.unlockedCount:0,1);
+  assert.equal(b.status==="ready"?b.detailSnapshot?.game.summary.unlockedCount:0,2);
+  assert.equal(await h.loader.load(appId,"both"),b); assert.equal(loads,2);
 });

@@ -187,7 +187,7 @@ test("RA provider enriches game community stats with ranked latest masters and p
     },
   });
   const snapshot = await provider.loadGameProgress({ username: "alice", hasApiKey: true }, "1234");
-  assert.deepEqual(profileIdentifiers.sort(), ["01ABC", "01DEF"]);
+  assert.deepEqual(profileIdentifiers, [], "community readiness never requests avatar profiles");
   assert.deepEqual(snapshot.game.communityStats?.latestMasters, [
     {
       rank: 2,
@@ -223,11 +223,24 @@ function communityCacheClient(overrides: Partial<RetroAchievementsClient>): Retr
   };
 }
 
-test("RA community stats evict the oldest of 201 games and expire with an injected clock", async () => {
-  let clock = 0;
+test("live community readiness uses only the optional statistics endpoints and no avatar/profile fan-out", async () => {
+  const paths: string[] = [];
+  const provider = createRetroAchievementsProvider({ transport: { async requestJson(request) {
+    paths.push(request.path);
+    if (request.path === "API_GetAchievementDistribution.php") return { "1": 10 } as never;
+    if (request.path === "API_GetGameProgression.php") return {} as never;
+    if (request.path === "API_GetGameRankAndScore.php") return [{ User: "Alice", LastAward: "2026-10-29 12:00:00" }] as never;
+    throw new Error(`Unnecessary community dependency: ${request.path}`);
+  } } });
+  await provider.loadCommunityStats({ username: "a", hasApiKey: true }, { providerId: "retroachievements",
+    game: { providerId: "retroachievements", gameId: "1", title: "Game", status: "in_progress", summary: { unlockedCount: 0, totalCount: 1 }, metrics: [] }, achievements: [] });
+  assert.equal(paths.length, 3);
+  assert.ok(paths.every((path) => !/UserProfile|GameInfo|ConsoleIDs/u.test(path)));
+});
+
+test("RA community reads delegate freshness to the canonical transport", async () => {
   let loads = 0;
   const provider = createRetroAchievementsProvider({
-    now: () => clock,
     client: communityCacheClient({
       async loadAchievementDistribution() { loads += 1; return { "1": 1 }; },
     }),
@@ -235,19 +248,16 @@ test("RA community stats evict the oldest of 201 games and expire with an inject
   const config = { username: "alice", hasApiKey: true };
   for (let id = 1; id <= 201; id += 1) await provider.loadGameProgress(config, String(id));
   await provider.loadGameProgress(config, "201");
-  assert.equal(loads, 201);
-  await provider.loadGameProgress(config, "1");
   assert.equal(loads, 202);
-  clock = 60 * 60 * 1000;
-  await provider.loadGameProgress(config, "201");
+  await provider.loadGameProgress(config, "1");
   assert.equal(loads, 203);
+  await provider.loadGameProgress(config, "201");
+  assert.equal(loads, 204);
 });
 
-test("RA failed Latest Masters avatars retry after five minutes even for a cached game", async () => {
-  let clock = 0;
+test("RA avatar failure does not install a competing provider retry timer", async () => {
   let loads = 0;
   const provider = createRetroAchievementsProvider({
-    now: () => clock,
     client: communityCacheClient({
       async loadLatestGameMasters() { return [{ User: "Alice", LastAward: "2026-10-14 12:00:00" }]; },
       async loadUserProfile() {
@@ -258,16 +268,14 @@ test("RA failed Latest Masters avatars retry after five minutes even for a cache
     }),
   });
   const config = { username: "alice", hasApiKey: true };
-  assert.equal((await provider.loadGameProgress(config, "1")).game.communityStats?.latestMasters?.[0]?.avatarUrl, undefined);
-  clock = 5 * 60 * 1000 - 1;
-  await provider.loadGameProgress(config, "1");
-  assert.equal(loads, 1);
-  clock += 1;
   assert.equal((await provider.loadGameProgress(config, "1")).game.communityStats?.latestMasters?.[0]?.avatarUrl, "https://i.retroachievements.org/UserPic/Alice.png");
-  assert.equal(loads, 2);
+  await provider.loadGameProgress(config, "1");
+  assert.equal(loads, 0);
+  assert.equal((await provider.loadGameProgress(config, "1")).game.communityStats?.latestMasters?.[0]?.avatarUrl, "https://i.retroachievements.org/UserPic/Alice.png");
+  assert.equal(loads, 0);
 });
 
-test("RA Latest Masters retains at most 200 avatar lookups", async () => {
+test("RA Latest Masters adds no independent avatar freshness cache", async () => {
   let loads = 0;
   const provider = createRetroAchievementsProvider({
     client: communityCacheClient({
@@ -283,7 +291,7 @@ test("RA Latest Masters retains at most 200 avatar lookups", async () => {
   const config = { username: "alice", hasApiKey: true };
   for (let id = 1; id <= 201; id += 1) await provider.loadGameProgress(config, String(id));
   await provider.loadGameProgress(config, "1");
-  assert.equal(loads, 202, "the first game's stats and avatar were both evicted");
+  assert.equal(loads, 0, "public images load independently without avatar API requests");
 });
 
 test("profile and completion progress share the same normalized collection counts", () => {

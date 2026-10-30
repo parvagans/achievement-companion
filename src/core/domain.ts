@@ -149,6 +149,8 @@ export interface RelatedGameSummary {
 }
 
 export interface RecentlyPlayedGame {
+  /** Local observation time, distinct from an authoritative provider LastPlayed. */
+  readonly observedSessionAt?: UnixEpochMs;
   readonly providerId: ProviderId;
   readonly appid?: number;
   readonly gameId: string;
@@ -197,6 +199,8 @@ export interface AchievementHistorySnapshot {
   readonly summary: AchievementHistorySummary;
   readonly sourceLabel: string;
   readonly refreshedAt?: UnixEpochMs;
+  /** Last complete member-since reconciliation; incremental loads keep this checkpoint. */
+  readonly fullHistoryFetchedAt?: UnixEpochMs;
 }
 
 export interface NormalizedAchievement {
@@ -223,6 +227,7 @@ export interface RecentUnlock {
 }
 
 export interface GameDetailSnapshot {
+  readonly canonicalSourceRevision?: string;
   readonly game: NormalizedGame;
   readonly achievements: readonly NormalizedAchievement[];
   /** Provider-reported schema size, distinct from a fallback based on loaded rows. */
@@ -233,6 +238,9 @@ export interface GameDetailSnapshot {
 }
 
 export interface DashboardSnapshot {
+  readonly canonicalSourceRevision?: string;
+  /** Live presence presentation; independent of the saved recent-games collection. */
+  readonly currentGame?: RecentlyPlayedGame | undefined;
   readonly profile: NormalizedProfile;
   readonly recentAchievements: readonly RecentUnlock[];
   readonly recentlyPlayedGames: readonly RecentlyPlayedGame[];

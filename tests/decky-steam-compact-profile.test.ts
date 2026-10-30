@@ -51,7 +51,8 @@ test("Steam and RA QAM Recent Activity share the achievement-row treatment", () 
   assert.match(compactRecentAchievementRowSource, /loadDeckyGameDetailState/u);
   assert.match(compactRecentAchievementRowSource, /loadDeckySteamHuntersGameData/u);
   assert.match(compactRecentAchievementRowSource, /steamHuntersAchievement\?\.points/u);
-  assert.match(compactRecentAchievementRowSource, /getAchievementDetailCounts/u);
+  assert.match(compactRecentAchievementRowSource, /if \(!isSteam \|\| \(baseMetadata\.points !== undefined && baseMetadata\.communityPercent !== undefined\)\) return undefined/u);
+  assert.doesNotMatch(compactRecentAchievementRowSource, /getAchievementDetailCounts/u);
   assert.match(compactRecentAchievementRowSource, /achievementCompanionAchievementRowRecipes\.rarity\.fill\(communityPercent\)/u);
   assert.doesNotMatch(compactRecentAchievementRowSource, /DeckySteamAchievementStatusIcon/u);
   assert.match(compactRecentAchievementRowSource, /DeckySteamHuntersIcon/u);

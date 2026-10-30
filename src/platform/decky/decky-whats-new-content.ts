@@ -1,47 +1,42 @@
-/** Bundled notes for the current update. Keep these in sync with the release notes. */
+/** Bundled notes for 0.38.2, covering changes since v0.38.1. */
 export const WHATS_NEW_SECTIONS = [
   {
     title: "Overview",
     items: [
-      "Steam and RetroAchievements game pages now use a non-scrolling Deck dashboard with clearer game identity, personal progress, latest unlock, and provider details.",
-      "Beaten, Mastered, and Perfected games receive dedicated milestone showcases using the established flag or crown artwork and verified dates when available.",
-      "Steam hero artwork fills its frame more naturally, while RetroAchievements prestige effects and your selected theme remain intact.",
+      "RetroAchievements reuses saved progress across Quick Access, full-screen pages, and Steam integrations, refreshing the data each view needs.",
+      "Saved data stays available when a refresh fails. Provider cooldowns apply to automatic requests and manual retries.",
+      "Achievement history resumes from saved checkpoints instead of starting over when you revisit Activity.",
     ],
   },
   {
-    title: "Up Next",
+    title: "Current Game",
     items: [
-      "Up Next recommends three achievements using progression and available provider data, with community rarity and RetroAchievements classifications where supported.",
-      "Open a recommendation's details, jump to it in Achievements, or hide it. Manage Suggestions can restore individual choices or every hidden suggestion.",
+      "Current Game follows RetroAchievements activity independently of profile refreshes, including game launches, exits, and emulator ROM switches.",
+      "Continue Playing retains your most recently observed game while Recently Played catches up. Your selected Up Next goals and hidden suggestions stay intact.",
+      "Unrelated shortcuts do not claim remote account activity; newer RetroAchievements heartbeats remain valid after a local game exits.",
     ],
   },
   {
-    title: "RA Goals",
+    title: "Community",
     items: [
-      "Choose Beat or Master as the global objective, then override individual games when needed. The current mode and goal stay visible beside Actions.",
-      "Recommendations follow the selected objective without changing recorded Beaten or Mastered status, with full Hardcore and Softcore support.",
+      "Eligible RetroAchievements games expose Community from Quick Access, full-screen game lists, and matched Steam game-page badges, before statistics load.",
+      "Community statistics appear when loading completes in Companion and Steam. Available values are preserved, while unavailable medians stay omitted.",
+      "Use a single L1/R1 press to leave Community while it loads or after its statistics appear.",
     ],
   },
   {
-    title: "Insights",
+    title: "Subsets",
     items: [
-      "Structured provider panels make SteamHunters obtainability, points, completion rates, and RetroAchievements population and mastery data easier to scan.",
-      "Compact Game Info dialogs focus on essential metadata, while Community keeps the complete provider statistics and rarity distribution available.",
+      "The Subsets tab appears only when verified subsets exist. Discovery resumes from its saved checkpoint and prioritizes unresolved candidates.",
+      "Previously verified subsets remain available when discovery is incomplete or refreshed metadata is missing required relationship information.",
     ],
   },
   {
     title: "Controls",
     items: [
-      "Controller focus and directional navigation are improved across headers, achievement lists, menus, and dialogs.",
-      "Actions and Manage Suggestions now use compact nested menus. Closing details or Game Info returns one level and restores your previous focus.",
-      "The game footer reserves fixed X, Y, A, and B positions, so contextual Hide, Show, and Top actions never move the tabs or other controller hints.",
-    ],
-  },
-  {
-    title: "Game Page Badges",
-    items: [
-      "Choose between the existing Classic game-page badge and a new compact Minimal style with monochrome artwork, three sizes, six positions, and a subtle loading animation.",
-      "Switching styles preserves your Classic colors, while controller navigation can move horizontally between neighboring game-page badges without replacing Steam's normal Up and Down movement.",
+      "Re-entered game pages use current progress while open achievement lists retain their navigation and focus.",
+      "Full-screen RetroAchievements profiles reserve space for your account name, and long Quick Access game titles wrap without a two-line cutoff.",
+      "RetroAchievements sync diagnostics show request and storage status, with targeted recovery actions and a sanitized export for troubleshooting.",
     ],
   },
 ] as const;

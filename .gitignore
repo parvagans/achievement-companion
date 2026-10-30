@@ -18,6 +18,7 @@ releases/
 docs/
 !docs/
 docs/*
+!docs/retroachievements-data-reliability.md
 !docs/screenshots/
 docs/screenshots/*
 !docs/screenshots/SCREENSHOT_PLAN.md

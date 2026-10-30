@@ -59,6 +59,8 @@ import {
   loadDeckyAchievementHistoryStateForFullScreenEntry,
   loadDeckyDashboardState,
   loadDeckyDashboardStateForFullScreenEntry,
+  startDeckyProviderProfileDataSession,
+  isDeckyRetroAchievementsProfileFresh,
   loadDeckyCompletionProgressState,
   loadDeckyCompletionProgressStateForFullScreenEntry,
   deckyAuthenticatedProviderTransportFactory,
@@ -831,8 +833,10 @@ const deckyBackendTestState = {
   retroAchievements: {} as DeckyBackendTestRetroAchievementsState,
   steam: {} as DeckyBackendTestSteamState,
 };
+const mockBackendCatalogues = new Map<string, { payload: unknown; fetchedAt: number; freshUntil: number }>();
 
 function resetDeckyBackendTestState(): void {
+  mockBackendCatalogues.clear();
   deckyBackendTestState.retroAchievements = {};
   deckyBackendTestState.steam = {};
 }
@@ -878,7 +882,8 @@ const deckyBackendTestCallImplementation = async (route: string, payload: unknow
 
       deckyBackendTestState.retroAchievements.systemsRequestCount =
         (deckyBackendTestState.retroAchievements.systemsRequestCount ?? 0) + 1;
-      return systems;
+      return record?.resourceProtocol === 1 ? { raResource: 1, resourceKey: "systems", payload: systems,
+        cacheState: "live", fetchedAt: Date.now(), freshUntil: Date.now() + 30 * 86400000 } : systems;
     }
 
     if (path === "API_GetGameList.php") {
@@ -899,6 +904,11 @@ const deckyBackendTestCallImplementation = async (route: string, payload: unknow
         throw new Error("Unexpected RetroAchievements game list request without a console id in test");
       }
 
+      const cached = mockBackendCatalogues.get(consoleId);
+      if (record?.resourceProtocol === 1 && cached && cached.fetchedAt <= Date.now() && Date.now() < cached.freshUntil) {
+        return { raResource: 1, resourceKey: `catalogue:${consoleId}`, cacheState: "fresh", ...cached };
+      }
+
       const response = deckyBackendTestState.retroAchievements.gameListByConsoleId?.[consoleId];
       if (response === undefined) {
         throw new Error(`Unexpected RetroAchievements game list request for console id ${consoleId} in test`);
@@ -910,6 +920,11 @@ const deckyBackendTestCallImplementation = async (route: string, payload: unknow
         deckyBackendTestState.retroAchievements.gameListRequestedConsoleIds = [];
       }
       deckyBackendTestState.retroAchievements.gameListRequestedConsoleIds.push(consoleId);
+      if (record?.resourceProtocol === 1 && response.every((row) => Array.isArray(row.Hashes))) {
+        mockBackendCatalogues.set(consoleId, { payload: response, fetchedAt: Date.now(), freshUntil: Date.now() + 30 * 86400000 });
+        return { raResource: 1, resourceKey: `catalogue:${consoleId}`, payload: response,
+          cacheState: "live", fetchedAt: Date.now(), freshUntil: Date.now() + 30 * 86400000 };
+      }
       return response;
     }
 
@@ -951,6 +966,11 @@ const deckyBackendTestCallImplementation = async (route: string, payload: unknow
         throw new Error(`Unexpected RetroAchievements game progress request for game id ${gameId} in test`);
       }
 
+      if (record?.resourceProtocol === 1) {
+        const fetchedAt = Date.now();
+        return { raResource: 1, resourceKey: `game:${gameId}`, payload: response,
+          cacheState: "live", fetchedAt, freshUntil: fetchedAt + 15 * 60 * 1000 };
+      }
       return response;
     }
 
@@ -3075,7 +3095,7 @@ test("provider setup, credential fields, and current compact profile routes stay
   assert.match(retroClientSource, /const GAME_LIST_PATH = "API_GetGameList\.php";/u);
   assert.match(retroClientSource, /loadGameList\(/u);
   assert.match(retroClientSource, /i: consoleId/u);
-  assert.match(retroProviderSource, /cachedSystemIconUrlByConsoleId/u);
+  assert.doesNotMatch(retroProviderSource, /cachedSystemIconUrlByConsoleId/u);
   assert.match(retroProviderSource, /systemIconUrlByConsoleIdPromise/u);
   assert.match(retroProviderSource, /buildRetroAchievementsSystemIconUrlMap/u);
   assert.match(retroProviderSource, /enrichRecentlyPlayedGamesWithSystemIcons/u);
@@ -6109,8 +6129,10 @@ test("a provider HTTP 429 is a retryable rate limit and keeps cached dashboard d
   assert.deepEqual(state.data, cachedSnapshot);
 });
 
-test("decky dashboard snapshot cache returns cached state immediately without backend refresh", async () => {
+test("legacy RA dashboard preserves account-matched saved data when validation fails", async () => {
   await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, { username: "alice", hasApiKey: true });
     const cachedSnapshot = createDashboardSnapshot();
     assert.ok(writeDeckyDashboardSnapshot(cachedSnapshot));
 
@@ -6123,7 +6145,7 @@ test("decky dashboard snapshot cache returns cached state immediately without ba
 
       assert.equal(state.status, "stale");
       assert.equal(state.isStale, true);
-      assert.equal(state.error, undefined);
+      assert.ok(state.error);
       assert.deepStrictEqual(state.data, cachedSnapshot);
 
       const cachedEntry = readDeckyDashboardSnapshotCacheEntry(PROVIDER_ID);
@@ -6132,6 +6154,75 @@ test("decky dashboard snapshot cache returns cached state immediately without ba
     } finally {
       setDeckyBackendCallImplementationForTests(deckyBackendTestCallImplementation);
       assert.equal(clearDeckyDashboardSnapshot(PROVIDER_ID), true);
+    }
+  });
+});
+
+test("RetroAchievements profile re-entry uses fresh canonical records and never imports lifetime history", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, { username: "alice", hasApiKey: true });
+    const paths: string[] = [];
+    setDeckyBackendCallImplementationForTests(async (route, payload) => {
+      if (route !== "request_retroachievements_json") return deckyBackendTestCallImplementation(route, payload);
+      const path = (payload as { path: string }).path;
+      paths.push(path);
+      const values: Record<string, unknown> = {
+        "API_GetUserProfile.php": { User: "alice", ULID: "alice-id", TotalPoints: 100 },
+        "API_GetUserSummary.php": { User: "alice", TotalPoints: 100, LastGameID: 0, RichPresenceMsgDate: null },
+        "API_GetUserRecentAchievements.php": [],
+        "API_GetUserRecentlyPlayedGames.php": [],
+        "API_GetUserCompletionProgress.php": { Count: 0, Total: 0, Results: [] },
+        "API_GetConsoleIDs.php": [],
+      };
+      assert.ok(path in values, `unexpected profile request ${path}`);
+      const fetchedAt = Date.now();
+      return { raResource: 1, resourceKey: path, payload: values[path], cacheState: "live", fetchedAt, freshUntil: fetchedAt + 180000 };
+    });
+    try {
+      const first = await loadDeckyDashboardStateForFullScreenEntry(RETROACHIEVEMENTS_PROVIDER_ID);
+      assert.equal(first.status, "success");
+      assert.equal(isDeckyRetroAchievementsProfileFresh(), true);
+      const initialDispatches = paths.length;
+      assert.ok(initialDispatches >= 4);
+      startDeckyProviderProfileDataSession(RETROACHIEVEMENTS_PROVIDER_ID);
+      const second = await loadDeckyDashboardStateForFullScreenEntry(RETROACHIEVEMENTS_PROVIDER_ID);
+      assert.equal(second.status, "success");
+      assert.equal(paths.length, initialDispatches);
+      assert.ok(!paths.includes("API_GetAchievementsEarnedBetween.php"));
+    } finally {
+      setDeckyBackendCallImplementationForTests(deckyBackendTestCallImplementation);
+      resetDeckyAppServicesForTests();
+    }
+  });
+});
+
+test("a legacy browser dashboard is usable fallback but cannot declare canonical profile data fresh", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice", hasApiKey: true, recentAchievementsCount: 5, recentlyPlayedCount: 5,
+    });
+    assert.ok(writeDeckyDashboardSnapshot(createDashboardSnapshot()));
+    const paths: string[] = [];
+    setDeckyBackendCallImplementationForTests(async (route, payload) => {
+      if (route === "request_retroachievements_json") {
+        const path = (payload as { path: string }).path;
+        paths.push(path);
+        if (path === "API_GetUserRecentAchievements.php") return [];
+        throw new Error(`Unexpected full-screen profile request: ${path}`);
+      }
+      return deckyBackendTestCallImplementation(route, payload);
+    });
+    try {
+      const state = await loadDeckyDashboardStateForFullScreenEntry(RETROACHIEVEMENTS_PROVIDER_ID);
+      assert.equal(state.status, "stale");
+      assert.equal(state.data?.profile.identity.accountId, "alice");
+      assert.ok(paths.includes("API_GetUserProfile.php"));
+      assert.ok(!paths.includes("API_GetAchievementsEarnedBetween.php"));
+    } finally {
+      setDeckyBackendCallImplementationForTests(deckyBackendTestCallImplementation);
+      resetDeckyAppServicesForTests();
     }
   });
 });
@@ -7331,7 +7422,7 @@ test("retroachievements client loads official systems from API_GetConsoleIDs.php
   assert.equal(systems?.[0]?.IconURL, "/Images/Consoles/007.png");
 });
 
-test("retroachievements provider caches systems and maps ConsoleID to systemIconUrl", async () => {
+test("retroachievements provider consults canonical systems and maps ConsoleID to systemIconUrl", async () => {
   let systemsCalls = 0;
   const provider = createRetroAchievementsProvider({
     client: {
@@ -7424,7 +7515,7 @@ test("retroachievements provider caches systems and maps ConsoleID to systemIcon
     { count: 2 },
   );
 
-  assert.equal(systemsCalls, 1);
+  assert.equal(systemsCalls, 3, "semantic reads use canonical transport freshness rather than a provider TTL");
   assert.equal(
     firstLoad[0]?.systemIconUrl,
     "https://i.retroachievements.org/Images/Consoles/007.png",
@@ -7440,8 +7531,9 @@ test("retroachievements provider caches systems and maps ConsoleID to systemIcon
   assert.equal(secondLoad[0]?.systemIconUrl, firstLoad[0]?.systemIconUrl);
 });
 
-test("retroachievements recently played games enrich explicit award state from bounded game detail", async () => {
+test("retroachievements recently played games reuse completion progress awards without per-game detail", async () => {
   const gameProgressCalls: string[] = [];
+  let completionProgressCalls = 0;
   const provider = createRetroAchievementsProvider({
     client: {
       async loadSystems() {
@@ -7451,7 +7543,13 @@ test("retroachievements recently played games enrich explicit award state from b
         throw new Error("not used");
       },
       async loadCompletionProgress() {
-        throw new Error("not used");
+        completionProgressCalls += 1;
+        return [
+          { GameID: 100, Title: "Mastered Missing Award", ConsoleID: 1, MaxPossible: 57, NumAwarded: 57,
+            HighestAwardKind: "mastered", HighestAwardDate: "2024-04-23T21:28:49+00:00" },
+          { GameID: 250, Title: "Placeholder Award", ConsoleID: 2, MaxPossible: 96, NumAwarded: 70,
+            HighestAwardKind: "beaten-hardcore" },
+        ] satisfies readonly RawRetroAchievementsCompletionProgressEntry[];
       },
       async loadAchievementsEarnedBetween() {
         throw new Error("not used");
@@ -7500,27 +7598,6 @@ test("retroachievements recently played games enrich explicit award state from b
       },
       async loadGameProgress(_config, gameId) {
         gameProgressCalls.push(gameId);
-        if (gameId === "100") {
-          return createRetroAchievementsGameProgressResponse({
-            gameId,
-            title: "Mastered Missing Award",
-            highestAwardKind: "mastered",
-            highestAwardDate: "2024-04-23T21:28:49+00:00",
-            unlockedCount: 57,
-            totalCount: 57,
-          });
-        }
-
-        if (gameId === "250") {
-          return createRetroAchievementsGameProgressResponse({
-            gameId,
-            title: "Placeholder Award",
-            highestAwardKind: "beaten-hardcore",
-            unlockedCount: 70,
-            totalCount: 96,
-          });
-        }
-
         throw new Error(`unexpected game progress call for ${gameId}`);
       },
     },
@@ -7535,7 +7612,8 @@ test("retroachievements recently played games enrich explicit award state from b
   );
 
   assert.deepStrictEqual(games.map((game) => game.title), ["Mastered Missing Award", "Already Explicit", "Placeholder Award"]);
-  assert.deepStrictEqual(gameProgressCalls, ["100", "250"]);
+  assert.equal(completionProgressCalls, 1);
+  assert.deepStrictEqual(gameProgressCalls, []);
   assert.equal(games[0]?.metrics?.find((metric) => metric.key === "highest-award-kind")?.value, "mastered");
   assert.equal(games[0]?.metrics?.find((metric) => metric.key === "highest-award-date")?.value, String(Date.parse("2024-04-23T21:28:49+00:00")));
   assert.equal(isRetroAchievementsMasteredHardcoreGame(games[0]!), true);
@@ -7544,7 +7622,7 @@ test("retroachievements recently played games enrich explicit award state from b
   assert.equal(isRetroAchievementsBeatenGame(games[2]!), true);
 });
 
-test("retroachievements recently played enrichment does not infer mastered from 100 percent and falls back safely", async () => {
+test("retroachievements recently played enrichment does not infer mastered from 100 percent", async () => {
   const gameProgressCalls: string[] = [];
   const provider = createRetroAchievementsProvider({
     client: {
@@ -7555,7 +7633,10 @@ test("retroachievements recently played enrichment does not infer mastered from 
         throw new Error("not used");
       },
       async loadCompletionProgress() {
-        throw new Error("not used");
+        return [
+          { GameID: 400, Title: "Hundred Percent Without Award", ConsoleID: 1, MaxPossible: 10, NumAwarded: 10 },
+          { GameID: 500, Title: "Progress Fetch Fails", ConsoleID: 2, MaxPossible: 12, NumAwarded: 6 },
+        ] satisfies readonly RawRetroAchievementsCompletionProgressEntry[];
       },
       async loadAchievementsEarnedBetween() {
         throw new Error("not used");
@@ -7585,16 +7666,7 @@ test("retroachievements recently played enrichment does not infer mastered from 
       },
       async loadGameProgress(_config, gameId) {
         gameProgressCalls.push(gameId);
-        if (gameId === "400") {
-          return createRetroAchievementsGameProgressResponse({
-            gameId,
-            title: "Hundred Percent Without Award",
-            unlockedCount: 10,
-            totalCount: 10,
-          });
-        }
-
-        throw new Error("detail unavailable");
+        throw new Error(`unexpected detail request for ${gameId}`);
       },
     },
   });
@@ -7607,7 +7679,7 @@ test("retroachievements recently played enrichment does not infer mastered from 
     { count: 2 },
   );
 
-  assert.deepStrictEqual(gameProgressCalls, ["400", "500"]);
+  assert.deepStrictEqual(gameProgressCalls, []);
   assert.equal(games.length, 2);
   assert.equal(games[0]?.summary.completionPercent, 100);
   assert.equal(games[0]?.metrics?.find((metric) => metric.key === "highest-award-kind"), undefined);
@@ -13094,7 +13166,7 @@ test("game page achievement summary resolves a RetroAchievements shortcut from i
   });
 });
 
-test("game page badge retries a transient RetroAchievements detail failure before hiding", async () => {
+test("game page badge does not add a nested retry after a backend detail failure", async () => {
   await withMockDeckyStorage(async () => {
     resetDeckyAppServicesForTests();
     updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
@@ -13128,17 +13200,15 @@ test("game page badge retries a transient RetroAchievements detail failure befor
     });
 
     const summary = await loadDeckyGamePageAchievementSummary(appId);
-    assert.equal(summary.status, "ready");
-    if (summary.status === "ready") {
-      assert.equal(summary.gameId, gameId);
-      assert.equal(summary.earned, 1);
-      assert.equal(summary.total, 3);
-    }
-    assert.equal(deckyBackendTestState.retroAchievements.gameProgressRequestCount, 2);
+    assert.equal(summary.status, "unavailable");
+    assert.equal(deckyBackendTestState.retroAchievements.gameProgressRequestCount, 1);
   });
 });
 
-test("a new native RA game-page visit bypasses the badge summary and game-detail caches", async () => {
+test("a new native RA game-page visit refreshes incomplete progress after canonical freshness expires", async (context) => {
+  const realNow = Date.now.bind(Date);
+  let timeOffset = 0;
+  context.mock.method(Date, "now", () => realNow() + timeOffset);
   await withMockDeckyStorage(async () => {
     resetDeckyAppServicesForTests();
     updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
@@ -13176,10 +13246,104 @@ test("a new native RA game-page visit bypasses the badge summary and game-detail
     assert.equal(cached.status, "ready");
     assert.equal(deckyBackendTestState.retroAchievements.gameProgressRequestCount, 1);
 
+    timeOffset += 15 * 60 * 1000 + 1;
     const reopened = await loadDeckyGamePageAchievementSummary(appId, { freshRetroAchievements: true });
     assert.equal(reopened.status, "ready");
     if (reopened.status === "ready") assert.equal(reopened.earned, 2);
     assert.equal(deckyBackendTestState.retroAchievements.gameProgressRequestCount, 2);
+  });
+});
+
+test("a new native RA game-page visit reuses verified mastery without another detail request", async (context) => {
+  const realNow = Date.now.bind(Date);
+  let timeOffset = 0;
+  context.mock.method(Date, "now", () => realNow() + timeOffset);
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice", hasApiKey: true, recentAchievementsCount: 5, recentlyPlayedCount: 5,
+    });
+    const appId = "2493414802";
+    const gameId = "9004";
+    const romHash = "abcdefabcdefabcdefabcdefabcdefad";
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      [appId]: { title: "Mastered Visit Game", platformTag: "Nintendo 64", tags: ["Nintendo 64"] },
+    };
+    deckyBackendTestState.steam.shortcutRomHashByAppId = {
+      [appId]: { shortcutRomPathDetected: true, romHashAttempted: true, romHashStatus: "resolved", romHashAlgorithm: "rcheevos", romHash },
+    };
+    deckyBackendTestState.retroAchievements.systems = [{ ID: 2, Name: "Nintendo 64" }];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "2": [{ GameID: 9004, Title: "Mastered Visit Game", ConsoleID: 2, Hashes: [romHash] }],
+    };
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      [gameId]: createRetroAchievementsGameProgressResponse({
+        gameId, title: "Mastered Visit Game", consoleId: 2, consoleName: "Nintendo 64",
+        highestAwardKind: "mastered", unlockedCount: 3, totalCount: 3,
+      }),
+    };
+
+    const first = await loadDeckyGamePageAchievementSummary(appId);
+    assert.equal(first.status, "ready");
+    if (first.status === "ready") assert.equal(first.completionStatus, "mastered");
+    assert.equal(deckyBackendTestState.retroAchievements.gameProgressRequestCount, 1);
+
+    timeOffset += 5_001;
+    const reopened = await loadDeckyGamePageAchievementSummary(appId, { freshRetroAchievements: true });
+    assert.equal(reopened.status, "ready");
+    if (reopened.status === "ready") assert.equal(reopened.completionStatus, "mastered");
+    assert.equal(deckyBackendTestState.retroAchievements.gameProgressRequestCount, 1);
+  });
+});
+
+test("verified ROM hash mapping survives a frontend cache reset and checks shortcut identity", async () => {
+  await withMockDeckyStorage(async () => {
+    resetDeckyAppServicesForTests();
+    updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, {
+      username: "alice", hasApiKey: true, recentAchievementsCount: 5, recentlyPlayedCount: 5,
+    });
+    const appId = "2493414803";
+    const gameId = "9005";
+    const romHash = "abcdefabcdefabcdefabcdefabcdefae";
+    const metadata = { title: "Verified ROM", platformTag: "Nintendo 64", tags: ["Nintendo 64"], exe: "/roms/a.n64" };
+    deckyBackendTestState.steam.shortcutMetadataByAppId = { [appId]: metadata };
+    deckyBackendTestState.steam.shortcutRomHashByAppId = {
+      [appId]: { shortcutRomPathDetected: true, romHashAttempted: true, romHashStatus: "resolved", romHashAlgorithm: "rcheevos", romHash },
+    };
+    deckyBackendTestState.retroAchievements.systems = [{ ID: 2, Name: "Nintendo 64" }];
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = {
+      "2": [{ GameID: 9005, Title: "Verified ROM", ConsoleID: 2, Hashes: [romHash] }],
+    };
+    deckyBackendTestState.retroAchievements.gameProgressByGameId = {
+      [gameId]: createRetroAchievementsGameProgressResponse({
+        gameId, title: "Verified ROM", consoleId: 2, consoleName: "Nintendo 64",
+        highestAwardKind: "mastered", unlockedCount: 3, totalCount: 3,
+      }),
+    };
+
+    assert.equal((await loadDeckyGamePageAchievementSummary(appId)).status, "ready");
+    assert.deepStrictEqual(deckyBackendTestState.retroAchievements.gameListRequestedConsoleIds, ["2"]);
+
+    clearDeckyGamePageAchievementSummaryCacheForTests();
+    resetDeckyAppServicesForTests();
+    deckyBackendTestState.retroAchievements.gameListByConsoleId = { "2": [] };
+    assert.equal((await loadDeckyGamePageAchievementSummary(appId, { freshRetroAchievements: true })).status, "ready");
+    assert.deepStrictEqual(deckyBackendTestState.retroAchievements.gameListRequestedConsoleIds, ["2"],
+      "the persisted full-hash match avoids another catalogue request");
+
+    clearDeckyGamePageAchievementSummaryCacheForTests();
+    resetDeckyAppServicesForTests();
+    deckyBackendTestState.steam.shortcutMetadataByAppId = {
+      [appId]: { ...metadata, exe: "/roms/b.n64" },
+    };
+    deckyBackendTestState.steam.shortcutRomHashByAppId[appId] = {
+      shortcutRomPathDetected: true, romHashAttempted: true, romHashStatus: "resolved",
+      romHashAlgorithm: "rcheevos", romHash: "abcdefabcdefabcdefabcdefabcdefaf",
+    };
+    const changedShortcut = await loadDeckyGamePageAchievementSummary(appId, { freshRetroAchievements: true });
+    assert.notEqual(changedShortcut.status, "ready");
+    assert.deepStrictEqual(deckyBackendTestState.retroAchievements.gameListRequestedConsoleIds, ["2"],
+      "a changed ROM cannot reuse the old verified match or trigger a redundant catalogue request");
   });
 });
 
@@ -13335,7 +13499,7 @@ test("expired RA catalogue entries refresh before resolving a newly accepted has
       deckyBackendTestState.retroAchievements.gameListByConsoleId = { "5": [
         { ID: 5002, Title: "Second", ConsoleID: 5, Hashes: [secondHash] },
       ] };
-      now += 60 * 60 * 1000 + 1;
+      now += 30 * 24 * 60 * 60 * 1000 + 1;
       invalidateDeckyGamePageAchievementSummaryCache(appId);
       const refreshed = await loadDeckyGamePageAchievementSummary(appId);
       assert.equal(refreshed.status, "ready");
@@ -14439,7 +14603,7 @@ test("decky authenticated transport helpers still route through backend methods"
     "utf-8",
   );
 
-  assert.match(retroAchievementsTransportSource, /callDeckyBackendMethod<T>\("request_retroachievements_json"/u);
+  assert.match(retroAchievementsTransportSource, /callDeckyBackendMethod<unknown>\("request_retroachievements_json"/u);
   assert.match(steamTransportSource, /callDeckyBackendMethod<T>\("request_steam_json"/u);
 });
 
@@ -14569,4 +14733,94 @@ test("Steam scan failure diagnostics retain the discovered owned-game count", as
   assert.equal(failures.length, 1);
   assert.equal(failures[0]?.ownedGameCount, 1);
   assert.equal(failures[0]?.scannedGameCount, 0);
+});
+
+for (const entry of ["qam-entry", "full-screen-entry"] as const) {
+  test(`RA ${entry} revalidates presence after two minutes without refreshing the dashboard group`, async (context) => {
+    await withMockDeckyStorage(async () => {
+      resetDeckyAppServicesForTests();
+      updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID, { username: "alice", hasApiKey: true });
+      let now = 1_800_000_000_000;
+      let active = false;
+      const paths: string[] = [];
+      context.mock.method(Date, "now", () => now);
+      setDeckyBackendCallImplementationForTests(async (route, payload) => {
+        if (route !== "request_retroachievements_json") return deckyBackendTestCallImplementation(route, payload);
+        const path = (payload as { path: string }).path;
+        paths.push(path);
+        const values: Record<string, unknown> = {
+          "API_GetUserProfile.php": { User: "alice", ULID: "a", TotalPoints: 100 },
+          "API_GetUserSummary.php": { User: "alice", TotalPoints: active ? 200 : 100, LastGameID: active ? 42 : 0,
+            RichPresenceMsgDate: active ? new Date(now).toISOString() : null },
+          "API_GetUserRecentAchievements.php": [], "API_GetUserRecentlyPlayedGames.php": [],
+          "API_GetUserCompletionProgress.php": { Count: 0, Total: 0, Results: [] },
+          "API_GetConsoleIDs.php": [],
+          "API_GetGameInfoAndUserProgress.php": createRetroAchievementsGameProgressResponse({ gameId: "42", title: "Current Game", consoleId: 1, consoleName: "NES", unlockedCount: 0, totalCount: 2 }),
+        };
+        assert.ok(path in values, `unexpected presence dependency ${path}`);
+        return { raResource: 1, resourceKey: path, payload: values[path], cacheState: "live", fetchedAt: now,
+          freshUntil: now + (path === "API_GetUserSummary.php" ? 45000 : path === "API_GetUserRecentAchievements.php" ? 180000 : 600000),
+          ...(path === "API_GetGameInfoAndUserProgress.php" ? { activeFreshUntil: now + 120000 } : {}) };
+      });
+      try {
+        const first = await loadDeckyDashboardStateForFullScreenEntry(RETROACHIEVEMENTS_PROVIDER_ID, entry);
+        assert.equal(first.status, "success");
+        const before = paths.length;
+        now += 120000; active = true;
+        const second = await loadDeckyDashboardStateForFullScreenEntry(RETROACHIEVEMENTS_PROVIDER_ID, entry);
+        assert.equal(second.data?.profile.richPresenceGameId, "42");
+        assert.equal(second.data?.currentGame?.gameId, "42");
+        assert.equal(second.data?.profile.summary, first.data?.profile.summary, "presence does not replace account totals");
+        assert.deepEqual(paths.slice(before), ["API_GetUserSummary.php", "API_GetGameInfoAndUserProgress.php"], "only presence and a genuinely missing active-game record load");
+        const freshCalls = paths.length;
+        await loadDeckyDashboardStateForFullScreenEntry(RETROACHIEVEMENTS_PROVIDER_ID, entry);
+        assert.equal(paths.length, freshCalls);
+        const { deckyRaPresence } = await import("../src/platform/decky/decky-retroachievements-presence");
+        now += 1000; active = false;
+        const beforeExit = paths.length;
+        deckyRaPresence.lifecycle("test-shortcut", false, "42");
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        const exited = await loadDeckyDashboardStateForFullScreenEntry(RETROACHIEVEMENTS_PROVIDER_ID, entry);
+        assert.equal(exited.data?.profile.richPresenceGameId, undefined);
+        assert.equal(exited.data?.recentlyPlayedGames[0]?.gameId, "42", "observed session survives a delayed empty Recently Played response");
+        assert.deepEqual(paths.slice(beforeExit), ["API_GetUserRecentlyPlayedGames.php", "API_GetUserSummary.php"], "exit revalidates two targeted resources, without dashboard or history fan-out");
+        const settled = paths.length;
+        await loadDeckyDashboardStateForFullScreenEntry(RETROACHIEVEMENTS_PROVIDER_ID, entry);
+        assert.equal(paths.length, settled, "repeat entry after exit adds no HTTP");
+      } finally {
+        setDeckyBackendCallImplementationForTests(deckyBackendTestCallImplementation);
+        resetDeckyAppServicesForTests();
+      }
+    });
+  });
+}
+
+
+for (const waitingOn of ["calendar", "recommendation"]) test(`dashboard provenance survives canonical refresh during ${waitingOn} work`,async()=>{
+ await withMockDeckyStorage(async()=>{
+  resetDeckyAppServicesForTests();updateDeckyProviderConfigCache(RETROACHIEVEMENTS_PROVIDER_ID,{username:"alice",hasApiKey:true});
+  let points=100,finish!:()=>void,release!:(v:unknown)=>void,requested!:()=>void;
+  const gameRequested=new Promise<void>(resolve=>{requested=resolve});
+  const calendar=new Promise(resolve=>{release=resolve}),done=new Promise<void>(resolve=>{finish=resolve});const paths:string[]=[];
+  setDeckyBackendCallImplementationForTests(async(route,payload:any)=>{
+   if(route==="read_retroachievements_calendar")return waitingOn==="calendar"?calendar:{entries:[]};
+   if(route==="record_diagnostic_event"){if(payload.event==="dashboard_refresh_completed")finish();return true;}
+   if(route!=="request_retroachievements_json")return deckyBackendTestCallImplementation(route,payload);
+   const path=payload.path;paths.push(path);if(path==="API_GetGameInfoAndUserProgress.php"){requested();return calendar;}const values:Record<string,unknown>={"API_GetUserProfile.php":{User:"alice",TotalPoints:points},
+    "API_GetUserSummary.php":{LastGameID:0,RichPresenceMsgDate:null},"API_GetUserRecentAchievements.php":[],"API_GetUserRecentlyPlayedGames.php":waitingOn==="calendar"?[]:[{GameID:1,Title:"Test",ConsoleID:1,ConsoleName:"Test",AchievementsTotal:1,NumAchieved:0}],
+    "API_GetUserCompletionProgress.php":{Total:0,Count:0,Results:[]},"API_GetConsoleIDs.php":[]};
+   assert.ok(path in values,path);return {raResource:1,resourceKey:path,payload:values[path],cacheState:"live",fetchedAt:Date.now(),freshUntil:Date.now()+180000};
+  });
+  try{
+   const pending=loadDeckyDashboardStateForFullScreenEntry(RETROACHIEVEMENTS_PROVIDER_ID);await done;if(waitingOn==="recommendation")await gameRequested;points=200;
+   const {getDeckyRetroAchievementsDataCoordinator}=await import("../src/platform/decky/providers/retroachievements/backend-transport");
+   const {getDeckyAccountRevision}=await import("../src/platform/decky/decky-account-revision");
+   await getDeckyRetroAchievementsDataCoordinator().refreshResource({path:"API_GetUserProfile.php",query:{u:"alice"}},
+    {revision:getDeckyAccountRevision(RETROACHIEVEMENTS_PROVIDER_ID),entryPoint:"test-refresh"});
+   release(waitingOn==="calendar"?{entries:[]}:{raResource:1,resourceKey:"game",cacheState:"live",fetchedAt:Date.now(),freshUntil:Date.now()+180000,payload:{ID:1,Title:"Test",NumAchievements:1,Achievements:{"1":{ID:1,Title:"A",Description:"A",Points:5}}}});const first=await pending;
+   assert.equal(first.data?.profile.metrics.find(m=>m.key==="total-points")?.value,"100");assert.equal(isDeckyRetroAchievementsProfileFresh(),false);
+   const count=paths.length;const second=await loadDeckyDashboardStateForFullScreenEntry(RETROACHIEVEMENTS_PROVIDER_ID);
+   assert.equal(second.data?.profile.metrics.find(m=>m.key==="total-points")?.value,"200");assert.equal(paths.length,count);
+  }finally{setDeckyBackendCallImplementationForTests(deckyBackendTestCallImplementation);resetDeckyAppServicesForTests();}
+ });
 });

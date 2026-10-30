@@ -474,7 +474,7 @@ test("provider full-screen routes load Profile, Games, and Activity once per vis
 
   assert.match(
     servicesSource,
-    /async function createDeckyProviderFullScreenDataSession[\s\S]*forceRefresh: true[\s\S]*completionProgressPromise[\s\S]*achievementHistoryPromise[\s\S]*Promise\.all/u,
+    /async function createDeckyProviderFullScreenDataSession[\s\S]*forceRefresh: providerId !== RETROACHIEVEMENTS_PROVIDER_ID[\s\S]*completionProgressPromise[\s\S]*achievementHistoryPromise[\s\S]*Promise\.all/u,
   );
   assert.match(servicesSource, /export async function runDeckySteamFullLibraryScan/u);
   assert.doesNotMatch(
@@ -513,7 +513,7 @@ test("provider full-screen routes load Profile, Games, and Activity once per vis
     /export function getDeckyAchievementHistoryStateForFullScreenEntryInitial[\s\S]*getDeckyProviderFullScreenDataSessionSnapshot\(providerId\)\?\.achievementHistory/u,
   );
   assert.match(historySource, /Refreshing your Steam account and loading achievement history\./u);
-  assert.match(gameSource, /forceRefresh: initialSectionState\?\.restoreRequested !== true/u);
+  assert.match(gameSource, /forceRefresh: providerId !== RETROACHIEVEMENTS_PROVIDER_ID\s*&& initialSectionState\?\.restoreRequested !== true/u);
   assert.match(achievementSource, /loadDeckyGameDetailState\(providerId, gameId, \{ forceRefresh: false \}\)/u);
 });
 

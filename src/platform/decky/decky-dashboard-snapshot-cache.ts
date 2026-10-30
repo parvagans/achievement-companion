@@ -6,6 +6,7 @@ import {
   readDeckyStorageText,
   removeDeckyStorageText,
   writeDeckyStorageText,
+  writeDeckyStorageTextPreservingExisting,
 } from "./storage";
 
 const DASHBOARD_SNAPSHOT_STORAGE_KEY_PREFIX =
@@ -94,12 +95,12 @@ export function writeDeckyDashboardSnapshot(snapshot: DashboardSnapshot): boolea
     snapshot,
   };
 
-  const didWrite = writeDeckyStorageText(
+  const didWrite = (snapshot.profile.providerId === "retroachievements" ? writeDeckyStorageTextPreservingExisting : writeDeckyStorageText)(
     getDashboardSnapshotStorageKey(snapshot.profile.providerId),
     JSON.stringify(entry),
   );
 
-  if (!didWrite) {
+  if (!didWrite && snapshot.profile.providerId !== "retroachievements") {
     removeDeckyStorageText(getDashboardSnapshotStorageKey(snapshot.profile.providerId));
   }
 

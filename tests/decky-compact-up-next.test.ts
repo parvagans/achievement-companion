@@ -195,13 +195,15 @@ test("compact game resources do not pin fatal errors and forced retries join in-
   const second = loadDeckyCompactGameState("retroachievements", "2", successLoader, true);
   await Promise.resolve();
   resolveRetry({ status: "success", data: snapshot([achievement("recovered")], "retroachievements"), isStale: false, isRefreshing: false });
-  await Promise.all([first, second]);
+  const recovered = await Promise.all([first, second]);
   assert.equal(calls, 2);
-  assert.equal(readDeckyCompactGameState("retroachievements", "2")?.status, "success");
+  assert.ok(recovered.every((state) => state.status === "success"));
+  assert.equal(readDeckyCompactGameState("retroachievements", "2"), undefined,
+    "a presentation cache alone cannot declare provider data fresh");
   clearDeckyCompactSessionResources();
 });
 
-test("compact dashboard resources retain both providers across child-route Back", async () => {
+test("compact dashboard retains Steam and requires canonical freshness for RA re-entry", async () => {
   clearDeckyCompactSessionResources();
   let steamCalls = 0;
   let retroCalls = 0;
@@ -220,9 +222,9 @@ test("compact dashboard resources retain both providers across child-route Back"
   await loadDeckyCompactDashboardState("retroachievements", retroLoader);
 
   assert.equal(steamCalls, 1);
-  assert.equal(retroCalls, 1);
+  assert.equal(retroCalls, 2);
   assert.equal(readDeckyCompactDashboardState("steam")?.data?.profile.providerId, "steam");
-  assert.equal(readDeckyCompactDashboardState("retroachievements")?.data?.profile.providerId, "retroachievements");
+  assert.equal(readDeckyCompactDashboardState("retroachievements"), undefined);
 
   clearDeckyCompactSessionResources();
   assert.equal(readDeckyCompactDashboardState("steam"), undefined);

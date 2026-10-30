@@ -1,4 +1,6 @@
+import { inheritSourceProvenance } from "../../core/source-provenance";
 import type {
+  GameDetailSnapshot,
   GameCommunityStats,
   NormalizedGame,
   NormalizedMetric,
@@ -9,7 +11,6 @@ import type {
   ProgressSummary,
 } from "@core/domain";
 import type { AchievementProvider } from "@core/ports";
-import { readBoundedCache, writeBoundedCache } from "../../core/bounded-cache";
 import { RETROACHIEVEMENTS_PROVIDER_ID, type RetroAchievementsProviderConfig } from "./config";
 import { createRetroAchievementsClient, type RetroAchievementsClient } from "./client/client";
 import {
@@ -33,6 +34,7 @@ import {
 } from "./mappers/normalize";
 import type {
   RawRetroAchievementsAchievementDistributionResponse,
+  RawRetroAchievementsCompletionProgressEntry,
   RawRetroAchievementsGameProgressResponse,
   RawRetroAchievementsGameProgressionResponse,
   RawRetroAchievementsGameRankAndScoreEntry,
@@ -55,29 +57,24 @@ const retroAchievementsCapabilities: ProviderCapabilities = {
   search: false,
 };
 
-const ACHIEVEMENT_HISTORY_TRANSIENT_RETRIES = 2;
-const ACHIEVEMENT_HISTORY_RETRY_BASE_DELAY_MS = 500;
-const ACHIEVEMENT_HISTORY_MAX_RETRY_DELAY_MS = 15_000;
-
 interface RetroAchievementsProviderDependencies {
   readonly client?: RetroAchievementsClient;
   readonly transport?: RetroAchievementsTransport;
   readonly transportOptions?: FetchRetroAchievementsTransportOptions;
   /** Persist the console-wide verified subset relationship index. */
   readonly subsetRelationshipIndexStore?: RetroAchievementsSubsetRelationshipIndexStore;
-  /** Override the live catalogue pacing in deterministic provider tests. */
-  readonly subsetVerificationIntervalMs?: number;
-  /** Override the live 429 backoff in deterministic provider tests. */
-  readonly subsetVerificationRetryDelayMs?: number;
-  /** Override the number of immediate 429 retries in deterministic tests. */
-  readonly subsetVerificationMaxRateLimitRetries?: number;
-  /** Injectable timer used by catalogue pacing/backoff tests. */
-  readonly sleep?: (milliseconds: number) => Promise<void>;
+  /** Derived checkpoints are current only while their canonical source records are current. */
+  readonly isResourceFresh?: (path: string, query: Readonly<Record<string, string | number>>) => boolean;
+  readonly resourceFreshUntil?: (path: string, query: Readonly<Record<string, string | number>>) => number | undefined;
+  readonly subsetBatchSize?: number;
   readonly now?: () => number;
+  readonly subsetDiagnostic?: (event: string, fields: Readonly<Record<string, string | number | boolean>>) => void;
 }
 
 export type RetroAchievementsSubsetCandidateStatus =
   | "unresolved"
+  | "verifying"
+  | "unsupported"
   | "verified-parent"
   | "verified-no-parent"
   | "retry-later";
@@ -92,6 +89,11 @@ export interface RetroAchievementsSubsetCandidateRecord {
   readonly totalAchievementCount?: number;
   readonly status: RetroAchievementsSubsetCandidateStatus;
   readonly parentGameId?: string;
+  /** Authoritative source expiry, copied from the coordinator, never a local TTL. */
+  readonly metadataFreshUntil?: number;
+  readonly attempts?: number;
+  readonly retryAt?: number;
+  readonly failureCategory?: string;
 }
 
 export interface RetroAchievementsSubsetCatalogueEntry {
@@ -114,6 +116,8 @@ export interface RetroAchievementsSubsetRelationshipIndexState {
   readonly catalogueFetchedAt: number;
   readonly candidates: readonly RetroAchievementsSubsetCandidateRecord[];
   readonly complete: boolean;
+  readonly retryAt?: number;
+  readonly failureCategory?: string;
   /** The last fully verified catalogue snapshot, retained while a stale refresh is incomplete. */
   readonly lastKnownGoodCandidates?: readonly RetroAchievementsSubsetCandidateRecord[];
   readonly lastKnownGoodCatalogueFetchedAt?: number;
@@ -127,7 +131,18 @@ export interface RetroAchievementsSubsetRelationshipIndexStore {
   clear(): Promise<void>;
 }
 
-interface RetroAchievementsProviderRuntime extends AchievementProvider<RetroAchievementsProviderConfig> {
+export interface RetroAchievementsProviderRuntime extends AchievementProvider<RetroAchievementsProviderConfig> {
+  loadCommunityStats(config: RetroAchievementsProviderConfig, snapshot: GameDetailSnapshot): Promise<GameCommunityStats | undefined>;
+  getSubsetDiscoveryStatus(consoleId: string): RetroAchievementsSubsetDiscoveryStatus | undefined;
+  resumeSubsetDiscovery(config: RetroAchievementsProviderConfig, consoleId: string): Promise<RetroAchievementsSubsetRelationshipIndexState>;
+  readVerifiedRelatedGames(game: NormalizedGame): Promise<readonly RelatedGameSummary[]>;
+  subscribeSubsetRelationships(listener: () => void): () => void;
+  invalidateGameProgressCache(gameId?: string): void;
+  loadGameProgressForRecommendations(
+    config: RetroAchievementsProviderConfig,
+    gameId: string,
+    options?: { readonly forceRefresh?: boolean; readonly activeViewing?: boolean },
+  ): Promise<GameDetailSnapshot>;
   loadCompletionProgress(
     config: RetroAchievementsProviderConfig,
   ): Promise<readonly NormalizedGame[]>;
@@ -150,26 +165,25 @@ interface RetroAchievementsProviderRuntime extends AchievementProvider<RetroAchi
   ): Promise<readonly RelatedGameSummary[]>;
 }
 
+export interface RetroAchievementsSubsetDiscoveryStatus {
+  readonly complete: boolean;
+  readonly verified: number;
+  readonly total: number;
+  readonly unsupported: number;
+  readonly remaining: number;
+  readonly running: boolean;
+  readonly retryAt?: number;
+  readonly failureCategory?: string;
+  readonly checkpointSaved: boolean;
+}
+
 // The date-range endpoint can return at most 500 records for a broad request. Split a saturated
 // range until every response is complete, so a long account history does not omit recent unlocks.
 const ACHIEVEMENTS_EARNED_BETWEEN_RESPONSE_LIMIT = 500;
-const GAME_COMMUNITY_STATS_TTL_MS = 60 * 60 * 1000;
-const LATEST_MASTER_PROFILE_CONCURRENCY = 4;
-const MAX_GAME_COMMUNITY_CACHE_ENTRIES = 200;
-const MAX_LATEST_MASTER_AVATAR_CACHE_ENTRIES = 200;
-const LATEST_MASTER_AVATAR_RETRY_MS = 5 * 60 * 1000;
-const SUBSET_CHECKPOINT_CANDIDATE_COUNT = 10;
 // Relationship metadata changes infrequently. The app-level cache persists the
 // discovered summaries, while this provider cache avoids rebuilding the same
 // console index during a long-running Decky session.
-const RETROACHIEVEMENTS_SUBSET_CATALOG_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const RETROACHIEVEMENTS_SUBSET_CATALOG_FAILURE_TTL_MS = 5 * 60 * 1000;
 const RETROACHIEVEMENTS_USER_PROGRESS_BATCH_SIZE = 50;
-// RA rate-limits the extended metadata endpoint aggressively. Keep one request
-// in flight and pace live verification below the observed burst limit.
-const RETROACHIEVEMENTS_SUBSET_VERIFICATION_INTERVAL_MS = 300;
-const RETROACHIEVEMENTS_SUBSET_VERIFICATION_MAX_RATE_LIMIT_RETRIES = 3;
-const RETROACHIEVEMENTS_SUBSET_VERIFICATION_RETRY_DELAY_MS = 1_000;
 export const DEFAULT_RETROACHIEVEMENTS_PROFILE_SUMMARY_WAIT_MS = 5_000;
 
 /** The summary endpoint enriches the profile with rank and rich-presence data. */
@@ -190,11 +204,6 @@ export async function loadOptionalRetroAchievementsProfileSummary(
   } finally {
     if (timeout !== undefined) clearTimeout(timeout);
   }
-}
-
-interface CachedGameCommunityStats {
-  readonly value: GameCommunityStats | undefined;
-  readonly expiresAt: number;
 }
 
 interface RetroAchievementsSubsetCatalogEntry extends RetroAchievementsSubsetCatalogueEntry {
@@ -228,19 +237,6 @@ function readText(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
-}
-
-function readStatusCode(error: unknown): number | undefined {
-  if (typeof error !== "object" || error === null) return undefined;
-  const record = error as Record<string, unknown>;
-  const value = record["statusCode"] ?? record["status"];
-  return typeof value === "number" && Number.isInteger(value) ? value : undefined;
-}
-
-function readRetryAfterMs(error: unknown): number | undefined {
-  if (typeof error !== "object" || error === null) return undefined;
-  const value = (error as Record<string, unknown>)["retryAfterMs"];
-  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
 }
 
 function normalizeSubsetCatalogEntry(
@@ -341,53 +337,16 @@ function applySubsetProgress(
 async function loadAllAchievementsEarnedBetween(
   client: RetroAchievementsClient,
   config: RetroAchievementsProviderConfig,
-  sleep: (milliseconds: number) => Promise<void>,
   options: {
     readonly fromEpochSeconds: number;
     readonly toEpochSeconds: number;
     readonly limit?: number;
   },
 ): Promise<readonly RecentUnlock[]> {
-  let rawUnlocks: Awaited<ReturnType<RetroAchievementsClient["loadAchievementsEarnedBetween"]>>;
-  let retries = 0;
-  while (true) {
-    try {
-      rawUnlocks = await client.loadAchievementsEarnedBetween(config, {
-        fromEpochSeconds: options.fromEpochSeconds,
-        toEpochSeconds: options.toEpochSeconds,
-      });
-      break;
-    } catch (error) {
-      const statusCode = readStatusCode(error);
-      const isTransientHttpFailure = statusCode === 408
-        || statusCode === 425
-        || statusCode === 429
-        || (statusCode !== undefined && statusCode >= 500 && statusCode <= 599);
-      const isTransientNetworkFailure = statusCode === undefined
-        && (error instanceof TypeError
-          || (error instanceof Error && /fetch|network|timed? ?out|connection/i.test(error.message)));
-      const isTransientResponseFailure = error instanceof SyntaxError;
-      if (
-        retries >= ACHIEVEMENT_HISTORY_TRANSIENT_RETRIES
-        || (!isTransientHttpFailure && !isTransientNetworkFailure && !isTransientResponseFailure)
-      ) {
-        throw error;
-      }
-
-      const requestedRetryAfterMs = readRetryAfterMs(error) ?? 0;
-      if (requestedRetryAfterMs > ACHIEVEMENT_HISTORY_MAX_RETRY_DELAY_MS) {
-        // Avoid retrying sooner than the API requested; a later profile entry
-        // can start a fresh history load after this rate-limit window.
-        throw error;
-      }
-      const delayMs = Math.max(
-        ACHIEVEMENT_HISTORY_RETRY_BASE_DELAY_MS * 2 ** retries,
-        requestedRetryAfterMs,
-      );
-      retries += 1;
-      await sleep(delayMs);
-    }
-  }
+  const rawUnlocks = await client.loadAchievementsEarnedBetween(config, {
+    fromEpochSeconds: options.fromEpochSeconds,
+    toEpochSeconds: options.toEpochSeconds,
+  });
   const isSmallestRange = options.fromEpochSeconds >= options.toEpochSeconds;
 
   if (rawUnlocks.length < ACHIEVEMENTS_EARNED_BETWEEN_RESPONSE_LIMIT || isSmallestRange) {
@@ -397,7 +356,7 @@ async function loadAllAchievementsEarnedBetween(
   const midpoint = options.fromEpochSeconds + Math.floor(
     (options.toEpochSeconds - options.fromEpochSeconds) / 2,
   );
-  const newerUnlocks = await loadAllAchievementsEarnedBetween(client, config, sleep, {
+  const newerUnlocks = await loadAllAchievementsEarnedBetween(client, config, {
     fromEpochSeconds: midpoint + 1,
     toEpochSeconds: options.toEpochSeconds,
     ...(options.limit !== undefined ? { limit: options.limit } : {}),
@@ -410,7 +369,7 @@ async function loadAllAchievementsEarnedBetween(
     return newerUnlocks;
   }
 
-  const olderUnlocks = await loadAllAchievementsEarnedBetween(client, config, sleep, {
+  const olderUnlocks = await loadAllAchievementsEarnedBetween(client, config, {
     fromEpochSeconds: options.fromEpochSeconds,
     toEpochSeconds: midpoint,
     ...(remainingLimit !== undefined ? { limit: remainingLimit } : {}),
@@ -634,98 +593,120 @@ function enrichGameDetailSnapshotWithSystemIcon(
 }
 
 async function enrichRecentlyPlayedGamesWithExplicitAwards(
-  client: RetroAchievementsClient,
-  config: RetroAchievementsProviderConfig,
   games: readonly RecentlyPlayedGame[],
+  completionProgress?: readonly RawRetroAchievementsCompletionProgressEntry[],
 ): Promise<readonly RecentlyPlayedGame[]> {
-  return Promise.all(
-    games.map(async (game) => {
-      const recentAward = getMetricValue(game.metrics, "highest-award-kind")?.trim().toLowerCase();
-      if (recentAward !== undefined && (
-        recentAward.includes("beaten") || recentAward.includes("mastered") || recentAward.includes("completed")
-      )) {
-        return game;
-      }
-
-      try {
-        const rawGameProgress = await client.loadGameProgress(config, game.gameId);
-        const normalizedGameDetail = normalizeRetroAchievementsGameDetail(rawGameProgress);
-        const highestAwardKind = getMetricValue(normalizedGameDetail.game.metrics, "highest-award-kind");
-        const additionalMetrics: NormalizedMetric[] = [
-          ...(highestAwardKind !== undefined
-            ? [
-                {
-                  key: "highest-award-kind",
-                  label: "Highest Award",
-                  value: highestAwardKind,
-                },
-              ]
-            : []),
-          ...(getMetricValue(normalizedGameDetail.game.metrics, "highest-award-date") !== undefined
-            ? [
-                {
-                  key: "highest-award-date",
-                  label: "Highest Award Date",
-                  value: getMetricValue(normalizedGameDetail.game.metrics, "highest-award-date")!,
-                },
-              ]
-            : []),
-        ];
-
-        const mergedMetrics = mergeMetrics(game.metrics, additionalMetrics);
-        return mergedMetrics !== undefined
-          ? {
-              ...game,
-              metrics: mergedMetrics,
-            }
-          : game;
-      } catch {
-        return game;
-      }
-    }),
+  if (completionProgress === undefined) return games;
+  const progressByGameId = new Map(
+    normalizeRetroAchievementsCompletionProgressGames(completionProgress).map((game) => [game.gameId, game]),
   );
+  return games.map((game) => {
+    const progress = progressByGameId.get(game.gameId);
+    if (progress === undefined) return game;
+    const awardKind = getMetricValue(progress.metrics, "highest-award-kind");
+    if (awardKind === undefined) return game;
+    const awardDate = getMetricValue(progress.metrics, "highest-award-date");
+    const metrics = mergeMetrics(game.metrics, [
+      { key: "highest-award-kind", label: "Highest Award", value: awardKind },
+      ...(awardDate !== undefined
+        ? [{ key: "highest-award-date", label: "Highest Award Date", value: awardDate }]
+        : []),
+    ]);
+    return metrics === undefined ? game : { ...game, metrics };
+  });
 }
 
 export function createRetroAchievementsProvider(
   dependencies: RetroAchievementsProviderDependencies = {},
-): AchievementProvider<RetroAchievementsProviderConfig> {
+): RetroAchievementsProviderRuntime {
   const client = resolveClient(dependencies);
-  const now = dependencies.now ?? Date.now;
-  const subsetVerificationIntervalMs = Math.max(
-    0,
-    dependencies.subsetVerificationIntervalMs
-      ?? (dependencies.client === undefined ? RETROACHIEVEMENTS_SUBSET_VERIFICATION_INTERVAL_MS : 0),
-  );
-  const subsetVerificationRetryDelayMs = Math.max(
-    0,
-    dependencies.subsetVerificationRetryDelayMs
-      ?? (dependencies.client === undefined ? RETROACHIEVEMENTS_SUBSET_VERIFICATION_RETRY_DELAY_MS : 0),
-  );
-  const sleep = dependencies.sleep ?? ((milliseconds: number) => new Promise<void>((resolve) => {
-    setTimeout(resolve, milliseconds);
-  }));
-  let cachedSystemIconUrlByConsoleId: ReadonlyMap<string, string> | undefined;
   let systemIconUrlByConsoleIdPromise: Promise<ReadonlyMap<string, string>> | undefined;
-  const gameCommunityStatsCache = new Map<string, CachedGameCommunityStats>();
   const gameCommunityStatsLoads = new Map<string, Promise<GameCommunityStats | undefined>>();
-  const latestMasterAvatarCache = new Map<string, { readonly value: string | undefined; readonly expiresAt: number }>();
+  const rawGameProgressLoads = new Map<string, Promise<RawRetroAchievementsGameProgressResponse>>();
+  const completionProgressLoads = new Map<string, Promise<readonly RawRetroAchievementsCompletionProgressEntry[]>>();
   const subsetRelationshipIndexStore = dependencies.subsetRelationshipIndexStore;
   const subsetCatalogueCache = new Map<string, RetroAchievementsSubsetCatalogueState>();
   const subsetCatalogueLoads = new Map<string, Promise<RetroAchievementsSubsetCatalogueState>>();
-  const subsetCatalogueFailures = new Map<string, { readonly error: unknown; readonly expiresAt: number }>();
   const subsetRelationshipIndexCache = new Map<string, RetroAchievementsSubsetRelationshipIndexState>();
   const subsetRelationshipIndexLoads = new Map<string, Promise<RetroAchievementsSubsetRelationshipIndexState>>();
+  const subsetRelationshipListeners = new Set<() => void>();
+  const subsetNow = dependencies.now ?? (() => Date.now());
+  const checkpointSaved = new Map<string, boolean>();
+  const terminal = (candidate: RetroAchievementsSubsetCandidateRecord) => candidate.status === "verified-parent" || candidate.status === "verified-no-parent" || candidate.status === "unsupported";
+  function subsetEvent(event: string, fields: Record<string, string | number | boolean>) {
+    try { dependencies.subsetDiagnostic?.(event, fields); } catch { /* Diagnostic only. */ }
+  }
+  function discoveryStatus(state: RetroAchievementsSubsetRelationshipIndexState): RetroAchievementsSubsetDiscoveryStatus {
+    const verified = state.candidates.filter((c) => c.status === "verified-parent" || c.status === "verified-no-parent").length;
+    const unresolved = state.candidates.filter((c) => !terminal(c));
+    const eligible = unresolved.some((c) => (c.retryAt ?? 0) <= subsetNow());
+    const consoleDeferred = (state.retryAt ?? 0) > subsetNow();
+    const retryAt = consoleDeferred ? state.retryAt : eligible ? undefined : Math.min(...unresolved.map((c) => c.retryAt ?? 0));
+    const failureCategory = consoleDeferred ? state.failureCategory : unresolved.find((c) => c.failureCategory !== undefined)?.failureCategory;
+    return { complete: state.candidates.every(terminal), verified, total: state.candidates.length,
+      unsupported: state.candidates.filter((c) => c.status === "unsupported").length,
+      remaining: unresolved.length, running: subsetRelationshipIndexLoads.has(state.consoleId),
+      checkpointSaved: checkpointSaved.get(state.consoleId) !== false,
+      ...(retryAt !== undefined && Number.isFinite(retryAt) ? { retryAt } : {}),
+      ...(failureCategory !== undefined ? { failureCategory } : {}),
+    };
+  }
   let subsetVerificationQueue: Promise<void> = Promise.resolve();
-  let nextSubsetVerificationAt = 0;
+
+  async function loadRawGameProgress(
+    config: RetroAchievementsProviderConfig,
+    gameId: string,
+    forceRefresh = false,
+    activeViewing = false,
+  ): Promise<RawRetroAchievementsGameProgressResponse> {
+    const key = JSON.stringify([config.username.trim().toLocaleLowerCase(), gameId]);
+    const active = rawGameProgressLoads.get(key);
+    if (active !== undefined) return active;
+    const load = client.loadGameProgress(config, gameId, { forceRefresh, activeViewing });
+    rawGameProgressLoads.set(key, load);
+    try {
+      const value = await load;
+      return value;
+    } finally {
+      if (rawGameProgressLoads.get(key) === load) rawGameProgressLoads.delete(key);
+    }
+  }
+
+  async function loadCompletionProgressAndRemember(
+    config: RetroAchievementsProviderConfig,
+  ): Promise<readonly RawRetroAchievementsCompletionProgressEntry[]> {
+    const account = config.username.toLocaleLowerCase();
+    const active = completionProgressLoads.get(account);
+    if (active !== undefined) return active;
+    const load = client.loadCompletionProgress(config);
+    completionProgressLoads.set(account, load);
+    try {
+      const entries = await load;
+      return entries;
+    } finally {
+      if (completionProgressLoads.get(account) === load) completionProgressLoads.delete(account);
+    }
+  }
+
+  async function readCompletionProgressForAwards(
+    config: RetroAchievementsProviderConfig,
+  ): Promise<readonly RawRetroAchievementsCompletionProgressEntry[] | undefined> {
+    const account = config.username.toLocaleLowerCase();
+    const active = completionProgressLoads.get(account);
+    if (active !== undefined) {
+      try { return await active; } catch { return undefined; }
+    }
+    try {
+      return await loadCompletionProgressAndRemember(config);
+    } catch {
+      // A failed account-wide progress refresh must not fan out into ten detail requests.
+      return undefined;
+    }
+  }
 
   function enqueueSubsetVerification<T>(task: () => Promise<T>): Promise<T> {
-    const run = async (): Promise<T> => {
-      const waitMs = Math.max(0, nextSubsetVerificationAt - Date.now());
-      if (waitMs > 0) await sleep(waitMs);
-      nextSubsetVerificationAt = Date.now() + subsetVerificationIntervalMs;
-      return task();
-    };
-    const next = subsetVerificationQueue.then(run, run);
+    // Preserve checkpoint ordering; the backend exclusively owns HTTP pacing.
+    const next = subsetVerificationQueue.then(task, task);
     subsetVerificationQueue = next.then(() => undefined, () => undefined);
     return next;
   }
@@ -734,30 +715,7 @@ export function createRetroAchievementsProvider(
     config: RetroAchievementsProviderConfig,
     gameId: string,
   ): Promise<RawRetroAchievementsGameExtendedResponse> {
-    let rateLimitRetries = 0;
-    const maxRateLimitRetries = Math.max(
-      0,
-      dependencies.subsetVerificationMaxRateLimitRetries
-        ?? RETROACHIEVEMENTS_SUBSET_VERIFICATION_MAX_RATE_LIMIT_RETRIES,
-    );
-    while (true) {
-      try {
-        return await client.loadGameExtended!(config, gameId);
-      } catch (error) {
-        if (
-          readStatusCode(error) !== 429
-          || rateLimitRetries >= maxRateLimitRetries
-        ) {
-          throw error;
-        }
-        const delayMs = Math.max(
-          subsetVerificationRetryDelayMs * 2 ** rateLimitRetries,
-          readRetryAfterMs(error) ?? 0,
-        );
-        rateLimitRetries += 1;
-        if (delayMs > 0) await sleep(delayMs);
-      }
-    }
+    return client.loadGameExtended!(config, gameId);
   }
 
   async function readSubsetRelationshipIndex(
@@ -778,11 +736,8 @@ export function createRetroAchievementsProvider(
       ?? await subsetRelationshipIndexStore?.readCatalogue?.(consoleId);
     if (cached !== undefined) {
       subsetCatalogueCache.set(consoleId, cached);
-      if (cached.fetchedAt + RETROACHIEVEMENTS_SUBSET_CATALOG_TTL_MS > Date.now()) return cached;
+      if (dependencies.isResourceFresh?.("API_GetGameList.php", { i: consoleId, f: 1, h: 1 })) return cached;
     }
-
-    const failure = subsetCatalogueFailures.get(consoleId);
-    if (failure !== undefined && failure.expiresAt > Date.now()) throw failure.error;
 
     const inFlight = subsetCatalogueLoads.get(consoleId);
     if (inFlight !== undefined) return inFlight;
@@ -807,15 +762,7 @@ export function createRetroAchievementsProvider(
     })();
     subsetCatalogueLoads.set(consoleId, load);
     try {
-      const result = await load;
-      subsetCatalogueFailures.delete(consoleId);
-      return result;
-    } catch (error) {
-      subsetCatalogueFailures.set(consoleId, {
-        error,
-        expiresAt: Date.now() + RETROACHIEVEMENTS_SUBSET_CATALOG_FAILURE_TTL_MS,
-      });
-      throw error;
+      return await load;
     } finally {
       subsetCatalogueLoads.delete(consoleId);
     }
@@ -825,7 +772,12 @@ export function createRetroAchievementsProvider(
     state: RetroAchievementsSubsetRelationshipIndexState,
   ): Promise<void> {
     subsetRelationshipIndexCache.set(state.consoleId, state);
-    await subsetRelationshipIndexStore?.write(state);
+    try { await subsetRelationshipIndexStore?.write(state); checkpointSaved.set(state.consoleId, true); }
+    catch { checkpointSaved.set(state.consoleId, false); }
+    const status = discoveryStatus(state);
+    subsetEvent("subset_checkpoint", { consoleId: state.consoleId, checkpointSaved: status.checkpointSaved,
+      verified: status.verified, total: status.total, remaining: status.remaining, complete: status.complete });
+    for (const listener of subsetRelationshipListeners) listener();
   }
 
   function mergeSubsetCandidates(
@@ -845,7 +797,8 @@ export function createRetroAchievementsProvider(
         ? candidate
         : {
             ...candidate,
-            status: previous.status,
+            ...previous,
+            ...(previous.metadataFreshUntil !== undefined ? { metadataFreshUntil: previous.metadataFreshUntil } : {}),
             ...(previous.parentGameId !== undefined ? { parentGameId: previous.parentGameId } : {}),
           });
     }
@@ -855,123 +808,123 @@ export function createRetroAchievementsProvider(
       candidates,
       complete: candidates.every((candidate) => candidate.status === "verified-parent" || candidate.status === "verified-no-parent"),
     };
-    if (current?.lastKnownGoodCandidates !== undefined) {
+    if (current !== undefined) {
       return {
         ...next,
-        lastKnownGoodCandidates: current.lastKnownGoodCandidates,
+        lastKnownGoodCandidates: [...new Map([
+          ...(current.lastKnownGoodCandidates ?? []),
+          ...current.candidates.filter((entry) => entry.status === "verified-parent" || entry.status === "verified-no-parent"),
+        ].map((entry) => [entry.gameId, entry])).values()],
+        ...((current.retryAt ?? 0) > subsetNow() ? { retryAt: current.retryAt!, ...(current.failureCategory !== undefined ? { failureCategory: current.failureCategory } : {}) } : {}),
         ...(current.lastKnownGoodCatalogueFetchedAt !== undefined
           ? { lastKnownGoodCatalogueFetchedAt: current.lastKnownGoodCatalogueFetchedAt }
           : {}),
-      };
-    }
-    if (current?.complete === true) {
-      return {
-        ...next,
-        lastKnownGoodCandidates: current.candidates,
-        lastKnownGoodCatalogueFetchedAt: current.catalogueFetchedAt,
       };
     }
     return next;
   }
 
   async function refreshSubsetRelationshipIndex(
-    config: RetroAchievementsProviderConfig,
-    platformId: string,
+    config: RetroAchievementsProviderConfig, platformId: string,
     existing: RetroAchievementsSubsetRelationshipIndexState | undefined,
   ): Promise<RetroAchievementsSubsetRelationshipIndexState> {
     const inFlight = subsetRelationshipIndexLoads.get(platformId);
-    if (inFlight !== undefined) return inFlight;
-    if (client.loadGameList === undefined || client.loadGameExtended === undefined) {
-      throw new Error("RetroAchievements subset discovery is unavailable.");
-    }
-
+    if (inFlight !== undefined) { subsetEvent("subset_discovery_joined", { consoleId: platformId }); return inFlight; }
+    if (client.loadGameList === undefined || client.loadGameExtended === undefined) throw new Error("RetroAchievements subset discovery is unavailable.");
     const load = (async () => {
       const catalogue = await loadSubsetCatalogue(config, platformId);
-      let state = mergeSubsetCandidates(existing, platformId, catalogue.candidates);
-      state = { ...state, catalogueFetchedAt: catalogue.fetchedAt };
-      await writeSubsetRelationshipIndex(state);
+      let state = { ...mergeSubsetCandidates(existing, platformId, catalogue.candidates), catalogueFetchedAt: catalogue.fetchedAt };
       const candidates = [...state.candidates];
-      let uncheckpointedCount = 0;
-      const checkpoint = async (complete: boolean): Promise<void> => {
-        // Copy only at a checkpoint so persisted snapshots never change under the store.
-        state = { ...state, candidates: [...candidates], complete };
-        if (complete) {
-          state = {
-            ...state,
-            lastKnownGoodCandidates: state.candidates,
-            lastKnownGoodCatalogueFetchedAt: state.catalogueFetchedAt,
-          };
-        }
+      const checkpoint = async () => {
+        state = { ...state, candidates: [...candidates], complete: candidates.every(terminal) };
+        if (state.complete) state = { ...state, lastKnownGoodCandidates: state.candidates, lastKnownGoodCatalogueFetchedAt: state.catalogueFetchedAt };
         await writeSubsetRelationshipIndex(state);
-        uncheckpointedCount = 0;
       };
-
-      for (let index = 0; index < candidates.length; index += 1) {
-        const candidate = candidates[index]!;
-        if (candidate.status === "verified-parent" || candidate.status === "verified-no-parent") continue;
+      // Resume coverage before considering stale, already-verified metadata.
+      // A missing local expiry (legacy checkpoint or memory eviction) is not
+      // evidence that the relationship was never verified.
+      const pending = candidates.map((c, i) => ({ c, i })).filter(({ c }) => !terminal(c));
+      const work = pending.length > 0 ? pending : candidates.map((c, i) => ({ c, i })).filter(({ c }) =>
+        c.status !== "unsupported" && Number.isFinite(c.metadataFreshUntil) && c.metadataFreshUntil! <= subsetNow());
+      await checkpoint();
+      if ((state.retryAt ?? 0) > subsetNow()) return state;
+      let attempts = 0;
+      for (const { c: candidate, i: index } of work) {
+        if ((candidate.retryAt ?? 0) > subsetNow()) continue;
+        if (attempts >= (dependencies.subsetBatchSize ?? 5)) break;
+        attempts++;
+        const attempt = (candidate.attempts ?? 0) + 1;
+        const wasVerified = candidate.status === "verified-parent" || candidate.status === "verified-no-parent";
+        candidates[index] = { ...candidate, attempts: attempt, ...(wasVerified ? {} : { status: "verifying" as const }) };
+        state = { ...state, candidates: [...candidates] };
+        subsetRelationshipIndexCache.set(platformId, state);
+        for (const listener of subsetRelationshipListeners) listener();
+        subsetEvent("subset_candidate", { consoleId: platformId, gameId: candidate.gameId, previousStatus: candidate.status,
+          candidateStatus: "verifying", attempt, outcome: "started", retryEligible: true });
         try {
           const extended = await enqueueSubsetVerification(() => loadSubsetVerificationMetadata(config, candidate.gameId));
-          const catalogueCandidate: RawRetroAchievementsGameListEntry = {
-            ID: candidate.gameId,
-            Title: candidate.title,
-            ConsoleID: candidate.platformId,
-            ...(candidate.platformLabel !== undefined ? { ConsoleName: candidate.platformLabel } : {}),
-            ...(candidate.coverImageUrl !== undefined ? { ImageIcon: candidate.coverImageUrl } : {}),
-            ...(candidate.totalAchievementCount !== undefined ? { NumAchievements: candidate.totalAchievementCount } : {}),
-          };
-          const normalized = normalizeSubsetCatalogEntry(
-            catalogueCandidate,
-            extended,
-          );
-          if (normalized === undefined) throw new Error(`RetroAchievements subset candidate ${candidate.gameId} is incomplete.`);
-          candidates[index] = {
-            ...candidate,
-            status: normalized.parentGameId === undefined ? "verified-no-parent" : "verified-parent",
-            ...(normalized.parentGameId !== undefined ? { parentGameId: normalized.parentGameId } : {}),
-            ...(normalized.platformLabel !== undefined ? { platformLabel: normalized.platformLabel } : {}),
-            ...(normalized.coverImageUrl !== undefined ? { coverImageUrl: normalized.coverImageUrl } : {}),
-            ...(normalized.boxArtImageUrl !== undefined ? { boxArtImageUrl: normalized.boxArtImageUrl } : {}),
-            ...(normalized.totalAchievementCount !== undefined ? { totalAchievementCount: normalized.totalAchievementCount } : {}),
-          };
-        } catch (error) {
-          candidates[index] = { ...candidate, status: "retry-later" };
-          await checkpoint(false);
-          throw error;
+          if (readIdentifier(extended.ID ?? extended.id) !== candidate.gameId || readIdentifier(extended.ConsoleID ?? extended.consoleId) !== platformId)
+            throw new Error("invalid_metadata_identity");
+          const parent = "ParentGameID" in extended ? extended.ParentGameID : extended.parentGameId;
+          if (!("ParentGameID" in extended || "parentGameId" in extended) ||
+              (parent !== null && !(typeof parent === "number" && Number.isSafeInteger(parent) && parent > 0) &&
+               !(typeof parent === "string" && /^[1-9]\d*$/u.test(parent)))) throw new Error("invalid_metadata_parent");
+          const normalized = normalizeSubsetCatalogEntry({ ID: candidate.gameId, Title: candidate.title, ConsoleID: candidate.platformId }, extended);
+          if (normalized === undefined || !Number.isFinite(normalized.totalAchievementCount) || normalized.totalAchievementCount! < 0)
+            throw new Error("invalid_metadata");
+          const { retryAt: _retry, failureCategory: _failure, parentGameId: _parent, ...preserved } = candidate;
+          const expiry = dependencies.resourceFreshUntil?.("API_GetGameExtended.php", { i: candidate.gameId });
+          const status = normalized.parentGameId === undefined ? "verified-no-parent" as const : "verified-parent" as const;
+          candidates[index] = { ...preserved, ...normalized, status, attempts: attempt,
+            ...(expiry !== undefined ? { metadataFreshUntil: expiry } : {}) };
+          subsetEvent("subset_candidate", { consoleId: platformId, gameId: candidate.gameId, previousStatus: candidate.status,
+            candidateStatus: status, attempt, outcome: "verified", normalization: "valid", retryEligible: false });
+        } catch (cause) {
+          const error = cause as { status?: number; statusCode?: number; retryAfterMs?: number; message?: string };
+          const statusCode = error?.status ?? error?.statusCode;
+          const unsupported = statusCode === 404 || statusCode === 410;
+          const category = unsupported ? "unsupported" : statusCode === 429 ? "rate_limit" :
+            error?.message?.startsWith("invalid_metadata") ? "invalid_metadata" : "provider_unavailable";
+          const providerDelay = typeof error?.retryAfterMs === "number" && Number.isFinite(error.retryAfterMs) ? Math.max(0, error.retryAfterMs) : 0;
+          const retryAt = subsetNow() + Math.max(providerDelay, statusCode === 401 || statusCode === 403 ? 900000 :
+            unsupported ? 300000 : Math.min(900000, 30000 * 2 ** Math.min(5, attempt - 1)));
+          candidates[index] = { ...candidate, attempts: attempt, status: wasVerified ? candidate.status : unsupported ? "unsupported" : "retry-later",
+            failureCategory: category, ...(!unsupported || wasVerified ? { retryAt } : {}) };
+          subsetEvent("subset_candidate", { consoleId: platformId, gameId: candidate.gameId, previousStatus: candidate.status,
+            candidateStatus: candidates[index]!.status, attempt, outcome: category, normalization: category === "invalid_metadata" ? "rejected" : "not_available",
+            retryEligible: false, ...(!unsupported ? { retryAt } : {}) });
+          if (statusCode === 429 || statusCode === 401 || statusCode === 403) {
+            state = { ...state, retryAt, failureCategory: category }; await checkpoint(); break;
+          }
         }
-        uncheckpointedCount += 1;
-        if (uncheckpointedCount >= SUBSET_CHECKPOINT_CANDIDATE_COUNT) await checkpoint(false);
+        await checkpoint();
       }
-      await checkpoint(true);
+      await checkpoint();
       return state;
     })();
-
     subsetRelationshipIndexLoads.set(platformId, load);
-    try {
-      return await load;
-    } finally {
-      subsetRelationshipIndexLoads.delete(platformId);
-    }
+    subsetEvent("subset_discovery_started", { consoleId: platformId });
+    try { return await load; }
+    finally { subsetRelationshipIndexLoads.delete(platformId); for (const listener of subsetRelationshipListeners) listener(); }
   }
 
-  async function ensureSubsetRelationshipIndex(
-    config: RetroAchievementsProviderConfig,
-    platformId: string,
-    waitForCompletion: boolean,
-  ): Promise<RetroAchievementsSubsetRelationshipIndexState | undefined> {
+  async function ensureSubsetRelationshipIndex(config: RetroAchievementsProviderConfig, platformId: string,
+    _waitForCompletion: boolean): Promise<RetroAchievementsSubsetRelationshipIndexState | undefined> {
     const current = await readSubsetRelationshipIndex(platformId);
-    const isStale = current === undefined || current.catalogueFetchedAt + RETROACHIEVEMENTS_SUBSET_CATALOG_TTL_MS <= Date.now();
-    if (current !== undefined && current.complete && !isStale) return current;
-    const hasLastKnownGood = current !== undefined && (
-      current.complete || current.lastKnownGoodCandidates !== undefined
-    );
-    if (hasLastKnownGood && !waitForCompletion) {
+    if (current !== undefined && subsetRelationshipIndexLoads.has(platformId)) return current;
+    if (current !== undefined && current.candidates.every(terminal) &&
+        dependencies.isResourceFresh?.("API_GetGameList.php", { i: platformId, f: 1, h: 1 }) === true &&
+        !current.candidates.some((c) => Number.isFinite(c.metadataFreshUntil) && c.metadataFreshUntil! <= subsetNow() && (c.retryAt ?? 0) <= subsetNow())) {
+      if (!current.complete) { const repaired = { ...current, complete: true }; await writeSubsetRelationshipIndex(repaired); return repaired; }
+      return current;
+    }
+    if (current?.complete === true) {
       void refreshSubsetRelationshipIndex(config, platformId, current).catch(() => undefined);
       return current;
     }
-    try {
-      return await refreshSubsetRelationshipIndex(config, platformId, current);
-    } catch (error) {
-      if (hasLastKnownGood && !waitForCompletion) return current;
+    try { return await refreshSubsetRelationshipIndex(config, platformId, current); }
+    catch (error) {
+      if (current !== undefined && (current.lastKnownGoodCandidates !== undefined || current.candidates.some((c) => c.status === "verified-parent"))) return current;
       throw error;
     }
   }
@@ -992,52 +945,19 @@ export function createRetroAchievementsProvider(
     return progressByGameId;
   }
 
-  async function loadLatestMasterAvatarUrls(
-    config: RetroAchievementsProviderConfig,
-    entries: readonly RawRetroAchievementsGameRankAndScoreEntry[],
-  ): Promise<{ readonly avatarUrlByUserIdentifier: ReadonlyMap<string, string>; readonly retryAt: number }> {
-    const avatarUrlByUserIdentifier = new Map<string, string>();
-    let retryAt = Number.POSITIVE_INFINITY;
-    if (client.loadUserProfile === undefined) return { avatarUrlByUserIdentifier, retryAt };
-    const candidates = entries.flatMap((entry) => {
+  function loadLatestMasterAvatarUrls(entries: readonly RawRetroAchievementsGameRankAndScoreEntry[]): ReadonlyMap<string, string> {
+    const avatars = new Map<string, string>();
+    for (const entry of entries) {
       const username = readText(entry.User ?? entry.user);
-      const userUlid = readText(entry.ULID ?? entry.ulid);
-      const identifier = userUlid ?? username;
-      return username === undefined || identifier === undefined ? [] : [{ username, userUlid, identifier }];
-    });
-
-    for (let offset = 0; offset < candidates.length; offset += LATEST_MASTER_PROFILE_CONCURRENCY) {
-      const batch = candidates.slice(offset, offset + LATEST_MASTER_PROFILE_CONCURRENCY);
-      await Promise.all(batch.map(async ({ username, userUlid, identifier }) => {
-        let cached = readBoundedCache(latestMasterAvatarCache, identifier, now(), MAX_LATEST_MASTER_AVATAR_CACHE_ENTRIES);
-        if (cached === undefined) {
-          let avatarUrl: string | undefined;
-          try {
-            const profile = await client.loadUserProfile!(config, identifier);
-            const profileUsername = readText(profile.User ?? profile.user);
-            const profileUlid = readText(profile.ULID ?? profile.ulid);
-            const identityMatches = userUlid !== undefined && profileUlid !== undefined
-              ? userUlid === profileUlid
-              : profileUsername?.toLocaleLowerCase() === username.toLocaleLowerCase();
-            const rawAvatar = identityMatches ? readText(profile.UserPic ?? profile.userPic) : undefined;
-            avatarUrl = rawAvatar === undefined ? undefined : normalizeRetroAchievementsImageUrl(rawAvatar);
-          } catch {
-            // Optional avatars may fail independently and retry after a short cooldown.
-          }
-          cached = {
-            value: avatarUrl,
-            expiresAt: avatarUrl === undefined ? now() + LATEST_MASTER_AVATAR_RETRY_MS : Number.POSITIVE_INFINITY,
-          };
-          writeBoundedCache(latestMasterAvatarCache, identifier, cached, now(), MAX_LATEST_MASTER_AVATAR_CACHE_ENTRIES);
-        }
-        retryAt = Math.min(retryAt, cached.expiresAt);
-        const avatarUrl = cached.value;
-        if (avatarUrl === undefined) return;
-        avatarUrlByUserIdentifier.set(username, avatarUrl);
-        if (userUlid !== undefined) avatarUrlByUserIdentifier.set(userUlid, avatarUrl);
-      }));
+      if (username === undefined) continue;
+      // Public UserPic image URLs follow RA's documented profile response. Images
+      // load independently; statistics readiness never waits for profile APIs.
+      const url = normalizeRetroAchievementsImageUrl(`/UserPic/${encodeURIComponent(username)}.png`);
+      avatars.set(username, url);
+      const ulid = readText(entry.ULID ?? entry.ulid);
+      if (ulid !== undefined) avatars.set(ulid, url);
     }
-    return { avatarUrlByUserIdentifier, retryAt };
+    return avatars;
   }
 
   async function loadGameCommunityStats(
@@ -1045,11 +965,6 @@ export function createRetroAchievementsProvider(
     snapshot: ReturnType<typeof normalizeRetroAchievementsGameDetail>,
   ): Promise<GameCommunityStats | undefined> {
     const gameId = snapshot.game.gameId;
-    const cached = readBoundedCache(gameCommunityStatsCache, gameId, now(), MAX_GAME_COMMUNITY_CACHE_ENTRIES);
-    if (cached !== undefined) {
-      return cached.value;
-    }
-
     const inFlight = gameCommunityStatsLoads.get(gameId);
     if (inFlight !== undefined) {
       return inFlight;
@@ -1064,7 +979,11 @@ export function createRetroAchievementsProvider(
         client.loadLatestGameMasters?.(config, gameId) ??
           Promise.resolve<readonly RawRetroAchievementsGameRankAndScoreEntry[] | undefined>(undefined),
       ]);
+      if (snapshot.game.communityStats === undefined && [distributionResult, progressionResult, latestMastersResult].every((result) => result.status === "rejected")) {
+        throw distributionResult.status === "rejected" ? distributionResult.reason : new Error("Community data unavailable");
+      }
       const baseStats = normalizeRetroAchievementsGameCommunityStats({
+        ...(snapshot.game.communityStats !== undefined ? { previous: snapshot.game.communityStats } : {}),
         totalAchievementCount: snapshot.game.summary.totalCount,
         totalPlayers: getMetricNumber(snapshot.game.metrics, "total-players"),
         distribution: distributionResult.status === "fulfilled" ? distributionResult.value : undefined,
@@ -1075,24 +994,20 @@ export function createRetroAchievementsProvider(
         : undefined;
       const avatars = latestMasterEntries === undefined
         ? undefined
-        : await loadLatestMasterAvatarUrls(config, latestMasterEntries);
-      const latestMasters = normalizeRetroAchievementsLatestMasters({
+        : loadLatestMasterAvatarUrls(latestMasterEntries);
+      const latestMasters = latestMasterEntries === undefined ? undefined : normalizeRetroAchievementsLatestMasters({
         entries: latestMasterEntries,
         masteredPlayers: baseStats?.masteredPlayers,
-        ...(avatars !== undefined ? { avatarUrlByUserIdentifier: avatars.avatarUrlByUserIdentifier } : {}),
+        ...(avatars !== undefined ? { avatarUrlByUserIdentifier: avatars } : {}),
       });
       const stats = normalizeRetroAchievementsGameCommunityStats({
+        ...(snapshot.game.communityStats !== undefined ? { previous: snapshot.game.communityStats } : {}),
         totalAchievementCount: snapshot.game.summary.totalCount,
         totalPlayers: getMetricNumber(snapshot.game.metrics, "total-players"),
         distribution: distributionResult.status === "fulfilled" ? distributionResult.value : undefined,
         progression: progressionResult.status === "fulfilled" ? progressionResult.value : undefined,
-        latestMasters,
+        ...(latestMasters !== undefined ? { latestMasters } : {}),
       });
-      writeBoundedCache(gameCommunityStatsCache, gameId, {
-        value: stats,
-        // Let failed avatar lookups retry even while the surrounding stats are fresh.
-        expiresAt: Math.min(now() + GAME_COMMUNITY_STATS_TTL_MS, avatars?.retryAt ?? Number.POSITIVE_INFINITY),
-      }, now(), MAX_GAME_COMMUNITY_CACHE_ENTRIES);
       return stats;
     })();
 
@@ -1107,29 +1022,22 @@ export function createRetroAchievementsProvider(
   async function loadSystemIconUrlByConsoleId(
     config: RetroAchievementsProviderConfig,
   ): Promise<ReadonlyMap<string, string>> {
-    if (cachedSystemIconUrlByConsoleId !== undefined) {
-      return cachedSystemIconUrlByConsoleId;
-    }
-
     if (systemIconUrlByConsoleIdPromise !== undefined) {
       return systemIconUrlByConsoleIdPromise;
     }
 
     if (client.loadSystems === undefined) {
-      const emptyMap = new Map<string, string>();
-      cachedSystemIconUrlByConsoleId = emptyMap;
-      return emptyMap;
+      return new Map<string, string>();
     }
 
     systemIconUrlByConsoleIdPromise = (async () => {
       try {
         const systems = await client.loadSystems!(config);
-        const systemIconUrlByConsoleId = buildRetroAchievementsSystemIconUrlMap(systems);
-        cachedSystemIconUrlByConsoleId = systemIconUrlByConsoleId;
-        return systemIconUrlByConsoleId;
+        return buildRetroAchievementsSystemIconUrlMap(systems);
       } catch {
-        systemIconUrlByConsoleIdPromise = undefined;
         return new Map<string, string>();
+      } finally {
+        systemIconUrlByConsoleIdPromise = undefined;
       }
     })();
 
@@ -1137,13 +1045,53 @@ export function createRetroAchievementsProvider(
   }
 
   const provider: RetroAchievementsProviderRuntime = {
+    subscribeSubsetRelationships(listener) {
+      subsetRelationshipListeners.add(listener);
+      return () => { subsetRelationshipListeners.delete(listener); };
+    },
+    async readVerifiedRelatedGames(game) {
+      if (game.parentGameId !== undefined || game.platformId === undefined) return [];
+      const index = await readSubsetRelationshipIndex(game.platformId);
+      if (index === undefined) return [];
+      const candidates = new Map((index.lastKnownGoodCandidates ?? []).map((entry) => [entry.gameId, entry]));
+      for (const entry of index.candidates) {
+        // A failed recheck cannot erase a previously verified relationship.
+        if (entry.status === "verified-parent" || entry.status === "verified-no-parent") candidates.set(entry.gameId, entry);
+      }
+      return [...candidates.values()].filter((entry) => entry.status === "verified-parent" && entry.parentGameId === game.gameId)
+        .map((entry) => ({ providerId: RETROACHIEVEMENTS_PROVIDER_ID, gameId: entry.gameId, title: entry.title,
+          platformId: entry.platformId, parentGameId: game.gameId,
+          ...(entry.platformLabel !== undefined ? { platformLabel: entry.platformLabel } : {}),
+          ...(entry.coverImageUrl !== undefined ? { coverImageUrl: entry.coverImageUrl } : {}),
+          ...(entry.boxArtImageUrl !== undefined ? { boxArtImageUrl: entry.boxArtImageUrl } : {}),
+          ...(entry.totalAchievementCount !== undefined ? { totalAchievementCount: entry.totalAchievementCount } : {}),
+        }));
+    },
+    async resumeSubsetDiscovery(config, consoleId) {
+      return refreshSubsetRelationshipIndex(config, consoleId, await readSubsetRelationshipIndex(consoleId));
+    },
+    loadCommunityStats: loadGameCommunityStats,
+    getSubsetDiscoveryStatus(consoleId) {
+      const state = subsetRelationshipIndexCache.get(consoleId);
+      return state === undefined ? undefined : discoveryStatus(state);
+    },
     id: RETROACHIEVEMENTS_PROVIDER_ID,
     capabilities: retroAchievementsCapabilities,
+    invalidateGameProgressCache(gameId) {
+      if (gameId === undefined) {
+        rawGameProgressLoads.clear();
+        completionProgressLoads.clear();
+        return;
+      }
+      for (const key of rawGameProgressLoads.keys()) {
+        if ((JSON.parse(key) as readonly string[])[1] === gameId) rawGameProgressLoads.delete(key);
+      }
+    },
 
     async loadProfile(config) {
       const [rawProfile, rawCompletionProgress, rawSummary, systemIconUrlByConsoleId] = await Promise.all([
         client.loadProfile(config),
-        client.loadCompletionProgress(config),
+        loadCompletionProgressAndRemember(config),
         loadOptionalRetroAchievementsProfileSummary(
           client.loadSummary === undefined ? undefined : () => client.loadSummary!(config),
         ),
@@ -1161,7 +1109,7 @@ export function createRetroAchievementsProvider(
       const completionAwardCounts =
         summarizeRetroAchievementsGameCompletionAwardCounts(rawCompletionProgress);
 
-      return normalizeRetroAchievementsProfile(
+      return inheritSourceProvenance(normalizeRetroAchievementsProfile(
         rawProfile,
         completionSummary,
         config,
@@ -1171,11 +1119,11 @@ export function createRetroAchievementsProvider(
         achievementCounts,
         completionAwardCounts,
         rawSummary,
-      );
+      ), rawProfile, rawCompletionProgress);
     },
 
     async loadCompletionProgress(config) {
-      const rawCompletionProgress = await client.loadCompletionProgress(config);
+      const rawCompletionProgress = await loadCompletionProgressAndRemember(config);
       const systemIconUrlByConsoleId = await loadSystemIconUrlByConsoleId(config);
       return enrichGamesWithSystemIcons(
         normalizeRetroAchievementsCompletionProgressGames(rawCompletionProgress),
@@ -1187,7 +1135,6 @@ export function createRetroAchievementsProvider(
       return loadAllAchievementsEarnedBetween(
         client,
         config,
-        sleep,
         options,
       );
     },
@@ -1197,7 +1144,7 @@ export function createRetroAchievementsProvider(
       const normalizedRecentUnlocks = normalizeRetroAchievementsRecentUnlocks(rawRecentUnlocks);
 
       // Assumption: the shared limit is a local cap after normalization, not a transport concern for this endpoint.
-      return applyRecentUnlockLimit(normalizedRecentUnlocks, options?.limit);
+      return inheritSourceProvenance(applyRecentUnlockLimit(normalizedRecentUnlocks, options?.limit), rawRecentUnlocks);
     },
 
     async loadRecentlyPlayedGames(config, options) {
@@ -1214,15 +1161,19 @@ export function createRetroAchievementsProvider(
         systemIconUrlByConsoleId,
       );
 
-      return enrichRecentlyPlayedGamesWithExplicitAwards(
-        client,
-        config,
-        iconEnrichedRecentlyPlayedGames,
-      );
+      const awards = await readCompletionProgressForAwards(config);
+      return inheritSourceProvenance(await enrichRecentlyPlayedGamesWithExplicitAwards(
+        iconEnrichedRecentlyPlayedGames, awards,
+      ), rawRecentlyPlayedGames, ...(awards === undefined ? [] : [awards]));
     },
 
-    async loadGameProgress(config, gameId) {
-      const rawGameProgress = await client.loadGameProgress(config, gameId);
+    async loadGameProgressForRecommendations(config, gameId, options) {
+      const rawGameProgress = await loadRawGameProgress(config, gameId, options?.forceRefresh === true, options?.activeViewing === true);
+      return normalizeRetroAchievementsGameDetail(rawGameProgress);
+    },
+
+    async loadGameProgress(config, gameId, options) {
+      const rawGameProgress = await loadRawGameProgress(config, gameId, options?.forceRefresh === true);
       const normalizedGameDetail = normalizeRetroAchievementsGameDetail(rawGameProgress);
       const systemIconUrlByConsoleId = await loadSystemIconUrlByConsoleId(config);
       const iconEnrichedSnapshot = enrichGameDetailSnapshotWithSystemIcon(
@@ -1253,9 +1204,7 @@ export function createRetroAchievementsProvider(
 
       const index = await ensureSubsetRelationshipIndex(config, game.platformId, false);
       if (index === undefined) return [];
-      const usableCandidates = index.complete ? index.candidates : index.lastKnownGoodCandidates;
-      if (usableCandidates === undefined) return [];
-      const subsets = usableCandidates.filter((entry) => entry.status === "verified-parent" && entry.parentGameId === game.gameId);
+      const subsets = await provider.readVerifiedRelatedGames(game);
       if (subsets.length === 0) {
         return [];
       }
@@ -1265,19 +1214,7 @@ export function createRetroAchievementsProvider(
         subsets.map((entry) => entry.gameId),
       );
 
-      const relatedGames = subsets.map((entry) => ({
-          providerId: RETROACHIEVEMENTS_PROVIDER_ID,
-          gameId: entry.gameId,
-          title: entry.title,
-          platformId: entry.platformId,
-          ...(entry.platformLabel !== undefined ? { platformLabel: entry.platformLabel } : {}),
-          ...(entry.coverImageUrl !== undefined ? { coverImageUrl: entry.coverImageUrl } : {}),
-          ...(entry.boxArtImageUrl !== undefined ? { boxArtImageUrl: entry.boxArtImageUrl } : {}),
-          parentGameId: game.gameId,
-          ...(entry.totalAchievementCount !== undefined ? { totalAchievementCount: entry.totalAchievementCount } : {}),
-        } satisfies RelatedGameSummary));
-
-      return applySubsetProgress(relatedGames, progressByGameId);
+      return applySubsetProgress(subsets, progressByGameId);
     },
 
     async loadRelatedGameProgress(config, game, relatedGames) {
@@ -1294,7 +1231,6 @@ export function createRetroAchievementsProvider(
 
     clearRelatedGameIndex() {
       subsetCatalogueCache.clear();
-      subsetCatalogueFailures.clear();
       subsetRelationshipIndexCache.clear();
       if (subsetRelationshipIndexStore !== undefined) void subsetRelationshipIndexStore.clear();
     },

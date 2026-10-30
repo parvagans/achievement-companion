@@ -16,20 +16,22 @@ test("bundled What's New notes cover the update and remain readable offline", ()
   }
 });
 
-test("What's New preserves the game overhaul notes and adds game-page badges", () => {
+test("What's New starts the 0.38.2 cycle with reliability and session outcomes", () => {
   assert.deepEqual(
     WHATS_NEW_SECTIONS.map((section) => section.title),
-    ["Overview", "Up Next", "RA Goals", "Insights", "Controls", "Game Page Badges"],
+    ["Overview", "Current Game", "Community", "Subsets", "Controls"],
   );
   assert.ok(WHATS_NEW_SECTIONS.every((section) => section.title.length <= 16));
 
   const releaseCopy = WHATS_NEW_SECTIONS.flatMap((section) => section.items).join(" ");
-  assert.match(releaseCopy, /non-scrolling Deck dashboard/u);
-  assert.match(releaseCopy, /three achievements/u);
-  assert.match(releaseCopy, /Choose Beat or Master/u);
-  assert.match(releaseCopy, /SteamHunters obtainability/u);
-  assert.match(releaseCopy, /fixed X, Y, A, and B positions/u);
-  assert.match(releaseCopy, /compact Minimal style/u);
+  assert.match(releaseCopy, /saved progress/u);
+  assert.match(releaseCopy, /Provider cooldowns/u);
+  assert.match(releaseCopy, /emulator ROM switches/u);
+  assert.match(releaseCopy, /Continue Playing/u);
+  assert.match(releaseCopy, /before statistics load/u);
+  assert.match(releaseCopy, /verified subsets/u);
+  assert.match(releaseCopy, /long Quick Access game titles/u);
+  assert.doesNotMatch(releaseCopy, /compact Minimal style|Choose Beat or Master|non-scrolling Deck dashboard/u);
 });
 
 test("What's New places QAM-sized support actions beside the modal title and expands fitted release notes", async () => {

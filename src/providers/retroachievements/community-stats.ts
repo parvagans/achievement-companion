@@ -68,6 +68,7 @@ export function normalizeRetroAchievementsGameCommunityStats(args: {
   readonly distribution: RawRetroAchievementsAchievementDistributionResponse | undefined;
   readonly progression: RawRetroAchievementsGameProgressionResponse | undefined;
   readonly latestMasters?: readonly GameCommunityMaster[];
+  readonly previous?: GameCommunityStats;
 }): GameCommunityStats | undefined {
   const masteredPlayers =
     args.totalAchievementCount !== undefined && args.totalAchievementCount > 0
@@ -116,10 +117,26 @@ export function normalizeRetroAchievementsGameCommunityStats(args: {
     medianCompletionSeconds === undefined && beatenSamples === undefined && beatenHardcoreSamples === undefined &&
     completedSamples === undefined && masteredSamples === undefined && (args.latestMasters?.length ?? 0) === 0
   ) {
-    return undefined;
+    return args.previous;
   }
 
+  const retained = { ...args.previous };
+  const progression = args.progression as Record<string, unknown> | undefined;
+  for (const [field, durationKey, sampleKey] of [
+    ["medianBeatSeconds", "MedianTimeToBeatHardcore", "TimesUsedInHardcoreBeatMedian"],
+    ["medianBeatSoftcoreSeconds", "MedianTimeToBeat", "TimesUsedInBeatMedian"],
+    ["medianCompletionSeconds", "MedianTimeToComplete", "TimesUsedInCompletionMedian"],
+    ["medianMasterySeconds", "MedianTimeToMaster", "TimesUsedInMasteryMedian"],
+  ] as const) {
+    const lower = (key: string) => key[0]!.toLowerCase() + key.slice(1);
+    const has = (key: string) => progression !== undefined && (key in progression || lower(key) in progression);
+    const value = (key: string) => progression?.[key] ?? progression?.[lower(key)];
+    if ((has(sampleKey) && !(Number(value(sampleKey)) > 0)) ||
+        (has(durationKey) && !(Number(value(durationKey)) > 0))) delete retained[field];
+  }
+  if (args.latestMasters !== undefined) delete retained.latestMasters;
   return {
+    ...retained,
     ...(totalPlayers !== undefined ? { totalPlayers } : {}),
     ...(masteredPlayers !== undefined ? { masteredPlayers } : {}),
     ...(masteryPercent !== undefined ? { masteryPercent } : {}),

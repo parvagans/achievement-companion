@@ -107,7 +107,7 @@ test("RA account replacement and sign out invalidate; count edits and Steam conf
   });
 });
 
-test("completed RA dashboard load invalidates the native projection", async () => {
+test("completed RA dashboard load preserves the native projection", async () => {
   await withStorage(async () => {
     assert.equal(writeDeckyRuntimeMode("fresh"), true);
     const reasons: DeckyRaNativeAchievementInvalidationReason[] = [];
@@ -117,7 +117,7 @@ test("completed RA dashboard load invalidates the native projection", async () =
         skipRecentAchievementHistoryBackfill: true,
       });
       assert.equal(state.status, "success");
-      assert.deepEqual(reasons, ["provider-refreshed"]);
+      assert.deepEqual(reasons, []);
     } finally {
       unsubscribe();
     }

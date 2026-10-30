@@ -46,11 +46,12 @@ import {
   initialDeckyAchievementHistoryState,
   initialDeckyGameDetailState,
   initialDeckySteamHuntersProfileState,
-  loadDeckyActivityCalendarState,
   getDeckyAchievementHistoryStateForFullScreenEntryInitial,
   getDeckySteamHuntersProfileStateForFullScreenEntryInitial,
   loadDeckyAchievementHistoryStateForFullScreenEntry,
   loadDeckyDashboardStateForFullScreenEntry,
+  getDeckyDashboardStateForFullScreenEntryInitial,
+  isDeckyRetroAchievementsProfileFresh,
   loadDeckyGameDetailState,
   loadDeckySteamHuntersProfileStateForFullScreenEntry,
   startDeckyProviderProfileDataSession,
@@ -1072,7 +1073,7 @@ function DashboardScreen({
     initialProviderRefresh.current = providerId === STEAM_PROVIDER_ID
       ? claimDeckyCompactSteamDashboardRefresh()
       : providerId === "retroachievements"
-        ? claimDeckyCompactRetroAchievementsDashboardRefresh()
+        ? claimDeckyCompactRetroAchievementsDashboardRefresh() && !isDeckyRetroAchievementsProfileFresh()
         : false;
   }
   const dashboardForceRefreshNextLoad = useRef(initialProviderRefresh.current);
@@ -1121,21 +1122,20 @@ function DashboardScreen({
         startDeckyProviderProfileDataSession(providerId);
       }
 
-      const loader = () => loadDeckyDashboardStateForFullScreenEntry(providerId);
+      const loader = () => loadDeckyDashboardStateForFullScreenEntry(providerId, "qam-entry");
       return loadDeckyCompactDashboardState(providerId, loader, forceRefresh);
     },
     [dashboardRefreshNonce, providerId],
   );
-  const initialDashboardState = readDeckyCompactDashboardState(providerId) ?? initialDeckyBootstrapState;
+  const initialDashboardState = readDeckyCompactDashboardState(providerId)
+    ?? (providerId === "retroachievements" ? getDeckyDashboardStateForFullScreenEntryInitial(providerId) : initialDeckyBootstrapState);
   const state = useAsyncResourceState(dashboardLoader, initialDashboardState);
   const activityCalendarLoader = useMemo(
     () => () => {
-      const forceRefresh = activityCalendarForceRefreshNextLoad.current;
       activityCalendarForceRefreshNextLoad.current = false;
-
-      return providerId === "retroachievements"
-        ? loadDeckyActivityCalendarState(providerId, { forceRefresh })
-        : Promise.resolve(initialDeckyActivityCalendarState);
+      // RA calendar data is hydrated from verified history during profile entry,
+      // then presented atomically with that profile. This hook starts no import.
+      return Promise.resolve(initialDeckyActivityCalendarState);
     },
     [dashboardRefreshNonce, providerId],
   );

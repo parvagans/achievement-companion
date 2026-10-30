@@ -291,6 +291,7 @@ def load_steam_shortcut_metadata(
   platform_tags: list[str] = []
   exe_value: str | None = None
   start_dir_value: str | None = None
+  launch_options_value: str | None = None
   for shortcut in matched_shortcuts:
     for tag_value in _iter_shortcut_tags(shortcut):
       if tag_value not in platform_tags:
@@ -301,6 +302,9 @@ def load_steam_shortcut_metadata(
 
     if start_dir_value is None:
       start_dir_value = _pick_shortcut_string(shortcut, "startdir", "StartDir")
+
+    if launch_options_value is None:
+      launch_options_value = _pick_shortcut_string(shortcut, "LaunchOptions", "launchoptions", "launchOptions")
 
   platform_tag = platform_tags[0] if len(platform_tags) > 0 else None
 
@@ -319,6 +323,8 @@ def load_steam_shortcut_metadata(
   if start_dir_value is not None:
     metadata["startDir"] = start_dir_value
 
+  if launch_options_value:
+    metadata["launchOptions"] = launch_options_value
   return metadata
 
 

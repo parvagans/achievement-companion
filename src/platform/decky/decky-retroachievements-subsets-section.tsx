@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import type { ResourceState } from "@core/cache";
 import type { GameDetailSnapshot, RelatedGameSummary } from "@core/domain";
 import type { RetroAchievementsAchievementMode } from "@core/settings";
@@ -13,7 +13,10 @@ import { DeckyFullScreenAchievementRow } from "./decky-full-screen-achievement-r
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
-import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
+import { takeDeckySteamGamepadFocus, requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
+import { DeckyRetroAchievementsSubsetDiscoveryPanel, buildSubsetDiscoveryPanel } from "./decky-retroachievements-subset-discovery-panel";
+import type { RetroAchievementsSubsetDiscoveryStatus } from "../../providers/retroachievements/retroachievements.provider";
+import { getRetroAchievementsFirstSubsetTarget } from "./decky-retroachievements-subset-navigation";
 import { projectRetroAchievementsFullScreenAchievements } from "./decky-retroachievements-full-screen-achievement-data";
 import { sortAchievementsForDisplay } from "./decky-game-detail-ordering";
 import { raRecipes, raTheme } from "./ra-theme";
@@ -139,6 +142,9 @@ export function DeckyRetroAchievementsSubsetsSection({
   onFocusSubset,
   onFocusSubsetAchievement,
   onOpenSubsetAchievementDetail,
+  discoveryStatus,
+  platformLabel,
+  onContinueDiscovery,
 }: {
   readonly subsets: readonly RelatedGameSummary[];
   readonly achievementMode: RetroAchievementsAchievementMode;
@@ -150,9 +156,25 @@ export function DeckyRetroAchievementsSubsetsSection({
   readonly onFocusSubset: (gameId: string) => void;
   readonly onFocusSubsetAchievement: (subsetId: string, achievementId: string) => void;
   readonly onOpenSubsetAchievementDetail: (subsetId: string, achievementId: string) => void;
+  readonly discoveryStatus?: RetroAchievementsSubsetDiscoveryStatus | undefined;
+  readonly platformLabel?: string | undefined;
+  readonly onContinueDiscovery?: (() => void) | undefined;
 }): JSX.Element {
   const [focusedSubsetId, setFocusedSubsetId] = useState<string | undefined>(undefined);
   const navigationSoundRef = useRef<HTMLAudioElement | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const discoveryHadFocus = useRef(false);
+  const panel = buildSubsetDiscoveryPanel(discoveryStatus);
+  useLayoutEffect(() => {
+    if (!discoveryHadFocus.current || discoveryStatus?.running) return;
+    const root = rootRef.current;
+    const action = root?.querySelector<HTMLElement>("[data-ra-subset-discovery-action] [role='button']:not([aria-disabled='true'])");
+    const target = action ?? root?.querySelector<HTMLElement>("[data-achievement-companion-ra-subset-id]");
+    if (target !== null && target !== undefined) {
+      if (action === null || action === undefined) discoveryHadFocus.current = false;
+      return requestDeckySteamGamepadFocusAfterMount(target);
+    }
+  }, [discoveryStatus?.running, panel === undefined, panel?.disabled]);
 
   const toggleSubset = (subsetId: string): void => {
     const isExpanded = expandedSubsetIds.includes(subsetId);
@@ -165,6 +187,7 @@ export function DeckyRetroAchievementsSubsetsSection({
   };
 
   const handleSubsetFocus = (subsetId: string, target: HTMLElement): void => {
+    discoveryHadFocus.current = false;
     setFocusedSubsetId(subsetId);
     onFocusSubset(subsetId);
     scrollDeckyFocusTargetIntoView(target);
@@ -184,16 +207,7 @@ export function DeckyRetroAchievementsSubsetsSection({
   const handleFirstSubsetDirection = (event: GamepadEvent): void => {
     if (event.detail.button !== GamepadButton.DIR_UP && event.detail.button !== GamepadButton.DIR_DOWN) return;
     const source = event.currentTarget as HTMLElement;
-    const subsetContainer = source.closest<HTMLElement>("[data-achievement-companion-ra-subset-container]");
-    const subsetsRoot = source.closest<HTMLElement>("[data-achievement-companion-ra-subsets-section]");
-    const subsetControls = Array.from(
-      subsetsRoot?.querySelectorAll<HTMLElement>("[data-achievement-companion-ra-subset-id]") ?? [],
-    );
-    const target = event.detail.button === GamepadButton.DIR_UP
-      ? source
-      : subsetContainer?.querySelector<HTMLElement>("[data-achievement-companion-achievement-id]")
-        ?? subsetControls[1]
-        ?? source;
+    const target = getRetroAchievementsFirstSubsetTarget(source, event.detail.button === GamepadButton.DIR_UP ? "up" : "down");
     if (!takeDeckySteamGamepadFocus(target)) return;
     event.preventDefault();
     event.stopPropagation();
@@ -210,6 +224,7 @@ export function DeckyRetroAchievementsSubsetsSection({
 
   return (
     <Focusable
+      ref={rootRef}
       data-achievement-companion-ra-subsets-section
       flow-children="vertical"
       navEntryPreferPosition={NavEntryPositionPreferences.FIRST}
@@ -217,6 +232,16 @@ export function DeckyRetroAchievementsSubsetsSection({
       tabIndex={-1}
       style={getSectionStyle()}
     >
+      {onContinueDiscovery !== undefined ? <DeckyRetroAchievementsSubsetDiscoveryPanel status={discoveryStatus} platformLabel={platformLabel}
+        onContinue={onContinueDiscovery} onBack={onBack}
+        onFocus={() => { discoveryHadFocus.current = true; }}
+        onDirection={(event) => {
+          const source = event.currentTarget as HTMLElement;
+          const target = rootRef.current?.querySelector<HTMLElement>("[data-achievement-companion-ra-subset-id]");
+          if (target !== undefined && target !== null && takeDeckySteamGamepadFocus(target)) {
+            event.preventDefault(); event.stopPropagation(); playSubsetNavigationSound(source.ownerDocument);
+          }
+        }} /> : null}
       {subsets.map((subset, subsetIndex) => {
         const isExpanded = expandedSubsetIds.includes(subset.gameId);
         const detailState = subsetDetails[subset.gameId];

@@ -32,6 +32,7 @@ import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
 import { TopAlignedScrollViewport } from "./decky-scroll-viewport";
 import { useAsyncResourceState } from "./useAsyncResourceState";
+import { useDeckyRetroAchievementsPresence } from "./useDeckyRetroAchievementsPresence";
 import { formatDeckyProviderLabel } from "./providers";
 import { STEAM_PROVIDER_ID, useDeckySteamLibraryAchievementScanSummary } from "./providers/steam";
 import {
@@ -1056,7 +1057,8 @@ export function DeckyFullScreenProfilePage({
     return () => loadDeckyDashboardStateForFullScreenEntry(providerId);
   }, [providerId]);
   const initialProfileState = getDeckyDashboardStateForFullScreenEntryInitial(providerId);
-  const state = useAsyncResourceState(loadSelectedProfile, initialProfileState);
+  const loadedState = useAsyncResourceState(loadSelectedProfile, initialProfileState);
+  const state = useDeckyRetroAchievementsPresence(loadedState, isActive, "full-screen-entry");
   const loadSelectedCompletionProgress = useMemo(() => {
     if (providerId === undefined) {
       return () => Promise.resolve(initialDeckyCompletionProgressState);

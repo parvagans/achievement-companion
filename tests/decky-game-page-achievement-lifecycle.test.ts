@@ -98,7 +98,7 @@ test("page refresh retains a ready badge until replacement data arrives, but ide
   unsubscribe();
 });
 
-test("refresh, account change, and game-exit cache invalidation notify a mounted same-app badge", () => {
+test("account and game-exit invalidation notify the badge; profile refresh preserves it", () => {
   const appId = "900000001";
   const observedRevisions: number[] = [];
   const unsubscribe = subscribeDeckyGamePageAchievementSummaryRevision(appId, () => {
@@ -109,7 +109,7 @@ test("refresh, account change, and game-exit cache invalidation notify a mounted
   publishDeckyRaNativeAchievementInvalidation("account-changed");
   invalidateDeckyGamePageAchievementSummaryCache(appId);
 
-  assert.deepEqual(observedRevisions, [1, 2, 3]);
+  assert.deepEqual(observedRevisions, [1, 2]);
   unsubscribe();
 });
 

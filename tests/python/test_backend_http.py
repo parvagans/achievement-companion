@@ -98,6 +98,13 @@ class BackendHttpTests(unittest.TestCase):
     )
     self.assertEqual(same_endpoint.full_url, "https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?format=json")
 
+  def test_ra_redirect_cannot_issue_an_unscheduled_second_http_request(self) -> None:
+    url = "https://retroachievements.org/API/API_GetUserProfile.php"
+    handler = backend_http._ProviderRedirectHandler("https://retroachievements.org/API/", url,
+      authenticated=True, block_redirects=True)
+    with self.assertRaises(urllib.error.URLError):
+      handler.redirect_request(backend_http.Request(url), None, 302, "Found", {}, url + "?format=json")
+
   def test_default_opener_installs_provider_redirect_policy(self) -> None:
     original_build_opener = backend_http.build_opener
     installed_handlers: list[object] = []

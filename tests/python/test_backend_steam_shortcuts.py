@@ -210,6 +210,7 @@ class SteamShortcutsTests(unittest.TestCase):
         "tags": ["Sony Nintendo 64"],
         "exe": '"/usr/bin/retroarch"',
         "startDir": "/home/deck/Emulation/tools",
+        "launchOptions": '"/home/deck/Emulation/roms/n64/StarCraft 64.z64"',
       })
 
   def test_nds_discovery_is_independent_of_shortcut_title(self) -> None:

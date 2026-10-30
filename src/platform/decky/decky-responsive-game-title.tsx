@@ -66,7 +66,7 @@ export function DeckyResponsiveGameTitle({
     };
   }, [minimumFontSize, preferredFontSize, title]);
 
-  const wrapped = fit?.wrapped ?? false;
+  const wrapped = fit?.wrapped ?? true;
   return (
     <div
       aria-label={title}
@@ -76,9 +76,9 @@ export function DeckyResponsiveGameTitle({
         ...style,
         minWidth: 0,
         fontSize: fit?.fontSize ?? preferredFontSize,
-        overflow: "hidden",
+        overflow: "visible",
         ...(wrapped
-          ? { display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, whiteSpace: "normal", overflowWrap: "anywhere" }
+          ? { display: "block", WebkitBoxOrient: "unset", WebkitLineClamp: "unset", whiteSpace: "normal", overflowWrap: "anywhere" }
           : { display: "block", WebkitBoxOrient: "unset", WebkitLineClamp: "unset", overflowWrap: "normal", textOverflow: "ellipsis", whiteSpace: "nowrap" }),
       }}
     >
