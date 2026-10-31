@@ -1,4 +1,4 @@
-/** Bundled notes for 0.39.1, retaining the 0.39.0 highlights and earlier Up Next introduction. */
+/** Bundled notes for 0.40.0, retaining the earlier pinning and Up Next highlights. */
 export const WHATS_NEW_SECTIONS = [
   {
     title: "Overview",
@@ -6,6 +6,8 @@ export const WHATS_NEW_SECTIONS = [
       "Happy Halloween, achievement hunters! Choose a personal target, keep it close across Quick Access, full-screen Overview, and native Steam game pages, and enjoy the Halloween theme.",
       "Pin an unfinished Steam or RetroAchievements achievement without changing your Beat/Master goals or Hardcore/Softcore completion requirements.",
       "In What's New, press Down to scroll the notes, then Down again at the bottom to reach Close. B also closes the dialog.",
+      "Quick Access keeps the game and progress first, with compact Profile and Pinned Achievements shortcuts beside the heading.",
+      "Activity Calendars start collapsed and remember your choice separately for each provider. A collapsed calendar shows any selected date filter and offers Clear date filter.",
     ],
   },
   {
@@ -15,6 +17,7 @@ export const WHATS_NEW_SECTIONS = [
       "Open a recommendation's details, jump to it in Achievements, or hide it. Manage Suggestions can restore individual choices or every hidden suggestion.",
       "Full-screen Overview uses three equal-height recommendation cards with centered content and thumbtack controls, without repeating selection-source labels.",
       "Compact, two-line description summaries keep recommendations inside the panel. Open achievement details for the complete description.",
+      "Quick Access uses larger game titles and places each recommendation's two-line description below its artwork and title.",
     ],
   },
   {
@@ -23,6 +26,8 @@ export const WHATS_NEW_SECTIONS = [
       "Use the thumbtack controls in Quick Access and full-screen Overview, or Y Pin/Unpin in the native RetroAchievements Up Next tab.",
       "Saved targets are separate for each account and game, shared across supported views, and preserved between sessions.",
       "Removing or completing a pin returns Up Next to automatic recommendations. Your existing goals and hidden suggestions stay intact.",
+      "Open Pinned Achievements from the header thumbtack to browse saved Steam and RetroAchievements targets, inspect Details, or Unpin.",
+      "From a pinned achievement's Details, View Game opens the compact game overview. Press B there to return to the pinned viewer at the same entry.",
     ],
   },
   {

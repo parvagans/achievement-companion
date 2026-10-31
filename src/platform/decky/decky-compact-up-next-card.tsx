@@ -1,15 +1,15 @@
 import { resolveDeckyUpNextLabel } from "./decky-up-next-label";
 import { DeckyUpNextPinIcon } from "./decky-up-next-pin-icon";
-import { DeckyAchievementArtwork } from "./decky-achievement-artwork";
+import { DeckyCompactUpNextContent } from "./decky-compact-up-next-content";
 import { createUpNextPinAction } from "./decky-up-next-pin-action";
 import { isAchievementCompleteForPin } from "./decky-game-overview-recommendations";
 import { useDeckyUpNextSnapshot } from "./decky-up-next-snapshot";
-import { DeckyRetroAchievementsActiveGameDot } from "./decky-retroachievements-active-game-dot";
-import { Focusable, type GamepadEvent } from "@decky/ui";
+import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
+import { Focusable, useQuickAccessVisible, type GamepadEvent } from "@decky/ui";
 import type { ResourceState } from "@core/cache";
 import type { GameDetailSnapshot, RecentlyPlayedGame } from "@core/domain";
 import type { RetroAchievementsAchievementMode } from "@core/settings";
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefCallback } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode, type RefCallback } from "react";
 import { getSteamHuntersGameEnrichment } from "../../providers/steamhunters";
 import { loadDeckyGameDetailState, loadDeckySteamHuntersEnrichedGameDetail } from "./decky-app-services";
 import type { CompactAchievementTarget } from "./decky-compact-achievement-model";
@@ -73,6 +73,7 @@ export interface DeckyCompactUpNextCardProps {
   readonly getFocusTargetProps: (
     control: DeckyCompactUpNextControl,
     gameId: string,
+    unavailableControls?: readonly DeckyCompactUpNextControl[],
   ) => DeckyCompactUpNextFocusTargetProps;
 }
 
@@ -136,6 +137,8 @@ export function DeckyCompactUpNextCard({
   const [loadRevision, setLoadRevision] = useState(0);
   const forceRefreshGameKeyRef = useRef<string>();
   const automaticallyRetriedGameKeysRef = useRef(new Set<string>());
+  const isQuickAccessVisible = useQuickAccessVisible();
+  const achievementsRef = useRef<HTMLDivElement | null>(null);
   const recommendationRef = useRef<HTMLDivElement | null>(null);
   const [recommendationFocused, setRecommendationFocused] = useState(false);
   useDeckyVisualFocusState(recommendationRef, setRecommendationFocused);
@@ -249,15 +252,25 @@ export function DeckyCompactUpNextCard({
     return () => { active = false; };
   }, [model, providerId]);
 
+  const suggestion = model?.outcome.kind === "suggestion" ? model.outcome.suggestion : undefined;
+  const recommendationActionable = effectiveState.status !== "idle" && effectiveState.status !== "loading" && !shouldAdvance
+    && (suggestion !== undefined || effectiveState.status === "error" && effectiveState.data === undefined || model?.outcome.kind === "all-hidden");
+  const pinAction = createUpNextPinAction(suggestion, achievementMode, preferences.canPin ? (id) => preferences.togglePinnedAchievement(id, achievementMode) : undefined);
+  const unavailableControls: readonly DeckyCompactUpNextControl[] = [
+    ...(!recommendationActionable ? ["recommendation" as const] : []), ...(pinAction === undefined ? ["pin" as const] : []),
+  ];
+  const achievementsTargetProps = getFocusTargetProps("achievements", currentGame?.gameId ?? "", unavailableControls);
+  useLayoutEffect(() => {
+    if (isQuickAccessVisible && currentGame !== undefined && achievementsTargetProps.preferredFocus) {
+      return requestDeckySteamGamepadFocusAfterMount(achievementsRef.current);
+    }
+  }, [isQuickAccessVisible, currentGame?.gameId, achievementsTargetProps.preferredFocus]);
   if (currentGame === undefined) return null;
   const displayedGame = model?.snapshot.game ?? currentGame;
   const progress = providerId === "retroachievements"
     ? getRetroAchievementsModeGameProgress(displayedGame, achievementMode) ?? displayedGame.summary
     : displayedGame.summary;
   const completionPercent = percent(progress.unlockedCount, progress.totalCount, progress.completionPercent);
-  const isCurrentGame = activeGameId !== undefined && currentGame.gameId === activeGameId;
-  const sectionTitle = providerId === "retroachievements" && isCurrentGame ? "CURRENT GAME" : "CONTINUE PLAYING";
-  const suggestion = model?.outcome.kind === "suggestion" ? model.outcome.suggestion : undefined;
   const recommendationsUnavailable = effectiveState.status === "error" && effectiveState.data === undefined;
   const recommendationLabel = resolveDeckyUpNextLabel(suggestion, providerId, preferences.retroAchievementsGoal);
   const recommendationTargetProps = getFocusTargetProps("recommendation", currentGame.gameId);
@@ -281,7 +294,6 @@ export function DeckyCompactUpNextCard({
   const skip = (): void => {
     if (suggestion !== undefined) preferences.hideSuggestion(suggestion.achievement.achievementId);
   };
-  const pinAction = createUpNextPinAction(suggestion, achievementMode, preferences.canPin ? (id) => { preferences.togglePinnedAchievement(id, achievementMode); } : undefined);
   const menuItems: readonly DeckyOverviewMenuItem[] = [
     ...(suggestion === undefined || !preferences.canPin || !suggestion.pinned && isAchievementCompleteForPin(suggestion.achievement, achievementMode) ? [] : [{ key: "pin", label: suggestion.pinned ? "Remove from Up Next" : "Set as Up Next", onSelect: () => preferences.togglePinnedAchievement(suggestion.achievement.achievementId, achievementMode) }]),
     ...(providerId === "retroachievements" ? [buildRetroAchievementsGoalSettingsMenuItem({
@@ -307,15 +319,15 @@ export function DeckyCompactUpNextCard({
       : model?.outcome.kind === "all-hidden" ? "All suggestions hidden"
         : model?.outcome.kind === "empty" ? "No eligible recommendations right now." : undefined;
 
+  const RecommendationContainer = recommendationActionable ? Focusable : "div";
   return <section data-ac-compact-up-next={providerId} style={{ display: "flex", flexDirection: "column", gap: theme.compactProfileSpacing.content, minWidth: 0 }}>
-    <div style={{ color: theme.color.accent, fontSize: theme.type.compact.heading, fontWeight: 850, letterSpacing: "0.055em", lineHeight: 1, textTransform: "uppercase" }}>{providerId === "retroachievements" && isCurrentGame ? <DeckyRetroAchievementsActiveGameDot /> : null}{sectionTitle}</div>
     <div style={{ width: "100%", minWidth: 0, padding: 10, display: "flex", flexDirection: "column", gap: 8, boxSizing: "border-box", borderRadius: theme.radius.medium,
       border: `1px solid ${theme.color.borderSubtle}`, background: theme.surface.contentCard, color: theme.color.textPrimary }}>
       <div style={{ display: "grid", gridTemplateColumns: "46px minmax(0, 1fr)", alignItems: "center", gap: 9, minWidth: 0 }}>
         {artworkUrl !== undefined || displayedGame.appid !== undefined ? <DeckyGameArtwork compact size={46} title={displayedGame.title} {...(artworkUrl !== undefined ? { src: artworkUrl } : {})} {...(displayedGame.appid !== undefined ? { steamAppId: displayedGame.appid } : {})} /> : <Initials title={displayedGame.title} />}
         <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}>
-          <strong title={displayedGame.title} style={{ ...lineClamp(2), fontSize: 13, fontWeight: 800, lineHeight: 1.08 }}>{displayedGame.title}</strong>
-          <span style={{ ...lineClamp(1), color: theme.color.textMuted, fontSize: 10, lineHeight: 1.15 }}>{displayedGame.platformLabel ?? (providerId === "steam" ? "Steam" : "RetroAchievements")}</span>
+          <strong title={displayedGame.title} style={{ ...lineClamp(2), fontSize: theme.type.fullscreen.title, fontWeight: 800, lineHeight: 1.2 }}>{displayedGame.title}</strong>
+          {providerId === "retroachievements" && displayedGame.platformLabel ? <span style={{ ...lineClamp(1), color: theme.color.textMuted, fontSize: theme.type.compact.metadata, lineHeight: 1.2 }}>{displayedGame.platformLabel}</span> : null}
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
@@ -325,10 +337,10 @@ export function DeckyCompactUpNextCard({
         </div>
         {completionPercent !== undefined ? <div aria-label={`${completionPercent}% complete`} style={{ width: "100%", height: 4, overflow: "hidden", borderRadius: theme.radius.pill, background: theme.surface.progressTrack }}><span style={{ display: "block", width: `${completionPercent}%`, height: "100%", background: theme.surface.progressFill }} /></div> : null}
       </div>
-      <Focusable noFocusRing role="button" tabIndex={0} aria-label={recommendationsUnavailable ? "Recommendations unavailable. Retry" : suggestion === undefined ? statusText ?? "Loading recommendation" : `${suggestion.achievement.title}. ${suggestion.achievement.description ?? ""}`}
-        preferredFocus={recommendationTargetProps.preferredFocus} ref={(node) => { recommendationRef.current = node; recommendationTargetProps.elementRef?.(node); }}
-        onActivate={activateRecommendation} onClick={activateRecommendation} onCancel={onCancel}
-        {...(suggestion === undefined || !recommendationFocused ? {} : {
+      <RecommendationContainer role={recommendationActionable ? "button" : "status"} tabIndex={recommendationActionable ? 0 : -1} aria-label={recommendationsUnavailable ? "Recommendations unavailable. Retry" : suggestion === undefined ? statusText ?? "Loading recommendation" : `${suggestion.achievement.title}. ${suggestion.achievement.description ?? ""}`}
+        {...(recommendationActionable ? { noFocusRing: true, preferredFocus: recommendationTargetProps.preferredFocus } : {})} ref={(node) => { recommendationRef.current = node; recommendationTargetProps.elementRef?.(recommendationActionable ? node : null); }}
+        {...(recommendationActionable ? { onActivate: activateRecommendation, onClick: activateRecommendation, onOKActionDescription: suggestion !== undefined ? "Details" : recommendationsUnavailable ? "Retry" : "Restore Suggestions" } : {})} {...(recommendationActionable ? { onCancel } : {})}
+        {...(!recommendationActionable || suggestion === undefined || !recommendationFocused ? {} : {
           onSecondaryActionDescription: "Skip",
           onOptionsActionDescription: "List",
           onSecondaryButton: (event: GamepadEvent) => { event.preventDefault(); event.stopPropagation(); if (!event.detail.is_repeat) skip(); },
@@ -341,27 +353,26 @@ export function DeckyCompactUpNextCard({
             }
           },
         })}
-        onGamepadFocus={() => {
+        {...(recommendationActionable ? { onGamepadFocus: () => {
           setRecommendationFocused(true);
           if (recommendationRef.current !== null) {
             scrollDeckyFocusTargetIntoView(recommendationRef.current);
             recommendationTargetProps.onFocused(recommendationRef.current);
           }
-        }} onGamepadBlur={() => setRecommendationFocused(false)}
-        style={{ flex: "1 1 auto", minHeight: 66, minWidth: 0, padding: "8px 9px", boxSizing: "border-box", borderRadius: theme.radius.small,
-          border: `1px solid ${recommendationFocused ? theme.focus.compactBorder : theme.color.borderSubtle}`, background: recommendationFocused ? theme.surface.focusedContentStat : theme.surface.contentStat,
-          boxShadow: recommendationFocused ? theme.focus.compactShadow : "none", display: "grid", gridTemplateColumns: suggestion?.achievement.badgeImageUrl ? "48px minmax(0, 1fr)" : "minmax(0, 1fr)", alignItems: "center", gap: 9 }}>
-        {suggestion?.achievement.badgeImageUrl ? <DeckyAchievementArtwork size={48} src={suggestion.achievement.badgeImageUrl} /> : null}
+        }, onGamepadBlur: () => setRecommendationFocused(false) } : {})}
+        style={{ minWidth: 0, padding: "8px 9px", boxSizing: "border-box", borderRadius: theme.radius.small,
+          border: `1px solid ${recommendationActionable && recommendationFocused ? theme.focus.compactBorder : theme.color.borderSubtle}`, background: recommendationFocused ? theme.surface.focusedContentStat : theme.surface.contentStat,
+          boxShadow: recommendationFocused ? theme.focus.compactShadow : "none", display: "flex", flexDirection: "column", gap: 6 }}>
         {loading ? <div aria-label="Loading Up Next" style={{ display: "flex", flexDirection: "column", gap: 7 }}><span style={{ width: 62, height: 7, borderRadius: theme.radius.pill, background: theme.surface.progressTrack }} /><span style={{ width: "72%", height: 12, borderRadius: 4, background: theme.surface.interactive }} /><span style={{ width: "92%", height: 9, borderRadius: 4, background: theme.surface.progressTrack }} /></div>
-          : suggestion !== undefined ? <div style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 3 }}><span style={{ color: theme.color.accent, fontSize: 10, fontWeight: 800, letterSpacing: "0.055em" }}>{recommendationLabel}</span><strong title={suggestion.achievement.title} style={{ ...lineClamp(2), fontSize: 13, lineHeight: 1.08 }}>{suggestion.achievement.title}</strong>{suggestion.achievement.description ? <span title={suggestion.achievement.description} style={{ ...lineClamp(2), color: theme.color.textSecondary, fontSize: 10.5, lineHeight: 1.16 }}>{suggestion.achievement.description}</span> : null}</div>
+          : suggestion !== undefined ? <DeckyCompactUpNextContent label={recommendationLabel} achievement={suggestion.achievement} />
             : <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 4, minWidth: 0 }}><strong style={{ fontSize: 12.5 }}>{statusText}</strong>{recommendationsUnavailable ? <span style={{ color: theme.color.accent, fontSize: 10, fontWeight: 800 }}>Retry</span> : model?.outcome.kind === "all-hidden" ? <span style={{ color: theme.color.textMuted, fontSize: 10 }}>A Restore Suggestions</span> : null}</div>}
-      </Focusable>
+      </RecommendationContainer>
       <Focusable flow-children="left-right" noFocusRing tabIndex={-1} style={{ display: "grid", gridTemplateColumns: pinAction ? "minmax(0, 1fr) 38px 48px" : "minmax(0, 1fr) 48px", gap: 7, minWidth: 0 }}>
-        <SecondaryAction label={`View achievements for ${currentGame.title}`} onActivate={openAchievements} onCancel={onCancel} targetProps={getFocusTargetProps("achievements", currentGame.gameId)}>Achievements</SecondaryAction>
+        <SecondaryAction label={`View achievements for ${currentGame.title}`} onActivate={openAchievements} onCancel={onCancel} targetProps={{ ...achievementsTargetProps, elementRef: (node) => { achievementsRef.current = node; achievementsTargetProps.elementRef?.(node); } }}>Achievements</SecondaryAction>
         {pinAction ? <SecondaryAction actionDescription={pinAction.label} label={pinAction.pinned ? "Unpin achievement" : "Pin achievement"} onActivate={pinAction.activate} onCancel={onCancel} targetProps={getFocusTargetProps("pin", currentGame.gameId)}><DeckyUpNextPinIcon filled={pinAction.pinned} /></SecondaryAction> : null}
         {(() => {
           const optionTargetProps = getFocusTargetProps("options", currentGame.gameId);
-          return <DeckyOverviewMenuButton label="Options" displayLabel={<span aria-hidden="true" style={{ fontSize: 16, letterSpacing: 2 }}>•••</span>} items={menuItems} compact preserveCompactSession minHeight={38} onCancel={onCancel}
+          return <DeckyOverviewMenuButton label="Suggestion options" displayLabel={<span aria-hidden="true" style={{ fontSize: 16, letterSpacing: 2 }}>•••</span>} items={menuItems} compact preserveCompactSession minHeight={38} onCancel={onCancel}
             preferredFocus={optionTargetProps.preferredFocus}
             {...(optionTargetProps.elementRef !== undefined ? { elementRef: optionTargetProps.elementRef } : {})}
             onActivated={optionTargetProps.onActivated}

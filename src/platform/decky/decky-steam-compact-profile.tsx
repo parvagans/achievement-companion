@@ -1,3 +1,7 @@
+import { DeckyCompactCalendarDisclosure } from "./decky-compact-calendar-disclosure";
+import { readCompactCalendarExpanded } from "./decky-compact-calendar-preference";
+import { openDeckyPinnedAchievementsModal } from "./decky-pinned-achievements-modal";
+import { shouldRestoreCompactUpNextToAchievements } from "./decky-compact-up-next-focus";
 import { Focusable, GamepadButton, NavEntryPositionPreferences, useQuickAccessVisible, type GamepadEvent } from "@decky/ui";
 import type { DashboardSnapshot, RecentUnlock, RecentlyPlayedGame } from "@core/domain";
 import {
@@ -17,14 +21,13 @@ import {
   achievementCompanionQamTheme as qamTheme,
   getQamActivityCalendarLegendCellStyle,
   getQamActivityCalendarLegendStyle,
-  getQamCompactFocusControlStyle,
   getQamCompactProfileListCardStyle,
   getQamPassiveCardFocusStyle,
   qamActivityCalendarColors,
 } from "./decky-qam-theme";
 import { useDeckySettings } from "./decky-settings";
 import { DeckySteamHuntersIcon } from "./decky-steam-icons";
-import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
+import { DeckyCompactProfileHeader } from "./decky-compact-profile-header";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DeckyCompactRecentAchievementRow } from "./decky-compact-recent-achievement-row";
 import { findDeckyScrollableAncestor } from "./decky-scroll-viewport";
@@ -68,7 +71,6 @@ import masteredIconUrl from "./assets/mastered.svg";
 import rankPointsIconUrl from "./assets/rank-points.svg";
 import starIconUrl from "./assets/star.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
-import externalLinkIconUrl from "./assets/external-link.svg";
 import { DeckyCompactUpNextCard } from "./decky-compact-up-next-card";
 import type { CompactAchievementTarget } from "./decky-compact-achievement-model";
 
@@ -264,72 +266,6 @@ function getIconStyle(size: number, tone: SteamCompactIconTone = "blue"): CSSPro
     height: size,
     flexShrink: 0,
     filter: tone === "gold" ? steamTheme.iconFilter.reward : tone === "purple" ? steamTheme.iconFilter.rarityPurple : steamTheme.iconFilter.accent,
-  };
-}
-
-function getProfileCardStyle(focused: boolean): CSSProperties {
-  return {
-    ...steamRecipes.card("compact", "raised"),
-    background: steamTheme.surface.contentCard,
-    display: "grid",
-    gridTemplateColumns: "minmax(0, 1fr) 18px",
-    alignItems: "center",
-    gap: qamTheme.compactProfileSpacing.content,
-    padding: qamTheme.compactProfileSpacing.cardPadding,
-    boxSizing: "border-box",
-    boxShadow: "inset 0 1px 0 rgba(125, 211, 252, 0.035)",
-    outline: "none",
-    ...(focused ? getQamCompactFocusControlStyle() : {}),
-  };
-}
-
-function getIdentityStyle(): CSSProperties {
-  return { display: "flex", alignItems: "center", gap: 10, minWidth: 0 };
-}
-
-function getAvatarFrameStyle(): CSSProperties {
-  return {
-    width: 60,
-    height: 60,
-    flex: "0 0 60px",
-    display: "grid",
-    placeItems: "center",
-    overflow: "hidden",
-    padding: 2,
-    border: `2px solid ${qamTheme.color.accent}`,
-    borderRadius: 8,
-    background: qamTheme.decorative.avatarBackground,
-    boxShadow: qamTheme.decorative.accentGlow,
-    boxSizing: "border-box",
-  };
-}
-
-function getAvatarFallbackStyle(): CSSProperties {
-  return {
-    display: "grid",
-    placeItems: "center",
-    width: "100%",
-    height: "100%",
-    color: "#f2f6fb",
-    fontSize: 18,
-    fontWeight: 850,
-  };
-}
-
-function getIdentityTextStyle(): CSSProperties {
-  return { display: "flex", flexDirection: "column", gap: 4, minWidth: 0 };
-}
-
-function getProfileNameStyle(): CSSProperties {
-  return {
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    color: "#f4f8fb",
-    fontSize: 13,
-    fontWeight: 800,
-    lineHeight: 1.1,
   };
 }
 
@@ -693,66 +629,6 @@ function getInitials(value: string): string {
     .join("") || "AC";
 }
 
-function ProfileCard({
-  profile,
-  refreshedAt,
-  onActivate,
-  onCancel,
-  targetProps,
-}: Pick<DeckySteamCompactProfileProps, "profile" | "refreshedAt"> & {
-  readonly onActivate: () => void;
-  readonly onCancel: () => void;
-  readonly targetProps: CompactTargetProps;
-}): JSX.Element {
-  const avatarUrl = addProfileAvatarCacheBustParam(profile.identity.avatarUrl, refreshedAt);
-  const cardRef = useRef<HTMLDivElement | null>(null);
-  const [focused, setFocused] = useState(false);
-  const focusGeneration = useRef(0);
-  useDeckyVisualFocusState(cardRef, setFocused);
-  const activate = (): void => {
-    if (cardRef.current !== null) targetProps.onActivated(cardRef.current);
-    onActivate();
-  };
-  const focus = (element: HTMLElement): void => {
-    const generation = ++focusGeneration.current;
-    setFocused(true);
-    scrollFocusedCompactAction(element, true, () => focusGeneration.current === generation);
-    targetProps.onFocused(element);
-  };
-
-  return (
-    <Focusable
-      noFocusRing
-      role="button"
-      tabIndex={0}
-      aria-label="Open Steam profile full-screen"
-      preferredFocus={targetProps.preferredFocus}
-      ref={(node) => { cardRef.current = node; targetProps.elementRef?.(node); }}
-      onActivate={activate}
-      onClick={activate}
-      onCancel={onCancel}
-      onFocus={(event) => focus(event.currentTarget)}
-      onGamepadFocus={(event) => focus(event.currentTarget as HTMLElement)}
-      onBlur={() => { focusGeneration.current += 1; setFocused(false); }}
-      style={getProfileCardStyle(focused)}
-    >
-      <div style={getIdentityStyle()}>
-        <div style={getAvatarFrameStyle()}>
-          {avatarUrl !== undefined ? (
-            <DeckyGameArtwork compact src={avatarUrl} size={54} title={profile.identity.displayName} />
-          ) : (
-            <span style={getAvatarFallbackStyle()}>{getInitials(profile.identity.displayName)}</span>
-          )}
-        </div>
-        <div style={getIdentityTextStyle()}>
-          <div style={getProfileNameStyle()}>{profile.identity.displayName}</div>
-        </div>
-      </div>
-      <img alt="" aria-hidden="true" src={externalLinkIconUrl} style={{ width: 18, height: 18, filter: qamTheme.decorative.iconFilter }} />
-    </Focusable>
-  );
-}
-
 function SectionHeader({ title }: { readonly title: string }): JSX.Element {
   return (
     <div style={getSectionHeaderStyle()}>
@@ -1067,12 +943,14 @@ export function DeckySteamCompactProfile({
   );
   const handledRestorationRequest = useRef(restorationRequest);
   const currentRestorationTarget = readDeckySteamCompactFocusTarget();
-  const restorationTarget: DeckySteamCompactFocusTarget = currentRestorationTarget.kind === "steamhunters-points" && !showSteamHuntersProfile
+  const restorationTarget: DeckySteamCompactFocusTarget = currentRestorationTarget.kind === "up-next" && (upNextCandidateGames ?? recentlyPlayedGames).length === 0
+    ? { kind: "profile" }
+    : currentRestorationTarget.kind === "steamhunters-points" && !showSteamHuntersProfile
     ? { kind: showSteamLibraryFallback ? "steam-profile-metric" : "profile" }
     : currentRestorationTarget.kind === "steam-profile-metric" && !showSteamLibraryFallback
       ? { kind: showSteamHuntersProfile ? "steamhunters-points" : "profile" }
       : currentRestorationTarget;
-  const restorationKey = getDeckySteamCompactFocusTargetKey(restorationTarget);
+  const restorationKey = getDeckySteamCompactFocusTargetKey((!readCompactCalendarExpanded("steam") && ["calendar", "calendar-entry"].includes(restorationTarget.kind) || restorationTarget.kind === "calendar-clear" && readDeckySteamCompactActivityDay() === undefined) ? { kind: "calendar-toggle" } : restorationTarget);
   const focusTargetsRef = useRef(new Map<string, HTMLDivElement>());
   const refreshTime = formatRefreshTime(refreshedAt);
   const [selectedActivityDay, setSelectedActivityDay] = useState(readDeckySteamCompactActivityDay);
@@ -1176,19 +1054,25 @@ export function DeckySteamCompactProfile({
       style={getRootStyle()}
     >
       <section style={getSectionStyle()}>
-        <SectionHeader title="Profile" />
-        <ProfileCard profile={profile} refreshedAt={refreshedAt} onActivate={onOpenProfile} onCancel={onCancel} targetProps={targetProps({ kind: "profile" })} />
-      </section>
+        <DeckyCompactProfileHeader identity={profile.identity} providerName="Steam" refreshedAt={refreshedAt}
+          onActivate={onOpenProfile} onCancel={onCancel} targetProps={targetProps({ kind: "profile" })}
+          pinnedTargetProps={targetProps({ kind: "pinned-shortcut" })}
+          onOpenPinned={(anchor) => openDeckyPinnedAchievementsModal({ providerId: "steam", onClose: () => { requestDeckySteamGamepadFocusAfterMount(anchor); } })} />
 
-      <DeckyCompactUpNextCard
-        providerId="steam"
-        games={upNextCandidateGames ?? recentlyPlayedGames}
-        achievementMode={settings.retroAchievementsAchievementMode}
-        onOpenAchievementDetail={onOpenAchievementDetail}
-        onOpenAchievements={onOpenGameAchievements}
-        onCancel={onCancel}
-        getFocusTargetProps={(control, gameId) => targetProps({ kind: "up-next", control, gameId })}
-      />
+        <DeckyCompactUpNextCard
+          providerId="steam"
+          games={upNextCandidateGames ?? recentlyPlayedGames}
+          achievementMode={settings.retroAchievementsAchievementMode}
+          onOpenAchievementDetail={onOpenAchievementDetail}
+          onOpenAchievements={onOpenGameAchievements}
+          onCancel={onCancel}
+          getFocusTargetProps={(control, gameId, unavailableControls = []) => {
+            const saved = readDeckySteamCompactFocusTarget();
+            const fallback = control === "achievements" && shouldRestoreCompactUpNextToAchievements(saved, gameId, unavailableControls);
+            return { ...targetProps({ kind: "up-next", control, gameId }), ...(fallback ? { preferredFocus: true } : {}) };
+          }}
+        />
+      </section>
 
       {showSteamHuntersProfile ? <section style={getSectionStyle()}>
         <SectionHeader title="SteamHunters Profile" />
@@ -1247,8 +1131,9 @@ export function DeckySteamCompactProfile({
         </div>
       </section> : null}
 
-      <section style={getSectionStyle()}>
-        <SectionHeader title="Activity Calendar" />
+      <DeckyCompactCalendarDisclosure providerId="steam" weeks={effectiveActivityCalendarWeeks} selectedDay={selectedActivityDay}
+        onClear={() => { setSelectedActivityDay(undefined); setDeckySteamCompactActivityDay(undefined); }} onCancel={onCancel}
+        targetProps={targetProps({ kind: "calendar-toggle" })} clearTargetProps={targetProps({ kind: "calendar-clear" })}>
         <CompactActivityCalendar
           dayCounts={activityStats.dayCounts}
           weeks={effectiveActivityCalendarWeeks}
@@ -1258,12 +1143,7 @@ export function DeckySteamCompactProfile({
           entryTargetProps={targetProps({ kind: "calendar-entry" })}
           targetProps={(day) => targetProps({ kind: "calendar", day })}
         />
-        <div style={{ display: "flex", alignItems: "center", gap: 4, minHeight: 15, color: steamTheme.color.textMuted, fontSize: 8.5, fontWeight: 700 }}>
-          <span>Press</span>
-          <span aria-hidden="true" style={{ display: "inline-grid", placeItems: "center", width: 14, height: 14, borderRadius: "50%", background: "rgba(255,255,255,.88)", color: steamTheme.surface.page, fontSize: 8, fontWeight: 900 }}>A</span>
-          <span>to use</span>
-        </div>
-      </section>
+      </DeckyCompactCalendarDisclosure>
 
       <section style={getSectionStyle()}>
         <SectionHeader title="Recent Activity" />

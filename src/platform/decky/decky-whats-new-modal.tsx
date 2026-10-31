@@ -394,6 +394,7 @@ const kofiIconStyle: CSSProperties = {
 export function openDeckyWhatsNewModal(): void {
   let externalNavigationStarted = false;
   openDeckyStandardModal({
+    stabilizeCloseFocus: true,
     title: "Whats New",
     renderTitle: (closeModal) => {
       const openExternalUrl = (url: string): void => {

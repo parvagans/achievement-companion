@@ -102,6 +102,12 @@ export function readDeckyCompactNavigation(): DeckyCompactNavigationDestination 
   return compactNavigation;
 }
 
+/** Observe an owned handoff without introducing another route/history store. */
+export function subscribeDeckyCompactNavigation(listener: () => void): () => void {
+  compactNavigationListeners.add(listener);
+  return () => { compactNavigationListeners.delete(listener); };
+}
+
 export function setDeckyCompactNavigation(
   nextDestination: DeckyCompactNavigationDestination,
 ): void {

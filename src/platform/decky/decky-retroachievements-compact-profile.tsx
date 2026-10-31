@@ -1,3 +1,7 @@
+import { DeckyCompactCalendarDisclosure } from "./decky-compact-calendar-disclosure";
+import { readCompactCalendarExpanded } from "./decky-compact-calendar-preference";
+import { openDeckyPinnedAchievementsModal } from "./decky-pinned-achievements-modal";
+import { shouldRestoreCompactUpNextToAchievements } from "./decky-compact-up-next-focus";
 import { Focusable, GamepadButton, NavEntryPositionPreferences, useQuickAccessVisible, type GamepadEvent } from "@decky/ui";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties, type ReactNode, type RefCallback } from "react";
 import type { DashboardSnapshot, RecentUnlock, RecentlyPlayedGame } from "@core/domain";
@@ -5,9 +9,8 @@ import { deckyRaPresence } from "./decky-retroachievements-presence";
 import type { RetroAchievementsConnectionState } from "./providers/retroachievements/connection";
 import { getRetroAchievementsConnectionBanner } from "./providers/retroachievements/connection";
 import type { CompactAchievementTarget } from "./decky-compact-achievement-model";
-import { addProfileAvatarCacheBustParam } from "./decky-avatar-cache-busting";
+import { DeckyCompactProfileHeader } from "./decky-compact-profile-header";
 import { DeckyCompletionProgressBar, getCompletionPercent } from "./decky-completion-progress-bar";
-import { DeckyGameArtwork } from "./decky-game-artwork";
 import { DeckyCompactRecentAchievementRow } from "./decky-compact-recent-achievement-row";
 import { DeckyRetroAchievementsGameIcon } from "./decky-retroachievements-game-icon";
 import { useDeckySettings } from "./decky-settings";
@@ -46,8 +49,6 @@ import { getRetroAchievementsCompletionIndicatorState } from "./decky-retroachie
 import { getRetroAchievementsModeUnlockedCount } from "./decky-retroachievements-mode-progress";
 import { DeckyGameStatusIcon } from "./decky-game-status-icon";
 import { findDeckyScrollableAncestor } from "./decky-scroll-viewport";
-import { scrollDeckyFocusTargetToTop } from "./decky-focus-scroll";
-import { getQamCompactFocusControlStyle } from "./decky-qam-theme";
 import { requestDeckySteamGamepadFocusAfterMount, takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { playDeckySteamNavigationSound } from "./decky-steam-navigation-sound";
 import { useDeckyVisualFocusState } from "./decky-visual-focus-state";
@@ -69,7 +70,6 @@ import chevronRightIconUrl from "./assets/chevron-right.svg";
 import masteredIconUrl from "./assets/mastered.svg";
 import pieChartIconUrl from "./assets/pie-chart.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
-import externalLinkIconUrl from "./assets/external-link.svg";
 import { RA_COIN_ICON_URL } from "./decky-retroachievements-points-icon";
 
 export interface DeckyRetroAchievementsCompactProfileProps {
@@ -93,11 +93,6 @@ interface CompactFocusTargetProps {
   readonly onActivated: (element: HTMLElement) => void;
   readonly onFocused: (element: HTMLElement) => void;
   readonly preferredFocus: boolean;
-}
-
-function getInitials(value: string): string {
-  return value.trim().split(/\s+/u).filter(Boolean).slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "").join("") || "RA";
 }
 
 function formatRelativeTime(timestamp: number | undefined): string | undefined {
@@ -204,72 +199,6 @@ function Section({ title, children }: { readonly title: string; readonly childre
       <div style={raRecipes.compactProfile.sectionTitle}>{title}</div>
       {children}
     </section>
-  );
-}
-
-function ProfileCard({
-  profile,
-  refreshedAt,
-  onActivate,
-  onCancel,
-  targetProps,
-}: {
-  readonly profile: DashboardSnapshot["profile"];
-  readonly refreshedAt: number | undefined;
-  readonly onActivate: () => void;
-  readonly onCancel: () => void;
-  readonly targetProps: CompactFocusTargetProps;
-}): JSX.Element {
-  const avatarUrl = addProfileAvatarCacheBustParam(profile.identity.avatarUrl, refreshedAt);
-  const cardRef = useRef<HTMLDivElement | null>(null);
-  const [focused, setFocused] = useState(false);
-  const focusGeneration = useRef(0);
-  useDeckyVisualFocusState(cardRef, setFocused);
-  const activate = (): void => {
-    if (cardRef.current !== null) targetProps.onActivated(cardRef.current);
-    onActivate();
-  };
-  const focus = (element: HTMLElement): void => {
-    const generation = ++focusGeneration.current;
-    setFocused(true);
-    scrollDeckyFocusTargetToTop(element, () => focusGeneration.current === generation);
-    targetProps.onFocused(element);
-  };
-  return (
-    <Focusable
-      noFocusRing
-      role="button"
-      tabIndex={0}
-      aria-label="Open RetroAchievements profile full-screen"
-      preferredFocus={targetProps.preferredFocus}
-      ref={(node) => { cardRef.current = node; targetProps.elementRef?.(node); }}
-      onActivate={activate}
-      onClick={activate}
-      onCancel={onCancel}
-      onFocus={(event) => focus(event.currentTarget)}
-      onGamepadFocus={(event) => focus(event.currentTarget as HTMLElement)}
-      onBlur={() => { focusGeneration.current += 1; setFocused(false); }}
-      style={{
-        ...raRecipes.compactProfile.profileCard,
-        display: "grid",
-        gridTemplateColumns: "minmax(0, 1fr) 18px",
-        alignItems: "center",
-        outline: "none",
-        ...(focused ? getQamCompactFocusControlStyle() : {}),
-      }}
-    >
-      <div style={raRecipes.compactProfile.identity}>
-        <div style={raRecipes.compactProfile.avatarFrame}>
-          {avatarUrl !== undefined
-            ? <DeckyGameArtwork compact src={avatarUrl} size={48} title={profile.identity.displayName} />
-            : <span style={raRecipes.compactProfile.avatarFallback}>{getInitials(profile.identity.displayName)}</span>}
-        </div>
-        <div style={raRecipes.compactProfile.identityText}>
-          <div style={raRecipes.compactProfile.profileName}>{profile.identity.displayName}</div>
-        </div>
-      </div>
-      <img alt="" aria-hidden="true" src={externalLinkIconUrl} style={{ width: 18, height: 18, filter: raTheme.iconFilter.primary }} />
-    </Focusable>
   );
 }
 
@@ -728,8 +657,12 @@ export function DeckyRetroAchievementsCompactProfile({
     readDeckyCompactFocusRestoreRequest,
   );
   const handledRestorationRequest = useRef(restorationRequest);
+  const savedCalendarTarget = readDeckyRetroAchievementsCompactFocusTarget();
   const restorationKey = getDeckyRetroAchievementsCompactFocusTargetKey(
-    readDeckyRetroAchievementsCompactFocusTarget(),
+    (!readCompactCalendarExpanded("retroachievements") && ["calendar-day", "calendar-entry"].includes(savedCalendarTarget.kind) || savedCalendarTarget.kind === "calendar-clear" && readDeckyRetroAchievementsCompactActivityDay() === undefined) ? { kind: "calendar-toggle" } :
+    readDeckyRetroAchievementsCompactFocusTarget().kind === "up-next" && displayedUpNextGames.length === 0
+      ? { kind: "profile" }
+      : readDeckyRetroAchievementsCompactFocusTarget(),
   );
   const focusTargetsRef = useRef(new Map<string, HTMLDivElement>());
   const [selectedActivityDay, setSelectedActivityDay] = useState(readDeckyRetroAchievementsCompactActivityDay);
@@ -841,20 +774,27 @@ export function DeckyRetroAchievementsCompactProfile({
         </div>
       ) : null}
 
-      <Section title="Profile">
-        <ProfileCard profile={profile} refreshedAt={refreshedAt} onActivate={onOpenProfile} onCancel={onCancel} targetProps={targetProps({ kind: "profile" })} />
-      </Section>
+      <section style={raRecipes.compactProfile.section}>
+        <DeckyCompactProfileHeader identity={profile.identity} providerName="RetroAchievements" refreshedAt={refreshedAt}
+          currentGame={activeGame !== undefined} onActivate={onOpenProfile} onCancel={onCancel} targetProps={targetProps({ kind: "profile" })}
+          pinnedTargetProps={targetProps({ kind: "pinned-shortcut" })}
+          onOpenPinned={(anchor) => openDeckyPinnedAchievementsModal({ providerId: "retroachievements", onClose: () => { requestDeckySteamGamepadFocusAfterMount(anchor); } })} />
 
-      <DeckyCompactUpNextCard
-        providerId={RETROACHIEVEMENTS_PROVIDER_ID}
-        games={displayedUpNextGames}
-        {...(activeGame !== undefined ? { activeGameId: activeGame.gameId } : {})}
-        achievementMode={settings.retroAchievementsAchievementMode}
-        onOpenAchievementDetail={onOpenAchievementDetail}
-        onOpenAchievements={onOpenGameAchievements}
-        onCancel={onCancel}
-        getFocusTargetProps={(control, gameId) => targetProps({ kind: "up-next", control, gameId })}
-      />
+        <DeckyCompactUpNextCard
+          providerId={RETROACHIEVEMENTS_PROVIDER_ID}
+          games={displayedUpNextGames}
+          {...(activeGame !== undefined ? { activeGameId: activeGame.gameId } : {})}
+          achievementMode={settings.retroAchievementsAchievementMode}
+          onOpenAchievementDetail={onOpenAchievementDetail}
+          onOpenAchievements={onOpenGameAchievements}
+          onCancel={onCancel}
+          getFocusTargetProps={(control, gameId, unavailableControls = []) => {
+            const saved = readDeckyRetroAchievementsCompactFocusTarget();
+            const fallback = control === "achievements" && shouldRestoreCompactUpNextToAchievements(saved, gameId, unavailableControls);
+            return { ...targetProps({ kind: "up-next", control, gameId }), ...(fallback ? { preferredFocus: true } : {}) };
+          }}
+        />
+      </section>
 
       <Section title="RA Overview">
         <div style={raRecipes.compactProfile.metricGrid(overview.length)}>
@@ -887,7 +827,9 @@ export function DeckyRetroAchievementsCompactProfile({
         ) : null}
       </Section>
 
-      <Section title="Activity Calendar">
+      <DeckyCompactCalendarDisclosure providerId="retroachievements" weeks={settings.retroAchievementsCompactActivityCalendarWeeks} selectedDay={selectedActivityDay}
+        onClear={() => { setSelectedActivityDay(undefined); setDeckyRetroAchievementsCompactActivityDay(undefined); }} onCancel={onCancel}
+        targetProps={targetProps({ kind: "calendar-toggle" })} clearTargetProps={targetProps({ kind: "calendar-clear" })}>
         <ActivityCalendar
           entries={activityCalendarUnlocks ?? snapshot.activityCalendarUnlocks}
           mode={settings.retroAchievementsAchievementMode}
@@ -902,14 +844,7 @@ export function DeckyRetroAchievementsCompactProfile({
           entryTargetProps={targetProps({ kind: "calendar-entry" })}
           targetProps={(day) => targetProps({ kind: "calendar-day", day })}
         />
-        {(activityCalendarUnlocks ?? snapshot.activityCalendarUnlocks) !== undefined ? (
-          <div style={raRecipes.compactProfile.calendarHint}>
-            <span>Press</span>
-            <span aria-hidden="true" style={raRecipes.compactProfile.calendarHintButton}>A</span>
-            <span>to use</span>
-          </div>
-        ) : null}
-      </Section>
+      </DeckyCompactCalendarDisclosure>
 
       <Section title="Recent Activity">
         <div style={raRecipes.compactProfile.listCard}>

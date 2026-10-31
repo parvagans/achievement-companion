@@ -28,6 +28,21 @@ export interface PinnedAchievementScope {
   readonly accountId: string;
 }
 
+export interface SavedPinnedAchievement extends PinnedAchievementScope, PinnedAchievement {}
+
+/** Enumerate only the supplied current accounts; never return other accounts' preferences. */
+export function enumeratePinnedAchievements(preferences: GameOverviewPreferences, accounts: Readonly<Record<string, string | undefined>>): readonly SavedPinnedAchievement[] {
+  const result: SavedPinnedAchievement[] = [];
+  for (const [key, pin] of Object.entries(preferences.pinnedAchievements)) {
+    let tuple: unknown;
+    try { tuple = JSON.parse(key); } catch { continue; }
+    if (!Array.isArray(tuple) || tuple.length !== 3 || !tuple.every((item) => typeof item === "string")) continue;
+    const scope = { providerId: tuple[0]!, gameId: tuple[1]!, accountId: tuple[2]! };
+    if (validScope(scope) && accounts[scope.providerId] === scope.accountId) result.push({ ...scope, ...pin });
+  }
+  return result;
+}
+
 function validScope(scope: PinnedAchievementScope): boolean {
   return (scope.providerId === "steam" || scope.providerId === "retroachievements")
     && /^[1-9]\d*$/.test(scope.gameId) && scope.accountId.trim().length > 0;
@@ -230,6 +245,17 @@ export function useDeckyGameOverviewPreferences(providerId: string, gameId: stri
 }
 
 export const subscribeToPinnedAchievementChanges = subscribe;
+export function useSavedPinnedAchievements() {
+  const configs = useDeckyProviderConfigs();
+  const currentRevision = useSyncExternalStore(subscribe, () => revision, () => revision);
+  const accounts = {
+    steam: configs.steam?.hasApiKey ? configs.steam.steamId64 : undefined,
+    retroachievements: configs.retroAchievements?.hasApiKey ? configs.retroAchievements.username.toLowerCase() : undefined,
+  };
+  const signature = JSON.stringify(accounts);
+  const pins = useMemo(() => enumeratePinnedAchievements(getStore().read(), accounts), [currentRevision, signature]);
+  return { pins, accounts };
+}
 export function readPinnedAchievement(scope: PinnedAchievementScope): PinnedAchievement | undefined {
   return getStore().readPinnedAchievement(scope);
 }

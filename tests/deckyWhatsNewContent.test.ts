@@ -139,6 +139,7 @@ test("What's New wires the native Close focus handoff through the shared shell",
     createElement, WhatsNewTitle: "title", WhatsNewContent: "content", openDeckyStandardModal: (value: unknown) => { options = value; },
   });
   openDeckyWhatsNewModal();
+  assert.equal(options.stabilizeCloseFocus, true);
   const focusClose = () => true;
   assert.equal(options.renderContent(() => {}, focusClose).props.focusCloseButton, focusClose);
 });

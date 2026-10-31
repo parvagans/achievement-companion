@@ -269,8 +269,8 @@ test("RA QAM loading, focus scrolling, and calendar controls follow Steam compac
   assert.match(settingsSource, /autoFocus[\s\S]*preferredFocus/u);
   assert.doesNotMatch(settingsSource, /useQuickAccessVisible|requestDeckySteamGamepadFocusAfterMount/u);
   assert.match(profileSource, /scrollIntoView\(\{ block: "center", inline: "nearest" \}\)/u);
-  assert.match(profileSource, /<ProfileCard[\s\S]*onActivate=\{onOpenProfile\}[\s\S]*targetProps=\{targetProps\(\{ kind: "profile" \}\)\}/u);
-  assert.match(profileSource, /scrollDeckyFocusTargetToTop/u);
+  assert.match(profileSource, /<DeckyCompactProfileHeader[\s\S]*onActivate=\{onOpenProfile\}[\s\S]*targetProps=\{targetProps\(\{ kind: "profile" \}\)\}/u);
+  assert.match(await readFile("src/platform/decky/decky-compact-profile-header.tsx", "utf8"), /scrollDeckyFocusTargetToTop/u);
   assert.match(profileSource, /aria-label=\{model === undefined \? "RetroAchievements activity calendar unavailable" : `Activity calendar, \$\{status\}\. \$\{active \? "Press B to exit\." : "Press A to use\."\}`\}/u);
   assert.match(profileSource, /data-ra-activity-calendar-day="true"[\s\S]*onGamepadDirection=\{handleCalendarDirection\}/u);
   assert.match(profileSource, /data-ra-activity-calendar-current=\{day === today \? "true" : "false"\}/u);
@@ -290,7 +290,6 @@ test("RA QAM loading, focus scrolling, and calendar controls follow Steam compac
   assert.match(raThemeSource, /data-ac-ra-theme="fullscreen"\] \.Panel\.Focusable\.gpfocus/u);
   assert.match(raThemeSource, /getQamCompactFocusRingStyle\(focused\)/u);
   assert.match(profileSource, /onCancel=\{active \? exitCalendar : onCancel\}/u);
-  assert.match(profileSource, /<span>Press<\/span>[\s\S]*calendarHintButton\}>A<\/span>[\s\S]*<span>to use<\/span>/u);
   assert.match(profileSource, /calendarLegendCell\(level\)/u);
   assert.doesNotMatch(profileSource, /calendarCell\(level, false, false\)/u);
   assert.match(profileSource, /<div style=\{raRecipes\.compactProfile\.footer\}>\{refreshText\}<\/div>/u);

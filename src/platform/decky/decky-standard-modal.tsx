@@ -4,6 +4,7 @@ import { steamTheme } from "./steam-theme";
 import { registerDeckyFullscreenPopupCancel } from "./decky-full-screen-popup-state";
 import { beginDeckyCompactPopup } from "./decky-compact-popup-state";
 import { takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
+import { preserveModalAncestorScrollWhileFocused } from "./decky-modal-close-scroll";
 
 /** The native dialog shell used by Achievement Companion's focused detail modals. */
 export function getDeckyStandardModalContentStyle(): CSSProperties {
@@ -33,6 +34,7 @@ export function openDeckyStandardModal({
   onClose,
   viewportSafe = false,
   preserveCompactSession = false,
+  stabilizeCloseFocus = false,
 }: {
   readonly title: string;
   readonly renderTitle?: (closeModal: () => void) => ReactNode;
@@ -40,20 +42,30 @@ export function openDeckyStandardModal({
   readonly onClose?: () => void;
   readonly viewportSafe?: boolean;
   readonly preserveCompactSession?: boolean;
+  readonly stabilizeCloseFocus?: boolean;
 }): void {
   let modal: ReturnType<typeof showModal> | undefined;
   let unregisterPopupCancel: (() => void) | undefined;
   let releaseCompactPopup = preserveCompactSession ? beginDeckyCompactPopup() : undefined;
   let closed = false;
   const closeLabelRef = createRef<HTMLSpanElement>();
+  let releaseCloseScroll: (() => void) | undefined;
   const focusCloseButton = (): boolean => {
     // Resolve only the native action containing our own label, never another dialog.
     const button = closeLabelRef.current?.closest<HTMLElement>("button, [role='button'], [tabindex]");
-    return takeDeckySteamGamepadFocus(button);
+    releaseCloseScroll?.();
+    const guard = stabilizeCloseFocus ? preserveModalAncestorScrollWhileFocused(button) : undefined;
+    const focused = takeDeckySteamGamepadFocus(button);
+    if (focused) {
+      guard?.restore();
+      releaseCloseScroll = guard?.release;
+    } else guard?.release();
+    return focused;
   };
   const closeModal = (): void => {
     if (closed) return;
     closed = true;
+    releaseCloseScroll?.();
     unregisterPopupCancel?.();
     modal?.Close();
     releaseCompactPopup?.();
@@ -80,6 +92,7 @@ export function openDeckyStandardModal({
       },
     );
   } catch (error) {
+    releaseCloseScroll?.();
     releaseCompactPopup?.();
     releaseCompactPopup = undefined;
     throw error;

@@ -22,7 +22,7 @@
 **Know what to unlock next without leaving Game Mode.** Achievement Companion brings RetroAchievements and Steam progress to Steam Deck and compatible SteamOS devices through Decky Loader. See your next goal in Quick Access, browse your collection with a controller, and spot progress and completion badges on library game pages.
 
 <p align="center">
-  <img src="docs/screenshots/readme/achievement-companion-hero.png" alt="Achievement Companion Quick Access view showing the RetroAchievements current game and a focused Master goal recommendation" width="520">
+  <img src="docs/screenshots/readme/achievement-companion-hero.png" alt="Achievement Companion Quick Access showing a pinned RetroAchievements target and the focused Pinned Achievements header shortcut" width="520">
 </p>
 
 ## Start here
@@ -35,7 +35,7 @@ Achievement Companion is an independent community project, not affiliated with o
 
 ## Highlights
 
-- **[Choose your next unlock](#quick-access-menu):** pin a Steam or RetroAchievements target, or follow automatic suggestions in Quick Access, full-screen Overview, and matched RetroAchievements shortcuts in Steam.
+- **[Choose your next unlock](#quick-access-menu):** pin a Steam or RetroAchievements target, manage saved targets from the Quick Access header, or follow automatic suggestions in full-screen Overview and supported native Steam views.
 - **[Stay in Game Mode](#retroachievements-inside-steam):** view RetroAchievements in Steam's Activity, Up Next, Your Stuff, Community, and Game Info sections for supported non-Steam games.
 - **[Explore both collections](#screenshots):** use controller-friendly profiles, searchable games and achievements, progress views, activity calendars, and achievement details.
 - **Understand Steam completions:** SteamHunters adds community rarity, completion times, DLC requirements, achievement groups, and obtainability data where available. Personal SteamHunters profile data is optional.
@@ -44,7 +44,7 @@ Achievement Companion is an independent community project, not affiliated with o
 
 RetroAchievements and Steam keep their own progression rules. Choosing a RetroAchievements Beat or Master goal changes recommendations and presentation, not the recorded accomplishment.
 
-**Explore:** [Data synchronization](#retroachievements-data-synchronization) · [Quick Access](#quick-access-menu) · [RetroAchievements inside Steam](#retroachievements-inside-steam) · [Full-screen game pages](#full-screen-game-pages) · [Game-page badges](#native-game-page-status-badges) · [Privacy](#privacy) · [Credits](#credits-and-acknowledgements)
+**Explore:** [Data synchronization](#retroachievements-data-synchronization) · [Quick Access](#quick-access-menu) · [Pinned achievements](#pinned-achievements) · [RetroAchievements inside Steam](#retroachievements-inside-steam) · [Full-screen game pages](#full-screen-game-pages) · [Game-page badges](#native-game-page-status-badges) · [Privacy](#privacy) · [Credits](#credits-and-acknowledgements)
 
 ## Requirements
 
@@ -72,9 +72,13 @@ For RetroAchievements, enter your username and the Web API key from **Settings �
 
 ## Quick Access Menu
 
-Quick Access shows a **Current Game** or **Continue Playing** card for each connected provider, with progress and one Up Next recommendation. Open its details, skip it, or browse the game's achievements. Automatic RetroAchievements suggestions follow the selected global or per-game Beat or Master goal; Steam prioritizes unfinished recent games with eligible achievements.
+The game comes first, with compact shortcuts beside the heading: the **header thumbtack** opens Pinned Achievements, and your **avatar** opens your full-screen profile. Both shortcuts remain available when there is no game to recommend.
 
-Use the adjacent **thumbtack** to pin or unpin a recommendation. A filled thumbtack marks your manual target, which takes priority over automatic suggestions without changing your Beat/Master goal. Pins are saved separately for each account and game and shared across Quick Access, full-screen Overview, and supported native Steam views. Removing or completing a pin restores automatic selection; RetroAchievements pins respect the completion mode selected when pinned. **Set as Up Next** and **Remove from Up Next** also remain available in the existing suggestion and achievement-detail menus.
+### Up Next
+
+Quick Access shows a **Current Game** or **Continue Playing** card for each connected provider, with progress and one Up Next recommendation. Open its details, skip it, or browse the game's achievements. Larger game titles and descriptions beneath the achievement artwork/title row keep the recommendation readable. Automatic RetroAchievements suggestions follow the selected global or per-game Beat or Master goal; Steam prioritizes unfinished recent games with eligible achievements.
+
+Use the **thumbtack in the game card’s action row** to pin or unpin the current recommendation. A filled thumbtack marks your manual target, which takes priority over automatic suggestions without changing your Beat/Master goal. Pins are saved separately for each account and game and shared across Quick Access, full-screen Overview, and supported native Steam views. Removing or completing a pin restores automatic selection; RetroAchievements pins respect the completion mode selected when pinned. **Set as Up Next** and **Remove from Up Next** also remain available in the existing suggestion and achievement-detail menus.
 
 Open a game for up to three recommendations and a complete achievement browser. Search titles and descriptions, filter and sort results, or choose Detailed or Compact rows. **Actions** opens Game Info, goal and suggestion controls, and the full-screen page. After viewing achievement details, you return where you left off.
 
@@ -84,8 +88,8 @@ Open a game for up to three recommendations and a complete achievement browser. 
     <th width="50%">Master goal</th>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/screenshots/readme/qam-up-next-goal-beat.png" alt="RetroAchievements QAM Current Game card with a focused Beat goal recommendation" width="100%"></td>
-    <td width="50%"><img src="docs/screenshots/readme/qam-up-next-goal-master.png" alt="RetroAchievements QAM Current Game card with a focused Master goal recommendation" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/qam-up-next-goal-beat.png" alt="RetroAchievements QAM Continue Playing card for StarCraft 64 with a focused Beat recommendation and compact header shortcuts" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/qam-up-next-goal-master.png" alt="RetroAchievements QAM Continue Playing card for Portal 64 with a focused Master recommendation and full-width description" width="100%"></td>
   </tr>
   <tr>
     <th colspan="2">Achievement browser</th>
@@ -94,6 +98,32 @@ Open a game for up to three recommendations and a complete achievement browser. 
     <td colspan="2" align="center"><img src="docs/screenshots/readme/qam-achievement-browser.png" alt="Achievement Companion QAM achievement browser with Search and Sort & View controls" width="50%"></td>
   </tr>
 </table>
+
+
+### Pinned Achievements
+
+Open the **header thumbtack** to view saved targets across your configured Steam and RetroAchievements accounts. When both providers are connected, switch tabs to see each provider’s pins and counts. Each entry shows its game, achievement, description when available, and RetroAchievements completion mode where relevant.
+
+Choose **Details** to inspect an achievement or **Unpin** to remove the saved target. From Details, **View Game** opens the compact game overview; **B** from that game returns to the pinned viewer at the originating entry. **Close** or **B** in the viewer returns to its header shortcut. Unpinning updates the other supported views too.
+
+The header thumbtack opens this viewer; the thumbtack inside the Up Next action row continues to pin or unpin the current recommendation.
+
+<table>
+  <tr>
+    <th width="50%">Steam pinned achievements</th>
+    <th width="50%">RetroAchievements pinned achievements</th>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/readme/steam_pinned_achievements.png" alt="Pinned Achievements modal with the Steam tab selected, game and achievement information, and Details and Unpin actions" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/ra_pinned_achievements.png" alt="Pinned Achievements modal with the RetroAchievements tab selected, console and Hardcore mode information, and Details and Unpin actions" width="100%"></td>
+  </tr>
+</table>
+
+### Activity Calendar
+
+Steam and RetroAchievements Activity Calendars **start collapsed**. Select the calendar heading and press **A** to expand or collapse it; the heading shows the configured week range. Each provider remembers its expanded/collapsed preference separately between sessions and restarts.
+
+Expand the calendar to select a date and filter Recent Activity and the associated games. Collapsing keeps that filter active: the heading shows the selected date, and **Clear date filter** removes it without reopening the calendar. **B** exits calendar day navigation as before.
 
 ## RetroAchievements inside Steam
 

@@ -285,7 +285,7 @@ test("shared QAM card is theme-token driven and exposes controller, touch, and m
   assert.match(source, /theme\.surface\.focusedContentStat/u);
   assert.match(source, /onSecondaryButton:/u);
   assert.match(source, /onOptionsButton:/u);
-  assert.match(source, /onClick=\{activateRecommendation\}/u);
+  assert.match(source, /onClick: activateRecommendation/u);
   assert.doesNotMatch(source, /A Details · X Skip · Y Achievements/u);
   assert.match(source, /onSecondaryActionDescription: "Skip"/u);
   assert.match(source, /onOptionsActionDescription: "List"/u);
@@ -328,13 +328,13 @@ test("shared QAM card gives game titles the full header width and keeps provider
   const source = readFileSync("src/platform/decky/decky-compact-up-next-card.tsx", "utf8");
   assert.match(source, /gridTemplateColumns: "46px minmax\(0, 1fr\)"/u);
   assert.doesNotMatch(source, /gridTemplateColumns: "46px minmax\(0, 1fr\) auto"/u);
-  assert.match(source, /<strong title=\{displayedGame\.title\} style=\{\{ \.\.\.lineClamp\(2\), fontSize: 13/u);
+  assert.match(source, /<strong title=\{displayedGame\.title\} style=\{\{ \.\.\.lineClamp\(2\), fontSize: theme\.type\.fullscreen\.title/u);
   assert.match(source, /justifyContent: "space-between"/u);
   assert.match(source, /width: "100%", height: 4/u);
   assert.doesNotMatch(source, /richPresence/u);
-  assert.match(source, /providerId === "steam" \? "Steam" : "RetroAchievements"/u);
+  assert.match(source, /providerId === "retroachievements" && displayedGame\.platformLabel/u);
   assert.match(source, /resolveDeckyUpNextLabel\(suggestion, providerId, preferences\.retroAchievementsGoal\)/u);
-  assert.match(source, /suggestion === undefined \|\| !recommendationFocused \? \{\} : \{/u);
+  assert.match(source, /!recommendationActionable \|\| suggestion === undefined \|\| !recommendationFocused \? \{\} : \{/u);
   assert.match(source, /loadedGameKey === currentGameKey/u);
   assert.match(source, /return \(\) => \{ active = false; \}/u);
   assert.match(source, /shouldAdvanceDeckyCompactUpNextCandidate/u);

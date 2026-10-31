@@ -67,8 +67,8 @@ test("Steam compact profile matches the refined controller-first information hie
   assert.match(indexSource, /titleView:[\s\S]*>Achievement Companion<\/span>/u);
   assert.doesNotMatch(indexSource, /AC_(?:decky_compact|main)_logo\.png/u);
 
-  assert.match(compactProfileSource, /<SectionHeader title="Profile"/u);
-  assert.match(compactProfileSource, /aria-label="Open Steam profile full-screen"/u);
+  assert.doesNotMatch(compactProfileSource, /<SectionHeader title="Profile"/u);
+  assert.match(compactProfileSource, /providerName="Steam"/u);
   assert.doesNotMatch(compactProfileSource, />Open Profile Full-Screen</u);
   assert.match(compactProfileSource, /title="SteamHunters Profile"/u);
   assert.match(compactProfileSource, /label="Points"/u);
@@ -164,8 +164,7 @@ test("Steam compact Activity calendar overrides configured list limits until its
   assert.match(compactProfileSource, /const exitCalendar[\s\S]*setActive\(false\)/u);
   assert.match(compactProfileSource, /onCancel=\{exitCalendar\}/u);
   assert.match(compactProfileSource, /gridTemplateColumns: `18px repeat\(\$\{weeks\}, minmax\(0, 1fr\)\)`/u);
-  assert.match(compactProfileSource, /<SectionHeader title="Activity Calendar" \/>/u);
-  assert.match(compactProfileSource, /<span>Press<\/span>[\s\S]*>A<\/span>[\s\S]*<span>to use<\/span>/u);
+  assert.match(compactProfileSource, /<DeckyCompactCalendarDisclosure/u);
   assert.match(compactProfileSource, /onGamepadDirection=\{handleCompactCalendarDirection\}/u);
   assert.match(compactProfileSource, /data-steam-compact-profile-action/u);
   assert.match(compactProfileSource, /data-steam-compact-recent-activity-count=\{visibleAchievements\.length\}/u);
@@ -227,7 +226,7 @@ test("provider and Steam use explicit native entry scopes without changing Retro
   assert.match(steamActionSource, /preferredFocus=\{preferredFocus\}/u);
   assert.match(
     compactProfileSource,
-    /<ProfileCard[\s\S]*onActivate=\{onOpenProfile\}[\s\S]*targetProps=\{targetProps\(\{ kind: "profile" \}\)\}/u,
+    /<DeckyCompactProfileHeader[\s\S]*onActivate=\{onOpenProfile\}[\s\S]*targetProps=\{targetProps\(\{ kind: "profile" \}\)\}/u,
   );
   assert.match(compactProfileSource, /preferredFocus: key === restorationKey/u);
 

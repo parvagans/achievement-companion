@@ -1,7 +1,7 @@
 {
   "api_version": 1,
   "name": "Achievement Companion",
-  "version": "0.39.1",
+  "version": "0.40.0",
   "author": "parvagans",
   "publish": {
     "tags": [
