@@ -5,7 +5,7 @@ import * as React from "react";
 import ts from "typescript";
 
 /** Execute the real TSX with explicit native/service boundaries supplied by each test. */
-export function loadLocalComponent(file: string, overrides: Record<string, unknown> = {}) {
+export function loadLocalComponent(file: string, overrides: Record<string, unknown> = {}, sourcePath?: string) {
   const path = resolve(file);
   const require = createRequire(path);
   const controls: any[] = [];
@@ -15,7 +15,7 @@ export function loadLocalComponent(file: string, overrides: Record<string, unkno
       !name.startsWith("on") && !["noFocusRing", "preferredFocus"].includes(name))), props.children);
   });
   const exports: Record<string, any> = {};
-  const compiled = ts.transpileModule(readFileSync(path, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } });
+  const compiled = ts.transpileModule(readFileSync(sourcePath ?? path, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } });
   new Function("require", "exports", compiled.outputText)((name: string) => overrides[name]
     ?? (name === "@decky/ui" ? { Focusable, GamepadButton: { DIR_UP: 9, DIR_DOWN: 10, DIR_LEFT: 11, DIR_RIGHT: 12 } } : require(name)), exports);
   return { exports, controls };

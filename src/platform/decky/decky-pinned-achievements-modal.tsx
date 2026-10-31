@@ -18,8 +18,7 @@ import { beginDeckyCompactPopup } from "./decky-compact-popup-state";
 import { requestDeckySteamGamepadFocusAfterMount, takeDeckySteamGamepadFocus } from "./decky-steam-gamepad-focus";
 import { applyAchievementCompanionTheme } from "./decky-theme-palette";
 import { readDeckySettings } from "./decky-settings";
-import { DeckyGameArtwork } from "./decky-game-artwork";
-import { DeckyAchievementArtwork } from "./decky-achievement-artwork";
+import { DeckyPinnedAchievementCard } from "./decky-pinned-achievement-card";
 import { achievementCompanionQamTheme as theme, getQamCompactFocusControlStyle } from "./decky-qam-theme";
 import { useDeckyVisualFocusState } from "./decky-visual-focus-state";
 
@@ -162,16 +161,7 @@ export function PinnedAchievementsContent({ initialProvider, focusGameId, focusC
           if (box.top < view.top) viewport.current.scrollTop += box.top - view.top;
           else if (box.bottom > view.bottom) viewport.current.scrollTop += box.bottom - view.bottom;
         } };
-        return <article key={key(pin)} data-ac-pin-game={pin.gameId} style={{ padding: 10, marginBottom: 8, border: `1px solid ${theme.color.borderSubtle}`, borderRadius: theme.radius.medium, background: theme.surface.contentCard, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, minWidth: 0 }}>
-            {snapshot ? <DeckyGameArtwork compact size={32} title={snapshot.game.title} {...(snapshot.game.coverImageUrl ? { src: snapshot.game.coverImageUrl } : {})} /> : null}
-            <strong style={{ fontSize: 14, minWidth: 0, overflowWrap: "anywhere" }}>{snapshot?.game.title ?? `Game #${pin.gameId}`}</strong>
-            {pin.providerId === "retroachievements" ? <span style={{ fontSize: 11, color: theme.color.textSecondary }}>{snapshot?.game.platformLabel} · {pin.completionMode === "both" ? "Any mode" : pin.completionMode}</span> : null}
-          </div>
-          {achievement ? <div style={{ display: "grid", gridTemplateColumns: achievement.badgeImageUrl ? "40px minmax(0,1fr)" : "minmax(0,1fr)", gap: 8, marginBottom: 8 }}>
-            {achievement.badgeImageUrl ? <DeckyAchievementArtwork size={40} src={achievement.badgeImageUrl} /> : null}
-            <div><strong style={{ fontSize: 14 }}>{achievement.title}</strong>{achievement.description ? <div style={{ fontSize: 12, lineHeight: 1.3, color: theme.color.textSecondary, overflowWrap: "anywhere" }}>{achievement.description}</div> : null}</div>
-          </div> : <p role="status" style={{ fontSize: 12 }}>{state === undefined ? "Loading pinned achievement…" : "Pinned achievement information is unavailable. Your pin is saved."}</p>}
+        return <DeckyPinnedAchievementCard key={key(pin)} pin={pin} snapshot={snapshot} loading={state === undefined} actions={
           <Focusable flow-children="left-right" noFocusRing tabIndex={-1} onGamepadDirection={(event) => {
             if (event.detail.button === GamepadButton.DIR_UP) move(event, controls.current.get(index ? `entry:${visible[index - 1]?.gameId}` : `tab:${active}`));
             if (event.detail.button === GamepadButton.DIR_DOWN) {
@@ -185,7 +175,7 @@ export function PinnedAchievementsContent({ initialProvider, focusGameId, focusC
             <ModalAction label="Unpin" activate={() => { if (!currentAccount(pin)) return; pendingFocus.current = visible[index + 1]?.gameId ?? visible[index - 1]?.gameId; unpinAchievement(pin, pin.achievementId); }}
               {...(!achievement ? { elementRef: (node: HTMLDivElement | null) => { if (node) controls.current.set(`entry:${pin.gameId}`, node); } } : {})} onFocused={scroll} />
           </Focusable>
-        </article>;
+        } />;
       })}
     </div>
   </div>;
