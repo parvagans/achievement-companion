@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,6 +29,8 @@ def write_json_file(path: Path, value: object) -> None:
   with tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False, dir=str(path.parent)) as handle:
     temp_path = Path(handle.name)
     handle.write(serialized)
+    handle.flush()
+    os.fsync(handle.fileno())
 
   try:
     _ensure_file_permissions(temp_path)
@@ -91,23 +94,32 @@ def read_json_file(
   *,
   warn: WarningCallback | None = None,
   now: datetime | None = None,
+  strict: bool = False,
 ) -> dict[str, Any]:
   try:
     raw_text = path.read_text(encoding="utf-8")
   except FileNotFoundError:
     return {}
   except OSError as cause:
+    if strict:
+      raise
     if warn is not None:
       warn("Unable to read plugin state file", {"path": str(path), "error": str(cause)})
     return {}
 
   if raw_text.strip() == "":
+    if strict:
+      raise ValueError("Empty state file.")
     return {}
 
   try:
     parsed = json.loads(raw_text)
   except json.JSONDecodeError:
+    if strict:
+      raise
     quarantine_corrupt_json_file(path, warn=warn, now=now)
     return {}
 
+  if strict and not isinstance(parsed, dict):
+    raise ValueError("Invalid state file.")
   return parsed if isinstance(parsed, dict) else {}

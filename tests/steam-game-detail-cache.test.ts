@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { updateDeckyProviderConfigCache } from "../src/platform/decky/providers/provider-config-store";
 import type { GameDetailSnapshot } from "../src/core/domain";
 import {
   clearDeckySteamGameDetailCache,
@@ -49,6 +50,7 @@ async function withMockDeckyStorage(callback: () => Promise<void> | void): Promi
   globalObject.sessionStorage = storage;
 
   try {
+    updateDeckyProviderConfigCache("steam", {steamId64:"76561198000000001",hasApiKey:true,language:"english",recentAchievementsCount:5,recentlyPlayedCount:5});
     await callback();
   } finally {
     if (previousLocalStorage === undefined) delete globalObject.localStorage;

@@ -1,3 +1,4 @@
+import { runDeckyCleanup } from "./decky-cleanup";
 import { nativeUpNextIdentity } from "./decky-native-up-next-preview-model";
 import { routerHook } from "@decky/api";
 import {
@@ -1101,10 +1102,13 @@ export function ensureDeckyGamePageAchievementRoutePatchRegistered(): () => void
   );
 
   deckyGamePageAchievementRoutePatchCleanup = () => {
-    routerHook.removePatch(DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN, registeredPatch);
-    routePatches.dispose();
-    markAchievementCompanionGamePageRouteBadgePatchRemoved();
+    if (deckyGamePageAchievementRoutePatchCleanup === undefined) return;
     deckyGamePageAchievementRoutePatchCleanup = undefined;
+    runDeckyCleanup([
+      () => routerHook.removePatch(DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN, registeredPatch),
+      () => routePatches.dispose(),
+      markAchievementCompanionGamePageRouteBadgePatchRemoved,
+    ]);
   };
 
   return deckyGamePageAchievementRoutePatchCleanup;

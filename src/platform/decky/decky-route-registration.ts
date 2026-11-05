@@ -1,3 +1,4 @@
+import { runDeckyCleanup } from "./decky-cleanup";
 import type { RouterHook } from "@decky/api";
 import type { ComponentType } from "react";
 
@@ -19,6 +20,11 @@ export function createDeckyRouteRegistration(
   routes: readonly DeckyRouteDefinition[],
 ): DeckyRouteRegistration {
   let registered = false;
+  const acquired: DeckyRouteDefinition[] = [];
+  const unregister = () => {
+    registered = false;
+    runDeckyCleanup(acquired.splice(0).reverse().map(route => () => routeHook.removeRoute(route.path)));
+  };
 
   return {
     register() {
@@ -26,21 +32,18 @@ export function createDeckyRouteRegistration(
         return;
       }
 
-      for (const route of routes) {
-        routeHook.addRoute(route.path, route.component);
+      try {
+        for (const route of routes) {
+          routeHook.addRoute(route.path, route.component);
+          acquired.push(route);
+        }
+        registered = true;
+      } catch (cause) {
+        unregister();
+        throw cause;
       }
-      registered = true;
     },
-    unregister() {
-      if (!registered) {
-        return;
-      }
-
-      for (const route of [...routes].reverse()) {
-        routeHook.removeRoute(route.path);
-      }
-      registered = false;
-    },
+    unregister,
     isRegistered() {
       return registered;
     },

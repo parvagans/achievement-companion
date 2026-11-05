@@ -120,7 +120,15 @@ export function createGameOverviewPreferencesStore(storage: GameOverviewPreferen
   const update = (change: (current: GameOverviewPreferences) => GameOverviewPreferences): boolean => {
     if (storage === undefined) return false;
     try {
-      const value = change(read());
+      const text = storage.getItem(GAME_OVERVIEW_PREFERENCES_STORAGE_KEY);
+      if (text !== null) {
+        const stored: unknown = JSON.parse(text);
+        if (!record(stored) || stored["version"] !== 1) return false;
+        for (const key of ["pinnedAchievements", "hiddenSuggestions", "retroAchievementsGameGoals"]) {
+          if (stored[key] !== undefined && !record(stored[key])) return false;
+        }
+      }
+      const value = change(parseGameOverviewPreferences(text));
       storage.setItem(GAME_OVERVIEW_PREFERENCES_STORAGE_KEY, JSON.stringify(value));
       return true;
     } catch { return false; }

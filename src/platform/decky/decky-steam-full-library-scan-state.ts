@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 import { runDeckySteamFullLibraryScan } from "./decky-app-services";
 
-export type SteamFullLibraryScanState = "idle" | "scanning" | "completed" | "error";
+export type SteamFullLibraryScanState = "idle" | "scanning" | "completed" | "partial" | "error";
 let state: SteamFullLibraryScanState = "idle";
 let pendingScan: Promise<void> | undefined;
 const listeners = new Set<() => void>();
@@ -25,7 +25,7 @@ export function startSteamFullLibraryScan(): Promise<void> {
   pendingScan = (async () => {
     try {
       const result = await runDeckySteamFullLibraryScan();
-      setState(result === undefined ? "error" : "completed");
+      setState(result.status);
     } catch {
       setState("error");
     } finally {

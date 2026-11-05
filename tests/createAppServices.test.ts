@@ -11943,7 +11943,7 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(indexSource, /installAchievementCompanionRuntimeDebug\(/u);
   assert.doesNotMatch(indexSource, /ensureDeckyGamePageAchievementGlobalComponentRegistered\(/u);
   assert.doesNotMatch(indexSource, /removeDeckyGamePageAchievementGlobalComponent\(\)/u);
-  assert.match(indexSource, /removeAchievementCompanionRuntimeDebug\(\)/u);
+  // Runtime debug cleanup, including host failures, is covered by rc-plugin-lifetime.test.ts.
   assert.match(indexSource, /DeckyBootstrap/u);
   assert.match(runtimeDebugSource, /__achievementCompanionRuntimeDebug/u);
   assert.match(runtimeDebugSource, /win\.top/u);

@@ -17,6 +17,7 @@ if _PLUGIN_PY_MODULES_DIR_TEXT not in sys.path:
   sys.path.insert(0, _PLUGIN_PY_MODULES_DIR_TEXT)
 
 import decky
+from backend.credentials import CredentialTransaction
 from backend.http import ProviderRequestError as _ProviderRequestError
 from backend.http import request_json as _backend_request_json
 from backend.ra_scheduler import RaScheduler
@@ -61,6 +62,7 @@ _LOG_FILE_LOCK = threading.Lock()
 _log_file_failure_reported = False
 CONFIG_PATH = SETTINGS_PATH / "provider-config.json"
 SECRETS_PATH = SETTINGS_PATH / "provider-secrets.json"
+_CREDENTIALS = CredentialTransaction(CONFIG_PATH, SECRETS_PATH)
 STEAM_HUNTERS_REQUEST_TIMEOUT_SECONDS = 8
 RETROACHIEVEMENTS_API_PATHS = frozenset({
   "API_GetUserProfile.php",
@@ -143,6 +145,11 @@ def _storage_warning(message: str, fields: Mapping[str, Any]) -> None:
 
 def _load_provider_config(provider_key: str) -> dict[str, Any] | None:
   return _provider_load_provider_config(CONFIG_PATH, provider_key, warn=_storage_warning)
+
+
+def _load_credentials(provider_key: str):
+  with _CREDENTIALS.read():
+    return _load_provider_config(provider_key), _load_secret_api_key(provider_key)
 
 
 def _save_provider_config(provider_key: str, config: dict[str, Any]) -> None:
@@ -370,14 +377,10 @@ class Plugin:
     )
 
   async def get_provider_configs(self) -> dict[str, Any]:
-    retroachievements_config = _build_retroachievements_config_view(
-      _load_provider_config("retroAchievements"),
-      _load_secret_api_key("retroAchievements") is not None,
-    )
-    steam_config = _build_steam_config_view(
-      _load_provider_config("steam"),
-      _load_secret_api_key("steam") is not None,
-    )
+    stored, secret = _load_credentials("retroAchievements")
+    retroachievements_config = _build_retroachievements_config_view(stored, secret is not None)
+    stored, secret = _load_credentials("steam")
+    steam_config = _build_steam_config_view(stored, secret is not None)
 
     result: dict[str, Any] = {"version": PLUGIN_CONFIG_VERSION}
     if retroachievements_config is not None:
@@ -390,104 +393,107 @@ class Plugin:
     return {"steamId64": _get_current_steam_id64()}
 
   async def save_retroachievements_credentials(self, payload: dict[str, Any]) -> dict[str, Any] | None:
-    username = _coerce_string(payload.get("username"))
-    if username is None:
-      return None
+    with _CREDENTIALS.mutation():
+      username = _coerce_string(payload.get("username"))
+      if username is None:
+        return None
 
-    api_key = _resolve_api_key(payload, "retroAchievements")
-    if api_key is None:
-      return None
+      api_key = _resolve_api_key(payload, "retroAchievements")
+      if api_key is None:
+        return None
 
-    existing_config = _load_provider_config("retroAchievements") or {}
-    recent_achievements_count = _normalize_optional_positive_count(payload.get("recentAchievementsCount"))
-    if recent_achievements_count is None:
-      recent_achievements_count = _normalize_optional_positive_count(
-        existing_config.get("recentAchievementsCount"),
+      existing_config = _load_provider_config("retroAchievements") or {}
+      recent_achievements_count = _normalize_optional_positive_count(payload.get("recentAchievementsCount"))
+      if recent_achievements_count is None:
+        recent_achievements_count = _normalize_optional_positive_count(
+          existing_config.get("recentAchievementsCount"),
+        )
+
+      recently_played_count = _normalize_optional_positive_count(payload.get("recentlyPlayedCount"))
+      if recently_played_count is None:
+        recently_played_count = _normalize_optional_positive_count(existing_config.get("recentlyPlayedCount"))
+
+      _save_secret_api_key("retroAchievements", api_key)
+      config: dict[str, Any] = {
+        "username": username,
+        "hasApiKey": True,
+      }
+      if recent_achievements_count is not None:
+        config["recentAchievementsCount"] = recent_achievements_count
+      if recently_played_count is not None:
+        config["recentlyPlayedCount"] = recently_played_count
+      _save_provider_config("retroAchievements", config)
+      _log(
+        "info",
+        "Saved RetroAchievements credentials",
+        providerId="retroachievements",
+        status="saved",
+        hasApiKey=True,
       )
-
-    recently_played_count = _normalize_optional_positive_count(payload.get("recentlyPlayedCount"))
-    if recently_played_count is None:
-      recently_played_count = _normalize_optional_positive_count(existing_config.get("recentlyPlayedCount"))
-
-    _save_secret_api_key("retroAchievements", api_key)
-    config: dict[str, Any] = {
-      "username": username,
-      "hasApiKey": True,
-    }
-    if recent_achievements_count is not None:
-      config["recentAchievementsCount"] = recent_achievements_count
-    if recently_played_count is not None:
-      config["recentlyPlayedCount"] = recently_played_count
-    _save_provider_config("retroAchievements", config)
-    _log(
-      "info",
-      "Saved RetroAchievements credentials",
-      providerId="retroachievements",
-      status="saved",
-      hasApiKey=True,
-    )
-    return config
+      return config
 
   async def save_steam_credentials(self, payload: dict[str, Any]) -> dict[str, Any] | None:
-    steam_id64 = _coerce_string(payload.get("steamId64"))
-    if steam_id64 is None:
-      return None
+    with _CREDENTIALS.mutation():
+      steam_id64 = _coerce_string(payload.get("steamId64"))
+      if steam_id64 is None:
+        return None
 
-    api_key = _resolve_api_key(payload, "steam")
-    if api_key is None:
-      return None
+      api_key = _resolve_api_key(payload, "steam")
+      if api_key is None:
+        return None
 
-    language = _coerce_string(payload.get("language")) or "english"
-    recent_achievements_count = _normalize_positive_count(payload.get("recentAchievementsCount"), 5)
-    recently_played_count = _normalize_positive_count(payload.get("recentlyPlayedCount"), 5)
+      language = _coerce_string(payload.get("language")) or "english"
+      recent_achievements_count = _normalize_positive_count(payload.get("recentAchievementsCount"), 5)
+      recently_played_count = _normalize_positive_count(payload.get("recentlyPlayedCount"), 5)
 
-    _save_secret_api_key("steam", api_key)
-    config = {
-      "steamId64": steam_id64,
-      "hasApiKey": True,
-      "language": language,
-      "recentAchievementsCount": recent_achievements_count,
-      "recentlyPlayedCount": recently_played_count,
-    }
-    _save_provider_config("steam", config)
-    _log("info", "Saved Steam credentials", providerId="steam", status="saved", hasApiKey=True)
-    return config
+      _save_secret_api_key("steam", api_key)
+      config = {
+        "steamId64": steam_id64,
+        "hasApiKey": True,
+        "language": language,
+        "recentAchievementsCount": recent_achievements_count,
+        "recentlyPlayedCount": recently_played_count,
+      }
+      _save_provider_config("steam", config)
+      _log("info", "Saved Steam credentials", providerId="steam", status="saved", hasApiKey=True)
+      return config
 
   async def clear_provider_credentials(self, payload: dict[str, Any]) -> bool:
-    provider_id = _coerce_string(payload.get("providerId"))
-    if provider_id is None:
+    with _CREDENTIALS.mutation():
+      provider_id = _coerce_string(payload.get("providerId"))
+      if provider_id is None:
+        return False
+
+      if provider_id == "retroachievements":
+        removed_any = False
+        if _load_provider_config("retroAchievements") is not None:
+          _clear_provider_config("retroAchievements")
+          removed_any = True
+        if _load_secret_api_key("retroAchievements") is not None:
+          _clear_secret_api_key("retroAchievements")
+          removed_any = True
+        if removed_any:
+          _log(
+            "info",
+            "Cleared RetroAchievements credentials",
+            providerId="retroachievements",
+            status="cleared",
+          )
+        return removed_any
+
+      if provider_id == "steam":
+        removed_any = False
+        if _load_provider_config("steam") is not None:
+          _clear_provider_config("steam")
+          removed_any = True
+        if _load_secret_api_key("steam") is not None:
+          _clear_secret_api_key("steam")
+          removed_any = True
+        if removed_any:
+          _log("info", "Cleared Steam credentials", providerId="steam", status="cleared")
+        return removed_any
+
       return False
-
-    if provider_id == "retroachievements":
-      removed_any = False
-      if _load_provider_config("retroAchievements") is not None:
-        _clear_provider_config("retroAchievements")
-        removed_any = True
-      if _load_secret_api_key("retroAchievements") is not None:
-        _clear_secret_api_key("retroAchievements")
-        removed_any = True
-      if removed_any:
-        _log(
-          "info",
-          "Cleared RetroAchievements credentials",
-          providerId="retroachievements",
-          status="cleared",
-        )
-      return removed_any
-
-    if provider_id == "steam":
-      removed_any = False
-      if _load_provider_config("steam") is not None:
-        _clear_provider_config("steam")
-        removed_any = True
-      if _load_secret_api_key("steam") is not None:
-        _clear_secret_api_key("steam")
-        removed_any = True
-      if removed_any:
-        _log("info", "Cleared Steam credentials", providerId="steam", status="cleared")
-      return removed_any
-
-    return False
 
   async def record_diagnostic_event(self, payload: dict[str, Any]) -> bool:
     return _record_diagnostic_event(payload)
@@ -509,8 +515,7 @@ class Plugin:
 
   async def read_retroachievements_calendar(self, payload: dict[str, Any] | None = None) -> dict[str, Any] | None:
     def read():
-      config = _load_provider_config("retroAchievements")
-      secret = _load_secret_api_key("retroAchievements")
+      config, secret = _load_credentials("retroAchievements")
       if not config or not secret:
         return None
       scope = account_scope(config["username"], secret)
@@ -520,7 +525,7 @@ class Plugin:
 
   async def read_retroachievements_observed_sessions(self, payload: dict[str, Any] | None = None) -> dict[str, Any] | None:
     def read():
-      config, secret = _load_provider_config("retroAchievements"), _load_secret_api_key("retroAchievements")
+      config, secret = _load_credentials("retroAchievements")
       if not config or not secret:
         return None
       scope = account_scope(config["username"], secret)
@@ -530,7 +535,7 @@ class Plugin:
 
   async def write_retroachievements_observed_sessions(self, payload: dict[str, Any]) -> bool:
     def write():
-      config, secret = _load_provider_config("retroAchievements"), _load_secret_api_key("retroAchievements")
+      config, secret = _load_credentials("retroAchievements")
       if not config or not secret:
         return False
       scope = account_scope(config["username"], secret)
@@ -576,7 +581,7 @@ class Plugin:
     if target not in ("profile", "game", "history-checkpoint"):
       return {"ok": False, "message": "Choose a supported resource."}
     def credentials():
-      return _load_provider_config("retroAchievements"), _load_secret_api_key("retroAchievements")
+      return _load_credentials("retroAchievements")
     config, secret = await asyncio.to_thread(credentials)
     if not config or not secret:
       return {"ok": False, "message": "Set up RetroAchievements in account settings."}
@@ -614,8 +619,8 @@ class Plugin:
       raise RuntimeError("RetroAchievements request requires an allowed API endpoint.")
 
     def load_credentials() -> tuple[dict[str, Any] | None, str | None]:
-      secret = _load_secret_api_key("retroAchievements")
-      config = _build_retroachievements_config_view(_load_provider_config("retroAchievements"), secret is not None)
+      stored, secret = _load_credentials("retroAchievements")
+      config = _build_retroachievements_config_view(stored, secret is not None)
       return config, secret
 
     config, secret = await asyncio.to_thread(load_credentials)
@@ -647,8 +652,7 @@ class Plugin:
 
   async def synchronize_retroachievements_history(self, payload: dict[str, Any]) -> Any:
     def credentials():
-      secret = _load_secret_api_key("retroAchievements")
-      config = _load_provider_config("retroAchievements")
+      config, secret = _load_credentials("retroAchievements")
       return (config, secret)
 
     config, secret = await asyncio.to_thread(credentials)
@@ -690,8 +694,7 @@ class Plugin:
       return False
 
     def identity():
-      secret = _load_secret_api_key("retroAchievements")
-      config = _load_provider_config("retroAchievements")
+      config, secret = _load_credentials("retroAchievements")
       if secret is None or not config or not config.get("username"):
         return None
       return config["username"], account_scope(config["username"], secret)
@@ -736,6 +739,10 @@ class Plugin:
         key in response for key in ("Error", "error", "ErrorCode", "errorCode")
       ):
         return {"ok": False, "failure": {"category": "authentication"}}
+      user = next((response.get(key) for key in ("User", "user", "Username", "username") if response.get(key) is not None), None) if isinstance(response, Mapping) else None
+      if (not isinstance(user, str) or user.strip().casefold() != username.casefold()
+          or response.get("Success") is False or response.get("success") is False):
+        return {"ok": False, "failure": {"category": "authentication"}}
       return {"ok": True}
     except _ProviderRequestError as cause:
       return {
@@ -754,8 +761,8 @@ class Plugin:
       raise RuntimeError("Steam request requires an allowed API endpoint.")
 
     def load_credentials() -> tuple[dict[str, Any] | None, str | None]:
-      secret = _load_secret_api_key("steam")
-      config = _build_steam_config_view(_load_provider_config("steam"), secret is not None)
+      stored, secret = _load_credentials("steam")
+      config = _build_steam_config_view(stored, secret is not None)
       return config, secret
 
     config, secret = await asyncio.to_thread(load_credentials)

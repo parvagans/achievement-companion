@@ -43,6 +43,7 @@ EXPECTED_RELEASE_ARCHIVE_NAMES = {
   f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/redaction.py",
   f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/secrets.py",
   f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/provider_config.py",
+  f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/credentials.py",
   f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/storage.py",
   f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/tls.py",
   f"{PLUGIN_ARCHIVE_ROOT}/py_modules/backend/update.py",

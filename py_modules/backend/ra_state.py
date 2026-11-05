@@ -90,13 +90,15 @@ class RaStateStore:
     try:
       payload = json.dumps(record["payload"], allow_nan=False, separators=(",", ":"))
       size = len(payload.encode("utf-8"))
-      if size > max_bytes // 2:
-        return False
       with closing(self._connect()) as connection, connection:
         connection.execute("BEGIN IMMEDIATE")
         current = connection.execute("SELECT generation FROM resources WHERE key=?", (record["key"],)).fetchone()
         fence = connection.execute("SELECT value FROM state WHERE key=?", ("generation:" + record["key"],)).fetchone()
         if (current and current[0] > record["generation"]) or (fence and json.loads(fence[0]) > record["generation"]):
+          return False
+        if size > max_bytes // 2:
+          # Retain the previous bytes only as an explicitly stale fallback.
+          connection.execute("UPDATE resources SET fresh_until=0 WHERE key=?", (record["key"],))
           return False
         connection.execute("""INSERT OR REPLACE INTO resources
           (key,scope,kind,schema_version,payload,fetched_at,fresh_until,last_attempt_at,
@@ -277,6 +279,16 @@ class RaStateStore:
     except (OSError, sqlite3.Error, ValueError):
       return None
 
+  @staticmethod
+  def _prune_expired_failures(connection):
+    # Bound work per mutation. Active cooldowns and generation fences are never
+    # evicted to meet a row count; expired/null records are safe to discard.
+    connection.execute("""DELETE FROM state WHERE key IN (
+      SELECT key FROM state WHERE key LIKE 'failure:%' AND
+      (value='null' OR CASE WHEN json_valid(value) THEN
+        json_type(value,'$.until') IN ('integer','real') AND json_extract(value,'$.until') <= ?
+        ELSE 0 END) LIMIT 128)""", (time.time(),))
+
   def write_resource_state(self, resource_key: str, generation: int, key: str, value: Any) -> bool:
     try:
       with closing(self._connect()) as connection, connection:
@@ -285,7 +297,11 @@ class RaStateStore:
         current = connection.execute("SELECT generation FROM resources WHERE key=?", (resource_key,)).fetchone()
         if (fence and json.loads(fence[0]) > generation) or (current and current[0] > generation):
           return False
-        connection.execute("INSERT OR REPLACE INTO state VALUES (?,?)", (key, json.dumps(value)))
+        if value is None:
+          connection.execute("DELETE FROM state WHERE key=?", (key,))
+        else:
+          connection.execute("INSERT OR REPLACE INTO state VALUES (?,?)", (key, json.dumps(value, allow_nan=False)))
+        self._prune_expired_failures(connection)
       return True
     except (OSError, sqlite3.Error, ValueError, TypeError):
       return False
@@ -296,7 +312,7 @@ class RaStateStore:
       with closing(self._connect()) as connection, connection:
         connection.execute("INSERT OR REPLACE INTO state VALUES (?,?)", (key, serialized))
         if key.startswith("failure:"):
-          connection.execute("DELETE FROM state WHERE key IN (SELECT key FROM state WHERE key LIKE 'failure:%' ORDER BY rowid DESC LIMIT -1 OFFSET 128)")
+          self._prune_expired_failures(connection)
       return True
     except (OSError, sqlite3.Error, ValueError, TypeError):
       return False

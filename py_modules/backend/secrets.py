@@ -139,9 +139,11 @@ def _decode_protected_secret_record(
   return plaintext if plaintext.strip() != "" else None
 
 
-def _load_secret_store(secrets_path: Path, *, warn: WarningCallback | None = None) -> dict[str, Any]:
-  store = read_json_file(secrets_path, warn=warn)
+def _load_secret_store(secrets_path: Path, *, warn: WarningCallback | None = None, strict: bool = False) -> dict[str, Any]:
+  store = read_json_file(secrets_path, warn=warn, strict=strict)
   if store.get("version") not in (1, SECRET_RECORD_VERSION):
+    if strict and store:
+      raise ValueError("Unsupported provider secret version.")
     return {"version": SECRET_RECORD_VERSION}
   return store
 
@@ -183,7 +185,7 @@ def save_secret_api_key(
   warn: WarningCallback | None = None,
   settings_dir_text: str = "",
 ) -> None:
-  secrets = _load_secret_store(secrets_path, warn=warn)
+  secrets = _load_secret_store(secrets_path, warn=warn, strict=True)
   secrets["version"] = SECRET_RECORD_VERSION
   secrets[provider_key] = _encode_protected_secret_record(
     provider_key,
@@ -199,7 +201,7 @@ def clear_secret_api_key(
   *,
   warn: WarningCallback | None = None,
 ) -> None:
-  secrets = _load_secret_store(secrets_path, warn=warn)
+  secrets = _load_secret_store(secrets_path, warn=warn, strict=True)
   if provider_key in secrets:
     secrets.pop(provider_key, None)
     if len(secrets) <= 1:
@@ -207,9 +209,6 @@ def clear_secret_api_key(
         secrets_path.unlink()
       except FileNotFoundError:
         pass
-      except OSError as cause:
-        if warn is not None:
-          warn("Unable to remove provider secret file", {"path": str(secrets_path), "error": str(cause)})
       return
 
     write_json_file(secrets_path, secrets)

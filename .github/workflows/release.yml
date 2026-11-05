@@ -1,114 +1,33 @@
 name: Publish release
-
 on:
   push:
-    tags:
-      - "v*.*.*"
-
+    tags: ["v*.*.*"]
 permissions:
-  contents: write
-
+  contents: read
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
-
 jobs:
-  node-tests:
-    name: Frontend tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+  verify:
+    uses: ./.github/workflows/verify.yml
+  publish:
+    needs: verify
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9.4.0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm test:node
-
-  python-tests:
-    name: Backend tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - uses: actions/download-artifact@v4
         with:
-          node-version: 24
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: node scripts/run-tests.mjs --python-only
-
-  publish:
-    name: Build and publish GitHub release
-    needs: [node-tests, python-tests]
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    steps:
-      - name: Check out the tagged source
-        uses: actions/checkout@v4
-
-      - name: Set up pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9.4.0
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Verify tag matches the canonical version
-        shell: bash
-        run: |
-          version="$(sed -n 's/^version=//p' version.properties | tr -d '\r\n')"
-          if [[ "v${version}" != "${GITHUB_REF_NAME}" ]]; then
-            echo "Tag ${GITHUB_REF_NAME} does not match version.properties (${version})." >&2
-            exit 1
-          fi
-          echo "RELEASE_VERSION=${version}" >> "${GITHUB_ENV}"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Check versions and types
-        run: |
-          pnpm version:check
-          pnpm typecheck
-
-      - name: Prepare verified release assets
-        run: pnpm release:prepare
-
-      - name: Publish the GitHub release
-        shell: bash
+          name: verified-release
+          path: release
+      - run: node scripts/publish-release.mjs
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          archive="release/achievement-companion-v${RELEASE_VERSION}.zip"
-          checksum="${archive}.sha256"
-          manifest="release/update-manifest.json"
-
-          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
-            gh release upload "${GITHUB_REF_NAME}" "${archive}" "${checksum}" "${manifest}" --clobber
-            gh release edit "${GITHUB_REF_NAME}" --title "Achievement Companion ${GITHUB_REF_NAME}" --latest
-          else
-            gh release create "${GITHUB_REF_NAME}" \
-              "${archive}" \
-              "${checksum}" \
-              "${manifest}" \
-              --verify-tag \
-              --title "Achievement Companion ${GITHUB_REF_NAME}" \
-              --generate-notes \
-              --latest
-          fi
+          APPROVED_RC_SHA256: ${{ vars.APPROVED_RC_SHA256 }}

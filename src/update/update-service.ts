@@ -1,3 +1,4 @@
+import semver from "semver";
 import { isDevelopmentVersion, isNewerVersion } from "./version-compare";
 import type { UpdateSource } from "./update-source";
 import type {
@@ -16,6 +17,10 @@ export interface UpdateServiceDependencies {
   readonly onChecked?: (timestamp: number) => Promise<void> | void;
   readonly notifyAvailable?: (manifest: UpdateManifest, force: boolean) => Promise<void> | void;
   readonly now?: () => number;
+}
+
+function eligible(kind: UpdateSource["kind"], manifest: UpdateManifest): boolean {
+  return kind === "local" || (manifest.channel === "stable" && semver.prerelease(manifest.version) === null);
 }
 
 export class UpdateService {
@@ -49,10 +54,11 @@ export class UpdateService {
     try {
       installedVersion = await this.dependencies.resolveInstalledVersion?.() ?? this.dependencies.installedVersion;
       this.setState({ ...this.stateWithoutMessage(), status: "checking", installedVersion });
-      const manifest = await this.dependencies.resolveSource().loadManifest();
+      const source = this.dependencies.resolveSource();
+      const manifest = await source.loadManifest();
       const checkedAt = (this.dependencies.now ?? Date.now)();
       await this.dependencies.onChecked?.(checkedAt);
-      if (isNewerVersion(installedVersion, manifest.version)) {
+      if (eligible(source.kind, manifest) && isNewerVersion(installedVersion, manifest.version)) {
         this.setState({
           status: "updateAvailable",
           installedVersion,
@@ -81,6 +87,10 @@ export class UpdateService {
   async installAvailableUpdate(options: { readonly allowDevelopment?: boolean } = {}): Promise<UpdateState> {
     const manifest = this.state.available;
     if (manifest === undefined) return this.state;
+    if (!eligible(this.dependencies.resolveSource().kind, manifest)) {
+      this.setState({ status: "upToDate", installedVersion: this.state.installedVersion });
+      return this.state;
+    }
     if (isDevelopmentVersion(this.state.installedVersion) && options.allowDevelopment !== true) {
       this.setState({
         ...this.state,

@@ -15,7 +15,7 @@ import {
 import { loadDeckyRetroAchievementsProviderConfig } from "./providers/retroachievements/config";
 import { getDeckyRetroAchievementsGameResourceRevision, createDeckyRetroAchievementsTransport, isDeckyRetroAchievementsResourceFresh, isDeckyRetroAchievementsGameResourceFresh } from "./providers/retroachievements/backend-transport";
 import {
-  readDeckyProviderConfig as readDeckySteamProviderConfig,
+  loadDeckyProviderConfig as loadDeckySteamProviderConfig,
   readDeckySteamLibraryAchievementScanSummary,
 } from "./providers/steam/config";
 import { findSteamLibraryScanGameSummaryByAppId } from "./providers/steam/game-detail";
@@ -536,7 +536,7 @@ function resolveSummaryFromSteamDashboardSnapshot(appId: string): GamePageAchiev
 }
 
 async function resolveSummaryFromSteamGameDetail(appId: string): Promise<GamePageAchievementSummary | undefined> {
-  const steamConfig = readDeckySteamProviderConfig(STEAM_PROVIDER_ID);
+  const steamConfig = await loadDeckySteamProviderConfig(STEAM_PROVIDER_ID);
   if (steamConfig === undefined) {
     return createUnavailableSummary(appId, "steam-provider-not-configured");
   }
@@ -546,7 +546,7 @@ async function resolveSummaryFromSteamGameDetail(appId: string): Promise<GamePag
   });
   const game = gameDetailState.data?.game;
 
-  if (gameDetailState.status !== "success" || game === undefined) {
+  if ((gameDetailState.status !== "success" && gameDetailState.status !== "stale") || game === undefined) {
     return undefined;
   }
 
@@ -562,7 +562,7 @@ async function resolveSummaryFromSteamGameDetail(appId: string): Promise<GamePag
     title: game.title,
     earned: game.summary.unlockedCount,
     total,
-    source: "backend",
+    source: gameDetailState.isStale ? "cache" : "backend",
     ...(gameDetailState.lastUpdatedAt !== undefined
       ? { updatedAt: new Date(gameDetailState.lastUpdatedAt).toISOString() }
       : {}),
@@ -2019,7 +2019,7 @@ async function loadRetroAchievementsCompletionStatusEnrichment(
 
       sourceRevision = gameDetailState.data?.canonicalSourceRevision ?? getDeckyRetroAchievementsGameResourceRevision(gameId);
       const game = gameDetailState.data?.game;
-      if (gameDetailState.status !== "success" || game === undefined) {
+      if ((gameDetailState.status !== "success" && gameDetailState.status !== "stale") || game === undefined) {
         return { status: "unavailable" };
       }
 

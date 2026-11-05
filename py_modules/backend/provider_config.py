@@ -49,9 +49,11 @@ def _sanitize_provider_config(config: Mapping[str, Any]) -> dict[str, Any]:
   return sanitized
 
 
-def load_provider_config_store(path: Path, *, warn: WarningCallback | None = None) -> dict[str, Any]:
-  store = read_json_file(path, warn=warn)
+def load_provider_config_store(path: Path, *, warn: WarningCallback | None = None, strict: bool = False) -> dict[str, Any]:
+  store = read_json_file(path, warn=warn, strict=strict)
   if store.get("version") != PLUGIN_CONFIG_VERSION:
+    if strict and store:
+      raise ValueError("Unsupported provider config version.")
     return {"version": PLUGIN_CONFIG_VERSION}
   return store
 
@@ -65,7 +67,7 @@ def load_provider_config(path: Path, provider_key: str, *, warn: WarningCallback
 
 
 def save_provider_config(path: Path, provider_key: str, config: dict[str, Any], *, warn: WarningCallback | None = None) -> None:
-  store = load_provider_config_store(path, warn=warn)
+  store = load_provider_config_store(path, warn=warn, strict=True)
   store["version"] = PLUGIN_CONFIG_VERSION
   sanitized = _sanitize_provider_config(config)
   if provider_key == "steam":
@@ -75,7 +77,7 @@ def save_provider_config(path: Path, provider_key: str, config: dict[str, Any], 
 
 
 def clear_provider_config(path: Path, provider_key: str, *, warn: WarningCallback | None = None) -> None:
-  store = load_provider_config_store(path, warn=warn)
+  store = load_provider_config_store(path, warn=warn, strict=True)
   if provider_key in store:
     store.pop(provider_key, None)
     if len(store) <= 1:
@@ -83,9 +85,6 @@ def clear_provider_config(path: Path, provider_key: str, *, warn: WarningCallbac
         path.unlink()
       except FileNotFoundError:
         pass
-      except OSError as cause:
-        if warn is not None:
-          warn("Unable to remove provider config file", {"path": str(path), "error": str(cause)})
       return
 
     write_json_file(path, store)

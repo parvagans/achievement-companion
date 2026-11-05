@@ -49,11 +49,18 @@ def resource_identity(path: str, query: dict | None, scope: str) -> tuple[str, s
   return key, kind, effective_scope, parameters
 
 
+def _identifier(row, *keys):
+  if not isinstance(row, dict):
+    return False
+  value = next((row[key] for key in keys if key in row), None)
+  return not isinstance(value, bool) and str(value).isdigit() and int(value) > 0
+
+
 def valid_payload(kind: str, payload: Any, parameters: dict) -> bool:
   if isinstance(payload, dict) and (payload.get("handledHttpError") or any(payload.get(key) for key in ("Error", "error", "ErrorCode", "errorCode")) or payload.get("Success") is False):
     return False
   if kind in {"systems", "catalogue", "recent-achievements", "recent-games", "history-range", "community-masters"}:
-    if not isinstance(payload, list):
+    if not isinstance(payload, list) or not all(isinstance(row, dict) for row in payload):
       return False
     if kind == "catalogue":
       return bool(payload) and all(isinstance(row, dict) and (row.get("ID") or row.get("GameID")) and
@@ -64,6 +71,14 @@ def valid_payload(kind: str, payload: Any, parameters: dict) -> bool:
         return all(event_identity(row) and int(parameters["f"]) <= event_timestamp(row) <= int(parameters["t"]) for row in payload)
       except (ValueError, TypeError, KeyError, OverflowError):
         return False
+    if kind == "systems":
+      return all(_identifier(row, "ID", "id", "ConsoleID", "consoleId") for row in payload)
+    if kind == "recent-games":
+      return all(_identifier(row, "GameID", "gameId") for row in payload)
+    if kind == "recent-achievements":
+      return all(_identifier(row, "GameID", "gameId") and _identifier(row, "AchievementID", "achievementId") for row in payload)
+    if kind == "community-masters":
+      return all(isinstance(row.get("User", row.get("user")), str) and bool(row.get("User", row.get("user")).strip()) for row in payload)
     return True
   if not isinstance(payload, dict):
     return False
@@ -72,12 +87,15 @@ def valid_payload(kind: str, payload: Any, parameters: dict) -> bool:
     expected = parameters.get("g", parameters.get("i"))
     achievements = payload.get("Achievements", payload.get("achievements"))
     count = payload.get("NumAchievements", payload.get("numAchievements"))
-    return str(game_id) == expected and isinstance(achievements, (dict, list)) and (
+    rows = achievements.values() if isinstance(achievements, dict) else achievements
+    return str(game_id) == expected and isinstance(achievements, (dict, list)) and all(isinstance(row, dict) for row in rows) and (
       count is None or str(len(achievements)) == str(count))
   if kind == "completion-library":
-    return isinstance(payload.get("Results", payload.get("results")), list)
+    rows = payload.get("Results", payload.get("results"))
+    return isinstance(rows, list) and all(_identifier(row, "GameID", "gameId") for row in rows)
   if kind == "profile":
-    return bool(payload.get("User") or payload.get("user") or payload.get("Username") or payload.get("username"))
+    user = payload.get("User") or payload.get("user") or payload.get("Username") or payload.get("username")
+    return isinstance(user, str) and bool(user.strip())
   if kind == "summary":
     return ("LastGameID" in payload or "lastGameId" in payload) and ("RichPresenceMsgDate" in payload or "richPresenceMsgDate" in payload)
   return bool(payload)
@@ -112,10 +130,10 @@ class RaCoordinator:
   def _remember(self, key, record):
     self.hydrations.pop(key, None)
     size = len(json.dumps(record["payload"], separators=(",", ":")).encode())
+    self.memory_bytes -= self.memory_sizes.pop(key, 0)
+    self.memory.pop(key, None)
     if size > 16 * 1024 * 1024:
       return
-    self.memory_bytes -= self.memory_sizes.get(key, 0)
-    self.memory.pop(key, None)
     self.memory[key] = record
     self.memory_sizes[key] = size
     self.memory_bytes += size

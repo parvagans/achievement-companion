@@ -6,6 +6,10 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import { calculateArtifactSha256, createUpdateManifest } from "../scripts/release-artifacts.mjs";
 
+test("RC packaging never emits a stable-channel manifest", () => {
+  assert.equal(createUpdateManifest({version:"1.0.0-rc.1", downloadUrl:"./rc.zip", sha256:"a".repeat(64)}).channel, "preview");
+});
+
 const syncScript = resolve("scripts/version/sync-version.mjs");
 const checkScript = resolve("scripts/version/check-version.mjs");
 

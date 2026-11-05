@@ -68,10 +68,15 @@ export function createRetroAchievementsDataCoordinator(options: {
     const revision = JSON.stringify(records.get(identity)?.payload) === JSON.stringify(result.payload)
       ? revisions.get(identity)! : ++sequence;
     const sourceRevision = `${identity}:${epoch}:${revision}`;
-    if (bytes > 16 * 1024 * 1024) return sourceRevision;
-    revisions.set(identity, revision);
     memoryBytes -= sizes.get(identity) ?? 0;
+    sizes.delete(identity);
     records.delete(identity);
+    if (bytes > 16 * 1024 * 1024) {
+      revisions.delete(identity);
+      notify(identity);
+      return sourceRevision;
+    }
+    revisions.set(identity, revision);
     records.set(identity, copy({ ...result, sourceRevision }));
     sizes.set(identity, bytes);
     memoryBytes += bytes;

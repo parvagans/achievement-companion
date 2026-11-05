@@ -227,6 +227,8 @@ export interface RecentUnlock {
 }
 
 export interface GameDetailSnapshot {
+  /** Owner of private Steam progress, set by the authenticated Decky boundary. */
+  readonly steamAccountId?: string;
   readonly canonicalSourceRevision?: string;
   readonly game: NormalizedGame;
   readonly achievements: readonly NormalizedAchievement[];

@@ -10,6 +10,7 @@ import {
 } from "./version/version-lib.mjs";
 import {
   calculateArtifactSha256,
+  releasePolicy,
   createUpdateManifest,
   writeUpdateManifest,
 } from "./release-artifacts.mjs";
@@ -84,7 +85,7 @@ function assertReleaseContract(version, zipPath, checksumPath, manifestPath) {
   if (
     manifest.schema !== 1
     || manifest.version !== version
-    || manifest.channel !== "stable"
+    || manifest.channel !== releasePolicy(version).channel
     || manifest.sha256 !== checksum
     || manifest.downloadUrl !== `https://github.com/parvagans/achievement-companion/releases/download/v${version}/${artifactName}`
   ) {
@@ -116,9 +117,12 @@ try {
   const version = readCanonicalVersion(rootDir);
   const artifactName = `achievement-companion-v${version}.zip`;
   const zipPath = resolve(releaseDir, artifactName);
+  if (process.platform === "linux" && process.arch === "x64") {
+    run(python, ["scripts/check_packaged_runtime.py", zipPath]);
+  }
   const checksum = calculateArtifactSha256(zipPath);
   const checksumPath = resolve(releaseDir, `${artifactName}.sha256`);
-  const manifestPath = resolve(releaseDir, "update-manifest.json");
+  const manifestPath = resolve(releaseDir, releasePolicy(version).manifestName);
   const manifest = createUpdateManifest({
     version,
     downloadUrl: `https://github.com/parvagans/achievement-companion/releases/download/v${version}/${artifactName}`,

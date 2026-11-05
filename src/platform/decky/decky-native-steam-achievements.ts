@@ -1,3 +1,4 @@
+import { runDeckyCleanup } from "./decky-cleanup";
 import { routerHook } from "@decky/api";
 import { afterPatch, appDetailsClasses, applyHookStubs, beforePatch, callOriginal, createModuleMapping, createReactTreePatcher, findInReactTree, findModuleByExport, findModuleExport, Navigation, removeHookStubs, replacePatch, Tabs, type Patch } from "@decky/ui";
 import { createElement, useLayoutEffect, useRef, type ReactElement } from "react";
@@ -128,7 +129,7 @@ interface NativeSteamRuntimeWindow {
   appAchievementProgressCache?: SteamAchievementProgressCache;
   SteamClient?: {
     GameSessions?: {
-      RegisterForAppLifetimeNotifications(callback: (event: { unAppID?: number; bRunning?: boolean }) => void): { unregister(): void };
+      RegisterForAppLifetimeNotifications?(callback: (event: { unAppID?: number; bRunning?: boolean }) => void): { unregister?(): void };
     };
   };
 }
@@ -768,7 +769,42 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     communityPatched = true;
   }
 
-  const routePatch = routerHook.addPatch(DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN, (tree) => {
+  let routePatch: ReturnType<typeof routerHook.addPatch> | undefined;
+  let unsubscribeInvalidation: (() => void) | undefined;
+  let gameLifetimeHandle: { unregister?(): void } | undefined;
+  const gameLifetimeStates = new Map<number, boolean>();
+  const launchTokens = new Map<number, object>();
+  function cleanup() {
+    if (disposed) return;
+    disposed = true;
+    if (registeredCleanup === cleanup) registeredCleanup = undefined;
+    const lastPage = activePage;
+    activePage = undefined;
+    runDeckyCleanup([
+      () => unsubscribeInvalidation?.(),
+      () => { if (typeof gameLifetimeHandle?.unregister === "function") gameLifetimeHandle.unregister(); },
+      stopDeckyRaPresence,
+      () => { if (routePatch !== undefined) routerHook.removePatch(DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN, routePatch); },
+      () => routeRenderPatch?.unpatch(),
+      cancelNativeAchievementJump,
+      () => stopNativeAchievementClassifications?.(),
+      invalidateDeckyNativeRetroAchievementsProjection,
+      () => gameInfoObserver?.disconnect(),
+      () => { if (gameInfoSyncTimer !== undefined) clearTimeout(gameInfoSyncTimer); },
+      clearGameInfoMount,
+      ...patches.splice(0).reverse().map(patch => () => patch.unpatch()),
+      notifyAllRevisions,
+      () => lastPage?.instance.forceUpdate?.(),
+      disposeDeckyNativeRetroAchievementsProjection,
+    ]);
+    routeRenderPatch = undefined;
+    routeRenderOwner = undefined;
+    attempts.clear(); shortcutIdentities.clear(); unavailableAppIds.clear();
+    managedAppIds.clear(); revisions.clear(); launchTokens.clear(); gameLifetimeStates.clear();
+  }
+
+  try {
+  routePatch = routerHook.addPatch(DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN, (tree) => {
     installStorePatches();
     installPagePatch();
     installUpNextPatch();
@@ -824,7 +860,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
   installActivityPatch();
   installCommunityPatch();
   scheduleGameInfoSync();
-  const unsubscribeInvalidation = subscribeDeckyRaNativeAchievementInvalidation((event) => {
+  unsubscribeInvalidation = subscribeDeckyRaNativeAchievementInvalidation((event) => {
     if (event.reason === "provider-refreshed") return;
     invalidateDeckyNativeRetroAchievementsProjection();
     attempts.clear();
@@ -836,9 +872,10 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
       rerenderActivePage(activePage.appId);
     }
   });
-  const gameLifetimeStates = new Map<number, boolean>();
-  const launchTokens = new Map<number, object>();
-  const gameLifetimeHandle = runtime.SteamClient?.GameSessions?.RegisterForAppLifetimeNotifications((event) => {
+  try {
+    const sessions = runtime.SteamClient?.GameSessions;
+    gameLifetimeHandle = typeof sessions?.RegisterForAppLifetimeNotifications === "function"
+      ? sessions.RegisterForAppLifetimeNotifications((event) => {
     const appId = toAppId(event.unAppID);
     if (appId === undefined || typeof event.bRunning !== "boolean") return;
     const emulator = /\b(?:retroarch|emulationstation|pcsx2|duckstation|dolphin|rpcs3|ppsspp|melonDS|mupen|ares|mednafen)\b/iu
@@ -864,37 +901,14 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     if (activePage?.appId === appId) activePage.verified = false;
     notifyRevision(appId);
     rerenderActivePage(appId);
-  });
-
-  const cleanup = () => {
-    if (disposed) return;
-    disposed = true;
-    if (registeredCleanup === cleanup) registeredCleanup = undefined;
-    unsubscribeInvalidation();
-    gameLifetimeHandle?.unregister();
-    stopDeckyRaPresence();
-    routerHook.removePatch(DECKY_GAME_PAGE_ACHIEVEMENT_ROUTE_PATTERN, routePatch);
-    routeRenderPatch?.unpatch();
-    routeRenderPatch = undefined;
-    routeRenderOwner = undefined;
-    cancelNativeAchievementJump();
-    stopNativeAchievementClassifications?.();
-    invalidateDeckyNativeRetroAchievementsProjection();
-    attempts.clear();
-    shortcutIdentities.clear();
-    unavailableAppIds.clear();
-    managedAppIds.clear();
-    gameInfoObserver?.disconnect();
-    if (gameInfoSyncTimer !== undefined) clearTimeout(gameInfoSyncTimer);
-    clearGameInfoMount();
-    for (const patch of patches.reverse()) patch.unpatch();
-    notifyAllRevisions();
-    revisions.clear();
-    const lastPage = activePage;
-    activePage = undefined;
-    lastPage?.instance.forceUpdate?.();
-    disposeDeckyNativeRetroAchievementsProjection();
-  };
+  }) : undefined;
+  } catch {
+    console.warn("[Achievement Companion] Steam lifecycle notifications are unavailable.");
+  }
+  } catch (cause) {
+    cleanup();
+    throw cause;
+  }
   registeredCleanup = cleanup;
   return cleanup;
 }

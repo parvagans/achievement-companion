@@ -482,10 +482,17 @@ export async function loadDeckySteamHuntersEnrichedGameDetail(
     return snapshot;
   }
 
-  const enrichedSnapshot = composeSteamGameDetailWithSteamHunters(
-    snapshot,
-    await deckySteamHuntersService.loadGameData(appId),
-  );
+  const accountRevision = getDeckyAccountRevision(STEAM_PROVIDER_ID);
+  const steamId64 = readDeckyProviderConfigs().steam?.steamId64;
+  if (snapshot.steamAccountId !== undefined && snapshot.steamAccountId !== steamId64) {
+    throw new Error("Steam account changed before loading achievement details.");
+  }
+  const enrichment = await deckySteamHuntersService.loadGameData(appId);
+  if (accountRevision !== getDeckyAccountRevision(STEAM_PROVIDER_ID)
+    || steamId64 !== readDeckyProviderConfigs().steam?.steamId64) {
+    throw new Error("Steam account changed while loading achievement details.");
+  }
+  const enrichedSnapshot = composeSteamGameDetailWithSteamHunters(snapshot, enrichment);
   const preservedSnapshot = preserveCachedSteamHuntersEnrichment(
     enrichedSnapshot,
     readDeckySteamGameDetailCacheEntry(snapshot.game.gameId)?.snapshot,
@@ -1303,7 +1310,12 @@ export async function loadDeckyDashboardState(
 
   if (runtimeMode === "live" && providerId !== RETROACHIEVEMENTS_PROVIDER_ID && !options?.forceRefresh) {
     const cachedDashboardState = readDeckyDashboardSnapshotState(providerId);
-    if (cachedDashboardState !== undefined) {
+    const config = providerId === STEAM_PROVIDER_ID && cachedDashboardState !== undefined
+      ? await loadDeckyProviderConfig(providerId).catch(() => undefined) : undefined;
+    if (!isCurrentAccount()) return createDeckyAccountChangedState<DashboardSnapshot>(providerId);
+    const ownsSavedSteamDashboard = config !== undefined && "steamId64" in config &&
+      cachedDashboardState?.data?.profile.identity.accountId === config.steamId64;
+    if (cachedDashboardState !== undefined && (providerId !== STEAM_PROVIDER_ID || ownsSavedSteamDashboard)) {
       if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
         markRetroAchievementsCachedDashboardRestored(cachedDashboardState.lastUpdatedAt);
       }
@@ -1365,8 +1377,15 @@ export async function loadDeckyDashboardState(
       ...(providerId === RETROACHIEVEMENTS_PROVIDER_ID ? { forceRefresh: true } : {}),
       onProgress: (event) => { if (isCurrentAccount()) publishDeckyDashboardProgress(providerId, event); },
     });
-    const state = await dashboardRefreshPromise;
+    let state = await dashboardRefreshPromise;
     if (!isCurrentAccount()) return createDeckyAccountChangedState<DashboardSnapshot>(providerId);
+    if (runtimeMode === "live" && providerId === STEAM_PROVIDER_ID && state.data === undefined) {
+      const saved = readDeckyDashboardSnapshotState(providerId);
+      const owner = readDeckyProviderConfigs().steam?.steamId64;
+      if (owner !== undefined && saved?.data?.profile.identity.accountId === owner) {
+        state = { ...saved, ...(state.error !== undefined ? { error: state.error } : {}) };
+      }
+    }
     if (state.data === undefined) {
       publishDeckyDashboardProgress(providerId, { stepId: "finalize", status: "failed" });
       if (providerId === RETROACHIEVEMENTS_PROVIDER_ID) {
@@ -1639,21 +1658,23 @@ export async function refreshDeckySteamLibraryForExplicitRefresh(): Promise<
  * Runs the explicit full-library scan used for initial population and recovery.
  * This is intentionally separate from the bounded Steam dashboard refresh.
  */
-export async function runDeckySteamFullLibraryScan(): Promise<
-  SteamLibraryAchievementScanSummary | undefined
-> {
-  const config = await loadDeckyProviderConfig(STEAM_PROVIDER_ID);
-  if (config === undefined || !("steamId64" in config)) {
-    return readDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID);
-  }
+export interface DeckySteamFullLibraryScanOutcome {
+  readonly status: "completed" | "partial" | "error";
+  readonly summary?: SteamLibraryAchievementScanSummary;
+}
 
+export async function runDeckySteamFullLibraryScan(): Promise<DeckySteamFullLibraryScanOutcome> {
   try {
-    return await runAndCacheDeckySteamLibraryAchievementScan(config as SteamProviderConfig);
+    const config = await loadDeckyProviderConfig(STEAM_PROVIDER_ID);
+    if (config === undefined || !("steamId64" in config)) throw new Error("Steam account is not configured.");
+    const summary = await runAndCacheDeckySteamLibraryAchievementScan(config as SteamProviderConfig);
+    return { status: summary.failedGameCount > 0 ? "partial" : "completed", summary };
   } catch (cause) {
     console.warn("[Achievement Companion][Steam] Full library scan failed; cached library was retained", {
       error: cause instanceof Error ? cause.message : String(cause),
     });
-    return readDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID);
+    const summary = readDeckySteamLibraryAchievementScanSummary(STEAM_PROVIDER_ID);
+    return { status: "error", ...(summary === undefined ? {} : { summary }) };
   }
 }
 
@@ -2458,10 +2479,6 @@ async function loadDeckyGameDetailStateRaw(
     }
   }
 
-  const cachedSteamGameDetailState = runtimeMode === "live" && providerId === STEAM_PROVIDER_ID
-    ? readDeckySteamGameDetailState(gameId)
-    : undefined;
-
   const state = await createDeckyAppServices(runtimeMode).gameDetail.loadGameDetail(
     providerId,
     gameId,
@@ -2478,6 +2495,12 @@ async function loadDeckyGameDetailStateRaw(
   if (providerId !== STEAM_PROVIDER_ID) {
     return state;
   }
+
+  // Core loading hydrates saved provider settings. Only then can the durable
+  // snapshot's owner be checked, including the first offline load after restart.
+  const cachedSteamGameDetailState = runtimeMode === "live"
+    ? readDeckySteamGameDetailState(gameId)
+    : undefined;
 
   if (state.data === undefined) {
     return cachedSteamGameDetailState === undefined
@@ -2513,7 +2536,7 @@ async function loadDeckyGameDetailStateRaw(
   // Persist only successful live data; a failed refresh must not replace a
   // last-known-good offline snapshot with partial or stale provider data.
   const preservedGameDetail = preserveCachedSteamHuntersEnrichment(
-    patchedGameDetail,
+    { ...patchedGameDetail, ...(readDeckyProviderConfigs().steam?.steamId64 ? { steamAccountId: readDeckyProviderConfigs().steam!.steamId64 } : {}) },
     cachedSteamGameDetailState?.data,
   );
   if (state.status === "success" && state.error === undefined) {

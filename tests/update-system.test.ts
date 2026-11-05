@@ -82,6 +82,25 @@ test("update service is lazy and does not block plugin startup", () => {
   assert.equal(sourceResolutions, 0);
 });
 
+test("production excludes preview channels and prerelease versions before notification or install", async () => {
+  for (const [channel, version] of [["stable", "1.0.0-rc.1"], ["preview", "1.0.0"], ["preview", "1.0.0-rc.2"]] as const) {
+    let notifications = 0;
+    let verifications = 0;
+    const service = new UpdateService({
+      installedVersion: "0.40.0",
+      resolveSource: () => ({kind: "production", manifestUrl: "test", loadManifest: async () => ({...manifest, channel, version})}),
+      verifier: {verify: async () => { verifications++; throw Error("unexpected"); }},
+      installer: {supported: true, install: async () => ({status: "prompted"})},
+      notifyAvailable: () => { notifications++; },
+    });
+    for (const manual of [false, true]) {
+      assert.equal((await service.checkForUpdate({manual})).available, undefined);
+      await service.installAvailableUpdate();
+    }
+    assert.deepEqual([notifications, verifications], [0, 0]);
+  }
+});
+
 test("older remote versions do not produce an update", async () => {
   const service = new UpdateService({
     installedVersion: "0.9.0",

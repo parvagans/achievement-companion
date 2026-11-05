@@ -459,8 +459,8 @@ async function loadSteamRecentGameSnapshots(
     return snapshots.filter((snapshot): snapshot is SteamRecentGameSnapshot => snapshot !== undefined);
   })();
 
-  steamRecentGameSnapshotLoadCache.set(cacheKey, {
-    status: "pending",
+  const pendingEntry = {
+    status: "pending" as const,
     createdAt: Date.now(),
     promise: promise.then((snapshots) => {
       steamRecentGameSnapshotLoadCache.set(cacheKey, {
@@ -470,9 +470,12 @@ async function loadSteamRecentGameSnapshots(
       });
       return snapshots;
     }),
-  });
+  };
+  steamRecentGameSnapshotLoadCache.set(cacheKey, pendingEntry);
 
-  return promise;
+  // Every caller must observe the same tracked promise, including its rejection.
+  // Returning the source left the cached .then() rejection unhandled offline.
+  return pendingEntry.promise;
 }
 
 function countBeatenGames(games: readonly RecentlyPlayedGame[]): number {

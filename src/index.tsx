@@ -1,3 +1,4 @@
+import { runDeckyCleanup } from "./platform/decky/decky-cleanup";
 import { definePlugin } from "@decky/api";
 import { DeckyBootstrap } from "@platform/decky/bootstrap";
 import { DeckyCompactSession } from "@platform/decky/decky-compact-session";
@@ -51,12 +52,18 @@ function AchievementCompanionIcon(): JSX.Element {
 }
 
 export default definePlugin(() => {
-  installAchievementCompanionRuntimeDebug();
-  const removeDeckyGamePageAchievementRoutePatch =
-    ensureDeckyGamePageAchievementRoutePatchRegistered();
-  const removeDeckyNativeSteamAchievements = ensureDeckyNativeSteamAchievementsRegistered();
-  const removeDeckyFullScreenRoutes = registerDeckyFullScreenRoutes();
-  const stopDeckyUpdateSystem = initializeDeckyUpdateSystem(openDeckyUpdatesFromNotification);
+  const cleanups: (() => void)[] = [];
+  for (const register of [
+    () => { installAchievementCompanionRuntimeDebug(); return removeAchievementCompanionRuntimeDebug; },
+    ensureDeckyGamePageAchievementRoutePatchRegistered,
+    ensureDeckyNativeSteamAchievementsRegistered,
+    registerDeckyFullScreenRoutes,
+    () => initializeDeckyUpdateSystem(openDeckyUpdatesFromNotification),
+  ]) {
+    try { cleanups.push(register()); }
+    catch { console.warn("[Achievement Companion] An optional integration could not initialize."); }
+  }
+  let disposed = false;
 
   return {
     name: "Achievement Companion",
@@ -75,17 +82,17 @@ export default definePlugin(() => {
     content: <DeckyCompactSession><DeckyBootstrap /></DeckyCompactSession>,
     icon: <AchievementCompanionIcon />,
     onDismount() {
-      clearAchievementCompanionThemes();
-      closeDeckyFullScreenSettingsOnDismount();
-      stopDeckyUpdateSystem();
-      removeDeckyCompactCancelBridges();
-      resetDeckyCompactNavigation();
-      resetDeckyCompactAchievementPageState();
-      clearDeckyCompactOriginFullScreenSession();
-      removeDeckyFullScreenRoutes();
-      removeDeckyNativeSteamAchievements();
-      removeDeckyGamePageAchievementRoutePatch();
-      removeAchievementCompanionRuntimeDebug();
+      if (disposed) return;
+      disposed = true;
+      runDeckyCleanup([
+        clearAchievementCompanionThemes,
+        closeDeckyFullScreenSettingsOnDismount,
+        removeDeckyCompactCancelBridges,
+        resetDeckyCompactNavigation,
+        resetDeckyCompactAchievementPageState,
+        clearDeckyCompactOriginFullScreenSession,
+        ...cleanups.reverse(),
+      ]);
     },
   };
 });

@@ -10,12 +10,12 @@ function lifecycleScript() {
  const end=script.indexOf('    mock.module(pathToFileURL(resolve("src/platform/decky/decky-native-retroachievements-activity.tsx"))',start);
  script=script.slice(0,start)+`
  let metadataWait; let metadata={appId:String(shortcutId),exe:'/usr/bin/retroarch',startDir:'/roms',launchOptions:'game99.rom'};
- mock.module(pathToFileURL(resolve('src/platform/decky/decky-backend-bridge.ts')).href,{exports:{callDeckyBackendMethod:async()=>metadataWait ? await metadataWait : metadata}});
+ mock.module(pathToFileURL(resolve('src/platform/decky/decky-backend-bridge.ts')).href,{namedExports:{callDeckyBackendMethod:async()=>metadataWait ? await metadataWait : metadata}});
  const realProjection=await import('./src/platform/decky/decky-native-retroachievements-projection.ts');
  const realLoader=realProjection.createNativeRetroAchievementsProjectionLoader({
  loadShortcutMetadata:async()=>metadata,loadSummary:async()=>({status:'ready',provider:'retroachievements',gameId:'99',appId:String(shortcutId)}),
  loadDetail:async()=>({status:'success',data:{game:{providerId:'retroachievements',gameId:'99',title:'Game',status:'in_progress',summary:{unlockedCount:0,totalCount:0},metrics:[]},achievements:[{providerId:"retroachievements",gameId:"99",achievementId:"1",title:"One",description:"Test",isUnlocked:false,metrics:[]}]},isStale:false,isRefreshing:false}),invalidateSummary(){}});
- mock.module(pathToFileURL(resolve('src/platform/decky/decky-native-retroachievements-projection.ts')).href,{exports:{
+ mock.module(pathToFileURL(resolve('src/platform/decky/decky-native-retroachievements-projection.ts')).href,{namedExports:{
  ...realProjection,readDeckyNativeRetroAchievementsProjection:(id,mode)=>realLoader.read(id,mode),
  invalidateDeckyNativeRetroAchievementsProjection:(id,options)=>realLoader.invalidate(id,options),disposeDeckyNativeRetroAchievementsProjection:()=>realLoader.dispose()}});
  const {createRaPresenceCoordinator}=await import('./src/platform/decky/retroachievements-presence-coordinator.ts');
@@ -23,7 +23,7 @@ function lifecycleScript() {
  let now=1800000000000,heartbeat=now,recent=0,game=99,presenceCalls=0;
  const presence=createRaPresenceCoordinator({revision:()=>accounts.getDeckyAccountRevision("retroachievements"),now:()=>now,read:()=>undefined,schedule:()=>0,cancel(){},fetchRecent:async()=>{recent++;return []},
  fetch:async()=>{presenceCalls++;return ({raResource:1,resourceKey:'p',cacheState:'live',fetchedAt:now,freshUntil:now+45000,payload:{LastGameID:game,RichPresenceMsgDate:new Date(heartbeat).toISOString()}})} });
- mock.module(pathToFileURL(resolve('src/platform/decky/decky-retroachievements-presence.ts')).href,{exports:{deckyRaPresence:presence,
+ mock.module(pathToFileURL(resolve('src/platform/decky/decky-retroachievements-presence.ts')).href,{namedExports:{deckyRaPresence:presence,
  notifyDeckyRaPresenceLifecycle:(...args)=>presence.lifecycle(...args),corroborateDeckyRaPresenceLaunch:(...args)=>presence.corroborateLaunch(...args),stopDeckyRaPresence:()=>presence.dispose()}});
  `+script.slice(end);
  return script;

@@ -171,10 +171,10 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
     };
 
     mock.module("@decky/api", {
-      exports: { routerHook, call: async () => undefined },
+      namedExports: { routerHook, call: async () => undefined },
     });
     mock.module("@decky/ui", {
-      exports: {
+      namedExports: {
         callOriginal,
         appDetailsClasses: { InnerContainer: "inner-container" },
         createModuleMapping,
@@ -193,7 +193,7 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
       },
     });
     mock.module(pathToFileURL(resolve("src/platform/decky/decky-native-retroachievements-projection.ts")).href, {
-      exports: {
+      namedExports: {
         async verifyNativeProjectionLaunch() { return undefined; },
         readDeckyNativeRetroAchievementsProjection(appId, mode) {
           projectionReads.push([appId, mode]);
@@ -210,17 +210,17 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
       },
     });
     mock.module(pathToFileURL(resolve("src/platform/decky/decky-native-retroachievements-activity.tsx")).href, {
-      exports: {
+      namedExports: {
         DeckyNativeRetroAchievementsActivity() { return null; },
       },
     });
     mock.module(pathToFileURL(resolve("src/platform/decky/decky-retroachievements-community-resource.tsx")).href, {
-      exports: {
+      namedExports: {
         DeckyRetroAchievementsCommunityResource() { return null; },
       },
     });
     mock.module(pathToFileURL(resolve("src/platform/decky/decky-native-up-next.tsx")).href, {
-      exports: {
+      namedExports: {
         DeckyNativeUpNext() { return null; },
         NATIVE_UP_NEXT_TAB_ID: "AchievementCompanionUpNext",
         withNativeUpNextTab(tabs, content) {

@@ -312,18 +312,13 @@ test("full-screen route builders produce stable URL-safe paths", () => {
   );
 });
 
-test("plugin lifecycle owns all route registration and cleanup", () => {
-  const indexSource = readFileSync("src/index.tsx", "utf8");
+// Initialization and dismount are exercised with throwing hosts in rc-plugin-lifetime.test.ts.
+test("route transitions do not navigate back during component unmount", () => {
   const navigationSource = readFileSync(
     "src/platform/decky/decky-navigation.tsx",
     "utf8",
   );
 
-  assert.match(indexSource, /registerDeckyFullScreenRoutes\(\)/u);
-  assert.match(indexSource, /onDismount\(\)[\s\S]*removeDeckyFullScreenRoutes\(\)/u);
-  assert.match(indexSource, /onDismount\(\)[\s\S]*removeDeckyCompactCancelBridges\(\)/u);
-  assert.match(indexSource, /onDismount\(\)[\s\S]*resetDeckyCompactNavigation\(\)/u);
-  assert.match(indexSource, /onDismount\(\)[\s\S]*clearDeckyCompactOriginFullScreenSession\(\)/u);
   assert.doesNotMatch(navigationSource, /DeckyFullscreenRouteLeaveBoundary/u);
   assert.doesNotMatch(navigationSource, /onUnmount=.*NavigateBack/u);
 });

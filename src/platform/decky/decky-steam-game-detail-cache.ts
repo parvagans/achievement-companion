@@ -1,13 +1,13 @@
-import { subscribeDeckyAccountRevision } from "./decky-account-revision";
+import { readDeckyProviderConfigs } from "./providers/provider-config-store";
 import type { ResourceState } from "@core/cache";
 import type { GameDetailSnapshot } from "@core/domain";
 import { STEAM_PROVIDER_ID } from "../../providers/steam/config";
 import { getSteamHuntersGameEnrichment, type SteamHuntersEnrichedGameDetailSnapshot } from "../../providers/steamhunters";
 import {
   readDeckyStorageText,
-  removeDeckyStorageText,
+
   removeDeckyStorageTextsByPrefix,
-  writeDeckyStorageText,
+  writeDeckyStorageTextPreservingExisting,
 } from "./storage";
 
 export const DECKY_STEAM_GAME_DETAIL_STORAGE_KEY_PREFIX =
@@ -16,6 +16,7 @@ export const DECKY_STEAM_GAME_DETAIL_STORAGE_KEY_PREFIX =
 interface DeckySteamGameDetailCacheEntry {
   readonly version: 1;
   readonly gameId: string;
+  readonly steamId64: string;
   readonly storedAt: number;
   readonly snapshot: GameDetailSnapshot;
 }
@@ -37,6 +38,7 @@ function isDeckySteamGameDetailCacheEntry(value: unknown): value is DeckySteamGa
 
   const game = (snapshot as Record<string, unknown>)["game"];
   return record["version"] === 1 &&
+    typeof record["steamId64"] === "string" && record["steamId64"].length > 0 &&
     typeof record["gameId"] === "string" &&
     record["gameId"].length > 0 &&
     typeof record["storedAt"] === "number" &&
@@ -62,6 +64,7 @@ export function readDeckySteamGameDetailCacheEntry(
   try {
     const parsed = JSON.parse(rawValue) as unknown;
     const entry = isDeckySteamGameDetailCacheEntry(parsed) && parsed.gameId === gameId
+      && parsed.steamId64 === readDeckyProviderConfigs().steam?.steamId64
       ? parsed
       : undefined;
     return entry;
@@ -127,7 +130,9 @@ export function preserveCachedSteamHuntersEnrichment(
 }
 
 export function writeDeckySteamGameDetail(snapshot: GameDetailSnapshot): boolean {
-  if (snapshot.game.providerId !== STEAM_PROVIDER_ID || snapshot.game.gameId.length === 0) {
+  const steamId64 = readDeckyProviderConfigs().steam?.steamId64;
+  if (!steamId64 || (snapshot.steamAccountId !== undefined && snapshot.steamAccountId !== steamId64)
+    || snapshot.game.providerId !== STEAM_PROVIDER_ID || snapshot.game.gameId.length === 0) {
     return false;
   }
 
@@ -138,20 +143,18 @@ export function writeDeckySteamGameDetail(snapshot: GameDetailSnapshot): boolean
   const entry: DeckySteamGameDetailCacheEntry = {
     version: 1,
     gameId: snapshot.game.gameId,
-    storedAt: Date.now(),
-    snapshot: preservedSnapshot,
+    steamId64,
+    // Memory hits and optional SteamHunters enrichment are not Steam refreshes.
+    storedAt: snapshot.refreshedAt !== undefined && Number.isFinite(snapshot.refreshedAt)
+      ? snapshot.refreshedAt : Date.now(),
+    snapshot: { ...preservedSnapshot, steamAccountId: steamId64 },
   };
   const storageKey = getSteamGameDetailStorageKey(snapshot.game.gameId);
-  const didWrite = writeDeckyStorageText(storageKey, JSON.stringify(entry));
-  if (!didWrite) {
-    removeDeckyStorageText(storageKey);
-  }
-
-  return didWrite;
+  return writeDeckyStorageTextPreservingExisting(storageKey, JSON.stringify(entry));
 }
 
 export function clearDeckySteamGameDetailCache(): boolean {
   return removeDeckyStorageTextsByPrefix(DECKY_STEAM_GAME_DETAIL_STORAGE_KEY_PREFIX);
 }
 
-subscribeDeckyAccountRevision((providerId) => { providerId === STEAM_PROVIDER_ID && clearDeckySteamGameDetailCache(); });
+// Persisted owner checks protect retained offline data across account revisions.

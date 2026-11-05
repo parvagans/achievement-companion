@@ -1,0 +1,54 @@
+name: Verify
+on:
+  pull_request:
+  push:
+    branches: ["**"]
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm version:check && pnpm typecheck
+      - run: pnpm test
+        env:
+          AC_LAYOUT_BROWSER: /usr/bin/google-chrome
+      - name: Measure component layouts
+        run: |
+          for script in scripts/check-*-layout.mts; do node --import tsx "$script" || exit 1; done
+        env:
+          AC_LAYOUT_BROWSER: /usr/bin/google-chrome
+      - name: Build and verify Linux candidate twice from clean source
+        shell: bash
+        run: |
+          set -euo pipefail
+          image=docker.io/library/rust@sha256:3914072ca0c3b8aad871db9169a651ccfce30cf58303e5d6f2db16d1d8a7e58f
+          for build in first second; do
+            destination="$RUNNER_TEMP/ac-$build"
+            mkdir "$destination"
+            git archive HEAD | tar -x -C "$destination"
+            docker run --rm -v "$destination:/source" -w /source "$image" bash scripts/build-release-container.sh
+          done
+          cmp "$RUNNER_TEMP/ac-first/bin/ac-rhash" "$RUNNER_TEMP/ac-second/bin/ac-rhash"
+          for artifact in "$RUNNER_TEMP/ac-first/release/"*; do
+            cmp "$artifact" "$RUNNER_TEMP/ac-second/release/$(basename "$artifact")"
+          done
+          mkdir -p release
+          cp "$RUNNER_TEMP/ac-first/release/"* release/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-release
+          path: release/
+          if-no-files-found: error

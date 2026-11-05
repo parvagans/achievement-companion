@@ -15,6 +15,8 @@ HISTORY_MAX_RANGES_PER_RUN = 64
 
 
 def event_timestamp(event: dict) -> int:
+  if not isinstance(event, dict):
+    raise ValueError("Invalid history row")
   date = event.get("Date", event.get("date"))
   if not isinstance(date, str):
     raise ValueError("Invalid history date")
@@ -25,6 +27,8 @@ def event_timestamp(event: dict) -> int:
 
 
 def event_identity(event: dict) -> str:
+  if not isinstance(event, dict):
+    raise ValueError("Invalid history row")
   achievement = event.get("AchievementID", event.get("achievementId"))
   game = event.get("GameID", event.get("gameId"))
   date = event.get("Date", event.get("date"))

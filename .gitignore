@@ -40,6 +40,7 @@ docs/screenshots/generated/*
 !docs/screenshots/generated/.gitkeep
 !docs/screenshots/generated/*.png
 !docs/screenshots/generated/*.jpg
+audits/ 
 
 # Python cache/test artifacts
 __pycache__/

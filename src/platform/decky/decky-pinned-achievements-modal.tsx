@@ -108,10 +108,8 @@ export function PinnedAchievementsContent({ initialProvider, focusGameId, focusC
           const state = await resolveMetadata(pin, valid);
           if (!valid()) return;
           if (state) setMetadata((old) => ({ ...old, [key(pin)]: state }));
-          if (state?.error?.kind === "rate_limit") {
-            setMetadata((old) => Object.fromEntries([...Object.entries(old), ...visible.filter((item) => old[key(item)] === undefined).map((item) => [key(item), state])]));
-            break;
-          }
+          // Other visible pins still consult their own cache. The provider
+          // coordinator owns cooldown eligibility; data never fans out across games.
         } catch {
           if (valid()) setMetadata((old) => ({ ...old, [key(pin)]: { status: "error", isStale: false, isRefreshing: false } }));
         }
