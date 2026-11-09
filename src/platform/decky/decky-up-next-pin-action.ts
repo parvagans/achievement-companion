@@ -12,11 +12,15 @@ export interface UpNextPinAction {
 /** Every direct control and native Y footer derives from the resolved preference-backed suggestion. */
 export function createUpNextPinAction(suggestion: GameOverviewSuggestion | undefined, mode: RetroAchievementsAchievementMode, toggle: ((id: string) => void) | undefined): UpNextPinAction | undefined {
   if (suggestion === undefined || toggle === undefined || !suggestion.pinned && isAchievementCompleteForPin(suggestion.achievement, mode)) return undefined;
-  const activate = (): void => toggle(suggestion.achievement.achievementId);
+  return createUpNextPinToggleAction(suggestion.achievement.achievementId, suggestion.pinned === true, toggle);
+}
+
+export function createUpNextPinToggleAction(achievementId: string, pinned: boolean, toggle: (id: string) => void): UpNextPinAction {
+  const activate = (): void => toggle(achievementId);
   return {
-    label: suggestion.pinned ? "Unpin" : "Pin",
-    menuLabel: suggestion.pinned ? "Remove from Up Next" : "Set as Up Next",
-    pinned: suggestion.pinned === true,
+    label: pinned ? "Unpin" : "Pin",
+    menuLabel: pinned ? "Remove from Up Next" : "Set as Up Next",
+    pinned,
     activate,
     onOptionsButton: (event) => { event.preventDefault(); event.stopPropagation(); if (!event.detail.is_repeat) activate(); },
   };

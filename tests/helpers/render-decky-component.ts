@@ -9,14 +9,16 @@ export function loadLocalComponent(file: string, overrides: Record<string, unkno
   const path = resolve(file);
   const require = createRequire(path);
   const controls: any[] = [];
-  const Focusable = React.forwardRef<HTMLDivElement, any>((props, ref) => {
-    controls.push({ ...props, attach: (node: HTMLDivElement) => { if (typeof ref === "function") ref(node); else if (ref) ref.current = node; } });
-    return React.createElement("div", Object.fromEntries(Object.entries(props).filter(([name]) =>
+  const nativeControl = (tag: "div" | "button") => React.forwardRef<HTMLElement, any>((props, ref) => {
+    controls.push({ ...props, attach: (node: HTMLElement) => { if (typeof ref === "function") ref(node); else if (ref) ref.current = node; } });
+    return React.createElement(tag, Object.fromEntries(Object.entries(props).filter(([name]) =>
       !name.startsWith("on") && !["noFocusRing", "preferredFocus"].includes(name))), props.children);
   });
+  const Focusable = nativeControl("div");
+  const DialogButton = nativeControl("button");
   const exports: Record<string, any> = {};
   const compiled = ts.transpileModule(readFileSync(sourcePath ?? path, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, esModuleInterop: true } });
   new Function("require", "exports", compiled.outputText)((name: string) => overrides[name]
-    ?? (name === "@decky/ui" ? { Focusable, GamepadButton: { DIR_UP: 9, DIR_DOWN: 10, DIR_LEFT: 11, DIR_RIGHT: 12 } } : require(name)), exports);
+    ?? (name === "@decky/ui" ? { DialogButton, Focusable, GamepadButton: { DIR_UP: 9, DIR_DOWN: 10, DIR_LEFT: 11, DIR_RIGHT: 12 } } : require(name)), exports);
   return { exports, controls };
 }

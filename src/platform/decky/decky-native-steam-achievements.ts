@@ -39,6 +39,9 @@ import { readDeckySettings } from "./decky-settings";
 import { DeckyNativeUpNext, NATIVE_UP_NEXT_TAB_ID, withNativeUpNextTab } from "./decky-native-up-next";
 import { cancelNativeAchievementJump } from "./decky-native-achievement-jump";
 import { observeNativeAchievementClassifications } from "./decky-native-achievement-classifications";
+import { createNativeMyAchievementsEnhancer, installNativeYourStuffAchievementActions, type NativeAchievementPinTarget, type NativeAchievementRow } from "./decky-native-achievement-actions";
+import { isAchievementCompleteForPin } from "./decky-game-overview-recommendations";
+import { readDeckyProviderConfigs } from "./providers/provider-config-store";
 
 interface SteamAppOverview {
   readonly appid?: number;
@@ -126,6 +129,7 @@ interface NativeSteamRuntimeWindow {
   };
   appDetailsStore?: SteamAppDetailsStore;
   appAchievementProgressCache?: SteamAchievementProgressCache;
+  friendStore?: { readonly currentUserSteamID?: { GetAccountID?(): number } };
   SteamClient?: {
     GameSessions?: {
       RegisterForAppLifetimeNotifications(callback: (event: { unAppID?: number; bRunning?: boolean }) => void): { unregister(): void };
@@ -287,26 +291,32 @@ const nativeGamePageBackBoundaryKey = "achievement-companion-native-game-page-ba
 // Steam's AllAchieved row needs medal clearance even if Activity CSS loads later.
 const nativeAchievementSpacingCss = "._2YS0EBJmY2Rvs07zZ90UIJ { padding-inline-start: 46px !important; }";
 
+export function registerDeckyNativeGamePageBackBoundary(anchor: HTMLElement | null, onBack: () => void): (() => void) | undefined {
+  const document = anchor?.ownerDocument;
+  const ownerWindow = document?.defaultView;
+  if (document === undefined || ownerWindow == null) return undefined;
+
+  const onCancel = (event: Event): void => {
+    if (event.defaultPrevented) return;
+    const tab = document.querySelector<HTMLElement>(".gpfocus")?.closest('[role="tab"]');
+    if (tab == null || tab.closest('[role="dialog"]') !== null) return;
+    // A pinned dialog owns Back even if GamepadUI still reports the library tab
+    // as focused while the portal opens or hands off to Achievement Details.
+    if (document.querySelector("[data-ac-native-pinned-modal], [data-ac-native-pinned-details]") !== null) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    onBack();
+  };
+
+  ownerWindow.addEventListener("vgp_oncancel", onCancel, true);
+  return () => { ownerWindow.removeEventListener("vgp_oncancel", onCancel, true); };
+}
+
 function DeckyNativeGamePageBackBoundary(): ReactElement {
   const anchorRef = useRef<HTMLSpanElement>(null);
-
-  useLayoutEffect(() => {
-    const ownerWindow = anchorRef.current?.ownerDocument.defaultView;
-    if (ownerWindow === undefined || ownerWindow === null) return;
-
-    const onCancel = (event: Event): void => {
-      const focused = ownerWindow.document.querySelector<HTMLElement>(".gpfocus");
-      const tab = focused?.matches('[role="tab"]') === true ? focused : focused?.closest('[role="tab"]');
-      if (tab === undefined || tab === null) return;
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-      Navigation.NavigateBack();
-    };
-
-    ownerWindow.addEventListener("vgp_oncancel", onCancel, true);
-    return () => { ownerWindow.removeEventListener("vgp_oncancel", onCancel, true); };
-  }, []);
+  useLayoutEffect(() => registerDeckyNativeGamePageBackBoundary(anchorRef.current, () => Navigation.NavigateBack()), []);
 
   return createElement("span", { ref: anchorRef, hidden: true, "aria-hidden": "true" });
 }
@@ -333,6 +343,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
   let activityPatched = false;
   let communityPatched = false;
   let upNextPatched = false;
+  let yourStuffActionsPatched = false;
   let gameInfoMount: { readonly native: HTMLElement; readonly host: HTMLElement; readonly originalDisplay: string; projection: NativeRetroAchievementsProjection } | undefined;
   let gameInfoSyncTimer: ReturnType<typeof setTimeout> | undefined;
   let gameInfoSyncAttempts = 0;
@@ -369,6 +380,36 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     if (disposed || !isShortcutAppId(runtime, appId)) return undefined;
     if (activePage?.appId === appId && !activePage.verified) return undefined;
     return readDeckyNativeRetroAchievementsProjection(String(appId), currentMode());
+  }
+
+  function resolveNativePinTarget(appId: number, row: NativeAchievementRow): NativeAchievementPinTarget | undefined {
+    if (disposed || row.bAchieved) return undefined;
+    const overview = runtime.appStore?.GetAppOverviewByAppID(appId);
+    if (overview?.appid !== appId) return undefined;
+    const configs = readDeckyProviderConfigs();
+    if (isNativeSteamShortcutOverview(overview, appId)) {
+      const account = configs.retroAchievements;
+      const projection = getProjection(appId);
+      if (!account?.hasApiKey || projection === undefined || !row.strID.startsWith("ra:")) return undefined;
+      const achievement = projection.achievements.find((candidate) => candidate.achievementId === row.strID.slice(3));
+      if (achievement === undefined || isAchievementCompleteForPin(achievement, projection.mode)) return undefined;
+      return { providerId: "retroachievements", accountId: account.username.toLowerCase(), gameId: projection.raGameId, achievementId: achievement.achievementId, mode: projection.mode };
+    }
+    const account = configs.steam;
+    if (row.strID.startsWith("ra:") || !account?.hasApiKey || !/^\d{17}$/u.test(account.steamId64)) return undefined;
+    // Native Steam rows describe the signed-in Steam user, while AC can be configured for another account.
+    const accountId = runtime.friendStore?.currentUserSteamID?.GetAccountID?.();
+    if (accountId !== Number(BigInt(account.steamId64) & 0xffffffffn)) return undefined;
+    return { providerId: "steam", accountId: account.steamId64, gameId: String(appId), achievementId: row.strID, mode: "both" };
+  }
+
+  const enhanceMyAchievements = createNativeMyAchievementsEnhancer(resolveNativePinTarget);
+
+  function installYourStuffActions(): void {
+    if (yourStuffActionsPatched) return;
+    const installed = installNativeYourStuffAchievementActions(resolveNativePinTarget);
+    patches.push(...installed);
+    yourStuffActionsPatched = installed.length > 0;
   }
 
   function getModel(appId: number): NativeSteamAchievements | undefined {
@@ -658,6 +699,10 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
         readonly activeTab?: string;
         readonly onShowTab?: (tabId: string) => void;
       } | undefined;
+      if (Array.isArray(props?.tabs) && props.tabs.some((tab) => tab.id === "achievements")) {
+        args[0] = { ...props, tabs: enhanceMyAchievements(props.tabs) };
+        return;
+      }
       const page = activePage;
       if (!page?.verified || !isCurrentLibraryRootPage(page.appId) || !Array.isArray(props?.tabs)) return;
       const projection = getProjection(page.appId);
@@ -772,6 +817,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     installStorePatches();
     installPagePatch();
     installUpNextPatch();
+    installYourStuffActions();
     installActivityPatch();
     installCommunityPatch();
     scheduleGameInfoSync();
@@ -821,6 +867,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
   installStorePatches();
   installPagePatch();
   installUpNextPatch();
+  installYourStuffActions();
   installActivityPatch();
   installCommunityPatch();
   scheduleGameInfoSync();

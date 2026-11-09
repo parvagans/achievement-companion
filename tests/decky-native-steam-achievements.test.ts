@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import test from "node:test";
 
-test("runtime adapter preserves Steam achievement data, fixes native summary spacing, and unpatches on teardown", () => {
+test("runtime adapter preserves Steam data, gives dialogs Back priority, and unpatches on teardown", () => {
   const script = String.raw`
     import assert from "node:assert/strict";
     import { mock } from "node:test";
@@ -231,8 +231,69 @@ test("runtime adapter preserves Steam achievement data, fixes native summary spa
       },
     });
 
-    const { ensureDeckyNativeSteamAchievementsRegistered } = await import("./src/platform/decky/decky-native-steam-achievements.ts");
+    const { ensureDeckyNativeSteamAchievementsRegistered, registerDeckyNativeGamePageBackBoundary } = await import("./src/platform/decky/decky-native-steam-achievements.ts");
     const { publishDeckyRaNativeAchievementInvalidation } = await import("./src/platform/decky/decky-ra-native-achievement-invalidation.ts");
+
+    const dialog = {};
+    function tabElement(dialogOwner) {
+      return {
+        closest(selector) {
+          if (selector === '[role="tab"]') return this;
+          return selector === '[role="dialog"]' ? dialogOwner : null;
+        },
+      };
+    }
+    const pageTab = tabElement(null);
+    const providerTab = tabElement(dialog);
+    let focused = providerTab;
+    let activeDialogSelector;
+    let cancelListener;
+    let navigatedBack = 0;
+    const ownerWindow = {
+      document: {
+        querySelector(selector) {
+          if (selector === ".gpfocus") return focused;
+          return activeDialogSelector && selector.includes(activeDialogSelector) ? dialog : null;
+        },
+      },
+      addEventListener(name, listener, capture) {
+        assert.equal(name, "vgp_oncancel");
+        assert.equal(capture, true);
+        assert.equal(cancelListener, undefined);
+        cancelListener = listener;
+      },
+      removeEventListener(name, listener, capture) {
+        assert.equal(name, "vgp_oncancel");
+        assert.equal(capture, true);
+        assert.equal(listener, cancelListener);
+        cancelListener = undefined;
+      },
+    };
+    ownerWindow.document.defaultView = ownerWindow;
+    const removeBackBoundary = registerDeckyNativeGamePageBackBoundary({ ownerDocument: ownerWindow.document }, () => navigatedBack++);
+    const pressBack = (defaultPrevented = false) => {
+      const consumed = [];
+      cancelListener({
+        defaultPrevented,
+        preventDefault: () => consumed.push("prevent"),
+        stopPropagation: () => consumed.push("stop"),
+        stopImmediatePropagation: () => consumed.push("stop immediately"),
+      });
+      return consumed;
+    };
+    assert.deepEqual(pressBack(), [], "a dialog provider tab retains native Cancel");
+    focused = pageTab;
+    for (activeDialogSelector of ["[data-ac-native-pinned-modal]", "[data-ac-native-pinned-details]"]) {
+      assert.deepEqual(pressBack(), [], "a retained game-page focus cannot steal Cancel from the native dialog");
+    }
+    activeDialogSelector = undefined;
+    assert.deepEqual(pressBack(true), [], "a canceled event cannot navigate a second time");
+    assert.equal(navigatedBack, 0);
+    assert.deepEqual(pressBack(), ["prevent", "stop", "stop immediately"]);
+    assert.equal(navigatedBack, 1, "a genuine game-page tab still navigates back");
+    removeBackBoundary();
+    assert.equal(cancelListener, undefined);
+
     const cleanup = ensureDeckyNativeSteamAchievementsRegistered();
     assert.equal(routeRecords.length, 1);
     assert.equal(routeRecords[0].route, "/library/app/:appid");

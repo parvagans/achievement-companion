@@ -1,7 +1,7 @@
 import { createUpNextPinAction } from "./decky-up-next-pin-action";
 import { DeckyUpNextPinIcon } from "./decky-up-next-pin-icon";
 import { useDeckyUpNextSnapshot } from "./decky-up-next-snapshot";
-import { Focusable, Navigation, type GamepadEvent } from "@decky/ui";
+import { DialogButton, Focusable, Navigation, type GamepadEvent } from "@decky/ui";
 import { useLayoutEffect, useMemo, useRef, useState, type JSX } from "react";
 import type { NativeRetroAchievementsProjection } from "./decky-native-retroachievements-projection";
 import { buildDeckyNativeSteamAchievementsRoute } from "./decky-game-page-achievement-route";
@@ -12,6 +12,7 @@ import { DeckyOverviewMenuButton } from "./decky-full-screen-game-overview-conte
 import { focusNativeAchievementAfterNavigation } from "./decky-native-achievement-jump";
 import { DeckyNativeAchievementTypeLabel, getAchievementTypeBadgeDescriptor } from "./decky-achievement-type-badge";
 import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
+import { openDeckyNativePinnedAchievementsModal } from "./decky-pinned-achievements-modal";
 
 export const NATIVE_UP_NEXT_TAB_ID = "AchievementCompanionUpNext";
 
@@ -63,6 +64,7 @@ export function DeckyNativeUpNext({ projection }: { readonly projection: NativeR
   const rootRef = useRef<HTMLDivElement>(null);
   const suggestionRefs = useRef(new Map<string, HTMLDivElement>());
   const suggestionsMenuRef = useRef<HTMLDivElement | null>(null);
+  const pinsButtonRef = useRef<HTMLDivElement>(null);
   const browseRef = useRef<HTMLDivElement | null>(null);
   const pendingSkipFocusRef = useRef<string | null | undefined>();
   const lastFocusedSuggestionIdRef = useRef<string | null>(null);
@@ -164,6 +166,15 @@ export function DeckyNativeUpNext({ projection }: { readonly projection: NativeR
     <div className="ac-native-up-next__toolbar"><h2>Up Next</h2><Focusable className="ac-native-up-next__toolbar-actions" flow-children="left-right" noFocusRing tabIndex={-1}>
       <DeckyOverviewMenuButton label="Goal Settings" displayLabel={`Goal: ${preferences.retroAchievementsGoal === "beat" ? "Beat" : "Master"} ▾`} items={goalMenu.items ?? []} deckyDialogButton />
       <DeckyOverviewMenuButton label="Suggestions" displayLabel="Suggestions ▾" items={suggestionMenuItems} deckyDialogButton elementRef={(element) => { suggestionsMenuRef.current = element; }} />
+      <DialogButton ref={pinsButtonRef} onOKActionDescription="Pinned Achievements"
+        style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, flex: "0 0 auto", width: "auto", height: 40, padding: "0 12px", fontSize: 15, whiteSpace: "nowrap" }}
+        onClick={() => {
+          const trigger = pinsButtonRef.current;
+          openDeckyNativePinnedAchievementsModal({ providerId: "retroachievements", onClose: () => { requestDeckySteamGamepadFocusAfterMount(trigger); } });
+        }}>
+        <span aria-hidden="true" style={{ display: "inline-flex" }}><DeckyUpNextPinIcon /></span>
+        Pinned Achievements
+      </DialogButton>
     </Focusable></div>
     <div className="ac-native-up-next__meta">{projection.title} · {projection.earned} / {projection.total} achievements · {percent}%</div>
     <div className="ac-native-up-next__bar"><div className="ac-native-up-next__bar-fill" style={{ width: `${percent}%` }} /></div>
