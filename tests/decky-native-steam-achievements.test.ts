@@ -79,6 +79,19 @@ test("runtime adapter preserves Steam data, gives dialogs Back priority, and unp
     function communityWrapper() { return { type: CommunityFeed }; }
     communityWrapper.toString = () => "function rt(ot){const ht=a.useId();return jsx(ut,{labelId:ht,...ot})}";
     const tabsPrimitive = { type(props) { return props; } };
+    const queries = new Map();
+    const queryListeners = new Set();
+    const queryClient = {
+      getQueryData: (key) => queries.get(JSON.stringify(key)),
+      setQueryData(key, value) { queries.set(JSON.stringify(key), value); return value; },
+      async cancelQueries() {},
+      async resetQueries({ queryKey }) { queries.delete(JSON.stringify(queryKey)); },
+      getQueryCache() { return { subscribe(listener) {
+        queryListeners.add(listener);
+        return () => queryListeners.delete(listener);
+      } }; },
+    };
+    const steamViewer = "76561198000000000";
     const personalStore = {
       m_mapMyAchievements: new Map(),
       m_mapGlobalAchievements: new Map(),
@@ -111,7 +124,7 @@ test("runtime adapter preserves Steam data, gives dialogs Back priority, and unp
     NativeCommunityBody.toString = () => "function I(){BodyGutter;spacing;children}";
     const NativeCommunitySection = { $$typeof: Symbol.for("react.memo"), type() { return null; } };
     const nativeCommunityModule = { body: NativeCommunityBody, section: NativeCommunitySection };
-    const exportsToFind = [LibraryPage, activityWrapper, personalStore, observable];
+    const exportsToFind = [LibraryPage, activityWrapper, personalStore, observable, queryClient];
     const findModuleExport = (predicate) => exportsToFind.find(predicate);
     const findModuleByExport = (predicate) => predicate(NativeCommunityBody) ? nativeCommunityModule : undefined;
     const createModuleMapping = (predicate) => {
@@ -134,22 +147,34 @@ test("runtime adapter preserves Steam data, gives dialogs Back priority, and unp
     const highSteam = { appid: highSteamId, app_type: 1, display_name: "High ID Steam Game" };
     const shortcutId = 2_580_000_000;
     const shortcut = { appid: shortcutId, app_type: 1073741824, display_name: "Shortcut" };
-    const overviews = new Map([[620, steam], [highSteamId, highSteam], [shortcutId, shortcut]]);
+    const unmatched = { ...shortcut, appid: shortcutId + 1 };
+    const overviews = new Map([[620, steam], [highSteamId, highSteam], [shortcutId, shortcut], [unmatched.appid, unmatched]]);
     const achievement = {
       achievementId: "123", providerId: "retroachievements", gameId: "456",
       title: "RA achievement", description: "Earned in RA", badgeImageUrl: "ra-image",
       isUnlocked: true, unlockedAt: 1_760_000_000_000, metrics: [],
     };
-    const projectionFor = (appId) => ({
+    const projections = new Map();
+    const projectionFor = (appId) => {
+      if (projections.has(appId)) return projections.get(appId);
+      const projection = {
       status: "ready", appId: String(appId), raGameId: "456", title: "RA Game",
-      mode: "both", achievements: [achievement], earned: 1, total: 1, detailSnapshot: {},
+      mode: "both", achievements: [achievement, {
+        ...achievement, achievementId: "124", title: "Locked RA achievement", isUnlocked: false, unlockedAt: undefined,
+        badgeImageUrl: "https://i.retroachievements.org/Badge/201677.png",
+      }, {
+        ...achievement, achievementId: "125", title: "Another locked RA achievement", isUnlocked: false, unlockedAt: undefined,
+      }], earned: 1, total: 3, detailSnapshot: {},
       communityStats: {
         totalPlayers: 100, masteredPlayers: 25, masteryPercent: 25,
         beatenHardcoreSamples: 40, medianBeatSeconds: 3600, medianMasterySeconds: 7200,
         latestMasters: [{ rank: 25, username: "TempoBlues", userUlid: "01ABC", masteredAt: "2026-10-14T12:00:00.000Z" }],
       },
       achievementsAvailableSince: "2020-01-01",
-    });
+      };
+      projections.set(appId, projection);
+      return projection;
+    };
     const projectionReads = [];
     const projectionLoads = [];
     const queuedProjectionLoads = [];
@@ -160,6 +185,7 @@ test("runtime adapter preserves Steam data, gives dialogs Back priority, and unp
       appStore: { GetAppOverviewByAppID: (appId) => overviews.get(appId) ?? null },
       appDetailsStore: detailsStore,
       appAchievementProgressCache: progressCache,
+      friendStore: { currentUserSteamID: { ConvertTo64BitString: () => steamViewer } },
       SteamClient: {
         GameSessions: {
           RegisterForAppLifetimeNotifications(callback) {
@@ -185,6 +211,7 @@ test("runtime adapter preserves Steam data, gives dialogs Back priority, and unp
         applyHookStubs() {},
         removeHookStubs() {},
         Focusable: () => null,
+        GamepadButton: { OPTIONS: 4 },
         Navigation: { Navigate() {} },
         afterPatch: (target, name, handler) => patch(target, name, handler, "after"),
         beforePatch: (target, name, handler) => patch(target, name, handler, "before"),
@@ -370,6 +397,31 @@ test("runtime adapter preserves Steam data, gives dialogs Back priority, and unp
     assert.equal(new CommunityFeed({ appid: highSteamId }).render(), "original-community-" + highSteamId);
     assert.equal(detailsStore.GetAchievements(shortcutId).vecHighlight[0].strID, "ra:123");
     assert.deepEqual(Object.keys(personalStore.GetMyAchievements(shortcutId).data.achieved), ["ra:123"]);
+    const schemaKey = ["achievements", shortcutId, "schema"];
+    const progressKey = ["achievements", shortcutId, "user_achievements", steamViewer];
+    const readNativeRows = () => {
+      const schema = queryClient.getQueryData(schemaKey);
+      const progress = queryClient.getQueryData(progressKey);
+      return (schema?.groups ?? []).flatMap(group => group.achievements.map(row => [
+        row.api_name, progress?.achievements[row.internal_key]?.unlocked,
+      ]));
+    };
+    assert.deepEqual(readNativeRows(), [["ra:123", true], ["ra:124", false], ["ra:125", false]],
+      "current Your Stuff reads the query schema and progress instead of the legacy details API");
+    assert.equal(detailsStore.GetAchievements(shortcutId).nTotal, 3);
+    const lockedArt = queryClient.getQueryData(schemaKey).groups[0].achievements.find(row => row.api_name === "ra:124");
+    assert.equal(lockedArt.icon_achieved, "https://i.retroachievements.org/Badge/201677.png");
+    assert.equal(lockedArt.icon_unachieved, "https://i.retroachievements.org/Badge/201677_lock.png");
+    assert.equal(Object.keys(personalStore.GetGlobalAchievements(shortcutId).data).length, 3);
+    assert.equal(queryClient.getQueryData(["achievements", 620, "schema"]), undefined);
+    assert.equal(queryListeners.size, 1);
+    queries.set(JSON.stringify(schemaKey), { groups: [] });
+    for (const listener of queryListeners) listener({ type: "updated", query: { queryKey: schemaKey }, action: { type: "success" } });
+    assert.equal(readNativeRows().length, 3, "a finished empty Steam request cannot overwrite a verified RA schema");
+    window.location.pathname = "/library/app/" + shortcutId + "/achievements/my/individual";
+    assert.equal(readNativeRows().length, 3, "the native full list uses the same schema after navigating");
+    assert.equal(queryClient.getQueryData(["achievements", shortcutId, "user_achievements", "76561198000000001"]), undefined);
+    window.location.pathname = "/library/app/" + shortcutId;
     assert.equal(progressCache.BGameHasAchievements(shortcutId), true);
     assert.equal(observableBoxes.length, 1);
     assert.equal(observableBoxes[0].reads > 0, true);
@@ -378,6 +430,7 @@ test("runtime adapter preserves Steam data, gives dialogs Back priority, and unp
     assert.equal(observableBoxes[0].writes, revisionWritesBeforeRefresh);
     assert.equal(new ActivityFeed({ appid: shortcutId }).render().type.name, "DeckyNativeRetroAchievementsActivity");
     publishDeckyRaNativeAchievementInvalidation("account-changed");
+    assert.deepEqual(readNativeRows(), [], "account invalidation clears the native query projection");
     assert.equal(observableBoxes[0].writes > revisionWritesBeforeRefresh, true);
     assert.equal(new ActivityFeed({ appid: shortcutId }).render(), "original-activity-" + shortcutId);
 
@@ -420,6 +473,8 @@ test("runtime adapter preserves Steam data, gives dialogs Back priority, and unp
     assert.equal(patchRecords.every((record) => record.unpatched), true);
     assert.equal(routeProps.renderFunc, originalRouteRender);
     assert.equal(projectionDisposals, 1);
+    assert.deepEqual(readNativeRows(), [], "unload drops projected progress from the native queries");
+    assert.equal(queryListeners.size, 0);
     assert.equal(projectionInvalidations.includes(undefined), true);
     for (const { target, name, original } of originalMethods) assert.equal(target[name], original);
     cleanup();
@@ -435,6 +490,17 @@ test("runtime adapter preserves Steam data, gives dialogs Back priority, and unp
     assert.equal(routeRecords.length, 2);
     assert.equal(patchRecords.length, reloadedPatchCount);
     assert.equal(reloadedPatchCount, initialPatchCount * 2 + 1);
+    window.location.pathname = "/library/app/" + unmatched.appid;
+    const unmatchedPage = new LibraryPage();
+    queuedProjectionLoads.push({ status: "unavailable", appId: String(unmatched.appid), reason: "unmatched" });
+    assert.deepEqual([...unmatchedPage.GetSections(unmatched, { unAppID: unmatched.appid })], ["notes"]);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(queryClient.getQueryData(["achievements", unmatched.appid, "schema"]), undefined);
+    window.location.pathname = "/library/app/" + shortcutId;
+    const reloadedPage = new LibraryPage();
+    reloadedPage.GetSections(shortcut, { unAppID: shortcutId });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(readNativeRows().length, 3, "reload can verify and project the same shortcut again");
     cleanupReloaded();
     assert.equal(routeRecords[1].removed, true);
     assert.equal(lifetimeUnregisters, 2);

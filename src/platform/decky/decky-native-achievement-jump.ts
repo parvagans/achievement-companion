@@ -1,5 +1,6 @@
 import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
 import { getNativeAchievementListIndex } from "./decky-native-achievement-jump-model";
+import { readNativeRowNavigationNode } from "./decky-native-achievement-navigation-node";
 
 interface SteamAchievementIdentity {
   readonly strID: string;
@@ -30,8 +31,9 @@ function rowIdentityAndList(row: HTMLElement): { readonly id: string; readonly l
   let list: SteamAchievementListProps | undefined;
   for (let depth = 0; fiber !== undefined && fiber !== null && depth < 16; depth += 1, fiber = fiber.return ?? undefined) {
     const props = fiber.memoizedProps as Record<string, unknown> | undefined;
-    const achievement = props?.["achievement"] as SteamAchievementIdentity | undefined;
-    if (id === undefined && typeof achievement?.strID === "string") id = achievement.strID;
+    const achievement = props?.["achievement"] as (SteamAchievementIdentity & { readonly api_name?: string }) | undefined;
+    const rowId = achievement?.strID ?? achievement?.api_name;
+    if (id === undefined && typeof rowId === "string") id = rowId;
     if (list === undefined && Array.isArray(props?.["rgAchieved"]) && Array.isArray(props?.["rgUnachieved"])) {
       list = props as unknown as SteamAchievementListProps;
     }
@@ -45,9 +47,9 @@ export function nativeAchievementId(element: HTMLElement): string | undefined {
 }
 
 function nativeRows(document: Document): readonly HTMLElement[] {
-  return [...document.querySelectorAll<HTMLElement>(ROW_SELECTOR)].filter((row) =>
-    row.parentElement?.style.position === "relative" && rowIdentityAndList(row) !== undefined,
-  );
+  return [...document.querySelectorAll<HTMLElement>(`${ROW_SELECTOR}, [data-tableindex]`)].filter(row =>
+    (row.hasAttribute("data-tableindex") || row.parentElement?.style.position === "relative")
+      && rowIdentityAndList(row) !== undefined);
 }
 
 export function cancelNativeAchievementJump(): void {
@@ -73,7 +75,10 @@ export function focusNativeAchievementAfterNavigation(document: Document, achiev
     const target = rows.find((row) => rowIdentityAndList(row)?.id === targetId);
     if (target !== undefined) {
       target.scrollIntoView({ block: "center" });
-      requestDeckySteamGamepadFocusAfterMount(target.querySelector<HTMLElement>(".Focusable") ?? target, 6);
+      const currentNode = target.hasAttribute("data-tableindex") ? readNativeRowNavigationNode(target) : undefined;
+      if (currentNode?.BTakeFocus() !== true) {
+        requestDeckySteamGamepadFocusAfterMount(target.querySelector<HTMLElement>(".Focusable") ?? target, 6);
+      }
       pendingJump = undefined;
       return;
     }

@@ -39,9 +39,10 @@ import { readDeckySettings } from "./decky-settings";
 import { DeckyNativeUpNext, NATIVE_UP_NEXT_TAB_ID, withNativeUpNextTab } from "./decky-native-up-next";
 import { cancelNativeAchievementJump } from "./decky-native-achievement-jump";
 import { observeNativeAchievementClassifications } from "./decky-native-achievement-classifications";
-import { createNativeMyAchievementsEnhancer, installNativeYourStuffAchievementActions, type NativeAchievementPinTarget, type NativeAchievementRow } from "./decky-native-achievement-actions";
+import { createNativeMyAchievementsEnhancer, installNativeYourStuffAchievementActions, observeNativeQueryAchievementActions, type NativeAchievementPinTarget, type NativeAchievementRow } from "./decky-native-achievement-actions";
 import { isAchievementCompleteForPin } from "./decky-game-overview-recommendations";
 import { readDeckyProviderConfigs } from "./providers/provider-config-store";
+import { createSteamAchievementQueryProjection, isSteamAchievementQueryClient } from "./decky-native-steam-achievement-queries";
 
 interface SteamAppOverview {
   readonly appid?: number;
@@ -129,7 +130,7 @@ interface NativeSteamRuntimeWindow {
   };
   appDetailsStore?: SteamAppDetailsStore;
   appAchievementProgressCache?: SteamAchievementProgressCache;
-  friendStore?: { readonly currentUserSteamID?: { GetAccountID?(): number } };
+  friendStore?: { readonly currentUserSteamID?: { GetAccountID?(): number; ConvertTo64BitString?(): string } };
   SteamClient?: {
     GameSessions?: {
       RegisterForAppLifetimeNotifications(callback: (event: { unAppID?: number; bRunning?: boolean }) => void): { unregister(): void };
@@ -330,6 +331,8 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
   const attempts = new Map<number, { readonly mode: RetroAchievementsAchievementMode }>();
   const shortcutIdentities = new Map<number, string>();
   const models = new WeakMap<NativeRetroAchievementsProjection, NativeSteamAchievements>();
+  const achievementQueries = createSteamAchievementQueryProjection();
+  let queryClient: ReturnType<typeof findAchievementQueryClient>;
   const managedAppIds = new Set<number>();
   const unavailableAppIds = new Set<number>();
   const revisions = new Map<number, SteamObservableBox>();
@@ -350,6 +353,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
   let gameInfoObservedDocument: Document | undefined;
   let gameInfoObserver: MutationObserver | undefined;
   let stopNativeAchievementClassifications: (() => void) | undefined;
+  let stopNativeQueryAchievementActions: (() => void) | undefined;
   let routeRenderPatch: Patch | undefined;
   let routeRenderOwner: object | undefined;
   let disposed = false;
@@ -407,9 +411,13 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
 
   function installYourStuffActions(): void {
     if (yourStuffActionsPatched) return;
-    const installed = installNativeYourStuffAchievementActions(resolveNativePinTarget);
-    patches.push(...installed);
-    yourStuffActionsPatched = installed.length > 0;
+    try {
+      const installed = installNativeYourStuffAchievementActions(resolveNativePinTarget);
+      patches.push(...installed);
+      yourStuffActionsPatched = installed.length > 0;
+    } catch {
+      // Optional Steam renderer discovery must never stop native data registration.
+    }
   }
 
   function getModel(appId: number): NativeSteamAchievements | undefined {
@@ -425,6 +433,30 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
       models.set(projection, model);
     }
     return model;
+  }
+
+  function findAchievementQueryClient() {
+    const candidate: unknown = findModuleExport(isSteamAchievementQueryClient);
+    return isSteamAchievementQueryClient(candidate) ? candidate : undefined;
+  }
+
+  function publishAchievementQueries(appId: number, projection: NativeRetroAchievementsProjection): void {
+    try {
+      const viewer = runtime.friendStore?.currentUserSteamID?.ConvertTo64BitString?.();
+      if (viewer === undefined || !/^\d{17}$/u.test(viewer)) return;
+      const model = getModel(appId);
+      if (model === undefined || model.nTotal === 0) return;
+      queryClient ??= findAchievementQueryClient();
+      if (queryClient === undefined) return;
+      const accountRevision = getDeckyAccountRevision("retroachievements");
+      void achievementQueries.publish(queryClient, appId, viewer, model, () => !disposed
+        && activePage?.appId === appId
+        && accountRevision === getDeckyAccountRevision("retroachievements")
+        && runtime.friendStore?.currentUserSteamID?.ConvertTo64BitString?.() === viewer
+        && getProjection(appId) === projection);
+    } catch {
+      // Older clients still use the patched achievement stores.
+    }
   }
 
   function rerenderActivePage(appId: number): void {
@@ -452,6 +484,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     if (ownerDocument !== undefined && ownerDocument !== gameInfoObservedDocument && ownerDocument.body !== null) {
       gameInfoObserver?.disconnect();
       stopNativeAchievementClassifications?.();
+      stopNativeQueryAchievementActions?.();
       gameInfoObservedDocument = ownerDocument;
       gameInfoObserver = new MutationObserver(() => {
         if (/\/tab\/GameInfo\/?$/u.test(window.location.pathname) || gameInfoMount !== undefined) scheduleGameInfoSync();
@@ -462,6 +495,13 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
         return currentPage?.verified === true && isCurrentLibraryAchievementListPage(currentPage.appId)
           ? getProjection(currentPage.appId)?.achievements : undefined;
       });
+      stopNativeQueryAchievementActions = observeNativeQueryAchievementActions(ownerDocument, () => {
+        const currentPage = activePage;
+        if (!currentPage?.verified) return undefined;
+        const appId = currentPage.appId;
+        return isCurrentLibraryAchievementListPage(appId)
+          || window.location.pathname.endsWith(`/app/${appId}/tab/YourStuff`) ? appId : undefined;
+      }, resolveNativePinTarget);
     }
     const projection = appId !== undefined && page?.verified === true && /\/tab\/GameInfo\/?$/u.test(window.location.pathname)
       ? getProjection(appId)
@@ -529,7 +569,11 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
       if (disposed || currentMode() !== mode || attempts.get(appId) !== attempt) return;
       if (result.status === "ready" && result.appId === String(appId)) {
         managedAppIds.add(appId);
-        if (page !== undefined && activePage === page) page.verified = true;
+        if (page !== undefined && activePage === page) {
+          page.verified = true;
+          const projection = getProjection(appId);
+          if (projection !== undefined) publishAchievementQueries(appId, projection);
+        }
         notifyRevision(appId);
         rerenderActivePage(appId);
       } else {
@@ -621,7 +665,10 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
       const overview = rawOverview as SteamAppOverview;
       const appId = toAppId(overview?.appid);
       if (appId === undefined || !isNativeSteamShortcutOverview(overview, appId)) {
-        if (activePage?.instance === this) activePage = undefined;
+        if (activePage !== undefined && (activePage.instance === this || (appId !== undefined && isCurrentLibraryRootPage(appId)))) {
+          achievementQueries.clear();
+          activePage = undefined;
+        }
         return originalSections;
       }
       const details = rawDetails as { unAppID?: number } | undefined;
@@ -653,6 +700,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
       const mode = currentMode();
       const newPageVisit = activePage?.appId !== appId || activePage.instance !== this;
       if (activePage?.appId !== appId || activePage.instance !== this || activePage.identity !== identity || activePage.mode !== mode) {
+        achievementQueries.clear();
         attempts.delete(appId);
         unavailableAppIds.delete(appId);
         activePage = { appId, instance: this, identity, mode, verified: false };
@@ -873,6 +921,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
   scheduleGameInfoSync();
   const unsubscribeInvalidation = subscribeDeckyRaNativeAchievementInvalidation((event) => {
     if (event.reason === "provider-refreshed") return;
+    achievementQueries.clear();
     invalidateDeckyNativeRetroAchievementsProjection();
     attempts.clear();
     shortcutIdentities.clear();
@@ -908,7 +957,10 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     invalidateDeckyNativeRetroAchievementsProjection(String(appId), { refreshIncompleteOnly: true });
     attempts.delete(appId);
     unavailableAppIds.delete(appId);
-    if (activePage?.appId === appId) activePage.verified = false;
+    if (activePage?.appId === appId) {
+      achievementQueries.clear();
+      activePage.verified = false;
+    }
     notifyRevision(appId);
     rerenderActivePage(appId);
   });
@@ -917,6 +969,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     if (disposed) return;
     disposed = true;
     if (registeredCleanup === cleanup) registeredCleanup = undefined;
+    achievementQueries.clear();
     unsubscribeInvalidation();
     gameLifetimeHandle?.unregister();
     stopDeckyRaPresence();
@@ -926,6 +979,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     routeRenderOwner = undefined;
     cancelNativeAchievementJump();
     stopNativeAchievementClassifications?.();
+    stopNativeQueryAchievementActions?.();
     invalidateDeckyNativeRetroAchievementsProjection();
     attempts.clear();
     shortcutIdentities.clear();

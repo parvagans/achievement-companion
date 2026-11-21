@@ -24,6 +24,12 @@ export interface NativeSteamAchievements {
   readonly vecUnachieved: readonly NativeSteamAchievement[];
 }
 
+/** Use RA's own locked artwork only for canonical badge URLs. */
+export function nativeRetroAchievementsBadgeImage(url: string, unlocked: boolean): string {
+  return url.replace(/^(https:\/\/(?:i|media)\.retroachievements\.org\/Badge\/\d+)(?:_lock)?\.png$/iu,
+    (_match, badge: string) => `${badge}${unlocked ? "" : "_lock"}.png`);
+}
+
 function metricNumber(achievement: NormalizedAchievement, key: string): number | undefined {
   const value = Number(achievement.metrics.find((metric) => metric.key === key)?.value);
   return Number.isFinite(value) && value >= 0 ? value : undefined;
@@ -56,7 +62,7 @@ export function toNativeSteamAchievement(
     strID: `ra:${achievement.achievementId}`,
     strName: achievement.title,
     strDescription: achievement.description ?? "",
-    strImage: achievement.badgeImageUrl ?? "",
+    strImage: nativeRetroAchievementsBadgeImage(achievement.badgeImageUrl ?? "", achievement.isUnlocked),
     bAchieved: achievement.isUnlocked,
     // The RA game-progress response does not supply a per-achievement hidden flag.
     bHidden: false,

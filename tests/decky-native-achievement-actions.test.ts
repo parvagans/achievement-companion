@@ -32,6 +32,7 @@ function fixture() {
   const section = { type: () => createElement(Rail, { achievements: [locked, earned], appid: 1, onRequestPriority: () => {} }) };
   const harness = loadLocalComponent("src/platform/decky/decky-native-achievement-actions.tsx", {
     "@decky/ui": {
+      GamepadButton: { OPTIONS: 4 },
       createModuleMapping: (matches: (module: unknown) => boolean) => {
         const remainder = Object.assign(() => {}, { toString: () => "function({nRemaining}){return css().RemainderContainer}" });
         const candidate = { section, remainder };
@@ -100,4 +101,61 @@ test("Your Stuff adds Y to the existing locked tile without changing Select or e
   patch.unpatch();
   renderToStaticMarkup(f.section.type());
   assert.equal(f.controls[2]?.onOptionsButton, undefined);
+});
+
+test("current native list adds Y through the focused Steam node and preserves its existing actions", () => {
+  const game = { providerId: "retroachievements", gameId: "42", accountId: "alice", achievementId: "12", mode: "hardcore" };
+  const original = { actionDescriptionMap: { 1: { value: "Select" } } };
+  let saved: { achievementId: string } | undefined;
+  let notifyPinChanged = () => {};
+  let resolve = () => game;
+  const windowEvents = new Map<string, (event: unknown) => void>();
+  const documentEvents = new Map<string, () => void>();
+  let frame: (() => void) | undefined;
+  const row = { closest: () => row, __reactFiber$fixture: undefined as unknown };
+  const node = {
+    m_element: row, m_Properties: original,
+    BTakeFocus: () => true, BHasFocus: () => true,
+    GetActiveActionDescriptions() { return this.m_Properties.actionDescriptionMap; },
+    SetProperties(props: typeof original) { this.m_Properties = props; },
+  };
+  row.__reactFiber$fixture = { return: { memoizedProps: { value: node }, return: { memoizedProps: {
+    appid: 1, achievement: { api_name: "ra:12" }, unlockedForSelf: false, progress: { unlocked: false }, compareTo: {},
+  } } } };
+  const document = {
+    activeElement: row, querySelector: () => null,
+    addEventListener: (name: string, callback: () => void) => documentEvents.set(name, callback),
+    removeEventListener: (name: string) => documentEvents.delete(name),
+    defaultView: {
+      addEventListener: (name: string, callback: (event: unknown) => void) => windowEvents.set(name, callback),
+      removeEventListener: (name: string) => windowEvents.delete(name),
+      requestAnimationFrame(callback: () => void) { frame = callback; return 1; },
+      cancelAnimationFrame() { frame = undefined; },
+    },
+  };
+  const { exports } = loadLocalComponent("src/platform/decky/decky-native-achievement-actions.tsx", {
+    "@decky/ui": { GamepadButton: { OPTIONS: 4 } },
+    "./decky-game-overview-preferences": {
+      readPinnedAchievement: () => saved,
+      pinAchievement(_target: unknown, achievementId: string) { saved = { achievementId }; notifyPinChanged(); },
+      unpinAchievement() { saved = undefined; notifyPinChanged(); },
+      subscribeToPinnedAchievementChanges(callback: () => void) { notifyPinChanged = callback; return () => {}; },
+    },
+  });
+  const cleanup = exports.observeNativeQueryAchievementActions(document, () => 1, () => resolve());
+  const description = () => (node.m_Properties.actionDescriptionMap as Record<number, { value: string }>)[4]?.value;
+  const press = () => windowEvents.get("vgp_onbuttondown")!({ detail: { button: 4 }, preventDefault() {}, stopPropagation() {} });
+  frame!();
+  assert.equal(description(), "Pin");
+  assert.equal(node.m_Properties.actionDescriptionMap[1].value, "Select");
+  press(); frame!();
+  assert.equal(saved?.achievementId, "12"); assert.equal(description(), "Unpin");
+  resolve = () => ({ ...game, accountId: "other" });
+  press(); assert.ok(saved, "an account switch invalidates the previously shown action");
+  resolve = () => game;
+  press(); frame!();
+  assert.equal(saved, undefined); assert.equal(description(), "Pin");
+  cleanup();
+  assert.equal(node.m_Properties, original);
+  assert.equal(windowEvents.size + documentEvents.size, 0);
 });

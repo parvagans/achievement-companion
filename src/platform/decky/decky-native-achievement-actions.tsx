@@ -1,8 +1,9 @@
-import { afterPatch, createModuleMapping, type Patch } from "@decky/ui";
+import { afterPatch, createModuleMapping, GamepadButton, type GamepadEvent, type Patch } from "@decky/ui";
 import { cloneElement, createElement, isValidElement, type ReactElement, type ReactNode } from "react";
 import type { RetroAchievementsAchievementMode } from "@core/settings";
-import { useDeckyGameOverviewPreferences } from "./decky-game-overview-preferences";
+import { pinAchievement, readPinnedAchievement, subscribeToPinnedAchievementChanges, unpinAchievement, useDeckyGameOverviewPreferences } from "./decky-game-overview-preferences";
 import { createUpNextPinToggleAction } from "./decky-up-next-pin-action";
+import { readNativeRowNavigationNode } from "./decky-native-achievement-navigation-node";
 
 export interface NativeAchievementRow {
   readonly strID: string;
@@ -141,10 +142,119 @@ export function installNativeYourStuffAchievementActions(resolveTarget: ResolveP
       if (typeof candidate.type === "function") memoRenderers.add(candidate as { type: SteamRenderer });
     }
   });
-  return Array.from(memoRenderers, (component) => afterPatch(component, "type", ([props], rendered: ReactNode) => {
-    const appId = props?.details?.unAppID;
-    if (typeof appId !== "number") return rendered;
-    return mapNativeChildren(rendered, (node) => Array.isArray(node.props["achievements"])
-      && typeof node.props["onRequestPriority"] === "function" ? wrapCarousel(node) : node);
-  }));
+  const patches: Patch[] = [];
+  for (const component of Array.from(memoRenderers)) {
+    if (Object.getOwnPropertyDescriptor(component, "type")?.writable !== true) continue;
+    patches.push(afterPatch(component, "type", ([props], rendered: ReactNode) => {
+      const appId = props?.details?.unAppID;
+      if (typeof appId !== "number") return rendered;
+      return mapNativeChildren(rendered, (node) => Array.isArray(node.props["achievements"])
+        && typeof node.props["onRequestPriority"] === "function" ? wrapCarousel(node) : node);
+    }));
+  }
+  return patches;
+}
+
+interface NavigationProperties {
+  readonly actionDescriptionMap?: Readonly<Record<number, { readonly value: string }>>;
+}
+
+interface NavigationNode {
+  readonly m_Properties?: NavigationProperties;
+  SetProperties(properties: NavigationProperties): void;
+  GetActiveActionDescriptions(): Readonly<Record<number, unknown>>;
+}
+
+interface SteamAchievementFiber {
+  readonly memoizedProps?: {
+    readonly appid?: unknown;
+    readonly achievement?: { readonly api_name?: unknown };
+    readonly unlocked?: boolean;
+    readonly unlockedForSelf?: boolean;
+    readonly progress?: { readonly unlocked?: boolean };
+  };
+  readonly return?: SteamAchievementFiber | null;
+}
+
+/** Current Steam rows are plain functions, with no memo or Tabs.type to patch. */
+export function observeNativeQueryAchievementActions(document: Document, getAppId: () => number | undefined, resolveTarget: ResolvePinTarget): () => void {
+  const owner = document.defaultView;
+  if (owner === null) return () => undefined;
+  const button = GamepadButton.OPTIONS;
+  let frame: number | undefined;
+  let installed: { node: NavigationNode; target: NativeAchievementPinTarget; previous: NavigationProperties; next: NavigationProperties } | undefined;
+
+  function focusedTarget() {
+    const appId = getAppId();
+    const focus = document.querySelector<HTMLElement>(".gpfocus") ?? document.activeElement?.closest<HTMLElement>("[data-tableindex]");
+    if (appId === undefined || focus == null) return undefined;
+    const focusNode = readNativeRowNavigationNode(focus);
+    if (focusNode?.BHasFocus() !== true) return undefined;
+    const node = focusNode as typeof focusNode & NavigationNode;
+    if (typeof node.SetProperties !== "function" || typeof node.GetActiveActionDescriptions !== "function") return undefined;
+    const fiberKey = Object.keys(focus).find(key => key.startsWith("__reactFiber$"));
+    if (fiberKey === undefined) return undefined;
+    let fiber: SteamAchievementFiber | null | undefined = (focus as unknown as Record<string, SteamAchievementFiber>)[fiberKey];
+    for (let depth = 0; fiber != null && depth < 16; depth++, fiber = fiber.return) {
+      const props = fiber.memoizedProps;
+      const id = props?.achievement?.api_name;
+      const locked = props?.unlocked === false || (props?.unlockedForSelf === false && props.progress?.unlocked === false);
+      if (props?.appid !== appId || typeof id !== "string" || !locked) continue;
+      const target = resolveTarget(appId, { strID: id, bAchieved: false });
+      if (target !== undefined) return { node, target };
+    }
+    return undefined;
+  }
+
+  function clear() {
+    const current = installed;
+    installed = undefined;
+    if (current !== undefined && current.node.m_Properties === current.next) current.node.SetProperties(current.previous);
+  }
+
+  function sync() {
+    frame = undefined;
+    clear();
+    const focused = focusedTarget();
+    const previous = focused?.node.m_Properties;
+    if (focused === undefined || previous === undefined || focused.node.GetActiveActionDescriptions()?.[button] != null) return;
+    const description = readPinnedAchievement(focused.target)?.achievementId === focused.target.achievementId ? "Unpin" : "Pin";
+    const next = { ...previous, actionDescriptionMap: { ...previous.actionDescriptionMap, [button]: { value: description } } };
+    focused.node.SetProperties(next);
+    installed = { node: focused.node, target: focused.target, previous, next };
+  }
+
+  function schedule() {
+    if (owner !== null && frame === undefined) frame = owner.requestAnimationFrame(sync);
+  }
+
+  function onButton(event: Event) {
+    const press = event as GamepadEvent;
+    if (press.defaultPrevented || press.detail?.button !== button || installed === undefined) return;
+    const focused = focusedTarget();
+    if (focused?.node !== installed.node || focused.node.m_Properties !== installed.next) return;
+    const { target } = focused;
+    const previous = installed.target;
+    if (target.providerId !== previous.providerId || target.accountId !== previous.accountId || target.gameId !== previous.gameId
+      || target.achievementId !== previous.achievementId || target.mode !== previous.mode) return;
+    const pinned = readPinnedAchievement(target)?.achievementId === target.achievementId;
+    createUpNextPinToggleAction(target.achievementId, pinned, id => {
+      if (pinned) unpinAchievement(target, id);
+      else pinAchievement(target, id, target.mode);
+    }).onOptionsButton(press);
+  }
+
+  document.addEventListener("focusin", schedule, true);
+  document.addEventListener("vgp_onfocus", schedule, true);
+  owner.addEventListener("vgp_onbuttondown", onButton, true);
+  const unsubscribe = subscribeToPinnedAchievementChanges(schedule);
+  schedule();
+  return () => {
+    document.removeEventListener("focusin", schedule, true);
+    document.removeEventListener("vgp_onfocus", schedule, true);
+    owner.removeEventListener("vgp_onbuttondown", onButton, true);
+    unsubscribe();
+    if (frame !== undefined) owner.cancelAnimationFrame(frame);
+    clear();
+  };
 }
