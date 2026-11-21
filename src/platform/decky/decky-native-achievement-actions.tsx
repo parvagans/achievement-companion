@@ -3,7 +3,7 @@ import { cloneElement, createElement, isValidElement, type ReactElement, type Re
 import type { RetroAchievementsAchievementMode } from "@core/settings";
 import { pinAchievement, readPinnedAchievement, subscribeToPinnedAchievementChanges, unpinAchievement, useDeckyGameOverviewPreferences } from "./decky-game-overview-preferences";
 import { createUpNextPinToggleAction } from "./decky-up-next-pin-action";
-import { readNativeRowNavigationNode } from "./decky-native-achievement-navigation-node";
+import { nativeRaPinSetter, readNativeRowNavigationNode } from "./decky-native-achievement-navigation-node";
 
 export interface NativeAchievementRow {
   readonly strID: string;
@@ -171,6 +171,7 @@ interface SteamAchievementFiber {
     readonly achievement?: { readonly api_name?: unknown };
     readonly unlocked?: boolean;
     readonly unlockedForSelf?: boolean;
+    readonly setPinnedAchievements?: { readonly [nativeRaPinSetter]?: true };
     readonly progress?: { readonly unlocked?: boolean };
   };
   readonly return?: SteamAchievementFiber | null;
@@ -201,7 +202,12 @@ export function observeNativeQueryAchievementActions(document: Document, getAppI
       const locked = props?.unlocked === false || (props?.unlockedForSelf === false && props.progress?.unlocked === false);
       if (props?.appid !== appId || typeof id !== "string" || !locked) continue;
       const target = resolveTarget(appId, { strID: id, bAchieved: false });
-      if (target !== undefined) return { node, target };
+      if (target === undefined) continue;
+      // The current All Achievements panel supplies Steam's X action and pinning toggle.
+      for (let panel = fiber.return, ancestors = 0; panel != null && ancestors < 36; panel = panel.return, ancestors++) {
+        if (panel.memoizedProps?.setPinnedAchievements?.[nativeRaPinSetter] === true) return undefined;
+      }
+      return { node, target };
     }
     return undefined;
   }

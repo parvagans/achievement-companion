@@ -1,3 +1,5 @@
+export const nativeRaPinSetter = Symbol.for("achievement-companion:steam-native-ra-pin-setter");
+
 interface NativeRowNavigationNode {
   readonly m_element?: HTMLElement;
   BTakeFocus(): boolean;

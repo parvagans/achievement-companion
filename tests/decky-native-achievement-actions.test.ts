@@ -3,6 +3,7 @@ import test from "node:test";
 import { cloneElement, createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { loadLocalComponent } from "./helpers/render-decky-component";
+import { nativeRaPinSetter } from "../src/platform/decky/decky-native-achievement-navigation-node";
 
 const locked = { strID: "ra:12", bAchieved: false };
 const earned = { strID: "ra:13", bAchieved: true };
@@ -112,6 +113,10 @@ test("current native list adds Y through the focused Steam node and preserves it
   const windowEvents = new Map<string, (event: unknown) => void>();
   const documentEvents = new Map<string, () => void>();
   let frame: (() => void) | undefined;
+  const pinPanel = { memoizedProps: { setPinnedAchievements: Object.assign(() => {}, { [nativeRaPinSetter]: true }) } };
+  const achievementFiber = { memoizedProps: {
+    appid: 1, achievement: { api_name: "ra:12" }, unlockedForSelf: false, progress: { unlocked: false }, compareTo: {},
+  }, return: undefined as typeof pinPanel | undefined };
   const row = { closest: () => row, __reactFiber$fixture: undefined as unknown };
   const node = {
     m_element: row, m_Properties: original,
@@ -119,9 +124,7 @@ test("current native list adds Y through the focused Steam node and preserves it
     GetActiveActionDescriptions() { return this.m_Properties.actionDescriptionMap; },
     SetProperties(props: typeof original) { this.m_Properties = props; },
   };
-  row.__reactFiber$fixture = { return: { memoizedProps: { value: node }, return: { memoizedProps: {
-    appid: 1, achievement: { api_name: "ra:12" }, unlockedForSelf: false, progress: { unlocked: false }, compareTo: {},
-  } } } };
+  row.__reactFiber$fixture = { return: { memoizedProps: { value: node }, return: achievementFiber } };
   const document = {
     activeElement: row, querySelector: () => null,
     addEventListener: (name: string, callback: () => void) => documentEvents.set(name, callback),
@@ -155,6 +158,14 @@ test("current native list adds Y through the focused Steam node and preserves it
   resolve = () => game;
   press(); frame!();
   assert.equal(saved, undefined); assert.equal(description(), "Pin");
+  achievementFiber.return = pinPanel;
+  documentEvents.get("vgp_onfocus")!(); frame!();
+  assert.equal(description(), undefined, "Steam's integrated panel owns the pin action");
+  press();
+  assert.equal(saved, undefined);
+  achievementFiber.return = undefined;
+  documentEvents.get("vgp_onfocus")!(); frame!();
+  assert.equal(description(), "Pin", "other native rows keep the fallback action");
   cleanup();
   assert.equal(node.m_Properties, original);
   assert.equal(windowEvents.size + documentEvents.size, 0);

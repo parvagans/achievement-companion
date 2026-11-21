@@ -43,6 +43,7 @@ import { createNativeMyAchievementsEnhancer, installNativeYourStuffAchievementAc
 import { isAchievementCompleteForPin } from "./decky-game-overview-recommendations";
 import { readDeckyProviderConfigs } from "./providers/provider-config-store";
 import { createSteamAchievementQueryProjection, isSteamAchievementQueryClient } from "./decky-native-steam-achievement-queries";
+import { installNativeRaAchievementPinning } from "./decky-native-ra-achievement-pinning";
 
 interface SteamAppOverview {
   readonly appid?: number;
@@ -347,6 +348,8 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
   let communityPatched = false;
   let upNextPatched = false;
   let yourStuffActionsPatched = false;
+  let nativeRaPinningPatched = false;
+  const nativeRaPinningListeners = new Set<() => void>();
   let gameInfoMount: { readonly native: HTMLElement; readonly host: HTMLElement; readonly originalDisplay: string; projection: NativeRetroAchievementsProjection } | undefined;
   let gameInfoSyncTimer: ReturnType<typeof setTimeout> | undefined;
   let gameInfoSyncAttempts = 0;
@@ -374,10 +377,12 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
   function notifyRevision(appId: number): void {
     const revision = revisions.get(appId);
     if (revision !== undefined) revision.set(revision.get() + 1);
+    for (const listener of nativeRaPinningListeners) listener();
   }
 
   function notifyAllRevisions(): void {
-    for (const appId of revisions.keys()) notifyRevision(appId);
+    for (const revision of revisions.values()) revision.set(revision.get() + 1);
+    for (const listener of nativeRaPinningListeners) listener();
   }
 
   function getProjection(appId: number): NativeRetroAchievementsProjection | undefined {
@@ -405,6 +410,31 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     const accountId = runtime.friendStore?.currentUserSteamID?.GetAccountID?.();
     if (accountId !== Number(BigInt(account.steamId64) & 0xffffffffn)) return undefined;
     return { providerId: "steam", accountId: account.steamId64, gameId: String(appId), achievementId: row.strID, mode: "both" };
+  }
+
+  function installNativeRaPinning(): void {
+    if (nativeRaPinningPatched) return;
+    try {
+      const patch = installNativeRaAchievementPinning({
+        isShortcut: (appId) => !disposed && isShortcutAppId(runtime, appId),
+        readAccountRevision: () => getDeckyAccountRevision("retroachievements"),
+        readProjection: (appId, viewer) => activePage?.appId === appId && activePage.verified
+          && isCurrentLibraryAchievementListPage(appId)
+          && runtime.friendStore?.currentUserSteamID?.ConvertTo64BitString?.() === viewer
+          ? getProjection(appId) : undefined,
+        resolveTarget: resolveNativePinTarget,
+        subscribe: (listener) => {
+          nativeRaPinningListeners.add(listener);
+          return () => nativeRaPinningListeners.delete(listener);
+        },
+      });
+      if (patch !== undefined) {
+        patches.push(patch);
+        nativeRaPinningPatched = true;
+      }
+    } catch {
+      // Leave Steam's original panel intact if the optional route integration is unavailable.
+    }
   }
 
   const enhanceMyAchievements = createNativeMyAchievementsEnhancer(resolveNativePinTarget);
@@ -866,6 +896,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     installPagePatch();
     installUpNextPatch();
     installYourStuffActions();
+    installNativeRaPinning();
     installActivityPatch();
     installCommunityPatch();
     scheduleGameInfoSync();
@@ -916,6 +947,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
   installPagePatch();
   installUpNextPatch();
   installYourStuffActions();
+  installNativeRaPinning();
   installActivityPatch();
   installCommunityPatch();
   scheduleGameInfoSync();
@@ -991,6 +1023,7 @@ export function ensureDeckyNativeSteamAchievementsRegistered(): () => void {
     for (const patch of patches.reverse()) patch.unpatch();
     notifyAllRevisions();
     revisions.clear();
+    nativeRaPinningListeners.clear();
     const lastPage = activePage;
     activePage = undefined;
     lastPage?.instance.forceUpdate?.();
