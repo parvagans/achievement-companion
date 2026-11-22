@@ -56,7 +56,7 @@ test("Steam and RA QAM Recent Activity share the achievement-row treatment", () 
   assert.match(compactRecentAchievementRowSource, /achievementCompanionAchievementRowRecipes\.rarity\.fill\(communityPercent\)/u);
   assert.doesNotMatch(compactRecentAchievementRowSource, /DeckySteamAchievementStatusIcon/u);
   assert.match(compactRecentAchievementRowSource, /DeckySteamHuntersIcon/u);
-  assert.match(compactRecentAchievementRowSource, /DeckyRetroAchievementsPointsIcon/u);
+  assert.doesNotMatch(compactRecentAchievementRowSource, /DeckyRetroAchievementsPointsIcon/u);
 });
 
 test("Steam compact profile matches the refined controller-first information hierarchy", () => {

@@ -78,6 +78,7 @@ function getSteamHuntersSelectionData(snapshot: GameDetailSnapshot) {
 
 export function buildDeckyCompactUpNextModel(args: {
   readonly pinnedAchievement?: PinnedAchievement | undefined;
+  readonly steamPinIds?: readonly string[] | undefined;
   readonly snapshot: GameDetailSnapshot;
   readonly hiddenAchievementIds: readonly string[];
   readonly goal: RetroAchievementsGameGoal;
@@ -94,6 +95,7 @@ export function buildDeckyCompactUpNextModel(args: {
   const selection = {
     snapshot,
     pinnedAchievement: args.pinnedAchievement,
+    steamPinIds: args.steamPinIds,
     goal: args.goal,
     achievementMode: args.achievementMode,
     limit: Math.max(1, Math.trunc(args.limit ?? 1)),

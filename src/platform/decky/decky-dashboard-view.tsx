@@ -60,7 +60,6 @@ import {
 } from "./decky-retroachievements-completion-indicator";
 import { getRetroAchievementsRecentActivityLabel } from "./decky-retroachievements-recent-activity";
 import { findRetroAchievementsActiveGame, getRetroAchievementsActiveGameId } from "./decky-retroachievements-current-game";
-import { DeckyRetroAchievementsPointsIcon } from "./decky-retroachievements-points-icon";
 import { achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
 
 type OverviewCompletionBreakdown = OverviewStatSection["stats"][number]["completionBreakdown"];
@@ -1242,7 +1241,7 @@ function RecentAchievementRow({
           <div style={getDashboardAchievementStatusStyle(tone)}>{statusLabel}</div>
           {hasDetailLine ? (
             <div style={getDashboardCompactMetaLineStyle()}>
-              {pointsLine !== undefined ? <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>{recentUnlock.achievement.providerId === RETROACHIEVEMENTS_PROVIDER_ID ? <DeckyRetroAchievementsPointsIcon size={12} /> : null}{pointsLine}</span> : null}
+              {pointsLine !== undefined ? <span>{pointsLine}</span> : null}
               {pointsLine !== undefined && timestampLine !== undefined ? " / " : null}
               {timestampLine}
             </div>

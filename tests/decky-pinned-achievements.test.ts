@@ -1,7 +1,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { DeckyNativeUpNextPreviewCard, NATIVE_UP_NEXT_PREVIEW_LAYOUT } from "../src/platform/decky/decky-native-up-next-preview-card";
-import { isNativeGamePageSurfaceVisible, subscribeNativeGamePageVisibility } from "../src/platform/decky/decky-native-game-page-visibility";
+import { isNativeGamePageShowingLaunchDetails, isNativeGamePageSurfaceVisible, subscribeNativeGamePageVisibility } from "../src/platform/decky/decky-native-game-page-visibility";
 import { createUpNextPinAction } from "../src/platform/decky/decky-up-next-pin-action";
 import { DeckyUpNextPinIcon } from "../src/platform/decky/decky-up-next-pin-icon";
 import { getAchievementCompanionThemeVariables } from "../src/platform/decky/decky-theme-palette";
@@ -45,6 +45,17 @@ function snapshot(achievements = [row("automatic"), row("manual")], providerId =
 }
 const pin = { achievementId: "manual", completionMode: "both" as const };
 const success = (data: GameDetailSnapshot): ResourceState<GameDetailSnapshot> => ({ status: "success", data, isStale: false, isRefreshing: false });
+
+test("the native launch screen suppresses only the matching game page until Steam restores it", () => {
+  const overview = (appid: number, bShowingLaunchDetails: boolean) => ({
+    props: { children: { props: { overview: { appid }, bShowingLaunchDetails } } },
+  });
+  const ordinaryOverlay = { props: { children: { props: { children: "Native menu" } } } };
+  assert.equal(isNativeGamePageShowingLaunchDetails([ordinaryOverlay, overview(1, false)], "1"), false);
+  assert.equal(isNativeGamePageShowingLaunchDetails([ordinaryOverlay, overview(1, true)], "1"), true);
+  assert.equal(isNativeGamePageShowingLaunchDetails([ordinaryOverlay, overview(2, true)], "1"), false);
+  assert.equal(isNativeGamePageShowingLaunchDetails([null, false, ordinaryOverlay, overview(1, false)], "1"), false);
+});
 
 test("page ownership survives native overlays but rejects game changes, leaving the route and unmount", () => {
   const document = { visibilityState: "visible", location: { href: "https://steamloopback.host/routes/library/app/1" } };
@@ -349,7 +360,7 @@ test("shared native menu offers pin/unpin without changing existing detail, list
   const calls: string[] = [];
   for (const pinned of [false, true]) {
     const menu = buildDeckyManageSuggestionsMenuItems({ suggestions: [{ achievement: row("manual"), pinned }], hiddenSuggestions: [], onTogglePin: (id) => calls.push(id), onOpenAchievement: () => {}, onJumpToAchievement: () => {}, onDismissSuggestion: () => {}, onRestoreSuggestion: () => {}, onRestoreAllSuggestions: () => {}, onFocusedSuggestionChange: () => {} });
-    assert.deepEqual(menu[0]?.items?.map((item) => item.label), [pinned ? "Remove from Up Next" : "Set as Up Next", "View Details", "Show in Achievements", "Hide Suggestion"]);
+    assert.deepEqual(menu[0]?.items?.map((item) => item.label), [pinned ? "Unpin in Steam" : "Pin in Steam", "View Details", "Show in Achievements", "Hide Suggestion"]);
     menu[0]?.items?.[0]?.onSelect?.({ restoreCurrent: () => {}, restoreParent: () => {} });
   }
   assert.deepEqual(calls, ["manual", "manual"]);

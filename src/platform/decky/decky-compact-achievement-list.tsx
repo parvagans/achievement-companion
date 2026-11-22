@@ -44,7 +44,6 @@ import {
   subscribeToDeckyCompactFocusRestore,
 } from "./decky-compact-focus-restore";
 import { DeckySteamAchievementStatusIcon } from "./decky-steam-achievement-status-icon";
-import { DeckyRetroAchievementsPointsIcon } from "./decky-retroachievements-points-icon";
 import { DeckySteamHuntersIcon } from "./decky-steam-icons";
 import {
   achievementCompanionAchievementRowRecipes,
@@ -448,7 +447,7 @@ function CompactAchievementRow({
             <div style={getSecondaryStyle(model.tone, isSteam)}>{model.statusText}</div>
             {model.metadata.map((item) => (
               <div key={item.key} style={getSecondaryStyle(model.tone, isSteam)}>
-                {!isSteam && item.key === "points" ? <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><DeckyRetroAchievementsPointsIcon size={12} />{item.value}</span> : item.value}
+                {item.value}
               </div>
             ))}
           </>
@@ -491,7 +490,7 @@ function CompactAchievementRow({
             ) : (
               <span key={item.key} style={getRailMetadataStyle(isSteam)}>
                 {item.key === "points" ? <span style={achievementCompanionAchievementRowRecipes.points("compact")}>
-                  {isSteam ? <DeckySteamHuntersIcon color={steamTheme.color.accent} size={12} /> : <DeckyRetroAchievementsPointsIcon size={12} />}
+                  {isSteam ? <DeckySteamHuntersIcon color={steamTheme.color.accent} size={12} /> : null}
                   {item.value}
                 </span> : item.value}
               </span>

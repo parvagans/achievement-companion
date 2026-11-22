@@ -19,6 +19,7 @@ import {
   readDeckyCompactFocusRestoreRequest,
   subscribeToDeckyCompactFocusRestore,
 } from "./decky-compact-focus-restore";
+import { buildSteamPinMenu } from "./decky-steam-pin-menu";
 import { useDeckyGameOverviewPreferences } from "./decky-game-overview-preferences";
 import { DeckyOverviewMenuButton, type DeckyGameOverviewActions } from "./decky-full-screen-game-overview-content";
 import {
@@ -158,10 +159,11 @@ export function DeckyCompactGameOverviewUpNext({
     snapshot: upNextSnapshot,
     hiddenAchievementIds: preferences.hiddenAchievementIds,
     pinnedAchievement: preferences.pinnedAchievement,
+    steamPinIds: preferences.steamPinIds,
     goal: preferences.retroAchievementsGoal,
     achievementMode,
     limit: 3,
-  }), [achievementMode, preferences.hiddenAchievementIds, preferences.pinnedAchievement, preferences.retroAchievementsGoal, upNextSnapshot]);
+  }), [achievementMode, preferences.hiddenAchievementIds, preferences.pinnedAchievement, preferences.steamPinIds, preferences.retroAchievementsGoal, upNextSnapshot]);
   const suggestions = model.suggestions;
   const recommendationRefs = useRef(new Map<string, HTMLDivElement>());
   const expandRef = useRef<HTMLDivElement | null>(null);
@@ -228,6 +230,7 @@ export function DeckyCompactGameOverviewUpNext({
     ?? suggestions[0];
   const actions: DeckyGameOverviewActions = {
     suggestions,
+    steamPinChoices: buildSteamPinMenu(upNextSnapshot, preferences),
     hiddenSuggestions: model.hiddenAchievements,
     goalComplete: model.outcome.kind === "completed",
     onOpenAchievement: (achievementId, onClose) => {
@@ -239,7 +242,7 @@ export function DeckyCompactGameOverviewUpNext({
       if (element !== undefined && element !== null) openAchievements(achievementId, element);
     },
     achievementMode: achievementMode,
-    onTogglePin: (id) => preferences.togglePinnedAchievement(id, achievementMode),
+    ...(preferences.canPin ? { onTogglePin: (id: string) => { preferences.togglePinnedAchievement(id, achievementMode); } } : {}),
     onDismissSuggestion: preferences.hideSuggestion,
     onRestoreSuggestion: preferences.restoreSuggestion,
     onRestoreAllSuggestions: preferences.restoreAllSuggestions,

@@ -9,7 +9,7 @@ import { useDeckyGameOverviewPreferences } from "./decky-game-overview-preferenc
 import { isGameOverviewGoalComplete, selectGameOverviewSuggestions } from "./decky-game-overview-recommendations";
 import { buildDeckyManageSuggestionsMenuItems, buildRetroAchievementsGoalSettingsMenuItem, type DeckyGameOverviewActions, type DeckyOverviewMenuItem } from "./decky-overview-menu-model";
 import { DeckyOverviewMenuButton } from "./decky-full-screen-game-overview-content";
-import { focusNativeAchievementAfterNavigation } from "./decky-native-achievement-jump";
+import { focusNativeAchievementAfterNavigation, readNativeAchievementJumpReturn, restoreNativeAchievementJumpReturn } from "./decky-native-achievement-jump";
 import { DeckyNativeAchievementTypeLabel, getAchievementTypeBadgeDescriptor } from "./decky-achievement-type-badge";
 import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
 import { openDeckyNativePinnedAchievementsModal } from "./decky-pinned-achievements-modal";
@@ -115,11 +115,18 @@ export function DeckyNativeUpNext({ projection }: { readonly projection: NativeR
     if (target?.matches(".gpfocus")) return;
     return requestDeckySteamGamepadFocusAfterMount(target);
   }, [suggestions]);
+  useLayoutEffect(() => {
+    const appId = Number(projection.appId);
+    const id = readNativeAchievementJumpReturn(appId, "up-next");
+    if (id === undefined) return;
+    const target = suggestionRefs.current.get(id) ?? suggestionsMenuRef.current;
+    return restoreNativeAchievementJumpReturn(target, appId, "up-next", id);
+  }, [projection.appId, suggestions]);
   const percent = projection.total > 0 ? Math.round(projection.earned / projection.total * 100) : 0;
   const browse = (): void => Navigation.Navigate(buildDeckyNativeSteamAchievementsRoute(Number(projection.appId)));
   const browseAchievement = (achievementId: string): void => {
     const document = rootRef.current?.ownerDocument;
-    if (document !== undefined) focusNativeAchievementAfterNavigation(document, achievementId);
+    if (document !== undefined) focusNativeAchievementAfterNavigation(document, Number(projection.appId), achievementId, "up-next", achievementId);
     browse();
   };
   const skipSuggestion = (achievementId: string, restoreCardFocus: boolean): void => {

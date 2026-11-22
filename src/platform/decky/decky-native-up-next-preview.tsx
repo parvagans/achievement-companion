@@ -12,7 +12,7 @@ import { loadDeckyCompactGameState, loadDeckyCompactRecommendationGameState, rea
 import { readDeckySteamGameDetailState } from "./decky-steam-game-detail-cache";
 import { subscribeDeckyGameDetailPublication } from "./decky-game-detail-publication";
 import { getDeckyRetroAchievementsDataCoordinator, getDeckyRetroAchievementsGameResourceRevision, isDeckyRetroAchievementsGameResourceFresh } from "./providers/retroachievements/backend-transport";
-import { createNativeUpNextPreviewSession, measureNativeUpNextPreviewPlacement, nativeUpNextPresentation, placeNativeUpNextPreview, shouldShowNativeUpNextPreview, type NativeUpNextIdentity, type PreviewRect } from "./decky-native-up-next-preview-model";
+import { createNativeUpNextPreviewSession, measureNativeUpNextPreviewPlacement, nativeUpNextPresentation, placeNativeUpNextPreview, shouldShowNativeUpNextPreview, toNativeUpNextBadgeOffset, type NativeUpNextBadgeOffset, type NativeUpNextIdentity } from "./decky-native-up-next-preview-model";
 import { appDetailsClasses } from "@decky/ui";
 
 export function DeckyNativeUpNextPreview({ identity, appId, badge, focused, hovered }: {
@@ -73,10 +73,11 @@ export function DeckyNativeUpNextPreview({ identity, appId, badge, focused, hove
   }, [key, settings.gamePageUpNextPreview === "hidden"]);
   const snapshot = loaded?.key === key ? loaded.snapshot : undefined;
   const target = useMemo(() => snapshot === undefined ? undefined : buildDeckyCompactUpNextModel({ snapshot, pinnedAchievement: preferences.pinnedAchievement,
+    steamPinIds: preferences.steamPinIds,
     hiddenAchievementIds: preferences.hiddenAchievementIds, goal: preferences.retroAchievementsGoal, achievementMode: settings.retroAchievementsAchievementMode }).suggestions[0],
-  [snapshot, preferences.pinnedAchievement, preferences.hiddenAchievementIds, preferences.retroAchievementsGoal, settings.retroAchievementsAchievementMode]);
+  [snapshot, preferences.pinnedAchievement, preferences.steamPinIds, preferences.hiddenAchievementIds, preferences.retroAchievementsGoal, settings.retroAchievementsAchievementMode]);
   const cardRef = useRef<HTMLDivElement | null>(null);
-  const [placement, setPlacement] = useState<PreviewRect>();
+  const [placement, setPlacement] = useState<NativeUpNextBadgeOffset>();
   useLayoutEffect(() => {
     if (!active || target === undefined) return;
     const document = badge.ownerDocument;
@@ -90,8 +91,13 @@ export function DeckyNativeUpNextPreview({ identity, appId, badge, focused, hove
       const shell = badge.querySelector<HTMLElement>("[data-ac-game-page-badge-variant]");
       const badgeRect = badge.getBoundingClientRect();
       const anchor = shell?.getBoundingClientRect() ?? badgeRect;
-      const pageScale = badgeRect.width / Math.max(1, badge.offsetWidth);
-      card.style.width = `${anchor.width / pageScale}px`;
+      const scaleX = badgeRect.width / Math.max(1, badge.offsetWidth);
+      const scaleY = badgeRect.height / Math.max(1, badge.offsetHeight);
+      if (scaleX <= 0 || scaleY <= 0) {
+        setPlacement(undefined);
+        return;
+      }
+      card.style.width = `${anchor.width / scaleX}px`;
       // Measure the shell's width, not its silhouette: Classic's capsule radius
       // is unsuitable for multiline content. The card owns its Minimal radius.
       const obstacles = Array.from(header.querySelectorAll<HTMLElement>('button,a[href],[tabindex]:not([tabindex="-1"]),[role="button"]'));
@@ -104,7 +110,8 @@ export function DeckyNativeUpNextPreview({ identity, appId, badge, focused, hove
       // Never crop text to force a fit. Prefer a usable compact indication when
       // the full description has no safe slot; A still opens the details page.
       const next = measureNativeUpNextPreviewPlacement(card, (size) => placeNativeUpNextPreview(anchor, header.getBoundingClientRect(), { width: window.innerWidth, height: window.innerHeight }, size, rects));
-      setPlacement((previous) => previous?.left === next?.left && previous?.top === next?.top && previous?.right === next?.right && previous?.bottom === next?.bottom ? previous : next);
+      const offset = next === undefined ? undefined : toNativeUpNextBadgeOffset(next, badgeRect, scaleX, scaleY);
+      setPlacement(previous => previous?.left === offset?.left && previous?.top === offset?.top ? previous : offset);
     };
     measure();
     const resize = new ResizeObserver(measure);
@@ -117,10 +124,7 @@ export function DeckyNativeUpNextPreview({ identity, appId, badge, focused, hove
     return () => { resize.disconnect(); mutation.disconnect(); window.removeEventListener("resize", measure); badge.removeEventListener("transitionend", measure); document.removeEventListener("scroll", measure, true); };
   }, [active, presentation, target?.achievement, badge, settings.gamePageAchievementBadgePosition, settings.gamePageAchievementBadgeSize, settings.gamePageAchievementBadgeStyle]);
   if (!active || target === undefined) return null;
-  const origin = badge.getBoundingClientRect();
-  const scaleX = origin.width / Math.max(1, badge.offsetWidth);
-  const scaleY = origin.height / Math.max(1, badge.offsetHeight);
   return <DeckyNativeUpNextPreviewCard target={target} presentation={presentation} elementRef={(element) => { cardRef.current = element; }}
-    style={{ position: "absolute", left: ((placement?.left ?? origin.left) - origin.left) / scaleX, top: ((placement?.top ?? origin.top) - origin.top) / scaleY,
+    style={{ position: "absolute", left: placement?.left ?? 0, top: placement?.top ?? 0,
       visibility: placement === undefined ? "hidden" : "visible" }} />;
 }

@@ -14,6 +14,7 @@ import { getSteamHuntersGameEnrichment } from "../../providers/steamhunters";
 import { loadDeckyGameDetailState, loadDeckySteamHuntersEnrichedGameDetail } from "./decky-app-services";
 import type { CompactAchievementTarget } from "./decky-compact-achievement-model";
 import { DeckyGameArtwork } from "./decky-game-artwork";
+import { buildSteamPinMenu } from "./decky-steam-pin-menu";
 import { useDeckyGameOverviewPreferences } from "./decky-game-overview-preferences";
 import { DeckyOverviewMenuButton } from "./decky-full-screen-game-overview-content";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
@@ -196,9 +197,10 @@ export function DeckyCompactUpNextCard({
     snapshot: upNextSnapshot,
     hiddenAchievementIds: preferences.hiddenAchievementIds,
     pinnedAchievement: preferences.pinnedAchievement,
+    steamPinIds: preferences.steamPinIds,
     goal: preferences.retroAchievementsGoal,
     achievementMode,
-  }), [achievementMode, upNextSnapshot, preferences.hiddenAchievementIds, preferences.pinnedAchievement, preferences.retroAchievementsGoal]);
+  }), [achievementMode, upNextSnapshot, preferences.hiddenAchievementIds, preferences.pinnedAchievement, preferences.steamPinIds, preferences.retroAchievementsGoal]);
   const hasNextCandidate = candidateIndex + 1 < candidates.length;
   const shouldAdvance = shouldAdvanceDeckyCompactUpNextCandidate({
     providerId,
@@ -295,7 +297,8 @@ export function DeckyCompactUpNextCard({
     if (suggestion !== undefined) preferences.hideSuggestion(suggestion.achievement.achievementId);
   };
   const menuItems: readonly DeckyOverviewMenuItem[] = [
-    ...(suggestion === undefined || !preferences.canPin || !suggestion.pinned && isAchievementCompleteForPin(suggestion.achievement, achievementMode) ? [] : [{ key: "pin", label: suggestion.pinned ? "Remove from Up Next" : "Set as Up Next", onSelect: () => preferences.togglePinnedAchievement(suggestion.achievement.achievementId, achievementMode) }]),
+    ...buildSteamPinMenu(upNextSnapshot, preferences),
+    ...(suggestion === undefined || !preferences.canPin || !suggestion.pinned && isAchievementCompleteForPin(suggestion.achievement, achievementMode) ? [] : [{ key: "pin", label: pinAction?.menuLabel ?? "Set as Up Next", onSelect: () => preferences.togglePinnedAchievement(suggestion.achievement.achievementId, achievementMode) }]),
     ...(providerId === "retroachievements" ? [buildRetroAchievementsGoalSettingsMenuItem({
       globalGoal: preferences.globalRetroAchievementsGoal,
       ...(preferences.retroAchievementsGoalOverride !== undefined

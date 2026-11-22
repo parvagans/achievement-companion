@@ -34,10 +34,11 @@ function NativeAchievementPinControl({ control, target, validate }: {
 }): ReactElement {
   const preferences = useDeckyGameOverviewPreferences(target.providerId, target.gameId);
   if (!preferences.canPin || control.props["onOptionsButton"] != null || control.props["onOptionsActionDescription"] != null) return control;
-  const pinned = preferences.pinnedAchievement?.achievementId === target.achievementId;
+  const pinned = target.providerId === "steam" ? preferences.steamPinIds?.includes(target.achievementId) === true
+    : preferences.pinnedAchievement?.achievementId === target.achievementId;
   const action = createUpNextPinToggleAction(target.achievementId, pinned, (id) => {
     if (validate()) preferences.togglePinnedAchievement(id, target.mode);
-  });
+  }, target.providerId);
   return cloneElement(control, { onOptionsButton: action.onOptionsButton, onOptionsActionDescription: action.label });
 }
 
@@ -52,7 +53,7 @@ function withPinControl(control: NativeElement, resolveTarget: ResolvePinTarget,
 }
 
 /** Map the JSX emitted by Steam without walking fibers or changing the navigation nodes. */
-function mapNativeChildren(node: ReactNode, transform: (element: NativeElement) => ReactNode): ReactNode {
+export function mapNativeChildren(node: ReactNode, transform: (element: NativeElement) => ReactNode): ReactNode {
   if (Array.isArray(node)) return node.map((child) => mapNativeChildren(child, transform));
   if (!isValidElement<Record<string, unknown>>(node)) return node;
   const transformed = transform(node);
@@ -64,7 +65,7 @@ function mapNativeChildren(node: ReactNode, transform: (element: NativeElement) 
 type SteamRenderer = (props: Record<string, unknown>) => ReactNode;
 
 /** Keep the wrapped component type stable so Steam retains its focus and scroll state on rerender. */
-function wrapNativeRenderer(transform: (rendered: ReactNode, props: Record<string, unknown>) => ReactNode) {
+export function wrapNativeRenderer(transform: (rendered: ReactNode, props: Record<string, unknown>) => ReactNode) {
   const wrappers = new WeakMap<SteamRenderer, SteamRenderer>();
   return (node: NativeElement): ReactNode => {
     if (typeof node.type !== "function" || node.type.prototype?.isReactComponent) return node;
@@ -201,13 +202,12 @@ export function observeNativeQueryAchievementActions(document: Document, getAppI
       const id = props?.achievement?.api_name;
       const locked = props?.unlocked === false || (props?.unlockedForSelf === false && props.progress?.unlocked === false);
       if (props?.appid !== appId || typeof id !== "string" || !locked) continue;
-      const target = resolveTarget(appId, { strID: id, bAchieved: false });
-      if (target === undefined) continue;
-      // The current All Achievements panel supplies Steam's X action and pinning toggle.
-      for (let panel = fiber.return, ancestors = 0; panel != null && ancestors < 36; panel = panel.return, ancestors++) {
+      // Steam's X action owns both the list and its nested pinned section.
+      for (let panel = fiber.return; panel != null; panel = panel.return) {
         if (panel.memoizedProps?.setPinnedAchievements?.[nativeRaPinSetter] === true) return undefined;
       }
-      return { node, target };
+      const target = resolveTarget(appId, { strID: id, bAchieved: false });
+      if (target?.providerId === "retroachievements") return { node, target };
     }
     return undefined;
   }
@@ -224,7 +224,8 @@ export function observeNativeQueryAchievementActions(document: Document, getAppI
     const focused = focusedTarget();
     const previous = focused?.node.m_Properties;
     if (focused === undefined || previous === undefined || focused.node.GetActiveActionDescriptions()?.[button] != null) return;
-    const description = readPinnedAchievement(focused.target)?.achievementId === focused.target.achievementId ? "Unpin" : "Pin";
+    const pinned = readPinnedAchievement(focused.target)?.achievementId === focused.target.achievementId;
+    const description = pinned ? "Unpin" : "Pin";
     const next = { ...previous, actionDescriptionMap: { ...previous.actionDescriptionMap, [button]: { value: description } } };
     focused.node.SetProperties(next);
     installed = { node: focused.node, target: focused.target, previous, next };
@@ -247,7 +248,7 @@ export function observeNativeQueryAchievementActions(document: Document, getAppI
     createUpNextPinToggleAction(target.achievementId, pinned, id => {
       if (pinned) unpinAchievement(target, id);
       else pinAchievement(target, id, target.mode);
-    }).onOptionsButton(press);
+    }, target.providerId).onOptionsButton(press);
   }
 
   document.addEventListener("focusin", schedule, true);

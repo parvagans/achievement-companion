@@ -5,7 +5,6 @@ import barChartIconUrl from "./assets/bar-chart.svg";
 import calendarIconUrl from "./assets/calendar.svg";
 import gamepadIconUrl from "./assets/gamepad.svg";
 import trophyIconUrl from "./assets/trophy-filled.svg";
-import { DeckyRetroAchievementsPointsIcon } from "./decky-retroachievements-points-icon";
 import { DeckyGameStatusIcon } from "./decky-game-status-icon";
 import { DeckyCompletionProgressBar } from "./decky-completion-progress-bar";
 import { DeckyFocusStyles } from "./decky-focus-styles";
@@ -290,10 +289,10 @@ function ProfileFact({ iconUrl, tone = "blue", children }: { readonly iconUrl: s
   );
 }
 
-function ProfileStat({ label, value, icon }: { readonly label: string; readonly value: string; readonly icon?: JSX.Element }): JSX.Element {
+function ProfileStat({ label, value }: { readonly label: string; readonly value: string }): JSX.Element {
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, color: raTheme.color.textSecondary, fontSize: "0.77em", lineHeight: 1.2, whiteSpace: "nowrap" }}>
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>{icon}{label}</span>
+      <span>{label}</span>
       <span style={{ color: raTheme.color.textPrimary, fontWeight: 750, textAlign: "right" }}>{value}</span>
     </div>
   );
@@ -740,8 +739,8 @@ export function DeckyRetroAchievementsFullScreenProfileDashboard({
             </span> : null}
           </div>
           <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 5, flex: "0 0 auto", minWidth: 0 }}>
-            <ProfileStat icon={<DeckyRetroAchievementsPointsIcon size={13} />} label={model.initialAchievementMode === "softcore" ? "Softcore Points" : "Points Earned"} value={(model.initialAchievementMode === "softcore" ? model.profileStats.softcorePoints : model.profileStats.hardcorePoints) ?? "-"} />
-            <ProfileStat icon={<DeckyRetroAchievementsPointsIcon size={13} />} label="RetroPoints" value={model.profileStats.raPoints ?? "-"} />
+            <ProfileStat label={model.initialAchievementMode === "softcore" ? "Softcore Points" : "Points Earned"} value={(model.initialAchievementMode === "softcore" ? model.profileStats.softcorePoints : model.profileStats.hardcorePoints) ?? "-"} />
+            <ProfileStat label="RetroPoints" value={model.profileStats.raPoints ?? "-"} />
             {refreshTime !== undefined ? <div style={{ color: raTheme.color.textMuted, fontSize: raTheme.type.fullscreen.caption, whiteSpace: "nowrap", textAlign: "right" }}>{refreshTime}</div> : null}
           </div>
         </section>

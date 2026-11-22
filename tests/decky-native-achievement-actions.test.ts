@@ -104,7 +104,7 @@ test("Your Stuff adds Y to the existing locked tile without changing Select or e
   assert.equal(f.controls[2]?.onOptionsButton, undefined);
 });
 
-test("current native list adds Y through the focused Steam node and preserves its existing actions", () => {
+test("native rows use the Y fallback only outside Steam's own pin panel", () => {
   const game = { providerId: "retroachievements", gameId: "42", accountId: "alice", achievementId: "12", mode: "hardcore" };
   const original = { actionDescriptionMap: { 1: { value: "Select" } } };
   let saved: { achievementId: string } | undefined;
@@ -113,10 +113,11 @@ test("current native list adds Y through the focused Steam node and preserves it
   const windowEvents = new Map<string, (event: unknown) => void>();
   const documentEvents = new Map<string, () => void>();
   let frame: (() => void) | undefined;
-  const pinPanel = { memoizedProps: { setPinnedAchievements: Object.assign(() => {}, { [nativeRaPinSetter]: true }) } };
+  interface PanelFiber { memoizedProps?: { setPinnedAchievements: () => void }; return?: PanelFiber }
+  const pinPanel: PanelFiber = { memoizedProps: { setPinnedAchievements: Object.assign(() => {}, { [nativeRaPinSetter]: true }) } };
   const achievementFiber = { memoizedProps: {
     appid: 1, achievement: { api_name: "ra:12" }, unlockedForSelf: false, progress: { unlocked: false }, compareTo: {},
-  }, return: undefined as typeof pinPanel | undefined };
+  }, return: undefined as PanelFiber | undefined };
   const row = { closest: () => row, __reactFiber$fixture: undefined as unknown };
   const node = {
     m_element: row, m_Properties: original,
@@ -158,14 +159,22 @@ test("current native list adds Y through the focused Steam node and preserves it
   resolve = () => game;
   press(); frame!();
   assert.equal(saved, undefined); assert.equal(description(), "Pin");
-  achievementFiber.return = pinPanel;
+  saved = { achievementId: "12" };
+  let panelAncestor = pinPanel;
+  // Steam's pinned section adds virtualized row layers between the achievement and the native pin panel.
+  for (let depth = 0; depth < 60; depth++) panelAncestor = { return: panelAncestor };
+  achievementFiber.return = panelAncestor;
   documentEvents.get("vgp_onfocus")!(); frame!();
-  assert.equal(description(), undefined, "Steam's integrated panel owns the pin action");
+  assert.equal(description(), undefined, "Steam's integrated panel owns the pin action even in its nested pinned section");
   press();
-  assert.equal(saved, undefined);
+  assert.equal(saved?.achievementId, "12", "Y cannot unpin when Steam owns the row");
   achievementFiber.return = undefined;
+  saved = undefined;
   documentEvents.get("vgp_onfocus")!(); frame!();
-  assert.equal(description(), "Pin", "other native rows keep the fallback action");
+  assert.equal(description(), "Pin", "other RA rows keep the fallback action");
+  resolve = () => ({ ...game, providerId: "steam" });
+  documentEvents.get("vgp_onfocus")!(); frame!();
+  assert.equal(description(), undefined, "ordinary Steam rows use Steam's own action");
   cleanup();
   assert.equal(node.m_Properties, original);
   assert.equal(windowEvents.size + documentEvents.size, 0);

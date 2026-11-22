@@ -99,7 +99,12 @@ test("runtime adapter preserves Steam data, gives dialogs Back priority, and unp
       GetGlobalAchievements(appId) { return "original-global-" + appId; },
       GetMyAchievementsByID(appId) { return "original-by-id-" + appId; },
     };
+    const appDetails = new Map();
     const detailsStore = {
+      GetAppDetails(appId) {
+        if (!appDetails.has(appId)) appDetails.set(appId, { unAppID: appId, launchState: "original", achievements: { nTotal: appId === 620 ? 72 : 0 } });
+        return appDetails.get(appId);
+      },
       GetAchievements(appId) { return "original-details-" + appId; },
     };
     const progressCache = {
@@ -138,6 +143,7 @@ test("runtime adapter preserves Steam data, gives dialogs Back priority, and unp
       [personalStore, "GetMyAchievements"],
       [personalStore, "GetGlobalAchievements"],
       [detailsStore, "GetAchievements"],
+      [detailsStore, "GetAppDetails"],
       [progressCache, "GetAchievementProgress"],
       [progressCache, "BGameHasAchievements"],
     ].map(([target, name]) => ({ target, name, original: target[name] }));
@@ -164,7 +170,7 @@ test("runtime adapter preserves Steam data, gives dialogs Back priority, and unp
         badgeImageUrl: "https://i.retroachievements.org/Badge/201677.png",
       }, {
         ...achievement, achievementId: "125", title: "Another locked RA achievement", isUnlocked: false, unlockedAt: undefined,
-      }], earned: 1, total: 3, detailSnapshot: {},
+      }], earned: 1, total: 3, detailSnapshot: { game: { status: "in-progress" } },
       communityStats: {
         totalPlayers: 100, masteredPlayers: 25, masteryPercent: 25,
         beatenHardcoreSamples: 40, medianBeatSeconds: 3600, medianMasterySeconds: 7200,
@@ -211,6 +217,10 @@ test("runtime adapter preserves Steam data, gives dialogs Back priority, and unp
         applyHookStubs() {},
         removeHookStubs() {},
         Focusable: () => null,
+        DialogButton: () => null,
+        DialogControlsSection: () => null,
+        ConfirmModal: () => null,
+        showModal: () => ({ Close() {} }),
         GamepadButton: { OPTIONS: 4 },
         Navigation: { Navigate() {} },
         afterPatch: (target, name, handler) => patch(target, name, handler, "after"),
@@ -222,6 +232,7 @@ test("runtime adapter preserves Steam data, gives dialogs Back priority, and unp
     mock.module(pathToFileURL(resolve("src/platform/decky/decky-native-retroachievements-projection.ts")).href, {
       exports: {
         async verifyNativeProjectionLaunch() { return undefined; },
+        projectNativeRetroAchievementsDetail(_appId, _gameId, _mode, detail) { return detail; },
         readDeckyNativeRetroAchievementsProjection(appId, mode) {
           projectionReads.push([appId, mode]);
           return projectionFor(appId);
@@ -234,6 +245,19 @@ test("runtime adapter preserves Steam data, gives dialogs Back priority, and unp
         },
         invalidateDeckyNativeRetroAchievementsProjection(appId) { projectionInvalidations.push(appId); },
         disposeDeckyNativeRetroAchievementsProjection() { projectionDisposals += 1; },
+      },
+    });
+    let observedGame;
+    const runningListeners = new Set();
+    mock.module(pathToFileURL(resolve("src/platform/decky/decky-retroachievements-presence.ts")).href, {
+      exports: {
+        deckyRaPresence: {
+          runningGameId: () => observedGame,
+          subscribe(listener) { runningListeners.add(listener); return () => runningListeners.delete(listener); },
+        },
+        corroborateDeckyRaPresenceLaunch() {},
+        notifyDeckyRaPresenceLifecycle() {},
+        stopDeckyRaPresence() {},
       },
     });
     mock.module(pathToFileURL(resolve("src/platform/decky/decky-native-retroachievements-activity.tsx")).href, {
@@ -501,6 +525,44 @@ test("runtime adapter preserves Steam data, gives dialogs Back priority, and unp
     reloadedPage.GetSections(shortcut, { unAppID: shortcutId });
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(readNativeRows().length, 3, "reload can verify and project the same shortcut again");
+
+    const { updateDeckyProviderConfigCache } = await import("./src/platform/decky/providers/provider-config-store.ts");
+    updateDeckyProviderConfigCache("retroachievements", { username: "fixture", hasApiKey: true });
+    window.location.pathname = "/routes/apprunning";
+    const nativeShortcutDetails = detailsStore.GetAppDetails(shortcutId);
+    const nativeSteamDetails = detailsStore.GetAppDetails(620);
+    window.SteamUIStore = { GetFocusedWindowInstance: () => ({ RunningApps: [shortcut] }) };
+    assert.equal(detailsStore.GetAppDetails(shortcutId), nativeShortcutDetails, "initial read waits on verification");
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(detailsStore.GetAppDetails(shortcutId).achievements.nTotal, 3, "lazy startup recovers a running shortcut");
+    window.SteamUIStore = undefined;
+    lifetimeListener({ unAppID: shortcutId, bRunning: false });
+    assert.equal(nativeShortcutDetails.achievements.nTotal, 0, "Steam's running menu starts with no shortcut achievements");
+    lifetimeListener({ unAppID: shortcutId, bRunning: true });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(detailsStore.GetAppDetails(shortcutId).achievements.nTotal, 3);
+    assert.equal(detailsStore.GetAppDetails(shortcutId).launchState, "original");
+    assert.equal(nativeShortcutDetails.achievements.nTotal, 0, "the host's stored record is never modified");
+    assert.equal(detailsStore.GetAppDetails(620), nativeSteamDetails);
+    assert.equal(readNativeRows().length, 3, "the native overlay renders the verified query data");
+    lifetimeListener({ unAppID: shortcutId, bRunning: false });
+    assert.equal(detailsStore.GetAppDetails(shortcutId), nativeShortcutDetails);
+    assert.deepEqual(readNativeRows(), [], "exit clears the running game's native data");
+
+    let finishLaunch;
+    queuedProjectionLoads.push(() => new Promise(resolve => { finishLaunch = resolve; }));
+    lifetimeListener({ unAppID: shortcutId, bRunning: true });
+    lifetimeListener({ unAppID: shortcutId, bRunning: false });
+    finishLaunch(projectionFor(shortcutId));
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(detailsStore.GetAppDetails(shortcutId), nativeShortcutDetails);
+    assert.deepEqual(readNativeRows(), [], "an exited launch cannot publish late results");
+
+    queuedProjectionLoads.push({ status: "unavailable", appId: String(unmatched.appid), reason: "unmatched" });
+    lifetimeListener({ unAppID: unmatched.appid, bRunning: true });
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(detailsStore.GetAppDetails(unmatched.appid).achievements.nTotal, 0);
+    assert.equal(queryClient.getQueryData(["achievements", unmatched.appid, "schema"]), undefined);
     cleanupReloaded();
     assert.equal(routeRecords[1].removed, true);
     assert.equal(lifetimeUnregisters, 2);

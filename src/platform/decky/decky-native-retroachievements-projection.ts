@@ -109,7 +109,7 @@ function hasVerifiedMastery(detail: GameDetailSnapshot | undefined): boolean {
   return award?.trim().toLowerCase().includes("mastered") === true;
 }
 
-function projectDetail(
+export function projectNativeRetroAchievementsDetail(
   appId: string,
   raGameId: string,
   mode: RetroAchievementsAchievementMode,
@@ -308,7 +308,7 @@ export function createNativeRetroAchievementsProjectionLoader(
         return unavailable(appId, "detail-unavailable");
       }
 
-      const projected = projectDetail(appId, summary.gameId, mode, detailState.data);
+      const projected = projectNativeRetroAchievementsDetail(appId, summary.gameId, mode, detailState.data);
       const result = projected.status === "ready" ? { ...projected, shortcutIdentity: identity, sourceRevision: detailState.data.canonicalSourceRevision ?? dependencies.detailRevision?.(summary.gameId) } : projected;
       if (result.status !== "ready") {
         return result;

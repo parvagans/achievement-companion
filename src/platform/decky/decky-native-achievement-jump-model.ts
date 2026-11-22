@@ -14,3 +14,17 @@ export function getNativeAchievementListIndex(
   const lockedIndex = unachieved.findIndex((achievement) => achievement.strID === id);
   return lockedIndex < 0 ? undefined : achieved.length + 1 + lockedIndex;
 }
+
+/** Resolve Steam's current grouped list from its stable achievement row keys. */
+export function getNativeAchievementVirtualIndex(
+  count: number,
+  getItemKey: (index: number) => unknown,
+  achievementId: string,
+): number | undefined {
+  if (!Number.isSafeInteger(count) || count < 1 || !/^[1-9]\d*$/u.test(achievementId)) return undefined;
+  for (let index = 0; index < count; index++) {
+    const key = getItemKey(index);
+    if (typeof key === "string" && /^r\d+:\d+$/u.test(key) && key.endsWith(`:${achievementId}`)) return index;
+  }
+  return undefined;
+}

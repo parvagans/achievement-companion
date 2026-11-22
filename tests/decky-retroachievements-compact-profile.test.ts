@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { createElement } from "react";
+import { createElement, Fragment } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { components } from "./helpers/decky-component-declarations";
 import type {
   NormalizedProfile,
   RecentUnlock,
@@ -116,6 +117,27 @@ test("overview metrics honor Hardcore, Softcore, and Both without inventing miss
   assert.deepEqual(getRetroAchievementsProfileOverviewMetrics(profile, "softcore").map(({ key }) => key), ["softcore-points", "retro-points", "ratio"]);
   assert.deepEqual(getRetroAchievementsProfileOverviewMetrics(profile, "both").map(({ key }) => key), ["hardcore-points", "softcore-points", "retro-points", "ratio"]);
   assert.equal(getRetroAchievementsProfileOverviewMetrics(createProfile([{ key: "retro-ratio", label: "Ratio", value: "2.33" }]), "hardcore").length, 1);
+});
+
+test("RA compact overview renders points and ratio as text without decorative icons", async () => {
+  const { OverviewMetric } = await components("decky-retroachievements-compact-profile.tsx", ["OverviewMetric"], {
+    createElement,
+    raRecipes,
+    useState: (value: unknown) => [value, () => {}],
+    RA_COIN_ICON_URL: "/coin.svg",
+    pieChartIconUrl: "/pie.svg",
+    trophyIconUrl: "/trophy.svg",
+    masteredIconUrl: "/mastered.svg",
+    Fragment,
+    raTheme: { iconFilter: { primary: "", hardcore: "", softcore: "" } },
+  });
+  const metrics = getRetroAchievementsProfileOverviewMetrics(createProfile(), "both");
+  for (const metric of metrics) {
+    const markup = renderToStaticMarkup(OverviewMetric({ metric }));
+    assert.ok(markup.includes(`>${metric.label}<`));
+    assert.ok(markup.includes(`>${metric.value}<`));
+    assert.doesNotMatch(markup, /<img\b|<svg\b/u);
+  }
 });
 
 test("recent activity and recently played progress follow the selected mode", () => {
@@ -295,7 +317,6 @@ test("RA QAM loading, focus scrolling, and calendar controls follow Steam compac
   assert.match(profileSource, /<div style=\{raRecipes\.compactProfile\.footer\}>\{refreshText\}<\/div>/u);
   assert.match(profileSource, /sortRetroAchievementsUnlocksNewestFirst\([\s\S]*filterRetroAchievementsUnlocksByMode/u);
   assert.match(profileSource, /wide=\{isSingleModeOverview && metric\.mode !== undefined\}/u);
-  assert.match(profileSource, /metric\.key === "ratio" \? pieChartIconUrl/u);
   assert.match(profileSource, /<DeckyGameStatusIcon kind=\{kind\} size=\{25\}/u);
   assert.doesNotMatch(profileSource, /formatRetroAchievementsCompletionIndicatorLabel/u);
   assert.equal(raRecipes.compactProfile.metric("hardcore", true).gridColumn, "1 / -1");

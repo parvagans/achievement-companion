@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { components } from "./helpers/decky-component-declarations";
 import { DEFAULT_ACHIEVEMENT_COMPANION_SETTINGS, loadAchievementCompanionSettings, normalizeAchievementCompanionSettings, saveAchievementCompanionSettings } from "../src/core/settings";
 import { DeckyNativeUpNextPreviewCard } from "../src/platform/decky/decky-native-up-next-preview-card";
-import { createNativeUpNextPreviewSession, measureNativeUpNextPreviewPlacement, nativeUpNextPresentation, placeNativeUpNextPreview, shouldShowNativeUpNextPreview } from "../src/platform/decky/decky-native-up-next-preview-model";
+import { createNativeUpNextPreviewSession, measureNativeUpNextPreviewPlacement, nativeUpNextPresentation, placeNativeUpNextPreview, shouldShowNativeUpNextPreview, toNativeUpNextBadgeOffset } from "../src/platform/decky/decky-native-up-next-preview-model";
 import { DeckyAchievementArtwork } from "../src/platform/decky/decky-achievement-artwork";
 import { DeckyAchievementTypeBadge } from "../src/platform/decky/decky-achievement-type-badge";
 import { DeckyUpNextPinIcon } from "../src/platform/decky/decky-up-next-pin-icon";
@@ -64,6 +64,27 @@ test("description changes reuse a fresh canonical session and retain route/badge
     assert.equal(shouldShowNativeUpNextPreview("always", true, true, { pageVisible: true, badgeEnabled: false }), false);
   }
   assert.equal(requests, 0);
+});
+
+test("the preview stays aligned to the badge after a scaled native page settles", () => {
+  // Steam measured this page during its hero transition and later restored the badge to x=32.
+  const badge = { left: 51.4, top: 66.4, right: 249.2, bottom: 108.2 };
+  const hero = { left: 20, top: 10, right: 830, bottom: 403 };
+  const viewport = { width: 854, height: 534 };
+  const size = { width: 197.8, height: 52 };
+  const preview = placeNativeUpNextPreview(badge, hero, viewport, size, []);
+  assert.ok(preview);
+  const offset = toNativeUpNextBadgeOffset(preview, badge, 0.95, 0.95);
+  const settledBadge = { left: 32, top: 56, bottom: 100 };
+  assert.equal(settledBadge.left + offset.left, settledBadge.left);
+  assert.ok(Math.abs(settledBadge.top + offset.top - settledBadge.bottom - 10.53) < 0.01);
+
+  const obstacle = { left: 50, top: 111, right: 250, bottom: 171 };
+  const alternative = placeNativeUpNextPreview(badge, hero, viewport, size, [obstacle]);
+  assert.ok(alternative);
+  assert.notEqual(alternative.left, preview.left);
+  const alternativeOffset = toNativeUpNextBadgeOffset(alternative, badge, 0.95, 0.95);
+  assert.ok(Math.abs(badge.left + alternativeOffset.left * 0.95 - alternative.left) < 0.001);
 });
 
 test("measured long-description fallback retries the same badge-relative placement and restores expansion after resize", () => {

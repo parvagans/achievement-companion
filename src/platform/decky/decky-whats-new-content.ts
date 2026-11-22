@@ -1,49 +1,41 @@
-/** Bundled notes for 0.40.0, retaining the earlier pinning and Up Next highlights. */
+/** Bundled player-facing changes since v0.40.0. */
 export const WHATS_NEW_SECTIONS = [
   {
     title: "Overview",
     items: [
-      "Happy Halloween, achievement hunters! Choose a personal target, keep it close across Quick Access, full-screen Overview, and native Steam game pages, and enjoy the Halloween theme.",
-      "Pin an unfinished Steam or RetroAchievements achievement without changing your Beat/Master goals or Hardcore/Softcore completion requirements.",
-      "In What's New, press Down to scroll the notes, then Down again at the bottom to reach Close. B also closes the dialog.",
-      "Quick Access keeps the game and progress first, with compact Profile and Pinned Achievements shortcuts beside the heading.",
-      "Activity Calendars start collapsed and remember your choice separately for each provider. A collapsed calendar shows any selected date filter and offers Clear date filter.",
+      "Since v0.40.0, matched RetroAchievements games have gained native Steam pinning, separate achievement sets, and in-game Achievements and Guides.",
     ],
   },
   {
-    title: "Up Next",
+    title: "Steam Library",
     items: [
-      "Up Next recommends three achievements using progression and available provider data, with community rarity and RetroAchievements classifications where supported.",
-      "Open a recommendation's details, jump to it in Achievements, or hide it. Manage Suggestions can restore individual choices or every hidden suggestion.",
-      "Full-screen Overview uses three equal-height recommendation cards with centered content and thumbtack controls, without repeating selection-source labels.",
-      "Compact, two-line description summaries keep recommendations inside the panel. Open achievement details for the complete description.",
-      "Quick Access uses larger game titles and places each recommendation's two-line description below its artwork and title.",
+      "Open Steam's native achievement list for a matched RetroAchievements game from the Achievements icon beside Play or through Your Stuff.",
+      "Use All Sets to browse verified RetroAchievements subsets. The base game and each subset show their own progress and keep their own pins.",
     ],
   },
   {
-    title: "Pinned",
+    title: "Pins",
     items: [
-      "Use the thumbtack controls in Quick Access and full-screen Overview, or Y Pin/Unpin in the native RetroAchievements Up Next tab.",
-      "Saved targets are separate for each account and game, shared across supported views, and preserved between sessions.",
-      "Removing or completing a pin returns Up Next to automatic recommendations. Your existing goals and hidden suggestions stay intact.",
-      "Open Pinned Achievements from the header thumbtack to browse saved Steam and RetroAchievements targets, inspect Details, or Unpin.",
-      "From a pinned achievement's Details, View Game opens the compact game overview. Press B there to return to the pinned viewer at the same entry.",
+      "Turn on Pin Achievements in Steam's full list and press X to pin or unpin a locked RetroAchievements achievement. In the Your Stuff preview, use Y when the footer offers it.",
+      "Open Pinned Achievements from Up Next. For Steam games, pinning or unpinning in either place updates the same list.",
+      "If a Steam game has several unfinished pins, choose which one to show first in Up Next.",
     ],
   },
   {
-    title: "Game Page Badges",
+    title: "In-Game",
     items: [
-      "See your Up Next achievement beside the native achievement badge for Steam and matched RetroAchievements games, with a subtle thumbtack for manually pinned targets.",
-      "Choose On Focus, Always Show, or Hidden for Up Next Preview. Control Achievement Description separately with the same options; both settings default to On Focus.",
-      "Neutral Minimal-style previews follow the badge's position and width, support Classic and Minimal badges, and preserve square achievement artwork.",
-      "Show the complete available achievement description according to your description setting while keeping the resting preview compact when descriptions are hidden.",
+      "Press STEAM while a matched RetroAchievements game is running, then open Achievements for base-set progress and your pin. Use X to pin or unpin.",
+      "Open Guides between Achievements and Notes. Use the native dialog to open a pinned achievement, community mastery guide, or RA discussion when available.",
     ],
   },
   {
-    title: "Halloween",
+    title: "Hotfix",
     items: [
-      "Choose Halloween in Plugin Settings > Theme Settings > Theme for orange accents, deep purple surfaces, and mint highlights.",
-      "The theme colors Quick Access and full-screen interfaces while native game-page previews keep their neutral Steam-style appearance. Happy Halloween, and happy achievement hunting!",
+      "The v0.41.1 hotfix restored RetroAchievements in Steam's Your Stuff and My Achievements. Locked achievement artwork is grayscale again.",
+      "Activity and Up Next open the exact achievement in Steam's list. Press B to return to the original tile or recommendation.",
+      "Removed the duplicate Y Unpin prompt from Steam's pinned section. The native X action handles pinning there.",
+      "The game-page badge and Up Next stay aligned as the library page opens. Both hide together when Steam shows its launch screen.",
+      "RA points and Ratio still show their values without the coin and pie icons. GitHub and Ko-fi icons load again in Quick Access and What's New.",
     ],
   },
 ] as const;

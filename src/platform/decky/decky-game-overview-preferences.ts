@@ -1,8 +1,9 @@
-import { useMemo, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useSyncExternalStore } from "react";
 import type { GameDetailSnapshot } from "@core/domain";
 import type { RetroAchievementsAchievementMode } from "@core/settings";
 import { useDeckyProviderConfigs, readDeckyProviderConfigs } from "./providers/provider-config-store";
 import { isPinnedAchievementComplete } from "./decky-game-overview-recommendations";
+import { setDeckySteamNativePin, useDeckySteamNativePins } from "./decky-steam-native-pins";
 import { subscribeDeckyGameDetailPublication } from "./decky-game-detail-publication";
 import type { RetroAchievementsGameGoal } from "./decky-game-overview-recommendations";
 
@@ -20,6 +21,7 @@ export interface PinnedAchievement {
   readonly achievementId: string;
   /** Fixed at selection time; changing the display mode never changes this goal. */
   readonly completionMode: RetroAchievementsAchievementMode;
+  readonly steamSynced?: true;
 }
 
 export interface PinnedAchievementScope {
@@ -84,7 +86,8 @@ export function parseGameOverviewPreferences(text: string | null | undefined): G
       if (!validScope({ providerId: tuple[0]!, gameId: tuple[1]!, accountId: tuple[2]! })) continue;
       if (record(pin) && typeof pin["achievementId"] === "string" && pin["achievementId"].trim()
         && ["hardcore", "softcore", "both"].includes(String(pin["completionMode"]))) {
-        pinnedAchievements[key] = { achievementId: pin["achievementId"], completionMode: pin["completionMode"] as RetroAchievementsAchievementMode };
+        pinnedAchievements[key] = { achievementId: pin["achievementId"], completionMode: pin["completionMode"] as RetroAchievementsAchievementMode,
+          ...(tuple[0] === "steam" && pin["steamSynced"] === true ? { steamSynced: true } : {}) };
       }
     }
   }
@@ -130,12 +133,12 @@ export function createGameOverviewPreferencesStore(storage: GameOverviewPreferen
     readPinnedAchievement(scope: PinnedAchievementScope): PinnedAchievement | undefined {
       return validScope(scope) ? read().pinnedAchievements[pinnedAchievementPreferenceKey(scope)] : undefined;
     },
-    pinAchievement(scope: PinnedAchievementScope, achievementId: string, completionMode: RetroAchievementsAchievementMode = "both"): boolean {
+    pinAchievement(scope: PinnedAchievementScope, achievementId: string, completionMode: RetroAchievementsAchievementMode = "both", steamSynced = false): boolean {
       if (!validScope(scope) || !achievementId.trim() || !["hardcore", "softcore", "both"].includes(completionMode)) return false;
       const key = pinnedAchievementPreferenceKey(scope);
       const hiddenKey = gameOverviewPreferenceKey(scope.providerId, scope.gameId);
       return update((current) => ({ ...current,
-        pinnedAchievements: { ...current.pinnedAchievements, [key]: { achievementId, completionMode } },
+        pinnedAchievements: { ...current.pinnedAchievements, [key]: { achievementId, completionMode, ...(scope.providerId === "steam" && steamSynced ? { steamSynced: true } : {}) } },
         hiddenSuggestions: { ...current.hiddenSuggestions, [hiddenKey]: (current.hiddenSuggestions[hiddenKey] ?? []).filter((id) => id !== achievementId) },
       }));
     },
@@ -211,12 +214,48 @@ function getStore() {
   return createGameOverviewPreferencesStore(storage);
 }
 
+const pendingSteamPinMigrations = new Set<string>();
+
+function showSteamPinFailure(): void {
+  void import("@decky/api").then(({ toaster }) => toaster.toast({
+    title: "Achievement Companion", body: "Steam couldn't save the achievement pin.",
+  }));
+}
+
 export function useDeckyGameOverviewPreferences(providerId: string, gameId: string) {
   const configs = useDeckyProviderConfigs();
   const accountId = providerId === "steam" ? configs.steam?.steamId64 : configs.retroAchievements?.username.toLowerCase();
   const scope = { providerId, gameId, accountId: accountId ?? "" };
+  const steamPins = useDeckySteamNativePins(providerId, gameId, accountId);
+  const scopeKey = pinnedAchievementPreferenceKey(scope);
   const currentRevision = useSyncExternalStore(subscribe, () => revision, () => revision);
   const current = useMemo(() => getStore().read(), [currentRevision]);
+  const storedTarget = current.pinnedAchievements[scopeKey];
+  const { steamPinIds, canPinInSteam } = steamPins;
+  const pinnedAchievement = providerId !== "steam" || steamPinIds === undefined
+    || storedTarget !== undefined && steamPinIds.includes(storedTarget.achievementId) ? storedTarget : undefined;
+  useEffect(() => {
+    if (providerId !== "steam" || accountId === undefined || storedTarget === undefined
+      || steamPinIds === undefined || pendingSteamPinMigrations.has(scopeKey)) return;
+    const captured = { providerId, gameId, accountId };
+    const store = getStore();
+    if (storedTarget.steamSynced) {
+      if (!steamPinIds.includes(storedTarget.achievementId) && store.readPinnedAchievement(captured)?.achievementId === storedTarget.achievementId
+        && store.unpinAchievement(captured, storedTarget.achievementId)) notify();
+      return;
+    }
+    if (!canPinInSteam) return;
+    if (steamPinIds.includes(storedTarget.achievementId)) {
+      if (store.pinAchievement(captured, storedTarget.achievementId, "both", true)) notify();
+      return;
+    }
+    // Merge the old single target into Steam once. An ordinary native unpin must never re-import it.
+    pendingSteamPinMigrations.add(scopeKey);
+    void setDeckySteamNativePin(accountId, gameId, storedTarget.achievementId, true).then(saved => {
+      if (saved && store.readPinnedAchievement(captured)?.achievementId === storedTarget.achievementId
+        && store.pinAchievement(captured, storedTarget.achievementId, "both", true)) notify();
+    }).finally(() => { pendingSteamPinMigrations.delete(scopeKey); });
+  }, [accountId, gameId, providerId, scopeKey, storedTarget, steamPinIds, canPinInSteam]);
   const override = Object.prototype.hasOwnProperty.call(current.retroAchievementsGameGoals, gameId)
     ? current.retroAchievementsGameGoals[gameId] : undefined;
   const mutate = (operation: (store: ReturnType<typeof getStore>) => boolean): boolean => {
@@ -225,13 +264,27 @@ export function useDeckyGameOverviewPreferences(providerId: string, gameId: stri
     return persisted;
   };
   return {
-    pinnedAchievement: current.pinnedAchievements[pinnedAchievementPreferenceKey(scope)],
-    canPin: validScope(scope),
-    pinAchievement: (id: string, mode: RetroAchievementsAchievementMode = "both") => mutate((store) => store.pinAchievement(scope, id, mode)),
-    unpinAchievement: () => mutate((store) => store.unpinAchievement(scope)),
-    togglePinnedAchievement: (id: string, mode: RetroAchievementsAchievementMode = "both") => mutate((store) =>
-      store.readPinnedAchievement(scope)?.achievementId === id
-        ? store.unpinAchievement(scope, id) : store.pinAchievement(scope, id, mode)),
+    steamPinIds,
+    pinnedAchievement,
+    canPin: validScope(scope) && (providerId !== "steam" || canPinInSteam),
+    pinAchievement: (id: string, mode: RetroAchievementsAchievementMode = "both") => mutate((store) =>
+      providerId === "steam" && !steamPinIds?.includes(id) ? false : store.pinAchievement(scope, id, mode, providerId === "steam")),
+    togglePinnedAchievement: (id: string, mode: RetroAchievementsAchievementMode = "both") => {
+      if (providerId === "steam") {
+        if (accountId === undefined || !canPinInSteam || steamPinIds === undefined) return false;
+        const shouldPin = !steamPinIds.includes(id);
+        void setDeckySteamNativePin(accountId, gameId, id, shouldPin).then(saved => {
+          if (!saved) {
+            showSteamPinFailure();
+          } else {
+            mutate(store => shouldPin ? store.pinAchievement(scope, id, "both", true) : store.unpinAchievement(scope, id));
+          }
+        });
+        return true;
+      }
+      return mutate(store => store.readPinnedAchievement(scope)?.achievementId === id
+        ? store.unpinAchievement(scope, id) : store.pinAchievement(scope, id, mode));
+    },
     hiddenAchievementIds: current.hiddenSuggestions[gameOverviewPreferenceKey(providerId, gameId)] ?? EMPTY_HIDDEN_IDS,
     globalRetroAchievementsGoal: current.globalRetroAchievementsGoal,
     retroAchievementsGoalOverride: override,
@@ -278,7 +331,7 @@ export function retireCompletedPinnedAchievement(snapshot: GameDetailSnapshot): 
   if (accountId === undefined || (providerId === "steam" ? snapshot.achievementStateIsComplete !== true : snapshot.canonicalSourceRevision === undefined)) return;
   const scope = { providerId, gameId: snapshot.game.gameId, accountId };
   const pin = readPinnedAchievement(scope);
-  if (pin !== undefined && isPinnedAchievementComplete(snapshot, pin)) unpinAchievement(scope, pin.achievementId);
+  if (pin !== undefined && isPinnedAchievementComplete(snapshot, pin) && getStore().unpinAchievement(scope, pin.achievementId)) notify();
 }
 
 subscribeDeckyGameDetailPublication(retireCompletedPinnedAchievement);

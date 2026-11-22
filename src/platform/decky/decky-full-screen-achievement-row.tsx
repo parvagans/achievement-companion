@@ -13,7 +13,6 @@ import { DECKY_FOCUS_ACHIEVEMENT_ROW_CLASS } from "./decky-focus-styles";
 import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { formatSteamHuntersPercentage } from "./decky-steam-hunters-presentation";
 import { DeckySteamAchievementStatusIcon } from "./decky-steam-achievement-status-icon";
-import { DeckyRetroAchievementsPointsIcon } from "./decky-retroachievements-points-icon";
 import { DeckySteamHuntersIcon } from "./decky-steam-icons";
 import { getSteamAchievementCommunityPercent } from "./decky-achievement-row-presentation";
 import type { SteamHuntersAchievement } from "../../providers/steamhunters";
@@ -480,7 +479,6 @@ function SteamShapedRetroAchievementRowContent({
         statusColor={getSteamShapedRetroAchievementModeColor(achievement)}
         isUnlocked={achievement.isUnlocked}
         pointsText={pointsText}
-        pointsIcon={pointsText !== undefined ? <DeckyRetroAchievementsPointsIcon size={13} /> : undefined}
         rarityPercent={rarityPercent}
         unlockedDate={compact ? undefined : unlockedDate}
       />
@@ -590,7 +588,7 @@ export function DeckyFullScreenAchievementRow({
             <span style={getAchievementRowMetadataStackStyle()}>
               <span style={getAchievementRowStatusStyle(achievement)}>{statusText}</span>
               {pointsText !== undefined ? (
-                <span style={{ ...getAchievementRowDetailStyle(), display: "inline-flex", alignItems: "center", gap: 4 }}><DeckyRetroAchievementsPointsIcon size={13} />{pointsText}</span>
+                <span style={getAchievementRowDetailStyle()}>{pointsText}</span>
               ) : null}
               {steamHuntersMetadata !== undefined ? (
                 <span style={getAchievementRowDetailStyle()}>{steamHuntersMetadata}</span>

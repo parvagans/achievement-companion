@@ -4,6 +4,7 @@ import { DialogButton, Focusable, GamepadButton, type GamepadEvent } from "@deck
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import type { GameDetailSnapshot } from "@core/domain";
 import type { ResourceState } from "@core/cache";
+import { setDeckySteamNativePin, useDeckySteamPinnedGames } from "./decky-steam-native-pins";
 import { useSavedPinnedAchievements, unpinAchievement, type SavedPinnedAchievement } from "./decky-game-overview-preferences";
 import { createPinnedMetadataResolver, pinnedGamesNearViewport } from "./decky-pinned-achievements-model";
 import { readDeckyCompactGameState, readDeckyCompactRecommendationGameState, loadDeckyCompactGameState, loadDeckyCompactRecommendationGameState } from "./decky-compact-session-resources";
@@ -70,10 +71,16 @@ export function PinnedAchievementsContent({ initialProvider, focusGameId, focusC
   onDetails: (pin: SavedPinnedAchievement, snapshot: GameDetailSnapshot) => void;
   native?: boolean;
 }): JSX.Element {
-  const { pins, accounts } = useSavedPinnedAchievements();
+  const { pins: localPins, accounts } = useSavedPinnedAchievements();
   const providers = Object.keys(accounts).filter((id) => accounts[id as keyof typeof accounts] !== undefined);
   const [chosen, setChosen] = useState(initialProvider);
   const active = providers.includes(chosen) ? chosen : providers[0];
+  const steamIndex = useDeckySteamPinnedGames(accounts.steam, active === "steam");
+  const steamPins: readonly SavedPinnedAchievement[] | undefined = steamIndex === undefined ? undefined
+    : steamIndex.games.flatMap(game => game.achievementIds.map(achievementId => ({
+      providerId: "steam", accountId: steamIndex.accountId, gameId: game.gameId, achievementId, completionMode: "both",
+    })));
+  const pins = steamPins === undefined ? localPins : [...localPins.filter(pin => pin.providerId !== "steam"), ...steamPins];
   const visible = pins.filter((pin) => pin.providerId === active);
   const signature = JSON.stringify(visible);
   const accountSignature = JSON.stringify(accounts);
@@ -88,6 +95,7 @@ export function PinnedAchievementsContent({ initialProvider, focusGameId, focusC
   const [visibleGames, setVisibleGames] = useState<readonly string[]>([]);
   const hydrationSignature = JSON.stringify(visibleGames);
   const key = (pin: SavedPinnedAchievement): string => JSON.stringify([pin.providerId, pin.accountId, pin.gameId]);
+  const entryKey = (pin: SavedPinnedAchievement): string => `entry:${key(pin)}:${pin.achievementId}`;
   const measureVisible = (): void => {
     const view = viewport.current;
     if (!view) return;
@@ -138,9 +146,12 @@ export function PinnedAchievementsContent({ initialProvider, focusGameId, focusC
     if (pin) setMetadata((old) => ({ ...old, [key(pin)]: { status: "success", data: snapshot, isStale: false, isRefreshing: false } }));
   }), [JSON.stringify(pins)]);
   useLayoutEffect(() => {
-    const target = (pendingFocus.current ? controls.current.get(`entry:${pendingFocus.current}`) : undefined)
+    const first = visible[0];
+    const preferred = pendingFocus.current === undefined ? undefined
+      : visible.find(pin => entryKey(pin) === pendingFocus.current || pin.gameId === pendingFocus.current);
+    const target = (preferred === undefined ? undefined : controls.current.get(entryKey(preferred)))
       ?? (providers.length > 1 ? controls.current.get(`tab:${active}`) : undefined)
-      ?? controls.current.get(`entry:${visible[0]?.gameId}`);
+      ?? (first === undefined ? undefined : controls.current.get(entryKey(first)));
     pendingFocus.current = undefined;
     if (target) return requestDeckySteamGamepadFocusAfterMount(target);
     focusCloseButton();
@@ -159,7 +170,7 @@ export function PinnedAchievementsContent({ initialProvider, focusGameId, focusC
           if (event.detail.button === GamepadButton.DIR_LEFT) move(event, controls.current.get(`tab:${providers[index - 1]}`));
           if (event.detail.button === GamepadButton.DIR_RIGHT) move(event, controls.current.get(`tab:${providers[index + 1]}`));
           if (event.detail.button === GamepadButton.DIR_DOWN) {
-            if (visible.length) move(event, controls.current.get(`entry:${visible[0]?.gameId}`));
+            if (visible.length) move(event, controls.current.get(entryKey(visible[0]!)));
             else if (focusCloseButton()) { event.preventDefault(); event.stopPropagation(); }
           }
         }}
@@ -167,29 +178,47 @@ export function PinnedAchievementsContent({ initialProvider, focusGameId, focusC
           : { ...getDeckyStandardModalTabStyle(), whiteSpace: "nowrap", background: active === id ? theme.surface.selectedContentStat : theme.surface.contentStat, ...(focusedTab === id ? getQamCompactFocusControlStyle() : {}) }}>{id === "steam" ? "Steam" : "RetroAchievements"} ({pins.filter((pin) => pin.providerId === id).length})</Focusable>)}
     </Focusable> : null}
     <div ref={viewport} data-ac-pinned-list role="tabpanel" onScroll={measureVisible} style={{ height: 220, maxHeight: native ? "calc(100vh - 164px)" : undefined, overflowY: "auto", overflowX: "hidden", overscrollBehavior: "contain", scrollbarGutter: "stable" }}>
-      {visible.length === 0 ? <div style={{ padding: 12, lineHeight: 1.4 }}><strong>No pinned achievements yet.</strong><p>Pin achievements from Up Next, Achievement Details, or supported game views.</p></div> : visible.map((pin, index) => {
+      {active === "steam" && steamIndex?.complete === false && visible.length === 0 ? <div style={{ padding: 12 }}>Loading Steam pins…</div>
+        : visible.length === 0 ? <div style={{ padding: 12, lineHeight: 1.4 }}><strong>No pinned achievements yet.</strong><p>Pin achievements from Up Next, Achievement Details, or supported game views.</p></div> : visible.map((pin, index) => {
         const state = metadata[key(pin)];
         const snapshot = state?.data;
         const achievement = snapshot?.achievements.find((item) => item.achievementId === pin.achievementId);
-        const scroll = (): void => { const node = controls.current.get(`entry:${pin.gameId}`); if (node && viewport.current) {
+        const scroll = (): void => { const node = controls.current.get(entryKey(pin)); if (node && viewport.current) {
           const view = viewport.current.getBoundingClientRect(), article = node.closest("article")!.getBoundingClientRect();
           const box = article.height <= view.height ? article : node.getBoundingClientRect();
           if (box.top < view.top) viewport.current.scrollTop += box.top - view.top;
           else if (box.bottom > view.bottom) viewport.current.scrollTop += box.bottom - view.bottom;
         } };
-        return <DeckyPinnedAchievementCard key={key(pin)} pin={pin} snapshot={snapshot} loading={state === undefined} native={native} actions={
+        return <DeckyPinnedAchievementCard key={entryKey(pin)} pin={pin} snapshot={snapshot} loading={state === undefined} native={native} actions={
           <Focusable flow-children="left-right" noFocusRing tabIndex={-1} onGamepadDirection={(event) => {
-            if (event.detail.button === GamepadButton.DIR_UP) move(event, controls.current.get(index ? `entry:${visible[index - 1]?.gameId}` : `tab:${active}`));
+            if (event.detail.button === GamepadButton.DIR_UP) move(event, controls.current.get(index ? entryKey(visible[index - 1]!) : `tab:${active}`));
             if (event.detail.button === GamepadButton.DIR_DOWN) {
-              if (index + 1 < visible.length) move(event, controls.current.get(`entry:${visible[index + 1]?.gameId}`));
+              if (index + 1 < visible.length) move(event, controls.current.get(entryKey(visible[index + 1]!)));
               else if (focusCloseButton()) { event.preventDefault(); event.stopPropagation(); }
             }
           }} style={{ display: "flex", gap: 8 }}>
             {achievement && snapshot ? <>
-              <Action label="Details" activate={() => onDetails(pin, snapshot)} elementRef={(node) => { if (node) controls.current.set(`entry:${pin.gameId}`, node); }} onFocused={scroll} />
+              <Action label="Details" activate={() => onDetails(pin, snapshot)} elementRef={(node) => { if (node) controls.current.set(entryKey(pin), node); }} onFocused={scroll} />
             </> : null}
-            <Action label="Unpin" activate={() => { if (!currentAccount(pin)) return; pendingFocus.current = visible[index + 1]?.gameId ?? visible[index - 1]?.gameId; unpinAchievement(pin, pin.achievementId); }}
-              {...(!achievement ? { elementRef: (node: HTMLDivElement | null) => { if (node) controls.current.set(`entry:${pin.gameId}`, node); } } : {})} onFocused={scroll} />
+            <Action label="Unpin" activate={() => {
+              if (!currentAccount(pin)) return;
+              const adjacent = visible[index + 1] ?? visible[index - 1];
+              pendingFocus.current = adjacent === undefined ? undefined : entryKey(adjacent);
+              if (pin.providerId !== "steam" || steamPins === undefined) {
+                unpinAchievement(pin, pin.achievementId);
+                return;
+              }
+              void setDeckySteamNativePin(pin.accountId, pin.gameId, pin.achievementId, false).then(async saved => {
+                if (saved) {
+                  unpinAchievement(pin, pin.achievementId);
+                } else {
+                  pendingFocus.current = undefined;
+                  const { toaster } = await import("@decky/api");
+                  toaster.toast({ title: "Achievement Companion", body: "Steam couldn't remove the achievement pin." });
+                }
+              });
+            }}
+              {...(!achievement ? { elementRef: (node: HTMLDivElement | null) => { if (node) controls.current.set(entryKey(pin), node); } } : {})} onFocused={scroll} />
           </Focusable>
         } />;
       })}

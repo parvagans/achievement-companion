@@ -1,4 +1,5 @@
 import { nativeUpNextIdentity } from "./decky-native-up-next-preview-model";
+import { isNativeGamePageShowingLaunchDetails } from "./decky-native-game-page-visibility";
 import { routerHook } from "@decky/api";
 import {
   afterPatch,
@@ -896,12 +897,14 @@ function useDeckyGamePageAchievementBadgeActivation(
 function createDeckyGamePageAchievementRouteBadgeElement(
   appId: string,
   onRouteUnmount: () => void,
+  launchDetailsVisible: boolean,
 ): JSX.Element {
   return (
     <DeckyGamePageAchievementRouteBadge
       key={ACHIEVEMENT_COMPANION_GAME_PAGE_ROUTE_BADGE_ELEMENT_KEY}
       appId={appId}
       onRouteUnmount={onRouteUnmount}
+      launchDetailsVisible={launchDetailsVisible}
     />
   );
 }
@@ -909,9 +912,11 @@ function createDeckyGamePageAchievementRouteBadgeElement(
 export function DeckyGamePageAchievementRouteBadge({
   appId,
   onRouteUnmount,
+  launchDetailsVisible,
 }: {
   readonly appId: string;
   readonly onRouteUnmount: () => void;
+  readonly launchDetailsVisible: boolean;
 }): JSX.Element | null {
   const settings = useDeckySettings();
 
@@ -921,13 +926,15 @@ export function DeckyGamePageAchievementRouteBadge({
     return null;
   }
 
-  return <DeckyGamePageAchievementRouteBadgeEnabled appId={appId} />;
+  return <DeckyGamePageAchievementRouteBadgeEnabled appId={appId} launchDetailsVisible={launchDetailsVisible} />;
 }
 
 function DeckyGamePageAchievementRouteBadgeEnabled({
   appId,
+  launchDetailsVisible,
 }: {
   readonly appId: string;
+  readonly launchDetailsVisible: boolean;
 }): JSX.Element | null {
   const settings = useDeckySettings();
   const { style, setBadgeElement } = useDeckyGamePageAchievementRouteBadgePlacement();
@@ -989,7 +996,7 @@ function DeckyGamePageAchievementRouteBadgeEnabled({
     });
   }, [badgeCompletionStatus, badgeStatusVariant, presentation, summary]);
 
-  if (badgeLabel === undefined || presentation === undefined) {
+  if (launchDetailsVisible || badgeLabel === undefined || presentation === undefined) {
     return null;
   }
 
@@ -1075,10 +1082,11 @@ export function ensureDeckyGamePageAchievementRoutePatchRegistered(): () => void
           const nextChildren = container.props.children.filter(
             (child) => !isAchievementCompanionRouteBadgeChild(child),
           );
+          const launchDetailsVisible = isNativeGamePageShowingLaunchDetails(nextChildren, currentAppId);
           nextChildren.splice(
             1,
             0,
-            createDeckyGamePageAchievementRouteBadgeElement(currentAppId, releaseWhenRouteLeaves),
+            createDeckyGamePageAchievementRouteBadgeElement(currentAppId, releaseWhenRouteLeaves, launchDetailsVisible),
           );
           container.props.children = nextChildren;
           markAchievementCompanionGamePageRouteBadgeInserted(currentAppId);

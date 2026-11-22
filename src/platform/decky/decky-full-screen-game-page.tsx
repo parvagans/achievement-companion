@@ -48,6 +48,7 @@ import {
   readDeckyRetroAchievementsSubsetDetailStates,
 } from "./decky-retroachievements-subset-detail-cache";
 import { DeckySteamGameOverview } from "./decky-steam-game-overview";
+import { buildSteamPinMenu } from "./decky-steam-pin-menu";
 import { useDeckyGameOverviewPreferences } from "./decky-game-overview-preferences";
 import { selectGameOverviewSuggestions, isGameOverviewGoalComplete } from "./decky-game-overview-recommendations";
 import type { DeckyGameOverviewActions } from "./decky-full-screen-game-overview-content";
@@ -735,6 +736,7 @@ export function DeckyFullScreenGamePage({
     snapshot: upNextSnapshot,
     hiddenAchievementIds: overviewPreferences.hiddenAchievementIds,
     pinnedAchievement: overviewPreferences.pinnedAchievement,
+    steamPinIds: overviewPreferences.steamPinIds,
     goal: overviewPreferences.retroAchievementsGoal,
     achievementMode: settings.retroAchievementsAchievementMode,
     ...(restorationSteamHuntersEnrichment !== undefined ? { steamHunters: {
@@ -742,7 +744,7 @@ export function DeckyFullScreenGamePage({
       achievements: Object.values(restorationSteamHuntersEnrichment.achievementsBySteamAchievementId),
       groups: restorationSteamHuntersEnrichment.achievementGroups,
     } } : {}),
-  }), [upNextSnapshot, overviewPreferences.hiddenAchievementIds, overviewPreferences.pinnedAchievement, overviewPreferences.retroAchievementsGoal, settings.retroAchievementsAchievementMode, restorationSteamHuntersEnrichment]);
+  }), [upNextSnapshot, overviewPreferences.hiddenAchievementIds, overviewPreferences.pinnedAchievement, overviewPreferences.steamPinIds, overviewPreferences.retroAchievementsGoal, settings.retroAchievementsAchievementMode, restorationSteamHuntersEnrichment]);
   useLayoutEffect(() => {
     const index = dismissedSuggestionIndexRef.current;
     if (index === undefined || activeSteamSection !== "overview") return;
@@ -1232,7 +1234,8 @@ export function DeckyFullScreenGamePage({
     suggestions: overviewSuggestions,
     hiddenSuggestions: restorationProjectedAchievements.filter((achievement) => overviewPreferences.hiddenAchievementIds.includes(achievement.achievementId)),
     achievementMode: settings.retroAchievementsAchievementMode,
-    onTogglePin: (id) => overviewPreferences.togglePinnedAchievement(id, settings.retroAchievementsAchievementMode),
+    steamPinChoices: buildSteamPinMenu(upNextSnapshot, overviewPreferences),
+    ...(overviewPreferences.canPin ? { onTogglePin: (id: string) => { overviewPreferences.togglePinnedAchievement(id, settings.retroAchievementsAchievementMode); } } : {}),
     goalComplete: !overviewSuggestions[0]?.pinned && isGameOverviewGoalComplete(snapshot, overviewPreferences.retroAchievementsGoal, settings.retroAchievementsAchievementMode),
     onOpenAchievement: (achievementId, returnToOrigin) => {
       openDeckyAchievementDetailModal({ providerId: providerIdValue, gameId: game.gameId, achievementId, onClose: () => {
@@ -1454,7 +1457,7 @@ export function DeckyFullScreenGamePage({
             selectAdjacentSteamSection("next");
           }}
           onHeightChange={setSteamFooterHeight}
-          {...(activeSteamSection === "overview" && focusedPinId !== null ? { primaryActionLabel: overviewPreferences.pinnedAchievement?.achievementId === focusedPinId ? "Unpin" : "Pin" } : {})}
+          {...(activeSteamSection === "overview" && focusedPinId !== null ? { primaryActionLabel: overviewSuggestions.some(s => s.pinned && s.achievement.achievementId === focusedPinId) ? "Unpin" : "Pin" } : {})}
           {...(activeSteamSection === "achievements" ? { secondaryActionLabel: "Top", onSecondaryAction: jumpSteamAchievementsToTop } : {})}
           {...(activeSteamSection === "overview" && focusedSuggestionId !== null ? {
             secondaryActionLabel: "Show", contextualXActionLabel: "Hide",

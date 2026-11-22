@@ -17,7 +17,6 @@ import calendarIconUrl from "./assets/calendar.svg";
 import clockIconUrl from "./assets/clock.svg";
 import usersIconUrl from "./assets/users.svg";
 import pieChartIconUrl from "./assets/pie-chart.svg";
-import { RA_COIN_ICON_URL } from "./decky-retroachievements-points-icon";
 import { DeckySteamHuntersIcon } from "./decky-steam-icons";
 import { requestDeckySteamGamepadFocusAfterMount } from "./decky-steam-gamepad-focus";
 
@@ -54,7 +53,6 @@ function getMetricColor(tone: DeckyAchievementModalMetric["tone"]): string {
 
 function MetricIcon({ metric }: { readonly metric: DeckyAchievementModalMetric }): JSX.Element | null {
   if (metric.icon === undefined) return null;
-  if (metric.icon === "points") return <img src={RA_COIN_ICON_URL} alt="" style={{ width: 14, height: 14 }} />;
   if (metric.icon === "steam-hunters") return <DeckySteamHuntersIcon size={14} color={theme.color.accent} />;
   const url = metric.icon === "date" ? calendarIconUrl : metric.icon === "time" ? clockIconUrl : metric.icon === "community" ? pieChartIconUrl : usersIconUrl;
   return <span aria-hidden="true" style={{ width: 14, height: 14, flexShrink: 0, background: metric.tone ? getMetricColor(metric.tone) : theme.color.accent,
@@ -110,10 +108,11 @@ function AchievementModalContent({ providerId, gameId, achievementId, onViewGame
 
   const currentSnapshot = enrichment !== undefined && enrichment.source === snapshot ? enrichment.enriched : snapshot;
   const model = currentSnapshot === undefined ? undefined : buildDeckyAchievementModalModel(currentSnapshot, achievementId, readDeckySettings().retroAchievementsAchievementMode);
-  const isPinned = preferences.pinnedAchievement?.achievementId === achievementId;
+  const isPinned = providerId === "steam" ? preferences.steamPinIds?.includes(achievementId) === true : preferences.pinnedAchievement?.achievementId === achievementId;
   const selectedAchievement = currentSnapshot?.achievements.find((achievement) => achievement.achievementId === achievementId);
   const canPin = preferences.canPin && selectedAchievement !== undefined && !isAchievementCompleteForPin(selectedAchievement, readDeckySettings().retroAchievementsAchievementMode);
-  const pinItems = isPinned || canPin ? [{ key: "pin", label: isPinned ? "Remove from Up Next" : "Set as Up Next", onSelect: () => preferences.togglePinnedAchievement(achievementId, readDeckySettings().retroAchievementsAchievementMode) }] : [];
+  const pinLabel = providerId === "steam" ? isPinned ? "Unpin in Steam" : "Pin in Steam" : isPinned ? "Remove from Up Next" : "Set as Up Next";
+  const pinItems = preferences.canPin && (isPinned || canPin) ? [{ key: "pin", label: pinLabel, onSelect: () => preferences.togglePinnedAchievement(achievementId, readDeckySettings().retroAchievementsAchievementMode) }] : [];
   const metrics = activeTab === "your-unlock" ? model?.yourUnlockMetrics : model?.communityMetrics;
   const tabs = [{ id: "your-unlock", label: "Your Unlock" }, { id: "community", label: "Community" }] as const;
   const boundedLine: CSSProperties = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
