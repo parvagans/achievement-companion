@@ -35,8 +35,8 @@ Achievement Companion is an independent community project, not affiliated with o
 
 ## Highlights
 
-- **[Choose your next unlock](#quick-access-menu):** pin a Steam or RetroAchievements target, manage saved targets from the Quick Access header, or follow automatic suggestions in full-screen Overview and supported native Steam views.
-- **[Stay in Game Mode](#retroachievements-inside-steam):** view RetroAchievements in Steam's Activity, Up Next, Your Stuff, Community, and Game Info sections for supported non-Steam games.
+- **[Choose your next unlock](#quick-access-menu):** pin a Steam or RetroAchievements target from Achievement Companion or [the native Steam achievement views](#pin-achievements-from-steam-game-pages), and manage your saved targets from Quick Access or RetroAchievements Up Next.
+- **[Stay in Game Mode](#retroachievements-inside-steam):** view RetroAchievements in Steam's Activity, Up Next, Your Stuff, Community, and Game Info sections. Open the native achievement list from the library or use [Achievements and Guides in the STEAM menu](#in-game-achievements-from-the-steam-menu) while a matched shortcut is running.
 - **[Explore both collections](#screenshots):** use controller-friendly profiles, searchable games and achievements, progress views, activity calendars, and achievement details.
 - **Understand Steam completions:** SteamHunters adds community rarity, completion times, DLC requirements, achievement groups, and obtainability data where available. Personal SteamHunters profile data is optional.
 - **[See progress and your next target in your library](#native-game-page-status-badges):** choose Classic or Minimal status badges and an optional Up Next preview on native game pages.
@@ -129,9 +129,9 @@ Expand the calendar to select a date and filter Recent Activity and the associat
 
 For a non-Steam shortcut that Achievement Companion can confidently match to a RetroAchievements game:
 
-- **Activity** groups dated unlocks by day in Steam's native layout. Tiles include the exact unlock time and Hardcore or Softcore mode; selecting one finds that achievement in the native Your Stuff list.
-- **Up Next** shows game progress and up to three recommendations, with your pinned target first. Press **Y Pin/Unpin** on a focused card to choose or remove a manual target; the native footer shows the action and a filled thumbtack marks the pinned achievement. **X Skip** hides a suggestion, and selecting a card finds it in the native achievement list. Change Beat/Master goals in Goal Settings or restore hidden suggestions individually or all at once in Suggestions. Pins and hidden choices sync with QAM and full-screen. Win Condition, Progression, and Missable labels clarify recommendations; completed goals show a completion message unless an unfinished manual pin remains active.
-- **Your Stuff → Achievements** shows badge artwork, descriptions, progress, locked and unlocked states, and unlock times or global rates when RetroAchievements provides them. Win Condition, Progression, and Missable labels also appear in the full native list.
+- **Activity** groups dated unlocks by day in Steam's native layout. Tiles include the exact unlock time and Hardcore or Softcore mode; selecting one opens **My Achievements** at that achievement.
+- **Up Next** shows game progress and up to three recommendations, with your pinned target first. Press **Y Pin/Unpin** on a focused card to choose or remove a manual target; the native footer shows the action and a filled thumbtack marks the pinned achievement. **X Skip** hides a suggestion, and selecting a card finds it in the native achievement list. Open **Pinned Achievements** from the Up Next toolbar to browse or remove saved pins. Change Beat/Master goals in Goal Settings or restore hidden suggestions individually or all at once in Suggestions. Pins and hidden choices sync with QAM and full-screen. Win Condition, Progression, and Missable labels clarify recommendations; completed goals show a completion message unless an unfinished manual pin remains active.
+- **Your Stuff → Achievements** shows badge artwork, descriptions, progress, locked and unlocked states, and unlock times or global rates when RetroAchievements provides them. Earned artwork appears in color and locked artwork in grayscale. Win Condition, Progression, and Missable labels also appear in the full native list.
 - **Community → Playtime Stats** shows RA community milestones and sampled median times in Steam's game-page layout. Its Casual/Hardcore control is separate from your saved achievement mode: Hardcore shows Beat and Mastered statistics; Casual shows Beat and Completed statistics. **Latest Masters** shows up to ten recent mastery entries with artwork, ranks, and dates. Unavailable values are omitted, and missing profile artwork falls back to initials.
 - **Game Info** adds a native metadata view with the matched game's cover, system, release date, developer, publisher, genre, and achievement availability when those fields are provided.
 
@@ -161,6 +161,72 @@ For a non-Steam shortcut that Achievement Companion can confidently match to a R
   <tr>
     <td width="50%"><img src="docs/screenshots/readme/ra-native-steam-community.png" alt="RetroAchievements Playtime Stats and Latest Masters shown in Steam's native Community interface" width="100%"></td>
     <td width="50%"><img src="docs/screenshots/readme/ra-native-steam-gameinfo.png" alt="RetroAchievements cover art and metadata shown in Steam's native Game Info interface" width="100%"></td>
+  </tr>
+</table>
+
+### Pin achievements from Steam game pages
+
+1. On a matched RetroAchievements shortcut, select the **Achievements** icon on the library Play row, or open **Your Stuff → Achievements** and choose **View My Achievements**. In the full Steam list, turn on **Pin Achievements** and press **X** to pin or unpin a locked row. Pressing **B** from a list opened through Activity or Up Next returns to the originating tile or recommendation.
+2. If Achievement Companion has verified the game's RetroAchievements subsets, use Steam's **All Sets** filter to switch between sets. The library list shows separate progress totals, and each set can save its own target.
+3. In the **Your Stuff** preview on a supported Steam game or matched RetroAchievements shortcut, press **Y** when the footer offers **Pin** or **Unpin**. Matched RetroAchievements shortcuts also have a native **Up Next** tab with **Pinned Achievements**. Switch to **Steam** in the viewer to see your native Steam pins when both providers are connected.
+
+For matched RetroAchievements shortcuts, Steam's **X Pin/Unpin** and Achievement Companion's pin controls edit the same target for each set. For ordinary Steam games, pinning and unpinning in either place changes the same Steam list when Achievement Companion is connected to the signed-in Steam account. If you have several Steam pins, open **Choose a Steam Pin for Up Next** to pick which one to show first. Existing Achievement Companion Steam pins are added to the shared list when you next open the corresponding game in Achievement Companion.
+
+<table>
+  <tr>
+    <th width="50%">Pin from Your Stuff</th>
+    <th width="50%">Manage pins from Up Next</th>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/readme/native-ra-pinning-06-your-stuff-pin.jpg" alt="Super Smash T.V. in Your Stuff with a locked achievement focused and Y Pin in the footer" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/native-ra-pinning-03-pinned-achievements.jpg" alt="Pinned Achievements opened from native Up Next with Steam and RetroAchievements tabs and Details and Unpin actions" width="100%"></td>
+  </tr>
+</table>
+
+<p align="center">
+  <strong>Pin from Steam's native All Achievements page</strong><br>
+  Turn on <strong>Pin Achievements</strong>, focus a locked achievement, and press <strong>X</strong>.
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/readme/native-ra-pinning-07-all-achievements-pin.png" alt="Super Smash T.V. in Steam's native All Achievements list, with a locked achievement focused and X Pin Achievement in the footer" width="720">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/readme/ra-native-steam-achievement-sets.png" alt="Ocarina of Time in Steam's native All Achievements page with separate base, Bonus, and Glitch Showcase progress and two subset pins" width="720">
+</p>
+
+### In-game Achievements from the STEAM menu
+
+While a matched RetroAchievements game is running, press **STEAM**, select the running game, and open **Achievements**. Steam displays your RetroAchievements progress, locked and unlocked rows, and saved pin for the running game's base set. The library achievement page also shows verified subsets.
+
+Turn on **Pin Achievements** in the panel, then use **X** on a locked achievement to pin it or remove the pin. The same pin appears in Achievement Companion's **Up Next** and **Pinned Achievements**. Press **B** to return to the running game's menu.
+
+<table>
+  <tr>
+    <th width="50%">Find Achievements in the STEAM menu</th>
+    <th width="50%">View RetroAchievements and your pin</th>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/readme/ra-native-steam-menu-in-game.png" alt="Steam Deck's in-game STEAM menu with Achievements focused for Ghost Recon 2" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/ra-native-steam-overlay-achievements.png" alt="Steam's native in-game Achievements panel for Ghost Recon 2 showing 3 of 56 achievements and a pinned RetroAchievements target" width="100%"></td>
+  </tr>
+</table>
+
+### In-game Guides from the STEAM menu
+
+While the matched game is running, press **STEAM** and select **Guides** between **Achievements** and **Notes**. The native dialog shows your pinned achievement's RetroAchievements page, a community **Mastery Guide**, and **Game Discussion** when available. If the set has no forum link, the dialog links to its RetroAchievements game page.
+
+Press **A** to open a resource in Steam's browser. Press **B** to close the dialog and return to **Guides**. Guide and discussion pages need an internet connection.
+
+<table>
+  <tr>
+    <th width="50%">Find Guides in the STEAM menu</th>
+    <th width="50%">Choose a guide or discussion</th>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/screenshots/readme/ra-native-steam-menu-guides.png" alt="Ocarina of Time's running-game menu with Guides focused between Achievements and Notes" width="100%"></td>
+    <td width="50%"><img src="docs/screenshots/readme/ra-native-steam-guides-dialog.png" alt="Steam's native Guides dialog for Ocarina of Time, showing Mastery Guide, Game Discussion, and Close" width="100%"></td>
   </tr>
 </table>
 

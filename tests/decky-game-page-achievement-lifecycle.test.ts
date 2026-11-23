@@ -118,7 +118,7 @@ test("route unmount and revision guards are connected to the badge hook", () => 
   const summary = readFileSync("src/platform/decky/decky-game-page-achievement-summary.ts", "utf8");
 
   assert.match(bubble, /useEffect\(\(\) => onRouteUnmount, \[onRouteUnmount\]\)/u);
-  assert.match(bubble, /createDeckyGamePageAchievementRouteBadgeElement\(currentAppId, releaseWhenRouteLeaves\)/u);
+  assert.match(bubble, /createDeckyGamePageAchievementRouteBadgeElement\(currentAppId, releaseWhenRouteLeaves, launchDetailsVisible\)/u);
   assert.match(bubble, /shouldReleaseDeckyGamePageRoutePatchOnBadgeUnmount/u);
   assert.match(summary, /useSyncExternalStore\(subscribeToRevision, readRevision, readRevision\)/u);
   assert.match(summary, /if \(!isCurrent\(\)\)/u);

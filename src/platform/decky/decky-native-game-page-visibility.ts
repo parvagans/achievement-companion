@@ -13,6 +13,15 @@ interface NativeNavigation {
   readonly m_rgAllContexts?: Iterable<NativeContext>;
 }
 
+/** Steam sets this on the matching library overview while its own launch screen is visible. */
+export function isNativeGamePageShowingLaunchDetails(children: readonly unknown[], appId: string): boolean {
+  return children.some(child => {
+    const shell = child as { props?: { children?: { props?: { overview?: { appid?: number }; bShowingLaunchDetails?: boolean } } } } | null;
+    const props = shell?.props?.children?.props;
+    return props?.bShowingLaunchDetails === true && String(props.overview?.appid) === appId;
+  });
+}
+
 /** Native navigation changes wake the shared-route check; they never veto page ownership. */
 export function subscribeNativeGamePageVisibility(navigation: NativeNavigation | undefined, changed: () => void): () => void {
   let contextSubscriptions: { Unregister(): void }[] = [];

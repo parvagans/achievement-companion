@@ -12194,7 +12194,7 @@ test("steam game page achievement badge uses the route-patched header path witho
   assert.match(bubbleSource, /event\.key === "Enter" \|\| event\.key === " "/u);
   assert.match(bubbleSource, /markAchievementCompanionGamePageBadgeActivated/u);
   assert.match(bubbleSource, /reportAchievementCompanionGamePageBadgeNavigationError/u);
-  assert.match(bubbleSource, /if \(badgeLabel === undefined \|\| presentation === undefined\) \{\s*return null;\s*\}/u);
+  assert.match(bubbleSource, /if \(launchDetailsVisible \|\| badgeLabel === undefined \|\| presentation === undefined\) \{\s*return null;\s*\}/u);
   assert.match(routeBadgeStyleFunctionSource, /visibility: heroMeasured \? "visible" : "hidden"/u);
   assert.doesNotMatch(
     bubbleSource,

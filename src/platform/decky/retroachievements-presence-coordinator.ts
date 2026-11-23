@@ -324,6 +324,11 @@ export function createRaPresenceCoordinator(dependencies: {
   }
   return { ensure, read, fresh, lifecycle, corroborateLaunch, reset, observe, project, updateRecent, hydrate,
     observedSessions: () => [...sessions.values()],
+    runningGameId(appId: string): string | undefined {
+      checkAccount();
+      const process = local.get(appId);
+      return process?.running && process.ownership !== undefined ? process.gameId : undefined;
+    },
     preferredGameId(snapshot: DashboardSnapshot) {
       const recent = project(snapshot).recentlyPlayedGames[0];
       const observed = [...sessions.values()].sort((a, b) => b.observedAt - a.observedAt)[0];

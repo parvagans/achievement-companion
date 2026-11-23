@@ -43,6 +43,18 @@ export function createNativeUpNextPreviewSession(dependencies: {
 
 export interface PreviewRect { readonly left: number; readonly top: number; readonly right: number; readonly bottom: number }
 
+export interface NativeUpNextBadgeOffset { readonly left: number; readonly top: number }
+
+/** Convert a placement into the badge's CSS coordinates using the same measured frame. */
+export function toNativeUpNextBadgeOffset(
+  placement: PreviewRect,
+  badge: Pick<DOMRect, "left" | "top">,
+  scaleX: number,
+  scaleY: number,
+): NativeUpNextBadgeOffset {
+  return { left: (placement.left - badge.left) / scaleX, top: (placement.top - badge.top) / scaleY };
+}
+
 /** Retry the existing placement with a compact card if the whole description cannot fit. */
 export function measureNativeUpNextPreviewPlacement(card: HTMLElement, place: (size: { width: number; height: number }) => PreviewRect | undefined): PreviewRect | undefined {
   const description = card.querySelector<HTMLElement>("[data-ac-up-next-description]");

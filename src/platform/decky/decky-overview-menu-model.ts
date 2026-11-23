@@ -52,6 +52,7 @@ import type { RetroAchievementsAchievementMode } from "@core/settings";
 
 export interface DeckyGameOverviewActions {
   readonly suggestions: readonly GameOverviewSuggestion[];
+  readonly steamPinChoices?: readonly DeckyOverviewMenuItem[];
   readonly hiddenSuggestions: readonly NormalizedAchievement[];
   readonly goalComplete?: boolean;
   readonly goal?: RetroAchievementsGameGoal;
@@ -78,7 +79,7 @@ export function buildDeckyManageSuggestionsMenuItems(
       key: `visible:${achievement.achievementId}`,
       label: achievement.title,
       items: [
-        ...(actions.onTogglePin === undefined || !pinned && isAchievementCompleteForPin(achievement, actions.achievementMode ?? "both") ? [] : [{ key: "pin", label: pinned ? "Remove from Up Next" : "Set as Up Next", onSelect: () => actions.onTogglePin?.(achievement.achievementId) }]),
+        ...(actions.onTogglePin === undefined || !pinned && isAchievementCompleteForPin(achievement, actions.achievementMode ?? "both") ? [] : [{ key: "pin", label: achievement.providerId === "steam" ? pinned ? "Unpin in Steam" : "Pin in Steam" : pinned ? "Remove from Up Next" : "Set as Up Next", onSelect: () => actions.onTogglePin?.(achievement.achievementId) }]),
         ...(detailsAction === "modal" ? [{ key: "details", label: "View Details", onSelect: (navigation: DeckyOverviewMenuNavigation) => actions.onOpenAchievement(achievement.achievementId, () => navigation.restoreCurrent("details")) }] : []),
         { key: "show", label: "Show in Achievements", onSelect: () => actions.onJumpToAchievement(achievement.achievementId) },
         { key: "hide", label: "Hide Suggestion", tone: "destructive" as const, keepMenuOpenOnSelect: true, onSelect: (navigation: DeckyOverviewMenuNavigation) => {
@@ -104,6 +105,7 @@ export function buildDeckyManageSuggestionsMenuItems(
     };
   });
   return [
+    ...(actions.steamPinChoices ?? []),
     ...visible,
     ...(hiddenItems.length > 0 ? [{ key: "hidden", label: `Hidden Suggestions (${hiddenItems.length})`, items: hiddenItems }] : []),
     ...(hiddenItems.length > 0 ? [{ key: "restore-all", label: "Restore All Hidden", tone: "positive" as const, keepMenuOpenOnSelect: true, onSelect: (navigation: DeckyOverviewMenuNavigation) => {

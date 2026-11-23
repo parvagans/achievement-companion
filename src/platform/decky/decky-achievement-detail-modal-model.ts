@@ -8,7 +8,7 @@ export interface DeckyAchievementModalMetric {
   readonly label: string;
   readonly value: string;
   readonly tone?: "positive" | "hardcore" | "softcore" | "muted" | "warning" | "danger";
-  readonly icon?: "date" | "time" | "points" | "steam-hunters" | "community" | "players";
+  readonly icon?: "date" | "time" | "steam-hunters" | "community" | "players";
   readonly valueTone?: "points" | "retro-points";
   readonly progress?: { readonly percent: number; readonly hardcorePercent?: number };
 }
@@ -134,9 +134,9 @@ export function buildDeckyAchievementModalModel(
   } else {
     const totalUnlockCount = countMetric(achievement, "unlocked-count");
     const totalPlayers = validCount(parseMetricNumber(snapshot.game.metrics, "total-players", "Total Players"));
-    if (achievement.points !== undefined) communityMetrics.push({ label: "Points", value: formatCount(achievement.points), icon: "points", valueTone: "points" });
+    if (achievement.points !== undefined) communityMetrics.push({ label: "Points", value: formatCount(achievement.points), valueTone: "points" });
     const retroPoints = getMetricValue(achievement.metrics, "true-ratio");
-    if (retroPoints !== undefined) communityMetrics.push({ label: "RetroPoints", value: retroPoints, icon: "points", valueTone: "retro-points" });
+    if (retroPoints !== undefined) communityMetrics.push({ label: "RetroPoints", value: retroPoints, valueTone: "retro-points" });
     const hardcore = countMetric(achievement, "hardcore-unlocked-count");
     const softcoreOnly = countMetric(achievement, "softcore-unlocked-count");
     if (totalUnlockCount !== undefined) {

@@ -19,31 +19,26 @@ test("bundled What's New notes cover the update and remain readable offline", ()
   }
 });
 
-test("What's New covers 0.39.1 while retaining the 0.39.0 highlights and earlier Up Next introduction", () => {
+test("What's New reflects the post-0.40.0 Steam integration and groups fixes under Hotfix", () => {
   assert.deepEqual(
     WHATS_NEW_SECTIONS.map((section) => section.title),
-    ["Overview", "Up Next", "Pinned", "Game Page Badges", "Halloween"],
+    ["Overview", "Steam Library", "Pins", "In-Game", "Hotfix"],
   );
   assert.ok(WHATS_NEW_SECTIONS.every((section) => section.title.length <= 16));
 
-  const releaseCopy = WHATS_NEW_SECTIONS.flatMap((section) => section.items).join(" ");
-  assert.deepEqual(WHATS_NEW_SECTIONS.find((section) => section.title === "Up Next")?.items.slice(0, 2), [
-    "Up Next recommends three achievements using progression and available provider data, with community rarity and RetroAchievements classifications where supported.",
-    "Open a recommendation's details, jump to it in Achievements, or hide it. Manage Suggestions can restore individual choices or every hidden suggestion.",
-  ]);
-  assert.match(releaseCopy, /thumbtack controls/u);
-  assert.match(releaseCopy, /Y Pin\/Unpin/u);
-  assert.match(releaseCopy, /separate for each account and game/u);
-  assert.match(releaseCopy, /Removing or completing a pin/u);
-  assert.match(releaseCopy, /without changing your Beat\/Master goals/u);
-  assert.match(releaseCopy, /Hardcore\/Softcore/u);
-  assert.match(releaseCopy, /both settings default to On Focus/u);
-  assert.match(releaseCopy, /three equal-height recommendation cards/u);
-  assert.match(releaseCopy, /two-line description summaries/u);
-  assert.match(releaseCopy, /Happy Halloween/u);
-  assert.match(releaseCopy, /orange accents, deep purple surfaces, and mint highlights/u);
-  assert.match(releaseCopy, /Down again at the bottom to reach Close/u);
-  assert.doesNotMatch(releaseCopy, /Provider cooldowns|emulator ROM switches|verified subsets/u);
+  const copy = Object.fromEntries(WHATS_NEW_SECTIONS.map(section => [section.title, section.items.join(" ")]));
+  assert.match(copy["Overview"] ?? "", /Since v0\.40\.0/u);
+  assert.match(copy["Steam Library"] ?? "", /All Sets.*verified RetroAchievements subsets/u);
+  assert.match(copy["Pins"] ?? "", /press X to pin or unpin/u);
+  assert.match(copy["Pins"] ?? "", /pinning or unpinning in either place updates the same list/u);
+  assert.match(copy["In-Game"] ?? "", /press STEAM|Press STEAM/u);
+  assert.match(copy["In-Game"] ?? "", /Guides between Achievements and Notes.*community mastery guide/u);
+  assert.match(copy["Hotfix"] ?? "", /v0\.41\.1 hotfix.*Your Stuff and My Achievements.*grayscale/u);
+  assert.match(copy["Hotfix"] ?? "", /points and Ratio.*without the coin and pie icons.*GitHub and Ko-fi icons load again/u);
+  assert.match(copy["Hotfix"] ?? "", /Press B to return to the original tile or recommendation/u);
+  assert.match(copy["Hotfix"] ?? "", /duplicate Y Unpin.*native X/u);
+  assert.match(copy["Hotfix"] ?? "", /stay aligned.*hide together/u);
+  assert.doesNotMatch(Object.values(copy).join(" "), /Halloween|Library Collections/u);
 });
 
 test("actual What's New tab handlers scroll first, then hand off to native Close from every subject", async () => {
@@ -55,7 +50,7 @@ test("actual What's New tab handlers scroll first, then hand off to native Close
   const refs = [content, notes, null];
   const focusedTargets: unknown[] = [];
   const { WhatsNewContent } = await components("decky-whats-new-modal.tsx", ["WhatsNewContent", "consumeDirection", "focusAndConsume"], {
-    createElement, Focusable: "native-focusable", WHATS_NEW_SECTIONS, APP_VERSION: "0.39.1", steamTheme,
+    createElement, Focusable: "native-focusable", WHATS_NEW_SECTIONS, APP_VERSION: "0.42.0", steamTheme,
     NOTES_VIEWPORT_HEIGHT_PX: 160, NOTES_SCROLL_STEP_PX: 48, versionStyle: {}, noteRowStyle: {},
     useRef: () => ({ current: refs[refIndex++] }), useState: (initial: unknown) => [initial, () => {}],
     useEffect: () => {}, useLayoutEffect: () => {}, getDeckyStandardModalContentStyle: () => ({}), getDeckyStandardModalTabStyle: () => ({}),
@@ -73,6 +68,7 @@ test("actual What's New tab handlers scroll first, then hand off to native Close
   }
   visit(tree);
   assert.equal(tabs.length, WHATS_NEW_SECTIONS.length);
+  assert.equal(tabs.at(-1)?.props["aria-label"], "Hotfix");
   function press(tab: any, button: number): number {
     let consumed = 0;
     tab.props.onGamepadDirection({ detail: { button }, preventDefault: () => { consumed++; }, stopPropagation: () => { consumed++; }, stopImmediatePropagation: () => { consumed++; } });

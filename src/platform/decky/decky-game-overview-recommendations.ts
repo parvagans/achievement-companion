@@ -9,6 +9,7 @@ export type RetroAchievementsGameGoal = "beat" | "master";
 
 export interface GameOverviewSuggestion {
   readonly pinned?: boolean;
+  readonly automaticSteamTarget?: true;
   readonly achievement: NormalizedAchievement;
   readonly rarityPercent?: number;
   readonly groupLabel?: string;
@@ -18,6 +19,7 @@ export interface GameOverviewSuggestion {
 
 export interface GameOverviewSuggestionOptions {
   readonly pinnedAchievement?: PinnedAchievement | undefined;
+  readonly steamPinIds?: readonly string[] | undefined;
   /** Use the same achievement-mode projection as the full Achievements browser. */
   readonly snapshot: GameDetailSnapshot;
   readonly steamHunters?: SteamHuntersGameData;
@@ -87,8 +89,18 @@ export function isGameOverviewGoalComplete(
  * Conservative source-order recommendations. Source order is a sequencing hint,
  * never evidence of prerequisites or difficulty; browsing order is unaffected.
  */
+export function getUnfinishedSteamPinRows(snapshot: GameDetailSnapshot, steamPinIds: readonly string[]): readonly NormalizedAchievement[] {
+  if (snapshot.game.providerId !== "steam" || steamPinIds.length === 0) return [];
+  const rows = new Map(snapshot.achievements.filter(row => row.providerId === "steam"
+    && row.gameId === snapshot.game.gameId && !row.isUnlocked).map(row => [row.achievementId, row]));
+  return [...new Set(steamPinIds)].flatMap(id => {
+    const row = rows.get(id);
+    return row === undefined ? [] : [row];
+  });
+}
+
 export function selectGameOverviewSuggestions({
-  snapshot: sourceSnapshot, steamHunters, hiddenAchievementIds = [], goal = "master", achievementMode = "both", limit = 3, pinnedAchievement,
+  snapshot: sourceSnapshot, steamHunters, hiddenAchievementIds = [], goal = "master", achievementMode = "both", limit = 3, pinnedAchievement, steamPinIds = [],
 }: GameOverviewSuggestionOptions): readonly GameOverviewSuggestion[] {
   const achievements = projectRetroAchievementsFullScreenAchievements(sourceSnapshot, achievementMode);
   const snapshot = achievements === sourceSnapshot.achievements ? sourceSnapshot : { ...sourceSnapshot, achievements };
@@ -114,16 +126,23 @@ export function selectGameOverviewSuggestions({
       : steam?.obtainability === "unobtainable" ? "Unobtainable" : undefined;
     return {
       achievement,
+      ...(!isRetro && steamPinIds.includes(achievement.achievementId) ? { pinned: true } : {}),
       ...(rarityPercent !== undefined ? { rarityPercent } : {}),
       ...(groupLabel !== undefined ? { groupLabel } : {}),
       ...(availabilityLabel !== undefined ? { availabilityLabel } : {}),
       ...(isRetro && achievement.classification === "missable" ? { warning: "Missable — check your current save" } : {}),
     };
   };
-  const pinnedRow = pinnedAchievement === undefined || isPinnedAchievementComplete(sourceSnapshot, pinnedAchievement) ? undefined
+  const explicitRow = pinnedAchievement === undefined || isPinnedAchievementComplete(sourceSnapshot, pinnedAchievement) ? undefined
     : sourceSnapshot.achievements.find((achievement) => achievement.achievementId === pinnedAchievement.achievementId
       && achievement.providerId === snapshot.game.providerId && achievement.gameId === snapshot.game.gameId);
-  const pinned: readonly GameOverviewSuggestion[] = pinnedRow === undefined ? [] : [{ ...describe(pinnedRow), pinned: true }];
+  const unfinishedSteamPins = explicitRow === undefined ? getUnfinishedSteamPinRows(snapshot, steamPinIds) : [];
+  const onlyPin = unfinishedSteamPins.length === 1 ? unfinishedSteamPins[0] : undefined;
+  const automaticRow = onlyPin !== undefined && !hidden.has(onlyPin.achievementId) ? onlyPin : undefined;
+  const pinnedRow = explicitRow ?? automaticRow;
+  const pinned: readonly GameOverviewSuggestion[] = pinnedRow === undefined ? [] : [{
+    ...describe(pinnedRow), pinned: true, ...(automaticRow !== undefined ? { automaticSteamTarget: true } : {}),
+  }];
   const count = Number.isFinite(limit) ? Math.max(0, Math.min(3, Math.trunc(limit))) : 3;
   if (isGameOverviewGoalComplete(snapshot, goal, achievementMode)) return pinned.slice(0, count);
   const candidates = snapshot.achievements.flatMap((achievement, sourceIndex) => {

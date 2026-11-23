@@ -12,7 +12,6 @@ import { scrollDeckyFocusTargetIntoView } from "./decky-focus-scroll";
 import { formatRetroAchievementsCommunityDuration } from "./decky-retroachievements-community-stats-data";
 import { buildRetroAchievementsCompactGamePresentation, shouldCollapseRetroAchievementsModeProgress } from "./decky-retroachievements-compact-game-model";
 import { raRecipes, raTheme } from "./ra-theme";
-import { DeckyRetroAchievementsPointsIcon } from "./decky-retroachievements-points-icon";
 import { DeckyCompactGameOverviewActions } from "./decky-compact-game-overview-actions";
 import { DeckyCompactGameOverviewUpNext } from "./decky-compact-game-overview-up-next";
 import { openDeckyOverviewDetails } from "./decky-full-screen-game-overview-content";
@@ -58,7 +57,7 @@ function PassiveSection({ label, children }: { readonly label: string; readonly 
 }
 
 function Metric({ icon, label, value, secondary, tone = "primary", stat = false }: {
-  readonly icon: string | JSX.Element;
+  readonly icon?: string;
   readonly label: string;
   readonly value: string;
   readonly secondary?: string;
@@ -67,7 +66,7 @@ function Metric({ icon, label, value, secondary, tone = "primary", stat = false 
 }): JSX.Element {
   return (
     <div style={stat ? raRecipes.compactGame.statMetric() : raRecipes.compactGame.metric()}>
-      {typeof icon === "string" ? <img alt="" aria-hidden="true" src={icon} style={{ width: stat ? 17 : 22, height: stat ? 17 : 22, filter: raTheme.iconFilter[tone] }} /> : icon}
+      {icon !== undefined ? <img alt="" aria-hidden="true" src={icon} style={{ width: stat ? 17 : 22, height: stat ? 17 : 22, filter: raTheme.iconFilter[tone] }} /> : null}
       <div style={raRecipes.compactGame.metricText}>
         <span style={{ ...raRecipes.compactGame.metricLabel, color: tone === "hardcore" ? raTheme.color.hardcore : tone === "softcore" ? raTheme.color.softcore : raTheme.color.textSecondary }}>{label}</span>
         <strong style={raRecipes.compactGame.metricValue}>{value}</strong>
@@ -177,8 +176,8 @@ export function DeckyRetroAchievementsCompactGameOverview({
       <PassiveSection label="My RetroAchievements Stats">
         <div style={raRecipes.compactGame.sectionLabel}>My RetroAchievements Stats</div>
         <div style={raRecipes.compactGame.statGrid}>
-          <Metric stat icon={<DeckyRetroAchievementsPointsIcon size={17} />} label="Points" value={formatCount(presentation.points)} tone={achievementMode === "both" ? "primary" : achievementMode} />
-          <Metric stat icon={<DeckyRetroAchievementsPointsIcon size={17} />} label="RetroPoints" value={formatCount(presentation.retroPoints)} />
+          <Metric stat label="Points" value={formatCount(presentation.points)} tone={achievementMode === "both" ? "primary" : achievementMode} />
+          <Metric stat label="RetroPoints" value={formatCount(presentation.retroPoints)} />
           <Metric stat icon={starIconUrl} label="Unlock %" value={formatPercent(completionPercent)} />
         </div>
       </PassiveSection>

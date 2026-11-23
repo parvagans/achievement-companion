@@ -32,6 +32,7 @@ export function openDeckyStandardModal({
   renderTitle,
   renderContent,
   onClose,
+  parent,
   viewportSafe = false,
   preserveCompactSession = false,
   stabilizeCloseFocus = false,
@@ -40,6 +41,7 @@ export function openDeckyStandardModal({
   readonly renderTitle?: (closeModal: () => void) => ReactNode;
   readonly renderContent: (closeModal: () => void, focusCloseButton: () => boolean) => ReactNode;
   readonly onClose?: () => void;
+  readonly parent?: EventTarget | undefined;
   readonly viewportSafe?: boolean;
   readonly preserveCompactSession?: boolean;
   readonly stabilizeCloseFocus?: boolean;
@@ -84,7 +86,7 @@ export function openDeckyStandardModal({
       >
         {renderContent(closeModal, focusCloseButton)}
       </ConfirmModal>,
-      undefined,
+      parent,
       {
         strTitle: title,
         bHideMainWindowForPopouts: false,

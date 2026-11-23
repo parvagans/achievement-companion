@@ -24,7 +24,6 @@ import calendarIconUrl from "./assets/calendar.svg";
 import clockIconUrl from "./assets/clock.svg";
 import usersIconUrl from "./assets/users.svg";
 import pieChartIconUrl from "./assets/pie-chart.svg";
-import { RA_COIN_ICON_URL } from "./decky-retroachievements-points-icon";
 
 type DeckyGamepadFocusHandler = NonNullable<FocusableProps["onGamepadFocus"]>;
 
@@ -234,12 +233,11 @@ function getChevronStyle(): CSSProperties {
 }
 
 function DetailStat({ stat, fullWidth, isSteam = false }: { readonly stat: CompactAchievementDetailStat; readonly fullWidth: boolean; readonly isSteam?: boolean }): JSX.Element {
-  const isRetroAchievementsPoints = !isSteam && (stat.key === "points" || stat.key === "retro-points");
-  const iconUrl = isRetroAchievementsPoints ? RA_COIN_ICON_URL : stat.key === "date" ? calendarIconUrl : stat.key === "time" ? clockIconUrl : stat.key === "community-percentage" || stat.key === "rarity" ? pieChartIconUrl : stat.key === "players" || stat.key.endsWith("-unlocks") ? usersIconUrl : undefined;
+  const iconUrl = stat.key === "date" ? calendarIconUrl : stat.key === "time" ? clockIconUrl : stat.key === "community-percentage" || stat.key === "rarity" ? pieChartIconUrl : stat.key === "players" || stat.key.endsWith("-unlocks") ? usersIconUrl : undefined;
   return (
     <div style={{ ...getStatStyle(isSteam), ...(fullWidth ? { gridColumn: "1 / -1" } : {}) }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 5 }}>
-        {isSteam && stat.key === "points" ? <DeckySteamHuntersIcon color={steamTheme.color.accent} size={15} /> : iconUrl !== undefined ? <img alt="" aria-hidden="true" src={iconUrl} style={{ width: 15, height: 15, objectFit: "contain", ...(isRetroAchievementsPoints ? {} : { filter: isSteam ? steamTheme.iconFilter.accent : stat.key === "points" ? raTheme.iconFilter.hardcore : stat.key === "hardcore-unlocks" ? raTheme.iconFilter.hardcore : stat.key === "softcore-unlocks" ? raTheme.iconFilter.softcore : raTheme.iconFilter.primary }) }} /> : null}
+        {isSteam && stat.key === "points" ? <DeckySteamHuntersIcon color={steamTheme.color.accent} size={15} /> : iconUrl !== undefined ? <img alt="" aria-hidden="true" src={iconUrl} style={{ width: 15, height: 15, objectFit: "contain", filter: isSteam ? steamTheme.iconFilter.accent : stat.key === "hardcore-unlocks" ? raTheme.iconFilter.hardcore : stat.key === "softcore-unlocks" ? raTheme.iconFilter.softcore : raTheme.iconFilter.primary }} /> : null}
         <div style={getStatLabelStyle(isSteam)}>{stat.label}</div>
       </div>
       <div style={getStatValueStyle(isSteam, stat.key)}>{stat.value}</div>

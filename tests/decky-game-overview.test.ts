@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import type { GameDetailSnapshot, NormalizedAchievement } from "../src/core/domain";
-import { selectGameOverviewSuggestions, isGameOverviewGoalComplete } from "../src/platform/decky/decky-game-overview-recommendations";
-import { createGameOverviewPreferencesStore, gameOverviewPreferenceKey, parseGameOverviewPreferences } from "../src/platform/decky/decky-game-overview-preferences";
+import { getUnfinishedSteamPinRows, selectGameOverviewSuggestions, isGameOverviewGoalComplete } from "../src/platform/decky/decky-game-overview-recommendations";
+import { createGameOverviewPreferencesStore, gameOverviewPreferenceKey, parseGameOverviewPreferences, pinnedAchievementPreferenceKey } from "../src/platform/decky/decky-game-overview-preferences";
+import { editSteamNativePin, parseSteamNativePins } from "../src/platform/decky/decky-steam-native-pins";
+import { buildSteamPinMenu } from "../src/platform/decky/decky-steam-pin-menu";
 import { projectRetroAchievementsFullScreenAchievements } from "../src/platform/decky/decky-retroachievements-full-screen-achievement-data";
 import { getDeckyOverviewDashboardColumns, getDeckyOverviewGridRows } from "../src/platform/decky/decky-full-screen-game-overview-layout";
 import { getDeckySteamFullscreenArtworkFrameStyle, getDeckySteamFullscreenArtworkImageStyle } from "../src/platform/decky/decky-steam-fullscreen-game-artwork";
@@ -348,4 +350,84 @@ test("Steam Overview artwork fills its rounded frame while fallbacks can preserv
   assert.equal(getDeckySteamFullscreenArtworkImageStyle("contain", false).objectFit, "contain");
   const steam = readFileSync("src/platform/decky/decky-steam-game-overview.tsx", "utf8");
   assert.match(steam, /overview imageFit="cover" fallbackImageFit="contain"/u);
+});
+
+test("native Steam pins feed Up Next and unpinning removes the automatic target", () => {
+  const source = snapshot([achievement("normal"), achievement("steam-pin"), achievement("done", { isUnlocked: true }), achievement("manual")]);
+  const suggest = (steamPinIds: string[], pinnedAchievement?: { achievementId: string; completionMode: "both" }) =>
+    selectGameOverviewSuggestions({ snapshot: source, steamPinIds, pinnedAchievement });
+  assert.equal(suggest(["done", "steam-pin", "unknown"])[0]?.achievement.achievementId, "steam-pin");
+  assert.equal(suggest(["steam-pin"])[0]?.automaticSteamTarget, true);
+  assert.equal(suggest(["steam-pin", "manual"], { achievementId: "manual", completionMode: "both" })[0]?.achievement.achievementId, "manual");
+  assert.equal(suggest(["steam-pin", "manual"])[0]?.achievement.achievementId, "normal");
+  assert.equal(suggest([])[0]?.achievement.achievementId, "normal");
+  const pinned = suggest(["steam-pin", "manual"]).filter(row => row.pinned).map(row => row.achievement.achievementId);
+  assert.deepEqual(pinned, ["steam-pin", "manual"]);
+  assert.deepEqual(getUnfinishedSteamPinRows(source, ["manual", "steam-pin", "done"]).map(row => row.achievementId), ["manual", "steam-pin"]);
+});
+
+test("choosing an unfinished Steam pin only changes the Up Next priority", () => {
+  const source = snapshot([achievement("native-a"), achievement("native-b"), achievement("other"), achievement("done", { isUnlocked: true })]);
+  const selected: string[] = [];
+  const nativePins = ["native-b", "native-a", "done"];
+  const menu = buildSteamPinMenu(source, {
+    steamPinIds: nativePins,
+    pinnedAchievement: { achievementId: "native-a" },
+    pinAchievement: id => { selected.push(id); return true; },
+  });
+  assert.equal(menu[0]?.label, "Choose a Steam Pin for Up Next");
+  assert.deepEqual(menu[0]?.items?.map(item => [item.label, item.selected]), [["native-b", false], ["native-a", true]]);
+  menu[0]?.items?.[0]?.onSelect?.({ restoreCurrent() {}, restoreParent() {} });
+  assert.deepEqual(selected, ["native-b"]);
+  assert.deepEqual(nativePins, ["native-b", "native-a", "done"]);
+});
+
+test("Steam migration markers survive restart without affecting other accounts or providers", () => {
+  let raw: string | null = null;
+  const storage = { getItem: () => raw, setItem: (_key: string, value: string) => { raw = value; } };
+  const store = createGameOverviewPreferencesStore(storage);
+  const scope = { providerId: "steam", gameId: "1", accountId: "viewer-one" };
+  const other = { ...scope, accountId: "viewer-two" };
+  const retro = { ...scope, providerId: "retroachievements" };
+  assert.equal(store.pinAchievement(scope, "old"), true);
+  assert.equal(store.readPinnedAchievement(scope)?.steamSynced, undefined);
+  assert.equal(store.pinAchievement(other, "other"), true);
+  assert.equal(store.pinAchievement(retro, "retro"), true);
+  assert.equal(store.pinAchievement(scope, "old", "both", true), true);
+  const restarted = createGameOverviewPreferencesStore(storage);
+  assert.equal(restarted.readPinnedAchievement(scope)?.steamSynced, true);
+  restarted.unpinAchievement(scope, "different");
+  assert.equal(restarted.readPinnedAchievement(scope)?.achievementId, "old");
+  assert.equal(restarted.unpinAchievement(scope, "old"), true);
+  assert.equal(restarted.readPinnedAchievement(scope), undefined);
+  assert.equal(restarted.readPinnedAchievement(other)?.achievementId, "other");
+  assert.equal(restarted.readPinnedAchievement(retro)?.achievementId, "retro");
+});
+
+test("Steam pin writes preserve existing pins and verify additions and removals", async () => {
+  let raw: string | undefined;
+  let writes = 0;
+  let current = true;
+  const storage = {
+    GetString: async () => {
+      if (raw === undefined) throw { result: 2, message: "Not found" };
+      return raw;
+    },
+    SetString: async (_key: string, value: string) => { raw = value; writes++; },
+  };
+  const key = "SortedAchievements_1";
+  const ownsAccount = () => current;
+  assert.deepEqual(await editSteamNativePin(storage, key, "first", true, ownsAccount), ["first"]);
+  raw = JSON.stringify(["first", "native"]);
+  assert.deepEqual(await editSteamNativePin(storage, key, "from-ac", true, ownsAccount), ["first", "native", "from-ac"]);
+  assert.deepEqual(await editSteamNativePin(storage, key, "native", false, ownsAccount), ["first", "from-ac"]);
+  assert.deepEqual(await editSteamNativePin(storage, key, "native", false, ownsAccount), ["first", "from-ac"]);
+  assert.equal(writes, 3);
+  await assert.rejects(editSteamNativePin({ ...storage, GetString: async () => { current = false; return raw; } }, key, "wrong", true, ownsAccount), /account changed/u);
+  assert.equal(writes, 3);
+  assert.deepEqual(parseSteamNativePins(null), []);
+  assert.throws(() => parseSteamNativePins('["valid",3]'), /invalid Steam pin list/i);
+  await assert.rejects(editSteamNativePin({ ...storage, SetString: async () => {} }, key, "not-saved", true, () => true), /did not confirm/u);
+  await assert.rejects(editSteamNativePin({ ...storage, SetString: async () => { throw new Error("disk failure"); } }, key, "not-saved", true, () => true), /disk failure/u);
+  assert.equal(writes, 3);
 });

@@ -53,3 +53,12 @@ test("Steam boundary projects mode-specific rarity and earned/locked vectors", (
   assert.equal(model.vecUnachieved[0]?.rtUnlocked, 0);
   assert.equal(model.vecUnachieved[0]?.flCurrentProgress, 0);
 });
+
+test("native RA artwork uses the provider's locked variant without changing custom image URLs", () => {
+  const badgeImageUrl = "https://i.retroachievements.org/Badge/201677.png";
+  assert.equal(toNativeSteamAchievement({ ...locked, badgeImageUrl }, "both").strImage,
+    "https://i.retroachievements.org/Badge/201677_lock.png");
+  assert.equal(toNativeSteamAchievement({ ...earned, badgeImageUrl }, "both").strImage, badgeImageUrl);
+  const custom = "https://example.test/Badge/201677.png";
+  assert.equal(toNativeSteamAchievement({ ...locked, badgeImageUrl: custom }, "both").strImage, custom);
+});

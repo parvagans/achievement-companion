@@ -10,6 +10,11 @@ test("rate-limited pinned A keeps its data and still lets B read its own cached 
   const harness=loadLocalComponent("src/platform/decky/decky-pinned-achievements-modal.tsx",{
     "./decky-standard-modal":{getDeckyStandardModalContentStyle:()=>({}),getDeckyStandardModalTabStyle:()=>({})},
     "./decky-achievement-detail-modal":{},
+    "./decky-steam-native-pins":{useDeckySteamPinnedGames:(accountId: string | undefined, enabled: boolean)=>{
+      assert.equal(accountId,undefined);
+      assert.equal(enabled,false);
+      return undefined;
+    }},
     "./decky-steam-gamepad-focus":{},
     react:{...React,useEffect:(cb:()=>unknown)=>effects.push(cb),useLayoutEffect:()=>{},useRef:(current:unknown)=>({current}),useState:(initial:unknown)=>{
       if(Array.isArray(initial))return [["1","2"],()=>{}];

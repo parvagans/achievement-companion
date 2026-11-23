@@ -1,11 +1,11 @@
 import { Focusable, Navigation } from "@decky/ui";
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type JSX } from "react";
+import { useLayoutEffect, useEffect, useMemo, useRef, useState, type CSSProperties, type JSX } from "react";
 import {
   groupNativeRetroAchievementsActivityItems,
   type NativeRetroAchievementsActivityItem,
 } from "./decky-native-retroachievements-activity-model";
 import { buildDeckyNativeSteamAchievementsRoute } from "./decky-game-page-achievement-route";
-import { focusNativeAchievementAfterNavigation } from "./decky-native-achievement-jump";
+import { focusNativeAchievementAfterNavigation, restoreNativeAchievementJumpReturn } from "./decky-native-achievement-jump";
 
 const MAX_EVENT_ACHIEVEMENTS = 7;
 const visibleDaysByApp = new Map<number, number>();
@@ -61,9 +61,11 @@ function ActivityAchievement({
 }): JSX.Element {
   const [focused, setFocused] = useState(false);
   const tileRef = useRef<HTMLElement | null>(null);
+  const originKey = item.achievement.achievementId + ":" + item.unlockedAt;
+  useLayoutEffect(() => restoreNativeAchievementJumpReturn(tileRef.current, appId, "activity", originKey), [appId, originKey]);
   const open = (): void => {
     const document = tileRef.current?.ownerDocument;
-    if (document !== undefined) focusNativeAchievementAfterNavigation(document, item.achievement.achievementId);
+    if (document !== undefined) focusNativeAchievementAfterNavigation(document, appId, item.achievement.achievementId, "activity", originKey);
     Navigation.Navigate(buildDeckyNativeSteamAchievementsRoute(appId));
   };
   const details = unlockLabel(item);

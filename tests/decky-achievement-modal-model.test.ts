@@ -55,7 +55,7 @@ test("RA achievement modal separates personal dates and sourced community counts
   ]);
   assert.deepEqual(model.metadata, [{ label: "Type", value: "Missable" }, { label: "Author", value: "Creator" }]);
   assert.deepEqual(model.communityMetrics, [
-    { label: "Points", value: "5", icon: "points", valueTone: "points" }, { label: "RetroPoints", value: "12", icon: "points", valueTone: "retro-points" },
+    { label: "Points", value: "5", valueTone: "points" }, { label: "RetroPoints", value: "12", valueTone: "retro-points" },
     { label: "Community", value: "25.00%", icon: "community", progress: { percent: 25, hardcorePercent: 10 } },
     { label: "Players unlocked", value: "25", icon: "players" },
     { label: "Hardcore unlocks", value: "10", icon: "players", tone: "hardcore" },

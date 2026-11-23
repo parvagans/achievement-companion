@@ -1420,6 +1420,7 @@ export function normalizeRetroAchievementsGameDetail(
   const released = pickString(raw.Released, raw.released);
   const releaseDateGranularity = normalizeReleaseDateGranularity(raw.ReleasedAtGranularity ?? raw.releasedAtGranularity);
   const guideUrl = pickString(raw.GuideURL, raw.guideUrl);
+  const forumTopicId = pickNumber(raw.ForumTopicID, raw.forumTopicId);
   const highestAwardKind = pickString(raw.HighestAwardKind, raw.highestAwardKind);
   const userTotalPlaytime = pickNumber(raw.UserTotalPlaytime, raw.userTotalPlaytime);
   const totalPlayers = pickNumber(raw.NumDistinctPlayers, raw.numDistinctPlayers);
@@ -1546,6 +1547,9 @@ export function normalizeRetroAchievementsGameDetail(
               value: String(achievementRetroPointsTotal),
             },
           ]
+        : []),
+      ...(forumTopicId !== undefined && Number.isSafeInteger(forumTopicId) && forumTopicId > 0
+        ? [{ key: "forum-topic-id", label: "Forum topic", value: String(forumTopicId) }]
         : []),
       ...(guideUrl !== undefined
         ? [

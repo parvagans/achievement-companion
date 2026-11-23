@@ -7,7 +7,6 @@ import { formatProviderAchievementPointsText } from "./decky-achievement-detail-
 import { getSteamAchievementCommunityPercent } from "./decky-achievement-row-presentation";
 import { DeckyGameArtwork } from "./decky-game-artwork";
 import { achievementCompanionAchievementRowRecipes, achievementCompanionQamTheme as qamTheme } from "./decky-qam-theme";
-import { DeckyRetroAchievementsPointsIcon } from "./decky-retroachievements-points-icon";
 import { DeckySteamHuntersIcon } from "./decky-steam-icons";
 import { raTheme } from "./ra-theme";
 import { steamTheme } from "./steam-theme";
@@ -228,7 +227,7 @@ export function DeckyCompactRecentAchievementRow({
         <span style={achievementCompanionAchievementRowRecipes.status("compact", statusColor)}>{statusText}</span>
         {pointsText !== undefined ? (
           <span style={achievementCompanionAchievementRowRecipes.points("compact")}>
-            {isSteam ? <DeckySteamHuntersIcon color={steamTheme.color.accent} size={12} /> : <DeckyRetroAchievementsPointsIcon size={12} />}
+            {isSteam ? <DeckySteamHuntersIcon color={steamTheme.color.accent} size={12} /> : null}
             {pointsText}
           </span>
         ) : null}
